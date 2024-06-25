@@ -4,7 +4,6 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "../../libs/LibAddress.sol";
 import "../../libs/LibNetwork.sol";
-import "../hooks/IHook.sol";
 import "./LibUtils.sol";
 
 /// @title LibProposing
@@ -33,14 +32,16 @@ library LibProposing {
         TaikoData.EthDeposit[] depositsProcessed
     );
 
+    /// @notice Emitted when a block's txList is in the calldata.
+    /// @param blockId The ID of the proposed block.
+    /// @param txList The txList.
+    event CalldataTxList(uint256 indexed blockId, bytes txList);
+
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_BLOB_NOT_AVAILABLE();
     error L1_BLOB_NOT_FOUND();
-    error L1_INVALID_HOOK();
-    error L1_INVALID_PROVER();
     error L1_INVALID_SIG();
     error L1_LIVENESS_BOND_NOT_RECEIVED();
-    error L1_NOT_SAME_ADDRESS();
     error L1_TOO_MANY_BLOCKS();
     error L1_UNEXPECTED_PARENT();
 
@@ -54,7 +55,7 @@ library LibProposing {
     /// @return meta_ The constructed block's metadata.
     function proposeBlock(
         TaikoData.State storage _state,
-        IERC20 _tko,
+        TaikoToken _tko,
         TaikoData.Config memory _config,
         IAddressResolver _resolver,
         bytes calldata _data,
@@ -64,11 +65,6 @@ library LibProposing {
         returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
     {
         TaikoData.BlockParams memory params = abi.decode(_data, (TaikoData.BlockParams));
-
-        // We need a prover that will submit proofs after the block has been submitted
-        if (params.assignedProver == address(0)) {
-            revert L1_INVALID_PROVER();
-        }
 
         if (params.coinbase == address(0)) {
             params.coinbase = msg.sender;
@@ -139,6 +135,8 @@ library LibProposing {
             ) {
                 revert L1_INVALID_SIG();
             }
+
+            emit CalldataTxList(meta_.id, _txList);
         }
 
         // Following the Merge, the L1 mixHash incorporates the
@@ -158,10 +156,11 @@ library LibProposing {
 
         // Create the block that will be stored onchain
         TaikoData.Block memory blk = TaikoData.Block({
-            metaHash: keccak256(abi.encode(meta_)),
+            metaHash: LibUtils.hashMetadata(meta_),
             // Safeguard the liveness bond to ensure its preservation,
             // particularly in scenarios where it might be altered after the
             // block's proposal but before it has been proven or verified.
+            assignedProver: address(0),
             livenessBond: _config.livenessBond,
             blockId: b.numBlocks,
             proposedAt: meta_.timestamp,
@@ -169,8 +168,7 @@ library LibProposing {
             // For a new block, the next transition ID is always 1, not 0.
             nextTransitionId: 1,
             // For unverified block, its verifiedTransitionId is always 0.
-            verifiedTransitionId: 0,
-            assignedProver: params.assignedProver
+            verifiedTransitionId: 0
         });
 
         // Store the block in the ring buffer
@@ -181,50 +179,18 @@ library LibProposing {
             ++_state.slotB.numBlocks;
         }
 
-        if (params.hookCalls.length == 0) {
-            if (params.assignedProver != msg.sender) revert L1_NOT_SAME_ADDRESS();
-            _tko.transferFrom(msg.sender, address(this), _config.livenessBond);
-        } else {
-            uint256 tkoBalance = _tko.balanceOf(address(this));
+        _tko.transferFrom(msg.sender, address(this), _config.livenessBond);
 
-            // Run all hooks.
-            // Note that address(this).balance has been updated with msg.value,
-            // prior to any code in this function has been executed.
-            address prevHook;
-            for (uint256 i; i < params.hookCalls.length; ++i) {
-                if (uint160(prevHook) >= uint160(params.hookCalls[i].hook)) {
-                    revert L1_INVALID_HOOK();
-                }
-
-                // When a hook is called, all ether in this contract will be sent to the hook.
-                // If the ether sent to the hook is not used entirely, the hook shall send the Ether
-                // back to this contract for the next hook to use.
-                // Proposers shall choose to use extra hooks wisely.
-                IHook(params.hookCalls[i].hook).onBlockProposed{ value: address(this).balance }(
-                    blk, meta_, params.hookCalls[i].data
-                );
-
-                prevHook = params.hookCalls[i].hook;
-            }
-
-            // Check that after hooks, the Taiko Token balance of this contract
-            // have increased by the same amount as _config.livenessBond (to prevent)
-            // multiple draining payments by a malicious proposer nesting the same
-            // hook.
-            if (_tko.balanceOf(address(this)) != tkoBalance + _config.livenessBond) {
-                revert L1_LIVENESS_BOND_NOT_RECEIVED();
-            }
-        }
-
-        // Refund Ether
-        if (address(this).balance != 0) {
-            msg.sender.sendEtherAndVerify(address(this).balance);
+        // Bribe the block builder. Unlock 1559-tips, this tip is only made
+        // if this transaction succeeds.
+        if (msg.value != 0 && block.coinbase != address(0)) {
+            address(block.coinbase).sendEtherAndVerify(msg.value);
         }
 
         deposits_ = new TaikoData.EthDeposit[](0);
         emit BlockProposed({
-            blockId: blk.blockId,
-            assignedProver: blk.assignedProver,
+            blockId: meta_.id,
+            assignedProver: msg.sender,
             livenessBond: _config.livenessBond,
             meta: meta_,
             depositsProcessed: deposits_

@@ -48,6 +48,8 @@
   - Changed owner from `labs.taiko.eth` to `admin.taiko.eth` @tx`0x7d82794932540ed9edd259e58f6ef8ae21a49beada7f0224638f888f7149c01c`
   - Accept owner @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
   - upgraded impl from `0xea53c0f4b129Cf3f3FBA896F9f23ca18246e9B3c` to `0x55833dA2962c2330ccCF043ff8037e6D2939bCF6` @commit`2b483de` @tx`0x0bbf7d1258c646f41a02a92a55825b1ebfd3659577d0f2b57b462f8895e23a04`
+- todo:
+  - upgrade impl.
 
 #### signal_service
 
@@ -69,7 +71,7 @@
 - impl: `0xD28f2c26aD8bA88b0691F6BB41Ff021878052561`
 - owner: `admin.taiko.eth`
 - todo:
-  - upgrade the contract
+  - upgrade the contract:https://github.com/taikoxyz/taiko-mono/pull/17529
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
@@ -90,7 +92,7 @@
 - owner: `admin.taiko.eth`
 - quota:
   - Quota Period: 24 hours
-  - ETH: `64516129032258064516` 1000 ETH
+  - ETH: 1000 ETH
   - WETH(`0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2`): 1000 ETH
   - TAIKO(`0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800`): 2,000,000
   - USDT(`0xdAC17F958D2ee523a2206206994597C13D831ec7`): 4,000,000
@@ -212,7 +214,8 @@
   - Upgrade to `0x4b2743B869b85d5F7D8020566f92664995E4f3c5` @commit`a3faee0` @tx`eth:0x40A2aCCbd92BCA938b02010E17A5b8929b49130D`
   - Upgrade to `0x0468745A07de44A9a3138adAc35875ecaf7a20D5` @commit`2b483de` @tx`0x0bbf7d1258c646f41a02a92a55825b1ebfd3659577d0f2b57b462f8895e23a04`
   - Upgrade to `0xB9E1E58bcF33B79CcfF99c298963546a6c334388` @commit`d907359` @tx`0xdb5e926c96d112ce1389da77a927fba6c7d04a711839b9e14777530ebcf83914`
-- todos:
+- todo
+  - upgrade this contract for PR 17553
   - upgrade for liveness bond change
 
 #### assignment_hook

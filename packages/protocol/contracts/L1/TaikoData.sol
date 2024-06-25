@@ -20,8 +20,9 @@ library TaikoData {
         uint64 blockMaxProposals;
         // Size of the block ring buffer, allowing extra space for proposals.
         uint64 blockRingBufferSize;
-        // The maximum number of verifications allowed when a block is proposed.
-        uint64 maxBlocksToVerifyPerProposal;
+        // The maximum number of verifications allowed when a block is proposed
+        // or proved.
+        uint64 maxBlocksToVerify;
         // The maximum gas limit allowed for a block.
         uint32 blockMaxGasLimit;
         // ---------------------------------------------------------------------
@@ -32,8 +33,8 @@ library TaikoData {
         // ---------------------------------------------------------------------
         // Group 4: Cross-chain sync
         // ---------------------------------------------------------------------
-        // The max number of L2 blocks that can stay unsynced on L1
-        uint8 blockSyncThreshold;
+        // The number of L2 blocks between each L2-to-L1 state root sync.
+        uint8 stateRootSyncInternal;
         bool checkEOAForCalldataDA;
     }
 
@@ -57,11 +58,11 @@ library TaikoData {
 
     /// @dev Represents proposeBlock's _data input parameter
     struct BlockParams {
-        address assignedProver;
+        address assignedProver; // DEPRECATED, value ignored.
         address coinbase;
         bytes32 extraData;
         bytes32 parentMetaHash;
-        HookCall[] hookCalls;
+        HookCall[] hookCalls; // DEPRECATED, value ignored.
         bytes signature;
     }
 
@@ -106,6 +107,7 @@ library TaikoData {
         uint96 contestBond;
         uint64 timestamp; // slot 6 (90 bits)
         uint16 tier;
+        uint8 __reserved1;
     }
 
     /// @dev Struct containing data required for verifying a block.
@@ -118,6 +120,9 @@ library TaikoData {
         uint64 proposedAt; // timestamp
         uint64 proposedIn; // L1 block number, required/used by node/client.
         uint32 nextTransitionId;
+        // The ID of the transaction that is used to verify this block. However, if
+        // this block is not verified as the last block in a batch, verifiedTransitionId
+        // will remain zero.
         uint32 verifiedTransitionId;
     }
 
@@ -162,7 +167,7 @@ library TaikoData {
         mapping(
             uint64 blockId_mod_blockRingBufferSize
                 => mapping(uint32 transitionId => TransitionState ts)
-        ) transitions;
+            ) transitions;
         // Ring buffer for Ether deposits
         bytes32 __reserve1;
         SlotA slotA; // slot 5

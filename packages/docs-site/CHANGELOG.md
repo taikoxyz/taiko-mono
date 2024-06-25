@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.11.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.11.0...docs-site-v1.11.1) (2024-06-24)
+
+
+### Documentation
+
+* **docs-site:** update guardian minority bond amount and enable a prover guide ([#17636](https://github.com/taikoxyz/taiko-mono/issues/17636)) ([801a85e](https://github.com/taikoxyz/taiko-mono/commit/801a85e4ea958fed11a6b85bdcac501da0a9ed47))
+* **docs-site:** update proof tier config for testnet ([#17627](https://github.com/taikoxyz/taiko-mono/issues/17627)) ([53d672b](https://github.com/taikoxyz/taiko-mono/commit/53d672b2a87b1b26521ce4b782226e1ff22e5b40))
+
+## [1.11.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.10.0...docs-site-v1.11.0) (2024-06-18)
+
+
+### Features
+
+* **docs-site:** add dune dashboard to dev tools ([#17617](https://github.com/taikoxyz/taiko-mono/issues/17617)) ([ae0b0f0](https://github.com/taikoxyz/taiko-mono/commit/ae0b0f0838541a58ff4f5018098881c15eeae46c))
+* **docs-site:** add verify in batches explanation ([#17600](https://github.com/taikoxyz/taiko-mono/issues/17600)) ([0a8a886](https://github.com/taikoxyz/taiko-mono/commit/0a8a88675413b0f579d4d4889897d2e8404a67f6))
+
 ## [1.10.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.9.0...docs-site-v1.10.0) (2024-06-14)
 
 

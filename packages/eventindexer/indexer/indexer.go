@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/assignmenthook"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/taikol1"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/repo"
@@ -50,9 +49,8 @@ type Indexer struct {
 	blockBatchSize      uint64
 	subscriptionBackoff time.Duration
 
-	taikol1        *taikol1.TaikoL1
-	bridge         *bridge.Bridge
-	assignmentHook *assignmenthook.AssignmentHook
+	taikol1 *taikol1.TaikoL1
+	bridge  *bridge.Bridge
 
 	indexNfts   bool
 	indexERC20s bool
@@ -182,17 +180,6 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 		}
 	}
 
-	var assignmentHookContract *assignmenthook.AssignmentHook
-
-	if cfg.AssignmentHookAddress.Hex() != ZeroAddress.Hex() {
-		slog.Info("setting assignmentHookAddress", "addr", cfg.AssignmentHookAddress.Hex())
-
-		assignmentHookContract, err = assignmenthook.NewAssignmentHook(cfg.AssignmentHookAddress, ethClient)
-		if err != nil {
-			return errors.Wrap(err, "contracts.NewAssignmentHook")
-		}
-	}
-
 	i.blockSaveMutex = &sync.Mutex{}
 	i.accountRepo = accountRepository
 	i.eventRepo = eventRepository
@@ -206,7 +193,6 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	i.ethClient = ethClient
 	i.taikol1 = taikoL1
 	i.bridge = bridgeContract
-	i.assignmentHook = assignmentHookContract
 	i.blockBatchSize = cfg.BlockBatchSize
 	i.subscriptionBackoff = time.Duration(cfg.SubscriptionBackoff) * time.Second
 	i.wg = &sync.WaitGroup{}
