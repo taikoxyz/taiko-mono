@@ -56,7 +56,7 @@ library LibProposing {
     /// @param _tko The taiko token.
     /// @param _config Actual TaikoData.Config.
     /// @param _resolver Address resolver interface.
-    /// @param _data Encoded data bytes containing the block local.params.
+    /// @param _data Encoded data bytes containing the block params.
     /// @param _txList Transaction list bytes (if not blob).
     /// @return meta_ The constructed block's metadata.
     function proposeBlock(
