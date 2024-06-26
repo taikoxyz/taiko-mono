@@ -17,19 +17,10 @@ contract DeployL2DelegateOwner is DeployCapability {
     }
 
     function run() external broadcast {
-        // Deploy the QuotaManager contract on Ethereum
-        // 0x08c82ab90f86bf8d98440b96754a67411d656130
-        address delegateowner = deployProxy({
-            name: "delegate_owner",
-            impl: address(new DelegateOwner()), // 0xdaf15cfa36c2188e3e0f4fb15a80e476e5e2ceb9
-            data: abi.encodeCall(DelegateOwner.init, (l1Owner, l2Sam, 1, l2Admin))
-        });
-
-        // 0xf4707c2821b3067bdf9c4d48eb133851ff3e7ea7
         deployProxy({
-            name: "test_address_am",
-            impl: address(new AddressManager()), // 0x66489c2932a906ea7971eeb0a7379593ea32eb79
-            data: abi.encodeCall(AddressManager.init, (delegateowner))
+            name: "delegate_owner",
+            impl: address(new DelegateOwner()),
+            data: abi.encodeCall(DelegateOwner.init, (l1Owner, l2Sam, 1, l2Admin))
         });
     }
 }
