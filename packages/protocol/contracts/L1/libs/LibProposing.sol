@@ -113,7 +113,7 @@ library LibProposing {
         // require additional storage slots.
         unchecked {
             meta_ = TaikoData.BlockMetadata2({
-                l1Hash: blockhash(block.number - 1),
+                l1Hash: blockhash(local.params.l1StateBlockNumber),
                 difficulty: 0, // to be initialized below
                 blobHash: 0, // to be initialized below
                 extraData: local.params.extraData,

@@ -98,9 +98,9 @@ library TaikoData {
     struct BlockMetadata2 {
         bytes32 l1Hash;
         bytes32 difficulty;
-        bytes32 blobHash; //or txListHash (if Blob not yet supported)
+        bytes32 blobHash;
         bytes32 extraData;
-        address coinbase; // L2 coinbase,
+        address coinbase;
         uint64 id;
         uint32 gasLimit;
         uint64 timestamp;
@@ -109,7 +109,7 @@ library TaikoData {
         bool blobUsed;
         bytes32 parentMetaHash;
         address proposer;
-        uint96 livenessBond; // NEW
+        uint96 livenessBond;
     }
 
     /// @dev Struct representing transition to be proven.
