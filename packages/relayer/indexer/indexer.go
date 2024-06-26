@@ -123,8 +123,6 @@ type Indexer struct {
 
 	ctx context.Context
 
-	mu sync.Mutex
-
 	eventName string
 
 	cfg *Config
