@@ -192,7 +192,7 @@ library LibProposing {
             // particularly in scenarios where it might be altered after the
             // block's proposal but before it has been proven or verified.
             assignedProver: address(0),
-            livenessBond: local.postFork ? 0 : _config.livenessBond,
+            livenessBond: local.postFork ? 0 : meta_.livenessBond,
             blockId: local.b.numBlocks,
             proposedAt: uint64(block.timestamp),
             proposedIn: uint64(block.number),
