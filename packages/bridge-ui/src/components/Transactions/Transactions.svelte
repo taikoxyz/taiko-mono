@@ -85,6 +85,10 @@
     }
   };
 
+  const handleTransactionRemoved = () => {
+    refresh();
+  };
+
   const updateTransactions = async (address: Address) => {
     if (loadingTxs) return;
     loadingTxs = true;
@@ -245,7 +249,7 @@
             class="flex flex-col items-center"
             style={isBlurred ? `filter: blur(5px); transition: filter ${transitionTime / 1000}s ease-in-out` : ''}>
             {#each transactionsToShow as item (item.srcTxHash)}
-              <Transaction {item} />
+              <Transaction {item} {handleTransactionRemoved} />
               <div class="h-sep !my-0 {isDesktopOrLarger ? 'display-inline' : 'hidden'}" />
             {/each}
           </div>
