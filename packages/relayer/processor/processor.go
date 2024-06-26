@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -510,10 +511,18 @@ func (p *Processor) eventLoop(ctx context.Context) {
 				}
 
 				if shouldRequeue {
-					// we want to negatively acknowledge the message and make sure
-					// we requeue it
+					// we want to negatively acknowledge the message
 					if err := p.queue.Nack(ctx, m, true); err != nil {
 						slog.Error("Err nacking message", "err", err.Error())
+					}
+
+					marshalledMsg, err := json.Marshal(msg)
+					if err != nil {
+						slog.Error("err marshaling queue message", "err", err.Error())
+					} else {
+						if err := p.queue.Publish(ctx, p.queueName(), marshalledMsg, nil, nil); err != nil {
+							slog.Error("err publishing to queue", "err", err.Error())
+						}
 					}
 				} else {
 					// otherwise if no error, we can acknowledge it successfully.
