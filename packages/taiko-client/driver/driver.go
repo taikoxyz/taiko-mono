@@ -2,8 +2,14 @@ package driver
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
 	"sync"
 	"time"
+
+	gorilla_rcp "github.com/gorilla/rpc/v2"
+	"github.com/gorilla/rpc/v2/json2"
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -93,6 +99,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 
 // Start starts the driver instance.
 func (d *Driver) Start() error {
+	go d.startRPCServer()
 	go d.eventLoop()
 	go d.reportProtocolStatus()
 	go d.exchangeTransitionConfigLoop()
@@ -257,4 +264,86 @@ func (d *Driver) exchangeTransitionConfigLoop() {
 // Name returns the application name.
 func (d *Driver) Name() string {
 	return "driver"
+}
+
+// Args represents the arguments to be passed to the RPC method.
+type Args struct {
+	TxLists []types.Transactions
+	GasUsed uint64
+}
+
+// RPC is the receiver type for the RPC methods.
+type RPC struct {
+	driver *Driver
+}
+
+func (p *RPC) AdvanceL2ChainHeadWithNewBlocks(_ *http.Request, args *Args, reply *string) error {
+	log.Info("AdvanceL2ChainHeadWithNewBlocks", "args", args)
+	syncer := p.driver.l2ChainSyncer.BlobSyncer()
+
+	for _, txList := range args.TxLists {
+		err := syncer.MoveTheHead(p.driver.ctx, txList, args.GasUsed)
+		if err != nil {
+			log.Error("Failed to move the head with new block", "error", err)
+			return err
+		}
+	}
+
+	*reply = "Request received and processed successfully"
+	return nil
+}
+
+const rpcPort = 1235
+
+func (d *Driver) startRPCServer() {
+	s := gorilla_rcp.NewServer()
+	s.RegisterCodec(NewCustomCodec(), "application/json")
+	driverRPC := &RPC{driver: d}
+	if err := s.RegisterService(driverRPC, ""); err != nil {
+		log.Error("Failed to register driver RPC service", "error", err)
+	}
+
+	http.Handle("/rpc", s)
+	log.Info("Starting JSON-RPC server", "port", rpcPort)
+	// Create a custom HTTP server with timeouts
+	server := &http.Server{
+		Addr:         fmt.Sprintf(":%d", rpcPort),
+		Handler:      s,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  15 * time.Second,
+	}
+
+	go func() {
+		if err := server.ListenAndServe(); err != nil {
+			log.Error("Failed to start HTTP server", "error", err)
+		}
+	}()
+}
+
+type CustomResponse struct {
+	Result *string     `json:"result,omitempty"`
+	Error  interface{} `json:"error,omitempty"`
+}
+
+type CustomCodec struct {
+	*json2.Codec
+}
+
+func NewCustomCodec() *CustomCodec {
+	return &CustomCodec{json2.NewCodec()}
+}
+
+func (c *CustomCodec) WriteResponse(w http.ResponseWriter, reply interface{}, methodErr error) error {
+	response := CustomResponse{}
+
+	if methodErr != nil {
+		response.Error = methodErr.Error()
+	} else if reply != nil {
+		response.Result = reply.(*string)
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	encoder := json.NewEncoder(w)
+	return encoder.Encode(response)
 }

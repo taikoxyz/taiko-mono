@@ -3,14 +3,14 @@ package proposer
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
-	"math/rand"
 	"net/http"
 	"sync"
 	"time"
 
-	gorilla_rcp "github.com/gorilla/rpc"
-	"github.com/gorilla/rpc/json"
+	gorilla_rcp "github.com/gorilla/rpc/v2"
+	"github.com/gorilla/rpc/v2/json2"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -47,7 +47,7 @@ type Proposer struct {
 	// Private keys and account addresses
 	proposerAddress common.Address
 
-	proposingTimer *time.Timer
+	// proposingTimer *time.Timer
 
 	tiers    []*rpc.TierProviderTierWithID
 	tierFees []encoding.TierFee
@@ -178,12 +178,17 @@ type RPCReplyL2TxLists struct {
 	TxLists []types.Transactions
 }
 
-// ProposerRPC is the receiver type for the RPC methods.
-type ProposerRPC struct {
+type CustomResponse struct {
+	Result *RPCReplyL2TxLists `json:"result,omitempty"`
+	Error  interface{}        `json:"error,omitempty"`
+}
+
+// RPC is the receiver type for the RPC methods.
+type RPC struct {
 	proposer *Proposer
 }
 
-func (p *ProposerRPC) GetL2TxLists(r *http.Request, args *Args, reply *RPCReplyL2TxLists) error {
+func (p *RPC) GetL2TxLists(_ *http.Request, _ *Args, reply *RPCReplyL2TxLists) error {
 	txLists, err := p.proposer.ProposeOpForTakingL2Blocks(context.Background())
 	if err != nil {
 		return err
@@ -197,40 +202,79 @@ const rpcPort = 1234
 
 func startRPCServer(proposer *Proposer) {
 	s := gorilla_rcp.NewServer()
-	s.RegisterCodec(json.NewCodec(), "application/json")
-	proposerRPC := &ProposerRPC{proposer: proposer}
-	s.RegisterService(proposerRPC, "")
+	s.RegisterCodec(NewCustomCodec(), "application/json")
+	proposerRPC := &RPC{proposer: proposer}
+	err := s.RegisterService(proposerRPC, "")
+	if err != nil {
+		log.Error("Failed to register proposer RPC service", "error", err)
+	}
 
 	http.Handle("/rpc", s)
 	log.Info("Starting JSON-RPC server", "port", rpcPort)
-	go http.ListenAndServe(fmt.Sprintf(":%d", rpcPort), nil)
+
+	// Create a custom HTTP server with timeouts
+	server := &http.Server{
+		Addr:         fmt.Sprintf(":%d", rpcPort),
+		Handler:      s,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  15 * time.Second,
+	}
+
+	go func() {
+		if err := server.ListenAndServe(); err != nil {
+			log.Error("Failed to start HTTP server", "error", err)
+		}
+	}()
+}
+
+type CustomCodec struct {
+	*json2.Codec
+}
+
+func NewCustomCodec() *CustomCodec {
+	return &CustomCodec{json2.NewCodec()}
+}
+
+func (c *CustomCodec) WriteResponse(w http.ResponseWriter, reply interface{}, methodErr error) error {
+	response := CustomResponse{}
+
+	if methodErr != nil {
+		response.Error = methodErr.Error()
+	} else if reply != nil {
+		response.Result = reply.(*RPCReplyL2TxLists)
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	encoder := json.NewEncoder(w)
+	return encoder.Encode(response)
 }
 
 // eventLoop starts the main loop of Taiko proposer.
-func (p *Proposer) eventLoop() {
-	defer func() {
-		p.proposingTimer.Stop()
-		p.wg.Done()
-	}()
+// func (p *Proposer) eventLoop() {
+// 	defer func() {
+// 		p.proposingTimer.Stop()
+// 		p.wg.Done()
+// 	}()
 
-	for {
-		p.updateProposingTicker()
+// 	for {
+// 		p.updateProposingTicker()
 
-		select {
-		case <-p.ctx.Done():
-			return
-		// proposing interval timer has been reached
-		case <-p.proposingTimer.C:
-			metrics.ProposerProposeEpochCounter.Add(1)
+// 		select {
+// 		case <-p.ctx.Done():
+// 			return
+// 		// proposing interval timer has been reached
+// 		case <-p.proposingTimer.C:
+// 			metrics.ProposerProposeEpochCounter.Add(1)
 
-			// Attempt a proposing operation
-			if err := p.ProposeOp(p.ctx); err != nil {
-				log.Error("Proposing operation error", "error", err)
-				continue
-			}
-		}
-	}
-}
+// 			// Attempt a proposing operation
+// 			if err := p.ProposeOp(p.ctx); err != nil {
+// 				log.Error("Proposing operation error", "error", err)
+// 				continue
+// 			}
+// 		}
+// 	}
+// }
 
 // Close closes the proposer instance.
 func (p *Proposer) Close(_ context.Context) {
@@ -433,22 +477,22 @@ func (p *Proposer) ProposeTxList(
 }
 
 // updateProposingTicker updates the internal proposing timer.
-func (p *Proposer) updateProposingTicker() {
-	if p.proposingTimer != nil {
-		p.proposingTimer.Stop()
-	}
+// func (p *Proposer) updateProposingTicker() {
+// 	if p.proposingTimer != nil {
+// 		p.proposingTimer.Stop()
+// 	}
 
-	var duration time.Duration
-	if p.ProposeInterval != 0 {
-		duration = p.ProposeInterval
-	} else {
-		// Random number between 12 - 120
-		randomSeconds := rand.Intn(120-11) + 12 // nolint: gosec
-		duration = time.Duration(randomSeconds) * time.Second
-	}
+// 	var duration time.Duration
+// 	if p.ProposeInterval != 0 {
+// 		duration = p.ProposeInterval
+// 	} else {
+// 		// Random number between 12 - 120
+// 		randomSeconds := rand.Intn(120-11) + 12 // nolint: gosec
+// 		duration = time.Duration(randomSeconds) * time.Second
+// 	}
 
-	p.proposingTimer = time.NewTimer(duration)
-}
+// 	p.proposingTimer = time.NewTimer(duration)
+// }
 
 // Name returns the application name.
 func (p *Proposer) Name() string {

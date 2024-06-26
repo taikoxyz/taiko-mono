@@ -69,6 +69,34 @@ func (c *AnchorTxConstructor) AssembleAnchorTx(
 	return c.rpc.TaikoL2.Anchor(opts, l1Hash, l1Header.Root, l1Height.Uint64(), uint32(parentGasUsed))
 }
 
+func (c *AnchorTxConstructor) AssembleNullAnchorTx(
+	ctx context.Context,
+	// Height of the L2 block which including the TaikoL2.anchor transaction.
+	l2Height *big.Int,
+	baseFee *big.Int,
+	gasUsed uint64,
+) (*types.Transaction, error) {
+	opts, err := c.transactOpts(ctx, l2Height, baseFee)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Info(
+		"Null anchor arguments",
+		"l2Height", l2Height,
+		"baseFee", utils.WeiToGWei(baseFee),
+		"gasUsed", gasUsed,
+	)
+
+	return c.rpc.TaikoL2.Anchor(
+		opts,
+		common.BigToHash(common.Big0),
+		common.BigToHash(common.Big0),
+		common.Big0.Uint64(),
+		uint32(gasUsed),
+	)
+}
+
 // transactOpts is a utility method to create some transact options of the anchor transaction in given L2 block with
 // golden touch account's private key.
 func (c *AnchorTxConstructor) transactOpts(
