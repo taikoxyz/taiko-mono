@@ -114,6 +114,11 @@ func (p *Processor) processMessage(
 	// we never want to process messages below a certain fee, if set.
 	// return a nil error, and we will successfully acknowledge this.
 	if p.minFeeToProcess != 0 && msgBody.Event.Message.Fee < p.minFeeToProcess {
+		slog.Warn("minFeeToProcess not met",
+			"minFeeToProcess", p.minFeeToProcess,
+			"fee", msgBody.Event.Message.Fee,
+		)
+
 		return false, msgBody.TimesRetried, nil
 	}
 
