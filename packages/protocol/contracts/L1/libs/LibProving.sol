@@ -128,7 +128,7 @@ library LibProving {
             (meta1, tran, proof) = abi.decode(
                 _input, (TaikoData.BlockMetadata, TaikoData.Transition, TaikoData.TierProof)
             );
-            meta = LibData.metadataV1toV2(meta1);
+            meta = LibData.metadataV1toV2(meta1, _config.livenessBond);
         }
 
         if (_blockId != meta.id) revert L1_INVALID_BLOCK_ID();
@@ -159,7 +159,10 @@ library LibProving {
             local.assignedProver = meta.proposer;
         }
 
-        local.livenessBond = meta.livenessBond == 0 ? blk.livenessBond : meta.livenessBond;
+        if (meta.livenessBond == 0) {
+            meta.livenessBond = blk.livenessBond;
+        }
+        local.livenessBond = meta.livenessBond;
         local.metaHash = blk.metaHash;
 
         // Check the integrity of the block data. It's worth noting that in

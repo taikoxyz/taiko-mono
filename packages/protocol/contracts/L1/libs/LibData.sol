@@ -48,7 +48,10 @@ library LibData {
         });
     }
 
-    function metadataV1toV2(TaikoData.BlockMetadata memory _v1)
+    function metadataV1toV2(
+        TaikoData.BlockMetadata memory _v1,
+        uint96 _livenessBond
+    )
         internal
         pure
         returns (TaikoData.BlockMetadata2 memory)
@@ -67,7 +70,7 @@ library LibData {
             blobUsed: _v1.blobUsed,
             parentMetaHash: _v1.parentMetaHash,
             proposer: _v1.sender,
-            livenessBond: 0
+            livenessBond: _livenessBond
         });
     }
 
