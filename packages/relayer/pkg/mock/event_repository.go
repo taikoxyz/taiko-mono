@@ -105,7 +105,7 @@ func (r *EventRepository) FindAllByAddress(
 	ctx context.Context,
 	req *http.Request,
 	opts relayer.FindAllByAddressOpts,
-) (paginate.Page, error) {
+) (*paginate.Page, error) {
 	type d struct {
 		Owner string `json:"Owner"`
 	}
@@ -119,12 +119,12 @@ func (r *EventRepository) FindAllByAddress(
 	for _, e := range r.events {
 		m, err := e.Data.MarshalJSON()
 		if err != nil {
-			return paginate.Page{}, err
+			return nil, err
 		}
 
 		data := &d{}
 		if err := json.Unmarshal(m, data); err != nil {
-			return paginate.Page{}, err
+			return nil, err
 		}
 
 		if data.Owner == opts.Address.Hex() {
@@ -133,7 +133,7 @@ func (r *EventRepository) FindAllByAddress(
 		}
 	}
 
-	return paginate.Page{
+	return &paginate.Page{
 		Items: events,
 	}, nil
 }

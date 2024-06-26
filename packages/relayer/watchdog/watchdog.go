@@ -66,8 +66,6 @@ type Watchdog struct {
 	srcBridge  relayer.Bridge
 	destBridge relayer.Bridge
 
-	mu *sync.Mutex
-
 	watchdogAddr common.Address
 
 	confirmations uint64
@@ -80,7 +78,7 @@ type Watchdog struct {
 
 	msgCh chan queue.Message
 
-	wg *sync.WaitGroup
+	wg sync.WaitGroup
 
 	srcChainId  *big.Int
 	destChainId *big.Int
@@ -194,8 +192,6 @@ func InitFromConfig(ctx context.Context, w *Watchdog, cfg *Config) error {
 	w.confirmations = cfg.Confirmations
 
 	w.msgCh = make(chan queue.Message)
-	w.wg = &sync.WaitGroup{}
-	w.mu = &sync.Mutex{}
 
 	w.backOffRetryInterval = time.Duration(cfg.BackoffRetryInterval) * time.Second
 	w.backOffMaxRetries = cfg.BackOffMaxRetrys
@@ -230,7 +226,7 @@ func (w *Watchdog) Start() error {
 	go func() {
 		if err := backoff.Retry(func() error {
 			slog.Info("attempting backoff queue subscription")
-			if err := w.queue.Subscribe(ctx, w.msgCh, w.wg); err != nil {
+			if err := w.queue.Subscribe(ctx, w.msgCh, &w.wg); err != nil {
 				slog.Error("processor queue subscription error", "err", err.Error())
 				return err
 			}
@@ -247,7 +243,7 @@ func (w *Watchdog) Start() error {
 
 	go func() {
 		if err := backoff.Retry(func() error {
-			return utils.ScanBlocks(ctx, w.srcEthClient, w.wg)
+			return utils.ScanBlocks(ctx, w.srcEthClient, &w.wg)
 		}, backoff.NewConstantBackOff(5*time.Second)); err != nil {
 			slog.Error("scan blocks backoff retry", "error", err)
 		}

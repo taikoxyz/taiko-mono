@@ -60,6 +60,7 @@ type ethClient interface {
 	ChainID(ctx context.Context) (*big.Int, error)
 	SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error)
 	EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error)
+	BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error)
 }
 
 // hop is a struct which needs to be created based on the config parameters
@@ -102,8 +103,6 @@ type Processor struct {
 
 	prover *proof.Prover
 
-	mu *sync.Mutex
-
 	relayerAddr             common.Address
 	srcSignalServiceAddress common.Address
 
@@ -120,7 +119,7 @@ type Processor struct {
 
 	msgCh chan queue.Message
 
-	wg *sync.WaitGroup
+	wg sync.WaitGroup
 
 	srcChainId  *big.Int
 	destChainId *big.Int
@@ -136,7 +135,7 @@ type Processor struct {
 	maxMessageRetries uint64
 
 	processingTxHashes map[common.Hash]bool
-	processingTxHashMu *sync.Mutex
+	processingTxHashMu sync.Mutex
 }
 
 // InitFromCli creates a new processor from a cli context
@@ -362,8 +361,6 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	p.srcSignalServiceAddress = cfg.SrcSignalServiceAddress
 
 	p.msgCh = make(chan queue.Message)
-	p.wg = &sync.WaitGroup{}
-	p.mu = &sync.Mutex{}
 	p.srcCaller = srcRpcClient
 
 	p.backOffRetryInterval = time.Duration(cfg.BackoffRetryInterval) * time.Second
@@ -375,7 +372,6 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	p.maxMessageRetries = cfg.MaxMessageRetries
 
 	p.processingTxHashes = make(map[common.Hash]bool, 0)
-	p.processingTxHashMu = &sync.Mutex{}
 
 	return nil
 }
@@ -417,7 +413,7 @@ func (p *Processor) Start() error {
 	go func() {
 		if err := backoff.Retry(func() error {
 			slog.Info("attempting backoff queue subscription")
-			if err := p.queue.Subscribe(ctx, p.msgCh, p.wg); err != nil {
+			if err := p.queue.Subscribe(ctx, p.msgCh, &p.wg); err != nil {
 				slog.Error("processor queue subscription error", "err", err.Error())
 				return err
 			}
@@ -428,13 +424,11 @@ func (p *Processor) Start() error {
 		}
 	}()
 
-	p.wg.Add(1)
-
 	go p.eventLoop(ctx)
 
 	go func() {
 		if err := backoff.Retry(func() error {
-			return utils.ScanBlocks(ctx, p.srcEthClient, p.wg)
+			return utils.ScanBlocks(ctx, p.srcEthClient, &p.wg)
 		}, backoff.NewConstantBackOff(5*time.Second)); err != nil {
 			slog.Error("scan blocks backoff retry", "error", err)
 		}
@@ -450,9 +444,8 @@ func (p *Processor) queueName() string {
 // eventLoop is the main event loop of a Processor which should read
 // messages from a queue and then process them.
 func (p *Processor) eventLoop(ctx context.Context) {
-	defer func() {
-		p.wg.Done()
-	}()
+	p.wg.Add(1)
+	defer p.wg.Done()
 
 	for {
 		select {
