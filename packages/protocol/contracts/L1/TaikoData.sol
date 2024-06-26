@@ -100,7 +100,6 @@ library TaikoData {
         bytes32 difficulty;
         bytes32 blobHash; //or txListHash (if Blob not yet supported)
         bytes32 extraData;
-        bytes32 depositsHash;
         address coinbase; // L2 coinbase,
         uint64 id;
         uint32 gasLimit;
@@ -109,7 +108,7 @@ library TaikoData {
         uint16 minTier;
         bool blobUsed;
         bytes32 parentMetaHash;
-        address sender; // a.k.a proposer
+        address proposer;
         uint96 livenessBond; // NEW
     }
 

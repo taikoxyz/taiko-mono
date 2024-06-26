@@ -156,10 +156,10 @@ library LibProving {
 
         local.assignedProver = blk.assignedProver;
         if (local.assignedProver == address(0)) {
-            local.assignedProver = meta.sender;
+            local.assignedProver = meta.proposer;
         }
 
-        local.livenessBond = blk.livenessBond;
+        local.livenessBond = meta.livenessBond == 0 ? blk.livenessBond : meta.livenessBond;
         local.metaHash = blk.metaHash;
 
         // Check the integrity of the block data. It's worth noting that in

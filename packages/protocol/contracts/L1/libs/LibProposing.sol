@@ -12,10 +12,6 @@ import "./LibUtils.sol";
 library LibProposing {
     using LibAddress for address;
 
-    // = keccak256(abi.encode(new TaikoData.EthDeposit[](0)))
-    bytes32 private constant _EMPTY_ETH_DEPOSIT_HASH =
-        0x569e75fc77c1a856f6daaf9e69d8a9566ca34aa47f9133711ce065a571af0cfd;
-
     struct Local {
         TaikoData.SlotB b;
         TaikoData.BlockParams2 params;
@@ -121,7 +117,6 @@ library LibProposing {
                 difficulty: 0, // to be initialized below
                 blobHash: 0, // to be initialized below
                 extraData: local.params.extraData,
-                depositsHash: _EMPTY_ETH_DEPOSIT_HASH,
                 coinbase: local.params.coinbase,
                 id: local.b.numBlocks,
                 gasLimit: _config.blockMaxGasLimit,
@@ -130,7 +125,7 @@ library LibProposing {
                 minTier: 0, // to be initialized below
                 blobUsed: _txList.length == 0,
                 parentMetaHash: local.parentMetaHash,
-                sender: msg.sender,
+                proposer: msg.sender,
                 livenessBond: _config.livenessBond
             });
         }
