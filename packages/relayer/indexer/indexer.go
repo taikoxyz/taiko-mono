@@ -245,6 +245,8 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 
 	i.minFeeToIndex = i.cfg.MinFeeToIndex
 
+	slog.Info("minFeeToIndex", "minFeeToIndex", i.minFeeToIndex)
+
 	return nil
 }
 

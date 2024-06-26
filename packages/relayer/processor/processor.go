@@ -377,6 +377,8 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 
 	p.minFeeToProcess = p.cfg.MinFeeToProcess
 
+	slog.Info("minFeeToProcess", "minFeeToProcess", p.minFeeToProcess)
+
 	return nil
 }
 
