@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/kzg4844"
 
@@ -127,6 +128,15 @@ func (b *BlobTransactionBuilder) Build(
 			return nil, err
 		}
 	}
+	// Calculate TaikoData.State slot hash (includes slot 0-6 currently)
+	var slotHashes []common.Hash
+	for i := 0; i < 7; i++ {
+		packedData := append(
+			common.LeftPadBytes(b.taikoL1Address.Bytes(), 32),
+			common.LeftPadBytes(big.NewInt(int64(i)).Bytes(), 32)...,
+		)
+		slotHashes = append(slotHashes, crypto.Keccak256Hash(packedData))
+	}
 
 	return &txmgr.TxCandidate{
 		TxData:   data,
@@ -134,5 +144,11 @@ func (b *BlobTransactionBuilder) Build(
 		To:       to,
 		GasLimit: b.gasLimit,
 		Value:    maxFee,
+		AccessList: types.AccessList{
+			{
+				Address:     b.taikoL1Address,
+				StorageKeys: slotHashes,
+			},
+		},
 	}, nil
 }
