@@ -23,7 +23,7 @@ jobs:
       # which will be generated based on the .env file when running `svelte-kit sync`
       - name: Copy .env.example to .env
         working-directory: ./packages/taikoon-ui
-        run: cp .env.example .env
+        run: cp .env.example .env && source .env
 
       - name: Frontend build
         working-directory: ./packages/taikoon-ui
