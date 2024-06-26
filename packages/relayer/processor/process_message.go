@@ -117,6 +117,7 @@ func (p *Processor) processMessage(
 		slog.Warn("minFeeToProcess not met",
 			"minFeeToProcess", p.minFeeToProcess,
 			"fee", msgBody.Event.Message.Fee,
+			"srcTxHash", msgBody.Event.Raw.TxHash.Hex(),
 		)
 
 		return false, msgBody.TimesRetried, nil
