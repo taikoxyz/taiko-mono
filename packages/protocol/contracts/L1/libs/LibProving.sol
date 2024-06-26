@@ -128,7 +128,8 @@ library LibProving {
             (meta1, tran, proof) = abi.decode(
                 _input, (TaikoData.BlockMetadata, TaikoData.Transition, TaikoData.TierProof)
             );
-            meta = LibData.metadataV1toV2(meta1, _config.livenessBond);
+            // Below, the liveness bond parameter must be 0 to force reading from block storage.
+            meta = LibData.metadataV1toV2(meta1, 0);
         }
 
         if (_blockId != meta.id) revert L1_INVALID_BLOCK_ID();
