@@ -85,6 +85,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         TaikoData.BlockMetadata2 memory meta2;
         (meta2, deposits_) = LibProposing.proposeBlock(state, tko, config, this, _params, _txList);
 
+        if (meta2.id >= config.hardforkHeight) revert L1_FORK_ERROR();
+
         if (LibUtils.shouldVerifyBlocks(config, meta_.id, true) && !state.slotB.provingPaused) {
             LibVerifying.verifyBlocks(state, tko, config, this, config.maxBlocksToVerify);
         }
@@ -103,6 +105,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         TaikoToken tko = TaikoToken(resolve(LibStrings.B_TAIKO_TOKEN, false));
 
         (meta_,) = LibProposing.proposeBlock(state, tko, config, this, _params, _txList);
+        if (meta_.id < config.hardforkHeight) revert L1_FORK_ERROR();
 
         if (LibUtils.shouldVerifyBlocks(config, meta_.id, true) && !state.slotB.provingPaused) {
             LibVerifying.verifyBlocks(state, tko, config, this, config.maxBlocksToVerify);
