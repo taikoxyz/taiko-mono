@@ -103,7 +103,7 @@ var (
 	MinFeeToIndex = &cli.Uint64Flag{
 		Name:     "minFeeToIndex",
 		Usage:    "Minimum fee to index and add to the queue (will still be saved to database)",
-		Category: processorCategory,
+		Category: indexerCategory,
 		Value:    0,
 		EnvVars:  []string{"MIN_FEE_TO_INDEX"},
 	}
