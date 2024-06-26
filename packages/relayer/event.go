@@ -135,7 +135,7 @@ type EventRepository interface {
 		ctx context.Context,
 		req *http.Request,
 		opts FindAllByAddressOpts,
-	) (paginate.Page, error)
+	) (*paginate.Page, error)
 	FirstByMsgHash(
 		ctx context.Context,
 		msgHash string,
