@@ -45,6 +45,8 @@ library LibProposing {
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_BLOB_NOT_AVAILABLE();
     error L1_BLOB_NOT_FOUND();
+    error L1_INVALID_ANCHOR_BLOCK();
+    error L1_INVALID_ANCHOR_TIMESTAMP();
     error L1_LIVENESS_BOND_NOT_RECEIVED();
     error L1_TOO_MANY_BLOCKS();
     error L1_UNEXPECTED_PARENT();
@@ -71,23 +73,22 @@ library LibProposing {
         // Taiko, as a Based Rollup, enables permissionless block proposals.
         Local memory local;
         local.b = _state.slotB;
-        local.postFork = local.b.numBlocks >= _config.hardforkHeight;
+        local.postFork = local.b.numBlocks >= _config.forkHeight;
 
         local.params = local.postFork
             ? abi.decode(_data, (TaikoData.BlockParams2))
             : LibData.paramV1toV2(abi.decode(_data, (TaikoData.BlockParams)));
 
-        // if (local.params.timestamp == 0) {
-        //     local.params.timestamp = uint64(block.timestamp);
-        // }
-        local.params.timestamp = uint64(block.timestamp);
-        // if (local.params.l1StateBlockNumber == 0) {
-        //     local.params.l1StateBlockNumber = uint64(block.number - 1);
-        // }
-        local.params.l1StateBlockNumber = uint64(block.number - 1);
-
         if (local.params.coinbase == address(0)) {
             local.params.coinbase = msg.sender;
+        }
+
+        if (local.params.anchorBlockId == 0) {
+            local.params.anchorBlockId = uint64(block.number - 1);
+        }
+
+        if (local.params.anchorTimestamp == 0) {
+            local.params.anchorTimestamp = uint64(block.timestamp);
         }
 
         // It's essential to ensure that the ring buffer for proposed blocks
@@ -96,15 +97,38 @@ library LibProposing {
             revert L1_TOO_MANY_BLOCKS();
         }
 
-        local.parentMetaHash =
-            _state.blocks[(local.b.numBlocks - 1) % _config.blockRingBufferSize].metaHash;
-        // assert(parentMetaHash != 0);
+        TaikoData.Block storage parentBlock =
+            _state.blocks[(local.b.numBlocks - 1) % _config.blockRingBufferSize];
 
         // Check if parent block has the right meta hash. This is to allow the proposer to make sure
         // the block builds on the expected latest chain state.
-        if (local.params.parentMetaHash != 0 && local.parentMetaHash != local.params.parentMetaHash)
+        if (local.params.parentMetaHash != 0 && parentBlock.metaHash != local.params.parentMetaHash)
         {
             revert L1_UNEXPECTED_PARENT();
+        }
+
+        // Verify the passed in L1 state block number.
+        // We only allow the L1 block to be 2 epochs old.
+        // The other constraint is that the L1 block number needs to be larger than or equal the one
+        // in the previous L2 block.
+        if (
+            local.params.anchorBlockId < block.number - 64
+                || local.params.anchorBlockId >= block.number
+                || local.params.anchorBlockId < parentBlock.anchorBlockId
+        ) {
+            revert L1_INVALID_ANCHOR_BLOCK();
+        }
+
+        // Verify the passed in timestamp.
+        // We only allow the timestamp to be 2 epochs old.
+        // The other constraint is that the timestamp needs to be larger than or equal the one
+        // in the previous L2 block.
+        if (
+            local.params.anchorTimestamp < block.timestamp - 64 * 12
+                || local.params.anchorTimestamp > block.timestamp
+                || local.params.anchorTimestamp < parentBlock.anchorTimestamp
+        ) {
+            revert L1_INVALID_ANCHOR_TIMESTAMP();
         }
 
         // Initialize metadata to compute a metaHash, which forms a part of
@@ -113,18 +137,18 @@ library LibProposing {
         // require additional storage slots.
         unchecked {
             meta_ = TaikoData.BlockMetadata2({
-                l1Hash: blockhash(local.params.l1StateBlockNumber),
+                anchorBlockHash: blockhash(local.params.anchorBlockId),
                 difficulty: 0, // to be initialized below
                 blobHash: 0, // to be initialized below
                 extraData: local.params.extraData,
                 coinbase: local.params.coinbase,
                 id: local.b.numBlocks,
                 gasLimit: _config.blockMaxGasLimit,
-                timestamp: local.params.timestamp,
-                l1Height: local.params.l1StateBlockNumber,
+                anchorTimestamp: local.params.anchorTimestamp,
+                anchorBlockId: local.params.anchorBlockId,
                 minTier: 0, // to be initialized below
                 blobUsed: _txList.length == 0,
-                parentMetaHash: local.parentMetaHash,
+                parentMetaHash: parentBlock.metaHash,
                 proposer: msg.sender,
                 livenessBond: _config.livenessBond
             });
@@ -150,9 +174,8 @@ library LibProposing {
         // of multiple Taiko blocks being proposed within a single
         // Ethereum block, we choose to introduce a salt to this random
         // number as the L2 mixHash.
-        meta_.difficulty = keccak256(
-            abi.encodePacked(local.params.l1StateBlockNumber, local.b.numBlocks, block.number)
-        );
+        meta_.difficulty =
+            keccak256(abi.encodePacked(local.params.anchorBlockId, local.b.numBlocks, block.number));
 
         {
             ITierRouter tierRouter = ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false));
@@ -171,12 +194,14 @@ library LibProposing {
             assignedProver: address(0),
             livenessBond: local.postFork ? 0 : _config.livenessBond,
             blockId: local.b.numBlocks,
-            proposedAt: meta_.timestamp,
+            proposedAt: uint64(block.timestamp),
             proposedIn: uint64(block.number),
             // For a new block, the next transition ID is always 1, not 0.
             nextTransitionId: 1,
             // For unverified block, its verifiedTransitionId is always 0.
-            verifiedTransitionId: 0
+            verifiedTransitionId: 0,
+            anchorBlockId: meta_.anchorBlockId,
+            anchorTimestamp: meta_.anchorTimestamp
         });
 
         // Store the block in the ring buffer

@@ -35,7 +35,7 @@ library TaikoData {
         // ---------------------------------------------------------------------
         // The number of L2 blocks between each L2-to-L1 state root sync.
         uint8 stateRootSyncInternal;
-        uint64 hardforkHeight;
+        uint64 forkHeight;
     }
 
     /// @dev Struct representing prover fees per given tier
@@ -70,8 +70,8 @@ library TaikoData {
         address coinbase;
         bytes32 extraData;
         bytes32 parentMetaHash;
-        uint64 l1StateBlockNumber; // NEW
-        uint64 timestamp; // NEW
+        uint64 anchorBlockId; // NEW
+        uint64 anchorTimestamp; // NEW
     }
 
     /// @dev Struct containing data only required for proving a block
@@ -96,15 +96,15 @@ library TaikoData {
     }
 
     struct BlockMetadata2 {
-        bytes32 l1Hash;
+        bytes32 anchorBlockHash;
         bytes32 difficulty;
         bytes32 blobHash;
         bytes32 extraData;
         address coinbase;
         uint64 id;
         uint32 gasLimit;
-        uint64 timestamp;
-        uint64 l1Height;
+        uint64 anchorTimestamp;
+        uint64 anchorBlockId;
         uint16 minTier;
         bool blobUsed;
         bytes32 parentMetaHash;
@@ -149,6 +149,8 @@ library TaikoData {
         // this block is not verified as the last block in a batch, verifiedTransitionId
         // will remain zero.
         uint32 verifiedTransitionId;
+        uint64 anchorBlockId; // slot 4
+        uint64 anchorTimestamp;
     }
 
     /// @dev Struct representing an Ethereum deposit.

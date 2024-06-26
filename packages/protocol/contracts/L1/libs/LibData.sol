@@ -20,8 +20,8 @@ library LibData {
             coinbase: _v1.coinbase,
             extraData: _v1.extraData,
             parentMetaHash: _v1.parentMetaHash,
-            l1StateBlockNumber: 0,
-            timestamp: 0
+            anchorBlockId: 0,
+            anchorTimestamp: 0
         });
     }
 
@@ -31,7 +31,7 @@ library LibData {
         returns (TaikoData.BlockMetadata memory)
     {
         return TaikoData.BlockMetadata({
-            l1Hash: _v2.l1Hash,
+            l1Hash: _v2.anchorBlockHash,
             difficulty: _v2.difficulty,
             blobHash: _v2.blobHash,
             extraData: _v2.extraData,
@@ -39,8 +39,8 @@ library LibData {
             coinbase: _v2.coinbase,
             id: _v2.id,
             gasLimit: _v2.gasLimit,
-            timestamp: _v2.timestamp,
-            l1Height: _v2.l1Height,
+            timestamp: _v2.anchorTimestamp,
+            l1Height: _v2.anchorBlockId,
             minTier: _v2.minTier,
             blobUsed: _v2.blobUsed,
             parentMetaHash: _v2.parentMetaHash,
@@ -57,15 +57,15 @@ library LibData {
         returns (TaikoData.BlockMetadata2 memory)
     {
         return TaikoData.BlockMetadata2({
-            l1Hash: _v1.l1Hash,
+            anchorBlockHash: _v1.l1Hash,
             difficulty: _v1.difficulty,
             blobHash: _v1.blobHash,
             extraData: _v1.extraData,
             coinbase: _v1.coinbase,
             id: _v1.id,
             gasLimit: _v1.gasLimit,
-            timestamp: _v1.timestamp,
-            l1Height: _v1.l1Height,
+            anchorTimestamp: _v1.timestamp,
+            anchorBlockId: _v1.l1Height,
             minTier: _v1.minTier,
             blobUsed: _v1.blobUsed,
             parentMetaHash: _v1.parentMetaHash,
