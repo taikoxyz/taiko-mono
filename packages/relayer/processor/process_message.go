@@ -117,10 +117,7 @@ func (p *Processor) processMessage(
 		return false, msgBody.TimesRetried, nil
 	}
 
-	if err := p.waitForConfirmations(ctx, msgBody.Event.Raw.TxHash, msgBody.Event.Raw.BlockNumber); err != nil {
-		return false, msgBody.TimesRetried, err
-	}
-
+	// check message process eligibility before waiting for confirmations to process
 	eventStatus, err := p.eventStatusFromMsgHash(ctx, msgBody.Event.MsgHash)
 	if err != nil {
 		return false, msgBody.TimesRetried, errors.Wrap(err, "p.eventStatusFromMsgHash")
@@ -134,6 +131,10 @@ func (p *Processor) processMessage(
 		uint64(msgBody.Event.Message.GasLimit),
 	) {
 		return false, msgBody.TimesRetried, nil
+	}
+
+	if err := p.waitForConfirmations(ctx, msgBody.Event.Raw.TxHash, msgBody.Event.Raw.BlockNumber); err != nil {
+		return false, msgBody.TimesRetried, err
 	}
 
 	// check paused status
