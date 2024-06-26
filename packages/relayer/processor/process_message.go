@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"math"
 	"math/big"
 	"strings"
 	"time"
@@ -188,7 +189,7 @@ func (p *Processor) processMessage(
 		return false, msgBody.TimesRetried, err
 	}
 
-	_, err = p.sendProcessMessageCall(ctx, msgBody.Event, encodedSignalProof)
+	_, err = p.sendProcessMessageCall(ctx, msgBody.ID, msgBody.Event, encodedSignalProof)
 	if err != nil {
 		return false, msgBody.TimesRetried, err
 	}
@@ -390,9 +391,12 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 // after estimating gas, and checking profitability.
 func (p *Processor) sendProcessMessageCall(
 	ctx context.Context,
+	id int,
 	event *bridge.BridgeMessageSent,
 	proof []byte,
 ) (*types.Receipt, error) {
+	defer p.logRelayerBalance(ctx)
+
 	received, err := p.destBridge.IsMessageReceived(nil, event.Message, proof)
 	if err != nil {
 		return nil, err
@@ -433,6 +437,7 @@ func (p *Processor) sendProcessMessageCall(
 	if bool(p.profitableOnly) {
 		profitable, err := p.isProfitable(
 			ctx,
+			id,
 			event.Message.Fee,
 			gasLimit,
 			baseFee.Uint64(),
@@ -445,9 +450,8 @@ func (p *Processor) sendProcessMessageCall(
 
 			return nil, relayer.ErrUnprofitable
 		}
-		// now simulate the transaction and lets confirm
-		// it is profitable
 
+		// now simulate the transaction and lets confirm it is profitable
 		auth, err := bind.NewKeyedTransactorWithChainID(p.ecdsaKey, p.destChainId)
 		if err != nil {
 			return nil, err
@@ -495,7 +499,6 @@ func (p *Processor) sendProcessMessageCall(
 		uint64(event.Message.GasLimit),
 	) {
 		slog.Error("can not process message after waiting for confirmations", "err", errUnprocessable)
-
 		return nil, errUnprocessable
 	}
 
@@ -549,6 +552,29 @@ func (p *Processor) sendProcessMessageCall(
 	}
 
 	return receipt, nil
+}
+
+// retrieve the balance of the relayer and set Prometheus
+func (p *Processor) logRelayerBalance(ctx context.Context) {
+	balance, err := p.destEthClient.BalanceAt(ctx, p.relayerAddr, nil)
+	if err != nil {
+		slog.Warn("Failed to retrieve relayer balance", "error", err)
+		return
+	}
+
+	balanceFloat := new(big.Float).SetInt(balance)
+	balanceEth := new(big.Float).Quo(
+		balanceFloat,
+		big.NewFloat(math.Pow10(18)),
+	)
+
+	slog.Info("Relayer balance",
+		"relayerAddress", p.relayerAddr,
+		"balance", balanceEth.Text('f', 18),
+	)
+
+	balanceEthFloat, _ := balanceEth.Float64()
+	relayer.RelayerKeyBalanceGauge.Set(balanceEthFloat)
 }
 
 // saveMessageStatusChangedEvent writes the MessageStatusChanged event to the
