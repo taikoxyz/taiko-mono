@@ -112,7 +112,7 @@ library LibProposing {
         // The other constraint is that the L1 block number needs to be larger than or equal the one
         // in the previous L2 block.
         if (
-            local.params.anchorBlockId < block.number - 64
+            local.params.anchorBlockId + 64 < block.number
                 || local.params.anchorBlockId >= block.number
                 || local.params.anchorBlockId < parentBlock.anchorBlockId
         ) {
@@ -124,7 +124,7 @@ library LibProposing {
         // The other constraint is that the timestamp needs to be larger than or equal the one
         // in the previous L2 block.
         if (
-            local.params.anchorTimestamp < block.timestamp - 64 * 12
+            local.params.anchorTimestamp + 64 * 12 < block.timestamp
                 || local.params.anchorTimestamp > block.timestamp
                 || local.params.anchorTimestamp < parentBlock.anchorTimestamp
         ) {
