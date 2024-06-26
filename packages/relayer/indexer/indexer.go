@@ -125,6 +125,8 @@ type Indexer struct {
 
 	eventName string
 
+	minFeeToIndex uint64
+
 	cfg *Config
 }
 
@@ -240,6 +242,8 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 	i.cfg = cfg
 
 	i.ctx = ctx
+
+	i.minFeeToIndex = i.cfg.MinFeeToIndex
 
 	return nil
 }

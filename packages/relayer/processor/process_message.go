@@ -111,6 +111,12 @@ func (p *Processor) processMessage(
 		return false, msgBody.TimesRetried, nil
 	}
 
+	// we never want to process messages below a certain fee, if set.
+	// return a nil error, and we will successfully acknowledge this.
+	if p.minFeeToProcess != 0 && msgBody.Event.Message.Fee < p.minFeeToProcess {
+		return false, msgBody.TimesRetried, nil
+	}
+
 	if err := p.waitForConfirmations(ctx, msgBody.Event.Raw.TxHash, msgBody.Event.Raw.BlockNumber); err != nil {
 		return false, msgBody.TimesRetried, err
 	}

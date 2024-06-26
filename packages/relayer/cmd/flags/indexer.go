@@ -100,6 +100,13 @@ var (
 		Category: indexerCategory,
 		EnvVars:  []string{"TARGET_BLOCK_NUMBER"},
 	}
+	MinFeeToIndex = &cli.Uint64Flag{
+		Name:     "minFeeToIndex",
+		Usage:    "Minimum fee to index and add to the queue (will still be saved to database)",
+		Category: processorCategory,
+		Value:    0,
+		EnvVars:  []string{"MIN_FEE_TO_INDEX"},
+	}
 )
 
 var IndexerFlags = MergeFlags(CommonFlags, QueueFlags, []cli.Flag{
@@ -115,5 +122,6 @@ var IndexerFlags = MergeFlags(CommonFlags, QueueFlags, []cli.Flag{
 	NumLatestBlocksEndWhenCrawling,
 	NumLatestBlocksStartWhenCrawling,
 	EventName,
+	MinFeeToIndex,
 	TargetBlockNumber,
 })

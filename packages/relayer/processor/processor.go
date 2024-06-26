@@ -136,6 +136,8 @@ type Processor struct {
 
 	processingTxHashes map[common.Hash]bool
 	processingTxHashMu sync.Mutex
+
+	minFeeToProcess uint64
 }
 
 // InitFromCli creates a new processor from a cli context
@@ -372,6 +374,8 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	p.maxMessageRetries = cfg.MaxMessageRetries
 
 	p.processingTxHashes = make(map[common.Hash]bool, 0)
+
+	p.minFeeToProcess = p.cfg.MinFeeToProcess
 
 	return nil
 }
