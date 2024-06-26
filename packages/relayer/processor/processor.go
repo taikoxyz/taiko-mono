@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -494,24 +493,9 @@ func (p *Processor) eventLoop(ctx context.Context) {
 						strings.Contains(err.Error(), "i/o") ||
 						strings.Contains(err.Error(), "connect") ||
 						strings.Contains(err.Error(), "failed to get tx into the mempool"):
+						// we want to do nothing, just log, and the message will be re-picked up
+						// by another consumer. no need to nack or ack.
 						slog.Error("process message failed", "err", err.Error())
-
-						// we want to negatively acknowledge the message and make sure
-						// we requeue it
-						if err := p.queue.Nack(ctx, m, false); err != nil {
-							slog.Error("Err nacking message", "err", err.Error())
-							break
-						}
-
-						marshalledMsg, err := json.Marshal(msg)
-						if err != nil {
-							slog.Error("err marshaling queue message", "err", err.Error())
-							break
-						}
-
-						if err := p.queue.Publish(ctx, p.queueName(), marshalledMsg, nil, nil); err != nil {
-							slog.Error("err publishing to queue", "err", err.Error())
-						}
 					default:
 						slog.Error("process message failed", "err", err.Error())
 
