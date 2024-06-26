@@ -39,9 +39,7 @@ library LibProposing {
         TaikoData.EthDeposit[] depositsProcessed
     );
 
-    event BlockProposed2(
-        uint256 indexed blockId, address indexed assignedProver, TaikoData.BlockMetadata2 meta
-    );
+    event BlockProposed2(uint256 indexed blockId, TaikoData.BlockMetadata2 meta);
 
     /// @notice Emitted when a block's txList is in the calldata.
     /// @param blockId The ID of the proposed block.
@@ -83,10 +81,14 @@ library LibProposing {
             ? abi.decode(_data, (TaikoData.BlockParams2))
             : LibData.paramV1toV2(abi.decode(_data, (TaikoData.BlockParams)));
 
-        if (local.params.timestamp == 0) local.params.timestamp = uint64(block.timestamp);
-        if (local.params.l1StateBlockNumber == 0) {
-            local.params.l1StateBlockNumber = uint64(block.number - 1);
-        }
+        // if (local.params.timestamp == 0) {
+        //     local.params.timestamp = uint64(block.timestamp);
+        // }
+        local.params.timestamp = uint64(block.timestamp);
+        // if (local.params.l1StateBlockNumber == 0) {
+        //     local.params.l1StateBlockNumber = uint64(block.number - 1);
+        // }
+        local.params.l1StateBlockNumber = uint64(block.number - 1);
 
         if (local.params.coinbase == address(0)) {
             local.params.coinbase = msg.sender;
@@ -171,7 +173,7 @@ library LibProposing {
             // particularly in scenarios where it might be altered after the
             // block's proposal but before it has been proven or verified.
             assignedProver: address(0),
-            livenessBond: _config.livenessBond,
+            livenessBond: local.postFork ? 0 : _config.livenessBond,
             blockId: local.b.numBlocks,
             proposedAt: meta_.timestamp,
             proposedIn: uint64(block.number),
@@ -200,7 +202,7 @@ library LibProposing {
         deposits_ = new TaikoData.EthDeposit[](0);
 
         if (local.postFork) {
-            emit BlockProposed2({ blockId: meta_.id, assignedProver: msg.sender, meta: meta_ });
+            emit BlockProposed2(meta_.id, meta_);
         } else {
             emit BlockProposed({
                 blockId: meta_.id,
