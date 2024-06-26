@@ -114,32 +114,11 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         emitEventForClient
     {
         TaikoData.Config memory config = getConfig();
-        TaikoData.SlotB memory b = state.slotB;
-        bool postFork = b.numBlocks >= config.hardforkHeight;
-
-        TaikoData.BlockMetadata2 memory meta;
-        TaikoData.Transition memory tran;
-        TaikoData.TierProof memory proof;
-
-        if (postFork) {
-            (meta, tran, proof) = abi.decode(
-                _input, (TaikoData.BlockMetadata2, TaikoData.Transition, TaikoData.TierProof)
-            );
-        } else {
-            TaikoData.BlockMetadata memory meta1;
-            (meta1, tran, proof) = abi.decode(
-                _input, (TaikoData.BlockMetadata, TaikoData.Transition, TaikoData.TierProof)
-            );
-            meta = LibData.metadataV1toV2(meta1);
-        }
-
-        if (_blockId != meta.id) revert L1_INVALID_BLOCK_ID();
-
         TaikoToken tko = TaikoToken(resolve(LibStrings.B_TAIKO_TOKEN, false));
 
-        LibProving.proveBlock(state, tko, config, this, meta, tran, proof, postFork);
+        LibProving.proveBlock(state, tko, config, this, _blockId, _input);
 
-        if (LibUtils.shouldVerifyBlocks(config, meta.id, false)) {
+        if (LibUtils.shouldVerifyBlocks(config, _blockId, false)) {
             LibVerifying.verifyBlocks(state, tko, config, this, config.maxBlocksToVerify);
         }
     }

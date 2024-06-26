@@ -94,49 +94,69 @@ library LibProving {
     /// @param _tko The taiko token.
     /// @param _config Actual TaikoData.Config.
     /// @param _resolver Address resolver interface.
-    /// @param _meta The block's metadata.
-    /// @param _tran The transition data.
-    /// @param _proof The proof.
+    /// @param _blockId The index of the block to prove. This is also used to
+    /// select the right implementation version.
+    /// @param _input An abi-encoded (TaikoData.BlockMetadata, TaikoData.Transition,
+    /// TaikoData.TierProof) tuple.
     function proveBlock(
         TaikoData.State storage _state,
         TaikoToken _tko,
         TaikoData.Config memory _config,
         IAddressResolver _resolver,
-        TaikoData.BlockMetadata2 memory _meta,
-        TaikoData.Transition memory _tran,
-        TaikoData.TierProof memory _proof,
-        bool _postFork
+        uint64 _blockId,
+        bytes calldata _input
     )
         internal
     {
+        Local memory local;
+        local.tko = _tko;
+
+        local.b = _state.slotB;
+        local.postFork = local.b.numBlocks >= _config.hardforkHeight;
+
+        TaikoData.BlockMetadata2 memory meta;
+        TaikoData.Transition memory tran;
+        TaikoData.TierProof memory proof;
+
+        if (local.postFork) {
+            (meta, tran, proof) = abi.decode(
+                _input, (TaikoData.BlockMetadata2, TaikoData.Transition, TaikoData.TierProof)
+            );
+        } else {
+            TaikoData.BlockMetadata memory meta1;
+
+            (meta1, tran, proof) = abi.decode(
+                _input, (TaikoData.BlockMetadata, TaikoData.Transition, TaikoData.TierProof)
+            );
+            meta = LibData.metadataV1toV2(meta1);
+        }
+
+        if (_blockId != meta.id) revert L1_INVALID_BLOCK_ID();
+
         // Make sure parentHash is not zero
         // To contest an existing transition, simply use any non-zero value as
         // the blockHash and stateRoot.
-        if (_tran.parentHash == 0 || _tran.blockHash == 0 || _tran.stateRoot == 0) {
+        if (tran.parentHash == 0 || tran.blockHash == 0 || tran.stateRoot == 0) {
             revert L1_INVALID_TRANSITION();
         }
 
-        Local memory local;
-        local.tko = _tko;
-        local.b = _state.slotB;
-
         // Check that the block has been proposed but has not yet been verified.
-        if (_meta.id <= local.b.lastVerifiedBlockId || _meta.id >= local.b.numBlocks) {
+        if (meta.id <= local.b.lastVerifiedBlockId || meta.id >= local.b.numBlocks) {
             revert L1_INVALID_BLOCK_ID();
         }
 
-        local.slot = _meta.id % _config.blockRingBufferSize;
+        local.slot = meta.id % _config.blockRingBufferSize;
         TaikoData.Block storage blk = _state.blocks[local.slot];
 
         local.blockId = blk.blockId;
 
         if (LibUtils.shouldSyncStateRoot(_config.stateRootSyncInternal, local.blockId)) {
-            local.stateRoot = _tran.stateRoot;
+            local.stateRoot = tran.stateRoot;
         }
 
         local.assignedProver = blk.assignedProver;
         if (local.assignedProver == address(0)) {
-            local.assignedProver = _meta.sender;
+            local.assignedProver = meta.sender;
         }
 
         local.livenessBond = blk.livenessBond;
@@ -145,7 +165,9 @@ library LibProving {
         // Check the integrity of the block data. It's worth noting that in
         // theory, this check may be skipped, but it's included for added
         // caution.
-        if (local.blockId != _meta.id || local.metaHash != LibData.hashMetadata(_postFork, _meta)) {
+        if (
+            local.blockId != meta.id || local.metaHash != LibData.hashMetadata(local.postFork, meta)
+        ) {
             revert L1_BLOCK_MISMATCH();
         }
 
@@ -154,11 +176,11 @@ library LibProving {
         // become available. In cases where a transition with the specified
         // parentHash does not exist, the transition ID (tid) will be set to 0.
         TaikoData.TransitionState memory ts;
-        (local.tid, ts) = _fetchOrCreateTransition(_state, blk, _tran, local);
+        (local.tid, ts) = _fetchOrCreateTransition(_state, blk, tran, local);
 
         // The new proof must meet or exceed the minimum tier required by the
         // block or the previous proof; it cannot be on a lower tier.
-        if (_proof.tier == 0 || _proof.tier < _meta.minTier || _proof.tier < ts.tier) {
+        if (proof.tier == 0 || proof.tier < meta.minTier || proof.tier < ts.tier) {
             revert L1_INVALID_TIER();
         }
 
@@ -168,8 +190,8 @@ library LibProving {
             ITierRouter tierRouter = ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false));
             ITierProvider tierProvider = ITierProvider(tierRouter.getProvider(local.blockId));
 
-            local.tier = tierProvider.getTier(_proof.tier);
-            local.minTier = tierProvider.getTier(_meta.minTier);
+            local.tier = tierProvider.getTier(proof.tier);
+            local.minTier = tierProvider.getTier(meta.minTier);
         }
 
         local.inProvingWindow = !LibUtils.isPostDeadline({
@@ -203,38 +225,38 @@ library LibProving {
         // Taiko's core protocol.
         if (local.tier.verifierName != "") {
             address verifier = _resolver.resolve(local.tier.verifierName, false);
-            bool isContesting = _proof.tier == ts.tier && local.tier.contestBond != 0;
+            bool isContesting = proof.tier == ts.tier && local.tier.contestBond != 0;
 
             IVerifier.Context memory ctx = IVerifier.Context({
                 metaHash: local.metaHash,
-                blobHash: _meta.blobHash,
+                blobHash: meta.blobHash,
                 // Separate msgSender to allow the prover to be any address in the future.
                 prover: msg.sender,
                 msgSender: msg.sender,
                 blockId: local.blockId,
                 isContesting: isContesting,
-                blobUsed: _meta.blobUsed
+                blobUsed: meta.blobUsed
             });
 
-            IVerifier(verifier).verifyProof(ctx, _tran, _proof);
+            IVerifier(verifier).verifyProof(ctx, tran, proof);
         }
 
         local.isTopTier = local.tier.contestBond == 0;
 
-        local.sameTransition = _tran.blockHash == ts.blockHash && local.stateRoot == ts.stateRoot;
+        local.sameTransition = tran.blockHash == ts.blockHash && local.stateRoot == ts.stateRoot;
 
-        if (_proof.tier > ts.tier) {
+        if (proof.tier > ts.tier) {
             // Handles the case when an incoming tier is higher than the current transition's tier.
             // Reverts when the incoming proof tries to prove the same transition
             // (L1_ALREADY_PROVED).
-            _overrideWithHigherProof(blk, ts, _tran, _proof, local);
+            _overrideWithHigherProof(blk, ts, tran, proof, local);
 
             emit TransitionProved({
                 blockId: local.blockId,
-                tran: _tran,
+                tran: tran,
                 prover: msg.sender,
                 validityBond: local.tier.validityBond,
-                tier: _proof.tier
+                tier: proof.tier
             });
         } else {
             // New transition and old transition on the same tier - and if this transaction tries to
@@ -247,15 +269,15 @@ library LibProving {
                 assert(ts.validityBond == 0 && ts.contester == address(0));
 
                 ts.prover = msg.sender;
-                ts.blockHash = _tran.blockHash;
+                ts.blockHash = tran.blockHash;
                 ts.stateRoot = local.stateRoot;
 
                 emit TransitionProved({
                     blockId: local.blockId,
-                    tran: _tran,
+                    tran: tran,
                     prover: msg.sender,
                     validityBond: 0,
-                    tier: _proof.tier
+                    tier: proof.tier
                 });
             } else {
                 // Contesting but not on the highest tier
@@ -286,10 +308,10 @@ library LibProving {
 
                 emit TransitionContested({
                     blockId: local.blockId,
-                    tran: _tran,
+                    tran: tran,
                     contester: msg.sender,
                     contestBond: local.tier.contestBond,
-                    tier: _proof.tier
+                    tier: proof.tier
                 });
             }
         }

@@ -178,9 +178,10 @@ func (s *ProofSubmitter) SubmitProof(
 		if err != nil {
 			return err
 		}
-		delayTimer := time.After(submissionDelay)
-		<-delayTimer
-		// Check again.
+		// Wait for the submission delay.
+		<-time.After(submissionDelay)
+
+		// Check the proof submission status again.
 		proofStatus, err := rpc.GetBlockProofStatus(
 			ctx,
 			s.rpc,

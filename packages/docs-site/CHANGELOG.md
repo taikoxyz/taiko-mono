@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.11.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.11.0...docs-site-v1.11.1) (2024-06-24)
+
+
+### Documentation
+
+* **docs-site:** update guardian minority bond amount and enable a prover guide ([#17636](https://github.com/taikoxyz/taiko-mono/issues/17636)) ([801a85e](https://github.com/taikoxyz/taiko-mono/commit/801a85e4ea958fed11a6b85bdcac501da0a9ed47))
+* **docs-site:** update proof tier config for testnet ([#17627](https://github.com/taikoxyz/taiko-mono/issues/17627)) ([53d672b](https://github.com/taikoxyz/taiko-mono/commit/53d672b2a87b1b26521ce4b782226e1ff22e5b40))
+
 ## [1.11.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.10.0...docs-site-v1.11.0) (2024-06-18)
 
 
