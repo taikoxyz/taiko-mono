@@ -19,6 +19,14 @@ interface ITaikoL1 {
         payable
         returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_);
 
+    function proposeBlock2(
+        bytes calldata _params,
+        bytes calldata _txList
+    )
+        external
+        payable
+        returns (TaikoData.BlockMetadata2 memory meta_);
+
     /// @notice Proves or contests a block transition.
     /// @param _blockId The index of the block to prove. This is also used to
     /// select the right implementation version.

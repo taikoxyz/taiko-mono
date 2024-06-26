@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 import "../common/EssentialContract.sol";
+import "./libs/LibData.sol";
 import "./libs/LibProposing.sol";
 import "./libs/LibProving.sol";
 import "./libs/LibVerifying.sol";
@@ -81,11 +82,24 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         TaikoData.Config memory config = getConfig();
         TaikoToken tko = TaikoToken(resolve(LibStrings.B_TAIKO_TOKEN, false));
 
-        (meta_, deposits_) = LibProposing.proposeBlock(state, tko, config, this, _params, _txList);
+        TaikoData.BlockMetadata2 memory meta2;
+        (meta2, deposits_) = LibProposing.proposeBlock(state, tko, config, this, _params, _txList);
 
         if (LibUtils.shouldVerifyBlocks(config, meta_.id, true) && !state.slotB.provingPaused) {
             LibVerifying.verifyBlocks(state, tko, config, this, config.maxBlocksToVerify);
         }
+        meta_ = LibData.metadataV2toV1(meta2);
+    }
+
+    function proposeBlock2(
+        bytes calldata _params,
+        bytes calldata _txList
+    )
+        external
+        payable
+        returns (TaikoData.BlockMetadata2 memory meta_)
+    {
+        // TODO
     }
 
     /// @inheritdoc ITaikoL1
@@ -99,18 +113,31 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         nonReentrant
         emitEventForClient
     {
-        (
-            TaikoData.BlockMetadata memory meta,
-            TaikoData.Transition memory tran,
-            TaikoData.TierProof memory proof
-        ) = abi.decode(_input, (TaikoData.BlockMetadata, TaikoData.Transition, TaikoData.TierProof));
+        TaikoData.Config memory config = getConfig();
+        TaikoData.SlotB memory b = state.slotB;
+        bool postFork = b.numBlocks >= config.hardforkHeight;
+
+        TaikoData.BlockMetadata2 memory meta;
+        TaikoData.Transition memory tran;
+        TaikoData.TierProof memory proof;
+
+        if (postFork) {
+            (meta, tran, proof) = abi.decode(
+                _input, (TaikoData.BlockMetadata2, TaikoData.Transition, TaikoData.TierProof)
+            );
+        } else {
+            TaikoData.BlockMetadata memory meta1;
+            (meta1, tran, proof) = abi.decode(
+                _input, (TaikoData.BlockMetadata, TaikoData.Transition, TaikoData.TierProof)
+            );
+            meta = LibData.metadataV1toV2(meta1);
+        }
 
         if (_blockId != meta.id) revert L1_INVALID_BLOCK_ID();
 
-        TaikoData.Config memory config = getConfig();
         TaikoToken tko = TaikoToken(resolve(LibStrings.B_TAIKO_TOKEN, false));
 
-        LibProving.proveBlock(state, tko, config, this, meta, tran, proof);
+        LibProving.proveBlock(state, tko, config, this, meta, tran, proof, postFork);
 
         if (LibUtils.shouldVerifyBlocks(config, meta.id, false)) {
             LibVerifying.verifyBlocks(state, tko, config, this, config.maxBlocksToVerify);
@@ -241,7 +268,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
             // read Taiko's gas limit to be 240_250_000.
             blockMaxGasLimit: 240_000_000,
             livenessBond: 125e18, // 125 Taiko token
-            stateRootSyncInternal: 16
+            stateRootSyncInternal: 16,
+            hardforkHeight: 1_000_000
         });
     }
 

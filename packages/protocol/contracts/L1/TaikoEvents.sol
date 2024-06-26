@@ -25,6 +25,9 @@ abstract contract TaikoEvents {
         TaikoData.BlockMetadata meta,
         TaikoData.EthDeposit[] depositsProcessed
     );
+    event BlockProposed2(
+        uint256 indexed blockId, address indexed assignedProver, TaikoData.BlockMetadata2 meta
+    );
 
     /// @notice Emitted when a block's txList is in the calldata.
     /// @param blockId The ID of the proposed block.

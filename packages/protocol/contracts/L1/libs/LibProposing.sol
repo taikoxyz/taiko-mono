@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import "../../libs/LibAddress.sol";
 import "../../libs/LibNetwork.sol";
+import "./LibData.sol";
 import "./LibUtils.sol";
 
 /// @title LibProposing
@@ -31,6 +32,10 @@ library LibProposing {
         TaikoData.EthDeposit[] depositsProcessed
     );
 
+    event BlockProposed2(
+        uint256 indexed blockId, address indexed assignedProver, TaikoData.BlockMetadata2 meta
+    );
+
     /// @notice Emitted when a block's txList is in the calldata.
     /// @param blockId The ID of the proposed block.
     /// @param txList The txList.
@@ -39,6 +44,7 @@ library LibProposing {
     // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_BLOB_NOT_AVAILABLE();
     error L1_BLOB_NOT_FOUND();
+    error L1_FORK_ERROR();
     error L1_LIVENESS_BOND_NOT_RECEIVED();
     error L1_TOO_MANY_BLOCKS();
     error L1_UNEXPECTED_PARENT();
@@ -60,16 +66,22 @@ library LibProposing {
         bytes calldata _txList
     )
         internal
-        returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
+        returns (TaikoData.BlockMetadata2 memory meta_, TaikoData.EthDeposit[] memory deposits_)
     {
-        TaikoData.BlockParams memory params = abi.decode(_data, (TaikoData.BlockParams));
+        // Taiko, as a Based Rollup, enables permissionless block proposals.
+        TaikoData.SlotB memory b = _state.slotB;
+        bool postFork = b.numBlocks >= _config.hardforkHeight;
+
+        TaikoData.BlockParams2 memory params = postFork
+            ? abi.decode(_data, (TaikoData.BlockParams2))
+            : LibData.paramV1toV2(abi.decode(_data, (TaikoData.BlockParams)));
+
+        if (params.timestamp == 0) params.timestamp = uint64(block.timestamp);
+        if (params.l1StateBlockNumber == 0) params.l1StateBlockNumber = uint64(block.number - 1);
 
         if (params.coinbase == address(0)) {
             params.coinbase = msg.sender;
         }
-
-        // Taiko, as a Based Rollup, enables permissionless block proposals.
-        TaikoData.SlotB memory b = _state.slotB;
 
         // It's essential to ensure that the ring buffer for proposed blocks
         // still has space for at least one more block.
@@ -92,7 +104,7 @@ library LibProposing {
         // If we choose to persist all data fields in the metadata, it will
         // require additional storage slots.
         unchecked {
-            meta_ = TaikoData.BlockMetadata({
+            meta_ = TaikoData.BlockMetadata2({
                 l1Hash: blockhash(block.number - 1),
                 difficulty: 0, // to be initialized below
                 blobHash: 0, // to be initialized below
@@ -101,12 +113,13 @@ library LibProposing {
                 coinbase: params.coinbase,
                 id: b.numBlocks,
                 gasLimit: _config.blockMaxGasLimit,
-                timestamp: uint64(block.timestamp),
-                l1Height: uint64(block.number - 1),
+                timestamp: params.timestamp,
+                l1Height: params.l1StateBlockNumber,
                 minTier: 0, // to be initialized below
                 blobUsed: _txList.length == 0,
                 parentMetaHash: parentMetaHash,
-                sender: msg.sender
+                sender: msg.sender,
+                livenessBond: _config.livenessBond
             });
         }
 
@@ -142,7 +155,7 @@ library LibProposing {
 
         // Create the block that will be stored onchain
         TaikoData.Block memory blk = TaikoData.Block({
-            metaHash: LibUtils.hashMetadata(meta_),
+            metaHash: LibData.hashMetadata(postFork, meta_),
             // Safeguard the liveness bond to ensure its preservation,
             // particularly in scenarios where it might be altered after the
             // block's proposal but before it has been proven or verified.
@@ -174,12 +187,17 @@ library LibProposing {
         }
 
         deposits_ = new TaikoData.EthDeposit[](0);
-        emit BlockProposed({
-            blockId: meta_.id,
-            assignedProver: msg.sender,
-            livenessBond: _config.livenessBond,
-            meta: meta_,
-            depositsProcessed: deposits_
-        });
+
+        if (postFork) {
+            emit BlockProposed2({ blockId: meta_.id, assignedProver: msg.sender, meta: meta_ });
+        } else {
+            emit BlockProposed({
+                blockId: meta_.id,
+                assignedProver: msg.sender,
+                livenessBond: _config.livenessBond,
+                meta: LibData.metadataV2toV1(meta_),
+                depositsProcessed: deposits_
+            });
+        }
     }
 }
