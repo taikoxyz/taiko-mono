@@ -1,3 +1,3 @@
-const { MODE } = import.meta.env
+const { MODE } = import.meta.env;
 
 export const isDevelopmentEnv = MODE === 'development';
