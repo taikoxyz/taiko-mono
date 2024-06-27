@@ -39,7 +39,7 @@ contract TaikoL1TestGroupA1 is TaikoL1TestGroupBase {
             bytes32 stateRoot = bytes32(uint256(20_000 + i));
 
             mineAndWrap(10 seconds);
-            // proveBlock(Alice, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
+            proveBlock2(Alice, meta2, parentHash, blockHash, stateRoot, meta2.minTier, "");
 
             printBlockAndTrans(meta2.id);
 

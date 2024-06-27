@@ -4,11 +4,12 @@ pragma solidity 0.8.24;
 import "../../verifiers/IVerifier.sol";
 import "./LibData.sol";
 import "./LibUtils.sol";
-
+import "forge-std/src/console2.sol";
 /// @title LibProving
 /// @notice A library for handling block contestation and proving in the Taiko
 /// protocol.
 /// @custom:security-contact security@taiko.xyz
+
 library LibProving {
     using LibMath for uint256;
 
@@ -112,7 +113,11 @@ library LibProving {
         local.tko = _tko;
 
         local.b = _state.slotB;
-        local.postFork = local.b.numBlocks >= _config.forkHeight;
+        local.postFork = _blockId >= _config.forkHeight;
+
+        if (_blockId == 9 || _blockId == 10) {
+            console2.log("====block9:", local.postFork);
+        }
 
         TaikoData.BlockMetadata2 memory meta;
         TaikoData.Transition memory tran;
