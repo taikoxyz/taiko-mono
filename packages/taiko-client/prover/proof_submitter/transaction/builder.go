@@ -5,12 +5,9 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/crypto"
-
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
@@ -105,28 +102,12 @@ func (a *ProveBlockTxBuilder) Build(
 			}
 		}
 
-		// Calculate TaikoData.State slot hash (includes slot 0-6 currently)
-		var slotHashes []common.Hash
-		for i := 0; i < 7; i++ {
-			packedData := append(
-				common.LeftPadBytes(a.taikoL1Address.Bytes(), 32),
-				common.LeftPadBytes(big.NewInt(int64(i)).Bytes(), 32)...,
-			)
-			slotHashes = append(slotHashes, crypto.Keccak256Hash(packedData))
-		}
-
 		return &txmgr.TxCandidate{
 			TxData:   data,
 			To:       &to,
 			Blobs:    nil,
 			GasLimit: txOpts.GasLimit,
 			Value:    txOpts.Value,
-			AccessList: types.AccessList{
-				{
-					Address:     a.taikoL1Address,
-					StorageKeys: slotHashes,
-				},
-			},
 		}, nil
 	}
 }
