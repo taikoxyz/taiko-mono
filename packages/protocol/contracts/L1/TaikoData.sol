@@ -35,7 +35,6 @@ library TaikoData {
         // ---------------------------------------------------------------------
         // The number of L2 blocks between each L2-to-L1 state root sync.
         uint8 stateRootSyncInternal;
-        bool checkEOAForCalldataDA;
     }
 
     /// @dev Struct representing prover fees per given tier
@@ -63,7 +62,7 @@ library TaikoData {
         bytes32 extraData;
         bytes32 parentMetaHash;
         HookCall[] hookCalls; // DEPRECATED, value ignored.
-        bytes signature;
+        bytes signature; // DEPRECATED, value ignored.
     }
 
     /// @dev Struct containing data only required for proving a block
