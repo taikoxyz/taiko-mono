@@ -23,9 +23,9 @@
   - erc721_vault@1: `0x0b470dd3A0e1C41228856Fb319649E7c08f419Aa`
   - erc1155_vault: `0x1670000000000000000000000000000000000004`
   - erc1155_vault@1: `0xaf145913EA4a56BE22E120ED9C24589659881702`
-  - bridged_erc20: `0xeEf8Cd36D4845efcad9749cBa2F484Ae3496e212`
-  - bridged_erc721: `0x290ACeF1574Ad12B900f543d13fFB9ca530BcfA2`
-  - bridged_erc1155: `0xfc45d8AE074d430111a8f1dc413C01f7203f2371`
+  - bridged_erc20: `0x0167000000000000000000000000000000010096`
+  - bridged_erc721: `0x0167000000000000000000000000000000010097`
+  - bridged_erc1155: `0x0167000000000000000000000000000000010098`
   - quota_manager: `0x0000000000000000000000000000000000000000`
   - bridge_watchdog: `0x0000000000000000000000000000000000000000`
 - todo:
@@ -101,24 +101,6 @@
   - redeployed on May 22, 2024 @commit`b955e0e`
   - upgrade to `0x3918a2910C393A1A2EF7AAc807970EFE47A54b7e` @tx`0x264a2a553672a5480141638c3ca00a7bdf2c54e48c53f41867ca4f64703e16d7`
   - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`0xf68861171c602e3e75ca69e950957fcb908c7949c6df9a9ea3026c238ebb1e9c`
-
-#### bridged_erc20
-
-- impl: `0xeEf8Cd36D4845efcad9749cBa2F484Ae3496e212`
-- logs:
-  - upgraded on Jun 27, 2024 @commit`04d8c87`
-
-#### bridged_erc721
-
-- impl: `0x290ACeF1574Ad12B900f543d13fFB9ca530BcfA2`
-- logs:
-  - upgraded on Jun 27, 2024 @commit`04d8c87`
-
-#### bridged_erc1155
-
-- impl: `0xfc45d8AE074d430111a8f1dc413C01f7203f2371`
-- logs:
-  - upgraded on Jun 27, 2024 @commit`04d8c87`
 
 #### signal_service
 
