@@ -64,34 +64,38 @@ type Indexer struct {
 }
 
 func (i *Indexer) Start() error {
-	i.ctx = context.Background()
-
 	if err := i.setInitialIndexingBlockByMode(i.ctx, i.syncMode); err != nil {
 		return errors.Wrap(err, "i.setInitialIndexingBlockByMode")
 	}
 
 	i.wg.Add(1)
 
-	go i.eventLoop(i.ctx)
+	go i.eventLoop()
 
 	return nil
 }
 
-func (i *Indexer) eventLoop(ctx context.Context) {
+func (i *Indexer) eventLoop() {
 	defer i.wg.Done()
 
 	t := time.NewTicker(10 * time.Second)
-
 	defer t.Stop()
 
 	for {
 		select {
-		case <-ctx.Done():
-			slog.Info("event loop context done")
+		case <-i.ctx.Done():
+			slog.Info("context done, stopping event loop")
 			return
 		case <-t.C:
-			if err := i.filter(ctx, filterFunc); err != nil {
+			slog.Info("starting event loop")
+			if err := i.filter(context.Background(), filterFunc); err != nil {
 				slog.Error("error filtering", "error", err)
+			}
+
+			// After the iteration, check if the context is done to exit gracefully
+			if i.ctx.Err() != nil {
+				slog.Info("context done after iteration, stopping event loop")
+				return
 			}
 		}
 	}
@@ -189,6 +193,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	i.blockBatchSize = cfg.BlockBatchSize
 	i.subscriptionBackoff = time.Duration(cfg.SubscriptionBackoff) * time.Second
 	i.wg = &sync.WaitGroup{}
+	i.ctx = ctx
 
 	i.syncMode = cfg.SyncMode
 	i.indexNfts = cfg.IndexNFTs

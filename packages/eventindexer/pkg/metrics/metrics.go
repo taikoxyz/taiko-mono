@@ -22,7 +22,7 @@ func Serve(ctx context.Context, c *cli.Context) (*echo.Echo, func() error) {
 
 	go func() {
 		<-ctx.Done()
-
+		slog.Info("SHUTTING DOWN")
 		if err := e.Shutdown(ctx); err != nil {
 			log.Error("Failed to close metrics server", "error", err)
 		}

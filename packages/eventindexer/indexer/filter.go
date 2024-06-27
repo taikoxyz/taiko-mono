@@ -3,6 +3,7 @@ package indexer
 import (
 	"context"
 	"math/big"
+	"time"
 
 	"log/slog"
 
@@ -127,39 +128,42 @@ func (i *Indexer) filter(
 	ctx context.Context,
 	filter FilterFunc,
 ) error {
-	endBlockID, err := i.ethClient.BlockNumber(ctx)
-	if err != nil {
-		return errors.Wrap(err, "i.ethClient.BlockNumber")
-	}
+	slog.Info("block batch start")
+	time.Sleep(11 * time.Second)
+	slog.Info("block batch end")
+	// endBlockID, err := i.ethClient.BlockNumber(ctx)
+	// if err != nil {
+	// 	return errors.Wrap(err, "i.ethClient.BlockNumber")
+	// }
 
-	slog.Info("getting batch of events",
-		"startBlock", i.latestIndexedBlockNumber,
-		"endBlock", endBlockID,
-		"batchSize", i.blockBatchSize,
-	)
+	// slog.Info("getting batch of events",
+	// 	"startBlock", i.latestIndexedBlockNumber,
+	// 	"endBlock", endBlockID,
+	// 	"batchSize", i.blockBatchSize,
+	// )
 
-	for j := i.latestIndexedBlockNumber + 1; j <= endBlockID; j += i.blockBatchSize {
-		end := i.latestIndexedBlockNumber + i.blockBatchSize
-		// if the end of the batch is greater than the latest block number, set end
-		// to the latest block number
-		if end > endBlockID {
-			end = endBlockID
-		}
+	// for j := i.latestIndexedBlockNumber + 1; j <= endBlockID; j += i.blockBatchSize {
+	// 	end := i.latestIndexedBlockNumber + i.blockBatchSize
+	// 	// if the end of the batch is greater than the latest block number, set end
+	// 	// to the latest block number
+	// 	if end > endBlockID {
+	// 		end = endBlockID
+	// 	}
 
-		slog.Info("block batch", "start", j, "end", end)
+	// 	slog.Info("block batch", "start", j, "end", end)
 
-		filterOpts := &bind.FilterOpts{
-			Start:   j,
-			End:     &end,
-			Context: ctx,
-		}
+	// 	filterOpts := &bind.FilterOpts{
+	// 		Start:   j,
+	// 		End:     &end,
+	// 		Context: ctx,
+	// 	}
 
-		if err := filter(ctx, new(big.Int).SetUint64(i.srcChainID), i, filterOpts); err != nil {
-			return errors.Wrap(err, "filter")
-		}
+	// 	if err := filter(ctx, new(big.Int).SetUint64(i.srcChainID), i, filterOpts); err != nil {
+	// 		return errors.Wrap(err, "filter")
+	// 	}
 
-		i.latestIndexedBlockNumber = end
-	}
+	// 	i.latestIndexedBlockNumber = end
+	// }
 
 	return nil
 }
