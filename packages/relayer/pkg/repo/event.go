@@ -28,7 +28,7 @@ func NewEventRepository(db DB) (*EventRepository, error) {
 	}, nil
 }
 
-func (r *EventRepository) Save(ctx context.Context, opts relayer.SaveEventOpts) (*relayer.Event, error) {
+func (r *EventRepository) Save(ctx context.Context, opts *relayer.SaveEventOpts) (*relayer.Event, error) {
 	e := &relayer.Event{
 		Data:                   datatypes.JSON(opts.Data),
 		Status:                 opts.Status,
@@ -62,7 +62,7 @@ func (r *EventRepository) Save(ctx context.Context, opts relayer.SaveEventOpts) 
 func (r *EventRepository) UpdateFeesAndProfitability(
 	ctx context.Context,
 	id int,
-	opts relayer.UpdateFeesAndProfitabilityOpts,
+	opts *relayer.UpdateFeesAndProfitabilityOpts,
 ) error {
 	e := &relayer.Event{}
 	if err := r.db.GormDB().Where("id = ?", id).First(e).Error; err != nil {
@@ -246,7 +246,7 @@ func (r *EventRepository) FindLatestBlockID(
 	srcChainID uint64,
 	destChainID uint64,
 ) (uint64, error) {
-	q := `SELECT COALESCE(MAX(emitted_block_id), 0) 
+	q := `SELECT COALESCE(MAX(emitted_block_id), 0)
 	FROM events WHERE chain_id = ? AND dest_chain_id = ? AND event = ?`
 
 	var b uint64

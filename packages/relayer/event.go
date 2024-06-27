@@ -128,9 +128,9 @@ type FindAllByAddressOpts struct {
 
 // EventRepository is used to interact with events in the store
 type EventRepository interface {
-	Save(ctx context.Context, opts SaveEventOpts) (*Event, error)
+	Save(ctx context.Context, opts *SaveEventOpts) (*Event, error)
 	UpdateStatus(ctx context.Context, id int, status EventStatus) error
-	UpdateFeesAndProfitability(ctx context.Context, id int, opts UpdateFeesAndProfitabilityOpts) error
+	UpdateFeesAndProfitability(ctx context.Context, id int, opts *UpdateFeesAndProfitabilityOpts) error
 	FindAllByAddress(
 		ctx context.Context,
 		req *http.Request,
