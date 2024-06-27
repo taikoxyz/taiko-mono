@@ -10,6 +10,7 @@ contract TaikoL1New is TaikoL1 {
         config.blockMaxProposals = 10;
         config.blockRingBufferSize = 20;
         config.stateRootSyncInternal = 2;
+        config.forkHeight = 10;
     }
 }
 
@@ -56,9 +57,7 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
 
         vm.prank(proposer);
         if (revertReason != "") vm.expectRevert(revertReason);
-        return L1.proposeBlock2{ value: 3 ether }(
-            abi.encode(TaikoData.BlockParams2(address(0), 0, 0, 0, 0)), txList
-        );
+        return L1.proposeBlock2{ value: 3 ether }(new bytes(0), txList);
     }
 
     function proveBlock(
@@ -113,6 +112,64 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
             if (revertReason != "") vm.expectRevert(revertReason);
             vm.prank(Frank);
             gp.approve(meta, tran, proof);
+        } else {
+            if (revertReason != "") vm.expectRevert(revertReason);
+            vm.prank(prover);
+            L1.proveBlock(meta.id, abi.encode(meta, tran, proof));
+        }
+    }
+
+    function proveBlock2(
+        address prover,
+        TaikoData.BlockMetadata2 memory meta,
+        bytes32 parentHash,
+        bytes32 blockHash,
+        bytes32 stateRoot,
+        uint16 tier,
+        bytes4 revertReason
+    )
+        internal
+    {
+        TaikoData.Transition memory tran = TaikoData.Transition({
+            parentHash: parentHash,
+            blockHash: blockHash,
+            stateRoot: stateRoot,
+            graffiti: 0x0
+        });
+
+        TaikoData.TierProof memory proof;
+        proof.tier = tier;
+        address newInstance;
+
+        // Keep changing the pub key associated with an instance to avoid
+        // attacks,
+        // obviously just a mock due to 2 addresses changing all the time.
+        (newInstance,) = sv.instances(0);
+        if (newInstance == SGX_X_0) {
+            newInstance = SGX_X_1;
+        } else {
+            newInstance = SGX_X_0;
+        }
+
+        if (tier == LibTiers.TIER_SGX) {
+            bytes memory signature =
+                createSgxSignatureProof(tran, newInstance, prover, keccak256(abi.encode(meta)));
+
+            proof.data = bytes.concat(bytes4(0), bytes20(newInstance), signature);
+        }
+
+        if (tier == LibTiers.TIER_GUARDIAN) {
+            proof.data = "";
+
+            // Grant 2 signatures, 3rd might be a revert
+            vm.prank(David, David);
+            gp.approve2(meta, tran, proof);
+            vm.prank(Emma, Emma);
+            gp.approve2(meta, tran, proof);
+
+            if (revertReason != "") vm.expectRevert(revertReason);
+            vm.prank(Frank);
+            gp.approve2(meta, tran, proof);
         } else {
             if (revertReason != "") vm.expectRevert(revertReason);
             vm.prank(prover);
