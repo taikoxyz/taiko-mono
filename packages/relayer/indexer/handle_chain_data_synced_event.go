@@ -67,7 +67,7 @@ func (i *Indexer) handleChainDataSyncedEvent(
 		SyncedInBlockID: event.Raw.BlockNumber,
 	}
 
-	_, err = i.eventRepo.Save(ctx, opts)
+	_, err = i.eventRepo.Save(ctx, &opts)
 	if err != nil {
 		return errors.Wrap(err, "i.eventRepo.Save")
 	}
