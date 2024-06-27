@@ -18,12 +18,6 @@ library LibProposing {
         bool postFork;
     }
 
-    struct Local {
-        TaikoData.SlotB b;
-        TaikoData.BlockParams params;
-        bytes32 parentMetaHash;
-    }
-
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     /// @notice Emitted when a block is proposed.
     /// @param blockId The ID of the proposed block.
@@ -97,8 +91,8 @@ library LibProposing {
             params = LibData.paramV1toV2(abi.decode(_data, (TaikoData.BlockParams)));
         }
 
-        if (local.params.coinbase == address(0)) {
-            local.params.coinbase = msg.sender;
+        if (params.coinbase == address(0)) {
+            params.coinbase = msg.sender;
         }
 
         if (!local.postFork || params.anchorBlockId == 0) {
