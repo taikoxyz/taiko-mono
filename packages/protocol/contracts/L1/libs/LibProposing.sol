@@ -68,7 +68,7 @@ library LibProposing {
         }
 
         // If no L1 state block is specified, fall back to the previous L1 block
-        // (the most recent block that has its block hash availabe in the EVM throught the blockhash
+        // (the most recent block that has its block hash available in the EVM through the blockhash
         // opcode).
         if (params.l1StateBlockNumber == 0) {
             params.l1StateBlockNumber = uint32(block.number) - 1;
@@ -102,7 +102,7 @@ library LibProposing {
         // The other constraint is that the L1 block number needs to be larger than or equal the one
         // in the previous L2 block.
         if (
-            params.l1StateBlockNumber < block.number - 64
+            params.l1StateBlockNumber + 64 < block.number
                 || params.l1StateBlockNumber >= block.number
                 || params.l1StateBlockNumber < parentBlock.l1StateBlockNumber
         ) {
@@ -114,7 +114,7 @@ library LibProposing {
         // The other constraint is that the timestamp needs to be larger than or equal the one
         // in the previous L2 block.
         if (
-            params.timestamp < block.timestamp - 64 * 12 || params.timestamp > block.timestamp
+            params.timestamp + 64 * 12 < block.timestamp || params.timestamp > block.timestamp
                 || params.timestamp < parentBlock.timestamp
         ) {
             revert L1_INVALID_TIMESTAMP();

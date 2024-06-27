@@ -28,7 +28,7 @@ contract SequencerRegistry is EssentialContract, ISequencerRegistry {
 
     /// @notice Sets/unsets an the imageId as trusted entity
     /// @param _sequencers The list of sequencers
-    /// @param _enabled The corresponing list of the new status of the sequencers
+    /// @param _enabled The corresponding list of the new status of the sequencers
     function setSequencers(
         address[] memory _sequencers,
         bool[] memory _enabled
