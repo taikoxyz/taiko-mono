@@ -71,7 +71,7 @@ library TaikoData {
         bytes32 extraData;
         bytes32 parentMetaHash;
         uint64 anchorBlockId; // NEW
-        uint64 anchorTimestamp; // NEW
+        uint64 timestamp; // NEW
     }
 
     /// @dev Struct containing data only required for proving a block
@@ -103,7 +103,7 @@ library TaikoData {
         address coinbase;
         uint64 id;
         uint32 gasLimit;
-        uint64 anchorTimestamp;
+        uint64 timestamp;
         uint64 anchorBlockId; // `_l1BlockId` in TaikoL2's anchor tx.
         uint16 minTier;
         bool blobUsed;
@@ -150,7 +150,7 @@ library TaikoData {
         // will remain zero.
         uint32 verifiedTransitionId;
         uint64 anchorBlockId; // slot 4
-        uint64 anchorTimestamp;
+        uint64 timestamp;
     }
 
     /// @dev Struct representing an Ethereum deposit.

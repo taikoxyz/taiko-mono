@@ -21,7 +21,7 @@ library LibData {
             extraData: _v1.extraData,
             parentMetaHash: _v1.parentMetaHash,
             anchorBlockId: 0,
-            anchorTimestamp: 0
+            timestamp: 0
         });
     }
 
@@ -39,7 +39,7 @@ library LibData {
             coinbase: _v2.coinbase,
             id: _v2.id,
             gasLimit: _v2.gasLimit,
-            timestamp: _v2.anchorTimestamp,
+            timestamp: _v2.timestamp,
             l1Height: _v2.anchorBlockId,
             minTier: _v2.minTier,
             blobUsed: _v2.blobUsed,
@@ -64,7 +64,7 @@ library LibData {
             coinbase: _v1.coinbase,
             id: _v1.id,
             gasLimit: _v1.gasLimit,
-            anchorTimestamp: _v1.timestamp,
+            timestamp: _v1.timestamp,
             anchorBlockId: _v1.l1Height,
             minTier: _v1.minTier,
             blobUsed: _v1.blobUsed,

@@ -102,8 +102,8 @@ library LibProposing {
             params.anchorBlockId = uint64(block.number - 1);
         }
 
-        if (!local.postFork || params.anchorTimestamp == 0) {
-            params.anchorTimestamp = uint64(block.timestamp);
+        if (!local.postFork || params.timestamp == 0) {
+            params.timestamp = uint64(block.timestamp);
         }
 
         // Verify params against the parent block.
@@ -129,9 +129,8 @@ library LibProposing {
             // The other constraint is that the timestamp needs to be larger than or equal the one
             // in the previous L2 block.
             if (
-                params.anchorTimestamp + 64 * 12 < block.timestamp
-                    || params.anchorTimestamp > block.timestamp
-                    || params.anchorTimestamp < parentBlk.anchorTimestamp
+                params.timestamp + 64 * 12 < block.timestamp || params.timestamp > block.timestamp
+                    || params.timestamp < parentBlk.timestamp
             ) {
                 revert L1_INVALID_ANCHOR_TIMESTAMP();
             }
@@ -159,7 +158,7 @@ library LibProposing {
                 coinbase: params.coinbase,
                 id: local.b.numBlocks,
                 gasLimit: _config.blockMaxGasLimit,
-                anchorTimestamp: params.anchorTimestamp,
+                timestamp: params.timestamp,
                 anchorBlockId: params.anchorBlockId,
                 minTier: 0, // to be initialized below
                 blobUsed: _txList.length == 0,
@@ -205,7 +204,7 @@ library LibProposing {
             // For unverified block, its verifiedTransitionId is always 0.
             verifiedTransitionId: 0,
             anchorBlockId: params.anchorBlockId,
-            anchorTimestamp: params.anchorTimestamp
+            timestamp: params.timestamp
         });
 
         // Store the block in the ring buffer
