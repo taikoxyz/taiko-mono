@@ -103,41 +103,44 @@ library LibProposing {
             params.anchorTimestamp = uint64(block.timestamp);
         }
 
-        TaikoData.Block storage parentBlk =
-            _state.blocks[(local.b.numBlocks - 1) % _config.blockRingBufferSize];
+        // Verify params against the parent block.
+        {
+            TaikoData.Block storage parentBlk =
+                _state.blocks[(local.b.numBlocks - 1) % _config.blockRingBufferSize];
 
-        // Verify the passed in L1 state block number.
-        // We only allow the L1 block to be 2 epochs old.
-        // The other constraint is that the L1 block number needs to be larger than or equal the
-        // one
-        // in the previous L2 block.
-        if (
-            params.anchorBlockId + 64 < block.number //
-                || params.anchorBlockId >= block.number
-                || params.anchorBlockId < parentBlk.anchorBlockId
-        ) {
-            revert L1_INVALID_ANCHOR_BLOCK();
-        }
+            // Verify the passed in L1 state block number.
+            // We only allow the L1 block to be 2 epochs old.
+            // The other constraint is that the L1 block number needs to be larger than or equal the
+            // one
+            // in the previous L2 block.
+            if (
+                params.anchorBlockId + 64 < block.number //
+                    || params.anchorBlockId >= block.number
+                    || params.anchorBlockId < parentBlk.anchorBlockId
+            ) {
+                revert L1_INVALID_ANCHOR_BLOCK();
+            }
 
-        // Verify the passed in timestamp.
-        // We only allow the timestamp to be 2 epochs old.
-        // The other constraint is that the timestamp needs to be larger than or equal the one
-        // in the previous L2 block.
-        if (
-            params.anchorTimestamp + 64 * 12 < block.timestamp
-                || params.anchorTimestamp > block.timestamp
-                || params.anchorTimestamp < parentBlk.anchorTimestamp
-        ) {
-            revert L1_INVALID_ANCHOR_TIMESTAMP();
-        }
+            // Verify the passed in timestamp.
+            // We only allow the timestamp to be 2 epochs old.
+            // The other constraint is that the timestamp needs to be larger than or equal the one
+            // in the previous L2 block.
+            if (
+                params.anchorTimestamp + 64 * 12 < block.timestamp
+                    || params.anchorTimestamp > block.timestamp
+                    || params.anchorTimestamp < parentBlk.anchorTimestamp
+            ) {
+                revert L1_INVALID_ANCHOR_TIMESTAMP();
+            }
 
-        // Check if parent block has the right meta hash. This is to allow the proposer to make
-        // sure
-        // the block builds on the expected latest chain state.
-        if (params.parentMetaHash == 0) {
-            params.parentMetaHash = parentBlk.metaHash;
-        } else if (params.parentMetaHash != parentBlk.metaHash) {
-            revert L1_UNEXPECTED_PARENT();
+            // Check if parent block has the right meta hash. This is to allow the proposer to make
+            // sure
+            // the block builds on the expected latest chain state.
+            if (params.parentMetaHash == 0) {
+                params.parentMetaHash = parentBlk.metaHash;
+            } else if (params.parentMetaHash != parentBlk.metaHash) {
+                revert L1_UNEXPECTED_PARENT();
+            }
         }
 
         // Initialize metadata to compute a metaHash, which forms a part of
@@ -147,9 +150,7 @@ library LibProposing {
         unchecked {
             meta_ = TaikoData.BlockMetadata2({
                 anchorBlockHash: blockhash(params.anchorBlockId),
-                difficulty: keccak256(
-                    abi.encodePacked(params.parentMetaHash, local.b.numBlocks, block.number)
-                ),
+                difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", local.b.numBlocks)),
                 blobHash: 0, // to be initialized below
                 extraData: params.extraData,
                 coinbase: params.coinbase,
