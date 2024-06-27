@@ -24,6 +24,7 @@ func (i *Indexer) setInitialIndexingBlockByMode(
 		if err != nil {
 			return errors.Wrap(err, "svc.eventRepo.FindLatestBlockID")
 		}
+
 		if latest != 0 {
 			i.latestIndexedBlockNumber = latest - 1
 		}
