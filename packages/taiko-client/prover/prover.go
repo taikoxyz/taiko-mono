@@ -86,11 +86,11 @@ func (p *Prover) InitFromCli(ctx context.Context, c *cli.Context) error {
 		return err
 	}
 
-	return InitFromConfig(ctx, p, cfg)
+	return InitFromConfig(ctx, p, cfg, nil)
 }
 
 // InitFromConfig initializes the prover instance based on the given configurations.
-func InitFromConfig(ctx context.Context, p *Prover, cfg *Config) (err error) {
+func InitFromConfig(ctx context.Context, p *Prover, cfg *Config, txMgr *txmgr.SimpleTxManager) (err error) {
 	p.cfg = cfg
 	p.ctx = ctx
 	// Initialize state which will be shared by event handlers.
@@ -153,13 +153,17 @@ func InitFromConfig(ctx context.Context, p *Prover, cfg *Config) (err error) {
 		p.cfg.GuardianProverMinorityAddress,
 	)
 
-	if p.txmgr, err = txmgr.NewSimpleTxManager(
-		"prover",
-		log.Root(),
-		&metrics.TxMgrMetrics,
-		*cfg.TxmgrConfigs,
-	); err != nil {
-		return err
+	if txMgr != nil {
+		p.txmgr = txMgr
+	} else {
+		if p.txmgr, err = txmgr.NewSimpleTxManager(
+			"prover",
+			log.Root(),
+			&metrics.TxMgrMetrics,
+			*cfg.TxmgrConfigs,
+		); err != nil {
+			return err
+		}
 	}
 
 	// Proof submitters

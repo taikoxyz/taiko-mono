@@ -45,15 +45,13 @@ type Bridge struct {
 	srcBridge  relayer.Bridge
 	destBridge relayer.Bridge
 
-	mu *sync.Mutex
-
 	addr common.Address
 
 	backOffRetryInterval time.Duration
 	backOffMaxRetries    uint64
 	ethClientTimeout     time.Duration
 
-	wg *sync.WaitGroup
+	wg sync.WaitGroup
 
 	srcChainId  *big.Int
 	destChainId *big.Int
@@ -120,9 +118,6 @@ func InitFromConfig(ctx context.Context, b *Bridge, cfg *Config) error {
 
 	b.srcChainId = srcChainID
 	b.destChainId = destChainID
-
-	b.wg = &sync.WaitGroup{}
-	b.mu = &sync.Mutex{}
 
 	b.backOffRetryInterval = time.Duration(cfg.BackoffRetryInterval) * time.Second
 	b.backOffMaxRetries = cfg.BackOffMaxRetrys

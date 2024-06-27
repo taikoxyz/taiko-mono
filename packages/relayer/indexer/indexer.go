@@ -114,7 +114,7 @@ type Indexer struct {
 
 	ethClientTimeout time.Duration
 
-	wg *sync.WaitGroup
+	wg sync.WaitGroup
 
 	numLatestBlocksEndWhenCrawling   uint64
 	numLatestBlocksStartWhenCrawling uint64
@@ -122,8 +122,6 @@ type Indexer struct {
 	targetBlockNumber *uint64
 
 	ctx context.Context
-
-	mu *sync.Mutex
 
 	eventName string
 
@@ -230,16 +228,12 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 	i.syncMode = cfg.SyncMode
 	i.watchMode = cfg.WatchMode
 
-	i.wg = &sync.WaitGroup{}
-
 	i.ethClientTimeout = time.Duration(cfg.ETHClientTimeout) * time.Second
 
 	i.numLatestBlocksEndWhenCrawling = cfg.NumLatestBlocksEndWhenCrawling
 	i.numLatestBlocksStartWhenCrawling = cfg.NumLatestBlocksStartWhenCrawling
 
 	i.targetBlockNumber = cfg.TargetBlockNumber
-
-	i.mu = &sync.Mutex{}
 
 	i.eventName = cfg.EventName
 
@@ -280,13 +274,11 @@ func (i *Indexer) Start() error {
 		return errors.Wrap(err, "i.setInitialIndexingBlockByMode")
 	}
 
-	i.wg.Add(1)
-
 	go i.eventLoop(i.ctx, i.latestIndexedBlockNumber)
 
 	go func() {
 		if err := backoff.Retry(func() error {
-			return utils.ScanBlocks(i.ctx, i.srcEthClient, i.wg)
+			return utils.ScanBlocks(i.ctx, i.srcEthClient, &i.wg)
 		}, backoff.NewConstantBackOff(5*time.Second)); err != nil {
 			slog.Error("scan blocks backoff retry", "error", err)
 		}
@@ -296,12 +288,10 @@ func (i *Indexer) Start() error {
 }
 
 func (i *Indexer) eventLoop(ctx context.Context, startBlockID uint64) {
+	i.wg.Add(1)
 	defer i.wg.Done()
 
-	var d time.Duration = 10 * time.Second
-
-	t := time.NewTicker(d)
-
+	t := time.NewTicker(10 * time.Second)
 	defer t.Stop()
 
 	for {
