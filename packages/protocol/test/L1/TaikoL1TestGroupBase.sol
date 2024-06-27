@@ -7,8 +7,8 @@ contract TaikoL1New is TaikoL1 {
     function getConfig() public pure override returns (TaikoData.Config memory config) {
         config = TaikoL1.getConfig();
         config.maxBlocksToVerify = 0;
-        config.blockMaxProposals = 10;
-        config.blockRingBufferSize = 20;
+        config.blockMaxProposals = 20;
+        config.blockRingBufferSize = 25;
         config.stateRootSyncInternal = 2;
         config.forkHeight = 10;
     }
