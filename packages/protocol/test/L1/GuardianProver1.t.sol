@@ -11,7 +11,7 @@ contract DummyGuardianProver is GuardianProver {
     }
 
     function approve(bytes32 hash) public returns (bool) {
-        return _approve(operationId++, hash);
+        return _saveApproval(operationId++, hash);
     }
 }
 
