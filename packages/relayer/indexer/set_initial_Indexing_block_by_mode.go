@@ -13,8 +13,6 @@ func (i *Indexer) setInitialIndexingBlockByMode(
 	mode SyncMode,
 	chainID *big.Int,
 ) error {
-	i.latestIndexedBlockNumber = 0
-
 	switch mode {
 	case Sync:
 		// get most recently processed block height from the DB
