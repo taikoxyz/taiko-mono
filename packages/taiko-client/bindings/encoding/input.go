@@ -137,6 +137,14 @@ var (
 			Name: "signature",
 			Type: "bytes",
 		},
+		{
+			Name: "l1StateBlockNumber",
+			Type: "uint32",
+		},
+		{
+			Name: "timestamp",
+			Type: "uint64",
+		},
 	}
 	proverAssignmentComponents = []abi.ArgumentMarshaling{
 		{
