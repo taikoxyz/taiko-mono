@@ -136,6 +136,8 @@ type Processor struct {
 
 	processingTxHashes map[common.Hash]bool
 	processingTxHashMu sync.Mutex
+
+	minFeeToProcess uint64
 }
 
 // InitFromCli creates a new processor from a cli context
@@ -373,6 +375,10 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 
 	p.processingTxHashes = make(map[common.Hash]bool, 0)
 
+	p.minFeeToProcess = p.cfg.MinFeeToProcess
+
+	slog.Info("minFeeToProcess", "minFeeToProcess", p.minFeeToProcess)
+
 	return nil
 }
 
@@ -488,24 +494,9 @@ func (p *Processor) eventLoop(ctx context.Context) {
 						strings.Contains(err.Error(), "i/o") ||
 						strings.Contains(err.Error(), "connect") ||
 						strings.Contains(err.Error(), "failed to get tx into the mempool"):
+						// we want to do nothing, just log, and the message will be re-picked up
+						// by another consumer. no need to nack or ack.
 						slog.Error("process message failed", "err", err.Error())
-
-						// we want to negatively acknowledge the message and make sure
-						// we requeue it
-						if err := p.queue.Nack(ctx, m, false); err != nil {
-							slog.Error("Err nacking message", "err", err.Error())
-							break
-						}
-
-						marshalledMsg, err := json.Marshal(msg)
-						if err != nil {
-							slog.Error("err marshaling queue message", "err", err.Error())
-							break
-						}
-
-						if err := p.queue.Publish(ctx, p.queueName(), marshalledMsg, nil, nil); err != nil {
-							slog.Error("err publishing to queue", "err", err.Error())
-						}
 					default:
 						slog.Error("process message failed", "err", err.Error())
 
@@ -520,10 +511,18 @@ func (p *Processor) eventLoop(ctx context.Context) {
 				}
 
 				if shouldRequeue {
-					// we want to negatively acknowledge the message and make sure
-					// we requeue it
+					// we want to negatively acknowledge the message
 					if err := p.queue.Nack(ctx, m, true); err != nil {
 						slog.Error("Err nacking message", "err", err.Error())
+					}
+
+					marshalledMsg, err := json.Marshal(msg)
+					if err != nil {
+						slog.Error("err marshaling queue message", "err", err.Error())
+					} else {
+						if err := p.queue.Publish(ctx, p.queueName(), marshalledMsg, nil, nil); err != nil {
+							slog.Error("err publishing to queue", "err", err.Error())
+						}
 					}
 				} else {
 					// otherwise if no error, we can acknowledge it successfully.
