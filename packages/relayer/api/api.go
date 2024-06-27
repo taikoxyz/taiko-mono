@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"log/slog"
 	nethttp "net/http"
@@ -17,13 +16,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
 	"github.com/urfave/cli/v2"
-	"gorm.io/gorm"
 )
-
-type DB interface {
-	DB() (*sql.DB, error)
-	GormDB() *gorm.DB
-}
 
 type API struct {
 	srv          *http.Server

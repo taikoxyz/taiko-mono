@@ -9,22 +9,24 @@ import (
 
 	"github.com/morkid/paginate"
 	"github.com/pkg/errors"
-	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
+
+	"github.com/taikoxyz/taiko-mono/packages/relayer"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/db"
 )
 
 type EventRepository struct {
-	db DB
+	db db.DB
 }
 
-func NewEventRepository(db DB) (*EventRepository, error) {
-	if db == nil {
-		return nil, ErrNoDB
+func NewEventRepository(dbHandler db.DB) (*EventRepository, error) {
+	if dbHandler == nil {
+		return nil, db.ErrNoDB
 	}
 
 	return &EventRepository{
-		db: db,
+		db: dbHandler,
 	}, nil
 }
 

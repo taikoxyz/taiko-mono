@@ -10,10 +10,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/morkid/paginate"
-	"github.com/taikoxyz/taiko-mono/packages/relayer"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/db"
 	"gopkg.in/go-playground/assert.v1"
 	"gorm.io/datatypes"
+
+	"github.com/taikoxyz/taiko-mono/packages/relayer"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/db"
 )
 
 var testMsgHash = "0x1"
@@ -85,18 +86,18 @@ var testEvents = []relayer.Event{
 func Test_NewEventRepo(t *testing.T) {
 	tests := []struct {
 		name    string
-		db      DB
+		db      db.DB
 		wantErr error
 	}{
 		{
 			"success",
-			&db.DB{},
+			&db.Database{},
 			nil,
 		},
 		{
 			"noDb",
 			nil,
-			ErrNoDB,
+			db.ErrNoDB,
 		},
 	}
 
