@@ -29,6 +29,7 @@ type BlobTransactionBuilder struct {
 	l2SuggestedFeeRecipient common.Address
 	gasLimit                uint64
 	extraData               string
+	enabledPreconfirmation  bool
 }
 
 // NewBlobTransactionBuilder creates a new BlobTransactionBuilder instance based on giving configurations.
@@ -42,6 +43,7 @@ func NewBlobTransactionBuilder(
 	l2SuggestedFeeRecipient common.Address,
 	gasLimit uint64,
 	extraData string,
+	enabledPreconfirmation bool,
 ) *BlobTransactionBuilder {
 	return &BlobTransactionBuilder{
 		rpc,
@@ -53,6 +55,7 @@ func NewBlobTransactionBuilder(
 		l2SuggestedFeeRecipient,
 		gasLimit,
 		extraData,
+		enabledPreconfirmation,
 	}
 }
 
@@ -79,10 +82,12 @@ func (b *BlobTransactionBuilder) Build(
 
 	// If the current proposer wants to include the parent meta hash, then fetch it from the protocol.
 	var parentMetaHash = [32]byte{}
+	parentBlock, err := getParent(ctx, b.rpc)
+	if err != nil {
+		return nil, err
+	}
 	if includeParentMetaHash {
-		if parentMetaHash, err = getParentMetaHash(ctx, b.rpc); err != nil {
-			return nil, err
-		}
+		parentMetaHash = parentBlock.MetaHash
 	}
 
 	commitment, err := blob.ComputeKZGCommitment()
@@ -105,12 +110,24 @@ func (b *BlobTransactionBuilder) Build(
 		to = &b.proverSetAddress
 	}
 
+	var (
+		l1StateBlockNumber = uint32(0)
+		timestamp          = uint64(0)
+	)
+
+	if b.enabledPreconfirmation {
+		l1StateBlockNumber = parentBlock.L1StateBlockNumber + 1
+		timestamp = parentBlock.Timestamp + 12
+	}
+
 	// ABI encode the TaikoL1.proposeBlock parameters.
 	encodedParams, err := encoding.EncodeBlockParams(&encoding.BlockParams{
-		ExtraData:      rpc.StringToBytes32(b.extraData),
-		Coinbase:       b.l2SuggestedFeeRecipient,
-		ParentMetaHash: parentMetaHash,
-		Signature:      signature,
+		ExtraData:          rpc.StringToBytes32(b.extraData),
+		Coinbase:           b.l2SuggestedFeeRecipient,
+		ParentMetaHash:     parentMetaHash,
+		Signature:          signature,
+		L1StateBlockNumber: l1StateBlockNumber,
+		Timestamp:          timestamp,
 	})
 	if err != nil {
 		return nil, err

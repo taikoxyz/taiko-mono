@@ -132,6 +132,7 @@ func (p *Proposer) InitFromConfig(ctx context.Context, cfg *Config) (err error) 
 			cfg.L2SuggestedFeeRecipient,
 			cfg.ProposeBlockTxGasLimit,
 			cfg.ExtraData,
+			len(cfg.PreconfirmationRPC) > 0,
 		)
 	} else {
 		p.txBuilder = builder.NewCalldataTransactionBuilder(
@@ -144,6 +145,7 @@ func (p *Proposer) InitFromConfig(ctx context.Context, cfg *Config) (err error) 
 			cfg.ProverSetAddress,
 			cfg.ProposeBlockTxGasLimit,
 			cfg.ExtraData,
+			len(cfg.PreconfirmationRPC) > 0,
 		)
 	}
 

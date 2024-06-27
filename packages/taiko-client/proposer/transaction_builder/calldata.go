@@ -26,6 +26,7 @@ type CalldataTransactionBuilder struct {
 	proverSetAddress        common.Address
 	gasLimit                uint64
 	extraData               string
+	enabledPreconfirmation  bool
 }
 
 // NewCalldataTransactionBuilder creates a new CalldataTransactionBuilder instance based on giving configurations.
@@ -39,6 +40,7 @@ func NewCalldataTransactionBuilder(
 	proverSetAddress common.Address,
 	gasLimit uint64,
 	extraData string,
+	enabledPreconfirmation bool,
 ) *CalldataTransactionBuilder {
 	return &CalldataTransactionBuilder{
 		rpc,
@@ -50,6 +52,7 @@ func NewCalldataTransactionBuilder(
 		proverSetAddress,
 		gasLimit,
 		extraData,
+		enabledPreconfirmation,
 	}
 }
 
@@ -71,10 +74,12 @@ func (b *CalldataTransactionBuilder) Build(
 
 	// If the current proposer wants to include the parent meta hash, then fetch it from the protocol.
 	var parentMetaHash = [32]byte{}
+	parentBlock, err := getParent(ctx, b.rpc)
+	if err != nil {
+		return nil, err
+	}
 	if includeParentMetaHash {
-		if parentMetaHash, err = getParentMetaHash(ctx, b.rpc); err != nil {
-			return nil, err
-		}
+		parentMetaHash = parentBlock.MetaHash
 	}
 
 	signature, err := crypto.Sign(crypto.Keccak256(txListBytes), b.proposerPrivateKey)
@@ -91,12 +96,24 @@ func (b *CalldataTransactionBuilder) Build(
 		to = &b.proverSetAddress
 	}
 
+	var (
+		l1StateBlockNumber = uint32(0)
+		timestamp          = uint64(0)
+	)
+
+	if b.enabledPreconfirmation {
+		l1StateBlockNumber = parentBlock.L1StateBlockNumber + 1
+		timestamp = parentBlock.Timestamp + 12
+	}
+
 	// ABI encode the TaikoL1.proposeBlock / ProverSet.proposeBlock parameters.
 	encodedParams, err := encoding.EncodeBlockParams(&encoding.BlockParams{
-		Coinbase:       b.l2SuggestedFeeRecipient,
-		ExtraData:      rpc.StringToBytes32(b.extraData),
-		ParentMetaHash: parentMetaHash,
-		Signature:      signature,
+		Coinbase:           b.l2SuggestedFeeRecipient,
+		ExtraData:          rpc.StringToBytes32(b.extraData),
+		ParentMetaHash:     parentMetaHash,
+		Signature:          signature,
+		L1StateBlockNumber: l1StateBlockNumber,
+		Timestamp:          timestamp,
 	})
 	if err != nil {
 		return nil, err

@@ -124,6 +124,7 @@ func (s *ProposerTestSuite) TestProposeTxLists() {
 		cfg.L2SuggestedFeeRecipient,
 		cfg.ProposeBlockTxGasLimit,
 		cfg.ExtraData,
+		len(cfg.PreconfirmationRPC) > 0,
 	)
 
 	emptyTxListBytes, err := rlp.EncodeToBytes(types.Transactions{})

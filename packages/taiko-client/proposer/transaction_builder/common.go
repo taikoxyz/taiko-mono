@@ -4,23 +4,24 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
-// getParentMetaHash returns the meta hash of the parent block of the latest proposed block in protocol.
-func getParentMetaHash(ctx context.Context, rpc *rpc.Client) (common.Hash, error) {
+// getParent returns the parent block of the latest proposed block in protocol.
+func getParent(ctx context.Context, rpc *rpc.Client) (*bindings.TaikoDataBlock, error) {
 	state, err := rpc.TaikoL1.State(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		return common.Hash{}, err
+		return nil, err
 	}
 
 	parent, err := rpc.GetL2BlockInfo(ctx, new(big.Int).SetUint64(state.SlotB.NumBlocks-1))
 	if err != nil {
-		return common.Hash{}, err
+		return nil, err
 	}
 
-	return parent.MetaHash, nil
+	return &parent, nil
 }
