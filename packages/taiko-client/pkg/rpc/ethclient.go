@@ -372,6 +372,18 @@ func (c *EthClient) SendTransaction(ctx context.Context, tx *types.Transaction) 
 	return c.ethClient.SendTransaction(ctxWithTimeout, tx)
 }
 
+// CreateAccessList tries to create an access list for a specific transaction based on the
+// current pending state of the blockchain.
+func (c *EthClient) CreateAccessList(
+	ctx context.Context,
+	msg ethereum.CallMsg,
+) (*types.AccessList, uint64, string, error) {
+	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, c.timeout)
+	defer cancel()
+
+	return c.gethClient.CreateAccessList(ctxWithTimeout, msg)
+}
+
 // TransactionArgs represents the arguments to construct a new transaction
 // or a message call.
 type TransactionArgs struct {
