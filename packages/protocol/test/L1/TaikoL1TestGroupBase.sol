@@ -188,6 +188,7 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
 
     function printBlock(TaikoData.Block memory blk) internal view {
         (, TaikoData.SlotB memory b) = L1.getStateVariables();
+        console2.log("\n==================");
         console2.log("---CHAIN:");
         console2.log(" | lastVerifiedBlockId:", b.lastVerifiedBlockId);
         console2.log(" | numBlocks:", b.numBlocks);
@@ -218,6 +219,7 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
     }
 
     function mineAndWrap(uint256 value) internal {
+        vm.roll(block.number + 1);
         vm.warp(block.timestamp + value);
     }
 }
