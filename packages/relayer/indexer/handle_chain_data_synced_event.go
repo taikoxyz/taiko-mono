@@ -52,7 +52,7 @@ func (i *Indexer) handleChainDataSyncedEvent(
 		return errors.Wrap(err, "json.Marshal(event)")
 	}
 
-	opts := relayer.SaveEventOpts{
+	_, err = i.eventRepo.Save(ctx, &relayer.SaveEventOpts{
 		Name:            relayer.EventNameChainDataSynced,
 		Event:           relayer.EventNameChainDataSynced,
 		Data:            string(marshaled),
@@ -65,9 +65,7 @@ func (i *Indexer) handleChainDataSyncedEvent(
 		SyncData:        common.BytesToHash(event.Data[:]).Hex(),
 		Kind:            common.BytesToHash(event.Kind[:]).Hex(),
 		SyncedInBlockID: event.Raw.BlockNumber,
-	}
-
-	_, err = i.eventRepo.Save(ctx, &opts)
+	})
 	if err != nil {
 		return errors.Wrap(err, "i.eventRepo.Save")
 	}
