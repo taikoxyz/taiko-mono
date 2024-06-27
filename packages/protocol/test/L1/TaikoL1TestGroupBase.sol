@@ -41,6 +41,26 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
         );
     }
 
+    function proposeBlock2(
+        address proposer,
+        bytes4 revertReason
+    )
+        internal
+        returns (TaikoData.BlockMetadata2 memory)
+    {
+        TaikoData.TierFee[] memory tierFees = new TaikoData.TierFee[](2);
+        tierFees[0] = TaikoData.TierFee(LibTiers.TIER_OPTIMISTIC, 1 ether);
+        tierFees[1] = TaikoData.TierFee(LibTiers.TIER_SGX, 2 ether);
+
+        bytes memory txList = new bytes(10);
+
+        vm.prank(proposer);
+        if (revertReason != "") vm.expectRevert(revertReason);
+        return L1.proposeBlock2{ value: 3 ether }(
+            abi.encode(TaikoData.BlockParams2(address(0), 0, 0, 0, 0)), txList
+        );
+    }
+
     function proveBlock(
         address prover,
         TaikoData.BlockMetadata memory meta,

@@ -74,9 +74,16 @@ library LibProposing {
         local.b = _state.slotB;
         local.postFork = local.b.numBlocks >= _config.forkHeight;
 
-        TaikoData.BlockParams2 memory params = local.postFork
-            ? abi.decode(_data, (TaikoData.BlockParams2))
-            : LibData.paramV1toV2(abi.decode(_data, (TaikoData.BlockParams)));
+        TaikoData.BlockParams2 memory params;
+
+        if (local.postFork) {
+            if (_data.length != 0) {
+                params = abi.decode(_data, (TaikoData.BlockParams2));
+                // otherwise use a default BlockParams2 with 0 values
+            }
+        } else {
+            params = LibData.paramV1toV2(abi.decode(_data, (TaikoData.BlockParams)));
+        }
 
         if (params.coinbase == address(0)) {
             params.coinbase = msg.sender;
