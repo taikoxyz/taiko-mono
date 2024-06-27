@@ -87,7 +87,6 @@ func (i *Indexer) eventLoop() {
 			slog.Info("context done, stopping event loop")
 			return
 		case <-t.C:
-			slog.Info("starting event loop")
 			if err := i.filter(context.Background(), filterFunc); err != nil {
 				slog.Error("error filtering", "error", err)
 			}

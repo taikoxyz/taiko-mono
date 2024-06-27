@@ -39,6 +39,7 @@ func SubcommandAction(app SubcommandApplication) cli.ActionFunc {
 		echoServer, startMetrics := metrics.Serve(ctx, c)
 
 		metricsErrCh := make(chan error, 1)
+
 		go func() {
 			if err := startMetrics(); err != nil {
 				slog.Error("Starting metrics server error", "error", err)
@@ -76,6 +77,7 @@ func SubcommandAction(app SubcommandApplication) cli.ActionFunc {
 		slog.Info("Waiting for application to stop", "name", app.Name())
 		app.Close(context.Background())
 		slog.Info("Application stopped", "name", app.Name())
+
 		return nil
 	}
 }
