@@ -26,6 +26,7 @@ import "../test/common/erc20/FreeMintERC20.sol";
 import "../test/common/erc20/MayFailFreeMintERC20.sol";
 import "../test/L1/TestTierProvider.sol";
 import "../test/DeployCapability.sol";
+import "../contracts/L1/SequencerRegistry.sol";
 
 // Actually this one is deployed already on mainnet, but we are now deploying our own (non via-ir)
 // version. For mainnet, it is easier to go with one of:
@@ -145,7 +146,7 @@ contract DeployOnL1 is DeployCapability {
                 impl: address(new TaikoToken()),
                 data: abi.encodeCall(
                     TaikoToken.init, (owner, vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT"))
-                ),
+                    ),
                 registerTo: sharedAddressManager
             });
         }
@@ -246,6 +247,13 @@ contract DeployOnL1 is DeployCapability {
         copyRegister(rollupAddressManager, _sharedAddressManager, "bridge");
 
         deployProxy({
+            name: "sequencer_registry",
+            impl: address(new SequencerRegistry()),
+            data: abi.encodeCall(SequencerRegistry.init, (owner)),
+            registerTo: rollupAddressManager
+        });
+
+        deployProxy({
             name: "taiko",
             impl: address(new TaikoL1()),
             data: abi.encodeCall(
@@ -256,7 +264,7 @@ contract DeployOnL1 is DeployCapability {
                     vm.envBytes32("L2_GENESIS_HASH"),
                     vm.envBool("PAUSE_TAIKO_L1")
                 )
-            ),
+                ),
             registerTo: rollupAddressManager
         });
 
@@ -315,7 +323,7 @@ contract DeployOnL1 is DeployCapability {
             impl: automateDcapV3AttestationImpl,
             data: abi.encodeCall(
                 AutomataDcapV3Attestation.init, (owner, address(sigVerifyLib), address(pemCertChainLib))
-            ),
+                ),
             registerTo: rollupAddressManager
         });
 
@@ -329,7 +337,7 @@ contract DeployOnL1 is DeployCapability {
             impl: address(new ProverSet()),
             data: abi.encodeCall(
                 ProverSet.init, (owner, vm.envAddress("PROVER_SET_ADMIN"), rollupAddressManager)
-            )
+                )
         });
     }
 

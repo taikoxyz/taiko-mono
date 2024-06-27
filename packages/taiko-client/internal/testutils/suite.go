@@ -109,7 +109,7 @@ func (s *ClientTestSuite) SetupTest() {
 		s.setAllowanceForProverSet(ownerPrivKey)
 
 		t, err := txmgr.NewSimpleTxManager(
-			"enableProver",
+			"register",
 			log.Root(),
 			new(metrics.NoopTxMetrics),
 			txmgr.CLIConfig{
@@ -145,6 +145,20 @@ func (s *ClientTestSuite) SetupTest() {
 		_, err = t.Send(context.Background(), txmgr.TxCandidate{
 			TxData: data,
 			To:     &proverSetAddress,
+		})
+		s.Nil(err)
+
+		// Set sequencers
+		sequencerRegistryAddress := common.HexToAddress(os.Getenv("SEQUENCER_REGISTRY_ADDRESS"))
+		sequencers := []common.Address{
+			crypto.PubkeyToAddress(testAddrPrivKey.PublicKey),
+		}
+		enabled := []bool{true}
+		data, err = encoding.SequencerRegistryABI.Pack("setSequencers", sequencers, enabled)
+		s.Nil(err)
+		_, err = t.Send(context.Background(), txmgr.TxCandidate{
+			TxData: data,
+			To:     &sequencerRegistryAddress,
 		})
 		s.Nil(err)
 	}
