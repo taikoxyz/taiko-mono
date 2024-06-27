@@ -111,10 +111,19 @@ func (p *Processor) processMessage(
 		return false, msgBody.TimesRetried, nil
 	}
 
-	if err := p.waitForConfirmations(ctx, msgBody.Event.Raw.TxHash, msgBody.Event.Raw.BlockNumber); err != nil {
-		return false, msgBody.TimesRetried, err
+	// we never want to process messages below a certain fee, if set.
+	// return a nil error, and we will successfully acknowledge this.
+	if p.minFeeToProcess != 0 && msgBody.Event.Message.Fee < p.minFeeToProcess {
+		slog.Warn("minFeeToProcess not met",
+			"minFeeToProcess", p.minFeeToProcess,
+			"fee", msgBody.Event.Message.Fee,
+			"srcTxHash", msgBody.Event.Raw.TxHash.Hex(),
+		)
+
+		return false, msgBody.TimesRetried, nil
 	}
 
+	// check message process eligibility before waiting for confirmations to process
 	eventStatus, err := p.eventStatusFromMsgHash(ctx, msgBody.Event.MsgHash)
 	if err != nil {
 		return false, msgBody.TimesRetried, errors.Wrap(err, "p.eventStatusFromMsgHash")
@@ -128,6 +137,10 @@ func (p *Processor) processMessage(
 		uint64(msgBody.Event.Message.GasLimit),
 	) {
 		return false, msgBody.TimesRetried, nil
+	}
+
+	if err := p.waitForConfirmations(ctx, msgBody.Event.Raw.TxHash, msgBody.Event.Raw.BlockNumber); err != nil {
+		return false, msgBody.TimesRetried, err
 	}
 
 	// check paused status

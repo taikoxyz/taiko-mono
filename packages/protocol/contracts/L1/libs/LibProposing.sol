@@ -130,6 +130,7 @@ library LibProposing {
             if (meta_.blobHash == 0) revert L1_BLOB_NOT_FOUND();
         } else {
             meta_.blobHash = keccak256(_txList);
+
             emit CalldataTxList(meta_.id, _txList);
         }
 
