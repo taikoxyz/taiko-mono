@@ -22,7 +22,7 @@ func NewEventRepository() *EventRepository {
 		events: make([]*relayer.Event, 0),
 	}
 }
-func (r *EventRepository) Save(ctx context.Context, opts relayer.SaveEventOpts) (*relayer.Event, error) {
+func (r *EventRepository) Save(ctx context.Context, opts *relayer.SaveEventOpts) (*relayer.Event, error) {
 	r.events = append(r.events, &relayer.Event{
 		ID:           rand.Int(), // nolint: gosec
 		Data:         datatypes.JSON(opts.Data),
@@ -65,7 +65,7 @@ func (r *EventRepository) UpdateStatus(ctx context.Context, id int, status relay
 
 func (r *EventRepository) UpdateFeesAndProfitability(
 	ctx context.Context,
-	id int, opts relayer.UpdateFeesAndProfitabilityOpts,
+	id int, opts *relayer.UpdateFeesAndProfitabilityOpts,
 ) error {
 	var event *relayer.Event
 
