@@ -5,10 +5,11 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"log/slog"
 
-	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/metrics"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/metrics"
 	"github.com/urfave/cli/v2"
 )
 
@@ -22,7 +23,7 @@ type SubcommandApplication interface {
 func SubcommandAction(app SubcommandApplication) cli.ActionFunc {
 	return func(c *cli.Context) error {
 		ctx, ctxClose := context.WithCancel(context.Background())
-		defer func() { ctxClose() }()
+		defer ctxClose()
 
 		if err := app.InitFromCli(ctx, c); err != nil {
 			return err
@@ -35,28 +36,46 @@ func SubcommandAction(app SubcommandApplication) cli.ActionFunc {
 			return err
 		}
 
-		_, startMetrics := metrics.Serve(ctx, c)
+		echoServer, startMetrics := metrics.Serve(ctx, c)
 
-		if err := startMetrics(); err != nil {
-			slog.Error("Starting metrics server error", "error", err)
+		metricsErrCh := make(chan error, 1)
+		go func() {
+			if err := startMetrics(); err != nil {
+				slog.Error("Starting metrics server error", "error", err)
+				metricsErrCh <- err
+			} else {
+				metricsErrCh <- nil
+			}
+		}()
+		// Check for metrics server start error
+		if err := <-metricsErrCh; err != nil {
 			return err
 		}
 
-		defer func() {
+		// Set up signal handling
+		quitCh := make(chan os.Signal, 1)
+		signal.Notify(quitCh, os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT)
+
+		go func() {
+			<-quitCh
+			slog.Info("Interrupt signal received")
 			ctxClose()
-			app.Close(ctx)
-			slog.Info("Application stopped", "name", app.Name())
+
+			// Create a new context with a timeout to use for shutdown
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			// Shut down the Echo server gracefully
+			if err := echoServer.Shutdown(shutdownCtx); err != nil {
+				slog.Error("Failed to shut down Echo server", "error", err)
+			}
 		}()
 
-		quitCh := make(chan os.Signal, 1)
-		signal.Notify(quitCh, []os.Signal{
-			os.Interrupt,
-			os.Kill,
-			syscall.SIGTERM,
-			syscall.SIGQUIT,
-		}...)
-		<-quitCh
-
+		// Block until context is done
+		<-ctx.Done()
+		slog.Info("Waiting for application to stop", "name", app.Name())
+		app.Close(context.Background())
+		slog.Info("Application stopped", "name", app.Name())
 		return nil
 	}
 }

@@ -6,7 +6,6 @@ import (
 
 	echoprom "github.com/labstack/echo-contrib/prometheus"
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/gommon/log"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/cmd/flags"
 	"github.com/urfave/cli/v2"
 	"golang.org/x/exp/slog"
@@ -19,14 +18,6 @@ func Serve(ctx context.Context, c *cli.Context) (*echo.Echo, func() error) {
 	p := echoprom.NewPrometheus("echo", nil)
 	e := echo.New()
 	p.SetMetricsPath(e)
-
-	go func() {
-		<-ctx.Done()
-		slog.Info("SHUTTING DOWN")
-		if err := e.Shutdown(ctx); err != nil {
-			log.Error("Failed to close metrics server", "error", err)
-		}
-	}()
 
 	slog.Info("Starting metrics server", "port", c.Uint64(flags.MetricsHTTPPort.Name))
 
