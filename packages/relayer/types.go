@@ -22,17 +22,6 @@ var (
 	ZeroAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
 )
 
-// IsInSlice determines whether v is in slice s
-func IsInSlice[T comparable](v T, s []T) bool {
-	for _, e := range s {
-		if v == e {
-			return true
-		}
-	}
-
-	return false
-}
-
 type confirmer interface {
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 	BlockNumber(ctx context.Context) (uint64, error)

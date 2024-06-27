@@ -113,6 +113,16 @@
 - todo:
   - change owner to DelegateOwner
 
+#### delegate_owner
+
+- proxy: `0x904aa0aC002532f1410457484893107757683F53`
+- impl: `0x9F0C40A474E0FB6b27D71c43Aff840B9c42f0C44`
+- admin: `0x8F13E3a9dFf52e282884aA70eAe93F57DD601298`
+- remoteOwner: `0x8F13E3a9dFf52e282884aA70eAe93F57DD601298`
+- todo:
+  - test various use cases
+  - transfer remote owner to `admin.taiko.eth`
+
 ## Rollup Specific
 
 #### rollup_address_manager (ram)

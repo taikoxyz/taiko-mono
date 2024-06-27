@@ -86,6 +86,7 @@ type Config struct {
 	TxmgrConfigs *txmgr.CLIConfig
 
 	MaxMessageRetries uint64
+	MinFeeToProcess   uint64
 }
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
@@ -176,6 +177,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			c,
 		),
 		MaxMessageRetries: c.Uint64(flags.MaxMessageRetries.Name),
+		MinFeeToProcess:   c.Uint64(flags.MinFeeToProcess.Name),
 		OpenDBFunc: func() (DB, error) {
 			return db.OpenDBConnection(db.DBConnectionOpts{
 				Name:            c.String(flags.DatabaseUsername.Name),
@@ -185,7 +187,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 				MaxIdleConns:    c.Uint64(flags.DatabaseMaxIdleConns.Name),
 				MaxOpenConns:    c.Uint64(flags.DatabaseMaxOpenConns.Name),
 				MaxConnLifetime: c.Uint64(flags.DatabaseConnMaxLifetime.Name),
-				OpenFunc: func(dsn string) (*db.DB, error) {
+				OpenFunc: func(dsn string) (db.DB, error) {
 					gormDB, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
 						Logger: logger.Default.LogMode(logger.Silent),
 					})
