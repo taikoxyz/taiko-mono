@@ -13,16 +13,7 @@ func (i *Indexer) setInitialIndexingBlockByMode(
 	mode SyncMode,
 	chainID *big.Int,
 ) error {
-	var startingBlock uint64 = 0
-
-	if i.taikol1 != nil {
-		slotA, _, err := i.taikol1.GetStateVariables(nil)
-		if err != nil {
-			return errors.Wrap(err, "svc.taikoL1.GetStateVariables")
-		}
-
-		startingBlock = slotA.GenesisHeight - 1
-	}
+	i.latestIndexedBlockNumber = 0
 
 	switch mode {
 	case Sync:
@@ -35,16 +26,21 @@ func (i *Indexer) setInitialIndexingBlockByMode(
 		if err != nil {
 			return errors.Wrap(err, "svc.eventRepo.FindLatestBlockID")
 		}
-
 		if latest != 0 {
-			startingBlock = latest - 1
+			i.latestIndexedBlockNumber = latest - 1
 		}
 	case Resync:
+		if i.taikol1 != nil {
+			slotA, _, err := i.taikol1.GetStateVariables(nil)
+			if err != nil {
+				return errors.Wrap(err, "svc.taikoL1.GetStateVariables")
+			}
+
+			i.latestIndexedBlockNumber = slotA.GenesisHeight - 1
+		}
 	default:
 		return relayer.ErrInvalidMode
 	}
-
-	i.latestIndexedBlockNumber = startingBlock
 
 	return nil
 }
