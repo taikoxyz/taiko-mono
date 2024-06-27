@@ -37,7 +37,7 @@ func (s *ProverSelectorTestSuite) SetupTest() {
 		s.RPCClient,
 		crypto.PubkeyToAddress(l1ProposerPrivKey.PublicKey),
 		common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
-		common.HexToAddress(os.Getenv("PROVER_SET_ADDRESS")),
+		common.Address{},
 		[]encoding.TierFee{},
 		common.Big2,
 		[]*url.URL{s.ProverEndpoints[0]},

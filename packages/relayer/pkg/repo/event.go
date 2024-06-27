@@ -141,7 +141,7 @@ func (r *EventRepository) FindAllByAddress(
 	ctx context.Context,
 	req *http.Request,
 	opts relayer.FindAllByAddressOpts,
-) (paginate.Page, error) {
+) (*paginate.Page, error) {
 	pg := paginate.New(&paginate.Config{
 		DefaultSize: 100,
 	})
@@ -173,8 +173,11 @@ func (r *EventRepository) FindAllByAddress(
 	reqCtx := pg.With(q)
 
 	page := reqCtx.Request(req).Response(&[]relayer.Event{})
+	if page.Error {
+		return nil, page.RawError
+	}
 
-	return page, nil
+	return &page, nil
 }
 
 func (r *EventRepository) Delete(
@@ -246,7 +249,7 @@ func (r *EventRepository) FindLatestBlockID(
 	srcChainID uint64,
 	destChainID uint64,
 ) (uint64, error) {
-	q := `SELECT COALESCE(MAX(emitted_block_id), 0) 
+	q := `SELECT COALESCE(MAX(emitted_block_id), 0)
 	FROM events WHERE chain_id = ? AND dest_chain_id = ? AND event = ?`
 
 	var b uint64
