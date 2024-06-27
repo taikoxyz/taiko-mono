@@ -74,6 +74,12 @@ library LibProposing {
         local.b = _state.slotB;
         local.postFork = local.b.numBlocks >= _config.forkHeight;
 
+        // It's essential to ensure that the ring buffer for proposed blocks
+        // still has space for at least one more block.
+        if (local.b.numBlocks >= local.b.lastVerifiedBlockId + _config.blockMaxProposals + 1) {
+            revert L1_TOO_MANY_BLOCKS();
+        }
+
         TaikoData.BlockParams2 memory params;
 
         if (local.postFork) {
@@ -95,12 +101,6 @@ library LibProposing {
 
         if (!local.postFork || params.anchorTimestamp == 0) {
             params.anchorTimestamp = uint64(block.timestamp);
-        }
-
-        // It's essential to ensure that the ring buffer for proposed blocks
-        // still has space for at least one more block.
-        if (local.b.numBlocks >= local.b.lastVerifiedBlockId + _config.blockMaxProposals + 1) {
-            revert L1_TOO_MANY_BLOCKS();
         }
 
         TaikoData.Block storage parentBlk =
