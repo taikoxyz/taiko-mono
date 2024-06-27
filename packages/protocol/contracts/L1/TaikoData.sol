@@ -96,7 +96,7 @@ library TaikoData {
     }
 
     struct BlockMetadata2 {
-        bytes32 anchorBlockHash;
+        bytes32 anchorBlockHash; // `_l1BlockHash` in TaikoL2's anchor tx.
         bytes32 difficulty;
         bytes32 blobHash;
         bytes32 extraData;
@@ -104,7 +104,7 @@ library TaikoData {
         uint64 id;
         uint32 gasLimit;
         uint64 anchorTimestamp;
-        uint64 anchorBlockId;
+        uint64 anchorBlockId; // `_l1BlockId` in TaikoL2's anchor tx.
         uint16 minTier;
         bool blobUsed;
         bytes32 parentMetaHash;
