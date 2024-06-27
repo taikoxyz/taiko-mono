@@ -85,7 +85,6 @@ func (s *ProposerTestSuite) SetupTest() {
 		MaxTierFeePriceBumps:       3,
 		ExtraData:                  "test",
 		L1BlockBuilderTip:          common.Big0,
-		BlobAllowed:                true,
 		ProposeBlockTxGasLimit:     10_000_000,
 		TxmgrConfigs: &txmgr.CLIConfig{
 			L1RPCURL:                  os.Getenv("L1_NODE_WS_ENDPOINT"),
