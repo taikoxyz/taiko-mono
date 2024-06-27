@@ -10,12 +10,11 @@ contract TaikoL1New is TaikoL1 {
         config.blockMaxProposals = 20;
         config.blockRingBufferSize = 25;
         config.stateRootSyncInternal = 2;
-        config.forkHeight = 10;
     }
 }
 
 abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
-    function deployTaikoL1() internal override returns (TaikoL1) {
+    function deployTaikoL1() internal virtual override returns (TaikoL1) {
         return TaikoL1(
             payable(deployProxy({ name: "taiko", impl: address(new TaikoL1New()), data: "" }))
         );
