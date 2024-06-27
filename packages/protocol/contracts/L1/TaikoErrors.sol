@@ -21,10 +21,10 @@ abstract contract TaikoErrors {
     error L1_INVALID_CONFIG();
     error L1_INVALID_GENESIS_HASH();
     error L1_INVALID_ANCHOR_BLOCK();
-    error L1_INVALID_ANCHOR_TIMESTAMP();
     error L1_INVALID_PARAM();
     error L1_INVALID_PAUSE_STATUS();
     error L1_INVALID_TIER();
+    error L1_INVALID_TIMESTAMP();
     error L1_INVALID_TRANSITION();
     error L1_LIVENESS_BOND_NOT_RECEIVED();
     error L1_NOT_ASSIGNED_PROVER();

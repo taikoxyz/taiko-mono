@@ -48,7 +48,7 @@ library LibProposing {
     error L1_BLOB_NOT_AVAILABLE();
     error L1_BLOB_NOT_FOUND();
     error L1_INVALID_ANCHOR_BLOCK();
-    error L1_INVALID_ANCHOR_TIMESTAMP();
+    error L1_INVALID_TIMESTAMP();
     error L1_LIVENESS_BOND_NOT_RECEIVED();
     error L1_TOO_MANY_BLOCKS();
     error L1_UNEXPECTED_PARENT();
@@ -132,7 +132,7 @@ library LibProposing {
                 params.timestamp + 64 * 12 < block.timestamp || params.timestamp > block.timestamp
                     || params.timestamp < parentBlk.timestamp
             ) {
-                revert L1_INVALID_ANCHOR_TIMESTAMP();
+                revert L1_INVALID_TIMESTAMP();
             }
 
             // Check if parent block has the right meta hash. This is to allow the proposer to make
