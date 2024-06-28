@@ -84,8 +84,6 @@ contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
 
         giveEthAndTko(Alice, 10_000 ether, 1000 ether);
 
-        bytes32 parentHash = GENESIS_BLOCK_HASH;
-
         TaikoData.Config memory config = L1.getConfig();
 
         // Propose the first block with default parameters
