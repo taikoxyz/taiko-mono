@@ -56,14 +56,13 @@
 
   async function calculateGasCost() {
     isCalculating = true;
-
-    gasCost = await Token.estimateMintGasCost();
+    gasCost = await Token.estimateMintGasCost($mintState.address);
     isCalculating = false;
   }
 
   function reset() {
     canMint = false;
-    mintState.set({ ...$mintState, address: zeroAddress });
+    mintState.set({ ...$mintState, address: zeroAddress, totalMintCount: -1 });
   }
 
   async function load() {
@@ -88,16 +87,19 @@
     hasAlreadyMinted = balance > 0;
 
     if (totalMintCount < 0) {
-      totalMintCount = await User.totalWhitelistMintCount();
-      await calculateGasCost();
+      totalMintCount = await User.totalWhitelistMintCount(address);
     }
+
+    await calculateGasCost();
+
+    mintState.set({ ...$mintState, totalMintCount });
 
     if (!hasAlreadyMinted) {
-      canMint = await Token.canMint();
+      canMint = await Token.canMint(address);
     }
-    if (!canMint) {
-      mintState.set({ ...$mintState, address: address.toLowerCase() as IAddress });
 
+    if (!canMint) {
+      mintState.set({ ...$mintState, totalMintCount, address: address.toLowerCase() as IAddress });
       isReady = true;
       return;
     }
@@ -131,9 +133,16 @@
       });
       mintState.set({ ...$mintState, tokenIds });
     } catch (e: any) {
-      console.warn(e);
-      //showMintConfirmationModal = false
+      console.error(e);
       mintState.set({ ...$mintState, isModalOpen: false });
+      if (
+        e.shortMessage &&
+        e.shortMessage ===
+          'The total cost (gas * gas fee + value) of executing this transaction exceeds the balance of the account.'
+      ) {
+        e.shortMessage = 'You do not have enough ETH to cover the minting cost, please bridge some ETH to Taiko.';
+      }
+      console.error('mint error', e.name);
       errorToast({
         title: 'Mint Error',
         message: e.shortMessage || e.message,
