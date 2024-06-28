@@ -73,6 +73,7 @@ func (r *EventRepository) UpdateFeesAndProfitability(
 	if err := tx.Count(&count).Error; err != nil {
 		return errors.Wrap(err, "r.db.Count")
 	}
+
 	if count == 0 {
 		return gorm.ErrRecordNotFound
 	}
@@ -104,6 +105,7 @@ func (r *EventRepository) UpdateStatus(ctx context.Context, id int, status relay
 	if err := tx.Count(&count).Error; err != nil {
 		return errors.Wrap(err, "r.db.Count")
 	}
+
 	if count == 0 {
 		return gorm.ErrRecordNotFound
 	}
