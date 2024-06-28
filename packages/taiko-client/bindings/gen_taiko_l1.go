@@ -2085,6 +2085,296 @@ func (_TaikoL1Client *TaikoL1ClientFilterer) ParseBlockVerified0(log types.Log) 
 	return event, nil
 }
 
+// TaikoL1ClientCalldataTxListIterator is returned from FilterCalldataTxList and is used to iterate over the raw logs and unpacked data for CalldataTxList events raised by the TaikoL1Client contract.
+type TaikoL1ClientCalldataTxListIterator struct {
+	Event *TaikoL1ClientCalldataTxList // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *TaikoL1ClientCalldataTxListIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(TaikoL1ClientCalldataTxList)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(TaikoL1ClientCalldataTxList)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *TaikoL1ClientCalldataTxListIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *TaikoL1ClientCalldataTxListIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// TaikoL1ClientCalldataTxList represents a CalldataTxList event raised by the TaikoL1Client contract.
+type TaikoL1ClientCalldataTxList struct {
+	BlockId *big.Int
+	TxList  []byte
+	Raw     types.Log // Blockchain specific contextual infos
+}
+
+// FilterCalldataTxList is a free log retrieval operation binding the contract event 0xa07bc5e8f00f6065c8727821591c519efd2348e4ff0c26560a85592e85b6f418.
+//
+// Solidity: event CalldataTxList(uint256 indexed blockId, bytes txList)
+func (_TaikoL1Client *TaikoL1ClientFilterer) FilterCalldataTxList(opts *bind.FilterOpts, blockId []*big.Int) (*TaikoL1ClientCalldataTxListIterator, error) {
+
+	var blockIdRule []interface{}
+	for _, blockIdItem := range blockId {
+		blockIdRule = append(blockIdRule, blockIdItem)
+	}
+
+	logs, sub, err := _TaikoL1Client.contract.FilterLogs(opts, "CalldataTxList", blockIdRule)
+	if err != nil {
+		return nil, err
+	}
+	return &TaikoL1ClientCalldataTxListIterator{contract: _TaikoL1Client.contract, event: "CalldataTxList", logs: logs, sub: sub}, nil
+}
+
+// WatchCalldataTxList is a free log subscription operation binding the contract event 0xa07bc5e8f00f6065c8727821591c519efd2348e4ff0c26560a85592e85b6f418.
+//
+// Solidity: event CalldataTxList(uint256 indexed blockId, bytes txList)
+func (_TaikoL1Client *TaikoL1ClientFilterer) WatchCalldataTxList(opts *bind.WatchOpts, sink chan<- *TaikoL1ClientCalldataTxList, blockId []*big.Int) (event.Subscription, error) {
+
+	var blockIdRule []interface{}
+	for _, blockIdItem := range blockId {
+		blockIdRule = append(blockIdRule, blockIdItem)
+	}
+
+	logs, sub, err := _TaikoL1Client.contract.WatchLogs(opts, "CalldataTxList", blockIdRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(TaikoL1ClientCalldataTxList)
+				if err := _TaikoL1Client.contract.UnpackLog(event, "CalldataTxList", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseCalldataTxList is a log parse operation binding the contract event 0xa07bc5e8f00f6065c8727821591c519efd2348e4ff0c26560a85592e85b6f418.
+//
+// Solidity: event CalldataTxList(uint256 indexed blockId, bytes txList)
+func (_TaikoL1Client *TaikoL1ClientFilterer) ParseCalldataTxList(log types.Log) (*TaikoL1ClientCalldataTxList, error) {
+	event := new(TaikoL1ClientCalldataTxList)
+	if err := _TaikoL1Client.contract.UnpackLog(event, "CalldataTxList", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// TaikoL1ClientCalldataTxList0Iterator is returned from FilterCalldataTxList0 and is used to iterate over the raw logs and unpacked data for CalldataTxList0 events raised by the TaikoL1Client contract.
+type TaikoL1ClientCalldataTxList0Iterator struct {
+	Event *TaikoL1ClientCalldataTxList0 // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *TaikoL1ClientCalldataTxList0Iterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(TaikoL1ClientCalldataTxList0)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(TaikoL1ClientCalldataTxList0)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *TaikoL1ClientCalldataTxList0Iterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *TaikoL1ClientCalldataTxList0Iterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// TaikoL1ClientCalldataTxList0 represents a CalldataTxList0 event raised by the TaikoL1Client contract.
+type TaikoL1ClientCalldataTxList0 struct {
+	BlockId *big.Int
+	TxList  []byte
+	Raw     types.Log // Blockchain specific contextual infos
+}
+
+// FilterCalldataTxList0 is a free log retrieval operation binding the contract event 0xa07bc5e8f00f6065c8727821591c519efd2348e4ff0c26560a85592e85b6f418.
+//
+// Solidity: event CalldataTxList(uint256 indexed blockId, bytes txList)
+func (_TaikoL1Client *TaikoL1ClientFilterer) FilterCalldataTxList0(opts *bind.FilterOpts, blockId []*big.Int) (*TaikoL1ClientCalldataTxList0Iterator, error) {
+
+	var blockIdRule []interface{}
+	for _, blockIdItem := range blockId {
+		blockIdRule = append(blockIdRule, blockIdItem)
+	}
+
+	logs, sub, err := _TaikoL1Client.contract.FilterLogs(opts, "CalldataTxList0", blockIdRule)
+	if err != nil {
+		return nil, err
+	}
+	return &TaikoL1ClientCalldataTxList0Iterator{contract: _TaikoL1Client.contract, event: "CalldataTxList0", logs: logs, sub: sub}, nil
+}
+
+// WatchCalldataTxList0 is a free log subscription operation binding the contract event 0xa07bc5e8f00f6065c8727821591c519efd2348e4ff0c26560a85592e85b6f418.
+//
+// Solidity: event CalldataTxList(uint256 indexed blockId, bytes txList)
+func (_TaikoL1Client *TaikoL1ClientFilterer) WatchCalldataTxList0(opts *bind.WatchOpts, sink chan<- *TaikoL1ClientCalldataTxList0, blockId []*big.Int) (event.Subscription, error) {
+
+	var blockIdRule []interface{}
+	for _, blockIdItem := range blockId {
+		blockIdRule = append(blockIdRule, blockIdItem)
+	}
+
+	logs, sub, err := _TaikoL1Client.contract.WatchLogs(opts, "CalldataTxList0", blockIdRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(TaikoL1ClientCalldataTxList0)
+				if err := _TaikoL1Client.contract.UnpackLog(event, "CalldataTxList0", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseCalldataTxList0 is a log parse operation binding the contract event 0xa07bc5e8f00f6065c8727821591c519efd2348e4ff0c26560a85592e85b6f418.
+//
+// Solidity: event CalldataTxList(uint256 indexed blockId, bytes txList)
+func (_TaikoL1Client *TaikoL1ClientFilterer) ParseCalldataTxList0(log types.Log) (*TaikoL1ClientCalldataTxList0, error) {
+	event := new(TaikoL1ClientCalldataTxList0)
+	if err := _TaikoL1Client.contract.UnpackLog(event, "CalldataTxList0", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
 // TaikoL1ClientInitializedIterator is returned from FilterInitialized and is used to iterate over the raw logs and unpacked data for Initialized events raised by the TaikoL1Client contract.
 type TaikoL1ClientInitializedIterator struct {
 	Event *TaikoL1ClientInitialized // Event containing the contract specifics and raw log

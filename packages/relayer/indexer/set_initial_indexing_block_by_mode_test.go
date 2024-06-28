@@ -1,7 +1,6 @@
 package indexer
 
 import (
-	"context"
 	"math/big"
 	"testing"
 
@@ -51,7 +50,6 @@ func Test_setInitialIndexingBlockByMode(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			svc, _ := newTestService(tt.mode, FilterAndSubscribe)
 			err := svc.setInitialIndexingBlockByMode(
-				context.Background(),
 				tt.mode,
 				tt.chainID,
 			)

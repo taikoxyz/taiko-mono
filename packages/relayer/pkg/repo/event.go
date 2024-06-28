@@ -3,31 +3,34 @@ package repo
 import (
 	"context"
 	"strings"
+	"time"
 
 	"net/http"
 
 	"github.com/morkid/paginate"
 	"github.com/pkg/errors"
-	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
+
+	"github.com/taikoxyz/taiko-mono/packages/relayer"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/db"
 )
 
 type EventRepository struct {
-	db DB
+	db db.DB
 }
 
-func NewEventRepository(db DB) (*EventRepository, error) {
-	if db == nil {
-		return nil, ErrNoDB
+func NewEventRepository(dbHandler db.DB) (*EventRepository, error) {
+	if dbHandler == nil {
+		return nil, db.ErrNoDB
 	}
 
 	return &EventRepository{
-		db: db,
+		db: dbHandler,
 	}, nil
 }
 
-func (r *EventRepository) Save(ctx context.Context, opts relayer.SaveEventOpts) (*relayer.Event, error) {
+func (r *EventRepository) Save(ctx context.Context, opts *relayer.SaveEventOpts) (*relayer.Event, error) {
 	e := &relayer.Event{
 		Data:                   datatypes.JSON(opts.Data),
 		Status:                 opts.Status,
@@ -56,6 +59,32 @@ func (r *EventRepository) Save(ctx context.Context, opts relayer.SaveEventOpts) 
 	}
 
 	return e, nil
+}
+
+func (r *EventRepository) UpdateFeesAndProfitability(
+	ctx context.Context,
+	id int,
+	opts *relayer.UpdateFeesAndProfitabilityOpts,
+) error {
+	e := &relayer.Event{}
+	if err := r.db.GormDB().Where("id = ?", id).First(e).Error; err != nil {
+		return errors.Wrap(err, "r.db.First")
+	}
+
+	e.Fee = &opts.Fee
+	e.DestChainBaseFee = &opts.DestChainBaseFee
+	e.GasTipCap = &opts.GasTipCap
+	e.GasLimit = &opts.GasLimit
+	e.IsProfitable = &opts.IsProfitable
+	e.EstimatedOnchainFee = &opts.EstimatedOnchainFee
+	currentTime := time.Now().UTC()
+	e.IsProfitableEvaluatedAt = &currentTime
+
+	if err := r.db.GormDB().Save(e).Error; err != nil {
+		return errors.Wrap(err, "r.db.Save")
+	}
+
+	return nil
 }
 
 func (r *EventRepository) UpdateStatus(ctx context.Context, id int, status relayer.EventStatus) error {
@@ -114,7 +143,7 @@ func (r *EventRepository) FindAllByAddress(
 	ctx context.Context,
 	req *http.Request,
 	opts relayer.FindAllByAddressOpts,
-) (paginate.Page, error) {
+) (*paginate.Page, error) {
 	pg := paginate.New(&paginate.Config{
 		DefaultSize: 100,
 	})
@@ -146,8 +175,11 @@ func (r *EventRepository) FindAllByAddress(
 	reqCtx := pg.With(q)
 
 	page := reqCtx.Request(req).Response(&[]relayer.Event{})
+	if page.Error {
+		return nil, page.RawError
+	}
 
-	return page, nil
+	return &page, nil
 }
 
 func (r *EventRepository) Delete(
@@ -219,7 +251,7 @@ func (r *EventRepository) FindLatestBlockID(
 	srcChainID uint64,
 	destChainID uint64,
 ) (uint64, error) {
-	q := `SELECT COALESCE(MAX(emitted_block_id), 0) 
+	q := `SELECT COALESCE(MAX(emitted_block_id), 0)
 	FROM events WHERE chain_id = ? AND dest_chain_id = ? AND event = ?`
 
 	var b uint64

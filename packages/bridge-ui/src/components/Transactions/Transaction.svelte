@@ -24,6 +24,7 @@
 
   export let item: BridgeTransaction;
   export let loading = false;
+  export let handleTransactionRemoved: (event: CustomEvent) => void;
 
   let token: NFT;
   let insufficientModal = false;
@@ -188,6 +189,7 @@
       <Status
         bridgeTx={item}
         bind:bridgeTxStatus
+        on:transactionRemoved={handleTransactionRemoved}
         on:openModal={handleOpenModal}
         on:insufficientFunds={handleInsufficientFunds} />
     </div>
@@ -247,6 +249,7 @@
     <div class="md:w-1/5 py-2 flex flex-col justify-center">
       <Status
         bridgeTx={item}
+        on:transactionRemoved={handleTransactionRemoved}
         bind:bridgeTxStatus
         on:openModal={handleOpenModal}
         on:insufficientFunds={handleInsufficientFunds} />

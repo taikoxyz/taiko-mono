@@ -6,6 +6,7 @@ import (
 	"errors"
 	"math/rand"
 	"net/http"
+	"time"
 
 	"github.com/morkid/paginate"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
@@ -21,7 +22,7 @@ func NewEventRepository() *EventRepository {
 		events: make([]*relayer.Event, 0),
 	}
 }
-func (r *EventRepository) Save(ctx context.Context, opts relayer.SaveEventOpts) (*relayer.Event, error) {
+func (r *EventRepository) Save(ctx context.Context, opts *relayer.SaveEventOpts) (*relayer.Event, error) {
 	r.events = append(r.events, &relayer.Event{
 		ID:           rand.Int(), // nolint: gosec
 		Data:         datatypes.JSON(opts.Data),
@@ -62,11 +63,49 @@ func (r *EventRepository) UpdateStatus(ctx context.Context, id int, status relay
 	return nil
 }
 
+func (r *EventRepository) UpdateFeesAndProfitability(
+	ctx context.Context,
+	id int, opts *relayer.UpdateFeesAndProfitabilityOpts,
+) error {
+	var event *relayer.Event
+
+	var index int
+
+	// Find the event by ID
+	for i, e := range r.events {
+		if e.ID == id {
+			event = e
+			index = i
+
+			break
+		}
+	}
+
+	if event == nil {
+		return nil // Or return an appropriate error if the event is not found
+	}
+
+	// Update the event fields
+	event.Fee = &opts.Fee
+	event.DestChainBaseFee = &opts.DestChainBaseFee
+	event.GasTipCap = &opts.GasTipCap
+	event.GasLimit = &opts.GasLimit
+	event.IsProfitable = &opts.IsProfitable
+	event.EstimatedOnchainFee = &opts.EstimatedOnchainFee
+	currentTime := time.Now().UTC()
+	event.IsProfitableEvaluatedAt = &currentTime
+
+	// Save the updated event back to the slice
+	r.events[index] = event
+
+	return nil
+}
+
 func (r *EventRepository) FindAllByAddress(
 	ctx context.Context,
 	req *http.Request,
 	opts relayer.FindAllByAddressOpts,
-) (paginate.Page, error) {
+) (*paginate.Page, error) {
 	type d struct {
 		Owner string `json:"Owner"`
 	}
@@ -80,12 +119,12 @@ func (r *EventRepository) FindAllByAddress(
 	for _, e := range r.events {
 		m, err := e.Data.MarshalJSON()
 		if err != nil {
-			return paginate.Page{}, err
+			return nil, err
 		}
 
 		data := &d{}
 		if err := json.Unmarshal(m, data); err != nil {
-			return paginate.Page{}, err
+			return nil, err
 		}
 
 		if data.Owner == opts.Address.Hex() {
@@ -94,7 +133,7 @@ func (r *EventRepository) FindAllByAddress(
 		}
 	}
 
-	return paginate.Page{
+	return &paginate.Page{
 		Items: events,
 	}, nil
 }
