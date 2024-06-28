@@ -76,9 +76,11 @@ func (r *EventRepository) UpdateFeesAndProfitability(
 		"estimated_onchain_fee":      opts.EstimatedOnchainFee,
 		"is_profitable_evaluated_at": opts.IsProfitableEvaluatedAt,
 	}).Error
+
 	if err != nil {
 		return errors.Wrap(err, "r.db.Commit")
 	}
+
 	return nil
 }
 
@@ -87,6 +89,7 @@ func (r *EventRepository) UpdateStatus(ctx context.Context, id int, status relay
 	tx = tx.Model(&relayer.Event{})
 	tx = tx.Where("id = ?", id)
 	err := tx.Update("status", status).Error
+
 	if err != nil {
 		return errors.Wrap(err, "tx.Commit")
 	}
@@ -250,7 +253,8 @@ func (r *EventRepository) FindLatestBlockID(
 
 	var b uint64
 
-	if err := r.db.GormDB().WithContext(ctx).Table("events").Raw(q, srcChainID, destChainID, event).Scan(&b).Error; err != nil {
+	if err := r.db.GormDB().WithContext(ctx).Table("events").
+		Raw(q, srcChainID, destChainID, event).Scan(&b).Error; err != nil {
 		return 0, err
 	}
 
