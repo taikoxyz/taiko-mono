@@ -159,6 +159,7 @@ type EventRepository interface {
 	) (uint64, error)
 	DeleteAllAfterBlockID(blockID uint64, srcChainID uint64, destChainID uint64) error
 	FindLatestBlockID(
+		ctx context.Context,
 		event string,
 		srcChainID uint64,
 		destChainID uint64,
