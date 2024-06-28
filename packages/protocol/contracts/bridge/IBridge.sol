@@ -77,9 +77,9 @@ interface IBridge {
     /// @return msgHash_ The hash of the sent message.
     /// @return message_ The updated message sent.
     function sendMessage(Message calldata _message)
-        external
-        payable
-        returns (bytes32 msgHash_, Message memory message_);
+    external
+    payable
+    returns (bytes32 msgHash_, Message memory message_);
 
     /// @notice Recalls a failed message on its source chain, releasing
     /// associated assets.
@@ -102,8 +102,8 @@ interface IBridge {
         Message calldata _message,
         bytes calldata _proof
     )
-        external
-        returns (Status, StatusReason);
+    external
+    returns (Status, StatusReason);
 
     /// @notice Retries to invoke the messageCall after releasing associated
     /// Ether and tokens.
@@ -131,6 +131,13 @@ interface IBridge {
     /// @return true if the message was sent.
     function isMessageSent(Message calldata _message) external view returns (bool);
 
+    /**
+    * @notice Retrieves the status of a message identified by its hash.
+    * @param msgHash The hash of the message whose status is queried.
+    * @return Status The current status of the message.
+    */
+    function messageStatus(bytes32 msgHash) external view returns (Status);
+
     /// @notice Hash the message
     /// @param _message The message struct variable to be hashed.
     /// @return The message's hash.
@@ -147,8 +154,8 @@ interface IRecallableSender {
         IBridge.Message calldata _message,
         bytes32 _msgHash
     )
-        external
-        payable;
+    external
+    payable;
 }
 
 /// @title IMessageInvocable
