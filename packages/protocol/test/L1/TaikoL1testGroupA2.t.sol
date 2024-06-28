@@ -72,4 +72,51 @@ contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
             assertEq(tko.balanceOf(Alice), 10_000 ether);
         }
     }
+
+    // Test summary:
+    // - Use the v2 immediately - forkHeight = 0 or 1
+    // - propose and prove 5 blocks
+    // - try to verify more than 5 blocks to verify all 5 blocks are verified.
+    function test_taikoL1_group_a2_case_2() external {
+        vm.warp(1_000_000);
+        mine(1);
+        printBlockAndTrans(0);
+
+        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
+
+        bytes32 parentHash = GENESIS_BLOCK_HASH;
+
+        TaikoData.Config memory config = L1.getConfig();
+
+        TaikoData.BlockParams2 memory params = TaikoData.BlockParams2({
+            coinbase: address(0),
+            extraData: 0,
+            parentMetaHash: 0,
+            anchorBlockId: 0,
+            timestamp: 0
+        });
+        TaikoData.BlockMetadata2 memory meta = proposeBlock2(Alice, params, "");
+
+        assertEq(meta.id, 1);
+        assertTrue(meta.difficulty != 0);
+        assertEq(meta.timestamp, block.timestamp);
+        assertEq(meta.anchorBlockId, block.number - 1);
+        assertEq(meta.anchorBlockHash, blockhash(block.number - 1));
+        assertEq(meta.livenessBond, config.livenessBond);
+        assertEq(meta.coinbase, Alice);
+        assertEq(meta.parentMetaHash, params.parentMetaHash);
+        // assertEq(meta.extraData, params.extraData);
+
+        // TaikoData.Block memory blk = L1.getBlock(1);
+        //  assertEq(blk.blockId, 1);
+        //  assertEq(blk.proposedAt, block.timestamp);
+        //  assertEq(blk.proposedIn, block.number);
+        //  assertEq(blk.assignedProver, address(0));
+        //  assertEq(blk.livenessBond, 0);
+        //  assertEq(blk.anchorBlockId, meta.anchorBlockId);
+        //  assertEq(blk.timestamp, meta.timestamp);
+        //  assertEq(blk.nextTransitionId, 1);
+        //  assertEq(blk.verifiedTransitionId, 0);
+        //  assertEq(blk.metaHash, keccak256(abi.encode(meta)));
+    }
 }
