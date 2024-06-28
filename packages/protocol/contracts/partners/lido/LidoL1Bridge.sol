@@ -157,6 +157,7 @@ contract LidoL1Bridge is ILidoL1Bridge, BridgeableTokens {
             l1Token_ != l1Token
             || l2Token_ != l2Token
             || amount_to_receive != amount_
+            || _message.from != address(this)
         ) revert Lido_messageTampered();
 
         IERC20(l1Token).safeTransfer(from_, amount_); // Transfer to User

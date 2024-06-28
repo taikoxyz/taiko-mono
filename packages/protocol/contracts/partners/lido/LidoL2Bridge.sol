@@ -133,6 +133,7 @@ contract LidoL2Bridge is Bridge, ILidoL2Bridge, BridgeableTokens {
         if (
             l1Token_ != l1Token
             || l2Token_ != l2Token
+            || _message.from != address(this)
         ) revert Lido_messageTampered();
 
         bridgedToken.bridgeMint(from_, amount_);
