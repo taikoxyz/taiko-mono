@@ -146,4 +146,8 @@ var (
 		Name: "message_processed_events_after_retry_error_count",
 		Help: "The total number of errors logged for MessageProcessed events after retries",
 	})
+	RelayerKeyBalanceGauge = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "relayer_key_balance",
+		Help: "Current balance of the relayer key",
+	})
 )

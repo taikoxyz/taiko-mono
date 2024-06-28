@@ -30,67 +30,64 @@ import (
 // @license.url https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md
 // ProverServer represents a prover server instance.
 type ProverServer struct {
-	echo                  *echo.Echo
-	proverPrivateKey      *ecdsa.PrivateKey
-	proverAddress         common.Address
-	proverSetAddress      common.Address
-	minOptimisticTierFee  *big.Int
-	minSgxTierFee         *big.Int
-	minSgxAndZkVMTierFee  *big.Int
-	minEthBalance         *big.Int
-	minTaikoTokenBalance  *big.Int
-	maxExpiry             time.Duration
-	maxSlippage           uint64
-	maxProposedIn         uint64
-	taikoL1Address        common.Address
-	assignmentHookAddress common.Address
-	proofSubmissionCh     chan<- proofProducer.ProofRequestBody
-	rpc                   *rpc.Client
-	protocolConfigs       *bindings.TaikoDataConfig
-	livenessBond          *big.Int
+	echo                 *echo.Echo
+	proverPrivateKey     *ecdsa.PrivateKey
+	proverAddress        common.Address
+	proverSetAddress     common.Address
+	minOptimisticTierFee *big.Int
+	minSgxTierFee        *big.Int
+	minSgxAndZkVMTierFee *big.Int
+	minEthBalance        *big.Int
+	minTaikoTokenBalance *big.Int
+	maxExpiry            time.Duration
+	maxSlippage          uint64
+	maxProposedIn        uint64
+	taikoL1Address       common.Address
+	proofSubmissionCh    chan<- proofProducer.ProofRequestBody
+	rpc                  *rpc.Client
+	protocolConfigs      *bindings.TaikoDataConfig
+	livenessBond         *big.Int
 }
 
 // NewProverServerOpts contains all configurations for creating a prover server instance.
 type NewProverServerOpts struct {
-	ProverPrivateKey      *ecdsa.PrivateKey
-	ProverSetAddress      common.Address
-	MinOptimisticTierFee  *big.Int
-	MinSgxTierFee         *big.Int
-	MinSgxAndZkVMTierFee  *big.Int
-	MinEthBalance         *big.Int
-	MinTaikoTokenBalance  *big.Int
-	MaxExpiry             time.Duration
-	MaxBlockSlippage      uint64
-	MaxProposedIn         uint64
-	TaikoL1Address        common.Address
-	AssignmentHookAddress common.Address
-	ProofSubmissionCh     chan<- proofProducer.ProofRequestBody
-	RPC                   *rpc.Client
-	ProtocolConfigs       *bindings.TaikoDataConfig
-	LivenessBond          *big.Int
+	ProverPrivateKey     *ecdsa.PrivateKey
+	ProverSetAddress     common.Address
+	MinOptimisticTierFee *big.Int
+	MinSgxTierFee        *big.Int
+	MinSgxAndZkVMTierFee *big.Int
+	MinEthBalance        *big.Int
+	MinTaikoTokenBalance *big.Int
+	MaxExpiry            time.Duration
+	MaxBlockSlippage     uint64
+	MaxProposedIn        uint64
+	TaikoL1Address       common.Address
+	ProofSubmissionCh    chan<- proofProducer.ProofRequestBody
+	RPC                  *rpc.Client
+	ProtocolConfigs      *bindings.TaikoDataConfig
+	LivenessBond         *big.Int
 }
 
 // New creates a new prover server instance.
 func New(opts *NewProverServerOpts) (*ProverServer, error) {
 	srv := &ProverServer{
-		proverPrivateKey:      opts.ProverPrivateKey,
-		proverAddress:         crypto.PubkeyToAddress(opts.ProverPrivateKey.PublicKey),
-		proverSetAddress:      opts.ProverSetAddress,
-		echo:                  echo.New(),
-		minOptimisticTierFee:  opts.MinOptimisticTierFee,
-		minSgxTierFee:         opts.MinSgxTierFee,
-		minSgxAndZkVMTierFee:  opts.MinSgxAndZkVMTierFee,
-		minEthBalance:         opts.MinEthBalance,
-		minTaikoTokenBalance:  opts.MinTaikoTokenBalance,
-		maxExpiry:             opts.MaxExpiry,
-		maxProposedIn:         opts.MaxProposedIn,
-		maxSlippage:           opts.MaxBlockSlippage,
-		taikoL1Address:        opts.TaikoL1Address,
-		assignmentHookAddress: opts.AssignmentHookAddress,
-		proofSubmissionCh:     opts.ProofSubmissionCh,
-		rpc:                   opts.RPC,
-		protocolConfigs:       opts.ProtocolConfigs,
-		livenessBond:          opts.LivenessBond,
+		proverPrivateKey:     opts.ProverPrivateKey,
+		proverAddress:        crypto.PubkeyToAddress(opts.ProverPrivateKey.PublicKey),
+		proverSetAddress:     opts.ProverSetAddress,
+		echo:                 echo.New(),
+		minOptimisticTierFee: opts.MinOptimisticTierFee,
+		minSgxTierFee:        opts.MinSgxTierFee,
+		minSgxAndZkVMTierFee: opts.MinSgxAndZkVMTierFee,
+		minEthBalance:        opts.MinEthBalance,
+		minTaikoTokenBalance: opts.MinTaikoTokenBalance,
+		maxExpiry:            opts.MaxExpiry,
+		maxProposedIn:        opts.MaxProposedIn,
+		maxSlippage:          opts.MaxBlockSlippage,
+		taikoL1Address:       opts.TaikoL1Address,
+		proofSubmissionCh:    opts.ProofSubmissionCh,
+		rpc:                  opts.RPC,
+		protocolConfigs:      opts.ProtocolConfigs,
+		livenessBond:         opts.LivenessBond,
 	}
 
 	srv.echo.HideBanner = true
@@ -144,5 +141,4 @@ func (s *ProverServer) configureRoutes() {
 	s.echo.GET("/", s.Health)
 	s.echo.GET("/healthz", s.Health)
 	s.echo.GET("/status", s.GetStatus)
-	s.echo.POST("/assignment", s.CreateAssignment)
 }

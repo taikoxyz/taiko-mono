@@ -26,6 +26,11 @@ abstract contract TaikoEvents {
         TaikoData.EthDeposit[] depositsProcessed
     );
 
+    /// @notice Emitted when a block's txList is in the calldata.
+    /// @param blockId The ID of the proposed block.
+    /// @param txList The txList.
+    event CalldataTxList(uint256 indexed blockId, bytes txList);
+
     /// @dev Emitted when a block is verified.
     /// @param blockId The ID of the verified block.
     /// @param prover The prover whose transition is used for verifying the

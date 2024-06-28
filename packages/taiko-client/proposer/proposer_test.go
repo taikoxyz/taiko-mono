@@ -72,9 +72,7 @@ func (s *ProposerTestSuite) SetupTest() {
 			TaikoL1Address:    common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
 			TaikoL2Address:    common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
 			TaikoTokenAddress: common.HexToAddress(os.Getenv("TAIKO_TOKEN_ADDRESS")),
-			ProverSetAddress:  common.HexToAddress(os.Getenv("PROVER_SET_ADDRESS")),
 		},
-		AssignmentHookAddress:      common.HexToAddress(os.Getenv("ASSIGNMENT_HOOK_ADDRESS")),
 		L1ProposerPrivKey:          l1ProposerPrivKey,
 		L2SuggestedFeeRecipient:    common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
 		MinProposingInternal:       0,
@@ -87,7 +85,6 @@ func (s *ProposerTestSuite) SetupTest() {
 		MaxTierFeePriceBumps:       3,
 		ExtraData:                  "test",
 		L1BlockBuilderTip:          common.Big0,
-		BlobAllowed:                true,
 		ProposeBlockTxGasLimit:     10_000_000,
 		TxmgrConfigs: &txmgr.CLIConfig{
 			L1RPCURL:                  os.Getenv("L1_NODE_WS_ENDPOINT"),
@@ -104,7 +101,7 @@ func (s *ProposerTestSuite) SetupTest() {
 			TxSendTimeout:             txmgr.DefaultBatcherFlagValues.TxSendTimeout,
 			TxNotInMempoolTimeout:     txmgr.DefaultBatcherFlagValues.TxNotInMempoolTimeout,
 		},
-	}))
+	}, nil))
 
 	s.p = p
 	s.cancel = cancel
@@ -123,7 +120,6 @@ func (s *ProposerTestSuite) TestProposeTxLists() {
 		cfg.TaikoL1Address,
 		cfg.ProverSetAddress,
 		cfg.L2SuggestedFeeRecipient,
-		cfg.AssignmentHookAddress,
 		cfg.ProposeBlockTxGasLimit,
 		cfg.ExtraData,
 	)
@@ -262,7 +258,7 @@ func (s *ProposerTestSuite) TestAssignProverSuccessFirstRound() {
 	s.SetL1Automine(false)
 	defer s.SetL1Automine(true)
 
-	_, _, fee, err := s.p.proverSelector.AssignProver(context.Background(), s.p.tierFees, testutils.RandomHash())
+	fee, err := s.p.proverSelector.AssignProver(context.Background(), s.p.tierFees)
 
 	s.Nil(err)
 	s.Equal(fee.Uint64(), s.p.OptimisticTierFee.Uint64())

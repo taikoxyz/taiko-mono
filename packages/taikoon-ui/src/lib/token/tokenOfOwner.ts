@@ -1,5 +1,7 @@
 import { readContracts } from '@wagmi/core';
 
+import { chainId } from '$lib/chain';
+
 import { taikoonTokenAbi, taikoonTokenAddress } from '../../generated/abi';
 import getConfig from '../../lib/wagmi/getConfig';
 import type { IAddress } from '../../types';
@@ -8,7 +10,7 @@ import { balanceOf } from './balanceOf';
 export async function tokenOfOwner(address: IAddress): Promise<number[]> {
   const balance = await balanceOf(address);
 
-  const { config, chainId } = getConfig();
+  const config = getConfig();
 
   const params = { contracts: [] } as any;
 

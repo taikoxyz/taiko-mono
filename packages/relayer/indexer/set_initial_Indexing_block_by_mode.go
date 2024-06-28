@@ -1,7 +1,6 @@
 package indexer
 
 import (
-	"context"
 	"math/big"
 
 	"github.com/pkg/errors"
@@ -11,7 +10,6 @@ import (
 // setInitialIndexingBlockByMode takes in a SyncMode and determines how we should
 // start our indexing
 func (i *Indexer) setInitialIndexingBlockByMode(
-	ctx context.Context,
 	mode SyncMode,
 	chainID *big.Int,
 ) error {

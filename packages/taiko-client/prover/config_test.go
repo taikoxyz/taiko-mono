@@ -57,7 +57,6 @@ func (s *ProverTestSuite) TestNewConfigFromCliContextGuardianProver() {
 		s.Nil(new(Prover).InitFromCli(context.Background(), ctx))
 		s.True(c.ProveUnassignedBlocks)
 		s.Equal(uint64(100), c.MaxProposedIn)
-		s.Equal(os.Getenv("ASSIGNMENT_HOOK_ADDRESS"), c.AssignmentHookAddress.String())
 		allowanceWithDecimal, err := utils.EtherToWei(allowance)
 		s.Nil(err)
 		s.Equal(allowanceWithDecimal.Uint64(), c.Allowance.Uint64())
@@ -83,7 +82,6 @@ func (s *ProverTestSuite) TestNewConfigFromCliContextGuardianProver() {
 		"--" + flags.ProverCapacity.Name, "8",
 		"--" + flags.GuardianProverMajority.Name, os.Getenv("GUARDIAN_PROVER_CONTRACT_ADDRESS"),
 		"--" + flags.GuardianProverMinority.Name, os.Getenv("GUARDIAN_PROVER_MINORITY_ADDRESS"),
-		"--" + flags.AssignmentHookAddress.Name, os.Getenv("ASSIGNMENT_HOOK_ADDRESS"),
 		"--" + flags.Graffiti.Name, "",
 		"--" + flags.ProveUnassignedBlocks.Name,
 		"--" + flags.MaxProposedIn.Name, "100",
@@ -124,7 +122,6 @@ func (s *ProverTestSuite) SetupApp() *cli.App {
 		&cli.Uint64Flag{Name: flags.MinOptimisticTierFee.Name},
 		&cli.Uint64Flag{Name: flags.MinSgxTierFee.Name},
 		&cli.Uint64Flag{Name: flags.MaxProposedIn.Name},
-		&cli.StringFlag{Name: flags.AssignmentHookAddress.Name},
 		&cli.StringFlag{Name: flags.Allowance.Name},
 		&cli.StringFlag{Name: flags.ContesterMode.Name},
 		&cli.StringFlag{Name: flags.L1NodeVersion.Name},
