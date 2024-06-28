@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import "../../libs/LibAddress.sol";
 import "../../libs/LibNetwork.sol";
+import "../access/IProposerAccess.sol";
 import "./LibData.sol";
 import "./LibUtils.sol";
 
@@ -48,6 +49,7 @@ library LibProposing {
     error L1_BLOB_NOT_AVAILABLE();
     error L1_BLOB_NOT_FOUND();
     error L1_INVALID_ANCHOR_BLOCK();
+    error L1_INVALID_PROPOSER();
     error L1_INVALID_TIMESTAMP();
     error L1_LIVENESS_BOND_NOT_RECEIVED();
     error L1_TOO_MANY_BLOCKS();
@@ -72,6 +74,14 @@ library LibProposing {
         internal
         returns (TaikoData.BlockMetadata2 memory meta_, TaikoData.EthDeposit[] memory deposits_)
     {
+        // Checks proposer access.
+        {
+            address access = _resolver.resolve(LibStrings.B_PROPOSER_ACCESS, true);
+            if (access != address(0) && !IProposerAccess(access).isProposerEligible(msg.sender)) {
+                revert L1_INVALID_PROPOSER();
+            }
+        }
+
         // Taiko, as a Based Rollup, enables permissionless block proposals.
         Local memory local;
         local.b = _state.slotB;
