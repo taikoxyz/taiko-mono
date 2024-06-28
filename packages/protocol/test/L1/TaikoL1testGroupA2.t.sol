@@ -156,5 +156,10 @@ contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
         assertEq(blk.nextTransitionId, 1);
         assertEq(blk.verifiedTransitionId, 0);
         assertEq(blk.metaHash, keccak256(abi.encode(meta)));
+
+        for (uint256 i = 0; i < 3; ++i) {
+            TaikoData.BlockParams2 memory params2;
+            proposeBlock2(Alice, params2, "");
+        }
     }
 }
