@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {Bridge} from "../../bridge/Bridge.sol";
-import {IBridge} from "../../bridge/IBridge.sol";
-import {ILidoL1Bridge} from "./ILidoL1Bridge.sol";
-import {ILidoL2Bridge} from "./ILidoL2Bridge.sol";
-import {BridgeableTokens} from "../../thirdparty/lido/BridgeableTokens.sol";
-import {ILidoBridgedToken} from "./ILidoBridgedToken.sol";
-
+import { Bridge } from "../../bridge/Bridge.sol";
+import { IBridge } from "../../bridge/IBridge.sol";
+import { ILidoL1Bridge } from "./ILidoL1Bridge.sol";
+import { ILidoL2Bridge } from "./ILidoL2Bridge.sol";
+import { BridgeableTokens } from "../../thirdparty/lido/BridgeableTokens.sol";
+import { ILidoBridgedToken } from "./ILidoBridgedToken.sol";
 
 contract LidoL2Bridge is Bridge, ILidoL2Bridge, BridgeableTokens {
-
     IBridge bridge;
     uint32 destChainId;
     address public lidoL1Bridge;
@@ -57,7 +55,9 @@ contract LidoL2Bridge is Bridge, ILidoL2Bridge, BridgeableTokens {
         uint32 dstChainId_,
         address bridgedToken_,
         address lidoL1TokenBridge_
-    ) BridgeableTokens(l1Token_, l2Token_) {
+    )
+        BridgeableTokens(l1Token_, l2Token_)
+    {
         bridge = IBridge(bridge_);
         destChainId = dstChainId_;
         lidoL1Bridge = lidoL1TokenBridge_;
@@ -70,14 +70,7 @@ contract LidoL2Bridge is Bridge, ILidoL2Bridge, BridgeableTokens {
      * @param l1Gas_ The amount of gas to be used for the transaction on L1
      * @param data_ Additional data for the withdrawal
      */
-    function withdraw(
-        uint256 amount_,
-        uint32 l1Gas_,
-        bytes calldata data_
-    )
-    external
-    payable
-    {
+    function withdraw(uint256 amount_, uint32 l1Gas_, bytes calldata data_) external payable {
         withdrawTo(msg.sender, amount_, l1Gas_, data_);
     }
 
@@ -86,15 +79,12 @@ contract LidoL2Bridge is Bridge, ILidoL2Bridge, BridgeableTokens {
      * @param _message The message received from the L1 bridge
      * @param _proof The proof of the message
      */
-    function receiveMessage(
-        IBridge.Message calldata _message,
-        bytes calldata _proof
-    )
-    external
-    {
+    function receiveMessage(IBridge.Message calldata _message, bytes calldata _proof) external {
         bridge.processMessage(_message, _proof);
 
-        if (bridge.messageStatus(bridge.hashMessage(_message)) != IBridge.Status.DONE) revert Lido_messageProcessingFailed();
+        if (bridge.messageStatus(bridge.hashMessage(_message)) != IBridge.Status.DONE) {
+            revert Lido_messageProcessingFailed();
+        }
 
         (
             address l1Token_,
@@ -105,20 +95,22 @@ contract LidoL2Bridge is Bridge, ILidoL2Bridge, BridgeableTokens {
             bytes memory data_
         ) = abi.decode(_message.data, (address, address, address, address, uint256, bytes));
 
-        ILidoL2Bridge(address(this)).finalizeDeposit(_message.from, l1Token_, l2Token_, from_, to_, amount_, data_);
+        ILidoL2Bridge(address(this)).finalizeDeposit(
+            _message.from, l1Token_, l2Token_, from_, to_, amount_, data_
+        );
     }
 
     /**
      * @notice Handles a failed message
      * @param _message The failed message received
      */
-    function handleFailMessage(
-        IBridge.Message calldata _message
-    ) external {
+    function handleFailMessage(IBridge.Message calldata _message) external {
         bytes32 failedHash_ = bridge.hashMessage(_message);
 
         if (failedMsgHashes[failedHash_]) revert Lido_failedMsgAlreadyProcessed();
-        if (bridge.messageStatus(bridge.hashMessage(_message)) != IBridge.Status.FAILED) revert Lido_messageNotFailed();
+        if (bridge.messageStatus(bridge.hashMessage(_message)) != IBridge.Status.FAILED) {
+            revert Lido_messageNotFailed();
+        }
 
         failedMsgHashes[failedHash_] = true;
         (
@@ -130,11 +122,9 @@ contract LidoL2Bridge is Bridge, ILidoL2Bridge, BridgeableTokens {
             bytes memory data_
         ) = abi.decode(_message.data, (address, address, address, address, uint256, bytes));
 
-        if (
-            l1Token_ != l1Token
-            || l2Token_ != l2Token
-            || _message.from != address(this)
-        ) revert Lido_messageTampered();
+        if (l1Token_ != l1Token || l2Token_ != l2Token || _message.from != address(this)) {
+            revert Lido_messageTampered();
+        }
 
         bridgedToken.bridgeMint(from_, amount_);
 
@@ -160,13 +150,13 @@ contract LidoL2Bridge is Bridge, ILidoL2Bridge, BridgeableTokens {
         uint256 amount_,
         bytes calldata data_
     )
-    external
-    onlySelf
-    onlyL1Bridge(fromBridge_)
-    onlyNonZeroAccount(from_)
-    onlyNonZeroAccount(to_)
-    onlySupportedL1Token(l1Token_)
-    onlySupportedL2Token(l2Token_)
+        external
+        onlySelf
+        onlyL1Bridge(fromBridge_)
+        onlyNonZeroAccount(from_)
+        onlyNonZeroAccount(to_)
+        onlySupportedL1Token(l1Token_)
+        onlySupportedL2Token(l2Token_)
     {
         bridgedToken.bridgeMint(to_, amount_);
         emit DepositFinalized(l1Token_, l2Token_, from_, to_, amount_, data_);
@@ -185,12 +175,11 @@ contract LidoL2Bridge is Bridge, ILidoL2Bridge, BridgeableTokens {
         uint32 l1Gas_,
         bytes calldata data_
     )
-    public
-    payable
+        public
+        payable
     {
         _initiateWithdrawal(msg.sender, to_, amount_, l1Gas_, msg.value, data_);
     }
-
 
     function _initiateWithdrawal(
         address from_,
@@ -199,17 +188,13 @@ contract LidoL2Bridge is Bridge, ILidoL2Bridge, BridgeableTokens {
         uint32 l1Gas_,
         uint256 fee_,
         bytes calldata data_
-    ) internal {
+    )
+        internal
+    {
         bridgedToken.bridgeBurn(from_, amount_);
 
         bytes memory message_ = abi.encodeWithSelector(
-            ILidoL1Bridge.finalizeWithdrawal.selector,
-            l1Token,
-            l2Token,
-            from_,
-            to_,
-            amount_,
-            data_
+            ILidoL1Bridge.finalizeWithdrawal.selector, l1Token, l2Token, from_, to_, amount_, data_
         );
 
         IBridge.Message memory message = IBridge.Message({
@@ -225,9 +210,8 @@ contract LidoL2Bridge is Bridge, ILidoL2Bridge, BridgeableTokens {
             gasLimit: l1Gas_,
             data: message_
         });
-        bridge.sendMessage{value: fee_}(message);
+        bridge.sendMessage{ value: fee_ }(message);
 
         emit WithdrawalInitiated(l1Token, l2Token, from_, to_, amount_, data_);
     }
-
 }

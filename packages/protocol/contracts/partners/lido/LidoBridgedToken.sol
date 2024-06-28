@@ -4,13 +4,12 @@ pragma solidity 0.8.24;
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract LidoBridgedToken is ERC20 {
-
     // The address of the L2 bridge
     address public lidoL2Bridge;
 
     /**
-    * @dev Custom error to indicate that the caller is not the bridge contract
-    */
+     * @dev Custom error to indicate that the caller is not the bridge contract
+     */
     error notBridge();
 
     // Modifier to restrict access to the bridge contract
@@ -25,7 +24,13 @@ contract LidoBridgedToken is ERC20 {
      * @param symbol_ The symbol of the ERC20 token
      * @param l2bridge_ The address of the L2 bridge
      */
-    constructor(string memory name_, string memory symbol_, address l2bridge_) ERC20(name_, symbol_) {
+    constructor(
+        string memory name_,
+        string memory symbol_,
+        address l2bridge_
+    )
+        ERC20(name_, symbol_)
+    {
         lidoL2Bridge = l2bridge_;
     }
 
@@ -37,7 +42,6 @@ contract LidoBridgedToken is ERC20 {
      */
     function bridgeMint(address to, uint256 amount) external onlyBridge {
         _mint(to, amount);
-
     }
 
     /**
@@ -49,5 +53,4 @@ contract LidoBridgedToken is ERC20 {
     function bridgeBurn(address to, uint256 amount) external onlyBridge {
         _burn(to, amount);
     }
-
 }

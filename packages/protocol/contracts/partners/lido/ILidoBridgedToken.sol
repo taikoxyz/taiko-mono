@@ -8,7 +8,6 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  * @dev Interface for Lido bridged token, extending the IERC20 interface
  */
 interface ILidoBridgedToken is IERC20 {
-
     /**
      * @notice Mints new tokens to a specified address
      * @param to The address to which the minted tokens will be sent

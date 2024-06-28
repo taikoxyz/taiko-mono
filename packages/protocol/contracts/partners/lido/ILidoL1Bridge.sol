@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.24;
 
-import {IBridge} from "../../bridge/IBridge.sol";
+import { IBridge } from "../../bridge/IBridge.sol";
 
 /// @notice The L1 Standard bridge locks bridged tokens on the L1 side, sends deposit messages
 ///     on the L2 side, and finalizes token withdrawals from L2.
@@ -17,11 +17,7 @@ interface ILidoL1Bridge {
     );
 
     event TokenWithdrawalFinalized(
-        address indexed _l1Token,
-        address indexed _from,
-        address _to,
-        uint256 _amount,
-        bytes _data
+        address indexed _l1Token, address indexed _from, address _to, uint256 _amount, bytes _data
     );
 
     event FailedMessageProcessed(
@@ -43,13 +39,7 @@ interface ILidoL1Bridge {
     /// @param data_ Optional data to forward to L2. This data is provided
     ///        solely as a convenience for external contracts. Aside from enforcing a maximum
     ///        length, these contracts provide no guarantees about its content.
-    function deposit(
-        uint256 amount_,
-        uint32 l2Gas_,
-        bytes calldata data_
-    )
-    external
-    payable;
+    function deposit(uint256 amount_, uint32 l2Gas_, bytes calldata data_) external payable;
 
     /// @notice deposit an amount of ERC20 to a recipient's balance on L2.
     /// @param to_ L2 address to credit the withdrawal to.
@@ -64,8 +54,8 @@ interface ILidoL1Bridge {
         uint32 l2Gas_,
         bytes calldata data_
     )
-    external
-    payable;
+        external
+        payable;
 
     /// @notice Complete a withdrawal from L2 to L1, and credit funds to the recipient's balance of
     /// the
@@ -89,19 +79,14 @@ interface ILidoL1Bridge {
         uint256 amount_,
         bytes calldata data_
     )
-    external;
-
+        external;
 
     /**
      * @notice Receives and processes a message from the L2 bridge
      * @param _message The message received from the L2 bridge
      * @param _proof The proof of the message
      */
-    function receiveMessage(
-        IBridge.Message calldata _message,
-        bytes calldata _proof
-    )
-    external;
+    function receiveMessage(IBridge.Message calldata _message, bytes calldata _proof) external;
 
     /**
      * @notice Handles a failed message
@@ -112,5 +97,5 @@ interface ILidoL1Bridge {
         IBridge.Message calldata _message,
         uint256 amount_to_receive
     )
-    external;
+        external;
 }
