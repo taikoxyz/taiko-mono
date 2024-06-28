@@ -15,6 +15,8 @@ contract ProposerRegistry is EssentialContract, IProposerAccess {
     /// @param enabled If the proposer is now enabled or not.
     event ProposerUpdated(address indexed proposer, bool enabled);
 
+    error PR_INVALID_PARAM();
+
     /// @notice Whitelisted proposers
     mapping(address proposer => bool enabled) public proposers;
 
@@ -36,8 +38,8 @@ contract ProposerRegistry is EssentialContract, IProposerAccess {
         external
         onlyOwner
     {
-        require(_proposers.length == _enabled.length, "invalid input data");
-        for (uint256 i = 0; i < _proposers.length; i++) {
+        if (_proposers.length != _enabled.length) revert PR_INVALID_PARAM();
+        for (uint256 i = 0; i < _proposers.length; ++i) {
             proposers[_proposers[i]] = _enabled[i];
             emit ProposerUpdated(_proposers[i], _enabled[i]);
         }
