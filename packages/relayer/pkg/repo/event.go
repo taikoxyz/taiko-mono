@@ -67,6 +67,16 @@ func (r *EventRepository) UpdateFeesAndProfitability(
 	tx := r.db.GormDB().WithContext(ctx)
 	tx = tx.Model(&relayer.Event{})
 	tx = tx.Where("id = ?", id)
+
+	// check if existed.
+	var count int64
+	if err := tx.Count(&count).Error; err != nil {
+		return errors.Wrap(err, "r.db.Count")
+	}
+	if count == 0 {
+		return gorm.ErrRecordNotFound
+	}
+
 	err := tx.Updates(map[string]interface{}{
 		"fee":                        opts.Fee,
 		"dest_chain_base_fee":        opts.DestChainBaseFee,
@@ -88,9 +98,17 @@ func (r *EventRepository) UpdateStatus(ctx context.Context, id int, status relay
 	tx := r.db.GormDB().WithContext(ctx)
 	tx = tx.Model(&relayer.Event{})
 	tx = tx.Where("id = ?", id)
-	err := tx.Update("status", status).Error
 
-	if err != nil {
+	// check if existed.
+	var count int64
+	if err := tx.Count(&count).Error; err != nil {
+		return errors.Wrap(err, "r.db.Count")
+	}
+	if count == 0 {
+		return gorm.ErrRecordNotFound
+	}
+
+	if err := tx.Update("status", status).Error; err != nil {
 		return errors.Wrap(err, "tx.Commit")
 	}
 
