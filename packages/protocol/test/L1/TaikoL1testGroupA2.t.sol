@@ -88,6 +88,7 @@ contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
 
         TaikoData.Config memory config = L1.getConfig();
 
+        // Propose the first block with default parameters
         TaikoData.BlockParams2 memory params = TaikoData.BlockParams2({
             coinbase: address(0),
             extraData: 0,
@@ -104,19 +105,56 @@ contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
         assertEq(meta.anchorBlockHash, blockhash(block.number - 1));
         assertEq(meta.livenessBond, config.livenessBond);
         assertEq(meta.coinbase, Alice);
-        assertEq(meta.parentMetaHash, params.parentMetaHash);
-        // assertEq(meta.extraData, params.extraData);
+        assertEq(meta.parentMetaHash, bytes32(uint256(1)));
+        assertEq(meta.extraData, params.extraData);
 
-        // TaikoData.Block memory blk = L1.getBlock(1);
-        //  assertEq(blk.blockId, 1);
-        //  assertEq(blk.proposedAt, block.timestamp);
-        //  assertEq(blk.proposedIn, block.number);
-        //  assertEq(blk.assignedProver, address(0));
-        //  assertEq(blk.livenessBond, 0);
-        //  assertEq(blk.anchorBlockId, meta.anchorBlockId);
-        //  assertEq(blk.timestamp, meta.timestamp);
-        //  assertEq(blk.nextTransitionId, 1);
-        //  assertEq(blk.verifiedTransitionId, 0);
-        //  assertEq(blk.metaHash, keccak256(abi.encode(meta)));
+        TaikoData.Block memory blk = L1.getBlock(1);
+        assertEq(blk.blockId, 1);
+        assertEq(blk.proposedAt, block.timestamp);
+        assertEq(blk.proposedIn, block.number);
+        assertEq(blk.assignedProver, address(0));
+        assertEq(blk.livenessBond, 0);
+        assertEq(blk.anchorBlockId, meta.anchorBlockId);
+        assertEq(blk.timestamp, meta.timestamp);
+        assertEq(blk.nextTransitionId, 1);
+        assertEq(blk.verifiedTransitionId, 0);
+        assertEq(blk.metaHash, keccak256(abi.encode(meta)));
+
+        // mine 100 blocks
+        vm.roll(100);
+        vm.warp(100 days);
+
+        // Propose the second block with custom parameters
+
+        params = TaikoData.BlockParams2({
+            coinbase: Bob,
+            extraData: bytes32(uint256(123)),
+            parentMetaHash: 0,
+            anchorBlockId: 90,
+            timestamp: uint64(block.timestamp - 100)
+        });
+        meta = proposeBlock2(Alice, params, "");
+
+        assertEq(meta.id, 2);
+        assertTrue(meta.difficulty != 0);
+        assertEq(meta.timestamp, block.timestamp - 100);
+        assertEq(meta.anchorBlockId, 90);
+        assertEq(meta.anchorBlockHash, blockhash(90));
+        assertEq(meta.livenessBond, config.livenessBond);
+        assertEq(meta.coinbase, Bob);
+        assertEq(meta.parentMetaHash, blk.metaHash);
+        assertEq(meta.extraData, params.extraData);
+
+        blk = L1.getBlock(2);
+        assertEq(blk.blockId, 2);
+        assertEq(blk.proposedAt, block.timestamp);
+        assertEq(blk.proposedIn, block.number);
+        assertEq(blk.assignedProver, address(0));
+        assertEq(blk.livenessBond, 0);
+        assertEq(blk.anchorBlockId, meta.anchorBlockId);
+        assertEq(blk.timestamp, meta.timestamp);
+        assertEq(blk.nextTransitionId, 1);
+        assertEq(blk.verifiedTransitionId, 0);
+        assertEq(blk.metaHash, keccak256(abi.encode(meta)));
     }
 }
