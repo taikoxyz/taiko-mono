@@ -112,11 +112,11 @@ library LibProposing {
         }
 
         // Verify the passed in L1 state block number.
-        // We only allow the L1 block to be 2 epochs old.
+        // We only allow the L1 block to be 4 epochs old.
         // The other constraint is that the L1 block number needs to be larger than or equal the one
         // in the previous L2 block.
         if (
-            local.params.l1StateBlockNumber + 64 < block.number
+            local.params.l1StateBlockNumber + 128 < block.number
                 || local.params.l1StateBlockNumber >= block.number
                 || local.params.l1StateBlockNumber < parentBlock.l1StateBlockNumber
         ) {
@@ -124,11 +124,11 @@ library LibProposing {
         }
 
         // Verify the passed in timestamp.
-        // We only allow the timestamp to be 2 epochs old.
+        // We only allow the timestamp to be 4 epochs old.
         // The other constraint is that the timestamp needs to be larger than or equal the one
         // in the previous L2 block.
         if (
-            local.params.timestamp + 64 * 12 < block.timestamp
+            local.params.timestamp + 128 * 12 < block.timestamp
                 || local.params.timestamp > block.timestamp
                 || local.params.timestamp < parentBlock.timestamp
         ) {
