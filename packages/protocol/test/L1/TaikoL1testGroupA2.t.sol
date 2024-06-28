@@ -22,6 +22,10 @@ contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
         );
     }
 
+    // Test summary:
+    // - Use the v2 immediately - forkHeight = 0 or 1
+    // - propose and prove 5 blocks
+    // - try to verify more than 5 blocks to verify all 5 blocks are verified.
     function test_taikoL1_group_a2_case_1() external {
         vm.warp(1_000_000);
         mine(1);
@@ -33,8 +37,9 @@ contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
 
         proposeBlock(Alice, TaikoErrors.L1_FORK_ERROR.selector);
 
+        TaikoData.BlockParams2 memory params;
         for (uint64 i = 1; i <= 5; ++i) {
-            TaikoData.BlockMetadata2 memory meta2 = proposeBlock2(Alice, "");
+            TaikoData.BlockMetadata2 memory meta2 = proposeBlock2(Alice, params, "");
             printBlockAndTrans(meta2.id);
             TaikoData.Block memory blk = L1.getBlock(i);
             assertEq(blk.livenessBond, 0);

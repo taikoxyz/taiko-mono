@@ -21,6 +21,11 @@ contract TaikoL1TestGroupA1 is TaikoL1TestGroupBase {
         );
     }
 
+    // Test summary:
+    // - Use the v2 on block 10 - forkHeight = 10
+    // - propose and prove block 1 to 9 using v1
+    // - propose and prove block 10 to 15 using v2
+    // - try to verify more than 15 blocks to verify all 15 blocks are verified.
     function test_taikoL1_group_a1_case_1() external {
         vm.warp(1_000_000);
         mine(1);
@@ -58,8 +63,9 @@ contract TaikoL1TestGroupA1 is TaikoL1TestGroupBase {
             assertEq(blk.assignedProver, address(0));
         }
 
+        TaikoData.BlockParams2 memory params;
         for (; i <= forkHeight + 5; ++i) {
-            TaikoData.BlockMetadata2 memory meta2 = proposeBlock2(Alice, "");
+            TaikoData.BlockMetadata2 memory meta2 = proposeBlock2(Alice, params, "");
             printBlockAndTrans(meta2.id);
             TaikoData.Block memory blk = L1.getBlock(i);
             assertEq(blk.livenessBond, 0);
