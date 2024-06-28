@@ -21,7 +21,7 @@ contract L1RollupAddressManager is AddressManager {
         internal
         pure
         override
-        returns (bool, address)
+        returns (bool found_, address addr_)
     {
         if (_chainId == 1) {
             if (_name == LibStrings.B_TAIKO_TOKEN) {
