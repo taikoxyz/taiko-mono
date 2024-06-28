@@ -131,6 +131,8 @@ library LibProposing {
         } else {
             meta_.blobHash = keccak256(_txList);
 
+            // Warning: this event will be expensive if the tx list is large.
+            // Using calldata for DA is strongly discouraged for L2s.
             emit CalldataTxList(meta_.id, _txList);
         }
 
