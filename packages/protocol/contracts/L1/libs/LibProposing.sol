@@ -74,8 +74,12 @@ library LibProposing {
         internal
         returns (TaikoData.BlockMetadata2 memory meta_, TaikoData.EthDeposit[] memory deposits_)
     {
-        if (!_isProposerEligible(_resolver, msg.sender)) {
-            revert L1_INVALID_PROPOSER();
+        // Checks proposer access.
+        {
+            address access = _resolver.resolve(LibStrings.B_PROPOSER_ACCESS, true);
+            if (access != address(0) && !IProposerAccess(access).isProposerEligible(msg.sender)) {
+                revert L1_INVALID_PROPOSER();
+            }
         }
 
         // Taiko, as a Based Rollup, enables permissionless block proposals.
@@ -242,17 +246,5 @@ library LibProposing {
                 depositsProcessed: deposits_
             });
         }
-    }
-
-    function _isProposerEligible(
-        IAddressResolver _resolver,
-        address _proposer
-    )
-        private
-        view
-        returns (bool)
-    {
-        address access = _resolver.resolve(LibStrings.B_PROPOSER_ACCESS, true);
-        return access == address(0) ? true : IProposerAccess(access).isProposerEligible(_proposer);
     }
 }
