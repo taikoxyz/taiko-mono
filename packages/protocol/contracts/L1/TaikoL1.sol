@@ -150,6 +150,17 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         );
     }
 
+    function isProposerEligible(
+        address _proposer,
+        uint256 _blockNumber
+    )
+        external
+        view
+        returns (bool)
+    {
+        return LibProposing.isProposerEligible(this, _proposer, _blockNumber);
+    }
+
     /// @notice Gets the details of a block.
     /// @param _blockId Index of the block.
     /// @return blk_ The block.
@@ -258,6 +269,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
             blockMaxGasLimit: 240_000_000,
             livenessBond: 125e18, // 125 Taiko token
             stateRootSyncInternal: 16,
+            checkProposerPermission: false,
             forkHeight: 1_000_000
         });
     }
