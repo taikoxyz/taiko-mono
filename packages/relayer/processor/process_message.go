@@ -620,7 +620,7 @@ func (p *Processor) saveMessageStatusChangedEvent(
 		// keep same format as other raw events
 		data := fmt.Sprintf(`{"Raw":{"transactionHash": "%v"}}`, receipt.TxHash.Hex())
 
-		_, err = p.eventRepo.Save(ctx, relayer.SaveEventOpts{
+		_, err = p.eventRepo.Save(ctx, &relayer.SaveEventOpts{
 			Name:           relayer.EventNameMessageStatusChanged,
 			Data:           data,
 			EmittedBlockID: event.Raw.BlockNumber,

@@ -4,9 +4,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/cmd/flags"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/mock"
 	"github.com/urfave/cli/v2"
+
+	"github.com/taikoxyz/taiko-mono/packages/relayer/cmd/flags"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/db"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/mock"
 )
 
 var (
@@ -47,7 +49,7 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		assert.Equal(t, "destRpcUrl", c.DestRPCUrl)
 		assert.Equal(t, destTaikoAddress, c.DestTaikoAddress.Hex())
 
-		c.OpenDBFunc = func() (DB, error) {
+		c.OpenDBFunc = func() (db.DB, error) {
 			return &mock.DB{}, nil
 		}
 
