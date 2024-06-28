@@ -51,6 +51,9 @@ contract L1RollupAddressManager is AddressManager {
             if (_name == LibStrings.B_TIER_ROUTER) {
                 return (true, 0xa8e5D3a2E2052bea7f10bE6a0386454b721d1f9F);
             }
+            if (_name == LibStrings.B_PROPOSER_ACCESS) {
+                return (true, address(0));
+            }
         }
     }
 }

@@ -74,10 +74,7 @@ library LibProposing {
         internal
         returns (TaikoData.BlockMetadata2 memory meta_, TaikoData.EthDeposit[] memory deposits_)
     {
-        if (
-            _config.checkProposerPermission
-                && !isProposerEligible(_resolver, msg.sender, block.number)
-        ) {
+        if (!isProposerEligible(_resolver, msg.sender, block.number)) {
             revert L1_INVALID_PROPOSER();
         }
 

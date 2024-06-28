@@ -35,7 +35,6 @@ library TaikoData {
         // ---------------------------------------------------------------------
         // The number of L2 blocks between each L2-to-L1 state root sync.
         uint8 stateRootSyncInternal;
-        bool checkProposerPermission;
         uint64 forkHeight;
     }
 
