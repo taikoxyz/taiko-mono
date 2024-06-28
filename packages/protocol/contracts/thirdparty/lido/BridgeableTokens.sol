@@ -1,10 +1,11 @@
 // SPDX-FileCopyrightText: 2022 Lido <info@lido.fi>
 // SPDX-License-Identifier: GPL-3.0
 
-pragma solidity 0.8.20;
+pragma solidity 0.8.24;
 
 /// @author psirex
 /// @notice Contains the logic for validation of tokens used in the bridging process
+/// @dev Taken from https://github.com/lidofinance/lido-l2/blob/main/contracts/BridgeableTokens.sol
 contract BridgeableTokens {
     /// @notice Address of the bridged token in the L1 chain
     address public immutable l1Token;
