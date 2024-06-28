@@ -74,7 +74,7 @@ library LibProposing {
         internal
         returns (TaikoData.BlockMetadata2 memory meta_, TaikoData.EthDeposit[] memory deposits_)
     {
-        if (!isProposerEligible(_resolver, msg.sender, block.number)) {
+        if (!_isProposerEligible(_resolver, msg.sender)) {
             revert L1_INVALID_PROPOSER();
         }
 
@@ -244,18 +244,15 @@ library LibProposing {
         }
     }
 
-    function isProposerEligible(
+    function _isProposerEligible(
         IAddressResolver _resolver,
-        address _proposer,
-        uint256 _blockNumber
+        address _proposer
     )
-        internal
+        private
         view
         returns (bool)
     {
         address access = _resolver.resolve(LibStrings.B_PROPOSER_ACCESS, true);
-        return access == address(0)
-            ? true
-            : IProposerAccess(access).isProposerEligible(_proposer, _blockNumber);
+        return access == address(0) ? true : IProposerAccess(access).isProposerEligible(_proposer);
     }
 }

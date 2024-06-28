@@ -6,15 +6,8 @@ pragma solidity 0.8.24;
 /// block.
 /// @custom:security-contact security@taiko.xyz
 interface IProposerAccess {
-    /// @notice Checks if a proposer can propose block in the given Ethereum block.
+    /// @notice Checks if a proposer can propose block in the current Ethereum block.
     /// @param _proposer The proposer.
-    /// @param _blockNumber Ethereum block number.
     /// @return true if the proposer can propose blocks, false otherwise.
-    function isProposerEligible(
-        address _proposer,
-        uint256 _blockNumber
-    )
-        external
-        view
-        returns (bool);
+    function isProposerEligible(address _proposer) external view returns (bool);
 }
