@@ -15,7 +15,7 @@ contract LidoL2Bridge is Bridge, ILidoL2Bridge, BridgeableTokens {
     uint32 destChainId;
     address public lidoL1Bridge;
     ILidoBridgedToken bridgedToken;
-    mapping(bytes32 => bool) failedMsgHases;
+    mapping(bytes32 => bool) failedMsgHashes;
 
     error Lido_notSelf();
     error Lido_notL1Bridge();
@@ -117,10 +117,10 @@ contract LidoL2Bridge is Bridge, ILidoL2Bridge, BridgeableTokens {
     ) external {
         bytes32 failedHash_ = bridge.hashMessage(_message);
 
-        if (failedMsgHases[failedHash_]) revert Lido_failedMsgAlreadyProcessed();
+        if (failedMsgHashes[failedHash_]) revert Lido_failedMsgAlreadyProcessed();
         if (bridge.messageStatus(bridge.hashMessage(_message)) != IBridge.Status.FAILED) revert Lido_messageNotFailed();
 
-        failedMsgHases[failedHash_] = true;
+        failedMsgHashes[failedHash_] = true;
         (
             address l1Token_,
             address l2Token_,

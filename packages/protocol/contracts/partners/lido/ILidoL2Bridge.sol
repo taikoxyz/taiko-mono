@@ -63,7 +63,7 @@ interface ILidoL2Bridge {
     payable;
 
     /// @notice Initiates a withdraw of some token to a recipient's account on L1.
-    /// @param to_ L1 adress to credit the withdrawal to.
+    /// @param to_ L1 address to credit the withdrawal to.
     /// @param amount_ Amount of the token to withdraw.
     /// @param l1Gas_ Unused, but included for potential forward compatibility considerations.
     /// @param data_ Optional data to forward to L1. This data is provided
