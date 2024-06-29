@@ -37,6 +37,12 @@ These are the bare minimum required settings along with a functional Taiko node 
 
 7. Now that the proposer is configured properly, you can run it with `docker compose up -d`!
 
+    <Aside type="danger">
+      We strongly recommend you [deploy a `ProverSet` contract](/guides/node-operators/deploy-a-proverset) to run your proposer. If you don't, you will run into nonce issues running your proposer and prover from the same EOA.
+      
+      If you are working with a third party prover, you will have to follow the guide with them to negotiate allowance and deposit of TAIKO/TTKOh.
+   </Aside>
+
 </Steps>
 
 <CardGrid>

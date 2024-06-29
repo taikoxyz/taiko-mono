@@ -32,6 +32,10 @@ These are the bare minimum required settings along with a functional Taiko node 
 
 7. You can then run your prover with `docker compose up -d`!
 
+   <Aside type="danger">
+      We strongly recommend you [deploy a `ProverSet` contract](/guides/node-operators/deploy-a-proverset) to run your prover. If you don't, you will run into nonce issues running your proposer and prover from the same EOA.
+   </Aside>
+
 </Steps>
 
 ### Approve TaikoL1 as TAIKO spender (mainnet)
