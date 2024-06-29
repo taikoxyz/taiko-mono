@@ -5,7 +5,7 @@ description: This guide will you help you deploy a ProverSet which enables you t
 
 import { Aside, Card, Steps, Tabs, TabItem } from '@astrojs/starlight/components'
 
-The recent protocol upgrade now requires that the address of the prover and proposer are the same. This can be achieved by simply using the same private keys to run the proposer and prover softwares,
+The recent protocol upgrade now requires that the address of the prover and proposer are the same. This can be achieved by simply using the same private keys to run the proposer and prover software,
 but this is not recommended as it can cause nonce issues. 
 
 This guide outlines how to achieve this with separate EOAs running prover and proposer through the ProverSet smart contract.
@@ -55,7 +55,7 @@ This guide outlines how to achieve this with separate EOAs running prover and pr
 
 3. **Deploy the Proxy and init the ProverSet smart contract**
 
-    Fill in the implentation address, set the **prover** EOA as admin, and ensure that the `ROLLUP_ADDRESS_MANAGER` matches for the respective network. You can find these values in our network reference docs.
+    Fill in the implementation address, set the **prover** EOA as admin, and ensure that the `ROLLUP_ADDRESS_MANAGER` matches for the respective network. You can find these values in our network reference docs.
 
     Run the `DeployProverSet.s.sol` script with your **proposer's private key** , altering the values in the script as necessary. You can find the script [here](https://github.com/taikoxyz/taiko-mono/tree/main/packages/protocol/script/DeployProverSet.s.sol).
 
