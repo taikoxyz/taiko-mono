@@ -3,7 +3,7 @@ title: Enable a prover
 description: This guide will you help you enable your Taiko node as a prover.
 ---
 
-import { Aside, Steps } from "@astrojs/starlight/components";
+import { Aside, Card, CardGrid, Steps } from "@astrojs/starlight/components";
 
 ## Prerequisites
 
@@ -83,3 +83,13 @@ You will need TTKOh deposited on the TaikoL1 contract to secure the bond for the
 ## Register the prover on the prover marketplace
 
 Finally you can choose to register your prover endpoint on the <a href="https://dojonode.xyz/tatami" target="_blank">community prover marketplace</a> so other can use it to propose blocks.
+
+<CardGrid>
+    <Card title="Troubleshooting" icon="error">
+        If you run into any problems, please visit the [troubleshooting page](/guides/node-operators/node-troubleshooting) for help.
+        If you run into an error that isn't yet listed, please reach out in our [discord](https://discord.com/invite/taikoxyz)!
+    </Card>
+    <Card title="Deploy a ProverSet" icon="rocket">
+        Now that you've enabled a proposer, to prevent nonce issues whilst running please [deploy a ProverSet](/guides/node-operators/deploy-a-proverset)!
+    </Card>
+</CardGrid>

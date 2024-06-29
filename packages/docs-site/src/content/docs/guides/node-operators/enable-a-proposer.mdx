@@ -3,7 +3,7 @@ title: Enable a proposer
 description: This guide will you help you enable your Taiko node as a proposer.
 ---
 
-import { Aside, Steps } from '@astrojs/starlight/components';
+import { Aside, Card, CardGrid, Steps} from '@astrojs/starlight/components';
 
 ## Prerequisites
 
@@ -38,3 +38,13 @@ These are the bare minimum required settings along with a functional Taiko node 
 7. Now that the proposer is configured properly, you can run it with `docker compose up -d`!
 
 </Steps>
+
+<CardGrid>
+    <Card title="Troubleshooting" icon="error">
+        If you run into any problems, please visit the [troubleshooting page](/guides/node-operators/node-troubleshooting) for help.
+        If you run into an error that isn't yet listed, please reach out in our [discord](https://discord.com/invite/taikoxyz)!
+    </Card>
+    <Card title="Deploy a ProverSet" icon="rocket">
+        Now that you've enabled a proposer, to prevent nonce issues whilst running please [deploy a ProverSet](/guides/node-operators/deploy-a-proverset)!
+    </Card>
+</CardGrid>
