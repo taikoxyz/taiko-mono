@@ -57,7 +57,6 @@ library LibProposing {
     /// @param _state Current TaikoData.State.
     /// @param _tko The taiko token.
     /// @param _config Actual TaikoData.Config.
-    /// @param _resolver Address resolver interface.
     /// @param _data Encoded data bytes containing the block params.
     /// @param _txList Transaction list bytes (if not blob).
     /// @return meta_ The constructed block's metadata.
@@ -65,7 +64,7 @@ library LibProposing {
         TaikoData.State storage _state,
         TaikoToken _tko,
         TaikoData.Config memory _config,
-        IAddressResolver _resolver,
+        IAddressResolver, /*_resolver*/
         bytes calldata _data,
         bytes calldata _txList
     )
@@ -161,7 +160,7 @@ library LibProposing {
 
         // Update certain meta fields
         if (meta_.blobUsed) {
-            if (!LibNetwork.isDencunSupported(block.chainid)) revert L1_BLOB_NOT_AVAILABLE();
+            //if (!LibNetwork.isDencunSupported(block.chainid)) revert L1_BLOB_NOT_AVAILABLE();
 
             // Always use the first blob in this transaction. If the
             // proposeBlock functions are called more than once in the same
@@ -176,12 +175,12 @@ library LibProposing {
             // the node to extract the calldata easily.
             // We cannot rely on `msg.sender != tx.origin` for EOA check, as it will break after EIP
             // 7645: Alias ORIGIN to SENDER
-            if (
-                _config.checkEOAForCalldataDA
-                    && ECDSA.recover(meta_.blobHash, local.params.signature) != msg.sender
-            ) {
-                revert L1_INVALID_SIG();
-            }
+            // if (
+            //     _config.checkEOAForCalldataDA
+            //         && ECDSA.recover(meta_.blobHash, local.params.signature) != msg.sender
+            // ) {
+            //     revert L1_INVALID_SIG();
+            // }
 
             emit CalldataTxList(meta_.id, _txList);
         }
@@ -192,11 +191,14 @@ library LibProposing {
         );
 
         {
-            ITierRouter tierRouter = ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false));
-            ITierProvider tierProvider = ITierProvider(tierRouter.getProvider(local.b.numBlocks));
+            // ITierRouter tierRouter = ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER,
+            // false));
+            // ITierProvider tierProvider =
+            // ITierProvider(tierRouter.getProvider(local.b.numBlocks));
 
             // Use the difficulty as a random number
-            meta_.minTier = tierProvider.getMinTier(uint256(meta_.difficulty));
+            // meta_.minTier = tierProvider.getMinTier(uint256(meta_.difficulty));
+            meta_.minTier = 100;
         }
 
         // Create the block that will be stored onchain
