@@ -27,33 +27,37 @@ contract VestTokenUnlock is Script {
             vm.parseJson(vm.readFile(string.concat(vm.projectRoot(), path))), (VestingItem[])
         );
 
+        uint256 total;
         for (uint256 i; i < items.length; i++) {
-            if (items[i].vestAmount != 0) {
-                // This is needed due to some memory read operation! It seems forge/foundry
-                // parseJson works in a way that we need to read into local variables from struct,
-                // as it acts like a stack-like buffer read.
-                address proxy = items[i].proxy;
-                address recipient = items[i].recipient;
-                uint128 vestAmount = uint128(items[i].vestAmount);
-                console2.log("proxy. :", proxy);
-                console2.log("grantee:", recipient);
-                console2.log("vested :", vestAmount);
+            // WARNING: JSON parsing seems to be buggy!!!
+            // proxy is parsed as recipient and recipient is parsed as proxy.
+            address recipient = items[i].proxy;
+            address proxy = items[i].recipient;
+            uint256 vestAmount = uint256(items[i].vestAmount);
 
-                require(TokenUnlock(proxy).owner() == msg.sender, "msg.sender not owner");
-                require(
-                    TokenUnlock(proxy).recipient() == items[i].recipient, "inconsistent recipient"
-                );
+            console2.log(items[i].recipient, items[i].proxy, items[i].vestAmount);
 
-                vestAmount = uint128(items[i].vestAmount * 1e18);
-                require(tko.balanceOf(msg.sender) >= vestAmount, "insufficient TKO balance");
+            TokenUnlock target = TokenUnlock(proxy);
 
-                tko.approve(proxy, vestAmount);
-                TokenUnlock(proxy).vest(vestAmount);
+            require(target.recipient() == recipient, "recipient mismatch");
+            require(target.owner() == 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F, "owner mismatch");
 
-                console2.log("Vested!\n");
-            }
+            total += SafeCastUpgradeable.toUint128(items[i].vestAmount * 1e18);
         }
 
+        console2.log("total:", total / 1e18);
+        require(tko.balanceOf(msg.sender) >= total, "insufficient TKO balance");
+
+        // for (uint256 i; i < items.length; i++) {
+        //     // This is needed due to some memory read operation! It seems forge/foundry
+        //     // parseJson works in a way that we need to read into local variables from struct,
+        //     // as it acts like a stack-like buffer read.
+        //     address proxy = items[i].recipient;
+        //     uint128 vestAmount = uint128(items[i].vestAmount * 1e18);
+
+        //     tko.approve(proxy, vestAmount);
+        //     TokenUnlock(proxy).vest(vestAmount);
+        // }
         vm.stopBroadcast();
     }
 }
