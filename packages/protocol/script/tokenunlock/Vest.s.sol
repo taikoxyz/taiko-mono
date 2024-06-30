@@ -10,9 +10,11 @@ import "../../contracts/team/tokenunlock/TokenUnlock.sol";
 contract VestTokenUnlock is Script {
     using stdJson for string;
 
+    // WARNING: there seems to be a bug in the foundry JSON parsing. If you
+    // switch the order of 'proxy' and 'recipient', the results are different.
     struct VestingItem {
-        address recipient;
         address proxy;
+        address recipient;
         uint256 vestAmount;
     }
 
@@ -31,8 +33,8 @@ contract VestTokenUnlock is Script {
         for (uint256 i; i < items.length; i++) {
             // WARNING: JSON parsing seems to be buggy!!!
             // proxy is parsed as recipient and recipient is parsed as proxy.
-            address recipient = items[i].proxy;
-            address proxy = items[i].recipient;
+            address proxy = items[i].proxy;
+            address recipient = items[i].recipient;
             uint256 vestAmount = uint256(items[i].vestAmount);
 
             console2.log("proxy:", proxy);
