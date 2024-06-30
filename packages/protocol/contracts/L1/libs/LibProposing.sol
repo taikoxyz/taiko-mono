@@ -181,6 +181,7 @@ library LibProposing {
             // ) {
             //     revert L1_INVALID_SIG();
             // }
+            require(msg.sender == tx.origin, "not EOA");
 
             emit CalldataTxList(meta_.id, _txList);
         }
