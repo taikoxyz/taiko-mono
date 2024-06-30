@@ -201,8 +201,6 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
         console2.log(" | metaHash:", vm.toString(blk.metaHash));
         console2.log(" | nextTransitionId:", blk.nextTransitionId);
         console2.log(" | verifiedTransitionId:", blk.verifiedTransitionId);
-        console2.log(" | anchorBlockId:", blk.anchorBlockId);
-        console2.log(" | timestamp:", blk.timestamp);
     }
 
     function printTran(uint64 tid, TaikoData.TransitionState memory ts) internal pure {

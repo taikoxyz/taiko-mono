@@ -157,9 +157,6 @@ library TaikoData {
         // this block is not verified as the last block in a batch, verifiedTransitionId
         // will remain zero.
         uint32 verifiedTransitionId;
-        // TODO(daniel): delete these two slots and reuse proposeAt and proposeIn.
-        uint64 anchorBlockId; // slot 4
-        uint64 timestamp;
     }
 
     /// @dev Struct representing an Ethereum deposit.

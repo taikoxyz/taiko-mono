@@ -129,7 +129,7 @@ library LibProposing {
             if (
                 params.anchorBlockId + 64 < block.number //
                     || params.anchorBlockId >= block.number
-                    || params.anchorBlockId < parentBlk.anchorBlockId
+                    || params.anchorBlockId < parentBlk.proposedIn
             ) {
                 revert L1_INVALID_ANCHOR_BLOCK();
             }
@@ -140,7 +140,7 @@ library LibProposing {
             // in the previous L2 block.
             if (
                 params.timestamp + 64 * 12 < block.timestamp || params.timestamp > block.timestamp
-                    || params.timestamp < parentBlk.timestamp
+                    || params.timestamp < parentBlk.proposedAt
             ) {
                 revert L1_INVALID_TIMESTAMP();
             }
@@ -209,14 +209,12 @@ library LibProposing {
             assignedProver: address(0),
             livenessBond: local.postFork ? 0 : meta_.livenessBond,
             blockId: local.b.numBlocks,
-            proposedAt: local.postFork ? 0 : uint64(block.timestamp),
-            proposedIn: local.postFork ? 0 : uint64(block.number),
+            proposedAt: local.postFork ? params.timestamp : uint64(block.timestamp),
+            proposedIn: local.postFork ? params.anchorBlockId : uint64(block.number),
             // For a new block, the next transition ID is always 1, not 0.
             nextTransitionId: 1,
             // For unverified block, its verifiedTransitionId is always 0.
-            verifiedTransitionId: 0,
-            anchorBlockId: params.anchorBlockId,
-            timestamp: params.timestamp
+            verifiedTransitionId: 0
         });
 
         // Store the block in the ring buffer

@@ -44,8 +44,8 @@ contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
             TaikoData.Block memory blk = L1.getBlock(i);
             assertEq(blk.livenessBond, 0);
             assertEq(blk.assignedProver, address(0));
-            assertEq(blk.anchorBlockId, block.number - 1);
-            assertEq(blk.timestamp, block.timestamp);
+            assertEq(blk.proposedIn, block.number - 1);
+            assertEq(blk.proposedAt, block.timestamp);
 
             // Prove the block
             bytes32 blockHash = bytes32(uint256(10_000 + i));
@@ -98,6 +98,8 @@ contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
 
         assertEq(meta.id, 1);
         assertTrue(meta.difficulty != 0);
+        assertEq(meta.proposedAt, block.timestamp);
+        assertEq(meta.proposedIn, block.number);
         assertEq(meta.timestamp, block.timestamp);
         assertEq(meta.anchorBlockId, block.number - 1);
         assertEq(meta.anchorBlockHash, blockhash(block.number - 1));
@@ -108,12 +110,10 @@ contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
 
         TaikoData.Block memory blk = L1.getBlock(1);
         assertEq(blk.blockId, 1);
-        assertEq(blk.proposedAt, 0);
-        assertEq(blk.proposedIn, 0);
+        assertEq(blk.proposedAt, meta.timestamp);
+        assertEq(blk.proposedIn, meta.anchorBlockId);
         assertEq(blk.assignedProver, address(0));
         assertEq(blk.livenessBond, 0);
-        assertEq(blk.anchorBlockId, meta.anchorBlockId);
-        assertEq(blk.timestamp, meta.timestamp);
         assertEq(blk.nextTransitionId, 1);
         assertEq(blk.verifiedTransitionId, 0);
         assertEq(blk.metaHash, keccak256(abi.encode(meta)));
@@ -135,7 +135,9 @@ contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
 
         assertEq(meta.id, 2);
         assertTrue(meta.difficulty != 0);
-        assertEq(meta.timestamp, block.timestamp - 100);
+        assertEq(meta.proposedAt, block.timestamp);
+        assertEq(meta.proposedIn, block.number);
+        assertEq(meta.timestamp, params.timestamp);
         assertEq(meta.anchorBlockId, 90);
         assertEq(meta.anchorBlockHash, blockhash(90));
         assertEq(meta.livenessBond, config.livenessBond);
@@ -145,12 +147,10 @@ contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
 
         blk = L1.getBlock(2);
         assertEq(blk.blockId, 2);
-        assertEq(blk.proposedAt, 0);
-        assertEq(blk.proposedIn, 0);
+        assertEq(blk.proposedAt, meta.timestamp);
+        assertEq(blk.proposedIn, meta.anchorBlockId);
         assertEq(blk.assignedProver, address(0));
         assertEq(blk.livenessBond, 0);
-        assertEq(blk.anchorBlockId, meta.anchorBlockId);
-        assertEq(blk.timestamp, meta.timestamp);
         assertEq(blk.nextTransitionId, 1);
         assertEq(blk.verifiedTransitionId, 0);
         assertEq(blk.metaHash, keccak256(abi.encode(meta)));
