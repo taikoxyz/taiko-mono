@@ -70,6 +70,15 @@ abstract contract TaikoEvents {
         uint16 tier
     );
 
+    event TransitionProved2(
+        uint256 indexed blockId,
+        TaikoData.Transition tran,
+        address prover,
+        uint96 validityBond,
+        uint16 tier,
+        uint64 proposedIn
+    );
+
     /// @dev Emitted when a block transition is contested.
     /// @param blockId The ID of the proven block.
     /// @param tran The verified transition.
@@ -82,6 +91,15 @@ abstract contract TaikoEvents {
         address contester,
         uint96 contestBond,
         uint16 tier
+    );
+
+    event TransitionContested2(
+        uint256 indexed blockId,
+        TaikoData.Transition tran,
+        address contester,
+        uint96 contestBond,
+        uint16 tier,
+        uint64 proposedIn
     );
 
     /// @dev Emitted when proving has been paused

@@ -48,6 +48,15 @@ library LibProving {
         uint16 tier
     );
 
+    event TransitionProved2(
+        uint256 indexed blockId,
+        TaikoData.Transition tran,
+        address prover,
+        uint96 validityBond,
+        uint16 tier,
+        uint64 proposedIn
+    );
+
     /// @notice Emitted when a transition is contested.
     /// @param blockId The block ID.
     /// @param tran The transition data.
@@ -60,6 +69,15 @@ library LibProving {
         address contester,
         uint96 contestBond,
         uint16 tier
+    );
+
+    event TransitionContested2(
+        uint256 indexed blockId,
+        TaikoData.Transition tran,
+        address contester,
+        uint96 contestBond,
+        uint16 tier,
+        uint64 proposedIn
     );
 
     /// @notice Emitted when proving is paused or unpaused.
@@ -257,13 +275,24 @@ library LibProving {
             // (L1_ALREADY_PROVED).
             _overrideWithHigherProof(blk, ts, tran, proof, local);
 
-            emit TransitionProved({
-                blockId: local.blockId,
-                tran: tran,
-                prover: msg.sender,
-                validityBond: local.tier.validityBond,
-                tier: proof.tier
-            });
+            if (local.postFork) {
+                emit TransitionProved2({
+                    blockId: local.blockId,
+                    tran: tran,
+                    prover: msg.sender,
+                    validityBond: local.tier.validityBond,
+                    tier: proof.tier,
+                    proposedIn: meta.proposedIn
+                });
+            } else {
+                emit TransitionProved({
+                    blockId: local.blockId,
+                    tran: tran,
+                    prover: msg.sender,
+                    validityBond: local.tier.validityBond,
+                    tier: proof.tier
+                });
+            }
         } else {
             // New transition and old transition on the same tier - and if this transaction tries to
             // prove the same, it reverts
@@ -278,13 +307,24 @@ library LibProving {
                 ts.blockHash = tran.blockHash;
                 ts.stateRoot = local.stateRoot;
 
-                emit TransitionProved({
-                    blockId: local.blockId,
-                    tran: tran,
-                    prover: msg.sender,
-                    validityBond: 0,
-                    tier: proof.tier
-                });
+                if (local.postFork) {
+                    emit TransitionProved2({
+                        blockId: local.blockId,
+                        tran: tran,
+                        prover: msg.sender,
+                        validityBond: 0,
+                        tier: proof.tier,
+                        proposedIn: meta.proposedIn
+                    });
+                } else {
+                    emit TransitionProved({
+                        blockId: local.blockId,
+                        tran: tran,
+                        prover: msg.sender,
+                        validityBond: 0,
+                        tier: proof.tier
+                    });
+                }
             } else {
                 // Contesting but not on the highest tier
                 if (ts.contester != address(0)) revert L1_ALREADY_CONTESTED();
@@ -312,13 +352,24 @@ library LibProving {
                 ts.contestBond = local.tier.contestBond;
                 ts.contester = msg.sender;
 
-                emit TransitionContested({
-                    blockId: local.blockId,
-                    tran: tran,
-                    contester: msg.sender,
-                    contestBond: local.tier.contestBond,
-                    tier: proof.tier
-                });
+                if (local.postFork) {
+                    emit TransitionContested2({
+                        blockId: local.blockId,
+                        tran: tran,
+                        contester: msg.sender,
+                        contestBond: local.tier.contestBond,
+                        tier: proof.tier,
+                        proposedIn: meta.proposedIn
+                    });
+                } else {
+                    emit TransitionContested({
+                        blockId: local.blockId,
+                        tran: tran,
+                        contester: msg.sender,
+                        contestBond: local.tier.contestBond,
+                        tier: proof.tier
+                    });
+                }
             }
         }
 

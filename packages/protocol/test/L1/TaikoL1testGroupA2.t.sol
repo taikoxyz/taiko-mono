@@ -109,7 +109,7 @@ contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
         TaikoData.Block memory blk = L1.getBlock(1);
         assertEq(blk.blockId, 1);
         assertEq(blk.proposedAt, 0);
-        assertEq(blk.proposedIn, block.number);
+        assertEq(blk.proposedIn, 0);
         assertEq(blk.assignedProver, address(0));
         assertEq(blk.livenessBond, 0);
         assertEq(blk.anchorBlockId, meta.anchorBlockId);
@@ -146,7 +146,7 @@ contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
         blk = L1.getBlock(2);
         assertEq(blk.blockId, 2);
         assertEq(blk.proposedAt, 0);
-        assertEq(blk.proposedIn, block.number);
+        assertEq(blk.proposedIn, 0);
         assertEq(blk.assignedProver, address(0));
         assertEq(blk.livenessBond, 0);
         assertEq(blk.anchorBlockId, meta.anchorBlockId);

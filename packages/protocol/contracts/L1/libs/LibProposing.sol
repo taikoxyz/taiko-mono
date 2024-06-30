@@ -210,7 +210,7 @@ library LibProposing {
             livenessBond: local.postFork ? 0 : meta_.livenessBond,
             blockId: local.b.numBlocks,
             proposedAt: local.postFork ? 0 : uint64(block.timestamp),
-            proposedIn: uint64(block.number),
+            proposedIn: local.postFork ? 0 : uint64(block.number),
             // For a new block, the next transition ID is always 1, not 0.
             nextTransitionId: 1,
             // For unverified block, its verifiedTransitionId is always 0.
