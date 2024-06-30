@@ -8,8 +8,8 @@ import "./ITierRouter.sol";
 /// @custom:security-contact security@taiko.xyz
 contract TierRouter is ITierRouter {
     uint256 public constant FORK_HEIGHT = 324_512 * 2;
-    /// @inheritdoc ITierRouter
 
+    /// @inheritdoc ITierRouter
     function getProvider(uint256 _blockId) external pure returns (address) {
         if (_blockId <= FORK_HEIGHT) {
             return 0x4cffe56C947E26D07C14020499776DB3e9AE3a23; // TierProviderV2
