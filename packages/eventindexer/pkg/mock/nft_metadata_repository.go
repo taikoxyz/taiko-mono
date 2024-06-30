@@ -36,7 +36,9 @@ func (r *NFTMetadataRepository) FindByContractAddress(
 func (r *NFTMetadataRepository) GetNFTMetadata(
 	ctx context.Context,
 	contractAddress string,
-	tokenID int64) (*eventindexer.NFTMetadata, error) {
+	tokenID int64,
+	chainID int64,
+) (*eventindexer.NFTMetadata, error) {
 	for _, metadata := range r.nftMetadata {
 		if metadata.ContractAddress == contractAddress && metadata.TokenID == tokenID {
 			return metadata, nil
