@@ -39,7 +39,6 @@ contract DeployTokenUnlock is DeployCapability {
             });
             vm.stopBroadcast();
             console2.log("grantee:", recipients[i]);
-            console2.log(recipients[i], " ------>>> ", proxy);
             console2.log("proxy. :", proxy);
         }
     }
