@@ -144,13 +144,20 @@ library TaikoData {
         address assignedProver; // slot 2
         uint96 livenessBond;
         uint64 blockId; // slot 3
-        uint64 proposedAt; // timestamp
-        uint64 proposedIn; // L1 block number, required/used by node/client.
+        // Before the fork, this field is the L1 timestamp when this block is proposed.
+        // After the fork, this is the timestamp of the L2 block.
+        // In a later fork, we an rename this field to `timestamp`.
+        uint64 proposedAt;
+        // Before the fork, this field is the L1 block number where this block is proposed.
+        // After the fork, this is the L1 block number input for the anchor transaction.
+        // In a later fork, we an rename this field to `anchorBlockId`.
+        uint64 proposedIn;
         uint32 nextTransitionId;
         // The ID of the transaction that is used to verify this block. However, if
         // this block is not verified as the last block in a batch, verifiedTransitionId
         // will remain zero.
         uint32 verifiedTransitionId;
+        // TODO(daniel): delete these two slots and reuse proposeAt and proposeIn.
         uint64 anchorBlockId; // slot 4
         uint64 timestamp;
     }
