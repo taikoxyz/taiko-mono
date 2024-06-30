@@ -110,6 +110,8 @@ library TaikoData {
         bytes32 parentMetaHash;
         address proposer;
         uint96 livenessBond;
+        uint64 proposedAt; // timestamp
+        uint64 proposedIn; // L1 block number, required/used by node/client.
     }
 
     /// @dev Struct representing transition to be proven.

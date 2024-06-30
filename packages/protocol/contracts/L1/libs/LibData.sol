@@ -70,7 +70,9 @@ library LibData {
             blobUsed: _v1.blobUsed,
             parentMetaHash: _v1.parentMetaHash,
             proposer: _v1.sender,
-            livenessBond: _livenessBond
+            livenessBond: _livenessBond,
+            proposedAt: 0,
+            proposedIn: 0
         });
     }
 

@@ -30,6 +30,7 @@ library LibProving {
         bool inProvingWindow;
         bool sameTransition;
         bool postFork;
+        uint64 proposedAt;
     }
 
     // Warning: Any events defined here must also be defined in TaikoEvents.sol.
@@ -150,6 +151,7 @@ library LibProving {
         TaikoData.Block storage blk = _state.blocks[local.slot];
 
         local.blockId = blk.blockId;
+        local.proposedAt = local.postFork ? meta.proposedAt : blk.proposedAt;
 
         if (LibUtils.shouldSyncStateRoot(_config.stateRootSyncInternal, local.blockId)) {
             local.stateRoot = tran.stateRoot;
@@ -355,7 +357,7 @@ library LibProving {
             // Keep in mind that state.transitions are also reusable storage
             // slots, so it's necessary to reinitialize all transition fields
             // below.
-            ts_.timestamp = _blk.proposedAt;
+            ts_.timestamp = _local.proposedAt;
 
             if (tid_ == 1) {
                 // This approach serves as a cost-saving technique for the
