@@ -121,28 +121,32 @@ library LibProposing {
             TaikoData.Block storage parentBlk =
                 _state.blocks[(local.b.numBlocks - 1) % _config.blockRingBufferSize];
 
-            // Verify the passed in L1 state block number.
-            // We only allow the L1 block to be 2 epochs old.
-            // The other constraint is that the L1 block number needs to be larger than or equal the
-            // one
-            // in the previous L2 block.
-            if (
-                params.anchorBlockId + 64 < block.number //
-                    || params.anchorBlockId >= block.number
-                    || params.anchorBlockId < parentBlk.proposedIn
-            ) {
-                revert L1_INVALID_ANCHOR_BLOCK();
-            }
+            if (local.postFork) {
+                // Verify the passed in L1 state block number.
+                // We only allow the L1 block to be 2 epochs old.
+                // The other constraint is that the L1 block number needs to be larger than or equal
+                // the
+                // one
+                // in the previous L2 block.
+                if (
+                    params.anchorBlockId + 64 < block.number //
+                        || params.anchorBlockId >= block.number
+                        || params.anchorBlockId < parentBlk.proposedIn
+                ) {
+                    revert L1_INVALID_ANCHOR_BLOCK();
+                }
 
-            // Verify the passed in timestamp.
-            // We only allow the timestamp to be 2 epochs old.
-            // The other constraint is that the timestamp needs to be larger than or equal the one
-            // in the previous L2 block.
-            if (
-                params.timestamp + 64 * 12 < block.timestamp || params.timestamp > block.timestamp
-                    || params.timestamp < parentBlk.proposedAt
-            ) {
-                revert L1_INVALID_TIMESTAMP();
+                // Verify the passed in timestamp.
+                // We only allow the timestamp to be 2 epochs old.
+                // The other constraint is that the timestamp needs to be larger than or equal the
+                // one
+                // in the previous L2 block.
+                if (
+                    params.timestamp + 64 * 12 < block.timestamp
+                        || params.timestamp > block.timestamp || params.timestamp < parentBlk.proposedAt
+                ) {
+                    revert L1_INVALID_TIMESTAMP();
+                }
             }
 
             // Check if parent block has the right meta hash. This is to allow the proposer to make
