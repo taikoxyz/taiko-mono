@@ -15,6 +15,7 @@
     "test:integration": "playwright test",
     "test:unit": "vitest",
     "start": "npm run generate:abi && vite dev --open --host 0.0.0.0",
+    "start:prod": "vite dev --open --host 0.0.0.0 --mode production",
     "generate:abi": "cd ../nfts && pnpm compile && cd - && wagmi generate"
   },
   "devDependencies": {
