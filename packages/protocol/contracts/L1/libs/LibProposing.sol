@@ -64,7 +64,7 @@ library LibProposing {
         TaikoData.State storage _state,
         TaikoToken _tko,
         TaikoData.Config memory _config,
-        IAddressResolver /*_resolver*/,
+        IAddressResolver, /*_resolver*/
         bytes calldata _data,
         bytes calldata _txList
     )
@@ -192,8 +192,10 @@ library LibProposing {
         );
 
         {
-            // ITierRouter tierRouter = ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false));
-            // ITierProvider tierProvider = ITierProvider(tierRouter.getProvider(local.b.numBlocks));
+            // ITierRouter tierRouter = ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER,
+            // false));
+            // ITierProvider tierProvider =
+            // ITierProvider(tierRouter.getProvider(local.b.numBlocks));
 
             // Use the difficulty as a random number
             // meta_.minTier = tierProvider.getMinTier(uint256(meta_.difficulty));
