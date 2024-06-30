@@ -35,7 +35,10 @@ contract VestTokenUnlock is Script {
             address proxy = items[i].recipient;
             uint256 vestAmount = uint256(items[i].vestAmount);
 
-            console2.log(items[i].recipient, items[i].proxy, items[i].vestAmount);
+            console2.log("proxy:", proxy);
+            console2.log("recipient:", recipient);
+            console2.log("vestAmount:", vestAmount);
+            console2.log("");
 
             TokenUnlock target = TokenUnlock(proxy);
 
@@ -46,7 +49,7 @@ contract VestTokenUnlock is Script {
         }
 
         console2.log("total:", total / 1e18);
-        require(tko.balanceOf(msg.sender) >= total, "insufficient TKO balance");
+        // require(tko.balanceOf(msg.sender) >= total, "insufficient TKO balance");
 
         // for (uint256 i; i < items.length; i++) {
         //     // This is needed due to some memory read operation! It seems forge/foundry
