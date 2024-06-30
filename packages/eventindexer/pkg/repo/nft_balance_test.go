@@ -51,12 +51,14 @@ func TestIntegration_NFTBalance_Increase_And_Decrease(t *testing.T) {
 	nftMetadataRepo, err := NewNFTMetadataRepository(db)
 	assert.Equal(t, nil, err)
 
-	md, _ := nftMetadataRepo.SaveNFTMetadata(context.Background(), &eventindexer.NFTMetadata{
+	md, err := nftMetadataRepo.SaveNFTMetadata(context.Background(), &eventindexer.NFTMetadata{
 		ChainID:         1,
 		ContractAddress: "0x123",
 		TokenID:         1,
 		Name:            "test",
 	})
+	assert.Equal(t, nil, err)
+	assert.NotNil(t, md)
 
 	bal1, _, err := nftBalanceRepo.IncreaseAndDecreaseBalancesInTx(context.Background(),
 		eventindexer.UpdateNFTBalanceOpts{

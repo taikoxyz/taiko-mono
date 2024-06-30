@@ -28,7 +28,16 @@ func (r *NFTMetadataRepository) SaveNFTMetadata(
 	ctx context.Context,
 	metadata *eventindexer.NFTMetadata,
 ) (*eventindexer.NFTMetadata, error) {
-	err := r.db.GormDB().Save(metadata).Error
+	existingMetadata, err := r.GetNFTMetadata(ctx, metadata.ContractAddress, metadata.TokenID, metadata.ChainID)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to check existing metadata")
+	}
+
+	if existingMetadata != nil {
+		return existingMetadata, nil
+	}
+
+	err = r.db.GormDB().Save(metadata).Error
 	if err != nil {
 		return nil, errors.Wrap(err, "r.db.Save")
 	}
@@ -40,12 +49,14 @@ func (r *NFTMetadataRepository) GetNFTMetadata(
 	ctx context.Context,
 	contractAddress string,
 	tokenID int64,
+	chainID int64,
 ) (*eventindexer.NFTMetadata, error) {
 	metadata := &eventindexer.NFTMetadata{}
 
 	err := r.db.GormDB().
 		Where("contract_address = ?", contractAddress).
 		Where("token_id = ?", tokenID).
+		Where("chain_id = ?", chainID).
 		First(metadata).
 		Error
 

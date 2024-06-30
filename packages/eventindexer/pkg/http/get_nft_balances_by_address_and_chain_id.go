@@ -47,6 +47,7 @@ func (srv *Server) GetNFTBalancesByAddressAndChainID(c echo.Context) error {
 			c.Request().Context(),
 			v.ContractAddress,
 			v.TokenID,
+			v.ChainID,
 		)
 		if err != nil {
 			return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)

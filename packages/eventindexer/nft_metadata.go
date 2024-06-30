@@ -21,9 +21,9 @@ type Attributes []Attribute
 
 type NFTMetadata struct {
 	ID              int        `json:"id"`
-	ChainID         int64      `json:"chainID"`
+	ChainID         int64      `json:"chain_id"`
 	ContractAddress string     `json:"contract_address"`
-	TokenID         int64      `json:"tokenID"`
+	TokenID         int64      `json:"token_id"`
 	Name            string     `json:"name,omitempty"`
 	Description     string     `json:"description,omitempty"`
 	Symbol          string     `json:"symbol,omitempty"`
@@ -34,7 +34,7 @@ type NFTMetadata struct {
 
 type NFTMetadataRepository interface {
 	SaveNFTMetadata(ctx context.Context, metadata *NFTMetadata) (*NFTMetadata, error)
-	GetNFTMetadata(ctx context.Context, contractAddress string, tokenID int64) (*NFTMetadata, error)
+	GetNFTMetadata(ctx context.Context, contractAddress string, tokenID int64, chainID int64) (*NFTMetadata, error)
 	FindByContractAddress(ctx context.Context, req *http.Request, contractAddress string) (paginate.Page, error)
 }
 

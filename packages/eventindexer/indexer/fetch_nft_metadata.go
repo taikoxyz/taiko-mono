@@ -57,9 +57,9 @@ func (i *Indexer) fetchNFTMetadata(
 	url, err := resolveMetadataURL(ctx, tokenURI)
 	if err != nil {
 		if errors.Is(err, eventindexer.ErrInvalidURL) {
-			slog.Warn("Skipping metadata due to invalid URI",
-				"tokenID", tokenID.String(),
+			slog.Warn("Invalid metadata URI",
 				"contractAddress", contractAddress,
+				"tokenID", tokenID.Int64(),
 				"chainID", chainID.String())
 
 			return nil, nil
