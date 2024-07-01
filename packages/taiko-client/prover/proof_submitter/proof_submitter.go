@@ -126,7 +126,7 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, event *bindings.Taiko
 	}
 
 	// Send the generated proof.
-	result, err := s.proofProducer.RequestProof(
+	result, needToSend, err := s.proofProducer.RequestProof(
 		ctx,
 		opts,
 		event.BlockId,
@@ -136,10 +136,11 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, event *bindings.Taiko
 	if err != nil {
 		return fmt.Errorf("failed to request proof (id: %d): %w", event.BlockId, err)
 	}
-	s.resultCh <- result
+	if needToSend {
+		s.resultCh <- result
 
-	metrics.ProverQueuedProofCounter.Add(1)
-
+		metrics.ProverQueuedProofCounter.Add(1)
+	}
 	return nil
 }
 

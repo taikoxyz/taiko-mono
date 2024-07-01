@@ -37,7 +37,7 @@ func TestOptimisticRequestProof(t *testing.T) {
 		producer = &OptimisticProofProducer{}
 		blockID  = common.Big32
 	)
-	res, err := producer.RequestProof(
+	res, needToSend, err := producer.RequestProof(
 		context.Background(),
 		&ProofRequestOptions{},
 		blockID,
@@ -45,6 +45,7 @@ func TestOptimisticRequestProof(t *testing.T) {
 		header,
 	)
 	require.Nil(t, err)
+	require.True(t, needToSend)
 
 	require.Equal(t, res.BlockID, blockID)
 	require.Equal(t, res.Header, header)
@@ -74,7 +75,7 @@ func TestProofCancel(t *testing.T) {
 		optimisticProofProducer = &OptimisticProofProducer{}
 		blockID                 = common.Big32
 	)
-	_, err := optimisticProofProducer.RequestProof(
+	_, needToSend, err := optimisticProofProducer.RequestProof(
 		context.Background(),
 		&ProofRequestOptions{},
 		blockID,
@@ -82,6 +83,7 @@ func TestProofCancel(t *testing.T) {
 		header,
 	)
 	require.Nil(t, err)
+	require.True(t, needToSend)
 }
 
 func randHash() common.Hash {

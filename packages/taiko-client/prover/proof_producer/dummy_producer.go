@@ -19,7 +19,7 @@ func (o *DummyProofProducer) RequestProof(
 	meta *bindings.TaikoDataBlockMetadata,
 	header *types.Header,
 	tier uint16,
-) (*ProofWithHeader, error) {
+) (*ProofWithHeader, bool, error) {
 	return &ProofWithHeader{
 		BlockID: blockID,
 		Meta:    meta,
@@ -27,5 +27,5 @@ func (o *DummyProofProducer) RequestProof(
 		Proof:   bytes.Repeat([]byte{0xff}, 100),
 		Opts:    opts,
 		Tier:    tier,
-	}, nil
+	}, true, nil
 }

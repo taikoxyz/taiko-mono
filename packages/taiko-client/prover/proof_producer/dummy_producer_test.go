@@ -34,7 +34,7 @@ func TestDummyProducerRequestProof(t *testing.T) {
 		tier     uint16 = 1024
 		blockID         = common.Big32
 	)
-	res, err := producer.RequestProof(
+	res, needToSend, err := producer.RequestProof(
 		&ProofRequestOptions{},
 		blockID,
 		&bindings.TaikoDataBlockMetadata{},
@@ -42,6 +42,7 @@ func TestDummyProducerRequestProof(t *testing.T) {
 		tier,
 	)
 	require.Nil(t, err)
+	require.True(t, needToSend)
 
 	require.Equal(t, res.BlockID, blockID)
 	require.Equal(t, res.Header, header)

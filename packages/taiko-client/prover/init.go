@@ -112,6 +112,8 @@ func (p *Prover) initProofSubmitters(
 				JWT:               p.cfg.RaikoJWT,
 				ProofType:         proofProducer.ProofTypeSgx,
 				Dummy:             p.cfg.Dummy,
+				RPC:               p.rpc,
+				ProverSetAddress:  p.cfg.ProverSetAddress,
 			}
 		case encoding.TierGuardianMinorityID:
 			producer = proofProducer.NewGuardianProofProducer(encoding.TierGuardianMinorityID, p.cfg.EnableLivenessBondProof)

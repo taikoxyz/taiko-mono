@@ -36,7 +36,7 @@ func (g *GuardianProofProducer) RequestProof(
 	blockID *big.Int,
 	meta *bindings.TaikoDataBlockMetadata,
 	header *types.Header,
-) (*ProofWithHeader, error) {
+) (*ProofWithHeader, bool, error) {
 	log.Info(
 		"Request guardian proof",
 		"blockID", blockID,
@@ -53,7 +53,7 @@ func (g *GuardianProofProducer) RequestProof(
 			Proof:   crypto.Keccak256([]byte("RETURN_LIVENESS_BOND")),
 			Opts:    opts,
 			Tier:    g.tier,
-		}, nil
+		}, true, nil
 	}
 
 	return g.DummyProofProducer.RequestProof(opts, blockID, meta, header, g.Tier())

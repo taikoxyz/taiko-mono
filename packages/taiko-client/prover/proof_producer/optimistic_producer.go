@@ -21,7 +21,7 @@ func (o *OptimisticProofProducer) RequestProof(
 	blockID *big.Int,
 	meta *bindings.TaikoDataBlockMetadata,
 	header *types.Header,
-) (*ProofWithHeader, error) {
+) (*ProofWithHeader, bool, error) {
 	log.Info(
 		"Request optimistic proof",
 		"blockID", blockID,

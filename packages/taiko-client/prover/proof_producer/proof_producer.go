@@ -64,6 +64,6 @@ type ProofProducer interface {
 		blockID *big.Int,
 		meta *bindings.TaikoDataBlockMetadata,
 		header *types.Header,
-	) (*ProofWithHeader, error)
+	) (*ProofWithHeader, bool, error)
 	Tier() uint16
 }
