@@ -1,18 +1,12 @@
 import { readContract } from '@wagmi/core';
-import { zeroAddress } from 'viem';
 
+import { chainId } from '$lib/chain';
 import { config } from '$wagmi-config';
 
 import { taikoonTokenAbi, taikoonTokenAddress } from '../../generated/abi/';
-import { web3modal } from '../../lib/connect';
-import type { IAddress, IChainId } from '../../types';
+import type { IAddress } from '../../types';
 
 export async function ownerOf(tokenId: number): Promise<IAddress> {
-  const { selectedNetworkId } = web3modal.getState();
-  if (!selectedNetworkId) return zeroAddress;
-
-  const chainId = selectedNetworkId as IChainId;
-
   const result = await readContract(config, {
     abi: taikoonTokenAbi,
     address: taikoonTokenAddress[chainId],

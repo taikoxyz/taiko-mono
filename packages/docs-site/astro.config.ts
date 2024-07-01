@@ -157,6 +157,10 @@ export default defineConfig({
                   link: "/guides/node-operators/enable-a-prover/",
                 },
                 {
+                  label: "Deploy a ProverSet",
+                  link: "guides/node-operators/deploy-a-proverset/"
+                },
+                {
                   label: "Node troubleshooting",
                   link: "/guides/node-operators/node-troubleshooting/",
                 },
