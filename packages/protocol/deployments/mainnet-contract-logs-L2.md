@@ -57,7 +57,6 @@
   - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`0xf68861171c602e3e75ca69e950957fcb908c7949c6df9a9ea3026c238ebb1e9c`
   - upgrade impl to `0x0893c8821Fa358D5f3630695Ce062204814359A1` @commit`1bd3285` @tx`0x4605c4ce594e996bdbdb532a9aefe4fab1ea36f7e2ef63eef56a7e8033810df3`
   - upgrade impl to `0x8fb67c2c16dc8578b6d69bc668236924f4c1b0f7` @commit`3ae25fd` @tx`0xd95435c742c01B0E982913BcA252173Ae96DF61d`
-  - upgrade impl to `0x8fb67c2c16dc8578b6d69bc668236924f4c1b0f7` @commit`04d8c87` @tx`0xd55e1edee71bd71b9bca0d3826f758a46d688b6ffdd4058fccefc98dbed70165`
   - upgrade impl to `0x4Ca6bE8C1Ec05beFB216bAEEF9EE36997e35E98E` @commit`a3e1cf7` @tx`0xdf0348394d5e58f801de917575aafdc1cb55533b14a6e46fd460d1437238dc02`
 
 #### erc20_vault
