@@ -143,19 +143,19 @@
 
 #### bridged_erc20
 
-- impl: `0xcc5d488073FA918cBbd73B9A523F3858C4de7372`
+- impl: `0x79BC0Aada00fcF6E7AB514Bfeb093b5Fae3653e3`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
 
 #### bridged_erc721
 
-- impl: `0xc4096E9ff1526Bd1840B65e9f45695135aC12De7`
+- impl: `0xC3310905E2BC9Cfb198695B75EF3e5B69C6A1Bf7`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
 
 #### bridged_erc1155
 
-- impl: `0x39E4C1214e733639d059979079A151911e42791d`
+- impl: `0x3c90963cFBa436400B0F9C46Aa9224cB379c2c40`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
 
