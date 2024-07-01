@@ -331,17 +331,12 @@ contract Bridge is EssentialContract, IBridge {
         if (_unableToInvokeMessageCall(_message, resolve(LibStrings.B_SIGNAL_SERVICE, false))) {
             succeeded = _message.destOwner.sendEther(_message.value, _SEND_ETHER_GAS_LIMIT, "");
         } else {
-            uint256 invocationGasLimit;
-            if (msg.sender != _message.destOwner) {
-                if (_message.gasLimit == 0 || _isLastAttempt) revert B_PERMISSION_DENIED();
-                invocationGasLimit = _invocationGasLimit(_message);
-            } else {
-                // The owner uses all gas left in message invocation
-                invocationGasLimit = gasleft();
+            if ((_message.gasLimit == 0 || _isLastAttempt) && msg.sender != _message.destOwner) {
+                revert B_PERMISSION_DENIED();
             }
 
             // Attempt to invoke the messageCall.
-            succeeded = _invokeMessageCall(_message, msgHash, invocationGasLimit, false);
+            succeeded = _invokeMessageCall(_message, msgHash, gasleft(), false);
         }
 
         if (succeeded) {
