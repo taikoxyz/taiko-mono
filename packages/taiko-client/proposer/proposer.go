@@ -3,9 +3,11 @@ package proposer
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"math/rand"
+	"net/http"
 	"sync"
 	"time"
 
@@ -25,6 +27,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	selector "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/prover_selector"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/server"
 	builder "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/transaction_builder"
 )
 
@@ -52,6 +55,9 @@ type Proposer struct {
 
 	// Protocol configurations
 	protocolConfigs *bindings.TaikoDataConfig
+
+	// Proposer API for block builders
+	server *server.ProposerServer
 
 	lastProposedAt time.Time
 
@@ -112,18 +118,21 @@ func (p *Proposer) InitFromConfig(ctx context.Context, cfg *Config, txMgr *txmgr
 		}
 	}
 
-	if p.proverSelector, err = selector.NewETHFeeEOASelector(
-		&protocolConfigs,
-		p.rpc,
-		p.proposerAddress,
-		cfg.TaikoL1Address,
-		cfg.ProverSetAddress,
-		p.tierFees,
-		cfg.TierFeePriceBump,
-		cfg.ProverEndpoints,
-		cfg.MaxTierFeePriceBumps,
-	); err != nil {
-		return err
+	// prover selector is optional
+	if cfg.ProverSetAddress.Hex() != rpc.ZeroAddress.Hex() {
+		if p.proverSelector, err = selector.NewETHFeeEOASelector(
+			&protocolConfigs,
+			p.rpc,
+			p.proposerAddress,
+			cfg.TaikoL1Address,
+			cfg.ProverSetAddress,
+			p.tierFees,
+			cfg.TierFeePriceBump,
+			cfg.ProverEndpoints,
+			cfg.MaxTierFeePriceBumps,
+		); err != nil {
+			return err
+		}
 	}
 
 	if cfg.BlobAllowed {
@@ -154,6 +163,14 @@ func (p *Proposer) InitFromConfig(ctx context.Context, cfg *Config, txMgr *txmgr
 		)
 	}
 
+	// Prover server
+	if p.server, err = server.New(&server.NewProposerServerOpts{
+		RPC:             p.rpc,
+		ProtocolConfigs: &protocolConfigs,
+	}); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -161,6 +178,12 @@ func (p *Proposer) InitFromConfig(ctx context.Context, cfg *Config, txMgr *txmgr
 func (p *Proposer) Start() error {
 	p.wg.Add(1)
 	go p.eventLoop()
+
+	go func() {
+		if err := p.server.Start(fmt.Sprintf(":%v", p.HTTPServerPort)); !errors.Is(err, http.ErrServerClosed) {
+			log.Crit("Failed to start http server", "error", err)
+		}
+	}()
 	return nil
 }
 
@@ -191,7 +214,11 @@ func (p *Proposer) eventLoop() {
 }
 
 // Close closes the proposer instance.
-func (p *Proposer) Close(_ context.Context) {
+func (p *Proposer) Close(ctx context.Context) {
+	if err := p.server.Shutdown(ctx); err != nil {
+		log.Error("Failed to shut down prover server", "error", err)
+	}
+
 	p.wg.Wait()
 }
 
