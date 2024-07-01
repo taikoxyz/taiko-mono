@@ -71,7 +71,7 @@ func (i *Indexer) saveEventToDB(
 			opts.CanonicalTokenDecimals = canonicalToken.TokenDecimals()
 		}
 
-		e, err := i.eventRepo.Save(ctx, opts)
+		e, err := i.eventRepo.Save(ctx, &opts)
 		if err != nil {
 			return 0, errors.Wrap(err, "svc.eventRepo.Save")
 		}
