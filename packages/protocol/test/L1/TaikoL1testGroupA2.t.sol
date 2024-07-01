@@ -10,7 +10,7 @@ contract TaikoL1ForkA2 is TaikoL1 {
         config.blockMaxProposals = 10;
         config.blockRingBufferSize = 15;
         config.stateRootSyncInternal = 2;
-        config.forkHeight = 0; // or 1, works the same.
+        config.fujiForkHeight = 0; // or 1, works the same.
     }
 }
 
@@ -22,7 +22,7 @@ contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
     }
 
     // Test summary:
-    // - Use the v2 immediately - forkHeight = 0 or 1
+    // - Use the v2 immediately - fujiForkHeight = 0 or 1
     // - propose and prove 5 blocks
     // - try to verify more than 5 blocks to verify all 5 blocks are verified.
     function test_taikoL1_group_a2_case_1() external {
@@ -89,7 +89,7 @@ contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
     }
 
     // Test summary:
-    // - Use the v2 immediately - forkHeight = 0 or 1
+    // - Use the v2 immediately - fujiForkHeight = 0 or 1
     // - propose and prove 5 blocks
     // - try to verify more than 5 blocks to verify all 5 blocks are verified.
     function test_taikoL1_group_a2_case_2() external {
