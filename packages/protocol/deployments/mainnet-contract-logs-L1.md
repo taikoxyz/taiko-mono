@@ -84,7 +84,7 @@
   - upgrade impl to `0x951B7Ae1bB26d12dB37f01748e8fB62FEf45A8B5` @commit`1bd3285` @tx`0xf21f6bf720767db3bc9b63ef69cacb20340bdedfb6589e6a4d11fe082dfa7bd6`
   - upgrade impl to `0x3c326483EBFabCf3252205f26dF632FE83d11108` @commit`3ae25fd` @tx`0xc0ba6558642b93ee892bee0705dbcfb5130c53637e6266bfa5e3a6501167d6f2`
   - upgrade impl to `0xD28f2c26aD8bA88b0691F6BB41Ff021878052561` @commit`2b483de` @tx`0x0bbf7d1258c646f41a02a92a55825b1ebfd3659577d0f2b57b462f8895e23a04`
-  - upgrade impl to `0x40f8Be2969D0D5717768F6799c8840e5D5D603F7` @commit`04d8c87` @tx``
+  - upgrade impl to `0x40f8Be2969D0D5717768F6799c8840e5D5D603F7` @commit`04d8c87` @tx`0x2f14829c3da1a755a74948d5716a625256ae7e2481e538b0660a8da11c84dc2e`
 
 #### quota_manager
 
