@@ -42,12 +42,11 @@ func (s *ProposerServer) GetStatus(c echo.Context) error {
 }
 
 type buildBlockRequest struct {
-	L1StateBlockNumber    uint32   `json:"l1StateBlockNumber"`
-	Timestamp             uint64   `json:"timestamp"`
-	SignedTransactions    []string `json:"signedTransactions"`
-	IncludeParentMetaHash bool     `json:"includeParentMetaHash"`
-	Coinbase              string   `json:"coinbase"`
-	ExtraData             string   `json:"extraData"`
+	L1StateBlockNumber uint32   `json:"l1StateBlockNumber"`
+	Timestamp          uint64   `json:"timestamp"`
+	SignedTransactions []string `json:"signedTransactions"`
+	Coinbase           string   `json:"coinbase"`
+	ExtraData          string   `json:"extraData"`
 }
 
 type buildBlockResponse struct {
