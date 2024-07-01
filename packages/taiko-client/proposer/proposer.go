@@ -165,8 +165,8 @@ func (p *Proposer) InitFromConfig(ctx context.Context, cfg *Config, txMgr *txmgr
 
 	// Prover server
 	if p.server, err = server.New(&server.NewProposerServerOpts{
-		RPC:             p.rpc,
-		ProtocolConfigs: &protocolConfigs,
+		RPC:       p.rpc,
+		TxBuilder: p.txBuilder,
 	}); err != nil {
 		return err
 	}

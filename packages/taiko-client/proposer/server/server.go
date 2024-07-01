@@ -8,8 +8,6 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	builder "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/transaction_builder"
 )
@@ -26,29 +24,23 @@ import (
 // @license.url https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md
 // ProposerServer represents a proposer server instance.
 type ProposerServer struct {
-	echo            *echo.Echo
-	rpc             *rpc.Client
-	protocolConfigs *bindings.TaikoDataConfig
-	txBuilder       builder.ProposeBlockTransactionBuilder
-	tierFees        []encoding.TierFee
+	echo      *echo.Echo
+	rpc       *rpc.Client
+	txBuilder builder.ProposeBlockTransactionBuilder
 }
 
 // NewProposerServerOpts contains all configurations for creating a prover server instance.
 type NewProposerServerOpts struct {
-	RPC             *rpc.Client
-	ProtocolConfigs *bindings.TaikoDataConfig
-	TxBuilder       builder.ProposeBlockTransactionBuilder
-	TierFees        []encoding.TierFee
+	RPC       *rpc.Client
+	TxBuilder builder.ProposeBlockTransactionBuilder
 }
 
 // New creates a new prover server instance.
 func New(opts *NewProposerServerOpts) (*ProposerServer, error) {
 	srv := &ProposerServer{
-		echo:            echo.New(),
-		rpc:             opts.RPC,
-		protocolConfigs: opts.ProtocolConfigs,
-		txBuilder:       opts.TxBuilder,
-		tierFees:        opts.TierFees,
+		echo:      echo.New(),
+		rpc:       opts.RPC,
+		txBuilder: opts.TxBuilder,
 	}
 
 	srv.echo.HideBanner = true

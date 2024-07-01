@@ -39,12 +39,8 @@ func (s *ProposerServerTestSuite) SetupTest() {
 	})
 	s.Nil(err)
 
-	configs, err := rpcClient.TaikoL1.GetConfig(nil)
-	s.Nil(err)
-
 	p, err := New(&NewProposerServerOpts{
-		RPC:             rpcClient,
-		ProtocolConfigs: &configs,
+		RPC: rpcClient,
 	})
 	s.Nil(err)
 
