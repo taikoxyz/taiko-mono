@@ -1,10 +1,12 @@
 import { readContract } from '@wagmi/core';
 
+import { chainId } from '$lib/chain';
+
 import { taikoonTokenAbi, taikoonTokenAddress } from '../../generated/abi';
 import getConfig from '../wagmi/getConfig';
 
 export async function maxSupply(): Promise<number> {
-  const { config, chainId } = getConfig();
+  const config = getConfig();
 
   const result = await readContract(config, {
     abi: taikoonTokenAbi,
