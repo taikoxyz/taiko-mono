@@ -1,21 +1,21 @@
 import { StandardMerkleTree } from '@openzeppelin/merkle-tree';
-import { getAccount } from '@wagmi/core';
+import { type Address, getAddress } from 'viem';
 
-import getConfig from '../wagmi/getConfig';
+import { chainId } from '$lib/chain';
+
 import { whitelist } from '../whitelist';
 
-export async function totalWhitelistMintCount(): Promise<number> {
-  const { config, chainId } = getConfig();
-
-  const account = getAccount(config);
-  if (!account.address) return -1;
-
-  const tree = StandardMerkleTree.load(whitelist[chainId]);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  for (const [_, [address, amount]] of tree.entries()) {
-    if (address.toString().toLowerCase() === account.address.toString().toLowerCase()) {
-      return amount;
+export async function totalWhitelistMintCount(address: Address): Promise<number> {
+  try {
+    const tree = StandardMerkleTree.load(whitelist[chainId]);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    for (const [_, [leafAddress, amount]] of tree.entries()) {
+      if (getAddress(leafAddress) === getAddress(address)) {
+        return parseInt(amount);
+      }
     }
+  } catch (e) {
+    console.error(`Error with totalWhitelistMintCount chainId ${chainId}:`, e);
   }
 
   return 0;

@@ -45,7 +45,8 @@ contract TestDelegateOwner is TaikoTest {
                 name: "delegate_owner",
                 impl: address(new DelegateOwner()),
                 data: abi.encodeCall(
-                    DelegateOwner.init, (remoteOwner, address(addressManager), remoteChainId)
+                    DelegateOwner.init,
+                    (remoteOwner, address(addressManager), remoteChainId, address(0))
                 ),
                 registerTo: address(addressManager)
             })
@@ -94,7 +95,7 @@ contract TestDelegateOwner is TaikoTest {
         );
 
         vm.expectRevert(DelegateOwner.DO_DRYRUN_SUCCEEDED.selector);
-        delegateOwner.dryrunMessageInvocation(data);
+        delegateOwner.dryrunInvocation(data);
 
         IBridge.Message memory message;
         message.from = remoteOwner;
@@ -127,7 +128,7 @@ contract TestDelegateOwner is TaikoTest {
         );
 
         vm.expectRevert(DelegateOwner.DO_DRYRUN_SUCCEEDED.selector);
-        delegateOwner.dryrunMessageInvocation(data);
+        delegateOwner.dryrunInvocation(data);
 
         IBridge.Message memory message;
         message.from = remoteOwner;
@@ -168,7 +169,7 @@ contract TestDelegateOwner is TaikoTest {
             })
         );
 
-        TestMulticall3.Call3[] memory calls = new TestMulticall3.Call3[](3);
+        TestMulticall3.Call3[] memory calls = new TestMulticall3.Call3[](4);
         calls[0].target = address(target1);
         calls[0].allowFailure = false;
         calls[0].callData = abi.encodeCall(EssentialContract.pause, ());
@@ -181,6 +182,10 @@ contract TestDelegateOwner is TaikoTest {
         calls[2].allowFailure = false;
         calls[2].callData = abi.encodeCall(UUPSUpgradeable.upgradeTo, (delegateOwnerImpl2));
 
+        calls[3].target = address(delegateOwner);
+        calls[3].allowFailure = false;
+        calls[3].callData = abi.encodeCall(DelegateOwner.setAdmin, (David));
+
         bytes memory data = abi.encode(
             DelegateOwner.Call(
                 uint64(0),
@@ -191,7 +196,7 @@ contract TestDelegateOwner is TaikoTest {
         );
 
         vm.expectRevert(DelegateOwner.DO_DRYRUN_SUCCEEDED.selector);
-        delegateOwner.dryrunMessageInvocation(data);
+        delegateOwner.dryrunInvocation(data);
 
         IBridge.Message memory message;
         message.from = remoteOwner;
@@ -211,5 +216,6 @@ contract TestDelegateOwner is TaikoTest {
         assertTrue(target1.paused());
         assertEq(target2.impl(), impl2);
         assertEq(delegateOwner.impl(), delegateOwnerImpl2);
+        assertEq(delegateOwner.admin(), David);
     }
 }

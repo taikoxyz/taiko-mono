@@ -102,34 +102,36 @@
 | __paused       | uint8       | 201  | 1      | 1     | contracts/L2/DelegateOwner.sol:DelegateOwner |
 | lastUnpausedAt | uint64      | 201  | 2      | 8     | contracts/L2/DelegateOwner.sol:DelegateOwner |
 | __gap          | uint256[49] | 202  | 0      | 1568  | contracts/L2/DelegateOwner.sol:DelegateOwner |
-| l1ChainId      | uint64      | 251  | 0      | 8     | contracts/L2/DelegateOwner.sol:DelegateOwner |
-| nextTxId       | uint64      | 251  | 8      | 8     | contracts/L2/DelegateOwner.sol:DelegateOwner |
-| realOwner      | address     | 252  | 0      | 20    | contracts/L2/DelegateOwner.sol:DelegateOwner |
+| remoteChainId  | uint64      | 251  | 0      | 8     | contracts/L2/DelegateOwner.sol:DelegateOwner |
+| admin          | address     | 251  | 8      | 20    | contracts/L2/DelegateOwner.sol:DelegateOwner |
+| nextTxId       | uint64      | 252  | 0      | 8     | contracts/L2/DelegateOwner.sol:DelegateOwner |
+| remoteOwner    | address     | 252  | 8      | 20    | contracts/L2/DelegateOwner.sol:DelegateOwner |
 | __gap          | uint256[48] | 253  | 0      | 1536  | contracts/L2/DelegateOwner.sol:DelegateOwner |
 
 ## GuardianProver
-| Name           | Type                                           | Slot | Offset | Bytes | Contract                                               |
-|----------------|------------------------------------------------|------|--------|-------|--------------------------------------------------------|
-| _initialized   | uint8                                          | 0    | 0      | 1     | contracts/L1/provers/GuardianProver.sol:GuardianProver |
-| _initializing  | bool                                           | 0    | 1      | 1     | contracts/L1/provers/GuardianProver.sol:GuardianProver |
-| __gap          | uint256[50]                                    | 1    | 0      | 1600  | contracts/L1/provers/GuardianProver.sol:GuardianProver |
-| _owner         | address                                        | 51   | 0      | 20    | contracts/L1/provers/GuardianProver.sol:GuardianProver |
-| __gap          | uint256[49]                                    | 52   | 0      | 1568  | contracts/L1/provers/GuardianProver.sol:GuardianProver |
-| _pendingOwner  | address                                        | 101  | 0      | 20    | contracts/L1/provers/GuardianProver.sol:GuardianProver |
-| __gap          | uint256[49]                                    | 102  | 0      | 1568  | contracts/L1/provers/GuardianProver.sol:GuardianProver |
-| addressManager | address                                        | 151  | 0      | 20    | contracts/L1/provers/GuardianProver.sol:GuardianProver |
-| __gap          | uint256[49]                                    | 152  | 0      | 1568  | contracts/L1/provers/GuardianProver.sol:GuardianProver |
-| __reentry      | uint8                                          | 201  | 0      | 1     | contracts/L1/provers/GuardianProver.sol:GuardianProver |
-| __paused       | uint8                                          | 201  | 1      | 1     | contracts/L1/provers/GuardianProver.sol:GuardianProver |
-| lastUnpausedAt | uint64                                         | 201  | 2      | 8     | contracts/L1/provers/GuardianProver.sol:GuardianProver |
-| __gap          | uint256[49]                                    | 202  | 0      | 1568  | contracts/L1/provers/GuardianProver.sol:GuardianProver |
-| guardianIds    | mapping(address => uint256)                    | 251  | 0      | 32    | contracts/L1/provers/GuardianProver.sol:GuardianProver |
-| _approvals     | mapping(uint32 => mapping(bytes32 => uint256)) | 252  | 0      | 32    | contracts/L1/provers/GuardianProver.sol:GuardianProver |
-| guardians      | address[]                                      | 253  | 0      | 32    | contracts/L1/provers/GuardianProver.sol:GuardianProver |
-| version        | uint32                                         | 254  | 0      | 4     | contracts/L1/provers/GuardianProver.sol:GuardianProver |
-| minGuardians   | uint32                                         | 254  | 4      | 4     | contracts/L1/provers/GuardianProver.sol:GuardianProver |
-| __gap          | uint256[46]                                    | 255  | 0      | 1472  | contracts/L1/provers/GuardianProver.sol:GuardianProver |
-| __gap          | uint256[50]                                    | 301  | 0      | 1600  | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| Name                    | Type                                            | Slot | Offset | Bytes | Contract                                               |
+|-------------------------|-------------------------------------------------|------|--------|-------|--------------------------------------------------------|
+| _initialized            | uint8                                           | 0    | 0      | 1     | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| _initializing           | bool                                            | 0    | 1      | 1     | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| __gap                   | uint256[50]                                     | 1    | 0      | 1600  | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| _owner                  | address                                         | 51   | 0      | 20    | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| __gap                   | uint256[49]                                     | 52   | 0      | 1568  | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| _pendingOwner           | address                                         | 101  | 0      | 20    | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| __gap                   | uint256[49]                                     | 102  | 0      | 1568  | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| addressManager          | address                                         | 151  | 0      | 20    | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| __gap                   | uint256[49]                                     | 152  | 0      | 1568  | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| __reentry               | uint8                                           | 201  | 0      | 1     | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| __paused                | uint8                                           | 201  | 1      | 1     | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| lastUnpausedAt          | uint64                                          | 201  | 2      | 8     | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| __gap                   | uint256[49]                                     | 202  | 0      | 1568  | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| guardianIds             | mapping(address => uint256)                     | 251  | 0      | 32    | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| approvals               | mapping(uint256 => mapping(bytes32 => uint256)) | 252  | 0      | 32    | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| guardians               | address[]                                       | 253  | 0      | 32    | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| version                 | uint32                                          | 254  | 0      | 4     | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| minGuardians            | uint32                                          | 254  | 4      | 4     | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| provingAutoPauseEnabled | bool                                            | 254  | 8      | 1     | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| latestProofHash         | mapping(uint256 => mapping(uint256 => bytes32)) | 255  | 0      | 32    | contracts/L1/provers/GuardianProver.sol:GuardianProver |
+| __gap                   | uint256[45]                                     | 256  | 0      | 1440  | contracts/L1/provers/GuardianProver.sol:GuardianProver |
 
 ## TaikoToken
 | Name                                                | Type                                                          | Slot | Offset | Bytes | Contract                                |
@@ -224,7 +226,7 @@
 | __gap              | uint256[50]                                          | 251  | 0      | 1600  | contracts/tokenvault/ERC20Vault.sol:ERC20Vault |
 | bridgedToCanonical | mapping(address => struct ERC20Vault.CanonicalERC20) | 301  | 0      | 32    | contracts/tokenvault/ERC20Vault.sol:ERC20Vault |
 | canonicalToBridged | mapping(uint256 => mapping(address => address))      | 302  | 0      | 32    | contracts/tokenvault/ERC20Vault.sol:ERC20Vault |
-| btokenBlacklist    | mapping(address => bool)                             | 303  | 0      | 32    | contracts/tokenvault/ERC20Vault.sol:ERC20Vault |
+| btokenDenylist     | mapping(address => bool)                             | 303  | 0      | 32    | contracts/tokenvault/ERC20Vault.sol:ERC20Vault |
 | lastMigrationStart | mapping(uint256 => mapping(address => uint256))      | 304  | 0      | 32    | contracts/tokenvault/ERC20Vault.sol:ERC20Vault |
 | __gap              | uint256[46]                                          | 305  | 0      | 1472  | contracts/tokenvault/ERC20Vault.sol:ERC20Vault |
 
@@ -359,94 +361,6 @@
 | __gap              | uint256[46]                                     | 355  | 0      | 1472  | contracts/tokenvault/BridgedERC1155.sol:BridgedERC1155 |
 
 ## AssignmentHook
-| Name           | Type        | Slot | Offset | Bytes | Contract                                             |
-|----------------|-------------|------|--------|-------|------------------------------------------------------|
-| _initialized   | uint8       | 0    | 0      | 1     | contracts/L1/hooks/AssignmentHook.sol:AssignmentHook |
-| _initializing  | bool        | 0    | 1      | 1     | contracts/L1/hooks/AssignmentHook.sol:AssignmentHook |
-| __gap          | uint256[50] | 1    | 0      | 1600  | contracts/L1/hooks/AssignmentHook.sol:AssignmentHook |
-| _owner         | address     | 51   | 0      | 20    | contracts/L1/hooks/AssignmentHook.sol:AssignmentHook |
-| __gap          | uint256[49] | 52   | 0      | 1568  | contracts/L1/hooks/AssignmentHook.sol:AssignmentHook |
-| _pendingOwner  | address     | 101  | 0      | 20    | contracts/L1/hooks/AssignmentHook.sol:AssignmentHook |
-| __gap          | uint256[49] | 102  | 0      | 1568  | contracts/L1/hooks/AssignmentHook.sol:AssignmentHook |
-| addressManager | address     | 151  | 0      | 20    | contracts/L1/hooks/AssignmentHook.sol:AssignmentHook |
-| __gap          | uint256[49] | 152  | 0      | 1568  | contracts/L1/hooks/AssignmentHook.sol:AssignmentHook |
-| __reentry      | uint8       | 201  | 0      | 1     | contracts/L1/hooks/AssignmentHook.sol:AssignmentHook |
-| __paused       | uint8       | 201  | 1      | 1     | contracts/L1/hooks/AssignmentHook.sol:AssignmentHook |
-| lastUnpausedAt | uint64      | 201  | 2      | 8     | contracts/L1/hooks/AssignmentHook.sol:AssignmentHook |
-| __gap          | uint256[49] | 202  | 0      | 1568  | contracts/L1/hooks/AssignmentHook.sol:AssignmentHook |
-| __gap          | uint256[50] | 251  | 0      | 1600  | contracts/L1/hooks/AssignmentHook.sol:AssignmentHook |
-
-## DevnetTierProvider
-| Name           | Type        | Slot | Offset | Bytes | Contract                                                     |
-|----------------|-------------|------|--------|-------|--------------------------------------------------------------|
-| _initialized   | uint8       | 0    | 0      | 1     | contracts/L1/tiers/DevnetTierProvider.sol:DevnetTierProvider |
-| _initializing  | bool        | 0    | 1      | 1     | contracts/L1/tiers/DevnetTierProvider.sol:DevnetTierProvider |
-| __gap          | uint256[50] | 1    | 0      | 1600  | contracts/L1/tiers/DevnetTierProvider.sol:DevnetTierProvider |
-| _owner         | address     | 51   | 0      | 20    | contracts/L1/tiers/DevnetTierProvider.sol:DevnetTierProvider |
-| __gap          | uint256[49] | 52   | 0      | 1568  | contracts/L1/tiers/DevnetTierProvider.sol:DevnetTierProvider |
-| _pendingOwner  | address     | 101  | 0      | 20    | contracts/L1/tiers/DevnetTierProvider.sol:DevnetTierProvider |
-| __gap          | uint256[49] | 102  | 0      | 1568  | contracts/L1/tiers/DevnetTierProvider.sol:DevnetTierProvider |
-| addressManager | address     | 151  | 0      | 20    | contracts/L1/tiers/DevnetTierProvider.sol:DevnetTierProvider |
-| __gap          | uint256[49] | 152  | 0      | 1568  | contracts/L1/tiers/DevnetTierProvider.sol:DevnetTierProvider |
-| __reentry      | uint8       | 201  | 0      | 1     | contracts/L1/tiers/DevnetTierProvider.sol:DevnetTierProvider |
-| __paused       | uint8       | 201  | 1      | 1     | contracts/L1/tiers/DevnetTierProvider.sol:DevnetTierProvider |
-| lastUnpausedAt | uint64      | 201  | 2      | 8     | contracts/L1/tiers/DevnetTierProvider.sol:DevnetTierProvider |
-| __gap          | uint256[49] | 202  | 0      | 1568  | contracts/L1/tiers/DevnetTierProvider.sol:DevnetTierProvider |
-| __gap          | uint256[50] | 251  | 0      | 1600  | contracts/L1/tiers/DevnetTierProvider.sol:DevnetTierProvider |
-
-## TierProviderV1
-| Name           | Type        | Slot | Offset | Bytes | Contract                                             |
-|----------------|-------------|------|--------|-------|------------------------------------------------------|
-| _initialized   | uint8       | 0    | 0      | 1     | contracts/L1/tiers/TierProviderV1.sol:TierProviderV1 |
-| _initializing  | bool        | 0    | 1      | 1     | contracts/L1/tiers/TierProviderV1.sol:TierProviderV1 |
-| __gap          | uint256[50] | 1    | 0      | 1600  | contracts/L1/tiers/TierProviderV1.sol:TierProviderV1 |
-| _owner         | address     | 51   | 0      | 20    | contracts/L1/tiers/TierProviderV1.sol:TierProviderV1 |
-| __gap          | uint256[49] | 52   | 0      | 1568  | contracts/L1/tiers/TierProviderV1.sol:TierProviderV1 |
-| _pendingOwner  | address     | 101  | 0      | 20    | contracts/L1/tiers/TierProviderV1.sol:TierProviderV1 |
-| __gap          | uint256[49] | 102  | 0      | 1568  | contracts/L1/tiers/TierProviderV1.sol:TierProviderV1 |
-| addressManager | address     | 151  | 0      | 20    | contracts/L1/tiers/TierProviderV1.sol:TierProviderV1 |
-| __gap          | uint256[49] | 152  | 0      | 1568  | contracts/L1/tiers/TierProviderV1.sol:TierProviderV1 |
-| __reentry      | uint8       | 201  | 0      | 1     | contracts/L1/tiers/TierProviderV1.sol:TierProviderV1 |
-| __paused       | uint8       | 201  | 1      | 1     | contracts/L1/tiers/TierProviderV1.sol:TierProviderV1 |
-| lastUnpausedAt | uint64      | 201  | 2      | 8     | contracts/L1/tiers/TierProviderV1.sol:TierProviderV1 |
-| __gap          | uint256[49] | 202  | 0      | 1568  | contracts/L1/tiers/TierProviderV1.sol:TierProviderV1 |
-| __gap          | uint256[50] | 251  | 0      | 1600  | contracts/L1/tiers/TierProviderV1.sol:TierProviderV1 |
-
-## TierProviderV2
-| Name           | Type        | Slot | Offset | Bytes | Contract                                             |
-|----------------|-------------|------|--------|-------|------------------------------------------------------|
-| _initialized   | uint8       | 0    | 0      | 1     | contracts/L1/tiers/TierProviderV2.sol:TierProviderV2 |
-| _initializing  | bool        | 0    | 1      | 1     | contracts/L1/tiers/TierProviderV2.sol:TierProviderV2 |
-| __gap          | uint256[50] | 1    | 0      | 1600  | contracts/L1/tiers/TierProviderV2.sol:TierProviderV2 |
-| _owner         | address     | 51   | 0      | 20    | contracts/L1/tiers/TierProviderV2.sol:TierProviderV2 |
-| __gap          | uint256[49] | 52   | 0      | 1568  | contracts/L1/tiers/TierProviderV2.sol:TierProviderV2 |
-| _pendingOwner  | address     | 101  | 0      | 20    | contracts/L1/tiers/TierProviderV2.sol:TierProviderV2 |
-| __gap          | uint256[49] | 102  | 0      | 1568  | contracts/L1/tiers/TierProviderV2.sol:TierProviderV2 |
-| addressManager | address     | 151  | 0      | 20    | contracts/L1/tiers/TierProviderV2.sol:TierProviderV2 |
-| __gap          | uint256[49] | 152  | 0      | 1568  | contracts/L1/tiers/TierProviderV2.sol:TierProviderV2 |
-| __reentry      | uint8       | 201  | 0      | 1     | contracts/L1/tiers/TierProviderV2.sol:TierProviderV2 |
-| __paused       | uint8       | 201  | 1      | 1     | contracts/L1/tiers/TierProviderV2.sol:TierProviderV2 |
-| lastUnpausedAt | uint64      | 201  | 2      | 8     | contracts/L1/tiers/TierProviderV2.sol:TierProviderV2 |
-| __gap          | uint256[49] | 202  | 0      | 1568  | contracts/L1/tiers/TierProviderV2.sol:TierProviderV2 |
-| __gap          | uint256[50] | 251  | 0      | 1600  | contracts/L1/tiers/TierProviderV2.sol:TierProviderV2 |
-
-## TierProviderV3
-| Name           | Type        | Slot | Offset | Bytes | Contract                                             |
-|----------------|-------------|------|--------|-------|------------------------------------------------------|
-| _initialized   | uint8       | 0    | 0      | 1     | contracts/L1/tiers/TierProviderV3.sol:TierProviderV3 |
-| _initializing  | bool        | 0    | 1      | 1     | contracts/L1/tiers/TierProviderV3.sol:TierProviderV3 |
-| __gap          | uint256[50] | 1    | 0      | 1600  | contracts/L1/tiers/TierProviderV3.sol:TierProviderV3 |
-| _owner         | address     | 51   | 0      | 20    | contracts/L1/tiers/TierProviderV3.sol:TierProviderV3 |
-| __gap          | uint256[49] | 52   | 0      | 1568  | contracts/L1/tiers/TierProviderV3.sol:TierProviderV3 |
-| _pendingOwner  | address     | 101  | 0      | 20    | contracts/L1/tiers/TierProviderV3.sol:TierProviderV3 |
-| __gap          | uint256[49] | 102  | 0      | 1568  | contracts/L1/tiers/TierProviderV3.sol:TierProviderV3 |
-| addressManager | address     | 151  | 0      | 20    | contracts/L1/tiers/TierProviderV3.sol:TierProviderV3 |
-| __gap          | uint256[49] | 152  | 0      | 1568  | contracts/L1/tiers/TierProviderV3.sol:TierProviderV3 |
-| __reentry      | uint8       | 201  | 0      | 1     | contracts/L1/tiers/TierProviderV3.sol:TierProviderV3 |
-| __paused       | uint8       | 201  | 1      | 1     | contracts/L1/tiers/TierProviderV3.sol:TierProviderV3 |
-| lastUnpausedAt | uint64      | 201  | 2      | 8     | contracts/L1/tiers/TierProviderV3.sol:TierProviderV3 |
-| __gap          | uint256[49] | 202  | 0      | 1568  | contracts/L1/tiers/TierProviderV3.sol:TierProviderV3 |
-| __gap          | uint256[50] | 251  | 0      | 1600  | contracts/L1/tiers/TierProviderV3.sol:TierProviderV3 |
 
 ## ERC20Airdrop
 | Name           | Type                     | Slot | Offset | Bytes | Contract                                             |
@@ -474,30 +388,30 @@
 | __gap          | uint256[48]              | 303  | 0      | 1536  | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
 
 ## AutomataDcapV3Attestation
-| Name                     | Type                                            | Slot | Offset | Bytes | Contract                                                                               |
-|--------------------------|-------------------------------------------------|------|--------|-------|----------------------------------------------------------------------------------------|
-| _initialized             | uint8                                           | 0    | 0      | 1     | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
-| _initializing            | bool                                            | 0    | 1      | 1     | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
-| __gap                    | uint256[50]                                     | 1    | 0      | 1600  | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
-| _owner                   | address                                         | 51   | 0      | 20    | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
-| __gap                    | uint256[49]                                     | 52   | 0      | 1568  | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
-| _pendingOwner            | address                                         | 101  | 0      | 20    | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
-| __gap                    | uint256[49]                                     | 102  | 0      | 1568  | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
-| addressManager           | address                                         | 151  | 0      | 20    | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
-| __gap                    | uint256[49]                                     | 152  | 0      | 1568  | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
-| __reentry                | uint8                                           | 201  | 0      | 1     | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
-| __paused                 | uint8                                           | 201  | 1      | 1     | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
-| lastUnpausedAt           | uint64                                          | 201  | 2      | 8     | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
-| __gap                    | uint256[49]                                     | 202  | 0      | 1568  | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
-| sigVerifyLib             | contract ISigVerifyLib                          | 251  | 0      | 20    | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
-| pemCertLib               | contract IPEMCertChainLib                       | 252  | 0      | 20    | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
-| _checkLocalEnclaveReport | bool                                            | 252  | 20     | 1     | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
-| _trustedUserMrEnclave    | mapping(bytes32 => bool)                        | 253  | 0      | 32    | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
-| _trustedUserMrSigner     | mapping(bytes32 => bool)                        | 254  | 0      | 32    | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
-| _serialNumIsRevoked      | mapping(uint256 => mapping(bytes => bool))      | 255  | 0      | 32    | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
-| tcbInfo                  | mapping(string => struct TCBInfoStruct.TCBInfo) | 256  | 0      | 32    | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
-| qeIdentity               | struct EnclaveIdStruct.EnclaveId                | 257  | 0      | 128   | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
-| __gap                    | uint256[39]                                     | 261  | 0      | 1248  | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
+| Name                    | Type                                            | Slot | Offset | Bytes | Contract                                                                               |
+|-------------------------|-------------------------------------------------|------|--------|-------|----------------------------------------------------------------------------------------|
+| _initialized            | uint8                                           | 0    | 0      | 1     | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
+| _initializing           | bool                                            | 0    | 1      | 1     | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
+| __gap                   | uint256[50]                                     | 1    | 0      | 1600  | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
+| _owner                  | address                                         | 51   | 0      | 20    | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
+| __gap                   | uint256[49]                                     | 52   | 0      | 1568  | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
+| _pendingOwner           | address                                         | 101  | 0      | 20    | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
+| __gap                   | uint256[49]                                     | 102  | 0      | 1568  | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
+| addressManager          | address                                         | 151  | 0      | 20    | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
+| __gap                   | uint256[49]                                     | 152  | 0      | 1568  | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
+| __reentry               | uint8                                           | 201  | 0      | 1     | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
+| __paused                | uint8                                           | 201  | 1      | 1     | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
+| lastUnpausedAt          | uint64                                          | 201  | 2      | 8     | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
+| __gap                   | uint256[49]                                     | 202  | 0      | 1568  | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
+| sigVerifyLib            | contract ISigVerifyLib                          | 251  | 0      | 20    | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
+| pemCertLib              | contract IPEMCertChainLib                       | 252  | 0      | 20    | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
+| checkLocalEnclaveReport | bool                                            | 252  | 20     | 1     | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
+| trustedUserMrEnclave    | mapping(bytes32 => bool)                        | 253  | 0      | 32    | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
+| trustedUserMrSigner     | mapping(bytes32 => bool)                        | 254  | 0      | 32    | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
+| serialNumIsRevoked      | mapping(uint256 => mapping(bytes => bool))      | 255  | 0      | 32    | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
+| tcbInfo                 | mapping(string => struct TCBInfoStruct.TCBInfo) | 256  | 0      | 32    | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
+| qeIdentity              | struct EnclaveIdStruct.EnclaveId                | 257  | 0      | 128   | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
+| __gap                   | uint256[39]                                     | 261  | 0      | 1248  | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
 
 ## SgxVerifier
 | Name              | Type                                            | Slot | Offset | Bytes | Contract                                        |
@@ -559,4 +473,46 @@
 | tokenQuota     | mapping(address => struct QuotaManager.Quota) | 251  | 0      | 32    | contracts/bridge/QuotaManager.sol:QuotaManager |
 | quotaPeriod    | uint24                                        | 252  | 0      | 3     | contracts/bridge/QuotaManager.sol:QuotaManager |
 | __gap          | uint256[48]                                   | 253  | 0      | 1536  | contracts/bridge/QuotaManager.sol:QuotaManager |
+
+## ProverSet
+| Name           | Type                     | Slot | Offset | Bytes | Contract                                       |
+|----------------|--------------------------|------|--------|-------|------------------------------------------------|
+| _initialized   | uint8                    | 0    | 0      | 1     | contracts/team/proving/ProverSet.sol:ProverSet |
+| _initializing  | bool                     | 0    | 1      | 1     | contracts/team/proving/ProverSet.sol:ProverSet |
+| __gap          | uint256[50]              | 1    | 0      | 1600  | contracts/team/proving/ProverSet.sol:ProverSet |
+| _owner         | address                  | 51   | 0      | 20    | contracts/team/proving/ProverSet.sol:ProverSet |
+| __gap          | uint256[49]              | 52   | 0      | 1568  | contracts/team/proving/ProverSet.sol:ProverSet |
+| _pendingOwner  | address                  | 101  | 0      | 20    | contracts/team/proving/ProverSet.sol:ProverSet |
+| __gap          | uint256[49]              | 102  | 0      | 1568  | contracts/team/proving/ProverSet.sol:ProverSet |
+| addressManager | address                  | 151  | 0      | 20    | contracts/team/proving/ProverSet.sol:ProverSet |
+| __gap          | uint256[49]              | 152  | 0      | 1568  | contracts/team/proving/ProverSet.sol:ProverSet |
+| __reentry      | uint8                    | 201  | 0      | 1     | contracts/team/proving/ProverSet.sol:ProverSet |
+| __paused       | uint8                    | 201  | 1      | 1     | contracts/team/proving/ProverSet.sol:ProverSet |
+| lastUnpausedAt | uint64                   | 201  | 2      | 8     | contracts/team/proving/ProverSet.sol:ProverSet |
+| __gap          | uint256[49]              | 202  | 0      | 1568  | contracts/team/proving/ProverSet.sol:ProverSet |
+| isProver       | mapping(address => bool) | 251  | 0      | 32    | contracts/team/proving/ProverSet.sol:ProverSet |
+| admin          | address                  | 252  | 0      | 20    | contracts/team/proving/ProverSet.sol:ProverSet |
+| __gap          | uint256[48]              | 253  | 0      | 1536  | contracts/team/proving/ProverSet.sol:ProverSet |
+
+## TokenUnlock
+| Name           | Type                     | Slot | Offset | Bytes | Contract                                               |
+|----------------|--------------------------|------|--------|-------|--------------------------------------------------------|
+| _initialized   | uint8                    | 0    | 0      | 1     | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
+| _initializing  | bool                     | 0    | 1      | 1     | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
+| __gap          | uint256[50]              | 1    | 0      | 1600  | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
+| _owner         | address                  | 51   | 0      | 20    | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
+| __gap          | uint256[49]              | 52   | 0      | 1568  | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
+| _pendingOwner  | address                  | 101  | 0      | 20    | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
+| __gap          | uint256[49]              | 102  | 0      | 1568  | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
+| addressManager | address                  | 151  | 0      | 20    | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
+| __gap          | uint256[49]              | 152  | 0      | 1568  | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
+| __reentry      | uint8                    | 201  | 0      | 1     | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
+| __paused       | uint8                    | 201  | 1      | 1     | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
+| lastUnpausedAt | uint64                   | 201  | 2      | 8     | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
+| __gap          | uint256[49]              | 202  | 0      | 1568  | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
+| amountVested   | uint256                  | 251  | 0      | 32    | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
+| recipient      | address                  | 252  | 0      | 20    | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
+| tgeTimestamp   | uint64                   | 252  | 20     | 8     | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
+| isProverSet    | mapping(address => bool) | 253  | 0      | 32    | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
+| __gap          | uint256[47]              | 254  | 0      | 1504  | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
 

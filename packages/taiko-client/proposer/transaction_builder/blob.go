@@ -25,8 +25,8 @@ type BlobTransactionBuilder struct {
 	proverSelector          selector.ProverSelector
 	l1BlockBuilderTip       *big.Int
 	taikoL1Address          common.Address
+	proverSetAddress        common.Address
 	l2SuggestedFeeRecipient common.Address
-	assignmentHookAddress   common.Address
 	gasLimit                uint64
 	extraData               string
 }
@@ -38,8 +38,8 @@ func NewBlobTransactionBuilder(
 	proverSelector selector.ProverSelector,
 	l1BlockBuilderTip *big.Int,
 	taikoL1Address common.Address,
+	proverSetAddress common.Address,
 	l2SuggestedFeeRecipient common.Address,
-	assignmentHookAddress common.Address,
 	gasLimit uint64,
 	extraData string,
 ) *BlobTransactionBuilder {
@@ -49,8 +49,8 @@ func NewBlobTransactionBuilder(
 		proverSelector,
 		l1BlockBuilderTip,
 		taikoL1Address,
+		proverSetAddress,
 		l2SuggestedFeeRecipient,
-		assignmentHookAddress,
 		gasLimit,
 		extraData,
 	}
@@ -63,22 +63,15 @@ func (b *BlobTransactionBuilder) Build(
 	includeParentMetaHash bool,
 	txListBytes []byte,
 ) (*txmgr.TxCandidate, error) {
-	// Make a sidecar then calculate the blob hash.
-	sideCar, err := rpc.MakeSidecar(txListBytes)
-	if err != nil {
-		return nil, err
-	}
-
 	var blob = &eth.Blob{}
 	if err := blob.FromData(txListBytes); err != nil {
 		return nil, err
 	}
 
 	// Try to assign a prover.
-	assignment, assignedProver, maxFee, err := b.proverSelector.AssignProver(
+	maxFee, err := b.proverSelector.AssignProver(
 		ctx,
 		tierFees,
-		sideCar.BlobHashes()[0],
 	)
 	if err != nil {
 		return nil, err
@@ -90,15 +83,6 @@ func (b *BlobTransactionBuilder) Build(
 		if parentMetaHash, err = getParentMetaHash(ctx, b.rpc); err != nil {
 			return nil, err
 		}
-	}
-
-	// Initially just use the AssignmentHook default.
-	hookInputData, err := encoding.EncodeAssignmentHookInput(&encoding.AssignmentHookInput{
-		Assignment: assignment,
-		Tip:        b.l1BlockBuilderTip,
-	})
-	if err != nil {
-		return nil, err
 	}
 
 	commitment, err := blob.ComputeKZGCommitment()
@@ -113,29 +97,41 @@ func (b *BlobTransactionBuilder) Build(
 	}
 	signature[64] = uint8(uint(signature[64])) + 27
 
+	var (
+		to   = &b.taikoL1Address
+		data []byte
+	)
+	if b.proverSetAddress != rpc.ZeroAddress {
+		to = &b.proverSetAddress
+	}
+
 	// ABI encode the TaikoL1.proposeBlock parameters.
 	encodedParams, err := encoding.EncodeBlockParams(&encoding.BlockParams{
-		AssignedProver: assignedProver,
 		ExtraData:      rpc.StringToBytes32(b.extraData),
 		Coinbase:       b.l2SuggestedFeeRecipient,
 		ParentMetaHash: parentMetaHash,
-		HookCalls:      []encoding.HookCall{{Hook: b.assignmentHookAddress, Data: hookInputData}},
 		Signature:      signature,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	// Send the transaction to the L1 node.
-	data, err := encoding.TaikoL1ABI.Pack("proposeBlock", encodedParams, []byte{})
-	if err != nil {
-		return nil, err
+	if b.proverSetAddress != rpc.ZeroAddress {
+		data, err = encoding.ProverSetABI.Pack("proposeBlock", encodedParams, []byte{})
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		data, err = encoding.TaikoL1ABI.Pack("proposeBlock", encodedParams, []byte{})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &txmgr.TxCandidate{
 		TxData:   data,
 		Blobs:    []*eth.Blob{blob},
-		To:       &b.taikoL1Address,
+		To:       to,
 		GasLimit: b.gasLimit,
 		Value:    maxFee,
 	}, nil

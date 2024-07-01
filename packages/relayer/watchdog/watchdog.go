@@ -66,8 +66,6 @@ type Watchdog struct {
 	srcBridge  relayer.Bridge
 	destBridge relayer.Bridge
 
-	mu *sync.Mutex
-
 	watchdogAddr common.Address
 
 	confirmations uint64
@@ -80,12 +78,13 @@ type Watchdog struct {
 
 	msgCh chan queue.Message
 
-	wg *sync.WaitGroup
+	wg sync.WaitGroup
 
 	srcChainId  *big.Int
 	destChainId *big.Int
 
-	txmgr txmgr.TxManager
+	srcTxmgr  txmgr.TxManager
+	destTxmgr txmgr.TxManager
 
 	cfg *Config
 }
@@ -155,11 +154,20 @@ func InitFromConfig(ctx context.Context, w *Watchdog, cfg *Config) error {
 		return err
 	}
 
-	if w.txmgr, err = txmgr.NewSimpleTxManager(
+	if w.srcTxmgr, err = txmgr.NewSimpleTxManager(
 		"watchdog",
 		log.Root(),
 		new(txmgrMetrics.NoopTxMetrics),
-		*cfg.TxmgrConfigs,
+		*cfg.SrcTxmgrConfigs,
+	); err != nil {
+		return err
+	}
+
+	if w.destTxmgr, err = txmgr.NewSimpleTxManager(
+		"watchdog",
+		log.Root(),
+		new(txmgrMetrics.NoopTxMetrics),
+		*cfg.DestTxmgrConfigs,
 	); err != nil {
 		return err
 	}
@@ -184,8 +192,6 @@ func InitFromConfig(ctx context.Context, w *Watchdog, cfg *Config) error {
 	w.confirmations = cfg.Confirmations
 
 	w.msgCh = make(chan queue.Message)
-	w.wg = &sync.WaitGroup{}
-	w.mu = &sync.Mutex{}
 
 	w.backOffRetryInterval = time.Duration(cfg.BackoffRetryInterval) * time.Second
 	w.backOffMaxRetries = cfg.BackOffMaxRetrys
@@ -220,7 +226,7 @@ func (w *Watchdog) Start() error {
 	go func() {
 		if err := backoff.Retry(func() error {
 			slog.Info("attempting backoff queue subscription")
-			if err := w.queue.Subscribe(ctx, w.msgCh, w.wg); err != nil {
+			if err := w.queue.Subscribe(ctx, w.msgCh, &w.wg); err != nil {
 				slog.Error("processor queue subscription error", "err", err.Error())
 				return err
 			}
@@ -237,7 +243,7 @@ func (w *Watchdog) Start() error {
 
 	go func() {
 		if err := backoff.Retry(func() error {
-			return utils.ScanBlocks(ctx, w.srcEthClient, w.wg)
+			return utils.ScanBlocks(ctx, w.srcEthClient, &w.wg)
 		}, backoff.NewConstantBackOff(5*time.Second)); err != nil {
 			slog.Error("scan blocks backoff retry", "error", err)
 		}
@@ -313,7 +319,7 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 	// we should alert based on this metric
 	relayer.BridgeMessageNotSent.Inc()
 
-	pauseReceipt, err := w.pauseBridge(ctx, w.srcBridge, w.cfg.SrcBridgeAddress)
+	pauseReceipt, err := w.pauseBridge(ctx, w.srcBridge, w.cfg.SrcBridgeAddress, w.srcTxmgr)
 	if err != nil {
 		return err
 	}
@@ -335,7 +341,7 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 
 	relayer.BridgePaused.Inc()
 
-	pauseReceipt, err = w.pauseBridge(ctx, w.destBridge, w.cfg.DestBridgeAddress)
+	pauseReceipt, err = w.pauseBridge(ctx, w.destBridge, w.cfg.DestBridgeAddress, w.destTxmgr)
 	if err != nil {
 		return err
 	}
@@ -364,6 +370,7 @@ func (w *Watchdog) pauseBridge(
 	ctx context.Context,
 	bridge relayer.Bridge,
 	bridgeAddress common.Address,
+	mgr txmgr.TxManager,
 ) (*types.Receipt, error) {
 	paused, err := bridge.Paused(&bind.CallOpts{
 		Context: ctx,
@@ -390,7 +397,7 @@ func (w *Watchdog) pauseBridge(
 		To:     &bridgeAddress,
 	}
 
-	receipt, err := w.txmgr.Send(ctx, candidate)
+	receipt, err := mgr.Send(ctx, candidate)
 	if err != nil {
 		slog.Warn("Failed to send pause transaction", "error", err.Error())
 		return nil, err

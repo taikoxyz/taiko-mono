@@ -136,7 +136,7 @@
         functionName: 'balanceOf',
         args: [$account?.address as Address],
       });
-      customTokenWithDetails = { ...token, balance };
+      customTokenWithDetails = { ...token, balance } as Token;
 
       customToken = customTokenWithDetails;
     } catch (error) {

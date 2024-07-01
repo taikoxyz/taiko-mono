@@ -3,8 +3,9 @@ import { watchAccount } from '@wagmi/core';
 import { chains, isSupportedChain } from '$libs/chain';
 import { refreshUserBalance } from '$libs/util/balance';
 import { checkForPausedContracts } from '$libs/util/checkForPausedContracts';
+import { isSmartContractWallet } from '$libs/util/isSmartContractWallet';
 import { getLogger } from '$libs/util/logger';
-import { account } from '$stores/account';
+import { account, connectedSmartContractWallet } from '$stores/account';
 import { switchChainModal } from '$stores/modal';
 import { connectedSourceChain } from '$stores/network';
 
@@ -19,12 +20,23 @@ export async function startWatching() {
 
   if (!isWatching) {
     unWatchAccount = watchAccount(config, {
-      onChange(data) {
-        checkForPausedContracts();
+      async onChange(data) {
+        await checkForPausedContracts();
         log('Account changed', data);
 
         refreshUserBalance();
-        const { chainId } = data;
+        const { chainId, address } = data;
+
+        if (chainId && address) {
+          let smartWallet = false;
+          try {
+            smartWallet = (await isSmartContractWallet(address, Number(chainId))) || false;
+          } catch (error) {
+            console.error('Error checking for smart contract wallet', error);
+          } finally {
+            connectedSmartContractWallet.set(smartWallet);
+          }
+        }
 
         // We need to check if the chain is supported, and if not
         // we present the user with a modal to switch networks.

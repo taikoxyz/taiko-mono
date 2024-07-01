@@ -1,12 +1,12 @@
 export const gasLimitConfig = {
   GAS_RESERVE: 650_000, // based on Bridge.sol
-  ethGasLimit: BigInt(100_000),
-  erc20NotDeployedGasLimit: BigInt(650_000),
-  erc20DeployedGasLimit: BigInt(200_000),
-  erc721NotDeployedGasLimit: BigInt(2_400_000),
-  erc721DeployedGasLimit: BigInt(1_100_000),
-  erc1155NotDeployedGasLimit: BigInt(2_600_000),
-  erc1155DeployedGasLimit: BigInt(1_100_000),
+  ethGasLimit: 100_000,
+  erc20NotDeployedGasLimit: 750_000,
+  erc20DeployedGasLimit: 500_000,
+  erc721NotDeployedGasLimit: 2_400_000,
+  erc721DeployedGasLimit: 1_100_000,
+  erc1155NotDeployedGasLimit: 2_600_000,
+  erc1155DeployedGasLimit: 1_100_000,
 };
 
 export const processingFeeComponent = {
@@ -15,7 +15,7 @@ export const processingFeeComponent = {
 };
 
 export const pendingTransaction = {
-  waitTimeout: 30_000,
+  waitTimeout: 90_000,
 };
 
 export const storageService = {
@@ -28,7 +28,7 @@ export const bridgeTransactionPoller = {
 };
 
 export const claimConfig = {
-  minimumEthToClaim: 0.001,
+  minimumEthToClaim: 0.0015, // 1M gas * 1.5 gwei (lowest gasPrice)
 };
 
 export const transactionConfig = {
@@ -42,12 +42,12 @@ export const toastConfig = {
 };
 
 export const apiService = {
-  timeout: 5000,
+  timeout: 10_000, // 10 seconds
 };
 
 export const ipfsConfig = {
-  gatewayTimeout: 200,
-  overallTimeout: 5000,
+  gatewayTimeout: 1_000,
+  overallTimeout: 5_000,
 };
 
 export const moralisApiConfig = {

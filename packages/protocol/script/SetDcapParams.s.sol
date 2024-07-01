@@ -11,43 +11,50 @@ contract SetDcapParams is Script, AttestationBase {
     address public dcapAttestationAddress = vm.envAddress("ATTESTATION_ADDRESS");
     address public sgxVerifier = vm.envAddress("SGX_VERIFIER_ADDRESS");
     address public pemCertChainLibAddr = vm.envAddress("PEM_CERTCHAIN_ADDRESS");
-    // TASK_FLAG: [setMrEnclave,setMrSigner,configQE,configTCB,registerSgxInstanceWithQuote]
-    bool[] internal defaultTaskFlags = [true, true, true, true, true];
-    bool[] public taskFlags = vm.envOr("TASK_ENABLE", ",", defaultTaskFlags);
+    // TASK_FLAG:
+    // [setMrEnclave,setMrSigner,configQE,configTCB,enableMrCheck,registerSgxInstanceWithQuote]
+    uint256[] internal defaultTaskFlags = [1, 1, 1, 1, 1, 1];
+    uint256[] public taskFlags = vm.envOr("TASK_ENABLE", ",", defaultTaskFlags);
 
     function run() external {
         require(ownerPrivateKey != 0, "PRIVATE_KEY not set");
         require(dcapAttestationAddress != address(0), "ATTESTATION_ADDRESS not set");
 
         vm.startBroadcast(ownerPrivateKey);
-        if (taskFlags[0]) {
-            _setMrEnclave();
+        if (taskFlags[0] != 0) {
+            bool enable = (taskFlags[0] == 1);
+            _setMrEnclave(enable);
         }
-        if (taskFlags[1]) {
-            _setMrSigner();
+        if (taskFlags[1] != 0) {
+            bool enable = (taskFlags[1] == 1);
+            _setMrSigner(enable);
         }
-        if (taskFlags[2]) {
+        if (taskFlags[2] != 0) {
             _configureQeIdentityJson();
         }
-        if (taskFlags[3]) {
+        if (taskFlags[3] != 0) {
             _configureTcbInfoJson();
         }
-        if (taskFlags[4]) {
+        if (taskFlags[4] != 0) {
+            toggleCheckQuoteValidity(dcapAttestationAddress);
+        }
+        if (taskFlags[5] != 0) {
             _registerSgxInstanceWithQuoteBytes();
         }
 
         vm.stopBroadcast();
     }
 
-    function _setMrEnclave() internal {
+    function _setMrEnclave(bool enable) internal {
         mrEnclave = vm.envBytes32("MR_ENCLAVE");
-        setMrEnclave(dcapAttestationAddress, mrEnclave);
+        console2.log("_setMrEnclave set: ", uint256(mrEnclave));
+        setMrEnclave(dcapAttestationAddress, mrEnclave, enable);
         console2.log("MR_ENCLAVE set: ", uint256(mrEnclave));
     }
 
-    function _setMrSigner() internal {
+    function _setMrSigner(bool enable) internal {
         mrSigner = vm.envBytes32("MR_SIGNER");
-        setMrSigner(dcapAttestationAddress, mrSigner);
+        setMrSigner(dcapAttestationAddress, mrSigner, enable);
         console2.log("MR_SIGNER set: ", uint256(mrSigner));
     }
 
@@ -60,7 +67,7 @@ contract SetDcapParams is Script, AttestationBase {
     }
 
     function _configureTcbInfoJson() internal {
-        tcbInfoPath = vm.envString("TCB_INFO_PATH");
+        string memory tcbInfoPath = vm.envString("TCB_INFO_PATH");
         string memory tcbInfoJson = vm.readFile(string.concat(vm.projectRoot(), tcbInfoPath));
         configureTcbInfoJson(dcapAttestationAddress, tcbInfoJson);
         console2.logString("TCB_INFO_JSON set: ");

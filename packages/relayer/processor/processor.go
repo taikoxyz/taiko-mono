@@ -4,11 +4,13 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"math/big"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -58,6 +60,7 @@ type ethClient interface {
 	ChainID(ctx context.Context) (*big.Int, error)
 	SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error)
 	EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error)
+	BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error)
 }
 
 // hop is a struct which needs to be created based on the config parameters
@@ -100,8 +103,6 @@ type Processor struct {
 
 	prover *proof.Prover
 
-	mu *sync.Mutex
-
 	relayerAddr             common.Address
 	srcSignalServiceAddress common.Address
 
@@ -118,7 +119,7 @@ type Processor struct {
 
 	msgCh chan queue.Message
 
-	wg *sync.WaitGroup
+	wg sync.WaitGroup
 
 	srcChainId  *big.Int
 	destChainId *big.Int
@@ -132,6 +133,11 @@ type Processor struct {
 	txmgr txmgr.TxManager
 
 	maxMessageRetries uint64
+
+	processingTxHashes map[common.Hash]bool
+	processingTxHashMu sync.Mutex
+
+	minFeeToProcess uint64
 }
 
 // InitFromCli creates a new processor from a cli context
@@ -357,8 +363,6 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	p.srcSignalServiceAddress = cfg.SrcSignalServiceAddress
 
 	p.msgCh = make(chan queue.Message)
-	p.wg = &sync.WaitGroup{}
-	p.mu = &sync.Mutex{}
 	p.srcCaller = srcRpcClient
 
 	p.backOffRetryInterval = time.Duration(cfg.BackoffRetryInterval) * time.Second
@@ -368,6 +372,12 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	p.targetTxHash = cfg.TargetTxHash
 
 	p.maxMessageRetries = cfg.MaxMessageRetries
+
+	p.processingTxHashes = make(map[common.Hash]bool, 0)
+
+	p.minFeeToProcess = p.cfg.MinFeeToProcess
+
+	slog.Info("minFeeToProcess", "minFeeToProcess", p.minFeeToProcess)
 
 	return nil
 }
@@ -409,7 +419,7 @@ func (p *Processor) Start() error {
 	go func() {
 		if err := backoff.Retry(func() error {
 			slog.Info("attempting backoff queue subscription")
-			if err := p.queue.Subscribe(ctx, p.msgCh, p.wg); err != nil {
+			if err := p.queue.Subscribe(ctx, p.msgCh, &p.wg); err != nil {
 				slog.Error("processor queue subscription error", "err", err.Error())
 				return err
 			}
@@ -420,13 +430,11 @@ func (p *Processor) Start() error {
 		}
 	}()
 
-	p.wg.Add(1)
-
 	go p.eventLoop(ctx)
 
 	go func() {
 		if err := backoff.Retry(func() error {
-			return utils.ScanBlocks(ctx, p.srcEthClient, p.wg)
+			return utils.ScanBlocks(ctx, p.srcEthClient, &p.wg)
 		}, backoff.NewConstantBackOff(5*time.Second)); err != nil {
 			slog.Error("scan blocks backoff retry", "error", err)
 		}
@@ -442,9 +450,8 @@ func (p *Processor) queueName() string {
 // eventLoop is the main event loop of a Processor which should read
 // messages from a queue and then process them.
 func (p *Processor) eventLoop(ctx context.Context) {
-	defer func() {
-		p.wg.Done()
-	}()
+	p.wg.Add(1)
+	defer p.wg.Done()
 
 	for {
 		select {
@@ -465,7 +472,7 @@ func (p *Processor) eventLoop(ctx context.Context) {
 
 						headers := make(map[string]interface{}, 0)
 
-						headers["retries"] = timesRetried + 1
+						headers["retries"] = int64(timesRetried + 1)
 
 						if err := p.queue.Publish(
 							ctx,
@@ -482,14 +489,14 @@ func (p *Processor) eventLoop(ctx context.Context) {
 						if err := p.queue.Ack(ctx, m); err != nil {
 							slog.Error("Err acking message", "err", err.Error())
 						}
-					case errors.Is(err, context.Canceled):
-						slog.Error("process message failed due to context cancel", "err", err.Error())
-
-						// we want to negatively acknowledge the message and make sure
-						// we requeue it
-						if err := p.queue.Nack(ctx, m, true); err != nil {
-							slog.Error("Err nacking message", "err", err.Error())
-						}
+					case errors.Is(err, context.Canceled) ||
+						strings.Contains(err.Error(), "timeout") ||
+						strings.Contains(err.Error(), "i/o") ||
+						strings.Contains(err.Error(), "connect") ||
+						strings.Contains(err.Error(), "failed to get tx into the mempool"):
+						// we want to do nothing, just log, and the message will be re-picked up
+						// by another consumer. no need to nack or ack.
+						slog.Error("process message failed", "err", err.Error())
 					default:
 						slog.Error("process message failed", "err", err.Error())
 
@@ -503,9 +510,25 @@ func (p *Processor) eventLoop(ctx context.Context) {
 					return
 				}
 
-				// otherwise if no error, we can acknowledge it successfully.
-				if err := p.queue.Ack(ctx, m); err != nil {
-					slog.Error("Err acking message", "err", err.Error())
+				if shouldRequeue {
+					// we want to negatively acknowledge the message
+					if err := p.queue.Nack(ctx, m, true); err != nil {
+						slog.Error("Err nacking message", "err", err.Error())
+					}
+
+					marshalledMsg, err := json.Marshal(msg)
+					if err != nil {
+						slog.Error("err marshaling queue message", "err", err.Error())
+					} else {
+						if err := p.queue.Publish(ctx, p.queueName(), marshalledMsg, nil, nil); err != nil {
+							slog.Error("err publishing to queue", "err", err.Error())
+						}
+					}
+				} else {
+					// otherwise if no error, we can acknowledge it successfully.
+					if err := p.queue.Ack(ctx, m); err != nil {
+						slog.Error("Err acking message", "err", err.Error())
+					}
 				}
 			}(msg)
 		}

@@ -1,5 +1,5 @@
 import { classNames } from '$lib/util/classNames';
-export const headerClasses = classNames(
+export const baseHeaderClasses = classNames(
   'md:px-10',
   'md:py-10',
   'h-16',
@@ -10,11 +10,7 @@ export const headerClasses = classNames(
   'relative',
   'z-50',
   'px-4',
-  'md:glassy-background-lg',
-  'md:border-b-[1px] md:border-border-divider-default',
 );
-
-export const buttonClasses = classNames('text-lg', 'w-min', 'lg:w-[200px]');
 
 export const taikoonsIconClasses = classNames('h-full');
 
@@ -22,6 +18,7 @@ export const rightSectionClasses = classNames(
   'md:right-8',
   'right-4',
   'w-max',
+  'absolute',
   'flex flex-row justify-center items-center',
   'gap-4',
 );
@@ -34,8 +31,31 @@ export const mobileMenuButtonClasses = classNames(
   'flex justify-center items-center',
 );
 
-export const menuButtonsWrapperClasses = classNames('w-max', 'gap-4', 'flex', 'flex-row');
+export const menuButtonsWrapperClasses = classNames(
+  'w-full',
+  'justify-center',
+  'items-center',
+  'gap-4',
+  'flex',
+  'flex-row',
+);
 
 export const wrapperClasses = classNames('w-full', 'z-0', 'fixed', 'top-0');
 
 export const themeButtonSeparatorClasses = 'v-sep my-auto ml-0 mr-4 h-[24px]';
+
+export const navButtonClasses = classNames(
+  'btn btn-neutral',
+  'w-[140px]',
+  'h-[44px]',
+  'bg-nav-button',
+  'flex flex-row',
+  'justify-center',
+  'tracking-[-2%]',
+  'items-center',
+  'rounded-full',
+  'font-sans',
+  'font-medium',
+  'text-base/[135.5%]',
+  'text-content-primary',
+);

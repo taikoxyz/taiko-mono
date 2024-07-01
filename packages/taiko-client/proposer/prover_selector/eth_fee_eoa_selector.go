@@ -5,19 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"math/rand"
 	"net/url"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/go-resty/resty/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/server"
 )
 
 var (
@@ -34,13 +29,11 @@ type ETHFeeEOASelector struct {
 	rpc                           *rpc.Client
 	proposerAddress               common.Address
 	taikoL1Address                common.Address
-	assignmentHookAddress         common.Address
+	proverSetAddress              common.Address
 	tiersFee                      []encoding.TierFee
 	tierFeePriceBump              *big.Int
 	proverEndpoints               []*url.URL
 	maxTierFeePriceBumpIterations uint64
-	proposalExpiry                time.Duration
-	requestTimeout                time.Duration
 }
 
 // NewETHFeeEOASelector creates a new ETHFeeEOASelector instance.
@@ -49,13 +42,11 @@ func NewETHFeeEOASelector(
 	rpc *rpc.Client,
 	proposerAddress common.Address,
 	taikoL1Address common.Address,
-	assignmentHookAddress common.Address,
+	proverSetAddress common.Address,
 	tiersFee []encoding.TierFee,
 	tierFeePriceBump *big.Int,
 	proverEndpoints []*url.URL,
 	maxTierFeePriceBumpIterations uint64,
-	proposalExpiry time.Duration,
-	requestTimeout time.Duration,
 ) (*ETHFeeEOASelector, error) {
 	if len(proverEndpoints) == 0 {
 		return nil, errEmptyProverEndpoints
@@ -72,13 +63,11 @@ func NewETHFeeEOASelector(
 		rpc,
 		proposerAddress,
 		taikoL1Address,
-		assignmentHookAddress,
+		proverSetAddress,
 		tiersFee,
 		tierFeePriceBump,
 		proverEndpoints,
 		maxTierFeePriceBumpIterations,
-		proposalExpiry,
-		requestTimeout,
 	}, nil
 }
 
@@ -89,10 +78,8 @@ func (s *ETHFeeEOASelector) ProverEndpoints() []*url.URL { return s.proverEndpoi
 func (s *ETHFeeEOASelector) AssignProver(
 	ctx context.Context,
 	tierFees []encoding.TierFee,
-	txListHash common.Hash,
-) (*encoding.ProverAssignment, common.Address, *big.Int, error) {
+) (*big.Int, error) {
 	var (
-		expiry       = uint64(time.Now().Add(s.proposalExpiry).Unix())
 		fees         = make([]encoding.TierFee, len(tierFees))
 		big100       = new(big.Int).SetUint64(uint64(100))
 		maxProverFee = common.Big0
@@ -119,165 +106,29 @@ func (s *ETHFeeEOASelector) AssignProver(
 			}
 		}
 
-		// Try to assign a prover from all given endpoints.
-		for _, endpoint := range s.shuffleProverEndpoints() {
-			encodedAssignment, proverAddress, err := assignProver(
-				ctx,
-				s.protocolConfigs.ChainId,
-				endpoint,
-				expiry,
-				s.proposerAddress,
-				fees,
-				s.taikoL1Address,
-				s.assignmentHookAddress,
-				txListHash,
-				s.requestTimeout,
-			)
-			if err != nil {
-				log.Warn("Failed to assign prover", "endpoint", endpoint, "error", err)
-				continue
-			}
-
-			ok, err := rpc.CheckProverBalance(
-				ctx,
-				s.rpc,
-				proverAddress,
-				s.assignmentHookAddress,
-				s.protocolConfigs.LivenessBond,
-			)
-			if err != nil {
-				log.Warn("Failed to check prover balance", "endpoint", endpoint, "error", err)
-				continue
-			}
-			if !ok {
-				continue
-			}
-
-			return encodedAssignment, proverAddress, maxProverFee, nil
+		spender := s.taikoL1Address
+		proverAddress := s.proposerAddress
+		if s.proverSetAddress != rpc.ZeroAddress {
+			proverAddress = s.proverSetAddress
 		}
-	}
 
-	return nil, common.Address{}, nil, errUnableToFindProver
-}
-
-// shuffleProverEndpoints shuffles the current selector's prover endpoints.
-func (s *ETHFeeEOASelector) shuffleProverEndpoints() []*url.URL {
-	// Clone the slice to avoid modifying the original proverEndpoints
-	shuffledEndpoints := make([]*url.URL, len(s.proverEndpoints))
-	copy(shuffledEndpoints, s.proverEndpoints)
-
-	rand.Shuffle(len(shuffledEndpoints), func(i, j int) {
-		shuffledEndpoints[i], shuffledEndpoints[j] = shuffledEndpoints[j], shuffledEndpoints[i]
-	})
-	return shuffledEndpoints
-}
-
-// assignProver tries to assign a proof generation task to the given prover by HTTP API.
-func assignProver(
-	ctx context.Context,
-	chainID uint64,
-	endpoint *url.URL,
-	expiry uint64,
-	proposerAddress common.Address,
-	tierFees []encoding.TierFee,
-	taikoL1Address common.Address,
-	assignmentHookAddress common.Address,
-	txListHash common.Hash,
-	timeout time.Duration,
-) (*encoding.ProverAssignment, common.Address, error) {
-	log.Info(
-		"Attempting to assign prover",
-		"endpoint", endpoint,
-		"expiry", expiry,
-		"txListHash", txListHash,
-		"tierFees", tierFees,
-	)
-
-	// Send the HTTP request
-	var (
-		client  = resty.New()
-		reqBody = &server.CreateAssignmentRequestBody{
-			Proposer: proposerAddress,
-			FeeToken: rpc.ZeroAddress,
-			TierFees: tierFees,
-			Expiry:   expiry,
-			BlobHash: txListHash,
-		}
-		result = server.ProposeBlockResponse{}
-	)
-	requestURL, err := url.JoinPath(endpoint.String(), "/assignment")
-	if err != nil {
-		return nil, common.Address{}, err
-	}
-
-	ctxTimeout, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-
-	resp, err := client.R().
-		SetContext(ctxTimeout).
-		SetHeader("Content-Type", "application/json").
-		SetHeader("Accept", "application/json").
-		SetBody(reqBody).
-		SetResult(&result).
-		Post(requestURL)
-	if err != nil {
-		return nil, common.Address{}, err
-	}
-	if !resp.IsSuccess() {
-		return nil, common.Address{}, fmt.Errorf("unsuccessful response %d", resp.StatusCode())
-	}
-
-	// Ensure prover in response is the same as the one recovered
-	// from the signature
-	payload, err := encoding.EncodeProverAssignmentPayload(
-		chainID,
-		taikoL1Address,
-		assignmentHookAddress,
-		proposerAddress,
-		result.Prover,
-		txListHash,
-		common.Address{},
-		expiry,
-		result.MaxBlockID,
-		result.MaxProposedIn,
-		tierFees,
-	)
-	if err != nil {
-		return nil, common.Address{}, err
-	}
-
-	pubKey, err := crypto.SigToPub(crypto.Keccak256Hash(payload).Bytes(), result.SignedPayload)
-	if err != nil {
-		return nil, common.Address{}, err
-	}
-
-	if crypto.PubkeyToAddress(*pubKey).Hex() != result.Prover.Hex() {
-		return nil, common.Address{}, fmt.Errorf(
-			"assigned prover signature did not recover to provided prover address %s != %s",
-			crypto.PubkeyToAddress(*pubKey).Hex(),
-			result.Prover.Hex(),
+		ok, err := rpc.CheckProverBalance(
+			ctx,
+			s.rpc,
+			proverAddress,
+			spender,
+			s.protocolConfigs.LivenessBond,
 		)
+		if err != nil {
+			log.Warn("Failed to check prover balance", "error", err)
+			continue
+		}
+		if !ok {
+			continue
+		}
+
+		return maxProverFee, nil
 	}
 
-	log.Info(
-		"Prover assigned",
-		"address", result.Prover,
-		"endpoint", endpoint,
-		"tierFees", tierFees,
-		"maxBlockID", result.MaxBlockID,
-		"expiry", expiry,
-	)
-
-	// Convert signature to one solidity can recover by adding 27 to 65th byte
-	result.SignedPayload[64] = uint8(uint(result.SignedPayload[64])) + 27
-
-	return &encoding.ProverAssignment{
-		FeeToken:      common.Address{},
-		TierFees:      tierFees,
-		Expiry:        reqBody.Expiry,
-		MaxBlockId:    result.MaxBlockID,
-		MaxProposedIn: result.MaxProposedIn,
-		MetaHash:      [32]byte{},
-		Signature:     result.SignedPayload,
-	}, result.Prover, nil
+	return nil, errUnableToFindProver
 }

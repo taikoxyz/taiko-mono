@@ -8,9 +8,7 @@ import "../contracts/tko/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
 import "../contracts/L1/provers/GuardianProver.sol";
 import "../contracts/L1/tiers/DevnetTierProvider.sol";
-import "../contracts/L1/tiers/TierProviderV1.sol";
 import "../contracts/L1/tiers/TierProviderV2.sol";
-import "../contracts/L1/hooks/AssignmentHook.sol";
 import "../contracts/bridge/Bridge.sol";
 import "../contracts/tokenvault/BridgedERC20.sol";
 import "../contracts/tokenvault/BridgedERC721.sol";
@@ -23,8 +21,10 @@ import "../contracts/automata-attestation/AutomataDcapV3Attestation.sol";
 import "../contracts/automata-attestation/utils/SigVerifyLib.sol";
 import "../contracts/automata-attestation/lib/PEMCertChainLib.sol";
 import "../contracts/verifiers/SgxVerifier.sol";
+import "../contracts/team/proving/ProverSet.sol";
 import "../test/common/erc20/FreeMintERC20.sol";
 import "../test/common/erc20/MayFailFreeMintERC20.sol";
+import "../test/L1/TestTierProvider.sol";
 import "../test/DeployCapability.sol";
 
 // Actually this one is deployed already on mainnet, but we are now deploying our own (non via-ir)
@@ -102,16 +102,6 @@ contract DeployOnL1 is DeployCapability {
             console2.log("- signalService : ", signalServiceAddr);
             console2.log("- taikoL1Addr   : ", taikoL1Addr);
             console2.log("- chainId       : ", block.chainid);
-        }
-
-        address proposer = vm.envAddress("PROPOSER");
-        if (proposer != address(0)) {
-            register(rollupAddressManager, "proposer", proposer);
-        }
-
-        address proposerOne = vm.envAddress("PROPOSER_ONE");
-        if (proposerOne != address(0)) {
-            register(rollupAddressManager, "proposer_one", proposerOne);
         }
 
         // ---------------------------------------------------------------
@@ -271,19 +261,6 @@ contract DeployOnL1 is DeployCapability {
         });
 
         deployProxy({
-            name: "assignment_hook",
-            impl: address(new AssignmentHook()),
-            data: abi.encodeCall(AssignmentHook.init, (owner, rollupAddressManager))
-        });
-
-        deployProxy({
-            name: "tier_provider",
-            impl: deployTierProvider(vm.envString("TIER_PROVIDER")),
-            data: abi.encodeCall(TierProviderV1.init, (owner)),
-            registerTo: rollupAddressManager
-        });
-
-        deployProxy({
             name: "tier_sgx",
             impl: address(new SgxVerifier()),
             data: abi.encodeCall(SgxVerifier.init, (owner, rollupAddressManager)),
@@ -295,8 +272,7 @@ contract DeployOnL1 is DeployCapability {
         address guardianProverMinority = deployProxy({
             name: "guardian_prover_minority",
             impl: guardianProverImpl,
-            data: abi.encodeCall(GuardianProver.init, (address(0), rollupAddressManager)),
-            registerTo: rollupAddressManager
+            data: abi.encodeCall(GuardianProver.init, (address(0), rollupAddressManager))
         });
 
         GuardianProver(guardianProverMinority).enableTaikoTokenAllowance(true);
@@ -304,21 +280,27 @@ contract DeployOnL1 is DeployCapability {
         address guardianProver = deployProxy({
             name: "guardian_prover",
             impl: guardianProverImpl,
-            data: abi.encodeCall(GuardianProver.init, (address(0), rollupAddressManager)),
-            registerTo: rollupAddressManager
+            data: abi.encodeCall(GuardianProver.init, (address(0), rollupAddressManager))
         });
 
         register(rollupAddressManager, "tier_guardian_minority", guardianProverMinority);
         register(rollupAddressManager, "tier_guardian", guardianProver);
+        register(
+            rollupAddressManager,
+            "tier_router",
+            address(deployTierProvider(vm.envString("TIER_PROVIDER")))
+        );
 
         address[] memory guardians = vm.envAddress("GUARDIAN_PROVERS", ",");
 
         GuardianProver(guardianProverMinority).setGuardians(
-            guardians, uint8(NUM_MIN_MINORITY_GUARDIANS)
+            guardians, uint8(NUM_MIN_MINORITY_GUARDIANS), true
         );
         GuardianProver(guardianProverMinority).transferOwnership(owner);
 
-        GuardianProver(guardianProver).setGuardians(guardians, uint8(NUM_MIN_MAJORITY_GUARDIANS));
+        GuardianProver(guardianProver).setGuardians(
+            guardians, uint8(NUM_MIN_MAJORITY_GUARDIANS), true
+        );
         GuardianProver(guardianProver).transferOwnership(owner);
 
         // No need to proxy these, because they are 3rd party. If we want to modify, we simply
@@ -341,13 +323,21 @@ contract DeployOnL1 is DeployCapability {
         console2.log("SigVerifyLib", address(sigVerifyLib));
         console2.log("PemCertChainLib", address(pemCertChainLib));
         console2.log("AutomataDcapVaAttestation", automataProxy);
+
+        deployProxy({
+            name: "prover_set",
+            impl: address(new ProverSet()),
+            data: abi.encodeCall(
+                ProverSet.init, (owner, vm.envAddress("PROVER_SET_ADMIN"), rollupAddressManager)
+            )
+        });
     }
 
     function deployTierProvider(string memory tierProviderName) private returns (address) {
         if (keccak256(abi.encode(tierProviderName)) == keccak256(abi.encode("devnet"))) {
             return address(new DevnetTierProvider());
         } else if (keccak256(abi.encode(tierProviderName)) == keccak256(abi.encode("testnet"))) {
-            return address(new TierProviderV1());
+            return address(new TestTierProvider());
         } else if (keccak256(abi.encode(tierProviderName)) == keccak256(abi.encode("mainnet"))) {
             return address(new TierProviderV2());
         } else {

@@ -20,11 +20,17 @@
 
   export let txHash: Hash;
 
+  // export let canForceTransaction = false;
+
   const dispatch = createEventDispatcher();
 
   const handleClaimClick = async () => {
     dispatch('claim');
   };
+
+  // const handleForceClaim = async () => {
+  //   dispatch('forceClaim');
+  // };
 
   const getSuccessTitle = () => {
     return $t('bridge.step.confirm.success.claim');
@@ -80,7 +86,7 @@
       </div>
     </section>
     {#if !claimingDone}
-      <section id="actions" class="f-col w-full">
+      <section id="actions" class="f-col w-full gap-2">
         <div class="h-sep mb-[30px]" />
         <ActionButton
           onPopup
@@ -88,6 +94,14 @@
           loading={claiming}
           on:click={() => handleClaimClick()}
           disabled={claimDisabled}>{$t('transactions.claim.steps.confirm.claim_button')}</ActionButton>
+        <!-- {#if canForceTransaction}
+          <ActionButton
+            onPopup
+            priority="primary"
+            loading={claiming}
+            on:click={() => handleForceClaim()}
+            disabled={claimDisabled}>Force transaction</ActionButton>
+        {/if} -->
       </section>
     {/if}
   </div>

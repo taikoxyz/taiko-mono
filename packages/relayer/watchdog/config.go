@@ -57,7 +57,8 @@ type Config struct {
 	OpenQueueFunc    func() (queue.Queue, error)
 	OpenDBFunc       func() (DB, error)
 
-	TxmgrConfigs *txmgr.CLIConfig
+	SrcTxmgrConfigs  *txmgr.CLIConfig
+	DestTxmgrConfigs *txmgr.CLIConfig
 }
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
@@ -102,7 +103,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 				MaxIdleConns:    c.Uint64(flags.DatabaseMaxIdleConns.Name),
 				MaxOpenConns:    c.Uint64(flags.DatabaseMaxOpenConns.Name),
 				MaxConnLifetime: c.Uint64(flags.DatabaseConnMaxLifetime.Name),
-				OpenFunc: func(dsn string) (*db.DB, error) {
+				OpenFunc: func(dsn string) (db.DB, error) {
 					gormDB, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
 						Logger: logger.Default.LogMode(logger.Silent),
 					})
@@ -130,8 +131,13 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 
 			return q, nil
 		},
-		TxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
+		SrcTxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
 			c.String(flags.SrcRPCUrl.Name),
+			watchdogPrivateKey,
+			c,
+		),
+		DestTxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
+			c.String(flags.DestRPCUrl.Name),
 			watchdogPrivateKey,
 			c,
 		),

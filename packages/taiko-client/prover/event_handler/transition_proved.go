@@ -4,6 +4,8 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
@@ -15,18 +17,28 @@ import (
 
 // TransitionProvedEventHandler is responsible for handling the TransitionProved event.
 type TransitionProvedEventHandler struct {
-	rpc            *rpc.Client
-	proofContestCh chan<- *proofProducer.ContestRequestBody
-	contesterMode  bool
+	rpc               *rpc.Client
+	proofContestCh    chan<- *proofProducer.ContestRequestBody
+	proofSubmissionCh chan<- *proofProducer.ProofRequestBody
+	contesterMode     bool
+	isGuardian        bool
 }
 
 // NewTransitionProvedEventHandler creates a new TransitionProvedEventHandler instance.
 func NewTransitionProvedEventHandler(
 	rpc *rpc.Client,
 	proofContestCh chan *proofProducer.ContestRequestBody,
+	proofSubmissionCh chan *proofProducer.ProofRequestBody,
 	contesterMode bool,
+	isGuardian bool,
 ) *TransitionProvedEventHandler {
-	return &TransitionProvedEventHandler{rpc, proofContestCh, contesterMode}
+	return &TransitionProvedEventHandler{
+		rpc,
+		proofContestCh,
+		proofSubmissionCh,
+		contesterMode,
+		isGuardian,
+	}
 }
 
 // Handle implements the TransitionProvedHandler interface.
@@ -35,6 +47,10 @@ func (h *TransitionProvedEventHandler) Handle(
 	e *bindings.TaikoL1ClientTransitionProved,
 ) error {
 	metrics.ProverReceivedProvenBlockGauge.Set(float64(e.BlockId.Uint64()))
+
+	if e.Tier >= encoding.TierGuardianMinorityID {
+		metrics.ProverProvenByGuardianGauge.Add(1)
+	}
 
 	// If this prover is in contest mode, we check the validity of this proof and if it's invalid,
 	// contest it with a higher tier proof.
@@ -78,15 +94,32 @@ func (h *TransitionProvedEventHandler) Handle(
 		"blockHash", common.Bytes2Hex(e.Tran.BlockHash[:]),
 		"stateRoot", common.Bytes2Hex(e.Tran.StateRoot[:]),
 	)
-
-	go func() {
-		h.proofContestCh <- &proofProducer.ContestRequestBody{
-			BlockID:    e.BlockId,
-			ProposedIn: new(big.Int).SetUint64(blockInfo.ProposedIn),
-			ParentHash: e.Tran.ParentHash,
-			Meta:       meta,
-			Tier:       e.Tier,
+	if h.isGuardian {
+		blockProposedEvent, err := GetBlockProposedEventFromBlockID(
+			ctx,
+			h.rpc,
+			e.BlockId,
+			new(big.Int).SetUint64(blockInfo.ProposedIn),
+		)
+		if err != nil {
+			return err
 		}
-	}()
+		go func() {
+			h.proofSubmissionCh <- &proofProducer.ProofRequestBody{
+				Tier:  encoding.TierGuardianMinorityID,
+				Event: blockProposedEvent,
+			}
+		}()
+	} else {
+		go func() {
+			h.proofContestCh <- &proofProducer.ContestRequestBody{
+				BlockID:    e.BlockId,
+				ProposedIn: new(big.Int).SetUint64(blockInfo.ProposedIn),
+				ParentHash: e.Tran.ParentHash,
+				Meta:       meta,
+				Tier:       e.Tier,
+			}
+		}()
+	}
 	return nil
 }

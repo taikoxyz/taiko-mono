@@ -3,7 +3,7 @@ import { zeroAddress } from 'viem';
 import { customToken } from '$customToken';
 import { getConfiguredChainIds } from '$libs/chain';
 
-import { type Token, TokenType } from './types';
+import { type Token, TokenAttributeKey, TokenType } from './types';
 
 const chains = getConfiguredChainIds();
 
@@ -27,4 +27,13 @@ export const tokens = [ETHToken, ...testERC20Tokens];
 
 export const getTokensByType = (type: TokenType): Token[] => tokens.filter((token) => token.type === type);
 
-export const isWrapped = (token: Token): boolean => tokens.find((token) => token.wrapped === true) === token;
+const hasAttribute = (token: Token, attribute: TokenAttributeKey): boolean => {
+  if (!token.attributes) return false;
+  return token.attributes.some((attr) => attr[attribute] === true);
+};
+
+export const isWrapped = (token: Token): boolean => hasAttribute(token, TokenAttributeKey.Wrapped);
+export const isSupported = (token: Token): boolean => hasAttribute(token, TokenAttributeKey.Supported);
+export const isStablecoin = (token: Token): boolean => hasAttribute(token, TokenAttributeKey.Stablecoin);
+export const isQuotaLimited = (token: Token): boolean => hasAttribute(token, TokenAttributeKey.QuotaLimited);
+export const isMintable = (token: Token): boolean => hasAttribute(token, TokenAttributeKey.Mintable);

@@ -1,79 +1,55 @@
 # Changelog
 
-## [4.2.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v4.1.0...bridge-ui-v4.2.0) (2024-04-24)
+## [2.11.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.10.1...bridge-ui-v2.11.0) (2024-05-27)
 
 
 ### Features
 
+* **bridge-ui:** improve token handling ([#17216](https://github.com/taikoxyz/taiko-mono/issues/17216)) ([3875f45](https://github.com/taikoxyz/taiko-mono/commit/3875f45eb4be720464f36c663ddf50b870fdd18e))
+* **bridge-ui:** re-add mobile details ([#17016](https://github.com/taikoxyz/taiko-mono/issues/17016)) ([30aefe1](https://github.com/taikoxyz/taiko-mono/commit/30aefe120dd03d6eca65c6cf08267cbf3004cdb9))
+* **bridge-ui:** smart contract wallet detection ([#17231](https://github.com/taikoxyz/taiko-mono/issues/17231)) ([80ff27e](https://github.com/taikoxyz/taiko-mono/commit/80ff27ed351c02a4b450a33ff0d3bd1bdf08ce6b))
+* **bridge-ui:** update config ([#17347](https://github.com/taikoxyz/taiko-mono/issues/17347)) ([6bc2e26](https://github.com/taikoxyz/taiko-mono/commit/6bc2e2607d2a9c9fe9ae03b0f093442ce8a31643))
+
+
+### Bug Fixes
+
+* **bridge-ui:** quota check  ([#17200](https://github.com/taikoxyz/taiko-mono/issues/17200)) ([b883d34](https://github.com/taikoxyz/taiko-mono/commit/b883d34b791287d0caa58522f50917dc47f40c0e))
+
+## [2.10.1](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.10.0...bridge-ui-v2.10.1) (2024-05-13)
+
+
+### Bug Fixes
+
+* **bridge-ui:** fix changelog and deployment ([#17141](https://github.com/taikoxyz/taiko-mono/issues/17141)) ([809707d](https://github.com/taikoxyz/taiko-mono/commit/809707d7cebdfc0af253ab54ea2c1503ae02ab0e))
+* **bridge-ui:** fix changelog and deployment ([#17144](https://github.com/taikoxyz/taiko-mono/issues/17144)) ([24168e4](https://github.com/taikoxyz/taiko-mono/commit/24168e42f15d5e7f0afd44293110847d87b21fec))
+
+## [2.10.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.9.3...bridge-ui-v2.10.0) (2024-05-13)
+
+
+### ⚠ BREAKING CHANGES
+
 * **bridge-ui:** update to protocol 1.0, two step bridging ([#16230](https://github.com/taikoxyz/taiko-mono/issues/16230))
 * **bridge-ui:** walletconnect not allowing to switch to unconfigured chains ([#16324](https://github.com/taikoxyz/taiko-mono/issues/16324))
+
+### Features
+
 * **bridge-ui:** add testnet name to header ([#16619](https://github.com/taikoxyz/taiko-mono/issues/16619)) ([294bb01](https://github.com/taikoxyz/taiko-mono/commit/294bb017d90e4b8c2e1338a09f1cef90cdb54831))
+* **bridge-ui:** add WETH warning ([#17051](https://github.com/taikoxyz/taiko-mono/issues/17051)) ([a77221a](https://github.com/taikoxyz/taiko-mono/commit/a77221ae1e374278f14cd5122d2e7272f9a75aa1))
 * **bridge-ui:** base64 NFT data ([#16645](https://github.com/taikoxyz/taiko-mono/issues/16645)) ([4516d0a](https://github.com/taikoxyz/taiko-mono/commit/4516d0aaa3c9ff0c50f16d1abc82999a8ac3d02f))
+* **bridge-ui:** bump dependencies ([#16960](https://github.com/taikoxyz/taiko-mono/issues/16960)) ([811fecb](https://github.com/taikoxyz/taiko-mono/commit/811fecb0f7865d465e61aaa973cb11561b2150d7))
+* **bridge-ui:** code review and small fix ([#17014](https://github.com/taikoxyz/taiko-mono/issues/17014)) ([c20f25f](https://github.com/taikoxyz/taiko-mono/commit/c20f25f24307b0a994e3387c90c12844aa01e83a))
+* **bridge-ui:** fee adjustments ([#16834](https://github.com/taikoxyz/taiko-mono/issues/16834)) ([0a48b0f](https://github.com/taikoxyz/taiko-mono/commit/0a48b0f00ed278535b8e9171055ac9de45b65a62))
+* **bridge-ui:** handle transaction timeouts ([#16912](https://github.com/taikoxyz/taiko-mono/issues/16912)) ([759c511](https://github.com/taikoxyz/taiko-mono/commit/759c511c04c03a1246f88e17ef1ad7179cb9e4cb))
+* **bridge-ui:** integrate NFT api ([#16940](https://github.com/taikoxyz/taiko-mono/issues/16940)) ([f769e77](https://github.com/taikoxyz/taiko-mono/commit/f769e7758d221b6e215f46f64fa2324d132e976d))
 * **bridge-ui:** mobile style for claim dialogs ([#16823](https://github.com/taikoxyz/taiko-mono/issues/16823)) ([63f15c9](https://github.com/taikoxyz/taiko-mono/commit/63f15c9dcad96aba755f7d618064b4149526cc22))
 * **bridge-ui:** prepare for hekla ([#16618](https://github.com/taikoxyz/taiko-mono/issues/16618)) ([6953b3c](https://github.com/taikoxyz/taiko-mono/commit/6953b3c141a1dec744a0e0bfa8c9aa0a1f405407))
 * **bridge-ui:** processingFee from API ([#16708](https://github.com/taikoxyz/taiko-mono/issues/16708)) ([3cd7cce](https://github.com/taikoxyz/taiko-mono/commit/3cd7cce1c52f94276011f4581143390c26acb49e))
+* **bridge-ui:** quota manager check ([#17024](https://github.com/taikoxyz/taiko-mono/issues/17024)) ([3cf6e7b](https://github.com/taikoxyz/taiko-mono/commit/3cf6e7b4bcb449c78a50cfd85d2fcdcbe451ab2e))
+* **bridge-ui:** release  ([#17071](https://github.com/taikoxyz/taiko-mono/issues/17071)) ([2fa3ae0](https://github.com/taikoxyz/taiko-mono/commit/2fa3ae0b2b2317a467709110c381878a3a9f8ec6))
 * **bridge-ui:** remove two step and change gasLimit ([#16765](https://github.com/taikoxyz/taiko-mono/issues/16765)) ([14576f7](https://github.com/taikoxyz/taiko-mono/commit/14576f78ae5a93fe5ec7972f3e32789f26723592))
 * **bridge-ui:** retry dialog ([#16536](https://github.com/taikoxyz/taiko-mono/issues/16536)) ([3beba21](https://github.com/taikoxyz/taiko-mono/commit/3beba214e62ad196bafd716cadaa3f133ecdb021))
 * **bridge-ui:** update to protocol 1.0, two step bridging ([#16230](https://github.com/taikoxyz/taiko-mono/issues/16230)) ([71babae](https://github.com/taikoxyz/taiko-mono/commit/71babae14645ff267c7baa101706860aa6f556f0))
-* **protocol:** risc0 verifier contract ([#16331](https://github.com/taikoxyz/taiko-mono/issues/16331)) ([17abc18](https://github.com/taikoxyz/taiko-mono/commit/17abc189ca3d2752beb5400c036a650fd5b9c895))
-
-
-### Bug Fixes
-
-* **bridge-ui:** add dependency ([#15999](https://github.com/taikoxyz/taiko-mono/issues/15999)) ([14484a0](https://github.com/taikoxyz/taiko-mono/commit/14484a00c1d59332361fba32b74d39db2ae4b864))
-* **bridge-ui:** add injected provider to connectors ([#16008](https://github.com/taikoxyz/taiko-mono/issues/16008)) ([0496ff4](https://github.com/taikoxyz/taiko-mono/commit/0496ff40e374354b83d17121e4760391fed90a31))
-* **bridge-ui:** add missing labels to i18n ([#16633](https://github.com/taikoxyz/taiko-mono/issues/16633)) ([3854467](https://github.com/taikoxyz/taiko-mono/commit/38544675bf6578bc1016ecfd60cb3a1f93207516))
-* **bridge-ui:** balance updating when connecting ([#16481](https://github.com/taikoxyz/taiko-mono/issues/16481)) ([2ec333f](https://github.com/taikoxyz/taiko-mono/commit/2ec333f5d3f3330c11dc0ab3afacc027c33cd5e0))
-* **bridge-ui:** canonical check can use wrong chain, incorrect supported chain check ([#16526](https://github.com/taikoxyz/taiko-mono/issues/16526)) ([d826e88](https://github.com/taikoxyz/taiko-mono/commit/d826e886eba989c35b3f28145f815642684f84d7))
-* **bridge-ui:** correct display of forward arrow and handling of invalid pagination input ([#16485](https://github.com/taikoxyz/taiko-mono/issues/16485)) ([d4d9ce9](https://github.com/taikoxyz/taiko-mono/commit/d4d9ce9bb7914b21f8ce6fc1ac5f986eb64d41f8))
-* **bridge-ui:** custom and none fee selection overwritten by error fetching recommended fee ([#16737](https://github.com/taikoxyz/taiko-mono/issues/16737)) ([9166ee3](https://github.com/taikoxyz/taiko-mono/commit/9166ee3e0a968db19d8cec2002565413d79cd708))
-* **bridge-ui:** defaulting to source chain explorer for link to canonical address ([#16701](https://github.com/taikoxyz/taiko-mono/issues/16701)) ([68bd435](https://github.com/taikoxyz/taiko-mono/commit/68bd4354d03429ceccd4b311db6e59066111af09))
-* **bridge-ui:** fix ERC721 and ERC1155 detection in NFT bridge ([#16680](https://github.com/taikoxyz/taiko-mono/issues/16680)) ([ca45aa6](https://github.com/taikoxyz/taiko-mono/commit/ca45aa6da6101f15fe9ef4c485e5d61a64f66f84))
-* **bridge-ui:** fix ETH self claiming ([#16344](https://github.com/taikoxyz/taiko-mono/issues/16344)) ([4271f0d](https://github.com/taikoxyz/taiko-mono/commit/4271f0d2b01da8179d604a0fbff0816a0d72e547))
-* **bridge-ui:** fix issue where balance is shown for wrong token ([#16541](https://github.com/taikoxyz/taiko-mono/issues/16541)) ([1dd47cf](https://github.com/taikoxyz/taiko-mono/commit/1dd47cf5eca91d47375547b23203a9f942e22e80))
-* **bridge-ui:** fix wrong balance updates on network switch ([#15980](https://github.com/taikoxyz/taiko-mono/issues/15980)) ([b556e00](https://github.com/taikoxyz/taiko-mono/commit/b556e000b25fc8d5405cba77f3eebb4152dc1497))
-* **bridge-ui:** incorrectly detecting bridged tokens ([#16007](https://github.com/taikoxyz/taiko-mono/issues/16007)) ([b151bcb](https://github.com/taikoxyz/taiko-mono/commit/b151bcb2e159ece03da3c2014e35dbbbed7d8410))
-* **bridge-ui:** manual import not resetting correctly ([#16347](https://github.com/taikoxyz/taiko-mono/issues/16347)) ([87398fe](https://github.com/taikoxyz/taiko-mono/commit/87398fe9606cf73ce66ed4f8321368fe8ac8fbb4))
-* **bridge-ui:** move label to i18n, fix some typos ([#16522](https://github.com/taikoxyz/taiko-mono/issues/16522)) ([c8c4773](https://github.com/taikoxyz/taiko-mono/commit/c8c4773dd3fe41decf13306eace73d65a9829529))
-* **bridge-ui:** preserve custom processing fee selection across components ([#16346](https://github.com/taikoxyz/taiko-mono/issues/16346)) ([9cf6b3a](https://github.com/taikoxyz/taiko-mono/commit/9cf6b3ae0981d1755d253cd7d6238771898fc3f4))
-* **bridge-ui:** prevent reverse tabnabbing attacks ([#16583](https://github.com/taikoxyz/taiko-mono/issues/16583)) ([fc57d82](https://github.com/taikoxyz/taiko-mono/commit/fc57d82cb7c049a656c2f08d947f4a5a42ffacf3))
-* **bridge-ui:** remove nft debug info from ui ([#16067](https://github.com/taikoxyz/taiko-mono/issues/16067)) ([5eddffe](https://github.com/taikoxyz/taiko-mono/commit/5eddffea3180e67c005d510ddaa7ffb90ce0a85a))
-* **bridge-ui:** renamed configuredCustomToken to configuredCustomTokens ([#15905](https://github.com/taikoxyz/taiko-mono/issues/15905)) ([a9f60b8](https://github.com/taikoxyz/taiko-mono/commit/a9f60b8c114dfd277e8dc227e7fbbe8716698d53))
-* **bridge-ui:** transactions view styling  ([#15997](https://github.com/taikoxyz/taiko-mono/issues/15997)) ([620a22d](https://github.com/taikoxyz/taiko-mono/commit/620a22dcb1ce77a9335dff8bbe0546c4c5065b23))
-* **bridge-ui:** truncate selected token name to 5 characters ([#16066](https://github.com/taikoxyz/taiko-mono/issues/16066)) ([dc24155](https://github.com/taikoxyz/taiko-mono/commit/dc24155b306e447f0572d29918183570905866be))
-* **bridge-ui:** update disabled for chainselector ([#16814](https://github.com/taikoxyz/taiko-mono/issues/16814)) ([406b15a](https://github.com/taikoxyz/taiko-mono/commit/406b15a301c7a3454957518a2cc33a44fbf21cde))
-* **bridge-ui:** various small bugfixes ([#16078](https://github.com/taikoxyz/taiko-mono/issues/16078)) ([e610d19](https://github.com/taikoxyz/taiko-mono/commit/e610d1907ef47fb6e25d8bc26e9b7edf3954d886))
-* **bridge-ui:** walletconnect not allowing to switch to unconfigured chains ([#16324](https://github.com/taikoxyz/taiko-mono/issues/16324)) ([d6ef79e](https://github.com/taikoxyz/taiko-mono/commit/d6ef79eae0836a9dabd481cd0953bc03eea9bf7a))
-
-## [4.1.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v4.0.0...bridge-ui-v4.1.0) (2024-04-24)
-
-
-### Features
-
-* **bridge-ui:** processingFee from API ([#16708](https://github.com/taikoxyz/taiko-mono/issues/16708)) ([3cd7cce](https://github.com/taikoxyz/taiko-mono/commit/3cd7cce1c52f94276011f4581143390c26acb49e))
-
-
-### Bug Fixes
-
-* **bridge-ui:** custom and none fee selection overwritten by error fetching recommended fee ([#16737](https://github.com/taikoxyz/taiko-mono/issues/16737)) ([9166ee3](https://github.com/taikoxyz/taiko-mono/commit/9166ee3e0a968db19d8cec2002565413d79cd708))
-* **bridge-ui:** defaulting to source chain explorer for link to canonical address ([#16701](https://github.com/taikoxyz/taiko-mono/issues/16701)) ([68bd435](https://github.com/taikoxyz/taiko-mono/commit/68bd4354d03429ceccd4b311db6e59066111af09))
-* **bridge-ui:** fix ERC721 and ERC1155 detection in NFT bridge ([#16680](https://github.com/taikoxyz/taiko-mono/issues/16680)) ([ca45aa6](https://github.com/taikoxyz/taiko-mono/commit/ca45aa6da6101f15fe9ef4c485e5d61a64f66f84))
-* **bridge-ui:** update disabled for chainselector ([#16814](https://github.com/taikoxyz/taiko-mono/issues/16814)) ([406b15a](https://github.com/taikoxyz/taiko-mono/commit/406b15a301c7a3454957518a2cc33a44fbf21cde))
-
-## [4.0.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v3.0.0...bridge-ui-v4.0.0) (2024-04-04)
-
-
-### ⚠ BREAKING CHANGES
-
-* **bridge-ui:** update to protocol 1.0, two step bridging ([#16230](https://github.com/taikoxyz/taiko-mono/issues/16230))
-
-### Features
-
-* **bridge-ui:** add testnet name to header ([#16619](https://github.com/taikoxyz/taiko-mono/issues/16619)) ([294bb01](https://github.com/taikoxyz/taiko-mono/commit/294bb017d90e4b8c2e1338a09f1cef90cdb54831))
-* **bridge-ui:** base64 NFT data ([#16645](https://github.com/taikoxyz/taiko-mono/issues/16645)) ([4516d0a](https://github.com/taikoxyz/taiko-mono/commit/4516d0aaa3c9ff0c50f16d1abc82999a8ac3d02f))
-* **bridge-ui:** prepare for hekla ([#16618](https://github.com/taikoxyz/taiko-mono/issues/16618)) ([6953b3c](https://github.com/taikoxyz/taiko-mono/commit/6953b3c141a1dec744a0e0bfa8c9aa0a1f405407))
-* **bridge-ui:** retry dialog ([#16536](https://github.com/taikoxyz/taiko-mono/issues/16536)) ([3beba21](https://github.com/taikoxyz/taiko-mono/commit/3beba214e62ad196bafd716cadaa3f133ecdb021))
-* **bridge-ui:** update to protocol 1.0, two step bridging ([#16230](https://github.com/taikoxyz/taiko-mono/issues/16230)) ([71babae](https://github.com/taikoxyz/taiko-mono/commit/71babae14645ff267c7baa101706860aa6f556f0))
+* **bridge-ui:** update token dropdown ([#16979](https://github.com/taikoxyz/taiko-mono/issues/16979)) ([f19cf66](https://github.com/taikoxyz/taiko-mono/commit/f19cf6686eaa327f56a645a2c3290baa2e513782))
 * **protocol:** risc0 verifier contract ([#16331](https://github.com/taikoxyz/taiko-mono/issues/16331)) ([17abc18](https://github.com/taikoxyz/taiko-mono/commit/17abc189ca3d2752beb5400c036a650fd5b9c895))
 
 
@@ -83,22 +59,18 @@
 * **bridge-ui:** balance updating when connecting ([#16481](https://github.com/taikoxyz/taiko-mono/issues/16481)) ([2ec333f](https://github.com/taikoxyz/taiko-mono/commit/2ec333f5d3f3330c11dc0ab3afacc027c33cd5e0))
 * **bridge-ui:** canonical check can use wrong chain, incorrect supported chain check ([#16526](https://github.com/taikoxyz/taiko-mono/issues/16526)) ([d826e88](https://github.com/taikoxyz/taiko-mono/commit/d826e886eba989c35b3f28145f815642684f84d7))
 * **bridge-ui:** correct display of forward arrow and handling of invalid pagination input ([#16485](https://github.com/taikoxyz/taiko-mono/issues/16485)) ([d4d9ce9](https://github.com/taikoxyz/taiko-mono/commit/d4d9ce9bb7914b21f8ce6fc1ac5f986eb64d41f8))
-* **bridge-ui:** fix issue where balance is shown for wrong token ([#16541](https://github.com/taikoxyz/taiko-mono/issues/16541)) ([1dd47cf](https://github.com/taikoxyz/taiko-mono/commit/1dd47cf5eca91d47375547b23203a9f942e22e80))
-* **bridge-ui:** move label to i18n, fix some typos ([#16522](https://github.com/taikoxyz/taiko-mono/issues/16522)) ([c8c4773](https://github.com/taikoxyz/taiko-mono/commit/c8c4773dd3fe41decf13306eace73d65a9829529))
-* **bridge-ui:** prevent reverse tabnabbing attacks ([#16583](https://github.com/taikoxyz/taiko-mono/issues/16583)) ([fc57d82](https://github.com/taikoxyz/taiko-mono/commit/fc57d82cb7c049a656c2f08d947f4a5a42ffacf3))
-
-## [3.0.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.9.3...bridge-ui-v3.0.0) (2024-03-08)
-
-
-### ⚠ BREAKING CHANGES
-
-* **bridge-ui:** walletconnect not allowing to switch to unconfigured chains ([#16324](https://github.com/taikoxyz/taiko-mono/issues/16324))
-
-### Bug Fixes
-
+* **bridge-ui:** custom and none fee selection overwritten by error fetching recommended fee ([#16737](https://github.com/taikoxyz/taiko-mono/issues/16737)) ([9166ee3](https://github.com/taikoxyz/taiko-mono/commit/9166ee3e0a968db19d8cec2002565413d79cd708))
+* **bridge-ui:** defaulting to source chain explorer for link to canonical address ([#16701](https://github.com/taikoxyz/taiko-mono/issues/16701)) ([68bd435](https://github.com/taikoxyz/taiko-mono/commit/68bd4354d03429ceccd4b311db6e59066111af09))
+* **bridge-ui:** dropdown css and color css fix ([#17000](https://github.com/taikoxyz/taiko-mono/issues/17000)) ([fcbc346](https://github.com/taikoxyz/taiko-mono/commit/fcbc3463e623b81eb5ed9f73c5098e5fbea874ca))
+* **bridge-ui:** fix ERC721 and ERC1155 detection in NFT bridge ([#16680](https://github.com/taikoxyz/taiko-mono/issues/16680)) ([ca45aa6](https://github.com/taikoxyz/taiko-mono/commit/ca45aa6da6101f15fe9ef4c485e5d61a64f66f84))
 * **bridge-ui:** fix ETH self claiming ([#16344](https://github.com/taikoxyz/taiko-mono/issues/16344)) ([4271f0d](https://github.com/taikoxyz/taiko-mono/commit/4271f0d2b01da8179d604a0fbff0816a0d72e547))
+* **bridge-ui:** fix issue where balance is shown for wrong token ([#16541](https://github.com/taikoxyz/taiko-mono/issues/16541)) ([1dd47cf](https://github.com/taikoxyz/taiko-mono/commit/1dd47cf5eca91d47375547b23203a9f942e22e80))
 * **bridge-ui:** manual import not resetting correctly ([#16347](https://github.com/taikoxyz/taiko-mono/issues/16347)) ([87398fe](https://github.com/taikoxyz/taiko-mono/commit/87398fe9606cf73ce66ed4f8321368fe8ac8fbb4))
+* **bridge-ui:** move label to i18n, fix some typos ([#16522](https://github.com/taikoxyz/taiko-mono/issues/16522)) ([c8c4773](https://github.com/taikoxyz/taiko-mono/commit/c8c4773dd3fe41decf13306eace73d65a9829529))
 * **bridge-ui:** preserve custom processing fee selection across components ([#16346](https://github.com/taikoxyz/taiko-mono/issues/16346)) ([9cf6b3a](https://github.com/taikoxyz/taiko-mono/commit/9cf6b3ae0981d1755d253cd7d6238771898fc3f4))
+* **bridge-ui:** prevent reverse tabnabbing attacks ([#16583](https://github.com/taikoxyz/taiko-mono/issues/16583)) ([fc57d82](https://github.com/taikoxyz/taiko-mono/commit/fc57d82cb7c049a656c2f08d947f4a5a42ffacf3))
+* **bridge-ui:** remove erroneous numeric expression ([#16858](https://github.com/taikoxyz/taiko-mono/issues/16858)) ([37525d8](https://github.com/taikoxyz/taiko-mono/commit/37525d815c32293fcd09b4118791c93f0b0528ee))
+* **bridge-ui:** update disabled for chainselector ([#16814](https://github.com/taikoxyz/taiko-mono/issues/16814)) ([406b15a](https://github.com/taikoxyz/taiko-mono/commit/406b15a301c7a3454957518a2cc33a44fbf21cde))
 * **bridge-ui:** walletconnect not allowing to switch to unconfigured chains ([#16324](https://github.com/taikoxyz/taiko-mono/issues/16324)) ([d6ef79e](https://github.com/taikoxyz/taiko-mono/commit/d6ef79eae0836a9dabd481cd0953bc03eea9bf7a))
 
 ## [2.9.3](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.9.2...bridge-ui-v2.9.3) (2024-02-26)

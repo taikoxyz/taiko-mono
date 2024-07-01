@@ -40,7 +40,6 @@ contract BridgeTest is TaikoTest {
     SignalService signalService;
     SkipProofCheckSignal mockProofSignalService;
     UntrustedSendMessageRelayer untrustedSenderContract;
-    DelegateOwner delegateOwner;
 
     NonMaliciousContract1 nonmaliciousContract1;
     MaliciousContract2 maliciousContract2;
@@ -86,18 +85,6 @@ contract BridgeTest is TaikoTest {
         uint64 l1ChainId = uint64(block.chainid);
         vm.chainId(destChainId);
 
-        delegateOwner = DelegateOwner(
-            payable(
-                deployProxy({
-                    name: "delegate_owner",
-                    impl: address(new DelegateOwner()),
-                    data: abi.encodeCall(
-                        DelegateOwner.init, (mockDAO, address(addressManager), l1ChainId)
-                    )
-                })
-            )
-        );
-
         vm.chainId(l1ChainId);
 
         mockProofSignalService = SkipProofCheckSignal(
@@ -131,12 +118,6 @@ contract BridgeTest is TaikoTest {
         register(address(addressManager), "taiko", address(uint160(123)), destChainId);
 
         register(address(addressManager), "bridge_watchdog", address(uint160(123)), destChainId);
-
-        // Otherwise delegateOwner cannot do actions on them, on behalf of the DAO.
-        destChainBridge.transferOwnership(address(delegateOwner));
-        delegateOwner.acceptOwnership(address(destChainBridge));
-        mockProofSignalService.transferOwnership(address(delegateOwner));
-        delegateOwner.acceptOwnership(address(mockProofSignalService));
 
         vm.stopPrank();
     }
@@ -276,7 +257,7 @@ contract BridgeTest is TaikoTest {
             destChain: destChainId
         });
 
-        vm.expectRevert(Bridge.B_INVALID_USER.selector);
+        vm.expectRevert(EssentialContract.ZERO_ADDRESS.selector);
         bridge.sendMessage{ value: amount }(message);
     }
 

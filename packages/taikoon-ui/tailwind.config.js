@@ -1,9 +1,12 @@
+import UiLibConfig from '@taiko/ui-lib/tailwind'
 import daisyuiPlugin from 'daisyui'
+import UiLibConfig from '@taiko/ui-lib/tailwind'
 
 /** @type {import('tailwindcss').Config} */
 export default {
+    ...UiLibConfig,
     darkMode: ['class', '[data-theme="dark"]'],
-    content: ['./src/**/*.{html,js,svelte,ts}'],
+	content: ['./src/**/*.{html,js,svelte,ts}', './node_modules/@taiko/ui-lib/src/**/*.{html,js,svelte,ts}'],
     theme: {
         extend: {
             fontFamily: {
@@ -32,6 +35,10 @@ export default {
                     '50%': { opacity: '0' },
                     '100%': { opacity: '1' },
                 },
+                'arrows-x-animation': {
+                    '0%': { left: '0'},
+                    '100%': { left: '100%'},
+                }
             },
             animation: {
                 'cell-pulse-3': 'cell-pulse-animation 3s ease-in infinite',
@@ -40,8 +47,12 @@ export default {
                 'cell-pulse-negative-3': 'cell-pulse-negative-animation 3s ease-in infinite',
                 'cell-pulse-negative-5': 'cell-pulse-negative-animation 5s ease-in infinite',
                 'cell-pulse-negative-7': 'cell-pulse-negative-animation 7s ease-in infinite',
+                'arrows-x-3': 'arrows-x-animation 300ms linear forwards',
+                'arrows-x-3-reset': 'arrows-x-animation 300ms linear reverse',
             },
             colors: {
+                ...UiLibConfig.theme.extend.colors,
+                'discord-purple': '#5765f1',
                 /***************
                  * Base colors *
                  ***************/
@@ -256,10 +267,11 @@ export default {
                 'icon-primary': 'var(--icon-primary)',
                 'icon-secondary': 'var(--icon-secondary)',
 
+                'background-body': 'var(--background-body)',
 
                 'border-divider-default': 'var(--border-divider-default)',
 
-
+                'nav-button': 'var(--nav-button)',
             },
         },
     },
@@ -278,6 +290,8 @@ export default {
         themes: [
             {
                 dark: {
+                    ...UiLibConfig.daisyui.themes[0].dark,
+
                     'color-scheme': 'dark',
                     '--btn-text-case': 'capitalize',
                     // '--rounded-box': '0.625rem', // 10px
@@ -358,6 +372,11 @@ export default {
 
                     '--icon-primary': '#CACBCE', // grey-100
                     '--icon-secondary': '#2B303B', // grey-700
+
+                    // custom colors
+
+                    '--background-body': '#0b101b',
+                    '--nav-button': '#2B303B',
                     // ================================ //
 
                     primary: '#C8047D', // pink-500,
@@ -386,6 +405,7 @@ export default {
                 },
 
                 light: {
+                    ...UiLibConfig.daisyui.themes[0].light,
                     'color-scheme': 'light',
                     '--btn-text-case': 'capitalize',
 
@@ -468,6 +488,11 @@ export default {
 
                     '--icon-primary': '#5D636F', // grey-500
                     '--icon-secondary': '#e3e3e3', // grey-50
+
+                    // custom colors
+
+                    '--background-body': '#f8f8f8',
+                    '--nav-button': '#ffffff',
                     // ================================ //
 
                     primary: '#C8047D', // pink-500,

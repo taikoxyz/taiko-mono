@@ -62,9 +62,9 @@ cat ../protocol/out/GuardianProver.sol/GuardianProver.json |
 	jq .abi |
 	${ABIGEN_BIN} --abi - --type GuardianProver --pkg bindings --out $DIR/../bindings/gen_guardian_prover.go
 
-cat ../protocol/out/AssignmentHook.sol/AssignmentHook.json |
+cat ../protocol/out/ProverSet.sol/ProverSet.json |
 	jq .abi |
-	${ABIGEN_BIN} --abi - --type AssignmentHook --pkg bindings --out $DIR/../bindings/gen_assignment_hook.go
+	${ABIGEN_BIN} --abi - --type ProverSet --pkg bindings --out $DIR/../bindings/gen_prover_set.go
 
 cat ../protocol/out/DevnetTierProvider.sol/DevnetTierProvider.json |
 	jq .abi |

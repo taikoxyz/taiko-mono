@@ -30,7 +30,13 @@ contract AttestationBase is Test, DcapTestUtils, V3QuoteParseUtils {
     // use a network that where the P256Verifier contract exists
     // ref: https://github.com/daimo-eth/p256-verifier
     //string internal rpcUrl = vm.envString("RPC_URL");
-    string internal tcbInfoPath = "/test/automata-attestation/assets/0923/tcb_00606A000000.json";
+    string[] internal tcbInfoPaths = [
+        "/test/automata-attestation/assets/0923/tcb_00606A000000.json",
+        "/test/automata-attestation/assets/0424/tcb_00A067110000.json",
+        "/test/automata-attestation/assets/0424/tcb_00906ED50000.json",
+        "/test/automata-attestation/assets/0424/tcb_30606a000000.json",
+        "/test/automata-attestation/assets/0424/tcb_00706A100000.json"
+    ];
     string internal idPath = "/test/automata-attestation/assets/0923/identity.json";
     address constant admin = address(1);
     address constant user = 0x0926b716f6aEF52F9F3C3474A2846e1Bf1ACedf6;
@@ -65,28 +71,35 @@ contract AttestationBase is Test, DcapTestUtils, V3QuoteParseUtils {
             })
         );
 
-        setMrEnclave(address(attestation), mrEnclave);
-        setMrSigner(address(attestation), mrSigner);
+        setMrEnclave(address(attestation), mrEnclave, true);
+        setMrSigner(address(attestation), mrSigner, true);
 
-        string memory tcbInfoJson = vm.readFile(string.concat(vm.projectRoot(), tcbInfoPath));
+        for (uint256 i = 0; i < tcbInfoPaths.length; i++) {
+            string memory tcbInfoJson =
+                vm.readFile(string.concat(vm.projectRoot(), tcbInfoPaths[i]));
+
+            (bool tcbParsedSuccess, TCBInfoStruct.TCBInfo memory parsedTcbInfo) =
+                parseTcbInfoJson(tcbInfoJson);
+            require(tcbParsedSuccess, "tcb parsed failed");
+            string memory fmspc = LibString.lower(parsedTcbInfo.fmspc);
+            attestation.configureTcbInfoJson(fmspc, parsedTcbInfo);
+        }
+
         string memory enclaveIdJson = vm.readFile(string.concat(vm.projectRoot(), idPath));
-
-        (bool tcbParsedSuccess, TCBInfoStruct.TCBInfo memory parsedTcbInfo) =
-            parseTcbInfoJson(tcbInfoJson);
-        require(tcbParsedSuccess, "tcb parsed failed");
-        string memory fmspc = LibString.lower(parsedTcbInfo.fmspc);
-        attestation.configureTcbInfoJson(fmspc, parsedTcbInfo);
-
         configureQeIdentityJson(address(attestation), enclaveIdJson);
         vm.stopPrank();
     }
 
-    function setMrEnclave(address _attestationAddress, bytes32 _mrEnclave) internal {
-        AutomataDcapV3Attestation(_attestationAddress).setMrEnclave(_mrEnclave, true);
+    function setMrEnclave(address _attestationAddress, bytes32 _mrEnclave, bool enable) internal {
+        AutomataDcapV3Attestation(_attestationAddress).setMrEnclave(_mrEnclave, enable);
     }
 
-    function setMrSigner(address _attestationAddress, bytes32 _mrSigner) internal {
-        AutomataDcapV3Attestation(_attestationAddress).setMrSigner(_mrSigner, true);
+    function setMrSigner(address _attestationAddress, bytes32 _mrSigner, bool enable) internal {
+        AutomataDcapV3Attestation(_attestationAddress).setMrSigner(_mrSigner, enable);
+    }
+
+    function toggleCheckQuoteValidity(address _attestationAddress) internal {
+        AutomataDcapV3Attestation(_attestationAddress).toggleLocalReportCheck();
     }
 
     function configureQeIdentityJson(
@@ -114,13 +127,16 @@ contract AttestationBase is Test, DcapTestUtils, V3QuoteParseUtils {
         console.log("tcbParsedSuccess: %s", tcbParsedSuccess);
     }
 
-    function parsedQuoteAttestation(bytes memory v3QuoteBytes)
+    function verifyParsedQuoteAttestation(
+        bytes memory v3QuoteBytes,
+        bool expected
+    )
         internal
         returns (V3Struct.ParsedV3QuoteStruct memory v3quote)
     {
         v3quote = ParseV3QuoteBytes(address(pemCertChainLib), v3QuoteBytes);
         (bool verified,) = attestation.verifyParsedQuote(v3quote);
-        assertTrue(verified);
+        assertEq(verified, expected);
     }
 
     function registerSgxInstanceWithQuoteBytes(

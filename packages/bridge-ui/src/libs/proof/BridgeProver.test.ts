@@ -1,5 +1,14 @@
 import { getPublicClient, readContract } from '@wagmi/core';
-import { BlockNotFoundError, keccak256, numberToHex, stringToHex, toBytes, zeroAddress, zeroHash } from 'viem';
+import {
+  BlockNotFoundError,
+  type Hash,
+  keccak256,
+  numberToHex,
+  stringToHex,
+  toBytes,
+  zeroAddress,
+  zeroHash,
+} from 'viem';
 
 import { signalServiceAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
@@ -12,34 +21,8 @@ import { config } from '$libs/wagmi';
 import { BLOCK_NUMBER_1, L1_ADDRESSES, L1_CHAIN_ID, L2_CHAIN_ID, STORAGE_KEY_1 } from '$mocks';
 
 vi.mock('@wagmi/core');
-vi.mock('../../generated/customTokenConfig', () => {
-  const mockERC20 = {
-    name: 'MockERC20',
-    addresses: { '1': zeroAddress },
-    symbol: 'MTF',
-    decimals: 18,
-    type: 'ERC20',
-  };
-  const mockERC1155 = {
-    name: 'MockERC1155',
-    addresses: { '1': zeroAddress },
-    symbol: 'MNFT',
-    balance: 1337n,
-    tokenId: 123,
-    uri: 'some/uri/123',
-    type: 'ERC1155',
-  };
-  const mockERC721 = {
-    name: 'MockERC721',
-    addresses: { '1': zeroAddress },
-    symbol: 'MNFT',
-    decimals: 18,
-    type: 'ERC721',
-  };
-  return {
-    customToken: [mockERC20, mockERC1155, mockERC721],
-  };
-});
+vi.mock('$customToken');
+
 describe('BridgeProver', () => {
   afterEach(() => {
     vi.clearAllMocks();
@@ -128,9 +111,11 @@ describe('BridgeProver', () => {
       decimals: 0,
       destChainId: BigInt(167001),
       from: '0x8626f6940E2eb28930eFb4CeF49B2d1F2C9C1199',
-      hash: '0xc0a3476ac80c3468a65702864ff4ef22ca5b54afac3d0911fb14165cdada7f1c',
+      srcTxHash: '0xc0a3476ac80c3468a65702864ff4ef22ca5b54afac3d0911fb14165cdada7f1c',
+      destTxHash: '' as Hash,
       msgHash: '0x36973cd4172846df09d48d0bf428802d674848d39229962bbaec2e2fea465f15',
       srcChainId: 32382n,
+      processingFee: 0n,
       message: {
         data: '0x',
         destChainId: 167001n,

@@ -2,7 +2,7 @@ import type { IAddress } from '../../types';
 import { web3modal } from '../connect';
 import { getName } from '../ens';
 
-export async function shortenAddress(address: IAddress, charsStart = 6, charsEnd = 4, sep = '…'): Promise<string> {
+export async function shortenAddress(address: IAddress, charsStart = 5, charsEnd = 3, sep = '…'): Promise<string> {
   if (!address) return '0x';
   const shortened = [address.slice(0, charsStart), address.slice(-charsEnd)].join(sep);
 
@@ -17,7 +17,7 @@ export async function shortenAddress(address: IAddress, charsStart = 6, charsEnd
       return name;
     }
   } catch (e) {
-    console.warn(e);
+    // console.warn(e);
   }
 
   return shortened;

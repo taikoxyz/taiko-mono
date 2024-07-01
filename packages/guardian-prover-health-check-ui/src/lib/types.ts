@@ -1,9 +1,10 @@
-import type { Address } from "viem";
+import type { Address } from 'viem';
 
 export type SignedBlock = {
 	blockHash: string;
 	signature: string;
 	guardianProverID: number;
+	guardianProverAddress: Address;
 };
 
 export type SignedBlocks = { [key: string]: SignedBlock[] };

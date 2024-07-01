@@ -1,6 +1,6 @@
 <script lang="ts">
   import { deepEqual } from '@wagmi/core';
-  import { onDestroy, onMount, tick } from 'svelte';
+  import { createEventDispatcher, onDestroy, onMount, tick } from 'svelte';
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
   import { zeroAddress } from 'viem';
@@ -10,7 +10,6 @@
     destNetwork,
     errorComputingBalance,
     selectedToken,
-    selectedTokenIsBridged,
     tokenBalance,
   } from '$components/Bridge/state';
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
@@ -19,7 +18,7 @@
   import { warningToast } from '$components/NotificationToast';
   import { OnAccount } from '$components/OnAccount';
   import { tokenService } from '$libs/storage/services';
-  import { ETHToken, fetchBalance as getTokenBalance, type Token, TokenType } from '$libs/token';
+  import { ETHToken, fetchBalance as getTokenBalance, type NFT, type Token, TokenType } from '$libs/token';
   import { getTokenAddresses } from '$libs/token/getTokenAddresses';
   import { getLogger } from '$libs/util/logger';
   import { truncateString } from '$libs/util/truncateString';
@@ -35,8 +34,10 @@
 
   const log = getLogger('TokenDropdown');
 
+  const dispatch = createEventDispatcher();
+
   export let tokens: Token[] = [];
-  export let value: Maybe<Token> = null;
+  export let value: Maybe<Token | NFT> = null;
   export let onlyMintable: boolean = false;
   export let disabled = false;
   export let combined = false;
@@ -65,6 +66,7 @@
   };
 
   const selectToken = async (token: Token) => {
+    dispatch('tokenSelected', { token });
     const srcChain = $connectedSourceChain;
     const destChain = $destNetwork;
     $computingBalance = true;
@@ -96,22 +98,6 @@
         if (tokenInfo.bridged?.chainId && tokenInfo.bridged?.address && tokenInfo.bridged?.address !== zeroAddress) {
           token.addresses[tokenInfo.bridged.chainId] = tokenInfo.bridged.address;
           tokenService.updateToken(token, $account?.address as Address);
-        }
-        if (tokenInfo.canonical && tokenInfo.bridged) {
-          // double check we have the correct address for the destination chain and it is not 0x0
-          if (
-            value?.addresses[destChain.id] !== tokenInfo.canonical?.address &&
-            value?.addresses[destChain.id] !== zeroAddress
-          ) {
-            log('selected token is bridged', value?.addresses[destChain.id]);
-            $selectedTokenIsBridged = true;
-          } else {
-            log('selected token is canonical');
-            $selectedTokenIsBridged = false;
-          }
-        } else {
-          log('selected token is canonical');
-          $selectedTokenIsBridged = false;
         }
       }
     } catch (error) {
@@ -229,6 +215,8 @@
             <i role="img" aria-label={value.name}>
               <svelte:component this={symbolToIconMap[value.symbol]} size={20} />
             </i>
+          {:else if value.logoURI}
+            <img src={value.logoURI} alt={value.name} class="w-[20px] h-[20px] rounded-[50%]" />
           {:else}
             <i role="img" aria-label={value.symbol}>
               <svelte:component this={Erc20} size={20} />
@@ -242,7 +230,6 @@
       <Icon type="chevron-down" size={10} />
     {/if}
   </button>
-
   {#if isDesktopOrLarger}
     <DropdownView
       {id}

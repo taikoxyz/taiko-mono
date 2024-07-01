@@ -1,33 +1,37 @@
 <script lang="ts">
-  import { getAccount } from '@wagmi/core';
+  import { ResponsiveController } from '@taiko/ui-lib';
   import { getContext } from 'svelte';
   import { t } from 'svelte-i18n';
   import { zeroAddress } from 'viem';
 
   import { Divider } from '$components/core/Divider';
   import InfoRow from '$components/core/InfoRow/InfoRow.svelte';
-  import NumberInput from '$components/core/NumberInput/NumberInput.svelte';
-  import { ResponsiveController } from '$components/core/ResponsiveController';
+  import { errorToast } from '$components/core/Toast';
+  import { web3modal } from '$lib/connect';
+  import Token from '$lib/token';
   import User from '$lib/user';
   import { classNames } from '$lib/util/classNames';
-  import { connectedSourceChain } from '$stores/network';
+  import { account } from '$stores/account';
+  import type { IMint } from '$stores/mint';
   import { Button } from '$ui/Button';
   import { ProgressBar } from '$ui/ProgressBar';
   import { Spinner } from '$ui/Spinner';
 
-  import Token from '../../lib/token';
-  import getConfig from '../../lib/wagmi/getConfig';
   import type { IAddress } from '../../types';
   import { NftRenderer } from '../NftRenderer';
   import {
     counterClasses,
+    currentMintedClasses,
+    eligibilityLabelClasses,
+    eligibilityValueClasses,
+    infoRowClasses,
     leftHalfPanel,
+    maxMintedClasses,
     mintContentClasses,
     mintTitleClasses,
     nftRendererWrapperClasses,
     nftRendererWrapperMobileClasses,
     rightHalfPanel,
-    supplyClasses,
     wrapperClasses,
   } from './classes';
 
@@ -35,57 +39,78 @@
 
   const buttonClasses = classNames('mt-6');
 
-  $: totalSupply = 0;
-  $: mintMax = 0;
-  $: progress = Math.floor((totalSupply / 888) * 100);
+  $: totalSupply = -1;
+  $: mintMax = -1;
+  $: progress = 0;
 
   $: canMint = false;
 
-  $: freeMintsLeft = 0;
+  const mintState = getContext<IMint>('mint');
 
-  const mintState = getContext('mint');
-
-  //$: isMinting = false
   $: isReady = false;
 
-  $: freeMintCount = 0;
+  $: totalMintCount = -1;
 
   $: gasCost = 0;
   $: isCalculating = false;
 
-  $: freeMintCount, calculateGasCost();
-
   async function calculateGasCost() {
     isCalculating = true;
-
-    gasCost = await Token.estimateMintGasCost({
-      freeMintCount,
-    });
+    gasCost = await Token.estimateMintGasCost($mintState.address);
     isCalculating = false;
   }
 
-  async function load() {
-    totalSupply = await Token.totalSupply();
-    mintMax = await Token.maxSupply();
-    progress = Math.floor((totalSupply / mintMax) * 100);
-    isReady = true;
-
-    canMint = await Token.canMint();
-
-    freeMintsLeft = await User.totalWhitelistMintCount();
+  function reset() {
+    canMint = false;
+    mintState.set({ ...$mintState, address: zeroAddress, totalMintCount: -1 });
   }
 
-  connectedSourceChain.subscribe(async () => {
-    await load();
+  async function load() {
+    if (isReady && (!$account || ($account && !$account.isConnected))) {
+      return reset();
+    }
+    isReady = false;
 
-    const { config } = getConfig();
-    const account = getAccount(config);
-    if (!account || !account.address) {
-      mintState.set({ ...$mintState, address: zeroAddress });
+    if (totalSupply < 0 && mintMax < 0) {
+      totalSupply = await Token.totalSupply();
+      mintMax = await Token.maxSupply();
+      progress = Math.floor((totalSupply / mintMax) * 100);
+    }
+
+    if (!$account || !$account.address || $account.address === zeroAddress) {
+      isReady = true;
+      return reset();
+    }
+    const address = $account.address as IAddress;
+
+    const balance = await Token.balanceOf(address);
+    hasAlreadyMinted = balance > 0;
+
+    if (totalMintCount < 0) {
+      totalMintCount = await User.totalWhitelistMintCount(address);
+    }
+
+    await calculateGasCost();
+
+    mintState.set({ ...$mintState, totalMintCount });
+
+    if (!hasAlreadyMinted) {
+      canMint = await Token.canMint(address);
+    }
+
+    if (!canMint) {
+      mintState.set({ ...$mintState, totalMintCount, address: address.toLowerCase() as IAddress });
+      isReady = true;
       return;
     }
-    mintState.set({ ...$mintState, address: account.address.toLowerCase() as IAddress });
-  });
+
+    mintState.set({ ...$mintState, totalMintCount, address: address.toLowerCase() as IAddress });
+
+    isReady = true;
+  }
+
+  $: $account, load();
+  $: hasAlreadyMinted = false;
 
   async function mint() {
     mintState.set({
@@ -96,80 +121,122 @@
     });
 
     // ensure that the input values are numbers
-    freeMintCount = parseInt(freeMintCount.toString());
+    totalMintCount = parseInt(totalMintCount.toString());
 
-    mintState.set({ ...$mintState, totalMintCount: freeMintCount });
+    mintState.set({ ...$mintState, totalMintCount: totalMintCount });
     try {
       const tokenIds = await Token.mint({
-        freeMintCount,
+        freeMintCount: totalMintCount,
         onTransaction: (txHash: string) => {
           mintState.set({ ...$mintState, txHash });
         },
       });
       mintState.set({ ...$mintState, tokenIds });
-    } catch (e) {
-      console.warn(e);
-      //showMintConfirmationModal = false
+    } catch (e: any) {
+      console.error(e);
       mintState.set({ ...$mintState, isModalOpen: false });
+      if (
+        e.shortMessage &&
+        e.shortMessage ===
+          'The total cost (gas * gas fee + value) of executing this transaction exceeds the balance of the account.'
+      ) {
+        e.shortMessage = 'You do not have enough ETH to cover the minting cost, please bridge some ETH to Taiko.';
+      }
+      console.error('mint error', e.name);
+      errorToast({
+        title: 'Mint Error',
+        message: e.shortMessage || e.message,
+      });
     }
     mintState.set({ ...$mintState, isMinting: false });
-
     await load();
+  }
+
+  let web3modalOpen = false;
+
+  function connectWallet() {
+    if (web3modalOpen) return;
+    web3modal.open();
   }
 </script>
 
 <div class={wrapperClasses}>
-  {#if isReady}
-    {#if windowSize !== 'sm'}
-      <div class={leftHalfPanel}>
-        <div class={nftRendererWrapperClasses}>
-          <NftRenderer />
-        </div>
+  {#if windowSize !== 'sm'}
+    <div class={leftHalfPanel}>
+      <div class={nftRendererWrapperClasses}>
+        <NftRenderer />
+      </div>
+    </div>
+  {/if}
+
+  <div class={rightHalfPanel}>
+    <!-- svelte-ignore missing-declaration -->
+    {#if windowSize === 'sm'}
+      <div class={nftRendererWrapperMobileClasses}>
+        <NftRenderer />
       </div>
     {/if}
-    <div class={rightHalfPanel}>
-      <!-- svelte-ignore missing-declaration -->
-      {#if windowSize === 'sm'}
-        <div class={nftRendererWrapperMobileClasses}>
-          <NftRenderer />
-        </div>
-      {/if}
+    {#if isReady}
       <div class={mintTitleClasses}>{$t('content.mint.title')}</div>
 
       <p class={mintContentClasses}>
         {$t('content.mint.text')}
       </p>
-      <div class="w-full gap-4 flex flex-col">
+      <div class={infoRowClasses}>
         <div class={counterClasses}>
-          <div class={supplyClasses}>{totalSupply} / {mintMax}</div>
+          <div class={currentMintedClasses}>#{totalSupply}</div>
+          <div class={maxMintedClasses}>/ {mintMax}</div>
         </div>
         <ProgressBar {progress} />
       </div>
 
-      <NumberInput
-        min={0}
-        value={canMint ? freeMintsLeft : 0}
-        max={freeMintsLeft}
-        disabled
-        label={$t('content.mint.mintsLeft', {
-          values: {
-            mintsLeft: canMint ? freeMintsLeft : 0,
-          },
-        })} />
+      {#if hasAlreadyMinted && $account.address}
+        <Divider />
 
-      <Divider />
-
-      {#if gasCost > 0}
-        <div class="w-full gap-4 flex flex-col">
-          <InfoRow label="Estimated gas fee" loading={isCalculating} value={`Ξ ${gasCost}`} />
+        <div class={classNames('text-xl', 'text-center')}>
+          {$t('content.mint.alreadyMinted')}
         </div>
+
+        <Button href={`/collection/${$account.address.toLowerCase()}`} class={buttonClasses} wide block type="primary">
+          {$t('buttons.yourTaikoons')}</Button>
+      {:else if $account && !$account.isConnected}
+        <Divider />
+
+        <div class={classNames('text-xl', 'text-center')}>
+          {$t('content.mint.connectWallet')}
+        </div>
+
+        <Button class={buttonClasses} on:click={connectWallet} wide block type="primary">
+          {$t('buttons.connectWallet')}</Button>
+      {:else if !canMint && $mintState.totalMintCount === 0}
+        <Divider />
+
+        <div class={classNames('text-xl', 'text-center')}>
+          {$t('content.mint.notEligible')}
+        </div>
+
+        <Button disabled class={buttonClasses} wide block type="primary">
+          {$t('buttons.mint')}</Button>
+      {:else}
+        <div class={counterClasses}>
+          <div class={eligibilityLabelClasses}>{$t('content.mint.eligibleLabel')}</div>
+          <div class={eligibilityValueClasses}>{$mintState.totalMintCount}</div>
+        </div>
+
+        <Divider />
+
+        <div class={infoRowClasses}>
+          <InfoRow label="Total mints" value={$mintState.totalMintCount.toString()} />
+          <InfoRow label="Gas fee" loading={isCalculating} value={`Ξ ${gasCost}`} />
+        </div>
+
+        <Button on:click={mint} class={buttonClasses} wide block type="primary">
+          {$t('buttons.mint')}</Button>
       {/if}
-      <Button disabled={!canMint} on:click={mint} class={buttonClasses} wide block type="primary">
-        {$t('buttons.mint')}</Button>
-    </div>
-  {:else}
-    <Spinner size="lg" />
-  {/if}
+    {:else}
+      <Spinner size="lg" />
+    {/if}
+  </div>
 </div>
 
 <ResponsiveController bind:windowSize />

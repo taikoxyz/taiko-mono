@@ -346,7 +346,7 @@ contract PEMCertChainLib is IPEMCertChainLib {
         pure
         returns (bool success, uint256 pcesvn, uint256[] memory cpusvns)
     {
-        // sibiling of tcbOid
+        // sibling of tcbOid
         uint256 tcbPtr = der.nextSiblingOf(oidPtr);
         // get the first svn object in the sequence
         uint256 svnParentPtr = der.firstChildOf(tcbPtr);

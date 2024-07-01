@@ -2,7 +2,6 @@ package indexer
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
@@ -28,15 +27,12 @@ func newTestService(syncMode SyncMode, watchMode WatchMode) (*Indexer, relayer.B
 		syncMode:  syncMode,
 		watchMode: watchMode,
 
-		wg: &sync.WaitGroup{},
-
 		ctx: context.Background(),
 
 		srcChainId:  mock.MockChainID,
 		destChainId: mock.MockChainID,
 
 		ethClientTimeout: 10 * time.Second,
-		mu:               &sync.Mutex{},
 		eventName:        relayer.EventNameMessageSent,
 	}, b
 }

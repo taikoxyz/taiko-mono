@@ -31,6 +31,7 @@
   import { bridgeTxService } from '$libs/storage';
   import { TokenType } from '$libs/token';
   import { getTokenApprovalStatus } from '$libs/token/getTokenApprovalStatus';
+  import { isToken } from '$libs/token/isToken';
   import { refreshUserBalance } from '$libs/util/balance';
   import { isBridgePaused } from '$libs/util/checkForPausedContracts';
   import { getConnectedWallet } from '$libs/util/getConnectedWallet';
@@ -47,6 +48,7 @@
   let bridging: boolean;
   let approving: boolean;
   let checking: boolean;
+  let resetting: boolean;
 
   let icon: IconType;
 
@@ -66,8 +68,8 @@
       await pendingTransactions.add(txHash, currentChain);
 
       successToast({
-        title: $t('bridge.actions.approve.success.title'),
-        message: $t('bridge.actions.approve.success.message', {
+        title: $t('bridge.actions.bridge.success.title'),
+        message: $t('bridge.actions.bridge.success.message', {
           values: {
             token: $selectedToken.symbol,
           },
@@ -88,11 +90,11 @@
     }
 
     const bridgeTx = {
-      hash: txHash,
+      srcTxHash: txHash,
       from: $account.address,
       amount: $enteredAmount,
       symbol: $selectedToken?.symbol,
-      decimals: $selectedToken?.decimals,
+      decimals: isToken($selectedToken) ? $selectedToken.decimals : undefined,
       srcChainId: BigInt(currentChain),
       destChainId: BigInt(destinationChain),
       tokenType: $selectedToken?.type,
@@ -145,23 +147,51 @@
     });
 
     refreshUserBalance();
-    await pendingTransactions.add(approveTxHash, currentChain);
-    statusTitle = $t('bridge.actions.approve.success.title');
-    statusDescription = $t('bridge.step.confirm.approve.success.message', {
-      values: { url: `${explorer}/tx/${txHash}` },
-    });
+    try {
+      await pendingTransactions.add(approveTxHash, currentChain);
 
-    await getTokenApprovalStatus($selectedToken);
+      statusTitle = $t('bridge.actions.approve.success.title');
+      statusDescription = $t('bridge.step.confirm.approve.success.message', {
+        values: { url: `${explorer}/tx/${txHash}` },
+      });
 
-    successToast({
-      title: $t('bridge.actions.approve.success.title'),
-      message: $t('bridge.actions.approve.success.message', {
-        values: {
-          token: $selectedToken.symbol,
-        },
-      }),
-    });
+      await getTokenApprovalStatus($selectedToken);
+
+      successToast({
+        title: $t('bridge.actions.approve.success.title'),
+        message: $t('bridge.actions.approve.success.message', {
+          values: {
+            token: $selectedToken.symbol,
+          },
+        }),
+      });
+    } catch (error) {
+      if (error instanceof TransactionTimeoutError) {
+        handleTimeout(txHash);
+      } else {
+        handleBridgeError(error as Error);
+      }
+    }
   };
+
+  async function resetApproval() {
+    if (!$selectedToken || !$connectedSourceChain || !$destNetwork?.id) return;
+    try {
+      let tokenAddress = $selectedToken.addresses[$connectedSourceChain.id];
+      const type: TokenType = $selectedToken.type;
+
+      const spenderAddress = routingContractsMap[$connectedSourceChain.id][$destNetwork?.id].erc20VaultAddress;
+      const walletClient = await getConnectedWallet($connectedSourceChain.id);
+
+      const args: ApproveArgs = { tokenAddress, spenderAddress, wallet: walletClient, amount: 0n };
+      approveTxHash = await (bridges[type] as ERC20Bridge).approve(args, true);
+
+      if (approveTxHash) await handleApproveTxHash(approveTxHash);
+    } catch (err) {
+      console.error(err);
+      handleBridgeError(err as Error);
+    }
+  }
 
   async function approve() {
     isBridgePaused().then((paused) => {
@@ -291,7 +321,7 @@
   {#if bridgingStatus === BridgingStatus.PENDING}
     <section id="actions" class="f-col w-full">
       <div class="h-sep mb-[30px]" />
-      <Actions {approve} {bridge} bind:bridging bind:approving bind:checking />
+      <Actions {approve} {bridge} bind:bridging bind:approving bind:checking bind:resetting {resetApproval} />
     </section>
   {/if}
 </div>
