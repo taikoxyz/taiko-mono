@@ -20,8 +20,6 @@ contract VestTokenUnlock is Script {
     ERC20 private tko = ERC20(0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800);
 
     function run() external {
-        vm.startBroadcast();
-
         string memory path = "/script/tokenunlock/Vest.data.json";
         VestingItem[] memory items = abi.decode(
             vm.parseJson(vm.readFile(string.concat(vm.projectRoot(), path))), (VestingItem[])
@@ -49,16 +47,17 @@ contract VestTokenUnlock is Script {
         console2.log("total:", total / 1e18);
         require(tko.balanceOf(msg.sender) >= total, "insufficient TKO balance");
 
-        // for (uint256 i; i < items.length; i++) {
-        //     // This is needed due to some memory read operation! It seems forge/foundry
-        //     // parseJson works in a way that we need to read into local variables from struct,
-        //     // as it acts like a stack-like buffer read.
-        //     address proxy = items[i].recipient;
-        //     uint128 vestAmount = uint128(items[i].vestAmount * 1e18);
+        vm.startBroadcast();
+        for (uint256 i; i < items.length; i++) {
+            // This is needed due to some memory read operation! It seems forge/foundry
+            // parseJson works in a way that we need to read into local variables from struct,
+            // as it acts like a stack-like buffer read.
+            address proxy = items[i].recipient;
+            uint128 vestAmount = uint128(items[i].vestAmount * 1e18);
 
-        //     tko.approve(proxy, vestAmount);
-        //     TokenUnlock(proxy).vest(vestAmount);
-        // }
+            tko.approve(proxy, vestAmount);
+            TokenUnlock(proxy).vest(vestAmount);
+        }
         vm.stopBroadcast();
     }
 }
