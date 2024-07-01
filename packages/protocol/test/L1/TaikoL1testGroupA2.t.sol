@@ -10,8 +10,7 @@ contract TaikoL1ForkA2 is TaikoL1 {
         config.blockMaxProposals = 10;
         config.blockRingBufferSize = 15;
         config.stateRootSyncInternal = 2;
-        config.forkHeight = 0;
-        // config.forkHeight = 1; // works the same
+        config.forkHeight = 0; // or 1, works the same.
     }
 }
 
@@ -32,6 +31,7 @@ contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
         printBlockAndTrans(0);
 
         giveEthAndTko(Alice, 10_000 ether, 1000 ether);
+        TaikoData.Config memory config = L1.getConfig();
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
@@ -39,13 +39,28 @@ contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
 
         TaikoData.BlockParams2 memory params;
         for (uint64 i = 1; i <= 5; ++i) {
-            TaikoData.BlockMetadata2 memory meta2 = proposeBlock2(Alice, params, "");
-            printBlockAndTrans(meta2.id);
+            TaikoData.BlockMetadata2 memory meta = proposeBlock2(Alice, params, "");
+            printBlockAndTrans(i);
+
+            assertTrue(meta.difficulty != 0);
+            assertEq(meta.proposedAt, block.timestamp);
+            assertEq(meta.proposedIn, block.number);
+            assertEq(meta.timestamp, block.timestamp);
+            assertEq(meta.anchorBlockId, block.number - 1);
+            assertEq(meta.anchorBlockHash, blockhash(block.number - 1));
+            assertEq(meta.livenessBond, config.livenessBond);
+            assertEq(meta.coinbase, Alice);
+            assertEq(meta.extraData, params.extraData);
+
             TaikoData.Block memory blk = L1.getBlock(i);
-            assertEq(blk.livenessBond, 0);
+            assertEq(blk.blockId, i);
+            assertEq(blk.proposedAt, meta.timestamp);
+            assertEq(blk.proposedIn, meta.anchorBlockId);
             assertEq(blk.assignedProver, address(0));
-            assertEq(blk.proposedIn, block.number - 1);
-            assertEq(blk.proposedAt, block.timestamp);
+            assertEq(blk.livenessBond, 0);
+            assertEq(blk.nextTransitionId, 1);
+            assertEq(blk.verifiedTransitionId, 0);
+            assertEq(blk.metaHash, keccak256(abi.encode(meta)));
 
             // Prove the block
             bytes32 blockHash = bytes32(uint256(10_000 + i));
@@ -53,10 +68,10 @@ contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
 
             mineAndWrap(10 seconds);
 
-            proveBlock2(Alice, meta2, parentHash, blockHash, stateRoot, meta2.minTier, "");
+            proveBlock2(Alice, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
             parentHash = blockHash;
 
-            printBlockAndTrans(meta2.id);
+            printBlockAndTrans(i);
             blk = L1.getBlock(i);
             assertEq(blk.livenessBond, 0);
             assertEq(blk.assignedProver, address(0));
@@ -97,6 +112,7 @@ contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
         TaikoData.BlockMetadata2 memory meta = proposeBlock2(Alice, params, "");
 
         assertEq(meta.id, 1);
+
         assertTrue(meta.difficulty != 0);
         assertEq(meta.proposedAt, block.timestamp);
         assertEq(meta.proposedIn, block.number);
