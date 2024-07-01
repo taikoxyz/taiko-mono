@@ -107,15 +107,14 @@
 
 - ens: `v20.based.taiko.eth`
 - proxy: `0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab`
-- impl: `0xF8bdaC4E68bA2595Be8381aaa5456917e374E737`
+- impl: `0xa303784B0557BF1F1FB8b8abEF2B18a005722689`
 - owner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - upgraded from `0x15D9F7e12aEa18DAEF5c651fBf97567CAd4a4BEc` to `0xC722d9f3f8D60288589F7f67a9CFAd34d3B9bf8E` @commit`b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
   - upgraded from `0xC722d9f3f8D60288589F7f67a9CFAd34d3B9bf8E` to `0x4F750D13005444407D44dAA30922128db0374ca1` @commit`fa481c1` @tx`0x02ed558762eae5f0a930ba4a1047a02d4a793ea48890268c32df04e882f138ff`
   - upgraded from `0x4F750D13005444407D44dAA30922128db0374ca1` to `0xF8bdaC4E68bA2595Be8381aaa5456917e374E737` @commit`d907359` @tx`0xdb5e926c96d112ce1389da77a927fba6c7d04a711839b9e14777530ebcf83914`
-- todo:
-  - upgrade
+  - upgraded from `0xF8bdaC4E68bA2595Be8381aaa5456917e374E737` to `0xa303784B0557BF1F1FB8b8abEF2B18a005722689` @commit`04d8c87` @tx``
 
 #### erc721_vault
 
@@ -201,7 +200,7 @@
 
 - ens: `based.taiko.eth`
 - proxy: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`
-- impl: `0xB9E1E58bcF33B79CcfF99c298963546a6c334388`
+- impl: `0x5fc54737ECC1de49D58AE1195d4A296257F1E31b`
 - owner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
@@ -215,8 +214,8 @@
   - Upgrade to `0x4b2743B869b85d5F7D8020566f92664995E4f3c5` @commit`a3faee0` @tx`eth:0x40A2aCCbd92BCA938b02010E17A5b8929b49130D`
   - Upgrade to `0x0468745A07de44A9a3138adAc35875ecaf7a20D5` @commit`2b483de` @tx`0x0bbf7d1258c646f41a02a92a55825b1ebfd3659577d0f2b57b462f8895e23a04`
   - Upgrade to `0xB9E1E58bcF33B79CcfF99c298963546a6c334388` @commit`d907359` @tx`0xdb5e926c96d112ce1389da77a927fba6c7d04a711839b9e14777530ebcf83914`
+  - Upgrade to `0x5fc54737ECC1de49D58AE1195d4A296257F1E31b` @commit`04d8c87` @tx``
 - todo
-  - upgrade this contract for PR 17553
   - upgrade for liveness bond change
 
 #### assignment_hook
