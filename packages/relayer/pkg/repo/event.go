@@ -30,6 +30,16 @@ func NewEventRepository(dbHandler db.DB) (*EventRepository, error) {
 	}, nil
 }
 
+// Close closes the database connection.
+func (r *EventRepository) Close() error {
+	sqlDB, err := r.db.DB()
+	if err != nil {
+		return err
+	}
+
+	return sqlDB.Close()
+}
+
 func (r *EventRepository) Save(ctx context.Context, opts *relayer.SaveEventOpts) (*relayer.Event, error) {
 	e := &relayer.Event{
 		Data:                   datatypes.JSON(opts.Data),

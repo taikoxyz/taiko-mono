@@ -259,6 +259,11 @@ func (i *Indexer) Name() string {
 // context is stopped externally by cmd/main.go shutdown.
 func (i *Indexer) Close(ctx context.Context) {
 	i.wg.Wait()
+
+	// Close db connection.
+	if err := i.eventRepo.Close(); err != nil {
+		slog.Error("Failed to close db connection", "err", err)
+	}
 }
 
 // Start starts the indexer, which should initialize the queue, add to wait groups,
