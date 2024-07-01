@@ -71,7 +71,7 @@ library LibProposing {
         bytes calldata _data,
         bytes calldata _txList
     )
-        internal
+        public
         returns (TaikoData.BlockMetadata2 memory meta_, TaikoData.EthDeposit[] memory deposits_)
     {
         // Checks proposer access.
