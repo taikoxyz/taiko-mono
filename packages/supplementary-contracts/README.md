@@ -8,6 +8,10 @@ Used to ban addresses from interacting with implementing contracts.
 
 ### Deploy data
 
+Taiko L2 blacklist: `0xfA5EA6f9A13532cd64e805996a941F101CCaAc9a`
+
+---
+
 When deploying the Blacklist, the following fields are required in `./script/blacklist/Deploy.data.json`:
 
 ```json

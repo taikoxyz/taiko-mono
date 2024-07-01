@@ -18,23 +18,34 @@
     "mintNow": "Mint Now",
     "learnMore": "FAQs",
     "mint": "Mint",
-    "etherscan": "View on Etherscan",
+    "etherscan": "View on Taiko explorer",
     "share": "Share",
     "yourTaikoons": "Your Taikoons",
     "cancel": "Cancel",
-    "agree": "Agree"
+    "agree": "Agree",
+    "accept": "Accept",
+    "connectWallet": "Connect Wallet"
   },
   "content": {
+    "legal": {
+      "title": "Token claim",
+      "textPre": "By confirming your claim, you agree to the ",
+      "link": "terms and conditions",
+      "textPost": " of the token distribution and authorize the transfer of tokens directly to your wallet."
+    },
     "mint": {
       "title": "Taikoons",
+      "alreadyMinted": "You've already minted your NFT.",
       "text": "Taikoons are the genesis NFT collection for the Taiko Layer 2 ecosystem.",
       "eligibleLabel": "You are eligible to mint:",
+      "notEligible": "You are not eligible to mint.",
+      "connectWallet": "Connect your wallet to mint your Taikoon.",
       "toast": {
         "clipboardCopy": "Link copied to clipboard"
       },
       "modals": {
         "minting": {
-          "title": "Minting {count} NFT{plural}...",
+          "title": "Now minting your Taikoon",
           "pending": "This can take up to a couple of minutes. Feel free to close this message.",
           "confirm": "Please confirm the transaction in your wallet."
         },
@@ -65,30 +76,33 @@
     "sections": {
       "information": {
         "title": "The Collection",
-        "text": "The 888 Taikoons are the genesis NFT collection for the Taiko Layer 2 ecosystem, designed to foster community growth and establish unique on-chain identities."
+        "text": "Get ready to dive into the world of Taikoons! This collection boasts 888 one-of-a-kind NFTs that are living on the Taiko-based rollup. And that's not all - your mighty Taikoons will supercharge holders with a thrilling 2x XP boost throughout the exhilarating Trailblazer program! Are you ready to unleash the power of these unique digital collectibles? Let the adventure begin!"
       },
       "faq": {
         "title": "FAQs",
         "entries": [
           {
-            "title": "What is the total supply of the NFTs in this collection?",
-            "text": "There are 888 Taikoons — not more, not less! Always double check if the official collection when minting/trading."
+            "title": "How many NFTs does the Taikoons collection consist of?",
+            "text": "Taiko's Genesis NFT collection consists of 888 Taikoons."
           },
           {
-            "title": "How can I use my Taikoons?",
-            "text": "Taikoons are primarily a PFP collection, meaning its purpose is to give you a sense of identity in the Taiko community. However, since the Taikoons you hold are your property, you can do with them whatever you want! Trade, print, or just hold them — they're yours!<br/><br/>Also, keep in mind that there are no financial incentives attached to Taikoons."
+            "title": "How many NFTs will be minted now, and how many NFTs are reserved for future activities?",
+            "text": "608 NFTs will be minted now, and the remaining 280 will be reserved for future activities."
           },
+
           {
-            "title": "What is the minting process?",
-            "text": "One time genesis mint of all 888 nfts targeted May 2024"
+            "title": "How much time do I have to claim Taikoons NFTs?",
+            "text": "There is no time constraint for claiming Taikoons NFTs."
           },
+
           {
-            "title": "What is the official Taikoons contract?",
-            "text": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vivamus tincidunt lorem eros, in bibendum lectus mollis laoreet. Praesent luctus odio rhoncus nisi pulvinar pharetra. Aliquam volutpat bibendum nisl, vitae elementum mauris egestas eget. Etiam ex felis, porttitor nec elementum vitae, mattis at felis. In cursus, augue vel pulvinar aliquet, orci sapien aliquam ipsum, non sollicitudin purus nulla ac risus."
+            "title": "Is it possible to trade or transfer Taikoons NFTs?",
+            "text": "Yes, you can trade or transfer Taikoons NFTs."
           },
+
           {
-            "title": "What are the traits?",
-            "text": "(tbc) Nouns are generated randomly based Ethereum block hashes. There are no 'if' statements or other rules governing Noun trait scarcity, which makes all Nouns equally rare. As of this writing, Nouns are made up of:<br/>-backgrounds (2)<br/>-bodies (30)<br/>-accessories (140)<br/>-heads (242)<br/>-glasses (23)"
+            "title": "What are the benefits of holding Taikoons?",
+            "text": "Taikoons NFT gives you a multiplier for your level in the upcoming Trailblazer campaign."
           }
         ]
       },

@@ -17,18 +17,12 @@ export default defineConfig({
       plugins: [
         starlightLinksValidator({
           exclude: [
-            // "/api-reference/blob-storage",
             "/api-reference/bridge-relayer",
             "/api-reference/event-indexer",
             "/api-reference/prover-server",
           ],
         }),
         starlightOpenAPI([
-          // {
-          //   base: "api-reference/blob-storage",
-          //   label: "Blob Storage API",
-          //   schema: "../blobstorage/docs/swagger.yaml",
-          // },
           {
             base: "api-reference/bridge-relayer",
             label: "Bridge Relayer API",
@@ -52,7 +46,7 @@ export default defineConfig({
       },
       title: "Docs",
       editLink: {
-        baseUrl: "https://github.com/taikoxyz/docs/edit/main/",
+        baseUrl: "https://github.com/taikoxyz/taiko-mono/tree/main/packages/docs-site",
       },
       customCss: ["./src/styles/custom.css"],
       logo: {
@@ -155,12 +149,16 @@ export default defineConfig({
                   link: "/guides/node-operators/run-a-testnet-taiko-node-from-source/",
                 },
                 {
-                  label: "Run a Taiko testnet proposer",
+                  label: "Run a Taiko proposer",
                   link: "/guides/node-operators/enable-a-proposer/",
                 },
                 {
-                  label: "Run a Taiko testnet prover",
+                  label: "Run a Taiko prover",
                   link: "/guides/node-operators/enable-a-prover/",
+                },
+                {
+                  label: "Deploy a ProverSet",
+                  link: "guides/node-operators/deploy-a-proverset/"
                 },
                 {
                   label: "Node troubleshooting",

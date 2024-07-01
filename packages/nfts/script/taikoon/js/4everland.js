@@ -28,7 +28,7 @@ function populateNFTMetadata(name, description, CID) {
   return {
     name,
     description,
-    image: CID,
+    image: `https://taikonfts.4everland.link/ipfs/${CID}`,
   };
 }
 

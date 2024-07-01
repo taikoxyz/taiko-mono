@@ -9,7 +9,6 @@ import "../contracts/L1/TaikoL1.sol";
 import "../contracts/L1/provers/GuardianProver.sol";
 import "../contracts/L1/tiers/DevnetTierProvider.sol";
 import "../contracts/L1/tiers/TierProviderV2.sol";
-import "../contracts/L1/hooks/AssignmentHook.sol";
 import "../contracts/bridge/Bridge.sol";
 import "../contracts/tokenvault/BridgedERC20.sol";
 import "../contracts/tokenvault/BridgedERC721.sol";
@@ -103,16 +102,6 @@ contract DeployOnL1 is DeployCapability {
             console2.log("- signalService : ", signalServiceAddr);
             console2.log("- taikoL1Addr   : ", taikoL1Addr);
             console2.log("- chainId       : ", block.chainid);
-        }
-
-        address proposer = vm.envAddress("PROPOSER");
-        if (proposer != address(0)) {
-            register(rollupAddressManager, "proposer", proposer);
-        }
-
-        address proposerOne = vm.envAddress("PROPOSER_ONE");
-        if (proposerOne != address(0)) {
-            register(rollupAddressManager, "proposer_one", proposerOne);
         }
 
         // ---------------------------------------------------------------
@@ -272,13 +261,6 @@ contract DeployOnL1 is DeployCapability {
         });
 
         deployProxy({
-            name: "assignment_hook",
-            impl: address(new AssignmentHook()),
-            data: abi.encodeCall(AssignmentHook.init, (owner, rollupAddressManager)),
-            registerTo: rollupAddressManager
-        });
-
-        deployProxy({
             name: "tier_sgx",
             impl: address(new SgxVerifier()),
             data: abi.encodeCall(SgxVerifier.init, (owner, rollupAddressManager)),
@@ -305,7 +287,7 @@ contract DeployOnL1 is DeployCapability {
         register(rollupAddressManager, "tier_guardian", guardianProver);
         register(
             rollupAddressManager,
-            "tier_provider",
+            "tier_router",
             address(deployTierProvider(vm.envString("TIER_PROVIDER")))
         );
 

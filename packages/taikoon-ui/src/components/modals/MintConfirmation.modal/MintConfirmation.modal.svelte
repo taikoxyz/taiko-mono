@@ -28,14 +28,7 @@
 <Modal open={isModalOpen}>
   <div class={modalContentWrapperClasses}>
     <ModalTitle class={modalTitleClasses}>
-      {$mintState.isMinting
-        ? $t('content.mint.modals.minting.title', {
-            values: {
-              count: $mintState.totalMintCount,
-              plural: $mintState.totalMintCount === 1 ? '' : 's',
-            },
-          })
-        : ''}
+      {$mintState.isMinting ? $t('content.mint.modals.minting.title') : ''}
     </ModalTitle>
     <ModalBody>
       <div class={bodyWrapperClasses}>
@@ -54,7 +47,7 @@
           </div>
           <div>
             <div class={textClasses}>Waiting for confirmation</div>
-            <a href={`https://etherscan.io/tx/${$mintState.txHash}`} target="_blank" class={linkClasses}
+            <a href={`https://taikoscan.io/tx/${$mintState.txHash}`} target="_blank" class={linkClasses}
               >{$t('buttons.etherscan')}
               <UpRightArrow size="10" />
             </a>

@@ -165,7 +165,10 @@ contract SgxVerifier is EssentialContract, IVerifier {
         );
 
         if (!_isInstanceValid(id, oldInstance)) revert SGX_INVALID_INSTANCE();
-        _replaceInstance(id, oldInstance, newInstance);
+
+        if (oldInstance != newInstance) {
+            _replaceInstance(id, oldInstance, newInstance);
+        }
     }
 
     function _addInstances(

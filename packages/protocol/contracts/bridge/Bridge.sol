@@ -210,7 +210,8 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     /// @inheritdoc IBridge
-    /// @dev This transaction's gas limit must not be smaller than:
+    /// @dev To ensure successful execution, we recommend this transaction's gas limit not to be
+    /// smaller than:
     /// `(message.gasLimit - GAS_RESERVE) * 64 / 63 + GAS_RESERVE`,
     /// Or we can use a simplified rule: `tx.gaslimit = message.gaslimit * 102%`.
     function processMessage(
@@ -254,8 +255,8 @@ contract Bridge is EssentialContract, IBridge {
 
         uint256 refundAmount;
         if (_unableToInvokeMessageCall(_message, signalService)) {
-            // Handle special addresses that don't require actual invocation but
-            // mark message as DONE
+            // Handle special addresses and message.data encoded function calldata that don't
+            // require or cannot proceed with actual invocation and mark message as DONE
             refundAmount = _message.value;
             status_ = Status.DONE;
             reason_ = StatusReason.INVOCATION_PROHIBITED;
@@ -276,8 +277,22 @@ contract Bridge is EssentialContract, IBridge {
 
             if (stats.processedByRelayer && _message.gasLimit != 0) {
                 unchecked {
+                    // The relayer (=message processor) needs to get paid from the fee, and below it
+                    // the calculation mechanism of that.
+                    // The high level overview is: "gasCharged * block.basefee" with some caveat.
+                    // Sometimes over or under estimated and it has different reasons:
+                    // - a rational relayer shall simulate transactions off-chain so he/she would
+                    // exactly know if the txn is profitable or not.
+                    // - need to have a buffer/small revenue to the realyer since it consumes
+                    // maintenance and infra costs to operate
                     uint256 refund = stats.numCacheOps * _GAS_REFUND_PER_CACHE_OPERATION;
-                    stats.gasUsedInFeeCalc = uint32(GAS_OVERHEAD + gasStart - gasleft());
+                    // Taking into account the encoded message calldata cost, and can count with 16
+                    // gas per bytes (vs. checking each and every byte if zero or non-zero)
+                    stats.gasUsedInFeeCalc = uint32(
+                        GAS_OVERHEAD + gasStart + _messageCalldataCost(_message.data.length)
+                            - gasleft()
+                    );
+
                     uint256 gasCharged = refund.max(stats.gasUsedInFeeCalc) - refund;
                     uint256 maxFee = gasCharged * _message.fee / _message.gasLimit;
                     uint256 baseFee = gasCharged * block.basefee;
@@ -316,17 +331,12 @@ contract Bridge is EssentialContract, IBridge {
         if (_unableToInvokeMessageCall(_message, resolve(LibStrings.B_SIGNAL_SERVICE, false))) {
             succeeded = _message.destOwner.sendEther(_message.value, _SEND_ETHER_GAS_LIMIT, "");
         } else {
-            uint256 invocationGasLimit;
-            if (msg.sender != _message.destOwner) {
-                if (_message.gasLimit == 0 || _isLastAttempt) revert B_PERMISSION_DENIED();
-                invocationGasLimit = _invocationGasLimit(_message);
-            } else {
-                // The owner uses all gas left in message invocation
-                invocationGasLimit = gasleft();
+            if ((_message.gasLimit == 0 || _isLastAttempt) && msg.sender != _message.destOwner) {
+                revert B_PERMISSION_DENIED();
             }
 
             // Attempt to invoke the messageCall.
-            succeeded = _invokeMessageCall(_message, msgHash, invocationGasLimit, false);
+            succeeded = _invokeMessageCall(_message, msgHash, gasleft(), false);
         }
 
         if (succeeded) {
@@ -453,25 +463,14 @@ contract Bridge is EssentialContract, IBridge {
     /// @param dataLength The length of message.data.
     /// @return The minimal gas limit required for sending this message.
     function getMessageMinGasLimit(uint256 dataLength) public pure returns (uint32) {
-        unchecked {
-            // The abi encoding of A = (Message calldata msg) is 10 * 32 bytes
-            // + 32 bytes (A is a dynamic tuple, offset to first elements)
-            // + 32 bytes (offset to last bytes element of Message)
-            // + 32 bytes (padded encoding of length of Message.data + dataLength (padded to 32
-            // bytes)
-            // = 13 * 32 + (dataLength / 32 * 32) + 32.
-            // non-zero calldata cost per byte is 16.
-
-            uint256 dataCost = (dataLength / 32 * 32 + 448) << 4;
-            return SafeCastUpgradeable.toUint32(dataCost + GAS_RESERVE);
-        }
+        return _messageCalldataCost(dataLength) + GAS_RESERVE;
     }
 
     /// @notice Checks if the given address can pause and/or unpause the bridge.
     /// @dev Considering that the watchdog is a hot wallet, in case its private key is leaked, we
     /// only allow watchdog to pause the bridge, but does not allow it to unpause the bridge.
     function _authorizePause(address addr, bool toPause) internal view override {
-        // Owenr and chain_pauser can pause/unpause the bridge.
+        // Owner and chain_pauser can pause/unpause the bridge.
         if (addr == owner() || addr == resolve(LibStrings.B_CHAIN_WATCHDOG, true)) return;
 
         // bridge_watchdog can pause the bridge, but cannot unpause it.
@@ -483,7 +482,8 @@ contract Bridge is EssentialContract, IBridge {
     /// @notice Invokes a call message on the Bridge.
     /// @param _message The call message to be invoked.
     /// @param _msgHash The hash of the message.
-    /// @param _checkGasleft True to check gasleft is sufficient for target function invocation.
+    /// @param _shouldCheckForwardedGas True to check gasleft is sufficient for target function
+    /// invocation.
     /// @return success_ A boolean value indicating whether the message call was successful.
     /// @dev This function updates the context in the state before and after the
     /// message call.
@@ -491,7 +491,7 @@ contract Bridge is EssentialContract, IBridge {
         Message calldata _message,
         bytes32 _msgHash,
         uint256 _gasLimit,
-        bool _checkGasleft
+        bool _shouldCheckForwardedGas
     )
         private
         returns (bool success_)
@@ -501,10 +501,20 @@ contract Bridge is EssentialContract, IBridge {
         if (_gasLimit == 0) return false;
 
         _storeContext(_msgHash, _message.from, _message.srcChainId);
-        if (_checkGasleft && _hasInsufficientGas(_gasLimit, _message.data.length)) {
-            revert B_INSUFFICIENT_GAS();
+
+        address to = _message.to;
+        uint256 value = _message.value;
+        bytes memory data = _message.data;
+        uint256 gasLeft;
+
+        assembly {
+            success_ := call(_gasLimit, to, value, add(data, 0x20), mload(data), 0, 0)
+            gasLeft := gas()
         }
-        success_ = _message.to.sendEther(_message.value, _gasLimit, _message.data);
+
+        if (_shouldCheckForwardedGas) {
+            _checkForwardedGas(gasLeft, _gasLimit);
+        }
         _resetContext();
     }
 
@@ -629,29 +639,6 @@ contract Bridge is EssentialContract, IBridge {
         }
     }
 
-    ///@dev This implementation was suggested by OpenZeppelin in an audit to replace the previous.
-    function _hasInsufficientGas(
-        uint256 _minGas,
-        uint256 _dataLength
-    )
-        private
-        view
-        returns (bool result_)
-    {
-        unchecked {
-            // https://github.com/ethereum/execution-specs/blob/master/src/ethereum/cancun/vm/gas.py#L128
-            uint256 words = _dataLength / 32 + 1;
-            uint256 memoryGasCost = words * 3 + words * words / 512;
-
-            // Need to add the gas cost of accessing the message.to account. This currently
-            // corresponds to 2600 gas if the account is cold, and 100 otherwise.
-
-            // Also need to add the cost of transferring a nonzero msg.value. This cost is currently
-            // 9000, but provides a 2300 gas stipend to the called contract.
-            result_ = gasleft() * 63 < _minGas * 64 + (memoryGasCost + 9300) * 63;
-        }
-    }
-
     function _checkStatus(bytes32 _msgHash, Status _expectedStatus) private view {
         if (messageStatus[_msgHash] != _expectedStatus) revert B_INVALID_STATUS();
     }
@@ -677,6 +664,75 @@ contract Bridge is EssentialContract, IBridge {
         uint256 minGasRequired = getMessageMinGasLimit(_message.data.length);
         unchecked {
             return minGasRequired.max(_message.gasLimit) - minGasRequired;
+        }
+    }
+
+    function _messageCalldataCost(uint256 dataLength) private pure returns (uint32) {
+        // The abi encoding of A = (Message calldata msg) is 10 * 32 bytes
+        // + 32 bytes (A is a dynamic tuple, offset to first elements)
+        // + 32 bytes (offset to last bytes element of Message)
+        // + 32 bytes (padded encoding of length of Message.data + dataLength
+        //   (padded to 32 // bytes) = 13 * 32 + ((dataLength + 31) / 32 * 32).
+        // Non-zero calldata cost per byte is 16.
+        unchecked {
+            return uint32(((dataLength + 31) / 32 * 32 + 416) << 4);
+        }
+    }
+
+    /// @dev Suggested by OpenZeppelin and copied from
+    /// https://github.com/OpenZeppelin/openzeppelin-contracts/
+    /// blob/83c7e45092dac350b070c421cd2bf7105616cf1a/contracts/
+    /// metatx/ERC2771Forwarder.sol#L327C1-L370C6
+    ///
+    /// @dev Checks if the requested gas was correctly forwarded to the callee.
+    /// As a consequence of https://eips.ethereum.org/EIPS/eip-150[EIP-150]:
+    /// - At most `gasleft() - floor(gasleft() / 64)` is forwarded to the callee.
+    /// - At least `floor(gasleft() / 64)` is kept in the caller.
+    ///
+    /// It reverts consuming all the available gas if the forwarded gas is not the requested gas.
+    ///
+    /// IMPORTANT: The `gasLeft` parameter should be measured exactly at the end of the forwarded
+    /// call.
+    /// Any gas consumed in between will make room for bypassing this check.
+    function _checkForwardedGas(uint256 _gasLeft, uint256 _gasRequested) private pure {
+        // To avoid insufficient gas griefing attacks, as referenced in
+        // https://ronan.eth.limo/blog/ethereum-gas-dangers/
+        //
+        // A malicious relayer can attempt to shrink the gas forwarded so that the underlying call
+        // reverts out-of-gas
+        // but the forwarding itself still succeeds. In order to make sure that the subcall received
+        // sufficient gas,
+        // we will inspect gasleft() after the forwarding.
+        //
+        // Let X be the gas available before the subcall, such that the subcall gets at most X * 63
+        // / 64.
+        // We can't know X after CALL dynamic costs, but we want it to be such that X * 63 / 64 >=
+        // req.gas.
+        // Let Y be the gas used in the subcall. gasleft() measured immediately after the subcall
+        // will be gasleft() = X - Y.
+        // If the subcall ran out of gas, then Y = X * 63 / 64 and gasleft() = X - Y = X / 64.
+        // Under this assumption req.gas / 63 > gasleft() is true is true if and only if
+        // req.gas / 63 > X / 64, or equivalently req.gas > X * 63 / 64.
+        // This means that if the subcall runs out of gas we are able to detect that insufficient
+        // gas was passed.
+        //
+        // We will now also see that req.gas / 63 > gasleft() implies that req.gas >= X * 63 / 64.
+        // The contract guarantees Y <= req.gas, thus gasleft() = X - Y >= X - req.gas.
+        // -    req.gas / 63 > gasleft()
+        // -    req.gas / 63 >= X - req.gas
+        // -    req.gas >= X * 63 / 64
+        // In other words if req.gas < X * 63 / 64 then req.gas / 63 <= gasleft(), thus if the
+        // relayer behaves honestly
+        // the forwarding does not revert.
+        if (_gasLeft < _gasRequested / 63) {
+            // We explicitly trigger invalid opcode to consume all gas and bubble-up the effects,
+            // since
+            // neither revert or assert consume all gas since Solidity 0.8.20
+            // https://docs.soliditylang.org/en/v0.8.20/control-structures.html#panic-via-assert-and-error-via-require
+            /// @solidity memory-safe-assembly
+            assembly {
+                invalid()
+            }
         }
     }
 }

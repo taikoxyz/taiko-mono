@@ -3,7 +3,8 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
- *
+ * - [__View Contract on Taiko Mainnet Taikoscan__](https://taikoscan.network/address/0x4A045C5016B200F7E08a4caBB2cdA6E85bF53295)
+ * - [__View Contract on Taiko Hekla L2 Taikoscan__](https://hekla.taikoscan.network/address/0xB6Dfbbc4d1074e214d144cb6aD31a30e4F0DCD1A)
  */
 export const taikoonTokenAbi = [
   {
@@ -35,6 +36,13 @@ export const taikoonTokenAbi = [
     inputs: [{ name: 'owner', internalType: 'address', type: 'address' }],
     name: 'balanceOf',
     outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'baseURI',
+    outputs: [{ name: '', internalType: 'string', type: 'string' }],
     stateMutability: 'view',
   },
   {
@@ -288,6 +296,13 @@ export const taikoonTokenAbi = [
     type: 'function',
     inputs: [{ name: 'newOwner', internalType: 'address', type: 'address' }],
     name: 'transferOwnership',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: '_rootURI', internalType: 'string', type: 'string' }],
+    name: 'updateBaseURI',
     outputs: [],
     stateMutability: 'nonpayable',
   },
@@ -587,15 +602,17 @@ export const taikoonTokenAbi = [
 ] as const;
 
 /**
- *
+ * - [__View Contract on Taiko Mainnet Taikoscan__](https://taikoscan.network/address/0x4A045C5016B200F7E08a4caBB2cdA6E85bF53295)
+ * - [__View Contract on Taiko Hekla L2 Taikoscan__](https://hekla.taikoscan.network/address/0xB6Dfbbc4d1074e214d144cb6aD31a30e4F0DCD1A)
  */
 export const taikoonTokenAddress = {
-  31337: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
-  167000: '0x391F62EB932Ec227840244fb66DE53c3367A66c1',
+  167000: '0x4A045C5016B200F7E08a4caBB2cdA6E85bF53295',
+  167009: '0xB6Dfbbc4d1074e214d144cb6aD31a30e4F0DCD1A',
 } as const;
 
 /**
- *
+ * - [__View Contract on Taiko Mainnet Taikoscan__](https://taikoscan.network/address/0x4A045C5016B200F7E08a4caBB2cdA6E85bF53295)
+ * - [__View Contract on Taiko Hekla L2 Taikoscan__](https://hekla.taikoscan.network/address/0xB6Dfbbc4d1074e214d144cb6aD31a30e4F0DCD1A)
  */
 export const taikoonTokenConfig = {
   address: taikoonTokenAddress,

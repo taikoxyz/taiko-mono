@@ -31,11 +31,11 @@ type Config struct {
 	ETHClientTimeout        uint64
 	L1TaikoAddress          common.Address
 	BridgeAddress           common.Address
-	AssignmentHookAddress   common.Address
 	BlockBatchSize          uint64
 	SubscriptionBackoff     uint64
 	SyncMode                SyncMode
 	IndexNFTs               bool
+	IndexERC20s             bool
 	Layer                   string
 	OpenDBFunc              func() (DB, error)
 }
@@ -54,12 +54,12 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		ETHClientTimeout:        c.Uint64(flags.ETHClientTimeout.Name),
 		L1TaikoAddress:          common.HexToAddress(c.String(flags.L1TaikoAddress.Name)),
 		BridgeAddress:           common.HexToAddress(c.String(flags.BridgeAddress.Name)),
-		AssignmentHookAddress:   common.HexToAddress(c.String(flags.AssignmentHookAddress.Name)),
 		BlockBatchSize:          c.Uint64(flags.BlockBatchSize.Name),
 		SubscriptionBackoff:     c.Uint64(flags.SubscriptionBackoff.Name),
 		RPCUrl:                  c.String(flags.IndexerRPCUrl.Name),
 		SyncMode:                SyncMode(c.String(flags.SyncMode.Name)),
 		IndexNFTs:               c.Bool(flags.IndexNFTs.Name),
+		IndexERC20s:             c.Bool(flags.IndexERC20s.Name),
 		Layer:                   c.String(flags.Layer.Name),
 		OpenDBFunc: func() (DB, error) {
 			return db.OpenDBConnection(db.DBConnectionOpts{

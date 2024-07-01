@@ -25,7 +25,7 @@ contract TestTierProvider is ITierProvider, ITierRouter {
                 contestBond: 500 ether, // TKO
                 cooldownWindow: 1440, //24 hours
                 provingWindow: 30, // 0.5 hours
-                maxBlocksToVerifyPerProof: 12
+                maxBlocksToVerifyPerProof: 0
             });
         }
 
@@ -36,7 +36,7 @@ contract TestTierProvider is ITierProvider, ITierRouter {
                 contestBond: 1640 ether, // =250TKO * 6.5625
                 cooldownWindow: 1440, //24 hours
                 provingWindow: 60, // 1 hours
-                maxBlocksToVerifyPerProof: 8
+                maxBlocksToVerifyPerProof: 0
             });
         }
 
@@ -47,7 +47,7 @@ contract TestTierProvider is ITierProvider, ITierRouter {
                 contestBond: 0, // must be 0 for top tier
                 cooldownWindow: 60, //1 hours
                 provingWindow: 2880, // 48 hours
-                maxBlocksToVerifyPerProof: 16
+                maxBlocksToVerifyPerProof: 0
             });
         }
 

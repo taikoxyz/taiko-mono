@@ -11,7 +11,7 @@ ffi = true
 memory_limit = 2_073_741_824
 solc_version = "0.8.24"
 evm_version = "cancun"
-ast=true
+ast = true
 remappings = [
   "@openzeppelin/contracts-upgradeable/=node_modules/@openzeppelin/contracts-upgradeable/",
   "@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/",
@@ -22,6 +22,7 @@ remappings = [
   "murky/=node_modules/murky/src/",
   "solidity-stringutils/=node_modules/solidity-stringutils/",
   "@taiko/blacklist/=node_modules/@taiko/supplementary-contracts/contracts/blacklist/",
+  "openzeppelin-foundry-upgrades/=node_modules/openzeppelin-foundry-upgrades/src/",
 ]
 
 # Do not change the block_gas_limit value, TaikoL2.t.sol depends on it.
@@ -34,7 +35,7 @@ fs_permissions = [
   { access = "read-write", path = "./deployments/" },
   { access = "read", path = "./test" },
   { access = "read", path = "./genesis" },
-  {access = "read", path="./data/"},
+  { access = "read", path = "./data/" },
 ]
 
 # 2394: Transient storage warning
@@ -52,4 +53,3 @@ line_length = 100
 multiline_func_header = "all"
 number_underscore = "thousands"
 wrap_comments = true
-

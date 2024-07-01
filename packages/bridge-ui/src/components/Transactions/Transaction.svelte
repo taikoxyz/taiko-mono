@@ -24,6 +24,7 @@
 
   export let item: BridgeTransaction;
   export let loading = false;
+  export let handleTransactionRemoved: (event: CustomEvent) => void;
 
   let token: NFT;
   let insufficientModal = false;
@@ -69,7 +70,7 @@
     loading = true;
     try {
       token = await mapTransactionHashToNFT({
-        hash: item.hash,
+        hash: item.srcTxHash,
         srcChainId: Number(item.srcChainId),
         type: item.tokenType,
       });
@@ -188,13 +189,14 @@
       <Status
         bridgeTx={item}
         bind:bridgeTxStatus
+        on:transactionRemoved={handleTransactionRemoved}
         on:openModal={handleOpenModal}
         on:insufficientFunds={handleInsufficientFunds} />
     </div>
     <div class="hidden md:flex grow py-2 flex flex-col justify-center">
       <a
         class="flex justify-center py-3 link"
-        href={`${chainConfig[Number(item.srcChainId)]?.blockExplorers?.default.url}/tx/${item.hash}`}
+        href={`${chainConfig[Number(item.srcChainId)]?.blockExplorers?.default.url}/tx/${item.srcTxHash}`}
         target="_blank">
         {$t('transactions.link.explorer')}
         <Icon type="arrow-top-right" fillClass="fill-primary-link" />
@@ -247,6 +249,7 @@
     <div class="md:w-1/5 py-2 flex flex-col justify-center">
       <Status
         bridgeTx={item}
+        on:transactionRemoved={handleTransactionRemoved}
         bind:bridgeTxStatus
         on:openModal={handleOpenModal}
         on:insufficientFunds={handleInsufficientFunds} />
@@ -254,7 +257,7 @@
     <div class="hidden md:flex w-1/5 py-2 flex flex-col justify-center">
       <a
         class="flex justify-start py-3 link"
-        href={`${chainConfig[Number(item.srcChainId)]?.blockExplorers?.default.url}/tx/${item.hash}`}
+        href={`${chainConfig[Number(item.srcChainId)]?.blockExplorers?.default.url}/tx/${item.srcTxHash}`}
         target="_blank">
         {$t('transactions.link.explorer')}
         <Icon type="arrow-top-right" fillClass="fill-primary-link" />

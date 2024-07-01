@@ -5,6 +5,8 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/urfave/cli/v2"
+
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
 var (
@@ -147,11 +149,12 @@ var (
 		Value:    12 * time.Second,
 		EnvVars:  []string{"RPC_TIMEOUT"},
 	}
-	AssignmentHookAddress = &cli.StringFlag{
-		Name:     "assignmentHookAddress",
-		Usage:    "Address of the AssignmentHook contract",
+	ProverSetAddress = &cli.StringFlag{
+		Name:     "proverSet",
+		Usage:    "ProverSet contract `address`",
+		Value:    rpc.ZeroAddress.Hex(),
 		Category: commonCategory,
-		EnvVars:  []string{"ASSIGNMENT_HOOK_ADDRESS"},
+		EnvVars:  []string{"PROVER_SET"},
 	}
 )
 
@@ -162,6 +165,7 @@ var CommonFlags = []cli.Flag{
 	TaikoL1Address,
 	TaikoL2Address,
 	// Optional
+	ProverSetAddress,
 	Verbosity,
 	LogJSON,
 	MetricsEnabled,

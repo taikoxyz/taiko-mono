@@ -36,12 +36,19 @@ contract ERC20Vault is BaseVault {
     /// @dev Represents an operation to send tokens to another chain.
     /// 4 slots
     struct BridgeTransferOp {
+        // Destination chain ID.
         uint64 destChainId;
+        // The owner of the bridge message on the destination chain.
         address destOwner;
+        // Recipient address.
         address to;
+        // Processing fee for the relayer.
         uint64 fee;
+        // Address of the token.
         address token;
+        // Gas limit for the operation.
         uint32 gasLimit;
+        // Amount to be bridged.
         uint256 amount;
     }
 
@@ -99,6 +106,7 @@ contract ERC20Vault is BaseVault {
     /// @param msgHash The hash of the message.
     /// @param from The address of the sender.
     /// @param to The address of the recipient.
+    /// @param canonicalChainId The chain ID of the canonical token.
     /// @param destChainId The chain ID of the destination chain.
     /// @param ctoken The address of the canonical token.
     /// @param token The address of the bridged token.
@@ -107,6 +115,7 @@ contract ERC20Vault is BaseVault {
         bytes32 indexed msgHash,
         address indexed from,
         address indexed to,
+        uint64 canonicalChainId,
         uint64 destChainId,
         address ctoken,
         address token,
@@ -267,6 +276,7 @@ contract ERC20Vault is BaseVault {
             msgHash: msgHash,
             from: message_.srcOwner,
             to: _op.to,
+            canonicalChainId: ctoken.chainId,
             destChainId: _op.destChainId,
             ctoken: ctoken.addr,
             token: _op.token,
@@ -354,7 +364,6 @@ contract ERC20Vault is BaseVault {
             // check.
             IBridgedERC20(token_).mint(_to, _amount);
         }
-
         _consumeTokenQuota(token_, _amount);
     }
 

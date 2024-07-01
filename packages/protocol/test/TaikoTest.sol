@@ -18,7 +18,6 @@ import "../contracts/L1/TaikoL1.sol";
 import "../contracts/verifiers/SgxVerifier.sol";
 import "../contracts/verifiers/RiscZeroVerifier.sol";
 import "../test/L1/TestTierProvider.sol";
-import "../contracts/L1/hooks/AssignmentHook.sol";
 import "../contracts/L1/provers/GuardianProver.sol";
 import "../contracts/bridge/QuotaManager.sol";
 
@@ -38,7 +37,7 @@ abstract contract TaikoTest is Test, DeployCapability {
     address internal Alice = vm.addr(0x1);
     address internal Bob = vm.addr(0x2);
     address internal Carol = vm.addr(0x3);
-    address internal David = randAddress();
+    address internal David = vm.addr(0x4);
     address internal Emma = randAddress();
     address internal Frank = randAddress();
     address internal Grace = randAddress();

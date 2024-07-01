@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Footer } from '@taiko/ui-lib';
+  import { ResponsiveController } from '@taiko/ui-lib';
 
-  import { ResponsiveController } from '$components/core/ResponsiveController';
   import { classNames } from '$lib/util/classNames';
   import { Section } from '$ui/Section';
 
@@ -10,7 +10,7 @@
   const sectionClasses = classNames('justify-end align-end', 'mb-5');
 </script>
 
-<Section height={windowSize === 'sm' ? 'fit' : 'min'} background="footer" class={sectionClasses} width="xl">
+<Section height={'fit'} background="footer" class={sectionClasses} width="xl">
   <Footer />
 </Section>
 

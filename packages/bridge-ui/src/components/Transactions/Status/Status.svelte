@@ -8,6 +8,7 @@
   import { isTransactionProcessable } from '$libs/bridge/isTransactionProcessable';
   import { BridgePausedError } from '$libs/error';
   import { PollingEvent, startPolling } from '$libs/polling/messageStatusPoller';
+  import { bridgeTxService } from '$libs/storage';
   import { isBridgePaused } from '$libs/util/checkForPausedContracts';
   import { account } from '$stores/account';
   import { connectedSourceChain } from '$stores/network';
@@ -15,14 +16,13 @@
   const dispatch = createEventDispatcher();
 
   export let bridgeTx: BridgeTransaction;
-
-  let polling: ReturnType<typeof startPolling>;
+  export let bridgeTxStatus: Maybe<MessageStatus>;
 
   // UI state
   let isProcessable = false; // bridge tx state to be processed: claimed/retried/released
-  export let bridgeTxStatus: Maybe<MessageStatus>;
-
+  let polling: ReturnType<typeof startPolling>;
   let loading = false;
+  let hasError = false;
 
   function onProcessable(isTxProcessable: boolean) {
     isProcessable = isTxProcessable;
@@ -69,6 +69,16 @@
     // TODO: implement release handling
   }
 
+  $: if (hasError && $account.address) {
+    if (bridgeTxService.transactionIsStoredLocally($account.address, bridgeTx)) {
+      // If we can't start polling, it maybe an old/outdated transaction in the local storage, so we remove it
+      bridgeTxService.removeTransactions($account.address, [bridgeTx]);
+      if (!bridgeTxService.transactionIsStoredLocally($account.address, bridgeTx)) {
+        dispatch('transactionRemoved', bridgeTx);
+      }
+    }
+  }
+
   onMount(async () => {
     if (bridgeTx && $account?.address) {
       bridgeTxStatus = bridgeTx.msgStatus;
@@ -87,8 +97,8 @@
           polling.emitter.on(PollingEvent.STATUS, onStatusChange);
         }
       } catch (err) {
-        console.error(err);
-        // TODO: handle error
+        console.warn('Cannot start polling', err);
+        hasError = true;
       }
     }
   });
@@ -124,6 +134,9 @@
     <button class="status-btn" on:click={release} on:click={handleReleaseClick}>
       {$t('transactions.button.release')}
     </button>
+  {:else if bridgeTxStatus === MessageStatus.RECALLED}
+    <StatusDot type="error" />
+    <span>{$t('transactions.status.released.name')}</span>
   {:else}
     <!-- TODO: look into this possible state -->
     <StatusDot type="error" />

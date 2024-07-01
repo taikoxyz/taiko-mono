@@ -28,13 +28,6 @@ var (
 
 // Optional flags used by prover.
 var (
-	ProverSetAddress = &cli.StringFlag{
-		Name:     "proverSet",
-		Usage:    "ProverSet contract `address`",
-		Value:    rpc.ZeroAddress.Hex(),
-		Category: proverCategory,
-		EnvVars:  []string{"PROVER_SET"},
-	}
 	RaikoHostEndpoint = &cli.StringFlag{
 		Name:     "raiko.host",
 		Usage:    "RPC endpoint of a Raiko host service",
@@ -215,7 +208,6 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	L1HTTPEndpoint,
 	L2WSEndpoint,
 	L2HTTPEndpoint,
-	ProverSetAddress,
 	RaikoHostEndpoint,
 	RaikoJWTPath,
 	L1ProverPrivKey,
@@ -239,7 +231,6 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	MaxProposedIn,
 	TaikoTokenAddress,
 	MaxAcceptableBlockSlippage,
-	AssignmentHookAddress,
 	Allowance,
 	L1NodeVersion,
 	L2NodeVersion,

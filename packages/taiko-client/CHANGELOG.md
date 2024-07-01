@@ -1,5 +1,53 @@
 # Changelog
 
+## [0.28.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.27.1...taiko-client-v0.28.0) (2024-06-24)
+
+
+### Features
+
+* **taiko-client:** improve some comments in prover ([#17668](https://github.com/taikoxyz/taiko-mono/issues/17668)) ([e7afcfe](https://github.com/taikoxyz/taiko-mono/commit/e7afcfe18399240fbac04a7d90a52fe17edcab67))
+
+
+### Chores
+
+* **taiko-client:** revert the failed cross-compilation ([#17670](https://github.com/taikoxyz/taiko-mono/issues/17670)) ([0a1de79](https://github.com/taikoxyz/taiko-mono/commit/0a1de792eaf0c17de1b873a465febe1dca9ce16a))
+
+## [0.27.1](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.27.0...taiko-client-v0.27.1) (2024-06-24)
+
+
+### Bug Fixes
+
+* **taiko-client:** remove Go build cache ([#17661](https://github.com/taikoxyz/taiko-mono/issues/17661)) ([f6075f7](https://github.com/taikoxyz/taiko-mono/commit/f6075f75ca57b8136e7edfed2b73912c79ccec63))
+
+## [0.27.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.26.0...taiko-client-v0.27.0) (2024-06-24)
+
+
+### Features
+
+* **taiko-client:** build using cross-compilation ([#17564](https://github.com/taikoxyz/taiko-mono/issues/17564)) ([e66a0c8](https://github.com/taikoxyz/taiko-mono/commit/e66a0c889eade8e323255d3129faa4fd512d5c94))
+* **taiko-client:** disable hook in client ([#17642](https://github.com/taikoxyz/taiko-mono/issues/17642)) ([099ce22](https://github.com/taikoxyz/taiko-mono/commit/099ce22139e8c545a46369dce158de4b9bb6297e))
+* **taiko-client:** update Go contract bindings ([#17568](https://github.com/taikoxyz/taiko-mono/issues/17568)) ([f190919](https://github.com/taikoxyz/taiko-mono/commit/f19091941362609b736bbbf1eee28fc459fc324a))
+
+## [0.26.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.25.0...taiko-client-v0.26.0) (2024-06-08)
+
+
+### Features
+
+* **taiko-client:** allow hooks to be empty if prover and proposer are the same address ([#17520](https://github.com/taikoxyz/taiko-mono/issues/17520)) ([2db6d2c](https://github.com/taikoxyz/taiko-mono/commit/2db6d2c3a978b75f0f57337f1481d1a1066594ea))
+
+
+### Bug Fixes
+
+* **taiko-client:** fix an address check in `AssignProver` ([#17526](https://github.com/taikoxyz/taiko-mono/issues/17526)) ([d6001d3](https://github.com/taikoxyz/taiko-mono/commit/d6001d3f52bed12ff962c7558b9fc173fc964ddb))
+
+## [0.25.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.24.0...taiko-client-v0.25.0) (2024-06-04)
+
+
+### Features
+
+* **taiko-client:** remove useless function and correct erorr handling ([#17463](https://github.com/taikoxyz/taiko-mono/issues/17463)) ([4e93a57](https://github.com/taikoxyz/taiko-mono/commit/4e93a57e11980c199be7d38aaefcd64dacb96131))
+* **taiko-client:** update bindings based on protocol `TierRouter` update ([#17475](https://github.com/taikoxyz/taiko-mono/issues/17475)) ([0e9d160](https://github.com/taikoxyz/taiko-mono/commit/0e9d1608635fefaa34b1a07900978b22efe14712))
+
 ## [0.24.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.23.1...taiko-client-v0.24.0) (2024-05-30)
 
 

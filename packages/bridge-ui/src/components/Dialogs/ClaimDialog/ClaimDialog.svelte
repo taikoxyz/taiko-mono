@@ -52,9 +52,11 @@
 
   export const handleClaimClick = async () => {
     claiming = true;
-    await ClaimComponent.claim(ClaimAction.CLAIM);
+    await ClaimComponent.claim(ClaimAction.CLAIM, force);
   };
 
+  let force = false;
+  // let canForceTransaction = false;
   let canContinue = false;
   let claiming: boolean;
   let claimingDone = false;
@@ -122,6 +124,7 @@
   const handleClaimError = (event: CustomEvent<{ error: unknown; action: ClaimAction }>) => {
     //TODO: update this to display info alongside toasts
     const err = event.detail.error;
+    // canForceTransaction = true;
     switch (true) {
       case err instanceof NotConnectedError:
         warningToast({ title: $t('messages.account.required') });
@@ -169,6 +172,7 @@
   const reset = () => {
     activeStep = INITIAL_STEP;
     claimingDone = false;
+    // canForceTransaction = false;
   };
 
   let previousStep: ClaimSteps;
@@ -200,7 +204,7 @@
           isActive={activeStep === ClaimSteps.CONFIRM}>{$t('bridge.step.confirm.title')}</DialogStep>
       </DialogStepper>
       {#if activeStep === ClaimSteps.CHECK}
-        <ClaimPreCheck tx={bridgeTx} bind:canContinue bind:hideContinueButton />
+        <ClaimPreCheck tx={bridgeTx} bind:canContinue bind:hideContinueButton on:closeDialog={closeDialog} />
       {:else if activeStep === ClaimSteps.REVIEW}
         <ReviewStep tx={bridgeTx} {nft} />
       {:else if activeStep === ClaimSteps.CONFIRM}

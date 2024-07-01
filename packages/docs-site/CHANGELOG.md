@@ -1,5 +1,43 @@
 # Changelog
 
+## [1.11.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.11.0...docs-site-v1.11.1) (2024-06-24)
+
+
+### Documentation
+
+* **docs-site:** update guardian minority bond amount and enable a prover guide ([#17636](https://github.com/taikoxyz/taiko-mono/issues/17636)) ([801a85e](https://github.com/taikoxyz/taiko-mono/commit/801a85e4ea958fed11a6b85bdcac501da0a9ed47))
+* **docs-site:** update proof tier config for testnet ([#17627](https://github.com/taikoxyz/taiko-mono/issues/17627)) ([53d672b](https://github.com/taikoxyz/taiko-mono/commit/53d672b2a87b1b26521ce4b782226e1ff22e5b40))
+
+## [1.11.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.10.0...docs-site-v1.11.0) (2024-06-18)
+
+
+### Features
+
+* **docs-site:** add dune dashboard to dev tools ([#17617](https://github.com/taikoxyz/taiko-mono/issues/17617)) ([ae0b0f0](https://github.com/taikoxyz/taiko-mono/commit/ae0b0f0838541a58ff4f5018098881c15eeae46c))
+* **docs-site:** add verify in batches explanation ([#17600](https://github.com/taikoxyz/taiko-mono/issues/17600)) ([0a8a886](https://github.com/taikoxyz/taiko-mono/commit/0a8a88675413b0f579d4d4889897d2e8404a67f6))
+
+## [1.10.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.9.0...docs-site-v1.10.0) (2024-06-14)
+
+
+### Features
+
+* **docs-site:** update guides ([#17536](https://github.com/taikoxyz/taiko-mono/issues/17536)) ([4a9ba42](https://github.com/taikoxyz/taiko-mono/commit/4a9ba42cadd1b2cd7d1a29097192ffe167eda3e2))
+* **docs-site:** update multiple articles ([#17552](https://github.com/taikoxyz/taiko-mono/issues/17552)) ([1561f92](https://github.com/taikoxyz/taiko-mono/commit/1561f92dded423676ced15c28ff7fa26cd6c96f5))
+
+## [1.9.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.8.1...docs-site-v1.9.0) (2024-06-07)
+
+
+### Features
+
+* **docs-site:** add based preconfs faq link ([#17493](https://github.com/taikoxyz/taiko-mono/issues/17493)) ([cc8a598](https://github.com/taikoxyz/taiko-mono/commit/cc8a5986206756f1b445ad08543eeaedb5f8aaf4))
+
+## [1.8.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.8.0...docs-site-v1.8.1) (2024-06-03)
+
+
+### Bug Fixes
+
+* **docs-site:** update rpc call ([#17469](https://github.com/taikoxyz/taiko-mono/issues/17469)) ([bb2a023](https://github.com/taikoxyz/taiko-mono/commit/bb2a023fec3932bfbe2f8fe6c3130332c763d24f))
+
 ## [1.8.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.7.1...docs-site-v1.8.0) (2024-06-01)
 
 

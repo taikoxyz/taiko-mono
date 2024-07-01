@@ -24,7 +24,6 @@ import (
 // Config contains all configurations to initialize a Taiko proposer.
 type Config struct {
 	*rpc.ClientConfig
-	AssignmentHookAddress      common.Address
 	L1ProposerPrivKey          *ecdsa.PrivateKey
 	L2SuggestedFeeRecipient    common.Address
 	ExtraData                  string
@@ -104,8 +103,8 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			JwtSecret:         string(jwtSecret),
 			TaikoTokenAddress: common.HexToAddress(c.String(flags.TaikoTokenAddress.Name)),
 			Timeout:           c.Duration(flags.RPCTimeout.Name),
+			ProverSetAddress:  common.HexToAddress(c.String(flags.ProverSetAddress.Name)),
 		},
-		AssignmentHookAddress:      common.HexToAddress(c.String(flags.AssignmentHookAddress.Name)),
 		L1ProposerPrivKey:          l1ProposerPrivKey,
 		L2SuggestedFeeRecipient:    common.HexToAddress(l2SuggestedFeeRecipient),
 		ExtraData:                  c.String(flags.ExtraData.Name),

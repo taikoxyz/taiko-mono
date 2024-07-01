@@ -3,7 +3,8 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
- *
+ * -
+ * - [__View Contract on Taiko Mainnet Taikoscan__](https://taikoscan.network/address/0xA5804b2a764f9808858355c1f1832588f47ab654)
  */
 export const snaefellTokenAbi = [
   {
@@ -35,6 +36,13 @@ export const snaefellTokenAbi = [
     inputs: [{ name: 'owner', internalType: 'address', type: 'address' }],
     name: 'balanceOf',
     outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'baseURI',
+    outputs: [{ name: '', internalType: 'string', type: 'string' }],
     stateMutability: 'view',
   },
   {
@@ -281,6 +289,13 @@ export const snaefellTokenAbi = [
     type: 'function',
     inputs: [{ name: 'newOwner', internalType: 'address', type: 'address' }],
     name: 'transferOwnership',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [{ name: '_rootURI', internalType: 'string', type: 'string' }],
+    name: 'updateBaseURI',
     outputs: [],
     stateMutability: 'nonpayable',
   },
@@ -581,15 +596,17 @@ export const snaefellTokenAbi = [
 ] as const;
 
 /**
- *
+ * -
+ * - [__View Contract on Taiko Mainnet Taikoscan__](https://taikoscan.network/address/0xA5804b2a764f9808858355c1f1832588f47ab654)
  */
 export const snaefellTokenAddress = {
-  31337: '0x0165878A594ca255338adfa4d48449f69242Eb8F',
-  167000: '0xD57b9EE8f597801e82018ed44e07E9065645B0c1',
+  31337: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
+  167000: '0xA5804b2a764f9808858355c1f1832588f47ab654',
 } as const;
 
 /**
- *
+ * -
+ * - [__View Contract on Taiko Mainnet Taikoscan__](https://taikoscan.network/address/0xA5804b2a764f9808858355c1f1832588f47ab654)
  */
 export const snaefellTokenConfig = {
   address: snaefellTokenAddress,
