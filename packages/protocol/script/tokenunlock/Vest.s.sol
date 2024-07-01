@@ -10,8 +10,6 @@ import "../../contracts/team/tokenunlock/TokenUnlock.sol";
 contract VestTokenUnlock is Script {
     using stdJson for string;
 
-    // WARNING: there seems to be a bug in the foundry JSON parsing. If you
-    // switch the order of 'proxy' and 'recipient', the results are different.
     struct VestingItem {
         address proxy;
         address recipient;
