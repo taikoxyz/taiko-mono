@@ -131,6 +131,7 @@ library LibProving {
         local.tko = _tko;
 
         local.b = _state.slotB;
+        local.blockId = _blockId;
         local.postFork = _blockId >= _config.forkHeight;
 
         TaikoData.BlockMetadata2 memory meta;
@@ -168,7 +169,6 @@ library LibProving {
         local.slot = meta.id % _config.blockRingBufferSize;
         TaikoData.Block storage blk = _state.blocks[local.slot];
 
-        local.blockId = blk.blockId;
         local.proposedAt = local.postFork ? meta.proposedAt : blk.proposedAt;
 
         if (LibUtils.shouldSyncStateRoot(_config.stateRootSyncInternal, local.blockId)) {
@@ -189,9 +189,7 @@ library LibProving {
         // Check the integrity of the block data. It's worth noting that in
         // theory, this check may be skipped, but it's included for added
         // caution.
-        if (
-            local.blockId != meta.id || local.metaHash != LibData.hashMetadata(local.postFork, meta)
-        ) {
+        if (local.metaHash != LibData.hashMetadata(local.postFork, meta)) {
             revert L1_BLOCK_MISMATCH();
         }
 
