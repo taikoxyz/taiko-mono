@@ -24,7 +24,8 @@ linters:
     - lll
     - unused
     - whitespace
-    - wsl
+    - lll
+    - importas
 
 linters-settings:
   funlen:

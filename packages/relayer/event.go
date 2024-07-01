@@ -1,7 +1,7 @@
 package relayer
 
 import (
-	"context"
+	"gorm.io/gorm"
 	"math/big"
 	"net/http"
 	"time"
@@ -128,37 +128,38 @@ type FindAllByAddressOpts struct {
 
 // EventRepository is used to interact with events in the store
 type EventRepository interface {
-	Save(ctx context.Context, opts *SaveEventOpts) (*Event, error)
-	UpdateStatus(ctx context.Context, id int, status EventStatus) error
-	UpdateFeesAndProfitability(ctx context.Context, id int, opts *UpdateFeesAndProfitabilityOpts) error
+	Save(db *gorm.DB, opts *SaveEventOpts) (*Event, error)
+	UpdateStatus(db *gorm.DB, id int, status EventStatus) error
+	UpdateFeesAndProfitability(db *gorm.DB, id int, opts *UpdateFeesAndProfitabilityOpts) error
 	FindAllByAddress(
-		ctx context.Context,
+		db *gorm.DB,
 		req *http.Request,
 		opts FindAllByAddressOpts,
 	) (*paginate.Page, error)
 	FirstByMsgHash(
-		ctx context.Context,
+		db *gorm.DB,
 		msgHash string,
 	) (*Event, error)
 	FirstByEventAndMsgHash(
-		ctx context.Context,
+		db *gorm.DB,
 		event string,
 		msgHash string,
 	) (*Event, error)
-	Delete(ctx context.Context, id int) error
+	Delete(db *gorm.DB, id int) error
 	ChainDataSyncedEventByBlockNumberOrGreater(
-		ctx context.Context,
+		db *gorm.DB,
 		srcChainId uint64,
 		syncedChainId uint64,
 		blockNumber uint64,
 	) (*Event, error)
 	LatestChainDataSyncedEvent(
-		ctx context.Context,
+		db *gorm.DB,
 		srcChainId uint64,
 		syncedChainId uint64,
 	) (uint64, error)
-	DeleteAllAfterBlockID(blockID uint64, srcChainID uint64, destChainID uint64) error
+	DeleteAllAfterBlockID(db *gorm.DB, blockID uint64, srcChainID uint64, destChainID uint64) error
 	FindLatestBlockID(
+		db *gorm.DB,
 		event string,
 		srcChainID uint64,
 		destChainID uint64,

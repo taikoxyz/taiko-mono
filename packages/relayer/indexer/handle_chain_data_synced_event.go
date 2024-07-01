@@ -3,11 +3,13 @@ package indexer
 import (
 	"context"
 	"encoding/json"
+	"gorm.io/gorm"
 
 	"log/slog"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/signalservice"
 )
@@ -15,6 +17,7 @@ import (
 // handleChainDataSyncedEvent handles an individual ChainDataSynced event
 func (i *Indexer) handleChainDataSyncedEvent(
 	ctx context.Context,
+	dbTx *gorm.DB,
 	event *signalservice.SignalServiceChainDataSynced,
 	waitForConfirmations bool,
 ) error {
@@ -52,7 +55,7 @@ func (i *Indexer) handleChainDataSyncedEvent(
 		return errors.Wrap(err, "json.Marshal(event)")
 	}
 
-	_, err = i.eventRepo.Save(ctx, &relayer.SaveEventOpts{
+	_, err = i.eventRepo.Save(dbTx.WithContext(ctx), &relayer.SaveEventOpts{
 		Name:            relayer.EventNameChainDataSynced,
 		Event:           relayer.EventNameChainDataSynced,
 		Data:            string(marshaled),

@@ -17,16 +17,17 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/urfave/cli/v2"
+	"gorm.io/gorm"
+
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/signalservice"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol1"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/db"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
-	"github.com/urfave/cli/v2"
-	"golang.org/x/sync/errgroup"
-	"gorm.io/gorm"
 )
 
 var (
@@ -88,6 +89,7 @@ type DB interface {
 // as its source, and vice versa for the L2-L1 indexer. They will add messages to a queue
 // specifically for a processor of the same configuration.
 type Indexer struct {
+	db           db.DB
 	eventRepo    relayer.EventRepository
 	srcEthClient ethClient
 
@@ -143,11 +145,6 @@ func (i *Indexer) InitFromCli(ctx context.Context, c *cli.Context) error {
 // InitFromConfig inits a new Indexer from a provided Config struct
 func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 	db, err := cfg.OpenDBFunc()
-	if err != nil {
-		return err
-	}
-
-	eventRepository, err := repo.NewEventRepository(db)
 	if err != nil {
 		return err
 	}
@@ -210,7 +207,8 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 		return errors.Wrap(err, "destEthClient.ChainID")
 	}
 
-	i.eventRepo = eventRepository
+	i.db = db
+	i.eventRepo = &repo.EventRepository{}
 	i.srcEthClient = srcEthClient
 
 	i.bridge = srcBridge
@@ -435,11 +433,8 @@ func (i *Indexer) indexMessageSentEvents(ctx context.Context,
 		return errors.Wrap(err, "bridge.FilterMessageSent")
 	}
 
-	group, _ := errgroup.WithContext(ctx)
-	group.SetLimit(i.numGoroutines)
-
 	first := true
-
+	dbTx := i.db.GormDB().Begin()
 	for events.Next() {
 		event := events.Event
 
@@ -447,34 +442,36 @@ func (i *Indexer) indexMessageSentEvents(ctx context.Context,
 			first = false
 
 			if err := i.checkReorg(ctx, event.Raw.BlockNumber); err != nil {
+				dbTx.Rollback()
 				return err
 			}
 		}
 
-		group.Go(func() error {
-			err := i.handleMessageSentEvent(ctx, i.srcChainId, event, true)
-			if err != nil {
-				relayer.ErrorEvents.Inc()
-				// log error but always return nil to keep other goroutines active
-				slog.Error("error handling event", "err", err.Error())
-
-				return err
-			}
-
-			return nil
-		})
+		err := i.handleMessageSentEvent(ctx, dbTx, i.srcChainId, event, true)
+		if err != nil {
+			relayer.ErrorEvents.Inc()
+			// log error but always return nil to keep other goroutines active
+			slog.Error("error handling event", "err", err.Error())
+			dbTx.Rollback()
+			return err
+		}
 	}
 
-	// wait for the last of the goroutines to finish
-	if err := group.Wait(); err != nil {
-		return errors.Wrap(err, "group.Wait")
+	if err := dbTx.Commit().Error; err != nil {
+		slog.Error("dbTx.Commit", "error", err)
+		dbTx.Rollback()
+		return err
 	}
 
 	return nil
 }
 
 func (i *Indexer) checkReorg(ctx context.Context, emittedInBlockNumber uint64) error {
-	n, err := i.eventRepo.FindLatestBlockID(i.eventName, i.srcChainId.Uint64(), i.destChainId.Uint64())
+	n, err := i.eventRepo.FindLatestBlockID(
+		i.db.GormDB().WithContext(ctx),
+		i.eventName, i.srcChainId.Uint64(),
+		i.destChainId.Uint64(),
+	)
 	if err != nil {
 		return err
 	}
@@ -482,7 +479,12 @@ func (i *Indexer) checkReorg(ctx context.Context, emittedInBlockNumber uint64) e
 	if n >= emittedInBlockNumber {
 		slog.Info("reorg detected", "event emitted in", emittedInBlockNumber, "latest emitted block id from db", n)
 		// reorg detected, we have seen a higher block number than this already.
-		return i.eventRepo.DeleteAllAfterBlockID(emittedInBlockNumber, i.srcChainId.Uint64(), i.destChainId.Uint64())
+		return i.eventRepo.DeleteAllAfterBlockID(
+			i.db.GormDB().WithContext(ctx),
+			emittedInBlockNumber,
+			i.srcChainId.Uint64(),
+			i.destChainId.Uint64(),
+		)
 	}
 
 	return nil
@@ -499,39 +501,34 @@ func (i *Indexer) indexMessageProcessedEvents(ctx context.Context,
 		return errors.Wrap(err, "bridge.FilterMessageProcessed")
 	}
 
-	group, _ := errgroup.WithContext(ctx)
-	group.SetLimit(i.numGoroutines)
-
 	first := true
-
+	dbTx := i.db.GormDB().WithContext(ctx).Begin()
 	for events.Next() {
 		event := events.Event
-
 		if i.watchMode != CrawlPastBlocks && first {
 			first = false
 
 			if err := i.checkReorg(ctx, event.Raw.BlockNumber); err != nil {
+				dbTx.Rollback()
 				return err
 			}
 		}
 
-		group.Go(func() error {
-			err := i.handleMessageProcessedEvent(ctx, i.srcChainId, event, true)
-			if err != nil {
-				relayer.MessageProcessedEventsIndexingErrors.Inc()
-				// log error but always return nil to keep other goroutines active
-				slog.Error("error handling event", "err", err.Error())
-
-				return err
-			}
-
-			return nil
-		})
+		err := i.handleMessageProcessedEvent(ctx, dbTx, i.srcChainId, event, true)
+		if err != nil {
+			relayer.MessageProcessedEventsIndexingErrors.Inc()
+			// log error but always return nil to keep other goroutines active
+			slog.Error("error handling event", "err", err.Error())
+			dbTx.Rollback()
+			return err
+		}
 	}
 
-	// wait for the last of the goroutines to finish
-	if err := group.Wait(); err != nil {
-		return errors.Wrap(err, "group.Wait")
+	// Commit the db changes.
+	if err := dbTx.Commit().Error; err != nil {
+		slog.Error("dbTx.Commit", "error", err)
+		dbTx.Rollback()
+		return err
 	}
 
 	return nil
@@ -548,29 +545,23 @@ func (i *Indexer) indexMessageStatusChangedEvents(ctx context.Context,
 		return errors.Wrap(err, "bridge.FilterMessageStatusChanged")
 	}
 
-	group, _ := errgroup.WithContext(ctx)
-	group.SetLimit(i.numGoroutines)
-
+	dbTx := i.db.GormDB().Begin()
 	for events.Next() {
 		event := events.Event
-
-		group.Go(func() error {
-			err := i.handleMessageStatusChangedEvent(ctx, i.srcChainId, event)
-			if err != nil {
-				relayer.MessageStatusChangedEventsIndexingErrors.Inc()
-				// log error but always return nil to keep other goroutines active
-				slog.Error("error handling messageStatusChanged", "err", err.Error())
-
-				return err
-			}
-
-			return nil
-		})
+		err := i.handleMessageStatusChangedEvent(ctx, dbTx, i.srcChainId, event)
+		if err != nil {
+			relayer.MessageStatusChangedEventsIndexingErrors.Inc()
+			// log error but always return nil to keep other goroutines active
+			slog.Error("error handling messageStatusChanged", "err", err.Error())
+			dbTx.Rollback()
+			return err
+		}
 	}
 
-	// wait for the last of the goroutines to finish
-	if err := group.Wait(); err != nil {
-		return errors.Wrap(err, "group.Wait")
+	if err := dbTx.Commit().Error; err != nil {
+		slog.Error("dbTx.Commit", "error", err)
+		dbTx.Rollback()
+		return err
 	}
 
 	return nil
@@ -594,30 +585,24 @@ func (i *Indexer) indexChainDataSyncedEvents(ctx context.Context,
 		return errors.Wrap(err, "bridge.FilterChainDataSynced")
 	}
 
-	group, _ := errgroup.WithContext(ctx)
-	group.SetLimit(i.numGoroutines)
-
+	dbTx := i.db.GormDB().Begin()
 	for chainDataSyncedEvents.Next() {
 		event := chainDataSyncedEvents.Event
-
-		group.Go(func() error {
-			err := i.handleChainDataSyncedEvent(ctx, event, true)
-			if err != nil {
-				relayer.MessageStatusChangedEventsIndexingErrors.Inc()
-
-				// log error but always return nil to keep other goroutines active
-				slog.Error("error handling chainDataSynced", "err", err.Error())
-
-				return err
-			}
-
-			return nil
-		})
+		err = i.handleChainDataSyncedEvent(ctx, dbTx, event, true)
+		if err != nil {
+			relayer.MessageStatusChangedEventsIndexingErrors.Inc()
+			// log error but always return nil to keep other goroutines active
+			slog.Error("error handling chainDataSynced", "err", err.Error())
+			dbTx.Rollback()
+			return err
+		}
 	}
+	// Commit the db transaction.
+	if err := dbTx.Commit().Error; err != nil {
+		slog.Error("dbTx.Commit", "error", err)
+		dbTx.Rollback()
 
-	// wait for the last of the goroutines to finish
-	if err := group.Wait(); err != nil {
-		return errors.Wrap(err, "group.Wait")
+		return err
 	}
 
 	return nil

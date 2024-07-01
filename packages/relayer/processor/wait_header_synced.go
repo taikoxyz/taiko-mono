@@ -24,7 +24,7 @@ func (p *Processor) waitHeaderSynced(
 
 	// check once before ticker interval
 	event, err := p.eventRepo.ChainDataSyncedEventByBlockNumberOrGreater(
-		ctx,
+		p.db.GormDB().WithContext(ctx),
 		hopChainId,
 		chainId.Uint64(),
 		blockNum,
@@ -51,7 +51,7 @@ func (p *Processor) waitHeaderSynced(
 			return nil, ctx.Err()
 		case <-ticker.C:
 			event, err := p.eventRepo.ChainDataSyncedEventByBlockNumberOrGreater(
-				ctx,
+				p.db.GormDB().WithContext(ctx),
 				hopChainId,
 				chainId.Uint64(),
 				blockNum,

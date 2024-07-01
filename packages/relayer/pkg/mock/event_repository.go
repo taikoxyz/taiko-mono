@@ -1,16 +1,17 @@
 package mock
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
+	"gorm.io/gorm"
 	"math/rand"
 	"net/http"
 	"time"
 
 	"github.com/morkid/paginate"
-	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"gorm.io/datatypes"
+
+	"github.com/taikoxyz/taiko-mono/packages/relayer"
 )
 
 type EventRepository struct {
@@ -22,7 +23,7 @@ func NewEventRepository() *EventRepository {
 		events: make([]*relayer.Event, 0),
 	}
 }
-func (r *EventRepository) Save(ctx context.Context, opts *relayer.SaveEventOpts) (*relayer.Event, error) {
+func (r *EventRepository) Save(db *gorm.DB, opts *relayer.SaveEventOpts) (*relayer.Event, error) {
 	r.events = append(r.events, &relayer.Event{
 		ID:           rand.Int(), // nolint: gosec
 		Data:         datatypes.JSON(opts.Data),
@@ -38,7 +39,7 @@ func (r *EventRepository) Save(ctx context.Context, opts *relayer.SaveEventOpts)
 	return nil, nil
 }
 
-func (r *EventRepository) UpdateStatus(ctx context.Context, id int, status relayer.EventStatus) error {
+func (r *EventRepository) UpdateStatus(db *gorm.DB, id int, status relayer.EventStatus) error {
 	var event *relayer.Event
 
 	var index int
@@ -64,7 +65,7 @@ func (r *EventRepository) UpdateStatus(ctx context.Context, id int, status relay
 }
 
 func (r *EventRepository) UpdateFeesAndProfitability(
-	ctx context.Context,
+	db *gorm.DB,
 	id int, opts *relayer.UpdateFeesAndProfitabilityOpts,
 ) error {
 	var event *relayer.Event
@@ -102,7 +103,7 @@ func (r *EventRepository) UpdateFeesAndProfitability(
 }
 
 func (r *EventRepository) FindAllByAddress(
-	ctx context.Context,
+	db *gorm.DB,
 	req *http.Request,
 	opts relayer.FindAllByAddressOpts,
 ) (*paginate.Page, error) {
@@ -139,7 +140,7 @@ func (r *EventRepository) FindAllByAddress(
 }
 
 func (r *EventRepository) FirstByMsgHash(
-	ctx context.Context,
+	db *gorm.DB,
 	msgHash string,
 ) (*relayer.Event, error) {
 	for _, e := range r.events {
@@ -152,7 +153,7 @@ func (r *EventRepository) FirstByMsgHash(
 }
 
 func (r *EventRepository) FirstByEventAndMsgHash(
-	ctx context.Context,
+	db *gorm.DB,
 	event string,
 	msgHash string,
 ) (*relayer.Event, error) {
@@ -166,7 +167,7 @@ func (r *EventRepository) FirstByEventAndMsgHash(
 }
 
 func (r *EventRepository) Delete(
-	ctx context.Context,
+	db *gorm.DB,
 	id int,
 ) error {
 	for i, e := range r.events {
@@ -179,7 +180,7 @@ func (r *EventRepository) Delete(
 }
 
 func (r *EventRepository) ChainDataSyncedEventByBlockNumberOrGreater(
-	ctx context.Context,
+	db *gorm.DB,
 	srcChainId uint64,
 	syncedChainId uint64,
 	blockNumber uint64,
@@ -191,7 +192,7 @@ func (r *EventRepository) ChainDataSyncedEventByBlockNumberOrGreater(
 }
 
 func (r *EventRepository) LatestChainDataSyncedEvent(
-	ctx context.Context,
+	db *gorm.DB,
 	srcChainId uint64,
 	syncedChainId uint64,
 ) (uint64, error) {
@@ -199,12 +200,18 @@ func (r *EventRepository) LatestChainDataSyncedEvent(
 }
 
 // DeleteAllAfterBlockID is used when a reorg is detected
-func (r *EventRepository) DeleteAllAfterBlockID(blockID uint64, srcChainID uint64, destChainID uint64) error {
+func (r *EventRepository) DeleteAllAfterBlockID(
+	db *gorm.DB,
+	blockID uint64,
+	srcChainID uint64,
+	destChainID uint64,
+) error {
 	return nil
 }
 
 // GetLatestBlockID get latest block id
 func (r *EventRepository) FindLatestBlockID(
+	db *gorm.DB,
 	event string,
 	srcChainID uint64,
 	destChainID uint64,

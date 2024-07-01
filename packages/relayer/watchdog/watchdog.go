@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/db"
 	"log/slog"
 	"math/big"
 	"sync"
@@ -54,6 +55,7 @@ type ethClient interface {
 type Watchdog struct {
 	cancel context.CancelFunc
 
+	db        db.DB
 	eventRepo relayer.EventRepository
 
 	queue queue.Queue
@@ -101,11 +103,6 @@ func (w *Watchdog) InitFromCli(ctx context.Context, c *cli.Context) error {
 // nolint: funlen
 func InitFromConfig(ctx context.Context, w *Watchdog, cfg *Config) error {
 	db, err := cfg.OpenDBFunc()
-	if err != nil {
-		return err
-	}
-
-	eventRepository, err := repo.NewEventRepository(db)
 	if err != nil {
 		return err
 	}
@@ -172,7 +169,8 @@ func InitFromConfig(ctx context.Context, w *Watchdog, cfg *Config) error {
 		return err
 	}
 
-	w.eventRepo = eventRepository
+	w.db = db
+	w.eventRepo = &repo.EventRepository{}
 
 	w.srcEthClient = srcEthClient
 	w.destEthClient = destEthClient

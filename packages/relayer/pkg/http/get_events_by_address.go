@@ -95,7 +95,7 @@ func (srv *Server) GetEventsByAddress(c echo.Context) error {
 	}
 
 	page, err := srv.eventRepo.FindAllByAddress(
-		c.Request().Context(),
+		srv.db.GormDB().WithContext(c.Request().Context()),
 		c.Request(),
 		relayer.FindAllByAddressOpts{
 			Address:   common.HexToAddress(address),
@@ -114,7 +114,7 @@ func (srv *Server) GetEventsByAddress(c echo.Context) error {
 		v := &(*page.Items.(*[]relayer.Event))[i]
 
 		msgProcessedEvent, err := srv.eventRepo.FirstByEventAndMsgHash(
-			c.Request().Context(),
+			srv.db.GormDB().WithContext(c.Request().Context()),
 			relayer.EventNameMessageStatusChanged,
 			v.MsgHash,
 		)

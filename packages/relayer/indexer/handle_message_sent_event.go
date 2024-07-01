@@ -3,6 +3,7 @@ package indexer
 import (
 	"context"
 	"encoding/json"
+	"gorm.io/gorm"
 	"math/big"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
@@ -24,6 +26,7 @@ var (
 // handleMessageSentEvent handles an individual MessageSent event
 func (i *Indexer) handleMessageSentEvent(
 	ctx context.Context,
+	dbTx *gorm.DB,
 	chainID *big.Int,
 	event *bridge.BridgeMessageSent,
 	waitForConfirmations bool,
@@ -83,6 +86,7 @@ func (i *Indexer) handleMessageSentEvent(
 
 	id, err := i.saveEventToDB(
 		ctx,
+		dbTx,
 		marshaled,
 		common.Hash(event.MsgHash).Hex(),
 		chainID,

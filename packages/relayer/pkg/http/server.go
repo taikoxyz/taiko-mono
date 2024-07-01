@@ -2,6 +2,8 @@ package http
 
 import (
 	"context"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/db"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
 	"math/big"
 	"net/http"
 	"os"
@@ -42,6 +44,7 @@ type ethClient interface {
 // @host relayer.hekla.taiko.xyz
 // Server represents an relayer http server instance.
 type Server struct {
+	db                      db.DB
 	echo                    *echo.Echo
 	eventRepo               relayer.EventRepository
 	srcEthClient            ethClient
@@ -53,8 +56,8 @@ type Server struct {
 }
 
 type NewServerOpts struct {
+	DB                      db.DB
 	Echo                    *echo.Echo
-	EventRepo               relayer.EventRepository
 	CorsOrigins             []string
 	SrcEthClient            ethClient
 	DestEthClient           ethClient
@@ -67,8 +70,8 @@ func (opts NewServerOpts) Validate() error {
 		return ErrNoHTTPFramework
 	}
 
-	if opts.EventRepo == nil {
-		return relayer.ErrNoEventRepository
+	if opts.DB == nil {
+		return db.ErrNoDB
 	}
 
 	if opts.CorsOrigins == nil {
@@ -102,8 +105,9 @@ func NewServer(opts NewServerOpts) (*Server, error) {
 	}
 
 	srv := &Server{
+		db:                      opts.DB,
 		echo:                    opts.Echo,
-		eventRepo:               opts.EventRepo,
+		eventRepo:               &repo.EventRepository{},
 		srcEthClient:            opts.SrcEthClient,
 		destEthClient:           opts.DestEthClient,
 		processingFeeMultiplier: opts.ProcessingFeeMultiplier,

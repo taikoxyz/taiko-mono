@@ -59,7 +59,7 @@ func (p *Processor) isProfitable(
 		EstimatedOnchainFee: estimatedOnchainFee,
 	}
 
-	if err := p.eventRepo.UpdateFeesAndProfitability(ctx, id, &opts); err != nil {
+	if err := p.eventRepo.UpdateFeesAndProfitability(p.db.GormDB().WithContext(ctx), id, &opts); err != nil {
 		slog.Error("failed to update event", "error", err)
 	}
 

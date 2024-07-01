@@ -3,16 +3,19 @@ package indexer
 import (
 	"context"
 	"encoding/json"
+	"gorm.io/gorm"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 )
 
 func (i *Indexer) handleMessageStatusChangedEvent(
 	ctx context.Context,
+	dbTx *gorm.DB,
 	chainID *big.Int,
 	event *bridge.BridgeMessageStatusChanged,
 ) error {
@@ -24,7 +27,7 @@ func (i *Indexer) handleMessageStatusChangedEvent(
 	// get the previous MessageSent event or other message status changed events,
 	// so we can find out the previous owner of this msg hash,
 	// to save to the db.
-	e, err := i.eventRepo.FirstByMsgHash(ctx, common.Hash(event.MsgHash).Hex())
+	e, err := i.eventRepo.FirstByMsgHash(dbTx.WithContext(ctx), common.Hash(event.MsgHash).Hex())
 	if err != nil {
 		return errors.Wrap(err, "i.eventRepo.FirstByMsgHash")
 	}
@@ -33,7 +36,7 @@ func (i *Indexer) handleMessageStatusChangedEvent(
 		return nil
 	}
 
-	_, err = i.eventRepo.Save(ctx, &relayer.SaveEventOpts{
+	_, err = i.eventRepo.Save(dbTx.WithContext(ctx), &relayer.SaveEventOpts{
 		Name:           relayer.EventNameMessageStatusChanged,
 		Data:           string(marshaled),
 		ChainID:        chainID,

@@ -3,10 +3,12 @@ package indexer
 import (
 	"context"
 	"encoding/json"
+	"gorm.io/gorm"
 	"log/slog"
 	"math/big"
 
 	"github.com/pkg/errors"
+
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
@@ -15,6 +17,7 @@ import (
 // handleMessageProcessedEvent handles an individual MessageProcessed event
 func (i *Indexer) handleMessageProcessedEvent(
 	ctx context.Context,
+	dbTx *gorm.DB,
 	chainID *big.Int,
 	event *bridge.BridgeMessageProcessed,
 	waitForConfirmations bool,
@@ -73,6 +76,7 @@ func (i *Indexer) handleMessageProcessedEvent(
 
 	id, err := i.saveEventToDB(
 		ctx,
+		dbTx,
 		marshaled,
 		"0x",
 		chainID,

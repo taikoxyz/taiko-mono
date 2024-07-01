@@ -13,7 +13,6 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol2"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/http"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
 	"github.com/urfave/cli/v2"
 )
@@ -41,11 +40,6 @@ func InitFromConfig(ctx context.Context, api *API, cfg *Config) (err error) {
 		return err
 	}
 
-	eventRepository, err := repo.NewEventRepository(db)
-	if err != nil {
-		return err
-	}
-
 	srcEthClient, err := ethclient.Dial(cfg.SrcRPCUrl)
 	if err != nil {
 		return err
@@ -62,7 +56,7 @@ func InitFromConfig(ctx context.Context, api *API, cfg *Config) (err error) {
 	}
 
 	srv, err := http.NewServer(http.NewServerOpts{
-		EventRepo:               eventRepository,
+		DB:                      db,
 		Echo:                    echo.New(),
 		CorsOrigins:             cfg.CORSOrigins,
 		SrcEthClient:            srcEthClient,

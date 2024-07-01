@@ -3,16 +3,19 @@ package indexer
 import (
 	"context"
 	"fmt"
+	"gorm.io/gorm"
 	"log/slog"
 	"math/big"
 
 	"github.com/pkg/errors"
+
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 )
 
 // saveEventToDB is used to save any type of event to the database
 func (i *Indexer) saveEventToDB(
 	ctx context.Context,
+	dbTx *gorm.DB,
 	marshalledEvent []byte,
 	msgHash string,
 	chainID *big.Int,
@@ -37,7 +40,7 @@ func (i *Indexer) saveEventToDB(
 	// check if we have an existing event already. this is mostly likely only true
 	// in the case of us crawling past blocks.
 	existingEvent, err := i.eventRepo.FirstByEventAndMsgHash(
-		ctx,
+		dbTx.WithContext(ctx),
 		i.eventName,
 		msgHash,
 	)
@@ -71,7 +74,7 @@ func (i *Indexer) saveEventToDB(
 			opts.CanonicalTokenDecimals = canonicalToken.TokenDecimals()
 		}
 
-		e, err := i.eventRepo.Save(ctx, &opts)
+		e, err := i.eventRepo.Save(dbTx.WithContext(ctx), &opts)
 		if err != nil {
 			return 0, errors.Wrap(err, "svc.eventRepo.Save")
 		}
@@ -92,7 +95,7 @@ func (i *Indexer) saveEventToDB(
 
 			// If the status from contract is done, update the database
 			if i.watchMode == CrawlPastBlocks && eventStatus == relayer.EventStatusDone {
-				if err := i.eventRepo.UpdateStatus(ctx, id, relayer.EventStatusDone); err != nil {
+				if err := i.eventRepo.UpdateStatus(dbTx.WithContext(ctx), id, relayer.EventStatusDone); err != nil {
 					return 0, errors.Wrap(err, fmt.Sprintf("i.eventRepo.UpdateStatus, id: %v", id))
 				}
 

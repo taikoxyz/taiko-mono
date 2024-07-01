@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
 	"log/slog"
 	"math/big"
 	"os"
@@ -35,9 +36,9 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/quotamanager"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/signalservice"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol2"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/db"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/proof"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
 )
 
@@ -81,6 +82,7 @@ type hop struct {
 type Processor struct {
 	cancel context.CancelFunc
 
+	db        db.DB
 	eventRepo relayer.EventRepository
 
 	queue queue.Queue
@@ -155,11 +157,6 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	p.cfg = cfg
 
 	db, err := cfg.OpenDBFunc()
-	if err != nil {
-		return err
-	}
-
-	eventRepository, err := repo.NewEventRepository(db)
 	if err != nil {
 		return err
 	}
@@ -334,7 +331,8 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 
 	p.hops = hops
 	p.prover = prover
-	p.eventRepo = eventRepository
+	p.db = db
+	p.eventRepo = &repo.EventRepository{}
 
 	p.srcEthClient = srcEthClient
 	p.destEthClient = destEthClient

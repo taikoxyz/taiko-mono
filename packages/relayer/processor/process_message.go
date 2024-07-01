@@ -230,7 +230,11 @@ func (p *Processor) processMessage(
 	// transaction hash set via config flag.
 	if msg.Internal != nil {
 		// update message status
-		if err := p.eventRepo.UpdateStatus(ctx, msgBody.ID, relayer.EventStatus(messageStatus)); err != nil {
+		if err := p.eventRepo.UpdateStatus(
+			p.db.GormDB().WithContext(ctx),
+			msgBody.ID,
+			relayer.EventStatus(messageStatus),
+		); err != nil {
 			return false, msgBody.TimesRetried, err
 		}
 	}
@@ -305,7 +309,7 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 	// and generate a proof.
 	if len(p.hops) == 0 {
 		latestBlockID, err := p.eventRepo.LatestChainDataSyncedEvent(
-			ctx,
+			p.db.GormDB().WithContext(ctx),
 			p.destChainId.Uint64(),
 			p.srcChainId.Uint64(),
 		)
@@ -620,7 +624,7 @@ func (p *Processor) saveMessageStatusChangedEvent(
 		// keep same format as other raw events
 		data := fmt.Sprintf(`{"Raw":{"transactionHash": "%v"}}`, receipt.TxHash.Hex())
 
-		_, err = p.eventRepo.Save(ctx, &relayer.SaveEventOpts{
+		_, err = p.eventRepo.Save(p.db.GormDB().WithContext(ctx), &relayer.SaveEventOpts{
 			Name:           relayer.EventNameMessageStatusChanged,
 			Data:           data,
 			EmittedBlockID: event.Raw.BlockNumber,
