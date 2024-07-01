@@ -29,8 +29,6 @@ contract VestTokenUnlock is Script {
 
         uint256 total;
         for (uint256 i; i < items.length; i++) {
-            // WARNING: JSON parsing seems to be buggy!!!
-            // proxy is parsed as recipient and recipient is parsed as proxy.
             address proxy = items[i].proxy;
             address recipient = items[i].recipient;
             uint256 vestAmount = uint256(items[i].vestAmount);
