@@ -15,6 +15,7 @@
     "test:integration": "playwright test",
     "test:unit": "vitest",
     "start": "npm run generate:abi && vite dev --open --host 0.0.0.0",
+    "start:prod": "vite dev --open --host 0.0.0.0 --mode production",
     "generate:abi": "cd ../nfts && pnpm compile && cd - && wagmi generate"
   },
   "devDependencies": {
@@ -69,7 +70,7 @@
     "minidenticons": "^4.2.1",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.3",
-    "viem": "^2.9.29",
+    "viem": "^2.15.1",
     "@taiko/ui-lib": "workspace:*"
   }
 }

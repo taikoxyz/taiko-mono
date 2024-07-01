@@ -48,6 +48,10 @@ func (h *TransitionProvedEventHandler) Handle(
 ) error {
 	metrics.ProverReceivedProvenBlockGauge.Set(float64(e.BlockId.Uint64()))
 
+	if e.Tier >= encoding.TierGuardianMinorityID {
+		metrics.ProverProvenByGuardianGauge.Add(1)
+	}
+
 	// If this prover is in contest mode, we check the validity of this proof and if it's invalid,
 	// contest it with a higher tier proof.
 	if !h.contesterMode {
