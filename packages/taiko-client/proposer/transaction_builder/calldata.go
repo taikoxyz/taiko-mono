@@ -60,8 +60,10 @@ func NewCalldataTransactionBuilder(
 func (b *CalldataTransactionBuilder) Build(
 	ctx context.Context,
 	tierFees []encoding.TierFee,
-	includeParentMetaHash bool,
 	txListBytes []byte,
+	l1StateBlockNumber uint32,
+	timestamp uint64,
+	parentMetaHash [32]byte,
 ) (*txmgr.TxCandidate, error) {
 	// Try to assign a prover.
 	maxFee, err := b.proverSelector.AssignProver(
@@ -70,16 +72,6 @@ func (b *CalldataTransactionBuilder) Build(
 	)
 	if err != nil {
 		return nil, err
-	}
-
-	// If the current proposer wants to include the parent meta hash, then fetch it from the protocol.
-	var parentMetaHash = [32]byte{}
-	parentBlock, err := getParent(ctx, b.rpc)
-	if err != nil {
-		return nil, err
-	}
-	if includeParentMetaHash {
-		parentMetaHash = parentBlock.MetaHash
 	}
 
 	signature, err := crypto.Sign(crypto.Keccak256(txListBytes), b.proposerPrivateKey)
@@ -94,16 +86,6 @@ func (b *CalldataTransactionBuilder) Build(
 	)
 	if b.proverSetAddress != rpc.ZeroAddress {
 		to = &b.proverSetAddress
-	}
-
-	var (
-		l1StateBlockNumber = uint32(0)
-		timestamp          = uint64(0)
-	)
-
-	if b.enabledPreconfirmation {
-		l1StateBlockNumber = parentBlock.L1StateBlockNumber + 1
-		timestamp = parentBlock.Timestamp + 12
 	}
 
 	// ABI encode the TaikoL1.proposeBlock / ProverSet.proposeBlock parameters.

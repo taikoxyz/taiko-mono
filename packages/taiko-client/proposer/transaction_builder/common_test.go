@@ -1,7 +1,6 @@
 package builder
 
 import (
-	"context"
 	"net/url"
 	"os"
 	"testing"
@@ -66,12 +65,6 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 		"test",
 		false,
 	)
-}
-
-func (s *TransactionBuilderTestSuite) TestGetParent() {
-	meta, err := getParent(context.Background(), s.RPCClient)
-	s.Nil(err)
-	s.NotEmpty(meta)
 }
 
 func TestTransactionBuilderTestSuite(t *testing.T) {

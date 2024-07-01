@@ -63,8 +63,10 @@ func NewBlobTransactionBuilder(
 func (b *BlobTransactionBuilder) Build(
 	ctx context.Context,
 	tierFees []encoding.TierFee,
-	includeParentMetaHash bool,
 	txListBytes []byte,
+	l1StateBlockNumber uint32,
+	timestamp uint64,
+	parentMetaHash [32]byte,
 ) (*txmgr.TxCandidate, error) {
 	var blob = &eth.Blob{}
 	if err := blob.FromData(txListBytes); err != nil {
@@ -78,16 +80,6 @@ func (b *BlobTransactionBuilder) Build(
 	)
 	if err != nil {
 		return nil, err
-	}
-
-	// If the current proposer wants to include the parent meta hash, then fetch it from the protocol.
-	var parentMetaHash = [32]byte{}
-	parentBlock, err := getParent(ctx, b.rpc)
-	if err != nil {
-		return nil, err
-	}
-	if includeParentMetaHash {
-		parentMetaHash = parentBlock.MetaHash
 	}
 
 	commitment, err := blob.ComputeKZGCommitment()
@@ -108,16 +100,6 @@ func (b *BlobTransactionBuilder) Build(
 	)
 	if b.proverSetAddress != rpc.ZeroAddress {
 		to = &b.proverSetAddress
-	}
-
-	var (
-		l1StateBlockNumber = uint32(0)
-		timestamp          = uint64(0)
-	)
-
-	if b.enabledPreconfirmation {
-		l1StateBlockNumber = parentBlock.L1StateBlockNumber + 1
-		timestamp = parentBlock.Timestamp + 12
 	}
 
 	// ABI encode the TaikoL1.proposeBlock parameters.

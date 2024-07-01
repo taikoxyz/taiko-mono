@@ -13,7 +13,7 @@ func (s *TransactionBuilderTestSuite) TestBuildCalldata() {
 		{Tier: encoding.TierOptimisticID, Fee: common.Big256},
 		{Tier: encoding.TierSgxID, Fee: common.Big256},
 		{Tier: encoding.TierSgxAndZkVMID, Fee: common.Big257},
-	}, false, []byte{1})
+	}, []byte{1}, 0, 0, [32]byte{})
 	s.Nil(err)
 	s.Nil(tx.Blobs)
 }

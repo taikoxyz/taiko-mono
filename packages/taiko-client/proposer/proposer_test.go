@@ -139,8 +139,10 @@ func (s *ProposerTestSuite) TestProposeTxLists() {
 		candidate, err := txBuilder.Build(
 			p.ctx,
 			p.tierFees,
-			p.IncludeParentMetaHash,
 			compressedTxListBytes,
+			0,
+			0,
+			[32]byte{},
 		)
 		if err != nil {
 			log.Warn("Failed to build TaikoL1.proposeBlock transaction", "error", err)
