@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -25,6 +26,7 @@ import (
 var (
 	_                              Submitter = (*ProofSubmitter)(nil)
 	submissionDelayRandomBumpRange float64   = 20
+	proofPollingInterval                     = 10 * time.Second
 )
 
 // ProofSubmitter is responsible requesting proofs for the given L2
@@ -126,20 +128,42 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, event *bindings.Taiko
 	}
 
 	// Send the generated proof.
-	result, err := s.proofProducer.RequestProof(
-		ctx,
-		opts,
-		event.BlockId,
-		&event.Meta,
-		header,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to request proof (id: %d): %w", event.BlockId, err)
+	var result *proofProducer.ProofWithHeader
+	if err := backoff.Retry(
+		func() error {
+			// Check if there is a need to generate proof
+			proofStatus, err := rpc.GetBlockProofStatus(
+				ctx,
+				s.rpc,
+				opts.BlockID,
+				opts.ProverAddress,
+				s.proverSetAddress,
+			)
+			if err != nil {
+				return err
+			}
+			if proofStatus.IsSubmitted && !proofStatus.Invalid {
+				return nil
+			}
+
+			if result, err = s.proofProducer.RequestProof(
+				ctx,
+				opts,
+				event.BlockId,
+				&event.Meta,
+				header,
+			); err != nil {
+				return fmt.Errorf("failed to request proof (id: %d): %w", event.BlockId, err)
+			}
+			return nil
+		},
+		backoff.WithContext(backoff.NewConstantBackOff(proofPollingInterval), ctx),
+	); err != nil {
+		log.Error("Request proof error", "error", err)
 	}
+
 	s.resultCh <- result
-
 	metrics.ProverQueuedProofCounter.Add(1)
-
 	return nil
 }
 
