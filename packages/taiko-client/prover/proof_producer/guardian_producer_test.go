@@ -36,7 +36,7 @@ func TestGuardianProducerRequestProof(t *testing.T) {
 		producer = NewGuardianProofProducer(encoding.TierGuardianMajorityID, false)
 		blockID  = common.Big32
 	)
-	res, needToSend, err := producer.RequestProof(
+	res, err := producer.RequestProof(
 		context.Background(),
 		&ProofRequestOptions{},
 		blockID,
@@ -44,7 +44,6 @@ func TestGuardianProducerRequestProof(t *testing.T) {
 		header,
 	)
 	require.Nil(t, err)
-	require.True(t, needToSend)
 
 	require.Equal(t, res.BlockID, blockID)
 	require.Equal(t, res.Header, header)
@@ -74,7 +73,7 @@ func TestGuardianProducerRequestProofReturnLivenessBond(t *testing.T) {
 		producer = NewGuardianProofProducer(encoding.TierGuardianMajorityID, true)
 		blockID  = common.Big32
 	)
-	res, needToSend, err := producer.RequestProof(
+	res, err := producer.RequestProof(
 		context.Background(),
 		&ProofRequestOptions{},
 		blockID,
@@ -82,7 +81,6 @@ func TestGuardianProducerRequestProofReturnLivenessBond(t *testing.T) {
 		header,
 	)
 	require.Nil(t, err)
-	require.True(t, needToSend)
 
 	require.Equal(t, res.BlockID, blockID)
 	require.Equal(t, res.Header, header)
@@ -113,7 +111,7 @@ func TestMinorityRequestProof(t *testing.T) {
 		producer = NewGuardianProofProducer(encoding.TierGuardianMinorityID, false)
 		blockID  = common.Big32
 	)
-	res, needToSend, err := producer.RequestProof(
+	res, err := producer.RequestProof(
 		context.Background(),
 		&ProofRequestOptions{},
 		blockID,
@@ -121,7 +119,6 @@ func TestMinorityRequestProof(t *testing.T) {
 		header,
 	)
 	require.Nil(t, err)
-	require.True(t, needToSend)
 
 	require.Equal(t, res.BlockID, blockID)
 	require.Equal(t, res.Header, header)
@@ -151,7 +148,7 @@ func TestRequestMinorityProofReturnLivenessBond(t *testing.T) {
 		producer = NewGuardianProofProducer(encoding.TierGuardianMinorityID, true)
 		blockID  = common.Big32
 	)
-	res, needToSend, err := producer.RequestProof(
+	res, err := producer.RequestProof(
 		context.Background(),
 		&ProofRequestOptions{},
 		blockID,
@@ -159,7 +156,6 @@ func TestRequestMinorityProofReturnLivenessBond(t *testing.T) {
 		header,
 	)
 	require.Nil(t, err)
-	require.True(t, needToSend)
 
 	require.Equal(t, res.BlockID, blockID)
 	require.Equal(t, res.Header, header)

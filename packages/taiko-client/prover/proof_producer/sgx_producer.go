@@ -11,8 +11,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-
 	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -34,8 +32,6 @@ type SGXProofProducer struct {
 	ProofType         string // Proof type
 	JWT               string // JWT provided by Raiko
 	Dummy             bool
-	RPC               *rpc.Client
-	ProverSetAddress  common.Address
 	DummyProofProducer
 }
 
@@ -81,7 +77,7 @@ func (s *SGXProofProducer) RequestProof(
 	blockID *big.Int,
 	meta *bindings.TaikoDataBlockMetadata,
 	header *types.Header,
-) (*ProofWithHeader, bool, error) {
+) (*ProofWithHeader, error) {
 	log.Info(
 		"Request proof from raiko-host service",
 		"blockID", blockID,
@@ -94,9 +90,9 @@ func (s *SGXProofProducer) RequestProof(
 		return s.DummyProofProducer.RequestProof(opts, blockID, meta, header, s.Tier())
 	}
 
-	proof, needToSend, err := s.callProverDaemon(ctx, opts)
+	proof, err := s.callProverDaemon(ctx, opts)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 
 	metrics.ProverSgxProofGeneratedCounter.Add(1)
@@ -108,33 +104,17 @@ func (s *SGXProofProducer) RequestProof(
 		Proof:   proof,
 		Opts:    opts,
 		Tier:    s.Tier(),
-	}, needToSend, nil
+	}, nil
 }
 
 // callProverDaemon keeps polling the proverd service to get the requested proof.
-func (s *SGXProofProducer) callProverDaemon(ctx context.Context, opts *ProofRequestOptions) ([]byte, bool, error) {
+func (s *SGXProofProducer) callProverDaemon(ctx context.Context, opts *ProofRequestOptions) ([]byte, error) {
 	var (
-		proof      []byte
-		start      = time.Now()
-		needToSend = true
+		proof []byte
+		start = time.Now()
 	)
 	if err := backoff.Retry(func() error {
 		if ctx.Err() != nil {
-			return nil
-		}
-		// Check if there is a need to generate proof
-		proofStatus, err := rpc.GetBlockProofStatus(
-			ctx,
-			s.RPC,
-			opts.BlockID,
-			opts.ProverAddress,
-			s.ProverSetAddress,
-		)
-		if err != nil {
-			return err
-		}
-		if proofStatus.IsSubmitted && !proofStatus.Invalid {
-			needToSend = false
 			return nil
 		}
 		output, err := s.requestProof(opts)
@@ -171,10 +151,10 @@ func (s *SGXProofProducer) callProverDaemon(ctx context.Context, opts *ProofRequ
 		)
 		return nil
 	}, backoff.WithContext(backoff.NewConstantBackOff(proofPollingInterval), ctx)); err != nil {
-		return nil, false, err
+		return nil, err
 	}
 
-	return proof, needToSend, nil
+	return proof, nil
 }
 
 // requestProof sends a RPC request to proverd to try to get the requested proof.

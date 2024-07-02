@@ -35,7 +35,7 @@ func TestSGXProducerRequestProof(t *testing.T) {
 		producer = &SGXProofProducer{Dummy: true}
 		blockID  = common.Big32
 	)
-	res, needToSend, err := producer.RequestProof(
+	res, err := producer.RequestProof(
 		context.Background(),
 		&ProofRequestOptions{},
 		blockID,
@@ -43,7 +43,6 @@ func TestSGXProducerRequestProof(t *testing.T) {
 		header,
 	)
 	require.Nil(t, err)
-	require.True(t, needToSend)
 
 	require.Equal(t, res.BlockID, blockID)
 	require.Equal(t, res.Header, header)
