@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -13,8 +12,7 @@ import (
 )
 
 var (
-	proofPollingInterval = 10 * time.Second
-	errProofGenerating   = errors.New("proof is generating")
+	errProofGenerating = errors.New("proof is generating")
 )
 
 // ProofRequestBody represents a request body to generate a proof.

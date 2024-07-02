@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
@@ -113,46 +112,42 @@ func (s *SGXProofProducer) callProverDaemon(ctx context.Context, opts *ProofRequ
 		proof []byte
 		start = time.Now()
 	)
-	if err := backoff.Retry(func() error {
-		if ctx.Err() != nil {
-			return nil
-		}
-		output, err := s.requestProof(opts)
-		if err != nil {
-			log.Error("Failed to request proof", "height", opts.BlockID, "error", err, "endpoint", s.RaikoHostEndpoint)
-			return err
-		}
 
-		if output == nil {
-			log.Info(
-				"Proof generating",
-				"height", opts.BlockID,
-				"time", time.Since(start),
-				"producer", "SGXProofProducer",
-			)
-			return errProofGenerating
-		}
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+	output, err := s.requestProof(opts)
+	if err != nil {
+		log.Error("Failed to request proof", "height", opts.BlockID, "error", err, "endpoint", s.RaikoHostEndpoint)
+		return nil, err
+	}
 
-		log.Debug("Proof generation output", "output", output)
-
-		// Raiko returns "" as proof when proof type is native,
-		// so we just convert "" to bytes
-		if s.ProofType == ProofTypeCPU {
-			proof = common.Hex2Bytes(output.Data.Proof)
-		} else {
-			proof = common.Hex2Bytes(output.Data.Proof[2:])
-		}
-
+	if output == nil {
 		log.Info(
-			"Proof generated",
+			"Proof generating",
 			"height", opts.BlockID,
 			"time", time.Since(start),
 			"producer", "SGXProofProducer",
 		)
-		return nil
-	}, backoff.WithContext(backoff.NewConstantBackOff(proofPollingInterval), ctx)); err != nil {
-		return nil, err
+		return nil, errProofGenerating
 	}
+
+	log.Debug("Proof generation output", "output", output)
+
+	// Raiko returns "" as proof when proof type is native,
+	// so we just convert "" to bytes
+	if s.ProofType == ProofTypeCPU {
+		proof = common.Hex2Bytes(output.Data.Proof)
+	} else {
+		proof = common.Hex2Bytes(output.Data.Proof[2:])
+	}
+
+	log.Info(
+		"Proof generated",
+		"height", opts.BlockID,
+		"time", time.Since(start),
+		"producer", "SGXProofProducer",
+	)
 
 	return proof, nil
 }
