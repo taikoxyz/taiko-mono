@@ -472,7 +472,7 @@ func (i *Indexer) indexMessageSentEvents(ctx context.Context,
 }
 
 func (i *Indexer) checkReorg(ctx context.Context, emittedInBlockNumber uint64) error {
-	n, err := i.eventRepo.FindLatestBlockID(i.eventName, i.srcChainId.Uint64(), i.destChainId.Uint64())
+	n, err := i.eventRepo.FindLatestBlockID(ctx, i.eventName, i.srcChainId.Uint64(), i.destChainId.Uint64())
 	if err != nil {
 		return err
 	}
