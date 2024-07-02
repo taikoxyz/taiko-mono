@@ -104,8 +104,8 @@
   $: hasPaidProcessingFee = tx.processingFee > 0;
 
   $: differentRecipient = false;
-  $: if (tx.message?.destOwner && $account?.address) {
-    if (getAddress(tx.message.destOwner) === getAddress($account?.address)) {
+  $: if (tx.message?.to && $account?.address) {
+    if (getAddress(tx.message.to) === getAddress($account?.address)) {
       differentRecipient = false;
     } else {
       differentRecipient = true;

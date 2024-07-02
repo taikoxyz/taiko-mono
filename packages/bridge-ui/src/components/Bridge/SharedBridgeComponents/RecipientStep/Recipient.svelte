@@ -2,9 +2,10 @@
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
 
-  import { recipientAddress } from '$components/Bridge/state';
+  import { destNetwork, recipientAddress } from '$components/Bridge/state';
   import { ActionButton, CloseButton } from '$components/Button';
   import { Tooltip } from '$components/Tooltip';
+  import { isSmartContract } from '$libs/util/isSmartContract';
   import { shortenAddress } from '$libs/util/shortenAddress';
   import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
@@ -26,6 +27,8 @@
   let modalOpen = false;
   let invalidAddress = false;
   let prevRecipientAddress: Maybe<Address> = null;
+
+  let recipientIsSmartContract = false;
 
   function closeModal() {
     modalOpen = false;
@@ -51,15 +54,26 @@
     }
   }
 
-  function onAddressValidation(event: CustomEvent<{ isValidEthereumAddress: boolean; addr: Address }>) {
+  async function onAddressValidation(event: CustomEvent<{ isValidEthereumAddress: boolean; addr: Address }>) {
     const { isValidEthereumAddress, addr } = event.detail;
     if (isValidEthereumAddress) {
       $recipientAddress = addr;
       invalidAddress = false;
+      if ($destNetwork?.id && (await isSmartContract(addr, $destNetwork.id))) {
+        recipientIsSmartContract = true;
+      } else {
+        recipientIsSmartContract = false;
+      }
     } else {
       invalidAddress = true;
     }
   }
+
+  const resetAddress = () => {
+    $recipientAddress = $account?.address;
+    ethereumAddressBinding = undefined;
+    recipientIsSmartContract = false;
+  };
 
   let escKeyListener: (event: KeyboardEvent) => void;
 
@@ -121,6 +135,13 @@
       {/if}
     </span>
 
+    <span class="body-small-regular text-secondary-content mt-[4px]">
+      {#if recipientIsSmartContract}
+        You are sending to a smart contract. Please specify the address that should be able to be able to manually claim
+        in case the relayer fails to do so.
+      {/if}
+    </span>
+
     <dialog id={dialogId} class="modal" class:modal-open={modalOpen}>
       <div class="modal-box relative px-6 md:rounded-[20px] bg-neutral-background">
         <CloseButton onClick={cancelModal} />
@@ -135,6 +156,7 @@
               bind:this={addressInput}
               bind:ethereumAddress={ethereumAddressBinding}
               on:addressvalidation={onAddressValidation}
+              on:clearInput={resetAddress}
               onDialog />
           </div>
 

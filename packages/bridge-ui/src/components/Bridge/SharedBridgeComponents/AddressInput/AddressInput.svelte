@@ -52,6 +52,7 @@
     if (inputElement) inputElement.value = '';
     ethereumAddress = '';
     state = State.DEFAULT;
+    // dispatch('clearInput');
   };
 
   export const focus = (): void => inputElement.focus();
