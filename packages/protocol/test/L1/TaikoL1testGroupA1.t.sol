@@ -10,7 +10,7 @@ contract TaikoL1ForkA1 is TaikoL1 {
         config.blockMaxProposals = 20;
         config.blockRingBufferSize = 25;
         config.stateRootSyncInternal = 2;
-        config.fujiForkHeight = 10;
+        config.ontakeForkHeight = 10;
     }
 }
 
@@ -22,7 +22,7 @@ contract TaikoL1TestGroupA1 is TaikoL1TestGroupBase {
     }
 
     // Test summary:
-    // - Use the v2 on block 10 - fujiForkHeight = 10
+    // - Use the v2 on block 10 - ontakeForkHeight = 10
     // - propose and prove block 1 to 9 using v1
     // - propose and prove block 10 to 15 using v2
     // - try to verify more than 15 blocks to verify all 15 blocks are verified.
@@ -36,10 +36,10 @@ contract TaikoL1TestGroupA1 is TaikoL1TestGroupBase {
         console2.log("====== Alice propose 5 block");
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
-        uint64 fujiForkHeight = L1.getConfig().fujiForkHeight;
+        uint64 ontakeForkHeight = L1.getConfig().ontakeForkHeight;
 
         uint64 i = 1;
-        for (; i < fujiForkHeight; ++i) {
+        for (; i < ontakeForkHeight; ++i) {
             TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
             printBlockAndTrans(meta.id);
             TaikoData.Block memory blk = L1.getBlock(i);
@@ -64,7 +64,7 @@ contract TaikoL1TestGroupA1 is TaikoL1TestGroupBase {
         }
 
         TaikoData.BlockParams2 memory params;
-        for (; i <= fujiForkHeight + 5; ++i) {
+        for (; i <= ontakeForkHeight + 5; ++i) {
             TaikoData.BlockMetadata2 memory meta2 = proposeBlock2(Alice, params, "");
             printBlockAndTrans(meta2.id);
             TaikoData.Block memory blk = L1.getBlock(i);
@@ -90,10 +90,10 @@ contract TaikoL1TestGroupA1 is TaikoL1TestGroupBase {
 
         console2.log("====== Verify many blocks");
         mineAndWrap(7 days);
-        verifyBlock(fujiForkHeight + 10);
+        verifyBlock(ontakeForkHeight + 10);
         {
             (, TaikoData.SlotB memory b) = L1.getStateVariables();
-            assertEq(b.lastVerifiedBlockId, fujiForkHeight + 5);
+            assertEq(b.lastVerifiedBlockId, ontakeForkHeight + 5);
 
             assertEq(tko.balanceOf(Alice), 10_000 ether);
         }

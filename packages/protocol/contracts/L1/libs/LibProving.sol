@@ -132,7 +132,7 @@ library LibProving {
 
         local.b = _state.slotB;
         local.blockId = _blockId;
-        local.postFork = _blockId >= _config.fujiForkHeight;
+        local.postFork = _blockId >= _config.ontakeForkHeight;
 
         TaikoData.BlockMetadata2 memory meta;
         TaikoData.Transition memory tran;

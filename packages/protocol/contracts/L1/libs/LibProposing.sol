@@ -85,7 +85,7 @@ library LibProposing {
         // Taiko, as a Based Rollup, enables permissionless block proposals.
         Local memory local;
         local.b = _state.slotB;
-        local.postFork = local.b.numBlocks >= _config.fujiForkHeight;
+        local.postFork = local.b.numBlocks >= _config.ontakeForkHeight;
 
         // It's essential to ensure that the ring buffer for proposed blocks
         // still has space for at least one more block.

@@ -35,7 +35,7 @@ library TaikoData {
         // ---------------------------------------------------------------------
         // The number of L2 blocks between each L2-to-L1 state root sync.
         uint8 stateRootSyncInternal;
-        uint64 fujiForkHeight;
+        uint64 ontakeForkHeight;
     }
 
     /// @dev Struct representing prover fees per given tier
