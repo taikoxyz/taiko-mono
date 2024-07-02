@@ -55,7 +55,7 @@ type Config struct {
 	DestRPCUrl       string
 	ETHClientTimeout uint64
 	OpenQueueFunc    func() (queue.Queue, error)
-	OpenDBFunc       func() (DB, error)
+	OpenDBFunc       func() (db.DB, error)
 
 	SrcTxmgrConfigs  *txmgr.CLIConfig
 	DestTxmgrConfigs *txmgr.CLIConfig
@@ -94,7 +94,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		BackoffRetryInterval:    c.Uint64(flags.BackOffRetryInterval.Name),
 		BackOffMaxRetrys:        c.Uint64(flags.BackOffMaxRetrys.Name),
 		ETHClientTimeout:        c.Uint64(flags.ETHClientTimeout.Name),
-		OpenDBFunc: func() (DB, error) {
+		OpenDBFunc: func() (db.DB, error) {
 			return db.OpenDBConnection(db.DBConnectionOpts{
 				Name:            c.String(flags.DatabaseUsername.Name),
 				Password:        c.String(flags.DatabasePassword.Name),
