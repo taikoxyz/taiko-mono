@@ -9,7 +9,7 @@
   import { destNetwork as destChain, enteredAmount, processingFee, selectedToken } from '$components/Bridge/state';
   import { PUBLIC_SLOW_L1_BRIDGING_WARNING } from '$env/static/public';
   import { LayerType } from '$libs/chain';
-  import { isStablecoin, isSupported, isWrapped, type Token, TokenType } from '$libs/token';
+  import { isWrapped, type Token, TokenType } from '$libs/token';
   import { isToken } from '$libs/token/isToken';
   import { ethBalance } from '$stores/balance';
   import { connectedSourceChain } from '$stores/network';
@@ -27,14 +27,12 @@
 
   $: wrapped = $selectedToken !== null && isWrapped($selectedToken as Token);
 
-  $: unsupportedStableCoin =
-    $selectedToken !== null && !isSupported($selectedToken as Token) && isStablecoin($selectedToken as Token);
+  // $: unsupportedStableCoin =
+  //   $selectedToken !== null && !isSupported($selectedToken as Token) && isStablecoin($selectedToken as Token);
 
   $: wrappedAssetWarning = $t('bridge.alerts.wrapped_eth');
 
-  $: stableCoinWarning = $t('bridge.alerts.stable_coin');
-
-  $: if (wrapped || unsupportedStableCoin) {
+  $: if (wrapped) {
     needsManualReviewConfirmation = true;
   } else {
     needsManualReviewConfirmation = false;
@@ -116,9 +114,4 @@ Recipient & Processing Fee
 {#if wrapped}
   <!-- eslint-disable-next-line svelte/no-at-html-tags -->
   <Alert type="warning">{@html wrappedAssetWarning}</Alert>
-{/if}
-
-{#if unsupportedStableCoin}
-  <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-  <Alert type="warning">{@html stableCoinWarning}</Alert>
 {/if}
