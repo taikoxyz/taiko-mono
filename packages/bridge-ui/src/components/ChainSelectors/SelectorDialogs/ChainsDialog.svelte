@@ -9,7 +9,6 @@
   import { ActionButton } from '$components/Button';
   import { chains } from '$libs/chain';
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
-  import { uid } from '$libs/util/uid';
   import { connectedSourceChain } from '$stores/network';
 
   export let isOpen = false;
@@ -17,7 +16,7 @@
   export let switchWallet = false;
 
   let modalOpen = false;
-  const dialogId = `dialog-${uid()}`;
+  const dialogId = `dialog-${crypto.randomUUID()}`;
 
   const dispatch = createEventDispatcher();
 
