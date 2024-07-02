@@ -7,9 +7,10 @@ import (
 	"net/http"
 
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/urfave/cli/v2"
+
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/preconfapi/builder"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/preconfapi/server"
-	"github.com/urfave/cli/v2"
 )
 
 type PreconfAPI struct {
@@ -27,7 +28,7 @@ func (p *PreconfAPI) InitFromCli(ctx context.Context, c *cli.Context) error {
 	return p.InitFromConfig(ctx, cfg)
 }
 
-func (p *PreconfAPI) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
+func (p *PreconfAPI) InitFromConfig(_ context.Context, cfg *Config) (err error) {
 	var txBuilder builder.TxBuilder
 	if cfg.BlobAllowed {
 		txBuilder = builder.NewBlobTransactionBuilder(

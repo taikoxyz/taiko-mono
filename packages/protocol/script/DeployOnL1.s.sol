@@ -9,6 +9,7 @@ import "../contracts/L1/TaikoL1.sol";
 import "../contracts/L1/provers/GuardianProver.sol";
 import "../contracts/L1/tiers/DevnetTierProvider.sol";
 import "../contracts/L1/tiers/TierProviderV2.sol";
+import "../contracts/L1/SequencerRegistry.sol";
 import "../contracts/bridge/Bridge.sol";
 import "../contracts/tokenvault/BridgedERC20.sol";
 import "../contracts/tokenvault/BridgedERC721.sol";
@@ -339,6 +340,15 @@ contract DeployOnL1 is DeployCapability {
                 ProverSet.init, (owner, vm.envAddress("PROVER_SET_ADMIN"), rollupAddressManager)
             )
         });
+
+        address sequencerRegistryProxy = deployProxy({
+            name: "sequencer_registry",
+            impl: address(new SequencerRegistry()),
+            data: abi.encodeCall(SequencerRegistry.init, owner),
+            registerTo: rollupAddressManager
+        });
+
+        console2.log("SequencerRegistryProxy", sequencerRegistryProxy);
     }
 
     function deployTierProvider(string memory tierProviderName) private returns (address) {

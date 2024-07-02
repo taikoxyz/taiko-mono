@@ -147,7 +147,7 @@ func (s *ClientTestSuite) SetupTest() {
 			crypto.PubkeyToAddress(testAddrPrivKey.PublicKey),
 		}
 		enabled := []bool{true}
-    data, err := encoding.SequencerRegistryABI.Pack("setSequencers", sequencers, enabled)
+		data, err := encoding.SequencerRegistryABI.Pack("setSequencers", sequencers, enabled)
 		s.Nil(err)
 		_, err = t.Send(context.Background(), txmgr.TxCandidate{
 			TxData: data,

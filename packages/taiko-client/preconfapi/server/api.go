@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/labstack/echo/v4"
+
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
@@ -53,7 +54,7 @@ func (s *PreconfAPIServer) BuildBlock(c echo.Context) error {
 	}
 
 	txListBytes, err := signedTransactionsToTxListBytes(req.SignedTransactions)
-	if err := c.Bind(req); err != nil {
+	if err != nil {
 		return c.JSON(http.StatusUnprocessableEntity, err)
 	}
 
@@ -84,9 +85,7 @@ func signedTransactionsToTxListBytes(txs []string) ([]byte, error) {
 	var transactions types.Transactions
 
 	for _, signedTxHex := range txs {
-		if strings.HasPrefix(signedTxHex, "0x") {
-			signedTxHex = signedTxHex[2:]
-		}
+		signedTxHex = strings.TrimPrefix(signedTxHex, "0x")
 
 		rlpEncodedBytes, err := hex.DecodeString(signedTxHex)
 		if err != nil {

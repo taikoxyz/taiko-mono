@@ -17,7 +17,7 @@ var (
 	proposerCategory   = "PROPOSER"
 	proverCategory     = "PROVER"
 	txmgrCategory      = "TX_MANAGER"
-	preconfApiCategory = "PRECONF_API"
+	preconfAPICategory = "PRECONF_API"
 )
 
 // Required flags used by all client software.

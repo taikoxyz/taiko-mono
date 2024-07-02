@@ -192,7 +192,7 @@ func (p *Proposer) eventLoop() {
 }
 
 // Close closes the proposer instance.
-func (p *Proposer) Close(ctx context.Context) {
+func (p *Proposer) Close(_ context.Context) {
 	p.wg.Wait()
 }
 
@@ -453,7 +453,10 @@ func (p *Proposer) isPreconfirmationsEnabled() bool {
 }
 
 // getParentOfLatestProposedBlock returns the parent block of the latest proposed block in protocol
-func (p *Proposer) getParentOfLatestProposedBlock(ctx context.Context, rpc *rpc.Client) (*bindings.TaikoDataBlock, error) {
+func (p *Proposer) getParentOfLatestProposedBlock(
+	ctx context.Context,
+	rpc *rpc.Client,
+) (*bindings.TaikoDataBlock, error) {
 	state, err := rpc.TaikoL1.State(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return nil, err
