@@ -25,22 +25,6 @@ import (
 // @license.name MIT
 // @license.url https://github.com/taikoxyz/taiko-mono/packages/taiko-client/blob/main/LICENSE.md
 
-// Status represents the current proposer server status.
-type Status struct {
-}
-
-// GetStatus handles a query to the current proposer server status.
-//
-//	@Summary		Get current proposer server status
-//	@ID			   	get-status
-//	@Accept			json
-//	@Produce		json
-//	@Success		200	{object} Status
-//	@Router			/status [get]
-func (s *ProposerServer) GetStatus(c echo.Context) error {
-	return c.JSON(http.StatusOK, &Status{})
-}
-
 type buildBlockRequest struct {
 	L1StateBlockNumber uint32   `json:"l1StateBlockNumber"`
 	Timestamp          uint64   `json:"timestamp"`
@@ -62,7 +46,7 @@ type buildBlockResponse struct {
 //	@Produce		json
 //	@Success		200	{object} BuildBlockResponse
 //	@Router			/block/build [get]
-func (s *ProposerServer) BuildBlock(c echo.Context) error {
+func (s *PreconfAPIServer) BuildBlock(c echo.Context) error {
 	req := &buildBlockRequest{}
 	if err := c.Bind(req); err != nil {
 		return c.JSON(http.StatusUnprocessableEntity, err)

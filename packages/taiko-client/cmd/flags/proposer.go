@@ -146,13 +146,6 @@ var (
 		Category: proposerCategory,
 		EnvVars:  []string{"PRECONFIRMATION_RPC"},
 	}
-	ProposerHTTPServerPort = &cli.Uint64Flag{
-		Name:     "proposer.port",
-		Usage:    "Port to expose for http server",
-		Category: proverCategory,
-		Value:    9871,
-		EnvVars:  []string{"PROPOSER_PORT"},
-	}
 )
 
 // ProposerFlags All proposer flags.
@@ -180,5 +173,4 @@ var ProposerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	BlobAllowed,
 	L1BlockBuilderTip,
 	PreconfirmationRPC,
-	ProposerHTTPServerPort,
 }, TxmgrFlags)

@@ -7,7 +7,6 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
@@ -121,17 +120,4 @@ func (b *CalldataTransactionBuilder) Build(
 		GasLimit: b.gasLimit,
 		Value:    maxFee,
 	}, nil
-}
-
-// BuildUnsigned implements the ProposeBlockTransactionBuilder interface.
-// TODO: we wont be using this in the upcoming first iteration of the testnet. Leave empty.
-func (b *CalldataTransactionBuilder) BuildUnsigned(
-	ctx context.Context,
-	txListBytes []byte,
-	l1StateBlockNumber uint32,
-	timestamp uint64,
-	coinbase common.Address,
-	extraData [32]byte,
-) (*types.Transaction, error) {
-	return &types.Transaction{}, nil
 }

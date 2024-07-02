@@ -6,42 +6,23 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
 	"testing"
-	"time"
 
 	"github.com/cenkalti/backoff/v4"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/go-resty/resty/v2"
 	"github.com/phayes/freeport"
 	"github.com/stretchr/testify/suite"
-
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
-type ProposerServerTestSuite struct {
+type PreconfAPIServerTestSuite struct {
 	suite.Suite
-	s          *ProposerServer
+	s          *PreconfAPIServer
 	testServer *httptest.Server
 }
 
-func (s *ProposerServerTestSuite) SetupTest() {
-	rpcClient, err := rpc.NewClient(context.Background(), &rpc.ClientConfig{
-		L1Endpoint:        os.Getenv("L1_NODE_WS_ENDPOINT"),
-		L2Endpoint:        os.Getenv("L2_EXECUTION_ENGINE_WS_ENDPOINT"),
-		TaikoL1Address:    common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
-		TaikoL2Address:    common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
-		TaikoTokenAddress: common.HexToAddress(os.Getenv("TAIKO_TOKEN_ADDRESS")),
-		L2EngineEndpoint:  os.Getenv("L2_EXECUTION_ENGINE_AUTH_ENDPOINT"),
-		JwtSecret:         os.Getenv("JWT_SECRET"),
-		Timeout:           5 * time.Second,
-	})
-	s.Nil(err)
-
-	p, err := New(&NewProposerServerOpts{
-		RPC: rpcClient,
-	})
+func (s *PreconfAPIServerTestSuite) SetupTest() {
+	p, err := New(&NewPreconfAPIServerOpts{})
 	s.Nil(err)
 
 	p.echo.HideBanner = true
@@ -51,19 +32,19 @@ func (s *ProposerServerTestSuite) SetupTest() {
 	s.testServer = httptest.NewServer(p.echo)
 }
 
-func (s *ProposerServerTestSuite) TestHealth() {
+func (s *PreconfAPIServerTestSuite) TestHealth() {
 	resp := s.sendReq("/healthz")
 	defer resp.Body.Close()
 	s.Equal(http.StatusOK, resp.StatusCode)
 }
 
-func (s *ProposerServerTestSuite) TestRoot() {
+func (s *PreconfAPIServerTestSuite) TestRoot() {
 	resp := s.sendReq("/")
 	defer resp.Body.Close()
 	s.Equal(http.StatusOK, resp.StatusCode)
 }
 
-func (s *ProposerServerTestSuite) TestStartShutdown() {
+func (s *PreconfAPIServerTestSuite) TestStartShutdown() {
 	port, err := freeport.GetFreePort()
 	s.Nil(err)
 
@@ -92,15 +73,15 @@ func (s *ProposerServerTestSuite) TestStartShutdown() {
 	s.Nil(s.s.Shutdown(context.Background()))
 }
 
-func (s *ProposerServerTestSuite) TearDownTest() {
+func (s *PreconfAPIServerTestSuite) TearDownTest() {
 	s.testServer.Close()
 }
 
-func TestProposerServerTestSuite(t *testing.T) {
-	suite.Run(t, new(ProposerServerTestSuite))
+func TestPreconfAPIServerTestSuite(t *testing.T) {
+	suite.Run(t, new(PreconfAPIServerTestSuite))
 }
 
-func (s *ProposerServerTestSuite) sendReq(path string) *http.Response {
+func (s *PreconfAPIServerTestSuite) sendReq(path string) *http.Response {
 	res, err := http.Get(s.testServer.URL + path)
 	s.Nil(err)
 	return res

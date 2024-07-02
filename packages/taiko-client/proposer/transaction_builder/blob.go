@@ -9,12 +9,10 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/kzg4844"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	selector "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/prover_selector"
 )
@@ -137,66 +135,4 @@ func (b *BlobTransactionBuilder) Build(
 		GasLimit: b.gasLimit,
 		Value:    maxFee,
 	}, nil
-}
-
-// BuildUnsigned implements the ProposeBlockTransactionBuilder interface to
-// return an unsigned transaction, intended for preconfirmations.
-func (b *BlobTransactionBuilder) BuildUnsigned(
-	ctx context.Context,
-	txListBytes []byte,
-	l1StateBlockNumber uint32,
-	timestamp uint64,
-	coinbase common.Address,
-	extraData [32]byte,
-) (*types.Transaction, error) {
-	compressedTxListBytes, err := utils.Compress(txListBytes)
-	if err != nil {
-		return nil, err
-	}
-
-	var blob = &eth.Blob{}
-	if err := blob.FromData(compressedTxListBytes); err != nil {
-		return nil, err
-	}
-
-	var (
-		to   = &b.taikoL1Address
-		data []byte
-	)
-
-	// ABI encode the TaikoL1.proposeBlock parameters.
-	encodedParams, err := encoding.EncodeBlockParams(&encoding.BlockParams{
-		ExtraData:          extraData,
-		Coinbase:           coinbase,
-		Signature:          []byte{}, // no longer checked
-		L1StateBlockNumber: l1StateBlockNumber,
-		Timestamp:          timestamp,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	data, err = encoding.TaikoL1ABI.Pack("proposeBlock", encodedParams, []byte{})
-	if err != nil {
-		return nil, err
-	}
-
-	sidecar, blobHashes, err := txmgr.MakeSidecar([]*eth.Blob{blob})
-	if err != nil {
-		return nil, err
-	}
-
-	blobTx := &types.BlobTx{
-		To:         *to,
-		Value:      nil, // maxFee / prover selecting no longer happens
-		Gas:        b.gasLimit,
-		Data:       data,
-		Sidecar:    sidecar,
-		BlobHashes: blobHashes,
-	}
-
-	tx := types.NewTx(blobTx)
-
-	return tx, nil
-
 }

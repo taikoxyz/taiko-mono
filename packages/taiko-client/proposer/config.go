@@ -45,7 +45,6 @@ type Config struct {
 	TxmgrConfigs               *txmgr.CLIConfig
 	L1BlockBuilderTip          *big.Int
 	PreconfirmationRPC         string
-	HTTPServerPort             uint64
 }
 
 // NewConfigFromCliContext initializes a Config instance from
@@ -137,6 +136,5 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			l1ProposerPrivKey,
 			c,
 		),
-		HTTPServerPort: c.Uint64(flags.ProposerHTTPServerPort.Name),
 	}, nil
 }

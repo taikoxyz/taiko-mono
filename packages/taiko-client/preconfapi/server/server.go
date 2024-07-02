@@ -9,7 +9,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	builder "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/transaction_builder"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/preconfapi/builder"
 )
 
 // @title Taiko Proposer Server API
@@ -22,24 +22,22 @@ import (
 
 // @license.name MIT
 // @license.url https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md
-// ProposerServer represents a proposer server instance.
-type ProposerServer struct {
+// PreconfAPIServer represents a proposer server instance.
+type PreconfAPIServer struct {
 	echo      *echo.Echo
 	rpc       *rpc.Client
-	txBuilder builder.ProposeBlockTransactionBuilder
+	txBuilder builder.TxBuilder
 }
 
-// NewProposerServerOpts contains all configurations for creating a prover server instance.
-type NewProposerServerOpts struct {
-	RPC       *rpc.Client
-	TxBuilder builder.ProposeBlockTransactionBuilder
+// NewPreconfAPIServerOpts contains all configurations for creating a prover server instance.
+type NewPreconfAPIServerOpts struct {
+	TxBuilder builder.TxBuilder
 }
 
 // New creates a new prover server instance.
-func New(opts *NewProposerServerOpts) (*ProposerServer, error) {
-	srv := &ProposerServer{
+func New(opts *NewPreconfAPIServerOpts) (*PreconfAPIServer, error) {
+	srv := &PreconfAPIServer{
 		echo:      echo.New(),
-		rpc:       opts.RPC,
 		txBuilder: opts.TxBuilder,
 	}
 
@@ -51,17 +49,17 @@ func New(opts *NewProposerServerOpts) (*ProposerServer, error) {
 }
 
 // Start starts the HTTP server.
-func (s *ProposerServer) Start(address string) error {
+func (s *PreconfAPIServer) Start(address string) error {
 	return s.echo.Start(address)
 }
 
 // Shutdown shuts down the HTTP server.
-func (s *ProposerServer) Shutdown(ctx context.Context) error {
+func (s *PreconfAPIServer) Shutdown(ctx context.Context) error {
 	return s.echo.Shutdown(ctx)
 }
 
 // Health endpoints for probes.
-func (s *ProposerServer) Health(c echo.Context) error {
+func (s *PreconfAPIServer) Health(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
 
@@ -76,7 +74,7 @@ func LogSkipper(c echo.Context) bool {
 }
 
 // configureMiddleware configures the server middlewares.
-func (s *ProposerServer) configureMiddleware() {
+func (s *PreconfAPIServer) configureMiddleware() {
 	s.echo.Use(middleware.RequestID())
 
 	s.echo.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
@@ -90,9 +88,8 @@ func (s *ProposerServer) configureMiddleware() {
 }
 
 // configureRoutes contains all routes which will be used by prover server.
-func (s *ProposerServer) configureRoutes() {
+func (s *PreconfAPIServer) configureRoutes() {
 	s.echo.GET("/", s.Health)
 	s.echo.GET("/healthz", s.Health)
-	s.echo.GET("/status", s.GetStatus)
 	s.echo.GET("/block/build", s.BuildBlock)
 }
