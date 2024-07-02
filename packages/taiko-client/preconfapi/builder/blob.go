@@ -50,11 +50,6 @@ func (b *BlobTransactionBuilder) BuildUnsigned(
 		return nil, err
 	}
 
-	var (
-		to   = &b.taikoL1Address
-		data []byte
-	)
-
 	// ABI encode the TaikoL1.proposeBlock parameters.
 	encodedParams, err := encoding.EncodeBlockParams(&encoding.BlockParams{
 		ExtraData:          extraData,
@@ -67,7 +62,7 @@ func (b *BlobTransactionBuilder) BuildUnsigned(
 		return nil, err
 	}
 
-	data, err = encoding.TaikoL1ABI.Pack("proposeBlock", encodedParams, []byte{})
+	data, err := encoding.TaikoL1ABI.Pack("proposeBlock", encodedParams, []byte{})
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +73,7 @@ func (b *BlobTransactionBuilder) BuildUnsigned(
 	}
 
 	blobTx := &types.BlobTx{
-		To:         *to,
+		To:         b.taikoL1Address,
 		Value:      nil, // maxFee / prover selecting no longer happens
 		Gas:        b.gasLimit,
 		Data:       data,
