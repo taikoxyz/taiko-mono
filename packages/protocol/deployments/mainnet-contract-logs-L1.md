@@ -161,7 +161,7 @@
 
 - ens: `ram.based.taiko.eth`
 - proxy: `0x579f40D0BE111b823962043702cabe6Aaa290780`
-- impl: `0x8EEf314878A7E56314E8DF285d0B0D649C903aF6`
+- impl: `0x29a88d60246C76E4F28806b9C8a42d2183154900`
 - names:
   - taiko_token: `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800`
   - signal_service: `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C`
@@ -191,6 +191,7 @@
   - unregister `assignment_hook` @tx`0xb23d9cec24a1cc14956482d9d6a77eee0d6ab6ccd5b77e2be191fb8368c2d107`
   - register `prover_set` to `0x5D528253fA14cd7F637937de847BE8D5BE0Bf5fd` @commit`2b483de` @tx`0x0bbf7d1258c646f41a02a92a55825b1ebfd3659577d0f2b57b462f8895e23a04`
   - register `tier_router` to `0x6e997f1f22c40ba37f633b08f3b07e10ed43155a` @tx`0x13f54109cb7f7507ad03562b06ea8d8b472043186e44252302583bc64acfb20b`
+  - Upgraded from `0x8EEf314878A7E56314E8DF285d0B0D649C903aF6` to `0x29a88d60246C76E4F28806b9C8a42d2183154900` @commit`57c8dc0` @tx`0x9f787086b4c5e6887eb1d27c286069bcbbcabb1d7ed9f69ab3121c4681cf4b2c`
 
 #### taikoL1
 
