@@ -33,7 +33,7 @@ func NewBlobTransactionBuilder(
 // BuildUnsigned implements the ProposeBlockTransactionBuilder interface to
 // return an unsigned transaction, intended for preconfirmations.
 func (b *BlobTransactionBuilder) BuildUnsigned(
-	ctx context.Context,
+	_ context.Context,
 	txListBytes []byte,
 	l1StateBlockNumber uint32,
 	timestamp uint64,
