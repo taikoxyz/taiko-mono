@@ -2,6 +2,7 @@
   import { ResponsiveController } from '@taiko/ui-lib';
   import { getContext, onMount } from 'svelte';
 
+  import { Button } from '$components/core/Button';
   import { classNames } from '$lib/util/classNames';
   import type { ITaikoonDetail } from '$stores/taikoonDetail';
 
@@ -10,6 +11,7 @@
   import { default as TaikoonDetail } from './TaikoonDetail.svelte';
 
   export let tokenIds: number[] = [];
+
   let windowSize: 'sm' | 'md' | 'lg' = 'md';
 
   export let disableClick = false;
@@ -21,9 +23,20 @@
 
   $: selectedTaikoonId = -1;
 
+  $: visibleTokenIds = [] as number[];
   onMount(() => {
     onRouteChange();
   });
+
+  $: tokenBatch = 50;
+  $: tokenIds,
+    visibleTokenIds.length === 0 &&
+      (visibleTokenIds = tokenIds.length > tokenBatch ? tokenIds.slice(0, tokenBatch) : tokenIds);
+
+  function loadMore() {
+    const nextBatch = tokenIds.slice(visibleTokenIds.length, visibleTokenIds.length + tokenBatch);
+    visibleTokenIds = [...visibleTokenIds, ...nextBatch];
+  }
 
   async function onRouteChange() {
     const hash = location.hash;
@@ -48,8 +61,9 @@
     <div class={filterFormWrapperClasses}>
       <div class={titleClasses}>{title}</div>
     </div>
+
     <div class={taikoonsWrapperClasses}>
-      {#each tokenIds as tokenId}
+      {#each visibleTokenIds as tokenId}
         <a
           href={disableClick ? '#' : `#${tokenId}`}
           class={classNames('w-full', 'rounded-xl', 'lg:rounded-3xl', 'md:rounded-2xl', 'overflow-hidden')}>
@@ -57,6 +71,15 @@
         </a>
       {/each}
     </div>
+
+    <Button
+      block
+      wide
+      type="primary"
+      class="my-12"
+      disabled={tokenIds.length === visibleTokenIds.length}
+      on:click={loadMore}>
+      More</Button>
   </div>
 </div>
 
