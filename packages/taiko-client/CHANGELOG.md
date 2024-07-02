@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.29.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.28.0...taiko-client-v0.29.0) (2024-07-02)
+
+
+### Features
+
+* **taiko-client:** call `CreateAccessList` ([#17691](https://github.com/taikoxyz/taiko-mono/issues/17691)) ([9bb4b9c](https://github.com/taikoxyz/taiko-mono/commit/9bb4b9c94f3bc2a8fef1c793d13bf749d8c0614f))
+* **taiko-client:** improve `ProverProvenByGuardianGauge` metric ([#17703](https://github.com/taikoxyz/taiko-mono/issues/17703)) ([c88fcd1](https://github.com/taikoxyz/taiko-mono/commit/c88fcd11fa29beb6a7529e5b8bf172a6a9cd6ecd))
+* **taiko-client:** introduce `AccessList` ([#17676](https://github.com/taikoxyz/taiko-mono/issues/17676)) ([3c95477](https://github.com/taikoxyz/taiko-mono/commit/3c95477a284ac94c7e3ce85c9cefdadc1aaacd06))
+* **taiko-client:** revert access list changes ([#17694](https://github.com/taikoxyz/taiko-mono/issues/17694)) ([fd15dab](https://github.com/taikoxyz/taiko-mono/commit/fd15dabc01666fdbee949a9ecb6805d2ce8fc7f9))
+* **taiko-client:** update bindings && fix tests ([#17680](https://github.com/taikoxyz/taiko-mono/issues/17680)) ([10b95e1](https://github.com/taikoxyz/taiko-mono/commit/10b95e1c54dfe77de2badbe77439c2449cc9a65e))
+
 ## [0.28.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.27.1...taiko-client-v0.28.0) (2024-06-24)
 
 
