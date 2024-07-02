@@ -112,21 +112,18 @@ func (p *Proposer) InitFromConfig(ctx context.Context, cfg *Config, txMgr *txmgr
 		}
 	}
 
-	// prover selector is optional
-	if cfg.ProverSetAddress.Hex() != rpc.ZeroAddress.Hex() {
-		if p.proverSelector, err = selector.NewETHFeeEOASelector(
-			&protocolConfigs,
-			p.rpc,
-			p.proposerAddress,
-			cfg.TaikoL1Address,
-			cfg.ProverSetAddress,
-			p.tierFees,
-			cfg.TierFeePriceBump,
-			cfg.ProverEndpoints,
-			cfg.MaxTierFeePriceBumps,
-		); err != nil {
-			return err
-		}
+	if p.proverSelector, err = selector.NewETHFeeEOASelector(
+		&protocolConfigs,
+		p.rpc,
+		p.proposerAddress,
+		cfg.TaikoL1Address,
+		cfg.ProverSetAddress,
+		p.tierFees,
+		cfg.TierFeePriceBump,
+		cfg.ProverEndpoints,
+		cfg.MaxTierFeePriceBumps,
+	); err != nil {
+		return err
 	}
 
 	if cfg.BlobAllowed {
