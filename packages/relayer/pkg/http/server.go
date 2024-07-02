@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"log/slog"
 	"math/big"
 	"net/http"
 	"os"
@@ -130,6 +131,11 @@ func (srv *Server) Start(address string) error {
 
 // Shutdown shuts down the HTTP server
 func (srv *Server) Shutdown(ctx context.Context) error {
+	// Close db connection.
+	if err := srv.eventRepo.Close(); err != nil {
+		slog.Error("Failed to close db connection", "err", err)
+	}
+
 	return srv.echo.Shutdown(ctx)
 }
 

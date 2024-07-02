@@ -22,6 +22,11 @@ func NewEventRepository() *EventRepository {
 		events: make([]*relayer.Event, 0),
 	}
 }
+
+func (r *EventRepository) Close() error {
+	return nil
+}
+
 func (r *EventRepository) Save(ctx context.Context, opts *relayer.SaveEventOpts) (*relayer.Event, error) {
 	r.events = append(r.events, &relayer.Event{
 		ID:           rand.Int(), // nolint: gosec
