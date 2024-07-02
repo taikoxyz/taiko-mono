@@ -74,6 +74,10 @@ cat ../protocol/out/SgxVerifier.sol/SgxVerifier.json |
 	jq .abi |
 	${ABIGEN_BIN} --abi - --type SgxVerifier --pkg bindings --out $DIR/../bindings/gen_sgx_verifier.go
 
+cat ../protocol/out/SequencerRegistry.sol/SequencerRegistry.json |
+	jq .abi |
+	${ABIGEN_BIN} --abi - --type SequencerRegistry --pkg bindings --out $DIR/../bindings/gen_sequencer_registry.go
+
 git -C ../../ log --format="%H" -n 1 >./bindings/.githead
 
 echo "🍻 Go contract bindings generated!"

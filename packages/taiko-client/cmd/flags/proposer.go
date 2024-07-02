@@ -139,6 +139,13 @@ var (
 		Category: proposerCategory,
 		EnvVars:  []string{"L1_BLOCK_BUILDER_TIP"},
 	}
+	// Pre-confirmation related.
+	PreconfirmationRPC = &cli.StringFlag{
+		Name:     "preconfirmation.rpc",
+		Usage:    "The rpc endpoint of L1 preconfer",
+		Category: proposerCategory,
+		EnvVars:  []string{"PRECONFIRMATION_RPC"},
+	}
 )
 
 // ProposerFlags All proposer flags.
@@ -165,4 +172,5 @@ var ProposerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	ProposeBlockIncludeParentMetaHash,
 	BlobAllowed,
 	L1BlockBuilderTip,
+	PreconfirmationRPC,
 }, TxmgrFlags)

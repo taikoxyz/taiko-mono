@@ -1,7 +1,6 @@
 package builder
 
 import (
-	"context"
 	"net/url"
 	"os"
 	"testing"
@@ -52,6 +51,7 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 		common.Address{},
 		0,
 		"test",
+		false,
 	)
 	s.blobTxBuiler = NewBlobTransactionBuilder(
 		s.RPCClient,
@@ -63,13 +63,8 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 		common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
 		10_000_000,
 		"test",
+		false,
 	)
-}
-
-func (s *TransactionBuilderTestSuite) TestGetParentMetaHash() {
-	metahash, err := getParentMetaHash(context.Background(), s.RPCClient)
-	s.Nil(err)
-	s.NotEmpty(metahash)
 }
 
 func TestTransactionBuilderTestSuite(t *testing.T) {

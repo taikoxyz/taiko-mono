@@ -122,6 +122,7 @@ func (s *ProposerTestSuite) TestProposeTxLists() {
 		cfg.L2SuggestedFeeRecipient,
 		cfg.ProposeBlockTxGasLimit,
 		cfg.ExtraData,
+		len(cfg.PreconfirmationRPC) > 0,
 	)
 
 	emptyTxListBytes, err := rlp.EncodeToBytes(types.Transactions{})
@@ -138,8 +139,10 @@ func (s *ProposerTestSuite) TestProposeTxLists() {
 		candidate, err := txBuilder.Build(
 			p.ctx,
 			p.tierFees,
-			p.IncludeParentMetaHash,
 			compressedTxListBytes,
+			0,
+			0,
+			[32]byte{},
 		)
 		if err != nil {
 			log.Warn("Failed to build TaikoL1.proposeBlock transaction", "error", err)
@@ -270,6 +273,77 @@ func (s *ProposerTestSuite) TestUpdateProposingTicker() {
 
 	s.p.ProposeInterval = 0
 	s.NotPanics(s.p.updateProposingTicker)
+}
+
+func (s *ProposerTestSuite) TestProposePreconfirmationBlock() {
+	p := new(Proposer)
+	s.Nil(p.InitFromConfig(context.Background(), &Config{
+		ClientConfig: &rpc.ClientConfig{
+			L1Endpoint:        os.Getenv("L1_NODE_WS_ENDPOINT"),
+			L2Endpoint:        os.Getenv("L2_EXECUTION_ENGINE_HTTP_ENDPOINT"),
+			L2EngineEndpoint:  os.Getenv("L2_EXECUTION_ENGINE_AUTH_ENDPOINT"),
+			JwtSecret:         s.p.JwtSecret,
+			TaikoL1Address:    common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
+			TaikoL2Address:    common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
+			TaikoTokenAddress: common.HexToAddress(os.Getenv("TAIKO_TOKEN_ADDRESS")),
+		},
+		L1ProposerPrivKey:          s.p.L1ProposerPrivKey,
+		L2SuggestedFeeRecipient:    common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
+		MinProposingInternal:       0,
+		ProposeInterval:            1024 * time.Hour,
+		MaxProposedTxListsPerEpoch: 1,
+		ProverEndpoints:            s.ProverEndpoints,
+		OptimisticTierFee:          common.Big256,
+		SgxTierFee:                 common.Big256,
+		TierFeePriceBump:           common.Big2,
+		MaxTierFeePriceBumps:       3,
+		ExtraData:                  "test",
+		L1BlockBuilderTip:          common.Big0,
+		ProposeBlockTxGasLimit:     10_000_000,
+		PreconfirmationRPC:         os.Getenv("L1_NODE_WS_ENDPOINT"),
+		TxmgrConfigs: &txmgr.CLIConfig{
+			L1RPCURL:                  os.Getenv("L1_NODE_WS_ENDPOINT"),
+			NumConfirmations:          0,
+			SafeAbortNonceTooLowCount: txmgr.DefaultBatcherFlagValues.SafeAbortNonceTooLowCount,
+			PrivateKey:                common.Bytes2Hex(crypto.FromECDSA(s.p.L1ProposerPrivKey)),
+			FeeLimitMultiplier:        txmgr.DefaultBatcherFlagValues.FeeLimitMultiplier,
+			FeeLimitThresholdGwei:     txmgr.DefaultBatcherFlagValues.FeeLimitThresholdGwei,
+			MinBaseFeeGwei:            txmgr.DefaultBatcherFlagValues.MinBaseFeeGwei,
+			MinTipCapGwei:             txmgr.DefaultBatcherFlagValues.MinTipCapGwei,
+			ResubmissionTimeout:       txmgr.DefaultBatcherFlagValues.ResubmissionTimeout,
+			ReceiptQueryInterval:      1 * time.Second,
+			NetworkTimeout:            txmgr.DefaultBatcherFlagValues.NetworkTimeout,
+			TxSendTimeout:             txmgr.DefaultBatcherFlagValues.TxSendTimeout,
+			TxNotInMempoolTimeout:     txmgr.DefaultBatcherFlagValues.TxNotInMempoolTimeout,
+		},
+	}, nil))
+
+	sink := make(chan *bindings.TaikoL1ClientBlockProposed)
+
+	sub, err := p.rpc.TaikoL1.WatchBlockProposed(nil, sink, nil, nil)
+	s.Nil(err)
+	defer func() {
+		sub.Unsubscribe()
+		close(sink)
+	}()
+
+	to := common.BytesToAddress(testutils.RandomBytes(32))
+	_, err = testutils.SendDynamicFeeTx(p.rpc.L2, s.TestAddrPrivKey, &to, common.Big1, nil)
+	s.Nil(err)
+
+	s.Nil(p.ProposeOp(context.Background()))
+
+	event := <-sink
+
+	s.Equal(event.Meta.Coinbase, p.L2SuggestedFeeRecipient)
+
+	_, isPending, err := p.rpc.L1.TransactionByHash(context.Background(), event.Raw.TxHash)
+	s.Nil(err)
+	s.False(isPending)
+
+	receipt, err := p.rpc.L1.TransactionReceipt(context.Background(), event.Raw.TxHash)
+	s.Nil(err)
+	s.Equal(types.ReceiptStatusSuccessful, receipt.Status)
 }
 
 func (s *ProposerTestSuite) TestStartClose() {
