@@ -37,7 +37,7 @@ contract DeployERC20Airdrop is DeployCapability {
                 impl: address(new ERC20Airdrop()),
                 data: abi.encodeCall(
                     ERC20Airdrop.init, (address(0), 0, 0, bytes32(0), bridgedTko, vaultAddress)
-                )
+                    )
             })
         );
 
