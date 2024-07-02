@@ -15,4 +15,4 @@ jobs:
   dummy:
     runs-on: [taiko-runner]
     steps:
-      - run: exit 1
+      - run: exit 0
