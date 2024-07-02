@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/taikol1"
+	"golang.org/x/sync/errgroup"
 )
 
 func (i *Indexer) saveBlockProposedEvents(
@@ -24,29 +25,41 @@ func (i *Indexer) saveBlockProposedEvents(
 		return nil
 	}
 
+	wg, ctx := errgroup.WithContext(ctx)
+
 	for {
 		event := events.Event
 
-		tx, _, err := i.ethClient.TransactionByHash(ctx, event.Raw.TxHash)
-		if err != nil {
-			return errors.Wrap(err, "i.ethClient.TransactionByHash")
-		}
+		wg.Go(func() error {
+			tx, _, err := i.ethClient.TransactionByHash(ctx, event.Raw.TxHash)
+			if err != nil {
+				return errors.Wrap(err, "i.ethClient.TransactionByHash")
+			}
 
-		sender, err := i.ethClient.TransactionSender(ctx, tx, event.Raw.BlockHash, event.Raw.TxIndex)
-		if err != nil {
-			return errors.Wrap(err, "i.ethClient.TransactionSender")
-		}
+			sender, err := i.ethClient.TransactionSender(ctx, tx, event.Raw.BlockHash, event.Raw.TxIndex)
+			if err != nil {
+				return errors.Wrap(err, "i.ethClient.TransactionSender")
+			}
 
-		if err := i.saveBlockProposedEvent(ctx, chainID, event, sender); err != nil {
-			eventindexer.BlockProposedEventsProcessedError.Inc()
+			if err := i.saveBlockProposedEvent(ctx, chainID, event, sender); err != nil {
+				eventindexer.BlockProposedEventsProcessedError.Inc()
 
-			return errors.Wrap(err, "i.saveBlockProposedEvent")
-		}
+				return errors.Wrap(err, "i.saveBlockProposedEvent")
+			}
+
+			return nil
+		})
 
 		if !events.Next() {
-			return nil
+			break
 		}
 	}
+
+	if err := wg.Wait(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (i *Indexer) saveBlockProposedEvent(

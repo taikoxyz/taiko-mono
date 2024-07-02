@@ -2,6 +2,7 @@ package indexer
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
@@ -40,6 +41,8 @@ func (i *Indexer) setInitialIndexingBlockByMode(
 	default:
 		return eventindexer.ErrInvalidMode
 	}
+
+	slog.Info("startingBlock", "startingBlock", startingBlock)
 
 	i.latestIndexedBlockNumber = startingBlock
 
