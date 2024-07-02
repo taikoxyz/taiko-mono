@@ -7,6 +7,11 @@ on:
       - "taiko-client-v*"
     paths:
       - "packages/taiko-client/**"
+  pull_request:
+    paths:
+      - "packages/taiko-client/**"
+      - "go.mod"
+      - "go.sum"
 
 jobs:
   push-docker-image:
@@ -35,7 +40,7 @@ jobs:
         uses: docker/metadata-action@v4
         with:
           images: |
-            us-docker.pkg.dev/evmchain/images/taiko-client
+            us-docker.pkg.dev/evmchain/helder/taiko-client
           tags: |
             type=ref,event=branch
             type=ref,event=pr

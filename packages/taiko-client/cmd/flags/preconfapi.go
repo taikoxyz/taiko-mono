@@ -15,7 +15,7 @@ var (
 	}
 )
 
-// PreconfAPIFlags contains all preconfirmations API flags.
+// PreconfAPIFlags contains all preconfirmations API flags
 var PreconfAPIFlags = []cli.Flag{
 	TaikoL1Address,
 	TxGasLimit,
