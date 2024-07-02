@@ -26,6 +26,11 @@ abstract contract TaikoEvents {
         TaikoData.EthDeposit[] depositsProcessed
     );
 
+    /// @notice Emitted when a block is proposed.
+    /// @param blockId The ID of the proposed block.
+    /// @param meta The metadata of the proposed block.
+    event BlockProposed2(uint256 indexed blockId, TaikoData.BlockMetadata2 meta);
+
     /// @notice Emitted when a block's txList is in the calldata.
     /// @param blockId The ID of the proposed block.
     /// @param txList The txList.
@@ -65,6 +70,15 @@ abstract contract TaikoEvents {
         uint16 tier
     );
 
+    event TransitionProved2(
+        uint256 indexed blockId,
+        TaikoData.Transition tran,
+        address prover,
+        uint96 validityBond,
+        uint16 tier,
+        uint64 proposedIn
+    );
+
     /// @dev Emitted when a block transition is contested.
     /// @param blockId The ID of the proven block.
     /// @param tran The verified transition.
@@ -77,6 +91,15 @@ abstract contract TaikoEvents {
         address contester,
         uint96 contestBond,
         uint16 tier
+    );
+
+    event TransitionContested2(
+        uint256 indexed blockId,
+        TaikoData.Transition tran,
+        address contester,
+        uint96 contestBond,
+        uint16 tier,
+        uint64 proposedIn
     );
 
     /// @dev Emitted when proving has been paused

@@ -104,10 +104,9 @@ contract TaikoL2 is EssentialContract {
     /// @dev This function can be called freely as the golden touch private key is publicly known,
     /// but the Taiko node guarantees the first transaction of each block is always this anchor
     /// transaction, and any subsequent calls will revert with L2_PUBLIC_INPUT_HASH_MISMATCH.
-    /// @param _l1BlockHash The latest L1 block hash when this block was
-    /// proposed.
-    /// @param _l1StateRoot The latest L1 block's state root.
-    /// @param _l1BlockId The latest L1 block height when this block was proposed.
+    /// @param _l1BlockHash The `anchorBlockHash` value in this block's metadata.
+    /// @param _l1StateRoot The state root for the L1 block with id equals `_l1BlockId`
+    /// @param _l1BlockId The `anchorBlockId` value in this block's metadata.
     /// @param _parentGasUsed The gas used in the parent block.
     function anchor(
         bytes32 _l1BlockHash,

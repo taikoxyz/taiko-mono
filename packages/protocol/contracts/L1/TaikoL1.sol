@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 import "../common/EssentialContract.sol";
+import "./libs/LibData.sol";
 import "./libs/LibProposing.sol";
 import "./libs/LibProving.sol";
 import "./libs/LibVerifying.sol";
@@ -81,7 +82,30 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         TaikoData.Config memory config = getConfig();
         TaikoToken tko = TaikoToken(resolve(LibStrings.B_TAIKO_TOKEN, false));
 
-        (meta_, deposits_) = LibProposing.proposeBlock(state, tko, config, this, _params, _txList);
+        TaikoData.BlockMetadata2 memory meta2;
+        (meta2, deposits_) = LibProposing.proposeBlock(state, tko, config, this, _params, _txList);
+
+        if (meta2.id >= config.ontakeForkHeight) revert L1_FORK_ERROR();
+
+        if (LibUtils.shouldVerifyBlocks(config, meta_.id, true) && !state.slotB.provingPaused) {
+            LibVerifying.verifyBlocks(state, tko, config, this, config.maxBlocksToVerify);
+        }
+        meta_ = LibData.metadataV2toV1(meta2);
+    }
+
+    function proposeBlock2(
+        bytes calldata _params,
+        bytes calldata _txList
+    )
+        external
+        payable
+        returns (TaikoData.BlockMetadata2 memory meta_)
+    {
+        TaikoData.Config memory config = getConfig();
+        TaikoToken tko = TaikoToken(resolve(LibStrings.B_TAIKO_TOKEN, false));
+
+        (meta_,) = LibProposing.proposeBlock(state, tko, config, this, _params, _txList);
+        if (meta_.id < config.ontakeForkHeight) revert L1_FORK_ERROR();
 
         if (LibUtils.shouldVerifyBlocks(config, meta_.id, true) && !state.slotB.provingPaused) {
             LibVerifying.verifyBlocks(state, tko, config, this, config.maxBlocksToVerify);
@@ -234,7 +258,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
             blockMaxGasLimit: 240_000_000,
             livenessBond: 125e18, // 125 Taiko token
             stateRootSyncInternal: 16,
-            checkEOAForCalldataDA: true
+            ontakeForkHeight: 324_512 * 2
         });
     }
 

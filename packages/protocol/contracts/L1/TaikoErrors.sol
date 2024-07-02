@@ -16,13 +16,16 @@ abstract contract TaikoErrors {
     error L1_BLOB_NOT_FOUND();
     error L1_BLOCK_MISMATCH();
     error L1_CANNOT_CONTEST();
+    error L1_FORK_ERROR();
     error L1_INVALID_BLOCK_ID();
     error L1_INVALID_CONFIG();
     error L1_INVALID_GENESIS_HASH();
+    error L1_INVALID_ANCHOR_BLOCK();
     error L1_INVALID_PARAM();
     error L1_INVALID_PAUSE_STATUS();
-    error L1_INVALID_SIG();
+    error L1_INVALID_PROPOSER();
     error L1_INVALID_TIER();
+    error L1_INVALID_TIMESTAMP();
     error L1_INVALID_TRANSITION();
     error L1_LIVENESS_BOND_NOT_RECEIVED();
     error L1_NOT_ASSIGNED_PROVER();

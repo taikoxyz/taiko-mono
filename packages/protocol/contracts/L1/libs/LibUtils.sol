@@ -246,8 +246,4 @@ library LibUtils {
             return _blockId % _stateRootSyncInternal == _stateRootSyncInternal - 1;
         }
     }
-
-    function hashMetadata(TaikoData.BlockMetadata memory _meta) internal pure returns (bytes32) {
-        return keccak256(abi.encode(_meta));
-    }
 }
