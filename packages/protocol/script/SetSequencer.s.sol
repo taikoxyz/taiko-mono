@@ -27,8 +27,10 @@ contract SetSequencer is Script {
 
         proxy = SequencerRegistry(payable(proxyAddress));
 
-        address[] memory addresses = [addr];
-        bool[] memory enabledAddresses = [enabled];
+        address[] memory addresses = new address[](1);
+        addresses[0] = addr;
+        bool[] memory enabledAddresses = new bool[](1);
+        enabledAddresses[0] = enabled;
         proxy.setSequencers(addresses, enabledAddresses);
 
         vm.stopBroadcast();
