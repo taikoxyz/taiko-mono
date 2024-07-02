@@ -9,7 +9,7 @@ var (
 	PreconfAPIHTTPServerPort = &cli.Uint64Flag{
 		Name:     "preconfapi.port",
 		Usage:    "Port to expose for http server",
-		Category: preconfApiCategory,
+		Category: preconfAPICategory,
 		Value:    9871,
 		EnvVars:  []string{"PRECONFAPI_PORT"},
 	}
