@@ -8,7 +8,6 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/preconfapi/builder"
 )
 
@@ -25,7 +24,6 @@ import (
 // PreconfAPIServer represents a proposer server instance.
 type PreconfAPIServer struct {
 	echo      *echo.Echo
-	rpc       *rpc.Client
 	txBuilder builder.TxBuilder
 }
 

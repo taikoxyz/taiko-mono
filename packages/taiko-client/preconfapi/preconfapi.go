@@ -35,7 +35,10 @@ func (p *PreconfAPI) InitFromConfig(ctx context.Context, cfg *Config) (err error
 			cfg.ProposeBlockTxGasLimit,
 		)
 	} else {
-		// TODO: calldata builder
+		txBuilder = builder.NewCalldataTransactionBuilder(
+			cfg.TaikoL1Address,
+			cfg.ProposeBlockTxGasLimit,
+		)
 	}
 
 	// Prover server
