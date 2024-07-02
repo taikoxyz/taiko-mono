@@ -128,7 +128,6 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, event *bindings.Taiko
 	}
 
 	// Send the generated proof.
-	var result *proofProducer.ProofWithHeader
 	if err := backoff.Retry(
 		func() error {
 			// Check if there is a need to generate proof
@@ -146,15 +145,18 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, event *bindings.Taiko
 				return nil
 			}
 
-			if result, err = s.proofProducer.RequestProof(
+			result, err := s.proofProducer.RequestProof(
 				ctx,
 				opts,
 				event.BlockId,
 				&event.Meta,
 				header,
-			); err != nil {
+			)
+			if err != nil {
 				return fmt.Errorf("failed to request proof (id: %d): %w", event.BlockId, err)
 			}
+			s.resultCh <- result
+			metrics.ProverQueuedProofCounter.Add(1)
 			return nil
 		},
 		backoff.WithContext(backoff.NewConstantBackOff(proofPollingInterval), ctx),
@@ -162,8 +164,6 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, event *bindings.Taiko
 		log.Error("Request proof error", "error", err)
 	}
 
-	s.resultCh <- result
-	metrics.ProverQueuedProofCounter.Add(1)
 	return nil
 }
 
