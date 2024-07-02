@@ -52,29 +52,9 @@ func (s *PreconfAPIServer) BuildBlock(c echo.Context) error {
 		return c.JSON(http.StatusUnprocessableEntity, err)
 	}
 
-	var transactions types.Transactions
-
-	for _, signedTxHex := range req.SignedTransactions {
-		if strings.HasPrefix(signedTxHex, "0x") {
-			signedTxHex = signedTxHex[2:]
-		}
-
-		rlpEncodedBytes, err := hex.DecodeString(signedTxHex)
-		if err != nil {
-			return c.JSON(http.StatusUnprocessableEntity, err)
-		}
-
-		var tx types.Transaction
-		if err := rlp.DecodeBytes(rlpEncodedBytes, &tx); err != nil {
-			return c.JSON(http.StatusUnprocessableEntity, err)
-		}
-
-		transactions = append(transactions, &tx)
-	}
-
-	txListBytes, err := rlp.EncodeToBytes(transactions)
-	if err != nil {
-		log.Fatalf("Failed to RLP encode transactions: %v", err)
+	txListBytes, err := signedTransactionsToTxListBytes(req.SignedTransactions)
+	if err := c.Bind(req); err != nil {
+		return c.JSON(http.StatusUnprocessableEntity, err)
 	}
 
 	tx, err := s.txBuilder.BuildUnsigned(
@@ -98,4 +78,33 @@ func (s *PreconfAPIServer) BuildBlock(c echo.Context) error {
 	hexEncodedTx := hex.EncodeToString(rlpEncodedTx.Bytes())
 
 	return c.JSON(http.StatusOK, buildBlockResponse{RLPEncodedTx: hexEncodedTx})
+}
+
+func signedTransactionsToTxListBytes(txs []string) ([]byte, error) {
+	var transactions types.Transactions
+
+	for _, signedTxHex := range txs {
+		if strings.HasPrefix(signedTxHex, "0x") {
+			signedTxHex = signedTxHex[2:]
+		}
+
+		rlpEncodedBytes, err := hex.DecodeString(signedTxHex)
+		if err != nil {
+			return nil, err
+		}
+
+		var tx types.Transaction
+		if err := rlp.DecodeBytes(rlpEncodedBytes, &tx); err != nil {
+			return nil, err
+		}
+
+		transactions = append(transactions, &tx)
+	}
+
+	txListBytes, err := rlp.EncodeToBytes(transactions)
+	if err != nil {
+		log.Fatalf("Failed to RLP encode transactions: %v", err)
+	}
+
+	return txListBytes, nil
 }
