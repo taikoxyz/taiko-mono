@@ -66,7 +66,7 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 
 	// Keep retrying to connect to the RPC endpoints until success or context is cancelled.
 	if err := backoff.Retry(func() error {
-		ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+		ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 		defer cancel()
 
 		if l1Client, err = NewEthClient(ctxWithTimeout, cfg.L1Endpoint, cfg.Timeout); err != nil {
@@ -100,7 +100,7 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 		return nil, err
 	}
 
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	taikoL1, err := bindings.NewTaikoL1Client(cfg.TaikoL1Address, l1Client)

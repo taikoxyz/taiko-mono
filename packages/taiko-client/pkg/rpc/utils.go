@@ -50,7 +50,7 @@ func CheckProverBalance(
 	address common.Address,
 	bond *big.Int,
 ) (bool, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	// Check allowance on taiko token contract
@@ -114,7 +114,7 @@ func GetBlockProofStatus(
 	proverAddress common.Address,
 	proverSetAddress common.Address,
 ) (*BlockProofStatus, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	// Get the local L2 parent header.
@@ -201,7 +201,7 @@ func GetBlockProofStatus(
 // SetHead makes a `debug_setHead` RPC call to set the chain's head, should only be used
 // for testing purpose.
 func SetHead(ctx context.Context, client *EthClient, headNum *big.Int) error {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	return client.SetHead(ctxWithTimeout, headNum)
@@ -215,10 +215,10 @@ func StringToBytes32(str string) [32]byte {
 	return b
 }
 
-// ctxWithTimeoutOrDefault sets a context timeout if the deadline has not passed or is not set,
+// CtxWithTimeoutOrDefault sets a context timeout if the deadline has not passed or is not set,
 // and otherwise returns the context as passed in. cancel func is always set to an empty function
 // so is safe to defer the cancel.
-func ctxWithTimeoutOrDefault(ctx context.Context, defaultTimeout time.Duration) (context.Context, context.CancelFunc) {
+func CtxWithTimeoutOrDefault(ctx context.Context, defaultTimeout time.Duration) (context.Context, context.CancelFunc) {
 	if utils.IsNil(ctx) {
 		return context.WithTimeout(context.Background(), defaultTimeout)
 	}

@@ -130,6 +130,10 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, event *bindings.Taiko
 	// Send the generated proof.
 	if err := backoff.Retry(
 		func() error {
+			if ctx.Err() != nil {
+				log.Error("Failed to request proof, context is canceled", "blockID", opts.BlockID, "error", ctx.Err())
+				return nil
+			}
 			// Check if there is a need to generate proof
 			proofStatus, err := rpc.GetBlockProofStatus(
 				ctx,
@@ -162,6 +166,7 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, event *bindings.Taiko
 		backoff.WithContext(backoff.NewConstantBackOff(proofPollingInterval), ctx),
 	); err != nil {
 		log.Error("Request proof error", "error", err)
+		return err
 	}
 
 	return nil
