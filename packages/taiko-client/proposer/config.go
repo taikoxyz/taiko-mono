@@ -32,6 +32,7 @@ type Config struct {
 	LocalAddressesOnly         bool
 	MinGasUsed                 uint64
 	MinTxListBytes             uint64
+	MinTip                     uint64
 	MinProposingInternal       time.Duration
 	MaxProposedTxListsPerEpoch uint64
 	ProposeBlockTxGasLimit     uint64
@@ -113,6 +114,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		LocalAddressesOnly:         c.Bool(flags.TxPoolLocalsOnly.Name),
 		MinGasUsed:                 c.Uint64(flags.MinGasUsed.Name),
 		MinTxListBytes:             c.Uint64(flags.MinTxListBytes.Name),
+		MinTip:                     c.Uint64(flags.MinTip.Name),
 		MinProposingInternal:       c.Duration(flags.MinProposingInternal.Name),
 		MaxProposedTxListsPerEpoch: c.Uint64(flags.MaxProposedTxListsPerEpoch.Name),
 		ProposeBlockTxGasLimit:     c.Uint64(flags.TxGasLimit.Name),

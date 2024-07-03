@@ -202,6 +202,7 @@ func (p *Proposer) fetchPoolContent(filterPoolContent bool) ([]types.Transaction
 		rpc.BlockMaxTxListBytes,
 		p.LocalAddresses,
 		p.MaxProposedTxListsPerEpoch,
+		p.MinTip,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch transaction pool content: %w", err)
