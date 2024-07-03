@@ -88,8 +88,9 @@ type DB interface {
 // as its source, and vice versa for the L2-L1 indexer. They will add messages to a queue
 // specifically for a processor of the same configuration.
 type Indexer struct {
-	eventRepo    relayer.EventRepository
-	srcEthClient ethClient
+	eventRepo     relayer.EventRepository
+	srcEthClient  ethClient
+	destEthClient ethClient
 
 	latestIndexedBlockNumber uint64
 
@@ -191,10 +192,10 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 
 	var signalService relayer.SignalService
 
-	if cfg.SrcSignalServiceAddress != ZeroAddress {
-		slog.Info("setting srcSignalServiceAddress", "addr", cfg.SrcSignalServiceAddress.Hex())
+	if cfg.DestSignalServiceAddress != ZeroAddress {
+		slog.Info("setting destSignalServiceAddress", "addr", cfg.DestSignalServiceAddress.Hex())
 
-		signalService, err = signalservice.NewSignalService(cfg.SrcSignalServiceAddress, srcEthClient)
+		signalService, err = signalservice.NewSignalService(cfg.DestSignalServiceAddress, destEthClient)
 		if err != nil {
 			return errors.Wrap(err, "signalservice.NewSignalService")
 		}
@@ -212,6 +213,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 
 	i.eventRepo = eventRepository
 	i.srcEthClient = srcEthClient
+	i.destEthClient = destEthClient
 
 	i.bridge = srcBridge
 	i.destBridge = destBridge

@@ -39,7 +39,7 @@ func (i *Indexer) handleChainDataSyncedEvent(
 	if waitForConfirmations {
 		if err := relayer.WaitConfirmations(
 			confCtx,
-			i.srcEthClient,
+			i.destEthClient,
 			uint64(defaultConfirmations),
 			event.Raw.TxHash,
 		); err != nil {
@@ -56,8 +56,8 @@ func (i *Indexer) handleChainDataSyncedEvent(
 		Name:            relayer.EventNameChainDataSynced,
 		Event:           relayer.EventNameChainDataSynced,
 		Data:            string(marshaled),
-		ChainID:         i.srcChainId,
-		DestChainID:     i.destChainId,
+		ChainID:         i.destChainId,
+		DestChainID:     i.srcChainId,
 		SyncedChainID:   event.ChainId,
 		BlockID:         event.BlockId,
 		EmittedBlockID:  event.Raw.BlockNumber,

@@ -94,11 +94,11 @@ var (
 		Value:    10,
 		EnvVars:  []string{"ETH_CLIENT_TIMEOUT"},
 	}
-	SrcSignalServiceAddress = &cli.StringFlag{
-		Name:     "srcSignalServiceAddress",
-		Usage:    "SignalService address for the source chain",
+	DestSignalServiceAddress = &cli.StringFlag{
+		Name:     "destSignalServiceAddress",
+		Usage:    "SignalService address for the destination chain",
 		Category: commonCategory,
-		EnvVars:  []string{"SRC_SIGNAL_SERVICE_ADDRESS"},
+		EnvVars:  []string{"DEST_SIGNAL_SERVICE_ADDRESS"},
 	}
 	BackOffRetryInterval = &cli.Uint64Flag{
 		Name:     "backoff.retryInterval",
@@ -131,7 +131,7 @@ var CommonFlags = []cli.Flag{
 	DatabaseMaxOpenConns,
 	MetricsHTTPPort,
 	ETHClientTimeout,
-	SrcSignalServiceAddress,
+	DestSignalServiceAddress,
 	BackOffMaxRetrys,
 	BackOffRetryInterval,
 }

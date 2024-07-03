@@ -13,8 +13,8 @@ import (
 // this is used to make sure a valid proof can be generated and verified on chain.
 func (p *Processor) waitHeaderSynced(
 	ctx context.Context,
-	ethClient ethClient,
-	hopChainId uint64,
+	ethClient ethClient, // source
+	hopChainId uint64, // dest
 	blockNum uint64,
 ) (*relayer.Event, error) {
 	chainId, err := ethClient.ChainID(ctx)

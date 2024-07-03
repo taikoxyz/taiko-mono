@@ -139,7 +139,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	return &Config{
 		hopConfigs:                         hopConfigs,
 		ProcessorPrivateKey:                processorPrivateKey,
-		SrcSignalServiceAddress:            common.HexToAddress(c.String(flags.SrcSignalServiceAddress.Name)),
+		SrcSignalServiceAddress:            common.HexToAddress(c.String(flags.DestSignalServiceAddress.Name)),
 		DestTaikoAddress:                   common.HexToAddress(c.String(flags.DestTaikoAddress.Name)),
 		DestBridgeAddress:                  common.HexToAddress(c.String(flags.DestBridgeAddress.Name)),
 		DestERC721VaultAddress:             common.HexToAddress(c.String(flags.DestERC721VaultAddress.Name)),
