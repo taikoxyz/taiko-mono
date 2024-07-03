@@ -26,16 +26,13 @@ const (
 	ProofTypeCPU = "native"
 )
 
-var (
-	defaultRequestTimeout = 10 * time.Minute
-)
-
 // SGXProofProducer generates a SGX proof for the given block.
 type SGXProofProducer struct {
-	RaikoHostEndpoint string // a proverd RPC endpoint
-	ProofType         string // Proof type
-	JWT               string // JWT provided by Raiko
-	Dummy             bool
+	RaikoHostEndpoint   string // a proverd RPC endpoint
+	ProofType           string // Proof type
+	JWT                 string // JWT provided by Raiko
+	Dummy               bool
+	RaikoRequestTimeout time.Duration
 	DummyProofProducer
 }
 
@@ -118,7 +115,7 @@ func (s *SGXProofProducer) callProverDaemon(ctx context.Context, opts *ProofRequ
 		start = time.Now()
 	)
 
-	ctx, cancel := rpc.CtxWithTimeoutOrDefault(ctx, defaultRequestTimeout)
+	ctx, cancel := rpc.CtxWithTimeoutOrDefault(ctx, s.RaikoRequestTimeout)
 	defer cancel()
 
 	output, err := s.requestProof(ctx, opts)
