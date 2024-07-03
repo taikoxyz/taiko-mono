@@ -146,13 +146,6 @@ var (
 		Value:   false,
 		EnvVars: []string{"L1_BLOB_ALLOWED"},
 	}
-	L1BlockBuilderTip = &cli.Uint64Flag{
-		Name:     "l1.blockBuilderTip",
-		Usage:    "Amount you wish to tip the L1 block builder",
-		Value:    0,
-		Category: proposerCategory,
-		EnvVars:  []string{"L1_BLOCK_BUILDER_TIP"},
-	}
 )
 
 // ProposerFlags All proposer flags.
@@ -180,5 +173,4 @@ var ProposerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	MaxTierFeePriceBumps,
 	ProposeBlockIncludeParentMetaHash,
 	BlobAllowed,
-	L1BlockBuilderTip,
 }, TxmgrFlags)
