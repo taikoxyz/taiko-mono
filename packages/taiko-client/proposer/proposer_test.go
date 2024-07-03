@@ -178,6 +178,7 @@ func (s *ProposerTestSuite) TestProposeOpNoEmptyBlock() {
 			rpc.BlockMaxTxListBytes,
 			p.LocalAddresses,
 			p.MaxProposedTxListsPerEpoch,
+			0,
 		)
 		time.Sleep(time.Second)
 	}

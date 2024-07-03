@@ -82,6 +82,13 @@ var (
 		Value:    0,
 		EnvVars:  []string{"EPOCH_MIN_TX_LIST_BYTES"},
 	}
+	MinTip = &cli.Uint64Flag{
+		Name:     "epoch.minTip",
+		Usage:    "Minimum tip for a transaction to propose",
+		Category: proposerCategory,
+		Value:    0,
+		EnvVars:  []string{"EPOCH_MIN_TIP"},
+	}
 	MinProposingInternal = &cli.DurationFlag{
 		Name:     "epoch.minProposingInterval",
 		Usage:    "Minimum time interval to force proposing a block, even if there are no transaction in mempool",
@@ -148,6 +155,7 @@ var ProposerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	ExtraData,
 	MinGasUsed,
 	MinTxListBytes,
+	MinTip,
 	MinProposingInternal,
 	MaxProposedTxListsPerEpoch,
 	ProverEndpoints,
