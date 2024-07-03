@@ -117,7 +117,7 @@ func (c *EngineClient) TxPoolContentWithMinTip(
 	if err := c.CallContext(
 		timeoutCtx,
 		&result,
-		"taikoAuth_txPoolContent",
+		"taikoAuth_txPoolContentWithMinTip",
 		beneficiary,
 		baseFee,
 		blockMaxGasLimit,
