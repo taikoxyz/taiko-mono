@@ -82,9 +82,9 @@ var (
 		Value:    0,
 		EnvVars:  []string{"EPOCH_MIN_TX_LIST_BYTES"},
 	}
-	MinTip = &cli.Uint64Flag{
+	MinTip = &cli.Float64Flag{
 		Name:     "epoch.minTip",
-		Usage:    "Minimum tip for a transaction to propose",
+		Usage:    "Minimum tip (in GWei) for a transaction to propose",
 		Category: proposerCategory,
 		Value:    0,
 		EnvVars:  []string{"EPOCH_MIN_TIP"},
@@ -95,6 +95,13 @@ var (
 		Category: proposerCategory,
 		Value:    0,
 		EnvVars:  []string{"EPOCH_MIN_PROPOSING_INTERNAL"},
+	}
+	AllowZeroInterval = &cli.Uint64Flag{
+		Name:     "epoch.allowZeroInterval",
+		Usage:    "If set, after this many epochs, proposer will allow propose zero tip transactions once",
+		Category: proposerCategory,
+		Value:    0,
+		EnvVars:  []string{"EPOCH_ALLOW_ZERO_INTERVAL"},
 	}
 	// Proposing metadata related.
 	ExtraData = &cli.StringFlag{
@@ -157,6 +164,7 @@ var ProposerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	MinTxListBytes,
 	MinTip,
 	MinProposingInternal,
+	AllowZeroInterval,
 	MaxProposedTxListsPerEpoch,
 	ProverEndpoints,
 	OptimisticTierFee,
