@@ -26,7 +26,6 @@ library LibVerifying {
         ITierRouter tierRouter;
     }
 
-    // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_BATCH_TRANSFER_FAILED();
     error L1_BLOCK_MISMATCH();
     error L1_INVALID_CONFIG();

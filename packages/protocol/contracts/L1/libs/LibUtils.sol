@@ -32,7 +32,6 @@ library LibUtils {
         uint16 tier
     );
 
-    // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_BLOCK_MISMATCH();
     error L1_INVALID_BLOCK_ID();
     error L1_INVALID_GENESIS_HASH();

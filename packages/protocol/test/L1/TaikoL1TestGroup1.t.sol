@@ -50,7 +50,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             blockHash,
             stateRoot,
             meta.minTier,
-            TaikoErrors.L1_NOT_ASSIGNED_PROVER.selector
+            LibProving.L1_NOT_ASSIGNED_PROVER.selector
         );
 
         console2.log("====== Alice proves the block");
