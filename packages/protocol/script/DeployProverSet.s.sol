@@ -6,8 +6,6 @@ import "../test/DeployCapability.sol";
 
 contract DeployProverSet is DeployCapability {
     modifier broadcast() {
-        uint256 privateKey = vm.envUint("PRIVATE_KEY");
-        require(privateKey != 0, "invalid priv key");
         vm.startBroadcast();
         _;
         vm.stopBroadcast();
