@@ -38,6 +38,7 @@ func (c *Client) ensureGenesisMatched(ctx context.Context) error {
 
 	stateVars, err := c.GetProtocolStateVariables(&bind.CallOpts{Context: ctxWithTimeout})
 	if err != nil {
+		log.Error("error getting protocol state variables", "error", err)
 		return err
 	}
 
@@ -48,12 +49,14 @@ func (c *Client) ensureGenesisMatched(ctx context.Context) error {
 		nil,
 	)
 	if err != nil {
+		log.Error("error getting c.TaikoL1.FilterBlockVerified", "error", err)
 		return err
 	}
 
 	// Fetch the node's genesis block.
 	nodeGenesis, err := c.L2.HeaderByNumber(ctxWithTimeout, common.Big0)
 	if err != nil {
+		log.Error("error getting node genesis block", "error", err)
 		return err
 	}
 
