@@ -10,6 +10,10 @@ but this is not recommended as it can cause nonce issues.
 
 This guide outlines how to achieve this with separate EOAs running prover and proposer through the ProverSet smart contract.
 
+<Aside>
+    ProverSet showcases how you can use a smart contract as a proposer and prover, but you may want to add custom functionalities in your contracts to settle proposer-prover payments; especially if you are working with a third party prover or proposer.
+</Aside>
+
 ## Prerequisites
 
 - You have set up a prover and proposer with the guides in our documentation
@@ -98,6 +102,10 @@ This guide outlines how to achieve this with separate EOAs running prover and pr
 7. **Deposit your tokens and run your proposer + prover as usual!**
 
     If you've followed the instructions, send your TAIKO/TTKOh to the ProverSet proxy and begin running your prover and proposer as usual.
+
+    <Aside>
+        Make sure to set your `$PROVER_SET` in your `simple-taiko-node` .env file as the proxy address. 
+    </Aside>
 
     Ensure that you have set up the EOAs correctly to avoid problems. 
 
