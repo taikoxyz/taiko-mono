@@ -30,7 +30,7 @@ contract SendMessageToDelegateOwner is Script {
             abi.encodeCall(DelegateOwner.setAdmin, (0x55d79345Afc87806B690C9f96c4D7BfE2Bca8268));
 
         DelegateOwner.Call memory dcall = DelegateOwner.Call({
-            txId: 0,
+            txId: 0, // Has to match with DelegateOwner's nextTxId
             target: multicall3,
             isDelegateCall: true,
             txdata: abi.encodeCall(TestMulticall3.aggregate3, (calls))
