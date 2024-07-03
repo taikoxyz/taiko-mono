@@ -255,6 +255,7 @@ func (c *Client) GetPoolContent(
 	maxBytesPerTxList uint64,
 	locals []common.Address,
 	maxTransactionsLists uint64,
+	minTip uint64,
 ) ([]*miner.PreBuiltTxList, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
@@ -285,7 +286,7 @@ func (c *Client) GetPoolContent(
 		localsArg = append(localsArg, local.Hex())
 	}
 
-	return c.L2Engine.TxPoolContent(
+	return c.L2Engine.TxPoolContentWithMinTip(
 		ctxWithTimeout,
 		beneficiary,
 		baseFeeInfo.Basefee,
@@ -293,6 +294,7 @@ func (c *Client) GetPoolContent(
 		maxBytesPerTxList,
 		localsArg,
 		maxTransactionsLists,
+		minTip,
 	)
 }
 

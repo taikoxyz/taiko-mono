@@ -99,8 +99,8 @@ func (c *EngineClient) ExchangeTransitionConfiguration(
 	return result, nil
 }
 
-// TxPoolContent fetches the transaction pool content from the L2 execution engine.
-func (c *EngineClient) TxPoolContent(
+// TxPoolContentWithMinTip fetches the transaction pool content from the L2 execution engine.
+func (c *EngineClient) TxPoolContentWithMinTip(
 	ctx context.Context,
 	beneficiary common.Address,
 	baseFee *big.Int,
@@ -108,6 +108,7 @@ func (c *EngineClient) TxPoolContent(
 	maxBytesPerTxList uint64,
 	locals []string,
 	maxTransactionsLists uint64,
+	minTip uint64,
 ) ([]*miner.PreBuiltTxList, error) {
 	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
@@ -123,6 +124,7 @@ func (c *EngineClient) TxPoolContent(
 		maxBytesPerTxList,
 		locals,
 		maxTransactionsLists,
+		minTip,
 	); err != nil {
 		return nil, err
 	}
