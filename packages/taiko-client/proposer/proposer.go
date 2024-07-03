@@ -53,6 +53,7 @@ type Proposer struct {
 	protocolConfigs *bindings.TaikoDataConfig
 
 	lastProposedAt time.Time
+	totalEpochs    uint64
 
 	txmgr *txmgr.SimpleTxManager
 
@@ -177,6 +178,7 @@ func (p *Proposer) eventLoop() {
 		// proposing interval timer has been reached
 		case <-p.proposingTimer.C:
 			metrics.ProposerProposeEpochCounter.Add(1)
+			p.totalEpochs++
 
 			// Attempt a proposing operation
 			if err := p.ProposeOp(p.ctx); err != nil {
@@ -194,6 +196,13 @@ func (p *Proposer) Close(_ context.Context) {
 
 // fetchPoolContent fetches the transaction pool content from L2 execution engine.
 func (p *Proposer) fetchPoolContent(filterPoolContent bool) ([]types.Transactions, error) {
+	minTip := p.MinTip
+	// If `--epoch.allowZeroInterval` flag is set, allow proposing zero tip transactions once when
+	// the total epochs number is divisible by the flag value.
+	if p.AllowZeroInterval > 0 && p.totalEpochs%p.AllowZeroInterval == 0 {
+		minTip = 0
+	}
+
 	// Fetch the pool content.
 	preBuiltTxList, err := p.rpc.GetPoolContent(
 		p.ctx,
@@ -202,7 +211,7 @@ func (p *Proposer) fetchPoolContent(filterPoolContent bool) ([]types.Transaction
 		rpc.BlockMaxTxListBytes,
 		p.LocalAddresses,
 		p.MaxProposedTxListsPerEpoch,
-		p.MinTip,
+		minTip,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch transaction pool content: %w", err)
