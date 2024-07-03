@@ -358,11 +358,6 @@ func (p *Proposer) ProposeTxList(
 		parentMetaHash = parent.MetaHash
 	}
 
-	if p.isPreconfirmationsEnabled() {
-		l1StateBlockNumber = parent.L1StateBlockNumber + 1
-		timestamp = parent.Timestamp + 12
-	}
-
 	txCandidate, err := p.txBuilder.Build(
 		ctx,
 		p.tierFees,
@@ -446,10 +441,6 @@ func (p *Proposer) initTierFees() error {
 	}
 
 	return nil
-}
-
-func (p *Proposer) isPreconfirmationsEnabled() bool {
-	return len(p.PreconfirmationRPC) > 0
 }
 
 // getParentOfLatestProposedBlock returns the parent block of the latest proposed block in protocol
