@@ -191,8 +191,8 @@ func (r *EventRepository) Delete(
 
 func (r *EventRepository) ChainDataSyncedEventByBlockNumberOrGreater(
 	ctx context.Context,
-	srcChainId uint64, // dest chainid
-	syncedChainId uint64, // source chainid
+	srcChainId uint64,
+	syncedChainId uint64,
 	blockNumber uint64,
 ) (*relayer.Event, error) {
 	e := &relayer.Event{}
@@ -216,8 +216,8 @@ func (r *EventRepository) ChainDataSyncedEventByBlockNumberOrGreater(
 
 func (r *EventRepository) LatestChainDataSyncedEvent(
 	ctx context.Context,
-	srcChainId uint64, // destclient dest chainid
-	syncedChainId uint64, // source client source chainid
+	srcChainId uint64,
+	syncedChainId uint64,
 ) (uint64, error) {
 	blockID := 0
 	// find all message sent events
