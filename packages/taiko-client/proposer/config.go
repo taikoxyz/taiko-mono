@@ -95,6 +95,11 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		return nil, err
 	}
 
+	minTip, err := utils.GWeiToWei(c.Float64(flags.MinTip.Name))
+	if err != nil {
+		return nil, err
+	}
+
 	return &Config{
 		ClientConfig: &rpc.ClientConfig{
 			L1Endpoint:        c.String(flags.L1WSEndpoint.Name),
@@ -115,7 +120,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		LocalAddressesOnly:         c.Bool(flags.TxPoolLocalsOnly.Name),
 		MinGasUsed:                 c.Uint64(flags.MinGasUsed.Name),
 		MinTxListBytes:             c.Uint64(flags.MinTxListBytes.Name),
-		MinTip:                     c.Uint64(flags.MinTip.Name),
+		MinTip:                     minTip.Uint64(),
 		MinProposingInternal:       c.Duration(flags.MinProposingInternal.Name),
 		MaxProposedTxListsPerEpoch: c.Uint64(flags.MaxProposedTxListsPerEpoch.Name),
 		AllowZeroInterval:          c.Uint64(flags.AllowZeroInterval.Name),

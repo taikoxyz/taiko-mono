@@ -82,9 +82,9 @@ var (
 		Value:    0,
 		EnvVars:  []string{"EPOCH_MIN_TX_LIST_BYTES"},
 	}
-	MinTip = &cli.Uint64Flag{
+	MinTip = &cli.Float64Flag{
 		Name:     "epoch.minTip",
-		Usage:    "Minimum tip (in Wei) for a transaction to propose",
+		Usage:    "Minimum tip (in GWei) for a transaction to propose",
 		Category: proposerCategory,
 		Value:    0,
 		EnvVars:  []string{"EPOCH_MIN_TIP"},
