@@ -202,6 +202,11 @@ func (w *Watchdog) Close(ctx context.Context) {
 	w.cancel()
 
 	w.wg.Wait()
+
+	// Close db connection.
+	if err := w.eventRepo.Close(); err != nil {
+		slog.Error("Failed to close db connection", "err", err)
+	}
 }
 
 func (w *Watchdog) Start() error {

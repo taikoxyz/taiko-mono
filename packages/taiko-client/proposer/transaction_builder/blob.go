@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"crypto/sha256"
-	"math/big"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
@@ -14,7 +13,6 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	selector "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/prover_selector"
 )
 
 // BlobTransactionBuilder is responsible for building a TaikoL1.proposeBlock transaction with txList
@@ -22,8 +20,6 @@ import (
 type BlobTransactionBuilder struct {
 	rpc                     *rpc.Client
 	proposerPrivateKey      *ecdsa.PrivateKey
-	proverSelector          selector.ProverSelector
-	l1BlockBuilderTip       *big.Int
 	taikoL1Address          common.Address
 	proverSetAddress        common.Address
 	l2SuggestedFeeRecipient common.Address
@@ -35,8 +31,6 @@ type BlobTransactionBuilder struct {
 func NewBlobTransactionBuilder(
 	rpc *rpc.Client,
 	proposerPrivateKey *ecdsa.PrivateKey,
-	proverSelector selector.ProverSelector,
-	l1BlockBuilderTip *big.Int,
 	taikoL1Address common.Address,
 	proverSetAddress common.Address,
 	l2SuggestedFeeRecipient common.Address,
@@ -46,8 +40,6 @@ func NewBlobTransactionBuilder(
 	return &BlobTransactionBuilder{
 		rpc,
 		proposerPrivateKey,
-		proverSelector,
-		l1BlockBuilderTip,
 		taikoL1Address,
 		proverSetAddress,
 		l2SuggestedFeeRecipient,
@@ -59,7 +51,6 @@ func NewBlobTransactionBuilder(
 // Build implements the ProposeBlockTransactionBuilder interface.
 func (b *BlobTransactionBuilder) Build(
 	ctx context.Context,
-	tierFees []encoding.TierFee,
 	includeParentMetaHash bool,
 	txListBytes []byte,
 ) (*txmgr.TxCandidate, error) {
@@ -68,17 +59,11 @@ func (b *BlobTransactionBuilder) Build(
 		return nil, err
 	}
 
-	// Try to assign a prover.
-	maxFee, err := b.proverSelector.AssignProver(
-		ctx,
-		tierFees,
-	)
-	if err != nil {
-		return nil, err
-	}
-
 	// If the current proposer wants to include the parent meta hash, then fetch it from the protocol.
-	var parentMetaHash = [32]byte{}
+	var (
+		parentMetaHash = [32]byte{}
+		err            error
+	)
 	if includeParentMetaHash {
 		if parentMetaHash, err = getParentMetaHash(ctx, b.rpc); err != nil {
 			return nil, err
@@ -133,6 +118,5 @@ func (b *BlobTransactionBuilder) Build(
 		Blobs:    []*eth.Blob{blob},
 		To:       to,
 		GasLimit: b.gasLimit,
-		Value:    maxFee,
 	}, nil
 }
