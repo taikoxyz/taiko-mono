@@ -57,6 +57,7 @@ type Config struct {
 	GuardianProverHealthCheckServerEndpoint *url.URL
 	RaikoHostEndpoint                       string
 	RaikoJWT                                string
+	RaikoRequestTimeout                     time.Duration
 	L1NodeVersion                           string
 	L2NodeVersion                           string
 	BlockConfirmations                      uint64
@@ -163,6 +164,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		L1ProverPrivKey:                         l1ProverPrivKey,
 		RaikoHostEndpoint:                       c.String(flags.RaikoHostEndpoint.Name),
 		RaikoJWT:                                common.Bytes2Hex(jwtSecret),
+		RaikoRequestTimeout:                     c.Duration(flags.RaikoRequestTimeout.Name),
 		StartingBlockID:                         startingBlockID,
 		Dummy:                                   c.Bool(flags.Dummy.Name),
 		GuardianProverMinorityAddress:           common.HexToAddress(c.String(flags.GuardianProverMinority.Name)),
