@@ -27,7 +27,7 @@ const (
 )
 
 var (
-	defaultRequestTimeout = 5 * time.Minute
+	defaultRequestTimeout = 10 * time.Minute
 )
 
 // SGXProofProducer generates a SGX proof for the given block.
