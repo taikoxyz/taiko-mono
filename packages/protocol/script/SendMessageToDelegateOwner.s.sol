@@ -7,7 +7,7 @@ import "../contracts/bridge/IBridge.sol";
 import "../test/common/TestMulticall3.sol";
 
 contract SendMessageToDelegateOwner is Script {
-    address public delegateOwner = 0x904aa0aC002532f1410457484893107757683F53;
+    address public delegateOwner = 0x2F46C57046672E71d02ed0f0B71dFa42C7F3C488;
     address public multicall3 = 0xcA11bde05977b3631167028862bE2a173976CA11;
     address public l1Bridge = 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC;
 
