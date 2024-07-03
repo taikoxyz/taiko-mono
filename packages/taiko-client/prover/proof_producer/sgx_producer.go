@@ -18,11 +18,16 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
 const (
 	ProofTypeSgx = "sgx"
 	ProofTypeCPU = "native"
+)
+
+var (
+	defaultRequestTimeout = 10 * time.Minute
 )
 
 // SGXProofProducer generates a SGX proof for the given block.
@@ -113,10 +118,10 @@ func (s *SGXProofProducer) callProverDaemon(ctx context.Context, opts *ProofRequ
 		start = time.Now()
 	)
 
-	if ctx.Err() != nil {
-		return nil, ctx.Err()
-	}
-	output, err := s.requestProof(opts)
+	ctx, cancel := rpc.CtxWithTimeoutOrDefault(ctx, defaultRequestTimeout)
+	defer cancel()
+
+	output, err := s.requestProof(ctx, opts)
 	if err != nil {
 		log.Error("Failed to request proof", "height", opts.BlockID, "error", err, "endpoint", s.RaikoHostEndpoint)
 		return nil, err
@@ -153,7 +158,10 @@ func (s *SGXProofProducer) callProverDaemon(ctx context.Context, opts *ProofRequ
 }
 
 // requestProof sends a RPC request to proverd to try to get the requested proof.
-func (s *SGXProofProducer) requestProof(opts *ProofRequestOptions) (*RaikoRequestProofBodyResponse, error) {
+func (s *SGXProofProducer) requestProof(
+	ctx context.Context,
+	opts *ProofRequestOptions,
+) (*RaikoRequestProofBodyResponse, error) {
 	reqBody := RaikoRequestProofBody{
 		Type:     s.ProofType,
 		Block:    opts.BlockID,
@@ -173,7 +181,7 @@ func (s *SGXProofProducer) requestProof(opts *ProofRequestOptions) (*RaikoReques
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", s.RaikoHostEndpoint+"/v1/proof", bytes.NewBuffer(jsonValue))
+	req, err := http.NewRequestWithContext(ctx, "POST", s.RaikoHostEndpoint+"/v1/proof", bytes.NewBuffer(jsonValue))
 	if err != nil {
 		return nil, err
 	}
