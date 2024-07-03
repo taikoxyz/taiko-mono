@@ -73,7 +73,7 @@ func (s *PreconfAPIServer) BuildBlock(c echo.Context) error {
 	// RLP encode the transaction
 	var rlpEncodedTx bytes.Buffer
 	if err := rlp.Encode(&rlpEncodedTx, tx); err != nil {
-		log.Fatalf("Failed to RLP encode the transaction: %v", err)
+		return c.JSON(http.StatusInternalServerError, err)
 	}
 
 	hexEncodedTx := hex.EncodeToString(rlpEncodedTx.Bytes())

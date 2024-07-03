@@ -14,7 +14,7 @@ import (
 )
 
 type PreconfAPI struct {
-	*Config
+	cfg    *Config
 	server *server.PreconfAPIServer
 }
 
@@ -42,19 +42,20 @@ func (p *PreconfAPI) InitFromConfig(_ context.Context, cfg *Config) (err error) 
 		)
 	}
 
-	// Prover server
 	if p.server, err = server.New(&server.NewPreconfAPIServerOpts{
 		TxBuilder: txBuilder,
 	}); err != nil {
 		return err
 	}
 
+	p.cfg = cfg
+
 	return nil
 }
 
 func (p *PreconfAPI) Start() error {
 	go func() {
-		if err := p.server.Start(fmt.Sprintf(":%v", p.HTTPPort)); !errors.Is(err, http.ErrServerClosed) {
+		if err := p.server.Start(fmt.Sprintf(":%v", p.cfg.HTTPPort)); !errors.Is(err, http.ErrServerClosed) {
 			log.Crit("Failed to start http server", "error", err)
 		}
 	}()
