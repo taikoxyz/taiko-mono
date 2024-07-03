@@ -249,7 +249,7 @@ contract DeployOnL1 is DeployCapability {
         // Register shared contracts in the new rollup
         copyRegister(rollupAddressManager, _sharedAddressManager, "taiko_token");
         copyRegister(rollupAddressManager, _sharedAddressManager, "signal_service");
-        copyRegister(rollupAddressManager, _sharedAddressManager, "bridge");
+        // copyRegister(rollupAddressManager, _sharedAddressManager, "bridge");
 
         deployProxy({
             name: "taiko",
