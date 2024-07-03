@@ -3,6 +3,7 @@ package proposer
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"sync"
@@ -23,7 +24,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	selector "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/prover_selector"
 	builder "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/transaction_builder"
 )
 
@@ -42,9 +42,6 @@ type Proposer struct {
 
 	tiers    []*rpc.TierProviderTierWithID
 	tierFees []encoding.TierFee
-
-	// Prover selector
-	proverSelector selector.ProverSelector
 
 	// Transaction builder
 	txBuilder builder.ProposeBlockTransactionBuilder
@@ -111,26 +108,10 @@ func (p *Proposer) InitFromConfig(ctx context.Context, cfg *Config, txMgr *txmgr
 		}
 	}
 
-	if p.proverSelector, err = selector.NewETHFeeEOASelector(
-		&protocolConfigs,
-		p.rpc,
-		p.proposerAddress,
-		cfg.TaikoL1Address,
-		cfg.ProverSetAddress,
-		p.tierFees,
-		cfg.TierFeePriceBump,
-		cfg.ProverEndpoints,
-		cfg.MaxTierFeePriceBumps,
-	); err != nil {
-		return err
-	}
-
 	if cfg.BlobAllowed {
 		p.txBuilder = builder.NewBlobTransactionBuilder(
 			p.rpc,
 			p.L1ProposerPrivKey,
-			p.proverSelector,
-			p.Config.L1BlockBuilderTip,
 			cfg.TaikoL1Address,
 			cfg.ProverSetAddress,
 			cfg.L2SuggestedFeeRecipient,
@@ -141,8 +122,6 @@ func (p *Proposer) InitFromConfig(ctx context.Context, cfg *Config, txMgr *txmgr
 		p.txBuilder = builder.NewCalldataTransactionBuilder(
 			p.rpc,
 			p.L1ProposerPrivKey,
-			p.proverSelector,
-			p.Config.L1BlockBuilderTip,
 			cfg.L2SuggestedFeeRecipient,
 			cfg.TaikoL1Address,
 			cfg.ProverSetAddress,
@@ -339,9 +318,30 @@ func (p *Proposer) ProposeTxList(
 		return err
 	}
 
+	proverAddress := p.proposerAddress
+	if p.Config.ClientConfig.ProverSetAddress != rpc.ZeroAddress {
+		proverAddress = p.Config.ClientConfig.ProverSetAddress
+	}
+
+	ok, err := rpc.CheckProverBalance(
+		ctx,
+		p.rpc,
+		proverAddress,
+		p.TaikoL1Address,
+		p.protocolConfigs.LivenessBond,
+	)
+
+	if err != nil {
+		log.Warn("Failed to check prover balance", "error", err)
+		return err
+	}
+
+	if !ok {
+		return errors.New("insufficient prover balance")
+	}
+
 	txCandidate, err := p.txBuilder.Build(
 		ctx,
-		p.tierFees,
 		p.IncludeParentMetaHash,
 		compressedTxListBytes,
 	)
