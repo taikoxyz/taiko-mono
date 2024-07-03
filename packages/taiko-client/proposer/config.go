@@ -34,6 +34,7 @@ type Config struct {
 	MinTxListBytes             uint64
 	MinTip                     uint64
 	MinProposingInternal       time.Duration
+	AllowZeroInterval          uint64
 	MaxProposedTxListsPerEpoch uint64
 	ProposeBlockTxGasLimit     uint64
 	ProverEndpoints            []*url.URL
@@ -117,6 +118,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		MinTip:                     c.Uint64(flags.MinTip.Name),
 		MinProposingInternal:       c.Duration(flags.MinProposingInternal.Name),
 		MaxProposedTxListsPerEpoch: c.Uint64(flags.MaxProposedTxListsPerEpoch.Name),
+		AllowZeroInterval:          c.Uint64(flags.AllowZeroInterval.Name),
 		ProposeBlockTxGasLimit:     c.Uint64(flags.TxGasLimit.Name),
 		ProverEndpoints:            proverEndpoints,
 		OptimisticTierFee:          optimisticTierFee,
