@@ -28,8 +28,7 @@ library LibBonds {
     )
         internal
     {
-        IERC20 tko = IERC20(_resolver.resolve(LibStrings.B_TAIKO_TOKEN, false));
-        tko.transferFrom(msg.sender, address(this), _amount);
+        _tko(_resolver).transferFrom(msg.sender, address(this), _amount);
         _state.bondBalance[msg.sender] += _amount;
     }
 
@@ -45,8 +44,7 @@ library LibBonds {
         internal
     {
         _state.bondBalance[msg.sender] -= _amount;
-        IERC20 tko = IERC20(_resolver.resolve(LibStrings.B_TAIKO_TOKEN, false));
-        tko.transfer(msg.sender, _amount);
+        _tko(_resolver).transfer(msg.sender, _amount);
     }
 
     /// @dev Debits Taiko tokens as bonds.
@@ -70,8 +68,7 @@ library LibBonds {
             }
             emit BondDebited(_user, _amount);
         } else {
-            IERC20 tko = IERC20(_resolver.resolve(LibStrings.B_TAIKO_TOKEN, false));
-            tko.transferFrom(_user, address(this), _amount);
+            _tko(_resolver).transferFrom(_user, address(this), _amount);
         }
     }
 
@@ -97,5 +94,9 @@ library LibBonds {
         returns (uint256)
     {
         return _state.bondBalance[_user];
+    }
+
+    function _tko(IAddressResolver _resolver) private view returns (IERC20) {
+        return IERC20(_resolver.resolve(LibStrings.B_TAIKO_TOKEN, false));
     }
 }
