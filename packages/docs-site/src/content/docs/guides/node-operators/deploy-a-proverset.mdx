@@ -46,11 +46,13 @@ This guide outlines how to achieve this with separate EOAs running prover and pr
 2. **Deploy the ProverSet**
 
     Set `ROLLUP_ADDRESS_MANAGER` to the address of the RollupAddressManager contract on the network you are deploying to. You can find these values in our network reference docs.
+    
+    Set `PROVER_SET_ADMIN` to the address of your **prover** EOA. You will be able to withdraw TAIKO/TTKOh from the contract to this address.
 
     Run the `DeployProverSet.s.sol` script with your **proposer's private key**. You can find the script [here](https://github.com/taikoxyz/taiko-mono/tree/main/packages/protocol/script/DeployProverSet.s.sol).
 
     ```bash
-    ROLLUP_ADDRESS_MANAGER={ADDRESS} forge script --chain-id {CHAIN_ID} --rpc-url {YOUR_RPC_URL} --private-key {PRIVATE_KEY} --broadcast script/DeployProverSet.s.sol:DeployProverSet
+    ROLLUP_ADDRESS_MANAGER={ADDRESS} PROVER_SET_ADMIN={ADDRESS} forge script --chain-id {CHAIN_ID} --rpc-url {YOUR_RPC_URL} --private-key {PRIVATE_KEY} --broadcast script/DeployProverSet.s.sol:DeployProverSet
     ```
 
     The script should print your implementation and proxy address with the log:
