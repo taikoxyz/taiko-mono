@@ -40,6 +40,13 @@ var (
 		Category: proverCategory,
 		EnvVars:  []string{"RAIKO_JWT_PATH"},
 	}
+	RaikoRequestTimeout = &cli.DurationFlag{
+		Name:     "raiko.requestTimeout",
+		Usage:    "Timeout in minutes for raiko request",
+		Category: commonCategory,
+		Value:    10 * time.Minute,
+		EnvVars:  []string{"RAIKO_REQUEST_TIMEOUT"},
+	}
 	StartingBlockID = &cli.Uint64Flag{
 		Name:     "prover.startingBlockID",
 		Usage:    "If set, prover will start proving blocks from the block with this ID",
@@ -235,4 +242,5 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	L1NodeVersion,
 	L2NodeVersion,
 	BlockConfirmations,
+	RaikoRequestTimeout,
 }, TxmgrFlags)

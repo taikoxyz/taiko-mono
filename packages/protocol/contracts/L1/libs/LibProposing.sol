@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 import "../../libs/LibAddress.sol";
 import "../../libs/LibNetwork.sol";
 import "../access/IProposerAccess.sol";
+import "./LibBonds.sol";
 import "./LibData.sol";
 import "./LibUtils.sol";
 
@@ -57,7 +58,6 @@ library LibProposing {
 
     /// @dev Proposes a Taiko L2 block.
     /// @param _state Current TaikoData.State.
-    /// @param _tko The taiko token.
     /// @param _config Actual TaikoData.Config.
     /// @param _resolver Address resolver interface.
     /// @param _data Encoded data bytes containing the block params.
@@ -65,7 +65,6 @@ library LibProposing {
     /// @return meta_ The constructed block's metadata.
     function proposeBlock(
         TaikoData.State storage _state,
-        TaikoToken _tko,
         TaikoData.Config memory _config,
         IAddressResolver _resolver,
         bytes calldata _data,
@@ -229,7 +228,7 @@ library LibProposing {
             ++_state.slotB.numBlocks;
         }
 
-        _tko.transferFrom(msg.sender, address(this), _config.livenessBond);
+        LibBonds.debitBond(_state, _resolver, msg.sender, _config.livenessBond);
 
         // Bribe the block builder. Unlock 1559-tips, this tip is only made
         // if this transaction succeeds.

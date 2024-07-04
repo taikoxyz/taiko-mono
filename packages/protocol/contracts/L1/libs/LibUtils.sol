@@ -5,7 +5,6 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "../../common/IAddressResolver.sol";
 import "../../common/LibStrings.sol";
-import "../../tko/TaikoToken.sol";
 import "../../libs/LibMath.sol";
 import "../tiers/ITierProvider.sol";
 import "../tiers/ITierRouter.sol";

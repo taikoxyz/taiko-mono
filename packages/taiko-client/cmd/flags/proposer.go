@@ -82,12 +82,26 @@ var (
 		Value:    0,
 		EnvVars:  []string{"EPOCH_MIN_TX_LIST_BYTES"},
 	}
+	MinTip = &cli.Float64Flag{
+		Name:     "epoch.minTip",
+		Usage:    "Minimum tip (in GWei) for a transaction to propose",
+		Category: proposerCategory,
+		Value:    0,
+		EnvVars:  []string{"EPOCH_MIN_TIP"},
+	}
 	MinProposingInternal = &cli.DurationFlag{
 		Name:     "epoch.minProposingInterval",
 		Usage:    "Minimum time interval to force proposing a block, even if there are no transaction in mempool",
 		Category: proposerCategory,
 		Value:    0,
 		EnvVars:  []string{"EPOCH_MIN_PROPOSING_INTERNAL"},
+	}
+	AllowZeroInterval = &cli.Uint64Flag{
+		Name:     "epoch.allowZeroInterval",
+		Usage:    "If set, after this many epochs, proposer will allow propose zero tip transactions once",
+		Category: proposerCategory,
+		Value:    0,
+		EnvVars:  []string{"EPOCH_ALLOW_ZERO_INTERVAL"},
 	}
 	// Proposing metadata related.
 	ExtraData = &cli.StringFlag{
@@ -132,13 +146,6 @@ var (
 		Value:   false,
 		EnvVars: []string{"L1_BLOB_ALLOWED"},
 	}
-	L1BlockBuilderTip = &cli.Uint64Flag{
-		Name:     "l1.blockBuilderTip",
-		Usage:    "Amount you wish to tip the L1 block builder",
-		Value:    0,
-		Category: proposerCategory,
-		EnvVars:  []string{"L1_BLOCK_BUILDER_TIP"},
-	}
 )
 
 // ProposerFlags All proposer flags.
@@ -155,7 +162,9 @@ var ProposerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	ExtraData,
 	MinGasUsed,
 	MinTxListBytes,
+	MinTip,
 	MinProposingInternal,
+	AllowZeroInterval,
 	MaxProposedTxListsPerEpoch,
 	ProverEndpoints,
 	OptimisticTierFee,
@@ -164,5 +173,4 @@ var ProposerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	MaxTierFeePriceBumps,
 	ProposeBlockIncludeParentMetaHash,
 	BlobAllowed,
-	L1BlockBuilderTip,
 }, TxmgrFlags)
