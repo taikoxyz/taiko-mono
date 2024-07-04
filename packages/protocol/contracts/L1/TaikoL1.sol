@@ -7,8 +7,6 @@ import "./libs/LibProposing.sol";
 import "./libs/LibProving.sol";
 import "./libs/LibVerifying.sol";
 import "./ITaikoL1.sol";
-import "./TaikoErrors.sol";
-import "./TaikoEvents.sol";
 
 /// @title TaikoL1
 /// @notice This contract serves as the "base layer contract" of the Taiko protocol, providing
@@ -19,14 +17,22 @@ import "./TaikoEvents.sol";
 /// by the Bridge contract.
 /// @dev Labeled in AddressResolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
-contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
+contract TaikoL1 is EssentialContract, ITaikoL1 {
     /// @notice The TaikoL1 state.
     TaikoData.State public state;
 
     uint256[50] private __gap;
 
+    /// @notice Emitted when some state variable values changed.
+    /// @dev This event is currently used by Taiko node/client for block proposal/proving.
+    /// @param slotB The SlotB data structure.
+    event StateVariablesUpdated(TaikoData.SlotB slotB);
+
+    error L1_FORK_ERROR();
+    error L1_RECEIVE_DISABLED();
+
     modifier whenProvingNotPaused() {
-        if (state.slotB.provingPaused) revert L1_PROVING_PAUSED();
+        if (state.slotB.provingPaused) revert LibProving.L1_PROVING_PAUSED();
         _;
     }
 

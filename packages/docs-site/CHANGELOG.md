@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.11.3](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.11.2...docs-site-v1.11.3) (2024-07-04)
+
+
+### Documentation
+
+* **docs-site,protocol:** streamline ProverSet deployment ([#17730](https://github.com/taikoxyz/taiko-mono/issues/17730)) ([919cb4c](https://github.com/taikoxyz/taiko-mono/commit/919cb4cd0064d1cfa994e53a30a73f98975cfe34))
+
 ## [1.11.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.11.1...docs-site-v1.11.2) (2024-07-01)
 
 

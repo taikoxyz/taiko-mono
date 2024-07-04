@@ -33,7 +33,6 @@ library LibProving {
         uint64 proposedAt;
     }
 
-    // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     /// @notice Emitted when a transition is proved.
     /// @param blockId The block ID.
     /// @param tran The transition data.
@@ -84,16 +83,15 @@ library LibProving {
     /// @param paused The pause status.
     event ProvingPaused(bool paused);
 
-    // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_ALREADY_CONTESTED();
     error L1_ALREADY_PROVED();
     error L1_BLOCK_MISMATCH();
     error L1_CANNOT_CONTEST();
-    error L1_INVALID_BLOCK_ID();
     error L1_INVALID_PAUSE_STATUS();
     error L1_INVALID_TIER();
     error L1_INVALID_TRANSITION();
     error L1_NOT_ASSIGNED_PROVER();
+    error L1_PROVING_PAUSED();
 
     /// @notice Pauses or unpauses the proving process.
     /// @param _state Current TaikoData.State.
@@ -149,7 +147,7 @@ library LibProving {
             meta = LibData.metadataV1toV2(meta1, 0);
         }
 
-        if (_blockId != meta.id) revert L1_INVALID_BLOCK_ID();
+        if (_blockId != meta.id) revert LibUtils.L1_INVALID_BLOCK_ID();
 
         // Make sure parentHash is not zero
         // To contest an existing transition, simply use any non-zero value as
@@ -160,7 +158,7 @@ library LibProving {
 
         // Check that the block has been proposed but has not yet been verified.
         if (meta.id <= local.b.lastVerifiedBlockId || meta.id >= local.b.numBlocks) {
-            revert L1_INVALID_BLOCK_ID();
+            revert LibUtils.L1_INVALID_BLOCK_ID();
         }
 
         local.slot = meta.id % _config.blockRingBufferSize;

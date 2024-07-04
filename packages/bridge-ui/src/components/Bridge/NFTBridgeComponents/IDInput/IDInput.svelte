@@ -4,7 +4,6 @@
 
   import { Icon } from '$components/Icon';
   import InputBox from '$components/InputBox/InputBox.svelte';
-  import { uid } from '$libs/util/uid';
 
   import { IDInputState as State } from './state';
 
@@ -24,7 +23,7 @@
 
   const dispatch = createEventDispatcher();
 
-  let inputId = `input-${uid()}`;
+  let inputId = `input-${crypto.randomUUID()}`;
 
   function validateInput(idInput: EventTarget | number[] | null = null) {
     state = State.VALIDATING;
