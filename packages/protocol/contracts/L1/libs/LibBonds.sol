@@ -28,8 +28,8 @@ library LibBonds {
     )
         internal
     {
-        _tko(_resolver).transferFrom(msg.sender, address(this), _amount);
         _state.bondBalance[msg.sender] += _amount;
+        _tko(_resolver).transferFrom(msg.sender, address(this), _amount);
     }
 
     /// @dev Withdraws Taiko token.
