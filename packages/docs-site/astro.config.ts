@@ -120,7 +120,7 @@ export default defineConfig({
                 {
                   label: "Verify a contract",
                   link: "/guides/app-developers/verify-a-contract/",
-                },
+                }
               ],
             },
             {
@@ -165,6 +165,20 @@ export default defineConfig({
                   link: "/guides/node-operators/node-troubleshooting/",
                 },
               ],
+            },
+            {
+              label: "Indexers",
+              collapsed: true,
+              items: [
+                {
+                  label: "Overview",
+                  link: "/guides/indexers/overview/"
+                },
+                {
+                  label: "SubQuery",
+                  link: "/guides/indexers/subquery/"
+                }
+              ]
             },
           ],
         },
