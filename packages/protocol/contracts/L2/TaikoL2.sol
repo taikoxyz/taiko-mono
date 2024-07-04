@@ -25,6 +25,9 @@ contract TaikoL2 is EssentialContract {
     /// @notice Golden touch address is the only address that can do the anchor transaction.
     address public constant GOLDEN_TOUCH_ADDRESS = 0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
 
+    uint256 public constant ONTAKE_FORK_HEIGHT = 324_512 * 2;
+    uint256 public constant L1_BASE_FEE_FACTOR = 200;
+
     /// @notice Mapping from L2 block numbers to their block hashes. All L2 block hashes will
     /// be saved in this mapping.
     mapping(uint256 blockId => bytes32 blockHash) public l2Hashes;
@@ -44,7 +47,9 @@ contract TaikoL2 is EssentialContract {
     uint64 private __deprecated2; // was __currentBlockTimestamp
 
     /// @notice The L1's chain ID.
+    /// @dev Slot 4.
     uint64 public l1ChainId;
+    uint64 public avgL1BaseFee;
 
     uint256[46] private __gap;
 
@@ -54,6 +59,7 @@ contract TaikoL2 is EssentialContract {
     event Anchored(bytes32 parentHash, uint64 gasExcess);
 
     error L2_BASEFEE_MISMATCH();
+    error L1_FORK_ERROR();
     error L2_INVALID_L1_CHAIN_ID();
     error L2_INVALID_L2_CHAIN_ID();
     error L2_INVALID_PARAM();
@@ -117,6 +123,33 @@ contract TaikoL2 is EssentialContract {
         external
         nonReentrant
     {
+        if (block.number >= ONTAKE_FORK_HEIGHT) revert L1_FORK_ERROR();
+        _anchor(_l1BlockHash, _l1StateRoot, _l1BlockId, _parentGasUsed, 0);
+    }
+
+    function anchor2(
+        bytes32 _l1BlockHash,
+        bytes32 _l1StateRoot,
+        uint64 _l1BlockId,
+        uint32 _parentGasUsed,
+        uint64 _l1BaseFee
+    )
+        external
+        nonReentrant
+    {
+        if (block.number < ONTAKE_FORK_HEIGHT) revert L1_FORK_ERROR();
+        _anchor(_l1BlockHash, _l1StateRoot, _l1BlockId, _parentGasUsed, _l1BaseFee);
+    }
+
+    function _anchor(
+        bytes32 _l1BlockHash,
+        bytes32 _l1StateRoot,
+        uint64 _l1BlockId,
+        uint32 _parentGasUsed,
+        uint64 _l1BaseFee
+    )
+        private
+    {
         if (
             _l1BlockHash == 0 || _l1StateRoot == 0 || _l1BlockId == 0
                 || (block.number != 1 && _parentGasUsed == 0)
@@ -137,8 +170,10 @@ contract TaikoL2 is EssentialContract {
             revert L2_PUBLIC_INPUT_HASH_MISMATCH();
         }
 
+        avgL1BaseFee = uint64((uint256(avgL1BaseFee) * 7 + _l1BaseFee) / 8);
+
         // Verify the base fee per gas is correct
-        (uint256 _basefee, uint64 _gasExcess) = getBasefee(_l1BlockId, _parentGasUsed);
+        (uint256 _basefee, uint64 _gasExcess) = getBasefee(_l1BlockId, _parentGasUsed, avgL1BaseFee);
 
         if (!skipFeeCheck() && block.basefee != _basefee) {
             revert L2_BASEFEE_MISMATCH();
@@ -191,7 +226,8 @@ contract TaikoL2 is EssentialContract {
     /// @return gasExcess_ The new gasExcess value.
     function getBasefee(
         uint64 _l1BlockId,
-        uint32 _parentGasUsed
+        uint32 _parentGasUsed,
+        uint256 _avgL1BaseFee
     )
         public
         view
@@ -207,6 +243,7 @@ contract TaikoL2 is EssentialContract {
             gasIssuance,
             _parentGasUsed
         );
+        basefee_ += (_avgL1BaseFee / L1_BASE_FEE_FACTOR);
     }
 
     /// @notice Retrieves the block hash for the given L2 block number.
