@@ -124,12 +124,12 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
     }
 
     /// @inheritdoc ITaikoL1
-    function depositBond(uint256 _amount) external {
+    function depositBond(uint256 _amount) external whenNotPaused {
         LibBonds.depositBond(state, this, _amount);
     }
 
     /// @inheritdoc ITaikoL1
-    function withdrawBond(uint256 _amount) external {
+    function withdrawBond(uint256 _amount) external whenNotPaused {
         LibBonds.withdrawBond(state, this, _amount);
     }
 
