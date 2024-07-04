@@ -31,7 +31,7 @@ var (
 
 // LibVerifyingMetaData contains all meta data concerning the LibVerifying contract.
 var LibVerifyingMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"error\",\"name\":\"L1_BATCH_TRANSFER_FAILED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L1_BLOCK_MISMATCH\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L1_INVALID_CONFIG\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L1_TOO_LATE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L1_TRANSITION_ID_ZERO\",\"inputs\":[]}]",
+	ABI: "[{\"type\":\"error\",\"name\":\"L1_BLOCK_MISMATCH\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L1_INVALID_CONFIG\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L1_TOO_LATE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L1_TRANSITION_ID_ZERO\",\"inputs\":[]}]",
 }
 
 // LibVerifyingABI is the input ABI used to generate the binding from.

@@ -17,7 +17,6 @@
   import { getTokenAddresses } from '$libs/token/getTokenAddresses';
   import { getTokenWithInfoFromAddress } from '$libs/token/getTokenWithInfoFromAddress';
   import { getLogger } from '$libs/util/logger';
-  import { uid } from '$libs/util/uid';
   import { config } from '$libs/wagmi';
   import { account } from '$stores/account';
   import { connectedSourceChain } from '$stores/network';
@@ -27,7 +26,7 @@
   const dispatch = createEventDispatcher();
 
   const log = getLogger('component:AddCustomERC20');
-  const dialogId = `dialog-${uid()}`;
+  const dialogId = `dialog-${crypto.randomUUID()}`;
 
   export let modalOpen = false;
   export let loadingTokenDetails = false;

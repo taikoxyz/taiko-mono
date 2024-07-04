@@ -2,7 +2,6 @@
   import { toast } from '@zerodevx/svelte-toast';
 
   import { toastConfig } from '$config';
-  import { uid } from '$libs/util/uid';
 
   import ItemToast from './ItemToast.svelte';
   import type { TypeToast } from './types';
@@ -28,7 +27,7 @@
   }
 
   export function notify(notificationType: NotificationType) {
-    const id = Number(uid());
+    const id = Number(crypto.randomUUID());
     const close = () => toast.pop(id);
     const { title, message, type = 'unknown', closeManually = getDefaultCloseBehaviour(type) } = notificationType;
 

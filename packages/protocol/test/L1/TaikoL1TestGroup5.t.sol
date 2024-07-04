@@ -58,7 +58,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
             blockHash,
             stateRoot,
             LibTiers.TIER_GUARDIAN,
-            TaikoErrors.L1_ALREADY_PROVED.selector
+            LibProving.L1_ALREADY_PROVED.selector
         );
 
         console2.log("====== Guardian re-approve with a different transition");
@@ -97,7 +97,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
             blockHash,
             stateRoot,
             LibTiers.TIER_SGX,
-            TaikoErrors.L1_INVALID_TIER.selector
+            LibProving.L1_INVALID_TIER.selector
         );
 
         console2.log("====== Verify the block");
@@ -157,7 +157,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
             blockHash,
             stateRoot,
             LibTiers.TIER_GUARDIAN,
-            TaikoErrors.L1_ALREADY_PROVED.selector
+            LibProving.L1_ALREADY_PROVED.selector
         );
 
         console2.log("====== Guardian re-approve with a different transition");
@@ -247,7 +247,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
             blockHash,
             stateRoot,
             LibTiers.TIER_GUARDIAN,
-            TaikoErrors.L1_ALREADY_PROVED.selector
+            LibProving.L1_ALREADY_PROVED.selector
         );
 
         console2.log("====== Guardian re-approve with a different transition");

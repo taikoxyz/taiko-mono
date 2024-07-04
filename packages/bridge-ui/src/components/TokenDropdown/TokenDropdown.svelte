@@ -22,7 +22,6 @@
   import { getTokenAddresses } from '$libs/token/getTokenAddresses';
   import { getLogger } from '$libs/util/logger';
   import { truncateString } from '$libs/util/truncateString';
-  import { uid } from '$libs/util/uid';
   import { type Account, account } from '$stores/account';
   import { connectedSourceChain } from '$stores/network';
 
@@ -44,7 +43,7 @@
 
   let customTokenModalOpen = false;
 
-  let id = `menu-${uid()}`;
+  let id = `menu-${crypto.randomUUID()}`;
   $: menuOpen = false;
 
   let activeTab: TabTypes = TabTypes.TOKEN;

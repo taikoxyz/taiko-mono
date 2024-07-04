@@ -71,7 +71,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 blockHash,
                 stateRoot,
                 meta.minTier,
-                TaikoErrors.L1_ALREADY_PROVED.selector
+                LibProving.L1_ALREADY_PROVED.selector
             );
 
             vm.roll(block.number + 15 * 12);
@@ -264,7 +264,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                     0,
                     stateRoot,
                     LibTiers.TIER_GUARDIAN,
-                    TaikoErrors.L1_INVALID_TRANSITION.selector
+                    LibProving.L1_INVALID_TRANSITION.selector
                 );
             }
 
@@ -304,7 +304,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 blockHash,
                 stateRoot,
                 meta.minTier,
-                TaikoErrors.L1_NOT_ASSIGNED_PROVER.selector
+                LibProving.L1_NOT_ASSIGNED_PROVER.selector
             );
             vm.roll(block.number + 15 * 12);
 
@@ -397,7 +397,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 0,
                 stateRoot,
                 LibTiers.TIER_GUARDIAN,
-                TaikoErrors.L1_INVALID_TRANSITION.selector
+                LibProving.L1_INVALID_TRANSITION.selector
             );
 
             vm.roll(block.number + 15 * 12);
@@ -451,7 +451,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                     blockHash,
                     stateRoot,
                     LibTiers.TIER_GUARDIAN,
-                    TaikoErrors.L1_ALREADY_PROVED.selector
+                    LibProving.L1_ALREADY_PROVED.selector
                 );
             }
             blockHash = bytes32(1_000_000 + blockId + 200);
@@ -494,7 +494,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 blockHash,
                 stateRoot,
                 LibTiers.TIER_SGX,
-                TaikoErrors.L1_INVALID_BLOCK_ID.selector
+                LibUtils.L1_INVALID_BLOCK_ID.selector
             );
 
             parentHash = blockHash;
@@ -531,7 +531,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 blockHash,
                 stateRoot,
                 LibTiers.TIER_SGX,
-                TaikoErrors.L1_BLOCK_MISMATCH.selector
+                LibUtils.L1_BLOCK_MISMATCH.selector
             );
 
             parentHash = blockHash;
@@ -568,7 +568,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 stateRoot,
                 stateRoot,
                 LibTiers.TIER_SGX,
-                TaikoErrors.L1_INVALID_TIER.selector
+                LibProving.L1_INVALID_TIER.selector
             );
 
             vm.roll(block.number + 15 * 12);
@@ -606,7 +606,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             blockHash,
             stateRoot,
             LibTiers.TIER_SGX,
-            TaikoErrors.L1_INVALID_TIER.selector
+            LibProving.L1_INVALID_TIER.selector
         );
 
         printVariables("");
