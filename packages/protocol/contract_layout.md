@@ -40,6 +40,7 @@
 | __deprecated1   | uint64                      | 253  | 16     | 8     | contracts/L2/TaikoL2.sol:TaikoL2 |
 | __deprecated2   | uint64                      | 253  | 24     | 8     | contracts/L2/TaikoL2.sol:TaikoL2 |
 | l1ChainId       | uint64                      | 254  | 0      | 8     | contracts/L2/TaikoL2.sol:TaikoL2 |
+| avgL1BaseFee    | uint64                      | 254  | 8      | 8     | contracts/L2/TaikoL2.sol:TaikoL2 |
 | __gap           | uint256[46]                 | 255  | 0      | 1472  | contracts/L2/TaikoL2.sol:TaikoL2 |
 
 ## SignalService
