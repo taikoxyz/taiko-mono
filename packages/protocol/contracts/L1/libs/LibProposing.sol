@@ -23,7 +23,6 @@ library LibProposing {
         bytes32 parentMetaHash;
     }
 
-    // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     /// @notice Emitted when a block is proposed.
     /// @param blockId The ID of the proposed block.
     /// @param assignedProver The address of the assigned prover.
@@ -44,7 +43,6 @@ library LibProposing {
     /// @param txList The txList.
     event CalldataTxList(uint256 indexed blockId, bytes txList);
 
-    // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_BLOB_NOT_AVAILABLE();
     error L1_BLOB_NOT_FOUND();
     error L1_INVALID_SIG();

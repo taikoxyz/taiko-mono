@@ -2,8 +2,8 @@
 pragma solidity 0.8.24;
 
 import "../../signal/ISignalService.sol";
-import "./LibUtils.sol";
 import "./LibBonds.sol";
+import "./LibUtils.sol";
 
 /// @title LibVerifying
 /// @notice A library for handling block verification in the Taiko protocol.
@@ -27,7 +27,6 @@ library LibVerifying {
         ITierRouter tierRouter;
     }
 
-    // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_BLOCK_MISMATCH();
     error L1_INVALID_CONFIG();
     error L1_TRANSITION_ID_ZERO();
