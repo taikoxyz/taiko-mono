@@ -69,7 +69,6 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 		MaxTierFeePriceBumps:       3,
 		TierFeePriceBump:           common.Big2,
 		ExtraData:                  "test",
-		L1BlockBuilderTip:          common.Big0,
 		TxmgrConfigs: &txmgr.CLIConfig{
 			L1RPCURL:                  os.Getenv("L1_NODE_WS_ENDPOINT"),
 			NumConfirmations:          0,
