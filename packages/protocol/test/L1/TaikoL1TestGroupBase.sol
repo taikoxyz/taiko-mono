@@ -129,6 +129,18 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
         }
     }
 
+    function totalTkoBalance(
+        TaikoToken tko,
+        TaikoL1 L1,
+        address user
+    )
+        internal
+        view
+        returns (uint256)
+    {
+        return tko.balanceOf(user) + L1.bondBalanceOf(user);
+    }
+
     function printBlock(TaikoData.Block memory blk) internal view {
         (, TaikoData.SlotB memory b) = L1.getStateVariables();
         console2.log("---CHAIN:");
