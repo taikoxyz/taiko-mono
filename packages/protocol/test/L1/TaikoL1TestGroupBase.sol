@@ -129,7 +129,15 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
         }
     }
 
-    function totalTkoBalance(TaikoToken tko, TaikoL1 L1, address user) internal returns (uint256) {
+    function totalTkoBalance(
+        TaikoToken tko,
+        TaikoL1 L1,
+        address user
+    )
+        internal
+        view
+        returns (uint256)
+    {
         return tko.balanceOf(user) + L1.bondBalanceOf(user);
     }
 
