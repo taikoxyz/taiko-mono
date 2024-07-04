@@ -75,3 +75,44 @@ func (v *TxListDecompressor) TryDecompress(
 	log.Info("Transaction list is valid", "blockID", blockID)
 	return txListBytes
 }
+
+// TryDecompressHekla is the same as TryDecompress, but it's used for Hekla network with
+// an incorrect legacy bytes size check.
+// ref: https://github.com/taikoxyz/taiko-client/pull/783
+func (v *TxListDecompressor) TryDecompressHekla(
+	blockID *big.Int,
+	txListBytes []byte,
+	blobUsed bool,
+) []byte {
+	// If the transaction list is empty, it's valid.
+	if len(txListBytes) == 0 {
+		return []byte{}
+	}
+
+	var (
+		txs types.Transactions
+		err error
+	)
+
+	// Decompress the transaction list bytes.
+	if txListBytes, err = utils.Decompress(txListBytes); err != nil {
+		log.Info("Failed to decompress tx list bytes", "blockID", blockID, "error", err)
+		return []byte{}
+	}
+
+	// If calldata is used, the compressed bytes of the transaction list must be
+	// less than or equal to maxBytesPerTxList.
+	if !blobUsed && (len(txListBytes) > int(v.maxBytesPerTxList)) {
+		log.Info("Compressed transactions list binary too large", "length", len(txListBytes), "blockID", blockID)
+		return []byte{}
+	}
+
+	// Try to RLP decode the transaction list bytes.
+	if err = rlp.DecodeBytes(txListBytes, &txs); err != nil {
+		log.Info("Failed to decode transactions list bytes", "blockID", blockID, "error", err)
+		return []byte{}
+	}
+
+	log.Info("Transaction list is valid", "blockID", blockID)
+	return txListBytes
+}
