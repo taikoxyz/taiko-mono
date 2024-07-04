@@ -117,14 +117,18 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         LibVerifying.verifyBlocks(state, getConfig(), this, _maxBlocksToVerify);
     }
 
+    /// @inheritdoc ITaikoL1
     function depositBond(uint256 _amount) external {
         LibBonds.depositBond(state, this, _amount);
     }
 
+    /// @inheritdoc ITaikoL1
     function withdrawBond(uint256 _amount) external {
         LibBonds.withdrawBond(state, this, _amount);
     }
 
+    /// @notice Gets the current bond balance of a given address.
+    /// @return The current bond balance.
     function bondBalanceOf(address _user) external view returns (uint256) {
         return LibBonds.bondBalanceOf(state, _user);
     }
