@@ -2,8 +2,8 @@
 pragma solidity 0.8.24;
 
 import "../../signal/ISignalService.sol";
-import "./LibUtils.sol";
 import "./LibBonds.sol";
+import "./LibUtils.sol";
 
 /// @title LibVerifying
 /// @notice A library for handling block verification in the Taiko protocol.
