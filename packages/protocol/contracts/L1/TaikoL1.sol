@@ -118,6 +118,12 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
     }
 
     /// @inheritdoc ITaikoL1
+    function pauseProving(bool _pause) external {
+        _authorizePause(msg.sender, _pause);
+        LibProving.pauseProving(state, _pause);
+    }
+
+    /// @inheritdoc ITaikoL1
     function depositBond(uint256 _amount) external {
         LibBonds.depositBond(state, this, _amount);
     }
@@ -206,12 +212,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         returns (TaikoData.SlotA memory, TaikoData.SlotB memory)
     {
         return (state.slotA, state.slotB);
-    }
-
-    /// @inheritdoc ITaikoL1
-    function pauseProving(bool _pause) external {
-        _authorizePause(msg.sender, _pause);
-        LibProving.pauseProving(state, _pause);
     }
 
     /// @inheritdoc EssentialContract
