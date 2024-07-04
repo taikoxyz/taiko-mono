@@ -126,7 +126,6 @@ library LibProving {
         internal
     {
         Local memory local;
-        local.tko = _tko;
 
         local.b = _state.slotB;
         local.blockId = _blockId;
