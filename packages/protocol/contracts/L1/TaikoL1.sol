@@ -84,12 +84,11 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
     {
         TaikoData.Config memory config = getConfig();
-        TaikoToken tko = TaikoToken(resolve(LibStrings.B_TAIKO_TOKEN, false));
 
-        (meta_, deposits_) = LibProposing.proposeBlock(state, tko, config, this, _params, _txList);
+        (meta_, deposits_) = LibProposing.proposeBlock(state, config, this, _params, _txList);
 
         if (LibUtils.shouldVerifyBlocks(config, meta_.id, true) && !state.slotB.provingPaused) {
-            LibVerifying.verifyBlocks(state, tko, config, this, config.maxBlocksToVerify);
+            LibVerifying.verifyBlocks(state, config, this, config.maxBlocksToVerify);
         }
     }
 
@@ -105,12 +104,10 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         emitEventForClient
     {
         TaikoData.Config memory config = getConfig();
-        TaikoToken tko = TaikoToken(resolve(LibStrings.B_TAIKO_TOKEN, false));
-
-        LibProving.proveBlock(state, tko, config, this, _blockId, _input);
+        LibProving.proveBlock(state, config, this, _blockId, _input);
 
         if (LibUtils.shouldVerifyBlocks(config, _blockId, false)) {
-            LibVerifying.verifyBlocks(state, tko, config, this, config.maxBlocksToVerify);
+            LibVerifying.verifyBlocks(state, config, this, config.maxBlocksToVerify);
         }
     }
 
@@ -122,13 +119,29 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         nonReentrant
         emitEventForClient
     {
-        LibVerifying.verifyBlocks(
-            state,
-            TaikoToken(resolve(LibStrings.B_TAIKO_TOKEN, false)),
-            getConfig(),
-            this,
-            _maxBlocksToVerify
-        );
+        LibVerifying.verifyBlocks(state, getConfig(), this, _maxBlocksToVerify);
+    }
+
+    /// @inheritdoc ITaikoL1
+    function pauseProving(bool _pause) external {
+        _authorizePause(msg.sender, _pause);
+        LibProving.pauseProving(state, _pause);
+    }
+
+    /// @inheritdoc ITaikoL1
+    function depositBond(uint256 _amount) external whenNotPaused {
+        LibBonds.depositBond(state, this, _amount);
+    }
+
+    /// @inheritdoc ITaikoL1
+    function withdrawBond(uint256 _amount) external whenNotPaused {
+        LibBonds.withdrawBond(state, this, _amount);
+    }
+
+    /// @notice Gets the current bond balance of a given address.
+    /// @return The current bond balance.
+    function bondBalanceOf(address _user) external view returns (uint256) {
+        return LibBonds.bondBalanceOf(state, _user);
     }
 
     /// @notice Gets the details of a block.
@@ -204,12 +217,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         returns (TaikoData.SlotA memory, TaikoData.SlotB memory)
     {
         return (state.slotA, state.slotB);
-    }
-
-    /// @inheritdoc ITaikoL1
-    function pauseProving(bool _pause) external {
-        _authorizePause(msg.sender, _pause);
-        LibProving.pauseProving(state, _pause);
     }
 
     /// @inheritdoc EssentialContract
