@@ -8,7 +8,6 @@
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
   import { classNames } from '$libs/util/classNames';
   import { truncateString } from '$libs/util/truncateString';
-  import { uid } from '$libs/util/uid';
   import { account } from '$stores';
 
   export let value: Maybe<Chain> | null = null;
@@ -26,8 +25,8 @@
 
   let iconSize = 'min-w-5 max-w-5 min-h-5 max-h-5';
 
-  let buttonId = `button-${uid()}`;
-  let dialogId = `dialog-${uid()}`;
+  let buttonId = `button-${crypto.randomUUID()}`;
+  let dialogId = `dialog-${crypto.randomUUID()}`;
   let modalOpen = false;
 
   const handlePillClick = () => {

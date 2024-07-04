@@ -250,6 +250,7 @@
     "not_available_short": "N/A",
     "ok": "Okay",
     "recipient": "Recipient",
+    "reset_to_wallet": "Reset to current address",
     "review": "Review",
     "search_token": "Search token",
     "see_results": "See results",
@@ -265,6 +266,16 @@
   },
   "custom_recipient": {
     "placeholder": "Add custom recipient"
+  },
+  "destOwner": {
+    "alerts": {
+      "smartContract": "You cannot set the destination owner to a contract address"
+    },
+    "description": "You can set a custom address that should be able to claim the transaction on the destination chain, for example if the recipient is a smart contract that cannot manually claim.",
+    "placeholder": "add address that should be able to manually claim...",
+    "title": "Destination owner",
+    "tooltip": "Defaults to your address. You can specify a different address that should be able to claim this transaction.",
+    "tooltip_title": "What is Destination Owner?"
   },
   "faucet": {
     "button": {
