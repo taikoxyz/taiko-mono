@@ -84,7 +84,7 @@ contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
             (, TaikoData.SlotB memory b) = L1.getStateVariables();
             assertEq(b.lastVerifiedBlockId, 5);
 
-            assertEq(tko.balanceOf(Alice), 10_000 ether);
+            assertEq(totalTkoBalance(tko, L1, Alice), 10_000 ether);
         }
     }
 
