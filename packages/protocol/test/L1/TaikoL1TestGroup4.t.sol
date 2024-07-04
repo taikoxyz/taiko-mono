@@ -53,9 +53,7 @@ contract TaikoL1TestGroup4 is TaikoL1TestGroupBase {
             assertEq(ts.prover, Taylor);
             assertEq(ts.timestamp, block.timestamp);
 
-            assertEq(
-                tko.balanceOf(Alice) + L1.bondBalanceOf(Alice), 10_000 ether - tierOp.validityBond
-            );
+            assertEq(totalTkoBalance(tko, L1, Alice), 10_000 ether - tierOp.validityBond);
             assertEq(
                 tko.balanceOf(Taylor),
                 10_000 ether - tierSgx.validityBond + tierOp.validityBond * 7 / 8
@@ -80,10 +78,7 @@ contract TaikoL1TestGroup4 is TaikoL1TestGroupBase {
             assertEq(ts.tier, LibTiers.TIER_SGX);
             assertEq(ts.prover, Taylor);
 
-            assertEq(
-                tko.balanceOf(Taylor) + L1.bondBalanceOf(Taylor),
-                10_000 ether + tierOp.validityBond * 7 / 8
-            );
+            assertEq(totalTkoBalance(tko, L1, Taylor), 10_000 ether + tierOp.validityBond * 7 / 8);
         }
     }
 
@@ -139,7 +134,7 @@ contract TaikoL1TestGroup4 is TaikoL1TestGroupBase {
             assertEq(ts.prover, Taylor);
             assertEq(ts.timestamp, block.timestamp);
 
-            assertEq(tko.balanceOf(Alice) + L1.bondBalanceOf(Alice), 10_000 ether - livenessBond);
+            assertEq(totalTkoBalance(tko, L1, Alice), 10_000 ether - livenessBond);
             assertEq(tko.balanceOf(David), 10_000 ether - tierOp.validityBond);
             assertEq(
                 tko.balanceOf(Taylor),
@@ -165,10 +160,7 @@ contract TaikoL1TestGroup4 is TaikoL1TestGroupBase {
             assertEq(ts.tier, LibTiers.TIER_SGX);
             assertEq(ts.prover, Taylor);
 
-            assertEq(
-                tko.balanceOf(Taylor) + L1.bondBalanceOf(Taylor),
-                10_000 ether + tierOp.validityBond * 7 / 8
-            );
+            assertEq(totalTkoBalance(tko, L1, Taylor), 10_000 ether + tierOp.validityBond * 7 / 8);
         }
     }
 }

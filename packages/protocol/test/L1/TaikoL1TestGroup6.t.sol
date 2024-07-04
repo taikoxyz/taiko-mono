@@ -56,11 +56,9 @@ contract TaikoL1TestGroup6 is TaikoL1TestGroupBase {
             assertEq(ts.prover, Alice);
             assertEq(ts.timestamp, block.timestamp); // not zero
 
+            assertEq(totalTkoBalance(tko, L1, Taylor), 10_000 ether - tierOp.contestBond);
             assertEq(
-                tko.balanceOf(Taylor) + L1.bondBalanceOf(Taylor), 10_000 ether - tierOp.contestBond
-            );
-            assertEq(
-                tko.balanceOf(Alice) + L1.bondBalanceOf(Alice),
+                totalTkoBalance(tko, L1, Alice),
                 10_000 ether - tierSgx.validityBond + tierOp.contestBond * 7 / 8
             );
         }
@@ -83,13 +81,8 @@ contract TaikoL1TestGroup6 is TaikoL1TestGroupBase {
             assertEq(ts.tier, LibTiers.TIER_SGX);
             assertEq(ts.prover, Alice);
 
-            assertEq(
-                tko.balanceOf(Taylor) + L1.bondBalanceOf(Taylor), 10_000 ether - tierOp.contestBond
-            );
-            assertEq(
-                tko.balanceOf(Alice) + L1.bondBalanceOf(Alice),
-                10_000 ether + tierOp.contestBond * 7 / 8
-            );
+            assertEq(totalTkoBalance(tko, L1, Taylor), 10_000 ether - tierOp.contestBond);
+            assertEq(totalTkoBalance(tko, L1, Alice), 10_000 ether + tierOp.contestBond * 7 / 8);
         }
     }
 }
