@@ -79,10 +79,6 @@ func (s *ProposerTestSuite) SetupTest() {
 		ProposeInterval:            1024 * time.Hour,
 		MaxProposedTxListsPerEpoch: 1,
 		ProverEndpoints:            s.ProverEndpoints,
-		OptimisticTierFee:          common.Big256,
-		SgxTierFee:                 common.Big256,
-		TierFeePriceBump:           common.Big2,
-		MaxTierFeePriceBumps:       3,
 		ExtraData:                  "test",
 		ProposeBlockTxGasLimit:     10_000_000,
 		TxmgrConfigs: &txmgr.CLIConfig{

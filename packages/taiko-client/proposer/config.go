@@ -3,7 +3,6 @@ package proposer
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"math/big"
 	"net/url"
 	"strings"
 	"time"
@@ -38,10 +37,6 @@ type Config struct {
 	MaxProposedTxListsPerEpoch uint64
 	ProposeBlockTxGasLimit     uint64
 	ProverEndpoints            []*url.URL
-	OptimisticTierFee          *big.Int
-	SgxTierFee                 *big.Int
-	TierFeePriceBump           *big.Int
-	MaxTierFeePriceBumps       uint64
 	IncludeParentMetaHash      bool
 	BlobAllowed                bool
 	TxmgrConfigs               *txmgr.CLIConfig
@@ -84,16 +79,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		proverEndpoints = append(proverEndpoints, endpoint)
 	}
 
-	optimisticTierFee, err := utils.GWeiToWei(c.Float64(flags.OptimisticTierFee.Name))
-	if err != nil {
-		return nil, err
-	}
-
-	sgxTierFee, err := utils.GWeiToWei(c.Float64(flags.SgxTierFee.Name))
-	if err != nil {
-		return nil, err
-	}
-
 	minTip, err := utils.GWeiToWei(c.Float64(flags.MinTip.Name))
 	if err != nil {
 		return nil, err
@@ -125,10 +110,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		AllowZeroInterval:          c.Uint64(flags.AllowZeroInterval.Name),
 		ProposeBlockTxGasLimit:     c.Uint64(flags.TxGasLimit.Name),
 		ProverEndpoints:            proverEndpoints,
-		OptimisticTierFee:          optimisticTierFee,
-		SgxTierFee:                 sgxTierFee,
-		TierFeePriceBump:           new(big.Int).SetUint64(c.Uint64(flags.TierFeePriceBump.Name)),
-		MaxTierFeePriceBumps:       c.Uint64(flags.MaxTierFeePriceBumps.Name),
 		IncludeParentMetaHash:      c.Bool(flags.ProposeBlockIncludeParentMetaHash.Name),
 		BlobAllowed:                c.Bool(flags.BlobAllowed.Name),
 		TxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
