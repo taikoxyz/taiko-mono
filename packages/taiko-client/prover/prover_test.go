@@ -4,9 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"math/big"
-	"net/url"
 	"os"
-	"strconv"
 	"testing"
 	"time"
 
@@ -69,10 +67,6 @@ func (s *ProverTestSuite) SetupTest() {
 	)
 	s.Nil(err)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	proverServerURL := s.initProver(ctx, l1ProverPrivKey)
-	s.cancel = cancel
-
 	// Init driver
 	jwtSecret, err := jwt.ParseSecretFromFile(os.Getenv("JWT_SECRET"))
 	s.Nil(err)
@@ -111,7 +105,6 @@ func (s *ProverTestSuite) SetupTest() {
 		L2SuggestedFeeRecipient:    common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
 		ProposeInterval:            1024 * time.Hour,
 		MaxProposedTxListsPerEpoch: 1,
-		ProverEndpoints:            []*url.URL{proverServerURL},
 	}, s.txmgr))
 
 	s.proposer = prop
@@ -266,10 +259,7 @@ func (s *ProverTestSuite) TestContestWrongBlocks() {
 
 	contesterKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_CONTRACT_OWNER_PRIVATE_KEY")))
 	s.Nil(err)
-	s.NotNil(s.initProver(
-		context.Background(),
-		contesterKey,
-	))
+	s.initProver(context.Background(), contesterKey)
 	s.p.cfg.ContesterMode = true
 	s.Nil(s.p.initEventHandlers())
 
@@ -483,11 +473,7 @@ func TestProverTestSuite(t *testing.T) {
 func (s *ProverTestSuite) initProver(
 	ctx context.Context,
 	key *ecdsa.PrivateKey,
-) *url.URL {
-	proverServerURL := testutils.LocalRandomProverEndpoint()
-	port, err := strconv.Atoi(proverServerURL.Port())
-	s.Nil(err)
-
+) {
 	decimal, err := s.RPCClient.TaikoToken.Decimals(nil)
 	s.Nil(err)
 
@@ -506,7 +492,6 @@ func (s *ProverTestSuite) initProver(
 		Capacity:              1024,
 		MinOptimisticTierFee:  common.Big1,
 		MinSgxTierFee:         common.Big1,
-		HTTPServerPort:        uint64(port),
 		Allowance:             new(big.Int).Exp(big.NewInt(1_000_000_100), new(big.Int).SetUint64(uint64(decimal)), nil),
 		RPCTimeout:            3 * time.Second,
 		BackOffRetryInterval:  3 * time.Second,
@@ -522,6 +507,4 @@ func (s *ProverTestSuite) initProver(
 		p.ProverAddress(),
 	)
 	s.p = p
-
-	return proverServerURL
 }

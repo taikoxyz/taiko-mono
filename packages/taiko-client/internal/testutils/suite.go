@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"math/big"
-	"net/url"
 	"os"
 	"strconv"
 	"time"
@@ -30,7 +29,6 @@ type ClientTestSuite struct {
 	RPCClient           *rpc.Client
 	TestAddrPrivKey     *ecdsa.PrivateKey
 	TestAddr            common.Address
-	ProverEndpoints     []*url.URL
 	AddressManager      *bindings.AddressManager
 }
 
@@ -71,8 +69,6 @@ func (s *ClientTestSuite) SetupTest() {
 
 	l1ProverPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROVER_PRIVATE_KEY")))
 	s.Nil(err)
-
-	s.ProverEndpoints = []*url.URL{LocalRandomProverEndpoint()}
 
 	allowance, err := rpcCli.TaikoToken.Allowance(
 		nil,

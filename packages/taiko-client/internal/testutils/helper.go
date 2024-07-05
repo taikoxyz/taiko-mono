@@ -4,9 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"crypto/rand"
-	"fmt"
 	"math/big"
-	"net/url"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -239,18 +237,6 @@ func RandomPort() int {
 		log.Crit("Failed to get local free random port", "error", err)
 	}
 	return port
-}
-
-// LocalRandomProverEndpoint returns a local free random prover endpoint.
-func LocalRandomProverEndpoint() *url.URL {
-	port := RandomPort()
-
-	proverEndpoint, err := url.Parse(fmt.Sprintf("http://localhost:%v", port))
-	if err != nil {
-		log.Crit("Failed to parse local prover endpoint", "error", err)
-	}
-
-	return proverEndpoint
 }
 
 // SignatureFromRSV creates the signature bytes from r,s,v.
