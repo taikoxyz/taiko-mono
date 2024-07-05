@@ -31,8 +31,8 @@ contract LidoBridgedToken is ERC20Upgradeable, ILidoBridgedToken {
         string memory symbol_,
         address l2bridge_
     )
-    external
-    initializer
+        external
+        initializer
     {
         __ERC20_init(name_, symbol_);
         lidoL2Bridge = l2bridge_;

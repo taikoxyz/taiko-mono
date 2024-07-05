@@ -9,7 +9,6 @@ import { ILidoL2Bridge } from "./interfaces/ILidoL2Bridge.sol";
 import { ILidoBridgedToken } from "./interfaces/ILidoBridgedToken.sol";
 
 contract LidoL2Bridge is ILidoL2Bridge, BaseVault {
-
     /// @notice Chain ID of the destination chain
     uint32 destChainId;
 
@@ -74,7 +73,7 @@ contract LidoL2Bridge is ILidoL2Bridge, BaseVault {
      * @param dstChainId_ The destination chain ID
      * @param bridgedToken_ The address of the bridged token contract
      * @param lidoL1TokenBridge_ The address of the Lido L1 bridge contract
-    */
+     */
     function init(
         address _owner,
         address _addressManager,
@@ -84,8 +83,8 @@ contract LidoL2Bridge is ILidoL2Bridge, BaseVault {
         address bridgedToken_,
         address lidoL1TokenBridge_
     )
-    external
-    initializer
+        external
+        initializer
     {
         __Essential_init(_owner, _addressManager);
         destChainId = dstChainId_;
@@ -101,20 +100,12 @@ contract LidoL2Bridge is ILidoL2Bridge, BaseVault {
     }
 
     /// @inheritdoc ILidoL2Bridge
-    function withdraw(
-        uint256 amount_,
-        uint32 l1Gas_,
-        bytes calldata data_
-    )
-    external
-    payable
-    {
+    function withdraw(uint256 amount_, uint32 l1Gas_, bytes calldata data_) external payable {
         withdrawTo(msg.sender, amount_, l1Gas_, data_);
     }
 
     /// @inheritdoc IMessageInvocable
     function onMessageInvocation(bytes calldata _data) external payable {
-
         IBridge.Context memory ctx = checkProcessMessageContext();
 
         (
@@ -126,19 +117,9 @@ contract LidoL2Bridge is ILidoL2Bridge, BaseVault {
             bytes memory data_
         ) = abi.decode(_data, (address, address, address, address, uint256, bytes));
 
-        ILidoL2Bridge(address(this)).finalizeDeposit(
-            l1Token_, l2Token_, from_, to_, amount_, data_
-        );
+        ILidoL2Bridge(address(this)).finalizeDeposit(l1Token_, l2Token_, from_, to_, amount_, data_);
 
-        emit DepositFinalized(
-            ctx.msgHash,
-            l1Token_,
-            l2Token_,
-            from_,
-            to_,
-            amount_,
-            data_
-        );
+        emit DepositFinalized(ctx.msgHash, l1Token_, l2Token_, from_, to_, amount_, data_);
     }
 
     /// @inheritdoc IRecallableSender
@@ -146,8 +127,8 @@ contract LidoL2Bridge is ILidoL2Bridge, BaseVault {
         IBridge.Message calldata _message,
         bytes32 _msgHash
     )
-    external
-    payable
+        external
+        payable
     {
         checkRecallMessageContext();
 
@@ -166,15 +147,7 @@ contract LidoL2Bridge is ILidoL2Bridge, BaseVault {
 
         bridgedToken.bridgeMint(from_, amount_);
 
-        emit TokenReleaseFinalized(
-            _msgHash,
-            l1Token,
-            l2Token,
-            from_,
-            to_,
-            amount_,
-            data_
-        );
+        emit TokenReleaseFinalized(_msgHash, l1Token, l2Token, from_, to_, amount_, data_);
     }
 
     /// @inheritdoc ILidoL2Bridge
@@ -186,12 +159,12 @@ contract LidoL2Bridge is ILidoL2Bridge, BaseVault {
         uint256 amount_,
         bytes calldata
     )
-    external
-    onlySelf
-    onlyNonZeroAccount(from_)
-    onlyNonZeroAccount(to_)
-    onlySupportedL1Token(l1Token_)
-    onlySupportedL2Token(l2Token_)
+        external
+        onlySelf
+        onlyNonZeroAccount(from_)
+        onlyNonZeroAccount(to_)
+        onlySupportedL1Token(l1Token_)
+        onlySupportedL2Token(l2Token_)
     {
         bridgedToken.bridgeMint(to_, amount_);
     }
@@ -203,8 +176,8 @@ contract LidoL2Bridge is ILidoL2Bridge, BaseVault {
         uint32 l1Gas_,
         bytes calldata data_
     )
-    public
-    payable
+        public
+        payable
     {
         _initiateWithdrawal(msg.sender, to_, amount_, l1Gas_, msg.value, data_);
     }
@@ -217,7 +190,7 @@ contract LidoL2Bridge is ILidoL2Bridge, BaseVault {
         uint256 fee_,
         bytes calldata data_
     )
-    internal
+        internal
     {
         bridgedToken.bridgeBurn(from_, amount_);
 
@@ -241,13 +214,6 @@ contract LidoL2Bridge is ILidoL2Bridge, BaseVault {
 
         IBridge(resolve(LibStrings.B_BRIDGE, false)).sendMessage{ value: fee_ }(message);
 
-        emit WithdrawalInitiated(
-            l1Token,
-            l2Token,
-            from_,
-            to_,
-            amount_,
-            data_
-        );
+        emit WithdrawalInitiated(l1Token, l2Token, from_, to_, amount_, data_);
     }
 }
