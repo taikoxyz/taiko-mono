@@ -5,26 +5,27 @@ import (
 	"net/http"
 	"testing"
 
+	"gopkg.in/go-playground/assert.v1"
+
 	guardianproverhealthcheck "github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check"
 	"github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check/db"
-	"gopkg.in/go-playground/assert.v1"
 )
 
 func Test_NewStartupRepo(t *testing.T) {
 	tests := []struct {
 		name    string
-		db      DB
+		db      db.DB
 		wantErr error
 	}{
 		{
 			"success",
-			&db.DB{},
+			&db.Database{},
 			nil,
 		},
 		{
 			"noDb",
 			nil,
-			ErrNoDB,
+			db.ErrNoDB,
 		},
 	}
 

@@ -1,6 +1,7 @@
 package http
 
 import (
+	"github.com/docker/distribution/context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -14,7 +15,7 @@ import (
 func Test_GetHealthChecks(t *testing.T) {
 	srv := newTestServer("")
 
-	err := srv.healthCheckRepo.Save(guardianproverhealthcheck.SaveHealthCheckOpts{
+	err := srv.healthCheckRepo.Save(context.Background(), &guardianproverhealthcheck.SaveHealthCheckOpts{
 		GuardianProverID: 1,
 		Alive:            true,
 		ExpectedAddress:  "0x123",
