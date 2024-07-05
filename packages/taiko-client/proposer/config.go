@@ -3,7 +3,6 @@ package proposer
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"net/url"
 	"strings"
 	"time"
 
@@ -36,7 +35,6 @@ type Config struct {
 	AllowZeroInterval          uint64
 	MaxProposedTxListsPerEpoch uint64
 	ProposeBlockTxGasLimit     uint64
-	ProverEndpoints            []*url.URL
 	IncludeParentMetaHash      bool
 	BlobAllowed                bool
 	TxmgrConfigs               *txmgr.CLIConfig
@@ -70,15 +68,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		}
 	}
 
-	var proverEndpoints []*url.URL
-	for _, e := range strings.Split(c.String(flags.ProverEndpoints.Name), ",") {
-		endpoint, err := url.Parse(e)
-		if err != nil {
-			return nil, err
-		}
-		proverEndpoints = append(proverEndpoints, endpoint)
-	}
-
 	minTip, err := utils.GWeiToWei(c.Float64(flags.MinTip.Name))
 	if err != nil {
 		return nil, err
@@ -109,7 +98,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		MaxProposedTxListsPerEpoch: c.Uint64(flags.MaxProposedTxListsPerEpoch.Name),
 		AllowZeroInterval:          c.Uint64(flags.AllowZeroInterval.Name),
 		ProposeBlockTxGasLimit:     c.Uint64(flags.TxGasLimit.Name),
-		ProverEndpoints:            proverEndpoints,
 		IncludeParentMetaHash:      c.Bool(flags.ProposeBlockIncludeParentMetaHash.Name),
 		BlobAllowed:                c.Bool(flags.BlobAllowed.Name),
 		TxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
