@@ -42,7 +42,6 @@
       "not_enough_funds": "You do not have enough ETH to cover the processing fee and transaction fee. Please add more ETH to your wallet (>= 0.0015 ETH).",
       "slow_bridging": "Please note: Bridging to L1 will take around 24hrs!",
       "smart_contract_wallet": "It seems you are using a smart contract wallet. Please double check that the recipient matches your wallet on the destination or change it accordingly.",
-      "stable_coin": "You are bridging a stable coin. For USDC, we are currently partnering with <a target=\"_blank\" href=\"https://stargate.finance/transfer\" class=\"link\">Stargate Bridge</a> for liquidity. Consider using their bridge, as the ecosystem partners are likely using their bridged version",
       "wrapped_eth": "You are bridging wrapped ETH. Please be aware that un-wrapping will only work on the original chain of the token, <span class=\"font-bold\">NOT</span> on the destination."
     },
     "button": {
@@ -250,6 +249,7 @@
     "not_available_short": "N/A",
     "ok": "Okay",
     "recipient": "Recipient",
+    "reset_to_wallet": "Reset to current address",
     "review": "Review",
     "search_token": "Search token",
     "see_results": "See results",
@@ -265,6 +265,16 @@
   },
   "custom_recipient": {
     "placeholder": "Add custom recipient"
+  },
+  "destOwner": {
+    "alerts": {
+      "smartContract": "You cannot set the destination owner to a contract address"
+    },
+    "description": "You can set a custom address that should be able to claim the transaction on the destination chain, for example if the recipient is a smart contract that cannot manually claim.",
+    "placeholder": "add address that should be able to manually claim...",
+    "title": "Destination owner",
+    "tooltip": "Defaults to your address. You can specify a different address that should be able to claim this transaction.",
+    "tooltip_title": "What is Destination Owner?"
   },
   "faucet": {
     "button": {

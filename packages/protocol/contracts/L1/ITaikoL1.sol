@@ -34,6 +34,14 @@ interface ITaikoL1 {
     /// @param _pause True if paused.
     function pauseProving(bool _pause) external;
 
+    /// @notice Deposits Taiko token to be used as bonds.
+    /// @param _amount The amount of Taiko token to deposit.
+    function depositBond(uint256 _amount) external;
+
+    /// @notice Withdraws Taiko token.
+    /// @param _amount The amount of Taiko token to withdraw.
+    function withdrawBond(uint256 _amount) external;
+
     /// @notice Gets the configuration of the TaikoL1 contract.
     /// @return Config struct containing configuration parameters.
     function getConfig() external pure returns (TaikoData.Config memory);

@@ -13,7 +13,6 @@
   import { getTokenAddresses } from '$libs/token/getTokenAddresses';
   import { noop } from '$libs/util/noop';
   import { shortenAddress } from '$libs/util/shortenAddress';
-  import { uid } from '$libs/util/uid';
   import { connectedSourceChain } from '$stores/network';
 
   import ChainSymbolName from './ChainSymbolName.svelte';
@@ -34,7 +33,7 @@
   const openToolTip = () => {
     tooltipOpen = !tooltipOpen;
   };
-  let dialogId = `dialog-${uid()}`;
+  let dialogId = `dialog-${crypto.randomUUID()}`;
 
   const handleStatusDialog = () => {
     openStatusDialog = !openStatusDialog;
