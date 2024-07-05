@@ -261,10 +261,17 @@ func (s *Syncer) onBlockProposed(
 	// Iterate through the receipt logs
 	for _, vLog := range receipt.Logs {
 		// Use the generated binding's method to parse the log
-		event, err := s.rpc.TaikoL1.ParseCalldataTxList(*vLog)
+		calldataEvent, err := s.rpc.TaikoL1.ParseCalldataTxList(*vLog)
 		if err == nil {
-			log.Info("CalldataTxList event found", "blockID", event.BlockId.String())
-			txListBytes = event.TxList
+			log.Info("CalldataTxList event found", "blockID", calldataEvent.BlockId.String())
+			if calldataEvent.BlockId.Cmp(event.BlockId) != 0 {
+				log.Warn("CalldataTxList event blockID doesnt match",
+					"wantBlockID", event.BlockId.String(),
+					"eventBlockID", calldataEvent.BlockId.String(),
+				)
+				continue
+			}
+			txListBytes = calldataEvent.TxList
 			calldataTxListFound = true
 			break
 		}
