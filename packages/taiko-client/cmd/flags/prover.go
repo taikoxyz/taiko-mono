@@ -82,25 +82,6 @@ var (
 		Value:    0,
 		EnvVars:  []string{"PROVER_MIN_TAIKO_TOKEN_BALANCE"},
 	}
-	// Tier fee related.
-	MinOptimisticTierFee = &cli.Uint64Flag{
-		Name:     "minTierFee.optimistic",
-		Usage:    "Minimum accepted fee for generating an optimistic proof",
-		Category: proverCategory,
-		EnvVars:  []string{"MIN_TIER_FEE_OPTIMISTIC"},
-	}
-	MinSgxTierFee = &cli.Uint64Flag{
-		Name:     "minTierFee.sgx",
-		Usage:    "Minimum accepted fee for generating a SGX proof",
-		Category: proverCategory,
-		EnvVars:  []string{"MIN_TIER_FEE_SGX"},
-	}
-	MinSgxAndZkVMTierFee = &cli.Uint64Flag{
-		Name:     "minTierFee.sgxAndZkvm",
-		Usage:    "Minimum accepted fee for generating a SGX + zkVM proof",
-		Category: proverCategory,
-		EnvVars:  []string{"MIN_TIER_FEE_SGX_AND_ZKVM"},
-	}
 	// Running mode
 	ContesterMode = &cli.BoolFlag{
 		Name:     "mode.contester",
@@ -218,9 +199,6 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	RaikoHostEndpoint,
 	RaikoJWTPath,
 	L1ProverPrivKey,
-	MinOptimisticTierFee,
-	MinSgxTierFee,
-	MinSgxAndZkVMTierFee,
 	MinEthBalance,
 	MinTaikoTokenBalance,
 	StartingBlockID,
