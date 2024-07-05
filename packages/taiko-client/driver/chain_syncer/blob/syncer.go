@@ -250,7 +250,7 @@ func (s *Syncer) onBlockProposed(
 
 	// first see if we have a CalldataTxList event in the same transaction
 	// Get the transaction receipt
-	receipt, err := s.rpc.L1.TransactionReceipt(context.Background(), tx.Hash())
+	receipt, err := s.rpc.L1.TransactionReceipt(ctx, tx.Hash())
 	if err != nil {
 		return fmt.Errorf("failed to get transaction receipt: %w", err)
 	}
