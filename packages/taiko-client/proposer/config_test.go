@@ -3,7 +3,6 @@ package proposer
 import (
 	"context"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -20,7 +19,6 @@ var (
 	taikoL1         = os.Getenv("TAIKO_L1_ADDRESS")
 	taikoL2         = os.Getenv("TAIKO_L2_ADDRESS")
 	taikoToken      = os.Getenv("TAIKO_TOKEN_ADDRESS")
-	proverEndpoints = "http://localhost:9876,http://localhost:1234"
 	proposeInterval = "10s"
 	rpcTimeout      = "5s"
 )
@@ -47,10 +45,6 @@ func (s *ProposerTestSuite) TestNewConfigFromCliContext() {
 		s.Equal(5*time.Second, c.Timeout)
 		s.Equal(true, c.IncludeParentMetaHash)
 
-		for i, e := range strings.Split(proverEndpoints, ",") {
-			s.Equal(c.ProverEndpoints[i].String(), e)
-		}
-
 		s.Nil(new(Proposer).InitFromCli(context.Background(), cliCtx))
 		return nil
 	}
@@ -68,7 +62,6 @@ func (s *ProposerTestSuite) TestNewConfigFromCliContext() {
 		"--" + flags.TxPoolLocals.Name, goldenTouchAddress.Hex(),
 		"--" + flags.RPCTimeout.Name, rpcTimeout,
 		"--" + flags.TxGasLimit.Name, "100000",
-		"--" + flags.ProverEndpoints.Name, proverEndpoints,
 		"--" + flags.ProposeBlockIncludeParentMetaHash.Name, "true",
 	}))
 }
@@ -123,7 +116,6 @@ func (s *ProposerTestSuite) SetupApp() *cli.App {
 		&cli.DurationFlag{Name: flags.MinProposingInternal.Name},
 		&cli.DurationFlag{Name: flags.ProposeInterval.Name},
 		&cli.StringFlag{Name: flags.TxPoolLocals.Name},
-		&cli.StringFlag{Name: flags.ProverEndpoints.Name},
 		&cli.DurationFlag{Name: flags.RPCTimeout.Name},
 		&cli.BoolFlag{Name: flags.ProposeBlockIncludeParentMetaHash.Name},
 	}
