@@ -192,7 +192,7 @@
   - register `prover_set` to `0x5D528253fA14cd7F637937de847BE8D5BE0Bf5fd` @commit`2b483de` @tx`0x0bbf7d1258c646f41a02a92a55825b1ebfd3659577d0f2b57b462f8895e23a04`
   - register `tier_router` to `0x6e997f1f22c40ba37f633b08f3b07e10ed43155a` @tx`0x13f54109cb7f7507ad03562b06ea8d8b472043186e44252302583bc64acfb20b`
   - Upgraded from `0x8EEf314878A7E56314E8DF285d0B0D649C903aF6` to `0x29a88d60246C76E4F28806b9C8a42d2183154900` @commit`57c8dc0` @tx`0x9f787086b4c5e6887eb1d27c286069bcbbcabb1d7ed9f69ab3121c4681cf4b2c`
-  - register `prover_set` to `0x518845daA8870bE2C59E49620Fc262AD48953C9a` @commit`67a7a37` @tx``
+  - register `prover_set` to `0x518845daA8870bE2C59E49620Fc262AD48953C9a` @commit`67a7a37` @tx`0xc1f91c375713f601b99cf6d2cdb80c129e036a7c9ec5f75871c4d13216dbbb5c`
 
 #### taikoL1
 
