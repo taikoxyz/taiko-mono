@@ -50,7 +50,6 @@ func (h *HealthChecker) Close(ctx context.Context) {
 	// close db
 	if err := h.db.Close(); err != nil {
 		slog.Error("error encountered closing db", "error", err)
-
 	}
 }
 

@@ -1,7 +1,7 @@
 package http
 
 import (
-	"github.com/docker/distribution/context"
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -9,6 +9,7 @@ import (
 	"github.com/cyberhorsey/webutils/testutils"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
+
 	guardianproverhealthcheck "github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check"
 )
 
