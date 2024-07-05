@@ -562,16 +562,6 @@ func (c *Client) checkSyncedL1SnippetFromAnchor(
 		return false, err
 	}
 
-	if l1HeightInAnchor+1 != l1Height {
-		log.Info(
-			"Reorg detected due to L1 height mismatch",
-			"blockID", blockID,
-			"l1HeightInAnchor", l1HeightInAnchor,
-			"l1Height", l1Height,
-		)
-		return true, nil
-	}
-
 	if parentGasUsed != uint32(parent.GasUsed()) {
 		log.Info(
 			"Reorg detected due to parent gas used mismatch",
