@@ -73,7 +73,7 @@ func (b *CalldataTransactionBuilder) Build(
 	// If the current proposer wants to include the parent meta hash, then fetch it from the protocol.
 	var parentMetaHash = [32]byte{}
 	if includeParentMetaHash {
-		if parentMetaHash, err = getParentMetaHash(ctx, b.rpc); err != nil {
+		if parentMetaHash, err = GetParentMetaHash(ctx, b.rpc); err != nil {
 			return nil, err
 		}
 	}
