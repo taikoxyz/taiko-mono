@@ -290,7 +290,12 @@ func (s *Syncer) onBlockProposed(
 			txListFetcher = new(txlistFetcher.CalldataFetcher)
 		}
 
-		txListBytes, err = txListFetcher.Fetch(ctx, tx, &event.Meta)
+		header, err := s.rpc.L1.HeaderByNumber(ctx, new(big.Int).SetUint64(event.Raw.BlockNumber))
+		if err != nil {
+			return fmt.Errorf("failed to get header by number: %w", err)
+		}
+
+		txListBytes, err = txListFetcher.Fetch(ctx, tx, &event.Meta, event.Raw.BlockNumber, header.Time)
 		if err != nil {
 			return fmt.Errorf("failed to fetch tx list: %w", err)
 		}

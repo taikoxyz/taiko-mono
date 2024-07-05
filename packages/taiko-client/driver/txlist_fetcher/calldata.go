@@ -15,9 +15,11 @@ type CalldataFetcher struct{}
 
 // NewCalldataTxListFetcher creates a new CalldataFetcher instance.
 func (d *CalldataFetcher) Fetch(
-	_ context.Context,
+	ctx context.Context,
 	tx *types.Transaction,
 	meta *bindings.TaikoDataBlockMetadata,
+	emittedInBlockID uint64,
+	blockProposedEventEmittedInTimestamp uint64,
 ) ([]byte, error) {
 	if meta.BlobUsed {
 		return nil, pkg.ErrBlobUsed
