@@ -248,16 +248,41 @@ func (s *Syncer) onBlockProposed(
 		return fmt.Errorf("failed to fetch original TaikoL1.proposeBlock transaction: %w", err)
 	}
 
-	// Decode transactions list.
-	var txListFetcher txlistFetcher.TxListFetcher
-	if event.Meta.BlobUsed {
-		txListFetcher = txlistFetcher.NewBlobTxListFetcher(s.rpc.L1Beacon, s.blobDatasource)
-	} else {
-		txListFetcher = new(txlistFetcher.CalldataFetcher)
-	}
-	txListBytes, err := txListFetcher.Fetch(ctx, tx, &event.Meta)
+	// first see if we have a CalldataTxList event in the same transaction
+	// Get the transaction receipt
+	receipt, err := s.rpc.L1.TransactionReceipt(context.Background(), tx.Hash())
 	if err != nil {
-		return fmt.Errorf("failed to fetch tx list: %w", err)
+		return fmt.Errorf("failed to get transaction receipt: %w", err)
+	}
+
+	var txListBytes []byte
+	calldataTxListFound := false
+
+	// Iterate through the receipt logs
+	for _, vLog := range receipt.Logs {
+		// Use the generated binding's method to parse the log
+		event, err := s.rpc.TaikoL1.ParseCalldataTxList(*vLog)
+		if err == nil {
+			log.Info("CalldataTxList event found", "blockID", event.BlockId.String())
+			txListBytes = event.TxList
+			calldataTxListFound = true
+			break
+		}
+	}
+
+	if !calldataTxListFound {
+		// Decode transactions list.
+		var txListFetcher txlistFetcher.TxListFetcher
+		if event.Meta.BlobUsed {
+			txListFetcher = txlistFetcher.NewBlobTxListFetcher(s.rpc.L1Beacon, s.blobDatasource)
+		} else {
+			txListFetcher = new(txlistFetcher.CalldataFetcher)
+		}
+
+		txListBytes, err = txListFetcher.Fetch(ctx, tx, &event.Meta)
+		if err != nil {
+			return fmt.Errorf("failed to fetch tx list: %w", err)
+		}
 	}
 
 	// Decompress the transactions list and try to insert a new head block to L2 EE.
