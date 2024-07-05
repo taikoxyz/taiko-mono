@@ -45,9 +45,6 @@ type Config struct {
 	ProveBlockGasLimit                      uint64
 	HTTPServerPort                          uint64
 	Capacity                                uint64
-	MinOptimisticTierFee                    *big.Int
-	MinSgxTierFee                           *big.Int
-	MinSgxAndZkVMTierFee                    *big.Int
 	MinEthBalance                           *big.Int
 	MinTaikoTokenBalance                    *big.Int
 	MaxExpiry                               time.Duration
@@ -116,21 +113,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		}
 	}
 
-	minOptimisticTierFee, err := utils.GWeiToWei(c.Float64(flags.MinOptimisticTierFee.Name))
-	if err != nil {
-		return nil, err
-	}
-
-	minSgxTierFee, err := utils.GWeiToWei(c.Float64(flags.MinSgxTierFee.Name))
-	if err != nil {
-		return nil, err
-	}
-
-	minSgxAndZkVMTierFee, err := utils.GWeiToWei(c.Float64(flags.MinSgxAndZkVMTierFee.Name))
-	if err != nil {
-		return nil, err
-	}
-
 	minEthBalance, err := utils.EtherToWei(c.Float64(flags.MinEthBalance.Name))
 	if err != nil {
 		return nil, err
@@ -181,9 +163,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		ProveBlockGasLimit:                      c.Uint64(flags.TxGasLimit.Name),
 		Capacity:                                c.Uint64(flags.ProverCapacity.Name),
 		HTTPServerPort:                          c.Uint64(flags.ProverHTTPServerPort.Name),
-		MinOptimisticTierFee:                    minOptimisticTierFee,
-		MinSgxTierFee:                           minSgxTierFee,
-		MinSgxAndZkVMTierFee:                    minSgxAndZkVMTierFee,
 		MinEthBalance:                           minEthBalance,
 		MinTaikoTokenBalance:                    minTaikoTokenBalance,
 		MaxExpiry:                               c.Duration(flags.MaxExpiry.Name),
