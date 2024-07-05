@@ -9,14 +9,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
+
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
 )
 
 func Test_NewTransactionRepo(t *testing.T) {
 	tests := []struct {
 		name    string
-		db      eventindexer.DB
+		db      db.DB
 		wantErr error
 	}{
 		{
@@ -27,7 +27,7 @@ func Test_NewTransactionRepo(t *testing.T) {
 		{
 			"noDb",
 			nil,
-			eventindexer.ErrNoDB,
+			db.ErrNoDB,
 		},
 	}
 

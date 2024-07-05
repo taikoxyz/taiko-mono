@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
 )
@@ -13,7 +14,7 @@ import (
 func Test_NewNFTBalanceRepo(t *testing.T) {
 	tests := []struct {
 		name    string
-		db      eventindexer.DB
+		db      db.DB
 		wantErr error
 	}{
 		{
@@ -24,7 +25,7 @@ func Test_NewNFTBalanceRepo(t *testing.T) {
 		{
 			"noDb",
 			nil,
-			eventindexer.ErrNoDB,
+			db.ErrNoDB,
 		},
 	}
 
