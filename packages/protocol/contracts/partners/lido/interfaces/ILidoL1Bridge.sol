@@ -61,8 +61,8 @@ interface ILidoL1Bridge {
         uint32 l2Gas_,
         bytes calldata data_
     )
-    external
-    payable;
+        external
+        payable;
 
     /// @notice Complete a withdrawal from L2 to L1, and credit funds to the recipient's balance of
     /// the
@@ -84,6 +84,5 @@ interface ILidoL1Bridge {
         uint256 amount_,
         bytes calldata data_
     )
-    external;
-
+        external;
 }

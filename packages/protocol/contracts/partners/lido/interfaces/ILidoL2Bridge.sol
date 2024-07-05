@@ -62,8 +62,8 @@ interface ILidoL2Bridge {
         uint32 l1Gas_,
         bytes calldata data_
     )
-    external
-    payable;
+        external
+        payable;
 
     /// @notice Completes a deposit from L1 to L2, and credits funds to the recipient's balance of
     ///     this L2 token. This call will fail if it did not originate from a corresponding deposit
@@ -84,5 +84,5 @@ interface ILidoL2Bridge {
         uint256 amount_,
         bytes calldata data_
     )
-    external;
+        external;
 }

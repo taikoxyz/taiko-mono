@@ -6,6 +6,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
  * @title ILidoBridgedToken
  * @dev Interface for Lido bridged token, extending the IERC20 interface
  */
+
 interface ILidoBridgedToken is IERC20Upgradeable {
     /**
      * @notice Mints new tokens to a specified address
