@@ -67,7 +67,7 @@ func TestIntegration_HealthCheck_Save(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err = healthCheckRepo.Save(tt.opts)
+			err = healthCheckRepo.Save(context.Background(), &tt.opts)
 			assert.Equal(t, tt.wantErr, err)
 
 			req, err := http.NewRequest(http.MethodGet, "/healtcheck", nil)
@@ -91,7 +91,7 @@ func TestIntegration_HealthCheck_UptimeByGuardianProverId(t *testing.T) {
 
 	assert.Equal(t, nil, err)
 
-	err = healthCheckRepo.Save(guardianproverhealthcheck.SaveHealthCheckOpts{
+	err = healthCheckRepo.Save(context.Background(), &guardianproverhealthcheck.SaveHealthCheckOpts{
 		GuardianProverID: 1,
 		Alive:            true,
 		ExpectedAddress:  "0x123",
@@ -103,7 +103,7 @@ func TestIntegration_HealthCheck_UptimeByGuardianProverId(t *testing.T) {
 
 	assert.Equal(t, err, nil)
 
-	err = healthCheckRepo.Save(guardianproverhealthcheck.SaveHealthCheckOpts{
+	err = healthCheckRepo.Save(context.Background(), &guardianproverhealthcheck.SaveHealthCheckOpts{
 		GuardianProverID: 1,
 		Alive:            true,
 		ExpectedAddress:  "0x123",

@@ -2,14 +2,15 @@ package http
 
 import (
 	"fmt"
-	"github.com/docker/distribution/context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/cyberhorsey/webutils/testutils"
+	"github.com/docker/distribution/context"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
+
 	guardianproverhealthcheck "github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check"
 )
 
