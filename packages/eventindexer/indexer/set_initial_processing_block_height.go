@@ -26,7 +26,7 @@ func (i *Indexer) setInitialIndexingBlockByMode(
 	switch mode {
 	case Sync:
 		// get most recently processed block height from the DB
-		latest, err := i.eventRepo.FindLatestBlockID(
+		latest, err := i.eventRepo.FindLatestBlockID(ctx,
 			i.srcChainID,
 		)
 		if err != nil {
