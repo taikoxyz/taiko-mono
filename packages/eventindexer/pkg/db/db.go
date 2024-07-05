@@ -16,6 +16,7 @@ var (
 type DB interface {
 	DB() (*sql.DB, error)
 	GormDB() *gorm.DB
+	Close() error
 }
 
 type Database struct {
@@ -28,6 +29,15 @@ func (db *Database) DB() (*sql.DB, error) {
 
 func (db *Database) GormDB() *gorm.DB {
 	return db.gormdb
+}
+
+func (db *Database) Close() error {
+	sqlDB, err := db.DB()
+	if err != nil {
+		return err
+	}
+
+	return sqlDB.Close()
 }
 
 func New(gormdb *gorm.DB) DB {

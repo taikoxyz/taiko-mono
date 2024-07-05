@@ -29,7 +29,6 @@ func NewERC20BalanceRepository(dbHandler db.DB) (*ERC20BalanceRepository, error)
 }
 
 func (r *ERC20BalanceRepository) increaseBalanceInDB(
-	ctx context.Context,
 	db *gorm.DB,
 	opts eventindexer.UpdateERC20BalanceOpts,
 ) (*eventindexer.ERC20Balance, error) {
@@ -69,7 +68,6 @@ func (r *ERC20BalanceRepository) increaseBalanceInDB(
 }
 
 func (r *ERC20BalanceRepository) decreaseBalanceInDB(
-	ctx context.Context,
 	db *gorm.DB,
 	opts eventindexer.UpdateERC20BalanceOpts,
 ) (*eventindexer.ERC20Balance, error) {
@@ -124,13 +122,13 @@ func (r *ERC20BalanceRepository) IncreaseAndDecreaseBalancesInTx(
 	retries := 10
 	for retries > 0 {
 		err = r.db.GormDB().Transaction(func(tx *gorm.DB) (err error) {
-			increasedBalance, err = r.increaseBalanceInDB(ctx, tx, increaseOpts)
+			increasedBalance, err = r.increaseBalanceInDB(tx.WithContext(ctx), increaseOpts)
 			if err != nil {
 				return err
 			}
 
 			if decreaseOpts.Amount != "0" && decreaseOpts.Amount != "" {
-				decreasedBalance, err = r.decreaseBalanceInDB(ctx, tx, decreaseOpts)
+				decreasedBalance, err = r.decreaseBalanceInDB(tx.WithContext(ctx), decreaseOpts)
 			}
 
 			return err

@@ -34,7 +34,7 @@ func (r *AccountRepository) Save(
 	// only insert if address doesn't exist
 	a := &eventindexer.Account{}
 
-	if err := r.db.GormDB().Where("address = ?", address.Hex()).First(a).Error; err != nil {
+	if err := r.db.GormDB().WithContext(ctx).Where("address = ?", address.Hex()).First(a).Error; err != nil {
 		if err != gorm.ErrRecordNotFound {
 			return err
 		}

@@ -147,12 +147,13 @@ func (r *EventRepository) GetAssignedBlocksByProverAddress(
 }
 
 // DeleteAllAfterBlockID is used when a reorg is detected
-func (r *EventRepository) DeleteAllAfterBlockID(blockID uint64, srcChainID uint64) error {
+func (r *EventRepository) DeleteAllAfterBlockID(ctx context.Context, blockID uint64, srcChainID uint64) error {
 	return nil
 }
 
 // GetLatestBlockID get latest block id
 func (r *EventRepository) FindLatestBlockID(
+	ctx context.Context,
 	srcChainID uint64,
 ) (uint64, error) {
 	if srcChainID == MockChainID.Uint64() {
