@@ -494,8 +494,6 @@ func (s *ProverTestSuite) initProver(
 		Dummy:                 true,
 		ProveUnassignedBlocks: true,
 		Capacity:              1024,
-		MinOptimisticTierFee:  common.Big1,
-		MinSgxTierFee:         common.Big1,
 		Allowance:             new(big.Int).Exp(big.NewInt(1_000_000_100), new(big.Int).SetUint64(uint64(decimal)), nil),
 		RPCTimeout:            3 * time.Second,
 		BackOffRetryInterval:  3 * time.Second,
