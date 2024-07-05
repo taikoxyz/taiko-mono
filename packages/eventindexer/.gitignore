@@ -41,7 +41,5 @@ terraform.rc
 
 .idea
 
-Bridge.json
-TaikoL2.json
-IHeaderSync.json
-AssignmentHook.json
+# Ignore abi files
+contracts/**/*.json

@@ -27,9 +27,8 @@ Repository for BLOB storage (archive and serve data)
    Navigate to the `migrations` directory to apply database migrations:
 
    ```bash
-   cd ./migrations
-   goose mysql "<user>:<password>@tcp(localhost:3306)/blobs" status
-   goose mysql "<user>:<password>@tcp(localhost:3306)/blobs" up
+   goose -dir ./migrations mysql "<user>:<password>@tcp(localhost:3306)/blobs" status
+   goose -dir ./migrations mysql "<user>:<password>@tcp(localhost:3306)/blobs" up
    ```
 
    These commands apply migrations to the `blobs` database.
