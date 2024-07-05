@@ -74,10 +74,10 @@ func GetBlockProposedEventFromBlockID(
 	rpc *rpc.Client,
 	id *big.Int,
 	proposedIn *big.Int,
-) (e *bindings.TaikoL1ClientBlockProposed, err error) {
+) (e *bindings.LibProposingBlockProposed, err error) {
 	callback := func(
 		_ context.Context,
-		event *bindings.TaikoL1ClientBlockProposed,
+		event *bindings.LibProposingBlockProposed,
 		_ eventIterator.EndBlockProposedEventIterFunc,
 	) error {
 		// Only filter for exact blockID we want.
@@ -93,6 +93,7 @@ func GetBlockProposedEventFromBlockID(
 	iter, err := eventIterator.NewBlockProposedIterator(ctx, &eventIterator.BlockProposedIteratorConfig{
 		Client:               rpc.L1,
 		TaikoL1:              rpc.TaikoL1,
+		LibProposing:         rpc.LibProposing,
 		StartHeight:          new(big.Int).Sub(proposedIn, common.Big1),
 		EndHeight:            proposedIn,
 		OnBlockProposedEvent: callback,

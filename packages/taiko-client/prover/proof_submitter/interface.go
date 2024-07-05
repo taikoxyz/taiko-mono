@@ -12,7 +12,7 @@ import (
 
 // Submitter is the interface for submitting proofs of the L2 blocks.
 type Submitter interface {
-	RequestProof(ctx context.Context, event *bindings.TaikoL1ClientBlockProposed) error
+	RequestProof(ctx context.Context, event *bindings.LibProposingBlockProposed) error
 	SubmitProof(ctx context.Context, proofWithHeader *proofProducer.ProofWithHeader) error
 	Producer() proofProducer.ProofProducer
 	Tier() uint16

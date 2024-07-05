@@ -35,7 +35,7 @@ type BlockProposedEventHandler struct {
 	genesisHeightL1       uint64
 	rpc                   *rpc.Client
 	proofGenerationCh     chan<- *proofProducer.ProofWithHeader
-	assignmentExpiredCh   chan<- *bindings.TaikoL1ClientBlockProposed
+	assignmentExpiredCh   chan<- *bindings.LibProposingBlockProposed
 	proofSubmissionCh     chan<- *proofProducer.ProofRequestBody
 	proofContestCh        chan<- *proofProducer.ContestRequestBody
 	backOffRetryInterval  time.Duration
@@ -54,7 +54,7 @@ type NewBlockProposedEventHandlerOps struct {
 	GenesisHeightL1       uint64
 	RPC                   *rpc.Client
 	ProofGenerationCh     chan *proofProducer.ProofWithHeader
-	AssignmentExpiredCh   chan *bindings.TaikoL1ClientBlockProposed
+	AssignmentExpiredCh   chan *bindings.LibProposingBlockProposed
 	ProofSubmissionCh     chan *proofProducer.ProofRequestBody
 	ProofContestCh        chan *proofProducer.ContestRequestBody
 	BackOffRetryInterval  time.Duration
@@ -86,7 +86,7 @@ func NewBlockProposedEventHandler(opts *NewBlockProposedEventHandlerOps) *BlockP
 // Handle implements the BlockProposedHandler interface.
 func (h *BlockProposedEventHandler) Handle(
 	ctx context.Context,
-	e *bindings.TaikoL1ClientBlockProposed,
+	e *bindings.LibProposingBlockProposed,
 	end eventIterator.EndBlockProposedEventIterFunc,
 ) error {
 	// If there are newly generated proofs, we need to submit them as soon as possible,
@@ -170,7 +170,7 @@ func (h *BlockProposedEventHandler) Handle(
 // checkL1Reorg checks whether the L1 chain has been reorged.
 func (h *BlockProposedEventHandler) checkL1Reorg(
 	ctx context.Context,
-	e *bindings.TaikoL1ClientBlockProposed,
+	e *bindings.LibProposingBlockProposed,
 ) error {
 	// Check whether the L2 EE's anchored L1 info, to see if the L1 chain has been reorged.
 	reorgCheckResult, err := h.rpc.CheckL1Reorg(
@@ -225,7 +225,7 @@ func (h *BlockProposedEventHandler) checkL1Reorg(
 // and submits a new proof if necessary.
 func (h *BlockProposedEventHandler) checkExpirationAndSubmitProof(
 	ctx context.Context,
-	e *bindings.TaikoL1ClientBlockProposed,
+	e *bindings.LibProposingBlockProposed,
 ) error {
 	// Check whether the block has been verified.
 	isVerified, err := isBlockVerified(ctx, h.rpc, e.BlockId)
@@ -382,7 +382,7 @@ func NewBlockProposedEventGuardianHandler(
 // Handle implements the BlockProposedHandler interface.
 func (h *BlockProposedGuaridanEventHandler) Handle(
 	ctx context.Context,
-	event *bindings.TaikoL1ClientBlockProposed,
+	event *bindings.LibProposingBlockProposed,
 	end eventIterator.EndBlockProposedEventIterFunc,
 ) error {
 	// If we are operating as a guardian prover,

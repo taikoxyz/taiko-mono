@@ -77,12 +77,12 @@ func (s *BlobSyncerTestSuite) TestProcessL1BlocksReorg() {
 func (s *BlobSyncerTestSuite) TestOnBlockProposed() {
 	s.Nil(s.s.onBlockProposed(
 		context.Background(),
-		&bindings.TaikoL1ClientBlockProposed{BlockId: common.Big0},
+		&bindings.LibProposingBlockProposed{BlockId: common.Big0},
 		func() {},
 	))
 	s.NotNil(s.s.onBlockProposed(
 		context.Background(),
-		&bindings.TaikoL1ClientBlockProposed{BlockId: common.Big1},
+		&bindings.LibProposingBlockProposed{BlockId: common.Big1},
 		func() {},
 	))
 }
@@ -94,7 +94,7 @@ func (s *BlobSyncerTestSuite) TestInsertNewHead() {
 	s.Nil(err)
 	_, err = s.s.insertNewHead(
 		context.Background(),
-		&bindings.TaikoL1ClientBlockProposed{
+		&bindings.LibProposingBlockProposed{
 			BlockId: common.Big1,
 			Meta: bindings.TaikoDataBlockMetadata{
 				Id:         1,

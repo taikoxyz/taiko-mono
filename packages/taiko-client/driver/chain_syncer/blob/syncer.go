@@ -136,6 +136,7 @@ func (s *Syncer) processL1Blocks(ctx context.Context) error {
 	iter, err := eventIterator.NewBlockProposedIterator(ctx, &eventIterator.BlockProposedIteratorConfig{
 		Client:               s.rpc.L1,
 		TaikoL1:              s.rpc.TaikoL1,
+		LibProposing:         s.rpc.LibProposing,
 		StartHeight:          s.state.GetL1Current().Number,
 		EndHeight:            l1End.Number,
 		FilterQuery:          nil,
@@ -162,7 +163,7 @@ func (s *Syncer) processL1Blocks(ctx context.Context) error {
 // inserting the proposed block one by one to the L2 execution engine.
 func (s *Syncer) onBlockProposed(
 	ctx context.Context,
-	event *bindings.TaikoL1ClientBlockProposed,
+	event *bindings.LibProposingBlockProposed,
 	endIter eventIterator.EndBlockProposedEventIterFunc,
 ) error {
 	// We simply ignore the genesis block's `BlockProposed` event.
@@ -304,7 +305,7 @@ func (s *Syncer) onBlockProposed(
 // block chain through Engine APIs.
 func (s *Syncer) insertNewHead(
 	ctx context.Context,
-	event *bindings.TaikoL1ClientBlockProposed,
+	event *bindings.LibProposingBlockProposed,
 	parent *types.Header,
 	headBlockID *big.Int,
 	txListBytes []byte,
@@ -407,7 +408,7 @@ func (s *Syncer) insertNewHead(
 // Engine APIs.
 func (s *Syncer) createExecutionPayloads(
 	ctx context.Context,
-	event *bindings.TaikoL1ClientBlockProposed,
+	event *bindings.LibProposingBlockProposed,
 	parentHash common.Hash,
 	l1Origin *rawdb.L1Origin,
 	headBlockID *big.Int,
@@ -610,7 +611,7 @@ func (s *Syncer) retrievePastBlock(
 // checkReorg checks whether the L1 chain has been reorged, and resets the L1Current cursor if necessary.
 func (s *Syncer) checkReorg(
 	ctx context.Context,
-	event *bindings.TaikoL1ClientBlockProposed,
+	event *bindings.LibProposingBlockProposed,
 ) (*rpc.ReorgCheckResult, error) {
 	// If the L2 chain is at genesis, we don't need to check L1 reorg.
 	if s.state.GetL1Current().Number == s.state.GenesisL1Height {

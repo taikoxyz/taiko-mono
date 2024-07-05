@@ -18,7 +18,7 @@ var (
 // ProofRequestBody represents a request body to generate a proof.
 type ProofRequestBody struct {
 	Tier  uint16
-	Event *bindings.TaikoL1ClientBlockProposed
+	Event *bindings.LibProposingBlockProposed
 }
 
 // ContestRequestBody represents a request body to generate a proof for contesting.

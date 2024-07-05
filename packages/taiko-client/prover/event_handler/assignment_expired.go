@@ -48,7 +48,7 @@ func NewAssignmentExpiredEventHandler(
 // Handle implements the AssignmentExpiredHandler interface.
 func (h *AssignmentExpiredEventHandler) Handle(
 	ctx context.Context,
-	e *bindings.TaikoL1ClientBlockProposed,
+	e *bindings.LibProposingBlockProposed,
 ) error {
 	log.Info(
 		"Proof assignment window is expired",

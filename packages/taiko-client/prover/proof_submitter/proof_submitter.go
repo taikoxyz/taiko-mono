@@ -86,7 +86,7 @@ func NewProofSubmitter(
 }
 
 // RequestProof implements the Submitter interface.
-func (s *ProofSubmitter) RequestProof(ctx context.Context, event *bindings.TaikoL1ClientBlockProposed) error {
+func (s *ProofSubmitter) RequestProof(ctx context.Context, event *bindings.LibProposingBlockProposed) error {
 	header, err := s.rpc.WaitL2Header(ctx, event.BlockId)
 	if err != nil {
 		return fmt.Errorf("failed to fetch l2 Header, blockID: %d, error: %w", event.BlockId, err)
