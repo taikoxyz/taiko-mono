@@ -19,3 +19,9 @@
 
 # Go workspace file
 go.work
+
+# Ignore binary file
+blobstorage
+
+# Ignore all the abi files
+bindings/**/*.json
