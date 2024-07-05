@@ -16,7 +16,7 @@ contract DeployTokenUnlock is DeployCapability {
     // On L2 is shall be: 0x806A3D0B9540655454Dd9dd9922B1321f0cfA2ED
     // Deployed (and verified) with TXN:
     // https://taikoscan.io/tx/0x3100bc89ba700400f81d7823898f0f43a0dd5ce5507b13c4ad9e625dc0497909
-    address public TOKEN_UNLOCK_IMPL = 0x035AFfC82612de31E9Db2259B9482D0Dd53B7819;
+    address public TOKEN_UNLOCK_IMPL = 0x518845daA8870bE2C59E49620Fc262AD48953C9a;
 
     function setUp() public { }
 
