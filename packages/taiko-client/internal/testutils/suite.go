@@ -112,7 +112,7 @@ func (s *ClientTestSuite) SetupTest() {
 		)
 		s.Nil(err)
 
-		// Increase allowance for AssignmentHook and TaikoL1
+		// Increase allowance for TaikoL1
 		s.setAllowance(l1ProverPrivKey)
 		s.setAllowance(ownerPrivKey)
 	}
