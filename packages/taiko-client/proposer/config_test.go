@@ -124,11 +124,7 @@ func (s *ProposerTestSuite) SetupApp() *cli.App {
 		&cli.DurationFlag{Name: flags.ProposeInterval.Name},
 		&cli.StringFlag{Name: flags.TxPoolLocals.Name},
 		&cli.StringFlag{Name: flags.ProverEndpoints.Name},
-		&cli.Uint64Flag{Name: flags.OptimisticTierFee.Name},
-		&cli.Uint64Flag{Name: flags.SgxTierFee.Name},
 		&cli.DurationFlag{Name: flags.RPCTimeout.Name},
-		&cli.Uint64Flag{Name: flags.TierFeePriceBump.Name},
-		&cli.Uint64Flag{Name: flags.MaxTierFeePriceBumps.Name},
 		&cli.BoolFlag{Name: flags.ProposeBlockIncludeParentMetaHash.Name},
 	}
 	app.Flags = append(app.Flags, flags.TxmgrFlags...)

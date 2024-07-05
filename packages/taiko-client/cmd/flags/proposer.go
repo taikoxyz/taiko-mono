@@ -140,10 +140,6 @@ var ProposerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	AllowZeroInterval,
 	MaxProposedTxListsPerEpoch,
 	ProverEndpoints,
-	OptimisticTierFee,
-	SgxTierFee,
-	TierFeePriceBump,
-	MaxTierFeePriceBumps,
 	ProposeBlockIncludeParentMetaHash,
 	BlobAllowed,
 }, TxmgrFlags)
