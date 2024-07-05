@@ -138,6 +138,28 @@ var (
 			Type: "bytes",
 		},
 	}
+	blockParams2Components = []abi.ArgumentMarshaling{
+		{
+			Name: "coinbase",
+			Type: "address",
+		},
+		{
+			Name: "extraData",
+			Type: "bytes32",
+		},
+		{
+			Name: "parentMetaHash",
+			Type: "bytes32",
+		},
+		{
+			Name: "anchorBlockId",
+			Type: "uint64",
+		},
+		{
+			Name: "timestamp",
+			Type: "uint64",
+		},
+	}
 	proverAssignmentComponents = []abi.ArgumentMarshaling{
 		{
 			Name: "feeToken",
@@ -196,10 +218,12 @@ var (
 )
 
 var (
-	assignmentHookInputType, _   = abi.NewType("tuple", "AssignmentHook.Input", assignmentHookInputComponents)
-	assignmentHookInputArgs      = abi.Arguments{{Name: "AssignmentHook.Input", Type: assignmentHookInputType}}
-	blockParamsComponentsType, _ = abi.NewType("tuple", "TaikoData.BlockParams", blockParamsComponents)
-	blockParamsComponentsArgs    = abi.Arguments{{Name: "TaikoData.BlockParams", Type: blockParamsComponentsType}}
+	assignmentHookInputType, _    = abi.NewType("tuple", "AssignmentHook.Input", assignmentHookInputComponents)
+	assignmentHookInputArgs       = abi.Arguments{{Name: "AssignmentHook.Input", Type: assignmentHookInputType}}
+	blockParamsComponentsType, _  = abi.NewType("tuple", "TaikoData.BlockParams", blockParamsComponents)
+	blockParamsComponentsArgs     = abi.Arguments{{Name: "TaikoData.BlockParams", Type: blockParamsComponentsType}}
+	blockParams2ComponentsType, _ = abi.NewType("tuple", "TaikoData.BlockParams2", blockParams2Components)
+	blockParams2ComponentsArgs    = abi.Arguments{{Name: "TaikoData.BlockParams2", Type: blockParams2ComponentsType}}
 	// ProverAssignmentPayload
 	bytes32Type, _  = abi.NewType("bytes32", "", nil)
 	addressType, _  = abi.NewType("address", "", nil)
@@ -324,6 +348,16 @@ func init() {
 // EncodeBlockParams performs the solidity `abi.encode` for the given blockParams.
 func EncodeBlockParams(params *BlockParams) ([]byte, error) {
 	b, err := blockParamsComponentsArgs.Pack(params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to abi.encode block params, %w", err)
+	}
+	return b, nil
+}
+
+// EncodeBlockParams performs the solidity `abi.encode` for the given blockParams
+// after ontake fork.
+func EncodeBlockParams2(params *BlockParams2) ([]byte, error) {
+	b, err := blockParams2ComponentsArgs.Pack(params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to abi.encode block params, %w", err)
 	}

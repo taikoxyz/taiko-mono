@@ -64,6 +64,24 @@ func SubscribeBlockProposed(
 	})
 }
 
+// SubscribeBlockProposed2 subscribes the protocol's BlockProposed2 events.
+func SubscribeBlockProposed2(
+	libProposing *bindings.LibProposing,
+	ch chan *bindings.LibProposingBlockProposed2,
+) event.Subscription {
+	return SubscribeEvent("BlockProposed2", func(ctx context.Context) (event.Subscription, error) {
+		sub, err := libProposing.WatchBlockProposed2(nil, ch, nil)
+		if err != nil {
+			log.Error("Create TaikoL1.BlockProposed2 subscription error", "error", err)
+			return nil, err
+		}
+
+		defer sub.Unsubscribe()
+
+		return waitSubErr(ctx, sub)
+	})
+}
+
 // SubscribeTransitionProved subscribes the protocol's TransitionProved events.
 func SubscribeTransitionProved(
 	taikoL1 *bindings.TaikoL1Client,
