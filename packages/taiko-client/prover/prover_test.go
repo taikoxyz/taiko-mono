@@ -32,7 +32,6 @@ import (
 type ProverTestSuite struct {
 	testutils.ClientTestSuite
 	p        *Prover
-	cancel   context.CancelFunc
 	d        *driver.Driver
 	proposer *proposer.Proposer
 	txmgr    *txmgr.SimpleTxManager
@@ -458,12 +457,6 @@ func (s *ProverTestSuite) TestSetApprovalAlreadySetHigher() {
 	s.Nil(err)
 
 	s.Equal(0, allowance.Cmp(originalAllowance))
-}
-
-func (s *ProverTestSuite) TearDownTest() {
-	if s.p.ctx.Err() == nil {
-		s.cancel()
-	}
 }
 
 func TestProverTestSuite(t *testing.T) {
