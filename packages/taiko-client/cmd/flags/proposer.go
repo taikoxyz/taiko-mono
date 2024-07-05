@@ -15,13 +15,6 @@ var (
 		Category: proposerCategory,
 		EnvVars:  []string{"L1_PROPOSER_PRIV_KEY"},
 	}
-	ProverEndpoints = &cli.StringFlag{
-		Name:     "proverEndpoints",
-		Usage:    "Comma-delineated list of prover endpoints proposer should query when attempting to propose a block",
-		Required: true,
-		Category: proposerCategory,
-		EnvVars:  []string{"PROVER_ENDPOINTS"},
-	}
 	L2SuggestedFeeRecipient = &cli.StringFlag{
 		Name:     "l2.suggestedFeeRecipient",
 		Usage:    "Address of the proposed block's suggested L2 fee recipient",
@@ -139,7 +132,6 @@ var ProposerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	MinProposingInternal,
 	AllowZeroInterval,
 	MaxProposedTxListsPerEpoch,
-	ProverEndpoints,
 	ProposeBlockIncludeParentMetaHash,
 	BlobAllowed,
 }, TxmgrFlags)

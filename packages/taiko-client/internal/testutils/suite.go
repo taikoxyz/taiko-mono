@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"math/big"
-	"net/url"
 	"os"
 	"strconv"
 	"time"
@@ -22,7 +21,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/server"
 )
 
 type ClientTestSuite struct {
@@ -31,9 +29,7 @@ type ClientTestSuite struct {
 	RPCClient           *rpc.Client
 	TestAddrPrivKey     *ecdsa.PrivateKey
 	TestAddr            common.Address
-	ProverEndpoints     []*url.URL
 	AddressManager      *bindings.AddressManager
-	proverServer        *server.ProverServer
 }
 
 func (s *ClientTestSuite) SetupTest() {
@@ -74,9 +70,6 @@ func (s *ClientTestSuite) SetupTest() {
 	l1ProverPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROVER_PRIVATE_KEY")))
 	s.Nil(err)
 
-	s.ProverEndpoints = []*url.URL{LocalRandomProverEndpoint()}
-	s.proverServer = s.NewTestProverServer(l1ProverPrivKey, s.ProverEndpoints[0])
-
 	allowance, err := rpcCli.TaikoToken.Allowance(
 		nil,
 		crypto.PubkeyToAddress(l1ProverPrivKey.PublicKey),
@@ -115,7 +108,7 @@ func (s *ClientTestSuite) SetupTest() {
 		)
 		s.Nil(err)
 
-		// Increase allowance for AssignmentHook and TaikoL1
+		// Increase allowance for TaikoL1
 		s.setAllowance(l1ProverPrivKey)
 		s.setAllowance(ownerPrivKey)
 	}
@@ -171,7 +164,6 @@ func (s *ClientTestSuite) TearDownTest() {
 	s.RevertL1Snapshot(s.testnetL1SnapshotID)
 
 	s.Nil(rpc.SetHead(context.Background(), s.RPCClient.L2, common.Big0))
-	s.Nil(s.proverServer.Shutdown(context.Background()))
 }
 
 func (s *ClientTestSuite) SetL1Automine(automine bool) {
