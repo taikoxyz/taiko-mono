@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.24;
 
-import { IBridge } from "../../bridge/IBridge.sol";
+import { IBridge } from "../../../bridge/IBridge.sol";
 
 /// @notice The L2 token bridge works with the L1 token bridge to enable ERC20 token bridging
 ///     between L1 and L2. It acts as a minter for new tokens when it hears about
@@ -19,6 +19,7 @@ interface ILidoL2Bridge {
     );
 
     event DepositFinalized(
+        bytes32 msgHash,
         address indexed _l1Token,
         address indexed _l2Token,
         address indexed _from,
@@ -27,16 +28,8 @@ interface ILidoL2Bridge {
         bytes _data
     );
 
-    event DepositFailed(
-        address indexed _l1Token,
-        address indexed _l2Token,
-        address indexed _from,
-        address _to,
-        uint256 _amount,
-        bytes _data
-    );
-
-    event FailedMessageProcessed(
+    event TokenReleaseFinalized(
+        bytes32 msgHash,
         address indexed _l1Token,
         address indexed _l2Token,
         address indexed _from,
@@ -69,13 +62,12 @@ interface ILidoL2Bridge {
         uint32 l1Gas_,
         bytes calldata data_
     )
-        external
-        payable;
+    external
+    payable;
 
     /// @notice Completes a deposit from L1 to L2, and credits funds to the recipient's balance of
     ///     this L2 token. This call will fail if it did not originate from a corresponding deposit
     ///     in L1StandardTokenBridge.
-    /// @param fromBridge_ Address of calling bridge
     /// @param l1Token_ Address for the l1 token this is called with
     /// @param l2Token_ Address for the l2 token this is called with
     /// @param from_ Account to pull the deposit from on L2.
@@ -85,7 +77,6 @@ interface ILidoL2Bridge {
     ///     solely as a convenience for external contracts. Aside from enforcing a maximum
     ///     length, these contracts provide no guarantees about its content.
     function finalizeDeposit(
-        address fromBridge_,
         address l1Token_,
         address l2Token_,
         address from_,
@@ -93,18 +84,5 @@ interface ILidoL2Bridge {
         uint256 amount_,
         bytes calldata data_
     )
-        external;
-
-    /**
-     * @notice Handles a failed message
-     * @param _message The failed message received
-     */
-    function handleFailMessage(IBridge.Message calldata _message) external;
-
-    /**
-     * @notice Receives and processes a message from the L1 bridge
-     * @param _message The message received from the L1 bridge
-     * @param _proof The proof of the message
-     */
-    function receiveMessage(IBridge.Message calldata _message, bytes calldata _proof) external;
+    external;
 }
