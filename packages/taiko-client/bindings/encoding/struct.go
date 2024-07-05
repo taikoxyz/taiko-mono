@@ -59,12 +59,6 @@ type ProverAssignment struct {
 	Signature      []byte
 }
 
-// AssignmentHookInput should be same as AssignmentHook.Input
-type AssignmentHookInput struct {
-	Assignment *ProverAssignment
-	Tip        *big.Int
-}
-
 // ToExecutableData converts a GETH *types.Header to *engine.ExecutableData.
 func ToExecutableData(header *types.Header) *engine.ExecutableData {
 	executableData := &engine.ExecutableData{

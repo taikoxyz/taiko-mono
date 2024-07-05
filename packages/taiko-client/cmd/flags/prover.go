@@ -150,7 +150,7 @@ var (
 	}
 	Allowance = &cli.Float64Flag{
 		Name:     "prover.allowance",
-		Usage:    "Amount without decimal to approve AssignmentHook contract for TaikoToken usage",
+		Usage:    "Amount without decimal to approve TaikoL1 contract for TaikoToken usage",
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_ALLOWANCE"},
 	}

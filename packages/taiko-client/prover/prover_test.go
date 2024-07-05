@@ -518,10 +518,6 @@ func (s *ProverTestSuite) initProver(
 		L1NodeVersion:         "1.0.0",
 		L2NodeVersion:         "0.1.0",
 	}, s.txmgr))
-	p.server = s.NewTestProverServer(
-		key,
-		proverServerURL,
-	)
 
 	p.guardianProverHeartbeater = guardianProverHeartbeater.New(
 		key,

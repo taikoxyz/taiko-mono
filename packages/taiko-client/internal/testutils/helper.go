@@ -4,12 +4,9 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"crypto/rand"
-	"errors"
 	"fmt"
 	"math/big"
-	"net/http"
 	"net/url"
-	"os"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -20,12 +17,10 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/go-resty/resty/v2"
 	"github.com/phayes/freeport"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/server"
 )
 
 func (s *ClientTestSuite) ProposeInvalidTxListBytes(proposer Proposer) {
@@ -217,52 +212,6 @@ func (s *ClientTestSuite) ProposeValidBlock(
 	s.Greater(newL1Head.Number.Uint64(), l1Head.Number.Uint64())
 
 	return event
-}
-
-// NewTestProverServer starts a new prover server that has channel listeners to respond and react
-// to requests for capacity, which provers can call.
-func (s *ClientTestSuite) NewTestProverServer(
-	proverPrivKey *ecdsa.PrivateKey,
-	url *url.URL,
-) *server.ProverServer {
-	protocolConfig, err := s.RPCClient.TaikoL1.GetConfig(nil)
-	s.Nil(err)
-
-	srv, err := server.New(&server.NewProverServerOpts{
-		ProverPrivateKey:     proverPrivKey,
-		MinOptimisticTierFee: common.Big1,
-		MinSgxTierFee:        common.Big1,
-		MinSgxAndZkVMTierFee: common.Big1,
-		MinEthBalance:        common.Big1,
-		MinTaikoTokenBalance: common.Big1,
-		MaxExpiry:            24 * time.Hour,
-		TaikoL1Address:       common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
-		RPC:                  s.RPCClient,
-		ProtocolConfigs:      &protocolConfig,
-		LivenessBond:         protocolConfig.LivenessBond,
-	})
-	s.Nil(err)
-
-	go func() {
-		if err := srv.Start(fmt.Sprintf(":%v", url.Port())); !errors.Is(err, http.ErrServerClosed) {
-			log.Error("Failed to start prover server", "error", err)
-		}
-	}()
-
-	// Wait till the server fully started.
-	s.Nil(backoff.Retry(func() error {
-		res, err := resty.New().R().Get(url.String() + "/healthz")
-		if err != nil {
-			return err
-		}
-		if !res.IsSuccess() {
-			return fmt.Errorf("invalid response status code: %d", res.StatusCode())
-		}
-
-		return nil
-	}, backoff.NewExponentialBackOff()))
-
-	return srv
 }
 
 // RandomHash generates a random blob of data and returns it as a hash.

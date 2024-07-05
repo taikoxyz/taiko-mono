@@ -22,7 +22,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/server"
 )
 
 type ClientTestSuite struct {
@@ -33,7 +32,6 @@ type ClientTestSuite struct {
 	TestAddr            common.Address
 	ProverEndpoints     []*url.URL
 	AddressManager      *bindings.AddressManager
-	proverServer        *server.ProverServer
 }
 
 func (s *ClientTestSuite) SetupTest() {
@@ -75,7 +73,6 @@ func (s *ClientTestSuite) SetupTest() {
 	s.Nil(err)
 
 	s.ProverEndpoints = []*url.URL{LocalRandomProverEndpoint()}
-	s.proverServer = s.NewTestProverServer(l1ProverPrivKey, s.ProverEndpoints[0])
 
 	allowance, err := rpcCli.TaikoToken.Allowance(
 		nil,
@@ -171,7 +168,6 @@ func (s *ClientTestSuite) TearDownTest() {
 	s.RevertL1Snapshot(s.testnetL1SnapshotID)
 
 	s.Nil(rpc.SetHead(context.Background(), s.RPCClient.L2, common.Big0))
-	s.Nil(s.proverServer.Shutdown(context.Background()))
 }
 
 func (s *ClientTestSuite) SetL1Automine(automine bool) {
