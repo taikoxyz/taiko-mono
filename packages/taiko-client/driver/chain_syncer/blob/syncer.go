@@ -258,7 +258,10 @@ func (s *Syncer) onBlockProposed(
 	var txListBytes []byte
 	calldataTxListFound := false
 
-	// Iterate through the receipt logs
+	// first lets try to see if we can find a matching CalldataTxList event
+	// with the same blockID, to see if a contract sent this event via calldata.
+	// because in this case, the txList will not be available in the transactions
+	// arguments for decoding.
 	for _, vLog := range receipt.Logs {
 		// Use the generated binding's method to parse the log
 		calldataEvent, err := s.rpc.TaikoL1.ParseCalldataTxList(*vLog)
@@ -277,6 +280,7 @@ func (s *Syncer) onBlockProposed(
 		}
 	}
 
+	// if not, then we want to fetch it from the tx args.
 	if !calldataTxListFound {
 		// Decode transactions list.
 		var txListFetcher txlistFetcher.TxListFetcher
