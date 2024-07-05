@@ -1,7 +1,6 @@
 package proposer
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -40,8 +39,7 @@ type Proposer struct {
 
 	proposingTimer *time.Timer
 
-	tiers    []*rpc.TierProviderTierWithID
-	tierFees []encoding.TierFee
+	tiers []*rpc.TierProviderTierWithID
 
 	// Transaction builder
 	txBuilder builder.ProposeBlockTransactionBuilder
@@ -90,9 +88,6 @@ func (p *Proposer) InitFromConfig(ctx context.Context, cfg *Config, txMgr *txmgr
 	log.Info("Protocol configs", "configs", p.protocolConfigs)
 
 	if p.tiers, err = p.rpc.GetTiers(ctx); err != nil {
-		return err
-	}
-	if err := p.initTierFees(); err != nil {
 		return err
 	}
 
@@ -399,35 +394,4 @@ func (p *Proposer) updateProposingTicker() {
 // Name returns the application name.
 func (p *Proposer) Name() string {
 	return "proposer"
-}
-
-// initTierFees initializes the proving fees for every proof tier configured in the protocol for the proposer.
-func (p *Proposer) initTierFees() error {
-	for _, tier := range p.tiers {
-		log.Info(
-			"Protocol tier",
-			"id", tier.ID,
-			"name", string(bytes.TrimRight(tier.VerifierName[:], "\x00")),
-			"validityBond", utils.WeiToEther(tier.ValidityBond),
-			"contestBond", utils.WeiToEther(tier.ContestBond),
-			"provingWindow", tier.ProvingWindow,
-			"cooldownWindow", tier.CooldownWindow,
-		)
-
-		switch tier.ID {
-		case encoding.TierOptimisticID:
-			p.tierFees = append(p.tierFees, encoding.TierFee{Tier: tier.ID, Fee: p.OptimisticTierFee})
-		case encoding.TierSgxID:
-			p.tierFees = append(p.tierFees, encoding.TierFee{Tier: tier.ID, Fee: p.SgxTierFee})
-		case encoding.TierGuardianMinorityID:
-			p.tierFees = append(p.tierFees, encoding.TierFee{Tier: tier.ID, Fee: common.Big0})
-		case encoding.TierGuardianMajorityID:
-			// Guardian prover should not charge any fee.
-			p.tierFees = append(p.tierFees, encoding.TierFee{Tier: tier.ID, Fee: common.Big0})
-		default:
-			return fmt.Errorf("unknown tier: %d", tier.ID)
-		}
-	}
-
-	return nil
 }

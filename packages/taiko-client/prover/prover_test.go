@@ -112,10 +112,6 @@ func (s *ProverTestSuite) SetupTest() {
 		ProposeInterval:            1024 * time.Hour,
 		MaxProposedTxListsPerEpoch: 1,
 		ProverEndpoints:            []*url.URL{proverServerURL},
-		OptimisticTierFee:          common.Big256,
-		SgxTierFee:                 common.Big256,
-		MaxTierFeePriceBumps:       3,
-		TierFeePriceBump:           common.Big2,
 	}, s.txmgr))
 
 	s.proposer = prop
