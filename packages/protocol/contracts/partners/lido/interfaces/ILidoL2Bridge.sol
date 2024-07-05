@@ -2,8 +2,6 @@
 
 pragma solidity 0.8.24;
 
-import { IBridge } from "../../../bridge/IBridge.sol";
-
 /// @notice The L2 token bridge works with the L1 token bridge to enable ERC20 token bridging
 ///     between L1 and L2. It acts as a minter for new tokens when it hears about
 ///     deposits into the L1 token bridge. It also acts as a burner of the tokens
