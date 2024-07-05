@@ -1,13 +1,13 @@
 package http
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/cyberhorsey/webutils/testutils"
-	"github.com/docker/distribution/context"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 
