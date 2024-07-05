@@ -10,7 +10,6 @@
   import { ETHToken, fetchBalance, fetchBalance as getTokenBalance, TokenType } from '$libs/token';
   import { debounce } from '$libs/util/debounce';
   import { getLogger } from '$libs/util/logger';
-  import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
   import { ethBalance } from '$stores/balance';
   import { connectedSourceChain } from '$stores/network';
@@ -30,7 +29,7 @@
 
   const log = getLogger('component:Amount');
 
-  let inputId = `input-${uid()}`;
+  let inputId = `input-${crypto.randomUUID()}`;
   let inputBox: InputBox;
   let computingMaxAmount = false;
   let invalidInput = false;

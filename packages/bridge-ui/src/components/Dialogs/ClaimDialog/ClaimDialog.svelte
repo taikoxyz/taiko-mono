@@ -24,7 +24,6 @@
   } from '$libs/error';
   import type { NFT } from '$libs/token';
   import { getLogger } from '$libs/util/logger';
-  import { uid } from '$libs/util/uid';
   import { connectedSourceChain } from '$stores/network';
   import { pendingTransactions } from '$stores/pendingTransactions';
 
@@ -37,7 +36,7 @@
 
   const log = getLogger('ClaimDialog');
 
-  const dialogId = `dialog-${uid()}`;
+  const dialogId = `dialog-${crypto.randomUUID()}`;
   const dispatch = createEventDispatcher();
 
   export let dialogOpen = false;

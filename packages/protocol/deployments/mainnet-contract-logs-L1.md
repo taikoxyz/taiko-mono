@@ -40,7 +40,7 @@
 
 - ens: `token.taiko.eth`
 - proxy: `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800`
-- impl: `0x55833dA2962c2330ccCF043ff8037e6D2939bCF6`
+- impl: `0xcfe803378D79d1180EbF030455040EA6513869dF`
 - owner: `admin.taiko.eth`
 - logs:
   - deployed on April 25, 2024 @commit`2f6d3c62e`
@@ -48,8 +48,7 @@
   - Changed owner from `labs.taiko.eth` to `admin.taiko.eth` @tx`0x7d82794932540ed9edd259e58f6ef8ae21a49beada7f0224638f888f7149c01c`
   - Accept owner @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
   - upgraded impl from `0xea53c0f4b129Cf3f3FBA896F9f23ca18246e9B3c` to `0x55833dA2962c2330ccCF043ff8037e6D2939bCF6` @commit`2b483de` @tx`0x0bbf7d1258c646f41a02a92a55825b1ebfd3659577d0f2b57b462f8895e23a04`
-- todo:
-  - upgrade impl.
+  - upgraded impl from `0x55833dA2962c2330ccCF043ff8037e6D2939bCF6` to `0xcfe803378D79d1180EbF030455040EA6513869dF` @commit`d2b00ce` @tx`0xc9f468d33d8d55911e4e5b5c301ed244a5f81ab0f389d2b4f398eb5b89d417ef`
 
 #### signal_service
 
@@ -68,10 +67,8 @@
 
 - ens: `bridge.based.taiko.eth`
 - proxy: `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC`
-- impl: `0xD28f2c26aD8bA88b0691F6BB41Ff021878052561`
+- impl: `0x01E7D369a619eF1B0E92563d8737F42C09789986`
 - owner: `admin.taiko.eth`
-- todo:
-  - upgrade the contract:https://github.com/taikoxyz/taiko-mono/pull/17529
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - admin.taiko.eth accepted the ownership @tx`0x0ed114fee6de4e3e2206cea44e6632ec0c4588f73648d98d8df5dc0183b07885`
@@ -84,6 +81,7 @@
   - upgrade impl to `0x951B7Ae1bB26d12dB37f01748e8fB62FEf45A8B5` @commit`1bd3285` @tx`0xf21f6bf720767db3bc9b63ef69cacb20340bdedfb6589e6a4d11fe082dfa7bd6`
   - upgrade impl to `0x3c326483EBFabCf3252205f26dF632FE83d11108` @commit`3ae25fd` @tx`0xc0ba6558642b93ee892bee0705dbcfb5130c53637e6266bfa5e3a6501167d6f2`
   - upgrade impl to `0xD28f2c26aD8bA88b0691F6BB41Ff021878052561` @commit`2b483de` @tx`0x0bbf7d1258c646f41a02a92a55825b1ebfd3659577d0f2b57b462f8895e23a04`
+  - upgrade impl to `0x01E7D369a619eF1B0E92563d8737F42C09789986` @commit`04d8c87` @tx`0x13f54109cb7f7507ad03562b06ea8d8b472043186e44252302583bc64acfb20b`
 
 #### quota_manager
 
@@ -106,15 +104,14 @@
 
 - ens: `v20.based.taiko.eth`
 - proxy: `0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab`
-- impl: `0xF8bdaC4E68bA2595Be8381aaa5456917e374E737`
+- impl: `0xa303784B0557BF1F1FB8b8abEF2B18a005722689`
 - owner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - upgraded from `0x15D9F7e12aEa18DAEF5c651fBf97567CAd4a4BEc` to `0xC722d9f3f8D60288589F7f67a9CFAd34d3B9bf8E` @commit`b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
   - upgraded from `0xC722d9f3f8D60288589F7f67a9CFAd34d3B9bf8E` to `0x4F750D13005444407D44dAA30922128db0374ca1` @commit`fa481c1` @tx`0x02ed558762eae5f0a930ba4a1047a02d4a793ea48890268c32df04e882f138ff`
   - upgraded from `0x4F750D13005444407D44dAA30922128db0374ca1` to `0xF8bdaC4E68bA2595Be8381aaa5456917e374E737` @commit`d907359` @tx`0xdb5e926c96d112ce1389da77a927fba6c7d04a711839b9e14777530ebcf83914`
-- todo:
-  - upgrade
+  - upgraded from `0xF8bdaC4E68bA2595Be8381aaa5456917e374E737` to `0xa303784B0557BF1F1FB8b8abEF2B18a005722689` @commit`04d8c87` @tx`0x13f54109cb7f7507ad03562b06ea8d8b472043186e44252302583bc64acfb20b`
 
 #### erc721_vault
 
@@ -142,19 +139,19 @@
 
 #### bridged_erc20
 
-- impl: `0xcc5d488073FA918cBbd73B9A523F3858C4de7372`
+- impl: `0x79BC0Aada00fcF6E7AB514Bfeb093b5Fae3653e3`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
 
 #### bridged_erc721
 
-- impl: `0xc4096E9ff1526Bd1840B65e9f45695135aC12De7`
+- impl: `0xC3310905E2BC9Cfb198695B75EF3e5B69C6A1Bf7`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
 
 #### bridged_erc1155
 
-- impl: `0x39E4C1214e733639d059979079A151911e42791d`
+- impl: `0x3c90963cFBa436400B0F9C46Aa9224cB379c2c40`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
 
@@ -164,18 +161,18 @@
 
 - ens: `ram.based.taiko.eth`
 - proxy: `0x579f40D0BE111b823962043702cabe6Aaa290780`
-- impl: `0x8EEf314878A7E56314E8DF285d0B0D649C903aF6`
+- impl: `0x29a88d60246C76E4F28806b9C8a42d2183154900`
 - names:
   - taiko_token: `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800`
   - signal_service: `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C`
   - bridge: `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC`
   - taiko: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`
-  - tier_router: `0xa8e5D3a2E2052bea7f10bE6a0386454b721d1f9F`
+  - tier_router: `0x6e997f1f22c40ba37f633b08f3b07e10ed43155a`
   - tier_sgx: `0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81`
   - tier_guardian_minority: `0x579A8d63a2Db646284CBFE31FE5082c9989E985c`
   - tier_guardian: `0xE3D777143Ea25A6E031d1e921F396750885f43aC`
   - automata_dcap_attestation: `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3`
-  - prover_set: `0xD547Ca5d6b50dC5E900a091978597eB51F18F9D1`
+  - prover_set: `0x518845daA8870bE2C59E49620Fc262AD48953C9a`
   - proposer_one: `0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045` vitalik.eth
   - proposer: `0x000000633b68f5d8d3a86593ebb815b4663bcbe0`
   - chain_watchdog: `0xE3D777143Ea25A6E031d1e921F396750885f43aC`
@@ -193,14 +190,15 @@
   - register `prover_set` to `0xd0AEe97712a4a88B75C31E3C61DD2Ce6E514D85F` @tx`0xb23d9cec24a1cc14956482d9d6a77eee0d6ab6ccd5b77e2be191fb8368c2d107`
   - unregister `assignment_hook` @tx`0xb23d9cec24a1cc14956482d9d6a77eee0d6ab6ccd5b77e2be191fb8368c2d107`
   - register `prover_set` to `0x5D528253fA14cd7F637937de847BE8D5BE0Bf5fd` @commit`2b483de` @tx`0x0bbf7d1258c646f41a02a92a55825b1ebfd3659577d0f2b57b462f8895e23a04`
-- todo:
-  - deploy and register a new tier_router
+  - register `tier_router` to `0x6e997f1f22c40ba37f633b08f3b07e10ed43155a` @tx`0x13f54109cb7f7507ad03562b06ea8d8b472043186e44252302583bc64acfb20b`
+  - Upgraded from `0x8EEf314878A7E56314E8DF285d0B0D649C903aF6` to `0x29a88d60246C76E4F28806b9C8a42d2183154900` @commit`57c8dc0` @tx`0x9f787086b4c5e6887eb1d27c286069bcbbcabb1d7ed9f69ab3121c4681cf4b2c`
+  - register `prover_set` to `0x518845daA8870bE2C59E49620Fc262AD48953C9a` @commit`67a7a37` @tx`0xc1f91c375713f601b99cf6d2cdb80c129e036a7c9ec5f75871c4d13216dbbb5c`
 
 #### taikoL1
 
 - ens: `based.taiko.eth`
 - proxy: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`
-- impl: `0xB9E1E58bcF33B79CcfF99c298963546a6c334388`
+- impl: `0x5fc54737ECC1de49D58AE1195d4A296257F1E31b`
 - owner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
@@ -214,9 +212,7 @@
   - Upgrade to `0x4b2743B869b85d5F7D8020566f92664995E4f3c5` @commit`a3faee0` @tx`eth:0x40A2aCCbd92BCA938b02010E17A5b8929b49130D`
   - Upgrade to `0x0468745A07de44A9a3138adAc35875ecaf7a20D5` @commit`2b483de` @tx`0x0bbf7d1258c646f41a02a92a55825b1ebfd3659577d0f2b57b462f8895e23a04`
   - Upgrade to `0xB9E1E58bcF33B79CcfF99c298963546a6c334388` @commit`d907359` @tx`0xdb5e926c96d112ce1389da77a927fba6c7d04a711839b9e14777530ebcf83914`
-- todo
-  - upgrade this contract for PR 17553
-  - upgrade for liveness bond change
+  - Upgrade to `0x5fc54737ECC1de49D58AE1195d4A296257F1E31b` @commit`04d8c87` @tx`0x13f54109cb7f7507ad03562b06ea8d8b472043186e44252302583bc64acfb20b`
 
 #### assignment_hook
 
@@ -230,12 +226,11 @@
 
 #### tier_provider
 
-- impl: `0x4cffe56C947E26D07C14020499776DB3e9AE3a23`
+- impl: `0x3a1A900680BaADb889202faf12915F7E47B71ddd`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - deployed on May 15, 2024 @commit`cd5144255`
-- todo:
-  - update tier config in Hekla and mainnet
+  - deployed on Jul 2, 2024 @commit`d2b00ce`
 
 #### tier_sgx
 
