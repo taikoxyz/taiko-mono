@@ -36,7 +36,7 @@ contract TaikoL1TestGroup7 is TaikoL1TestGroupBase {
             blockHash2,
             stateRoot2,
             meta.minTier,
-            TaikoErrors.L1_CANNOT_CONTEST.selector
+            LibProving.L1_CANNOT_CONTEST.selector
         );
         printBlockAndTrans(meta.id);
     }
@@ -79,7 +79,7 @@ contract TaikoL1TestGroup7 is TaikoL1TestGroupBase {
             blockHash3,
             stateRoot3,
             meta.minTier,
-            TaikoErrors.L1_ALREADY_CONTESTED.selector
+            LibProving.L1_ALREADY_CONTESTED.selector
         );
 
         printBlockAndTrans(meta.id);
