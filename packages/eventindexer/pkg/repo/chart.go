@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
 
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"golang.org/x/exp/slog"
@@ -9,16 +10,16 @@ import (
 )
 
 type ChartRepository struct {
-	db eventindexer.DB
+	db db.DB
 }
 
-func NewChartRepository(db eventindexer.DB) (*ChartRepository, error) {
-	if db == nil {
-		return nil, eventindexer.ErrNoDB
+func NewChartRepository(dbHandler db.DB) (*ChartRepository, error) {
+	if dbHandler == nil {
+		return nil, db.ErrNoDB
 	}
 
 	return &ChartRepository{
-		db: db,
+		db: dbHandler,
 	}, nil
 }
 

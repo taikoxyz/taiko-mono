@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
 	"math/big"
 	"net/http"
 	"strings"
@@ -14,16 +15,16 @@ import (
 )
 
 type ERC20BalanceRepository struct {
-	db eventindexer.DB
+	db db.DB
 }
 
-func NewERC20BalanceRepository(db eventindexer.DB) (*ERC20BalanceRepository, error) {
-	if db == nil {
-		return nil, eventindexer.ErrNoDB
+func NewERC20BalanceRepository(dbHandler db.DB) (*ERC20BalanceRepository, error) {
+	if dbHandler == nil {
+		return nil, db.ErrNoDB
 	}
 
 	return &ERC20BalanceRepository{
-		db: db,
+		db: dbHandler,
 	}, nil
 }
 

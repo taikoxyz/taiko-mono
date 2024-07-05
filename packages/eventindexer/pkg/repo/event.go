@@ -8,22 +8,24 @@ import (
 	"github.com/morkid/paginate"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
+
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
 )
 
 type EventRepository struct {
-	db eventindexer.DB
+	db db.DB
 }
 
-func NewEventRepository(db eventindexer.DB) (*EventRepository, error) {
-	if db == nil {
-		return nil, eventindexer.ErrNoDB
+func NewEventRepository(dbHandler db.DB) (*EventRepository, error) {
+	if dbHandler == nil {
+		return nil, db.ErrNoDB
 	}
 
 	return &EventRepository{
-		db: db,
+		db: dbHandler,
 	}, nil
 }
 
@@ -265,7 +267,7 @@ WHERE block_id >= ? AND chain_id = ?`
 func (r *EventRepository) FindLatestBlockID(
 	srcChainID uint64,
 ) (uint64, error) {
-	q := `SELECT COALESCE(MAX(emitted_block_id), 0) 
+	q := `SELECT COALESCE(MAX(emitted_block_id), 0)
 	FROM events WHERE chain_id = ?`
 
 	var b uint64

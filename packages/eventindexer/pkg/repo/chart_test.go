@@ -17,7 +17,7 @@ func Test_NewChartRepo(t *testing.T) {
 	}{
 		{
 			"success",
-			&db.DB{},
+			&db.Database{},
 			nil,
 		},
 		{

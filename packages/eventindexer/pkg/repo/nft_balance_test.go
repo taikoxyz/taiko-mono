@@ -18,7 +18,7 @@ func Test_NewNFTBalanceRepo(t *testing.T) {
 	}{
 		{
 			"success",
-			&db.DB{},
+			&db.Database{},
 			nil,
 		},
 		{

@@ -10,7 +10,9 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
+
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
 )
 
 var (
@@ -18,16 +20,16 @@ var (
 )
 
 type TransactionRepository struct {
-	db eventindexer.DB
+	db db.DB
 }
 
-func NewTransactionRepository(db eventindexer.DB) (*TransactionRepository, error) {
-	if db == nil {
-		return nil, eventindexer.ErrNoDB
+func NewTransactionRepository(dbHandler db.DB) (*TransactionRepository, error) {
+	if dbHandler == nil {
+		return nil, db.ErrNoDB
 	}
 
 	return &TransactionRepository{
-		db: db,
+		db: dbHandler,
 	}, nil
 }
 

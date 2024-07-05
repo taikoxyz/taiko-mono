@@ -6,8 +6,9 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer/cmd/flags"
 	"github.com/urfave/cli/v2"
+
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/cmd/flags"
 )
 
 // InitTxmgrConfigsFromCli initializes the transaction manager configs from the command line flags.

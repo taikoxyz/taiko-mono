@@ -18,7 +18,7 @@ func Test_NewERC20BalanceRepo(t *testing.T) {
 	}{
 		{
 			"success",
-			&db.DB{},
+			&db.Database{},
 			nil,
 		},
 		{
