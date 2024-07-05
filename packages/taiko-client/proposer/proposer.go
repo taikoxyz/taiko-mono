@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -81,11 +80,7 @@ func (p *Proposer) InitFromConfig(ctx context.Context, cfg *Config, txMgr *txmgr
 	}
 
 	// Protocol configs
-	protocolConfigs, err := p.rpc.TaikoL1.GetConfig(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return fmt.Errorf("failed to get protocol configs: %w", err)
-	}
-	p.protocolConfigs = &protocolConfigs
+	p.protocolConfigs = encoding.GetProtocolConfig(p.rpc.L2.ChainID.Uint64())
 
 	log.Info("Protocol configs", "configs", p.protocolConfigs)
 

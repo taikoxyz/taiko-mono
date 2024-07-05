@@ -58,11 +58,6 @@ func NewSyncer(
 	blobServerEndpoint *url.URL,
 	socialScanEndpoint *url.URL,
 ) (*Syncer, error) {
-	configs, err := client.TaikoL1.GetConfig(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get protocol configs: %w", err)
-	}
-
 	constructor, err := anchorTxConstructor.New(client)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize anchor constructor: %w", err)
@@ -75,7 +70,7 @@ func NewSyncer(
 		progressTracker:   progressTracker,
 		anchorConstructor: constructor,
 		txListDecompressor: txListDecompressor.NewTxListDecompressor(
-			uint64(configs.BlockMaxGasLimit),
+			uint64(encoding.GetProtocolConfig(client.L2.ChainID.Uint64()).BlockMaxGasLimit),
 			rpc.BlockMaxTxListBytes,
 			client.L2.ChainID,
 		),

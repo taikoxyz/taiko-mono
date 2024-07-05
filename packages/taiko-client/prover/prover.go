@@ -119,12 +119,7 @@ func InitFromConfig(ctx context.Context, p *Prover, cfg *Config, txMgr *txmgr.Si
 	}
 
 	// Configs
-	protocolConfigs, err := p.rpc.TaikoL1.GetConfig(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return fmt.Errorf("failed to get protocol configs: %w", err)
-	}
-	p.protocolConfig = &protocolConfigs
-
+	p.protocolConfig = encoding.GetProtocolConfig(p.rpc.L2.ChainID.Uint64())
 	log.Info("Protocol configs", "configs", p.protocolConfig)
 
 	chBufferSize := p.protocolConfig.BlockMaxProposals
@@ -194,8 +189,8 @@ func InitFromConfig(ctx context.Context, p *Prover, cfg *Config, txMgr *txmgr.Si
 		MaxBlockSlippage:     p.cfg.MaxBlockSlippage,
 		TaikoL1Address:       p.cfg.TaikoL1Address,
 		RPC:                  p.rpc,
-		ProtocolConfigs:      &protocolConfigs,
-		LivenessBond:         protocolConfigs.LivenessBond,
+		ProtocolConfigs:      p.protocolConfig,
+		LivenessBond:         p.protocolConfig.LivenessBond,
 	}); err != nil {
 		return err
 	}
