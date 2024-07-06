@@ -198,12 +198,18 @@ library LibProposing {
             emit CalldataTxList(meta_.id, _txList);
         }
 
+        uint16 minTier;
         {
             ITierRouter tierRouter = ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false));
             ITierProvider tierProvider = ITierProvider(tierRouter.getProvider(local.b.numBlocks));
 
-            // Use the difficulty as a random number
-            meta_.minTier = tierProvider.getMinTier(uint256(meta_.difficulty));
+            if (local.postFork) {
+                minTier =
+                    tierProvider.getMinTier(uint256(bytes32(block.prevrandao) ^ meta_.difficulty));
+            } else {
+                // Use the difficulty as a random number
+                meta_.minTier = tierProvider.getMinTier(uint256(meta_.difficulty));
+            }
         }
 
         // Create the block that will be stored onchain
@@ -217,7 +223,8 @@ library LibProposing {
             // For a new block, the next transition ID is always 1, not 0.
             nextTransitionId: 1,
             // For unverified block, its verifiedTransitionId is always 0.
-            verifiedTransitionId: 0
+            verifiedTransitionId: 0,
+            minTier: minTier
         });
 
         // Store the block in the ring buffer

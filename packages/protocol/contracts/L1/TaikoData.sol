@@ -164,6 +164,7 @@ library TaikoData {
         // this block is not verified as the last block in a batch, verifiedTransitionId
         // will remain zero.
         uint32 verifiedTransitionId;
+        uint16 minTier;
     }
 
     /// @dev Struct representing an Ethereum deposit.

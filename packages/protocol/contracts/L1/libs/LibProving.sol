@@ -25,6 +25,7 @@ library LibProving {
         uint64 slot;
         uint64 blockId;
         uint32 tid;
+        uint16 blockMinTier;
         bool lastUnpausedAt;
         bool isTopTier;
         bool inProvingWindow;
@@ -165,6 +166,7 @@ library LibProving {
         TaikoData.Block storage blk = _state.blocks[local.slot];
 
         local.proposedAt = local.postFork ? meta.proposedAt : blk.proposedAt;
+        local.blockMinTier = meta.minTier == 0 ? blk.minTier : meta.minTier;
 
         if (LibUtils.shouldSyncStateRoot(_config.stateRootSyncInternal, local.blockId)) {
             local.stateRoot = tran.stateRoot;
@@ -197,7 +199,7 @@ library LibProving {
 
         // The new proof must meet or exceed the minimum tier required by the
         // block or the previous proof; it cannot be on a lower tier.
-        if (proof.tier == 0 || proof.tier < meta.minTier || proof.tier < ts.tier) {
+        if (proof.tier == 0 || proof.tier < local.blockMinTier || proof.tier < ts.tier) {
             revert L1_INVALID_TIER();
         }
 
@@ -208,7 +210,7 @@ library LibProving {
             ITierProvider tierProvider = ITierProvider(tierRouter.getProvider(local.blockId));
 
             local.tier = tierProvider.getTier(proof.tier);
-            local.minTier = tierProvider.getTier(meta.minTier);
+            local.minTier = tierProvider.getTier(local.blockMinTier);
         }
 
         local.inProvingWindow = !LibUtils.isPostDeadline({
