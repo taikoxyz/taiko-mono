@@ -124,9 +124,7 @@ library LibProposing {
                 // Verify the passed in L1 state block number.
                 // We only allow the L1 block to be 2 epochs old.
                 // The other constraint is that the L1 block number needs to be larger than or equal
-                // the
-                // one
-                // in the previous L2 block.
+                // the one in the previous L2 block.
                 if (
                     params.anchorBlockId + _config.maxAnchorHeightOffset < block.number //
                         || params.anchorBlockId >= block.number
@@ -138,8 +136,7 @@ library LibProposing {
                 // Verify the passed in timestamp.
                 // We only allow the timestamp to be 2 epochs old.
                 // The other constraint is that the timestamp needs to be larger than or equal the
-                // one
-                // in the previous L2 block.
+                // one in the previous L2 block.
                 if (
                     params.timestamp + _config.maxAnchorHeightOffset * 12 < block.timestamp
                         || params.timestamp > block.timestamp || params.timestamp < parentBlk.proposedAt
@@ -149,8 +146,7 @@ library LibProposing {
             }
 
             // Check if parent block has the right meta hash. This is to allow the proposer to make
-            // sure
-            // the block builds on the expected latest chain state.
+            // sure the block builds on the expected latest chain state.
             if (params.parentMetaHash == 0) {
                 params.parentMetaHash = parentBlk.metaHash;
             } else if (params.parentMetaHash != parentBlk.metaHash) {
