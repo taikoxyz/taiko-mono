@@ -24,6 +24,11 @@ contract TaikoL2 is EssentialContract {
     /// @notice Golden touch address is the only address that can do the anchor transaction.
     address public constant GOLDEN_TOUCH_ADDRESS = 0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
 
+    /// @notice The average gas used for proposing, proving, and verifying one single L2 block
+    /// on L1.  The current value is ~450_000 gas, but we use 225000 here for now to only cover 50%
+    /// of the L1 fees.
+    uint256 public constant BLOCK_GAS_COST_ON_L1 = 225_000;
+
     /// @notice Mapping from L2 block numbers to their block hashes. All L2 block hashes will
     /// be saved in this mapping.
     mapping(uint256 blockId => bytes32 blockHash) public l2Hashes;
@@ -39,7 +44,7 @@ contract TaikoL2 is EssentialContract {
     /// @notice The last synced L1 block height.
     uint64 public lastSyncedBlock;
 
-    uint64 private __deprecated1; // was parentTimestamp
+    uint64 public avgBlockGasUsed; // was parentTimestamp
     uint64 private __deprecated2; // was __currentBlockTimestamp
 
     /// @notice The L1's chain ID.
@@ -51,8 +56,6 @@ contract TaikoL2 is EssentialContract {
         uint32 gasTargetPerL1Block;
         uint8 basefeeAdjustmentQuotient;
         uint64 ontakeForkHeight;
-        uint16 l1BaseFeeContibution;
-        uint16 l1BlobBaseFeeContibution;
     }
 
     /// @notice Emitted when the latest L1 block details are anchored to L2.
@@ -219,10 +222,10 @@ contract TaikoL2 is EssentialContract {
         }
 
         // Verify the base fee per gas is correct
-        (uint256 _basefee, uint64 _gasExcess) =
+        (uint256 _basefee, uint256 _basefeeExtra, uint64 _gasExcess, uint64 _avgBlockGasUsed) =
             getBasefee(_l1BlockId, _l1BaseFee, _l1BlobBaseFee, _parentGasUsed);
 
-        if (!skipFeeCheck() && block.basefee != _basefee) {
+        if (!skipFeeCheck() && block.basefee != _basefee + _basefeeExtra) {
             revert L2_BASEFEE_MISMATCH();
         }
 
@@ -241,6 +244,7 @@ contract TaikoL2 is EssentialContract {
         l2Hashes[parentId] = _parentHash;
         publicInputHash = publicInputHashNew;
         gasExcess = _gasExcess;
+        avgBlockGasUsed = _avgBlockGasUsed;
 
         if (block.number < _config.ontakeForkHeight) {
             emit Anchored(_parentHash, _gasExcess);
@@ -276,6 +280,7 @@ contract TaikoL2 is EssentialContract {
     /// @param _l1BlobBaseFee The L1's blob basefee.
     /// @param _parentGasUsed Gas used in the parent block.
     /// @return basefee_ The calculated EIP-1559 base fee per gas.
+    /// @return basefeeExtra_ The additional value added to base fee due to L1 cost.
     /// @return gasExcess_ The new gasExcess value.
     function getBasefee(
         uint64 _l1BlockId,
@@ -285,7 +290,12 @@ contract TaikoL2 is EssentialContract {
     )
         public
         view
-        returns (uint256 basefee_, uint64 gasExcess_)
+        returns (
+            uint256 basefee_,
+            uint256 basefeeExtra_,
+            uint64 gasExcess_,
+            uint64 avgBlockGasUsed_
+        )
     {
         Config memory config = getConfig();
         uint64 gasIssuance = uint64(_l1BlockId - lastSyncedBlock) * config.gasTargetPerL1Block;
@@ -298,11 +308,14 @@ contract TaikoL2 is EssentialContract {
             _parentGasUsed
         );
 
-        if (config.l1BaseFeeContibution != 0) {
-            basefee_ += _l1BaseFee / config.l1BaseFeeContibution;
+        if (avgBlockGasUsed == 0) {
+            avgBlockGasUsed_ = _parentGasUsed;
+        } else {
+            avgBlockGasUsed_ = (avgBlockGasUsed * 63 + _parentGasUsed) / 64;
         }
-        if (config.l1BlobBaseFeeContibution != 0) {
-            basefee_ += _l1BlobBaseFee / config.l1BlobBaseFeeContibution;
+
+        if (avgBlockGasUsed_ != 0) {
+            basefeeExtra_ = (BLOCK_GAS_COST_ON_L1 * _l1BaseFee + _l1BlobBaseFee) / avgBlockGasUsed_;
         }
     }
 
@@ -325,9 +338,7 @@ contract TaikoL2 is EssentialContract {
         return Config({
             gasTargetPerL1Block: 60_000_000,
             basefeeAdjustmentQuotient: 8,
-            ontakeForkHeight: 500_000,
-            l1BaseFeeContibution: 200,
-            l1BlobBaseFeeContibution: 200
+            ontakeForkHeight: 500_000
         });
     }
 

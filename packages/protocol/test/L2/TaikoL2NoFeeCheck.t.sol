@@ -55,7 +55,7 @@ contract TestTaikoL2NoFeeCheck is TaikoTest {
             )
         );
 
-        L2.setConfigAndExcess(TaikoL2.Config(gasTarget, quotient, 10_000, 0, 0), gasExcess);
+        L2.setConfigAndExcess(TaikoL2.Config(gasTarget, quotient, 10_000), gasExcess);
 
         ss.authorize(address(L2), true);
 
@@ -150,7 +150,7 @@ contract TestTaikoL2NoFeeCheck is TaikoTest {
 
             vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
             _anchorSimulation(currentGasUsed, l1Height);
-            (uint256 currentBaseFee,) = L2.getBasefee(l1Height, 0, 0, currentGasUsed);
+            (uint256 currentBaseFee,,,) = L2.getBasefee(l1Height, 0, 0, currentGasUsed);
             allBaseFee += currentBaseFee;
             console2.log("Actual gas in L2 block is:", currentGasUsed);
             console2.log("L2block to baseFee is:", i, ":", currentBaseFee);
