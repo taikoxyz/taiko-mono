@@ -51,9 +51,10 @@ contract TaikoL2 is EssentialContract {
     /// @notice Emitted when the latest L1 block details are anchored to L2.
     /// @param parentHash The hash of the parent block.
     /// @param gasExcess The gas excess value used to calculate the base fee.
-    event Anchored(bytes32 parentHash, uint64 gasExcess);
+    event Anchored(bytes32 parentHash, uint64 gasExcess, uint256 l1BaseFee, uint256 l1BlobBaseFee);
 
     error L2_BASEFEE_MISMATCH();
+    error L2_FORK_ERROR();
     error L2_INVALID_L1_CHAIN_ID();
     error L2_INVALID_L2_CHAIN_ID();
     error L2_INVALID_PARAM();
@@ -120,6 +121,31 @@ contract TaikoL2 is EssentialContract {
         _anchor(_l1BlockHash, _l1StateRoot, 0, 0, _l1BlockId, _parentGasUsed);
     }
 
+    /// @notice Anchors the latest L1 block details to L2 for cross-layer
+    /// message verification.
+    /// @dev This function can be called freely as the golden touch private key is publicly known,
+    /// but the Taiko node guarantees the first transaction of each block is always this anchor
+    /// transaction, and any subsequent calls will revert with L2_PUBLIC_INPUT_HASH_MISMATCH.
+    /// @param _l1BlockHash The `anchorBlockHash` value in this block's metadata.
+    /// @param _l1StateRoot The state root for the L1 block with id equals `_l1BlockId`
+    /// @param _l1BaseFee The L1's basefee.
+    /// @param _l1BlobBaseFee The L1's blob basefee.
+    /// @param _l1BlockId The `anchorBlockId` value in this block's metadata.
+    /// @param _parentGasUsed The gas used in the parent block.
+    function anchor2(
+        bytes32 _l1BlockHash,
+        bytes32 _l1StateRoot,
+        uint256 _l1BaseFee,
+        uint256 _l1BlobBaseFee,
+        uint64 _l1BlockId,
+        uint32 _parentGasUsed
+    )
+        external
+        nonReentrant
+    {
+        _anchor(_l1BlockHash, _l1StateRoot, _l1BaseFee, _l1BlobBaseFee, _l1BlockId, _parentGasUsed);
+    }
+
     function _anchor(
         bytes32 _l1BlockHash,
         bytes32 _l1StateRoot,
@@ -138,6 +164,10 @@ contract TaikoL2 is EssentialContract {
         }
 
         if (msg.sender != GOLDEN_TOUCH_ADDRESS) revert L2_INVALID_SENDER();
+
+        if (block.number < getConfig().ontakeForkHeight) {
+            if (_l1BaseFee != 0 || _l1BlobBaseFee != 0) revert L2_FORK_ERROR();
+        }
 
         uint256 parentId;
         unchecked {
@@ -174,7 +204,7 @@ contract TaikoL2 is EssentialContract {
         publicInputHash = publicInputHashNew;
         gasExcess = _gasExcess;
 
-        emit Anchored(_parentHash, _gasExcess);
+        emit Anchored(_parentHash, _gasExcess, _l1BaseFee, _l1BlobBaseFee);
     }
 
     /// @notice Withdraw token or Ether from this address

@@ -6,6 +6,7 @@ library LibL2Config {
     struct Config {
         uint32 gasTargetPerL1Block;
         uint8 basefeeAdjustmentQuotient;
+        uint64 ontakeForkHeight;
     }
 
     /// @notice Returns EIP1559 related configurations.
@@ -16,5 +17,6 @@ library LibL2Config {
         // We need to monitor L2 state growth and lower this value when necessary.
         config_.gasTargetPerL1Block = 60_000_000;
         config_.basefeeAdjustmentQuotient = 8;
+        config_.ontakeForkHeight = 500_000;
     }
 }
