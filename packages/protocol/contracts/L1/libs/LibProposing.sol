@@ -14,6 +14,8 @@ import "./LibUtils.sol";
 library LibProposing {
     using LibAddress for address;
 
+    uint256 public constant MAX_ANCHOR_HEIGHT_OFFSET = 64;
+
     struct Local {
         TaikoData.SlotB b;
         bytes32 parentMetaHash;
@@ -126,7 +128,7 @@ library LibProposing {
                 // one
                 // in the previous L2 block.
                 if (
-                    params.anchorBlockId + 64 < block.number //
+                    params.anchorBlockId + _config.maxAnchorHeightOffset < block.number //
                         || params.anchorBlockId >= block.number
                         || params.anchorBlockId < parentBlk.proposedIn
                 ) {
@@ -139,7 +141,7 @@ library LibProposing {
                 // one
                 // in the previous L2 block.
                 if (
-                    params.timestamp + 64 * 12 < block.timestamp
+                    params.timestamp + _config.maxAnchorHeightOffset * 12 < block.timestamp
                         || params.timestamp > block.timestamp || params.timestamp < parentBlk.proposedAt
                 ) {
                     revert L1_INVALID_TIMESTAMP();

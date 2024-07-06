@@ -270,7 +270,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
             blockMaxGasLimit: 240_000_000,
             livenessBond: 125e18, // 125 Taiko token
             stateRootSyncInternal: 16,
-            ontakeForkHeight: 324_512 * 2
+            maxAnchorHeightOffset: 64,
+            ontakeForkHeight: 500_000
         });
     }
 

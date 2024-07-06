@@ -7,7 +7,7 @@ import "./ITierRouter.sol";
 /// @dev Labeled in AddressResolver as "tier_router"
 /// @custom:security-contact security@taiko.xyz
 contract TierRouter is ITierRouter {
-    uint256 public constant ONTAKE_FORK_HEIGHT = 324_512 * 2;
+    uint256 public constant ONTAKE_FORK_HEIGHT = 500_000;
 
     /// @inheritdoc ITierRouter
     function getProvider(uint256 _blockId) external pure returns (address) {

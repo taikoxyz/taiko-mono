@@ -35,6 +35,11 @@ library TaikoData {
         // ---------------------------------------------------------------------
         // The number of L2 blocks between each L2-to-L1 state root sync.
         uint8 stateRootSyncInternal;
+        uint64 maxAnchorHeightOffset;
+        // ---------------------------------------------------------------------
+        // Group 5: Others
+        // ---------------------------------------------------------------------
+        // The number of L2 blocks between each L2-to-L1 state root sync.
         uint64 ontakeForkHeight;
     }
 
@@ -110,8 +115,10 @@ library TaikoData {
         bytes32 parentMetaHash;
         address proposer;
         uint96 livenessBond;
-        uint64 proposedAt; // timestamp
-        uint64 proposedIn; // L1 block number, required/used by node/client.
+        // Time this block is proposed at, used to check proving window and cooldown window.
+        uint64 proposedAt;
+        // L1 block number, required/used by node/client.
+        uint64 proposedIn;
     }
 
     /// @dev Struct representing transition to be proven.
