@@ -14,8 +14,6 @@ import "./LibUtils.sol";
 library LibProposing {
     using LibAddress for address;
 
-    uint256 public constant MAX_ANCHOR_HEIGHT_OFFSET = 64;
-
     struct Local {
         TaikoData.SlotB b;
         bytes32 parentMetaHash;
