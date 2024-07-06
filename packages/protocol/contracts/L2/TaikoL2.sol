@@ -9,7 +9,6 @@ import "../common/LibStrings.sol";
 import "../libs/LibAddress.sol";
 import "../signal/ISignalService.sol";
 import "./Lib1559Math.sol";
-import "./LibL2Config.sol";
 
 /// @title TaikoL2
 /// @notice Taiko L2 is a smart contract that handles cross-layer message
@@ -47,6 +46,14 @@ contract TaikoL2 is EssentialContract {
     uint64 public l1ChainId;
 
     uint256[46] private __gap;
+
+    struct Config {
+        uint32 gasTargetPerL1Block;
+        uint8 basefeeAdjustmentQuotient;
+        uint64 ontakeForkHeight;
+        uint16 l1BaseFeeContibution;
+        uint16 l1BlobBaseFeeContibution;
+    }
 
     /// @notice Emitted when the latest L1 block details are anchored to L2.
     /// @param parentHash The hash of the parent block.
@@ -126,7 +133,7 @@ contract TaikoL2 is EssentialContract {
         external
         nonReentrant
     {
-        LibL2Config.Config memory config = getConfig();
+        Config memory config = getConfig();
         if (block.number >= config.ontakeForkHeight) revert L2_FORK_ERROR();
 
         _anchor(
@@ -162,7 +169,7 @@ contract TaikoL2 is EssentialContract {
         external
         nonReentrant
     {
-        LibL2Config.Config memory config = getConfig();
+        Config memory config = getConfig();
         if (block.number < config.ontakeForkHeight) revert L2_FORK_ERROR();
 
         _anchor(
@@ -177,7 +184,7 @@ contract TaikoL2 is EssentialContract {
     }
 
     function _anchor(
-        LibL2Config.Config memory _config,
+        Config memory _config,
         bytes32 _l1BlockHash,
         bytes32 _l1StateRoot,
         uint256 _l1BaseFee,
@@ -280,7 +287,7 @@ contract TaikoL2 is EssentialContract {
         view
         returns (uint256 basefee_, uint64 gasExcess_)
     {
-        LibL2Config.Config memory config = getConfig();
+        Config memory config = getConfig();
         uint64 gasIssuance = uint64(_l1BlockId - lastSyncedBlock) * config.gasTargetPerL1Block;
 
         (basefee_, gasExcess_) = Lib1559Math.calc1559BaseFee(
@@ -311,8 +318,17 @@ contract TaikoL2 is EssentialContract {
 
     /// @notice Returns EIP1559 related configurations.
     /// @return config_ struct containing configuration parameters.
-    function getConfig() public view virtual returns (LibL2Config.Config memory) {
-        return LibL2Config.get();
+    function getConfig() public view virtual returns (Config memory) {
+        // Assuming we sell 3x more blockspace than Ethereum: 15_000_000 * 4
+        // Note that Brecht's concern is that this value may be too large.
+        // We need to monitor L2 state growth and lower this value when necessary.
+        return Config({
+            gasTargetPerL1Block: 60_000_000,
+            basefeeAdjustmentQuotient: 8,
+            ontakeForkHeight: 500_000,
+            l1BaseFeeContibution: 200,
+            l1BlobBaseFeeContibution: 200
+        });
     }
 
     /// @notice Tells if we need to validate basefee (for simulation).

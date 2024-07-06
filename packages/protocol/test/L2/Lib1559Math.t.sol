@@ -7,7 +7,10 @@ contract TestLib1559Math is TaikoTest {
     using LibMath for uint256;
 
     function test_eip1559_math() external pure {
-        LibL2Config.Config memory config = LibL2Config.get();
+        TaikoL2.Config memory config;
+        config.gasTargetPerL1Block = 60_000_000;
+        config.basefeeAdjustmentQuotient = 8;
+
         uint256 adjustmentFactor = config.gasTargetPerL1Block * config.basefeeAdjustmentQuotient;
 
         uint256 baseFee;
@@ -26,7 +29,10 @@ contract TestLib1559Math is TaikoTest {
     }
 
     function test_eip1559_math_max() external pure {
-        LibL2Config.Config memory config = LibL2Config.get();
+        TaikoL2.Config memory config;
+        config.gasTargetPerL1Block = 60_000_000;
+        config.basefeeAdjustmentQuotient = 8;
+
         uint256 adjustmentFactor = config.gasTargetPerL1Block * config.basefeeAdjustmentQuotient;
 
         uint256 gasExcess = type(uint64).max;
