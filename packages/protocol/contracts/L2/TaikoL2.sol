@@ -117,6 +117,19 @@ contract TaikoL2 is EssentialContract {
         external
         nonReentrant
     {
+        _anchor(_l1BlockHash, _l1StateRoot, 0, 0, _l1BlockId, _parentGasUsed);
+    }
+
+    function _anchor(
+        bytes32 _l1BlockHash,
+        bytes32 _l1StateRoot,
+        uint256 _l1BaseFee,
+        uint256 _l1BlobBaseFee,
+        uint64 _l1BlockId,
+        uint32 _parentGasUsed
+    )
+        private
+    {
         if (
             _l1BlockHash == 0 || _l1StateRoot == 0 || _l1BlockId == 0
                 || (block.number != 1 && _parentGasUsed == 0)
@@ -138,7 +151,8 @@ contract TaikoL2 is EssentialContract {
         }
 
         // Verify the base fee per gas is correct
-        (uint256 _basefee, uint64 _gasExcess) = getBasefee(_l1BlockId, _parentGasUsed);
+        (uint256 _basefee, uint64 _gasExcess) =
+            getBasefee(_l1BlockId, _l1BaseFee, _l1BlobBaseFee, _parentGasUsed);
 
         if (!skipFeeCheck() && block.basefee != _basefee) {
             revert L2_BASEFEE_MISMATCH();
@@ -186,11 +200,15 @@ contract TaikoL2 is EssentialContract {
     /// @notice Gets the basefee and gas excess using EIP-1559 configuration for
     /// the given parameters.
     /// @param _l1BlockId The synced L1 height in the next Taiko block
+    /// @param _l1BaseFee The L1's basefee.
+    /// @param _l1BlobBaseFee The L1's blob basefee.
     /// @param _parentGasUsed Gas used in the parent block.
     /// @return basefee_ The calculated EIP-1559 base fee per gas.
     /// @return gasExcess_ The new gasExcess value.
     function getBasefee(
         uint64 _l1BlockId,
+        uint256 _l1BaseFee,
+        uint256 _l1BlobBaseFee,
         uint32 _parentGasUsed
     )
         public
