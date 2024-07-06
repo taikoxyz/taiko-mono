@@ -51,10 +51,18 @@ contract TaikoL2 is EssentialContract {
     /// @notice Emitted when the latest L1 block details are anchored to L2.
     /// @param parentHash The hash of the parent block.
     /// @param gasExcess The gas excess value used to calculate the base fee.
-    event Anchored(bytes32 parentHash, uint64 gasExcess, uint256 l1BaseFee, uint256 l1BlobBaseFee);
+    event Anchored(bytes32 parentHash, uint64 gasExcess);
+
+    /// @notice Emitted when the latest L1 block details are anchored to L2.
+    /// @param parentHash The hash of the parent block.
+    /// @param gasExcess The gas excess value used to calculate the base fee.
+    /// @param l1BaseFee The L1's basefee.
+    /// @param l1BlobBaseFee The L1's blob basefee.
+    event Anchored2(bytes32 parentHash, uint64 gasExcess, uint256 l1BaseFee, uint256 l1BlobBaseFee);
 
     error L2_BASEFEE_MISMATCH();
     error L2_FORK_ERROR();
+    error L2_INVALID_L1_BASE_FEE();
     error L2_INVALID_L1_CHAIN_ID();
     error L2_INVALID_L2_CHAIN_ID();
     error L2_INVALID_PARAM();
@@ -118,7 +126,18 @@ contract TaikoL2 is EssentialContract {
         external
         nonReentrant
     {
-        _anchor(_l1BlockHash, _l1StateRoot, 0, 0, _l1BlockId, _parentGasUsed);
+        LibL2Config.Config memory config = getConfig();
+        if (block.number >= config.ontakeForkHeight) revert L2_FORK_ERROR();
+
+        _anchor(
+            config, //
+            _l1BlockHash,
+            _l1StateRoot,
+            0,
+            0,
+            _l1BlockId,
+            _parentGasUsed
+        );
     }
 
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
@@ -143,10 +162,22 @@ contract TaikoL2 is EssentialContract {
         external
         nonReentrant
     {
-        _anchor(_l1BlockHash, _l1StateRoot, _l1BaseFee, _l1BlobBaseFee, _l1BlockId, _parentGasUsed);
+        LibL2Config.Config memory config = getConfig();
+        if (block.number < config.ontakeForkHeight) revert L2_FORK_ERROR();
+
+        _anchor(
+            config,
+            _l1BlockHash,
+            _l1StateRoot,
+            _l1BaseFee,
+            _l1BlobBaseFee,
+            _l1BlockId,
+            _parentGasUsed
+        );
     }
 
     function _anchor(
+        LibL2Config.Config memory _config,
         bytes32 _l1BlockHash,
         bytes32 _l1StateRoot,
         uint256 _l1BaseFee,
@@ -165,8 +196,8 @@ contract TaikoL2 is EssentialContract {
 
         if (msg.sender != GOLDEN_TOUCH_ADDRESS) revert L2_INVALID_SENDER();
 
-        if (block.number < getConfig().ontakeForkHeight) {
-            if (_l1BaseFee != 0 || _l1BlobBaseFee != 0) revert L2_FORK_ERROR();
+        if (block.number < _config.ontakeForkHeight) {
+            if (_l1BaseFee != 0 || _l1BlobBaseFee != 0) revert L2_INVALID_L1_BASE_FEE();
         }
 
         uint256 parentId;
@@ -204,7 +235,11 @@ contract TaikoL2 is EssentialContract {
         publicInputHash = publicInputHashNew;
         gasExcess = _gasExcess;
 
-        emit Anchored(_parentHash, _gasExcess, _l1BaseFee, _l1BlobBaseFee);
+        if (block.number < _config.ontakeForkHeight) {
+            emit Anchored(_parentHash, _gasExcess);
+        } else {
+            emit Anchored2(_parentHash, _gasExcess, _l1BaseFee, _l1BlobBaseFee);
+        }
     }
 
     /// @notice Withdraw token or Ether from this address
@@ -256,7 +291,6 @@ contract TaikoL2 is EssentialContract {
             _parentGasUsed
         );
 
-        // TODO: need to figure the math out.
         if (config.l1BaseFeeContibution != 0) {
             basefee_ += _l1BaseFee / config.l1BaseFeeContibution;
         }
