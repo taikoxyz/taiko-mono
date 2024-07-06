@@ -77,6 +77,7 @@ library TaikoData {
         bytes32 parentMetaHash;
         uint64 anchorBlockId; // NEW
         uint64 timestamp; // NEW
+        bool waiveBaseFee; // NEW
     }
 
     /// @dev Struct containing data only required for proving a block
@@ -119,6 +120,7 @@ library TaikoData {
         uint64 proposedAt;
         // L1 block number, required/used by node/client.
         uint64 proposedIn;
+        bool waiveBaseFee;
     }
 
     /// @dev Struct representing transition to be proven.

@@ -173,7 +173,8 @@ library LibProposing {
                 proposer: msg.sender,
                 livenessBond: _config.livenessBond,
                 proposedAt: uint64(block.timestamp),
-                proposedIn: uint64(block.number)
+                proposedIn: uint64(block.number),
+                waiveBaseFee: params.waiveBaseFee
             });
         }
 

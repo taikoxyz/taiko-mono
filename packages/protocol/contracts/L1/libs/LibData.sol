@@ -21,7 +21,8 @@ library LibData {
             extraData: _v1.extraData,
             parentMetaHash: _v1.parentMetaHash,
             anchorBlockId: 0,
-            timestamp: 0
+            timestamp: 0,
+            waiveBaseFee: false
         });
     }
 
@@ -72,7 +73,8 @@ library LibData {
             proposer: _v1.sender,
             livenessBond: _livenessBond,
             proposedAt: 0,
-            proposedIn: 0
+            proposedIn: 0,
+            waiveBaseFee: false
         });
     }
 

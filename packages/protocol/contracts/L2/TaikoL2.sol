@@ -146,7 +146,8 @@ contract TaikoL2 is EssentialContract {
             0,
             0,
             _l1BlockId,
-            _parentGasUsed
+            _parentGasUsed,
+            false
         );
     }
 
@@ -167,7 +168,8 @@ contract TaikoL2 is EssentialContract {
         uint256 _l1BaseFee,
         uint256 _l1BlobBaseFee,
         uint64 _l1BlockId,
-        uint32 _parentGasUsed
+        uint32 _parentGasUsed,
+        bool _waiveBaseFee
     )
         external
         nonReentrant
@@ -182,7 +184,8 @@ contract TaikoL2 is EssentialContract {
             _l1BaseFee,
             _l1BlobBaseFee,
             _l1BlockId,
-            _parentGasUsed
+            _parentGasUsed,
+            _waiveBaseFee
         );
     }
 
@@ -193,7 +196,8 @@ contract TaikoL2 is EssentialContract {
         uint256 _l1BaseFee,
         uint256 _l1BlobBaseFee,
         uint64 _l1BlockId,
-        uint32 _parentGasUsed
+        uint32 _parentGasUsed,
+        bool _waiveBaseFee
     )
         private
     {
@@ -225,7 +229,8 @@ contract TaikoL2 is EssentialContract {
         (uint256 _basefee, uint256 _basefeeExtra, uint64 _gasExcess, uint64 _avgBlockGasUsed) =
             getBasefee(_l1BlockId, _l1BaseFee, _l1BlobBaseFee, _parentGasUsed);
 
-        if (!skipFeeCheck() && block.basefee != _basefee + _basefeeExtra) {
+        uint256 expectedBaseFee = _waiveBaseFee ? 0 : _basefee + _basefeeExtra;
+        if (!skipFeeCheck() && block.basefee != expectedBaseFee) {
             revert L2_BASEFEE_MISMATCH();
         }
 
