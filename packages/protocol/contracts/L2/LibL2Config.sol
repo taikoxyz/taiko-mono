@@ -7,6 +7,8 @@ library LibL2Config {
         uint32 gasTargetPerL1Block;
         uint8 basefeeAdjustmentQuotient;
         uint64 ontakeForkHeight;
+        uint16 l1BaseFeeContibution;
+        uint16 l1BlobBaseFeeContibution;
     }
 
     /// @notice Returns EIP1559 related configurations.
@@ -18,5 +20,7 @@ library LibL2Config {
         config_.gasTargetPerL1Block = 60_000_000;
         config_.basefeeAdjustmentQuotient = 8;
         config_.ontakeForkHeight = 500_000;
+        config_.l1BaseFeeContibution = 200;
+        config_.l1BlobBaseFeeContibution = 200;
     }
 }
