@@ -15,13 +15,6 @@ var (
 		Category: proposerCategory,
 		EnvVars:  []string{"L1_PROPOSER_PRIV_KEY"},
 	}
-	ProverEndpoints = &cli.StringFlag{
-		Name:     "proverEndpoints",
-		Usage:    "Comma-delineated list of prover endpoints proposer should query when attempting to propose a block",
-		Required: true,
-		Category: proposerCategory,
-		EnvVars:  []string{"PROVER_ENDPOINTS"},
-	}
 	L2SuggestedFeeRecipient = &cli.StringFlag{
 		Name:     "l2.suggestedFeeRecipient",
 		Usage:    "Address of the proposed block's suggested L2 fee recipient",
@@ -33,33 +26,6 @@ var (
 
 // Optional flags used by proposer.
 var (
-	// Tier fee related.
-	OptimisticTierFee = &cli.Float64Flag{
-		Name:     "tierFee.optimistic",
-		Usage:    "Initial tier fee (in GWei) paid to prover to generate an optimistic proofs",
-		Category: proposerCategory,
-		EnvVars:  []string{"TIER_FEE_OPTIMISTIC"},
-	}
-	SgxTierFee = &cli.Float64Flag{
-		Name:     "tierFee.sgx",
-		Usage:    "Initial tier fee (in GWei) paid to prover to generate a SGX proofs",
-		Category: proposerCategory,
-		EnvVars:  []string{"TIER_FEE_SGX"},
-	}
-	TierFeePriceBump = &cli.Uint64Flag{
-		Name:     "tierFee.priceBump",
-		Usage:    "Price bump percentage when no prover wants to accept the block at initial fee",
-		Value:    10,
-		Category: proposerCategory,
-		EnvVars:  []string{"TIER_FEE_PRICE_BUMP"},
-	}
-	MaxTierFeePriceBumps = &cli.Uint64Flag{
-		Name:     "tierFee.maxPriceBumps",
-		Usage:    "If nobody accepts block at initial tier fee, how many iterations to increase tier fee before giving up",
-		Category: proposerCategory,
-		Value:    3,
-		EnvVars:  []string{"TIER_FEE_MAX_PRICE_BUMPS"},
-	}
 	// Proposing epoch related.
 	ProposeInterval = &cli.DurationFlag{
 		Name:     "epoch.interval",
@@ -166,11 +132,6 @@ var ProposerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	MinProposingInternal,
 	AllowZeroInterval,
 	MaxProposedTxListsPerEpoch,
-	ProverEndpoints,
-	OptimisticTierFee,
-	SgxTierFee,
-	TierFeePriceBump,
-	MaxTierFeePriceBumps,
 	ProposeBlockIncludeParentMetaHash,
 	BlobAllowed,
 }, TxmgrFlags)
