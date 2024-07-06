@@ -255,6 +255,8 @@ contract TaikoL2 is EssentialContract {
             gasIssuance,
             _parentGasUsed
         );
+
+        basefee_ += (_l1BaseFee + _l1BlobBaseFee) / 200;
     }
 
     /// @notice Retrieves the block hash for the given L2 block number.
