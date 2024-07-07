@@ -233,10 +233,13 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         // after 256 L2 blocks)
         return TaikoData.Config({
             chainId: LibNetwork.TAIKO,
-            // Assume the block time is 3s, the protocol will allow ~90 days of
-            // new blocks without any verification.
-            blockMaxProposals: 324_000, // = 45*86400/12, 45 days, 12 seconds avg block time
-            blockRingBufferSize: 324_512,
+            // If we have 1 block per 12 seconds, then each day there will be 86400/12=7200 blocks.
+            // We therefore use 7200 as the base unit to configure blockMaxProposals and
+            // blockRingBufferSize.
+            blockMaxProposals: 324_000, // = 7200 * 45
+            // We give 7200 * 5 = 36000 slots for verifeid blocks in case third party apps will use
+            // their data.
+            blockRingBufferSize: 360_000, // = 7200 * 50
             maxBlocksToVerify: 16,
             // This value is set based on `gasTargetPerL1Block = 15_000_000 * 4` in TaikoL2.
             // We use 8x rather than 4x here to handle the scenario where the average number of
