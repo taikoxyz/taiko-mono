@@ -184,14 +184,13 @@ library LibVerifying {
     )
         internal
         view
-        returns (address prover_)
+        returns (address)
     {
         (TaikoData.Block storage blk,) = LibUtils.getBlock(_state, _config, _blockId);
+
         uint32 tid = blk.verifiedTransitionId;
-        if (tid != 0) {
-            TaikoData.TransitionState storage tran =
-                LibUtils.getTransition(_state, _config, _blockId, tid);
-            prover_ = tran.prover;
-        }
+        if (tid == 0) return address(0);
+
+        return LibUtils.getTransition(_state, _config, _blockId, tid).prover;
     }
 }
