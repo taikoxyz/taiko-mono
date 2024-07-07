@@ -334,6 +334,8 @@
 - impl: `0x34f2B21107AfE3584949c184A1E6236FFDAC4f6F`
 - logs:
   - deployed @commit`bca493f` @tx`0xfacd0f26e3ec4bf1f949637373483fcfe9a960dfc427d6fa62b116907bac3373`
+- todo:
+  - register a new impl for withdrawBond and upgrade TaikoLab proverset's impls.
 
 ### labprover.taiko.eth
 
