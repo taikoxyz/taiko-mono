@@ -42,6 +42,11 @@ interface ITaikoL1 {
     /// @param _amount The amount of Taiko token to withdraw.
     function withdrawBond(uint256 _amount) external;
 
+    /// @notice Gets the prover that actualy proved a verified block.
+    /// @param _blockId The index of the block.
+    /// @return The prover's address. If the block is not verified yet, address(0) will be returned.
+    function getVerifiedBlockProver(uint64 _blockId) external view returns (address);
+
     /// @notice Gets the configuration of the TaikoL1 contract.
     /// @return Config struct containing configuration parameters.
     function getConfig() external pure returns (TaikoData.Config memory);

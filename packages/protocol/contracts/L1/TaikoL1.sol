@@ -144,6 +144,11 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         return LibBonds.bondBalanceOf(state, _user);
     }
 
+    /// @inheritdoc ITaikoL1
+    function getVerifiedBlockProver(uint64 _blockId) external view returns (address prover_) {
+        return LibVerifying.getVerifiedBlockProver(state, getConfig(), _blockId);
+    }
+
     /// @notice Gets the details of a block.
     /// @param _blockId Index of the block.
     /// @return blk_ The block.

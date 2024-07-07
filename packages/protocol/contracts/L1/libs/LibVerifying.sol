@@ -176,4 +176,22 @@ library LibVerifying {
             }
         }
     }
+
+    function getVerifiedBlockProver(
+        TaikoData.State storage _state,
+        TaikoData.Config memory _config,
+        uint64 _blockId
+    )
+        internal
+        view
+        returns (address prover_)
+    {
+        (TaikoData.Block storage blk,) = LibUtils.getBlock(_state, _config, _blockId);
+        uint32 tid = blk.verifiedTransitionId;
+        if (tid != 0) {
+            TaikoData.TransitionState storage tran =
+                LibUtils.getTransition(_state, _config, _blockId, tid);
+            prover_ = tran.prover;
+        }
+    }
 }
