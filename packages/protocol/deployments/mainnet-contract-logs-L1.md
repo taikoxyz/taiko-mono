@@ -214,7 +214,7 @@
   - Upgrade to `0xB9E1E58bcF33B79CcfF99c298963546a6c334388` @commit`d907359` @tx`0xdb5e926c96d112ce1389da77a927fba6c7d04a711839b9e14777530ebcf83914`
   - Upgrade to `0x5fc54737ECC1de49D58AE1195d4A296257F1E31b` @commit`04d8c87` @tx`0x13f54109cb7f7507ad03562b06ea8d8b472043186e44252302583bc64acfb20b`
 - todo:
-  - upgrade with a new buffer size
+  - upgrade with a new buffer size and in-protocol debit/credit bonds.
 
 #### assignment_hook
 
