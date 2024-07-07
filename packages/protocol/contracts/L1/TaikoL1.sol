@@ -271,8 +271,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
             livenessBond: 125e18, // 125 Taiko token
             stateRootSyncInternal: 16,
             maxAnchorHeightOffset: 64,
-            ontakeForkHeight: 500_000
-        });
+            ontakeForkHeight: 367_200 // = 7200 * 52
+         });
     }
 
     /// @dev chain_pauser is supposed to be a cold wallet.
