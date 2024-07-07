@@ -45,10 +45,6 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
         internal
         returns (TaikoData.BlockMetadata2 memory)
     {
-        TaikoData.TierFee[] memory tierFees = new TaikoData.TierFee[](2);
-        tierFees[0] = TaikoData.TierFee(LibTiers.TIER_OPTIMISTIC, 1 ether);
-        tierFees[1] = TaikoData.TierFee(LibTiers.TIER_SGX, 2 ether);
-
         bytes memory txList = new bytes(10);
 
         vm.prank(proposer);
