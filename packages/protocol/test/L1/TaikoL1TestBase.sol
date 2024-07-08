@@ -118,15 +118,6 @@ abstract contract TaikoL1TestBase is TaikoTest {
         internal
         returns (TaikoData.BlockMetadata memory meta, TaikoData.EthDeposit[] memory ethDeposits)
     {
-        TaikoData.TierFee[] memory tierFees = new TaikoData.TierFee[](3);
-        // Register the tier fees
-        // Based on OPL2ConfigTier we need 3:
-        // - LibTiers.TIER_SGX;
-        // - LibTiers.TIER_OPTIMISTIC;
-        // - LibTiers.TIER_GUARDIAN;
-        tierFees[0] = TaikoData.TierFee(LibTiers.TIER_OPTIMISTIC, 1 ether);
-        tierFees[1] = TaikoData.TierFee(LibTiers.TIER_SGX, 1 ether);
-        tierFees[2] = TaikoData.TierFee(LibTiers.TIER_GUARDIAN, 0 ether);
         // For the test not to fail, set the message.value to the highest, the
         // rest will be returned
         // anyways

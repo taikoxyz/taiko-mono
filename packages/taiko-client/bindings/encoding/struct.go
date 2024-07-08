@@ -56,24 +56,6 @@ type TierFee struct {
 	Fee  *big.Int
 }
 
-// ProverAssignment should be same with TaikoData.ProverAssignment.
-type ProverAssignment struct {
-	FeeToken       common.Address
-	Expiry         uint64
-	MaxBlockId     uint64 // nolint: revive,stylecheck
-	MaxProposedIn  uint64
-	MetaHash       [32]byte
-	ParentMetaHash [32]byte
-	TierFees       []TierFee
-	Signature      []byte
-}
-
-// AssignmentHookInput should be same as AssignmentHook.Input
-type AssignmentHookInput struct {
-	Assignment *ProverAssignment
-	Tip        *big.Int
-}
-
 // ToExecutableData converts a GETH *types.Header to *engine.ExecutableData.
 func ToExecutableData(header *types.Header) *engine.ExecutableData {
 	executableData := &engine.ExecutableData{
