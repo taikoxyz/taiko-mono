@@ -8,12 +8,12 @@
   import { Icon } from '$components/Icon';
   import { withHoverAndFocusListener } from '$libs/customActions';
   import { classNames } from '$libs/util/classNames';
-  import { uid } from '$libs/util/uid';
+  import { account } from '$stores/account';
 
   import { AddressInputState as State } from './state';
 
   let inputElement: HTMLInputElement;
-  let inputId = `input-${uid()}`;
+  let inputId = `input-${crypto.randomUUID()}`;
   let isElementFocused = false;
   let isElementHovered = false;
 
@@ -26,6 +26,7 @@
   export let isDisabled = false;
   export let quiet = false;
   export let state: State = State.DEFAULT;
+  export let resettable = false;
 
   export let onDialog = false;
 
@@ -54,6 +55,12 @@
     state = State.DEFAULT;
   };
 
+  const setToCurrentAddress = (): void => {
+    clearAddress();
+    ethereumAddress = $account?.address || '';
+    validateAddress();
+  };
+
   export const focus = (): void => inputElement.focus();
 
   $: defaultBorder = (() => {
@@ -78,6 +85,9 @@
   <!-- Input field and label -->
   <div class="f-between-center text-secondary-content">
     <label class="body-regular" for={inputId}>{labelText}</label>
+    {#if resettable}
+      <button class="link" on:click={setToCurrentAddress}>{$t('common.reset_to_wallet')}</button>
+    {/if}
   </div>
   <div class="relative f-items-center">
     <input

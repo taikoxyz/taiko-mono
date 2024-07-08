@@ -12,7 +12,6 @@
   import type { BridgeTransaction } from '$libs/bridge';
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import { getLogger } from '$libs/util/logger';
-  import { uid } from '$libs/util/uid';
   import { pendingTransactions } from '$stores/pendingTransactions';
 
   import Claim from '../Claim.svelte';
@@ -35,7 +34,7 @@
   const log = getLogger('RetryDialog');
   const dispatch = createEventDispatcher();
 
-  const dialogId = `dialog-${uid()}`;
+  const dialogId = `dialog-${crypto.randomUUID()}`;
 
   let canContinue = false;
   let retrying: boolean;

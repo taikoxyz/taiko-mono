@@ -72,6 +72,11 @@ func InitFromConfig(ctx context.Context, api *API, cfg *Config) error {
 		return err
 	}
 
+	nftMetadataRepository, err := repo.NewNFTMetadataRepository(db)
+	if err != nil {
+		return err
+	}
+
 	ethClient, err := ethclient.Dial(cfg.RPCUrl)
 	if err != nil {
 		return err
@@ -80,6 +85,7 @@ func InitFromConfig(ctx context.Context, api *API, cfg *Config) error {
 	srv, err := http.NewServer(http.NewServerOpts{
 		EventRepo:        eventRepository,
 		NFTBalanceRepo:   nftBalanceRepository,
+		NFTMetadataRepo:  nftMetadataRepository,
 		ERC20BalanceRepo: erc20BalanceRepository,
 		ChartRepo:        chartRepository,
 		Echo:             echo.New(),

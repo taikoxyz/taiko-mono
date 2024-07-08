@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/erc1155"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -33,14 +34,26 @@ func (i *Indexer) indexNFTTransfers(
 	chainID *big.Int,
 	logs []types.Log,
 ) error {
-	for _, vLog := range logs {
-		if !i.isERC721Transfer(ctx, vLog) && !i.isERC1155Transfer(ctx, vLog) {
-			continue
-		}
+	nftWg, ctx := errgroup.WithContext(ctx)
 
-		if err := i.saveNFTTransfer(ctx, chainID, vLog); err != nil {
-			return err
-		}
+	for _, vLog := range logs {
+		l := vLog
+
+		nftWg.Go(func() error {
+			if !i.isERC721Transfer(ctx, l) && !i.isERC1155Transfer(ctx, l) {
+				return nil
+			}
+
+			if err := i.saveNFTTransfer(ctx, chainID, l); err != nil {
+				return errors.Wrap(err, "i.saveNFTTransfer")
+			}
+
+			return nil
+		})
+	}
+
+	if err := nftWg.Wait(); err != nil {
+		return err
 	}
 
 	return nil
@@ -102,9 +115,7 @@ func (i *Indexer) saveNFTTransfer(ctx context.Context, chainID *big.Int, vLog ty
 // saveERC721Transfer updates the user's balances on the from and to of a ERC721 transfer event
 func (i *Indexer) saveERC721Transfer(ctx context.Context, chainID *big.Int, vLog types.Log) error {
 	from := fmt.Sprintf("0x%v", common.Bytes2Hex(vLog.Topics[1].Bytes()[12:]))
-
 	to := fmt.Sprintf("0x%v", common.Bytes2Hex(vLog.Topics[2].Bytes()[12:]))
-
 	tokenID := vLog.Topics[3].Big().Int64()
 
 	slog.Info(
@@ -115,10 +126,51 @@ func (i *Indexer) saveERC721Transfer(ctx context.Context, chainID *big.Int, vLog
 		"contractAddress", vLog.Address.Hex(),
 	)
 
+	var pk int = 0
+
+	// Check if metadata already exists in db, if not fetch and store
+	metadata, err := i.nftMetadataRepo.GetNFTMetadata(ctx, vLog.Address.Hex(), tokenID, chainID.Int64())
+	if err != nil {
+		return err
+	}
+
+	if metadata != nil {
+		pk = metadata.ID
+	}
+
+	if pk == 0 {
+		metadata, err = i.fetchERC721Metadata(ctx, vLog.Address.Hex(), vLog.Topics[3].Big(), chainID)
+		if err != nil {
+			slog.Warn("error fetching metadata. setting defaults",
+				"contractAddress", vLog.Address.Hex(), "error", err.Error())
+		}
+
+		if metadata == nil {
+			metadata = &eventindexer.NFTMetadata{
+				ChainID:         chainID.Int64(),
+				ContractAddress: vLog.Address.Hex(),
+				TokenID:         tokenID,
+				Name:            "invalid_metadata",
+			}
+		}
+
+		metadata, err = i.nftMetadataRepo.SaveNFTMetadata(ctx, metadata)
+		if err != nil {
+			return errors.Wrap(err, "i.nftMetadataRepo.SaveNFTMetadata")
+		}
+
+		pk = metadata.ID
+
+		slog.Info("metadata created", "contractAddress", vLog.Address.Hex(), "tokenId", metadata.TokenID)
+	} else {
+		slog.Info("metadata found", "contractAddress", vLog.Address.Hex(), "tokenId", metadata.TokenID)
+	}
+
 	// increment To address's balance
 	// decrement From address's balance
 	increaseOpts := eventindexer.UpdateNFTBalanceOpts{
 		ChainID:         chainID.Int64(),
+		NftMetadataId:   int64(pk),
 		Address:         to,
 		TokenID:         tokenID,
 		ContractAddress: vLog.Address.Hex(),
@@ -131,6 +183,7 @@ func (i *Indexer) saveERC721Transfer(ctx context.Context, chainID *big.Int, vLog
 	if from != ZeroAddress.Hex() {
 		decreaseOpts = eventindexer.UpdateNFTBalanceOpts{
 			ChainID:         chainID.Int64(),
+			NftMetadataId:   int64(pk),
 			Address:         from,
 			TokenID:         tokenID,
 			ContractAddress: vLog.Address.Hex(),
@@ -139,7 +192,7 @@ func (i *Indexer) saveERC721Transfer(ctx context.Context, chainID *big.Int, vLog
 		}
 	}
 
-	_, _, err := i.nftBalanceRepo.IncreaseAndDecreaseBalancesInTx(ctx, increaseOpts, decreaseOpts)
+	_, _, err = i.nftBalanceRepo.IncreaseAndDecreaseBalancesInTx(ctx, increaseOpts, decreaseOpts)
 	if err != nil {
 		return err
 	}
@@ -151,7 +204,6 @@ func (i *Indexer) saveERC721Transfer(ctx context.Context, chainID *big.Int, vLog
 // the database and updates the user's balances
 func (i *Indexer) saveERC1155Transfer(ctx context.Context, chainID *big.Int, vLog types.Log) error {
 	from := fmt.Sprintf("0x%v", common.Bytes2Hex(vLog.Topics[2].Bytes()[12:]))
-
 	to := fmt.Sprintf("0x%v", common.Bytes2Hex(vLog.Topics[3].Bytes()[12:]))
 
 	slog.Info("erc1155 found")
@@ -179,8 +231,49 @@ func (i *Indexer) saveERC1155Transfer(ctx context.Context, chainID *big.Int, vLo
 			return err
 		}
 
+		var pk int = 0
+
+		// Check if metadata already exists in db, if not fetch and store
+		metadata, err := i.nftMetadataRepo.GetNFTMetadata(ctx, vLog.Address.Hex(), t.Id.Int64(), chainID.Int64())
+		if err != nil {
+			return err
+		}
+
+		if metadata != nil {
+			pk = metadata.ID
+		}
+
+		if pk == 0 {
+			metadata, err = i.fetchERC1155Metadata(ctx, vLog.Address.Hex(), t.Id, chainID)
+			if err != nil {
+				slog.Warn("error fetching metadata. setting defaults",
+					"contractAddress", vLog.Address.Hex(), "error", err.Error())
+			}
+
+			if metadata == nil {
+				metadata = &eventindexer.NFTMetadata{
+					ChainID:         chainID.Int64(),
+					ContractAddress: vLog.Address.Hex(),
+					TokenID:         t.Id.Int64(),
+					Name:            "invalid_metadata",
+				}
+			}
+
+			metadata, err = i.nftMetadataRepo.SaveNFTMetadata(ctx, metadata)
+			if err != nil {
+				return errors.Wrap(err, "i.nftMetadataRepo.SaveNFTMetadata")
+			}
+
+			pk = metadata.ID
+
+			slog.Info("metadata created", "contractAddress", vLog.Address.Hex(), "tokenId", metadata.TokenID)
+		} else {
+			slog.Info("metadata found", "contractAddress", vLog.Address.Hex(), "tokenId", metadata.TokenID)
+		}
+
 		increaseOpts := eventindexer.UpdateNFTBalanceOpts{
 			ChainID:         chainID.Int64(),
+			NftMetadataId:   int64(pk),
 			Address:         to,
 			TokenID:         t.Id.Int64(),
 			ContractAddress: vLog.Address.Hex(),
@@ -193,6 +286,7 @@ func (i *Indexer) saveERC1155Transfer(ctx context.Context, chainID *big.Int, vLo
 			// decrement From address's balance
 			decreaseOpts = eventindexer.UpdateNFTBalanceOpts{
 				ChainID:         chainID.Int64(),
+				NftMetadataId:   int64(pk),
 				Address:         from,
 				TokenID:         t.Id.Int64(),
 				ContractAddress: vLog.Address.Hex(),
@@ -224,8 +318,49 @@ func (i *Indexer) saveERC1155Transfer(ctx context.Context, chainID *big.Int, vLo
 		}
 
 		for idx, id := range t.Ids {
+			var pk int = 0
+
+			slog.Info("ERC1155 BATCH:", "", pk)
+			// Check if metadata already exists in db, if not fetch and store
+			metadata, err := i.nftMetadataRepo.GetNFTMetadata(ctx, vLog.Address.Hex(), id.Int64(), chainID.Int64())
+			if err != nil {
+				return err
+			}
+
+			if metadata != nil {
+				pk = metadata.ID
+			}
+
+			if pk == 0 {
+				metadata, err = i.fetchERC1155Metadata(ctx, vLog.Address.Hex(), id, chainID)
+				if err != nil {
+					return err
+				}
+
+				if metadata == nil {
+					metadata = &eventindexer.NFTMetadata{
+						ChainID:         chainID.Int64(),
+						ContractAddress: vLog.Address.Hex(),
+						TokenID:         id.Int64(),
+						Name:            "invalid_metadata",
+					}
+				}
+
+				metadata, err = i.nftMetadataRepo.SaveNFTMetadata(ctx, metadata)
+				if err != nil {
+					return errors.Wrap(err, "i.nftMetadataRepo.SaveNFTMetadata")
+				}
+
+				pk = metadata.ID
+
+				slog.Info("metadata created", "contractAddress", vLog.Address.Hex(), "tokenId", metadata.TokenID)
+			} else {
+				slog.Info("metadata found", "contractAddress", vLog.Address.Hex(), "tokenId", metadata.TokenID)
+			}
+
 			increaseOpts := eventindexer.UpdateNFTBalanceOpts{
 				ChainID:         chainID.Int64(),
+				NftMetadataId:   int64(pk),
 				Address:         to,
 				TokenID:         id.Int64(),
 				ContractAddress: vLog.Address.Hex(),
@@ -238,6 +373,7 @@ func (i *Indexer) saveERC1155Transfer(ctx context.Context, chainID *big.Int, vLo
 				// decrement From address's balance
 				decreaseOpts = eventindexer.UpdateNFTBalanceOpts{
 					ChainID:         chainID.Int64(),
+					NftMetadataId:   int64(pk),
 					Address:         from,
 					TokenID:         id.Int64(),
 					ContractAddress: vLog.Address.Hex(),

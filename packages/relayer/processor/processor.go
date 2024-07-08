@@ -383,6 +383,11 @@ func (p *Processor) Close(ctx context.Context) {
 	p.cancel()
 
 	p.wg.Wait()
+
+	// Close db connection.
+	if err := p.eventRepo.Close(); err != nil {
+		slog.Error("Failed to close db connection", "err", err)
+	}
 }
 
 func (p *Processor) Start() error {

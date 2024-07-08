@@ -156,7 +156,7 @@ contract TaikoL1Test is TaikoL1TestBase {
                     secondTransitionHash,
                     stateRoot,
                     meta.minTier,
-                    TaikoErrors.L1_NOT_ASSIGNED_PROVER.selector
+                    LibProving.L1_NOT_ASSIGNED_PROVER.selector
                 );
 
                 // Only guardian or assigned prover is allowed
@@ -205,7 +205,7 @@ contract TaikoL1Test is TaikoL1TestBase {
             bytes32("01"),
             bytes32("02"),
             meta.minTier,
-            TaikoErrors.L1_PROVING_PAUSED.selector
+            LibProving.L1_PROVING_PAUSED.selector
         );
     }
 

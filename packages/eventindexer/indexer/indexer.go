@@ -37,6 +37,7 @@ type Indexer struct {
 	accountRepo      eventindexer.AccountRepository
 	eventRepo        eventindexer.EventRepository
 	nftBalanceRepo   eventindexer.NFTBalanceRepository
+	nftMetadataRepo  eventindexer.NFTMetadataRepository
 	erc20BalanceRepo eventindexer.ERC20BalanceRepository
 	txRepo           eventindexer.TransactionRepository
 
@@ -61,6 +62,9 @@ type Indexer struct {
 	syncMode SyncMode
 
 	blockSaveMutex *sync.Mutex
+
+	contractToMetadata      map[common.Address]*eventindexer.ERC20Metadata
+	contractToMetadataMutex *sync.Mutex
 }
 
 func (i *Indexer) Start() error {
@@ -137,6 +141,11 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 		return err
 	}
 
+	nftMetadataRepository, err := repo.NewNFTMetadataRepository(db)
+	if err != nil {
+		return err
+	}
+
 	txRepository, err := repo.NewTransactionRepository(db)
 	if err != nil {
 		return err
@@ -179,6 +188,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	i.eventRepo = eventRepository
 	i.nftBalanceRepo = nftBalanceRepository
 	i.erc20BalanceRepo = erc20BalanceRepository
+	i.nftMetadataRepo = nftMetadataRepository
 	i.txRepo = txRepository
 
 	i.srcChainID = chainID.Uint64()
@@ -194,6 +204,8 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	i.indexNfts = cfg.IndexNFTs
 	i.indexERC20s = cfg.IndexERC20s
 	i.layer = cfg.Layer
+	i.contractToMetadata = make(map[common.Address]*eventindexer.ERC20Metadata, 0)
+	i.contractToMetadataMutex = &sync.Mutex{}
 
 	return nil
 }

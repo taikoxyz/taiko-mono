@@ -5,13 +5,12 @@
   import { MessageStatus } from '$libs/bridge';
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import { classNames } from '$libs/util/classNames';
-  import { uid } from '$libs/util/uid';
 
   export let selectedStatus: MessageStatus | null = null;
 
   let flipped = false;
   let menuOpen = false;
-  let uuid = `dropdown-${uid()}`;
+  let uuid = `dropdown-${crypto.randomUUID()}`;
 
   let iconFlipperComponent: IconFlipper;
 

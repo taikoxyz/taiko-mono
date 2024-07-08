@@ -24,7 +24,6 @@ var (
 	taikoL2        = os.Getenv("TAIKO_L2_ADDRESS")
 	allowance      = 10.0
 	rpcTimeout     = 5 * time.Second
-	minTierFee     = 1024.0
 )
 
 func (s *ProverTestSuite) TestNewConfigFromCliContextGuardianProver() {
@@ -48,10 +47,6 @@ func (s *ProverTestSuite) TestNewConfigFromCliContextGuardianProver() {
 		s.True(c.ContesterMode)
 		s.Equal(rpcTimeout, c.RPCTimeout)
 		s.Equal(uint64(8), c.Capacity)
-		tierFeeGWei, err := utils.GWeiToWei(minTierFee)
-		s.Nil(err)
-		s.Equal(tierFeeGWei.Uint64(), c.MinOptimisticTierFee.Uint64())
-		s.Equal(tierFeeGWei.Uint64(), c.MinSgxTierFee.Uint64())
 		s.Equal(c.L1NodeVersion, l1NodeVersion)
 		s.Equal(c.L2NodeVersion, l2NodeVersion)
 		s.Nil(new(Prover).InitFromCli(context.Background(), ctx))
@@ -77,8 +72,6 @@ func (s *ProverTestSuite) TestNewConfigFromCliContextGuardianProver() {
 		"--" + flags.RPCTimeout.Name, "5s",
 		"--" + flags.TxGasLimit.Name, "100000",
 		"--" + flags.Dummy.Name,
-		"--" + flags.MinOptimisticTierFee.Name, fmt.Sprint(minTierFee),
-		"--" + flags.MinSgxTierFee.Name, fmt.Sprint(minTierFee),
 		"--" + flags.ProverCapacity.Name, "8",
 		"--" + flags.GuardianProverMajority.Name, os.Getenv("GUARDIAN_PROVER_CONTRACT_ADDRESS"),
 		"--" + flags.GuardianProverMinority.Name, os.Getenv("GUARDIAN_PROVER_MINORITY_ADDRESS"),
@@ -119,8 +112,6 @@ func (s *ProverTestSuite) SetupApp() *cli.App {
 		&cli.BoolFlag{Name: flags.ProveUnassignedBlocks.Name},
 		&cli.DurationFlag{Name: flags.RPCTimeout.Name},
 		&cli.Uint64Flag{Name: flags.ProverCapacity.Name},
-		&cli.Uint64Flag{Name: flags.MinOptimisticTierFee.Name},
-		&cli.Uint64Flag{Name: flags.MinSgxTierFee.Name},
 		&cli.Uint64Flag{Name: flags.MaxProposedIn.Name},
 		&cli.StringFlag{Name: flags.Allowance.Name},
 		&cli.StringFlag{Name: flags.ContesterMode.Name},

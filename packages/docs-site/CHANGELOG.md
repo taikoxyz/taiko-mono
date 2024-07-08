@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.11.3](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.11.2...docs-site-v1.11.3) (2024-07-04)
+
+
+### Documentation
+
+* **docs-site,protocol:** streamline ProverSet deployment ([#17730](https://github.com/taikoxyz/taiko-mono/issues/17730)) ([919cb4c](https://github.com/taikoxyz/taiko-mono/commit/919cb4cd0064d1cfa994e53a30a73f98975cfe34))
+
+## [1.11.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.11.1...docs-site-v1.11.2) (2024-07-01)
+
+
+### Chores
+
+* **docs-site:** updates outdated client link in docs ([#17713](https://github.com/taikoxyz/taiko-mono/issues/17713)) ([4c321e2](https://github.com/taikoxyz/taiko-mono/commit/4c321e29a6714820290cc04b5b5f8662414feea5))
+
+
+### Documentation
+
+* **docs-site,protocol:** deploy proverset guide and scripts ([#17702](https://github.com/taikoxyz/taiko-mono/issues/17702)) ([a3e1cf7](https://github.com/taikoxyz/taiko-mono/commit/a3e1cf72bc4ad925d3652359a2f4d5fb466b79b0))
+* **docs-site:** add definitions and explanations for bonds ([#17673](https://github.com/taikoxyz/taiko-mono/issues/17673)) ([98276cc](https://github.com/taikoxyz/taiko-mono/commit/98276cc5dfb7ca828119163014488a3fe44605cf))
+* **docs-site:** add disclaimer and reminder to set addresses ([#17712](https://github.com/taikoxyz/taiko-mono/issues/17712)) ([677a0b6](https://github.com/taikoxyz/taiko-mono/commit/677a0b666b58ad2f56f0e4cad4d52f56d75cbcca))
+* **docs-site:** add warning about rpc rate limit ([#17700](https://github.com/taikoxyz/taiko-mono/issues/17700)) ([eebb9df](https://github.com/taikoxyz/taiko-mono/commit/eebb9df8d02b97cf210006b1de35dcf2df2b1b5e))
+
 ## [1.11.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.11.0...docs-site-v1.11.1) (2024-06-24)
 
 

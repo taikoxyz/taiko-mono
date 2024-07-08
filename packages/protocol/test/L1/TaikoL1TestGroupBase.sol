@@ -28,10 +28,6 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
         internal
         returns (TaikoData.BlockMetadata memory meta)
     {
-        TaikoData.TierFee[] memory tierFees = new TaikoData.TierFee[](2);
-        tierFees[0] = TaikoData.TierFee(LibTiers.TIER_OPTIMISTIC, 1 ether);
-        tierFees[1] = TaikoData.TierFee(LibTiers.TIER_SGX, 2 ether);
-
         TaikoData.HookCall[] memory hookcalls = new TaikoData.HookCall[](0);
         bytes memory txList = new bytes(10);
         bytes memory eoaSig;
@@ -127,6 +123,18 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
         for (uint32 i = 1; i < blk.nextTransitionId; ++i) {
             printTran(i, L1.getTransition(blockId, i));
         }
+    }
+
+    function totalTkoBalance(
+        TaikoToken tko,
+        TaikoL1 L1,
+        address user
+    )
+        internal
+        view
+        returns (uint256)
+    {
+        return tko.balanceOf(user) + L1.bondBalanceOf(user);
     }
 
     function printBlock(TaikoData.Block memory blk) internal view {

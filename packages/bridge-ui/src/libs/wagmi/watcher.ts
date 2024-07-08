@@ -3,13 +3,14 @@ import { watchAccount } from '@wagmi/core';
 import { chains, isSupportedChain } from '$libs/chain';
 import { refreshUserBalance } from '$libs/util/balance';
 import { checkForPausedContracts } from '$libs/util/checkForPausedContracts';
-import { isSmartContractWallet } from '$libs/util/isSmartContractWallet';
+import { isSmartContract } from '$libs/util/isSmartContract';
 import { getLogger } from '$libs/util/logger';
 import { account, connectedSmartContractWallet } from '$stores/account';
 import { switchChainModal } from '$stores/modal';
 import { connectedSourceChain } from '$stores/network';
 
 import { config } from './client';
+
 const log = getLogger('wagmi:watcher');
 
 let isWatching = false;
@@ -23,6 +24,7 @@ export async function startWatching() {
       async onChange(data) {
         await checkForPausedContracts();
         log('Account changed', data);
+        account.set(data);
 
         refreshUserBalance();
         const { chainId, address } = data;
@@ -30,7 +32,7 @@ export async function startWatching() {
         if (chainId && address) {
           let smartWallet = false;
           try {
-            smartWallet = (await isSmartContractWallet(address, Number(chainId))) || false;
+            smartWallet = (await isSmartContract(address, Number(chainId))) || false;
           } catch (error) {
             console.error('Error checking for smart contract wallet', error);
           } finally {
@@ -49,10 +51,8 @@ export async function startWatching() {
           // the source chain.
           const srcChain = chains.find((c) => c.id === Number(chainId));
           if (srcChain) connectedSourceChain.set(srcChain);
-
           refreshUserBalance();
         }
-        account.set(data);
       },
     });
 

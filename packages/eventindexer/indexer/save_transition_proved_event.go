@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/taikol1"
+	"golang.org/x/sync/errgroup"
 )
 
 func (i *Indexer) saveTransitionProvedEvents(
@@ -23,19 +24,31 @@ func (i *Indexer) saveTransitionProvedEvents(
 		return nil
 	}
 
+	wg, ctx := errgroup.WithContext(ctx)
+
 	for {
 		event := events.Event
 
-		if err := i.saveTransitionProvedEvent(ctx, chainID, event); err != nil {
-			eventindexer.TransitionProvedEventsProcessedError.Inc()
+		wg.Go(func() error {
+			if err := i.saveTransitionProvedEvent(ctx, chainID, event); err != nil {
+				eventindexer.TransitionProvedEventsProcessedError.Inc()
 
-			return errors.Wrap(err, "i.saveBlockProvenEvent")
-		}
+				return errors.Wrap(err, "i.saveBlockProvenEvent")
+			}
+
+			return nil
+		})
 
 		if !events.Next() {
-			return nil
+			break
 		}
 	}
+
+	if err := wg.Wait(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (i *Indexer) saveTransitionProvedEvent(

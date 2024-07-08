@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/taikol1"
+	"golang.org/x/sync/errgroup"
 )
 
 func (i *Indexer) saveBlockVerifiedEvents(
@@ -23,19 +24,31 @@ func (i *Indexer) saveBlockVerifiedEvents(
 		return nil
 	}
 
+	wg, ctx := errgroup.WithContext(ctx)
+
 	for {
 		event := events.Event
 
-		if err := i.saveBlockVerifiedEvent(ctx, chainID, event); err != nil {
-			eventindexer.BlockVerifiedEventsProcessedError.Inc()
+		wg.Go(func() error {
+			if err := i.saveBlockVerifiedEvent(ctx, chainID, event); err != nil {
+				eventindexer.BlockVerifiedEventsProcessedError.Inc()
 
-			return errors.Wrap(err, "i.saveBlockVerifiedEvent")
-		}
+				return errors.Wrap(err, "i.saveBlockVerifiedEvent")
+			}
+
+			return nil
+		})
 
 		if !events.Next() {
-			return nil
+			break
 		}
 	}
+
+	if err := wg.Wait(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (i *Indexer) saveBlockVerifiedEvent(

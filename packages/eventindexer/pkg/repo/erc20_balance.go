@@ -4,6 +4,8 @@ import (
 	"context"
 	"math/big"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/morkid/paginate"
 	"github.com/pkg/errors"
@@ -118,20 +120,38 @@ func (r *ERC20BalanceRepository) IncreaseAndDecreaseBalancesInTx(
 	increaseOpts eventindexer.UpdateERC20BalanceOpts,
 	decreaseOpts eventindexer.UpdateERC20BalanceOpts,
 ) (increasedBalance *eventindexer.ERC20Balance, decreasedBalance *eventindexer.ERC20Balance, err error) {
-	err = r.db.GormDB().Transaction(func(tx *gorm.DB) (err error) {
-		increasedBalance, err = r.increaseBalanceInDB(ctx, tx, increaseOpts)
-		if err != nil {
+	retries := 10
+	for retries > 0 {
+		err = r.db.GormDB().Transaction(func(tx *gorm.DB) (err error) {
+			increasedBalance, err = r.increaseBalanceInDB(ctx, tx, increaseOpts)
+			if err != nil {
+				return err
+			}
+
+			if decreaseOpts.Amount != "0" && decreaseOpts.Amount != "" {
+				decreasedBalance, err = r.decreaseBalanceInDB(ctx, tx, decreaseOpts)
+			}
+
 			return err
+		})
+
+		if err == nil {
+			break
 		}
 
-		if decreaseOpts.Amount != "0" && decreaseOpts.Amount != "" {
-			decreasedBalance, err = r.decreaseBalanceInDB(ctx, tx, decreaseOpts)
+		if strings.Contains(err.Error(), "Deadlock") {
+			retries--
+
+			time.Sleep(100 * time.Millisecond) // backoff before retrying
+
+			continue
 		}
 
-		return err
-	})
-	if err != nil {
 		return nil, nil, errors.Wrap(err, "r.db.Transaction")
+	}
+
+	if err != nil {
+		return nil, nil, err
 	}
 
 	return increasedBalance, decreasedBalance, nil

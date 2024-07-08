@@ -49,7 +49,7 @@ contract L1RollupAddressManager is AddressManager {
                 return 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3;
             }
             if (_name == LibStrings.B_TIER_ROUTER) {
-                return 0xa8e5D3a2E2052bea7f10bE6a0386454b721d1f9F;
+                return 0x6E997f1F22C40ba37F633B08f3b07E10Ed43155a;
             }
         }
         return address(0);

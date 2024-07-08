@@ -31,6 +31,7 @@ type Server struct {
 	echo             *echo.Echo
 	eventRepo        eventindexer.EventRepository
 	nftBalanceRepo   eventindexer.NFTBalanceRepository
+	nftMetadataRepo  eventindexer.NFTMetadataRepository
 	erc20BalanceRepo eventindexer.ERC20BalanceRepository
 	chartRepo        eventindexer.ChartRepository
 	cache            *cache.Cache
@@ -40,6 +41,7 @@ type NewServerOpts struct {
 	Echo             *echo.Echo
 	EventRepo        eventindexer.EventRepository
 	NFTBalanceRepo   eventindexer.NFTBalanceRepository
+	NFTMetadataRepo  eventindexer.NFTMetadataRepository
 	ERC20BalanceRepo eventindexer.ERC20BalanceRepository
 	ChartRepo        eventindexer.ChartRepository
 	EthClient        *ethclient.Client
@@ -59,6 +61,10 @@ func (opts NewServerOpts) Validate() error {
 		return eventindexer.ErrNoNFTBalanceRepository
 	}
 
+	if opts.NFTMetadataRepo == nil {
+		return eventindexer.ErrNoNFTMetadataRepository
+	}
+
 	return nil
 }
 
@@ -73,6 +79,7 @@ func NewServer(opts NewServerOpts) (*Server, error) {
 		echo:             opts.Echo,
 		eventRepo:        opts.EventRepo,
 		nftBalanceRepo:   opts.NFTBalanceRepo,
+		nftMetadataRepo:  opts.NFTMetadataRepo,
 		erc20BalanceRepo: opts.ERC20BalanceRepo,
 		chartRepo:        opts.ChartRepo,
 		cache:            cache,
