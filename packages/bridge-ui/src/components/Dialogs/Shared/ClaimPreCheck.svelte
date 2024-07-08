@@ -86,7 +86,7 @@
 
   $: successFullPreChecks = correctChain && hasEnoughEth && hasEnoughQuota;
 
-  $: if (!checkingPrerequisites && successFullPreChecks && $account && !differentRecipient) {
+  $: if (!checkingPrerequisites && successFullPreChecks && $account && !onlyDestOwnerCanClaimWarning) {
     hideContinueButton = false;
     canContinue = true;
   } else {
@@ -103,15 +103,15 @@
 
   $: hasPaidProcessingFee = tx.processingFee > 0;
 
-  $: differentRecipient = false;
+  $: onlyDestOwnerCanClaimWarning = false;
   $: if (tx.message?.to && $account?.address && tx.message.destOwner) {
-    if (
-      getAddress(tx.message.to) === getAddress($account.address) ||
-      getAddress($account.address) === getAddress(tx.message.destOwner)
-    ) {
-      differentRecipient = false;
+    const destOwnerMustClaim = tx.message.gasLimit === 0; // If gasLimit is 0, the destOwner must claim
+    const isDestOwner = getAddress($account.address) === getAddress(tx.message.destOwner);
+
+    if (destOwnerMustClaim && !isDestOwner) {
+      onlyDestOwnerCanClaimWarning = true;
     } else {
-      differentRecipient = true;
+      onlyDestOwnerCanClaimWarning = false;
     }
   }
 
@@ -125,7 +125,7 @@
     <div class="font-bold text-primary-content">{$t('transactions.claim.steps.pre_check.title')}</div>
   </div>
   <div class="min-h-[150px] grid content-between">
-    {#if differentRecipient}
+    {#if onlyDestOwnerCanClaimWarning}
       <div class="f-between-center">
         <div class="f-row gap-1">
           <div class="f-col">
@@ -208,7 +208,7 @@
       </div>
     {/if}
   </div>
-  {#if !canContinue && !correctChain && !differentRecipient}
+  {#if !canContinue && !correctChain && !onlyDestOwnerCanClaimWarning}
     <div class="h-sep" />
     <div class="f-col space-y-[16px]">
       <ActionButton
