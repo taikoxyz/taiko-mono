@@ -38,12 +38,6 @@ library TaikoData {
         bool checkEOAForCalldataDA;
     }
 
-    /// @dev Struct representing prover fees per given tier
-    struct TierFee {
-        uint16 tier;
-        uint128 fee;
-    }
-
     /// @dev A proof and the tier of proof it belongs to
     struct TierProof {
         uint16 tier;
