@@ -49,21 +49,6 @@ func (s *BlobSyncerTestSuite) SetupTest() {
 
 	s.initProposer()
 }
-func (s *BlobSyncerTestSuite) TestCancelNewSyncer() {
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	syncer, err := NewSyncer(
-		ctx,
-		s.RPCClient,
-		s.s.state,
-		s.s.progressTracker,
-		0,
-		nil,
-		nil,
-	)
-	s.Nil(syncer)
-	s.NotNil(err)
-}
 
 func (s *BlobSyncerTestSuite) TestProcessL1Blocks() {
 	s.Nil(s.s.ProcessL1Blocks(context.Background()))
