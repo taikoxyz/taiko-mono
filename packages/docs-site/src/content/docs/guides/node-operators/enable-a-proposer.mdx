@@ -8,7 +8,7 @@ import { Aside, Card, CardGrid, Steps} from '@astrojs/starlight/components';
 ## Prerequisites
 
 - You are already running a Taiko node [with Docker](/guides/node-operators/run-a-taiko-node-with-docker) or [from source](/guides/node-operators/build-a-taiko-node-from-source).
-- You are able to receive prover bonds from your own prover or from [a community marketplace](https://dojonode.xyz/tatami).
+- You have [set up a prover](/guides/node-operators/enable-a-prover) or [configured a ProverSet](/guides/node-operators/deploy-a-proverset) with a third-party partner.
 
 {/*## Using `stn`
 
@@ -23,9 +23,9 @@ These are the bare minimum required settings along with a functional Taiko node 
 
 <Steps>
 
-1. First, you will need to have a prover from <a href="https://dojonode.xyz/tatami" target="_blank">the community marketplace</a> or [run your own SGX prover](/guides/node-operators/enable-a-prover).
+1. First, you will need to [set up a prover](/guides/node-operators/enable-a-prover). Follow the guide, and note down the contract address for your `ProverSet` contract before continuing here.
 
-2. You MUST set `PROVER_ENDPOINTS` in simple-taiko-node `.env` file to the your SGX prover's endpoint or one from the marketplace. If you do not set it and leave it default while not running a prover, **your proposer will not work**.
+2. Set the contract address in the `PROVER_SET` env variable.
 
 3. Next, set the `L1_PROPOSER_PRIVATE_KEY` to an L1 account's private key which will send the Propose Block transactions.
 
@@ -37,20 +37,11 @@ These are the bare minimum required settings along with a functional Taiko node 
 
 7. Now that the proposer is configured properly, you can run it with `docker compose up -d`!
 
-    <Aside type="danger">
-      We strongly recommend you [deploy a `ProverSet` contract](/guides/node-operators/deploy-a-proverset) to run your proposer. If you don't, you will run into nonce issues running your proposer and prover from the same EOA.
-      
-      If you are working with a third party prover, you will have to follow the guide with them to negotiate allowance and deposit of TAIKO/TTKOh.
-   </Aside>
-
 </Steps>
 
 <CardGrid>
     <Card title="Troubleshooting" icon="error">
-        If you run into any problems, please visit the [troubleshooting page](/guides/node-operators/node-troubleshooting) for help.
-        If you run into an error that isn't yet listed, please reach out in our [discord](https://discord.com/invite/taikoxyz)!
-    </Card>
-    <Card title="Deploy a ProverSet" icon="rocket">
-        Now that you've enabled a proposer, to prevent nonce issues whilst running please [deploy a ProverSet](/guides/node-operators/deploy-a-proverset)!
+        If you run into any problems, please visit the [node troubleshooting page](/guides/node-operators/node-troubleshooting) for help.
+        If you run into an error that isn't yet listed, please reach out in our [Discord](https://discord.com/invite/taikoxyz)!
     </Card>
 </CardGrid>

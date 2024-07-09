@@ -18,23 +18,21 @@ These are the bare minimum required settings along with a functional Taiko node 
 
 <Steps>
 
-1. A Taiko prover needs to be able to generate SGX proofs at the moment. Please follow the README guide on our [raiko](https://github.com/taikoxyz/raiko/blob/main/docs/README_Docker_and_RA.md) repository.
+1. A Taiko prover needs to be able to generate SGX proofs at the moment. To do that, you need to run raiko. Please follow the Docker setup guide [here](https://github.com/taikoxyz/raiko/blob/main/docs/README_Docker_and_RA.md).
 
-2. Then set the `SGX_RAIKO_HOST` endpoint in your `.env` file.
+2. After successfully setting up raiko, set the `SGX_RAIKO_HOST` endpoint in your `.env` file.
 
 3. Set the `L1_PROVER_PRIVATE_KEY` to an L1 account's private key which will send the Prove Block transactions.
 
-4. Set the `MIN_ACCEPTABLE_PROOF_FEE` to the value in GWei that you deem sufficient.
+4. You must [deploy a `ProverSet` contract](/guides/node-operators/deploy-a-proverset) to run your proposer. If you are working with a third party prover, you will have to follow the guide with them to negotiate allowance and deposit of TAIKO/TTKOh.
 
-5. Finally set `ENABLE_PROVER` to `true` in simple-taiko-node `.env`.
+5. If you are running a proposer, note this contract address, you will need it to set the `PROVER_SET` env variable for the proposer.
 
-6. Set `COMPOSE_PROFILES=prover` or add prover to the list.
+6. Finally set `ENABLE_PROVER` to `true` in simple-taiko-node `.env`.
 
-7. You can then run your prover with `docker compose up -d`!
+7. Set `COMPOSE_PROFILES=prover` or add prover to the list.
 
-   <Aside type="danger">
-      We strongly recommend you [deploy a `ProverSet` contract](/guides/node-operators/deploy-a-proverset) to run your prover. If you don't, you will run into nonce issues running your proposer and prover from the same EOA.
-   </Aside>
+8. You can then run your prover with `docker compose up -d`!
 
 </Steps>
 
@@ -90,10 +88,7 @@ Finally you can choose to register your prover endpoint on the <a href="https://
 
 <CardGrid>
     <Card title="Troubleshooting" icon="error">
-        If you run into any problems, please visit the [troubleshooting page](/guides/node-operators/node-troubleshooting) for help.
-        If you run into an error that isn't yet listed, please reach out in our [discord](https://discord.com/invite/taikoxyz)!
-    </Card>
-    <Card title="Deploy a ProverSet" icon="rocket">
-        Now that you've enabled a proposer, to prevent nonce issues whilst running please [deploy a ProverSet](/guides/node-operators/deploy-a-proverset)!
+        If you run into any problems, please visit the [node troubleshooting page](/guides/node-operators/node-troubleshooting) for help.
+        If you run into an error that isn't yet listed, please reach out in our [Discord](https://discord.com/invite/taikoxyz)!
     </Card>
 </CardGrid>
