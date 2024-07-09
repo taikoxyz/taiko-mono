@@ -128,7 +128,6 @@ func (s *ProverTestSuite) TestInitError() {
 
 	s.NotNil(InitFromConfig(ctx, p, &Config{
 		L1WsEndpoint:          os.Getenv("L1_NODE_WS_ENDPOINT"),
-		L1HttpEndpoint:        os.Getenv("L1_NODE_HTTP_ENDPOINT"),
 		L2WsEndpoint:          os.Getenv("L2_EXECUTION_ENGINE_WS_ENDPOINT"),
 		L2HttpEndpoint:        os.Getenv("L2_EXECUTION_ENGINE_HTTP_ENDPOINT"),
 		TaikoL1Address:        common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
@@ -484,7 +483,6 @@ func (s *ProverTestSuite) initProver(
 	p := new(Prover)
 	s.Nil(InitFromConfig(ctx, p, &Config{
 		L1WsEndpoint:          os.Getenv("L1_NODE_WS_ENDPOINT"),
-		L1HttpEndpoint:        os.Getenv("L1_NODE_HTTP_ENDPOINT"),
 		L2WsEndpoint:          os.Getenv("L2_EXECUTION_ENGINE_WS_ENDPOINT"),
 		L2HttpEndpoint:        os.Getenv("L2_EXECUTION_ENGINE_HTTP_ENDPOINT"),
 		TaikoL1Address:        common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),

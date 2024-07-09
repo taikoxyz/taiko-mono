@@ -15,7 +15,6 @@ import (
 
 var (
 	l1WsEndpoint   = os.Getenv("L1_NODE_WS_ENDPOINT")
-	l1HttpEndpoint = os.Getenv("L1_NODE_HTTP_ENDPOINT")
 	l2WsEndpoint   = os.Getenv("L2_EXECUTION_ENGINE_WS_ENDPOINT")
 	l2HttpEndpoint = os.Getenv("L2_EXECUTION_ENGINE_HTTP_ENDPOINT")
 	l1NodeVersion  = "1.0.0"
@@ -32,7 +31,6 @@ func (s *ProverTestSuite) TestNewConfigFromCliContextGuardianProver() {
 		c, err := NewConfigFromCliContext(ctx)
 		s.Nil(err)
 		s.Equal(l1WsEndpoint, c.L1WsEndpoint)
-		s.Equal(l1HttpEndpoint, c.L1HttpEndpoint)
 		s.Equal(l2WsEndpoint, c.L2WsEndpoint)
 		s.Equal(l2HttpEndpoint, c.L2HttpEndpoint)
 		s.Equal(taikoL1, c.TaikoL1Address.String())
@@ -62,7 +60,6 @@ func (s *ProverTestSuite) TestNewConfigFromCliContextGuardianProver() {
 	s.Nil(app.Run([]string{
 		"TestNewConfigFromCliContextGuardianProver",
 		"--" + flags.L1WSEndpoint.Name, l1WsEndpoint,
-		"--" + flags.L1HTTPEndpoint.Name, l1HttpEndpoint,
 		"--" + flags.L2WSEndpoint.Name, l2WsEndpoint,
 		"--" + flags.L2HTTPEndpoint.Name, l2HttpEndpoint,
 		"--" + flags.TaikoL1Address.Name, taikoL1,
@@ -98,7 +95,6 @@ func (s *ProverTestSuite) SetupApp() *cli.App {
 	app := cli.NewApp()
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{Name: flags.L1WSEndpoint.Name},
-		&cli.StringFlag{Name: flags.L1HTTPEndpoint.Name},
 		&cli.StringFlag{Name: flags.L2WSEndpoint.Name},
 		&cli.StringFlag{Name: flags.L2HTTPEndpoint.Name},
 		&cli.StringFlag{Name: flags.TaikoL1Address.Name},
