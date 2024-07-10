@@ -33,11 +33,6 @@ export default defineConfig({
             label: "Event Indexer API",
             schema: "../eventindexer/docs/swagger.yaml",
           },
-          {
-            base: "api-reference/prover-server",
-            label: "Prover Server API",
-            schema: "../taiko-client/docs/swagger.yaml",
-          },
         ]),
       ],
       components: {
