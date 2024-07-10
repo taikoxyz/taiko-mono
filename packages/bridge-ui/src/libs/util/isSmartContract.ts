@@ -5,9 +5,9 @@ import { config } from '$libs/wagmi';
 
 import { getLogger } from './logger';
 
-const log = getLogger('util:isSmartContractWallet');
+const log = getLogger('util:isSmartContract');
 
-export const isSmartContractWallet = async (walletAddress: Address, chainId: number) => {
+export const isSmartContract = async (walletAddress: Address, chainId: number) => {
   const publicClient = getPublicClient(config, { chainId });
 
   if (!publicClient) throw new Error('No public client found');
@@ -18,6 +18,6 @@ export const isSmartContractWallet = async (walletAddress: Address, chainId: num
   if (byteCode !== '0x' && byteCode !== undefined) {
     isSmartContract = true;
   }
-  log('isSmartContractWallet', isSmartContract, walletAddress, chainId);
+  log('isSmartContract', isSmartContract, walletAddress, chainId);
   return isSmartContract;
 };

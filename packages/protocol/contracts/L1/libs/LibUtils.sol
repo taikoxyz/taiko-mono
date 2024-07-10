@@ -5,7 +5,6 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "../../common/IAddressResolver.sol";
 import "../../common/LibStrings.sol";
-import "../../tko/TaikoToken.sol";
 import "../../libs/LibMath.sol";
 import "../tiers/ITierProvider.sol";
 import "../tiers/ITierRouter.sol";
@@ -32,7 +31,6 @@ library LibUtils {
         uint16 tier
     );
 
-    // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_BLOCK_MISMATCH();
     error L1_INVALID_BLOCK_ID();
     error L1_INVALID_GENESIS_HASH();

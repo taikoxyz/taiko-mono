@@ -38,12 +38,6 @@ library TaikoData {
         bool checkEOAForCalldataDA;
     }
 
-    /// @dev Struct representing prover fees per given tier
-    struct TierFee {
-        uint16 tier;
-        uint128 fee;
-    }
-
     /// @dev A proof and the tier of proof it belongs to
     struct TierProof {
         uint16 tier;
@@ -172,6 +166,7 @@ library TaikoData {
         bytes32 __reserve1;
         SlotA slotA; // slot 5
         SlotB slotB; // slot 6
-        uint256[44] __gap;
+        mapping(address account => uint256 bond) bondBalance;
+        uint256[43] __gap;
     }
 }

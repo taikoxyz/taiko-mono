@@ -80,6 +80,7 @@ func (srv *Server) GetBlockInfo(c echo.Context) error {
 	}
 
 	latestProcessedSrcBlock, err := srv.eventRepo.FindLatestBlockID(
+		c.Request().Context(),
 		relayer.EventNameMessageSent,
 		srcChainID.Uint64(),
 		destChainID.Uint64(),
@@ -89,6 +90,7 @@ func (srv *Server) GetBlockInfo(c echo.Context) error {
 	}
 
 	latestProcessedDestBlock, err := srv.eventRepo.FindLatestBlockID(
+		c.Request().Context(),
 		relayer.EventNameMessageSent,
 		destChainID.Uint64(),
 		srcChainID.Uint64(),

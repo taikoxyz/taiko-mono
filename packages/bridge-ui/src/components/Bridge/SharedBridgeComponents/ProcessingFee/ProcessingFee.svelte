@@ -13,7 +13,6 @@
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import { ProcessingFeeMethod } from '$libs/fee';
   import { parseToWei } from '$libs/util/parseToWei';
-  import { uid } from '$libs/util/uid';
 
   import NoneOption from './NoneOption.svelte';
   import RecommendedFee from './RecommendedFee.svelte';
@@ -23,7 +22,7 @@
   export let hasEnoughEth: boolean = false;
   export let disabled = false;
 
-  let dialogId = `dialog-${uid()}`;
+  let dialogId = `dialog-${crypto.randomUUID()}`;
 
   let recommendedAmount = BigInt(0);
   let errorCalculatingRecommendedAmount = false;

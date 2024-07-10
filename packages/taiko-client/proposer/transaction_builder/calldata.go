@@ -3,7 +3,6 @@ package builder
 import (
 	"context"
 	"crypto/ecdsa"
-	"math/big"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
@@ -11,7 +10,6 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	selector "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/prover_selector"
 )
 
 // CalldataTransactionBuilder is responsible for building a TaikoL1.proposeBlock transaction with txList
@@ -19,8 +17,6 @@ import (
 type CalldataTransactionBuilder struct {
 	rpc                     *rpc.Client
 	proposerPrivateKey      *ecdsa.PrivateKey
-	proverSelector          selector.ProverSelector
-	l1BlockBuilderTip       *big.Int
 	l2SuggestedFeeRecipient common.Address
 	taikoL1Address          common.Address
 	proverSetAddress        common.Address
@@ -32,8 +28,6 @@ type CalldataTransactionBuilder struct {
 func NewCalldataTransactionBuilder(
 	rpc *rpc.Client,
 	proposerPrivateKey *ecdsa.PrivateKey,
-	proverSelector selector.ProverSelector,
-	l1BlockBuilderTip *big.Int,
 	l2SuggestedFeeRecipient common.Address,
 	taikoL1Address common.Address,
 	proverSetAddress common.Address,
@@ -43,8 +37,6 @@ func NewCalldataTransactionBuilder(
 	return &CalldataTransactionBuilder{
 		rpc,
 		proposerPrivateKey,
-		proverSelector,
-		l1BlockBuilderTip,
 		l2SuggestedFeeRecipient,
 		taikoL1Address,
 		proverSetAddress,
@@ -56,21 +48,14 @@ func NewCalldataTransactionBuilder(
 // Build implements the ProposeBlockTransactionBuilder interface.
 func (b *CalldataTransactionBuilder) Build(
 	ctx context.Context,
-	tierFees []encoding.TierFee,
 	includeParentMetaHash bool,
 	txListBytes []byte,
 ) (*txmgr.TxCandidate, error) {
-	// Try to assign a prover.
-	maxFee, err := b.proverSelector.AssignProver(
-		ctx,
-		tierFees,
-	)
-	if err != nil {
-		return nil, err
-	}
-
 	// If the current proposer wants to include the parent meta hash, then fetch it from the protocol.
-	var parentMetaHash = [32]byte{}
+	var (
+		parentMetaHash = [32]byte{}
+		err            error
+	)
 	if includeParentMetaHash {
 		if parentMetaHash, err = getParentMetaHash(ctx, b.rpc); err != nil {
 			return nil, err
@@ -119,6 +104,5 @@ func (b *CalldataTransactionBuilder) Build(
 		Blobs:    nil,
 		To:       to,
 		GasLimit: b.gasLimit,
-		Value:    maxFee,
 	}, nil
 }

@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { config } from '$libs/wagmi';
 import { L1_CHAIN_ID } from '$mocks';
 
-import { isSmartContractWallet } from './isSmartContractWallet';
+import { isSmartContract } from './isSmartContract';
 
 // Mock wagmi core
 vi.mock('@wagmi/core');
@@ -13,7 +13,7 @@ vi.mock('$customToken');
 
 vi.mock('$libs/token');
 
-describe('isSmartContractWallet', () => {
+describe('isSmartContract', () => {
   const mockWalletAddress = '0x1234567890abcdef1234567890abcdef12345678';
   const mockChainId = L1_CHAIN_ID;
   const mockClient = {
@@ -30,7 +30,7 @@ describe('isSmartContractWallet', () => {
     mockClient.getBytecode.mockResolvedValueOnce('0x6000600055');
 
     // When
-    const result = await isSmartContractWallet(mockWalletAddress, mockChainId);
+    const result = await isSmartContract(mockWalletAddress, mockChainId);
 
     // Then
     expect(result).toBe(true);
@@ -43,7 +43,7 @@ describe('isSmartContractWallet', () => {
     mockClient.getBytecode.mockResolvedValueOnce('0x');
 
     // When
-    const result = await isSmartContractWallet(mockWalletAddress, mockChainId);
+    const result = await isSmartContract(mockWalletAddress, mockChainId);
 
     // Then
     expect(result).toBe(false);
@@ -56,6 +56,6 @@ describe('isSmartContractWallet', () => {
     vi.mocked(getPublicClient).mockReturnValueOnce(null);
 
     // When/Then
-    await expect(isSmartContractWallet(mockWalletAddress, mockChainId)).rejects.toThrow('No public client found');
+    await expect(isSmartContract(mockWalletAddress, mockChainId)).rejects.toThrow('No public client found');
   });
 });

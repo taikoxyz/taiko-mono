@@ -34,7 +34,6 @@
   import { debounce } from '$libs/util/debounce';
   import { getLogger } from '$libs/util/logger';
   import { truncateDecimal } from '$libs/util/truncateDecimal';
-  import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
   import { ethBalance } from '$stores/balance';
   import { connectedSourceChain } from '$stores/network';
@@ -46,7 +45,7 @@
   export let hasEnoughEth: boolean = false;
   export let exceedsQuota: boolean = false;
 
-  let inputId = `input-${uid()}`;
+  let inputId = `input-${crypto.randomUUID()}`;
   let inputBox: InputBox;
 
   let value = '';

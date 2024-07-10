@@ -58,7 +58,7 @@
           <div class="text-secondary-content">{$t('common.recipient')}</div>
           <div class="">
             <ExplorerLink category="address" chainId={Number(tx.destChainId)} urlParam={tx.message.to}
-              >{shortenAddress(tx.message?.destOwner, 5, 5)}</ExplorerLink>
+              >{shortenAddress(tx.message?.to, 5, 5)}</ExplorerLink>
           </div>
         </div>
       {/if}

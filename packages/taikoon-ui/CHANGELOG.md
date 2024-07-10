@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.2.0](https://github.com/taikoxyz/taiko-mono/compare/taikoon-ui-v1.1.1...taikoon-ui-v1.2.0) (2024-07-04)
+
+
+### Features
+
+* **nfts:** taikoon-ui performance upgrades ([#17720](https://github.com/taikoxyz/taiko-mono/issues/17720)) ([936bb95](https://github.com/taikoxyz/taiko-mono/commit/936bb95057815e5473d36304058a34be8c81ff76))
+* **nfts:** taikoon-ui updated whitelist ([#17719](https://github.com/taikoxyz/taiko-mono/issues/17719)) ([4e5bdbb](https://github.com/taikoxyz/taiko-mono/commit/4e5bdbbe497c56a52a150dcc15213e8effb7a0d8))
+* **nfts:** taikoon-ui updated whitelist 28-06-2024 ([#17701](https://github.com/taikoxyz/taiko-mono/issues/17701)) ([3687b1e](https://github.com/taikoxyz/taiko-mono/commit/3687b1eb81f6032713e3ca18824778e9193c1314))
+
+
+### Bug Fixes
+
+* **nfts:** taikoon-ui bug fixing ([#17644](https://github.com/taikoxyz/taiko-mono/issues/17644)) ([2c90a7f](https://github.com/taikoxyz/taiko-mono/commit/2c90a7fee984c8c1e3389076a3ed933de4e67215))
+* **nfts:** taikoon-ui error reporting improved ([#17683](https://github.com/taikoxyz/taiko-mono/issues/17683)) ([116d3f4](https://github.com/taikoxyz/taiko-mono/commit/116d3f4886dea01333b829677ec9b6d4492479c6))
+
 ## [1.1.1](https://github.com/taikoxyz/taiko-mono/compare/taikoon-ui-v1.1.0...taikoon-ui-v1.1.1) (2024-06-17)
 
 

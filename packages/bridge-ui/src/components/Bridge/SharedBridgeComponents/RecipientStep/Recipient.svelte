@@ -2,14 +2,15 @@
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
 
-  import { recipientAddress } from '$components/Bridge/state';
+  import { destNetwork, destOwnerAddress, recipientAddress } from '$components/Bridge/state';
   import { ActionButton, CloseButton } from '$components/Button';
   import { Tooltip } from '$components/Tooltip';
+  import { isSmartContract } from '$libs/util/isSmartContract';
   import { shortenAddress } from '$libs/util/shortenAddress';
-  import { uid } from '$libs/util/uid';
   import { account } from '$stores/account';
 
   import AddressInput from '../AddressInput/AddressInput.svelte';
+  // import Alert from '$components/Alert/Alert.svelte';
 
   // Public API
   export const clearRecipient = () => {
@@ -20,12 +21,17 @@
   export let small = false;
   export let disabled = false;
 
-  let dialogId = `dialog-${uid()}`;
+  let dialogId = `dialog-${crypto.randomUUID()}`;
   let addressInput: AddressInput;
+  let destOwnerAddressInput: AddressInput;
 
   let modalOpen = false;
-  let invalidAddress = false;
+  let invalidRecipient = false;
+  let invalidDestOwner = false;
   let prevRecipientAddress: Maybe<Address> = null;
+
+  let recipientIsSmartContract = false;
+  // let destOwnerIsSmartContract = false;
 
   function closeModal() {
     modalOpen = false;
@@ -40,6 +46,7 @@
   function cancelModal() {
     // Revert change of recipient address
     $recipientAddress = prevRecipientAddress;
+    $destOwnerAddress = recipientIsSmartContract ? $account?.address : null;
     removeEscKeyListener();
     closeModal();
   }
@@ -51,15 +58,45 @@
     }
   }
 
-  function onAddressValidation(event: CustomEvent<{ isValidEthereumAddress: boolean; addr: Address }>) {
+  async function onRecipientValidation(event: CustomEvent<{ isValidEthereumAddress: boolean; addr: Address }>) {
     const { isValidEthereumAddress, addr } = event.detail;
+
     if (isValidEthereumAddress) {
-      $recipientAddress = addr;
-      invalidAddress = false;
+      validateRecipient(addr);
     } else {
-      invalidAddress = true;
+      invalidRecipient = true;
     }
   }
+
+  const validateRecipient = async (addr: Address) => {
+    $recipientAddress = addr;
+    invalidRecipient = false;
+    if ($destNetwork?.id && (await isSmartContract(addr, $destNetwork.id))) {
+      recipientIsSmartContract = true;
+    } else {
+      recipientIsSmartContract = false;
+    }
+  };
+
+  async function onDestOwnerValidation(event: CustomEvent<{ isValidEthereumAddress: boolean; addr: Address }>) {
+    const { isValidEthereumAddress, addr } = event.detail;
+    if (isValidEthereumAddress) {
+      validateDestOwner(addr);
+    } else {
+      invalidDestOwner = true;
+    }
+  }
+
+  const validateDestOwner = async (addr: Address) => {
+    $destOwnerAddress = addr;
+    invalidDestOwner = false;
+    // if ($destNetwork?.id && (await isSmartContract(addr, $destNetwork.id))) {
+    //   destOwnerIsSmartContract = true;
+    //   // invalidDestOwner = true;
+    // } else {
+    //   destOwnerIsSmartContract = false;
+    // }
+  };
 
   let escKeyListener: (event: KeyboardEvent) => void;
 
@@ -79,6 +116,7 @@
   $: modalOpenChange(modalOpen);
 
   $: ethereumAddressBinding = $recipientAddress || undefined;
+  $: destOwnerAddressBinding = $destOwnerAddress || undefined;
 
   $: displayedRecipient = $recipientAddress || $account?.address;
 </script>
@@ -134,9 +172,29 @@
             <AddressInput
               bind:this={addressInput}
               bind:ethereumAddress={ethereumAddressBinding}
-              on:addressvalidation={onAddressValidation}
-              onDialog />
+              on:addressvalidation={onRecipientValidation}
+              onDialog
+              resettable />
           </div>
+
+          {#if recipientIsSmartContract}
+            <p class="body-regular text-secondary-content mb-3">
+              You are sending funds to a smart contract. Please provide an alternate address that can manually claim the
+              funds if the relayer doesn't or you configured it that way. Ensure this is an address you control, as you
+              cannot claim the funds as the smart contract directly.
+            </p>
+            <div class="relative my-[20px] space-y-4">
+              <AddressInput
+                bind:this={destOwnerAddressInput}
+                bind:ethereumAddress={destOwnerAddressBinding}
+                on:addressvalidation={onDestOwnerValidation}
+                resettable
+                onDialog />
+              <!-- {#if destOwnerIsSmartContract}
+                <Alert type="warning">{$t('destOwner.alerts.smartContract')}</Alert>
+              {/if} -->
+            </div>
+          {/if}
 
           <div class="grid grid-cols-2 gap-[20px]">
             <ActionButton on:click={cancelModal} priority="secondary" onPopup>
@@ -144,7 +202,10 @@
             </ActionButton>
             <ActionButton
               priority="primary"
-              disabled={invalidAddress || !ethereumAddressBinding}
+              disabled={invalidRecipient ||
+                invalidDestOwner ||
+                !ethereumAddressBinding ||
+                (recipientIsSmartContract && !destOwnerAddressBinding)}
               on:click={closeModal}
               onPopup>
               <span class="body-bold">{$t('common.confirm')}</span>
