@@ -16,9 +16,8 @@ This guide outlines how to achieve this with separate EOAs running prover and pr
 
 ## Prerequisites
 
-- You have set up a prover and proposer with the guides in our documentation
 - You have TAIKO or TTKOh depending on which network you are proving on
-- You have enough ETH for gas fees
+- You have enough ETH or holesky ETH for gas fees
 
 ## Deploying a ProverSet
 
@@ -46,7 +45,7 @@ This guide outlines how to achieve this with separate EOAs running prover and pr
 2. **Deploy the ProverSet**
 
     Set `ROLLUP_ADDRESS_MANAGER` to the address of the RollupAddressManager contract on the network you are deploying to. You can find these values in our network reference docs.
-    
+
     Set `PROVER_SET_ADMIN` to the address of your **prover** EOA. You will be able to withdraw TAIKO/TTKOh from the contract to this address.
 
     Run the `DeployProverSet.s.sol` script with your **proposer's private key**. You can find the script [here](https://github.com/taikoxyz/taiko-mono/tree/main/packages/protocol/script/DeployProverSet.s.sol).
@@ -107,6 +106,6 @@ This guide outlines how to achieve this with separate EOAs running prover and pr
 </Steps>
 
 <Card title="Troubleshooting" icon="error">
-        If you run into any problems, please visit the [troubleshooting page](/guides/node-operators/node-troubleshooting) for help.
-        If you run into an error that isn't yet listed, please reach out in our [discord](https://discord.com/invite/taikoxyz)!
+        If you run into any problems, please visit the [node troubleshooting page](/guides/node-operators/node-troubleshooting) for help.
+        If you run into an error that isn't yet listed, please reach out in our [Discord](https://discord.com/invite/taikoxyz)!
 </Card>
