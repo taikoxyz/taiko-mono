@@ -24,15 +24,13 @@ These are the bare minimum required settings along with a functional Taiko node 
 
 3. Set the `L1_PROVER_PRIVATE_KEY` to an L1 account's private key which will send the Prove Block transactions.
 
-4. You must [deploy a `ProverSet` contract](/guides/node-operators/deploy-a-proverset) to run your proposer. If you are working with a third party prover, you will have to follow the guide with them to negotiate allowance and deposit of TAIKO/TTKOh.
+4. You may optionally [deploy a `ProverSet` contract](/guides/node-operators/deploy-a-proverset) to run your proposer. If you are working with a third party prover, you will have to follow the guide with them to negotiate allowance and deposit of TAIKO/TTKOh. A ProverSet is recommended for a longer term stable setup to avoid nonce issues. For testing purposes, you may not feel the need to deploy a ProverSet.
 
-5. If you are running a proposer, note this contract address, you will need it to set the `PROVER_SET` env variable for the proposer.
+5. Finally set `ENABLE_PROVER` to `true` in simple-taiko-node `.env`.
 
-6. Finally set `ENABLE_PROVER` to `true` in simple-taiko-node `.env`.
+6. Set `COMPOSE_PROFILES=prover` or add prover to the list.
 
-7. Set `COMPOSE_PROFILES=prover` or add prover to the list.
-
-8. You can then run your prover with `docker compose up -d`!
+7. You can then run your prover with `docker compose up -d`!
 
 </Steps>
 
@@ -86,9 +84,7 @@ You will need TTKOh deposited on the TaikoL1 contract to secure the bond for the
 
 Finally you can choose to register your prover endpoint on the <a href="https://dojonode.xyz/tatami" target="_blank">community prover marketplace</a> so other can use it to propose blocks.
 
-<CardGrid>
-    <Card title="Troubleshooting" icon="error">
-        If you run into any problems, please visit the [node troubleshooting page](/guides/node-operators/node-troubleshooting) for help.
-        If you run into an error that isn't yet listed, please reach out in our [Discord](https://discord.com/invite/taikoxyz)!
-    </Card>
-</CardGrid>
+<Card title="Troubleshooting" icon="error">
+    If you run into any problems, please visit the [node troubleshooting page](/guides/node-operators/node-troubleshooting) for help.
+    If you run into an error that isn't yet listed, please reach out in our [Discord](https://discord.com/invite/taikoxyz)!
+</Card>

@@ -17,17 +17,17 @@ import { Aside, Card, CardGrid, Steps} from '@astrojs/starlight/components';
 
 ## Using simple-taiko-node
 
-<Aside>
-These are the bare minimum required settings along with a functional Taiko node to run a proposer, feel free to customize the rest of the variables in the `.env` file as you see fit!
-</Aside>
+:::caution
+You can choose to either use a ProverSet, or leave the `PROVER_SET` variable blank. If you leave it blank, you will eventually run into some nonce issues as the proposer and prover will be using the same address. This may be sufficient for testing, but for a longer term proposer / prover setup, we recommend utilizing a ProverSet.
+:::
 
 <Steps>
 
-1. First, you will need to [set up a prover](/guides/node-operators/enable-a-prover). Follow the guide, and note down the contract address for your `ProverSet` contract before continuing here.
+1. First, you will need to [set up a prover](/guides/node-operators/enable-a-prover).
 
-2. Set the contract address in the `PROVER_SET` env variable.
+2. If you are using a ProverSet, set the ProverSet contract address in the `PROVER_SET` env variable from the previous guide. Otherwise, leave it blank.
 
-3. Next, set the `L1_PROPOSER_PRIVATE_KEY` to an L1 account's private key which will send the Propose Block transactions.
+3. Next, set the `L1_PROPOSER_PRIVATE_KEY` to an L1 account's private key which will send the Propose Block transactions. If you are not using a ProverSet, this must be the same private key as your prover.
 
 4. Then, set the `L2_SUGGESTED_FEE_RECIPIENT` to an L2 account's public key that will receive the fee.
 
@@ -39,9 +39,7 @@ These are the bare minimum required settings along with a functional Taiko node 
 
 </Steps>
 
-<CardGrid>
-    <Card title="Troubleshooting" icon="error">
-        If you run into any problems, please visit the [node troubleshooting page](/guides/node-operators/node-troubleshooting) for help.
-        If you run into an error that isn't yet listed, please reach out in our [Discord](https://discord.com/invite/taikoxyz)!
-    </Card>
-</CardGrid>
+<Card title="Troubleshooting" icon="error">
+    If you run into any problems, please visit the [node troubleshooting page](/guides/node-operators/node-troubleshooting) for help.
+    If you run into an error that isn't yet listed, please reach out in our [Discord](https://discord.com/invite/taikoxyz)!
+</Card>
