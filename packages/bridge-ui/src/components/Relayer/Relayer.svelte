@@ -70,7 +70,7 @@
     <span class="mt-[30px]">Step 1: Search the transaction you want to claim</span>
 
     <AddressInput
-      label="Enter the recipient address"
+      labelText="Enter the recipient address"
       bind:ethereumAddress={addressToSearch}
       bind:state={addressState} />
 
