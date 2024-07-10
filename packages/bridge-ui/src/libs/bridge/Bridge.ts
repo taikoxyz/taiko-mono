@@ -1,5 +1,5 @@
 import { getPublicClient, readContract, simulateContract, writeContract } from '@wagmi/core';
-import { getAddress,getContract, type Hash, UserRejectedRequestError, type WalletClient } from 'viem';
+import { getAddress, getContract, type Hash, UserRejectedRequestError, type WalletClient } from 'viem';
 
 import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
