@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.11.4](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.11.3...docs-site-v1.11.4) (2024-07-10)
+
+
+### Documentation
+
+* **docs-site:** remove prover_endpoints from guide ([#17769](https://github.com/taikoxyz/taiko-mono/issues/17769)) ([ed4c9d6](https://github.com/taikoxyz/taiko-mono/commit/ed4c9d69cb60c0e3547c65b748f9fa78211713c3))
+* **docs-site:** update enable-prover site ([#17757](https://github.com/taikoxyz/taiko-mono/issues/17757)) ([15a5e7f](https://github.com/taikoxyz/taiko-mono/commit/15a5e7f059ca0c7d17f8b6c6cf472338a9d04fec))
+
 ## [1.11.3](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.11.2...docs-site-v1.11.3) (2024-07-04)
 
 

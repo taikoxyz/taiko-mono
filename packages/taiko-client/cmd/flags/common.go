@@ -35,13 +35,6 @@ var (
 		Category: commonCategory,
 		EnvVars:  []string{"L2_WS"},
 	}
-	L1HTTPEndpoint = &cli.StringFlag{
-		Name:     "l1.http",
-		Usage:    "HTTP RPC endpoint of a L1 ethereum node",
-		Required: true,
-		Category: commonCategory,
-		EnvVars:  []string{"L1_HTTP"},
-	}
 	L1BeaconEndpoint = &cli.StringFlag{
 		Name:     "l1.beacon",
 		Usage:    "HTTP RPC endpoint of a L1 beacon node",
