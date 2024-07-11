@@ -79,7 +79,7 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
         // journalDigest is the sha256 hash of the hashed public input
         bytes32 journalDigest = sha256(bytes.concat(hash));
 
-        // call risc0 groth16 verifier contract
+        // call risc0 verifier contract
         (bool success,) = address(receiptVerifier).staticcall(
             abi.encodeWithSignature("verify(bytes,bytes32,bytes32)", seal, imageId, journalDigest)
         );
