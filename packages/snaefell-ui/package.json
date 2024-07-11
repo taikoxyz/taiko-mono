@@ -60,7 +60,7 @@
     "@wagmi/cli": "^2.1.8",
     "@wagmi/connectors": "^5.0.6",
     "@wagmi/core": "^2.10.4",
-    "@web3modal/common": "^4.2.2",
+    "@web3modal/common": "^5.0.6",
     "@web3modal/ui": "^4.2.2",
     "@web3modal/wagmi": "^4.2.2",
     "@zerodevx/svelte-toast": "^0.9.5",
