@@ -49,14 +49,9 @@ contract VestTokenUnlock is Script {
 
         vm.startBroadcast();
         for (uint256 i; i < items.length; i++) {
-            // This is needed due to some memory read operation! It seems forge/foundry
-            // parseJson works in a way that we need to read into local variables from struct,
-            // as it acts like a stack-like buffer read.
-            address proxy = items[i].recipient;
             uint128 vestAmount = uint128(items[i].vestAmount * 1e18);
-
-            tko.approve(proxy, vestAmount);
-            TokenUnlock(proxy).vest(vestAmount);
+            tko.approve(items[i].proxy, vestAmount);
+            TokenUnlock(items[i].proxy).vest(vestAmount);
         }
         vm.stopBroadcast();
     }
