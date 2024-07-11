@@ -47,6 +47,13 @@ library LibProving {
         uint16 tier
     );
 
+    /// @notice Emitted when a transition is proved.
+    /// @param blockId The block ID.
+    /// @param tran The transition data.
+    /// @param prover The prover's address.
+    /// @param validityBond The validity bond amount.
+    /// @param tier The tier of the proof.
+    /// @param proposedIn The L1 block in which a transition is proved.
     event TransitionProved2(
         uint256 indexed blockId,
         TaikoData.Transition tran,

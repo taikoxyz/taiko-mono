@@ -61,7 +61,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         initializer
     {
         __Essential_init(_owner, _addressManager);
-        LibUtils.init(state, _genesisBlockHash);
+        LibUtils.init(state, getConfig(), _genesisBlockHash);
         if (_toPause) _pause();
     }
 
