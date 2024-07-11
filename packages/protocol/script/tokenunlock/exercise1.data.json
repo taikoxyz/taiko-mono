@@ -623,5 +623,10 @@
     "proxy": "0x4CE8E8bB4ea26cabe32C5B9100Ee9eD6759C58CB",
     "recipient": "0xFc207A04ff27D0865c9879f4F84B82c5a0753989",
     "vestAmount": 234522
+  },
+  {
+    "proxy": "0x2Bc21D70BDe29a8E6576F7aCD979029058f2eeF9",
+    "recipient": "0x841F98C82Df7Eb6107a7b6A0e9Ab054a01819428",
+    "vestAmount": 2439024
   }
 ]
