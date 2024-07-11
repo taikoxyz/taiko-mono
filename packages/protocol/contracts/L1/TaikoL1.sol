@@ -144,6 +144,11 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         return LibBonds.bondBalanceOf(state, _user);
     }
 
+    /// @inheritdoc ITaikoL1
+    function getVerifiedBlockProver(uint64 _blockId) external view returns (address prover_) {
+        return LibVerifying.getVerifiedBlockProver(state, getConfig(), _blockId);
+    }
+
     /// @notice Gets the details of a block.
     /// @param _blockId Index of the block.
     /// @return blk_ The block.
@@ -232,11 +237,14 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         // - anchorGasLimit: 250_000 (based on internal devnet, its ~220_000
         // after 256 L2 blocks)
         return TaikoData.Config({
-            chainId: LibNetwork.TAIKO,
-            // Assume the block time is 3s, the protocol will allow ~90 days of
-            // new blocks without any verification.
-            blockMaxProposals: 324_000, // = 45*86400/12, 45 days, 12 seconds avg block time
-            blockRingBufferSize: 324_512,
+            chainId: LibNetwork.TAIKO_MAINNET,
+            // If we have 1 block per 12 seconds, then each day there will be 86400/12=7200 blocks.
+            // We therefore use 7200 as the base unit to configure blockMaxProposals and
+            // blockRingBufferSize.
+            blockMaxProposals: 324_000, // = 7200 * 45
+            // We give 7200 * 5 = 36000 slots for verifeid blocks in case third party apps will use
+            // their data.
+            blockRingBufferSize: 360_000, // = 7200 * 50
             maxBlocksToVerify: 16,
             // This value is set based on `gasTargetPerL1Block = 15_000_000 * 4` in TaikoL2.
             // We use 8x rather than 4x here to handle the scenario where the average number of
