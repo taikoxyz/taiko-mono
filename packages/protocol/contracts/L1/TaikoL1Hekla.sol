@@ -12,7 +12,8 @@ contract TaikoL1Hekla is TaikoL1 {
         return TaikoData.Config({
             chainId: LibNetwork.TAIKO_HEKLA,
             blockMaxProposals: 324_000, // Never change this value as ring buffer is being reused!!!
-            blockRingBufferSize: 324_512, // Never change this value as ring buffer is being reused!!!
+            blockRingBufferSize: 324_512, // Never change this value as ring buffer is being
+                // reused!!!
             maxBlocksToVerify: 16,
             blockMaxGasLimit: 240_000_000,
             livenessBond: 125e18, // 125 Taiko token
