@@ -32,6 +32,7 @@ type buildBlockRequest struct {
 	SignedTransactions []string `json:"signedTransactions"`
 	Coinbase           string   `json:"coinbase"`
 	ExtraData          string   `json:"extraData"`
+	CalldataOrBlob     string   `json:"calldataOrBlob"`
 }
 
 type buildBlockResponse struct {
@@ -58,7 +59,13 @@ func (s *PreconfAPIServer) BuildBlock(c echo.Context) error {
 		return c.JSON(http.StatusUnprocessableEntity, err)
 	}
 
-	tx, err := s.txBuilder.BuildUnsigned(
+	// default to blob
+	t := req.CalldataOrBlob
+	if t == "" {
+		t = "blob"
+	}
+
+	tx, err := s.txBuilders[t].BuildUnsigned(
 		c.Request().Context(),
 		txListBytes,
 		req.L1StateBlockNumber,

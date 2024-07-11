@@ -29,21 +29,19 @@ func (p *PreconfAPI) InitFromCli(ctx context.Context, c *cli.Context) error {
 }
 
 func (p *PreconfAPI) InitFromConfig(_ context.Context, cfg *Config) (err error) {
-	var txBuilder builder.TxBuilder
-	if cfg.BlobAllowed {
-		txBuilder = builder.NewBlobTransactionBuilder(
-			cfg.TaikoL1Address,
-			cfg.ProposeBlockTxGasLimit,
-		)
-	} else {
-		txBuilder = builder.NewCalldataTransactionBuilder(
-			cfg.TaikoL1Address,
-			cfg.ProposeBlockTxGasLimit,
-		)
-	}
+	txBuilders := make(map[string]builder.TxBuilder)
+	txBuilders["blob"] = builder.NewBlobTransactionBuilder(
+		cfg.TaikoL1Address,
+		cfg.ProposeBlockTxGasLimit,
+	)
+
+	txBuilders["calldata"] = builder.NewCalldataTransactionBuilder(
+		cfg.TaikoL1Address,
+		cfg.ProposeBlockTxGasLimit,
+	)
 
 	if p.server, err = server.New(&server.NewPreconfAPIServerOpts{
-		TxBuilder: txBuilder,
+		TxBuilders: txBuilders,
 	}); err != nil {
 		return err
 	}

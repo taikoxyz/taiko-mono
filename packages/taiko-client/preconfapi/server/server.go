@@ -23,20 +23,20 @@ import (
 // @license.url https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md
 // PreconfAPIServer represents a proposer server instance.
 type PreconfAPIServer struct {
-	echo      *echo.Echo
-	txBuilder builder.TxBuilder
+	echo       *echo.Echo
+	txBuilders map[string]builder.TxBuilder // calldata or blob map to txbuilder type
 }
 
 // NewPreconfAPIServerOpts contains all configurations for creating a prover server instance.
 type NewPreconfAPIServerOpts struct {
-	TxBuilder builder.TxBuilder
+	TxBuilders map[string]builder.TxBuilder
 }
 
 // New creates a new prover server instance.
 func New(opts *NewPreconfAPIServerOpts) (*PreconfAPIServer, error) {
 	srv := &PreconfAPIServer{
-		echo:      echo.New(),
-		txBuilder: opts.TxBuilder,
+		echo:       echo.New(),
+		txBuilders: opts.TxBuilders,
 	}
 
 	srv.echo.HideBanner = true
