@@ -81,7 +81,7 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
 
         // call risc0 verifier contract
         (bool success,) = address(receiptVerifier).staticcall(
-            abi.encodeWithSignature("verify(bytes,bytes32,bytes32)", seal, imageId, journalDigest)
+            abi.encodeCall(IRiscZeroReceiptVerifier.verify, (seal, imageId, journalDigest))
         );
 
         if (!success) {
