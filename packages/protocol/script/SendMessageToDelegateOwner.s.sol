@@ -7,9 +7,10 @@ import "../contracts/bridge/IBridge.sol";
 import "../test/common/TestMulticall3.sol";
 
 contract SendMessageToDelegateOwner is Script {
-    address public delegateOwner = 0x2F46C57046672E71d02ed0f0B71dFa42C7F3C488;
+    address public delegateOwner = 0x5995941Df88F30Ac140515AA39832db963E2f863;
     address public multicall3 = 0xcA11bde05977b3631167028862bE2a173976CA11;
     address public l1Bridge = 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC;
+    address public testAccount1 = 0x3b7c503e18E197F92028b02Fe52BD674E7289cCa; // owned by Daniel W
 
     modifier broadcast() {
         vm.startBroadcast();
@@ -26,8 +27,7 @@ contract SendMessageToDelegateOwner is Script {
 
         calls[1].target = address(delegateOwner);
         calls[1].allowFailure = false;
-        calls[1].callData =
-            abi.encodeCall(DelegateOwner.setAdmin, (0x55d79345Afc87806B690C9f96c4D7BfE2Bca8268));
+        calls[1].callData = abi.encodeCall(DelegateOwner.setAdmin, (testAccount1));
 
         DelegateOwner.Call memory dcall = DelegateOwner.Call({
             txId: 0, // Has to match with DelegateOwner's nextTxId
