@@ -173,10 +173,10 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         return LibBonds.bondBalanceOf(state, _user);
     }
 
-    /// @inheritdoc ITaikoL1
-    function getVerifiedBlockProver(uint64 _blockId) external view returns (address prover_) {
-        return LibVerifying.getVerifiedBlockProver(state, getConfig(), _blockId);
-    }
+    // /// @inheritdoc ITaikoL1
+    // function getVerifiedBlockProver(uint64 _blockId) external view returns (address prover_) {
+    //     return LibVerifying.getVerifiedBlockProver(state, getConfig(), _blockId);
+    // }
 
     /// @notice Gets the details of a block.
     /// @param _blockId Index of the block.
@@ -228,18 +228,18 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         (blockHash_, stateRoot_) = LibUtils.getBlockInfo(state, getConfig(), blockId_);
     }
 
-    /// @notice Returns information about the last synchronized block.
-    /// @return blockId_ The last verified block's ID.
-    /// @return blockHash_ The last verified block's blockHash.
-    /// @return stateRoot_ The last verified block's stateRoot.
-    function getLastSyncedBlock()
-        external
-        view
-        returns (uint64 blockId_, bytes32 blockHash_, bytes32 stateRoot_)
-    {
-        blockId_ = state.slotA.lastSyncedBlockId;
-        (blockHash_, stateRoot_) = LibUtils.getBlockInfo(state, getConfig(), blockId_);
-    }
+    // /// @notice Returns information about the last synchronized block.
+    // /// @return blockId_ The last verified block's ID.
+    // /// @return blockHash_ The last verified block's blockHash.
+    // /// @return stateRoot_ The last verified block's stateRoot.
+    // function getLastSyncedBlock()
+    //     external
+    //     view
+    //     returns (uint64 blockId_, bytes32 blockHash_, bytes32 stateRoot_)
+    // {
+    //     blockId_ = state.slotA.lastSyncedBlockId;
+    //     (blockHash_, stateRoot_) = LibUtils.getBlockInfo(state, getConfig(), blockId_);
+    // }
 
     /// @notice Gets the state variables of the TaikoL1 contract.
     /// @dev This method can be deleted once node/client stops using it.
