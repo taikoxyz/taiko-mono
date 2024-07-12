@@ -36,9 +36,6 @@ library Lib1559Math {
         // block, however, this block's gas used will affect the next
         // block's base fee.
         basefee_ = basefee(gasExcess_, uint256(_adjustmentQuotient) * _gasTargetPerL1Block);
-
-        // Always make sure basefee is nonzero, this is required by the node.
-        if (basefee_ == 0) basefee_ = 1;
     }
 
     /// @dev eth_qty(excess_gas_issued) / (TARGET * ADJUSTMENT_QUOTIENT)
