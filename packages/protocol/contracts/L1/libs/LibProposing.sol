@@ -162,10 +162,6 @@ library LibProposing {
         if (meta_.blobUsed) {
             //if (!LibNetwork.isDencunSupported(block.chainid)) revert L1_BLOB_NOT_AVAILABLE();
 
-            // Always use the first blob in this transaction. If the
-            // proposeBlock functions are called more than once in the same
-            // L1 transaction, these multiple L2 blocks will share the same
-            // blob.
             meta_.blobHash = blobhash(0);
             if (meta_.blobHash == 0) revert L1_BLOB_NOT_FOUND();
         } else {
