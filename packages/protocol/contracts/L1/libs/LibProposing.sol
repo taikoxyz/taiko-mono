@@ -35,7 +35,10 @@ library LibProposing {
         address indexed assignedProver,
         uint96 livenessBond,
         TaikoData.BlockMetadata meta,
-        TaikoData.EthDeposit[] depositsProcessed
+        TaikoData.EthDeposit[] depositsProcessed,
+        uint256 blobTxListOffset,
+        uint256 blobTxListLength,
+        uint256 blobIndex
     );
 
     /// @notice Emitted when a block's txList is in the calldata.
@@ -162,7 +165,7 @@ library LibProposing {
         if (meta_.blobUsed) {
             //if (!LibNetwork.isDencunSupported(block.chainid)) revert L1_BLOB_NOT_AVAILABLE();
 
-            meta_.blobHash = blobhash(0);
+            meta_.blobHash = blobhash(local.params.blobIndex);
             if (meta_.blobHash == 0) revert L1_BLOB_NOT_FOUND();
         } else {
             meta_.blobHash = keccak256(_txList);
@@ -238,7 +241,10 @@ library LibProposing {
             assignedProver: msg.sender,
             livenessBond: _config.livenessBond,
             meta: meta_,
-            depositsProcessed: deposits_
+            depositsProcessed: deposits_,
+            blobTxListOffset: local.params.blobTxListOffset,
+            blobTxListLength: local.params.blobTxListLength,
+            blobIndex: local.params.blobIndex
         });
     }
 }

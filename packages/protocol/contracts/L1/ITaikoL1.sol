@@ -8,12 +8,12 @@ import "./TaikoData.sol";
 interface ITaikoL1 {
     /// @notice Proposes a Taiko L2 block.
     /// @param _params Block parameters, currently an encoded BlockParams object.
-    /// @param _txList txList data if calldata is used for DA.
+    /// @param _txLists txList data if calldata is used for DA.
     /// @return meta_ The metadata of the proposed L2 block.
     /// @return deposits_ The Ether deposits processed.
     function proposeBlock(
-        bytes calldata _params,
-        bytes calldata _txList
+        bytes[] calldata _params,
+        bytes[] calldata _txLists
     )
         external
         payable

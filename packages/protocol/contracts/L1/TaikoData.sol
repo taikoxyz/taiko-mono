@@ -66,6 +66,9 @@ library TaikoData {
         bytes signature;
         uint32 l1StateBlockNumber;
         uint64 timestamp;
+        uint256 blobTxListOffset;
+        uint256 blobTxListLength;
+        uint256 blobIndex;
     }
 
     /// @dev Struct containing data only required for proving a block
