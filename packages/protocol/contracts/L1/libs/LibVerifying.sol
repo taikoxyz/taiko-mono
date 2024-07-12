@@ -177,6 +177,35 @@ library LibVerifying {
         }
     }
 
+    /// @dev Restores a block
+    function restoreBlock(
+        TaikoData.State storage _state,
+        TaikoData.Config memory _config,
+        bytes32 metaHash,
+        address assignedProver,
+        uint96 livenessBond,
+        uint64 blockId,
+        uint64 proposedAt,
+        uint64 proposedIn,
+        uint32 nextTransitionId,
+        uint32 verifiedTransitionId
+    )
+        internal
+    {
+        uint64 slot = blockId % _config.blockRingBufferSize;
+
+        TaikoData.Block storage blk = _state.blocks[slot];
+
+        blk.metaHash = metaHash;
+        blk.assignedProver = assignedProver;
+        blk.livenessBond = livenessBond;
+        blk.blockId = blockId;
+        blk.proposedAt = proposedAt;
+        blk.proposedIn = proposedIn;
+        blk.nextTransitionId = nextTransitionId;
+        blk.verifiedTransitionId = verifiedTransitionId;
+    }
+
     function getVerifiedBlockProver(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,

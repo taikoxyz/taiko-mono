@@ -122,6 +122,35 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         LibVerifying.verifyBlocks(state, getConfig(), this, _maxBlocksToVerify);
     }
 
+    function restoreBlock(
+        bytes32 metaHash,
+        address assignedProver,
+        uint96 livenessBond,
+        uint64 blockId,
+        uint64 proposedAt,
+        uint64 proposedIn,
+        uint32 nextTransitionId,
+        uint32 verifiedTransitionId
+    )
+        external
+        whenNotPaused
+        whenProvingNotPaused
+        nonReentrant
+    {
+        LibVerifying.restoreBlock(
+            state,
+            getConfig(),
+            metaHash,
+            assignedProver,
+            livenessBond,
+            blockId,
+            proposedAt,
+            proposedIn,
+            nextTransitionId,
+            verifiedTransitionId
+        );
+    }
+
     /// @inheritdoc ITaikoL1
     function pauseProving(bool _pause) external {
         _authorizePause(msg.sender, _pause);
