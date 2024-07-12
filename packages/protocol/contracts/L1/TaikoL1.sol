@@ -89,7 +89,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
             }
         }
 
-        require(_params.length == _txList.length, "mismatched params length");
+        require(_params.length == _txLists.length, "mismatched params length");
 
         TaikoData.Config memory config = getConfig();
         TaikoToken tko = TaikoToken(resolve(LibStrings.B_TAIKO_TOKEN, false));
