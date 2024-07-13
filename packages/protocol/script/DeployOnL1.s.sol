@@ -147,7 +147,7 @@ contract DeployOnL1 is DeployCapability {
                 impl: address(new TaikoToken()),
                 data: abi.encodeCall(
                     TaikoToken.init, (owner, vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT"))
-                ),
+                    ),
                 registerTo: sharedAddressManager
             });
         }
@@ -270,7 +270,7 @@ contract DeployOnL1 is DeployCapability {
                     vm.envBytes32("L2_GENESIS_HASH"),
                     vm.envBool("PAUSE_TAIKO_L1")
                 )
-            ),
+                ),
             registerTo: rollupAddressManager
         });
 
