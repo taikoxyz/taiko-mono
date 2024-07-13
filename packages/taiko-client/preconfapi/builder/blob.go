@@ -43,6 +43,8 @@ func (b *BlobTransactionBuilder) BuildUnsigned(
 
 	var offset uint64
 
+	var totalTxBytes []byte
+
 	for i, opt := range opts.BlockOpts {
 		txListBytes, err := signedTransactionsToTxListBytes(opt.SignedTransactions)
 		if err != nil {
@@ -53,6 +55,8 @@ func (b *BlobTransactionBuilder) BuildUnsigned(
 		if err != nil {
 			return nil, err
 		}
+
+		totalTxBytes = append(totalTxBytes, compressedTxListBytes...)
 
 		params := &encoding.BlockParams{
 			Coinbase:           common.HexToAddress(opt.Coinbase),
@@ -87,6 +91,15 @@ func (b *BlobTransactionBuilder) BuildUnsigned(
 		}
 
 		encodedParams = append(encodedParams, encoded)
+	}
+
+	if !opts.MultipleBlobs {
+		var blob = &eth.Blob{}
+		if err := blob.FromData(totalTxBytes); err != nil {
+			return nil, err
+		}
+
+		blobs = append(blobs, blob)
 	}
 
 	data, err := encoding.TaikoL1ABI.Pack("proposeBlock", encodedParams, [][]byte{})
