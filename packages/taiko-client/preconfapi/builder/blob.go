@@ -92,7 +92,9 @@ func (b *BlobTransactionBuilder) BuildUnsigned(
 
 		// and finally check if we are at the end of the list.
 		if i == len(opts.BlockOpts)-1 {
-			// we need to make a final blob with the remaining txList.
+			// we need to make a final blob with the remaining txList,
+			// or all the txLists summed together. regardless, there will be a
+			// blob to make here: either the only blob, or the final blob.
 			var blob = &eth.Blob{}
 			if err := blob.FromData(totalBytes); err != nil {
 				return nil, err
