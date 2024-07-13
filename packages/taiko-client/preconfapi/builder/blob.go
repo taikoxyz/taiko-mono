@@ -41,9 +41,17 @@ func (b *BlobTransactionBuilder) BuildUnsigned(
 
 	blobs := make([]*eth.Blob, 0)
 
-	var offset uint64
+	type blobInfo struct {
+		index  uint8
+		offset uint64
+		length uint64
+	}
 
-	var totalTxBytes []byte
+	blobInfos := make([]blobInfo, 0)
+
+	var totalBytes []byte
+
+	var idx uint8
 
 	for i, opt := range opts.BlockOpts {
 		txListBytes, err := signedTransactionsToTxListBytes(opt.SignedTransactions)
@@ -56,33 +64,54 @@ func (b *BlobTransactionBuilder) BuildUnsigned(
 			return nil, err
 		}
 
-		totalTxBytes = append(totalTxBytes, compressedTxListBytes...)
+		totalWithCurrentTxList := append(totalBytes, compressedTxListBytes...)
 
+		// if we have exceeded max blob data size, we can make a blob with all the data
+		// *except* this one.
+		if len(totalWithCurrentTxList) >= eth.MaxBlobDataSize {
+			var blob = &eth.Blob{}
+			if err := blob.FromData(totalBytes); err != nil {
+				return nil, err
+			}
+
+			blobs = append(blobs, blob)
+
+			// clear the bytes array and increment the blob index for next iterations of the loop
+			totalBytes = []byte{}
+			idx++
+		}
+
+		// create a new blobInfos to be attached to a BlockParams after.
+		blobInfos = append(blobInfos, blobInfo{
+			index:  idx,
+			offset: uint64(len(totalBytes)),
+			length: uint64(len(compressedTxListBytes)),
+		})
+
+		totalBytes = append(totalBytes, compressedTxListBytes...)
+
+		// and finally check if we are at the end of the list.
+		if i == len(opts.BlockOpts)-1 {
+			// we need to make a final blob with the remaining txList.
+			var blob = &eth.Blob{}
+			if err := blob.FromData(totalBytes); err != nil {
+				return nil, err
+			}
+
+			blobs = append(blobs, blob)
+		}
+	}
+
+	for i, opt := range opts.BlockOpts {
 		params := &encoding.BlockParams{
 			Coinbase:           common.HexToAddress(opt.Coinbase),
 			ExtraData:          rpc.StringToBytes32(opt.ExtraData),
 			Signature:          []byte{}, // no longer checked
 			L1StateBlockNumber: opt.L1StateBlockNumber,
 			Timestamp:          opt.Timestamp,
-		}
-
-		if opts.MultipleBlobs {
-			var blob = &eth.Blob{}
-			if err := blob.FromData(compressedTxListBytes); err != nil {
-				return nil, err
-			}
-
-			blobs = append(blobs, blob)
-
-			params.BlobIndex = uint8(i)
-			params.BlobTxListLength = uint64(len(compressedTxListBytes))
-			params.BlobTxListOffset = 0
-		} else {
-			params.BlobIndex = 0
-			params.BlobTxListOffset = offset
-			params.BlobTxListLength = uint64(len(compressedTxListBytes))
-
-			offset += uint64(len(compressedTxListBytes))
+			BlobIndex:          blobInfos[i].index,
+			BlobTxListOffset:   blobInfos[i].offset,
+			BlobTxListLength:   blobInfos[i].length,
 		}
 
 		encoded, err := encoding.EncodeBlockParams(params)
@@ -91,15 +120,6 @@ func (b *BlobTransactionBuilder) BuildUnsigned(
 		}
 
 		encodedParams = append(encodedParams, encoded)
-	}
-
-	if !opts.MultipleBlobs {
-		var blob = &eth.Blob{}
-		if err := blob.FromData(totalTxBytes); err != nil {
-			return nil, err
-		}
-
-		blobs = append(blobs, blob)
 	}
 
 	data, err := encoding.TaikoL1ABI.Pack("proposeBlock", encodedParams, [][]byte{})

@@ -25,7 +25,6 @@ import (
 type buildBlockRequest struct {
 	BlockParams    []buildBlockParams `json:"blockParams"`
 	CalldataOrBlob string             `json:"calldataOrBlob"`
-	MultipleBlobs  bool               `json:"multipleBlobs"`
 }
 type buildBlockParams struct {
 	L1StateBlockNumber uint32   `json:"l1StateBlockNumber"`
@@ -56,7 +55,7 @@ func (s *PreconfAPIServer) BuildBlock(c echo.Context) error {
 
 	tx, err := s.txBuilders[req.CalldataOrBlob].BuildUnsigned(
 		c.Request().Context(),
-		paramsToOpts(req.BlockParams, req.MultipleBlobs),
+		paramsToOpts(req.BlockParams),
 	)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, err)
@@ -73,7 +72,7 @@ func (s *PreconfAPIServer) BuildBlock(c echo.Context) error {
 	return c.JSON(http.StatusOK, buildBlockResponse{RLPEncodedTx: hexEncodedTx})
 }
 
-func paramsToOpts(params []buildBlockParams, multipleBlobs bool) builder.BuildUnsignedOpts {
+func paramsToOpts(params []buildBlockParams) builder.BuildUnsignedOpts {
 	opts := make([]builder.BlockOpts, 0)
 
 	for _, p := range params {
@@ -87,7 +86,6 @@ func paramsToOpts(params []buildBlockParams, multipleBlobs bool) builder.BuildUn
 	}
 
 	return builder.BuildUnsignedOpts{
-		BlockOpts:     opts,
-		MultipleBlobs: multipleBlobs,
+		BlockOpts: opts,
 	}
 }

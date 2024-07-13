@@ -11,8 +11,7 @@ import (
 )
 
 type BuildUnsignedOpts struct {
-	MultipleBlobs bool
-	BlockOpts     []BlockOpts
+	BlockOpts []BlockOpts
 }
 type BlockOpts struct {
 	L1StateBlockNumber uint32
