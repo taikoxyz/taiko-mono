@@ -15,7 +15,7 @@ interface IHasRecipient {
 
 /// @title ProverSet
 /// @notice A contract that holds TKO token and acts as a Taiko prover. This contract will simply
-/// relay `proveBlock` calls to _taikoL1 so msg.sender doesn't need to hold any TKO.
+/// relay `proveBlock` calls to TaikoL1 so msg.sender doesn't need to hold any TKO.
 /// @custom:security-contact security@taiko.xyz
 contract ProverSet is EssentialContract, IERC1271 {
     bytes4 private constant _EIP1271_MAGICVALUE = 0x1626ba7e;
