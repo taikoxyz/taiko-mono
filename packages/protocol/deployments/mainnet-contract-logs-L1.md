@@ -198,7 +198,7 @@
 
 - ens: `based.taiko.eth`
 - proxy: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`
-- impl: `0x5fc54737ECC1de49D58AE1195d4A296257F1E31b`
+- impl: `0xcEe590fACd976B9BDE87BC1B7620B284c5edD2C3`
 - owner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
@@ -213,8 +213,7 @@
   - Upgrade to `0x0468745A07de44A9a3138adAc35875ecaf7a20D5` @commit`2b483de` @tx`0x0bbf7d1258c646f41a02a92a55825b1ebfd3659577d0f2b57b462f8895e23a04`
   - Upgrade to `0xB9E1E58bcF33B79CcfF99c298963546a6c334388` @commit`d907359` @tx`0xdb5e926c96d112ce1389da77a927fba6c7d04a711839b9e14777530ebcf83914`
   - Upgrade to `0x5fc54737ECC1de49D58AE1195d4A296257F1E31b` @commit`04d8c87` @tx`0x13f54109cb7f7507ad03562b06ea8d8b472043186e44252302583bc64acfb20b`
-- todo:
-  - upgrade with a new buffer size, enable in-protocol debit/credit bonds, and emit event when calldata is used for DA.
+  - Upgrade to `0xcEe590fACd976B9BDE87BC1B7620B284c5edD2C3` @commit`2dd30ab` @tx``
 
 #### assignment_hook
 
@@ -331,17 +330,16 @@
 
 ### prover_set
 
-- impl: `0x34f2B21107AfE3584949c184A1E6236FFDAC4f6F`
+- impl: `0x518845daA8870bE2C59E49620Fc262AD48953C9a`
 - logs:
   - deployed @commit`bca493f` @tx`0xfacd0f26e3ec4bf1f949637373483fcfe9a960dfc427d6fa62b116907bac3373`
-- todo:
-  - register a new impl for withdrawBond and upgrade TaikoLab proverset's impls.
+  - deployed @commit`2dd30ab` @tx`0xc1f91c375713f601b99cf6d2cdb80c129e036a7c9ec5f75871c4d13216dbbb5c`
 
 ### labprover.taiko.eth
 
 - ens: `labprover.taiko.eth`
 - proxy: `0x68d30f47F19c07bCCEf4Ac7FAE2Dc12FCa3e0dC9`
-- impl: `0xD547Ca5d6b50dC5E900a091978597eB51F18F9D1`
+- impl: `0x518845daA8870bE2C59E49620Fc262AD48953C9a`
 - enabled provers:
   - `0x000000629FBCf27A347d1AEbA658435230D74a5f`
   - `0x000000633b68f5d8d3a86593ebb815b4663bcbe0`
@@ -354,16 +352,17 @@
   - upgraded from `0xd0AEe97712a4a88B75C31E3C61DD2Ce6E514D85F` to `0x5D528253fA14cd7F637937de847BE8D5BE0Bf5fd` @commit`2b483de` @tx`0x0bbf7d1258c646f41a02a92a55825b1ebfd3659577d0f2b57b462f8895e23a04`
   - upgraded from `0x5D528253fA14cd7F637937de847BE8D5BE0Bf5fd` to `0xD547Ca5d6b50dC5E900a091978597eB51F18F9D1` @commit`d907359` @tx`0xb4c23d57a1f0916180d0752c57726b634e7707bb7377c93d9e95d19e3695887a`
   - enabled a prover (`0x000000633b68f5d8d3a86593ebb815b4663bcbe0`) @tx`0xb4c23d57a1f0916180d0752c57726b634e7707bb7377c93d9e95d19e3695887a`
+  - upgraded from `0xD547Ca5d6b50dC5E900a091978597eB51F18F9D1` to `0x518845daA8870bE2C59E49620Fc262AD48953C9a` @commit`2dd30ab` @tx``
 
 ### labcontester.taiko.eth
 
 - ens: `labcontester.taiko.eth`
 - proxy: `0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3`
-- impl: `0xD547Ca5d6b50dC5E900a091978597eB51F18F9D1`
+- impl: `0x518845daA8870bE2C59E49620Fc262AD48953C9a`
 - enabled provers:
   - `0x00000027F51a57E7FcBC4b481d15fcE5BE68b30B`
 - logs:
   - enabled a prover (`0x00000027F51a57E7FcBC4b481d15fcE5BE68b30B`) on May 28 @commit`b335b70` @tx`0x27c84a1dbf80d88948f96f1536c244816543fb780c81a04ba485c4c156431112`
   - upgraded from `0x500735343372Dd6c9B84dBc7a75babf4479742B9` to `0xd0AEe97712a4a88B75C31E3C61DD2Ce6E514D85F` @commit`a3faee0` @tx`eth:0x40A2aCCbd92BCA938b02010E17A5b8929b49130D`
   - upgraded from `0xd0AEe97712a4a88B75C31E3C61DD2Ce6E514D85F` to `0x5D528253fA14cd7F637937de847BE8D5BE0Bf5fd` @commit`2b483de` @tx`0x0bbf7d1258c646f41a02a92a55825b1ebfd3659577d0f2b57b462f8895e23a04`
-  - upgraded from `0x5D528253fA14cd7F637937de847BE8D5BE0Bf5fd` to `0xD547Ca5d6b50dC5E900a091978597eB51F18F9D1` @commit`d907359` @tx`0xb4c23d57a1f0916180d0752c57726b634e7707bb7377c93d9e95d19e3695887a`
+  - upgraded from `0xD547Ca5d6b50dC5E900a091978597eB51F18F9D1` to `0x518845daA8870bE2C59E49620Fc262AD48953C9a` @commit`2dd30ab` @tx``
