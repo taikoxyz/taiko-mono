@@ -6,8 +6,6 @@ import "../common/LibStrings.sol";
 
 /// @title L1RollupAddressManager
 /// @notice See the documentation in {IAddressManager}.
-/// @dev This contract shall NOT be used to upgrade existing implementation unless the name-address
-/// registration becomes stable in 0x579f40D0BE111b823962043702cabe6Aaa290780.
 /// @custom:security-contact security@taiko.xyz
 contract L1RollupAddressManager is AddressManager {
     /// @notice Gets the address mapped to a specific chainId-name pair.

@@ -3,10 +3,8 @@ pragma solidity 0.8.24;
 
 import "../team/proving/ProverSet.sol";
 
-/// @title L1RollupAddressManager
-/// @notice See the documentation in {IAddressManager}.
-/// @dev This contract shall NOT be used to upgrade existing implementation unless the name-address
-/// registration becomes stable in 0x579f40D0BE111b823962043702cabe6Aaa290780.
+/// @title L1ProverSet
+/// @notice See the documentation in {ProverSet}.
 /// @custom:security-contact security@taiko.xyz
 contract L1ProverSet is ProverSet {
     function taikoL1() internal pure override returns (address) {
