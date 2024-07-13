@@ -4,23 +4,11 @@ pragma solidity 0.8.24;
 import "../common/AddressManager.sol";
 import "../common/LibStrings.sol";
 
-/// @title L1SharedAddressManager
+/// @title CachedSharedAddressManager
 /// @notice See the documentation in {IAddressManager}.
 /// @custom:security-contact security@taiko.xyz
-contract L1SharedAddressManager is AddressManager {
-    /// @notice Gets the address mapped to a specific chainId-name pair.
-    /// @dev Sub-contracts can override this method to avoid reading from storage.
-    /// Some names are not cached as they are not used frequently or
-    /// its address is likely to change.
-    function _getOverride(
-        uint64 _chainId,
-        bytes32 _name
-    )
-        internal
-        pure
-        override
-        returns (address addr_)
-    {
+contract CachedSharedAddressManager is AddressManager {
+    function _getAddress(uint64 _chainId, bytes32 _name) internal view override returns (address) {
         if (_chainId == 1) {
             if (_name == LibStrings.B_TAIKO_TOKEN) {
                 return 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800;
@@ -61,6 +49,6 @@ contract L1SharedAddressManager is AddressManager {
             }
         }
 
-        return address(0);
+        return super._getAddress(_chainId, _name);
     }
 }

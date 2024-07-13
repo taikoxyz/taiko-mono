@@ -15,7 +15,7 @@ interface IHasRecipient {
 
 /// @title ProverSet
 /// @notice A contract that holds TKO token and acts as a Taiko prover. This contract will simply
-/// relay `proveBlock` calls to TaikoL1 so msg.sender doesn't need to hold any TKO.
+/// relay `proveBlock` calls to _taikoL1 so msg.sender doesn't need to hold any TKO.
 /// @custom:security-contact security@taiko.xyz
 contract ProverSet is EssentialContract, IERC1271 {
     bytes4 private constant _EIP1271_MAGICVALUE = 0x1626ba7e;
@@ -54,14 +54,14 @@ contract ProverSet is EssentialContract, IERC1271 {
     {
         __Essential_init(_owner, _addressManager);
         admin = _admin;
-        IERC20(tkoToken()).approve(taikoL1(), type(uint256).max);
+        _tko().approve(address(_taikoL1()), type(uint256).max);
     }
 
     /// @notice Receives ETH as fees.
     receive() external payable { }
 
     function approveAllowance(address _address, uint256 _allowance) external onlyOwner {
-        IERC20(tkoToken()).approve(_address, _allowance);
+        _tko().approve(_address, _allowance);
     }
 
     /// @notice Enables or disables a prover.
@@ -74,7 +74,7 @@ contract ProverSet is EssentialContract, IERC1271 {
 
     /// @notice Withdraws Taiko tokens back to the admin address.
     function withdrawToAdmin(uint256 _amount) external onlyAuthorized {
-        IERC20(tkoToken()).transfer(admin, _amount);
+        _tko().transfer(admin, _amount);
     }
 
     /// @notice Propose a Taiko block.
@@ -87,28 +87,28 @@ contract ProverSet is EssentialContract, IERC1271 {
         onlyProver
         nonReentrant
     {
-        ITaikoL1(taikoL1()).proposeBlock(_params, _txList);
+        _taikoL1().proposeBlock(_params, _txList);
     }
 
     /// @notice Proves or contests a Taiko block.
     function proveBlock(uint64 _blockId, bytes calldata _input) external onlyProver nonReentrant {
-        ITaikoL1(taikoL1()).proveBlock(_blockId, _input);
+        _taikoL1().proveBlock(_blockId, _input);
     }
 
-    /// @notice Deposits Taiko token to TaikoL1 contract.
+    /// @notice Deposits Taiko token to _taikoL1 contract.
     function depositBond(uint256 _amount) external onlyAuthorized nonReentrant {
-        ITaikoL1(taikoL1()).depositBond(_amount);
+        _taikoL1().depositBond(_amount);
     }
 
-    /// @notice Withdraws Taiko token from TaikoL1 contract.
+    /// @notice Withdraws Taiko token from _taikoL1 contract.
     function withdrawBond(uint256 _amount) external onlyAuthorized nonReentrant {
-        ITaikoL1(taikoL1()).withdrawBond(_amount);
+        _taikoL1().withdrawBond(_amount);
     }
 
     /// @notice Delegates token voting right to a delegatee.
     /// @param _delegatee The delegatee to receive the voting right.
     function delegate(address _delegatee) external onlyAuthorized nonReentrant {
-        ERC20VotesUpgradeable(tkoToken()).delegate(_delegatee);
+        _tko().delegate(_delegatee);
     }
 
     // This function is necessary for this contract to become an assigned prover.
@@ -126,11 +126,11 @@ contract ProverSet is EssentialContract, IERC1271 {
         }
     }
 
-    function taikoL1() internal view virtual returns (address) {
-        return resolve(LibStrings.B_TAIKO, false);
+    function _taikoL1() private view returns (ITaikoL1) {
+        return ITaikoL1(resolve(LibStrings.B_TAIKO, false));
     }
 
-    function tkoToken() internal view virtual returns (address) {
-        return resolve(LibStrings.B_TAIKO_TOKEN, false);
+    function _tko() private view returns (ERC20VotesUpgradeable) {
+        return ERC20VotesUpgradeable(resolve(LibStrings.B_TAIKO_TOKEN, false));
     }
 }

@@ -4,23 +4,11 @@ pragma solidity 0.8.24;
 import "../common/AddressManager.sol";
 import "../common/LibStrings.sol";
 
-/// @title L1RollupAddressManager
+/// @title CachedRollupAddressManager
 /// @notice See the documentation in {IAddressManager}.
 /// @custom:security-contact security@taiko.xyz
-contract L1RollupAddressManager is AddressManager {
-    /// @notice Gets the address mapped to a specific chainId-name pair.
-    /// @dev Sub-contracts can override this method to avoid reading from storage.
-    /// Some names are not cached as they are not used frequently or
-    /// its address is likely to change.
-    function _getOverride(
-        uint64 _chainId,
-        bytes32 _name
-    )
-        internal
-        pure
-        override
-        returns (address addr_)
-    {
+contract CachedRollupAddressManager is AddressManager {
+    function _getAddress(uint64 _chainId, bytes32 _name) internal view override returns (address) {
         if (_chainId == 1) {
             if (_name == LibStrings.B_TAIKO_TOKEN) {
                 return 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800;
@@ -50,6 +38,6 @@ contract L1RollupAddressManager is AddressManager {
                 return 0x6E997f1F22C40ba37F633B08f3b07E10Ed43155a;
             }
         }
-        return address(0);
+        return super._getAddress(_chainId, _name);
     }
 }
