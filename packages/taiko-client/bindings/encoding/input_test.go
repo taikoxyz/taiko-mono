@@ -54,14 +54,15 @@ func TestEncodeAssignmentHookInput(t *testing.T) {
 }
 
 func TestUnpackTxListBytes(t *testing.T) {
-	_, err := UnpackTxListBytes(randomBytes(1024))
+	_, err := UnpackTxListBytes(randomBytes(1024), 0)
 	require.NotNil(t, err)
 
 	_, err = UnpackTxListBytes(
 		hexutil.MustDecode(
-			"0xa0ca2d080000000000000000000000000000000000000000000000000000000000000" +
+			"0xa0ca2d080000000000000000000000000000000000000000000000000000000000000"+
 				"aa8e2b9725cce28787e99447c383d95a9ba83125fe31a9ffa9cbb2c504da86926ab",
 		),
+		0,
 	)
 	require.ErrorContains(t, err, "no method with id")
 
@@ -90,12 +91,12 @@ func TestUnpackTxListBytes(t *testing.T) {
 
 	tx, err := taikoL1.ProposeBlock(
 		opts,
-		randomBytes(1024),
-		txListBytes,
+		[][]byte{randomBytes(1024)},
+		[][]byte{txListBytes},
 	)
 	require.Nil(t, err)
 
-	b, err := UnpackTxListBytes(tx.Data())
+	b, err := UnpackTxListBytes(tx.Data(), 0)
 	require.Nil(t, err)
 	require.Equal(t, txListBytes, b)
 }

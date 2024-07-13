@@ -25,5 +25,5 @@ func (d *CalldataFetcher) Fetch(
 		return nil, pkg.ErrBlobUsed
 	}
 
-	return encoding.UnpackTxListBytes(tx.Data())
+	return encoding.UnpackTxListBytes(tx.Data(), meta.Index)
 }

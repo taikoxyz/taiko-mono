@@ -73,6 +73,14 @@ var (
 			Name: "sender",
 			Type: "address",
 		},
+		{
+			Name: "blobTxListOffset",
+			Type: "uint256",
+		},
+		{
+			Name: "blobTxListLength",
+			Type: "uint256",
+		},
 	}
 	transitionComponents = []abi.ArgumentMarshaling{
 		{
@@ -144,6 +152,18 @@ var (
 		{
 			Name: "timestamp",
 			Type: "uint64",
+		},
+		{
+			Name: "blobTxListOffset",
+			Type: "uint64",
+		},
+		{
+			Name: "blobTxListLength",
+			Type: "uint64",
+		},
+		{
+			Name: "blobIndex",
+			Type: "uint8",
 		},
 	}
 	proverAssignmentComponents = []abi.ArgumentMarshaling{
@@ -409,7 +429,7 @@ func EncodeProveBlockInput(
 }
 
 // UnpackTxListBytes unpacks the input data of a TaikoL1.proposeBlock transaction, and returns the txList bytes.
-func UnpackTxListBytes(txData []byte) ([]byte, error) {
+func UnpackTxListBytes(txData []byte, index uint8) ([]byte, error) {
 	method, err := TaikoL1ABI.MethodById(txData)
 	if err != nil {
 		return nil, err
@@ -426,11 +446,11 @@ func UnpackTxListBytes(txData []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	inputs, ok := args["_txList"].([]byte)
+	inputs, ok := args["_txLists"].([][]byte)
 
 	if !ok {
 		return nil, errors.New("failed to get txList bytes")
 	}
 
-	return inputs, nil
+	return inputs[index], nil
 }

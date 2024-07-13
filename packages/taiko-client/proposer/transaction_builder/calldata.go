@@ -102,12 +102,12 @@ func (b *CalldataTransactionBuilder) Build(
 	}
 
 	if b.proverSetAddress != rpc.ZeroAddress {
-		data, err = encoding.ProverSetABI.Pack("proposeBlock", encodedParams, txListBytes)
+		data, err = encoding.ProverSetABI.Pack("proposeBlock", [][]byte{encodedParams}, [][]byte{txListBytes})
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		data, err = encoding.TaikoL1ABI.Pack("proposeBlock", encodedParams, txListBytes)
+		data, err = encoding.TaikoL1ABI.Pack("proposeBlock", [][]byte{encodedParams}, [][]byte{txListBytes})
 		if err != nil {
 			return nil, err
 		}

@@ -10,6 +10,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
 // BlobTransactionBuilder is responsible for building a TaikoL1.proposeBlock transaction with txList
@@ -34,40 +35,66 @@ func NewBlobTransactionBuilder(
 // return an unsigned transaction, intended for preconfirmations.
 func (b *BlobTransactionBuilder) BuildUnsigned(
 	_ context.Context,
-	txListBytes []byte,
-	l1StateBlockNumber uint32,
-	timestamp uint64,
-	coinbase common.Address,
-	extraData [32]byte,
+	opts BuildUnsignedOpts,
 ) (*types.Transaction, error) {
-	compressedTxListBytes, err := utils.Compress(txListBytes)
+	encodedParams := make([][]byte, 0)
+
+	blobs := make([]*eth.Blob, 0)
+
+	var offset uint64 = 0
+
+	for i, opt := range opts.BlockOpts {
+		txListBytes, err := signedTransactionsToTxListBytes(opt.SignedTransactions)
+		if err != nil {
+			return nil, err
+		}
+
+		compressedTxListBytes, err := utils.Compress(txListBytes)
+		if err != nil {
+			return nil, err
+		}
+
+		params := &encoding.BlockParams{
+			Coinbase:           common.HexToAddress(opt.Coinbase),
+			ExtraData:          rpc.StringToBytes32(opt.ExtraData),
+			Signature:          []byte{}, // no longer checked
+			L1StateBlockNumber: opt.L1StateBlockNumber,
+			Timestamp:          opt.Timestamp,
+		}
+
+		if opts.MultipleBlobs {
+			var blob = &eth.Blob{}
+			if err := blob.FromData(compressedTxListBytes); err != nil {
+				return nil, err
+			}
+
+			blobs = append(blobs, blob)
+
+			params.BlobIndex = uint8(i)
+			params.BlobTxListLength = uint64(len(compressedTxListBytes))
+			params.BlobTxListOffset = 0
+		} else {
+			params.BlobIndex = 0
+			params.BlobTxListOffset = offset
+			params.BlobTxListLength = uint64(len(compressedTxListBytes))
+
+			offset += uint64(len(compressedTxListBytes))
+		}
+
+		encoded, err := encoding.EncodeBlockParams(params)
+		if err != nil {
+			return nil, err
+		}
+
+		encodedParams = append(encodedParams, encoded)
+	}
+
+	data, err := encoding.TaikoL1ABI.Pack("proposeBlock", encodedParams, [][]byte{})
 	if err != nil {
 		return nil, err
 	}
 
-	var blob = &eth.Blob{}
-	if err := blob.FromData(compressedTxListBytes); err != nil {
-		return nil, err
-	}
-
-	// ABI encode the TaikoL1.proposeBlock parameters.
-	encodedParams, err := encoding.EncodeBlockParams(&encoding.BlockParams{
-		ExtraData:          extraData,
-		Coinbase:           coinbase,
-		Signature:          []byte{}, // no longer checked
-		L1StateBlockNumber: l1StateBlockNumber,
-		Timestamp:          timestamp,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	data, err := encoding.TaikoL1ABI.Pack("proposeBlock", encodedParams, []byte{})
-	if err != nil {
-		return nil, err
-	}
-
-	sidecar, blobHashes, err := txmgr.MakeSidecar([]*eth.Blob{blob})
+	sidecar, blobHashes, err := txmgr.MakeSidecar(blobs)
 	if err != nil {
 		return nil, err
 	}

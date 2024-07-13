@@ -89,14 +89,12 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
             }
         }
 
-        require(_params.length == _txLists.length, "mismatched params length");
-
         TaikoData.Config memory config = getConfig();
         TaikoToken tko = TaikoToken(resolve(LibStrings.B_TAIKO_TOKEN, false));
 
-        for (uint256 i = 0; i < _params.length; i++) {
+        for (uint8 i = 0; i < _params.length; i++) {
             (meta_, deposits_) =
-                LibProposing.proposeBlock(state, tko, config, this, _params[i], _txLists[i]);
+                LibProposing.proposeBlock(state, tko, config, this, _params[i], _txLists[i], i);
         }
 
         if (LibUtils.shouldVerifyBlocks(config, meta_.id, true) && !state.slotB.provingPaused) {

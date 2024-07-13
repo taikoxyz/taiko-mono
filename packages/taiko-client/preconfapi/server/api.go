@@ -3,16 +3,12 @@ package server
 import (
 	"bytes"
 	"encoding/hex"
-	"log"
 	"net/http"
-	"strings"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/labstack/echo/v4"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/preconfapi/builder"
 )
 
 // @title Taiko Proposer Server API
@@ -27,12 +23,16 @@ import (
 // @license.url https://github.com/taikoxyz/taiko-mono/packages/taiko-client/blob/main/LICENSE.md
 
 type buildBlockRequest struct {
+	BlockParams    []buildBlockParams `json:"blockParams"`
+	CalldataOrBlob string             `json:"calldataOrBlob"`
+	MultipleBlobs  bool               `json:"multipleBlobs"`
+}
+type buildBlockParams struct {
 	L1StateBlockNumber uint32   `json:"l1StateBlockNumber"`
 	Timestamp          uint64   `json:"timestamp"`
 	SignedTransactions []string `json:"signedTransactions"`
 	Coinbase           string   `json:"coinbase"`
 	ExtraData          string   `json:"extraData"`
-	CalldataOrBlob     string   `json:"calldataOrBlob"`
 }
 
 type buildBlockResponse struct {
@@ -54,24 +54,9 @@ func (s *PreconfAPIServer) BuildBlock(c echo.Context) error {
 		return c.JSON(http.StatusUnprocessableEntity, err)
 	}
 
-	txListBytes, err := signedTransactionsToTxListBytes(req.SignedTransactions)
-	if err != nil {
-		return c.JSON(http.StatusUnprocessableEntity, err)
-	}
-
-	// default to blob
-	t := req.CalldataOrBlob
-	if t == "" {
-		t = "blob"
-	}
-
-	tx, err := s.txBuilders[t].BuildUnsigned(
+	tx, err := s.txBuilders[req.CalldataOrBlob].BuildUnsigned(
 		c.Request().Context(),
-		txListBytes,
-		req.L1StateBlockNumber,
-		req.Timestamp,
-		common.HexToAddress(req.Coinbase),
-		rpc.StringToBytes32(req.ExtraData),
+		paramsToOpts(req.BlockParams, req.MultipleBlobs),
 	)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, err)
@@ -88,29 +73,21 @@ func (s *PreconfAPIServer) BuildBlock(c echo.Context) error {
 	return c.JSON(http.StatusOK, buildBlockResponse{RLPEncodedTx: hexEncodedTx})
 }
 
-func signedTransactionsToTxListBytes(txs []string) ([]byte, error) {
-	var transactions types.Transactions
+func paramsToOpts(params []buildBlockParams, multipleBlobs bool) builder.BuildUnsignedOpts {
+	opts := make([]builder.BlockOpts, 0)
 
-	for _, signedTxHex := range txs {
-		signedTxHex = strings.TrimPrefix(signedTxHex, "0x")
-
-		rlpEncodedBytes, err := hex.DecodeString(signedTxHex)
-		if err != nil {
-			return nil, err
-		}
-
-		var tx types.Transaction
-		if err := rlp.DecodeBytes(rlpEncodedBytes, &tx); err != nil {
-			return nil, err
-		}
-
-		transactions = append(transactions, &tx)
+	for _, p := range params {
+		opts = append(opts, builder.BlockOpts{
+			L1StateBlockNumber: p.L1StateBlockNumber,
+			Timestamp:          p.Timestamp,
+			SignedTransactions: p.SignedTransactions,
+			Coinbase:           p.Coinbase,
+			ExtraData:          p.ExtraData,
+		})
 	}
 
-	txListBytes, err := rlp.EncodeToBytes(transactions)
-	if err != nil {
-		log.Fatalf("Failed to RLP encode transactions: %v", err)
+	return builder.BuildUnsignedOpts{
+		BlockOpts:     opts,
+		MultipleBlobs: multipleBlobs,
 	}
-
-	return txListBytes, nil
 }

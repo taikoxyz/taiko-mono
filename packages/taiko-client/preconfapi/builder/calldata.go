@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
 // CalldataTransactionBuilder is responsible for building a TaikoL1.proposeBlock transaction with txList
@@ -32,30 +33,41 @@ func NewCalldataTransactionBuilder(
 // return an unsigned transaction, intended for preconfirmations.
 func (b *CalldataTransactionBuilder) BuildUnsigned(
 	_ context.Context,
-	txListBytes []byte,
-	l1StateBlockNumber uint32,
-	timestamp uint64,
-	coinbase common.Address,
-	extraData [32]byte,
+	opts BuildUnsignedOpts,
 ) (*types.Transaction, error) {
-	compressedTxListBytes, err := utils.Compress(txListBytes)
-	if err != nil {
-		return nil, err
+	encodedParams := make([][]byte, 0)
+
+	txLists := make([][]byte, 0)
+
+	for _, opt := range opts.BlockOpts {
+		txListBytes, err := signedTransactionsToTxListBytes(opt.SignedTransactions)
+		if err != nil {
+			return nil, err
+		}
+
+		compressedTxListBytes, err := utils.Compress(txListBytes)
+		if err != nil {
+			return nil, err
+		}
+
+		// ABI encode the TaikoL1.proposeBlock parameters.
+		encoded, err := encoding.EncodeBlockParams(&encoding.BlockParams{
+			Coinbase:           common.HexToAddress(opt.Coinbase),
+			ExtraData:          rpc.StringToBytes32(opt.ExtraData),
+			Signature:          []byte{}, // no longer checked
+			L1StateBlockNumber: opt.L1StateBlockNumber,
+			Timestamp:          opt.Timestamp,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		encodedParams = append(encodedParams, encoded)
+
+		txLists = append(txLists, compressedTxListBytes)
 	}
 
-	// ABI encode the TaikoL1.proposeBlock parameters.
-	encodedParams, err := encoding.EncodeBlockParams(&encoding.BlockParams{
-		ExtraData:          extraData,
-		Coinbase:           coinbase,
-		Signature:          []byte{}, // no longer checked
-		L1StateBlockNumber: l1StateBlockNumber,
-		Timestamp:          timestamp,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	data, err := encoding.TaikoL1ABI.Pack("proposeBlock", encodedParams, compressedTxListBytes)
+	data, err := encoding.TaikoL1ABI.Pack("proposeBlock", encodedParams, txLists)
 	if err != nil {
 		return nil, err
 	}

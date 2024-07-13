@@ -111,18 +111,21 @@ func (b *BlobTransactionBuilder) Build(
 		Signature:          signature,
 		L1StateBlockNumber: l1StateBlockNumber,
 		Timestamp:          timestamp,
+		BlobTxListOffset:   0,
+		BlobTxListLength:   uint64(len(txListBytes)),
+		BlobIndex:          0,
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	if b.proverSetAddress != rpc.ZeroAddress {
-		data, err = encoding.ProverSetABI.Pack("proposeBlock", encodedParams, []byte{})
+		data, err = encoding.ProverSetABI.Pack("proposeBlock", [][]byte{encodedParams}, [][]byte{})
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		data, err = encoding.TaikoL1ABI.Pack("proposeBlock", encodedParams, []byte{})
+		data, err = encoding.TaikoL1ABI.Pack("proposeBlock", [][]byte{encodedParams}, [][]byte{})
 		if err != nil {
 			return nil, err
 		}
