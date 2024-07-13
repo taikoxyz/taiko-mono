@@ -101,7 +101,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
 
         if (LibUtils.shouldVerifyBlocks(config, meta_.id, true) && !state.slotB.provingPaused) {
             LibVerifying.verifyBlocks(
-                state, tko, config, this, config.maxBlocksToVerify * _params.length
+                state, tko, config, this, config.maxBlocksToVerify * uint64(_params.length)
             );
         }
     }
