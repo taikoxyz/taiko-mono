@@ -126,11 +126,11 @@ contract ProverSet is EssentialContract, IERC1271 {
         }
     }
 
-    function taikoL1() private view returns (address) {
+    function taikoL1() internal view virtual returns (address) {
         return resolve(LibStrings.B_TAIKO, false);
     }
 
-    function tkoToken() private view returns (address) {
+    function tkoToken() internal view virtual returns (address) {
         return resolve(LibStrings.B_TAIKO_TOKEN, false);
     }
 }
