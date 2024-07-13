@@ -103,7 +103,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         bytes calldata _txList
     )
         external
-        payable
         returns (TaikoData.BlockMetadata2 memory meta_)
     {
         TaikoData.Config memory config = getConfig();
