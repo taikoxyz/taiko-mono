@@ -106,6 +106,7 @@ contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
             coinbase: address(0),
             extraData: 0,
             parentMetaHash: 0,
+            blobIndex: 0,
             anchorBlockId: 0,
             timestamp: 0
         });
@@ -144,6 +145,7 @@ contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
             coinbase: Bob,
             extraData: bytes32(uint256(123)),
             parentMetaHash: 0,
+            blobIndex: 0,
             anchorBlockId: 90,
             timestamp: uint64(block.timestamp - 100)
         });

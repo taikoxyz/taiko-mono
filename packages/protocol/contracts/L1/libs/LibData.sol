@@ -21,6 +21,7 @@ library LibData {
             extraData: _v1.extraData,
             parentMetaHash: _v1.parentMetaHash,
             anchorBlockId: 0,
+            blobIndex: 0,
             timestamp: 0
         });
     }
@@ -68,6 +69,7 @@ library LibData {
             anchorBlockId: _v1.l1Height,
             minTier: _v1.minTier,
             blobUsed: _v1.blobUsed,
+            blobIndex: 0,
             parentMetaHash: _v1.parentMetaHash,
             proposer: _v1.sender,
             livenessBond: _livenessBond,

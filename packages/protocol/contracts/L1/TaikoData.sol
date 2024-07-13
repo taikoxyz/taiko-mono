@@ -69,6 +69,7 @@ library TaikoData {
         address coinbase;
         bytes32 extraData;
         bytes32 parentMetaHash;
+        uint8 blobIndex;
         uint64 anchorBlockId; // NEW
         uint64 timestamp; // NEW
     }
@@ -106,6 +107,7 @@ library TaikoData {
         uint64 anchorBlockId; // `_l1BlockId` in TaikoL2's anchor tx.
         uint16 minTier;
         bool blobUsed;
+        uint8 blobIndex;
         bytes32 parentMetaHash;
         address proposer;
         uint96 livenessBond;
