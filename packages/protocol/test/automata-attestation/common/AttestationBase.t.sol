@@ -67,7 +67,7 @@ contract AttestationBase is Test, DcapTestUtils, V3QuoteParseUtils {
                 data: abi.encodeCall(
                     AutomataDcapV3Attestation.init,
                     (admin, address(sigVerifyLib), address(pemCertChainLib))
-                    )
+                )
             })
         );
 
