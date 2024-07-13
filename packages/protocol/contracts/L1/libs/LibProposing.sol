@@ -157,7 +157,9 @@ library LibProposing {
                 minTier: 0, // to be initialized below
                 blobUsed: _txList.length == 0,
                 parentMetaHash: local.parentMetaHash,
-                sender: msg.sender
+                sender: msg.sender,
+                blobTxListOffset: local.params.blobTxListOffset,
+                blobTxListLength: local.params.blobTxListLength
             });
         }
 

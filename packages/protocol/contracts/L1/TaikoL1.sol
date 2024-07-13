@@ -97,10 +97,12 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         for (uint256 i = 0; i < _params.length; i++) {
             (meta_, deposits_) =
                 LibProposing.proposeBlock(state, tko, config, this, _params[i], _txLists[i]);
+        }
 
-            if (LibUtils.shouldVerifyBlocks(config, meta_.id, true) && !state.slotB.provingPaused) {
-                LibVerifying.verifyBlocks(state, tko, config, this, config.maxBlocksToVerify);
-            }
+        if (LibUtils.shouldVerifyBlocks(config, meta_.id, true) && !state.slotB.provingPaused) {
+            LibVerifying.verifyBlocks(
+                state, tko, config, this, config.maxBlocksToVerify * _params.length
+            );
         }
     }
 
