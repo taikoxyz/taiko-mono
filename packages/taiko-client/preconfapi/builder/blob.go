@@ -41,7 +41,7 @@ func (b *BlobTransactionBuilder) BuildUnsigned(
 
 	blobs := make([]*eth.Blob, 0)
 
-	var offset uint64 = 0
+	var offset uint64
 
 	for i, opt := range opts.BlockOpts {
 		txListBytes, err := signedTransactionsToTxListBytes(opt.SignedTransactions)
