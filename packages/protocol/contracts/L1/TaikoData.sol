@@ -66,6 +66,9 @@ library TaikoData {
         bytes signature;
         uint32 l1StateBlockNumber;
         uint64 timestamp;
+        uint256 blobTxListOffset;
+        uint256 blobTxListLength;
+        uint256 blobIndex;
     }
 
     /// @dev Struct containing data only required for proving a block
@@ -87,6 +90,8 @@ library TaikoData {
         bool blobUsed;
         bytes32 parentMetaHash;
         address sender; // a.k.a proposer
+        uint256 blobTxListOffset;
+        uint256 blobTxListLength;
     }
 
     /// @dev Struct representing transition to be proven.
