@@ -12,7 +12,7 @@ import "./libs/LibPublicInput.sol";
 /// @custom:security-contact security@taiko.xyz
 contract RiscZeroVerifier is EssentialContract, IVerifier {
     /// @notice RISC Zero remote verifier contract address, e.g.:
-    /// https://sepolia.etherscan.io/address/0x83c2e9cd64b2a16d3908e94c7654f3864212e2f8
+    /// https://sepolia.etherscan.io/address/0x3d24C84FC1A2B26f9229e58ddDf11A8dfba802d0
     IRiscZeroReceiptVerifier public receiptVerifier;
     /// @notice Trusted imageId mapping
     mapping(bytes32 imageId => bool trusted) public isImageTrusted;
@@ -65,8 +65,7 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
         if (_ctx.isContesting) return;
 
         // Decode will throw if not proper length/encoding
-        (bytes memory seal, bytes32 imageId, bytes32 postStateDigest) =
-            abi.decode(_proof.data, (bytes, bytes32, bytes32));
+        (bytes memory seal, bytes32 imageId) = abi.decode(_proof.data, (bytes, bytes32));
 
         if (!isImageTrusted[imageId]) {
             revert RISC_ZERO_INVALID_IMAGE_ID();
@@ -80,7 +79,12 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
         // journalDigest is the sha256 hash of the hashed public input
         bytes32 journalDigest = sha256(bytes.concat(hash));
 
-        if (!receiptVerifier.verify(seal, imageId, postStateDigest, journalDigest)) {
+        // call risc0 verifier contract
+        (bool success,) = address(receiptVerifier).staticcall(
+            abi.encodeCall(IRiscZeroReceiptVerifier.verify, (seal, imageId, journalDigest))
+        );
+
+        if (!success) {
             revert RISC_ZERO_INVALID_PROOF();
         }
     }

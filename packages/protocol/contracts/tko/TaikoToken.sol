@@ -27,4 +27,28 @@ contract TaikoToken is TaikoTokenBase {
         // Mint 1 billion tokens
         _mint(_recipient, 1_000_000_000 ether);
     }
+
+    /// @notice Batch transfers tokens
+    /// @param recipients The list of addresses to transfer tokens to.
+    /// @param amounts The list of amounts for transfer.
+    /// @return true if the transfer is successful.
+    function batchTransfer(
+        address[] calldata recipients,
+        uint256[] calldata amounts
+    )
+        external
+        returns (bool)
+    {
+        if (recipients.length != amounts.length) revert TT_INVALID_PARAM();
+        for (uint256 i; i < recipients.length; ++i) {
+            _transfer(msg.sender, recipients[i], amounts[i]);
+        }
+        return true;
+    }
+
+    function delegates(address account) public view virtual override returns (address) {
+        // Special checks to avoid reading from storage slots
+        if (account == _TAIKO_L1 || account == _ERC20_VAULT) return address(0);
+        else return super.delegates(account);
+    }
 }
