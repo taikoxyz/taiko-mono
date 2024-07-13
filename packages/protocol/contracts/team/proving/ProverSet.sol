@@ -54,14 +54,14 @@ contract ProverSet is EssentialContract, IERC1271 {
     {
         __Essential_init(_owner, _addressManager);
         admin = _admin;
-        _tko().approve(address(_taikoL1()), type(uint256).max);
+        IERC20(_tkoToken()).approve(_taikoL1(), type(uint256).max);
     }
 
     /// @notice Receives ETH as fees.
     receive() external payable { }
 
     function approveAllowance(address _address, uint256 _allowance) external onlyOwner {
-        _tko().approve(_address, _allowance);
+        IERC20(_tkoToken()).approve(_address, _allowance);
     }
 
     /// @notice Enables or disables a prover.
@@ -74,7 +74,7 @@ contract ProverSet is EssentialContract, IERC1271 {
 
     /// @notice Withdraws Taiko tokens back to the admin address.
     function withdrawToAdmin(uint256 _amount) external onlyAuthorized {
-        _tko().transfer(admin, _amount);
+        IERC20(_tkoToken()).transfer(admin, _amount);
     }
 
     /// @notice Propose a Taiko block.
@@ -87,28 +87,28 @@ contract ProverSet is EssentialContract, IERC1271 {
         onlyProver
         nonReentrant
     {
-        _taikoL1().proposeBlock(_params, _txList);
+        ITaikoL1(_taikoL1()).proposeBlock(_params, _txList);
     }
 
     /// @notice Proves or contests a Taiko block.
     function proveBlock(uint64 _blockId, bytes calldata _input) external onlyProver nonReentrant {
-        _taikoL1().proveBlock(_blockId, _input);
+        ITaikoL1(_taikoL1()).proveBlock(_blockId, _input);
     }
 
-    /// @notice Deposits Taiko token to _taikoL1 contract.
+    /// @notice Deposits Taiko token to TaikoL1 contract.
     function depositBond(uint256 _amount) external onlyAuthorized nonReentrant {
-        _taikoL1().depositBond(_amount);
+        ITaikoL1(_taikoL1()).depositBond(_amount);
     }
 
-    /// @notice Withdraws Taiko token from _taikoL1 contract.
+    /// @notice Withdraws Taiko token from TaikoL1 contract.
     function withdrawBond(uint256 _amount) external onlyAuthorized nonReentrant {
-        _taikoL1().withdrawBond(_amount);
+        ITaikoL1(_taikoL1()).withdrawBond(_amount);
     }
 
     /// @notice Delegates token voting right to a delegatee.
     /// @param _delegatee The delegatee to receive the voting right.
     function delegate(address _delegatee) external onlyAuthorized nonReentrant {
-        _tko().delegate(_delegatee);
+        ERC20VotesUpgradeable(_tkoToken()).delegate(_delegatee);
     }
 
     // This function is necessary for this contract to become an assigned prover.
@@ -126,11 +126,11 @@ contract ProverSet is EssentialContract, IERC1271 {
         }
     }
 
-    function _taikoL1() private view returns (ITaikoL1) {
-        return ITaikoL1(resolve(LibStrings.B_TAIKO, false));
+    function _taikoL1() private view returns (address) {
+        return resolve(LibStrings.B_TAIKO, false);
     }
 
-    function _tko() private view returns (ERC20VotesUpgradeable) {
-        return ERC20VotesUpgradeable(resolve(LibStrings.B_TAIKO_TOKEN, false));
+    function _tkoToken() private view returns (address) {
+        return resolve(LibStrings.B_TAIKO_TOKEN, false);
     }
 }
