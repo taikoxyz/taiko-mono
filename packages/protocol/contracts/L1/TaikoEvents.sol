@@ -32,6 +32,11 @@ abstract contract TaikoEvents {
         TaikoData.EthDeposit[] depositsProcessed
     );
 
+    /// @notice Emitted when a block is proposed.
+    /// @param blockId The ID of the proposed block.
+    /// @param meta The metadata of the proposed block.
+    event BlockProposed2(uint256 indexed blockId, TaikoData.BlockMetadata2 meta);
+
     /// @notice Emitted when a block's txList is in the calldata.
     /// @param blockId The ID of the proposed block.
     /// @param txList The txList.
@@ -51,6 +56,22 @@ abstract contract TaikoEvents {
         uint16 tier
     );
 
+    /// @notice Emitted when a transition is proved.
+    /// @param blockId The block ID.
+    /// @param tran The transition data.
+    /// @param prover The prover's address.
+    /// @param validityBond The validity bond amount.
+    /// @param tier The tier of the proof.
+    /// @param proposedIn The L1 block in which a transition is proved.
+    event TransitionProved2(
+        uint256 indexed blockId,
+        TaikoData.Transition tran,
+        address prover,
+        uint96 validityBond,
+        uint16 tier,
+        uint64 proposedIn
+    );
+
     /// @notice Emitted when a transition is contested.
     /// @param blockId The block ID.
     /// @param tran The transition data.
@@ -63,6 +84,22 @@ abstract contract TaikoEvents {
         address contester,
         uint96 contestBond,
         uint16 tier
+    );
+
+    /// @notice Emitted when a transition is contested.
+    /// @param blockId The block ID.
+    /// @param tran The transition data.
+    /// @param contester The contester's address.
+    /// @param contestBond The contest bond amount.
+    /// @param tier The tier of the proof.
+    /// @param proposedIn The L1 block in which this L2 block is proposed.
+    event TransitionContested2(
+        uint256 indexed blockId,
+        TaikoData.Transition tran,
+        address contester,
+        uint96 contestBond,
+        uint16 tier,
+        uint64 proposedIn
     );
 
     /// @notice Emitted when proving is paused or unpaused.
@@ -82,6 +119,16 @@ abstract contract TaikoEvents {
         bytes32 blockHash,
         bytes32 stateRoot,
         uint16 tier
+    );
+
+    /// @dev Emitted when a block is verified.
+    /// @param blockId The ID of the verified block.
+    /// @param prover The prover whose transition is used for verifying the
+    /// block.
+    /// @param blockHash The hash of the verified block.
+    /// @param tier The tier ID of the proof.
+    event BlockVerified2(
+        uint256 indexed blockId, address indexed prover, bytes32 blockHash, uint16 tier
     );
 
     /// @notice Emitted when some state variable values changed.

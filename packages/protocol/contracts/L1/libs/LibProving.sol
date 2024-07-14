@@ -77,6 +77,13 @@ library LibProving {
         uint16 tier
     );
 
+    /// @notice Emitted when a transition is contested.
+    /// @param blockId The block ID.
+    /// @param tran The transition data.
+    /// @param contester The contester's address.
+    /// @param contestBond The contest bond amount.
+    /// @param tier The tier of the proof.
+    /// @param proposedIn The L1 block in which this L2 block is proposed.
     event TransitionContested2(
         uint256 indexed blockId,
         TaikoData.Transition tran,
