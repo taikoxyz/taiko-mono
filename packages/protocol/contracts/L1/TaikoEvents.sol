@@ -11,6 +11,12 @@ import "./TaikoData.sol";
 /// L1 libraries.
 /// @custom:security-contact security@taiko.xyz
 abstract contract TaikoEvents {
+    /// @dev Emitted when token is credited back to a user's bond balance.
+    event BondCredited(address indexed user, uint256 amount);
+
+    /// @dev Emitted when token is debited from a user's bond balance.
+    event BondDebited(address indexed user, uint256 amount);
+
     /// @notice Emitted when a block is proposed.
     /// @param blockId The ID of the proposed block.
     /// @param assignedProver The address of the assigned prover.
@@ -30,11 +36,6 @@ abstract contract TaikoEvents {
     /// @param blockId The ID of the proposed block.
     /// @param txList The txList.
     event CalldataTxList(uint256 indexed blockId, bytes txList);
-
-    /// @notice Emitted when some state variable values changed.
-    /// @dev This event is currently used by Taiko node/client for block proposal/proving.
-    /// @param slotB The SlotB data structure.
-    event StateVariablesUpdated(TaikoData.SlotB slotB);
 
     /// @notice Emitted when a transition is proved.
     /// @param blockId The block ID.
@@ -82,4 +83,9 @@ abstract contract TaikoEvents {
         bytes32 stateRoot,
         uint16 tier
     );
+
+    /// @notice Emitted when some state variable values changed.
+    /// @dev This event is currently used by Taiko node/client for block proposal/proving.
+    /// @param slotB The SlotB data structure.
+    event StateVariablesUpdated(TaikoData.SlotB slotB);
 }
