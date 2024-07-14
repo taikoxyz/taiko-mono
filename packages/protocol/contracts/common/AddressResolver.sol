@@ -43,15 +43,7 @@ abstract contract AddressResolver is IAddressResolver, Initializable {
     }
 
     /// @inheritdoc IAddressResolver
-    function resolve(
-        bytes32 _name,
-        bool _allowZeroAddress
-    )
-        public
-        view
-        virtual
-        returns (address payable)
-    {
+    function resolve(bytes32 _name, bool _allowZeroAddress) public view virtual returns (address) {
         return _resolve(uint64(block.chainid), _name, _allowZeroAddress);
     }
 
@@ -64,7 +56,7 @@ abstract contract AddressResolver is IAddressResolver, Initializable {
         public
         view
         virtual
-        returns (address payable)
+        returns (address)
     {
         return _resolve(_chainId, _name, _allowZeroAddress);
     }
@@ -90,17 +82,21 @@ abstract contract AddressResolver is IAddressResolver, Initializable {
         bytes32 _name,
         bool _allowZeroAddress
     )
-        private
+        internal
         view
-        returns (address payable addr_)
+        returns (address addr_)
     {
-        address _addressManager = addressManager;
-        if (_addressManager == address(0)) revert RESOLVER_INVALID_MANAGER();
-
-        addr_ = payable(IAddressManager(_addressManager).getAddress(_chainId, _name));
+        addr_ = _getAddress(_chainId, _name);
 
         if (!_allowZeroAddress && addr_ == address(0)) {
             revert RESOLVER_ZERO_ADDR(_chainId, _name);
         }
+    }
+
+    function _getAddress(uint64 _chainId, bytes32 _name) internal view virtual returns (address) {
+        address _addressManager = addressManager;
+        if (_addressManager == address(0)) revert RESOLVER_INVALID_MANAGER();
+
+        return IAddressManager(_addressManager).getAddress(_chainId, _name);
     }
 }
