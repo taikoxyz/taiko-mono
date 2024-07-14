@@ -4,10 +4,10 @@ pragma solidity 0.8.24;
 import "../common/AddressManager.sol";
 import "../common/LibStrings.sol";
 
-/// @title CachedSharedAddressManager
+/// @title MainnetSharedAddressManager
 /// @notice See the documentation in {IAddressManager}.
 /// @custom:security-contact security@taiko.xyz
-contract CachedSharedAddressManager is AddressManager {
+contract MainnetSharedAddressManager is AddressManager {
     function _getAddress(uint64 _chainId, bytes32 _name) internal view override returns (address) {
         if (_chainId == 1) {
             if (_name == LibStrings.B_TAIKO_TOKEN) {

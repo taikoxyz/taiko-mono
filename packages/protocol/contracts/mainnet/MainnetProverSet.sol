@@ -1,22 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "../L1/TaikoL1.sol";
+import "../team/proving/ProverSet.sol";
 
-/// @title CachedTaikoL1
-/// @notice See the documentation in {TaikoL1}.
+/// @title MainnetProverSet
+/// @notice See the documentation in {ProverSet}.
 /// @custom:security-contact security@taiko.xyz
-contract CachedTaikoL1 is TaikoL1 {
+contract MainnetProverSet is ProverSet {
     function _getAddress(uint64 _chainId, bytes32 _name) internal view override returns (address) {
         if (_chainId == 1) {
             if (_name == LibStrings.B_TAIKO_TOKEN) {
                 return 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800;
             }
-            if (_name == LibStrings.B_SIGNAL_SERVICE) {
-                return 0x9e0a24964e5397B566c1ed39258e21aB5E35C77C;
-            }
-            if (_name == LibStrings.B_TIER_ROUTER) {
-                return 0x6E997f1F22C40ba37F633B08f3b07E10Ed43155a;
+            if (_name == LibStrings.B_TAIKO) {
+                return 0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a;
             }
         }
         return super._getAddress(_chainId, _name);
