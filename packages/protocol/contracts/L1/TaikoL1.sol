@@ -6,6 +6,7 @@ import "./libs/LibData.sol";
 import "./libs/LibProposing.sol";
 import "./libs/LibProving.sol";
 import "./libs/LibVerifying.sol";
+import "./TaikoEvents.sol";
 import "./ITaikoL1.sol";
 
 /// @title TaikoL1
@@ -17,16 +18,11 @@ import "./ITaikoL1.sol";
 /// by the Bridge contract.
 /// @dev Labeled in AddressResolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
-contract TaikoL1 is EssentialContract, ITaikoL1 {
+contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     /// @notice The TaikoL1 state.
     TaikoData.State public state;
 
     uint256[50] private __gap;
-
-    /// @notice Emitted when some state variable values changed.
-    /// @dev This event is currently used by Taiko node/client for block proposal/proving.
-    /// @param slotB The SlotB data structure.
-    event StateVariablesUpdated(TaikoData.SlotB slotB);
 
     error L1_FORK_ERROR();
     error L1_RECEIVE_DISABLED();
