@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 
 import "../contracts/common/LibStrings.sol";
 import "../contracts/tko/TaikoToken.sol";
-import "../contracts/L1/TaikoL1.sol";
+import "../contracts/mainnet/MainnetTaikoL1.sol";
 import "../contracts/L1/provers/GuardianProver.sol";
 import "../contracts/L1/tiers/DevnetTierProvider.sol";
 import "../contracts/L1/tiers/TierProviderV2.sol";
@@ -247,7 +247,7 @@ contract DeployOnL1 is DeployCapability {
 
         deployProxy({
             name: "taiko",
-            impl: address(new TaikoL1()),
+            impl: address(new MainnetTaikoL1()),
             data: abi.encodeCall(
                 TaikoL1.init,
                 (
