@@ -16,13 +16,7 @@ interface IAddressResolver {
     /// @param _allowZeroAddress If set to true, does not throw if the resolved
     /// address is `address(0)`.
     /// @return Address associated with the given name.
-    function resolve(
-        bytes32 _name,
-        bool _allowZeroAddress
-    )
-        external
-        view
-        returns (address payable);
+    function resolve(bytes32 _name, bool _allowZeroAddress) external view returns (address);
 
     /// @notice Resolves a name to its address deployed on a specified chain.
     /// @param _chainId The chainId of interest.
@@ -38,5 +32,5 @@ interface IAddressResolver {
     )
         external
         view
-        returns (address payable);
+        returns (address);
 }

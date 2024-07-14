@@ -4,31 +4,17 @@ pragma solidity 0.8.24;
 import "../common/AddressManager.sol";
 import "../common/LibStrings.sol";
 
-/// @title L1SharedAddressManager
+/// @title MainnetSharedAddressManager
 /// @notice See the documentation in {IAddressManager}.
-/// @dev This contract shall NOT be used to upgrade existing implementation unless the name-address
-/// registration becomes stable in 0xEf9EaA1dd30a9AA1df01c36411b5F082aA65fBaa.
 /// @custom:security-contact security@taiko.xyz
-contract L1SharedAddressManager is AddressManager {
-    /// @notice Gets the address mapped to a specific chainId-name pair.
-    /// @dev Sub-contracts can override this method to avoid reading from storage.
-    /// Some names are not cached as they are not used frequently or
-    /// its address is likely to change.
-    function _getOverride(
-        uint64 _chainId,
-        bytes32 _name
-    )
-        internal
-        pure
-        override
-        returns (address addr_)
-    {
+contract MainnetSharedAddressManager is AddressManager {
+    function _getAddress(uint64 _chainId, bytes32 _name) internal view override returns (address) {
         if (_chainId == 1) {
             if (_name == LibStrings.B_TAIKO_TOKEN) {
                 return 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800;
             }
-            if (_name == LibStrings.B_SIGNAL_SERVICE) {
-                return 0x9e0a24964e5397B566c1ed39258e21aB5E35C77C;
+            if (_name == LibStrings.B_QUOTA_MANAGER) {
+                return 0x91f67118DD47d502B1f0C354D0611997B022f29E;
             }
             if (_name == LibStrings.B_BRIDGE) {
                 return 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC;
@@ -42,8 +28,8 @@ contract L1SharedAddressManager is AddressManager {
             if (_name == LibStrings.B_ERC1155_VAULT) {
                 return 0xaf145913EA4a56BE22E120ED9C24589659881702;
             }
-            if (_name == LibStrings.B_QUOTA_MANAGER) {
-                return 0x91f67118DD47d502B1f0C354D0611997B022f29E;
+            if (_name == LibStrings.B_SIGNAL_SERVICE) {
+                return 0x9e0a24964e5397B566c1ed39258e21aB5E35C77C;
             }
         } else if (_chainId == 167_000) {
             if (_name == LibStrings.B_BRIDGE) {
@@ -63,6 +49,6 @@ contract L1SharedAddressManager is AddressManager {
             }
         }
 
-        return address(0);
+        return super._getAddress(_chainId, _name);
     }
 }

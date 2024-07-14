@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "./TaikoL1.sol";
+import "../L1/TaikoL1.sol";
 
-/// @title TaikoL1Hekla
+/// @title HeklaTaikoL1
 /// @dev Labeled in AddressResolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
-contract TaikoL1Hekla is TaikoL1 {
+contract HeklaTaikoL1 is TaikoL1 {
     /// @inheritdoc ITaikoL1
     function getConfig() public pure override returns (TaikoData.Config memory) {
         return TaikoData.Config({
