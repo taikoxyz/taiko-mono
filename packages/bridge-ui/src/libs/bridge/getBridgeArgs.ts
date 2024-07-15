@@ -24,8 +24,9 @@ export const getBridgeArgs = async (
       return { ...commonArgs, bridgeAddress, amount } as ETHBridgeArgs;
     }
     case TokenType.ERC20: {
+      const fungibleToken = token as Token;
       const tokenAddress = await getAddress({
-        token,
+        token: fungibleToken,
         srcChainId: commonArgs.srcChainId,
         destChainId: commonArgs.destChainId,
       });

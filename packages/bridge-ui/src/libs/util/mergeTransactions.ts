@@ -10,13 +10,13 @@ export const mergeAndCaptureOutdatedTransactions = (
   relayerTx: BridgeTransaction[],
 ): MergeResult => {
   const relayerTxMap: Map<string, BridgeTransaction> = new Map();
-  relayerTx.forEach((tx) => relayerTxMap.set(tx.hash, tx));
+  relayerTx.forEach((tx) => relayerTxMap.set(tx.srcTxHash, tx));
 
   const outdatedLocalTransactions: BridgeTransaction[] = [];
   const mergedTransactions: BridgeTransaction[] = [];
 
   for (const tx of localTxs) {
-    if (!relayerTxMap.has(tx.hash)) {
+    if (!relayerTxMap.has(tx.srcTxHash)) {
       mergedTransactions.push(tx);
     } else {
       outdatedLocalTransactions.push(tx);

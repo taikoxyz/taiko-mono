@@ -1,0 +1,56 @@
+---
+import logoDark from "~/assets/logo-dark.svg?raw";
+import logoLight from "~/assets/logo-light.svg?raw";
+import docsLogo from "~/assets/docs-logo.svg?raw";
+
+const main = "https://taiko.xyz/";
+const self = "/start-here/getting-started";
+---
+
+<span class="site-title sl-flex">
+  <a
+    class="logo-dark light:sl-hidden"
+    href={main}
+    set:html={logoDark}
+    aria-label="Taiko"
+  />
+  <a
+    class="logo-light dark:sl-hidden"
+    href={self}
+    set:html={logoLight}
+    aria-label="Docs"
+  />
+  <a class="docs-logo" href={self} set:html={docsLogo} aria-label="Docs" />
+</span>
+
+<style>
+  .site-title {
+    gap: 1rem;
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+    align-items: center;
+  }
+  .site-title a {
+    display: flex;
+  }
+  .logo-dark,
+  .logo-light,
+  .docs-logo {
+    --logo-height: calc(var(--sl-nav-height) - 2 * var(--sl-nav-pad-y));
+    --adjusted-height: calc(
+      var(--logo-height) * 0.85
+    ); /* Slightly smaller height */
+    overflow: visible; /* Ensure SVG is not clipped */
+  }
+  .site-title :global(svg) {
+    height: var(--adjusted-height);
+    width: auto; /* Width adjusts automatically to maintain aspect ratio */
+    max-width: 100%;
+    object-fit: contain;
+    object-position: 0 50%;
+  }
+  .site-title a:hover :global(svg) {
+    --hover-offset: 0.1rem;
+    transform: translateY(calc(var(--hover-offset) * -1));
+  }
+</style>

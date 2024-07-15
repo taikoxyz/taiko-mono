@@ -136,6 +136,20 @@ var (
 		Value:    5,
 		EnvVars:  []string{"MAX_MESSAGE_RETRIES"},
 	}
+	DestQuotaManagerAddress = &cli.StringFlag{
+		Name:     "destQuotaManagerAddress",
+		Usage:    "QuotaManager address for the destination chain",
+		Category: processorCategory,
+		Required: false,
+		EnvVars:  []string{"DEST_QUOTA_MANAGER_ADDRESS"},
+	}
+	MinFeeToProcess = &cli.Uint64Flag{
+		Name:     "minFeeToProcess",
+		Usage:    "Minimum fee to process",
+		Category: processorCategory,
+		Value:    0,
+		EnvVars:  []string{"MIN_FEE_TO_PROCESS"},
+	}
 )
 
 var ProcessorFlags = MergeFlags(CommonFlags, QueueFlags, TxmgrFlags, []cli.Flag{
@@ -159,4 +173,6 @@ var ProcessorFlags = MergeFlags(CommonFlags, QueueFlags, TxmgrFlags, []cli.Flag{
 	CacheOption,
 	UnprofitableMessageQueueExpiration,
 	MaxMessageRetries,
+	MinFeeToProcess,
+	DestQuotaManagerAddress,
 })

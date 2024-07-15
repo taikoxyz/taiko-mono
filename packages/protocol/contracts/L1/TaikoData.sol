@@ -20,8 +20,9 @@ library TaikoData {
         uint64 blockMaxProposals;
         // Size of the block ring buffer, allowing extra space for proposals.
         uint64 blockRingBufferSize;
-        // The maximum number of verifications allowed when a block is proposed.
-        uint64 maxBlocksToVerifyPerProposal;
+        // The maximum number of verifications allowed when a block is proposed
+        // or proved.
+        uint64 maxBlocksToVerify;
         // The maximum gas limit allowed for a block.
         uint32 blockMaxGasLimit;
         // ---------------------------------------------------------------------
@@ -32,15 +33,9 @@ library TaikoData {
         // ---------------------------------------------------------------------
         // Group 4: Cross-chain sync
         // ---------------------------------------------------------------------
-        // The max number of L2 blocks that can stay unsynced on L1 (a value of zero disables
-        // syncing)
-        uint8 blockSyncThreshold;
-    }
-
-    /// @dev Struct representing prover fees per given tier
-    struct TierFee {
-        uint16 tier;
-        uint128 fee;
+        // The number of L2 blocks between each L2-to-L1 state root sync.
+        uint8 stateRootSyncInternal;
+        bool checkEOAForCalldataDA;
     }
 
     /// @dev A proof and the tier of proof it belongs to
@@ -57,11 +52,11 @@ library TaikoData {
 
     /// @dev Represents proposeBlock's _data input parameter
     struct BlockParams {
-        address assignedProver;
+        address assignedProver; // DEPRECATED, value ignored.
         address coinbase;
         bytes32 extraData;
         bytes32 parentMetaHash;
-        HookCall[] hookCalls;
+        HookCall[] hookCalls; // DEPRECATED, value ignored.
         bytes signature;
     }
 
@@ -95,7 +90,7 @@ library TaikoData {
     }
 
     /// @dev Struct representing state transition data.
-    /// 10 slots reserved for upgradability, 6 slots used.
+    /// 6 slots used.
     struct TransitionState {
         bytes32 key; // slot 1, only written/read for the 1st state transition.
         bytes32 blockHash; // slot 2
@@ -119,6 +114,9 @@ library TaikoData {
         uint64 proposedAt; // timestamp
         uint64 proposedIn; // L1 block number, required/used by node/client.
         uint32 nextTransitionId;
+        // The ID of the transaction that is used to verify this block. However, if
+        // this block is not verified as the last block in a batch, verifiedTransitionId
+        // will remain zero.
         uint32 verifiedTransitionId;
     }
 
@@ -168,6 +166,7 @@ library TaikoData {
         bytes32 __reserve1;
         SlotA slotA; // slot 5
         SlotB slotB; // slot 6
-        uint256[44] __gap;
+        mapping(address account => uint256 bond) bondBalance;
+        uint256[43] __gap;
     }
 }

@@ -5,8 +5,8 @@ import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC1155/utils/ERC1155ReceiverUpgradeable.sol";
 import "../libs/LibAddress.sol";
 import "../common/LibStrings.sol";
+import "./IBridgedERC1155.sol";
 import "./BaseNFTVault.sol";
-import "./BridgedERC1155.sol";
 
 /// @title ERC1155Vault
 /// @dev Labeled in AddressResolver as "erc1155_vault"
@@ -39,11 +39,13 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         nonReentrant
         returns (IBridge.Message memory message_)
     {
+        if (msg.value < _op.fee) revert VAULT_INSUFFICIENT_FEE();
+
         for (uint256 i; i < _op.amounts.length; ++i) {
             if (_op.amounts[i] == 0) revert VAULT_INVALID_AMOUNT();
         }
         // Check token interface support
-        if (!_op.token.supportsInterface(ERC1155_INTERFACE_ID)) {
+        if (!_op.token.supportsInterface(type(IERC1155).interfaceId)) {
             revert VAULT_INTERFACE_NOT_SUPPORTED();
         }
 
@@ -220,7 +222,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
         } else {
             // Token does not live on this chain
             token = _getOrDeployBridgedToken(ctoken);
-            BridgedERC1155(token).mintBatch(to, tokenIds, amounts);
+            IBridgedERC1155(token).mintBatch(to, tokenIds, amounts);
         }
     }
 
@@ -238,7 +240,12 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             CanonicalNFT storage _ctoken = bridgedToCanonical[_op.token];
             if (_ctoken.addr != address(0)) {
                 ctoken_ = _ctoken;
-                BridgedERC1155(_op.token).burnBatch(msg.sender, _op.tokenIds, _op.amounts);
+                IERC1155(_op.token).safeBatchTransferFrom(
+                    msg.sender, address(this), _op.tokenIds, _op.amounts, ""
+                );
+                for (uint256 i; i < _op.tokenIds.length; ++i) {
+                    IBridgedERC1155(_op.token).burn(_op.tokenIds[i], _op.amounts[i]);
+                }
             } else {
                 // is a ctoken token, meaning, it lives on this chain
                 ctoken_ = CanonicalNFT({
@@ -248,13 +255,9 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
                     name: safeName(_op.token)
                 });
 
-                IERC1155(_op.token).safeBatchTransferFrom({
-                    from: msg.sender,
-                    to: address(this),
-                    ids: _op.tokenIds,
-                    amounts: _op.amounts,
-                    data: ""
-                });
+                IERC1155(_op.token).safeBatchTransferFrom(
+                    msg.sender, address(this), _op.tokenIds, _op.amounts, ""
+                );
             }
         }
         msgData_ = abi.encodeCall(
@@ -283,7 +286,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     /// @return btoken_ Address of the deployed bridged token contract.
     function _deployBridgedToken(CanonicalNFT memory _ctoken) private returns (address btoken_) {
         bytes memory data = abi.encodeCall(
-            BridgedERC1155.init,
+            IBridgedERC1155Initializable.init,
             (owner(), addressManager, _ctoken.addr, _ctoken.chainId, _ctoken.symbol, _ctoken.name)
         );
 

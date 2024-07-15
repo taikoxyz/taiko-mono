@@ -1,0 +1,111 @@
+---
+title: Deploy a ProverSet
+description: This guide will you help you deploy a ProverSet which enables you to use 2 separate EOAs to propose and prove blocks with the new protocol design.
+---
+
+import { Aside, Card, Steps, Tabs, TabItem } from '@astrojs/starlight/components'
+
+The recent protocol upgrade now requires that the address of the prover and proposer are the same. This can be achieved by simply using the same private keys to run the proposer and prover software,
+but this is not recommended as it can cause nonce issues.
+
+This guide outlines how to achieve this with separate EOAs running prover and proposer through the ProverSet smart contract.
+
+<Aside>
+    ProverSet showcases how you can use a smart contract as a proposer and prover, but you may want to add custom functionalities in your contracts to settle proposer-prover payments; especially if you are working with a third party prover or proposer.
+</Aside>
+
+## Prerequisites
+
+- You have TAIKO or TTKOh depending on which network you are proving on
+- You have enough ETH or holesky ETH for gas fees
+
+## Deploying a ProverSet
+
+<Steps>
+
+1. **Clone the Taiko monorepo**
+
+    The [Taiko monorepo](https://github.com/taikoxyz/taiko-mono) contains the scripts for deploying your `ProverSet`.
+
+    <Tabs>
+        <TabItem label="Mac/Linux">
+        ```bash
+        git clone https://github.com/taikoxyz/taiko-mono.git
+        cd taiko-mono/packages/protocol
+        ```
+        </TabItem>
+        <TabItem label="Windows">
+        ```sh
+        git clone https://github.com/taikoxyz/taiko-mono.git
+        cd taiko-mono/packages/protocol && git config core.autocrlf false
+        ```
+        </TabItem>
+    </Tabs>
+
+2. **Deploy the ProverSet**
+
+    Set `ROLLUP_ADDRESS_MANAGER` to the address of the RollupAddressManager contract on the network you are deploying to. You can find these values in our network reference docs.
+
+    Set `PROVER_SET_ADMIN` to the address of your **prover** EOA. You will be able to withdraw TAIKO/TTKOh from the contract to this address.
+
+    Run the `DeployProverSet.s.sol` script with your **proposer's private key**. You can find the script [here](https://github.com/taikoxyz/taiko-mono/tree/main/packages/protocol/script/DeployProverSet.s.sol).
+
+    ```bash
+    ROLLUP_ADDRESS_MANAGER={ADDRESS} PROVER_SET_ADMIN={ADDRESS} forge script --chain-id {CHAIN_ID} --rpc-url {YOUR_RPC_URL} --private-key {PRIVATE_KEY} --broadcast script/DeployProverSet.s.sol:DeployProverSet
+    ```
+
+    The script should print your implementation and proxy address with the log:
+
+    ```
+    Deployed ProverSet impl at address: 0x....
+    Deployed ProverSet proxy at address: 0x....
+    ```
+
+    Use proxy address for the following steps.
+
+3. **Verify the contract as a proxy on Etherscan**
+
+    Navigate to the `proxyAddress` logged as output of the script above in Etherscan.
+
+    In the `Contract` tab, you can find the `More options` section as follows:
+
+    ![Verify as Proxy](~/assets/content/docs/guides/verify-as-proxy.webp)
+
+    Select the `Is this a proxy?` option and follow the instructions. This should verify the contract as a proxy to your `ProverSet` implementation.
+
+4. **Write to the Proxy to `enableProver()`**
+
+    If the above step was completed correctly, you should be able to see the `Write as Proxy` option in the `Contract` tab.
+
+    Connect to Etherscan with your **proposer** EOA and send two `enableProver()` transactions, enabling **both** your `proposer` and `prover` EOAs as provers.
+
+    <Aside type="caution">
+        Enable both your proposer and prover addresses here! If you don't, your proposeBlock transactions may fail.
+    </Aside>
+
+    This will allow both EOAs to send transactions to your ProverSet implementation which will act as a proxy to TaikoL1.
+
+5. **Configure the contract as necessary**
+
+    Manage the contract's allowance with [approveAllowance()](https://github.com/taikoxyz/taiko-mono/blob/116d3f4886dea01333b829677ec9b6d4492479c6/packages/protocol/contracts/team/proving/ProverSet.sol#L63). TaikoL1's contract allowance is by default set to `UINT256.MAX` in the init function.
+
+6. **Deposit your tokens and run your proposer + prover as usual!**
+
+    If you've followed the instructions, send your TAIKO/TTKOh to the ProverSet proxy and begin running your prover and proposer as usual.
+
+    <Aside>
+        Make sure to set your `$PROVER_SET` in your `simple-taiko-node` .env file as the proxy address.
+    </Aside>
+
+    Ensure that you have set up the EOAs correctly to avoid problems.
+
+    <Aside>
+    You can withdraw the deposited tokens to the `admin` address with [withdrawToAdmin()](https://github.com/taikoxyz/taiko-mono/blob/116d3f4886dea01333b829677ec9b6d4492479c6/packages/protocol/contracts/team/proving/ProverSet.sol#L76).
+    </Aside>
+
+</Steps>
+
+<Card title="Troubleshooting" icon="error">
+        If you run into any problems, please visit the [node troubleshooting page](/guides/node-operators/node-troubleshooting) for help.
+        If you run into an error that isn't yet listed, please reach out in our [Discord](https://discord.com/invite/taikoxyz)!
+</Card>

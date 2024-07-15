@@ -5,14 +5,17 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
+	"github.com/urfave/cli/v2"
+
 	"github.com/taikoxyz/taiko-mono/packages/relayer/cmd/flags"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/db"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/mock"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
-	"github.com/urfave/cli/v2"
 )
 
 var (
 	destBridgeAddr          = "0x63FaC9201494f0bd17B9892B9fae4d52fe3BD377"
+	destQuotaManagerAddr    = "0x63FaC9201494f0bd17B9892B9fae4d52fe3BD357"
 	headerSyncInterval      = "30"
 	confirmations           = "10"
 	confirmationTimeout     = "30"
@@ -70,7 +73,7 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		assert.Equal(t, uint64(100), c.QueuePrefetch)
 		assert.Equal(t, true, c.EnableTaikoL2)
 
-		c.OpenDBFunc = func() (DB, error) {
+		c.OpenDBFunc = func() (db.DB, error) {
 			return &mock.DB{}, nil
 		}
 
@@ -114,6 +117,7 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		"--" + flags.QueuePrefetchCount.Name, "100",
 		"--" + flags.ProfitableOnly.Name,
 		"--" + flags.EnableTaikoL2.Name,
+		"--" + flags.DestQuotaManagerAddress.Name, destQuotaManagerAddr,
 	}))
 }
 
@@ -138,5 +142,6 @@ func TestNewConfigFromCliContext_PrivKeyError(t *testing.T) {
 		"--" + flags.DestERC1155VaultAddress.Name, destBridgeAddr,
 		"--" + flags.DestTaikoAddress.Name, destBridgeAddr,
 		"--" + flags.ProcessorPrivateKey.Name, "invalid-priv-key",
+		"--" + flags.DestQuotaManagerAddress.Name, destQuotaManagerAddr,
 	}), "invalid processorPrivateKey")
 }

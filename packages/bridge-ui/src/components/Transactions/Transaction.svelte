@@ -4,11 +4,13 @@
 
   import { chainConfig } from '$chainConfig';
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
+  import { ClaimDialog, ReleaseDialog, RetryDialog } from '$components/Dialogs';
   import { Icon } from '$components/Icon';
   import { LoadingText } from '$components/LoadingText';
   import NftInfoDialog from '$components/NFTs/NFTInfoDialog.svelte';
   import Spinner from '$components/Spinner/Spinner.svelte';
-  import type { BridgeTransaction } from '$libs/bridge';
+  import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
+  import { getMessageStatusForMsgHash } from '$libs/bridge/getMessageStatusForMsgHash';
   import { getChainName } from '$libs/chain';
   import { type NFT, TokenType } from '$libs/token';
   import { fetchNFTImageUrl } from '$libs/token/fetchNFTImageUrl';
@@ -17,15 +19,20 @@
 
   import ChainSymbolName from './ChainSymbolName.svelte';
   import InsufficientFunds from './InsufficientFunds.svelte';
+  import MobileDetailsDialog from './MobileDetailsDialog.svelte';
   import { Status } from './Status';
 
   export let item: BridgeTransaction;
   export let loading = false;
+  export let handleTransactionRemoved: (event: CustomEvent) => void;
 
   let token: NFT;
   let insufficientModal = false;
   let nftInfoOpen = false;
   let isDesktopOrLarger = false;
+  let detailsOpen = false;
+
+  let bridgeTxStatus: Maybe<MessageStatus>;
 
   let attrs = isDesktopOrLarger ? {} : { role: 'button' };
 
@@ -35,15 +42,35 @@
     nftInfoOpen = true;
   };
 
+  const openDetails = () => {
+    if (!isDesktopOrLarger && !interactiveDialogsOpen) {
+      detailsOpen = true;
+    }
+  };
+
+  const closeDetails = () => {
+    detailsOpen = false;
+  };
+
   const handleInsufficientFunds = () => {
     insufficientModal = true;
+  };
+
+  const handleOpenModal = (event: CustomEvent) => {
+    if (event.detail === 'retry') {
+      retryModalOpen = true;
+    } else if (event.detail === 'release') {
+      releaseModalOpen = true;
+    } else if (event.detail === 'claim') {
+      claimModalOpen = true;
+    }
   };
 
   async function analyzeTransactionInput(): Promise<void> {
     loading = true;
     try {
       token = await mapTransactionHashToNFT({
-        hash: item.hash,
+        hash: item.srcTxHash,
         srcChainId: Number(item.srcChainId),
         type: item.tokenType,
       });
@@ -52,6 +79,16 @@
       console.error(error);
     }
     loading = false;
+  }
+
+  async function claimingDone() {
+    // Keeping model and UI in sync
+    item.msgStatus = await getMessageStatusForMsgHash({
+      msgHash: item.msgHash,
+      srcChainId: Number(item.srcChainId),
+      destChainId: Number(item.destChainId),
+    });
+    bridgeTxStatus = item.msgStatus;
   }
 
   $: {
@@ -66,6 +103,12 @@
   $: itemAmountDisplay = item.tokenType === TokenType.ERC721 ? '---' : item.amount;
 
   $: isNFT = [TokenType.ERC1155, TokenType.ERC721].includes(item.tokenType);
+
+  $: claimModalOpen = false;
+  $: retryModalOpen = false;
+  $: releaseModalOpen = false;
+
+  $: interactiveDialogsOpen = claimModalOpen || retryModalOpen || releaseModalOpen;
 </script>
 
 {#if isNFT}
@@ -108,7 +151,8 @@
         {itemAmountDisplay}
       </div>
     {:else}
-      <div class="flex text-primary-content w-full justify-content-left">
+      <!-- svelte-ignore a11y-no-static-element-interactions -->
+      <div on:click={openDetails} {...attrs} class="flex text-primary-content w-full justify-content-left">
         {#if loading}
           <div class="rounded-[10px] w-[50px] h-[50px] bg-neutral flex items-center justify-center">
             <Spinner />
@@ -128,7 +172,7 @@
             <LoadingText mask="&nbsp;" class="min-w-[50px] max-w-[50px] h-3" />
           </div>
         {:else}
-          <div class="f-col" {...attrs} tabindex="0">
+          <div class="f-col" tabindex="0">
             <div class="f-row font-bold">
               {truncateString(getChainName(Number(item.srcChainId)), 8)}
               <i role="img" aria-label="arrow to" class="mx-auto px-2">
@@ -142,12 +186,17 @@
       </div>
     {/if}
     <div class="flex md:w-2/12 py-2 flex flex-col justify-center text-center" {...attrs} tabindex="0">
-      <Status bridgeTx={item} nft={token} on:insufficientFunds={handleInsufficientFunds} />
+      <Status
+        bridgeTx={item}
+        bind:bridgeTxStatus
+        on:transactionRemoved={handleTransactionRemoved}
+        on:openModal={handleOpenModal}
+        on:insufficientFunds={handleInsufficientFunds} />
     </div>
     <div class="hidden md:flex grow py-2 flex flex-col justify-center">
       <a
         class="flex justify-center py-3 link"
-        href={`${chainConfig[Number(item.srcChainId)]?.blockExplorers?.default.url}/tx/${item.hash}`}
+        href={`${chainConfig[Number(item.srcChainId)]?.blockExplorers?.default.url}/tx/${item.srcTxHash}`}
         target="_blank">
         {$t('transactions.link.explorer')}
         <Icon type="arrow-top-right" fillClass="fill-primary-link" />
@@ -155,7 +204,11 @@
     </div>
   </div>
 {:else}
-  <div {...attrs} class="flex text-primary-content md:h-[80px] h-[45px] w-full my-[10px] md:my-[0px]">
+  <!-- svelte-ignore a11y-no-static-element-interactions -->
+  <div
+    on:click={openDetails}
+    {...attrs}
+    class="flex text-primary-content md:h-[80px] h-[45px] w-full my-[10px] md:my-[0px]">
     {#if isDesktopOrLarger}
       <div class="w-1/5 py-2 flex flex-row">
         <ChainSymbolName chainId={item.srcChainId} />
@@ -165,7 +218,7 @@
       </div>
       <div class="w-1/5 py-2 flex flex-col justify-center">
         {#if item.tokenType === TokenType.ERC20}
-          {formatUnits(item.amount ? item.amount : BigInt(0), item.decimals)}
+          {formatUnits(item.amount ? item.amount : BigInt(0), item.decimals ?? 0)}
         {:else if item.tokenType === TokenType.ETH}
           {formatEther(item.amount ? item.amount : BigInt(0))}
         {/if}
@@ -183,7 +236,7 @@
           </div>
           <div class=" flex flex-col justify-center text-sm text-secondary-content">
             {#if item.tokenType === TokenType.ERC20}
-              {formatUnits(item.amount ? item.amount : BigInt(0), item.decimals)}
+              {formatUnits(item.amount ? item.amount : BigInt(0), item.decimals ?? 0)}
             {:else if item.tokenType === TokenType.ETH}
               {formatEther(item.amount ? item.amount : BigInt(0))}
             {/if}
@@ -194,12 +247,17 @@
     {/if}
 
     <div class="md:w-1/5 py-2 flex flex-col justify-center">
-      <Status bridgeTx={item} on:insufficientFunds={handleInsufficientFunds} />
+      <Status
+        bridgeTx={item}
+        on:transactionRemoved={handleTransactionRemoved}
+        bind:bridgeTxStatus
+        on:openModal={handleOpenModal}
+        on:insufficientFunds={handleInsufficientFunds} />
     </div>
     <div class="hidden md:flex w-1/5 py-2 flex flex-col justify-center">
       <a
         class="flex justify-start py-3 link"
-        href={`${chainConfig[Number(item.srcChainId)]?.blockExplorers?.default.url}/tx/${item.hash}`}
+        href={`${chainConfig[Number(item.srcChainId)]?.blockExplorers?.default.url}/tx/${item.srcTxHash}`}
         target="_blank">
         {$t('transactions.link.explorer')}
         <Icon type="arrow-top-right" fillClass="fill-primary-link" />
@@ -213,3 +271,22 @@
 <NftInfoDialog nft={token} bind:modalOpen={nftInfoOpen} viewOnly />
 
 <InsufficientFunds bind:modalOpen={insufficientModal} />
+
+<MobileDetailsDialog
+  {token}
+  {closeDetails}
+  {detailsOpen}
+  selectedItem={item}
+  on:insufficientFunds={handleInsufficientFunds}
+  on:openModal={handleOpenModal} />
+
+<RetryDialog bridgeTx={item} bind:dialogOpen={retryModalOpen} />
+
+<ReleaseDialog bridgeTx={item} bind:dialogOpen={releaseModalOpen} />
+
+<ClaimDialog
+  bridgeTx={item}
+  bind:loading
+  bind:dialogOpen={claimModalOpen}
+  nft={token}
+  on:claimingDone={() => claimingDone()} />

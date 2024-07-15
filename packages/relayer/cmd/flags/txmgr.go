@@ -12,6 +12,7 @@ var (
 		Usage:    "Number of confirmations which we will wait after sending a transaction",
 		Value:    1,
 		Category: txmgrCategory,
+		EnvVars:  []string{"TXMGR_NUM_CONFIRMATIONS"},
 	}
 	SafeAbortNonceTooLowCount = &cli.Uint64Flag{
 		Name: "tx.safeAbortNonceTooLowCount",
@@ -19,12 +20,14 @@ var (
 			"a tx at a particular nonce without receiving confirmation",
 		Value:    3,
 		Category: txmgrCategory,
+		EnvVars:  []string{"SAFE_ABORT_NONCE_TOO_LOW_COUNT"},
 	}
 	FeeLimitMultiplier = &cli.Uint64Flag{
 		Name:     "tx.feeLimitMultiplier",
 		Usage:    "The multiplier applied to fee suggestions to put a hard limit on fee increases",
 		Value:    10,
 		Category: txmgrCategory,
+		EnvVars:  []string{"FEE_LIMIT_MULTIPLIER"},
 	}
 	FeeLimitThreshold = &cli.Float64Flag{
 		Name: "tx.feeLimitThreshold",
@@ -32,54 +35,63 @@ var (
 			"Allows arbitrary fee bumps below this threshold.",
 		Value:    100.0,
 		Category: txmgrCategory,
+		EnvVars:  []string{"FEE_LIMIT_THRESHOLD"},
 	}
 	MinTipCap = &cli.Float64Flag{
 		Name:     "tx.minTipCap",
 		Usage:    "Enforces a minimum tip cap (in GWei) to use when determining tx fees. 1 GWei by default.",
 		Value:    1.0,
 		Category: txmgrCategory,
+		EnvVars:  []string{"MIN_TIP_CAP"},
 	}
 	MinBaseFee = &cli.Float64Flag{
 		Name:     "tx.minBaseFee",
 		Usage:    "Enforces a minimum base fee (in GWei) to assume when determining tx fees. 1 GWei by default.",
 		Value:    1.0,
 		Category: txmgrCategory,
+		EnvVars:  []string{"MIN_BASE_FEE"},
 	}
 	ResubmissionTimeout = &cli.DurationFlag{
 		Name:     "tx.resubmissionTimeout",
 		Usage:    "Duration we will wait before resubmitting a transaction to L1",
 		Value:    48 * time.Second,
 		Category: txmgrCategory,
+		EnvVars:  []string{"RESBUMISSION_TIMEOUT"},
 	}
 	TxSendTimeout = &cli.DurationFlag{
 		Name:     "tx.sendTimeout",
 		Usage:    "Timeout for sending transactions. If 0 it is disabled.",
 		Value:    0,
 		Category: txmgrCategory,
+		EnvVars:  []string{"TX_SEND_TIMEOUT"},
 	}
 	TxNotInMempoolTimeout = &cli.DurationFlag{
 		Name:     "tx.notInMempoolTimeout",
 		Usage:    "Timeout for aborting a tx send if the tx does not make it to the mempool.",
 		Value:    2 * time.Minute,
 		Category: txmgrCategory,
+		EnvVars:  []string{"TX_NOT_IN_MEMPOOL_TIMEOUT"},
 	}
 	ReceiptQueryInterval = &cli.DurationFlag{
 		Name:     "tx.receiptQueryInterval",
 		Usage:    "Frequency to poll for receipts",
 		Value:    12 * time.Second,
 		Category: txmgrCategory,
+		EnvVars:  []string{"RECEIPT_QUERY_INTERVAL"},
 	}
 	TxGasLimit = &cli.Uint64Flag{
 		Name:     "tx.gasLimit",
 		Usage:    "Gas limit will be used for transactions (0 means using gas estimation)",
 		Value:    0,
 		Category: txmgrCategory,
+		EnvVars:  []string{"GAS_LIMIT"},
 	}
 	RPCTimeout = &cli.DurationFlag{
 		Name:     "rpc.timeout",
 		Usage:    "Timeout in seconds for RPC calls",
 		Category: commonCategory,
 		Value:    12 * time.Second,
+		EnvVars:  []string{"RPC_TIMEOUT"},
 	}
 )
 

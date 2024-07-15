@@ -26,14 +26,17 @@ export const enteredAmount = writable<bigint>(BigInt(0));
 export const destNetwork = writable<Maybe<Chain>>(null);
 export const destOptions = writable<Chain[]>(chains);
 export const processingFee = writable<bigint>(BigInt(0));
+export const gasLimitZero = writable<boolean>(false);
 export const processingFeeMethod = writable<ProcessingFeeMethod>(ProcessingFeeMethod.RECOMMENDED);
 export const recipientAddress = writable<Maybe<Address>>(null);
+export const destOwnerAddress = writable<Maybe<Address>>(null);
 
 // Loading state
 export const bridging = writable<boolean>(false);
 export const approving = writable<boolean>(false);
 export const computingBalance = writable<boolean>(false);
 export const validatingAmount = writable<boolean>(false);
+export const calculatingProcessingFee = writable<boolean>(false);
 
 // Errors state
 export const errorComputingBalance = writable<boolean>(false);
@@ -48,7 +51,7 @@ export const insufficientBalance = writable<boolean>(false);
 export const insufficientAllowance = writable<boolean>(false);
 
 export const allApproved = writable(<boolean>false);
-export const selectedTokenIsBridged = writable(<boolean>false);
+export const needsApprovalReset = writable<boolean>(false);
 
 // Derived state
 export const bridgeService = derived(selectedToken, (token) => (token ? bridges[token.type] : null));

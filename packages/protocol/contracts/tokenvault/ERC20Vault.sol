@@ -4,10 +4,11 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
 import "../bridge/IQuotaManager.sol";
 import "../common/LibStrings.sol";
 import "../libs/LibAddress.sol";
-import "./BridgedERC20.sol";
+import "./IBridgedERC20.sol";
 import "./BaseVault.sol";
 
 /// @title ERC20Vault
@@ -17,6 +18,7 @@ import "./BaseVault.sol";
 /// @dev Labeled in AddressResolver as "erc20_vault".
 /// @custom:security-contact security@taiko.xyz
 contract ERC20Vault is BaseVault {
+    using Address for address;
     using LibAddress for address;
     using SafeERC20 for IERC20;
 
@@ -34,12 +36,19 @@ contract ERC20Vault is BaseVault {
     /// @dev Represents an operation to send tokens to another chain.
     /// 4 slots
     struct BridgeTransferOp {
+        // Destination chain ID.
         uint64 destChainId;
+        // The owner of the bridge message on the destination chain.
         address destOwner;
+        // Recipient address.
         address to;
+        // Processing fee for the relayer.
         uint64 fee;
+        // Address of the token.
         address token;
+        // Gas limit for the operation.
         uint32 gasLimit;
+        // Amount to be bridged.
         uint256 amount;
     }
 
@@ -51,7 +60,7 @@ contract ERC20Vault is BaseVault {
     mapping(uint256 chainId => mapping(address ctoken => address btoken)) public canonicalToBridged;
 
     /// @notice Mappings from bridged tokens to their blacklist status.
-    mapping(address btoken => bool blacklisted) public btokenBlacklist;
+    mapping(address btoken => bool denied) public btokenDenylist;
 
     /// @notice Mappings from ctoken to its last migration timestamp.
     mapping(uint256 chainId => mapping(address ctoken => uint256 timestamp)) public
@@ -97,6 +106,7 @@ contract ERC20Vault is BaseVault {
     /// @param msgHash The hash of the message.
     /// @param from The address of the sender.
     /// @param to The address of the recipient.
+    /// @param canonicalChainId The chain ID of the canonical token.
     /// @param destChainId The chain ID of the destination chain.
     /// @param ctoken The address of the canonical token.
     /// @param token The address of the bridged token.
@@ -105,6 +115,7 @@ contract ERC20Vault is BaseVault {
         bytes32 indexed msgHash,
         address indexed from,
         address indexed to,
+        uint64 canonicalChainId,
         uint64 destChainId,
         address ctoken,
         address token,
@@ -143,6 +154,7 @@ contract ERC20Vault is BaseVault {
     error VAULT_CTOKEN_MISMATCH();
     error VAULT_INVALID_TOKEN();
     error VAULT_INVALID_AMOUNT();
+    error VAULT_INVALID_CTOKEN();
     error VAULT_INVALID_NEW_BTOKEN();
     error VAULT_LAST_MIGRATION_TOO_CLOSE();
 
@@ -166,11 +178,18 @@ contract ERC20Vault is BaseVault {
         nonReentrant
         returns (address btokenOld_)
     {
-        if (_btokenNew == address(0) || bridgedToCanonical[_btokenNew].addr != address(0)) {
+        if (
+            _btokenNew == address(0) || bridgedToCanonical[_btokenNew].addr != address(0)
+                || !_btokenNew.isContract()
+        ) {
             revert VAULT_INVALID_NEW_BTOKEN();
         }
 
-        if (btokenBlacklist[_btokenNew]) revert VAULT_BTOKEN_BLACKLISTED();
+        if (_ctoken.addr == address(0) || _ctoken.chainId == block.chainid) {
+            revert VAULT_INVALID_CTOKEN();
+        }
+
+        if (btokenDenylist[_btokenNew]) revert VAULT_BTOKEN_BLACKLISTED();
 
         uint256 _lastMigrationStart = lastMigrationStart[_ctoken.chainId][_ctoken.addr];
         if (block.timestamp < _lastMigrationStart + MIN_MIGRATION_DELAY) {
@@ -188,11 +207,16 @@ contract ERC20Vault is BaseVault {
             }
 
             delete bridgedToCanonical[btokenOld_];
-            btokenBlacklist[btokenOld_] = true;
+            btokenDenylist[btokenOld_] = true;
 
             // Start the migration
-            IBridgedERC20(btokenOld_).changeMigrationStatus(_btokenNew, false);
-            IBridgedERC20(_btokenNew).changeMigrationStatus(btokenOld_, true);
+            if (
+                btokenOld_.supportsInterface(type(IBridgedERC20Migratable).interfaceId)
+                    && _btokenNew.supportsInterface(type(IBridgedERC20Migratable).interfaceId)
+            ) {
+                IBridgedERC20Migratable(btokenOld_).changeMigrationStatus(_btokenNew, false);
+                IBridgedERC20Migratable(_btokenNew).changeMigrationStatus(btokenOld_, true);
+            }
         }
 
         bridgedToCanonical[_btokenNew] = _ctoken;
@@ -224,7 +248,8 @@ contract ERC20Vault is BaseVault {
     {
         if (_op.amount == 0) revert VAULT_INVALID_AMOUNT();
         if (_op.token == address(0)) revert VAULT_INVALID_TOKEN();
-        if (btokenBlacklist[_op.token]) revert VAULT_BTOKEN_BLACKLISTED();
+        if (btokenDenylist[_op.token]) revert VAULT_BTOKEN_BLACKLISTED();
+        if (msg.value < _op.fee) revert VAULT_INSUFFICIENT_FEE();
 
         (bytes memory data, CanonicalERC20 memory ctoken, uint256 balanceChange) =
             _handleMessage(_op);
@@ -251,6 +276,7 @@ contract ERC20Vault is BaseVault {
             msgHash: msgHash,
             from: message_.srcOwner,
             to: _op.to,
+            canonicalChainId: ctoken.chainId,
             destChainId: _op.destChainId,
             ctoken: ctoken.addr,
             token: _op.token,
@@ -338,7 +364,6 @@ contract ERC20Vault is BaseVault {
             // check.
             IBridgedERC20(token_).mint(_to, _amount);
         }
-
         _consumeTokenQuota(token_, _amount);
     }
 
@@ -408,7 +433,7 @@ contract ERC20Vault is BaseVault {
     /// @return btoken Address of the deployed bridged token contract.
     function _deployBridgedToken(CanonicalERC20 memory ctoken) private returns (address btoken) {
         bytes memory data = abi.encodeCall(
-            BridgedERC20.init,
+            IBridgedERC20Initializable.init,
             (
                 owner(),
                 addressManager,

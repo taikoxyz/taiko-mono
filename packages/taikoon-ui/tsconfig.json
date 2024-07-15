@@ -10,6 +10,7 @@
     "sourceMap": true,
     "strict": true,
     "moduleResolution": "bundler",
+    "types": ["vitest/globals"],
     "paths": {
       "$assets/*": ["./src/assets/*"],
       "$components/*": ["./src/components/*"],
@@ -27,7 +28,7 @@
       //"$relayerConfig": ["./src/generated/relayerConfig.ts"],
       //"$customToken": ["./src/generated/customTokenConfig.ts"]
     },
-    "rootDirs": [".", "./.svelte-kit/types", "./$houdini/types"]
+    "rootDirs": [".", "./.svelte-kit/types"]
   }
   // Path aliases are handled by https://kit.svelte.dev/docs/configuration#alias
   // except $lib which is handled by https://kit.svelte.dev/docs/configuration#files

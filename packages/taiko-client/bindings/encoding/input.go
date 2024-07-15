@@ -1,14 +1,10 @@
 package encoding
 
 import (
-	"bytes"
-	"encoding/binary"
 	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
@@ -138,95 +134,11 @@ var (
 			Type: "bytes",
 		},
 	}
-	proverAssignmentComponents = []abi.ArgumentMarshaling{
-		{
-			Name: "feeToken",
-			Type: "address",
-		},
-		{
-			Name: "expiry",
-			Type: "uint64",
-		},
-		{
-			Name: "maxBlockId",
-			Type: "uint64",
-		},
-		{
-			Name: "maxProposedIn",
-			Type: "uint64",
-		},
-		{
-			Name: "metaHash",
-			Type: "bytes32",
-		},
-		{
-			Name: "parentMetaHash",
-			Type: "bytes32",
-		},
-		{
-			Name: "tierFees",
-			Type: "tuple[]",
-			Components: []abi.ArgumentMarshaling{
-				{
-					Name: "tier",
-					Type: "uint16",
-				},
-				{
-					Name: "fee",
-					Type: "uint128",
-				},
-			},
-		},
-		{
-			Name: "signature",
-			Type: "bytes",
-		},
-	}
-	assignmentHookInputComponents = []abi.ArgumentMarshaling{
-		{
-			Name:       "assignment",
-			Type:       "tuple",
-			Components: proverAssignmentComponents,
-		},
-		{
-			Name: "tip",
-			Type: "uint256",
-		},
-	}
 )
 
 var (
-	assignmentHookInputType, _   = abi.NewType("tuple", "AssignmentHook.Input", assignmentHookInputComponents)
-	assignmentHookInputArgs      = abi.Arguments{{Name: "AssignmentHook.Input", Type: assignmentHookInputType}}
-	blockParamsComponentsType, _ = abi.NewType("tuple", "TaikoData.BlockParams", blockParamsComponents)
-	blockParamsComponentsArgs    = abi.Arguments{{Name: "TaikoData.BlockParams", Type: blockParamsComponentsType}}
-	// ProverAssignmentPayload
-	bytes32Type, _  = abi.NewType("bytes32", "", nil)
-	addressType, _  = abi.NewType("address", "", nil)
-	uint64Type, _   = abi.NewType("uint64", "", nil)
-	tierFeesType, _ = abi.NewType(
-		"tuple[]",
-		"",
-		[]abi.ArgumentMarshaling{
-			{
-				Name: "tier",
-				Type: "uint16",
-			},
-			{
-				Name: "fee",
-				Type: "uint128",
-			},
-		},
-	)
-	proverAssignmentHashPayloadArgs = abi.Arguments{
-		{Name: "_assignment.metaHash", Type: bytes32Type},
-		{Name: "_assignment.parentMetaHash", Type: bytes32Type},
-		{Name: "_assignment.feeToken", Type: addressType},
-		{Name: "_assignment.expiry", Type: uint64Type},
-		{Name: "_assignment.maxBlockId", Type: uint64Type},
-		{Name: "_assignment.maxProposedIn", Type: uint64Type},
-		{Name: "_assignment.tierFees", Type: tierFeesType},
-	}
+	blockParamsComponentsType, _   = abi.NewType("tuple", "TaikoData.BlockParams", blockParamsComponents)
+	blockParamsComponentsArgs      = abi.Arguments{{Name: "TaikoData.BlockParams", Type: blockParamsComponentsType}}
 	blockMetadataComponentsType, _ = abi.NewType("tuple", "TaikoData.BlockMetadata", blockMetadataComponents)
 	transitionComponentsType, _    = abi.NewType("tuple", "TaikoData.Transition", transitionComponents)
 	tierProofComponentsType, _     = abi.NewType("tuple", "TaikoData.TierProof", tierProofComponents)
@@ -247,9 +159,9 @@ var (
 	LibProvingABI       *abi.ABI
 	LibUtilsABI         *abi.ABI
 	LibVerifyingABI     *abi.ABI
-	AssignmentHookABI   *abi.ABI
 	SGXVerifierABI      *abi.ABI
 	GuardianVerifierABI *abi.ABI
+	ProverSetABI        *abi.ABI
 
 	customErrorMaps []map[string]abi.Error
 )
@@ -289,16 +201,16 @@ func init() {
 		log.Crit("Get LibVerifying ABI error", "error", err)
 	}
 
-	if AssignmentHookABI, err = bindings.AssignmentHookMetaData.GetAbi(); err != nil {
-		log.Crit("Get AssignmentHook ABI error", "error", err)
-	}
-
 	if SGXVerifierABI, err = bindings.SgxVerifierMetaData.GetAbi(); err != nil {
 		log.Crit("Get SGXVerifier ABI error", err)
 	}
 
 	if GuardianVerifierABI, err = bindings.GuardianVerifierMetaData.GetAbi(); err != nil {
 		log.Crit("Get GuardianVerifier ABI error", "error", err)
+	}
+
+	if ProverSetABI, err = bindings.ProverSetMetaData.GetAbi(); err != nil {
+		log.Crit("Get ProverSet ABI error", "error", err)
 	}
 
 	customErrorMaps = []map[string]abi.Error{
@@ -309,9 +221,9 @@ func init() {
 		LibProvingABI.Errors,
 		LibUtilsABI.Errors,
 		LibVerifyingABI.Errors,
-		AssignmentHookABI.Errors,
 		SGXVerifierABI.Errors,
 		GuardianVerifierABI.Errors,
+		ProverSetABI.Errors,
 	}
 }
 
@@ -322,57 +234,6 @@ func EncodeBlockParams(params *BlockParams) ([]byte, error) {
 		return nil, fmt.Errorf("failed to abi.encode block params, %w", err)
 	}
 	return b, nil
-}
-
-// EncodeAssignmentHookInput performs the solidity `abi.encode` for the given input
-func EncodeAssignmentHookInput(input *AssignmentHookInput) ([]byte, error) {
-	b, err := assignmentHookInputArgs.Pack(input)
-	if err != nil {
-		return nil, fmt.Errorf("failed to abi.encode assignment hook input params, %w", err)
-	}
-	return b, nil
-}
-
-// EncodeProverAssignmentPayload performs the solidity `abi.encode` for the given proverAssignment payload.
-func EncodeProverAssignmentPayload(
-	chainID uint64,
-	taikoAddress common.Address,
-	assignmentHookAddress common.Address,
-	blockProposer common.Address,
-	assignedProver common.Address,
-	blobHash common.Hash,
-	feeToken common.Address,
-	expiry uint64,
-	maxBlockID uint64,
-	maxProposedIn uint64,
-	tierFees []TierFee,
-) ([]byte, error) {
-	hashBytesPayload, err := proverAssignmentHashPayloadArgs.Pack(
-		common.Hash{},
-		common.Hash{},
-		feeToken,
-		expiry,
-		maxBlockID,
-		maxProposedIn,
-		tierFees,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to abi.encode prover assignment hash payload, %w", err)
-	}
-
-	chainIDBytes := make([]byte, 8)
-	binary.BigEndian.PutUint64(chainIDBytes, chainID)
-
-	return bytes.Join([][]byte{
-		common.RightPadBytes([]byte("PROVER_ASSIGNMENT"), 32),
-		chainIDBytes,
-		taikoAddress.Bytes(),
-		blockProposer.Bytes(),
-		assignedProver.Bytes(),
-		blobHash.Bytes(),
-		crypto.Keccak256Hash(hashBytesPayload).Bytes(),
-		assignmentHookAddress.Bytes(),
-	}, nil), nil
 }
 
 // EncodeProveBlockInput performs the solidity `abi.encode` for the given TaikoL1.proveBlock input.

@@ -32,13 +32,14 @@ func NewProofContester(
 	rpcClient *rpc.Client,
 	gasLimit uint64,
 	txmgr *txmgr.SimpleTxManager,
+	proverSetAddress common.Address,
 	graffiti string,
 	builder *transaction.ProveBlockTxBuilder,
 ) *ProofContester {
 	return &ProofContester{
 		rpc:       rpcClient,
 		txBuilder: builder,
-		sender:    transaction.NewSender(rpcClient, txmgr, gasLimit),
+		sender:    transaction.NewSender(rpcClient, txmgr, proverSetAddress, gasLimit),
 		graffiti:  rpc.StringToBytes32(graffiti),
 	}
 }
@@ -73,7 +74,7 @@ func (c *ProofContester) SubmitContest(
 	// If the transition has already been contested, return early.
 	if transition.Contester != (common.Address{}) {
 		log.Info(
-			"Transaction has already been contested",
+			"Transition has already been contested",
 			"blockID", blockID,
 			"parentHash", parentHash,
 			"contester", transition.Contester,

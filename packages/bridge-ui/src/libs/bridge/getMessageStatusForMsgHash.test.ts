@@ -8,18 +8,7 @@ import { getMessageStatusForMsgHash } from './getMessageStatusForMsgHash';
 
 vi.mock('viem');
 vi.mock('@wagmi/core');
-vi.mock('$customToken', () => {
-  const mockERC20 = {
-    name: 'MockERC20',
-    addresses: { '1': '0x123' },
-    symbol: 'MTF',
-    decimals: 18,
-    type: 'ERC20',
-  };
-  return {
-    customToken: [mockERC20],
-  };
-});
+vi.mock('$customToken');
 
 describe('getMessageStatusForMsgHash', () => {
   beforeEach(() => {

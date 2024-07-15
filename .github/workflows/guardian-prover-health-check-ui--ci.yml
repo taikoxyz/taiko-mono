@@ -1,0 +1,32 @@
+name: Guardians UI Build and Checks
+
+on: workflow_call
+
+jobs:
+  check-guardian-prover-health-check-ui:
+    runs-on: [taiko-runner]
+    steps:
+      - name: Cancel previous runs
+        uses: styfle/cancel-workflow-action@0.12.1
+        with:
+          access_token: ${{ github.token }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm dependencies
+        uses: ./.github/actions/install-pnpm-dependencies
+
+      - name: Build
+        env:
+          SKIP_ENV_VALIDATION: "true"
+        working-directory: ./packages/guardian-prover-health-check-ui
+        run: pnpm build
+
+      - name: Svelte check
+        working-directory: ./packages/guardian-prover-health-check-ui
+        run: pnpm svelte:check
+
+      - name: Linting
+        working-directory: ./packages/guardian-prover-health-check-ui
+        run: pnpm lint

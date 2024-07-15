@@ -94,3 +94,7 @@ func (b *Bridge) SendMessage(opts *bind.TransactOpts, _message bridge.IBridgeMes
 func (b *Bridge) IsMessageReceived(opts *bind.CallOpts, _message bridge.IBridgeMessage, _proof []byte) (bool, error) {
 	return true, nil
 }
+
+func (b *Bridge) Paused(opts *bind.CallOpts) (bool, error) {
+	return false, nil
+}

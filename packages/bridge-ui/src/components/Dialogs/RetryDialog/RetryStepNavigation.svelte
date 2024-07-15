@@ -35,6 +35,8 @@
 
   const handleNextStep = () => {
     if (activeStep === INITIAL_STEP) {
+      activeStep = RetrySteps.SELECT;
+    } else if (activeStep === RetrySteps.SELECT) {
       activeStep = RetrySteps.REVIEW;
     } else if (activeStep === RetrySteps.REVIEW) {
       activeStep = RetrySteps.CONFIRM;
@@ -49,6 +51,8 @@
     }
     if (activeStep === RetrySteps.REVIEW) {
       activeStep = RetrySteps.SELECT;
+    } else if (activeStep === RetrySteps.SELECT) {
+      activeStep = RetrySteps.CHECK;
     } else if (activeStep === RetrySteps.CONFIRM) {
       activeStep = RetrySteps.REVIEW;
     }

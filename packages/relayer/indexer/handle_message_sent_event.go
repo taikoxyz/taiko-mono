@@ -101,6 +101,20 @@ func (i *Indexer) handleMessageSentEvent(
 		return nil
 	}
 
+	// we shouldnt add messages to the queue that will be determined
+	// unprocessable.
+	if event.Message.GasLimit == 0 {
+		slog.Warn("Zero gaslimit message found, will be unprocessable")
+		return nil
+	}
+
+	if i.minFeeToIndex != 0 && event.Message.Fee < i.minFeeToIndex {
+		slog.Warn("Fee is less than minFeeToIndex, not adding to queue",
+			"fee", event.Message.Fee,
+			"minFeeToIndex", i.minFeeToIndex,
+		)
+	}
+
 	msg := queue.QueueMessageSentBody{
 		ID:    id,
 		Event: event,

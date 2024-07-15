@@ -15,9 +15,10 @@ var (
 )
 
 type block struct {
-	BlockHash        string `json:"blockHash"`
-	Signature        string `json:"signature"`
-	GuardianProverID uint64 `json:"guardianProverID"`
+	BlockHash             string `json:"blockHash"`
+	Signature             string `json:"signature"`
+	GuardianProverID      uint64 `json:"guardianProverID"`
+	GuardianProverAddress string `json:"guardianProverAddress"`
 }
 
 // map of blockID to signed block data
@@ -46,6 +47,7 @@ func (srv *Server) GetSignedBlocks(c echo.Context) error {
 
 		start, err = strconv.ParseUint(c.QueryParam("start"), 10, 64)
 		if err != nil {
+			log.Error("Failed to parse start", "error", err)
 			return echo.NewHTTPError(http.StatusBadRequest, err)
 		}
 	}
@@ -97,9 +99,10 @@ func (srv *Server) GetSignedBlocks(c echo.Context) error {
 	// to the signed blocks for each prover by that block ID.
 	for _, v := range signedBlocks {
 		b := block{
-			GuardianProverID: v.GuardianProverID,
-			BlockHash:        v.BlockHash,
-			Signature:        v.Signature,
+			GuardianProverID:      v.GuardianProverID,
+			GuardianProverAddress: v.RecoveredAddress,
+			BlockHash:             v.BlockHash,
+			Signature:             v.Signature,
 		}
 
 		if _, ok := blocks[v.BlockID]; !ok {

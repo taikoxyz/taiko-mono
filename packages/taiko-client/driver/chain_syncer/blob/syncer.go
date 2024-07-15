@@ -12,9 +12,11 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
+	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
@@ -55,6 +57,7 @@ func NewSyncer(
 	progressTracker *beaconsync.SyncProgressTracker,
 	maxRetrieveExponent uint64,
 	blobServerEndpoint *url.URL,
+	socialScanEndpoint *url.URL,
 ) (*Syncer, error) {
 	configs, err := client.TaikoL1.GetConfig(&bind.CallOpts{Context: ctx})
 	if err != nil {
@@ -82,6 +85,7 @@ func NewSyncer(
 			ctx,
 			client,
 			blobServerEndpoint,
+			socialScanEndpoint,
 		),
 	}, nil
 }
@@ -254,12 +258,14 @@ func (s *Syncer) onBlockProposed(
 	}
 	txListBytes, err := txListFetcher.Fetch(ctx, tx, &event.Meta)
 	if err != nil {
-		if errors.Is(err, rpc.ErrBlobInvalid) {
-			log.Info("Invalid blob detected", "blockID", event.BlockId)
-			txListBytes = []byte{}
-		} else {
-			return fmt.Errorf("failed to fetch tx list: %w", err)
-		}
+		return fmt.Errorf("failed to fetch tx list: %w", err)
+	}
+
+	var decompressedTxListBytes []byte
+	if s.rpc.L2.ChainID.Cmp(params.HeklaNetworkID) == 0 {
+		decompressedTxListBytes = s.txListDecompressor.TryDecompressHekla(event.BlockId, txListBytes, event.Meta.BlobUsed)
+	} else {
+		decompressedTxListBytes = s.txListDecompressor.TryDecompress(event.BlockId, txListBytes, event.Meta.BlobUsed)
 	}
 
 	// Decompress the transactions list and try to insert a new head block to L2 EE.
@@ -268,7 +274,7 @@ func (s *Syncer) onBlockProposed(
 		event,
 		parent,
 		s.state.GetHeadBlockID(),
-		s.txListDecompressor.TryDecompress(event.BlockId, txListBytes, event.Meta.BlobUsed),
+		decompressedTxListBytes,
 		&rawdb.L1Origin{
 			BlockID:       event.BlockId,
 			L2BlockHash:   common.Hash{}, // Will be set by taiko-geth.
@@ -387,9 +393,10 @@ func (s *Syncer) insertNewHead(
 		return nil, fmt.Errorf("failed to create execution payloads: %w", err)
 	}
 
-	fc := &engine.ForkchoiceStateV1{HeadBlockHash: payload.BlockHash}
-	if err = s.fillForkchoiceState(ctx, event, fc); err != nil {
-		return nil, err
+	fc := &engine.ForkchoiceStateV1{
+		HeadBlockHash:      payload.BlockHash,
+		SafeBlockHash:      payload.BlockHash,
+		FinalizedBlockHash: payload.BlockHash,
 	}
 
 	// Update the fork choice
@@ -402,35 +409,6 @@ func (s *Syncer) insertNewHead(
 	}
 
 	return payload, nil
-}
-
-// fillForkchoiceState fills the forkchoice state with the finalized block hash and the safe block hash.
-func (s *Syncer) fillForkchoiceState(
-	ctx context.Context,
-	event *bindings.TaikoL1ClientBlockProposed,
-	fc *engine.ForkchoiceStateV1,
-) error {
-	// If the event is emitted from the genesis block, we don't need to fill the forkchoice state,
-	// should only happen when testing.
-	if event.Raw.BlockNumber == 0 {
-		return nil
-	}
-
-	// Fetch the latest verified block's header from protocol.
-	variables, err := s.rpc.GetTaikoDataSlotBByNumber(ctx, event.Raw.BlockNumber)
-	if err != nil {
-		return err
-	}
-	finalizeHeader, err := s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(variables.LastVerifiedBlockId))
-	if err != nil {
-		return err
-	}
-
-	// Fill the forkchoice state.
-	fc.FinalizedBlockHash = finalizeHeader.Hash()
-	fc.SafeBlockHash = finalizeHeader.ParentHash
-
-	return nil
 }
 
 // createExecutionPayloads creates a new execution payloads through
@@ -454,7 +432,7 @@ func (s *Syncer) createExecutionPayloads(
 		BlockMetadata: &engine.BlockMetadata{
 			HighestBlockID: headBlockID,
 			Beneficiary:    event.Meta.Coinbase,
-			GasLimit:       uint64(event.Meta.GasLimit) + anchorTxConstructor.AnchorGasLimit,
+			GasLimit:       uint64(event.Meta.GasLimit) + consensus.AnchorGasLimit,
 			Timestamp:      event.Meta.Timestamp,
 			TxList:         txListBytes,
 			MixHash:        event.Meta.Difficulty,

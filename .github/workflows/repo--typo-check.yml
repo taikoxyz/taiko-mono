@@ -1,0 +1,15 @@
+name: Typo Check
+
+on: [pull_request]
+
+jobs:
+  check-for-typos:
+    runs-on: [taiko-runner]
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v4
+
+      - name: Check for typos
+        uses: crate-ci/typos@master
+        with:
+          config: ${{github.workspace}}/_typos.toml

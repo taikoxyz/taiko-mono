@@ -3,6 +3,8 @@ pragma solidity 0.8.24;
 
 import "../common/EssentialContract.sol";
 import "../common/LibStrings.sol";
+import "../libs/LibAddress.sol";
+import "../libs/LibBytes.sol";
 import "../bridge/IBridge.sol";
 
 /// @title DelegateOwner
@@ -12,40 +14,63 @@ import "../bridge/IBridge.sol";
 /// @custom:security-contact security@taiko.xyz
 contract DelegateOwner is EssentialContract, IMessageInvocable {
     /// @notice The owner chain ID.
-    uint64 public l1ChainId;
+    uint64 public remoteChainId; // slot 1
+
+    /// @notice The admin who can directly call `invokeCall`.
+    address public admin;
 
     /// @notice The next transaction ID.
-    uint64 public nextTxId;
+    uint64 public nextTxId; // slot 2
 
     /// @notice The real owner on L1, supposedly the DAO.
-    address public realOwner;
+    address public remoteOwner;
 
     uint256[48] private __gap;
 
-    /// @notice Emitted when a transaction is executed.
+    struct Call {
+        uint64 txId;
+        address target;
+        bool isDelegateCall;
+        bytes txdata;
+    }
+
+    /// @notice Emitted when a message is invoked.
     /// @param txId The transaction ID.
     /// @param target The target address.
+    /// @param isDelegateCall True if the call is a `delegatecall`.
     /// @param selector The function selector.
-    event TransactionExecuted(uint64 indexed txId, address indexed target, bytes4 indexed selector);
+    event MessageInvoked(
+        uint64 indexed txId, address indexed target, bool isDelegateCall, bytes4 indexed selector
+    );
 
-    /// @notice Emitted when this contract accepted the ownership of a target contract.
-    /// @param target The target address.
-    event OwnershipAccepted(address indexed target);
+    /// @notice Emitted when the admin has been changed.
+    /// @param oldAdmin The old admin address.
+    /// @param newAdmin The new admin address.
+    event AdminUpdated(address indexed oldAdmin, address indexed newAdmin);
 
+    error DO_DRYRUN_SUCCEEDED();
     error DO_INVALID_PARAM();
+    error DO_INVALID_SENDER();
+    error DO_INVALID_TARGET();
     error DO_INVALID_TX_ID();
     error DO_PERMISSION_DENIED();
-    error DO_TX_REVERTED();
+
+    modifier onlyAdminOrRemoteOwner() {
+        if (!_isAdminOrRemoteOwner(msg.sender)) revert DO_PERMISSION_DENIED();
+        _;
+    }
 
     /// @notice Initializes the contract.
-    /// @param _realOwner The real owner on L1 that can send a cross-chain message to invoke
+    /// @param _remoteOwner The real owner on L1 that can send a cross-chain message to invoke
     /// `onMessageInvocation`.
+    /// @param _remoteChainId The L1 chain's ID.
     /// @param _addressManager The address of the {AddressManager} contract.
-    /// @param _l1ChainId The L1 chain's ID.
+    /// @param _admin The admin address.
     function init(
-        address _realOwner,
+        address _remoteOwner,
         address _addressManager,
-        uint64 _l1ChainId
+        uint64 _remoteChainId,
+        address _admin
     )
         external
         initializer
@@ -53,44 +78,69 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         // This contract's owner will be itself.
         __Essential_init(address(this), _addressManager);
 
-        if (_realOwner == address(0) || _l1ChainId == 0 || _l1ChainId == block.chainid) {
+        if (_remoteOwner == address(0) || _remoteChainId == 0 || _remoteChainId == block.chainid) {
             revert DO_INVALID_PARAM();
         }
 
-        realOwner = _realOwner;
-        l1ChainId = _l1ChainId;
+        remoteChainId = _remoteChainId;
+        remoteOwner = _remoteOwner;
+        admin = _admin;
     }
 
     /// @inheritdoc IMessageInvocable
-    /// @dev Do not guard with nonReentrant as this function may re-enter the contract as _data
-    /// represents calls to address(this).
-    function onMessageInvocation(bytes calldata _data)
-        external
-        payable
-        onlyFromNamed(LibStrings.B_BRIDGE)
-    {
-        (uint64 txId, address target, bytes memory txdata) =
-            abi.decode(_data, (uint64, address, bytes));
-
-        if (txId != nextTxId) revert DO_INVALID_TX_ID();
-
-        IBridge.Context memory ctx = IBridge(msg.sender).context();
-        if (ctx.srcChainId != l1ChainId || ctx.from != realOwner) {
-            revert DO_PERMISSION_DENIED();
-        }
-        nextTxId++;
-        // Sending ether along with the function call. Although this is sending Ether from this
-        // contract back to itself, txData's function can now be payable.
-        (bool success,) = target.call{ value: msg.value }(txdata);
-        if (!success) revert DO_TX_REVERTED();
-
-        emit TransactionExecuted(txId, target, bytes4(txdata));
+    function onMessageInvocation(bytes calldata _data) external payable onlyAdminOrRemoteOwner {
+        _invokeCall(_data, true);
     }
 
-    function acceptOwnership(address target) external {
-        Ownable2StepUpgradeable(target).acceptOwnership();
-        emit OwnershipAccepted(target);
+    /// @notice Dryruns a message invocation but always revert.
+    /// If this tx is reverted with DO_TRY_RUN_SUCCEEDED, the try run is successful.
+    /// Note that this function shall not be used in transaction and is designed for offchain
+    /// simulation only.
+    function dryrunInvocation(bytes calldata _data) external payable {
+        _invokeCall(_data, false);
+        revert DO_DRYRUN_SUCCEEDED();
     }
+
+    /// @dev Updates the admin address.
+    /// @param _admin The new admin address.
+    function setAdmin(address _admin) external nonReentrant onlyOwner {
+        if (_admin == admin || _admin == address(this)) revert DO_INVALID_PARAM();
+
+        emit AdminUpdated(admin, _admin);
+        admin = _admin;
+    }
+
+    /// @dev Accepts contract ownership
+    /// @param _target Target addresses.
+    function acceptOwnership(address _target) external nonReentrant onlyOwner {
+        Ownable2StepUpgradeable(_target).acceptOwnership();
+    }
+
+    function transferOwnership(address) public pure override notImplemented { }
 
     function _authorizePause(address, bool) internal pure override notImplemented { }
+
+    function _invokeCall(bytes calldata _data, bool _verifyTxId) private {
+        Call memory call = abi.decode(_data, (Call));
+
+        if (_verifyTxId && call.txId != nextTxId++) revert DO_INVALID_TX_ID();
+
+        // By design, the target must be a contract address if the txdata is not empty
+        if (call.txdata.length != 0 && !Address.isContract(call.target)) revert DO_INVALID_TARGET();
+
+        (bool success, bytes memory result) = call.isDelegateCall //
+            ? call.target.delegatecall(call.txdata)
+            : call.target.call{ value: msg.value }(call.txdata);
+
+        if (!success) LibBytes.revertWithExtractedError(result);
+        emit MessageInvoked(call.txId, call.target, call.isDelegateCall, bytes4(call.txdata));
+    }
+
+    function _isAdminOrRemoteOwner(address _sender) private view returns (bool) {
+        if (_sender == admin) return true;
+        if (_sender != resolve(LibStrings.B_BRIDGE, false)) return false;
+
+        IBridge.Context memory ctx = IBridge(_sender).context();
+        return ctx.srcChainId == remoteChainId && ctx.from == remoteOwner;
+    }
 }

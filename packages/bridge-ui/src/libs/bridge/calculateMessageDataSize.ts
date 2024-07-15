@@ -63,14 +63,15 @@ export async function calculateMessageDataSize({
   }
 }
 
-async function encodeData(token: Token, chainId: number, tokenIds?: number[], amounts?: number[]): Promise<Hex> {
+async function encodeData(token: Token | NFT, chainId: number, tokenIds?: number[], amounts?: number[]): Promise<Hex> {
   if (token.type === TokenType.ERC20) {
+    const fungibleToken = token as Token;
     const cToken = {
       chainId, // technically should be the canonical chain but as we just are just calculating the data size it doesn't matter
-      addr: token.addresses[chainId], // same as above
-      decimals: token.decimals,
-      symbol: token.symbol,
-      name: token.name,
+      addr: fungibleToken.addresses[chainId], // same as above
+      decimals: fungibleToken.decimals,
+      symbol: fungibleToken.symbol,
+      name: fungibleToken.name,
     } satisfies CanonicalERC20;
 
     const params = [
@@ -120,11 +121,12 @@ async function encodeData(token: Token, chainId: number, tokenIds?: number[], am
     return encodedData;
   }
   if (token.type === TokenType.ERC1155) {
+    const nft = token as NFT;
     const cNFT = {
       chainId, // technically should be the canonical chain but as we just are just calculating the data size it doesn't matter
-      addr: token.addresses[chainId], // same as above
-      symbol: token.symbol,
-      name: token.name,
+      addr: nft.addresses[chainId], // same as above
+      symbol: nft.symbol,
+      name: nft.name,
     } satisfies CanonicalNFT;
 
     const params = [
@@ -169,11 +171,12 @@ async function encodeData(token: Token, chainId: number, tokenIds?: number[], am
     log('encodedData', encodedData);
     return encodedData;
   } else if (token.type === TokenType.ERC721) {
+    const nft = token as NFT;
     const cNFT = {
       chainId, // technically should be the canonical chain but as we just are just calculating the data size it doesn't matter
-      addr: token.addresses[chainId], // same as above
-      symbol: token.symbol,
-      name: token.name,
+      addr: nft.addresses[chainId], // same as above
+      symbol: nft.symbol,
+      name: nft.name,
     } satisfies CanonicalNFT;
 
     const params = [

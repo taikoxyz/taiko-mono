@@ -81,6 +81,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		cfg.P2PSyncTimeout,
 		cfg.MaxExponent,
 		cfg.BlobServerEndpoint,
+		cfg.SocialScanEndpoint,
 	); err != nil {
 		return err
 	}

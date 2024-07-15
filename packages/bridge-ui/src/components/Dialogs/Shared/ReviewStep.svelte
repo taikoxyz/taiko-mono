@@ -58,7 +58,7 @@
           <div class="text-secondary-content">{$t('common.recipient')}</div>
           <div class="">
             <ExplorerLink category="address" chainId={Number(tx.destChainId)} urlParam={tx.message.to}
-              >{shortenAddress(tx.message?.destOwner, 5, 5)}</ExplorerLink>
+              >{shortenAddress(tx.message?.to, 5, 5)}</ExplorerLink>
           </div>
         </div>
       {/if}
@@ -66,7 +66,7 @@
         <div class="flex justify-between">
           <div class="text-secondary-content">{$t('common.amount')}</div>
           {#if tx.tokenType === TokenType.ERC20}
-            {formatUnits(tx.amount ? tx.amount : BigInt(0), tx.decimals)}
+            {formatUnits(tx.amount ? tx.amount : BigInt(0), tx.decimals ?? 0)}
           {:else if tx.tokenType === TokenType.ETH}
             {formatEther(tx.amount ? tx.amount : BigInt(0))}
           {:else}

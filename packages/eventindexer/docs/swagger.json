@@ -1,7 +1,7 @@
 {
   "swagger": "2.0",
   "info": {
-    "title": "Taiko Eventindexer API",
+    "title": "Taiko Event Indexer API",
     "termsOfService": "http://swagger.io/terms/",
     "contact": {
       "name": "API Support",
@@ -9,11 +9,12 @@
       "email": "info@taiko.xyz"
     },
     "license": {
-      "name": "MIT"
+      "name": "MIT",
+      "url": "https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md"
     },
     "version": "1.0"
   },
-  "host": "eventindexer.katla.taiko.xyz",
+  "host": "eventindexer.hekla.taiko.xyz",
   "paths": {
     "/assignedBlocks": {
       "get": {
@@ -35,6 +36,62 @@
             "description": "OK",
             "schema": {
               "$ref": "#/definitions/paginate.Page"
+            }
+          }
+        }
+      }
+    },
+    "/blockProposedBy": {
+      "get": {
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "summary": "Get block proposed by",
+        "operationId": "get-block-proposed-by",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "blockID to query",
+            "name": "blockID",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/eventindexer.Event"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/blockProvenBy": {
+      "get": {
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "summary": "Get block proven by",
+        "operationId": "get-block-proven-by",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "blockID to query",
+            "name": "blockID",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/eventindexer.Event"
+              }
             }
           }
         }
@@ -74,6 +131,38 @@
             "description": "OK",
             "schema": {
               "$ref": "#/definitions/eventindexer.ChartResponse"
+            }
+          }
+        }
+      }
+    },
+    "/erc20sByAddress": {
+      "get": {
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "summary": "Get erc20 balances by address and chain ID",
+        "operationId": "get-erc20-balances-by-address-and-chain-id",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "address to query",
+            "name": "address",
+            "in": "query",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "chainID to query",
+            "name": "chainID",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/paginate.Page"
             }
           }
         }
@@ -143,22 +232,6 @@
         }
       }
     },
-    "/stats": {
-      "get": {
-        "consumes": ["application/json"],
-        "produces": ["application/json"],
-        "summary": "Get stats",
-        "operationId": "get-stats",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "schema": {
-              "$ref": "#/definitions/eventindexer.Stat"
-            }
-          }
-        }
-      }
-    },
     "/uniqueProposers": {
       "get": {
         "consumes": ["application/json"],
@@ -193,6 +266,17 @@
     }
   },
   "definitions": {
+    "decimal.NullDecimal": {
+      "type": "object",
+      "properties": {
+        "decimal": {
+          "type": "number"
+        },
+        "valid": {
+          "type": "boolean"
+        }
+      }
+    },
     "eventindexer.ChartItem": {
       "type": "object",
       "properties": {
@@ -215,13 +299,34 @@
         }
       }
     },
-    "eventindexer.Stat": {
+    "eventindexer.Event": {
       "type": "object",
       "properties": {
-        "averageProofReward": {
+        "address": {
           "type": "string"
         },
-        "averageProofTime": {
+        "amount": {
+          "$ref": "#/definitions/decimal.NullDecimal"
+        },
+        "assignedProver": {
+          "type": "string"
+        },
+        "blockID": {
+          "type": "integer"
+        },
+        "chainID": {
+          "type": "integer"
+        },
+        "contractAddress": {
+          "type": "string"
+        },
+        "data": {
+          "type": "string"
+        },
+        "emittedBlockID": {
+          "type": "integer"
+        },
+        "event": {
           "type": "string"
         },
         "feeTokenAddress": {
@@ -230,13 +335,25 @@
         "id": {
           "type": "integer"
         },
-        "numBlocksAssigned": {
+        "name": {
+          "type": "string"
+        },
+        "proofReward": {
+          "$ref": "#/definitions/decimal.NullDecimal"
+        },
+        "proposerReward": {
+          "$ref": "#/definitions/decimal.NullDecimal"
+        },
+        "tier": {
           "type": "integer"
         },
-        "numProofs": {
+        "to": {
+          "type": "string"
+        },
+        "tokenID": {
           "type": "integer"
         },
-        "statType": {
+        "transactedAt": {
           "type": "string"
         }
       }

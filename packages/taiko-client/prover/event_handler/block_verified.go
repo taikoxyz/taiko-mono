@@ -22,10 +22,6 @@ func NewBlockVerifiedEventHandler(guardianProverAddress common.Address) *BlockVe
 func (h *BlockVerifiedEventHandler) Handle(e *bindings.TaikoL1ClientBlockVerified) {
 	metrics.ProverLatestVerifiedIDGauge.Set(float64(e.BlockId.Uint64()))
 
-	if e.Prover == h.guardianProverAddress {
-		metrics.ProverProvenByGuardianGauge.Set(1)
-	}
-
 	log.Info(
 		"New verified block",
 		"blockID", e.BlockId,

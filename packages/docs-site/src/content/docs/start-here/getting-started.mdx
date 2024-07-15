@@ -1,0 +1,37 @@
+---
+title: Getting started
+description: Get started with various guides, concepts, API references, and resources to help you build with Taiko.
+hero:
+  title: Taiko Docs
+  tagline: Guides, concepts, API references, and resources to help you build with Taiko.
+  actions:
+    - text: Deploy a contract
+      link: /guides/app-developers/deploy-a-contract
+      icon: right-arrow
+      variant: primary
+    - text: Learn about Taiko
+      link: /core-concepts/what-is-taiko
+      icon: right-arrow
+---
+
+import { Card, CardGrid } from "@astrojs/starlight/components";
+
+## Next steps
+
+<CardGrid stagger>
+  <Card title="Guides" icon="open-book">
+    Get started with a simple guide such as [deploying a
+    contract](/guides/app-developers/deploy-a-contract).
+  </Card>
+  <Card title="Network reference" icon="document">
+    View details about the network such as various important
+    addresses. [Mainnet](/network-reference/mainnet-addresses) and [Testnet](/network-reference/testnet-addresses).
+  </Card>
+  <Card title="Core concepts" icon="puzzle">
+    Learn about core concepts such as "What is Taiko?"
+    [here](/core-concepts/what-is-taiko).
+  </Card>
+  <Card title="Learning resources" icon="rocket">
+    View additional learning resources [here](/resources/learning-resources).
+  </Card>
+</CardGrid>

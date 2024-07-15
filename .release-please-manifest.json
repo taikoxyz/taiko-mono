@@ -1,12 +1,17 @@
 {
-  "packages/blobstorage": "0.1.0",
-  "packages/branding": "0.3.0",
-  "packages/bridge-ui": "4.2.0",
+  "packages/branding": "0.4.0",
+  "packages/bridge-ui": "2.11.0",
+  "packages/docs-site": "1.11.4",
   "packages/eventindexer": "0.13.0",
-  "packages/fork-diff": "0.4.0",
+  "packages/fork-diff": "0.6.0",
   "packages/guardian-prover-health-check": "0.1.0",
   "packages/guardian-prover-health-check-ui": "0.1.0",
-  "packages/protocol": "1.4.0",
+  "packages/protocol": "1.8.0",
   "packages/relayer": "0.12.0",
-  "packages/taiko-client": "0.22.0"
+  "packages/taiko-client": "0.29.0",
+  "packages/nfts": "1.0.0",
+  "packages/supplementary-contracts": "1.0.0",
+  "packages/taikoon-ui": "1.2.0",
+  "packages/ui-lib": "1.0.0",
+  "packages/snaefell-ui": "1.1.0"
 }

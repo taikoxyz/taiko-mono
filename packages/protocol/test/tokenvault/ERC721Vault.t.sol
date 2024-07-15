@@ -761,7 +761,7 @@ contract ERC721VaultTest is TaikoTest {
         );
 
         vm.prank(Alice, Alice);
-        vm.expectRevert(BridgedERC721.BTOKEN_INVALID_BURN.selector);
+        vm.expectRevert("ERC721: transfer from incorrect owner");
         destChainErc721Vault.sendToken{ value: GAS_LIMIT }(sendOpts);
     }
 
@@ -832,5 +832,87 @@ contract ERC721VaultTest is TaikoTest {
         } catch {
             fail();
         }
+    }
+
+    function test_721Vault_shall_not_be_able_to_burn_arbitrarily() public {
+        vm.prank(Alice, Alice);
+        canonicalToken721.approve(address(erc721Vault), 1);
+        vm.prank(Alice, Alice);
+        canonicalToken721.approve(address(erc721Vault), 2);
+
+        assertEq(canonicalToken721.ownerOf(1), Alice);
+
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = 1;
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 0;
+
+        BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
+            destChainId,
+            address(0),
+            Alice,
+            GAS_LIMIT,
+            address(canonicalToken721),
+            GAS_LIMIT,
+            tokenIds,
+            amounts
+        );
+        vm.prank(Alice, Alice);
+        erc721Vault.sendToken{ value: GAS_LIMIT }(sendOpts);
+
+        assertEq(canonicalToken721.ownerOf(1), address(erc721Vault));
+
+        // This canonicalToken is basically need to be exact same as the
+        // sendToken() puts together
+        // - here is just mocking putting it together.
+        BaseNFTVault.CanonicalNFT memory canonicalToken = BaseNFTVault.CanonicalNFT({
+            chainId: 31_337,
+            addr: address(canonicalToken721),
+            symbol: "TT",
+            name: "TT"
+        });
+
+        uint64 chainId = uint64(block.chainid);
+        vm.chainId(destChainId);
+
+        destChainIdBridge.sendReceiveERC721ToERC721Vault(
+            canonicalToken, Alice, Alice, tokenIds, bytes32(0), address(erc721Vault), chainId, 0
+        );
+
+        // Query canonicalToBridged
+        address deployedContract =
+            destChainErc721Vault.canonicalToBridged(chainId, address(canonicalToken721));
+
+        // Alice bridged over tokenId 1
+        assertEq(ERC721(deployedContract).ownerOf(1), Alice);
+
+        // Alice tries to bridge back message
+        sendOpts = BaseNFTVault.BridgeTransferOp(
+            chainId,
+            address(0),
+            Alice,
+            GAS_LIMIT,
+            address(deployedContract),
+            GAS_LIMIT,
+            tokenIds,
+            amounts
+        );
+
+        // Alice hasn't approved the vault yet!
+        vm.prank(Alice, Alice);
+        vm.expectRevert("ERC721: caller is not token owner or approved");
+        destChainErc721Vault.sendToken{ value: GAS_LIMIT }(sendOpts);
+
+        // Also Vault cannot burn tokens it does not own (even if the priv key compromised)
+        vm.prank(address(destChainErc721Vault), address(destChainErc721Vault));
+        vm.expectRevert(BridgedERC721.BTOKEN_INVALID_BURN.selector);
+        BridgedERC721(deployedContract).burn(1);
+
+        // After approve() ERC721Vault can transfer and burn
+        vm.prank(Alice, Alice);
+        ERC721(deployedContract).approve(address(destChainErc721Vault), 1);
+        vm.prank(Alice, Alice);
+        destChainErc721Vault.sendToken{ value: GAS_LIMIT }(sendOpts);
     }
 }

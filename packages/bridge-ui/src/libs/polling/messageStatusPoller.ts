@@ -49,7 +49,7 @@ const hashIntervalMap: Record<Hash, Interval> = {};
  * }
  */
 export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true) {
-  const { hash, srcChainId, destChainId, msgHash, msgStatus } = bridgeTx;
+  const { srcTxHash, srcChainId, destChainId, msgHash, msgStatus } = bridgeTx;
 
   // Without this we cannot poll at all. Let's throw an error
   // that can be handled in the UI
@@ -63,11 +63,16 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
 
   // We want to notify whoever is calling this function of different
   // events: PollingEvent
-  let emitter = hashEmitterMap[hash];
-  let interval = hashIntervalMap[hash];
+  let emitter = hashEmitterMap[srcTxHash];
+  let interval = hashIntervalMap[srcTxHash];
 
   const destChainClient = createPublicClient({
     chain: chains.find((chain) => chain.id === Number(destChainId)),
+    transport: http(),
+  });
+
+  const srcChainClient = createPublicClient({
+    chain: chains.find((chain) => chain.id === Number(srcChainId)),
     transport: http(),
   });
 
@@ -79,16 +84,24 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
     client: destChainClient,
   });
 
+  // In case for recalled messages we need to check the source bridge contract
+  const srcBridgeAddress = routingContractsMap[Number(srcChainId)][Number(destChainId)].bridgeAddress;
+  const srcBridgeContract = getContract({
+    address: srcBridgeAddress,
+    abi: bridgeAbi,
+    client: srcChainClient,
+  });
+
   const stopPolling = () => {
-    const interval = hashIntervalMap[hash];
+    const interval = hashIntervalMap[srcTxHash];
     if (interval) {
       log('Stop polling for transaction', bridgeTx);
 
       // Clean up
       clearInterval(interval as ReturnType<typeof setInterval>); // clearInterval only needs the ID
-      delete hashEmitterMap[hash];
-      delete hashIntervalMap[hash];
-      hashIntervalMap[hash] = null;
+      delete hashEmitterMap[srcTxHash];
+      delete hashIntervalMap[srcTxHash];
+      hashIntervalMap[srcTxHash] = null;
 
       emitter.emit(PollingEvent.STOP);
     }
@@ -100,7 +113,7 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
   };
 
   const pollingFn = async () => {
-    log('Polling for transaction', bridgeTx.hash);
+    log('Polling for transaction', bridgeTx.srcTxHash);
     const isProcessable = await isTransactionProcessable(bridgeTx);
     emitter.emit(PollingEvent.PROCESSABLE, isProcessable);
 
@@ -108,15 +121,26 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
       const messageStatus: MessageStatus = await destBridgeContract.read.messageStatus([bridgeTx.msgHash]);
       emitter.emit(PollingEvent.STATUS, messageStatus);
 
+      if (messageStatus === MessageStatus.FAILED) {
+        // check if the message is recalled
+        const recallStatus = await srcBridgeContract.read.messageStatus([bridgeTx.msgHash]);
+        if (recallStatus === MessageStatus.RECALLED) {
+          log(`Message ${bridgeTx.msgHash} has been recalled.`);
+          emitter.emit(PollingEvent.STATUS, MessageStatus.RECALLED);
+          stopPolling();
+          return;
+        }
+      }
+
       let blockNumber: Hex;
       if (!bridgeTx.blockNumber) {
-        const receipt = await getTransactionReceipt(config, { hash: bridgeTx.hash });
+        const receipt = await getTransactionReceipt(config, { hash: bridgeTx.srcTxHash });
         blockNumber = toHex(receipt.blockNumber);
         bridgeTx.blockNumber = blockNumber;
       }
 
       if (messageStatus === MessageStatus.DONE) {
-        log(`Poller has picked up the change of status to DONE for hash ${hash}.`);
+        log(`Poller has picked up the change of status to DONE for hash ${srcTxHash}.`);
         stopPolling();
       }
     } catch (err) {
@@ -132,8 +156,8 @@ export function startPolling(bridgeTx: BridgeTransaction, runImmediately = true)
     emitter = new EventEmitter();
     interval = setInterval(pollingFn, bridgeTransactionPoller.interval);
 
-    hashEmitterMap[hash] = emitter;
-    hashIntervalMap[hash] = interval;
+    hashEmitterMap[srcTxHash] = emitter;
+    hashIntervalMap[srcTxHash] = interval;
 
     // setImmediate isn't standard
     if (runImmediately) {

@@ -1,28 +1,54 @@
-# create-svelte
+# Guardian prover health check UI
 
-Everything you need to build a Svelte project, powered by [`create-svelte`](https://github.com/sveltejs/kit/tree/main/packages/create-svelte).
+This package contains the Guardian prover health check UI built with svelte and wagmi
 
-## Creating a project
+- [Guardian prover health check UI](#guardian-prover-health-check-ui)
+  - [Development setup](#development-setup)
+    - [Set up environment variables](#set-up-environment-variables)
+    - [Start a development server:](#start-a-development-server)
+  - [Building](#building)
 
-If you're seeing this, you've probably already done this step. Congrats!
+## Development setup
+
+To get started, open your terminal in `/packages/guardian-prover-health-check-ui/`
+
+Install all dependencies with
 
 ```bash
-# create a new project in the current directory
-npm create svelte@latest
-
-# create a new project in my-app
-npm create svelte@latest my-app
+pnpm install
 ```
 
-## Developing
-
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+### Set up environment variables
 
 ```bash
-npm run dev
+cp .env.example .env
+```
+
+Then update environment variables in .env
+
+```bash
+source .env
+```
+
+### Set up configurations
+
+```ENV
+VITE_GUARDIAN_PROVER_API_URL=
+VITE_GUARDIAN_PROVER_CONTRACT_ADDRESS=
+VITE_RPC_URL=
+```
+
+### Start a development server:
+
+```bash
+pnpm dev
 
 # or start the server and open the app in a new browser tab
-npm run dev -- --open
+pnpm dev -- --open
+
+# if you want to expose the IP to your network you can use this flag
+pnpm dev --host
+
 ```
 
 ## Building
@@ -30,9 +56,9 @@ npm run dev -- --open
 To create a production version of your app:
 
 ```bash
-npm run build
+pnpm run build
 ```
 
-You can preview the production build with `npm run preview`.
+You can preview the production build with `pnpm run preview`.
 
-> To deploy your app, you may need to install an [adapter](https://kit.svelte.dev/docs/adapters) for your target environment.
+To deploy your app, you may need to install an [adapter](https://kit.svelte.dev/docs/adapters) for your target environment.

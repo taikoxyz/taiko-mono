@@ -19,4 +19,5 @@ type Bridge interface {
 	ParseMessageSent(log types.Log) (*bridge.BridgeMessageSent, error)
 	IsMessageReceived(opts *bind.CallOpts, _message bridge.IBridgeMessage, _proof []byte) (bool, error)
 	SendMessage(opts *bind.TransactOpts, _message bridge.IBridgeMessage) (*types.Transaction, error)
+	Paused(opts *bind.CallOpts) (bool, error)
 }

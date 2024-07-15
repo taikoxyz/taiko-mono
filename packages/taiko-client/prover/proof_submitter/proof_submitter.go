@@ -2,9 +2,13 @@ package submitter
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
+	"math/big"
+	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -14,24 +18,34 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	validator "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/anchor_tx_validator"
+	handler "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/event_handler"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter/transaction"
 )
 
-var _ Submitter = (*ProofSubmitter)(nil)
+var (
+	_                              Submitter = (*ProofSubmitter)(nil)
+	submissionDelayRandomBumpRange float64   = 20
+	proofPollingInterval                     = 10 * time.Second
+)
 
 // ProofSubmitter is responsible requesting proofs for the given L2
 // blocks, and submitting the generated proofs to the TaikoL1 smart contract.
 type ProofSubmitter struct {
-	rpc             *rpc.Client
-	proofProducer   proofProducer.ProofProducer
-	resultCh        chan *proofProducer.ProofWithHeader
-	anchorValidator *validator.AnchorTxValidator
-	txBuilder       *transaction.ProveBlockTxBuilder
-	sender          *transaction.Sender
-	proverAddress   common.Address
-	taikoL2Address  common.Address
-	graffiti        [32]byte
+	rpc              *rpc.Client
+	proofProducer    proofProducer.ProofProducer
+	resultCh         chan *proofProducer.ProofWithHeader
+	anchorValidator  *validator.AnchorTxValidator
+	txBuilder        *transaction.ProveBlockTxBuilder
+	sender           *transaction.Sender
+	proverAddress    common.Address
+	proverSetAddress common.Address
+	taikoL2Address   common.Address
+	graffiti         [32]byte
+	tiers            []*rpc.TierProviderTierWithID
+	// Guardian prover related.
+	isGuardian      bool
+	submissionDelay time.Duration
 }
 
 // NewProofSubmitter creates a new ProofSubmitter instance.
@@ -39,11 +53,15 @@ func NewProofSubmitter(
 	rpcClient *rpc.Client,
 	proofProducer proofProducer.ProofProducer,
 	resultCh chan *proofProducer.ProofWithHeader,
+	proverSetAddress common.Address,
 	taikoL2Address common.Address,
 	graffiti string,
 	gasLimit uint64,
 	txmgr *txmgr.SimpleTxManager,
 	builder *transaction.ProveBlockTxBuilder,
+	tiers []*rpc.TierProviderTierWithID,
+	isGuardian bool,
+	submissionDelay time.Duration,
 ) (*ProofSubmitter, error) {
 	anchorValidator, err := validator.New(taikoL2Address, rpcClient.L2.ChainID, rpcClient)
 	if err != nil {
@@ -51,15 +69,19 @@ func NewProofSubmitter(
 	}
 
 	return &ProofSubmitter{
-		rpc:             rpcClient,
-		proofProducer:   proofProducer,
-		resultCh:        resultCh,
-		anchorValidator: anchorValidator,
-		txBuilder:       builder,
-		sender:          transaction.NewSender(rpcClient, txmgr, gasLimit),
-		proverAddress:   txmgr.From(),
-		taikoL2Address:  taikoL2Address,
-		graffiti:        rpc.StringToBytes32(graffiti),
+		rpc:              rpcClient,
+		proofProducer:    proofProducer,
+		resultCh:         resultCh,
+		anchorValidator:  anchorValidator,
+		txBuilder:        builder,
+		sender:           transaction.NewSender(rpcClient, txmgr, proverSetAddress, gasLimit),
+		proverAddress:    txmgr.From(),
+		proverSetAddress: proverSetAddress,
+		taikoL2Address:   taikoL2Address,
+		graffiti:         rpc.StringToBytes32(graffiti),
+		tiers:            tiers,
+		isGuardian:       isGuardian,
+		submissionDelay:  submissionDelay,
 	}, nil
 }
 
@@ -100,20 +122,52 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, event *bindings.Taiko
 		ParentGasUsed:      parent.GasUsed(),
 	}
 
-	// Send the generated proof.
-	result, err := s.proofProducer.RequestProof(
-		ctx,
-		opts,
-		event.BlockId,
-		&event.Meta,
-		header,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to request proof (id: %d): %w", event.BlockId, err)
+	// If the prover set address is provided, we use that address as the prover on chain.
+	if s.proverSetAddress != rpc.ZeroAddress {
+		opts.ProverAddress = s.proverSetAddress
 	}
-	s.resultCh <- result
 
-	metrics.ProverQueuedProofCounter.Add(1)
+	// Send the generated proof.
+	if err := backoff.Retry(
+		func() error {
+			if ctx.Err() != nil {
+				log.Error("Failed to request proof, context is canceled", "blockID", opts.BlockID, "error", ctx.Err())
+				return nil
+			}
+			// Check if there is a need to generate proof
+			proofStatus, err := rpc.GetBlockProofStatus(
+				ctx,
+				s.rpc,
+				opts.BlockID,
+				opts.ProverAddress,
+				s.proverSetAddress,
+			)
+			if err != nil {
+				return err
+			}
+			if proofStatus.IsSubmitted && !proofStatus.Invalid {
+				return nil
+			}
+
+			result, err := s.proofProducer.RequestProof(
+				ctx,
+				opts,
+				event.BlockId,
+				&event.Meta,
+				header,
+			)
+			if err != nil {
+				return fmt.Errorf("failed to request proof (id: %d): %w", event.BlockId, err)
+			}
+			s.resultCh <- result
+			metrics.ProverQueuedProofCounter.Add(1)
+			return nil
+		},
+		backoff.WithContext(backoff.NewConstantBackOff(proofPollingInterval), ctx),
+	); err != nil {
+		log.Error("Request proof error", "error", err)
+		return err
+	}
 
 	return nil
 }
@@ -124,7 +178,7 @@ func (s *ProofSubmitter) SubmitProof(
 	proofWithHeader *proofProducer.ProofWithHeader,
 ) (err error) {
 	log.Info(
-		"NewProofSubmitter block proof",
+		"Submit block proof",
 		"blockID", proofWithHeader.BlockID,
 		"coinbase", proofWithHeader.Meta.Coinbase,
 		"parentHash", proofWithHeader.Header.ParentHash,
@@ -133,6 +187,44 @@ func (s *ProofSubmitter) SubmitProof(
 		"proof", common.Bytes2Hex(proofWithHeader.Proof),
 		"tier", proofWithHeader.Tier,
 	)
+
+	// Check if we still need to generate a new proof for that block.
+	proofStatus, err := rpc.GetBlockProofStatus(ctx, s.rpc, proofWithHeader.BlockID, s.proverAddress, s.proverSetAddress)
+	if err != nil {
+		return err
+	}
+	if proofStatus.IsSubmitted && !proofStatus.Invalid {
+		return nil
+	}
+
+	if s.isGuardian {
+		_, expiredAt, _, err := handler.IsProvingWindowExpired(proofWithHeader.Meta, s.tiers)
+		if err != nil {
+			return fmt.Errorf("failed to check if the proving window is expired: %w", err)
+		}
+		// Get a random bumped submission delay, if necessary.
+		submissionDelay, err := s.getRandomBumpedSubmissionDelay(expiredAt)
+		if err != nil {
+			return err
+		}
+		// Wait for the submission delay.
+		<-time.After(submissionDelay)
+
+		// Check the proof submission status again.
+		proofStatus, err := rpc.GetBlockProofStatus(
+			ctx,
+			s.rpc,
+			proofWithHeader.BlockID,
+			s.proverAddress,
+			s.proverSetAddress,
+		)
+		if err != nil {
+			return err
+		}
+		if proofStatus.IsSubmitted && !proofStatus.Invalid {
+			return nil
+		}
+	}
 
 	metrics.ProverReceivedProofCounter.Add(1)
 
@@ -183,6 +275,29 @@ func (s *ProofSubmitter) SubmitProof(
 	metrics.ProverLatestProvenBlockIDGauge.Set(float64(proofWithHeader.BlockID.Uint64()))
 
 	return nil
+}
+
+// getRandomBumpedSubmissionDelay returns a random bumped submission delay.
+func (s *ProofSubmitter) getRandomBumpedSubmissionDelay(expiredAt time.Time) (time.Duration, error) {
+	if s.submissionDelay == 0 {
+		return s.submissionDelay, nil
+	}
+
+	randomBump, err := rand.Int(
+		rand.Reader,
+		new(big.Int).SetUint64(uint64(s.submissionDelay.Seconds()*submissionDelayRandomBumpRange/100)),
+	)
+	if err != nil {
+		return 0, err
+	}
+
+	delay := time.Duration(s.submissionDelay.Seconds()+float64(randomBump.Uint64())) * time.Second
+
+	if time.Since(expiredAt) >= delay {
+		return 0, nil
+	}
+
+	return delay - time.Since(expiredAt), nil
 }
 
 // Producer returns the inner proof producer.

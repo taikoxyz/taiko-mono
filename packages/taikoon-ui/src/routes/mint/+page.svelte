@@ -1,16 +1,13 @@
 <script lang="ts">
-  import { t } from 'svelte-i18n';
+  import { ResponsiveController } from '@taiko/ui-lib';
 
-  import { ResponsiveController } from '$components/core/ResponsiveController';
   import { Mint } from '$components/Mint';
-  import { MintAgreementModal } from '$components/modals';
+  import { MintDisclaimerModal } from '$components/modals';
   import { Page } from '$components/Page';
-  import { CollapsibleSection, FooterSection } from '$components/sections';
+  import { FaqSection, FooterSection } from '$components/sections';
   import { Section, SectionContainer } from '$ui/Section';
 
   let windowSize: 'sm' | 'md' | 'lg' = 'md';
-
-  $: faqOptions = $t('content.sections.faq.entries');
 </script>
 
 <svelte:head>
@@ -19,15 +16,19 @@
 
 <Page>
   <SectionContainer>
-    <Section width={windowSize === 'sm' ? 'full' : 'md'} height={windowSize === 'sm' ? 'fit' : 'full'}>
+    <Section
+      animated
+      width={windowSize === 'sm' ? 'full' : 'md'}
+      class="items-center justify-center"
+      height={windowSize === 'sm' ? 'fit' : 'full'}>
       <Mint />
     </Section>
-    <CollapsibleSection options={faqOptions} />
+    <FaqSection />
 
     <FooterSection />
   </SectionContainer>
 </Page>
 
-<MintAgreementModal />
+<MintDisclaimerModal />
 
 <ResponsiveController bind:windowSize />

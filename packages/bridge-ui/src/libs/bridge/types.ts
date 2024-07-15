@@ -9,7 +9,7 @@ export enum MessageStatus {
   RETRIABLE,
   DONE,
   FAILED,
-  PROVEN, // UI ONLY
+  RECALLED,
 }
 
 // struct Message {
@@ -90,16 +90,18 @@ export type RelayerMessage = {
 export type ModifiedTransactionReceipt = Omit<TransactionReceipt, 'blockNumber'> & { blockNumber: Hex };
 
 export type BridgeTransaction = {
-  hash: Hash;
+  srcTxHash: Hash;
+  destTxHash: Hash;
   from: Address;
   amount: bigint;
   symbol: string;
-  decimals: number;
+  decimals?: number;
   srcChainId: ChainID;
   destChainId: ChainID;
   tokenType: TokenType;
   blockNumber: Hex;
   msgHash: Hash;
+  processingFee: bigint;
   message?: Message;
   msgStatus?: MessageStatus;
 
@@ -108,6 +110,7 @@ export type BridgeTransaction = {
 
   status?: MessageStatus;
   receipt?: TransactionReceipt;
+  canonicalTokenAddress?: Address;
 };
 
 interface BaseBridgeTransferOp {
@@ -242,6 +245,7 @@ export type AddressConfig = {
   erc1155VaultAddress: Address;
   crossChainSyncAddress: Address;
   signalServiceAddress: Address;
+  quotaManagerAddress?: Address;
   hops?: Array<HopAddressConfig>;
 };
 
@@ -256,12 +260,13 @@ export enum ContractType {
   VAULT,
   SIGNALSERVICE,
   CROSSCHAINSYNC,
+  QUOTAMANAGER,
 }
 
 export type GetContractAddressType = {
   srcChainId: number;
   destChainId: number;
-  tokenType: TokenType;
+  tokenType?: TokenType;
   contractType: ContractType;
 };
 

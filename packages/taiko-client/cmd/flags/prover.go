@@ -24,34 +24,28 @@ var (
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_CAPACITY"},
 	}
-	RaikoHostEndpoint = &cli.StringFlag{
-		Name:     "raiko.host",
-		Usage:    "RPC endpoint of a Raiko host service",
-		Required: true,
-		Category: proverCategory,
-		EnvVars:  []string{"RAIKO_HOST"},
-	}
 )
 
 // Optional flags used by prover.
 var (
-	RaikoL1Endpoint = &cli.StringFlag{
-		Name:     "raiko.l1",
-		Usage:    "L1 RPC endpoint which will be sent to the Raiko service",
+	RaikoHostEndpoint = &cli.StringFlag{
+		Name:     "raiko.host",
+		Usage:    "RPC endpoint of a Raiko host service",
 		Category: proverCategory,
-		EnvVars:  []string{"RAIKO_L1"},
+		EnvVars:  []string{"RAIKO_HOST"},
 	}
-	RaikoL1BeaconEndpoint = &cli.StringFlag{
-		Name:     "raiko.l1Beacon",
-		Usage:    "L1 beacon RPC endpoint which will be sent to the Raiko service",
+	RaikoJWTPath = &cli.StringFlag{
+		Name:     "raiko.jwtPath",
+		Usage:    "Path to a JWT secret for the Raiko service",
 		Category: proverCategory,
-		EnvVars:  []string{"RAIKO_L1_BEACON"},
+		EnvVars:  []string{"RAIKO_JWT_PATH"},
 	}
-	RaikoL2Endpoint = &cli.StringFlag{
-		Name:     "raiko.l2",
-		Usage:    "L2 RPC endpoint which will be sent to the Raiko service",
-		Category: proverCategory,
-		EnvVars:  []string{"RAIKO_L2"},
+	RaikoRequestTimeout = &cli.DurationFlag{
+		Name:     "raiko.requestTimeout",
+		Usage:    "Timeout in minutes for raiko request",
+		Category: commonCategory,
+		Value:    10 * time.Minute,
+		EnvVars:  []string{"RAIKO_REQUEST_TIMEOUT"},
 	}
 	StartingBlockID = &cli.Uint64Flag{
 		Name:     "prover.startingBlockID",
@@ -87,25 +81,6 @@ var (
 		Category: proverCategory,
 		Value:    0,
 		EnvVars:  []string{"PROVER_MIN_TAIKO_TOKEN_BALANCE"},
-	}
-	// Tier fee related.
-	MinOptimisticTierFee = &cli.Uint64Flag{
-		Name:     "minTierFee.optimistic",
-		Usage:    "Minimum accepted fee for generating an optimistic proof",
-		Category: proverCategory,
-		EnvVars:  []string{"MIN_TIER_FEE_OPTIMISTIC"},
-	}
-	MinSgxTierFee = &cli.Uint64Flag{
-		Name:     "minTierFee.sgx",
-		Usage:    "Minimum accepted fee for generating a SGX proof",
-		Category: proverCategory,
-		EnvVars:  []string{"MIN_TIER_FEE_SGX"},
-	}
-	MinSgxAndZkVMTierFee = &cli.Uint64Flag{
-		Name:     "minTierFee.sgxAndZkvm",
-		Usage:    "Minimum accepted fee for generating a SGX + zkVM proof",
-		Category: proverCategory,
-		EnvVars:  []string{"MIN_TIER_FEE_SGX_AND_ZKVM"},
 	}
 	// Running mode
 	ContesterMode = &cli.BoolFlag{
@@ -156,7 +131,7 @@ var (
 	}
 	Allowance = &cli.Float64Flag{
 		Name:     "prover.allowance",
-		Usage:    "Amount without decimal to approve AssignmentHook contract for TaikoToken usage",
+		Usage:    "Amount without decimal to approve TaikoL1 contract for TaikoToken usage",
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_ALLOWANCE"},
 	}
@@ -218,18 +193,11 @@ var (
 
 // ProverFlags All prover flags.
 var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
-	L1HTTPEndpoint,
-	L1BeaconEndpoint,
 	L2WSEndpoint,
 	L2HTTPEndpoint,
 	RaikoHostEndpoint,
-	RaikoL1Endpoint,
-	RaikoL1BeaconEndpoint,
-	RaikoL2Endpoint,
+	RaikoJWTPath,
 	L1ProverPrivKey,
-	MinOptimisticTierFee,
-	MinSgxTierFee,
-	MinSgxAndZkVMTierFee,
 	MinEthBalance,
 	MinTaikoTokenBalance,
 	StartingBlockID,
@@ -247,9 +215,9 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	MaxProposedIn,
 	TaikoTokenAddress,
 	MaxAcceptableBlockSlippage,
-	AssignmentHookAddress,
 	Allowance,
 	L1NodeVersion,
 	L2NodeVersion,
 	BlockConfirmations,
+	RaikoRequestTimeout,
 }, TxmgrFlags)

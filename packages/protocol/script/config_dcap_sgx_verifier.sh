@@ -7,6 +7,9 @@ usage() {
     --eq file_path: config qe
     --mrenclave hex_string: config mrenclave
     --mrsigner hex_string: config mrsigner
+    --toggle-mr-check: toggle mrenclave/mrsigner check
+    --unset-mrenclave hex_string: disable mrenclave
+    --unset-mrsigner hex_string: disable mrsigner
     --quote string: register sgx instance with quote"
 to configure the dcap verifier contract.
 
@@ -49,6 +52,7 @@ config_qe=0
 set_mrenclave=0
 set_mrsigner=0
 verify_quote=0
+toggle_check=0
 
 # helper function for trimming the file path to vm root
 vm_file_path() {
@@ -73,6 +77,26 @@ while [[ $# -gt 0 ]]; do
             MR_SIGNER="$2"
             echo "Set MR_SIGNER: $MR_SIGNER"
             set_mrsigner=1
+            shift
+            shift
+            ;;
+        --unset-mrenclave)
+            MR_ENCLAVE="$2"
+            echo "Unset MR_ENCLAVE: $MR_ENCLAVE"
+            set_mrenclave=2
+            shift
+            shift
+            ;;
+        --unset-mrsigner)
+            MR_SIGNER="$2"
+            echo "Unset MR_SIGNER: $MR_SIGNER"
+            set_mrsigner=2
+            shift
+            shift
+            ;;
+        --toggle-mr-check)
+            echo "toggle mr check"
+            toggle_check=1
             shift
             shift
             ;;
@@ -109,7 +133,7 @@ if [ -z $FORK_URL ]; then
 fi
 
 # TASK_FLAG: [setMrEnclave,setMrSigner,configQE,configTCB,registerSgxInstanceWithQuote]
-TASK_ENABLE_MASK="$set_mrenclave,$set_mrsigner,$config_qe,$config_tcb,$verify_quote"
+TASK_ENABLE_MASK=$set_mrenclave,$set_mrsigner,$config_qe,$config_tcb,$toggle_check,$verify_quote
 
 # config the contract
 TASK_ENABLE=$TASK_ENABLE_MASK \
@@ -121,7 +145,9 @@ V3_QUOTE_BYTES=$V3_QUOTE_BYTES \
 forge script script/SetDcapParams.s.sol:SetDcapParams \
     --fork-url $FORK_URL \
     --broadcast \
+    --evm-version cancun \
     --ffi \
     -vvvv \
     --block-gas-limit 100000000 \
-    --private-key ${PRIVATE_KEY}
+    --private-key ${PRIVATE_KEY} \
+    --legacy

@@ -1,0 +1,42 @@
+name: UI Lib Build and Checks
+
+on: workflow_call
+
+jobs:
+  build:
+    runs-on: [taiko-runner]
+    steps:
+      - name: Cancel previous runs
+        uses: styfle/cancel-workflow-action@0.12.1
+        with:
+          access_token: ${{ github.token }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install pnpm dependencies
+        uses: ./.github/actions/install-pnpm-dependencies
+
+      - name: Svelte build
+        working-directory: ./packages/ui-lib
+        run: pnpm build
+
+      - name: Storybook build
+        working-directory: ./packages/ui-lib
+        run: pnpm build-storybook
+
+      - name: Svelte check
+        working-directory: ./packages/ui-lib
+        run: pnpm check
+
+      - name: Check formatting
+        working-directory: ./packages/ui-lib
+        run: pnpm lint
+
+      - name: Unit tests
+        env:
+          SKIP_ENV_VALIDATION: "true"
+        working-directory: ./packages/ui-lib
+        run: pnpm test:unit

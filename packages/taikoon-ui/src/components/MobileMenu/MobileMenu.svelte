@@ -7,8 +7,10 @@
   import { ThemeButton } from '$components/ThemeButton';
   import { classNames } from '$lib/util/classNames';
 
+  import type { IAddress } from '../../types';
+
   export let open = false;
-  export let address = zeroAddress;
+  export let address = zeroAddress as IAddress;
   export let isConnected = false;
 
   const wrapperClasses = classNames(
@@ -56,7 +58,7 @@
     <div class={buttonsWrapperClasses}>
       <ThemeButton size="lg" />
 
-      <div class="font-sans text-base text-content-tertiary">© 2024 Taiko Labs</div>
+      <div class="font-sans text-base text-content-tertiary pr-6">© 2024 Taiko Labs</div>
     </div>
   </div>
 {/if}

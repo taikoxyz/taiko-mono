@@ -46,6 +46,12 @@ var (
 		Category: driverCategory,
 		EnvVars:  []string{"BLOB_SERVER"},
 	}
+	SocialScanEndpoint = &cli.StringFlag{
+		Name:     "blob.socialScanEndpoint",
+		Usage:    "Social Scan's blob storage server",
+		Category: driverCategory,
+		EnvVars:  []string{"BLOB_SOCIAL_SCAN_ENDPOINT"},
+	}
 )
 
 // DriverFlags All driver flags.
@@ -59,4 +65,5 @@ var DriverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	CheckPointSyncURL,
 	MaxExponent,
 	BlobServerEndpoint,
+	SocialScanEndpoint,
 })

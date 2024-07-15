@@ -3,13 +3,11 @@ package rpc
 import (
 	"context"
 	"math/big"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/txpool"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
@@ -52,7 +50,7 @@ func CheckProverBalance(
 	address common.Address,
 	bond *big.Int,
 ) (bool, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	// Check allowance on taiko token contract
@@ -62,7 +60,7 @@ func CheckProverBalance(
 	}
 
 	log.Info(
-		"Prover allowance for TaikoL1 contract",
+		"Prover allowance for the contract",
 		"allowance", utils.WeiToEther(allowance),
 		"address", prover.Hex(),
 		"bond", utils.WeiToEther(bond),
@@ -114,26 +112,15 @@ func GetBlockProofStatus(
 	cli *Client,
 	id *big.Int,
 	proverAddress common.Address,
+	proverSetAddress common.Address,
 ) (*BlockProofStatus, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	// Get the local L2 parent header.
-	var (
-		parent *types.Header
-		err    error
-	)
-	if id.Cmp(common.Big1) == 0 {
-		header, err := cli.L2.HeaderByNumber(ctxWithTimeout, common.Big0)
-		if err != nil {
-			return nil, err
-		}
-
-		parent = header
-	} else {
-		if parent, err = cli.L2.HeaderByNumber(ctxWithTimeout, new(big.Int).Sub(id, common.Big1)); err != nil {
-			return nil, err
-		}
+	parent, err := cli.L2.HeaderByNumber(ctxWithTimeout, new(big.Int).Sub(id, common.Big1))
+	if err != nil {
+		return nil, err
 	}
 
 	// Get the transition state from TaikoL1 contract.
@@ -156,7 +143,8 @@ func GetBlockProofStatus(
 		return nil, err
 	}
 
-	if header.Hash() != transition.BlockHash || transition.StateRoot != header.Root {
+	if header.Hash() != transition.BlockHash ||
+		(transition.StateRoot != (common.Hash{}) && transition.StateRoot != header.Root) {
 		log.Info(
 			"Different block hash or state root detected, try submitting a contest",
 			"localBlockHash", header.Hash(),
@@ -172,7 +160,8 @@ func GetBlockProofStatus(
 		}, nil
 	}
 
-	if proverAddress == transition.Prover {
+	if proverAddress == transition.Prover ||
+		(proverSetAddress != ZeroAddress && transition.Prover == proverSetAddress) {
 		log.Info(
 			"📬 Block's proof has already been submitted by current prover",
 			"blockID", id,
@@ -209,115 +198,10 @@ func GetBlockProofStatus(
 	}, nil
 }
 
-type AccountPoolContent map[string]map[string]map[string]*types.Transaction
-type AccountPoolContentFrom map[string]map[string]*types.Transaction
-
-// Content GetPendingTxs fetches the pending transactions from tx pool.
-func Content(ctx context.Context, client *EthClient) (AccountPoolContent, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
-	defer cancel()
-
-	var result AccountPoolContent
-	return result, client.CallContext(ctxWithTimeout, &result, "txpool_content")
-}
-
-// ContentFrom fetches a given account's transactions list from a node's transactions pool.
-func ContentFrom(
-	ctx context.Context,
-	rawRPC *EthClient,
-	address common.Address,
-) (AccountPoolContentFrom, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
-	defer cancel()
-
-	var result AccountPoolContentFrom
-	return result, rawRPC.CallContext(
-		ctxWithTimeout,
-		&result,
-		"txpool_contentFrom",
-		address,
-	)
-}
-
-// IncreaseGasTipCap tries to increase the given transaction's gasTipCap.
-func IncreaseGasTipCap(
-	ctx context.Context,
-	cli *Client,
-	opts *bind.TransactOpts,
-	address common.Address,
-	txReplacementTipMultiplier *big.Int,
-	maxGasTipCap *big.Int,
-) (*bind.TransactOpts, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
-	defer cancel()
-
-	log.Info("Try replacing a transaction with same nonce", "sender", address, "nonce", opts.Nonce)
-
-	originalTx, err := GetPendingTxByNonce(ctxWithTimeout, cli.L1, address, opts.Nonce.Uint64())
-	if err != nil || originalTx == nil {
-		log.Warn(
-			"Original transaction not found",
-			"sender", address,
-			"nonce", opts.Nonce,
-			"error", err,
-		)
-
-		opts.GasTipCap = new(big.Int).Mul(opts.GasTipCap, txReplacementTipMultiplier)
-	} else {
-		log.Info(
-			"Original transaction to replace",
-			"sender", address,
-			"nonce", opts.Nonce,
-			"gasTipCap", originalTx.GasTipCap(),
-			"gasFeeCap", originalTx.GasFeeCap(),
-		)
-
-		opts.GasTipCap = new(big.Int).Mul(originalTx.GasTipCap(), txReplacementTipMultiplier)
-	}
-
-	if maxGasTipCap != nil && opts.GasTipCap.Cmp(maxGasTipCap) > 0 {
-		log.Info(
-			"New gasTipCap exceeds limit, keep waiting",
-			"multiplier", txReplacementTipMultiplier,
-			"newGasTipCap", opts.GasTipCap,
-			"maxTipCap", maxGasTipCap,
-		)
-		return nil, txpool.ErrReplaceUnderpriced
-	}
-
-	return opts, nil
-}
-
-// GetPendingTxByNonce tries to retrieve a pending transaction with a given nonce in a node's mempool.
-func GetPendingTxByNonce(
-	ctx context.Context,
-	cli *EthClient,
-	address common.Address,
-	nonce uint64,
-) (*types.Transaction, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
-	defer cancel()
-
-	content, err := ContentFrom(ctxWithTimeout, cli, address)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, txMap := range content {
-		for txNonce, tx := range txMap {
-			if txNonce == strconv.Itoa(int(nonce)) {
-				return tx, nil
-			}
-		}
-	}
-
-	return nil, nil
-}
-
 // SetHead makes a `debug_setHead` RPC call to set the chain's head, should only be used
 // for testing purpose.
 func SetHead(ctx context.Context, client *EthClient, headNum *big.Int) error {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	return client.SetHead(ctxWithTimeout, headNum)
@@ -331,10 +215,10 @@ func StringToBytes32(str string) [32]byte {
 	return b
 }
 
-// ctxWithTimeoutOrDefault sets a context timeout if the deadline has not passed or is not set,
+// CtxWithTimeoutOrDefault sets a context timeout if the deadline has not passed or is not set,
 // and otherwise returns the context as passed in. cancel func is always set to an empty function
 // so is safe to defer the cancel.
-func ctxWithTimeoutOrDefault(ctx context.Context, defaultTimeout time.Duration) (context.Context, context.CancelFunc) {
+func CtxWithTimeoutOrDefault(ctx context.Context, defaultTimeout time.Duration) (context.Context, context.CancelFunc) {
 	if utils.IsNil(ctx) {
 		return context.WithTimeout(context.Background(), defaultTimeout)
 	}

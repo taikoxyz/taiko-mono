@@ -10,7 +10,7 @@
         "internalType": "string"
       }
     ],
-    "stateMutability": "view"
+    "stateMutability": "pure"
   },
   {
     "type": "function",
@@ -114,44 +114,26 @@
   },
   {
     "type": "function",
-    "name": "balanceOfAt",
+    "name": "batchTransfer",
     "inputs": [
       {
-        "name": "account",
-        "type": "address",
-        "internalType": "address"
+        "name": "recipients",
+        "type": "address[]",
+        "internalType": "address[]"
       },
       {
-        "name": "snapshotId",
-        "type": "uint256",
-        "internalType": "uint256"
+        "name": "amounts",
+        "type": "uint256[]",
+        "internalType": "uint256[]"
       }
     ],
     "outputs": [
       {
         "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
+        "type": "bool",
+        "internalType": "bool"
       }
     ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "burn",
-    "inputs": [
-      {
-        "name": "_from",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "_amount",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
     "stateMutability": "nonpayable"
   },
   {
@@ -417,6 +399,32 @@
   },
   {
     "type": "function",
+    "name": "impl",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "inNonReentrant",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "increaseAllowance",
     "inputs": [
       {
@@ -449,22 +457,7 @@
         "internalType": "address"
       },
       {
-        "name": "_name",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "_symbol",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
         "name": "_recipient",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "_addressManager",
         "type": "address",
         "internalType": "address"
       }
@@ -700,19 +693,6 @@
   },
   {
     "type": "function",
-    "name": "snapshot",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "symbol",
     "inputs": [],
     "outputs": [
@@ -722,7 +702,7 @@
         "internalType": "string"
       }
     ],
-    "stateMutability": "view"
+    "stateMutability": "pure"
   },
   {
     "type": "function",
@@ -739,34 +719,15 @@
   },
   {
     "type": "function",
-    "name": "totalSupplyAt",
-    "inputs": [
-      {
-        "name": "snapshotId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "transfer",
     "inputs": [
       {
-        "name": "_to",
+        "name": "to",
         "type": "address",
         "internalType": "address"
       },
       {
-        "name": "_amount",
+        "name": "amount",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -785,17 +746,17 @@
     "name": "transferFrom",
     "inputs": [
       {
-        "name": "_from",
+        "name": "from",
         "type": "address",
         "internalType": "address"
       },
       {
-        "name": "_to",
+        "name": "to",
         "type": "address",
         "internalType": "address"
       },
       {
-        "name": "_amount",
+        "name": "amount",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -1039,19 +1000,6 @@
   },
   {
     "type": "event",
-    "name": "Snapshot",
-    "inputs": [
-      {
-        "name": "id",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
     "name": "Transfer",
     "inputs": [
       {
@@ -1103,6 +1051,11 @@
   },
   {
     "type": "error",
+    "name": "FUNC_NOT_IMPLEMENTED",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "INVALID_PAUSE_STATUS",
     "inputs": []
   },
@@ -1144,12 +1097,17 @@
   },
   {
     "type": "error",
-    "name": "TKO_INVALID_ADDR",
+    "name": "TT_INVALID_PARAM",
     "inputs": []
   },
   {
     "type": "error",
-    "name": "ZERO_ADDR_MANAGER",
+    "name": "ZERO_ADDRESS",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZERO_VALUE",
     "inputs": []
   }
 ]

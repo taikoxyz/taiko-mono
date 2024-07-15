@@ -40,7 +40,6 @@ contract BridgeTest is TaikoTest {
     SignalService signalService;
     SkipProofCheckSignal mockProofSignalService;
     UntrustedSendMessageRelayer untrustedSenderContract;
-    DelegateOwner delegateOwner;
 
     NonMaliciousContract1 nonmaliciousContract1;
     MaliciousContract2 maliciousContract2;
@@ -86,18 +85,6 @@ contract BridgeTest is TaikoTest {
         uint64 l1ChainId = uint64(block.chainid);
         vm.chainId(destChainId);
 
-        delegateOwner = DelegateOwner(
-            payable(
-                deployProxy({
-                    name: "delegate_owner",
-                    impl: address(new DelegateOwner()),
-                    data: abi.encodeCall(
-                        DelegateOwner.init, (mockDAO, address(addressManager), l1ChainId)
-                    )
-                })
-            )
-        );
-
         vm.chainId(l1ChainId);
 
         mockProofSignalService = SkipProofCheckSignal(
@@ -131,12 +118,6 @@ contract BridgeTest is TaikoTest {
         register(address(addressManager), "taiko", address(uint160(123)), destChainId);
 
         register(address(addressManager), "bridge_watchdog", address(uint160(123)), destChainId);
-
-        // Otherwise delegateOwner cannot do actions on them, on behalf of the DAO.
-        destChainBridge.transferOwnership(address(delegateOwner));
-        delegateOwner.acceptOwnership(address(destChainBridge));
-        mockProofSignalService.transferOwnership(address(delegateOwner));
-        delegateOwner.acceptOwnership(address(mockProofSignalService));
 
         vm.stopPrank();
     }
@@ -250,94 +231,6 @@ contract BridgeTest is TaikoTest {
         assertEq(Carol.balance, 500);
     }
 
-    function test_Bridge_pause_bridge_via_delegate_owner() public {
-        bytes memory pauseCall = abi.encodeCall(EssentialContract.pause, ());
-
-        IBridge.Message memory message = getDelegateOwnerMessage(
-            address(mockDAO),
-            abi.encodeCall(
-                DelegateOwner.onMessageInvocation,
-                abi.encode(0, address(destChainBridge), pauseCall)
-            )
-        );
-
-        // Mocking proof - but obviously it needs to be created in prod
-        // corresponding to the message
-        bytes memory proof = hex"00";
-
-        bytes32 msgHash = destChainBridge.hashMessage(message);
-
-        vm.chainId(destChainId);
-
-        vm.prank(Bob, Bob);
-        destChainBridge.processMessage(message, proof);
-
-        IBridge.Status status = destChainBridge.messageStatus(msgHash);
-        assertEq(status == IBridge.Status.DONE, true);
-
-        assertEq(destChainBridge.paused(), true);
-    }
-
-    function test_Bridge_authorize_signal_service_via_delegate_owner() public {
-        assertEq(mockProofSignalService.isAuthorized(Alice), false);
-
-        bytes memory authorizeCall = abi.encodeCall(SignalService.authorize, (Alice, true));
-
-        IBridge.Message memory message = getDelegateOwnerMessage(
-            address(mockDAO),
-            abi.encodeCall(
-                DelegateOwner.onMessageInvocation,
-                abi.encode(0, address(mockProofSignalService), authorizeCall)
-            )
-        );
-
-        // Mocking proof - but obviously it needs to be created in prod
-        // corresponding to the message
-        bytes memory proof = hex"00";
-
-        bytes32 msgHash = destChainBridge.hashMessage(message);
-
-        vm.chainId(destChainId);
-
-        vm.prank(Bob, Bob);
-        destChainBridge.processMessage(message, proof);
-
-        //Status is DONE, proper call
-        IBridge.Status status = destChainBridge.messageStatus(msgHash);
-        assertEq(status == IBridge.Status.DONE, true);
-
-        assertEq(mockProofSignalService.isAuthorized(Alice), true);
-    }
-
-    function test_Bridge_upgrade_delegate_owner() public {
-        // Needs a compatible impl. contract
-        address newDelegateOwnerImp = address(new DelegateOwner());
-        bytes memory upgradeCall = abi.encodeCall(UUPSUpgradeable.upgradeTo, (newDelegateOwnerImp));
-
-        IBridge.Message memory message = getDelegateOwnerMessage(
-            address(mockDAO),
-            abi.encodeCall(
-                DelegateOwner.onMessageInvocation,
-                abi.encode(0, address(delegateOwner), upgradeCall)
-            )
-        );
-
-        // Mocking proof - but obviously it needs to be created in prod
-        // corresponding to the message
-        bytes memory proof = hex"00";
-
-        bytes32 msgHash = destChainBridge.hashMessage(message);
-
-        vm.chainId(destChainId);
-
-        vm.prank(Bob, Bob);
-        destChainBridge.processMessage(message, proof);
-
-        //Status is DONE,means a proper call
-        IBridge.Status status = destChainBridge.messageStatus(msgHash);
-        assertEq(status == IBridge.Status.DONE, true);
-    }
-
     function test_Bridge_send_message_ether_reverts_if_value_doesnt_match_expected() public {
         // uint256 amount = 1 wei;
         IBridge.Message memory message = newMessage({
@@ -364,7 +257,7 @@ contract BridgeTest is TaikoTest {
             destChain: destChainId
         });
 
-        vm.expectRevert(Bridge.B_INVALID_USER.selector);
+        vm.expectRevert(EssentialContract.ZERO_ADDRESS.selector);
         bridge.sendMessage{ value: amount }(message);
     }
 
@@ -725,30 +618,6 @@ contract BridgeTest is TaikoTest {
             srcChainId: uint64(block.chainid), // will be overwritten
             gasLimit: gasLimit,
             data: ""
-        });
-    }
-
-    function getDelegateOwnerMessage(
-        address from,
-        bytes memory encodedCall
-    )
-        internal
-        view
-        returns (IBridge.Message memory message)
-    {
-        message = IBridge.Message({
-            id: 0,
-            from: from,
-            srcChainId: uint64(block.chainid),
-            destChainId: destChainId,
-            srcOwner: Alice, //Does not matter who is the src/dest owner actually - except if we
-                // want to send ether
-            destOwner: Alice,
-            to: address(delegateOwner),
-            value: 0,
-            fee: 0,
-            gasLimit: 1_000_000,
-            data: encodedCall
         });
     }
 }

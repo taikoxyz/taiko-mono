@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { HealthCheck } from '$lib/types';
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import HealthCheckRow from './HealthCheckRow.svelte';
 	import { t } from 'svelte-i18n';
 	import Paginator from '$components/Paginator/Paginator.svelte';
@@ -21,16 +21,14 @@
 
 	export let selectedGuardianProver = null;
 
+	let healthCheckInterval;
+
 	const startFetching = async () => {
 		await fetchHealthChecks();
 
-		const healthCheckInterval = setInterval(() => {
+		healthCheckInterval = setInterval(() => {
 			fetchHealthChecks();
-		}, 1200);
-
-		return () => {
-			clearInterval(healthCheckInterval);
-		};
+		}, 12000);
 	};
 
 	const fetchHealthChecks = async () => {
@@ -38,10 +36,11 @@
 			import.meta.env.VITE_GUARDIAN_PROVER_API_URL,
 			nextHealthCheckPage,
 			pageSize,
-			selectedGuardianProver?.id
+			selectedGuardianProver?.address
 		);
 		healthChecks = data.items;
 		totalItems = data.total;
+		filteredHealthChecks = healthChecks;
 	};
 
 	onMount(async () => {
@@ -51,12 +50,16 @@
 		await startFetching();
 	});
 
+	onDestroy(() => {
+		clearInterval(healthCheckInterval);
+	});
+
 	const handlePageChange = async (selectedPage: number) => {
 		const data = await fetchGuardianProverHealthChecksFromApi(
 			import.meta.env.VITE_GUARDIAN_PROVER_API_URL,
 			selectedPage,
 			pageSize,
-			selectedGuardianProver?.id
+			selectedGuardianProver?.address
 		);
 		healthChecks = data.items;
 	};

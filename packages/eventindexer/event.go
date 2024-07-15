@@ -118,4 +118,6 @@ type EventRepository interface {
 	FindLatestBlockID(
 		srcChainID uint64,
 	) (uint64, error)
+	GetBlockProvenBy(ctx context.Context, blockID int) ([]*Event, error)
+	GetBlockProposedBy(ctx context.Context, blockID int) (*Event, error)
 }

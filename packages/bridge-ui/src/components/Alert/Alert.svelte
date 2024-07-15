@@ -23,7 +23,7 @@
       iconFillClass: 'fill-warning-content',
     },
     error: {
-      alertClass: 'alert-danger',
+      alertClass: 'alert-error',
       iconType: 'x-close-circle',
       iconFillClass: 'fill-error-content',
     },

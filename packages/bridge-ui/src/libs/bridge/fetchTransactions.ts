@@ -46,7 +46,7 @@ export async function fetchTransactions(userAddress: Address) {
   if (outdatedLocalTransactions.length > 0) {
     log(
       `found ${outdatedLocalTransactions.length} outdated transaction(s)`,
-      outdatedLocalTransactions.map((tx) => tx.hash),
+      outdatedLocalTransactions.map((tx) => tx.srcTxHash),
     );
   }
 

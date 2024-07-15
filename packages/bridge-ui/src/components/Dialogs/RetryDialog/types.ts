@@ -1,10 +1,11 @@
 export const enum RetrySteps {
+  CHECK,
   SELECT,
   REVIEW,
   CONFIRM,
 }
 
-export const INITIAL_STEP = RetrySteps.SELECT;
+export const INITIAL_STEP = RetrySteps.CHECK;
 
 export const enum RetryStatus {
   PENDING,

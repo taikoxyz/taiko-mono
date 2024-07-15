@@ -44,6 +44,7 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 	builder := transaction.NewProveBlockTxBuilder(
 		s.RPCClient,
 		common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
+		common.Address{},
 		common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT_ADDRESS")),
 		common.HexToAddress(os.Getenv("GUARDIAN_PROVER_MINORITY_ADDRESS")),
 	)
@@ -73,21 +74,29 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 	)
 	s.Nil(err)
 
+	// Protocol proof tiers
+	tiers, err := s.RPCClient.GetTiers(context.Background())
+	s.Nil(err)
 	s.submitter, err = NewProofSubmitter(
 		s.RPCClient,
 		&producer.OptimisticProofProducer{},
 		s.proofCh,
+		rpc.ZeroAddress,
 		common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
 		"test",
 		0,
 		txMgr,
 		builder,
+		tiers,
+		false,
+		0*time.Second,
 	)
 	s.Nil(err)
 	s.contester = NewProofContester(
 		s.RPCClient,
 		0,
 		txMgr,
+		rpc.ZeroAddress,
 		"test",
 		builder,
 	)
@@ -106,6 +115,7 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 		tracker,
 		0,
 		nil,
+		nil,
 	)
 	s.Nil(err)
 
@@ -122,22 +132,27 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 			TaikoL2Address:    common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
 			TaikoTokenAddress: common.HexToAddress(os.Getenv("TAIKO_TOKEN_ADDRESS")),
 		},
-		AssignmentHookAddress:      common.HexToAddress(os.Getenv("ASSIGNMENT_HOOK_ADDRESS")),
 		L1ProposerPrivKey:          l1ProposerPrivKey,
 		L2SuggestedFeeRecipient:    common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
 		ProposeInterval:            1024 * time.Hour,
 		MaxProposedTxListsPerEpoch: 1,
-		ProverEndpoints:            s.ProverEndpoints,
-		OptimisticTierFee:          common.Big256,
-		SgxTierFee:                 common.Big256,
-		MaxTierFeePriceBumps:       3,
-		TierFeePriceBump:           common.Big2,
-		L1BlockBuilderTip:          common.Big0,
-		TxmgrConfigs: &txmgr.CLIConfig{
+	}, txMgr))
+
+	s.proposer = prop
+}
+
+func (s *ProofSubmitterTestSuite) TestGetRandomBumpedSubmissionDelay() {
+	l1ProverPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROVER_PRIVATE_KEY")))
+	s.Nil(err)
+	txMgr, err := txmgr.NewSimpleTxManager(
+		"proofSubmitterTestSuite",
+		log.Root(),
+		new(metrics.NoopTxMetrics),
+		txmgr.CLIConfig{
 			L1RPCURL:                  os.Getenv("L1_NODE_WS_ENDPOINT"),
 			NumConfirmations:          0,
 			SafeAbortNonceTooLowCount: txmgr.DefaultBatcherFlagValues.SafeAbortNonceTooLowCount,
-			PrivateKey:                common.Bytes2Hex(crypto.FromECDSA(l1ProposerPrivKey)),
+			PrivateKey:                common.Bytes2Hex(crypto.FromECDSA(l1ProverPrivKey)),
 			FeeLimitMultiplier:        txmgr.DefaultBatcherFlagValues.FeeLimitMultiplier,
 			FeeLimitThresholdGwei:     txmgr.DefaultBatcherFlagValues.FeeLimitThresholdGwei,
 			MinBaseFeeGwei:            txmgr.DefaultBatcherFlagValues.MinBaseFeeGwei,
@@ -148,9 +163,52 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 			TxSendTimeout:             txmgr.DefaultBatcherFlagValues.TxSendTimeout,
 			TxNotInMempoolTimeout:     txmgr.DefaultBatcherFlagValues.TxNotInMempoolTimeout,
 		},
-	}))
+	)
+	s.Nil(err)
 
-	s.proposer = prop
+	submitter1, err := NewProofSubmitter(
+		s.RPCClient,
+		&producer.OptimisticProofProducer{},
+		s.proofCh,
+		common.Address{},
+		common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
+		"test",
+		0,
+		txMgr,
+		s.submitter.txBuilder,
+		s.submitter.tiers,
+		false,
+		time.Duration(0),
+	)
+	s.Nil(err)
+
+	delay, err := submitter1.getRandomBumpedSubmissionDelay(time.Now())
+	s.Nil(err)
+	s.Zero(delay)
+
+	submitter2, err := NewProofSubmitter(
+		s.RPCClient,
+		&producer.OptimisticProofProducer{},
+		s.proofCh,
+		common.Address{},
+		common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
+		"test",
+		0,
+		txMgr,
+		s.submitter.txBuilder,
+		s.submitter.tiers,
+		false,
+		1*time.Hour,
+	)
+	s.Nil(err)
+	delay, err = submitter2.getRandomBumpedSubmissionDelay(time.Now())
+	s.Nil(err)
+	s.NotZero(delay)
+	s.Greater(delay.Seconds(), 1*time.Hour.Seconds())
+	s.Less(
+		delay.Seconds(),
+		time.Hour.Seconds()*(1+(submissionDelayRandomBumpRange/100)),
+	)
 }
 
 func (s *ProofSubmitterTestSuite) TestProofSubmitterRequestProofDeadlineExceeded() {

@@ -1,7 +1,7 @@
 {
   "swagger": "2.0",
   "info": {
-    "title": "Taiko Relayer API",
+    "title": "Taiko Bridge Relayer API",
     "termsOfService": "http://swagger.io/terms/",
     "contact": {
       "name": "API Support",
@@ -9,11 +9,12 @@
       "email": "info@taiko.xyz"
     },
     "license": {
-      "name": "MIT"
+      "name": "MIT",
+      "url": "https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md"
     },
     "version": "1.0"
   },
-  "host": "relayer.katla.taiko.xyz",
+  "host": "relayer.hekla.taiko.xyz",
   "paths": {
     "/blockInfo": {
       "get": {
@@ -110,6 +111,12 @@
     "paginate.Page": {
       "type": "object",
       "properties": {
+        "error": {
+          "type": "boolean"
+        },
+        "error_message": {
+          "type": "string"
+        },
         "first": {
           "type": "boolean"
         },

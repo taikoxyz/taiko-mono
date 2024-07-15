@@ -15,10 +15,7 @@ type headSubscriber interface {
 
 func ScanBlocks(ctx context.Context, ethClient headSubscriber, wg *sync.WaitGroup) error {
 	wg.Add(1)
-
-	defer func() {
-		wg.Done()
-	}()
+	defer wg.Done()
 
 	headers := make(chan *types.Header)
 

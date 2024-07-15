@@ -29,26 +29,9 @@ var (
 	_ = abi.ConvertType
 )
 
-// IVerifierContext is an auto generated low-level Go binding around an user-defined struct.
-type IVerifierContext struct {
-	MetaHash     [32]byte
-	BlobHash     [32]byte
-	Prover       common.Address
-	BlockId      uint64
-	IsContesting bool
-	BlobUsed     bool
-	MsgSender    common.Address
-}
-
-// TaikoDataTierProof is an auto generated low-level Go binding around an user-defined struct.
-type TaikoDataTierProof struct {
-	Tier uint16
-	Data []byte
-}
-
 // GuardianProverMetaData contains all meta data concerning the GuardianProver contract.
 var GuardianProverMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addressManager\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"approve\",\"inputs\":[{\"name\":\"_meta\",\"type\":\"tuple\",\"internalType\":\"structTaikoData.BlockMetadata\",\"components\":[{\"name\":\"l1Hash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"difficulty\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blobHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"extraData\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"depositsHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"coinbase\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"id\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"gasLimit\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"timestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"l1Height\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"minTier\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"blobUsed\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"parentMetaHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"sender\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"_tran\",\"type\":\"tuple\",\"internalType\":\"structTaikoData.Transition\",\"components\":[{\"name\":\"parentHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"graffiti\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"_proof\",\"type\":\"tuple\",\"internalType\":\"structTaikoData.TierProof\",\"components\":[{\"name\":\"tier\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]}],\"outputs\":[{\"name\":\"approved_\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"enableTaikoTokenAllowance\",\"inputs\":[{\"name\":\"_enable\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"guardianIds\",\"inputs\":[{\"name\":\"guardian\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"id\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"guardians\",\"inputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"inNonReentrant\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"init\",\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_addressManager\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"isApproved\",\"inputs\":[{\"name\":\"_hash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"lastUnpausedAt\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"minGuardians\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint32\",\"internalType\":\"uint32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"numGuardians\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"resolve\",\"inputs\":[{\"name\":\"_chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_allowZeroAddress\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"addresspayable\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"resolve\",\"inputs\":[{\"name\":\"_name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_allowZeroAddress\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"addresspayable\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"setGuardians\",\"inputs\":[{\"name\":\"_newGuardians\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"_minGuardians\",\"type\":\"uint8\",\"internalType\":\"uint8\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeTo\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"verifyProof\",\"inputs\":[{\"name\":\"_ctx\",\"type\":\"tuple\",\"internalType\":\"structIVerifier.Context\",\"components\":[{\"name\":\"metaHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blobHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"prover\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"blockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"isContesting\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"blobUsed\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"msgSender\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structTaikoData.Transition\",\"components\":[{\"name\":\"parentHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"graffiti\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structTaikoData.TierProof\",\"components\":[{\"name\":\"tier\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]}],\"outputs\":[],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"version\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint32\",\"internalType\":\"uint32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"withdrawTaikoToken\",\"inputs\":[{\"name\":\"_to\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"AdminChanged\",\"inputs\":[{\"name\":\"previousAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"newAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Approved\",\"inputs\":[{\"name\":\"operationId\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"approvalBits\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"minGuardiansReached\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BeaconUpgraded\",\"inputs\":[{\"name\":\"beacon\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"GuardianApproval\",\"inputs\":[{\"name\":\"addr\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"blockId\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"approved\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"},{\"name\":\"proofData\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"GuardiansUpdated\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint32\",\"indexed\":false,\"internalType\":\"uint32\"},{\"name\":\"guardians\",\"type\":\"address[]\",\"indexed\":false,\"internalType\":\"address[]\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"FUNC_NOT_IMPLEMENTED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"GV_PERMISSION_DENIED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"GV_ZERO_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_GUARDIAN\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_GUARDIAN_SET\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_MIN_GUARDIANS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_PAUSE_STATUS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_PROOF\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"REENTRANT_CALL\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_DENIED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_INVALID_MANAGER\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_UNEXPECTED_CHAINID\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_ZERO_ADDR\",\"inputs\":[{\"name\":\"chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"ZERO_ADDR_MANAGER\",\"inputs\":[]}]",
+	ABI: "[{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addressManager\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"approvals\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"proofHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"approvalBits\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"approve\",\"inputs\":[{\"name\":\"_meta\",\"type\":\"tuple\",\"internalType\":\"structTaikoData.BlockMetadata\",\"components\":[{\"name\":\"l1Hash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"difficulty\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blobHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"extraData\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"depositsHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"coinbase\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"id\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"gasLimit\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"timestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"l1Height\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"minTier\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"blobUsed\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"parentMetaHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"sender\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"_tran\",\"type\":\"tuple\",\"internalType\":\"structTaikoData.Transition\",\"components\":[{\"name\":\"parentHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"graffiti\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"_proof\",\"type\":\"tuple\",\"internalType\":\"structTaikoData.TierProof\",\"components\":[{\"name\":\"tier\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]}],\"outputs\":[{\"name\":\"approved_\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"enableProvingAutoPause\",\"inputs\":[{\"name\":\"_enable\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"enableTaikoTokenAllowance\",\"inputs\":[{\"name\":\"_enable\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"guardianIds\",\"inputs\":[{\"name\":\"guardian\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"id\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"guardians\",\"inputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"impl\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"inNonReentrant\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"init\",\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_addressManager\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"lastUnpausedAt\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"latestProofHash\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"blockId\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"hash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"minGuardians\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint32\",\"internalType\":\"uint32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"numGuardians\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"pauseTaikoProving\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"provingAutoPauseEnabled\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"resolve\",\"inputs\":[{\"name\":\"_chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"_name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_allowZeroAddress\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"addresspayable\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"resolve\",\"inputs\":[{\"name\":\"_name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"_allowZeroAddress\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"addresspayable\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"setGuardians\",\"inputs\":[{\"name\":\"_newGuardians\",\"type\":\"address[]\",\"internalType\":\"address[]\"},{\"name\":\"_minGuardians\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"_clearData\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeTo\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"verifyProof\",\"inputs\":[{\"name\":\"_ctx\",\"type\":\"tuple\",\"internalType\":\"structIVerifier.Context\",\"components\":[{\"name\":\"metaHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blobHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"prover\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"blockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"isContesting\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"blobUsed\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"msgSender\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structTaikoData.Transition\",\"components\":[{\"name\":\"parentHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"graffiti\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structTaikoData.TierProof\",\"components\":[{\"name\":\"tier\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}]}],\"outputs\":[],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"version\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint32\",\"internalType\":\"uint32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"withdrawTaikoToken\",\"inputs\":[{\"name\":\"_to\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_amount\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"AdminChanged\",\"inputs\":[{\"name\":\"previousAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"newAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Approved\",\"inputs\":[{\"name\":\"operationId\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"approvalBits\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"},{\"name\":\"minGuardiansReached\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BeaconUpgraded\",\"inputs\":[{\"name\":\"beacon\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ConflictingProofs\",\"inputs\":[{\"name\":\"blockId\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"guardian\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"currentProofHash\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"newProofHash\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"provingPaused\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"GuardianApproval\",\"inputs\":[{\"name\":\"addr\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"blockId\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"approved\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"},{\"name\":\"proofData\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"GuardiansUpdated\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint32\",\"indexed\":false,\"internalType\":\"uint32\"},{\"name\":\"guardians\",\"type\":\"address[]\",\"indexed\":false,\"internalType\":\"address[]\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ProvingAutoPauseEnabled\",\"inputs\":[{\"name\":\"enabled\",\"type\":\"bool\",\"indexed\":true,\"internalType\":\"bool\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"FUNC_NOT_IMPLEMENTED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"GP_INVALID_GUARDIAN\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"GP_INVALID_GUARDIAN_SET\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"GP_INVALID_MIN_GUARDIANS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"GP_INVALID_STATUS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"GV_PERMISSION_DENIED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"GV_ZERO_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_PAUSE_STATUS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"REENTRANT_CALL\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_DENIED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_INVALID_MANAGER\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_UNEXPECTED_CHAINID\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_ZERO_ADDR\",\"inputs\":[{\"name\":\"chainId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"name\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"type\":\"error\",\"name\":\"ZERO_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_VALUE\",\"inputs\":[]}]",
 }
 
 // GuardianProverABI is the input ABI used to generate the binding from.
@@ -228,6 +211,37 @@ func (_GuardianProver *GuardianProverCallerSession) AddressManager() (common.Add
 	return _GuardianProver.Contract.AddressManager(&_GuardianProver.CallOpts)
 }
 
+// Approvals is a free data retrieval call binding the contract method 0x81e395f5.
+//
+// Solidity: function approvals(uint256 version, bytes32 proofHash) view returns(uint256 approvalBits)
+func (_GuardianProver *GuardianProverCaller) Approvals(opts *bind.CallOpts, version *big.Int, proofHash [32]byte) (*big.Int, error) {
+	var out []interface{}
+	err := _GuardianProver.contract.Call(opts, &out, "approvals", version, proofHash)
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// Approvals is a free data retrieval call binding the contract method 0x81e395f5.
+//
+// Solidity: function approvals(uint256 version, bytes32 proofHash) view returns(uint256 approvalBits)
+func (_GuardianProver *GuardianProverSession) Approvals(version *big.Int, proofHash [32]byte) (*big.Int, error) {
+	return _GuardianProver.Contract.Approvals(&_GuardianProver.CallOpts, version, proofHash)
+}
+
+// Approvals is a free data retrieval call binding the contract method 0x81e395f5.
+//
+// Solidity: function approvals(uint256 version, bytes32 proofHash) view returns(uint256 approvalBits)
+func (_GuardianProver *GuardianProverCallerSession) Approvals(version *big.Int, proofHash [32]byte) (*big.Int, error) {
+	return _GuardianProver.Contract.Approvals(&_GuardianProver.CallOpts, version, proofHash)
+}
+
 // GuardianIds is a free data retrieval call binding the contract method 0xb6158373.
 //
 // Solidity: function guardianIds(address guardian) view returns(uint256 id)
@@ -290,6 +304,37 @@ func (_GuardianProver *GuardianProverCallerSession) Guardians(arg0 *big.Int) (co
 	return _GuardianProver.Contract.Guardians(&_GuardianProver.CallOpts, arg0)
 }
 
+// Impl is a free data retrieval call binding the contract method 0x8abf6077.
+//
+// Solidity: function impl() view returns(address)
+func (_GuardianProver *GuardianProverCaller) Impl(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _GuardianProver.contract.Call(opts, &out, "impl")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// Impl is a free data retrieval call binding the contract method 0x8abf6077.
+//
+// Solidity: function impl() view returns(address)
+func (_GuardianProver *GuardianProverSession) Impl() (common.Address, error) {
+	return _GuardianProver.Contract.Impl(&_GuardianProver.CallOpts)
+}
+
+// Impl is a free data retrieval call binding the contract method 0x8abf6077.
+//
+// Solidity: function impl() view returns(address)
+func (_GuardianProver *GuardianProverCallerSession) Impl() (common.Address, error) {
+	return _GuardianProver.Contract.Impl(&_GuardianProver.CallOpts)
+}
+
 // InNonReentrant is a free data retrieval call binding the contract method 0x3075db56.
 //
 // Solidity: function inNonReentrant() view returns(bool)
@@ -321,37 +366,6 @@ func (_GuardianProver *GuardianProverCallerSession) InNonReentrant() (bool, erro
 	return _GuardianProver.Contract.InNonReentrant(&_GuardianProver.CallOpts)
 }
 
-// IsApproved is a free data retrieval call binding the contract method 0x48aefc32.
-//
-// Solidity: function isApproved(bytes32 _hash) view returns(bool)
-func (_GuardianProver *GuardianProverCaller) IsApproved(opts *bind.CallOpts, _hash [32]byte) (bool, error) {
-	var out []interface{}
-	err := _GuardianProver.contract.Call(opts, &out, "isApproved", _hash)
-
-	if err != nil {
-		return *new(bool), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
-
-	return out0, err
-
-}
-
-// IsApproved is a free data retrieval call binding the contract method 0x48aefc32.
-//
-// Solidity: function isApproved(bytes32 _hash) view returns(bool)
-func (_GuardianProver *GuardianProverSession) IsApproved(_hash [32]byte) (bool, error) {
-	return _GuardianProver.Contract.IsApproved(&_GuardianProver.CallOpts, _hash)
-}
-
-// IsApproved is a free data retrieval call binding the contract method 0x48aefc32.
-//
-// Solidity: function isApproved(bytes32 _hash) view returns(bool)
-func (_GuardianProver *GuardianProverCallerSession) IsApproved(_hash [32]byte) (bool, error) {
-	return _GuardianProver.Contract.IsApproved(&_GuardianProver.CallOpts, _hash)
-}
-
 // LastUnpausedAt is a free data retrieval call binding the contract method 0xe07baba6.
 //
 // Solidity: function lastUnpausedAt() view returns(uint64)
@@ -381,6 +395,37 @@ func (_GuardianProver *GuardianProverSession) LastUnpausedAt() (uint64, error) {
 // Solidity: function lastUnpausedAt() view returns(uint64)
 func (_GuardianProver *GuardianProverCallerSession) LastUnpausedAt() (uint64, error) {
 	return _GuardianProver.Contract.LastUnpausedAt(&_GuardianProver.CallOpts)
+}
+
+// LatestProofHash is a free data retrieval call binding the contract method 0x56a10f42.
+//
+// Solidity: function latestProofHash(uint256 version, uint256 blockId) view returns(bytes32 hash)
+func (_GuardianProver *GuardianProverCaller) LatestProofHash(opts *bind.CallOpts, version *big.Int, blockId *big.Int) ([32]byte, error) {
+	var out []interface{}
+	err := _GuardianProver.contract.Call(opts, &out, "latestProofHash", version, blockId)
+
+	if err != nil {
+		return *new([32]byte), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+
+	return out0, err
+
+}
+
+// LatestProofHash is a free data retrieval call binding the contract method 0x56a10f42.
+//
+// Solidity: function latestProofHash(uint256 version, uint256 blockId) view returns(bytes32 hash)
+func (_GuardianProver *GuardianProverSession) LatestProofHash(version *big.Int, blockId *big.Int) ([32]byte, error) {
+	return _GuardianProver.Contract.LatestProofHash(&_GuardianProver.CallOpts, version, blockId)
+}
+
+// LatestProofHash is a free data retrieval call binding the contract method 0x56a10f42.
+//
+// Solidity: function latestProofHash(uint256 version, uint256 blockId) view returns(bytes32 hash)
+func (_GuardianProver *GuardianProverCallerSession) LatestProofHash(version *big.Int, blockId *big.Int) ([32]byte, error) {
+	return _GuardianProver.Contract.LatestProofHash(&_GuardianProver.CallOpts, version, blockId)
 }
 
 // MinGuardians is a free data retrieval call binding the contract method 0x2d6f5ca7.
@@ -536,6 +581,37 @@ func (_GuardianProver *GuardianProverSession) PendingOwner() (common.Address, er
 // Solidity: function pendingOwner() view returns(address)
 func (_GuardianProver *GuardianProverCallerSession) PendingOwner() (common.Address, error) {
 	return _GuardianProver.Contract.PendingOwner(&_GuardianProver.CallOpts)
+}
+
+// ProvingAutoPauseEnabled is a free data retrieval call binding the contract method 0xa7c15ab7.
+//
+// Solidity: function provingAutoPauseEnabled() view returns(bool)
+func (_GuardianProver *GuardianProverCaller) ProvingAutoPauseEnabled(opts *bind.CallOpts) (bool, error) {
+	var out []interface{}
+	err := _GuardianProver.contract.Call(opts, &out, "provingAutoPauseEnabled")
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
+}
+
+// ProvingAutoPauseEnabled is a free data retrieval call binding the contract method 0xa7c15ab7.
+//
+// Solidity: function provingAutoPauseEnabled() view returns(bool)
+func (_GuardianProver *GuardianProverSession) ProvingAutoPauseEnabled() (bool, error) {
+	return _GuardianProver.Contract.ProvingAutoPauseEnabled(&_GuardianProver.CallOpts)
+}
+
+// ProvingAutoPauseEnabled is a free data retrieval call binding the contract method 0xa7c15ab7.
+//
+// Solidity: function provingAutoPauseEnabled() view returns(bool)
+func (_GuardianProver *GuardianProverCallerSession) ProvingAutoPauseEnabled() (bool, error) {
+	return _GuardianProver.Contract.ProvingAutoPauseEnabled(&_GuardianProver.CallOpts)
 }
 
 // ProxiableUUID is a free data retrieval call binding the contract method 0x52d1902d.
@@ -733,6 +809,27 @@ func (_GuardianProver *GuardianProverTransactorSession) Approve(_meta TaikoDataB
 	return _GuardianProver.Contract.Approve(&_GuardianProver.TransactOpts, _meta, _tran, _proof)
 }
 
+// EnableProvingAutoPause is a paid mutator transaction binding the contract method 0xe93640db.
+//
+// Solidity: function enableProvingAutoPause(bool _enable) returns()
+func (_GuardianProver *GuardianProverTransactor) EnableProvingAutoPause(opts *bind.TransactOpts, _enable bool) (*types.Transaction, error) {
+	return _GuardianProver.contract.Transact(opts, "enableProvingAutoPause", _enable)
+}
+
+// EnableProvingAutoPause is a paid mutator transaction binding the contract method 0xe93640db.
+//
+// Solidity: function enableProvingAutoPause(bool _enable) returns()
+func (_GuardianProver *GuardianProverSession) EnableProvingAutoPause(_enable bool) (*types.Transaction, error) {
+	return _GuardianProver.Contract.EnableProvingAutoPause(&_GuardianProver.TransactOpts, _enable)
+}
+
+// EnableProvingAutoPause is a paid mutator transaction binding the contract method 0xe93640db.
+//
+// Solidity: function enableProvingAutoPause(bool _enable) returns()
+func (_GuardianProver *GuardianProverTransactorSession) EnableProvingAutoPause(_enable bool) (*types.Transaction, error) {
+	return _GuardianProver.Contract.EnableProvingAutoPause(&_GuardianProver.TransactOpts, _enable)
+}
+
 // EnableTaikoTokenAllowance is a paid mutator transaction binding the contract method 0x8e1bacd7.
 //
 // Solidity: function enableTaikoTokenAllowance(bool _enable) returns()
@@ -796,6 +893,27 @@ func (_GuardianProver *GuardianProverTransactorSession) Pause() (*types.Transact
 	return _GuardianProver.Contract.Pause(&_GuardianProver.TransactOpts)
 }
 
+// PauseTaikoProving is a paid mutator transaction binding the contract method 0x7fa8a7d7.
+//
+// Solidity: function pauseTaikoProving() returns()
+func (_GuardianProver *GuardianProverTransactor) PauseTaikoProving(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _GuardianProver.contract.Transact(opts, "pauseTaikoProving")
+}
+
+// PauseTaikoProving is a paid mutator transaction binding the contract method 0x7fa8a7d7.
+//
+// Solidity: function pauseTaikoProving() returns()
+func (_GuardianProver *GuardianProverSession) PauseTaikoProving() (*types.Transaction, error) {
+	return _GuardianProver.Contract.PauseTaikoProving(&_GuardianProver.TransactOpts)
+}
+
+// PauseTaikoProving is a paid mutator transaction binding the contract method 0x7fa8a7d7.
+//
+// Solidity: function pauseTaikoProving() returns()
+func (_GuardianProver *GuardianProverTransactorSession) PauseTaikoProving() (*types.Transaction, error) {
+	return _GuardianProver.Contract.PauseTaikoProving(&_GuardianProver.TransactOpts)
+}
+
 // RenounceOwnership is a paid mutator transaction binding the contract method 0x715018a6.
 //
 // Solidity: function renounceOwnership() returns()
@@ -817,25 +935,25 @@ func (_GuardianProver *GuardianProverTransactorSession) RenounceOwnership() (*ty
 	return _GuardianProver.Contract.RenounceOwnership(&_GuardianProver.TransactOpts)
 }
 
-// SetGuardians is a paid mutator transaction binding the contract method 0xe94e9e99.
+// SetGuardians is a paid mutator transaction binding the contract method 0xc5a64e93.
 //
-// Solidity: function setGuardians(address[] _newGuardians, uint8 _minGuardians) returns()
-func (_GuardianProver *GuardianProverTransactor) SetGuardians(opts *bind.TransactOpts, _newGuardians []common.Address, _minGuardians uint8) (*types.Transaction, error) {
-	return _GuardianProver.contract.Transact(opts, "setGuardians", _newGuardians, _minGuardians)
+// Solidity: function setGuardians(address[] _newGuardians, uint8 _minGuardians, bool _clearData) returns()
+func (_GuardianProver *GuardianProverTransactor) SetGuardians(opts *bind.TransactOpts, _newGuardians []common.Address, _minGuardians uint8, _clearData bool) (*types.Transaction, error) {
+	return _GuardianProver.contract.Transact(opts, "setGuardians", _newGuardians, _minGuardians, _clearData)
 }
 
-// SetGuardians is a paid mutator transaction binding the contract method 0xe94e9e99.
+// SetGuardians is a paid mutator transaction binding the contract method 0xc5a64e93.
 //
-// Solidity: function setGuardians(address[] _newGuardians, uint8 _minGuardians) returns()
-func (_GuardianProver *GuardianProverSession) SetGuardians(_newGuardians []common.Address, _minGuardians uint8) (*types.Transaction, error) {
-	return _GuardianProver.Contract.SetGuardians(&_GuardianProver.TransactOpts, _newGuardians, _minGuardians)
+// Solidity: function setGuardians(address[] _newGuardians, uint8 _minGuardians, bool _clearData) returns()
+func (_GuardianProver *GuardianProverSession) SetGuardians(_newGuardians []common.Address, _minGuardians uint8, _clearData bool) (*types.Transaction, error) {
+	return _GuardianProver.Contract.SetGuardians(&_GuardianProver.TransactOpts, _newGuardians, _minGuardians, _clearData)
 }
 
-// SetGuardians is a paid mutator transaction binding the contract method 0xe94e9e99.
+// SetGuardians is a paid mutator transaction binding the contract method 0xc5a64e93.
 //
-// Solidity: function setGuardians(address[] _newGuardians, uint8 _minGuardians) returns()
-func (_GuardianProver *GuardianProverTransactorSession) SetGuardians(_newGuardians []common.Address, _minGuardians uint8) (*types.Transaction, error) {
-	return _GuardianProver.Contract.SetGuardians(&_GuardianProver.TransactOpts, _newGuardians, _minGuardians)
+// Solidity: function setGuardians(address[] _newGuardians, uint8 _minGuardians, bool _clearData) returns()
+func (_GuardianProver *GuardianProverTransactorSession) SetGuardians(_newGuardians []common.Address, _minGuardians uint8, _clearData bool) (*types.Transaction, error) {
+	return _GuardianProver.Contract.SetGuardians(&_GuardianProver.TransactOpts, _newGuardians, _minGuardians, _clearData)
 }
 
 // TransferOwnership is a paid mutator transaction binding the contract method 0xf2fde38b.
@@ -1362,6 +1480,162 @@ func (_GuardianProver *GuardianProverFilterer) WatchBeaconUpgraded(opts *bind.Wa
 func (_GuardianProver *GuardianProverFilterer) ParseBeaconUpgraded(log types.Log) (*GuardianProverBeaconUpgraded, error) {
 	event := new(GuardianProverBeaconUpgraded)
 	if err := _GuardianProver.contract.UnpackLog(event, "BeaconUpgraded", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// GuardianProverConflictingProofsIterator is returned from FilterConflictingProofs and is used to iterate over the raw logs and unpacked data for ConflictingProofs events raised by the GuardianProver contract.
+type GuardianProverConflictingProofsIterator struct {
+	Event *GuardianProverConflictingProofs // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *GuardianProverConflictingProofsIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(GuardianProverConflictingProofs)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(GuardianProverConflictingProofs)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *GuardianProverConflictingProofsIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *GuardianProverConflictingProofsIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// GuardianProverConflictingProofs represents a ConflictingProofs event raised by the GuardianProver contract.
+type GuardianProverConflictingProofs struct {
+	BlockId          *big.Int
+	Guardian         common.Address
+	CurrentProofHash [32]byte
+	NewProofHash     [32]byte
+	ProvingPaused    bool
+	Raw              types.Log // Blockchain specific contextual infos
+}
+
+// FilterConflictingProofs is a free log retrieval operation binding the contract event 0x790680f195535a5e26e3d53a47b864fe3360eed54d1e89c452bfe7313c21e45e.
+//
+// Solidity: event ConflictingProofs(uint256 indexed blockId, address indexed guardian, bytes32 currentProofHash, bytes32 newProofHash, bool provingPaused)
+func (_GuardianProver *GuardianProverFilterer) FilterConflictingProofs(opts *bind.FilterOpts, blockId []*big.Int, guardian []common.Address) (*GuardianProverConflictingProofsIterator, error) {
+
+	var blockIdRule []interface{}
+	for _, blockIdItem := range blockId {
+		blockIdRule = append(blockIdRule, blockIdItem)
+	}
+	var guardianRule []interface{}
+	for _, guardianItem := range guardian {
+		guardianRule = append(guardianRule, guardianItem)
+	}
+
+	logs, sub, err := _GuardianProver.contract.FilterLogs(opts, "ConflictingProofs", blockIdRule, guardianRule)
+	if err != nil {
+		return nil, err
+	}
+	return &GuardianProverConflictingProofsIterator{contract: _GuardianProver.contract, event: "ConflictingProofs", logs: logs, sub: sub}, nil
+}
+
+// WatchConflictingProofs is a free log subscription operation binding the contract event 0x790680f195535a5e26e3d53a47b864fe3360eed54d1e89c452bfe7313c21e45e.
+//
+// Solidity: event ConflictingProofs(uint256 indexed blockId, address indexed guardian, bytes32 currentProofHash, bytes32 newProofHash, bool provingPaused)
+func (_GuardianProver *GuardianProverFilterer) WatchConflictingProofs(opts *bind.WatchOpts, sink chan<- *GuardianProverConflictingProofs, blockId []*big.Int, guardian []common.Address) (event.Subscription, error) {
+
+	var blockIdRule []interface{}
+	for _, blockIdItem := range blockId {
+		blockIdRule = append(blockIdRule, blockIdItem)
+	}
+	var guardianRule []interface{}
+	for _, guardianItem := range guardian {
+		guardianRule = append(guardianRule, guardianItem)
+	}
+
+	logs, sub, err := _GuardianProver.contract.WatchLogs(opts, "ConflictingProofs", blockIdRule, guardianRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(GuardianProverConflictingProofs)
+				if err := _GuardianProver.contract.UnpackLog(event, "ConflictingProofs", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseConflictingProofs is a log parse operation binding the contract event 0x790680f195535a5e26e3d53a47b864fe3360eed54d1e89c452bfe7313c21e45e.
+//
+// Solidity: event ConflictingProofs(uint256 indexed blockId, address indexed guardian, bytes32 currentProofHash, bytes32 newProofHash, bool provingPaused)
+func (_GuardianProver *GuardianProverFilterer) ParseConflictingProofs(log types.Log) (*GuardianProverConflictingProofs, error) {
+	event := new(GuardianProverConflictingProofs)
+	if err := _GuardianProver.contract.UnpackLog(event, "ConflictingProofs", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -2235,6 +2509,150 @@ func (_GuardianProver *GuardianProverFilterer) WatchPaused(opts *bind.WatchOpts,
 func (_GuardianProver *GuardianProverFilterer) ParsePaused(log types.Log) (*GuardianProverPaused, error) {
 	event := new(GuardianProverPaused)
 	if err := _GuardianProver.contract.UnpackLog(event, "Paused", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// GuardianProverProvingAutoPauseEnabledIterator is returned from FilterProvingAutoPauseEnabled and is used to iterate over the raw logs and unpacked data for ProvingAutoPauseEnabled events raised by the GuardianProver contract.
+type GuardianProverProvingAutoPauseEnabledIterator struct {
+	Event *GuardianProverProvingAutoPauseEnabled // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *GuardianProverProvingAutoPauseEnabledIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(GuardianProverProvingAutoPauseEnabled)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(GuardianProverProvingAutoPauseEnabled)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *GuardianProverProvingAutoPauseEnabledIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *GuardianProverProvingAutoPauseEnabledIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// GuardianProverProvingAutoPauseEnabled represents a ProvingAutoPauseEnabled event raised by the GuardianProver contract.
+type GuardianProverProvingAutoPauseEnabled struct {
+	Enabled bool
+	Raw     types.Log // Blockchain specific contextual infos
+}
+
+// FilterProvingAutoPauseEnabled is a free log retrieval operation binding the contract event 0x48f509c973e5ddaa2061810fafb97ff5099d3529bc0482c7186409c3504c4e87.
+//
+// Solidity: event ProvingAutoPauseEnabled(bool indexed enabled)
+func (_GuardianProver *GuardianProverFilterer) FilterProvingAutoPauseEnabled(opts *bind.FilterOpts, enabled []bool) (*GuardianProverProvingAutoPauseEnabledIterator, error) {
+
+	var enabledRule []interface{}
+	for _, enabledItem := range enabled {
+		enabledRule = append(enabledRule, enabledItem)
+	}
+
+	logs, sub, err := _GuardianProver.contract.FilterLogs(opts, "ProvingAutoPauseEnabled", enabledRule)
+	if err != nil {
+		return nil, err
+	}
+	return &GuardianProverProvingAutoPauseEnabledIterator{contract: _GuardianProver.contract, event: "ProvingAutoPauseEnabled", logs: logs, sub: sub}, nil
+}
+
+// WatchProvingAutoPauseEnabled is a free log subscription operation binding the contract event 0x48f509c973e5ddaa2061810fafb97ff5099d3529bc0482c7186409c3504c4e87.
+//
+// Solidity: event ProvingAutoPauseEnabled(bool indexed enabled)
+func (_GuardianProver *GuardianProverFilterer) WatchProvingAutoPauseEnabled(opts *bind.WatchOpts, sink chan<- *GuardianProverProvingAutoPauseEnabled, enabled []bool) (event.Subscription, error) {
+
+	var enabledRule []interface{}
+	for _, enabledItem := range enabled {
+		enabledRule = append(enabledRule, enabledItem)
+	}
+
+	logs, sub, err := _GuardianProver.contract.WatchLogs(opts, "ProvingAutoPauseEnabled", enabledRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(GuardianProverProvingAutoPauseEnabled)
+				if err := _GuardianProver.contract.UnpackLog(event, "ProvingAutoPauseEnabled", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseProvingAutoPauseEnabled is a log parse operation binding the contract event 0x48f509c973e5ddaa2061810fafb97ff5099d3529bc0482c7186409c3504c4e87.
+//
+// Solidity: event ProvingAutoPauseEnabled(bool indexed enabled)
+func (_GuardianProver *GuardianProverFilterer) ParseProvingAutoPauseEnabled(log types.Log) (*GuardianProverProvingAutoPauseEnabled, error) {
+	event := new(GuardianProverProvingAutoPauseEnabled)
+	if err := _GuardianProver.contract.UnpackLog(event, "ProvingAutoPauseEnabled", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log

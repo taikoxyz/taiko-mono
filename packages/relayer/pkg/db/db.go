@@ -1,35 +1,41 @@
 package db
 
 import (
-	"database/sql"
 	"fmt"
 	"time"
 
+	"database/sql"
 	"github.com/cyberhorsey/errors"
 	"gorm.io/gorm"
 )
 
-type DB struct {
+var (
+	ErrNoDB = errors.Validation.NewWithKeyAndDetail("ERR_NO_DB", "no db")
+)
+
+// DB is a local interface that lets us narrow down a database type for testing.
+type DB interface {
+	DB() (*sql.DB, error)
+	GormDB() *gorm.DB
+}
+
+type Database struct {
 	gormdb *gorm.DB
 }
 
-func (db *DB) DB() (*sql.DB, error) {
+func (db *Database) DB() (*sql.DB, error) {
 	return db.gormdb.DB()
 }
 
-func (db *DB) GormDB() *gorm.DB {
+func (db *Database) GormDB() *gorm.DB {
 	return db.gormdb
 }
 
-func New(gormdb *gorm.DB) *DB {
-	return &DB{
+func New(gormdb *gorm.DB) DB {
+	return &Database{
 		gormdb: gormdb,
 	}
 }
-
-var (
-	ErrNoDB = errors.Validation.NewWithKeyAndDetail("ERR_NO_DB", "DB is required")
-)
 
 type DBConnectionOpts struct {
 	Name            string
@@ -39,10 +45,10 @@ type DBConnectionOpts struct {
 	MaxIdleConns    uint64
 	MaxOpenConns    uint64
 	MaxConnLifetime uint64
-	OpenFunc        func(dsn string) (*DB, error)
+	OpenFunc        func(dsn string) (DB, error)
 }
 
-func OpenDBConnection(opts DBConnectionOpts) (*DB, error) {
+func OpenDBConnection(opts DBConnectionOpts) (DB, error) {
 	dsn := ""
 	if opts.Password == "" {
 		dsn = fmt.Sprintf(

@@ -94,9 +94,17 @@ var (
 		Name: "blocks_processed_ops_total",
 		Help: "The total number of processed blocks",
 	})
+	BridgeMessageNotSent = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "bridge_message_not_sent_opt_total",
+		Help: "The total number of times a bridge message has not been sent but has been processed",
+	})
 	BridgePaused = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "bridge_paused_opts_total",
+		Name: "bridge_paused_ops_total",
 		Help: "The total number of times the bridge has been paused",
+	})
+	BridgePausedErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "bridge_paused_errors_ops_total",
+		Help: "The total number of times the bridge has encountered an error while attempting to have been paused",
 	})
 	RetriableEvents = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "events_processed_retriable_status_ops_total",
@@ -121,5 +129,25 @@ var (
 	UnprofitableMessageAfterTransacting = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "unprofitable_message_after_transacting_ops_total",
 		Help: "The total number of processed events that ended up unprofitable",
+	})
+	MessageSentEventsAfterRetryErrorCount = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "message_sent_events_after_retry_error_count",
+		Help: "The total number of errors logged for MessageSent events after retries",
+	})
+	MessageStatusChangedEventsAfterRetryErrorCount = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "message_status_changed_events_after_retry_error_count",
+		Help: "The total number of errors logged for MessageStatusChanged events after retries",
+	})
+	ChainDataSyncedEventsAfterRetryErrorCount = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "chain_data_synced_events_after_retry_error_count",
+		Help: "The total number of errors logged for ChainDataSynced events after retries",
+	})
+	MessageProcessedEventsAfterRetryErrorCount = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "message_processed_events_after_retry_error_count",
+		Help: "The total number of errors logged for MessageProcessed events after retries",
+	})
+	RelayerKeyBalanceGauge = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "relayer_key_balance",
+		Help: "Current balance of the relayer key",
 	})
 )

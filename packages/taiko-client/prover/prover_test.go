@@ -4,9 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"math/big"
-	"net/url"
 	"os"
-	"strconv"
 	"testing"
 	"time"
 
@@ -15,11 +13,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -35,6 +35,7 @@ type ProverTestSuite struct {
 	cancel   context.CancelFunc
 	d        *driver.Driver
 	proposer *proposer.Proposer
+	txmgr    *txmgr.SimpleTxManager
 }
 
 func (s *ProverTestSuite) SetupTest() {
@@ -44,8 +45,30 @@ func (s *ProverTestSuite) SetupTest() {
 	l1ProverPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROVER_PRIVATE_KEY")))
 	s.Nil(err)
 
+	s.txmgr, err = txmgr.NewSimpleTxManager(
+		"prover_test",
+		log.Root(),
+		&metrics.TxMgrMetrics,
+		txmgr.CLIConfig{
+			L1RPCURL:                  os.Getenv("L1_NODE_WS_ENDPOINT"),
+			NumConfirmations:          0,
+			SafeAbortNonceTooLowCount: txmgr.DefaultBatcherFlagValues.SafeAbortNonceTooLowCount,
+			PrivateKey:                common.Bytes2Hex(crypto.FromECDSA(l1ProverPrivKey)),
+			FeeLimitMultiplier:        txmgr.DefaultBatcherFlagValues.FeeLimitMultiplier,
+			FeeLimitThresholdGwei:     txmgr.DefaultBatcherFlagValues.FeeLimitThresholdGwei,
+			MinBaseFeeGwei:            txmgr.DefaultBatcherFlagValues.MinBaseFeeGwei,
+			MinTipCapGwei:             txmgr.DefaultBatcherFlagValues.MinTipCapGwei,
+			ResubmissionTimeout:       txmgr.DefaultBatcherFlagValues.ResubmissionTimeout,
+			ReceiptQueryInterval:      1 * time.Second,
+			NetworkTimeout:            txmgr.DefaultBatcherFlagValues.NetworkTimeout,
+			TxSendTimeout:             txmgr.DefaultBatcherFlagValues.TxSendTimeout,
+			TxNotInMempoolTimeout:     txmgr.DefaultBatcherFlagValues.TxNotInMempoolTimeout,
+		},
+	)
+	s.Nil(err)
+
 	ctx, cancel := context.WithCancel(context.Background())
-	proverServerURL := s.initProver(ctx, l1ProverPrivKey)
+	s.initProver(ctx, l1ProverPrivKey)
 	s.cancel = cancel
 
 	// Init driver
@@ -82,33 +105,11 @@ func (s *ProverTestSuite) SetupTest() {
 			TaikoL2Address:    common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
 			TaikoTokenAddress: common.HexToAddress(os.Getenv("TAIKO_TOKEN_ADDRESS")),
 		},
-		AssignmentHookAddress:      common.HexToAddress(os.Getenv("ASSIGNMENT_HOOK_ADDRESS")),
 		L1ProposerPrivKey:          l1ProposerPrivKey,
 		L2SuggestedFeeRecipient:    common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
 		ProposeInterval:            1024 * time.Hour,
 		MaxProposedTxListsPerEpoch: 1,
-		ProverEndpoints:            []*url.URL{proverServerURL},
-		OptimisticTierFee:          common.Big256,
-		SgxTierFee:                 common.Big256,
-		MaxTierFeePriceBumps:       3,
-		TierFeePriceBump:           common.Big2,
-		L1BlockBuilderTip:          common.Big0,
-		TxmgrConfigs: &txmgr.CLIConfig{
-			L1RPCURL:                  os.Getenv("L1_NODE_WS_ENDPOINT"),
-			NumConfirmations:          0,
-			SafeAbortNonceTooLowCount: txmgr.DefaultBatcherFlagValues.SafeAbortNonceTooLowCount,
-			PrivateKey:                common.Bytes2Hex(crypto.FromECDSA(l1ProposerPrivKey)),
-			FeeLimitMultiplier:        txmgr.DefaultBatcherFlagValues.FeeLimitMultiplier,
-			FeeLimitThresholdGwei:     txmgr.DefaultBatcherFlagValues.FeeLimitThresholdGwei,
-			MinBaseFeeGwei:            txmgr.DefaultBatcherFlagValues.MinBaseFeeGwei,
-			MinTipCapGwei:             txmgr.DefaultBatcherFlagValues.MinTipCapGwei,
-			ResubmissionTimeout:       txmgr.DefaultBatcherFlagValues.ResubmissionTimeout,
-			ReceiptQueryInterval:      1 * time.Second,
-			NetworkTimeout:            txmgr.DefaultBatcherFlagValues.NetworkTimeout,
-			TxSendTimeout:             txmgr.DefaultBatcherFlagValues.TxSendTimeout,
-			TxNotInMempoolTimeout:     txmgr.DefaultBatcherFlagValues.TxNotInMempoolTimeout,
-		},
-	}))
+	}, s.txmgr))
 
 	s.proposer = prop
 }
@@ -127,35 +128,18 @@ func (s *ProverTestSuite) TestInitError() {
 
 	s.NotNil(InitFromConfig(ctx, p, &Config{
 		L1WsEndpoint:          os.Getenv("L1_NODE_WS_ENDPOINT"),
-		L1HttpEndpoint:        os.Getenv("L1_NODE_HTTP_ENDPOINT"),
 		L2WsEndpoint:          os.Getenv("L2_EXECUTION_ENGINE_WS_ENDPOINT"),
 		L2HttpEndpoint:        os.Getenv("L2_EXECUTION_ENGINE_HTTP_ENDPOINT"),
 		TaikoL1Address:        common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
 		TaikoL2Address:        common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
 		TaikoTokenAddress:     common.HexToAddress(os.Getenv("TAIKO_TOKEN_ADDRESS")),
-		AssignmentHookAddress: common.HexToAddress(os.Getenv("ASSIGNMENT_HOOK_CONTRACT_ADDRESS")),
 		L1ProverPrivKey:       l1ProverPrivKey,
 		Dummy:                 true,
 		ProveUnassignedBlocks: true,
 		RPCTimeout:            10 * time.Minute,
 		BackOffRetryInterval:  3 * time.Second,
 		BackOffMaxRetries:     12,
-		TxmgrConfigs: &txmgr.CLIConfig{
-			L1RPCURL:                  os.Getenv("L1_NODE_WS_ENDPOINT"),
-			NumConfirmations:          0,
-			SafeAbortNonceTooLowCount: txmgr.DefaultBatcherFlagValues.SafeAbortNonceTooLowCount,
-			PrivateKey:                common.Bytes2Hex(crypto.FromECDSA(l1ProverPrivKey)),
-			FeeLimitMultiplier:        txmgr.DefaultBatcherFlagValues.FeeLimitMultiplier,
-			FeeLimitThresholdGwei:     txmgr.DefaultBatcherFlagValues.FeeLimitThresholdGwei,
-			MinBaseFeeGwei:            txmgr.DefaultBatcherFlagValues.MinBaseFeeGwei,
-			MinTipCapGwei:             txmgr.DefaultBatcherFlagValues.MinTipCapGwei,
-			ResubmissionTimeout:       txmgr.DefaultBatcherFlagValues.ResubmissionTimeout,
-			ReceiptQueryInterval:      1 * time.Second,
-			NetworkTimeout:            txmgr.DefaultBatcherFlagValues.NetworkTimeout,
-			TxSendTimeout:             txmgr.DefaultBatcherFlagValues.TxSendTimeout,
-			TxNotInMempoolTimeout:     txmgr.DefaultBatcherFlagValues.TxNotInMempoolTimeout,
-		},
-	}))
+	}, s.txmgr))
 }
 
 func (s *ProverTestSuite) TestOnBlockProposed() {
@@ -232,7 +216,6 @@ func (s *ProverTestSuite) TestOnBlockVerified() {
 }
 
 func (s *ProverTestSuite) TestContestWrongBlocks() {
-	s.T().Skip()
 	s.p.cfg.ContesterMode = false
 	s.Nil(s.p.initEventHandlers())
 	e := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
@@ -279,10 +262,7 @@ func (s *ProverTestSuite) TestContestWrongBlocks() {
 
 	contesterKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_CONTRACT_OWNER_PRIVATE_KEY")))
 	s.Nil(err)
-	s.NotNil(s.initProver(
-		context.Background(),
-		contesterKey,
-	))
+	s.initProver(context.Background(), contesterKey)
 	s.p.cfg.ContesterMode = true
 	s.Nil(s.p.initEventHandlers())
 
@@ -300,21 +280,26 @@ func (s *ProverTestSuite) TestContestWrongBlocks() {
 
 	s.p.cfg.GuardianProverMajorityAddress = common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT_ADDRESS"))
 	s.True(s.p.IsGuardianProver())
+	s.p.cfg.GuardianProverMinorityAddress = common.HexToAddress(os.Getenv("GUARDIAN_PROVER_MINORITY_ADDRESS"))
 
 	txBuilder := transaction.NewProveBlockTxBuilder(
 		s.p.rpc,
 		s.p.cfg.TaikoL1Address,
+		rpc.ZeroAddress,
 		s.p.cfg.GuardianProverMajorityAddress,
 		s.p.cfg.GuardianProverMinorityAddress,
 	)
 	s.p.proofSubmitters = nil
-	s.Nil(s.p.initProofSubmitters(s.p.txmgr, txBuilder))
+	// Protocol proof tiers
+	tiers, err := s.RPCClient.GetTiers(context.Background())
+	s.Nil(err)
+	s.Nil(s.p.initProofSubmitters(s.p.txmgr, txBuilder, tiers))
 
-	s.p.rpc.GuardianProverMajority, err = bindings.NewGuardianProver(s.p.cfg.GuardianProverMajorityAddress, s.p.rpc.L1)
+	s.p.rpc.GuardianProverMinority, err = bindings.NewGuardianProver(s.p.cfg.GuardianProverMinorityAddress, s.p.rpc.L1)
 	s.Nil(err)
 
 	approvedSink := make(chan *bindings.GuardianProverGuardianApproval)
-	approvedSub, err := s.p.rpc.GuardianProverMajority.WatchGuardianApproval(
+	approvedSub, err := s.p.rpc.GuardianProverMinority.WatchGuardianApproval(
 		nil, approvedSink, []common.Address{}, [](*big.Int){}, []([32]byte){},
 	)
 	s.Nil(err)
@@ -324,7 +309,7 @@ func (s *ProverTestSuite) TestContestWrongBlocks() {
 	}()
 	req = <-s.p.proofSubmissionCh
 	s.Nil(s.p.requestProofOp(req.Event, req.Tier))
-	s.Nil(s.p.selectSubmitter(encoding.TierGuardianMajorityID).SubmitProof(context.Background(), <-s.p.proofGenerationCh))
+	s.Nil(s.p.selectSubmitter(encoding.TierGuardianMinorityID).SubmitProof(context.Background(), <-s.p.proofGenerationCh))
 	approvedEvent := <-approvedSink
 
 	s.Equal(header.Number.Uint64(), approvedEvent.BlockId.Uint64())
@@ -358,7 +343,9 @@ func (s *ProverTestSuite) TestProveExpiredUnassignedBlock() {
 }
 
 func (s *ProverTestSuite) TestSelectSubmitter() {
-	submitter := s.p.selectSubmitter(encoding.TierGuardianMajorityID - 1)
+	s.p.cfg.GuardianProverMajorityAddress = common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT_ADDRESS"))
+	s.True(s.p.IsGuardianProver())
+	submitter := s.p.selectSubmitter(encoding.TierGuardianMinorityID + 1)
 	s.NotNil(submitter)
 	s.Equal(encoding.TierGuardianMajorityID, submitter.Tier())
 }
@@ -369,6 +356,9 @@ func (s *ProverTestSuite) TestSelectSubmitterNotFound() {
 }
 
 func (s *ProverTestSuite) TestGetSubmitterByTier() {
+	s.p.cfg.GuardianProverMajorityAddress = common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT_ADDRESS"))
+	s.True(s.p.IsGuardianProver())
+
 	submitter := s.p.getSubmitterByTier(encoding.TierGuardianMajorityID)
 	s.NotNil(submitter)
 	s.Equal(encoding.TierGuardianMajorityID, submitter.Tier())
@@ -407,7 +397,7 @@ func (s *ProverTestSuite) TestGetBlockProofStatus() {
 	e := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
 
 	// No proof submitted
-	status, err := rpc.GetBlockProofStatus(context.Background(), s.p.rpc, e.BlockId, s.p.ProverAddress())
+	status, err := rpc.GetBlockProofStatus(context.Background(), s.p.rpc, e.BlockId, s.p.ProverAddress(), rpc.ZeroAddress)
 	s.Nil(err)
 	s.False(status.IsSubmitted)
 
@@ -426,13 +416,12 @@ func (s *ProverTestSuite) TestGetBlockProofStatus() {
 	s.Nil(s.p.requestProofOp(req.Event, req.Tier))
 	s.Nil(s.p.selectSubmitter(e.Meta.MinTier).SubmitProof(context.Background(), <-s.p.proofGenerationCh))
 
-	status, err = rpc.GetBlockProofStatus(context.Background(), s.p.rpc, e.BlockId, s.p.ProverAddress())
+	status, err = rpc.GetBlockProofStatus(context.Background(), s.p.rpc, e.BlockId, s.p.ProverAddress(), rpc.ZeroAddress)
 	s.Nil(err)
 
 	s.True(status.IsSubmitted)
 	s.False(status.Invalid)
 	s.Equal(parent.Hash(), status.ParentHeader.Hash())
-	s.Equal(s.p.ProverAddress(), status.CurrentTransitionState.Prover)
 
 	// Invalid proof submitted
 	parent, err = s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
@@ -440,7 +429,7 @@ func (s *ProverTestSuite) TestGetBlockProofStatus() {
 
 	e = s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
 
-	status, err = rpc.GetBlockProofStatus(context.Background(), s.p.rpc, e.BlockId, s.p.ProverAddress())
+	status, err = rpc.GetBlockProofStatus(context.Background(), s.p.rpc, e.BlockId, s.p.ProverAddress(), rpc.ZeroAddress)
 	s.Nil(err)
 	s.False(status.IsSubmitted)
 
@@ -452,12 +441,11 @@ func (s *ProverTestSuite) TestGetBlockProofStatus() {
 	proofWithHeader.Opts.BlockHash = testutils.RandomHash()
 	s.Nil(s.p.selectSubmitter(e.Meta.MinTier).SubmitProof(context.Background(), proofWithHeader))
 
-	status, err = rpc.GetBlockProofStatus(context.Background(), s.p.rpc, e.BlockId, s.p.ProverAddress())
+	status, err = rpc.GetBlockProofStatus(context.Background(), s.p.rpc, e.BlockId, s.p.ProverAddress(), rpc.ZeroAddress)
 	s.Nil(err)
 	s.True(status.IsSubmitted)
 	s.True(status.Invalid)
 	s.Equal(parent.Hash(), status.ParentHeader.Hash())
-	s.Equal(s.p.ProverAddress(), status.CurrentTransitionState.Prover)
 	s.Equal(proofWithHeader.Opts.BlockHash, common.BytesToHash(status.CurrentTransitionState.BlockHash[:]))
 }
 
@@ -465,8 +453,7 @@ func (s *ProverTestSuite) TestSetApprovalAlreadySetHigher() {
 	originalAllowance, err := s.p.rpc.TaikoToken.Allowance(&bind.CallOpts{}, s.p.ProverAddress(), s.p.cfg.TaikoL1Address)
 	s.Nil(err)
 
-	amt := common.Big1
-	s.p.cfg.Allowance = amt
+	s.p.cfg.Allowance = common.Big1
 
 	s.Nil(s.p.setApprovalAmount(context.Background(), s.p.cfg.TaikoL1Address))
 
@@ -489,57 +476,29 @@ func TestProverTestSuite(t *testing.T) {
 func (s *ProverTestSuite) initProver(
 	ctx context.Context,
 	key *ecdsa.PrivateKey,
-) *url.URL {
-	proverServerURL := testutils.LocalRandomProverEndpoint()
-	port, err := strconv.Atoi(proverServerURL.Port())
-	s.Nil(err)
-
+) {
 	decimal, err := s.RPCClient.TaikoToken.Decimals(nil)
 	s.Nil(err)
 
 	p := new(Prover)
 	s.Nil(InitFromConfig(ctx, p, &Config{
 		L1WsEndpoint:          os.Getenv("L1_NODE_WS_ENDPOINT"),
-		L1HttpEndpoint:        os.Getenv("L1_NODE_HTTP_ENDPOINT"),
 		L2WsEndpoint:          os.Getenv("L2_EXECUTION_ENGINE_WS_ENDPOINT"),
 		L2HttpEndpoint:        os.Getenv("L2_EXECUTION_ENGINE_HTTP_ENDPOINT"),
 		TaikoL1Address:        common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
 		TaikoL2Address:        common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
 		TaikoTokenAddress:     common.HexToAddress(os.Getenv("TAIKO_TOKEN_ADDRESS")),
-		AssignmentHookAddress: common.HexToAddress(os.Getenv("ASSIGNMENT_HOOK_ADDRESS")),
 		L1ProverPrivKey:       key,
 		Dummy:                 true,
 		ProveUnassignedBlocks: true,
 		Capacity:              1024,
-		MinOptimisticTierFee:  common.Big1,
-		MinSgxTierFee:         common.Big1,
-		HTTPServerPort:        uint64(port),
 		Allowance:             new(big.Int).Exp(big.NewInt(1_000_000_100), new(big.Int).SetUint64(uint64(decimal)), nil),
 		RPCTimeout:            3 * time.Second,
 		BackOffRetryInterval:  3 * time.Second,
 		BackOffMaxRetries:     12,
 		L1NodeVersion:         "1.0.0",
 		L2NodeVersion:         "0.1.0",
-		TxmgrConfigs: &txmgr.CLIConfig{
-			L1RPCURL:                  os.Getenv("L1_NODE_WS_ENDPOINT"),
-			NumConfirmations:          0,
-			SafeAbortNonceTooLowCount: txmgr.DefaultBatcherFlagValues.SafeAbortNonceTooLowCount,
-			PrivateKey:                common.Bytes2Hex(crypto.FromECDSA(key)),
-			FeeLimitMultiplier:        txmgr.DefaultBatcherFlagValues.FeeLimitMultiplier,
-			FeeLimitThresholdGwei:     txmgr.DefaultBatcherFlagValues.FeeLimitThresholdGwei,
-			MinBaseFeeGwei:            txmgr.DefaultBatcherFlagValues.MinBaseFeeGwei,
-			MinTipCapGwei:             txmgr.DefaultBatcherFlagValues.MinTipCapGwei,
-			ResubmissionTimeout:       txmgr.DefaultBatcherFlagValues.ResubmissionTimeout,
-			ReceiptQueryInterval:      1 * time.Second,
-			NetworkTimeout:            txmgr.DefaultBatcherFlagValues.NetworkTimeout,
-			TxSendTimeout:             txmgr.DefaultBatcherFlagValues.TxSendTimeout,
-			TxNotInMempoolTimeout:     txmgr.DefaultBatcherFlagValues.TxNotInMempoolTimeout,
-		},
-	}))
-	p.server = s.NewTestProverServer(
-		key,
-		proverServerURL,
-	)
+	}, s.txmgr))
 
 	p.guardianProverHeartbeater = guardianProverHeartbeater.New(
 		key,
@@ -548,6 +507,4 @@ func (s *ProverTestSuite) initProver(
 		p.ProverAddress(),
 	)
 	s.p = p
-
-	return proverServerURL
 }

@@ -48,6 +48,7 @@ func (s *ProposerTestSuite) SetupTest() {
 		beaconsync.NewSyncProgressTracker(s.RPCClient.L2, 1*time.Hour),
 		0,
 		nil,
+		nil,
 	)
 	s.Nil(err)
 	s.s = syncer
@@ -72,20 +73,12 @@ func (s *ProposerTestSuite) SetupTest() {
 			TaikoL2Address:    common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
 			TaikoTokenAddress: common.HexToAddress(os.Getenv("TAIKO_TOKEN_ADDRESS")),
 		},
-		AssignmentHookAddress:      common.HexToAddress(os.Getenv("ASSIGNMENT_HOOK_ADDRESS")),
 		L1ProposerPrivKey:          l1ProposerPrivKey,
 		L2SuggestedFeeRecipient:    common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
 		MinProposingInternal:       0,
 		ProposeInterval:            1024 * time.Hour,
 		MaxProposedTxListsPerEpoch: 1,
-		ProverEndpoints:            s.ProverEndpoints,
-		OptimisticTierFee:          common.Big256,
-		SgxTierFee:                 common.Big256,
-		TierFeePriceBump:           common.Big2,
-		MaxTierFeePriceBumps:       3,
 		ExtraData:                  "test",
-		L1BlockBuilderTip:          common.Big0,
-		BlobAllowed:                true,
 		ProposeBlockTxGasLimit:     10_000_000,
 		TxmgrConfigs: &txmgr.CLIConfig{
 			L1RPCURL:                  os.Getenv("L1_NODE_WS_ENDPOINT"),
@@ -102,7 +95,7 @@ func (s *ProposerTestSuite) SetupTest() {
 			TxSendTimeout:             txmgr.DefaultBatcherFlagValues.TxSendTimeout,
 			TxNotInMempoolTimeout:     txmgr.DefaultBatcherFlagValues.TxNotInMempoolTimeout,
 		},
-	}))
+	}, nil))
 
 	s.p = p
 	s.cancel = cancel
@@ -116,11 +109,9 @@ func (s *ProposerTestSuite) TestProposeTxLists() {
 	txBuilder := builder.NewBlobTransactionBuilder(
 		p.rpc,
 		p.L1ProposerPrivKey,
-		p.proverSelector,
-		p.Config.L1BlockBuilderTip,
 		cfg.TaikoL1Address,
+		cfg.ProverSetAddress,
 		cfg.L2SuggestedFeeRecipient,
-		cfg.AssignmentHookAddress,
 		cfg.ProposeBlockTxGasLimit,
 		cfg.ExtraData,
 	)
@@ -138,7 +129,6 @@ func (s *ProposerTestSuite) TestProposeTxLists() {
 
 		candidate, err := txBuilder.Build(
 			p.ctx,
-			p.tierFees,
 			p.IncludeParentMetaHash,
 			compressedTxListBytes,
 		)
@@ -183,6 +173,7 @@ func (s *ProposerTestSuite) TestProposeOpNoEmptyBlock() {
 			rpc.BlockMaxTxListBytes,
 			p.LocalAddresses,
 			p.MaxProposedTxListsPerEpoch,
+			0,
 		)
 		time.Sleep(time.Second)
 	}
@@ -253,16 +244,6 @@ func (s *ProposerTestSuite) TestProposeEmptyBlockOp() {
 	s.p.MinProposingInternal = 1 * time.Second
 	s.p.lastProposedAt = time.Now().Add(-10 * time.Second)
 	s.Nil(s.p.ProposeOp(context.Background()))
-}
-
-func (s *ProposerTestSuite) TestAssignProverSuccessFirstRound() {
-	s.SetL1Automine(false)
-	defer s.SetL1Automine(true)
-
-	_, _, fee, err := s.p.proverSelector.AssignProver(context.Background(), s.p.tierFees, testutils.RandomHash())
-
-	s.Nil(err)
-	s.Equal(fee.Uint64(), s.p.OptimisticTierFee.Uint64())
 }
 
 func (s *ProposerTestSuite) TestUpdateProposingTicker() {

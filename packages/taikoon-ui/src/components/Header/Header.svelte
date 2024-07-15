@@ -1,53 +1,67 @@
 <script lang="ts">
-  import { getAccount } from '@wagmi/core';
+  import { ResponsiveController } from '@taiko/ui-lib';
   import { zeroAddress } from 'viem';
 
-  import TaikoonsIcon from '$assets/taikoons-icon.png';
   import { Icons } from '$components/core/Icons';
-  import { ResponsiveController } from '$components/core/ResponsiveController';
   import { MobileMenu } from '$components/MobileMenu';
+  import Token from '$lib/token';
+  import User from '$lib/user';
   import { classNames } from '$lib/util/classNames';
   import { account } from '$stores/account';
-  import { connectedSourceChain } from '$stores/network';
-  import { Button } from '$ui/Button';
-  import { config } from '$wagmi-config';
+  import { pageScroll } from '$stores/pageScroll';
 
+  import type { IAddress } from '../../types';
   import { ConnectButton } from '../ConnectButton';
   import { ThemeButton } from '../ThemeButton';
   import {
-    buttonClasses,
-    headerClasses,
+    baseHeaderClasses,
     menuButtonsWrapperClasses,
     mobileMenuButtonClasses,
+    navButtonClasses,
     rightSectionClasses,
     taikoonsIconClasses,
     themeButtonSeparatorClasses,
     wrapperClasses,
   } from './classes';
   const { Menu: MenuIcon, XSolid: CloseMenuIcon } = Icons;
-  $: address = zeroAddress;
+  $: address = zeroAddress as IAddress;
 
   $: isMobileMenuOpen = false;
 
-  $: taikoonsOptions = [
-    {
-      icon: 'FileImageRegular',
-      label: 'The 888',
-      href: '/collection/',
-    },
-  ];
+  $: headerClasses = classNames(
+    baseHeaderClasses,
+    $pageScroll ? 'glassy-background-lg' : null,
+    $pageScroll ? 'border-b-[1px] border-border-divider-default' : 'border-b-[1px] border-transparent',
+    $$props.class,
+  );
 
-  connectedSourceChain.subscribe(async () => {
-    if (address !== zeroAddress) return;
-    const account = getAccount(config);
-    if (!account.address) return;
-    address = account.address;
-    taikoonsOptions.push({
-      icon: 'FileImageRegular',
-      label: 'Collection',
-      href: `/collection/${address.toLowerCase()}`,
-    });
-  });
+  $: $account, checkYourCollection();
+  $: displayYourTaikoonsButton = false;
+  $: isChecking = false;
+  async function checkYourCollection() {
+    if (isChecking) return;
+    isChecking = true;
+    if (!$account || !$account.address || $account.address === zeroAddress) {
+      displayYourTaikoonsButton = false;
+      isChecking = false;
+      return;
+    }
+
+    if (displayYourTaikoonsButton) return;
+
+    address = $account.address;
+
+    if (!address || address === zeroAddress) {
+      isChecking = false;
+      return;
+    }
+
+    const canMint = await Token.canMint(address);
+    const totalMintCount = await User.totalWhitelistMintCount(address);
+
+    displayYourTaikoonsButton = !canMint && totalMintCount > 0;
+    isChecking = false;
+  }
 
   let windowSize: 'sm' | 'md' | 'lg' = 'md';
 </script>
@@ -57,7 +71,7 @@
 <div class={wrapperClasses}>
   <div class={classNames(headerClasses, $$props.class)}>
     <a href="/" class={classNames()}>
-      <img alt="taikoons-logo" class={taikoonsIconClasses} src={TaikoonsIcon} />
+      <img alt="taikoons-logo" class={taikoonsIconClasses} src="/taikoons-icon.svg" />
     </a>
 
     {#if windowSize === 'sm'}
@@ -72,12 +86,11 @@
       </div>
     {:else}
       <div class={menuButtonsWrapperClasses}>
-        <Button href="/mint" type="neutral" class={buttonClasses}>Mint</Button>
+        <a href="/mint" type="neutral" class={navButtonClasses}>Mint</a>
 
-        <Button href="/collection" type="neutral" class={buttonClasses}>Collection</Button>
-        {#if address !== zeroAddress}
-          <Button href={`/collection/${address.toLowerCase()}`} type="neutral" class={buttonClasses}>
-            Your taikoons</Button>
+        <a href="/collection" type="neutral" class={navButtonClasses}>Collection</a>
+        {#if displayYourTaikoonsButton}
+          <a href={`/collection/${address.toLowerCase()}`} type="neutral" class={navButtonClasses}> Your taikoons</a>
         {/if}
       </div>
       <div class={rightSectionClasses}>

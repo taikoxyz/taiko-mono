@@ -3,8 +3,6 @@ package watchdog
 import (
 	"context"
 	"crypto/ecdsa"
-	"database/sql"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -15,28 +13,22 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	"github.com/cyberhorsey/errors"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	txmgrMetrics "github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/urfave/cli/v2"
-	"gorm.io/gorm"
-
-	txmgrMetrics "github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
+	"github.com/urfave/cli/v2"
 )
-
-type DB interface {
-	DB() (*sql.DB, error)
-	GormDB() *gorm.DB
-}
 
 type ethClient interface {
 	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
@@ -66,8 +58,6 @@ type Watchdog struct {
 	srcBridge  relayer.Bridge
 	destBridge relayer.Bridge
 
-	mu *sync.Mutex
-
 	watchdogAddr common.Address
 
 	confirmations uint64
@@ -80,12 +70,13 @@ type Watchdog struct {
 
 	msgCh chan queue.Message
 
-	wg *sync.WaitGroup
+	wg sync.WaitGroup
 
 	srcChainId  *big.Int
 	destChainId *big.Int
 
-	txmgr txmgr.TxManager
+	srcTxmgr  txmgr.TxManager
+	destTxmgr txmgr.TxManager
 
 	cfg *Config
 }
@@ -155,11 +146,20 @@ func InitFromConfig(ctx context.Context, w *Watchdog, cfg *Config) error {
 		return err
 	}
 
-	if w.txmgr, err = txmgr.NewSimpleTxManager(
+	if w.srcTxmgr, err = txmgr.NewSimpleTxManager(
 		"watchdog",
 		log.Root(),
 		new(txmgrMetrics.NoopTxMetrics),
-		*cfg.TxmgrConfigs,
+		*cfg.SrcTxmgrConfigs,
+	); err != nil {
+		return err
+	}
+
+	if w.destTxmgr, err = txmgr.NewSimpleTxManager(
+		"watchdog",
+		log.Root(),
+		new(txmgrMetrics.NoopTxMetrics),
+		*cfg.DestTxmgrConfigs,
 	); err != nil {
 		return err
 	}
@@ -184,8 +184,6 @@ func InitFromConfig(ctx context.Context, w *Watchdog, cfg *Config) error {
 	w.confirmations = cfg.Confirmations
 
 	w.msgCh = make(chan queue.Message)
-	w.wg = &sync.WaitGroup{}
-	w.mu = &sync.Mutex{}
 
 	w.backOffRetryInterval = time.Duration(cfg.BackoffRetryInterval) * time.Second
 	w.backOffMaxRetries = cfg.BackOffMaxRetrys
@@ -204,6 +202,11 @@ func (w *Watchdog) Close(ctx context.Context) {
 	w.cancel()
 
 	w.wg.Wait()
+
+	// Close db connection.
+	if err := w.eventRepo.Close(); err != nil {
+		slog.Error("Failed to close db connection", "err", err)
+	}
 }
 
 func (w *Watchdog) Start() error {
@@ -220,7 +223,7 @@ func (w *Watchdog) Start() error {
 	go func() {
 		if err := backoff.Retry(func() error {
 			slog.Info("attempting backoff queue subscription")
-			if err := w.queue.Subscribe(ctx, w.msgCh, w.wg); err != nil {
+			if err := w.queue.Subscribe(ctx, w.msgCh, &w.wg); err != nil {
 				slog.Error("processor queue subscription error", "err", err.Error())
 				return err
 			}
@@ -237,7 +240,7 @@ func (w *Watchdog) Start() error {
 
 	go func() {
 		if err := backoff.Retry(func() error {
-			return utils.ScanBlocks(ctx, w.srcEthClient, w.wg)
+			return utils.ScanBlocks(ctx, w.srcEthClient, &w.wg)
 		}, backoff.NewConstantBackOff(5*time.Second)); err != nil {
 			slog.Error("scan blocks backoff retry", "error", err)
 		}
@@ -288,7 +291,12 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 		return errors.Wrap(err, "json.Unmarshal")
 	}
 
-	// check if the source chain sent this message
+	// check if the source chain sent this message.
+	// source chain will be `destBridge`, because this indexer
+	// responds to `MessageProcessed` events. to the source chain
+	// of the `MessageProcessed` event, is the destination chain
+	// of the actual message itself. So the `destBridge` is the bridge
+	// which should have sent the message originally.
 	sent, err := w.destBridge.IsMessageSent(nil, msgBody.Message)
 	if err != nil {
 		return errors.Wrap(err, "w.destBridge.IsMessageSent")
@@ -303,19 +311,77 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 		return nil
 	}
 
-	pauseReceipt, err := w.pauseBridge(ctx)
+	slog.Warn("dest bridge did not send this message", "msgId", msgBody.Message.Id)
+
+	// we should alert based on this metric
+	relayer.BridgeMessageNotSent.Inc()
+
+	pauseReceipt, err := w.pauseBridge(ctx, w.srcBridge, w.cfg.SrcBridgeAddress, w.srcTxmgr)
 	if err != nil {
 		return err
 	}
 
-	slog.Info("Mined pause tx", "txHash", hex.EncodeToString(pauseReceipt.TxHash.Bytes()))
+	if pauseReceipt != nil {
+		slog.Info("Mined pause tx",
+			"txHash", pauseReceipt.TxHash.Hex(),
+			"bridgeAddress", w.cfg.SrcBridgeAddress.Hex(),
+		)
+
+		if pauseReceipt.Status != types.ReceiptStatusSuccessful {
+			slog.Error("Error pausing bridge", "bridgeAddress", w.cfg.SrcBridgeAddress)
+
+			relayer.BridgePausedErrors.Inc()
+
+			return err
+		}
+	}
+
+	relayer.BridgePaused.Inc()
+
+	pauseReceipt, err = w.pauseBridge(ctx, w.destBridge, w.cfg.DestBridgeAddress, w.destTxmgr)
+	if err != nil {
+		return err
+	}
+
+	if pauseReceipt != nil {
+		slog.Info("Mined pause tx",
+			"txHash", pauseReceipt.TxHash.Hex(),
+			"bridgeAddress", w.cfg.DestBridgeAddress.Hex(),
+		)
+
+		if pauseReceipt.Status != types.ReceiptStatusSuccessful {
+			slog.Error("Error pausing bridge", "bridgeAddress", w.cfg.DestBridgeAddress)
+
+			relayer.BridgePausedErrors.Inc()
+
+			return err
+		}
+	}
 
 	relayer.BridgePaused.Inc()
 
 	return nil
 }
 
-func (w *Watchdog) pauseBridge(ctx context.Context) (*types.Receipt, error) {
+func (w *Watchdog) pauseBridge(
+	ctx context.Context,
+	bridge relayer.Bridge,
+	bridgeAddress common.Address,
+	mgr txmgr.TxManager,
+) (*types.Receipt, error) {
+	paused, err := bridge.Paused(&bind.CallOpts{
+		Context: ctx,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if paused {
+		slog.Info("bridge already paused")
+
+		return nil, nil
+	}
+
 	data, err := encoding.BridgeABI.Pack("pause")
 	if err != nil {
 		return nil, errors.Wrap(err, "encoding.BridgeABI.Pack")
@@ -325,10 +391,10 @@ func (w *Watchdog) pauseBridge(ctx context.Context) (*types.Receipt, error) {
 	candidate := txmgr.TxCandidate{
 		TxData: data,
 		Blobs:  nil,
-		To:     &w.cfg.SrcBridgeAddress,
+		To:     &bridgeAddress,
 	}
 
-	receipt, err := w.txmgr.Send(ctx, candidate)
+	receipt, err := mgr.Send(ctx, candidate)
 	if err != nil {
 		slog.Warn("Failed to send pause transaction", "error", err.Error())
 		return nil, err

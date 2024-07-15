@@ -5,11 +5,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
+	"github.com/urfave/cli/v2"
+
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/cmd/flags"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/db"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/mock"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
-	"github.com/urfave/cli/v2"
 )
 
 var (
@@ -69,7 +71,7 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		assert.Equal(t, WatchMode(watchMode), c.WatchMode)
 		assert.Equal(t, eventName, c.EventName)
 
-		c.OpenDBFunc = func() (DB, error) {
+		c.OpenDBFunc = func() (db.DB, error) {
 			return &mock.DB{}, nil
 		}
 

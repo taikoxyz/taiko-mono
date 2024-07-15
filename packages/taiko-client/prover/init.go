@@ -14,6 +14,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	handler "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/event_handler"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 	proofSubmitter "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter"
@@ -94,6 +95,7 @@ func (p *Prover) setApprovalAmount(ctx context.Context, contract common.Address)
 func (p *Prover) initProofSubmitters(
 	txmgr *txmgr.SimpleTxManager,
 	txBuilder *transaction.ProveBlockTxBuilder,
+	tiers []*rpc.TierProviderTierWithID,
 ) error {
 	for _, tier := range p.sharedState.GetTiers() {
 		var (
@@ -106,31 +108,16 @@ func (p *Prover) initProofSubmitters(
 			producer = &proofProducer.OptimisticProofProducer{}
 		case encoding.TierSgxID:
 			producer = &proofProducer.SGXProofProducer{
-				RaikoHostEndpoint: p.cfg.RaikoHostEndpoint,
-				L1Endpoint:        p.cfg.RaikoL1Endpoint,
-				L1BeaconEndpoint:  p.cfg.RaikoL1BeaconEndpoint,
-				L2Endpoint:        p.cfg.RaikoL2Endpoint,
-				ProofType:         proofProducer.ProofTypeSgx,
-				Dummy:             p.cfg.Dummy,
+				RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
+				JWT:                 p.cfg.RaikoJWT,
+				ProofType:           proofProducer.ProofTypeSgx,
+				Dummy:               p.cfg.Dummy,
+				RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 			}
 		case encoding.TierGuardianMinorityID:
-			producer = proofProducer.NewGuardianProofProducer(&proofProducer.SGXProofProducer{
-				RaikoHostEndpoint: p.cfg.RaikoHostEndpoint,
-				L1Endpoint:        p.cfg.RaikoL1Endpoint,
-				L1BeaconEndpoint:  p.cfg.RaikoL1BeaconEndpoint,
-				L2Endpoint:        p.cfg.RaikoL2Endpoint,
-				ProofType:         proofProducer.ProofTypeCPU,
-				Dummy:             p.cfg.Dummy,
-			}, encoding.TierGuardianMinorityID, p.cfg.EnableLivenessBondProof)
+			producer = proofProducer.NewGuardianProofProducer(encoding.TierGuardianMinorityID, p.cfg.EnableLivenessBondProof)
 		case encoding.TierGuardianMajorityID:
-			producer = proofProducer.NewGuardianProofProducer(&proofProducer.SGXProofProducer{
-				RaikoHostEndpoint: p.cfg.RaikoHostEndpoint,
-				L1Endpoint:        p.cfg.RaikoL1Endpoint,
-				L1BeaconEndpoint:  p.cfg.RaikoL1BeaconEndpoint,
-				L2Endpoint:        p.cfg.RaikoL2Endpoint,
-				ProofType:         proofProducer.ProofTypeCPU,
-				Dummy:             p.cfg.Dummy,
-			}, encoding.TierGuardianMajorityID, p.cfg.EnableLivenessBondProof)
+			producer = proofProducer.NewGuardianProofProducer(encoding.TierGuardianMajorityID, p.cfg.EnableLivenessBondProof)
 		default:
 			return fmt.Errorf("unsupported tier: %d", tier.ID)
 		}
@@ -139,11 +126,15 @@ func (p *Prover) initProofSubmitters(
 			p.rpc,
 			producer,
 			p.proofGenerationCh,
+			p.cfg.ProverSetAddress,
 			p.cfg.TaikoL2Address,
 			p.cfg.Graffiti,
 			p.cfg.ProveBlockGasLimit,
 			txmgr,
 			txBuilder,
+			tiers,
+			p.IsGuardianProver(),
+			p.cfg.GuardianProofSubmissionDelay,
 		); err != nil {
 			return err
 		}
@@ -215,6 +206,7 @@ func (p *Prover) initEventHandlers() error {
 	opts := &handler.NewBlockProposedEventHandlerOps{
 		SharedState:           p.sharedState,
 		ProverAddress:         p.ProverAddress(),
+		ProverSetAddress:      p.cfg.ProverSetAddress,
 		GenesisHeightL1:       p.genesisHeightL1,
 		RPC:                   p.rpc,
 		ProofGenerationCh:     p.proofGenerationCh,
@@ -227,7 +219,6 @@ func (p *Prover) initEventHandlers() error {
 		ProveUnassignedBlocks: p.cfg.ProveUnassignedBlocks,
 	}
 	if p.IsGuardianProver() {
-		opts.SubmissionDelay = p.cfg.GuardianProofSubmissionDelay
 		p.blockProposedHandler = handler.NewBlockProposedEventGuardianHandler(
 			&handler.NewBlockProposedGuardianEventHandlerOps{
 				NewBlockProposedEventHandlerOps: opts,
@@ -241,7 +232,9 @@ func (p *Prover) initEventHandlers() error {
 	p.transitionProvedHandler = handler.NewTransitionProvedEventHandler(
 		p.rpc,
 		p.proofContestCh,
+		p.proofSubmissionCh,
 		p.cfg.ContesterMode,
+		p.IsGuardianProver(),
 	)
 	// ------- TransitionContested -------
 	p.transitionContestedHandler = handler.NewTransitionContestedEventHandler(
@@ -253,9 +246,11 @@ func (p *Prover) initEventHandlers() error {
 	p.assignmentExpiredHandler = handler.NewAssignmentExpiredEventHandler(
 		p.rpc,
 		p.ProverAddress(),
+		p.cfg.ProverSetAddress,
 		p.proofSubmissionCh,
 		p.proofContestCh,
 		p.cfg.ContesterMode,
+		p.IsGuardianProver(),
 	)
 
 	// ------- BlockVerified -------

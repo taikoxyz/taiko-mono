@@ -17,7 +17,6 @@
   import { getTokenAddresses } from '$libs/token/getTokenAddresses';
   import { getTokenWithInfoFromAddress } from '$libs/token/getTokenWithInfoFromAddress';
   import { getLogger } from '$libs/util/logger';
-  import { uid } from '$libs/util/uid';
   import { config } from '$libs/wagmi';
   import { account } from '$stores/account';
   import { connectedSourceChain } from '$stores/network';
@@ -27,14 +26,14 @@
   const dispatch = createEventDispatcher();
 
   const log = getLogger('component:AddCustomERC20');
-  const dialogId = `dialog-${uid()}`;
+  const dialogId = `dialog-${crypto.randomUUID()}`;
 
   export let modalOpen = false;
   export let loadingTokenDetails = false;
+  export let customTokens: Token[] = [];
 
   let addressInputComponent: AddressInput;
   let tokenAddress: Address | string = '';
-  let customTokens: Token[] = [];
   let customToken: Token | null = null;
   let customTokenWithDetails: Token | null = null;
   let disabled = true;
@@ -88,10 +87,6 @@
   };
 
   const remove = async (token: Token) => {
-    log('remove token', token);
-    const address = $account.address;
-    tokenService.removeToken(token, address as Address);
-    customTokens = tokenService.getTokens(address as Address);
     dispatch('tokenRemoved', { token });
   };
 
@@ -140,7 +135,7 @@
         functionName: 'balanceOf',
         args: [$account?.address as Address],
       });
-      customTokenWithDetails = { ...token, balance };
+      customTokenWithDetails = { ...token, balance } as Token;
 
       customToken = customTokenWithDetails;
     } catch (error) {
@@ -154,8 +149,6 @@
     customTokenWithDetails?.balance && customTokenWithDetails?.decimals
       ? formatUnits(customTokenWithDetails.balance, customTokenWithDetails.decimals)
       : 0;
-
-  $: customTokens = tokenService.getTokens($account?.address as Address);
 
   $: disabled = state !== AddressInputState.VALID || tokenAddress === '' || tokenAddress.length !== 42;
 
@@ -186,7 +179,7 @@
         on:addressvalidation={onAddressValidation}
         bind:state
         onDialog />
-      <div class="w-full flex items-center justify-between mt-4">
+      <div class="w-full flex items-center justify-between">
         {#if customTokenWithDetails}
           <span>{$t('common.name')}: {customTokenWithDetails.symbol}</span>
           <span>{$t('common.balance')}: {formattedBalance}</span>
@@ -194,16 +187,12 @@
           <FlatAlert type="error" message={$t('bridge.errors.custom_token.not_found.message')} />
         {:else if loadingTokenDetails}
           <Spinner />
-        {:else}
-          <div class="min-h-[25px]" />
+        {:else if state === AddressInputState.DEFAULT}
+          <FlatAlert type="info" message={$t('token_dropdown.custom_token.default_message')} />
         {/if}
       </div>
     </div>
-
-    <ActionButton priority="primary" {disabled} on:click={addCustomErc20Token} onPopup>
-      {$t('token_dropdown.custom_token.button')}
-    </ActionButton>
-
+    <div class="h-sep" />
     {#if customTokens.length > 0}
       <div class="flex h-full w-full flex-col justify-between mt-6">
         <h3 class="title-body-bold mb-7">{$t('token_dropdown.imported_tokens')}</h3>
@@ -217,10 +206,15 @@
               <Icon type="trash" fillClass="fill-primary-icon" size={24} />
             </button>
           </div>
-          <div class="h-sep" />
         {/each}
       </div>
+    {:else}
+      <span>{$t('token_dropdown.no_imported_token')}</span>
     {/if}
+    <div class="h-sep" />
+    <ActionButton priority="primary" {disabled} on:click={addCustomErc20Token} onPopup>
+      {$t('token_dropdown.custom_token.button')}
+    </ActionButton>
   </div>
   <!-- We catch key events above -->
   <!-- svelte-ignore a11y-click-events-have-key-events -->

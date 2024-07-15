@@ -10,7 +10,6 @@
   import { NotificationToast } from '$components/NotificationToast';
   import { SideNavigation } from '$components/SideNavigation';
   import { SwitchChainModal } from '$components/SwitchChainModal';
-  import { WelcomeModal } from '$components/WelcomeModal';
   import { startWatching, stopWatching } from '$libs/wagmi';
 
   const syncPointer = ({ x, y }: { x: number; y: number }) => {
@@ -51,5 +50,3 @@
 <SwitchChainModal />
 
 <BridgePausedModal />
-
-<WelcomeModal />

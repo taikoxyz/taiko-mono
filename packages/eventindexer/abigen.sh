@@ -5,9 +5,9 @@ if [ ! -d "../protocol/out" ]; then
     exit 1
 fi
 
-paths=("TaikoL1.sol" "Bridge.sol" "AssignmentHook.sol" "SgxVerifier.sol" "TaikoToken.sol")
+paths=("TaikoL1.sol" "Bridge.sol" "SgxVerifier.sol" "TaikoToken.sol")
 
-names=("TaikoL1" "Bridge" "AssignmentHook" "SgxVerifier" "TaikoToken")
+names=("TaikoL1" "Bridge" "SgxVerifier" "TaikoToken")
 
 
 for (( i = 0; i < ${#paths[@]}; ++i ));

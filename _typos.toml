@@ -2,8 +2,10 @@
 # False positives
 extend-ignore-identifiers-re = [
   "QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG",
+  "bafybeiegdqpwx3he5dvoxqklspdjekjepjcobfaakyficksratn73qbbyy",
   "TGE",
   "tge",
+  "baed"
 ]
 
 [files]
@@ -16,6 +18,7 @@ extend-exclude = [
   "packages/protocol/contracts/automata-attestation/**",
   "packages/protocol/contracts/thirdparty/**",
   "packages/protocol/contracts/compiled/**",
+  "packages/protocol/deployments/**",
   # TODO: fix typos and remove these
   "packages/taiko-client/**",
 ]

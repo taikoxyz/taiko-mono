@@ -20,6 +20,7 @@ func Test_sendProcessMessageCall(t *testing.T) {
 
 	_, err := p.sendProcessMessageCall(
 		context.Background(),
+		1,
 		&bridge.BridgeMessageSent{
 			Message: bridge.IBridgeMessage{
 				Id:          1,
@@ -43,7 +44,7 @@ func Test_sendProcessMessageCall(t *testing.T) {
 			},
 		}, []byte{})
 
-	assert.Equal(t, err, errTxReverted)
+	assert.Equal(t, err, errUnprocessable)
 }
 
 func Test_ProcessMessage_messageUnprocessable(t *testing.T) {

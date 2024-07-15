@@ -33,7 +33,7 @@ func TestGuardianProducerRequestProof(t *testing.T) {
 	}
 
 	var (
-		producer = NewGuardianProofProducer(&SGXProofProducer{Dummy: true}, encoding.TierGuardianMajorityID, false)
+		producer = NewGuardianProofProducer(encoding.TierGuardianMajorityID, false)
 		blockID  = common.Big32
 	)
 	res, err := producer.RequestProof(
@@ -70,7 +70,7 @@ func TestGuardianProducerRequestProofReturnLivenessBond(t *testing.T) {
 	}
 
 	var (
-		producer = NewGuardianProofProducer(&SGXProofProducer{Dummy: true}, encoding.TierGuardianMajorityID, true)
+		producer = NewGuardianProofProducer(encoding.TierGuardianMajorityID, true)
 		blockID  = common.Big32
 	)
 	res, err := producer.RequestProof(
@@ -108,7 +108,7 @@ func TestMinorityRequestProof(t *testing.T) {
 	}
 
 	var (
-		producer = NewGuardianProofProducer(&SGXProofProducer{Dummy: true}, encoding.TierGuardianMinorityID, false)
+		producer = NewGuardianProofProducer(encoding.TierGuardianMinorityID, false)
 		blockID  = common.Big32
 	)
 	res, err := producer.RequestProof(
@@ -145,7 +145,7 @@ func TestRequestMinorityProofReturnLivenessBond(t *testing.T) {
 	}
 
 	var (
-		producer = NewGuardianProofProducer(&SGXProofProducer{Dummy: true}, encoding.TierGuardianMinorityID, true)
+		producer = NewGuardianProofProducer(encoding.TierGuardianMinorityID, true)
 		blockID  = common.Big32
 	)
 	res, err := producer.RequestProof(

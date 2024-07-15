@@ -55,9 +55,10 @@ type Config struct {
 	DestRPCUrl       string
 	ETHClientTimeout uint64
 	OpenQueueFunc    func() (queue.Queue, error)
-	OpenDBFunc       func() (DB, error)
+	OpenDBFunc       func() (db.DB, error)
 
-	TxmgrConfigs *txmgr.CLIConfig
+	SrcTxmgrConfigs  *txmgr.CLIConfig
+	DestTxmgrConfigs *txmgr.CLIConfig
 }
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
@@ -93,7 +94,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		BackoffRetryInterval:    c.Uint64(flags.BackOffRetryInterval.Name),
 		BackOffMaxRetrys:        c.Uint64(flags.BackOffMaxRetrys.Name),
 		ETHClientTimeout:        c.Uint64(flags.ETHClientTimeout.Name),
-		OpenDBFunc: func() (DB, error) {
+		OpenDBFunc: func() (db.DB, error) {
 			return db.OpenDBConnection(db.DBConnectionOpts{
 				Name:            c.String(flags.DatabaseUsername.Name),
 				Password:        c.String(flags.DatabasePassword.Name),
@@ -102,7 +103,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 				MaxIdleConns:    c.Uint64(flags.DatabaseMaxIdleConns.Name),
 				MaxOpenConns:    c.Uint64(flags.DatabaseMaxOpenConns.Name),
 				MaxConnLifetime: c.Uint64(flags.DatabaseConnMaxLifetime.Name),
-				OpenFunc: func(dsn string) (*db.DB, error) {
+				OpenFunc: func(dsn string) (db.DB, error) {
 					gormDB, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
 						Logger: logger.Default.LogMode(logger.Silent),
 					})
@@ -130,8 +131,13 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 
 			return q, nil
 		},
-		TxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
+		SrcTxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
 			c.String(flags.SrcRPCUrl.Name),
+			watchdogPrivateKey,
+			c,
+		),
+		DestTxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
+			c.String(flags.DestRPCUrl.Name),
 			watchdogPrivateKey,
 			c,
 		),

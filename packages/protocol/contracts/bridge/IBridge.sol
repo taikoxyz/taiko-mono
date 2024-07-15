@@ -14,6 +14,13 @@ interface IBridge {
         RECALLED
     }
 
+    enum StatusReason {
+        INVOCATION_OK,
+        INVOCATION_PROHIBITED,
+        INVOCATION_FAILED,
+        OUT_OF_ETH_QUOTA
+    }
+
     struct Message {
         // Message ID whose value is automatically assigned.
         uint64 id;
@@ -90,7 +97,13 @@ interface IBridge {
     /// needed.
     /// @param _message The message to be processed.
     /// @param _proof The merkle inclusion proof.
-    function processMessage(Message calldata _message, bytes calldata _proof) external;
+    /// @return The message's status after processing and the reason for the change.
+    function processMessage(
+        Message calldata _message,
+        bytes calldata _proof
+    )
+        external
+        returns (Status, StatusReason);
 
     /// @notice Retries to invoke the messageCall after releasing associated
     /// Ether and tokens.

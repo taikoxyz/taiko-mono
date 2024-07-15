@@ -8,10 +8,12 @@ on:
   pull_request:
     paths:
       - "packages/eventindexer/**"
+      - "go.mod"
+      - "go.sum"
 
 jobs:
-  lint:
-    name: lint
+  lint-eventindexer:
+    name: lint-eventindexer
     runs-on: [taiko-runner]
     steps:
       - uses: actions/setup-go@v5
@@ -28,9 +30,9 @@ jobs:
           working-directory: ./packages/eventindexer
           args: --config=.golangci.yml --timeout=4m
 
-  test:
+  test-eventindexer:
     runs-on: [taiko-runner]
-    needs: lint
+    needs: lint-eventindexer
     steps:
       - name: Cancel Previous Runs
         uses: styfle/cancel-workflow-action@0.12.1
@@ -52,9 +54,8 @@ jobs:
           files: ./packages/eventindexer/coverage.txt
           flags: eventindexer
 
-  push-docker-image:
-    # only push docker image on PR merge to main
-    if: ${{ github.event }} == 'push'
+  push-eventindexer-docker-image:
+    if: ${{ github.event_name == 'pull_request' }}
     name: Build and push docker image
     runs-on: [taiko-runner]
 

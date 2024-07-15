@@ -1,32 +1,26 @@
-import { formatGwei } from 'viem';
+import { type Address, formatGwei } from 'viem';
 
+import { chainId } from '$lib/chain';
 import getProof from '$lib/whitelist/getProof';
 
 import { taikoonTokenAbi, taikoonTokenAddress } from '../../generated/abi';
-import type { IChainId } from '../../types';
-import { web3modal } from '../connect';
 import { totalWhitelistMintCount } from '../user/totalWhitelistMintCount';
 import estimateContractGas from '../wagmi/estimateContractGas';
 import { canMint } from './canMint';
 
-export async function estimateMintGasCost({ freeMintCount }: { freeMintCount: number }): Promise<number> {
-  if (freeMintCount === 0) return 0;
-  const { selectedNetworkId } = web3modal.getState();
-  if (!selectedNetworkId) return -1;
-  const chainId = selectedNetworkId as IChainId;
+export async function estimateMintGasCost(address: Address): Promise<number> {
+  const freeMintLeft = await totalWhitelistMintCount(address);
 
-  const freeMintLeft = await totalWhitelistMintCount();
-
-  if (await canMint()) {
-    const proof = getProof();
-
+  if (await canMint(address)) {
+    const proof = getProof(address);
     const gasEstimate = await estimateContractGas({
       abi: taikoonTokenAbi,
       address: taikoonTokenAddress[chainId],
       functionName: 'mint',
       args: [proof, BigInt(freeMintLeft)],
     });
-    return parseFloat(formatGwei(gasEstimate));
+    // proper parsing for 0-valued gas estimates
+    return parseFloat(formatGwei(gasEstimate === 0 ? BigInt(0) : gasEstimate));
   }
   return 0;
 }

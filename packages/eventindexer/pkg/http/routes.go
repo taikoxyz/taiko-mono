@@ -10,14 +10,15 @@ func (srv *Server) configureRoutes() {
 	srv.echo.GET("/events", srv.GetByAddressAndEventName)
 	srv.echo.GET("/assignedBlocks", srv.GetAssignedBlocksByProverAddress)
 	srv.echo.GET("/nftsByAddress", srv.GetNFTBalancesByAddressAndChainID)
+	srv.echo.GET("/blockProvenBy", srv.GetBlockProvenBy)
+	srv.echo.GET("/blockProposedBy", srv.GetBlockProposedBy)
+	srv.echo.GET("/erc20ByAddress", srv.GetERC20BalancesByAddressAndChainID)
 
 	galaxeAPI := srv.echo.Group("/api")
 
 	galaxeAPI.GET("/user-proposed-block", srv.UserProposedBlock)
 	galaxeAPI.GET("/user-proved-block", srv.UserProvedBlock)
 	galaxeAPI.GET("/user-bridged", srv.UserBridged)
-	galaxeAPI.GET("/user-swapped-on-taiko", srv.UserSwappedOnTaiko)
-	galaxeAPI.GET("/user-added-liquidity", srv.UserAddedLiquidity)
 
 	chartAPI := srv.echo.Group("/chart")
 

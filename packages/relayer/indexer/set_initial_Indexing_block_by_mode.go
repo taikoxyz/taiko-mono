@@ -1,7 +1,6 @@
 package indexer
 
 import (
-	"context"
 	"math/big"
 
 	"github.com/pkg/errors"
@@ -11,7 +10,6 @@ import (
 // setInitialIndexingBlockByMode takes in a SyncMode and determines how we should
 // start our indexing
 func (i *Indexer) setInitialIndexingBlockByMode(
-	ctx context.Context,
 	mode SyncMode,
 	chainID *big.Int,
 ) error {
@@ -30,6 +28,7 @@ func (i *Indexer) setInitialIndexingBlockByMode(
 	case Sync:
 		// get most recently processed block height from the DB
 		latest, err := i.eventRepo.FindLatestBlockID(
+			i.ctx,
 			i.eventName,
 			chainID.Uint64(),
 			i.destChainId.Uint64(),

@@ -1,0 +1,90 @@
+---
+title: Enable a prover
+description: This guide will you help you enable your Taiko node as a prover.
+---
+
+import { Aside, Card, CardGrid, Steps } from "@astrojs/starlight/components";
+
+## Prerequisites
+
+- You are already running a Taiko node [with Docker](/guides/node-operators/run-a-taiko-node-with-docker) or [from source](/guides/node-operators/build-a-taiko-node-from-source).
+- You have an [SGX v2 capable machine](https://github.com/ayeks/SGX-hardware#hardware-with-sgx2-support).
+
+## Enable a prover with simple-taiko-node
+
+<Aside>
+These are the bare minimum required settings along with a functional Taiko node to run a proposer, feel free to customize the rest of the variables in the `.env` file as you see fit!
+</Aside>
+
+<Steps>
+
+1. A Taiko prover needs to be able to generate SGX proofs at the moment. To do that, you need to run raiko. Please follow the Docker setup guide [here](https://github.com/taikoxyz/raiko/blob/main/docs/README_Docker_and_RA.md).
+
+2. After successfully setting up raiko, set the `SGX_RAIKO_HOST` endpoint in your `.env` file.
+
+3. Set the `L1_PROVER_PRIVATE_KEY` to an L1 account's private key which will send the Prove Block transactions.
+
+4. You may optionally [deploy a `ProverSet` contract](/guides/node-operators/deploy-a-proverset) to run your proposer. If you are working with a third party prover, you will have to follow the guide with them to negotiate allowance and deposit of TAIKO/TTKOh. A ProverSet is recommended for a longer term stable setup to avoid nonce issues. For testing purposes, you may not feel the need to deploy a ProverSet.
+
+5. Finally set `ENABLE_PROVER` to `true` in simple-taiko-node `.env`.
+
+6. Set `COMPOSE_PROFILES=prover` or add prover to the list.
+
+7. You can then run your prover with `docker compose up -d`!
+
+</Steps>
+
+### Approve TaikoL1 as TAIKO spender (mainnet)
+
+<Steps>
+
+1. Approve the TaikoL1 contract as a spender.
+
+   Visit the TAIKO contract on Ethereum [here](https://etherscan.io/address/0x10dea67478c5f8c5e2d90e5e9b26dbe60c54d800#writeProxyContract).
+
+2. Click the **Connect to Web3** button.
+
+3. Click the **approve** function and set the spender address to the TaikoL1 contract address: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`.
+
+   <Aside>
+      Please verify [contract addresses](/network-reference/mainnet-addresses) are correct before moving forward. You can check the respective ENS domains on Etherscan.
+   </Aside>
+
+4. Set the amount to at least the minimum bond amount of 125 TAIKO.
+
+   You will need 125 TAIKO for each bond you sign. After entering 125, you need to set the 18 decimals that the TAIKO contract takes, you can click the plus button and then select 10^18.
+
+5. Finally, click the **Write** button.
+
+</Steps>
+
+### Approve TaikoL1 as TTKOh spender (testnet)
+
+You will need TTKOh deposited on the TaikoL1 contract to secure the bond for the proofs you generate.
+
+<Steps>
+
+1. Approve the TaikoL1 contract as a spender.
+
+   Visit the TTKOh contract on Holesky [here](https://holesky.etherscan.io/address/0x6490E12d480549D333499236fF2Ba6676C296011#writeProxyContract).
+
+2. Click the **Connect to Web3** button.
+
+3. Click the **approve** function and set the spender address to the TaikoL1 contract address: `0x79C9109b764609df928d16fC4a91e9081F7e87DB`.
+
+4. Set the amount to at least the minimum bond amount of 125 TTKOh.
+
+   You will need 125 TTKOh for each bond you sign. After entering 125, you need to set the 18 decimals that the TTKOh contract takes, you can click the plus button and then select 10^18.
+
+5. Finally, click the **Write** button.
+
+</Steps>
+
+## Register the prover on the prover marketplace
+
+Finally you can choose to register your prover endpoint on the <a href="https://dojonode.xyz/tatami" target="_blank">community prover marketplace</a> so other can use it to propose blocks.
+
+<Card title="Troubleshooting" icon="error">
+    If you run into any problems, please visit the [node troubleshooting page](/guides/node-operators/node-troubleshooting) for help.
+    If you run into an error that isn't yet listed, please reach out in our [Discord](https://discord.com/invite/taikoxyz)!
+</Card>

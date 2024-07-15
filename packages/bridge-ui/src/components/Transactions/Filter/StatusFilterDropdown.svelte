@@ -5,13 +5,12 @@
   import { MessageStatus } from '$libs/bridge';
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import { classNames } from '$libs/util/classNames';
-  import { uid } from '$libs/util/uid';
 
   export let selectedStatus: MessageStatus | null = null;
 
   let flipped = false;
   let menuOpen = false;
-  let uuid = `dropdown-${uid()}`;
+  let uuid = `dropdown-${crypto.randomUUID()}`;
 
   let iconFlipperComponent: IconFlipper;
 
@@ -26,6 +25,7 @@
     { value: MessageStatus.RETRIABLE, label: $t('transactions.filter.retry') },
     { value: MessageStatus.DONE, label: $t('transactions.filter.claimed') },
     { value: MessageStatus.FAILED, label: $t('transactions.filter.failed') },
+    { value: MessageStatus.RECALLED, label: $t('transactions.filter.released') },
   ];
 
   const toggleMenu = () => {

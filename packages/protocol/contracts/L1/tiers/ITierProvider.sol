@@ -11,7 +11,7 @@ interface ITierProvider {
         uint96 contestBond;
         uint24 cooldownWindow; // in minutes
         uint16 provingWindow; // in minutes
-        uint8 maxBlocksToVerifyPerProof;
+        uint8 maxBlocksToVerifyPerProof; // DEPRECATED
     }
 
     error TIER_NOT_FOUND();
@@ -28,7 +28,7 @@ interface ITierProvider {
     function getTierIds() external view returns (uint16[] memory);
 
     /// @dev Determines the minimal tier for a block based on a random input.
-    /// @param rand (Semi) random number.
+    /// @param rand A pseudo-random number.
     /// @return The tier id.
     function getMinTier(uint256 rand) external view returns (uint16);
 }

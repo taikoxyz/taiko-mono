@@ -2,13 +2,10 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "../../common/IAddressResolver.sol";
-import "../../common/LibStrings.sol";
 import "../../libs/LibAddress.sol";
 import "../../libs/LibNetwork.sol";
-import "../hooks/IHook.sol";
-import "../tiers/ITierProvider.sol";
+import "./LibBonds.sol";
+import "./LibUtils.sol";
 
 /// @title LibProposing
 /// @notice A library for handling block proposals in the Taiko protocol.
@@ -20,7 +17,12 @@ library LibProposing {
     bytes32 private constant _EMPTY_ETH_DEPOSIT_HASH =
         0x569e75fc77c1a856f6daaf9e69d8a9566ca34aa47f9133711ce065a571af0cfd;
 
-    // Warning: Any events defined here must also be defined in TaikoEvents.sol.
+    struct Local {
+        TaikoData.SlotB b;
+        TaikoData.BlockParams params;
+        bytes32 parentMetaHash;
+    }
+
     /// @notice Emitted when a block is proposed.
     /// @param blockId The ID of the proposed block.
     /// @param assignedProver The address of the assigned prover.
@@ -36,15 +38,16 @@ library LibProposing {
         TaikoData.EthDeposit[] depositsProcessed
     );
 
-    // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
+    /// @notice Emitted when a block's txList is in the calldata.
+    /// @param blockId The ID of the proposed block.
+    /// @param txList The txList.
+    event CalldataTxList(uint256 indexed blockId, bytes txList);
+
     error L1_BLOB_NOT_AVAILABLE();
     error L1_BLOB_NOT_FOUND();
-    error L1_INVALID_HOOK();
-    error L1_INVALID_PROVER();
     error L1_INVALID_SIG();
     error L1_LIVENESS_BOND_NOT_RECEIVED();
     error L1_TOO_MANY_BLOCKS();
-    error L1_UNAUTHORIZED();
     error L1_UNEXPECTED_PARENT();
 
     /// @dev Proposes a Taiko L2 block.
@@ -59,43 +62,35 @@ library LibProposing {
         TaikoData.Config memory _config,
         IAddressResolver _resolver,
         bytes calldata _data,
-        bytes calldata _txList,
-        bool _checkEOAForCalldataDA
+        bytes calldata _txList
     )
         internal
         returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
     {
-        TaikoData.BlockParams memory params = abi.decode(_data, (TaikoData.BlockParams));
+        Local memory local;
+        local.params = abi.decode(_data, (TaikoData.BlockParams));
 
-        // We need a prover that will submit proofs after the block has been submitted
-        if (params.assignedProver == address(0)) {
-            revert L1_INVALID_PROVER();
-        }
-
-        if (params.coinbase == address(0)) {
-            params.coinbase = msg.sender;
+        if (local.params.coinbase == address(0)) {
+            local.params.coinbase = msg.sender;
         }
 
         // Taiko, as a Based Rollup, enables permissionless block proposals.
-        // However, if the "proposer" address is set to a non-zero value, we
-        // ensure that only that specific address has the authority to propose
-        // blocks.
-        TaikoData.SlotB memory b = _state.slotB;
-        if (!_isProposerPermitted(b, _resolver)) revert L1_UNAUTHORIZED();
+        local.b = _state.slotB;
 
         // It's essential to ensure that the ring buffer for proposed blocks
         // still has space for at least one more block.
-        if (b.numBlocks >= b.lastVerifiedBlockId + _config.blockMaxProposals + 1) {
+        if (local.b.numBlocks >= local.b.lastVerifiedBlockId + _config.blockMaxProposals + 1) {
             revert L1_TOO_MANY_BLOCKS();
         }
 
-        bytes32 parentMetaHash =
-            _state.blocks[(b.numBlocks - 1) % _config.blockRingBufferSize].metaHash;
+        local.parentMetaHash =
+            _state.blocks[(local.b.numBlocks - 1) % _config.blockRingBufferSize].metaHash;
         // assert(parentMetaHash != 0);
 
         // Check if parent block has the right meta hash. This is to allow the proposer to make sure
         // the block builds on the expected latest chain state.
-        if (params.parentMetaHash != 0 && parentMetaHash != params.parentMetaHash) {
+        if (local.params.parentMetaHash != 0 && local.parentMetaHash != local.params.parentMetaHash)
+        {
             revert L1_UNEXPECTED_PARENT();
         }
 
@@ -108,16 +103,16 @@ library LibProposing {
                 l1Hash: blockhash(block.number - 1),
                 difficulty: 0, // to be initialized below
                 blobHash: 0, // to be initialized below
-                extraData: params.extraData,
+                extraData: local.params.extraData,
                 depositsHash: _EMPTY_ETH_DEPOSIT_HASH,
-                coinbase: params.coinbase,
-                id: b.numBlocks,
+                coinbase: local.params.coinbase,
+                id: local.b.numBlocks,
                 gasLimit: _config.blockMaxGasLimit,
                 timestamp: uint64(block.timestamp),
                 l1Height: uint64(block.number - 1),
                 minTier: 0, // to be initialized below
                 blobUsed: _txList.length == 0,
-                parentMetaHash: parentMetaHash,
+                parentMetaHash: local.parentMetaHash,
                 sender: msg.sender
             });
         }
@@ -140,11 +135,13 @@ library LibProposing {
             // We cannot rely on `msg.sender != tx.origin` for EOA check, as it will break after EIP
             // 7645: Alias ORIGIN to SENDER
             if (
-                _checkEOAForCalldataDA && meta_.id != 1
-                    && ECDSA.recover(meta_.blobHash, params.signature) != msg.sender
+                _config.checkEOAForCalldataDA
+                    && ECDSA.recover(meta_.blobHash, local.params.signature) != msg.sender
             ) {
                 revert L1_INVALID_SIG();
             }
+
+            emit CalldataTxList(meta_.id, _txList);
         }
 
         // Following the Merge, the L1 mixHash incorporates the
@@ -152,101 +149,57 @@ library LibProposing {
         // of multiple Taiko blocks being proposed within a single
         // Ethereum block, we choose to introduce a salt to this random
         // number as the L2 mixHash.
-        meta_.difficulty = keccak256(abi.encodePacked(block.prevrandao, b.numBlocks, block.number));
+        meta_.difficulty =
+            keccak256(abi.encodePacked(block.prevrandao, local.b.numBlocks, block.number));
 
-        // Use the difficulty as a random number
-        meta_.minTier = ITierProvider(_resolver.resolve(LibStrings.B_TIER_PROVIDER, false))
-            .getMinTier(uint256(meta_.difficulty));
+        {
+            ITierRouter tierRouter = ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false));
+            ITierProvider tierProvider = ITierProvider(tierRouter.getProvider(local.b.numBlocks));
+
+            // Use the difficulty as a random number
+            meta_.minTier = tierProvider.getMinTier(uint256(meta_.difficulty));
+        }
 
         // Create the block that will be stored onchain
         TaikoData.Block memory blk = TaikoData.Block({
-            metaHash: keccak256(abi.encode(meta_)),
+            metaHash: LibUtils.hashMetadata(meta_),
             // Safeguard the liveness bond to ensure its preservation,
             // particularly in scenarios where it might be altered after the
             // block's proposal but before it has been proven or verified.
+            assignedProver: address(0),
             livenessBond: _config.livenessBond,
-            blockId: b.numBlocks,
+            blockId: local.b.numBlocks,
             proposedAt: meta_.timestamp,
             proposedIn: uint64(block.number),
             // For a new block, the next transition ID is always 1, not 0.
             nextTransitionId: 1,
             // For unverified block, its verifiedTransitionId is always 0.
-            verifiedTransitionId: 0,
-            assignedProver: params.assignedProver
+            verifiedTransitionId: 0
         });
 
         // Store the block in the ring buffer
-        _state.blocks[b.numBlocks % _config.blockRingBufferSize] = blk;
+        _state.blocks[local.b.numBlocks % _config.blockRingBufferSize] = blk;
 
         // Increment the counter (cursor) by 1.
         unchecked {
             ++_state.slotB.numBlocks;
         }
 
-        {
-            IERC20 tko = IERC20(_resolver.resolve(LibStrings.B_TAIKO_TOKEN, false));
-            uint256 tkoBalance = tko.balanceOf(address(this));
+        LibBonds.debitBond(_state, _resolver, msg.sender, _config.livenessBond);
 
-            // Run all hooks.
-            // Note that address(this).balance has been updated with msg.value,
-            // prior to any code in this function has been executed.
-            address prevHook;
-            for (uint256 i; i < params.hookCalls.length; ++i) {
-                if (uint160(prevHook) >= uint160(params.hookCalls[i].hook)) {
-                    revert L1_INVALID_HOOK();
-                }
-
-                // When a hook is called, all ether in this contract will be sent to the hook.
-                // If the ether sent to the hook is not used entirely, the hook shall send the Ether
-                // back to this contract for the next hook to use.
-                // Proposers shall choose to use extra hooks wisely.
-                IHook(params.hookCalls[i].hook).onBlockProposed{ value: address(this).balance }(
-                    blk, meta_, params.hookCalls[i].data
-                );
-
-                prevHook = params.hookCalls[i].hook;
-            }
-            // Refund Ether
-            if (address(this).balance != 0) {
-                msg.sender.sendEtherAndVerify(address(this).balance);
-            }
-
-            // Check that after hooks, the Taiko Token balance of this contract
-            // have increased by the same amount as _config.livenessBond (to prevent)
-            // multiple draining payments by a malicious proposer nesting the same
-            // hook.
-            if (tko.balanceOf(address(this)) != tkoBalance + _config.livenessBond) {
-                revert L1_LIVENESS_BOND_NOT_RECEIVED();
-            }
+        // Bribe the block builder. Unlock 1559-tips, this tip is only made
+        // if this transaction succeeds.
+        if (msg.value != 0 && block.coinbase != address(0)) {
+            address(block.coinbase).sendEtherAndVerify(msg.value);
         }
 
         deposits_ = new TaikoData.EthDeposit[](0);
         emit BlockProposed({
-            blockId: blk.blockId,
-            assignedProver: blk.assignedProver,
+            blockId: meta_.id,
+            assignedProver: msg.sender,
             livenessBond: _config.livenessBond,
             meta: meta_,
             depositsProcessed: deposits_
         });
-    }
-
-    function _isProposerPermitted(
-        TaikoData.SlotB memory _slotB,
-        IAddressResolver _resolver
-    )
-        private
-        view
-        returns (bool)
-    {
-        if (_slotB.numBlocks == 1) {
-            // Only proposer_one can propose the first block after genesis
-            address proposerOne = _resolver.resolve(LibStrings.B_PROPOSER_ONE, true);
-            if (proposerOne != address(0)) {
-                return msg.sender == proposerOne;
-            }
-        }
-
-        address proposer = _resolver.resolve(LibStrings.B_PROPOSER, true);
-        return proposer == address(0) || msg.sender == proposer;
     }
 }

@@ -5,9 +5,8 @@ import "../common/EssentialContract.sol";
 import "./libs/LibProposing.sol";
 import "./libs/LibProving.sol";
 import "./libs/LibVerifying.sol";
-import "./ITaikoL1.sol";
-import "./TaikoErrors.sol";
 import "./TaikoEvents.sol";
+import "./ITaikoL1.sol";
 
 /// @title TaikoL1
 /// @notice This contract serves as the "base layer contract" of the Taiko protocol, providing
@@ -18,20 +17,22 @@ import "./TaikoEvents.sol";
 /// by the Bridge contract.
 /// @dev Labeled in AddressResolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
-contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
+contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     /// @notice The TaikoL1 state.
     TaikoData.State public state;
 
     uint256[50] private __gap;
 
+    error L1_RECEIVE_DISABLED();
+
     modifier whenProvingNotPaused() {
-        if (state.slotB.provingPaused) revert L1_PROVING_PAUSED();
+        if (state.slotB.provingPaused) revert LibProving.L1_PROVING_PAUSED();
         _;
     }
 
     modifier emitEventForClient() {
         _;
-        LibVerifying.emitEventForClient(state);
+        emit StateVariablesUpdated(state.slotB);
     }
 
     /// @dev Allows for receiving Ether from Hooks
@@ -54,7 +55,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         initializer
     {
         __Essential_init(_owner, _addressManager);
-        LibVerifying.init(state, getConfig(), _genesisBlockHash);
+        LibUtils.init(state, _genesisBlockHash);
         if (_toPause) _pause();
     }
 
@@ -79,12 +80,11 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
     {
         TaikoData.Config memory config = getConfig();
-        (meta_, deposits_) = LibProposing.proposeBlock(
-            state, config, this, _params, _txList, _checkEOAForCalldataDA()
-        );
 
-        if (!state.slotB.provingPaused) {
-            LibVerifying.verifyBlocks(state, config, this, config.maxBlocksToVerifyPerProposal);
+        (meta_, deposits_) = LibProposing.proposeBlock(state, config, this, _params, _txList);
+
+        if (LibUtils.shouldVerifyBlocks(config, meta_.id, true) && !state.slotB.provingPaused) {
+            LibVerifying.verifyBlocks(state, config, this, config.maxBlocksToVerify);
         }
     }
 
@@ -99,19 +99,12 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         nonReentrant
         emitEventForClient
     {
-        (
-            TaikoData.BlockMetadata memory meta,
-            TaikoData.Transition memory tran,
-            TaikoData.TierProof memory proof
-        ) = abi.decode(_input, (TaikoData.BlockMetadata, TaikoData.Transition, TaikoData.TierProof));
-
-        if (_blockId != meta.id) revert L1_INVALID_BLOCK_ID();
-
         TaikoData.Config memory config = getConfig();
+        LibProving.proveBlock(state, config, this, _blockId, _input);
 
-        uint8 maxBlocksToVerify = LibProving.proveBlock(state, config, this, meta, tran, proof);
-
-        LibVerifying.verifyBlocks(state, config, this, maxBlocksToVerify);
+        if (LibUtils.shouldVerifyBlocks(config, _blockId, false)) {
+            LibVerifying.verifyBlocks(state, config, this, config.maxBlocksToVerify);
+        }
     }
 
     /// @inheritdoc ITaikoL1
@@ -125,23 +118,37 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         LibVerifying.verifyBlocks(state, getConfig(), this, _maxBlocksToVerify);
     }
 
-    /// @notice Pause block proving.
-    /// @param _pause True if paused.
+    /// @inheritdoc ITaikoL1
     function pauseProving(bool _pause) external {
         _authorizePause(msg.sender, _pause);
         LibProving.pauseProving(state, _pause);
     }
 
-    /// @inheritdoc EssentialContract
-    function unpause() public override {
-        super.unpause(); // permission checked inside
-        state.slotB.lastUnpausedAt = uint64(block.timestamp);
+    /// @inheritdoc ITaikoL1
+    function depositBond(uint256 _amount) external whenNotPaused {
+        LibBonds.depositBond(state, this, _amount);
+    }
+
+    /// @inheritdoc ITaikoL1
+    function withdrawBond(uint256 _amount) external whenNotPaused {
+        LibBonds.withdrawBond(state, this, _amount);
+    }
+
+    /// @notice Gets the current bond balance of a given address.
+    /// @return The current bond balance.
+    function bondBalanceOf(address _user) external view returns (uint256) {
+        return LibBonds.bondBalanceOf(state, _user);
+    }
+
+    /// @inheritdoc ITaikoL1
+    function getVerifiedBlockProver(uint64 _blockId) external view returns (address prover_) {
+        return LibVerifying.getVerifiedBlockProver(state, getConfig(), _blockId);
     }
 
     /// @notice Gets the details of a block.
     /// @param _blockId Index of the block.
     /// @return blk_ The block.
-    function getBlock(uint64 _blockId) public view returns (TaikoData.Block memory blk_) {
+    function getBlock(uint64 _blockId) external view returns (TaikoData.Block memory blk_) {
         (blk_,) = LibUtils.getBlock(state, getConfig(), _blockId);
     }
 
@@ -153,7 +160,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         uint64 _blockId,
         bytes32 _parentHash
     )
-        public
+        external
         view
         returns (TaikoData.TransitionState memory)
     {
@@ -168,57 +175,82 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         uint64 _blockId,
         uint32 _tid
     )
-        public
+        external
         view
         returns (TaikoData.TransitionState memory)
     {
         return LibUtils.getTransition(state, getConfig(), _blockId, _tid);
     }
+
+    /// @notice Returns information about the last verified block.
+    /// @return blockId_ The last verified block's ID.
+    /// @return blockHash_ The last verified block's blockHash.
+    /// @return stateRoot_ The last verified block's stateRoot.
+    function getLastVerifiedBlock()
+        external
+        view
+        returns (uint64 blockId_, bytes32 blockHash_, bytes32 stateRoot_)
+    {
+        blockId_ = state.slotB.lastVerifiedBlockId;
+        (blockHash_, stateRoot_) = LibUtils.getBlockInfo(state, getConfig(), blockId_);
+    }
+
+    /// @notice Returns information about the last synchronized block.
+    /// @return blockId_ The last verified block's ID.
+    /// @return blockHash_ The last verified block's blockHash.
+    /// @return stateRoot_ The last verified block's stateRoot.
+    function getLastSyncedBlock()
+        external
+        view
+        returns (uint64 blockId_, bytes32 blockHash_, bytes32 stateRoot_)
+    {
+        blockId_ = state.slotA.lastSyncedBlockId;
+        (blockHash_, stateRoot_) = LibUtils.getBlockInfo(state, getConfig(), blockId_);
+    }
+
     /// @notice Gets the state variables of the TaikoL1 contract.
     /// @dev This method can be deleted once node/client stops using it.
     /// @return State variables stored at SlotA.
     /// @return State variables stored at SlotB.
-
     function getStateVariables()
-        public
+        external
         view
         returns (TaikoData.SlotA memory, TaikoData.SlotB memory)
     {
         return (state.slotA, state.slotB);
     }
 
-    /// @notice Gets SlotA
-    /// @return  State variables stored at SlotA.
-    function slotA() public view returns (TaikoData.SlotA memory) {
-        return state.slotA;
-    }
-
-    /// @notice Gets SlotB
-    /// @return  State variables stored at SlotB.
-    function slotB() public view returns (TaikoData.SlotB memory) {
-        return state.slotB;
+    /// @inheritdoc EssentialContract
+    function unpause() public override {
+        super.unpause(); // permission checked inside
+        state.slotB.lastUnpausedAt = uint64(block.timestamp);
     }
 
     /// @inheritdoc ITaikoL1
-    function getConfig() public view virtual override returns (TaikoData.Config memory) {
+    function getConfig() public pure virtual override returns (TaikoData.Config memory) {
         // All hard-coded configurations:
         // - treasury: the actual TaikoL2 address.
         // - anchorGasLimit: 250_000 (based on internal devnet, its ~220_000
         // after 256 L2 blocks)
         return TaikoData.Config({
-            chainId: LibNetwork.TAIKO,
-            // Assume the block time is 3s, the protocol will allow ~90 days of
-            // new blocks without any verification.
-            blockMaxProposals: 3_000_000,
-            blockRingBufferSize: 3_010_000,
-            // Can be overridden by the tier config.
-            maxBlocksToVerifyPerProposal: 10,
+            chainId: LibNetwork.TAIKO_MAINNET,
+            // If we have 1 block per 12 seconds, then each day there will be 86400/12=7200 blocks.
+            // We therefore use 7200 as the base unit to configure blockMaxProposals and
+            // blockRingBufferSize.
+            blockMaxProposals: 324_000, // = 7200 * 45
+            // We give 7200 * 5 = 36000 slots for verifeid blocks in case third party apps will use
+            // their data.
+            blockRingBufferSize: 360_000, // = 7200 * 50
+            maxBlocksToVerify: 16,
             // This value is set based on `gasTargetPerL1Block = 15_000_000 * 4` in TaikoL2.
             // We use 8x rather than 4x here to handle the scenario where the average number of
             // Taiko blocks proposed per Ethereum block is smaller than 1.
+            // There is 250_000 additional gas for the anchor tx. Therefore, on explorers, you'll
+            // read Taiko's gas limit to be 240_250_000.
             blockMaxGasLimit: 240_000_000,
-            livenessBond: 250e18, // 250 Taiko token
-            blockSyncThreshold: 16
+            livenessBond: 125e18, // 125 Taiko token
+            stateRootSyncInternal: 16,
+            checkEOAForCalldataDA: true
         });
     }
 
@@ -233,8 +265,4 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         override
         onlyFromOwnerOrNamed(LibStrings.B_CHAIN_WATCHDOG)
     { }
-
-    function _checkEOAForCalldataDA() internal pure virtual returns (bool) {
-        return true;
-    }
 }

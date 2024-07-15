@@ -1,4 +1,4 @@
-name: Supplementary-Contracts
+name: Supplementary Contracts
 
 on:
   push:
@@ -10,7 +10,7 @@ on:
       - "packages/supplementary-contracts/**"
 
 jobs:
-  build:
+  build-supplementary-contracts:
     runs-on: [taiko-runner]
     steps:
       - name: Cancel previous runs
@@ -31,10 +31,15 @@ jobs:
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
 
-      - name: Check formatting
-        working-directory: ./packages/supplementary-contracts
-        run: forge fmt --check
-
       - name: Unit Tests
         working-directory: ./packages/supplementary-contracts
         run: pnpm clean && pnpm test
+
+      - name: Format solidity && update contract layout table
+        working-directory: ./packages/supplementary-contracts
+        run: pnpm layout &&  pnpm lint:sol
+
+      - name: Commit contract layout table
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "forge fmt & update contract layout table"

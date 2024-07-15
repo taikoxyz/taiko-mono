@@ -28,7 +28,14 @@ export const halfPanel = classNames(
 
 export const leftHalfPanel = classNames(halfPanel, 'aspect-square');
 
-export const rightHalfPanel = classNames(halfPanel, 'md:px-12', 'md:max-w-[500px]');
+export const rightHalfPanel = classNames(
+  halfPanel,
+  'md:px-12',
+  'min-w-[400px]',
+  'my-16',
+  'md:my-[0]',
+  'md:max-w-[500px]',
+);
 
 export const counterClasses = classNames(
   'w-full',
@@ -37,14 +44,54 @@ export const counterClasses = classNames(
   'items-center',
   'justify-between',
   'font-sans',
-  'font-bold',
   'mt-6',
 );
 
 export const nftRendererWrapperClasses = 'rounded-3xl overflow-hidden';
 export const nftRendererWrapperMobileClasses = 'rounded-3xl my-8 overflow-hidden';
 
-export const mintTitleClasses = classNames('text-5xl', 'font-semibold', 'w-full text-left');
-export const mintContentClasses = 'font-normal font-sans text-content-secondary';
+export const mintTitleClasses = classNames(
+  'text-[45px]/[52px]',
+  'font-semibold',
+  'text-content-primary',
+  'font-clash-grotesk',
+  'tracking-[-1%]',
+  'w-full text-left',
+);
+export const mintContentClasses = classNames(
+  'font-normal',
+  'font-sans',
+  'text-content-secondary',
+  'text-[16px]/[24px]',
+);
 
-export const supplyClasses = classNames('text-content-secondary', 'text-h4');
+export const eligibilityLabelClasses = classNames(
+  'text-content-primary',
+  'text-[16px]/[24px]',
+  'text-normal',
+  'font-sans',
+);
+
+export const eligibilityValueClasses = classNames(
+  'text-content-primary',
+  'text-[16px]/[24px]',
+  'font-bold',
+  'font-sans',
+  'tracking-[0.5%]',
+);
+
+export const currentMintedClasses = classNames(
+  'font-sans',
+  'font-bold',
+  'text-content-primary',
+  'tracking-[0.5%]',
+  'text-[16px]/[24px]',
+);
+export const maxMintedClasses = classNames(
+  'text-content-tertiary',
+  'font-bold',
+  'text-[16px]/[24px]',
+  'tracking-[0.5%]',
+);
+
+export const infoRowClasses = classNames('w-full', 'gap-4', 'flex', 'flex-col');

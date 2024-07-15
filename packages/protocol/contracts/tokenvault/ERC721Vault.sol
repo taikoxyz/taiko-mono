@@ -5,8 +5,8 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "../libs/LibAddress.sol";
 import "../common/LibStrings.sol";
+import "./IBridgedERC721.sol";
 import "./BaseNFTVault.sol";
-import "./BridgedERC721.sol";
 
 /// @title ERC721Vault
 /// @notice This vault holds all ERC721 tokens that users have deposited. It also manages
@@ -38,11 +38,13 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         nonReentrant
         returns (IBridge.Message memory message_)
     {
+        if (msg.value < _op.fee) revert VAULT_INSUFFICIENT_FEE();
+
         for (uint256 i; i < _op.tokenIds.length; ++i) {
             if (_op.amounts[i] != 0) revert VAULT_INVALID_AMOUNT();
         }
 
-        if (!_op.token.supportsInterface(ERC721_INTERFACE_ID)) {
+        if (!_op.token.supportsInterface(type(IERC721).interfaceId)) {
             revert VAULT_INTERFACE_NOT_SUPPORTED();
         }
 
@@ -178,7 +180,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
         } else {
             token_ = _getOrDeployBridgedToken(_ctoken);
             for (uint256 i; i < _tokenIds.length; ++i) {
-                BridgedERC721(token_).mint(_to, _tokenIds[i]);
+                IBridgedERC721(token_).mint(_to, _tokenIds[i]);
             }
         }
     }
@@ -197,7 +199,8 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             if (_ctoken.addr != address(0)) {
                 ctoken_ = _ctoken;
                 for (uint256 i; i < _op.tokenIds.length; ++i) {
-                    BridgedERC721(_op.token).burn(msg.sender, _op.tokenIds[i]);
+                    IERC721(_op.token).safeTransferFrom(msg.sender, address(this), _op.tokenIds[i]);
+                    IBridgedERC721(_op.token).burn(_op.tokenIds[i]);
                 }
             } else {
                 ctoken_ = CanonicalNFT({
@@ -208,9 +211,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
                 });
 
                 for (uint256 i; i < _op.tokenIds.length; ++i) {
-                    ERC721Upgradeable(_op.token).safeTransferFrom(
-                        msg.sender, address(this), _op.tokenIds[i]
-                    );
+                    IERC721(_op.token).safeTransferFrom(msg.sender, address(this), _op.tokenIds[i]);
                 }
             }
         }
@@ -241,7 +242,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     /// @return btoken_ Address of the deployed bridged token contract.
     function _deployBridgedToken(CanonicalNFT memory _ctoken) private returns (address btoken_) {
         bytes memory data = abi.encodeCall(
-            BridgedERC721.init,
+            IBridgedERC721Initializable.init,
             (owner(), addressManager, _ctoken.addr, _ctoken.chainId, _ctoken.symbol, _ctoken.name)
         );
 

@@ -1,19 +1,6 @@
 [
   {
     "type": "function",
-    "name": "MAX_TOKEN_PER_TXN",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "acceptOwnership",
     "inputs": [],
     "outputs": [],
@@ -86,6 +73,32 @@
         "name": "btoken",
         "type": "address",
         "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "impl",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "inNonReentrant",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
       }
     ],
     "stateMutability": "view"
@@ -542,7 +555,7 @@
     "name": "supportsInterface",
     "inputs": [
       {
-        "name": "interfaceId",
+        "name": "_interfaceId",
         "type": "bytes4",
         "internalType": "bytes4"
       }
@@ -554,7 +567,7 @@
         "internalType": "bool"
       }
     ],
-    "stateMutability": "pure"
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -926,6 +939,11 @@
   },
   {
     "type": "error",
+    "name": "FUNC_NOT_IMPLEMENTED",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "INVALID_PAUSE_STATUS",
     "inputs": []
   },
@@ -967,6 +985,11 @@
   },
   {
     "type": "error",
+    "name": "VAULT_INSUFFICIENT_FEE",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "VAULT_INTERFACE_NOT_SUPPORTED",
     "inputs": []
   },
@@ -977,17 +1000,12 @@
   },
   {
     "type": "error",
-    "name": "VAULT_INVALID_TO",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "VAULT_INVALID_TOKEN",
     "inputs": []
   },
   {
     "type": "error",
-    "name": "VAULT_MAX_TOKEN_PER_TXN_EXCEEDED",
+    "name": "VAULT_INVALID_TO_ADDR",
     "inputs": []
   },
   {
@@ -1002,7 +1020,12 @@
   },
   {
     "type": "error",
-    "name": "ZERO_ADDR_MANAGER",
+    "name": "ZERO_ADDRESS",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZERO_VALUE",
     "inputs": []
   }
 ]

@@ -103,24 +103,28 @@
                 <span>{$t('nav.bridge')}</span>
               </LinkButton>
             </li>
-            <li>
-              <LinkButton href="/faucet" active={isFaucetPage}>
-                <Icon type="faucet" fillClass={getIconFillClass(isFaucetPage)} />
-                <span>{$t('nav.faucet')}</span>
-              </LinkButton>
-            </li>
+            {#if testnetName !== ''}
+              <li>
+                <LinkButton href="/faucet" active={isFaucetPage}>
+                  <Icon type="faucet" fillClass={getIconFillClass(isFaucetPage)} />
+                  <span>{$t('nav.faucet')}</span>
+                </LinkButton>
+              </li>
+            {/if}
             <li>
               <LinkButton href="/transactions" active={isTransactionsPage}>
                 <Icon type="transactions" fillClass={getIconFillClass(isTransactionsPage)} />
                 <span>{$t('nav.transactions')}</span>
               </LinkButton>
             </li>
-            <li class="border-t border-t-divider-border pt-2">
-              <LinkButton href={PUBLIC_DEFAULT_SWAP_URL} external>
-                <Icon type="swap" />
-                <span>{$t('nav.swap')}</span>
-              </LinkButton>
-            </li>
+            {#if PUBLIC_DEFAULT_SWAP_URL && PUBLIC_DEFAULT_SWAP_URL !== ''}
+              <li class="border-t border-t-divider-border pt-2">
+                <LinkButton href={PUBLIC_DEFAULT_SWAP_URL} external>
+                  <Icon type="swap" />
+                  <span>{$t('nav.swap')}</span>
+                </LinkButton>
+              </li>
+            {/if}
             <li>
               <LinkButton
                 href={$connectedSourceChain

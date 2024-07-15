@@ -34,6 +34,7 @@ export const taikoonsWrapperClasses = classNames(
   'gap-5',
   'p-5',
   'grid',
+  'xl:grid-cols-8',
   'lg:grid-cols-6',
   'md:grid-cols-4',
   'grid-cols-3',
@@ -74,3 +75,10 @@ export const detailTitleClasses = classNames(
 );
 
 export const chipWrapperClasses = classNames('my-2', 'flex', 'flex-row', 'w-full', 'justify-start');
+
+export const titleClasses = classNames(
+  'font-clash-grotesk',
+  'text-[57px]/[64px]',
+  'text-content-primary',
+  'font-semibold',
+);

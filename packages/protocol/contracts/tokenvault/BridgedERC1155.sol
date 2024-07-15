@@ -4,12 +4,18 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
 import "../common/EssentialContract.sol";
 import "../common/LibStrings.sol";
+import "./IBridgedERC1155.sol";
 import "./LibBridgedToken.sol";
 
 /// @title BridgedERC1155
 /// @notice Contract for bridging ERC1155 tokens across different chains.
 /// @custom:security-contact security@taiko.xyz
-contract BridgedERC1155 is EssentialContract, ERC1155Upgradeable {
+contract BridgedERC1155 is
+    EssentialContract,
+    IBridgedERC1155,
+    IBridgedERC1155Initializable,
+    ERC1155Upgradeable
+{
     /// @notice Address of the source token contract.
     address public srcToken;
 
@@ -25,15 +31,8 @@ contract BridgedERC1155 is EssentialContract, ERC1155Upgradeable {
     uint256[46] private __gap;
 
     error BTOKEN_INVALID_PARAMS();
-    error BTOKEN_INVALID_TO_ADDR();
 
-    /// @notice Initializes the contract.
-    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _addressManager The address of the {AddressManager} contract.
-    /// @param _srcToken Address of the source token.
-    /// @param _srcChainId Source chain ID.
-    /// @param _symbol Symbol of the bridged token.
-    /// @param _name Name of the bridged token.
+    /// @inheritdoc IBridgedERC1155Initializable
     function init(
         address _owner,
         address _addressManager,
@@ -61,10 +60,7 @@ contract BridgedERC1155 is EssentialContract, ERC1155Upgradeable {
         name = _name;
     }
 
-    /// @dev Mints tokens.
-    /// @param _to Address to receive the minted tokens.
-    /// @param _tokenIds ID of the token to mint.
-    /// @param _amounts Amount of tokens to mint.
+    /// @inheritdoc IBridgedERC1155
     function mintBatch(
         address _to,
         uint256[] calldata _tokenIds,
@@ -78,28 +74,28 @@ contract BridgedERC1155 is EssentialContract, ERC1155Upgradeable {
         _mintBatch(_to, _tokenIds, _amounts, "");
     }
 
-    /// @dev Batch burns tokens.
-    /// @param _account Address from which tokens are burned.
-    /// @param _ids Array of IDs of the tokens to burn.
-    /// @param _amounts Amount of tokens to burn respectively.
-    function burnBatch(
-        address _account,
-        uint256[] calldata _ids,
-        uint256[] calldata _amounts
+    /// @inheritdoc IBridgedERC1155
+    function burn(
+        uint256 _id,
+        uint256 _amount
     )
         external
         whenNotPaused
         onlyFromNamed(LibStrings.B_ERC1155_VAULT)
         nonReentrant
     {
-        _burnBatch(_account, _ids, _amounts);
+        _burn(msg.sender, _id, _amount);
     }
 
-    /// @notice Gets the canonical token's address and chain ID.
-    /// @return The canonical token's address.
-    /// @return The canonical token's chain ID.
-    function canonical() public view returns (address, uint256) {
+    /// @inheritdoc IBridgedERC1155
+    function canonical() external view returns (address, uint256) {
         return (srcToken, srcChainId);
+    }
+
+    function supportsInterface(bytes4 _interfaceId) public view override returns (bool) {
+        return _interfaceId == type(IBridgedERC1155).interfaceId
+            || _interfaceId == type(IBridgedERC1155Initializable).interfaceId
+            || super.supportsInterface(_interfaceId);
     }
 
     function _beforeTokenTransfer(

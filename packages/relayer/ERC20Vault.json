@@ -1,6 +1,19 @@
 [
   {
     "type": "function",
+    "name": "MIN_MIGRATION_DELAY",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "acceptOwnership",
     "inputs": [],
     "outputs": [],
@@ -60,7 +73,7 @@
   },
   {
     "type": "function",
-    "name": "btokenBlacklist",
+    "name": "btokenDenylist",
     "inputs": [
       {
         "name": "btoken",
@@ -70,7 +83,7 @@
     ],
     "outputs": [
       {
-        "name": "blacklisted",
+        "name": "denied",
         "type": "bool",
         "internalType": "bool"
       }
@@ -154,6 +167,32 @@
   },
   {
     "type": "function",
+    "name": "impl",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "inNonReentrant",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "init",
     "inputs": [
       {
@@ -169,6 +208,30 @@
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "lastMigrationStart",
+    "inputs": [
+      {
+        "name": "chainId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "ctoken",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "timestamp",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -533,7 +596,7 @@
         "internalType": "bool"
       }
     ],
-    "stateMutability": "pure"
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -883,6 +946,12 @@
         "internalType": "address"
       },
       {
+        "name": "canonicalChainId",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
         "name": "destChainId",
         "type": "uint64",
         "indexed": false,
@@ -942,6 +1011,11 @@
   },
   {
     "type": "error",
+    "name": "FUNC_NOT_IMPLEMENTED",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "INVALID_PAUSE_STATUS",
     "inputs": []
   },
@@ -993,7 +1067,17 @@
   },
   {
     "type": "error",
+    "name": "VAULT_INSUFFICIENT_FEE",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "VAULT_INVALID_AMOUNT",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "VAULT_INVALID_CTOKEN",
     "inputs": []
   },
   {
@@ -1003,17 +1087,17 @@
   },
   {
     "type": "error",
-    "name": "VAULT_INVALID_TO",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "VAULT_INVALID_TOKEN",
     "inputs": []
   },
   {
     "type": "error",
-    "name": "VAULT_NOT_SAME_OWNER",
+    "name": "VAULT_INVALID_TO_ADDR",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "VAULT_LAST_MIGRATION_TOO_CLOSE",
     "inputs": []
   },
   {
@@ -1023,7 +1107,12 @@
   },
   {
     "type": "error",
-    "name": "ZERO_ADDR_MANAGER",
+    "name": "ZERO_ADDRESS",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZERO_VALUE",
     "inputs": []
   }
 ]

@@ -5,6 +5,9 @@ pre-commit:
     bridge-ui:
       glob: "packages/bridge-ui/**.{js,ts,css,svelte}"
       run: pnpm -F bridge-ui svelte:check && pnpm -F bridge-ui lint:fix && git add {staged_files}
+    guardian-ui:
+      glob: "packages/guardian-prover-health-check-ui/**.{js,ts,css,svelte}"
+      run: pnpm -F guardian-prover-health-check-ui svelte:check && pnpm -F guardian-prover-health-check-ui lint:fix && git add {staged_files}
     protocol_sol:
       glob: "packages/protocol/**.{sol}"
       run: pnpm -F protocol lint:sol && git add {staged_files}

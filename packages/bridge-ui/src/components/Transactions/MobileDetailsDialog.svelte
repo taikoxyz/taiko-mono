@@ -13,7 +13,6 @@
   import { getTokenAddresses } from '$libs/token/getTokenAddresses';
   import { noop } from '$libs/util/noop';
   import { shortenAddress } from '$libs/util/shortenAddress';
-  import { uid } from '$libs/util/uid';
   import { connectedSourceChain } from '$stores/network';
 
   import ChainSymbolName from './ChainSymbolName.svelte';
@@ -34,7 +33,7 @@
   const openToolTip = () => {
     tooltipOpen = !tooltipOpen;
   };
-  let dialogId = `dialog-${uid()}`;
+  let dialogId = `dialog-${crypto.randomUUID()}`;
 
   const handleStatusDialog = () => {
     openStatusDialog = !openStatusDialog;
@@ -55,9 +54,9 @@
   let canonicalAddress: Address | null;
   let canonicalChain: number | null;
 
-  $: if (token && !fetchingAddress && !canonicalAddress && !bridgedAddress) {
-    fetchTokenAddresses();
-  }
+  const forwardEvent = (e: CustomEvent) => {
+    dispatch(e.type, e.detail);
+  };
 
   const fetchTokenAddresses = async () => {
     if (!token) return;
@@ -85,6 +84,9 @@
     fetchingAddress = false;
   };
 
+  $: if (token && !fetchingAddress && !canonicalAddress && !bridgedAddress) {
+    fetchTokenAddresses();
+  }
   $: imageUrl = token?.metadata?.image || placeholderUrl;
 
   $: isERC721 = selectedItem?.tokenType === TokenType.ERC721;
@@ -127,7 +129,11 @@
               </div>
             </h4>
             <div class="f-items-center space-x-1">
-              <Status bridgeTx={selectedItem} on:insufficientFunds={handleInsufficientFunds} />
+              <Status
+                bridgeTxStatus={selectedItem.status}
+                bridgeTx={selectedItem}
+                on:openModal={forwardEvent}
+                on:insufficientFunds={handleInsufficientFunds} />
             </div>
           </li>
 
@@ -194,7 +200,7 @@
             <h4 class="text-secondary-content">{$t('transactions.header.explorer')}</h4>
             <a
               class="flex justify-start content-center link"
-              href={`${chainConfig[Number(selectedItem.srcChainId)]?.blockExplorers?.default.url}/tx/${selectedItem.hash}`}
+              href={`${chainConfig[Number(selectedItem.srcChainId)]?.blockExplorers?.default.url}/tx/${selectedItem.srcTxHash}`}
               target="_blank">
               {$t('transactions.link.explorer')}
               <Icon type="arrow-top-right" />

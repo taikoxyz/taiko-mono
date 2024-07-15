@@ -33,7 +33,7 @@ var (
 // ensureGenesisMatched fetches the L2 genesis block from TaikoL1 contract,
 // and checks whether the fetched genesis is same to the node local genesis.
 func (c *Client) ensureGenesisMatched(ctx context.Context) error {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	stateVars, err := c.GetProtocolStateVariables(&bind.CallOpts{Context: ctxWithTimeout})
@@ -113,7 +113,7 @@ func (c *Client) WaitTillL2ExecutionEngineSynced(ctx context.Context) error {
 // LatestL2KnownL1Header fetches the L2 execution engine's latest known L1 header,
 // if we can't find the L1Origin data, we will use the L1 genesis header instead.
 func (c *Client) LatestL2KnownL1Header(ctx context.Context) (*types.Header, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	// Try to fetch the latest known L1 header from the L2 execution engine.
@@ -150,7 +150,7 @@ func (c *Client) LatestL2KnownL1Header(ctx context.Context) (*types.Header, erro
 
 // GetGenesisL1Header fetches the L1 header that including L2 genesis block.
 func (c *Client) GetGenesisL1Header(ctx context.Context) (*types.Header, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	stateVars, err := c.GetProtocolStateVariables(&bind.CallOpts{Context: ctxWithTimeout})
@@ -164,7 +164,7 @@ func (c *Client) GetGenesisL1Header(ctx context.Context) (*types.Header, error) 
 // L2ParentByBlockID fetches the block header from L2 execution engine with the largest block id that
 // smaller than the given `blockId`.
 func (c *Client) L2ParentByBlockID(ctx context.Context, blockID *big.Int) (*types.Header, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	var (
@@ -255,8 +255,9 @@ func (c *Client) GetPoolContent(
 	maxBytesPerTxList uint64,
 	locals []common.Address,
 	maxTransactionsLists uint64,
+	minTip uint64,
 ) ([]*miner.PreBuiltTxList, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	l1Head, err := c.L1.HeaderByNumber(ctx, nil)
@@ -285,7 +286,7 @@ func (c *Client) GetPoolContent(
 		localsArg = append(localsArg, local.Hex())
 	}
 
-	return c.L2Engine.TxPoolContent(
+	return c.L2Engine.TxPoolContentWithMinTip(
 		ctxWithTimeout,
 		beneficiary,
 		baseFeeInfo.Basefee,
@@ -293,6 +294,7 @@ func (c *Client) GetPoolContent(
 		maxBytesPerTxList,
 		localsArg,
 		maxTransactionsLists,
+		minTip,
 	)
 }
 
@@ -302,7 +304,7 @@ func (c *Client) L2AccountNonce(
 	account common.Address,
 	height *big.Int,
 ) (uint64, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	var result hexutil.Uint64
@@ -333,7 +335,7 @@ func (p *L2SyncProgress) isSyncing() bool {
 
 // L2ExecutionEngineSyncProgress fetches the sync progress of the given L2 execution engine.
 func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProgress, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	var (
@@ -400,7 +402,7 @@ func (c *Client) GetProtocolStateVariables(opts *bind.CallOpts) (*struct {
 
 // GetL2BlockInfo fetches the L2 block information from the protocol.
 func (c *Client) GetL2BlockInfo(ctx context.Context, blockID *big.Int) (bindings.TaikoDataBlock, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	return c.TaikoL1.GetBlock(&bind.CallOpts{Context: ctxWithTimeout}, blockID.Uint64())
@@ -412,7 +414,7 @@ func (c *Client) GetTransition(
 	blockID *big.Int,
 	transactionID uint32,
 ) (bindings.TaikoDataTransitionState, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	return c.TaikoL1.GetTransition(
@@ -444,7 +446,7 @@ type ReorgCheckResult struct {
 func (c *Client) CheckL1Reorg(ctx context.Context, blockID *big.Int) (*ReorgCheckResult, error) {
 	var (
 		result                 = new(ReorgCheckResult)
-		ctxWithTimeout, cancel = ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+		ctxWithTimeout, cancel = CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	)
 	defer cancel()
 
@@ -676,15 +678,25 @@ type TierProviderTierWithID struct {
 
 // GetTiers fetches all protocol supported tiers.
 func (c *Client) GetTiers(ctx context.Context) ([]*TierProviderTierWithID, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
-	tierProviderAddress, err := c.TaikoL1.Resolve0(&bind.CallOpts{Context: ctx}, StringToBytes32("tier_provider"), false)
+	tierRouterAddress, err := c.TaikoL1.Resolve0(&bind.CallOpts{Context: ctx}, StringToBytes32("tier_router"), false)
 	if err != nil {
 		return nil, err
 	}
 
-	tierProvider, err := bindings.NewTierProvider(tierProviderAddress, c.L1)
+	tierRouter, err := bindings.NewTierProvider(tierRouterAddress, c.L1)
+	if err != nil {
+		return nil, err
+	}
+
+	providerAddress, err := tierRouter.GetProvider(&bind.CallOpts{Context: ctxWithTimeout}, common.Big0)
+	if err != nil {
+		return nil, err
+	}
+
+	tierProvider, err := bindings.NewTierProvider(providerAddress, c.L1)
 	if err != nil {
 		return nil, err
 	}
@@ -727,7 +739,7 @@ func (c *Client) GetTaikoDataSlotBByNumber(ctx context.Context, number uint64) (
 
 // GetGuardianProverAddress fetches the guardian prover address from the protocol.
 func (c *Client) GetGuardianProverAddress(ctx context.Context) (common.Address, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	return c.TaikoL1.Resolve0(&bind.CallOpts{Context: ctxWithTimeout}, StringToBytes32("tier_guardian"), false)
@@ -739,7 +751,7 @@ func (c *Client) WaitL1NewPendingTransaction(
 	address common.Address,
 	oldPendingNonce uint64,
 ) error {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	ticker := time.NewTicker(rpcPollingInterval)

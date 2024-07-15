@@ -54,13 +54,13 @@ func isValidProof(
 		l2Header.Root == stateRoot, nil
 }
 
-// getProvingWindow returns the provingWindow of the given proposed block.
+// getProvingWindow returns the provingWindow of the given tier.
 func getProvingWindow(
-	e *bindings.TaikoL1ClientBlockProposed,
+	tier uint16,
 	tiers []*rpc.TierProviderTierWithID,
 ) (time.Duration, error) {
 	for _, t := range tiers {
-		if e.Meta.MinTier == t.ID {
+		if tier == t.ID {
 			return time.Duration(t.ProvingWindow) * time.Minute, nil
 		}
 	}
@@ -68,8 +68,8 @@ func getProvingWindow(
 	return 0, errTierNotFound
 }
 
-// getBlockProposedEventFromBlockID fetches the BlockProposed event by the given block id.
-func getBlockProposedEventFromBlockID(
+// GetBlockProposedEventFromBlockID fetches the BlockProposed event by the given block id.
+func GetBlockProposedEventFromBlockID(
 	ctx context.Context,
 	rpc *rpc.Client,
 	id *big.Int,
@@ -120,28 +120,28 @@ func getMetadataFromBlockID(
 	id *big.Int,
 	proposedIn *big.Int,
 ) (*bindings.TaikoDataBlockMetadata, error) {
-	e, err := getBlockProposedEventFromBlockID(ctx, rpc, id, proposedIn)
+	e, err := GetBlockProposedEventFromBlockID(ctx, rpc, id, proposedIn)
 	if err != nil {
 		return nil, err
 	}
 	return &e.Meta, nil
 }
 
-// isProvingWindowExpired returns true as the first return parameter if the assigned prover
+// IsProvingWindowExpired returns true as the first return parameter if the assigned prover
 // proving window of the given proposed block is expired, and the second return parameter is the time
 // remaining til proving window is expired.
-func isProvingWindowExpired(
-	e *bindings.TaikoL1ClientBlockProposed,
+func IsProvingWindowExpired(
+	metadata *bindings.TaikoDataBlockMetadata,
 	tiers []*rpc.TierProviderTierWithID,
 ) (bool, time.Time, time.Duration, error) {
-	provingWindow, err := getProvingWindow(e, tiers)
+	provingWindow, err := getProvingWindow(metadata.MinTier, tiers)
 	if err != nil {
 		return false, time.Time{}, 0, fmt.Errorf("failed to get proving window: %w", err)
 	}
 
 	var (
 		now       = uint64(time.Now().Unix())
-		expiredAt = e.Meta.Timestamp + uint64(provingWindow.Seconds())
+		expiredAt = metadata.Timestamp + uint64(provingWindow.Seconds())
 	)
 
 	return now > expiredAt, time.Unix(int64(expiredAt), 0), time.Duration(expiredAt-now) * time.Second, nil

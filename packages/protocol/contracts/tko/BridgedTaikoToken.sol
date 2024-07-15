@@ -42,10 +42,6 @@ contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20 {
         _burn(msg.sender, _amount);
     }
 
-    function owner() public view override(IBridgedERC20, OwnableUpgradeable) returns (address) {
-        return OwnableUpgradeable.owner();
-    }
-
     /// @notice Gets the canonical token's address and chain ID.
     /// @return The canonical token's address.
     /// @return The canonical token's chain ID.

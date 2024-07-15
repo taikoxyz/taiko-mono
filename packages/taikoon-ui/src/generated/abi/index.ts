@@ -3,8 +3,8 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
- * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0x0874bD201a33bff5Ebd4f8200c6482A72457FeF0)
- * -
+ * - [__View Contract on Taiko Mainnet Taikoscan__](https://taikoscan.network/address/0x4A045C5016B200F7E08a4caBB2cdA6E85bF53295)
+ * - [__View Contract on Taiko Hekla L2 Taikoscan__](https://hekla.taikoscan.network/address/0xB6Dfbbc4d1074e214d144cb6aD31a30e4F0DCD1A)
  */
 export const taikoonTokenAbi = [
   {
@@ -40,6 +40,20 @@ export const taikoonTokenAbi = [
   },
   {
     type: 'function',
+    inputs: [],
+    name: 'baseURI',
+    outputs: [{ name: '', internalType: 'string', type: 'string' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [],
+    name: 'blacklist',
+    outputs: [{ name: '', internalType: 'contract IMinimalBlacklist', type: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
     inputs: [
       { name: '_minter', internalType: 'address', type: 'address' },
       { name: '_maxMints', internalType: 'uint256', type: 'uint256' },
@@ -60,6 +74,11 @@ export const taikoonTokenAbi = [
     inputs: [
       { name: '_owner', internalType: 'address', type: 'address' },
       { name: '_root', internalType: 'bytes32', type: 'bytes32' },
+      {
+        name: '_blacklist',
+        internalType: 'contract IMinimalBlacklist',
+        type: 'address',
+      },
     ],
     name: 'initialize',
     outputs: [],
@@ -71,6 +90,11 @@ export const taikoonTokenAbi = [
       { name: '_owner', internalType: 'address', type: 'address' },
       { name: '_rootURI', internalType: 'string', type: 'string' },
       { name: '_merkleRoot', internalType: 'bytes32', type: 'bytes32' },
+      {
+        name: '_blacklistAddress',
+        internalType: 'contract IMinimalBlacklist',
+        type: 'address',
+      },
     ],
     name: 'initialize',
     outputs: [],
@@ -277,6 +301,26 @@ export const taikoonTokenAbi = [
   },
   {
     type: 'function',
+    inputs: [{ name: '_rootURI', internalType: 'string', type: 'string' }],
+    name: 'updateBaseURI',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    inputs: [
+      {
+        name: '_blacklist',
+        internalType: 'contract IMinimalBlacklist',
+        type: 'address',
+      },
+    ],
+    name: 'updateBlacklist',
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
     inputs: [{ name: '_root', internalType: 'bytes32', type: 'bytes32' }],
     name: 'updateRoot',
     outputs: [],
@@ -336,6 +380,19 @@ export const taikoonTokenAbi = [
       { name: 'approved', internalType: 'bool', type: 'bool', indexed: false },
     ],
     name: 'ApprovalForAll',
+  },
+  {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: '_blacklist',
+        internalType: 'address',
+        type: 'address',
+        indexed: false,
+      },
+    ],
+    name: 'BlacklistUpdated',
   },
   {
     type: 'event',
@@ -448,6 +505,7 @@ export const taikoonTokenAbi = [
     ],
     name: 'Upgraded',
   },
+  { type: 'error', inputs: [], name: 'ADDRESS_BLACKLISTED' },
   {
     type: 'error',
     inputs: [{ name: 'target', internalType: 'address', type: 'address' }],
@@ -544,17 +602,17 @@ export const taikoonTokenAbi = [
 ] as const;
 
 /**
- * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0x0874bD201a33bff5Ebd4f8200c6482A72457FeF0)
- * -
+ * - [__View Contract on Taiko Mainnet Taikoscan__](https://taikoscan.network/address/0x4A045C5016B200F7E08a4caBB2cdA6E85bF53295)
+ * - [__View Contract on Taiko Hekla L2 Taikoscan__](https://hekla.taikoscan.network/address/0xB6Dfbbc4d1074e214d144cb6aD31a30e4F0DCD1A)
  */
 export const taikoonTokenAddress = {
-  17000: '0x0874bD201a33bff5Ebd4f8200c6482A72457FeF0',
-  31337: '0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82',
+  167000: '0x4A045C5016B200F7E08a4caBB2cdA6E85bF53295',
+  167009: '0xB6Dfbbc4d1074e214d144cb6aD31a30e4F0DCD1A',
 } as const;
 
 /**
- * - [__View Contract on Holesky Etherscan__](https://holesky.etherscan.io/address/0x0874bD201a33bff5Ebd4f8200c6482A72457FeF0)
- * -
+ * - [__View Contract on Taiko Mainnet Taikoscan__](https://taikoscan.network/address/0x4A045C5016B200F7E08a4caBB2cdA6E85bF53295)
+ * - [__View Contract on Taiko Hekla L2 Taikoscan__](https://hekla.taikoscan.network/address/0xB6Dfbbc4d1074e214d144cb6aD31a30e4F0DCD1A)
  */
 export const taikoonTokenConfig = {
   address: taikoonTokenAddress,

@@ -24,6 +24,7 @@ contract QuotaManager is EssentialContract, IQuotaManager {
     uint256[48] private __gap;
 
     event QuotaUpdated(address indexed token, uint256 oldQuota, uint256 newQuota);
+    event QuotaPeriodUpdated(uint256 quotaPeriod);
 
     error QM_INVALID_PARAM();
     error QM_OUT_OF_QUOTA();
@@ -40,20 +41,20 @@ contract QuotaManager is EssentialContract, IQuotaManager {
         external
         initializer
     {
-        if (_quotaPeriod == 0) revert QM_INVALID_PARAM();
-
         __Essential_init(_owner, _addressManager);
-        quotaPeriod = _quotaPeriod;
+        _setQuotaPeriod(_quotaPeriod);
     }
 
     /// @notice Updates the daily quota for a given address.
     /// @param _token The token address with Ether represented by address(0).
-    /// @param _quota The new daily quota.
+    /// @param _quota The new quota for the defined period.
     function updateQuota(address _token, uint104 _quota) external onlyOwner whenNotPaused {
-        if (_quota == tokenQuota[_token].quota) revert QM_INVALID_PARAM();
-
         emit QuotaUpdated(_token, tokenQuota[_token].quota, _quota);
-        tokenQuota[_token].quota = _quota;
+        tokenQuota[_token] = Quota(0, _quota, _quota);
+    }
+
+    function setQuotaPeriod(uint24 _quotaPeriod) external onlyOwner whenNotPaused {
+        _setQuotaPeriod(_quotaPeriod);
     }
 
     /// @inheritdoc IQuotaManager
@@ -87,5 +88,11 @@ contract QuotaManager is EssentialContract, IQuotaManager {
 
         uint256 issuance = q.quota * (block.timestamp + _leap - q.updatedAt) / quotaPeriod;
         return (issuance + q.available).min(q.quota);
+    }
+
+    function _setQuotaPeriod(uint24 _quotaPeriod) private {
+        if (_quotaPeriod == 0) revert QM_INVALID_PARAM();
+        quotaPeriod = _quotaPeriod;
+        emit QuotaPeriodUpdated(_quotaPeriod);
     }
 }

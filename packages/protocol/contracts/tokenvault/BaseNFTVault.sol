@@ -22,24 +22,23 @@ abstract contract BaseNFTVault is BaseVault {
     /// @devStruct representing the details of a bridged token transfer operation.
     /// 5 slots
     struct BridgeTransferOp {
+        // Destination chain ID.
         uint64 destChainId;
+        // The owner of the bridge message on the destination chain.
         address destOwner;
+        // Recipient address.
         address to;
+        // Processing fee for the relayer.
         uint64 fee;
+        // Address of the token.
         address token;
+        // Gas limit for the operation.
         uint32 gasLimit;
+        // Token Id array
         uint256[] tokenIds;
+        // Respective amounts per given token Ids.
         uint256[] amounts;
     }
-
-    /// @notice ERC1155 interface ID.
-    bytes4 internal constant ERC1155_INTERFACE_ID = 0xd9b67a26;
-
-    /// @notice ERC721 interface ID.
-    bytes4 internal constant ERC721_INTERFACE_ID = 0x80ac58cd;
-
-    /// @notice Maximum number of tokens that can be transferred per transaction.
-    uint256 public constant MAX_TOKEN_PER_TXN = 10;
 
     /// @notice Mapping to store bridged NFTs and their canonical counterparts.
     mapping(address btoken => CanonicalNFT canonical) public bridgedToCanonical;
@@ -123,15 +122,10 @@ abstract contract BaseNFTVault is BaseVault {
     error VAULT_INVALID_AMOUNT();
     error VAULT_INTERFACE_NOT_SUPPORTED();
     error VAULT_TOKEN_ARRAY_MISMATCH();
-    error VAULT_MAX_TOKEN_PER_TXN_EXCEEDED();
 
     modifier withValidOperation(BridgeTransferOp memory _op) {
         if (_op.tokenIds.length != _op.amounts.length) {
             revert VAULT_TOKEN_ARRAY_MISMATCH();
-        }
-
-        if (_op.tokenIds.length > MAX_TOKEN_PER_TXN) {
-            revert VAULT_MAX_TOKEN_PER_TXN_EXCEEDED();
         }
 
         if (_op.token == address(0)) revert VAULT_INVALID_TOKEN();

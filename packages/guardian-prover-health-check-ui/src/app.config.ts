@@ -1,1 +1,1 @@
-export const configuredNetworks = ['hekla', 'devnet']
+export const configuredNetworks = ['hekla', 'devnet'];

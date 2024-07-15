@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"crypto/rand"
 	"errors"
 	"fmt"
 	"math/big"
@@ -24,15 +23,15 @@ import (
 )
 
 var (
-	errL1Reorged                           = errors.New("L1 reorged")
-	proofExpirationDelay                   = 6 * 12 * time.Second // 6 ethereum blocks
-	submissionDelayRandomBumpRange float64 = 20
+	errL1Reorged         = errors.New("L1 reorged")
+	proofExpirationDelay = 6 * 12 * time.Second // 6 ethereum blocks
 )
 
 // BlockProposedEventHandler is responsible for handling the BlockProposed event as a prover.
 type BlockProposedEventHandler struct {
 	sharedState           *state.SharedState
 	proverAddress         common.Address
+	proverSetAddress      common.Address
 	genesisHeightL1       uint64
 	rpc                   *rpc.Client
 	proofGenerationCh     chan<- *proofProducer.ProofWithHeader
@@ -44,14 +43,14 @@ type BlockProposedEventHandler struct {
 	contesterMode         bool
 	proveUnassignedBlocks bool
 	// Guardian prover related.
-	isGuardian      bool
-	submissionDelay time.Duration
+	isGuardian bool
 }
 
 // NewBlockProposedEventHandlerOps is the options for creating a new BlockProposedEventHandler.
 type NewBlockProposedEventHandlerOps struct {
 	SharedState           *state.SharedState
 	ProverAddress         common.Address
+	ProverSetAddress      common.Address
 	GenesisHeightL1       uint64
 	RPC                   *rpc.Client
 	ProofGenerationCh     chan *proofProducer.ProofWithHeader
@@ -62,7 +61,6 @@ type NewBlockProposedEventHandlerOps struct {
 	BackOffMaxRetrys      uint64
 	ContesterMode         bool
 	ProveUnassignedBlocks bool
-	SubmissionDelay       time.Duration
 }
 
 // NewBlockProposedEventHandler creates a new BlockProposedEventHandler instance.
@@ -70,6 +68,7 @@ func NewBlockProposedEventHandler(opts *NewBlockProposedEventHandlerOps) *BlockP
 	return &BlockProposedEventHandler{
 		opts.SharedState,
 		opts.ProverAddress,
+		opts.ProverSetAddress,
 		opts.GenesisHeightL1,
 		opts.RPC,
 		opts.ProofGenerationCh,
@@ -81,7 +80,6 @@ func NewBlockProposedEventHandler(opts *NewBlockProposedEventHandlerOps) *BlockP
 		opts.ContesterMode,
 		opts.ProveUnassignedBlocks,
 		false,
-		opts.SubmissionDelay,
 	}
 }
 
@@ -223,29 +221,6 @@ func (h *BlockProposedEventHandler) checkL1Reorg(
 	return nil
 }
 
-// getRandomBumpedSubmissionDelay returns a random bumped submission delay.
-func (h *BlockProposedEventHandler) getRandomBumpedSubmissionDelay(expiredAt time.Time) (time.Duration, error) {
-	if h.submissionDelay == 0 {
-		return h.submissionDelay, nil
-	}
-
-	randomBump, err := rand.Int(
-		rand.Reader,
-		new(big.Int).SetUint64(uint64(h.submissionDelay.Seconds()*submissionDelayRandomBumpRange/100)),
-	)
-	if err != nil {
-		return 0, err
-	}
-
-	delay := time.Duration(h.submissionDelay.Seconds()+float64(randomBump.Uint64())) * time.Second
-
-	if time.Since(expiredAt) >= delay {
-		return 0, nil
-	}
-
-	return delay - time.Since(expiredAt), nil
-}
-
 // checkExpirationAndSubmitProof checks whether the proposed block's proving window is expired,
 // and submits a new proof if necessary.
 func (h *BlockProposedEventHandler) checkExpirationAndSubmitProof(
@@ -268,6 +243,7 @@ func (h *BlockProposedEventHandler) checkExpirationAndSubmitProof(
 		h.rpc,
 		e.BlockId,
 		h.proverAddress,
+		h.proverSetAddress,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to check whether the L2 block needs a new proof: %w", err)
@@ -295,25 +271,40 @@ func (h *BlockProposedEventHandler) checkExpirationAndSubmitProof(
 			return nil
 		}
 
-		// The proof submitted to protocol is invalid.
-		h.proofContestCh <- &proofProducer.ContestRequestBody{
-			BlockID:    e.BlockId,
-			ProposedIn: new(big.Int).SetUint64(e.Raw.BlockNumber),
-			ParentHash: proofStatus.ParentHeader.Hash(),
-			Meta:       &e.Meta,
-			Tier:       e.Meta.MinTier,
+		if h.isGuardian {
+			// In guardian prover, we submit a proof directly.
+			h.proofSubmissionCh <- &proofProducer.ProofRequestBody{Tier: encoding.TierGuardianMinorityID, Event: e}
+		} else {
+			// If the current proof has not been contested, we should contest it at first.
+			if proofStatus.CurrentTransitionState.Contester == rpc.ZeroAddress {
+				h.proofContestCh <- &proofProducer.ContestRequestBody{
+					BlockID:    e.BlockId,
+					ProposedIn: new(big.Int).SetUint64(e.Raw.BlockNumber),
+					ParentHash: proofStatus.ParentHeader.Hash(),
+					Meta:       &e.Meta,
+					Tier:       e.Meta.MinTier,
+				}
+			} else {
+				// The invalid proof submitted to protocol is contested by another prover,
+				// we need to submit a proof with a higher tier.
+				h.proofSubmissionCh <- &proofProducer.ProofRequestBody{
+					Tier:  proofStatus.CurrentTransitionState.Tier + 1,
+					Event: e,
+				}
+			}
 		}
+
 		return nil
 	}
 
-	windowExpired, expiredAt, timeToExpire, err := isProvingWindowExpired(e, h.sharedState.GetTiers())
+	windowExpired, _, timeToExpire, err := IsProvingWindowExpired(&e.Meta, h.sharedState.GetTiers())
 	if err != nil {
 		return fmt.Errorf("failed to check if the proving window is expired: %w", err)
 	}
 
 	// If the proving window is not expired, we need to check if the current prover is the assigned prover,
 	// if no and the current prover wants to prove unassigned blocks, then we should wait for its expiration.
-	if !windowExpired && e.AssignedProver != h.proverAddress {
+	if !windowExpired && e.AssignedProver != h.proverAddress && e.AssignedProver != h.proverSetAddress {
 		log.Info(
 			"Proposed block is not provable by current prover at the moment",
 			"blockID", e.BlockId,
@@ -329,7 +320,7 @@ func (h *BlockProposedEventHandler) checkExpirationAndSubmitProof(
 				"timeToExpire", timeToExpire,
 			)
 			time.AfterFunc(
-				// Add another 60 seconds, to ensure one more L1 block will be mined before the proof submission
+				// Add another 72 seconds, to ensure one more L1 block will be mined before the proof submission
 				timeToExpire+proofExpirationDelay,
 				func() { h.assignmentExpiredCh <- e },
 			)
@@ -342,12 +333,6 @@ func (h *BlockProposedEventHandler) checkExpirationAndSubmitProof(
 	// try to submit a proof for this proposed block.
 	tier := e.Meta.MinTier
 
-	// Get a random bumped submission delay, if necessary.
-	submissionDelay, err := h.getRandomBumpedSubmissionDelay(expiredAt)
-	if err != nil {
-		return err
-	}
-
 	if h.isGuardian {
 		tier = encoding.TierGuardianMinorityID
 	}
@@ -357,15 +342,12 @@ func (h *BlockProposedEventHandler) checkExpirationAndSubmitProof(
 		"blockID", e.BlockId,
 		"assignProver", e.AssignedProver,
 		"minTier", e.Meta.MinTier,
-		"submissionDelay", submissionDelay,
 		"tier", tier,
 	)
 
 	metrics.ProverProofsAssigned.Add(1)
 
-	time.AfterFunc(submissionDelay, func() {
-		h.proofSubmissionCh <- &proofProducer.ProofRequestBody{Tier: tier, Event: e}
-	})
+	h.proofSubmissionCh <- &proofProducer.ProofRequestBody{Tier: tier, Event: e}
 
 	return nil
 }

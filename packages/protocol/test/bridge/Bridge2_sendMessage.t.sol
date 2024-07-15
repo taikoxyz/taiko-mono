@@ -12,11 +12,11 @@ contract BridgeTest2_sendMessage is BridgeTest2 {
         // init an all-zero message
         IBridge.Message memory message;
 
-        vm.expectRevert(Bridge.B_INVALID_USER.selector);
+        vm.expectRevert(EssentialContract.ZERO_ADDRESS.selector);
         bridge.sendMessage(message);
 
         message.srcOwner = Alice;
-        vm.expectRevert(Bridge.B_INVALID_USER.selector);
+        vm.expectRevert(EssentialContract.ZERO_ADDRESS.selector);
         bridge.sendMessage(message);
 
         message.destOwner = Bob;

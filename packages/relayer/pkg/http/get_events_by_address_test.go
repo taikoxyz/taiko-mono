@@ -17,7 +17,7 @@ import (
 func Test_GetEventsByAddress(t *testing.T) {
 	srv := newTestServer("")
 
-	_, err := srv.eventRepo.Save(context.Background(), relayer.SaveEventOpts{
+	_, err := srv.eventRepo.Save(context.Background(), &relayer.SaveEventOpts{
 		Name:        "name",
 		Data:        `{"Owner": "0x0000000000000000000000000000000000000123"}`,
 		ChainID:     big.NewInt(167001),

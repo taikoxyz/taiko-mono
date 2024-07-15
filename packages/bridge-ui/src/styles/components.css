@@ -189,7 +189,10 @@
   }
 
   input {
-    border: 1px solid var(--primary-border);
+    border: 1px solid var(--primary-border-dark);
+    &:hover {
+      border: 1px solid transparent;
+    }
   }
 
   h1 {

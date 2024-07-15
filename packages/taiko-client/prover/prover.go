@@ -2,10 +2,8 @@ package prover
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math/big"
-	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -29,7 +27,6 @@ import (
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 	proofSubmitter "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter/transaction"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/server"
 	state "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/shared_state"
 )
 
@@ -43,7 +40,6 @@ type Prover struct {
 	rpc *rpc.Client
 
 	// Guardian prover related
-	server                    *server.ProverServer
 	guardianProverHeartbeater guardianProverHeartbeater.BlockSenderHeartbeater
 
 	// Contract configurations
@@ -86,11 +82,11 @@ func (p *Prover) InitFromCli(ctx context.Context, c *cli.Context) error {
 		return err
 	}
 
-	return InitFromConfig(ctx, p, cfg)
+	return InitFromConfig(ctx, p, cfg, nil)
 }
 
 // InitFromConfig initializes the prover instance based on the given configurations.
-func InitFromConfig(ctx context.Context, p *Prover, cfg *Config) (err error) {
+func InitFromConfig(ctx context.Context, p *Prover, cfg *Config, txMgr *txmgr.SimpleTxManager) (err error) {
 	p.cfg = cfg
 	p.ctx = ctx
 	// Initialize state which will be shared by event handlers.
@@ -110,6 +106,7 @@ func InitFromConfig(ctx context.Context, p *Prover, cfg *Config) (err error) {
 		TaikoL1Address:                cfg.TaikoL1Address,
 		TaikoL2Address:                cfg.TaikoL2Address,
 		TaikoTokenAddress:             cfg.TaikoTokenAddress,
+		ProverSetAddress:              cfg.ProverSetAddress,
 		GuardianProverMinorityAddress: cfg.GuardianProverMinorityAddress,
 		GuardianProverMajorityAddress: cfg.GuardianProverMajorityAddress,
 		Timeout:                       cfg.RPCTimeout,
@@ -145,22 +142,28 @@ func InitFromConfig(ctx context.Context, p *Prover, cfg *Config) (err error) {
 	p.sharedState.SetTiers(tiers)
 
 	txBuilder := transaction.NewProveBlockTxBuilder(
-		p.rpc, p.cfg.TaikoL1Address,
+		p.rpc,
+		p.cfg.TaikoL1Address,
+		p.cfg.ProverSetAddress,
 		p.cfg.GuardianProverMajorityAddress,
 		p.cfg.GuardianProverMinorityAddress,
 	)
 
-	if p.txmgr, err = txmgr.NewSimpleTxManager(
-		"prover",
-		log.Root(),
-		&metrics.TxMgrMetrics,
-		*cfg.TxmgrConfigs,
-	); err != nil {
-		return err
+	if txMgr != nil {
+		p.txmgr = txMgr
+	} else {
+		if p.txmgr, err = txmgr.NewSimpleTxManager(
+			"prover",
+			log.Root(),
+			&metrics.TxMgrMetrics,
+			*cfg.TxmgrConfigs,
+		); err != nil {
+			return err
+		}
 	}
 
 	// Proof submitters
-	if err := p.initProofSubmitters(p.txmgr, txBuilder); err != nil {
+	if err := p.initProofSubmitters(p.txmgr, txBuilder, tiers); err != nil {
 		return err
 	}
 
@@ -169,28 +172,10 @@ func InitFromConfig(ctx context.Context, p *Prover, cfg *Config) (err error) {
 		p.rpc,
 		p.cfg.ProveBlockGasLimit,
 		p.txmgr,
+		p.cfg.ProverSetAddress,
 		p.cfg.Graffiti,
 		txBuilder,
 	)
-
-	// Prover server
-	if p.server, err = server.New(&server.NewProverServerOpts{
-		ProverPrivateKey:      p.cfg.L1ProverPrivKey,
-		MinOptimisticTierFee:  p.cfg.MinOptimisticTierFee,
-		MinSgxTierFee:         p.cfg.MinSgxTierFee,
-		MinSgxAndZkVMTierFee:  p.cfg.MinSgxAndZkVMTierFee,
-		MinEthBalance:         p.cfg.MinEthBalance,
-		MinTaikoTokenBalance:  p.cfg.MinTaikoTokenBalance,
-		MaxExpiry:             p.cfg.MaxExpiry,
-		MaxBlockSlippage:      p.cfg.MaxBlockSlippage,
-		TaikoL1Address:        p.cfg.TaikoL1Address,
-		AssignmentHookAddress: p.cfg.AssignmentHookAddress,
-		RPC:                   p.rpc,
-		ProtocolConfigs:       &protocolConfigs,
-		LivenessBond:          protocolConfigs.LivenessBond,
-	}); err != nil {
-		return err
-	}
 
 	// Guardian prover heartbeat sender
 	if p.IsGuardianProver() && p.cfg.GuardianProverHealthCheckServerEndpoint != nil {
@@ -224,18 +209,11 @@ func InitFromConfig(ctx context.Context, p *Prover, cfg *Config) (err error) {
 // Start starts the main loop of the L2 block prover.
 func (p *Prover) Start() error {
 	// 1. Set approval amount for the contracts.
-	for _, contract := range []common.Address{p.cfg.TaikoL1Address, p.cfg.AssignmentHookAddress} {
+	for _, contract := range []common.Address{p.cfg.TaikoL1Address} {
 		if err := p.setApprovalAmount(p.ctx, contract); err != nil {
 			log.Crit("Failed to set approval amount", "contract", contract, "error", err)
 		}
 	}
-
-	// 2. Start the prover server.
-	go func() {
-		if err := p.server.Start(fmt.Sprintf(":%v", p.cfg.HTTPServerPort)); !errors.Is(err, http.ErrServerClosed) {
-			log.Crit("Failed to start http server", "error", err)
-		}
-	}()
 
 	// 3. Start the guardian prover heartbeat sender if the current prover is a guardian prover.
 	if p.IsGuardianProver() && p.cfg.GuardianProverHealthCheckServerEndpoint != nil {
@@ -331,10 +309,7 @@ func (p *Prover) eventLoop() {
 }
 
 // Close closes the prover instance.
-func (p *Prover) Close(ctx context.Context) {
-	if err := p.server.Shutdown(ctx); err != nil {
-		log.Error("Failed to shut down prover server", "error", err)
-	}
+func (p *Prover) Close(_ context.Context) {
 	p.wg.Wait()
 }
 
@@ -446,6 +421,10 @@ func (p *Prover) Name() string {
 func (p *Prover) selectSubmitter(minTier uint16) proofSubmitter.Submitter {
 	for _, s := range p.proofSubmitters {
 		if s.Tier() >= minTier {
+			if !p.IsGuardianProver() && s.Tier() >= encoding.TierGuardianMinorityID {
+				continue
+			}
+
 			log.Debug("Proof submitter selected", "tier", s.Tier(), "minTier", minTier)
 			return s
 		}
@@ -460,6 +439,10 @@ func (p *Prover) selectSubmitter(minTier uint16) proofSubmitter.Submitter {
 func (p *Prover) getSubmitterByTier(tier uint16) proofSubmitter.Submitter {
 	for _, s := range p.proofSubmitters {
 		if s.Tier() == tier {
+			if !p.IsGuardianProver() && s.Tier() >= encoding.TierGuardianMinorityID {
+				continue
+			}
+
 			return s
 		}
 	}

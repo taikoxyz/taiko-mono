@@ -9,7 +9,7 @@
   $: disabled = $$props.disabled || false;
 
   let classes = classNames(
-    'w-full input-box bg-neutral-background shadow-none placeholder:text-tertiary-content font-bold shadow-none outline-none ',
+    'w-full input-box bg-neutral-background placeholder:text-tertiary-content font-bold',
     disabled ? 'cursor-not-allowed ' : 'cursor-pointer',
     $$props.class,
   );

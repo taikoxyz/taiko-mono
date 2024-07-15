@@ -16,7 +16,8 @@ const docTemplate = `{
             "email": "info@taiko.xyz"
         },
         "license": {
-            "name": "MIT"
+            "name": "MIT",
+            "url": "https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md"
         },
         "version": "{{.Version}}"
     },
@@ -126,6 +127,12 @@ const docTemplate = `{
         "paginate.Page": {
             "type": "object",
             "properties": {
+                "error": {
+                    "type": "boolean"
+                },
+                "error_message": {
+                    "type": "string"
+                },
                 "first": {
                     "type": "boolean"
                 },
@@ -159,10 +166,10 @@ const docTemplate = `{
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
-	Host:             "relayer.katla.taiko.xyz",
+	Host:             "relayer.hekla.taiko.xyz",
 	BasePath:         "",
 	Schemes:          []string{},
-	Title:            "Taiko Relayer API",
+	Title:            "Taiko Bridge Relayer API",
 	Description:      "",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,

@@ -9,19 +9,8 @@
         "erc721VaultAddress": "",
         "erc1155VaultAddress": "",
         "crossChainSyncAddress": "",
-        "signalServiceAddress": ""
-      }
-    },
-    {
-      "source": "",
-      "destination": "",
-      "addresses": {
-        "bridgeAddress": "",
-        "erc20VaultAddress": "",
-        "erc721VaultAddress": "",
-        "erc1155VaultAddress": "",
-        "crossChainSyncAddress": "",
-        "signalServiceAddress": ""
+        "signalServiceAddress": "",
+        "quotaManagerAddress: ""
       }
     },
     {
@@ -34,6 +23,20 @@
         "erc1155VaultAddress": "",
         "crossChainSyncAddress": "",
         "signalServiceAddress": "",
+        "quotaManagerAddress: ""
+      }
+    },
+    {
+      "source": "",
+      "destination": "",
+      "addresses": {
+        "bridgeAddress": "",
+        "erc20VaultAddress": "",
+        "erc721VaultAddress": "",
+        "erc1155VaultAddress": "",
+        "crossChainSyncAddress": "",
+        "signalServiceAddress": "",
+        "quotaManagerAddress: ""
         "hops": [
           {
             "chainId": ,
@@ -53,6 +56,7 @@
         "erc1155VaultAddress": "",
         "crossChainSyncAddress": "",
         "signalServiceAddress": "",
+        "quotaManagerAddress: ""
         "hops": [
           {
             "chainId": ,
