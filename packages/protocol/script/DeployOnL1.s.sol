@@ -32,6 +32,7 @@ import "../test/DeployCapability.sol";
 // - https://github.com/daimo-eth/p256-verifier
 // - https://github.com/rdubois-crypto/FreshCryptoLib
 import { P256Verifier } from "p256-verifier/src/P256Verifier.sol";
+import {RiscZeroVerifier} from "../contracts/verifiers/RiscZeroVerifier.sol";
 
 /// @title DeployOnL1
 /// @notice This script deploys the core Taiko protocol smart contract on L1,
@@ -278,6 +279,13 @@ contract DeployOnL1 is DeployCapability {
             name: "tier_sgx",
             impl: address(new SgxVerifier()),
             data: abi.encodeCall(SgxVerifier.init, (owner, rollupAddressManager)),
+            registerTo: rollupAddressManager
+        });
+
+        deployProxy({
+            name: "tier_sgx_zkvm",
+            impl: address(new RiscZeroVerifier()),
+            data: abi.encodeCall(RiscZeroVerifier.init, (owner, rollupAddressManager)),
             registerTo: rollupAddressManager
         });
 
