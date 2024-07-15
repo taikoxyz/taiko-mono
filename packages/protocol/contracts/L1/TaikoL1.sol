@@ -115,14 +115,14 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         nonReentrant
         emitEventForClient
     {
-        TaikoData.Config memory config = getConfig();
-        TaikoToken tko = TaikoToken(resolve(LibStrings.B_TAIKO_TOKEN, false));
+        // TaikoData.Config memory config = getConfig();
+        // TaikoToken tko = TaikoToken(resolve(LibStrings.B_TAIKO_TOKEN, false));
 
-        LibProving.proveBlock(state, tko, config, this, _blockId, _input);
+        // LibProving.proveBlock(state, tko, config, this, _blockId, _input);
 
-        if (LibUtils.shouldVerifyBlocks(config, _blockId, false)) {
-            LibVerifying.verifyBlocks(state, tko, config, this, config.maxBlocksToVerify);
-        }
+        // if (LibUtils.shouldVerifyBlocks(config, _blockId, false)) {
+        //     LibVerifying.verifyBlocks(state, tko, config, this, config.maxBlocksToVerify);
+        // }
     }
 
     /// @inheritdoc ITaikoL1

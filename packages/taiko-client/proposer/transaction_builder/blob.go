@@ -120,12 +120,12 @@ func (b *BlobTransactionBuilder) Build(
 	}
 
 	if b.proverSetAddress != rpc.ZeroAddress {
-		data, err = encoding.ProverSetABI.Pack("proposeBlock", [][]byte{encodedParams}, [][]byte{})
+		data, err = encoding.ProverSetABI.Pack("proposeBlock", [][]byte{encodedParams}, [][]byte{[]byte{0xff}})
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		data, err = encoding.TaikoL1ABI.Pack("proposeBlock", [][]byte{encodedParams}, [][]byte{})
+		data, err = encoding.TaikoL1ABI.Pack("proposeBlock", [][]byte{encodedParams}, [][]byte{[]byte{0xff}})
 		if err != nil {
 			return nil, err
 		}
