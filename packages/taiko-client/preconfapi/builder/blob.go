@@ -63,12 +63,9 @@ func (b *BlobTransactionBuilder) BuildUnsigned(
 		if err != nil {
 			return nil, err
 		}
-
-		totalWithCurrentTxList := append(totalBytes, compressedTxListBytes...)
-
 		// if we have exceeded max blob data size, we can make a blob with all the data
 		// *except* this one.
-		if len(totalWithCurrentTxList) >= eth.MaxBlobDataSize {
+		if len(totalBytes)+len(compressedTxListBytes) >= eth.MaxBlobDataSize {
 			var blob = &eth.Blob{}
 			if err := blob.FromData(totalBytes); err != nil {
 				return nil, err

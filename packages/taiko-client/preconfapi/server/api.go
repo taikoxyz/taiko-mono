@@ -53,7 +53,12 @@ func (s *PreconfAPIServer) BuildBlock(c echo.Context) error {
 		return c.JSON(http.StatusUnprocessableEntity, err)
 	}
 
-	tx, err := s.txBuilders[req.CalldataOrBlob].BuildUnsigned(
+	t := req.CalldataOrBlob
+	if t == "" {
+		t = "blob"
+	}
+
+	tx, err := s.txBuilders[t].BuildUnsigned(
 		c.Request().Context(),
 		paramsToOpts(req.BlockParams),
 	)
