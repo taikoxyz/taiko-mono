@@ -157,13 +157,13 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         nonReentrant
         emitEventForClient
     {
-        // LibVerifying.verifyBlocks(
-        //     state,
-        //     TaikoToken(resolve(LibStrings.B_TAIKO_TOKEN, false)),
-        //     getConfig(),
-        //     this,
-        //     _maxBlocksToVerify
-        // );
+        LibVerifying.verifyBlocks(
+            state,
+            TaikoToken(resolve(LibStrings.B_TAIKO_TOKEN, false)),
+            getConfig(),
+            this,
+            _maxBlocksToVerify
+        );
     }
 
     /// @notice Gets the details of a block.

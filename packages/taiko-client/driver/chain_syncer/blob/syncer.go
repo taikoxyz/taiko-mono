@@ -133,6 +133,7 @@ func (s *Syncer) processL1Blocks(ctx context.Context) error {
 		s.lastInsertedBlockID = nil
 	}
 
+	log.Info("iterating", "start", s.state.GetL1Current().Number.String(), "end", l1End.Number.String())
 	iter, err := eventIterator.NewBlockProposedIterator(ctx, &eventIterator.BlockProposedIteratorConfig{
 		Client:               s.rpc.L1,
 		TaikoL1:              s.rpc.TaikoL1,
