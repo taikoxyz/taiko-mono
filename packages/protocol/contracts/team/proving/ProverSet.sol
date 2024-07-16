@@ -77,6 +77,16 @@ contract ProverSet is EssentialContract, IERC1271 {
         IERC20(tkoToken()).transfer(admin, _amount);
     }
 
+    /// @notice Withdraws ETH back to the owner address.
+    function withdraw(uint256 _amount) external onlyOwner {
+        uint256 balance = address(this).balance;
+        require(balance - _amount > 0, "Amount to withdraw > balance of smart contract");
+
+        address _owner = owner();
+        (bool sent,) = _owner.call{ value: _amount }("");
+        require(sent, "Failed to withdraw ETH");
+    }
+
     /// @notice Propose a Taiko block.
     function proposeBlock(
         bytes calldata _params,
