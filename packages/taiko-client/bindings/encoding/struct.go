@@ -41,6 +41,9 @@ type BlockParams struct {
 	Signature          []byte
 	L1StateBlockNumber uint32
 	Timestamp          uint64
+	BlobTxListOffset   uint32
+	BlobTxListLength   uint32
+	BlobIndex          uint8
 }
 
 // TierFee should be same with TaikoData.TierFee.

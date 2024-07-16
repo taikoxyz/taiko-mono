@@ -73,6 +73,14 @@ var (
 			Name: "sender",
 			Type: "address",
 		},
+		{
+			Name: "blobTxListOffset",
+			Type: "uint32",
+		},
+		{
+			Name: "blobTxListLength",
+			Type: "uint32",
+		},
 	}
 	transitionComponents = []abi.ArgumentMarshaling{
 		{
@@ -144,6 +152,18 @@ var (
 		{
 			Name: "timestamp",
 			Type: "uint64",
+		},
+		{
+			Name: "blobTxListOffset",
+			Type: "uint32",
+		},
+		{
+			Name: "blobTxListLength",
+			Type: "uint32",
+		},
+		{
+			Name: "blobIndex",
+			Type: "uint8",
 		},
 	}
 	proverAssignmentComponents = []abi.ArgumentMarshaling{

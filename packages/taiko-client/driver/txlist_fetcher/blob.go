@@ -61,7 +61,12 @@ func (d *BlobFetcher) Fetch(
 			&commitment,
 		) == common.BytesToHash(meta.BlobHash[:]) {
 			blob := eth.Blob(common.FromHex(sidecar.Blob))
-			return blob.ToData()
+			blobData, err := blob.ToData()
+			if err != nil {
+				return nil, err
+			}
+
+			return blobData[meta.BlobTxListOffset:meta.BlobTxListLength], nil
 		}
 	}
 

@@ -3,19 +3,15 @@ package server
 import (
 	"bytes"
 	"encoding/hex"
-	"log"
 	"net/http"
-	"strings"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/labstack/echo/v4"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/preconfapi/builder"
 )
 
-// @title Taiko Proposer Server API
+// @title Taiko Preconf Server API
 // @version 1.0
 // @termsOfService http://swagger.io/terms/
 
@@ -26,13 +22,21 @@ import (
 // @license.name MIT
 // @license.url https://github.com/taikoxyz/taiko-mono/packages/taiko-client/blob/main/LICENSE.md
 
+type buildBlocksRequest struct {
+	BlockParams    []buildBlockParams `json:"blockParams"`
+	CalldataOrBlob string             `json:"calldataOrBlob"`
+}
+
 type buildBlockRequest struct {
+	buildBlockParams
+	CalldataOrBlob string `json:"calldataOrBlob"`
+}
+type buildBlockParams struct {
 	L1StateBlockNumber uint32   `json:"l1StateBlockNumber"`
 	Timestamp          uint64   `json:"timestamp"`
 	SignedTransactions []string `json:"signedTransactions"`
 	Coinbase           string   `json:"coinbase"`
 	ExtraData          string   `json:"extraData"`
-	CalldataOrBlob     string   `json:"calldataOrBlob"`
 }
 
 type buildBlockResponse struct {
@@ -40,22 +44,17 @@ type buildBlockResponse struct {
 }
 
 // BuildBlock handles a query to build blocks according to our protocol, given the inputs,
-// and returns an unsigned transaction to `taikol1.ProposeBlocks`.
+// and returns an unsigned transaction to `taikol1.ProposeBlock`.
 //
-//	@Summary		Build builds and return an unsigned `taikol1.ProposeBlocks` transaction
+//	@Summary		Build builds and return an unsigned `taikol1.ProposeBlock` transaction
 //	@ID			   	build
 //	@Accept			json
 //	@Produce		json
 //	@Success		200	{object} buildBlockResponse
-//	@Router			/blocks/build [post]
-func (s *PreconfAPIServer) BuildBlocks(c echo.Context) error {
+//	@Router			/block/build [post]
+func (s *PreconfAPIServer) BuildBlock(c echo.Context) error {
 	req := &buildBlockRequest{}
 	if err := c.Bind(req); err != nil {
-		return c.JSON(http.StatusUnprocessableEntity, err)
-	}
-
-	txListBytes, err := signedTransactionsToTxListBytes(req.SignedTransactions)
-	if err != nil {
 		return c.JSON(http.StatusUnprocessableEntity, err)
 	}
 
@@ -65,13 +64,15 @@ func (s *PreconfAPIServer) BuildBlocks(c echo.Context) error {
 		t = "blob"
 	}
 
-	tx, err := s.txBuilders[t].BuildUnsigned(
+	tx, err := s.txBuilders[t].BuildBlockUnsigned(
 		c.Request().Context(),
-		txListBytes,
-		req.L1StateBlockNumber,
-		req.Timestamp,
-		common.HexToAddress(req.Coinbase),
-		rpc.StringToBytes32(req.ExtraData),
+		builder.BuildBlockUnsignedOpts{
+			L1StateBlockNumber: req.L1StateBlockNumber,
+			Timestamp:          req.Timestamp,
+			SignedTransactions: req.SignedTransactions,
+			Coinbase:           req.Coinbase,
+			ExtraData:          req.ExtraData,
+		},
 	)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, err)
@@ -98,13 +99,8 @@ func (s *PreconfAPIServer) BuildBlocks(c echo.Context) error {
 //	@Success		200	{object} buildBlockResponse
 //	@Router			/blocks/build [post]
 func (s *PreconfAPIServer) BuildBlocks(c echo.Context) error {
-	req := &buildBlockRequest{}
+	req := &buildBlocksRequest{}
 	if err := c.Bind(req); err != nil {
-		return c.JSON(http.StatusUnprocessableEntity, err)
-	}
-
-	txListBytes, err := signedTransactionsToTxListBytes(req.SignedTransactions)
-	if err != nil {
 		return c.JSON(http.StatusUnprocessableEntity, err)
 	}
 
@@ -114,13 +110,9 @@ func (s *PreconfAPIServer) BuildBlocks(c echo.Context) error {
 		t = "blob"
 	}
 
-	tx, err := s.txBuilders[t].BuildUnsigned(
+	tx, err := s.txBuilders[t].BuildBlocksUnsigned(
 		c.Request().Context(),
-		txListBytes,
-		req.L1StateBlockNumber,
-		req.Timestamp,
-		common.HexToAddress(req.Coinbase),
-		rpc.StringToBytes32(req.ExtraData),
+		paramsToOpts(req.BlockParams),
 	)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, err)
@@ -137,29 +129,20 @@ func (s *PreconfAPIServer) BuildBlocks(c echo.Context) error {
 	return c.JSON(http.StatusOK, buildBlockResponse{RLPEncodedTx: hexEncodedTx})
 }
 
-func signedTransactionsToTxListBytes(txs []string) ([]byte, error) {
-	var transactions types.Transactions
+func paramsToOpts(params []buildBlockParams) builder.BuildBlocksUnsignedOpts {
+	opts := make([]builder.BuildBlockUnsignedOpts, 0)
 
-	for _, signedTxHex := range txs {
-		signedTxHex = strings.TrimPrefix(signedTxHex, "0x")
-
-		rlpEncodedBytes, err := hex.DecodeString(signedTxHex)
-		if err != nil {
-			return nil, err
-		}
-
-		var tx types.Transaction
-		if err := rlp.DecodeBytes(rlpEncodedBytes, &tx); err != nil {
-			return nil, err
-		}
-
-		transactions = append(transactions, &tx)
+	for _, p := range params {
+		opts = append(opts, builder.BuildBlockUnsignedOpts{
+			L1StateBlockNumber: p.L1StateBlockNumber,
+			Timestamp:          p.Timestamp,
+			SignedTransactions: p.SignedTransactions,
+			Coinbase:           p.Coinbase,
+			ExtraData:          p.ExtraData,
+		})
 	}
 
-	txListBytes, err := rlp.EncodeToBytes(transactions)
-	if err != nil {
-		log.Fatalf("Failed to RLP encode transactions: %v", err)
+	return builder.BuildBlocksUnsignedOpts{
+		BlockOpts: opts,
 	}
-
-	return txListBytes, nil
 }
