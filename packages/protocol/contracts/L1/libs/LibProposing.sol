@@ -173,7 +173,10 @@ library LibProposing {
                 proposer: msg.sender,
                 livenessBond: _config.livenessBond,
                 proposedAt: uint64(block.timestamp),
-                proposedIn: uint64(block.number)
+                proposedIn: uint64(block.number),
+                blobTxListOffset: params.blobTxListOffset,
+                blobTxListLength: params.blobTxListLength,
+                blobIndex: params.blobIndex
             });
         }
 
@@ -185,7 +188,7 @@ library LibProposing {
             // proposeBlock functions are called more than once in the same
             // L1 transaction, these multiple L2 blocks will share the same
             // blob.
-            meta_.blobHash = blobhash(0);
+            meta_.blobHash = blobhash(params.blobIndex);
             if (meta_.blobHash == 0) revert L1_BLOB_NOT_FOUND();
         } else {
             meta_.blobHash = keccak256(_txList);
