@@ -20,7 +20,7 @@ import "../contracts/mainnet/MainnetSignalService.sol";
 import "../contracts/automata-attestation/AutomataDcapV3Attestation.sol";
 import "../contracts/automata-attestation/utils/SigVerifyLib.sol";
 import "../contracts/automata-attestation/lib/PEMCertChainLib.sol";
-import "../contracts/verifiers/SgxVerifier.sol";
+import "../contracts/mainnet/MainnetSgxVerifier.sol";
 import "../contracts/team/proving/ProverSet.sol";
 import "../test/common/erc20/FreeMintERC20.sol";
 import "../test/common/erc20/MayFailFreeMintERC20.sol";
@@ -297,6 +297,12 @@ contract DeployOnL1 is DeployCapability {
                 )
             ),
             registerTo: rollupAddressManager
+        });
+
+        deployProxy({
+            name: "mainnet_tier_sgx",
+            impl: address(new MainnetSgxVerifier()),
+            data: abi.encodeCall(SgxVerifier.init, (owner, rollupAddressManager))
         });
 
         deployProxy({
