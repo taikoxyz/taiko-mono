@@ -78,7 +78,7 @@ contract ProverSet is EssentialContract, IERC1271 {
     }
 
     /// @notice Withdraws ETH back to the owner address.
-    function withdraw(uint256 _amount) external onlyOwner {
+    function withdrawEther(uint256 _amount) external onlyOwner {
         uint256 balance = address(this).balance;
         require(balance - _amount > 0, "Amount to withdraw > balance of smart contract");
 
