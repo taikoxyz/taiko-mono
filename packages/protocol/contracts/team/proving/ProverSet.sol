@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../../common/EssentialContract.sol";
 import "../../common/LibStrings.sol";
+import "../../libs/LibAddress.sol";
 import "../../L1/ITaikoL1.sol";
 
 interface IHasRecipient {
@@ -75,6 +76,11 @@ contract ProverSet is EssentialContract, IERC1271 {
     /// @notice Withdraws Taiko tokens back to the admin address.
     function withdrawToAdmin(uint256 _amount) external onlyAuthorized {
         IERC20(tkoToken()).transfer(admin, _amount);
+    }
+
+    /// @notice Withdraws ETH back to the owner address.
+    function withdrawEtherToAdmin(uint256 _amount) external onlyAuthorized {
+        LibAddress.sendEtherAndVerify(admin, _amount);
     }
 
     /// @notice Propose a Taiko block.
