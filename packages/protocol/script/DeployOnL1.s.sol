@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 
 import "../contracts/common/LibStrings.sol";
 import "../contracts/tko/TaikoToken.sol";
-import "../contracts/L1/TaikoL1.sol";
+import "../contracts/mainnet/MainnetTaikoL1.sol";
 import "../contracts/L1/provers/GuardianProver.sol";
 import "../contracts/L1/tiers/DevnetTierProvider.sol";
 import "../contracts/L1/tiers/TierProviderV2.sol";
@@ -244,6 +244,20 @@ contract DeployOnL1 is DeployCapability {
         copyRegister(rollupAddressManager, _sharedAddressManager, "taiko_token");
         copyRegister(rollupAddressManager, _sharedAddressManager, "signal_service");
         copyRegister(rollupAddressManager, _sharedAddressManager, "bridge");
+
+        deployProxy({
+            name: "mainnet_taiko",
+            impl: address(new MainnetTaikoL1()),
+            data: abi.encodeCall(
+                TaikoL1.init,
+                (
+                    owner,
+                    rollupAddressManager,
+                    vm.envBytes32("L2_GENESIS_HASH"),
+                    vm.envBool("PAUSE_TAIKO_L1")
+                )
+            )
+        });
 
         deployProxy({
             name: "taiko",
