@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 import "../common/LibStrings.sol";
+import "../libs/LibNetwork.sol";
 
 /// @title LibSharedAddressCache
 /// @custom:security-contact security@taiko.xyz
@@ -14,7 +15,7 @@ library LibSharedAddressCache {
         pure
         returns (bool found, address addr)
     {
-        if (_chainId == 1) {
+        if (_chainId == LibNetwork.MAINNET) {
             if (_name == LibStrings.B_TAIKO_TOKEN) {
                 return (true, 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800);
             }
@@ -45,7 +46,7 @@ library LibSharedAddressCache {
             if (_name == LibStrings.B_SIGNAL_SERVICE) {
                 return (true, 0x9e0a24964e5397B566c1ed39258e21aB5E35C77C);
             }
-        } else if (_chainId == 167_000) {
+        } else if (_chainId == LibNetwork.TAIKO_MAINNET) {
             if (_name == LibStrings.B_BRIDGE) {
                 return (true, 0x1670000000000000000000000000000000000001);
             }
