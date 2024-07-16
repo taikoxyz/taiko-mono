@@ -218,7 +218,7 @@ func (p *Prover) initEventHandlers() error {
 		ContesterMode:         p.cfg.ContesterMode,
 		ProveUnassignedBlocks: p.cfg.ProveUnassignedBlocks,
 	}
-	if p.IsGuardianProver() && p.guardianProverHeartbeater != nil {
+	if p.IsGuardianProver() {
 		p.blockProposedHandler = handler.NewBlockProposedEventGuardianHandler(
 			&handler.NewBlockProposedGuardianEventHandlerOps{
 				NewBlockProposedEventHandlerOps: opts,
