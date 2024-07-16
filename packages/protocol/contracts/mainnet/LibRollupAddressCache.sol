@@ -15,7 +15,7 @@ library LibRollupAddressCache {
         pure
         returns (bool found, address addr)
     {
-        if (_chainId == LibNetwork.MAINNET) {
+        if (_chainId == LibNetwork.ETHEREUM_MAINNET) {
             if (_name == LibStrings.B_TAIKO_TOKEN) {
                 return (true, 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800);
             }
