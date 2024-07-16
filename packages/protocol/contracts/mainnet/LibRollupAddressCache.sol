@@ -3,9 +3,9 @@ pragma solidity 0.8.24;
 
 import "../common/LibStrings.sol";
 
-/// @title LibAddressCache
+/// @title LibRollupAddressCache
 /// @custom:security-contact security@taiko.xyz
-library LibAddressCache {
+library LibRollupAddressCache {
     function getAddress(
         uint64 _chainId,
         bytes32 _name
