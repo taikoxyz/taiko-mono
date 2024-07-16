@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../../common/EssentialContract.sol";
 import "../../common/LibStrings.sol";
+import "../../libs/LibAddress.sol";
 import "../../L1/ITaikoL1.sol";
 
 interface IHasRecipient {
@@ -29,6 +30,7 @@ contract ProverSet is EssentialContract, IERC1271 {
 
     error INVALID_STATUS();
     error PERMISSION_DENIED();
+    error AMOUNT_GT_BALANCE();
 
     modifier onlyAuthorized() {
         if (msg.sender != admin && msg.sender != IHasRecipient(admin).recipient()) {
@@ -80,11 +82,10 @@ contract ProverSet is EssentialContract, IERC1271 {
     /// @notice Withdraws ETH back to the owner address.
     function withdrawEther(uint256 _amount) external onlyOwner {
         uint256 balance = address(this).balance;
-        require(balance - _amount > 0, "Amount to withdraw > balance of smart contract");
+        if (balance < _amount) revert AMOUNT_GT_BALANCE();
 
         address _owner = owner();
-        (bool sent,) = _owner.call{ value: _amount }("");
-        require(sent, "Failed to withdraw ETH");
+        LibAddress.sendEtherAndVerify(_owner, _amount);
     }
 
     /// @notice Propose a Taiko block.
