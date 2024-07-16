@@ -46,9 +46,6 @@ library LibSharedAddressCache {
                 return (true, 0x9e0a24964e5397B566c1ed39258e21aB5E35C77C);
             }
         } else if (_chainId == 167_000) {
-            if (_name == LibStrings.B_QUOTA_MANAGER) {
-                return (true, address(0));
-            }
             if (_name == LibStrings.B_BRIDGE) {
                 return (true, 0x1670000000000000000000000000000000000001);
             }
