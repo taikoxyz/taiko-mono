@@ -9,14 +9,14 @@ import "../contracts/mainnet/MainnetTaikoL1.sol";
 import "../contracts/L1/provers/GuardianProver.sol";
 import "../contracts/L1/tiers/DevnetTierProvider.sol";
 import "../contracts/L1/tiers/TierProviderV2.sol";
-import "../contracts/bridge/Bridge.sol";
+import "../contracts/mainnet/MainnetBridge.sol";
 import "../contracts/tokenvault/BridgedERC20.sol";
 import "../contracts/tokenvault/BridgedERC721.sol";
 import "../contracts/tokenvault/BridgedERC1155.sol";
-import "../contracts/tokenvault/ERC20Vault.sol";
-import "../contracts/tokenvault/ERC1155Vault.sol";
-import "../contracts/tokenvault/ERC721Vault.sol";
-import "../contracts/signal/SignalService.sol";
+import "../contracts/mainnet/MainnetERC20Vault.sol";
+import "../contracts/mainnet/MainnetERC1155Vault.sol";
+import "../contracts/mainnet/MainnetERC721Vault.sol";
+import "../contracts/mainnet/MainnetSignalService.sol";
 import "../contracts/automata-attestation/AutomataDcapV3Attestation.sol";
 import "../contracts/automata-attestation/utils/SigVerifyLib.sol";
 import "../contracts/automata-attestation/lib/PEMCertChainLib.sol";
@@ -152,12 +152,22 @@ contract DeployOnL1 is DeployCapability {
 
         // Deploy Bridging contracts
         deployProxy({
+            name: "mainnet_signal_service",
+            impl: address(new MainnetSignalService()),
+            data: abi.encodeCall(SignalService.init, (address(0), sharedAddressManager))
+        });
+        deployProxy({
             name: "signal_service",
             impl: address(new SignalService()),
             data: abi.encodeCall(SignalService.init, (address(0), sharedAddressManager)),
             registerTo: sharedAddressManager
         });
 
+        deployProxy({
+            name: "mainnet_bridge",
+            impl: address(new MainnetBridge()),
+            data: abi.encodeCall(Bridge.init, (address(0), sharedAddressManager))
+        });
         address brdige = deployProxy({
             name: "bridge",
             impl: address(new Bridge()),
@@ -182,6 +192,11 @@ contract DeployOnL1 is DeployCapability {
 
         // Deploy Vaults
         deployProxy({
+            name: "mainnet_erc20_vault",
+            impl: address(new MainnetERC20Vault()),
+            data: abi.encodeCall(ERC20Vault.init, (owner, sharedAddressManager))
+        });
+        deployProxy({
             name: "erc20_vault",
             impl: address(new ERC20Vault()),
             data: abi.encodeCall(ERC20Vault.init, (owner, sharedAddressManager)),
@@ -189,12 +204,22 @@ contract DeployOnL1 is DeployCapability {
         });
 
         deployProxy({
+            name: "mainnet_erc721_vault",
+            impl: address(new MainnetERC721Vault()),
+            data: abi.encodeCall(ERC721Vault.init, (owner, sharedAddressManager))
+        });
+        deployProxy({
             name: "erc721_vault",
             impl: address(new ERC721Vault()),
             data: abi.encodeCall(ERC721Vault.init, (owner, sharedAddressManager)),
             registerTo: sharedAddressManager
         });
 
+        deployProxy({
+            name: "mainnet_erc1155_vault",
+            impl: address(new MainnetERC1155Vault()),
+            data: abi.encodeCall(ERC1155Vault.init, (owner, sharedAddressManager))
+        });
         deployProxy({
             name: "erc1155_vault",
             impl: address(new ERC1155Vault()),
