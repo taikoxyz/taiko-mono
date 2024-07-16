@@ -24,7 +24,8 @@ library LibData {
             timestamp: 0,
             blobTxListOffset: 0,
             blobTxListLength: 0,
-            blobIndex: 0
+            blobIndex: 0,
+            basefeeSharingPctg: 0
         });
     }
 
@@ -78,7 +79,8 @@ library LibData {
             proposedIn: 0,
             blobTxListOffset: 0,
             blobTxListLength: 0,
-            blobIndex: 0
+            blobIndex: 0,
+            basefeeSharingPctg: 0
         });
     }
 

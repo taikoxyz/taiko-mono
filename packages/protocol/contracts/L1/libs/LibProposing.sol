@@ -50,6 +50,7 @@ library LibProposing {
     error L1_INVALID_ANCHOR_BLOCK();
     error L1_INVALID_PROPOSER();
     error L1_INVALID_TIMESTAMP();
+    error L1_INVALID_BASEFEE_SHARING();
     error L1_LIVENESS_BOND_NOT_RECEIVED();
     error L1_TOO_MANY_BLOCKS();
     error L1_UNEXPECTED_PARENT();
@@ -111,6 +112,10 @@ library LibProposing {
 
         if (!local.postFork || params.timestamp == 0) {
             params.timestamp = uint64(block.timestamp);
+        }
+
+        if (params.basefeeSharingPctg > 100) {
+            revert L1_INVALID_BASEFEE_SHARING();
         }
 
         // Verify params against the parent block.
@@ -176,7 +181,8 @@ library LibProposing {
                 proposedIn: uint64(block.number),
                 blobTxListOffset: params.blobTxListOffset,
                 blobTxListLength: params.blobTxListLength,
-                blobIndex: params.blobIndex
+                blobIndex: params.blobIndex,
+                basefeeSharingPctg: params.basefeeSharingPctg
             });
         }
 

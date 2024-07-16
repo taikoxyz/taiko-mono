@@ -74,6 +74,7 @@ library TaikoData {
         uint32 blobTxListOffset; // NEW
         uint32 blobTxListLength; // NEW
         uint8 blobIndex; // NEW
+        uint8 basefeeSharingPctg; // NEW
     }
 
     /// @dev Struct containing data only required for proving a block
@@ -119,6 +120,8 @@ library TaikoData {
         uint32 blobTxListOffset;
         uint32 blobTxListLength;
         uint8 blobIndex;
+        // The percentage of base fee sent to block.coinbase on L2.
+        uint8 basefeeSharingPctg;
     }
 
     /// @dev Struct representing transition to be proven.
