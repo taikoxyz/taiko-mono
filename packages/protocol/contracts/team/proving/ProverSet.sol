@@ -30,7 +30,6 @@ contract ProverSet is EssentialContract, IERC1271 {
 
     error INVALID_STATUS();
     error PERMISSION_DENIED();
-    error AMOUNT_GT_BALANCE();
 
     modifier onlyAuthorized() {
         if (msg.sender != admin && msg.sender != IHasRecipient(admin).recipient()) {
@@ -80,12 +79,8 @@ contract ProverSet is EssentialContract, IERC1271 {
     }
 
     /// @notice Withdraws ETH back to the owner address.
-    function withdrawEther(uint256 _amount) external onlyOwner {
-        uint256 balance = address(this).balance;
-        if (balance < _amount) revert AMOUNT_GT_BALANCE();
-
-        address _owner = owner();
-        LibAddress.sendEtherAndVerify(_owner, _amount);
+    function withdrawEtherToAdmin(uint256 _amount) external onlyAuthorized {
+        LibAddress.sendEtherAndVerify(admin, _amount);
     }
 
     /// @notice Propose a Taiko block.
