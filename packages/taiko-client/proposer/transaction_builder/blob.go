@@ -29,6 +29,7 @@ type BlobTransactionBuilder struct {
 	l2SuggestedFeeRecipient common.Address
 	gasLimit                uint64
 	extraData               string
+	enabledPreconfirmation  bool
 }
 
 // NewBlobTransactionBuilder creates a new BlobTransactionBuilder instance based on giving configurations.
@@ -42,6 +43,7 @@ func NewBlobTransactionBuilder(
 	l2SuggestedFeeRecipient common.Address,
 	gasLimit uint64,
 	extraData string,
+	enabledPreconfirmation bool,
 ) *BlobTransactionBuilder {
 	return &BlobTransactionBuilder{
 		rpc,
@@ -53,6 +55,7 @@ func NewBlobTransactionBuilder(
 		l2SuggestedFeeRecipient,
 		gasLimit,
 		extraData,
+		enabledPreconfirmation,
 	}
 }
 
@@ -60,8 +63,10 @@ func NewBlobTransactionBuilder(
 func (b *BlobTransactionBuilder) Build(
 	ctx context.Context,
 	tierFees []encoding.TierFee,
-	includeParentMetaHash bool,
 	txListBytes []byte,
+	l1StateBlockNumber uint32,
+	timestamp uint64,
+	parentMetaHash [32]byte,
 ) (*txmgr.TxCandidate, error) {
 	var blob = &eth.Blob{}
 	if err := blob.FromData(txListBytes); err != nil {
@@ -77,14 +82,6 @@ func (b *BlobTransactionBuilder) Build(
 		return nil, err
 	}
 
-	// If the current proposer wants to include the parent meta hash, then fetch it from the protocol.
-	var parentMetaHash = [32]byte{}
-	if includeParentMetaHash {
-		if parentMetaHash, err = getParentMetaHash(ctx, b.rpc); err != nil {
-			return nil, err
-		}
-	}
-
 	commitment, err := blob.ComputeKZGCommitment()
 	if err != nil {
 		return nil, err
@@ -95,6 +92,7 @@ func (b *BlobTransactionBuilder) Build(
 	if err != nil {
 		return nil, err
 	}
+
 	signature[64] = uint8(uint(signature[64])) + 27
 
 	var (
@@ -107,10 +105,12 @@ func (b *BlobTransactionBuilder) Build(
 
 	// ABI encode the TaikoL1.proposeBlock parameters.
 	encodedParams, err := encoding.EncodeBlockParams(&encoding.BlockParams{
-		ExtraData:      rpc.StringToBytes32(b.extraData),
-		Coinbase:       b.l2SuggestedFeeRecipient,
-		ParentMetaHash: parentMetaHash,
-		Signature:      signature,
+		ExtraData:          rpc.StringToBytes32(b.extraData),
+		Coinbase:           b.l2SuggestedFeeRecipient,
+		ParentMetaHash:     parentMetaHash,
+		Signature:          signature,
+		L1StateBlockNumber: l1StateBlockNumber,
+		Timestamp:          timestamp,
 	})
 	if err != nil {
 		return nil, err

@@ -27,6 +27,7 @@ import "../test/common/erc20/FreeMintERC20.sol";
 import "../test/common/erc20/MayFailFreeMintERC20.sol";
 import "../test/L1/TestTierProvider.sol";
 import "../test/DeployCapability.sol";
+import "../contracts/L1/SequencerRegistry.sol";
 
 // Actually this one is deployed already on mainnet, but we are now deploying our own (non via-ir)
 // version. For mainnet, it is easier to go with one of:
@@ -250,6 +251,13 @@ contract DeployOnL1 is DeployCapability {
         copyRegister(rollupAddressManager, _sharedAddressManager, "taiko_token");
         copyRegister(rollupAddressManager, _sharedAddressManager, "signal_service");
         // copyRegister(rollupAddressManager, _sharedAddressManager, "bridge");
+
+        deployProxy({
+            name: "sequencer_registry",
+            impl: address(new SequencerRegistry()),
+            data: abi.encodeCall(SequencerRegistry.init, (owner)),
+            registerTo: rollupAddressManager
+        });
 
         deployProxy({
             name: "taiko",

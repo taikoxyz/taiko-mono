@@ -137,6 +137,14 @@ var (
 			Name: "signature",
 			Type: "bytes",
 		},
+		{
+			Name: "l1StateBlockNumber",
+			Type: "uint32",
+		},
+		{
+			Name: "timestamp",
+			Type: "uint64",
+		},
 	}
 	proverAssignmentComponents = []abi.ArgumentMarshaling{
 		{
@@ -239,18 +247,19 @@ var (
 
 // Contract ABIs.
 var (
-	TaikoL1ABI          *abi.ABI
-	TaikoL2ABI          *abi.ABI
-	TaikoTokenABI       *abi.ABI
-	GuardianProverABI   *abi.ABI
-	LibProposingABI     *abi.ABI
-	LibProvingABI       *abi.ABI
-	LibUtilsABI         *abi.ABI
-	LibVerifyingABI     *abi.ABI
-	AssignmentHookABI   *abi.ABI
-	SGXVerifierABI      *abi.ABI
-	GuardianVerifierABI *abi.ABI
-	ProverSetABI        *abi.ABI
+	TaikoL1ABI           *abi.ABI
+	TaikoL2ABI           *abi.ABI
+	TaikoTokenABI        *abi.ABI
+	GuardianProverABI    *abi.ABI
+	LibProposingABI      *abi.ABI
+	LibProvingABI        *abi.ABI
+	LibUtilsABI          *abi.ABI
+	LibVerifyingABI      *abi.ABI
+	AssignmentHookABI    *abi.ABI
+	SGXVerifierABI       *abi.ABI
+	GuardianVerifierABI  *abi.ABI
+	ProverSetABI         *abi.ABI
+	SequencerRegistryABI *abi.ABI
 
 	customErrorMaps []map[string]abi.Error
 )
@@ -306,6 +315,10 @@ func init() {
 		log.Crit("Get ProverSet ABI error", "error", err)
 	}
 
+	if SequencerRegistryABI, err = bindings.SequencerRegistryMetaData.GetAbi(); err != nil {
+		log.Crit("Get SequencerRegistry ABI error", "error", err)
+	}
+
 	customErrorMaps = []map[string]abi.Error{
 		TaikoL1ABI.Errors,
 		TaikoL2ABI.Errors,
@@ -318,6 +331,7 @@ func init() {
 		SGXVerifierABI.Errors,
 		GuardianVerifierABI.Errors,
 		ProverSetABI.Errors,
+		SequencerRegistryABI.Errors,
 	}
 }
 

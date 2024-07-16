@@ -57,10 +57,12 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 	d.Config = cfg
 
 	if d.rpc, err = rpc.NewClient(d.ctx, cfg.ClientConfig); err != nil {
+		log.Error("error initializing rpc.NewClient", "error", err)
 		return err
 	}
 
 	if d.state, err = state.New(d.ctx, d.rpc); err != nil {
+		log.Error("error initializing state.New", "error", err)
 		return err
 	}
 

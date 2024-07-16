@@ -248,16 +248,57 @@ func (s *Syncer) onBlockProposed(
 		return fmt.Errorf("failed to fetch original TaikoL1.proposeBlock transaction: %w", err)
 	}
 
-	// Decode transactions list.
-	var txListFetcher txlistFetcher.TxListFetcher
-	if event.Meta.BlobUsed {
-		txListFetcher = txlistFetcher.NewBlobTxListFetcher(s.rpc.L1Beacon, s.blobDatasource)
-	} else {
-		txListFetcher = new(txlistFetcher.CalldataFetcher)
-	}
-	txListBytes, err := txListFetcher.Fetch(ctx, tx, &event.Meta)
+	// first see if we have a CalldataTxList event in the same transaction
+	// Get the transaction receipt
+	receipt, err := s.rpc.L1.TransactionReceipt(ctx, tx.Hash())
 	if err != nil {
-		return fmt.Errorf("failed to fetch tx list: %w", err)
+		return fmt.Errorf("failed to get transaction receipt: %w", err)
+	}
+
+	var txListBytes []byte
+	calldataTxListFound := false
+
+	// first lets try to see if we can find a matching CalldataTxList event
+	// with the same blockID, to see if a contract sent this event via calldata.
+	// because in this case, the txList will not be available in the transactions
+	// arguments for decoding.
+	for _, vLog := range receipt.Logs {
+		// Use the generated binding's method to parse the log
+		calldataEvent, err := s.rpc.TaikoL1.ParseCalldataTxList(*vLog)
+		if err == nil {
+			log.Info("CalldataTxList event found", "blockID", calldataEvent.BlockId.String())
+			if calldataEvent.BlockId.Cmp(event.BlockId) != 0 {
+				log.Warn("CalldataTxList event blockID doesnt match",
+					"wantBlockID", event.BlockId.String(),
+					"eventBlockID", calldataEvent.BlockId.String(),
+				)
+				continue
+			}
+			txListBytes = calldataEvent.TxList
+			calldataTxListFound = true
+			break
+		}
+	}
+
+	// if not, then we want to fetch it from the tx args.
+	if !calldataTxListFound {
+		// Decode transactions list.
+		var txListFetcher txlistFetcher.TxListFetcher
+		if event.Meta.BlobUsed {
+			txListFetcher = txlistFetcher.NewBlobTxListFetcher(s.rpc.L1Beacon, s.blobDatasource)
+		} else {
+			txListFetcher = new(txlistFetcher.CalldataFetcher)
+		}
+
+		header, err := s.rpc.L1.HeaderByNumber(ctx, new(big.Int).SetUint64(event.Raw.BlockNumber))
+		if err != nil {
+			return fmt.Errorf("failed to get header by number: %w", err)
+		}
+
+		txListBytes, err = txListFetcher.Fetch(ctx, tx, &event.Meta, event.Raw.BlockNumber, header.Time)
+		if err != nil {
+			return fmt.Errorf("failed to fetch tx list: %w", err)
+		}
 	}
 
 	// Decompress the transactions list and try to insert a new head block to L2 EE.
