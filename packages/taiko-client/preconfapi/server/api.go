@@ -39,16 +39,65 @@ type buildBlockResponse struct {
 	RLPEncodedTx string `json:"rlpEncodedTx"`
 }
 
-// BuildBlock handles a query to build a block according to our protocol, given the inputs,
-// and returns an unsigned transaction to `taikol1.ProposeBlock`.
+// BuildBlock handles a query to build blocks according to our protocol, given the inputs,
+// and returns an unsigned transaction to `taikol1.ProposeBlocks`.
 //
-//	@Summary		Build a block and return an unsigned `taikol1.ProposeBlock` transaction
+//	@Summary		Build builds and return an unsigned `taikol1.ProposeBlocks` transaction
 //	@ID			   	build
 //	@Accept			json
 //	@Produce		json
-//	@Success		200	{object} BuildBlockResponse
-//	@Router			/block/build [get]
-func (s *PreconfAPIServer) BuildBlock(c echo.Context) error {
+//	@Success		200	{object} buildBlockResponse
+//	@Router			/blocks/build [post]
+func (s *PreconfAPIServer) BuildBlocks(c echo.Context) error {
+	req := &buildBlockRequest{}
+	if err := c.Bind(req); err != nil {
+		return c.JSON(http.StatusUnprocessableEntity, err)
+	}
+
+	txListBytes, err := signedTransactionsToTxListBytes(req.SignedTransactions)
+	if err != nil {
+		return c.JSON(http.StatusUnprocessableEntity, err)
+	}
+
+	// default to blob
+	t := req.CalldataOrBlob
+	if t == "" {
+		t = "blob"
+	}
+
+	tx, err := s.txBuilders[t].BuildUnsigned(
+		c.Request().Context(),
+		txListBytes,
+		req.L1StateBlockNumber,
+		req.Timestamp,
+		common.HexToAddress(req.Coinbase),
+		rpc.StringToBytes32(req.ExtraData),
+	)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, err)
+	}
+
+	// RLP encode the transaction
+	var rlpEncodedTx bytes.Buffer
+	if err := rlp.Encode(&rlpEncodedTx, tx); err != nil {
+		return c.JSON(http.StatusInternalServerError, err)
+	}
+
+	hexEncodedTx := hex.EncodeToString(rlpEncodedTx.Bytes())
+
+	return c.JSON(http.StatusOK, buildBlockResponse{RLPEncodedTx: hexEncodedTx})
+}
+
+// BuildBlocks handles a query to build blocks according to our protocol, given the inputs,
+// and returns an unsigned transaction to `taikol1.ProposeBlocks`.
+//
+//	@Summary		Build builds and return an unsigned `taikol1.ProposeBlocks` transaction
+//	@ID			   	build
+//	@Accept			json
+//	@Produce		json
+//	@Success		200	{object} buildBlockResponse
+//	@Router			/blocks/build [post]
+func (s *PreconfAPIServer) BuildBlocks(c echo.Context) error {
 	req := &buildBlockRequest{}
 	if err := c.Bind(req); err != nil {
 		return c.JSON(http.StatusUnprocessableEntity, err)

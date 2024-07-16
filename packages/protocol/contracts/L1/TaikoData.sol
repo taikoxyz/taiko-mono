@@ -66,8 +66,8 @@ library TaikoData {
         bytes signature;
         uint32 l1StateBlockNumber;
         uint64 timestamp;
-        uint64 blobTxListOffset;
-        uint64 blobTxListLength;
+        uint32 blobTxListOffset;
+        uint32 blobTxListLength;
         uint8 blobIndex;
     }
 
@@ -90,9 +90,8 @@ library TaikoData {
         bool blobUsed;
         bytes32 parentMetaHash;
         address sender; // a.k.a proposer
-        uint64 blobTxListOffset;
-        uint64 blobTxListLength;
-        uint8 index; // index of the block in the tx, ie: first block proposed is 0, next is 1, etc
+        uint32 blobTxListOffset;
+        uint32 blobTxListLength;
     }
 
     /// @dev Struct representing transition to be proven.
@@ -180,7 +179,7 @@ library TaikoData {
         mapping(
             uint64 blockId_mod_blockRingBufferSize
                 => mapping(uint32 transitionId => TransitionState ts)
-        ) transitions;
+            ) transitions;
         // Ring buffer for Ether deposits
         bytes32 __reserve1;
         SlotA slotA; // slot 5

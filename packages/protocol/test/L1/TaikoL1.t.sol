@@ -242,14 +242,11 @@ contract TaikoL1Test is TaikoL1TestBase {
         vm.prank(proposer, proposer);
         vm.expectRevert(revertReason);
 
-        bytes[] memory params = new bytes[](1);
-        params[0] = abi.encode(
-            TaikoData.BlockParams(address(0), address(0), 0, 0, hookcalls, "", 0, 0, 0, 0, 0)
+        L1.proposeBlock{ value: msgValue }(
+            abi.encode(
+                TaikoData.BlockParams(address(0), address(0), 0, 0, hookcalls, "", 0, 0, 0, 0, 0)
+            ),
+            new bytes(txListSize)
         );
-
-        bytes[] memory txLists = new bytes[](1);
-        txLists[0] = new bytes(txListSize);
-
-        L1.proposeBlock{ value: msgValue }(params, txLists);
     }
 }

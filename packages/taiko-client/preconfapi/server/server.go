@@ -89,5 +89,6 @@ func (s *PreconfAPIServer) configureMiddleware() {
 func (s *PreconfAPIServer) configureRoutes() {
 	s.echo.GET("/", s.Health)
 	s.echo.GET("/healthz", s.Health)
+	s.echo.POST("/blocks/build", s.BuildBlocks)
 	s.echo.POST("/block/build", s.BuildBlock)
 }

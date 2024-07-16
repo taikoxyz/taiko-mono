@@ -36,8 +36,8 @@ library LibProposing {
         uint96 livenessBond,
         TaikoData.BlockMetadata meta,
         TaikoData.EthDeposit[] depositsProcessed,
-        uint64 blobTxListOffset,
-        uint64 blobTxListLength,
+        uint32 blobTxListOffset,
+        uint32 blobTxListLength,
         uint8 blobIndex
     );
 
@@ -69,8 +69,7 @@ library LibProposing {
         TaikoData.Config memory _config,
         IAddressResolver, /*_resolver*/
         bytes calldata _data,
-        bytes calldata _txList,
-        uint8 index
+        bytes calldata _txList
     )
         internal
         returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
@@ -160,8 +159,7 @@ library LibProposing {
                 parentMetaHash: local.parentMetaHash,
                 sender: msg.sender,
                 blobTxListOffset: local.params.blobTxListOffset,
-                blobTxListLength: local.params.blobTxListLength,
-                index: index
+                blobTxListLength: local.params.blobTxListLength
             });
         }
 

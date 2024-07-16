@@ -8,16 +8,32 @@ import "./TaikoData.sol";
 interface ITaikoL1 {
     /// @notice Proposes a Taiko L2 block.
     /// @param _params Block parameters, currently an encoded BlockParams object.
-    /// @param _txLists txList data if calldata is used for DA.
+    /// @param _txList txList data if calldata is used for DA.
     /// @return meta_ The metadata of the proposed L2 block.
     /// @return deposits_ The Ether deposits processed.
     function proposeBlock(
+        bytes calldata _params,
+        bytes calldata _txList
+    )
+        external
+        payable
+        returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_);
+
+    /// @notice Proposes multiple Taiko L2 block.
+    /// @param _params Block parameters, currently an encoded BlockParams object.
+    /// @param _txLists txList data if calldata is used for DA.
+    /// @return metas_ The metadata of the proposed L2 blocks.
+    /// @return allDeposits_ The Ether deposits processed.
+    function proposeBlocks(
         bytes[] calldata _params,
         bytes[] calldata _txLists
     )
         external
         payable
-        returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_);
+        returns (
+            TaikoData.BlockMetadata[] memory metas_,
+            TaikoData.EthDeposit[][] memory allDeposits_
+        );
 
     /// @notice Proves or contests a block transition.
     /// @param _blockId The index of the block to prove. This is also used to

@@ -69,8 +69,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
 
     /// @inheritdoc ITaikoL1
     function proposeBlock(
-        bytes[] calldata _params,
-        bytes[] calldata _txLists
+        bytes calldata _params,
+        bytes calldata _txList
     )
         external
         payable
@@ -89,20 +89,42 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
             }
         }
 
-        require(_params.length == _txLists.length, "mismatched params length");
-
         TaikoData.Config memory config = getConfig();
         TaikoToken tko = TaikoToken(resolve(LibStrings.B_TAIKO_TOKEN, false));
 
-        for (uint8 i = 0; i < _params.length; i++) {
-            (meta_, deposits_) =
-                LibProposing.proposeBlock(state, tko, config, this, _params[i], _txLists[i], i);
-        }
+        (meta_, deposits_) = LibProposing.proposeBlock(state, tko, config, this, _params, _txList);
 
         if (LibUtils.shouldVerifyBlocks(config, meta_.id, true) && !state.slotB.provingPaused) {
-            LibVerifying.verifyBlocks(
-                state, tko, config, this, config.maxBlocksToVerify * uint64(_params.length)
-            );
+            LibVerifying.verifyBlocks(state, tko, config, this, config.maxBlocksToVerify);
+        }
+    }
+
+    /// @inheritdoc ITaikoL1
+    function proposeBlocks(
+        bytes[] calldata _params,
+        bytes[] calldata _txLists
+    )
+        external
+        payable
+        whenNotPaused
+        nonReentrant
+        emitEventForClient
+        returns (
+            TaikoData.BlockMetadata[] memory metas_,
+            TaikoData.EthDeposit[][] memory allDeposits_
+        )
+    {
+        metas_ = new TaikoData.BlockMetadata[](_params.length);
+        allDeposits_ = new TaikoData.EthDeposit[][](_params.length);
+
+        for (uint256 i = 0; i < _params.length; i++) {
+            // Call proposeBlock function and collect the results
+            (TaikoData.BlockMetadata memory meta, TaikoData.EthDeposit[] memory deposits) =
+                this.proposeBlock(_params[i], _txLists[i]);
+
+            // Store the results in the respective arrays
+            metas_[i] = meta;
+            allDeposits_[i] = deposits;
         }
     }
 
