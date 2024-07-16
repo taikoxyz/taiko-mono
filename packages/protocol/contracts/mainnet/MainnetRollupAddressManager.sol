@@ -6,6 +6,8 @@ import "../common/LibStrings.sol";
 import "./LibRollupAddressCache.sol";
 
 /// @title MainnetRollupAddressManager
+/// @dev This contract shall be deployed to replace its parent contract on Ethereum for Taiko
+/// mainnet to reduce gas cost.
 /// @notice See the documentation in {IAddressManager}.
 /// @custom:security-contact security@taiko.xyz
 contract MainnetRollupAddressManager is AddressManager {

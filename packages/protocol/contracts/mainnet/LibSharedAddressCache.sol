@@ -24,7 +24,6 @@ library LibSharedAddressCache {
             if (_name == LibStrings.B_BRIDGE) {
                 return (true, 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC);
             }
-
             if (_name == LibStrings.B_BRIDGED_ERC20) {
                 return (true, 0x79BC0Aada00fcF6E7AB514Bfeb093b5Fae3653e3);
             }

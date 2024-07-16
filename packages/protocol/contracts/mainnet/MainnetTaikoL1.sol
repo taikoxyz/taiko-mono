@@ -5,6 +5,8 @@ import "../L1/TaikoL1.sol";
 import "./LibRollupAddressCache.sol";
 
 /// @title MainnetTaikoL1
+/// @dev This contract shall be deployed to replace its parent contract on Ethereum for Taiko
+/// mainnet to reduce gas cost.
 /// @notice See the documentation in {TaikoL1}.
 /// @custom:security-contact security@taiko.xyz
 contract MainnetTaikoL1 is TaikoL1 {

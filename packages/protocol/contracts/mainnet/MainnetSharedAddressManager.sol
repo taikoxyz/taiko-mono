@@ -6,6 +6,8 @@ import "../common/LibStrings.sol";
 import "./LibSharedAddressCache.sol";
 
 /// @title MainnetSharedAddressManager
+/// @dev This contract shall be deployed to replace its parent contract on Ethereum for Taiko
+/// mainnet to reduce gas cost.
 /// @notice See the documentation in {IAddressManager}.
 /// @custom:security-contact security@taiko.xyz
 contract MainnetSharedAddressManager is AddressManager {
