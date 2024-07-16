@@ -46,23 +46,11 @@ library LibSharedAddressCache {
                 return (true, 0x9e0a24964e5397B566c1ed39258e21aB5E35C77C);
             }
         } else if (_chainId == 167_000) {
-            if (_name == LibStrings.B_TAIKO_TOKEN) {
-                return (true, 0xA9d23408b9bA935c230493c40C73824Df71A0975);
-            }
             if (_name == LibStrings.B_QUOTA_MANAGER) {
                 return (true, address(0));
             }
             if (_name == LibStrings.B_BRIDGE) {
                 return (true, 0x1670000000000000000000000000000000000001);
-            }
-            if (_name == LibStrings.B_BRIDGED_ERC20) {
-                return (true, 0x0167000000000000000000000000000000010096);
-            }
-            if (_name == LibStrings.B_BRIDGED_ERC721) {
-                return (true, 0x0167000000000000000000000000000000010097);
-            }
-            if (_name == LibStrings.B_BRIDGED_ERC1155) {
-                return (true, 0x0167000000000000000000000000000000010098);
             }
             if (_name == LibStrings.B_ERC20_VAULT) {
                 return (true, 0x1670000000000000000000000000000000000002);
