@@ -275,12 +275,12 @@ contract DeployOnL1 is DeployCapability {
             registerTo: rollupAddressManager
         });
 
-        deployProxy({
-            name: "tier_sgx",
-            impl: address(new SgxVerifier()),
-            data: abi.encodeCall(SgxVerifier.init, (owner, rollupAddressManager)),
-            registerTo: rollupAddressManager
-        });
+//        deployProxy({
+//            name: "tier_sgx",
+//            impl: address(new SgxVerifier()),
+//            data: abi.encodeCall(SgxVerifier.init, (owner, rollupAddressManager)),
+//            registerTo: rollupAddressManager
+//        });
 
         deployProxy({
             name: "tier_sgx_zkvm",

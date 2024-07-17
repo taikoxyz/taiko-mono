@@ -38,12 +38,12 @@ type SGXProofProducer struct {
 
 // RaikoRequestProofBody represents the JSON body for requesting the proof.
 type RaikoRequestProofBody struct {
-	Block    *big.Int                   `json:"block_number"`
-	Prover   string                     `json:"prover"`
-	Graffiti string                     `json:"graffiti"`
-	Type     string                     `json:"proof_type"`
-	SGX      *SGXRequestProofBodyParam  `json:"sgx"`
-	RISC0    RISC0RequestProofBodyParam `json:"risc0"`
+	Block    *big.Int                    `json:"block_number"`
+	Prover   string                      `json:"prover"`
+	Graffiti string                      `json:"graffiti"`
+	Type     string                      `json:"proof_type"`
+	SGX      *SGXRequestProofBodyParam   `json:"sgx"`
+	RISC0    *RISC0RequestProofBodyParam `json:"risc0"`
 }
 
 // SGXRequestProofBodyParam represents the JSON body of RaikoRequestProofBody's `sgx` field.
