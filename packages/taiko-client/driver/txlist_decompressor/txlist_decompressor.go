@@ -72,6 +72,6 @@ func (v *TxListDecompressor) TryDecompress(
 		return []byte{}
 	}
 
-	log.Info("Transaction list is valid", "blockID", blockID)
+	log.Info("Transaction list is valid", "blockID", blockID, "txs", len(txs))
 	return txListBytes
 }

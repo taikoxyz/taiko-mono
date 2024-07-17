@@ -111,6 +111,9 @@ func (b *BlobTransactionBuilder) Build(
 		Signature:          signature,
 		L1StateBlockNumber: l1StateBlockNumber,
 		Timestamp:          timestamp,
+		BlobTxListOffset:   0,
+		BlobTxListLength:   uint32(len(txListBytes)),
+		BlobIndex:          0,
 	})
 	if err != nil {
 		return nil, err

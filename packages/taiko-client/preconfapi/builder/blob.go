@@ -59,6 +59,9 @@ func (b *BlobTransactionBuilder) BuildBlockUnsigned(
 		Signature:          []byte{}, // no longer checked
 		L1StateBlockNumber: opts.L1StateBlockNumber,
 		Timestamp:          opts.Timestamp,
+		BlobIndex:          0,
+		BlobTxListOffset:   0,
+		BlobTxListLength:   uint32(len(compressedTxListBytes)),
 	})
 	if err != nil {
 		return nil, err
