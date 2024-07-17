@@ -173,8 +173,6 @@
   - tier_guardian: `0xE3D777143Ea25A6E031d1e921F396750885f43aC`
   - automata_dcap_attestation: `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3`
   - prover_set: `0x518845daA8870bE2C59E49620Fc262AD48953C9a`
-  - proposer_one: `0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045` vitalik.eth
-  - proposer: `0x000000633b68f5d8d3a86593ebb815b4663bcbe0`
   - chain_watchdog: `0xE3D777143Ea25A6E031d1e921F396750885f43aC`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
@@ -214,16 +212,6 @@
   - Upgrade to `0xB9E1E58bcF33B79CcfF99c298963546a6c334388` @commit`d907359` @tx`0xdb5e926c96d112ce1389da77a927fba6c7d04a711839b9e14777530ebcf83914`
   - Upgrade to `0x5fc54737ECC1de49D58AE1195d4A296257F1E31b` @commit`04d8c87` @tx`0x13f54109cb7f7507ad03562b06ea8d8b472043186e44252302583bc64acfb20b`
   - Upgrade to `0xcEe590fACd976B9BDE87BC1B7620B284c5edD2C3` @commit`2dd30ab` @tx`0xc1f91c375713f601b99cf6d2cdb80c129e036a7c9ec5f75871c4d13216dbbb5c`
-
-#### assignment_hook
-
-- proxy: `0x537a2f0D3a5879b41BCb5A2afE2EA5c4961796F6`
-- impl: `0xf77CBFAfE15Df84E6638dF267D25d1AF8e5e53f2`
-- owner: `admin.taiko.eth`
-- logs:
-  - deployed on May 1, 2024 @commit`56dddf2b6`
-  - Upgraded from `0x4f664222C3fF6207558A745648B568D095dDA170` to `0xe226fAd08E2f0AE68C32Eb5d8210fFeDB736Fb0d` @commit`b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
-  - Upgraded from `0xe226fAd08E2f0AE68C32Eb5d8210fFeDB736Fb0d` to `0xf77CBFAfE15Df84E6638dF267D25d1AF8e5e53f2` @commit`2b483de` @tx`0x0bbf7d1258c646f41a02a92a55825b1ebfd3659577d0f2b57b462f8895e23a04`
 
 #### tier_provider
 
