@@ -5,6 +5,7 @@ import "../common/EssentialContract.sol";
 import "./libs/LibProposing.sol";
 import "./libs/LibProving.sol";
 import "./libs/LibVerifying.sol";
+import "./TaikoEvents.sol";
 import "./ITaikoL1.sol";
 
 /// @title TaikoL1
@@ -16,16 +17,11 @@ import "./ITaikoL1.sol";
 /// by the Bridge contract.
 /// @dev Labeled in AddressResolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
-contract TaikoL1 is EssentialContract, ITaikoL1 {
+contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     /// @notice The TaikoL1 state.
     TaikoData.State public state;
 
     uint256[50] private __gap;
-
-    /// @notice Emitted when some state variable values changed.
-    /// @dev This event is currently used by Taiko node/client for block proposal/proving.
-    /// @param slotB The SlotB data structure.
-    event StateVariablesUpdated(TaikoData.SlotB slotB);
 
     error L1_RECEIVE_DISABLED();
 
@@ -46,19 +42,19 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _addressManager The address of the {AddressManager} contract.
+    /// @param _rollupAddressManager The address of the {AddressManager} contract.
     /// @param _genesisBlockHash The block hash of the genesis block.
     /// @param _toPause true to pause the contract by default.
     function init(
         address _owner,
-        address _addressManager,
+        address _rollupAddressManager,
         bytes32 _genesisBlockHash,
         bool _toPause
     )
         external
         initializer
     {
-        __Essential_init(_owner, _addressManager);
+        __Essential_init(_owner, _rollupAddressManager);
         LibUtils.init(state, _genesisBlockHash);
         if (_toPause) _pause();
     }
@@ -142,6 +138,11 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
     /// @return The current bond balance.
     function bondBalanceOf(address _user) external view returns (uint256) {
         return LibBonds.bondBalanceOf(state, _user);
+    }
+
+    /// @inheritdoc ITaikoL1
+    function getVerifiedBlockProver(uint64 _blockId) external view returns (address prover_) {
+        return LibVerifying.getVerifiedBlockProver(state, getConfig(), _blockId);
     }
 
     /// @notice Gets the details of a block.
@@ -232,11 +233,14 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         // - anchorGasLimit: 250_000 (based on internal devnet, its ~220_000
         // after 256 L2 blocks)
         return TaikoData.Config({
-            chainId: LibNetwork.TAIKO,
-            // Assume the block time is 3s, the protocol will allow ~90 days of
-            // new blocks without any verification.
-            blockMaxProposals: 324_000, // = 45*86400/12, 45 days, 12 seconds avg block time
-            blockRingBufferSize: 324_512,
+            chainId: LibNetwork.TAIKO_MAINNET,
+            // If we have 1 block per 12 seconds, then each day there will be 86400/12=7200 blocks.
+            // We therefore use 7200 as the base unit to configure blockMaxProposals and
+            // blockRingBufferSize.
+            blockMaxProposals: 324_000, // = 7200 * 45
+            // We give 7200 * 5 = 36000 slots for verifeid blocks in case third party apps will use
+            // their data.
+            blockRingBufferSize: 360_000, // = 7200 * 50
             maxBlocksToVerify: 16,
             // This value is set based on `gasTargetPerL1Block = 15_000_000 * 4` in TaikoL2.
             // We use 8x rather than 4x here to handle the scenario where the average number of

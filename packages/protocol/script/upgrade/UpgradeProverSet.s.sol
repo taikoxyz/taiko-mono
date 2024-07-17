@@ -3,12 +3,11 @@ pragma solidity 0.8.24;
 
 import "forge-std/src/Script.sol";
 import "forge-std/src/console2.sol";
-
-import "../../contracts/hekla/HeklaTaikoL1.sol";
+import "../../contracts/team/proving/ProverSet.sol";
 import "./UpgradeScript.s.sol";
 
-contract UpgradeTaikoL1 is UpgradeScript {
+contract UpgradeProverSet is UpgradeScript {
     function run() external setUp {
-        upgrade("HeklaTaikoL1", address(new HeklaTaikoL1()));
+        upgrade("ProverSet", address(new ProverSet()));
     }
 }

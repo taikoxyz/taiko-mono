@@ -39,7 +39,7 @@ library LibVerifying {
         IAddressResolver _resolver,
         uint64 _maxBlocksToVerify
     )
-        internal
+        public
     {
         if (_maxBlocksToVerify == 0) {
             return;
@@ -175,5 +175,22 @@ library LibVerifying {
                 }
             }
         }
+    }
+
+    function getVerifiedBlockProver(
+        TaikoData.State storage _state,
+        TaikoData.Config memory _config,
+        uint64 _blockId
+    )
+        internal
+        view
+        returns (address)
+    {
+        (TaikoData.Block storage blk,) = LibUtils.getBlock(_state, _config, _blockId);
+
+        uint32 tid = blk.verifiedTransitionId;
+        if (tid == 0) return address(0);
+
+        return LibUtils.getTransition(_state, _config, _blockId, tid).prover;
     }
 }
