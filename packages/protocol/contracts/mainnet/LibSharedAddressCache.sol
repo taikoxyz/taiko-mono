@@ -1,37 +1,38 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "../common/AddressManager.sol";
 import "../common/LibStrings.sol";
+import "../libs/LibNetwork.sol";
 
-/// @title L1SharedAddressManager
-/// @notice See the documentation in {IAddressManager}.
-/// @dev This contract shall NOT be used to upgrade existing implementation unless the name-address
-/// registration becomes stable in 0xEf9EaA1dd30a9AA1df01c36411b5F082aA65fBaa.
+/// @title LibSharedAddressCache
 /// @custom:security-contact security@taiko.xyz
-contract L1SharedAddressManager is AddressManager {
-    /// @notice Gets the address mapped to a specific chainId-name pair.
-    /// @dev Sub-contracts can override this method to avoid reading from storage.
-    /// Some names are not cached as they are not used frequently or
-    /// its address is likely to change.
-    function _getOverride(
+library LibSharedAddressCache {
+    function getAddress(
         uint64 _chainId,
         bytes32 _name
     )
         internal
         pure
-        override
-        returns (bool found_, address addr_)
+        returns (bool found, address addr)
     {
-        if (_chainId == 1) {
+        if (_chainId == LibNetwork.ETHEREUM_MAINNET) {
             if (_name == LibStrings.B_TAIKO_TOKEN) {
                 return (true, 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800);
             }
-            if (_name == LibStrings.B_SIGNAL_SERVICE) {
-                return (true, 0x9e0a24964e5397B566c1ed39258e21aB5E35C77C);
+            if (_name == LibStrings.B_QUOTA_MANAGER) {
+                return (true, 0x91f67118DD47d502B1f0C354D0611997B022f29E);
             }
             if (_name == LibStrings.B_BRIDGE) {
                 return (true, 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC);
+            }
+            if (_name == LibStrings.B_BRIDGED_ERC20) {
+                return (true, 0x79BC0Aada00fcF6E7AB514Bfeb093b5Fae3653e3);
+            }
+            if (_name == LibStrings.B_BRIDGED_ERC721) {
+                return (true, 0xC3310905E2BC9Cfb198695B75EF3e5B69C6A1Bf7);
+            }
+            if (_name == LibStrings.B_BRIDGED_ERC1155) {
+                return (true, 0x3c90963cFBa436400B0F9C46Aa9224cB379c2c40);
             }
             if (_name == LibStrings.B_ERC20_VAULT) {
                 return (true, 0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab);
@@ -42,10 +43,10 @@ contract L1SharedAddressManager is AddressManager {
             if (_name == LibStrings.B_ERC1155_VAULT) {
                 return (true, 0xaf145913EA4a56BE22E120ED9C24589659881702);
             }
-            if (_name == LibStrings.B_QUOTA_MANAGER) {
-                return (true, 0x91f67118DD47d502B1f0C354D0611997B022f29E);
+            if (_name == LibStrings.B_SIGNAL_SERVICE) {
+                return (true, 0x9e0a24964e5397B566c1ed39258e21aB5E35C77C);
             }
-        } else if (_chainId == 167_000) {
+        } else if (_chainId == LibNetwork.TAIKO_MAINNET) {
             if (_name == LibStrings.B_BRIDGE) {
                 return (true, 0x1670000000000000000000000000000000000001);
             }
@@ -62,5 +63,7 @@ contract L1SharedAddressManager is AddressManager {
                 return (true, 0x1670000000000000000000000000000000000005);
             }
         }
+
+        return (false, address(0));
     }
 }

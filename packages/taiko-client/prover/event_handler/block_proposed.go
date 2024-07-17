@@ -388,6 +388,9 @@ func (h *BlockProposedGuaridanEventHandler) Handle(
 	// If we are operating as a guardian prover,
 	// we should sign all seen proposed blocks as soon as possible.
 	go func() {
+		if h.GuardianProverHeartbeater == nil {
+			return
+		}
 		if err := h.GuardianProverHeartbeater.SignAndSendBlock(ctx, event.BlockId); err != nil {
 			log.Error("Guardian prover unable to sign block", "blockID", event.BlockId, "error", err)
 		}

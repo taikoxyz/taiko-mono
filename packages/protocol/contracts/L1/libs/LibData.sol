@@ -21,7 +21,11 @@ library LibData {
             extraData: _v1.extraData,
             parentMetaHash: _v1.parentMetaHash,
             anchorBlockId: 0,
-            timestamp: 0
+            timestamp: 0,
+            blobTxListOffset: 0,
+            blobTxListLength: 0,
+            blobIndex: 0,
+            basefeeSharingPctg: 0
         });
     }
 
@@ -72,7 +76,11 @@ library LibData {
             proposer: _v1.sender,
             livenessBond: _livenessBond,
             proposedAt: 0,
-            proposedIn: 0
+            proposedIn: 0,
+            blobTxListOffset: 0,
+            blobTxListLength: 0,
+            blobIndex: 0,
+            basefeeSharingPctg: 0
         });
     }
 

@@ -71,6 +71,10 @@ library TaikoData {
         bytes32 parentMetaHash;
         uint64 anchorBlockId; // NEW
         uint64 timestamp; // NEW
+        uint32 blobTxListOffset; // NEW
+        uint32 blobTxListLength; // NEW
+        uint8 blobIndex; // NEW
+        uint8 basefeeSharingPctg; // NEW
     }
 
     /// @dev Struct containing data only required for proving a block
@@ -113,6 +117,11 @@ library TaikoData {
         uint64 proposedAt;
         // L1 block number, required/used by node/client.
         uint64 proposedIn;
+        uint32 blobTxListOffset;
+        uint32 blobTxListLength;
+        uint8 blobIndex;
+        // The percentage of base fee sent to block.coinbase on L2.
+        uint8 basefeeSharingPctg;
     }
 
     /// @dev Struct representing transition to be proven.

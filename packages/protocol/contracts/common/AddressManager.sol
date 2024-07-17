@@ -55,22 +55,8 @@ contract AddressManager is EssentialContract, IAddressManager {
 
     /// @inheritdoc IAddressManager
     function getAddress(uint64 _chainId, bytes32 _name) external view override returns (address) {
-        (bool found, address addr) = _getOverride(_chainId, _name);
-        if (found) return addr;
-        else return __addresses[_chainId][_name];
+        return __addresses[_chainId][_name];
     }
-
-    /// @notice Gets the address mapped to a specific chainId-name pair.
-    /// @dev Sub-contracts can override this method to avoid reading from storage.
-    function _getOverride(
-        uint64 _chainId,
-        bytes32 _name
-    )
-        internal
-        pure
-        virtual
-        returns (bool found_, address addr_)
-    { }
 
     function _authorizePause(address, bool) internal pure override notImplemented { }
 }

@@ -49,7 +49,7 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
 
         vm.prank(proposer);
         if (revertReason != "") vm.expectRevert(revertReason);
-        return L1.proposeBlock2{ value: 3 ether }(abi.encode(params), txList);
+        return L1.proposeBlock2(abi.encode(params), txList);
     }
 
     function proveBlock(
