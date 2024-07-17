@@ -17,6 +17,7 @@ import "../contracts/mainnet/MainnetERC20Vault.sol";
 import "../contracts/mainnet/MainnetERC1155Vault.sol";
 import "../contracts/mainnet/MainnetERC721Vault.sol";
 import "../contracts/mainnet/MainnetSignalService.sol";
+import "../contracts/mainnet/MainnetGuardianProver.sol";
 import "../contracts/automata-attestation/AutomataDcapV3Attestation.sol";
 import "../contracts/automata-attestation/utils/SigVerifyLib.sol";
 import "../contracts/automata-attestation/lib/PEMCertChainLib.sol";
@@ -310,6 +311,12 @@ contract DeployOnL1 is DeployCapability {
             impl: address(new SgxVerifier()),
             data: abi.encodeCall(SgxVerifier.init, (owner, rollupAddressManager)),
             registerTo: rollupAddressManager
+        });
+
+        deployProxy({
+            name: "mainnet_guardian_prover_minority",
+            impl: new MainnetGuardianProver(),
+            data: abi.encodeCall(GuardianProver.init, (address(0), rollupAddressManager))
         });
 
         address guardianProverImpl = address(new GuardianProver());
