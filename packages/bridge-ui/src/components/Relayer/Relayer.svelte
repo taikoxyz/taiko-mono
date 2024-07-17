@@ -7,7 +7,7 @@
   import Transaction from '$components/Transactions/Transaction.svelte';
   import { type BridgeTransaction, fetchTransactions, MessageStatus } from '$libs/bridge';
   import { getLogger } from '$libs/util/logger';
-  import { type Account,account } from '$stores/account';
+  import { type Account, account } from '$stores/account';
 
   const log = getLogger('RelayerComponent');
 
