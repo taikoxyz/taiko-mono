@@ -118,6 +118,42 @@ func (s *ClientTestSuite) SetupTest() {
 		// Increase allowance for AssignmentHook and TaikoL1
 		s.setAllowance(l1ProverPrivKey)
 		s.setAllowance(ownerPrivKey)
+
+		t, err := txmgr.NewSimpleTxManager(
+			"register",
+			log.Root(),
+			new(metrics.NoopTxMetrics),
+			txmgr.CLIConfig{
+				L1RPCURL:                  os.Getenv("L1_NODE_WS_ENDPOINT"),
+				NumConfirmations:          0,
+				SafeAbortNonceTooLowCount: txmgr.DefaultBatcherFlagValues.SafeAbortNonceTooLowCount,
+				PrivateKey:                common.Bytes2Hex(crypto.FromECDSA(ownerPrivKey)),
+				FeeLimitMultiplier:        txmgr.DefaultBatcherFlagValues.FeeLimitMultiplier,
+				FeeLimitThresholdGwei:     txmgr.DefaultBatcherFlagValues.FeeLimitThresholdGwei,
+				MinBaseFeeGwei:            txmgr.DefaultBatcherFlagValues.MinBaseFeeGwei,
+				MinTipCapGwei:             txmgr.DefaultBatcherFlagValues.MinTipCapGwei,
+				ResubmissionTimeout:       txmgr.DefaultBatcherFlagValues.ResubmissionTimeout,
+				ReceiptQueryInterval:      1 * time.Second,
+				NetworkTimeout:            txmgr.DefaultBatcherFlagValues.NetworkTimeout,
+				TxSendTimeout:             txmgr.DefaultBatcherFlagValues.TxSendTimeout,
+				TxNotInMempoolTimeout:     txmgr.DefaultBatcherFlagValues.TxNotInMempoolTimeout,
+			},
+		)
+		s.Nil(err)
+
+		// Set sequencers
+		sequencerRegistryAddress := common.HexToAddress(os.Getenv("SEQUENCER_REGISTRY_ADDRESS"))
+		sequencers := []common.Address{
+			crypto.PubkeyToAddress(testAddrPrivKey.PublicKey),
+		}
+		enabled := []bool{true}
+		data, err := encoding.SequencerRegistryABI.Pack("setSequencers", sequencers, enabled)
+		s.Nil(err)
+		_, err = t.Send(context.Background(), txmgr.TxCandidate{
+			TxData: data,
+			To:     &sequencerRegistryAddress,
+		})
+		s.Nil(err)
 	}
 
 	s.testnetL1SnapshotID = s.SetL1Snapshot()

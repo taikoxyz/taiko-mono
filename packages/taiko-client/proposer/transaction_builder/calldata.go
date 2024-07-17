@@ -26,6 +26,7 @@ type CalldataTransactionBuilder struct {
 	proverSetAddress        common.Address
 	gasLimit                uint64
 	extraData               string
+	enabledPreconfirmation  bool
 }
 
 // NewCalldataTransactionBuilder creates a new CalldataTransactionBuilder instance based on giving configurations.
@@ -39,6 +40,7 @@ func NewCalldataTransactionBuilder(
 	proverSetAddress common.Address,
 	gasLimit uint64,
 	extraData string,
+	enabledPreconfirmation bool,
 ) *CalldataTransactionBuilder {
 	return &CalldataTransactionBuilder{
 		rpc,
@@ -50,6 +52,7 @@ func NewCalldataTransactionBuilder(
 		proverSetAddress,
 		gasLimit,
 		extraData,
+		enabledPreconfirmation,
 	}
 }
 
@@ -57,8 +60,10 @@ func NewCalldataTransactionBuilder(
 func (b *CalldataTransactionBuilder) Build(
 	ctx context.Context,
 	tierFees []encoding.TierFee,
-	includeParentMetaHash bool,
 	txListBytes []byte,
+	l1StateBlockNumber uint32,
+	timestamp uint64,
+	parentMetaHash [32]byte,
 ) (*txmgr.TxCandidate, error) {
 	// Try to assign a prover.
 	maxFee, err := b.proverSelector.AssignProver(
@@ -67,14 +72,6 @@ func (b *CalldataTransactionBuilder) Build(
 	)
 	if err != nil {
 		return nil, err
-	}
-
-	// If the current proposer wants to include the parent meta hash, then fetch it from the protocol.
-	var parentMetaHash = [32]byte{}
-	if includeParentMetaHash {
-		if parentMetaHash, err = getParentMetaHash(ctx, b.rpc); err != nil {
-			return nil, err
-		}
 	}
 
 	signature, err := crypto.Sign(crypto.Keccak256(txListBytes), b.proposerPrivateKey)
@@ -93,10 +90,12 @@ func (b *CalldataTransactionBuilder) Build(
 
 	// ABI encode the TaikoL1.proposeBlock / ProverSet.proposeBlock parameters.
 	encodedParams, err := encoding.EncodeBlockParams(&encoding.BlockParams{
-		Coinbase:       b.l2SuggestedFeeRecipient,
-		ExtraData:      rpc.StringToBytes32(b.extraData),
-		ParentMetaHash: parentMetaHash,
-		Signature:      signature,
+		Coinbase:           b.l2SuggestedFeeRecipient,
+		ExtraData:          rpc.StringToBytes32(b.extraData),
+		ParentMetaHash:     parentMetaHash,
+		Signature:          signature,
+		L1StateBlockNumber: l1StateBlockNumber,
+		Timestamp:          timestamp,
 	})
 	if err != nil {
 		return nil, err

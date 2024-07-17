@@ -33,12 +33,17 @@ type HookCall struct {
 
 // BlockParams should be same with TaikoData.BlockParams.
 type BlockParams struct {
-	AssignedProver common.Address
-	Coinbase       common.Address
-	ExtraData      [32]byte
-	ParentMetaHash [32]byte
-	HookCalls      []HookCall
-	Signature      []byte
+	AssignedProver     common.Address
+	Coinbase           common.Address
+	ExtraData          [32]byte
+	ParentMetaHash     [32]byte
+	HookCalls          []HookCall
+	Signature          []byte
+	L1StateBlockNumber uint32
+	Timestamp          uint64
+	BlobTxListOffset   uint32
+	BlobTxListLength   uint32
+	BlobIndex          uint8
 }
 
 // TierFee should be same with TaikoData.TierFee.

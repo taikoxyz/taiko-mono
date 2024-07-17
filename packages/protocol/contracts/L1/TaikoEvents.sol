@@ -23,7 +23,10 @@ abstract contract TaikoEvents {
         address indexed assignedProver,
         uint96 livenessBond,
         TaikoData.BlockMetadata meta,
-        TaikoData.EthDeposit[] depositsProcessed
+        TaikoData.EthDeposit[] depositsProcessed,
+        uint32 blobTxListOffset,
+        uint32 blobTxListLength,
+        uint8 blobIndex
     );
 
     /// @notice Emitted when a block's txList is in the calldata.

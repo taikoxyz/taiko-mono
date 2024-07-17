@@ -64,6 +64,11 @@ library TaikoData {
         bytes32 parentMetaHash;
         HookCall[] hookCalls; // DEPRECATED, value ignored.
         bytes signature;
+        uint32 l1StateBlockNumber;
+        uint64 timestamp;
+        uint32 blobTxListOffset;
+        uint32 blobTxListLength;
+        uint8 blobIndex;
     }
 
     /// @dev Struct containing data only required for proving a block
@@ -85,6 +90,8 @@ library TaikoData {
         bool blobUsed;
         bytes32 parentMetaHash;
         address sender; // a.k.a proposer
+        uint32 blobTxListOffset;
+        uint32 blobTxListLength;
     }
 
     /// @dev Struct representing transition to be proven.
@@ -124,6 +131,11 @@ library TaikoData {
         // this block is not verified as the last block in a batch, verifiedTransitionId
         // will remain zero.
         uint32 verifiedTransitionId;
+        // The block's timestamp
+        uint64 timestamp; // slot 4
+        // This block number is the value for _l1BlockId (and related values) in TaikoL2's anchor()
+        // function.
+        uint32 l1StateBlockNumber;
     }
 
     /// @dev Struct representing an Ethereum deposit.

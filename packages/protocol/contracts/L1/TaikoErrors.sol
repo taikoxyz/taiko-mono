@@ -21,6 +21,7 @@ abstract contract TaikoErrors {
     error L1_INVALID_GENESIS_HASH();
     error L1_INVALID_PARAM();
     error L1_INVALID_PAUSE_STATUS();
+    error L1_INVALID_PROPOSER();
     error L1_INVALID_SIG();
     error L1_INVALID_TIER();
     error L1_INVALID_TRANSITION();

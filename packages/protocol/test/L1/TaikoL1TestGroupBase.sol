@@ -55,8 +55,11 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
 
         vm.prank(proposer);
         if (revertReason != "") vm.expectRevert(revertReason);
+
         (meta,) = L1.proposeBlock{ value: 3 ether }(
-            abi.encode(TaikoData.BlockParams(address(0), address(0), 0, 0, hookcalls, eoaSig)),
+            abi.encode(
+                TaikoData.BlockParams(address(0), address(0), 0, 0, hookcalls, "", 0, 0, 0, 0, 0)
+            ),
             txList
         );
     }

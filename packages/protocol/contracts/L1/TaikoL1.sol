@@ -8,6 +8,7 @@ import "./libs/LibVerifying.sol";
 import "./ITaikoL1.sol";
 import "./TaikoErrors.sol";
 import "./TaikoEvents.sol";
+import "./ISequencerRegistry.sol";
 
 /// @title TaikoL1
 /// @notice This contract serves as the "base layer contract" of the Taiko protocol, providing
@@ -78,6 +79,16 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         emitEventForClient
         returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
     {
+        // If there's a sequencer registry, check if the block can be proposed by the current
+        // proposer
+        ISequencerRegistry sequencerRegistry =
+            ISequencerRegistry(resolve(LibStrings.B_SEQUENCER_REGISTRY, true));
+        if (sequencerRegistry != ISequencerRegistry(address(0))) {
+            if (!sequencerRegistry.isEligibleSigner(msg.sender)) {
+                revert L1_INVALID_PROPOSER();
+            }
+        }
+
         TaikoData.Config memory config = getConfig();
         TaikoToken tko = TaikoToken(resolve(LibStrings.B_TAIKO_TOKEN, false));
 
@@ -85,6 +96,35 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
 
         if (LibUtils.shouldVerifyBlocks(config, meta_.id, true) && !state.slotB.provingPaused) {
             LibVerifying.verifyBlocks(state, tko, config, this, config.maxBlocksToVerify);
+        }
+    }
+
+    /// @inheritdoc ITaikoL1
+    function proposeBlocks(
+        bytes[] calldata _params,
+        bytes[] calldata _txLists
+    )
+        external
+        payable
+        whenNotPaused
+        nonReentrant
+        emitEventForClient
+        returns (
+            TaikoData.BlockMetadata[] memory metas_,
+            TaikoData.EthDeposit[][] memory allDeposits_
+        )
+    {
+        metas_ = new TaikoData.BlockMetadata[](_params.length);
+        allDeposits_ = new TaikoData.EthDeposit[][](_params.length);
+
+        for (uint256 i = 0; i < _params.length; i++) {
+            // Call proposeBlock function and collect the results
+            (TaikoData.BlockMetadata memory meta, TaikoData.EthDeposit[] memory deposits) =
+                this.proposeBlock(_params[i], _txLists[i]);
+
+            // Store the results in the respective arrays
+            metas_[i] = meta;
+            allDeposits_[i] = deposits;
         }
     }
 
@@ -99,14 +139,14 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents, TaikoErrors {
         nonReentrant
         emitEventForClient
     {
-        TaikoData.Config memory config = getConfig();
-        TaikoToken tko = TaikoToken(resolve(LibStrings.B_TAIKO_TOKEN, false));
+        // TaikoData.Config memory config = getConfig();
+        // TaikoToken tko = TaikoToken(resolve(LibStrings.B_TAIKO_TOKEN, false));
 
-        LibProving.proveBlock(state, tko, config, this, _blockId, _input);
+        // LibProving.proveBlock(state, tko, config, this, _blockId, _input);
 
-        if (LibUtils.shouldVerifyBlocks(config, _blockId, false)) {
-            LibVerifying.verifyBlocks(state, tko, config, this, config.maxBlocksToVerify);
-        }
+        // if (LibUtils.shouldVerifyBlocks(config, _blockId, false)) {
+        //     LibVerifying.verifyBlocks(state, tko, config, this, config.maxBlocksToVerify);
+        // }
     }
 
     /// @inheritdoc ITaikoL1
