@@ -8,6 +8,8 @@ import "../L1/ITaikoL1.sol";
 import "./IVerifier.sol";
 import "./libs/LibPublicInput.sol";
 
+import "forge-std/src/console2.sol";
+
 /// @title RiscZeroVerifier
 /// @custom:security-contact security@taiko.xyz
 contract RiscZeroVerifier is EssentialContract, IVerifier {
@@ -16,6 +18,9 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
     IRiscZeroReceiptVerifier public receiptVerifier;
     /// @notice Trusted imageId mapping
     mapping(bytes32 imageId => bool trusted) public isImageTrusted;
+
+    bytes private constant __fixed_jounal_header = hex"20000000"; // [32, 0, 0, 0] -- big-endian
+        // uint32(32) for hash bytes len
 
     uint256[48] private __gap;
 
@@ -77,7 +82,7 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
         );
 
         // journalDigest is the sha256 hash of the hashed public input
-        bytes32 journalDigest = sha256(bytes.concat(hash));
+        bytes32 journalDigest = sha256(bytes.concat(__fixed_jounal_header, hash));
 
         // call risc0 verifier contract
         (bool success,) = address(receiptVerifier).staticcall(

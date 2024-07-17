@@ -21,6 +21,8 @@ import "../contracts/automata-attestation/AutomataDcapV3Attestation.sol";
 import "../contracts/automata-attestation/utils/SigVerifyLib.sol";
 import "../contracts/automata-attestation/lib/PEMCertChainLib.sol";
 import "../contracts/verifiers/SgxVerifier.sol";
+import "../contracts/thirdparty/risczero/groth16/RiscZeroGroth16Verifier.sol";
+import "../contracts/thirdparty/risczero/groth16/ControlID.sol";
 import "../contracts/team/proving/ProverSet.sol";
 import "../test/common/erc20/FreeMintERC20.sol";
 import "../test/common/erc20/MayFailFreeMintERC20.sol";
@@ -32,7 +34,7 @@ import "../test/DeployCapability.sol";
 // - https://github.com/daimo-eth/p256-verifier
 // - https://github.com/rdubois-crypto/FreshCryptoLib
 import { P256Verifier } from "p256-verifier/src/P256Verifier.sol";
-import {RiscZeroVerifier} from "../contracts/verifiers/RiscZeroVerifier.sol";
+import { RiscZeroVerifier } from "../contracts/verifiers/RiscZeroVerifier.sol";
 
 /// @title DeployOnL1
 /// @notice This script deploys the core Taiko protocol smart contract on L1,
@@ -282,10 +284,15 @@ contract DeployOnL1 is DeployCapability {
 //            registerTo: rollupAddressManager
 //        });
 
+        RiscZeroGroth16Verifier risc0Verifier =
+            new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
+
         deployProxy({
             name: "tier_sgx_zkvm",
             impl: address(new RiscZeroVerifier()),
-            data: abi.encodeCall(RiscZeroVerifier.init, (owner, rollupAddressManager)),
+            data: abi.encodeCall(
+                RiscZeroVerifier.init, (owner, rollupAddressManager, address(risc0Verifier))
+            ),
             registerTo: rollupAddressManager
         });
 
