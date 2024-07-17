@@ -130,16 +130,18 @@
         <div class="f-row gap-1">
           <div class="f-col">
             <Alert type="info"
-              >{$t('transactions.claim.steps.pre_check.different_recipient')}
+              >{$t('transactions.claim.steps.pre_check.only_destowner_can_claim')}
               <div class="h-sep" />
-              <span class="font-bold">{$t('common.recipient')}: </span>{shortenAddress(tx.message?.destOwner, 6, 4)}
+              <span class="font-bold">{$t('common.owner.destination')}: </span>{shortenAddress(
+                tx.message?.destOwner,
+                6,
+                4,
+              )}
             </Alert>
           </div>
         </div>
         {#if checkingPrerequisites}
           <Spinner />
-        {:else}
-          <Icon type="x-close-circle" fillClass="fill-negative-sentiment" />
         {/if}
       </div>
     {:else}

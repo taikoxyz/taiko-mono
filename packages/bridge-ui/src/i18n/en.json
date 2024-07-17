@@ -248,6 +248,9 @@
     "name": "Name",
     "not_available_short": "N/A",
     "ok": "Okay",
+    "owner": {
+      "destination": "Destination owner"
+    },
     "recipient": "Recipient",
     "reset_to_wallet": "Reset to current address",
     "review": "Review",
@@ -501,8 +504,8 @@
         },
         "pre_check": {
           "chain_check": "Connected to the correct chain",
-          "different_recipient": "The recipient of this transaction does not match the sender or the currently connected wallet. To  manually claim, please connect to the recipient's wallet.",
           "funds_check": "Sufficient funds to claim",
+          "only_destowner_can_claim": "This transaction can only be claimed by the destination owner. Please connect to the correct wallet to claim this transaction.",
           "quota_check": "Sufficient daily quota",
           "ready": "You can continue with the claim process!",
           "step": "Claim step",
