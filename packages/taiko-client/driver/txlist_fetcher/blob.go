@@ -66,6 +66,10 @@ func (d *BlobFetcher) Fetch(
 				return nil, err
 			}
 
+			if meta.BlobTxListOffset == 0 && meta.BlobTxListLength == 0 {
+				return blobData, nil
+			}
+
 			return blobData[meta.BlobTxListOffset:meta.BlobTxListLength], nil
 		}
 	}
