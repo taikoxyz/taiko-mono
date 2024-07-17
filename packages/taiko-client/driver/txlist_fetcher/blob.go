@@ -17,8 +17,8 @@ import (
 
 // BlobFetcher is responsible for fetching the txList blob from the L1 block sidecar.
 type BlobFetcher struct {
-	l1Beacon *rpc.BeaconClient
-	ds       *rpc.BlobDataSource
+	l1Beacon   *rpc.BeaconClient
+	dataSource *rpc.BlobDataSource
 }
 
 // NewBlobTxListFetcher creates a new BlobFetcher instance based on the given rpc client.
@@ -37,12 +37,51 @@ func (d *BlobFetcher) Fetch(
 	}
 
 	// Fetch the L1 block sidecars.
-	sidecars, err := d.ds.GetBlobs(ctx, meta)
+	sidecars, err := d.dataSource.GetBlobs(ctx, meta.Timestamp, meta.BlobHash)
 	if err != nil {
 		return nil, err
 	}
 
 	log.Info("Fetch sidecars", "blockNumber", meta.L1Height+1, "sidecars", len(sidecars))
+
+	// Compare the blob hash with the sidecar's kzg commitment.
+	for i, sidecar := range sidecars {
+		log.Info(
+			"Block sidecar",
+			"index", i,
+			"KzgCommitment", sidecar.KzgCommitment,
+			"blobHash", common.Bytes2Hex(meta.BlobHash[:]),
+		)
+
+		commitment := kzg4844.Commitment(common.FromHex(sidecar.KzgCommitment))
+		if kzg4844.CalcBlobHashV1(
+			sha256.New(),
+			&commitment,
+		) == common.BytesToHash(meta.BlobHash[:]) {
+			blob := eth.Blob(common.FromHex(sidecar.Blob))
+			return blob.ToData()
+		}
+	}
+
+	return nil, pkg.ErrSidecarNotFound
+}
+
+// Fetch implements the TxListFetcher interface.
+func (d *BlobFetcher) FetchOntake(
+	ctx context.Context,
+	meta *bindings.TaikoDataBlockMetadata2,
+) ([]byte, error) {
+	if !meta.BlobUsed {
+		return nil, pkg.ErrBlobUsed
+	}
+
+	// Fetch the L1 block sidecars.
+	sidecars, err := d.dataSource.GetBlobs(ctx, meta.ProposedAt, meta.BlobHash)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Info("Fetch sidecars", "blockNumber", meta.ProposedIn+1, "sidecars", len(sidecars))
 
 	// Compare the blob hash with the sidecar's kzg commitment.
 	for i, sidecar := range sidecars {
