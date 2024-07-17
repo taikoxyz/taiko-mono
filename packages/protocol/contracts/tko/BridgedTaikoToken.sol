@@ -11,9 +11,9 @@ import "./TaikoTokenBase.sol";
 contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20 {
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _addressManager The address manager address.
-    function init(address _owner, address _addressManager) external initializer {
-        __Essential_init(_owner, _addressManager);
+    /// @param _sharedAddressManager The address manager address.
+    function init(address _owner, address _sharedAddressManager) external initializer {
+        __Essential_init(_owner, _sharedAddressManager);
         __ERC20_init("Taiko Token", "TAIKO");
         __ERC20Votes_init();
         __ERC20Permit_init("Taiko Token");
