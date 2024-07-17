@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { t } from 'svelte-i18n';
+
   import AddressInput from '$components/Bridge/SharedBridgeComponents/AddressInput/AddressInput.svelte';
   import { AddressInputState } from '$components/Bridge/SharedBridgeComponents/AddressInput/state';
   import ActionButton from '$components/Button/ActionButton.svelte';
@@ -72,20 +74,20 @@
 </script>
 
 <Card
-  title="Relayer Component"
+  title={$t('relayer_component.title')}
   class="container f-col md:w-[768px]"
-  text="This component allows you to manually claim transactions that are not your own">
+  text={$t('relayer_component.description')}>
   <div class="f-col space-y-[35px]">
-    <span class="mt-[30px]">Step 1: Select the recipient</span>
+    <span class="mt-[30px]">{$t('relayer_component.step1.title')}</span>
 
     <AddressInput
-      labelText="Enter the recipient address"
+      labelText={$t('relayer_component.address_input_label')}
       isDisabled={inputDisabled}
       bind:ethereumAddress={addressToSearch}
       bind:state={addressState} />
 
     <div class="h-sep" />
-    <span>Step 2: Search the transaction you want</span>
+    <span>{$t('relayer_component.step2.title')}</span>
     <ActionButton
       on:click={fetchTxForAddress}
       priority="primary"
@@ -94,7 +96,7 @@
       loading={fetching}
       disabled={searchDisabled}>Search transactions</ActionButton>
     {#if transactionsToShow.length === 0}
-      <div class="text-center">No claimable transactions found</div>
+      <div class="text-center">{$t('relayer_component.no_tx_found')}</div>
     {:else}
       <div class="h-sep" />
     {/if}

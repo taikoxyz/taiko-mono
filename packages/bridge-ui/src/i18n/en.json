@@ -439,6 +439,18 @@
     "tooltip": "Defaults to your address. You can add a custom recipient address as well.",
     "tooltip_title": "What is Custom Recipient?"
   },
+  "relayer_component": {
+    "address_input_label": "Enter the recipient address",
+    "description": "This component allows you to manually claim any claimable transaction",
+    "no_tx_found": "No claimable transactions found",
+    "step1": {
+      "title": "Step 1: Select the recipient"
+    },
+    "step2": {
+      "title": "Step 2: Search the transaction you want"
+    },
+    "title": "Relayer Component"
+  },
   "switch_modal": {
     "description": "Your current network is not supported. Please select one of the following chains to proceed:",
     "title": "Incorrect network detected"
