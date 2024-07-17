@@ -13,7 +13,7 @@ contract DevnetTierProvider is TierProviderBase, ITierRouter {
     }
 
     function getTier(uint16 _tierId) public pure override returns (ITierProvider.Tier memory) {
-        if (_tierId == LibTiers.TIER_SGX_ZKVM()) {
+        if (_tierId == LibTiers.TIER_SGX_ZKVM) {
             return ITierProvider.Tier({
                 verifierName: LibStrings.B_TIER_SGX_ZKVM,
                 validityBond: 250 ether, // TKO
