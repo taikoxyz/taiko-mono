@@ -108,12 +108,11 @@ library TaikoData {
         uint32 gasLimit;
         uint64 timestamp;
         uint64 anchorBlockId; // `_l1BlockId` in TaikoL2's anchor tx.
-        uint16 minTier;
         bool blobUsed;
         bytes32 parentMetaHash;
         address proposer;
         uint96 livenessBond;
-        // Time this block is proposed at, used to check proving window and cooldown window.
+        // Time this block is proposed at.
         uint64 proposedAt;
         // L1 block number, required/used by node/client.
         uint64 proposedIn;
@@ -167,6 +166,8 @@ library TaikoData {
         // this block is not verified as the last block in a batch, verifiedTransitionId
         // will remain zero.
         uint32 verifiedTransitionId;
+        uint64 provingWindowStart; // slot 4
+        uint16 minTier;
     }
 
     /// @dev Struct representing an Ethereum deposit.

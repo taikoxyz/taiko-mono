@@ -211,7 +211,7 @@ library LibProving {
 
         // The new proof must meet or exceed the minimum tier required by the
         // block or the previous proof; it cannot be on a lower tier.
-        if (proof.tier == 0 || proof.tier < meta.minTier || proof.tier < ts.tier) {
+        if (proof.tier == 0 || proof.tier < blk.minTier || proof.tier < ts.tier) {
             revert L1_INVALID_TIER();
         }
 
@@ -222,7 +222,7 @@ library LibProving {
             ITierProvider tierProvider = ITierProvider(tierRouter.getProvider(local.blockId));
 
             local.tier = tierProvider.getTier(proof.tier);
-            local.minTier = tierProvider.getTier(meta.minTier);
+            local.minTier = tierProvider.getTier(blk.minTier);
         }
 
         local.inProvingWindow = !LibUtils.isPostDeadline({

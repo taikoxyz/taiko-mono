@@ -119,10 +119,9 @@ library LibProposing {
         }
 
         // Verify params against the parent block.
+        TaikoData.Block storage parentBlk =
+            _state.blocks[(local.b.numBlocks - 1) % _config.blockRingBufferSize];
         {
-            TaikoData.Block storage parentBlk =
-                _state.blocks[(local.b.numBlocks - 1) % _config.blockRingBufferSize];
-
             if (local.postFork) {
                 // Verify the passed in L1 state block number.
                 // We only allow the L1 block to be 2 epochs old.
@@ -172,7 +171,6 @@ library LibProposing {
                 gasLimit: _config.blockMaxGasLimit,
                 timestamp: params.timestamp,
                 anchorBlockId: params.anchorBlockId,
-                minTier: 0, // to be initialized below
                 blobUsed: _txList.length == 0,
                 parentMetaHash: params.parentMetaHash,
                 proposer: msg.sender,
@@ -206,7 +204,9 @@ library LibProposing {
             ITierProvider tierProvider = ITierProvider(tierRouter.getProvider(local.b.numBlocks));
 
             // Use the difficulty as a random number
-            meta_.minTier = tierProvider.getMinTier(uint256(meta_.difficulty));
+            // TODO: set the mintier for parent block
+            parentBlk.minTier = tierProvider.getMinTier(uint256(meta_.difficulty));
+            parentBlk.provingWindowStart = uint64(block.timestamp);
         }
 
         // Create the block that will be stored onchain
@@ -220,7 +220,9 @@ library LibProposing {
             // For a new block, the next transition ID is always 1, not 0.
             nextTransitionId: 1,
             // For unverified block, its verifiedTransitionId is always 0.
-            verifiedTransitionId: 0
+            verifiedTransitionId: 0,
+            provingWindowStart: 1, // use 1 instead of 0 to save gas
+            minTier: 0
         });
 
         // Store the block in the ring buffer
