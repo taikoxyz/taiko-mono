@@ -6,11 +6,18 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Pausable.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
-import { ERC721EnumerableUpgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
-import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
-import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import { ERC721EnumerableUpgradeable } from
+    "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
+import { AccessControlUpgradeable } from
+    "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import { PausableUpgradeable } from
+    "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 
-contract TaikoPartyTicket is ERC721EnumerableUpgradeable, PausableUpgradeable, AccessControlUpgradeable {
+contract TaikoPartyTicket is
+    ERC721EnumerableUpgradeable,
+    PausableUpgradeable,
+    AccessControlUpgradeable
+{
     bytes32 public constant OWNER_ROLE = keccak256("OWNER_ROLE");
 
     uint256 public mintFee;
@@ -27,7 +34,10 @@ contract TaikoPartyTicket is ERC721EnumerableUpgradeable, PausableUpgradeable, A
         uint256 _mintFee,
         string memory _baseURI,
         string memory _winnerBaseURI
-    ) external initializer {
+    )
+        external
+        initializer
+    {
         __ERC721_init("TaikoPartyTicket", "TPT");
 
         mintFee = _mintFee;
@@ -37,7 +47,6 @@ contract TaikoPartyTicket is ERC721EnumerableUpgradeable, PausableUpgradeable, A
 
         _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
         _grantRole(OWNER_ROLE, _payoutAddress);
-
     }
 
     function mint() external payable whenNotPaused {
@@ -52,14 +61,25 @@ contract TaikoPartyTicket is ERC721EnumerableUpgradeable, PausableUpgradeable, A
         _safeMint(to, tokenId);
     }
 
-    function setWinners(uint256[] calldata _winners) external whenNotPaused onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setWinners(uint256[] calldata _winners)
+        external
+        whenNotPaused
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
         for (uint256 i = 0; i < _winners.length; i++) {
             winners[_winners[i]] = true;
         }
         pause();
     }
 
-    function revokeAndReplaceWinner(uint256 revokeId, uint256 newWinnerId) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function revokeAndReplaceWinner(
+        uint256 revokeId,
+        uint256 newWinnerId
+    )
+        external
+        whenPaused
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
         require(winners[revokeId], "Revoke ID not a winner");
         winners[revokeId] = false;
         winners[newWinnerId] = true;
@@ -80,7 +100,7 @@ contract TaikoPartyTicket is ERC721EnumerableUpgradeable, PausableUpgradeable, A
         _unpause();
     }
 
-    function withdraw() external whenPaused onlyRole(DEFAULT_ADMIN_ROLE){
+    function withdraw() external whenPaused onlyRole(DEFAULT_ADMIN_ROLE) {
         payable(payoutAddress).transfer(address(this).balance);
     }
 
@@ -97,7 +117,7 @@ contract TaikoPartyTicket is ERC721EnumerableUpgradeable, PausableUpgradeable, A
         return false;
     }
 
-      function supportsInterface(bytes4 interfaceId)
+    function supportsInterface(bytes4 interfaceId)
         public
         view
         override(ERC721EnumerableUpgradeable, AccessControlUpgradeable)

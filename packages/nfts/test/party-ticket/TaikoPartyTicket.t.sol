@@ -9,7 +9,6 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { MockBlacklist } from "../util/Blacklist.sol";
 
 contract TaikoPartyTicketTest is Test {
-
     TaikoPartyTicket public token;
 
     address public payoutWallet = vm.addr(0x5);
@@ -34,12 +33,8 @@ contract TaikoPartyTicketTest is Test {
                 impl,
                 abi.encodeCall(
                     TaikoPartyTicket.initialize,
-                    (
-                        payoutWallet,
-                        MINT_FEE,
-                        "ipfs://participant",
-                        "ipfs://winner"
-                    ))
+                    (payoutWallet, MINT_FEE, "ipfs://participant", "ipfs://winner")
+                )
             )
         );
 
@@ -51,7 +46,6 @@ contract TaikoPartyTicketTest is Test {
         }
 
         vm.stopBroadcast();
-
     }
 
     function test_metadata() public view {
@@ -62,7 +56,7 @@ contract TaikoPartyTicketTest is Test {
 
     function test_mint() public {
         vm.prank(minters[0]);
-        token.mint{value: MINT_FEE}();
+        token.mint{ value: MINT_FEE }();
         assertEq(token.totalSupply(), 1);
         assertEq(token.ownerOf(0), minters[0]);
         assertEq(minters[0].balance, INITIAL_BALANCE - MINT_FEE);
@@ -78,13 +72,13 @@ contract TaikoPartyTicketTest is Test {
     function test_winnerFlow() public {
         // have all minters mint
         vm.prank(minters[0]);
-        token.mint{value: MINT_FEE}();
+        token.mint{ value: MINT_FEE }();
         vm.prank(minters[1]);
-        token.mint{value: MINT_FEE}();
+        token.mint{ value: MINT_FEE }();
         vm.prank(minters[2]);
-        token.mint{value: MINT_FEE}();
+        token.mint{ value: MINT_FEE }();
 
-        // arbitrarly, minters[0] wins
+        // arbitrarily, minters[0] wins
         uint256 winnerTokenId = 0;
 
         // set minters[0] as winner
