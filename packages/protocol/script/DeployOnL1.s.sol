@@ -315,7 +315,7 @@ contract DeployOnL1 is DeployCapability {
 
         deployProxy({
             name: "mainnet_guardian_prover_minority",
-            impl: new MainnetGuardianProver(),
+            impl: address(new MainnetGuardianProver()),
             data: abi.encodeCall(GuardianProver.init, (address(0), rollupAddressManager))
         });
 
