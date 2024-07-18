@@ -424,7 +424,6 @@ func (p *Prover) selectSubmitter(minTier uint16) proofSubmitter.Submitter {
 			if !p.IsGuardianProver() && s.Tier() >= encoding.TierGuardianMinorityID {
 				continue
 			}
-
 			log.Debug("Proof submitter selected", "tier", s.Tier(), "minTier", minTier)
 			return s
 		}
