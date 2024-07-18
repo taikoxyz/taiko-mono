@@ -277,22 +277,10 @@ contract DeployOnL1 is DeployCapability {
             registerTo: rollupAddressManager
         });
 
-//        deployProxy({
-//            name: "tier_sgx",
-//            impl: address(new SgxVerifier()),
-//            data: abi.encodeCall(SgxVerifier.init, (owner, rollupAddressManager)),
-//            registerTo: rollupAddressManager
-//        });
-
-        RiscZeroGroth16Verifier risc0Verifier =
-            new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
-
         deployProxy({
-            name: "tier_sgx_zkvm",
-            impl: address(new RiscZeroVerifier()),
-            data: abi.encodeCall(
-                RiscZeroVerifier.init, (owner, rollupAddressManager, address(risc0Verifier))
-            ),
+            name: "tier_sgx",
+            impl: address(new SgxVerifier()),
+            data: abi.encodeCall(SgxVerifier.init, (owner, rollupAddressManager)),
             registerTo: rollupAddressManager
         });
 
@@ -359,6 +347,18 @@ contract DeployOnL1 is DeployCapability {
             data: abi.encodeCall(
                 ProverSet.init, (owner, vm.envAddress("PROVER_SET_ADMIN"), rollupAddressManager)
             )
+        });
+
+        RiscZeroGroth16Verifier risc0Verifier =
+                    new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
+
+        deployProxy({
+            name: "tier_sgx_zkvm",
+            impl: address(new RiscZeroVerifier()),
+            data: abi.encodeCall(
+                RiscZeroVerifier.init, (owner, rollupAddressManager, address(risc0Verifier))
+            ),
+            registerTo: rollupAddressManager
         });
     }
 
