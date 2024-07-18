@@ -14,4 +14,8 @@ contract MainnetSgxVerifier is SgxVerifier {
         (bool found, address addr) = LibRollupAddressCache.getAddress(_chainId, _name);
         return found ? addr : super._getAddress(_chainId, _name);
     }
+
+    function taikoChainId() internal pure override returns (uint64) {
+        return LibNetwork.TAIKO_MAINNET;
+    }
 }

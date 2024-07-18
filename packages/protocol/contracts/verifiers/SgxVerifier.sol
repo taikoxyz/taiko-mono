@@ -155,11 +155,9 @@ contract SgxVerifier is EssentialContract, IVerifier {
         uint32 id = uint32(bytes4(_proof.data[:4]));
         address newInstance = address(bytes20(_proof.data[4:24]));
 
-        uint64 chainId = ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfig().chainId;
-
         address oldInstance = ECDSA.recover(
             LibPublicInput.hashPublicInputs(
-                _tran, address(this), newInstance, _ctx.prover, _ctx.metaHash, chainId
+                _tran, address(this), newInstance, _ctx.prover, _ctx.metaHash, taikoChainId()
             ),
             _proof.data[24:]
         );
@@ -169,6 +167,10 @@ contract SgxVerifier is EssentialContract, IVerifier {
         if (oldInstance != newInstance) {
             _replaceInstance(id, oldInstance, newInstance);
         }
+    }
+
+    function taikoChainId() internal view virtual returns (uint64) {
+        ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfig().chainId;
     }
 
     function _addInstances(
