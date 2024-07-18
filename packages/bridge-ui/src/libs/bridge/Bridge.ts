@@ -46,7 +46,9 @@ export abstract class Bridge {
     const userAddress = wallet.account.address;
     // Are we the owner of the message, either src or dest?
     if (getAddress(srcOwner) !== getAddress(userAddress) && getAddress(destOwner) !== getAddress(userAddress)) {
-      throw new WrongOwnerError('user cannot process this as it is not their message');
+      if (bridgeTx.message?.gasLimit === 0) {
+        throw new WrongOwnerError('user cannot process this as it is not their message');
+      }
     }
 
     const destBridgeAddress = routingContractsMap[destChainId][srcChainId].bridgeAddress;

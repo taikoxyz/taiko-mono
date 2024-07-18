@@ -31,6 +31,7 @@
   function onStatusChange(status: MessageStatus) {
     // Keeping model and UI in sync
     bridgeTxStatus = bridgeTx.msgStatus = status;
+    dispatch('statusChange', status);
   }
 
   async function handleRetryClick() {

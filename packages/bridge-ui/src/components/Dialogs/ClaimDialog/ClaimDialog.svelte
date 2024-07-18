@@ -15,6 +15,7 @@
   } from '$components/NotificationToast/NotificationToast.svelte';
   import OnAccount from '$components/OnAccount/OnAccount.svelte';
   import type { BridgeTransaction } from '$libs/bridge/types';
+  import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import {
     InsufficientBalanceError,
     InvalidProofError,
@@ -180,7 +181,11 @@
   }
 </script>
 
-<dialog id={dialogId} class="modal {isDesktopOrLarger ? '' : 'modal-bottom'}" class:modal-open={dialogOpen}>
+<dialog
+  id={dialogId}
+  class="modal {isDesktopOrLarger ? '' : 'modal-bottom'}"
+  class:modal-open={dialogOpen}
+  use:closeOnEscapeOrOutsideClick={{ enabled: dialogOpen, callback: closeDialog, uuid: dialogId }}>
   <div class="modal-box relative w-full bg-neutral-background absolute md:min-h-[600px]">
     <div class="w-full f-between-center">
       <CloseButton onClick={closeDialog} />
