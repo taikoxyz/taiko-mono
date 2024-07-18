@@ -63,19 +63,19 @@ contract TaikoL2 is EssentialContract {
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _rollupAddressManager The address of the {AddressManager} contract.
+    /// @param _addressManager The address of the {AddressManager} contract.
     /// @param _l1ChainId The ID of the base layer.
     /// @param _gasExcess The initial gasExcess.
     function init(
         address _owner,
-        address _rollupAddressManager,
+        address _addressManager,
         uint64 _l1ChainId,
         uint64 _gasExcess
     )
         external
         initializer
     {
-        __Essential_init(_owner, _rollupAddressManager);
+        __Essential_init(_owner, _addressManager);
 
         if (_l1ChainId == 0 || _l1ChainId == block.chainid) {
             revert L2_INVALID_L1_CHAIN_ID();

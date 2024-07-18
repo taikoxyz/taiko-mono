@@ -107,7 +107,7 @@
 ### taikoL1
 
 - proxy: `0x79C9109b764609df928d16fC4a91e9081F7e87DB`
-- impl: `0x67a3eBd5D313cB21b4Aab7099455f4dfCC11Af47.`
+- impl: `0x4fBE601786655042E81dd9c428B34939c0E4A6F7.`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
@@ -119,7 +119,6 @@
   - upgraded on Jun 20, 2024 at commit `6e07ab5`
   - transfered ownership on Jul 8, 2024
   - upgraded on Jul 11, 2024 at [PR #17779](https://github.com/taikoxyz/taiko-mono/pull/17779)
-  - upgraded on Jul 15, 2024 at commit `45281b8`
 
 ### assignmentHook
 

@@ -32,14 +32,14 @@ interface IBridgedERC1155 {
 interface IBridgedERC1155Initializable {
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _sharedAddressManager The address of the {AddressManager} contract.
+    /// @param _addressManager The address of the {AddressManager} contract.
     /// @param _srcToken Address of the source token.
     /// @param _srcChainId Source chain ID.
     /// @param _symbol Symbol of the bridged token.
     /// @param _name Name of the bridged token.
     function init(
         address _owner,
-        address _sharedAddressManager,
+        address _addressManager,
         address _srcToken,
         uint256 _srcChainId,
         string calldata _symbol,

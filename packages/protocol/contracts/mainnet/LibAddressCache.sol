@@ -2,11 +2,10 @@
 pragma solidity 0.8.24;
 
 import "../common/LibStrings.sol";
-import "../libs/LibNetwork.sol";
 
-/// @title LibRollupAddressCache
+/// @title LibAddressCache
 /// @custom:security-contact security@taiko.xyz
-library LibRollupAddressCache {
+library LibAddressCache {
     function getAddress(
         uint64 _chainId,
         bytes32 _name
@@ -15,7 +14,7 @@ library LibRollupAddressCache {
         pure
         returns (bool found, address addr)
     {
-        if (_chainId == LibNetwork.ETHEREUM_MAINNET) {
+        if (_chainId == 1) {
             if (_name == LibStrings.B_TAIKO_TOKEN) {
                 return (true, 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800);
             }
@@ -42,9 +41,6 @@ library LibRollupAddressCache {
             }
             if (_name == LibStrings.B_AUTOMATA_DCAP_ATTESTATION) {
                 return (true, 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3);
-            }
-            if (_name == LibStrings.B_CHAIN_WATCHDOG) {
-                return (true, address(0));
             }
         }
         return (false, address(0));

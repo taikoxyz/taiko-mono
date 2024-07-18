@@ -52,7 +52,7 @@ interface IBridgedERC20Migratable {
 interface IBridgedERC20Initializable {
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _sharedAddressManager The address of the {AddressManager} contract.
+    /// @param _addressManager The address of the {AddressManager} contract.
     /// @param _srcToken The source token address.
     /// @param _srcChainId The source chain ID.
     /// @param _decimals The number of decimal places of the source token.
@@ -60,7 +60,7 @@ interface IBridgedERC20Initializable {
     /// @param _name The name of the token.
     function init(
         address _owner,
-        address _sharedAddressManager,
+        address _addressManager,
         address _srcToken,
         uint256 _srcChainId,
         uint8 _decimals,

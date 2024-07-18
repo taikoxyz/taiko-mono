@@ -64,11 +64,11 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     /// @param _remoteOwner The real owner on L1 that can send a cross-chain message to invoke
     /// `onMessageInvocation`.
     /// @param _remoteChainId The L1 chain's ID.
-    /// @param _sharedAddressManager The address of the {AddressManager} contract.
+    /// @param _addressManager The address of the {AddressManager} contract.
     /// @param _admin The admin address.
     function init(
         address _remoteOwner,
-        address _sharedAddressManager,
+        address _addressManager,
         uint64 _remoteChainId,
         address _admin
     )
@@ -76,7 +76,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         initializer
     {
         // This contract's owner will be itself.
-        __Essential_init(address(this), _sharedAddressManager);
+        __Essential_init(address(this), _addressManager);
 
         if (_remoteOwner == address(0) || _remoteChainId == 0 || _remoteChainId == block.chainid) {
             revert DO_INVALID_PARAM();

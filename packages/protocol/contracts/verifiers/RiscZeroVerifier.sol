@@ -34,11 +34,11 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
 
     /// @notice Initializes the contract with the provided address manager.
     /// @param _owner The address of the owner.
-    /// @param _rollupAddressManager The address of the AddressManager.
+    /// @param _addressManager The address of the AddressManager.
     /// @param _receiptVerifier The address of the risc zero receipt verifier contract.
     function init(
         address _owner,
-        address _rollupAddressManager,
+        address _addressManager,
         address _receiptVerifier
     )
         external

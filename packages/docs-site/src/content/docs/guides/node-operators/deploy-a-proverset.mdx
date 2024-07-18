@@ -105,36 +105,6 @@ This guide outlines how to achieve this with separate EOAs running prover and pr
 
 </Steps>
 
-## Upgrading a ProverSet
-
-If you've already deployed a ProverSet but would like to upgrade it through the Proxy, this guide is for you!
-
-<Steps>
-
-1. **Find your existing Proxy's address**
-
-    This will be necessary for the following step.
-
-2. **Navigate to the taiko monorepo**
-
-    ```bash
-    cd taiko-mono/packages/protocol
-    ```
-
-3. **Run the UpgradeProverSet.s.sol script**
-
-    Execute the following command, filling in the values in the curly braces appropriately.
-    ```bash 
-    PROXY_ADDRESS={YOUR_PROXY_ADDRESS} PRIVATE_KEY={YOUR_PRIVATE_KEY} forge script --chain-id 17000 --rpc-url {YOUR_RPC_URL} --broadcast script/upgrade/UpgradeProverSet.s.sol:UpgradeProverSet
-    ```
-
-    <Aside>
-    If you are getting EvmErrors, your private key may be formatted incorrectly; try prefixing it with `0x` and rerunning the script.
-    </Aside>
-
-</Steps>
-
-
 <Card title="Troubleshooting" icon="error">
         If you run into any problems, please visit the [node troubleshooting page](/guides/node-operators/node-troubleshooting) for help.
         If you run into an error that isn't yet listed, please reach out in our [Discord](https://discord.com/invite/taikoxyz)!
