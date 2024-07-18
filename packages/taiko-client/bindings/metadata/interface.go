@@ -6,11 +6,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
+// TaikoBlockMetaData defines all the metadata of a Taiko block.
 type TaikoBlockMetaData interface {
 	GetAnchorBlockHash() common.Hash
 	GetDifficulty() common.Hash
 	GetBlobHash() common.Hash
-	GetExtraData() common.Hash
+	GetExtraData() []byte
 	GetCoinbase() common.Address
 	GetBlockID() *big.Int
 	GetGasLimit() uint32
@@ -30,4 +31,6 @@ type TaikoBlockMetaData interface {
 	GetBasefeeSharingPctg() uint8
 	GetRawBlockHeight() *big.Int
 	GetRawBlockHash() common.Hash
+	GetTxIndex() uint
+	IsOntakeBlock() bool
 }

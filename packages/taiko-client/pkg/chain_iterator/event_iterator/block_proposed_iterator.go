@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	chainIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
@@ -20,7 +21,7 @@ type EndBlockProposedEventIterFunc func()
 // iterated.
 type OnBlockProposedEvent func(
 	context.Context,
-	*bindings.LibProposingBlockProposed,
+	metadata.TaikoBlockMetaData,
 	EndBlockProposedEventIterFunc,
 ) error
 
@@ -123,7 +124,8 @@ func assembleBlockProposedIteratorCallback(
 		for iter.Next() {
 			event := iter.Event
 
-			if err := callback(ctx, event, eventIter.end); err != nil {
+			// TODO(david): support new BlockProposed2 event.
+			if err := callback(ctx, metadata.NewTaikoDataBlockMetadataLegacy(event), eventIter.end); err != nil {
 				return err
 			}
 

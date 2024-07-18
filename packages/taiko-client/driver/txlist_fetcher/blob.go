@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
@@ -30,19 +31,19 @@ func NewBlobTxListFetcher(l1Beacon *rpc.BeaconClient, ds *rpc.BlobDataSource) *B
 func (d *BlobFetcher) Fetch(
 	ctx context.Context,
 	_ *types.Transaction,
-	meta *bindings.TaikoDataBlockMetadata,
+	meta metadata.TaikoBlockMetaData,
 ) ([]byte, error) {
-	if !meta.BlobUsed {
+	if !meta.GetBlobUsed() {
 		return nil, pkg.ErrBlobUsed
 	}
 
 	// Fetch the L1 block sidecars.
-	sidecars, err := d.dataSource.GetBlobs(ctx, meta.Timestamp, meta.BlobHash)
+	sidecars, err := d.dataSource.GetBlobs(ctx, meta.GetTimestamp(), meta.GetBlobHash())
 	if err != nil {
 		return nil, err
 	}
 
-	log.Info("Fetch sidecars", "blockNumber", meta.L1Height+1, "sidecars", len(sidecars))
+	log.Info("Fetch sidecars", "blockNumber", meta.GetRawBlockHeight(), "sidecars", len(sidecars))
 
 	// Compare the blob hash with the sidecar's kzg commitment.
 	for i, sidecar := range sidecars {
@@ -50,14 +51,11 @@ func (d *BlobFetcher) Fetch(
 			"Block sidecar",
 			"index", i,
 			"KzgCommitment", sidecar.KzgCommitment,
-			"blobHash", common.Bytes2Hex(meta.BlobHash[:]),
+			"blobHash", meta.GetBlobHash(),
 		)
 
 		commitment := kzg4844.Commitment(common.FromHex(sidecar.KzgCommitment))
-		if kzg4844.CalcBlobHashV1(
-			sha256.New(),
-			&commitment,
-		) == common.BytesToHash(meta.BlobHash[:]) {
+		if kzg4844.CalcBlobHashV1(sha256.New(), &commitment) == meta.GetBlobHash() {
 			blob := eth.Blob(common.FromHex(sidecar.Blob))
 			return blob.ToData()
 		}

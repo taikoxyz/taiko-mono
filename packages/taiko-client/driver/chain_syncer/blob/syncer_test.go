@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
@@ -62,12 +63,12 @@ func (s *BlobSyncerTestSuite) TestProcessL1BlocksReorg() {
 func (s *BlobSyncerTestSuite) TestOnBlockProposed() {
 	s.Nil(s.s.onBlockProposed(
 		context.Background(),
-		&bindings.LibProposingBlockProposed{BlockId: common.Big0},
+		&metadata.TaikoDataBlockMetadataLegacy{TaikoDataBlockMetadata: bindings.TaikoDataBlockMetadata{Id: 0}},
 		func() {},
 	))
 	s.NotNil(s.s.onBlockProposed(
 		context.Background(),
-		&bindings.LibProposingBlockProposed{BlockId: common.Big1},
+		&metadata.TaikoDataBlockMetadataLegacy{TaikoDataBlockMetadata: bindings.TaikoDataBlockMetadata{Id: 1}},
 		func() {},
 	))
 }
@@ -79,9 +80,8 @@ func (s *BlobSyncerTestSuite) TestInsertNewHead() {
 	s.Nil(err)
 	_, err = s.s.insertNewHead(
 		context.Background(),
-		&bindings.LibProposingBlockProposed{
-			BlockId: common.Big1,
-			Meta: bindings.TaikoDataBlockMetadata{
+		&metadata.TaikoDataBlockMetadataLegacy{
+			TaikoDataBlockMetadata: bindings.TaikoDataBlockMetadata{
 				Id:         1,
 				L1Height:   l1Head.NumberU64(),
 				L1Hash:     l1Head.Hash(),

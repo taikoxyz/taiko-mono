@@ -8,8 +8,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
@@ -21,30 +21,24 @@ type CalldataFetcher struct {
 
 // Fetch fetches the txList bytes from the transaction's calldata.
 func (d *CalldataFetcher) Fetch(
-	_ context.Context,
-	tx *types.Transaction,
-	meta *bindings.TaikoDataBlockMetadata,
-) ([]byte, error) {
-	if meta.BlobUsed {
-		return nil, pkg.ErrBlobUsed
-	}
-
-	return encoding.UnpackTxListBytes(tx.Data())
-}
-
-// FetchOntake fetches the txList bytes from the `CalldataTxList` event.
-func (d *CalldataFetcher) FetchOntake(
 	ctx context.Context,
-	meta *bindings.TaikoDataBlockMetadata2,
+	tx *types.Transaction,
+	meta metadata.TaikoBlockMetaData,
 ) ([]byte, error) {
-	if meta.BlobUsed {
+	if meta.GetBlobUsed() {
 		return nil, pkg.ErrBlobUsed
 	}
 
-	// Fetch the calldata txList from the event.
+	// If the given L2 block is not an ontake block, decode the txlist from calldata directly.
+	if !meta.IsOntakeBlock() {
+		return encoding.UnpackTxListBytes(tx.Data())
+	}
+
+	// Otherwise, fetch the txlist data from the `CalldataTxList` event.
+	end := meta.GetRawBlockHeight().Uint64()
 	iter, err := d.rpc.TaikoL1.FilterCalldataTxList(
-		&bind.FilterOpts{Context: ctx, Start: meta.ProposedIn, End: &meta.ProposedIn},
-		[]*big.Int{new(big.Int).SetUint64(meta.Id)},
+		&bind.FilterOpts{Context: ctx, Start: meta.GetRawBlockHeight().Uint64(), End: &end},
+		[]*big.Int{meta.GetBlockID()},
 	)
 	if err != nil {
 		return nil, err
@@ -53,5 +47,5 @@ func (d *CalldataFetcher) FetchOntake(
 		return iter.Event.TxList, nil
 	}
 
-	return nil, fmt.Errorf("calldata for block %d not found", meta.Id)
+	return nil, fmt.Errorf("calldata for block %d not found", meta.GetBlockID())
 }

@@ -8,12 +8,26 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 )
 
+// Ensure TaikoDataBlockMetadataLegacy implements TaikoBlockMetaData.
+var _ TaikoBlockMetaData = (*TaikoDataBlockMetadataLegacy)(nil)
+
 // TaikoDataBlockMetadataLegacy is the metadata of a legacy Taiko block.
 type TaikoDataBlockMetadataLegacy struct {
 	bindings.TaikoDataBlockMetadata
 	types.Log
 	assignedProver common.Address
 	livenessBond   *big.Int
+}
+
+// NewTaikoDataBlockMetadataLegacy creates a new instance of TaikoDataBlockMetadataLegacy
+// from the TaikoL1.BlockProposed event.
+func NewTaikoDataBlockMetadataLegacy(e *bindings.LibProposingBlockProposed) *TaikoDataBlockMetadataLegacy {
+	return &TaikoDataBlockMetadataLegacy{
+		TaikoDataBlockMetadata: e.Meta,
+		Log:                    e.Raw,
+		assignedProver:         e.AssignedProver,
+		livenessBond:           e.LivenessBond,
+	}
 }
 
 // GetAnchorBlockHash returns the anchor block hash.
@@ -32,8 +46,8 @@ func (m *TaikoDataBlockMetadataLegacy) GetBlobHash() common.Hash {
 }
 
 // GetExtraData returns the extra data.
-func (m *TaikoDataBlockMetadataLegacy) GetExtraData() common.Hash {
-	return m.ExtraData
+func (m *TaikoDataBlockMetadataLegacy) GetExtraData() []byte {
+	return m.ExtraData[:]
 }
 
 // GetCoinbase returns the coinbase.
@@ -130,4 +144,14 @@ func (m *TaikoDataBlockMetadataLegacy) GetRawBlockHeight() *big.Int {
 // GetRawBlockHash returns the raw L1 block hash.
 func (m *TaikoDataBlockMetadataLegacy) GetRawBlockHash() common.Hash {
 	return m.BlockHash
+}
+
+// GetTxIndex returns the transaction index.
+func (m *TaikoDataBlockMetadataLegacy) GetTxIndex() uint {
+	return m.Log.TxIndex
+}
+
+// IsOntakeBlock returns whether the block is an Ontake block.
+func (m *TaikoDataBlockMetadataLegacy) IsOntakeBlock() bool {
+	return false
 }
