@@ -1,28 +1,30 @@
 package repo
 
 import (
+	"context"
 	"testing"
+
+	"gopkg.in/go-playground/assert.v1"
 
 	guardianproverhealthcheck "github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check"
 	"github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check/db"
-	"gopkg.in/go-playground/assert.v1"
 )
 
 func Test_NewSignedBlockRepo(t *testing.T) {
 	tests := []struct {
 		name    string
-		db      DB
+		db      db.DB
 		wantErr error
 	}{
 		{
 			"success",
-			&db.DB{},
+			&db.Database{},
 			nil,
 		},
 		{
 			"noDb",
 			nil,
-			ErrNoDB,
+			db.ErrNoDB,
 		},
 	}
 
@@ -62,7 +64,7 @@ func TestIntegration_SignedBlock_Save(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err = SignedBlockRepo.Save(tt.opts)
+			err = SignedBlockRepo.Save(context.Background(), &tt.opts)
 			assert.Equal(t, tt.wantErr, err)
 		})
 	}
