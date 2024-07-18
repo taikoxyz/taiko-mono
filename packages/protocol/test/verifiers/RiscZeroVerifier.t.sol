@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import "../L1/TaikoL1TestBase.sol";
 
-contract MockRiscZeroRemoteVerifier is IRiscZeroReceiptVerifier {
+contract MockRiscZeroRemoteVerifier is IRiscZeroVerifier {
     // To simulate failing and succeeding
     bool public verifying;
 
@@ -22,6 +22,10 @@ contract MockRiscZeroRemoteVerifier is IRiscZeroReceiptVerifier {
         returns (bool)
     {
         return verifying;
+    }
+
+    function verifyIntegrity(Receipt calldata receipt) external view {
+        require(verifying, "RiscZeroRemoteVerifier: invalid integrity");
     }
 }
 
