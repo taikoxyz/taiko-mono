@@ -151,7 +151,7 @@ func (s *ProverTestSuite) TestOnBlockProposed() {
 	e := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
 	s.Nil(s.p.blockProposedHandler.Handle(context.Background(), e, func() {}))
 	req := <-s.p.proofSubmissionCh
-	s.Nil(s.p.requestProofOp(req.Event, req.Tier))
+	s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
 	s.Nil(s.p.selectSubmitter(e.Meta.MinTier).SubmitProof(context.Background(), <-s.p.proofGenerationCh))
 
 	// Empty blocks
@@ -161,7 +161,7 @@ func (s *ProverTestSuite) TestOnBlockProposed() {
 	) {
 		s.Nil(s.p.blockProposedHandler.Handle(context.Background(), e, func() {}))
 		req := <-s.p.proofSubmissionCh
-		s.Nil(s.p.requestProofOp(req.Event, req.Tier))
+		s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
 		s.Nil(s.p.selectSubmitter(e.Meta.MinTier).SubmitProof(context.Background(), <-s.p.proofGenerationCh))
 	}
 }
@@ -240,7 +240,7 @@ func (s *ProverTestSuite) TestContestWrongBlocks() {
 
 	s.Nil(s.p.proveOp())
 	req := <-s.p.proofSubmissionCh
-	s.Nil(s.p.requestProofOp(req.Event, req.Tier))
+	s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
 	proofWithHeader := <-s.p.proofGenerationCh
 	proofWithHeader.Opts.BlockHash = testutils.RandomHash()
 	s.Nil(s.p.selectSubmitter(e.Meta.MinTier).SubmitProof(context.Background(), proofWithHeader))
@@ -308,7 +308,7 @@ func (s *ProverTestSuite) TestContestWrongBlocks() {
 		close(approvedSink)
 	}()
 	req = <-s.p.proofSubmissionCh
-	s.Nil(s.p.requestProofOp(req.Event, req.Tier))
+	s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
 	s.Nil(s.p.selectSubmitter(encoding.TierGuardianMinorityID).SubmitProof(context.Background(), <-s.p.proofGenerationCh))
 	approvedEvent := <-approvedSink
 
@@ -333,7 +333,7 @@ func (s *ProverTestSuite) TestProveExpiredUnassignedBlock() {
 	s.p.cfg.GuardianProverMajorityAddress = common.Address{}
 	s.Nil(s.p.assignmentExpiredHandler.Handle(context.Background(), e))
 	req := <-s.p.proofSubmissionCh
-	s.Nil(s.p.requestProofOp(req.Event, req.Tier))
+	s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
 	s.Nil(s.p.selectSubmitter(e.Meta.MinTier).SubmitProof(context.Background(), <-s.p.proofGenerationCh))
 
 	event := <-sink
@@ -381,7 +381,7 @@ func (s *ProverTestSuite) TestProveOp() {
 
 	s.Nil(s.p.proveOp())
 	req := <-s.p.proofSubmissionCh
-	s.Nil(s.p.requestProofOp(req.Event, req.Tier))
+	s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
 	s.Nil(s.p.selectSubmitter(e.Meta.MinTier).SubmitProof(context.Background(), <-s.p.proofGenerationCh))
 
 	event := <-sink
@@ -413,7 +413,7 @@ func (s *ProverTestSuite) TestGetBlockProofStatus() {
 
 	s.Nil(s.p.proveOp())
 	req := <-s.p.proofSubmissionCh
-	s.Nil(s.p.requestProofOp(req.Event, req.Tier))
+	s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
 	s.Nil(s.p.selectSubmitter(e.Meta.MinTier).SubmitProof(context.Background(), <-s.p.proofGenerationCh))
 
 	status, err = rpc.GetBlockProofStatus(context.Background(), s.p.rpc, e.BlockId, s.p.ProverAddress(), rpc.ZeroAddress)
@@ -435,7 +435,7 @@ func (s *ProverTestSuite) TestGetBlockProofStatus() {
 
 	s.Nil(s.p.proveOp())
 	req = <-s.p.proofSubmissionCh
-	s.Nil(s.p.requestProofOp(req.Event, req.Tier))
+	s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
 
 	proofWithHeader := <-s.p.proofGenerationCh
 	proofWithHeader.Opts.BlockHash = testutils.RandomHash()

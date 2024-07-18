@@ -32,5 +32,6 @@ type TaikoBlockMetaData interface {
 	GetRawBlockHeight() *big.Int
 	GetRawBlockHash() common.Hash
 	GetTxIndex() uint
+	GetTxHash() common.Hash
 	IsOntakeBlock() bool
 }

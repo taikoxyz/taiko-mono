@@ -6,13 +6,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
 
 // Submitter is the interface for submitting proofs of the L2 blocks.
 type Submitter interface {
-	RequestProof(ctx context.Context, event *bindings.LibProposingBlockProposed) error
+	RequestProof(ctx context.Context, meta metadata.TaikoBlockMetaData) error
 	SubmitProof(ctx context.Context, proofWithHeader *proofProducer.ProofWithHeader) error
 	Producer() proofProducer.ProofProducer
 	Tier() uint16
@@ -25,7 +25,7 @@ type Contester interface {
 		blockID *big.Int,
 		proposedIn *big.Int,
 		parentHash common.Hash,
-		meta *bindings.TaikoDataBlockMetadata,
+		meta metadata.TaikoBlockMetaData,
 		tier uint16,
 	) error
 }

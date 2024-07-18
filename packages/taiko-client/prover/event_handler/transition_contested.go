@@ -90,7 +90,7 @@ func (h *TransitionContestedEventHandler) Handle(
 		return err
 	}
 
-	blockProposedEvent, err := GetBlockProposedEventFromBlockID(
+	meta, err := getMetadataFromBlockID(
 		ctx,
 		h.rpc,
 		e.BlockId,
@@ -102,8 +102,8 @@ func (h *TransitionContestedEventHandler) Handle(
 
 	go func() {
 		h.proofSubmissionCh <- &proofProducer.ProofRequestBody{
-			Tier:  e.Tier + 1, // We need to send a higher tier proof to resolve the current contest.
-			Event: blockProposedEvent,
+			Tier: e.Tier + 1, // We need to send a higher tier proof to resolve the current contest.
+			Meta: meta,
 		}
 	}()
 

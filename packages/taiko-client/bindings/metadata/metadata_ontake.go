@@ -147,6 +147,11 @@ func (m *TaikoDataBlockMetadataOntake) GetTxIndex() uint {
 	return m.Log.TxIndex
 }
 
+// GetTxHash returns the transaction hash.
+func (m *TaikoDataBlockMetadataOntake) GetTxHash() common.Hash {
+	return m.Log.TxHash
+}
+
 // IsOntakeBlock returns whether the block is an ontake block.
 func (m *TaikoDataBlockMetadataOntake) IsOntakeBlock() bool {
 	return true

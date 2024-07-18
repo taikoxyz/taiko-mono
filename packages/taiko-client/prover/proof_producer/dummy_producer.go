@@ -6,7 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 )
 
 // DummyProofProducer always returns a dummy proof.
@@ -16,7 +16,7 @@ type DummyProofProducer struct{}
 func (o *DummyProofProducer) RequestProof(
 	opts *ProofRequestOptions,
 	blockID *big.Int,
-	meta *bindings.TaikoDataBlockMetadata,
+	meta metadata.TaikoBlockMetaData,
 	header *types.Header,
 	tier uint16,
 ) (*ProofWithHeader, error) {

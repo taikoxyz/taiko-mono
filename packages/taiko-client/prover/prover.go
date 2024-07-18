@@ -18,6 +18,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/version"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
@@ -60,7 +61,7 @@ type Prover struct {
 	proofSubmitters []proofSubmitter.Submitter
 	proofContester  proofSubmitter.Contester
 
-	assignmentExpiredCh chan *bindings.LibProposingBlockProposed
+	assignmentExpiredCh chan metadata.TaikoBlockMetaData
 	proveNotify         chan struct{}
 
 	// Proof related channels
@@ -120,7 +121,7 @@ func InitFromConfig(ctx context.Context, p *Prover, cfg *Config, txMgr *txmgr.Si
 
 	chBufferSize := p.protocolConfig.BlockMaxProposals
 	p.proofGenerationCh = make(chan *proofProducer.ProofWithHeader, chBufferSize)
-	p.assignmentExpiredCh = make(chan *bindings.LibProposingBlockProposed, chBufferSize)
+	p.assignmentExpiredCh = make(chan metadata.TaikoBlockMetaData, chBufferSize)
 	p.proofSubmissionCh = make(chan *proofProducer.ProofRequestBody, p.cfg.Capacity)
 	p.proofContestCh = make(chan *proofProducer.ContestRequestBody, p.cfg.Capacity)
 	p.proveNotify = make(chan struct{}, 1)
@@ -282,7 +283,7 @@ func (p *Prover) eventLoop() {
 		case proofWithHeader := <-p.proofGenerationCh:
 			p.withRetry(func() error { return p.submitProofOp(proofWithHeader) })
 		case req := <-p.proofSubmissionCh:
-			p.withRetry(func() error { return p.requestProofOp(req.Event, req.Tier) })
+			p.withRetry(func() error { return p.requestProofOp(req.Meta, req.Tier) })
 		case <-p.proveNotify:
 			if err := p.proveOp(); err != nil {
 				log.Error("Prove new blocks error", "error", err)
@@ -293,8 +294,8 @@ func (p *Prover) eventLoop() {
 			p.withRetry(func() error { return p.transitionProvedHandler.Handle(p.ctx, e) })
 		case e := <-transitionContestedCh:
 			p.withRetry(func() error { return p.transitionContestedHandler.Handle(p.ctx, e) })
-		case e := <-p.assignmentExpiredCh:
-			p.withRetry(func() error { return p.assignmentExpiredHandler.Handle(p.ctx, e) })
+		case m := <-p.assignmentExpiredCh:
+			p.withRetry(func() error { return p.assignmentExpiredHandler.Handle(p.ctx, m) })
 		case <-blockProposedCh:
 			reqProving()
 		case <-forceProvingTicker.C:
@@ -340,7 +341,7 @@ func (p *Prover) contestProofOp(req *proofProducer.ContestRequestBody) error {
 			log.Error(
 				"Proof contest submission reverted",
 				"blockID", req.BlockID,
-				"minTier", req.Meta.MinTier,
+				"minTier", req.Meta.GetMinTier(),
 				"error", err,
 			)
 			return nil
@@ -348,7 +349,7 @@ func (p *Prover) contestProofOp(req *proofProducer.ContestRequestBody) error {
 		log.Error(
 			"Request new proof contest error",
 			"blockID", req.BlockID,
-			"minTier", req.Meta.MinTier,
+			"minTier", req.Meta.GetMinTier(),
 			"error", err,
 		)
 		return err
@@ -358,7 +359,7 @@ func (p *Prover) contestProofOp(req *proofProducer.ContestRequestBody) error {
 }
 
 // requestProofOp requests a new proof generation operation.
-func (p *Prover) requestProofOp(e *bindings.LibProposingBlockProposed, minTier uint16) error {
+func (p *Prover) requestProofOp(meta metadata.TaikoBlockMetaData, minTier uint16) error {
 	if p.IsGuardianProver() {
 		if minTier > encoding.TierGuardianMinorityID {
 			minTier = encoding.TierGuardianMajorityID
@@ -367,15 +368,15 @@ func (p *Prover) requestProofOp(e *bindings.LibProposingBlockProposed, minTier u
 		}
 	}
 	if submitter := p.selectSubmitter(minTier); submitter != nil {
-		if err := submitter.RequestProof(p.ctx, e); err != nil {
-			log.Error("Request new proof error", "blockID", e.BlockId, "minTier", e.Meta.MinTier, "error", err)
+		if err := submitter.RequestProof(p.ctx, meta); err != nil {
+			log.Error("Request new proof error", "blockID", meta.GetBlockID(), "minTier", meta.GetMinTier(), "error", err)
 			return err
 		}
 
 		return nil
 	}
 
-	log.Error("Failed to find proof submitter", "blockID", e.BlockId, "minTier", minTier)
+	log.Error("Failed to find proof submitter", "blockID", meta.GetBlockID(), "minTier", minTier)
 	return nil
 }
 
@@ -391,7 +392,7 @@ func (p *Prover) submitProofOp(proofWithHeader *proofProducer.ProofWithHeader) e
 			log.Error(
 				"Proof submission reverted",
 				"blockID", proofWithHeader.BlockID,
-				"minTier", proofWithHeader.Meta.MinTier,
+				"minTier", proofWithHeader.Meta.GetMinTier(),
 				"error", err,
 			)
 			return nil
@@ -399,7 +400,7 @@ func (p *Prover) submitProofOp(proofWithHeader *proofProducer.ProofWithHeader) e
 		log.Error(
 			"Submit proof error",
 			"blockID", proofWithHeader.BlockID,
-			"minTier", proofWithHeader.Meta.MinTier,
+			"minTier", proofWithHeader.Meta.GetMinTier(),
 			"error", err,
 		)
 		return err

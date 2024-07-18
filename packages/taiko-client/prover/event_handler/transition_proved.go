@@ -95,7 +95,7 @@ func (h *TransitionProvedEventHandler) Handle(
 		"stateRoot", common.Bytes2Hex(e.Tran.StateRoot[:]),
 	)
 	if h.isGuardian {
-		blockProposedEvent, err := GetBlockProposedEventFromBlockID(
+		meta, err := getMetadataFromBlockID(
 			ctx,
 			h.rpc,
 			e.BlockId,
@@ -106,8 +106,8 @@ func (h *TransitionProvedEventHandler) Handle(
 		}
 		go func() {
 			h.proofSubmissionCh <- &proofProducer.ProofRequestBody{
-				Tier:  encoding.TierGuardianMinorityID,
-				Event: blockProposedEvent,
+				Tier: encoding.TierGuardianMinorityID,
+				Meta: meta,
 			}
 		}()
 	} else {

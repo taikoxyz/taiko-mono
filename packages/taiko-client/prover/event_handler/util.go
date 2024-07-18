@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
@@ -68,24 +68,24 @@ func getProvingWindow(
 	return 0, errTierNotFound
 }
 
-// GetBlockProposedEventFromBlockID fetches the BlockProposed event by the given block id.
-func GetBlockProposedEventFromBlockID(
+// getMetadataFromBlockID fetches the block meta from the onchain event by the given block id.
+func getMetadataFromBlockID(
 	ctx context.Context,
 	rpc *rpc.Client,
 	id *big.Int,
 	proposedIn *big.Int,
-) (e *bindings.LibProposingBlockProposed, err error) {
+) (m metadata.TaikoBlockMetaData, err error) {
 	callback := func(
 		_ context.Context,
-		event *bindings.LibProposingBlockProposed,
+		meta metadata.TaikoBlockMetaData,
 		_ eventIterator.EndBlockProposedEventIterFunc,
 	) error {
 		// Only filter for exact blockID we want.
-		if event.BlockId.Cmp(id) != 0 {
+		if meta.GetBlockID().Cmp(id) != 0 {
 			return nil
 		}
 
-		e = event
+		m = meta
 
 		return nil
 	}
@@ -107,42 +107,28 @@ func GetBlockProposedEventFromBlockID(
 		return nil, err
 	}
 
-	if e == nil {
+	if m == nil {
 		return nil, fmt.Errorf("failed to find BlockProposed event for block %d", id)
 	}
 
-	return e, nil
-}
-
-// getMetadataFromBlockID fetches the block meta from the onchain event by the given block id.
-func getMetadataFromBlockID(
-	ctx context.Context,
-	rpc *rpc.Client,
-	id *big.Int,
-	proposedIn *big.Int,
-) (*bindings.TaikoDataBlockMetadata, error) {
-	e, err := GetBlockProposedEventFromBlockID(ctx, rpc, id, proposedIn)
-	if err != nil {
-		return nil, err
-	}
-	return &e.Meta, nil
+	return m, nil
 }
 
 // IsProvingWindowExpired returns true as the first return parameter if the assigned prover
 // proving window of the given proposed block is expired, and the second return parameter is the time
 // remaining til proving window is expired.
 func IsProvingWindowExpired(
-	metadata *bindings.TaikoDataBlockMetadata,
+	metadata metadata.TaikoBlockMetaData,
 	tiers []*rpc.TierProviderTierWithID,
 ) (bool, time.Time, time.Duration, error) {
-	provingWindow, err := getProvingWindow(metadata.MinTier, tiers)
+	provingWindow, err := getProvingWindow(metadata.GetMinTier(), tiers)
 	if err != nil {
 		return false, time.Time{}, 0, fmt.Errorf("failed to get proving window: %w", err)
 	}
 
 	var (
 		now       = uint64(time.Now().Unix())
-		expiredAt = metadata.Timestamp + uint64(provingWindow.Seconds())
+		expiredAt = metadata.GetTimestamp() + uint64(provingWindow.Seconds())
 	)
 
 	return now > expiredAt, time.Unix(int64(expiredAt), 0), time.Duration(expiredAt-now) * time.Second, nil

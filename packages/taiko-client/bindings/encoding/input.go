@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 )
 
 // ABI arguments marshaling components.
@@ -238,11 +239,19 @@ func EncodeBlockParams(params *BlockParams) ([]byte, error) {
 
 // EncodeProveBlockInput performs the solidity `abi.encode` for the given TaikoL1.proveBlock input.
 func EncodeProveBlockInput(
-	meta *bindings.TaikoDataBlockMetadata,
+	meta metadata.TaikoBlockMetaData,
 	transition *bindings.TaikoDataTransition,
 	tierProof *bindings.TaikoDataTierProof,
 ) ([]byte, error) {
-	b, err := proveBlockInputArgs.Pack(meta, transition, tierProof)
+	// TODO(david): fix this issue.
+	if meta.IsOntakeBlock() {
+		return nil, errors.New("cannot encode TaikoL1.proveBlock input for ontake block")
+	}
+	b, err := proveBlockInputArgs.Pack(
+		meta.(*metadata.TaikoDataBlockMetadataLegacy).InnerMetadata(),
+		transition,
+		tierProof,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to abi.encode TakoL1.proveBlock input, %w", err)
 	}

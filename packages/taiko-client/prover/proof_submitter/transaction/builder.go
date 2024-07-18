@@ -12,6 +12,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
@@ -52,7 +53,7 @@ func NewProveBlockTxBuilder(
 // Build creates a new TaikoL1.ProveBlock transaction with the given nonce.
 func (a *ProveBlockTxBuilder) Build(
 	blockID *big.Int,
-	meta *bindings.TaikoDataBlockMetadata,
+	meta metadata.TaikoBlockMetaData,
 	transition *bindings.TaikoDataTransition,
 	tierProof *bindings.TaikoDataTierProof,
 	tier uint16,
@@ -97,7 +98,7 @@ func (a *ProveBlockTxBuilder) Build(
 			} else {
 				return nil, fmt.Errorf("tier %d need set guardianProverMinorityAddress", tier)
 			}
-			if data, err = encoding.GuardianProverABI.Pack("approve", *meta, *transition, *tierProof); err != nil {
+			if data, err = encoding.GuardianProverABI.Pack("approve", meta, *transition, *tierProof); err != nil {
 				return nil, err
 			}
 		}

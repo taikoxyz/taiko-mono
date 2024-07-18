@@ -151,7 +151,17 @@ func (m *TaikoDataBlockMetadataLegacy) GetTxIndex() uint {
 	return m.Log.TxIndex
 }
 
+// GetTxHash returns the transaction hash.
+func (m *TaikoDataBlockMetadataLegacy) GetTxHash() common.Hash {
+	return m.Log.TxHash
+}
+
 // IsOntakeBlock returns whether the block is an Ontake block.
 func (m *TaikoDataBlockMetadataLegacy) IsOntakeBlock() bool {
 	return false
+}
+
+// InnerMetadata returns the inner metadata.
+func (m *TaikoDataBlockMetadataLegacy) InnerMetadata() *bindings.TaikoDataBlockMetadata {
+	return &m.TaikoDataBlockMetadata
 }

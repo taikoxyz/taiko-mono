@@ -2,12 +2,11 @@ package handler
 
 import (
 	"context"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
@@ -48,23 +47,23 @@ func NewAssignmentExpiredEventHandler(
 // Handle implements the AssignmentExpiredHandler interface.
 func (h *AssignmentExpiredEventHandler) Handle(
 	ctx context.Context,
-	e *bindings.LibProposingBlockProposed,
+	meta metadata.TaikoBlockMetaData,
 ) error {
 	log.Info(
 		"Proof assignment window is expired",
-		"blockID", e.BlockId,
-		"assignedProver", e.AssignedProver,
-		"minTier", e.Meta.MinTier,
+		"blockID", meta.GetBlockID(),
+		"assignedProver", meta.GetAssignedProver(),
+		"minTier", meta.GetMinTier(),
 	)
 
 	// Check if we still need to generate a new proof for that block.
-	proofStatus, err := rpc.GetBlockProofStatus(ctx, h.rpc, e.BlockId, h.proverAddress, h.proverSetAddress)
+	proofStatus, err := rpc.GetBlockProofStatus(ctx, h.rpc, meta.GetBlockID(), h.proverAddress, h.proverSetAddress)
 	if err != nil {
 		return err
 	}
 	if !proofStatus.IsSubmitted {
 		go func() {
-			h.proofSubmissionCh <- &proofProducer.ProofRequestBody{Tier: e.Meta.MinTier, Event: e}
+			h.proofSubmissionCh <- &proofProducer.ProofRequestBody{Tier: meta.GetMinTier(), Meta: meta}
 		}()
 		return nil
 	}
@@ -78,16 +77,16 @@ func (h *AssignmentExpiredEventHandler) Handle(
 	go func() {
 		if proofStatus.CurrentTransitionState.Contester == rpc.ZeroAddress && !h.isGuardian {
 			h.proofContestCh <- &proofProducer.ContestRequestBody{
-				BlockID:    e.BlockId,
-				ProposedIn: new(big.Int).SetUint64(e.Raw.BlockNumber),
+				BlockID:    meta.GetBlockID(),
+				ProposedIn: meta.GetRawBlockHeight(),
 				ParentHash: proofStatus.ParentHeader.Hash(),
-				Meta:       &e.Meta,
+				Meta:       meta,
 				Tier:       proofStatus.CurrentTransitionState.Tier,
 			}
 		} else {
 			h.proofSubmissionCh <- &proofProducer.ProofRequestBody{
-				Tier:  proofStatus.CurrentTransitionState.Tier + 1,
-				Event: e,
+				Tier: proofStatus.CurrentTransitionState.Tier + 1,
+				Meta: meta,
 			}
 		}
 	}()
