@@ -170,7 +170,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     }
 
     function taikoChainId() internal view virtual returns (uint64) {
-        ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfig().chainId;
+        return ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfig().chainId;
     }
 
     function _addInstances(
