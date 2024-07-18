@@ -44,7 +44,7 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
         external
         initializer
     {
-        __Essential_init(_owner, _rollupAddressManager);
+        __Essential_init(_owner, _addressManager);
         receiptVerifier = IRiscZeroVerifier(_receiptVerifier);
     }
 
