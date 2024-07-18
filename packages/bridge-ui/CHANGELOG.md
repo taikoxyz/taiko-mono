@@ -1,5 +1,40 @@
 # Changelog
 
+## [2.12.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.11.0...bridge-ui-v2.12.0) (2024-07-18)
+
+
+### Features
+
+* **bridge-ui:** configurable destOwner ([#17721](https://github.com/taikoxyz/taiko-mono/issues/17721)) ([3220a22](https://github.com/taikoxyz/taiko-mono/commit/3220a22ad11fb3bded7e1641b1de93d5a391461e))
+* **bridge-ui:** fallback gasprice for processingfee ([#17578](https://github.com/taikoxyz/taiko-mono/issues/17578)) ([c621426](https://github.com/taikoxyz/taiko-mono/commit/c621426c430bd01a3f7dbbb39058e8357601c507))
+* **bridge-ui:** polishing ([#17460](https://github.com/taikoxyz/taiko-mono/issues/17460)) ([a3faee0](https://github.com/taikoxyz/taiko-mono/commit/a3faee088ee5ed235f9b4020aa2afce77d0f8108))
+* **bridge-ui:** relayer component ([#17777](https://github.com/taikoxyz/taiko-mono/issues/17777)) ([458e259](https://github.com/taikoxyz/taiko-mono/commit/458e259e3f2cbcf316d27a239fc19a7ca417ce4d))
+* **bridge-ui:** rounding fix. ([#17409](https://github.com/taikoxyz/taiko-mono/issues/17409)) ([eac7434](https://github.com/taikoxyz/taiko-mono/commit/eac743445b9a1c21ed03aede036098ba3add261a))
+* **bridge-ui:** update usdc wording, add minimum fee check ([#17419](https://github.com/taikoxyz/taiko-mono/issues/17419)) ([07211da](https://github.com/taikoxyz/taiko-mono/commit/07211da83c9f5ca782fc5d9a02680968bf81ee24))
+
+
+### Bug Fixes
+
+* **bridge-ui:** bigint conversion ([#17534](https://github.com/taikoxyz/taiko-mono/issues/17534)) ([4279ccd](https://github.com/taikoxyz/taiko-mono/commit/4279ccd59024578d51b39a6b26a0138409a42f44))
+* **bridge-ui:** fix claiming for recipients that do not match srcOwner ([#17576](https://github.com/taikoxyz/taiko-mono/issues/17576)) ([6eaaa12](https://github.com/taikoxyz/taiko-mono/commit/6eaaa127bf12df486ce648f66d719138631e851f))
+* **bridge-ui:** fix funds message ([#17507](https://github.com/taikoxyz/taiko-mono/issues/17507)) ([55293a5](https://github.com/taikoxyz/taiko-mono/commit/55293a5208f729964279fb07056a90b08e56a4ec))
+* **bridge-ui:** fix manual claim issue ([#17518](https://github.com/taikoxyz/taiko-mono/issues/17518)) ([3f5b73d](https://github.com/taikoxyz/taiko-mono/commit/3f5b73ddf47dd1c9853d5d2d9a75e8cd95ecccbf))
+* **bridge-ui:** fix parsing relayer   ([#17551](https://github.com/taikoxyz/taiko-mono/issues/17551)) ([1b3eb90](https://github.com/taikoxyz/taiko-mono/commit/1b3eb9029ae7e6903496d774c9c115c73774c097))
+* **bridge-ui:** fix USDT approvals ([#17539](https://github.com/taikoxyz/taiko-mono/issues/17539)) ([37cb7af](https://github.com/taikoxyz/taiko-mono/commit/37cb7af834d189051c2de895b384997c4fc13b9a))
+* **bridge-ui:** handle local tx better ([#17684](https://github.com/taikoxyz/taiko-mono/issues/17684)) ([3455e11](https://github.com/taikoxyz/taiko-mono/commit/3455e11c5f82b25fcb9a35d2f781b46891493372))
+* **bridge-ui:** increase gaslimit for erc20 ([#17531](https://github.com/taikoxyz/taiko-mono/issues/17531)) ([3a7268d](https://github.com/taikoxyz/taiko-mono/commit/3a7268df33e5f778b22b7624c4baec6739083641))
+* **bridge-ui:** lock continue button when fee is calculating ([#17548](https://github.com/taikoxyz/taiko-mono/issues/17548)) ([5781b33](https://github.com/taikoxyz/taiko-mono/commit/5781b338221dbe1e8ab2a1556ffeeaa239b8d957))
+* **bridge-ui:** msg value mapping ([#17554](https://github.com/taikoxyz/taiko-mono/issues/17554)) ([e58d41a](https://github.com/taikoxyz/taiko-mono/commit/e58d41a39b7e132fe094d04bb453929155f4ba4b))
+* **bridge-ui:** recallMessage fix ([#17547](https://github.com/taikoxyz/taiko-mono/issues/17547)) ([11755d1](https://github.com/taikoxyz/taiko-mono/commit/11755d164a532980214e69219d328fa66a06f6cc))
+* **bridge-ui:** small fixes ([#17375](https://github.com/taikoxyz/taiko-mono/issues/17375)) ([5236d0a](https://github.com/taikoxyz/taiko-mono/commit/5236d0a50a82e3915eb955962ccc930110d6274e))
+
+
+### Chores
+
+* **bridge-ui:** add DAI ([#17714](https://github.com/taikoxyz/taiko-mono/issues/17714)) ([3439579](https://github.com/taikoxyz/taiko-mono/commit/3439579356c8f8bfbcc77b68c1d08cb142ab4196))
+* **bridge-ui:** add symbiosis ([#17505](https://github.com/taikoxyz/taiko-mono/issues/17505)) ([9e504d2](https://github.com/taikoxyz/taiko-mono/commit/9e504d27976d25da89a48e7a4453f6e36f8055f3))
+* **bridge-ui:** update stablecoin warning and campaign info ([#17716](https://github.com/taikoxyz/taiko-mono/issues/17716)) ([c370c7e](https://github.com/taikoxyz/taiko-mono/commit/c370c7e0976bbe1160b074be665d751410367d16))
+
 ## [2.11.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.10.1...bridge-ui-v2.11.0) (2024-05-27)
 
 

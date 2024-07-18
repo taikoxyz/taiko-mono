@@ -1,21 +1,15 @@
 package indexer
 
 import (
-	"database/sql"
-
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer/cmd/flags"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
 	"github.com/urfave/cli/v2"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-)
 
-type DB interface {
-	DB() (*sql.DB, error)
-	GormDB() *gorm.DB
-}
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/cmd/flags"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
+)
 
 type Config struct {
 	// db configs
@@ -37,7 +31,7 @@ type Config struct {
 	IndexNFTs               bool
 	IndexERC20s             bool
 	Layer                   string
-	OpenDBFunc              func() (DB, error)
+	OpenDBFunc              func() (db.DB, error)
 }
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
@@ -61,7 +55,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		IndexNFTs:               c.Bool(flags.IndexNFTs.Name),
 		IndexERC20s:             c.Bool(flags.IndexERC20s.Name),
 		Layer:                   c.String(flags.Layer.Name),
-		OpenDBFunc: func() (DB, error) {
+		OpenDBFunc: func() (db.DB, error) {
 			return db.OpenDBConnection(db.DBConnectionOpts{
 				Name:            c.String(flags.DatabaseUsername.Name),
 				Password:        c.String(flags.DatabasePassword.Name),
@@ -70,7 +64,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 				MaxIdleConns:    c.Uint64(flags.DatabaseMaxIdleConns.Name),
 				MaxOpenConns:    c.Uint64(flags.DatabaseMaxOpenConns.Name),
 				MaxConnLifetime: c.Uint64(flags.DatabaseConnMaxLifetime.Name),
-				OpenFunc: func(dsn string) (*db.DB, error) {
+				OpenFunc: func(dsn string) (db.DB, error) {
 					gormDB, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
 						Logger: logger.Default.LogMode(logger.Silent),
 					})

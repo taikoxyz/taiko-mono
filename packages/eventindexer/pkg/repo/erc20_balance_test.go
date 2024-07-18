@@ -13,18 +13,18 @@ import (
 func Test_NewERC20BalanceRepo(t *testing.T) {
 	tests := []struct {
 		name    string
-		db      eventindexer.DB
+		db      db.DB
 		wantErr error
 	}{
 		{
 			"success",
-			&db.DB{},
+			&db.Database{},
 			nil,
 		},
 		{
 			"noDb",
 			nil,
-			eventindexer.ErrNoDB,
+			db.ErrNoDB,
 		},
 	}
 

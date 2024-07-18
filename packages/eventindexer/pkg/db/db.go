@@ -3,33 +3,48 @@ package db
 import (
 	"database/sql"
 	"fmt"
+	"github.com/cyberhorsey/errors"
 	"time"
 
-	"github.com/cyberhorsey/errors"
 	"gorm.io/gorm"
 )
-
-type DB struct {
-	gormdb *gorm.DB
-}
-
-func (db *DB) DB() (*sql.DB, error) {
-	return db.gormdb.DB()
-}
-
-func (db *DB) GormDB() *gorm.DB {
-	return db.gormdb
-}
-
-func New(gormdb *gorm.DB) *DB {
-	return &DB{
-		gormdb: gormdb,
-	}
-}
 
 var (
 	ErrNoDB = errors.Validation.NewWithKeyAndDetail("ERR_NO_DB", "DB is required")
 )
+
+type DB interface {
+	DB() (*sql.DB, error)
+	GormDB() *gorm.DB
+	Close() error
+}
+
+type Database struct {
+	gormdb *gorm.DB
+}
+
+func (db *Database) DB() (*sql.DB, error) {
+	return db.gormdb.DB()
+}
+
+func (db *Database) GormDB() *gorm.DB {
+	return db.gormdb
+}
+
+func (db *Database) Close() error {
+	sqlDB, err := db.DB()
+	if err != nil {
+		return err
+	}
+
+	return sqlDB.Close()
+}
+
+func New(gormdb *gorm.DB) DB {
+	return &Database{
+		gormdb: gormdb,
+	}
+}
 
 type DBConnectionOpts struct {
 	Name            string
@@ -39,10 +54,10 @@ type DBConnectionOpts struct {
 	MaxIdleConns    uint64
 	MaxOpenConns    uint64
 	MaxConnLifetime uint64
-	OpenFunc        func(dsn string) (*DB, error)
+	OpenFunc        func(dsn string) (DB, error)
 }
 
-func OpenDBConnection(opts DBConnectionOpts) (*DB, error) {
+func OpenDBConnection(opts DBConnectionOpts) (DB, error) {
 	dsn := ""
 	if opts.Password == "" {
 		dsn = fmt.Sprintf(

@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
 	"net/http"
 	"strings"
 	"time"
@@ -13,16 +14,16 @@ import (
 )
 
 type NFTBalanceRepository struct {
-	db eventindexer.DB
+	db db.DB
 }
 
-func NewNFTBalanceRepository(db eventindexer.DB) (*NFTBalanceRepository, error) {
-	if db == nil {
-		return nil, eventindexer.ErrNoDB
+func NewNFTBalanceRepository(dbHandler db.DB) (*NFTBalanceRepository, error) {
+	if dbHandler == nil {
+		return nil, db.ErrNoDB
 	}
 
 	return &NFTBalanceRepository{
-		db: db,
+		db: dbHandler,
 	}, nil
 }
 

@@ -111,6 +111,7 @@ export type BridgeTransaction = {
   status?: MessageStatus;
   receipt?: TransactionReceipt;
   canonicalTokenAddress?: Address;
+  claimedBy?: Address;
 };
 
 interface BaseBridgeTransferOp {
