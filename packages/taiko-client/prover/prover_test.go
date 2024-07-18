@@ -18,6 +18,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
@@ -149,7 +150,8 @@ func (s *ProverTestSuite) TestOnBlockProposed() {
 	s.p.cfg.L1ProverPrivKey = l1ProverPrivKey
 	// Valid block
 	e := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
-	s.Nil(s.p.blockProposedHandler.Handle(context.Background(), e, func() {}))
+	m := metadata.NewTaikoDataBlockMetadataLegacy(e)
+	s.Nil(s.p.blockProposedHandler.Handle(context.Background(), m, func() {}))
 	req := <-s.p.proofSubmissionCh
 	s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
 	s.Nil(s.p.selectSubmitter(e.Meta.MinTier).SubmitProof(context.Background(), <-s.p.proofGenerationCh))
@@ -159,7 +161,8 @@ func (s *ProverTestSuite) TestOnBlockProposed() {
 		s.proposer,
 		s.d.ChainSyncer().BlobSyncer(),
 	) {
-		s.Nil(s.p.blockProposedHandler.Handle(context.Background(), e, func() {}))
+		m := metadata.NewTaikoDataBlockMetadataLegacy(e)
+		s.Nil(s.p.blockProposedHandler.Handle(context.Background(), m, func() {}))
 		req := <-s.p.proofSubmissionCh
 		s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
 		s.Nil(s.p.selectSubmitter(e.Meta.MinTier).SubmitProof(context.Background(), <-s.p.proofGenerationCh))
@@ -180,7 +183,7 @@ func (s *ProverTestSuite) TestSubmitProofOp() {
 		s.p.withRetry(func() error {
 			return s.p.submitProofOp(&producer.ProofWithHeader{
 				BlockID: common.Big1,
-				Meta:    &bindings.TaikoDataBlockMetadata{},
+				Meta:    &metadata.TaikoDataBlockMetadataLegacy{},
 				Header:  &types.Header{},
 				Proof:   []byte{},
 				Tier:    encoding.TierOptimisticID,
@@ -192,7 +195,7 @@ func (s *ProverTestSuite) TestSubmitProofOp() {
 		s.p.withRetry(func() error {
 			return s.p.submitProofOp(&producer.ProofWithHeader{
 				BlockID: common.Big1,
-				Meta:    &bindings.TaikoDataBlockMetadata{},
+				Meta:    &metadata.TaikoDataBlockMetadataLegacy{},
 				Header:  &types.Header{},
 				Proof:   []byte{},
 				Tier:    encoding.TierOptimisticID,
@@ -331,7 +334,7 @@ func (s *ProverTestSuite) TestProveExpiredUnassignedBlock() {
 
 	e.AssignedProver = common.BytesToAddress(testutils.RandomHash().Bytes())
 	s.p.cfg.GuardianProverMajorityAddress = common.Address{}
-	s.Nil(s.p.assignmentExpiredHandler.Handle(context.Background(), e))
+	s.Nil(s.p.assignmentExpiredHandler.Handle(context.Background(), metadata.NewTaikoDataBlockMetadataLegacy(e)))
 	req := <-s.p.proofSubmissionCh
 	s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
 	s.Nil(s.p.selectSubmitter(e.Meta.MinTier).SubmitProof(context.Background(), <-s.p.proofGenerationCh))

@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	producer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
@@ -84,7 +85,13 @@ func (s *TransactionTestSuite) TestSendTxWithBackoff() {
 	s.Nil(err)
 	l1HeadChild, err := s.RPCClient.L1.HeaderByNumber(context.Background(), new(big.Int).Sub(l1Head.Number, common.Big1))
 	s.Nil(err)
-	meta := &bindings.TaikoDataBlockMetadata{L1Height: l1HeadChild.Number.Uint64(), L1Hash: l1HeadChild.Hash()}
+	meta := &metadata.TaikoDataBlockMetadataLegacy{
+		TaikoDataBlockMetadata: bindings.TaikoDataBlockMetadata{
+			Id:       256,
+			L1Height: l1HeadChild.Number.Uint64(),
+			L1Hash:   l1HeadChild.Hash(),
+		},
+	}
 	s.NotNil(s.sender.Send(
 		context.Background(),
 		&producer.ProofWithHeader{

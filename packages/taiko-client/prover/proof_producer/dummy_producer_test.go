@@ -7,8 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
-
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 )
 
 func TestDummyProducerRequestProof(t *testing.T) {
@@ -37,7 +36,7 @@ func TestDummyProducerRequestProof(t *testing.T) {
 	res, err := producer.RequestProof(
 		&ProofRequestOptions{},
 		blockID,
-		&bindings.TaikoDataBlockMetadata{},
+		&metadata.TaikoDataBlockMetadataLegacy{},
 		header,
 		tier,
 	)
