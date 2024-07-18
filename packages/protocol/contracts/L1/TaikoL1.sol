@@ -42,19 +42,19 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _addressManager The address of the {AddressManager} contract.
+    /// @param _rollupAddressManager The address of the {AddressManager} contract.
     /// @param _genesisBlockHash The block hash of the genesis block.
     /// @param _toPause true to pause the contract by default.
     function init(
         address _owner,
-        address _addressManager,
+        address _rollupAddressManager,
         bytes32 _genesisBlockHash,
         bool _toPause
     )
         external
         initializer
     {
-        __Essential_init(_owner, _addressManager);
+        __Essential_init(_owner, _rollupAddressManager);
         LibUtils.init(state, _genesisBlockHash);
         if (_toPause) _pause();
     }
