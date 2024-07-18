@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import "../common/EssentialContract.sol";
 import "../common/LibStrings.sol";
-import "../thirdparty/risczero/IRiscZeroReceiptVerifier.sol";
+import "../thirdparty/risczero/IRiscZeroVerifier.sol";
 import "../L1/ITaikoL1.sol";
 import "./IVerifier.sol";
 import "./libs/LibPublicInput.sol";
@@ -15,7 +15,7 @@ import "forge-std/src/console2.sol";
 contract RiscZeroVerifier is EssentialContract, IVerifier {
     /// @notice RISC Zero remote verifier contract address, e.g.:
     /// https://sepolia.etherscan.io/address/0x3d24C84FC1A2B26f9229e58ddDf11A8dfba802d0
-    IRiscZeroReceiptVerifier public receiptVerifier;
+    IRiscZeroVerifier public receiptVerifier;
     /// @notice Trusted imageId mapping
     mapping(bytes32 imageId => bool trusted) public isImageTrusted;
 
@@ -45,7 +45,7 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
         initializer
     {
         __Essential_init(_owner, _rollupAddressManager);
-        receiptVerifier = IRiscZeroReceiptVerifier(_receiptVerifier);
+        receiptVerifier = IRiscZeroVerifier(_receiptVerifier);
     }
 
     /// @notice Sets/unsets an the imageId as trusted entity
@@ -57,6 +57,8 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
         emit ImageTrusted(_imageId, _trusted);
     }
 
+    event DebugVerifyProof(bytes32 metaHash, bytes32 journalDigest, bytes32 piHash);
+
     /// @inheritdoc IVerifier
     function verifyProof(
         Context calldata _ctx,
@@ -64,7 +66,6 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
         TaikoData.TierProof calldata _proof
     )
         external
-        view
     {
         // Do not run proof verification to contest an existing proof
         if (_ctx.isContesting) return;
@@ -84,9 +85,10 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
         // journalDigest is the sha256 hash of the hashed public input
         bytes32 journalDigest = sha256(bytes.concat(__fixed_jounal_header, hash));
 
+        emit DebugVerifyProof(_ctx.metaHash, journalDigest, hash);
         // call risc0 verifier contract
         (bool success,) = address(receiptVerifier).staticcall(
-            abi.encodeCall(IRiscZeroReceiptVerifier.verify, (seal, imageId, journalDigest))
+            abi.encodeCall(IRiscZeroVerifier.verify, (seal, imageId, journalDigest))
         );
 
         if (!success) {
