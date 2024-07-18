@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import { t } from 'svelte-i18n';
 
   import IconFlipper from '$components/Icon/IconFlipper.svelte';
@@ -33,13 +34,14 @@
     flipped = !flipped;
   };
 
-  const select = (option: (typeof options)[0]) => {
+  const select = async (option: (typeof options)[0]) => {
     selectedStatus = option.value;
+    await tick();
     closeMenu();
   };
 
   $: menuClasses = classNames(
-    'menu absolute right-0 w-[210px] p-3 mt-2 rounded-[10px] bg-neutral-background z-10  box-shadow-small',
+    'menu absolute right-0 w-[210px] p-3 mt-2 rounded-[10px] bg-neutral-background z-10 box-shadow-small',
     menuOpen ? 'visible opacity-100' : 'invisible opacity-0',
   );
 </script>
@@ -66,9 +68,10 @@
   </button>
   {#if menuOpen}
     <ul
+      id={uuid}
       role="listbox"
       class={menuClasses}
-      use:closeOnEscapeOrOutsideClick={{ enabled: menuOpen, callback: () => closeMenu, uuid: uuid }}>
+      use:closeOnEscapeOrOutsideClick={{ enabled: menuOpen, callback: closeMenu, uuid }}>
       {#each options as option (option.value)}
         <li
           role="option"
