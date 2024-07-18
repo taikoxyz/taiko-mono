@@ -71,9 +71,8 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
             revert RISC_ZERO_INVALID_IMAGE_ID();
         }
 
-        uint64 chainId = ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfig().chainId;
         bytes32 hash = LibPublicInput.hashPublicInputs(
-            _tran, address(this), address(0), _ctx.prover, _ctx.metaHash, chainId
+            _tran, address(this), address(0), _ctx.prover, _ctx.metaHash, taikoChainId()
         );
 
         // journalDigest is the sha256 hash of the hashed public input
@@ -87,5 +86,9 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
         if (!success) {
             revert RISC_ZERO_INVALID_PROOF();
         }
+    }
+
+    function taikoChainId() internal view virtual returns (uint64) {
+        return ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfig().chainId;
     }
 }
