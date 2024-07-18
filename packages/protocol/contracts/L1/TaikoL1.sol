@@ -5,6 +5,7 @@ import "../common/EssentialContract.sol";
 import "./libs/LibProposing.sol";
 import "./libs/LibProving.sol";
 import "./libs/LibVerifying.sol";
+import "./TaikoEvents.sol";
 import "./ITaikoL1.sol";
 
 /// @title TaikoL1
@@ -16,16 +17,11 @@ import "./ITaikoL1.sol";
 /// by the Bridge contract.
 /// @dev Labeled in AddressResolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
-contract TaikoL1 is EssentialContract, ITaikoL1 {
+contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     /// @notice The TaikoL1 state.
     TaikoData.State public state;
 
     uint256[50] private __gap;
-
-    /// @notice Emitted when some state variable values changed.
-    /// @dev This event is currently used by Taiko node/client for block proposal/proving.
-    /// @param slotB The SlotB data structure.
-    event StateVariablesUpdated(TaikoData.SlotB slotB);
 
     error L1_RECEIVE_DISABLED();
 
@@ -46,19 +42,19 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _addressManager The address of the {AddressManager} contract.
+    /// @param _rollupAddressManager The address of the {AddressManager} contract.
     /// @param _genesisBlockHash The block hash of the genesis block.
     /// @param _toPause true to pause the contract by default.
     function init(
         address _owner,
-        address _addressManager,
+        address _rollupAddressManager,
         bytes32 _genesisBlockHash,
         bool _toPause
     )
         external
         initializer
     {
-        __Essential_init(_owner, _addressManager);
+        __Essential_init(_owner, _rollupAddressManager);
         LibUtils.init(state, _genesisBlockHash);
         if (_toPause) _pause();
     }
