@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/suite"
 
@@ -90,6 +91,10 @@ func (s *BlobSyncerTestSuite) TestInsertNewHead() {
 				Difficulty: testutils.RandomHash(),
 				GasLimit:   utils.RandUint32(nil),
 				Timestamp:  uint64(time.Now().Unix()),
+			},
+			Log: types.Log{
+				BlockNumber: l1Head.Number().Uint64(),
+				BlockHash:   l1Head.Hash(),
 			},
 		},
 		parent,
