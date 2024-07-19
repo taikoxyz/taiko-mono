@@ -4,13 +4,13 @@ pragma solidity 0.8.24;
 import "forge-std/src/Script.sol";
 import "../contracts/L2/DelegateOwner.sol";
 import "../contracts/bridge/IBridge.sol";
-import "../test/common/TestMulticall3.sol";
+import "../test/thirdparty/muticall3/Multicall3.sol";
 
 contract SendMessageToDelegateOwner is Script {
     address public delegateOwner = 0x5995941Df88F30Ac140515AA39832db963E2f863;
     address public multicall3 = 0xcA11bde05977b3631167028862bE2a173976CA11;
     address public l1Bridge = 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC;
-    address public testAccount1 = 0x3b7c503e18E197F92028b02Fe52BD674E7289cCa; // owned by Daniel W
+    address public testAccount1 = 0x3c181965C5cFAE61a9010A283e5e0C1445649810; // owned by Daniel W
 
     modifier broadcast() {
         vm.startBroadcast();
@@ -19,13 +19,13 @@ contract SendMessageToDelegateOwner is Script {
     }
 
     function run() external broadcast {
-        TestMulticall3.Call3[] memory calls = new TestMulticall3.Call3[](2);
-        calls[0].target = address(delegateOwner);
+        Multicall3.Call3[] memory calls = new Multicall3.Call3[](2);
+        calls[0].target = delegateOwner;
         calls[0].allowFailure = false;
         calls[0].callData =
             abi.encodeCall(DelegateOwner.setAdmin, (0x4757D97449acA795510b9f3152C6a9019A3545c3));
 
-        calls[1].target = address(delegateOwner);
+        calls[1].target = delegateOwner;
         calls[1].allowFailure = false;
         calls[1].callData = abi.encodeCall(DelegateOwner.setAdmin, (testAccount1));
 
@@ -33,7 +33,7 @@ contract SendMessageToDelegateOwner is Script {
             txId: 0, // Has to match with DelegateOwner's nextTxId
             target: multicall3,
             isDelegateCall: true,
-            txdata: abi.encodeCall(TestMulticall3.aggregate3, (calls))
+            txdata: abi.encodeCall(Multicall3.aggregate3, (calls))
         });
 
         IBridge.Message memory message = IBridge.Message({
