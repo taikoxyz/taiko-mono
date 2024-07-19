@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/ethereum/go-ethereum"
@@ -52,12 +53,17 @@ func (i *Indexer) fetchNFTMetadata(
 		return nil, errors.Wrap(err, "contractABI.UnpackIntoInterface")
 	}
 
-	url := resolveMetadataURL(ctx, tokenURI)
+	mdURL := resolveMetadataURL(tokenURI)
+
+	_, err = url.ParseRequestURI(mdURL)
+	if err != nil {
+		return nil, eventindexer.ErrInvalidURL
+	}
 
 	var metadata *eventindexer.NFTMetadata
 
 	//nolint
-	resp, err := http.Get(url)
+	resp, err := http.Get(mdURL)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +90,7 @@ func (i *Indexer) fetchNFTMetadata(
 	return metadata, nil
 }
 
-func resolveMetadataURL(ctx context.Context, tokenURI string) string {
+func resolveMetadataURL(tokenURI string) string {
 	if strings.HasPrefix(tokenURI, "ipfs://") {
 		ipfsHash := strings.TrimPrefix(tokenURI, "ipfs://")
 		resolvedURL := fmt.Sprintf("https://ipfs.io/ipfs/%s", ipfsHash)
