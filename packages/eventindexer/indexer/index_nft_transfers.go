@@ -158,6 +158,7 @@ func (i *Indexer) saveERC721Transfer(ctx context.Context, chainID *big.Int, vLog
 				return errors.Wrap(err, "i.nftMetadataRepo.SaveNFTMetadata")
 			}
 		}
+
 		pk = metadata.ID
 	}
 
