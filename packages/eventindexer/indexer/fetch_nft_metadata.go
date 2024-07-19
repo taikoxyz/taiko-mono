@@ -4,11 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"math/big"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -54,20 +52,9 @@ func (i *Indexer) fetchNFTMetadata(
 		return nil, errors.Wrap(err, "contractABI.UnpackIntoInterface")
 	}
 
-	url, err := resolveMetadataURL(ctx, tokenURI)
-	if err != nil {
-		if errors.Is(err, eventindexer.ErrInvalidURL) {
-			slog.Warn("Invalid metadata URI",
-				"contractAddress", contractAddress,
-				"tokenID", tokenID.Int64(),
-				"chainID", chainID.String(),
-				"tokenURI", tokenURI)
+	url := resolveMetadataURL(ctx, tokenURI)
 
-			return nil, nil
-		}
-
-		return nil, errors.Wrap(err, "resolveMetadataURL")
-	}
+	var metadata *eventindexer.NFTMetadata
 
 	//nolint
 	resp, err := http.Get(url)
@@ -77,56 +64,35 @@ func (i *Indexer) fetchNFTMetadata(
 
 	defer resp.Body.Close()
 
-	var metadata eventindexer.NFTMetadata
-
-	err = json.NewDecoder(resp.Body).Decode(&metadata)
-	if err != nil {
-		return nil, err
-	}
-
-	if methodName == "tokenURI" {
-		if err := i.fetchSymbol(ctx, contractABI, &metadata, contractAddressCommon); err != nil {
+	if resp.StatusCode == http.StatusOK {
+		err = json.NewDecoder(resp.Body).Decode(&metadata)
+		if err != nil {
 			return nil, err
 		}
+
+		if methodName == "tokenURI" {
+			if err := i.fetchSymbol(ctx, contractABI, metadata, contractAddressCommon); err != nil {
+				return nil, err
+			}
+		}
+
+		metadata.ContractAddress = contractAddress
+		metadata.TokenID = tokenID.Int64()
+		metadata.ChainID = chainID.Int64()
 	}
 
-	metadata.ContractAddress = contractAddress
-	metadata.TokenID = tokenID.Int64()
-	metadata.ChainID = chainID.Int64()
-
-	return &metadata, nil
+	return metadata, nil
 }
 
-func resolveMetadataURL(ctx context.Context, tokenURI string) (string, error) {
+func resolveMetadataURL(ctx context.Context, tokenURI string) string {
 	if strings.HasPrefix(tokenURI, "ipfs://") {
 		ipfsHash := strings.TrimPrefix(tokenURI, "ipfs://")
 		resolvedURL := fmt.Sprintf("https://ipfs.io/ipfs/%s", ipfsHash)
 
-		if isValidURL(ctx, resolvedURL) {
-			return resolvedURL, nil
-		}
-
-		return "", eventindexer.ErrInvalidURL
+		return resolvedURL
 	}
 
-	if isValidURL(ctx, tokenURI) {
-		return tokenURI, nil
-	}
-
-	return "", eventindexer.ErrInvalidURL
-}
-
-func isValidURL(ctx context.Context, rawURL string) bool {
-	client := &http.Client{
-		Timeout: 3 * time.Second,
-	}
-
-	resp, err := client.Head(rawURL)
-	if err != nil || resp.StatusCode != http.StatusOK {
-		return false
-	}
-
-	return true
+	return tokenURI
 }
 
 func (i *Indexer) fetchSymbol(ctx context.Context, contractABI abi.ABI, metadata *eventindexer.NFTMetadata, contractAddress common.Address) error {
