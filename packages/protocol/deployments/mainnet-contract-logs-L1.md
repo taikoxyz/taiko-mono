@@ -234,15 +234,14 @@
 #### tier_sgx
 
 - proxy: `0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81`
-- impl: `0xEE5F6648307319263FFBaE91f68ac700b188fF24`
+- impl: `0x7EE4CEF8a945639e09DDf3032e9d95c8d90f07f3`
 - owner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - Upgraded from `0x3f54067EF5d8B414Bdb1945cdF482BD158Aad175` to `0xf381868DD6B2aC8cca468D63B42F9040DE2257E9` @commit`b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
   - Upgraded from `0xf381868DD6B2aC8cca468D63B42F9040DE2257E9` to `0xB0b782cf0fCEce896E0C041F8e54f86cA4cC8e9F` @commit`a3faee0` @tx`eth:0x40A2aCCbd92BCA938b02010E17A5b8929b49130D`
   - Upgraded from `0xB0b782cf0fCEce896E0C041F8e54f86cA4cC8e9F` to `0xEE5F6648307319263FFBaE91f68ac700b188fF24` @commit`be34059` @tx`0x170617251f2345eda4bcbd29e316caa0b014602a44244c60b963382ac7da7748`
-- todos:
-  - deploy again to enable caching of taikoChainId()
+  - Upgraded from `0xEE5F6648307319263FFBaE91f68ac700b188fF24` to `0x7EE4CEF8a945639e09DDf3032e9d95c8d90f07f3` @commit`dd09223` @tx`0x2e246e4b4637c4bf13dccea873a30e35e704bafa7f02e30c877ecec7d786e662`
 
 #### guardian_prover_minority
 
