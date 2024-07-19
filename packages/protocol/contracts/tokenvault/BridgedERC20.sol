@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
 import "../common/EssentialContract.sol";
 import "../common/LibStrings.sol";
@@ -18,7 +18,7 @@ contract BridgedERC20 is
     IBridgedERC20Initializable,
     IBridgedERC20Migratable,
     IERC165Upgradeable,
-    ERC20PermitUpgradeable
+    ERC20Upgradeable
 {
     /// @dev Slot 1.
     address public srcToken;
