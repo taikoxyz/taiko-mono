@@ -2,10 +2,12 @@ package repo
 
 import (
 	"context"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
+	"golang.org/x/exp/slog"
 
 	"github.com/morkid/paginate"
 	"github.com/pkg/errors"
@@ -58,7 +60,7 @@ func (r *NFTBalanceRepository) increaseBalanceInDB(
 	b.Amount += opts.Amount
 
 	// update the row to reflect new balance
-	if err := db.Save(b).Error; err != nil {
+	if err := db.WithContext(ctx).Save(b).Error; err != nil {
 		return nil, errors.Wrap(err, "r.db.Save")
 	}
 
@@ -79,7 +81,7 @@ func (r *NFTBalanceRepository) decreaseBalanceInDB(
 		ChainID:         opts.ChainID,
 	}
 
-	err := db.
+	err := db.WithContext(ctx).
 		Where("contract_address = ?", opts.ContractAddress).
 		Where("token_id = ?", opts.TokenID).
 		Where("address = ?", opts.Address).
@@ -137,6 +139,8 @@ func (r *NFTBalanceRepository) IncreaseAndDecreaseBalancesInTx(
 		}
 
 		if strings.Contains(err.Error(), "Deadlock") {
+			slog.Warn("database deadlock")
+
 			retries--
 
 			time.Sleep(100 * time.Millisecond) // backoff before retrying

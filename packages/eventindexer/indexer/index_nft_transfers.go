@@ -60,7 +60,7 @@ func (i *Indexer) indexNFTTransfers(
 }
 
 // isERC1155Transfer determines whether a given log is a valid ERC1155 transfer event
-func (i *Indexer) isERC1155Transfer(ctx context.Context, vLog types.Log) bool {
+func (i *Indexer) isERC1155Transfer(_ context.Context, vLog types.Log) bool {
 	// malformed event
 	if len(vLog.Topics) == 0 {
 		return false
@@ -152,18 +152,13 @@ func (i *Indexer) saveERC721Transfer(ctx context.Context, chainID *big.Int, vLog
 				TokenID:         tokenID,
 				Name:            "invalid_metadata",
 			}
-		}
 
-		metadata, err = i.nftMetadataRepo.SaveNFTMetadata(ctx, metadata)
-		if err != nil {
-			return errors.Wrap(err, "i.nftMetadataRepo.SaveNFTMetadata")
+			metadata, err = i.nftMetadataRepo.SaveNFTMetadata(ctx, metadata)
+			if err != nil {
+				return errors.Wrap(err, "i.nftMetadataRepo.SaveNFTMetadata")
+			}
 		}
-
 		pk = metadata.ID
-
-		slog.Info("metadata created", "contractAddress", vLog.Address.Hex(), "tokenId", metadata.TokenID)
-	} else {
-		slog.Info("metadata found", "contractAddress", vLog.Address.Hex(), "tokenId", metadata.TokenID)
 	}
 
 	// increment To address's balance
@@ -257,18 +252,14 @@ func (i *Indexer) saveERC1155Transfer(ctx context.Context, chainID *big.Int, vLo
 					TokenID:         t.Id.Int64(),
 					Name:            "invalid_metadata",
 				}
-			}
 
-			metadata, err = i.nftMetadataRepo.SaveNFTMetadata(ctx, metadata)
-			if err != nil {
-				return errors.Wrap(err, "i.nftMetadataRepo.SaveNFTMetadata")
+				metadata, err = i.nftMetadataRepo.SaveNFTMetadata(ctx, metadata)
+				if err != nil {
+					return errors.Wrap(err, "i.nftMetadataRepo.SaveNFTMetadata")
+				}
 			}
 
 			pk = metadata.ID
-
-			slog.Info("metadata created", "contractAddress", vLog.Address.Hex(), "tokenId", metadata.TokenID)
-		} else {
-			slog.Info("metadata found", "contractAddress", vLog.Address.Hex(), "tokenId", metadata.TokenID)
 		}
 
 		increaseOpts := eventindexer.UpdateNFTBalanceOpts{
@@ -300,8 +291,6 @@ func (i *Indexer) saveERC1155Transfer(ctx context.Context, chainID *big.Int, vLo
 			return err
 		}
 	} else if vLog.Topics[0].Hex() == transferBatchSignatureHash.Hex() {
-		slog.Info("erc1155 transfer batch")
-
 		type TransferBatchEvent struct {
 			Operator common.Address
 			From     common.Address
@@ -320,7 +309,6 @@ func (i *Indexer) saveERC1155Transfer(ctx context.Context, chainID *big.Int, vLo
 		for idx, id := range t.Ids {
 			var pk int = 0
 
-			slog.Info("ERC1155 BATCH:", "", pk)
 			// Check if metadata already exists in db, if not fetch and store
 			metadata, err := i.nftMetadataRepo.GetNFTMetadata(ctx, vLog.Address.Hex(), id.Int64(), chainID.Int64())
 			if err != nil {
@@ -344,18 +332,14 @@ func (i *Indexer) saveERC1155Transfer(ctx context.Context, chainID *big.Int, vLo
 						TokenID:         id.Int64(),
 						Name:            "invalid_metadata",
 					}
-				}
 
-				metadata, err = i.nftMetadataRepo.SaveNFTMetadata(ctx, metadata)
-				if err != nil {
-					return errors.Wrap(err, "i.nftMetadataRepo.SaveNFTMetadata")
+					metadata, err = i.nftMetadataRepo.SaveNFTMetadata(ctx, metadata)
+					if err != nil {
+						return errors.Wrap(err, "i.nftMetadataRepo.SaveNFTMetadata")
+					}
 				}
 
 				pk = metadata.ID
-
-				slog.Info("metadata created", "contractAddress", vLog.Address.Hex(), "tokenId", metadata.TokenID)
-			} else {
-				slog.Info("metadata found", "contractAddress", vLog.Address.Hex(), "tokenId", metadata.TokenID)
 			}
 
 			increaseOpts := eventindexer.UpdateNFTBalanceOpts{
