@@ -37,6 +37,7 @@ contract SendMessageToDelegateOwner is Script {
             txdata: abi.encodeCall(Multicall3.aggregate3, (calls))
         });
 
+        // Use https://bridge.taiko.xyz/relayer to manually trigger the message if necessary.
         IBridge.Message memory message = IBridge.Message({
             id: 0,
             fee: 0,
