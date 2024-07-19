@@ -123,7 +123,13 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     function _invokeCall(bytes calldata _data, bool _verifyTxId) private {
         Call memory call = abi.decode(_data, (Call));
 
-        if (_verifyTxId && call.txId != nextTxId++) revert DO_INVALID_TX_ID();
+        if (call.txId == 0) {
+            call.txId = nextTxId;
+        } else if (_verifyTxId && call.txId != nextTxId) {
+            revert DO_INVALID_TX_ID();
+        }
+
+        nextTxId += 1;
 
         // By design, the target must be a contract address if the txdata is not empty
         if (call.txdata.length != 0 && !Address.isContract(call.target)) revert DO_INVALID_TARGET();
