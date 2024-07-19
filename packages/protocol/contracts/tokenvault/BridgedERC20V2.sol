@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
+import "@openzeppelin/contracts-upgradeable/interfaces/IERC5267Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20PermitUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/cryptography/EIP712Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/CountersUpgradeable.sol";
@@ -57,6 +58,14 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
     /**
      * @inheritdoc IERC20PermitUpgradeable
      */
+    // solhint-disable-next-line func-name-mixedcase
+    function DOMAIN_SEPARATOR() external view override returns (bytes32) {
+        return _domainSeparatorV4();
+    }
+
+    /**
+     * @inheritdoc IERC20PermitUpgradeable
+     */
     function permit(
         address owner,
         address spender,
@@ -91,12 +100,10 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
         return _nonces[owner].current();
     }
 
-    /**
-     * @inheritdoc IERC20PermitUpgradeable
-     */
-    // solhint-disable-next-line func-name-mixedcase
-    function DOMAIN_SEPARATOR() external view override returns (bytes32) {
-        return _domainSeparatorV4();
+    function supportsInterface(bytes4 _interfaceId) public pure virtual override returns (bool) {
+        return _interfaceId == type(IERC20PermitUpgradeable).interfaceId
+            || _interfaceId == type(IERC5267Upgradeable).interfaceId
+            || super.supportsInterface(_interfaceId);
     }
 
     /**
