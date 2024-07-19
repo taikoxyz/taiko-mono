@@ -15,7 +15,6 @@
 [![Twitter Follow](https://img.shields.io/twitter/follow/taikoxyz?style=social)](https://twitter.com/taikoxyz)
 [![Discord](https://img.shields.io/discord/984015101017346058?color=%235865F2&label=Discord&logo=discord&logoColor=%23fff)](https://discord.gg/taikoxyz)
 [![YouTube](https://img.shields.io/youtube/channel/subscribers/UCxd_ARE9LtAEdnRQA6g1TaQ)](https://www.youtube.com/@taikoxyz)
-
 [![GitPOAP Badge](https://public-api.gitpoap.io/v1/repo/taikoxyz/taiko-mono/badge)](https://www.gitpoap.io/gh/taikoxyz/taiko-mono)
 [![License](https://img.shields.io/github/license/taikoxyz/taiko-mono)](https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md)
 
@@ -23,34 +22,42 @@
 
 ## Documentation
 
-End user documentation can be found at [docs.taiko.xyz](https://docs.taiko.xyz). Protocol specs can be found [here](./packages/protocol/docs/README.md).
+Get started with Taiko:
 
-Each package of the monorepo is well documented and includes a README.
+- [Taiko docs](https://docs.taiko.xyz) — High-level concepts, guides, resources, and reference pages for getting started.
+- [Protocol specs](./packages/protocol/docs/README.md) — In-depth specifications of the Taiko protocol for deeper understanding.
+- [Smart contracts](./packages/protocol/contracts/) — Taiko protocol smart contracts, fully documented with NatSpec.
 
-## Project structure
+## Packages
 
-<pre>
-taiko-mono/
-├── <a href="./CHANGELOG.md">CHANGELOG.md</a>
-├── <a href="./CONTRIBUTING.md">CONTRIBUTING.md</a>
-├── <a href="./LICENSE.md">LICENSE.md</a>
-├── <a href="./README.md">README.md</a>
-├── <a href="./packages">packages</a>
-│   ├── <a href="./packages/branding">branding</a>: Taiko branding materials.
-│   ├── <a href="./packages/bridge-ui">bridge-ui</a>: Bridge UI.
-│   ├── <a href="./packages/docs-site">docs-site</a>: End user documentation site.
-│   ├── <a href="./packages/eventindexer">eventindexer</a>: Event indexer.
-│   ├── <a href="./packages/fork-diff">fork-diff</a>: Fork diff page.
-│   ├── <a href="./packages/guardian-prover-health-check">guardian-prover-health-check</a>: Guardian prover health check service.
-│   ├── <a href="./packages/guardian-prover-health-check-ui">guardian-prover-health-check-ui</a>: Guardian prover health check UI.
-│   ├── <a href="./packages/protocol">protocol</a>: Taiko protocol smart contracts.
-│   ├── <a href="./packages/relayer">relayer</a>: Bridge backend relayer.
-│   ├── <a href="./packages/supplementary-contracts">supplementary-contracts</a>: Supplementary smart contracts that are not part of the Taiko rollup protocol.
-│   ├── <a href="./packages/taiko-client">taiko-client</a>: Taiko client implementation in Go.
-│   ├── <a href="./packages/nfts">nfts</a>: Taiko NFTs.
-│   └── <a href="./packages/taikoon-ui">taikoon-ui</a>: Taikoon NFT UI.
-...
-</pre>
+### Node running packages
+
+> [!TIP]
+> Make sure your node is using the latest version tags for taiko-client and taiko-geth.
+
+| Package                                              | Latest release                                                                                      |
+| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| [taiko-client](./packages/taiko-client)              | ![GitHub Release](https://img.shields.io/github/v/release/taikoxyz/taiko-mono?filter=taiko-client*) |
+| [taiko-geth](https://github.com/taikoxyz/taiko-geth) | ![GitHub Release](https://img.shields.io/github/v/release/taikoxyz/taiko-geth)                      |
+
+### Monorepo packages
+
+| Package                                                                       | Description                                                                   | Latest release                                                                                                         |
+| ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| [branding](./packages/branding)                                               | Taiko branding materials.                                                     | ![GitHub Release](https://img.shields.io/github/v/release/taikoxyz/taiko-mono?filter=branding*)                        |
+| [bridge-ui](./packages/bridge-ui)                                             | Bridge UI.                                                                    | ![GitHub Release](https://img.shields.io/github/v/release/taikoxyz/taiko-mono?filter=bridge-ui*)                       |
+| [docs-site](./packages/docs-site)                                             | End user documentation site.                                                  | ![GitHub Release](https://img.shields.io/github/v/release/taikoxyz/taiko-mono?filter=docs-site*)                       |
+| [eventindexer](./packages/eventindexer)                                       | Event indexer.                                                                | ![GitHub Release](https://img.shields.io/github/v/release/taikoxyz/taiko-mono?filter=eventindexer*)                    |
+| [fork-diff](./packages/fork-diff)                                             | Fork diff page.                                                               | ![GitHub Release](https://img.shields.io/github/v/release/taikoxyz/taiko-mono?filter=fork-diff*)                       |
+| [guardian-prover-health-check](./packages/guardian-prover-health-check)       | Guardian prover health check service.                                         | ![GitHub Release](https://img.shields.io/github/v/release/taikoxyz/taiko-mono?filter=guardian-prover-health-check*)    |
+| [guardian-prover-health-check-ui](./packages/guardian-prover-health-check-ui) | Guardian prover health check UI.                                              | ![GitHub Release](https://img.shields.io/github/v/release/taikoxyz/taiko-mono?filter=guardian-prover-health-check-ui*) |
+| [protocol](./packages/protocol)                                               | Taiko protocol smart contracts.                                               | ![GitHub Release](https://img.shields.io/github/v/release/taikoxyz/taiko-mono?filter=protocol*)                        |
+| [relayer](./packages/relayer)                                                 | Bridge backend relayer.                                                       | ![GitHub Release](https://img.shields.io/github/v/release/taikoxyz/taiko-mono?filter=relayer*)                         |
+| [snaefell-ui](./packages/snaefell-ui)                                         | Snaefell UI.                                                                  | ![GitHub Release](https://img.shields.io/github/v/release/taikoxyz/taiko-mono?filter=snaefell-ui*)                     |
+| [supplementary-contracts](./packages/supplementary-contracts)                 | Supplementary smart contracts that are not part of the Taiko rollup protocol. | ![GitHub Release](https://img.shields.io/github/v/release/taikoxyz/taiko-mono?filter=supplementary-contracts*)         |
+| [taiko-client](./packages/taiko-client)                                       | Taiko client implementation in Go.                                            | ![GitHub Release](https://img.shields.io/github/v/release/taikoxyz/taiko-mono?filter=taiko-client*)                    |
+| [taikoon-ui](./packages/taikoon-ui)                                           | Taikoon UI.                                                                   | ![GitHub Release](https://img.shields.io/github/v/release/taikoxyz/taiko-mono?filter=taikoon-ui*)                      |
+| [ui-lib](./packages/ui-lib)                                                   | UI library.                                                                   | ![GitHub Release](https://img.shields.io/github/v/release/taikoxyz/taiko-mono?filter=ui-lib*)                          |
 
 ## Issues
 
