@@ -60,7 +60,8 @@ func (i *Indexer) fetchNFTMetadata(
 			slog.Warn("Invalid metadata URI",
 				"contractAddress", contractAddress,
 				"tokenID", tokenID.Int64(),
-				"chainID", chainID.String())
+				"chainID", chainID.String(),
+				"tokenURI", tokenURI)
 
 			return nil, nil
 		}
