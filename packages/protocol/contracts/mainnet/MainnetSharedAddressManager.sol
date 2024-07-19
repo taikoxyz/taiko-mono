@@ -11,6 +11,8 @@ import "./LibSharedAddressCache.sol";
 /// @notice See the documentation in {IAddressManager}.
 /// @custom:security-contact security@taiko.xyz
 contract MainnetSharedAddressManager is AddressManager {
+    uint256[50] private __gap;
+
     function _getAddress(uint64 _chainId, bytes32 _name) internal view override returns (address) {
         (bool found, address addr) = LibSharedAddressCache.getAddress(_chainId, _name);
         return found ? addr : super._getAddress(_chainId, _name);
