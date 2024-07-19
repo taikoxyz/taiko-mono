@@ -57,7 +57,7 @@ func (i *Indexer) fetchNFTMetadata(
 
 	_, err = url.ParseRequestURI(mdURL)
 	if err != nil {
-		return nil, eventindexer.ErrInvalidURL
+		return nil, nil // return nil, dont need to handle error here.
 	}
 
 	var metadata *eventindexer.NFTMetadata
@@ -70,22 +70,24 @@ func (i *Indexer) fetchNFTMetadata(
 
 	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusOK {
-		err = json.NewDecoder(resp.Body).Decode(&metadata)
-		if err != nil {
+	if resp.StatusCode != http.StatusOK {
+		return nil, nil
+	}
+
+	err = json.NewDecoder(resp.Body).Decode(&metadata)
+	if err != nil {
+		return nil, err
+	}
+
+	if methodName == "tokenURI" {
+		if err := i.fetchSymbol(ctx, contractABI, metadata, contractAddressCommon); err != nil {
 			return nil, err
 		}
-
-		if methodName == "tokenURI" {
-			if err := i.fetchSymbol(ctx, contractABI, metadata, contractAddressCommon); err != nil {
-				return nil, err
-			}
-		}
-
-		metadata.ContractAddress = contractAddress
-		metadata.TokenID = tokenID.Int64()
-		metadata.ChainID = chainID.Int64()
 	}
+
+	metadata.ContractAddress = contractAddress
+	metadata.TokenID = tokenID.Int64()
+	metadata.ChainID = chainID.Int64()
 
 	return metadata, nil
 }
