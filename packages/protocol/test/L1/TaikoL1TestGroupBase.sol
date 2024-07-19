@@ -155,13 +155,13 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
 
             // Grant 2 signatures, 3rd might be a revert
             vm.prank(David, David);
-            gp.approve2(meta, tran, proof);
+            gp.approveV2(meta, tran, proof);
             vm.prank(Emma, Emma);
-            gp.approve2(meta, tran, proof);
+            gp.approveV2(meta, tran, proof);
 
             if (revertReason != "") vm.expectRevert(revertReason);
             vm.prank(Frank);
-            gp.approve2(meta, tran, proof);
+            gp.approveV2(meta, tran, proof);
         } else {
             if (revertReason != "") vm.expectRevert(revertReason);
             vm.prank(prover);
