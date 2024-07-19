@@ -124,7 +124,7 @@ If you've already deployed a ProverSet but would like to upgrade it through the 
 3. **Run the UpgradeProverSet.s.sol script**
 
     Execute the following command, filling in the values in the curly braces appropriately.
-    ```bash 
+    ```bash
     PROXY_ADDRESS={YOUR_PROXY_ADDRESS} PRIVATE_KEY={YOUR_PRIVATE_KEY} forge script --chain-id 17000 --rpc-url {YOUR_RPC_URL} --broadcast script/upgrade/UpgradeProverSet.s.sol:UpgradeProverSet
     ```
 
@@ -133,6 +133,14 @@ If you've already deployed a ProverSet but would like to upgrade it through the 
     </Aside>
 
 </Steps>
+
+## FAQ
+
+### Where is my TTKOh/TAIKO?
+
+    If you've managed to propose and prove some blocks, it's likely you're wondering where your tokens went after.
+
+    It's not missing, it's just been deposited as bond in the TaikoL1 contract; you can withdraw it from the ProverSet contract with [withdrawBond()](https://github.com/taikoxyz/taiko-mono/blob/dd09223de53669b84241672eeb4b8574e5c7f821/packages/protocol/contracts/team/proving/ProverSet.sol#L110) manually.
 
 
 <Card title="Troubleshooting" icon="error">
