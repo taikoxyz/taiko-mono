@@ -68,6 +68,7 @@ contract BridgedERC20 is
         string calldata _name
     )
         external
+        virtual
         initializer
     {
         // Check if provided parameters are valid
