@@ -277,41 +277,33 @@
 | __gap              | uint256[50]                                          | 451  | 0      | 1600  | contracts/tokenvault/ERC1155Vault.sol:ERC1155Vault |
 
 ## BridgedERC20
-| Name                             | Type                                                   | Slot | Offset | Bytes | Contract                                           |
-|----------------------------------|--------------------------------------------------------|------|--------|-------|----------------------------------------------------|
-| _initialized                     | uint8                                                  | 0    | 0      | 1     | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| _initializing                    | bool                                                   | 0    | 1      | 1     | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| __gap                            | uint256[50]                                            | 1    | 0      | 1600  | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| _owner                           | address                                                | 51   | 0      | 20    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| __gap                            | uint256[49]                                            | 52   | 0      | 1568  | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| _pendingOwner                    | address                                                | 101  | 0      | 20    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| __gap                            | uint256[49]                                            | 102  | 0      | 1568  | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| addressManager                   | address                                                | 151  | 0      | 20    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| __gap                            | uint256[49]                                            | 152  | 0      | 1568  | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| __reentry                        | uint8                                                  | 201  | 0      | 1     | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| __paused                         | uint8                                                  | 201  | 1      | 1     | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| lastUnpausedAt                   | uint64                                                 | 201  | 2      | 8     | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| __gap                            | uint256[49]                                            | 202  | 0      | 1568  | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| _balances                        | mapping(address => uint256)                            | 251  | 0      | 32    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| _allowances                      | mapping(address => mapping(address => uint256))        | 252  | 0      | 32    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| _totalSupply                     | uint256                                                | 253  | 0      | 32    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| _name                            | string                                                 | 254  | 0      | 32    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| _symbol                          | string                                                 | 255  | 0      | 32    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| __gap                            | uint256[45]                                            | 256  | 0      | 1440  | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| _hashedName                      | bytes32                                                | 301  | 0      | 32    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| _hashedVersion                   | bytes32                                                | 302  | 0      | 32    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| _name                            | string                                                 | 303  | 0      | 32    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| _version                         | string                                                 | 304  | 0      | 32    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| __gap                            | uint256[48]                                            | 305  | 0      | 1536  | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| _nonces                          | mapping(address => struct CountersUpgradeable.Counter) | 353  | 0      | 32    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| _PERMIT_TYPEHASH_DEPRECATED_SLOT | bytes32                                                | 354  | 0      | 32    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| __gap                            | uint256[49]                                            | 355  | 0      | 1568  | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| srcToken                         | address                                                | 404  | 0      | 20    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| __srcDecimals                    | uint8                                                  | 404  | 20     | 1     | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| srcChainId                       | uint256                                                | 405  | 0      | 32    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| migratingAddress                 | address                                                | 406  | 0      | 20    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| migratingInbound                 | bool                                                   | 406  | 20     | 1     | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
-| __gap                            | uint256[47]                                            | 407  | 0      | 1504  | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| Name             | Type                                            | Slot | Offset | Bytes | Contract                                           |
+|------------------|-------------------------------------------------|------|--------|-------|----------------------------------------------------|
+| _initialized     | uint8                                           | 0    | 0      | 1     | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| _initializing    | bool                                            | 0    | 1      | 1     | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| __gap            | uint256[50]                                     | 1    | 0      | 1600  | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| _owner           | address                                         | 51   | 0      | 20    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| __gap            | uint256[49]                                     | 52   | 0      | 1568  | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| _pendingOwner    | address                                         | 101  | 0      | 20    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| __gap            | uint256[49]                                     | 102  | 0      | 1568  | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| addressManager   | address                                         | 151  | 0      | 20    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| __gap            | uint256[49]                                     | 152  | 0      | 1568  | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| __reentry        | uint8                                           | 201  | 0      | 1     | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| __paused         | uint8                                           | 201  | 1      | 1     | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| lastUnpausedAt   | uint64                                          | 201  | 2      | 8     | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| __gap            | uint256[49]                                     | 202  | 0      | 1568  | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| _balances        | mapping(address => uint256)                     | 251  | 0      | 32    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| _allowances      | mapping(address => mapping(address => uint256)) | 252  | 0      | 32    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| _totalSupply     | uint256                                         | 253  | 0      | 32    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| _name            | string                                          | 254  | 0      | 32    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| _symbol          | string                                          | 255  | 0      | 32    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| __gap            | uint256[45]                                     | 256  | 0      | 1440  | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| srcToken         | address                                         | 301  | 0      | 20    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| __srcDecimals    | uint8                                           | 301  | 20     | 1     | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| srcChainId       | uint256                                         | 302  | 0      | 32    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| migratingAddress | address                                         | 303  | 0      | 20    | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| migratingInbound | bool                                            | 303  | 20     | 1     | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
+| __gap            | uint256[47]                                     | 304  | 0      | 1504  | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
 
 ## BridgedERC721
 | Name               | Type                                         | Slot | Offset | Bytes | Contract                                             |
