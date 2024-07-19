@@ -46,6 +46,9 @@ library LibRollupAddressCache {
             if (_name == LibStrings.B_PROPOSER_ACCESS) {
                 return (true, address(0));
             }
+            if (_name == LibStrings.B_CHAIN_WATCHDOG) {
+                return (true, address(0));
+            }
         }
         return (false, address(0));
     }

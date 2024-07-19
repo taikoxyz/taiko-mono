@@ -92,9 +92,9 @@ contract GuardianProver is IVerifier, EssentialContract {
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _addressManager The address of the {AddressManager} contract.
-    function init(address _owner, address _addressManager) external initializer {
-        __Essential_init(_owner, _addressManager);
+    /// @param _rollupAddressManager The address of the {AddressManager} contract.
+    function init(address _owner, address _rollupAddressManager) external initializer {
+        __Essential_init(_owner, _rollupAddressManager);
     }
 
     /// @notice Set the set of guardians
@@ -197,7 +197,7 @@ contract GuardianProver is IVerifier, EssentialContract {
     }
 
     function approve2(
-        TaikoData.BlockMetadata2 calldata _meta2,
+        TaikoData.BlockMetadataV2 calldata _meta2,
         TaikoData.Transition calldata _tran,
         TaikoData.TierProof calldata _proof
     )

@@ -65,7 +65,7 @@ library TaikoData {
         bytes signature; // DEPRECATED, value ignored.
     }
 
-    struct BlockParams2 {
+    struct BlockParamsV2 {
         address coinbase;
         bytes32 extraData;
         bytes32 parentMetaHash;
@@ -98,7 +98,7 @@ library TaikoData {
         address sender; // a.k.a proposer
     }
 
-    struct BlockMetadata2 {
+    struct BlockMetadataV2 {
         bytes32 anchorBlockHash; // `_l1BlockHash` in TaikoL2's anchor tx.
         bytes32 difficulty;
         bytes32 blobHash;

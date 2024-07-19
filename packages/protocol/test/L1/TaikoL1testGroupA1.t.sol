@@ -63,9 +63,9 @@ contract TaikoL1TestGroupA1 is TaikoL1TestGroupBase {
             assertEq(blk.assignedProver, address(0));
         }
 
-        TaikoData.BlockParams2 memory params;
+        TaikoData.BlockParamsV2 memory params;
         for (; i <= ontakeForkHeight + 5; ++i) {
-            TaikoData.BlockMetadata2 memory meta2 = proposeBlock2(Alice, params, "");
+            TaikoData.BlockMetadataV2 memory meta2 = proposeBlockV2(Alice, params, "");
             printBlockAndTrans(meta2.id);
             TaikoData.Block memory blk = L1.getBlock(i);
             assertEq(blk.livenessBond, 0);

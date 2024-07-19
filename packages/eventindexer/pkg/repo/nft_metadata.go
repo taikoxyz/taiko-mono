@@ -6,21 +6,23 @@ import (
 
 	"github.com/morkid/paginate"
 	"github.com/pkg/errors"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"gorm.io/gorm"
+
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
 )
 
 type NFTMetadataRepository struct {
-	db eventindexer.DB
+	db db.DB
 }
 
-func NewNFTMetadataRepository(db eventindexer.DB) (*NFTMetadataRepository, error) {
-	if db == nil {
-		return nil, eventindexer.ErrNoDB
+func NewNFTMetadataRepository(dbHandler db.DB) (*NFTMetadataRepository, error) {
+	if dbHandler == nil {
+		return nil, db.ErrNoDB
 	}
 
 	return &NFTMetadataRepository{
-		db: db,
+		db: dbHandler,
 	}, nil
 }
 

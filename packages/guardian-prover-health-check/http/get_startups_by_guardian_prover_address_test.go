@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -15,7 +16,7 @@ import (
 func Test_GetStartupsByGuardianProverAddress(t *testing.T) {
 	srv := newTestServer("")
 
-	err := srv.startupRepo.Save(guardianproverhealthcheck.SaveStartupOpts{
+	err := srv.startupRepo.Save(context.Background(), &guardianproverhealthcheck.SaveStartupOpts{
 		GuardianProverID:      1,
 		GuardianProverAddress: "0x123",
 		Revision:              "asdf",

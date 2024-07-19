@@ -47,13 +47,13 @@ contract ProverSet is EssentialContract, IERC1271 {
     function init(
         address _owner,
         address _admin,
-        address _addressManager
+        address _rollupAddressManager
     )
         external
         nonZeroAddr(_admin)
         initializer
     {
-        __Essential_init(_owner, _addressManager);
+        __Essential_init(_owner, _rollupAddressManager);
         admin = _admin;
         IERC20(tkoToken()).approve(taikoL1(), type(uint256).max);
     }

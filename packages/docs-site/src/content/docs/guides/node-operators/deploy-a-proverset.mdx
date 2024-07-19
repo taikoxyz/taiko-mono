@@ -77,7 +77,7 @@ This guide outlines how to achieve this with separate EOAs running prover and pr
 
     If the above step was completed correctly, you should be able to see the `Write as Proxy` option in the `Contract` tab.
 
-    Connect to Etherscan with your **proposer** EOA and send two `enableProver()` transactions, enabling **both** your `proposer` and `prover` EOAs as provers.
+    Connect to Etherscan with the EOA you used to deploy the ProverSet and send two `enableProver()` transactions, enabling **both** your `proposer` and `prover` EOAs as provers. Set `isProver` as `true` for both transactions. You can set these as `false` if you want to disable these provers in the future.
 
     <Aside type="caution">
         Enable both your proposer and prover addresses here! If you don't, your proposeBlock transactions may fail.
@@ -91,7 +91,7 @@ This guide outlines how to achieve this with separate EOAs running prover and pr
 
 6. **Deposit your tokens and run your proposer + prover as usual!**
 
-    If you've followed the instructions, send your TAIKO/TTKOh to the ProverSet proxy and begin running your prover and proposer as usual.
+    If you've followed the instructions, send your TAIKO/TTKOh to the ProverSet proxy and begin running your prover and proposer as usual. Do not send it to the contract directly! Use the `depositBond` function.
 
     <Aside>
         Make sure to set your `$PROVER_SET` in your `simple-taiko-node` .env file as the proxy address.

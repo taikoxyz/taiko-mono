@@ -37,19 +37,19 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
         );
     }
 
-    function proposeBlock2(
+    function proposeBlockV2(
         address proposer,
-        TaikoData.BlockParams2 memory params,
+        TaikoData.BlockParamsV2 memory params,
         bytes4 revertReason
     )
         internal
-        returns (TaikoData.BlockMetadata2 memory)
+        returns (TaikoData.BlockMetadataV2 memory)
     {
         bytes memory txList = new bytes(10);
 
         vm.prank(proposer);
         if (revertReason != "") vm.expectRevert(revertReason);
-        return L1.proposeBlock2(abi.encode(params), txList);
+        return L1.proposeBlockV2(abi.encode(params), txList);
     }
 
     function proveBlock(
@@ -113,7 +113,7 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
 
     function proveBlock2(
         address prover,
-        TaikoData.BlockMetadata2 memory meta,
+        TaikoData.BlockMetadataV2 memory meta,
         bytes32 parentHash,
         bytes32 blockHash,
         bytes32 stateRoot,

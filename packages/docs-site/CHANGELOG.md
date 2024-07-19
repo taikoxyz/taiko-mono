@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.11.5](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.11.4...docs-site-v1.11.5) (2024-07-17)
+
+
+### Documentation
+
+* **docs-site:** add upgrade proverset script instructions ([#17799](https://github.com/taikoxyz/taiko-mono/issues/17799)) ([91d307c](https://github.com/taikoxyz/taiko-mono/commit/91d307c8edd527fa46011f2e21f5cc928853e0c8))
+* **docs-site:** update developer tools page ([#17738](https://github.com/taikoxyz/taiko-mono/issues/17738)) ([21ad192](https://github.com/taikoxyz/taiko-mono/commit/21ad192df174b78820c83910d559652c7ceefec0))
+* **docs-site:** update edited Taiko BCR Explorer link ([#17798](https://github.com/taikoxyz/taiko-mono/issues/17798)) ([11ecf83](https://github.com/taikoxyz/taiko-mono/commit/11ecf8325b79b25ee9fdf32bfd0c5971edf43670))
+* **docs-site:** update URL for .env.sample file ([#17794](https://github.com/taikoxyz/taiko-mono/issues/17794)) ([e8c1b18](https://github.com/taikoxyz/taiko-mono/commit/e8c1b18e89133daeade27e8e16d9328363c1a263))
+
 ## [1.11.4](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.11.3...docs-site-v1.11.4) (2024-07-10)
 
 

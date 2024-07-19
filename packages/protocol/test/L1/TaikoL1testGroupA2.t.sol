@@ -37,9 +37,9 @@ contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
 
         proposeBlock(Alice, TaikoL1.L1_FORK_ERROR.selector);
 
-        TaikoData.BlockParams2 memory params;
+        TaikoData.BlockParamsV2 memory params;
         for (uint64 i = 1; i <= 5; ++i) {
-            TaikoData.BlockMetadata2 memory meta = proposeBlock2(Alice, params, "");
+            TaikoData.BlockMetadataV2 memory meta = proposeBlockV2(Alice, params, "");
             printBlockAndTrans(i);
 
             assertTrue(meta.difficulty != 0);
@@ -102,7 +102,7 @@ contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
         TaikoData.Config memory config = L1.getConfig();
 
         // Propose the first block with default parameters
-        TaikoData.BlockParams2 memory params = TaikoData.BlockParams2({
+        TaikoData.BlockParamsV2 memory params = TaikoData.BlockParamsV2({
             coinbase: address(0),
             extraData: 0,
             parentMetaHash: 0,
@@ -113,7 +113,7 @@ contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
             blobIndex: 0,
             basefeeSharingPctg: 0
         });
-        TaikoData.BlockMetadata2 memory meta = proposeBlock2(Alice, params, "");
+        TaikoData.BlockMetadataV2 memory meta = proposeBlockV2(Alice, params, "");
 
         assertEq(meta.id, 1);
 
@@ -144,7 +144,7 @@ contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
 
         // Propose the second block with custom parameters
 
-        params = TaikoData.BlockParams2({
+        params = TaikoData.BlockParamsV2({
             coinbase: Bob,
             extraData: bytes32(uint256(123)),
             parentMetaHash: 0,
@@ -155,7 +155,7 @@ contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
             blobIndex: 0,
             basefeeSharingPctg: 0
         });
-        meta = proposeBlock2(Alice, params, "");
+        meta = proposeBlockV2(Alice, params, "");
 
         assertEq(meta.id, 2);
         assertTrue(meta.difficulty != 0);
@@ -180,8 +180,8 @@ contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
         assertEq(blk.metaHash, keccak256(abi.encode(meta)));
 
         for (uint256 i = 0; i < 3; ++i) {
-            TaikoData.BlockParams2 memory params2;
-            proposeBlock2(Alice, params2, "");
+            TaikoData.BlockParamsV2 memory params2;
+            proposeBlockV2(Alice, params2, "");
         }
     }
 }
