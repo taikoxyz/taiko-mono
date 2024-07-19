@@ -7,3 +7,4 @@ ALTER TABLE `erc20_balances` ADD INDEX `erc20_balances_contract_address_address_
 -- +goose StatementBegin
 ALTER TABLE erc20_balances DROP INDEX erc20_balances_contract_address_address_chain_id_index,
   DROP INDEX erc20_balances_contract_address-- +goose StatementEnd
+-- +goose StatementEnd
