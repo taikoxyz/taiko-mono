@@ -57,10 +57,6 @@ func (opts NewServerOpts) Validate() error {
 		return eventindexer.ErrNoEventRepository
 	}
 
-	if opts.CorsOrigins == nil {
-		return eventindexer.ErrNoCORSOrigins
-	}
-
 	if opts.NFTBalanceRepo == nil {
 		return eventindexer.ErrNoNFTBalanceRepository
 	}
