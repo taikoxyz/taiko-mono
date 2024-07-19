@@ -5,7 +5,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 )
 
@@ -14,7 +13,7 @@ var _ TaikoBlockMetaData = (*TaikoDataBlockMetadataOntake)(nil)
 
 // TaikoDataBlockMetadataOntake is the metadata of an ontake Taiko block.
 type TaikoDataBlockMetadataOntake struct {
-	bindings.TaikoDataBlockMetadata2
+	bindings.TaikoDataBlockMetadataV2
 	types.Log
 }
 
@@ -22,8 +21,8 @@ type TaikoDataBlockMetadataOntake struct {
 // from the TaikoL1.BlockProposed2 event.
 func NewTaikoDataBlockMetadata2(e *bindings.LibProposingBlockProposed2) *TaikoDataBlockMetadataOntake {
 	return &TaikoDataBlockMetadataOntake{
-		TaikoDataBlockMetadata2: e.Meta,
-		Log:                     e.Raw,
+		TaikoDataBlockMetadataV2: e.Meta,
+		Log:                      e.Raw,
 	}
 }
 
