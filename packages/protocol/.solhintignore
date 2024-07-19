@@ -3,5 +3,6 @@ lib/
 contracts/test/TestLibRLPReader.sol
 **/contracts/thirdparty/**/*.sol
 /contracts/automata-attestation/
+test/thirdparty/**
 test/GasComparison.t.sol
 test/TestLn.sol

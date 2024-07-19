@@ -3,5 +3,5 @@ artifacts
 cache
 coverage
 lib
-test/thirdparty/
+contracts/test/thirdparty/
 contracts/automata-attestation/
