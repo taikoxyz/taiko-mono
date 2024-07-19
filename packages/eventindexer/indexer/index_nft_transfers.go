@@ -162,6 +162,8 @@ func (i *Indexer) saveERC721Transfer(ctx context.Context, chainID *big.Int, vLog
 		pk = metadata.ID
 	}
 
+	slog.Info("metadata pk", "pk", pk)
+
 	// increment To address's balance
 	// decrement From address's balance
 	increaseOpts := eventindexer.UpdateNFTBalanceOpts{
