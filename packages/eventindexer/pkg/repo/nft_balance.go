@@ -60,7 +60,7 @@ func (r *NFTBalanceRepository) increaseBalanceInDB(
 	b.Amount += opts.Amount
 
 	// update the row to reflect new balance
-	if err := db.WithContext(ctx).Save(b).Error; err != nil {
+	if err := db.Save(b).Error; err != nil {
 		return nil, errors.Wrap(err, "r.db.Save")
 	}
 
@@ -81,7 +81,7 @@ func (r *NFTBalanceRepository) decreaseBalanceInDB(
 		ChainID:         opts.ChainID,
 	}
 
-	err := db.WithContext(ctx).
+	err := db.
 		Where("contract_address = ?", opts.ContractAddress).
 		Where("token_id = ?", opts.TokenID).
 		Where("address = ?", opts.Address).

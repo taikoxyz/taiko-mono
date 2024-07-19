@@ -127,11 +127,10 @@ func resolveMetadataURL(tokenURI string) string {
 	}
 
 	if isBase64(tokenURI) {
-		// Extract the actual base64 part
 		parts := strings.Split(tokenURI, "base64,")
 
-		// Check if the part after "base64," is valid base64
 		decodedTokenURI, _ := base64.StdEncoding.DecodeString(parts[1])
+
 		return string(decodedTokenURI)
 	}
 
