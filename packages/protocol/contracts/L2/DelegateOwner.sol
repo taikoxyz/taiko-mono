@@ -38,9 +38,9 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     /// @param txId The transaction ID.
     /// @param target The target address.
     /// @param isDelegateCall True if the call is a `delegatecall`.
-    /// @param selector The function selector.
+    /// @param txdata The transaction data.
     event MessageInvoked(
-        uint64 indexed txId, address indexed target, bool isDelegateCall, bytes4 indexed selector
+        uint64 indexed txId, address indexed target, bool isDelegateCall, bytes txdata
     );
 
     /// @notice Emitted when the admin has been changed.
@@ -133,7 +133,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
             : call.target.call{ value: msg.value }(call.txdata);
 
         if (!success) LibBytes.revertWithExtractedError(result);
-        emit MessageInvoked(call.txId, call.target, call.isDelegateCall, bytes4(call.txdata));
+        emit MessageInvoked(call.txId, call.target, call.isDelegateCall, call.txdata);
     }
 
     function _isAdminOrRemoteOwner(address _sender) private view returns (bool) {
