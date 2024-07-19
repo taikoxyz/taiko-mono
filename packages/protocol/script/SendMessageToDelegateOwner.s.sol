@@ -31,7 +31,7 @@ contract SendMessageToDelegateOwner is Script {
         calls[1].callData = abi.encodeCall(UUPSUpgradeable.upgradeTo, (delegateOwnerImpl));
 
         DelegateOwner.Call memory dcall = DelegateOwner.Call({
-            txId: 1, // Has to match with DelegateOwner's nextTxId
+            txId: 1, // Has to match with DelegateOwner's nextTxId or 0
             target: multicall3,
             isDelegateCall: true,
             txdata: abi.encodeCall(Multicall3.aggregate3, (calls))
