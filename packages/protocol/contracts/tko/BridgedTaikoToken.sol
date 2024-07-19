@@ -9,8 +9,6 @@ import "./TaikoTokenBase.sol";
 /// use this contract.
 /// @custom:security-contact security@taiko.xyz
 contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20 {
-    uint256[50] private __gap;
-
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _sharedAddressManager The address manager address.

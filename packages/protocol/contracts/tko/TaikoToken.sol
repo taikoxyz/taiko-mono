@@ -14,8 +14,6 @@ contract TaikoToken is TaikoTokenBase {
     address private constant _TAIKO_L1 = 0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a;
     address private constant _ERC20_VAULT = 0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab;
 
-    uint256[50] private __gap;
-
     error TT_INVALID_PARAM();
 
     /// @notice Initializes the contract.
