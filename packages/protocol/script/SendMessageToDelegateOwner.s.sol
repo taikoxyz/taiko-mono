@@ -47,7 +47,7 @@ contract SendMessageToDelegateOwner is Script {
             destOwner: delegateOwner,
             to: delegateOwner,
             value: 0,
-            data: abi.encode(dcall)
+            data: abi.encodeCall(DelegateOwner.onMessageInvocation, abi.encode(dcall))
         });
 
         IBridge(l1Bridge).sendMessage(message);
