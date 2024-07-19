@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.29.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.28.0...taiko-client-v0.29.0) (2024-07-05)
+
+
+### Features
+
+* **taiko-client:** add `--epoch.minTip` flag ([#17726](https://github.com/taikoxyz/taiko-mono/issues/17726)) ([a331e9d](https://github.com/taikoxyz/taiko-mono/commit/a331e9d88b72f5f07e43a711dd9a3ac913c4d4f6))
+* **taiko-client:** add `defaultRequestTimeout` for `SGXProofProducer` ([#17724](https://github.com/taikoxyz/taiko-mono/issues/17724)) ([e301451](https://github.com/taikoxyz/taiko-mono/commit/e3014519cebaef6a5a37d7982121c39f5b82ee27))
+* **taiko-client:** add proof status check before generating proof ([#17711](https://github.com/taikoxyz/taiko-mono/issues/17711)) ([9a8e15e](https://github.com/taikoxyz/taiko-mono/commit/9a8e15eccb720dda3a703937aae5c8ae3dc495c2))
+* **taiko-client:** call `CreateAccessList` ([#17691](https://github.com/taikoxyz/taiko-mono/issues/17691)) ([9bb4b9c](https://github.com/taikoxyz/taiko-mono/commit/9bb4b9c94f3bc2a8fef1c793d13bf749d8c0614f))
+* **taiko-client:** improve `ProverProvenByGuardianGauge` metric ([#17703](https://github.com/taikoxyz/taiko-mono/issues/17703)) ([c88fcd1](https://github.com/taikoxyz/taiko-mono/commit/c88fcd11fa29beb6a7529e5b8bf172a6a9cd6ecd))
+* **taiko-client:** introduce `--epoch.allowZeroInterval` flag ([#17727](https://github.com/taikoxyz/taiko-mono/issues/17727)) ([e76890d](https://github.com/taikoxyz/taiko-mono/commit/e76890d9223cdd68d3d97202a9a12a1f6d9b217f))
+* **taiko-client:** introduce `AccessList` ([#17676](https://github.com/taikoxyz/taiko-mono/issues/17676)) ([3c95477](https://github.com/taikoxyz/taiko-mono/commit/3c95477a284ac94c7e3ce85c9cefdadc1aaacd06))
+* **taiko-client:** introduce `TryDecompressHekla()` ([#17735](https://github.com/taikoxyz/taiko-mono/issues/17735)) ([67a7a37](https://github.com/taikoxyz/taiko-mono/commit/67a7a372a3931a0959a2422c753e97bddaa35961))
+* **taiko-client:** make request timeout to raiko configurable ([#17728](https://github.com/taikoxyz/taiko-mono/issues/17728)) ([f8f796c](https://github.com/taikoxyz/taiko-mono/commit/f8f796cc87e1d2398af299716960c9d03cdfcb35))
+* **taiko-client:** remove prover server package ([#17748](https://github.com/taikoxyz/taiko-mono/issues/17748)) ([b064ea0](https://github.com/taikoxyz/taiko-mono/commit/b064ea0a22413a7856cd7d41a2ac92a0beeba556))
+* **taiko-client:** revert access list changes ([#17694](https://github.com/taikoxyz/taiko-mono/issues/17694)) ([fd15dab](https://github.com/taikoxyz/taiko-mono/commit/fd15dabc01666fdbee949a9ecb6805d2ce8fc7f9))
+* **taiko-client:** update bindings && fix tests ([#17680](https://github.com/taikoxyz/taiko-mono/issues/17680)) ([10b95e1](https://github.com/taikoxyz/taiko-mono/commit/10b95e1c54dfe77de2badbe77439c2449cc9a65e))
+* **taiko-client:** update Go contract bindings ([#17733](https://github.com/taikoxyz/taiko-mono/issues/17733)) ([9d18504](https://github.com/taikoxyz/taiko-mono/commit/9d185041c7fe9c3787f1a73f89bb0dc6cfce32bc))
+
+
+### Code Refactoring
+
+* **taiko-client:** rm tier fee related flag ([#17750](https://github.com/taikoxyz/taiko-mono/issues/17750)) ([b41437b](https://github.com/taikoxyz/taiko-mono/commit/b41437b47a8ad3bc68edbfb8d9aea6b2fbbe9b05))
+* **taiko-client:** rm unused code and refactor ([#17723](https://github.com/taikoxyz/taiko-mono/issues/17723)) ([8c9a032](https://github.com/taikoxyz/taiko-mono/commit/8c9a0329b2702d68e18ba97c506c5d1ad20c92c7))
+* **taiko-client:** rm unused tier fee ([#17740](https://github.com/taikoxyz/taiko-mono/issues/17740)) ([3e139fa](https://github.com/taikoxyz/taiko-mono/commit/3e139fa4114807d68d02d2af30c7d5ad3759ec38))
+
 ## [0.28.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.27.1...taiko-client-v0.28.0) (2024-06-24)
 
 

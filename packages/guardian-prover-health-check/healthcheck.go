@@ -45,6 +45,6 @@ type HealthCheckRepository interface {
 		req *http.Request,
 		address string,
 	) (*HealthCheck, error)
-	Save(opts SaveHealthCheckOpts) error
+	Save(ctx context.Context, opts *SaveHealthCheckOpts) error
 	GetUptimeByGuardianProverAddress(ctx context.Context, address string) (float64, int, error)
 }

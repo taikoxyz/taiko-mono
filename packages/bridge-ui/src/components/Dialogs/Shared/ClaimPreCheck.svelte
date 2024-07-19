@@ -86,7 +86,7 @@
 
   $: successFullPreChecks = correctChain && hasEnoughEth && hasEnoughQuota;
 
-  $: if (!checkingPrerequisites && successFullPreChecks && $account && !differentRecipient) {
+  $: if (!checkingPrerequisites && successFullPreChecks && $account && !onlyDestOwnerCanClaimWarning) {
     hideContinueButton = false;
     canContinue = true;
   } else {
@@ -103,12 +103,15 @@
 
   $: hasPaidProcessingFee = tx.processingFee > 0;
 
-  $: differentRecipient = false;
-  $: if (tx.message?.destOwner && $account?.address) {
-    if (getAddress(tx.message.destOwner) === getAddress($account?.address)) {
-      differentRecipient = false;
+  $: onlyDestOwnerCanClaimWarning = false;
+  $: if (tx.message?.to && $account?.address && tx.message.destOwner) {
+    const destOwnerMustClaim = tx.message.gasLimit === 0; // If gasLimit is 0, the destOwner must claim
+    const isDestOwner = getAddress($account.address) === getAddress(tx.message.destOwner);
+
+    if (destOwnerMustClaim && !isDestOwner) {
+      onlyDestOwnerCanClaimWarning = true;
     } else {
-      differentRecipient = true;
+      onlyDestOwnerCanClaimWarning = false;
     }
   }
 
@@ -122,21 +125,23 @@
     <div class="font-bold text-primary-content">{$t('transactions.claim.steps.pre_check.title')}</div>
   </div>
   <div class="min-h-[150px] grid content-between">
-    {#if differentRecipient}
+    {#if onlyDestOwnerCanClaimWarning}
       <div class="f-between-center">
         <div class="f-row gap-1">
           <div class="f-col">
             <Alert type="info"
-              >{$t('transactions.claim.steps.pre_check.different_recipient')}
+              >{$t('transactions.claim.steps.pre_check.only_destowner_can_claim')}
               <div class="h-sep" />
-              <span class="font-bold">{$t('common.recipient')}: </span>{shortenAddress(tx.message?.destOwner, 6, 4)}
+              <span class="font-bold">{$t('common.owner.destination')}: </span>{shortenAddress(
+                tx.message?.destOwner,
+                6,
+                4,
+              )}
             </Alert>
           </div>
         </div>
         {#if checkingPrerequisites}
           <Spinner />
-        {:else}
-          <Icon type="x-close-circle" fillClass="fill-negative-sentiment" />
         {/if}
       </div>
     {:else}
@@ -205,7 +210,7 @@
       </div>
     {/if}
   </div>
-  {#if !canContinue && !correctChain && !differentRecipient}
+  {#if !canContinue && !correctChain && !onlyDestOwnerCanClaimWarning}
     <div class="h-sep" />
     <div class="f-col space-y-[16px]">
       <ActionButton

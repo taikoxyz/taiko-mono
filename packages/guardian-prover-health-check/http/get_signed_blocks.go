@@ -82,6 +82,7 @@ func (srv *Server) GetSignedBlocks(c echo.Context) error {
 	}
 
 	signedBlocks, err := srv.signedBlockRepo.GetByStartingBlockID(
+		c.Request().Context(),
 		guardianproverhealthcheck.GetSignedBlocksByStartingBlockIDOpts{
 			StartingBlockID: start,
 		},

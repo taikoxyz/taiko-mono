@@ -3,11 +3,10 @@
 
   import { ActionButton, CloseButton } from '$components/Button';
   import { MessageStatus } from '$libs/bridge';
-  import { uid } from '$libs/util/uid';
 
   export let selectedStatus: MessageStatus | null = null;
 
-  let dialogId = `dialog-${uid()}`;
+  let dialogId = `dialog-${crypto.randomUUID()}`;
 
   export let menuOpen = false;
 

@@ -24,6 +24,7 @@ func newTestServer(url string) *Server {
 		echo:             echo.New(),
 		eventRepo:        mock.NewEventRepository(),
 		nftBalanceRepo:   mock.NewNFTBalanceRepository(),
+		nftMetadataRepo:  mock.NewNFTMetadataRepository(),
 		erc20BalanceRepo: mock.NewERC20BalanceRepository(),
 	}
 
@@ -46,6 +47,7 @@ func Test_NewServer(t *testing.T) {
 				EventRepo:        &repo.EventRepository{},
 				CorsOrigins:      make([]string, 0),
 				NFTBalanceRepo:   &repo.NFTBalanceRepository{},
+				NFTMetadataRepo:  &repo.NFTMetadataRepository{},
 				ERC20BalanceRepo: &repo.ERC20BalanceRepository{},
 			},
 			nil,
@@ -60,20 +62,42 @@ func Test_NewServer(t *testing.T) {
 			eventindexer.ErrNoNFTBalanceRepository,
 		},
 		{
+			"noNftMetadataRepo",
+			NewServerOpts{
+				Echo:           echo.New(),
+				EventRepo:      &repo.EventRepository{},
+				NFTBalanceRepo: &repo.NFTBalanceRepository{},
+				CorsOrigins:    make([]string, 0),
+			},
+			eventindexer.ErrNoNFTMetadataRepository,
+		},
+		{
 			"noEventRepo",
 			NewServerOpts{
 				Echo:           echo.New(),
-				CorsOrigins:    make([]string, 0),
+				EventRepo:      &repo.EventRepository{},
 				NFTBalanceRepo: &repo.NFTBalanceRepository{},
+				CorsOrigins:    make([]string, 0),
+			},
+			eventindexer.ErrNoNFTMetadataRepository,
+		},
+		{
+			"noEventRepo",
+			NewServerOpts{
+				Echo:            echo.New(),
+				CorsOrigins:     make([]string, 0),
+				NFTBalanceRepo:  &repo.NFTBalanceRepository{},
+				NFTMetadataRepo: &repo.NFTMetadataRepository{},
 			},
 			eventindexer.ErrNoEventRepository,
 		},
 		{
 			"noCorsOrigins",
 			NewServerOpts{
-				Echo:           echo.New(),
-				EventRepo:      &repo.EventRepository{},
-				NFTBalanceRepo: &repo.NFTBalanceRepository{},
+				Echo:            echo.New(),
+				EventRepo:       &repo.EventRepository{},
+				NFTBalanceRepo:  &repo.NFTBalanceRepository{},
+				NFTMetadataRepo: &repo.NFTMetadataRepository{},
 			},
 			eventindexer.ErrNoCORSOrigins,
 		},

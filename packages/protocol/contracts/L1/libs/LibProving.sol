@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 import "../../verifiers/IVerifier.sol";
+import "./LibBonds.sol";
 import "./LibUtils.sol";
 
 /// @title LibProving
@@ -16,7 +17,6 @@ library LibProving {
         TaikoData.SlotB b;
         ITierProvider.Tier tier;
         ITierProvider.Tier minTier;
-        TaikoToken tko;
         bytes32 metaHash;
         address assignedProver;
         bytes32 stateRoot;
@@ -30,7 +30,6 @@ library LibProving {
         bool sameTransition;
     }
 
-    // Warning: Any events defined here must also be defined in TaikoEvents.sol.
     /// @notice Emitted when a transition is proved.
     /// @param blockId The block ID.
     /// @param tran The transition data.
@@ -63,16 +62,14 @@ library LibProving {
     /// @param paused The pause status.
     event ProvingPaused(bool paused);
 
-    // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
     error L1_ALREADY_CONTESTED();
     error L1_ALREADY_PROVED();
-    error L1_BLOCK_MISMATCH();
     error L1_CANNOT_CONTEST();
-    error L1_INVALID_BLOCK_ID();
     error L1_INVALID_PAUSE_STATUS();
     error L1_INVALID_TIER();
     error L1_INVALID_TRANSITION();
     error L1_NOT_ASSIGNED_PROVER();
+    error L1_PROVING_PAUSED();
 
     /// @notice Pauses or unpauses the proving process.
     /// @param _state Current TaikoData.State.
@@ -89,7 +86,6 @@ library LibProving {
 
     /// @dev Proves or contests a block transition.
     /// @param _state Current TaikoData.State.
-    /// @param _tko The taiko token.
     /// @param _config Actual TaikoData.Config.
     /// @param _resolver Address resolver interface.
     /// @param _blockId The index of the block to prove. This is also used to
@@ -98,7 +94,6 @@ library LibProving {
     /// TaikoData.TierProof) tuple.
     function proveBlock(
         TaikoData.State storage _state,
-        TaikoToken _tko,
         TaikoData.Config memory _config,
         IAddressResolver _resolver,
         uint64 _blockId,
@@ -112,7 +107,7 @@ library LibProving {
             TaikoData.TierProof memory proof
         ) = abi.decode(_input, (TaikoData.BlockMetadata, TaikoData.Transition, TaikoData.TierProof));
 
-        if (_blockId != meta.id) revert L1_INVALID_BLOCK_ID();
+        if (_blockId != meta.id) revert LibUtils.L1_INVALID_BLOCK_ID();
 
         // Make sure parentHash is not zero
         // To contest an existing transition, simply use any non-zero value as
@@ -122,12 +117,11 @@ library LibProving {
         }
 
         Local memory local;
-        local.tko = _tko;
         local.b = _state.slotB;
 
         // Check that the block has been proposed but has not yet been verified.
         if (meta.id <= local.b.lastVerifiedBlockId || meta.id >= local.b.numBlocks) {
-            revert L1_INVALID_BLOCK_ID();
+            revert LibUtils.L1_INVALID_BLOCK_ID();
         }
 
         local.slot = meta.id % _config.blockRingBufferSize;
@@ -151,7 +145,7 @@ library LibProving {
         // theory, this check may be skipped, but it's included for added
         // caution.
         if (local.blockId != meta.id || local.metaHash != LibUtils.hashMetadata(meta)) {
-            revert L1_BLOCK_MISMATCH();
+            revert LibUtils.L1_BLOCK_MISMATCH();
         }
 
         // Each transition is uniquely identified by the parentHash, with the
@@ -232,7 +226,7 @@ library LibProving {
             // Handles the case when an incoming tier is higher than the current transition's tier.
             // Reverts when the incoming proof tries to prove the same transition
             // (L1_ALREADY_PROVED).
-            _overrideWithHigherProof(blk, ts, tran, proof, local);
+            _overrideWithHigherProof(_state, _resolver, blk, ts, tran, proof, local);
 
             emit TransitionProved({
                 blockId: local.blockId,
@@ -278,7 +272,7 @@ library LibProving {
 
                 // _checkIfContestable(/*_state,*/ tier.cooldownWindow, ts.timestamp);
                 // Burn the contest bond from the prover.
-                _tko.transferFrom(msg.sender, address(this), local.tier.contestBond);
+                LibBonds.debitBond(_state, _resolver, msg.sender, local.tier.contestBond);
 
                 // We retain the contest bond within the transition, just in
                 // case this configuration is altered to a different value
@@ -383,6 +377,8 @@ library LibProving {
     // validity bond `V` ratio is `C/V = 21/(32*r)`, and if `r` set at 10%, the C/V ratio will be
     // 6.5625.
     function _overrideWithHigherProof(
+        TaikoData.State storage _state,
+        IAddressResolver _resolver,
         TaikoData.Block storage _blk,
         TaikoData.TransitionState memory _ts,
         TaikoData.Transition memory _tran,
@@ -400,13 +396,13 @@ library LibProving {
                 reward = _rewardAfterFriction(_ts.contestBond);
 
                 // We return the validity bond back, but the original prover doesn't get any reward.
-                _local.tko.transfer(_ts.prover, _ts.validityBond);
+                LibBonds.creditBond(_state, _ts.prover, _ts.validityBond);
             } else {
                 // The contested transition is proven to be invalid, contester wins the game.
                 // Contester gets 3/4 of reward, the new prover gets 1/4.
                 reward = _rewardAfterFriction(_ts.validityBond) >> 2;
 
-                _local.tko.transfer(_ts.contester, _ts.contestBond + reward * 3);
+                LibBonds.creditBond(_state, _ts.contester, _ts.contestBond + reward * 3);
             }
         } else {
             if (_local.sameTransition) revert L1_ALREADY_PROVED();
@@ -425,7 +421,7 @@ library LibProving {
                     if (_local.assignedProver == msg.sender) {
                         reward += _local.livenessBond;
                     } else {
-                        _local.tko.transfer(_local.assignedProver, _local.livenessBond);
+                        LibBonds.creditBond(_state, _local.assignedProver, _local.livenessBond);
                     }
                 }
             }
@@ -433,11 +429,9 @@ library LibProving {
 
         unchecked {
             if (reward > _local.tier.validityBond) {
-                _local.tko.transfer(msg.sender, reward - _local.tier.validityBond);
+                LibBonds.creditBond(_state, msg.sender, reward - _local.tier.validityBond);
             } else if (reward < _local.tier.validityBond) {
-                _local.tko.transferFrom(
-                    msg.sender, address(this), _local.tier.validityBond - reward
-                );
+                LibBonds.debitBond(_state, _resolver, msg.sender, _local.tier.validityBond - reward);
             }
         }
 

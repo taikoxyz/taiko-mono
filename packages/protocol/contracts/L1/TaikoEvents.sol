@@ -11,13 +11,19 @@ import "./TaikoData.sol";
 /// L1 libraries.
 /// @custom:security-contact security@taiko.xyz
 abstract contract TaikoEvents {
-    /// @dev Emitted when a block is proposed.
+    /// @dev Emitted when token is credited back to a user's bond balance.
+    event BondCredited(address indexed user, uint256 amount);
+
+    /// @dev Emitted when token is debited from a user's bond balance.
+    event BondDebited(address indexed user, uint256 amount);
+
+    /// @notice Emitted when a block is proposed.
     /// @param blockId The ID of the proposed block.
-    /// @param assignedProver The block's assigned prover.
-    /// @param livenessBond The bond in Taiko token from the assigned prover.
-    /// @param meta The block metadata containing information about the proposed
+    /// @param assignedProver The address of the assigned prover.
+    /// @param livenessBond The liveness bond of the proposed block.
+    /// @param meta The metadata of the proposed block.
+    /// @param depositsProcessed The EthDeposit array about processed deposits in this proposed
     /// block.
-    /// @param depositsProcessed Ether deposits processed.
     event BlockProposed(
         uint256 indexed blockId,
         address indexed assignedProver,
@@ -30,6 +36,38 @@ abstract contract TaikoEvents {
     /// @param blockId The ID of the proposed block.
     /// @param txList The txList.
     event CalldataTxList(uint256 indexed blockId, bytes txList);
+
+    /// @notice Emitted when a transition is proved.
+    /// @param blockId The block ID.
+    /// @param tran The transition data.
+    /// @param prover The prover's address.
+    /// @param validityBond The validity bond amount.
+    /// @param tier The tier of the proof.
+    event TransitionProved(
+        uint256 indexed blockId,
+        TaikoData.Transition tran,
+        address prover,
+        uint96 validityBond,
+        uint16 tier
+    );
+
+    /// @notice Emitted when a transition is contested.
+    /// @param blockId The block ID.
+    /// @param tran The transition data.
+    /// @param contester The contester's address.
+    /// @param contestBond The contest bond amount.
+    /// @param tier The tier of the proof.
+    event TransitionContested(
+        uint256 indexed blockId,
+        TaikoData.Transition tran,
+        address contester,
+        uint96 contestBond,
+        uint16 tier
+    );
+
+    /// @notice Emitted when proving is paused or unpaused.
+    /// @param paused The pause status.
+    event ProvingPaused(bool paused);
 
     /// @dev Emitted when a block is verified.
     /// @param blockId The ID of the verified block.
@@ -50,36 +88,4 @@ abstract contract TaikoEvents {
     /// @dev This event is currently used by Taiko node/client for block proposal/proving.
     /// @param slotB The SlotB data structure.
     event StateVariablesUpdated(TaikoData.SlotB slotB);
-
-    /// @dev Emitted when a block transition is proved or re-proved.
-    /// @param blockId The ID of the proven block.
-    /// @param tran The verified transition.
-    /// @param prover The prover address.
-    /// @param validityBond The validity bond amount.
-    /// @param tier The tier ID of the proof.
-    event TransitionProved(
-        uint256 indexed blockId,
-        TaikoData.Transition tran,
-        address prover,
-        uint96 validityBond,
-        uint16 tier
-    );
-
-    /// @dev Emitted when a block transition is contested.
-    /// @param blockId The ID of the proven block.
-    /// @param tran The verified transition.
-    /// @param contester The contester address.
-    /// @param contestBond The contesting bond amount.
-    /// @param tier The tier ID of the proof.
-    event TransitionContested(
-        uint256 indexed blockId,
-        TaikoData.Transition tran,
-        address contester,
-        uint96 contestBond,
-        uint16 tier
-    );
-
-    /// @dev Emitted when proving has been paused
-    /// @param paused True if paused, false if unpaused.
-    event ProvingPaused(bool paused);
 }

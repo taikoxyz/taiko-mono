@@ -52,13 +52,15 @@ func (srv *Server) PostSignedBlock(c echo.Context) error {
 	}
 
 	// otherwise, we can store it in the database.
-	if err := srv.signedBlockRepo.Save(guardianproverhealthcheck.SaveSignedBlockOpts{
-		GuardianProverID: recoveredGuardianProver.ID.Uint64(),
-		BlockID:          req.BlockID,
-		BlockHash:        req.BlockHash,
-		Signature:        req.Signature,
-		RecoveredAddress: recoveredGuardianProver.Address.Hex(),
-	}); err != nil {
+	if err := srv.signedBlockRepo.Save(
+		c.Request().Context(),
+		&guardianproverhealthcheck.SaveSignedBlockOpts{
+			GuardianProverID: recoveredGuardianProver.ID.Uint64(),
+			BlockID:          req.BlockID,
+			BlockHash:        req.BlockHash,
+			Signature:        req.Signature,
+			RecoveredAddress: recoveredGuardianProver.Address.Hex(),
+		}); err != nil {
 		// if its a duplicate entry, we just return empty response with
 		// status 200 instead of an error.
 		if strings.Contains(err.Error(), "Duplicate entry") {

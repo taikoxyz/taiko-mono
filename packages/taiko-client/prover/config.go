@@ -22,7 +22,6 @@ import (
 // Config contains the configurations to initialize a Taiko prover.
 type Config struct {
 	L1WsEndpoint                            string
-	L1HttpEndpoint                          string
 	L2WsEndpoint                            string
 	L2HttpEndpoint                          string
 	TaikoL1Address                          common.Address
@@ -45,9 +44,6 @@ type Config struct {
 	ProveBlockGasLimit                      uint64
 	HTTPServerPort                          uint64
 	Capacity                                uint64
-	MinOptimisticTierFee                    *big.Int
-	MinSgxTierFee                           *big.Int
-	MinSgxAndZkVMTierFee                    *big.Int
 	MinEthBalance                           *big.Int
 	MinTaikoTokenBalance                    *big.Int
 	MaxExpiry                               time.Duration
@@ -57,6 +53,7 @@ type Config struct {
 	GuardianProverHealthCheckServerEndpoint *url.URL
 	RaikoHostEndpoint                       string
 	RaikoJWT                                string
+	RaikoRequestTimeout                     time.Duration
 	L1NodeVersion                           string
 	L2NodeVersion                           string
 	BlockConfirmations                      uint64
@@ -115,21 +112,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		}
 	}
 
-	minOptimisticTierFee, err := utils.GWeiToWei(c.Float64(flags.MinOptimisticTierFee.Name))
-	if err != nil {
-		return nil, err
-	}
-
-	minSgxTierFee, err := utils.GWeiToWei(c.Float64(flags.MinSgxTierFee.Name))
-	if err != nil {
-		return nil, err
-	}
-
-	minSgxAndZkVMTierFee, err := utils.GWeiToWei(c.Float64(flags.MinSgxAndZkVMTierFee.Name))
-	if err != nil {
-		return nil, err
-	}
-
 	minEthBalance, err := utils.EtherToWei(c.Float64(flags.MinEthBalance.Name))
 	if err != nil {
 		return nil, err
@@ -153,7 +135,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 
 	return &Config{
 		L1WsEndpoint:                            c.String(flags.L1WSEndpoint.Name),
-		L1HttpEndpoint:                          c.String(flags.L1HTTPEndpoint.Name),
 		L2WsEndpoint:                            c.String(flags.L2WSEndpoint.Name),
 		L2HttpEndpoint:                          c.String(flags.L2HTTPEndpoint.Name),
 		TaikoL1Address:                          common.HexToAddress(c.String(flags.TaikoL1Address.Name)),
@@ -163,6 +144,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		L1ProverPrivKey:                         l1ProverPrivKey,
 		RaikoHostEndpoint:                       c.String(flags.RaikoHostEndpoint.Name),
 		RaikoJWT:                                common.Bytes2Hex(jwtSecret),
+		RaikoRequestTimeout:                     c.Duration(flags.RaikoRequestTimeout.Name),
 		StartingBlockID:                         startingBlockID,
 		Dummy:                                   c.Bool(flags.Dummy.Name),
 		GuardianProverMinorityAddress:           common.HexToAddress(c.String(flags.GuardianProverMinority.Name)),
@@ -179,9 +161,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		ProveBlockGasLimit:                      c.Uint64(flags.TxGasLimit.Name),
 		Capacity:                                c.Uint64(flags.ProverCapacity.Name),
 		HTTPServerPort:                          c.Uint64(flags.ProverHTTPServerPort.Name),
-		MinOptimisticTierFee:                    minOptimisticTierFee,
-		MinSgxTierFee:                           minSgxTierFee,
-		MinSgxAndZkVMTierFee:                    minSgxAndZkVMTierFee,
 		MinEthBalance:                           minEthBalance,
 		MinTaikoTokenBalance:                    minTaikoTokenBalance,
 		MaxExpiry:                               c.Duration(flags.MaxExpiry.Name),
@@ -192,7 +171,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		L2NodeVersion:                           c.String(flags.L2NodeVersion.Name),
 		BlockConfirmations:                      c.Uint64(flags.BlockConfirmations.Name),
 		TxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
-			c.String(flags.L1HTTPEndpoint.Name),
+			c.String(flags.L1WSEndpoint.Name),
 			l1ProverPrivKey,
 			c,
 		),

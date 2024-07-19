@@ -2,7 +2,7 @@
 
 usage() {
     echo \
-'Run "PRIVATE_KEY=0x1234 ./script/config_dcap_sgx_verifier.sh 
+'Run "PRIVATE_KEY=0x1234 ./script/config_dcap_sgx_verifier.sh
     --tcb file_path: config tcb
     --eq file_path: config qe
     --mrenclave hex_string: config mrenclave
@@ -29,10 +29,15 @@ if [ $# -eq 0 ]; then
     exit 1
 fi
 
-# replace with the correct address of the verifier/attester/pemCertChain.
+# Hekla addresses of the verifier/attester/pemCertChain.
 export SGX_VERIFIER_ADDRESS=0x532EFBf6D62720D0B2a2Bb9d11066E8588cAE6D9
 export ATTESTATION_ADDRESS=0xC6cD3878Fc56F2b2BaB0769C580fc230A95e1398
 export PEM_CERTCHAIN_ADDRESS=0x08d7865e7F534d743Aba5874A9AD04bcB223a92E
+
+# Mainnet addresses of the verifier/attester/pemCertChain. Uncomment this and comment out the above if running for mainnet!
+# export SGX_VERIFIER_ADDRESS=0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81
+# export ATTESTATION_ADDRESS=0x8d7C954960a36a7596d7eA4945dDf891967ca8A3
+# export PEM_CERTCHAIN_ADDRESS=0x02772b7B3a5Bea0141C993Dbb8D0733C19F46169
 
 # default value
 # for setMrEnclave which should be called by the owner of the verifier

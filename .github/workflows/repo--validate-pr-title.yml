@@ -9,7 +9,6 @@ on:
   push:
     branches:
       - release-please-* # Trigger for release-please PRs, but skip the job
-  merge_group: # Trigger in the merge queue, but skip the job
 
 jobs:
   validate-pr-title:

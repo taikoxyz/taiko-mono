@@ -26,6 +26,7 @@ func (srv *Server) GetMostRecentSignedBlockByGuardianProverAddress(c echo.Contex
 	}
 
 	signedBlock, err := srv.signedBlockRepo.GetMostRecentByGuardianProverAddress(
+		c.Request().Context(),
 		address,
 	)
 

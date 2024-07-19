@@ -2,10 +2,8 @@ package repo
 
 import (
 	"context"
-	"strings"
-	"time"
-
 	"net/http"
+	"strings"
 
 	"github.com/morkid/paginate"
 	"github.com/pkg/errors"
@@ -28,6 +26,16 @@ func NewEventRepository(dbHandler db.DB) (*EventRepository, error) {
 	return &EventRepository{
 		db: dbHandler,
 	}, nil
+}
+
+// Close closes the database connection.
+func (r *EventRepository) Close() error {
+	sqlDB, err := r.db.DB()
+	if err != nil {
+		return err
+	}
+
+	return sqlDB.Close()
 }
 
 func (r *EventRepository) Save(ctx context.Context, opts *relayer.SaveEventOpts) (*relayer.Event, error) {
@@ -54,7 +62,7 @@ func (r *EventRepository) Save(ctx context.Context, opts *relayer.SaveEventOpts)
 		EmittedBlockID:         opts.EmittedBlockID,
 	}
 
-	if err := r.db.GormDB().Create(e).Error; err != nil {
+	if err := r.db.GormDB().WithContext(ctx).Create(e).Error; err != nil {
 		return nil, errors.Wrap(err, "r.db.Create")
 	}
 
@@ -66,36 +74,54 @@ func (r *EventRepository) UpdateFeesAndProfitability(
 	id int,
 	opts *relayer.UpdateFeesAndProfitabilityOpts,
 ) error {
-	e := &relayer.Event{}
-	if err := r.db.GormDB().Where("id = ?", id).First(e).Error; err != nil {
-		return errors.Wrap(err, "r.db.First")
+	tx := r.db.GormDB().WithContext(ctx)
+	tx = tx.Model(&relayer.Event{})
+	tx = tx.Where("id = ?", id)
+
+	// check if existed.
+	var count int64
+	if err := tx.Count(&count).Error; err != nil {
+		return errors.Wrap(err, "r.db.Count")
 	}
 
-	e.Fee = &opts.Fee
-	e.DestChainBaseFee = &opts.DestChainBaseFee
-	e.GasTipCap = &opts.GasTipCap
-	e.GasLimit = &opts.GasLimit
-	e.IsProfitable = &opts.IsProfitable
-	e.EstimatedOnchainFee = &opts.EstimatedOnchainFee
-	currentTime := time.Now().UTC()
-	e.IsProfitableEvaluatedAt = &currentTime
+	if count == 0 {
+		return gorm.ErrRecordNotFound
+	}
 
-	if err := r.db.GormDB().Save(e).Error; err != nil {
-		return errors.Wrap(err, "r.db.Save")
+	err := tx.Updates(map[string]interface{}{
+		"fee":                        opts.Fee,
+		"dest_chain_base_fee":        opts.DestChainBaseFee,
+		"gas_tip_cap":                opts.GasTipCap,
+		"gas_limit":                  opts.GasLimit,
+		"is_profitable":              opts.IsProfitable,
+		"estimated_onchain_fee":      opts.EstimatedOnchainFee,
+		"is_profitable_evaluated_at": opts.IsProfitableEvaluatedAt,
+	}).Error
+
+	if err != nil {
+		return errors.Wrap(err, "r.db.Commit")
 	}
 
 	return nil
 }
 
 func (r *EventRepository) UpdateStatus(ctx context.Context, id int, status relayer.EventStatus) error {
-	e := &relayer.Event{}
-	if err := r.db.GormDB().Where("id = ?", id).First(e).Error; err != nil {
-		return errors.Wrap(err, "r.db.First")
+	tx := r.db.GormDB().WithContext(ctx)
+	tx = tx.Model(&relayer.Event{})
+	tx = tx.Where("id = ?", id)
+
+	// check if existed.
+	var count int64
+	if err := tx.Count(&count).Error; err != nil {
+		return errors.Wrap(err, "r.db.Count")
 	}
 
-	e.Status = status
-	if err := r.db.GormDB().Save(e).Error; err != nil {
-		return errors.Wrap(err, "r.db.Save")
+	if count == 0 {
+		return gorm.ErrRecordNotFound
+	}
+
+	if err := tx.Update("status", status).Error; err != nil {
+		return errors.Wrap(err, "tx.Commit")
 	}
 
 	return nil
@@ -107,7 +133,7 @@ func (r *EventRepository) FirstByMsgHash(
 ) (*relayer.Event, error) {
 	e := &relayer.Event{}
 	// find all message sent events
-	if err := r.db.GormDB().Where("msg_hash = ?", msgHash).
+	if err := r.db.GormDB().WithContext(ctx).Where("msg_hash = ?", msgHash).
 		First(&e).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
@@ -126,7 +152,7 @@ func (r *EventRepository) FirstByEventAndMsgHash(
 ) (*relayer.Event, error) {
 	e := &relayer.Event{}
 	// find all message sent events
-	if err := r.db.GormDB().Where("msg_hash = ?", msgHash).
+	if err := r.db.GormDB().WithContext(ctx).Where("msg_hash = ?", msgHash).
 		Where("event = ?", event).
 		First(&e).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -148,7 +174,7 @@ func (r *EventRepository) FindAllByAddress(
 		DefaultSize: 100,
 	})
 
-	q := r.db.GormDB().
+	q := r.db.GormDB().WithContext(ctx).
 		Model(&relayer.Event{}).
 		Where(
 			"dest_owner_json = ? OR message_owner = ?",
@@ -186,7 +212,7 @@ func (r *EventRepository) Delete(
 	ctx context.Context,
 	id int,
 ) error {
-	return r.db.GormDB().Delete(relayer.Event{}, id).Error
+	return r.db.GormDB().WithContext(ctx).Delete(relayer.Event{}, id).Error
 }
 
 func (r *EventRepository) ChainDataSyncedEventByBlockNumberOrGreater(
@@ -197,7 +223,7 @@ func (r *EventRepository) ChainDataSyncedEventByBlockNumberOrGreater(
 ) (*relayer.Event, error) {
 	e := &relayer.Event{}
 	// find all message sent events
-	if err := r.db.GormDB().Where("name = ?", relayer.EventNameChainDataSynced).
+	if err := r.db.GormDB().WithContext(ctx).Where("name = ?", relayer.EventNameChainDataSynced).
 		Where("chain_id = ?", srcChainId).
 		Where("synced_chain_id = ?", syncedChainId).
 		Where("block_id >= ?", blockNumber).
@@ -221,7 +247,7 @@ func (r *EventRepository) LatestChainDataSyncedEvent(
 ) (uint64, error) {
 	blockID := 0
 	// find all message sent events
-	if err := r.db.GormDB().Table("events").
+	if err := r.db.GormDB().WithContext(ctx).Table("events").
 		Where("chain_id = ?", srcChainId).
 		Where("synced_chain_id = ?", syncedChainId).
 		Select("COALESCE(MAX(block_id), 0)").
@@ -247,6 +273,7 @@ WHERE block_id >= ? AND chain_id = ? AND dest_chain_id = ?`
 
 // GetLatestBlockID get latest block id
 func (r *EventRepository) FindLatestBlockID(
+	ctx context.Context,
 	event string,
 	srcChainID uint64,
 	destChainID uint64,
@@ -256,7 +283,8 @@ func (r *EventRepository) FindLatestBlockID(
 
 	var b uint64
 
-	if err := r.db.GormDB().Table("events").Raw(q, srcChainID, destChainID, event).Scan(&b).Error; err != nil {
+	if err := r.db.GormDB().WithContext(ctx).Table("events").
+		Raw(q, srcChainID, destChainID, event).Scan(&b).Error; err != nil {
 		return 0, err
 	}
 

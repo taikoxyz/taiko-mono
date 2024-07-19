@@ -3,13 +3,12 @@
 
   import { CloseButton } from '$components/Button';
   import { Icon } from '$components/Icon';
-  import { uid } from '$libs/util/uid';
 
   export let modalOpen = false;
 
   export let noIcon = false;
 
-  const dialogId = `dialog-${uid()}`;
+  const dialogId = `dialog-${crypto.randomUUID()}`;
 
   const closeModal = () => (modalOpen = false);
 
