@@ -35,7 +35,7 @@ abstract contract TaikoEvents {
     /// @notice Emitted when a block is proposed.
     /// @param blockId The ID of the proposed block.
     /// @param meta The metadata of the proposed block.
-    event BlockProposed2(uint256 indexed blockId, TaikoData.BlockMetadata2 meta);
+    event BlockProposed2(uint256 indexed blockId, TaikoData.BlockMetadataV2 meta);
 
     /// @notice Emitted when a block's txList is in the calldata.
     /// @param blockId The ID of the proposed block.

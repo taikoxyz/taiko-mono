@@ -38,7 +38,7 @@ library LibProposing {
     /// @notice Emitted when a block is proposed.
     /// @param blockId The ID of the proposed block.
     /// @param meta The metadata of the proposed block.
-    event BlockProposed2(uint256 indexed blockId, TaikoData.BlockMetadata2 meta);
+    event BlockProposed2(uint256 indexed blockId, TaikoData.BlockMetadataV2 meta);
 
     /// @notice Emitted when a block's txList is in the calldata.
     /// @param blockId The ID of the proposed block.
@@ -70,7 +70,7 @@ library LibProposing {
         bytes calldata _txList
     )
         public
-        returns (TaikoData.BlockMetadata2 memory meta_, TaikoData.EthDeposit[] memory deposits_)
+        returns (TaikoData.BlockMetadataV2 memory meta_, TaikoData.EthDeposit[] memory deposits_)
     {
         // Checks proposer access.
         {
@@ -91,12 +91,12 @@ library LibProposing {
             revert L1_TOO_MANY_BLOCKS();
         }
 
-        TaikoData.BlockParams2 memory params;
+        TaikoData.BlockParamsV2 memory params;
 
         if (local.postFork) {
             if (_data.length != 0) {
-                params = abi.decode(_data, (TaikoData.BlockParams2));
-                // otherwise use a default BlockParams2 with 0 values
+                params = abi.decode(_data, (TaikoData.BlockParamsV2));
+                // otherwise use a default BlockParamsV2 with 0 values
             }
         } else {
             params = LibData.paramV1toV2(abi.decode(_data, (TaikoData.BlockParams)));
@@ -162,7 +162,7 @@ library LibProposing {
         // If we choose to persist all data fields in the metadata, it will
         // require additional storage slots.
         unchecked {
-            meta_ = TaikoData.BlockMetadata2({
+            meta_ = TaikoData.BlockMetadataV2({
                 anchorBlockHash: blockhash(params.anchorBlockId),
                 difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", local.b.numBlocks)),
                 blobHash: 0, // to be initialized below

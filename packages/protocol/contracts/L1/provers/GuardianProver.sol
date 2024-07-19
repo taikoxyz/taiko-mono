@@ -197,7 +197,7 @@ contract GuardianProver is IVerifier, EssentialContract {
     }
 
     function approve2(
-        TaikoData.BlockMetadata2 calldata _meta2,
+        TaikoData.BlockMetadataV2 calldata _meta2,
         TaikoData.Transition calldata _tran,
         TaikoData.TierProof calldata _proof
     )

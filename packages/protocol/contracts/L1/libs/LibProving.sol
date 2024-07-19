@@ -143,13 +143,13 @@ library LibProving {
         local.blockId = _blockId;
         local.postFork = _blockId >= _config.ontakeForkHeight;
 
-        TaikoData.BlockMetadata2 memory meta;
+        TaikoData.BlockMetadataV2 memory meta;
         TaikoData.Transition memory tran;
         TaikoData.TierProof memory proof;
 
         if (local.postFork) {
             (meta, tran, proof) = abi.decode(
-                _input, (TaikoData.BlockMetadata2, TaikoData.Transition, TaikoData.TierProof)
+                _input, (TaikoData.BlockMetadataV2, TaikoData.Transition, TaikoData.TierProof)
             );
         } else {
             TaikoData.BlockMetadata memory meta1;

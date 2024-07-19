@@ -83,7 +83,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     {
         TaikoData.Config memory config = getConfig();
 
-        TaikoData.BlockMetadata2 memory meta2;
+        TaikoData.BlockMetadataV2 memory meta2;
         (meta2, deposits_) = LibProposing.proposeBlock(state, config, this, _params, _txList);
 
         if (meta2.id >= config.ontakeForkHeight) revert L1_FORK_ERROR();
@@ -94,12 +94,12 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         meta_ = LibData.metadataV2toV1(meta2);
     }
 
-    function proposeBlock2(
+    function proposeBlockV2(
         bytes calldata _params,
         bytes calldata _txList
     )
         external
-        returns (TaikoData.BlockMetadata2 memory meta_)
+        returns (TaikoData.BlockMetadataV2 memory meta_)
     {
         TaikoData.Config memory config = getConfig();
 

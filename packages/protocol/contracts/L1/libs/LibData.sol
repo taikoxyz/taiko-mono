@@ -14,9 +14,9 @@ library LibData {
     function paramV1toV2(TaikoData.BlockParams memory _v1)
         internal
         pure
-        returns (TaikoData.BlockParams2 memory)
+        returns (TaikoData.BlockParamsV2 memory)
     {
-        return TaikoData.BlockParams2({
+        return TaikoData.BlockParamsV2({
             coinbase: _v1.coinbase,
             extraData: _v1.extraData,
             parentMetaHash: _v1.parentMetaHash,
@@ -29,7 +29,7 @@ library LibData {
         });
     }
 
-    function metadataV2toV1(TaikoData.BlockMetadata2 memory _v2)
+    function metadataV2toV1(TaikoData.BlockMetadataV2 memory _v2)
         internal
         pure
         returns (TaikoData.BlockMetadata memory)
@@ -58,9 +58,9 @@ library LibData {
     )
         internal
         pure
-        returns (TaikoData.BlockMetadata2 memory)
+        returns (TaikoData.BlockMetadataV2 memory)
     {
-        return TaikoData.BlockMetadata2({
+        return TaikoData.BlockMetadataV2({
             anchorBlockHash: _v1.l1Hash,
             difficulty: _v1.difficulty,
             blobHash: _v1.blobHash,
@@ -86,7 +86,7 @@ library LibData {
 
     function hashMetadata(
         bool postFork,
-        TaikoData.BlockMetadata2 memory _meta
+        TaikoData.BlockMetadataV2 memory _meta
     )
         internal
         pure
