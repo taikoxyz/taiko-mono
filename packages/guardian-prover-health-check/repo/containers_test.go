@@ -20,7 +20,7 @@ var (
 	dbPassword = "password"
 )
 
-func testMysql(t *testing.T) (DB, func(), error) {
+func testMysql(t *testing.T) (db.DB, func(), error) {
 	req := testcontainers.ContainerRequest{
 		Image:        "mysql:latest",
 		ExposedPorts: []string{"3306/tcp", "33060/tcp"},

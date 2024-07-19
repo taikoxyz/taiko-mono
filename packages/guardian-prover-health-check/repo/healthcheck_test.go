@@ -5,26 +5,27 @@ import (
 	"net/http"
 	"testing"
 
+	"gopkg.in/go-playground/assert.v1"
+
 	guardianproverhealthcheck "github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check"
 	"github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check/db"
-	"gopkg.in/go-playground/assert.v1"
 )
 
 func Test_NewHealthCheckRepo(t *testing.T) {
 	tests := []struct {
 		name    string
-		db      DB
+		db      db.DB
 		wantErr error
 	}{
 		{
 			"success",
-			&db.DB{},
+			&db.Database{},
 			nil,
 		},
 		{
 			"noDb",
 			nil,
-			ErrNoDB,
+			db.ErrNoDB,
 		},
 	}
 
@@ -66,7 +67,7 @@ func TestIntegration_HealthCheck_Save(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err = healthCheckRepo.Save(tt.opts)
+			err = healthCheckRepo.Save(context.Background(), &tt.opts)
 			assert.Equal(t, tt.wantErr, err)
 
 			req, err := http.NewRequest(http.MethodGet, "/healtcheck", nil)
@@ -90,7 +91,7 @@ func TestIntegration_HealthCheck_UptimeByGuardianProverId(t *testing.T) {
 
 	assert.Equal(t, nil, err)
 
-	err = healthCheckRepo.Save(guardianproverhealthcheck.SaveHealthCheckOpts{
+	err = healthCheckRepo.Save(context.Background(), &guardianproverhealthcheck.SaveHealthCheckOpts{
 		GuardianProverID: 1,
 		Alive:            true,
 		ExpectedAddress:  "0x123",
@@ -102,7 +103,7 @@ func TestIntegration_HealthCheck_UptimeByGuardianProverId(t *testing.T) {
 
 	assert.Equal(t, err, nil)
 
-	err = healthCheckRepo.Save(guardianproverhealthcheck.SaveHealthCheckOpts{
+	err = healthCheckRepo.Save(context.Background(), &guardianproverhealthcheck.SaveHealthCheckOpts{
 		GuardianProverID: 1,
 		Alive:            true,
 		ExpectedAddress:  "0x123",
