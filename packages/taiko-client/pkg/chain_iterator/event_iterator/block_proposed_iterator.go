@@ -111,6 +111,7 @@ func assembleBlockProposedIteratorCallback(
 		endFunc chainIterator.EndIterFunc,
 	) error {
 		endHeight := end.Number.Uint64()
+
 		iter, err := libProposing.FilterBlockProposed(
 			&bind.FilterOpts{Start: start.Number.Uint64(), End: &endHeight, Context: ctx},
 			filterQuery,
@@ -121,11 +122,39 @@ func assembleBlockProposedIteratorCallback(
 		}
 		defer iter.Close()
 
+		iterOntake, err := libProposing.FilterBlockProposed2(
+			&bind.FilterOpts{Start: start.Number.Uint64(), End: &endHeight, Context: ctx},
+			filterQuery,
+		)
+		if err != nil {
+			return err
+		}
+		defer iterOntake.Close()
+
 		for iter.Next() {
 			event := iter.Event
 
-			// TODO(david): support new BlockProposed2 event.
 			if err := callback(ctx, metadata.NewTaikoDataBlockMetadataLegacy(event), eventIter.end); err != nil {
+				return err
+			}
+
+			if eventIter.isEnd {
+				endFunc()
+				return nil
+			}
+
+			current, err := client.HeaderByHash(ctx, event.Raw.BlockHash)
+			if err != nil {
+				return err
+			}
+
+			updateCurrentFunc(current)
+		}
+
+		for iterOntake.Next() {
+			event := iterOntake.Event
+
+			if err := callback(ctx, metadata.NewTaikoDataBlockMetadata2(event), eventIter.end); err != nil {
 				return err
 			}
 
