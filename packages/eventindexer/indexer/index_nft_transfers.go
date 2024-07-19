@@ -162,6 +162,11 @@ func (i *Indexer) saveERC721Transfer(ctx context.Context, chainID *big.Int, vLog
 		pk = metadata.ID
 	}
 
+	if pk == 0 {
+		slog.Warn("unable to create or fetch md", "contractAddress", vLog.Address.Hex())
+		return nil
+	}
+
 	slog.Info("metadata pk", "pk", pk)
 
 	// increment To address's balance
