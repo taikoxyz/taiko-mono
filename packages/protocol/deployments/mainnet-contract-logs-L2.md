@@ -116,7 +116,7 @@
 #### delegate_owner
 
 - proxy: `0x5995941Df88F30Ac140515AA39832db963E2f863`
-- impl: `0x2D2F4C692a7940e6Cc8e261692a5e20955BAb311`
+- impl: `0x1f0511cDae2fbfD93563469dA02b82dEd320C8Bd`
 - admin: `0x3c181965C5cFAE61a9010A283e5e0C1445649810` // owned by Daniel W
 - remoteOwner: `0x3c181965C5cFAE61a9010A283e5e0C1445649810` // owned by Daniel W
 - todo:

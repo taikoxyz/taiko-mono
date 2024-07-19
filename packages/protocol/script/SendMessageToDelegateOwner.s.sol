@@ -8,6 +8,7 @@ import "../test/thirdparty/muticall3/Multicall3.sol";
 
 contract SendMessageToDelegateOwner is Script {
     address public delegateOwner = 0x5995941Df88F30Ac140515AA39832db963E2f863;
+    address public delegateOwnerImpl = 0x1f0511cDae2fbfD93563469dA02b82dEd320C8Bd;
     address public multicall3 = 0xcA11bde05977b3631167028862bE2a173976CA11;
     address public l1Bridge = 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC;
     address public testAccount1 = 0x3c181965C5cFAE61a9010A283e5e0C1445649810; // owned by Daniel W
@@ -27,10 +28,10 @@ contract SendMessageToDelegateOwner is Script {
 
         calls[1].target = delegateOwner;
         calls[1].allowFailure = false;
-        calls[1].callData = abi.encodeCall(DelegateOwner.setAdmin, (testAccount1));
+        calls[1].callData = abi.encodeCall(UUPSUpgradeable.upgradeTo, (delegateOwnerImpl));
 
         DelegateOwner.Call memory dcall = DelegateOwner.Call({
-            txId: 0, // Has to match with DelegateOwner's nextTxId
+            txId: 1, // Has to match with DelegateOwner's nextTxId
             target: multicall3,
             isDelegateCall: true,
             txdata: abi.encodeCall(Multicall3.aggregate3, (calls))
