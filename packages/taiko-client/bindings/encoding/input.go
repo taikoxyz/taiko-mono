@@ -71,6 +71,89 @@ var (
 			Type: "address",
 		},
 	}
+
+	blockMetadata2Components = []abi.ArgumentMarshaling{
+		{
+			Name: "anchorBlockHash",
+			Type: "bytes32",
+		},
+		{
+			Name: "difficulty",
+			Type: "bytes32",
+		},
+		{
+			Name: "blobHash",
+			Type: "bytes32",
+		},
+		{
+			Name: "extraData",
+			Type: "bytes32",
+		},
+		{
+			Name: "coinbase",
+			Type: "address",
+		},
+		{
+			Name: "id",
+			Type: "uint64",
+		},
+		{
+			Name: "gasLimit",
+			Type: "uint32",
+		},
+		{
+			Name: "timestamp",
+			Type: "uint64",
+		},
+		{
+			Name: "anchorBlockId",
+			Type: "uint64",
+		},
+		{
+			Name: "minTier",
+			Type: "uint16",
+		},
+		{
+			Name: "blobUsed",
+			Type: "bool",
+		},
+		{
+			Name: "parentMetaHash",
+			Type: "bytes32",
+		},
+		{
+			Name: "proposer",
+			Type: "address",
+		},
+		{
+			Name: "livenessBond",
+			Type: "uint96",
+		},
+		{
+			Name: "proposedAt",
+			Type: "uint64",
+		},
+		{
+			Name: "proposedIn",
+			Type: "uint64",
+		},
+		{
+			Name: "blobTxListOffset",
+			Type: "uint32",
+		},
+		{
+			Name: "blobTxListLength",
+			Type: "uint32",
+		},
+		{
+			Name: "blobIndex",
+			Type: "uint8",
+		},
+		{
+			Name: "basefeeSharingPctg",
+			Type: "uint8",
+		},
+	}
 	transitionComponents = []abi.ArgumentMarshaling{
 		{
 			Name: "parentHash",
@@ -135,16 +218,62 @@ var (
 			Type: "bytes",
 		},
 	}
+	blockParams2Components = []abi.ArgumentMarshaling{
+		{
+			Name: "coinbase",
+			Type: "address",
+		},
+		{
+			Name: "extraData",
+			Type: "bytes32",
+		},
+		{
+			Name: "parentMetaHash",
+			Type: "bytes32",
+		},
+		{
+			Name: "anchorBlockId",
+			Type: "uint64",
+		},
+		{
+			Name: "timestamp",
+			Type: "uint64",
+		},
+		{
+			Name: "blobTxListOffset",
+			Type: "uint32",
+		},
+		{
+			Name: "blobTxListLength",
+			Type: "uint32",
+		},
+		{
+			Name: "blobIndex",
+			Type: "uint8",
+		},
+		{
+			Name: "basefeeSharingPctg",
+			Type: "uint8",
+		},
+	}
 )
 
 var (
-	blockParamsComponentsType, _   = abi.NewType("tuple", "TaikoData.BlockParams", blockParamsComponents)
-	blockParamsComponentsArgs      = abi.Arguments{{Name: "TaikoData.BlockParams", Type: blockParamsComponentsType}}
-	blockMetadataComponentsType, _ = abi.NewType("tuple", "TaikoData.BlockMetadata", blockMetadataComponents)
-	transitionComponentsType, _    = abi.NewType("tuple", "TaikoData.Transition", transitionComponents)
-	tierProofComponentsType, _     = abi.NewType("tuple", "TaikoData.TierProof", tierProofComponents)
-	proveBlockInputArgs            = abi.Arguments{
+	blockParamsComponentsType, _    = abi.NewType("tuple", "TaikoData.BlockParams", blockParamsComponents)
+	blockParamsComponentsArgs       = abi.Arguments{{Name: "TaikoData.BlockParams", Type: blockParamsComponentsType}}
+	blockParams2ComponentsType, _   = abi.NewType("tuple", "TaikoData.BlockParams2", blockParams2Components)
+	blockParams2ComponentsArgs      = abi.Arguments{{Name: "TaikoData.BlockParams2", Type: blockParams2ComponentsType}}
+	blockMetadataComponentsType, _  = abi.NewType("tuple", "TaikoData.BlockMetadata", blockMetadataComponents)
+	blockMetadata2ComponentsType, _ = abi.NewType("tuple", "TaikoData.BlockMetadata2", blockMetadata2Components)
+	transitionComponentsType, _     = abi.NewType("tuple", "TaikoData.Transition", transitionComponents)
+	tierProofComponentsType, _      = abi.NewType("tuple", "TaikoData.TierProof", tierProofComponents)
+	proveBlockInputArgs             = abi.Arguments{
 		{Name: "TaikoData.BlockMetadata", Type: blockMetadataComponentsType},
+		{Name: "TaikoData.Transition", Type: transitionComponentsType},
+		{Name: "TaikoData.TierProof", Type: tierProofComponentsType},
+	}
+	proveOntakeBlockInputArgs = abi.Arguments{
+		{Name: "TaikoData.BlockMetadata2", Type: blockMetadata2ComponentsType},
 		{Name: "TaikoData.Transition", Type: transitionComponentsType},
 		{Name: "TaikoData.TierProof", Type: tierProofComponentsType},
 	}
@@ -237,24 +366,43 @@ func EncodeBlockParams(params *BlockParams) ([]byte, error) {
 	return b, nil
 }
 
+// EncodeBlockParamsOntake performs the solidity `abi.encode` for the given ontake blockParams.
+func EncodeBlockParamsOntake(params *BlockParams2) ([]byte, error) {
+	b, err := blockParams2ComponentsArgs.Pack(params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to abi.encode ontake block params, %w", err)
+	}
+	return b, nil
+}
+
 // EncodeProveBlockInput performs the solidity `abi.encode` for the given TaikoL1.proveBlock input.
 func EncodeProveBlockInput(
 	meta metadata.TaikoBlockMetaData,
 	transition *bindings.TaikoDataTransition,
 	tierProof *bindings.TaikoDataTierProof,
 ) ([]byte, error) {
-	// TODO(david): fix this issue.
-	if meta.IsOntakeBlock() {
-		return nil, errors.New("cannot encode TaikoL1.proveBlock input for ontake block")
-	}
-	b, err := proveBlockInputArgs.Pack(
-		meta.(*metadata.TaikoDataBlockMetadataLegacy).InnerMetadata(),
-		transition,
-		tierProof,
+	var (
+		b   []byte
+		err error
 	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to abi.encode TakoL1.proveBlock input, %w", err)
+	if meta.IsOntakeBlock() {
+		if b, err = proveOntakeBlockInputArgs.Pack(
+			meta.(*metadata.TaikoDataBlockMetadataOntake).InnerMetadata(),
+			transition,
+			tierProof,
+		); err != nil {
+			return nil, fmt.Errorf("failed to abi.encode TakoL1.proveBlock input after ontake fork, %w", err)
+		}
+	} else {
+		if b, err = proveBlockInputArgs.Pack(
+			meta.(*metadata.TaikoDataBlockMetadataLegacy).InnerMetadata(),
+			transition,
+			tierProof,
+		); err != nil {
+			return nil, fmt.Errorf("failed to abi.encode TakoL1.proveBlock input, %w", err)
+		}
 	}
+
 	return b, nil
 }
 

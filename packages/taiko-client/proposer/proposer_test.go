@@ -23,6 +23,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	builder "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/transaction_builder"
@@ -114,6 +115,7 @@ func (s *ProposerTestSuite) TestProposeTxLists() {
 		cfg.L2SuggestedFeeRecipient,
 		cfg.ProposeBlockTxGasLimit,
 		cfg.ExtraData,
+		config.NewChainConfig(s.RPCClient.L2.ChainID, testutils.RandomHash().Big()),
 	)
 
 	emptyTxListBytes, err := rlp.EncodeToBytes(types.Transactions{})

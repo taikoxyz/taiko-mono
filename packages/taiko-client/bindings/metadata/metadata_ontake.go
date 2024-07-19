@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 )
 
@@ -155,4 +156,9 @@ func (m *TaikoDataBlockMetadataOntake) GetTxHash() common.Hash {
 // IsOntakeBlock returns whether the block is an ontake block.
 func (m *TaikoDataBlockMetadataOntake) IsOntakeBlock() bool {
 	return true
+}
+
+// InnerMetadata returns the inner metadata.
+func (m *TaikoDataBlockMetadataOntake) InnerMetadata() *bindings.TaikoDataBlockMetadataV2 {
+	return &m.TaikoDataBlockMetadataV2
 }

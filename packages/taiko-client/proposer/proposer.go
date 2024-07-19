@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
 	"math/rand"
 	"sync"
 	"time"
@@ -21,6 +22,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	builder "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/transaction_builder"
 )
@@ -99,6 +101,8 @@ func (p *Proposer) InitFromConfig(ctx context.Context, cfg *Config, txMgr *txmgr
 		}
 	}
 
+	chainConfig := config.NewChainConfig(p.rpc.L2.ChainID, new(big.Int).SetUint64(p.protocolConfigs.OntakeForkHeight))
+
 	if cfg.BlobAllowed {
 		p.txBuilder = builder.NewBlobTransactionBuilder(
 			p.rpc,
@@ -108,6 +112,7 @@ func (p *Proposer) InitFromConfig(ctx context.Context, cfg *Config, txMgr *txmgr
 			cfg.L2SuggestedFeeRecipient,
 			cfg.ProposeBlockTxGasLimit,
 			cfg.ExtraData,
+			chainConfig,
 		)
 	} else {
 		p.txBuilder = builder.NewCalldataTransactionBuilder(
@@ -118,6 +123,7 @@ func (p *Proposer) InitFromConfig(ctx context.Context, cfg *Config, txMgr *txmgr
 			cfg.ProverSetAddress,
 			cfg.ProposeBlockTxGasLimit,
 			cfg.ExtraData,
+			chainConfig,
 		)
 	}
 

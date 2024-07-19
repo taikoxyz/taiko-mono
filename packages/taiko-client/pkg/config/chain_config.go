@@ -3,7 +3,9 @@ package config
 import (
 	"fmt"
 	"math/big"
+	"strings"
 
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 )
 
@@ -11,6 +13,21 @@ import (
 type ChainConfig struct {
 	ChainID     *big.Int `json:"chainId"`     // ChainId identifies the current chain
 	OnTakeBlock *big.Int `json:"onTakeBlock"` // Ontake switch block (nil = no fork, 0 = already on ontake)
+}
+
+// NewChainConfig creates a new ChainConfig instance.
+func NewChainConfig(chainID *big.Int, onTakeBlock *big.Int) *ChainConfig {
+	cfg := &ChainConfig{chainID, onTakeBlock}
+
+	log.Info("")
+	log.Info(strings.Repeat("-", 153))
+	for _, line := range strings.Split(cfg.Description(), "\n") {
+		log.Info(line)
+	}
+	log.Info(strings.Repeat("-", 153))
+	log.Info("")
+
+	return cfg
 }
 
 // NetworkNames are user friendly names to use in the chain spec banner.
