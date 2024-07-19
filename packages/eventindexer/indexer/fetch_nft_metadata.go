@@ -2,6 +2,7 @@ package indexer
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -55,9 +56,8 @@ func (i *Indexer) fetchNFTMetadata(
 
 	mdURL := resolveMetadataURL(tokenURI)
 
-	_, err = url.ParseRequestURI(mdURL)
-	if err != nil {
-		return nil, nil // return nil, dont need to handle error here.
+	if !isValidURL(mdURL) {
+		return nil, nil
 	}
 
 	var metadata *eventindexer.NFTMetadata
@@ -92,12 +92,47 @@ func (i *Indexer) fetchNFTMetadata(
 	return metadata, nil
 }
 
+// isValidURL checks if the given string is a valid URL
+func isValidURL(str string) bool {
+	u, err := url.Parse(str)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return false
+	}
+
+	return true
+}
+
+// isBase64 checks if the given string is a valid base64 encoded string
+func isBase64(str string) bool {
+	if !strings.Contains(str, "base64,") {
+		return false
+	}
+
+	parts := strings.Split(str, "base64,")
+	if len(parts) != 2 {
+		return false
+	}
+
+	_, err := base64.StdEncoding.DecodeString(parts[1])
+
+	return err == nil
+}
+
 func resolveMetadataURL(tokenURI string) string {
 	if strings.HasPrefix(tokenURI, "ipfs://") {
 		ipfsHash := strings.TrimPrefix(tokenURI, "ipfs://")
 		resolvedURL := fmt.Sprintf("https://ipfs.io/ipfs/%s", ipfsHash)
 
 		return resolvedURL
+	}
+
+	if isBase64(tokenURI) {
+		// Extract the actual base64 part
+		parts := strings.Split(tokenURI, "base64,")
+
+		// Check if the part after "base64," is valid base64
+		decodedTokenURI, _ := base64.StdEncoding.DecodeString(parts[1])
+		return string(decodedTokenURI)
 	}
 
 	return tokenURI
