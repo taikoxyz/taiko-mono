@@ -249,7 +249,7 @@ func (s *Syncer) onBlockProposed(
 	if meta.GetBlobUsed() {
 		txListFetcher = txlistFetcher.NewBlobTxListFetcher(s.rpc.L1Beacon, s.blobDatasource)
 	} else {
-		txListFetcher = new(txlistFetcher.CalldataFetcher)
+		txListFetcher = txlistFetcher.NewCalldataFetch(s.rpc)
 	}
 	txListBytes, err := txListFetcher.Fetch(ctx, tx, meta)
 	if err != nil {

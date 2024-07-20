@@ -18,6 +18,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/blob"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
@@ -223,21 +224,38 @@ func (s *ProposerTestSuite) TestProposeOp() {
 		close(sink)
 	}()
 
+	sink2 := make(chan *bindings.LibProposingBlockProposed2)
+
+	sub2, err := s.p.rpc.LibProposing.WatchBlockProposed2(nil, sink2, nil)
+	s.Nil(err)
+	defer func() {
+		sub2.Unsubscribe()
+		close(sink2)
+	}()
+
 	to := common.BytesToAddress(testutils.RandomBytes(32))
 	_, err = testutils.SendDynamicFeeTx(s.p.rpc.L2, s.TestAddrPrivKey, &to, common.Big1, nil)
 	s.Nil(err)
 
 	s.Nil(s.p.ProposeOp(context.Background()))
 
-	event := <-sink
+	var (
+		meta metadata.TaikoBlockMetaData
+	)
+	select {
+	case event := <-sink:
+		meta = metadata.NewTaikoDataBlockMetadataLegacy(event)
+	case event := <-sink2:
+		meta = metadata.NewTaikoDataBlockMetadata2(event)
+	}
 
-	s.Equal(event.Meta.Coinbase, s.p.L2SuggestedFeeRecipient)
+	s.Equal(meta.GetCoinbase(), s.p.L2SuggestedFeeRecipient)
 
-	_, isPending, err := s.p.rpc.L1.TransactionByHash(context.Background(), event.Raw.TxHash)
+	_, isPending, err := s.p.rpc.L1.TransactionByHash(context.Background(), meta.GetTxHash())
 	s.Nil(err)
 	s.False(isPending)
 
-	receipt, err := s.p.rpc.L1.TransactionReceipt(context.Background(), event.Raw.TxHash)
+	receipt, err := s.p.rpc.L1.TransactionReceipt(context.Background(), meta.GetTxHash())
 	s.Nil(err)
 	s.Equal(types.ReceiptStatusSuccessful, receipt.Status)
 }

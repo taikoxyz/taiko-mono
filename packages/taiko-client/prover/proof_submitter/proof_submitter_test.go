@@ -240,20 +240,16 @@ func (s *ProofSubmitterTestSuite) TestProofSubmitterSubmitProofMetadataNotFound(
 }
 
 func (s *ProofSubmitterTestSuite) TestSubmitProofs() {
-	events := s.ProposeAndInsertEmptyBlocks(s.proposer, s.blobSyncer)
-
-	for _, e := range events {
-		s.Nil(s.submitter.RequestProof(context.Background(), metadata.NewTaikoDataBlockMetadataLegacy(e)))
+	for _, m := range s.ProposeAndInsertEmptyBlocks(s.proposer, s.blobSyncer) {
+		s.Nil(s.submitter.RequestProof(context.Background(), m))
 		proofWithHeader := <-s.proofCh
 		s.Nil(s.submitter.SubmitProof(context.Background(), proofWithHeader))
 	}
 }
 
 func (s *ProofSubmitterTestSuite) TestGuardianSubmitProofs() {
-	events := s.ProposeAndInsertEmptyBlocks(s.proposer, s.blobSyncer)
-
-	for _, e := range events {
-		s.Nil(s.submitter.RequestProof(context.Background(), metadata.NewTaikoDataBlockMetadataLegacy(e)))
+	for _, m := range s.ProposeAndInsertEmptyBlocks(s.proposer, s.blobSyncer) {
+		s.Nil(s.submitter.RequestProof(context.Background(), m))
 		proofWithHeader := <-s.proofCh
 		proofWithHeader.Tier = encoding.TierGuardianMajorityID
 		s.Nil(s.submitter.SubmitProof(context.Background(), proofWithHeader))

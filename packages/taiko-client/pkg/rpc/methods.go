@@ -41,12 +41,7 @@ func (c *Client) ensureGenesisMatched(ctx context.Context) error {
 		return err
 	}
 
-	// Fetch the genesis `BlockVerified` event.
-	iter, err := c.TaikoL1.FilterBlockVerified(
-		&bind.FilterOpts{Start: stateVars.A.GenesisHeight, End: &stateVars.A.GenesisHeight, Context: ctxWithTimeout},
-		[]*big.Int{common.Big0},
-		nil,
-	)
+	config, err := c.TaikoL1.GetConfig(&bind.CallOpts{Context: ctxWithTimeout})
 	if err != nil {
 		return err
 	}
@@ -57,24 +52,53 @@ func (c *Client) ensureGenesisMatched(ctx context.Context) error {
 		return err
 	}
 
-	if iter.Next() {
-		l2GenesisHash := iter.Event.BlockHash
+	var (
+		l2GenesisHash common.Hash
+		filterOpts    = &bind.FilterOpts{
+			Start:   stateVars.A.GenesisHeight,
+			End:     &stateVars.A.GenesisHeight,
+			Context: ctxWithTimeout,
+		}
+	)
 
-		log.Debug("Genesis hash", "node", nodeGenesis.Hash(), "TaikoL1", common.BytesToHash(l2GenesisHash[:]))
-
-		// Node's genesis header and TaikoL1 contract's genesis header must match.
-		if common.BytesToHash(l2GenesisHash[:]) != nodeGenesis.Hash() {
-			return fmt.Errorf(
-				"genesis header hash mismatch, node: %s, TaikoL1 contract: %s",
-				nodeGenesis.Hash(),
-				common.BytesToHash(l2GenesisHash[:]),
-			)
+	// If chain actives ontake fork from genesis, we need to fetch the genesis block hash from `BlockVerified2` event.
+	if config.OntakeForkHeight == 0 {
+		// Fetch the genesis `BlockVerified2` event.
+		iter, err := c.TaikoL1.FilterBlockVerified2(filterOpts, []*big.Int{common.Big0}, nil)
+		if err != nil {
+			return err
 		}
 
+		if iter.Next() {
+			l2GenesisHash = iter.Event.BlockHash
+		}
+	} else {
+		// Fetch the genesis `BlockVerified` event.
+		iter, err := c.TaikoL1.FilterBlockVerified(filterOpts, []*big.Int{common.Big0}, nil)
+		if err != nil {
+			return err
+		}
+
+		if iter.Next() {
+			l2GenesisHash = iter.Event.BlockHash
+		}
+	}
+
+	log.Debug("Genesis hash", "node", nodeGenesis.Hash(), "TaikoL1", common.BytesToHash(l2GenesisHash[:]))
+
+	if l2GenesisHash == (common.Hash{}) {
+		log.Warn("Genesis block not found in TaikoL1")
 		return nil
 	}
 
-	log.Warn("Genesis block not found in TaikoL1")
+	// Node's genesis header and TaikoL1 contract's genesis header must match.
+	if common.BytesToHash(l2GenesisHash[:]) != nodeGenesis.Hash() {
+		return fmt.Errorf(
+			"genesis header hash mismatch, node: %s, TaikoL1 contract: %s",
+			nodeGenesis.Hash(),
+			common.BytesToHash(l2GenesisHash[:]),
+		)
+	}
 
 	return nil
 }

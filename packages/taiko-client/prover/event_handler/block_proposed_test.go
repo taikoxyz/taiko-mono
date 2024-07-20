@@ -27,7 +27,5 @@ func (s *EventHandlerTestSuite) TestBlockProposedHandle() {
 		ProveUnassignedBlocks: true,
 	}
 	handler := NewBlockProposedEventHandler(opts)
-	e := s.ProposeAndInsertValidBlock(s.proposer, s.blobSyncer)
-	err := handler.Handle(context.Background(), metadata.NewTaikoDataBlockMetadataLegacy(e), func() {})
-	s.Nil(err)
+	s.Nil(handler.Handle(context.Background(), s.ProposeAndInsertValidBlock(s.proposer, s.blobSyncer), func() {}))
 }

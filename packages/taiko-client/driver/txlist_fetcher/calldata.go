@@ -19,6 +19,11 @@ type CalldataFetcher struct {
 	rpc *rpc.Client
 }
 
+// NewCalldataFetch creates a new CalldataFetcher instance based on the given rpc client.
+func NewCalldataFetch(rpc *rpc.Client) *CalldataFetcher {
+	return &CalldataFetcher{rpc: rpc}
+}
+
 // Fetch fetches the txList bytes from the transaction's calldata.
 func (d *CalldataFetcher) Fetch(
 	ctx context.Context,
