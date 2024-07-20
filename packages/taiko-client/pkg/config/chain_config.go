@@ -49,7 +49,7 @@ func (c *ChainConfig) Description() string {
 	banner += fmt.Sprintf("Chain ID:  %v (%s)\n", c.ChainID, network)
 
 	// Create a list of forks with a short description of them.
-	banner += "Pre-Merge hard forks (block based):\n"
+	banner += "Hard forks (block based):\n"
 	banner += fmt.Sprintf(" - Ontake:                   #%-8v\n", c.OnTakeBlock)
 	banner += "\n"
 
