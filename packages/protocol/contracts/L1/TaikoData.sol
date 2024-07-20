@@ -39,7 +39,6 @@ library TaikoData {
         // ---------------------------------------------------------------------
         // Group 5: Others
         // ---------------------------------------------------------------------
-        // The number of L2 blocks between each L2-to-L1 state root sync.
         uint64 ontakeForkHeight;
     }
 

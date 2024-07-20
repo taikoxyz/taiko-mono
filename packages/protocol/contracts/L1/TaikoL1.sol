@@ -274,7 +274,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
             livenessBond: 125e18, // 125 Taiko token
             stateRootSyncInternal: 16,
             maxAnchorHeightOffset: 64,
-            ontakeForkHeight: 367_200 // = 7200 * 52
+            ontakeForkHeight: 374_400 // = 7200 * 52
          });
     }
 
