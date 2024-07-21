@@ -45,6 +45,7 @@ library TaikoData {
         // ---------------------------------------------------------------------
         // Group 6: Others
         // ---------------------------------------------------------------------
+        uint8 basefeeSharingPctg;
         uint64 ontakeForkHeight;
     }
 
@@ -79,7 +80,6 @@ library TaikoData {
         uint32 blobTxListOffset; // NEW
         uint32 blobTxListLength; // NEW
         uint8 blobIndex; // NEW
-        uint8 basefeeSharingPctg; // NEW
     }
 
     /// @dev Struct containing data only required for proving a block
