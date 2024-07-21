@@ -29,7 +29,7 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
     error BTOKEN_INVALID_SIG();
 
     /// @inheritdoc IBridgedERC20Initializable
-    /// @dev Calling this funciton will change the initliazed version to 2.
+    /// @dev Calling this function will change the initialized version to 2.
     function init(
         address _owner,
         address _sharedAddressManager,
