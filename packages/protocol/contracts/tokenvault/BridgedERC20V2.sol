@@ -41,7 +41,7 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
         external
         virtual
         override
-        initializer
+        reinitializer(2)
     {
         // Check if provided parameters are valid
         LibBridgedToken.validateInputs(_srcToken, _srcChainId);
@@ -55,10 +55,14 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
         __srcDecimals = _decimals;
     }
 
+    function init2() external reinitializer(2) {
+        __EIP712_init_unchained(name(), "1");
+    }
     /**
      * @inheritdoc IERC20PermitUpgradeable
      */
     // solhint-disable-next-line func-name-mixedcase
+
     function DOMAIN_SEPARATOR() external view override returns (bytes32) {
         return _domainSeparatorV4();
     }
