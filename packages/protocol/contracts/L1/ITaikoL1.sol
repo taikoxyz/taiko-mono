@@ -7,7 +7,6 @@ import "./TaikoData.sol";
 /// @custom:security-contact security@taiko.xyz
 interface ITaikoL1 {
     /// @notice Proposes a Taiko L2 block.
-    /// @dev This function will deprecate after the Ontake fork.
     /// @param _params Block parameters, currently an encoded BlockParams object.
     /// @param _txList txList data if calldata is used for DA.
     /// @return meta_ The metadata of the proposed L2 block.

@@ -104,7 +104,6 @@ contract TaikoL2 is EssentialContract {
 
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
     /// message verification.
-    /// @dev This function will deprecate after the Ontake fork.
     /// @dev This function can be called freely as the golden touch private key is publicly known,
     /// but the Taiko node guarantees the first transaction of each block is always this anchor
     /// transaction, and any subsequent calls will revert with L2_PUBLIC_INPUT_HASH_MISMATCH.
@@ -177,7 +176,6 @@ contract TaikoL2 is EssentialContract {
 
     /// @notice Gets the basefee and gas excess using EIP-1559 configuration for
     /// the given parameters.
-    /// @dev This function will deprecate after the Ontake fork.
     /// @param _l1BlockId The synced L1 height in the next Taiko block
     /// @param _parentGasUsed Gas used in the parent block.
     /// @return basefee_ The calculated EIP-1559 base fee per gas.
@@ -224,7 +222,6 @@ contract TaikoL2 is EssentialContract {
     }
 
     /// @notice Returns EIP1559 related configurations.
-    /// @dev This function will deprecate after the Ontake fork.
     /// @return config_ struct containing configuration parameters.
     function getConfig() public view virtual returns (LibL2Config.Config memory) {
         return LibL2Config.get();

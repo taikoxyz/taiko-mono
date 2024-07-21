@@ -84,7 +84,6 @@ contract ProverSet is EssentialContract, IERC1271 {
     }
 
     /// @notice Propose a Taiko block.
-    /// @dev This function will deprecate after the Ontake fork.
     function proposeBlock(
         bytes calldata _params,
         bytes calldata _txList
