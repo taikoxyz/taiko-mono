@@ -117,10 +117,10 @@
 
 #### delegate_owner
 
-- proxy: `0x904aa0aC002532f1410457484893107757683F53`
-- impl: `0x9F0C40A474E0FB6b27D71c43Aff840B9c42f0C44`
-- admin: `0x8F13E3a9dFf52e282884aA70eAe93F57DD601298`
-- remoteOwner: `0x8F13E3a9dFf52e282884aA70eAe93F57DD601298`
+- proxy: `0x5995941Df88F30Ac140515AA39832db963E2f863`
+- impl: `0x1f0511cDae2fbfD93563469dA02b82dEd320C8Bd`
+- admin: `0x3c181965C5cFAE61a9010A283e5e0C1445649810` // owned by Daniel W
+- remoteOwner: `0x3c181965C5cFAE61a9010A283e5e0C1445649810` // owned by Daniel W
 - todo:
   - test various use cases
   - transfer remote owner to `admin.taiko.eth`
