@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.11.7](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.11.6...docs-site-v1.11.7) (2024-07-20)
+
+
+### Documentation
+
+* **repo, docs-site:** add release info links ([#17819](https://github.com/taikoxyz/taiko-mono/issues/17819)) ([c268467](https://github.com/taikoxyz/taiko-mono/commit/c268467b5af165855bdc909ac245e14aa92f1e17))
+
+## [1.11.6](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.11.5...docs-site-v1.11.6) (2024-07-19)
+
+
+### Documentation
+
+* **docs-site:** address docs and scripts friction points ([#17815](https://github.com/taikoxyz/taiko-mono/issues/17815)) ([c74968b](https://github.com/taikoxyz/taiko-mono/commit/c74968b61828babf218fbc8e8ded001a853a93c3))
+* **docs-site:** update deploy-a-proverset.mdx ([#17813](https://github.com/taikoxyz/taiko-mono/issues/17813)) ([dd09223](https://github.com/taikoxyz/taiko-mono/commit/dd09223de53669b84241672eeb4b8574e5c7f821))
+
 ## [1.11.5](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.11.4...docs-site-v1.11.5) (2024-07-17)
 
 

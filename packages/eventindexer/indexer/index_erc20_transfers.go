@@ -157,10 +157,6 @@ func (i *Indexer) saveERC20Transfer(ctx context.Context, chainID *big.Int, vLog 
 		if err != nil {
 			return errors.Wrap(err, "i.erc20BalanceRepo.CreateMetadata")
 		}
-
-		slog.Info("metadata created", "pk", pk, "symbol", symbol, "decimals", decimals, "contractAddress", vLog.Address.Hex())
-	} else {
-		slog.Info("metadata found", "pk", pk, "symbol", md.Symbol, "decimals", md.Decimals, "contractAddress", vLog.Address.Hex())
 	}
 
 	// increment To address's balance

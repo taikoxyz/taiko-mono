@@ -2,10 +2,12 @@ package repo
 
 import (
 	"context"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
+	"golang.org/x/exp/slog"
 
 	"github.com/morkid/paginate"
 	"github.com/pkg/errors"
@@ -137,6 +139,8 @@ func (r *NFTBalanceRepository) IncreaseAndDecreaseBalancesInTx(
 		}
 
 		if strings.Contains(err.Error(), "Deadlock") {
+			slog.Warn("database deadlock")
+
 			retries--
 
 			time.Sleep(100 * time.Millisecond) // backoff before retrying

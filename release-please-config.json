@@ -18,7 +18,9 @@
   "packages": {
     "packages/branding": {},
     "packages/bridge-ui": {},
-    "packages/docs-site": {},
+    "packages/docs-site": {
+      "prerelease": true
+    },
     "packages/eventindexer": {},
     "packages/fork-diff": {},
     "packages/guardian-prover-health-check": {},
@@ -27,7 +29,9 @@
     "packages/relayer": {},
     "packages/nfts": {},
     "packages/taikoon-ui": {},
-    "packages/taiko-client": {},
+    "packages/taiko-client": {
+      "prerelease": true
+    },
     "packages/supplementary-contracts": {},
     "packages/ui-lib": {},
     "packages/snaefell-ui": {}
