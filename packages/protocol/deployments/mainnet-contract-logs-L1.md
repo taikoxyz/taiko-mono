@@ -36,6 +36,8 @@
   - `Init2()` called @tx`0x7311fee56f87294e336393b55939489bc1e810c402f304013475d04c90ca32a9`
   - Upgraded from `0xF1cA1F1A068468E1dcF90dA6add185467de80943` to `0x9496502d7D121B3D5eF25cA6c58d4f7593398a17` @commit`e79a367ad` @tx`0xe1ef58455de0b0331228e487d54720290ed8a73f709d2146bd43330d4a360bd3`
   - Upgraded from `0x9496502d7D121B3D5eF25cA6c58d4f7593398a17` to `0x2f7126f78365AD54EAB26fD7faEc60435008E2fD` @commit`bb2abc5` @tx`0x7d584f0a645cad61e634f64ffaf7e1bbfb92749878eb25b39ce0e5cf698897c7`
+- todos:
+  - deploy and register BridgedERC20V2
 
 #### taiko_token
 
@@ -148,6 +150,8 @@
 - impl: `0x79BC0Aada00fcF6E7AB514Bfeb093b5Fae3653e3`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
+- todos:
+  - deploy and register BridgedERC20V2
 
 #### bridged_erc721
 

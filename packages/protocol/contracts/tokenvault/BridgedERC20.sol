@@ -68,6 +68,7 @@ contract BridgedERC20 is
         string calldata _name
     )
         external
+        virtual
         initializer
     {
         // Check if provided parameters are valid
@@ -149,7 +150,7 @@ contract BridgedERC20 is
         return migratingAddress != address(0) && !migratingInbound;
     }
 
-    function supportsInterface(bytes4 _interfaceId) public pure returns (bool) {
+    function supportsInterface(bytes4 _interfaceId) public pure virtual returns (bool) {
         return _interfaceId == type(IBridgedERC20).interfaceId
             || _interfaceId == type(IBridgedERC20Initializable).interfaceId
             || _interfaceId == type(IBridgedERC20Migratable).interfaceId
