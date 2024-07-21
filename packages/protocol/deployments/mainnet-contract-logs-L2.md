@@ -29,6 +29,7 @@
   - quota_manager: `0x0000000000000000000000000000000000000000`
   - bridge_watchdog: `0x0000000000000000000000000000000000000000`
 - todo:
+  - deploy and register BridgedERC20V2
   - change owner to DelegateOwner
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
