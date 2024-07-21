@@ -18,8 +18,6 @@ contracts=(
     "BridgedERC20V2"
     "BridgedERC721"
     "BridgedERC1155"
-    "AssignmentHook"
-    "ERC20Airdrop"
     "AutomataDcapV3Attestation"
     "SgxVerifier"
     "RiscZeroVerifier"
