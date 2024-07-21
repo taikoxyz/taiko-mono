@@ -15,6 +15,7 @@ contracts=(
     "ERC721Vault"
     "ERC1155Vault"
     "BridgedERC20"
+    "BridgedERC20V2"
     "BridgedERC721"
     "BridgedERC1155"
     "AssignmentHook"
