@@ -11,6 +11,7 @@ library LibData {
     bytes32 internal constant EMPTY_ETH_DEPOSIT_HASH =
         0x569e75fc77c1a856f6daaf9e69d8a9566ca34aa47f9133711ce065a571af0cfd;
 
+    /// @dev This function will deprecate after the Ontake fork.
     function blockParamsV1ToV2(TaikoData.BlockParams memory _v1)
         internal
         pure
@@ -29,6 +30,7 @@ library LibData {
         });
     }
 
+    /// @dev This function will deprecate after the Ontake fork.
     function blockMetadataV2toV1(TaikoData.BlockMetadataV2 memory _v2)
         internal
         pure
@@ -52,6 +54,7 @@ library LibData {
         });
     }
 
+    /// @dev This function will deprecate after the Ontake fork.
     function metadataV1toV2(
         TaikoData.BlockMetadata memory _v1,
         uint96 _livenessBond
@@ -80,6 +83,8 @@ library LibData {
             blobTxListOffset: 0,
             blobTxListLength: 0,
             blobIndex: 0,
+            gasTargetPerL1Block: 0,
+            basefeeAdjustmentQuotient: 0,
             basefeeSharingPctg: 0
         });
     }

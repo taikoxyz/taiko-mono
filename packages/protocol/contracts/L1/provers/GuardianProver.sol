@@ -173,6 +173,7 @@ contract GuardianProver is IVerifier, EssentialContract {
     }
 
     /// @dev Called by guardians to approve a guardian proof
+    /// @dev This function will deprecate after the Ontake fork.
     /// @param _meta The block's metadata.
     /// @param _tran The valid transition.
     /// @param _proof The tier proof.

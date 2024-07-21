@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 /// @title LibL2Config
+/// @dev This file will deprecate after the Ontake fork
 library LibL2Config {
     struct Config {
         uint32 gasTargetPerL1Block;

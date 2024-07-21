@@ -182,6 +182,8 @@ library LibProposing {
                 blobTxListOffset: params.blobTxListOffset,
                 blobTxListLength: params.blobTxListLength,
                 blobIndex: params.blobIndex,
+                gasTargetPerL1Block: _config.gasTargetPerL1Block,
+                basefeeAdjustmentQuotient: _config.basefeeAdjustmentQuotient,
                 basefeeSharingPctg: params.basefeeSharingPctg
             });
         }
