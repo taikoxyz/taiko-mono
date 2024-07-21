@@ -3,7 +3,7 @@
 ## Introduction
 
 This document provides a comprehensive overview of the actors involved in the smart contract system and outlines their respective privileges and roles.
-Different `roles` (we call them `domain`) are granted via `AddressManager` contract's `setAddress()` function. Idea is very similar Optimism's `AddressManager` except that we use the `chainId + domainName` as the key for a given address. We need so, because for bridging purposes, the destination chain's bridge address needs to be included signaling the message hash is tamper-proof.
+Different `roles` (we call them `domain`) are granted via `AddressManager` contract's `setAddress()` function. Idea is very similar Optimism's `AddressManager` except that we use the `chainId + domainName` as the key for a given address. We need to, because for bridging purposes, the destination chain's bridge address needs to be included signaling the message hash is tamper-proof.
 Every contract which needs some role-based authentication, needs to inherit from `AddressResolver` contract, which will serve as a 'middleman/lookup' by querying the `AddressManager` per given address is allowed to act on behalf of that domain or not.
 
 ## 1. Domains (≈role per chainId)
