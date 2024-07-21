@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/taikoxyz/taiko-mono/compare/branding-v0.4.0...branding-v0.5.0) (2024-07-21)
+
+
+### Features
+
+* **branding:** add `taiko-icon-wht-200x200.png` to branding ([#17357](https://github.com/taikoxyz/taiko-mono/issues/17357)) ([d7fc36f](https://github.com/taikoxyz/taiko-mono/commit/d7fc36fedc851f6875f16180e479e67ad97dc043))
+
 ## [0.4.0](https://github.com/taikoxyz/taiko-mono/compare/branding-v0.3.0...branding-v0.4.0) (2024-05-13)
 
 
