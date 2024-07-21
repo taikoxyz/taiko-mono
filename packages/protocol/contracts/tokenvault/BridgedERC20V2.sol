@@ -29,6 +29,7 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
     error BTOKEN_INVALID_SIG();
 
     /// @inheritdoc IBridgedERC20Initializable
+    /// @dev Calling this funciton will change the initliazed version to 2.
     function init(
         address _owner,
         address _sharedAddressManager,
@@ -55,6 +56,8 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
         __srcDecimals = _decimals;
     }
 
+    /// @dev This function shall be called when upgrading a deployed contract from {BridgedERC20} to
+    /// {BridgedERC20V2}.
     function init2() external reinitializer(2) {
         __EIP712_init_unchained(name(), "1");
     }
