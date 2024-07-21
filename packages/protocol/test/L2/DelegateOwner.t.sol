@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "../common/TestMulticall3.sol";
+import "../thirdparty/muticall3/Multicall3.sol";
 import "../TaikoTest.sol";
 
 contract Target is EssentialContract {
@@ -17,7 +17,7 @@ contract TestDelegateOwner is TaikoTest {
     SignalService public signalService;
     AddressManager public addressManager;
     DelegateOwner public delegateOwner;
-    TestMulticall3 public multicall;
+    Multicall3 public multicall;
 
     uint64 remoteChainId = uint64(block.chainid + 1);
     address remoteBridge = vm.addr(0x2000);
@@ -30,7 +30,7 @@ contract TestDelegateOwner is TaikoTest {
 
         vm.startPrank(owner);
 
-        multicall = new TestMulticall3();
+        multicall = new Multicall3();
 
         addressManager = AddressManager(
             deployProxy({
@@ -169,7 +169,7 @@ contract TestDelegateOwner is TaikoTest {
             })
         );
 
-        TestMulticall3.Call3[] memory calls = new TestMulticall3.Call3[](4);
+        Multicall3.Call3[] memory calls = new Multicall3.Call3[](4);
         calls[0].target = address(target1);
         calls[0].allowFailure = false;
         calls[0].callData = abi.encodeCall(EssentialContract.pause, ());
@@ -191,7 +191,7 @@ contract TestDelegateOwner is TaikoTest {
                 uint64(0),
                 address(multicall),
                 true, // DELEGATECALL
-                abi.encodeCall(TestMulticall3.aggregate3, (calls))
+                abi.encodeCall(Multicall3.aggregate3, (calls))
             )
         );
 
