@@ -38,7 +38,7 @@ library LibProposing {
     /// @notice Emitted when a block is proposed.
     /// @param blockId The ID of the proposed block.
     /// @param meta The metadata of the proposed block.
-    event BlockProposed2(uint256 indexed blockId, TaikoData.BlockMetadataV2 meta);
+    event BlockProposedV2(uint256 indexed blockId, TaikoData.BlockMetadataV2 meta);
 
     /// @notice Emitted when a block's txList is in the calldata.
     /// @param blockId The ID of the proposed block.
@@ -99,7 +99,7 @@ library LibProposing {
                 // otherwise use a default BlockParamsV2 with 0 values
             }
         } else {
-            params = LibData.paramV1toV2(abi.decode(_data, (TaikoData.BlockParams)));
+            params = LibData.blockParamsV1ToV2(abi.decode(_data, (TaikoData.BlockParams)));
         }
 
         if (params.coinbase == address(0)) {
@@ -242,13 +242,13 @@ library LibProposing {
         deposits_ = new TaikoData.EthDeposit[](0);
 
         if (local.postFork) {
-            emit BlockProposed2(meta_.id, meta_);
+            emit BlockProposedV2(meta_.id, meta_);
         } else {
             emit BlockProposed({
                 blockId: meta_.id,
                 assignedProver: msg.sender,
                 livenessBond: _config.livenessBond,
-                meta: LibData.metadataV2toV1(meta_),
+                meta: LibData.blockMetadataV2toV1(meta_),
                 depositsProcessed: deposits_
             });
         }

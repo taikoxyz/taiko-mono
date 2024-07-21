@@ -129,7 +129,7 @@ library LibVerifying {
                 // provers and contesters of those transitions forfeit their bonds.
 
                 if (local.postFork) {
-                    emit LibUtils.BlockVerified2({
+                    emit LibUtils.BlockVerifiedV2({
                         blockId: local.blockId,
                         prover: local.prover,
                         blockHash: local.blockHash,

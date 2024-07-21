@@ -35,7 +35,7 @@ abstract contract TaikoEvents {
     /// @notice Emitted when a block is proposed.
     /// @param blockId The ID of the proposed block.
     /// @param meta The metadata of the proposed block.
-    event BlockProposed2(uint256 indexed blockId, TaikoData.BlockMetadataV2 meta);
+    event BlockProposedV2(uint256 indexed blockId, TaikoData.BlockMetadataV2 meta);
 
     /// @notice Emitted when a block's txList is in the calldata.
     /// @param blockId The ID of the proposed block.
@@ -63,7 +63,7 @@ abstract contract TaikoEvents {
     /// @param validityBond The validity bond amount.
     /// @param tier The tier of the proof.
     /// @param proposedIn The L1 block in which a transition is proved.
-    event TransitionProved2(
+    event TransitionProvedV2(
         uint256 indexed blockId,
         TaikoData.Transition tran,
         address prover,
@@ -93,7 +93,7 @@ abstract contract TaikoEvents {
     /// @param contestBond The contest bond amount.
     /// @param tier The tier of the proof.
     /// @param proposedIn The L1 block in which this L2 block is proposed.
-    event TransitionContested2(
+    event TransitionContestedV2(
         uint256 indexed blockId,
         TaikoData.Transition tran,
         address contester,
@@ -127,7 +127,7 @@ abstract contract TaikoEvents {
     /// block.
     /// @param blockHash The hash of the verified block.
     /// @param tier The tier ID of the proof.
-    event BlockVerified2(
+    event BlockVerifiedV2(
         uint256 indexed blockId, address indexed prover, bytes32 blockHash, uint16 tier
     );
 
