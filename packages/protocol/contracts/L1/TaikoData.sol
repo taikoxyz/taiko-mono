@@ -37,9 +37,8 @@ library TaikoData {
         uint8 stateRootSyncInternal;
         uint64 maxAnchorHeightOffset;
         // ---------------------------------------------------------------------
-        // Group 5: L2 configs
+        // Group 5: Previous configs in TaikoL2
         // ---------------------------------------------------------------------
-        uint32 gasTargetPerBlock;
         uint8 basefeeAdjustmentQuotient;
         uint8 basefeeSharingPctg;
         // ---------------------------------------------------------------------
@@ -124,8 +123,6 @@ library TaikoData {
         uint32 blobTxListOffset;
         uint32 blobTxListLength;
         uint8 blobIndex;
-        // The percentage of base fee sent to block.coinbase on L2.
-        uint32 gasTargetPerBlock;
         uint8 basefeeAdjustmentQuotient;
         uint8 basefeeSharingPctg;
     }

@@ -121,14 +121,13 @@ contract TaikoL2 is EssentialContract {
         nonReentrant
     {
         if (block.number >= ONTAKE_FORK_HEIGHT) revert L2_FORK_ERROR();
-        LibL2Config.Config memory config = getConfig();
         _anchor(
             _l1BlockHash,
             _l1StateRoot,
             _l1BlockId,
             _parentGasUsed,
-            config.gasTargetPerL1Block,
-            config.basefeeAdjustmentQuotient
+            0, // not used
+            0 // not used
         );
     }
 
@@ -137,7 +136,7 @@ contract TaikoL2 is EssentialContract {
         bytes32 _l1StateRoot,
         uint64 _l1BlockId,
         uint32 _parentGasUsed,
-        uint32 _gasTargetPerBlock,
+        uint32 _blockGasLimit,
         uint8 _basefeeAdjustmentQuotient
     )
         external
@@ -149,7 +148,7 @@ contract TaikoL2 is EssentialContract {
             _l1StateRoot,
             _l1BlockId,
             _parentGasUsed,
-            _gasTargetPerBlock,
+            _blockGasLimit,
             _basefeeAdjustmentQuotient
         );
     }
@@ -226,14 +225,14 @@ contract TaikoL2 is EssentialContract {
 
     /// @notice Calculates the basefee and the new gas excess value based on parent gas used and gas
     /// excess.
-    /// @param _gasTargetPerBlock The amount of gas to be issued per L2 block.
+    /// @param _blockGasLimit The L2 block's gas limit.
     /// @param _adjustmentQuotient The gas adjustment quotient.
     /// @param _gasExcess The current gas excess value.
     /// @param _parentGasUsed Total gas used by the parent block.
     /// @return basefee_ Next block's base fee.
     /// @return gasExcess_ The new gas excess value.
     function calculateBaseFee(
-        uint32 _gasTargetPerBlock,
+        uint32 _blockGasLimit,
         uint8 _adjustmentQuotient,
         uint64 _gasExcess,
         uint32 _parentGasUsed
@@ -243,7 +242,7 @@ contract TaikoL2 is EssentialContract {
         returns (uint256 basefee_, uint64 gasExcess_)
     {
         return Lib1559Math.calc1559BaseFee(
-            _gasTargetPerBlock, _adjustmentQuotient, _gasExcess, _gasTargetPerBlock, _parentGasUsed
+            _blockGasLimit / 2, _adjustmentQuotient, _gasExcess, _blockGasLimit / 2, _parentGasUsed
         );
     }
 
@@ -252,8 +251,8 @@ contract TaikoL2 is EssentialContract {
         bytes32 _l1StateRoot,
         uint64 _l1BlockId,
         uint32 _parentGasUsed,
-        uint32 _gasTargetPerBlock,
-        uint8 _basefeeAdjustmentQuotient
+        uint32 _blockGasLimit, // only used by ontake
+        uint8 _basefeeAdjustmentQuotient // only used by ontake
     )
         private
     {
@@ -281,7 +280,7 @@ contract TaikoL2 is EssentialContract {
         (uint256 _basefee, uint64 _gasExcess) = block.number < ONTAKE_FORK_HEIGHT
             ? getBasefee(_l1BlockId, _parentGasUsed)
             : calculateBaseFee(
-                _gasTargetPerBlock, _basefeeAdjustmentQuotient, gasExcess, _parentGasUsed
+                _blockGasLimit / 2, _basefeeAdjustmentQuotient, gasExcess, _parentGasUsed
             );
 
         if (!skipFeeCheck() && block.basefee != _basefee) {
