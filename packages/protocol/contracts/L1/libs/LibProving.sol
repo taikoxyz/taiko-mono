@@ -192,7 +192,7 @@ library LibProving {
         if (meta.livenessBond == 0) {
             meta.livenessBond = blk.livenessBond;
         }
-        local.livenessBond = meta.livenessBond;
+        local.livenessBond = blk.livenessBondReturned ? 0 : meta.livenessBond;
         local.metaHash = blk.metaHash;
 
         // Check the integrity of the block data. It's worth noting that in
@@ -392,7 +392,7 @@ library LibProving {
         Local memory _local
     )
         private
-        returns (uint32 tid_, TaikoData.TransitionState memory ts_)
+        returns (uint24 tid_, TaikoData.TransitionState memory ts_)
     {
         tid_ = LibUtils.getTransitionId(_state, _blk, _local.slot, _tran.parentHash);
 
@@ -503,6 +503,7 @@ library LibProving {
                 // After the first proof, the block's liveness bond will always be reset to 0.
                 // This means liveness bond will be handled only once for any given block.
                 _blk.livenessBond = 0;
+                _blk.livenessBondReturned = true;
 
                 if (_returnLivenessBond(_local, _proof.data)) {
                     if (_local.assignedProver == msg.sender) {
