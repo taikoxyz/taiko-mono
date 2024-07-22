@@ -161,7 +161,7 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, event *bindings.Taiko
 			)
 			if err != nil {
 				// If request proof has timed out in retry, let's cancel the proof generating and skip
-				if errors.Is(err, proofProducer.ErrProofInProgress) && time.Now().Sub(startTime) >= ProofTimeout {
+				if errors.Is(err, proofProducer.ErrProofInProgress) && time.Since(startTime) >= ProofTimeout {
 					log.Error("Request proof has timed out, start to cancel", "blockID", opts.BlockID)
 					_ = s.proofProducer.RequestCancel(ctx, opts)
 					return nil
