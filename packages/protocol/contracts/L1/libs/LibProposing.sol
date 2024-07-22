@@ -179,6 +179,7 @@ library LibProposing {
                 blobTxListOffset: params.blobTxListOffset,
                 blobTxListLength: params.blobTxListLength,
                 blobIndex: params.blobIndex,
+                basefeeAdjustmentQuotient: _config.basefeeAdjustmentQuotient,
                 basefeeSharingPctg: _config.basefeeSharingPctg
             });
         }
