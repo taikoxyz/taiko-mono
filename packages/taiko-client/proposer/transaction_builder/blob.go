@@ -106,7 +106,7 @@ func (b *BlobTransactionBuilder) Build(
 			return nil, err
 		}
 
-		b.afterOntake = b.chainConfig.IsOntake(new(big.Int).SetUint64(blockNum))
+		b.afterOntake = b.chainConfig.IsOntake(new(big.Int).SetUint64(blockNum + 1))
 	}
 
 	if !b.afterOntake {
