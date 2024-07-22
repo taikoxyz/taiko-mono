@@ -191,6 +191,7 @@ library LibProposing {
             proposedIn: params.anchorBlockId,
             // For a new block, the next transition ID is always 1, not 0.
             nextTransitionId: 1,
+            livenessBondReturned: false,
             // For unverified block, its verifiedTransitionId is always 0.
             verifiedTransitionId: 0
         });

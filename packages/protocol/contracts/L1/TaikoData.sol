@@ -125,11 +125,12 @@ library TaikoData {
         uint64 proposedAt;
         // Ignore the name, `proposedIn` now represents `arams.anchorBlockId`.
         uint64 proposedIn;
-        uint32 nextTransitionId;
+        uint24 nextTransitionId;
+        bool livenessBondReturned;
         // The ID of the transaction that is used to verify this block. However, if
         // this block is not verified as the last block in a batch, verifiedTransitionId
         // will remain zero.
-        uint32 verifiedTransitionId;
+        uint24 verifiedTransitionId;
     }
 
     /// @dev Forge is only able to run coverage in case the contracts by default
@@ -159,7 +160,7 @@ library TaikoData {
         // Ring buffer for proposed blocks and a some recent verified blocks.
         mapping(uint64 blockId_mod_blockRingBufferSize => Block blk) blocks;
         // Indexing to transition ids (ring buffer not possible)
-        mapping(uint64 blockId => mapping(bytes32 parentHash => uint32 transitionId)) transitionIds;
+        mapping(uint64 blockId => mapping(bytes32 parentHash => uint24 transitionId)) transitionIds;
         // Ring buffer for transitions
         mapping(
             uint64 blockId_mod_blockRingBufferSize
