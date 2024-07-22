@@ -68,7 +68,8 @@ type RaikoRequestProofBodyResponse struct {
 }
 
 type RaikoProofData struct {
-	Proof string `json:"proof"` //nolint:revive,stylecheck
+	Proof  string `json:"proof"` //nolint:revive,stylecheck
+	Status string `json:"status"`
 }
 
 // RequestProof implements the ProofProducer interface.
@@ -106,6 +107,13 @@ func (s *SGXProofProducer) RequestProof(
 		Opts:    opts,
 		Tier:    s.Tier(),
 	}, nil
+}
+
+func (s *SGXProofProducer) RequestCancel(
+	_ context.Context,
+	_ *ProofRequestOptions,
+) error {
+	return nil
 }
 
 // callProverDaemon keeps polling the proverd service to get the requested proof.

@@ -27,6 +27,7 @@ var (
 	_                              Submitter = (*ProofSubmitter)(nil)
 	submissionDelayRandomBumpRange float64   = 20
 	proofPollingInterval                     = 10 * time.Second
+	ProofTimeout                             = 1 * time.Second
 )
 
 // ProofSubmitter is responsible requesting proofs for the given L2
@@ -127,6 +128,8 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, event *bindings.Taiko
 		opts.ProverAddress = s.proverSetAddress
 	}
 
+	startTime := time.Now()
+
 	// Send the generated proof.
 	if err := backoff.Retry(
 		func() error {
@@ -157,6 +160,12 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, event *bindings.Taiko
 				header,
 			)
 			if err != nil {
+				// If request proof has timed out in retry, let's cancel the proof generating and skip
+				if errors.Is(err, proofProducer.ErrProofInProgress) && time.Now().Sub(startTime) >= ProofTimeout {
+					log.Error("Request proof has timed out, start to cancel", "blockID", opts.BlockID)
+					_ = s.proofProducer.RequestCancel(ctx, opts)
+					return nil
+				}
 				return fmt.Errorf("failed to request proof (id: %d): %w", event.BlockId, err)
 			}
 			s.resultCh <- result

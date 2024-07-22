@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
@@ -24,8 +25,9 @@ import (
 const (
 	ZKProofTypeR0  = "risc0"
 	ZKProofTypeSP1 = "sp1"
-	ZKTimeout      = 90 * time.Minute
 )
+
+var ErrProofInProgress = errors.New("work_in_progress")
 
 // SgxAndZKvmProofProducer generates a ZK proof for the given block.
 type SgxAndZKvmProofProducer struct {
@@ -70,6 +72,13 @@ func (s *SgxAndZKvmProofProducer) RequestProof(
 	}, nil
 }
 
+func (s *SgxAndZKvmProofProducer) RequestCancel(
+	ctx context.Context,
+	opts *ProofRequestOptions,
+) error {
+	return s.requestCancel(ctx, opts)
+}
+
 // callProverDaemon keeps polling the proverd service to get the requested proof.
 func (s *SgxAndZKvmProofProducer) callProverDaemon(ctx context.Context, opts *ProofRequestOptions) ([]byte, error) {
 	var (
@@ -77,32 +86,22 @@ func (s *SgxAndZKvmProofProducer) callProverDaemon(ctx context.Context, opts *Pr
 		start = time.Now()
 	)
 
-	zkCtx, zkCancel := rpc.CtxWithTimeoutOrDefault(ctx, ZKTimeout)
+	zkCtx, zkCancel := rpc.CtxWithTimeoutOrDefault(ctx, s.SGX.RaikoRequestTimeout)
 	defer zkCancel()
 
 	output, err := s.requestProof(zkCtx, opts)
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			ctx, cancel := rpc.CtxWithTimeoutOrDefault(ctx, s.SGX.RaikoRequestTimeout)
-			defer cancel()
-			_ = s.requestCancel(ctx, opts)
-		}
 		log.Error("Failed to request proof", "height", opts.BlockID, "error", err, "endpoint", s.SGX.RaikoHostEndpoint)
 		return nil, err
 	}
 
-	if output == nil {
-		log.Info(
-			"Proof generating",
-			"height", opts.BlockID,
-			"time", time.Since(start),
-			"producer", "SgxAndZKvmProofProducer",
-		)
-		return nil, errProofGenerating
+	if output.Data.Status == ErrProofInProgress.Error() {
+		return nil, ErrProofInProgress
 	}
 
 	log.Debug("Proof generation output", "output", output)
 
+	proof = common.Hex2Bytes(output.Data.Proof[2:])
 	log.Info(
 		"Proof generated",
 		"height", opts.BlockID,
@@ -124,9 +123,10 @@ func (s *SgxAndZKvmProofProducer) requestProof(
 		Prover:   opts.ProverAddress.Hex()[2:],
 		Graffiti: opts.Graffiti,
 		RISC0: &RISC0RequestProofBodyParam{
-			Bonsai:  false,
-			Snark:   false,
-			Profile: false,
+			Bonsai:       false,
+			Snark:        false,
+			Profile:      false,
+			ExecutionPo2: big.NewInt(20),
 		},
 	}
 
