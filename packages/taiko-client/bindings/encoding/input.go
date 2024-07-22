@@ -148,10 +148,6 @@ var (
 			Name: "blobIndex",
 			Type: "uint8",
 		},
-		{
-			Name: "basefeeSharingPctg",
-			Type: "uint8",
-		},
 	}
 	transitionComponents = []abi.ArgumentMarshaling{
 		{
@@ -248,10 +244,6 @@ var (
 		},
 		{
 			Name: "blobIndex",
-			Type: "uint8",
-		},
-		{
-			Name: "basefeeSharingPctg",
 			Type: "uint8",
 		},
 	}
@@ -366,7 +358,7 @@ func EncodeBlockParams(params *BlockParams) ([]byte, error) {
 }
 
 // EncodeBlockParamsOntake performs the solidity `abi.encode` for the given ontake blockParams.
-func EncodeBlockParamsOntake(params *BlockParams2) ([]byte, error) {
+func EncodeBlockParamsOntake(params *BlockParamsV2) ([]byte, error) {
 	b, err := blockParams2ComponentsArgs.Pack(params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to abi.encode ontake block params, %w", err)

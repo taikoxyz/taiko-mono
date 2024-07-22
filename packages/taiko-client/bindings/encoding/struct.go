@@ -43,17 +43,16 @@ type BlockParams struct {
 	Signature      []byte
 }
 
-// BlockParams2 should be same with TaikoData.BlockParams2.
-type BlockParams2 struct {
-	Coinbase           common.Address
-	ExtraData          [32]byte
-	ParentMetaHash     [32]byte
-	AnchorBlockId      uint64
-	Timestamp          uint64
-	BlobTxListOffset   uint32
-	BlobTxListLength   uint32
-	BlobIndex          uint8
-	BasefeeSharingPctg uint8
+// BlockParamsV2 should be same with TaikoData.BlockParamsV2.
+type BlockParamsV2 struct {
+	Coinbase         common.Address
+	ExtraData        [32]byte
+	ParentMetaHash   [32]byte
+	AnchorBlockId    uint64
+	Timestamp        uint64
+	BlobTxListOffset uint32
+	BlobTxListLength uint32
+	BlobIndex        uint8
 }
 
 // TierFee should be same with TaikoData.TierFee.

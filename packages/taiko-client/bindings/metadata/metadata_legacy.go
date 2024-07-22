@@ -132,11 +132,6 @@ func (m *TaikoDataBlockMetadataLegacy) GetBlobIndex() uint8 {
 	return 0
 }
 
-// GetBasefeeSharingPctg returns the basefee sharing percentage.
-func (m *TaikoDataBlockMetadataLegacy) GetBasefeeSharingPctg() uint8 {
-	return 0
-}
-
 // GetRawBlockHeight returns the raw L1 block height.
 func (m *TaikoDataBlockMetadataLegacy) GetRawBlockHeight() *big.Int {
 	return new(big.Int).SetUint64(m.BlockNumber)

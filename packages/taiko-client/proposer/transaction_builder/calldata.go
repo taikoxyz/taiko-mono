@@ -115,7 +115,7 @@ func (b *CalldataTransactionBuilder) Build(
 		// ABI encode the TaikoL1.proposeBlockV2 / ProverSet.proposeBlockV2 parameters.
 		method = "proposeBlockV2"
 
-		if encodedParams, err = encoding.EncodeBlockParamsOntake(&encoding.BlockParams2{
+		if encodedParams, err = encoding.EncodeBlockParamsOntake(&encoding.BlockParamsV2{
 			Coinbase:       b.l2SuggestedFeeRecipient,
 			ExtraData:      rpc.StringToBytes32(b.extraData),
 			ParentMetaHash: parentMetaHash,
