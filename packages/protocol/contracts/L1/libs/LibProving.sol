@@ -501,6 +501,7 @@ library LibProving {
             if (_local.livenessBond != 0) {
                 // After the first proof, the block's liveness bond will always be reset to 0.
                 // This means liveness bond will be handled only once for any given block.
+                _blk.livenessBond = 0;
                 _blk.livenessBondReturned = true;
 
                 if (_returnLivenessBond(_local, _proof.data)) {
