@@ -34,7 +34,7 @@
   import { debounce } from '$libs/util/debounce';
   import { getLogger } from '$libs/util/logger';
   import { truncateDecimal } from '$libs/util/truncateDecimal';
-  import { type Account,account } from '$stores/account';
+  import { type Account, account } from '$stores/account';
   import { ethBalance } from '$stores/balance';
   import { connectedSourceChain } from '$stores/network';
   import type { TokenInfo } from '$stores/tokenInfo';
