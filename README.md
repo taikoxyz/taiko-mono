@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./github/taiko-icon-blk.svg" width="80" alt="Logo for Taiko" />
+  <img src="./.github/taiko-icon-blk.svg" width="80" alt="Logo for Taiko" />
 </p>
 
 <h1 align="center">
