@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./packages/branding/RGB SVG (For Digital Use)/Taiko Icon/taiko-icon-blk.svg" width="80" alt="Logo for Taiko" />
+  <img src="./github/taiko-icon-blk.svg" width="80" alt="Logo for Taiko" />
 </p>
 
 <h1 align="center">
