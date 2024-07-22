@@ -14,14 +14,12 @@ contract MockRiscZeroRemoteVerifier is IRiscZeroVerifier {
     function verify(
         bytes calldata, /*seal*/
         bytes32, /*imageId*/
-        bytes32, /*postStateDigest*/
         bytes32 /*journalDigest*/
     )
-        external
-        view
-        returns (bool)
+    external
+    view
     {
-        return verifying;
+        require(verifying, "RiscZeroRemoteVerifier: invalid proof");
     }
 
     function verifyIntegrity(Receipt calldata receipt) external view {
@@ -75,12 +73,12 @@ contract TestRiscZeroVerifier is TaikoL1TestBase {
 
         // TierProof
         TaikoData.TierProof memory proof =
-            TaikoData.TierProof({ tier: 100, data: abi.encode(seal, imageId, postStateDigest) });
+                            TaikoData.TierProof({ tier: 100, data: abi.encode(seal, imageId, postStateDigest) });
 
         vm.warp(block.timestamp + 5);
 
         (IVerifier.Context memory ctx, TaikoData.Transition memory transition) =
-            _getDummyContextAndTransition();
+                        _getDummyContextAndTransition();
 
         // `verifyProof()`
         rv.verifyProof(ctx, transition, proof);
@@ -101,12 +99,12 @@ contract TestRiscZeroVerifier is TaikoL1TestBase {
 
         // TierProof
         TaikoData.TierProof memory proof =
-            TaikoData.TierProof({ tier: 100, data: abi.encode(seal, imageId, postStateDigest) });
+                            TaikoData.TierProof({ tier: 100, data: abi.encode(seal, imageId, postStateDigest) });
 
         vm.warp(block.timestamp + 5);
 
         (IVerifier.Context memory ctx, TaikoData.Transition memory transition) =
-            _getDummyContextAndTransition();
+                        _getDummyContextAndTransition();
 
         vm.expectRevert(RiscZeroVerifier.RISC_ZERO_INVALID_IMAGE_ID.selector);
         rv.verifyProof(ctx, transition, proof);
@@ -124,16 +122,15 @@ contract TestRiscZeroVerifier is TaikoL1TestBase {
 
         bytes memory seal = hex"00";
         bytes32 imageId = bytes32("11");
-        bytes32 postStateDigest = bytes32("22");
 
         // TierProof
         TaikoData.TierProof memory proof =
-            TaikoData.TierProof({ tier: 100, data: abi.encode(seal, imageId, postStateDigest) });
+                            TaikoData.TierProof({ tier: 100, data: abi.encode(seal, imageId) });
 
         vm.warp(block.timestamp + 5);
 
         (IVerifier.Context memory ctx, TaikoData.Transition memory transition) =
-            _getDummyContextAndTransition();
+                        _getDummyContextAndTransition();
 
         vm.expectRevert(RiscZeroVerifier.RISC_ZERO_INVALID_PROOF.selector);
         rv.verifyProof(ctx, transition, proof);
@@ -142,9 +139,9 @@ contract TestRiscZeroVerifier is TaikoL1TestBase {
     }
 
     function _getDummyContextAndTransition()
-        internal
-        pure
-        returns (IVerifier.Context memory ctx, TaikoData.Transition memory transition)
+    internal
+    pure
+    returns (IVerifier.Context memory ctx, TaikoData.Transition memory transition)
     {
         // Context
         ctx = IVerifier.Context({
