@@ -61,10 +61,10 @@ func (c *Client) ensureGenesisMatched(ctx context.Context) error {
 		}
 	)
 
-	// If chain actives ontake fork from genesis, we need to fetch the genesis block hash from `BlockVerified2` event.
+	// If chain actives ontake fork from genesis, we need to fetch the genesis block hash from `BlockVerifiedV2` event.
 	if config.OntakeForkHeight == 0 {
 		// Fetch the genesis `BlockVerified2` event.
-		iter, err := c.TaikoL1.FilterBlockVerified2(filterOpts, []*big.Int{common.Big0}, nil)
+		iter, err := c.TaikoL1.FilterBlockVerifiedV2(filterOpts, []*big.Int{common.Big0}, nil)
 		if err != nil {
 			return err
 		}

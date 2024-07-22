@@ -9,7 +9,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 )
 
-// Ensure TaikoDataBlockMetadata2 implements TaikoBlockMetaData.
+// Ensure TaikoDataBlockMetadataOntake implements TaikoBlockMetaData.
 var _ TaikoBlockMetaData = (*TaikoDataBlockMetadataOntake)(nil)
 
 // TaikoDataBlockMetadataOntake is the metadata of an ontake Taiko block.
@@ -18,9 +18,9 @@ type TaikoDataBlockMetadataOntake struct {
 	types.Log
 }
 
-// NewTaikoDataBlockMetadata2 creates a new instance of TaikoDataBlockMetadata2
-// from the TaikoL1.BlockProposed2 event.
-func NewTaikoDataBlockMetadata2(e *bindings.LibProposingBlockProposed2) *TaikoDataBlockMetadataOntake {
+// NewTaikoDataBlockMetadataOntake creates a new instance of TaikoDataBlockMetadataOntake
+// from the TaikoL1.BlockProposedV2 event.
+func NewTaikoDataBlockMetadataOntake(e *bindings.LibProposingBlockProposedV2) *TaikoDataBlockMetadataOntake {
 	return &TaikoDataBlockMetadataOntake{
 		TaikoDataBlockMetadataV2: e.Meta,
 		Log:                      e.Raw,

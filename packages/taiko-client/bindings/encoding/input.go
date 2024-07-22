@@ -72,7 +72,7 @@ var (
 		},
 	}
 
-	blockMetadata2Components = []abi.ArgumentMarshaling{
+	blockMetadataV2Components = []abi.ArgumentMarshaling{
 		{
 			Name: "anchorBlockHash",
 			Type: "bytes32",
@@ -259,21 +259,21 @@ var (
 )
 
 var (
-	blockParamsComponentsType, _    = abi.NewType("tuple", "TaikoData.BlockParams", blockParamsComponents)
-	blockParamsComponentsArgs       = abi.Arguments{{Name: "TaikoData.BlockParams", Type: blockParamsComponentsType}}
-	blockParams2ComponentsType, _   = abi.NewType("tuple", "TaikoData.BlockParams2", blockParams2Components)
-	blockParams2ComponentsArgs      = abi.Arguments{{Name: "TaikoData.BlockParams2", Type: blockParams2ComponentsType}}
-	blockMetadataComponentsType, _  = abi.NewType("tuple", "TaikoData.BlockMetadata", blockMetadataComponents)
-	blockMetadata2ComponentsType, _ = abi.NewType("tuple", "TaikoData.BlockMetadata2", blockMetadata2Components)
-	transitionComponentsType, _     = abi.NewType("tuple", "TaikoData.Transition", transitionComponents)
-	tierProofComponentsType, _      = abi.NewType("tuple", "TaikoData.TierProof", tierProofComponents)
-	proveBlockInputArgs             = abi.Arguments{
+	blockParamsComponentsType, _     = abi.NewType("tuple", "TaikoData.BlockParams", blockParamsComponents)
+	blockParamsComponentsArgs        = abi.Arguments{{Name: "TaikoData.BlockParams", Type: blockParamsComponentsType}}
+	blockParams2ComponentsType, _    = abi.NewType("tuple", "TaikoData.BlockParams2", blockParams2Components)
+	blockParams2ComponentsArgs       = abi.Arguments{{Name: "TaikoData.BlockParams2", Type: blockParams2ComponentsType}}
+	blockMetadataComponentsType, _   = abi.NewType("tuple", "TaikoData.BlockMetadata", blockMetadataComponents)
+	blockMetadataV2ComponentsType, _ = abi.NewType("tuple", "TaikoData.BlockMetadataV2", blockMetadataV2Components)
+	transitionComponentsType, _      = abi.NewType("tuple", "TaikoData.Transition", transitionComponents)
+	tierProofComponentsType, _       = abi.NewType("tuple", "TaikoData.TierProof", tierProofComponents)
+	proveBlockInputArgs              = abi.Arguments{
 		{Name: "TaikoData.BlockMetadata", Type: blockMetadataComponentsType},
 		{Name: "TaikoData.Transition", Type: transitionComponentsType},
 		{Name: "TaikoData.TierProof", Type: tierProofComponentsType},
 	}
 	proveOntakeBlockInputArgs = abi.Arguments{
-		{Name: "TaikoData.BlockMetadata2", Type: blockMetadata2ComponentsType},
+		{Name: "TaikoData.BlockMetadataV2", Type: blockMetadataV2ComponentsType},
 		{Name: "TaikoData.Transition", Type: transitionComponentsType},
 		{Name: "TaikoData.TierProof", Type: tierProofComponentsType},
 	}

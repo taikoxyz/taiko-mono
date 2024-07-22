@@ -52,9 +52,9 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 		close(sink)
 	}()
 
-	sink2 := make(chan *bindings.LibProposingBlockProposed2)
+	sink2 := make(chan *bindings.LibProposingBlockProposedV2)
 
-	sub2, err := s.RPCClient.LibProposing.WatchBlockProposed2(nil, sink2, nil)
+	sub2, err := s.RPCClient.LibProposing.WatchBlockProposedV2(nil, sink2, nil)
 	s.Nil(err)
 	defer func() {
 		sub2.Unsubscribe()
@@ -80,7 +80,7 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 			metadataList = append(metadataList, metadata.NewTaikoDataBlockMetadataLegacy(event))
 			txHash = event.Raw.TxHash
 		case event := <-sink2:
-			metadataList = append(metadataList, metadata.NewTaikoDataBlockMetadata2(event))
+			metadataList = append(metadataList, metadata.NewTaikoDataBlockMetadataOntake(event))
 			txHash = event.Raw.TxHash
 		}
 	}
@@ -127,8 +127,8 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 		close(sink)
 	}()
 
-	sink2 := make(chan *bindings.LibProposingBlockProposed2)
-	sub2, err := s.RPCClient.LibProposing.WatchBlockProposed2(nil, sink2, nil)
+	sink2 := make(chan *bindings.LibProposingBlockProposedV2)
+	sub2, err := s.RPCClient.LibProposing.WatchBlockProposedV2(nil, sink2, nil)
 	s.Nil(err)
 	defer func() {
 		sub2.Unsubscribe()
@@ -165,7 +165,7 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 		meta = metadata.NewTaikoDataBlockMetadataLegacy(event)
 	case event := <-sink2:
 		txHash = event.Raw.TxHash
-		meta = metadata.NewTaikoDataBlockMetadata2(event)
+		meta = metadata.NewTaikoDataBlockMetadataOntake(event)
 	}
 
 	_, isPending, err := s.RPCClient.L1.TransactionByHash(context.Background(), txHash)

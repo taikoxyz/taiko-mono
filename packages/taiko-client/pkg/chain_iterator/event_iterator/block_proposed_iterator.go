@@ -122,7 +122,7 @@ func assembleBlockProposedIteratorCallback(
 		}
 		defer iter.Close()
 
-		iterOntake, err := libProposing.FilterBlockProposed2(
+		iterOntake, err := libProposing.FilterBlockProposedV2(
 			&bind.FilterOpts{Start: start.Number.Uint64(), End: &endHeight, Context: ctx},
 			filterQuery,
 		)
@@ -154,7 +154,7 @@ func assembleBlockProposedIteratorCallback(
 		for iterOntake.Next() {
 			event := iterOntake.Event
 
-			if err := callback(ctx, metadata.NewTaikoDataBlockMetadata2(event), eventIter.end); err != nil {
+			if err := callback(ctx, metadata.NewTaikoDataBlockMetadataOntake(event), eventIter.end); err != nil {
 				return err
 			}
 

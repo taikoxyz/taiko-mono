@@ -31,7 +31,7 @@ var (
 
 // LibUtilsMetaData contains all meta data concerning the LibUtils contract.
 var LibUtilsMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"event\",\"name\":\"BlockVerified\",\"inputs\":[{\"name\":\"blockId\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"prover\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"tier\",\"type\":\"uint16\",\"indexed\":false,\"internalType\":\"uint16\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BlockVerified2\",\"inputs\":[{\"name\":\"blockId\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"prover\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"tier\",\"type\":\"uint16\",\"indexed\":false,\"internalType\":\"uint16\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"L1_BLOCK_MISMATCH\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L1_INVALID_BLOCK_ID\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L1_INVALID_GENESIS_HASH\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L1_TRANSITION_NOT_FOUND\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L1_UNEXPECTED_TRANSITION_ID\",\"inputs\":[]}]",
+	ABI: "[{\"type\":\"event\",\"name\":\"BlockVerified\",\"inputs\":[{\"name\":\"blockId\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"prover\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"tier\",\"type\":\"uint16\",\"indexed\":false,\"internalType\":\"uint16\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BlockVerifiedV2\",\"inputs\":[{\"name\":\"blockId\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"prover\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"indexed\":false,\"internalType\":\"bytes32\"},{\"name\":\"tier\",\"type\":\"uint16\",\"indexed\":false,\"internalType\":\"uint16\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"L1_BLOCK_MISMATCH\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L1_INVALID_BLOCK_ID\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L1_INVALID_GENESIS_HASH\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L1_TRANSITION_NOT_FOUND\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L1_UNEXPECTED_TRANSITION_ID\",\"inputs\":[]}]",
 }
 
 // LibUtilsABI is the input ABI used to generate the binding from.
@@ -336,9 +336,9 @@ func (_LibUtils *LibUtilsFilterer) ParseBlockVerified(log types.Log) (*LibUtilsB
 	return event, nil
 }
 
-// LibUtilsBlockVerified2Iterator is returned from FilterBlockVerified2 and is used to iterate over the raw logs and unpacked data for BlockVerified2 events raised by the LibUtils contract.
-type LibUtilsBlockVerified2Iterator struct {
-	Event *LibUtilsBlockVerified2 // Event containing the contract specifics and raw log
+// LibUtilsBlockVerifiedV2Iterator is returned from FilterBlockVerifiedV2 and is used to iterate over the raw logs and unpacked data for BlockVerifiedV2 events raised by the LibUtils contract.
+type LibUtilsBlockVerifiedV2Iterator struct {
+	Event *LibUtilsBlockVerifiedV2 // Event containing the contract specifics and raw log
 
 	contract *bind.BoundContract // Generic contract to use for unpacking event data
 	event    string              // Event name to use for unpacking event data
@@ -352,7 +352,7 @@ type LibUtilsBlockVerified2Iterator struct {
 // Next advances the iterator to the subsequent event, returning whether there
 // are any more events found. In case of a retrieval or parsing error, false is
 // returned and Error() can be queried for the exact failure.
-func (it *LibUtilsBlockVerified2Iterator) Next() bool {
+func (it *LibUtilsBlockVerifiedV2Iterator) Next() bool {
 	// If the iterator failed, stop iterating
 	if it.fail != nil {
 		return false
@@ -361,7 +361,7 @@ func (it *LibUtilsBlockVerified2Iterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(LibUtilsBlockVerified2)
+			it.Event = new(LibUtilsBlockVerifiedV2)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -376,7 +376,7 @@ func (it *LibUtilsBlockVerified2Iterator) Next() bool {
 	// Iterator still in progress, wait for either a data or an error event
 	select {
 	case log := <-it.logs:
-		it.Event = new(LibUtilsBlockVerified2)
+		it.Event = new(LibUtilsBlockVerifiedV2)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -392,19 +392,19 @@ func (it *LibUtilsBlockVerified2Iterator) Next() bool {
 }
 
 // Error returns any retrieval or parsing error occurred during filtering.
-func (it *LibUtilsBlockVerified2Iterator) Error() error {
+func (it *LibUtilsBlockVerifiedV2Iterator) Error() error {
 	return it.fail
 }
 
 // Close terminates the iteration process, releasing any pending underlying
 // resources.
-func (it *LibUtilsBlockVerified2Iterator) Close() error {
+func (it *LibUtilsBlockVerifiedV2Iterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-// LibUtilsBlockVerified2 represents a BlockVerified2 event raised by the LibUtils contract.
-type LibUtilsBlockVerified2 struct {
+// LibUtilsBlockVerifiedV2 represents a BlockVerifiedV2 event raised by the LibUtils contract.
+type LibUtilsBlockVerifiedV2 struct {
 	BlockId   *big.Int
 	Prover    common.Address
 	BlockHash [32]byte
@@ -412,10 +412,10 @@ type LibUtilsBlockVerified2 struct {
 	Raw       types.Log // Blockchain specific contextual infos
 }
 
-// FilterBlockVerified2 is a free log retrieval operation binding the contract event 0xa12efc32945119002b96e2c528a7832e0b446590488c91c06ca2201c6642ac22.
+// FilterBlockVerifiedV2 is a free log retrieval operation binding the contract event 0xe5a390d9800811154279af0c1a80d3bdf558ea91f1301e7c6ec3c1ad83e80aef.
 //
-// Solidity: event BlockVerified2(uint256 indexed blockId, address indexed prover, bytes32 blockHash, uint16 tier)
-func (_LibUtils *LibUtilsFilterer) FilterBlockVerified2(opts *bind.FilterOpts, blockId []*big.Int, prover []common.Address) (*LibUtilsBlockVerified2Iterator, error) {
+// Solidity: event BlockVerifiedV2(uint256 indexed blockId, address indexed prover, bytes32 blockHash, uint16 tier)
+func (_LibUtils *LibUtilsFilterer) FilterBlockVerifiedV2(opts *bind.FilterOpts, blockId []*big.Int, prover []common.Address) (*LibUtilsBlockVerifiedV2Iterator, error) {
 
 	var blockIdRule []interface{}
 	for _, blockIdItem := range blockId {
@@ -426,17 +426,17 @@ func (_LibUtils *LibUtilsFilterer) FilterBlockVerified2(opts *bind.FilterOpts, b
 		proverRule = append(proverRule, proverItem)
 	}
 
-	logs, sub, err := _LibUtils.contract.FilterLogs(opts, "BlockVerified2", blockIdRule, proverRule)
+	logs, sub, err := _LibUtils.contract.FilterLogs(opts, "BlockVerifiedV2", blockIdRule, proverRule)
 	if err != nil {
 		return nil, err
 	}
-	return &LibUtilsBlockVerified2Iterator{contract: _LibUtils.contract, event: "BlockVerified2", logs: logs, sub: sub}, nil
+	return &LibUtilsBlockVerifiedV2Iterator{contract: _LibUtils.contract, event: "BlockVerifiedV2", logs: logs, sub: sub}, nil
 }
 
-// WatchBlockVerified2 is a free log subscription operation binding the contract event 0xa12efc32945119002b96e2c528a7832e0b446590488c91c06ca2201c6642ac22.
+// WatchBlockVerifiedV2 is a free log subscription operation binding the contract event 0xe5a390d9800811154279af0c1a80d3bdf558ea91f1301e7c6ec3c1ad83e80aef.
 //
-// Solidity: event BlockVerified2(uint256 indexed blockId, address indexed prover, bytes32 blockHash, uint16 tier)
-func (_LibUtils *LibUtilsFilterer) WatchBlockVerified2(opts *bind.WatchOpts, sink chan<- *LibUtilsBlockVerified2, blockId []*big.Int, prover []common.Address) (event.Subscription, error) {
+// Solidity: event BlockVerifiedV2(uint256 indexed blockId, address indexed prover, bytes32 blockHash, uint16 tier)
+func (_LibUtils *LibUtilsFilterer) WatchBlockVerifiedV2(opts *bind.WatchOpts, sink chan<- *LibUtilsBlockVerifiedV2, blockId []*big.Int, prover []common.Address) (event.Subscription, error) {
 
 	var blockIdRule []interface{}
 	for _, blockIdItem := range blockId {
@@ -447,7 +447,7 @@ func (_LibUtils *LibUtilsFilterer) WatchBlockVerified2(opts *bind.WatchOpts, sin
 		proverRule = append(proverRule, proverItem)
 	}
 
-	logs, sub, err := _LibUtils.contract.WatchLogs(opts, "BlockVerified2", blockIdRule, proverRule)
+	logs, sub, err := _LibUtils.contract.WatchLogs(opts, "BlockVerifiedV2", blockIdRule, proverRule)
 	if err != nil {
 		return nil, err
 	}
@@ -457,8 +457,8 @@ func (_LibUtils *LibUtilsFilterer) WatchBlockVerified2(opts *bind.WatchOpts, sin
 			select {
 			case log := <-logs:
 				// New log arrived, parse the event and forward to the user
-				event := new(LibUtilsBlockVerified2)
-				if err := _LibUtils.contract.UnpackLog(event, "BlockVerified2", log); err != nil {
+				event := new(LibUtilsBlockVerifiedV2)
+				if err := _LibUtils.contract.UnpackLog(event, "BlockVerifiedV2", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -479,12 +479,12 @@ func (_LibUtils *LibUtilsFilterer) WatchBlockVerified2(opts *bind.WatchOpts, sin
 	}), nil
 }
 
-// ParseBlockVerified2 is a log parse operation binding the contract event 0xa12efc32945119002b96e2c528a7832e0b446590488c91c06ca2201c6642ac22.
+// ParseBlockVerifiedV2 is a log parse operation binding the contract event 0xe5a390d9800811154279af0c1a80d3bdf558ea91f1301e7c6ec3c1ad83e80aef.
 //
-// Solidity: event BlockVerified2(uint256 indexed blockId, address indexed prover, bytes32 blockHash, uint16 tier)
-func (_LibUtils *LibUtilsFilterer) ParseBlockVerified2(log types.Log) (*LibUtilsBlockVerified2, error) {
-	event := new(LibUtilsBlockVerified2)
-	if err := _LibUtils.contract.UnpackLog(event, "BlockVerified2", log); err != nil {
+// Solidity: event BlockVerifiedV2(uint256 indexed blockId, address indexed prover, bytes32 blockHash, uint16 tier)
+func (_LibUtils *LibUtilsFilterer) ParseBlockVerifiedV2(log types.Log) (*LibUtilsBlockVerifiedV2, error) {
+	event := new(LibUtilsBlockVerifiedV2)
+	if err := _LibUtils.contract.UnpackLog(event, "BlockVerifiedV2", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log

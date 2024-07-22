@@ -224,9 +224,9 @@ func (s *ProposerTestSuite) TestProposeOp() {
 		close(sink)
 	}()
 
-	sink2 := make(chan *bindings.LibProposingBlockProposed2)
+	sink2 := make(chan *bindings.LibProposingBlockProposedV2)
 
-	sub2, err := s.p.rpc.LibProposing.WatchBlockProposed2(nil, sink2, nil)
+	sub2, err := s.p.rpc.LibProposing.WatchBlockProposedV2(nil, sink2, nil)
 	s.Nil(err)
 	defer func() {
 		sub2.Unsubscribe()
@@ -246,7 +246,7 @@ func (s *ProposerTestSuite) TestProposeOp() {
 	case event := <-sink:
 		meta = metadata.NewTaikoDataBlockMetadataLegacy(event)
 	case event := <-sink2:
-		meta = metadata.NewTaikoDataBlockMetadata2(event)
+		meta = metadata.NewTaikoDataBlockMetadataOntake(event)
 	}
 
 	s.Equal(meta.GetCoinbase(), s.p.L2SuggestedFeeRecipient)
