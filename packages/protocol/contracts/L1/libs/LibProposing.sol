@@ -6,6 +6,7 @@ import "../../libs/LibNetwork.sol";
 import "../access/IProposerAccess.sol";
 import "./LibBonds.sol";
 import "./LibData.sol";
+import "./LibL1BaseFee.sol";
 import "./LibUtils.sol";
 
 /// @title LibProposing
@@ -174,6 +175,7 @@ library LibProposing {
                 livenessBond: _config.livenessBond,
                 proposedAt: uint64(block.timestamp),
                 proposedIn: uint64(block.number),
+                consolidatedL1BaseFee: LibL1BaseFee.getPrevEpocAvgBaseFees(_state),
                 blobTxListOffset: params.blobTxListOffset,
                 blobTxListLength: params.blobTxListLength,
                 blobIndex: params.blobIndex,

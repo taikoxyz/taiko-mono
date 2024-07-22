@@ -116,6 +116,7 @@ library TaikoData {
         uint64 proposedAt;
         // L1 block number, required/used by node/client.
         uint64 proposedIn;
+        uint64 consolidatedL1BaseFee;
         uint32 blobTxListOffset;
         uint32 blobTxListLength;
         uint8 blobIndex;
@@ -199,6 +200,13 @@ library TaikoData {
         uint64 lastUnpausedAt;
     }
 
+    struct BaseFeeStat {
+        uint64 baseFeeSum;
+        uint64 blobBaseFeeSum;
+        uint64 epoch;
+        uint8 count;
+    }
+
     /// @dev Struct holding the state variables for the {TaikoL1} contract.
     struct State {
         // Ring buffer for proposed blocks and a some recent verified blocks.
@@ -215,6 +223,7 @@ library TaikoData {
         SlotA slotA; // slot 5
         SlotB slotB; // slot 6
         mapping(address account => uint256 bond) bondBalance;
-        uint256[43] __gap;
+        mapping(uint256 => BaseFeeStat) basefeeStats;
+        uint256[42] __gap;
     }
 }
