@@ -116,22 +116,10 @@ abstract contract TaikoL1TestBase is TaikoTest {
         uint24 txListSize
     )
         internal
-        returns (TaikoData.BlockMetadataV2 memory meta)
+        returns (TaikoData.BlockMetadataV2 memory)
     {
-        // address coinbase;
-        // bytes32 extraData;
-        // bytes32 parentMetaHash;
-        // uint64 anchorBlockId; // NEW
-        // uint64 timestamp; // NEW
-        // uint32 blobTxListOffset; // NEW
-        // uint32 blobTxListLength; // NEW
-        // uint8 blobIndex; // NE
-
-        // TODO(daniel): init this data
-        TaikoData.BlockParamsV2 memory param;
-
         vm.prank(proposer, proposer);
-        meta = L1.proposeBlockV2(abi.encode(param), new bytes(txListSize));
+        return L1.proposeBlockV2("", new bytes(txListSize));
     }
 
     function proveBlock(
