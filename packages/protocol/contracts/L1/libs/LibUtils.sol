@@ -205,8 +205,7 @@ library LibUtils {
         if (_config.maxBlocksToVerify == 0) return false;
 
         // Consider each segment of 8 blocks, verification is attempted either on block 3 if it has
-        // been
-        // proved, or on block 7 if it has been proposed. Over time, the ratio of blocks to
+        // been proved, or on block 7 if it has been proposed. Over time, the ratio of blocks to
         // verification attempts averages 4:1, meaning each verification attempt typically covers 4
         // blocks. However, considering worst cases caused by blocks being proved out of order, some
         // verification attempts may verify few or no blocks. In such cases, additional
