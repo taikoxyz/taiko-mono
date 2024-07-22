@@ -20,7 +20,7 @@ contract HeklaTaikoL1 is TaikoL1 {
             livenessBond: 125e18, // 125 Taiko token
             stateRootSyncInternal: 16,
             maxAnchorHeightOffset: 64,
-            gasTargetPerL1Block: 60_000_000,
+            gasTargetPerBlock: 30_000_000,
             basefeeAdjustmentQuotient: 8,
             basefeeSharingPctg: 75,
             ontakeForkHeight: 720_000 // = 7200 * 100

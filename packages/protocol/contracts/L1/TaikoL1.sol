@@ -265,7 +265,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
             // their data.
             blockRingBufferSize: 360_000, // = 7200 * 50
             maxBlocksToVerify: 16,
-            // This value is set based on `gasTargetPerL1Block = 15_000_000 * 4` in TaikoL2.
+            // This value is set based on `gasTargetPerBlock = 15_000_000 * 4` in TaikoL2.
             // We use 8x rather than 4x here to handle the scenario where the average number of
             // Taiko blocks proposed per Ethereum block is smaller than 1.
             // There is 250_000 additional gas for the anchor tx. Therefore, on explorers, you'll
@@ -274,7 +274,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
             livenessBond: 125e18, // 125 Taiko token
             stateRootSyncInternal: 16,
             maxAnchorHeightOffset: 64,
-            gasTargetPerL1Block: 60_000_000,
+            gasTargetPerBlock: 30_000_000,
             basefeeAdjustmentQuotient: 8,
             basefeeSharingPctg: 75,
             ontakeForkHeight: 374_400 // = 7200 * 52
