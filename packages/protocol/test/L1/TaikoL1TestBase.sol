@@ -116,24 +116,27 @@ abstract contract TaikoL1TestBase is TaikoTest {
         uint24 txListSize
     )
         internal
-        returns (TaikoData.BlockMetadata memory meta, TaikoData.EthDeposit[] memory ethDeposits)
+        returns (TaikoData.BlockMetadataV2 memory meta)
     {
-        // For the test not to fail, set the message.value to the highest, the
-        // rest will be returned
-        // anyways
-        uint256 msgValue = 2 ether;
+        // address coinbase;
+        // bytes32 extraData;
+        // bytes32 parentMetaHash;
+        // uint64 anchorBlockId; // NEW
+        // uint64 timestamp; // NEW
+        // uint32 blobTxListOffset; // NEW
+        // uint32 blobTxListLength; // NEW
+        // uint8 blobIndex; // NE
 
-        TaikoData.HookCall[] memory hookcalls = new TaikoData.HookCall[](0);
+        // TODO(daniel): init this data
+        TaikoData.BlockParamsV2 memory param;
+
         vm.prank(proposer, proposer);
-        (meta, ethDeposits) = L1.proposeBlock{ value: msgValue }(
-            abi.encode(TaikoData.BlockParams(address(0), address(0), 0, 0, hookcalls, "")),
-            new bytes(txListSize)
-        );
+        meta = L1.proposeBlockV2(abi.encode(param), new bytes(txListSize));
     }
 
     function proveBlock(
         address prover,
-        TaikoData.BlockMetadata memory meta,
+        TaikoData.BlockMetadataV2 memory meta,
         bytes32 parentHash,
         bytes32 blockHash,
         bytes32 stateRoot,
@@ -176,18 +179,18 @@ abstract contract TaikoL1TestBase is TaikoTest {
 
             // Grant 2 signatures, 3rd might be a revert
             vm.prank(David, David);
-            gp.approve(meta, tran, proof);
+            gp.approveV2(meta, tran, proof);
             vm.prank(Emma, Emma);
-            gp.approve(meta, tran, proof);
+            gp.approveV2(meta, tran, proof);
 
             if (revertReason != "") {
                 vm.prank(Frank, Frank);
                 vm.expectRevert(); // Revert reason is 'wrapped' so will not be
                     // identical to the expectedRevert
-                gp.approve(meta, tran, proof);
+                gp.approveV2(meta, tran, proof);
             } else {
                 vm.prank(Frank, Frank);
-                gp.approve(meta, tran, proof);
+                gp.approveV2(meta, tran, proof);
             }
         } else {
             if (revertReason != "") {

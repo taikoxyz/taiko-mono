@@ -17,7 +17,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
         ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTiers.TIER_OPTIMISTIC);
 
         console2.log("====== Alice propose a block");
-        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
+        TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
 
         uint96 livenessBond = L1.getConfig().livenessBond;
         uint256 proposedAt;
@@ -121,7 +121,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
         ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTiers.TIER_OPTIMISTIC);
 
         console2.log("====== Alice propose a block");
-        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
+        TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
 
         uint96 livenessBond = L1.getConfig().livenessBond;
         uint256 proposedAt;
@@ -213,7 +213,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
         ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTiers.TIER_OPTIMISTIC);
 
         console2.log("====== Alice propose a block");
-        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
+        TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
 
         // Prove the block
         bytes32 parentHash1 = bytes32(uint256(9));
@@ -264,7 +264,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
         ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTiers.TIER_OPTIMISTIC);
 
         console2.log("====== Alice propose a block");
-        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
+        TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
 
         // Prove the block
         bytes32 parentHash1 = GENESIS_BLOCK_HASH;
@@ -315,7 +315,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
         ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTiers.TIER_OPTIMISTIC);
 
         console2.log("====== Alice propose a block");
-        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
+        TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
 
         // Prove the block
         bytes32 parentHash1 = bytes32(uint256(9));
@@ -366,7 +366,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
         ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTiers.TIER_OPTIMISTIC);
 
         console2.log("====== Alice propose a block");
-        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
+        TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
 
         uint96 livenessBond = L1.getConfig().livenessBond;
         uint256 proposedAt;
@@ -455,7 +455,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
         giveEthAndTko(Alice, 10_000 ether, 1000 ether);
 
         console2.log("====== Alice propose a block with herself as the assigned prover");
-        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
+        TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
 
         uint96 livenessBond = L1.getConfig().livenessBond;
         uint256 proposedAt;

@@ -25,16 +25,15 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
         bytes4 revertReason
     )
         internal
-        returns (TaikoData.BlockMetadata memory meta)
+        returns (TaikoData.BlockMetadataV2 memory)
     {
-        TaikoData.HookCall[] memory hookcalls = new TaikoData.HookCall[](0);
         bytes memory txList = new bytes(10);
+        // TODO(daniel)
+        TaikoData.BlockParamsV2 memory params;
 
         vm.prank(proposer);
         if (revertReason != "") vm.expectRevert(revertReason);
-        (meta,) = L1.proposeBlock{ value: 3 ether }(
-            abi.encode(TaikoData.BlockParams(address(0), address(0), 0, 0, hookcalls, "")), txList
-        );
+        return L1.proposeBlockV2(abi.encode(params), txList);
     }
 
     function proposeBlockV2(
@@ -54,7 +53,7 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
 
     function proveBlock(
         address prover,
-        TaikoData.BlockMetadata memory meta,
+        TaikoData.BlockMetadataV2 memory meta,
         bytes32 parentHash,
         bytes32 blockHash,
         bytes32 stateRoot,
@@ -97,13 +96,13 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
 
             // Grant 2 signatures, 3rd might be a revert
             vm.prank(David, David);
-            gp.approve(meta, tran, proof);
+            gp.approveV2(meta, tran, proof);
             vm.prank(Emma, Emma);
-            gp.approve(meta, tran, proof);
+            gp.approveV2(meta, tran, proof);
 
             if (revertReason != "") vm.expectRevert(revertReason);
             vm.prank(Frank);
-            gp.approve(meta, tran, proof);
+            gp.approveV2(meta, tran, proof);
         } else {
             if (revertReason != "") vm.expectRevert(revertReason);
             vm.prank(prover);

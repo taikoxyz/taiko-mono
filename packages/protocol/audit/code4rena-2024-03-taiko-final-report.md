@@ -432,7 +432,7 @@ POC for example 1. Paste the below code into the `TaikoL1LibProvingWithTiers.t` 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         uint256 blockId = 1;
 
-        (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
+        TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, Bob, 1_000_000, 1024);
 
         console2.log("Bob balance After propose:", tko.balanceOf(Bob));
         mine(1);
@@ -885,7 +885,7 @@ to ts.contestBond == 1 in the second `assert` statement of the `LibProving.prove
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
             printVariables("before propose");
-            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, Bob, 1_000_000, 1024);
+            TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, Bob, 1_000_000, 1024);
             //printVariables("after propose");
             mine(1);
 

@@ -49,12 +49,6 @@ library TaikoData {
         bytes data;
     }
 
-    /// @dev Hook and it's data (currently used only during proposeBlock)
-    struct HookCall {
-        address hook;
-        bytes data;
-    }
-
     /// @dev Represents proposeBlock's _data input parameter
     struct BlockParamsV2 {
         address coinbase;

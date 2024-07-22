@@ -21,8 +21,7 @@ contract HeklaTaikoL1 is TaikoL1 {
             stateRootSyncInternal: 16,
             maxAnchorHeightOffset: 64,
             basefeeAdjustmentQuotient: 8,
-            basefeeSharingPctg: 75,
-            ontakeForkHeight: 720_000 // = 7200 * 100
-         });
+            basefeeSharingPctg: 75
+        });
     }
 }
