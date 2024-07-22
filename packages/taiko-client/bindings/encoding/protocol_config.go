@@ -18,7 +18,7 @@ var (
 		BlockMaxGasLimit:      240_000_000,
 		LivenessBond:          livenessBond,
 		StateRootSyncInternal: 16,
-		OntakeForkHeight:      25,
+		OntakeForkHeight:      374_400,
 	}
 	HeklaProtocolConfig = &bindings.TaikoDataConfig{
 		ChainId:               params.HeklaNetworkID.Uint64(),
@@ -28,7 +28,7 @@ var (
 		BlockMaxGasLimit:      240_000_000,
 		LivenessBond:          livenessBond,
 		StateRootSyncInternal: 16,
-		OntakeForkHeight:      324_512 * 2,
+		OntakeForkHeight:      540_000,
 	}
 	MainnetProtocolConfig = &bindings.TaikoDataConfig{
 		ChainId:               params.TaikoMainnetNetworkID.Uint64(),
@@ -38,7 +38,7 @@ var (
 		BlockMaxGasLimit:      240_000_000,
 		LivenessBond:          livenessBond,
 		StateRootSyncInternal: 16,
-		OntakeForkHeight:      324_512 * 2,
+		OntakeForkHeight:      374_400,
 	}
 )
 
