@@ -199,7 +199,7 @@ library LibVerifying {
     {
         (TaikoData.Block storage blk,) = LibUtils.getBlock(_state, _config, _blockId);
 
-        uint32 tid = blk.verifiedTransitionId;
+        uint24 tid = blk.verifiedTransitionId;
         if (tid == 0) return address(0);
 
         return LibUtils.getTransition(_state, _config, _blockId, tid).prover;
