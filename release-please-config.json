@@ -16,11 +16,8 @@
   ],
   "separate-pull-requests": true,
   "packages": {
-    "packages/branding": {},
     "packages/bridge-ui": {},
-    "packages/docs-site": {
-      "prerelease": true
-    },
+    "packages/docs-site": {},
     "packages/eventindexer": {},
     "packages/fork-diff": {},
     "packages/guardian-prover-health-check": {},
@@ -30,7 +27,7 @@
     "packages/nfts": {},
     "packages/taikoon-ui": {},
     "packages/taiko-client": {
-      "prerelease": true
+      "draft": true
     },
     "packages/supplementary-contracts": {},
     "packages/ui-lib": {},

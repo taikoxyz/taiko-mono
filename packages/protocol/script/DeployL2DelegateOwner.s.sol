@@ -7,8 +7,10 @@ import "../contracts/L2/DelegateOwner.sol";
 //  forge script --rpc-url  https://rpc.mainnet.taiko.xyz script/DeployL2DelegateOwner.s.sol
 contract DeployL2DelegateOwner is DeployCapability {
     address public l2Sam = 0x1670000000000000000000000000000000000006;
-    address public l1Owner = 0x8F13E3a9dFf52e282884aA70eAe93F57DD601298; // Daniel's EOA
-    address public l2Admin = 0x8F13E3a9dFf52e282884aA70eAe93F57DD601298; // same
+    address public testAccount2 = 0x3c181965C5cFAE61a9010A283e5e0C1445649810; // owned by Daniel W
+
+    address public l1Owner = testAccount2;
+    address public l2Admin = testAccount2;
 
     modifier broadcast() {
         vm.startBroadcast();
