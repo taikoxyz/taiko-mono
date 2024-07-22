@@ -4,6 +4,7 @@ description: This guide will help you verify a smart contract on Taiko.
 ---
 
 import { Aside } from '@astrojs/starlight/components';
+import NewTabLink from '../../../../components/NewTabLink.astro';
 
 This guide will help you verify a smart contract on Taiko.
 
@@ -15,7 +16,7 @@ You have a contract deployed on Taiko and the source code available.
 
 ---
 
-### Verify a contract with Foundry 
+### Verify a contract with Foundry
 
 Replace the contract address and filepath to contract below, and then execute in terminal to verify your contract.
 
@@ -31,7 +32,7 @@ It's also possible to verify the contract through `Taikoscan` API as follows:
 forge verify-contract 0x526317252e346978869d178081dA2cd10ac8b56D src/Counter.sol:Counter \
   --watch \
   --verifier-url https://api.taikoscan.io/api \
-  --etherscan-api-key {YOUR_API_KEY} 
+  --etherscan-api-key {YOUR_API_KEY}
 ```
 
 ## Hekla
@@ -59,4 +60,4 @@ For some users the above command does not work on Blockscout (currently investig
 
 ### Verify a contract with Hardhat or other alternatives
 
-Check out the Blockscout docs [here](https://docs.blockscout.com/for-users/verifying-a-smart-contract)!
+Check out the Blockscout docs <NewTabLink href="https://docs.blockscout.com/for-users/verifying-a-smart-contract" text="here!"/>

@@ -1,0 +1,11 @@
+---
+const { href, text } = Astro.props;
+---
+
+<style>
+  .no-space {
+    white-space: nowrap;
+  }
+</style>
+
+<a href={href.trim()} target="_blank" rel="noopener noreferrer" class="no-space">{text}</a>
