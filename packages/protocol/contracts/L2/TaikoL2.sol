@@ -176,6 +176,8 @@ contract TaikoL2 is EssentialContract {
 
     /// @notice Gets the basefee and gas excess using EIP-1559 configuration for
     /// the given parameters.
+    /// @dev This function will deprecate after Ontake fork, node/client shall use calculateBaseFee
+    /// instead for base fee prediction.
     /// @param _l1BlockId The synced L1 height in the next Taiko block
     /// @param _parentGasUsed Gas used in the parent block.
     /// @return basefee_ The calculated EIP-1559 base fee per gas.
@@ -200,24 +202,6 @@ contract TaikoL2 is EssentialContract {
         );
     }
 
-    function getBasefeeV2(
-        uint32 _parentGasUsed,
-        uint32 _gasTargetPerBlock,
-        uint8 _basefeeAdjustmentQuotient
-    )
-        public
-        view
-        returns (uint256 basefee_, uint64 gasExcess_)
-    {
-        (basefee_, gasExcess_) = Lib1559Math.calc1559BaseFee(
-            _gasTargetPerBlock,
-            _basefeeAdjustmentQuotient,
-            gasExcess,
-            _gasTargetPerBlock,
-            _parentGasUsed
-        );
-    }
-
     /// @notice Retrieves the block hash for the given L2 block number.
     /// @param _blockId The L2 block number to retrieve the block hash for.
     /// @return The block hash for the specified L2 block id, or zero if the
@@ -238,6 +222,29 @@ contract TaikoL2 is EssentialContract {
     /// @return Returns true to skip checking basefee mismatch.
     function skipFeeCheck() public pure virtual returns (bool) {
         return false;
+    }
+
+    /// @notice Calculates the basefee and the new gas excess value based on parent gas used and gas
+    /// excess.
+    /// @param _gasTargetPerBlock The amount of gas to be issued per L2 block.
+    /// @param _adjustmentQuotient The gas adjustment quotient.
+    /// @param _gasExcess The current gas excess value.
+    /// @param _parentGasUsed Total gas used by the parent block.
+    /// @return basefee_ Next block's base fee.
+    /// @return gasExcess_ The new gas excess value.
+    function calculateBaseFee(
+        uint32 _gasTargetPerBlock,
+        uint8 _adjustmentQuotient,
+        uint64 _gasExcess,
+        uint32 _parentGasUsed
+    )
+        public
+        pure
+        returns (uint256 basefee_, uint64 gasExcess_)
+    {
+        return Lib1559Math.calc1559BaseFee(
+            _gasTargetPerBlock, _adjustmentQuotient, _gasExcess, _gasTargetPerBlock, _parentGasUsed
+        );
     }
 
     function _anchor(
@@ -273,7 +280,9 @@ contract TaikoL2 is EssentialContract {
         // Verify the base fee per gas is correct
         (uint256 _basefee, uint64 _gasExcess) = block.number < ONTAKE_FORK_HEIGHT
             ? getBasefee(_l1BlockId, _parentGasUsed)
-            : getBasefeeV2(_parentGasUsed, _gasTargetPerBlock, _basefeeAdjustmentQuotient);
+            : calculateBaseFee(
+                _gasTargetPerBlock, _basefeeAdjustmentQuotient, gasExcess, _parentGasUsed
+            );
 
         if (!skipFeeCheck() && block.basefee != _basefee) {
             revert L2_BASEFEE_MISMATCH();
