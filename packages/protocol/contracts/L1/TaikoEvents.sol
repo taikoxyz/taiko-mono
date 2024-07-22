@@ -19,21 +19,6 @@ abstract contract TaikoEvents {
 
     /// @notice Emitted when a block is proposed.
     /// @param blockId The ID of the proposed block.
-    /// @param assignedProver The address of the assigned prover.
-    /// @param livenessBond The liveness bond of the proposed block.
-    /// @param meta The metadata of the proposed block.
-    /// @param depositsProcessed The EthDeposit array about processed deposits in this proposed
-    /// block.
-    event BlockProposed(
-        uint256 indexed blockId,
-        address indexed assignedProver,
-        uint96 livenessBond,
-        TaikoData.BlockMetadata meta,
-        TaikoData.EthDeposit[] depositsProcessed
-    );
-
-    /// @notice Emitted when a block is proposed.
-    /// @param blockId The ID of the proposed block.
     /// @param meta The metadata of the proposed block.
     event BlockProposedV2(uint256 indexed blockId, TaikoData.BlockMetadataV2 meta);
 
@@ -41,20 +26,6 @@ abstract contract TaikoEvents {
     /// @param blockId The ID of the proposed block.
     /// @param txList The txList.
     event CalldataTxList(uint256 indexed blockId, bytes txList);
-
-    /// @notice Emitted when a transition is proved.
-    /// @param blockId The block ID.
-    /// @param tran The transition data.
-    /// @param prover The prover's address.
-    /// @param validityBond The validity bond amount.
-    /// @param tier The tier of the proof.
-    event TransitionProved(
-        uint256 indexed blockId,
-        TaikoData.Transition tran,
-        address prover,
-        uint96 validityBond,
-        uint16 tier
-    );
 
     /// @notice Emitted when a transition is proved.
     /// @param blockId The block ID.
@@ -78,20 +49,6 @@ abstract contract TaikoEvents {
     /// @param contester The contester's address.
     /// @param contestBond The contest bond amount.
     /// @param tier The tier of the proof.
-    event TransitionContested(
-        uint256 indexed blockId,
-        TaikoData.Transition tran,
-        address contester,
-        uint96 contestBond,
-        uint16 tier
-    );
-
-    /// @notice Emitted when a transition is contested.
-    /// @param blockId The block ID.
-    /// @param tran The transition data.
-    /// @param contester The contester's address.
-    /// @param contestBond The contest bond amount.
-    /// @param tier The tier of the proof.
     /// @param proposedIn The L1 block in which this L2 block is proposed.
     event TransitionContestedV2(
         uint256 indexed blockId,
@@ -105,21 +62,6 @@ abstract contract TaikoEvents {
     /// @notice Emitted when proving is paused or unpaused.
     /// @param paused The pause status.
     event ProvingPaused(bool paused);
-
-    /// @dev Emitted when a block is verified.
-    /// @param blockId The ID of the verified block.
-    /// @param prover The prover whose transition is used for verifying the
-    /// block.
-    /// @param blockHash The hash of the verified block.
-    /// @param stateRoot Deprecated and is always zero.
-    /// @param tier The tier ID of the proof.
-    event BlockVerified(
-        uint256 indexed blockId,
-        address indexed prover,
-        bytes32 blockHash,
-        bytes32 stateRoot,
-        uint16 tier
-    );
 
     /// @dev Emitted when a block is verified.
     /// @param blockId The ID of the verified block.

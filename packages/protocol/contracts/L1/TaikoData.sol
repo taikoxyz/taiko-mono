@@ -41,10 +41,6 @@ library TaikoData {
         // ---------------------------------------------------------------------
         uint8 basefeeAdjustmentQuotient;
         uint8 basefeeSharingPctg;
-        // ---------------------------------------------------------------------
-        // Group 6: Others
-        // ---------------------------------------------------------------------
-        uint64 ontakeForkHeight;
     }
 
     /// @dev A proof and the tier of proof it belongs to
@@ -60,15 +56,6 @@ library TaikoData {
     }
 
     /// @dev Represents proposeBlock's _data input parameter
-    struct BlockParams {
-        address assignedProver; // DEPRECATED, value ignored.
-        address coinbase;
-        bytes32 extraData;
-        bytes32 parentMetaHash;
-        HookCall[] hookCalls; // DEPRECATED, value ignored.
-        bytes signature; // DEPRECATED, value ignored.
-    }
-
     struct BlockParamsV2 {
         address coinbase;
         bytes32 extraData;
@@ -84,23 +71,6 @@ library TaikoData {
     /// Note: On L2, `block.difficulty` is the pseudo name of
     /// `block.prevrandao`, which returns a random number provided by the layer
     /// 1 chain.
-    struct BlockMetadata {
-        bytes32 l1Hash;
-        bytes32 difficulty;
-        bytes32 blobHash; //or txListHash (if Blob not yet supported)
-        bytes32 extraData;
-        bytes32 depositsHash;
-        address coinbase; // L2 coinbase,
-        uint64 id;
-        uint32 gasLimit;
-        uint64 timestamp;
-        uint64 l1Height;
-        uint16 minTier;
-        bool blobUsed;
-        bytes32 parentMetaHash;
-        address sender; // a.k.a proposer
-    }
-
     struct BlockMetadataV2 {
         bytes32 anchorBlockHash; // `_l1BlockHash` in TaikoL2's anchor tx.
         bytes32 difficulty;

@@ -21,21 +21,6 @@ library LibUtils {
     /// @param prover The prover whose transition is used for verifying the
     /// block.
     /// @param blockHash The hash of the verified block.
-    /// @param stateRoot Deprecated and is always zero.
-    /// @param tier The tier ID of the proof.
-    event BlockVerified(
-        uint256 indexed blockId,
-        address indexed prover,
-        bytes32 blockHash,
-        bytes32 stateRoot,
-        uint16 tier
-    );
-
-    /// @dev Emitted when a block is verified.
-    /// @param blockId The ID of the verified block.
-    /// @param prover The prover whose transition is used for verifying the
-    /// block.
-    /// @param blockHash The hash of the verified block.
     /// @param tier The tier ID of the proof.
     event BlockVerifiedV2(
         uint256 indexed blockId, address indexed prover, bytes32 blockHash, uint16 tier
@@ -76,22 +61,12 @@ library LibUtils {
         ts.prover = address(0);
         ts.timestamp = uint64(block.timestamp);
 
-        if (_config.ontakeForkHeight == 0) {
-            emit BlockVerifiedV2({
-                blockId: 0,
-                prover: address(0),
-                blockHash: _genesisBlockHash,
-                tier: 0
-            });
-        } else {
-            emit BlockVerified({
-                blockId: 0,
-                prover: address(0),
-                blockHash: _genesisBlockHash,
-                stateRoot: 0,
-                tier: 0
-            });
-        }
+        emit BlockVerifiedV2({
+            blockId: 0,
+            prover: address(0),
+            blockHash: _genesisBlockHash,
+            tier: 0
+        });
     }
 
     /// @dev Retrieves a block based on its ID.
