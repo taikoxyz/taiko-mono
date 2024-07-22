@@ -121,9 +121,9 @@ library TaikoData {
         address assignedProver; // slot 2
         uint96 livenessBond;
         uint64 blockId; // slot 3
-        // This is the timestamp of the L2 block.
+        // Ignore the name, `proposedAt` now represents the timestamp of the L2 block.
         uint64 proposedAt;
-        // This is the L1 block number input for the anchor transaction.
+        // Ignore the name, `proposedIn` now represents the anchoring height.
         uint64 proposedIn;
         uint32 nextTransitionId;
         // The ID of the transaction that is used to verify this block. However, if

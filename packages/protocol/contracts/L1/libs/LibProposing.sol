@@ -83,6 +83,14 @@ library LibProposing {
             params.coinbase = msg.sender;
         }
 
+        if (params.anchorBlockId == 0) {
+            params.anchorBlockId = uint64(block.number - 1);
+        }
+
+        if (params.timestamp == 0) {
+            params.timestamp = uint64(block.timestamp);
+        }
+
         // Verify params against the parent block.
         {
             TaikoData.Block storage parentBlk =
