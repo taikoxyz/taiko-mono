@@ -99,6 +99,9 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         bytes calldata _txList
     )
         external
+        whenNotPaused
+        nonReentrant
+        emitEventForClient
         returns (TaikoData.BlockMetadataV2 memory meta_)
     {
         TaikoData.Config memory config = getConfig();
