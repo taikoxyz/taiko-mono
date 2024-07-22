@@ -279,9 +279,7 @@ contract TaikoL2 is EssentialContract {
         // Verify the base fee per gas is correct
         (uint256 _basefee, uint64 _gasExcess) = block.number < ONTAKE_FORK_HEIGHT
             ? getBasefee(_l1BlockId, _parentGasUsed)
-            : calculateBaseFee(
-                _blockGasLimit / 2, _basefeeAdjustmentQuotient, gasExcess, _parentGasUsed
-            );
+            : calculateBaseFee(_blockGasLimit, _basefeeAdjustmentQuotient, gasExcess, _parentGasUsed);
 
         if (!skipFeeCheck() && block.basefee != _basefee) {
             revert L2_BASEFEE_MISMATCH();
