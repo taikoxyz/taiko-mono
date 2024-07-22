@@ -79,7 +79,6 @@ library LibData {
             blobTxListOffset: 0,
             blobTxListLength: 0,
             blobIndex: 0,
-            gasTargetPerL1Block: 0,
             basefeeAdjustmentQuotient: 0,
             basefeeSharingPctg: 0
         });
