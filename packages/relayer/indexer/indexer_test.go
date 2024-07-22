@@ -5,10 +5,11 @@ import (
 	"time"
 
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/mock"
 )
 
-func newTestService(syncMode SyncMode, watchMode WatchMode) (*Indexer, relayer.Bridge) {
+func newTestService(syncMode SyncMode, watchMode WatchMode) (*Indexer, bindings.Bridge) {
 	b := &mock.Bridge{}
 
 	return &Indexer{

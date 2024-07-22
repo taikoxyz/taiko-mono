@@ -18,7 +18,7 @@ import (
 	"github.com/urfave/cli/v2"
 	"golang.org/x/exp/slog"
 
-	"github.com/taikoxyz/taiko-mono/packages/relayer"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 )
 
@@ -42,8 +42,8 @@ type Bridge struct {
 
 	ecdsaKey *ecdsa.PrivateKey
 
-	srcBridge  relayer.Bridge
-	destBridge relayer.Bridge
+	srcBridge  bindings.Bridge
+	destBridge bindings.Bridge
 
 	addr common.Address
 
