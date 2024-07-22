@@ -4,11 +4,12 @@ description: This guide will you help you enable your Taiko node as a prover.
 ---
 
 import { Aside, Card, CardGrid, Steps } from "@astrojs/starlight/components";
+import NewTabLink from '../../../../components/NewTabLink.astro';
 
 ## Prerequisites
 
 - You are already running a Taiko node [with Docker](/guides/node-operators/run-a-taiko-node-with-docker) or [from source](/guides/node-operators/build-a-taiko-node-from-source).
-- You have an [SGX v2 capable machine](https://github.com/ayeks/SGX-hardware#hardware-with-sgx2-support).
+- You have an <NewTabLink href="https://github.com/ayeks/SGX-hardware#hardware-with-sgx2-support" text="SGX v2 capable machine"/>.
 
 ## Enable a prover with simple-taiko-node
 
@@ -18,7 +19,7 @@ These are the bare minimum required settings along with a functional Taiko node 
 
 <Steps>
 
-1. A Taiko prover needs to be able to generate SGX proofs at the moment. To do that, you need to run raiko. Please follow the Docker setup guide [here](https://github.com/taikoxyz/raiko/blob/main/docs/README_Docker_and_RA.md).
+1. A Taiko prover needs to be able to generate SGX proofs at the moment. To do that, you need to run raiko. Please follow the Docker setup guide <NewTabLink href="https://github.com/taikoxyz/raiko/blob/main/docs/README_Docker_and_RA.md" text="here"/>.
 
 2. After successfully setting up raiko, set the `SGX_RAIKO_HOST` endpoint in your `.env` file.
 
@@ -40,7 +41,7 @@ These are the bare minimum required settings along with a functional Taiko node 
 
 1. Approve the TaikoL1 contract as a spender.
 
-   Visit the TAIKO contract on Ethereum [here](https://etherscan.io/address/0x10dea67478c5f8c5e2d90e5e9b26dbe60c54d800#writeProxyContract).
+   Visit the TAIKO contract on Ethereum <NewTabLink href="https://etherscan.io/address/0x10dea67478c5f8c5e2d90e5e9b26dbe60c54d800#writeProxyContract" text="here"/>.
 
 2. Click the **Connect to Web3** button.
 
@@ -66,7 +67,7 @@ You will need TTKOh deposited on the TaikoL1 contract to secure the bond for the
 
 1. Approve the TaikoL1 contract as a spender.
 
-   Visit the TTKOh contract on Holesky [here](https://holesky.etherscan.io/address/0x6490E12d480549D333499236fF2Ba6676C296011#writeProxyContract).
+   Visit the TTKOh contract on Holesky <NewTabLink href="https://holesky.etherscan.io/address/0x6490E12d480549D333499236fF2Ba6676C296011#writeProxyContract" text="here"/>.
 
 2. Click the **Connect to Web3** button.
 
@@ -86,5 +87,5 @@ Finally you can choose to register your prover endpoint on the <a href="https://
 
 <Card title="Troubleshooting" icon="error">
     If you run into any problems, please visit the [node troubleshooting page](/guides/node-operators/node-troubleshooting) for help.
-    If you run into an error that isn't yet listed, please reach out in our [Discord](https://discord.com/invite/taikoxyz)!
+    If you run into an error that isn't yet listed, please reach out in our <NewTabLink href="https://discord.com/invite/taikoxyz" text="Discord"/>!
 </Card>

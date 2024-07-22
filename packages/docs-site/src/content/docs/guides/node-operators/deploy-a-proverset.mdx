@@ -4,6 +4,7 @@ description: This guide will you help you deploy a ProverSet which enables you t
 ---
 
 import { Aside, Card, Steps, Tabs, TabItem } from '@astrojs/starlight/components'
+import NewTabLink from '../../../../components/NewTabLink.astro';
 
 The recent protocol upgrade now requires that the address of the prover and proposer are the same. This can be achieved by simply using the same private keys to run the proposer and prover software,
 but this is not recommended as it can cause nonce issues.
@@ -25,7 +26,7 @@ This guide outlines how to achieve this with separate EOAs running prover and pr
 
 1. **Clone the Taiko monorepo**
 
-    The [Taiko monorepo](https://github.com/taikoxyz/taiko-mono) contains the scripts for deploying your `ProverSet`.
+    The <NewTabLink href="https://github.com/taikoxyz/taiko-mono" text="Taiko monorepo"/> contains the scripts for deploying your `ProverSet`.
 
     <Tabs>
         <TabItem label="Mac/Linux">
@@ -48,7 +49,7 @@ This guide outlines how to achieve this with separate EOAs running prover and pr
 
     Set `PROVER_SET_ADMIN` to the address of your **prover** EOA. You will be able to withdraw TAIKO/TTKOh from the contract to this address.
 
-    Run the `DeployProverSet.s.sol` script with your **proposer's private key**. You can find the script [here](https://github.com/taikoxyz/taiko-mono/tree/main/packages/protocol/script/DeployProverSet.s.sol).
+    Run the `DeployProverSet.s.sol` script with your **proposer's private key**. You can find the script <NewTabLink href="https://github.com/taikoxyz/taiko-mono/tree/main/packages/protocol/script/DeployProverSet.s.sol" text="here"/>.
 
     ```bash
     ROLLUP_ADDRESS_MANAGER={ADDRESS} PROVER_SET_ADMIN={ADDRESS} forge script --chain-id {CHAIN_ID} --rpc-url {YOUR_RPC_URL} --private-key {PRIVATE_KEY} --broadcast script/DeployProverSet.s.sol:DeployProverSet
@@ -87,7 +88,7 @@ This guide outlines how to achieve this with separate EOAs running prover and pr
 
 5. **Configure the contract as necessary**
 
-    Manage the contract's allowance with [approveAllowance()](https://github.com/taikoxyz/taiko-mono/blob/116d3f4886dea01333b829677ec9b6d4492479c6/packages/protocol/contracts/team/proving/ProverSet.sol#L63). TaikoL1's contract allowance is by default set to `UINT256.MAX` in the init function.
+    Manage the contract's allowance with <NewTabLink href="https://github.com/taikoxyz/taiko-mono/blob/116d3f4886dea01333b829677ec9b6d4492479c6/packages/protocol/contracts/team/proving/ProverSet.sol#L63" text="approveAllowance()"/>. TaikoL1's contract allowance is by default set to `UINT256.MAX` in the init function.
 
 6. **Deposit your tokens and run your proposer + prover as usual!**
 
@@ -100,7 +101,7 @@ This guide outlines how to achieve this with separate EOAs running prover and pr
     Ensure that you have set up the EOAs correctly to avoid problems.
 
     <Aside>
-    You can withdraw the deposited tokens to the `admin` address with [withdrawToAdmin()](https://github.com/taikoxyz/taiko-mono/blob/116d3f4886dea01333b829677ec9b6d4492479c6/packages/protocol/contracts/team/proving/ProverSet.sol#L76).
+    You can withdraw the deposited tokens to the `admin` address with <NewTabLink href="https://github.com/taikoxyz/taiko-mono/blob/116d3f4886dea01333b829677ec9b6d4492479c6/packages/protocol/contracts/team/proving/ProverSet.sol#L76" text="withdrawToAdmin()"/>.
     </Aside>
 
 </Steps>
@@ -140,9 +141,9 @@ If you've already deployed a ProverSet but would like to upgrade it through the 
 
     If you've managed to propose and prove some blocks, it's likely you're wondering where your tokens went after.
 
-    It's not missing, it's just been deposited as bond in the TaikoL1 contract; you can withdraw it from the ProverSet contract with [withdrawBond()](https://github.com/taikoxyz/taiko-mono/blob/dd09223de53669b84241672eeb4b8574e5c7f821/packages/protocol/contracts/team/proving/ProverSet.sol#L110) manually.
+    It's not missing, it's just been deposited as bond in the TaikoL1 contract; you can withdraw it from the ProverSet contract with <NewTabLink href="https://github.com/taikoxyz/taiko-mono/blob/dd09223de53669b84241672eeb4b8574e5c7f821/packages/protocol/contracts/team/proving/ProverSet.sol#L110" text="withdrawBond()"/> manually.
 
 <Card title="Troubleshooting" icon="error">
         If you run into any problems, please visit the [node troubleshooting page](/guides/node-operators/node-troubleshooting) for help.
-        If you run into an error that isn't yet listed, please reach out in our [Discord](https://discord.com/invite/taikoxyz)!
+        If you run into an error that isn't yet listed, please reach out in our <NewTabLink href="https://discord.com/invite/taikoxyz" text="Discord"/>!
 </Card>

@@ -4,6 +4,7 @@ description: Learn how to build your own node without relying on simple-taiko-no
 ---
 
 import { Aside, Card, CardGrid, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+import NewTabLink from '../../../../components/NewTabLink.astro';
 
 This guide shows you how to build your own node from source code.
 
@@ -21,9 +22,9 @@ The taiko client is responsible for decoding L2 blocks from L1 calldata (and blo
 
 It has three subcommands, `driver`, `prover`, and `proposer`.
 
-The taiko client replaces the [consensus client](https://ethereum.org/en/developers/docs/nodes-and-clients/) in an Ethereum mainnet node.
+The taiko client replaces the <NewTabLink href="https://ethereum.org/en/developers/docs/nodes-and-clients/" text="consensus client"/> in an Ethereum mainnet node.
 
-In this tutorial you will build the `taiko-client` as found in the [taiko monorepo](https://github.com/taikoxyz/taiko-mono).
+In this tutorial you will build the `taiko-client` as found in the <NewTabLink href="https://github.com/taikoxyz/taiko-mono" text="taiko monorepo"/>.
 
 #### Execution Engine (taiko-geth)
 
@@ -31,17 +32,17 @@ The execution engine is responsible for executing the block payloads it receives
 
 `taiko-geth` exposes the standard JSON-RPC API that Ethereum developers are familiar with, and can be used accordingly to query blockchain data and submit transactions to the network.
 
-`taiko-geth` replaces the [execution client](https://ethereum.org/en/developers/docs/nodes-and-clients/) in an Ethereum mainnet node.
+`taiko-geth` replaces the <NewTabLink href="https://ethereum.org/en/developers/docs/nodes-and-clients/" text="execution client"/> in an Ethereum mainnet node.
 
-In this tutorial you will build the `taiko-geth` implementation of `go-ethereum` as found in the [`taiko-geth` repository](https://github.com/taikoxyz/taiko-geth).
+In this tutorial you will build the `taiko-geth` implementation of `go-ethereum` as found in the <NewTabLink href="https://github.com/taikoxyz/taiko-geth" text="`taiko-geth` repository"/>.
 
 ## Software Dependencies
 
-| Dependency                                                    | Version  | Version Check Command |
-| ------------------------------------------------------------- | -------- | --------------------- |
-| [git](https://git-scm.com/)                                   | `^2`     | `git --version`       |
-| [go](https://go.dev/)                                         | `^1.21`  | `go version`          |
-| [make](https://linux.die.net/man/1/make)                      | `^4`     | `make --version`      |
+| Dependency                                                        | Version  | Version Check Command |
+| ----------------------------------------------------------------- | -------- | --------------------- |
+| <NewTabLink href="https://git-scm.com/" text="git"/>              | `^2`     | `git --version`       |
+| <NewTabLink href="https://go.dev/" text="go"/>                    | `^1.21`  | `go version`          |
+| <NewTabLink href="https://linux.die.net/man/1/make" text="make"/> | `^4`     | `make --version`      |
 
 ## Building the Taiko Client
 
@@ -51,7 +52,7 @@ First you're going to build `taiko-client`.
 
 1. Clone the Taiko monorepo
 
-    The [Taiko monorepo](https://github.com/taikoxyz/taiko-mono) contains the source code for the `taiko-client`.
+    The <NewTabLink href="https://github.com/taikoxyz/taiko-mono" text="Taiko monorepo"/> contains the source code for the `taiko-client`.
 
     <Tabs>
         <TabItem label="Mac/Linux">
@@ -71,7 +72,7 @@ First you're going to build `taiko-client`.
 2. Checkout the release branch you wish to run
 
     Release branches are created when new versions of the `taiko-client` are created.
-    Find the branch you wish to check out in the [releases page](https://github.com/taikoxyz/taiko-mono/releases).
+    Find the branch you wish to check out in the <NewTabLink href="https://github.com/taikoxyz/taiko-mono/releases" text="releases page"/>.
 
     Search by `taiko-client` to find all relevant releases.
 
@@ -100,7 +101,7 @@ Next you're going to build `taiko-geth`.
 
 1. Clone taiko-geth
 
-    The [`taiko-geth` repository](https://github.com/taikoxyz/taiko-geth) contains the source code for our execution engine.
+    The <NewTabLink href="https://github.com/taikoxyz/taiko-geth" text="`taiko-geth` repository"/> contains the source code for our execution engine.
 
     <Tabs>
       <TabItem label="Mac/Linux">
@@ -120,7 +121,7 @@ Next you're going to build `taiko-geth`.
 2. Checkout the release branch you wish to run
 
     Release branches are created when new versions of the `taiko-geth` are created.
-    Find the branch you wish to check out in the [releases page](https://github.com/taikoxyz/taiko-geth/releases).
+    Find the branch you wish to check out in the <NewTabLink href="https://github.com/taikoxyz/taiko-geth/releases" text="releases page"/>.
 
     ```bash
     git checkout <release branch>

@@ -4,20 +4,21 @@ description: This guide will help you start up a Taiko RPC node using simple-tai
 ---
 
 import { Aside, Steps, Tabs, TabItem } from "@astrojs/starlight/components";
+import NewTabLink from '../../../../components/NewTabLink.astro';
 
-This guide will help you start up a Taiko RPC node using [simple-taiko-node](https://github.com/taikoxyz/simple-taiko-node).
+This guide will help you start up a Taiko RPC node using <NewTabLink href="https://github.com/taikoxyz/simple-taiko-node" text="simple-taiko-node"/>.
 
 ## Software Dependencies
 
 | Dependency                                                    | Version  | Version Check Command |
 | ------------------------------------------------------------- | -------- | --------------------- |
-| [git](https://git-scm.com/)                                   | `^2`     | `git --version`       |
-| [Docker](https://docs.docker.com/engine/install/)             | `^24.0`  | `docker --version`    |
+| <NewTabLink href="https://git-scm.com/" text="git"/>                                   | `^2`     | `git --version`       |
+| <NewTabLink href="https://docs.docker.com/engine/install/" text="Docker"/>             | `^24.0`  | `docker --version`    |
 
 ## Prerequisites
 
-- If using Windows, you should install [Git BASH](https://gitforwindows.org/) or [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) to use as your terminal.
-- Meet the [Geth minimum hardware requirements](https://github.com/ethereum/go-ethereum#hardware-requirements) except for the storage requirement because Taiko nodes will require less storage (at the time of writing).
+- If using Windows, you should install <NewTabLink href="https://gitforwindows.org/" text="Git BASH"/> or <NewTabLink href="https://learn.microsoft.com/en-us/windows/wsl/install" text="WSL"/> to use as your terminal.
+- Meet the <NewTabLink href="https://github.com/ethereum/go-ethereum#hardware-requirements" text="Geth minimum hardware requirements"/> except for the storage requirement because Taiko nodes will require less storage (at the time of writing).
 
 ## Run a Taiko node with simple-taiko-node
 
@@ -77,7 +78,7 @@ This guide will help you start up a Taiko RPC node using [simple-taiko-node](htt
 
     Next, you will set the L1 node endpoints. If you are running a local L1 node, you cannot reference the L1 endpoints as `http://127.0.0.1:8545`, `ws://127.0.0.1:8546` and `http://127.0.0.1:5052` because that is local to inside the simple-taiko-node Docker networking. Instead you can try:
 
-    - Using `host.docker.internal` (see: [stack overflow](https://stackoverflow.com/questions/24319662)).
+    - Using `host.docker.internal` (see: <NewTabLink href="https://stackoverflow.com/questions/24319662" text="stack overflow"/>).
     - Using the private ip address of your machine (use something like `ip addr show` to get this ip address).
 
     After getting the address of the L1 node, set the following L1 node endpoints in your `.env` file. Here is an example:
@@ -101,8 +102,8 @@ This guide will help you start up a Taiko RPC node using [simple-taiko-node](htt
     Note that if you include `proposer` or `prover`, the services will still be disabled if you do not set `ENABLE_PROPOSER=true` or `ENABLE_PROVER=true` respectively.
 
 6. Start the node
-    
-    <Aside title="Info">    
+
+    <Aside title="Info">
     Make sure Docker is running and then run the following command to start the node (you may need to use `sudo docker compose up -d` if your user is not in the `docker` group):
 
     To run a `hekla` Taiko node please use the following command instead: `docker compose -f docker-compose-hekla.yml up -d`.
@@ -116,7 +117,7 @@ This guide will help you start up a Taiko RPC node using [simple-taiko-node](htt
 
     #### Option 1: Check with the node dashboard
 
-    A node dashboard will be running on `localhost` on the `GRAFANA_PORT` you set in your `.env` file, which defaults to `3001`: [http://localhost:3001/d/L2ExecutionEngine/l2-execution-engine-overview](http://localhost:3001/d/L2ExecutionEngine/l2-execution-engine-overview).
+    A node dashboard will be running on `localhost` on the `GRAFANA_PORT` you set in your `.env` file, which defaults to `3001`: <NewTabLink href="http://localhost:3001/d/L2ExecutionEngine/l2-execution-engine-overview" text="http://localhost:3001/d/L2ExecutionEngine/l2-execution-engine-overview"/>.
 
     You can verify that your node is syncing by checking that the **chain head** on the dashboard is increasing. Once the chain head matches what's on the block explorer, you are fully synced.
 
@@ -162,7 +163,7 @@ This guide will help you start up a Taiko RPC node using [simple-taiko-node](htt
 
 ## Video tutorial
 
-See the video tutorial [Run a Taiko L2 node (YouTube)](https://www.youtube.com/watch?v=l_tVvDcuK5o). It's for a previous testnet but the overall steps are the same!
+See the video tutorial <NewTabLink href="https://www.youtube.com/watch?v=l_tVvDcuK5o" text="Run a Taiko L2 node (YouTube)"/>. It's for a previous testnet but the overall steps are the same!
 
 ## Full simple-taiko-node CLI reference
 

@@ -4,14 +4,15 @@ description: This guide will help you get a Holesky archive node up and running.
 ---
 
 import { Steps } from '@astrojs/starlight/components';
+import NewTabLink from '../../../../components/NewTabLink.astro';
 
 This guide will help you get a Holesky archive node up and running.
 
 ## Prerequisites
 
-- [Docker](https://docs.docker.com/engine/install/) is installed and **running**.
-- [Git](https://github.com/git-guides/install-git/) is installed.
-- If using Windows, you should install [Git BASH](https://gitforwindows.org/) or [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) to use as your terminal.
+- <NewTabLink href="https://docs.docker.com/engine/install/" text="Docker"/> is installed and **running**.
+- <NewTabLink href="https://github.com/git-guides/install-git/" text="Git"/> is installed.
+- If using Windows, you should install <NewTabLink href="https://gitforwindows.org/" text="Git BASH"/> or <NewTabLink href="https://learn.microsoft.com/en-us/windows/wsl/install" text="WSL"/> to use as your terminal.
 
 ## Steps
 
@@ -26,7 +27,7 @@ This guide will help you get a Holesky archive node up and running.
 
 2. Do the eth-docker quickstart config
 
-    Complete the [eth-docker quickstart](https://eth-docker.net/Usage/QuickStart/). You will need to run the config command:
+    Complete the <NewTabLink href="https://eth-docker.net/Usage/QuickStart/" text="eth-docker quickstart"/>. You will need to run the config command:
 
     ```bash
     ./ethd config
@@ -42,7 +43,7 @@ This guide will help you get a Holesky archive node up and running.
     COMPOSE_FILE=lighthouse-cl-only.yml:geth.yml:el-shared.yml:cl-shared.yml
     ```
 
-    Keep in mind this is **not encrypted**, so you should not expose it to the internet. eth-docker offers a few other options that you can read about [here](https://eth-docker.net/Usage/Advanced#sharing-rpc-and-rest-ports).
+    Keep in mind this is **not encrypted**, so you should not expose it to the internet. eth-docker offers a few other options that you can read about <NewTabLink href="https://eth-docker.net/Usage/Advanced#sharing-rpc-and-rest-ports" text="here"/>.
 
 4. Start Docker containers
 
@@ -52,10 +53,10 @@ This guide will help you get a Holesky archive node up and running.
 
 5. Check your node is running properly
 
-    You can visit the [Grafana dashboard](https://eth-docker.net/Usage/Dashboards/#connecting-to-local-grafana) which should be running on `localhost:3000` to verify if your node is running correctly. You should see the chain head increasing.
+    You can visit the <NewTabLink href="https://eth-docker.net/Usage/Dashboards/#connecting-to-local-grafana" text="Grafana dashboard"/> which should be running on `localhost:3000` to verify if your node is running correctly. You should see the chain head increasing.
 
 </Steps>
 
 ## Video tutorial
 
-See [Run a Sepolia L1 archive node (YouTube)](https://www.youtube.com/watch?v=7Lg_cY7iP2o), the only difference is you need to select **Holesky testnet**.
+See <NewTabLink href="https://www.youtube.com/watch?v=7Lg_cY7iP2o" text="Run a Sepolia L1 archive node (YouTube)"/>, the only difference is you need to select **Holesky testnet**.
