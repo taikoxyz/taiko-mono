@@ -24,6 +24,7 @@ library LibL1BaseFee {
         });
     }
 
+    // TODO: add a public method in TaikoL1
     function getPrevEpocAvgBaseFees(TaikoData.State storage _state)
         internal
         view
