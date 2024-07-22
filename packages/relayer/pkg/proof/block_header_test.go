@@ -6,9 +6,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"gopkg.in/go-playground/assert.v1"
+
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/mock"
-	"gopkg.in/go-playground/assert.v1"
 )
 
 func Test_blockHeader(t *testing.T) {
