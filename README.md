@@ -31,8 +31,10 @@ Get started with Taiko:
 
 ## Packages
 
+<!-- uncomment after release docs-site
 > [!TIP]
 > Make sure your node is using the latest version tags for taiko-client and taiko-geth. Check out the [node releases page](https://docs.taiko.xyz/network-reference/node-releases)!
+-->
 
 | Package                                                                       | Description                                             | Release notes                                                                                                                                                                                                                           |
 | :---------------------------------------------------------------------------- | :------------------------------------------------------ | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
