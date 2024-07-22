@@ -143,20 +143,17 @@ library LibProving {
             local.stateRoot = tran.stateRoot;
         }
 
-        local.assignedProver = blk.assignedProver;
-        if (local.assignedProver == address(0)) {
-            local.assignedProver = meta.proposer;
-        }
-
-        if (!blk.livenessBondReturned) {
-            local.livenessBond = meta.livenessBond == 0 ? blk.livenessBond : meta.livenessBond;
-        }
-        local.metaHash = blk.metaHash;
-
         // Check the integrity of the block data. It's worth noting that in
         // theory, this check may be skipped, but it's included for added
         // caution.
+        local.metaHash = blk.metaHash;
         if (local.metaHash != keccak256(abi.encode(meta))) revert L1_BLOCK_MISMATCH();
+
+        local.assignedProver = meta.proposer;
+
+        if (!blk.livenessBondReturned) {
+            local.livenessBond = meta.livenessBond;
+        }
 
         // Each transition is uniquely identified by the parentHash, with the
         // blockHash and stateRoot open for later updates as higher-tier proofs
@@ -428,7 +425,6 @@ library LibProving {
             if (_local.livenessBond != 0) {
                 // After the first proof, the block's liveness bond will always be reset to 0.
                 // This means liveness bond will be handled only once for any given block.
-                _blk.livenessBond = 0;
                 _blk.livenessBondReturned = true;
 
                 if (_returnLivenessBond(_local, _proof.data)) {

@@ -184,8 +184,8 @@ library LibProposing {
         // Create the block that will be stored onchain
         TaikoData.Block memory blk = TaikoData.Block({
             metaHash: keccak256(abi.encode(meta_)),
-            assignedProver: address(0),
-            livenessBond: 0,
+            ___assignedProver: address(0),
+            ___livenessBond: 0,
             blockId: local.b.numBlocks,
             proposedAt: params.timestamp,
             proposedIn: params.anchorBlockId,
