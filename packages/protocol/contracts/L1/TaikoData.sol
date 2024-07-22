@@ -118,8 +118,8 @@ library TaikoData {
     /// 3 slots used.
     struct Block {
         bytes32 metaHash; // slot 1
-        address ___assignedProver; // slot 2
-        uint96 ___livenessBond;
+        address assignedProver; // slot 2
+        uint96 livenessBond;
         uint64 blockId; // slot 3
         // Ignore the name, `proposedAt` now represents `params.timestamp`.
         uint64 proposedAt;
