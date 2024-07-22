@@ -215,6 +215,7 @@ library LibProposing {
             proposedIn: local.postFork ? params.anchorBlockId : uint64(block.number),
             // For a new block, the next transition ID is always 1, not 0.
             nextTransitionId: 1,
+            livenessBondReturned: false,
             // For unverified block, its verifiedTransitionId is always 0.
             verifiedTransitionId: 0
         });

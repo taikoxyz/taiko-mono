@@ -198,7 +198,7 @@ library LibUtils {
     )
         internal
         view
-        returns (uint32 tid_)
+        returns (uint24 tid_)
     {
         if (_state.transitions[_slot][1].key == _parentHash) {
             tid_ = 1;
