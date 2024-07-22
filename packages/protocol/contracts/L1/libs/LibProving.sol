@@ -54,7 +54,7 @@ library LibProving {
     /// @param validityBond The validity bond amount.
     /// @param tier The tier of the proof.
     /// @param proposedIn The L1 block in which a transition is proved.
-    event TransitionProved2(
+    event TransitionProvedV2(
         uint256 indexed blockId,
         TaikoData.Transition tran,
         address prover,
@@ -84,7 +84,7 @@ library LibProving {
     /// @param contestBond The contest bond amount.
     /// @param tier The tier of the proof.
     /// @param proposedIn The L1 block in which this L2 block is proposed.
-    event TransitionContested2(
+    event TransitionContestedV2(
         uint256 indexed blockId,
         TaikoData.Transition tran,
         address contester,
@@ -283,7 +283,7 @@ library LibProving {
             _overrideWithHigherProof(_state, _resolver, blk, ts, tran, proof, local);
 
             if (local.postFork) {
-                emit TransitionProved2({
+                emit TransitionProvedV2({
                     blockId: local.blockId,
                     tran: tran,
                     prover: msg.sender,
@@ -315,7 +315,7 @@ library LibProving {
                 ts.stateRoot = local.stateRoot;
 
                 if (local.postFork) {
-                    emit TransitionProved2({
+                    emit TransitionProvedV2({
                         blockId: local.blockId,
                         tran: tran,
                         prover: msg.sender,
@@ -360,7 +360,7 @@ library LibProving {
                 ts.contester = msg.sender;
 
                 if (local.postFork) {
-                    emit TransitionContested2({
+                    emit TransitionContestedV2({
                         blockId: local.blockId,
                         tran: tran,
                         contester: msg.sender,

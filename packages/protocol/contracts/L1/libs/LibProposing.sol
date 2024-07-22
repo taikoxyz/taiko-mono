@@ -38,7 +38,7 @@ library LibProposing {
     /// @notice Emitted when a block is proposed.
     /// @param blockId The ID of the proposed block.
     /// @param meta The metadata of the proposed block.
-    event BlockProposed2(uint256 indexed blockId, TaikoData.BlockMetadataV2 meta);
+    event BlockProposedV2(uint256 indexed blockId, TaikoData.BlockMetadataV2 meta);
 
     /// @notice Emitted when a block's txList is in the calldata.
     /// @param blockId The ID of the proposed block.
@@ -50,7 +50,6 @@ library LibProposing {
     error L1_INVALID_ANCHOR_BLOCK();
     error L1_INVALID_PROPOSER();
     error L1_INVALID_TIMESTAMP();
-    error L1_INVALID_BASEFEE_SHARING();
     error L1_LIVENESS_BOND_NOT_RECEIVED();
     error L1_TOO_MANY_BLOCKS();
     error L1_UNEXPECTED_PARENT();
@@ -99,7 +98,7 @@ library LibProposing {
                 // otherwise use a default BlockParamsV2 with 0 values
             }
         } else {
-            params = LibData.paramV1toV2(abi.decode(_data, (TaikoData.BlockParams)));
+            params = LibData.blockParamsV1ToV2(abi.decode(_data, (TaikoData.BlockParams)));
         }
 
         if (params.coinbase == address(0)) {
@@ -112,10 +111,6 @@ library LibProposing {
 
         if (!local.postFork || params.timestamp == 0) {
             params.timestamp = uint64(block.timestamp);
-        }
-
-        if (params.basefeeSharingPctg > 100) {
-            revert L1_INVALID_BASEFEE_SHARING();
         }
 
         // Verify params against the parent block.
@@ -182,7 +177,7 @@ library LibProposing {
                 blobTxListOffset: params.blobTxListOffset,
                 blobTxListLength: params.blobTxListLength,
                 blobIndex: params.blobIndex,
-                basefeeSharingPctg: params.basefeeSharingPctg
+                basefeeSharingPctg: _config.basefeeSharingPctg
             });
         }
 
@@ -242,13 +237,13 @@ library LibProposing {
         deposits_ = new TaikoData.EthDeposit[](0);
 
         if (local.postFork) {
-            emit BlockProposed2(meta_.id, meta_);
+            emit BlockProposedV2(meta_.id, meta_);
         } else {
             emit BlockProposed({
                 blockId: meta_.id,
                 assignedProver: msg.sender,
                 livenessBond: _config.livenessBond,
-                meta: LibData.metadataV2toV1(meta_),
+                meta: LibData.blockMetadataV2toV1(meta_),
                 depositsProcessed: deposits_
             });
         }

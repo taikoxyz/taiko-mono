@@ -110,8 +110,7 @@ contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
             timestamp: 0,
             blobTxListOffset: 0,
             blobTxListLength: 0,
-            blobIndex: 0,
-            basefeeSharingPctg: 0
+            blobIndex: 0
         });
         TaikoData.BlockMetadataV2 memory meta = proposeBlockV2(Alice, params, "");
 
@@ -152,8 +151,7 @@ contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
             timestamp: uint64(block.timestamp - 100),
             blobTxListOffset: 0,
             blobTxListLength: 0,
-            blobIndex: 0,
-            basefeeSharingPctg: 0
+            blobIndex: 0
         });
         meta = proposeBlockV2(Alice, params, "");
 

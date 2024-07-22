@@ -37,7 +37,7 @@ library LibUtils {
     /// block.
     /// @param blockHash The hash of the verified block.
     /// @param tier The tier ID of the proof.
-    event BlockVerified2(
+    event BlockVerifiedV2(
         uint256 indexed blockId, address indexed prover, bytes32 blockHash, uint16 tier
     );
 
@@ -77,7 +77,7 @@ library LibUtils {
         ts.timestamp = uint64(block.timestamp);
 
         if (_config.ontakeForkHeight == 0) {
-            emit BlockVerified2({
+            emit BlockVerifiedV2({
                 blockId: 0,
                 prover: address(0),
                 blockHash: _genesisBlockHash,
