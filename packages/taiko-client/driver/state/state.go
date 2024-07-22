@@ -106,8 +106,9 @@ func (s *State) eventLoop(ctx context.Context) {
 		blockVerifiedCh    = make(chan *bindings.TaikoL1ClientBlockVerified, 10)
 
 		// Subscriptions.
-		l1HeadSub             = rpc.SubscribeChainHead(s.rpc.L1, l1HeadCh)
-		l2HeadSub             = rpc.SubscribeChainHead(s.rpc.L2, l2HeadCh)
+		l1HeadSub = rpc.SubscribeChainHead(s.rpc.L1, l1HeadCh)
+		l2HeadSub = rpc.SubscribeChainHead(s.rpc.L2, l2HeadCh)
+		// TODO: update these values
 		l2BlockVerifiedSub    = rpc.SubscribeBlockVerified(s.rpc.TaikoL1, blockVerifiedCh)
 		l2BlockProposedSub    = rpc.SubscribeBlockProposed(s.rpc.LibProposing, blockProposedCh)
 		l2TransitionProvedSub = rpc.SubscribeTransitionProved(s.rpc.TaikoL1, transitionProvedCh)

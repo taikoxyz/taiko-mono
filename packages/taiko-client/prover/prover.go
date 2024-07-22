@@ -262,16 +262,28 @@ func (p *Prover) eventLoop() {
 	blockVerifiedCh := make(chan *bindings.TaikoL1ClientBlockVerified, chBufferSize)
 	transitionProvedCh := make(chan *bindings.TaikoL1ClientTransitionProved, chBufferSize)
 	transitionContestedCh := make(chan *bindings.TaikoL1ClientTransitionContested, chBufferSize)
+	blockProposedV2Ch := make(chan *bindings.LibProposingBlockProposedV2, chBufferSize)
+	blockVerifiedV2Ch := make(chan *bindings.TaikoL1ClientBlockVerifiedV2, chBufferSize)
+	transitionProvedV2Ch := make(chan *bindings.TaikoL1ClientTransitionProvedV2, chBufferSize)
+	transitionContestedV2Ch := make(chan *bindings.TaikoL1ClientTransitionContestedV2, chBufferSize)
 	// Subscriptions
 	blockProposedSub := rpc.SubscribeBlockProposed(p.rpc.LibProposing, blockProposedCh)
 	blockVerifiedSub := rpc.SubscribeBlockVerified(p.rpc.TaikoL1, blockVerifiedCh)
 	transitionProvedSub := rpc.SubscribeTransitionProved(p.rpc.TaikoL1, transitionProvedCh)
 	transitionContestedSub := rpc.SubscribeTransitionContested(p.rpc.TaikoL1, transitionContestedCh)
+	blockProposedV2Sub := rpc.SubscribeBlockProposedV2(p.rpc.LibProposing, blockProposedV2Ch)
+	blockVerifiedV2Sub := rpc.SubscribeBlockVerifiedV2(p.rpc.TaikoL1, blockVerifiedV2Ch)
+	transitionProvedV2Sub := rpc.SubscribeTransitionProvedV2(p.rpc.TaikoL1, transitionProvedV2Ch)
+	transitionContestedV2Sub := rpc.SubscribeTransitionContestedV2(p.rpc.TaikoL1, transitionContestedV2Ch)
 	defer func() {
 		blockProposedSub.Unsubscribe()
 		blockVerifiedSub.Unsubscribe()
 		transitionProvedSub.Unsubscribe()
 		transitionContestedSub.Unsubscribe()
+		blockProposedV2Sub.Unsubscribe()
+		blockVerifiedV2Sub.Unsubscribe()
+		transitionProvedV2Sub.Unsubscribe()
+		transitionContestedV2Sub.Unsubscribe()
 	}()
 
 	for {
@@ -289,14 +301,41 @@ func (p *Prover) eventLoop() {
 				log.Error("Prove new blocks error", "error", err)
 			}
 		case e := <-blockVerifiedCh:
-			p.blockVerifiedHandler.Handle(e)
+			p.blockVerifiedHandler.Handle(encoding.BlockVerifiedEventToV2(e))
 		case e := <-transitionProvedCh:
-			p.withRetry(func() error { return p.transitionProvedHandler.Handle(p.ctx, e) })
+			p.withRetry(func() error {
+				blockInfo, err := p.rpc.GetL2BlockInfo(p.ctx, e.BlockId)
+				if err != nil {
+					return err
+				}
+				return p.transitionProvedHandler.Handle(p.ctx, encoding.TransitionProvedEventToV2(e, blockInfo.ProposedIn))
+			})
 		case e := <-transitionContestedCh:
-			p.withRetry(func() error { return p.transitionContestedHandler.Handle(p.ctx, e) })
+			p.withRetry(func() error {
+				blockInfo, err := p.rpc.GetL2BlockInfo(p.ctx, e.BlockId)
+				if err != nil {
+					return err
+				}
+				return p.transitionContestedHandler.Handle(
+					p.ctx,
+					encoding.TransitionContestedEventToV2(e, blockInfo.ProposedIn),
+				)
+			})
+		case e := <-blockVerifiedV2Ch:
+			p.blockVerifiedHandler.Handle(e)
+		case e := <-transitionProvedV2Ch:
+			p.withRetry(func() error {
+				return p.transitionProvedHandler.Handle(p.ctx, e)
+			})
+		case e := <-transitionContestedV2Ch:
+			p.withRetry(func() error {
+				return p.transitionContestedHandler.Handle(p.ctx, e)
+			})
 		case m := <-p.assignmentExpiredCh:
 			p.withRetry(func() error { return p.assignmentExpiredHandler.Handle(p.ctx, m) })
 		case <-blockProposedCh:
+			reqProving()
+		case <-blockProposedV2Ch:
 			reqProving()
 		case <-forceProvingTicker.C:
 			reqProving()

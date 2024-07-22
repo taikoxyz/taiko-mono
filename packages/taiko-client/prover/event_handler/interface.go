@@ -16,19 +16,19 @@ type BlockProposedHandler interface {
 	) error
 }
 
-// TransitionContestedHandler is the interface for handling `TaikoL1.TransitionContested` events.
+// TransitionContestedHandler is the interface for handling `TaikoL1.TransitionContestedV2` events.
 type TransitionContestedHandler interface {
-	Handle(ctx context.Context, event *bindings.TaikoL1ClientTransitionContested) error
+	Handle(ctx context.Context, event *bindings.TaikoL1ClientTransitionContestedV2) error
 }
 
-// TransitionProvedHandler is the interface for handling `TaikoL1.TransitionProved` events.
+// TransitionProvedHandler is the interface for handling `TaikoL1.TransitionProvedV2` events.
 type TransitionProvedHandler interface {
-	Handle(ctx context.Context, event *bindings.TaikoL1ClientTransitionProved) error
+	Handle(ctx context.Context, event *bindings.TaikoL1ClientTransitionProvedV2) error
 }
 
-// BlockVerifiedHandler is the interface for handling `TaikoL1.BlockVerified` events.
+// BlockVerifiedHandler is the interface for handling `TaikoL1.BlockVerifiedV2` events.
 type BlockVerifiedHandler interface {
-	Handle(e *bindings.TaikoL1ClientBlockVerified)
+	Handle(e *bindings.TaikoL1ClientBlockVerifiedV2)
 }
 
 // AssignmentExpiredHandler is the interface for handling the proof assignment expiration.

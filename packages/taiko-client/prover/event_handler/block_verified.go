@@ -19,14 +19,13 @@ func NewBlockVerifiedEventHandler(guardianProverAddress common.Address) *BlockVe
 }
 
 // Handle handles the BlockVerified event.
-func (h *BlockVerifiedEventHandler) Handle(e *bindings.TaikoL1ClientBlockVerified) {
+func (h *BlockVerifiedEventHandler) Handle(e *bindings.TaikoL1ClientBlockVerifiedV2) {
 	metrics.ProverLatestVerifiedIDGauge.Set(float64(e.BlockId.Uint64()))
 
 	log.Info(
 		"New verified block",
 		"blockID", e.BlockId,
 		"hash", common.BytesToHash(e.BlockHash[:]),
-		"stateRoot", common.BytesToHash(e.StateRoot[:]),
 		"prover", e.Prover,
 	)
 }

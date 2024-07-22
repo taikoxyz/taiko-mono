@@ -44,7 +44,7 @@ func NewTransitionProvedEventHandler(
 // Handle implements the TransitionProvedHandler interface.
 func (h *TransitionProvedEventHandler) Handle(
 	ctx context.Context,
-	e *bindings.TaikoL1ClientTransitionProved,
+	e *bindings.TaikoL1ClientTransitionProvedV2,
 ) error {
 	metrics.ProverReceivedProvenBlockGauge.Set(float64(e.BlockId.Uint64()))
 
@@ -73,14 +73,8 @@ func (h *TransitionProvedEventHandler) Handle(
 	if isValid {
 		return nil
 	}
-
 	// If the proof is invalid, we contest it.
-	blockInfo, err := h.rpc.GetL2BlockInfo(ctx, e.BlockId)
-	if err != nil {
-		return err
-	}
-
-	meta, err := getMetadataFromBlockID(ctx, h.rpc, e.BlockId, new(big.Int).SetUint64(blockInfo.ProposedIn))
+	meta, err := getMetadataFromBlockID(ctx, h.rpc, e.BlockId, new(big.Int).SetUint64(e.ProposedIn))
 	if err != nil {
 		return err
 	}
@@ -88,7 +82,7 @@ func (h *TransitionProvedEventHandler) Handle(
 	log.Info(
 		"Attempting to contest a proven transition",
 		"blockID", e.BlockId,
-		"l1Height", blockInfo.ProposedIn,
+		"l1Height", e.ProposedIn,
 		"tier", e.Tier,
 		"parentHash", common.Bytes2Hex(e.Tran.ParentHash[:]),
 		"blockHash", common.Bytes2Hex(e.Tran.BlockHash[:]),
@@ -99,7 +93,7 @@ func (h *TransitionProvedEventHandler) Handle(
 			ctx,
 			h.rpc,
 			e.BlockId,
-			new(big.Int).SetUint64(blockInfo.ProposedIn),
+			new(big.Int).SetUint64(e.ProposedIn),
 		)
 		if err != nil {
 			return err
@@ -114,7 +108,7 @@ func (h *TransitionProvedEventHandler) Handle(
 		go func() {
 			h.proofContestCh <- &proofProducer.ContestRequestBody{
 				BlockID:    e.BlockId,
-				ProposedIn: new(big.Int).SetUint64(blockInfo.ProposedIn),
+				ProposedIn: new(big.Int).SetUint64(e.ProposedIn),
 				ParentHash: e.Tran.ParentHash,
 				Meta:       meta,
 				Tier:       e.Tier,

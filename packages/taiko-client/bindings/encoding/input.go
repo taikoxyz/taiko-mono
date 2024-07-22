@@ -71,7 +71,6 @@ var (
 			Type: "address",
 		},
 	}
-
 	blockMetadataV2Components = []abi.ArgumentMarshaling{
 		{
 			Name: "anchorBlockHash",
