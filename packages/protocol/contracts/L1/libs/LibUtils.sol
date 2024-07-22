@@ -35,13 +35,7 @@ library LibUtils {
     /// @notice Initializes the Taiko protocol state.
     /// @param _state The state to initialize.
     /// @param _genesisBlockHash The block hash of the genesis block.
-    function init(
-        TaikoData.State storage _state,
-        TaikoData.Config memory _config,
-        bytes32 _genesisBlockHash
-    )
-        internal
-    {
+    function init(TaikoData.State storage _state, bytes32 _genesisBlockHash) internal {
         if (_genesisBlockHash == 0) revert L1_INVALID_GENESIS_HASH();
         // Init state
         _state.slotA.genesisHeight = uint64(block.number);
