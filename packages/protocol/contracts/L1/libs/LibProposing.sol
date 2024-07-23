@@ -154,7 +154,8 @@ library LibProposing {
                 blobTxListLength: params.blobTxListLength,
                 blobIndex: params.blobIndex,
                 basefeeAdjustmentQuotient: _config.basefeeAdjustmentQuotient,
-                basefeeSharingPctg: _config.basefeeSharingPctg
+                basefeeSharingPctg: _config.basefeeSharingPctg,
+                blockGasIssuance: _config.blockGasIssuance
             });
         }
 

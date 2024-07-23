@@ -246,7 +246,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
             stateRootSyncInternal: 16,
             maxAnchorHeightOffset: 64,
             basefeeAdjustmentQuotient: 8,
-            basefeeSharingPctg: 75
+            basefeeSharingPctg: 75,
+            blockGasIssuance: 20_000_000
         });
     }
 

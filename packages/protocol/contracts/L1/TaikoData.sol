@@ -41,6 +41,7 @@ library TaikoData {
         // ---------------------------------------------------------------------
         uint8 basefeeAdjustmentQuotient;
         uint8 basefeeSharingPctg;
+        uint32 blockGasIssuance;
     }
 
     /// @dev A proof and the tier of proof it belongs to
@@ -89,6 +90,7 @@ library TaikoData {
         uint8 blobIndex;
         uint8 basefeeAdjustmentQuotient;
         uint8 basefeeSharingPctg;
+        uint32 blockGasIssuance;
     }
 
     /// @dev Struct representing transition to be proven.
