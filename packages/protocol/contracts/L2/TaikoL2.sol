@@ -108,10 +108,11 @@ contract TaikoL2 is EssentialContract {
     /// @dev This function can be called freely as the golden touch private key is publicly known,
     /// but the Taiko node guarantees the first transaction of each block is always this anchor
     /// transaction, and any subsequent calls will revert with L2_PUBLIC_INPUT_HASH_MISMATCH.
-    /// @param _l1BlockHash The `anchorBlockHash` value in this block's metadata.
-    /// @param _l1StateRoot The state root for the L1 block with id equals `_anchorBlockId`
-    /// @param _l1BlockId The `anchorBlockId` value in this block's metadata.
+    /// @param _anchorBlockId The `anchorBlockId` value in this block's metadata.
+    /// @param _anchorStateRoot The state root for the L1 block with id equals `_anchorBlockId`
     /// @param _parentGasUsed The gas used in the parent block.
+    /// @param _blockGasIssuance The amount of gas to issue in this block.
+    /// @param _basefeeAdjustmentQuotient The base fee adjustment quotient.
     function anchorV2(
         uint64 _anchorBlockId,
         bytes32 _anchorStateRoot,
@@ -122,14 +123,52 @@ contract TaikoL2 is EssentialContract {
         external
         nonReentrant
     {
-        if (block.number < ONTAKE_FORK_HEIGHT) revert L2_FORK_ERROR();
-        _anchor(
-            _anchorBlockId,
-            _anchorStateRoot,
-            _parentGasUsed,
-            _blockGasIssuance,
-            _basefeeAdjustmentQuotient
-        );
+        if (
+            _anchorStateRoot == 0 || _anchorBlockId == 0
+                || (block.number != 1 && _parentGasUsed == 0)
+        ) {
+            revert L2_INVALID_PARAM();
+        }
+
+        if (msg.sender != GOLDEN_TOUCH_ADDRESS) revert L2_INVALID_SENDER();
+
+        uint256 parentId;
+        unchecked {
+            parentId = block.number - 1;
+        }
+
+        // Verify ancestor hashes
+        (bytes32 publicInputHashOld, bytes32 publicInputHashNew) = _calcPublicInputHash(parentId);
+        if (publicInputHash != publicInputHashOld) {
+            revert L2_PUBLIC_INPUT_HASH_MISMATCH();
+        }
+
+        // Verify the base fee per gas is correct
+        (uint256 _basefee, uint64 _gasExcess) = block.number < ONTAKE_FORK_HEIGHT
+            ? getBasefee(_anchorBlockId, _parentGasUsed)
+            : calculateBaseFee(_blockGasIssuance, _basefeeAdjustmentQuotient, gasExcess, _parentGasUsed);
+
+        if (!skipFeeCheck() && block.basefee != _basefee) {
+            revert L2_BASEFEE_MISMATCH();
+        }
+
+        if (_anchorBlockId > lastSyncedBlock) {
+            // Store the L1's state root as a signal to the local signal service to
+            // allow for multi-hop bridging.
+            ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).syncChainData(
+                l1ChainId, LibStrings.H_STATE_ROOT, _anchorBlockId, _anchorStateRoot
+            );
+
+            lastSyncedBlock = _anchorBlockId;
+        }
+
+        // Update state variables
+        bytes32 _parentHash = blockhash(parentId);
+        l2Hashes[parentId] = _parentHash;
+        publicInputHash = publicInputHashNew;
+        gasExcess = _gasExcess;
+
+        emit Anchored(_parentHash, _gasExcess);
     }
 
     /// @notice Withdraw token or Ether from this address
@@ -223,63 +262,6 @@ contract TaikoL2 is EssentialContract {
         return Lib1559Math.calc1559BaseFee(
             _blockGasIssuance, _adjustmentQuotient, _gasExcess, _blockGasIssuance, _parentGasUsed
         );
-    }
-
-    function _anchor(
-        uint64 _anchorBlockId,
-        bytes32 _anchorStateRoot,
-        uint32 _parentGasUsed,
-        uint32 _blockGasIssuance, // only used by ontake
-        uint8 _basefeeAdjustmentQuotient // only used by ontake
-    )
-        private
-    {
-        if (
-            _anchorStateRoot == 0 || _anchorBlockId == 0
-                || (block.number != 1 && _parentGasUsed == 0)
-        ) {
-            revert L2_INVALID_PARAM();
-        }
-
-        if (msg.sender != GOLDEN_TOUCH_ADDRESS) revert L2_INVALID_SENDER();
-
-        uint256 parentId;
-        unchecked {
-            parentId = block.number - 1;
-        }
-
-        // Verify ancestor hashes
-        (bytes32 publicInputHashOld, bytes32 publicInputHashNew) = _calcPublicInputHash(parentId);
-        if (publicInputHash != publicInputHashOld) {
-            revert L2_PUBLIC_INPUT_HASH_MISMATCH();
-        }
-
-        // Verify the base fee per gas is correct
-        (uint256 _basefee, uint64 _gasExcess) = block.number < ONTAKE_FORK_HEIGHT
-            ? getBasefee(_anchorBlockId, _parentGasUsed)
-            : calculateBaseFee(_blockGasIssuance, _basefeeAdjustmentQuotient, gasExcess, _parentGasUsed);
-
-        if (!skipFeeCheck() && block.basefee != _basefee) {
-            revert L2_BASEFEE_MISMATCH();
-        }
-
-        if (_anchorBlockId > lastSyncedBlock) {
-            // Store the L1's state root as a signal to the local signal service to
-            // allow for multi-hop bridging.
-            ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).syncChainData(
-                l1ChainId, LibStrings.H_STATE_ROOT, _anchorBlockId, _anchorStateRoot
-            );
-
-            lastSyncedBlock = _anchorBlockId;
-        }
-
-        // Update state variables
-        bytes32 _parentHash = blockhash(parentId);
-        l2Hashes[parentId] = _parentHash;
-        publicInputHash = publicInputHashNew;
-        gasExcess = _gasExcess;
-
-        emit Anchored(_parentHash, _gasExcess);
     }
 
     function _calcPublicInputHash(uint256 _blockId)
