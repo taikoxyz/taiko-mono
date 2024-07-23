@@ -10,7 +10,7 @@ contract TestL2ForTest is TaikoL2 {
 }
 
 contract SkipBasefeeCheckL2 is TestL2ForTest {
-    function skipFeeCheck() public pure override returns (bool) {
+    function skipFeeCheck() internal pure override returns (bool) {
         return true;
     }
 }

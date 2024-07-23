@@ -197,12 +197,6 @@ contract TaikoL2 is EssentialContract {
         return l2Hashes[_blockId];
     }
 
-    /// @notice Tells if we need to validate basefee (for simulation).
-    /// @return Returns true to skip checking basefee mismatch.
-    function skipFeeCheck() public pure virtual returns (bool) {
-        return false;
-    }
-
     /// @notice Calculates the basefee and the new gas excess value based on parent gas used and gas
     /// excess.
     /// @param _blockGasIssuance The L2 block's gas issuance.
@@ -224,6 +218,12 @@ contract TaikoL2 is EssentialContract {
         return Lib1559Math.calc1559BaseFee(
             _blockGasIssuance, _adjustmentQuotient, _gasExcess, _blockGasIssuance, _parentGasUsed
         );
+    }
+
+    /// @notice Tells if we need to validate basefee (for simulation).
+    /// @return Returns true to skip checking basefee mismatch.
+    function skipFeeCheck() internal pure virtual returns (bool) {
+        return false;
     }
 
     function _calcPublicInputHash(uint256 _blockId)
