@@ -109,13 +109,12 @@ contract TaikoL2 is EssentialContract {
     /// but the Taiko node guarantees the first transaction of each block is always this anchor
     /// transaction, and any subsequent calls will revert with L2_PUBLIC_INPUT_HASH_MISMATCH.
     /// @param _l1BlockHash The `anchorBlockHash` value in this block's metadata.
-    /// @param _l1StateRoot The state root for the L1 block with id equals `_l1BlockId`
+    /// @param _l1StateRoot The state root for the L1 block with id equals `_anchorBlockId`
     /// @param _l1BlockId The `anchorBlockId` value in this block's metadata.
     /// @param _parentGasUsed The gas used in the parent block.
     function anchorV2(
-        bytes32 _l1BlockHash,
-        bytes32 _l1StateRoot,
-        uint64 _l1BlockId,
+        uint64 _anchorBlockId,
+        bytes32 _anchorStateRoot,
         uint32 _parentGasUsed,
         uint32 _blockGasIssuance,
         uint8 _basefeeAdjustmentQuotient
@@ -125,9 +124,8 @@ contract TaikoL2 is EssentialContract {
     {
         if (block.number < ONTAKE_FORK_HEIGHT) revert L2_FORK_ERROR();
         _anchor(
-            _l1BlockHash,
-            _l1StateRoot,
-            _l1BlockId,
+            _anchorBlockId,
+            _anchorStateRoot,
             _parentGasUsed,
             _blockGasIssuance,
             _basefeeAdjustmentQuotient
@@ -158,12 +156,12 @@ contract TaikoL2 is EssentialContract {
     /// the given parameters.
     /// @dev This function will deprecate after Ontake fork, node/client shall use calculateBaseFee
     /// instead for base fee prediction.
-    /// @param _l1BlockId The synced L1 height in the next Taiko block
+    /// @param _anchorBlockId The synced L1 height in the next Taiko block
     /// @param _parentGasUsed Gas used in the parent block.
     /// @return basefee_ The calculated EIP-1559 base fee per gas.
     /// @return gasExcess_ The new gasExcess value.
     function getBasefee(
-        uint64 _l1BlockId,
+        uint64 _anchorBlockId,
         uint32 _parentGasUsed
     )
         public
@@ -171,7 +169,7 @@ contract TaikoL2 is EssentialContract {
         returns (uint256 basefee_, uint64 gasExcess_)
     {
         LibL2Config.Config memory config = getConfig();
-        uint64 gasIssuance = uint64(_l1BlockId - lastSyncedBlock) * config.gasTargetPerL1Block;
+        uint64 gasIssuance = uint64(_anchorBlockId - lastSyncedBlock) * config.gasTargetPerL1Block;
 
         (basefee_, gasExcess_) = Lib1559Math.calc1559BaseFee(
             config.gasTargetPerL1Block,
@@ -228,9 +226,8 @@ contract TaikoL2 is EssentialContract {
     }
 
     function _anchor(
-        bytes32 _l1BlockHash,
-        bytes32 _l1StateRoot,
-        uint64 _l1BlockId,
+        uint64 _anchorBlockId,
+        bytes32 _anchorStateRoot,
         uint32 _parentGasUsed,
         uint32 _blockGasIssuance, // only used by ontake
         uint8 _basefeeAdjustmentQuotient // only used by ontake
@@ -238,7 +235,7 @@ contract TaikoL2 is EssentialContract {
         private
     {
         if (
-            _l1BlockHash == 0 || _l1StateRoot == 0 || _l1BlockId == 0
+            _anchorStateRoot == 0 || _anchorBlockId == 0
                 || (block.number != 1 && _parentGasUsed == 0)
         ) {
             revert L2_INVALID_PARAM();
@@ -259,21 +256,21 @@ contract TaikoL2 is EssentialContract {
 
         // Verify the base fee per gas is correct
         (uint256 _basefee, uint64 _gasExcess) = block.number < ONTAKE_FORK_HEIGHT
-            ? getBasefee(_l1BlockId, _parentGasUsed)
+            ? getBasefee(_anchorBlockId, _parentGasUsed)
             : calculateBaseFee(_blockGasIssuance, _basefeeAdjustmentQuotient, gasExcess, _parentGasUsed);
 
         if (!skipFeeCheck() && block.basefee != _basefee) {
             revert L2_BASEFEE_MISMATCH();
         }
 
-        if (_l1BlockId > lastSyncedBlock) {
+        if (_anchorBlockId > lastSyncedBlock) {
             // Store the L1's state root as a signal to the local signal service to
             // allow for multi-hop bridging.
             ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).syncChainData(
-                l1ChainId, LibStrings.H_STATE_ROOT, _l1BlockId, _l1StateRoot
+                l1ChainId, LibStrings.H_STATE_ROOT, _anchorBlockId, _anchorStateRoot
             );
 
-            lastSyncedBlock = _l1BlockId;
+            lastSyncedBlock = _anchorBlockId;
         }
 
         // Update state variables
