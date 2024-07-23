@@ -11,6 +11,8 @@ library LibData {
     bytes32 internal constant EMPTY_ETH_DEPOSIT_HASH =
         0x569e75fc77c1a856f6daaf9e69d8a9566ca34aa47f9133711ce065a571af0cfd;
 
+    error L1_INVALID_DATA_SIZE();
+
     function blockParamsV1ToV2(TaikoData.BlockParams memory _v1)
         internal
         pure
@@ -95,5 +97,100 @@ library LibData {
         return postFork
             ? keccak256(abi.encode(_meta)) //
             : keccak256(abi.encode(blockMetadataV2toV1(_meta)));
+    }
+
+    function encodeMetadataPacked(TaikoData.BlockMetadataV2 memory metadata_)
+        internal
+        pure
+        returns (bytes memory)
+    {
+        bytes memory part1 = abi.encodePacked(
+            metadata_.anchorBlockHash,
+            metadata_.difficulty,
+            metadata_.blobHash,
+            metadata_.extraData,
+            metadata_.coinbase,
+            metadata_.id,
+            metadata_.gasLimit
+        );
+
+        bytes memory part2 = abi.encodePacked(
+            metadata_.timestamp,
+            metadata_.anchorBlockId,
+            metadata_.minTier,
+            metadata_.blobUsed,
+            metadata_.parentMetaHash,
+            metadata_.proposer,
+            metadata_.livenessBond
+        );
+
+        bytes memory part3 = abi.encodePacked(
+            metadata_.proposedAt,
+            metadata_.proposedIn,
+            metadata_.blobTxListOffset,
+            metadata_.blobTxListLength,
+            metadata_.blobIndex,
+            metadata_.basefeeAdjustmentQuotient,
+            metadata_.basefeeSharingPctg
+        );
+
+        return bytes.concat(part1, part2, part3);
+    }
+
+    function decodeMetadataPacked(bytes calldata _encoded)
+        internal
+        pure
+        returns (TaikoData.BlockMetadataV2 memory metadata_, uint256 offset_)
+    {
+        if (_encoded.length < 270) revert L1_INVALID_DATA_SIZE();
+        unchecked {
+            // part 1
+            metadata_.anchorBlockHash = bytes32(_encoded[offset_:offset_ + 32]);
+            offset_ += 32;
+            metadata_.difficulty = bytes32(_encoded[offset_:offset_ + 32]);
+            offset_ += 32;
+            metadata_.blobHash = bytes32(_encoded[offset_:offset_ + 32]);
+            offset_ += 32;
+            metadata_.extraData = bytes32(_encoded[offset_:offset_ + 32]);
+            offset_ += 32;
+            metadata_.coinbase = address(bytes20(_encoded[offset_:offset_ + 20]));
+            offset_ += 20;
+            metadata_.id = uint64(bytes8(_encoded[offset_:offset_ + 8]));
+            offset_ += 8;
+            metadata_.gasLimit = uint32(bytes4(_encoded[offset_:offset_ + 4]));
+
+            offset_ += 4;
+            // part 2
+            metadata_.timestamp = uint64(bytes8(_encoded[offset_:offset_ + 8]));
+            offset_ += 8;
+            metadata_.anchorBlockId = uint64(bytes8(_encoded[offset_:offset_ + 8]));
+            offset_ += 8;
+            metadata_.minTier = uint16(bytes2(_encoded[offset_:offset_ + 2]));
+            offset_ += 2;
+            metadata_.blobUsed = uint8(bytes1(_encoded[offset_:offset_ + 1])) != 0;
+            offset_ += 1;
+            metadata_.parentMetaHash = bytes32(_encoded[offset_:offset_ + 32]);
+            offset_ += 32;
+            metadata_.proposer = address(bytes20(_encoded[offset_:offset_ + 20]));
+            offset_ += 20;
+            metadata_.livenessBond = uint96(bytes12(_encoded[offset_:offset_ + 12]));
+            offset_ += 12;
+
+            // part 3
+            metadata_.proposedAt = uint64(bytes8(_encoded[offset_:offset_ + 8]));
+            offset_ += 8;
+            metadata_.proposedIn = uint64(bytes8(_encoded[offset_:offset_ + 8]));
+            offset_ += 8;
+            metadata_.blobTxListOffset = uint32(bytes4(_encoded[offset_:offset_ + 4]));
+            offset_ += 4;
+            metadata_.blobTxListLength = uint32(bytes4(_encoded[offset_:offset_ + 4]));
+            offset_ += 4;
+            metadata_.blobIndex = uint8(bytes1(_encoded[offset_:offset_ + 1]));
+            offset_ += 1;
+            metadata_.basefeeAdjustmentQuotient = uint8(bytes1(_encoded[offset_:offset_ + 1]));
+            offset_ += 1;
+            metadata_.basefeeSharingPctg = uint8(bytes1(_encoded[offset_:offset_ + 1]));
+            offset_ += 1;
+        }
     }
 }

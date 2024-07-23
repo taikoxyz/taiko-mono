@@ -148,9 +148,9 @@ library LibProving {
         TaikoData.TierProof memory proof;
 
         if (local.postFork) {
-            (meta, tran, proof) = abi.decode(
-                _input, (TaikoData.BlockMetadataV2, TaikoData.Transition, TaikoData.TierProof)
-            );
+            uint256 offset;
+            (meta, offset) = LibData.decodeMetadataPacked(_input);
+            (tran, proof) = abi.decode(_input[offset:], (TaikoData.Transition, TaikoData.TierProof));
         } else {
             TaikoData.BlockMetadata memory meta1;
 

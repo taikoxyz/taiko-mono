@@ -111,7 +111,7 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
         }
     }
 
-    function proveBlock2(
+    function proveBlockV2(
         address prover,
         TaikoData.BlockMetadataV2 memory meta,
         bytes32 parentHash,
@@ -165,7 +165,9 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
         } else {
             if (revertReason != "") vm.expectRevert(revertReason);
             vm.prank(prover);
-            L1.proveBlock(meta.id, abi.encode(meta, tran, proof));
+            L1.proveBlock(
+                meta.id, bytes.concat(LibData.encodeMetadataPacked(meta), abi.encode(tran, proof))
+            );
         }
     }
 
