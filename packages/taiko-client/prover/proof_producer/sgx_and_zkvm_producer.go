@@ -196,7 +196,12 @@ func (s *SgxAndZKvmProofProducer) requestCancel(
 		return err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", s.SGX.RaikoHostEndpoint+"/v2/proof/cancel", bytes.NewBuffer(jsonValue))
+	req, err := http.NewRequestWithContext(
+		ctx,
+		"POST",
+		s.SGX.RaikoHostEndpoint+"/v2/proof/cancel",
+		bytes.NewBuffer(jsonValue),
+	)
 	if err != nil {
 		return err
 	}
