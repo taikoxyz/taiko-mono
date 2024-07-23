@@ -2,6 +2,7 @@
 
 # Define the list of contracts to inspect
 contracts=(
+    # Base contracts
     "TaikoL1"
     "TaikoL2"
     "SignalService"
@@ -24,6 +25,22 @@ contracts=(
     "QuotaManager"
     "ProverSet"
     "TokenUnlock"
+    # Hekla contracts
+    "HeklaTaikoL1"
+    # Mainnet contracts
+    "MainnetBridge"
+    "MainnetERC1155Vault"
+    "MainnetERC20Vault"
+    "MainnetERC721Vault"
+    "MainnetGuardianProver"
+    "MainnetProverSet"
+    "MainnetRiscZeroVerifier"
+    "MainnetRollupAddressManager"
+    "MainnetSgxVerifier"
+    "MainnetSharedAddressManager"
+    "MainnetSignalService"
+    "MainnetTaikoL1"
+    "MainnetTierRouter"
 )
 
 # Empty the output file initially

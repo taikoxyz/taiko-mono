@@ -16,7 +16,6 @@
   ],
   "separate-pull-requests": true,
   "packages": {
-    "packages/branding": {},
     "packages/bridge-ui": {},
     "packages/docs-site": {},
     "packages/eventindexer": {},
@@ -27,7 +26,9 @@
     "packages/relayer": {},
     "packages/nfts": {},
     "packages/taikoon-ui": {},
-    "packages/taiko-client": {},
+    "packages/taiko-client": {
+      "draft": true
+    },
     "packages/supplementary-contracts": {},
     "packages/ui-lib": {},
     "packages/snaefell-ui": {}

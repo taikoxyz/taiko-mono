@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -16,13 +17,15 @@ func Test_GetMostRecentSignedBlockByGuardianProverAddress(t *testing.T) {
 	srv := newTestServer("")
 
 	for i := 0; i < 10; i++ {
-		err := srv.signedBlockRepo.Save(guardianproverhealthcheck.SaveSignedBlockOpts{
-			GuardianProverID: 1,
-			RecoveredAddress: "0x123",
-			BlockID:          uint64(i),
-			BlockHash:        "0x123",
-			Signature:        "0x123",
-		})
+		err := srv.signedBlockRepo.Save(
+			context.Background(),
+			&guardianproverhealthcheck.SaveSignedBlockOpts{
+				GuardianProverID: 1,
+				RecoveredAddress: "0x123",
+				BlockID:          uint64(i),
+				BlockHash:        "0x123",
+				Signature:        "0x123",
+			})
 
 		assert.Nil(t, err)
 	}

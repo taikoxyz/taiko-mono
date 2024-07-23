@@ -137,12 +137,23 @@ export class RelayerAPIService {
   async getAllBridgeTransactionByAddress(
     address: Address,
     paginationParams: PaginationParams,
+    chainId?: number,
   ): Promise<GetAllByAddressResponse> {
-    const params = {
-      address,
-      event: 'MessageSent',
-      ...paginationParams,
-    };
+    let params;
+    if (chainId) {
+      params = {
+        address,
+        chainID: chainId,
+        event: 'MessageSent',
+        ...paginationParams,
+      };
+    } else {
+      params = {
+        address,
+        event: 'MessageSent',
+        ...paginationParams,
+      };
+    }
 
     const apiTxs: APIResponse = await this.getTransactionsFromAPI(params);
 
@@ -195,6 +206,7 @@ export class RelayerAPIService {
         blockNumber: tx.data.Raw.blockNumber,
         canonicalTokenAddress: tx.canonicalTokenAddress,
         processingFee: BigInt(tx.data.Message.Fee.toString()),
+        claimedBy: tx.claimedBy ? getAddress(tx.claimedBy) : undefined,
         message: {
           id: tx.data.Message.Id,
           to: getAddress(tx.data.Message.To),

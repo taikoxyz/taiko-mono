@@ -34,11 +34,11 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
 
     /// @notice Initializes the contract with the provided address manager.
     /// @param _owner The address of the owner.
-    /// @param _addressManager The address of the AddressManager.
+    /// @param _rollupAddressManager The address of the AddressManager.
     /// @param _receiptVerifier The address of the risc zero receipt verifier contract.
     function init(
         address _owner,
-        address _addressManager,
+        address _rollupAddressManager,
         address _receiptVerifier
     )
         external
@@ -71,16 +71,14 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
         if (_ctx.isContesting) return;
 
         // Decode will throw if not proper length/encoding
-        (bytes memory seal, bytes32 imageId, bytes32 postStateDigest) =
-            abi.decode(_proof.data, (bytes, bytes32, bytes32));
+        (bytes memory seal, bytes32 imageId) = abi.decode(_proof.data, (bytes, bytes32));
 
         if (!isImageTrusted[imageId]) {
             revert RISC_ZERO_INVALID_IMAGE_ID();
         }
 
-        uint64 chainId = ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfig().chainId;
         bytes32 hash = LibPublicInput.hashPublicInputs(
-            _tran, address(this), address(0), _ctx.prover, _ctx.metaHash, chainId
+            _tran, address(this), address(0), _ctx.prover, _ctx.metaHash, taikoChainId()
         );
 
         // journalDigest is the sha256 hash of the hashed public input
@@ -95,5 +93,9 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
         if (!success) {
             revert RISC_ZERO_INVALID_PROOF();
         }
+    }
+
+    function taikoChainId() internal view virtual returns (uint64) {
+        return ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfig().chainId;
     }
 }
