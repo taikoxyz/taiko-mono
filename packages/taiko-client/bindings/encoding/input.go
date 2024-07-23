@@ -213,7 +213,7 @@ var (
 			Type: "bytes",
 		},
 	}
-	blockParams2Components = []abi.ArgumentMarshaling{
+	blockParamsV2Components = []abi.ArgumentMarshaling{
 		{
 			Name: "coinbase",
 			Type: "address",
@@ -252,8 +252,8 @@ var (
 var (
 	blockParamsComponentsType, _     = abi.NewType("tuple", "TaikoData.BlockParams", blockParamsComponents)
 	blockParamsComponentsArgs        = abi.Arguments{{Name: "TaikoData.BlockParams", Type: blockParamsComponentsType}}
-	blockParams2ComponentsType, _    = abi.NewType("tuple", "TaikoData.BlockParams2", blockParams2Components)
-	blockParams2ComponentsArgs       = abi.Arguments{{Name: "TaikoData.BlockParams2", Type: blockParams2ComponentsType}}
+	blockParamsV2ComponentsType, _   = abi.NewType("tuple", "TaikoData.BlockParamsV2", blockParamsV2Components)
+	blockParamsV2ComponentsArgs      = abi.Arguments{{Name: "TaikoData.BlockParamsV2", Type: blockParamsV2ComponentsType}}
 	blockMetadataComponentsType, _   = abi.NewType("tuple", "TaikoData.BlockMetadata", blockMetadataComponents)
 	blockMetadataV2ComponentsType, _ = abi.NewType("tuple", "TaikoData.BlockMetadataV2", blockMetadataV2Components)
 	transitionComponentsType, _      = abi.NewType("tuple", "TaikoData.Transition", transitionComponents)
@@ -359,7 +359,7 @@ func EncodeBlockParams(params *BlockParams) ([]byte, error) {
 
 // EncodeBlockParamsOntake performs the solidity `abi.encode` for the given ontake blockParams.
 func EncodeBlockParamsOntake(params *BlockParamsV2) ([]byte, error) {
-	b, err := blockParams2ComponentsArgs.Pack(params)
+	b, err := blockParamsV2ComponentsArgs.Pack(params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to abi.encode ontake block params, %w", err)
 	}
