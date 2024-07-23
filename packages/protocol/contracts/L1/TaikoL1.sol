@@ -24,6 +24,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     uint256[50] private __gap;
 
     error L1_RECEIVE_DISABLED();
+    error L1_INVALID_PARAM();
 
     modifier whenProvingNotPaused() {
         if (state.slotB.provingPaused) revert LibProving.L1_PROVING_PAUSED();
@@ -114,6 +115,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         nonReentrant
         emitEventForClient
     {
+        if (_maxBlocksToVerify == 0) revert L1_INVALID_PARAM();
         LibVerifying.verifyBlocks(state, getConfig(), this, _maxBlocksToVerify);
     }
 

@@ -41,10 +41,6 @@ library LibVerifying {
     )
         public
     {
-        if (_maxBlocksToVerify == 0) {
-            return;
-        }
-
         Local memory local;
         local.b = _state.slotB;
         local.blockId = local.b.lastVerifiedBlockId;
