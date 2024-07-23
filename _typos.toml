@@ -6,7 +6,8 @@ extend-ignore-identifiers-re = [
   "TGE",
   "tge",
   "baed",
-  "Groth"
+  "Groth",
+  "groth"
 ]
 
 [files]
