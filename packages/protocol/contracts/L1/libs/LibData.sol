@@ -80,7 +80,8 @@ library LibData {
             blobTxListLength: 0,
             blobIndex: 0,
             basefeeAdjustmentQuotient: 0,
-            basefeeSharingPctg: 0
+            basefeeSharingPctg: 0,
+            blockGasIssuance: 0
         });
     }
 

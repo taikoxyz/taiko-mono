@@ -41,6 +41,7 @@ library TaikoData {
         // ---------------------------------------------------------------------
         uint8 basefeeAdjustmentQuotient;
         uint8 basefeeSharingPctg;
+        uint32 blockGasIssuance;
         // ---------------------------------------------------------------------
         // Group 6: Others
         // ---------------------------------------------------------------------
@@ -125,6 +126,7 @@ library TaikoData {
         uint8 blobIndex;
         uint8 basefeeAdjustmentQuotient;
         uint8 basefeeSharingPctg;
+        uint32 blockGasIssuance;
     }
 
     /// @dev Struct representing transition to be proven.
