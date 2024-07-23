@@ -3,8 +3,12 @@ pragma solidity 0.8.24;
 
 import "../TaikoTest.sol";
 
-contract SkipBasefeeCheckL2 is TaikoL2EIP1559Configurable {
-    function skipFeeCheck() public pure override returns (bool) {
+contract SkipBasefeeCheckL2 is TaikoL2 {
+    function setGasExcess(uint64 _newGasExcess) external virtual onlyOwner {
+        gasExcess = _newGasExcess;
+    }
+
+    function skipFeeCheck() internal pure override returns (bool) {
         return true;
     }
 }
@@ -16,6 +20,9 @@ contract TestTaikoL2NoFeeCheck is TaikoTest {
     uint256 salt = 2_195_684_615_435_261_315_311;
     // same as `block_gas_limit` in foundry.toml
     uint32 public constant BLOCK_GAS_LIMIT = 30_000_000;
+    uint32 public constant BLOCK_GAS_ISSUANCE = 60_000_000;
+    uint8 public constant QUOTIENT = 8;
+    uint64 public constant L1_CHAIN_ID = 12_345;
 
     address public addressManager;
     SkipBasefeeCheckL2 public L2;
@@ -36,26 +43,22 @@ contract TestTaikoL2NoFeeCheck is TaikoTest {
             })
         );
 
-        uint64 gasExcess = 0;
-        uint8 quotient = 8;
-        uint32 gasTarget = 60_000_000;
-        uint64 l1ChainId = 12_345;
+        uint64 gasExcess = 195_420_300_100;
 
-        gasExcess = 195_420_300_100;
         L2 = SkipBasefeeCheckL2(
             payable(
                 deployProxy({
                     name: "taiko",
                     impl: address(new SkipBasefeeCheckL2()),
                     data: abi.encodeCall(
-                        TaikoL2.init, (address(0), addressManager, l1ChainId, gasExcess)
+                        TaikoL2.init, (address(0), addressManager, L1_CHAIN_ID, gasExcess)
                     ),
                     registerTo: addressManager
                 })
             )
         );
 
-        L2.setConfigAndExcess(LibL2Config.Config(gasTarget, quotient), gasExcess);
+        L2.setGasExcess(gasExcess);
 
         ss.authorize(address(L2), true);
 
@@ -150,7 +153,10 @@ contract TestTaikoL2NoFeeCheck is TaikoTest {
 
             vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
             _anchorSimulation(currentGasUsed, l1Height);
-            (uint256 currentBaseFee,) = L2.getBasefee(l1Height, currentGasUsed);
+
+            (uint256 currentBaseFee,) =
+                L2.calculateBaseFee(BLOCK_GAS_ISSUANCE, QUOTIENT, L2.gasExcess(), currentGasUsed);
+
             allBaseFee += currentBaseFee;
             console2.log("Actual gas in L2 block is:", currentGasUsed);
             console2.log("L2block to baseFee is:", i, ":", currentBaseFee);
@@ -194,8 +200,7 @@ contract TestTaikoL2NoFeeCheck is TaikoTest {
     }
 
     function _anchorSimulation(uint32 parentGasLimit, uint64 l1Height) private {
-        bytes32 l1Hash = randBytes32();
         bytes32 l1StateRoot = randBytes32();
-        L2.anchor(l1Hash, l1StateRoot, l1Height, parentGasLimit);
+        L2.anchorV2(l1Height, l1StateRoot, parentGasLimit, BLOCK_GAS_ISSUANCE, QUOTIENT);
     }
 }
