@@ -26,6 +26,8 @@ forge script script/DeployOnL1.s.sol:DeployOnL1 \
     --fork-url http://localhost:8545 \
     --broadcast \
     --ffi \
+    --optimize \
+    --optimizer-runs 200 \
     -vvvv \
     --private-key $PRIVATE_KEY \
     --block-gas-limit 100000000
@@ -39,6 +41,8 @@ forge script script/DeployTaikoToken.s.sol:DeployTaikoToken \
     --fork-url http://localhost:8545 \
     --broadcast \
     --ffi \
+    --optimize \
+    --optimizer-runs 200 \
     -vvvv \
     --private-key $PRIVATE_KEY \
     --block-gas-limit 100000000
