@@ -114,7 +114,8 @@ library LibProposing {
             // one in the previous L2 block.
             if (
                 params.timestamp + _config.maxAnchorHeightOffset * 12 < block.timestamp
-                    || params.timestamp > block.timestamp || params.timestamp < parentBlk.proposedAt
+                    || params.timestamp > block.timestamp //
+                    || params.timestamp < parentBlk.proposedAt
             ) {
                 revert L1_INVALID_TIMESTAMP();
             }
