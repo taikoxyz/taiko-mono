@@ -33,6 +33,9 @@ library LibVerifying {
     error L1_TOO_LATE();
 
     /// @dev Verifies up to N blocks.
+    /// Ideally this function can be marked as internal to further reduce gas cost, but now will
+    /// have the following error:
+    // `MainnetTaikoL1` is above the contract size limit (24976 > 24576).`
     function verifyBlocks(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
