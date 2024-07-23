@@ -153,7 +153,10 @@ contract TestTaikoL2NoFeeCheck is TaikoTest {
 
             vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
             _anchorSimulation(currentGasUsed, l1Height);
-            (uint256 currentBaseFee,) = L2.getBasefee(l1Height, currentGasUsed);
+
+            (uint256 currentBaseFee,) =
+                L2.calculateBaseFee(BLOCK_GAS_ISSUANCE, QUOTIENT, L2.gasExcess(), currentGasUsed);
+
             allBaseFee += currentBaseFee;
             console2.log("Actual gas in L2 block is:", currentGasUsed);
             console2.log("L2block to baseFee is:", i, ":", currentBaseFee);
