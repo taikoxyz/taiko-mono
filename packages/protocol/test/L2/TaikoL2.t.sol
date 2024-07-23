@@ -3,13 +3,13 @@ pragma solidity 0.8.24;
 
 import "../TaikoTest.sol";
 
-contract TestL2 is TaikoL2 {
+contract TestTaikoL2 is TaikoL2 {
     function setGasExcess(uint64 _newGasExcess) external virtual onlyOwner {
         gasExcess = _newGasExcess;
     }
 }
 
-contract SkipBasefeeCheckL2 is TestL2 {
+contract SkipBasefeeCheckL2 is TestTaikoL2 {
     function skipFeeCheck() public pure override returns (bool) {
         return true;
     }
@@ -27,7 +27,7 @@ contract TestTaikoL2 is TaikoTest {
     uint64 public constant L1_CHAIN_ID = 12_345;
 
     address public addressManager;
-    TestL2 public L2;
+    TestTaikoL2 public L2;
     SkipBasefeeCheckL2 public L2skip;
 
     function setUp() public {
@@ -48,11 +48,11 @@ contract TestTaikoL2 is TaikoTest {
 
         uint64 gasExcess = 0;
 
-        L2 = TestL2(
+        L2 = TestTaikoL2(
             payable(
                 deployProxy({
                     name: "taiko",
-                    impl: address(new TestL2()),
+                    impl: address(new TestTaikoL2()),
                     data: abi.encodeCall(
                         TaikoL2.init, (address(0), addressManager, L1_CHAIN_ID, gasExcess)
                     ),
