@@ -180,12 +180,8 @@ library LibProving {
         local.slot = meta.id % _config.blockRingBufferSize;
         TaikoData.Block storage blk = _state.blocks[local.slot];
 
-        if (local.postFork) {
-            local.minTierId = blk.minTierId;
-            if (local.minTierId == 0) revert L1_MIN_TIER_UNKNOWN();
-        } else {
-            local.minTierId = meta.minTierId;
-        }
+        local.minTierId = local.postFork ? blk.minTierId : meta.minTierId;
+        if (local.minTierId == 0) revert L1_MIN_TIER_UNKNOWN();
 
         local.proposedAt = local.postFork ? meta.proposedAt : blk.proposedAt;
 
