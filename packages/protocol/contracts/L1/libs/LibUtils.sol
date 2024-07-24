@@ -26,16 +26,6 @@ library LibUtils {
         uint256 indexed blockId, address indexed prover, bytes32 blockHash, uint16 tier
     );
 
-    /// @dev Emitted when a block is verified.
-    /// @param blockId The ID of the verified block.
-    /// @param prover The prover whose transition is used for verifying the
-    /// block.
-    /// @param blockHash The hash of the verified block.
-    /// @param tier The tier ID of the proof.
-    event BlockVerifiedV2(
-        uint256 indexed blockId, address indexed prover, bytes32 blockHash, uint16 tier
-    );
-
     error L1_BLOCK_MISMATCH();
     error L1_INVALID_BLOCK_ID();
     error L1_INVALID_GENESIS_HASH();

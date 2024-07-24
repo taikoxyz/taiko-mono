@@ -2,7 +2,6 @@
 pragma solidity 0.8.24;
 
 import "../common/EssentialContract.sol";
-import "./libs/LibData.sol";
 import "./libs/LibProposing.sol";
 import "./libs/LibProving.sol";
 import "./libs/LibVerifying.sol";

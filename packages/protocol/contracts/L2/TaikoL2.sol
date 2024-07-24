@@ -100,7 +100,7 @@ contract TaikoL2 is EssentialContract {
         gasExcess = _gasExcess;
         (publicInputHash,) = _calcPublicInputHash(block.number);
     }
-    
+
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
     /// message verification.
     /// @dev This function can be called freely as the golden touch private key is publicly known,
@@ -189,29 +189,6 @@ contract TaikoL2 is EssentialContract {
         return false;
     }
 
-    /// @notice Calculates the basefee and the new gas excess value based on parent gas used and gas
-    /// excess.
-    /// @param _blockGasIssuance The L2 block's gas issuance.
-    /// @param _adjustmentQuotient The gas adjustment quotient.
-    /// @param _gasExcess The current gas excess value.
-    /// @param _parentGasUsed Total gas used by the parent block.
-    /// @return basefee_ Next block's base fee.
-    /// @return gasExcess_ The new gas excess value.
-    function calculateBaseFee(
-        uint32 _blockGasIssuance,
-        uint8 _adjustmentQuotient,
-        uint64 _gasExcess,
-        uint32 _parentGasUsed
-    )
-        public
-        pure
-        returns (uint256 basefee_, uint64 gasExcess_)
-    {
-        return Lib1559Math.calc1559BaseFee(
-            _blockGasIssuance, _adjustmentQuotient, _gasExcess, _blockGasIssuance, _parentGasUsed
-        );
-    }
-
     function _anchor(
         uint64 _anchorBlockId,
         bytes32 _anchorStateRoot,
@@ -242,9 +219,9 @@ contract TaikoL2 is EssentialContract {
         }
 
         // Verify the base fee per gas is correct
-        (uint256 _basefee, uint64 _gasExcess) = block.number < ONTAKE_FORK_HEIGHT
-            ? getBasefee(_anchorBlockId, _parentGasUsed)
-            : calculateBaseFee(_blockGasIssuance, _basefeeAdjustmentQuotient, gasExcess, _parentGasUsed);
+        (uint256 _basefee, uint64 _gasExcess) = calculateBaseFee(
+            _blockGasIssuance, _basefeeAdjustmentQuotient, gasExcess, _parentGasUsed
+        );
 
         if (!skipFeeCheck() && block.basefee != _basefee) {
             revert L2_BASEFEE_MISMATCH();
