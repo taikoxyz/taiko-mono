@@ -24,6 +24,7 @@ library LibVerifying {
         uint64 syncBlockId;
         uint24 syncTransitionId;
         address prover;
+        bool postFork;
         ITierRouter tierRouter;
     }
 
@@ -75,6 +76,7 @@ library LibVerifying {
                 local.blockId < local.b.numBlocks && local.numBlocksVerified < _maxBlocksToVerify
             ) {
                 local.slot = local.blockId % _config.blockRingBufferSize;
+                local.postFork = local.blockId >= _config.ontakeForkHeight;
 
                 blk = _state.blocks[local.slot];
                 if (blk.blockId != local.blockId) revert L1_BLOCK_MISMATCH();

@@ -26,6 +26,16 @@ library LibUtils {
         uint256 indexed blockId, address indexed prover, bytes32 blockHash, uint16 tier
     );
 
+    /// @dev Emitted when a block is verified.
+    /// @param blockId The ID of the verified block.
+    /// @param prover The prover whose transition is used for verifying the
+    /// block.
+    /// @param blockHash The hash of the verified block.
+    /// @param tier The tier ID of the proof.
+    event BlockVerifiedV2(
+        uint256 indexed blockId, address indexed prover, bytes32 blockHash, uint16 tier
+    );
+
     error L1_BLOCK_MISMATCH();
     error L1_INVALID_BLOCK_ID();
     error L1_INVALID_GENESIS_HASH();
@@ -35,7 +45,13 @@ library LibUtils {
     /// @notice Initializes the Taiko protocol state.
     /// @param _state The state to initialize.
     /// @param _genesisBlockHash The block hash of the genesis block.
-    function init(TaikoData.State storage _state, bytes32 _genesisBlockHash) internal {
+    function init(
+        TaikoData.State storage _state,
+        TaikoData.Config memory _config,
+        bytes32 _genesisBlockHash
+    )
+        internal
+    {
         if (_genesisBlockHash == 0) revert L1_INVALID_GENESIS_HASH();
         // Init state
         _state.slotA.genesisHeight = uint64(block.number);

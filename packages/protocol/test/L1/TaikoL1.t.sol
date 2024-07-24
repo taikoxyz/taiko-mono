@@ -46,6 +46,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
             //printVariables("before propose");
             TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, 1024);
+
             //printVariables("after propose");
             mine(1);
 
@@ -75,6 +76,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         for (uint256 blockId = 1; blockId <= 20; ++blockId) {
             printVariables("before propose");
             TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, 1024);
+
             printVariables("after propose");
 
             bytes32 blockHash = bytes32(1e10 + blockId);
@@ -109,6 +111,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         for (uint256 blockId = 1; blockId <= conf.blockMaxProposals; blockId++) {
             printVariables("before propose");
             TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, 1024);
+
             printVariables("after propose");
 
             bytes32 blockHash = bytes32(1e10 + blockId);
@@ -135,6 +138,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         for (uint256 blockId = 1; blockId <= conf.blockMaxProposals; blockId++) {
             TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, 1024);
+
             bytes32 blockHash;
             bytes32 stateRoot;
             if (blockId % 2 == 0) {
@@ -194,6 +198,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         // Proposing is still possible
         TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, 1024);
+
         // Proving is not, so supply the revert reason to proveBlock
         proveBlock(
             Bob,

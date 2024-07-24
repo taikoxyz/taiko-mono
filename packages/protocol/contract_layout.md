@@ -305,6 +305,42 @@
 | migratingInbound | bool                                            | 303  | 20     | 1     | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
 | __gap            | uint256[47]                                     | 304  | 0      | 1504  | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
 
+## BridgedERC20V2
+| Name             | Type                                                   | Slot | Offset | Bytes | Contract                                               |
+|------------------|--------------------------------------------------------|------|--------|-------|--------------------------------------------------------|
+| _initialized     | uint8                                                  | 0    | 0      | 1     | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| _initializing    | bool                                                   | 0    | 1      | 1     | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| __gap            | uint256[50]                                            | 1    | 0      | 1600  | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| _owner           | address                                                | 51   | 0      | 20    | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| __gap            | uint256[49]                                            | 52   | 0      | 1568  | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| _pendingOwner    | address                                                | 101  | 0      | 20    | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| __gap            | uint256[49]                                            | 102  | 0      | 1568  | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| addressManager   | address                                                | 151  | 0      | 20    | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| __gap            | uint256[49]                                            | 152  | 0      | 1568  | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| __reentry        | uint8                                                  | 201  | 0      | 1     | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| __paused         | uint8                                                  | 201  | 1      | 1     | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| lastUnpausedAt   | uint64                                                 | 201  | 2      | 8     | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| __gap            | uint256[49]                                            | 202  | 0      | 1568  | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| _balances        | mapping(address => uint256)                            | 251  | 0      | 32    | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| _allowances      | mapping(address => mapping(address => uint256))        | 252  | 0      | 32    | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| _totalSupply     | uint256                                                | 253  | 0      | 32    | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| _name            | string                                                 | 254  | 0      | 32    | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| _symbol          | string                                                 | 255  | 0      | 32    | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| __gap            | uint256[45]                                            | 256  | 0      | 1440  | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| srcToken         | address                                                | 301  | 0      | 20    | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| __srcDecimals    | uint8                                                  | 301  | 20     | 1     | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| srcChainId       | uint256                                                | 302  | 0      | 32    | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| migratingAddress | address                                                | 303  | 0      | 20    | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| migratingInbound | bool                                                   | 303  | 20     | 1     | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| __gap            | uint256[47]                                            | 304  | 0      | 1504  | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| _hashedName      | bytes32                                                | 351  | 0      | 32    | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| _hashedVersion   | bytes32                                                | 352  | 0      | 32    | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| _name            | string                                                 | 353  | 0      | 32    | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| _version         | string                                                 | 354  | 0      | 32    | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| __gap            | uint256[48]                                            | 355  | 0      | 1536  | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| _nonces          | mapping(address => struct CountersUpgradeable.Counter) | 403  | 0      | 32    | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| __gap            | uint256[49]                                            | 404  | 0      | 1568  | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+
 ## BridgedERC721
 | Name               | Type                                         | Slot | Offset | Bytes | Contract                                             |
 |--------------------|----------------------------------------------|------|--------|-------|------------------------------------------------------|
@@ -359,33 +395,6 @@
 | symbol             | string                                          | 353  | 0      | 32    | contracts/tokenvault/BridgedERC1155.sol:BridgedERC1155 |
 | name               | string                                          | 354  | 0      | 32    | contracts/tokenvault/BridgedERC1155.sol:BridgedERC1155 |
 | __gap              | uint256[46]                                     | 355  | 0      | 1472  | contracts/tokenvault/BridgedERC1155.sol:BridgedERC1155 |
-
-## AssignmentHook
-
-## ERC20Airdrop
-| Name           | Type                     | Slot | Offset | Bytes | Contract                                             |
-|----------------|--------------------------|------|--------|-------|------------------------------------------------------|
-| _initialized   | uint8                    | 0    | 0      | 1     | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
-| _initializing  | bool                     | 0    | 1      | 1     | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
-| __gap          | uint256[50]              | 1    | 0      | 1600  | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
-| _owner         | address                  | 51   | 0      | 20    | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
-| __gap          | uint256[49]              | 52   | 0      | 1568  | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
-| _pendingOwner  | address                  | 101  | 0      | 20    | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
-| __gap          | uint256[49]              | 102  | 0      | 1568  | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
-| addressManager | address                  | 151  | 0      | 20    | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
-| __gap          | uint256[49]              | 152  | 0      | 1568  | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
-| __reentry      | uint8                    | 201  | 0      | 1     | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
-| __paused       | uint8                    | 201  | 1      | 1     | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
-| lastUnpausedAt | uint64                   | 201  | 2      | 8     | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
-| __gap          | uint256[49]              | 202  | 0      | 1568  | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
-| isClaimed      | mapping(bytes32 => bool) | 251  | 0      | 32    | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
-| merkleRoot     | bytes32                  | 252  | 0      | 32    | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
-| claimStart     | uint64                   | 253  | 0      | 8     | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
-| claimEnd       | uint64                   | 253  | 8      | 8     | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
-| __gap          | uint256[47]              | 254  | 0      | 1504  | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
-| token          | address                  | 301  | 0      | 20    | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
-| vault          | address                  | 302  | 0      | 20    | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
-| __gap          | uint256[48]              | 303  | 0      | 1536  | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
 
 ## AutomataDcapV3Attestation
 | Name                    | Type                                            | Slot | Offset | Bytes | Contract                                                                               |

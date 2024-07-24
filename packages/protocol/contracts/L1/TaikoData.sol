@@ -93,6 +93,33 @@ library TaikoData {
         uint32 blockGasIssuance;
     }
 
+    struct BlockMetadataV2 {
+        bytes32 anchorBlockHash; // `_l1BlockHash` in TaikoL2's anchor tx.
+        bytes32 difficulty;
+        bytes32 blobHash;
+        bytes32 extraData;
+        address coinbase;
+        uint64 id;
+        uint32 gasLimit;
+        uint64 timestamp;
+        uint64 anchorBlockId; // `_l1BlockId` in TaikoL2's anchor tx.
+        uint16 minTier;
+        bool blobUsed;
+        bytes32 parentMetaHash;
+        address proposer;
+        uint96 livenessBond;
+        // Time this block is proposed at, used to check proving window and cooldown window.
+        uint64 proposedAt;
+        // L1 block number, required/used by node/client.
+        uint64 proposedIn;
+        uint32 blobTxListOffset;
+        uint32 blobTxListLength;
+        uint8 blobIndex;
+        uint8 basefeeAdjustmentQuotient;
+        uint8 basefeeSharingPctg;
+        uint32 blockGasIssuance;
+    }
+
     /// @dev Struct representing transition to be proven.
     struct Transition {
         bytes32 parentHash;
