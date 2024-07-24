@@ -6,6 +6,7 @@ import "../../contracts/L1/tiers/ITierProvider.sol";
 import "../../contracts/L1/tiers/ITierRouter.sol";
 
 /// @title TestTierProvider
+// TODO(daniel): improve this to cover ITierProvider2
 /// @dev Labeled in AddressResolver as "tier_router"
 /// @custom:security-contact security@taiko.xyz
 contract TestTierProvider is ITierProvider, ITierRouter {
