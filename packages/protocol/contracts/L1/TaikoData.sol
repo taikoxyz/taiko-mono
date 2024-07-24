@@ -125,7 +125,7 @@ library TaikoData {
         uint64 blockId; // slot 3
         // Ignore the name, `proposedAt` now represents `params.timestamp`.
         uint64 proposedAt;
-        // Ignore the name, `proposedIn` now represents `arams.anchorBlockId`.
+        // Ignore the name, `proposedIn` now represents `params.anchorBlockId`.
         uint64 proposedIn;
         uint24 nextTransitionId;
         bool livenessBondReturned;
