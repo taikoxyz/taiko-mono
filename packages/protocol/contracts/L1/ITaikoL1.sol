@@ -19,6 +19,17 @@ interface ITaikoL1 {
         payable
         returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_);
 
+    /// @notice Proposes a Taiko L2 block (version 2)
+    /// @param _params Block parameters, currently an encoded BlockParams object.
+    /// @param _txList txList data if calldata is used for DA.
+    /// @return meta_ The metadata of the proposed L2 block.
+    function proposeBlockV2(
+        bytes calldata _params,
+        bytes calldata _txList
+    )
+        external
+        returns (TaikoData.BlockMetadataV2 memory meta_);
+
     /// @notice Proves or contests a block transition.
     /// @param _blockId The index of the block to prove. This is also used to
     /// select the right implementation version.

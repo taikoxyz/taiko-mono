@@ -14,7 +14,7 @@ contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20 {
     /// @param _sharedAddressManager The address manager address.
     function init(address _owner, address _sharedAddressManager) external initializer {
         __Essential_init(_owner, _sharedAddressManager);
-        __ERC20_init("Taiko Token", "TKO");
+        __ERC20_init("Taiko Token", "TAIKO");
         __ERC20Votes_init();
         __ERC20Permit_init("Taiko Token");
     }

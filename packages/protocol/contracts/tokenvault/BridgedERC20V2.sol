@@ -22,7 +22,7 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
         "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
     );
 
-    mapping(address => CountersUpgradeable.Counter) private _nonces;
+    mapping(address account => CountersUpgradeable.Counter counter) private _nonces;
     uint256[49] private __gap;
 
     error BTOKEN_DEADLINE_EXPIRED();

@@ -38,6 +38,7 @@
   - Upgraded from `0x9496502d7D121B3D5eF25cA6c58d4f7593398a17` to `0x2f7126f78365AD54EAB26fD7faEc60435008E2fD` @commit`bb2abc5` @tx`0x7d584f0a645cad61e634f64ffaf7e1bbfb92749878eb25b39ce0e5cf698897c7`
 - todos:
   - deploy and register BridgedERC20V2
+  - deploy a new version (override function change)
 
 #### taiko_token
 
@@ -204,6 +205,8 @@
   - register `prover_set` to `0x74828E5fe803072AF9Df512B3911B4223572D652` @commit`bb2abc5` @tx`0x7d584f0a645cad61e634f64ffaf7e1bbfb92749878eb25b39ce0e5cf698897c7`
   - upgraded from `0x29a88d60246C76E4F28806b9C8a42d2183154900` to `0x4f6D5D3109C07E77035B410602996e445b18E8E9` @commit`bb2abc5` @tx`0x7d584f0a645cad61e634f64ffaf7e1bbfb92749878eb25b39ce0e5cf698897c7`
   - register `prover_set` to `0xCE5a119479337a153CA3bd1b2bF9755c78F2B15A` @commit`be34059` @tx`0x170617251f2345eda4bcbd29e316caa0b014602a44244c60b963382ac7da7748`
+- todo:
+  - deploy a new version (override function change)
 
 #### taikoL1
 
