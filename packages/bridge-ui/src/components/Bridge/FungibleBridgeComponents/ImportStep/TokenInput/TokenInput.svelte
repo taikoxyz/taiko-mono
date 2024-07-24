@@ -34,7 +34,7 @@
   import { debounce } from '$libs/util/debounce';
   import { getLogger } from '$libs/util/logger';
   import { truncateDecimal } from '$libs/util/truncateDecimal';
-  import { account } from '$stores/account';
+  import { type Account, account } from '$stores/account';
   import { ethBalance } from '$stores/balance';
   import { connectedSourceChain } from '$stores/network';
   import type { TokenInfo } from '$stores/tokenInfo';
@@ -126,11 +126,13 @@
     if ($account && $account.address && $account?.isConnected && $selectedToken) {
       validateAmount($selectedToken);
       refreshUserBalance();
+      log('fetching on chain', $connectedSourceChain?.name);
       $tokenBalance = await fetchBalance({
         userAddress: $account.address,
         token: $selectedToken,
         srcChainId: $connectedSourceChain?.id,
       });
+      log('tokenBalance', $tokenBalance);
       previousSelectedToken = $selectedToken;
     } else {
       balance = '0.00';
@@ -259,6 +261,21 @@
     const token = $selectedToken;
     if (!user || !token) return;
   });
+
+  const onAccountChange = async (newAccount: Account, oldAccount?: Account) => {
+    log('onAccountChange', newAccount, oldAccount);
+    if (newAccount?.isConnected && newAccount.address && newAccount.address !== oldAccount?.address) {
+      log('resetting input');
+      reset();
+    } else if (newAccount.address && newAccount?.isConnected && $selectedToken) {
+      log('refreshing user balance', $connectedSourceChain?.name);
+      $tokenBalance = await fetchBalance({
+        userAddress: newAccount.address,
+        token: $selectedToken,
+        srcChainId: newAccount.chainId,
+      });
+    }
+  };
 </script>
 
 <div class="TokenInput space-y-[8px]">
@@ -325,7 +342,7 @@
   </div>
 </div>
 
-<OnAccount change={reset} />
+<OnAccount change={onAccountChange} />
 
 <style>
   .max-button {

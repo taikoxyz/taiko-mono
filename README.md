@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./packages/branding/RGB SVG (For Digital Use)/Taiko Icon/taiko-icon-blk.svg" width="80" alt="Logo for Taiko" />
+  <img src="./.github/taiko-icon-blk.svg" width="80" alt="Logo for Taiko" />
 </p>
 
 <h1 align="center">
@@ -31,14 +31,11 @@ Get started with Taiko:
 
 ## Packages
 
-<!-- uncomment after release docs-site
 > [!TIP]
 > Make sure your node is using the latest version tags for taiko-client and taiko-geth. Check out the [node releases page](https://docs.taiko.xyz/network-reference/node-releases)!
--->
 
 | Package                                                                       | Description                                             | Release notes                                                                                                                                                                                                                           |
 | :---------------------------------------------------------------------------- | :------------------------------------------------------ | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [branding](./packages/branding)                                               | Taiko branding materials.                               | [![GitHub Release](https://img.shields.io/github/v/release/taikoxyz/taiko-mono?filter=branding*&label=)](https://github.com/taikoxyz/taiko-mono/blob/main/packages/branding/CHANGELOG.md)                                               |
 | [bridge-ui](./packages/bridge-ui)                                             | Bridge UI.                                              | [![GitHub Release](https://img.shields.io/github/v/release/taikoxyz/taiko-mono?filter=bridge-ui*&label=)](https://github.com/taikoxyz/taiko-mono/blob/main/packages/bridge-ui/CHANGELOG.md)                                             |
 | [docs-site](./packages/docs-site)                                             | End user documentation site.                            | [![GitHub Release](https://img.shields.io/github/v/release/taikoxyz/taiko-mono?filter=docs-site*&label=)](https://github.com/taikoxyz/taiko-mono/blob/main/packages/docs-site/CHANGELOG.md)                                             |
 | [eventindexer](./packages/eventindexer)                                       | Event indexer.                                          | [![GitHub Release](https://img.shields.io/github/v/release/taikoxyz/taiko-mono?filter=eventindexer*&label=)](https://github.com/taikoxyz/taiko-mono/blob/main/packages/eventindexer/CHANGELOG.md)                                       |
