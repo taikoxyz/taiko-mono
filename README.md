@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./packages/branding/RGB SVG (For Digital Use)/Taiko Icon/taiko-icon-blk.svg" width="80" alt="Logo for Taiko" />
+  <img src="./.github/taiko-icon-blk.svg" width="80" alt="Logo for Taiko" />
 </p>
 
 <h1 align="center">
@@ -31,10 +31,8 @@ Get started with Taiko:
 
 ## Packages
 
-<!-- uncomment after release docs-site
 > [!TIP]
 > Make sure your node is using the latest version tags for taiko-client and taiko-geth. Check out the [node releases page](https://docs.taiko.xyz/network-reference/node-releases)!
--->
 
 | Package                                                                       | Description                                             | Release notes                                                                                                                                                                                                                           |
 | :---------------------------------------------------------------------------- | :------------------------------------------------------ | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
