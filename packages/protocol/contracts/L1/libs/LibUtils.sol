@@ -7,6 +7,7 @@ import "../../common/IAddressResolver.sol";
 import "../../common/LibStrings.sol";
 import "../../libs/LibMath.sol";
 import "../tiers/ITierProvider.sol";
+import "../tiers/ITierProviderV2.sol";
 import "../tiers/ITierRouter.sol";
 import "../TaikoData.sol";
 

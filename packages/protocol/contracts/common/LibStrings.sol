@@ -26,7 +26,7 @@ library LibStrings {
     bytes32 internal constant B_TIER_GUARDIAN_MINORITY = bytes32("tier_guardian_minority");
     bytes32 internal constant B_TIER_ROUTER = bytes32("tier_router");
     bytes32 internal constant B_TIER_SGX = bytes32("tier_sgx");
-    bytes32 internal constant B_TIER_SGX2 = bytes32("tier_sgx2");
+    bytes32 internal constant B_TIER_SGX_ONTAKE = bytes32("tier_sgx_ontake");
     bytes32 internal constant B_TIER_SGX_ZKVM = bytes32("tier_sgx_zkvm");
     bytes32 internal constant B_WITHDRAWER = bytes32("withdrawer");
     bytes32 internal constant H_RETURN_LIVENESS_BOND = keccak256("RETURN_LIVENESS_BOND");

@@ -30,6 +30,7 @@ library LibProving {
         bool inProvingWindow;
         bool sameTransition;
         bool postFork;
+        uint16 minTierId;
         uint64 proposedAt;
     }
 
@@ -104,6 +105,7 @@ library LibProving {
     error L1_INVALID_PAUSE_STATUS();
     error L1_INVALID_TIER();
     error L1_INVALID_TRANSITION();
+    error L1_MIN_TIER_UNKNOWN();
     error L1_NOT_ASSIGNED_PROVER();
     error L1_PROVING_PAUSED();
 
@@ -178,6 +180,13 @@ library LibProving {
         local.slot = meta.id % _config.blockRingBufferSize;
         TaikoData.Block storage blk = _state.blocks[local.slot];
 
+        if (local.postFork) {
+            local.minTierId = blk.minTierId;
+            if (local.minTierId == 0) revert L1_MIN_TIER_UNKNOWN();
+        } else {
+            local.minTierId = meta.minTierId;
+        }
+
         local.proposedAt = local.postFork ? meta.proposedAt : blk.proposedAt;
 
         if (LibUtils.shouldSyncStateRoot(_config.stateRootSyncInternal, local.blockId)) {
@@ -210,7 +219,7 @@ library LibProving {
 
         // The new proof must meet or exceed the minimum tier required by the
         // block or the previous proof; it cannot be on a lower tier.
-        if (proof.tier == 0 || proof.tier < meta.minTier || proof.tier < ts.tier) {
+        if (proof.tier == 0 || proof.tier < local.minTierId || proof.tier < ts.tier) {
             revert L1_INVALID_TIER();
         }
 
@@ -221,7 +230,7 @@ library LibProving {
             ITierProvider tierProvider = ITierProvider(tierRouter.getProvider(local.blockId));
 
             local.tier = tierProvider.getTier(proof.tier);
-            local.minTier = tierProvider.getTier(meta.minTier);
+            local.minTier = tierProvider.getTier(local.minTierId);
         }
 
         local.inProvingWindow = !LibUtils.isPostDeadline({

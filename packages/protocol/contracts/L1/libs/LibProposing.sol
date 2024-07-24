@@ -114,33 +114,32 @@ library LibProposing {
         }
 
         // Verify params against the parent block.
-        {
-            TaikoData.Block storage parentBlk =
-                _state.blocks[(local.b.numBlocks - 1) % _config.blockRingBufferSize];
 
-            if (local.postFork) {
-                // Verify the passed in L1 state block number.
-                // We only allow the L1 block to be 2 epochs old.
-                // The other constraint is that the L1 block number needs to be larger than or equal
-                // the one in the previous L2 block.
-                if (
-                    params.anchorBlockId + _config.maxAnchorHeightOffset < block.number //
-                        || params.anchorBlockId >= block.number
-                        || params.anchorBlockId < parentBlk.proposedIn
-                ) {
-                    revert L1_INVALID_ANCHOR_BLOCK();
-                }
+        TaikoData.Block storage parentBlk =
+            _state.blocks[(local.b.numBlocks - 1) % _config.blockRingBufferSize];
 
-                // Verify the passed in timestamp.
-                // We only allow the timestamp to be 2 epochs old.
-                // The other constraint is that the timestamp needs to be larger than or equal the
-                // one in the previous L2 block.
-                if (
-                    params.timestamp + _config.maxAnchorHeightOffset * 12 < block.timestamp
-                        || params.timestamp > block.timestamp || params.timestamp < parentBlk.proposedAt
-                ) {
-                    revert L1_INVALID_TIMESTAMP();
-                }
+        if (local.postFork) {
+            // Verify the passed in L1 state block number.
+            // We only allow the L1 block to be 2 epochs old.
+            // The other constraint is that the L1 block number needs to be larger than or equal
+            // the one in the previous L2 block.
+            if (
+                params.anchorBlockId + _config.maxAnchorHeightOffset < block.number //
+                    || params.anchorBlockId >= block.number
+                    || params.anchorBlockId < parentBlk.proposedIn
+            ) {
+                revert L1_INVALID_ANCHOR_BLOCK();
+            }
+
+            // Verify the passed in timestamp.
+            // We only allow the timestamp to be 2 epochs old.
+            // The other constraint is that the timestamp needs to be larger than or equal the
+            // one in the previous L2 block.
+            if (
+                params.timestamp + _config.maxAnchorHeightOffset * 12 < block.timestamp
+                    || params.timestamp > block.timestamp || params.timestamp < parentBlk.proposedAt
+            ) {
+                revert L1_INVALID_TIMESTAMP();
             }
 
             // Check if parent block has the right meta hash. This is to allow the proposer to make
@@ -167,7 +166,7 @@ library LibProposing {
                 gasLimit: _config.blockMaxGasLimit,
                 timestamp: params.timestamp,
                 anchorBlockId: params.anchorBlockId,
-                minTier: 0, // to be initialized below
+                minTierId: 0, // to be initialized below
                 blobUsed: _txList.length == 0,
                 parentMetaHash: params.parentMetaHash,
                 proposer: msg.sender,
@@ -198,12 +197,20 @@ library LibProposing {
             emit CalldataTxList(meta_.id, _txList);
         }
 
-        {
+        if (local.postFork) {
+            ITierRouter tierRouter = ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false));
+            ITierProviderV2 tierProvider =
+                ITierProviderV2(tierRouter.getProvider(local.b.numBlocks));
+
+            // Decide the min tier of the parent block
+            uint256 rand = uint256(meta_.difficulty) ^ uint256(block.prevrandao);
+            parentBlk.minTierId = tierProvider.getMinTier(rand);
+        } else {
             ITierRouter tierRouter = ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false));
             ITierProvider tierProvider = ITierProvider(tierRouter.getProvider(local.b.numBlocks));
 
             // Use the difficulty as a random number
-            meta_.minTier = tierProvider.getMinTier(uint256(meta_.difficulty));
+            meta_.minTierId = tierProvider.getMinTier(uint256(meta_.difficulty));
         }
 
         // Create the block that will be stored onchain
@@ -218,7 +225,8 @@ library LibProposing {
             nextTransitionId: 1,
             livenessBondReturned: false,
             // For unverified block, its verifiedTransitionId is always 0.
-            verifiedTransitionId: 0
+            verifiedTransitionId: 0,
+            minTierId: 0
         });
 
         // Store the block in the ring buffer
