@@ -181,4 +181,39 @@ contract TrailblazersBadges is ERC721EnumerableUpgradeable, ECDSAWhitelist {
         balances[7] = 0 != getTokenId(_owner, BADGE_SHINTO);
         return balances;
     }
+
+    /// @notice v2
+
+    /// @notice Upgraded badgeBalances using tokenOfOwnerByIndex
+    /// @param _owner The addresses to check
+    /// @return balances The badges atomic balances
+    function badgeBalancesV2(address _owner) public view returns (bool[] memory balances) {
+        uint256 balance = balanceOf(_owner);
+        uint256[] memory tokenIds = new uint256[](balance);
+        for (uint256 i = 0; i < balance; i++) {
+            tokenIds[i] = tokenOfOwnerByIndex(_owner, i);
+        }
+        balances = new bool[](8);
+
+        for (uint256 i = 0; i < balance; i++) {
+            uint256 badgeId = badges[tokenIds[i]];
+            balances[badgeId] = true;
+        }
+
+        return balances;
+    }
+
+    /// @notice Return the total badge supply by badgeId
+    /// @return balances The amount of each badge id
+    function totalBadgeSupply() public view returns (uint256[] memory balances) {
+        uint256 totalSupply = totalSupply();
+        balances = new uint256[](8);
+
+        for (uint256 i = 1; i <= totalSupply; i++) {
+            uint256 badgeId = badges[i];
+            balances[badgeId]++;
+        }
+
+        return balances;
+    }
 }
