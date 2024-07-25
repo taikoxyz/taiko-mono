@@ -241,7 +241,7 @@ library LibProposing {
 
         LibBonds.debitBond(_state, _resolver, msg.sender, _config.livenessBond);
 
-        // Bribe the block builder. unlike 1559-tips, this tip is only made
+        // Bribe the block builder. Unlike 1559-tips, this tip is only made
         // if this transaction succeeds.
         if (msg.value != 0 && block.coinbase != address(0)) {
             address(block.coinbase).sendEtherAndVerify(msg.value);
