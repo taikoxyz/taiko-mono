@@ -145,7 +145,7 @@ contract TokenUnlock is EssentialContract {
     }
 
     /// @notice Withdraws all tokens to the recipient address.
-    function withdrawToRecipient() external nonReentrant {
+    function withdraw() external nonReentrant {
         uint256 amount = amountWithdrawable();
         emit TokenWithdrawn(recipient, amount);
         IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)).safeTransfer(recipient, amount);
