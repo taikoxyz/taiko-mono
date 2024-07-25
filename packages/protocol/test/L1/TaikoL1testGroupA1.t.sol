@@ -89,7 +89,7 @@ contract TaikoL1TestGroupA1 is TaikoL1TestGroupBase {
 
             mineAndWrap(10 seconds);
 
-            TaikoL1ForkA1(payable(L1)).setBlockMinTier(meta2.id, LibTiersV2.TIER_SGX_ONTAKE);
+            TaikoL1ForkA1(payable(L1)).setBlockMinTier(metaV2.id, LibTiersV2.TIER_SGX_ONTAKE);
             proveBlock2(
                 Alice, metaV2, parentHash, blockHash, stateRoot, LibTiersV2.TIER_SGX_ONTAKE, ""
             );

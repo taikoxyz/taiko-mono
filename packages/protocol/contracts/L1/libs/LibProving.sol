@@ -160,7 +160,7 @@ library LibProving {
                 _input, (TaikoData.BlockMetadata, TaikoData.Transition, TaikoData.TierProof)
             );
 
-            local.minTierId = meta1.minTier;
+            local.minTierId = metaV1.minTier;
             meta = LibData.blockMetadataV1toV2(metaV1);
         }
 
