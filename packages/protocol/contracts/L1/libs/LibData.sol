@@ -44,7 +44,7 @@ library LibData {
             gasLimit: _v2.gasLimit,
             timestamp: _v2.timestamp,
             l1Height: _v2.anchorBlockId,
-            minTier: _v2.minTierId,
+            minTier: 0,
             blobUsed: _v2.blobUsed,
             parentMetaHash: _v2.parentMetaHash,
             sender: _v2.proposer
@@ -66,7 +66,6 @@ library LibData {
             gasLimit: _v1.gasLimit,
             timestamp: _v1.timestamp,
             anchorBlockId: _v1.l1Height,
-            minTierId: _v1.minTier,
             blobUsed: _v1.blobUsed,
             parentMetaHash: _v1.parentMetaHash,
             proposer: _v1.sender,

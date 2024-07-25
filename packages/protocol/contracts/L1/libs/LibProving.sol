@@ -159,6 +159,8 @@ library LibProving {
             (meta1, tran, proof) = abi.decode(
                 _input, (TaikoData.BlockMetadata, TaikoData.Transition, TaikoData.TierProof)
             );
+
+            local.minTierId = meta1.minTier;
             meta = LibData.blockMetadataV1toV2(meta1);
         }
 
@@ -179,7 +181,10 @@ library LibProving {
         local.slot = meta.id % _config.blockRingBufferSize;
         TaikoData.Block storage blk = _state.blocks[local.slot];
 
-        local.minTierId = local.postFork ? blk.minTierId : meta.minTierId;
+        if (local.postFork) {
+            local.minTierId = blk.minTierId;
+        }
+
         if (local.minTierId == 0) revert L1_MIN_TIER_UNKNOWN();
 
         local.proposedAt = local.postFork ? meta.proposedAt : blk.proposedAt;

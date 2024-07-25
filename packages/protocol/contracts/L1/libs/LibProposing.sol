@@ -172,7 +172,6 @@ library LibProposing {
                 gasLimit: _config.blockMaxGasLimit,
                 timestamp: params.timestamp,
                 anchorBlockId: params.anchorBlockId,
-                minTierId: 0, // to be initialized below
                 blobUsed: _txList.length == 0,
                 parentMetaHash: params.parentMetaHash,
                 proposer: msg.sender,
@@ -212,15 +211,13 @@ library LibProposing {
             uint256 rand = uint256(meta_.difficulty) ^ uint256(block.prevrandao);
             parentBlk.minTierId = tierProvider.getMinTier(rand);
         } else {
+            metaV1_ = LibData.blockMetadataV2toV1(meta_);
+
             ITierRouter tierRouter = ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false));
             ITierProvider tierProvider = ITierProvider(tierRouter.getProvider(local.b.numBlocks));
 
             // Use the difficulty as a random number
-            meta_.minTierId = tierProvider.getMinTier(uint256(meta_.difficulty));
-        }
-
-        if (!local.postFork) {
-            metaV1_ = LibData.blockMetadataV2toV1(meta_);
+            metaV1_.minTier = tierProvider.getMinTier(uint256(meta_.difficulty));
         }
 
         // Create the block that will be stored onchain
