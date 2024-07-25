@@ -61,7 +61,7 @@ library LibProposing {
     /// @param _state Current TaikoData.State.
     /// @param _config Actual TaikoData.Config.
     /// @param _resolver Address resolver interface.
-    /// @param _data Encoded data bytes containing the block local.params.
+    /// @param _data Encoded data bytes containing the block params.
     /// @param _txList Transaction list bytes (if not blob).
     /// @return metaV1_ The constructed block's metadata v1.
     /// @return meta_ The constructed block's metadata v2.
