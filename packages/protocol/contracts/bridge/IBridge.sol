@@ -131,6 +131,13 @@ interface IBridge {
     /// @return true if the message was sent.
     function isMessageSent(Message calldata _message) external view returns (bool);
 
+    /**
+     * @notice Retrieves the status of a message identified by its hash.
+     * @param msgHash The hash of the message whose status is queried.
+     * @return Status The current status of the message.
+     */
+    function messageStatus(bytes32 msgHash) external view returns (Status);
+
     /// @notice Hash the message
     /// @param _message The message struct variable to be hashed.
     /// @return The message's hash.
