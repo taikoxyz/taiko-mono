@@ -126,7 +126,7 @@ contract TokenUnlock is EssentialContract {
         IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)).safeTransfer(_proverSet, _amount);
     }
 
-    /// @notice Withdraws some withdrawable tokens.
+    /// @notice Withdraws tokens by the recipient.
     /// @param _to The address the token will be sent to.
     /// @param _amount The amount of tokens to withdraw.
     function withdraw(
