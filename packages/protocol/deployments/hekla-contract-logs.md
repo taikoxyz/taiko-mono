@@ -78,7 +78,7 @@
 
 ### bridged_erc20
 
-- impl: `0xDE789c826a8DD9e7abA514044CC4A9391c5C2c04`
+- impl: `0xe3661857941E4A711fa6b4Fc080bC5c5948a70f1`
 - logs:
   - deployed on May 10, 2024 at commit `4903bec`
   - deployed on Jul 25, 2024 at commit `3d89d24`
@@ -262,7 +262,7 @@
 
 ### bridged_erc20
 
-- impl: `0xa553f4D556d57C5868fCF0964B148aE148c82C61`
+- impl: `0xBF040d7C27cddFE9b4a91ebD79a4dc94e5bec677`
 - logs:
   - deployed on May 10, 2024 at commit `4903bec`
   - deployed on Jul 25, 2024 at commit `3d89d24`
