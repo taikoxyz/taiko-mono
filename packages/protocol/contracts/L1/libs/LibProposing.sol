@@ -133,7 +133,6 @@ library LibProposing {
         // the block data to be stored on-chain for future integrity checks.
         // If we choose to persist all data fields in the metadata, it will
         // require additional storage slots.
-
         meta_ = TaikoData.BlockMetadataV2({
             anchorBlockHash: blockhash(local.params.anchorBlockId),
             difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", local.b.numBlocks)),

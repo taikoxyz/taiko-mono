@@ -78,9 +78,10 @@
 
 ### bridged_erc20
 
-- impl: `0x2E062eA9f7f2D777eb67a32710BFDcE42c655B18`
+- impl: `0xe3661857941E4A711fa6b4Fc080bC5c5948a70f1`
 - logs:
   - deployed on May 10, 2024 at commit `4903bec`
+  - deployed on Jul 25, 2024 at commit `3d89d24`
 
 ### bridged_erc721
 
@@ -261,9 +262,10 @@
 
 ### bridged_erc20
 
-- impl: `0x62Acda3Ad15B382C32B2fB21BEAc9DfB95bbb02F`
+- impl: `0xBF040d7C27cddFE9b4a91ebD79a4dc94e5bec677`
 - logs:
   - deployed on May 10, 2024 at commit `4903bec`
+  - deployed on Jul 25, 2024 at commit `3d89d24`
 
 ### bridged_erc721
 
