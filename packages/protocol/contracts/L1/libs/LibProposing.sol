@@ -43,7 +43,9 @@ library LibProposing {
     /// @param _resolver Address resolver interface.
     /// @param _data Encoded data bytes containing the block params.
     /// @param _txList Transaction list bytes (if not blob).
-    /// @return meta_ The constructed block's metadata.
+    /// @return metaV1_ The constructed block's metadata v1.
+    /// @return meta_ The constructed block's metadata v2.
+    /// @return deposits_ An empty ETH deposit array.
     function proposeBlock(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
@@ -181,6 +183,10 @@ library LibProposing {
 
             // Use the difficulty as a random number
             meta_.minTier = tierProvider.getMinTier(uint256(meta_.difficulty));
+        }
+
+        if (!local.postFork) {
+            metaV1_ = LibData.blockMetadataV2toV1(meta_);
         }
 
         // Create the block that will be stored onchain
