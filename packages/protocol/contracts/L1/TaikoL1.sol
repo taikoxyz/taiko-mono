@@ -83,15 +83,12 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     {
         TaikoData.Config memory config = getConfig();
 
-        TaikoData.BlockMetadataV2 memory meta2;
-        (meta2, deposits_) = LibProposing.proposeBlock(state, config, this, _params, _txList);
-
-        if (meta2.id >= config.ontakeForkHeight) revert L1_FORK_ERROR();
+        (meta_,, deposits_) = LibProposing.proposeBlock(state, config, this, _params, _txList);
+        if (meta_.id >= config.ontakeForkHeight) revert L1_FORK_ERROR();
 
         if (LibUtils.shouldVerifyBlocks(config, meta_.id, true) && !state.slotB.provingPaused) {
             LibVerifying.verifyBlocks(state, config, this, config.maxBlocksToVerify);
         }
-        meta_ = LibData.blockMetadataV2toV1(meta2);
     }
 
     function proposeBlockV2(
@@ -106,7 +103,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     {
         TaikoData.Config memory config = getConfig();
 
-        (meta_,) = LibProposing.proposeBlock(state, config, this, _params, _txList);
+        (, meta_,) = LibProposing.proposeBlock(state, config, this, _params, _txList);
         if (meta_.id < config.ontakeForkHeight) revert L1_FORK_ERROR();
 
         if (LibUtils.shouldVerifyBlocks(config, meta_.id, true) && !state.slotB.provingPaused) {

@@ -197,7 +197,7 @@ contract GuardianProver is IVerifier, EssentialContract {
     }
 
     function approveV2(
-        TaikoData.BlockMetadataV2 calldata _meta2,
+        TaikoData.BlockMetadataV2 calldata _metaV2,
         TaikoData.Transition calldata _tran,
         TaikoData.TierProof calldata _proof
     )
@@ -207,10 +207,10 @@ contract GuardianProver is IVerifier, EssentialContract {
         returns (bool)
     {
         return _approve({
-            _blockId: _meta2.id,
-            _proofHash: keccak256(abi.encode(_meta2, _tran, _proof.data)),
+            _blockId: _metaV2.id,
+            _proofHash: keccak256(abi.encode(_metaV2, _tran, _proof.data)),
             _blockHash: _tran.blockHash,
-            _data: abi.encode(_meta2, _tran, _proof),
+            _data: abi.encode(_metaV2, _tran, _proof),
             _proofData: _proof.data
         });
     }

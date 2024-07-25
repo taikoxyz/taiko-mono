@@ -51,10 +51,7 @@ library LibData {
         });
     }
 
-    function metadataV1toV2(
-        TaikoData.BlockMetadata memory _v1,
-        uint96 _livenessBond
-    )
+    function blockMetadataV1toV2(TaikoData.BlockMetadata memory _v1)
         internal
         pure
         returns (TaikoData.BlockMetadataV2 memory)
@@ -73,7 +70,7 @@ library LibData {
             blobUsed: _v1.blobUsed,
             parentMetaHash: _v1.parentMetaHash,
             proposer: _v1.sender,
-            livenessBond: _livenessBond,
+            livenessBond: 0,
             proposedAt: 0,
             proposedIn: 0,
             blobTxListOffset: 0,
@@ -83,18 +80,5 @@ library LibData {
             basefeeSharingPctg: 0,
             blockGasIssuance: 0
         });
-    }
-
-    function hashMetadata(
-        bool postFork,
-        TaikoData.BlockMetadataV2 memory _meta
-    )
-        internal
-        pure
-        returns (bytes32)
-    {
-        return postFork
-            ? keccak256(abi.encode(_meta)) //
-            : keccak256(abi.encode(blockMetadataV2toV1(_meta)));
     }
 }
