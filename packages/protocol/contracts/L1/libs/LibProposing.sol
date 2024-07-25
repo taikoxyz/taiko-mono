@@ -60,7 +60,9 @@ library LibProposing {
     /// @param _resolver Address resolver interface.
     /// @param _data Encoded data bytes containing the block params.
     /// @param _txList Transaction list bytes (if not blob).
-    /// @return meta_ The constructed block's metadata.
+    /// @return metaV1_ The constructed block's metadata v1.
+    /// @return meta_ The constructed block's metadata v2.
+    /// @return deposits_ An empty ETH deposit array.
     function proposeBlock(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
@@ -69,7 +71,11 @@ library LibProposing {
         bytes calldata _txList
     )
         public
-        returns (TaikoData.BlockMetadataV2 memory meta_, TaikoData.EthDeposit[] memory deposits_)
+        returns (
+            TaikoData.BlockMetadata memory metaV1_,
+            TaikoData.BlockMetadataV2 memory meta_,
+            TaikoData.EthDeposit[] memory deposits_
+        )
     {
         // Checks proposer access.
         {
@@ -206,9 +212,13 @@ library LibProposing {
             meta_.minTier = tierProvider.getMinTier(uint256(meta_.difficulty));
         }
 
+        if (!local.postFork) {
+            metaV1_ = LibData.blockMetadataV2toV1(meta_);
+        }
+
         // Create the block that will be stored onchain
         TaikoData.Block memory blk = TaikoData.Block({
-            metaHash: LibData.hashMetadata(local.postFork, meta_),
+            metaHash: local.postFork ? keccak256(abi.encode(meta_)) : keccak256(abi.encode(metaV1_)),
             assignedProver: address(0),
             livenessBond: local.postFork ? 0 : meta_.livenessBond,
             blockId: local.b.numBlocks,
@@ -243,10 +253,10 @@ library LibProposing {
             emit BlockProposedV2(meta_.id, meta_);
         } else {
             emit BlockProposed({
-                blockId: meta_.id,
+                blockId: metaV1_.id,
                 assignedProver: msg.sender,
                 livenessBond: _config.livenessBond,
-                meta: LibData.blockMetadataV2toV1(meta_),
+                meta: metaV1_,
                 depositsProcessed: deposits_
             });
         }
