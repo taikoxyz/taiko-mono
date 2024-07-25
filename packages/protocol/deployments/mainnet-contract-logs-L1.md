@@ -336,6 +336,9 @@
 - impl: `0x035AFfC82612de31E9Db2259B9482D0Dd53B7819`
 - logs:
   - deployed @commit`bca493f` @tx`0x0a4a63715257b766ca06e7e87ee25088d557c460e50120208b31666c83fc68bc`
+- todo:
+  - deploy a new version with `withdrawToRecipient` function
+  - upgrade `0x2Bc21D70BDe29a8E6576F7aCD979029058f2eeF9` with the new implementation
 
 ### prover_set
 
