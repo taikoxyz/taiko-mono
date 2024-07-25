@@ -152,12 +152,12 @@ library LibProving {
                 _input, (TaikoData.BlockMetadataV2, TaikoData.Transition, TaikoData.TierProof)
             );
         } else {
-            TaikoData.BlockMetadata memory meta1;
+            TaikoData.BlockMetadata memory metaV1;
 
-            (meta1, tran, proof) = abi.decode(
+            (metaV1, tran, proof) = abi.decode(
                 _input, (TaikoData.BlockMetadata, TaikoData.Transition, TaikoData.TierProof)
             );
-            meta = LibData.blockMetadataV1toV2(meta1);
+            meta = LibData.blockMetadataV1toV2(metaV1);
         }
 
         if (_blockId != meta.id) revert LibUtils.L1_INVALID_BLOCK_ID();

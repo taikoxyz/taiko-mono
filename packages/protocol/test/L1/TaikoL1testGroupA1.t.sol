@@ -65,8 +65,8 @@ contract TaikoL1TestGroupA1 is TaikoL1TestGroupBase {
 
         TaikoData.BlockParamsV2 memory params;
         for (; i <= ontakeForkHeight + 5; ++i) {
-            TaikoData.BlockMetadataV2 memory meta2 = proposeBlockV2(Alice, params, "");
-            printBlockAndTrans(meta2.id);
+            TaikoData.BlockMetadataV2 memory metaV2 = proposeBlockV2(Alice, params, "");
+            printBlockAndTrans(metaV2.id);
             TaikoData.Block memory blk = L1.getBlock(i);
             assertEq(blk.livenessBond, 0);
             assertEq(blk.assignedProver, address(0));
@@ -79,10 +79,10 @@ contract TaikoL1TestGroupA1 is TaikoL1TestGroupBase {
 
             mineAndWrap(10 seconds);
 
-            proveBlock2(Alice, meta2, parentHash, blockHash, stateRoot, meta2.minTier, "");
+            proveBlock2(Alice, metaV2, parentHash, blockHash, stateRoot, metaV2.minTier, "");
             parentHash = blockHash;
 
-            printBlockAndTrans(meta2.id);
+            printBlockAndTrans(metaV2.id);
             blk = L1.getBlock(i);
             assertEq(blk.livenessBond, 0);
             assertEq(blk.assignedProver, address(0));
