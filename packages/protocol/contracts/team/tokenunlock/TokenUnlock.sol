@@ -126,7 +126,7 @@ contract TokenUnlock is EssentialContract {
         IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)).safeTransfer(_proverSet, _amount);
     }
 
-    /// @notice Withdraws all withdrawable tokens.
+    /// @notice Withdraws some withdrawable tokens.
     /// @param _to The address the token will be sent to.
     /// @param _amount The amount of tokens to withdraw.
     function withdraw(
@@ -140,10 +140,15 @@ contract TokenUnlock is EssentialContract {
         nonReentrant
     {
         if (_amount > amountWithdrawable()) revert NOT_WITHDRAWABLE();
-
         emit TokenWithdrawn(_to, _amount);
-
         IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)).safeTransfer(_to, _amount);
+    }
+
+    /// @notice Withdraws all tokens to the recipient address.
+    function withdrawToRecipient() external nonReentrant {
+        uint256 amount = amountWithdrawable();
+        emit TokenWithdrawn(recipient, amount);
+        IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)).safeTransfer(recipient, amount);
     }
 
     function changeRecipient(address _newRecipient) external onlyRecipient {
