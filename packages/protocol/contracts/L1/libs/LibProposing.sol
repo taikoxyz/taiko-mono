@@ -16,6 +16,8 @@ library LibProposing {
 
     struct Local {
         TaikoData.SlotB b;
+        TaikoData.BlockParamsV2 params;
+        address proposerAccess;
         bytes32 parentMetaHash;
         bool postFork;
     }
@@ -77,16 +79,18 @@ library LibProposing {
             TaikoData.EthDeposit[] memory deposits_
         )
     {
-        // Checks proposer access.
-        {
-            address access = _resolver.resolve(LibStrings.B_PROPOSER_ACCESS, true);
-            if (access != address(0) && !IProposerAccess(access).isProposerEligible(msg.sender)) {
-                revert L1_INVALID_PROPOSER();
-            }
-        }
-
         // Taiko, as a Based Rollup, enables permissionless block proposals.
         Local memory local;
+
+        // Checks proposer access.
+        local.proposerAccess = _resolver.resolve(LibStrings.B_PROPOSER_ACCESS, true);
+        if (
+            local.proposerAccess != address(0)
+                && !IProposerAccess(local.proposerAccess).isProposerEligible(msg.sender)
+        ) {
+            revert L1_INVALID_PROPOSER();
+        }
+
         local.b = _state.slotB;
         local.postFork = local.b.numBlocks >= _config.ontakeForkHeight;
 
@@ -96,30 +100,28 @@ library LibProposing {
             revert L1_TOO_MANY_BLOCKS();
         }
 
-        TaikoData.BlockParamsV2 memory params;
-
         if (local.postFork) {
             if (_data.length != 0) {
-                params = abi.decode(_data, (TaikoData.BlockParamsV2));
+                local.params = abi.decode(_data, (TaikoData.BlockParamsV2));
                 // otherwise use a default BlockParamsV2 with 0 values
             }
         } else {
-            params = LibData.blockParamsV1ToV2(abi.decode(_data, (TaikoData.BlockParams)));
+            local.params = LibData.blockParamsV1ToV2(abi.decode(_data, (TaikoData.BlockParams)));
         }
 
-        if (params.coinbase == address(0)) {
-            params.coinbase = msg.sender;
+        if (local.params.coinbase == address(0)) {
+            local.params.coinbase = msg.sender;
         }
 
-        if (!local.postFork || params.anchorBlockId == 0) {
-            params.anchorBlockId = uint64(block.number - 1);
+        if (!local.postFork || local.params.anchorBlockId == 0) {
+            local.params.anchorBlockId = uint64(block.number - 1);
         }
 
-        if (!local.postFork || params.timestamp == 0) {
-            params.timestamp = uint64(block.timestamp);
+        if (!local.postFork || local.params.timestamp == 0) {
+            local.params.timestamp = uint64(block.timestamp);
         }
 
-        // Verify params against the parent block.
+        // Verify local.params against the parent block.
 
         TaikoData.Block storage parentBlk =
             _state.blocks[(local.b.numBlocks - 1) % _config.blockRingBufferSize];
@@ -130,9 +132,9 @@ library LibProposing {
             // The other constraint is that the L1 block number needs to be larger than or equal
             // the one in the previous L2 block.
             if (
-                params.anchorBlockId + _config.maxAnchorHeightOffset < block.number //
-                    || params.anchorBlockId >= block.number
-                    || params.anchorBlockId < parentBlk.proposedIn
+                local.params.anchorBlockId + _config.maxAnchorHeightOffset < block.number
+                    || local.params.anchorBlockId >= block.number
+                    || local.params.anchorBlockId < parentBlk.proposedIn
             ) {
                 revert L1_INVALID_ANCHOR_BLOCK();
             }
@@ -142,17 +144,18 @@ library LibProposing {
             // The other constraint is that the timestamp needs to be larger than or equal the
             // one in the previous L2 block.
             if (
-                params.timestamp + _config.maxAnchorHeightOffset * 12 < block.timestamp
-                    || params.timestamp > block.timestamp || params.timestamp < parentBlk.proposedAt
+                local.params.timestamp + _config.maxAnchorHeightOffset * 12 < block.timestamp
+                    || local.params.timestamp > block.timestamp
+                    || local.params.timestamp < parentBlk.proposedAt
             ) {
                 revert L1_INVALID_TIMESTAMP();
             }
 
             // Check if parent block has the right meta hash. This is to allow the proposer to make
             // sure the block builds on the expected latest chain state.
-            if (params.parentMetaHash == 0) {
-                params.parentMetaHash = parentBlk.metaHash;
-            } else if (params.parentMetaHash != parentBlk.metaHash) {
+            if (local.params.parentMetaHash == 0) {
+                local.params.parentMetaHash = parentBlk.metaHash;
+            } else if (local.params.parentMetaHash != parentBlk.metaHash) {
                 revert L1_UNEXPECTED_PARENT();
             }
         }
@@ -161,31 +164,29 @@ library LibProposing {
         // the block data to be stored on-chain for future integrity checks.
         // If we choose to persist all data fields in the metadata, it will
         // require additional storage slots.
-        unchecked {
-            meta_ = TaikoData.BlockMetadataV2({
-                anchorBlockHash: blockhash(params.anchorBlockId),
-                difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", local.b.numBlocks)),
-                blobHash: 0, // to be initialized below
-                extraData: params.extraData,
-                coinbase: params.coinbase,
-                id: local.b.numBlocks,
-                gasLimit: _config.blockMaxGasLimit,
-                timestamp: params.timestamp,
-                anchorBlockId: params.anchorBlockId,
-                blobUsed: _txList.length == 0,
-                parentMetaHash: params.parentMetaHash,
-                proposer: msg.sender,
-                livenessBond: _config.livenessBond,
-                proposedAt: uint64(block.timestamp),
-                proposedIn: uint64(block.number),
-                blobTxListOffset: params.blobTxListOffset,
-                blobTxListLength: params.blobTxListLength,
-                blobIndex: params.blobIndex,
-                basefeeAdjustmentQuotient: _config.basefeeAdjustmentQuotient,
-                basefeeSharingPctg: _config.basefeeSharingPctg,
-                blockGasIssuance: _config.blockGasIssuance
-            });
-        }
+        meta_ = TaikoData.BlockMetadataV2({
+            anchorBlockHash: blockhash(local.params.anchorBlockId),
+            difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", local.b.numBlocks)),
+            blobHash: 0, // to be initialized below
+            extraData: local.params.extraData,
+            coinbase: local.params.coinbase,
+            id: local.b.numBlocks,
+            gasLimit: _config.blockMaxGasLimit,
+            timestamp: local.params.timestamp,
+            anchorBlockId: local.params.anchorBlockId,
+            blobUsed: _txList.length == 0,
+            parentMetaHash: local.params.parentMetaHash,
+            proposer: msg.sender,
+            livenessBond: _config.livenessBond,
+            proposedAt: uint64(block.timestamp),
+            proposedIn: uint64(block.number),
+            blobTxListOffset: local.params.blobTxListOffset,
+            blobTxListLength: local.params.blobTxListLength,
+            blobIndex: local.params.blobIndex,
+            basefeeAdjustmentQuotient: _config.basefeeAdjustmentQuotient,
+            basefeeSharingPctg: _config.basefeeSharingPctg,
+            blockGasIssuance: _config.blockGasIssuance
+        });
 
         // Update certain meta fields
         if (meta_.blobUsed) {
@@ -195,7 +196,7 @@ library LibProposing {
             // proposeBlock functions are called more than once in the same
             // L1 transaction, these multiple L2 blocks will share the same
             // blob.
-            meta_.blobHash = blobhash(params.blobIndex);
+            meta_.blobHash = blobhash(local.params.blobIndex);
             if (meta_.blobHash == 0) revert L1_BLOB_NOT_FOUND();
         } else {
             meta_.blobHash = keccak256(_txList);
@@ -226,8 +227,8 @@ library LibProposing {
             assignedProver: address(0),
             livenessBond: local.postFork ? 0 : meta_.livenessBond,
             blockId: local.b.numBlocks,
-            proposedAt: local.postFork ? params.timestamp : uint64(block.timestamp),
-            proposedIn: local.postFork ? params.anchorBlockId : uint64(block.number),
+            proposedAt: local.postFork ? local.params.timestamp : uint64(block.timestamp),
+            proposedIn: local.postFork ? local.params.anchorBlockId : uint64(block.number),
             // For a new block, the next transition ID is always 1, not 0.
             nextTransitionId: 1,
             livenessBondReturned: false,
