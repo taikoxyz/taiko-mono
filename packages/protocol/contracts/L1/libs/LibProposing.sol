@@ -185,10 +185,6 @@ library LibProposing {
             meta_.minTier = tierProvider.getMinTier(uint256(meta_.difficulty));
         }
 
-        if (!local.postFork) {
-            metaV1_ = LibData.blockMetadataV2toV1(meta_);
-        }
-
         // Create the block that will be stored onchain
         TaikoData.Block memory blk = TaikoData.Block({
             metaHash: keccak256(abi.encode(meta_)),
