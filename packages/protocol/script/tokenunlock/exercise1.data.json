@@ -358,5 +358,275 @@
     "proxy": "0x67c52cda25B36fFf71A61819693BF8A4909aE436",
     "recipient": "0xFa6f278dd30DDD4486cB384E236B0E17dC6D3bE6",
     "vestAmount": 84722
+  },
+  {
+    "proxy": "0xd2601a20c2E8F5F1810b16E408c641d624b11aC2",
+    "recipient": "0x02331a72Fc3ADF8CAdC808BbE0D73B6D0044F439",
+    "vestAmount": 406507
+  },
+  {
+    "proxy": "0x5E6c193F25B83734f87918593E05d03675Fb3241",
+    "recipient": "0x02F23534F9DA649adC356fb18F63893fAc544158",
+    "vestAmount": 160003
+  },
+  {
+    "proxy": "0xEaaB2c7a21Bb8d6020adfBAf7b9cde409d340884",
+    "recipient": "0x07C1c2F5e5BD4319461E914b41B58CDCe8aEb4b3",
+    "vestAmount": 18761726
+  },
+  {
+    "proxy": "0x5E44E672BA19f947813CeEB12B04F7cC03E1843A",
+    "recipient": "0x094438c269efcf6f8cffb2bde4a889bb3d17d2a8",
+    "vestAmount": 156345
+  },
+  {
+    "proxy": "0x7Ed070524F12c2405AFc66b77118927993F3c15E",
+    "recipient": "0x0f63505173Fa24A4a752e08123153B879f665c57",
+    "vestAmount": 1094431
+  },
+  {
+    "proxy": "0x5B113b3B76fB00aE8868a5400ef0AeF9C091aDD3",
+    "recipient": "0x1C3E3fE0d28B22d64D76Ce30b8d51DCD9867a68a",
+    "vestAmount": 4264029
+  },
+  {
+    "proxy": "0xe3b5372bA89D07Dc80284e93B050a90D2910297A",
+    "recipient": "0x1F28F10176F89F4E9985873B84d14e75751BB3D1",
+    "vestAmount": 6085050
+  },
+  {
+    "proxy": "0xBcf79a834375E527024905C1FEE637c3f6F333F7",
+    "recipient": "0x220866b1a2219f40e72f5c628b65d54268ca3a9d",
+    "vestAmount": 852806
+  },
+  {
+    "proxy": "0xa35315c325131Ea6d0111cFD3476A5bcfd354aC6",
+    "recipient": "0x278887be139f325334e1dde087f28c4d525e7d59",
+    "vestAmount": 1918813
+  },
+  {
+    "proxy": "0xA78eCb16beA92bb2c8A33C231D65f430bf876895",
+    "recipient": "0x33Ee24a0398b8D02A562A308F4407CD93ee150d4",
+    "vestAmount": 1569197
+  },
+  {
+    "proxy": "0x57064365517a727D7250D14dAAe153EB1d8945bb",
+    "recipient": "0x399f2700CE8Ba81d10FE43C1D077365dC41017d4",
+    "vestAmount": 1870203
+  },
+  {
+    "proxy": "0xe84847bb619FcaeECcbCbAA05Fa343253c6BD726",
+    "recipient": "0x408505ec4bB812B9B649a653390a7b683CEa3D54",
+    "vestAmount": 196998
+  },
+  {
+    "proxy": "0x39007C8196B2b3dd83Edc3495AB40b6B4F8F7646",
+    "recipient": "0x4382AF750BA8a0dC2877F621e6BDF6523e33894c",
+    "vestAmount": 781741
+  },
+  {
+    "proxy": "0x95e4Acc3b6fb42e18bE53A03854097E4bf9a384D",
+    "recipient": "0x443Fd508c4992DdFACA64283975C5192dEEF6897",
+    "vestAmount": 1876173
+  },
+  {
+    "proxy": "0xf819370886418a277AF656B08aDa4498447276E4",
+    "recipient": "0x4492b21337F0664829A991DA4c8aa7E686e24A23",
+    "vestAmount": 3595992
+  },
+  {
+    "proxy": "0x37Dd6E027DC1cc3dCed44F71dC88C6F053850B87",
+    "recipient": "0x57e9210C7B2eaAA1fA9ef11e15AbB3e91d0103aC",
+    "vestAmount": 4406149
+  },
+  {
+    "proxy": "0x705B86fEC672A22D92aD89B54F00a347e2fB30cC",
+    "recipient": "0x67821e4e35d1E20c29a9Fb05748a7fe226cb142F",
+    "vestAmount": 156345
+  },
+  {
+    "proxy": "0x91E573Aec1c1997f1E979a6f5A5012097D6d952b",
+    "recipient": "0x6e0a1ddad894e6466d405bb73377f0a257278d74",
+    "vestAmount": 406507
+  },
+  {
+    "proxy": "0x07a7f8319fA8aA6cdc8B273255A517e6bB6a6Ce4",
+    "recipient": "0x713F619Ba5169a20B228901fe135c5d894f29E1F",
+    "vestAmount": 390866
+  },
+  {
+    "proxy": "0x12B860F2Bd797fB15270e16EC04DC4D14e176f2e",
+    "recipient": "0x74cf36eb5034e47974DB61D2a8EA6996cfD1e149",
+    "vestAmount": 234522
+  },
+  {
+    "proxy": "0x2CCB411B68aF29e5122b45A9c316A36d87Eef3Cb",
+    "recipient": "0x78DB576873F032A7C4749b214A8AF6966B3Be239",
+    "vestAmount": 1594747
+  },
+  {
+    "proxy": "0xA85F093474C081bC9FFA3784638727F57B28f656",
+    "recipient": "0x7F696B2D2f5ff70177E1a4c3BB76D3604aB0caEc",
+    "vestAmount": 272207
+  },
+  {
+    "proxy": "0x0e409A34aC3F9216BdA002Fb149A824F88213ce4",
+    "recipient": "0x7F73eF385FdAb454D5bfDa2d8b41C89D6e123cec",
+    "vestAmount": 465487
+  },
+  {
+    "proxy": "0xfb9ce64875BDC1a761Ddb51c2Aa642C204AA92BA",
+    "recipient": "0x839bBb11d3041359A4c43be9CB6A4AA22dDdcB1f",
+    "vestAmount": 781741
+  },
+  {
+    "proxy": "0x497f9F18EBDBb90193E51A4327Bc2B00f250577F",
+    "recipient": "0x84329866d00Ff90AEFC839A2bdFe5ce00d09cFdD",
+    "vestAmount": 312698
+  },
+  {
+    "proxy": "0xb11C0D761D6e164294A19D27b89E1d72D11E482B",
+    "recipient": "0x917c7EaEc939341014EAAE8cc024Cf81812bf852",
+    "vestAmount": 156345
+  },
+  {
+    "proxy": "0x38D8361e6F1585f5B37355E9d69A27e33d28b9A3",
+    "recipient": "0x92f39A77f57e20765F3F34C62A92BD3df312757D",
+    "vestAmount": 8528057
+  },
+  {
+    "proxy": "0xf98cd91ACd1c50d2793b5C0fA5e1f89f46cd1e09",
+    "recipient": "0x987f10f336b498d71B5e2cB22267712Bda141F96",
+    "vestAmount": 767525
+  },
+  {
+    "proxy": "0x2Da30e14dE6a5fcE16a5Ea72199De76cebDC876C",
+    "recipient": "0x9c0c06ddbb72f70820d7e55b6b77db175d400fba",
+    "vestAmount": 4013867
+  },
+  {
+    "proxy": "0x38d0fECe1dC70DD8AbdCcF809C3C2DDC75643C9B",
+    "recipient": "0xA0E337be4b8A912be55DA9ad4CAA1fF7Ce1aF5aa",
+    "vestAmount": 781741
+  },
+  {
+    "proxy": "0x18F5B40B88deAa89B5126a0CeeD4BA9980828C09",
+    "recipient": "0xa397b03d905db7abebac9a21f5f3222e287784ea",
+    "vestAmount": 4264029
+  },
+  {
+    "proxy": "0x4a143794D7a4f9f5504F0997Ab7342dd1772fC42",
+    "recipient": "0xa4C81339127A50Dd607BAeda4fD4A7AE6e91A502",
+    "vestAmount": 469043
+  },
+  {
+    "proxy": "0xEFDA54D371f7115aeE324CdBf0C64c77b83755a5",
+    "recipient": "0xa61b8679D39A3e504840d3170ab802885BDd5Adf",
+    "vestAmount": 426403
+  },
+  {
+    "proxy": "0xC179213e60427ff1e0f716736115FD7A66D9C4cE",
+    "recipient": "0xa6EdC299f9CE65132093F3A1D73C94077E0aBD5A",
+    "vestAmount": 275175
+  },
+  {
+    "proxy": "0xFd44459f4a8514cf4767533e20f1Ca42039B342E",
+    "recipient": "0xA96c49B904922fEcCa1e7c82aa16A57F57eBe016",
+    "vestAmount": 312698
+  },
+  {
+    "proxy": "0x56CF6b3952606282eac95d7fD55818a3ae762e2D",
+    "recipient": "0xA9db645b9eE2B98372ccDa26C8eebf347c880E40",
+    "vestAmount": 312698
+  },
+  {
+    "proxy": "0x380B8da34766F6832d22B1684B9CE9170dE13351",
+    "recipient": "0xaBb44CF55E2432a230A9B2f4c829e2Ec0c55E888",
+    "vestAmount": 156345
+  },
+  {
+    "proxy": "0xED8aF5Beb21A80a9d34D0268D24fbB81B0223248",
+    "recipient": "0xae68433B53902512F46C1F3983e5CD92b593884F",
+    "vestAmount": 2345216
+  },
+  {
+    "proxy": "0xE4d0D3A0EF348baace39C7FAea7eDcF7ac394E9c",
+    "recipient": "0xAf9f957827083c7e5aeA1537BCE1C8524f9Ba533",
+    "vestAmount": 409628
+  },
+  {
+    "proxy": "0x4d0c7Df23Dcc4DB0C2cBa5d1e933c0b22E0e5b5d",
+    "recipient": "0xb39f7e1D1137BFeaf80836a1eFBbFF1ab43abf27",
+    "vestAmount": 2558417
+  },
+  {
+    "proxy": "0x8238bE2711c02B5CEdC161Cba94aB494dbc3fe29",
+    "recipient": "0xb45893511573Ff6A693759CbcA5162300550a35c",
+    "vestAmount": 406507
+  },
+  {
+    "proxy": "0x3858DD901cBa69ced85B168e3BF7C847BFEa31cB",
+    "recipient": "0xb601F9Cd345BFA714E1b9B6BB9835e8013e4FD99",
+    "vestAmount": 156345
+  },
+  {
+    "proxy": "0x0B80540FC0083a56E3856F3fa3F29384a17e72f4",
+    "recipient": "0xb826224b742ead5cf91ea432340e3763fac09cdd",
+    "vestAmount": 406507
+  },
+  {
+    "proxy": "0xC7C91c6c0483321F0fe28BC8aCDdFCB0bd782c3F",
+    "recipient": "0xB8f18645723f2B09fC951b90CCF25bB1C5AE1729",
+    "vestAmount": 13736431
+  },
+  {
+    "proxy": "0x081e2656DDF88ecE61F1cb9cFc4F76Ca6A0B9633",
+    "recipient": "0xB976fEA31067a94Be59c9378Cd0d06F52B939f3F",
+    "vestAmount": 4264029
+  },
+  {
+    "proxy": "0x97c82462b0FE23C629Fa6a866298aB640eC24F9c",
+    "recipient": "0xbCe472BcACf391E3423a16b75e0C3652e624A903",
+    "vestAmount": 852806
+  },
+  {
+    "proxy": "0xaFa63d505286803890f8De43D9f30aAC089b25D8",
+    "recipient": "0xBD525cFe28cf0d3313028066dCd239650b71e5FE",
+    "vestAmount": 781741
+  },
+  {
+    "proxy": "0xC9fe0C30469CA4F9BA44D85010b692d361eD82f1",
+    "recipient": "0xC319a9E5607F2406C2ADB844868c1C8a0fC19690",
+    "vestAmount": 5240773
+  },
+  {
+    "proxy": "0xeD0fE496640866DC5BCb74cD29dEa85428342CCE",
+    "recipient": "0xe30d11D319Be10e8e759B9d1472BB03e4DdB933f",
+    "vestAmount": 4264029
+  },
+  {
+    "proxy": "0xBaf6D3ccE04E95DB01bEBd66F7E3De62427Ea577",
+    "recipient": "0xeBd6eF43d35892d8686f294ac9550C68860D1a0d",
+    "vestAmount": 475303
+  },
+  {
+    "proxy": "0xEd788885b0CdD78CFDbBEC1bd96F03eFA61621fb",
+    "recipient": "0xf45F391DB05810a435E74dFaa9503eC29CB4C2eC",
+    "vestAmount": 781741
+  },
+  {
+    "proxy": "0xAd7a3867a790D38F16e485f3DB074ad069FC5c1C",
+    "recipient": "0xf7E737Ec08e7152c32380f4FB2896B821D0542A6",
+    "vestAmount": 739101
+  },
+  {
+    "proxy": "0x4CE8E8bB4ea26cabe32C5B9100Ee9eD6759C58CB",
+    "recipient": "0xFc207A04ff27D0865c9879f4F84B82c5a0753989",
+    "vestAmount": 234522
+  },
+  {
+    "proxy": "0x2Bc21D70BDe29a8E6576F7aCD979029058f2eeF9",
+    "recipient": "0x841F98C82Df7Eb6107a7b6A0e9Ab054a01819428",
+    "vestAmount": 2439024
   }
 ]

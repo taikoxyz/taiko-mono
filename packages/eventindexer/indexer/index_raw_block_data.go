@@ -38,32 +38,45 @@ func (i *Indexer) indexRawBlockData(
 
 				txs := block.Transactions()
 
+				txWg, ctx := errgroup.WithContext(ctx)
+
 				for _, tx := range txs {
-					slog.Info("transaction found", "hash", tx.Hash())
-					receipt, err := i.ethClient.TransactionReceipt(ctx, tx.Hash())
+					t := tx
 
-					if err != nil {
-						return err
-					}
+					txWg.Go(func() error {
+						slog.Info("transaction found", "hash", t.Hash())
 
-					sender, err := i.ethClient.TransactionSender(ctx, tx, block.Hash(), receipt.TransactionIndex)
-					if err != nil {
-						return err
-					}
+						receipt, err := i.ethClient.TransactionReceipt(ctx, t.Hash())
 
-					if err := i.accountRepo.Save(ctx, sender, time.Unix(int64(block.Time()), 0)); err != nil {
-						return err
-					}
+						if err != nil {
+							return errors.Wrap(err, "i.ethClient.TransactionReceipt")
+						}
 
-					if err := i.txRepo.Save(ctx,
-						tx,
-						sender,
-						block.Number(),
-						time.Unix(int64(block.Time()), 0),
-						receipt.ContractAddress,
-					); err != nil {
-						return err
-					}
+						sender, err := i.ethClient.TransactionSender(ctx, t, block.Hash(), receipt.TransactionIndex)
+						if err != nil {
+							return errors.Wrap(err, "i.ethClient.TransactionSender")
+						}
+
+						if err := i.accountRepo.Save(ctx, sender, time.Unix(int64(block.Time()), 0)); err != nil {
+							return errors.Wrap(err, "i.accountRepo.Save")
+						}
+
+						if err := i.txRepo.Save(ctx,
+							t,
+							sender,
+							block.Number(),
+							time.Unix(int64(block.Time()), 0),
+							receipt.ContractAddress,
+						); err != nil {
+							return errors.Wrap(err, "i.txRepo.Save")
+						}
+
+						return nil
+					})
+				}
+
+				if err := txWg.Wait(); err != nil {
+					return err
 				}
 
 				return nil

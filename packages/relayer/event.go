@@ -128,6 +128,7 @@ type FindAllByAddressOpts struct {
 
 // EventRepository is used to interact with events in the store
 type EventRepository interface {
+	Close() error
 	Save(ctx context.Context, opts *SaveEventOpts) (*Event, error)
 	UpdateStatus(ctx context.Context, id int, status EventStatus) error
 	UpdateFeesAndProfitability(ctx context.Context, id int, opts *UpdateFeesAndProfitabilityOpts) error
@@ -159,6 +160,7 @@ type EventRepository interface {
 	) (uint64, error)
 	DeleteAllAfterBlockID(blockID uint64, srcChainID uint64, destChainID uint64) error
 	FindLatestBlockID(
+		ctx context.Context,
 		event string,
 		srcChainID uint64,
 		destChainID uint64,

@@ -68,12 +68,12 @@ contract TokenUnlock is EssentialContract {
 
     /// @notice Initializes the contract.
     /// @param _owner The contract owner address.
-    /// @param _addressManager The rollup address manager.
+    /// @param _rollupAddressManager The rollup address manager.
     /// @param _recipient Who will be the grantee for this contract.
     /// @param _tgeTimestamp The token generation event timestamp.
     function init(
         address _owner,
-        address _addressManager,
+        address _rollupAddressManager,
         address _recipient,
         uint64 _tgeTimestamp
     )
@@ -84,7 +84,7 @@ contract TokenUnlock is EssentialContract {
     {
         if (_owner == _recipient) revert INVALID_PARAM();
 
-        __Essential_init(_owner, _addressManager);
+        __Essential_init(_owner, _rollupAddressManager);
 
         recipient = _recipient;
         tgeTimestamp = _tgeTimestamp;
@@ -126,7 +126,7 @@ contract TokenUnlock is EssentialContract {
         IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)).safeTransfer(_proverSet, _amount);
     }
 
-    /// @notice Withdraws all withdrawable tokens.
+    /// @notice Withdraws tokens by the recipient.
     /// @param _to The address the token will be sent to.
     /// @param _amount The amount of tokens to withdraw.
     function withdraw(
@@ -140,10 +140,15 @@ contract TokenUnlock is EssentialContract {
         nonReentrant
     {
         if (_amount > amountWithdrawable()) revert NOT_WITHDRAWABLE();
-
         emit TokenWithdrawn(_to, _amount);
-
         IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)).safeTransfer(_to, _amount);
+    }
+
+    /// @notice Withdraws all tokens to the recipient address.
+    function withdraw() external nonReentrant {
+        uint256 amount = amountWithdrawable();
+        emit TokenWithdrawn(recipient, amount);
+        IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)).safeTransfer(recipient, amount);
     }
 
     function changeRecipient(address _newRecipient) external onlyRecipient {

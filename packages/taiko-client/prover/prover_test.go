@@ -4,9 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"math/big"
-	"net/url"
 	"os"
-	"strconv"
 	"testing"
 	"time"
 
@@ -70,7 +68,7 @@ func (s *ProverTestSuite) SetupTest() {
 	s.Nil(err)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	proverServerURL := s.initProver(ctx, l1ProverPrivKey)
+	s.initProver(ctx, l1ProverPrivKey)
 	s.cancel = cancel
 
 	// Init driver
@@ -111,12 +109,6 @@ func (s *ProverTestSuite) SetupTest() {
 		L2SuggestedFeeRecipient:    common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
 		ProposeInterval:            1024 * time.Hour,
 		MaxProposedTxListsPerEpoch: 1,
-		ProverEndpoints:            []*url.URL{proverServerURL},
-		OptimisticTierFee:          common.Big256,
-		SgxTierFee:                 common.Big256,
-		MaxTierFeePriceBumps:       3,
-		TierFeePriceBump:           common.Big2,
-		L1BlockBuilderTip:          common.Big0,
 	}, s.txmgr))
 
 	s.proposer = prop
@@ -136,7 +128,6 @@ func (s *ProverTestSuite) TestInitError() {
 
 	s.NotNil(InitFromConfig(ctx, p, &Config{
 		L1WsEndpoint:          os.Getenv("L1_NODE_WS_ENDPOINT"),
-		L1HttpEndpoint:        os.Getenv("L1_NODE_HTTP_ENDPOINT"),
 		L2WsEndpoint:          os.Getenv("L2_EXECUTION_ENGINE_WS_ENDPOINT"),
 		L2HttpEndpoint:        os.Getenv("L2_EXECUTION_ENGINE_HTTP_ENDPOINT"),
 		TaikoL1Address:        common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
@@ -271,10 +262,7 @@ func (s *ProverTestSuite) TestContestWrongBlocks() {
 
 	contesterKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_CONTRACT_OWNER_PRIVATE_KEY")))
 	s.Nil(err)
-	s.NotNil(s.initProver(
-		context.Background(),
-		contesterKey,
-	))
+	s.initProver(context.Background(), contesterKey)
 	s.p.cfg.ContesterMode = true
 	s.Nil(s.p.initEventHandlers())
 
@@ -488,18 +476,13 @@ func TestProverTestSuite(t *testing.T) {
 func (s *ProverTestSuite) initProver(
 	ctx context.Context,
 	key *ecdsa.PrivateKey,
-) *url.URL {
-	proverServerURL := testutils.LocalRandomProverEndpoint()
-	port, err := strconv.Atoi(proverServerURL.Port())
-	s.Nil(err)
-
+) {
 	decimal, err := s.RPCClient.TaikoToken.Decimals(nil)
 	s.Nil(err)
 
 	p := new(Prover)
 	s.Nil(InitFromConfig(ctx, p, &Config{
 		L1WsEndpoint:          os.Getenv("L1_NODE_WS_ENDPOINT"),
-		L1HttpEndpoint:        os.Getenv("L1_NODE_HTTP_ENDPOINT"),
 		L2WsEndpoint:          os.Getenv("L2_EXECUTION_ENGINE_WS_ENDPOINT"),
 		L2HttpEndpoint:        os.Getenv("L2_EXECUTION_ENGINE_HTTP_ENDPOINT"),
 		TaikoL1Address:        common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
@@ -509,9 +492,6 @@ func (s *ProverTestSuite) initProver(
 		Dummy:                 true,
 		ProveUnassignedBlocks: true,
 		Capacity:              1024,
-		MinOptimisticTierFee:  common.Big1,
-		MinSgxTierFee:         common.Big1,
-		HTTPServerPort:        uint64(port),
 		Allowance:             new(big.Int).Exp(big.NewInt(1_000_000_100), new(big.Int).SetUint64(uint64(decimal)), nil),
 		RPCTimeout:            3 * time.Second,
 		BackOffRetryInterval:  3 * time.Second,
@@ -519,10 +499,6 @@ func (s *ProverTestSuite) initProver(
 		L1NodeVersion:         "1.0.0",
 		L2NodeVersion:         "0.1.0",
 	}, s.txmgr))
-	p.server = s.NewTestProverServer(
-		key,
-		proverServerURL,
-	)
 
 	p.guardianProverHeartbeater = guardianProverHeartbeater.New(
 		key,
@@ -531,6 +507,4 @@ func (s *ProverTestSuite) initProver(
 		p.ProverAddress(),
 	)
 	s.p = p
-
-	return proverServerURL
 }

@@ -6,7 +6,7 @@ description: This guide will you help you deploy a ProverSet which enables you t
 import { Aside, Card, Steps, Tabs, TabItem } from '@astrojs/starlight/components'
 
 The recent protocol upgrade now requires that the address of the prover and proposer are the same. This can be achieved by simply using the same private keys to run the proposer and prover software,
-but this is not recommended as it can cause nonce issues. 
+but this is not recommended as it can cause nonce issues.
 
 This guide outlines how to achieve this with separate EOAs running prover and proposer through the ProverSet smart contract.
 
@@ -16,9 +16,8 @@ This guide outlines how to achieve this with separate EOAs running prover and pr
 
 ## Prerequisites
 
-- You have set up a prover and proposer with the guides in our documentation
 - You have TAIKO or TTKOh depending on which network you are proving on
-- You have enough ETH for gas fees
+- You have enough ETH or holesky ETH for gas fees
 
 ## Deploying a ProverSet
 
@@ -43,37 +42,28 @@ This guide outlines how to achieve this with separate EOAs running prover and pr
         </TabItem>
     </Tabs>
 
-2. **Deploy the ProverSet implementation**
+2. **Deploy the ProverSet**
 
-    Run the `DeployProverSetUtil.s.sol` script with your **proposer's private key**. You can find the script [here](https://github.com/taikoxyz/taiko-mono/tree/main/packages/protocol/script/DeployProverSetUtil.s.sol).
-    
-    ```bash
-    forge script --chain-id {CHAIN_ID} --broadcast --rpc-url {YOUR_RPC_URL} --private-key=$PRIVATE_KEY script/DeployProverSetUtil.s.sol:DeployProverSetUtil
-    ```
+    Set `ROLLUP_ADDRESS_MANAGER` to the address of the RollupAddressManager contract on the network you are deploying to. You can find these values in our network reference docs.
 
-    The script should print your implementation address with the log:
+    Set `PROVER_SET_ADMIN` to the address of your **prover** EOA. You will be able to withdraw TAIKO/TTKOh from the contract to this address.
 
-    `New impl address is: 0x....`
-
-    You will need the address for the next step.
-
-3. **Deploy the Proxy and init the ProverSet smart contract**
-
-    Fill in the implementation address, set the **prover** EOA as admin, and ensure that the `ROLLUP_ADDRESS_MANAGER` matches for the respective network. You can find these values in our network reference docs.
-
-    Run the `DeployProverSet.s.sol` script with your **proposer's private key** , altering the values in the script as necessary. You can find the script [here](https://github.com/taikoxyz/taiko-mono/tree/main/packages/protocol/script/DeployProverSet.s.sol).
+    Run the `DeployProverSet.s.sol` script with your **proposer's private key**. You can find the script [here](https://github.com/taikoxyz/taiko-mono/tree/main/packages/protocol/script/DeployProverSet.s.sol).
 
     ```bash
-    forge script --chain-id {CHAIN_ID} --rpc-url {YOUR_RPC_URL} --private-key=$PRIVATE_KEY --broadcast script/DeployProverSet.s.sol:DeployProverSet
+    ROLLUP_ADDRESS_MANAGER={ADDRESS} PROVER_SET_ADMIN={ADDRESS} forge script --chain-id {CHAIN_ID} --rpc-url {YOUR_RPC_URL} --private-key {PRIVATE_KEY} --broadcast script/DeployProverSet.s.sol:DeployProverSet
     ```
 
-    The script should print your proxy address with the log:
+    The script should print your implementation and proxy address with the log:
 
-    `Proxy Address: 0x....`
+    ```
+    Deployed ProverSet impl at address: 0x....
+    Deployed ProverSet proxy at address: 0x....
+    ```
 
-    Use this address for the following steps.
+    Use proxy address for the following steps.
 
-4. **Verify the contract as a proxy on Etherscan**
+3. **Verify the contract as a proxy on Etherscan**
 
     Navigate to the `proxyAddress` logged as output of the script above in Etherscan.
 
@@ -83,11 +73,11 @@ This guide outlines how to achieve this with separate EOAs running prover and pr
 
     Select the `Is this a proxy?` option and follow the instructions. This should verify the contract as a proxy to your `ProverSet` implementation.
 
-5. **Write to the Proxy to `enableProver()`**
+4. **Write to the Proxy to `enableProver()`**
 
     If the above step was completed correctly, you should be able to see the `Write as Proxy` option in the `Contract` tab.
 
-    Connect to Etherscan with your **proposer** EOA and send two `enableProver()` transactions, enabling **both** your `proposer` and `prover` EOAs as provers.
+    Connect to Etherscan with the EOA you used to deploy the ProverSet and send two `enableProver()` transactions, enabling **both** your `proposer` and `prover` EOAs as provers. Set `isProver` as `true` for both transactions. You can set these as `false` if you want to disable these provers in the future.
 
     <Aside type="caution">
         Enable both your proposer and prover addresses here! If you don't, your proposeBlock transactions may fail.
@@ -95,19 +85,19 @@ This guide outlines how to achieve this with separate EOAs running prover and pr
 
     This will allow both EOAs to send transactions to your ProverSet implementation which will act as a proxy to TaikoL1.
 
-6. **Configure the contract as necessary**
+5. **Configure the contract as necessary**
 
     Manage the contract's allowance with [approveAllowance()](https://github.com/taikoxyz/taiko-mono/blob/116d3f4886dea01333b829677ec9b6d4492479c6/packages/protocol/contracts/team/proving/ProverSet.sol#L63). TaikoL1's contract allowance is by default set to `UINT256.MAX` in the init function.
 
-7. **Deposit your tokens and run your proposer + prover as usual!**
+6. **Deposit your tokens and run your proposer + prover as usual!**
 
-    If you've followed the instructions, send your TAIKO/TTKOh to the ProverSet proxy and begin running your prover and proposer as usual.
+    If you've followed the instructions, send your TAIKO/TTKOh to the ProverSet proxy and begin running your prover and proposer as usual. Do not send it to the contract directly! Use the `depositBond` function.
 
     <Aside>
-        Make sure to set your `$PROVER_SET` in your `simple-taiko-node` .env file as the proxy address. 
+        Make sure to set your `$PROVER_SET` in your `simple-taiko-node` .env file as the proxy address.
     </Aside>
 
-    Ensure that you have set up the EOAs correctly to avoid problems. 
+    Ensure that you have set up the EOAs correctly to avoid problems.
 
     <Aside>
     You can withdraw the deposited tokens to the `admin` address with [withdrawToAdmin()](https://github.com/taikoxyz/taiko-mono/blob/116d3f4886dea01333b829677ec9b6d4492479c6/packages/protocol/contracts/team/proving/ProverSet.sol#L76).
@@ -115,7 +105,44 @@ This guide outlines how to achieve this with separate EOAs running prover and pr
 
 </Steps>
 
+## Upgrading a ProverSet
+
+If you've already deployed a ProverSet but would like to upgrade it through the Proxy, this guide is for you!
+
+<Steps>
+
+1. **Find your existing Proxy's address**
+
+    This will be necessary for the following step.
+
+2. **Navigate to the taiko monorepo**
+
+    ```bash
+    cd taiko-mono/packages/protocol
+    ```
+
+3. **Run the UpgradeProverSet.s.sol script**
+
+    Execute the following command, filling in the values in the curly braces appropriately.
+    ```bash
+    PROXY_ADDRESS={YOUR_PROXY_ADDRESS} PRIVATE_KEY={YOUR_PRIVATE_KEY} forge script --chain-id 17000 --rpc-url {YOUR_RPC_URL} --broadcast script/upgrade/UpgradeProverSet.s.sol:UpgradeProverSet
+    ```
+
+    <Aside>
+    If you are getting EvmErrors, your private key may be formatted incorrectly; try prefixing it with `0x` and rerunning the script.
+    </Aside>
+
+</Steps>
+
+## FAQ
+
+### Where is my TTKOh/TAIKO?
+
+    If you've managed to propose and prove some blocks, it's likely you're wondering where your tokens went after.
+
+    It's not missing, it's just been deposited as bond in the TaikoL1 contract; you can withdraw it from the ProverSet contract with [withdrawBond()](https://github.com/taikoxyz/taiko-mono/blob/dd09223de53669b84241672eeb4b8574e5c7f821/packages/protocol/contracts/team/proving/ProverSet.sol#L110) manually.
+
 <Card title="Troubleshooting" icon="error">
-        If you run into any problems, please visit the [troubleshooting page](/guides/node-operators/node-troubleshooting) for help.
-        If you run into an error that isn't yet listed, please reach out in our [discord](https://discord.com/invite/taikoxyz)!
+        If you run into any problems, please visit the [node troubleshooting page](/guides/node-operators/node-troubleshooting) for help.
+        If you run into an error that isn't yet listed, please reach out in our [Discord](https://discord.com/invite/taikoxyz)!
 </Card>

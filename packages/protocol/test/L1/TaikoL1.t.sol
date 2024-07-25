@@ -11,7 +11,6 @@ contract TaikoL1_NoCooldown is TaikoL1 {
         config.blockMaxProposals = 10;
         config.blockRingBufferSize = 12;
         config.livenessBond = 1e18; // 1 Taiko token
-        config.checkEOAForCalldataDA = false;
     }
 }
 
@@ -46,7 +45,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
             //printVariables("before propose");
-            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
+            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, 1024);
             //printVariables("after propose");
             mine(1);
 
@@ -75,7 +74,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         for (uint256 blockId = 1; blockId <= 20; ++blockId) {
             printVariables("before propose");
-            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
+            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, 1024);
             printVariables("after propose");
 
             bytes32 blockHash = bytes32(1e10 + blockId);
@@ -109,7 +108,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         for (uint256 blockId = 1; blockId <= conf.blockMaxProposals; blockId++) {
             printVariables("before propose");
-            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
+            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, 1024);
             printVariables("after propose");
 
             bytes32 blockHash = bytes32(1e10 + blockId);
@@ -135,7 +134,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         for (uint256 blockId = 1; blockId <= conf.blockMaxProposals; blockId++) {
-            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, 1_000_000, 1024);
+            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, 1024);
             bytes32 blockHash;
             bytes32 stateRoot;
             if (blockId % 2 == 0) {
@@ -156,7 +155,7 @@ contract TaikoL1Test is TaikoL1TestBase {
                     secondTransitionHash,
                     stateRoot,
                     meta.minTier,
-                    TaikoErrors.L1_NOT_ASSIGNED_PROVER.selector
+                    LibProving.L1_NOT_ASSIGNED_PROVER.selector
                 );
 
                 // Only guardian or assigned prover is allowed
@@ -196,7 +195,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         giveEthAndTko(Bob, 1e8 ether, 100 ether);
 
         // Proposing is still possible
-        (meta,) = proposeBlock(Alice, 1_000_000, 1024);
+        (meta,) = proposeBlock(Alice, 1024);
         // Proving is not, so supply the revert reason to proveBlock
         proveBlock(
             Bob,
@@ -205,7 +204,7 @@ contract TaikoL1Test is TaikoL1TestBase {
             bytes32("01"),
             bytes32("02"),
             meta.minTier,
-            TaikoErrors.L1_PROVING_PAUSED.selector
+            LibProving.L1_PROVING_PAUSED.selector
         );
     }
 
@@ -222,7 +221,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         L1.unpause();
 
         // Proposing is possible again
-        proposeBlock(Alice, 1_000_000, 1024);
+        proposeBlock(Alice, 1024);
     }
 
     function test_getTierIds() external {

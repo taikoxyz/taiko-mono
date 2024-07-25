@@ -305,6 +305,42 @@
 | migratingInbound | bool                                            | 303  | 20     | 1     | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
 | __gap            | uint256[47]                                     | 304  | 0      | 1504  | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
 
+## BridgedERC20V2
+| Name             | Type                                                   | Slot | Offset | Bytes | Contract                                               |
+|------------------|--------------------------------------------------------|------|--------|-------|--------------------------------------------------------|
+| _initialized     | uint8                                                  | 0    | 0      | 1     | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| _initializing    | bool                                                   | 0    | 1      | 1     | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| __gap            | uint256[50]                                            | 1    | 0      | 1600  | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| _owner           | address                                                | 51   | 0      | 20    | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| __gap            | uint256[49]                                            | 52   | 0      | 1568  | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| _pendingOwner    | address                                                | 101  | 0      | 20    | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| __gap            | uint256[49]                                            | 102  | 0      | 1568  | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| addressManager   | address                                                | 151  | 0      | 20    | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| __gap            | uint256[49]                                            | 152  | 0      | 1568  | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| __reentry        | uint8                                                  | 201  | 0      | 1     | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| __paused         | uint8                                                  | 201  | 1      | 1     | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| lastUnpausedAt   | uint64                                                 | 201  | 2      | 8     | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| __gap            | uint256[49]                                            | 202  | 0      | 1568  | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| _balances        | mapping(address => uint256)                            | 251  | 0      | 32    | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| _allowances      | mapping(address => mapping(address => uint256))        | 252  | 0      | 32    | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| _totalSupply     | uint256                                                | 253  | 0      | 32    | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| _name            | string                                                 | 254  | 0      | 32    | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| _symbol          | string                                                 | 255  | 0      | 32    | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| __gap            | uint256[45]                                            | 256  | 0      | 1440  | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| srcToken         | address                                                | 301  | 0      | 20    | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| __srcDecimals    | uint8                                                  | 301  | 20     | 1     | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| srcChainId       | uint256                                                | 302  | 0      | 32    | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| migratingAddress | address                                                | 303  | 0      | 20    | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| migratingInbound | bool                                                   | 303  | 20     | 1     | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| __gap            | uint256[47]                                            | 304  | 0      | 1504  | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| _hashedName      | bytes32                                                | 351  | 0      | 32    | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| _hashedVersion   | bytes32                                                | 352  | 0      | 32    | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| _name            | string                                                 | 353  | 0      | 32    | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| _version         | string                                                 | 354  | 0      | 32    | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| __gap            | uint256[48]                                            | 355  | 0      | 1536  | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| _nonces          | mapping(address => struct CountersUpgradeable.Counter) | 403  | 0      | 32    | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+| __gap            | uint256[49]                                            | 404  | 0      | 1568  | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
+
 ## BridgedERC721
 | Name               | Type                                         | Slot | Offset | Bytes | Contract                                             |
 |--------------------|----------------------------------------------|------|--------|-------|------------------------------------------------------|
@@ -359,33 +395,6 @@
 | symbol             | string                                          | 353  | 0      | 32    | contracts/tokenvault/BridgedERC1155.sol:BridgedERC1155 |
 | name               | string                                          | 354  | 0      | 32    | contracts/tokenvault/BridgedERC1155.sol:BridgedERC1155 |
 | __gap              | uint256[46]                                     | 355  | 0      | 1472  | contracts/tokenvault/BridgedERC1155.sol:BridgedERC1155 |
-
-## AssignmentHook
-
-## ERC20Airdrop
-| Name           | Type                     | Slot | Offset | Bytes | Contract                                             |
-|----------------|--------------------------|------|--------|-------|------------------------------------------------------|
-| _initialized   | uint8                    | 0    | 0      | 1     | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
-| _initializing  | bool                     | 0    | 1      | 1     | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
-| __gap          | uint256[50]              | 1    | 0      | 1600  | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
-| _owner         | address                  | 51   | 0      | 20    | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
-| __gap          | uint256[49]              | 52   | 0      | 1568  | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
-| _pendingOwner  | address                  | 101  | 0      | 20    | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
-| __gap          | uint256[49]              | 102  | 0      | 1568  | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
-| addressManager | address                  | 151  | 0      | 20    | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
-| __gap          | uint256[49]              | 152  | 0      | 1568  | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
-| __reentry      | uint8                    | 201  | 0      | 1     | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
-| __paused       | uint8                    | 201  | 1      | 1     | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
-| lastUnpausedAt | uint64                   | 201  | 2      | 8     | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
-| __gap          | uint256[49]              | 202  | 0      | 1568  | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
-| isClaimed      | mapping(bytes32 => bool) | 251  | 0      | 32    | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
-| merkleRoot     | bytes32                  | 252  | 0      | 32    | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
-| claimStart     | uint64                   | 253  | 0      | 8     | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
-| claimEnd       | uint64                   | 253  | 8      | 8     | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
-| __gap          | uint256[47]              | 254  | 0      | 1504  | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
-| token          | address                  | 301  | 0      | 20    | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
-| vault          | address                  | 302  | 0      | 20    | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
-| __gap          | uint256[48]              | 303  | 0      | 1536  | contracts/team/airdrop/ERC20Airdrop.sol:ERC20Airdrop |
 
 ## AutomataDcapV3Attestation
 | Name                    | Type                                            | Slot | Offset | Bytes | Contract                                                                               |
@@ -515,4 +524,283 @@
 | tgeTimestamp   | uint64                   | 252  | 20     | 8     | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
 | isProverSet    | mapping(address => bool) | 253  | 0      | 32    | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
 | __gap          | uint256[47]              | 254  | 0      | 1504  | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
+
+## HeklaTaikoL1
+| Name           | Type                   | Slot | Offset | Bytes | Contract                                      |
+|----------------|------------------------|------|--------|-------|-----------------------------------------------|
+| _initialized   | uint8                  | 0    | 0      | 1     | contracts/hekla/HeklaTaikoL1.sol:HeklaTaikoL1 |
+| _initializing  | bool                   | 0    | 1      | 1     | contracts/hekla/HeklaTaikoL1.sol:HeklaTaikoL1 |
+| __gap          | uint256[50]            | 1    | 0      | 1600  | contracts/hekla/HeklaTaikoL1.sol:HeklaTaikoL1 |
+| _owner         | address                | 51   | 0      | 20    | contracts/hekla/HeklaTaikoL1.sol:HeklaTaikoL1 |
+| __gap          | uint256[49]            | 52   | 0      | 1568  | contracts/hekla/HeklaTaikoL1.sol:HeklaTaikoL1 |
+| _pendingOwner  | address                | 101  | 0      | 20    | contracts/hekla/HeklaTaikoL1.sol:HeklaTaikoL1 |
+| __gap          | uint256[49]            | 102  | 0      | 1568  | contracts/hekla/HeklaTaikoL1.sol:HeklaTaikoL1 |
+| addressManager | address                | 151  | 0      | 20    | contracts/hekla/HeklaTaikoL1.sol:HeklaTaikoL1 |
+| __gap          | uint256[49]            | 152  | 0      | 1568  | contracts/hekla/HeklaTaikoL1.sol:HeklaTaikoL1 |
+| __reentry      | uint8                  | 201  | 0      | 1     | contracts/hekla/HeklaTaikoL1.sol:HeklaTaikoL1 |
+| __paused       | uint8                  | 201  | 1      | 1     | contracts/hekla/HeklaTaikoL1.sol:HeklaTaikoL1 |
+| lastUnpausedAt | uint64                 | 201  | 2      | 8     | contracts/hekla/HeklaTaikoL1.sol:HeklaTaikoL1 |
+| __gap          | uint256[49]            | 202  | 0      | 1568  | contracts/hekla/HeklaTaikoL1.sol:HeklaTaikoL1 |
+| state          | struct TaikoData.State | 251  | 0      | 1600  | contracts/hekla/HeklaTaikoL1.sol:HeklaTaikoL1 |
+| __gap          | uint256[50]            | 301  | 0      | 1600  | contracts/hekla/HeklaTaikoL1.sol:HeklaTaikoL1 |
+
+## MainnetBridge
+| Name           | Type                                    | Slot | Offset | Bytes | Contract                                          |
+|----------------|-----------------------------------------|------|--------|-------|---------------------------------------------------|
+| _initialized   | uint8                                   | 0    | 0      | 1     | contracts/mainnet/MainnetBridge.sol:MainnetBridge |
+| _initializing  | bool                                    | 0    | 1      | 1     | contracts/mainnet/MainnetBridge.sol:MainnetBridge |
+| __gap          | uint256[50]                             | 1    | 0      | 1600  | contracts/mainnet/MainnetBridge.sol:MainnetBridge |
+| _owner         | address                                 | 51   | 0      | 20    | contracts/mainnet/MainnetBridge.sol:MainnetBridge |
+| __gap          | uint256[49]                             | 52   | 0      | 1568  | contracts/mainnet/MainnetBridge.sol:MainnetBridge |
+| _pendingOwner  | address                                 | 101  | 0      | 20    | contracts/mainnet/MainnetBridge.sol:MainnetBridge |
+| __gap          | uint256[49]                             | 102  | 0      | 1568  | contracts/mainnet/MainnetBridge.sol:MainnetBridge |
+| addressManager | address                                 | 151  | 0      | 20    | contracts/mainnet/MainnetBridge.sol:MainnetBridge |
+| __gap          | uint256[49]                             | 152  | 0      | 1568  | contracts/mainnet/MainnetBridge.sol:MainnetBridge |
+| __reentry      | uint8                                   | 201  | 0      | 1     | contracts/mainnet/MainnetBridge.sol:MainnetBridge |
+| __paused       | uint8                                   | 201  | 1      | 1     | contracts/mainnet/MainnetBridge.sol:MainnetBridge |
+| lastUnpausedAt | uint64                                  | 201  | 2      | 8     | contracts/mainnet/MainnetBridge.sol:MainnetBridge |
+| __gap          | uint256[49]                             | 202  | 0      | 1568  | contracts/mainnet/MainnetBridge.sol:MainnetBridge |
+| __reserved1    | uint64                                  | 251  | 0      | 8     | contracts/mainnet/MainnetBridge.sol:MainnetBridge |
+| nextMessageId  | uint64                                  | 251  | 8      | 8     | contracts/mainnet/MainnetBridge.sol:MainnetBridge |
+| messageStatus  | mapping(bytes32 => enum IBridge.Status) | 252  | 0      | 32    | contracts/mainnet/MainnetBridge.sol:MainnetBridge |
+| __ctx          | struct IBridge.Context                  | 253  | 0      | 64    | contracts/mainnet/MainnetBridge.sol:MainnetBridge |
+| __reserved2    | uint256                                 | 255  | 0      | 32    | contracts/mainnet/MainnetBridge.sol:MainnetBridge |
+| __reserved3    | uint256                                 | 256  | 0      | 32    | contracts/mainnet/MainnetBridge.sol:MainnetBridge |
+| __gap          | uint256[44]                             | 257  | 0      | 1408  | contracts/mainnet/MainnetBridge.sol:MainnetBridge |
+
+## MainnetERC1155Vault
+| Name               | Type                                                 | Slot | Offset | Bytes | Contract                                                      |
+|--------------------|------------------------------------------------------|------|--------|-------|---------------------------------------------------------------|
+| _initialized       | uint8                                                | 0    | 0      | 1     | contracts/mainnet/MainnetERC1155Vault.sol:MainnetERC1155Vault |
+| _initializing      | bool                                                 | 0    | 1      | 1     | contracts/mainnet/MainnetERC1155Vault.sol:MainnetERC1155Vault |
+| __gap              | uint256[50]                                          | 1    | 0      | 1600  | contracts/mainnet/MainnetERC1155Vault.sol:MainnetERC1155Vault |
+| _owner             | address                                              | 51   | 0      | 20    | contracts/mainnet/MainnetERC1155Vault.sol:MainnetERC1155Vault |
+| __gap              | uint256[49]                                          | 52   | 0      | 1568  | contracts/mainnet/MainnetERC1155Vault.sol:MainnetERC1155Vault |
+| _pendingOwner      | address                                              | 101  | 0      | 20    | contracts/mainnet/MainnetERC1155Vault.sol:MainnetERC1155Vault |
+| __gap              | uint256[49]                                          | 102  | 0      | 1568  | contracts/mainnet/MainnetERC1155Vault.sol:MainnetERC1155Vault |
+| addressManager     | address                                              | 151  | 0      | 20    | contracts/mainnet/MainnetERC1155Vault.sol:MainnetERC1155Vault |
+| __gap              | uint256[49]                                          | 152  | 0      | 1568  | contracts/mainnet/MainnetERC1155Vault.sol:MainnetERC1155Vault |
+| __reentry          | uint8                                                | 201  | 0      | 1     | contracts/mainnet/MainnetERC1155Vault.sol:MainnetERC1155Vault |
+| __paused           | uint8                                                | 201  | 1      | 1     | contracts/mainnet/MainnetERC1155Vault.sol:MainnetERC1155Vault |
+| lastUnpausedAt     | uint64                                               | 201  | 2      | 8     | contracts/mainnet/MainnetERC1155Vault.sol:MainnetERC1155Vault |
+| __gap              | uint256[49]                                          | 202  | 0      | 1568  | contracts/mainnet/MainnetERC1155Vault.sol:MainnetERC1155Vault |
+| __gap              | uint256[50]                                          | 251  | 0      | 1600  | contracts/mainnet/MainnetERC1155Vault.sol:MainnetERC1155Vault |
+| bridgedToCanonical | mapping(address => struct BaseNFTVault.CanonicalNFT) | 301  | 0      | 32    | contracts/mainnet/MainnetERC1155Vault.sol:MainnetERC1155Vault |
+| canonicalToBridged | mapping(uint256 => mapping(address => address))      | 302  | 0      | 32    | contracts/mainnet/MainnetERC1155Vault.sol:MainnetERC1155Vault |
+| __gap              | uint256[48]                                          | 303  | 0      | 1536  | contracts/mainnet/MainnetERC1155Vault.sol:MainnetERC1155Vault |
+| __gap              | uint256[50]                                          | 351  | 0      | 1600  | contracts/mainnet/MainnetERC1155Vault.sol:MainnetERC1155Vault |
+| __gap              | uint256[50]                                          | 401  | 0      | 1600  | contracts/mainnet/MainnetERC1155Vault.sol:MainnetERC1155Vault |
+| __gap              | uint256[50]                                          | 451  | 0      | 1600  | contracts/mainnet/MainnetERC1155Vault.sol:MainnetERC1155Vault |
+
+## MainnetERC20Vault
+| Name               | Type                                                 | Slot | Offset | Bytes | Contract                                                  |
+|--------------------|------------------------------------------------------|------|--------|-------|-----------------------------------------------------------|
+| _initialized       | uint8                                                | 0    | 0      | 1     | contracts/mainnet/MainnetERC20Vault.sol:MainnetERC20Vault |
+| _initializing      | bool                                                 | 0    | 1      | 1     | contracts/mainnet/MainnetERC20Vault.sol:MainnetERC20Vault |
+| __gap              | uint256[50]                                          | 1    | 0      | 1600  | contracts/mainnet/MainnetERC20Vault.sol:MainnetERC20Vault |
+| _owner             | address                                              | 51   | 0      | 20    | contracts/mainnet/MainnetERC20Vault.sol:MainnetERC20Vault |
+| __gap              | uint256[49]                                          | 52   | 0      | 1568  | contracts/mainnet/MainnetERC20Vault.sol:MainnetERC20Vault |
+| _pendingOwner      | address                                              | 101  | 0      | 20    | contracts/mainnet/MainnetERC20Vault.sol:MainnetERC20Vault |
+| __gap              | uint256[49]                                          | 102  | 0      | 1568  | contracts/mainnet/MainnetERC20Vault.sol:MainnetERC20Vault |
+| addressManager     | address                                              | 151  | 0      | 20    | contracts/mainnet/MainnetERC20Vault.sol:MainnetERC20Vault |
+| __gap              | uint256[49]                                          | 152  | 0      | 1568  | contracts/mainnet/MainnetERC20Vault.sol:MainnetERC20Vault |
+| __reentry          | uint8                                                | 201  | 0      | 1     | contracts/mainnet/MainnetERC20Vault.sol:MainnetERC20Vault |
+| __paused           | uint8                                                | 201  | 1      | 1     | contracts/mainnet/MainnetERC20Vault.sol:MainnetERC20Vault |
+| lastUnpausedAt     | uint64                                               | 201  | 2      | 8     | contracts/mainnet/MainnetERC20Vault.sol:MainnetERC20Vault |
+| __gap              | uint256[49]                                          | 202  | 0      | 1568  | contracts/mainnet/MainnetERC20Vault.sol:MainnetERC20Vault |
+| __gap              | uint256[50]                                          | 251  | 0      | 1600  | contracts/mainnet/MainnetERC20Vault.sol:MainnetERC20Vault |
+| bridgedToCanonical | mapping(address => struct ERC20Vault.CanonicalERC20) | 301  | 0      | 32    | contracts/mainnet/MainnetERC20Vault.sol:MainnetERC20Vault |
+| canonicalToBridged | mapping(uint256 => mapping(address => address))      | 302  | 0      | 32    | contracts/mainnet/MainnetERC20Vault.sol:MainnetERC20Vault |
+| btokenDenylist     | mapping(address => bool)                             | 303  | 0      | 32    | contracts/mainnet/MainnetERC20Vault.sol:MainnetERC20Vault |
+| lastMigrationStart | mapping(uint256 => mapping(address => uint256))      | 304  | 0      | 32    | contracts/mainnet/MainnetERC20Vault.sol:MainnetERC20Vault |
+| __gap              | uint256[46]                                          | 305  | 0      | 1472  | contracts/mainnet/MainnetERC20Vault.sol:MainnetERC20Vault |
+
+## MainnetERC721Vault
+| Name               | Type                                                 | Slot | Offset | Bytes | Contract                                                    |
+|--------------------|------------------------------------------------------|------|--------|-------|-------------------------------------------------------------|
+| _initialized       | uint8                                                | 0    | 0      | 1     | contracts/mainnet/MainnetERC721Vault.sol:MainnetERC721Vault |
+| _initializing      | bool                                                 | 0    | 1      | 1     | contracts/mainnet/MainnetERC721Vault.sol:MainnetERC721Vault |
+| __gap              | uint256[50]                                          | 1    | 0      | 1600  | contracts/mainnet/MainnetERC721Vault.sol:MainnetERC721Vault |
+| _owner             | address                                              | 51   | 0      | 20    | contracts/mainnet/MainnetERC721Vault.sol:MainnetERC721Vault |
+| __gap              | uint256[49]                                          | 52   | 0      | 1568  | contracts/mainnet/MainnetERC721Vault.sol:MainnetERC721Vault |
+| _pendingOwner      | address                                              | 101  | 0      | 20    | contracts/mainnet/MainnetERC721Vault.sol:MainnetERC721Vault |
+| __gap              | uint256[49]                                          | 102  | 0      | 1568  | contracts/mainnet/MainnetERC721Vault.sol:MainnetERC721Vault |
+| addressManager     | address                                              | 151  | 0      | 20    | contracts/mainnet/MainnetERC721Vault.sol:MainnetERC721Vault |
+| __gap              | uint256[49]                                          | 152  | 0      | 1568  | contracts/mainnet/MainnetERC721Vault.sol:MainnetERC721Vault |
+| __reentry          | uint8                                                | 201  | 0      | 1     | contracts/mainnet/MainnetERC721Vault.sol:MainnetERC721Vault |
+| __paused           | uint8                                                | 201  | 1      | 1     | contracts/mainnet/MainnetERC721Vault.sol:MainnetERC721Vault |
+| lastUnpausedAt     | uint64                                               | 201  | 2      | 8     | contracts/mainnet/MainnetERC721Vault.sol:MainnetERC721Vault |
+| __gap              | uint256[49]                                          | 202  | 0      | 1568  | contracts/mainnet/MainnetERC721Vault.sol:MainnetERC721Vault |
+| __gap              | uint256[50]                                          | 251  | 0      | 1600  | contracts/mainnet/MainnetERC721Vault.sol:MainnetERC721Vault |
+| bridgedToCanonical | mapping(address => struct BaseNFTVault.CanonicalNFT) | 301  | 0      | 32    | contracts/mainnet/MainnetERC721Vault.sol:MainnetERC721Vault |
+| canonicalToBridged | mapping(uint256 => mapping(address => address))      | 302  | 0      | 32    | contracts/mainnet/MainnetERC721Vault.sol:MainnetERC721Vault |
+| __gap              | uint256[48]                                          | 303  | 0      | 1536  | contracts/mainnet/MainnetERC721Vault.sol:MainnetERC721Vault |
+| __gap              | uint256[50]                                          | 351  | 0      | 1600  | contracts/mainnet/MainnetERC721Vault.sol:MainnetERC721Vault |
+
+## MainnetGuardianProver
+| Name                    | Type                                            | Slot | Offset | Bytes | Contract                                                          |
+|-------------------------|-------------------------------------------------|------|--------|-------|-------------------------------------------------------------------|
+| _initialized            | uint8                                           | 0    | 0      | 1     | contracts/mainnet/MainnetGuardianProver.sol:MainnetGuardianProver |
+| _initializing           | bool                                            | 0    | 1      | 1     | contracts/mainnet/MainnetGuardianProver.sol:MainnetGuardianProver |
+| __gap                   | uint256[50]                                     | 1    | 0      | 1600  | contracts/mainnet/MainnetGuardianProver.sol:MainnetGuardianProver |
+| _owner                  | address                                         | 51   | 0      | 20    | contracts/mainnet/MainnetGuardianProver.sol:MainnetGuardianProver |
+| __gap                   | uint256[49]                                     | 52   | 0      | 1568  | contracts/mainnet/MainnetGuardianProver.sol:MainnetGuardianProver |
+| _pendingOwner           | address                                         | 101  | 0      | 20    | contracts/mainnet/MainnetGuardianProver.sol:MainnetGuardianProver |
+| __gap                   | uint256[49]                                     | 102  | 0      | 1568  | contracts/mainnet/MainnetGuardianProver.sol:MainnetGuardianProver |
+| addressManager          | address                                         | 151  | 0      | 20    | contracts/mainnet/MainnetGuardianProver.sol:MainnetGuardianProver |
+| __gap                   | uint256[49]                                     | 152  | 0      | 1568  | contracts/mainnet/MainnetGuardianProver.sol:MainnetGuardianProver |
+| __reentry               | uint8                                           | 201  | 0      | 1     | contracts/mainnet/MainnetGuardianProver.sol:MainnetGuardianProver |
+| __paused                | uint8                                           | 201  | 1      | 1     | contracts/mainnet/MainnetGuardianProver.sol:MainnetGuardianProver |
+| lastUnpausedAt          | uint64                                          | 201  | 2      | 8     | contracts/mainnet/MainnetGuardianProver.sol:MainnetGuardianProver |
+| __gap                   | uint256[49]                                     | 202  | 0      | 1568  | contracts/mainnet/MainnetGuardianProver.sol:MainnetGuardianProver |
+| guardianIds             | mapping(address => uint256)                     | 251  | 0      | 32    | contracts/mainnet/MainnetGuardianProver.sol:MainnetGuardianProver |
+| approvals               | mapping(uint256 => mapping(bytes32 => uint256)) | 252  | 0      | 32    | contracts/mainnet/MainnetGuardianProver.sol:MainnetGuardianProver |
+| guardians               | address[]                                       | 253  | 0      | 32    | contracts/mainnet/MainnetGuardianProver.sol:MainnetGuardianProver |
+| version                 | uint32                                          | 254  | 0      | 4     | contracts/mainnet/MainnetGuardianProver.sol:MainnetGuardianProver |
+| minGuardians            | uint32                                          | 254  | 4      | 4     | contracts/mainnet/MainnetGuardianProver.sol:MainnetGuardianProver |
+| provingAutoPauseEnabled | bool                                            | 254  | 8      | 1     | contracts/mainnet/MainnetGuardianProver.sol:MainnetGuardianProver |
+| latestProofHash         | mapping(uint256 => mapping(uint256 => bytes32)) | 255  | 0      | 32    | contracts/mainnet/MainnetGuardianProver.sol:MainnetGuardianProver |
+| __gap                   | uint256[45]                                     | 256  | 0      | 1440  | contracts/mainnet/MainnetGuardianProver.sol:MainnetGuardianProver |
+
+## MainnetProverSet
+| Name           | Type                     | Slot | Offset | Bytes | Contract                                                |
+|----------------|--------------------------|------|--------|-------|---------------------------------------------------------|
+| _initialized   | uint8                    | 0    | 0      | 1     | contracts/mainnet/MainnetProverSet.sol:MainnetProverSet |
+| _initializing  | bool                     | 0    | 1      | 1     | contracts/mainnet/MainnetProverSet.sol:MainnetProverSet |
+| __gap          | uint256[50]              | 1    | 0      | 1600  | contracts/mainnet/MainnetProverSet.sol:MainnetProverSet |
+| _owner         | address                  | 51   | 0      | 20    | contracts/mainnet/MainnetProverSet.sol:MainnetProverSet |
+| __gap          | uint256[49]              | 52   | 0      | 1568  | contracts/mainnet/MainnetProverSet.sol:MainnetProverSet |
+| _pendingOwner  | address                  | 101  | 0      | 20    | contracts/mainnet/MainnetProverSet.sol:MainnetProverSet |
+| __gap          | uint256[49]              | 102  | 0      | 1568  | contracts/mainnet/MainnetProverSet.sol:MainnetProverSet |
+| addressManager | address                  | 151  | 0      | 20    | contracts/mainnet/MainnetProverSet.sol:MainnetProverSet |
+| __gap          | uint256[49]              | 152  | 0      | 1568  | contracts/mainnet/MainnetProverSet.sol:MainnetProverSet |
+| __reentry      | uint8                    | 201  | 0      | 1     | contracts/mainnet/MainnetProverSet.sol:MainnetProverSet |
+| __paused       | uint8                    | 201  | 1      | 1     | contracts/mainnet/MainnetProverSet.sol:MainnetProverSet |
+| lastUnpausedAt | uint64                   | 201  | 2      | 8     | contracts/mainnet/MainnetProverSet.sol:MainnetProverSet |
+| __gap          | uint256[49]              | 202  | 0      | 1568  | contracts/mainnet/MainnetProverSet.sol:MainnetProverSet |
+| isProver       | mapping(address => bool) | 251  | 0      | 32    | contracts/mainnet/MainnetProverSet.sol:MainnetProverSet |
+| admin          | address                  | 252  | 0      | 20    | contracts/mainnet/MainnetProverSet.sol:MainnetProverSet |
+| __gap          | uint256[48]              | 253  | 0      | 1536  | contracts/mainnet/MainnetProverSet.sol:MainnetProverSet |
+
+## MainnetRiscZeroVerifier
+| Name            | Type                              | Slot | Offset | Bytes | Contract                                                              |
+|-----------------|-----------------------------------|------|--------|-------|-----------------------------------------------------------------------|
+| _initialized    | uint8                             | 0    | 0      | 1     | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
+| _initializing   | bool                              | 0    | 1      | 1     | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
+| __gap           | uint256[50]                       | 1    | 0      | 1600  | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
+| _owner          | address                           | 51   | 0      | 20    | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
+| __gap           | uint256[49]                       | 52   | 0      | 1568  | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
+| _pendingOwner   | address                           | 101  | 0      | 20    | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
+| __gap           | uint256[49]                       | 102  | 0      | 1568  | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
+| addressManager  | address                           | 151  | 0      | 20    | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
+| __gap           | uint256[49]                       | 152  | 0      | 1568  | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
+| __reentry       | uint8                             | 201  | 0      | 1     | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
+| __paused        | uint8                             | 201  | 1      | 1     | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
+| lastUnpausedAt  | uint64                            | 201  | 2      | 8     | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
+| __gap           | uint256[49]                       | 202  | 0      | 1568  | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
+| receiptVerifier | contract IRiscZeroReceiptVerifier | 251  | 0      | 20    | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
+| isImageTrusted  | mapping(bytes32 => bool)          | 252  | 0      | 32    | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
+| __gap           | uint256[48]                       | 253  | 0      | 1536  | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
+
+## MainnetRollupAddressManager
+| Name           | Type                                            | Slot | Offset | Bytes | Contract                                                                      |
+|----------------|-------------------------------------------------|------|--------|-------|-------------------------------------------------------------------------------|
+| _initialized   | uint8                                           | 0    | 0      | 1     | contracts/mainnet/MainnetRollupAddressManager.sol:MainnetRollupAddressManager |
+| _initializing  | bool                                            | 0    | 1      | 1     | contracts/mainnet/MainnetRollupAddressManager.sol:MainnetRollupAddressManager |
+| __gap          | uint256[50]                                     | 1    | 0      | 1600  | contracts/mainnet/MainnetRollupAddressManager.sol:MainnetRollupAddressManager |
+| _owner         | address                                         | 51   | 0      | 20    | contracts/mainnet/MainnetRollupAddressManager.sol:MainnetRollupAddressManager |
+| __gap          | uint256[49]                                     | 52   | 0      | 1568  | contracts/mainnet/MainnetRollupAddressManager.sol:MainnetRollupAddressManager |
+| _pendingOwner  | address                                         | 101  | 0      | 20    | contracts/mainnet/MainnetRollupAddressManager.sol:MainnetRollupAddressManager |
+| __gap          | uint256[49]                                     | 102  | 0      | 1568  | contracts/mainnet/MainnetRollupAddressManager.sol:MainnetRollupAddressManager |
+| addressManager | address                                         | 151  | 0      | 20    | contracts/mainnet/MainnetRollupAddressManager.sol:MainnetRollupAddressManager |
+| __gap          | uint256[49]                                     | 152  | 0      | 1568  | contracts/mainnet/MainnetRollupAddressManager.sol:MainnetRollupAddressManager |
+| __reentry      | uint8                                           | 201  | 0      | 1     | contracts/mainnet/MainnetRollupAddressManager.sol:MainnetRollupAddressManager |
+| __paused       | uint8                                           | 201  | 1      | 1     | contracts/mainnet/MainnetRollupAddressManager.sol:MainnetRollupAddressManager |
+| lastUnpausedAt | uint64                                          | 201  | 2      | 8     | contracts/mainnet/MainnetRollupAddressManager.sol:MainnetRollupAddressManager |
+| __gap          | uint256[49]                                     | 202  | 0      | 1568  | contracts/mainnet/MainnetRollupAddressManager.sol:MainnetRollupAddressManager |
+| __addresses    | mapping(uint256 => mapping(bytes32 => address)) | 251  | 0      | 32    | contracts/mainnet/MainnetRollupAddressManager.sol:MainnetRollupAddressManager |
+| __gap          | uint256[49]                                     | 252  | 0      | 1568  | contracts/mainnet/MainnetRollupAddressManager.sol:MainnetRollupAddressManager |
+
+## MainnetSgxVerifier
+| Name              | Type                                            | Slot | Offset | Bytes | Contract                                                    |
+|-------------------|-------------------------------------------------|------|--------|-------|-------------------------------------------------------------|
+| _initialized      | uint8                                           | 0    | 0      | 1     | contracts/mainnet/MainnetSgxVerifier.sol:MainnetSgxVerifier |
+| _initializing     | bool                                            | 0    | 1      | 1     | contracts/mainnet/MainnetSgxVerifier.sol:MainnetSgxVerifier |
+| __gap             | uint256[50]                                     | 1    | 0      | 1600  | contracts/mainnet/MainnetSgxVerifier.sol:MainnetSgxVerifier |
+| _owner            | address                                         | 51   | 0      | 20    | contracts/mainnet/MainnetSgxVerifier.sol:MainnetSgxVerifier |
+| __gap             | uint256[49]                                     | 52   | 0      | 1568  | contracts/mainnet/MainnetSgxVerifier.sol:MainnetSgxVerifier |
+| _pendingOwner     | address                                         | 101  | 0      | 20    | contracts/mainnet/MainnetSgxVerifier.sol:MainnetSgxVerifier |
+| __gap             | uint256[49]                                     | 102  | 0      | 1568  | contracts/mainnet/MainnetSgxVerifier.sol:MainnetSgxVerifier |
+| addressManager    | address                                         | 151  | 0      | 20    | contracts/mainnet/MainnetSgxVerifier.sol:MainnetSgxVerifier |
+| __gap             | uint256[49]                                     | 152  | 0      | 1568  | contracts/mainnet/MainnetSgxVerifier.sol:MainnetSgxVerifier |
+| __reentry         | uint8                                           | 201  | 0      | 1     | contracts/mainnet/MainnetSgxVerifier.sol:MainnetSgxVerifier |
+| __paused          | uint8                                           | 201  | 1      | 1     | contracts/mainnet/MainnetSgxVerifier.sol:MainnetSgxVerifier |
+| lastUnpausedAt    | uint64                                          | 201  | 2      | 8     | contracts/mainnet/MainnetSgxVerifier.sol:MainnetSgxVerifier |
+| __gap             | uint256[49]                                     | 202  | 0      | 1568  | contracts/mainnet/MainnetSgxVerifier.sol:MainnetSgxVerifier |
+| nextInstanceId    | uint256                                         | 251  | 0      | 32    | contracts/mainnet/MainnetSgxVerifier.sol:MainnetSgxVerifier |
+| instances         | mapping(uint256 => struct SgxVerifier.Instance) | 252  | 0      | 32    | contracts/mainnet/MainnetSgxVerifier.sol:MainnetSgxVerifier |
+| addressRegistered | mapping(address => bool)                        | 253  | 0      | 32    | contracts/mainnet/MainnetSgxVerifier.sol:MainnetSgxVerifier |
+| __gap             | uint256[47]                                     | 254  | 0      | 1504  | contracts/mainnet/MainnetSgxVerifier.sol:MainnetSgxVerifier |
+
+## MainnetSharedAddressManager
+| Name           | Type                                            | Slot | Offset | Bytes | Contract                                                                      |
+|----------------|-------------------------------------------------|------|--------|-------|-------------------------------------------------------------------------------|
+| _initialized   | uint8                                           | 0    | 0      | 1     | contracts/mainnet/MainnetSharedAddressManager.sol:MainnetSharedAddressManager |
+| _initializing  | bool                                            | 0    | 1      | 1     | contracts/mainnet/MainnetSharedAddressManager.sol:MainnetSharedAddressManager |
+| __gap          | uint256[50]                                     | 1    | 0      | 1600  | contracts/mainnet/MainnetSharedAddressManager.sol:MainnetSharedAddressManager |
+| _owner         | address                                         | 51   | 0      | 20    | contracts/mainnet/MainnetSharedAddressManager.sol:MainnetSharedAddressManager |
+| __gap          | uint256[49]                                     | 52   | 0      | 1568  | contracts/mainnet/MainnetSharedAddressManager.sol:MainnetSharedAddressManager |
+| _pendingOwner  | address                                         | 101  | 0      | 20    | contracts/mainnet/MainnetSharedAddressManager.sol:MainnetSharedAddressManager |
+| __gap          | uint256[49]                                     | 102  | 0      | 1568  | contracts/mainnet/MainnetSharedAddressManager.sol:MainnetSharedAddressManager |
+| addressManager | address                                         | 151  | 0      | 20    | contracts/mainnet/MainnetSharedAddressManager.sol:MainnetSharedAddressManager |
+| __gap          | uint256[49]                                     | 152  | 0      | 1568  | contracts/mainnet/MainnetSharedAddressManager.sol:MainnetSharedAddressManager |
+| __reentry      | uint8                                           | 201  | 0      | 1     | contracts/mainnet/MainnetSharedAddressManager.sol:MainnetSharedAddressManager |
+| __paused       | uint8                                           | 201  | 1      | 1     | contracts/mainnet/MainnetSharedAddressManager.sol:MainnetSharedAddressManager |
+| lastUnpausedAt | uint64                                          | 201  | 2      | 8     | contracts/mainnet/MainnetSharedAddressManager.sol:MainnetSharedAddressManager |
+| __gap          | uint256[49]                                     | 202  | 0      | 1568  | contracts/mainnet/MainnetSharedAddressManager.sol:MainnetSharedAddressManager |
+| __addresses    | mapping(uint256 => mapping(bytes32 => address)) | 251  | 0      | 32    | contracts/mainnet/MainnetSharedAddressManager.sol:MainnetSharedAddressManager |
+| __gap          | uint256[49]                                     | 252  | 0      | 1568  | contracts/mainnet/MainnetSharedAddressManager.sol:MainnetSharedAddressManager |
+
+## MainnetSignalService
+| Name           | Type                                          | Slot | Offset | Bytes | Contract                                                        |
+|----------------|-----------------------------------------------|------|--------|-------|-----------------------------------------------------------------|
+| _initialized   | uint8                                         | 0    | 0      | 1     | contracts/mainnet/MainnetSignalService.sol:MainnetSignalService |
+| _initializing  | bool                                          | 0    | 1      | 1     | contracts/mainnet/MainnetSignalService.sol:MainnetSignalService |
+| __gap          | uint256[50]                                   | 1    | 0      | 1600  | contracts/mainnet/MainnetSignalService.sol:MainnetSignalService |
+| _owner         | address                                       | 51   | 0      | 20    | contracts/mainnet/MainnetSignalService.sol:MainnetSignalService |
+| __gap          | uint256[49]                                   | 52   | 0      | 1568  | contracts/mainnet/MainnetSignalService.sol:MainnetSignalService |
+| _pendingOwner  | address                                       | 101  | 0      | 20    | contracts/mainnet/MainnetSignalService.sol:MainnetSignalService |
+| __gap          | uint256[49]                                   | 102  | 0      | 1568  | contracts/mainnet/MainnetSignalService.sol:MainnetSignalService |
+| addressManager | address                                       | 151  | 0      | 20    | contracts/mainnet/MainnetSignalService.sol:MainnetSignalService |
+| __gap          | uint256[49]                                   | 152  | 0      | 1568  | contracts/mainnet/MainnetSignalService.sol:MainnetSignalService |
+| __reentry      | uint8                                         | 201  | 0      | 1     | contracts/mainnet/MainnetSignalService.sol:MainnetSignalService |
+| __paused       | uint8                                         | 201  | 1      | 1     | contracts/mainnet/MainnetSignalService.sol:MainnetSignalService |
+| lastUnpausedAt | uint64                                        | 201  | 2      | 8     | contracts/mainnet/MainnetSignalService.sol:MainnetSignalService |
+| __gap          | uint256[49]                                   | 202  | 0      | 1568  | contracts/mainnet/MainnetSignalService.sol:MainnetSignalService |
+| topBlockId     | mapping(uint64 => mapping(bytes32 => uint64)) | 251  | 0      | 32    | contracts/mainnet/MainnetSignalService.sol:MainnetSignalService |
+| isAuthorized   | mapping(address => bool)                      | 252  | 0      | 32    | contracts/mainnet/MainnetSignalService.sol:MainnetSignalService |
+| __gap          | uint256[48]                                   | 253  | 0      | 1536  | contracts/mainnet/MainnetSignalService.sol:MainnetSignalService |
+
+## MainnetTaikoL1
+| Name           | Type                   | Slot | Offset | Bytes | Contract                                            |
+|----------------|------------------------|------|--------|-------|-----------------------------------------------------|
+| _initialized   | uint8                  | 0    | 0      | 1     | contracts/mainnet/MainnetTaikoL1.sol:MainnetTaikoL1 |
+| _initializing  | bool                   | 0    | 1      | 1     | contracts/mainnet/MainnetTaikoL1.sol:MainnetTaikoL1 |
+| __gap          | uint256[50]            | 1    | 0      | 1600  | contracts/mainnet/MainnetTaikoL1.sol:MainnetTaikoL1 |
+| _owner         | address                | 51   | 0      | 20    | contracts/mainnet/MainnetTaikoL1.sol:MainnetTaikoL1 |
+| __gap          | uint256[49]            | 52   | 0      | 1568  | contracts/mainnet/MainnetTaikoL1.sol:MainnetTaikoL1 |
+| _pendingOwner  | address                | 101  | 0      | 20    | contracts/mainnet/MainnetTaikoL1.sol:MainnetTaikoL1 |
+| __gap          | uint256[49]            | 102  | 0      | 1568  | contracts/mainnet/MainnetTaikoL1.sol:MainnetTaikoL1 |
+| addressManager | address                | 151  | 0      | 20    | contracts/mainnet/MainnetTaikoL1.sol:MainnetTaikoL1 |
+| __gap          | uint256[49]            | 152  | 0      | 1568  | contracts/mainnet/MainnetTaikoL1.sol:MainnetTaikoL1 |
+| __reentry      | uint8                  | 201  | 0      | 1     | contracts/mainnet/MainnetTaikoL1.sol:MainnetTaikoL1 |
+| __paused       | uint8                  | 201  | 1      | 1     | contracts/mainnet/MainnetTaikoL1.sol:MainnetTaikoL1 |
+| lastUnpausedAt | uint64                 | 201  | 2      | 8     | contracts/mainnet/MainnetTaikoL1.sol:MainnetTaikoL1 |
+| __gap          | uint256[49]            | 202  | 0      | 1568  | contracts/mainnet/MainnetTaikoL1.sol:MainnetTaikoL1 |
+| state          | struct TaikoData.State | 251  | 0      | 1600  | contracts/mainnet/MainnetTaikoL1.sol:MainnetTaikoL1 |
+| __gap          | uint256[50]            | 301  | 0      | 1600  | contracts/mainnet/MainnetTaikoL1.sol:MainnetTaikoL1 |
+
+## MainnetTierRouter
+| Name | Type | Slot | Offset | Bytes | Contract |
+|------|------|------|--------|-------|----------|
 

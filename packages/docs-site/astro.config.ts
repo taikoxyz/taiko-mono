@@ -33,11 +33,6 @@ export default defineConfig({
             label: "Event Indexer API",
             schema: "../eventindexer/docs/swagger.yaml",
           },
-          {
-            base: "api-reference/prover-server",
-            label: "Prover Server API",
-            schema: "../taiko-client/docs/swagger.yaml",
-          },
         ]),
       ],
       components: {
@@ -46,7 +41,8 @@ export default defineConfig({
       },
       title: "Docs",
       editLink: {
-        baseUrl: "https://github.com/taikoxyz/taiko-mono/tree/main/packages/docs-site",
+        baseUrl:
+          "https://github.com/taikoxyz/taiko-mono/tree/main/packages/docs-site",
       },
       customCss: ["./src/styles/custom.css"],
       logo: {
@@ -111,8 +107,14 @@ export default defineConfig({
                   label: "Set up your wallet",
                   link: "/guides/app-developers/set-up-your-wallet/",
                 },
-                { label: "Receive tokens", link: "/guides/app-developers/receive-tokens/" },
-                { label: "Bridge tokens", link: "/guides/app-developers/bridge-tokens/" },
+                {
+                  label: "Receive tokens",
+                  link: "/guides/app-developers/receive-tokens/",
+                },
+                {
+                  label: "Bridge tokens",
+                  link: "/guides/app-developers/bridge-tokens/",
+                },
                 {
                   label: "Deploy a contract",
                   link: "/guides/app-developers/deploy-a-contract/",
@@ -158,7 +160,7 @@ export default defineConfig({
                 },
                 {
                   label: "Deploy a ProverSet",
-                  link: "guides/node-operators/deploy-a-proverset/"
+                  link: "guides/node-operators/deploy-a-proverset/",
                 },
                 {
                   label: "Node troubleshooting",
@@ -186,6 +188,10 @@ export default defineConfig({
             {
               label: "Network configuration",
               link: "/network-reference/network-configuration",
+            },
+            {
+              label: "Node releases",
+              link: "/network-reference/node-releases",
             },
             {
               label: "RPC configuration",

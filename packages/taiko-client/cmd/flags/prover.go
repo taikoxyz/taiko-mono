@@ -40,6 +40,13 @@ var (
 		Category: proverCategory,
 		EnvVars:  []string{"RAIKO_JWT_PATH"},
 	}
+	RaikoRequestTimeout = &cli.DurationFlag{
+		Name:     "raiko.requestTimeout",
+		Usage:    "Timeout in minutes for raiko request",
+		Category: commonCategory,
+		Value:    10 * time.Minute,
+		EnvVars:  []string{"RAIKO_REQUEST_TIMEOUT"},
+	}
 	StartingBlockID = &cli.Uint64Flag{
 		Name:     "prover.startingBlockID",
 		Usage:    "If set, prover will start proving blocks from the block with this ID",
@@ -74,25 +81,6 @@ var (
 		Category: proverCategory,
 		Value:    0,
 		EnvVars:  []string{"PROVER_MIN_TAIKO_TOKEN_BALANCE"},
-	}
-	// Tier fee related.
-	MinOptimisticTierFee = &cli.Uint64Flag{
-		Name:     "minTierFee.optimistic",
-		Usage:    "Minimum accepted fee for generating an optimistic proof",
-		Category: proverCategory,
-		EnvVars:  []string{"MIN_TIER_FEE_OPTIMISTIC"},
-	}
-	MinSgxTierFee = &cli.Uint64Flag{
-		Name:     "minTierFee.sgx",
-		Usage:    "Minimum accepted fee for generating a SGX proof",
-		Category: proverCategory,
-		EnvVars:  []string{"MIN_TIER_FEE_SGX"},
-	}
-	MinSgxAndZkVMTierFee = &cli.Uint64Flag{
-		Name:     "minTierFee.sgxAndZkvm",
-		Usage:    "Minimum accepted fee for generating a SGX + zkVM proof",
-		Category: proverCategory,
-		EnvVars:  []string{"MIN_TIER_FEE_SGX_AND_ZKVM"},
 	}
 	// Running mode
 	ContesterMode = &cli.BoolFlag{
@@ -143,7 +131,7 @@ var (
 	}
 	Allowance = &cli.Float64Flag{
 		Name:     "prover.allowance",
-		Usage:    "Amount without decimal to approve AssignmentHook contract for TaikoToken usage",
+		Usage:    "Amount without decimal to approve TaikoL1 contract for TaikoToken usage",
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_ALLOWANCE"},
 	}
@@ -205,15 +193,11 @@ var (
 
 // ProverFlags All prover flags.
 var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
-	L1HTTPEndpoint,
 	L2WSEndpoint,
 	L2HTTPEndpoint,
 	RaikoHostEndpoint,
 	RaikoJWTPath,
 	L1ProverPrivKey,
-	MinOptimisticTierFee,
-	MinSgxTierFee,
-	MinSgxAndZkVMTierFee,
 	MinEthBalance,
 	MinTaikoTokenBalance,
 	StartingBlockID,
@@ -235,4 +219,5 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	L1NodeVersion,
 	L2NodeVersion,
 	BlockConfirmations,
+	RaikoRequestTimeout,
 }, TxmgrFlags)

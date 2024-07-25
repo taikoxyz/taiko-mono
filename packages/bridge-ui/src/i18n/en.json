@@ -42,7 +42,6 @@
       "not_enough_funds": "You do not have enough ETH to cover the processing fee and transaction fee. Please add more ETH to your wallet (>= 0.0015 ETH).",
       "slow_bridging": "Please note: Bridging to L1 will take around 24hrs!",
       "smart_contract_wallet": "It seems you are using a smart contract wallet. Please double check that the recipient matches your wallet on the destination or change it accordingly.",
-      "stable_coin": "You are bridging a stable coin. For USDC, we are currently partnering with <a target=\"_blank\" href=\"https://stargate.finance/transfer\" class=\"link\">Stargate Bridge</a> for liquidity. Consider using their bridge, as the ecosystem partners are likely using their bridged version",
       "wrapped_eth": "You are bridging wrapped ETH. Please be aware that un-wrapping will only work on the original chain of the token, <span class=\"font-bold\">NOT</span> on the destination."
     },
     "button": {
@@ -249,7 +248,11 @@
     "name": "Name",
     "not_available_short": "N/A",
     "ok": "Okay",
+    "owner": {
+      "destination": "Destination owner"
+    },
     "recipient": "Recipient",
+    "reset_to_wallet": "Reset to current address",
     "review": "Review",
     "search_token": "Search token",
     "see_results": "See results",
@@ -265,6 +268,16 @@
   },
   "custom_recipient": {
     "placeholder": "Add custom recipient"
+  },
+  "destOwner": {
+    "alerts": {
+      "smartContract": "You cannot set the destination owner to a contract address"
+    },
+    "description": "You can set a custom address that should be able to claim the transaction on the destination chain, for example if the recipient is a smart contract that cannot manually claim.",
+    "placeholder": "add address that should be able to manually claim...",
+    "title": "Destination owner",
+    "tooltip": "Defaults to your address. You can specify a different address that should be able to claim this transaction.",
+    "tooltip_title": "What is Destination Owner?"
   },
   "faucet": {
     "button": {
@@ -426,6 +439,18 @@
     "tooltip": "Defaults to your address. You can add a custom recipient address as well.",
     "tooltip_title": "What is Custom Recipient?"
   },
+  "relayer_component": {
+    "address_input_label": "Enter the recipient address",
+    "description": "This component allows you to manually claim any claimable transaction",
+    "no_tx_found": "No claimable transactions found",
+    "step1": {
+      "title": "Step 1: Select the recipient"
+    },
+    "step2": {
+      "title": "Step 2: Search the transaction you want"
+    },
+    "title": "Relayer Component"
+  },
   "switch_modal": {
     "description": "Your current network is not supported. Please select one of the following chains to proceed:",
     "title": "Incorrect network detected"
@@ -491,8 +516,8 @@
         },
         "pre_check": {
           "chain_check": "Connected to the correct chain",
-          "different_recipient": "The recipient of this transaction does not match the sender or the currently connected wallet. To  manually claim, please connect to the recipient's wallet.",
           "funds_check": "Sufficient funds to claim",
+          "only_destowner_can_claim": "This transaction can only be claimed by the destination owner. Please connect to the correct wallet to claim this transaction.",
           "quota_check": "Sufficient daily quota",
           "ready": "You can continue with the claim process!",
           "step": "Claim step",
