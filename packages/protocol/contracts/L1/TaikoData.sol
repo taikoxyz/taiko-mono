@@ -112,7 +112,7 @@ library TaikoData {
         uint32 gasLimit;
         uint64 timestamp;
         uint64 anchorBlockId; // `_l1BlockId` in TaikoL2's anchor tx.
-        uint16 minTierId;
+        uint16 minTierId; // This field can be removed in the future.
         bool blobUsed;
         bytes32 parentMetaHash;
         address proposer;
