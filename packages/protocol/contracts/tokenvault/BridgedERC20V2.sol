@@ -22,13 +22,14 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
         "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
     );
 
-    mapping(address => CountersUpgradeable.Counter) private _nonces;
+    mapping(address account => CountersUpgradeable.Counter counter) private _nonces;
     uint256[49] private __gap;
 
     error BTOKEN_DEADLINE_EXPIRED();
     error BTOKEN_INVALID_SIG();
 
     /// @inheritdoc IBridgedERC20Initializable
+    /// @dev Calling this function will change the initialized version to 2.
     function init(
         address _owner,
         address _sharedAddressManager,
@@ -41,7 +42,7 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
         external
         virtual
         override
-        initializer
+        reinitializer(2)
     {
         // Check if provided parameters are valid
         LibBridgedToken.validateInputs(_srcToken, _srcChainId);
@@ -55,10 +56,16 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
         __srcDecimals = _decimals;
     }
 
+    /// @dev This function shall be called when upgrading a deployed contract from {BridgedERC20} to
+    /// {BridgedERC20V2}.
+    function init2() external reinitializer(2) {
+        __EIP712_init_unchained(name(), "1");
+    }
     /**
      * @inheritdoc IERC20PermitUpgradeable
      */
     // solhint-disable-next-line func-name-mixedcase
+
     function DOMAIN_SEPARATOR() external view override returns (bytes32) {
         return _domainSeparatorV4();
     }

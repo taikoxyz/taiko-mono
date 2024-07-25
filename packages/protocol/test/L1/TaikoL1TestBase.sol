@@ -113,7 +113,6 @@ abstract contract TaikoL1TestBase is TaikoTest {
 
     function proposeBlock(
         address proposer,
-        uint32 gasLimit,
         uint24 txListSize
     )
         internal
@@ -123,20 +122,6 @@ abstract contract TaikoL1TestBase is TaikoTest {
         // rest will be returned
         // anyways
         uint256 msgValue = 2 ether;
-
-        (, TaikoData.SlotB memory b) = L1.getStateVariables();
-
-        uint256 _difficulty;
-        unchecked {
-            _difficulty = block.prevrandao * b.numBlocks;
-        }
-
-        // TODO: why init meta here?
-        meta.timestamp = uint64(block.timestamp);
-        meta.l1Height = uint64(block.number - 1);
-        meta.l1Hash = blockhash(block.number - 1);
-        meta.difficulty = bytes32(_difficulty);
-        meta.gasLimit = gasLimit;
 
         TaikoData.HookCall[] memory hookcalls = new TaikoData.HookCall[](0);
         vm.prank(proposer, proposer);
