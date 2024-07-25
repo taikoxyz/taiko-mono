@@ -12,6 +12,16 @@ contract TaikoL1ForkA1 is TaikoL1 {
         config.stateRootSyncInternal = 2;
         config.ontakeForkHeight = 10;
     }
+
+    function setBlockMinTier(uint64 _blockId, uint8 _minTierId) external {
+        require(_minTierId != 0, "invalid _minTierId");
+        TaikoData.Config memory config = TaikoL1.getConfig();
+
+        TaikoData.Block storage blk = state.blocks[_blockId % config.blockRingBufferSize];
+        require(blk.blockId == _blockId, "L1_INVALID_BLOCK_ID");
+
+        blk.minTierId = _minTierId;
+    }
 }
 
 contract TaikoL1TestGroupA1 is TaikoL1TestGroupBase {
@@ -79,7 +89,10 @@ contract TaikoL1TestGroupA1 is TaikoL1TestGroupBase {
 
             mineAndWrap(10 seconds);
 
-            proveBlock2(Alice, meta2, parentHash, blockHash, stateRoot, meta2.minTierId, "");
+            TaikoL1ForkA1(payable(L1)).setBlockMinTier(meta2.id, LibTiersV2.TIER_SGX_ONTAKE);
+            proveBlock2(
+                Alice, meta2, parentHash, blockHash, stateRoot, LibTiersV2.TIER_SGX_ONTAKE, ""
+            );
             parentHash = blockHash;
 
             printBlockAndTrans(meta2.id);
