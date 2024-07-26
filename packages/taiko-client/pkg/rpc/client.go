@@ -28,6 +28,7 @@ type Client struct {
 	L1Beacon *BeaconClient
 	// Protocol contracts clients
 	TaikoL1                *bindings.TaikoL1Client
+	LibProposing           *bindings.LibProposing
 	TaikoL2                *bindings.TaikoL2Client
 	TaikoToken             *bindings.TaikoToken
 	GuardianProverMajority *bindings.GuardianProver
@@ -108,6 +109,11 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 		return nil, err
 	}
 
+	libProposing, err := bindings.NewLibProposing(cfg.TaikoL1Address, l1Client)
+	if err != nil {
+		return nil, err
+	}
+
 	taikoL2, err := bindings.NewTaikoL2Client(cfg.TaikoL2Address, l2Client)
 	if err != nil {
 		return nil, err
@@ -157,6 +163,7 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 		L2CheckPoint:           l2CheckPoint,
 		L2Engine:               l2AuthClient,
 		TaikoL1:                taikoL1,
+		LibProposing:           libProposing,
 		TaikoL2:                taikoL2,
 		TaikoToken:             taikoToken,
 		GuardianProverMajority: guardianProverMajority,

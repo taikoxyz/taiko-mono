@@ -14,10 +14,12 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
+// gethClient is a wrapper for go-ethereum geth client.
 type gethClient struct {
 	*gethclient.Client
 }
 
+// ethClient is a wrapper for go-ethereum eth client.
 type ethClient struct {
 	*ethclient.Client
 }
@@ -33,6 +35,7 @@ type EthClient struct {
 	timeout time.Duration
 }
 
+// NewEthClient creates a new EthClient instance.
 func NewEthClient(ctx context.Context, url string, timeout time.Duration) (*EthClient, error) {
 	var timeoutVal = defaultTimeout
 	if timeout != 0 {
