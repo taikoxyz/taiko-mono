@@ -325,8 +325,16 @@ func (s *Syncer) insertNewHead(
 		"l1Origin", l1Origin,
 	)
 
-	// Insert a TaikoL2.anchor transaction at transactions list head
-	var txList []*types.Transaction
+	// Insert a TaikoL2.anchor / TaikoL2.anchorV2 transaction at transactions list head
+	var (
+		txList      []*types.Transaction
+		anchorTx    *types.Transaction
+		baseFeeInfo struct {
+			Basefee   *big.Int
+			GasExcess uint64
+		}
+		err error
+	)
 	if len(txListBytes) != 0 {
 		if err := rlp.DecodeBytes(txListBytes, &txList); err != nil {
 			log.Error("Invalid txList bytes", "blockID", meta.GetBlockID())
@@ -334,14 +342,66 @@ func (s *Syncer) insertNewHead(
 		}
 	}
 
-	// Get L2 baseFee
-	baseFeeInfo, err := s.rpc.TaikoL2.GetBasefee(
-		&bind.CallOpts{BlockNumber: parent.Number, Context: ctx},
-		meta.GetRawBlockHeight().Uint64()-1,
-		uint32(parent.GasUsed),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get L2 baseFee: %w", encoding.TryParsingCustomError(err))
+	if !meta.IsOntakeBlock() {
+		// Get L2 baseFee
+		baseFeeInfo, err = s.rpc.TaikoL2.GetBasefee(
+			&bind.CallOpts{BlockNumber: parent.Number, Context: ctx},
+			meta.GetRawBlockHeight().Uint64()-1,
+			uint32(parent.GasUsed),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get L2 baseFee: %w", encoding.TryParsingCustomError(err))
+		}
+
+		// Assemble a TaikoL2.anchor transaction
+		anchorTx, err = s.anchorConstructor.AssembleAnchorTx(
+			ctx,
+			new(big.Int).SetUint64(meta.GetAnchorBlockID()),
+			meta.GetAnchorBlockHash(),
+			new(big.Int).Add(parent.Number, common.Big1),
+			baseFeeInfo.Basefee,
+			parent.GasUsed,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create TaikoL2.anchor transaction: %w", err)
+		}
+	} else {
+		gasExcess, err := s.rpc.TaikoL2.GasExcess(&bind.CallOpts{
+			BlockNumber: parent.Number, Context: ctx,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch gas excess: %w", err)
+		}
+		// Get L2 baseFee
+		baseFeeInfo, err = s.rpc.TaikoL2.CalculateBaseFee(
+			&bind.CallOpts{BlockNumber: parent.Number, Context: ctx},
+			meta.GetBlockGasIssuance(),
+			meta.GetBasefeeAdjustmentQuotient(),
+			gasExcess,
+			uint32(parent.GasUsed),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get L2 baseFee: %w", encoding.TryParsingCustomError(err))
+		}
+
+		// Assemble a TaikoL2.anchorV2 transaction
+		anchorBlockHeader, err := s.rpc.L1.HeaderByHash(ctx, meta.GetAnchorBlockHash())
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch anchor block: %w", err)
+		}
+		anchorTx, err = s.anchorConstructor.AssembleAnchorV2Tx(
+			ctx,
+			new(big.Int).SetUint64(meta.GetAnchorBlockID()),
+			parent.GasUsed,
+			anchorBlockHeader.Root,
+			meta.GetBlockGasIssuance(),
+			meta.GetBasefeeAdjustmentQuotient(),
+			new(big.Int).Add(parent.Number, common.Big1),
+			baseFeeInfo.Basefee,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create TaikoL2.anchorV2 transaction: %w", err)
+		}
 	}
 
 	log.Info(
@@ -351,19 +411,6 @@ func (s *Syncer) insertNewHead(
 		"syncedL1Height", meta.GetRawBlockHeight(),
 		"parentGasUsed", parent.GasUsed,
 	)
-
-	// Assemble a TaikoL2.anchor transaction
-	anchorTx, err := s.anchorConstructor.AssembleAnchorTx(
-		ctx,
-		new(big.Int).SetUint64(meta.GetAnchorBlockID()),
-		meta.GetAnchorBlockHash(),
-		new(big.Int).Add(parent.Number, common.Big1),
-		baseFeeInfo.Basefee,
-		parent.GasUsed,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create TaikoL2.anchor transaction: %w", err)
-	}
 
 	// Insert the anchor transaction at the head of the transactions list
 	txList = append([]*types.Transaction{anchorTx}, txList...)
