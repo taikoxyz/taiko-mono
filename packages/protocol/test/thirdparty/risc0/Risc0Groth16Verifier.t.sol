@@ -45,7 +45,7 @@ contract RiscZeroGroth16VerifierTest is TaikoL1TestBase {
 
         // Caller not necessary has to be TaikoL1 contract because there is no keys (as in SGX keys)
         // to be front run.
-        vm.startPrank(Alice);
+        vm.startPrank(Emma);
 
         bytes memory seal =
             hex"310fe5980dc2781dc78d77dfdf0156420de674d1e728280666c83e5b455cb113fbd68b671cf01ecb0b534f3587eca0132f1fde91949743cdcb9a8d41874c02270a2084a60662d42262ca2d94c80f8b782fb7b7523221e2af52c3068458de46a4086666b71b65d9ad500fef9a163f174b1333938eaa284b31d007492d031423e0690938de188cfb8cf429a92ae4c0cea02955b8568648e25fc2e8a60ad100d1c4661d448d0069ee64bb884482eb4bb24f553dbbdfd0b14c84c617bdef8d975ea64faccd5d12ab645e0d08f00a70b2366b25c266e819f4d1195d355fabc649a893dc4321ec0db7befe3958f4610a48bd6d9154fb178c5dd6348aea1ea8e19b71e91eb5c216";
