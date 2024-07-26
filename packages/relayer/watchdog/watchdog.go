@@ -21,13 +21,15 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/urfave/cli/v2"
+
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
-	"github.com/urfave/cli/v2"
 )
 
 type ethClient interface {
@@ -55,8 +57,8 @@ type Watchdog struct {
 
 	ecdsaKey *ecdsa.PrivateKey
 
-	srcBridge  relayer.Bridge
-	destBridge relayer.Bridge
+	srcBridge  bindings.Bridge
+	destBridge bindings.Bridge
 
 	watchdogAddr common.Address
 
@@ -365,7 +367,7 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 
 func (w *Watchdog) pauseBridge(
 	ctx context.Context,
-	bridge relayer.Bridge,
+	bridge bindings.Bridge,
 	bridgeAddress common.Address,
 	mgr txmgr.TxManager,
 ) (*types.Receipt, error) {

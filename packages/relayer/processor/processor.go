@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings"
 	"log/slog"
 	"math/big"
 	"os"
@@ -62,7 +63,7 @@ type ethClient interface {
 type hop struct {
 	chainID              *big.Int
 	signalServiceAddress common.Address
-	signalService        relayer.SignalService
+	signalService        bindings.SignalService
 	taikoAddress         common.Address
 	ethClient            ethClient
 	caller               relayer.Caller
@@ -86,13 +87,13 @@ type Processor struct {
 
 	ecdsaKey *ecdsa.PrivateKey
 
-	srcSignalService relayer.SignalService
+	srcSignalService bindings.SignalService
 
-	destBridge       relayer.Bridge
-	destERC20Vault   relayer.TokenVault
-	destERC1155Vault relayer.TokenVault
-	destERC721Vault  relayer.TokenVault
-	destQuotaManager relayer.QuotaManager
+	destBridge       bindings.Bridge
+	destERC20Vault   bindings.TokenVault
+	destERC1155Vault bindings.TokenVault
+	destERC721Vault  bindings.TokenVault
+	destQuotaManager bindings.QuotaManager
 
 	prover *proof.Prover
 

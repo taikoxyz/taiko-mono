@@ -20,6 +20,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/signalservice"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol1"
@@ -86,10 +87,10 @@ type Indexer struct {
 
 	latestIndexedBlockNumber uint64
 
-	bridge     relayer.Bridge
-	destBridge relayer.Bridge
+	bridge     bindings.Bridge
+	destBridge bindings.Bridge
 
-	signalService relayer.SignalService
+	signalService bindings.SignalService
 
 	blockBatchSize      uint64
 	numGoroutines       int
@@ -182,7 +183,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 		}
 	}
 
-	var signalService relayer.SignalService
+	var signalService bindings.SignalService
 
 	if cfg.SrcSignalServiceAddress != ZeroAddress {
 		slog.Info("setting srcSignalServiceAddress", "addr", cfg.SrcSignalServiceAddress.Hex())

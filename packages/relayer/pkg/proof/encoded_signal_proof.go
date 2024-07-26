@@ -4,18 +4,19 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/taikoxyz/taiko-mono/packages/relayer"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/encoding"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
+
+	"github.com/taikoxyz/taiko-mono/packages/relayer"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/encoding"
 )
 
 type HopParams struct {
 	ChainID              *big.Int
 	SignalServiceAddress common.Address
-	SignalService        relayer.SignalService
+	SignalService        bindings.SignalService
 	Key                  [32]byte
 	Blocker              blocker
 	Caller               relayer.Caller
