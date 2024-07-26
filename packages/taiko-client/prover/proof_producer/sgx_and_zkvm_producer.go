@@ -123,8 +123,8 @@ func (s *SgxAndZKvmProofProducer) requestProof(
 		Prover:   opts.ProverAddress.Hex()[2:],
 		Graffiti: opts.Graffiti,
 		RISC0: &RISC0RequestProofBodyParam{
-			Bonsai:       false,
-			Snark:        false,
+			Bonsai:       true,
+			Snark:        true,
 			Profile:      false,
 			ExecutionPo2: big.NewInt(20),
 		},
@@ -183,9 +183,10 @@ func (s *SgxAndZKvmProofProducer) requestCancel(
 		Prover:   opts.ProverAddress.Hex()[2:],
 		Graffiti: opts.Graffiti,
 		RISC0: &RISC0RequestProofBodyParam{
-			Bonsai:  false,
-			Snark:   false,
-			Profile: false,
+			Bonsai:       true,
+			Snark:        true,
+			Profile:      false,
+			ExecutionPo2: big.NewInt(20),
 		},
 	}
 
