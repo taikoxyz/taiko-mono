@@ -111,7 +111,7 @@ func (b *BalanceMonitor) Start() error {
 func (b *BalanceMonitor) checkEthBalance(ctx context.Context, client ethClient, gauge *prometheus.GaugeVec, clientLabel string, address common.Address) {
 	balance, err := b.getEthBalance(ctx, client, address)
 	if err != nil {
-		slog.Info(fmt.Sprintf("Failed to get %s ETH balance for address", clientLabel), "address", address.Hex(), "error", err)
+		slog.Warn(fmt.Sprintf("Failed to get %s ETH balance for address", clientLabel), "address", address.Hex(), "error", err)
 		return
 	}
 	balanceFloat, _ := new(big.Float).Quo(new(big.Float).SetInt(balance), big.NewFloat(1e18)).Float64()
@@ -120,17 +120,11 @@ func (b *BalanceMonitor) checkEthBalance(ctx context.Context, client ethClient, 
 }
 
 func (b *BalanceMonitor) checkErc20Balance(ctx context.Context, client ethClient, gauge *prometheus.GaugeVec, clientLabel string, tokenAddress, holderAddress common.Address) {
-	tokenBalance, err := b.getErc20Balance(ctx, client, tokenAddress, holderAddress)
-	if err != nil {
-		slog.Info(fmt.Sprintf("Failed to get %s ERC-20 balance for address", clientLabel), "address", holderAddress.Hex(), "tokenAddress", tokenAddress.Hex(), "error", err)
-		return
-	}
-
 	// Check the cache for the token decimals
 	tokenDecimals, ok := b.erc20DecimalsCache[tokenAddress]
 	if !ok {
 		// If not in the cache, fetch the decimals from the contract
-		tokenDecimals, err = b.getErc20Decimals(ctx, client, tokenAddress)
+		tokenDecimals, err := b.getErc20Decimals(ctx, client, tokenAddress)
 		if err != nil {
 			slog.Warn(fmt.Sprintf("Failed to get %s ERC-20 decimals for token. Use default value: 18", clientLabel), "tokenAddress", tokenAddress.Hex(), "error", err)
 			tokenDecimals = 18
@@ -139,12 +133,31 @@ func (b *BalanceMonitor) checkErc20Balance(ctx context.Context, client ethClient
 		b.erc20DecimalsCache[tokenAddress] = tokenDecimals
 	}
 
-	tokenBalanceFloat, _ := new(big.Float).Quo(new(big.Float).SetInt(tokenBalance), big.NewFloat(math.Pow(10, float64(tokenDecimals)))).Float64()
-	gauge.WithLabelValues(tokenAddress.Hex(), holderAddress.Hex()).Set(tokenBalanceFloat)
-	slog.Info(fmt.Sprintf("%s ERC-20 Balance", clientLabel), "tokenAddress", tokenAddress.Hex(), "address", holderAddress.Hex(), "balance", tokenBalanceFloat)
+	var tokenBalanceFloat float64 = 0
+	tokenBalance, err := b.getErc20Balance(ctx, client, tokenAddress, holderAddress)
+	if err != nil {
+		slog.Warn(fmt.Sprintf("Failed to get %s ERC-20 balance for address", clientLabel), "address", holderAddress.Hex(), "tokenAddress", tokenAddress.Hex(), "error", err)
+		tokenBalanceFloat = 0
+	} else {
+		tokenBalanceFloat, _ = new(big.Float).Quo(new(big.Float).SetInt(tokenBalance), big.NewFloat(math.Pow(10, float64(tokenDecimals)))).Float64()
+	}
+
+	var tokenBondBalanceFloat float64 = 0
+	tokenBondBalance, err := b.getErc20BondBalance(ctx, client, tokenAddress, holderAddress)
+	if err != nil {
+		slog.Warn(fmt.Sprintf("Failed to get %s ERC-20 bond balance for address", clientLabel), "address", holderAddress.Hex(), "tokenAddress", tokenAddress.Hex(), "error", err)
+		tokenBondBalanceFloat = 0
+	} else {
+		tokenBondBalanceFloat, _ = new(big.Float).Quo(new(big.Float).SetInt(tokenBondBalance), big.NewFloat(math.Pow(10, float64(tokenDecimals)))).Float64()
+	}
+
+	balance := tokenBalanceFloat + tokenBondBalanceFloat
+	gauge.WithLabelValues(tokenAddress.Hex(), holderAddress.Hex()).Set(balance)
+	slog.Info(fmt.Sprintf("%s ERC-20 Balance", clientLabel), "tokenAddress", tokenAddress.Hex(), "address", holderAddress.Hex(), "balance", balance)
 }
 
-const erc20ABI = `[{"constant":true,"inputs":[{"name":"_user","type":"address"}],"name":"bondBalanceOf","outputs":[{"name":"balance","type":"uint256"}],"type":"function"},{"constant":true,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint8"}],"type":"function"}]`
+const erc20BalanceOfABI = `[{"constant":true,"inputs":[{"name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"balance","type":"uint256"}],"type":"function"},{"constant":true,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint8"}],"type":"function"}]`
+const erc20BondBalanceOfABI = `[{"constant":true,"inputs":[{"name":"_user","type":"address"}],"name":"bondBalanceOf","outputs":[{"name":"balance","type":"uint256"}],"type":"function"},{"constant":true,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint8"}],"type":"function"}]`
 
 type ERC20 interface {
 	BalanceOf(opts *bind.CallOpts, account common.Address) (*big.Int, error)
@@ -159,8 +172,38 @@ func (b *BalanceMonitor) getEthBalance(ctx context.Context, client ethClient, ad
 	return balance, nil
 }
 
+// TODO (ruby): merge getErc20Balance and getErc20BondBalance
 func (b *BalanceMonitor) getErc20Balance(ctx context.Context, client ethClient, tokenAddress, holderAddress common.Address) (*big.Int, error) {
-	parsedABI, err := abi.JSON(strings.NewReader(erc20ABI))
+	parsedABI, err := abi.JSON(strings.NewReader(erc20BalanceOfABI))
+	if err != nil {
+		return nil, err
+	}
+
+	tokenContract := bind.NewBoundContract(tokenAddress, parsedABI, client, client, client)
+
+	var result []interface{}
+	err = tokenContract.Call(&bind.CallOpts{
+		Context: ctx,
+	}, &result, "balanceOf", holderAddress)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if len(result) == 0 {
+		return nil, fmt.Errorf("no result from token contract call")
+	}
+
+	balance, ok := result[0].(*big.Int)
+	if !ok {
+		return nil, fmt.Errorf("unexpected type for balanceOf result")
+	}
+
+	return balance, nil
+}
+
+func (b *BalanceMonitor) getErc20BondBalance(ctx context.Context, client ethClient, tokenAddress, holderAddress common.Address) (*big.Int, error) {
+	parsedABI, err := abi.JSON(strings.NewReader(erc20BondBalanceOfABI))
 	if err != nil {
 		return nil, err
 	}
@@ -189,7 +232,7 @@ func (b *BalanceMonitor) getErc20Balance(ctx context.Context, client ethClient, 
 }
 
 func (b *BalanceMonitor) getErc20Decimals(ctx context.Context, client ethClient, tokenAddress common.Address) (uint8, error) {
-	parsedABI, err := abi.JSON(strings.NewReader(erc20ABI))
+	parsedABI, err := abi.JSON(strings.NewReader(erc20BalanceOfABI))
 	if err != nil {
 		return 0, err
 	}
