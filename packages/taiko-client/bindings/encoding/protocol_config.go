@@ -13,7 +13,7 @@ var (
 	InternlDevnetProtocolConfig = &bindings.TaikoDataConfig{
 		ChainId:               params.TaikoInternalL2ANetworkID.Uint64(),
 		BlockMaxProposals:     324_000,
-		BlockRingBufferSize:   324_512,
+		BlockRingBufferSize:   360_000,
 		MaxBlocksToVerify:     16,
 		BlockMaxGasLimit:      240_000_000,
 		LivenessBond:          livenessBond,
@@ -33,7 +33,7 @@ var (
 	MainnetProtocolConfig = &bindings.TaikoDataConfig{
 		ChainId:               params.TaikoMainnetNetworkID.Uint64(),
 		BlockMaxProposals:     324_000,
-		BlockRingBufferSize:   324_512,
+		BlockRingBufferSize:   360_000,
 		MaxBlocksToVerify:     16,
 		BlockMaxGasLimit:      240_000_000,
 		LivenessBond:          livenessBond,
