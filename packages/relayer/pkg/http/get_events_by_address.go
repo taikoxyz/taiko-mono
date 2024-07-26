@@ -119,7 +119,7 @@ func (srv *Server) GetEventsByAddress(c echo.Context) error {
 			v.MsgHash,
 		)
 		if err != nil {
-			continue
+			return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
 		}
 
 		if msgProcessedEvent == nil {
