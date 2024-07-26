@@ -272,7 +272,6 @@ func (s *Syncer) onBlockProposed(
 		ctx,
 		meta,
 		parent,
-		s.state.GetHeadBlockID(),
 		decompressedTxListBytes,
 		&rawdb.L1Origin{
 			BlockID:       meta.GetBlockID(),
@@ -313,7 +312,6 @@ func (s *Syncer) insertNewHead(
 	ctx context.Context,
 	meta metadata.TaikoBlockMetaData,
 	parent *types.Header,
-	headBlockID *big.Int,
 	txListBytes []byte,
 	l1Origin *rawdb.L1Origin,
 ) (*engine.ExecutableData, error) {
@@ -321,7 +319,6 @@ func (s *Syncer) insertNewHead(
 		"Try to insert a new L2 head block",
 		"parentNumber", parent.Number,
 		"parentHash", parent.Hash(),
-		"headBlockID", headBlockID,
 		"l1Origin", l1Origin,
 	)
 
@@ -424,7 +421,6 @@ func (s *Syncer) insertNewHead(
 		meta,
 		parent.Hash(),
 		l1Origin,
-		headBlockID,
 		txListBytes,
 		baseFeeInfo.Basefee,
 		make(types.Withdrawals, 0),
@@ -458,7 +454,6 @@ func (s *Syncer) createExecutionPayloads(
 	meta metadata.TaikoBlockMetaData,
 	parentHash common.Hash,
 	l1Origin *rawdb.L1Origin,
-	headBlockID *big.Int,
 	txListBytes []byte,
 	baseFee *big.Int,
 	withdrawals types.Withdrawals,
