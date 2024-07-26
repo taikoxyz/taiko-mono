@@ -119,7 +119,7 @@ func (b *CalldataTransactionBuilder) Build(
 			Coinbase:       b.l2SuggestedFeeRecipient,
 			ExtraData:      rpc.StringToBytes32(b.extraData),
 			ParentMetaHash: parentMetaHash,
-			AnchorBlockId:  l1Head.Number.Uint64(),
+			AnchorBlockId:  0,
 			Timestamp:      l1Head.Time,
 		}); err != nil {
 			return nil, err
