@@ -2,26 +2,55 @@ package txlistdecoder
 
 import (
 	"context"
+	"fmt"
+	"math/big"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
 // CalldataFetcher is responsible for fetching the txList bytes from the transaction's calldata.
-type CalldataFetcher struct{}
+type CalldataFetcher struct {
+	rpc *rpc.Client
+}
 
-// NewCalldataTxListFetcher creates a new CalldataFetcher instance.
+// NewCalldataFetch creates a new CalldataFetcher instance based on the given rpc client.
+func NewCalldataFetch(rpc *rpc.Client) *CalldataFetcher {
+	return &CalldataFetcher{rpc: rpc}
+}
+
+// Fetch fetches the txList bytes from the transaction's calldata.
 func (d *CalldataFetcher) Fetch(
-	_ context.Context,
+	ctx context.Context,
 	tx *types.Transaction,
-	meta *bindings.TaikoDataBlockMetadata,
+	meta metadata.TaikoBlockMetaData,
 ) ([]byte, error) {
-	if meta.BlobUsed {
+	if meta.GetBlobUsed() {
 		return nil, pkg.ErrBlobUsed
 	}
 
-	return encoding.UnpackTxListBytes(tx.Data())
+	// If the given L2 block is not an ontake block, decode the txlist from calldata directly.
+	if !meta.IsOntakeBlock() {
+		return encoding.UnpackTxListBytes(tx.Data())
+	}
+
+	// Otherwise, fetch the txlist data from the `CalldataTxList` event.
+	end := meta.GetRawBlockHeight().Uint64()
+	iter, err := d.rpc.TaikoL1.FilterCalldataTxList(
+		&bind.FilterOpts{Context: ctx, Start: meta.GetRawBlockHeight().Uint64(), End: &end},
+		[]*big.Int{meta.GetBlockID()},
+	)
+	if err != nil {
+		return nil, err
+	}
+	for iter.Next() {
+		return iter.Event.TxList, nil
+	}
+
+	return nil, fmt.Errorf("calldata for block %d not found", meta.GetBlockID())
 }

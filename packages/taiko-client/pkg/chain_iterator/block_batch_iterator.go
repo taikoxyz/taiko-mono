@@ -273,6 +273,15 @@ func (i *BlockBatchIterator) rewindOnReorgDetected() error {
 		newCurrentHeight = i.current.Number.Uint64() - i.reorgRewindDepth
 	}
 
+	head, err := i.client.BlockNumber(i.ctx)
+	if err != nil {
+		return err
+	}
+
+	if newCurrentHeight > head {
+		newCurrentHeight = head
+	}
+
 	current, err := i.client.HeaderByNumber(i.ctx, new(big.Int).SetUint64(newCurrentHeight))
 	if err != nil {
 		return err
