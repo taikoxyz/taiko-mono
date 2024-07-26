@@ -41,11 +41,6 @@ func (c *Client) ensureGenesisMatched(ctx context.Context) error {
 		return err
 	}
 
-	config, err := c.TaikoL1.GetConfig(&bind.CallOpts{Context: ctxWithTimeout})
-	if err != nil {
-		return err
-	}
-
 	// Fetch the node's genesis block.
 	nodeGenesis, err := c.L2.HeaderByNumber(ctxWithTimeout, common.Big0)
 	if err != nil {
@@ -62,7 +57,7 @@ func (c *Client) ensureGenesisMatched(ctx context.Context) error {
 	)
 
 	// If chain actives ontake fork from genesis, we need to fetch the genesis block hash from `BlockVerifiedV2` event.
-	if config.OntakeForkHeight == 0 {
+	if encoding.GetProtocolConfig(c.L2.ChainID.Uint64()).OntakeForkHeight == 0 {
 		// Fetch the genesis `BlockVerified2` event.
 		iter, err := c.TaikoL1.FilterBlockVerifiedV2(filterOpts, []*big.Int{common.Big0}, nil)
 		if err != nil {
