@@ -12,6 +12,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter/transaction"
@@ -50,7 +51,7 @@ func (c *ProofContester) SubmitContest(
 	blockID *big.Int,
 	proposedIn *big.Int,
 	parentHash common.Hash,
-	meta *bindings.TaikoDataBlockMetadata,
+	meta metadata.TaikoBlockMetaData,
 	tier uint16,
 ) error {
 	// Ensure the transition has not been contested yet.

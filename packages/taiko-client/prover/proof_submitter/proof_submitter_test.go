@@ -17,6 +17,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/blob"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
@@ -217,7 +218,10 @@ func (s *ProofSubmitterTestSuite) TestProofSubmitterRequestProofDeadlineExceeded
 
 	s.ErrorContains(
 		s.submitter.RequestProof(
-			ctx, &bindings.TaikoL1ClientBlockProposed{BlockId: common.Big256}), "context deadline exceeded",
+			ctx,
+			&metadata.TaikoDataBlockMetadataLegacy{TaikoDataBlockMetadata: bindings.TaikoDataBlockMetadata{Id: 256}},
+		),
+		"context deadline exceeded",
 	)
 }
 
@@ -226,7 +230,7 @@ func (s *ProofSubmitterTestSuite) TestProofSubmitterSubmitProofMetadataNotFound(
 		s.submitter.SubmitProof(
 			context.Background(), &producer.ProofWithHeader{
 				BlockID: common.Big256,
-				Meta:    &bindings.TaikoDataBlockMetadata{},
+				Meta:    &metadata.TaikoDataBlockMetadataLegacy{},
 				Header:  &types.Header{},
 				Opts:    &producer.ProofRequestOptions{},
 				Proof:   bytes.Repeat([]byte{0xff}, 100),
@@ -236,20 +240,16 @@ func (s *ProofSubmitterTestSuite) TestProofSubmitterSubmitProofMetadataNotFound(
 }
 
 func (s *ProofSubmitterTestSuite) TestSubmitProofs() {
-	events := s.ProposeAndInsertEmptyBlocks(s.proposer, s.blobSyncer)
-
-	for _, e := range events {
-		s.Nil(s.submitter.RequestProof(context.Background(), e))
+	for _, m := range s.ProposeAndInsertEmptyBlocks(s.proposer, s.blobSyncer) {
+		s.Nil(s.submitter.RequestProof(context.Background(), m))
 		proofWithHeader := <-s.proofCh
 		s.Nil(s.submitter.SubmitProof(context.Background(), proofWithHeader))
 	}
 }
 
 func (s *ProofSubmitterTestSuite) TestGuardianSubmitProofs() {
-	events := s.ProposeAndInsertEmptyBlocks(s.proposer, s.blobSyncer)
-
-	for _, e := range events {
-		s.Nil(s.submitter.RequestProof(context.Background(), e))
+	for _, m := range s.ProposeAndInsertEmptyBlocks(s.proposer, s.blobSyncer) {
+		s.Nil(s.submitter.RequestProof(context.Background(), m))
 		proofWithHeader := <-s.proofCh
 		proofWithHeader.Tier = encoding.TierGuardianMajorityID
 		s.Nil(s.submitter.SubmitProof(context.Background(), proofWithHeader))
@@ -262,7 +262,10 @@ func (s *ProofSubmitterTestSuite) TestProofSubmitterRequestProofCancelled() {
 
 	s.ErrorContains(
 		s.submitter.RequestProof(
-			ctx, &bindings.TaikoL1ClientBlockProposed{BlockId: common.Big256}), "context canceled",
+			ctx,
+			&metadata.TaikoDataBlockMetadataLegacy{TaikoDataBlockMetadata: bindings.TaikoDataBlockMetadata{Id: 256}},
+		),
+		"context canceled",
 	)
 }
 

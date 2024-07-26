@@ -5,12 +5,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 )
 
 func (s *TransactionTestSuite) TestBuildTxs() {
 	_, err := s.builder.Build(
 		common.Big256,
-		&bindings.TaikoDataBlockMetadata{},
+		&metadata.TaikoDataBlockMetadataLegacy{},
 		&bindings.TaikoDataTransition{},
 		&bindings.TaikoDataTierProof{},
 		1,
