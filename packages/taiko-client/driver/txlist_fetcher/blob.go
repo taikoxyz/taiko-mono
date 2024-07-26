@@ -56,7 +56,11 @@ func (d *BlobFetcher) Fetch(
 		commitment := kzg4844.Commitment(common.FromHex(sidecar.KzgCommitment))
 		if kzg4844.CalcBlobHashV1(sha256.New(), &commitment) == meta.GetBlobHash() {
 			blob := eth.Blob(common.FromHex(sidecar.Blob))
-			return blob.ToData()
+			bytes, err := blob.ToData()
+			if err != nil {
+				return nil, err
+			}
+			return bytes[meta.GetBlobTxListOffset() : meta.GetBlobTxListOffset()+meta.GetBlobTxListLength()], nil
 		}
 	}
 
