@@ -112,12 +112,12 @@ func (s *Sender) Send(
 // latest verified head is not ahead of this block proof.
 func (s *Sender) validateProof(ctx context.Context, proofWithHeader *producer.ProofWithHeader) (bool, error) {
 	// 1. Check if the corresponding L1 block is still in the canonical chain.
-	l1Header, err := s.rpc.L1.HeaderByNumber(ctx, new(big.Int).SetUint64(proofWithHeader.Meta.L1Height+1))
+	l1Header, err := s.rpc.L1.HeaderByNumber(ctx, proofWithHeader.Meta.GetRawBlockHeight())
 	if err != nil {
 		log.Warn(
 			"Failed to fetch L1 block",
 			"blockID", proofWithHeader.BlockID,
-			"l1Height", proofWithHeader.Meta.L1Height+1,
+			"l1Height", proofWithHeader.Meta.GetRawBlockHeight(),
 			"error", err,
 		)
 		return false, err
@@ -126,7 +126,7 @@ func (s *Sender) validateProof(ctx context.Context, proofWithHeader *producer.Pr
 		log.Warn(
 			"Reorg detected, skip the current proof submission",
 			"blockID", proofWithHeader.BlockID,
-			"l1Height", proofWithHeader.Meta.L1Height+1,
+			"l1Height", proofWithHeader.Meta.GetRawBlockHeight(),
 			"l1HashOld", proofWithHeader.Opts.EventL1Hash,
 			"l1HashNew", l1Header.Hash(),
 		)

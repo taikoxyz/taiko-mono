@@ -10,10 +10,12 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
@@ -49,21 +51,6 @@ func (s *BlobSyncerTestSuite) SetupTest() {
 
 	s.initProposer()
 }
-func (s *BlobSyncerTestSuite) TestCancelNewSyncer() {
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	syncer, err := NewSyncer(
-		ctx,
-		s.RPCClient,
-		s.s.state,
-		s.s.progressTracker,
-		0,
-		nil,
-		nil,
-	)
-	s.Nil(syncer)
-	s.NotNil(err)
-}
 
 func (s *BlobSyncerTestSuite) TestProcessL1Blocks() {
 	s.Nil(s.s.ProcessL1Blocks(context.Background()))
@@ -77,12 +64,12 @@ func (s *BlobSyncerTestSuite) TestProcessL1BlocksReorg() {
 func (s *BlobSyncerTestSuite) TestOnBlockProposed() {
 	s.Nil(s.s.onBlockProposed(
 		context.Background(),
-		&bindings.TaikoL1ClientBlockProposed{BlockId: common.Big0},
+		&metadata.TaikoDataBlockMetadataLegacy{TaikoDataBlockMetadata: bindings.TaikoDataBlockMetadata{Id: 0}},
 		func() {},
 	))
 	s.NotNil(s.s.onBlockProposed(
 		context.Background(),
-		&bindings.TaikoL1ClientBlockProposed{BlockId: common.Big1},
+		&metadata.TaikoDataBlockMetadataLegacy{TaikoDataBlockMetadata: bindings.TaikoDataBlockMetadata{Id: 1}},
 		func() {},
 	))
 }
@@ -94,9 +81,8 @@ func (s *BlobSyncerTestSuite) TestInsertNewHead() {
 	s.Nil(err)
 	_, err = s.s.insertNewHead(
 		context.Background(),
-		&bindings.TaikoL1ClientBlockProposed{
-			BlockId: common.Big1,
-			Meta: bindings.TaikoDataBlockMetadata{
+		&metadata.TaikoDataBlockMetadataLegacy{
+			TaikoDataBlockMetadata: bindings.TaikoDataBlockMetadata{
 				Id:         1,
 				L1Height:   l1Head.NumberU64(),
 				L1Hash:     l1Head.Hash(),
@@ -105,6 +91,10 @@ func (s *BlobSyncerTestSuite) TestInsertNewHead() {
 				Difficulty: testutils.RandomHash(),
 				GasLimit:   utils.RandUint32(nil),
 				Timestamp:  uint64(time.Now().Unix()),
+			},
+			Log: types.Log{
+				BlockNumber: l1Head.Number().Uint64(),
+				BlockHash:   l1Head.Hash(),
 			},
 		},
 		parent,

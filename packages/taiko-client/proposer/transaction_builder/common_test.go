@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 )
 
 type TransactionBuilderTestSuite struct {
@@ -24,6 +25,8 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 	l1ProposerPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROPOSER_PRIVATE_KEY")))
 	s.Nil(err)
 
+	chainConfig := config.NewChainConfig(s.RPCClient.L2.ChainID, testutils.RandomHash().Big())
+
 	s.calldataTxBuilder = NewCalldataTransactionBuilder(
 		s.RPCClient,
 		l1ProposerPrivKey,
@@ -32,6 +35,7 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 		common.Address{},
 		0,
 		"test",
+		chainConfig,
 	)
 	s.blobTxBuiler = NewBlobTransactionBuilder(
 		s.RPCClient,
@@ -41,6 +45,7 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 		common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
 		10_000_000,
 		"test",
+		chainConfig,
 	)
 }
 
