@@ -567,6 +567,7 @@
     },
     "header": {
       "amount": "Amount",
+      "date": "Date",
       "explorer": "Explorer",
       "from": "From",
       "item": "Item",
@@ -575,7 +576,8 @@
     },
     "link": {
       "explorer": "View details",
-      "explorer_short": "View"
+      "explorer_short": "View",
+      "view": "Details"
     },
     "no_transactions": "No transactions found",
     "release": {
@@ -594,6 +596,7 @@
         "description": "Your asset is now ready for claiming on the destination chain and requires a transaction. If you have set a processing fee, the relayer will automatically handle the claiming process on your behalf.",
         "name": "Claim"
       },
+      "claimable": "Claimable",
       "claimed": {
         "description": "Your asset has successfully completed the bridging process and is now available to you on the destination chain.",
         "name": "Claimed"
@@ -618,6 +621,7 @@
         "description": "Transaction is processing. Depending on the pending blocks to be verified this can take up to several minutes.",
         "name": "Processing"
       },
+      "releasable": "Releasable",
       "release": {
         "description": "Your bridged asset cannot be processed and is now accessible to you on the source chain.",
         "name": "Release"
@@ -626,6 +630,7 @@
         "name": "Released"
       },
       "releasing": "Releasing",
+      "retriable": "Retriable",
       "retry": {
         "description": "The relayer was unable to process this message, and you will need to retry the processing yourself.",
         "name": "Retry"

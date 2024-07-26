@@ -17,6 +17,7 @@
 
   export let bridgeTx: BridgeTransaction;
   export let bridgeTxStatus: Maybe<MessageStatus>;
+  export let textOnly: boolean = false;
 
   // UI state
   let isProcessable = false; // bridge tx state to be processed: claimed/retried/released
@@ -121,20 +122,35 @@
       <span>{$t(`transactions.status.${loading}`)}</span>
     </div>
   {:else if bridgeTxStatus === MessageStatus.NEW}
-    <button class="status-btn" on:click={handleClaimClick}>
-      {$t('transactions.button.claim')}
-    </button>
+    {#if textOnly}
+      <StatusDot type="pending" />
+      <span>{$t('transactions.status.claimable')}</span>
+    {:else}
+      <button class="status-btn" on:click={handleClaimClick}>
+        {$t('transactions.button.claim')}
+      </button>
+    {/if}
   {:else if bridgeTxStatus === MessageStatus.RETRIABLE}
-    <button class="status-btn" on:click={handleRetryClick}>
-      {$t('transactions.button.retry')}
-    </button>
+    {#if textOnly}
+      <StatusDot type="pending" />
+      <span>{$t('transactions.status.retriable')}</span>
+    {:else}
+      <button class="status-btn" on:click={handleRetryClick}>
+        {$t('transactions.button.retry')}
+      </button>
+    {/if}
   {:else if bridgeTxStatus === MessageStatus.DONE}
     <StatusDot type="success" />
     <span>{$t('transactions.status.claimed.name')}</span>
   {:else if bridgeTxStatus === MessageStatus.FAILED}
-    <button class="status-btn" on:click={release} on:click={handleReleaseClick}>
-      {$t('transactions.button.release')}
-    </button>
+    {#if textOnly}
+      <StatusDot type="pending" />
+      <span>{$t('transactions.status.releasable')}</span>
+    {:else}
+      <button class="status-btn" on:click={release} on:click={handleReleaseClick}>
+        {$t('transactions.button.release')}
+      </button>
+    {/if}
   {:else if bridgeTxStatus === MessageStatus.RECALLED}
     <StatusDot type="error" />
     <span>{$t('transactions.status.released.name')}</span>

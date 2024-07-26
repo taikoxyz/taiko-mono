@@ -112,6 +112,7 @@ export type BridgeTransaction = {
   receipt?: TransactionReceipt;
   canonicalTokenAddress?: Address;
   claimedBy?: Address;
+  fee?: bigint;
 };
 
 interface BaseBridgeTransferOp {

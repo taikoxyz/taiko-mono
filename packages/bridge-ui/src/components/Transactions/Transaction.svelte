@@ -1,6 +1,6 @@
 <script lang="ts">
   import { t } from 'svelte-i18n';
-  import { formatEther, formatUnits } from 'viem';
+  import { formatEther, formatUnits, hexToBigInt } from 'viem';
 
   import { chainConfig } from '$chainConfig';
   import { DesktopOrLarger } from '$components/DesktopOrLarger';
@@ -15,9 +15,13 @@
   import { type NFT, TokenType } from '$libs/token';
   import { fetchNFTImageUrl } from '$libs/token/fetchNFTImageUrl';
   import { mapTransactionHashToNFT } from '$libs/token/mapTransactionHashToNFT';
+  import { formatTimestamp } from '$libs/util/formatTimestamp';
+  import { geBlockTimestamp } from '$libs/util/getBlockTimestamp';
+  import { shortenAddress } from '$libs/util/shortenAddress';
   import { truncateString } from '$libs/util/truncateString';
 
-  import ChainSymbolName from './ChainSymbolName.svelte';
+  import ChainSymbol from './ChainSymbol.svelte';
+  import DesktopDetailsDialog from './Dialogs/DesktopDetailsDialog.svelte';
   import InsufficientFunds from './InsufficientFunds.svelte';
   import MobileDetailsDialog from './MobileDetailsDialog.svelte';
   import { Status } from './Status';
@@ -30,7 +34,8 @@
   let insufficientModal = false;
   let nftInfoOpen = false;
   let isDesktopOrLarger = false;
-  let detailsOpen = false;
+  let mobileDetailsOpen = false;
+  let desktopDetailsOpen = false;
 
   export let bridgeTxStatus: Maybe<MessageStatus>;
 
@@ -44,12 +49,15 @@
 
   const openDetails = () => {
     if (!isDesktopOrLarger && !interactiveDialogsOpen) {
-      detailsOpen = true;
+      mobileDetailsOpen = true;
+    } else if (isDesktopOrLarger && !interactiveDialogsOpen) {
+      desktopDetailsOpen = true;
     }
   };
 
   const closeDetails = () => {
-    detailsOpen = false;
+    mobileDetailsOpen = false;
+    desktopDetailsOpen = false;
   };
 
   const handleInsufficientFunds = () => {
@@ -75,6 +83,7 @@
         type: item.tokenType,
       });
       token = await fetchNFTImageUrl(token);
+      await getDate();
     } catch (error) {
       console.error(error);
     }
@@ -95,10 +104,17 @@
     bridgeTxStatus = event.detail;
   };
 
+  const getDate = async () => {
+    const blockTimestamp = await geBlockTimestamp(item.srcChainId, hexToBigInt(item.blockNumber));
+    timestamp = formatTimestamp(Number(blockTimestamp));
+  };
+
   $: {
     if (item.tokenType === TokenType.ERC721 || item.tokenType === TokenType.ERC1155) {
       // for NFTs we need to fetch more information about the transaction
       analyzeTransactionInput();
+    } else {
+      getDate();
     }
   }
 
@@ -113,6 +129,8 @@
   $: releaseModalOpen = false;
 
   $: interactiveDialogsOpen = claimModalOpen || retryModalOpen || releaseModalOpen;
+
+  let timestamp: string;
 </script>
 
 {#if isNFT}
@@ -146,10 +164,10 @@
         {/if}
       </div>
       <div class="w-2/12 py-2 flex flex-row">
-        <ChainSymbolName chainId={item.srcChainId} />
+        <ChainSymbol chainId={item.srcChainId} />
       </div>
       <div class="w-2/12 py-2 flex flex-row">
-        <ChainSymbolName chainId={item.destChainId} />
+        <ChainSymbol chainId={item.destChainId} />
       </div>
       <div class="w-1/12 py-2 flex flex-col self-center">
         {itemAmountDisplay}
@@ -214,13 +232,15 @@
     {...attrs}
     class="flex text-primary-content md:h-[80px] h-[45px] w-full my-[10px] md:my-[0px]">
     {#if isDesktopOrLarger}
-      <div class="w-1/5 py-2 flex flex-row">
-        <ChainSymbolName chainId={item.srcChainId} />
+      <div class="w-1/6 py-2 flex flex-row items-center">
+        <ChainSymbol chainId={item.srcChainId} />
+        {shortenAddress(item.message?.from)}
       </div>
-      <div class="w-1/5 py-2 flex flex-row">
-        <ChainSymbolName chainId={item.destChainId} />
+      <div class="w-1/6 py-2 flex flex-row items-center">
+        <ChainSymbol chainId={item.destChainId} />
+        {shortenAddress(item.message?.to)}
       </div>
-      <div class="w-1/5 py-2 flex flex-col justify-center">
+      <div class="w-1/6 py-2 flex flex-col justify-center">
         {#if item.tokenType === TokenType.ERC20}
           {formatUnits(item.amount ? item.amount : BigInt(0), item.decimals ?? 0)}
         {:else if item.tokenType === TokenType.ETH}
@@ -250,7 +270,7 @@
       </div>
     {/if}
 
-    <div class="md:w-1/5 py-2 flex flex-col justify-center">
+    <div class="md:w-1/6 py-2 flex flex-col justify-center">
       <Status
         bridgeTx={item}
         on:transactionRemoved={handleTransactionRemoved}
@@ -259,14 +279,19 @@
         on:insufficientFunds={handleInsufficientFunds}
         on:statusChange={handleStatusChange} />
     </div>
-    <div class="hidden md:flex w-1/5 py-2 flex flex-col justify-center">
-      <a
-        class="flex justify-start py-3 link"
-        href={`${chainConfig[Number(item.srcChainId)]?.blockExplorers?.default.url}/tx/${item.srcTxHash}`}
-        target="_blank">
-        {$t('transactions.link.explorer')}
-        <Icon type="arrow-top-right" fillClass="fill-primary-link" />
-      </a>
+
+    <div class="md:w-1/6 py-2 flex flex-col justify-center">
+      {#if timestamp}
+        {timestamp}
+      {:else}
+        <Spinner size={12} />
+      {/if}
+    </div>
+
+    <div class="hidden md:flex w-1/6 py-2 flex flex-col justify-center">
+      <button class="flex justify-center py-3 link" on:click={openDetails}>
+        {$t('transactions.link.view')}
+      </button>
     </div>
   </div>
 {/if}
@@ -280,7 +305,14 @@
 <MobileDetailsDialog
   {token}
   {closeDetails}
-  {detailsOpen}
+  detailsOpen={mobileDetailsOpen}
+  selectedItem={item}
+  on:insufficientFunds={handleInsufficientFunds}
+  on:openModal={handleOpenModal} />
+
+<DesktopDetailsDialog
+  detailsOpen={desktopDetailsOpen}
+  {closeDetails}
   selectedItem={item}
   on:insufficientFunds={handleInsufficientFunds}
   on:openModal={handleOpenModal} />

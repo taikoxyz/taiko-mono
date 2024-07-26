@@ -213,14 +213,15 @@
         {#if isDesktopOrLarger}
           <div class="text-primary-content flex">
             {#if $activeBridge === BridgeTypes.FUNGIBLE}
-              <div class="w-1/5 py-2 text-secondary-content">{$t('transactions.header.from')}</div>
-              <div class="w-1/5 py-2 text-secondary-content">{$t('transactions.header.to')}</div>
-              <div class="w-1/5 py-2 text-secondary-content">{$t('transactions.header.amount')}</div>
-              <div class="w-1/5 py-2 text-secondary-content flex flex-row">
+              <div class="w-1/6 py-2 text-secondary-content">{$t('transactions.header.from')}</div>
+              <div class="w-1/6 py-2 text-secondary-content">{$t('transactions.header.to')}</div>
+              <div class="w-1/6 py-2 text-secondary-content">{$t('transactions.header.amount')}</div>
+              <div class="w-1/6 py-2 text-secondary-content flex flex-row">
                 {$t('transactions.header.status')}
                 <StatusInfoDialog />
               </div>
-              <div class="w-1/5 py-2 text-secondary-content">{$t('transactions.header.explorer')}</div>
+              <div class="w-1/6 py-2 text-secondary-content">{$t('transactions.header.date')}</div>
+              <div class="w-1/6 py-2 text-secondary-content"></div>
             {:else if $activeBridge === BridgeTypes.NFT}
               <div class="w-3/12 content-center py-2 text-secondary-content">{$t('transactions.header.item')}</div>
               <div class="w-2/12 content-center py-2 text-secondary-content">{$t('transactions.header.from')}</div>
@@ -231,7 +232,7 @@
                 <StatusInfoDialog />
               </div>
               <div class="grow py-2 text-secondary-content flex justify-center">
-                {$t('transactions.header.explorer')}
+                {$t('transactions.header.date')}
               </div>
             {/if}
           </div>
