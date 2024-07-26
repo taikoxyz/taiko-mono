@@ -182,7 +182,7 @@ library LibUtils {
     {
         (TaikoData.Block storage blk, uint64 slot) = getBlock(_state, _config, _blockId);
 
-        uint32 tid = getTransitionId(_state, blk, slot, _parentHash);
+        uint24 tid = getTransitionId(_state, blk, slot, _parentHash);
         if (tid == 0) revert L1_TRANSITION_NOT_FOUND();
 
         return _state.transitions[slot][tid];
@@ -198,7 +198,7 @@ library LibUtils {
     )
         internal
         view
-        returns (uint32 tid_)
+        returns (uint24 tid_)
     {
         if (_state.transitions[_slot][1].key == _parentHash) {
             tid_ = 1;

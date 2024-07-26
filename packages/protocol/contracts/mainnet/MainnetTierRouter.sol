@@ -10,11 +10,7 @@ contract MainnetTierRouter is ITierRouter {
     uint256 public constant ONTAKE_FORK_HEIGHT = 374_400; // = 7200 * 52
 
     /// @inheritdoc ITierRouter
-    function getProvider(uint256 _blockId) external pure returns (address) {
-        if (_blockId <= ONTAKE_FORK_HEIGHT) {
-            return 0x4cffe56C947E26D07C14020499776DB3e9AE3a23; // TierProviderV2
-        } else {
-            revert("not implemented");
-        }
+    function getProvider(uint256) external pure returns (address) {
+        return 0x4cffe56C947E26D07C14020499776DB3e9AE3a23; // TierProviderV2
     }
 }

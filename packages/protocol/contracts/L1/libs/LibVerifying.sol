@@ -16,13 +16,13 @@ library LibVerifying {
         uint64 blockId;
         uint64 slot;
         uint64 numBlocksVerified;
-        uint32 tid;
-        uint32 lastVerifiedTransitionId;
+        uint24 tid;
+        uint24 lastVerifiedTransitionId;
         uint16 tier;
         bytes32 blockHash;
         bytes32 syncStateRoot;
         uint64 syncBlockId;
-        uint32 syncTransitionId;
+        uint24 syncTransitionId;
         address prover;
         bool postFork;
         ITierRouter tierRouter;
@@ -199,7 +199,7 @@ library LibVerifying {
     {
         (TaikoData.Block storage blk,) = LibUtils.getBlock(_state, _config, _blockId);
 
-        uint32 tid = blk.verifiedTransitionId;
+        uint24 tid = blk.verifiedTransitionId;
         if (tid == 0) return address(0);
 
         return LibUtils.getTransition(_state, _config, _blockId, tid).prover;

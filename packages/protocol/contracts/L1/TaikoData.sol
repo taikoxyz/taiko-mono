@@ -37,9 +37,14 @@ library TaikoData {
         uint8 stateRootSyncInternal;
         uint64 maxAnchorHeightOffset;
         // ---------------------------------------------------------------------
-        // Group 5: Others
+        // Group 5: Previous configs in TaikoL2
         // ---------------------------------------------------------------------
+        uint8 basefeeAdjustmentQuotient;
         uint8 basefeeSharingPctg;
+        uint32 blockGasIssuance;
+        // ---------------------------------------------------------------------
+        // Group 6: Others
+        // ---------------------------------------------------------------------
         uint64 ontakeForkHeight;
     }
 
@@ -119,8 +124,9 @@ library TaikoData {
         uint32 blobTxListOffset;
         uint32 blobTxListLength;
         uint8 blobIndex;
-        // The percentage of base fee sent to block.coinbase on L2.
+        uint8 basefeeAdjustmentQuotient;
         uint8 basefeeSharingPctg;
+        uint32 blockGasIssuance;
     }
 
     /// @dev Struct representing transition to be proven.
@@ -161,11 +167,12 @@ library TaikoData {
         // After the fork, this is the L1 block number input for the anchor transaction.
         // In a later fork, we an rename this field to `anchorBlockId`.
         uint64 proposedIn;
-        uint32 nextTransitionId;
+        uint24 nextTransitionId;
+        bool livenessBondReturned;
         // The ID of the transaction that is used to verify this block. However, if
         // this block is not verified as the last block in a batch, verifiedTransitionId
         // will remain zero.
-        uint32 verifiedTransitionId;
+        uint24 verifiedTransitionId;
     }
 
     /// @dev Struct representing an Ethereum deposit.
@@ -204,7 +211,7 @@ library TaikoData {
         // Ring buffer for proposed blocks and a some recent verified blocks.
         mapping(uint64 blockId_mod_blockRingBufferSize => Block blk) blocks;
         // Indexing to transition ids (ring buffer not possible)
-        mapping(uint64 blockId => mapping(bytes32 parentHash => uint32 transitionId)) transitionIds;
+        mapping(uint64 blockId => mapping(bytes32 parentHash => uint24 transitionId)) transitionIds;
         // Ring buffer for transitions
         mapping(
             uint64 blockId_mod_blockRingBufferSize
