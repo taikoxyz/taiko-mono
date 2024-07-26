@@ -554,7 +554,11 @@ func (s *Syncer) retrievePastBlock(
 	if err != nil {
 		return nil, err
 	}
-	ts, err := s.rpc.GetTransition(ctx, new(big.Int).SetUint64(blockInfo.BlockId), blockInfo.VerifiedTransitionId)
+	ts, err := s.rpc.GetTransition(
+		ctx,
+		new(big.Int).SetUint64(blockInfo.BlockId),
+		uint32(blockInfo.VerifiedTransitionId.Uint64()),
+	)
 	if err != nil {
 		return nil, err
 	}

@@ -256,7 +256,9 @@ func (s *ProverTestSuite) TestContestWrongBlocks() {
 	var event *bindings.TaikoL1ClientTransitionProvedV2
 	select {
 	case e := <-sink:
-		event = encoding.TransitionProvedEventToV2(e, 0)
+		blockInfo, err := s.p.rpc.TaikoL1.GetBlock(nil, e.BlockId.Uint64())
+		s.Nil(err)
+		event = encoding.TransitionProvedEventToV2(e, blockInfo.ProposedIn)
 	case e := <-sink2:
 		event = e
 	}
@@ -295,7 +297,9 @@ func (s *ProverTestSuite) TestContestWrongBlocks() {
 	var contestedEvent *bindings.TaikoL1ClientTransitionContestedV2
 	select {
 	case e := <-contestedSink:
-		contestedEvent = encoding.TransitionContestedEventToV2(e, 0)
+		blockInfo, err := s.p.rpc.TaikoL1.GetBlock(nil, e.BlockId.Uint64())
+		s.Nil(err)
+		contestedEvent = encoding.TransitionContestedEventToV2(e, blockInfo.ProposedIn)
 	case e := <-contestedSink2:
 		contestedEvent = e
 	}
