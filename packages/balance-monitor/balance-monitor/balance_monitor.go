@@ -132,8 +132,8 @@ func (b *BalanceMonitor) checkErc20Balance(ctx context.Context, client ethClient
 		// If not in the cache, fetch the decimals from the contract
 		tokenDecimals, err = b.getErc20Decimals(ctx, client, tokenAddress)
 		if err != nil {
-			slog.Info(fmt.Sprintf("Failed to get %s ERC-20 decimals for token", clientLabel), "tokenAddress", tokenAddress.Hex(), "error", err)
-			return
+			slog.Warn(fmt.Sprintf("Failed to get %s ERC-20 decimals for token. Use default value: 18", clientLabel), "tokenAddress", tokenAddress.Hex(), "error", err)
+			tokenDecimals = 18
 		}
 		// Cache the fetched decimals
 		b.erc20DecimalsCache[tokenAddress] = tokenDecimals
@@ -144,7 +144,7 @@ func (b *BalanceMonitor) checkErc20Balance(ctx context.Context, client ethClient
 	slog.Info(fmt.Sprintf("%s ERC-20 Balance", clientLabel), "tokenAddress", tokenAddress.Hex(), "address", holderAddress.Hex(), "balance", tokenBalanceFloat)
 }
 
-const erc20ABI = `[{"constant":true,"inputs":[{"name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"balance","type":"uint256"}],"type":"function"},{"constant":true,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint8"}],"type":"function"}]`
+const erc20ABI = `[{"constant":true,"inputs":[{"name":"_user","type":"address"}],"name":"bondBalanceOf","outputs":[{"name":"balance","type":"uint256"}],"type":"function"},{"constant":true,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint8"}],"type":"function"}]`
 
 type ERC20 interface {
 	BalanceOf(opts *bind.CallOpts, account common.Address) (*big.Int, error)
@@ -170,7 +170,7 @@ func (b *BalanceMonitor) getErc20Balance(ctx context.Context, client ethClient, 
 	var result []interface{}
 	err = tokenContract.Call(&bind.CallOpts{
 		Context: ctx,
-	}, &result, "balanceOf", holderAddress)
+	}, &result, "bondBalanceOf", holderAddress)
 
 	if err != nil {
 		return nil, err
@@ -182,7 +182,7 @@ func (b *BalanceMonitor) getErc20Balance(ctx context.Context, client ethClient, 
 
 	balance, ok := result[0].(*big.Int)
 	if !ok {
-		return nil, fmt.Errorf("unexpected type for balanceOf result")
+		return nil, fmt.Errorf("unexpected type for bondBalanceOf result")
 	}
 
 	return balance, nil
