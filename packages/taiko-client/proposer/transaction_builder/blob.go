@@ -124,10 +124,6 @@ func (b *BlobTransactionBuilder) Build(
 			return nil, err
 		}
 	} else {
-		l1Head, err := b.rpc.L1.HeaderByNumber(ctx, nil)
-		if err != nil {
-			return nil, err
-		}
 		// ABI encode the TaikoL1.proposeBlockV2 / ProverSet.proposeBlockV2 parameters.
 		method = "proposeBlockV2"
 
@@ -136,7 +132,7 @@ func (b *BlobTransactionBuilder) Build(
 			ExtraData:      rpc.StringToBytes32(b.extraData),
 			ParentMetaHash: parentMetaHash,
 			AnchorBlockId:  0,
-			Timestamp:      l1Head.Time,
+			Timestamp:      0,
 		}); err != nil {
 			return nil, err
 		}
