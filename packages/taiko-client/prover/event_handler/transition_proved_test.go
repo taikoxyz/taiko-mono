@@ -118,8 +118,9 @@ func (s *EventHandlerTestSuite) TestTransitionProvedHandle() {
 	)
 	m := s.ProposeAndInsertValidBlock(s.proposer, s.blobSyncer)
 	err := handler.Handle(context.Background(), &bindings.TaikoL1ClientTransitionProvedV2{
-		BlockId: m.GetBlockID(),
-		Tier:    m.GetMinTier(),
+		BlockId:    m.GetBlockID(),
+		Tier:       m.GetMinTier(),
+		ProposedIn: m.GetRawBlockHeight().Uint64(),
 	})
 	s.Nil(err)
 }
