@@ -44,7 +44,7 @@ input[type='number'] {
 .modal-box {
   @apply z-40;
   display: inline-flex;
-  padding: 20px 24px 45px 24px;
+  padding: 20px 24px 25px 24px;
   flex-direction: column;
   align-items: center;
 }

@@ -61,9 +61,11 @@
   let claiming: boolean;
   let claimingDone = false;
   let ClaimComponent: Claim;
+  let PreCheckComponent: ClaimPreCheck;
   let txHash: Hash;
   let hideContinueButton: boolean;
   let isDesktopOrLarger = false;
+  let correctChain = false;
 
   const handleAccountChange = () => {
     reset();
@@ -122,9 +124,7 @@
   };
 
   const handleClaimError = (event: CustomEvent<{ error: unknown; action: ClaimAction }>) => {
-    //TODO: update this to display info alongside toasts
     const err = event.detail.error;
-    // canForceTransaction = true;
     switch (true) {
       case err instanceof NotConnectedError:
         warningToast({ title: $t('messages.account.required') });
@@ -179,6 +179,12 @@
   $: if (activeStep !== previousStep) {
     previousStep = activeStep;
   }
+
+  $: dialogOpen && PreCheckComponent?.checkConditions();
+
+  $: if ($connectedSourceChain && bridgeTx) {
+    correctChain = Number(bridgeTx.destChainId) === $connectedSourceChain.id;
+  }
 </script>
 
 <dialog
@@ -186,12 +192,12 @@
   class="modal {isDesktopOrLarger ? '' : 'modal-bottom'}"
   class:modal-open={dialogOpen}
   use:closeOnEscapeOrOutsideClick={{ enabled: dialogOpen, callback: closeDialog, uuid: dialogId }}>
-  <div class="modal-box relative w-full bg-neutral-background absolute md:min-h-[600px]">
+  <div class="modal-box relative w-full bg-neutral-background absolute h-[600px]">
     <div class="w-full f-between-center">
       <CloseButton onClick={closeDialog} />
       <h3 class="title-body-bold">{$t('transactions.claim.steps.title')}</h3>
     </div>
-    <div class="h-sep mx-[-24px] mt-[20px]" />
+    <div class="h-sep mx-[-24px] mt-[20px] mb-0" />
     <div class="w-full h-full f-col">
       <DialogStepper>
         <DialogStep
@@ -207,32 +213,37 @@
           currentStepIndex={activeStep}
           isActive={activeStep === ClaimSteps.CONFIRM}>{$t('bridge.step.confirm.title')}</DialogStep>
       </DialogStepper>
-      {#if activeStep === ClaimSteps.CHECK}
-        <ClaimPreCheck tx={bridgeTx} bind:canContinue bind:hideContinueButton on:closeDialog={closeDialog} />
-      {:else if activeStep === ClaimSteps.REVIEW}
-        <ReviewStep tx={bridgeTx} {nft} />
-      {:else if activeStep === ClaimSteps.CONFIRM}
-        <ClaimConfirmStep
-          {bridgeTx}
-          bind:txHash
-          on:claim={handleClaimClick}
-          bind:claiming
-          bind:canClaim={canContinue}
-          bind:claimingDone />
-      {/if}
-      <div class="f-col text-left self-end h-full w-full">
-        <div class="f-col gap-4 mt-[20px]">
-          <ClaimStepNavigation
-            bind:activeStep
+      <div class="f-col items-stretch h-full grow">
+        {#if activeStep === ClaimSteps.CHECK}
+          <ClaimPreCheck
+            tx={bridgeTx}
             bind:canContinue
-            bind:loading
-            bind:claiming
-            {hideContinueButton}
-            on:closeDialog={closeDialog}
-            bind:claimingDone />
-        </div>
+            bind:hideContinueButton
+            bind:correctChain
+            on:closeDialog={closeDialog} />
+        {:else if activeStep === ClaimSteps.REVIEW}
+          <ReviewStep tx={bridgeTx} {nft} />
+        {:else if activeStep === ClaimSteps.CONFIRM}
+          <ClaimConfirmStep {bridgeTx} bind:txHash bind:claiming bind:claimingDone />
+        {/if}
       </div>
     </div>
+
+    {#if correctChain}
+      <div class="h-sep mx-[-24px]" />
+      <div class="text-left self-end w-full">
+        <ClaimStepNavigation
+          bind:activeStep
+          bind:canContinue
+          bind:loading
+          bind:claiming
+          bind:canClaim={canContinue}
+          {hideContinueButton}
+          on:closeDialog={closeDialog}
+          on:claim={handleClaimClick}
+          bind:claimingDone />
+      </div>
+    {/if}
   </div>
   <button class="overlay-backdrop" data-modal-uuid={dialogId} />
 </dialog>

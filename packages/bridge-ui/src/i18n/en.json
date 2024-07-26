@@ -226,7 +226,7 @@
     "add": "Add",
     "address": "Address",
     "amount": "Amount",
-    "back": "Go back",
+    "back": "Back",
     "balance": "Balance",
     "bridged_address": "Bridged address",
     "cancel": "Cancel",
@@ -247,6 +247,7 @@
     "loading": "Loading",
     "name": "Name",
     "not_available_short": "N/A",
+    "note": "Note",
     "ok": "Okay",
     "owner": {
       "destination": "Destination owner"
@@ -510,9 +511,9 @@
     "claim": {
       "steps": {
         "confirm": {
-          "claim_button": "Claim now",
+          "claim_button": "Claim",
           "claim_description": "You can now claim your assets",
-          "proceed": "Proceed to claim"
+          "proceed": "Ready to claim?"
         },
         "pre_check": {
           "chain_check": "Connected to the correct chain",

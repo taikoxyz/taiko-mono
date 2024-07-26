@@ -21,6 +21,7 @@
   export let tx: BridgeTransaction;
   export let canContinue = false;
   export let hideContinueButton = false;
+  export let correctChain: boolean;
 
   export const closeDialog = () => {
     dispatch('closeDialog');
@@ -54,8 +55,15 @@
     return false;
   };
 
-  const checkConditions = async () => {
+  const checkCorrectChain = (chainId: number) => {
+    const isCorrect = chainId === $connectedSourceChain.id;
+    isCorrectChain = isCorrect;
+    correctChain = isCorrect;
+  };
+
+  export const checkConditions = async () => {
     checkingPrerequisites = true;
+    checkCorrectChain(Number(tx.destChainId));
 
     const results = await Promise.allSettled([
       checkEnoughBalance($account.address, Number(tx.destChainId)),
@@ -82,7 +90,9 @@
 
   $: txDestChainName = getChainName(Number(tx.destChainId));
 
-  $: correctChain = Number(tx.destChainId) === $connectedSourceChain.id;
+  $: isCorrectChain = Number(tx.destChainId) === $connectedSourceChain.id;
+
+  $: switchingNetwork && checkConditions();
 
   $: successFullPreChecks = correctChain && hasEnoughEth && hasEnoughQuota;
 
@@ -120,7 +130,7 @@
   });
 </script>
 
-<div class="space-y-[25px] mt-[20px]">
+<div class="space-y-[25px] mt-[20px] f-col grow">
   <div class="flex justify-between mb-2 items-center">
     <div class="font-bold text-primary-content">{$t('transactions.claim.steps.pre_check.title')}</div>
   </div>
@@ -157,7 +167,7 @@
           </div>
           {#if checkingPrerequisites}
             <Spinner />
-          {:else if correctChain}
+          {:else if isCorrectChain}
             <Icon type="check-circle" fillClass="fill-positive-sentiment" />
           {:else}
             <Icon type="x-close-circle" fillClass="fill-negative-sentiment" />
@@ -198,21 +208,24 @@
           </div>
         {/if}
         {#if hasPaidProcessingFee}
-          <div class="h-sep" />
-          <div class="f-between-center">
+          <div class="f-between-center mt-[30px]">
             {#if checkingPrerequisites}
               <Spinner />
             {:else}
-              <Alert type="info">{$t('transactions.claim.steps.pre_check.tooltip.processing_fee.description')}</Alert>
+              <div class="text-left">
+                <span class="text-primary-link">{$t('common.note')}:</span>
+                <span class="text-secondary-content"
+                  >{$t('transactions.claim.steps.pre_check.tooltip.processing_fee.description')}</span>
+              </div>
             {/if}
           </div>
         {/if}
       </div>
     {/if}
   </div>
-  {#if !canContinue && !correctChain && !onlyDestOwnerCanClaimWarning}
-    <div class="h-sep" />
-    <div class="f-col space-y-[16px]">
+  {#if !canContinue && !isCorrectChain && !onlyDestOwnerCanClaimWarning && !checkingPrerequisites}
+    <div class="h-sep mx-[-24px]" />
+    <div class="f-col space-y-[16px] w-full">
       <ActionButton
         onPopup
         priority="primary"
@@ -222,7 +235,7 @@
           switchChains();
         }}>{$t('common.switch_to')} {txDestChainName}</ActionButton>
     </div>
-  {:else if !canContinue}
+  {:else if !canContinue && !checkingPrerequisites}
     <div class="h-sep" />
     <div class="f-col space-y-[16px]">
       <ActionButton
