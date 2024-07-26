@@ -10,8 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 )
 
 func TestGuardianProducerRequestProof(t *testing.T) {
@@ -40,7 +40,7 @@ func TestGuardianProducerRequestProof(t *testing.T) {
 		context.Background(),
 		&ProofRequestOptions{},
 		blockID,
-		&bindings.TaikoDataBlockMetadata{},
+		&metadata.TaikoDataBlockMetadataLegacy{},
 		header,
 	)
 	require.Nil(t, err)
@@ -77,7 +77,7 @@ func TestGuardianProducerRequestProofReturnLivenessBond(t *testing.T) {
 		context.Background(),
 		&ProofRequestOptions{},
 		blockID,
-		&bindings.TaikoDataBlockMetadata{},
+		&metadata.TaikoDataBlockMetadataLegacy{},
 		header,
 	)
 	require.Nil(t, err)
@@ -115,7 +115,7 @@ func TestMinorityRequestProof(t *testing.T) {
 		context.Background(),
 		&ProofRequestOptions{},
 		blockID,
-		&bindings.TaikoDataBlockMetadata{},
+		&metadata.TaikoDataBlockMetadataLegacy{},
 		header,
 	)
 	require.Nil(t, err)
@@ -152,7 +152,7 @@ func TestRequestMinorityProofReturnLivenessBond(t *testing.T) {
 		context.Background(),
 		&ProofRequestOptions{},
 		blockID,
-		&bindings.TaikoDataBlockMetadata{},
+		&metadata.TaikoDataBlockMetadataLegacy{},
 		header,
 	)
 	require.Nil(t, err)

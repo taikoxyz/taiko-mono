@@ -18,6 +18,7 @@ import (
 	"github.com/phayes/freeport"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
@@ -36,19 +37,28 @@ func (s *ClientTestSuite) proposeEmptyBlockOp(ctx context.Context, proposer Prop
 func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 	proposer Proposer,
 	blobSyncer BlobSyncer,
-) []*bindings.TaikoL1ClientBlockProposed {
-	var events []*bindings.TaikoL1ClientBlockProposed
+) []metadata.TaikoBlockMetaData {
+	var metadataList []metadata.TaikoBlockMetaData
 
 	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
-	sink := make(chan *bindings.TaikoL1ClientBlockProposed)
+	sink := make(chan *bindings.LibProposingBlockProposed)
 
-	sub, err := s.RPCClient.TaikoL1.WatchBlockProposed(nil, sink, nil, nil)
+	sub, err := s.RPCClient.LibProposing.WatchBlockProposed(nil, sink, nil, nil)
 	s.Nil(err)
 	defer func() {
 		sub.Unsubscribe()
 		close(sink)
+	}()
+
+	sink2 := make(chan *bindings.LibProposingBlockProposedV2)
+
+	sub2, err := s.RPCClient.LibProposing.WatchBlockProposedV2(nil, sink2, nil)
+	s.Nil(err)
+	defer func() {
+		sub2.Unsubscribe()
+		close(sink2)
 	}()
 
 	// RLP encoded empty list
@@ -63,9 +73,19 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 	// Random bytes txList
 	s.proposeEmptyBlockOp(context.Background(), proposer)
 
-	events = append(events, []*bindings.TaikoL1ClientBlockProposed{<-sink, <-sink, <-sink}...)
+	var txHash common.Hash
+	for i := 0; i < 3; i++ {
+		select {
+		case event := <-sink:
+			metadataList = append(metadataList, metadata.NewTaikoDataBlockMetadataLegacy(event))
+			txHash = event.Raw.TxHash
+		case event := <-sink2:
+			metadataList = append(metadataList, metadata.NewTaikoDataBlockMetadataOntake(event))
+			txHash = event.Raw.TxHash
+		}
+	}
 
-	_, isPending, err := s.RPCClient.L1.TransactionByHash(context.Background(), events[len(events)-1].Raw.TxHash)
+	_, isPending, err := s.RPCClient.L1.TransactionByHash(context.Background(), txHash)
 	s.Nil(err)
 	s.False(isPending)
 
@@ -82,7 +102,7 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 
 	s.Nil(s.RPCClient.WaitTillL2ExecutionEngineSynced(context.Background()))
 
-	return events
+	return metadataList
 }
 
 // ProposeAndInsertValidBlock proposes an valid tx list and then insert it
@@ -90,7 +110,7 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 	proposer Proposer,
 	blobSyncer BlobSyncer,
-) *bindings.TaikoL1ClientBlockProposed {
+) metadata.TaikoBlockMetaData {
 	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
@@ -98,13 +118,21 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 	s.Nil(err)
 
 	// Propose txs in L2 execution engine's mempool
-	sink := make(chan *bindings.TaikoL1ClientBlockProposed)
+	sink := make(chan *bindings.LibProposingBlockProposed)
 
-	sub, err := s.RPCClient.TaikoL1.WatchBlockProposed(nil, sink, nil, nil)
+	sub, err := s.RPCClient.LibProposing.WatchBlockProposed(nil, sink, nil, nil)
 	s.Nil(err)
 	defer func() {
 		sub.Unsubscribe()
 		close(sink)
+	}()
+
+	sink2 := make(chan *bindings.LibProposingBlockProposedV2)
+	sub2, err := s.RPCClient.LibProposing.WatchBlockProposedV2(nil, sink2, nil)
+	s.Nil(err)
+	defer func() {
+		sub2.Unsubscribe()
+		close(sink2)
 	}()
 
 	baseFeeInfo, err := s.RPCClient.TaikoL2.GetBasefee(nil, l1Head.Number.Uint64()+1, uint32(l2Head.GasUsed))
@@ -127,13 +155,24 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 
 	s.Nil(proposer.ProposeOp(context.Background()))
 
-	event := <-sink
+	var (
+		txHash common.Hash
+		meta   metadata.TaikoBlockMetaData
+	)
+	select {
+	case event := <-sink:
+		txHash = event.Raw.TxHash
+		meta = metadata.NewTaikoDataBlockMetadataLegacy(event)
+	case event := <-sink2:
+		txHash = event.Raw.TxHash
+		meta = metadata.NewTaikoDataBlockMetadataOntake(event)
+	}
 
-	_, isPending, err := s.RPCClient.L1.TransactionByHash(context.Background(), event.Raw.TxHash)
+	_, isPending, err := s.RPCClient.L1.TransactionByHash(context.Background(), txHash)
 	s.Nil(err)
 	s.False(isPending)
 
-	receipt, err := s.RPCClient.L1.TransactionReceipt(context.Background(), event.Raw.TxHash)
+	receipt, err := s.RPCClient.L1.TransactionReceipt(context.Background(), txHash)
 	s.Nil(err)
 	s.Equal(types.ReceiptStatusSuccessful, receipt.Status)
 
@@ -153,12 +192,12 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 	_, err = s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
-	return event
+	return meta
 }
 
 func (s *ClientTestSuite) ProposeValidBlock(
 	proposer Proposer,
-) *bindings.TaikoL1ClientBlockProposed {
+) *bindings.LibProposingBlockProposed {
 	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
@@ -166,9 +205,9 @@ func (s *ClientTestSuite) ProposeValidBlock(
 	s.Nil(err)
 
 	// Propose txs in L2 execution engine's mempool
-	sink := make(chan *bindings.TaikoL1ClientBlockProposed)
+	sink := make(chan *bindings.LibProposingBlockProposed)
 
-	sub, err := s.RPCClient.TaikoL1.WatchBlockProposed(nil, sink, nil, nil)
+	sub, err := s.RPCClient.LibProposing.WatchBlockProposed(nil, sink, nil, nil)
 	s.Nil(err)
 	defer func() {
 		sub.Unsubscribe()

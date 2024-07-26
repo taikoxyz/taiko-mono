@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 )
 
 // GuardianProofProducer always returns an optimistic (dummy) proof.
@@ -34,13 +34,13 @@ func (g *GuardianProofProducer) RequestProof(
 	_ context.Context,
 	opts *ProofRequestOptions,
 	blockID *big.Int,
-	meta *bindings.TaikoDataBlockMetadata,
+	meta metadata.TaikoBlockMetaData,
 	header *types.Header,
 ) (*ProofWithHeader, error) {
 	log.Info(
 		"Request guardian proof",
 		"blockID", blockID,
-		"coinbase", meta.Coinbase,
+		"coinbase", meta.GetCoinbase(),
 		"height", header.Number,
 		"hash", header.Hash(),
 	)

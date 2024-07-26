@@ -5,8 +5,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 )
 
@@ -17,7 +17,7 @@ func (s *ProofSubmitterTestSuite) TestSubmitContestNoTransition() {
 			common.Big256,
 			common.Big1,
 			testutils.RandomHash(),
-			&bindings.TaikoDataBlockMetadata{},
+			&metadata.TaikoDataBlockMetadataLegacy{},
 			encoding.TierOptimisticID,
 		),
 	)
