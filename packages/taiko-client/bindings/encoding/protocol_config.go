@@ -57,11 +57,11 @@ var (
 // GetProtocolConfig returns the protocol config for the given chain ID.
 func GetProtocolConfig(chainID uint64) *bindings.TaikoDataConfig {
 	switch chainID {
-	case params.TaikoInternalL2ANetworkID.Uint64():
-		return InternlDevnetProtocolConfig
 	case params.HeklaNetworkID.Uint64():
 		return HeklaProtocolConfig
-	default:
+	case params.TaikoMainnetNetworkID.Uint64():
 		return MainnetProtocolConfig
+	default:
+		return InternlDevnetProtocolConfig
 	}
 }
