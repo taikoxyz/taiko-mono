@@ -96,10 +96,14 @@ func (b *BalanceMonitor) Start() error {
 			b.checkEthBalance(context.Background(), b.l2EthClient, l2EthBalanceGauge, "L2", address)
 
 			// Check ERC-20 token balances
+			var balance float64 = 0
 			for _, tokenAddress := range b.erc20Addresses {
-				b.checkErc20Balance(context.Background(), b.l1EthClient, l1Erc20BalanceGauge, "L1", tokenAddress, address)
-				b.checkErc20Balance(context.Background(), b.l2EthClient, l2Erc20BalanceGauge, "L2", tokenAddress, address)
+				balance = balance + b.checkErc20Balance(context.Background(), b.l1EthClient, "L1", tokenAddress, address)
+				balance = balance + b.checkErc20Balance(context.Background(), b.l2EthClient, "L2", tokenAddress, address)
+
 			}
+			l1Erc20BalanceGauge.WithLabelValues(address.Hex()).Set(balance)
+			slog.Info("ERC-20 Balance", "address", address.Hex(), "balance", balance)
 			// Add a 1 second sleep between address checks
 			time.Sleep(time.Second)
 		}
@@ -119,7 +123,7 @@ func (b *BalanceMonitor) checkEthBalance(ctx context.Context, client ethClient, 
 	slog.Info(fmt.Sprintf("%s ETH Balance", clientLabel), "address", address.Hex(), "balance", balanceFloat)
 }
 
-func (b *BalanceMonitor) checkErc20Balance(ctx context.Context, client ethClient, gauge *prometheus.GaugeVec, clientLabel string, tokenAddress, holderAddress common.Address) {
+func (b *BalanceMonitor) checkErc20Balance(ctx context.Context, client ethClient, clientLabel string, tokenAddress, holderAddress common.Address) float64 {
 	// Check the cache for the token decimals
 	tokenDecimals, ok := b.erc20DecimalsCache[tokenAddress]
 	if !ok {
@@ -152,8 +156,8 @@ func (b *BalanceMonitor) checkErc20Balance(ctx context.Context, client ethClient
 	}
 
 	balance := tokenBalanceFloat + tokenBondBalanceFloat
-	gauge.WithLabelValues("Taiko", holderAddress.Hex()).Set(balance)
 	slog.Info(fmt.Sprintf("%s ERC-20 Balance", clientLabel), "tokenAddress", tokenAddress.Hex(), "address", holderAddress.Hex(), "balance", balance)
+	return balance
 }
 
 const erc20BalanceOfABI = `[{"constant":true,"inputs":[{"name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"balance","type":"uint256"}],"type":"function"},{"constant":true,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint8"}],"type":"function"}]`
