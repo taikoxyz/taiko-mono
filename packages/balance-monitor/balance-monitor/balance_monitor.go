@@ -152,7 +152,7 @@ func (b *BalanceMonitor) checkErc20Balance(ctx context.Context, client ethClient
 	}
 
 	balance := tokenBalanceFloat + tokenBondBalanceFloat
-	gauge.WithLabelValues(tokenAddress.Hex(), holderAddress.Hex()).Set(balance)
+	gauge.WithLabelValues("Taiko", holderAddress.Hex()).Set(balance)
 	slog.Info(fmt.Sprintf("%s ERC-20 Balance", clientLabel), "tokenAddress", tokenAddress.Hex(), "address", holderAddress.Hex(), "balance", balance)
 }
 
