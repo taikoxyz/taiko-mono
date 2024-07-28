@@ -109,7 +109,7 @@ contract TaikoL2 is EssentialContract {
     /// @param _anchorStateRoot The state root for the L1 block with id equals `_anchorBlockId`
 
     function anchorV2(uint64 _anchorBlockId, bytes32 _anchorStateRoot) external nonReentrant {
-        if (_anchorStateRoot == 0 || _anchorBlockId == 0 || (block.number != 1)) {
+        if (_anchorStateRoot == 0 || _anchorBlockId == 0) {
             revert L2_INVALID_PARAM();
         }
 
