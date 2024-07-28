@@ -6,8 +6,6 @@ import "../TaikoTest.sol";
 contract TestTaikoL2 is TaikoTest {
     using SafeCast for uint256;
 
-    // Initial salt for semi-random generation
-    uint256 salt = 2_195_684_615_435_261_315_311;
     // same as `block_gas_limit` in foundry.toml
     uint64 public constant L1_CHAIN_ID = 12_345;
 
