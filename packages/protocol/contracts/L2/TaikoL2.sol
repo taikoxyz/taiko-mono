@@ -259,6 +259,7 @@ contract TaikoL2 is EssentialContract {
         bytes32 _parentHash = blockhash(parentId);
         l2Hashes[parentId] = _parentHash;
         publicInputHash = publicInputHashNew;
+
         if (block.number < ONTAKE_FORK_HEIGHT) {
             gasExcess = _gasExcess;
             emit Anchored(_parentHash, _gasExcess);
