@@ -35,7 +35,7 @@
 | __gap           | uint256[49]                 | 202  | 0      | 1568  | contracts/L2/TaikoL2.sol:TaikoL2 |
 | l2Hashes        | mapping(uint256 => bytes32) | 251  | 0      | 32    | contracts/L2/TaikoL2.sol:TaikoL2 |
 | publicInputHash | bytes32                     | 252  | 0      | 32    | contracts/L2/TaikoL2.sol:TaikoL2 |
-| gasExcess       | uint64                      | 253  | 0      | 8     | contracts/L2/TaikoL2.sol:TaikoL2 |
+| __deprecated3   | uint64                      | 253  | 0      | 8     | contracts/L2/TaikoL2.sol:TaikoL2 |
 | lastSyncedBlock | uint64                      | 253  | 8      | 8     | contracts/L2/TaikoL2.sol:TaikoL2 |
 | __deprecated1   | uint64                      | 253  | 16     | 8     | contracts/L2/TaikoL2.sol:TaikoL2 |
 | __deprecated2   | uint64                      | 253  | 24     | 8     | contracts/L2/TaikoL2.sol:TaikoL2 |
