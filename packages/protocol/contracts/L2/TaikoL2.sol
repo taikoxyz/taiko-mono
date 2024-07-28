@@ -121,33 +121,19 @@ contract TaikoL2 is EssentialContract {
         nonReentrant
     {
         if (block.number >= ONTAKE_FORK_HEIGHT) revert L2_FORK_ERROR();
-        _anchor(
-            _l1BlockId,
-            _l1StateRoot,
-            _parentGasUsed,
-            0, // not used
-            0 // not used
-        );
+        _anchor(_l1BlockId, _l1StateRoot, _parentGasUsed);
     }
 
     function anchorV2(
         uint64 _anchorBlockId,
         bytes32 _anchorStateRoot,
-        uint32 _parentGasUsed,
-        uint32 _blockGasIssuance,
-        uint8 _basefeeAdjustmentQuotient
+        uint32 _parentGasUsed
     )
         external
         nonReentrant
     {
         if (block.number < ONTAKE_FORK_HEIGHT) revert L2_FORK_ERROR();
-        _anchor(
-            _anchorBlockId,
-            _anchorStateRoot,
-            _parentGasUsed,
-            _blockGasIssuance,
-            _basefeeAdjustmentQuotient
-        );
+        _anchor(_anchorBlockId, _anchorStateRoot, _parentGasUsed);
     }
 
     /// @notice Withdraw token or Ether from this address
@@ -172,8 +158,7 @@ contract TaikoL2 is EssentialContract {
 
     /// @notice Gets the basefee and gas excess using EIP-1559 configuration for
     /// the given parameters.
-    /// @dev This function will deprecate after Ontake fork, node/client shall use calculateBaseFee
-    /// instead for base fee prediction.
+    /// @dev This function will deprecate after Ontake fork.
     /// @param _anchorBlockId The synced L1 height in the next Taiko block
     /// @param _parentGasUsed Gas used in the parent block.
     /// @return basefee_ The calculated EIP-1559 base fee per gas.
@@ -220,35 +205,10 @@ contract TaikoL2 is EssentialContract {
         return false;
     }
 
-    /// @notice Calculates the basefee and the new gas excess value based on parent gas used and gas
-    /// excess.
-    /// @param _blockGasIssuance The L2 block's gas issuance.
-    /// @param _adjustmentQuotient The gas adjustment quotient.
-    /// @param _gasExcess The current gas excess value.
-    /// @param _parentGasUsed Total gas used by the parent block.
-    /// @return basefee_ Next block's base fee.
-    /// @return gasExcess_ The new gas excess value.
-    function calculateBaseFee(
-        uint32 _blockGasIssuance,
-        uint8 _adjustmentQuotient,
-        uint64 _gasExcess,
-        uint32 _parentGasUsed
-    )
-        public
-        pure
-        returns (uint256 basefee_, uint64 gasExcess_)
-    {
-        return Lib1559Math.calc1559BaseFee(
-            _blockGasIssuance, _adjustmentQuotient, _gasExcess, _blockGasIssuance, _parentGasUsed
-        );
-    }
-
     function _anchor(
         uint64 _anchorBlockId,
         bytes32 _anchorStateRoot,
-        uint32 _parentGasUsed,
-        uint32 _blockGasIssuance, // only used by ontake
-        uint8 _basefeeAdjustmentQuotient // only used by ontake
+        uint32 _parentGasUsed
     )
         private
     {
@@ -273,12 +233,15 @@ contract TaikoL2 is EssentialContract {
         }
 
         // Verify the base fee per gas is correct
-        (uint256 _basefee, uint64 _gasExcess) = block.number < ONTAKE_FORK_HEIGHT
-            ? getBasefee(_anchorBlockId, _parentGasUsed)
-            : calculateBaseFee(_blockGasIssuance, _basefeeAdjustmentQuotient, gasExcess, _parentGasUsed);
 
-        if (!skipFeeCheck() && block.basefee != _basefee) {
-            revert L2_BASEFEE_MISMATCH();
+        uint64 _gasExcess;
+        if (block.number < ONTAKE_FORK_HEIGHT) {
+            uint256 _basefee;
+            (_basefee, _gasExcess) = getBasefee(_anchorBlockId, _parentGasUsed);
+
+            if (!skipFeeCheck() && block.basefee != _basefee) {
+                revert L2_BASEFEE_MISMATCH();
+            }
         }
 
         if (_anchorBlockId > lastSyncedBlock) {
@@ -295,7 +258,9 @@ contract TaikoL2 is EssentialContract {
         bytes32 _parentHash = blockhash(parentId);
         l2Hashes[parentId] = _parentHash;
         publicInputHash = publicInputHashNew;
-        gasExcess = _gasExcess;
+        if (block.number < ONTAKE_FORK_HEIGHT) {
+            gasExcess = _gasExcess;
+        }
 
         emit Anchored(_parentHash, _gasExcess);
     }
