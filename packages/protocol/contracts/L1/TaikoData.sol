@@ -39,7 +39,6 @@ library TaikoData {
         // ---------------------------------------------------------------------
         // Group 5: Previous configs in TaikoL2
         // ---------------------------------------------------------------------
-        uint8 basefeeAdjustmentQuotient;
         uint8 basefeeSharingPctg;
         uint32 blockGasIssuance;
         // ---------------------------------------------------------------------
@@ -124,7 +123,6 @@ library TaikoData {
         uint32 blobTxListOffset;
         uint32 blobTxListLength;
         uint8 blobIndex;
-        uint8 basefeeAdjustmentQuotient;
         uint8 basefeeSharingPctg;
         uint32 blockGasIssuance;
     }
