@@ -3,32 +3,16 @@ pragma solidity 0.8.24;
 
 import "../TaikoTest.sol";
 
-contract TestL2ForTest is TaikoL2 {
-    function setGasExcess(uint64 _newGasExcess) external virtual onlyOwner {
-        gasExcess = _newGasExcess;
-    }
-}
-
-contract SkipBasefeeCheckL2 is TestL2ForTest {
-    function skipFeeCheck() internal pure override returns (bool) {
-        return true;
-    }
-}
-
 contract TestTaikoL2 is TaikoTest {
     using SafeCast for uint256;
 
     // Initial salt for semi-random generation
     uint256 salt = 2_195_684_615_435_261_315_311;
     // same as `block_gas_limit` in foundry.toml
-    uint32 public constant BLOCK_GAS_LIMIT = 30_000_000;
-    uint32 public constant BLOCK_GAS_ISSUANCE = 10_000_000;
-    uint8 public constant QUOTIENT = 8;
     uint64 public constant L1_CHAIN_ID = 12_345;
 
     address public addressManager;
-    TestL2ForTest public L2;
-    SkipBasefeeCheckL2 public L2skip;
+    TaikoL2 public L2;
 
     function setUp() public {
         addressManager = deployProxy({
@@ -46,26 +30,18 @@ contract TestTaikoL2 is TaikoTest {
             })
         );
 
-        uint64 gasExcess = 0;
-
-        L2 = TestL2ForTest(
+        L2 = TaikoL2(
             payable(
                 deployProxy({
                     name: "taiko",
-                    impl: address(new TestL2ForTest()),
-                    data: abi.encodeCall(
-                        TaikoL2.init, (address(0), addressManager, L1_CHAIN_ID, gasExcess)
-                    ),
+                    impl: address(new TaikoL2()),
+                    data: abi.encodeCall(TaikoL2.init, (address(0), addressManager, L1_CHAIN_ID)),
                     registerTo: addressManager
                 })
             )
         );
 
-        L2.setGasExcess(gasExcess);
-
         ss.authorize(address(L2), true);
-
-        gasExcess = 195_420_300_100;
 
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 30);
@@ -126,6 +102,6 @@ contract TestTaikoL2 is TaikoTest {
 
     function _anchor() private {
         bytes32 l1StateRoot = randBytes32();
-        L2.anchorV2(12_345, l1StateRoot, BLOCK_GAS_LIMIT, BLOCK_GAS_ISSUANCE, QUOTIENT);
+        L2.anchorV2(12_345, l1StateRoot);
     }
 }

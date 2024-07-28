@@ -22,7 +22,6 @@ import "../contracts/L1/provers/GuardianProver.sol";
 import "../contracts/bridge/QuotaManager.sol";
 
 import "../contracts/L2/DelegateOwner.sol";
-import "../contracts/L2/Lib1559Math.sol";
 import "../contracts/L2/TaikoL2.sol";
 
 import "../contracts/team/airdrop/ERC20Airdrop.sol";
