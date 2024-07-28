@@ -573,21 +573,11 @@ func (c *Client) checkSyncedL1SnippetFromAnchor(
 		return false, err
 	}
 
-	l1BlockHash, l1StateRoot, l1HeightInAnchor, parentGasUsed, err := c.getSyncedL1SnippetFromAnchor(
+	l1StateRoot, l1HeightInAnchor, parentGasUsed, err := c.getSyncedL1SnippetFromAnchor(
 		block.Transactions()[0],
 	)
 	if err != nil {
 		return false, err
-	}
-
-	if l1HeightInAnchor+1 != l1Height {
-		log.Info(
-			"Reorg detected due to L1 height mismatch",
-			"blockID", blockID,
-			"l1HeightInAnchor", l1HeightInAnchor,
-			"l1Height", l1Height,
-		)
-		return true, nil
 	}
 
 	if parentGasUsed != uint32(parent.GasUsed()) {
@@ -603,16 +593,6 @@ func (c *Client) checkSyncedL1SnippetFromAnchor(
 	l1Header, err := c.L1.HeaderByNumber(ctx, new(big.Int).SetUint64(l1HeightInAnchor))
 	if err != nil {
 		return false, err
-	}
-
-	if l1Header.Hash() != l1BlockHash {
-		log.Info(
-			"Reorg detected due to L1 block hash mismatch",
-			"blockID", blockID,
-			"l1BlockHashInAnchor", l1BlockHash,
-			"l1BlockHash", l1Header.Hash(),
-		)
-		return true, nil
 	}
 
 	if l1Header.Root != l1StateRoot {
@@ -632,7 +612,6 @@ func (c *Client) checkSyncedL1SnippetFromAnchor(
 func (c *Client) getSyncedL1SnippetFromAnchor(
 	tx *types.Transaction,
 ) (
-	l1BlockHash common.Hash,
 	l1StateRoot common.Hash,
 	l1Height uint64,
 	parentGasUsed uint32,
@@ -640,53 +619,75 @@ func (c *Client) getSyncedL1SnippetFromAnchor(
 ) {
 	method, err := encoding.TaikoL2ABI.MethodById(tx.Data())
 	if err != nil {
-		return common.Hash{}, common.Hash{}, 0, 0, err
+		return common.Hash{}, 0, 0, err
 	}
 
-	if method.Name != "anchor" {
-		return common.Hash{}, common.Hash{}, 0, 0, fmt.Errorf("invalid method name for anchor transaction: %s", method.Name)
+	var ok bool
+	switch method.Name {
+	case "anchor":
+		args := map[string]interface{}{}
+
+		if err := method.Inputs.UnpackIntoMap(args, tx.Data()[4:]); err != nil {
+			return common.Hash{}, 0, 0, err
+		}
+
+		l1StateRoot, ok = args["_l1StateRoot"].([32]byte)
+		if !ok {
+			return common.Hash{},
+				0,
+				0,
+				errors.New("failed to parse l1StateRoot from anchor transaction calldata")
+		}
+		l1Height, ok = args["_l1BlockId"].(uint64)
+		if !ok {
+			return common.Hash{},
+				0,
+				0,
+				errors.New("failed to parse l1Height from anchor transaction calldata")
+		}
+		parentGasUsed, ok = args["_parentGasUsed"].(uint32)
+		if !ok {
+			return common.Hash{},
+				0,
+				0,
+				errors.New("failed to parse parentGasUsed from anchor transaction calldata")
+		}
+	case "anchorV2":
+		args := map[string]interface{}{}
+
+		if err := method.Inputs.UnpackIntoMap(args, tx.Data()[4:]); err != nil {
+			return common.Hash{}, 0, 0, err
+		}
+
+		l1Height, ok = args["_anchorBlockId"].(uint64)
+		if !ok {
+			return common.Hash{},
+				0,
+				0,
+				errors.New("failed to parse anchorBlockId from anchorV2 transaction calldata")
+		}
+		l1StateRoot, ok = args["_anchorStateRoot"].([32]byte)
+		if !ok {
+			return common.Hash{},
+				0,
+				0,
+				errors.New("failed to parse anchorStateRoot from anchorV2 transaction calldata")
+		}
+		parentGasUsed, ok = args["_parentGasUsed"].(uint32)
+		if !ok {
+			return common.Hash{},
+				0,
+				0,
+				errors.New("failed to parse parentGasUsed from anchorV2 transaction calldata")
+		}
+	default:
+		return common.Hash{}, 0, 0, fmt.Errorf(
+			"invalid method name for anchor / anchorV2 transaction: %s",
+			method.Name,
+		)
 	}
 
-	args := map[string]interface{}{}
-
-	if err := method.Inputs.UnpackIntoMap(args, tx.Data()[4:]); err != nil {
-		return common.Hash{}, common.Hash{}, 0, 0, err
-	}
-
-	l1BlockHash, ok := args["_l1BlockHash"].([32]byte)
-	if !ok {
-		return common.Hash{},
-			common.Hash{},
-			0,
-			0,
-			errors.New("failed to parse l1BlockHash from anchor transaction calldata")
-	}
-	l1StateRoot, ok = args["_l1StateRoot"].([32]byte)
-	if !ok {
-		return common.Hash{},
-			common.Hash{},
-			0,
-			0,
-			errors.New("failed to parse l1StateRoot from anchor transaction calldata")
-	}
-	l1Height, ok = args["_l1BlockId"].(uint64)
-	if !ok {
-		return common.Hash{},
-			common.Hash{},
-			0,
-			0,
-			errors.New("failed to parse l1Height from anchor transaction calldata")
-	}
-	parentGasUsed, ok = args["_parentGasUsed"].(uint32)
-	if !ok {
-		return common.Hash{},
-			common.Hash{},
-			0,
-			0,
-			errors.New("failed to parse parentGasUsed from anchor transaction calldata")
-	}
-
-	return l1BlockHash, l1StateRoot, l1Height, parentGasUsed, nil
+	return l1StateRoot, l1Height, parentGasUsed, nil
 }
 
 // TierProviderTierWithID wraps protocol ITierProviderTier struct with an ID.
