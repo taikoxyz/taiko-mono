@@ -40,7 +40,7 @@ library TaikoData {
         // Group 5: Previous configs in TaikoL2
         // ---------------------------------------------------------------------
         uint8 basefeeSharingPctg;
-        uint32 blockGasTarget;
+        uint8 blockGasTargetMillion;
         // ---------------------------------------------------------------------
         // Group 6: Others
         // ---------------------------------------------------------------------
@@ -71,7 +71,6 @@ library TaikoData {
 
     struct BlockParamsV2 {
         address coinbase;
-        bytes32 extraData;
         bytes32 parentMetaHash;
         uint64 anchorBlockId; // NEW
         uint64 timestamp; // NEW
@@ -123,8 +122,6 @@ library TaikoData {
         uint32 blobTxListOffset;
         uint32 blobTxListLength;
         uint8 blobIndex;
-        uint8 basefeeSharingPctg;
-        uint32 blockGasTarget;
     }
 
     /// @dev Struct representing transition to be proven.
