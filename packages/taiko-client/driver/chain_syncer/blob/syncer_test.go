@@ -98,7 +98,6 @@ func (s *BlobSyncerTestSuite) TestInsertNewHead() {
 			},
 		},
 		parent,
-		common.Big2,
 		[]byte{},
 		&rawdb.L1Origin{
 			BlockID:       common.Big1,
