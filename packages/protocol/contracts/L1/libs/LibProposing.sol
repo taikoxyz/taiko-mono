@@ -274,6 +274,6 @@ library LibProposing {
         pure
         returns (bytes32)
     {
-        return bytes32(uint256(_basefeeSharingPctg) << 248 | uint256(_blockGasTargetMillion) << 240);
+        return bytes32(uint256(_basefeeSharingPctg) << 8 | uint256(_blockGasTargetMillion));
     }
 }
