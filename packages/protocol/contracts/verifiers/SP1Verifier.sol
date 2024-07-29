@@ -88,10 +88,11 @@ contract SP1Verifier is EssentialContract, IVerifier {
 
         uint64 chainId = ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfig().chainId;
 
-        bytes memory encodedPublicInput = LibPublicInput.abiEncodePublicInputs(
+        // Need to be converted from bytes32 to bytes
+        bytes32 hashedPublicInput = LibPublicInput.hashPublicInputs(
             _tran, address(this), address(0), _ctx.prover, _ctx.metaHash, chainId
         );
 
-        ISP1Verifier(verifier).verifyProof(programVKey, encodedPublicInput, proof);
+        ISP1Verifier(verifier).verifyProof(programVKey, abi.encode(hashedPublicInput), proof);
     }
 }
