@@ -23,8 +23,6 @@ contract TaikoL2 is EssentialContract {
     /// @notice Golden touch address is the only address that can do the anchor transaction.
     address public constant GOLDEN_TOUCH_ADDRESS = 0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
 
-    uint256 public constant ONTAKE_FORK_HEIGHT = 374_400; // = 7200 * 52
-
     /// @notice Mapping from L2 block numbers to their block hashes. All L2 block hashes will
     /// be saved in this mapping.
     mapping(uint256 blockId => bytes32 blockHash) public l2Hashes;
@@ -47,10 +45,6 @@ contract TaikoL2 is EssentialContract {
     uint64 public l1ChainId;
 
     uint256[46] private __gap;
-
-    /// @notice Emitted when the latest L1 block details are anchored to L2.
-    /// @param parentHash The hash of the parent block.
-    event AnchoredV2(bytes32 parentHash);
 
     error L2_FORK_ERROR();
     error L2_INVALID_L1_CHAIN_ID();
@@ -137,8 +131,6 @@ contract TaikoL2 is EssentialContract {
         bytes32 _parentHash = blockhash(parentId);
         l2Hashes[parentId] = _parentHash;
         publicInputHash = publicInputHashNew;
-
-        emit AnchoredV2(_parentHash);
     }
 
     /// @notice Withdraw token or Ether from this address
