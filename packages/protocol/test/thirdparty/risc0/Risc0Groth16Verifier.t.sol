@@ -57,7 +57,7 @@ contract RiscZeroGroth16VerifierTest is TaikoL1TestBase {
 
         // TierProof
         TaikoData.TierProof memory proof =
-            TaikoData.TierProof({ tier: 100, data: abi.encode(seal, imageId, journalDigest) });
+            TaikoData.TierProof({ tier: 100, data: abi.encode(seal, imageId) });
 
         vm.warp(block.timestamp + 5);
 
