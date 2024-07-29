@@ -50,7 +50,6 @@ contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
             assertEq(meta.anchorBlockHash, blockhash(block.number - 1));
             assertEq(meta.livenessBond, config.livenessBond);
             assertEq(meta.coinbase, Alice);
-            // assertEq(meta.extraData, params.extraData);
 
             TaikoData.Block memory blk = L1.getBlock(i);
             assertEq(blk.blockId, i);
