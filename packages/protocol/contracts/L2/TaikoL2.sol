@@ -54,7 +54,6 @@ contract TaikoL2 is EssentialContract {
     /// @param parentHash The hash of the parent block.
     /// @param gasExcess The gas excess value used to calculate the base fee.
     event Anchored(bytes32 parentHash, uint64 gasExcess);
-    event AnchoredV2(bytes32 parentHash);
 
     error L2_BASEFEE_MISMATCH();
     error L2_FORK_ERROR();
@@ -263,8 +262,6 @@ contract TaikoL2 is EssentialContract {
         if (block.number < ONTAKE_FORK_HEIGHT) {
             gasExcess = _gasExcess;
             emit Anchored(_parentHash, _gasExcess);
-        } else {
-            emit AnchoredV2(_parentHash);
         }
     }
 
