@@ -140,14 +140,14 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         for (uint256 i; i < _paramsArr.length; ++i) {
             (, metaArr_[i],) =
                 LibProposing.proposeBlock(state, config, this, _paramsArr[i], _txListArr[i]);
+
+            uint64 id = metaArr_[i].id;
+            if (LibUtils.shouldVerifyBlocks(config, id, true) && !state.slotB.provingPaused) {
+                LibVerifying.verifyBlocks(state, config, this, config.maxBlocksToVerify);
+            }
         }
 
-        uint64 firstBlockId = metaArr_[0].id;
-        if (firstBlockId < config.ontakeForkHeight) revert L1_FORK_ERROR();
-
-        if (LibUtils.shouldVerifyBlocks(config, firstBlockId, true) && !state.slotB.provingPaused) {
-            LibVerifying.verifyBlocks(state, config, this, config.maxBlocksToVerify);
-        }
+        if (metaArr_[0].id < config.ontakeForkHeight) revert L1_FORK_ERROR();
     }
 
     /// @inheritdoc ITaikoL1
