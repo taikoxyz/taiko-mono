@@ -12,7 +12,9 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/consensus/misc/eip1559"
 	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
@@ -363,16 +365,9 @@ func (s *Syncer) insertNewHead(
 			return nil, fmt.Errorf("failed to create TaikoL2.anchor transaction: %w", err)
 		}
 	} else {
-		// Get L2 baseFee
-		// TODO: update this
-		baseFeeInfo, err = s.rpc.TaikoL2.GetBasefee(
-			&bind.CallOpts{BlockNumber: parent.Number, Context: ctx},
-			meta.GetAnchorBlockID(),
-			uint32(parent.GasUsed),
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get L2 baseFee: %w", encoding.TryParsingCustomError(err))
-		}
+		// Calculate L2 baseFee
+		_, parentGasTarget := core.DecodeOntakeExtraData(meta.GetExtraData())
+		baseFeeInfo.Basefee = eip1559.CalcBaseFeeOntake(new(params.ChainConfig), parent, uint64(parentGasTarget))
 
 		// Assemble a TaikoL2.anchorV2 transaction
 		anchorBlockHeader, err := s.rpc.L1.HeaderByHash(ctx, meta.GetAnchorBlockHash())
