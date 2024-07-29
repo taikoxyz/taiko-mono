@@ -50,7 +50,7 @@ contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
             assertEq(meta.anchorBlockHash, blockhash(block.number - 1));
             assertEq(meta.livenessBond, config.livenessBond);
             assertEq(meta.coinbase, Alice);
-            assertEq(meta.extraData, params.extraData);
+            // assertEq(meta.extraData, params.extraData);
 
             TaikoData.Block memory blk = L1.getBlock(i);
             assertEq(blk.blockId, i);
@@ -104,7 +104,6 @@ contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
         // Propose the first block with default parameters
         TaikoData.BlockParamsV2 memory params = TaikoData.BlockParamsV2({
             coinbase: address(0),
-            extraData: 0,
             parentMetaHash: 0,
             anchorBlockId: 0,
             timestamp: 0,
@@ -125,7 +124,6 @@ contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
         assertEq(meta.livenessBond, config.livenessBond);
         assertEq(meta.coinbase, Alice);
         assertEq(meta.parentMetaHash, bytes32(uint256(1)));
-        assertEq(meta.extraData, params.extraData);
 
         TaikoData.Block memory blk = L1.getBlock(1);
         assertEq(blk.blockId, 1);
@@ -145,7 +143,6 @@ contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
 
         params = TaikoData.BlockParamsV2({
             coinbase: Bob,
-            extraData: bytes32(uint256(123)),
             parentMetaHash: 0,
             anchorBlockId: 90,
             timestamp: uint64(block.timestamp - 100),
@@ -165,7 +162,6 @@ contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
         assertEq(meta.livenessBond, config.livenessBond);
         assertEq(meta.coinbase, Bob);
         assertEq(meta.parentMetaHash, blk.metaHash);
-        assertEq(meta.extraData, params.extraData);
 
         blk = L1.getBlock(2);
         assertEq(blk.blockId, 2);

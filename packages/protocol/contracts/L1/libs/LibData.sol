@@ -18,7 +18,6 @@ library LibData {
     {
         return TaikoData.BlockParamsV2({
             coinbase: _v1.coinbase,
-            extraData: _v1.extraData,
             parentMetaHash: _v1.parentMetaHash,
             anchorBlockId: 0,
             timestamp: 0,
@@ -75,9 +74,7 @@ library LibData {
             proposedIn: 0,
             blobTxListOffset: 0,
             blobTxListLength: 0,
-            blobIndex: 0,
-            basefeeSharingPctg: 0,
-            blockGasTarget: 0
+            blobIndex: 0
         });
     }
 }

@@ -21,6 +21,7 @@ library LibProposing {
         ITierProvider tierProvider;
         bytes32 parentMetaHash;
         bool postFork;
+        bytes32 extraData;
     }
 
     /// @notice Emitted when a block is proposed.
@@ -106,7 +107,9 @@ library LibProposing {
                 // otherwise use a default BlockParamsV2 with 0 values
             }
         } else {
-            local.params = LibData.blockParamsV1ToV2(abi.decode(_data, (TaikoData.BlockParams)));
+            TaikoData.BlockParams memory paramsV1 = abi.decode(_data, (TaikoData.BlockParams));
+            local.params = LibData.blockParamsV1ToV2(paramsV1);
+            local.extraData = paramsV1.extraData;
         }
 
         if (local.params.coinbase == address(0)) {
@@ -168,7 +171,9 @@ library LibProposing {
                 anchorBlockHash: blockhash(local.params.anchorBlockId),
                 difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", local.b.numBlocks)),
                 blobHash: 0, // to be initialized below
-                extraData: local.params.extraData,
+                extraData: local.postFork
+                    ? _encodeBaseFeeConfigs(_config.basefeeSharingPctg, _config.blockGasTargetMillion)
+                    : local.extraData,
                 coinbase: local.params.coinbase,
                 id: local.b.numBlocks,
                 gasLimit: _config.blockMaxGasLimit,
@@ -183,9 +188,7 @@ library LibProposing {
                 proposedIn: uint64(block.number),
                 blobTxListOffset: local.params.blobTxListOffset,
                 blobTxListLength: local.params.blobTxListLength,
-                blobIndex: local.params.blobIndex,
-                basefeeSharingPctg: _config.basefeeSharingPctg,
-                blockGasTarget: _config.blockGasTarget
+                blobIndex: local.params.blobIndex
             });
         }
 
@@ -261,5 +264,16 @@ library LibProposing {
                 depositsProcessed: deposits_
             });
         }
+    }
+
+    function _encodeBaseFeeConfigs(
+        uint8 _basefeeSharingPctg,
+        uint8 _blockGasTargetMillion
+    )
+        private
+        pure
+        returns (bytes32)
+    {
+        return bytes32(uint256(_basefeeSharingPctg) << 248 | uint256(_blockGasTargetMillion) << 240);
     }
 }
