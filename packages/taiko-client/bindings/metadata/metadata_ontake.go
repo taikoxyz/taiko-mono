@@ -128,21 +128,6 @@ func (m *TaikoDataBlockMetadataOntake) GetBlobIndex() uint8 {
 	return m.BlobIndex
 }
 
-// GetBasefeeAdjustmentQuotient returns the L2 block basefee adjustment quotient.
-func (m *TaikoDataBlockMetadataOntake) GetBasefeeAdjustmentQuotient() uint8 {
-	return m.BasefeeAdjustmentQuotient
-}
-
-// GetBasefeeSharingPctg returns the L2 block basefee sharing percentage.
-func (m *TaikoDataBlockMetadataOntake) GetBasefeeSharingPctg() uint8 {
-	return m.BasefeeSharingPctg
-}
-
-// GetBlockGasIssuance returns the L2 block gas issuance.
-func (m *TaikoDataBlockMetadataOntake) GetBlockGasIssuance() uint32 {
-	return m.BlockGasIssuance
-}
-
 // GetRawBlockHeight returns the raw L1 block height.
 func (m *TaikoDataBlockMetadataOntake) GetRawBlockHeight() *big.Int {
 	return new(big.Int).SetUint64(m.BlockNumber)

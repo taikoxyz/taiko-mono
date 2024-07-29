@@ -46,10 +46,7 @@ func (s *AnchorTxConstructorTestSuite) TestAssembleAnchorV2Tx() {
 	tx, err := s.c.AssembleAnchorV2Tx(
 		context.Background(),
 		s.l1Height,
-		1024,
 		s.l1Hash,
-		20_000_000,
-		8,
 		common.Big1,
 		common.Big256,
 	)

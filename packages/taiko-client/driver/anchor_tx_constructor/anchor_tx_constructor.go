@@ -74,10 +74,7 @@ func (c *AnchorTxConstructor) AssembleAnchorV2Tx(
 	ctx context.Context,
 	// Parameters of the TaikoL2.anchorV2 transaction.
 	anchorBlockID *big.Int,
-	parentGasUsed uint64,
 	anchorStateRoot common.Hash,
-	blockGasIssuance uint32,
-	basefeeAdjustmentQuotient uint8,
 	// Height of the L2 block which including the TaikoL2.anchorV2 transaction.
 	l2Height *big.Int,
 	baseFee *big.Int,
@@ -91,10 +88,7 @@ func (c *AnchorTxConstructor) AssembleAnchorV2Tx(
 		"AnchorV2 arguments",
 		"l2Height", l2Height,
 		"anchorBlockId", anchorBlockID,
-		"parentGasUsed", parentGasUsed,
 		"anchorStateRoot", anchorStateRoot,
-		"blockGasIssuance", blockGasIssuance,
-		"basefeeAdjustmentQuotient", basefeeAdjustmentQuotient,
 		"baseFee", utils.WeiToGWei(baseFee),
 	)
 
@@ -102,9 +96,6 @@ func (c *AnchorTxConstructor) AssembleAnchorV2Tx(
 		opts,
 		anchorBlockID.Uint64(),
 		anchorStateRoot,
-		uint32(parentGasUsed),
-		blockGasIssuance,
-		basefeeAdjustmentQuotient,
 	)
 }
 

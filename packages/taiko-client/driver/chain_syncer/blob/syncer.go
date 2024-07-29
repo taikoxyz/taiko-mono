@@ -363,18 +363,11 @@ func (s *Syncer) insertNewHead(
 			return nil, fmt.Errorf("failed to create TaikoL2.anchor transaction: %w", err)
 		}
 	} else {
-		gasExcess, err := s.rpc.TaikoL2.GasExcess(&bind.CallOpts{
-			BlockNumber: parent.Number, Context: ctx,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch gas excess: %w", err)
-		}
 		// Get L2 baseFee
-		baseFeeInfo, err = s.rpc.TaikoL2.CalculateBaseFee(
+		// TODO: update this
+		baseFeeInfo, err = s.rpc.TaikoL2.GetBasefee(
 			&bind.CallOpts{BlockNumber: parent.Number, Context: ctx},
-			meta.GetBlockGasIssuance(),
-			meta.GetBasefeeAdjustmentQuotient(),
-			gasExcess,
+			meta.GetAnchorBlockID(),
 			uint32(parent.GasUsed),
 		)
 		if err != nil {
@@ -389,10 +382,7 @@ func (s *Syncer) insertNewHead(
 		anchorTx, err = s.anchorConstructor.AssembleAnchorV2Tx(
 			ctx,
 			new(big.Int).SetUint64(meta.GetAnchorBlockID()),
-			parent.GasUsed,
 			anchorBlockHeader.Root,
-			meta.GetBlockGasIssuance(),
-			meta.GetBasefeeAdjustmentQuotient(),
 			new(big.Int).Add(parent.Number, common.Big1),
 			baseFeeInfo.Basefee,
 		)
@@ -471,7 +461,7 @@ func (s *Syncer) createExecutionPayloads(
 			TxList:             txListBytes,
 			MixHash:            meta.GetDifficulty(),
 			ExtraData:          meta.GetExtraData(),
-			BasefeeSharingPctg: meta.GetBasefeeSharingPctg(),
+			BasefeeSharingPctg: 0, // TODO: remove this
 		},
 		BaseFeePerGas: baseFee,
 		L1Origin:      l1Origin,
