@@ -154,7 +154,7 @@ library LibProposing {
             blobTxListLength: local.params.blobTxListLength,
             blobIndex: local.params.blobIndex,
             basefeeSharingPctg: _config.basefeeSharingPctg,
-            blockGasIssuance: _config.blockGasIssuance
+            blockGasTarget: _config.blockGasTarget
         });
 
         // Update certain meta fields

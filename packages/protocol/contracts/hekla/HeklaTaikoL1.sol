@@ -21,7 +21,7 @@ contract HeklaTaikoL1 is TaikoL1 {
             stateRootSyncInternal: 16,
             maxAnchorHeightOffset: 64,
             basefeeSharingPctg: 75,
-            blockGasIssuance: 20_000_000
+            blockGasTarget: 20_000_000
         });
     }
 }
