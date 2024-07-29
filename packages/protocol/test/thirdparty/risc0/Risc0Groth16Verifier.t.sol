@@ -14,6 +14,7 @@ contract RiscZeroGroth16VerifierTest is TaikoL1TestBase {
     }
 
     function setUp() public override {
+        vm.startPrank(Emma);
         // Call the TaikoL1TestBase setUp()
         super.setUp();
 
@@ -33,7 +34,7 @@ contract RiscZeroGroth16VerifierTest is TaikoL1TestBase {
         );
 
         rv.setImageIdTrusted(
-            bytes32(0xc600106390ac1814f9412767b035e2dc67e579579cfef2027e783607c6280d68), true
+            bytes32(0x4f6beb0c538971a81491c22de3995c82e6fd7938d5090366d7b618d5f6df504d), true
         );
 
         registerAddress("risc_zero_verifier", address(rv));
@@ -48,11 +49,11 @@ contract RiscZeroGroth16VerifierTest is TaikoL1TestBase {
         vm.startPrank(Emma);
 
         bytes memory seal =
-            hex"310fe5980dc2781dc78d77dfdf0156420de674d1e728280666c83e5b455cb113fbd68b671cf01ecb0b534f3587eca0132f1fde91949743cdcb9a8d41874c02270a2084a60662d42262ca2d94c80f8b782fb7b7523221e2af52c3068458de46a4086666b71b65d9ad500fef9a163f174b1333938eaa284b31d007492d031423e0690938de188cfb8cf429a92ae4c0cea02955b8568648e25fc2e8a60ad100d1c4661d448d0069ee64bb884482eb4bb24f553dbbdfd0b14c84c617bdef8d975ea64faccd5d12ab645e0d08f00a70b2366b25c266e819f4d1195d355fabc649a893dc4321ec0db7befe3958f4610a48bd6d9154fb178c5dd6348aea1ea8e19b71e91eb5c216";
+            hex"310fe59815ffa3b596af0bdccd0aaa064495d5db94fe367414d3a9212c8ce17383717e531ced511d89956c7c8aa0cc8531dac8660093581c5ae19c48a39fc14fd98dc1050684083592dab0fd9a2482c47ab4833c4f9b9a6770a7ce439a4f0e94bc035809138a7566873e34d202708ce4858665202417e645aeb299d4f7633fead7c667562b9104bdc79a0c379145ca2431598beec20b75a722915ff0a872771652583f9206e75bd317e73b1af7705f70aa52c30bc33ea6792b9e080177502fe074b87beb1add2ebe112c7bd17667a418fd9ef6d8e89e606c5efff14b5df24f7aa40c5c4f2bcaaa6f206d2d1e15356c533c5210258a6f1b1d1d22cb63cff0323863d7fe3b";
         bytes32 imageId =
-            bytes32(0xc600106390ac1814f9412767b035e2dc67e579579cfef2027e783607c6280d68);
+            bytes32(0x4f6beb0c538971a81491c22de3995c82e6fd7938d5090366d7b618d5f6df504d);
         bytes32 journalDigest =
-            bytes32(0xe91e7cb555e4d763d6ee32ca72491aca1ecd27f0d303edf383bd7bbe4aa9db6f);
+            bytes32(0xa82287ae36a69b51f8013851b3814ff1243da5dfa071f6fd9b46b85445895553);
 
         // TierProof
         TaikoData.TierProof memory proof =
@@ -84,21 +85,21 @@ contract RiscZeroGroth16VerifierTest is TaikoL1TestBase {
     {
         // Context
         ctx = IVerifier.Context({
-            metaHash: bytes32(0x291188ef31a9d3ee9590101f851a8787611a5c6675ad9508f4e473ce8cd61d7c),
-            blobHash: bytes32(0x015f83d7ebd6984efe66d2bc86d8294a6ac72f8b59e4eb995bfaf9791b03149c),
+            metaHash: bytes32(0xd7efb262f6f25cc817452a622009a22e5868e53e1f934d899d3ec68d8c4f2c5b),
+            blobHash: bytes32(0x015cc9688f24b8d2195e46829b3f726ce006884d5fd2760b7cf414bab9a1b231),
             prover: address(0x70997970C51812dc3A010C7d01b50e0d17dc79C8),
             msgSender: address(0),
-            blockId: 122_224,
+            blockId: 223_248, //from mainnet
             isContesting: false,
             blobUsed: true
         });
 
         // Transition
         transition = TaikoData.Transition({
-            parentHash: bytes32(0x6c51441b4749eb1fa87dc032c630be200ac317454b8e03081ae467401d31aa03),
-            blockHash: bytes32(0xd8bdb8642a72e2b45e5a1702fd8762c9fbf1174c36a13941ce8c322e4d780360),
-            stateRoot: bytes32(0x46bec7406eca597ea09434fdd4f1e214d96eb9eeaeaca57e642e0ce29cc39729),
-            graffiti: bytes32(0x8008500000000000000000000000000000000000000000000000000000000000)
+            parentHash: 0x317de24b32f09629524133334ad552a14e3de603d71a9cf9e88d722809f101b3,
+            blockHash: 0x9966d3cf051d3d1e44e2a740169627506a619257c95374e812ca572de91ed885,
+            stateRoot: 0x3ae3de1afa16b93a5c7ea20a0b36b43357061f5b8ef857053d68b2735c3df860,
+            graffiti: 0x8008500000000000000000000000000000000000000000000000000000000000
         });
     }
 }

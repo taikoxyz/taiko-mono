@@ -389,7 +389,7 @@ contract DeployOnL1 is DeployCapability {
         });
 
         RiscZeroGroth16Verifier risc0Verifier =
-                    new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
+            new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
 
         deployProxy({
             name: "tier_sgx_zkvm",
