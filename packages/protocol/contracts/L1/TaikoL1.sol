@@ -25,6 +25,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     uint256[50] private __gap;
 
     error L1_FORK_ERROR();
+    error L1_INVALID_PARAMS();
     error L1_RECEIVE_DISABLED();
 
     modifier whenProvingNotPaused() {
@@ -35,6 +36,11 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     modifier emitEventForClient() {
         _;
         emit StateVariablesUpdated(state.slotB);
+    }
+
+    modifier onlyRegisteredProposer() {
+        LibProposing.checkProposerPermission(this);
+        _;
     }
 
     /// @dev Allows for receiving Ether from Hooks
@@ -76,6 +82,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     )
         external
         payable
+        onlyRegisteredProposer
         whenNotPaused
         nonReentrant
         emitEventForClient
@@ -96,6 +103,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         bytes calldata _txList
     )
         external
+        onlyRegisteredProposer
         whenNotPaused
         nonReentrant
         emitEventForClient
@@ -107,6 +115,37 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         if (meta_.id < config.ontakeForkHeight) revert L1_FORK_ERROR();
 
         if (LibUtils.shouldVerifyBlocks(config, meta_.id, true) && !state.slotB.provingPaused) {
+            LibVerifying.verifyBlocks(state, config, this, config.maxBlocksToVerify);
+        }
+    }
+
+    function proposeBlocksV2(
+        bytes[] calldata _paramsArr,
+        bytes[] calldata _txListArr
+    )
+        external
+        onlyRegisteredProposer
+        whenNotPaused
+        nonReentrant
+        emitEventForClient
+        returns (TaikoData.BlockMetadataV2[] memory metaArr_)
+    {
+        if (_paramsArr.length == 0 || _paramsArr.length != _txListArr.length) {
+            revert L1_INVALID_PARAMS();
+        }
+
+        metaArr_ = new TaikoData.BlockMetadataV2[](_paramsArr.length);
+        TaikoData.Config memory config = getConfig();
+
+        for (uint256 i; i < _paramsArr.length; ++i) {
+            (, metaArr_[i],) =
+                LibProposing.proposeBlock(state, config, this, _paramsArr[i], _txListArr[i]);
+        }
+
+        uint64 firstBlockId = metaArr_[0].id;
+        if (firstBlockId < config.ontakeForkHeight) revert L1_FORK_ERROR();
+
+        if (LibUtils.shouldVerifyBlocks(config, firstBlockId, true) && !state.slotB.provingPaused) {
             LibVerifying.verifyBlocks(state, config, this, config.maxBlocksToVerify);
         }
     }
