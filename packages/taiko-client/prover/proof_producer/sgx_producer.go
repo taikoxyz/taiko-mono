@@ -81,7 +81,7 @@ func (s *SGXProofProducer) RequestProof(
 	header *types.Header,
 ) (*ProofWithHeader, error) {
 	log.Info(
-		"Request proof from raiko-host service",
+		"Request sgx proof from raiko-host service",
 		"blockID", blockID,
 		"coinbase", meta.GetCoinbase(),
 		"height", header.Number,

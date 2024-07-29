@@ -12,13 +12,12 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
@@ -29,6 +28,23 @@ const (
 )
 
 var ErrProofInProgress = errors.New("work_in_progress")
+
+// RaikoRequestProofBodyResponseV2 represents the JSON body of the response of the proof requests.
+type RaikoRequestProofBodyResponseV2 struct {
+	Data         *RaikoProofDataV2 `json:"data"`
+	ErrorMessage string            `json:"message"`
+}
+
+type RaikoProofDataV2 struct {
+	Proof  *ProofDataV2 `json:"proof"` //nolint:revive,stylecheck
+	Status string       `json:"status"`
+}
+
+type ProofDataV2 struct {
+	KzgProof string `json:"kzg_proof"`
+	Proof    string `json:"proof"`
+	Quote    string `json:"quote"`
+}
 
 // SgxAndZKvmProofProducer generates a ZK proof for the given block.
 type SgxAndZKvmProofProducer struct {
@@ -45,7 +61,7 @@ func (s *SgxAndZKvmProofProducer) RequestProof(
 	header *types.Header,
 ) (*ProofWithHeader, error) {
 	log.Info(
-		"Request proof from raiko-host service",
+		"Request sgx and zk proof from raiko-host service",
 		"blockID", blockID,
 		"coinbase", meta.GetCoinbase(),
 		"height", header.Number,
@@ -102,7 +118,7 @@ func (s *SgxAndZKvmProofProducer) callProverDaemon(ctx context.Context, opts *Pr
 
 	log.Debug("Proof generation output", "output", output)
 
-	proof = common.Hex2Bytes(output.Data.Proof[2:])
+	proof = common.Hex2Bytes(output.Data.Proof.Proof[2:])
 	log.Info(
 		"Proof generated",
 		"height", opts.BlockID,
@@ -117,7 +133,7 @@ func (s *SgxAndZKvmProofProducer) callProverDaemon(ctx context.Context, opts *Pr
 func (s *SgxAndZKvmProofProducer) requestProof(
 	ctx context.Context,
 	opts *ProofRequestOptions,
-) (*RaikoRequestProofBodyResponse, error) {
+) (*RaikoRequestProofBodyResponseV2, error) {
 	reqBody := RaikoRequestProofBody{
 		Type:     s.ZKProofType,
 		Block:    opts.BlockID,
@@ -162,7 +178,7 @@ func (s *SgxAndZKvmProofProducer) requestProof(
 		return nil, err
 	}
 
-	var output RaikoRequestProofBodyResponse
+	var output RaikoRequestProofBodyResponseV2
 	if err := json.Unmarshal(resBytes, &output); err != nil {
 		return nil, err
 	}
