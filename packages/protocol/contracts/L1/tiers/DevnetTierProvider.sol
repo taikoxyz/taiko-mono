@@ -28,6 +28,5 @@ contract DevnetTierProvider is TierProviderBase, ITierRouter {
         } else {
             return LibTiers.TIER_OPTIMISTIC;
         }
-
     }
 }
