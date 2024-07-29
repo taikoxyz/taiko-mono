@@ -148,18 +148,6 @@ var (
 			Name: "blobIndex",
 			Type: "uint8",
 		},
-		{
-			Name: "basefeeAdjustmentQuotient",
-			Type: "uint8",
-		},
-		{
-			Name: "basefeeSharingPctg",
-			Type: "uint8",
-		},
-		{
-			Name: "blockGasIssuance",
-			Type: "uint32",
-		},
 	}
 	transitionComponents = []abi.ArgumentMarshaling{
 		{

@@ -20,6 +20,7 @@ var (
 		StateRootSyncInternal: 16,
 		MaxAnchorHeightOffset: 64,
 		BasefeeSharingPctg:    75,
+		BlockGasTargetMillion: 20,
 		OntakeForkHeight:      374_400,
 	}
 	HeklaProtocolConfig = &bindings.TaikoDataConfig{
@@ -32,6 +33,7 @@ var (
 		StateRootSyncInternal: 16,
 		MaxAnchorHeightOffset: 64,
 		BasefeeSharingPctg:    75,
+		BlockGasTargetMillion: 20,
 		OntakeForkHeight:      540_000,
 	}
 	MainnetProtocolConfig = &bindings.TaikoDataConfig{
@@ -44,6 +46,7 @@ var (
 		StateRootSyncInternal: 16,
 		MaxAnchorHeightOffset: 64,
 		BasefeeSharingPctg:    75,
+		BlockGasTargetMillion: 20,
 		OntakeForkHeight:      374_400,
 	}
 )
