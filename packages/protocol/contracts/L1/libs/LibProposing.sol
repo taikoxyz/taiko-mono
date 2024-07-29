@@ -172,7 +172,7 @@ library LibProposing {
                 difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", local.b.numBlocks)),
                 blobHash: 0, // to be initialized below
                 extraData: local.postFork
-                    ? _encodeBaseFeeConfigs(_config.basefeeSharingPctg, _config.blockGasTargetMillion)
+                    ? _encodeExtraBlockConfigs(_config.basefeeSharingPctg, _config.blockGasTargetMillion)
                     : local.extraData,
                 coinbase: local.params.coinbase,
                 id: local.b.numBlocks,
@@ -266,7 +266,7 @@ library LibProposing {
         }
     }
 
-    function _encodeBaseFeeConfigs(
+    function _encodeExtraBlockConfigs(
         uint8 _basefeeSharingPctg,
         uint8 _blockGasTargetMillion
     )
