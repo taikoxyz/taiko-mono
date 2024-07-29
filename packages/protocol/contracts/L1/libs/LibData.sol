@@ -77,7 +77,7 @@ library LibData {
             blobTxListLength: 0,
             blobIndex: 0,
             basefeeSharingPctg: 0,
-            blockGasIssuance: 0
+            blockGasTarget: 0
         });
     }
 }

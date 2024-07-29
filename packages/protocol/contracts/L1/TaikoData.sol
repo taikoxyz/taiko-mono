@@ -40,7 +40,7 @@ library TaikoData {
         // Group 5: Previous configs in TaikoL2
         // ---------------------------------------------------------------------
         uint8 basefeeSharingPctg;
-        uint32 blockGasIssuance;
+        uint32 blockGasTarget;
         // ---------------------------------------------------------------------
         // Group 6: Others
         // ---------------------------------------------------------------------
@@ -124,7 +124,7 @@ library TaikoData {
         uint32 blobTxListLength;
         uint8 blobIndex;
         uint8 basefeeSharingPctg;
-        uint32 blockGasIssuance;
+        uint32 blockGasTarget;
     }
 
     /// @dev Struct representing transition to be proven.
