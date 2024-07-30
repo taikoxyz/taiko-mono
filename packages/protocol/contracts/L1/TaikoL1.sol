@@ -23,8 +23,9 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
 
     uint256[50] private __gap;
 
+    error L1_FORK_ERROR();
+    error L1_INVALID_PARAMS();
     error L1_RECEIVE_DISABLED();
-    error L1_INVALID_PARAM();
 
     modifier whenProvingNotPaused() {
         if (state.slotB.provingPaused) revert LibProving.L1_PROVING_PAUSED();
@@ -34,6 +35,11 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     modifier emitEventForClient() {
         _;
         emit StateVariablesUpdated(state.slotB);
+    }
+
+    modifier onlyRegisteredProposer() {
+        LibProposing.checkProposerPermission(this);
+        _;
     }
 
     /// @dev Allows for receiving Ether from Hooks
@@ -74,16 +80,36 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         bytes calldata _txList
     )
         external
+        onlyRegisteredProposer
         whenNotPaused
         nonReentrant
         emitEventForClient
-        returns (TaikoData.BlockMetadataV2 memory meta_)
+        returns (TaikoData.BlockMetadataV2 memory)
     {
-        TaikoData.Config memory config = getConfig();
-        meta_ = LibProposing.proposeBlock(state, config, this, _params, _txList);
+        return _proposeBlock(_params, _txList, getConfig());
+    }
 
-        if (LibUtils.shouldVerifyBlocks(config, meta_.id, true) && !state.slotB.provingPaused) {
-            LibVerifying.verifyBlocks(state, config, this, config.maxBlocksToVerify);
+    /// @inheritdoc ITaikoL1
+    function proposeBlocksV2(
+        bytes[] calldata _paramsArr,
+        bytes[] calldata _txListArr
+    )
+        external
+        onlyRegisteredProposer
+        whenNotPaused
+        nonReentrant
+        emitEventForClient
+        returns (TaikoData.BlockMetadataV2[] memory metaArr_)
+    {
+        if (_paramsArr.length == 0 || _paramsArr.length != _txListArr.length) {
+            revert L1_INVALID_PARAMS();
+        }
+
+        metaArr_ = new TaikoData.BlockMetadataV2[](_paramsArr.length);
+        TaikoData.Config memory config = getConfig();
+
+        for (uint256 i; i < _paramsArr.length; ++i) {
+            metaArr_[i] = _proposeBlock(_paramsArr[i], _txListArr[i], config);
         }
     }
 
@@ -114,7 +140,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         nonReentrant
         emitEventForClient
     {
-        if (_maxBlocksToVerify == 0) revert L1_INVALID_PARAM();
+        if (_maxBlocksToVerify == 0) revert L1_INVALID_PARAMS();
         LibVerifying.verifyBlocks(state, getConfig(), this, _maxBlocksToVerify);
     }
 
@@ -250,6 +276,22 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
             basefeeSharingPctg: 75,
             blockGasIssuance: 20_000_000
         });
+    }
+
+    function _proposeBlock(
+        bytes calldata _params,
+        bytes calldata _txList,
+        TaikoData.Config memory _config
+    )
+        internal
+        returns (TaikoData.BlockMetadataV2 memory meta_)
+    {
+        (, meta_,) = LibProposing.proposeBlock(state, _config, this, _params, _txList);
+        if (meta_.id < _config.ontakeForkHeight) revert L1_FORK_ERROR();
+
+        if (LibUtils.shouldVerifyBlocks(_config, meta_.id, true) && !state.slotB.provingPaused) {
+            LibVerifying.verifyBlocks(state, _config, this, _config.maxBlocksToVerify);
+        }
     }
 
     /// @dev chain_pauser is supposed to be a cold wallet.
