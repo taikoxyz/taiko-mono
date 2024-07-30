@@ -163,6 +163,16 @@ contract TaikoPartyTicket is
         _safeMint(to, tokenId);
     }
 
+    /// @notice Mint a winner ticket
+    /// @param to The address to mint to
+    /// @dev Requires calling as an admin
+    function mintWinner(address to) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (blacklist.isBlacklisted(to)) revert ADDRESS_BLACKLISTED();
+        uint256 tokenId = _nextTokenId++;
+        winners[tokenId] = true;
+        _safeMint(to, tokenId);
+    }
+
     /// @notice Revoke a winner and replace with a new winner
     /// @param revokeId The ID of the winner to revoke
     /// @param newWinnerId The ID of the new winner
