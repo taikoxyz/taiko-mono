@@ -81,7 +81,7 @@ func (b *CalldataTransactionBuilder) Build(
 		encodedParams []byte
 		method        string
 	)
-	
+
 	if b.proverSetAddress != rpc.ZeroAddress {
 		to = &b.proverSetAddress
 	}
