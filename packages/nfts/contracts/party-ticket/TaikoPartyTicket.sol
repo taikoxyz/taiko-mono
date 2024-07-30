@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Compatible with OpenZeppelin Contracts ^5.0.0
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Pausable.sol";
@@ -13,27 +13,44 @@ import { AccessControlUpgradeable } from
 import { PausableUpgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 
+/// @title TaikoPartyTicket
+/// @dev ERC-721 KBW Raffle & Party Tickets
+/// @custom:security-contact security@taiko.xyz
 contract TaikoPartyTicket is
     ERC721EnumerableUpgradeable,
     PausableUpgradeable,
     AccessControlUpgradeable
 {
+    /// @notice Owner role
     bytes32 public constant OWNER_ROLE = keccak256("OWNER_ROLE");
-
+    /// @notice Mint fee
     uint256 public mintFee;
+    /// @notice Mint active flag
     bool public mintActive;
-    uint256 private _nextTokenId;
-    mapping(uint256 => bool) public winners;
+    /// @notice Token ID to winner mapping
+    mapping(uint256 tokenId => bool isWinner) public winners;
+    /// @notice Base URI required to interact with IPFS
     string public baseURI;
+    /// @notice Winner base URI required to interact with IPFS
     string public winnerBaseURI;
-
+    /// @notice Payout address
     address public payoutAddress;
+    /// @notice Internal counter for token IDs
+    uint256 private _nextTokenId;
+    /// @notice Gap for upgrade safety
+    uint256[47] private __gap;
 
+    error INSUFFICIENT_MINT_FEE();
+    error CANNOT_REVOKE_NON_WINNER();
+
+    /// @notice Contract initializer
+    /// @param _payoutAddress The address to receive mint fees
+    /// @param _mintFee The fee to mint a ticket
+    /// @param _baseURI Base URI for the token metadata pre-raffle
     function initialize(
         address _payoutAddress,
         uint256 _mintFee,
-        string memory _baseURI,
-        string memory _winnerBaseURI
+        string memory _baseURI
     )
         external
         initializer
@@ -42,49 +59,15 @@ contract TaikoPartyTicket is
 
         mintFee = _mintFee;
         baseURI = _baseURI;
-        winnerBaseURI = _winnerBaseURI;
         payoutAddress = _payoutAddress;
 
         _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
         _grantRole(OWNER_ROLE, _payoutAddress);
     }
 
-    function mint() external payable whenNotPaused {
-        require(msg.value >= mintFee, "Insufficient mint fee");
-
-        uint256 tokenId = _nextTokenId++;
-        _safeMint(msg.sender, tokenId);
-    }
-
-    function mint(address to) public whenNotPaused onlyRole(DEFAULT_ADMIN_ROLE) {
-        uint256 tokenId = _nextTokenId++;
-        _safeMint(to, tokenId);
-    }
-
-    function setWinners(uint256[] calldata _winners)
-        external
-        whenNotPaused
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
-        for (uint256 i = 0; i < _winners.length; i++) {
-            winners[_winners[i]] = true;
-        }
-        pause();
-    }
-
-    function revokeAndReplaceWinner(
-        uint256 revokeId,
-        uint256 newWinnerId
-    )
-        external
-        whenPaused
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
-        require(winners[revokeId], "Revoke ID not a winner");
-        winners[revokeId] = false;
-        winners[newWinnerId] = true;
-    }
-
+    /// @notice Get individual token's URI
+    /// @param tokenId The token ID
+    /// @return The token URI
     function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
         if (winners[tokenId]) {
             return string(abi.encodePacked(winnerBaseURI, Strings.toString(tokenId)));
@@ -92,22 +75,16 @@ contract TaikoPartyTicket is
         return string(abi.encodePacked(baseURI, Strings.toString(tokenId)));
     }
 
-    function pause() public onlyRole(DEFAULT_ADMIN_ROLE) {
-        _pause();
-    }
-
-    function unpause() public onlyRole(DEFAULT_ADMIN_ROLE) {
-        _unpause();
-    }
-
-    function withdraw() external whenPaused onlyRole(DEFAULT_ADMIN_ROLE) {
-        payable(payoutAddress).transfer(address(this).balance);
-    }
-
+    /// @notice Checks if a tokenId is a winner
+    /// @param tokenId The token ID
+    /// @return Whether the token is a winner
     function isWinner(uint256 tokenId) public view returns (bool) {
         return winners[tokenId];
     }
 
+    /// @notice Checks if an address is a winner
+    /// @param minter The address to check
+    /// @return Whether the address is a winner
     function isWinner(address minter) public view returns (bool) {
         for (uint256 i = 0; i < balanceOf(minter); i++) {
             if (winners[tokenOfOwnerByIndex(minter, i)]) {
@@ -117,6 +94,95 @@ contract TaikoPartyTicket is
         return false;
     }
 
+    /// @notice Set the winners and update the metadata
+    /// @param _winners The list of winners
+    /// @param _winnerBaseURI Base URI for the winners tokens
+    /// @param _loserBaseURI Base URI for the losers tokens
+    function setWinners(
+        uint256[] calldata _winners,
+        string memory _winnerBaseURI,
+        string memory _loserBaseURI
+    )
+        external
+        whenNotPaused
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        winnerBaseURI = _winnerBaseURI;
+        baseURI = _loserBaseURI;
+        for (uint256 i = 0; i < _winners.length; i++) {
+            winners[_winners[i]] = true;
+        }
+        pause();
+    }
+
+    /// @notice Set the base URI
+    /// @param _baseURI The new base URI
+    function setBaseURI(string memory _baseURI) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        baseURI = _baseURI;
+    }
+
+    /// @notice Set the winner base URI
+    /// @param _winnerBaseURI The new winner base URI
+    function setWinnerURI(string memory _winnerBaseURI) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        winnerBaseURI = _winnerBaseURI;
+    }
+
+    /// @notice Mint a raffle ticket
+    /// @dev Requires a fee to mint
+    /// @dev Requires the contract to not be paused
+    function mint() external payable whenNotPaused {
+        if (msg.value < mintFee) revert INSUFFICIENT_MINT_FEE();
+        uint256 tokenId = _nextTokenId++;
+        _safeMint(msg.sender, tokenId);
+    }
+
+    /// @notice Mint a raffle ticket
+    /// @param to The address to mint to
+    /// @dev Requires the contract to not be paused
+    /// @dev Can only be called by the admin
+    function mint(address to) public whenNotPaused onlyRole(DEFAULT_ADMIN_ROLE) {
+        uint256 tokenId = _nextTokenId++;
+        _safeMint(to, tokenId);
+    }
+
+    /// @notice Revoke a winner and replace with a new winner
+    /// @param revokeId The ID of the winner to revoke
+    /// @param newWinnerId The ID of the new winner
+    function revokeAndReplaceWinner(
+        uint256 revokeId,
+        uint256 newWinnerId
+    )
+        external
+        whenPaused
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        if (!winners[newWinnerId]) revert CANNOT_REVOKE_NON_WINNER();
+        winners[revokeId] = false;
+        winners[newWinnerId] = true;
+    }
+
+    /// @notice Pause the contract
+    /// @dev Can only be called by the admin
+    function pause() public onlyRole(DEFAULT_ADMIN_ROLE) {
+        _pause();
+    }
+
+    /// @notice Unpause the contract
+    /// @dev Can only be called by the admin
+    function unpause() public onlyRole(DEFAULT_ADMIN_ROLE) {
+        _unpause();
+    }
+
+    /// @notice Withdraw the contract balance
+    /// @dev Can only be called by the admin
+    /// @dev Requires the contract to be paused
+    function withdraw() external whenPaused onlyRole(DEFAULT_ADMIN_ROLE) {
+        payable(payoutAddress).transfer(address(this).balance);
+    }
+
+    /// @notice supportsInterface implementation
+    /// @param interfaceId The interface ID
+    /// @return Whether the interface is supported
     function supportsInterface(bytes4 interfaceId)
         public
         view

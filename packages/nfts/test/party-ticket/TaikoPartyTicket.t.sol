@@ -32,8 +32,7 @@ contract TaikoPartyTicketTest is Test {
             new ERC1967Proxy(
                 impl,
                 abi.encodeCall(
-                    TaikoPartyTicket.initialize,
-                    (payoutWallet, MINT_FEE, "ipfs://participant", "ipfs://winner")
+                    TaikoPartyTicket.initialize, (payoutWallet, MINT_FEE, "ipfs://participant")
                 )
             )
         );
@@ -85,7 +84,7 @@ contract TaikoPartyTicketTest is Test {
         vm.prank(admin);
         uint256[] memory winners = new uint256[](1);
         winners[0] = winnerTokenId;
-        token.setWinners(winners);
+        token.setWinners(winners, "ipfs://winnerURI", "ipfs://loserURI");
         // check winner with both tokenId and address
         assertTrue(token.isWinner(winnerTokenId));
         assertTrue(token.isWinner(minters[0]));
