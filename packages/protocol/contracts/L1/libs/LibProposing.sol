@@ -17,7 +17,6 @@ library LibProposing {
     struct Local {
         TaikoData.SlotB b;
         TaikoData.BlockParamsV2 params;
-        address proposerAccess;
         ITierProvider tierProvider;
         bytes32 parentMetaHash;
         bool postFork;
@@ -83,15 +82,6 @@ library LibProposing {
     {
         // Checks proposer access.
         Local memory local;
-
-        local.proposerAccess = _resolver.resolve(LibStrings.B_PROPOSER_ACCESS, true);
-        if (
-            local.proposerAccess != address(0)
-                && !IProposerAccess(local.proposerAccess).isProposerEligible(msg.sender)
-        ) {
-            revert L1_INVALID_PROPOSER();
-        }
-
         local.b = _state.slotB;
         local.postFork = local.b.numBlocks >= _config.ontakeForkHeight;
 
@@ -266,6 +256,15 @@ library LibProposing {
         }
     }
 
+    function checkProposerPermission(IAddressResolver _resolver) internal view {
+        address proposerAccess = _resolver.resolve(LibStrings.B_PROPOSER_ACCESS, true);
+        if (proposerAccess == address(0)) return;
+
+        if (!IProposerAccess(proposerAccess).isProposerEligible(msg.sender)) {
+            revert L1_INVALID_PROPOSER();
+        }
+    }
+    
     function _encodeExtraBlockConfigs(
         uint8 _basefeeSharingPctg,
         uint8 _blockGasTargetMillion
