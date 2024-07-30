@@ -86,14 +86,9 @@ contract TaikoPartyTicket is
     /// @return The token URI
     function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
         if (winners[tokenId]) {
-            return string(abi.encodePacked(winnerBaseURI);
+            return string(abi.encodePacked(winnerBaseURI));
         }
-        return string(abi.encodePacked(baseURI);
-    }
-        if (winners[tokenId]) {
-            return string(abi.encodePacked(winnerBaseURI, Strings.toString(tokenId)));
-        }
-        return string(abi.encodePacked(baseURI, Strings.toString(tokenId)));
+        return string(abi.encodePacked(baseURI));
     }
 
     /// @notice Checks if a tokenId is a winner
