@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 
+	badger "github.com/dgraph-io/badger/v4"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
@@ -23,6 +24,7 @@ import (
 // @license.url https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md
 // PreconfAPIServer represents a proposer server instance.
 type PreconfAPIServer struct {
+	db         *badger.DB
 	echo       *echo.Echo
 	txBuilders map[string]builder.TxBuilder // calldata or blob map to txbuilder type
 }
@@ -30,6 +32,7 @@ type PreconfAPIServer struct {
 // NewPreconfAPIServerOpts contains all configurations for creating a prover server instance.
 type NewPreconfAPIServerOpts struct {
 	TxBuilders map[string]builder.TxBuilder
+	DB         *badger.DB
 }
 
 // New creates a new prover server instance.
@@ -37,6 +40,7 @@ func New(opts *NewPreconfAPIServerOpts) (*PreconfAPIServer, error) {
 	srv := &PreconfAPIServer{
 		echo:       echo.New(),
 		txBuilders: opts.TxBuilders,
+		db:         opts.DB,
 	}
 
 	srv.echo.HideBanner = true
@@ -91,4 +95,5 @@ func (s *PreconfAPIServer) configureRoutes() {
 	s.echo.GET("/healthz", s.Health)
 	s.echo.POST("/blocks/build", s.BuildBlocks)
 	s.echo.POST("/block/build", s.BuildBlock)
+	s.echo.GET("/tx/:hash", s.GetTransactionByHash)
 }

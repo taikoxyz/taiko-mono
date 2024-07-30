@@ -1,6 +1,8 @@
 package flags
 
 import (
+	"time"
+
 	"github.com/urfave/cli/v2"
 )
 
@@ -13,6 +15,13 @@ var (
 		Value:    9871,
 		EnvVars:  []string{"PRECONFAPI_PORT"},
 	}
+	PollingInterval = &cli.DurationFlag{
+		Name:     "preconfapi.pollingInterval",
+		Usage:    "The rpc endpoint of L1 preconfer",
+		Category: preconfAPICategory,
+		Value:    1 * time.Second,
+		EnvVars:  []string{"POLLING_INTERVAL"},
+	}
 )
 
 // PreconfAPIFlags contains all preconfirmations API flags
@@ -21,4 +30,8 @@ var PreconfAPIFlags = []cli.Flag{
 	TxGasLimit,
 	PreconfAPIHTTPServerPort,
 	BlobAllowed,
+	PollingInterval,
+	L2HTTPEndpoint,
+	Verbosity,
+	LogJSON,
 }
