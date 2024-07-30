@@ -137,7 +137,7 @@ func (s *PreconfAPIServer) GetTransactionByHash(c echo.Context) error {
 	hash := c.Param("hash")
 
 	// get from badger db
-	var tx *model.Transaction = &model.Transaction{}
+	tx := &model.Transaction{}
 
 	if err := s.db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get(common.HexToHash(hash).Bytes())
