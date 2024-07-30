@@ -10,12 +10,12 @@ import "./libs/LibPublicInput.sol";
 /// @title SuccinctVerifier
 /// @custom:security-contact security@taiko.xyz
 contract SP1Verifier is EssentialContract, IVerifier {
-    /// @notice The address of the SP1 verifier contract.
+    /// @notice The address of the SP1 remote verifier contract.
     /// @dev This can either be a specific SP1Verifier for a specific version, or the
     ///      SP1VerifierGateway which can be used to verify proofs for any version of SP1.
     ///      For the list of supported verifiers on each chain, see:
     ///      https://github.com/succinctlabs/sp1-contracts/tree/main/contracts/deployments
-    address public verifier;
+    address public remoteVerifier;
 
     /// @notice The verification keys mappings for the proving programs.
     mapping(bytes32 provingProgramVKey => bool trusted) public isProgramTrusted;
@@ -28,8 +28,8 @@ contract SP1Verifier is EssentialContract, IVerifier {
     event ProgramTrusted(bytes32 programVKey, bool trusted);
 
     /// @dev Emitted when a new verifier address is set.
-    /// @param verifier The address of the verifier.
-    event NewVerifierAddress(address verifier);
+    /// @param newRemoteVerifier The address of the remoteVerifier.
+    event NewVerifierAddress(address newRemoteVerifier);
 
     error SP1_INVALID_PROGRAM_VKEY();
     error SP1_INVALID_PROOF();
@@ -37,18 +37,18 @@ contract SP1Verifier is EssentialContract, IVerifier {
     /// @notice Initializes the contract with the provided address manager.
     /// @param _owner The address of the owner.
     /// @param _addressManager The address of the AddressManager.
-    /// @param _verifier The address of the SP1Verifiers.
+    /// @param _remoteVerifier The address of the SP1Verifiers.
     function init(
         address _owner,
         address _addressManager,
-        address _verifier
+        address _remoteVerifier
     )
         external
         initializer
     {
         __Essential_init(_owner, _addressManager);
 
-        verifier = _verifier;
+        remoteVerifier = _remoteVerifier;
     }
 
     /// @notice Sets/unsets an the program's verification key as trusted entity
@@ -60,12 +60,12 @@ contract SP1Verifier is EssentialContract, IVerifier {
         emit ProgramTrusted(_programVKey, _trusted);
     }
 
-    /// @notice Sets the verifier contract.
-    /// @param _verifier The address of the verifier contract.
-    function setVerifierContract(address _verifier) external onlyOwner {
-        verifier = _verifier;
+    /// @notice Sets the remoteVerifier contract.
+    /// @param _remoteVerifier The address of the remoteVerifier contract.
+    function setRemoteVerifierContract(address _remoteVerifier) external onlyOwner {
+        remoteVerifier = _remoteVerifier;
 
-        emit NewVerifierAddress(_verifier);
+        emit NewVerifierAddress(_remoteVerifier);
     }
 
     /// @inheritdoc IVerifier
@@ -95,7 +95,7 @@ contract SP1Verifier is EssentialContract, IVerifier {
         );
 
         // call sp1 verifier (gateway) contract
-        (bool success,) = address(verifier).staticcall(
+        (bool success,) = address(remoteVerifier).staticcall(
             abi.encodeCall(
                 ISP1Verifier.verifyProof, (programVKey, abi.encode(hashedPublicInput), proof)
             )
