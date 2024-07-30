@@ -32,6 +32,7 @@ contract SP1Verifier is EssentialContract, IVerifier {
     event NewVerifierAddress(address verifier);
 
     error SP1_INVALID_PROGRAM_VKEY();
+    error SP1_INVALID_PROOF();
 
     /// @notice Initializes the contract with the provided address manager.
     /// @param _owner The address of the owner.
@@ -93,6 +94,15 @@ contract SP1Verifier is EssentialContract, IVerifier {
             _tran, address(this), address(0), _ctx.prover, _ctx.metaHash, chainId
         );
 
-        ISP1Verifier(verifier).verifyProof(programVKey, abi.encode(hashedPublicInput), proof);
+        // call sp1 verifier (gateway) contract
+        (bool success,) = address(verifier).staticcall(
+            abi.encodeCall(
+                ISP1Verifier.verifyProof, (programVKey, abi.encode(hashedPublicInput), proof)
+            )
+        );
+
+        if (!success) {
+            revert SP1_INVALID_PROOF();
+        }
     }
 }
