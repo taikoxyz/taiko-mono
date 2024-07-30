@@ -24,7 +24,7 @@ contract DeploySP1Verifier is DeployCapability {
         address proxy = deployProxy({
             name: "sp1_verifier",
             impl: sp1Verifier,
-            data: abi.encodeCall(SP1Verifier.init, (owner, addressManager, sp1RemoteVerifierOrGateway))
+            data: abi.encodeCall(SP1Verifier.init, (owner, addressManager))
         });
 
         console2.log();

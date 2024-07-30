@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import "../L1/TaikoL1TestBase.sol";
 
-contract MockSP1Gateway is ISP1Verifier {
+contract MockSP1Gateway is ISuccinctVerifier {
     // To simulate failing and succeeding
     bool public verifying;
 
@@ -45,15 +45,14 @@ contract TestSP1Verifier is TaikoL1TestBase {
             deployProxy({
                 name: "tier_sp1",
                 impl: address(new SP1Verifier()),
-                data: abi.encodeCall(
-                    SP1Verifier.init, (address(0), address(addressManager), address(sp1Gateway))
-                )
+                data: abi.encodeCall(SP1Verifier.init, (address(0), address(addressManager)))
             })
         );
 
         sp1.setProgramTrusted(bytes32("105"), true);
 
         registerAddress("sp1_verifier", address(sp1));
+        registerAddress("sp1_remote_verifier", address(sp1Gateway));
     }
 
     // Test `verifyProof()` happy path
