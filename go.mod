@@ -11,7 +11,6 @@ require (
 	github.com/cyberhorsey/webutils v0.0.0-20230314183728-56890c6ddbe7
 	github.com/davecgh/go-spew v1.1.1
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.3.0
-	github.com/dgraph-io/badger v1.6.2
 	github.com/dgraph-io/badger/v4 v4.2.0
 	github.com/ethereum-optimism/optimism v1.7.4
 	github.com/ethereum/go-ethereum v1.13.15
@@ -51,7 +50,6 @@ require (
 	contrib.go.opencensus.io/exporter/jaeger v0.2.1 // indirect
 	dario.cat/mergo v1.0.0 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
-	github.com/AndreasBriese/bbloom v0.0.0-20190825152654-46b345b51c96 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 // indirect
 	github.com/BurntSushi/toml v1.3.2 // indirect
 	github.com/DataDog/zstd v1.5.5 // indirect
