@@ -32,7 +32,8 @@ contract TaikoPartyTicketTest is Test {
             new ERC1967Proxy(
                 impl,
                 abi.encodeCall(
-                    TaikoPartyTicket.initialize, (payoutWallet, MINT_FEE, "ipfs://participant")
+                    TaikoPartyTicket.initialize,
+                    (payoutWallet, MINT_FEE, "ipfs://participant", blacklist)
                 )
             )
         );

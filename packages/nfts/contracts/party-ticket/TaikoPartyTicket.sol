@@ -12,6 +12,7 @@ import { AccessControlUpgradeable } from
     "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import { PausableUpgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import { IMinimalBlacklist } from "@taiko/blacklist/IMinimalBlacklist.sol";
 
 /// @title TaikoPartyTicket
 /// @dev ERC-721 KBW Raffle & Party Tickets
@@ -21,6 +22,8 @@ contract TaikoPartyTicket is
     PausableUpgradeable,
     AccessControlUpgradeable
 {
+    event BlacklistUpdated(address _blacklist);
+
     /// @notice Owner role
     bytes32 public constant OWNER_ROLE = keccak256("OWNER_ROLE");
     /// @notice Mint fee
@@ -37,20 +40,25 @@ contract TaikoPartyTicket is
     address public payoutAddress;
     /// @notice Internal counter for token IDs
     uint256 private _nextTokenId;
+    /// @notice Blackist address
+    IMinimalBlacklist public blacklist;
     /// @notice Gap for upgrade safety
     uint256[47] private __gap;
 
     error INSUFFICIENT_MINT_FEE();
     error CANNOT_REVOKE_NON_WINNER();
+    error ADDRESS_BLACKLISTED();
 
     /// @notice Contract initializer
     /// @param _payoutAddress The address to receive mint fees
     /// @param _mintFee The fee to mint a ticket
     /// @param _baseURI Base URI for the token metadata pre-raffle
+    /// @param _blacklistAddress The address of the blacklist contract
     function initialize(
         address _payoutAddress,
         uint256 _mintFee,
-        string memory _baseURI
+        string memory _baseURI,
+        IMinimalBlacklist _blacklistAddress
     )
         external
         initializer
@@ -60,9 +68,17 @@ contract TaikoPartyTicket is
         mintFee = _mintFee;
         baseURI = _baseURI;
         payoutAddress = _payoutAddress;
+        blacklist = _blacklistAddress;
 
         _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
         _grantRole(OWNER_ROLE, _payoutAddress);
+    }
+
+    /// @notice Update the blacklist address
+    /// @param _blacklist The new blacklist address
+    function updateBlacklist(IMinimalBlacklist _blacklist) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        blacklist = _blacklist;
+        emit BlacklistUpdated(address(_blacklist));
     }
 
     /// @notice Get individual token's URI
@@ -131,6 +147,7 @@ contract TaikoPartyTicket is
     /// @dev Requires a fee to mint
     /// @dev Requires the contract to not be paused
     function mint() external payable whenNotPaused {
+        if (blacklist.isBlacklisted(_msgSender())) revert ADDRESS_BLACKLISTED();
         if (msg.value < mintFee) revert INSUFFICIENT_MINT_FEE();
         uint256 tokenId = _nextTokenId++;
         _safeMint(msg.sender, tokenId);
@@ -141,6 +158,7 @@ contract TaikoPartyTicket is
     /// @dev Requires the contract to not be paused
     /// @dev Can only be called by the admin
     function mint(address to) public whenNotPaused onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (blacklist.isBlacklisted(to)) revert ADDRESS_BLACKLISTED();
         uint256 tokenId = _nextTokenId++;
         _safeMint(to, tokenId);
     }
