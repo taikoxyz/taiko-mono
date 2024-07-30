@@ -109,14 +109,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         emitEventForClient
         returns (TaikoData.BlockMetadataV2 memory meta_)
     {
-        TaikoData.Config memory config = getConfig();
-
-        (, meta_,) = LibProposing.proposeBlock(state, config, this, _params, _txList);
-        if (meta_.id < config.ontakeForkHeight) revert L1_FORK_ERROR();
-
-        if (LibUtils.shouldVerifyBlocks(config, meta_.id, true) && !state.slotB.provingPaused) {
-            LibVerifying.verifyBlocks(state, config, this, config.maxBlocksToVerify);
-        }
+        return _proposeBlock(_params, _txList, getConfig());
     }
 
     /// @inheritdoc ITaikoL1
@@ -139,16 +132,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         TaikoData.Config memory config = getConfig();
 
         for (uint256 i; i < _paramsArr.length; ++i) {
-            (, metaArr_[i],) =
-                LibProposing.proposeBlock(state, config, this, _paramsArr[i], _txListArr[i]);
-
-            uint64 id = metaArr_[i].id;
-            if (LibUtils.shouldVerifyBlocks(config, id, true) && !state.slotB.provingPaused) {
-                LibVerifying.verifyBlocks(state, config, this, config.maxBlocksToVerify);
-            }
+            metaArr_[i] = _proposeBlock(_paramsArr[i], _txListArr[i], config);
         }
-
-        if (metaArr_[0].id < config.ontakeForkHeight) revert L1_FORK_ERROR();
     }
 
     /// @inheritdoc ITaikoL1
@@ -314,6 +299,22 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
             blockGasIssuance: 20_000_000,
             ontakeForkHeight: 374_400 // = 7200 * 52
          });
+    }
+
+    function _proposeBlock(
+        bytes calldata _params,
+        bytes calldata _txList,
+        TaikoData.Config memory _config
+    )
+        internal
+        returns (TaikoData.BlockMetadataV2 memory meta_)
+    {
+        (, meta_,) = LibProposing.proposeBlock(state, _config, this, _params, _txList);
+        if (meta_.id < _config.ontakeForkHeight) revert L1_FORK_ERROR();
+
+        if (LibUtils.shouldVerifyBlocks(_config, meta_.id, true) && !state.slotB.provingPaused) {
+            LibVerifying.verifyBlocks(state, _config, this, _config.maxBlocksToVerify);
+        }
     }
 
     /// @dev chain_pauser is supposed to be a cold wallet.
