@@ -286,9 +286,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         internal
         returns (TaikoData.BlockMetadataV2 memory meta_)
     {
-        (, meta_,) = LibProposing.proposeBlock(state, _config, this, _params, _txList);
-        if (meta_.id < _config.ontakeForkHeight) revert L1_FORK_ERROR();
-
+        meta_ = LibProposing.proposeBlock(state, _config, this, _params, _txList);
         if (LibUtils.shouldVerifyBlocks(_config, meta_.id, true) && !state.slotB.provingPaused) {
             LibVerifying.verifyBlocks(state, _config, this, _config.maxBlocksToVerify);
         }
