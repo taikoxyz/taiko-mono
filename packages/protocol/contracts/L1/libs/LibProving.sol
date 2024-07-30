@@ -135,7 +135,7 @@ library LibProving {
         uint64 _blockId,
         bytes calldata _input
     )
-        internal
+        public
     {
         Local memory local;
 
