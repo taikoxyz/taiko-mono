@@ -264,7 +264,7 @@ library LibProposing {
             revert L1_INVALID_PROPOSER();
         }
     }
-    
+
     function _encodeExtraBlockConfigs(
         uint8 _basefeeSharingPctg,
         uint8 _blockGasTargetMillion
