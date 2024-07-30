@@ -107,7 +107,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         whenNotPaused
         nonReentrant
         emitEventForClient
-        returns (TaikoData.BlockMetadataV2 memory meta_)
+        returns (TaikoData.BlockMetadataV2 memory)
     {
         return _proposeBlock(_params, _txList, getConfig());
     }
