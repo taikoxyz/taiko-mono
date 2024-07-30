@@ -16,6 +16,7 @@ type Config struct {
 	ProposeBlockTxGasLimit uint64
 	PollingInterval        time.Duration
 	L2HTTPEndpoint         string
+	DBPath                 string
 }
 
 // NewConfigFromCliContext initializes a Config instance from
@@ -28,5 +29,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		ProposeBlockTxGasLimit: c.Uint64(flags.TxGasLimit.Name),
 		PollingInterval:        c.Duration(flags.PollingInterval.Name),
 		L2HTTPEndpoint:         c.String(flags.L2HTTPEndpoint.Name),
+		DBPath:                 c.String(flags.DBPath.Name),
 	}, nil
 }

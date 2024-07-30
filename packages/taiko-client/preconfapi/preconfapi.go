@@ -77,7 +77,7 @@ func (p *PreconfAPI) InitFromConfig(ctx context.Context, cfg *Config) (err error
 
 	log.Info("pollingINterval", "interval", p.cfg.PollingInterval)
 
-	p.db, err = badger.Open(badger.DefaultOptions("/tmp/badger"))
+	p.db, err = badger.Open(badger.DefaultOptions(p.cfg.DBPath))
 	if err != nil {
 		return err
 	}

@@ -17,10 +17,17 @@ var (
 	}
 	PollingInterval = &cli.DurationFlag{
 		Name:     "preconfapi.pollingInterval",
-		Usage:    "The rpc endpoint of L1 preconfer",
+		Usage:    "Interval at which to poll",
 		Category: preconfAPICategory,
 		Value:    1 * time.Second,
 		EnvVars:  []string{"POLLING_INTERVAL"},
+	}
+	DBPath = &cli.StringFlag{
+		Name:     "preconfapi.dbPath",
+		Usage:    "DB Path",
+		Category: preconfAPICategory,
+		Value:    "/tmp/badgerdb",
+		EnvVars:  []string{"DB_PATH"},
 	}
 )
 
@@ -34,4 +41,5 @@ var PreconfAPIFlags = []cli.Flag{
 	L2HTTPEndpoint,
 	Verbosity,
 	LogJSON,
+	DBPath,
 }
