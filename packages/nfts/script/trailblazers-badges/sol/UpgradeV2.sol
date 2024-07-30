@@ -15,9 +15,6 @@ contract UpgradeV2 is Script {
     address public deployerAddress;
 
     address tokenV1 = 0xa20a8856e00F5ad024a55A663F06DCc419FFc4d5;
-    string baseURI =
-        "https://taikonfts.4everland.link/ipfs/bafybeihbhzsnfkycyvgvcl4z25fybg2c72km4zbc65r4ndxwqh5w3v5x4u";
-
     TrailblazersBadges public token;
 
     function setUp() public {
@@ -34,11 +31,7 @@ contract UpgradeV2 is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         token.upgradeToAndCall(
-            address(new TrailblazersBadges()),
-            abi.encodeCall(
-                TrailblazersBadges.initialize,
-                (token.owner(), baseURI, token.mintSigner(), token.blacklist())
-            )
+            address(new TrailblazersBadges()), abi.encodeCall(TrailblazersBadges.baseURI, ())
         );
 
         token = TrailblazersBadges(token);

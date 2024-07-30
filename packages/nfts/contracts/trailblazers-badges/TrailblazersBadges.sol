@@ -184,6 +184,11 @@ contract TrailblazersBadges is ERC721EnumerableUpgradeable, ECDSAWhitelist {
 
     /// @notice v2
 
+    /// @notice Retrieve the base URI
+    function baseURI() public view returns (string memory) {
+        return _baseURIExtended;
+    }
+
     /// @notice Upgraded badgeBalances using tokenOfOwnerByIndex
     /// @param _owner The addresses to check
     /// @return balances The badges atomic balances
