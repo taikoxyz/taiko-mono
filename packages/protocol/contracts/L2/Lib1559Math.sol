@@ -15,7 +15,7 @@ library Lib1559Math {
     error EIP1559_INVALID_PARAMS();
 
     function calc1559BaseFee(
-        uint32 _gasTargetPerL1Block,
+        uint32 _gasTarget,
         uint8 _adjustmentQuotient,
         uint64 _gasExcess,
         uint64 _gasIssuance,
@@ -35,7 +35,7 @@ library Lib1559Math {
         // bonding curve, regardless the actual amount of gas used by this
         // block, however, this block's gas used will affect the next
         // block's base fee.
-        basefee_ = basefee(gasExcess_, uint256(_adjustmentQuotient) * _gasTargetPerL1Block);
+        basefee_ = basefee(gasExcess_, uint256(_adjustmentQuotient) * _gasTarget);
 
         // Always make sure basefee is nonzero, this is required by the node.
         if (basefee_ == 0) basefee_ = 1;

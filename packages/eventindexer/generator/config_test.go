@@ -6,8 +6,10 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer/cmd/flags"
 	"github.com/urfave/cli/v2"
+
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/cmd/flags"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
 )
 
 func setupApp() *cli.App {
@@ -37,7 +39,7 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		wantTime, _ := time.Parse("2006-01-02", "2023-07-07")
 		assert.Equal(t, wantTime, c.GenesisDate)
 
-		c.OpenDBFunc = func() (DB, error) {
+		c.OpenDBFunc = func() (db.DB, error) {
 			return nil, nil
 		}
 

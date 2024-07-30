@@ -2,7 +2,6 @@ package encoding
 
 import (
 	"context"
-	"math/big"
 	"os"
 	"testing"
 
@@ -15,43 +14,6 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 )
-
-func TestEncodeProverAssignmentPayload(t *testing.T) {
-	encoded, err := EncodeProverAssignmentPayload(
-		randomHash().Big().Uint64(),
-		common.BytesToAddress(randomBytes(20)),
-		common.BytesToAddress(randomBytes(20)),
-		common.BytesToAddress(randomBytes(20)),
-		common.BytesToAddress(randomBytes(20)),
-		common.BytesToHash(randomBytes(32)),
-		common.BytesToAddress(randomBytes(20)),
-		120,
-		1024,
-		0,
-		[]TierFee{{Tier: 0, Fee: common.Big1}},
-	)
-
-	require.Nil(t, err)
-	require.NotNil(t, encoded)
-}
-
-func TestEncodeAssignmentHookInput(t *testing.T) {
-	encoded, err := EncodeAssignmentHookInput(&AssignmentHookInput{
-		Assignment: &ProverAssignment{
-			FeeToken:      common.Address{},
-			Expiry:        1,
-			MaxBlockId:    1,
-			MaxProposedIn: 1,
-			MetaHash:      [32]byte{0xff},
-			TierFees:      []TierFee{{Tier: 0, Fee: common.Big1}},
-			Signature:     []byte{0xff},
-		},
-		Tip: big.NewInt(1),
-	})
-
-	require.Nil(t, err)
-	require.NotNil(t, encoded)
-}
 
 func TestUnpackTxListBytes(t *testing.T) {
 	_, err := UnpackTxListBytes(randomBytes(1024))

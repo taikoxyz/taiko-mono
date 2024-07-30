@@ -1,17 +1,14 @@
 package encoding
 
 import (
-	"bytes"
-	"encoding/binary"
 	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 )
 
 // ABI arguments marshaling components.
@@ -72,6 +69,96 @@ var (
 		{
 			Name: "sender",
 			Type: "address",
+		},
+	}
+	blockMetadataV2Components = []abi.ArgumentMarshaling{
+		{
+			Name: "anchorBlockHash",
+			Type: "bytes32",
+		},
+		{
+			Name: "difficulty",
+			Type: "bytes32",
+		},
+		{
+			Name: "blobHash",
+			Type: "bytes32",
+		},
+		{
+			Name: "extraData",
+			Type: "bytes32",
+		},
+		{
+			Name: "coinbase",
+			Type: "address",
+		},
+		{
+			Name: "id",
+			Type: "uint64",
+		},
+		{
+			Name: "gasLimit",
+			Type: "uint32",
+		},
+		{
+			Name: "timestamp",
+			Type: "uint64",
+		},
+		{
+			Name: "anchorBlockId",
+			Type: "uint64",
+		},
+		{
+			Name: "minTier",
+			Type: "uint16",
+		},
+		{
+			Name: "blobUsed",
+			Type: "bool",
+		},
+		{
+			Name: "parentMetaHash",
+			Type: "bytes32",
+		},
+		{
+			Name: "proposer",
+			Type: "address",
+		},
+		{
+			Name: "livenessBond",
+			Type: "uint96",
+		},
+		{
+			Name: "proposedAt",
+			Type: "uint64",
+		},
+		{
+			Name: "proposedIn",
+			Type: "uint64",
+		},
+		{
+			Name: "blobTxListOffset",
+			Type: "uint32",
+		},
+		{
+			Name: "blobTxListLength",
+			Type: "uint32",
+		},
+		{
+			Name: "blobIndex",
+			Type: "uint8",
+		},
+		{
+			Name: "basefeeAdjustmentQuotient",
+			Type: "uint8",
+		},
+		{
+			Name: "basefeeSharingPctg",
+			Type: "uint8",
+		},
+		{
+			Name: "blockGasIssuance",
+			Type: "uint32",
 		},
 	}
 	transitionComponents = []abi.ArgumentMarshaling{
@@ -138,25 +225,13 @@ var (
 			Type: "bytes",
 		},
 	}
-	proverAssignmentComponents = []abi.ArgumentMarshaling{
+	blockParamsV2Components = []abi.ArgumentMarshaling{
 		{
-			Name: "feeToken",
+			Name: "coinbase",
 			Type: "address",
 		},
 		{
-			Name: "expiry",
-			Type: "uint64",
-		},
-		{
-			Name: "maxBlockId",
-			Type: "uint64",
-		},
-		{
-			Name: "maxProposedIn",
-			Type: "uint64",
-		},
-		{
-			Name: "metaHash",
+			Name: "extraData",
 			Type: "bytes32",
 		},
 		{
@@ -164,74 +239,44 @@ var (
 			Type: "bytes32",
 		},
 		{
-			Name: "tierFees",
-			Type: "tuple[]",
-			Components: []abi.ArgumentMarshaling{
-				{
-					Name: "tier",
-					Type: "uint16",
-				},
-				{
-					Name: "fee",
-					Type: "uint128",
-				},
-			},
+			Name: "anchorBlockId",
+			Type: "uint64",
 		},
 		{
-			Name: "signature",
-			Type: "bytes",
-		},
-	}
-	assignmentHookInputComponents = []abi.ArgumentMarshaling{
-		{
-			Name:       "assignment",
-			Type:       "tuple",
-			Components: proverAssignmentComponents,
+			Name: "timestamp",
+			Type: "uint64",
 		},
 		{
-			Name: "tip",
-			Type: "uint256",
+			Name: "blobTxListOffset",
+			Type: "uint32",
+		},
+		{
+			Name: "blobTxListLength",
+			Type: "uint32",
+		},
+		{
+			Name: "blobIndex",
+			Type: "uint8",
 		},
 	}
 )
 
 var (
-	assignmentHookInputType, _   = abi.NewType("tuple", "AssignmentHook.Input", assignmentHookInputComponents)
-	assignmentHookInputArgs      = abi.Arguments{{Name: "AssignmentHook.Input", Type: assignmentHookInputType}}
-	blockParamsComponentsType, _ = abi.NewType("tuple", "TaikoData.BlockParams", blockParamsComponents)
-	blockParamsComponentsArgs    = abi.Arguments{{Name: "TaikoData.BlockParams", Type: blockParamsComponentsType}}
-	// ProverAssignmentPayload
-	bytes32Type, _  = abi.NewType("bytes32", "", nil)
-	addressType, _  = abi.NewType("address", "", nil)
-	uint64Type, _   = abi.NewType("uint64", "", nil)
-	tierFeesType, _ = abi.NewType(
-		"tuple[]",
-		"",
-		[]abi.ArgumentMarshaling{
-			{
-				Name: "tier",
-				Type: "uint16",
-			},
-			{
-				Name: "fee",
-				Type: "uint128",
-			},
-		},
-	)
-	proverAssignmentHashPayloadArgs = abi.Arguments{
-		{Name: "_assignment.metaHash", Type: bytes32Type},
-		{Name: "_assignment.parentMetaHash", Type: bytes32Type},
-		{Name: "_assignment.feeToken", Type: addressType},
-		{Name: "_assignment.expiry", Type: uint64Type},
-		{Name: "_assignment.maxBlockId", Type: uint64Type},
-		{Name: "_assignment.maxProposedIn", Type: uint64Type},
-		{Name: "_assignment.tierFees", Type: tierFeesType},
-	}
-	blockMetadataComponentsType, _ = abi.NewType("tuple", "TaikoData.BlockMetadata", blockMetadataComponents)
-	transitionComponentsType, _    = abi.NewType("tuple", "TaikoData.Transition", transitionComponents)
-	tierProofComponentsType, _     = abi.NewType("tuple", "TaikoData.TierProof", tierProofComponents)
-	proveBlockInputArgs            = abi.Arguments{
+	blockParamsComponentsType, _     = abi.NewType("tuple", "TaikoData.BlockParams", blockParamsComponents)
+	blockParamsComponentsArgs        = abi.Arguments{{Name: "TaikoData.BlockParams", Type: blockParamsComponentsType}}
+	blockParamsV2ComponentsType, _   = abi.NewType("tuple", "TaikoData.BlockParamsV2", blockParamsV2Components)
+	blockParamsV2ComponentsArgs      = abi.Arguments{{Name: "TaikoData.BlockParamsV2", Type: blockParamsV2ComponentsType}}
+	blockMetadataComponentsType, _   = abi.NewType("tuple", "TaikoData.BlockMetadata", blockMetadataComponents)
+	blockMetadataV2ComponentsType, _ = abi.NewType("tuple", "TaikoData.BlockMetadataV2", blockMetadataV2Components)
+	transitionComponentsType, _      = abi.NewType("tuple", "TaikoData.Transition", transitionComponents)
+	tierProofComponentsType, _       = abi.NewType("tuple", "TaikoData.TierProof", tierProofComponents)
+	proveBlockInputArgs              = abi.Arguments{
 		{Name: "TaikoData.BlockMetadata", Type: blockMetadataComponentsType},
+		{Name: "TaikoData.Transition", Type: transitionComponentsType},
+		{Name: "TaikoData.TierProof", Type: tierProofComponentsType},
+	}
+	proveOntakeBlockInputArgs = abi.Arguments{
+		{Name: "TaikoData.BlockMetadataV2", Type: blockMetadataV2ComponentsType},
 		{Name: "TaikoData.Transition", Type: transitionComponentsType},
 		{Name: "TaikoData.TierProof", Type: tierProofComponentsType},
 	}
@@ -247,7 +292,6 @@ var (
 	LibProvingABI       *abi.ABI
 	LibUtilsABI         *abi.ABI
 	LibVerifyingABI     *abi.ABI
-	AssignmentHookABI   *abi.ABI
 	SGXVerifierABI      *abi.ABI
 	GuardianVerifierABI *abi.ABI
 	ProverSetABI        *abi.ABI
@@ -290,10 +334,6 @@ func init() {
 		log.Crit("Get LibVerifying ABI error", "error", err)
 	}
 
-	if AssignmentHookABI, err = bindings.AssignmentHookMetaData.GetAbi(); err != nil {
-		log.Crit("Get AssignmentHook ABI error", "error", err)
-	}
-
 	if SGXVerifierABI, err = bindings.SgxVerifierMetaData.GetAbi(); err != nil {
 		log.Crit("Get SGXVerifier ABI error", err)
 	}
@@ -314,7 +354,6 @@ func init() {
 		LibProvingABI.Errors,
 		LibUtilsABI.Errors,
 		LibVerifyingABI.Errors,
-		AssignmentHookABI.Errors,
 		SGXVerifierABI.Errors,
 		GuardianVerifierABI.Errors,
 		ProverSetABI.Errors,
@@ -330,67 +369,43 @@ func EncodeBlockParams(params *BlockParams) ([]byte, error) {
 	return b, nil
 }
 
-// EncodeAssignmentHookInput performs the solidity `abi.encode` for the given input
-func EncodeAssignmentHookInput(input *AssignmentHookInput) ([]byte, error) {
-	b, err := assignmentHookInputArgs.Pack(input)
+// EncodeBlockParamsOntake performs the solidity `abi.encode` for the given ontake blockParams.
+func EncodeBlockParamsOntake(params *BlockParamsV2) ([]byte, error) {
+	b, err := blockParamsV2ComponentsArgs.Pack(params)
 	if err != nil {
-		return nil, fmt.Errorf("failed to abi.encode assignment hook input params, %w", err)
+		return nil, fmt.Errorf("failed to abi.encode ontake block params, %w", err)
 	}
 	return b, nil
 }
 
-// EncodeProverAssignmentPayload performs the solidity `abi.encode` for the given proverAssignment payload.
-func EncodeProverAssignmentPayload(
-	chainID uint64,
-	taikoAddress common.Address,
-	assignmentHookAddress common.Address,
-	blockProposer common.Address,
-	assignedProver common.Address,
-	blobHash common.Hash,
-	feeToken common.Address,
-	expiry uint64,
-	maxBlockID uint64,
-	maxProposedIn uint64,
-	tierFees []TierFee,
-) ([]byte, error) {
-	hashBytesPayload, err := proverAssignmentHashPayloadArgs.Pack(
-		common.Hash{},
-		common.Hash{},
-		feeToken,
-		expiry,
-		maxBlockID,
-		maxProposedIn,
-		tierFees,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to abi.encode prover assignment hash payload, %w", err)
-	}
-
-	chainIDBytes := make([]byte, 8)
-	binary.BigEndian.PutUint64(chainIDBytes, chainID)
-
-	return bytes.Join([][]byte{
-		common.RightPadBytes([]byte("PROVER_ASSIGNMENT"), 32),
-		chainIDBytes,
-		taikoAddress.Bytes(),
-		blockProposer.Bytes(),
-		assignedProver.Bytes(),
-		blobHash.Bytes(),
-		crypto.Keccak256Hash(hashBytesPayload).Bytes(),
-		assignmentHookAddress.Bytes(),
-	}, nil), nil
-}
-
 // EncodeProveBlockInput performs the solidity `abi.encode` for the given TaikoL1.proveBlock input.
 func EncodeProveBlockInput(
-	meta *bindings.TaikoDataBlockMetadata,
+	meta metadata.TaikoBlockMetaData,
 	transition *bindings.TaikoDataTransition,
 	tierProof *bindings.TaikoDataTierProof,
 ) ([]byte, error) {
-	b, err := proveBlockInputArgs.Pack(meta, transition, tierProof)
-	if err != nil {
-		return nil, fmt.Errorf("failed to abi.encode TakoL1.proveBlock input, %w", err)
+	var (
+		b   []byte
+		err error
+	)
+	if meta.IsOntakeBlock() {
+		if b, err = proveOntakeBlockInputArgs.Pack(
+			meta.(*metadata.TaikoDataBlockMetadataOntake).InnerMetadata(),
+			transition,
+			tierProof,
+		); err != nil {
+			return nil, fmt.Errorf("failed to abi.encode TakoL1.proveBlock input after ontake fork, %w", err)
+		}
+	} else {
+		if b, err = proveBlockInputArgs.Pack(
+			meta.(*metadata.TaikoDataBlockMetadataLegacy).InnerMetadata(),
+			transition,
+			tierProof,
+		); err != nil {
+			return nil, fmt.Errorf("failed to abi.encode TakoL1.proveBlock input, %w", err)
+		}
 	}
+
 	return b, nil
 }
 

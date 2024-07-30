@@ -14,10 +14,12 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
+// gethClient is a wrapper for go-ethereum geth client.
 type gethClient struct {
 	*gethclient.Client
 }
 
+// ethClient is a wrapper for go-ethereum eth client.
 type ethClient struct {
 	*ethclient.Client
 }
@@ -33,6 +35,7 @@ type EthClient struct {
 	timeout time.Duration
 }
 
+// NewEthClient creates a new EthClient instance.
 func NewEthClient(ctx context.Context, url string, timeout time.Duration) (*EthClient, error) {
 	var timeoutVal = defaultTimeout
 	if timeout != 0 {
@@ -65,7 +68,7 @@ func NewEthClient(ctx context.Context, url string, timeout time.Duration) (*EthC
 // Note that loading full blocks requires two requests. Use HeaderByHash
 // if you don't need all transactions or uncle headers.
 func (c *EthClient) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, c.timeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
 	return c.ethClient.BlockByHash(ctxWithTimeout, hash)
@@ -77,7 +80,7 @@ func (c *EthClient) BlockByHash(ctx context.Context, hash common.Hash) (*types.B
 // Note that loading full blocks requires two requests. Use HeaderByNumber
 // if you don't need all transactions or uncle headers.
 func (c *EthClient) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, c.timeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
 	return c.ethClient.BlockByNumber(ctxWithTimeout, number)
@@ -85,7 +88,7 @@ func (c *EthClient) BlockByNumber(ctx context.Context, number *big.Int) (*types.
 
 // BlockNumber returns the most recent block number
 func (c *EthClient) BlockNumber(ctx context.Context) (uint64, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, c.timeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
 	return c.ethClient.BlockNumber(ctxWithTimeout)
@@ -93,7 +96,7 @@ func (c *EthClient) BlockNumber(ctx context.Context) (uint64, error) {
 
 // PeerCount returns the number of p2p peers as reported by the net_peerCount method.
 func (c *EthClient) PeerCount(ctx context.Context) (uint64, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, c.timeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
 	return c.ethClient.PeerCount(ctxWithTimeout)
@@ -101,7 +104,7 @@ func (c *EthClient) PeerCount(ctx context.Context) (uint64, error) {
 
 // HeaderByHash returns the block header with the given hash.
 func (c *EthClient) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, c.timeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
 	return c.ethClient.HeaderByHash(ctxWithTimeout, hash)
@@ -110,7 +113,7 @@ func (c *EthClient) HeaderByHash(ctx context.Context, hash common.Hash) (*types.
 // HeaderByNumber returns a block header from the current canonical chain. If number is
 // nil, the latest known header is returned.
 func (c *EthClient) HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, c.timeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
 	return c.ethClient.HeaderByNumber(ctxWithTimeout, number)
@@ -121,7 +124,7 @@ func (c *EthClient) TransactionByHash(
 	ctx context.Context,
 	hash common.Hash,
 ) (tx *types.Transaction, isPending bool, err error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, c.timeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
 	return c.ethClient.TransactionByHash(ctxWithTimeout, hash)
@@ -139,7 +142,7 @@ func (c *EthClient) TransactionSender(
 	block common.Hash,
 	index uint,
 ) (common.Address, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, c.timeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
 	return c.ethClient.TransactionSender(ctxWithTimeout, tx, block, index)
@@ -147,7 +150,7 @@ func (c *EthClient) TransactionSender(
 
 // TransactionCount returns the total number of transactions in the given block.
 func (c *EthClient) TransactionCount(ctx context.Context, blockHash common.Hash) (uint, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, c.timeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
 	return c.ethClient.TransactionCount(ctxWithTimeout, blockHash)
@@ -159,7 +162,7 @@ func (c *EthClient) TransactionInBlock(
 	blockHash common.Hash,
 	index uint,
 ) (*types.Transaction, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, c.timeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
 	return c.ethClient.TransactionInBlock(ctxWithTimeout, blockHash, index)
@@ -168,7 +171,7 @@ func (c *EthClient) TransactionInBlock(
 // SyncProgress retrieves the current progress of the sync algorithm. If there's
 // no sync currently running, it returns nil.
 func (c *EthClient) SyncProgress(ctx context.Context) (*ethereum.SyncProgress, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, c.timeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
 	return c.ethClient.SyncProgress(ctxWithTimeout)
@@ -176,7 +179,7 @@ func (c *EthClient) SyncProgress(ctx context.Context) (*ethereum.SyncProgress, e
 
 // NetworkID returns the network ID for this client.
 func (c *EthClient) NetworkID(ctx context.Context) (*big.Int, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, c.timeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
 	return c.ethClient.NetworkID(ctxWithTimeout)
@@ -189,7 +192,7 @@ func (c *EthClient) BalanceAt(
 	account common.Address,
 	blockNumber *big.Int,
 ) (*big.Int, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, c.timeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
 	return c.ethClient.BalanceAt(ctxWithTimeout, account, blockNumber)
@@ -203,7 +206,7 @@ func (c *EthClient) StorageAt(
 	key common.Hash,
 	blockNumber *big.Int,
 ) ([]byte, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, c.timeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
 	return c.ethClient.StorageAt(ctxWithTimeout, account, key, blockNumber)
@@ -216,7 +219,7 @@ func (c *EthClient) CodeAt(
 	account common.Address,
 	blockNumber *big.Int,
 ) ([]byte, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, c.timeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
 	return c.ethClient.CodeAt(ctxWithTimeout, account, blockNumber)
@@ -229,7 +232,7 @@ func (c *EthClient) NonceAt(
 	account common.Address,
 	blockNumber *big.Int,
 ) (uint64, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, c.timeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
 	return c.ethClient.NonceAt(ctxWithTimeout, account, blockNumber)
@@ -237,7 +240,7 @@ func (c *EthClient) NonceAt(
 
 // PendingBalanceAt returns the wei balance of the given account in the pending state.
 func (c *EthClient) PendingBalanceAt(ctx context.Context, account common.Address) (*big.Int, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, c.timeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
 	return c.ethClient.PendingBalanceAt(ctxWithTimeout, account)
@@ -249,7 +252,7 @@ func (c *EthClient) PendingStorageAt(
 	account common.Address,
 	key common.Hash,
 ) ([]byte, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, c.timeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
 	return c.ethClient.PendingStorageAt(ctxWithTimeout, account, key)
@@ -257,7 +260,7 @@ func (c *EthClient) PendingStorageAt(
 
 // PendingCodeAt returns the contract code of the given account in the pending state.
 func (c *EthClient) PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, c.timeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
 	return c.ethClient.PendingCodeAt(ctxWithTimeout, account)
@@ -266,7 +269,7 @@ func (c *EthClient) PendingCodeAt(ctx context.Context, account common.Address) (
 // PendingNonceAt returns the account nonce of the given account in the pending state.
 // This is the nonce that should be used for the next transaction.
 func (c *EthClient) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, c.timeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
 	return c.ethClient.PendingNonceAt(ctxWithTimeout, account)
@@ -274,7 +277,7 @@ func (c *EthClient) PendingNonceAt(ctx context.Context, account common.Address) 
 
 // PendingTransactionCount returns the total number of transactions in the pending state.
 func (c *EthClient) PendingTransactionCount(ctx context.Context) (uint, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, c.timeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
 	return c.ethClient.PendingTransactionCount(ctxWithTimeout)
@@ -291,7 +294,7 @@ func (c *EthClient) CallContract(
 	msg ethereum.CallMsg,
 	blockNumber *big.Int,
 ) ([]byte, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, c.timeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
 	return c.ethClient.CallContract(ctxWithTimeout, msg, blockNumber)
@@ -304,7 +307,7 @@ func (c *EthClient) CallContractAtHash(
 	msg ethereum.CallMsg,
 	blockHash common.Hash,
 ) ([]byte, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, c.timeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
 	return c.ethClient.CallContractAtHash(ctxWithTimeout, msg, blockHash)
@@ -313,7 +316,7 @@ func (c *EthClient) CallContractAtHash(
 // PendingCallContract executes a message call transaction using the EVM.
 // The state seen by the contract call is the pending state.
 func (c *EthClient) PendingCallContract(ctx context.Context, msg ethereum.CallMsg) ([]byte, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, c.timeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
 	return c.ethClient.PendingCallContract(ctxWithTimeout, msg)
@@ -322,7 +325,7 @@ func (c *EthClient) PendingCallContract(ctx context.Context, msg ethereum.CallMs
 // SuggestGasPrice retrieves the currently suggested gas price to allow a timely
 // execution of a transaction.
 func (c *EthClient) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, c.timeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
 	return c.ethClient.SuggestGasPrice(ctxWithTimeout)
@@ -331,7 +334,7 @@ func (c *EthClient) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
 // SuggestGasTipCap retrieves the currently suggested gas tip cap after 1559 to
 // allow a timely execution of a transaction.
 func (c *EthClient) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, c.timeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
 	return c.ethClient.SuggestGasTipCap(ctxWithTimeout)
@@ -344,7 +347,7 @@ func (c *EthClient) FeeHistory(
 	lastBlock *big.Int,
 	rewardPercentiles []float64,
 ) (*ethereum.FeeHistory, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, c.timeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
 	return c.ethClient.FeeHistory(ctxWithTimeout, blockCount, lastBlock, rewardPercentiles)
@@ -355,7 +358,7 @@ func (c *EthClient) FeeHistory(
 // the true gas limit requirement as other transactions may be added or removed by miners,
 // but it should provide a basis for setting a reasonable default.
 func (c *EthClient) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, c.timeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
 	return c.ethClient.EstimateGas(ctxWithTimeout, msg)
@@ -366,7 +369,7 @@ func (c *EthClient) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint
 // If the transaction was a contract creation use the TransactionReceipt method to get the
 // contract address after the transaction has been mined.
 func (c *EthClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, c.timeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
 	return c.ethClient.SendTransaction(ctxWithTimeout, tx)
@@ -407,7 +410,7 @@ type SignTransactionResult struct {
 
 // FillTransaction fill transaction.
 func (c *EthClient) FillTransaction(ctx context.Context, args *TransactionArgs) (*types.Transaction, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, c.timeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
 	var result SignTransactionResult

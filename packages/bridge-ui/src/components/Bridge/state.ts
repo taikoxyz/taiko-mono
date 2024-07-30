@@ -29,6 +29,7 @@ export const processingFee = writable<bigint>(BigInt(0));
 export const gasLimitZero = writable<boolean>(false);
 export const processingFeeMethod = writable<ProcessingFeeMethod>(ProcessingFeeMethod.RECOMMENDED);
 export const recipientAddress = writable<Maybe<Address>>(null);
+export const destOwnerAddress = writable<Maybe<Address>>(null);
 
 // Loading state
 export const bridging = writable<boolean>(false);

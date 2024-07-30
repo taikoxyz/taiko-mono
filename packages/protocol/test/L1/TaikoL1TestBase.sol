@@ -113,39 +113,15 @@ abstract contract TaikoL1TestBase is TaikoTest {
 
     function proposeBlock(
         address proposer,
-        uint32 gasLimit,
         uint24 txListSize
     )
         internal
         returns (TaikoData.BlockMetadata memory meta, TaikoData.EthDeposit[] memory ethDeposits)
     {
-        TaikoData.TierFee[] memory tierFees = new TaikoData.TierFee[](3);
-        // Register the tier fees
-        // Based on OPL2ConfigTier we need 3:
-        // - LibTiers.TIER_SGX;
-        // - LibTiers.TIER_OPTIMISTIC;
-        // - LibTiers.TIER_GUARDIAN;
-        tierFees[0] = TaikoData.TierFee(LibTiers.TIER_OPTIMISTIC, 1 ether);
-        tierFees[1] = TaikoData.TierFee(LibTiers.TIER_SGX, 1 ether);
-        tierFees[2] = TaikoData.TierFee(LibTiers.TIER_GUARDIAN, 0 ether);
         // For the test not to fail, set the message.value to the highest, the
         // rest will be returned
         // anyways
         uint256 msgValue = 2 ether;
-
-        (, TaikoData.SlotB memory b) = L1.getStateVariables();
-
-        uint256 _difficulty;
-        unchecked {
-            _difficulty = block.prevrandao * b.numBlocks;
-        }
-
-        // TODO: why init meta here?
-        meta.timestamp = uint64(block.timestamp);
-        meta.l1Height = uint64(block.number - 1);
-        meta.l1Hash = blockhash(block.number - 1);
-        meta.difficulty = bytes32(_difficulty);
-        meta.gasLimit = gasLimit;
 
         TaikoData.HookCall[] memory hookcalls = new TaikoData.HookCall[](0);
         vm.prank(proposer, proposer);

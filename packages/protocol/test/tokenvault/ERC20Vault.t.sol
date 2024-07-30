@@ -61,7 +61,7 @@ contract PrankDestBridge {
     }
 }
 
-contract UpdatedBridgedERC20 is BridgedERC20 {
+contract UpdatedBridgedERC20 is BridgedERC20V2 {
     function helloWorld() public pure returns (string memory) {
         return "helloworld";
     }

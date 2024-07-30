@@ -11,14 +11,14 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
 const (
@@ -28,10 +28,11 @@ const (
 
 // SGXProofProducer generates a SGX proof for the given block.
 type SGXProofProducer struct {
-	RaikoHostEndpoint string // a proverd RPC endpoint
-	ProofType         string // Proof type
-	JWT               string // JWT provided by Raiko
-	Dummy             bool
+	RaikoHostEndpoint   string // a proverd RPC endpoint
+	ProofType           string // Proof type
+	JWT                 string // JWT provided by Raiko
+	Dummy               bool
+	RaikoRequestTimeout time.Duration
 	DummyProofProducer
 }
 
@@ -75,13 +76,13 @@ func (s *SGXProofProducer) RequestProof(
 	ctx context.Context,
 	opts *ProofRequestOptions,
 	blockID *big.Int,
-	meta *bindings.TaikoDataBlockMetadata,
+	meta metadata.TaikoBlockMetaData,
 	header *types.Header,
 ) (*ProofWithHeader, error) {
 	log.Info(
 		"Request proof from raiko-host service",
 		"blockID", blockID,
-		"coinbase", meta.Coinbase,
+		"coinbase", meta.GetCoinbase(),
 		"height", header.Number,
 		"hash", header.Hash(),
 	)
@@ -113,52 +114,51 @@ func (s *SGXProofProducer) callProverDaemon(ctx context.Context, opts *ProofRequ
 		proof []byte
 		start = time.Now()
 	)
-	if err := backoff.Retry(func() error {
-		if ctx.Err() != nil {
-			return nil
-		}
-		output, err := s.requestProof(opts)
-		if err != nil {
-			log.Error("Failed to request proof", "height", opts.BlockID, "error", err, "endpoint", s.RaikoHostEndpoint)
-			return err
-		}
 
-		if output == nil {
-			log.Info(
-				"Proof generating",
-				"height", opts.BlockID,
-				"time", time.Since(start),
-				"producer", "SGXProofProducer",
-			)
-			return errProofGenerating
-		}
+	ctx, cancel := rpc.CtxWithTimeoutOrDefault(ctx, s.RaikoRequestTimeout)
+	defer cancel()
 
-		log.Debug("Proof generation output", "output", output)
+	output, err := s.requestProof(ctx, opts)
+	if err != nil {
+		log.Error("Failed to request proof", "height", opts.BlockID, "error", err, "endpoint", s.RaikoHostEndpoint)
+		return nil, err
+	}
 
-		// Raiko returns "" as proof when proof type is native,
-		// so we just convert "" to bytes
-		if s.ProofType == ProofTypeCPU {
-			proof = common.Hex2Bytes(output.Data.Proof)
-		} else {
-			proof = common.Hex2Bytes(output.Data.Proof[2:])
-		}
-
+	if output == nil {
 		log.Info(
-			"Proof generated",
+			"Proof generating",
 			"height", opts.BlockID,
 			"time", time.Since(start),
 			"producer", "SGXProofProducer",
 		)
-		return nil
-	}, backoff.WithContext(backoff.NewConstantBackOff(proofPollingInterval), ctx)); err != nil {
-		return nil, err
+		return nil, errProofGenerating
 	}
+
+	log.Debug("Proof generation output", "output", output)
+
+	// Raiko returns "" as proof when proof type is native,
+	// so we just convert "" to bytes
+	if s.ProofType == ProofTypeCPU {
+		proof = common.Hex2Bytes(output.Data.Proof)
+	} else {
+		proof = common.Hex2Bytes(output.Data.Proof[2:])
+	}
+
+	log.Info(
+		"Proof generated",
+		"height", opts.BlockID,
+		"time", time.Since(start),
+		"producer", "SGXProofProducer",
+	)
 
 	return proof, nil
 }
 
 // requestProof sends a RPC request to proverd to try to get the requested proof.
-func (s *SGXProofProducer) requestProof(opts *ProofRequestOptions) (*RaikoRequestProofBodyResponse, error) {
+func (s *SGXProofProducer) requestProof(
+	ctx context.Context,
+	opts *ProofRequestOptions,
+) (*RaikoRequestProofBodyResponse, error) {
 	reqBody := RaikoRequestProofBody{
 		Type:     s.ProofType,
 		Block:    opts.BlockID,
@@ -178,7 +178,7 @@ func (s *SGXProofProducer) requestProof(opts *ProofRequestOptions) (*RaikoReques
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", s.RaikoHostEndpoint+"/v1/proof", bytes.NewBuffer(jsonValue))
+	req, err := http.NewRequestWithContext(ctx, "POST", s.RaikoHostEndpoint+"/v1/proof", bytes.NewBuffer(jsonValue))
 	if err != nil {
 		return nil, err
 	}
