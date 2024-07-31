@@ -26,7 +26,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
 
     error L1_FORK_ERROR();
     error L1_INVALID_PARAMS();
-    error L1_RECEIVE_DISABLED();
 
     modifier whenProvingNotPaused() {
         if (state.slotB.provingPaused) revert LibProving.L1_PROVING_PAUSED();
@@ -41,11 +40,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     modifier onlyRegisteredProposer() {
         LibProposing.checkProposerPermission(this);
         _;
-    }
-
-    /// @dev Allows for receiving Ether from Hooks
-    receive() external payable {
-        if (!inNonReentrant()) revert L1_RECEIVE_DISABLED();
     }
 
     /// @notice Initializes the contract.
