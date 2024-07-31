@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
@@ -147,7 +148,10 @@ func (p *PreconfAPI) poll() error {
 	}
 
 	for i := p.latestSeenBlockNumber; i <= latestBlockNumber; i++ {
-		preconfBlock, err := p.ethclient.BlockByNumber(context.Background(), new(big.Int).SetUint64(latestBlockNumber))
+		preconfBlock, err := p.ethclient.BlockByNumber(
+			context.Background(),
+			new(big.Int).SetUint64(latestBlockNumber),
+		)
 		if err != nil {
 			return err
 		}
@@ -164,7 +168,7 @@ func (p *PreconfAPI) poll() error {
 					return err
 				}
 
-				sender, err := p.ethclient.TransactionSender(p.ctx, tx, preconfBlock.Hash(), receipt.TransactionIndex)
+				sender, err := types.Sender(types.LatestSignerForChainID(p.chainID), tx)
 				if err != nil {
 					return err
 				}
