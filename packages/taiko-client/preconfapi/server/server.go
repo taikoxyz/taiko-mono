@@ -87,6 +87,12 @@ func (s *PreconfAPIServer) configureMiddleware() {
 			`"bytes_in":${bytes_in},"bytes_out":${bytes_out}}}` + "\n",
 		Output: os.Stdout,
 	}))
+
+	// Add CORS middleware
+	s.echo.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins:     []string{"*"},
+		AllowCredentials: true,
+	}))
 }
 
 // configureRoutes contains all routes which will be used by prover server.

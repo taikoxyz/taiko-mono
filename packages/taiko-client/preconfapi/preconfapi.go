@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
-	"strconv"
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
@@ -163,10 +163,10 @@ func (p *PreconfAPI) poll() error {
 			log.Info("found tx", "hash", tx.Hash().Hex())
 			if err := p.db.Update(func(txn *badger.Txn) error {
 				_, err := txn.Get(tx.Hash().Bytes())
-				if err == nil {
-					log.Info("seen tx before", "hash", tx.Hash().Hex())
-					return nil
-				}
+				// if err == nil {
+				// 	log.Info("seen tx before", "hash", tx.Hash().Hex())
+				// 	return nil
+				// }
 
 				log.Info("havent seen tx before", "hash", tx.Hash().Hex())
 
@@ -209,25 +209,54 @@ func (p *PreconfAPI) poll() error {
 
 				maxFeePerGas := tx.GasFeeCap().String()
 
-				ts := strconv.Itoa(int(tx.Time().UTC().Unix()))
+				maxPrioFee := tx.GasTipCap().String()
+
+				ts := tx.Time().UTC().Format("2006-01-02T15:04:05.000000Z")
+
+				txType := int(tx.Type())
+
+				txTypes := []model.TransactionType{}
+				if toAddress.IsContract {
+					txTypes = append(txTypes, model.TxTypeContractCall)
+				} else {
+					txTypes = append(txTypes, model.TxTypeCoinTransfer)
+				}
+
+				if tx.To() == nil {
+					txTypes = append(txTypes, model.TxTypeContractCreation)
+				}
+
+				rawInput := common.Bytes2Hex(tx.Data())
+				if rawInput == "" {
+					rawInput = "0x"
+				}
+
 				modelTx := model.Transaction{
-					From:                 fromAddress,
-					To:                   toAddress,
+					Actions: make([]model.TxAction, 0),
+					From:    fromAddress,
+					To:      toAddress,
+					Fee: model.Fee{
+						Type:  "actual",
+						Value: new(big.Int).Mul(tx.GasPrice(), new(big.Int).SetUint64(receipt.GasUsed)).String(),
+					},
 					Hash:                 tx.Hash().Hex(),
 					Value:                tx.Value().String(),
 					GasPrice:             tx.GasPrice().String(),
 					Nonce:                int(tx.Nonce()),
 					Block:                new(int),
 					GasLimit:             tx.Gas(),
-					TxTypes:              []model.TransactionType{model.TxTypeCoinTransfer}, // TODO
+					TxTypes:              txTypes,
 					Status:               &status,
 					Confirmations:        int(latestBlockNumber) - int(receipt.BlockNumber.Uint64()),
 					GasUsed:              &receipt.GasUsed,
 					MaxFeePerGas:         &maxFeePerGas,
-					MaxPriorityFeePerGas: &maxFeePerGas,
+					MaxPriorityFeePerGas: &maxPrioFee,
 					BaseFeePerGas:        &baseFee,
 					Position:             &receipt.TransactionIndex,
 					Timestamp:            &ts,
+					ConfirmationDuration: []int{},
+					RawInput:             rawInput,
+					Type:                 &txType,
 					// Add other fields as necessary
 				}
 
