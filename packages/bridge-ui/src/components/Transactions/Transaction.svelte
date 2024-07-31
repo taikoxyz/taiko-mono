@@ -230,14 +230,14 @@
   <div
     on:click={openDetails}
     {...attrs}
-    class="flex text-primary-content md:h-[80px] h-[45px] w-full my-[10px] md:my-[0px]">
+    class="flex text-primary-content md:h-[80px] h-[45px] w-full my-[10px] md:my-[0px] hover:bg-[#C8047D]/10">
     {#if isDesktopOrLarger}
-      <div class="w-1/6 py-2 flex flex-row items-center">
-        <ChainSymbol chainId={item.srcChainId} />
+      <div class="w-1/6 py-2 pl-[24px] flex flex-row items-center">
+        <ChainSymbol class="min-w-[24px]" chainId={item.srcChainId} />
         {shortenAddress(item.message?.from)}
       </div>
       <div class="w-1/6 py-2 flex flex-row items-center">
-        <ChainSymbol chainId={item.destChainId} />
+        <ChainSymbol class="min-w-[24px]" chainId={item.destChainId} />
         {shortenAddress(item.message?.to)}
       </div>
       <div class="w-1/6 py-2 flex flex-col justify-center">
@@ -289,7 +289,7 @@
     </div>
 
     <div class="hidden md:flex w-1/6 py-2 flex flex-col justify-center">
-      <button class="flex justify-center py-3 link" on:click={openDetails}>
+      <button class="flex justify-end pr-[24px] py-3 link" on:click={openDetails}>
         {$t('transactions.link.view')}
       </button>
     </div>

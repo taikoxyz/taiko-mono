@@ -4,7 +4,7 @@
 
   import { CloseButton } from '$components/Button';
   import ExplorerLink from '$components/ExplorerLink/ExplorerLink.svelte';
-  import type { BridgeTransaction } from '$libs/bridge';
+  import { type BridgeTransaction,MessageStatus } from '$libs/bridge';
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import { formatTimestamp } from '$libs/util/formatTimestamp';
   import { getBlockFromTxHash } from '$libs/util/getBlockFromTxHash';
@@ -56,7 +56,7 @@
   $: claimedBy = selectedItem.claimedBy || null;
   $: isRelayer = false;
 
-  $: if (claimedBy !== to && claimedBy !== destOwner) {
+  $: if (claimedBy !== to && claimedBy !== destOwner && selectedItem.status === MessageStatus.DONE) {
     isRelayer = true;
   } else {
     isRelayer = false;

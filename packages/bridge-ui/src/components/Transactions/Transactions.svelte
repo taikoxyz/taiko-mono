@@ -213,7 +213,7 @@
         {#if isDesktopOrLarger}
           <div class="text-primary-content flex">
             {#if $activeBridge === BridgeTypes.FUNGIBLE}
-              <div class="w-1/6 py-2 text-secondary-content">{$t('transactions.header.from')}</div>
+              <div class="w-1/6 pl-[24px] py-2 text-secondary-content">{$t('transactions.header.from')}</div>
               <div class="w-1/6 py-2 text-secondary-content">{$t('transactions.header.to')}</div>
               <div class="w-1/6 py-2 text-secondary-content">{$t('transactions.header.amount')}</div>
               <div class="w-1/6 py-2 text-secondary-content flex flex-row">
