@@ -75,8 +75,6 @@ func (p *PreconfAPI) InitFromConfig(ctx context.Context, cfg *Config) (err error
 		return err
 	}
 
-	log.Info("pollingINterval", "interval", p.cfg.PollingInterval)
-
 	p.db, err = badger.Open(badger.DefaultOptions(p.cfg.DBPath))
 	if err != nil {
 		return err
@@ -138,8 +136,6 @@ func (p *PreconfAPI) pollLoop(ctx context.Context) {
 }
 
 func (p *PreconfAPI) poll() error {
-	log.Info("polling")
-
 	// get latest block number from L2
 	latestBlockNumber, err := p.ethclient.BlockNumber(context.Background())
 	if err != nil {
@@ -150,25 +146,18 @@ func (p *PreconfAPI) poll() error {
 		return nil
 	}
 
-	log.Info("new block seen", "latestBlockNumber", latestBlockNumber, "latestSeenBlockNumber", p.latestSeenBlockNumber)
-
 	for i := p.latestSeenBlockNumber; i <= latestBlockNumber; i++ {
 		preconfBlock, err := p.ethclient.BlockByNumber(context.Background(), new(big.Int).SetUint64(latestBlockNumber))
 		if err != nil {
 			return err
 		}
 
-		log.Info("txs", "len", len(preconfBlock.Transactions()))
 		for _, tx := range preconfBlock.Transactions() {
-			log.Info("found tx", "hash", tx.Hash().Hex())
 			if err := p.db.Update(func(txn *badger.Txn) error {
 				_, err := txn.Get(tx.Hash().Bytes())
 				if err == nil {
-					log.Info("seen tx before", "hash", tx.Hash().Hex())
 					return nil
 				}
-
-				log.Info("havent seen tx before", "hash", tx.Hash().Hex())
 
 				receipt, err := p.ethclient.TransactionReceipt(p.ctx, tx.Hash())
 				if err != nil {
