@@ -228,26 +228,28 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     /// @return blockId_ The last verified block's ID.
     /// @return blockHash_ The last verified block's blockHash.
     /// @return stateRoot_ The last verified block's stateRoot.
+    /// @return verifiedAt_ The timestamp this block is verified at.
     function getLastVerifiedBlock()
         external
         view
-        returns (uint64 blockId_, bytes32 blockHash_, bytes32 stateRoot_)
+        returns (uint64 blockId_, bytes32 blockHash_, bytes32 stateRoot_, uint64 verifiedAt_)
     {
         blockId_ = state.slotB.lastVerifiedBlockId;
-        (blockHash_, stateRoot_) = LibUtils.getBlockInfo(state, getConfig(), blockId_);
+        (blockHash_, stateRoot_, verifiedAt_) = LibUtils.getBlockInfo(state, getConfig(), blockId_);
     }
 
     /// @notice Returns information about the last synchronized block.
     /// @return blockId_ The last verified block's ID.
     /// @return blockHash_ The last verified block's blockHash.
     /// @return stateRoot_ The last verified block's stateRoot.
+    /// @return verifiedAt_ The timestamp this block is verified at.
     function getLastSyncedBlock()
         external
         view
-        returns (uint64 blockId_, bytes32 blockHash_, bytes32 stateRoot_)
+        returns (uint64 blockId_, bytes32 blockHash_, bytes32 stateRoot_, uint64 verifiedAt_)
     {
         blockId_ = state.slotA.lastSyncedBlockId;
-        (blockHash_, stateRoot_) = LibUtils.getBlockInfo(state, getConfig(), blockId_);
+        (blockHash_, stateRoot_, verifiedAt_) = LibUtils.getBlockInfo(state, getConfig(), blockId_);
     }
 
     /// @notice Gets the state variables of the TaikoL1 contract.
