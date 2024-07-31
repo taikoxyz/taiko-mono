@@ -271,5 +271,7 @@ func (p *PreconfAPI) poll() error {
 		}
 	}
 
+	p.latestSeenBlockNumber = latestBlockNumber
+
 	return nil
 }
