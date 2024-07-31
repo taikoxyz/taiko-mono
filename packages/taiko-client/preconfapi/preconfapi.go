@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
@@ -148,33 +148,38 @@ func (p *PreconfAPI) poll() error {
 	}
 
 	for i := p.latestSeenBlockNumber; i <= latestBlockNumber; i++ {
-		preconfBlock, err := p.ethclient.BlockByNumber(
+		var result json.RawMessage
+		err := p.ethclient.Client().CallContext(
 			context.Background(),
-			new(big.Int).SetUint64(latestBlockNumber),
+			&result,
+			"eth_getBlockByNumber",
+			fmt.Sprintf("0x%v", new(big.Int).SetUint64(latestBlockNumber).Text(16)),
+			true,
 		)
 		if err != nil {
 			return err
 		}
 
-		for _, tx := range preconfBlock.Transactions() {
+		var preconfBlock CustomBlock
+		err = json.Unmarshal(result, &preconfBlock)
+		if err != nil {
+			return err
+		}
+
+		for _, tx := range preconfBlock.Transactions {
 			if err := p.db.Update(func(txn *badger.Txn) error {
-				_, err := txn.Get(tx.Hash().Bytes())
+				_, err := txn.Get(common.HexToHash(tx.Hash).Bytes())
 				if err == nil {
 					return nil
 				}
 
-				receipt, err := p.ethclient.TransactionReceipt(p.ctx, tx.Hash())
-				if err != nil {
-					return err
-				}
-
-				sender, err := types.Sender(types.LatestSignerForChainID(p.chainID), tx)
+				receipt, err := p.ethclient.TransactionReceipt(p.ctx, common.Hash(common.HexToHash(tx.Hash).Bytes()))
 				if err != nil {
 					return err
 				}
 
 				fromAddress := model.AddressParam{
-					Hash:       sender.Hex(),
+					Hash:       tx.From,
 					IsContract: false,
 				}
 
@@ -182,10 +187,10 @@ func (p *PreconfAPI) poll() error {
 					Hash:       "",
 					IsContract: false,
 				}
-				if tx.To() != nil {
-					to := tx.To()
-					toAddress.Hash = to.Hex()
-					code, err := p.ethclient.CodeAt(p.ctx, *to, nil)
+				if tx.To != nil {
+					to := tx.To
+					toAddress.Hash = *to
+					code, err := p.ethclient.CodeAt(p.ctx, common.HexToAddress(*to), nil)
 					if err != nil {
 						return err
 					}
@@ -198,15 +203,25 @@ func (p *PreconfAPI) poll() error {
 					status = "error"
 				}
 
-				baseFee := preconfBlock.BaseFee().String()
+				maxFeePerGas := tx.MaxFeePerGas
 
-				maxFeePerGas := tx.GasFeeCap().String()
+				maxPrioFee := tx.MaxPriorityFeePerGas
 
-				maxPrioFee := tx.GasTipCap().String()
+				ts := time.Now().UTC().Format("2006-01-02T15:04:05.000000Z")
 
-				ts := tx.Time().UTC().Format("2006-01-02T15:04:05.000000Z")
+				txT, err := strconv.ParseInt(tx.Type, 0, 64)
+				if err != nil {
+					return err
+				}
 
-				txType := int(tx.Type())
+				txType := int(txT)
+
+				nonceT, err := strconv.ParseInt(tx.Nonce, 0, 64)
+				if err != nil {
+					return err
+				}
+
+				nonce := int(nonceT)
 
 				txTypes := []model.TransactionType{}
 				if toAddress.IsContract {
@@ -215,13 +230,25 @@ func (p *PreconfAPI) poll() error {
 					txTypes = append(txTypes, model.TxTypeCoinTransfer)
 				}
 
-				if tx.To() == nil {
+				if tx.To == nil {
 					txTypes = append(txTypes, model.TxTypeContractCreation)
 				}
 
-				rawInput := common.Bytes2Hex(tx.Data())
+				rawInput := common.Bytes2Hex([]byte(tx.Input))
 				if rawInput == "" {
 					rawInput = "0x"
+				}
+
+				baseFee := "1" // TODO
+
+				gpT, err := strconv.ParseInt(tx.GasPrice, 0, 64)
+				if err != nil {
+					return err
+				}
+
+				gas, err := strconv.ParseInt(tx.Gas, 0, 64)
+				if err != nil {
+					return err
 				}
 
 				modelTx := model.Transaction{
@@ -230,14 +257,14 @@ func (p *PreconfAPI) poll() error {
 					To:      toAddress,
 					Fee: model.Fee{
 						Type:  "actual",
-						Value: new(big.Int).Mul(tx.GasPrice(), new(big.Int).SetUint64(receipt.GasUsed)).String(),
+						Value: new(big.Int).Mul(new(big.Int).SetInt64(gpT), new(big.Int).SetUint64(receipt.GasUsed)).String(),
 					},
-					Hash:                 tx.Hash().Hex(),
-					Value:                tx.Value().String(),
-					GasPrice:             tx.GasPrice().String(),
-					Nonce:                int(tx.Nonce()),
+					Hash:                 tx.Hash,
+					Value:                tx.Value,
+					GasPrice:             tx.GasPrice,
+					Nonce:                int(nonce),
 					Block:                new(int),
-					GasLimit:             tx.Gas(),
+					GasLimit:             uint64(gas),
 					TxTypes:              txTypes,
 					Status:               &status,
 					Confirmations:        int(latestBlockNumber) - int(receipt.BlockNumber.Uint64()),
@@ -260,13 +287,13 @@ func (p *PreconfAPI) poll() error {
 					return err
 				}
 
-				err = txn.Set(tx.Hash().Bytes(), marshalled)
+				err = txn.Set(common.HexToHash(tx.Hash).Bytes(), marshalled)
 				if err != nil {
 					log.Error("Failed to set transaction in BadgerDB", "error", err)
 					return err
 				}
 
-				log.Info("saved tx", "hash", tx.Hash().Hex())
+				log.Info("saved tx", "hash", common.HexToHash(tx.Hash))
 
 				return nil
 			}); err != nil {
