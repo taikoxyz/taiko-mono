@@ -22,7 +22,7 @@ library LibProposing {
         bool postFork;
     }
 
-    /// @notice Emitted when a block is proposed.
+    /// @notice Emittwed when a block is proposed.
     /// @param blockId The ID of the proposed block.
     /// @param assignedProver The address of the assigned prover.
     /// @param livenessBond The liveness bond of the proposed block.
@@ -176,7 +176,7 @@ library LibProposing {
                 blobIndex: local.params.blobIndex,
                 basefeeAdjustmentQuotient: _config.basefeeAdjustmentQuotient,
                 basefeeSharingPctg: _config.basefeeSharingPctg,
-                blockGasIssuance: _config.blockGasIssuance
+                gasTargetPerL1Block: _config.gasTargetPerL1Block
             });
         }
 

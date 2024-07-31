@@ -43,4 +43,8 @@ contract TaikoL2EIP1559Configurable is TaikoL2 {
     function getConfig() public view override returns (LibL2Config.Config memory) {
         return customConfig;
     }
+
+    function ontakeForkHeight() public pure override returns (uint64) {
+        return 10_000;
+    }
 }

@@ -276,18 +276,9 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
 
     /// @inheritdoc ITaikoL1
     function getConfig() public pure virtual override returns (TaikoData.Config memory) {
-        // All hard-coded configurations:
-        // - treasury: the actual TaikoL2 address.
-        // - anchorGasLimit: 250_000 (based on internal devnet, its ~220_000
-        // after 256 L2 blocks)
         return TaikoData.Config({
             chainId: LibNetwork.TAIKO_MAINNET,
-            // If we have 1 block per 12 seconds, then each day there will be 86400/12=7200 blocks.
-            // We therefore use 7200 as the base unit to configure blockMaxProposals and
-            // blockRingBufferSize.
             blockMaxProposals: 324_000, // = 7200 * 45
-            // We give 7200 * 5 = 36000 slots for verifeid blocks in case third party apps will use
-            // their data.
             blockRingBufferSize: 360_000, // = 7200 * 50
             maxBlocksToVerify: 16,
             blockMaxGasLimit: 240_000_000,
@@ -296,7 +287,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
             maxAnchorHeightOffset: 64,
             basefeeAdjustmentQuotient: 8,
             basefeeSharingPctg: 75,
-            blockGasIssuance: 20_000_000,
+            gasTargetPerL1Block: 60_000_000,
             ontakeForkHeight: 374_400 // = 7200 * 52
          });
     }
