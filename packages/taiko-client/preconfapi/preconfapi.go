@@ -266,12 +266,12 @@ func (p *PreconfAPI) poll() error {
 					return err
 				}
 
+				log.Info("saved tx", "hash", tx.Hash().Hex())
+
 				return nil
 			}); err != nil {
 				return err
 			}
-
-			log.Info("saved tx", "hash", tx.Hash().Hex())
 		}
 	}
 
