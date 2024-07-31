@@ -22,7 +22,7 @@ library LibProposing {
         bool postFork;
     }
 
-    /// @notice Emittwed when a block is proposed.
+    /// @notice Emitted when a block is proposed.
     /// @param blockId The ID of the proposed block.
     /// @param assignedProver The address of the assigned prover.
     /// @param livenessBond The liveness bond of the proposed block.
