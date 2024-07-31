@@ -64,7 +64,7 @@ contract SP1Verifier is EssentialContract, IVerifier {
         );
 
         // _proof.data[32:] is the succinct's proof position
-        (bool success,) = (resolve(LibStrings.B_SP1_REMOTE_VERIFIER, false)).staticcall(
+        (bool success,) = sp1RemoteVerifier().staticcall(
             abi.encodeCall(
                 ISuccinctVerifier.verifyProof,
                 (bytes32(_proof.data[0:32]), abi.encode(hashedPublicInput), _proof.data[32:])
@@ -78,5 +78,9 @@ contract SP1Verifier is EssentialContract, IVerifier {
 
     function taikoChainId() internal view virtual returns (uint64) {
         return ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfig().chainId;
+    }
+
+    function sp1RemoteVerifier() public view virtual returns (address) {
+        return resolve(LibStrings.B_SP1_REMOTE_VERIFIER, false);
     }
 }
