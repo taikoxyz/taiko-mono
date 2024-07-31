@@ -163,10 +163,10 @@ func (p *PreconfAPI) poll() error {
 			log.Info("found tx", "hash", tx.Hash().Hex())
 			if err := p.db.Update(func(txn *badger.Txn) error {
 				_, err := txn.Get(tx.Hash().Bytes())
-				// if err == nil {
-				// 	log.Info("seen tx before", "hash", tx.Hash().Hex())
-				// 	return nil
-				// }
+				if err == nil {
+					log.Info("seen tx before", "hash", tx.Hash().Hex())
+					return nil
+				}
 
 				log.Info("havent seen tx before", "hash", tx.Hash().Hex())
 

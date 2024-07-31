@@ -157,11 +157,11 @@ func (s *PreconfAPIServer) GetTransactionByHash(c echo.Context) error {
 
 		return nil
 	}); err != nil {
-		return c.JSON(http.StatusNotFound, err)
+		return c.JSON(http.StatusNotFound, tx)
 	}
 
 	if tx == nil {
-		return c.JSON(http.StatusNotFound, nil)
+		return c.JSON(http.StatusNotFound, tx)
 	}
 
 	return c.JSON(http.StatusOK, tx)
