@@ -43,34 +43,18 @@ library Lib1559Math {
 
     /// @dev eth_qty(excess_gas_issued) / (TARGET * ADJUSTMENT_QUOTIENT)
     /// @param _gasExcess The gas excess value
-    /// @param _adjustmentFactor The product of gasTarget and adjustmentQuotient
-    function basefee(
-        uint256 _gasExcess,
-        uint256 _adjustmentFactor
-    )
-        internal
-        pure
-        returns (uint256)
-    {
-        if (_adjustmentFactor == 0) {
-            revert EIP1559_INVALID_PARAMS();
-        }
-        return _ethQty(_gasExcess, _adjustmentFactor) / LibFixedPointMath.SCALING_FACTOR;
+    /// @param _target The product of gasTarget and adjustmentQuotient
+    function basefee(uint256 _gasExcess, uint256 _target) internal pure returns (uint256) {
+        if (_target == 0) revert EIP1559_INVALID_PARAMS();
+        return ethQty(_gasExcess, _target) / _target;
     }
 
-    /// @dev exp(gas_qty / TARGET / ADJUSTMENT_QUOTIENT)
-    function _ethQty(
-        uint256 _gasExcess,
-        uint256 _adjustmentFactor
-    )
-        private
-        pure
-        returns (uint256)
-    {
-        uint256 input = _gasExcess * LibFixedPointMath.SCALING_FACTOR / _adjustmentFactor;
+    /// @dev exp(_gasExcess / _target)
+    function ethQty(uint256 _gasExcess, uint256 _target) internal pure returns (uint256) {
+        uint256 input = _gasExcess * LibFixedPointMath.SCALING_FACTOR / _target;
         if (input > LibFixedPointMath.MAX_EXP_INPUT) {
             input = LibFixedPointMath.MAX_EXP_INPUT;
         }
-        return uint256(LibFixedPointMath.exp(int256(input)));
+        return uint256(LibFixedPointMath.exp(int256(input))) / LibFixedPointMath.SCALING_FACTOR;
     }
 }
