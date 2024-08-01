@@ -28,7 +28,7 @@ var (
 	_                              Submitter = (*ProofSubmitter)(nil)
 	submissionDelayRandomBumpRange float64   = 20
 	proofPollingInterval                     = 10 * time.Second
-	ProofTimeout                             = 1 * time.Second
+	ProofTimeout                             = 90 * time.Minute
 )
 
 // ProofSubmitter is responsible requesting proofs for the given L2
