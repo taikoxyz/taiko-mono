@@ -127,7 +127,7 @@ library LibUtils {
     )
         internal
         view
-        returns (bytes32 blockHash_, bytes32 stateRoot_)
+        returns (bytes32 blockHash_, bytes32 stateRoot_, uint64 verifiedAt_)
     {
         (TaikoData.Block storage blk, uint64 slot) = getBlock(_state, _config, _blockId);
 
@@ -137,6 +137,7 @@ library LibUtils {
 
             blockHash_ = transition.blockHash;
             stateRoot_ = transition.stateRoot;
+            verifiedAt_ = transition.timestamp;
         }
     }
 
