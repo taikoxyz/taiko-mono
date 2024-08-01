@@ -568,6 +568,7 @@
     "header": {
       "amount": "Amount",
       "date": "Date",
+      "details": "Details",
       "explorer": "Explorer",
       "from": "From",
       "item": "Item",

@@ -104,6 +104,7 @@
     bridgeTxStatus = event.detail;
   };
 
+  let timestamp: string;
   const getDate = async () => {
     const blockTimestamp = await geBlockTimestamp(item.srcChainId, hexToBigInt(item.blockNumber));
     timestamp = formatTimestamp(Number(blockTimestamp));
@@ -129,8 +130,6 @@
   $: releaseModalOpen = false;
 
   $: interactiveDialogsOpen = claimModalOpen || retryModalOpen || releaseModalOpen;
-
-  let timestamp: string;
 </script>
 
 {#if isNFT}
@@ -313,7 +312,7 @@
 <DesktopDetailsDialog
   detailsOpen={desktopDetailsOpen}
   {closeDetails}
-  selectedItem={item}
+  bridgeTx={item}
   on:insufficientFunds={handleInsufficientFunds}
   on:openModal={handleOpenModal} />
 

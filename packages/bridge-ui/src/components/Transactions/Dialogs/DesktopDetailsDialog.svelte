@@ -4,7 +4,7 @@
 
   import { CloseButton } from '$components/Button';
   import ExplorerLink from '$components/ExplorerLink/ExplorerLink.svelte';
-  import { type BridgeTransaction,MessageStatus } from '$libs/bridge';
+  import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import { formatTimestamp } from '$libs/util/formatTimestamp';
   import { getBlockFromTxHash } from '$libs/util/getBlockFromTxHash';
@@ -22,7 +22,7 @@
 
   export let detailsOpen = false;
   // export let token: NFT;
-  export let selectedItem: BridgeTransaction;
+  export let bridgeTx: BridgeTransaction;
 
   export let closeDetails = noop;
 
@@ -40,29 +40,29 @@
   //   isRelayer = false;
   // };
 
-  $: from = selectedItem.message?.from || null;
-  $: to = selectedItem.message?.to || null;
+  $: from = bridgeTx.message?.from || null;
+  $: to = bridgeTx.message?.to || null;
 
-  $: srcTxHash = selectedItem.srcTxHash || null;
-  $: destTxHash = selectedItem.destTxHash || null;
+  $: srcTxHash = bridgeTx.srcTxHash || null;
+  $: destTxHash = bridgeTx.destTxHash || null;
 
-  $: srcChainId = selectedItem.srcChainId || null;
-  $: destChainId = selectedItem.destChainId || null;
-  $: destOwner = selectedItem.message?.destOwner || null;
+  $: srcChainId = bridgeTx.srcChainId || null;
+  $: destChainId = bridgeTx.destChainId || null;
+  $: destOwner = bridgeTx.message?.destOwner || null;
 
-  $: selectedItem && getClaimedDate();
-  $: selectedItem && getInitiatedDate();
+  $: bridgeTx && getClaimedDate();
+  $: bridgeTx && getInitiatedDate();
 
-  $: claimedBy = selectedItem.claimedBy || null;
+  $: claimedBy = bridgeTx.claimedBy || null;
   $: isRelayer = false;
 
-  $: if (claimedBy !== to && claimedBy !== destOwner && selectedItem.status === MessageStatus.DONE) {
+  $: if (claimedBy !== to && claimedBy !== destOwner && bridgeTx.status === MessageStatus.DONE) {
     isRelayer = true;
   } else {
     isRelayer = false;
   }
 
-  $: paidFee = formatEther(selectedItem.fee ? selectedItem.fee : BigInt(0));
+  $: paidFee = formatEther(bridgeTx.fee ? bridgeTx.fee : BigInt(0));
 
   // $: !detailsOpen && reset();
 
@@ -70,16 +70,16 @@
   let claimedAt = '';
 
   const getInitiatedDate = async () => {
-    const blockTimestamp = await geBlockTimestamp(selectedItem.srcChainId, hexToBigInt(selectedItem.blockNumber));
+    const blockTimestamp = await geBlockTimestamp(bridgeTx.srcChainId, hexToBigInt(bridgeTx.blockNumber));
     initiatedAt = formatTimestamp(Number(blockTimestamp));
   };
 
   const getClaimedDate = async () => {
-    log('destTxHash', selectedItem.destTxHash, 'destChainId', selectedItem.destChainId);
+    log('destTxHash', bridgeTx.destTxHash, 'destChainId', bridgeTx.destChainId);
     try {
-      const blockNumber = await getBlockFromTxHash(selectedItem.destTxHash, selectedItem.destChainId);
+      const blockNumber = await getBlockFromTxHash(bridgeTx.destTxHash, bridgeTx.destChainId);
       log('blockNumber', blockNumber);
-      const blockTimestamp = await geBlockTimestamp(selectedItem.destChainId, blockNumber);
+      const blockTimestamp = await geBlockTimestamp(bridgeTx.destChainId, blockNumber);
       log('blockTimestamp', blockTimestamp);
       claimedAt = formatTimestamp(Number(blockTimestamp));
       log('claimedAt', claimedAt);
@@ -166,7 +166,7 @@
       <!-- From -->
       <div class="flex justify-between">
         <div class="text-secondary-content">Status</div>
-        <Status bridgeTxStatus={selectedItem.status} bridgeTx={selectedItem} textOnly />
+        <Status bridgeTxStatus={bridgeTx.status} {bridgeTx} textOnly />
       </div>
 
       <div class="flex justify-between">
@@ -192,7 +192,7 @@
 
       <div class="flex justify-between">
         <div class="text-secondary-content">Amount</div>
-        <span>{formatEther(selectedItem.amount ? selectedItem.amount : BigInt(0))} {selectedItem.symbol}</span>
+        <span>{formatEther(bridgeTx.amount ? bridgeTx.amount : BigInt(0))} {bridgeTx.symbol}</span>
       </div>
 
       <div class="flex justify-between">

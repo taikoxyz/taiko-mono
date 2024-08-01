@@ -30,8 +30,8 @@
   import type { Account } from '$stores/account';
 
   import { StatusFilterDialog, StatusFilterDropdown } from './Filter';
+  import { FungibleTransactionRow } from './Rows/';
   import { StatusInfoDialog } from './Status';
-  import Transaction from './Transaction.svelte';
 
   let transactions: BridgeTransaction[] = [];
 
@@ -179,7 +179,7 @@
       {:else}
         <div class="f-row justify-between my-[30px]">
           <div class="f-row items-center gap-[10px]">
-            <StatusDot type="success" />
+            <StatusDot type="success" simple={false} />
             <ChainSelector type={ChainSelectorType.SMALL} direction={ChainSelectorDirection.SOURCE} switchWallet />
           </div>
           <div class="f-row items-center gap-[5px]">
@@ -209,10 +209,11 @@
       <div
         class="flex flex-col"
         style={`min-height: calc(${transactionsToShow.length} * ${isDesktopOrLarger ? '80px' : '66px'});`}>
-        <div class="h-sep" />
-        {#if isDesktopOrLarger}
-          <div class="text-primary-content flex">
-            {#if $activeBridge === BridgeTypes.FUNGIBLE}
+        <div class="h-sep !mb-0 display-inline" />
+
+        <div class="text-primary-content flex">
+          {#if $activeBridge === BridgeTypes.FUNGIBLE}
+            {#if isDesktopOrLarger}
               <div class="w-1/6 pl-[24px] py-2 text-secondary-content">{$t('transactions.header.from')}</div>
               <div class="w-1/6 py-2 text-secondary-content">{$t('transactions.header.to')}</div>
               <div class="w-1/6 py-2 text-secondary-content">{$t('transactions.header.amount')}</div>
@@ -222,7 +223,18 @@
               </div>
               <div class="w-1/6 py-2 text-secondary-content">{$t('transactions.header.date')}</div>
               <div class="w-1/6 py-2 text-secondary-content"></div>
-            {:else if $activeBridge === BridgeTypes.NFT}
+            {:else}
+              <div class="w-1/3 text-left pl-[11px] pt-[20px] text-secondary-content">
+                {$t('transactions.header.details')}
+              </div>
+              <div class="w-1/3 text-center pt-[20px] text-secondary-content">{$t('transactions.header.amount')}</div>
+              <div class="w-1/3 pt-[20px] pr-[14px] f-row items-center justify-end text-secondary-content">
+                {$t('transactions.header.status')}
+                <StatusInfoDialog />
+              </div>
+            {/if}
+          {:else if $activeBridge === BridgeTypes.NFT}
+            {#if isDesktopOrLarger}
               <div class="w-3/12 content-center py-2 text-secondary-content">{$t('transactions.header.item')}</div>
               <div class="w-2/12 content-center py-2 text-secondary-content">{$t('transactions.header.from')}</div>
               <div class="w-2/12 content-center py-2 text-secondary-content">{$t('transactions.header.to')}</div>
@@ -234,10 +246,16 @@
               <div class="grow py-2 text-secondary-content flex justify-center">
                 {$t('transactions.header.date')}
               </div>
+            {:else}
+              <div class="w-1/3 text-left pl-[24px] py-2 text-secondary-content">
+                {$t('transactions.header.details')}
+              </div>
+              <div class="w-1/3 text-center py-2 text-secondary-content">{$t('transactions.header.amount')}</div>
+              <div class="w-1/3 text-center py-2 text-secondary-content">{$t('transactions.header.status')}</div>
             {/if}
-          </div>
-          <div class="h-sep !mb-0" />
-        {/if}
+          {/if}
+        </div>
+        <div class="h-sep !mb-0" />
 
         {#if renderLoading}
           <div class="flex items-center justify-center text-primary-content h-[80px]">
@@ -249,10 +267,15 @@
           <div
             class="flex flex-col items-center"
             style={isBlurred ? `filter: blur(5px); transition: filter ${transitionTime / 1000}s ease-in-out` : ''}>
-            {#each transactionsToShow as item (item.srcTxHash)}
-              {@const status = item.msgStatus}
-              <Transaction {item} {handleTransactionRemoved} bridgeTxStatus={status} />
-              <div class="h-sep !my-0 {isDesktopOrLarger ? 'display-inline' : 'hidden'}" />
+            {#each transactionsToShow as bridgeTx (bridgeTx.srcTxHash)}
+              {@const status = bridgeTx.msgStatus}
+              {@const isFungible = bridgeTx.tokenType === TokenType.ERC20 || bridgeTx.tokenType === TokenType.ETH}
+              {#if isFungible}
+                <FungibleTransactionRow bind:bridgeTx {handleTransactionRemoved} bridgeTxStatus={status} />
+              {:else}
+                NFT TODO
+              {/if}
+              <div class="h-sep !my-0 display-inline" />
             {/each}
           </div>
         {/if}
