@@ -93,6 +93,8 @@ func (s *PreconfAPIServer) configureMiddleware(corsOrigins []string) {
 	s.echo.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins:     corsOrigins,
 		AllowCredentials: true,
+		AllowMethods:     []string{echo.GET, echo.HEAD, echo.PUT, echo.PATCH, echo.POST, echo.DELETE},
+		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept},
 	}))
 }
 
