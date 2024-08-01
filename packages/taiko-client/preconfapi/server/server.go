@@ -31,8 +31,9 @@ type PreconfAPIServer struct {
 
 // NewPreconfAPIServerOpts contains all configurations for creating a prover server instance.
 type NewPreconfAPIServerOpts struct {
-	TxBuilders map[string]builder.TxBuilder
-	DB         *badger.DB
+	TxBuilders  map[string]builder.TxBuilder
+	DB          *badger.DB
+	CORSOrigins []string
 }
 
 // New creates a new prover server instance.
@@ -44,7 +45,7 @@ func New(opts *NewPreconfAPIServerOpts) (*PreconfAPIServer, error) {
 	}
 
 	srv.echo.HideBanner = true
-	srv.configureMiddleware()
+	srv.configureMiddleware(opts.CORSOrigins)
 	srv.configureRoutes()
 
 	return srv, nil
@@ -76,7 +77,7 @@ func LogSkipper(c echo.Context) bool {
 }
 
 // configureMiddleware configures the server middlewares.
-func (s *PreconfAPIServer) configureMiddleware() {
+func (s *PreconfAPIServer) configureMiddleware(corsOrigins []string) {
 	s.echo.Use(middleware.RequestID())
 
 	s.echo.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
@@ -90,7 +91,7 @@ func (s *PreconfAPIServer) configureMiddleware() {
 
 	// Add CORS middleware
 	s.echo.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins:     []string{"*"},
+		AllowOrigins:     corsOrigins,
 		AllowCredentials: true,
 	}))
 }

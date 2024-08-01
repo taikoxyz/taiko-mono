@@ -82,8 +82,9 @@ func (p *PreconfAPI) InitFromConfig(ctx context.Context, cfg *Config) (err error
 	}
 
 	if p.server, err = server.New(&server.NewPreconfAPIServerOpts{
-		TxBuilders: txBuilders,
-		DB:         p.db,
+		TxBuilders:  txBuilders,
+		DB:          p.db,
+		CORSOrigins: p.cfg.CORSOrigins,
 	}); err != nil {
 		return err
 	}

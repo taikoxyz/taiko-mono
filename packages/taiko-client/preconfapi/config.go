@@ -17,6 +17,7 @@ type Config struct {
 	PollingInterval        time.Duration
 	L2HTTPEndpoint         string
 	DBPath                 string
+	CORSOrigins            []string
 }
 
 // NewConfigFromCliContext initializes a Config instance from
@@ -30,5 +31,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		PollingInterval:        c.Duration(flags.PollingInterval.Name),
 		L2HTTPEndpoint:         c.String(flags.L2HTTPEndpoint.Name),
 		DBPath:                 c.String(flags.DBPath.Name),
+		CORSOrigins:            c.StringSlice(flags.CORSOrigins.Name),
 	}, nil
 }

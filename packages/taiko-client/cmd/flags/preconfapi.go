@@ -29,6 +29,13 @@ var (
 		Value:    "/tmp/badgerdb",
 		EnvVars:  []string{"DB_PATH"},
 	}
+	CORSOrigins = &cli.StringSliceFlag{
+		Name:     "preconfapi.corsORigins",
+		Usage:    "Cors Origins",
+		Category: preconfAPICategory,
+		EnvVars:  []string{"CORS_ORIGINS"},
+		Required: true,
+	}
 )
 
 // PreconfAPIFlags contains all preconfirmations API flags
@@ -42,4 +49,5 @@ var PreconfAPIFlags = []cli.Flag{
 	Verbosity,
 	LogJSON,
 	DBPath,
+	CORSOrigins,
 }
