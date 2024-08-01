@@ -13,7 +13,7 @@ contract TestLib1559Math is TaikoTest {
         assertEq(Lib1559Math.ethQty(60_000_000 * 200, 60_000_000 * 8), 72_004_899_337);
     }
 
-    function test_basefee() external {
+    function test_basefee() external pure {
         uint256 basefee;
         for (uint256 i; basefee <= 5000;) {
             // uint 0.01 gwei
@@ -25,7 +25,7 @@ contract TestLib1559Math is TaikoTest {
         }
     }
 
-    function test_change_of_quotient_and_gips() public {
+    function test_change_of_quotient_and_gips() public pure {
         uint256 excess = 150 * 2_000_000;
 
         // uint 0.01 gwei
