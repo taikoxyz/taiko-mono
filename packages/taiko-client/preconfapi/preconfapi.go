@@ -262,7 +262,7 @@ func (p *PreconfAPI) poll() error {
 					Hash:                 tx.Hash,
 					Value:                tx.Value,
 					GasPrice:             tx.GasPrice,
-					Nonce:                int(nonce),
+					Nonce:                nonce,
 					Block:                new(int),
 					GasLimit:             uint64(gas),
 					TxTypes:              txTypes,

@@ -16,7 +16,7 @@ type CustomTransaction struct {
 	Value                string        `json:"value"`
 	Type                 string        `json:"type"`
 	AccessList           []interface{} `json:"accessList"`
-	ChainId              string        `json:"chainId"`
+	ChainID              string        `json:"chainId"`
 	V                    string        `json:"v"`
 	R                    string        `json:"r"`
 	S                    string        `json:"s"`
