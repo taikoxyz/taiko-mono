@@ -65,12 +65,12 @@ contract TaikoL2 is EssentialContract {
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _rollupAddressManager The address of the {AddressManager} contract.
     /// @param _l1ChainId The ID of the base layer.
-    /// @param _parentGasExcess The initial parentGasExcess.
+    /// @param _initialGasExcess The initial parentGasExcess.
     function init(
         address _owner,
         address _rollupAddressManager,
         uint64 _l1ChainId,
-        uint64 _parentGasExcess
+        uint64 _initialGasExcess
     )
         external
         initializer
@@ -95,12 +95,12 @@ contract TaikoL2 is EssentialContract {
         }
 
         l1ChainId = _l1ChainId;
-        parentGasExcess = _parentGasExcess;
+        parentGasExcess = _initialGasExcess;
         (publicInputHash,) = _calcPublicInputHash(block.number);
     }
 
-    function init2() external reinitializer(2) {
-        parentGasExcess = 0;
+    function init2(uint64 _initialGasExcess) external reinitializer(2) {
+        parentGasExcess = _initialGasExcess;
         parentTimestamp = uint64(block.timestamp);
         parentGasTarget = 0;
     }
