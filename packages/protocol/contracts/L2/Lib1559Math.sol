@@ -36,9 +36,6 @@ library Lib1559Math {
         // block, however, this block's gas used will affect the next
         // block's base fee.
         basefee_ = basefee(gasExcess_, uint256(_adjustmentQuotient) * _gasTarget);
-
-        // Always make sure basefee is nonzero, this is required by the node.
-        if (basefee_ == 0) basefee_ = 1;
     }
 
     /// @dev eth_qty(excess_gas_issued) / (TARGET * ADJUSTMENT_QUOTIENT)
@@ -46,7 +43,8 @@ library Lib1559Math {
     /// @param _target The product of gasTarget and adjustmentQuotient
     function basefee(uint256 _gasExcess, uint256 _target) internal pure returns (uint256) {
         if (_target == 0) revert EIP1559_INVALID_PARAMS();
-        return ethQty(_gasExcess, _target) / _target;
+        uint256 fee = ethQty(_gasExcess, _target) / _target;
+        return fee == 0 ? 1 : fee;
     }
 
     /// @dev exp(_gasExcess / _target)
