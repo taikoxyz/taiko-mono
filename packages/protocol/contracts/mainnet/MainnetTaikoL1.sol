@@ -32,7 +32,7 @@ contract MainnetTaikoL1 is TaikoL1 {
             maxAnchorHeightOffset: 64,
             basefeeAdjustmentQuotient: 8,
             basefeeSharingPctg: 75,
-            gasIssuancePerSecond: 2_000_000,
+            gasIssuancePerSecond: 5_000_000,
             ontakeForkHeight: 374_400 // = 7200 * 52
          });
     }
