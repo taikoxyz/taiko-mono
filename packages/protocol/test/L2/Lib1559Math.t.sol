@@ -17,7 +17,7 @@ contract TestLib1559Math is TaikoTest {
         uint256 basefee;
         for (uint256 i; basefee <= 5000;) {
             // uint 0.01 gwei
-            basefee = Lib1559Math.basefee(i * 2_000_000, 2_000_000 * 4) / 10_000_000;
+            basefee = Lib1559Math.basefee(i * 5_000_000, 5_000_000 * 8) / 10_000_000;
             if (basefee != 0) {
                 console2.log("basefee (uint 0.01gwei) after", i, "seconds:", basefee);
             }
