@@ -32,19 +32,19 @@ contract TestLib1559Math is TaikoTest {
         uint256 basefee = Lib1559Math.basefee(excess, 2_000_000 * 4) / 10_000_000;
         console2.log("basefee (uint 0.01gwei) with quotient = 4: ", basefee);
 
-        // basefee will decrease if gas issued per second or quotient increased.
+        /// basefee will decrease if (gas_issued_per_second * quotient) increases.
         basefee = Lib1559Math.basefee(excess, 2_000_000 * 8) / 10_000_000;
         console2.log("basefee (uint 0.01gwei) with quotient = 8: ", basefee);
         basefee = Lib1559Math.basefee(excess, 4_000_000 * 4) / 10_000_000;
         console2.log("basefee (uint 0.01gwei) with gips = 4_000_000: ", basefee);
 
-        // basefee will increase if gas issued per second or quotient decreased.
+        // basefee will increase if (gas_issued_per_second * quotient) decreases.
         basefee = Lib1559Math.basefee(excess, 2_000_000 * 2) / 10_000_000;
         console2.log("basefee (uint 0.01gwei) with quotient = 2: ", basefee);
         basefee = Lib1559Math.basefee(excess, 1_000_000 * 4) / 10_000_000;
         console2.log("basefee (uint 0.01gwei) with gips = 1_000_000: ", basefee);
 
-        // basefee will be the same if gas issued per second * quotient decreased remains same
+        /// basefee will remain the same if (gas_issued_per_second * quotient) remains the same.
         basefee = Lib1559Math.basefee(excess, 4_000_000 * 2) / 10_000_000;
         console2.log("basefee (uint 0.01gwei) ", basefee);
     }
