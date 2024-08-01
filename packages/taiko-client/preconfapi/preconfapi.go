@@ -235,11 +235,6 @@ func (p *PreconfAPI) poll() error {
 					txTypes = append(txTypes, model.TxTypeContractCreation)
 				}
 
-				rawInput := common.Bytes2Hex([]byte(tx.Input))
-				if rawInput == "" {
-					rawInput = "0x"
-				}
-
 				baseFee := "1" // TODO
 
 				gpT, err := strconv.ParseInt(tx.GasPrice, 0, 64)
@@ -276,7 +271,7 @@ func (p *PreconfAPI) poll() error {
 					Position:             &receipt.TransactionIndex,
 					Timestamp:            &ts,
 					ConfirmationDuration: []int{},
-					RawInput:             rawInput,
+					RawInput:             tx.Input,
 					Type:                 &txType,
 					// Add other fields as necessary
 				}
