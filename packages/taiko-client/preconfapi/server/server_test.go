@@ -26,7 +26,7 @@ func (s *PreconfAPIServerTestSuite) SetupTest() {
 	s.Nil(err)
 
 	p.echo.HideBanner = true
-	p.configureMiddleware()
+	p.configureMiddleware([]string{"*"})
 	p.configureRoutes()
 	s.s = p
 	s.testServer = httptest.NewServer(p.echo)
