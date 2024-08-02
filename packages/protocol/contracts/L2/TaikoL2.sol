@@ -289,9 +289,10 @@ contract TaikoL2 is EssentialContract {
         // Check if the gas settings has changed
         uint64 newGasTarget = uint64(_gasIssuancePerSecond) * _basefeeAdjustmentQuotient;
         if (newGasTarget < parentGasTarget) {
-            // Reset parentGasExcess to avoid sudden increase of basefee. See
-            // test_change_of_quotient_and_gips in Lib1559Math.t.sol.
-            parentGasExcess = 0;
+            // adjust parentGasExcess to keep the basefee unchanged. Note that due to math
+            // calculation precision, the basefee may change slightly.
+            parentGasExcess =
+                Lib1559Math.adjustExcess(parentGasExcess, parentGasTarget, newGasTarget);
         }
 
         // Verify the base fee per gas is correct

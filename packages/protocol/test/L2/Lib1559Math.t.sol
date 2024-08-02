@@ -25,27 +25,39 @@ contract TestLib1559Math is TaikoTest {
         }
     }
 
-    function test_change_of_quotient_and_gips() public pure {
-        uint256 excess = 150 * 2_000_000;
+    function test_change_of_quotient_and_gips() public {
+        uint64 excess = 150 * 2_000_000;
+        uint64 target = 4 * 2_000_000;
+        uint256 unit = 10_000_000; // 0.01 gwei
 
         // uint 0.01 gwei
-        uint256 basefee = Lib1559Math.basefee(excess, 2_000_000 * 4) / 10_000_000;
-        console2.log("basefee (uint 0.01gwei) with quotient = 4: ", basefee);
+        uint256 baselineBasefee = Lib1559Math.basefee(excess, target) / unit;
+        console2.log("baseline basefee: ", baselineBasefee);
 
-        /// basefee will decrease if (gas_issued_per_second * quotient) increases.
-        basefee = Lib1559Math.basefee(excess, 2_000_000 * 8) / 10_000_000;
-        console2.log("basefee (uint 0.01gwei) with quotient = 8: ", basefee);
-        basefee = Lib1559Math.basefee(excess, 4_000_000 * 4) / 10_000_000;
-        console2.log("basefee (uint 0.01gwei) with gips = 4_000_000: ", basefee);
+        uint256 basefee = Lib1559Math.basefee(excess, target * 2) / unit;
+        console2.log("basefee will decrease if target increases:", basefee);
 
-        // basefee will increase if (gas_issued_per_second * quotient) decreases.
-        basefee = Lib1559Math.basefee(excess, 2_000_000 * 2) / 10_000_000;
-        console2.log("basefee (uint 0.01gwei) with quotient = 2: ", basefee);
-        basefee = Lib1559Math.basefee(excess, 1_000_000 * 4) / 10_000_000;
-        console2.log("basefee (uint 0.01gwei) with gips = 1_000_000: ", basefee);
+        basefee = Lib1559Math.basefee(excess, target / 2) / unit;
+        console2.log("basefee will increase if target decreases:", basefee);
 
-        /// basefee will remain the same if (gas_issued_per_second * quotient) remains the same.
-        basefee = Lib1559Math.basefee(excess, 4_000_000 * 2) / 10_000_000;
-        console2.log("basefee (uint 0.01gwei) ", basefee);
+        console2.log("maintain basefee when target increases");
+        {
+            uint64 newTarget = 5 * 2_000_000;
+            uint64 newExcess = Lib1559Math.adjustExcess(excess, target, newTarget);
+            basefee = Lib1559Math.basefee(newExcess, newTarget) / unit;
+            console2.log("new gas excess: ", newExcess);
+            console2.log("basefee: ", basefee);
+            assertEq(baselineBasefee, basefee);
+        }
+
+        console2.log("maintain basefee when target decreases");
+        {
+            uint64 newTarget = 3 * 2_000_000;
+            uint64 newExcess = Lib1559Math.adjustExcess(excess, target, newTarget);
+            basefee = Lib1559Math.basefee(newExcess, newTarget) / unit;
+            console2.log("new gas excess: ", newExcess);
+            console2.log("basefee: ", basefee);
+            assertEq(baselineBasefee, basefee);
+        }
     }
 }

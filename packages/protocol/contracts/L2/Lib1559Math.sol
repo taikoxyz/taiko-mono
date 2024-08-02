@@ -38,6 +38,25 @@ library Lib1559Math {
         basefee_ = basefee(gasExcess_, uint256(_adjustmentQuotient) * _gasTarget);
     }
 
+    function adjustExcess(
+        uint64 _gasExcess,
+        uint64 _gasTarget,
+        uint64 _newGasTarget
+    )
+        internal
+        pure
+        returns (uint64)
+    {
+        int256 ratio = int256(LibFixedPointMath.SCALING_FACTOR * _newGasTarget / _gasTarget);
+        int256 newGasExcess = (
+            LibFixedPointMath.ln(ratio) * int256(uint256(_newGasTarget))
+                + ratio * int256(uint256(_gasExcess))
+        ) / int256(LibFixedPointMath.SCALING_FACTOR);
+
+        if (newGasExcess < 0) newGasExcess = 0;
+        return uint64(uint256(newGasExcess).min(type(uint64).max));
+    }
+
     /// @dev eth_qty(excess_gas_issued) / (TARGET * ADJUSTMENT_QUOTIENT)
     /// @param _gasExcess The gas excess value
     /// @param _target The product of gasTarget and adjustmentQuotient
@@ -49,7 +68,7 @@ library Lib1559Math {
 
     /// @dev exp(_gasExcess / _target)
     function ethQty(uint256 _gasExcess, uint256 _target) internal pure returns (uint256) {
-        uint256 input = _gasExcess * LibFixedPointMath.SCALING_FACTOR / _target;
+        uint256 input = LibFixedPointMath.SCALING_FACTOR * _gasExcess / _target;
         if (input > LibFixedPointMath.MAX_EXP_INPUT) {
             input = LibFixedPointMath.MAX_EXP_INPUT;
         }
