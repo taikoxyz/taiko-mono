@@ -57,7 +57,7 @@ library Lib1559Math {
             ratio = f * _newGasTarget / _gasTarget;
         }
 
-        if (ratio > type(int256).max) revert EIP1559_INVALID_PARAMS();
+        if (ratio > uint256(type(int256).max)) revert EIP1559_INVALID_PARAMS();
 
         int256 lnRatio = LibFixedPointMath.ln(int256(ratio));
 
