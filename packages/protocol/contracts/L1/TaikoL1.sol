@@ -25,7 +25,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     uint256[50] private __gap;
 
     error L1_FORK_ERROR();
-    error L1_RECEIVE_DISABLED();
+    error L1_INVALID_PARAMS();
 
     modifier whenProvingNotPaused() {
         if (state.slotB.provingPaused) revert LibProving.L1_PROVING_PAUSED();
@@ -37,9 +37,9 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         emit StateVariablesUpdated(state.slotB);
     }
 
-    /// @dev Allows for receiving Ether from Hooks
-    receive() external payable {
-        if (!inNonReentrant()) revert L1_RECEIVE_DISABLED();
+    modifier onlyRegisteredProposer() {
+        LibProposing.checkProposerPermission(this);
+        _;
     }
 
     /// @notice Initializes the contract.
@@ -209,26 +209,28 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     /// @return blockId_ The last verified block's ID.
     /// @return blockHash_ The last verified block's blockHash.
     /// @return stateRoot_ The last verified block's stateRoot.
+    /// @return verifiedAt_ The timestamp this block is verified at.
     function getLastVerifiedBlock()
         external
         view
-        returns (uint64 blockId_, bytes32 blockHash_, bytes32 stateRoot_)
+        returns (uint64 blockId_, bytes32 blockHash_, bytes32 stateRoot_, uint64 verifiedAt_)
     {
         blockId_ = state.slotB.lastVerifiedBlockId;
-        (blockHash_, stateRoot_) = LibUtils.getBlockInfo(state, getConfig(), blockId_);
+        (blockHash_, stateRoot_, verifiedAt_) = LibUtils.getBlockInfo(state, getConfig(), blockId_);
     }
 
     /// @notice Returns information about the last synchronized block.
     /// @return blockId_ The last verified block's ID.
     /// @return blockHash_ The last verified block's blockHash.
     /// @return stateRoot_ The last verified block's stateRoot.
+    /// @return verifiedAt_ The timestamp this block is verified at.
     function getLastSyncedBlock()
         external
         view
-        returns (uint64 blockId_, bytes32 blockHash_, bytes32 stateRoot_)
+        returns (uint64 blockId_, bytes32 blockHash_, bytes32 stateRoot_, uint64 verifiedAt_)
     {
         blockId_ = state.slotA.lastSyncedBlockId;
-        (blockHash_, stateRoot_) = LibUtils.getBlockInfo(state, getConfig(), blockId_);
+        (blockHash_, stateRoot_, verifiedAt_) = LibUtils.getBlockInfo(state, getConfig(), blockId_);
     }
 
     /// @notice Gets the state variables of the TaikoL1 contract.
