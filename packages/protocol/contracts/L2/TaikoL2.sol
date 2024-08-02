@@ -325,7 +325,7 @@ contract TaikoL2 is EssentialContract {
         publicInputHash = newPublicInputHash;
         parentGasExcess = newGasExcess;
         parentTimestamp = uint64(block.timestamp);
-        parentGasTarget = newGasExcess;
+        parentGasTarget = newGasTarget;
 
         emit Anchored(parentHash, newGasExcess);
     }
