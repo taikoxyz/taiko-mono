@@ -287,8 +287,9 @@ contract TaikoL2 is EssentialContract {
         if (publicInputHash != currentPublicInputHash) revert L2_PUBLIC_INPUT_HASH_MISMATCH();
 
         // Check if the gas settings has changed
+        bool postFork = block.number >= ontakeForkHeight();
         uint64 newGasTarget = uint64(_gasIssuancePerSecond) * _basefeeAdjustmentQuotient;
-        if (newGasTarget != parentGasTarget) {
+        if (postFork && newGasTarget != parentGasTarget) {
             // adjust parentGasExcess to keep the basefee unchanged. Note that due to math
             // calculation precision, the basefee may change slightly.
             parentGasExcess =
@@ -296,15 +297,15 @@ contract TaikoL2 is EssentialContract {
         }
 
         // Verify the base fee per gas is correct
-        (uint256 basefee, uint64 newGasExcess) = block.number < ontakeForkHeight()
-            ? getBasefee(_anchorBlockId, _parentGasUsed)
-            : calculateBaseFee(
+        (uint256 basefee, uint64 newGasExcess) = postFork
+            ? calculateBaseFee(
                 _gasIssuancePerSecond,
                 uint64(block.timestamp - parentTimestamp),
                 _basefeeAdjustmentQuotient,
                 parentGasExcess,
                 _parentGasUsed
-            );
+            )
+            : getBasefee(_anchorBlockId, _parentGasUsed);
 
         if (!skipFeeCheck() && block.basefee != basefee) revert L2_BASEFEE_MISMATCH();
 
@@ -319,7 +320,6 @@ contract TaikoL2 is EssentialContract {
         }
 
         // Update state variables
-
         bytes32 parentHash = blockhash(parentId);
         l2Hashes[parentId] = parentHash;
 
