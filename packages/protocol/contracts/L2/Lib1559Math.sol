@@ -38,6 +38,8 @@ library Lib1559Math {
         basefee_ = basefee(gasExcess_, uint256(_adjustmentQuotient) * _gasTarget);
     }
 
+    /// @dev Returns the new gas excess that will keep the basefee the same.
+    /// `_newGasTarget * ln(_newGasTarget / _target) + _gasExcess * _newGasTarget / _target`
     function adjustExcess(
         uint64 _gasExcess,
         uint64 _gasTarget,
@@ -47,14 +49,27 @@ library Lib1559Math {
         pure
         returns (uint64)
     {
-        int256 ratio = int256(LibFixedPointMath.SCALING_FACTOR * _newGasTarget / _gasTarget);
-        int256 newGasExcess = (
-            LibFixedPointMath.ln(ratio) * int256(uint256(_newGasTarget))
-                + ratio * int256(uint256(_gasExcess))
-        ) / int256(LibFixedPointMath.SCALING_FACTOR);
+        if (_gasTarget == 0) revert EIP1559_INVALID_PARAMS();
 
-        if (newGasExcess < 0) newGasExcess = 0;
-        return uint64(uint256(newGasExcess).min(type(uint64).max));
+        uint256 f = LibFixedPointMath.SCALING_FACTOR;
+        uint256 ratio;
+        unchecked {
+            ratio = f * _newGasTarget / _gasTarget;
+        }
+
+        if (ratio > type(int256).max) revert EIP1559_INVALID_PARAMS();
+
+        int256 lnRatio = LibFixedPointMath.ln(int256(ratio));
+
+        uint256 newGasExcess;
+        assembly {
+            newGasExcess := sdiv(add(mul(lnRatio, _newGasTarget), mul(ratio, _gasExcess)), f)
+            switch gt(newGasExcess, 0)
+            case 1 { newGasExcess := shr(192, shl(192, newGasExcess)) }
+            default { newGasExcess := 0 }
+        }
+
+        return uint64(newGasExcess);
     }
 
     /// @dev eth_qty(excess_gas_issued) / (TARGET * ADJUSTMENT_QUOTIENT)
