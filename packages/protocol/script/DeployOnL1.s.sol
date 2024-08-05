@@ -35,6 +35,9 @@ import "../contracts/verifiers/RiscZeroVerifier.sol";
 // - https://github.com/daimo-eth/p256-verifier
 // - https://github.com/rdubois-crypto/FreshCryptoLib
 import { P256Verifier } from "p256-verifier/src/P256Verifier.sol";
+import { RiscZeroGroth16Verifier } from
+    "risc0-ethereum/contracts/src/groth16/RiscZeroGroth16Verifier.sol";
+import { ControlID } from "risc0-ethereum/contracts/src/groth16/ControlID.sol";
 
 /// @title DeployOnL1
 /// @notice This script deploys the core Taiko protocol smart contract on L1,
