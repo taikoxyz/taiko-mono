@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/utils/Strings.sol";
+import "@risc0/contracts/groth16/RiscZeroGroth16Verifier.sol";
 
 import "../contracts/common/LibStrings.sol";
 import "../contracts/tko/TaikoToken.sol";
@@ -27,8 +28,6 @@ import "../test/common/erc20/FreeMintERC20.sol";
 import "../test/common/erc20/MayFailFreeMintERC20.sol";
 import "../test/L1/TestTierProvider.sol";
 import "../test/DeployCapability.sol";
-import "../contracts/thirdparty/risczero/groth16/RiscZeroGroth16Verifier.sol";
-import "../contracts/thirdparty/risczero/groth16/ControlID.sol";
 import "../contracts/verifiers/RiscZeroVerifier.sol";
 
 // Actually this one is deployed already on mainnet, but we are now deploying our own (non via-ir)
