@@ -30,13 +30,7 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
     /// @notice Initializes the contract with the provided address manager.
     /// @param _owner The address of the owner.
     /// @param _rollupAddressManager The address of the AddressManager.
-    function init(
-        address _owner,
-        address _rollupAddressManager
-    )
-        external
-        initializer
-    {
+    function init(address _owner, address _rollupAddressManager) external initializer {
         __Essential_init(_owner, _rollupAddressManager);
     }
 
@@ -78,7 +72,7 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
 
         emit ProofVerified(_ctx.metaHash, journalDigest, hash);
         // call risc0 verifier contract
-        try IRiscZeroVerifier(risk0Grouth16Verifier()).verify(seal, imageId, journalDigest){
+        try IRiscZeroVerifier(risk0Grouth16Verifier()).verify(seal, imageId, journalDigest) {
             return;
         } catch {
             revert RISC_ZERO_INVALID_PROOF();
@@ -92,5 +86,4 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
     function taikoChainId() internal view virtual returns (uint64) {
         return ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfig().chainId;
     }
-
 }

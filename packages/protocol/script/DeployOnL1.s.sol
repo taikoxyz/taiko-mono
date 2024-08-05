@@ -388,15 +388,14 @@ contract DeployOnL1 is DeployCapability {
         });
 
         // Deploy r0 groth16 verifier
-        RiscZeroGroth16Verifier verifier = new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
+        RiscZeroGroth16Verifier verifier =
+            new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
         register(rollupAddressManager, "risc0_groth16_verifier", address(verifier));
 
         deployProxy({
             name: "tier_sgx_zkvm",
             impl: address(new RiscZeroVerifier()),
-            data: abi.encodeCall(
-                RiscZeroVerifier.init, (owner, rollupAddressManager)
-            ),
+            data: abi.encodeCall(RiscZeroVerifier.init, (owner, rollupAddressManager)),
             registerTo: rollupAddressManager
         });
     }

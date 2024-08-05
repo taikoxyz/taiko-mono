@@ -17,7 +17,8 @@ contract RiscZeroGroth16VerifierTest is TaikoL1TestBase {
         super.setUp();
 
         // Deploy r0 groth16 verifier
-        RiscZeroGroth16Verifier verifier = new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
+        RiscZeroGroth16Verifier verifier =
+            new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
         registerAddress("risc0_groth16_verifier", address(verifier));
 
         // Deploy Taiko's RiscZero proof verifier
@@ -25,9 +26,7 @@ contract RiscZeroGroth16VerifierTest is TaikoL1TestBase {
             deployProxy({
                 name: "tier_risc_zero",
                 impl: address(new RiscZeroVerifier()),
-                data: abi.encodeCall(
-                    RiscZeroVerifier.init, (address(0), address(addressManager))
-                )
+                data: abi.encodeCall(RiscZeroVerifier.init, (address(0), address(addressManager)))
             })
         );
 

@@ -49,10 +49,7 @@ contract TestRiscZeroVerifier is TaikoL1TestBase {
             deployProxy({
                 name: "tier_risc_zero",
                 impl: address(new RiscZeroVerifier()),
-                data: abi.encodeCall(
-                    RiscZeroVerifier.init,
-                    (address(0), address(addressManager))
-                )
+                data: abi.encodeCall(RiscZeroVerifier.init, (address(0), address(addressManager)))
             })
         );
 
