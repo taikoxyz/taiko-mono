@@ -41,8 +41,8 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
         address _rollupAddressManager,
         address _receiptVerifier
     )
-    external
-    initializer
+        external
+        initializer
     {
         __Essential_init(_owner, _rollupAddressManager);
         receiptVerifier = IRiscZeroVerifier(_receiptVerifier);
@@ -65,7 +65,7 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
         TaikoData.Transition calldata _tran,
         TaikoData.TierProof calldata _proof
     )
-    external
+        external
     {
         // Do not run proof verification to contest an existing proof
         if (_ctx.isContesting) return;

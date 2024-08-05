@@ -28,10 +28,10 @@ import { reverseByteOrderUint32 } from "./Util.sol";
 /// image ID identifies the program that was executed, and the journal is the public data written
 /// by the program. Note that this struct only contains the claim digest, as can be obtained with
 /// the `digest()` function on `ReceiptClaimLib`.
-    struct Receipt {
-        bytes seal;
-        bytes32 claimDigest;
-    }
+struct Receipt {
+    bytes seal;
+    bytes32 claimDigest;
+}
 
 /// @notice Public claims about a zkVM guest execution, such as the journal committed to by the
 /// guest.
@@ -39,20 +39,20 @@ import { reverseByteOrderUint32 } from "./Util.sol";
 /// system
 /// state (i.e. the state of memory). `ReceiptClaim` is a "Merkle-ized struct" supporting
 /// partial openings of the underlying fields from a hash commitment to the full structure.
-    struct ReceiptClaim {
-        /// @notice Digest of the SystemState just before execution has begun.
-        bytes32 preStateDigest;
-        /// @notice Digest of the SystemState just after execution has completed.
-        bytes32 postStateDigest;
-        /// @notice The exit code for the execution.
-        ExitCode exitCode;
-        /// @notice A digest of the input to the guest.
-        /// @dev This field is currently unused and must be set to the zero digest.
-        bytes32 input;
-        /// @notice Digest of the Output of the guest, including the journal
-        /// and assumptions set during execution.
-        bytes32 output;
-    }
+struct ReceiptClaim {
+    /// @notice Digest of the SystemState just before execution has begun.
+    bytes32 preStateDigest;
+    /// @notice Digest of the SystemState just after execution has completed.
+    bytes32 postStateDigest;
+    /// @notice The exit code for the execution.
+    ExitCode exitCode;
+    /// @notice A digest of the input to the guest.
+    /// @dev This field is currently unused and must be set to the zero digest.
+    bytes32 input;
+    /// @notice Digest of the Output of the guest, including the journal
+    /// and assumptions set during execution.
+    bytes32 output;
+}
 
 library ReceiptClaimLib {
     using OutputLib for Output;
@@ -87,9 +87,9 @@ library ReceiptClaimLib {
         bytes32 imageId,
         bytes32 journalDigest
     )
-    internal
-    pure
-    returns (ReceiptClaim memory)
+        internal
+        pure
+        returns (ReceiptClaim memory)
     {
         return ReceiptClaim(
             imageId,
@@ -124,12 +124,12 @@ library ReceiptClaimLib {
 ///      start are stop of execution. Programs are loaded into the zkVM by creating a memory image
 ///      of the loaded program, and creating a system state for initializing the zkVM. This is
 ///      known as the "image ID".
-    struct SystemState {
-        /// @notice Program counter.
-        uint32 pc;
-        /// @notice Root hash of a merkle tree which confirms the integrity of the memory image.
-        bytes32 merkle_root;
-    }
+struct SystemState {
+    /// @notice Program counter.
+    uint32 pc;
+    /// @notice Root hash of a merkle tree which confirms the integrity of the memory image.
+    bytes32 merkle_root;
+}
 
 library SystemStateLib {
     bytes32 constant TAG_DIGEST = sha256("risc0.SystemState");
@@ -155,10 +155,10 @@ library SystemStateLib {
 /// zkVM. The user part is an exit code, similar to exit codes used in Linux, chosen by the guest
 /// program to indicate additional information (e.g. 0 to indicate success or 1 to indicate an
 /// error).
-    struct ExitCode {
-        SystemExitCode system;
-        uint8 user;
-    }
+struct ExitCode {
+    SystemExitCode system;
+    uint8 user;
+}
 
 /// @notice Exit condition indicated by the zkVM at the end of the execution covered by this proof.
 /// @dev
@@ -174,26 +174,26 @@ library SystemStateLib {
 /// split has no output and no conclusions can be drawn about whether the program will eventually
 /// halt. System split is used in continuations to split execution into individually provable
 /// segments.
-    enum SystemExitCode {
-        Halted,
-        Paused,
-        SystemSplit
-    }
+enum SystemExitCode {
+    Halted,
+    Paused,
+    SystemSplit
+}
 
 /// @notice Output field in the `ReceiptClaim`, committing to a claimed journal and assumptions
 /// list.
-    struct Output {
-        /// @notice Digest of the journal committed to by the guest execution.
-        bytes32 journalDigest;
-        /// @notice Digest of the ordered list of `ReceiptClaim` digests corresponding to the
-        /// calls to `env::verify` and `env::verify_integrity`.
-        /// @dev Verifying the integrity of a `Receipt` corresponding to a `ReceiptClaim` with a
-        /// non-empty assumptions list does not guarantee unconditionally any of the claims over the
-        /// guest execution (i.e. if the assumptions list is non-empty, then the journal digest cannot
-        /// be trusted to correspond to a genuine execution). The claims can be checked by additional
-        /// verifying a `Receipt` for every digest in the assumptions list.
-        bytes32 assumptionsDigest;
-    }
+struct Output {
+    /// @notice Digest of the journal committed to by the guest execution.
+    bytes32 journalDigest;
+    /// @notice Digest of the ordered list of `ReceiptClaim` digests corresponding to the
+    /// calls to `env::verify` and `env::verify_integrity`.
+    /// @dev Verifying the integrity of a `Receipt` corresponding to a `ReceiptClaim` with a
+    /// non-empty assumptions list does not guarantee unconditionally any of the claims over the
+    /// guest execution (i.e. if the assumptions list is non-empty, then the journal digest cannot
+    /// be trusted to correspond to a genuine execution). The claims can be checked by additional
+    /// verifying a `Receipt` for every digest in the assumptions list.
+    bytes32 assumptionsDigest;
+}
 
 library OutputLib {
     bytes32 constant TAG_DIGEST = sha256("risc0.Output");
@@ -213,7 +213,7 @@ library OutputLib {
 }
 
 /// @notice Error raised when cryptographic verification of the zero-knowledge proof fails.
-    error VerificationFailed();
+error VerificationFailed();
 
 /// @notice Verifier interface for RISC Zero receipts of execution.
 interface IRiscZeroVerifier {
