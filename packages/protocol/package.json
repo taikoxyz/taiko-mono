@@ -44,10 +44,5 @@
     "p256-verifier": "github:taikoxyz/p256-verifier#v0.1.0",
     "risc0-ethereum": "github:risc0/risc0-ethereum#v1.0.0",
     "solady": "github:Vectorized/solady#v0.0.167"
-  },
-  "pnpm": {
-    "overrides": {
-      "openzeppelin/contracts": "$@openzeppelin/contracts"
-    }
   }
 }
