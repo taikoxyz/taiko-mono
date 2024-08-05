@@ -55,7 +55,7 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
         emit ImageTrusted(_imageId, _trusted);
     }
 
-    event DebugVerifyProof(bytes32 metaHash, bytes32 journalDigest, bytes32 piHash);
+    event ProofVerified(bytes32 metaHash, bytes32 journalDigest, bytes32 piHash);
 
     /// @inheritdoc IVerifier
     function verifyProof(
