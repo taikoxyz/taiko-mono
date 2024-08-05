@@ -7,7 +7,6 @@ import "../common/LibStrings.sol";
 import "../L1/ITaikoL1.sol";
 import "./IVerifier.sol";
 import "./libs/LibPublicInput.sol";
-import { IRiscZeroVerifier } from "risc0-ethereum/contracts/src/IRiscZeroVerifier.sol";
 
 /// @title RiscZeroVerifier
 /// @custom:security-contact security@taiko.xyz
