@@ -16,9 +16,9 @@ contract RiscZeroGroth16VerifierTest is TaikoL1TestBase {
         // Call the TaikoL1TestBase setUp()
         super.setUp();
 
-        RiscZeroGroth16Verifier verifier =
-            new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
-        console2.log("Deployed RiscZeroGroth16Verifier to", address(verifier));
+        // Deploy r0 groth16 verifier
+        RiscZeroGroth16Verifier verifier = new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
+        registerAddress("risc0_groth16_verifier", address(verifier));
 
         // Deploy Taiko's RiscZero proof verifier
         rv = RiscZeroVerifier(
@@ -26,7 +26,7 @@ contract RiscZeroGroth16VerifierTest is TaikoL1TestBase {
                 name: "tier_risc_zero",
                 impl: address(new RiscZeroVerifier()),
                 data: abi.encodeCall(
-                    RiscZeroVerifier.init, (address(0), address(addressManager), address(verifier))
+                    RiscZeroVerifier.init, (address(0), address(addressManager))
                 )
             })
         );

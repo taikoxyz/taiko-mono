@@ -42,6 +42,8 @@ contract TestRiscZeroVerifier is TaikoL1TestBase {
         riscZeroRemoteVerifier = new MockRiscZeroRemoteVerifier();
         riscZeroRemoteVerifier.setVerifier(true);
 
+        registerAddress("risc0_groth16_verifier", address(riscZeroRemoteVerifier));
+
         // Deploy Taiko's RiscZero proof verifier
         rv = RiscZeroVerifier(
             deployProxy({
@@ -49,7 +51,7 @@ contract TestRiscZeroVerifier is TaikoL1TestBase {
                 impl: address(new RiscZeroVerifier()),
                 data: abi.encodeCall(
                     RiscZeroVerifier.init,
-                    (address(0), address(addressManager), address(riscZeroRemoteVerifier))
+                    (address(0), address(addressManager))
                 )
             })
         );

@@ -11,9 +11,6 @@ import "./libs/LibPublicInput.sol";
 /// @title RiscZeroVerifier
 /// @custom:security-contact security@taiko.xyz
 contract RiscZeroVerifier is EssentialContract, IVerifier {
-    /// @notice RISC Zero remote verifier contract address, e.g.:
-    /// https://sepolia.etherscan.io/address/0x3d24C84FC1A2B26f9229e58ddDf11A8dfba802d0
-    IRiscZeroVerifier public verifier;
     /// @notice Trusted imageId mapping
     mapping(bytes32 imageId => bool trusted) public isImageTrusted;
 
@@ -33,17 +30,14 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
     /// @notice Initializes the contract with the provided address manager.
     /// @param _owner The address of the owner.
     /// @param _rollupAddressManager The address of the AddressManager.
-    /// @param _receiptVerifier The address of the risc zero receipt verifier contract.
     function init(
         address _owner,
-        address _rollupAddressManager,
-        address _receiptVerifier
+        address _rollupAddressManager
     )
         external
         initializer
     {
         __Essential_init(_owner, _rollupAddressManager);
-        verifier = IRiscZeroVerifier(_receiptVerifier);
     }
 
     /// @notice Sets/unsets an the imageId as trusted entity
@@ -84,16 +78,19 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
 
         emit ProofVerified(_ctx.metaHash, journalDigest, hash);
         // call risc0 verifier contract
-        (bool success,) = address(verifier).staticcall(
-            abi.encodeCall(IRiscZeroVerifier.verify, (seal, imageId, journalDigest))
-        );
-
-        if (!success) {
+        try IRiscZeroVerifier(risk0Grouth16Verifier()).verify(seal, imageId, journalDigest){
+            return;
+        } catch {
             revert RISC_ZERO_INVALID_PROOF();
         }
+    }
+
+    function risk0Grouth16Verifier() public view virtual returns (address) {
+        return resolve(LibStrings.B_RISCZERO_GROTH16_VERIFIER, false);
     }
 
     function taikoChainId() internal view virtual returns (uint64) {
         return ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfig().chainId;
     }
+
 }
