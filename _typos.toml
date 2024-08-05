@@ -5,7 +5,9 @@ extend-ignore-identifiers-re = [
   "bafybeiegdqpwx3he5dvoxqklspdjekjepjcobfaakyficksratn73qbbyy",
   "TGE",
   "tge",
-  "baed"
+  "baed",
+  "Groth",
+  "groth"
 ]
 
 [files]

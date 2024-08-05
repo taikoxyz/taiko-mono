@@ -27,6 +27,9 @@ import "../test/common/erc20/FreeMintERC20.sol";
 import "../test/common/erc20/MayFailFreeMintERC20.sol";
 import "../test/L1/TestTierProvider.sol";
 import "../test/DeployCapability.sol";
+import "../contracts/thirdparty/risczero/groth16/RiscZeroGroth16Verifier.sol";
+import "../contracts/thirdparty/risczero/groth16/ControlID.sol";
+import "../contracts/verifiers/RiscZeroVerifier.sol";
 
 // Actually this one is deployed already on mainnet, but we are now deploying our own (non via-ir)
 // version. For mainnet, it is easier to go with one of:
@@ -382,6 +385,18 @@ contract DeployOnL1 is DeployCapability {
             data: abi.encodeCall(
                 ProverSet.init, (owner, vm.envAddress("PROVER_SET_ADMIN"), rollupAddressManager)
             )
+        });
+
+        RiscZeroGroth16Verifier risc0Verifier =
+                    new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
+
+        deployProxy({
+            name: "tier_sgx_zkvm",
+            impl: address(new RiscZeroVerifier()),
+            data: abi.encodeCall(
+                RiscZeroVerifier.init, (owner, rollupAddressManager, address(risc0Verifier))
+            ),
+            registerTo: rollupAddressManager
         });
     }
 
