@@ -5,8 +5,6 @@ import "../../L1/TaikoL1TestBase.sol";
 import "../../../contracts/thirdparty/risczero/groth16/RiscZeroGroth16Verifier.sol";
 import "../../../contracts/thirdparty/risczero/groth16/ControlID.sol";
 
-import "forge-std/src/console2.sol";
-
 contract RiscZeroGroth16VerifierTest is TaikoL1TestBase {
     function deployTaikoL1() internal override returns (TaikoL1) {
         return
