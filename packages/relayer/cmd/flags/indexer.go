@@ -112,9 +112,8 @@ var (
 	WaitForConfirmationTimeout = &cli.DurationFlag{
 		Name:     "waitForConfirmationTimeout",
 		Usage:    "Timeout waiting for confirmations",
-		Required: true,
 		Value:    5 * time.Minute,
-		Category: commonCategory,
+		Category: indexerCategory,
 		EnvVars:  []string{"WAIT_FOR_CONFIRMATION_TIMEOUT"},
 	}
 )
