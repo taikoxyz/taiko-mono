@@ -84,7 +84,7 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
         // journalDigest is the sha256 hash of the hashed public input
         bytes32 journalDigest = sha256(bytes.concat(__fixed_jounal_header, hash));
 
-        emit DebugVerifyProof(_ctx.metaHash, journalDigest, hash);
+        emit ProofVerified(_ctx.metaHash, journalDigest, hash);
         // call risc0 verifier contract
         (bool success,) = address(receiptVerifier).staticcall(
             abi.encodeCall(IRiscZeroVerifier.verify, (seal, imageId, journalDigest))
