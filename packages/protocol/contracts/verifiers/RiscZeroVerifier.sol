@@ -15,12 +15,12 @@ import "forge-std/src/console2.sol";
 contract RiscZeroVerifier is EssentialContract, IVerifier {
     /// @notice RISC Zero remote verifier contract address, e.g.:
     /// https://sepolia.etherscan.io/address/0x3d24C84FC1A2B26f9229e58ddDf11A8dfba802d0
-    IRiscZeroVerifier public receiptVerifier;
+    IRiscZeroVerifier public verifier;
     /// @notice Trusted imageId mapping
     mapping(bytes32 imageId => bool trusted) public isImageTrusted;
 
-    bytes private constant __fixed_jounal_header = hex"20000000"; // [32, 0, 0, 0] -- big-endian
-        // uint32(32) for hash bytes len
+    bytes private constant FIXED_JOURNAL_HEADER = hex"20000000"; // [32, 0, 0, 0] -- big-endian
+    // uint32(32) for hash bytes len
 
     uint256[48] private __gap;
 
@@ -45,7 +45,7 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
         initializer
     {
         __Essential_init(_owner, _rollupAddressManager);
-        receiptVerifier = IRiscZeroVerifier(_receiptVerifier);
+        verifier = IRiscZeroVerifier(_receiptVerifier);
     }
 
     /// @notice Sets/unsets an the imageId as trusted entity
@@ -57,7 +57,7 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
         emit ImageTrusted(_imageId, _trusted);
     }
 
-    event DebugVerifyProof(bytes32 metaHash, bytes32 journalDigest, bytes32 piHash);
+    event ProofVerified(bytes32 metaHash, bytes32 journalDigest, bytes32 piHash);
 
     /// @inheritdoc IVerifier
     function verifyProof(
@@ -82,11 +82,11 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
         );
 
         // journalDigest is the sha256 hash of the hashed public input
-        bytes32 journalDigest = sha256(bytes.concat(__fixed_jounal_header, hash));
+        bytes32 journalDigest = sha256(bytes.concat(FIXED_JOURNAL_HEADER, hash));
 
-        emit DebugVerifyProof(_ctx.metaHash, journalDigest, hash);
+        emit ProofVerified(_ctx.metaHash, journalDigest, hash);
         // call risc0 verifier contract
-        (bool success,) = address(receiptVerifier).staticcall(
+        (bool success,) = address(verifier).staticcall(
             abi.encodeCall(IRiscZeroVerifier.verify, (seal, imageId, journalDigest))
         );
 
