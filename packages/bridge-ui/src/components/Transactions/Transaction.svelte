@@ -22,8 +22,8 @@
 
   import ChainSymbol from './ChainSymbol.svelte';
   import DesktopDetailsDialog from './Dialogs/DesktopDetailsDialog.svelte';
+  import MobileDetailsDialog from './Dialogs/MobileDetailsDialog.svelte';
   import InsufficientFunds from './InsufficientFunds.svelte';
-  import MobileDetailsDialog from './MobileDetailsDialog.svelte';
   import { Status } from './Status';
 
   export let item: BridgeTransaction;
@@ -302,10 +302,9 @@
 <InsufficientFunds bind:modalOpen={insufficientModal} />
 
 <MobileDetailsDialog
-  {token}
   {closeDetails}
   detailsOpen={mobileDetailsOpen}
-  selectedItem={item}
+  bridgeTx={item}
   on:insufficientFunds={handleInsufficientFunds}
   on:openModal={handleOpenModal} />
 

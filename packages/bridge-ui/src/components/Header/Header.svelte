@@ -2,13 +2,20 @@
   import { page } from '$app/stores';
   import BridgeTabs from '$components/Bridge/BridgeTabs.svelte';
   import { ConnectButton } from '$components/ConnectButton';
-  import { Icon } from '$components/Icon';
+  import { IconFlipper } from '$components/Icon';
+  import LogoWithText from '$components/Logo/LogoWithText.svelte';
   import { drawerToggleId } from '$components/SideNavigation';
   import { ThemeButton } from '$components/ThemeButton';
   import { account } from '$stores/account';
 
   $: isBridgePage = $page.route.id === '/' || $page.route.id === '/nft';
   $: isTransactionsPage = $page.route.id === '/transactions';
+
+  export let sideBarOpen = false;
+
+  const handleSideBarOpen = () => {
+    sideBarOpen = !sideBarOpen;
+  };
 </script>
 
 <header
@@ -16,7 +23,7 @@
     sticky-top
     f-between-center
     justify-between
-    z-10
+    z-30
     px-4
     py-[20px]
     border-b
@@ -28,19 +35,31 @@
     md:px-10
     md:py-7
  ">
-  <div class="flex justify-end w-full">
+  <div class="flex justify-between items-center w-full">
+    <div class="md:w-[226px] w-auto">
+      <LogoWithText class="md:w-[125px] w-[77px]" />
+    </div>
+
     {#if isBridgePage || isTransactionsPage}
       <BridgeTabs class="hidden md:flex md:flex-1" />
     {/if}
-
-    <ConnectButton connected={$account?.isConnected} />
-    <div class="hidden md:inline-flex">
-      <div class="v-sep my-auto mx-[8px] h-[24px]" />
-      <ThemeButton />
+    <div class="f-row">
+      <ConnectButton connected={$account?.isConnected} class="justify-self-end" />
+      <div class="hidden lg:inline-flex">
+        <div class="v-sep my-auto mx-[8px] h-[24px]" />
+        <ThemeButton />
+      </div>
     </div>
   </div>
 
-  <label for={drawerToggleId} class="ml-[10px] md:hidden">
-    <Icon type="bars-menu" />
+  <label for={drawerToggleId} class="ml-[10px] lg:hidden">
+    <!-- <Icon type="bars-menu" /> -->
+    <IconFlipper
+      type="swap-rotate"
+      iconType1="bars-menu"
+      iconType2="x-close"
+      selectedDefault="bars-menu"
+      class="w-9 h-9 rounded-full"
+      on:labelclick={handleSideBarOpen} />
   </label>
 </header>

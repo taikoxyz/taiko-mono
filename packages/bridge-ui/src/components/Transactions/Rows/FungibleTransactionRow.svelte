@@ -7,7 +7,9 @@
   import { DesktopDetailsDialog } from '$components/Transactions/Dialogs';
   import type { BridgeTransaction, MessageStatus } from '$libs/bridge';
   import { getMessageStatusForMsgHash } from '$libs/bridge/getMessageStatusForMsgHash';
-  import { TokenType } from '$libs/token';
+  import { type NFT, TokenType } from '$libs/token';
+  import { fetchNFTImageUrl } from '$libs/token/fetchNFTImageUrl';
+  import { mapTransactionHashToNFT } from '$libs/token/mapTransactionHashToNFT';
   import { classNames } from '$libs/util/classNames';
   import { formatTimestamp } from '$libs/util/formatTimestamp';
   import { geBlockTimestamp } from '$libs/util/getBlockTimestamp';
@@ -16,6 +18,7 @@
   import { account } from '$stores/account';
 
   import ChainSymbol from '../ChainSymbol.svelte';
+  import MobileDetailsDialog from '../Dialogs/MobileDetailsDialog.svelte';
   import InsufficientFunds from '../InsufficientFunds.svelte';
   import { Status } from '../Status';
 
@@ -25,8 +28,10 @@
   export let bridgeTxStatus: Maybe<MessageStatus>;
 
   let insufficientModal = false;
-  // let mobileDetailsOpen = false;
+  let mobileDetailsOpen = false;
   let desktopDetailsOpen = false;
+
+  let token: NFT;
 
   let timestamp: string;
   const getDate = async () => {
@@ -48,6 +53,22 @@
     insufficientModal = true;
   };
 
+  const analyzeTransactionInput = async (): Promise<void> => {
+    loading = true;
+    try {
+      token = await mapTransactionHashToNFT({
+        hash: bridgeTx.srcTxHash,
+        srcChainId: Number(bridgeTx.srcChainId),
+        type: bridgeTx.tokenType,
+      });
+      token = await fetchNFTImageUrl(token);
+      await getDate();
+    } catch (error) {
+      console.error(error);
+    }
+    loading = false;
+  };
+
   async function handleClaimingDone() {
     // Keeping model and UI in sync
     bridgeTx.msgStatus = await getMessageStatusForMsgHash({
@@ -60,7 +81,7 @@
 
   const openDetails = () => {
     if ($isMobile && !interactiveDialogsOpen) {
-      // mobileDetailsOpen = true;
+      mobileDetailsOpen = true;
     } else if (($isTablet || $isDesktop) && !interactiveDialogsOpen) {
       desktopDetailsOpen = true;
     }
@@ -71,12 +92,19 @@
   };
 
   const closeDetails = () => {
-    // mobileDetailsOpen = false;
+    mobileDetailsOpen = false;
     desktopDetailsOpen = false;
   };
 
+  // Dynamic attributes based on screen size
+  $: attrs = $isDesktop ? {} : { role: 'button' };
+
   // get tx timestamp
   $: $account.isConnected && getDate();
+
+  $: $account.isConnected && isNFT && analyzeTransactionInput();
+
+  $: isNFT = bridgeTx.tokenType === TokenType.ERC721 || bridgeTx.tokenType === TokenType.ERC1155;
 
   // Modal states
   $: claimModalOpen = false;
@@ -88,9 +116,9 @@
   $: commonContainerClasses = classNames(
     'flex text-primary-content md:h-[80px] h-[70px] w-full my-[5px] md:my-[0px] hover:bg-[#C8047D]/10 px-[14px] py-[10px] rounded-[10px]',
   );
-  $: desktopContainerClasses = classNames(commonContainerClasses, '');
-  $: tabletContainerClasses = classNames(commonContainerClasses, '');
-  $: mobileContainerClasses = classNames(commonContainerClasses, 'dashed-border');
+  $: desktopContainerClasses = classNames(commonContainerClasses, 'items-center');
+  $: tabletContainerClasses = classNames(commonContainerClasses, 'cursor-pointer');
+  $: mobileContainerClasses = classNames(commonContainerClasses, 'cursor-pointer dashed-border');
 
   $: containerClasses = $isDesktop
     ? desktopContainerClasses
@@ -98,15 +126,19 @@
       ? tabletContainerClasses
       : mobileContainerClasses;
 
-  $: commonColumnClasses = classNames('py-2 flex justify-center relative items-end');
-  $: desktopColumnClasses = classNames(commonColumnClasses, 'w-1/6 flex-row items-center');
-  $: tabletColumnClasses = classNames(commonColumnClasses, '');
+  $: commonColumnClasses = classNames(' relative items-end');
+  $: desktopColumnClasses = classNames(commonColumnClasses, 'w-1/6 f-row justify-center items-center');
+  $: tabletColumnClasses = classNames(
+    commonColumnClasses,
+    'w-1/4 f-row  text-left start items-center text-sm space-y-[10px]',
+  );
   $: mobileColumnClasses = classNames(commonColumnClasses, 'w-1/3 justify-center f-col text-sm space-y-[10px]');
 
   $: columnClasses = $isDesktop ? desktopColumnClasses : $isTablet ? tabletColumnClasses : mobileColumnClasses;
 </script>
 
-<div class={containerClasses}>
+<!-- svelte-ignore a11y-no-static-element-interactions -->
+<div class={containerClasses} on:click={openDetails} {...attrs}>
   <!-- Mobile -->
   {#if $isMobile}
     <div class="before-circle"></div>
@@ -124,7 +156,7 @@
 
     <!-- Desktop -->
   {:else if $isDesktop || $isTablet}
-    <div class={`${columnClasses} `}>
+    <div class={`${columnClasses}`}>
       <ChainSymbol class="min-w-[24px]" chainId={bridgeTx.srcChainId} />
       {shortenAddress(bridgeTx.message?.from)}
     </div>
@@ -153,7 +185,7 @@
       on:statusChange={handleStatusChange} />
   </div>
 
-  {#if $isDesktop || $isTablet}
+  {#if $isDesktop}
     <div class={`${columnClasses}  `}>
       {#if timestamp}
         {timestamp}
@@ -161,18 +193,25 @@
         <Spinner size={12} />
       {/if}
     </div>
+
+    <div class="flex w-1/6 py-2 flex flex-col justify-center">
+      <button class="flex justify-end pr-[24px] py-3 link" on:click={openDetails}>
+        {$t('transactions.link.view')}
+      </button>
+    </div>
   {/if}
-  <div class="hidden md:flex w-1/6 py-2 flex flex-col justify-center">
-    <button class="flex justify-end pr-[24px] py-3 link" on:click={openDetails}>
-      {$t('transactions.link.view')}
-    </button>
-  </div>
 </div>
 
 <InsufficientFunds bind:modalOpen={insufficientModal} />
 
 <DesktopDetailsDialog
   detailsOpen={desktopDetailsOpen}
+  {closeDetails}
+  {bridgeTx}
+  on:insufficientFunds={handleInsufficientFunds} />
+
+<MobileDetailsDialog
+  detailsOpen={mobileDetailsOpen}
   {closeDetails}
   {bridgeTx}
   on:insufficientFunds={handleInsufficientFunds} />

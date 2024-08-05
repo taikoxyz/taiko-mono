@@ -10,7 +10,6 @@
   import BridgeTabs from '$components/Bridge/BridgeTabs.svelte';
   import { Icon } from '$components/Icon';
   import { LinkButton } from '$components/LinkButton';
-  import { LogoWithText } from '$components/Logo';
   import { ThemeButton } from '$components/ThemeButton';
   import {
     PUBLIC_DEFAULT_EXPLORER,
@@ -22,10 +21,19 @@
 
   let testnetName = PUBLIC_TESTNET_NAME || '';
   let drawerToggleElem: HTMLInputElement;
+  export let sideBarOpen = false;
 
   function closeDrawer() {
+    if (!drawerToggleElem) return;
     drawerToggleElem.checked = false;
   }
+
+  $: sideBarOpen ? closeDrawer() : openDrawer();
+
+  const openDrawer = () => {
+    if (!drawerToggleElem) return;
+    drawerToggleElem.checked = true;
+  };
 
   function onMenuKeydown(event: KeyboardEvent) {
     if (event.key === 'Escape' || event.key === 'Enter') {
@@ -40,63 +48,36 @@
   $: isBridgePage = $page.route.id === '/' || $page.route.id === '/nft';
   $: isFaucetPage = $page.route.id === '/faucet';
   $: isTransactionsPage = $page.route.id === '/transactions';
-
-  $: hasTestnetName = testnetName !== '';
 </script>
 
-<div class="drawer md:drawer-open">
+<div class=" drawer md:drawer-open">
   <input id={drawerToggleId} type="checkbox" class="drawer-toggle" bind:this={drawerToggleElem} />
-
   <div class="drawer-content relative f-col w-full">
     <slot />
   </div>
 
-  <!-- Side drawer's z-index (20) must be greater than content's header (10)-->
-  <div class="drawer-side z-20">
+  <div class="drawer-side z-20 pt-[81px] md:pt-[20px] h-full">
     <label for={drawerToggleId} class="drawer-overlay" />
 
     <!--
       Slow transitions can be pretty annoying after a while.
       Let's reduce it to 100ms for a better experience.
     -->
-    <div class="w-h-full !duration-100">
-      <header class="flex justify-between py-[20px] px-[16px] h-[76px] md:hidden border-b border-b-divider-border">
-        <div class="inline-block">
-          <a href="/" class="f-row gap-2">
-            <LogoWithText textFillClass="fill-primary-content" width={77} />
-            {#if hasTestnetName}
-              <span class="text-xs">{testnetName}</span>
-            {/if}
-          </a>
-        </div>
-        <button on:click={closeDrawer} class="h-9">
-          <Icon type="x-close" fillClass="fill-primary-icon" size={24} />
-        </button>
-      </header>
-
+    <div class="w-full !duration-100">
       <aside
         class="
         h-full
         px-[20px]
         md:mt-0
         md:px-4
-        md:py-8
         md:w-[226px]
       ">
-        <div class="hidden md:inline-block">
-          <a href="/" class="f-row gap-2">
-            <LogoWithText textFillClass="fill-primary-content" />
-            {#if hasTestnetName}
-              <span class="text-sm">{testnetName}</span>
-            {/if}
-          </a>
-        </div>
-
+        <div class="hidden md:inline-block"></div>
         <div role="button" tabindex="0" on:click={closeDrawer} on:keypress={closeDrawer}>
           <BridgeTabs class="md:hidden flex flex-1 mb-[40px] mt-[20px]" on:click={closeDrawer} />
         </div>
         <div role="button" tabindex="0" on:click={closeDrawer} on:keydown={onMenuKeydown}>
-          <ul class="menu p-0 md:pt-10 space-y-2">
+          <ul class="menu p-0 space-y-2">
             <li>
               <LinkButton active={isBridgePage}>
                 <Icon type="bridge" fillClass={getIconFillClass(isBridgePage)} />

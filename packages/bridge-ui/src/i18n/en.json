@@ -252,6 +252,7 @@
       "destination": "Destination owner"
     },
     "recipient": "Recipient",
+    "relayer": "Relayer",
     "reset_to_wallet": "Reset to current address",
     "review": "Review",
     "search_token": "Search token",
@@ -264,7 +265,8 @@
     "symbol": "Symbol",
     "to": "To",
     "token_id": "Token ID",
-    "token_standard": "Token standard"
+    "token_standard": "Token standard",
+    "tx_hash": "Tx hash"
   },
   "custom_recipient": {
     "placeholder": "Add custom recipient"
@@ -550,6 +552,11 @@
     },
     "description": "Track your bridge transactions here.",
     "details_dialog": {
+      "claimed_by": "Claimed by",
+      "destination_owner": "Destination owner",
+      "initated_date": "Date initiated",
+      "recipient_address": "Recipient address",
+      "sender_address": "Sender address",
       "title": "Transaction details"
     },
     "errors": {

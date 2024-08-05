@@ -113,7 +113,7 @@
         </div>
       </div>
       <div class="flex justify-between space-y-[8px]">
-        <div class="text-secondary-content">Tx hash</div>
+        <div class="text-secondary-content">{$t('common.tx_hash')}</div>
         <span>
           {#if srcTxHash}
             <ExplorerLink
@@ -165,46 +165,52 @@
     <div class="flex-col px-[24px] w-full space-y-[8px]">
       <!-- From -->
       <div class="flex justify-between">
-        <div class="text-secondary-content">Status</div>
+        <div class="text-secondary-content">{$t('common.status')}</div>
         <Status bridgeTxStatus={bridgeTx.status} {bridgeTx} textOnly />
       </div>
 
+      <!-- Sender -->
       <div class="flex justify-between">
-        <div class="text-secondary-content">Sender address</div>
+        <div class="text-secondary-content">{$t('transactions.details_dialog.sender_address')}</div>
         {#if from}
           <div><ExplorerLink category="address" urlParam={from} chainId={Number(srcChainId)} shorten /></div>
         {/if}
       </div>
 
+      <!-- Recipient -->
       <div class="flex justify-between">
-        <div class="text-secondary-content">Recipient address</div>
+        <div class="text-secondary-content">{$t('transactions.details_dialog.recipient_address')}</div>
         {#if to}
           <div><ExplorerLink category="address" urlParam={to} chainId={Number(destChainId)} shorten /></div>
         {/if}
       </div>
 
+      <!-- Dest owner -->
       <div class="flex justify-between">
-        <div class="text-secondary-content">Destination owner</div>
+        <div class="text-secondary-content">{$t('transactions.details_dialog.destination_owner')}</div>
         {#if destOwner}
           <div><ExplorerLink category="address" urlParam={destOwner} chainId={Number(destChainId)} shorten /></div>
         {/if}
       </div>
 
+      <!-- Amount -->
       <div class="flex justify-between">
-        <div class="text-secondary-content">Amount</div>
+        <div class="text-secondary-content">{$t('common.amount')}</div>
         <span>{formatEther(bridgeTx.amount ? bridgeTx.amount : BigInt(0))} {bridgeTx.symbol}</span>
       </div>
 
+      <!-- Date initiated -->
       <div class="flex justify-between">
-        <div class="text-secondary-content">Date initiated</div>
+        <div class="text-secondary-content">{$t('transactions.details_dialog.initated_date')}</div>
         <div>{initiatedAt}</div>
       </div>
 
+      <!-- Claimed by -->
       <div class="flex justify-between">
-        <div class="text-secondary-content">Claimed by</div>
+        <div class="text-secondary-content">{$t('transactions.details_dialog.claimed_by')}</div>
         <div>
           {#if isRelayer}
-            <span>Relayer</span>
+            <span>{$t('common.relayer')}</span>
           {:else if claimedBy}
             <ExplorerLink category="address" urlParam={claimedBy} chainId={Number(destChainId)} shorten />
           {:else}
@@ -213,11 +219,13 @@
         </div>
       </div>
 
+      <!-- Claim date -->
       <div class="flex justify-between">
         <div class="text-secondary-content">Claim date</div>
         <div>{claimedAt}</div>
       </div>
 
+      <!-- Paid fee -->
       <div class="flex justify-between">
         <div class="text-secondary-content">Fee paid</div>
         <span>{paidFee} ETH</span>

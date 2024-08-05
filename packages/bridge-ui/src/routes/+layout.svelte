@@ -20,6 +20,8 @@
   } from '$libs/util/responsiveCheck';
   import { startWatching, stopWatching } from '$libs/wagmi';
 
+  let sideBarOpen = false;
+
   const syncPointer = ({ x, y }: { x: number; y: number }) => {
     document.documentElement.style.setProperty('--x', x.toFixed(2));
     document.documentElement.style.setProperty('--xp', (x / window.innerWidth).toFixed(2));
@@ -61,8 +63,8 @@
 </script>
 
 <!-- App components -->
-<SideNavigation>
-  <Header />
+<Header bind:sideBarOpen />
+<SideNavigation bind:sideBarOpen>
   <main>
     <slot />
   </main>

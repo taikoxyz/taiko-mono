@@ -26,6 +26,7 @@
   import { getAlternateNetwork } from '$libs/network';
   import { bridgeTxService } from '$libs/storage';
   import { TokenType } from '$libs/token';
+  import { isDesktop, isTablet } from '$libs/util/responsiveCheck';
   import { account } from '$stores';
   import type { Account } from '$stores/account';
 
@@ -211,10 +212,10 @@
         style={`min-height: calc(${transactionsToShow.length} * ${isDesktopOrLarger ? '80px' : '66px'});`}>
         <div class="h-sep !mb-0 display-inline" />
 
-        <div class="text-primary-content flex">
+        <div class="text-primary-content flex text-primary-content w-full my-[5px] md:my-[0px] px-[14px] py-[10px]">
           {#if $activeBridge === BridgeTypes.FUNGIBLE}
-            {#if isDesktopOrLarger}
-              <div class="w-1/6 pl-[24px] py-2 text-secondary-content">{$t('transactions.header.from')}</div>
+            {#if $isDesktop}
+              <div class="w-1/6 py-2 text-secondary-content">{$t('transactions.header.from')}</div>
               <div class="w-1/6 py-2 text-secondary-content">{$t('transactions.header.to')}</div>
               <div class="w-1/6 py-2 text-secondary-content">{$t('transactions.header.amount')}</div>
               <div class="w-1/6 py-2 text-secondary-content flex flex-row">
@@ -223,18 +224,26 @@
               </div>
               <div class="w-1/6 py-2 text-secondary-content">{$t('transactions.header.date')}</div>
               <div class="w-1/6 py-2 text-secondary-content"></div>
+            {:else if $isTablet}
+              <div class="w-1/4 py-2 text-secondary-content">{$t('transactions.header.from')}</div>
+              <div class="w-1/4 py-2 text-secondary-content">{$t('transactions.header.to')}</div>
+              <div class="w-1/4 py-2 text-secondary-content">{$t('transactions.header.amount')}</div>
+              <div class="w-1/4 py-2 text-secondary-content flex flex-row">
+                {$t('transactions.header.status')}
+                <StatusInfoDialog />
+              </div>
             {:else}
-              <div class="w-1/3 text-left pl-[11px] pt-[20px] text-secondary-content">
+              <div class="w-1/3 text-left pl-[11px] text-secondary-content">
                 {$t('transactions.header.details')}
               </div>
-              <div class="w-1/3 text-center pt-[20px] text-secondary-content">{$t('transactions.header.amount')}</div>
-              <div class="w-1/3 pt-[20px] pr-[14px] f-row items-center justify-end text-secondary-content">
+              <div class="w-1/3 text-center text-secondary-content">{$t('transactions.header.amount')}</div>
+              <div class="w-1/3 pr-[14px] f-row items-center justify-end text-secondary-content">
                 {$t('transactions.header.status')}
                 <StatusInfoDialog />
               </div>
             {/if}
           {:else if $activeBridge === BridgeTypes.NFT}
-            {#if isDesktopOrLarger}
+            {#if $isDesktop}
               <div class="w-3/12 content-center py-2 text-secondary-content">{$t('transactions.header.item')}</div>
               <div class="w-2/12 content-center py-2 text-secondary-content">{$t('transactions.header.from')}</div>
               <div class="w-2/12 content-center py-2 text-secondary-content">{$t('transactions.header.to')}</div>
@@ -255,7 +264,7 @@
             {/if}
           {/if}
         </div>
-        <div class="h-sep !mb-0" />
+        <div class="h-sep !my-0" />
 
         {#if renderLoading}
           <div class="flex items-center justify-center text-primary-content h-[80px]">
