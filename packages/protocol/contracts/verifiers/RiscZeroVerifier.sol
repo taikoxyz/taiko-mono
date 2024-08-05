@@ -72,9 +72,10 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
 
         emit ProofVerified(_ctx.metaHash, journalDigest, hash);
         // call risc0 verifier contract
-        try IRiscZeroVerifier(risk0Grouth16Verifier()).verify(seal, imageId, journalDigest) {
-            return;
-        } catch {
+        (bool success,) = risk0Grouth16Verifier().staticcall(
+            abi.encodeCall(IRiscZeroVerifier.verify, (seal, imageId, journalDigest))
+        );
+        if (!success) {
             revert RISC_ZERO_INVALID_PROOF();
         }
     }
