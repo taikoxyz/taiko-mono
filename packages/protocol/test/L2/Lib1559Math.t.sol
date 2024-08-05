@@ -45,6 +45,7 @@ contract TestLib1559Math is TaikoTest {
             uint64 newTarget = 5 * 2_000_000;
             uint64 newExcess = Lib1559Math.adjustExcess(excess, target, newTarget);
             basefee = Lib1559Math.basefee(newExcess, newTarget) / unit;
+            console2.log("old gas excess: ", excess);
             console2.log("new gas excess: ", newExcess);
             console2.log("basefee: ", basefee);
             assertEq(baselineBasefee, basefee);
@@ -55,6 +56,7 @@ contract TestLib1559Math is TaikoTest {
             uint64 newTarget = 3 * 2_000_000;
             uint64 newExcess = Lib1559Math.adjustExcess(excess, target, newTarget);
             basefee = Lib1559Math.basefee(newExcess, newTarget) / unit;
+            console2.log("old gas excess: ", excess);
             console2.log("new gas excess: ", newExcess);
             console2.log("basefee: ", basefee);
             assertEq(baselineBasefee, basefee);

@@ -15,8 +15,7 @@ library Lib1559Math {
     error EIP1559_INVALID_PARAMS();
 
     function calc1559BaseFee(
-        uint32 _gasTarget,
-        uint8 _adjustmentQuotient,
+        uint256 _gasTarget,
         uint64 _gasExcess,
         uint64 _gasIssuance,
         uint32 _parentGasUsed
@@ -35,7 +34,7 @@ library Lib1559Math {
         // bonding curve, regardless the actual amount of gas used by this
         // block, however, this block's gas used will affect the next
         // block's base fee.
-        basefee_ = basefee(gasExcess_, uint256(_adjustmentQuotient) * _gasTarget);
+        basefee_ = basefee(gasExcess_, _gasTarget);
     }
 
     /// @dev Returns the new gas excess that will keep the basefee the same.
@@ -52,38 +51,30 @@ library Lib1559Math {
         if (_gasTarget == 0) revert EIP1559_INVALID_PARAMS();
 
         uint256 f = LibFixedPointMath.SCALING_FACTOR;
-        uint256 ratio;
-        unchecked {
-            ratio = f * _newGasTarget / _gasTarget;
-        }
-
+        uint256 ratio = f * _newGasTarget / _gasTarget;
         if (ratio > uint256(type(int256).max)) revert EIP1559_INVALID_PARAMS();
 
-        int256 lnRatio = LibFixedPointMath.ln(int256(ratio));
+        int256 lnRatio = LibFixedPointMath.ln(int256(ratio)); // may be negative
 
         uint256 newGasExcess;
         assembly {
             newGasExcess := sdiv(add(mul(lnRatio, _newGasTarget), mul(ratio, _gasExcess)), f)
-            switch gt(newGasExcess, 0)
-            case 1 { newGasExcess := shr(192, shl(192, newGasExcess)) }
-            default { newGasExcess := 0 }
         }
 
-        return uint64(newGasExcess);
+        return uint64(newGasExcess.min(type(uint64).max));
     }
 
-    /// @dev eth_qty(excess_gas_issued) / (TARGET * ADJUSTMENT_QUOTIENT)
-    /// @param _gasExcess The gas excess value
-    /// @param _target The product of gasTarget and adjustmentQuotient
-    function basefee(uint256 _gasExcess, uint256 _target) internal pure returns (uint256) {
-        if (_target == 0) revert EIP1559_INVALID_PARAMS();
-        uint256 fee = ethQty(_gasExcess, _target) / _target;
+    /// @dev exp(_gasExcess / _gasTarget) / _gasTarget
+    function basefee(uint256 _gasExcess, uint256 _gasTarget) internal pure returns (uint256) {
+        uint256 fee = ethQty(_gasExcess, _gasTarget) / _gasTarget;
         return fee == 0 ? 1 : fee;
     }
 
-    /// @dev exp(_gasExcess / _target)
-    function ethQty(uint256 _gasExcess, uint256 _target) internal pure returns (uint256) {
-        uint256 input = LibFixedPointMath.SCALING_FACTOR * _gasExcess / _target;
+    /// @dev exp(_gasExcess / _gasTarget)
+    function ethQty(uint256 _gasExcess, uint256 _gasTarget) internal pure returns (uint256) {
+        if (_gasTarget == 0) revert EIP1559_INVALID_PARAMS();
+
+        uint256 input = LibFixedPointMath.SCALING_FACTOR * _gasExcess / _gasTarget;
         if (input > LibFixedPointMath.MAX_EXP_INPUT) {
             input = LibFixedPointMath.MAX_EXP_INPUT;
         }

@@ -199,8 +199,7 @@ contract TaikoL2 is EssentialContract {
         LibL2Config.Config memory config = getConfig();
 
         (basefee_, parentGasExcess_) = Lib1559Math.calc1559BaseFee(
-            config.gasTargetPerL1Block,
-            config.basefeeAdjustmentQuotient,
+            uint256(config.gasTargetPerL1Block) * config.basefeeAdjustmentQuotient,
             parentGasExcess,
             uint64(_anchorBlockId - lastSyncedBlock) * config.gasTargetPerL1Block,
             _parentGasUsed
@@ -254,8 +253,7 @@ contract TaikoL2 is EssentialContract {
         returns (uint256 basefee_, uint64 parentGasExcess_)
     {
         return Lib1559Math.calc1559BaseFee(
-            _gasIssuancePerSecond,
-            _adjustmentQuotient,
+            uint256(_gasIssuancePerSecond) * _adjustmentQuotient,
             _parentGasExcess,
             _blocktime * _gasIssuancePerSecond,
             _parentGasUsed
