@@ -164,7 +164,8 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBl
 				// If request proof has timed out in retry, let's cancel the proof generating and skip
 				if errors.Is(err, proofProducer.ErrProofInProgress) && time.Since(startTime) >= ProofTimeout {
 					log.Error("Request proof has timed out, start to cancel", "blockID", opts.BlockID)
-					_ = s.proofProducer.RequestCancel(ctx, opts)
+					cancelErr := s.proofProducer.RequestCancel(ctx, opts)
+					log.Error("Failed to request cancellation of proof", "err", cancelErr)
 					return nil
 				}
 				return fmt.Errorf("failed to request proof (id: %d): %w", meta.GetBlockID(), err)
