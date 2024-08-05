@@ -22,7 +22,7 @@ contract MockRiscZeroRemoteVerifier is IRiscZeroVerifier {
         require(verifying, "RiscZeroRemoteVerifier: invalid proof");
     }
 
-    function verifyIntegrity(Receipt calldata receipt) external view {
+    function verifyIntegrity(Receipt calldata /*receipt*/ ) external view {
         require(verifying, "RiscZeroRemoteVerifier: invalid integrity");
     }
 }
