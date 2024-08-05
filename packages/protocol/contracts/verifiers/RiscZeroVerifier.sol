@@ -1,23 +1,23 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
+import "@risc0/contracts/IRiscZeroVerifier.sol";
 import "../common/EssentialContract.sol";
 import "../common/LibStrings.sol";
 import "../L1/ITaikoL1.sol";
 import "./IVerifier.sol";
 import "./libs/LibPublicInput.sol";
-import {IRiscZeroVerifier} from "risc0-ethereum/contracts/src/IRiscZeroVerifier.sol";
 
 /// @title RiscZeroVerifier
 /// @custom:security-contact security@taiko.xyz
 contract RiscZeroVerifier is EssentialContract, IVerifier {
+    // [32, 0, 0, 0] -- big-endian uint32(32) for hash bytes len
+    bytes private constant FIXED_JOURNAL_HEADER = hex"20000000";
+
     /// @notice Trusted imageId mapping
     mapping(bytes32 imageId => bool trusted) public isImageTrusted;
 
-    bytes private constant FIXED_JOURNAL_HEADER = hex"20000000"; // [32, 0, 0, 0] -- big-endian
-    // uint32(32) for hash bytes len
-
-    uint256[48] private __gap;
+    uint256[49] private __gap;
 
     /// @dev Emitted when a trusted image is set / unset.
     /// @param imageId The id of the image
