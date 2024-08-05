@@ -134,4 +134,5 @@ var IndexerFlags = MergeFlags(CommonFlags, QueueFlags, []cli.Flag{
 	EventName,
 	MinFeeToIndex,
 	TargetBlockNumber,
+	WaitForConfirmationTimeout,
 })
