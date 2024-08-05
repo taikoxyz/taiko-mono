@@ -15,7 +15,7 @@ import "forge-std/src/console2.sol";
 contract RiscZeroVerifier is EssentialContract, IVerifier {
     /// @notice RISC Zero remote verifier contract address, e.g.:
     /// https://sepolia.etherscan.io/address/0x3d24C84FC1A2B26f9229e58ddDf11A8dfba802d0
-    IRiscZeroVerifier public receiptVerifier;
+    IRiscZeroVerifier public verifier;
     /// @notice Trusted imageId mapping
     mapping(bytes32 imageId => bool trusted) public isImageTrusted;
 
