@@ -16,6 +16,7 @@ import { default as TwitterLogo } from './TwitterLogo.svelte';
 import { default as UpRightArrow } from './UpRightArrow.svelte';
 import { default as XSolid } from './XSolid.svelte';
 import { default as YoutubeLogo } from './YoutubeLogo.svelte';
+export { default as StaticIcon } from './StaticIcons/StaticIcon.svelte';
 
 export const Icons = {
 	CircleUserRegular,
