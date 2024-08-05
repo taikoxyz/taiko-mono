@@ -1,6 +1,8 @@
 package flags
 
 import (
+	"time"
+
 	"github.com/urfave/cli/v2"
 )
 
@@ -106,6 +108,14 @@ var (
 		Category: indexerCategory,
 		Value:    0,
 		EnvVars:  []string{"MIN_FEE_TO_INDEX"},
+	}
+	WaitForConfirmationTimeout = &cli.DurationFlag{
+		Name:     "waitForConfirmationTimeout",
+		Usage:    "Timeout waiting for confirmations",
+		Required: true,
+		Value:    5 * time.Minute,
+		Category: commonCategory,
+		EnvVars:  []string{"WAIT_FOR_CONFIRMATION_TIMEOUT"},
 	}
 )
 

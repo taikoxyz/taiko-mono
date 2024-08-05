@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"math/big"
-	"time"
 
 	"log/slog"
 
@@ -17,7 +16,6 @@ import (
 )
 
 var (
-	defaultCtxTimeout    = 3 * time.Minute
 	defaultConfirmations = 5
 )
 
@@ -56,7 +54,7 @@ func (i *Indexer) handleMessageSentEvent(
 	if waitForConfirmations {
 		// we need to wait for confirmations to confirm this event is not being reverted,
 		// removed, or reorged now.
-		confCtx, confCtxCancel := context.WithTimeout(ctx, defaultCtxTimeout)
+		confCtx, confCtxCancel := context.WithTimeout(ctx, i.cfg.ConfirmationTimeout)
 
 		defer confCtxCancel()
 

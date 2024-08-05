@@ -53,6 +53,7 @@ type Config struct {
 	MinFeeToIndex                    uint64
 	OpenQueueFunc                    func() (queue.Queue, error)
 	OpenDBFunc                       func() (db.DB, error)
+	ConfirmationTimeout              time.Duration
 }
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
@@ -87,6 +88,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		BackOffMaxRetries:                c.Uint64(flags.BackOffMaxRetrys.Name),
 		BackOffRetryInterval:             c.Duration(flags.BackOffRetryInterval.Name),
 		MinFeeToIndex:                    c.Uint64(flags.MinFeeToIndex.Name),
+		ConfirmationTimeout:              c.Duration(flags.WaitForConfirmationTimeout.Name),
 		TargetBlockNumber: func() *uint64 {
 			if c.IsSet(flags.TargetBlockNumber.Name) {
 				value := c.Uint64(flags.TargetBlockNumber.Name)
