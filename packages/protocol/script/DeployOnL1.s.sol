@@ -27,9 +27,9 @@ import "../test/common/erc20/FreeMintERC20.sol";
 import "../test/common/erc20/MayFailFreeMintERC20.sol";
 import "../test/L1/TestTierProvider.sol";
 import "../test/DeployCapability.sol";
-import "../contracts/verifiers/RiscZeroVerifier.sol";
 import "../contracts/thirdparty/risczero/groth16/RiscZeroGroth16Verifier.sol";
 import "../contracts/thirdparty/risczero/groth16/ControlID.sol";
+import "../contracts/verifiers/RiscZeroVerifier.sol";
 
 // Actually this one is deployed already on mainnet, but we are now deploying our own (non via-ir)
 // version. For mainnet, it is easier to go with one of:
