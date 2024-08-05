@@ -460,7 +460,7 @@
 | lastUnpausedAt | uint64                   | 201  | 2      | 8     | contracts/verifiers/RiscZeroVerifier.sol:RiscZeroVerifier |
 | __gap          | uint256[49]              | 202  | 0      | 1568  | contracts/verifiers/RiscZeroVerifier.sol:RiscZeroVerifier |
 | isImageTrusted | mapping(bytes32 => bool) | 251  | 0      | 32    | contracts/verifiers/RiscZeroVerifier.sol:RiscZeroVerifier |
-| __gap          | uint256[48]              | 252  | 0      | 1536  | contracts/verifiers/RiscZeroVerifier.sol:RiscZeroVerifier |
+| __gap          | uint256[49]              | 252  | 0      | 1568  | contracts/verifiers/RiscZeroVerifier.sol:RiscZeroVerifier |
 
 ## QuotaManager
 | Name           | Type                                          | Slot | Offset | Bytes | Contract                                       |
@@ -698,7 +698,7 @@
 | lastUnpausedAt | uint64                   | 201  | 2      | 8     | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
 | __gap          | uint256[49]              | 202  | 0      | 1568  | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
 | isImageTrusted | mapping(bytes32 => bool) | 251  | 0      | 32    | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
-| __gap          | uint256[48]              | 252  | 0      | 1536  | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
+| __gap          | uint256[49]              | 252  | 0      | 1568  | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
 
 ## MainnetRollupAddressManager
 | Name           | Type                                            | Slot | Offset | Bytes | Contract                                                                      |
