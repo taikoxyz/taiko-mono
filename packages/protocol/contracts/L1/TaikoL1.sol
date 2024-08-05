@@ -142,14 +142,29 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         emitEventForClient
     {
         TaikoData.Config memory config = getConfig();
-        LibProving.proveBlock(state, config, this, _blockId, _input);
-
-        if (LibUtils.shouldVerifyBlocks(config, _blockId, false)) {
-            LibVerifying.verifyBlocks(state, config, this, config.maxBlocksToVerify);
-        }
+        _proveBlock(_blockId, _input, config);
     }
 
+    function proveBlocks(
+        uint64[] calldata _blockIdArray,
+        bytes[] calldata _inputArray
+    )
+        external
+        whenNotPaused
+        whenProvingNotPaused
+        nonReentrant
+        emitEventForClient
+    {
+        if (_blockIdArray.length == 0 || _blockIdArray.length != _inputArray.length) {
+            revert L1_INVALID_PARAMS();
+        }
+        TaikoData.Config memory config = getConfig();
+        for (uint256 i; i < _blockIdArray.length; ++i) {
+            _proveBlock(_blockIdArray[i], _inputArray[i], config);
+        }
+    }
     /// @inheritdoc ITaikoL1
+
     function verifyBlocks(uint64 _maxBlocksToVerify)
         external
         whenNotPaused
@@ -309,6 +324,20 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         if (meta_.id < _config.ontakeForkHeight) revert L1_FORK_ERROR();
 
         if (LibUtils.shouldVerifyBlocks(_config, meta_.id, true) && !state.slotB.provingPaused) {
+            LibVerifying.verifyBlocks(state, _config, this, _config.maxBlocksToVerify);
+        }
+    }
+
+    function _proveBlock(
+        uint64 _blockId,
+        bytes calldata _input,
+        TaikoData.Config memory _config
+    )
+        internal
+    {
+        LibProving.proveBlock(state, _config, this, _blockId, _input);
+
+        if (LibUtils.shouldVerifyBlocks(_config, _blockId, false)) {
             LibVerifying.verifyBlocks(state, _config, this, _config.maxBlocksToVerify);
         }
     }
