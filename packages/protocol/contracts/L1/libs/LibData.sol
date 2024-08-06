@@ -78,7 +78,7 @@ library LibData {
             blobIndex: 0,
             basefeeAdjustmentQuotient: 0,
             basefeeSharingPctg: 0,
-            blockGasIssuance: 0
+            gasIssuancePerSecond: 0
         });
     }
 }

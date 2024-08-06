@@ -142,8 +142,8 @@ func (m *TaikoDataBlockMetadataLegacy) GetBasefeeSharingPctg() uint8 {
 	return 0
 }
 
-// GetBlockGasIssuance returns the L2 block gas issuance.
-func (m *TaikoDataBlockMetadataLegacy) GetBlockGasIssuance() uint32 {
+// GetGasIssuancePerSecond returns the L2 block gas issuance per second.
+func (m *TaikoDataBlockMetadataLegacy) GetGasIssuancePerSecond() uint32 {
 	return 0
 }
 
