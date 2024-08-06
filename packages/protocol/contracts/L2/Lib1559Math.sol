@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "../thirdparty/solmate/LibFixedPointMath.sol";
+import "solady/src/utils/FixedPointMathLib.sol";
 import "../libs/LibMath.sol";
 
 /// @title Lib1559Math
@@ -11,6 +11,8 @@ import "../libs/LibMath.sol";
 /// @custom:security-contact security@taiko.xyz
 library Lib1559Math {
     using LibMath for uint256;
+
+    uint128 public constant MAX_EXP_INPUT = 135_305_999_368_893_231_588;
 
     error EIP1559_INVALID_PARAMS();
 
@@ -55,7 +57,7 @@ library Lib1559Math {
         if (_adjustmentFactor == 0) {
             revert EIP1559_INVALID_PARAMS();
         }
-        return _ethQty(_gasExcess, _adjustmentFactor) / LibFixedPointMath.SCALING_FACTOR;
+        return _ethQty(_gasExcess, _adjustmentFactor) / FixedPointMathLib.WAD;
     }
 
     /// @dev exp(gas_qty / TARGET / ADJUSTMENT_QUOTIENT)
@@ -67,10 +69,10 @@ library Lib1559Math {
         pure
         returns (uint256)
     {
-        uint256 input = _gasExcess * LibFixedPointMath.SCALING_FACTOR / _adjustmentFactor;
-        if (input > LibFixedPointMath.MAX_EXP_INPUT) {
-            input = LibFixedPointMath.MAX_EXP_INPUT;
+        uint256 input = _gasExcess * FixedPointMathLib.WAD / _adjustmentFactor;
+        if (input > MAX_EXP_INPUT) {
+            input = MAX_EXP_INPUT;
         }
-        return uint256(LibFixedPointMath.exp(int256(input)));
+        return uint256(FixedPointMathLib.expWad(int256(input)));
     }
 }
