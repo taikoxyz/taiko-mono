@@ -50,7 +50,9 @@ library Lib1559Math {
         pure
         returns (uint64)
     {
-        if (_gasTarget == 0) revert EIP1559_INVALID_PARAMS();
+        if (_gasTarget == 0) {
+            return _newGasTarget;
+        }
 
         uint256 f = FixedPointMathLib.WAD;
         uint256 ratio = f * _newGasTarget / _gasTarget;
