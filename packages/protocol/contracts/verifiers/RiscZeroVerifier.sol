@@ -24,6 +24,9 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
     /// @param trusted True if trusted, false otherwise
     event ImageTrusted(bytes32 imageId, bool trusted);
 
+    /// @dev Emitted when a proof is verified
+    event ProofVerified(bytes32 metaHash, bytes32 publicInputHash);
+
     error RISC_ZERO_INVALID_IMAGE_ID();
     error RISC_ZERO_INVALID_PROOF();
 
@@ -43,8 +46,6 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
         emit ImageTrusted(_imageId, _trusted);
     }
 
-    event ProofVerified(bytes32 metaHash, bytes32 journalDigest, bytes32 piHash);
-
     /// @inheritdoc IVerifier
     function verifyProof(
         Context calldata _ctx,
@@ -63,25 +64,22 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
             revert RISC_ZERO_INVALID_IMAGE_ID();
         }
 
-        bytes32 hash = LibPublicInput.hashPublicInputs(
+        bytes32 publicInputHash = LibPublicInput.hashPublicInputs(
             _tran, address(this), address(0), _ctx.prover, _ctx.metaHash, taikoChainId()
         );
 
         // journalDigest is the sha256 hash of the hashed public input
-        bytes32 journalDigest = sha256(bytes.concat(FIXED_JOURNAL_HEADER, hash));
+        bytes32 journalDigest = sha256(bytes.concat(FIXED_JOURNAL_HEADER, publicInputHash));
 
-        emit ProofVerified(_ctx.metaHash, journalDigest, hash);
         // call risc0 verifier contract
-        (bool success,) = risk0Grouth16Verifier().staticcall(
+        (bool success,) = resolve(LibStrings.B_RISCZERO_GROTH16_VERIFIER, false).staticcall(
             abi.encodeCall(IRiscZeroVerifier.verify, (seal, imageId, journalDigest))
         );
         if (!success) {
             revert RISC_ZERO_INVALID_PROOF();
         }
-    }
 
-    function risk0Grouth16Verifier() public view virtual returns (address) {
-        return resolve(LibStrings.B_RISCZERO_GROTH16_VERIFIER, false);
+        emit ProofVerified(_ctx.metaHash, publicInputHash);
     }
 
     function taikoChainId() internal view virtual returns (uint64) {
