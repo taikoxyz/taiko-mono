@@ -5,7 +5,7 @@ import "../TaikoTest.sol";
 
 contract TestL2ForTest is TaikoL2 {
     function setGasExcess(uint64 _newGasExcess) external virtual onlyOwner {
-        gasExcess = _newGasExcess;
+        parentGasExcess = _newGasExcess;
     }
 }
 

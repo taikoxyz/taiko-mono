@@ -109,7 +109,7 @@ contract TaikoL2 is EssentialContract {
     /// @param _anchorBlockId The `anchorBlockId` value in this block's metadata.
     /// @param _anchorStateRoot The state root for the L1 block with id equals `_anchorBlockId`
     /// @param _parentGasUsed The gas used in the parent block.
-    /// @param _blockGasIssuance The amount of gas to issue in this block.
+    /// @param _gasIssuancePerSecond The amount of gas to issue per second.
     /// @param _basefeeAdjustmentQuotient The base fee adjustment quotient.
     function anchorV2(
         uint64 _anchorBlockId,
