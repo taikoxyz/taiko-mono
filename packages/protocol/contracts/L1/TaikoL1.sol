@@ -25,7 +25,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
 
     error L1_FORK_ERROR();
     error L1_INVALID_PARAMS();
-    error L1_RECEIVE_DISABLED();
 
     modifier whenProvingNotPaused() {
         if (state.slotB.provingPaused) revert LibProving.L1_PROVING_PAUSED();
@@ -40,11 +39,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     modifier onlyRegisteredProposer() {
         LibProposing.checkProposerPermission(this);
         _;
-    }
-
-    /// @dev Allows for receiving Ether from Hooks
-    receive() external payable {
-        if (!inNonReentrant()) revert L1_RECEIVE_DISABLED();
     }
 
     /// @notice Initializes the contract.
@@ -125,10 +119,28 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         emitEventForClient
     {
         TaikoData.Config memory config = getConfig();
-        LibProving.proveBlock(state, config, this, _blockId, _input);
+        _proveBlock(_blockId, _input, config);
+    }
 
-        if (LibUtils.shouldVerifyBlocks(config, _blockId, false)) {
-            LibVerifying.verifyBlocks(state, config, this, config.maxBlocksToVerify);
+    /// @inheritdoc ITaikoL1
+    function proveBlocks(
+        uint64[] calldata _blockIds,
+        bytes[] calldata _inputArr
+    )
+        external
+        whenNotPaused
+        whenProvingNotPaused
+        nonReentrant
+        emitEventForClient
+    {
+        if (_blockIds.length == 0 || _blockIds.length != _inputArr.length) {
+            revert L1_INVALID_PARAMS();
+        }
+
+        TaikoData.Config memory config = getConfig();
+
+        for (uint256 i; i < _blockIds.length; ++i) {
+            _proveBlock(_blockIds[i], _inputArr[i], config);
         }
     }
 
@@ -212,26 +224,28 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     /// @return blockId_ The last verified block's ID.
     /// @return blockHash_ The last verified block's blockHash.
     /// @return stateRoot_ The last verified block's stateRoot.
+    /// @return verifiedAt_ The timestamp this block is verified at.
     function getLastVerifiedBlock()
         external
         view
-        returns (uint64 blockId_, bytes32 blockHash_, bytes32 stateRoot_)
+        returns (uint64 blockId_, bytes32 blockHash_, bytes32 stateRoot_, uint64 verifiedAt_)
     {
         blockId_ = state.slotB.lastVerifiedBlockId;
-        (blockHash_, stateRoot_) = LibUtils.getBlockInfo(state, getConfig(), blockId_);
+        (blockHash_, stateRoot_, verifiedAt_) = LibUtils.getBlockInfo(state, getConfig(), blockId_);
     }
 
     /// @notice Returns information about the last synchronized block.
     /// @return blockId_ The last verified block's ID.
     /// @return blockHash_ The last verified block's blockHash.
     /// @return stateRoot_ The last verified block's stateRoot.
+    /// @return verifiedAt_ The timestamp this block is verified at.
     function getLastSyncedBlock()
         external
         view
-        returns (uint64 blockId_, bytes32 blockHash_, bytes32 stateRoot_)
+        returns (uint64 blockId_, bytes32 blockHash_, bytes32 stateRoot_, uint64 verifiedAt_)
     {
         blockId_ = state.slotA.lastSyncedBlockId;
-        (blockHash_, stateRoot_) = LibUtils.getBlockInfo(state, getConfig(), blockId_);
+        (blockHash_, stateRoot_, verifiedAt_) = LibUtils.getBlockInfo(state, getConfig(), blockId_);
     }
 
     /// @notice Gets the state variables of the TaikoL1 contract.
@@ -289,6 +303,20 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         meta_ = LibProposing.proposeBlock(state, _config, this, _params, _txList);
 
         if (LibUtils.shouldVerifyBlocks(_config, meta_.id, true) && !state.slotB.provingPaused) {
+            LibVerifying.verifyBlocks(state, _config, this, _config.maxBlocksToVerify);
+        }
+    }
+
+    function _proveBlock(
+        uint64 _blockId,
+        bytes calldata _input,
+        TaikoData.Config memory _config
+    )
+        internal
+    {
+        LibProving.proveBlock(state, _config, this, _blockId, _input);
+
+        if (LibUtils.shouldVerifyBlocks(_config, _blockId, false)) {
             LibVerifying.verifyBlocks(state, _config, this, _config.maxBlocksToVerify);
         }
     }

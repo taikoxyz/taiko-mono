@@ -45,7 +45,7 @@ func (i *Indexer) handleMessageProcessedEvent(
 	if waitForConfirmations {
 		// we need to wait for confirmations to confirm this event is not being reverted,
 		// removed, or reorged now.
-		confCtx, confCtxCancel := context.WithTimeout(ctx, defaultCtxTimeout)
+		confCtx, confCtxCancel := context.WithTimeout(ctx, i.cfg.ConfirmationTimeout)
 
 		defer confCtxCancel()
 

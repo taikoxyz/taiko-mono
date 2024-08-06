@@ -4,8 +4,10 @@ pragma solidity 0.8.24;
 import "forge-std/src/Test.sol";
 import "forge-std/src/console.sol";
 import "forge-std/src/StdJson.sol";
+
+import "@optimism/packages/contracts-bedrock/src/libraries/Bytes.sol";
+
 import "../../../contracts/verifiers/SgxVerifier.sol";
-import "../../../contracts/thirdparty/optimism/Bytes.sol";
 import { AutomataDcapV3Attestation } from
     "../../../contracts/automata-attestation/AutomataDcapV3Attestation.sol";
 import { P256Verifier } from "p256-verifier/src/P256Verifier.sol";

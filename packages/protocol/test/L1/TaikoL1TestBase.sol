@@ -11,6 +11,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
     TaikoData.Config conf;
     uint256 internal logCount;
     RiscZeroVerifier public rv;
+    SP1Verifier public sp1;
     SgxVerifier public sv;
     GuardianProver public gp;
     TestTierProvider public cp;

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "../../contracts/thirdparty/optimism/Bytes.sol";
+import "@optimism/packages/contracts-bedrock/src/libraries/Bytes.sol";
 
 /// @author Kirk Baird <kirk@sigmaprime.io>
 contract MockPlonkVerifier {
