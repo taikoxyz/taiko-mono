@@ -22,7 +22,7 @@ contract TestTaikoL2 is TaikoTest {
     uint256 salt = 2_195_684_615_435_261_315_311;
     // same as `block_gas_limit` in foundry.toml
     uint32 public constant BLOCK_GAS_LIMIT = 30_000_000;
-    uint32 public constant BLOCK_GAS_ISSUANCE = 10_000_000;
+    uint32 public constant GAS_ISSUANCE_PER_SECOND = 1_000_000;
     uint8 public constant QUOTIENT = 8;
     uint64 public constant L1_CHAIN_ID = 12_345;
 
@@ -126,6 +126,6 @@ contract TestTaikoL2 is TaikoTest {
 
     function _anchor() private {
         bytes32 l1StateRoot = randBytes32();
-        L2.anchorV2(12_345, l1StateRoot, BLOCK_GAS_LIMIT, BLOCK_GAS_ISSUANCE, QUOTIENT);
+        L2.anchorV2(12_345, l1StateRoot, BLOCK_GAS_LIMIT, GAS_ISSUANCE_PER_SECOND, QUOTIENT);
     }
 }

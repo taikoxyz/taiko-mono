@@ -53,7 +53,6 @@ contract TaikoL2 is EssentialContract {
     event Anchored(bytes32 parentHash, uint64 parentGasExcess);
 
     error L2_BASEFEE_MISMATCH();
-    error L2_FORK_ERROR();
     error L2_INVALID_L1_CHAIN_ID();
     error L2_INVALID_L2_CHAIN_ID();
     error L2_INVALID_PARAM();
@@ -225,6 +224,7 @@ contract TaikoL2 is EssentialContract {
         uint256 parentId = block.number - 1;
         (bytes32 currentPublicInputHash, bytes32 newPublicInputHash) =
             _calcPublicInputHash(parentId);
+
         if (publicInputHash != currentPublicInputHash) revert L2_PUBLIC_INPUT_HASH_MISMATCH();
 
         // Check if the gas settings has changed
