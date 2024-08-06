@@ -176,7 +176,7 @@ library LibProposing {
                 blobIndex: local.params.blobIndex,
                 basefeeAdjustmentQuotient: _config.basefeeAdjustmentQuotient,
                 basefeeSharingPctg: _config.basefeeSharingPctg,
-                blockGasIssuance: _config.blockGasIssuance
+                gasIssuancePerSecond: _config.gasIssuancePerSecond
             });
         }
 
