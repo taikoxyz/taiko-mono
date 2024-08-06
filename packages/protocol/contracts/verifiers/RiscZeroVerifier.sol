@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
+import "@risc0/contracts/IRiscZeroVerifier.sol";
 import "../common/EssentialContract.sol";
 import "../common/LibStrings.sol";
-import "../thirdparty/risczero/IRiscZeroReceiptVerifier.sol";
 import "../L1/ITaikoL1.sol";
 import "./IVerifier.sol";
 import "./libs/LibPublicInput.sol";
@@ -11,18 +11,21 @@ import "./libs/LibPublicInput.sol";
 /// @title RiscZeroVerifier
 /// @custom:security-contact security@taiko.xyz
 contract RiscZeroVerifier is EssentialContract, IVerifier {
-    /// @notice RISC Zero remote verifier contract address, e.g.:
-    /// https://sepolia.etherscan.io/address/0x3d24C84FC1A2B26f9229e58ddDf11A8dfba802d0
-    IRiscZeroReceiptVerifier public receiptVerifier;
+    // [32, 0, 0, 0] -- big-endian uint32(32) for hash bytes len
+    bytes private constant FIXED_JOURNAL_HEADER = hex"20000000";
+
     /// @notice Trusted imageId mapping
     mapping(bytes32 imageId => bool trusted) public isImageTrusted;
 
-    uint256[48] private __gap;
+    uint256[49] private __gap;
 
     /// @dev Emitted when a trusted image is set / unset.
     /// @param imageId The id of the image
     /// @param trusted True if trusted, false otherwise
     event ImageTrusted(bytes32 imageId, bool trusted);
+
+    /// @dev Emitted when a proof is verified
+    event ProofVerified(bytes32 metaHash, bytes32 publicInputHash);
 
     error RISC_ZERO_INVALID_IMAGE_ID();
     error RISC_ZERO_INVALID_PROOF();
@@ -30,17 +33,8 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
     /// @notice Initializes the contract with the provided address manager.
     /// @param _owner The address of the owner.
     /// @param _rollupAddressManager The address of the AddressManager.
-    /// @param _receiptVerifier The address of the risc zero receipt verifier contract.
-    function init(
-        address _owner,
-        address _rollupAddressManager,
-        address _receiptVerifier
-    )
-        external
-        initializer
-    {
+    function init(address _owner, address _rollupAddressManager) external initializer {
         __Essential_init(_owner, _rollupAddressManager);
-        receiptVerifier = IRiscZeroReceiptVerifier(_receiptVerifier);
     }
 
     /// @notice Sets/unsets an the imageId as trusted entity
@@ -59,7 +53,6 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
         TaikoData.TierProof calldata _proof
     )
         external
-        view
     {
         // Do not run proof verification to contest an existing proof
         if (_ctx.isContesting) return;
@@ -71,21 +64,22 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
             revert RISC_ZERO_INVALID_IMAGE_ID();
         }
 
-        bytes32 hash = LibPublicInput.hashPublicInputs(
+        bytes32 publicInputHash = LibPublicInput.hashPublicInputs(
             _tran, address(this), address(0), _ctx.prover, _ctx.metaHash, taikoChainId()
         );
 
         // journalDigest is the sha256 hash of the hashed public input
-        bytes32 journalDigest = sha256(bytes.concat(hash));
+        bytes32 journalDigest = sha256(bytes.concat(FIXED_JOURNAL_HEADER, publicInputHash));
 
         // call risc0 verifier contract
-        (bool success,) = address(receiptVerifier).staticcall(
-            abi.encodeCall(IRiscZeroReceiptVerifier.verify, (seal, imageId, journalDigest))
+        (bool success,) = resolve(LibStrings.B_RISCZERO_GROTH16_VERIFIER, false).staticcall(
+            abi.encodeCall(IRiscZeroVerifier.verify, (seal, imageId, journalDigest))
         );
-
         if (!success) {
             revert RISC_ZERO_INVALID_PROOF();
         }
+
+        emit ProofVerified(_ctx.metaHash, publicInputHash);
     }
 
     function taikoChainId() internal view virtual returns (uint64) {

@@ -15,8 +15,9 @@ contract DeploySP1Verifier is DeployCapability {
     }
 
     function run() external broadcast {
-        address sp1RemoteVerifierOrGateway = vm.envOr("SP1_REMOTE_VERIFIER_GATEWAY", address(0)); // address(0)
-            // is fine, we can set it later
+        // address sp1RemoteVerifierOrGateway = vm.envOr("SP1_REMOTE_VERIFIER_GATEWAY", address(0));
+        // // address(0)
+        // is fine, we can set it later
         address owner = vm.envOr("SP1_VERIFIER_OWNER", msg.sender);
 
         address sp1Verifier = address(new SP1Verifier());

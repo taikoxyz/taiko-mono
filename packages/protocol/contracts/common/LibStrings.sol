@@ -29,6 +29,7 @@ library LibStrings {
     bytes32 internal constant B_TIER_SGX = bytes32("tier_sgx");
     bytes32 internal constant B_TIER_SGX2 = bytes32("tier_sgx2");
     bytes32 internal constant B_TIER_SGX_ZKVM = bytes32("tier_sgx_zkvm");
+    bytes32 internal constant B_RISCZERO_GROTH16_VERIFIER = bytes32("risc0_groth16_verifier");
     bytes32 internal constant B_WITHDRAWER = bytes32("withdrawer");
     bytes32 internal constant H_RETURN_LIVENESS_BOND = keccak256("RETURN_LIVENESS_BOND");
     bytes32 internal constant H_SIGNAL_ROOT = keccak256("SIGNAL_ROOT");
