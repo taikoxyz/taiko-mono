@@ -145,6 +145,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         _proveBlock(_blockId, _input, config);
     }
 
+    /// @inheritdoc ITaikoL1
     function proveBlocks(
         uint64[] calldata _blockIds,
         bytes[] calldata _inputArr
@@ -165,8 +166,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
             _proveBlock(_blockIds[i], _inputArr[i], config);
         }
     }
-    /// @inheritdoc ITaikoL1
 
+    /// @inheritdoc ITaikoL1
     function verifyBlocks(uint64 _maxBlocksToVerify)
         external
         whenNotPaused
