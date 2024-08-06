@@ -146,8 +146,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     }
 
     function proveBlocks(
-        uint64[] calldata _blockIdArray,
-        bytes[] calldata _inputArray
+        uint64[] calldata _blockIdArr,
+        bytes[] calldata _inputArr
     )
         external
         whenNotPaused
@@ -155,12 +155,14 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         nonReentrant
         emitEventForClient
     {
-        if (_blockIdArray.length == 0 || _blockIdArray.length != _inputArray.length) {
+        if (_blockIdArr.length == 0 || _blockIdArr.length != _inputArr.length) {
             revert L1_INVALID_PARAMS();
         }
+
         TaikoData.Config memory config = getConfig();
-        for (uint256 i; i < _blockIdArray.length; ++i) {
-            _proveBlock(_blockIdArray[i], _inputArray[i], config);
+
+        for (uint256 i; i < _blockIdArr.length; ++i) {
+            _proveBlock(_blockIdArr[i], _inputArr[i], config);
         }
     }
     /// @inheritdoc ITaikoL1
