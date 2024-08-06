@@ -5,7 +5,6 @@ import "../../libs/LibAddress.sol";
 import "../../libs/LibNetwork.sol";
 import "../access/IProposerAccess.sol";
 import "./LibBonds.sol";
-import "./LibData.sol";
 import "./LibUtils.sol";
 
 /// @title LibProposing
@@ -19,7 +18,6 @@ library LibProposing {
         TaikoData.BlockParamsV2 params;
         ITierProvider tierProvider;
         bytes32 parentMetaHash;
-        bool postFork;
     }
 
     /// @notice Emitted when a block is proposed.
@@ -82,7 +80,6 @@ library LibProposing {
         // Checks proposer access.
         Local memory local;
         local.b = _state.slotB;
-        local.postFork = local.b.numBlocks >= _config.ontakeForkHeight;
 
         // It's essential to ensure that the ring buffer for proposed blocks
         // still has space for at least one more block.
@@ -90,24 +87,20 @@ library LibProposing {
             revert L1_TOO_MANY_BLOCKS();
         }
 
-        if (local.postFork) {
-            if (_data.length != 0) {
-                local.params = abi.decode(_data, (TaikoData.BlockParamsV2));
-                // otherwise use a default BlockParamsV2 with 0 values
-            }
-        } else {
-            local.params = LibData.blockParamsV1ToV2(abi.decode(_data, (TaikoData.BlockParams)));
+        if (_data.length != 0) {
+            local.params = abi.decode(_data, (TaikoData.BlockParamsV2));
+            // otherwise use a default BlockParamsV2 with 0 values
         }
 
         if (local.params.coinbase == address(0)) {
             local.params.coinbase = msg.sender;
         }
 
-        if (!local.postFork || local.params.anchorBlockId == 0) {
+        if (local.params.anchorBlockId == 0) {
             local.params.anchorBlockId = uint64(block.number - 1);
         }
 
-        if (!local.postFork || local.params.timestamp == 0) {
+        if (local.params.timestamp == 0) {
             local.params.timestamp = uint64(block.timestamp);
         }
 
@@ -115,30 +108,28 @@ library LibProposing {
         TaikoData.Block storage parentBlk =
             _state.blocks[(local.b.numBlocks - 1) % _config.blockRingBufferSize];
 
-        if (local.postFork) {
-            // Verify the passed in L1 state block number.
-            // We only allow the L1 block to be 2 epochs old.
-            // The other constraint is that the L1 block number needs to be larger than or equal
-            // the one in the previous L2 block.
-            if (
-                local.params.anchorBlockId + _config.maxAnchorHeightOffset < block.number //
-                    || local.params.anchorBlockId >= block.number
-                    || local.params.anchorBlockId < parentBlk.proposedIn
-            ) {
-                revert L1_INVALID_ANCHOR_BLOCK();
-            }
+        // Verify the passed in L1 state block number.
+        // We only allow the L1 block to be 2 epochs old.
+        // The other constraint is that the L1 block number needs to be larger than or equal
+        // the one in the previous L2 block.
+        if (
+            local.params.anchorBlockId + _config.maxAnchorHeightOffset < block.number //
+                || local.params.anchorBlockId >= block.number
+                || local.params.anchorBlockId < parentBlk.proposedIn
+        ) {
+            revert L1_INVALID_ANCHOR_BLOCK();
+        }
 
-            // Verify the passed in timestamp.
-            // We only allow the timestamp to be 2 epochs old.
-            // The other constraint is that the timestamp needs to be larger than or equal the
-            // one in the previous L2 block.
-            if (
-                local.params.timestamp + _config.maxAnchorHeightOffset * 12 < block.timestamp
-                    || local.params.timestamp > block.timestamp
-                    || local.params.timestamp < parentBlk.proposedAt
-            ) {
-                revert L1_INVALID_TIMESTAMP();
-            }
+        // Verify the passed in timestamp.
+        // We only allow the timestamp to be 2 epochs old.
+        // The other constraint is that the timestamp needs to be larger than or equal the
+        // one in the previous L2 block.
+        if (
+            local.params.timestamp + _config.maxAnchorHeightOffset * 12 < block.timestamp
+                || local.params.timestamp > block.timestamp
+                || local.params.timestamp < parentBlk.proposedAt
+        ) {
+            revert L1_INVALID_TIMESTAMP();
         }
 
         // Check if parent block has the right meta hash. This is to allow the proposer to make
@@ -204,18 +195,14 @@ library LibProposing {
         // Use the difficulty as a random number
         meta_.minTier = local.tierProvider.getMinTier(uint256(meta_.difficulty));
 
-        if (!local.postFork) {
-            metaV1_ = LibData.blockMetadataV2toV1(meta_);
-        }
-
         // Create the block that will be stored onchain
         TaikoData.Block memory blk = TaikoData.Block({
-            metaHash: local.postFork ? keccak256(abi.encode(meta_)) : keccak256(abi.encode(metaV1_)),
+            metaHash: keccak256(abi.encode(meta_)),
             assignedProver: address(0),
-            livenessBond: local.postFork ? 0 : meta_.livenessBond,
+            livenessBond: 0,
             blockId: local.b.numBlocks,
-            proposedAt: local.postFork ? local.params.timestamp : uint64(block.timestamp),
-            proposedIn: local.postFork ? local.params.anchorBlockId : uint64(block.number),
+            proposedAt: local.params.timestamp,
+            proposedIn: local.params.anchorBlockId,
             // For a new block, the next transition ID is always 1, not 0.
             nextTransitionId: 1,
             livenessBondReturned: false,
@@ -241,17 +228,7 @@ library LibProposing {
 
         deposits_ = new TaikoData.EthDeposit[](0);
 
-        if (local.postFork) {
-            emit BlockProposedV2(meta_.id, meta_);
-        } else {
-            emit BlockProposed({
-                blockId: metaV1_.id,
-                assignedProver: msg.sender,
-                livenessBond: _config.livenessBond,
-                meta: metaV1_,
-                depositsProcessed: deposits_
-            });
-        }
+        emit BlockProposedV2(meta_.id, meta_);
     }
 
     function checkProposerPermission(IAddressResolver _resolver) internal view {

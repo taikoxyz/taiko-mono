@@ -2,7 +2,6 @@
 pragma solidity 0.8.24;
 
 import "../common/EssentialContract.sol";
-import "./libs/LibData.sol";
 import "./libs/LibProposing.sol";
 import "./libs/LibProving.sol";
 import "./libs/LibVerifying.sol";
@@ -67,29 +66,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         state.slotB.__reservedB2 = 0;
         state.slotB.__reservedB3 = 0;
         state.__reserve1 = 0;
-    }
-
-    /// @inheritdoc ITaikoL1
-    function proposeBlock(
-        bytes calldata _params,
-        bytes calldata _txList
-    )
-        external
-        payable
-        onlyRegisteredProposer
-        whenNotPaused
-        nonReentrant
-        emitEventForClient
-        returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
-    {
-        TaikoData.Config memory config = getConfig();
-
-        (meta_,, deposits_) = LibProposing.proposeBlock(state, config, this, _params, _txList);
-        if (meta_.id >= config.ontakeForkHeight) revert L1_FORK_ERROR();
-
-        if (LibUtils.shouldVerifyBlocks(config, meta_.id, true) && !state.slotB.provingPaused) {
-            LibVerifying.verifyBlocks(state, config, this, config.maxBlocksToVerify);
-        }
     }
 
     function proposeBlockV2(
@@ -301,9 +277,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
             maxAnchorHeightOffset: 64,
             basefeeAdjustmentQuotient: 8,
             basefeeSharingPctg: 75,
-            gasIssuancePerSecond: 5_000_000,
-            ontakeForkHeight: 374_400 // = 7200 * 52
-         });
+            gasIssuancePerSecond: 5_000_000
+        });
     }
 
     function _proposeBlock(
@@ -315,7 +290,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         returns (TaikoData.BlockMetadataV2 memory meta_)
     {
         (, meta_,) = LibProposing.proposeBlock(state, _config, this, _params, _txList);
-        if (meta_.id < _config.ontakeForkHeight) revert L1_FORK_ERROR();
 
         if (LibUtils.shouldVerifyBlocks(_config, meta_.id, true) && !state.slotB.provingPaused) {
             LibVerifying.verifyBlocks(state, _config, this, _config.maxBlocksToVerify);

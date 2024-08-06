@@ -24,7 +24,6 @@ library LibVerifying {
         uint64 syncBlockId;
         uint24 syncTransitionId;
         address prover;
-        bool postFork;
         ITierRouter tierRouter;
     }
 
@@ -77,7 +76,6 @@ library LibVerifying {
                 local.blockId < local.b.numBlocks && local.numBlocksVerified < _maxBlocksToVerify
             ) {
                 local.slot = local.blockId % _config.blockRingBufferSize;
-                local.postFork = local.blockId >= _config.ontakeForkHeight;
 
                 blk = _state.blocks[local.slot];
                 if (blk.blockId != local.blockId) revert L1_BLOCK_MISMATCH();
@@ -128,22 +126,12 @@ library LibVerifying {
                 // either when the transitions are generated or proven. In such cases, both the
                 // provers and contesters of those transitions forfeit their bonds.
 
-                if (local.postFork) {
-                    emit LibUtils.BlockVerifiedV2({
-                        blockId: local.blockId,
-                        prover: local.prover,
-                        blockHash: local.blockHash,
-                        tier: local.tier
-                    });
-                } else {
-                    emit LibUtils.BlockVerified({
-                        blockId: local.blockId,
-                        prover: local.prover,
-                        blockHash: local.blockHash,
-                        stateRoot: 0, // DEPRECATED and is always zero.
-                        tier: local.tier
-                    });
-                }
+                emit LibUtils.BlockVerifiedV2({
+                    blockId: local.blockId,
+                    prover: local.prover,
+                    blockHash: local.blockHash,
+                    tier: local.tier
+                });
 
                 if (LibUtils.shouldSyncStateRoot(_config.stateRootSyncInternal, local.blockId)) {
                     bytes32 stateRoot = ts.stateRoot;

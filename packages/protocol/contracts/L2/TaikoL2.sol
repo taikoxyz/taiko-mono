@@ -115,31 +115,11 @@ contract TaikoL2 is EssentialContract {
     /// @dev This function can be called freely as the golden touch private key is publicly known,
     /// but the Taiko node guarantees the first transaction of each block is always this anchor
     /// transaction, and any subsequent calls will revert with L2_PUBLIC_INPUT_HASH_MISMATCH.
-    /// @param _l1BlockHash The `anchorBlockHash` value in this block's metadata.
-    /// @param _l1StateRoot The state root for the L1 block with id equals `_anchorBlockId`
-    /// @param _l1BlockId The `anchorBlockId` value in this block's metadata.
+    /// @param _anchorBlockId The `anchorBlockHash` value in this block's metadata.
+    /// @param _anchorStateRoot The state root for the L1 block with id equals `_anchorBlockId`
     /// @param _parentGasUsed The gas used in the parent block.
-    function anchor(
-        bytes32 _l1BlockHash,
-        bytes32 _l1StateRoot,
-        uint64 _l1BlockId,
-        uint32 _parentGasUsed
-    )
-        external
-        nonReentrant
-    {
-        if (block.number >= ontakeForkHeight()) revert L2_FORK_ERROR();
-
-        LibL2Config.Config memory config = getConfig();
-        _anchor(
-            _l1BlockId,
-            _l1StateRoot,
-            _parentGasUsed,
-            config.gasTargetPerL1Block,
-            config.basefeeAdjustmentQuotient
-        );
-    }
-
+    /// @param _gasIssuancePerSecond The amount of gas to issue per second.
+    /// @param _basefeeAdjustmentQuotient The base fee adjustment quotient.
     function anchorV2(
         uint64 _anchorBlockId,
         bytes32 _anchorStateRoot,
@@ -150,7 +130,6 @@ contract TaikoL2 is EssentialContract {
         external
         nonReentrant
     {
-        if (block.number < ontakeForkHeight()) revert L2_FORK_ERROR();
         _anchor(
             _anchorBlockId,
             _anchorStateRoot,
@@ -222,16 +201,6 @@ contract TaikoL2 is EssentialContract {
         return LibL2Config.get();
     }
 
-    /// @notice Tells if we need to validate basefee (for simulation).
-    /// @return Returns true to skip checking basefee mismatch.
-    function skipFeeCheck() public pure virtual returns (bool) {
-        return false;
-    }
-
-    function ontakeForkHeight() public pure virtual returns (uint64) {
-        return 0;
-    }
-
     /// @notice Calculates the basefee and the new gas excess value based on parent gas used and gas
     /// excess.
     /// @param _gasIssuancePerSecond The gas target for L2 per second.
@@ -260,6 +229,12 @@ contract TaikoL2 is EssentialContract {
         );
     }
 
+    /// @notice Tells if we need to validate basefee (for simulation).
+    /// @return Returns true to skip checking basefee mismatch.
+    function skipFeeCheck() internal pure virtual returns (bool) {
+        return false;
+    }
+
     function _anchor(
         uint64 _anchorBlockId,
         bytes32 _anchorStateRoot,
@@ -285,9 +260,9 @@ contract TaikoL2 is EssentialContract {
         if (publicInputHash != currentPublicInputHash) revert L2_PUBLIC_INPUT_HASH_MISMATCH();
 
         // Check if the gas settings has changed
-        bool postFork = block.number >= ontakeForkHeight();
         uint64 newGasTarget = uint64(_gasIssuancePerSecond) * _basefeeAdjustmentQuotient;
-        if (postFork && newGasTarget != parentGasTarget) {
+
+        if (newGasTarget != parentGasTarget) {
             // adjust parentGasExcess to keep the basefee unchanged. Note that due to math
             // calculation precision, the basefee may change slightly.
             parentGasExcess =
@@ -295,15 +270,13 @@ contract TaikoL2 is EssentialContract {
         }
 
         // Verify the base fee per gas is correct
-        (uint256 basefee, uint64 newGasExcess) = postFork
-            ? calculateBaseFee(
-                _gasIssuancePerSecond,
-                uint64(block.timestamp - parentTimestamp),
-                _basefeeAdjustmentQuotient,
-                parentGasExcess,
-                _parentGasUsed
-            )
-            : getBasefee(_anchorBlockId, _parentGasUsed);
+        (uint256 basefee, uint64 newGasExcess) = calculateBaseFee(
+            _gasIssuancePerSecond,
+            uint64(block.timestamp - parentTimestamp),
+            _basefeeAdjustmentQuotient,
+            parentGasExcess,
+            _parentGasUsed
+        );
 
         if (!skipFeeCheck() && block.basefee != basefee) revert L2_BASEFEE_MISMATCH();
 

@@ -42,10 +42,6 @@ library TaikoData {
         uint8 basefeeAdjustmentQuotient;
         uint8 basefeeSharingPctg;
         uint32 gasIssuancePerSecond;
-        // ---------------------------------------------------------------------
-        // Group 6: Others
-        // ---------------------------------------------------------------------
-        uint64 ontakeForkHeight;
     }
 
     /// @dev A proof and the tier of proof it belongs to
