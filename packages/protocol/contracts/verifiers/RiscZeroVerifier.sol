@@ -72,7 +72,7 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
         bytes32 journalDigest = sha256(bytes.concat(FIXED_JOURNAL_HEADER, publicInputHash));
 
         // call risc0 verifier contract
-        (bool success,) = resolve(LibStrings.B_RISCZERO_GROTH16_VERIFIER, false).staticcall(
+        (bool success,) = riscZeroVerifier().staticcall(
             abi.encodeCall(IRiscZeroVerifier.verify, (seal, imageId, journalDigest))
         );
         if (!success) {
@@ -84,5 +84,9 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
 
     function taikoChainId() internal view virtual returns (uint64) {
         return ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfig().chainId;
+    }
+
+    function riscZeroVerifier() public view virtual returns (address) {
+        return resolve(LibStrings.B_RISCZERO_GROTH16_VERIFIER, false);
     }
 }
