@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import "../L1/TaikoL1TestBase.sol";
 
-contract MockSP1Gateway is ISuccinctVerifier {
+contract MockSP1Gateway is ISP1Verifier {
     // To simulate failing and succeeding
     bool public verifying;
 

@@ -59,6 +59,13 @@ func (g *GuardianProofProducer) RequestProof(
 	return g.DummyProofProducer.RequestProof(opts, blockID, meta, header, g.Tier())
 }
 
+func (g *GuardianProofProducer) RequestCancel(
+	_ context.Context,
+	_ *ProofRequestOptions,
+) error {
+	return nil
+}
+
 // Tier implements the ProofProducer interface.
 func (g *GuardianProofProducer) Tier() uint16 {
 	return g.tier

@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
+import "@sp1-contracts/src/ISP1Verifier.sol";
 import "../common/EssentialContract.sol";
 import "../common/LibStrings.sol";
-import "../thirdparty/succinct/ISuccinctVerifier.sol";
 import "../L1/ITaikoL1.sol";
 import "./IVerifier.sol";
 import "./libs/LibPublicInput.sol";
 
-/// @title SuccinctVerifier
+/// @title SP1Verifier
 /// @custom:security-contact security@taiko.xyz
 contract SP1Verifier is EssentialContract, IVerifier {
     /// @notice The verification keys mappings for the proving programs.
@@ -66,7 +66,7 @@ contract SP1Verifier is EssentialContract, IVerifier {
         // _proof.data[32:] is the succinct's proof position
         (bool success,) = sp1RemoteVerifier().staticcall(
             abi.encodeCall(
-                ISuccinctVerifier.verifyProof,
+                ISP1Verifier.verifyProof,
                 (bytes32(_proof.data[0:32]), abi.encode(hashedPublicInput), _proof.data[32:])
             )
         );
