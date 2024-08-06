@@ -34,7 +34,7 @@ contract TaikoL2EIP1559Configurable is TaikoL2 {
         if (_newConfig.basefeeAdjustmentQuotient == 0) revert L2_INVALID_CONFIG();
 
         customConfig = _newConfig;
-        gasExcess = _newGasExcess;
+        parentGasExcess = _newGasExcess;
 
         emit ConfigAndExcessChanged(_newConfig, _newGasExcess);
     }
@@ -42,5 +42,9 @@ contract TaikoL2EIP1559Configurable is TaikoL2 {
     /// @inheritdoc TaikoL2
     function getConfig() public view override returns (LibL2Config.Config memory) {
         return customConfig;
+    }
+
+    function ontakeForkHeight() public pure override returns (uint64) {
+        return 10_000;
     }
 }
