@@ -60,7 +60,6 @@ library LibProposing {
     /// @param _resolver Address resolver interface.
     /// @param _data Encoded data bytes containing the block params.
     /// @param _txList Transaction list bytes (if not blob).
-    /// @return metaV1_ The constructed block's metadata v1.
     /// @return meta_ The constructed block's metadata v2.
     /// @return deposits_ An empty ETH deposit array.
     function proposeBlock(
@@ -71,11 +70,7 @@ library LibProposing {
         bytes calldata _txList
     )
         public
-        returns (
-            TaikoData.BlockMetadata memory metaV1_,
-            TaikoData.BlockMetadataV2 memory meta_,
-            TaikoData.EthDeposit[] memory deposits_
-        )
+        returns (TaikoData.BlockMetadataV2 memory meta_, TaikoData.EthDeposit[] memory deposits_)
     {
         // Checks proposer access.
         Local memory local;

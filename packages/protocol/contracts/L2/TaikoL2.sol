@@ -159,32 +159,6 @@ contract TaikoL2 is EssentialContract {
         }
     }
 
-    /// @notice Gets the basefee and gas excess using EIP-1559 configuration for
-    /// the given parameters.
-    /// @dev This function will deprecate after Ontake fork, node/client shall use calculateBaseFee
-    /// instead for base fee prediction.
-    /// @param _anchorBlockId The synced L1 height in the next Taiko block
-    /// @param _parentGasUsed Gas used in the parent block.
-    /// @return basefee_ The calculated EIP-1559 base fee per gas.
-    /// @return parentGasExcess_ The new parentGasExcess value.
-    function getBasefee(
-        uint64 _anchorBlockId,
-        uint32 _parentGasUsed
-    )
-        public
-        view
-        returns (uint256 basefee_, uint64 parentGasExcess_)
-    {
-        LibL2Config.Config memory config = getConfig();
-
-        (basefee_, parentGasExcess_) = Lib1559Math.calc1559BaseFee(
-            uint256(config.gasTargetPerL1Block) * config.basefeeAdjustmentQuotient,
-            parentGasExcess,
-            uint64(_anchorBlockId - lastSyncedBlock) * config.gasTargetPerL1Block,
-            _parentGasUsed
-        );
-    }
-
     /// @notice Retrieves the block hash for the given L2 block number.
     /// @param _blockId The L2 block number to retrieve the block hash for.
     /// @return The block hash for the specified L2 block id, or zero if the
@@ -193,12 +167,6 @@ contract TaikoL2 is EssentialContract {
         if (_blockId >= block.number) return 0;
         if (_blockId + 256 >= block.number) return blockhash(_blockId);
         return l2Hashes[_blockId];
-    }
-
-    /// @notice Returns EIP1559 related configurations.
-    /// @return config_ struct containing configuration parameters.
-    function getConfig() public view virtual returns (LibL2Config.Config memory) {
-        return LibL2Config.get();
     }
 
     /// @notice Calculates the basefee and the new gas excess value based on parent gas used and gas

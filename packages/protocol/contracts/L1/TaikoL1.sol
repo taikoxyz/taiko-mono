@@ -56,7 +56,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         initializer
     {
         __Essential_init(_owner, _rollupAddressManager);
-        LibUtils.init(state, getConfig(), _genesisBlockHash);
+        LibUtils.init(state, _genesisBlockHash);
         if (_toPause) _pause();
     }
 
@@ -289,7 +289,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         internal
         returns (TaikoData.BlockMetadataV2 memory meta_)
     {
-        (, meta_,) = LibProposing.proposeBlock(state, _config, this, _params, _txList);
+        (meta_,) = LibProposing.proposeBlock(state, _config, this, _params, _txList);
 
         if (LibUtils.shouldVerifyBlocks(_config, meta_.id, true) && !state.slotB.provingPaused) {
             LibVerifying.verifyBlocks(state, _config, this, _config.maxBlocksToVerify);
