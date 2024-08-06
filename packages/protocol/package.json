@@ -41,7 +41,9 @@
     "ds-test": "github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0",
     "forge-std": "github:foundry-rs/forge-std#v1.7.5",
     "merkletreejs": "^0.3.11",
+    "optimism": "github:ethereum-optimism/optimism#v1.8.0",
     "p256-verifier": "github:taikoxyz/p256-verifier#v0.1.0",
-    "solady": "github:Vectorized/solady#v0.0.231"
+    "solady": "github:Vectorized/solady#v0.0.231",
+    "sp1-contracts": "github:succinctlabs/sp1-contracts#v1.1.0"
   }
 }
