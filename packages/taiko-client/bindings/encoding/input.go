@@ -157,7 +157,7 @@ var (
 			Type: "uint8",
 		},
 		{
-			Name: "blockGasIssuance",
+			Name: "gasIssuancePerSecond",
 			Type: "uint32",
 		},
 	}
