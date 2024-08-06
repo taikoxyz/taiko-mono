@@ -79,4 +79,82 @@ library LibFixedPointMath {
             );
         }
     }
+
+    function ln(int256 x) internal pure returns (int256 r) {
+        unchecked {
+            require(x > 0, "UNDEFINED");
+
+            // We want to convert x from 10**18 fixed point to 2**96 fixed point.
+            // We do this by multiplying by 2**96 / 10**18. But since
+            // ln(x * C) = ln(x) + ln(C), we can simply do nothing here
+            // and add ln(2**96 / 10**18) at the end.
+
+            // Reduce range of x to (1, 2) * 2**96
+            // ln(2^k * x) = k * ln(2) + ln(x)
+            int256 k = int256(log2(uint256(x))) - 96;
+            x <<= uint256(159 - k);
+            x = int256(uint256(x) >> 159);
+
+            // Evaluate using a (8, 8)-term rational approximation.
+            // p is made monic, we will multiply by a scale factor later.
+            int256 p = x + 3_273_285_459_638_523_848_632_254_066_296;
+            p = ((p * x) >> 96) + 24_828_157_081_833_163_892_658_089_445_524;
+            p = ((p * x) >> 96) + 43_456_485_725_739_037_958_740_375_743_393;
+            p = ((p * x) >> 96) - 11_111_509_109_440_967_052_023_855_526_967;
+            p = ((p * x) >> 96) - 45_023_709_667_254_063_763_336_534_515_857;
+            p = ((p * x) >> 96) - 14_706_773_417_378_608_786_704_636_184_526;
+            p = p * x - (795_164_235_651_350_426_258_249_787_498 << 96);
+
+            // We leave p in 2**192 basis so we don't need to scale it back up for the division.
+            // q is monic by convention.
+            int256 q = x + 5_573_035_233_440_673_466_300_451_813_936;
+            q = ((q * x) >> 96) + 71_694_874_799_317_883_764_090_561_454_958;
+            q = ((q * x) >> 96) + 283_447_036_172_924_575_727_196_451_306_956;
+            q = ((q * x) >> 96) + 401_686_690_394_027_663_651_624_208_769_553;
+            q = ((q * x) >> 96) + 204_048_457_590_392_012_362_485_061_816_622;
+            q = ((q * x) >> 96) + 31_853_899_698_501_571_402_653_359_427_138;
+            q = ((q * x) >> 96) + 909_429_971_244_387_300_277_376_558_375;
+            assembly {
+                // Div in assembly because solidity adds a zero check despite the unchecked.
+                // The q polynomial is known not to have zeros in the domain.
+                // No scaling required because p is already 2**96 too large.
+                r := sdiv(p, q)
+            }
+
+            // r is in the range (0, 0.125) * 2**96
+
+            // Finalization, we need to:
+            // * multiply by the scale factor s = 5.549…
+            // * add ln(2**96 / 10**18)
+            // * add k * ln(2)
+            // * multiply by 10**18 / 2**96 = 5**18 >> 78
+
+            // mul s * 5e18 * 2**96, base is now 5**18 * 2**192
+            r *= 1_677_202_110_996_718_588_342_820_967_067_443_963_516_166;
+            // add ln(2) * k * 5e18 * 2**192
+            r +=
+            16_597_577_552_685_614_221_487_285_958_193_947_469_193_820_559_219_878_177_908_093_499_208_371
+                * k;
+            // add ln(2**96 / 10**18) * 5e18 * 2**192
+            r +=
+                600_920_179_829_731_861_736_702_779_321_621_459_595_472_258_049_074_101_567_377_883_020_018_308;
+            // base conversion: mul 2**18 / 2**192
+            r >>= 174;
+        }
+    }
+
+    function log2(uint256 x) internal pure returns (uint256 r) {
+        require(x > 0, "UNDEFINED");
+
+        assembly {
+            r := shl(7, lt(0xffffffffffffffffffffffffffffffff, x))
+            r := or(r, shl(6, lt(0xffffffffffffffff, shr(r, x))))
+            r := or(r, shl(5, lt(0xffffffff, shr(r, x))))
+            r := or(r, shl(4, lt(0xffff, shr(r, x))))
+            r := or(r, shl(3, lt(0xff, shr(r, x))))
+            r := or(r, shl(2, lt(0xf, shr(r, x))))
+            r := or(r, shl(1, lt(0x3, shr(r, x))))
+            r := or(r, lt(0x1, shr(r, x)))
+        }
+    }
 }
