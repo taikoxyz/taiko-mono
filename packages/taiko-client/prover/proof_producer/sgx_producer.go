@@ -38,12 +38,12 @@ type SGXProofProducer struct {
 
 // RaikoRequestProofBody represents the JSON body for requesting the proof.
 type RaikoRequestProofBody struct {
-	Block    *big.Int                   `json:"block_number"`
-	Prover   string                     `json:"prover"`
-	Graffiti string                     `json:"graffiti"`
-	Type     string                     `json:"proof_type"`
-	SGX      *SGXRequestProofBodyParam  `json:"sgx"`
-	RISC0    RISC0RequestProofBodyParam `json:"risc0"`
+	Block    *big.Int                    `json:"block_number"`
+	Prover   string                      `json:"prover"`
+	Graffiti string                      `json:"graffiti"`
+	Type     string                      `json:"proof_type"`
+	SGX      *SGXRequestProofBodyParam   `json:"sgx"`
+	RISC0    *RISC0RequestProofBodyParam `json:"risc0"`
 }
 
 // SGXRequestProofBodyParam represents the JSON body of RaikoRequestProofBody's `sgx` field.
@@ -68,7 +68,8 @@ type RaikoRequestProofBodyResponse struct {
 }
 
 type RaikoProofData struct {
-	Proof string `json:"proof"` //nolint:revive,stylecheck
+	Proof  string `json:"proof"` //nolint:revive,stylecheck
+	Status string `json:"status"`
 }
 
 // RequestProof implements the ProofProducer interface.
@@ -80,7 +81,7 @@ func (s *SGXProofProducer) RequestProof(
 	header *types.Header,
 ) (*ProofWithHeader, error) {
 	log.Info(
-		"Request proof from raiko-host service",
+		"Request sgx proof from raiko-host service",
 		"blockID", blockID,
 		"coinbase", meta.GetCoinbase(),
 		"height", header.Number,
@@ -106,6 +107,13 @@ func (s *SGXProofProducer) RequestProof(
 		Opts:    opts,
 		Tier:    s.Tier(),
 	}, nil
+}
+
+func (s *SGXProofProducer) RequestCancel(
+	_ context.Context,
+	_ *ProofRequestOptions,
+) error {
+	return nil
 }
 
 // callProverDaemon keeps polling the proverd service to get the requested proof.

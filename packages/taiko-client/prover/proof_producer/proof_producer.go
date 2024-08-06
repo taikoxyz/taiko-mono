@@ -63,5 +63,9 @@ type ProofProducer interface {
 		meta metadata.TaikoBlockMetaData,
 		header *types.Header,
 	) (*ProofWithHeader, error)
+	RequestCancel(
+		ctx context.Context,
+		opts *ProofRequestOptions,
+	) error
 	Tier() uint16
 }
