@@ -21,7 +21,7 @@ var (
 		MaxAnchorHeightOffset:     64,
 		BasefeeAdjustmentQuotient: 8,
 		BasefeeSharingPctg:        75,
-		BlockGasIssuance:          20_000_000,
+		GasIssuancePerSecond:      5_000_000,
 		OntakeForkHeight:          374_400,
 	}
 	HeklaProtocolConfig = &bindings.TaikoDataConfig{
@@ -35,7 +35,7 @@ var (
 		MaxAnchorHeightOffset:     64,
 		BasefeeAdjustmentQuotient: 8,
 		BasefeeSharingPctg:        75,
-		BlockGasIssuance:          20_000_000,
+		GasIssuancePerSecond:      5_000_000,
 		OntakeForkHeight:          540_000,
 	}
 	MainnetProtocolConfig = &bindings.TaikoDataConfig{
@@ -49,7 +49,7 @@ var (
 		MaxAnchorHeightOffset:     64,
 		BasefeeAdjustmentQuotient: 8,
 		BasefeeSharingPctg:        75,
-		BlockGasIssuance:          20_000_000,
+		GasIssuancePerSecond:      5_000_000,
 		OntakeForkHeight:          374_400,
 	}
 )

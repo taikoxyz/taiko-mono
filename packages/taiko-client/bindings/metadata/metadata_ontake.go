@@ -138,9 +138,9 @@ func (m *TaikoDataBlockMetadataOntake) GetBasefeeSharingPctg() uint8 {
 	return m.BasefeeSharingPctg
 }
 
-// GetBlockGasIssuance returns the L2 block gas issuance.
-func (m *TaikoDataBlockMetadataOntake) GetBlockGasIssuance() uint32 {
-	return m.BlockGasIssuance
+// GetGasIssuancePerSecond returns the L2 block gas issuance per second.
+func (m *TaikoDataBlockMetadataOntake) GetGasIssuancePerSecond() uint32 {
+	return m.GasIssuancePerSecond
 }
 
 // GetRawBlockHeight returns the raw L1 block height.
