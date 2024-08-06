@@ -4,6 +4,12 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@risc0/contracts/groth16/RiscZeroGroth16Verifier.sol";
 
+// Actually this one is deployed already on mainnet, but we are now deploying our own (non via-ir)
+// version. For mainnet, it is easier to go with one of:
+// - https://github.com/daimo-eth/p256-verifier
+// - https://github.com/rdubois-crypto/FreshCryptoLib
+import "@p256-verifier/contracts/P256Verifier.sol";
+
 import "../contracts/common/LibStrings.sol";
 import "../contracts/tko/TaikoToken.sol";
 import "../contracts/mainnet/MainnetTaikoL1.sol";
@@ -29,12 +35,6 @@ import "../test/common/erc20/MayFailFreeMintERC20.sol";
 import "../test/L1/TestTierProvider.sol";
 import "../test/DeployCapability.sol";
 import "../contracts/verifiers/RiscZeroVerifier.sol";
-
-// Actually this one is deployed already on mainnet, but we are now deploying our own (non via-ir)
-// version. For mainnet, it is easier to go with one of:
-// - https://github.com/daimo-eth/p256-verifier
-// - https://github.com/rdubois-crypto/FreshCryptoLib
-import "p256-verifier/src/P256Verifier.sol";
 
 /// @title DeployOnL1
 /// @notice This script deploys the core Taiko protocol smart contract on L1,
