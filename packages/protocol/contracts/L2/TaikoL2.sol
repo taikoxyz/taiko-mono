@@ -229,7 +229,7 @@ contract TaikoL2 is EssentialContract {
     }
 
     function ontakeForkHeight() public pure virtual returns (uint64) {
-        return 0;
+        return 20;
     }
 
     /// @notice Calculates the basefee and the new gas excess value based on parent gas used and gas
