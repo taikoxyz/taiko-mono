@@ -114,11 +114,12 @@ contract TaikoL2 is EssentialContract {
     /// @dev This function can be called freely as the golden touch private key is publicly known,
     /// but the Taiko node guarantees the first transaction of each block is always this anchor
     /// transaction, and any subsequent calls will revert with L2_PUBLIC_INPUT_HASH_MISMATCH.
-    /// @param _anchorBlockId The `anchorBlockHash` value in this block's metadata.
+    /// @param _anchorBlockId The same value as `metadata.anchorBlockId`.
     /// @param _anchorStateRoot The state root for the L1 block with id equals `_anchorBlockId`
     /// @param _parentGasUsed The gas used in the parent block.
-    /// @param _gasIssuancePerSecond The amount of gas to issue per second.
-    /// @param _basefeeAdjustmentQuotient The base fee adjustment quotient.
+    /// @param _gasIssuancePerSecond The same value as `metadata.gasIssuancePerSecond`.
+    /// @param _basefeeAdjustmentQuotient The same value as `metadata.basefeeAdjustmentQuotient`.
+    /// @param _basefeeSharingPctg The same value as `metadata.basefeeSharingPctg`.
     function anchorV2(
         uint64 _anchorBlockId,
         bytes32 _anchorStateRoot,
