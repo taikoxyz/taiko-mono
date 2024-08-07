@@ -119,20 +119,16 @@ contract TaikoL2 is EssentialContract {
     /// @param _parentGasUsed The gas used in the parent block.
     /// @param _gasIssuancePerSecond The same value as `metadata.gasIssuancePerSecond`.
     /// @param _basefeeAdjustmentQuotient The same value as `metadata.basefeeAdjustmentQuotient`.
-    /// @param _basefeeSharingPctg The same value as `metadata.basefeeSharingPctg`.
     function anchorV2(
         uint64 _anchorBlockId,
         bytes32 _anchorStateRoot,
         uint32 _parentGasUsed,
         uint32 _gasIssuancePerSecond,
-        uint8 _basefeeAdjustmentQuotient,
-        uint8 _basefeeSharingPctg
+        uint8 _basefeeAdjustmentQuotient
     )
         external
         nonReentrant
     {
-        if (_basefeeSharingPctg > 100) revert L2_INVALID_PARAM();
-
         _anchor(
             _anchorBlockId,
             _anchorStateRoot,
