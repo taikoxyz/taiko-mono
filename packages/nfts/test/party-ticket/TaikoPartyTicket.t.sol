@@ -107,8 +107,8 @@ contract TaikoPartyTicketTest is Test {
     function test_ipfs_metadata() public {
         // ensure URIs are "ticket" before setting winners
         assertEq(token.baseURI(), "ipfs://baseURI");
-        assertEq(token.tokenURI(0), "ipfs://baseURI/ticket.json");
-        assertEq(token.tokenURI(1), "ipfs://baseURI/ticket.json");
+        assertEq(token.tokenURI(0), "ipfs://baseURI/raffle.json");
+        assertEq(token.tokenURI(1), "ipfs://baseURI/raffle.json");
         // run winner flow
         test_winnerFlow();
         // ensure URIs are "winner" and "loser" after setting winners
