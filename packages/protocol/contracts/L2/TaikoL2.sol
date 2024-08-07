@@ -144,7 +144,7 @@ contract TaikoL2 is EssentialContract {
         uint64 _anchorBlockId,
         bytes32 _anchorStateRoot,
         uint32 _parentGasUsed,
-        uint32 _gasIssuancePerSecond,
+        uint8 _millionGasIssuancePerSecond,
         uint8 _basefeeAdjustmentQuotient
     )
         external
@@ -155,7 +155,7 @@ contract TaikoL2 is EssentialContract {
             _anchorBlockId,
             _anchorStateRoot,
             _parentGasUsed,
-            _gasIssuancePerSecond,
+            uint32(_millionGasIssuancePerSecond) * 1_000_000,
             _basefeeAdjustmentQuotient
         );
     }

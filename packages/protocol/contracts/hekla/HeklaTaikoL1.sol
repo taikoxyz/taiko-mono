@@ -22,7 +22,7 @@ contract HeklaTaikoL1 is TaikoL1 {
             maxAnchorHeightOffset: 64,
             basefeeAdjustmentQuotient: 8,
             basefeeSharingPctg: 75,
-            gasIssuancePerSecond: 5_000_000,
+            millionGasIssuancePerSecond: 5,
             ontakeForkHeight: 720_000 // = 7200 * 100
          });
     }

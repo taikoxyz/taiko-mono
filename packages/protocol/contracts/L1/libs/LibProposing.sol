@@ -20,6 +20,7 @@ library LibProposing {
         ITierProvider tierProvider;
         bytes32 parentMetaHash;
         bool postFork;
+        bytes32 extraData;
     }
 
     /// @notice Emitted when a block is proposed.
@@ -96,7 +97,9 @@ library LibProposing {
                 // otherwise use a default BlockParamsV2 with 0 values
             }
         } else {
-            local.params = LibData.blockParamsV1ToV2(abi.decode(_data, (TaikoData.BlockParams)));
+            TaikoData.BlockParams memory paramsV1 = abi.decode(_data, (TaikoData.BlockParams));
+            local.params = LibData.blockParamsV1ToV2(paramsV1);
+            local.extraData = paramsV1.extraData;
         }
 
         if (local.params.coinbase == address(0)) {
@@ -158,7 +161,16 @@ library LibProposing {
                 anchorBlockHash: blockhash(local.params.anchorBlockId),
                 difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", local.b.numBlocks)),
                 blobHash: 0, // to be initialized below
-                extraData: local.params.extraData,
+                // To make sure each L2 block can be exexucated deterministiclly by the client
+                // without referering to its metadata on Ethereum, we need to encode L2 base fee
+                // related parameters into an existing block header field, extraData, in this case.
+                extraData: local.postFork
+                    ? encodeGasConfigs(
+                        _config.millionGasIssuancePerSecond,
+                        _config.basefeeAdjustmentQuotient,
+                        _config.basefeeSharingPctg
+                    )
+                    : local.extraData,
                 coinbase: local.params.coinbase,
                 id: local.b.numBlocks,
                 gasLimit: _config.blockMaxGasLimit,
@@ -173,10 +185,7 @@ library LibProposing {
                 proposedIn: uint64(block.number),
                 blobTxListOffset: local.params.blobTxListOffset,
                 blobTxListLength: local.params.blobTxListLength,
-                blobIndex: local.params.blobIndex,
-                basefeeAdjustmentQuotient: _config.basefeeAdjustmentQuotient,
-                basefeeSharingPctg: _config.basefeeSharingPctg,
-                gasIssuancePerSecond: _config.gasIssuancePerSecond
+                blobIndex: local.params.blobIndex
             });
         }
 
@@ -261,5 +270,20 @@ library LibProposing {
         if (!IProposerAccess(proposerAccess).isProposerEligible(msg.sender)) {
             revert L1_INVALID_PROPOSER();
         }
+    }
+
+    function encodeGasConfigs(
+        uint8 _millionGasIssuancePerSecond,
+        uint8 _basefeeAdjustmentQuotient,
+        uint8 _basefeeSharingPctg
+    )
+        internal
+        pure
+        returns (bytes32)
+    {
+        return bytes32(
+            uint256(_millionGasIssuancePerSecond) | uint256(_basefeeAdjustmentQuotient) << 8
+                | uint256(_basefeeSharingPctg) << 16
+        );
     }
 }
