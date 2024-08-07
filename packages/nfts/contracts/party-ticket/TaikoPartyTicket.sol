@@ -86,9 +86,11 @@ contract TaikoPartyTicket is
     /// @return The token URI
     function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
         if (winners[tokenId]) {
-            return string(abi.encodePacked(winnerBaseURI));
+            return string(abi.encodePacked(baseURI, "/winner.json"));
+        } else if (paused()) {
+            return string(abi.encodePacked(baseURI, "/loser.json"));
         }
-        return string(abi.encodePacked(baseURI));
+        return string(abi.encodePacked(baseURI, "/ticket.json"));
     }
 
     /// @notice Checks if a tokenId is a winner
@@ -110,21 +112,13 @@ contract TaikoPartyTicket is
         return false;
     }
 
-    /// @notice Set the winners and update the metadata
+    /// @notice Set the winners
     /// @param _winners The list of winners
-    /// @param _winnerBaseURI Base URI for the winners tokens
-    /// @param _loserBaseURI Base URI for the losers tokens
-    function setWinners(
-        uint256[] calldata _winners,
-        string memory _winnerBaseURI,
-        string memory _loserBaseURI
-    )
+    function setWinners(uint256[] calldata _winners)
         external
         whenNotPaused
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        winnerBaseURI = _winnerBaseURI;
-        baseURI = _loserBaseURI;
         for (uint256 i = 0; i < _winners.length; i++) {
             winners[_winners[i]] = true;
         }

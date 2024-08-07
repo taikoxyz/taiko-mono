@@ -33,7 +33,7 @@ contract TaikoPartyTicketTest is Test {
                 impl,
                 abi.encodeCall(
                     TaikoPartyTicket.initialize,
-                    (payoutWallet, MINT_FEE, "ipfs://participant", blacklist)
+                    (payoutWallet, MINT_FEE, "ipfs://baseURI", blacklist)
                 )
             )
         );
@@ -85,7 +85,7 @@ contract TaikoPartyTicketTest is Test {
         vm.prank(admin);
         uint256[] memory winners = new uint256[](1);
         winners[0] = winnerTokenId;
-        token.setWinners(winners, "ipfs://winnerURI", "ipfs://loserURI");
+        token.setWinners(winners);
         // check winner with both tokenId and address
         assertTrue(token.isWinner(winnerTokenId));
         assertTrue(token.isWinner(minters[0]));
@@ -102,5 +102,17 @@ contract TaikoPartyTicketTest is Test {
         token.withdraw();
         assertEq(payoutWallet.balance, collectedEth);
         assertEq(address(token).balance, 0);
+    }
+
+    function test_ipfs_metadata() public {
+        // ensure URIs are "ticket" before setting winners
+        assertEq(token.baseURI(), "ipfs://baseURI");
+        assertEq(token.tokenURI(0), "ipfs://baseURI/ticket.json");
+        assertEq(token.tokenURI(1), "ipfs://baseURI/ticket.json");
+        // run winner flow
+        test_winnerFlow();
+        // ensure URIs are "winner" and "loser" after setting winners
+        assertEq(token.tokenURI(0), "ipfs://baseURI/winner.json");
+        assertEq(token.tokenURI(1), "ipfs://baseURI/loser.json");
     }
 }
