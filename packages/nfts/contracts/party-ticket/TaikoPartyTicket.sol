@@ -153,6 +153,19 @@ contract TaikoPartyTicket is
         _safeMint(msg.sender, tokenId);
     }
 
+    /// @notice Mint multiple raffle tickets
+    /// @param amount The number of tickets to mint
+    /// @dev Requires a fee to mint
+    /// @dev Requires the contract to not be paused
+    function mint(uint256 amount) external payable whenNotPaused {
+        if (blacklist.isBlacklisted(_msgSender())) revert ADDRESS_BLACKLISTED();
+        if (msg.value < mintFee * amount) revert INSUFFICIENT_MINT_FEE();
+        for (uint256 i = 0; i < amount; i++) {
+            uint256 tokenId = _nextTokenId++;
+            _safeMint(msg.sender, tokenId);
+        }
+    }
+
     /// @notice Mint a raffle ticket
     /// @param to The address to mint to
     /// @dev Requires the contract to not be paused
