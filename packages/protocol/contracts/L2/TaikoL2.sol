@@ -124,11 +124,15 @@ contract TaikoL2 is EssentialContract {
         bytes32 _anchorStateRoot,
         uint32 _parentGasUsed,
         uint32 _gasIssuancePerSecond,
-        uint8 _basefeeAdjustmentQuotient
+        uint8 _basefeeAdjustmentQuotient,
+        uint8 _basefeeSharingPctg
     )
         external
         nonReentrant
     {
+        if (_basefeeSharingPctg > 100) revert L2_INVALID_PARAM();
+
+        if (block.number < ontakeForkHeight()) revert L2_FORK_ERROR();
         _anchor(
             _anchorBlockId,
             _anchorStateRoot,
