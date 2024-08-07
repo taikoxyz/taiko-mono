@@ -33,6 +33,13 @@ func (o *OptimisticProofProducer) RequestProof(
 	return o.DummyProofProducer.RequestProof(opts, blockID, meta, header, o.Tier())
 }
 
+func (o *OptimisticProofProducer) RequestCancel(
+	_ context.Context,
+	_ *ProofRequestOptions,
+) error {
+	return nil
+}
+
 // Tier implements the ProofProducer interface.
 func (o *OptimisticProofProducer) Tier() uint16 {
 	return encoding.TierOptimisticID

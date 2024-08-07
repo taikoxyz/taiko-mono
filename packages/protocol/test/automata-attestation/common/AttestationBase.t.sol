@@ -5,12 +5,13 @@ import "forge-std/src/Test.sol";
 import "forge-std/src/console.sol";
 import "forge-std/src/StdJson.sol";
 
+import { P256Verifier } from "@p256-verifier/contracts/P256Verifier.sol";
+
 import "@optimism/packages/contracts-bedrock/src/libraries/Bytes.sol";
 
 import "../../../contracts/verifiers/SgxVerifier.sol";
 import { AutomataDcapV3Attestation } from
     "../../../contracts/automata-attestation/AutomataDcapV3Attestation.sol";
-import { P256Verifier } from "p256-verifier/src/P256Verifier.sol";
 import { SigVerifyLib } from "../../../contracts/automata-attestation/utils/SigVerifyLib.sol";
 import { PEMCertChainLib } from "../../../contracts/automata-attestation/lib/PEMCertChainLib.sol";
 import { V3Struct } from "../../../contracts/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
