@@ -25,6 +25,7 @@ contract TestTaikoL2 is TaikoTest {
     uint32 public constant GAS_ISSUANCE_PER_SECOND = 1_000_000;
     uint8 public constant QUOTIENT = 8;
     uint64 public constant L1_CHAIN_ID = 12_345;
+    uint8 SHARE_PCTG = 64;
 
     address public addressManager;
     TestL2ForTest public L2;
@@ -126,6 +127,8 @@ contract TestTaikoL2 is TaikoTest {
 
     function _anchor() private {
         bytes32 l1StateRoot = randBytes32();
-        L2.anchorV2(12_345, l1StateRoot, BLOCK_GAS_LIMIT, GAS_ISSUANCE_PER_SECOND, QUOTIENT);
+        L2.anchorV2(
+            12_345, l1StateRoot, BLOCK_GAS_LIMIT, GAS_ISSUANCE_PER_SECOND, QUOTIENT, SHARE_PCTG
+        );
     }
 }
