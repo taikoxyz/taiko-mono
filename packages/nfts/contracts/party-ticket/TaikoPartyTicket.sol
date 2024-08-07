@@ -141,7 +141,7 @@ contract TaikoPartyTicket is
     /// @dev Requires a fee to mint
     /// @dev Requires the contract to not be paused
     function mint() external payable whenNotPaused {
-        //if (blacklist.isBlacklisted(_msgSender())) revert ADDRESS_BLACKLISTED();
+        if (blacklist.isBlacklisted(_msgSender())) revert ADDRESS_BLACKLISTED();
         if (msg.value < mintFee) revert INSUFFICIENT_MINT_FEE();
         uint256 tokenId = _nextTokenId++;
         _safeMint(msg.sender, tokenId);
@@ -152,7 +152,7 @@ contract TaikoPartyTicket is
     /// @dev Requires a fee to mint
     /// @dev Requires the contract to not be paused
     function mint(uint256 amount) external payable whenNotPaused {
-        //if (blacklist.isBlacklisted(_msgSender())) revert ADDRESS_BLACKLISTED();
+        if (blacklist.isBlacklisted(_msgSender())) revert ADDRESS_BLACKLISTED();
         if (msg.value < mintFee * amount) revert INSUFFICIENT_MINT_FEE();
         for (uint256 i = 0; i < amount; i++) {
             uint256 tokenId = _nextTokenId++;
@@ -165,7 +165,7 @@ contract TaikoPartyTicket is
     /// @dev Requires the contract to not be paused
     /// @dev Can only be called by the admin
     function mint(address to) public whenNotPaused onlyRole(DEFAULT_ADMIN_ROLE) {
-        //if (blacklist.isBlacklisted(to)) revert ADDRESS_BLACKLISTED();
+        if (blacklist.isBlacklisted(to)) revert ADDRESS_BLACKLISTED();
         uint256 tokenId = _nextTokenId++;
         _safeMint(to, tokenId);
     }
@@ -174,7 +174,7 @@ contract TaikoPartyTicket is
     /// @param to The address to mint to
     /// @dev Requires calling as an admin
     function mintWinner(address to) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        //if (blacklist.isBlacklisted(to)) revert ADDRESS_BLACKLISTED();
+        if (blacklist.isBlacklisted(to)) revert ADDRESS_BLACKLISTED();
         uint256 tokenId = _nextTokenId++;
         winners[tokenId] = true;
         _safeMint(to, tokenId);
