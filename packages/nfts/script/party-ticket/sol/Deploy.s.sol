@@ -15,9 +15,8 @@ contract DeployScript is Script {
     address public deployerAddress;
 
     // Hardhat Testnet Values
-    address owner = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
     string baseURI =
-        "https://taikonfts.4everland.link/ipfs/bafybeierqzehlrqeqqeb6fwmil4dj3ij2p6exgoj4lysl53fsxwob6wbdy";
+        "https://taikonfts.4everland.link/ipfs/bafybeihj3bmkfqlvuxwlgj6tpqyxnyeuefjha5q7gnugbfpt5ef7nnxzgy";
     IMinimalBlacklist blacklist = IMinimalBlacklist(0xe61E9034b5633977eC98E302b33e321e8140F105);
 
     uint256 mintFee = 0.03 ether;
@@ -34,8 +33,6 @@ contract DeployScript is Script {
 
     function run() public {
         string memory jsonRoot = "root";
-
-        require(owner != address(0), "Owner must be specified");
 
         vm.startBroadcast(deployerPrivateKey);
 

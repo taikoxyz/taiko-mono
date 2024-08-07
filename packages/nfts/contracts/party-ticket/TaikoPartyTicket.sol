@@ -90,7 +90,7 @@ contract TaikoPartyTicket is
         } else if (paused()) {
             return string(abi.encodePacked(baseURI, "/loser.json"));
         }
-        return string(abi.encodePacked(baseURI, "/ticket.json"));
+        return string(abi.encodePacked(baseURI, "/raffle.json"));
     }
 
     /// @notice Checks if a tokenId is a winner
