@@ -20,6 +20,7 @@ library LibProposing {
         ITierProvider tierProvider;
         bytes32 parentMetaHash;
         bool postFork;
+        bytes32 extraData;
     }
 
     /// @notice Emitted when a block is proposed.
@@ -96,7 +97,9 @@ library LibProposing {
                 // otherwise use a default BlockParamsV2 with 0 values
             }
         } else {
-            local.params = LibData.blockParamsV1ToV2(abi.decode(_data, (TaikoData.BlockParams)));
+            TaikoData.BlockParams memory paramsV1 = abi.decode(_data, (TaikoData.BlockParams));
+            local.params = LibData.blockParamsV1ToV2(paramsV1);
+            local.extraData = paramsV1.extraData;
         }
 
         if (local.params.coinbase == address(0)) {
@@ -158,7 +161,12 @@ library LibProposing {
                 anchorBlockHash: blockhash(local.params.anchorBlockId),
                 difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", local.b.numBlocks)),
                 blobHash: 0, // to be initialized below
-                extraData: local.params.extraData,
+                // To make sure each L2 block can be exexucated deterministiclly by the client
+                // without referering to its metadata on Ethereum, we need to encode
+                // config.basefeeSharingPctg into the extraData.
+                extraData: local.postFork
+                    ? _encodeGasConfigs(_config.basefeeSharingPctg)
+                    : local.extraData,
                 coinbase: local.params.coinbase,
                 id: local.b.numBlocks,
                 gasLimit: _config.blockMaxGasLimit,
@@ -175,7 +183,6 @@ library LibProposing {
                 blobTxListLength: local.params.blobTxListLength,
                 blobIndex: local.params.blobIndex,
                 basefeeAdjustmentQuotient: _config.basefeeAdjustmentQuotient,
-                basefeeSharingPctg: _config.basefeeSharingPctg,
                 gasIssuancePerSecond: _config.gasIssuancePerSecond
             });
         }
@@ -261,5 +268,9 @@ library LibProposing {
         if (!IProposerAccess(proposerAccess).isProposerEligible(msg.sender)) {
             revert L1_INVALID_PROPOSER();
         }
+    }
+
+    function _encodeGasConfigs(uint8 _basefeeSharingPctg) private pure returns (bytes32) {
+        return bytes32(uint256(_basefeeSharingPctg));
     }
 }
