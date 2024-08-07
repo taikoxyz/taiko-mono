@@ -133,7 +133,6 @@ contract TaikoL2 is EssentialContract {
     {
         if (_basefeeSharingPctg > 100) revert L2_INVALID_PARAM();
 
-        if (block.number < ontakeForkHeight()) revert L2_FORK_ERROR();
         _anchor(
             _anchorBlockId,
             _anchorStateRoot,
