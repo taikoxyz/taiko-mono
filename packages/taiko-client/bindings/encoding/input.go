@@ -153,10 +153,6 @@ var (
 			Type: "uint8",
 		},
 		{
-			Name: "basefeeSharingPctg",
-			Type: "uint8",
-		},
-		{
 			Name: "gasIssuancePerSecond",
 			Type: "uint32",
 		},
