@@ -188,6 +188,18 @@ contract TaikoPartyTicket is
         _safeMint(to, tokenId);
     }
 
+    /// @notice Revoke a winner's status
+    /// @param tokenIds The IDs of the winner to revoke
+    function revokeWinners(uint256[] calldata tokenIds)
+        external
+        whenPaused
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        for (uint256 i = 0; i < tokenIds.length; i++) {
+            winners[tokenIds[i]] = false;
+        }
+    }
+
     /// @notice Revoke a winner and replace with a new winner
     /// @param revokeId The ID of the winner to revoke
     /// @param newWinnerId The ID of the new winner
