@@ -30,7 +30,6 @@ type TaikoBlockMetaData interface {
 	GetBlobTxListLength() uint32
 	GetBlobIndex() uint8
 	GetBasefeeAdjustmentQuotient() uint8
-	GetBasefeeSharingPctg() uint8
 	GetGasIssuancePerSecond() uint32
 	GetRawBlockHeight() *big.Int
 	GetRawBlockHash() common.Hash
