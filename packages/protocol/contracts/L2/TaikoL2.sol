@@ -222,6 +222,23 @@ contract TaikoL2 is EssentialContract {
         return LibL2Config.get();
     }
 
+    /// @notice Returns the new gas excess that will keep the basefee the same.
+    /// @param _oldGasExcess The current gas excess value.
+    /// @param _gasTarget The previous gas target.
+    /// @param _newGasTarget The new gas target.
+    /// @return newGasExcess_ The new gas excess value.
+    function adjustExcess(
+        uint64 _oldGasExcess,
+        uint64 _oldGasTarget,
+        uint64 _newGasTarget
+    )
+        public
+        pure
+        returns (uint64 newGasExcess_)
+    {
+        return Lib1559Math.adjustExcess(_oldGasExcess, _oldGasTarget, _newGasTarget);
+    }
+
     /// @notice Tells if we need to validate basefee (for simulation).
     /// @return Returns true to skip checking basefee mismatch.
     function skipFeeCheck() public pure virtual returns (bool) {
@@ -290,8 +307,7 @@ contract TaikoL2 is EssentialContract {
         if (postFork && newGasTarget != parentGasTarget) {
             // adjust parentGasExcess to keep the basefee unchanged. Note that due to math
             // calculation precision, the basefee may change slightly.
-            parentGasExcess =
-                Lib1559Math.adjustExcess(parentGasExcess, parentGasTarget, newGasTarget);
+            parentGasExcess = adjustExcess(parentGasExcess, parentGasTarget, newGasTarget);
         }
 
         // Verify the base fee per gas is correct
