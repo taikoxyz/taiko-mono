@@ -526,6 +526,7 @@ func (s *Syncer) createExecutionPayloads(
 	if fcRes.PayloadStatus.Status != engine.VALID {
 		return nil, fmt.Errorf("unexpected ForkchoiceUpdate response status: %s", fcRes.PayloadStatus.Status)
 	}
+	
 	if fcRes.PayloadID == nil {
 		return nil, errors.New("empty payload ID")
 	}
