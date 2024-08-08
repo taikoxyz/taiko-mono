@@ -43,7 +43,7 @@ contract TaikoPartyTicket is
     /// @notice Blackist address
     IMinimalBlacklist public blacklist;
     /// @notice Gap for upgrade safety
-    uint256[47] private __gap;
+    uint256[42] private __gap;
 
     error INSUFFICIENT_MINT_FEE();
     error CANNOT_REVOKE_NON_WINNER();
@@ -72,6 +72,13 @@ contract TaikoPartyTicket is
 
         _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
         _grantRole(OWNER_ROLE, _payoutAddress);
+    }
+
+    /// @notice Modifier to check if an address is blacklisted
+    /// @param _address The address to check
+    modifier notBlacklisted(address _address) {
+        if (blacklist.isBlacklisted(_address)) revert ADDRESS_BLACKLISTED();
+        _;
     }
 
     /// @notice Update the blacklist address
@@ -140,8 +147,7 @@ contract TaikoPartyTicket is
     /// @notice Mint a raffle ticket
     /// @dev Requires a fee to mint
     /// @dev Requires the contract to not be paused
-    function mint() external payable whenNotPaused {
-        if (blacklist.isBlacklisted(_msgSender())) revert ADDRESS_BLACKLISTED();
+    function mint() external payable whenNotPaused notBlacklisted(_msgSender()) {
         if (msg.value < mintFee) revert INSUFFICIENT_MINT_FEE();
         uint256 tokenId = _nextTokenId++;
         _safeMint(msg.sender, tokenId);
@@ -151,8 +157,7 @@ contract TaikoPartyTicket is
     /// @param amount The number of tickets to mint
     /// @dev Requires a fee to mint
     /// @dev Requires the contract to not be paused
-    function mint(uint256 amount) external payable whenNotPaused {
-        if (blacklist.isBlacklisted(_msgSender())) revert ADDRESS_BLACKLISTED();
+    function mint(uint256 amount) external payable whenNotPaused notBlacklisted(_msgSender()) {
         if (msg.value < mintFee * amount) revert INSUFFICIENT_MINT_FEE();
         for (uint256 i = 0; i < amount; i++) {
             uint256 tokenId = _nextTokenId++;
@@ -164,8 +169,12 @@ contract TaikoPartyTicket is
     /// @param to The address to mint to
     /// @dev Requires the contract to not be paused
     /// @dev Can only be called by the admin
-    function mint(address to) public whenNotPaused onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (blacklist.isBlacklisted(to)) revert ADDRESS_BLACKLISTED();
+    function mint(address to)
+        public
+        whenNotPaused
+        onlyRole(DEFAULT_ADMIN_ROLE)
+        notBlacklisted(to)
+    {
         uint256 tokenId = _nextTokenId++;
         _safeMint(to, tokenId);
     }
@@ -173,8 +182,7 @@ contract TaikoPartyTicket is
     /// @notice Mint a winner ticket
     /// @param to The address to mint to
     /// @dev Requires calling as an admin
-    function mintWinner(address to) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (blacklist.isBlacklisted(to)) revert ADDRESS_BLACKLISTED();
+    function mintWinner(address to) public onlyRole(DEFAULT_ADMIN_ROLE) notBlacklisted(to) {
         uint256 tokenId = _nextTokenId++;
         winners[tokenId] = true;
         _safeMint(to, tokenId);
