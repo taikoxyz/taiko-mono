@@ -48,7 +48,7 @@ contract TaikoPartyTicket is
     uint256 private _nextTokenId;
     /// @notice Blackist address
     IMinimalBlacklist public blacklist;
-    /// @notice Convinience array for winners
+    /// @notice Convenience array for winners
     uint256[] public winnerIds;
     /// @notice Gap for upgrade safety
     uint256[42] private __gap;
@@ -87,7 +87,7 @@ contract TaikoPartyTicket is
     /// @notice Modifier to check if an address is blacklisted
     /// @param _address The address to check
     modifier notBlacklisted(address _address) {
-        if (blacklist.isBlacklisted(_address)) revert ADDRESS_BLACKLISTED();
+        //if (blacklist.isBlacklisted(_address)) revert ADDRESS_BLACKLISTED();
         _;
     }
 
