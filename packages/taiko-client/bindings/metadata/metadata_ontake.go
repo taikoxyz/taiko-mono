@@ -133,11 +133,6 @@ func (m *TaikoDataBlockMetadataOntake) GetBasefeeAdjustmentQuotient() uint8 {
 	return m.BasefeeAdjustmentQuotient
 }
 
-// GetBasefeeSharingPctg returns the L2 block basefee sharing percentage.
-func (m *TaikoDataBlockMetadataOntake) GetBasefeeSharingPctg() uint8 {
-	return m.BasefeeSharingPctg
-}
-
 // GetGasIssuancePerSecond returns the L2 block gas issuance per second.
 func (m *TaikoDataBlockMetadataOntake) GetGasIssuancePerSecond() uint32 {
 	return m.GasIssuancePerSecond

@@ -39,8 +39,8 @@ contract TaikoL2 is EssentialContract {
 
     /// @notice The last synced L1 block height.
     uint64 public lastSyncedBlock;
-    uint64 private parentTimestamp;
-    uint64 private parentGasTarget;
+    uint64 public parentTimestamp;
+    uint64 public parentGasTarget;
 
     /// @notice The L1's chain ID.
     uint64 public l1ChainId;
@@ -168,6 +168,23 @@ contract TaikoL2 is EssentialContract {
         return l2Hashes[_blockId];
     }
 
+    /// @notice Returns the new gas excess that will keep the basefee the same.
+    /// @param _currGasExcess The current gas excess value.
+    /// @param _currGasTarget The current gas target.
+    /// @param _newGasTarget The new gas target.
+    /// @return newGasExcess_ The new gas excess value.
+    function adjustExcess(
+        uint64 _currGasExcess,
+        uint64 _currGasTarget,
+        uint64 _newGasTarget
+    )
+        public
+        pure
+        returns (uint64 newGasExcess_)
+    {
+        return Lib1559Math.adjustExcess(_currGasExcess, _currGasTarget, _newGasTarget);
+    }
+
     /// @notice Calculates the basefee and the new gas excess value based on parent gas used and gas
     /// excess.
     /// @param _gasIssuancePerSecond The gas target for L2 per second.
@@ -212,8 +229,8 @@ contract TaikoL2 is EssentialContract {
         private
     {
         if (
-            _anchorStateRoot == 0 || _anchorBlockId == 0
-                || (block.number != 1 && _parentGasUsed == 0)
+            _anchorStateRoot == 0 || _anchorBlockId == 0 || _gasIssuancePerSecond == 0
+                || _basefeeAdjustmentQuotient == 0 || (block.number != 1 && _parentGasUsed == 0)
         ) {
             revert L2_INVALID_PARAM();
         }
@@ -233,8 +250,7 @@ contract TaikoL2 is EssentialContract {
         if (newGasTarget != parentGasTarget) {
             // adjust parentGasExcess to keep the basefee unchanged. Note that due to math
             // calculation precision, the basefee may change slightly.
-            parentGasExcess =
-                Lib1559Math.adjustExcess(parentGasExcess, parentGasTarget, newGasTarget);
+            parentGasExcess = adjustExcess(parentGasExcess, parentGasTarget, newGasTarget);
         }
 
         // Verify the base fee per gas is correct
