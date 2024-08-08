@@ -371,16 +371,22 @@ func (s *ProverTestSuite) TestGetSubmitterByTier() {
 
 func (s *ProverTestSuite) TestProveOp() {
 	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
-	sink := make(chan *bindings.TaikoL1ClientTransitionProved)
 
 	header, err := s.p.rpc.L2.HeaderByNumber(context.Background(), m.GetBlockID())
 	s.Nil(err)
 
+	sink := make(chan *bindings.TaikoL1ClientTransitionProved)
+	sink2 := make(chan *bindings.TaikoL1ClientTransitionProvedV2)
+
 	sub, err := s.p.rpc.TaikoL1.WatchTransitionProved(nil, sink, nil)
+	s.Nil(err)
+	sub2, err := s.p.rpc.TaikoL1.WatchTransitionProvedV2(nil, sink2, nil)
 	s.Nil(err)
 	defer func() {
 		sub.Unsubscribe()
+		sub2.Unsubscribe()
 		close(sink)
+		close(sink2)
 	}()
 
 	s.Nil(s.p.proveOp())
@@ -388,10 +394,15 @@ func (s *ProverTestSuite) TestProveOp() {
 	s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
 	s.Nil(s.p.selectSubmitter(m.GetMinTier()).SubmitProof(context.Background(), <-s.p.proofGenerationCh))
 
-	event := <-sink
-	s.Equal(header.Number.Uint64(), event.BlockId.Uint64())
-	s.Equal(header.Hash(), common.BytesToHash(event.Tran.BlockHash[:]))
-	s.Equal(header.ParentHash, common.BytesToHash(event.Tran.ParentHash[:]))
+	var tran bindings.TaikoDataTransition
+	select {
+	case event := <-sink:
+		tran = event.Tran
+	case event := <-sink2:
+		tran = event.Tran
+	}
+	s.Equal(header.Hash(), common.BytesToHash(tran.BlockHash[:]))
+	s.Equal(header.ParentHash, common.BytesToHash(tran.ParentHash[:]))
 }
 
 func (s *ProverTestSuite) TestGetBlockProofStatus() {

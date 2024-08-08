@@ -153,11 +153,7 @@ var (
 			Type: "uint8",
 		},
 		{
-			Name: "basefeeSharingPctg",
-			Type: "uint8",
-		},
-		{
-			Name: "blockGasIssuance",
+			Name: "gasIssuancePerSecond",
 			Type: "uint32",
 		},
 	}
@@ -229,10 +225,6 @@ var (
 		{
 			Name: "coinbase",
 			Type: "address",
-		},
-		{
-			Name: "extraData",
-			Type: "bytes32",
 		},
 		{
 			Name: "parentMetaHash",
