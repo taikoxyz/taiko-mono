@@ -39,8 +39,8 @@ contract TaikoL2 is EssentialContract {
 
     /// @notice The last synced L1 block height.
     uint64 public lastSyncedBlock;
-    uint64 private parentTimestamp;
-    uint64 private parentGasTarget;
+    uint64 public parentTimestamp;
+    uint64 public parentGasTarget;
 
     /// @notice The L1's chain ID.
     uint64 public l1ChainId;
