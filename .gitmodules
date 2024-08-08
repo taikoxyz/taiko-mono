@@ -1,0 +1,3 @@
+[submodule "packages/protocol/lib/oyster-contracts"]
+	path = packages/protocol/lib/oyster-contracts
+	url = https://github.com/marlinprotocol/oyster-contracts
