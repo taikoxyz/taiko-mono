@@ -349,7 +349,6 @@ func (s *Syncer) insertNewHead(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get L2 baseFee: %w", encoding.TryParsingCustomError(err))
 		}
-
 		// Assemble a TaikoL2.anchor transaction
 		anchorTx, err = s.anchorConstructor.AssembleAnchorTx(
 			ctx,
@@ -394,6 +393,7 @@ func (s *Syncer) insertNewHead(
 				return nil, fmt.Errorf("failed to fetch parent gas excess: %w", err)
 			}
 		}
+
 		// Get L2 baseFee
 		baseFeeInfo, err = s.rpc.TaikoL2.CalculateBaseFee(
 			&bind.CallOpts{BlockNumber: parent.Number, Context: ctx},
