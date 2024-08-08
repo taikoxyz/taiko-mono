@@ -43,7 +43,12 @@ library LibTiers {
     uint16 public constant TIER_SGX2 = 200;
 
     /// @notice SGX + ZKVM tier ID.
-    uint16 public constant TIER_SGX_ZKVM = 300;
+    uint16 public constant TIER_SGX_ZKVM = 300; //This one itself is not really needed cause
+        // SGX_ZKVM not really specifies which ZKVM (risc0 or sp1 for example) and also beside sgx
+        // we will have tdx, etc.
+    uint16 public constant TIER_SGX_RISC0 = 301;
+    uint16 public constant TIER_SGX_SP1 = 302;
+    //And more like: TIER_TDX_SP1 = 303;
 
     /// @notice Guardian tier ID with minority approval.
     uint16 public constant TIER_GUARDIAN_MINORITY = 900;
