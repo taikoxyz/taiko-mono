@@ -7,6 +7,13 @@ import { TaikoPartyTicket } from "../../contracts/party-ticket/TaikoPartyTicket.
 import { Merkle } from "murky/Merkle.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { MockBlacklist } from "../util/Blacklist.sol";
+import { IMinimalBlacklist } from "@taiko/blacklist/IMinimalBlacklist.sol";
+
+contract TaikoPartyTicketV2 is TaikoPartyTicket {
+    function testV2() public pure returns (bool) {
+        return true;
+    }
+}
 
 contract TaikoPartyTicketTest is Test {
     TaikoPartyTicket public token;
@@ -26,7 +33,6 @@ contract TaikoPartyTicketTest is Test {
         // create whitelist merkle tree
         vm.startBroadcast(admin);
 
-        // deploy token with empty root
         address impl = address(new TaikoPartyTicket());
         address proxy = address(
             new ERC1967Proxy(
@@ -114,5 +120,52 @@ contract TaikoPartyTicketTest is Test {
         // ensure URIs are "winner" and "loser" after setting winners
         assertEq(token.tokenURI(0), "ipfs://baseURI/winner.json");
         assertEq(token.tokenURI(1), "ipfs://baseURI/loser.json");
+    }
+
+    function test_upgrade() public {
+        // create the v1 instance of the token
+        vm.startBroadcast(admin);
+
+        address impl = address(new TaikoPartyTicket());
+        address proxy = address(
+            new ERC1967Proxy(
+                impl,
+                abi.encodeCall(
+                    TaikoPartyTicket.initialize,
+                    (payoutWallet, MINT_FEE, "ipfs://baseURI", blacklist)
+                )
+            )
+        );
+
+        TaikoPartyTicket tokenV1 = TaikoPartyTicket(proxy);
+        vm.stopBroadcast();
+
+        // mint some tokens
+        vm.prank(minters[0]);
+        tokenV1.mint{ value: MINT_FEE }();
+        vm.prank(minters[1]);
+        tokenV1.mint{ value: MINT_FEE }();
+        vm.prank(minters[2]);
+        tokenV1.mint{ value: MINT_FEE }();
+
+        // upgrade to v2
+        vm.startBroadcast(admin);
+
+        tokenV1.upgradeToAndCall(
+            address(new TaikoPartyTicketV2()), abi.encodeCall(TaikoPartyTicketV2.testV2, ())
+        );
+
+        TaikoPartyTicketV2 tokenV2 = TaikoPartyTicketV2(address(tokenV1));
+
+        // ensure balances from v1 are still relevant
+        assertEq(tokenV2.totalSupply(), 3);
+        assertEq(tokenV2.ownerOf(0), minters[0]);
+        assertEq(tokenV2.ownerOf(1), minters[1]);
+        assertEq(tokenV2.ownerOf(2), minters[2]);
+
+        // test the v2 mock method
+        assertTrue(tokenV2.testV2());
+
+        vm.stopBroadcast();
     }
 }

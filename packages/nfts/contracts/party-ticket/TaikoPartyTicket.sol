@@ -13,6 +13,10 @@ import { AccessControlUpgradeable } from
 import { PausableUpgradeable } from
     "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import { IMinimalBlacklist } from "@taiko/blacklist/IMinimalBlacklist.sol";
+import { UUPSUpgradeable } from
+    "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { Ownable2StepUpgradeable } from
+    "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
 /// @title TaikoPartyTicket
 /// @dev ERC-721 KBW Raffle & Party Tickets
@@ -20,6 +24,8 @@ import { IMinimalBlacklist } from "@taiko/blacklist/IMinimalBlacklist.sol";
 contract TaikoPartyTicket is
     ERC721EnumerableUpgradeable,
     PausableUpgradeable,
+    UUPSUpgradeable,
+    Ownable2StepUpgradeable,
     AccessControlUpgradeable
 {
     event BlacklistUpdated(address _blacklist);
@@ -64,7 +70,7 @@ contract TaikoPartyTicket is
         initializer
     {
         __ERC721_init("TaikoPartyTicket", "TPT");
-
+        __Context_init();
         mintFee = _mintFee;
         baseURI = _baseURI;
         payoutAddress = _payoutAddress;
@@ -72,6 +78,8 @@ contract TaikoPartyTicket is
 
         _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
         _grantRole(OWNER_ROLE, _payoutAddress);
+
+        _transferOwnership(_msgSender());
     }
 
     /// @notice Modifier to check if an address is blacklisted
@@ -246,4 +254,7 @@ contract TaikoPartyTicket is
     {
         return super.supportsInterface(interfaceId);
     }
+
+    /// @notice Internal method to authorize an upgrade
+    function _authorizeUpgrade(address) internal virtual override onlyOwner { }
 }
