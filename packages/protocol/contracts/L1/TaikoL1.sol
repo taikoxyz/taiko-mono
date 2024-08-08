@@ -142,10 +142,28 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         emitEventForClient
     {
         TaikoData.Config memory config = getConfig();
-        LibProving.proveBlock(state, config, this, _blockId, _input);
+        _proveBlock(_blockId, _input, config);
+    }
 
-        if (LibUtils.shouldVerifyBlocks(config, _blockId, false)) {
-            LibVerifying.verifyBlocks(state, config, this, config.maxBlocksToVerify);
+    /// @inheritdoc ITaikoL1
+    function proveBlocks(
+        uint64[] calldata _blockIds,
+        bytes[] calldata _inputArr
+    )
+        external
+        whenNotPaused
+        whenProvingNotPaused
+        nonReentrant
+        emitEventForClient
+    {
+        if (_blockIds.length == 0 || _blockIds.length != _inputArr.length) {
+            revert L1_INVALID_PARAMS();
+        }
+
+        TaikoData.Config memory config = getConfig();
+
+        for (uint256 i; i < _blockIds.length; ++i) {
+            _proveBlock(_blockIds[i], _inputArr[i], config);
         }
     }
 
@@ -228,26 +246,28 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     /// @return blockId_ The last verified block's ID.
     /// @return blockHash_ The last verified block's blockHash.
     /// @return stateRoot_ The last verified block's stateRoot.
+    /// @return verifiedAt_ The timestamp this block is verified at.
     function getLastVerifiedBlock()
         external
         view
-        returns (uint64 blockId_, bytes32 blockHash_, bytes32 stateRoot_)
+        returns (uint64 blockId_, bytes32 blockHash_, bytes32 stateRoot_, uint64 verifiedAt_)
     {
         blockId_ = state.slotB.lastVerifiedBlockId;
-        (blockHash_, stateRoot_) = LibUtils.getBlockInfo(state, getConfig(), blockId_);
+        (blockHash_, stateRoot_, verifiedAt_) = LibUtils.getBlockInfo(state, getConfig(), blockId_);
     }
 
     /// @notice Returns information about the last synchronized block.
     /// @return blockId_ The last verified block's ID.
     /// @return blockHash_ The last verified block's blockHash.
     /// @return stateRoot_ The last verified block's stateRoot.
+    /// @return verifiedAt_ The timestamp this block is verified at.
     function getLastSyncedBlock()
         external
         view
-        returns (uint64 blockId_, bytes32 blockHash_, bytes32 stateRoot_)
+        returns (uint64 blockId_, bytes32 blockHash_, bytes32 stateRoot_, uint64 verifiedAt_)
     {
         blockId_ = state.slotA.lastSyncedBlockId;
-        (blockHash_, stateRoot_) = LibUtils.getBlockInfo(state, getConfig(), blockId_);
+        (blockHash_, stateRoot_, verifiedAt_) = LibUtils.getBlockInfo(state, getConfig(), blockId_);
     }
 
     /// @notice Gets the state variables of the TaikoL1 contract.
@@ -270,18 +290,9 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
 
     /// @inheritdoc ITaikoL1
     function getConfig() public pure virtual override returns (TaikoData.Config memory) {
-        // All hard-coded configurations:
-        // - treasury: the actual TaikoL2 address.
-        // - anchorGasLimit: 250_000 (based on internal devnet, its ~220_000
-        // after 256 L2 blocks)
         return TaikoData.Config({
             chainId: LibNetwork.TAIKO_MAINNET,
-            // If we have 1 block per 12 seconds, then each day there will be 86400/12=7200 blocks.
-            // We therefore use 7200 as the base unit to configure blockMaxProposals and
-            // blockRingBufferSize.
             blockMaxProposals: 324_000, // = 7200 * 45
-            // We give 7200 * 5 = 36000 slots for verifeid blocks in case third party apps will use
-            // their data.
             blockRingBufferSize: 360_000, // = 7200 * 50
             maxBlocksToVerify: 16,
             blockMaxGasLimit: 240_000_000,
@@ -290,7 +301,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
             maxAnchorHeightOffset: 64,
             basefeeAdjustmentQuotient: 8,
             basefeeSharingPctg: 75,
-            blockGasIssuance: 20_000_000,
+            gasIssuancePerSecond: 5_000_000,
             ontakeForkHeight: 374_400 // = 7200 * 52
          });
     }
@@ -307,6 +318,20 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         if (meta_.id < _config.ontakeForkHeight) revert L1_FORK_ERROR();
 
         if (LibUtils.shouldVerifyBlocks(_config, meta_.id, true) && !state.slotB.provingPaused) {
+            LibVerifying.verifyBlocks(state, _config, this, _config.maxBlocksToVerify);
+        }
+    }
+
+    function _proveBlock(
+        uint64 _blockId,
+        bytes calldata _input,
+        TaikoData.Config memory _config
+    )
+        internal
+    {
+        LibProving.proveBlock(state, _config, this, _blockId, _input);
+
+        if (LibUtils.shouldVerifyBlocks(_config, _blockId, false)) {
             LibVerifying.verifyBlocks(state, _config, this, _config.maxBlocksToVerify);
         }
     }

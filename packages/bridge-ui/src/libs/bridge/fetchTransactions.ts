@@ -20,7 +20,7 @@ export async function fetchTransactions(userAddress: Address, chainId?: number) 
       userAddress,
       {
         page: 0,
-        size: 100,
+        size: 500,
       },
       chainId,
     );

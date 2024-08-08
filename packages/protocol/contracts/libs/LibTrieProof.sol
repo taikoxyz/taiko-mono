@@ -6,9 +6,9 @@
 
 pragma solidity 0.8.24;
 
-import "../thirdparty/optimism/rlp/RLPReader.sol";
-import "../thirdparty/optimism/rlp/RLPWriter.sol";
-import "../thirdparty/optimism/trie/SecureMerkleTrie.sol";
+import "@optimism/packages/contracts-bedrock/src/libraries/rlp/RLPReader.sol";
+import "@optimism/packages/contracts-bedrock/src/libraries/rlp/RLPWriter.sol";
+import "@optimism/packages/contracts-bedrock/src/libraries/trie/SecureMerkleTrie.sol";
 
 /// @title LibTrieProof
 /// @custom:security-contact security@taiko.xyz
