@@ -288,7 +288,7 @@ contract TaikoL2 is EssentialContract {
     {
         if (
             _anchorStateRoot == 0 || _anchorBlockId == 0 || _gasIssuancePerSecond == 0
-                || _basefeeAdjustmentQuotient || (block.number != 1 && _parentGasUsed == 0)
+                || _basefeeAdjustmentQuotient == 0 || (block.number != 1 && _parentGasUsed == 0)
         ) {
             revert L2_INVALID_PARAM();
         }
