@@ -224,7 +224,7 @@ contract TaikoL2 is EssentialContract {
 
     /// @notice Returns the new gas excess that will keep the basefee the same.
     /// @param _oldGasExcess The current gas excess value.
-    /// @param _gasTarget The previous gas target.
+    /// @param _oldGasTarget The previous gas target.
     /// @param _newGasTarget The new gas target.
     /// @return newGasExcess_ The new gas excess value.
     function adjustExcess(
@@ -287,8 +287,8 @@ contract TaikoL2 is EssentialContract {
         private
     {
         if (
-            _anchorStateRoot == 0 || _anchorBlockId == 0
-                || (block.number != 1 && _parentGasUsed == 0)
+            _anchorStateRoot == 0 || _anchorBlockId == 0 || _gasIssuancePerSecond == 0
+                || _basefeeAdjustmentQuotient || (block.number != 1 && _parentGasUsed == 0)
         ) {
             revert L2_INVALID_PARAM();
         }
