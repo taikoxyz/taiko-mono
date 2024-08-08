@@ -223,20 +223,20 @@ contract TaikoL2 is EssentialContract {
     }
 
     /// @notice Returns the new gas excess that will keep the basefee the same.
-    /// @param _oldGasExcess The current gas excess value.
-    /// @param _oldGasTarget The current gas target.
+    /// @param _currGasExcess The current gas excess value.
+    /// @param _currGasTarget The current gas target.
     /// @param _newGasTarget The new gas target.
     /// @return newGasExcess_ The new gas excess value.
     function adjustExcess(
-        uint64 _oldGasExcess,
-        uint64 _oldGasTarget,
+        uint64 _currGasExcess,
+        uint64 _currGasTarget,
         uint64 _newGasTarget
     )
         public
         pure
         returns (uint64 newGasExcess_)
     {
-        return Lib1559Math.adjustExcess(_oldGasExcess, _oldGasTarget, _newGasTarget);
+        return Lib1559Math.adjustExcess(_currGasExcess, _currGasTarget, _newGasTarget);
     }
 
     /// @notice Tells if we need to validate basefee (for simulation).
