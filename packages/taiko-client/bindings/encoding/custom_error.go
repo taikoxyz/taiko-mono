@@ -89,6 +89,12 @@ func getErrorData(err error) string {
 			return errData
 		}
 	}
+
+	// Anvil node custom errors with reasons, example:
+	// execution reverted: custom error 1a83d90e:, reason: 0x1a83d90e"
+	if strings.Contains(err.Error(), "custom error") && strings.Contains(err.Error(), "reason") {
+		return "0x" + err.Error()[len(err.Error())-8:len(err.Error())]
+	}
 	// Anvil node custom errors, example:
 	// "execution reverted: custom error 712eb087:"
 	if strings.Contains(err.Error(), "custom error") {

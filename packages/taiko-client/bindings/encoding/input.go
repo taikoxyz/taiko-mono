@@ -227,10 +227,6 @@ var (
 			Type: "address",
 		},
 		{
-			Name: "extraData",
-			Type: "bytes32",
-		},
-		{
 			Name: "parentMetaHash",
 			Type: "bytes32",
 		},
