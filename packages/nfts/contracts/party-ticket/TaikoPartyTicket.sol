@@ -48,6 +48,8 @@ contract TaikoPartyTicket is
     uint256 private _nextTokenId;
     /// @notice Blackist address
     IMinimalBlacklist public blacklist;
+    /// @notice Convinience array for winners
+    uint256[] public winnerIds;
     /// @notice Gap for upgrade safety
     uint256[42] private __gap;
 
@@ -136,6 +138,7 @@ contract TaikoPartyTicket is
     {
         for (uint256 i = 0; i < _winners.length; i++) {
             winners[_winners[i]] = true;
+            winnerIds.push(_winners[i]);
         }
         pause();
     }
@@ -197,6 +200,20 @@ contract TaikoPartyTicket is
     }
 
     /// @notice Revoke a winner's status
+    /// @param tokenId The ID of the winner to revoke
+    function revokeWinner(uint256 tokenId) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        winners[tokenId] = false;
+
+        for (uint256 i = 0; i < winnerIds.length; i++) {
+            if (winnerIds[i] == tokenId) {
+                winnerIds[i] = winnerIds[winnerIds.length - 1];
+                winnerIds.pop();
+                break;
+            }
+        }
+    }
+
+    /// @notice Revoke a winner's status
     /// @param tokenIds The IDs of the winner to revoke
     function revokeWinners(uint256[] calldata tokenIds)
         external
@@ -204,7 +221,7 @@ contract TaikoPartyTicket is
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
         for (uint256 i = 0; i < tokenIds.length; i++) {
-            winners[tokenIds[i]] = false;
+            revokeWinner(tokenIds[i]);
         }
     }
 
@@ -219,9 +236,10 @@ contract TaikoPartyTicket is
         whenPaused
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        if (!winners[newWinnerId]) revert CANNOT_REVOKE_NON_WINNER();
-        winners[revokeId] = false;
+        if (!winners[revokeId]) revert CANNOT_REVOKE_NON_WINNER();
+        revokeWinner(revokeId);
         winners[newWinnerId] = true;
+        winnerIds.push(newWinnerId);
     }
 
     /// @notice Pause the contract
@@ -241,6 +259,22 @@ contract TaikoPartyTicket is
     /// @dev Requires the contract to be paused
     function withdraw() external whenPaused onlyRole(DEFAULT_ADMIN_ROLE) {
         payable(payoutAddress).transfer(address(this).balance);
+    }
+
+    /// @notice Get the winner token IDs
+    /// @return The winner token IDs
+    function getWinnerTokenIds() public view whenPaused returns (uint256[] memory) {
+        return winnerIds;
+    }
+
+    /// @notice Get the winner addresses
+    /// @return _winners The winner addresses
+    function getWinners() public view whenPaused returns (address[] memory _winners) {
+        _winners = new address[](winnerIds.length);
+        for (uint256 i = 0; i < winnerIds.length; i++) {
+            _winners[i] = ownerOf(winnerIds[i]);
+        }
+        return _winners;
     }
 
     /// @notice supportsInterface implementation

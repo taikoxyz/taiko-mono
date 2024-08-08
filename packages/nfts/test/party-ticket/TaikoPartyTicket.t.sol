@@ -31,7 +31,7 @@ contract TaikoPartyTicketTest is Test {
     function setUp() public {
         blacklist = new MockBlacklist();
         // create whitelist merkle tree
-        vm.startBroadcast(admin);
+        vm.startPrank(admin);
 
         address impl = address(new TaikoPartyTicket());
         address proxy = address(
@@ -51,7 +51,7 @@ contract TaikoPartyTicketTest is Test {
             vm.deal(minters[i], INITIAL_BALANCE);
         }
 
-        vm.stopBroadcast();
+        vm.stopPrank();
     }
 
     function test_metadata() public view {
@@ -124,7 +124,7 @@ contract TaikoPartyTicketTest is Test {
 
     function test_upgrade() public {
         // create the v1 instance of the token
-        vm.startBroadcast(admin);
+        vm.startPrank(admin);
 
         address impl = address(new TaikoPartyTicket());
         address proxy = address(
@@ -138,7 +138,7 @@ contract TaikoPartyTicketTest is Test {
         );
 
         TaikoPartyTicket tokenV1 = TaikoPartyTicket(proxy);
-        vm.stopBroadcast();
+        vm.stopPrank();
 
         // mint some tokens
         vm.prank(minters[0]);
@@ -149,7 +149,7 @@ contract TaikoPartyTicketTest is Test {
         tokenV1.mint{ value: MINT_FEE }();
 
         // upgrade to v2
-        vm.startBroadcast(admin);
+        vm.startPrank(admin);
 
         tokenV1.upgradeToAndCall(
             address(new TaikoPartyTicketV2()), abi.encodeCall(TaikoPartyTicketV2.testV2, ())
@@ -166,6 +166,117 @@ contract TaikoPartyTicketTest is Test {
         // test the v2 mock method
         assertTrue(tokenV2.testV2());
 
-        vm.stopBroadcast();
+        vm.stopPrank();
+    }
+
+    function test_upgrade_throw() public {
+        // create the v1 instance of the token
+        vm.startPrank(admin);
+
+        address impl = address(new TaikoPartyTicket());
+        address proxy = address(
+            new ERC1967Proxy(
+                impl,
+                abi.encodeCall(
+                    TaikoPartyTicket.initialize,
+                    (payoutWallet, MINT_FEE, "ipfs://baseURI", blacklist)
+                )
+            )
+        );
+
+        TaikoPartyTicket tokenV1 = TaikoPartyTicket(proxy);
+        vm.stopPrank();
+
+        // mint some tokens
+        vm.prank(minters[0]);
+        tokenV1.mint{ value: MINT_FEE }();
+        vm.prank(minters[1]);
+        tokenV1.mint{ value: MINT_FEE }();
+        vm.prank(minters[2]);
+        tokenV1.mint{ value: MINT_FEE }();
+
+        // attempt to upgrade as non-admin
+        vm.startPrank(minters[0]);
+
+        TaikoPartyTicketV2 v2 = new TaikoPartyTicketV2();
+        vm.expectRevert();
+        tokenV1.upgradeToAndCall(address(v2), abi.encodeCall(TaikoPartyTicketV2.testV2, ()));
+
+        vm.stopPrank();
+
+        // upgrade to v2 properly after the failed attempt
+        vm.startPrank(admin);
+
+        tokenV1.upgradeToAndCall(
+            address(new TaikoPartyTicketV2()), abi.encodeCall(TaikoPartyTicketV2.testV2, ())
+        );
+
+        TaikoPartyTicketV2 tokenV2 = TaikoPartyTicketV2(address(tokenV1));
+
+        // ensure balances from v1 are still relevant
+        assertEq(tokenV2.totalSupply(), 3);
+        assertEq(tokenV2.ownerOf(0), minters[0]);
+        assertEq(tokenV2.ownerOf(1), minters[1]);
+        assertEq(tokenV2.ownerOf(2), minters[2]);
+
+        // test the v2 mock method
+        assertTrue(tokenV2.testV2());
+
+        vm.stopPrank();
+    }
+
+    function test_revokeWinner() public {
+        test_winnerFlow();
+        // ensure the contract is paused
+        assertTrue(token.paused());
+        // ensure wallet0 is winner
+        assertTrue(token.isWinner(minters[0]));
+
+        uint256[] memory winnerIds = token.getWinnerTokenIds();
+        assertEq(winnerIds.length, 1);
+        address[] memory winners = token.getWinners();
+        assertEq(winners.length, 1);
+
+        // revoke the winner
+        vm.prank(admin);
+        token.revokeWinner(winnerIds[0]);
+
+        winnerIds = token.getWinnerTokenIds();
+        assertEq(winnerIds.length, 0);
+        winners = token.getWinners();
+        assertEq(winners.length, 0);
+    }
+
+    function test_revokeAndReplaceWinner() public {
+        test_winnerFlow();
+        // ensure the contract is paused
+        assertTrue(token.paused());
+
+        // ensure wallet0 is winner
+
+        assertTrue(token.isWinner(minters[0]));
+        assertFalse(token.isWinner(minters[1]));
+        assertFalse(token.isWinner(minters[2]));
+
+        uint256[] memory winnerIds = token.getWinnerTokenIds();
+        assertEq(winnerIds.length, 1);
+        address[] memory winners = token.getWinners();
+        assertEq(winners.length, 1);
+
+        // revoke and replace with token id 2
+        vm.prank(admin);
+        token.revokeAndReplaceWinner(winnerIds[0], 2);
+
+        assertFalse(token.isWinner(minters[0]));
+        assertFalse(token.isWinner(minters[1]));
+        assertTrue(token.isWinner(minters[2]));
+
+        winnerIds = token.getWinnerTokenIds();
+        assertEq(winnerIds.length, 1);
+
+        winners = token.getWinners();
+        assertEq(winners.length, 1);
+        assertEq(winnerIds[0], 2);
+        assertEq(winners[0], minters[2]);
     }
 }
