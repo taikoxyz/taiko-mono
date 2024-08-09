@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.14.0](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.13.0...eventindexer-v0.14.0) (2024-08-09)
+
+
+### Features
+
+* **eventindexer:** erc20 indexer api ([#17519](https://github.com/taikoxyz/taiko-mono/issues/17519)) ([07b073d](https://github.com/taikoxyz/taiko-mono/commit/07b073d673026fc4219f4d26183ff7c3ffbcfb15))
+* **eventindexer:** get block proven by and block proposed by apis ([#17556](https://github.com/taikoxyz/taiko-mono/issues/17556)) ([df90fd4](https://github.com/taikoxyz/taiko-mono/commit/df90fd44fbff857e745ba6254144076cf93975b4))
+* **eventindexer:** indexing nft metadata ([#17538](https://github.com/taikoxyz/taiko-mono/issues/17538)) ([d0e25ba](https://github.com/taikoxyz/taiko-mono/commit/d0e25ba6d1a871d4e6153fba663ccdfa63f16f05))
+* **eventindexer:** rm assignmenthook for latest protocol changes ([#17647](https://github.com/taikoxyz/taiko-mono/issues/17647)) ([d461fed](https://github.com/taikoxyz/taiko-mono/commit/d461feddf2e5672be417af66acf538c30a7fbe49))
+* **relayer:** bindings updates for relayer, gp, eventindexer ([#17312](https://github.com/taikoxyz/taiko-mono/issues/17312)) ([3830805](https://github.com/taikoxyz/taiko-mono/commit/38308054e3debf698d789f4886da4f312b6a359e))
+
+
+### Bug Fixes
+
+* **eventindexer:** add some startup logs ([#17276](https://github.com/taikoxyz/taiko-mono/issues/17276)) ([c170497](https://github.com/taikoxyz/taiko-mono/commit/c170497d05732a862d7191fc9ffa0be918dd4078))
+* **eventindexer:** erc1155 fix ([#17292](https://github.com/taikoxyz/taiko-mono/issues/17292)) ([f5aa4e6](https://github.com/taikoxyz/taiko-mono/commit/f5aa4e640967a679e562a0a5168c7e700c87eca7))
+* **eventindexer:** include end block in indexRawBlockData ([#17583](https://github.com/taikoxyz/taiko-mono/issues/17583)) ([1754b16](https://github.com/taikoxyz/taiko-mono/commit/1754b16fec1bf7dcb276f9b22be3dcfd87f0174c))
+* **eventindexer:** slow md indexing ([#17816](https://github.com/taikoxyz/taiko-mono/issues/17816)) ([a82326e](https://github.com/taikoxyz/taiko-mono/commit/a82326ef9eb42b1a88894a2a7d0a991e849177f2))
+
+
+### Chores
+
+* **eventindexer,relayer,taiko-client:** prep swagger apis to migrate ([#17148](https://github.com/taikoxyz/taiko-mono/issues/17148)) ([357ecf2](https://github.com/taikoxyz/taiko-mono/commit/357ecf23ed628254cddccf4b6a8f16b97fb4f5b0))
+* **eventindexer:** upgrade eventindexer ([#17747](https://github.com/taikoxyz/taiko-mono/issues/17747)) ([42331f4](https://github.com/taikoxyz/taiko-mono/commit/42331f492960e73325ae5387917e6865c929a4ef))
+
 ## [0.13.0](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.12.0...eventindexer-v0.13.0) (2023-10-18)
 
 
