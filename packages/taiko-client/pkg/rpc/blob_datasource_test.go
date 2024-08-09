@@ -7,8 +7,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
-
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 )
 
 func TestGetBlobsFromBlobScan(t *testing.T) {
@@ -23,10 +21,8 @@ func TestGetBlobsFromBlobScan(t *testing.T) {
 	)
 	sidecars, err := ds.GetBlobs(
 		context.Background(),
-		&bindings.TaikoDataBlockMetadata{
-			BlobHash: common.HexToHash("0x0145185449c57dee4e6c921b702e5d572fbeb026f96c220a6a17b79d157d921b"),
-			BlobUsed: true,
-		},
+		0,
+		common.HexToHash("0x0145185449c57dee4e6c921b702e5d572fbeb026f96c220a6a17b79d157d921b"),
 	)
 	require.Nil(t, err)
 	require.NotNil(t, sidecars)

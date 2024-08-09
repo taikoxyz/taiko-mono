@@ -8,7 +8,7 @@
     "eslint": "pnpm exec eslint --ignore-path .eslintignore --ext .js,.ts . --fix",
     "fmt:sol": "forge fmt",
     "lint:sol": "forge fmt && pnpm solhint 'contracts/**/*.sol'",
-    "test": "pnpm clean && pnpm compile && forge test --match-path 'test/*.t.sol' -vvv",
+    "test": "forge test --match-path 'test/*.t.sol' -vvv",
     "node": "anvil",
     "layout": "./deployments/gen-layouts.sh",
     "taikoon:merkle": "node script/taikoon/js/generate-merkle-tree.js",

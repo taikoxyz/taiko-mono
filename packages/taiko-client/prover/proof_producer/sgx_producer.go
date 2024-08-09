@@ -15,8 +15,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
@@ -38,12 +38,12 @@ type SGXProofProducer struct {
 
 // RaikoRequestProofBody represents the JSON body for requesting the proof.
 type RaikoRequestProofBody struct {
-	Block    *big.Int                   `json:"block_number"`
-	Prover   string                     `json:"prover"`
-	Graffiti string                     `json:"graffiti"`
-	Type     string                     `json:"proof_type"`
-	SGX      *SGXRequestProofBodyParam  `json:"sgx"`
-	RISC0    RISC0RequestProofBodyParam `json:"risc0"`
+	Block    *big.Int                    `json:"block_number"`
+	Prover   string                      `json:"prover"`
+	Graffiti string                      `json:"graffiti"`
+	Type     string                      `json:"proof_type"`
+	SGX      *SGXRequestProofBodyParam   `json:"sgx"`
+	RISC0    *RISC0RequestProofBodyParam `json:"risc0"`
 }
 
 // SGXRequestProofBodyParam represents the JSON body of RaikoRequestProofBody's `sgx` field.
@@ -68,7 +68,8 @@ type RaikoRequestProofBodyResponse struct {
 }
 
 type RaikoProofData struct {
-	Proof string `json:"proof"` //nolint:revive,stylecheck
+	Proof  string `json:"proof"` //nolint:revive,stylecheck
+	Status string `json:"status"`
 }
 
 // RequestProof implements the ProofProducer interface.
@@ -76,13 +77,13 @@ func (s *SGXProofProducer) RequestProof(
 	ctx context.Context,
 	opts *ProofRequestOptions,
 	blockID *big.Int,
-	meta *bindings.TaikoDataBlockMetadata,
+	meta metadata.TaikoBlockMetaData,
 	header *types.Header,
 ) (*ProofWithHeader, error) {
 	log.Info(
-		"Request proof from raiko-host service",
+		"Request sgx proof from raiko-host service",
 		"blockID", blockID,
-		"coinbase", meta.Coinbase,
+		"coinbase", meta.GetCoinbase(),
 		"height", header.Number,
 		"hash", header.Hash(),
 	)
@@ -106,6 +107,13 @@ func (s *SGXProofProducer) RequestProof(
 		Opts:    opts,
 		Tier:    s.Tier(),
 	}, nil
+}
+
+func (s *SGXProofProducer) RequestCancel(
+	_ context.Context,
+	_ *ProofRequestOptions,
+) error {
+	return nil
 }
 
 // callProverDaemon keeps polling the proverd service to get the requested proof.

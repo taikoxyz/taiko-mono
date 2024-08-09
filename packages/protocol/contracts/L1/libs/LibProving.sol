@@ -135,7 +135,7 @@ library LibProving {
         uint64 _blockId,
         bytes calldata _input
     )
-        internal
+        public
     {
         Local memory local;
 
@@ -152,13 +152,12 @@ library LibProving {
                 _input, (TaikoData.BlockMetadataV2, TaikoData.Transition, TaikoData.TierProof)
             );
         } else {
-            TaikoData.BlockMetadata memory meta1;
+            TaikoData.BlockMetadata memory metaV1;
 
-            (meta1, tran, proof) = abi.decode(
+            (metaV1, tran, proof) = abi.decode(
                 _input, (TaikoData.BlockMetadata, TaikoData.Transition, TaikoData.TierProof)
             );
-            // Below, the liveness bond parameter must be 0 to force reading from block storage.
-            meta = LibData.metadataV1toV2(meta1, 0);
+            meta = LibData.blockMetadataV1toV2(metaV1);
         }
 
         if (_blockId != meta.id) revert LibUtils.L1_INVALID_BLOCK_ID();
@@ -197,8 +196,12 @@ library LibProving {
         // Check the integrity of the block data. It's worth noting that in
         // theory, this check may be skipped, but it's included for added
         // caution.
-        if (local.metaHash != LibData.hashMetadata(local.postFork, meta)) {
-            revert L1_BLOCK_MISMATCH();
+        {
+            bytes32 metaHash = local.postFork
+                ? keccak256(abi.encode(meta))
+                : keccak256(abi.encode(LibData.blockMetadataV2toV1(meta)));
+
+            if (local.metaHash != metaHash) revert L1_BLOCK_MISMATCH();
         }
 
         // Each transition is uniquely identified by the parentHash, with the

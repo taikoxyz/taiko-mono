@@ -16,6 +16,7 @@ import "../contracts/tokenvault/ERC1155Vault.sol";
 import "../contracts/tko/TaikoToken.sol";
 import "../contracts/L1/TaikoL1.sol";
 import "../contracts/verifiers/SgxVerifier.sol";
+import "../contracts/verifiers/SP1Verifier.sol";
 import "../contracts/verifiers/RiscZeroVerifier.sol";
 import "../test/L1/TestTierProvider.sol";
 import "../contracts/L1/provers/GuardianProver.sol";
@@ -38,7 +39,7 @@ abstract contract TaikoTest is Test, DeployCapability {
     address internal Bob = vm.addr(0x2);
     address internal Carol = vm.addr(0x3);
     address internal David = vm.addr(0x4);
-    address internal Emma = randAddress();
+    address internal Emma = vm.addr(0x5);
     address internal Frank = randAddress();
     address internal Grace = randAddress();
     address internal Henry = randAddress();

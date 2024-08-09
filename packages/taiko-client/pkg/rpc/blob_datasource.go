@@ -11,7 +11,6 @@ import (
 	"github.com/go-resty/resty/v2"
 	"github.com/prysmaticlabs/prysm/v4/beacon-chain/rpc/eth/blob"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg"
 )
 
@@ -75,12 +74,9 @@ func (p *BlobServerResponse) UnmarshalJSON(data []byte) error {
 // GetBlobs get blob sidecar by meta
 func (ds *BlobDataSource) GetBlobs(
 	ctx context.Context,
-	meta *bindings.TaikoDataBlockMetadata,
+	timestamp uint64,
+	blobHash common.Hash,
 ) ([]*blob.Sidecar, error) {
-	if !meta.BlobUsed {
-		return nil, pkg.ErrBlobUnused
-	}
-
 	var (
 		sidecars []*blob.Sidecar
 		err      error
@@ -88,7 +84,7 @@ func (ds *BlobDataSource) GetBlobs(
 	if ds.client.L1Beacon == nil {
 		sidecars, err = nil, pkg.ErrBeaconNotFound
 	} else {
-		sidecars, err = ds.client.L1Beacon.GetBlobs(ctx, meta.Timestamp)
+		sidecars, err = ds.client.L1Beacon.GetBlobs(ctx, timestamp)
 	}
 	if err != nil {
 		log.Info("Failed to get blobs from beacon, try to use blob server.", "error", err.Error())
@@ -96,7 +92,7 @@ func (ds *BlobDataSource) GetBlobs(
 			log.Info("No blob server endpoint set")
 			return nil, err
 		}
-		blobs, err := ds.getBlobFromServer(ctx, meta.BlobHash)
+		blobs, err := ds.getBlobFromServer(ctx, blobHash)
 		if err != nil {
 			return nil, err
 		}

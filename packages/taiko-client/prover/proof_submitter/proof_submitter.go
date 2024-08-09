@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	validator "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/anchor_tx_validator"
@@ -27,6 +28,7 @@ var (
 	_                              Submitter = (*ProofSubmitter)(nil)
 	submissionDelayRandomBumpRange float64   = 20
 	proofPollingInterval                     = 10 * time.Second
+	ProofTimeout                             = 90 * time.Minute
 )
 
 // ProofSubmitter is responsible requesting proofs for the given L2
@@ -86,10 +88,10 @@ func NewProofSubmitter(
 }
 
 // RequestProof implements the Submitter interface.
-func (s *ProofSubmitter) RequestProof(ctx context.Context, event *bindings.TaikoL1ClientBlockProposed) error {
-	header, err := s.rpc.WaitL2Header(ctx, event.BlockId)
+func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBlockMetaData) error {
+	header, err := s.rpc.WaitL2Header(ctx, meta.GetBlockID())
 	if err != nil {
-		return fmt.Errorf("failed to fetch l2 Header, blockID: %d, error: %w", event.BlockId, err)
+		return fmt.Errorf("failed to fetch l2 Header, blockID: %d, error: %w", meta.GetBlockID(), err)
 	}
 
 	if header.TxHash == types.EmptyTxsHash {
@@ -101,7 +103,7 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, event *bindings.Taiko
 		return fmt.Errorf("failed to get the L2 parent block by hash (%s): %w", header.ParentHash, err)
 	}
 
-	blockInfo, err := s.rpc.GetL2BlockInfo(ctx, event.BlockId)
+	blockInfo, err := s.rpc.GetL2BlockInfo(ctx, meta.GetBlockID())
 	if err != nil {
 		return err
 	}
@@ -110,13 +112,13 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, event *bindings.Taiko
 	opts := &proofProducer.ProofRequestOptions{
 		BlockID:            header.Number,
 		ProverAddress:      s.proverAddress,
-		ProposeBlockTxHash: event.Raw.TxHash,
+		ProposeBlockTxHash: meta.GetTxHash(),
 		TaikoL2:            s.taikoL2Address,
 		MetaHash:           blockInfo.MetaHash,
 		BlockHash:          header.Hash(),
 		ParentHash:         header.ParentHash,
 		StateRoot:          header.Root,
-		EventL1Hash:        event.Raw.BlockHash,
+		EventL1Hash:        meta.GetRawBlockHash(),
 		Graffiti:           common.Bytes2Hex(s.graffiti[:]),
 		GasUsed:            header.GasUsed,
 		ParentGasUsed:      parent.GasUsed(),
@@ -126,6 +128,8 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, event *bindings.Taiko
 	if s.proverSetAddress != rpc.ZeroAddress {
 		opts.ProverAddress = s.proverSetAddress
 	}
+
+	startTime := time.Now()
 
 	// Send the generated proof.
 	if err := backoff.Retry(
@@ -152,12 +156,20 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, event *bindings.Taiko
 			result, err := s.proofProducer.RequestProof(
 				ctx,
 				opts,
-				event.BlockId,
-				&event.Meta,
+				meta.GetBlockID(),
+				meta,
 				header,
 			)
 			if err != nil {
-				return fmt.Errorf("failed to request proof (id: %d): %w", event.BlockId, err)
+				// If request proof has timed out in retry, let's cancel the proof generating and skip
+				if errors.Is(err, proofProducer.ErrProofInProgress) && time.Since(startTime) >= ProofTimeout {
+					log.Error("Request proof has timed out, start to cancel", "blockID", opts.BlockID)
+					if cancelErr := s.proofProducer.RequestCancel(ctx, opts); cancelErr != nil {
+						log.Error("Failed to request cancellation of proof", "err", cancelErr)
+					}
+					return nil
+				}
+				return fmt.Errorf("failed to request proof (id: %d): %w", meta.GetBlockID(), err)
 			}
 			s.resultCh <- result
 			metrics.ProverQueuedProofCounter.Add(1)
@@ -180,7 +192,7 @@ func (s *ProofSubmitter) SubmitProof(
 	log.Info(
 		"Submit block proof",
 		"blockID", proofWithHeader.BlockID,
-		"coinbase", proofWithHeader.Meta.Coinbase,
+		"coinbase", proofWithHeader.Meta.GetCoinbase(),
 		"parentHash", proofWithHeader.Header.ParentHash,
 		"hash", proofWithHeader.Opts.BlockHash,
 		"stateRoot", proofWithHeader.Opts.StateRoot,
