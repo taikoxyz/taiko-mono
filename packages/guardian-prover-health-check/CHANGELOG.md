@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.2.0](https://github.com/taikoxyz/taiko-mono/compare/guardian-prover-health-check-v0.1.0...guardian-prover-health-check-v0.2.0) (2024-08-09)
+
+
+### Features
+
+* **guardian-prover-health-check:** add indexes ([#17245](https://github.com/taikoxyz/taiko-mono/issues/17245)) ([15e9c13](https://github.com/taikoxyz/taiko-mono/commit/15e9c1339509f15589012baa94c227c2415cdaaa))
+* **guardian-prover-health-check:** add prover address to healthcheck endpoint ([#17246](https://github.com/taikoxyz/taiko-mono/issues/17246)) ([cc718b8](https://github.com/taikoxyz/taiko-mono/commit/cc718b89d0986808930007bacb2ebdff65009f37))
+* **relayer:** bindings updates for relayer, gp, eventindexer ([#17312](https://github.com/taikoxyz/taiko-mono/issues/17312)) ([3830805](https://github.com/taikoxyz/taiko-mono/commit/38308054e3debf698d789f4886da4f312b6a359e))
+* **relayer:** check event status one more time before sending call ([#17120](https://github.com/taikoxyz/taiko-mono/issues/17120)) ([6ef421a](https://github.com/taikoxyz/taiko-mono/commit/6ef421a00c48f10faafa3034467ce0d8838cecd0))
+
+
+### Bug Fixes
+
+* **eventindexer:** add some startup logs ([#17276](https://github.com/taikoxyz/taiko-mono/issues/17276)) ([c170497](https://github.com/taikoxyz/taiko-mono/commit/c170497d05732a862d7191fc9ffa0be918dd4078))
+* **guardian-prover-health-check:** upgrades relate Database operation ([#17752](https://github.com/taikoxyz/taiko-mono/issues/17752)) ([c7b8b72](https://github.com/taikoxyz/taiko-mono/commit/c7b8b72463b813f7eb20ba18143a3ba26e42e830))
+
+
+### Build
+
+* **guardian-prover-health-check:** upgrade scripts and ignore abi json files ([#17751](https://github.com/taikoxyz/taiko-mono/issues/17751)) ([a569cd3](https://github.com/taikoxyz/taiko-mono/commit/a569cd316f77e1653cb2bbedabe388b3f7fc5a6c))
+
 ## [0.12.0](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.11.0...relayer-v0.12.0) (2023-10-18)
 
 
