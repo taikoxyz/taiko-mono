@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/taikoxyz/taiko-mono/compare/ui-lib-v1.0.0...ui-lib-v1.1.0) (2024-08-09)
+
+
+### Features
+
+* **ui-lib:** export responsive-controller component ([#17370](https://github.com/taikoxyz/taiko-mono/issues/17370)) ([1867d39](https://github.com/taikoxyz/taiko-mono/commit/1867d39760b8c5ec0687d104013888b18b9c98ec))
+
 ## 1.0.0 (2024-05-25)
 
 ### Features
