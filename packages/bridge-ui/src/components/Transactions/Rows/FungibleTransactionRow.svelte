@@ -7,9 +7,7 @@
   import { DesktopDetailsDialog } from '$components/Transactions/Dialogs';
   import type { BridgeTransaction, MessageStatus } from '$libs/bridge';
   import { getMessageStatusForMsgHash } from '$libs/bridge/getMessageStatusForMsgHash';
-  import { type NFT, TokenType } from '$libs/token';
-  import { fetchNFTImageUrl } from '$libs/token/fetchNFTImageUrl';
-  import { mapTransactionHashToNFT } from '$libs/token/mapTransactionHashToNFT';
+  import { TokenType } from '$libs/token';
   import { classNames } from '$libs/util/classNames';
   import { formatTimestamp } from '$libs/util/formatTimestamp';
   import { geBlockTimestamp } from '$libs/util/getBlockTimestamp';
@@ -31,8 +29,6 @@
   let mobileDetailsOpen = false;
   let desktopDetailsOpen = false;
 
-  let token: NFT;
-
   let timestamp: string;
   const getDate = async () => {
     const blockTimestamp = await geBlockTimestamp(bridgeTx.srcChainId, hexToBigInt(bridgeTx.blockNumber));
@@ -51,22 +47,6 @@
 
   const handleInsufficientFunds = () => {
     insufficientModal = true;
-  };
-
-  const analyzeTransactionInput = async (): Promise<void> => {
-    loading = true;
-    try {
-      token = await mapTransactionHashToNFT({
-        hash: bridgeTx.srcTxHash,
-        srcChainId: Number(bridgeTx.srcChainId),
-        type: bridgeTx.tokenType,
-      });
-      token = await fetchNFTImageUrl(token);
-      await getDate();
-    } catch (error) {
-      console.error(error);
-    }
-    loading = false;
   };
 
   async function handleClaimingDone() {
@@ -101,10 +81,6 @@
 
   // get tx timestamp
   $: $account.isConnected && getDate();
-
-  $: $account.isConnected && isNFT && analyzeTransactionInput();
-
-  $: isNFT = bridgeTx.tokenType === TokenType.ERC721 || bridgeTx.tokenType === TokenType.ERC1155;
 
   // Modal states
   $: claimModalOpen = false;

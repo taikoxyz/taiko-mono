@@ -21,7 +21,7 @@
   const onAccountChange = async (newAccount: Account, oldAccount?: Account) => {
     // We want to make sure that we are connected and only
     // fetch if the account has changed
-    if (newAccount.address && newAccount.address !== oldAccount?.address) {
+    if (newAccount && newAccount.address && newAccount.address !== oldAccount?.address) {
       reset();
     }
   };
@@ -81,6 +81,8 @@
   <div class="f-col space-y-[35px]">
     <span class="mt-[30px]">{$t('relayer_component.step1.title')}</span>
 
+    {transactions?.length}
+    {transactionsToShow?.length}
     <AddressInput
       labelText={$t('relayer_component.address_input_label')}
       isDisabled={inputDisabled}

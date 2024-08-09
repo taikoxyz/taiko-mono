@@ -158,13 +158,17 @@
     </div>
 
     <div class={`${columnClasses} items-center`}>
-      <img src={imgUrl} alt="NFT" class="w-[40px] h-[40px] rounded-[10px]" />
+      {#if loading}
+        <Spinner class="size-[24px]" />
+      {:else}
+        <img src={imgUrl} alt="NFT" class="w-[46px] h-[46px] rounded-[10px]" />
+      {/if}
     </div>
 
     <!-- Desktop-->
   {:else if $isDesktop}
     <div class={`${columnClasses} !justify-start  gap-[10px]`}>
-      <img src={imgUrl} alt="NFT" class="w-[40px] h-[40px] rounded-[10px]" />
+      <img src={imgUrl} alt="NFT" class="w-[46px] h-[46px] rounded-[10px]" />
       <div class="f-col items-start">
         <span>{token?.name ? truncateString(token?.name, 8) : $t('common.not_available_short')}</span>
         <span class="text-secondary-content text-sm">#{token?.tokenId}</span>
