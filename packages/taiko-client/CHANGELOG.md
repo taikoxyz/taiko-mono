@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.30.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.29.0...taiko-client-v0.30.0) (2024-08-09)
+
+
+### Features
+
+* **protocol:** introduce `AssembleAnchorV2Tx` method in `AnchorTxConstructor` ([#17850](https://github.com/taikoxyz/taiko-mono/issues/17850)) ([f71b178](https://github.com/taikoxyz/taiko-mono/commit/f71b1780eb98ff3cbbcf7def4388837f33e3fe37))
+* **protocol:** introduce risc0 proof ([#17877](https://github.com/taikoxyz/taiko-mono/issues/17877)) ([bcb57cb](https://github.com/taikoxyz/taiko-mono/commit/bcb57cb81d12d0c09656582ad9140b38015b3a58))
+* **taiko-client:** client changes for `ontake` fork ([#17746](https://github.com/taikoxyz/taiko-mono/issues/17746)) ([2aabf3d](https://github.com/taikoxyz/taiko-mono/commit/2aabf3de3456ce8cbd56d15be336d08445b9f242))
+* **taiko-client:** client updates based on [#17871](https://github.com/taikoxyz/taiko-mono/issues/17871) ([#17873](https://github.com/taikoxyz/taiko-mono/issues/17873)) ([dbed3ab](https://github.com/taikoxyz/taiko-mono/commit/dbed3aba3d7f49f982f6335b79f5d5b096f890a3))
+* **taiko-client:** introduce `BasefeeSharingPctg` in `BlockMetadata` ([#17853](https://github.com/taikoxyz/taiko-mono/issues/17853)) ([5f2d696](https://github.com/taikoxyz/taiko-mono/commit/5f2d6961b9d077e47f34bf7f5d1fbffaf380bde1))
+* **taiko-client:** remove `basefeeSharingPctg` from metadata ([#17890](https://github.com/taikoxyz/taiko-mono/issues/17890)) ([57c8f6f](https://github.com/taikoxyz/taiko-mono/commit/57c8f6f3a8f920bab8fecd75bfa36a6b71ef808d))
+* **taiko-client:** update `BlockParamsV2` struct ([#17893](https://github.com/taikoxyz/taiko-mono/issues/17893)) ([a1043a8](https://github.com/taikoxyz/taiko-mono/commit/a1043a85631892e0b03e0f9f4bb850d4e9a70967))
+* **taiko-client:** update Go contract bindings ([#17869](https://github.com/taikoxyz/taiko-mono/issues/17869)) ([d9bd72b](https://github.com/taikoxyz/taiko-mono/commit/d9bd72b76aa0bed4ccfe834053f6561a53e1367d))
+* **taiko-client:** update Go contract bindings ([#17885](https://github.com/taikoxyz/taiko-mono/issues/17885)) ([3179074](https://github.com/taikoxyz/taiko-mono/commit/31790747cfc743b218d5a3568b9d70b64df5a86c))
+* **taiko-client:** update ontake basefee calculation ([#17892](https://github.com/taikoxyz/taiko-mono/issues/17892)) ([6972dea](https://github.com/taikoxyz/taiko-mono/commit/6972dea313edbc9a30617d2f7aea2dfc9230c432))
+
+
+### Bug Fixes
+
+* **taiko-client:** avoid seting nil value to `GuardianProverHeartbeater` ([#17802](https://github.com/taikoxyz/taiko-mono/issues/17802)) ([4076324](https://github.com/taikoxyz/taiko-mono/commit/40763241b5f2960f019d6be7e1040c65765f938a))
+
+
+### Code Refactoring
+
+* **taiko-client:** rm unused `L1_NODE_HTTP_ENDPOINT` ([#17768](https://github.com/taikoxyz/taiko-mono/issues/17768)) ([73c7aee](https://github.com/taikoxyz/taiko-mono/commit/73c7aeeffaffbf875af84e8be595af828877be2b))
+
 ## [0.29.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.28.0...taiko-client-v0.29.0) (2024-07-05)
 
 
