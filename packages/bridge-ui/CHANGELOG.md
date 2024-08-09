@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.12.1](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.12.0...bridge-ui-v2.12.1) (2024-08-09)
+
+
+### Bug Fixes
+
+* **bridge-ui:** balance visually not updating correctly when switching chains ([#17832](https://github.com/taikoxyz/taiko-mono/issues/17832)) ([f495e40](https://github.com/taikoxyz/taiko-mono/commit/f495e406633fc9349e8d3a125c463c0be1e15b66))
+* **bridge-ui:** increase pagesize ([#17886](https://github.com/taikoxyz/taiko-mono/issues/17886)) ([9e38a33](https://github.com/taikoxyz/taiko-mono/commit/9e38a33cd361dc6bd2e2e77a8017151eb08400f3))
+
 ## [2.12.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.11.0...bridge-ui-v2.12.0) (2024-07-18)
 
 
