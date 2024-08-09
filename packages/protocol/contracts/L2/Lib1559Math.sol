@@ -61,8 +61,15 @@ library Lib1559Math {
         int256 lnRatio = FixedPointMathLib.lnWad(int256(ratio)); // may be negative
 
         uint256 newGasExcess;
+
         assembly {
-            newGasExcess := sdiv(add(mul(lnRatio, _newGasTarget), mul(ratio, _gasExcess)), f)
+            // x = (_newGasTarget * lnRatio + _gasExcess * ratio)
+            let x := add(mul(_newGasTarget, lnRatio), mul(_gasExcess, ratio))
+
+            // If x < 0, set newGasExcess to 0, otherwise calculate newGasExcess = x / f
+            switch slt(x, 0)
+            case 1 { newGasExcess := 0 }
+            default { newGasExcess := div(x, f) }
         }
 
         return uint64(newGasExcess.min(type(uint64).max));
