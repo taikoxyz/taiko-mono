@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.11.8](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.11.7...docs-site-v1.11.8) (2024-08-08)
+
+
+### Documentation
+
+* **docs-site:** add more node troubleshooting ([#17872](https://github.com/taikoxyz/taiko-mono/issues/17872)) ([9c31ffc](https://github.com/taikoxyz/taiko-mono/commit/9c31ffc58b36a07286606e8e289504f49301d4df))
+
 ## [1.11.7](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.11.6...docs-site-v1.11.7) (2024-07-20)
 
 
