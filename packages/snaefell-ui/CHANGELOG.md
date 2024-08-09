@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/taikoxyz/taiko-mono/compare/snaefell-ui-v1.1.0...snaefell-ui-v1.1.1) (2024-08-09)
+
+
+### Bug Fixes
+
+* **nfts:** snaefell-ui terms acceptance button visible in mobile ([#17645](https://github.com/taikoxyz/taiko-mono/issues/17645)) ([31175b8](https://github.com/taikoxyz/taiko-mono/commit/31175b8f2783eeebceb6acebc73b111c22206a88))
+
 ## [1.1.0](https://github.com/taikoxyz/taiko-mono/compare/snaefell-ui-v1.0.0...snaefell-ui-v1.1.0) (2024-06-18)
 
 
