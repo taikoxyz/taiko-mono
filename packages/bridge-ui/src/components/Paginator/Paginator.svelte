@@ -28,7 +28,7 @@
     }
   }
 
-  const btnClass = 'btn btn-xs btn-ghost';
+  const btnClass = 'btn btn-xs btn-ghost disabled:bg-transparent disabled:cursor-not-allowed';
 
   // Computed flags for first and last page
   $: isFirstPage = currentPage === 1;
@@ -38,14 +38,13 @@
 {#if totalPages > 1}
   <!-- Show pagination buttons if needed -->
   <div class="pagination btn-group pt-4">
-    {#if !isFirstPage}
-      <!-- Button to go to previous page -->
-      <button class={btnClass} on:click={() => goToPage(currentPage - 1)}> <Icon type="chevron-left" /></button>
-    {/if}
+    <!-- Button to go to previous page -->
+    <button disabled={isFirstPage} class={btnClass} on:click={() => goToPage(currentPage - 1)}>
+      <Icon type="chevron-left" /></button>
     {$t('paginator.page')}
     <input
       type="number"
-      class="form-control mx-1 text-center rounded-md py-1 px-8"
+      class="form-control mx-1 text-center rounded-full bg-neutral-background border-none py-1 px-8"
       bind:value={currentPage}
       min={1}
       max={totalPages}
@@ -54,9 +53,8 @@
     {$t('paginator.of')}
     {totalPages}
     <!-- Button to go to next page -->
-    {#if !isLastPage}
-      <button class={btnClass} on:click={() => goToPage(currentPage + 1)}><Icon type="chevron-right" /></button>
-    {/if}
+    <button disabled={isLastPage} class={btnClass} on:click={() => goToPage(currentPage + 1)}
+      ><Icon type="chevron-right" /></button>
   </div>
 {/if}
 

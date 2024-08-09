@@ -82,7 +82,7 @@
 
   $: txDestChainName = getChainName(Number(tx.destChainId));
 
-  $: correctChain = Number(tx.destChainId) === $connectedSourceChain.id;
+  $: correctChain = Number(tx.destChainId) === $connectedSourceChain?.id;
 
   $: successFullPreChecks = correctChain && hasEnoughEth && hasEnoughQuota;
 

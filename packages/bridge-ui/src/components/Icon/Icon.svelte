@@ -18,6 +18,7 @@
     | 'check-circle'
     | 'info-circle'
     | 'plus-circle'
+    | 'status-circle'
     | 'circle'
     | 'arrow-right'
     | 'arrow-left'
@@ -163,6 +164,17 @@
       fill-rule="evenodd"
       clip-rule="evenodd"
       d="m10,1.98C5.57,1.98,1.98,5.57,1.98,10s3.59,8.02,8.02,8.02,8.02-3.59,8.02-8.02S14.43,1.98,10,1.98Zm.62,5.55c0-.34-.28-.62-.62-.62s-.62.28-.62.62v1.85h-1.85c-.34,0-.62.28-.62.62s.28.62.62.62h1.85v1.85c0,.34.28.62.62.62s.62-.28.62-.62v-1.85h1.85c.34,0,.62-.28.62-.62s-.28-.62-.62-.62h-1.85v-1.85Z" />
+  {:else if type === 'status-circle'}
+    <circle
+      fill-rule="evenodd"
+      clip-rule="evenodd"
+      class={fillClass}
+      opacity="0.2"
+      cx="10"
+      cy="10"
+      r="10"
+      fill="none" />
+    <circle fill-rule="evenodd" clip-rule="evenodd" class={fillClass} cx="10" cy="10" r="5" fill="none" />
   {:else if type === 'circle'}
     <circle class={fillClass} cx="10" cy="10" r="6" />
   {:else if type === 'arrow-right'}

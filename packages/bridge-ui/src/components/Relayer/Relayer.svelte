@@ -6,8 +6,9 @@
   import ActionButton from '$components/Button/ActionButton.svelte';
   import Card from '$components/Card/Card.svelte';
   import OnAccount from '$components/OnAccount/OnAccount.svelte';
-  import Transaction from '$components/Transactions/Transaction.svelte';
+  import { FungibleTransactionRow, NftTransactionRow } from '$components/Transactions/Rows';
   import { type BridgeTransaction, fetchTransactions, MessageStatus } from '$libs/bridge';
+  import { TokenType } from '$libs/token';
   import { getLogger } from '$libs/util/logger';
   import { type Account, account } from '$stores/account';
 
@@ -20,7 +21,7 @@
   const onAccountChange = async (newAccount: Account, oldAccount?: Account) => {
     // We want to make sure that we are connected and only
     // fetch if the account has changed
-    if (newAccount.address && newAccount.address !== oldAccount?.address) {
+    if (newAccount && newAccount.address && newAccount.address !== oldAccount?.address) {
       reset();
     }
   };
@@ -80,6 +81,8 @@
   <div class="f-col space-y-[35px]">
     <span class="mt-[30px]">{$t('relayer_component.step1.title')}</span>
 
+    {transactions?.length}
+    {transactionsToShow?.length}
     <AddressInput
       labelText={$t('relayer_component.address_input_label')}
       isDisabled={inputDisabled}
@@ -101,10 +104,16 @@
       <div class="h-sep" />
     {/if}
   </div>
-  {#each transactionsToShow as tx}
-    {#if tx.status === MessageStatus.NEW}
-      <Transaction item={tx} {handleTransactionRemoved} bind:bridgeTxStatus={tx.status} />
+
+  {#each transactionsToShow as bridgeTx (bridgeTx.srcTxHash)}
+    {@const status = bridgeTx.msgStatus}
+    {@const isFungible = bridgeTx.tokenType === TokenType.ERC20 || bridgeTx.tokenType === TokenType.ETH}
+    {#if isFungible}
+      <FungibleTransactionRow bind:bridgeTx {handleTransactionRemoved} bridgeTxStatus={status} />
+    {:else}
+      <NftTransactionRow bind:bridgeTx {handleTransactionRemoved} bridgeTxStatus={status} />
     {/if}
+    <div class="h-sep !my-0 display-inline" />
   {/each}
 </Card>
 
