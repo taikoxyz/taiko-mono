@@ -22,7 +22,7 @@ var (
 		BasefeeAdjustmentQuotient: 8,
 		BasefeeSharingPctg:        75,
 		GasIssuancePerSecond:      5_000_000,
-		OntakeForkHeight:          374_400,
+		OntakeForkHeight:          20,
 	}
 	HeklaProtocolConfig = &bindings.TaikoDataConfig{
 		ChainId:                   params.HeklaNetworkID.Uint64(),

@@ -62,4 +62,23 @@ contract TestLib1559Math is TaikoTest {
             assertEq(baselineBasefee, basefee);
         }
     }
+
+    function test_change_of_quotient_and_gips2() public {
+        uint64 excess = 1;
+        uint64 target = 60_000_000 * 8;
+        uint256 unit = 10_000_000; // 0.01 gwei
+
+        // uint 0.01 gwei
+        uint256 baselineBasefee = Lib1559Math.basefee(excess, target) / unit;
+        console2.log("baseline basefee: ", baselineBasefee);
+
+        console2.log("maintain basefee when target changes");
+        uint64 newTarget = 5_000_000 * 8;
+        uint64 newExcess = Lib1559Math.adjustExcess(excess, target, newTarget);
+        uint256 basefee = Lib1559Math.basefee(newExcess, newTarget) / unit;
+        console2.log("old gas excess: ", excess);
+        console2.log("new gas excess: ", newExcess);
+        console2.log("basefee: ", basefee);
+        assertEq(baselineBasefee, basefee);
+    }
 }

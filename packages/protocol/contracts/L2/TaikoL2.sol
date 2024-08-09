@@ -86,7 +86,8 @@ contract TaikoL2 is EssentialContract {
 
         if (block.number == 0) {
             // This is the case in real L2 genesis
-        } else if (block.number == 1) {
+        }
+        else if (block.number == 1) {
             // This is the case in tests
             uint256 parentHeight = block.number - 1;
             l2Hashes[parentHeight] = blockhash(parentHeight);
@@ -246,7 +247,7 @@ contract TaikoL2 is EssentialContract {
     }
 
     function ontakeForkHeight() public pure virtual returns (uint64) {
-        return 0;
+        return 20;
     }
 
     /// @notice Calculates the basefee and the new gas excess value based on parent gas used and gas
