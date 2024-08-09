@@ -6,8 +6,9 @@
   import ActionButton from '$components/Button/ActionButton.svelte';
   import Card from '$components/Card/Card.svelte';
   import OnAccount from '$components/OnAccount/OnAccount.svelte';
-  import Transaction from '$components/Transactions/Transaction.svelte';
+  import { FungibleTransactionRow, NftTransactionRow } from '$components/Transactions/Rows';
   import { type BridgeTransaction, fetchTransactions, MessageStatus } from '$libs/bridge';
+  import { TokenType } from '$libs/token';
   import { getLogger } from '$libs/util/logger';
   import { type Account, account } from '$stores/account';
 
@@ -101,10 +102,16 @@
       <div class="h-sep" />
     {/if}
   </div>
-  {#each transactionsToShow as tx}
-    {#if tx.status === MessageStatus.NEW}
-      <Transaction item={tx} {handleTransactionRemoved} bind:bridgeTxStatus={tx.status} />
+
+  {#each transactionsToShow as bridgeTx (bridgeTx.srcTxHash)}
+    {@const status = bridgeTx.msgStatus}
+    {@const isFungible = bridgeTx.tokenType === TokenType.ERC20 || bridgeTx.tokenType === TokenType.ETH}
+    {#if isFungible}
+      <FungibleTransactionRow bind:bridgeTx {handleTransactionRemoved} bridgeTxStatus={status} />
+    {:else}
+      <NftTransactionRow bind:bridgeTx {handleTransactionRemoved} bridgeTxStatus={status} />
     {/if}
+    <div class="h-sep !my-0 display-inline" />
   {/each}
 </Card>
 

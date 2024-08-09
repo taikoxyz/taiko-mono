@@ -8,14 +8,16 @@
   import { ThemeButton } from '$components/ThemeButton';
   import { account } from '$stores/account';
 
-  $: isBridgePage = $page.route.id === '/' || $page.route.id === '/nft';
-  $: isTransactionsPage = $page.route.id === '/transactions';
-
   export let sideBarOpen = false;
 
   const handleSideBarOpen = () => {
     sideBarOpen = !sideBarOpen;
   };
+
+  $: flipped = sideBarOpen;
+
+  $: isBridgePage = $page.route.id === '/' || $page.route.id === '/nft';
+  $: isTransactionsPage = $page.route.id === '/transactions';
 </script>
 
 <header
@@ -26,22 +28,20 @@
     z-30
     px-4
     py-[20px]
-    border-b
-    border-b-divider-border
+
     glassy-background
     bg-grey-5/10
     dark:bg-grey-900/10
-    md:border-b-0
-    md:px-10
-    md:py-7
+    lg:px-10
+    lg:py-7
  ">
   <div class="flex justify-between items-center w-full">
-    <div class="md:w-[226px] w-auto">
+    <div class="lg:w-[226px] w-auto">
       <LogoWithText class="md:w-[125px] w-[77px]" />
     </div>
 
     {#if isBridgePage || isTransactionsPage}
-      <BridgeTabs class="hidden md:flex md:flex-1" />
+      <BridgeTabs class="hidden lg:flex md:flex-1" />
     {/if}
     <div class="f-row">
       <ConnectButton connected={$account?.isConnected} class="justify-self-end" />
@@ -51,15 +51,14 @@
       </div>
     </div>
   </div>
-
   <label for={drawerToggleId} class="ml-[10px] lg:hidden">
-    <!-- <Icon type="bars-menu" /> -->
     <IconFlipper
       type="swap-rotate"
       iconType1="bars-menu"
       iconType2="x-close"
       selectedDefault="bars-menu"
       class="w-9 h-9 rounded-full"
+      bind:flipped
       on:labelclick={handleSideBarOpen} />
   </label>
 </header>

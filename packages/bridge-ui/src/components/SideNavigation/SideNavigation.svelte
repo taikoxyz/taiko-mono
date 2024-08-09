@@ -21,19 +21,14 @@
 
   let testnetName = PUBLIC_TESTNET_NAME || '';
   let drawerToggleElem: HTMLInputElement;
-  export let sideBarOpen = false;
+
+  export let sideBarOpen: boolean;
 
   function closeDrawer() {
     if (!drawerToggleElem) return;
     drawerToggleElem.checked = false;
+    sideBarOpen = false;
   }
-
-  $: sideBarOpen ? closeDrawer() : openDrawer();
-
-  const openDrawer = () => {
-    if (!drawerToggleElem) return;
-    drawerToggleElem.checked = true;
-  };
 
   function onMenuKeydown(event: KeyboardEvent) {
     if (event.key === 'Escape' || event.key === 'Enter') {
@@ -50,13 +45,13 @@
   $: isTransactionsPage = $page.route.id === '/transactions';
 </script>
 
-<div class=" drawer md:drawer-open">
+<div class=" drawer lg:drawer-open">
   <input id={drawerToggleId} type="checkbox" class="drawer-toggle" bind:this={drawerToggleElem} />
   <div class="drawer-content relative f-col w-full">
     <slot />
   </div>
 
-  <div class="drawer-side z-20 pt-[81px] md:pt-[20px] h-full">
+  <div class="drawer-side z-20 pt-[81px] lg:pt-[20px] h-full">
     <label for={drawerToggleId} class="drawer-overlay" />
 
     <!--
@@ -68,13 +63,13 @@
         class="
         h-full
         px-[20px]
-        md:mt-0
-        md:px-4
-        md:w-[226px]
+        lg:mt-0
+        lg:px-4
+        lg:w-[226px]
       ">
-        <div class="hidden md:inline-block"></div>
+        <div class="hidden lg:inline-block"></div>
         <div role="button" tabindex="0" on:click={closeDrawer} on:keypress={closeDrawer}>
-          <BridgeTabs class="md:hidden flex flex-1 mb-[40px] mt-[20px]" on:click={closeDrawer} />
+          <BridgeTabs class="lg:hidden flex flex-1 mb-[40px] mt-[20px]" on:click={closeDrawer} />
         </div>
         <div role="button" tabindex="0" on:click={closeDrawer} on:keydown={onMenuKeydown}>
           <ul class="menu p-0 space-y-2">
@@ -93,7 +88,7 @@
               </li>
             {/if}
             <li>
-              <LinkButton href="/transactions" active={isTransactionsPage}>
+              <LinkButton href="/transactions" active={isTransactionsPage} on:click={closeDrawer}>
                 <Icon type="transactions" fillClass={getIconFillClass(isTransactionsPage)} />
                 <span>{$t('nav.transactions')}</span>
               </LinkButton>
@@ -126,7 +121,7 @@
         </div>
         <ul class="">
           <li>
-            <div class="p-3 rounded-full flex md:hidden justify-start content-center">
+            <div class="p-3 rounded-full flex lg:hidden justify-start content-center">
               <Icon type="settings" />
               <div class="flex justify-between w-full pl-[6px]">
                 <span class="text-base">{$t('nav.theme')}</span>

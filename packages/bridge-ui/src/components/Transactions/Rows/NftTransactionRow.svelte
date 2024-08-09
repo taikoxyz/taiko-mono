@@ -1,6 +1,6 @@
 <script lang="ts">
   import { t } from 'svelte-i18n';
-  import { formatEther, formatUnits, hexToBigInt } from 'viem';
+  import { hexToBigInt } from 'viem';
 
   import { ClaimDialog, ReleaseDialog, RetryDialog } from '$components/Dialogs';
   import { Spinner } from '$components/Spinner';
@@ -15,6 +15,7 @@
   import { geBlockTimestamp } from '$libs/util/getBlockTimestamp';
   import { isDesktop, isMobile, isTablet } from '$libs/util/responsiveCheck';
   import { shortenAddress } from '$libs/util/shortenAddress';
+  import { truncateString } from '$libs/util/truncateString';
   import { account } from '$stores/account';
 
   import ChainSymbol from '../ChainSymbol.svelte';
@@ -27,10 +28,10 @@
   export let handleTransactionRemoved: (event: CustomEvent) => void;
   export let bridgeTxStatus: Maybe<MessageStatus>;
 
+  const placeholderUrl = '/placeholder.svg';
   let insufficientModal = false;
   let mobileDetailsOpen = false;
   let desktopDetailsOpen = false;
-
   let token: NFT;
 
   let timestamp: string;
@@ -135,6 +136,8 @@
   $: mobileColumnClasses = classNames(commonColumnClasses, 'w-1/3 justify-center f-col text-sm space-y-[10px]');
 
   $: columnClasses = $isDesktop ? desktopColumnClasses : $isTablet ? tabletColumnClasses : mobileColumnClasses;
+
+  $: imgUrl = token?.metadata?.image || placeholderUrl;
 </script>
 
 <!-- svelte-ignore a11y-no-static-element-interactions -->
@@ -154,8 +157,20 @@
       </div>
     </div>
 
-    <!-- Desktop -->
-  {:else if $isDesktop || $isTablet}
+    <div class={`${columnClasses} items-center`}>
+      <img src={imgUrl} alt="NFT" class="w-[40px] h-[40px] rounded-[10px]" />
+    </div>
+
+    <!-- Desktop-->
+  {:else if $isDesktop}
+    <div class={`${columnClasses} !justify-start  gap-[10px]`}>
+      <img src={imgUrl} alt="NFT" class="w-[40px] h-[40px] rounded-[10px]" />
+      <div class="f-col items-start">
+        <span>{token?.name ? truncateString(token?.name, 8) : $t('common.not_available_short')}</span>
+        <span class="text-secondary-content text-sm">#{token?.tokenId}</span>
+      </div>
+    </div>
+
     <div class={`${columnClasses}`}>
       <ChainSymbol class="min-w-[24px]" chainId={bridgeTx.srcChainId} />
       {shortenAddress(bridgeTx.message?.from)}
@@ -164,16 +179,21 @@
       <ChainSymbol class="min-w-[24px]" chainId={bridgeTx.destChainId} />
       {shortenAddress(bridgeTx.message?.to)}
     </div>
-  {/if}
+    <!-- Tablet -->
+  {:else if $isTablet}
+    <div class={`${columnClasses} items-center`}>
+      <img src={imgUrl} alt="NFT" class="w-[40px] h-[40px] rounded-[10px]" />
+    </div>
 
-  <div class={`${columnClasses} items-center`}>
-    {#if bridgeTx.tokenType === TokenType.ERC20}
-      {formatUnits(bridgeTx.amount ? bridgeTx.amount : BigInt(0), bridgeTx.decimals ?? 0)}
-    {:else if bridgeTx.tokenType === TokenType.ETH}
-      {formatEther(bridgeTx.amount ? bridgeTx.amount : BigInt(0))}
-    {/if}
-    {bridgeTx.symbol}
-  </div>
+    <div class={`${columnClasses}`}>
+      <ChainSymbol class="min-w-[24px]" chainId={bridgeTx.srcChainId} />
+      {shortenAddress(bridgeTx.message?.from, 5, 1)}
+    </div>
+    <div class={`${columnClasses} `}>
+      <ChainSymbol class="min-w-[24px]" chainId={bridgeTx.destChainId} />
+      {shortenAddress(bridgeTx.message?.to, 5, 1)}
+    </div>
+  {/if}
 
   <div class={`${columnClasses}`}>
     <Status
@@ -186,7 +206,7 @@
   </div>
 
   {#if $isDesktop}
-    <div class={`${columnClasses}  `}>
+    <div class={`${columnClasses} w-2/6 `}>
       {#if timestamp}
         {timestamp}
       {:else}
@@ -206,14 +226,14 @@
 
 <DesktopDetailsDialog
   detailsOpen={desktopDetailsOpen}
-  token={null}
+  {token}
   {closeDetails}
   {bridgeTx}
   on:insufficientFunds={handleInsufficientFunds} />
 
 <MobileDetailsDialog
   detailsOpen={mobileDetailsOpen}
-  token={null}
+  {token}
   {closeDetails}
   {bridgeTx}
   on:insufficientFunds={handleInsufficientFunds} />

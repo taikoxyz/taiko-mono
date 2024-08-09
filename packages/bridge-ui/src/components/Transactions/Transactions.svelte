@@ -3,7 +3,6 @@
   import { t } from 'svelte-i18n';
   import type { Address } from 'viem';
 
-  import { Alert } from '$components/Alert';
   import { activeBridge } from '$components/Bridge/state';
   import { destNetwork } from '$components/Bridge/state';
   import { BridgeTypes } from '$components/Bridge/types';
@@ -20,7 +19,6 @@
   import { Spinner } from '$components/Spinner';
   import StatusDot from '$components/StatusDot/StatusDot.svelte';
   import { transactionConfig } from '$config';
-  import { PUBLIC_SLOW_L1_BRIDGING_WARNING } from '$env/static/public';
   import { type BridgeTransaction, fetchTransactions, MessageStatus } from '$libs/bridge';
   import { chainIdToChain } from '$libs/chain';
   import { getAlternateNetwork } from '$libs/network';
@@ -31,7 +29,7 @@
   import type { Account } from '$stores/account';
 
   import { StatusFilterDialog, StatusFilterDropdown } from './Filter';
-  import { FungibleTransactionRow } from './Rows/';
+  import { FungibleTransactionRow, NftTransactionRow } from './Rows/';
   import { StatusInfoDialog } from './Status';
 
   let transactions: BridgeTransaction[] = [];
@@ -49,8 +47,6 @@
   let isDesktopOrLarger: boolean;
 
   let selectedStatus: MessageStatus | null = null; // null indicates no filter is applied
-
-  let slowL1Warning = PUBLIC_SLOW_L1_BRIDGING_WARNING || false;
 
   let menuOpen = false;
 
@@ -121,14 +117,14 @@
 
   $: transactionsToShow = getTransactionsToShow(currentPage, pageSize, tokenAndStatusFilteredTransactions);
 
-  $: fungibleDesktopView = isDesktopOrLarger && $activeBridge === BridgeTypes.FUNGIBLE;
-  $: nftDesktopView = isDesktopOrLarger && $activeBridge === BridgeTypes.NFT;
+  $: fungibleView = $activeBridge === BridgeTypes.FUNGIBLE;
+  $: nftView = $activeBridge === BridgeTypes.NFT;
 
   $: fungibleTokens = [TokenType.ERC20, TokenType.ETH];
   $: nftTokens = [TokenType.ERC721, TokenType.ERC1155];
   $: allTokens = [...fungibleTokens, ...nftTokens];
 
-  $: displayTokenTypesBasedOnType = fungibleDesktopView ? fungibleTokens : nftDesktopView ? nftTokens : allTokens;
+  $: displayTokenTypesBasedOnType = fungibleView ? fungibleTokens : nftView ? nftTokens : allTokens;
 
   $: filteredTransactions = transactions.filter((tx) => displayTokenTypesBasedOnType.includes(tx.tokenType));
 
@@ -145,8 +141,6 @@
   $: renderTransactions = !renderLoading && isConnected && hasTxs;
   $: renderNoTransactions = !renderLoading && transactionsToShow.length === 0;
 
-  $: displayL1Warning = slowL1Warning;
-
   onMount(() => {
     const alternateChainID = getAlternateNetwork();
     if (!$destNetwork && alternateChainID) {
@@ -159,7 +153,7 @@
 <div class="flex flex-col justify-center w-full">
   <Card title={$t('transactions.title')} text={$t('transactions.description')}>
     <div class="space-y-[35px]">
-      {#if isDesktopOrLarger}
+      {#if $isDesktop}
         <div class="my-[30px] f-between-center max-h-[36px] gap-2">
           <ChainSelector
             type={ChainSelectorType.SMALL}
@@ -202,11 +196,6 @@
         </div>
       {/if}
 
-      {#if displayL1Warning}
-        <div class="!mt-0 !mb-[-30px] !">
-          <Alert class="text-left" type="warning">{$t('bridge.alerts.slow_bridging')}</Alert>
-        </div>
-      {/if}
       <div
         class="flex flex-col"
         style={`min-height: calc(${transactionsToShow.length} * ${isDesktopOrLarger ? '80px' : '66px'});`}>
@@ -244,23 +233,33 @@
             {/if}
           {:else if $activeBridge === BridgeTypes.NFT}
             {#if $isDesktop}
-              <div class="w-3/12 content-center py-2 text-secondary-content">{$t('transactions.header.item')}</div>
-              <div class="w-2/12 content-center py-2 text-secondary-content">{$t('transactions.header.from')}</div>
-              <div class="w-2/12 content-center py-2 text-secondary-content">{$t('transactions.header.to')}</div>
-              <div class="w-1/12 content-center py-2 text-secondary-content">{$t('transactions.header.amount')}</div>
-              <div class="w-2/12 py-2 text-secondary-content flex flex-row">
+              <div class="w-1/6 py-2 text-secondary-content">{$t('transactions.header.nft')}</div>
+              <div class="w-1/6 py-2 text-secondary-content">{$t('transactions.header.from')}</div>
+              <div class="w-1/6 py-2 text-secondary-content">{$t('transactions.header.to')}</div>
+              <div class="w-1/6 py-2 text-secondary-content flex flex-row">
                 {$t('transactions.header.status')}
                 <StatusInfoDialog />
               </div>
-              <div class="grow py-2 text-secondary-content flex justify-center">
-                {$t('transactions.header.date')}
+              <div class="w-1/6 py-2 text-secondary-content">{$t('transactions.header.date')}</div>
+              <div class="w-1/6 py-2 text-secondary-content"></div>
+            {:else if $isTablet}
+              <div class="w-1/4 py-2 text-secondary-content">{$t('transactions.header.nft')}</div>
+              <div class="w-1/4 py-2 text-secondary-content">{$t('transactions.header.from')}</div>
+              <div class="w-1/4 py-2 text-secondary-content">{$t('transactions.header.to')}</div>
+
+              <div class="w-1/4 py-2 text-secondary-content flex flex-row">
+                {$t('transactions.header.status')}
+                <StatusInfoDialog />
               </div>
             {:else}
-              <div class="w-1/3 text-left pl-[24px] py-2 text-secondary-content">
+              <div class="w-1/3 text-left pl-[11px] text-secondary-content">
                 {$t('transactions.header.details')}
               </div>
-              <div class="w-1/3 text-center py-2 text-secondary-content">{$t('transactions.header.amount')}</div>
-              <div class="w-1/3 text-center py-2 text-secondary-content">{$t('transactions.header.status')}</div>
+              <div class="w-1/3 text-center text-secondary-content">{$t('transactions.header.nft')}</div>
+              <div class="w-1/3 pr-[14px] f-row items-center justify-end text-secondary-content">
+                {$t('transactions.header.status')}
+                <StatusInfoDialog />
+              </div>
             {/if}
           {/if}
         </div>
@@ -282,7 +281,7 @@
               {#if isFungible}
                 <FungibleTransactionRow bind:bridgeTx {handleTransactionRemoved} bridgeTxStatus={status} />
               {:else}
-                NFT TODO
+                <NftTransactionRow bind:bridgeTx {handleTransactionRemoved} bridgeTxStatus={status} />
               {/if}
               <div class="h-sep !my-0 display-inline" />
             {/each}
@@ -298,7 +297,7 @@
     </div>
   </Card>
 
-  <div class="flex justify-end pb-5">
+  <div class="flex justify-center lg:justify-end pb-5">
     <Paginator {pageSize} {totalItems} on:pageChange={({ detail }) => handlePageChange(detail)} />
   </div>
 
