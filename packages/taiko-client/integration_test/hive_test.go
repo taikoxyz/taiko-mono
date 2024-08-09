@@ -22,6 +22,10 @@ func TestHiveHandler(t *testing.T) {
 			"taiko2/geth",
 			"taiko2/prysm-bn",
 			"taiko2/prysm-vc",
+			"taiko2/taiko-geth",
+			"taiko2/driver",
+			"taiko2/proposer",
+			"taiko2/prover",
 		},
 	})
 	assert.NoError(t, err)
