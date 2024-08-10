@@ -10,16 +10,20 @@ import { type BridgeTransaction, MessageStatus } from './types';
 const log = getLogger('bridge:fetchTransactions');
 let error: Error;
 
-export async function fetchTransactions(userAddress: Address) {
+export async function fetchTransactions(userAddress: Address, chainId?: number) {
   // Transactions from local storage
   const localTxs: BridgeTransaction[] = await bridgeTxService.getAllTxByAddress(userAddress);
 
   // Get all transactions from all relayers
   const relayerTxPromises: Promise<BridgeTransaction[]>[] = relayerApiServices.map(async (relayerApiService) => {
-    const { txs } = await relayerApiService.getAllBridgeTransactionByAddress(userAddress, {
-      page: 0,
-      size: 100,
-    });
+    const { txs } = await relayerApiService.getAllBridgeTransactionByAddress(
+      userAddress,
+      {
+        page: 0,
+        size: 500,
+      },
+      chainId,
+    );
     log(`fetched ${txs?.length ?? 0} transactions from relayer`, txs);
     return txs;
   });

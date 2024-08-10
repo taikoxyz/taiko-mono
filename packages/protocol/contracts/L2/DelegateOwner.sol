@@ -38,9 +38,9 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     /// @param txId The transaction ID.
     /// @param target The target address.
     /// @param isDelegateCall True if the call is a `delegatecall`.
-    /// @param selector The function selector.
+    /// @param txdata The transaction data.
     event MessageInvoked(
-        uint64 indexed txId, address indexed target, bool isDelegateCall, bytes4 indexed selector
+        uint64 indexed txId, address indexed target, bool isDelegateCall, bytes txdata
     );
 
     /// @notice Emitted when the admin has been changed.
@@ -64,11 +64,11 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     /// @param _remoteOwner The real owner on L1 that can send a cross-chain message to invoke
     /// `onMessageInvocation`.
     /// @param _remoteChainId The L1 chain's ID.
-    /// @param _addressManager The address of the {AddressManager} contract.
+    /// @param _sharedAddressManager The address of the {AddressManager} contract.
     /// @param _admin The admin address.
     function init(
         address _remoteOwner,
-        address _addressManager,
+        address _sharedAddressManager,
         uint64 _remoteChainId,
         address _admin
     )
@@ -76,7 +76,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         initializer
     {
         // This contract's owner will be itself.
-        __Essential_init(address(this), _addressManager);
+        __Essential_init(address(this), _sharedAddressManager);
 
         if (_remoteOwner == address(0) || _remoteChainId == 0 || _remoteChainId == block.chainid) {
             revert DO_INVALID_PARAM();
@@ -123,7 +123,13 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     function _invokeCall(bytes calldata _data, bool _verifyTxId) private {
         Call memory call = abi.decode(_data, (Call));
 
-        if (_verifyTxId && call.txId != nextTxId++) revert DO_INVALID_TX_ID();
+        if (call.txId == 0) {
+            call.txId = nextTxId;
+        } else if (_verifyTxId && call.txId != nextTxId) {
+            revert DO_INVALID_TX_ID();
+        }
+
+        nextTxId += 1;
 
         // By design, the target must be a contract address if the txdata is not empty
         if (call.txdata.length != 0 && !Address.isContract(call.target)) revert DO_INVALID_TARGET();
@@ -133,7 +139,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
             : call.target.call{ value: msg.value }(call.txdata);
 
         if (!success) LibBytes.revertWithExtractedError(result);
-        emit MessageInvoked(call.txId, call.target, call.isDelegateCall, bytes4(call.txdata));
+        emit MessageInvoked(call.txId, call.target, call.isDelegateCall, call.txdata);
     }
 
     function _isAdminOrRemoteOwner(address _sender) private view returns (bool) {

@@ -40,6 +40,5 @@ terraform.rc
 
 .idea
 
-Bridge.json
-TaikoL2.json
-IHeaderSync.json
+# Ignore abi files
+bindings/**/*.json

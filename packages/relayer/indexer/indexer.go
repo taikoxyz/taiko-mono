@@ -2,7 +2,6 @@ package indexer
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"log/slog"
 	"math/big"
@@ -17,6 +16,9 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/urfave/cli/v2"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/signalservice"
@@ -24,9 +26,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
-	"github.com/urfave/cli/v2"
-	"golang.org/x/sync/errgroup"
-	"gorm.io/gorm"
 )
 
 var (
@@ -72,12 +71,6 @@ type ethClient interface {
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 	SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error)
 	TransactionByHash(ctx context.Context, txHash common.Hash) (*types.Transaction, bool, error)
-}
-
-// DB is a local interface that lets us narrow down a database type for testing.
-type DB interface {
-	DB() (*sql.DB, error)
-	GormDB() *gorm.DB
 }
 
 // Indexer is the main struct of this package, containing all dependencies necessary for indexing
@@ -259,6 +252,11 @@ func (i *Indexer) Name() string {
 // context is stopped externally by cmd/main.go shutdown.
 func (i *Indexer) Close(ctx context.Context) {
 	i.wg.Wait()
+
+	// Close db connection.
+	if err := i.eventRepo.Close(); err != nil {
+		slog.Error("Failed to close db connection", "err", err)
+	}
 }
 
 // Start starts the indexer, which should initialize the queue, add to wait groups,
@@ -474,7 +472,7 @@ func (i *Indexer) indexMessageSentEvents(ctx context.Context,
 }
 
 func (i *Indexer) checkReorg(ctx context.Context, emittedInBlockNumber uint64) error {
-	n, err := i.eventRepo.FindLatestBlockID(i.eventName, i.srcChainId.Uint64(), i.destChainId.Uint64())
+	n, err := i.eventRepo.FindLatestBlockID(ctx, i.eventName, i.srcChainId.Uint64(), i.destChainId.Uint64())
 	if err != nil {
 		return err
 	}

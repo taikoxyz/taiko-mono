@@ -33,20 +33,10 @@ var (
 // ensureGenesisMatched fetches the L2 genesis block from TaikoL1 contract,
 // and checks whether the fetched genesis is same to the node local genesis.
 func (c *Client) ensureGenesisMatched(ctx context.Context) error {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	stateVars, err := c.GetProtocolStateVariables(&bind.CallOpts{Context: ctxWithTimeout})
-	if err != nil {
-		return err
-	}
-
-	// Fetch the genesis `BlockVerified` event.
-	iter, err := c.TaikoL1.FilterBlockVerified(
-		&bind.FilterOpts{Start: stateVars.A.GenesisHeight, End: &stateVars.A.GenesisHeight, Context: ctxWithTimeout},
-		[]*big.Int{common.Big0},
-		nil,
-	)
 	if err != nil {
 		return err
 	}
@@ -57,24 +47,53 @@ func (c *Client) ensureGenesisMatched(ctx context.Context) error {
 		return err
 	}
 
-	if iter.Next() {
-		l2GenesisHash := iter.Event.BlockHash
+	var (
+		l2GenesisHash common.Hash
+		filterOpts    = &bind.FilterOpts{
+			Start:   stateVars.A.GenesisHeight,
+			End:     &stateVars.A.GenesisHeight,
+			Context: ctxWithTimeout,
+		}
+	)
 
-		log.Debug("Genesis hash", "node", nodeGenesis.Hash(), "TaikoL1", common.BytesToHash(l2GenesisHash[:]))
-
-		// Node's genesis header and TaikoL1 contract's genesis header must match.
-		if common.BytesToHash(l2GenesisHash[:]) != nodeGenesis.Hash() {
-			return fmt.Errorf(
-				"genesis header hash mismatch, node: %s, TaikoL1 contract: %s",
-				nodeGenesis.Hash(),
-				common.BytesToHash(l2GenesisHash[:]),
-			)
+	// If chain actives ontake fork from genesis, we need to fetch the genesis block hash from `BlockVerifiedV2` event.
+	if encoding.GetProtocolConfig(c.L2.ChainID.Uint64()).OntakeForkHeight == 0 {
+		// Fetch the genesis `BlockVerified2` event.
+		iter, err := c.TaikoL1.FilterBlockVerifiedV2(filterOpts, []*big.Int{common.Big0}, nil)
+		if err != nil {
+			return err
 		}
 
+		if iter.Next() {
+			l2GenesisHash = iter.Event.BlockHash
+		}
+	} else {
+		// Fetch the genesis `BlockVerified` event.
+		iter, err := c.TaikoL1.FilterBlockVerified(filterOpts, []*big.Int{common.Big0}, nil)
+		if err != nil {
+			return err
+		}
+
+		if iter.Next() {
+			l2GenesisHash = iter.Event.BlockHash
+		}
+	}
+
+	log.Debug("Genesis hash", "node", nodeGenesis.Hash(), "TaikoL1", common.BytesToHash(l2GenesisHash[:]))
+
+	if l2GenesisHash == (common.Hash{}) {
+		log.Warn("Genesis block not found in TaikoL1")
 		return nil
 	}
 
-	log.Warn("Genesis block not found in TaikoL1")
+	// Node's genesis header and TaikoL1 contract's genesis header must match.
+	if common.BytesToHash(l2GenesisHash[:]) != nodeGenesis.Hash() {
+		return fmt.Errorf(
+			"genesis header hash mismatch, node: %s, TaikoL1 contract: %s",
+			nodeGenesis.Hash(),
+			common.BytesToHash(l2GenesisHash[:]),
+		)
+	}
 
 	return nil
 }
@@ -113,7 +132,7 @@ func (c *Client) WaitTillL2ExecutionEngineSynced(ctx context.Context) error {
 // LatestL2KnownL1Header fetches the L2 execution engine's latest known L1 header,
 // if we can't find the L1Origin data, we will use the L1 genesis header instead.
 func (c *Client) LatestL2KnownL1Header(ctx context.Context) (*types.Header, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	// Try to fetch the latest known L1 header from the L2 execution engine.
@@ -150,7 +169,7 @@ func (c *Client) LatestL2KnownL1Header(ctx context.Context) (*types.Header, erro
 
 // GetGenesisL1Header fetches the L1 header that including L2 genesis block.
 func (c *Client) GetGenesisL1Header(ctx context.Context) (*types.Header, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	stateVars, err := c.GetProtocolStateVariables(&bind.CallOpts{Context: ctxWithTimeout})
@@ -164,7 +183,7 @@ func (c *Client) GetGenesisL1Header(ctx context.Context) (*types.Header, error) 
 // L2ParentByBlockID fetches the block header from L2 execution engine with the largest block id that
 // smaller than the given `blockId`.
 func (c *Client) L2ParentByBlockID(ctx context.Context, blockID *big.Int) (*types.Header, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	var (
@@ -255,8 +274,9 @@ func (c *Client) GetPoolContent(
 	maxBytesPerTxList uint64,
 	locals []common.Address,
 	maxTransactionsLists uint64,
+	minTip uint64,
 ) ([]*miner.PreBuiltTxList, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	l1Head, err := c.L1.HeaderByNumber(ctx, nil)
@@ -285,7 +305,7 @@ func (c *Client) GetPoolContent(
 		localsArg = append(localsArg, local.Hex())
 	}
 
-	return c.L2Engine.TxPoolContent(
+	return c.L2Engine.TxPoolContentWithMinTip(
 		ctxWithTimeout,
 		beneficiary,
 		baseFeeInfo.Basefee,
@@ -293,6 +313,7 @@ func (c *Client) GetPoolContent(
 		maxBytesPerTxList,
 		localsArg,
 		maxTransactionsLists,
+		minTip,
 	)
 }
 
@@ -302,7 +323,7 @@ func (c *Client) L2AccountNonce(
 	account common.Address,
 	height *big.Int,
 ) (uint64, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	var result hexutil.Uint64
@@ -333,7 +354,7 @@ func (p *L2SyncProgress) isSyncing() bool {
 
 // L2ExecutionEngineSyncProgress fetches the sync progress of the given L2 execution engine.
 func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProgress, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	var (
@@ -400,7 +421,7 @@ func (c *Client) GetProtocolStateVariables(opts *bind.CallOpts) (*struct {
 
 // GetL2BlockInfo fetches the L2 block information from the protocol.
 func (c *Client) GetL2BlockInfo(ctx context.Context, blockID *big.Int) (bindings.TaikoDataBlock, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	return c.TaikoL1.GetBlock(&bind.CallOpts{Context: ctxWithTimeout}, blockID.Uint64())
@@ -412,7 +433,7 @@ func (c *Client) GetTransition(
 	blockID *big.Int,
 	transactionID uint32,
 ) (bindings.TaikoDataTransitionState, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	return c.TaikoL1.GetTransition(
@@ -444,7 +465,7 @@ type ReorgCheckResult struct {
 func (c *Client) CheckL1Reorg(ctx context.Context, blockID *big.Int) (*ReorgCheckResult, error) {
 	var (
 		result                 = new(ReorgCheckResult)
-		ctxWithTimeout, cancel = ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+		ctxWithTimeout, cancel = CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	)
 	defer cancel()
 
@@ -552,7 +573,7 @@ func (c *Client) checkSyncedL1SnippetFromAnchor(
 		return false, err
 	}
 
-	l1BlockHash, l1StateRoot, l1HeightInAnchor, parentGasUsed, err := c.getSyncedL1SnippetFromAnchor(
+	l1StateRoot, l1HeightInAnchor, parentGasUsed, err := c.getSyncedL1SnippetFromAnchor(
 		block.Transactions()[0],
 	)
 	if err != nil {
@@ -584,16 +605,6 @@ func (c *Client) checkSyncedL1SnippetFromAnchor(
 		return false, err
 	}
 
-	if l1Header.Hash() != l1BlockHash {
-		log.Info(
-			"Reorg detected due to L1 block hash mismatch",
-			"blockID", blockID,
-			"l1BlockHashInAnchor", l1BlockHash,
-			"l1BlockHash", l1Header.Hash(),
-		)
-		return true, nil
-	}
-
 	if l1Header.Root != l1StateRoot {
 		log.Info(
 			"Reorg detected due to L1 state root mismatch",
@@ -611,7 +622,6 @@ func (c *Client) checkSyncedL1SnippetFromAnchor(
 func (c *Client) getSyncedL1SnippetFromAnchor(
 	tx *types.Transaction,
 ) (
-	l1BlockHash common.Hash,
 	l1StateRoot common.Hash,
 	l1Height uint64,
 	parentGasUsed uint32,
@@ -619,53 +629,75 @@ func (c *Client) getSyncedL1SnippetFromAnchor(
 ) {
 	method, err := encoding.TaikoL2ABI.MethodById(tx.Data())
 	if err != nil {
-		return common.Hash{}, common.Hash{}, 0, 0, err
+		return common.Hash{}, 0, 0, err
 	}
 
-	if method.Name != "anchor" {
-		return common.Hash{}, common.Hash{}, 0, 0, fmt.Errorf("invalid method name for anchor transaction: %s", method.Name)
+	var ok bool
+	switch method.Name {
+	case "anchor":
+		args := map[string]interface{}{}
+
+		if err := method.Inputs.UnpackIntoMap(args, tx.Data()[4:]); err != nil {
+			return common.Hash{}, 0, 0, err
+		}
+
+		l1StateRoot, ok = args["_l1StateRoot"].([32]byte)
+		if !ok {
+			return common.Hash{},
+				0,
+				0,
+				errors.New("failed to parse l1StateRoot from anchor transaction calldata")
+		}
+		l1Height, ok = args["_l1BlockId"].(uint64)
+		if !ok {
+			return common.Hash{},
+				0,
+				0,
+				errors.New("failed to parse l1Height from anchor transaction calldata")
+		}
+		parentGasUsed, ok = args["_parentGasUsed"].(uint32)
+		if !ok {
+			return common.Hash{},
+				0,
+				0,
+				errors.New("failed to parse parentGasUsed from anchor transaction calldata")
+		}
+	case "anchorV2":
+		args := map[string]interface{}{}
+
+		if err := method.Inputs.UnpackIntoMap(args, tx.Data()[4:]); err != nil {
+			return common.Hash{}, 0, 0, err
+		}
+
+		l1Height, ok = args["_anchorBlockId"].(uint64)
+		if !ok {
+			return common.Hash{},
+				0,
+				0,
+				errors.New("failed to parse anchorBlockId from anchorV2 transaction calldata")
+		}
+		l1StateRoot, ok = args["_anchorStateRoot"].([32]byte)
+		if !ok {
+			return common.Hash{},
+				0,
+				0,
+				errors.New("failed to parse anchorStateRoot from anchorV2 transaction calldata")
+		}
+		parentGasUsed, ok = args["_parentGasUsed"].(uint32)
+		if !ok {
+			return common.Hash{},
+				0,
+				0,
+				errors.New("failed to parse parentGasUsed from anchorV2 transaction calldata")
+		}
+	default:
+		return common.Hash{}, 0, 0, fmt.Errorf(
+			"invalid method name for anchor / anchorV2 transaction: %s",
+			method.Name,
+		)
 	}
 
-	args := map[string]interface{}{}
-
-	if err := method.Inputs.UnpackIntoMap(args, tx.Data()[4:]); err != nil {
-		return common.Hash{}, common.Hash{}, 0, 0, err
-	}
-
-	l1BlockHash, ok := args["_l1BlockHash"].([32]byte)
-	if !ok {
-		return common.Hash{},
-			common.Hash{},
-			0,
-			0,
-			errors.New("failed to parse l1BlockHash from anchor transaction calldata")
-	}
-	l1StateRoot, ok = args["_l1StateRoot"].([32]byte)
-	if !ok {
-		return common.Hash{},
-			common.Hash{},
-			0,
-			0,
-			errors.New("failed to parse l1StateRoot from anchor transaction calldata")
-	}
-	l1Height, ok = args["_l1BlockId"].(uint64)
-	if !ok {
-		return common.Hash{},
-			common.Hash{},
-			0,
-			0,
-			errors.New("failed to parse l1Height from anchor transaction calldata")
-	}
-	parentGasUsed, ok = args["_parentGasUsed"].(uint32)
-	if !ok {
-		return common.Hash{},
-			common.Hash{},
-			0,
-			0,
-			errors.New("failed to parse parentGasUsed from anchor transaction calldata")
-	}
-
-	return l1BlockHash, l1StateRoot, l1Height, parentGasUsed, nil
+	return l1StateRoot, l1Height, parentGasUsed, nil
 }
 
 // TierProviderTierWithID wraps protocol ITierProviderTier struct with an ID.
@@ -676,7 +708,7 @@ type TierProviderTierWithID struct {
 
 // GetTiers fetches all protocol supported tiers.
 func (c *Client) GetTiers(ctx context.Context) ([]*TierProviderTierWithID, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	tierRouterAddress, err := c.TaikoL1.Resolve0(&bind.CallOpts{Context: ctx}, StringToBytes32("tier_router"), false)
@@ -737,7 +769,7 @@ func (c *Client) GetTaikoDataSlotBByNumber(ctx context.Context, number uint64) (
 
 // GetGuardianProverAddress fetches the guardian prover address from the protocol.
 func (c *Client) GetGuardianProverAddress(ctx context.Context) (common.Address, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	return c.TaikoL1.Resolve0(&bind.CallOpts{Context: ctxWithTimeout}, StringToBytes32("tier_guardian"), false)
@@ -749,7 +781,7 @@ func (c *Client) WaitL1NewPendingTransaction(
 	address common.Address,
 	oldPendingNonce uint64,
 ) error {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	ticker := time.NewTicker(rpcPollingInterval)

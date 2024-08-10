@@ -7,8 +7,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 )
 
 // OptimisticProofProducer always returns an optimistic (dummy) proof.
@@ -19,18 +19,25 @@ func (o *OptimisticProofProducer) RequestProof(
 	_ context.Context,
 	opts *ProofRequestOptions,
 	blockID *big.Int,
-	meta *bindings.TaikoDataBlockMetadata,
+	meta metadata.TaikoBlockMetaData,
 	header *types.Header,
 ) (*ProofWithHeader, error) {
 	log.Info(
 		"Request optimistic proof",
 		"blockID", blockID,
-		"coinbase", meta.Coinbase,
+		"coinbase", meta.GetCoinbase(),
 		"height", header.Number,
 		"hash", header.Hash(),
 	)
 
 	return o.DummyProofProducer.RequestProof(opts, blockID, meta, header, o.Tier())
+}
+
+func (o *OptimisticProofProducer) RequestCancel(
+	_ context.Context,
+	_ *ProofRequestOptions,
+) error {
+	return nil
 }
 
 // Tier implements the ProofProducer interface.

@@ -5,11 +5,10 @@
   import { Icon } from '$components/Icon';
   import { PUBLIC_GUIDE_URL } from '$env/static/public';
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
-  import { uid } from '$libs/util/uid';
 
   export let modalOpen = false;
 
-  let dialogId = `dialog-${uid()}`;
+  let dialogId = `dialog-${crypto.randomUUID()}`;
 
   function closeModal() {
     modalOpen = false;

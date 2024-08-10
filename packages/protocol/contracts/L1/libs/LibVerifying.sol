@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 import "../../signal/ISignalService.sol";
+import "./LibBonds.sol";
 import "./LibUtils.sol";
 
 /// @title LibVerifying
@@ -15,19 +16,18 @@ library LibVerifying {
         uint64 blockId;
         uint64 slot;
         uint64 numBlocksVerified;
-        uint32 tid;
-        uint32 lastVerifiedTransitionId;
+        uint24 tid;
+        uint24 lastVerifiedTransitionId;
         uint16 tier;
         bytes32 blockHash;
         bytes32 syncStateRoot;
         uint64 syncBlockId;
-        uint32 syncTransitionId;
+        uint24 syncTransitionId;
         address prover;
+        bool postFork;
         ITierRouter tierRouter;
     }
 
-    // Warning: Any errors defined here must also be defined in TaikoErrors.sol.
-    error L1_BATCH_TRANSFER_FAILED();
     error L1_BLOCK_MISMATCH();
     error L1_INVALID_CONFIG();
     error L1_TRANSITION_ID_ZERO();
@@ -36,12 +36,11 @@ library LibVerifying {
     /// @dev Verifies up to N blocks.
     function verifyBlocks(
         TaikoData.State storage _state,
-        TaikoToken _tko,
         TaikoData.Config memory _config,
         IAddressResolver _resolver,
         uint64 _maxBlocksToVerify
     )
-        internal
+        public
     {
         if (_maxBlocksToVerify == 0) {
             return;
@@ -71,9 +70,6 @@ library LibVerifying {
         // - blockId and numBlocksVerified values incremented will still be OK in the
         // next 584K years if we verifying one block per every second
 
-        address[] memory provers = new address[](_maxBlocksToVerify);
-        uint256[] memory bonds = new uint256[](_maxBlocksToVerify);
-
         unchecked {
             ++local.blockId;
 
@@ -81,6 +77,7 @@ library LibVerifying {
                 local.blockId < local.b.numBlocks && local.numBlocksVerified < _maxBlocksToVerify
             ) {
                 local.slot = local.blockId % _config.blockRingBufferSize;
+                local.postFork = local.blockId >= _config.ontakeForkHeight;
 
                 blk = _state.blocks[local.slot];
                 if (blk.blockId != local.blockId) revert L1_BLOCK_MISMATCH();
@@ -122,8 +119,7 @@ library LibVerifying {
                 local.blockHash = ts.blockHash;
                 local.prover = ts.prover;
 
-                provers[local.numBlocksVerified] = local.prover;
-                bonds[local.numBlocksVerified] = ts.validityBond;
+                LibBonds.creditBond(_state, local.prover, ts.validityBond);
 
                 // Note: We exclusively address the bonds linked to the
                 // transition used for verification. While there may exist
@@ -132,13 +128,22 @@ library LibVerifying {
                 // either when the transitions are generated or proven. In such cases, both the
                 // provers and contesters of those transitions forfeit their bonds.
 
-                emit LibUtils.BlockVerified({
-                    blockId: local.blockId,
-                    prover: local.prover,
-                    blockHash: local.blockHash,
-                    stateRoot: 0, // DEPRECATED and is always zero.
-                    tier: local.tier
-                });
+                if (local.postFork) {
+                    emit LibUtils.BlockVerifiedV2({
+                        blockId: local.blockId,
+                        prover: local.prover,
+                        blockHash: local.blockHash,
+                        tier: local.tier
+                    });
+                } else {
+                    emit LibUtils.BlockVerified({
+                        blockId: local.blockId,
+                        prover: local.prover,
+                        blockHash: local.blockHash,
+                        stateRoot: 0, // DEPRECATED and is always zero.
+                        tier: local.tier
+                    });
+                }
 
                 if (LibUtils.shouldSyncStateRoot(_config.stateRootSyncInternal, local.blockId)) {
                     bytes32 stateRoot = ts.stateRoot;
@@ -159,14 +164,6 @@ library LibVerifying {
 
                 _state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
                 _state.blocks[local.slot].verifiedTransitionId = local.lastVerifiedTransitionId;
-
-                // Resize the provers and bonds array
-                uint256 newLen = local.numBlocksVerified;
-                assembly {
-                    mstore(provers, newLen)
-                    mstore(bonds, newLen)
-                }
-                if (!_tko.batchTransfer(provers, bonds)) revert L1_BATCH_TRANSFER_FAILED();
 
                 if (local.syncStateRoot != 0) {
                     _state.slotA.lastSyncedBlockId = local.syncBlockId;
@@ -189,5 +186,22 @@ library LibVerifying {
                 }
             }
         }
+    }
+
+    function getVerifiedBlockProver(
+        TaikoData.State storage _state,
+        TaikoData.Config memory _config,
+        uint64 _blockId
+    )
+        internal
+        view
+        returns (address)
+    {
+        (TaikoData.Block storage blk,) = LibUtils.getBlock(_state, _config, _blockId);
+
+        uint24 tid = blk.verifiedTransitionId;
+        if (tid == 0) return address(0);
+
+        return LibUtils.getTransition(_state, _config, _blockId, tid).prover;
     }
 }

@@ -3,7 +3,6 @@ package processor
 import (
 	"context"
 	"crypto/ecdsa"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,6 +14,8 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
+	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	txmgrMetrics "github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -23,10 +24,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/urfave/cli/v2"
-	"gorm.io/gorm"
 
-	"github.com/ethereum-optimism/optimism/op-service/txmgr"
-	txmgrMetrics "github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc1155vault"
@@ -40,11 +38,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
 )
-
-type DB interface {
-	DB() (*sql.DB, error)
-	GormDB() *gorm.DB
-}
 
 // ethClient is a slimmed down interface of a go-ethereum ethclient.Client
 // we can use for mocking and testing
@@ -390,6 +383,11 @@ func (p *Processor) Close(ctx context.Context) {
 	p.cancel()
 
 	p.wg.Wait()
+
+	// Close db connection.
+	if err := p.eventRepo.Close(); err != nil {
+		slog.Error("Failed to close db connection", "err", err)
+	}
 }
 
 func (p *Processor) Start() error {

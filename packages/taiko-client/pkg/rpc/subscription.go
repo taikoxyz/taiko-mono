@@ -46,15 +46,51 @@ func SubscribeBlockVerified(
 	})
 }
 
+// SubscribeBlockVerifiedV2 subscribes the protocol's BlockVerifiedV2 events.
+func SubscribeBlockVerifiedV2(
+	taikoL1 *bindings.TaikoL1Client,
+	ch chan *bindings.TaikoL1ClientBlockVerifiedV2,
+) event.Subscription {
+	return SubscribeEvent("BlockVerifiedV2", func(ctx context.Context) (event.Subscription, error) {
+		sub, err := taikoL1.WatchBlockVerifiedV2(nil, ch, nil, nil)
+		if err != nil {
+			log.Error("Create TaikoL1.BlockVerifiedV2 subscription error", "error", err)
+			return nil, err
+		}
+
+		defer sub.Unsubscribe()
+
+		return waitSubErr(ctx, sub)
+	})
+}
+
 // SubscribeBlockProposed subscribes the protocol's BlockProposed events.
 func SubscribeBlockProposed(
-	taikoL1 *bindings.TaikoL1Client,
-	ch chan *bindings.TaikoL1ClientBlockProposed,
+	libProposing *bindings.LibProposing,
+	ch chan *bindings.LibProposingBlockProposed,
 ) event.Subscription {
 	return SubscribeEvent("BlockProposed", func(ctx context.Context) (event.Subscription, error) {
-		sub, err := taikoL1.WatchBlockProposed(nil, ch, nil, nil)
+		sub, err := libProposing.WatchBlockProposed(nil, ch, nil, nil)
 		if err != nil {
 			log.Error("Create TaikoL1.BlockProposed subscription error", "error", err)
+			return nil, err
+		}
+
+		defer sub.Unsubscribe()
+
+		return waitSubErr(ctx, sub)
+	})
+}
+
+// SubscribeBlockProposedV2 subscribes the protocol's BlockProposedV2 events.
+func SubscribeBlockProposedV2(
+	libProposing *bindings.LibProposing,
+	ch chan *bindings.LibProposingBlockProposedV2,
+) event.Subscription {
+	return SubscribeEvent("BlockProposedV2", func(ctx context.Context) (event.Subscription, error) {
+		sub, err := libProposing.WatchBlockProposedV2(nil, ch, nil)
+		if err != nil {
+			log.Error("Create TaikoL1.BlockProposedV2 subscription error", "error", err)
 			return nil, err
 		}
 
@@ -82,6 +118,24 @@ func SubscribeTransitionProved(
 	})
 }
 
+// SubscribeTransitionProvedV2 subscribes the protocol's TransitionProvedV2 events.
+func SubscribeTransitionProvedV2(
+	taikoL1 *bindings.TaikoL1Client,
+	ch chan *bindings.TaikoL1ClientTransitionProvedV2,
+) event.Subscription {
+	return SubscribeEvent("TransitionProvedV2", func(ctx context.Context) (event.Subscription, error) {
+		sub, err := taikoL1.WatchTransitionProvedV2(nil, ch, nil)
+		if err != nil {
+			log.Error("Create TaikoL1.TransitionProvedV2 subscription error", "error", err)
+			return nil, err
+		}
+
+		defer sub.Unsubscribe()
+
+		return waitSubErr(ctx, sub)
+	})
+}
+
 // SubscribeTransitionContested subscribes the protocol's TransitionContested events.
 func SubscribeTransitionContested(
 	taikoL1 *bindings.TaikoL1Client,
@@ -91,6 +145,24 @@ func SubscribeTransitionContested(
 		sub, err := taikoL1.WatchTransitionContested(nil, ch, nil)
 		if err != nil {
 			log.Error("Create TaikoL1.TransitionContested subscription error", "error", err)
+			return nil, err
+		}
+
+		defer sub.Unsubscribe()
+
+		return waitSubErr(ctx, sub)
+	})
+}
+
+// SubscribeTransitionContestedV2 subscribes the protocol's TransitionContestedV2 events.
+func SubscribeTransitionContestedV2(
+	taikoL1 *bindings.TaikoL1Client,
+	ch chan *bindings.TaikoL1ClientTransitionContestedV2,
+) event.Subscription {
+	return SubscribeEvent("TransitionContestedV2", func(ctx context.Context) (event.Subscription, error) {
+		sub, err := taikoL1.WatchTransitionContestedV2(nil, ch, nil)
+		if err != nil {
+			log.Error("Create TaikoL1.TransitionContestedV2 subscription error", "error", err)
 			return nil, err
 		}
 

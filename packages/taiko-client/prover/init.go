@@ -108,10 +108,22 @@ func (p *Prover) initProofSubmitters(
 			producer = &proofProducer.OptimisticProofProducer{}
 		case encoding.TierSgxID:
 			producer = &proofProducer.SGXProofProducer{
-				RaikoHostEndpoint: p.cfg.RaikoHostEndpoint,
-				JWT:               p.cfg.RaikoJWT,
-				ProofType:         proofProducer.ProofTypeSgx,
-				Dummy:             p.cfg.Dummy,
+				RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
+				JWT:                 p.cfg.RaikoJWT,
+				ProofType:           proofProducer.ProofTypeSgx,
+				Dummy:               p.cfg.Dummy,
+				RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
+			}
+		case encoding.TierSgxAndZkVMID:
+			producer = &proofProducer.SgxAndZKvmProofProducer{
+				ZKProofType: proofProducer.ZKProofTypeR0,
+				SGX: proofProducer.SGXProofProducer{
+					RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
+					JWT:                 p.cfg.RaikoJWT,
+					ProofType:           proofProducer.ProofTypeSgx,
+					Dummy:               p.cfg.Dummy,
+					RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
+				},
 			}
 		case encoding.TierGuardianMinorityID:
 			producer = proofProducer.NewGuardianProofProducer(encoding.TierGuardianMinorityID, p.cfg.EnableLivenessBondProof)

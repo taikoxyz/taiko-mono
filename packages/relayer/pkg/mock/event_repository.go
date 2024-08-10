@@ -22,6 +22,11 @@ func NewEventRepository() *EventRepository {
 		events: make([]*relayer.Event, 0),
 	}
 }
+
+func (r *EventRepository) Close() error {
+	return nil
+}
+
 func (r *EventRepository) Save(ctx context.Context, opts *relayer.SaveEventOpts) (*relayer.Event, error) {
 	r.events = append(r.events, &relayer.Event{
 		ID:           rand.Int(), // nolint: gosec
@@ -205,6 +210,7 @@ func (r *EventRepository) DeleteAllAfterBlockID(blockID uint64, srcChainID uint6
 
 // GetLatestBlockID get latest block id
 func (r *EventRepository) FindLatestBlockID(
+	ctx context.Context,
 	event string,
 	srcChainID uint64,
 	destChainID uint64,

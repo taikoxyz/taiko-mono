@@ -2,7 +2,7 @@ package builder
 
 import (
 	"context"
-	"net/url"
+	"math/big"
 	"os"
 	"testing"
 
@@ -12,7 +12,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
-	selector "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/prover_selector"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 )
 
 type TransactionBuilderTestSuite struct {
@@ -24,45 +24,31 @@ type TransactionBuilderTestSuite struct {
 func (s *TransactionBuilderTestSuite) SetupTest() {
 	s.ClientTestSuite.SetupTest()
 
-	protocolConfigs, err := s.RPCClient.TaikoL1.GetConfig(nil)
-	s.Nil(err)
-
 	l1ProposerPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROPOSER_PRIVATE_KEY")))
 	s.Nil(err)
 
-	proverSelector, err := selector.NewETHFeeEOASelector(
-		&protocolConfigs,
-		s.RPCClient,
-		crypto.PubkeyToAddress(l1ProposerPrivKey.PublicKey),
-		common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
-		common.Address{},
-		[]encoding.TierFee{},
-		common.Big2,
-		[]*url.URL{s.ProverEndpoints[0]},
-		32,
-	)
-	s.Nil(err)
+	protocolConfig := encoding.GetProtocolConfig(s.RPCClient.L2.ChainID.Uint64())
+	chainConfig := config.NewChainConfig(s.RPCClient.L2.ChainID, new(big.Int).SetUint64(protocolConfig.OntakeForkHeight))
+
 	s.calldataTxBuilder = NewCalldataTransactionBuilder(
 		s.RPCClient,
 		l1ProposerPrivKey,
-		proverSelector,
-		common.Big0,
 		common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
 		common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
 		common.Address{},
 		0,
 		"test",
+		chainConfig,
 	)
 	s.blobTxBuiler = NewBlobTransactionBuilder(
 		s.RPCClient,
 		l1ProposerPrivKey,
-		proverSelector,
-		common.Big0,
 		common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
 		common.Address{},
 		common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
 		10_000_000,
 		"test",
+		chainConfig,
 	)
 }
 

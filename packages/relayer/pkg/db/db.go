@@ -13,6 +13,7 @@ var (
 	ErrNoDB = errors.Validation.NewWithKeyAndDetail("ERR_NO_DB", "no db")
 )
 
+// DB is a local interface that lets us narrow down a database type for testing.
 type DB interface {
 	DB() (*sql.DB, error)
 	GormDB() *gorm.DB

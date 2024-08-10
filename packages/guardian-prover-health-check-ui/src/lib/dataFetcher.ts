@@ -144,6 +144,9 @@ async function fetchGuardians() {
 			};
 
 			guardian.name = await getPseudonym(guardian.address);
+			if (!guardian.name) {
+				guardian.name = guardian.address;
+			}
 
 			const [status, uptime, balance] = await Promise.all([
 				fetchLatestGuardianProverHealthCheckFromApi(

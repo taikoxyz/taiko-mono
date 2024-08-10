@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
+	"golang.org/x/sync/errgroup"
 )
 
 // nolint: lll
@@ -30,14 +31,26 @@ func (i *Indexer) indexERC20Transfers(
 	chainID *big.Int,
 	logs []types.Log,
 ) error {
-	for _, vLog := range logs {
-		if !i.isERC20Transfer(ctx, vLog) {
-			continue
-		}
+	wg, ctx := errgroup.WithContext(ctx)
 
-		if err := i.saveERC20Transfer(ctx, chainID, vLog); err != nil {
-			return err
-		}
+	for _, vLog := range logs {
+		l := vLog
+
+		wg.Go(func() error {
+			if !i.isERC20Transfer(ctx, l) {
+				return nil
+			}
+
+			if err := i.saveERC20Transfer(ctx, chainID, l); err != nil {
+				return err
+			}
+
+			return nil
+		})
+	}
+
+	if err := wg.Wait(); err != nil {
+		return err
 	}
 
 	return nil
@@ -100,13 +113,27 @@ func (i *Indexer) saveERC20Transfer(ctx context.Context, chainID *big.Int, vLog 
 
 	var pk int = 0
 
-	md, err := i.erc20BalanceRepo.FindMetadata(ctx, chainID.Int64(), vLog.Address.Hex())
-	if err != nil {
-		return errors.Wrap(err, "i.erc20BalanceRepo")
+	i.contractToMetadataMutex.Lock()
+
+	md, ok := i.contractToMetadata[vLog.Address]
+
+	i.contractToMetadataMutex.Unlock()
+
+	if !ok {
+		md, err = i.erc20BalanceRepo.FindMetadata(ctx, chainID.Int64(), vLog.Address.Hex())
+		if err != nil {
+			return errors.Wrap(err, "i.erc20BalanceRepo")
+		}
 	}
 
 	if md != nil {
 		pk = md.ID
+
+		i.contractToMetadataMutex.Lock()
+
+		i.contractToMetadata[vLog.Address] = md
+
+		i.contractToMetadataMutex.Unlock()
 	}
 
 	if pk == 0 {
@@ -130,10 +157,6 @@ func (i *Indexer) saveERC20Transfer(ctx context.Context, chainID *big.Int, vLog 
 		if err != nil {
 			return errors.Wrap(err, "i.erc20BalanceRepo.CreateMetadata")
 		}
-
-		slog.Info("metadata created", "pk", pk, "symbol", symbol, "decimals", decimals, "contractAddress", vLog.Address.Hex())
-	} else {
-		slog.Info("metadata found", "pk", pk, "symbol", md.Symbol, "decimals", md.Decimals, "contractAddress", vLog.Address.Hex())
 	}
 
 	// increment To address's balance

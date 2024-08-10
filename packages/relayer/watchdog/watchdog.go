@@ -3,7 +3,6 @@ package watchdog
 import (
 	"context"
 	"crypto/ecdsa"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -14,6 +13,7 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	"github.com/cyberhorsey/errors"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	txmgrMetrics "github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -21,22 +21,14 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/urfave/cli/v2"
-	"gorm.io/gorm"
-
-	txmgrMetrics "github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
+	"github.com/urfave/cli/v2"
 )
-
-type DB interface {
-	DB() (*sql.DB, error)
-	GormDB() *gorm.DB
-}
 
 type ethClient interface {
 	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
@@ -210,6 +202,11 @@ func (w *Watchdog) Close(ctx context.Context) {
 	w.cancel()
 
 	w.wg.Wait()
+
+	// Close db connection.
+	if err := w.eventRepo.Close(); err != nil {
+		slog.Error("Failed to close db connection", "err", err)
+	}
 }
 
 func (w *Watchdog) Start() error {

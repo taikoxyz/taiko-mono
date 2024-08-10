@@ -22,7 +22,7 @@ You can see all the changes made in the `taiko-geth` fork at [geth.taiko.xyz](ht
 
 ## taiko-client
 
-The [taiko-client](https://github.com/taikoxyz/taiko-client) software replaces the consensus client piece of an Ethereum mainnet node. It connects to `taiko-geth`, and the compiled binary includes three sub-commands:
+The [taiko-client](https://github.com/taikoxyz/taiko-mono/tree/main/packages/taiko-client) software replaces the consensus client piece of an Ethereum mainnet node. It connects to `taiko-geth`, and the compiled binary includes three sub-commands:
 
 ### `driver`
 

@@ -28,6 +28,7 @@ type Client struct {
 	L1Beacon *BeaconClient
 	// Protocol contracts clients
 	TaikoL1                *bindings.TaikoL1Client
+	LibProposing           *bindings.LibProposing
 	TaikoL2                *bindings.TaikoL2Client
 	TaikoToken             *bindings.TaikoToken
 	GuardianProverMajority *bindings.GuardianProver
@@ -66,7 +67,7 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 
 	// Keep retrying to connect to the RPC endpoints until success or context is cancelled.
 	if err := backoff.Retry(func() error {
-		ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+		ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 		defer cancel()
 
 		if l1Client, err = NewEthClient(ctxWithTimeout, cfg.L1Endpoint, cfg.Timeout); err != nil {
@@ -100,10 +101,15 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 		return nil, err
 	}
 
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	taikoL1, err := bindings.NewTaikoL1Client(cfg.TaikoL1Address, l1Client)
+	if err != nil {
+		return nil, err
+	}
+
+	libProposing, err := bindings.NewLibProposing(cfg.TaikoL1Address, l1Client)
 	if err != nil {
 		return nil, err
 	}
@@ -157,6 +163,7 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 		L2CheckPoint:           l2CheckPoint,
 		L2Engine:               l2AuthClient,
 		TaikoL1:                taikoL1,
+		LibProposing:           libProposing,
 		TaikoL2:                taikoL2,
 		TaikoToken:             taikoToken,
 		GuardianProverMajority: guardianProverMajority,

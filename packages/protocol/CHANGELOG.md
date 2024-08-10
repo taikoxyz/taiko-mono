@@ -1,5 +1,48 @@
 # Changelog
 
+## [1.8.0](https://github.com/taikoxyz/taiko-mono/compare/protocol-v1.7.0...protocol-v1.8.0) (2024-07-11)
+
+
+### Features
+
+* **protocol:** allow TAIKO token bonds deposits and withdrawal ([#17725](https://github.com/taikoxyz/taiko-mono/issues/17725)) ([e505392](https://github.com/taikoxyz/taiko-mono/commit/e505392068084faa37b4b0d138ac79012256c692))
+* **protocol:** emit CalldataTxList when calldata is used for DA ([#17657](https://github.com/taikoxyz/taiko-mono/issues/17657)) ([f49aae8](https://github.com/taikoxyz/taiko-mono/commit/f49aae828e7c0695be359305c9d618977014c5af))
+* **protocol:** update `tier_router` address in `L1RollupAddressManager` ([#17717](https://github.com/taikoxyz/taiko-mono/issues/17717)) ([57c8dc0](https://github.com/taikoxyz/taiko-mono/commit/57c8dc0f0cae430b54d47b12939f1484d6c87184))
+
+
+### Bug Fixes
+
+* **protocol:** fix an issue in DelegateOwner then refactor the code ([#17633](https://github.com/taikoxyz/taiko-mono/issues/17633)) ([fbeb4e4](https://github.com/taikoxyz/taiko-mono/commit/fbeb4e49d0c183cc687a20b9b5ba7dae5af47d63))
+* **protocol:** revert Hekla ring buffer size changes ([#17779](https://github.com/taikoxyz/taiko-mono/issues/17779)) ([e18cb87](https://github.com/taikoxyz/taiko-mono/commit/e18cb8708b61ff1e0bdf2e99433328b1875b6a6c))
+* **protocol:** revert last change in TaikoToken.sol ([#17781](https://github.com/taikoxyz/taiko-mono/issues/17781)) ([7805fd3](https://github.com/taikoxyz/taiko-mono/commit/7805fd3a517beb0426848067fbe7f541b4ec6ed3))
+* **protocol:** use gasleft() in Bridge's retryMessage function ([#17708](https://github.com/taikoxyz/taiko-mono/issues/17708)) ([d86893c](https://github.com/taikoxyz/taiko-mono/commit/d86893cf0198a13f2710a701ea9c22e15c169de7))
+
+
+### Chores
+
+* **protocol:** check in data for the first token grant exercise ([#17707](https://github.com/taikoxyz/taiko-mono/issues/17707)) ([d2b00ce](https://github.com/taikoxyz/taiko-mono/commit/d2b00ce914076891c064fbbf280f363329c0f4cb))
+* **protocol:** give more slots for verified blocks in ring buffer ([#17762](https://github.com/taikoxyz/taiko-mono/issues/17762)) ([8d6d489](https://github.com/taikoxyz/taiko-mono/commit/8d6d489619996b2749147bebee60ef59d81ac040))
+
+
+### Documentation
+
+* **docs-site,protocol:** deploy proverset guide and scripts ([#17702](https://github.com/taikoxyz/taiko-mono/issues/17702)) ([a3e1cf7](https://github.com/taikoxyz/taiko-mono/commit/a3e1cf72bc4ad925d3652359a2f4d5fb466b79b0))
+* **docs-site,protocol:** streamline ProverSet deployment ([#17730](https://github.com/taikoxyz/taiko-mono/issues/17730)) ([919cb4c](https://github.com/taikoxyz/taiko-mono/commit/919cb4cd0064d1cfa994e53a30a73f98975cfe34))
+* **protocol:** add more token unlock contracts ([#17749](https://github.com/taikoxyz/taiko-mono/issues/17749)) ([8c8c7d2](https://github.com/taikoxyz/taiko-mono/commit/8c8c7d27501bdac99de055e9c9a032d60a20f75a))
+* **protocol:** deploy more token unlock contract ([#17763](https://github.com/taikoxyz/taiko-mono/issues/17763)) ([30631a9](https://github.com/taikoxyz/taiko-mono/commit/30631a97de10a61aef0938cbfb885af71c9f8dc1))
+* **protocol:** transfer Hekla ownerships ([#17766](https://github.com/taikoxyz/taiko-mono/issues/17766)) ([e524782](https://github.com/taikoxyz/taiko-mono/commit/e52478247806437f08af6324cf6097d384ada516))
+* **protocol:** update Hekla deployment ([#17646](https://github.com/taikoxyz/taiko-mono/issues/17646)) ([fc12586](https://github.com/taikoxyz/taiko-mono/commit/fc125862c6576ddcbce4d6b8b12161bd6882e304))
+* **protocol:** update Hekla deployment ([#17780](https://github.com/taikoxyz/taiko-mono/issues/17780)) ([b3331d3](https://github.com/taikoxyz/taiko-mono/commit/b3331d3fae73b6536a03ab94a42b03042b5c0676))
+* **protocol:** update L1 deployment ([#17736](https://github.com/taikoxyz/taiko-mono/issues/17736)) ([6fc318a](https://github.com/taikoxyz/taiko-mono/commit/6fc318afa044eb17d824b00d4d4a487eef2d15a0))
+* **protocol:** update L2 deployment ([#17689](https://github.com/taikoxyz/taiko-mono/issues/17689)) ([71eea3f](https://github.com/taikoxyz/taiko-mono/commit/71eea3ff4f4ba9fe7eab89c236cf0b4232294500))
+
+
+### Code Refactoring
+
+* **protocol:** delete duplicate event and error definition from TaikoL1 ([#17722](https://github.com/taikoxyz/taiko-mono/issues/17722)) ([0607b14](https://github.com/taikoxyz/taiko-mono/commit/0607b14f937b3e461ccc54a8ace21d545d2607e0))
+* **protocol:** refactor TaikoL1 contract ([#17678](https://github.com/taikoxyz/taiko-mono/issues/17678)) ([db6ccdf](https://github.com/taikoxyz/taiko-mono/commit/db6ccdfe0141452602ab79177d3c9aa7050ca46b))
+* **protocol:** remove unused tier fee in TaikoData ([#17741](https://github.com/taikoxyz/taiko-mono/issues/17741)) ([50abed1](https://github.com/taikoxyz/taiko-mono/commit/50abed1d3a543076cf334263904ba578e961dcd0))
+
 ## [1.7.0](https://github.com/taikoxyz/taiko-mono/compare/protocol-v1.6.0...protocol-v1.7.0) (2024-06-20)
 
 

@@ -35,13 +35,12 @@ contract TaikoL2 is EssentialContract {
 
     /// @notice The gas excess value used to calculate the base fee.
     /// @dev Slot 3.
-    uint64 public gasExcess;
+    uint64 public parentGasExcess;
 
     /// @notice The last synced L1 block height.
     uint64 public lastSyncedBlock;
-
-    uint64 private __deprecated1; // was parentTimestamp
-    uint64 private __deprecated2; // was __currentBlockTimestamp
+    uint64 public parentTimestamp;
+    uint64 public parentGasTarget;
 
     /// @notice The L1's chain ID.
     uint64 public l1ChainId;
@@ -50,10 +49,11 @@ contract TaikoL2 is EssentialContract {
 
     /// @notice Emitted when the latest L1 block details are anchored to L2.
     /// @param parentHash The hash of the parent block.
-    /// @param gasExcess The gas excess value used to calculate the base fee.
-    event Anchored(bytes32 parentHash, uint64 gasExcess);
+    /// @param parentGasExcess The gas excess value used to calculate the base fee.
+    event Anchored(bytes32 parentHash, uint64 parentGasExcess);
 
     error L2_BASEFEE_MISMATCH();
+    error L2_FORK_ERROR();
     error L2_INVALID_L1_CHAIN_ID();
     error L2_INVALID_L2_CHAIN_ID();
     error L2_INVALID_PARAM();
@@ -63,19 +63,19 @@ contract TaikoL2 is EssentialContract {
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _addressManager The address of the {AddressManager} contract.
+    /// @param _rollupAddressManager The address of the {AddressManager} contract.
     /// @param _l1ChainId The ID of the base layer.
-    /// @param _gasExcess The initial gasExcess.
+    /// @param _initialGasExcess The initial parentGasExcess.
     function init(
         address _owner,
-        address _addressManager,
+        address _rollupAddressManager,
         uint64 _l1ChainId,
-        uint64 _gasExcess
+        uint64 _initialGasExcess
     )
         external
         initializer
     {
-        __Essential_init(_owner, _addressManager);
+        __Essential_init(_owner, _rollupAddressManager);
 
         if (_l1ChainId == 0 || _l1ChainId == block.chainid) {
             revert L2_INVALID_L1_CHAIN_ID();
@@ -95,8 +95,19 @@ contract TaikoL2 is EssentialContract {
         }
 
         l1ChainId = _l1ChainId;
-        gasExcess = _gasExcess;
+        parentGasExcess = _initialGasExcess;
         (publicInputHash,) = _calcPublicInputHash(block.number);
+    }
+
+    /// @dev Reinitialize some state variables.
+    /// We may want to init the basefee to a default value using one of the following values.
+    /// - _initialGasExcess = 274*5_000_000 => basefee =0.01 gwei
+    /// - _initialGasExcess = 282*5_000_000 => basefee =0.05 gwei
+    /// - _initialGasExcess = 288*5_000_000 => basefee =0.1 gwei
+    function init2(uint64 _initialGasExcess) external onlyOwner reinitializer(2) {
+        parentGasExcess = _initialGasExcess;
+        parentTimestamp = uint64(block.timestamp);
+        parentGasTarget = 0;
     }
 
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
@@ -104,10 +115,9 @@ contract TaikoL2 is EssentialContract {
     /// @dev This function can be called freely as the golden touch private key is publicly known,
     /// but the Taiko node guarantees the first transaction of each block is always this anchor
     /// transaction, and any subsequent calls will revert with L2_PUBLIC_INPUT_HASH_MISMATCH.
-    /// @param _l1BlockHash The latest L1 block hash when this block was
-    /// proposed.
-    /// @param _l1StateRoot The latest L1 block's state root.
-    /// @param _l1BlockId The latest L1 block height when this block was proposed.
+    /// @param _l1BlockHash The `anchorBlockHash` value in this block's metadata.
+    /// @param _l1StateRoot The state root for the L1 block with id equals `_anchorBlockId`
+    /// @param _l1BlockId The `anchorBlockId` value in this block's metadata.
     /// @param _parentGasUsed The gas used in the parent block.
     function anchor(
         bytes32 _l1BlockHash,
@@ -118,50 +128,36 @@ contract TaikoL2 is EssentialContract {
         external
         nonReentrant
     {
-        if (
-            _l1BlockHash == 0 || _l1StateRoot == 0 || _l1BlockId == 0
-                || (block.number != 1 && _parentGasUsed == 0)
-        ) {
-            revert L2_INVALID_PARAM();
-        }
+        if (block.number >= ontakeForkHeight()) revert L2_FORK_ERROR();
 
-        if (msg.sender != GOLDEN_TOUCH_ADDRESS) revert L2_INVALID_SENDER();
+        LibL2Config.Config memory config = getConfig();
+        _anchor(
+            _l1BlockId,
+            _l1StateRoot,
+            _parentGasUsed,
+            config.gasTargetPerL1Block,
+            config.basefeeAdjustmentQuotient
+        );
+    }
 
-        uint256 parentId;
-        unchecked {
-            parentId = block.number - 1;
-        }
-
-        // Verify ancestor hashes
-        (bytes32 publicInputHashOld, bytes32 publicInputHashNew) = _calcPublicInputHash(parentId);
-        if (publicInputHash != publicInputHashOld) {
-            revert L2_PUBLIC_INPUT_HASH_MISMATCH();
-        }
-
-        // Verify the base fee per gas is correct
-        (uint256 _basefee, uint64 _gasExcess) = getBasefee(_l1BlockId, _parentGasUsed);
-
-        if (!skipFeeCheck() && block.basefee != _basefee) {
-            revert L2_BASEFEE_MISMATCH();
-        }
-
-        if (_l1BlockId > lastSyncedBlock) {
-            // Store the L1's state root as a signal to the local signal service to
-            // allow for multi-hop bridging.
-            ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).syncChainData(
-                l1ChainId, LibStrings.H_STATE_ROOT, _l1BlockId, _l1StateRoot
-            );
-
-            lastSyncedBlock = _l1BlockId;
-        }
-
-        // Update state variables
-        bytes32 _parentHash = blockhash(parentId);
-        l2Hashes[parentId] = _parentHash;
-        publicInputHash = publicInputHashNew;
-        gasExcess = _gasExcess;
-
-        emit Anchored(_parentHash, _gasExcess);
+    function anchorV2(
+        uint64 _anchorBlockId,
+        bytes32 _anchorStateRoot,
+        uint32 _parentGasUsed,
+        uint32 _gasIssuancePerSecond,
+        uint8 _basefeeAdjustmentQuotient
+    )
+        external
+        nonReentrant
+    {
+        if (block.number < ontakeForkHeight()) revert L2_FORK_ERROR();
+        _anchor(
+            _anchorBlockId,
+            _anchorStateRoot,
+            _parentGasUsed,
+            _gasIssuancePerSecond,
+            _basefeeAdjustmentQuotient
+        );
     }
 
     /// @notice Withdraw token or Ether from this address
@@ -186,26 +182,26 @@ contract TaikoL2 is EssentialContract {
 
     /// @notice Gets the basefee and gas excess using EIP-1559 configuration for
     /// the given parameters.
-    /// @param _l1BlockId The synced L1 height in the next Taiko block
+    /// @dev This function will deprecate after Ontake fork, node/client shall use calculateBaseFee
+    /// instead for base fee prediction.
+    /// @param _anchorBlockId The synced L1 height in the next Taiko block
     /// @param _parentGasUsed Gas used in the parent block.
     /// @return basefee_ The calculated EIP-1559 base fee per gas.
-    /// @return gasExcess_ The new gasExcess value.
+    /// @return parentGasExcess_ The new parentGasExcess value.
     function getBasefee(
-        uint64 _l1BlockId,
+        uint64 _anchorBlockId,
         uint32 _parentGasUsed
     )
         public
         view
-        returns (uint256 basefee_, uint64 gasExcess_)
+        returns (uint256 basefee_, uint64 parentGasExcess_)
     {
         LibL2Config.Config memory config = getConfig();
-        uint64 gasIssuance = uint64(_l1BlockId - lastSyncedBlock) * config.gasTargetPerL1Block;
 
-        (basefee_, gasExcess_) = Lib1559Math.calc1559BaseFee(
-            config.gasTargetPerL1Block,
-            config.basefeeAdjustmentQuotient,
-            gasExcess,
-            gasIssuance,
+        (basefee_, parentGasExcess_) = Lib1559Math.calc1559BaseFee(
+            uint256(config.gasTargetPerL1Block) * config.basefeeAdjustmentQuotient,
+            parentGasExcess,
+            uint64(_anchorBlockId - lastSyncedBlock) * config.gasTargetPerL1Block,
             _parentGasUsed
         );
     }
@@ -226,10 +222,127 @@ contract TaikoL2 is EssentialContract {
         return LibL2Config.get();
     }
 
+    /// @notice Returns the new gas excess that will keep the basefee the same.
+    /// @param _currGasExcess The current gas excess value.
+    /// @param _currGasTarget The current gas target.
+    /// @param _newGasTarget The new gas target.
+    /// @return newGasExcess_ The new gas excess value.
+    function adjustExcess(
+        uint64 _currGasExcess,
+        uint64 _currGasTarget,
+        uint64 _newGasTarget
+    )
+        public
+        pure
+        returns (uint64 newGasExcess_)
+    {
+        return Lib1559Math.adjustExcess(_currGasExcess, _currGasTarget, _newGasTarget);
+    }
+
     /// @notice Tells if we need to validate basefee (for simulation).
     /// @return Returns true to skip checking basefee mismatch.
     function skipFeeCheck() public pure virtual returns (bool) {
         return false;
+    }
+
+    function ontakeForkHeight() public pure virtual returns (uint64) {
+        return 0;
+    }
+
+    /// @notice Calculates the basefee and the new gas excess value based on parent gas used and gas
+    /// excess.
+    /// @param _gasIssuancePerSecond The gas target for L2 per second.
+    /// @param _blocktime The time between this block and the parent block.
+    /// @param _adjustmentQuotient The gas adjustment quotient.
+    /// @param _parentGasExcess The current gas excess value.
+    /// @param _parentGasUsed Total gas used by the parent block.
+    /// @return basefee_ Next block's base fee.
+    /// @return parentGasExcess_ The new gas excess value.
+    function calculateBaseFee(
+        uint32 _gasIssuancePerSecond,
+        uint64 _blocktime,
+        uint8 _adjustmentQuotient,
+        uint64 _parentGasExcess,
+        uint32 _parentGasUsed
+    )
+        public
+        pure
+        returns (uint256 basefee_, uint64 parentGasExcess_)
+    {
+        return Lib1559Math.calc1559BaseFee(
+            uint256(_gasIssuancePerSecond) * _adjustmentQuotient,
+            _parentGasExcess,
+            _blocktime * _gasIssuancePerSecond,
+            _parentGasUsed
+        );
+    }
+
+    function _anchor(
+        uint64 _anchorBlockId,
+        bytes32 _anchorStateRoot,
+        uint32 _parentGasUsed,
+        uint32 _gasIssuancePerSecond,
+        uint8 _basefeeAdjustmentQuotient
+    )
+        private
+    {
+        if (
+            _anchorStateRoot == 0 || _anchorBlockId == 0 || _gasIssuancePerSecond == 0
+                || _basefeeAdjustmentQuotient == 0 || (block.number != 1 && _parentGasUsed == 0)
+        ) {
+            revert L2_INVALID_PARAM();
+        }
+
+        if (msg.sender != GOLDEN_TOUCH_ADDRESS) revert L2_INVALID_SENDER();
+
+        // Verify ancestor hashes
+        uint256 parentId = block.number - 1;
+        (bytes32 currentPublicInputHash, bytes32 newPublicInputHash) =
+            _calcPublicInputHash(parentId);
+        if (publicInputHash != currentPublicInputHash) revert L2_PUBLIC_INPUT_HASH_MISMATCH();
+
+        // Check if the gas settings has changed
+        bool postFork = block.number >= ontakeForkHeight();
+        uint64 newGasTarget = uint64(_gasIssuancePerSecond) * _basefeeAdjustmentQuotient;
+        if (postFork && newGasTarget != parentGasTarget) {
+            // adjust parentGasExcess to keep the basefee unchanged. Note that due to math
+            // calculation precision, the basefee may change slightly.
+            parentGasExcess = adjustExcess(parentGasExcess, parentGasTarget, newGasTarget);
+        }
+
+        // Verify the base fee per gas is correct
+        (uint256 basefee, uint64 newGasExcess) = postFork
+            ? calculateBaseFee(
+                _gasIssuancePerSecond,
+                uint64(block.timestamp - parentTimestamp),
+                _basefeeAdjustmentQuotient,
+                parentGasExcess,
+                _parentGasUsed
+            )
+            : getBasefee(_anchorBlockId, _parentGasUsed);
+
+        if (!skipFeeCheck() && block.basefee != basefee) revert L2_BASEFEE_MISMATCH();
+
+        if (_anchorBlockId > lastSyncedBlock) {
+            // Store the L1's state root as a signal to the local signal service to
+            // allow for multi-hop bridging.
+            ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).syncChainData(
+                l1ChainId, LibStrings.H_STATE_ROOT, _anchorBlockId, _anchorStateRoot
+            );
+
+            lastSyncedBlock = _anchorBlockId;
+        }
+
+        // Update state variables
+        bytes32 parentHash = blockhash(parentId);
+        l2Hashes[parentId] = parentHash;
+
+        publicInputHash = newPublicInputHash;
+        parentGasExcess = newGasExcess;
+        parentTimestamp = uint64(block.timestamp);
+        parentGasTarget = newGasTarget;
+
+        emit Anchored(parentHash, newGasExcess);
     }
 
     function _calcPublicInputHash(uint256 _blockId)

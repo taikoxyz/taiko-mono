@@ -2,36 +2,39 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/utils/Strings.sol";
-
-import "../contracts/common/LibStrings.sol";
-import "../contracts/tko/TaikoToken.sol";
-import "../contracts/L1/TaikoL1.sol";
-import "../contracts/L1/provers/GuardianProver.sol";
-import "../contracts/L1/tiers/DevnetTierProvider.sol";
-import "../contracts/L1/tiers/TierProviderV2.sol";
-import "../contracts/bridge/Bridge.sol";
-import "../contracts/tokenvault/BridgedERC20.sol";
-import "../contracts/tokenvault/BridgedERC721.sol";
-import "../contracts/tokenvault/BridgedERC1155.sol";
-import "../contracts/tokenvault/ERC20Vault.sol";
-import "../contracts/tokenvault/ERC1155Vault.sol";
-import "../contracts/tokenvault/ERC721Vault.sol";
-import "../contracts/signal/SignalService.sol";
-import "../contracts/automata-attestation/AutomataDcapV3Attestation.sol";
-import "../contracts/automata-attestation/utils/SigVerifyLib.sol";
-import "../contracts/automata-attestation/lib/PEMCertChainLib.sol";
-import "../contracts/verifiers/SgxVerifier.sol";
-import "../contracts/team/proving/ProverSet.sol";
-import "../test/common/erc20/FreeMintERC20.sol";
-import "../test/common/erc20/MayFailFreeMintERC20.sol";
-import "../test/L1/TestTierProvider.sol";
-import "../test/DeployCapability.sol";
+import "@risc0/contracts/groth16/RiscZeroGroth16Verifier.sol";
 
 // Actually this one is deployed already on mainnet, but we are now deploying our own (non via-ir)
 // version. For mainnet, it is easier to go with one of:
 // - https://github.com/daimo-eth/p256-verifier
 // - https://github.com/rdubois-crypto/FreshCryptoLib
-import { P256Verifier } from "p256-verifier/src/P256Verifier.sol";
+import "@p256-verifier/contracts/P256Verifier.sol";
+
+import "../contracts/common/LibStrings.sol";
+import "../contracts/tko/TaikoToken.sol";
+import "../contracts/mainnet/MainnetTaikoL1.sol";
+import "../contracts/L1/provers/GuardianProver.sol";
+import "../contracts/L1/tiers/DevnetTierProvider.sol";
+import "../contracts/L1/tiers/TierProviderV2.sol";
+import "../contracts/mainnet/MainnetBridge.sol";
+import "../contracts/tokenvault/BridgedERC20.sol";
+import "../contracts/tokenvault/BridgedERC721.sol";
+import "../contracts/tokenvault/BridgedERC1155.sol";
+import "../contracts/mainnet/MainnetERC20Vault.sol";
+import "../contracts/mainnet/MainnetERC1155Vault.sol";
+import "../contracts/mainnet/MainnetERC721Vault.sol";
+import "../contracts/mainnet/MainnetSignalService.sol";
+import "../contracts/mainnet/MainnetGuardianProver.sol";
+import "../contracts/automata-attestation/AutomataDcapV3Attestation.sol";
+import "../contracts/automata-attestation/utils/SigVerifyLib.sol";
+import "../contracts/automata-attestation/lib/PEMCertChainLib.sol";
+import "../contracts/mainnet/MainnetSgxVerifier.sol";
+import "../contracts/team/proving/ProverSet.sol";
+import "../test/common/erc20/FreeMintERC20.sol";
+import "../test/common/erc20/MayFailFreeMintERC20.sol";
+import "../test/L1/TestTierProvider.sol";
+import "../test/DeployCapability.sol";
+import "../contracts/verifiers/RiscZeroVerifier.sol";
 
 /// @title DeployOnL1
 /// @notice This script deploys the core Taiko protocol smart contract on L1,
@@ -152,12 +155,22 @@ contract DeployOnL1 is DeployCapability {
 
         // Deploy Bridging contracts
         deployProxy({
+            name: "mainnet_signal_service",
+            impl: address(new MainnetSignalService()),
+            data: abi.encodeCall(SignalService.init, (address(0), sharedAddressManager))
+        });
+        deployProxy({
             name: "signal_service",
             impl: address(new SignalService()),
             data: abi.encodeCall(SignalService.init, (address(0), sharedAddressManager)),
             registerTo: sharedAddressManager
         });
 
+        deployProxy({
+            name: "mainnet_bridge",
+            impl: address(new MainnetBridge()),
+            data: abi.encodeCall(Bridge.init, (address(0), sharedAddressManager))
+        });
         address brdige = deployProxy({
             name: "bridge",
             impl: address(new Bridge()),
@@ -182,6 +195,11 @@ contract DeployOnL1 is DeployCapability {
 
         // Deploy Vaults
         deployProxy({
+            name: "mainnet_erc20_vault",
+            impl: address(new MainnetERC20Vault()),
+            data: abi.encodeCall(ERC20Vault.init, (owner, sharedAddressManager))
+        });
+        deployProxy({
             name: "erc20_vault",
             impl: address(new ERC20Vault()),
             data: abi.encodeCall(ERC20Vault.init, (owner, sharedAddressManager)),
@@ -189,12 +207,22 @@ contract DeployOnL1 is DeployCapability {
         });
 
         deployProxy({
+            name: "mainnet_erc721_vault",
+            impl: address(new MainnetERC721Vault()),
+            data: abi.encodeCall(ERC721Vault.init, (owner, sharedAddressManager))
+        });
+        deployProxy({
             name: "erc721_vault",
             impl: address(new ERC721Vault()),
             data: abi.encodeCall(ERC721Vault.init, (owner, sharedAddressManager)),
             registerTo: sharedAddressManager
         });
 
+        deployProxy({
+            name: "mainnet_erc1155_vault",
+            impl: address(new MainnetERC1155Vault()),
+            data: abi.encodeCall(ERC1155Vault.init, (owner, sharedAddressManager))
+        });
         deployProxy({
             name: "erc1155_vault",
             impl: address(new ERC1155Vault()),
@@ -246,6 +274,20 @@ contract DeployOnL1 is DeployCapability {
         copyRegister(rollupAddressManager, _sharedAddressManager, "bridge");
 
         deployProxy({
+            name: "mainnet_taiko",
+            impl: address(new MainnetTaikoL1()),
+            data: abi.encodeCall(
+                TaikoL1.init,
+                (
+                    owner,
+                    rollupAddressManager,
+                    vm.envBytes32("L2_GENESIS_HASH"),
+                    vm.envBool("PAUSE_TAIKO_L1")
+                )
+            )
+        });
+
+        deployProxy({
             name: "taiko",
             impl: address(new TaikoL1()),
             data: abi.encodeCall(
@@ -261,10 +303,22 @@ contract DeployOnL1 is DeployCapability {
         });
 
         deployProxy({
+            name: "mainnet_tier_sgx",
+            impl: address(new MainnetSgxVerifier()),
+            data: abi.encodeCall(SgxVerifier.init, (owner, rollupAddressManager))
+        });
+
+        deployProxy({
             name: "tier_sgx",
             impl: address(new SgxVerifier()),
             data: abi.encodeCall(SgxVerifier.init, (owner, rollupAddressManager)),
             registerTo: rollupAddressManager
+        });
+
+        deployProxy({
+            name: "mainnet_guardian_prover_minority",
+            impl: address(new MainnetGuardianProver()),
+            data: abi.encodeCall(GuardianProver.init, (address(0), rollupAddressManager))
         });
 
         address guardianProverImpl = address(new GuardianProver());
@@ -330,6 +384,18 @@ contract DeployOnL1 is DeployCapability {
             data: abi.encodeCall(
                 ProverSet.init, (owner, vm.envAddress("PROVER_SET_ADMIN"), rollupAddressManager)
             )
+        });
+
+        // Deploy r0 groth16 verifier
+        RiscZeroGroth16Verifier verifier =
+            new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
+        register(rollupAddressManager, "risc0_groth16_verifier", address(verifier));
+
+        deployProxy({
+            name: "risc0_verifier",
+            impl: address(new RiscZeroVerifier()),
+            data: abi.encodeCall(RiscZeroVerifier.init, (owner, rollupAddressManager)),
+            registerTo: rollupAddressManager
         });
     }
 
