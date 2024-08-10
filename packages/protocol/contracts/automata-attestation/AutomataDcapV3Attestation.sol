@@ -132,7 +132,9 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
         emit TcbInfoJsonConfigured(fmspc, tcbInfoInput);
     }
 
-    function configureQeIdentityJson(EnclaveIdStruct.EnclaveId calldata qeIdentityInput)
+    function configureQeIdentityJson(
+        EnclaveIdStruct.EnclaveId calldata qeIdentityInput
+    )
         external
         onlyOwner
     {
@@ -146,7 +148,9 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
         emit LocalReportCheckToggled(checkLocalEnclaveReport);
     }
 
-    function _attestationTcbIsValid(TCBInfoStruct.TCBStatus status)
+    function _attestationTcbIsValid(
+        TCBInfoStruct.TCBStatus status
+    )
         internal
         pure
         virtual
@@ -195,7 +199,9 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
         return _verifyParsedQuote(parsedV3Quote);
     }
 
-    function _verifyQEReportWithIdentity(V3Struct.EnclaveReport memory quoteEnclaveReport)
+    function _verifyQEReportWithIdentity(
+        V3Struct.EnclaveReport memory quoteEnclaveReport
+    )
         private
         view
         returns (bool, EnclaveIdStruct.EnclaveIdStatus status)
@@ -268,7 +274,9 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
         return true;
     }
 
-    function _verifyCertChain(IPEMCertChainLib.ECSha256Certificate[] memory certs)
+    function _verifyCertChain(
+        IPEMCertChainLib.ECSha256Certificate[] memory certs
+    )
         private
         view
         returns (bool)
@@ -375,7 +383,9 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
     /// @dev For all valid quote verification, returns the following data:
     /// (_attestationTcbIsValid())
     /// @dev exitCode is defined in the {{ TCBInfoStruct.TCBStatus }} enum
-    function verifyParsedQuote(V3Struct.ParsedV3QuoteStruct calldata v3quote)
+    function verifyParsedQuote(
+        V3Struct.ParsedV3QuoteStruct calldata v3quote
+    )
         external
         view
         override
@@ -384,7 +394,9 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
         return _verifyParsedQuote(v3quote);
     }
 
-    function _verifyParsedQuote(V3Struct.ParsedV3QuoteStruct memory v3quote)
+    function _verifyParsedQuote(
+        V3Struct.ParsedV3QuoteStruct memory v3quote
+    )
         internal
         view
         returns (bool, bytes memory)
