@@ -24,7 +24,7 @@ test: lint
 		./integration_test/entrypoint.sh
 
 # HIVE_BASE_DIR(the path of git@github.com:taikoxyz/hive.git) is necessary when run hive_test in local environment.
-hive_test:
+hive_tests:
 	@sh ./integration_test/hive_test.sh
 
 dev_net:
@@ -39,6 +39,6 @@ gen_bindings:
 				clean \
 				lint \
 				test \
-				hive_test \
+				hive_tests \
 				dev_net \
 				gen_bindings
