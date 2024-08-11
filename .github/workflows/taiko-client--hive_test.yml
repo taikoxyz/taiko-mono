@@ -5,8 +5,6 @@ on:
     branches: [hive_tests_]
     paths:
       - "packages/taiko-client/**"
-      - "go.mod"
-      - "go.sum"
 
 jobs:
   lint:
