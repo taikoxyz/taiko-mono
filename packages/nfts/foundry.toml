@@ -48,7 +48,7 @@ libs = ["node_modules", "lib"]
 runs = 200
 
 [fmt]
-bracket_spacing = true
+bracket_spacing = false
 line_length = 100
 multiline_func_header = "all"
 number_underscore = "thousands"
