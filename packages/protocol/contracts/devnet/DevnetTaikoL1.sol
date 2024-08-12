@@ -21,7 +21,7 @@ contract DevnetTaikoL1 is TaikoL1 {
             basefeeAdjustmentQuotient: 8,
             basefeeSharingPctg: 75,
             gasIssuancePerSecond: 5_000_000,
-            ontakeForkHeight: 0
+            ontakeForkHeight: 2
         });
     }
 }
