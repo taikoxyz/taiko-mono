@@ -75,7 +75,7 @@ library LibData {
             blobTxListOffset: 0,
             blobTxListLength: 0,
             blobIndex: 0,
-            baseFeeConfig: TaikoData.BaseFeeConfig(0, 0, 0, 0)
+            baseFeeConfig: TaikoData.BaseFeeConfig(0, 0, 0, 0, 0)
         });
     }
 }

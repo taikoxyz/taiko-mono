@@ -24,8 +24,9 @@ contract HeklaTaikoL1 is TaikoL1 {
                 adjustmentQuotient: 8,
                 sharingPctg: 75,
                 gasIssuancePerSecond: 5_000_000,
-                minGasExcess: 1_340_000_000
-            }),
+                minGasExcess: 1_340_000_000,
+                maxGasIssuancePerBlock: 5_000_000 * 120 // two minutes
+             }),
             ontakeForkHeight: 720_000 // = 7200 * 100
          });
     }

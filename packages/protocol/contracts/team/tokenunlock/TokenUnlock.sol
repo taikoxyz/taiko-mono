@@ -79,7 +79,7 @@ contract TokenUnlock is EssentialContract {
     )
         external
         nonZeroAddr(_recipient)
-        nonZeroValue(bytes32(uint256(_tgeTimestamp)))
+        nonZeroValue(uint256(_tgeTimestamp))
         initializer
     {
         if (_owner == _recipient) revert INVALID_PARAM();
@@ -117,7 +117,7 @@ contract TokenUnlock is EssentialContract {
         uint256 _amount
     )
         external
-        nonZeroValue(bytes32(_amount))
+        nonZeroValue(_amount)
         onlyRecipient
     {
         if (!isProverSet[_proverSet]) revert NOT_PROVER_SET();
@@ -135,7 +135,7 @@ contract TokenUnlock is EssentialContract {
     )
         external
         nonZeroAddr(_to)
-        nonZeroValue(bytes32(_amount))
+        nonZeroValue(_amount)
         onlyRecipient
         nonReentrant
     {

@@ -274,6 +274,6 @@ library LibProposing {
         pure
         returns (bytes32)
     {
-        return bytes32(uint256(_basefeeConfig.sharingPctg));
+        return bytes32(uint256(_baseFeeConfig.sharingPctg));
     }
 }

@@ -62,6 +62,11 @@ contract TaikoL2 is EssentialContract {
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
     error L2_TOO_LATE();
 
+    modifier onlyGoldenTouch() {
+        if (msg.sender != GOLDEN_TOUCH_ADDRESS) revert L2_INVALID_SENDER();
+        _;
+    }
+
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _rollupAddressManager The address of the {AddressManager} contract.
@@ -127,17 +132,12 @@ contract TaikoL2 is EssentialContract {
         uint32 _parentGasUsed
     )
         external
+        nonZeroValue(uint256(_l1StateRoot))
+        nonZeroValue(uint256(_l1BlockId))
+        onlyGoldenTouch
         nonReentrant
     {
         if (block.number >= ontakeForkHeight()) revert L2_FORK_ERROR();
-
-        LibL2Config.Config memory config = getConfig();
-
-        if (_l1StateRoot == 0 || _l1BlockId == 0 || (block.number != 1 && _parentGasUsed == 0)) {
-            revert L2_INVALID_PARAM();
-        }
-
-        if (msg.sender != GOLDEN_TOUCH_ADDRESS) revert L2_INVALID_SENDER();
 
         // Verify ancestor hashes
         uint256 parentId = block.number - 1;
@@ -178,44 +178,44 @@ contract TaikoL2 is EssentialContract {
         TaikoData.BaseFeeConfig calldata _baseFeeConfig
     )
         external
+        nonZeroValue(uint256(_anchorStateRoot))
+        nonZeroValue(uint256(_anchorBlockId))
+        nonZeroValue(uint256(_baseFeeConfig.gasIssuancePerSecond))
+        nonZeroValue(uint256(_baseFeeConfig.adjustmentQuotient))
+        onlyGoldenTouch
         nonReentrant
     {
         if (block.number < ontakeForkHeight()) revert L2_FORK_ERROR();
-        if (
-            _anchorStateRoot == 0 || _anchorBlockId == 0 || _baseFeeConfig.gasIssuancePerSecond == 0
-                || _baseFeeConfig.adjustmentQuotient == 0 || (block.number != 1 && _parentGasUsed == 0)
-        ) {
-            revert L2_INVALID_PARAM();
-        }
 
-        if (msg.sender != GOLDEN_TOUCH_ADDRESS) revert L2_INVALID_SENDER();
-
-        // Verify ancestor hashes
         uint256 parentId = block.number - 1;
-        (bytes32 currentPublicInputHash, bytes32 newPublicInputHash) =
-            _calcPublicInputHash(parentId);
-        if (publicInputHash != currentPublicInputHash) revert L2_PUBLIC_INPUT_HASH_MISMATCH();
-
-        // Check if the gas settings has changed
-        uint64 newGasTarget =
-            uint64(_baseFeeConfig.gasIssuancePerSecond) * _baseFeeConfig.adjustmentQuotient;
-        if (newGasTarget != parentGasTarget) {
-            // adjust parentGasExcess to keep the basefee unchanged. Note that due to math
-            // calculation precision, the basefee may change slightly.
-            parentGasExcess = adjustExcess(parentGasExcess, parentGasTarget, newGasTarget);
+        bytes32 newPublicInputHash;
+        {
+            // Verify ancestor hashes
+            bytes32 currentPublicInputHash;
+            (currentPublicInputHash, newPublicInputHash) = _calcPublicInputHash(parentId);
+            if (publicInputHash != currentPublicInputHash) revert L2_PUBLIC_INPUT_HASH_MISMATCH();
         }
 
-        // Verify the base fee per gas is correct
+        {
+            // Check if the gas settings has changed
+            uint64 newGasTarget =
+                uint64(_baseFeeConfig.gasIssuancePerSecond) * _baseFeeConfig.adjustmentQuotient;
+            if (newGasTarget != parentGasTarget) {
+                // adjust parentGasExcess to keep the basefee unchanged. Note that due to math
+                // calculation precision, the basefee may change slightly.
+                parentGasExcess = adjustExcess(parentGasExcess, parentGasTarget, newGasTarget);
+            }
+        }
+
         uint64 newGasExcess;
         {
+            // Verify the base fee per gas is correct
             uint256 basefee;
             (basefee, newGasExcess) = calculateBaseFee(
-                _baseFeeConfig.gasIssuancePerSecond,
+                _baseFeeConfig,
                 uint64(block.timestamp - parentTimestamp),
-                _baseFeeConfig.adjustmentQuotient,
                 parentGasExcess,
-                _parentGasUsed,
-                _baseFeeConfig.minGasExcess
+                _parentGasUsed
             );
 
             if (!skipFeeCheck() && block.basefee != basefee) revert L2_BASEFEE_MISMATCH();
@@ -334,31 +334,35 @@ contract TaikoL2 is EssentialContract {
 
     /// @notice Calculates the basefee and the new gas excess value based on parent gas used and gas
     /// excess.
-    /// @param _gasIssuancePerSecond The gas target for L2 per second.
+    /// @param _baseFeeConfig The base fee config object.
     /// @param _blocktime The time between this block and the parent block.
-    /// @param _adjustmentQuotient The gas adjustment quotient.
     /// @param _parentGasExcess The current gas excess value.
     /// @param _parentGasUsed Total gas used by the parent block.
     /// @return basefee_ Next block's base fee.
     /// @return parentGasExcess_ The new gas excess value.
     function calculateBaseFee(
-        uint32 _gasIssuancePerSecond,
+        TaikoData.BaseFeeConfig calldata _baseFeeConfig,
         uint64 _blocktime,
-        uint8 _adjustmentQuotient,
         uint64 _parentGasExcess,
-        uint32 _parentGasUsed,
-        uint64 _minGasExcess
+        uint32 _parentGasUsed
     )
         public
         pure
         returns (uint256 basefee_, uint64 parentGasExcess_)
     {
+        uint64 gasIssuance = _blocktime * _baseFeeConfig.gasIssuancePerSecond;
+        if (
+            _baseFeeConfig.maxGasIssuancePerBlock != 0
+                && gasIssuance > _baseFeeConfig.maxGasIssuancePerBlock
+        ) {
+            gasIssuance = _baseFeeConfig.maxGasIssuancePerBlock;
+        }
+
+        uint256 gasTarget =
+            uint256(_baseFeeConfig.gasIssuancePerSecond) * _baseFeeConfig.adjustmentQuotient;
+
         return Lib1559Math.calc1559BaseFee(
-            uint256(_gasIssuancePerSecond) * _adjustmentQuotient,
-            _parentGasExcess,
-            _blocktime * _gasIssuancePerSecond,
-            _parentGasUsed,
-            _minGasExcess
+            gasTarget, _parentGasExcess, gasIssuance, _parentGasUsed, _baseFeeConfig.minGasExcess
         );
     }
 
