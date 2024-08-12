@@ -21,22 +21,18 @@ contract RiscZeroGroth16VerifierTest is TaikoL1TestBase {
         console2.log("Deployed RiscZeroGroth16Verifier to", address(verifier));
         registerAddress("risc0_groth16_verifier", address(verifier));
 
-
         // Deploy Taiko's RiscZero proof verifier
         rv = RiscZeroVerifier(
             deployProxy({
                 name: "tier_risc_zero",
                 impl: address(new RiscZeroVerifier()),
-                data: abi.encodeCall(
-                    RiscZeroVerifier.init, (address(0), address(addressManager))
-                )
+                data: abi.encodeCall(RiscZeroVerifier.init, (address(0), address(addressManager)))
             })
         );
 
         rv.setImageIdTrusted(
             bytes32(0x4f6beb0c538971a81491c22de3995c82e6fd7938d5090366d7b618d5f6df504d), true
         );
-
     }
 
     // Test `verifyProof()` happy path
