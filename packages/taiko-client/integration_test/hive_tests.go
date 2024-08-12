@@ -16,16 +16,16 @@ func TestHiveHandler(t *testing.T) {
 	}
 	handler, err := hivesim.NewHiveFramework(&hivesim.HiveConfig{
 		BaseDir:        baseDir,
-		SimPattern:     "taiko2",
-		SimTestPattern: "eth2-deneb-testnet/test-deneb-genesis",
+		SimPattern:     "taiko",
+		SimTestPattern: "taiko-deneb-testnet/test-deneb-genesis",
 		Clients: []string{
-			"taiko2/geth",
-			"taiko2/prysm-bn",
-			"taiko2/prysm-vc",
-			"taiko2/taiko-geth",
-			"taiko2/driver",
-			"taiko2/proposer",
-			"taiko2/prover",
+			"taiko/geth",
+			"taiko/prysm-bn",
+			"taiko/prysm-vc",
+			"taiko/taiko-geth",
+			"taiko/driver",
+			"taiko/proposer",
+			"taiko/prover",
 		},
 	})
 	assert.NoError(t, err)
