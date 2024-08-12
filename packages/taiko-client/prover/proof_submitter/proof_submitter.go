@@ -27,7 +27,7 @@ import (
 var (
 	_                              Submitter = (*ProofSubmitter)(nil)
 	submissionDelayRandomBumpRange float64   = 20
-	proofPollingInterval                     = 10 * time.Second
+	proofPollingInterval                     = 40 * time.Second
 	ProofTimeout                             = 90 * time.Minute
 )
 
