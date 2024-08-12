@@ -13,7 +13,9 @@ contract DcapTestUtils {
 
     uint256 constant INDEX_ERROR = type(uint256).max;
 
-    function parseTcbInfoJson(string memory tcbInfoJsonStr)
+    function parseTcbInfoJson(
+        string memory tcbInfoJsonStr
+    )
         internal
         pure
         returns (bool success, TCBInfoStruct.TCBInfo memory tcbInfo)
@@ -78,7 +80,9 @@ contract DcapTestUtils {
         bool tcbLevelsFound;
     }
 
-    function parseEnclaveIdentityJson(string memory enclaveIdJsonStr)
+    function parseEnclaveIdentityJson(
+        string memory enclaveIdJsonStr
+    )
         internal
         pure
         returns (bool success, EnclaveIdStruct.EnclaveId memory enclaveId)

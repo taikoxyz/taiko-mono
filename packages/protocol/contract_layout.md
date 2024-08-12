@@ -35,10 +35,10 @@
 | __gap           | uint256[49]                 | 202  | 0      | 1568  | contracts/L2/TaikoL2.sol:TaikoL2 |
 | l2Hashes        | mapping(uint256 => bytes32) | 251  | 0      | 32    | contracts/L2/TaikoL2.sol:TaikoL2 |
 | publicInputHash | bytes32                     | 252  | 0      | 32    | contracts/L2/TaikoL2.sol:TaikoL2 |
-| gasExcess       | uint64                      | 253  | 0      | 8     | contracts/L2/TaikoL2.sol:TaikoL2 |
+| parentGasExcess | uint64                      | 253  | 0      | 8     | contracts/L2/TaikoL2.sol:TaikoL2 |
 | lastSyncedBlock | uint64                      | 253  | 8      | 8     | contracts/L2/TaikoL2.sol:TaikoL2 |
-| __deprecated1   | uint64                      | 253  | 16     | 8     | contracts/L2/TaikoL2.sol:TaikoL2 |
-| __deprecated2   | uint64                      | 253  | 24     | 8     | contracts/L2/TaikoL2.sol:TaikoL2 |
+| parentTimestamp | uint64                      | 253  | 16     | 8     | contracts/L2/TaikoL2.sol:TaikoL2 |
+| parentGasTarget | uint64                      | 253  | 24     | 8     | contracts/L2/TaikoL2.sol:TaikoL2 |
 | l1ChainId       | uint64                      | 254  | 0      | 8     | contracts/L2/TaikoL2.sol:TaikoL2 |
 | __gap           | uint256[46]                 | 255  | 0      | 1472  | contracts/L2/TaikoL2.sol:TaikoL2 |
 
@@ -444,24 +444,23 @@
 | __gap             | uint256[47]                                     | 254  | 0      | 1504  | contracts/verifiers/SgxVerifier.sol:SgxVerifier |
 
 ## RiscZeroVerifier
-| Name            | Type                              | Slot | Offset | Bytes | Contract                                                  |
-|-----------------|-----------------------------------|------|--------|-------|-----------------------------------------------------------|
-| _initialized    | uint8                             | 0    | 0      | 1     | contracts/verifiers/RiscZeroVerifier.sol:RiscZeroVerifier |
-| _initializing   | bool                              | 0    | 1      | 1     | contracts/verifiers/RiscZeroVerifier.sol:RiscZeroVerifier |
-| __gap           | uint256[50]                       | 1    | 0      | 1600  | contracts/verifiers/RiscZeroVerifier.sol:RiscZeroVerifier |
-| _owner          | address                           | 51   | 0      | 20    | contracts/verifiers/RiscZeroVerifier.sol:RiscZeroVerifier |
-| __gap           | uint256[49]                       | 52   | 0      | 1568  | contracts/verifiers/RiscZeroVerifier.sol:RiscZeroVerifier |
-| _pendingOwner   | address                           | 101  | 0      | 20    | contracts/verifiers/RiscZeroVerifier.sol:RiscZeroVerifier |
-| __gap           | uint256[49]                       | 102  | 0      | 1568  | contracts/verifiers/RiscZeroVerifier.sol:RiscZeroVerifier |
-| addressManager  | address                           | 151  | 0      | 20    | contracts/verifiers/RiscZeroVerifier.sol:RiscZeroVerifier |
-| __gap           | uint256[49]                       | 152  | 0      | 1568  | contracts/verifiers/RiscZeroVerifier.sol:RiscZeroVerifier |
-| __reentry       | uint8                             | 201  | 0      | 1     | contracts/verifiers/RiscZeroVerifier.sol:RiscZeroVerifier |
-| __paused        | uint8                             | 201  | 1      | 1     | contracts/verifiers/RiscZeroVerifier.sol:RiscZeroVerifier |
-| lastUnpausedAt  | uint64                            | 201  | 2      | 8     | contracts/verifiers/RiscZeroVerifier.sol:RiscZeroVerifier |
-| __gap           | uint256[49]                       | 202  | 0      | 1568  | contracts/verifiers/RiscZeroVerifier.sol:RiscZeroVerifier |
-| receiptVerifier | contract IRiscZeroReceiptVerifier | 251  | 0      | 20    | contracts/verifiers/RiscZeroVerifier.sol:RiscZeroVerifier |
-| isImageTrusted  | mapping(bytes32 => bool)          | 252  | 0      | 32    | contracts/verifiers/RiscZeroVerifier.sol:RiscZeroVerifier |
-| __gap           | uint256[48]                       | 253  | 0      | 1536  | contracts/verifiers/RiscZeroVerifier.sol:RiscZeroVerifier |
+| Name           | Type                     | Slot | Offset | Bytes | Contract                                                  |
+|----------------|--------------------------|------|--------|-------|-----------------------------------------------------------|
+| _initialized   | uint8                    | 0    | 0      | 1     | contracts/verifiers/RiscZeroVerifier.sol:RiscZeroVerifier |
+| _initializing  | bool                     | 0    | 1      | 1     | contracts/verifiers/RiscZeroVerifier.sol:RiscZeroVerifier |
+| __gap          | uint256[50]              | 1    | 0      | 1600  | contracts/verifiers/RiscZeroVerifier.sol:RiscZeroVerifier |
+| _owner         | address                  | 51   | 0      | 20    | contracts/verifiers/RiscZeroVerifier.sol:RiscZeroVerifier |
+| __gap          | uint256[49]              | 52   | 0      | 1568  | contracts/verifiers/RiscZeroVerifier.sol:RiscZeroVerifier |
+| _pendingOwner  | address                  | 101  | 0      | 20    | contracts/verifiers/RiscZeroVerifier.sol:RiscZeroVerifier |
+| __gap          | uint256[49]              | 102  | 0      | 1568  | contracts/verifiers/RiscZeroVerifier.sol:RiscZeroVerifier |
+| addressManager | address                  | 151  | 0      | 20    | contracts/verifiers/RiscZeroVerifier.sol:RiscZeroVerifier |
+| __gap          | uint256[49]              | 152  | 0      | 1568  | contracts/verifiers/RiscZeroVerifier.sol:RiscZeroVerifier |
+| __reentry      | uint8                    | 201  | 0      | 1     | contracts/verifiers/RiscZeroVerifier.sol:RiscZeroVerifier |
+| __paused       | uint8                    | 201  | 1      | 1     | contracts/verifiers/RiscZeroVerifier.sol:RiscZeroVerifier |
+| lastUnpausedAt | uint64                   | 201  | 2      | 8     | contracts/verifiers/RiscZeroVerifier.sol:RiscZeroVerifier |
+| __gap          | uint256[49]              | 202  | 0      | 1568  | contracts/verifiers/RiscZeroVerifier.sol:RiscZeroVerifier |
+| isImageTrusted | mapping(bytes32 => bool) | 251  | 0      | 32    | contracts/verifiers/RiscZeroVerifier.sol:RiscZeroVerifier |
+| __gap          | uint256[49]              | 252  | 0      | 1568  | contracts/verifiers/RiscZeroVerifier.sol:RiscZeroVerifier |
 
 ## QuotaManager
 | Name           | Type                                          | Slot | Offset | Bytes | Contract                                       |
@@ -683,24 +682,23 @@
 | __gap          | uint256[48]              | 253  | 0      | 1536  | contracts/mainnet/MainnetProverSet.sol:MainnetProverSet |
 
 ## MainnetRiscZeroVerifier
-| Name            | Type                              | Slot | Offset | Bytes | Contract                                                              |
-|-----------------|-----------------------------------|------|--------|-------|-----------------------------------------------------------------------|
-| _initialized    | uint8                             | 0    | 0      | 1     | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
-| _initializing   | bool                              | 0    | 1      | 1     | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
-| __gap           | uint256[50]                       | 1    | 0      | 1600  | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
-| _owner          | address                           | 51   | 0      | 20    | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
-| __gap           | uint256[49]                       | 52   | 0      | 1568  | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
-| _pendingOwner   | address                           | 101  | 0      | 20    | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
-| __gap           | uint256[49]                       | 102  | 0      | 1568  | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
-| addressManager  | address                           | 151  | 0      | 20    | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
-| __gap           | uint256[49]                       | 152  | 0      | 1568  | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
-| __reentry       | uint8                             | 201  | 0      | 1     | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
-| __paused        | uint8                             | 201  | 1      | 1     | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
-| lastUnpausedAt  | uint64                            | 201  | 2      | 8     | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
-| __gap           | uint256[49]                       | 202  | 0      | 1568  | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
-| receiptVerifier | contract IRiscZeroReceiptVerifier | 251  | 0      | 20    | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
-| isImageTrusted  | mapping(bytes32 => bool)          | 252  | 0      | 32    | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
-| __gap           | uint256[48]                       | 253  | 0      | 1536  | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
+| Name           | Type                     | Slot | Offset | Bytes | Contract                                                              |
+|----------------|--------------------------|------|--------|-------|-----------------------------------------------------------------------|
+| _initialized   | uint8                    | 0    | 0      | 1     | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
+| _initializing  | bool                     | 0    | 1      | 1     | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
+| __gap          | uint256[50]              | 1    | 0      | 1600  | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
+| _owner         | address                  | 51   | 0      | 20    | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
+| __gap          | uint256[49]              | 52   | 0      | 1568  | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
+| _pendingOwner  | address                  | 101  | 0      | 20    | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
+| __gap          | uint256[49]              | 102  | 0      | 1568  | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
+| addressManager | address                  | 151  | 0      | 20    | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
+| __gap          | uint256[49]              | 152  | 0      | 1568  | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
+| __reentry      | uint8                    | 201  | 0      | 1     | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
+| __paused       | uint8                    | 201  | 1      | 1     | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
+| lastUnpausedAt | uint64                   | 201  | 2      | 8     | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
+| __gap          | uint256[49]              | 202  | 0      | 1568  | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
+| isImageTrusted | mapping(bytes32 => bool) | 251  | 0      | 32    | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
+| __gap          | uint256[49]              | 252  | 0      | 1568  | contracts/mainnet/MainnetRiscZeroVerifier.sol:MainnetRiscZeroVerifier |
 
 ## MainnetRollupAddressManager
 | Name           | Type                                            | Slot | Offset | Bytes | Contract                                                                      |

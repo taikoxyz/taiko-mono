@@ -2,6 +2,7 @@ package proposer
 
 import (
 	"context"
+	"math/big"
 	"os"
 	"testing"
 	"time"
@@ -116,7 +117,7 @@ func (s *ProposerTestSuite) TestProposeTxLists() {
 		cfg.L2SuggestedFeeRecipient,
 		cfg.ProposeBlockTxGasLimit,
 		cfg.ExtraData,
-		config.NewChainConfig(s.RPCClient.L2.ChainID, testutils.RandomHash().Big()),
+		config.NewChainConfig(s.RPCClient.L2.ChainID, new(big.Int).SetUint64(s.p.protocolConfigs.OntakeForkHeight)),
 	)
 
 	emptyTxListBytes, err := rlp.EncodeToBytes(types.Transactions{})

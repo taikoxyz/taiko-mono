@@ -20,7 +20,7 @@ interface ITaikoL1 {
         returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_);
 
     /// @notice Proposes a Taiko L2 block (version 2)
-    /// @param _params Block parameters, currently an encoded BlockParams object.
+    /// @param _params Block parameters, an encoded BlockParamsV2 object.
     /// @param _txList txList data if calldata is used for DA.
     /// @return meta_ The metadata of the proposed L2 block.
     function proposeBlockV2(
@@ -30,12 +30,29 @@ interface ITaikoL1 {
         external
         returns (TaikoData.BlockMetadataV2 memory meta_);
 
+    /// @notice Proposes a Taiko L2 block (version 2)
+    /// @param _paramsArr A list of encoded BlockParamsV2 objects.
+    /// @param _txListArr A list of txList.
+    /// @return metaArr_ The metadata objects of the proposed L2 blocks.
+    function proposeBlocksV2(
+        bytes[] calldata _paramsArr,
+        bytes[] calldata _txListArr
+    )
+        external
+        returns (TaikoData.BlockMetadataV2[] memory metaArr_);
+
     /// @notice Proves or contests a block transition.
     /// @param _blockId The index of the block to prove. This is also used to
     /// select the right implementation version.
     /// @param _input An abi-encoded (TaikoData.BlockMetadata, TaikoData.Transition,
     /// TaikoData.TierProof) tuple.
     function proveBlock(uint64 _blockId, bytes calldata _input) external;
+
+    /// @notice Proves or contests multiple block transitions.
+    /// @param _blockIds The indices of the blocks to prove.
+    /// @param _inputArr An list of abi-encoded (TaikoData.BlockMetadata, TaikoData.Transition,
+    /// TaikoData.TierProof) tuples.
+    function proveBlocks(uint64[] calldata _blockIds, bytes[] calldata _inputArr) external;
 
     /// @notice Verifies up to a certain number of blocks.
     /// @param _maxBlocksToVerify Max number of blocks to verify.

@@ -272,7 +272,6 @@ func (s *Syncer) onBlockProposed(
 		ctx,
 		meta,
 		parent,
-		s.state.GetHeadBlockID(),
 		decompressedTxListBytes,
 		&rawdb.L1Origin{
 			BlockID:       meta.GetBlockID(),
@@ -313,7 +312,6 @@ func (s *Syncer) insertNewHead(
 	ctx context.Context,
 	meta metadata.TaikoBlockMetaData,
 	parent *types.Header,
-	headBlockID *big.Int,
 	txListBytes []byte,
 	l1Origin *rawdb.L1Origin,
 ) (*engine.ExecutableData, error) {
@@ -321,7 +319,6 @@ func (s *Syncer) insertNewHead(
 		"Try to insert a new L2 head block",
 		"parentNumber", parent.Number,
 		"parentHash", parent.Hash(),
-		"headBlockID", headBlockID,
 		"l1Origin", l1Origin,
 	)
 
@@ -330,8 +327,8 @@ func (s *Syncer) insertNewHead(
 		txList      []*types.Transaction
 		anchorTx    *types.Transaction
 		baseFeeInfo struct {
-			Basefee   *big.Int
-			GasExcess uint64
+			Basefee         *big.Int
+			ParentGasExcess uint64
 		}
 		err error
 	)
@@ -366,18 +363,44 @@ func (s *Syncer) insertNewHead(
 			return nil, fmt.Errorf("failed to create TaikoL2.anchor transaction: %w", err)
 		}
 	} else {
-		gasExcess, err := s.rpc.TaikoL2.GasExcess(&bind.CallOpts{
+		newGasTarget := uint64(meta.GetGasIssuancePerSecond()) * uint64(meta.GetBasefeeAdjustmentQuotient())
+		parentGasTarget, err := s.rpc.TaikoL2.ParentGasTarget(&bind.CallOpts{
 			BlockNumber: parent.Number, Context: ctx,
 		})
 		if err != nil {
-			return nil, fmt.Errorf("failed to fetch gas excess: %w", err)
+			return nil, fmt.Errorf("failed to fetch parent gas target: %w", err)
+		}
+
+		var parentGasExcess uint64
+		if newGasTarget != parentGasTarget {
+			oldParentGasExcess, err := s.rpc.TaikoL2.ParentGasExcess(&bind.CallOpts{
+				BlockNumber: parent.Number, Context: ctx,
+			})
+			if err != nil {
+				return nil, fmt.Errorf("failed to fetch old parent gas excess: %w", err)
+			}
+			if parentGasExcess, err = s.rpc.TaikoL2.AdjustExcess(
+				&bind.CallOpts{BlockNumber: parent.Number, Context: ctx},
+				oldParentGasExcess,
+				parentGasTarget,
+				newGasTarget,
+			); err != nil {
+				return nil, fmt.Errorf("failed to adjust parent gas excess: %w", err)
+			}
+		} else {
+			if parentGasExcess, err = s.rpc.TaikoL2.ParentGasExcess(&bind.CallOpts{
+				BlockNumber: parent.Number, Context: ctx,
+			}); err != nil {
+				return nil, fmt.Errorf("failed to fetch parent gas excess: %w", err)
+			}
 		}
 		// Get L2 baseFee
 		baseFeeInfo, err = s.rpc.TaikoL2.CalculateBaseFee(
 			&bind.CallOpts{BlockNumber: parent.Number, Context: ctx},
-			meta.GetBlockGasIssuance(),
+			meta.GetGasIssuancePerSecond(),
+			meta.GetTimestamp()-parent.Time,
 			meta.GetBasefeeAdjustmentQuotient(),
-			gasExcess,
+			parentGasExcess,
 			uint32(parent.GasUsed),
 		)
 		if err != nil {
@@ -392,9 +415,9 @@ func (s *Syncer) insertNewHead(
 		anchorTx, err = s.anchorConstructor.AssembleAnchorV2Tx(
 			ctx,
 			new(big.Int).SetUint64(meta.GetAnchorBlockID()),
-			parent.GasUsed,
 			anchorBlockHeader.Root,
-			meta.GetBlockGasIssuance(),
+			parent.GasUsed,
+			meta.GetGasIssuancePerSecond(),
 			meta.GetBasefeeAdjustmentQuotient(),
 			new(big.Int).Add(parent.Number, common.Big1),
 			baseFeeInfo.Basefee,
@@ -424,7 +447,6 @@ func (s *Syncer) insertNewHead(
 		meta,
 		parent.Hash(),
 		l1Origin,
-		headBlockID,
 		txListBytes,
 		baseFeeInfo.Basefee,
 		make(types.Withdrawals, 0),
@@ -458,7 +480,6 @@ func (s *Syncer) createExecutionPayloads(
 	meta metadata.TaikoBlockMetaData,
 	parentHash common.Hash,
 	l1Origin *rawdb.L1Origin,
-	headBlockID *big.Int,
 	txListBytes []byte,
 	baseFee *big.Int,
 	withdrawals types.Withdrawals,
@@ -470,13 +491,12 @@ func (s *Syncer) createExecutionPayloads(
 		SuggestedFeeRecipient: meta.GetCoinbase(),
 		Withdrawals:           withdrawals,
 		BlockMetadata: &engine.BlockMetadata{
-			HighestBlockID: headBlockID,
-			Beneficiary:    meta.GetCoinbase(),
-			GasLimit:       uint64(meta.GetGasLimit()) + consensus.AnchorGasLimit,
-			Timestamp:      meta.GetTimestamp(),
-			TxList:         txListBytes,
-			MixHash:        meta.GetDifficulty(),
-			ExtraData:      meta.GetExtraData(),
+			Beneficiary: meta.GetCoinbase(),
+			GasLimit:    uint64(meta.GetGasLimit()) + consensus.AnchorGasLimit,
+			Timestamp:   meta.GetTimestamp(),
+			TxList:      txListBytes,
+			MixHash:     meta.GetDifficulty(),
+			ExtraData:   meta.GetExtraData(),
 		},
 		BaseFeePerGas: baseFee,
 		L1Origin:      l1Origin,
@@ -489,7 +509,6 @@ func (s *Syncer) createExecutionPayloads(
 		"random", attributes.Random,
 		"suggestedFeeRecipient", attributes.SuggestedFeeRecipient,
 		"withdrawals", len(attributes.Withdrawals),
-		"highestBlockID", attributes.BlockMetadata.HighestBlockID,
 		"gasLimit", attributes.BlockMetadata.GasLimit,
 		"timestamp", attributes.BlockMetadata.Timestamp,
 		"mixHash", attributes.BlockMetadata.MixHash,

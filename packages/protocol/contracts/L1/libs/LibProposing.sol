@@ -17,10 +17,10 @@ library LibProposing {
     struct Local {
         TaikoData.SlotB b;
         TaikoData.BlockParamsV2 params;
-        address proposerAccess;
         ITierProvider tierProvider;
         bytes32 parentMetaHash;
         bool postFork;
+        bytes32 extraData;
     }
 
     /// @notice Emitted when a block is proposed.
@@ -82,15 +82,6 @@ library LibProposing {
     {
         // Checks proposer access.
         Local memory local;
-
-        local.proposerAccess = _resolver.resolve(LibStrings.B_PROPOSER_ACCESS, true);
-        if (
-            local.proposerAccess != address(0)
-                && !IProposerAccess(local.proposerAccess).isProposerEligible(msg.sender)
-        ) {
-            revert L1_INVALID_PROPOSER();
-        }
-
         local.b = _state.slotB;
         local.postFork = local.b.numBlocks >= _config.ontakeForkHeight;
 
@@ -106,7 +97,9 @@ library LibProposing {
                 // otherwise use a default BlockParamsV2 with 0 values
             }
         } else {
-            local.params = LibData.blockParamsV1ToV2(abi.decode(_data, (TaikoData.BlockParams)));
+            TaikoData.BlockParams memory paramsV1 = abi.decode(_data, (TaikoData.BlockParams));
+            local.params = LibData.blockParamsV1ToV2(paramsV1);
+            local.extraData = paramsV1.extraData;
         }
 
         if (local.params.coinbase == address(0)) {
@@ -168,7 +161,12 @@ library LibProposing {
                 anchorBlockHash: blockhash(local.params.anchorBlockId),
                 difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", local.b.numBlocks)),
                 blobHash: 0, // to be initialized below
-                extraData: local.params.extraData,
+                // To make sure each L2 block can be exexucated deterministiclly by the client
+                // without referering to its metadata on Ethereum, we need to encode
+                // config.basefeeSharingPctg into the extraData.
+                extraData: local.postFork
+                    ? _encodeGasConfigs(_config.basefeeSharingPctg)
+                    : local.extraData,
                 coinbase: local.params.coinbase,
                 id: local.b.numBlocks,
                 gasLimit: _config.blockMaxGasLimit,
@@ -185,8 +183,7 @@ library LibProposing {
                 blobTxListLength: local.params.blobTxListLength,
                 blobIndex: local.params.blobIndex,
                 basefeeAdjustmentQuotient: _config.basefeeAdjustmentQuotient,
-                basefeeSharingPctg: _config.basefeeSharingPctg,
-                blockGasIssuance: _config.blockGasIssuance
+                gasIssuancePerSecond: _config.gasIssuancePerSecond
             });
         }
 
@@ -262,5 +259,18 @@ library LibProposing {
                 depositsProcessed: deposits_
             });
         }
+    }
+
+    function checkProposerPermission(IAddressResolver _resolver) internal view {
+        address proposerAccess = _resolver.resolve(LibStrings.B_PROPOSER_ACCESS, true);
+        if (proposerAccess == address(0)) return;
+
+        if (!IProposerAccess(proposerAccess).isProposerEligible(msg.sender)) {
+            revert L1_INVALID_PROPOSER();
+        }
+    }
+
+    function _encodeGasConfigs(uint8 _basefeeSharingPctg) private pure returns (bytes32) {
+        return bytes32(uint256(_basefeeSharingPctg));
     }
 }
