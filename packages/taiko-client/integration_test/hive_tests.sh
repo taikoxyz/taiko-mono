@@ -6,4 +6,4 @@ if [ "$HIVE_BASE_DIR" == "" ]; then
   git clone git@github.com:taikoxyz/hive.git $HIVE_BASE_DIR
 fi
 
-go test -v -p=1 ./integration_test -coverprofile=coverage.out -covermode=atomic -timeout=700s
+go test -v -p=1 ./integration_test -timeout=700s

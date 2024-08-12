@@ -25,7 +25,7 @@ test: lint
 
 # HIVE_BASE_DIR(the path of git@github.com:taikoxyz/hive.git) is necessary when run hive_test in local environment.
 hive_tests:
-	@sh ./integration_test/hive_test.sh
+	@sh ./integration_test/hive_tests.sh
 
 dev_net:
 	@COMPILE_PROTOCOL=${COMPILE_PROTOCOL} \
