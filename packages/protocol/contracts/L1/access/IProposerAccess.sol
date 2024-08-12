@@ -10,11 +10,5 @@ interface IProposerAccess {
     /// @param _proposer The proposer.
     /// @param _blockHeight Ethereum block height.
     /// @return true if the proposer can propose blocks, false otherwise.
-    function isProposerEligible(
-        address _proposer,
-        uint256 _blockHeight
-    )
-        external
-        view
-        returns (bool);
+    function isPreconfer(address _proposer, uint256 _blockHeight) external view returns (bool);
 }

@@ -168,9 +168,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     }
 
     /// @inheritdoc ITaikoL1
-    function verifyBlocks(
-        uint64 _maxBlocksToVerify
-    )
+    function verifyBlocks(uint64 _maxBlocksToVerify)
         external
         whenNotPaused
         whenProvingNotPaused
