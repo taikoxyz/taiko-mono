@@ -189,16 +189,17 @@ contract TaikoL2 is EssentialContract {
         if (block.number < ontakeForkHeight()) revert L2_FORK_ERROR();
 
         uint256 parentId = block.number - 1;
-        bytes32 newPublicInputHash;
+
+        // Verify ancestor hashes
         {
-            // Verify ancestor hashes
-            bytes32 currentPublicInputHash;
-            (currentPublicInputHash, newPublicInputHash) = _calcPublicInputHash(parentId);
+            (bytes32 currentPublicInputHash, bytes32 newPublicInputHash) =
+                _calcPublicInputHash(parentId);
             if (publicInputHash != currentPublicInputHash) revert L2_PUBLIC_INPUT_HASH_MISMATCH();
+            publicInputHash = newPublicInputHash;
         }
 
+        // Check if the gas settings has changed
         {
-            // Check if the gas settings has changed
             uint64 newGasTarget =
                 uint64(_baseFeeConfig.gasIssuancePerSecond) * _baseFeeConfig.adjustmentQuotient;
             if (newGasTarget != parentGasTarget) {
@@ -208,11 +209,9 @@ contract TaikoL2 is EssentialContract {
             }
         }
 
-        uint64 newGasExcess;
+        // Verify the base fee per gas is correct
         {
-            // Verify the base fee per gas is correct
-            uint256 basefee;
-            (basefee, newGasExcess) = calculateBaseFee(
+            (uint256 basefee, uint64 newGasExcess) = calculateBaseFee(
                 _baseFeeConfig,
                 uint64(block.timestamp - parentTimestamp),
                 parentGasExcess,
@@ -220,6 +219,7 @@ contract TaikoL2 is EssentialContract {
             );
 
             if (!skipFeeCheck() && block.basefee != basefee) revert L2_BASEFEE_MISMATCH();
+            parentGasExcess = newGasExcess;
         }
 
         if (_anchorBlockId > lastSyncedBlock) {
@@ -235,12 +235,9 @@ contract TaikoL2 is EssentialContract {
         // Update state variables
         bytes32 parentHash = blockhash(parentId);
         l2Hashes[parentId] = parentHash;
-
-        publicInputHash = newPublicInputHash;
-        parentGasExcess = newGasExcess;
         parentTimestamp = uint64(block.timestamp);
 
-        emit Anchored(parentHash, newGasExcess);
+        emit Anchored(parentHash, parentGasExcess);
     }
 
     /// @notice Withdraw token or Ether from this address
