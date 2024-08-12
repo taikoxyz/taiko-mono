@@ -76,7 +76,9 @@ interface IBridge {
     /// @param _message The message to be sent.
     /// @return msgHash_ The hash of the sent message.
     /// @return message_ The updated message sent.
-    function sendMessage(Message calldata _message)
+    function sendMessage(
+        Message calldata _message
+    )
         external
         payable
         returns (bytes32 msgHash_, Message memory message_);
