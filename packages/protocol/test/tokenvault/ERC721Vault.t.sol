@@ -89,7 +89,7 @@ contract PrankDestBridge {
         // a contract
         // most probably due to some deployment address nonce issue. (Seems a
         // known issue).
-        destERC721Vault.onMessageInvocation{ value: mockLibInvokeMsgValue }(
+        destERC721Vault.onMessageInvocation{value: mockLibInvokeMsgValue}(
             abi.encode(canonicalToken, from, to, tokenIds)
         );
 
@@ -253,7 +253,7 @@ contract ERC721VaultTest is TaikoTest {
             amounts // With ERC721 still need to specify 1
         );
         vm.prank(Alice, Alice);
-        erc721Vault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        erc721Vault.sendToken{value: GAS_LIMIT}(sendOpts);
 
         assertEq(ERC721(canonicalToken721).ownerOf(1), address(erc721Vault));
     }
@@ -275,7 +275,7 @@ contract ERC721VaultTest is TaikoTest {
         );
         vm.prank(Alice, Alice);
         vm.expectRevert(BaseNFTVault.VAULT_INVALID_TOKEN.selector);
-        erc721Vault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        erc721Vault.sendToken{value: GAS_LIMIT}(sendOpts);
     }
 
     function test_721Vault_sendToken_with_1_tokens_but_erc721_amount_1_invalid() public {
@@ -301,7 +301,7 @@ contract ERC721VaultTest is TaikoTest {
         );
         vm.prank(Alice, Alice);
         vm.expectRevert(BaseNFTVault.VAULT_INVALID_AMOUNT.selector);
-        erc721Vault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        erc721Vault.sendToken{value: GAS_LIMIT}(sendOpts);
     }
 
     function test_721Vault_receiveTokens_from_newly_deployed_bridged_contract_on_destination_chain_721(
@@ -330,7 +330,7 @@ contract ERC721VaultTest is TaikoTest {
             amounts
         );
         vm.prank(Alice, Alice);
-        erc721Vault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        erc721Vault.sendToken{value: GAS_LIMIT}(sendOpts);
 
         assertEq(canonicalToken721.ownerOf(1), address(erc721Vault));
 
@@ -381,7 +381,7 @@ contract ERC721VaultTest is TaikoTest {
             amounts
         );
         vm.prank(Alice, Alice);
-        erc721Vault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        erc721Vault.sendToken{value: GAS_LIMIT}(sendOpts);
 
         assertEq(canonicalToken721.ownerOf(1), address(erc721Vault));
 
@@ -427,7 +427,7 @@ contract ERC721VaultTest is TaikoTest {
             amounts
         );
         vm.prank(Alice, Alice);
-        erc721Vault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        erc721Vault.sendToken{value: GAS_LIMIT}(sendOpts);
 
         assertEq(canonicalToken721.ownerOf(2), address(erc721Vault));
 
@@ -468,7 +468,7 @@ contract ERC721VaultTest is TaikoTest {
             amounts
         );
         vm.prank(Alice, Alice);
-        erc721Vault.sendToken{ value: etherValue }(sendOpts);
+        erc721Vault.sendToken{value: etherValue}(sendOpts);
 
         assertEq(canonicalToken721.ownerOf(1), address(erc721Vault));
 
@@ -526,7 +526,7 @@ contract ERC721VaultTest is TaikoTest {
         );
 
         vm.prank(Alice, Alice);
-        IBridge.Message memory message = erc721Vault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        IBridge.Message memory message = erc721Vault.sendToken{value: GAS_LIMIT}(sendOpts);
 
         assertEq(canonicalToken721.ownerOf(1), address(erc721Vault));
 
@@ -564,7 +564,7 @@ contract ERC721VaultTest is TaikoTest {
             amounts
         );
         vm.prank(Alice, Alice);
-        erc721Vault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        erc721Vault.sendToken{value: GAS_LIMIT}(sendOpts);
 
         assertEq(canonicalToken721.ownerOf(1), address(erc721Vault));
         assertEq(canonicalToken721.ownerOf(2), address(erc721Vault));
@@ -617,7 +617,7 @@ contract ERC721VaultTest is TaikoTest {
             amounts
         );
         vm.prank(Alice, Alice);
-        erc721Vault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        erc721Vault.sendToken{value: GAS_LIMIT}(sendOpts);
 
         assertEq(canonicalToken721.ownerOf(1), address(erc721Vault));
 
@@ -667,7 +667,7 @@ contract ERC721VaultTest is TaikoTest {
         );
 
         vm.prank(Bob, Bob);
-        destChainErc721Vault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        destChainErc721Vault.sendToken{value: GAS_LIMIT}(sendOpts);
 
         vm.chainId(chainId);
 
@@ -712,7 +712,7 @@ contract ERC721VaultTest is TaikoTest {
             amounts
         );
         vm.prank(Alice, Alice);
-        erc721Vault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        erc721Vault.sendToken{value: GAS_LIMIT}(sendOpts);
 
         assertEq(canonicalToken721.ownerOf(1), address(erc721Vault));
 
@@ -764,7 +764,7 @@ contract ERC721VaultTest is TaikoTest {
 
         vm.prank(Alice, Alice);
         vm.expectRevert("ERC721: transfer from incorrect owner");
-        destChainErc721Vault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        destChainErc721Vault.sendToken{value: GAS_LIMIT}(sendOpts);
     }
 
     function test_721Vault_upgrade_bridged_tokens_721() public {
@@ -792,7 +792,7 @@ contract ERC721VaultTest is TaikoTest {
             amounts
         );
         vm.prank(Alice, Alice);
-        erc721Vault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        erc721Vault.sendToken{value: GAS_LIMIT}(sendOpts);
 
         assertEq(canonicalToken721.ownerOf(1), address(erc721Vault));
 
@@ -861,7 +861,7 @@ contract ERC721VaultTest is TaikoTest {
             amounts
         );
         vm.prank(Alice, Alice);
-        erc721Vault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        erc721Vault.sendToken{value: GAS_LIMIT}(sendOpts);
 
         assertEq(canonicalToken721.ownerOf(1), address(erc721Vault));
 
@@ -904,7 +904,7 @@ contract ERC721VaultTest is TaikoTest {
         // Alice hasn't approved the vault yet!
         vm.prank(Alice, Alice);
         vm.expectRevert("ERC721: caller is not token owner or approved");
-        destChainErc721Vault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        destChainErc721Vault.sendToken{value: GAS_LIMIT}(sendOpts);
 
         // Also Vault cannot burn tokens it does not own (even if the priv key compromised)
         vm.prank(address(destChainErc721Vault), address(destChainErc721Vault));
@@ -915,6 +915,6 @@ contract ERC721VaultTest is TaikoTest {
         vm.prank(Alice, Alice);
         ERC721(deployedContract).approve(address(destChainErc721Vault), 1);
         vm.prank(Alice, Alice);
-        destChainErc721Vault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        destChainErc721Vault.sendToken{value: GAS_LIMIT}(sendOpts);
     }
 }

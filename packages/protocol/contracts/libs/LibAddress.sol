@@ -78,6 +78,6 @@ library LibAddress {
 
         try IERC165(_addr).supportsInterface(_interfaceId) returns (bool _result) {
             result_ = _result;
-        } catch { }
+        } catch {}
     }
 }

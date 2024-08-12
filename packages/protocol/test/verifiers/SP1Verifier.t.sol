@@ -30,7 +30,7 @@ contract TestSP1Verifier is TaikoL1TestBase {
 
     function deployTaikoL1() internal override returns (TaikoL1) {
         return
-            TaikoL1(payable(deployProxy({ name: "taiko", impl: address(new TaikoL1()), data: "" })));
+            TaikoL1(payable(deployProxy({name: "taiko", impl: address(new TaikoL1()), data: ""})));
     }
 
     function setUp() public override {
@@ -68,7 +68,7 @@ contract TestSP1Verifier is TaikoL1TestBase {
 
         // TierProof
         TaikoData.TierProof memory proof =
-            TaikoData.TierProof({ tier: 100, data: abi.encode(programVKey, sp1Proof) });
+            TaikoData.TierProof({tier: 100, data: abi.encode(programVKey, sp1Proof)});
 
         vm.warp(block.timestamp + 5);
 
@@ -93,7 +93,7 @@ contract TestSP1Verifier is TaikoL1TestBase {
 
         // TierProof
         TaikoData.TierProof memory proof =
-            TaikoData.TierProof({ tier: 100, data: abi.encode(programVKey, sp1Proof) });
+            TaikoData.TierProof({tier: 100, data: abi.encode(programVKey, sp1Proof)});
 
         vm.warp(block.timestamp + 5);
 
@@ -120,7 +120,7 @@ contract TestSP1Verifier is TaikoL1TestBase {
 
         // TierProof
         TaikoData.TierProof memory proof =
-            TaikoData.TierProof({ tier: 100, data: abi.encode(programVKey, sp1Proof) });
+            TaikoData.TierProof({tier: 100, data: abi.encode(programVKey, sp1Proof)});
 
         vm.warp(block.timestamp + 5);
 

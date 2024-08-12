@@ -43,7 +43,7 @@ contract BridgeTest2_sendMessage is BridgeTest2 {
         message.data = "hello";
         bridge.sendMessage(message);
 
-        (bytes32 mhash, IBridge.Message memory m) = bridge.sendMessage{ value: 40_000_000 }(message);
+        (bytes32 mhash, IBridge.Message memory m) = bridge.sendMessage{value: 40_000_000}(message);
         assertEq(m.id, 1);
         assertEq(m.srcOwner, Alice); // Not Carol
         assertEq(m.srcChainId, block.chainid);
@@ -54,8 +54,7 @@ contract BridgeTest2_sendMessage is BridgeTest2 {
         m.srcChainId = 0;
         assertEq(keccak256(abi.encode(message)), keccak256(abi.encode(m)));
 
-        (bytes32 mhash2, IBridge.Message memory m2) =
-            bridge.sendMessage{ value: 40_000_000 }(message);
+        (bytes32 mhash2, IBridge.Message memory m2) = bridge.sendMessage{value: 40_000_000}(message);
 
         assertEq(m2.id, 2);
         assertTrue(mhash2 != mhash);
@@ -89,7 +88,7 @@ contract BridgeTest2_sendMessage is BridgeTest2 {
         vm.expectRevert(Bridge.B_INVALID_VALUE.selector);
         bridge.sendMessage(message);
 
-        bridge.sendMessage{ value: message.fee }(message);
+        bridge.sendMessage{value: message.fee}(message);
 
         message.fee = 0;
         bridge.sendMessage(message);

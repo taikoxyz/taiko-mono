@@ -10,7 +10,7 @@ contract FreeMintERC20 is ERC20 {
 
     error HasMinted();
 
-    constructor(string memory name, string memory symbol) ERC20(name, symbol) { }
+    constructor(string memory name, string memory symbol) ERC20(name, symbol) {}
 
     function mint(address to) public {
         if (minters[to]) {

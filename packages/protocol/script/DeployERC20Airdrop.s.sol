@@ -22,7 +22,7 @@ contract DeployERC20Airdrop is DeployCapability {
     address public bridgedTko = vm.envAddress("BRIDGED_TKO_ADDRESS");
     address public vaultAddress = vm.envAddress("VAULT_ADDRESS");
 
-    function setUp() external { }
+    function setUp() external {}
 
     function run() external {
         require(deployerPrivKey != 0, "invalid deployer priv key");

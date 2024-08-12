@@ -18,7 +18,7 @@ contract DeployTokenUnlock is DeployCapability {
     // https://taikoscan.io/tx/0x3100bc89ba700400f81d7823898f0f43a0dd5ce5507b13c4ad9e625dc0497909
     address public TOKEN_UNLOCK_IMPL = 0x035AFfC82612de31E9Db2259B9482D0Dd53B7819;
 
-    function setUp() public { }
+    function setUp() public {}
 
     function run() external {
         require(TOKEN_UNLOCK_IMPL != address(0), "zero TOKEN_UNLOCK_IMPL");

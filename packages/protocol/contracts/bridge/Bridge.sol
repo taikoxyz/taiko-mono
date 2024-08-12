@@ -200,7 +200,7 @@ contract Bridge is EssentialContract, IBridge {
             _storeContext(msgHash, address(this), _message.srcChainId);
 
             // Perform recall
-            IRecallableSender(_message.from).onMessageRecalled{ value: _message.value }(
+            IRecallableSender(_message.from).onMessageRecalled{value: _message.value}(
                 _message, msgHash
             );
 

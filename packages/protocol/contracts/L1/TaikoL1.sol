@@ -305,7 +305,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
             basefeeSharingPctg: 75,
             gasIssuancePerSecond: 5_000_000,
             ontakeForkHeight: 374_400 // = 7200 * 52
-         });
+        });
     }
 
     function _proposeBlock(
@@ -348,5 +348,5 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         virtual
         override
         onlyFromOwnerOrNamed(LibStrings.B_CHAIN_WATCHDOG)
-    { }
+    {}
 }

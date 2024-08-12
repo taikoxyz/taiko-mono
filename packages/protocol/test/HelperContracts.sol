@@ -19,7 +19,7 @@ contract BadReceiver {
 }
 
 contract GoodReceiver is IMessageInvocable {
-    receive() external payable { }
+    receive() external payable {}
 
     function onMessageInvocation(bytes calldata data) public payable {
         address addr = abi.decode(data, (address));
@@ -47,5 +47,5 @@ contract SkipProofCheckSignal is SignalService {
         pure
         override
         returns (uint256)
-    { }
+    {}
 }

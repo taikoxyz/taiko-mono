@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "../TaikoTest.sol";
 
 contract TestTokenERC1155 is ERC1155 {
-    constructor(string memory baseURI) ERC1155(baseURI) { }
+    constructor(string memory baseURI) ERC1155(baseURI) {}
 
     function mint(uint256 tokenId, uint256 amount) public {
         _mint(msg.sender, tokenId, amount, "");
@@ -74,7 +74,7 @@ contract PrankDestBridge {
         // a contract
         // most probably due to some deployment address nonce issue. (Seems a
         // known issue).
-        destERC1155Vault.onMessageInvocation{ value: mockLibInvokeMsgValue }(
+        destERC1155Vault.onMessageInvocation{value: mockLibInvokeMsgValue}(
             abi.encode(ctoken, from, to, tokenIds, amounts)
         );
 
@@ -245,7 +245,7 @@ contract ERC1155VaultTest is TaikoTest {
             amounts
         );
         vm.prank(Alice, Alice);
-        erc1155Vault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        erc1155Vault.sendToken{value: GAS_LIMIT}(sendOpts);
 
         assertEq(ctoken1155.balanceOf(Alice, 1), 8);
         assertEq(ctoken1155.balanceOf(address(erc1155Vault), 1), 2);
@@ -269,7 +269,7 @@ contract ERC1155VaultTest is TaikoTest {
         );
         vm.prank(Alice, Alice);
         vm.expectRevert(BaseNFTVault.VAULT_INVALID_TOKEN.selector);
-        erc1155Vault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        erc1155Vault.sendToken{value: GAS_LIMIT}(sendOpts);
     }
 
     function test_1155Vault_sendToken_with_0_tokens_1155() public {
@@ -297,7 +297,7 @@ contract ERC1155VaultTest is TaikoTest {
         );
         vm.prank(Alice, Alice);
         vm.expectRevert(BaseNFTVault.VAULT_INVALID_AMOUNT.selector);
-        erc1155Vault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        erc1155Vault.sendToken{value: GAS_LIMIT}(sendOpts);
     }
 
     function test_1155Vault_receiveTokens_from_newly_deployed_bridged_contract_on_destination_chain_1155(
@@ -327,7 +327,7 @@ contract ERC1155VaultTest is TaikoTest {
             amounts
         );
         vm.prank(Alice, Alice);
-        erc1155Vault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        erc1155Vault.sendToken{value: GAS_LIMIT}(sendOpts);
 
         assertEq(ctoken1155.balanceOf(Alice, 1), 8);
         assertEq(ctoken1155.balanceOf(address(erc1155Vault), 1), 2);
@@ -389,7 +389,7 @@ contract ERC1155VaultTest is TaikoTest {
             amounts
         );
         vm.prank(Alice, Alice);
-        erc1155Vault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        erc1155Vault.sendToken{value: GAS_LIMIT}(sendOpts);
 
         assertEq(ctoken1155.balanceOf(Alice, 1), 8);
         assertEq(ctoken1155.balanceOf(address(erc1155Vault), 1), 2);
@@ -440,7 +440,7 @@ contract ERC1155VaultTest is TaikoTest {
             amounts
         );
         vm.prank(Alice, Alice);
-        erc1155Vault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        erc1155Vault.sendToken{value: GAS_LIMIT}(sendOpts);
 
         assertEq(ctoken1155.balanceOf(Alice, 1), 7);
         assertEq(ctoken1155.balanceOf(address(erc1155Vault), 1), 3);
@@ -492,7 +492,7 @@ contract ERC1155VaultTest is TaikoTest {
             amounts
         );
         vm.prank(Alice, Alice);
-        erc1155Vault.sendToken{ value: etherValue }(sendOpts);
+        erc1155Vault.sendToken{value: etherValue}(sendOpts);
 
         assertEq(ctoken1155.balanceOf(Alice, 1), 8);
         assertEq(ctoken1155.balanceOf(address(erc1155Vault), 1), 2);
@@ -554,7 +554,7 @@ contract ERC1155VaultTest is TaikoTest {
         );
 
         vm.prank(Alice, Alice);
-        IBridge.Message memory message = erc1155Vault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        IBridge.Message memory message = erc1155Vault.sendToken{value: GAS_LIMIT}(sendOpts);
 
         assertEq(ctoken1155.balanceOf(Alice, 1), 8);
         assertEq(ctoken1155.balanceOf(address(erc1155Vault), 1), 2);
@@ -595,7 +595,7 @@ contract ERC1155VaultTest is TaikoTest {
             amounts
         );
         vm.prank(Alice, Alice);
-        erc1155Vault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        erc1155Vault.sendToken{value: GAS_LIMIT}(sendOpts);
 
         assertEq(ctoken1155.balanceOf(Alice, 1), 8);
         assertEq(ctoken1155.balanceOf(address(erc1155Vault), 1), 2);
@@ -658,7 +658,7 @@ contract ERC1155VaultTest is TaikoTest {
             amounts
         );
         vm.prank(Alice, Alice);
-        erc1155Vault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        erc1155Vault.sendToken{value: GAS_LIMIT}(sendOpts);
 
         assertEq(ctoken1155.balanceOf(address(erc1155Vault), 1), 1);
 
@@ -716,7 +716,7 @@ contract ERC1155VaultTest is TaikoTest {
         );
 
         vm.prank(Bob, Bob);
-        destChainErc1155Vault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        destChainErc1155Vault.sendToken{value: GAS_LIMIT}(sendOpts);
 
         vm.chainId(chainId);
 
@@ -768,7 +768,7 @@ contract ERC1155VaultTest is TaikoTest {
             amounts
         );
         vm.prank(Alice, Alice);
-        erc1155Vault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        erc1155Vault.sendToken{value: GAS_LIMIT}(sendOpts);
 
         assertEq(ctoken1155.balanceOf(address(erc1155Vault), 1), 1);
 
@@ -827,7 +827,7 @@ contract ERC1155VaultTest is TaikoTest {
 
         vm.prank(Alice, Alice);
         vm.expectRevert("ERC1155: caller is not token owner or approved");
-        destChainErc1155Vault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        destChainErc1155Vault.sendToken{value: GAS_LIMIT}(sendOpts);
     }
 
     function test_1155Vault_upgrade_bridged_tokens_1155() public {
@@ -854,7 +854,7 @@ contract ERC1155VaultTest is TaikoTest {
             amounts
         );
         vm.prank(Alice, Alice);
-        erc1155Vault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        erc1155Vault.sendToken{value: GAS_LIMIT}(sendOpts);
 
         assertEq(ctoken1155.balanceOf(Alice, 1), 8);
         assertEq(ctoken1155.balanceOf(address(erc1155Vault), 1), 2);
@@ -887,7 +887,7 @@ contract ERC1155VaultTest is TaikoTest {
 
         try UpdatedBridgedERC1155(deployedContract).helloWorld() {
             fail();
-        } catch { }
+        } catch {}
 
         // Upgrade the implementation of that contract
         // so that it supports now the 'helloWorld' call
@@ -895,7 +895,7 @@ contract ERC1155VaultTest is TaikoTest {
         vm.prank(Carol, Carol);
         BridgedERC1155(payable(deployedContract)).upgradeTo(address(newBridgedContract));
 
-        try UpdatedBridgedERC1155(deployedContract).helloWorld() { }
+        try UpdatedBridgedERC1155(deployedContract).helloWorld() {}
         catch {
             fail();
         }
@@ -925,7 +925,7 @@ contract ERC1155VaultTest is TaikoTest {
             amounts
         );
         vm.prank(Alice, Alice);
-        erc1155Vault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        erc1155Vault.sendToken{value: GAS_LIMIT}(sendOpts);
 
         assertEq(ctoken1155.balanceOf(address(erc1155Vault), 1), 1);
 
@@ -974,7 +974,7 @@ contract ERC1155VaultTest is TaikoTest {
         // Alice hasn't approved the vault yet!
         vm.prank(Alice, Alice);
         vm.expectRevert("ERC1155: caller is not token owner or approved");
-        destChainErc1155Vault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        destChainErc1155Vault.sendToken{value: GAS_LIMIT}(sendOpts);
 
         // Also Vault cannot burn tokens it does not own (even if the priv key compromised)
         vm.prank(address(destChainErc1155Vault), address(destChainErc1155Vault));
@@ -985,6 +985,6 @@ contract ERC1155VaultTest is TaikoTest {
         vm.prank(Alice, Alice);
         ERC1155(deployedContract).setApprovalForAll(address(destChainErc1155Vault), true);
         vm.prank(Alice, Alice);
-        destChainErc1155Vault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        destChainErc1155Vault.sendToken{value: GAS_LIMIT}(sendOpts);
     }
 }

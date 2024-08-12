@@ -12,7 +12,7 @@ contract MayFailFreeMintERC20 is ERC20 {
     error HasMinted();
     error Failed();
 
-    constructor(string memory name, string memory symbol) ERC20(name, symbol) { }
+    constructor(string memory name, string memory symbol) ERC20(name, symbol) {}
 
     function mint(address to) public {
         if (minters[msg.sender]) {

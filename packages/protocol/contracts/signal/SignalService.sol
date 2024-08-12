@@ -207,7 +207,7 @@ contract SignalService is EssentialContract, ISignalService {
         );
     }
 
-    function _authorizePause(address, bool) internal pure override notImplemented { }
+    function _authorizePause(address, bool) internal pure override notImplemented {}
 
     function _syncChainData(
         uint64 _chainId,
