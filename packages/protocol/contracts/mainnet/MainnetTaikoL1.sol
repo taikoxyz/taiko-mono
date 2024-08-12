@@ -30,9 +30,12 @@ contract MainnetTaikoL1 is TaikoL1 {
             livenessBond: 125e18, // 125 Taiko token
             stateRootSyncInternal: 16,
             maxAnchorHeightOffset: 64,
-            basefeeAdjustmentQuotient: 8,
-            basefeeSharingPctg: 75,
-            gasIssuancePerSecond: 5_000_000,
+            baseFeeConfig: TaikoData.BaseFeeConfig({
+                adjustmentQuotient: 8,
+                sharingPctg: 75,
+                gasIssuancePerSecond: 5_000_000,
+                minGasExcess: 1_340_000_000
+            }),
             ontakeForkHeight: 374_400 // = 7200 * 52
          });
     }

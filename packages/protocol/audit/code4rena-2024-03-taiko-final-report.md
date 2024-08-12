@@ -181,7 +181,7 @@ But the calculation is incorrect:
             // block, however, this block's gas used will affect the next
             // block's base fee.
             basefee_ = Lib1559Math.basefee(
-                gasExcess_, uint256(_config.basefeeAdjustmentQuotient) * _config.gasTargetPerL1Block
+                gasExcess_, uint256(_config.adjustmentQuotient) * _config.gasTargetPerL1Block
             );
         }
 ```
@@ -219,12 +219,12 @@ Here is a simple POC showing the actual issuance compared to the expected issuan
 ```solidity
     struct Config {
         uint32 gasTargetPerL1Block;
-        uint8 basefeeAdjustmentQuotient;
+        uint8 adjustmentQuotient;
     }
 
     function getConfig() public view virtual returns (Config memory config_) {
         config_.gasTargetPerL1Block = 15 * 1e6 * 4;
-        config_.basefeeAdjustmentQuotient = 8;
+        config_.adjustmentQuotient = 8;
     }
 
     uint256 lastSyncedBlock = 1;
@@ -258,7 +258,7 @@ Here is a simple POC showing the actual issuance compared to the expected issuan
             //gasExcess_ = uint64(excess.min(type(uint64).max));
 
             //basefee_ = Lib1559Math.basefee(
-            //    gasExcess_, uint256(_config.basefeeAdjustmentQuotient) * _config.gasTargetPerL1Block
+            //    gasExcess_, uint256(_config.adjustmentQuotient) * _config.gasTargetPerL1Block
             //);
         }
 
@@ -5854,7 +5854,7 @@ File: packages/protocol/contracts/L2/TaikoL2.sol
 
 27: 		        uint32 gasTargetPerL1Block;
 
-28: 		        uint8 basefeeAdjustmentQuotient;
+28: 		        uint8 adjustmentQuotient;
 
 35: 		    uint8 public constant BLOCK_SYNC_THRESHOLD = 5;
 
@@ -11794,7 +11794,7 @@ File: packages/protocol/contracts/L2/TaikoL2.sol
 284: 		            gasExcess_ = uint64(excess.min(type(uint64).max));
 
 290: 		            basefee_ = Lib1559Math.basefee(
-291: 		                gasExcess_, uint256(_config.basefeeAdjustmentQuotient) * _config.gasTargetPerL1Block
+291: 		                gasExcess_, uint256(_config.adjustmentQuotient) * _config.gasTargetPerL1Block
 292: 		            );
 ```
 

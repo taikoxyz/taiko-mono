@@ -168,9 +168,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     }
 
     /// @inheritdoc ITaikoL1
-    function verifyBlocks(
-        uint64 _maxBlocksToVerify
-    )
+    function verifyBlocks(uint64 _maxBlocksToVerify)
         external
         whenNotPaused
         whenProvingNotPaused
@@ -301,9 +299,12 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
             livenessBond: 125e18, // 125 Taiko token
             stateRootSyncInternal: 16,
             maxAnchorHeightOffset: 64,
-            basefeeAdjustmentQuotient: 8,
-            basefeeSharingPctg: 75,
-            gasIssuancePerSecond: 5_000_000,
+            baseFeeConfig: TaikoData.BaseFeeConfig({
+                adjustmentQuotient: 8,
+                sharingPctg: 75,
+                gasIssuancePerSecond: 5_000_000,
+                minGasExcess: 1_340_000_000
+            }),
             ontakeForkHeight: 374_400 // = 7200 * 52
          });
     }
