@@ -59,7 +59,7 @@ contract ProverSet is EssentialContract, IERC1271 {
     }
 
     /// @notice Receives ETH as fees.
-    receive() external payable {}
+    receive() external payable { }
 
     function approveAllowance(address _address, uint256 _allowance) external onlyOwner {
         IERC20(tkoToken()).approve(_address, _allowance);

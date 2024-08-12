@@ -177,5 +177,5 @@ contract BridgedERC20 is
     )
         private
         onlyFromOwnerOrNamed(LibStrings.B_ERC20_VAULT)
-    {}
+    { }
 }

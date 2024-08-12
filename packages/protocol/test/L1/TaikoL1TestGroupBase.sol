@@ -16,7 +16,7 @@ contract TaikoL1New is TaikoL1 {
 abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
     function deployTaikoL1() internal virtual override returns (TaikoL1) {
         return TaikoL1(
-            payable(deployProxy({name: "taiko", impl: address(new TaikoL1New()), data: ""}))
+            payable(deployProxy({ name: "taiko", impl: address(new TaikoL1New()), data: "" }))
         );
     }
 
@@ -32,7 +32,7 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
 
         vm.prank(proposer);
         if (revertReason != "") vm.expectRevert(revertReason);
-        (meta,) = L1.proposeBlock{value: 3 ether}(
+        (meta,) = L1.proposeBlock{ value: 3 ether }(
             abi.encode(TaikoData.BlockParams(address(0), address(0), 0, 0, hookcalls, "")), txList
         );
     }

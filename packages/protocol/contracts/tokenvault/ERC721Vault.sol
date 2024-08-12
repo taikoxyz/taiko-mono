@@ -68,7 +68,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
 
         bytes32 msgHash;
         (msgHash, message_) =
-            IBridge(resolve(LibStrings.B_BRIDGE, false)).sendMessage{value: msg.value}(message);
+            IBridge(resolve(LibStrings.B_BRIDGE, false)).sendMessage{ value: msg.value }(message);
 
         emit TokenSent({
             msgHash: msgHash,

@@ -116,9 +116,9 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         Ownable2StepUpgradeable(_target).acceptOwnership();
     }
 
-    function transferOwnership(address) public pure override notImplemented {}
+    function transferOwnership(address) public pure override notImplemented { }
 
-    function _authorizePause(address, bool) internal pure override notImplemented {}
+    function _authorizePause(address, bool) internal pure override notImplemented { }
 
     function _invokeCall(bytes calldata _data, bool _verifyTxId) private {
         Call memory call = abi.decode(_data, (Call));
@@ -136,7 +136,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
 
         (bool success, bytes memory result) = call.isDelegateCall //
             ? call.target.delegatecall(call.txdata)
-            : call.target.call{value: msg.value}(call.txdata);
+            : call.target.call{ value: msg.value }(call.txdata);
 
         if (!success) LibBytes.revertWithExtractedError(result);
         emit MessageInvoked(call.txId, call.target, call.isDelegateCall, call.txdata);

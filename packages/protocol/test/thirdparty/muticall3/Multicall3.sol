@@ -188,7 +188,7 @@ contract Multicall3 {
             unchecked {
                 valAccumulator += val;
             }
-            (result.success, result.returnData) = calli.target.call{value: val}(calli.callData);
+            (result.success, result.returnData) = calli.target.call{ value: val }(calli.callData);
             assembly {
                 // Revert if the call fails and failure is not allowed
                 // `allowFailure := calldataload(add(calli, 0x20))` and `success := mload(result)`

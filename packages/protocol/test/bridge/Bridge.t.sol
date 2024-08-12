@@ -15,20 +15,20 @@ contract UntrustedSendMessageRelayer {
         public
         returns (bytes32 msgHash, IBridge.Message memory updatedMessage)
     {
-        return IBridge(bridge).sendMessage{value: message_value}(message);
+        return IBridge(bridge).sendMessage{ value: message_value }(message);
     }
 }
 
 // A malicious contract that attempts to exhaust gas
 contract MaliciousContract2 {
     fallback() external payable {
-        while (true) {} // infinite loop
+        while (true) { } // infinite loop
     }
 }
 
 // Non malicious contract that does not exhaust gas
 contract NonMaliciousContract1 {
-    fallback() external payable {}
+    fallback() external payable { }
 }
 
 contract BridgeTest is TaikoTest {
@@ -258,7 +258,7 @@ contract BridgeTest is TaikoTest {
         });
 
         vm.expectRevert(EssentialContract.ZERO_ADDRESS.selector);
-        bridge.sendMessage{value: amount}(message);
+        bridge.sendMessage{ value: amount }(message);
     }
 
     function test_Bridge_send_message_ether_reverts_when_dest_chain_is_not_enabled() public {
@@ -273,7 +273,7 @@ contract BridgeTest is TaikoTest {
         });
 
         vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
-        bridge.sendMessage{value: amount}(message);
+        bridge.sendMessage{ value: amount }(message);
     }
 
     function test_Bridge_send_message_ether_reverts_when_dest_chain_same_as_block_chainid()
@@ -290,7 +290,7 @@ contract BridgeTest is TaikoTest {
         });
 
         vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
-        bridge.sendMessage{value: amount}(message);
+        bridge.sendMessage{ value: amount }(message);
     }
 
     function test_Bridge_send_message_ether_with_no_processing_fee() public {
@@ -304,7 +304,7 @@ contract BridgeTest is TaikoTest {
             destChain: destChainId
         });
 
-        (, IBridge.Message memory _message) = bridge.sendMessage{value: amount}(message);
+        (, IBridge.Message memory _message) = bridge.sendMessage{ value: amount }(message);
         assertEq(bridge.isMessageSent(_message), true);
     }
 
@@ -320,7 +320,7 @@ contract BridgeTest is TaikoTest {
             destChain: destChainId
         });
 
-        (, IBridge.Message memory _message) = bridge.sendMessage{value: amount + fee}(message);
+        (, IBridge.Message memory _message) = bridge.sendMessage{ value: amount + fee }(message);
         assertEq(bridge.isMessageSent(_message), true);
     }
 
@@ -340,7 +340,7 @@ contract BridgeTest is TaikoTest {
         uint256 starterBalanceAlice = Alice.balance;
 
         vm.prank(Alice, Alice);
-        (, IBridge.Message memory _message) = bridge.sendMessage{value: amount + fee}(message);
+        (, IBridge.Message memory _message) = bridge.sendMessage{ value: amount + fee }(message);
         assertEq(bridge.isMessageSent(_message), true);
 
         assertEq(address(bridge).balance, (starterBalanceVault + amount + fee));
@@ -391,7 +391,7 @@ contract BridgeTest is TaikoTest {
         });
 
         vm.expectRevert(Bridge.B_INVALID_VALUE.selector);
-        bridge.sendMessage{value: amount}(message);
+        bridge.sendMessage{ value: amount }(message);
     }
 
     // test with a known good merkle proof / message since we cant generate

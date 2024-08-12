@@ -40,7 +40,7 @@ contract BridgeTest2_recallMessage is BridgeTest2 {
         uint256 carolBalance = Carol.balance;
         uint256 bridgeBalance = address(bridge).balance;
 
-        (, IBridge.Message memory m) = bridge.sendMessage{value: 1 ether}(message);
+        (, IBridge.Message memory m) = bridge.sendMessage{ value: 1 ether }(message);
         assertEq(Alice.balance, aliceBalance);
         assertEq(Carol.balance, carolBalance - 1 ether);
         assertEq(address(bridge).balance, bridgeBalance + 1 ether);
@@ -71,7 +71,7 @@ contract BridgeTest2_recallMessage is BridgeTest2 {
         message.srcChainId = uint64(block.chainid);
 
         vm.prank(Carol);
-        (, IBridge.Message memory m) = bridge.sendMessage{value: 1 ether}(message);
+        (, IBridge.Message memory m) = bridge.sendMessage{ value: 1 ether }(message);
 
         vm.prank(owner);
         addressManager.setAddress(uint64(block.chainid), "signal_service", address(0));
@@ -95,7 +95,7 @@ contract BridgeTest2_recallMessage is BridgeTest2 {
         message.srcChainId = uint64(block.chainid);
 
         vm.prank(address(callableSender));
-        (bytes32 mhash, IBridge.Message memory m) = bridge.sendMessage{value: 1 ether}(message);
+        (bytes32 mhash, IBridge.Message memory m) = bridge.sendMessage{ value: 1 ether }(message);
 
         vm.prank(address(callableSender));
         bridge.recallMessage(m, fakeProof);

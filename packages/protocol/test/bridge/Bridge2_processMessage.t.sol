@@ -26,7 +26,7 @@ contract Target is IMessageInvocable {
         receivedEther += msg.value;
     }
 
-    receive() external payable {}
+    receive() external payable { }
 }
 
 contract OutOfQuotaManager is IQuotaManager {
@@ -36,7 +36,7 @@ contract OutOfQuotaManager is IQuotaManager {
 }
 
 contract AlwaysAvailableQuotaManager is IQuotaManager {
-    function consumeQuota(address, uint256) external pure {}
+    function consumeQuota(address, uint256) external pure { }
 }
 
 contract BridgeTest2_processMessage is BridgeTest2 {

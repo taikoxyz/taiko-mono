@@ -147,9 +147,9 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
         emit Unpaused(msg.sender);
     }
 
-    function _authorizeUpgrade(address) internal virtual override onlyOwner {}
+    function _authorizeUpgrade(address) internal virtual override onlyOwner { }
 
-    function _authorizePause(address, bool) internal virtual onlyOwner {}
+    function _authorizePause(address, bool) internal virtual onlyOwner { }
 
     // Stores the reentry lock
     function _storeReentryLock(uint8 _reentry) internal virtual {

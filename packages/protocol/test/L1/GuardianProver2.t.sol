@@ -7,7 +7,7 @@ import "../L1/TaikoL1TestBase.sol";
 contract TestGuardianProver2 is TaikoL1TestBase {
     function deployTaikoL1() internal override returns (TaikoL1) {
         return
-            TaikoL1(payable(deployProxy({name: "taiko", impl: address(new TaikoL1()), data: ""})));
+            TaikoL1(payable(deployProxy({ name: "taiko", impl: address(new TaikoL1()), data: "" })));
     }
 
     function setUp() public override {
@@ -38,7 +38,7 @@ contract TestGuardianProver2 is TaikoL1TestBase {
 
         // TierProof
         TaikoData.TierProof memory proof =
-            TaikoData.TierProof({tier: LibTiers.TIER_GUARDIAN, data: ""});
+            TaikoData.TierProof({ tier: LibTiers.TIER_GUARDIAN, data: "" });
 
         // `verifyProof()`
         gp.verifyProof(ctx, transition, proof);
@@ -67,7 +67,7 @@ contract TestGuardianProver2 is TaikoL1TestBase {
 
         // TierProof
         TaikoData.TierProof memory proof =
-            TaikoData.TierProof({tier: LibTiers.TIER_GUARDIAN, data: ""});
+            TaikoData.TierProof({ tier: LibTiers.TIER_GUARDIAN, data: "" });
 
         // `verifyProof()` with invalid ctx.prover
         vm.expectRevert(GuardianProver.GV_PERMISSION_DENIED.selector);

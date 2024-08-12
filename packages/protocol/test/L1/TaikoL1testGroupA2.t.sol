@@ -17,7 +17,7 @@ contract TaikoL1ForkA2 is TaikoL1 {
 contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
     function deployTaikoL1() internal override returns (TaikoL1) {
         return TaikoL1(
-            payable(deployProxy({name: "taiko", impl: address(new TaikoL1ForkA2()), data: ""}))
+            payable(deployProxy({ name: "taiko", impl: address(new TaikoL1ForkA2()), data: "" }))
         );
     }
 

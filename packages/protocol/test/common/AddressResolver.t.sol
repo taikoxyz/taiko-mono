@@ -7,7 +7,7 @@ import "../L1/TaikoL1TestBase.sol";
 contract TestAddressResolver is TaikoL1TestBase {
     function deployTaikoL1() internal override returns (TaikoL1) {
         return
-            TaikoL1(payable(deployProxy({name: "taiko", impl: address(new TaikoL1()), data: ""})));
+            TaikoL1(payable(deployProxy({ name: "taiko", impl: address(new TaikoL1()), data: "" })));
     }
 
     function setUp() public override {

@@ -23,7 +23,9 @@ contract Verifier {
 contract TaikoL1Test is TaikoL1TestBase {
     function deployTaikoL1() internal override returns (TaikoL1) {
         return TaikoL1(
-            payable(deployProxy({name: "taiko", impl: address(new TaikoL1_NoCooldown()), data: ""}))
+            payable(
+                deployProxy({ name: "taiko", impl: address(new TaikoL1_NoCooldown()), data: "" })
+            )
         );
     }
 
@@ -238,7 +240,7 @@ contract TaikoL1Test is TaikoL1TestBase {
 
         vm.prank(proposer, proposer);
         vm.expectRevert(revertReason);
-        L1.proposeBlock{value: msgValue}(
+        L1.proposeBlock{ value: msgValue }(
             abi.encode(TaikoData.BlockParams(address(0), address(0), 0, 0, hookcalls, "")),
             new bytes(txListSize)
         );
