@@ -37,7 +37,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         emit StateVariablesUpdated(state.slotB);
     }
 
-    modifier onlyRegisteredProposer() {
+    modifier onlyPermittedProposer() {
         LibProposing.checkProposerPermission(this);
         _;
     }
@@ -76,7 +76,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     )
         external
         payable
-        onlyRegisteredProposer
+        onlyPermittedProposer
         whenNotPaused
         nonReentrant
         emitEventForClient
@@ -97,7 +97,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         bytes calldata _txList
     )
         external
-        onlyRegisteredProposer
+        onlyPermittedProposer
         whenNotPaused
         nonReentrant
         emitEventForClient
@@ -112,7 +112,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         bytes[] calldata _txListArr
     )
         external
-        onlyRegisteredProposer
+        onlyPermittedProposer
         whenNotPaused
         nonReentrant
         emitEventForClient
@@ -168,9 +168,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     }
 
     /// @inheritdoc ITaikoL1
-    function verifyBlocks(
-        uint64 _maxBlocksToVerify
-    )
+    function verifyBlocks(uint64 _maxBlocksToVerify)
         external
         whenNotPaused
         whenProvingNotPaused
