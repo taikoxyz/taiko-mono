@@ -31,7 +31,7 @@ contract TaikoL2EIP1559Configurable is TaikoL2 {
         onlyOwner
     {
         if (_newConfig.gasTargetPerL1Block == 0) revert L2_INVALID_CONFIG();
-        if (_newConfig.adjustmentQuotient == 0) revert L2_INVALID_CONFIG();
+        if (_newConfig.basefeeAdjustmentQuotient == 0) revert L2_INVALID_CONFIG();
 
         customConfig = _newConfig;
         parentGasExcess = _newGasExcess;
