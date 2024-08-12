@@ -3,12 +3,16 @@ package server
 import (
 	"bytes"
 	"encoding/hex"
+	"encoding/json"
 	"net/http"
 
+	badger "github.com/dgraph-io/badger/v4"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/labstack/echo/v4"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/preconfapi/builder"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/preconfapi/model"
 )
 
 // @title Taiko Preconf Server API
@@ -127,6 +131,40 @@ func (s *PreconfAPIServer) BuildBlocks(c echo.Context) error {
 	hexEncodedTx := hex.EncodeToString(rlpEncodedTx.Bytes())
 
 	return c.JSON(http.StatusOK, buildBlockResponse{RLPEncodedTx: hexEncodedTx})
+}
+
+func (s *PreconfAPIServer) GetTransactionByHash(c echo.Context) error {
+	hash := c.Param("hash")
+
+	// get from badger db
+	tx := &model.Transaction{}
+
+	if err := s.db.View(func(txn *badger.Txn) error {
+		item, err := txn.Get(common.HexToHash(hash).Bytes())
+		if err != nil {
+			return err
+		}
+
+		if item == nil {
+			return nil
+		}
+
+		if err := item.Value(func(val []byte) error {
+			return json.Unmarshal(val, tx)
+		}); err != nil {
+			return err
+		}
+
+		return nil
+	}); err != nil {
+		return c.JSON(http.StatusNotFound, nil)
+	}
+
+	if tx == nil {
+		return c.JSON(http.StatusNotFound, nil)
+	}
+
+	return c.JSON(http.StatusOK, tx)
 }
 
 func paramsToOpts(params []buildBlockParams) builder.BuildBlocksUnsignedOpts {

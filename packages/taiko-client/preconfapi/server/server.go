@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 
+	badger "github.com/dgraph-io/badger/v4"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
@@ -23,13 +24,16 @@ import (
 // @license.url https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md
 // PreconfAPIServer represents a proposer server instance.
 type PreconfAPIServer struct {
+	db         *badger.DB
 	echo       *echo.Echo
 	txBuilders map[string]builder.TxBuilder // calldata or blob map to txbuilder type
 }
 
 // NewPreconfAPIServerOpts contains all configurations for creating a prover server instance.
 type NewPreconfAPIServerOpts struct {
-	TxBuilders map[string]builder.TxBuilder
+	TxBuilders  map[string]builder.TxBuilder
+	DB          *badger.DB
+	CORSOrigins []string
 }
 
 // New creates a new prover server instance.
@@ -37,10 +41,11 @@ func New(opts *NewPreconfAPIServerOpts) (*PreconfAPIServer, error) {
 	srv := &PreconfAPIServer{
 		echo:       echo.New(),
 		txBuilders: opts.TxBuilders,
+		db:         opts.DB,
 	}
 
 	srv.echo.HideBanner = true
-	srv.configureMiddleware()
+	srv.configureMiddleware(opts.CORSOrigins)
 	srv.configureRoutes()
 
 	return srv, nil
@@ -72,7 +77,7 @@ func LogSkipper(c echo.Context) bool {
 }
 
 // configureMiddleware configures the server middlewares.
-func (s *PreconfAPIServer) configureMiddleware() {
+func (s *PreconfAPIServer) configureMiddleware(corsOrigins []string) {
 	s.echo.Use(middleware.RequestID())
 
 	s.echo.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
@@ -83,6 +88,12 @@ func (s *PreconfAPIServer) configureMiddleware() {
 			`"bytes_in":${bytes_in},"bytes_out":${bytes_out}}}` + "\n",
 		Output: os.Stdout,
 	}))
+
+	// Add CORS middleware
+	s.echo.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins:     corsOrigins,
+		AllowCredentials: true,
+	}))
 }
 
 // configureRoutes contains all routes which will be used by prover server.
@@ -91,4 +102,5 @@ func (s *PreconfAPIServer) configureRoutes() {
 	s.echo.GET("/healthz", s.Health)
 	s.echo.POST("/blocks/build", s.BuildBlocks)
 	s.echo.POST("/block/build", s.BuildBlock)
+	s.echo.GET("/tx/:hash", s.GetTransactionByHash)
 }
