@@ -213,9 +213,7 @@ contract PEMCertChainLib is IPEMCertChainLib {
         success = true;
     }
 
-    function _removeHeadersAndFooters(
-        string memory pemData
-    )
+    function _removeHeadersAndFooters(string memory pemData)
         private
         pure
         returns (bool success, bytes memory extracted, uint256 endIndex)
