@@ -32,6 +32,10 @@ contract TestLib1559Math is TaikoTest {
         }
     }
 
+    function test_mainnet_min_basefee() external pure {
+        console2.log("Mainnet minimal basefee: ", Lib1559Math.basefee(1_340_000_000, 5_000_000 * 8));
+    }
+
     function test_change_of_quotient_and_gips() public {
         uint64 excess = 150 * 2_000_000;
         uint64 target = 4 * 2_000_000;

@@ -34,7 +34,7 @@ contract MainnetTaikoL1 is TaikoL1 {
                 adjustmentQuotient: 8,
                 sharingPctg: 75,
                 gasIssuancePerSecond: 5_000_000,
-                minGasExcess: 1_340_000_000,
+                minGasExcess: 1_340_000_000, // correspond to 0.008847185 gwei basefee
                 maxGasIssuancePerBlock: 5_000_000 * 120 // two minutes
              }),
             ontakeForkHeight: 374_400 // = 7200 * 52
