@@ -13,6 +13,7 @@ import "@p256-verifier/contracts/P256Verifier.sol";
 import "../contracts/common/LibStrings.sol";
 import "../contracts/tko/TaikoToken.sol";
 import "../contracts/mainnet/MainnetTaikoL1.sol";
+import "../contracts/devnet/DevnetTaikoL1.sol";
 import "../contracts/L1/provers/GuardianProver.sol";
 import "../contracts/L1/tiers/DevnetTierProvider.sol";
 import "../contracts/L1/tiers/TierProviderV2.sol";
@@ -287,9 +288,17 @@ contract DeployOnL1 is DeployCapability {
             )
         });
 
+        TaikoL1 taikoL1;
+        if (keccak256(abi.encode(vm.envString("TIER_PROVIDER"))) == keccak256(abi.encode("devnet")))
+        {
+            taikoL1 = TaikoL1(address(new DevnetTaikoL1()));
+        } else {
+            taikoL1 = TaikoL1(address(new TaikoL1()));
+        }
+
         deployProxy({
             name: "taiko",
-            impl: address(new TaikoL1()),
+            impl: address(taikoL1),
             data: abi.encodeCall(
                 TaikoL1.init,
                 (
