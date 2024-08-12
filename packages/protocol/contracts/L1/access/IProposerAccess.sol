@@ -8,6 +8,13 @@ pragma solidity 0.8.24;
 interface IProposerAccess {
     /// @notice Checks if a proposer can propose block in the current Ethereum block.
     /// @param _proposer The proposer.
+    /// @param _blockHeight Ethereum block height.
     /// @return true if the proposer can propose blocks, false otherwise.
-    function isProposerEligible(address _proposer) external view returns (bool);
+    function isProposerEligible(
+        address _proposer,
+        uint256 _blockHeight
+    )
+        external
+        view
+        returns (bool);
 }

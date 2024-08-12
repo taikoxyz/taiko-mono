@@ -265,7 +265,7 @@ library LibProposing {
         address proposerAccess = _resolver.resolve(LibStrings.B_PROPOSER_ACCESS, true);
         if (proposerAccess == address(0)) return;
 
-        if (!IProposerAccess(proposerAccess).isProposerEligible(msg.sender)) {
+        if (!IProposerAccess(proposerAccess).isProposerEligible(msg.sender, block.number)) {
             revert L1_INVALID_PROPOSER();
         }
     }
