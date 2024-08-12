@@ -554,7 +554,7 @@
     "details_dialog": {
       "claimed_by": "Claimed by",
       "destination_owner": "Destination owner",
-      "initated_date": "Date initiated",
+      "initiated_date": "Date initiated",
       "recipient_address": "Recipient address",
       "sender_address": "Sender address",
       "title": "Transaction details"

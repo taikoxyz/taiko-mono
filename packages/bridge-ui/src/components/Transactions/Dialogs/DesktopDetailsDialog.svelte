@@ -209,7 +209,7 @@
                 class="bg-neutral-background absolute size-[20px] flex items-center justify-center left-[-30px] mt-1">
                 <Icon type="check" fillClass="fill-positive-sentiment" class="size-[16px]" />
               </span>
-              <span class="font-bold">Transaction initated</span>
+              <span class="font-bold">Transaction initiated</span>
               <span class="text-secondary-content">
                 <ExplorerLink
                   class="text-secondary-content"
@@ -289,7 +289,7 @@
         {/if}
         <!-- Date initiated -->
         <div class="flex justify-between">
-          <div class="text-secondary-content">{$t('transactions.details_dialog.initated_date')}</div>
+          <div class="text-secondary-content">{$t('transactions.details_dialog.initiated_date')}</div>
           <div>{initiatedAt}</div>
         </div>
 
