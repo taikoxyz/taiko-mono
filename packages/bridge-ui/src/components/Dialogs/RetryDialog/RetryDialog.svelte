@@ -41,7 +41,7 @@
   let retryDone = false;
   let ClaimComponent: Claim;
   let isDesktopOrLarger = false;
-
+  let correctChain = false;
   let hideContinueButton = false;
 
   let txHash: Hash;
@@ -137,7 +137,12 @@
       </DialogStepper>
 
       {#if activeStep === RetrySteps.CHECK}
-        <ClaimPreCheck tx={bridgeTx} bind:canContinue bind:hideContinueButton on:closeDialog={closeDialog} />
+        <ClaimPreCheck
+          tx={bridgeTx}
+          bind:correctChain
+          bind:canContinue
+          bind:hideContinueButton
+          on:closeDialog={closeDialog} />
       {:else if activeStep === RetrySteps.SELECT}
         <RetryOptionStep bind:canContinue />
       {:else if activeStep === RetrySteps.REVIEW}
@@ -148,20 +153,22 @@
           bind:txHash
           on:claim={handleClaimClick}
           bind:claiming={retrying}
-          bind:canClaim={canContinue}
           bind:claimingDone={retryDone} />
       {/if}
-      <div class="f-col text-left self-end h-full w-full">
-        <div class="f-col gap-4 mt-[20px]">
-          <RetryStepNavigation
-            bind:activeStep
-            bind:canContinue
-            bind:loading
-            bind:retrying
-            on:closeDialog={closeDialog}
-            bind:retryDone />
+
+      {#if correctChain}
+        <div class="f-col text-left self-end h-full w-full">
+          <div class="f-col gap-4 mt-[20px]">
+            <RetryStepNavigation
+              bind:activeStep
+              bind:canContinue
+              bind:loading
+              bind:retrying
+              on:closeDialog={closeDialog}
+              bind:retryDone />
+          </div>
         </div>
-      </div>
+      {/if}
     </div>
   </div>
   <button class="overlay-backdrop" data-modal-uuid={dialogId} />

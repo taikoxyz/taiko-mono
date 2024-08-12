@@ -184,7 +184,6 @@
           bind:txHash
           on:claim={handleReleaseClick}
           bind:claiming={releasing}
-          bind:canClaim={canContinue}
           bind:claimingDone={releasingDone} />
       {/if}
       <div class="f-col text-left self-end h-full w-full">
