@@ -25,6 +25,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     uint256[50] private __gap;
 
     error L1_INVALID_PARAMS();
+    error L1_INVALID_PROPOSER();
 
     modifier whenProvingNotPaused() {
         if (state.slotB.provingPaused) revert LibProving.L1_PROVING_PAUSED();
