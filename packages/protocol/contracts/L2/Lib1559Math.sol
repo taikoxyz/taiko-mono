@@ -20,7 +20,8 @@ library Lib1559Math {
         uint256 _gasTarget,
         uint64 _gasExcess,
         uint64 _gasIssuance,
-        uint32 _parentGasUsed
+        uint32 _parentGasUsed,
+        uint64 _minGasExcess
     )
         internal
         pure
@@ -30,7 +31,7 @@ library Lib1559Math {
         // value as this has already happened
         uint256 excess = uint256(_gasExcess) + _parentGasUsed;
         excess = excess > _gasIssuance ? excess - _gasIssuance : 1;
-        gasExcess_ = uint64(excess.min(type(uint64).max));
+        gasExcess_ = uint64(excess.max(_minGasExcess).min(type(uint64).max));
 
         // The base fee per gas used by this block is the spot price at the
         // bonding curve, regardless the actual amount of gas used by this

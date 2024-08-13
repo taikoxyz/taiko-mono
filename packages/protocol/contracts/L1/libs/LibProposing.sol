@@ -163,9 +163,9 @@ library LibProposing {
                 blobHash: 0, // to be initialized below
                 // To make sure each L2 block can be exexucated deterministiclly by the client
                 // without referering to its metadata on Ethereum, we need to encode
-                // config.basefeeSharingPctg into the extraData.
+                // config.sharingPctg into the extraData.
                 extraData: local.postFork
-                    ? _encodeGasConfigs(_config.basefeeSharingPctg)
+                    ? _encodeBaseFeeConfig(_config.baseFeeConfig)
                     : local.extraData,
                 coinbase: local.params.coinbase,
                 id: local.b.numBlocks,
@@ -182,8 +182,7 @@ library LibProposing {
                 blobTxListOffset: local.params.blobTxListOffset,
                 blobTxListLength: local.params.blobTxListLength,
                 blobIndex: local.params.blobIndex,
-                basefeeAdjustmentQuotient: _config.basefeeAdjustmentQuotient,
-                gasIssuancePerSecond: _config.gasIssuancePerSecond
+                baseFeeConfig: _config.baseFeeConfig
             });
         }
 
@@ -270,7 +269,13 @@ library LibProposing {
         }
     }
 
-    function _encodeGasConfigs(uint8 _basefeeSharingPctg) private pure returns (bytes32) {
-        return bytes32(uint256(_basefeeSharingPctg));
+    function _encodeBaseFeeConfig(
+        TaikoData.BaseFeeConfig memory _baseFeeConfig
+    )
+        private
+        pure
+        returns (bytes32)
+    {
+        return bytes32(uint256(_baseFeeConfig.sharingPctg));
     }
 }

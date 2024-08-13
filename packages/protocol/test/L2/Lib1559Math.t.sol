@@ -15,14 +15,25 @@ contract TestLib1559Math is TaikoTest {
 
     function test_basefee() external pure {
         uint256 basefee;
-        for (uint256 i; basefee <= 5000;) {
+        console2.log("excess, basefee");
+        // 1_0000_000 is 0.01 gwei
+        for (uint256 i; basefee <= 10_000_000;) {
             // uint 0.01 gwei
-            basefee = Lib1559Math.basefee(i * 5_000_000, 5_000_000 * 8) / 10_000_000;
+            uint256 excess = i * 5_000_000;
+            uint256 target = 5_000_000 * 8;
+
+            basefee = Lib1559Math.basefee(excess, target);
             if (basefee != 0) {
-                console2.log("basefee (uint 0.01gwei) after", i, "seconds:", basefee);
+                console2.log(
+                    string.concat(Strings.toString(excess), ", ", Strings.toString(basefee))
+                );
             }
             i += 1;
         }
+    }
+
+    function test_mainnet_min_basefee() external pure {
+        console2.log("Mainnet minimal basefee: ", Lib1559Math.basefee(1_340_000_000, 5_000_000 * 8));
     }
 
     function test_change_of_quotient_and_gips() public {
