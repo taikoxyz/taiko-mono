@@ -125,7 +125,7 @@
             "internalType": "uint96"
           },
           {
-            "name": "stateRootSyncInternal",
+            "name": "stateRootSyncInterval",
             "type": "uint8",
             "internalType": "uint8"
           },

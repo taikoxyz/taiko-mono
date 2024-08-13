@@ -9,7 +9,7 @@ contract TaikoL1ForkA2 is TaikoL1 {
         config.maxBlocksToVerify = 0;
         config.blockMaxProposals = 10;
         config.blockRingBufferSize = 15;
-        config.stateRootSyncInternal = 2;
+        config.stateRootSyncInterval = 2;
         config.ontakeForkHeight = 0; // or 1, works the same.
     }
 }

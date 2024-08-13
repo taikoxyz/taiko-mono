@@ -179,7 +179,7 @@ library LibProving {
 
         local.proposedAt = local.postFork ? meta.proposedAt : blk.proposedAt;
 
-        if (LibUtils.shouldSyncStateRoot(_config.stateRootSyncInternal, local.blockId)) {
+        if (LibUtils.shouldSyncStateRoot(_config.stateRootSyncInterval, local.blockId)) {
             local.stateRoot = tran.stateRoot;
         }
 

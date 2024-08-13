@@ -43,7 +43,7 @@ library TaikoData {
         // Group 4: Cross-chain sync
         // ---------------------------------------------------------------------
         // The number of L2 blocks between each L2-to-L1 state root sync.
-        uint8 stateRootSyncInternal;
+        uint8 stateRootSyncInterval;
         uint64 maxAnchorHeightOffset;
         // ---------------------------------------------------------------------
         // Group 5: Previous configs in TaikoL2

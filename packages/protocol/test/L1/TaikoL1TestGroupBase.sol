@@ -9,7 +9,7 @@ contract TaikoL1New is TaikoL1 {
         config.maxBlocksToVerify = 0;
         config.blockMaxProposals = 20;
         config.blockRingBufferSize = 25;
-        config.stateRootSyncInternal = 2;
+        config.stateRootSyncInterval = 2;
     }
 }
 

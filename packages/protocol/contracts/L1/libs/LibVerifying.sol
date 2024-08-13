@@ -145,7 +145,7 @@ library LibVerifying {
                     });
                 }
 
-                if (LibUtils.shouldSyncStateRoot(_config.stateRootSyncInternal, local.blockId)) {
+                if (LibUtils.shouldSyncStateRoot(_config.stateRootSyncInterval, local.blockId)) {
                     bytes32 stateRoot = ts.stateRoot;
                     if (stateRoot != 0) {
                         local.syncStateRoot = stateRoot;
