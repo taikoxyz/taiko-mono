@@ -91,9 +91,9 @@ func (s *DriverTestSuite) TestProcessL1Blocks() {
 		anchorTx, err := s.d.rpc.L2.TransactionInBlock(context.Background(), header.Hash(), 0)
 		s.Nil(err)
 
-		method, err := encoding.TaikoL2ABI.MethodById(anchorTx.Data())
+		method, err := encoding.TxDataToAnchorMethod(anchorTx.Data())
 		s.Nil(err)
-		s.Contains(method.Name, "anchorV2")
+		s.Contains(method.Name, "anchor")
 	}
 }
 
