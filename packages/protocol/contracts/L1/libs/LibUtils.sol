@@ -2,7 +2,6 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-
 import "../../common/IAddressResolver.sol";
 import "../../common/LibStrings.sol";
 import "../../libs/LibMath.sol";
@@ -15,20 +14,6 @@ import "../TaikoData.sol";
 /// @custom:security-contact security@taiko.xyz
 library LibUtils {
     using LibMath for uint256;
-
-    /// @dev Emitted when a block is verified.
-    /// @param blockId The ID of the verified block.
-    /// @param prover The prover whose transition is used for verifying the block.
-    /// @param blockHash The hash of the verified block.
-    /// @param stateRoot Deprecated and is always zero.
-    /// @param tier The tier ID of the proof.
-    event BlockVerified(
-        uint256 indexed blockId,
-        address indexed prover,
-        bytes32 blockHash,
-        bytes32 stateRoot,
-        uint16 tier
-    );
 
     /// @dev Emitted when a block is verified.
     /// @param blockId The ID of the verified block.

@@ -21,14 +21,14 @@ library LibProposing {
     }
 
     /// @notice Emitted when a block is proposed.
-    /// @param blockId The ID of the proposed block.
-    /// @param meta The metadata of the proposed block.
-    event BlockProposedV2(uint256 indexed blockId, TaikoData.BlockMetadataV2 meta);
+    /// @param _blockId The ID of the proposed block.
+    /// @param _meta The metadata of the proposed block.
+    event BlockProposedV2(uint256 indexed _blockId, TaikoData.BlockMetadataV2 _meta);
 
     /// @notice Emitted when a block's txList is in the calldata.
-    /// @param blockId The ID of the proposed block.
-    /// @param txList The txList.
-    event CalldataTxList(uint256 indexed blockId, bytes txList);
+    /// @param _blockId The ID of the proposed block.
+    /// @param _txList The txList.
+    event CalldataTxList(uint256 indexed _blockId, bytes _txList);
 
     error L1_BLOB_NOT_AVAILABLE();
     error L1_BLOB_NOT_FOUND();
@@ -61,8 +61,8 @@ library LibProposing {
         Local memory local;
         local.b = _state.slotB;
 
-        // It's essential to ensure that the ring buffer for proposed blocks
-        // still has space for at least one more block.
+        // Ensure that the ring buffer for proposed blocks still has space for at least one more
+        // block.
         if (local.b.numBlocks >= local.b.lastVerifiedBlockId + _config.blockMaxProposals + 1) {
             revert L1_TOO_MANY_BLOCKS();
         }
@@ -213,7 +213,7 @@ library LibProposing {
     }
 
     /// @dev Checks if the proposer has the necessary permissions.
-    /// @param _resolver Address resolver interface.
+    /// @param _resolver The address resolver interface.
     function checkProposerPermission(IAddressResolver _resolver) internal view {
         address proposerAccess = _resolver.resolve(LibStrings.B_PROPOSER_ACCESS, true);
         if (proposerAccess == address(0)) return;
@@ -224,8 +224,8 @@ library LibProposing {
     }
 
     /// @dev Encodes the base fee configuration.
-    /// @param _baseFeeConfig The base fee configuration.
-    /// @return The encoded base fee configuration.
+    /// @param _baseFeeConfig The base fee configuration to encode.
+    /// @return The encoded base fee configuration as a bytes32 value.
     function _encodeBaseFeeConfig(
         TaikoData.BaseFeeConfig memory _baseFeeConfig
     )

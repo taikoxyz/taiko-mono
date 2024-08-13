@@ -15,7 +15,6 @@ import "./ITaikoL1.sol";
 /// L3 "inception layers". The contract also handles the deposit and withdrawal of Taiko tokens
 /// and Ether. Additionally, this contract doesn't hold any Ether. Ether deposited to L2 are held
 /// by the Bridge contract.
-/// @dev Labeled in AddressResolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
 contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     /// @notice The TaikoL1 state.

@@ -4,11 +4,10 @@ pragma solidity 0.8.24;
 import "../L1/TaikoL1.sol";
 
 /// @title HeklaTaikoL1
-/// @dev Labeled in AddressResolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
 contract HeklaTaikoL1 is TaikoL1 {
     /// @inheritdoc ITaikoL1
-    function getConfig() public pure override returns (TaikoData.Config memory) {
+    function getConfig() public pure override returns (TaikoData.Config memory _config_) {
         return TaikoData.Config({
             chainId: LibNetwork.TAIKO_MAINNET,
             // Never change this value as ring buffer is being reused!!!
@@ -17,7 +16,7 @@ contract HeklaTaikoL1 is TaikoL1 {
             blockRingBufferSize: 324_512,
             maxBlocksToVerify: 16,
             blockMaxGasLimit: 240_000_000,
-            livenessBond: 125e18, // 125 Taiko token
+            livenessBond: 125e18, // 125 TAIKO token
             stateRootSyncInterval: 16,
             maxAnchorHeightOffset: 64,
             baseFeeConfig: TaikoData.BaseFeeConfig({
