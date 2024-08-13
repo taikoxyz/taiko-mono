@@ -22,21 +22,6 @@ library LibProposing {
 
     /// @notice Emitted when a block is proposed.
     /// @param blockId The ID of the proposed block.
-    /// @param assignedProver The address of the assigned prover.
-    /// @param livenessBond The liveness bond of the proposed block.
-    /// @param meta The metadata of the proposed block.
-    /// @param depositsProcessed The EthDeposit array about processed deposits in this proposed
-    /// block.
-    event BlockProposed(
-        uint256 indexed blockId,
-        address indexed assignedProver,
-        uint96 livenessBond,
-        TaikoData.BlockMetadata meta,
-        TaikoData.EthDeposit[] depositsProcessed
-    );
-
-    /// @notice Emitted when a block is proposed.
-    /// @param blockId The ID of the proposed block.
     /// @param meta The metadata of the proposed block.
     event BlockProposedV2(uint256 indexed blockId, TaikoData.BlockMetadataV2 meta);
 
@@ -54,7 +39,7 @@ library LibProposing {
     error L1_TOO_MANY_BLOCKS();
     error L1_UNEXPECTED_PARENT();
 
-    /// @dev Proposes a Taiko L2 block.
+    /// @notice Proposes a Taiko L2 block.
     /// @param _state Current TaikoData.State.
     /// @param _config Actual TaikoData.Config.
     /// @param _resolver Address resolver interface.
@@ -144,9 +129,9 @@ library LibProposing {
                 anchorBlockHash: blockhash(local.params.anchorBlockId),
                 difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", local.b.numBlocks)),
                 blobHash: 0, // to be initialized below
-                // To make sure each L2 block can be exexucated deterministiclly by the client
-                // without referering to its metadata on Ethereum, we need to encode
-                // config.basefeeSharingPctg into the extraData.
+                // To make sure each L2 block can be executed deterministically by the client
+                // without referring to its metadata on Ethereum, we need to encode
+                // _config.baseFeeConfig into the extraData.
                 extraData: _encodeBaseFeeConfig(_config.baseFeeConfig),
                 coinbase: local.params.coinbase,
                 id: local.b.numBlocks,
@@ -227,6 +212,8 @@ library LibProposing {
         emit BlockProposedV2(meta_.id, meta_);
     }
 
+    /// @dev Checks if the proposer has the necessary permissions.
+    /// @param _resolver Address resolver interface.
     function checkProposerPermission(IAddressResolver _resolver) internal view {
         address proposerAccess = _resolver.resolve(LibStrings.B_PROPOSER_ACCESS, true);
         if (proposerAccess == address(0)) return;
@@ -236,6 +223,9 @@ library LibProposing {
         }
     }
 
+    /// @dev Encodes the base fee configuration.
+    /// @param _baseFeeConfig The base fee configuration.
+    /// @return The encoded base fee configuration.
     function _encodeBaseFeeConfig(
         TaikoData.BaseFeeConfig memory _baseFeeConfig
     )

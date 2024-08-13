@@ -16,7 +16,7 @@ contract DevnetTaikoL1 is TaikoL1 {
             maxBlocksToVerify: 16,
             blockMaxGasLimit: 240_000_000,
             livenessBond: 125e18, // 125 Taiko token
-            stateRootSyncInternal: 16,
+            stateRootSyncInterval: 16,
             maxAnchorHeightOffset: 64,
             baseFeeConfig: TaikoData.BaseFeeConfig({
                 adjustmentQuotient: 8,

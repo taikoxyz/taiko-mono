@@ -421,7 +421,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
     }
 
     function test_L1_GuardianProverCanOverwriteIfNotSameProof() external {
-        uint64 syncInternal = L1.getConfig().stateRootSyncInternal;
+        uint64 syncInternal = L1.getConfig().stateRootSyncInterval;
         console2.log("syncInternal:", syncInternal);
 
         giveEthAndTko(Alice, 1e7 ether, 1000 ether);
