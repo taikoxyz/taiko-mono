@@ -46,7 +46,6 @@ func NewCalldataTransactionBuilder(
 		gasLimit,
 		extraData,
 		chainConfig,
-		false,
 	}
 }
 

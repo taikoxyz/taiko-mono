@@ -49,7 +49,6 @@ func NewBlobTransactionBuilder(
 		gasLimit,
 		extraData,
 		chainConfig,
-		false,
 	}
 }
 
