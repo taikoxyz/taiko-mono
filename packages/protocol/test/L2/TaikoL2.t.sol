@@ -98,7 +98,7 @@ contract TestTaikoL2 is TaikoTest {
         assertEq(Alice.balance, 100 ether);
 
         // Random EOA cannot call withdraw
-        vm.expectRevert(Resolver.RESOLVER_DENIED.selector);
+        vm.expectRevert(AddressResolver.RESOLVER_DENIED.selector);
         vm.prank(Alice, Alice);
         L2.withdraw(address(0), Alice);
     }
