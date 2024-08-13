@@ -238,23 +238,23 @@ library LibUtils {
 
     /// @dev Determines if the state root should be synchronized based on the configuration and
     /// block ID.
-    /// @param _stateRootSyncInterval The state root sync interval.
+    /// @param _stateRootSyncInternal The state root sync interval.
     /// @param _blockId The ID of the block.
     /// @return True if the state root should be synchronized, false otherwise.
     function shouldSyncStateRoot(
-        uint256 _stateRootSyncInterval,
+        uint256 _stateRootSyncInternal,
         uint256 _blockId
     )
         internal
         pure
         returns (bool)
     {
-        if (_stateRootSyncInterval <= 1) return true;
+        if (_stateRootSyncInternal <= 1) return true;
         unchecked {
-            // We could use `_blockId % _stateRootSyncInterval == 0`, but this will break many unit
+            // We could use `_blockId % _stateRootSyncInternal == 0`, but this will break many unit
             // tests as in most of these tests, we test block#1, so by setting
-            // config._stateRootSyncInterval = 2, we can keep the tests unchanged.
-            return _blockId % _stateRootSyncInterval == _stateRootSyncInterval - 1;
+            // config._stateRootSyncInternal = 2, we can keep the tests unchanged.
+            return _blockId % _stateRootSyncInternal == _stateRootSyncInternal - 1;
         }
     }
 }

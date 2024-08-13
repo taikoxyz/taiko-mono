@@ -41,7 +41,7 @@ library TaikoData {
         // Group 4: Cross-chain sync
         // ---------------------------------------------------------------------
         // The number of L2 blocks between each L2-to-L1 state root sync.
-        uint8 stateRootSyncInterval;
+        uint8 stateRootSyncInternal; // known typo (stateRootSyncInterval)
         uint64 maxAnchorHeightOffset;
         // ---------------------------------------------------------------------
         // Group 5: Previous configs in TaikoL2
@@ -190,7 +190,7 @@ library TaikoData {
         uint64 genesisHeight;
         uint64 genesisTimestamp;
         uint64 lastSyncedBlockId;
-        uint64 lastSynecdAt; // known typo
+        uint64 lastSynecdAt; // known typo (lastSyncedAt)
     }
 
     struct SlotB {

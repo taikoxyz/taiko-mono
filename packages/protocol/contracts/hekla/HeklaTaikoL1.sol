@@ -17,7 +17,7 @@ contract HeklaTaikoL1 is TaikoL1 {
             maxBlocksToVerify: 16,
             blockMaxGasLimit: 240_000_000,
             livenessBond: 125e18, // 125 TAIKO token
-            stateRootSyncInterval: 16,
+            stateRootSyncInternal: 16,
             maxAnchorHeightOffset: 64,
             baseFeeConfig: TaikoData.BaseFeeConfig({
                 adjustmentQuotient: 8,

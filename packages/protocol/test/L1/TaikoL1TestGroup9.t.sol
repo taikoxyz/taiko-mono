@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import "./TaikoL1TestGroupBase.sol";
 
-// Testing block proving and verification for block#2, as stateRootSyncInterval is set to 2 in
+// Testing block proving and verification for block#2, as stateRootSyncInternal is set to 2 in
 // this test suite, we are testing that block#2 shall have state root always as zero.
 contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
     bytes32 internal constant FIRST_BLOCK_HASH = keccak256("FIRST_BLOCK_HASH");

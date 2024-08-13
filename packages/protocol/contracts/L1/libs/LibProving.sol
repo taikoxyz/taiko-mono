@@ -138,7 +138,7 @@ library LibProving {
 
         local.proposedAt = meta.proposedAt;
 
-        if (LibUtils.shouldSyncStateRoot(_config.stateRootSyncInterval, local.blockId)) {
+        if (LibUtils.shouldSyncStateRoot(_config.stateRootSyncInternal, local.blockId)) {
             local.stateRoot = tran.stateRoot;
         }
 

@@ -279,7 +279,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
             maxBlocksToVerify: 16,
             blockMaxGasLimit: 240_000_000,
             livenessBond: 125e18, // 125 Taiko token
-            stateRootSyncInterval: 16,
+            stateRootSyncInternal: 16,
             maxAnchorHeightOffset: 64,
             baseFeeConfig: TaikoData.BaseFeeConfig({
                 adjustmentQuotient: 8,
