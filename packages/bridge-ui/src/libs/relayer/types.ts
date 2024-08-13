@@ -63,6 +63,9 @@ export type APIResponseTransaction = {
   event: string;
   claimedBy: Address;
   processedTxHash: Hash;
+  fee: string;
+  isProfitable: boolean;
+  isProfitableEvaluatedAt: string;
 };
 
 export type RelayerBlockInfo = {

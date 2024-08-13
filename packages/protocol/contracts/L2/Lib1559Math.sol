@@ -20,7 +20,8 @@ library Lib1559Math {
         uint256 _gasTarget,
         uint64 _gasExcess,
         uint64 _gasIssuance,
-        uint32 _parentGasUsed
+        uint32 _parentGasUsed,
+        uint64 _minGasExcess
     )
         internal
         pure
@@ -30,7 +31,7 @@ library Lib1559Math {
         // value as this has already happened
         uint256 excess = uint256(_gasExcess) + _parentGasUsed;
         excess = excess > _gasIssuance ? excess - _gasIssuance : 1;
-        gasExcess_ = uint64(excess.min(type(uint64).max));
+        gasExcess_ = uint64(excess.max(_minGasExcess).min(type(uint64).max));
 
         // The base fee per gas used by this block is the spot price at the
         // bonding curve, regardless the actual amount of gas used by this
@@ -61,8 +62,15 @@ library Lib1559Math {
         int256 lnRatio = FixedPointMathLib.lnWad(int256(ratio)); // may be negative
 
         uint256 newGasExcess;
+
         assembly {
-            newGasExcess := sdiv(add(mul(lnRatio, _newGasTarget), mul(ratio, _gasExcess)), f)
+            // compute x = (_newGasTarget * lnRatio + _gasExcess * ratio)
+            let x := add(mul(_newGasTarget, lnRatio), mul(_gasExcess, ratio))
+
+            // If x < 0, set newGasExcess to 0, otherwise calculate newGasExcess = x / f
+            switch slt(x, 0)
+            case 1 { newGasExcess := 0 }
+            default { newGasExcess := div(x, f) }
         }
 
         return uint64(newGasExcess.min(type(uint64).max));

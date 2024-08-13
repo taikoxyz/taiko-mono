@@ -106,6 +106,17 @@ contract TaikoL2 is EssentialContract {
         (publicInputHash,) = _calcPublicInputHash(block.number);
     }
 
+    /// @dev Reinitialize some state variables.
+    /// We may want to init the basefee to a default value using one of the following values.
+    /// - _initialGasExcess = 274*5_000_000 => basefee =0.01 gwei
+    /// - _initialGasExcess = 282*5_000_000 => basefee =0.05 gwei
+    /// - _initialGasExcess = 288*5_000_000 => basefee =0.1 gwei
+    function init2(uint64 _initialGasExcess) external onlyOwner reinitializer(2) {
+        parentGasExcess = _initialGasExcess;
+        parentTimestamp = uint64(block.timestamp);
+        parentGasTarget = 0;
+    }
+
     function anchorV2(
         uint64 _anchorBlockId,
         bytes32 _anchorStateRoot,

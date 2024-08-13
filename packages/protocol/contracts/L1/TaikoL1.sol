@@ -35,7 +35,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         emit StateVariablesUpdated(state.slotB);
     }
 
-    modifier onlyRegisteredProposer() {
+    modifier onlyPermittedProposer() {
         LibProposing.checkProposerPermission(this);
         _;
     }
@@ -72,7 +72,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         bytes calldata _txList
     )
         external
-        onlyRegisteredProposer
+        onlyPermittedProposer
         whenNotPaused
         nonReentrant
         emitEventForClient
@@ -87,7 +87,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         bytes[] calldata _txListArr
     )
         external
-        onlyRegisteredProposer
+        onlyPermittedProposer
         whenNotPaused
         nonReentrant
         emitEventForClient
@@ -143,7 +143,9 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     }
 
     /// @inheritdoc ITaikoL1
-    function verifyBlocks(uint64 _maxBlocksToVerify)
+    function verifyBlocks(
+        uint64 _maxBlocksToVerify
+    )
         external
         whenNotPaused
         whenProvingNotPaused
@@ -274,10 +276,15 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
             livenessBond: 125e18, // 125 Taiko token
             stateRootSyncInternal: 16,
             maxAnchorHeightOffset: 64,
-            basefeeAdjustmentQuotient: 8,
-            basefeeSharingPctg: 75,
-            gasIssuancePerSecond: 5_000_000
-        });
+            baseFeeConfig: TaikoData.BaseFeeConfig({
+                adjustmentQuotient: 8,
+                sharingPctg: 75,
+                gasIssuancePerSecond: 5_000_000,
+                minGasExcess: 1_340_000_000,
+                maxGasIssuancePerBlock: 600_000_000 // two minutes
+             }),
+            ontakeForkHeight: 374_400 // = 7200 * 52
+         });
     }
 
     function _proposeBlock(

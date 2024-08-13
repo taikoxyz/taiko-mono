@@ -6,6 +6,15 @@ pragma solidity 0.8.24;
 /// protocol.
 /// @custom:security-contact security@taiko.xyz
 library TaikoData {
+    /// @dev Struct that represneds L2 basefee configurations
+    struct BaseFeeConfig {
+        uint8 adjustmentQuotient;
+        uint8 sharingPctg;
+        uint32 gasIssuancePerSecond;
+        uint64 minGasExcess;
+        uint32 maxGasIssuancePerBlock;
+    }
+
     /// @dev Struct holding Taiko configuration parameters. See {TaikoConfig}.
     struct Config {
         // ---------------------------------------------------------------------
@@ -39,9 +48,11 @@ library TaikoData {
         // ---------------------------------------------------------------------
         // Group 5: Previous configs in TaikoL2
         // ---------------------------------------------------------------------
-        uint8 basefeeAdjustmentQuotient;
-        uint8 basefeeSharingPctg;
-        uint32 gasIssuancePerSecond;
+        BaseFeeConfig baseFeeConfig;
+        // ---------------------------------------------------------------------
+        // Group 6: Others
+        // ---------------------------------------------------------------------
+        uint64 ontakeForkHeight;
     }
 
     /// @dev A proof and the tier of proof it belongs to
@@ -119,8 +130,7 @@ library TaikoData {
         uint32 blobTxListOffset;
         uint32 blobTxListLength;
         uint8 blobIndex;
-        uint8 basefeeAdjustmentQuotient;
-        uint32 gasIssuancePerSecond;
+        BaseFeeConfig baseFeeConfig;
     }
 
     /// @dev Struct representing transition to be proven.

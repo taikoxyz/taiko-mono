@@ -46,7 +46,6 @@ type BlockParams struct {
 // BlockParamsV2 should be same with TaikoData.BlockParamsV2.
 type BlockParamsV2 struct {
 	Coinbase         common.Address
-	ExtraData        [32]byte
 	ParentMetaHash   [32]byte
 	AnchorBlockId    uint64
 	Timestamp        uint64
