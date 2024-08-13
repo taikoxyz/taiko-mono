@@ -293,7 +293,8 @@ func init() {
 	customErrorMaps = []map[string]abi.Error{
 		V1TaikoL1ABI.Errors,
 		V2TaikoL1ABI.Errors,
-		TaikoL2ABI.Errors,
+		V1TaikoL2ABI.Errors,
+		V2TaikoL2ABI.Errors,
 		GuardianProverABI.Errors,
 		LibProposingABI.Errors,
 		LibProvingABI.Errors,
