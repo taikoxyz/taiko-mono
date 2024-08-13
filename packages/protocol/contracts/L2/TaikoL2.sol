@@ -130,8 +130,6 @@ contract TaikoL2 is EssentialContract {
         onlyGoldenTouch
         nonReentrant
     {
-        uint256 parentId = block.number - 1;
-
         // Verify ancestor hashes
         {
             (bytes32 currentPublicInputHash, bytes32 newPublicInputHash) =
