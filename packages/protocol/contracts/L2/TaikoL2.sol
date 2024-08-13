@@ -202,10 +202,12 @@ contract TaikoL2 is EssentialContract {
         {
             uint64 newGasTarget =
                 uint64(_baseFeeConfig.gasIssuancePerSecond) * _baseFeeConfig.adjustmentQuotient;
-            if (newGasTarget != parentGasTarget) {
-                // adjust parentGasExcess to keep the basefee unchanged. Note that due to math
-                // calculation precision, the basefee may change slightly.
-                parentGasExcess = adjustExcess(parentGasExcess, parentGasTarget, newGasTarget);
+
+            if (parentGasTarget != newGasTarget) {
+                if (parentGasTarget != 0) {
+                    parentGasExcess = adjustExcess(parentGasExcess, parentGasTarget, newGasTarget);
+                }
+                parentGasTarget = newGasTarget;
             }
         }
 
