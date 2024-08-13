@@ -24,7 +24,7 @@ var (
 			SharingPctg:            75,
 			GasIssuancePerSecond:   5_000_000,
 			MinGasExcess:           1_340_000_000,
-			MaxGasIssuancePerBlock: 500000000,
+			MaxGasIssuancePerBlock: 600000000,
 		},
 	}
 	HeklaProtocolConfig = &v2.TaikoDataConfig{
