@@ -51,7 +51,7 @@ func NewCalldataTransactionBuilder(
 
 // Build implements the ProposeBlockTransactionBuilder interface.
 func (b *CalldataTransactionBuilder) Build(
-	ctx context.Context,
+	_ context.Context,
 	txListBytes []byte,
 	l1StateBlockNumber uint32,
 	timestamp uint64,

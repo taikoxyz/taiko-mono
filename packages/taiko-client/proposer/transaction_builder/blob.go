@@ -54,7 +54,7 @@ func NewBlobTransactionBuilder(
 
 // Build implements the ProposeBlockTransactionBuilder interface.
 func (b *BlobTransactionBuilder) Build(
-	ctx context.Context,
+	_ context.Context,
 	txListBytes []byte,
 	l1StateBlockNumber uint32,
 	timestamp uint64,
