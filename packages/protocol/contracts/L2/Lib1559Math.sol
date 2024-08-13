@@ -64,7 +64,7 @@ library Lib1559Math {
         uint256 newGasExcess;
 
         assembly {
-            // x = (_newGasTarget * lnRatio + _gasExcess * ratio)
+            // compute x = (_newGasTarget * lnRatio + _gasExcess * ratio)
             let x := add(mul(_newGasTarget, lnRatio), mul(_gasExcess, ratio))
 
             // If x < 0, set newGasExcess to 0, otherwise calculate newGasExcess = x / f
