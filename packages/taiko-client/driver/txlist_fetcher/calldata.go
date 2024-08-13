@@ -6,7 +6,9 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/core/types"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -25,10 +27,16 @@ func NewCalldataFetch(rpc *rpc.Client) *CalldataFetcher {
 // Fetch fetches the txList bytes from the transaction's calldata.
 func (d *CalldataFetcher) Fetch(
 	ctx context.Context,
+	tx *types.Transaction,
 	meta metadata.TaikoBlockMetaData,
 ) ([]byte, error) {
 	if meta.GetBlobUsed() {
 		return nil, pkg.ErrBlobUsed
+	}
+
+	// If the given L2 block is not an ontake block, decode the txlist from calldata directly.
+	if !meta.IsOntakeBlock() {
+		return encoding.UnpackTxListBytes(tx.Data())
 	}
 
 	// Otherwise, fetch the txlist data from the `CalldataTxList` event.

@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto/kzg4844"
 	"github.com/ethereum/go-ethereum/log"
 
@@ -28,6 +29,7 @@ func NewBlobTxListFetcher(l1Beacon *rpc.BeaconClient, ds *rpc.BlobDataSource) *B
 // Fetch implements the TxListFetcher interface.
 func (d *BlobFetcher) Fetch(
 	ctx context.Context,
+	_ *types.Transaction,
 	meta metadata.TaikoBlockMetaData,
 ) ([]byte, error) {
 	if !meta.GetBlobUsed() {

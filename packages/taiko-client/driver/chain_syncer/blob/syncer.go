@@ -242,6 +242,11 @@ func (s *Syncer) onBlockProposed(
 		"beaconSyncTriggered", s.progressTracker.Triggered(),
 	)
 
+	tx, err := s.rpc.L1.TransactionInBlock(ctx, meta.GetRawBlockHash(), meta.GetTxIndex())
+	if err != nil {
+		return fmt.Errorf("failed to fetch original TaikoL1.proposeBlock transaction: %w", err)
+	}
+
 	// Decode transactions list.
 	var txListFetcher txlistFetcher.TxListFetcher
 	if meta.GetBlobUsed() {
@@ -249,7 +254,7 @@ func (s *Syncer) onBlockProposed(
 	} else {
 		txListFetcher = txlistFetcher.NewCalldataFetch(s.rpc)
 	}
-	txListBytes, err := txListFetcher.Fetch(ctx, meta)
+	txListBytes, err := txListFetcher.Fetch(ctx, tx, meta)
 	if err != nil {
 		return fmt.Errorf("failed to fetch tx list: %w", err)
 	}
