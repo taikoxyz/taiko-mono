@@ -92,8 +92,7 @@ contract TaikoL2 is EssentialContract {
 
         if (block.number == 0) {
             // This is the case in real L2 genesis
-        }
-        else if (block.number == 1) {
+        } else if (block.number == 1) {
             // This is the case in tests
             uint256 parentHeight = block.number - 1;
             l2Hashes[parentHeight] = blockhash(parentHeight);
@@ -106,11 +105,15 @@ contract TaikoL2 is EssentialContract {
         (publicInputHash,) = _calcPublicInputHash(block.number);
     }
 
-    /// @dev Reinitialize some state variables.
-    /// We may want to init the basefee to a default value using one of the following values.
-    /// - _initialGasExcess = 274*5_000_000 => basefee =0.01 gwei
-    /// - _initialGasExcess = 282*5_000_000 => basefee =0.05 gwei
-    /// - _initialGasExcess = 288*5_000_000 => basefee =0.1 gwei
+    /// @notice Reinitializes specific state variables to their default values.
+    /// @dev This function is intended to be called during a contract upgrade or reinitialization.
+    /// It sets the `parentGasExcess` to a new initial value, updates the `parentTimestamp` to the
+    /// current block timestamp, and resets the `parentGasTarget` to zero.
+    /// The base fee can be approximated using the following `_initialGasExcess` values:
+    /// - _initialGasExcess = 274 * 5_000_000 => basefee ≈ 0.01 gwei
+    /// - _initialGasExcess = 282 * 5_000_000 => basefee ≈ 0.05 gwei
+    /// - _initialGasExcess = 288 * 5_000_000 => basefee ≈ 0.1 gwei
+    /// @param _initialGasExcess The initial value for the `parentGasExcess` state variable.
     function init2(uint64 _initialGasExcess) external onlyOwner reinitializer(2) {
         parentGasExcess = _initialGasExcess;
         parentTimestamp = uint64(block.timestamp);
@@ -366,34 +369,43 @@ contract TaikoL2 is EssentialContract {
         );
     }
 
-    function _calcPublicInputHash(
-        uint256 _blockId
-    )
+    /// @notice Calculates the old and new public input hashes based on the block ID.
+    /// @dev This function uses a ring buffer to store the previous 255 block hashes
+    ///      and the current chain ID to compute the public input hashes.
+    /// @param _blockId The ID of the current block.
+    /// @return publicInputHashOld_ The public input hash before the current block.
+    /// @return publicInputHashNew_ The public input hash including the current block.
+    function _calcPublicInputHash(uint256 _blockId)
         private
         view
-        returns (bytes32 publicInputHashOld, bytes32 publicInputHashNew)
+        returns (bytes32 publicInputHashOld_, bytes32 publicInputHashNew_)
     {
+        // Array to store the block hashes
         bytes32[256] memory inputs;
 
-        // Unchecked is safe because it cannot overflow.
+        // Unchecked block to avoid overflow checks, safe because loop bounds are controlled
         unchecked {
-            // Put the previous 255 blockhashes (excluding the parent's) into a
-            // ring buffer.
+            // Populate the ring buffer with the previous 255 block hashes
             for (uint256 i; i < 255 && _blockId >= i + 1; ++i) {
                 uint256 j = _blockId - i - 1;
                 inputs[j % 255] = blockhash(j);
             }
         }
 
+        // Add the current chain ID to the last position in the array
         inputs[255] = bytes32(block.chainid);
 
+        // Compute the old public input hash using the first 255 block hashes
         assembly {
-            publicInputHashOld := keccak256(inputs, 8192 /*mul(256, 32)*/ )
+            publicInputHashOld_ := keccak256(inputs, 8192) // 256 * 32 bytes
         }
 
+        // Update the ring buffer with the current block hash
         inputs[_blockId % 255] = blockhash(_blockId);
+
+        // Compute the new public input hash including the current block hash
         assembly {
-            publicInputHashNew := keccak256(inputs, 8192 /*mul(256, 32)*/ )
+            publicInputHashNew_ := keccak256(inputs, 8192) // 256 * 32 bytes
         }
     }
 }
