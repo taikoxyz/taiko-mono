@@ -342,75 +342,100 @@ func (s *Syncer) insertNewHead(
 		}
 	}
 
-	newGasTarget := uint64(meta.GetGasIssuancePerSecond()) * uint64(meta.GetBasefeeAdjustmentQuotient())
-	parentGasTarget, err := s.rpc.V2.TaikoL2.ParentGasTarget(&bind.CallOpts{
-		BlockNumber: parent.Number, Context: ctx,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch parent gas target: %w", err)
-	}
+	if !meta.IsOntakeBlock() {
+		// Get L2 baseFee
+		baseFeeInfo, err = s.rpc.V1.TaikoL2.GetBasefee(
+			&bind.CallOpts{BlockNumber: parent.Number, Context: ctx},
+			meta.GetRawBlockHeight().Uint64()-1,
+			uint32(parent.GasUsed),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get L2 baseFee V1: %w", encoding.TryParsingCustomError(err))
+		}
 
-	var parentGasExcess uint64
-	if newGasTarget != parentGasTarget {
-		oldParentGasExcess, err := s.rpc.V2.TaikoL2.ParentGasExcess(&bind.CallOpts{
+		// Assemble a TaikoL2.anchor transaction
+		anchorTx, err = s.anchorConstructor.AssembleAnchorTx(
+			ctx,
+			new(big.Int).SetUint64(meta.GetAnchorBlockID()),
+			meta.GetAnchorBlockHash(),
+			new(big.Int).Add(parent.Number, common.Big1),
+			baseFeeInfo.Basefee,
+			parent.GasUsed,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create TaikoL2.anchor transaction: %w", err)
+		}
+	} else {
+		newGasTarget := uint64(meta.GetGasIssuancePerSecond()) * uint64(meta.GetBasefeeAdjustmentQuotient())
+		parentGasTarget, err := s.rpc.V2.TaikoL2.ParentGasTarget(&bind.CallOpts{
 			BlockNumber: parent.Number, Context: ctx,
 		})
 		if err != nil {
-			return nil, fmt.Errorf("failed to fetch old parent gas excess: %w", err)
+			return nil, fmt.Errorf("failed to fetch parent gas target: %w", err)
 		}
-		if parentGasExcess, err = s.rpc.V2.TaikoL2.AdjustExcess(
+
+		var parentGasExcess uint64
+		if newGasTarget != parentGasTarget {
+			oldParentGasExcess, err := s.rpc.V2.TaikoL2.ParentGasExcess(&bind.CallOpts{
+				BlockNumber: parent.Number, Context: ctx,
+			})
+			if err != nil {
+				return nil, fmt.Errorf("failed to fetch old parent gas excess: %w", err)
+			}
+			if parentGasExcess, err = s.rpc.V2.TaikoL2.AdjustExcess(
+				&bind.CallOpts{BlockNumber: parent.Number, Context: ctx},
+				oldParentGasExcess,
+				parentGasTarget,
+				newGasTarget,
+			); err != nil {
+				return nil, fmt.Errorf("failed to adjust parent gas excess: %w", err)
+			}
+		} else {
+			if parentGasExcess, err = s.rpc.V2.TaikoL2.ParentGasExcess(&bind.CallOpts{
+				BlockNumber: parent.Number, Context: ctx,
+			}); err != nil {
+				return nil, fmt.Errorf("failed to fetch parent gas excess: %w", err)
+			}
+		}
+
+		cfg := encoding.GetProtocolConfig(s.rpc.L2.ChainID.Uint64())
+
+		// Get L2 baseFee
+		baseFeeInfo, err = s.rpc.V2.TaikoL2.CalculateBaseFee(
 			&bind.CallOpts{BlockNumber: parent.Number, Context: ctx},
-			oldParentGasExcess,
-			parentGasTarget,
-			newGasTarget,
-		); err != nil {
-			return nil, fmt.Errorf("failed to adjust parent gas excess: %w", err)
+			v2.TaikoDataBaseFeeConfig{
+				GasIssuancePerSecond:   meta.GetGasIssuancePerSecond(),
+				AdjustmentQuotient:     meta.GetBasefeeAdjustmentQuotient(),
+				SharingPctg:            meta.GetBasefeeSharingPctg(),
+				MinGasExcess:           meta.GetBasefeeMinGasExcess(),
+				MaxGasIssuancePerBlock: meta.GetMaxGasIssuancePerBlock(),
+			},
+			meta.GetTimestamp()-parent.Time,
+			parentGasExcess,
+			uint32(parent.GasUsed),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get L2 baseFee V2: %w", encoding.TryParsingCustomError(err))
 		}
-	} else {
-		if parentGasExcess, err = s.rpc.V2.TaikoL2.ParentGasExcess(&bind.CallOpts{
-			BlockNumber: parent.Number, Context: ctx,
-		}); err != nil {
-			return nil, fmt.Errorf("failed to fetch parent gas excess: %w", err)
+
+		// Assemble a TaikoL2.anchorV2 transaction
+		anchorBlockHeader, err := s.rpc.L1.HeaderByHash(ctx, meta.GetAnchorBlockHash())
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch anchor block: %w", err)
 		}
-	}
-
-	cfg := encoding.GetProtocolConfig(s.rpc.L2.ChainID.Uint64())
-
-	// Get L2 baseFee
-	baseFeeInfo, err = s.rpc.V2.TaikoL2.CalculateBaseFee(
-		&bind.CallOpts{BlockNumber: parent.Number, Context: ctx},
-		v2.TaikoDataBaseFeeConfig{
-			GasIssuancePerSecond:   meta.GetGasIssuancePerSecond(),
-			AdjustmentQuotient:     meta.GetBasefeeAdjustmentQuotient(),
-			SharingPctg:            cfg.BaseFeeConfig.SharingPctg,
-			MinGasExcess:           cfg.BaseFeeConfig.MinGasExcess,
-			MaxGasIssuancePerBlock: cfg.BaseFeeConfig.MaxGasIssuancePerBlock,
-		},
-		meta.GetTimestamp()-parent.Time,
-		parentGasExcess,
-		uint32(parent.GasUsed),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get L2 baseFee V2: %w", encoding.TryParsingCustomError(err))
-	}
-
-	// Assemble a TaikoL2.anchorV2 transaction
-	anchorBlockHeader, err := s.rpc.L1.HeaderByHash(ctx, meta.GetAnchorBlockHash())
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch anchor block: %w", err)
-	}
-	anchorTx, err = s.anchorConstructor.AssembleAnchorV2Tx(
-		ctx,
-		new(big.Int).SetUint64(meta.GetAnchorBlockID()),
-		anchorBlockHeader.Root,
-		parent.GasUsed,
-		meta.GetGasIssuancePerSecond(),
-		meta.GetBasefeeAdjustmentQuotient(),
-		new(big.Int).Add(parent.Number, common.Big1),
-		baseFeeInfo.Basefee,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create TaikoL2.anchorV2 transaction: %w", err)
+		anchorTx, err = s.anchorConstructor.AssembleAnchorV2Tx(
+			ctx,
+			new(big.Int).SetUint64(meta.GetAnchorBlockID()),
+			anchorBlockHeader.Root,
+			parent.GasUsed,
+			meta.GetGasIssuancePerSecond(),
+			meta.GetBasefeeAdjustmentQuotient(),
+			new(big.Int).Add(parent.Number, common.Big1),
+			baseFeeInfo.Basefee,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create TaikoL2.anchorV2 transaction: %w", err)
+		}
 	}
 
 	log.Info(

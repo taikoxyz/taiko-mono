@@ -166,3 +166,19 @@ func (m *TaikoDataBlockMetadataLegacy) GetTxHash() common.Hash {
 func (m *TaikoDataBlockMetadataLegacy) InnerMetadata() *bindings.TaikoDataBlockMetadata {
 	return &m.TaikoDataBlockMetadata
 }
+
+func (m *TaikoDataBlockMetadataLegacy) GetBasefeeSharingPctg() uint8 {
+	return 0
+}
+
+func (m *TaikoDataBlockMetadataLegacy) GetBasefeeMinGasExcess() uint64 {
+	return 0
+}
+
+func (m *TaikoDataBlockMetadataLegacy) GetBasefeeMaxGasIssuancePerBlock() uint32 {
+	return 0
+}
+
+func (m *TaikoDataBlockMetadataLegacy) IsOntakeBlock() bool {
+	return false
+}
