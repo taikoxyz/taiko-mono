@@ -350,7 +350,7 @@ func (s *Syncer) insertNewHead(
 			uint32(parent.GasUsed),
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get L2 baseFee: %w", encoding.TryParsingCustomError(err))
+			return nil, fmt.Errorf("failed to get L2 baseFee V1: %w", encoding.TryParsingCustomError(err))
 		}
 
 		// Assemble a TaikoL2.anchor transaction
@@ -415,7 +415,7 @@ func (s *Syncer) insertNewHead(
 			uint32(parent.GasUsed),
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get L2 baseFee: %w", encoding.TryParsingCustomError(err))
+			return nil, fmt.Errorf("failed to get L2 baseFee V2: %w", encoding.TryParsingCustomError(err))
 		}
 
 		// Assemble a TaikoL2.anchorV2 transaction
