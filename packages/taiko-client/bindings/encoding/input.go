@@ -374,3 +374,15 @@ func UnpackTxListBytes(txData []byte) ([]byte, error) {
 
 	return inputs, nil
 }
+
+func TxDataToAnchorMethod(txData []byte) (*abi.Method, error) {
+	method, err := V1TaikoL2ABI.MethodById(txData)
+	if err != nil {
+		method, err = V2TaikoL2ABI.MethodById(txData)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return method, nil
+}
