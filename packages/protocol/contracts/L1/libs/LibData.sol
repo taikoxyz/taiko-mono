@@ -81,8 +81,7 @@ library LibData {
             blobTxListOffset: 0,
             blobTxListLength: 0,
             blobIndex: 0,
-            basefeeAdjustmentQuotient: 0,
-            gasIssuancePerSecond: 0
+            baseFeeConfig: TaikoData.BaseFeeConfig(0, 0, 0, 0, 0)
         });
     }
 }
