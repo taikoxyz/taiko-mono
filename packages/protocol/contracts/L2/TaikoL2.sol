@@ -305,15 +305,11 @@ contract TaikoL2 is EssentialContract {
         // Check if the gas settings has changed
         bool postFork = block.number >= ontakeForkHeight();
         uint64 newGasTarget = uint64(_gasIssuancePerSecond) * _basefeeAdjustmentQuotient;
-        if (postFork) {
-            if (parentGasTarget == 0) {
-                parentGasTarget = newGasTarget;
-            } else if (newGasTarget != parentGasTarget) {
-                // adjust parentGasExcess to keep the basefee unchanged. Note that due to math
-                // calculation precision, the basefee may change slightly.
+        if (postFork && parentGasTarget != newGasTarget) {
+            if (parentGasTarget != 0) {
                 parentGasExcess = adjustExcess(parentGasExcess, parentGasTarget, newGasTarget);
-                parentGasTarget = newGasTarget;
             }
+            parentGasTarget = newGasTarget;
         }
 
         // Verify the base fee per gas is correct
