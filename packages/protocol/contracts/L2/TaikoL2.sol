@@ -191,11 +191,11 @@ contract TaikoL2 is EssentialContract {
         address _to
     )
         external
+        nonZeroAddr(_to)
         whenNotPaused
         onlyFromOwnerOrNamed(LibStrings.B_WITHDRAWER)
         nonReentrant
     {
-        if (_to == address(0)) revert L2_INVALID_PARAM();
         if (_token == address(0)) {
             _to.sendEtherAndVerify(address(this).balance);
         } else {
