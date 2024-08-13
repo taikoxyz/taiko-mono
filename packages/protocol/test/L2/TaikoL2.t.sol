@@ -55,7 +55,7 @@ contract TestTaikoL2 is TaikoTest {
                     impl: address(new TestL2ForTest()),
                     data: abi.encodeCall(
                         TaikoL2.init, (address(0), addressManager, L1_CHAIN_ID, gasExcess)
-                    ),
+                        ),
                     registerTo: addressManager
                 })
             )
