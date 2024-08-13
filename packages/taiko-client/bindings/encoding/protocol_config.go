@@ -23,7 +23,7 @@ var (
 			AdjustmentQuotient:     8,
 			SharingPctg:            75,
 			GasIssuancePerSecond:   5_000_000,
-			MinGasExcess:           0,
+			MinGasExcess:           1_340_000_000,
 			MaxGasIssuancePerBlock: 500000000,
 		},
 	}
@@ -40,7 +40,7 @@ var (
 			AdjustmentQuotient:     8,
 			SharingPctg:            75,
 			GasIssuancePerSecond:   5_000_000,
-			MinGasExcess:           0,
+			MinGasExcess:           1_340_000_000,
 			MaxGasIssuancePerBlock: 500000000,
 		},
 	}
@@ -57,7 +57,7 @@ var (
 			AdjustmentQuotient:     8,
 			SharingPctg:            75,
 			GasIssuancePerSecond:   5_000_000,
-			MinGasExcess:           0,
+			MinGasExcess:           1_340_000_000,
 			MaxGasIssuancePerBlock: 500000000,
 		},
 	}
