@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	v1 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v1"
 	v2 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v2"
 )
 
@@ -212,8 +213,10 @@ var (
 
 // Contract ABIs.
 var (
-	TaikoL1ABI           *abi.ABI
-	TaikoL2ABI           *abi.ABI
+	V1TaikoL1ABI         *abi.ABI
+	V2TaikoL1ABI         *abi.ABI
+	V1TaikoL2ABI         *abi.ABI
+	V2TaikoL2ABI         *abi.ABI
 	TaikoTokenABI        *abi.ABI
 	GuardianProverABI    *abi.ABI
 	LibProposingABI      *abi.ABI
@@ -231,11 +234,19 @@ var (
 func init() {
 	var err error
 
-	if TaikoL1ABI, err = v2.TaikoL1ClientMetaData.GetAbi(); err != nil {
+	if V1TaikoL1ABI, err = v1.TaikoL1ClientMetaData.GetAbi(); err != nil {
 		log.Crit("Get TaikoL1 ABI error", "error", err)
 	}
 
-	if TaikoL2ABI, err = v2.TaikoL2ClientMetaData.GetAbi(); err != nil {
+	if V2TaikoL1ABI, err = v2.TaikoL1ClientMetaData.GetAbi(); err != nil {
+		log.Crit("Get TaikoL1 ABI error", "error", err)
+	}
+
+	if V2TaikoL2ABI, err = v2.TaikoL2ClientMetaData.GetAbi(); err != nil {
+		log.Crit("Get TaikoL2 ABI error", "error", err)
+	}
+
+	if V1TaikoL2ABI, err = v1.TaikoL2ClientMetaData.GetAbi(); err != nil {
 		log.Crit("Get TaikoL2 ABI error", "error", err)
 	}
 
@@ -280,7 +291,8 @@ func init() {
 	}
 
 	customErrorMaps = []map[string]abi.Error{
-		TaikoL1ABI.Errors,
+		V1TaikoL1ABI.Errors,
+		V2TaikoL1ABI.Errors,
 		TaikoL2ABI.Errors,
 		GuardianProverABI.Errors,
 		LibProposingABI.Errors,
@@ -334,9 +346,12 @@ func EncodeProveBlockInput(
 
 // UnpackTxListBytes unpacks the input data of a TaikoL1.proposeBlock transaction, and returns the txList bytes.
 func UnpackTxListBytes(txData []byte) ([]byte, error) {
-	method, err := TaikoL1ABI.MethodById(txData)
+	method, err := V1TaikoL1ABI.MethodById(txData)
 	if err != nil {
-		return nil, err
+		method, err = V2TaikoL1ABI.MethodById(txData)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Only check for safety.

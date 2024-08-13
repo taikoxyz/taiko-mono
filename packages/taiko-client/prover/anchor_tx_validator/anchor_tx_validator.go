@@ -45,10 +45,13 @@ func (v *AnchorTxValidator) ValidateAnchorTx(tx *types.Transaction) error {
 		return fmt.Errorf("invalid TaikoL2.anchor transaction sender: %s", sender)
 	}
 
-	method, err := encoding.TaikoL2ABI.MethodById(tx.Data())
+	method, err := encoding.V1TaikoL2ABI.MethodById(tx.Data())
 	if err != nil {
-		return fmt.Errorf("failed to get TaikoL2.anchor transaction method: %w", err)
-	}
+		method, err = encoding.V2TaikoL2ABI.MethodById(tx.Data())
+		if err != nil {
+			return fmt.Errorf("failed to get TaikoL2.anchor transaction method: %w", err)
+		}
+		
 	if method.Name != "anchor" && method.Name != "anchorV2" {
 		return fmt.Errorf(
 			"invalid TaikoL2.anchor transaction selector, expect: %s, actual: %s",

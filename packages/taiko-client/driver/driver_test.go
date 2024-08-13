@@ -93,7 +93,7 @@ func (s *DriverTestSuite) TestProcessL1Blocks() {
 
 		method, err := encoding.TaikoL2ABI.MethodById(anchorTx.Data())
 		s.Nil(err)
-		s.Contains(method.Name, "anchor")
+		s.Contains(method.Name, "anchorV2")
 	}
 }
 

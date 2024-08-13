@@ -81,14 +81,13 @@ func (b *BlobTransactionBuilder) Build(
 		to            = &b.taikoL1Address
 		data          []byte
 		encodedParams []byte
-		method        string
 	)
 	if b.proverSetAddress != rpc.ZeroAddress {
 		to = &b.proverSetAddress
 	}
 
 	// ABI encode the TaikoL1.proposeBlockV2 / ProverSet.proposeBlockV2 parameters.
-	method = "proposeBlockV2"
+	method := "proposeBlockV2"
 
 	if encodedParams, err = encoding.EncodeBlockParamsOntake(&encoding.BlockParamsV2{
 		Coinbase:         b.l2SuggestedFeeRecipient,
@@ -108,7 +107,7 @@ func (b *BlobTransactionBuilder) Build(
 			return nil, err
 		}
 	} else {
-		data, err = encoding.TaikoL1ABI.Pack(method, encodedParams, []byte{})
+		data, err = encoding.V2TaikoL1ABI.Pack(method, encodedParams, []byte{})
 		if err != nil {
 			return nil, err
 		}

@@ -91,7 +91,7 @@ func (b *CalldataTransactionBuilder) Build(
 			return nil, err
 		}
 	} else {
-		data, err = encoding.TaikoL1ABI.Pack(method, encodedParams, txListBytes)
+		data, err = encoding.V2TaikoL1ABI.Pack(method, encodedParams, txListBytes)
 		if err != nil {
 			return nil, err
 		}

@@ -618,9 +618,12 @@ func (c *Client) getSyncedL1SnippetFromAnchor(
 	parentGasUsed uint32,
 	err error,
 ) {
-	method, err := encoding.TaikoL2ABI.MethodById(tx.Data())
+	method, err := encoding.V1TaikoL2ABI.MethodById(tx.Data())
 	if err != nil {
-		return common.Hash{}, 0, 0, err
+		method, err = encoding.V2TaikoL2ABI.MethodById(tx.Data())
+		if err != nil {
+			return common.Hash{}, 0, 0, err
+		}
 	}
 
 	var ok bool

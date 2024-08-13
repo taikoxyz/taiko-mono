@@ -85,7 +85,7 @@ func (a *ProveBlockTxBuilder) Build(
 				}
 				to = a.proverSetAddress
 			} else {
-				if data, err = encoding.TaikoL1ABI.Pack("proveBlock", blockID.Uint64(), input); err != nil {
+				if data, err = encoding.V2TaikoL1ABI.Pack("proveBlock", blockID.Uint64(), input); err != nil {
 					return nil, err
 				}
 				to = a.taikoL1Address
