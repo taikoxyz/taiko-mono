@@ -66,7 +66,7 @@ func (c *AnchorTxConstructor) AssembleAnchorTx(
 		"gasUsed", parentGasUsed,
 	)
 
-	return c.rpc.TaikoL2.Anchor(opts, l1Hash, l1Header.Root, l1Height.Uint64(), uint32(parentGasUsed))
+	return c.rpc.V1.TaikoL2.Anchor(opts, l1Hash, l1Header.Root, l1Height.Uint64(), uint32(parentGasUsed))
 }
 
 // AssembleAnchorV2Tx assembles a signed TaikoL2.anchorV2 transaction.
@@ -98,7 +98,7 @@ func (c *AnchorTxConstructor) AssembleAnchorV2Tx(
 		"baseFee", utils.WeiToGWei(baseFee),
 	)
 
-	return c.rpc.TaikoL2.AnchorV2(
+	return c.rpc.V2.TaikoL2.AnchorV2(
 		opts,
 		anchorBlockID.Uint64(),
 		anchorStateRoot,

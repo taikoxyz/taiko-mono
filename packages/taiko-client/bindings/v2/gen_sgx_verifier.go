@@ -29,6 +29,24 @@ var (
 	_ = abi.ConvertType
 )
 
+// IVerifierContext is an auto generated low-level Go binding around an user-defined struct.
+type IVerifierContext struct {
+	MetaHash     [32]byte
+	BlobHash     [32]byte
+	Prover       common.Address
+	BlockId      uint64
+	IsContesting bool
+	BlobUsed     bool
+	MsgSender    common.Address
+}
+
+// TaikoDataTierProof is an auto generated low-level Go binding around an user-defined struct.
+type TaikoDataTierProof struct {
+	Tier uint16
+	Data []byte
+}
+
+
 // V3StructCertificationData is an auto generated low-level Go binding around an user-defined struct.
 type V3StructCertificationData struct {
 	CertType             uint16

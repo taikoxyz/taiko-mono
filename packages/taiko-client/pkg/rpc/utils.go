@@ -12,8 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	v2 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v2"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
 )
 
@@ -25,19 +25,19 @@ var (
 
 // GetProtocolStateVariables gets the protocol states from TaikoL1 contract.
 func GetProtocolStateVariables(
-	taikoL1Client *bindings.TaikoL1Client,
+	taikoL1Client *v2.TaikoL1Client,
 	opts *bind.CallOpts,
 ) (*struct {
-	A bindings.TaikoDataSlotA
-	B bindings.TaikoDataSlotB
+	A v2.TaikoDataSlotA
+	B v2.TaikoDataSlotB
 }, error) {
 	slotA, slotB, err := taikoL1Client.GetStateVariables(opts)
 	if err != nil {
 		return nil, err
 	}
 	return &struct {
-		A bindings.TaikoDataSlotA
-		B bindings.TaikoDataSlotB
+		A v2.TaikoDataSlotA
+		B v2.TaikoDataSlotB
 	}{slotA, slotB}, nil
 }
 
@@ -97,7 +97,7 @@ func CheckProverBalance(
 type BlockProofStatus struct {
 	IsSubmitted            bool
 	Invalid                bool
-	CurrentTransitionState *bindings.TaikoDataTransitionState
+	CurrentTransitionState *v2.TaikoDataTransitionState
 	ParentHeader           *types.Header
 }
 
@@ -124,7 +124,7 @@ func GetBlockProofStatus(
 	}
 
 	// Get the transition state from TaikoL1 contract.
-	transition, err := cli.TaikoL1.GetTransition0(
+	transition, err := cli.V2.TaikoL1.GetTransition0(
 		&bind.CallOpts{Context: ctxWithTimeout},
 		id.Uint64(),
 		parent.Hash(),

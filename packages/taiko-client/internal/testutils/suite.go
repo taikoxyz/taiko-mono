@@ -16,8 +16,8 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	v2 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v2"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -29,7 +29,7 @@ type ClientTestSuite struct {
 	RPCClient           *rpc.Client
 	TestAddrPrivKey     *ecdsa.PrivateKey
 	TestAddr            common.Address
-	AddressManager      *bindings.AddressManager
+	AddressManager      *v2.AddressManager
 }
 
 func (s *ClientTestSuite) SetupTest() {
@@ -77,10 +77,9 @@ func (s *ClientTestSuite) SetupTest() {
 	)
 	s.Nil(err)
 
+	ownerPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_CONTRACT_OWNER_PRIVATE_KEY")))
+	s.Nil(err)
 	if allowance.Cmp(common.Big0) == 0 {
-		ownerPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_CONTRACT_OWNER_PRIVATE_KEY")))
-		s.Nil(err)
-
 		// Transfer some tokens to provers.
 		balance, err := rpcCli.TaikoToken.BalanceOf(nil, crypto.PubkeyToAddress(ownerPrivKey.PublicKey))
 		s.Nil(err)
@@ -113,7 +112,44 @@ func (s *ClientTestSuite) SetupTest() {
 		s.setAllowance(ownerPrivKey)
 	}
 
+	t, err := txmgr.NewSimpleTxManager(
+		"register",
+		log.Root(),
+		new(metrics.NoopTxMetrics),
+		txmgr.CLIConfig{
+			L1RPCURL:                  os.Getenv("L1_NODE_WS_ENDPOINT"),
+			NumConfirmations:          0,
+			SafeAbortNonceTooLowCount: txmgr.DefaultBatcherFlagValues.SafeAbortNonceTooLowCount,
+			PrivateKey:                common.Bytes2Hex(crypto.FromECDSA(ownerPrivKey)),
+			FeeLimitMultiplier:        txmgr.DefaultBatcherFlagValues.FeeLimitMultiplier,
+			FeeLimitThresholdGwei:     txmgr.DefaultBatcherFlagValues.FeeLimitThresholdGwei,
+			MinBaseFeeGwei:            txmgr.DefaultBatcherFlagValues.MinBaseFeeGwei,
+			MinTipCapGwei:             txmgr.DefaultBatcherFlagValues.MinTipCapGwei,
+			ResubmissionTimeout:       txmgr.DefaultBatcherFlagValues.ResubmissionTimeout,
+			ReceiptQueryInterval:      1 * time.Second,
+			NetworkTimeout:            txmgr.DefaultBatcherFlagValues.NetworkTimeout,
+			TxSendTimeout:             txmgr.DefaultBatcherFlagValues.TxSendTimeout,
+			TxNotInMempoolTimeout:     txmgr.DefaultBatcherFlagValues.TxNotInMempoolTimeout,
+		},
+	)
+	s.Nil(err)
+
+	// Set sequencers
+	sequencerRegistryAddress := common.HexToAddress(os.Getenv("SEQUENCER_REGISTRY_ADDRESS"))
+	sequencers := []common.Address{
+		crypto.PubkeyToAddress(testAddrPrivKey.PublicKey),
+	}
+	enabled := []bool{true}
+	data, err := encoding.SequencerRegistryABI.Pack("setSequencers", sequencers, enabled)
+	s.Nil(err)
+	_, err = t.Send(context.Background(), txmgr.TxCandidate{
+		TxData: data,
+		To:     &sequencerRegistryAddress,
+	})
+	s.Nil(err)
+
 	s.testnetL1SnapshotID = s.SetL1Snapshot()
+
 }
 
 func (s *ClientTestSuite) setAllowance(key *ecdsa.PrivateKey) {

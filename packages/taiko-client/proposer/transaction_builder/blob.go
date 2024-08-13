@@ -58,23 +58,14 @@ func NewBlobTransactionBuilder(
 // Build implements the ProposeBlockTransactionBuilder interface.
 func (b *BlobTransactionBuilder) Build(
 	ctx context.Context,
-	includeParentMetaHash bool,
 	txListBytes []byte,
+	l1StateBlockNumber uint32,
+	timestamp uint64,
+	parentMetaHash [32]byte,
 ) (*txmgr.TxCandidate, error) {
 	var blob = &eth.Blob{}
 	if err := blob.FromData(txListBytes); err != nil {
 		return nil, err
-	}
-
-	// If the current proposer wants to include the parent meta hash, then fetch it from the protocol.
-	var (
-		parentMetaHash = [32]byte{}
-		err            error
-	)
-	if includeParentMetaHash {
-		if parentMetaHash, err = getParentMetaHash(ctx, b.rpc); err != nil {
-			return nil, err
-		}
 	}
 
 	commitment, err := blob.ComputeKZGCommitment()
@@ -131,8 +122,8 @@ func (b *BlobTransactionBuilder) Build(
 			Coinbase:         b.l2SuggestedFeeRecipient,
 			ExtraData:        rpc.StringToBytes32(b.extraData),
 			ParentMetaHash:   parentMetaHash,
-			AnchorBlockId:    0,
-			Timestamp:        0,
+			AnchorBlockId:    uint64(l1StateBlockNumber),
+			Timestamp:        timestamp,
 			BlobTxListOffset: 0,
 			BlobTxListLength: uint32(len(txListBytes)),
 			BlobIndex:        0,

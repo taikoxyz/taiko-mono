@@ -8,7 +8,9 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	v2 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v2"
+
+	v1 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v1"
 )
 
 // SubscribeEvent creates a event subscription, will retry if the established subscription failed.
@@ -30,8 +32,8 @@ func SubscribeEvent(
 
 // SubscribeBlockVerified subscribes the protocol's BlockVerified events.
 func SubscribeBlockVerified(
-	taikoL1 *bindings.TaikoL1Client,
-	ch chan *bindings.TaikoL1ClientBlockVerified,
+	taikoL1 *v1.TaikoL1Client,
+	ch chan *v1.TaikoL1ClientBlockVerified,
 ) event.Subscription {
 	return SubscribeEvent("BlockVerified", func(ctx context.Context) (event.Subscription, error) {
 		sub, err := taikoL1.WatchBlockVerified(nil, ch, nil, nil)
@@ -48,8 +50,8 @@ func SubscribeBlockVerified(
 
 // SubscribeBlockVerifiedV2 subscribes the protocol's BlockVerifiedV2 events.
 func SubscribeBlockVerifiedV2(
-	taikoL1 *bindings.TaikoL1Client,
-	ch chan *bindings.TaikoL1ClientBlockVerifiedV2,
+	taikoL1 *v2.TaikoL1Client,
+	ch chan *v2.TaikoL1ClientBlockVerifiedV2,
 ) event.Subscription {
 	return SubscribeEvent("BlockVerifiedV2", func(ctx context.Context) (event.Subscription, error) {
 		sub, err := taikoL1.WatchBlockVerifiedV2(nil, ch, nil, nil)
@@ -66,8 +68,8 @@ func SubscribeBlockVerifiedV2(
 
 // SubscribeBlockProposed subscribes the protocol's BlockProposed events.
 func SubscribeBlockProposed(
-	libProposing *bindings.LibProposing,
-	ch chan *bindings.LibProposingBlockProposed,
+	libProposing *v1.LibProposing,
+	ch chan *v1.LibProposingBlockProposed,
 ) event.Subscription {
 	return SubscribeEvent("BlockProposed", func(ctx context.Context) (event.Subscription, error) {
 		sub, err := libProposing.WatchBlockProposed(nil, ch, nil, nil)
@@ -84,8 +86,8 @@ func SubscribeBlockProposed(
 
 // SubscribeBlockProposedV2 subscribes the protocol's BlockProposedV2 events.
 func SubscribeBlockProposedV2(
-	libProposing *bindings.LibProposing,
-	ch chan *bindings.LibProposingBlockProposedV2,
+	libProposing *v2.LibProposing,
+	ch chan *v2.LibProposingBlockProposedV2,
 ) event.Subscription {
 	return SubscribeEvent("BlockProposedV2", func(ctx context.Context) (event.Subscription, error) {
 		sub, err := libProposing.WatchBlockProposedV2(nil, ch, nil)
@@ -102,8 +104,8 @@ func SubscribeBlockProposedV2(
 
 // SubscribeTransitionProved subscribes the protocol's TransitionProved events.
 func SubscribeTransitionProved(
-	taikoL1 *bindings.TaikoL1Client,
-	ch chan *bindings.TaikoL1ClientTransitionProved,
+	taikoL1 *v1.TaikoL1Client,
+	ch chan *v1.TaikoL1ClientTransitionProved,
 ) event.Subscription {
 	return SubscribeEvent("TransitionProved", func(ctx context.Context) (event.Subscription, error) {
 		sub, err := taikoL1.WatchTransitionProved(nil, ch, nil)
@@ -120,8 +122,8 @@ func SubscribeTransitionProved(
 
 // SubscribeTransitionProvedV2 subscribes the protocol's TransitionProvedV2 events.
 func SubscribeTransitionProvedV2(
-	taikoL1 *bindings.TaikoL1Client,
-	ch chan *bindings.TaikoL1ClientTransitionProvedV2,
+	taikoL1 *v2.TaikoL1Client,
+	ch chan *v2.TaikoL1ClientTransitionProvedV2,
 ) event.Subscription {
 	return SubscribeEvent("TransitionProvedV2", func(ctx context.Context) (event.Subscription, error) {
 		sub, err := taikoL1.WatchTransitionProvedV2(nil, ch, nil)
@@ -138,8 +140,8 @@ func SubscribeTransitionProvedV2(
 
 // SubscribeTransitionContested subscribes the protocol's TransitionContested events.
 func SubscribeTransitionContested(
-	taikoL1 *bindings.TaikoL1Client,
-	ch chan *bindings.TaikoL1ClientTransitionContested,
+	taikoL1 *v1.TaikoL1Client,
+	ch chan *v1.TaikoL1ClientTransitionContested,
 ) event.Subscription {
 	return SubscribeEvent("TransitionContested", func(ctx context.Context) (event.Subscription, error) {
 		sub, err := taikoL1.WatchTransitionContested(nil, ch, nil)
@@ -156,8 +158,8 @@ func SubscribeTransitionContested(
 
 // SubscribeTransitionContestedV2 subscribes the protocol's TransitionContestedV2 events.
 func SubscribeTransitionContestedV2(
-	taikoL1 *bindings.TaikoL1Client,
-	ch chan *bindings.TaikoL1ClientTransitionContestedV2,
+	taikoL1 *v2.TaikoL1Client,
+	ch chan *v2.TaikoL1ClientTransitionContestedV2,
 ) event.Subscription {
 	return SubscribeEvent("TransitionContestedV2", func(ctx context.Context) (event.Subscription, error) {
 		sub, err := taikoL1.WatchTransitionContestedV2(nil, ch, nil)

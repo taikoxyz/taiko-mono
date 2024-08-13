@@ -131,8 +131,10 @@ func (s *Syncer) processL1Blocks(ctx context.Context) error {
 
 	iter, err := eventIterator.NewBlockProposedIterator(ctx, &eventIterator.BlockProposedIteratorConfig{
 		Client:               s.rpc.L1,
-		TaikoL1:              s.rpc.TaikoL1,
-		LibProposing:         s.rpc.LibProposing,
+		V1TaikoL1:            s.rpc.V1.TaikoL1,
+		V1LibProposing:       s.rpc.V1.LibProposing,
+		V2TaikoL1:            s.rpc.V2.TaikoL1,
+		V2LibProposing:       s.rpc.V2.LibProposing,
 		StartHeight:          s.state.GetL1Current().Number,
 		EndHeight:            l1End.Number,
 		FilterQuery:          nil,
@@ -341,7 +343,7 @@ func (s *Syncer) insertNewHead(
 
 	if !meta.IsOntakeBlock() {
 		// Get L2 baseFee
-		baseFeeInfo, err = s.rpc.TaikoL2.GetBasefee(
+		baseFeeInfo, err = s.rpc.V1.TaikoL2.GetBasefee(
 			&bind.CallOpts{BlockNumber: parent.Number, Context: ctx},
 			meta.GetRawBlockHeight().Uint64()-1,
 			uint32(parent.GasUsed),
@@ -364,7 +366,7 @@ func (s *Syncer) insertNewHead(
 		}
 	} else {
 		newGasTarget := uint64(meta.GetGasIssuancePerSecond()) * uint64(meta.GetBasefeeAdjustmentQuotient())
-		parentGasTarget, err := s.rpc.TaikoL2.ParentGasTarget(&bind.CallOpts{
+		parentGasTarget, err := s.rpc.V2.TaikoL2.ParentGasTarget(&bind.CallOpts{
 			BlockNumber: parent.Number, Context: ctx,
 		})
 		if err != nil {
@@ -373,13 +375,13 @@ func (s *Syncer) insertNewHead(
 
 		var parentGasExcess uint64
 		if newGasTarget != parentGasTarget {
-			oldParentGasExcess, err := s.rpc.TaikoL2.ParentGasExcess(&bind.CallOpts{
+			oldParentGasExcess, err := s.rpc.V2.TaikoL2.ParentGasExcess(&bind.CallOpts{
 				BlockNumber: parent.Number, Context: ctx,
 			})
 			if err != nil {
 				return nil, fmt.Errorf("failed to fetch old parent gas excess: %w", err)
 			}
-			if parentGasExcess, err = s.rpc.TaikoL2.AdjustExcess(
+			if parentGasExcess, err = s.rpc.V2.TaikoL2.AdjustExcess(
 				&bind.CallOpts{BlockNumber: parent.Number, Context: ctx},
 				oldParentGasExcess,
 				parentGasTarget,
@@ -388,14 +390,14 @@ func (s *Syncer) insertNewHead(
 				return nil, fmt.Errorf("failed to adjust parent gas excess: %w", err)
 			}
 		} else {
-			if parentGasExcess, err = s.rpc.TaikoL2.ParentGasExcess(&bind.CallOpts{
+			if parentGasExcess, err = s.rpc.V2.TaikoL2.ParentGasExcess(&bind.CallOpts{
 				BlockNumber: parent.Number, Context: ctx,
 			}); err != nil {
 				return nil, fmt.Errorf("failed to fetch parent gas excess: %w", err)
 			}
 		}
 		// Get L2 baseFee
-		baseFeeInfo, err = s.rpc.TaikoL2.CalculateBaseFee(
+		baseFeeInfo, err = s.rpc.V2.TaikoL2.CalculateBaseFee(
 			&bind.CallOpts{BlockNumber: parent.Number, Context: ctx},
 			meta.GetGasIssuancePerSecond(),
 			meta.GetTimestamp()-parent.Time,
@@ -647,7 +649,7 @@ func (s *Syncer) retrievePastBlock(
 					currentBlockID,
 				)
 				// Can't find l1Origin in L2 EE, so we call the contract to get block info
-				blockInfo, err := s.rpc.TaikoL1.GetBlock(&bind.CallOpts{Context: ctx}, currentBlockID)
+				blockInfo, err := s.rpc.V2.TaikoL1.GetBlock(&bind.CallOpts{Context: ctx}, currentBlockID)
 				if err != nil {
 					return nil, err
 				}

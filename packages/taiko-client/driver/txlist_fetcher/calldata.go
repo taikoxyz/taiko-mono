@@ -41,7 +41,7 @@ func (d *CalldataFetcher) Fetch(
 
 	// Otherwise, fetch the txlist data from the `CalldataTxList` event.
 	end := meta.GetRawBlockHeight().Uint64()
-	iter, err := d.rpc.TaikoL1.FilterCalldataTxList(
+	iter, err := d.rpc.V2.TaikoL1.FilterCalldataTxList(
 		&bind.FilterOpts{Context: ctx, Start: meta.GetRawBlockHeight().Uint64(), End: &end},
 		[]*big.Int{meta.GetBlockID()},
 	)

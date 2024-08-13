@@ -61,9 +61,10 @@ func (d *BlobFetcher) Fetch(
 				return nil, err
 			}
 
-			if meta.GetBlobTxListLength() == 0 {
+			if meta.GetBlobTxListLength() == 0 && meta.GetBlobTxListOffset() == 0 {
 				return bytes[meta.GetBlobTxListOffset():], nil
 			}
+
 			return bytes[meta.GetBlobTxListOffset() : meta.GetBlobTxListOffset()+meta.GetBlobTxListLength()], nil
 		}
 	}

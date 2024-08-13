@@ -17,8 +17,10 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/phayes/freeport"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v1"
+	v1 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v1"
+	v2 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v2"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
@@ -43,18 +45,18 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
-	sink := make(chan *bindings.LibProposingBlockProposed)
+	sink := make(chan *v1.LibProposingBlockProposed)
 
-	sub, err := s.RPCClient.LibProposing.WatchBlockProposed(nil, sink, nil, nil)
+	sub, err := s.RPCClient.V1.LibProposing.WatchBlockProposed(nil, sink, nil, nil)
 	s.Nil(err)
 	defer func() {
 		sub.Unsubscribe()
 		close(sink)
 	}()
 
-	sink2 := make(chan *bindings.LibProposingBlockProposedV2)
+	sink2 := make(chan *v2.LibProposingBlockProposedV2)
 
-	sub2, err := s.RPCClient.LibProposing.WatchBlockProposedV2(nil, sink2, nil)
+	sub2, err := s.RPCClient.V2.LibProposing.WatchBlockProposedV2(nil, sink2, nil)
 	s.Nil(err)
 	defer func() {
 		sub2.Unsubscribe()
@@ -118,24 +120,24 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 	s.Nil(err)
 
 	// Propose txs in L2 execution engine's mempool
-	sink := make(chan *bindings.LibProposingBlockProposed)
+	sink := make(chan *v1.LibProposingBlockProposed)
 
-	sub, err := s.RPCClient.LibProposing.WatchBlockProposed(nil, sink, nil, nil)
+	sub, err := s.RPCClient.V1.LibProposing.WatchBlockProposed(nil, sink, nil, nil)
 	s.Nil(err)
 	defer func() {
 		sub.Unsubscribe()
 		close(sink)
 	}()
 
-	sink2 := make(chan *bindings.LibProposingBlockProposedV2)
-	sub2, err := s.RPCClient.LibProposing.WatchBlockProposedV2(nil, sink2, nil)
+	sink2 := make(chan *v2.LibProposingBlockProposedV2)
+	sub2, err := s.RPCClient.V2.LibProposing.WatchBlockProposedV2(nil, sink2, nil)
 	s.Nil(err)
 	defer func() {
 		sub2.Unsubscribe()
 		close(sink2)
 	}()
 
-	baseFeeInfo, err := s.RPCClient.TaikoL2.GetBasefee(nil, l1Head.Number.Uint64()+1, uint32(l2Head.GasUsed))
+	baseFeeInfo, err := s.RPCClient.V1.TaikoL2.GetBasefee(nil, l1Head.Number.Uint64()+1, uint32(l2Head.GasUsed))
 	s.Nil(err)
 
 	nonce, err := s.RPCClient.L2.PendingNonceAt(context.Background(), s.TestAddr)
@@ -207,14 +209,14 @@ func (s *ClientTestSuite) ProposeValidBlock(
 	// Propose txs in L2 execution engine's mempool
 	sink := make(chan *bindings.LibProposingBlockProposed)
 
-	sub, err := s.RPCClient.LibProposing.WatchBlockProposed(nil, sink, nil, nil)
+	sub, err := s.RPCClient.V1.LibProposing.WatchBlockProposed(nil, sink, nil, nil)
 	s.Nil(err)
 	defer func() {
 		sub.Unsubscribe()
 		close(sink)
 	}()
 
-	baseFeeInfo, err := s.RPCClient.TaikoL2.GetBasefee(nil, l1Head.Number.Uint64()+1, uint32(l2Head.GasUsed))
+	baseFeeInfo, err := s.RPCClient.V1.TaikoL2.GetBasefee(nil, l1Head.Number.Uint64()+1, uint32(l2Head.GasUsed))
 	s.Nil(err)
 
 	nonce, err := s.RPCClient.L2.PendingNonceAt(context.Background(), s.TestAddr)

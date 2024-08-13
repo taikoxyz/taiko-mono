@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/stretchr/testify/require"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	v1 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v1"
 )
 
 func TestSubscribeEvent(t *testing.T) {
@@ -19,29 +19,29 @@ func TestSubscribeEvent(t *testing.T) {
 
 func TestSubscribeBlockVerified(t *testing.T) {
 	require.NotNil(t, SubscribeBlockVerified(
-		newTestClient(t).TaikoL1,
-		make(chan *bindings.TaikoL1ClientBlockVerified, 1024)),
+		newTestClient(t).V1.TaikoL1,
+		make(chan *v1.TaikoL1ClientBlockVerified, 1024)),
 	)
 }
 
 func TestSubscribeBlockProposed(t *testing.T) {
 	require.NotNil(t, SubscribeBlockProposed(
-		newTestClient(t).LibProposing,
-		make(chan *bindings.LibProposingBlockProposed, 1024)),
+		newTestClient(t).V1.LibProposing,
+		make(chan *v1.LibProposingBlockProposed, 1024)),
 	)
 }
 
 func TestSubscribeTransitionProved(t *testing.T) {
 	require.NotNil(t, SubscribeTransitionProved(
-		newTestClient(t).TaikoL1,
-		make(chan *bindings.TaikoL1ClientTransitionProved, 1024)),
+		newTestClient(t).V1.TaikoL1,
+		make(chan *v1.TaikoL1ClientTransitionProved, 1024)),
 	)
 }
 
 func TestSubscribeTransitionContested(t *testing.T) {
 	require.NotNil(t, SubscribeTransitionContested(
-		newTestClient(t).TaikoL1,
-		make(chan *bindings.TaikoL1ClientTransitionContested, 1024)),
+		newTestClient(t).V1.TaikoL1,
+		make(chan *v1.TaikoL1ClientTransitionContested, 1024)),
 	)
 }
 

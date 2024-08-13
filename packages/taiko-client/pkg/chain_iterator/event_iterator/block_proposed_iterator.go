@@ -8,8 +8,9 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	v1 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v1"
+	v2 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v2"
 	chainIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
@@ -29,7 +30,8 @@ type OnBlockProposedEvent func(
 // with the awareness of reorganization.
 type BlockProposedIterator struct {
 	ctx                context.Context
-	taikoL1            *bindings.TaikoL1Client
+	v1taikoL1          *v1.TaikoL1Client
+	v2taikoL1          *v2.TaikoL1Client
 	blockBatchIterator *chainIterator.BlockBatchIterator
 	filterQuery        []*big.Int
 	isEnd              bool
@@ -38,8 +40,10 @@ type BlockProposedIterator struct {
 // BlockProposedIteratorConfig represents the configs of a BlockProposed event iterator.
 type BlockProposedIteratorConfig struct {
 	Client                *rpc.EthClient
-	TaikoL1               *bindings.TaikoL1Client
-	LibProposing          *bindings.LibProposing
+	V1TaikoL1             *v1.TaikoL1Client
+	V1LibProposing        *v1.LibProposing
+	V2TaikoL1             *v2.TaikoL1Client
+	V2LibProposing        *v2.LibProposing
 	MaxBlocksReadPerEpoch *uint64
 	StartHeight           *big.Int
 	EndHeight             *big.Int
@@ -56,7 +60,8 @@ func NewBlockProposedIterator(ctx context.Context, cfg *BlockProposedIteratorCon
 
 	iterator := &BlockProposedIterator{
 		ctx:         ctx,
-		taikoL1:     cfg.TaikoL1,
+		v1taikoL1:   cfg.V1TaikoL1,
+		v2taikoL1:   cfg.V2TaikoL1,
 		filterQuery: cfg.FilterQuery,
 	}
 
@@ -69,7 +74,8 @@ func NewBlockProposedIterator(ctx context.Context, cfg *BlockProposedIteratorCon
 		BlockConfirmations:    cfg.BlockConfirmations,
 		OnBlocks: assembleBlockProposedIteratorCallback(
 			cfg.Client,
-			cfg.LibProposing,
+			cfg.V1LibProposing,
+			cfg.V2LibProposing,
 			cfg.FilterQuery,
 			cfg.OnBlockProposedEvent,
 			iterator,
@@ -99,7 +105,8 @@ func (i *BlockProposedIterator) end() {
 // by a event iterator's inner block iterator.
 func assembleBlockProposedIteratorCallback(
 	client *rpc.EthClient,
-	libProposing *bindings.LibProposing,
+	v1LibProposing *v1.LibProposing,
+	v2LibProposing *v2.LibProposing,
 	filterQuery []*big.Int,
 	callback OnBlockProposedEvent,
 	eventIter *BlockProposedIterator,
@@ -112,7 +119,7 @@ func assembleBlockProposedIteratorCallback(
 	) error {
 		endHeight := end.Number.Uint64()
 
-		iter, err := libProposing.FilterBlockProposed(
+		iter, err := v1LibProposing.FilterBlockProposed(
 			&bind.FilterOpts{Start: start.Number.Uint64(), End: &endHeight, Context: ctx},
 			filterQuery,
 			nil,
@@ -122,7 +129,7 @@ func assembleBlockProposedIteratorCallback(
 		}
 		defer iter.Close()
 
-		iterOntake, err := libProposing.FilterBlockProposedV2(
+		iterOntake, err := v2LibProposing.FilterBlockProposedV2(
 			&bind.FilterOpts{Start: start.Number.Uint64(), End: &endHeight, Context: ctx},
 			filterQuery,
 		)

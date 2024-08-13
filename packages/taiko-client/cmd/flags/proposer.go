@@ -112,6 +112,13 @@ var (
 		Value:   false,
 		EnvVars: []string{"L1_BLOB_ALLOWED"},
 	}
+	// Pre-confirmation related.
+	PreconfirmationRPC = &cli.StringFlag{
+		Name:     "preconfirmation.rpc",
+		Usage:    "The rpc endpoint of L1 preconfer",
+		Category: proposerCategory,
+		EnvVars:  []string{"PRECONFIRMATION_RPC"},
+	}
 )
 
 // ProposerFlags All proposer flags.
@@ -134,4 +141,5 @@ var ProposerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	MaxProposedTxListsPerEpoch,
 	ProposeBlockIncludeParentMetaHash,
 	BlobAllowed,
+	PreconfirmationRPC,
 }, TxmgrFlags)

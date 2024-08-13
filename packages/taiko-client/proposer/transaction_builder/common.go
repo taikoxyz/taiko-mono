@@ -12,7 +12,7 @@ import (
 
 // getParentMetaHash returns the meta hash of the parent block of the latest proposed block in protocol.
 func getParentMetaHash(ctx context.Context, rpc *rpc.Client) (common.Hash, error) {
-	state, err := rpc.TaikoL1.State(&bind.CallOpts{Context: ctx})
+	state, err := rpc.V2.TaikoL1.State(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return common.Hash{}, err
 	}

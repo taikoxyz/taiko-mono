@@ -119,7 +119,7 @@ func (s *ChainSyncerTestSuite) TestAheadOfProtocolVerifiedHead2() {
 	s.IncreaseTime(uint64((1024 * time.Hour).Seconds()))
 
 	// interact with TaikoL1 contract to allow for verification of L2 blocks
-	tx, err := s.s.rpc.TaikoL1.VerifyBlocks(opts, uint64(3))
+	tx, err := s.s.rpc.V2.TaikoL1.VerifyBlocks(opts, uint64(3))
 	s.Nil(err)
 	s.NotNil(tx)
 

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -18,8 +19,8 @@ import (
 	"github.com/urfave/cli/v2"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	v2 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v2"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
@@ -46,7 +47,7 @@ type Proposer struct {
 	txBuilder builder.ProposeBlockTransactionBuilder
 
 	// Protocol configurations
-	protocolConfigs *bindings.TaikoDataConfig
+	protocolConfigs *v2.TaikoDataConfig
 
 	lastProposedAt time.Time
 	totalEpochs    uint64
@@ -346,10 +347,25 @@ func (p *Proposer) ProposeTxList(
 		return errors.New("insufficient prover balance")
 	}
 
+	var (
+		l1StateBlockNumber = uint32(0)
+		timestamp          = uint64(0)
+		parentMetaHash     = [32]byte{}
+	)
+
+	if p.IncludeParentMetaHash {
+		parentMetaHash, err = getParentMetaHash(ctx, p.rpc)
+		if err != nil {
+			return err
+		}
+	}
+
 	txCandidate, err := p.txBuilder.Build(
 		ctx,
-		p.IncludeParentMetaHash,
 		compressedTxListBytes,
+		l1StateBlockNumber,
+		timestamp,
+		parentMetaHash,
 	)
 	if err != nil {
 		log.Warn("Failed to build TaikoL1.proposeBlock transaction", "error", encoding.TryParsingCustomError(err))
@@ -395,4 +411,19 @@ func (p *Proposer) updateProposingTicker() {
 // Name returns the application name.
 func (p *Proposer) Name() string {
 	return "proposer"
+}
+
+// getParentMetaHash returns the meta hash of the parent block of the latest proposed block in protocol.
+func getParentMetaHash(ctx context.Context, rpc *rpc.Client) (common.Hash, error) {
+	state, err := rpc.V2.TaikoL1.State(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return common.Hash{}, err
+	}
+
+	parent, err := rpc.GetL2BlockInfo(ctx, new(big.Int).SetUint64(state.SlotB.NumBlocks-1))
+	if err != nil {
+		return common.Hash{}, err
+	}
+
+	return parent.MetaHash, nil
 }

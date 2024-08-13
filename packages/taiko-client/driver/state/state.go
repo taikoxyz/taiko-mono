@@ -12,7 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	v1 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v1"
+	v2 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v2"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
@@ -101,22 +102,22 @@ func (s *State) eventLoop(ctx context.Context) {
 		// Channels for subscriptions.
 		l1HeadCh             = make(chan *types.Header, 10)
 		l2HeadCh             = make(chan *types.Header, 10)
-		blockProposedCh      = make(chan *bindings.LibProposingBlockProposed, 10)
-		transitionProvedCh   = make(chan *bindings.TaikoL1ClientTransitionProved, 10)
-		blockVerifiedCh      = make(chan *bindings.TaikoL1ClientBlockVerified, 10)
-		blockProposedV2Ch    = make(chan *bindings.LibProposingBlockProposedV2, 10)
-		transitionProvedV2Ch = make(chan *bindings.TaikoL1ClientTransitionProvedV2, 10)
-		blockVerifiedV2Ch    = make(chan *bindings.TaikoL1ClientBlockVerifiedV2, 10)
+		blockProposedCh      = make(chan *v1.LibProposingBlockProposed, 10)
+		transitionProvedCh   = make(chan *v1.TaikoL1ClientTransitionProved, 10)
+		blockVerifiedCh      = make(chan *v1.TaikoL1ClientBlockVerified, 10)
+		blockProposedV2Ch    = make(chan *v2.LibProposingBlockProposedV2, 10)
+		transitionProvedV2Ch = make(chan *v2.TaikoL1ClientTransitionProvedV2, 10)
+		blockVerifiedV2Ch    = make(chan *v2.TaikoL1ClientBlockVerifiedV2, 10)
 
 		// Subscriptions.
 		l1HeadSub               = rpc.SubscribeChainHead(s.rpc.L1, l1HeadCh)
 		l2HeadSub               = rpc.SubscribeChainHead(s.rpc.L2, l2HeadCh)
-		l2BlockVerifiedSub      = rpc.SubscribeBlockVerified(s.rpc.TaikoL1, blockVerifiedCh)
-		l2BlockProposedSub      = rpc.SubscribeBlockProposed(s.rpc.LibProposing, blockProposedCh)
-		l2TransitionProvedSub   = rpc.SubscribeTransitionProved(s.rpc.TaikoL1, transitionProvedCh)
-		l2BlockVerifiedV2Sub    = rpc.SubscribeBlockVerifiedV2(s.rpc.TaikoL1, blockVerifiedV2Ch)
-		l2BlockProposedV2Sub    = rpc.SubscribeBlockProposedV2(s.rpc.LibProposing, blockProposedV2Ch)
-		l2TransitionProvedV2Sub = rpc.SubscribeTransitionProvedV2(s.rpc.TaikoL1, transitionProvedV2Ch)
+		l2BlockVerifiedSub      = rpc.SubscribeBlockVerified(s.rpc.V1.TaikoL1, blockVerifiedCh)
+		l2BlockProposedSub      = rpc.SubscribeBlockProposed(s.rpc.V1.LibProposing, blockProposedCh)
+		l2TransitionProvedSub   = rpc.SubscribeTransitionProved(s.rpc.V1.TaikoL1, transitionProvedCh)
+		l2BlockVerifiedV2Sub    = rpc.SubscribeBlockVerifiedV2(s.rpc.V2.TaikoL1, blockVerifiedV2Ch)
+		l2BlockProposedV2Sub    = rpc.SubscribeBlockProposedV2(s.rpc.V2.LibProposing, blockProposedV2Ch)
+		l2TransitionProvedV2Sub = rpc.SubscribeTransitionProvedV2(s.rpc.V2.TaikoL1, transitionProvedV2Ch)
 	)
 
 	defer func() {

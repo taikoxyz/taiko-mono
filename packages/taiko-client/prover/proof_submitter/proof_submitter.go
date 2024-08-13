@@ -14,8 +14,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	v2 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v2"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	validator "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/anchor_tx_validator"
@@ -263,13 +263,13 @@ func (s *ProofSubmitter) SubmitProof(
 		s.txBuilder.Build(
 			proofWithHeader.BlockID,
 			proofWithHeader.Meta,
-			&bindings.TaikoDataTransition{
+			&v2.TaikoDataTransition{
 				ParentHash: proofWithHeader.Header.ParentHash,
 				BlockHash:  proofWithHeader.Opts.BlockHash,
 				StateRoot:  proofWithHeader.Opts.StateRoot,
 				Graffiti:   s.graffiti,
 			},
-			&bindings.TaikoDataTierProof{
+			&v2.TaikoDataTierProof{
 				Tier: proofWithHeader.Tier,
 				Data: proofWithHeader.Proof,
 			},

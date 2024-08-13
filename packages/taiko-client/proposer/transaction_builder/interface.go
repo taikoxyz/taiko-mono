@@ -10,7 +10,9 @@ import (
 type ProposeBlockTransactionBuilder interface {
 	Build(
 		ctx context.Context,
-		includeParentMetaHash bool,
 		txListBytes []byte,
+		l1StateBlockNumber uint32,
+		timestamp uint64,
+		parentMetaHash [32]byte,
 	) (*txmgr.TxCandidate, error)
 }

@@ -17,8 +17,8 @@ import (
 	"github.com/ethereum/go-ethereum/miner"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v1"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
 )
 
@@ -59,7 +59,7 @@ func (c *Client) ensureGenesisMatched(ctx context.Context) error {
 	// If chain actives ontake fork from genesis, we need to fetch the genesis block hash from `BlockVerifiedV2` event.
 	if encoding.GetProtocolConfig(c.L2.ChainID.Uint64()).OntakeForkHeight == 0 {
 		// Fetch the genesis `BlockVerified2` event.
-		iter, err := c.TaikoL1.FilterBlockVerifiedV2(filterOpts, []*big.Int{common.Big0}, nil)
+		iter, err := c.V2.TaikoL1.FilterBlockVerifiedV2(filterOpts, []*big.Int{common.Big0}, nil)
 		if err != nil {
 			return err
 		}
@@ -69,7 +69,7 @@ func (c *Client) ensureGenesisMatched(ctx context.Context) error {
 		}
 	} else {
 		// Fetch the genesis `BlockVerified` event.
-		iter, err := c.TaikoL1.FilterBlockVerified(filterOpts, []*big.Int{common.Big0}, nil)
+		iter, err := c.V1.TaikoL1.FilterBlockVerified(filterOpts, []*big.Int{common.Big0}, nil)
 		if err != nil {
 			return err
 		}
@@ -289,7 +289,7 @@ func (c *Client) GetPoolContent(
 		return nil, err
 	}
 
-	baseFeeInfo, err := c.TaikoL2.GetBasefee(
+	baseFeeInfo, err := c.V1.TaikoL2.GetBasefee(
 		&bind.CallOpts{Context: ctx},
 		l1Head.Number.Uint64(),
 		uint32(l2Head.GasUsed),
@@ -578,16 +578,6 @@ func (c *Client) checkSyncedL1SnippetFromAnchor(
 	)
 	if err != nil {
 		return false, err
-	}
-
-	if l1HeightInAnchor+1 != l1Height {
-		log.Info(
-			"Reorg detected due to L1 height mismatch",
-			"blockID", blockID,
-			"l1HeightInAnchor", l1HeightInAnchor,
-			"l1Height", l1Height,
-		)
-		return true, nil
 	}
 
 	if parentGasUsed != uint32(parent.GasUsed()) {

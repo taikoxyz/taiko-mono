@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	v2 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v2"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
@@ -44,7 +44,7 @@ func NewTransitionProvedEventHandler(
 // Handle implements the TransitionProvedHandler interface.
 func (h *TransitionProvedEventHandler) Handle(
 	ctx context.Context,
-	e *bindings.TaikoL1ClientTransitionProvedV2,
+	e *v2.TaikoL1ClientTransitionProvedV2,
 ) error {
 	metrics.ProverReceivedProvenBlockGauge.Set(float64(e.BlockId.Uint64()))
 

@@ -9,12 +9,26 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	v1 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v1"
+
+	v2 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v2"
 )
 
 const (
 	defaultTimeout = 1 * time.Minute
 )
+
+type V1 struct {
+	TaikoL1      *v1.TaikoL1Client
+	LibProposing *v1.LibProposing
+	TaikoL2      *v1.TaikoL2Client
+}
+
+type V2 struct {
+	TaikoL1      *v2.TaikoL1Client
+	LibProposing *v2.LibProposing
+	TaikoL2      *v2.TaikoL2Client
+}
 
 // Client contains all L1/L2 RPC clients that a driver needs.
 type Client struct {
@@ -27,13 +41,12 @@ type Client struct {
 	// Beacon clients
 	L1Beacon *BeaconClient
 	// Protocol contracts clients
-	TaikoL1                *bindings.TaikoL1Client
-	LibProposing           *bindings.LibProposing
-	TaikoL2                *bindings.TaikoL2Client
-	TaikoToken             *bindings.TaikoToken
-	GuardianProverMajority *bindings.GuardianProver
-	GuardianProverMinority *bindings.GuardianProver
-	ProverSet              *bindings.ProverSet
+	V1                     *V1
+	V2                     *V2
+	TaikoToken             *v2.TaikoToken
+	GuardianProverMajority *v2.GuardianProver
+	GuardianProverMinority *v2.GuardianProver
+	ProverSet              *v2.ProverSet
 }
 
 // ClientConfig contains all configs which will be used to initializing an
@@ -104,44 +117,59 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
-	taikoL1, err := bindings.NewTaikoL1Client(cfg.TaikoL1Address, l1Client)
+	taikoL1V1, err := v1.NewTaikoL1Client(cfg.TaikoL1Address, l1Client)
 	if err != nil {
 		return nil, err
 	}
 
-	libProposing, err := bindings.NewLibProposing(cfg.TaikoL1Address, l1Client)
+	taikoL1V2, err := v2.NewTaikoL1Client(cfg.TaikoL1Address, l1Client)
 	if err != nil {
 		return nil, err
 	}
 
-	taikoL2, err := bindings.NewTaikoL2Client(cfg.TaikoL2Address, l2Client)
+	libProposingV1, err := v1.NewLibProposing(cfg.TaikoL1Address, l1Client)
+	if err != nil {
+		return nil, err
+	}
+
+	libProposingV2, err := v2.NewLibProposing(cfg.TaikoL1Address, l1Client)
+	if err != nil {
+		return nil, err
+	}
+
+	taikoL2V1, err := v1.NewTaikoL2Client(cfg.TaikoL2Address, l2Client)
+	if err != nil {
+		return nil, err
+	}
+
+	taikoL2V2, err := v2.NewTaikoL2Client(cfg.TaikoL2Address, l2Client)
 	if err != nil {
 		return nil, err
 	}
 
 	var (
-		taikoToken             *bindings.TaikoToken
-		guardianProverMajority *bindings.GuardianProver
-		guardianProverMinority *bindings.GuardianProver
-		proverSet              *bindings.ProverSet
+		taikoToken             *v2.TaikoToken
+		guardianProverMajority *v2.GuardianProver
+		guardianProverMinority *v2.GuardianProver
+		proverSet              *v2.ProverSet
 	)
 	if cfg.TaikoTokenAddress.Hex() != ZeroAddress.Hex() {
-		if taikoToken, err = bindings.NewTaikoToken(cfg.TaikoTokenAddress, l1Client); err != nil {
+		if taikoToken, err = v2.NewTaikoToken(cfg.TaikoTokenAddress, l1Client); err != nil {
 			return nil, err
 		}
 	}
 	if cfg.GuardianProverMinorityAddress.Hex() != ZeroAddress.Hex() {
-		if guardianProverMinority, err = bindings.NewGuardianProver(cfg.GuardianProverMinorityAddress, l1Client); err != nil {
+		if guardianProverMinority, err = v2.NewGuardianProver(cfg.GuardianProverMinorityAddress, l1Client); err != nil {
 			return nil, err
 		}
 	}
 	if cfg.GuardianProverMajorityAddress.Hex() != ZeroAddress.Hex() {
-		if guardianProverMajority, err = bindings.NewGuardianProver(cfg.GuardianProverMajorityAddress, l1Client); err != nil {
+		if guardianProverMajority, err = v2.NewGuardianProver(cfg.GuardianProverMajorityAddress, l1Client); err != nil {
 			return nil, err
 		}
 	}
 	if cfg.ProverSetAddress.Hex() != ZeroAddress.Hex() {
-		if proverSet, err = bindings.NewProverSet(cfg.ProverSetAddress, l1Client); err != nil {
+		if proverSet, err = v2.NewProverSet(cfg.ProverSetAddress, l1Client); err != nil {
 			return nil, err
 		}
 	}
@@ -157,14 +185,21 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 	}
 
 	client := &Client{
-		L1:                     l1Client,
-		L1Beacon:               l1BeaconClient,
-		L2:                     l2Client,
-		L2CheckPoint:           l2CheckPoint,
-		L2Engine:               l2AuthClient,
-		TaikoL1:                taikoL1,
-		LibProposing:           libProposing,
-		TaikoL2:                taikoL2,
+		L1:           l1Client,
+		L1Beacon:     l1BeaconClient,
+		L2:           l2Client,
+		L2CheckPoint: l2CheckPoint,
+		L2Engine:     l2AuthClient,
+		V1: &V1{
+			TaikoL1:      taikoL1V1,
+			TaikoL2:      taikoL2V1,
+			LibProposing: libProposingV1,
+		},
+		V2: &V2{
+			TaikoL1:      taikoL1V2,
+			TaikoL2:      taikoL2V2,
+			LibProposing: libProposingV2,
+		},
 		TaikoToken:             taikoToken,
 		GuardianProverMajority: guardianProverMajority,
 		GuardianProverMinority: guardianProverMinority,

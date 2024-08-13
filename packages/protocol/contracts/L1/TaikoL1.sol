@@ -7,6 +7,7 @@ import "./libs/LibProving.sol";
 import "./libs/LibVerifying.sol";
 import "./TaikoEvents.sol";
 import "./ITaikoL1.sol";
+import "./libs/ISequencerRegistry.sol";
 
 /// @title TaikoL1
 /// @notice This contract serves as the "base layer contract" of the Taiko protocol, providing
@@ -78,6 +79,15 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         emitEventForClient
         returns (TaikoData.BlockMetadataV2 memory)
     {
+        // If there's a sequencer registry, check if the block can be proposed by the current
+        // proposer
+        ISequencerRegistry sequencerRegistry =
+            ISequencerRegistry(resolve(LibStrings.B_SEQUENCER_REGISTRY, true));
+        if (sequencerRegistry != ISequencerRegistry(address(0))) {
+            if (!sequencerRegistry.isEligibleSigner(msg.sender)) {
+                revert L1_INVALID_PROPOSER();
+            }
+        }
         return _proposeBlock(_params, _txList, getConfig());
     }
 
@@ -276,8 +286,9 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
             maxAnchorHeightOffset: 64,
             basefeeAdjustmentQuotient: 8,
             basefeeSharingPctg: 75,
-            gasIssuancePerSecond: 5_000_000
-        });
+            gasIssuancePerSecond: 5_000_000,
+            ontakeForkHeight: 374_400 // = 7200 * 52
+         });
     }
 
     function _proposeBlock(

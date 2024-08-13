@@ -16,9 +16,11 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	v1 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v1"
+
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	v2 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v2"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/version"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
@@ -44,7 +46,7 @@ type Prover struct {
 	guardianProverHeartbeater guardianProverHeartbeater.BlockSenderHeartbeater
 
 	// Contract configurations
-	protocolConfig *bindings.TaikoDataConfig
+	protocolConfig *v2.TaikoDataConfig
 
 	// States
 	sharedState     *state.SharedState
@@ -258,23 +260,23 @@ func (p *Prover) eventLoop() {
 
 	// Channels
 	chBufferSize := p.protocolConfig.BlockMaxProposals
-	blockProposedCh := make(chan *bindings.LibProposingBlockProposed, chBufferSize)
-	blockVerifiedCh := make(chan *bindings.TaikoL1ClientBlockVerified, chBufferSize)
-	transitionProvedCh := make(chan *bindings.TaikoL1ClientTransitionProved, chBufferSize)
-	transitionContestedCh := make(chan *bindings.TaikoL1ClientTransitionContested, chBufferSize)
-	blockProposedV2Ch := make(chan *bindings.LibProposingBlockProposedV2, chBufferSize)
-	blockVerifiedV2Ch := make(chan *bindings.TaikoL1ClientBlockVerifiedV2, chBufferSize)
-	transitionProvedV2Ch := make(chan *bindings.TaikoL1ClientTransitionProvedV2, chBufferSize)
-	transitionContestedV2Ch := make(chan *bindings.TaikoL1ClientTransitionContestedV2, chBufferSize)
+	blockProposedCh := make(chan *v1.LibProposingBlockProposed, chBufferSize)
+	blockVerifiedCh := make(chan *v1.TaikoL1ClientBlockVerified, chBufferSize)
+	transitionProvedCh := make(chan *v1.TaikoL1ClientTransitionProved, chBufferSize)
+	transitionContestedCh := make(chan *v1.TaikoL1ClientTransitionContested, chBufferSize)
+	blockProposedV2Ch := make(chan *v2.LibProposingBlockProposedV2, chBufferSize)
+	blockVerifiedV2Ch := make(chan *v2.TaikoL1ClientBlockVerifiedV2, chBufferSize)
+	transitionProvedV2Ch := make(chan *v2.TaikoL1ClientTransitionProvedV2, chBufferSize)
+	transitionContestedV2Ch := make(chan *v2.TaikoL1ClientTransitionContestedV2, chBufferSize)
 	// Subscriptions
-	blockProposedSub := rpc.SubscribeBlockProposed(p.rpc.LibProposing, blockProposedCh)
-	blockVerifiedSub := rpc.SubscribeBlockVerified(p.rpc.TaikoL1, blockVerifiedCh)
-	transitionProvedSub := rpc.SubscribeTransitionProved(p.rpc.TaikoL1, transitionProvedCh)
-	transitionContestedSub := rpc.SubscribeTransitionContested(p.rpc.TaikoL1, transitionContestedCh)
-	blockProposedV2Sub := rpc.SubscribeBlockProposedV2(p.rpc.LibProposing, blockProposedV2Ch)
-	blockVerifiedV2Sub := rpc.SubscribeBlockVerifiedV2(p.rpc.TaikoL1, blockVerifiedV2Ch)
-	transitionProvedV2Sub := rpc.SubscribeTransitionProvedV2(p.rpc.TaikoL1, transitionProvedV2Ch)
-	transitionContestedV2Sub := rpc.SubscribeTransitionContestedV2(p.rpc.TaikoL1, transitionContestedV2Ch)
+	blockProposedSub := rpc.SubscribeBlockProposed(p.rpc.V1.LibProposing, blockProposedCh)
+	blockVerifiedSub := rpc.SubscribeBlockVerified(p.rpc.V1.TaikoL1, blockVerifiedCh)
+	transitionProvedSub := rpc.SubscribeTransitionProved(p.rpc.V1.TaikoL1, transitionProvedCh)
+	transitionContestedSub := rpc.SubscribeTransitionContested(p.rpc.V1.TaikoL1, transitionContestedCh)
+	blockProposedV2Sub := rpc.SubscribeBlockProposedV2(p.rpc.V2.LibProposing, blockProposedV2Ch)
+	blockVerifiedV2Sub := rpc.SubscribeBlockVerifiedV2(p.rpc.V2.TaikoL1, blockVerifiedV2Ch)
+	transitionProvedV2Sub := rpc.SubscribeTransitionProvedV2(p.rpc.V2.TaikoL1, transitionProvedV2Ch)
+	transitionContestedV2Sub := rpc.SubscribeTransitionContestedV2(p.rpc.V2.TaikoL1, transitionContestedV2Ch)
 	defer func() {
 		blockProposedSub.Unsubscribe()
 		blockVerifiedSub.Unsubscribe()
@@ -352,8 +354,10 @@ func (p *Prover) Close(_ context.Context) {
 func (p *Prover) proveOp() error {
 	iter, err := eventIterator.NewBlockProposedIterator(p.ctx, &eventIterator.BlockProposedIteratorConfig{
 		Client:               p.rpc.L1,
-		TaikoL1:              p.rpc.TaikoL1,
-		LibProposing:         p.rpc.LibProposing,
+		V1TaikoL1:            p.rpc.V1.TaikoL1,
+		V1LibProposing:       p.rpc.V1.LibProposing,
+		V2TaikoL1:            p.rpc.V2.TaikoL1,
+		V2LibProposing:       p.rpc.V2.LibProposing,
 		StartHeight:          new(big.Int).SetUint64(p.sharedState.GetL1Current().Number.Uint64()),
 		OnBlockProposedEvent: p.blockProposedHandler.Handle,
 		BlockConfirmations:   &p.cfg.BlockConfirmations,

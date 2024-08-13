@@ -17,9 +17,10 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	v1 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v1"
+	v2 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v2"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/blob"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
@@ -133,8 +134,10 @@ func (s *ProposerTestSuite) TestProposeTxLists() {
 
 		candidate, err := txBuilder.Build(
 			p.ctx,
-			p.IncludeParentMetaHash,
 			compressedTxListBytes,
+			0,
+			0,
+			[32]byte{},
 		)
 		if err != nil {
 			log.Warn("Failed to build TaikoL1.proposeBlock transaction", "error", err)
@@ -216,18 +219,18 @@ func (s *ProposerTestSuite) TestName() {
 
 func (s *ProposerTestSuite) TestProposeOp() {
 	// Propose txs in L2 execution engine's mempool
-	sink := make(chan *bindings.LibProposingBlockProposed)
+	sink := make(chan *v1.LibProposingBlockProposed)
 
-	sub, err := s.p.rpc.LibProposing.WatchBlockProposed(nil, sink, nil, nil)
+	sub, err := s.p.rpc.V1.LibProposing.WatchBlockProposed(nil, sink, nil, nil)
 	s.Nil(err)
 	defer func() {
 		sub.Unsubscribe()
 		close(sink)
 	}()
 
-	sink2 := make(chan *bindings.LibProposingBlockProposedV2)
+	sink2 := make(chan *v2.LibProposingBlockProposedV2)
 
-	sub2, err := s.p.rpc.LibProposing.WatchBlockProposedV2(nil, sink2, nil)
+	sub2, err := s.p.rpc.V2.LibProposing.WatchBlockProposedV2(nil, sink2, nil)
 	s.Nil(err)
 	defer func() {
 		sub2.Unsubscribe()
@@ -279,6 +282,12 @@ func (s *ProposerTestSuite) TestStartClose() {
 	s.Nil(s.p.Start())
 	s.cancel()
 	s.NotPanics(func() { s.p.Close(s.p.ctx) })
+}
+
+func (s *ProposerTestSuite) TestGetParentMetaHash() {
+	metahash, err := getParentMetaHash(context.Background(), s.RPCClient)
+	s.Nil(err)
+	s.NotEmpty(metahash)
 }
 
 func TestProposerTestSuite(t *testing.T) {

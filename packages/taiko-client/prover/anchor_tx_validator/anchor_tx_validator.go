@@ -22,7 +22,7 @@ type AnchorTxValidator struct {
 
 // New creates a new AnchorTxValidator instance.
 func New(taikoL2Address common.Address, chainID *big.Int, rpc *rpc.Client) (*AnchorTxValidator, error) {
-	goldenTouchAddress, err := rpc.TaikoL2.GOLDENTOUCHADDRESS(nil)
+	goldenTouchAddress, err := rpc.V2.TaikoL2.GOLDENTOUCHADDRESS(nil)
 	if err != nil {
 		return nil, err
 	}

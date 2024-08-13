@@ -4,7 +4,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	v2 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v2"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 )
 
@@ -19,7 +19,7 @@ func NewBlockVerifiedEventHandler(guardianProverAddress common.Address) *BlockVe
 }
 
 // Handle handles the BlockVerified event.
-func (h *BlockVerifiedEventHandler) Handle(e *bindings.TaikoL1ClientBlockVerifiedV2) {
+func (h *BlockVerifiedEventHandler) Handle(e *v2.TaikoL1ClientBlockVerifiedV2) {
 	metrics.ProverLatestVerifiedIDGauge.Set(float64(e.BlockId.Uint64()))
 
 	log.Info(

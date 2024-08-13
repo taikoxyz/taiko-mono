@@ -24,7 +24,7 @@ var (
 )
 
 func (s *ProposerTestSuite) TestNewConfigFromCliContext() {
-	goldenTouchAddress, err := s.RPCClient.TaikoL2.GOLDENTOUCHADDRESS(nil)
+	goldenTouchAddress, err := s.RPCClient.V2.TaikoL2.GOLDENTOUCHADDRESS(nil)
 	s.Nil(err)
 
 	app := s.SetupApp()
@@ -88,7 +88,7 @@ func (s *ProposerTestSuite) TestNewConfigFromCliContextL2RecipErr() {
 }
 
 func (s *ProposerTestSuite) TestNewConfigFromCliContextTxPoolLocalsErr() {
-	goldenTouchAddress, err := s.RPCClient.TaikoL2.GOLDENTOUCHADDRESS(nil)
+	goldenTouchAddress, err := s.RPCClient.V2.TaikoL2.GOLDENTOUCHADDRESS(nil)
 	s.Nil(err)
 
 	app := s.SetupApp()

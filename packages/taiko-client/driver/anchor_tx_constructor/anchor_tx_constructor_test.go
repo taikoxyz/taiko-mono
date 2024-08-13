@@ -36,12 +36,6 @@ func (s *AnchorTxConstructorTestSuite) TestGasLimit() {
 	s.Greater(consensus.AnchorGasLimit, uint64(0))
 }
 
-func (s *AnchorTxConstructorTestSuite) TestAssembleAnchorTx() {
-	tx, err := s.c.AssembleAnchorTx(context.Background(), s.l1Height, s.l1Hash, common.Big1, common.Big256, 1024)
-	s.Nil(err)
-	s.NotNil(tx)
-}
-
 func (s *AnchorTxConstructorTestSuite) TestAssembleAnchorV2Tx() {
 	tx, err := s.c.AssembleAnchorV2Tx(
 		context.Background(),
@@ -58,7 +52,7 @@ func (s *AnchorTxConstructorTestSuite) TestAssembleAnchorV2Tx() {
 }
 
 func (s *AnchorTxConstructorTestSuite) TestNewAnchorTransactor() {
-	goldenTouchAddress, err := s.RPCClient.TaikoL2.GOLDENTOUCHADDRESS(nil)
+	goldenTouchAddress, err := s.RPCClient.V1.TaikoL2.GOLDENTOUCHADDRESS(nil)
 	s.Nil(err)
 
 	c, err := New(s.RPCClient)

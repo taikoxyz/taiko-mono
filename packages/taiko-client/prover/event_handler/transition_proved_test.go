@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	v2 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v2"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/blob"
@@ -117,7 +117,7 @@ func (s *EventHandlerTestSuite) TestTransitionProvedHandle() {
 		false,
 	)
 	m := s.ProposeAndInsertValidBlock(s.proposer, s.blobSyncer)
-	err := handler.Handle(context.Background(), &bindings.TaikoL1ClientTransitionProvedV2{
+	err := handler.Handle(context.Background(), &v2.TaikoL1ClientTransitionProvedV2{
 		BlockId:    m.GetBlockID(),
 		Tier:       m.GetMinTier(),
 		ProposedIn: m.GetRawBlockHeight().Uint64(),

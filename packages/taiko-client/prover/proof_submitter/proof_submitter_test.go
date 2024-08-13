@@ -15,9 +15,9 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	v1 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v1"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/blob"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
@@ -219,7 +219,7 @@ func (s *ProofSubmitterTestSuite) TestProofSubmitterRequestProofDeadlineExceeded
 	s.ErrorContains(
 		s.submitter.RequestProof(
 			ctx,
-			&metadata.TaikoDataBlockMetadataLegacy{TaikoDataBlockMetadata: bindings.TaikoDataBlockMetadata{Id: 256}},
+			&metadata.TaikoDataBlockMetadataLegacy{TaikoDataBlockMetadata: v1.TaikoDataBlockMetadata{Id: 256}},
 		),
 		"context deadline exceeded",
 	)
@@ -263,7 +263,7 @@ func (s *ProofSubmitterTestSuite) TestProofSubmitterRequestProofCancelled() {
 	s.ErrorContains(
 		s.submitter.RequestProof(
 			ctx,
-			&metadata.TaikoDataBlockMetadataLegacy{TaikoDataBlockMetadata: bindings.TaikoDataBlockMetadata{Id: 256}},
+			&metadata.TaikoDataBlockMetadataLegacy{TaikoDataBlockMetadata: v1.TaikoDataBlockMetadata{Id: 256}},
 		),
 		"context canceled",
 	)

@@ -10,9 +10,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	v2 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v2"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter/transaction"
@@ -55,7 +55,7 @@ func (c *ProofContester) SubmitContest(
 	tier uint16,
 ) error {
 	// Ensure the transition has not been contested yet.
-	transition, err := c.rpc.TaikoL1.GetTransition0(
+	transition, err := c.rpc.V2.TaikoL1.GetTransition0(
 		&bind.CallOpts{Context: ctx},
 		blockID.Uint64(),
 		parentHash,
@@ -110,13 +110,13 @@ func (c *ProofContester) SubmitContest(
 		c.txBuilder.Build(
 			blockID,
 			meta,
-			&bindings.TaikoDataTransition{
+			&v2.TaikoDataTransition{
 				ParentHash: header.ParentHash,
 				BlockHash:  header.Hash(),
 				StateRoot:  header.Root,
 				Graffiti:   c.graffiti,
 			},
-			&bindings.TaikoDataTierProof{
+			&v2.TaikoDataTierProof{
 				Tier: transition.Tier,
 				Data: []byte{},
 			},

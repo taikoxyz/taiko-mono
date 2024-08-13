@@ -10,9 +10,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	v2 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v2"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
@@ -54,8 +54,8 @@ func NewProveBlockTxBuilder(
 func (a *ProveBlockTxBuilder) Build(
 	blockID *big.Int,
 	meta metadata.TaikoBlockMetaData,
-	transition *bindings.TaikoDataTransition,
-	tierProof *bindings.TaikoDataTierProof,
+	transition *v2.TaikoDataTransition,
+	tierProof *v2.TaikoDataTierProof,
 	tier uint16,
 ) TxBuilder {
 	return func(txOpts *bind.TransactOpts) (*txmgr.TxCandidate, error) {

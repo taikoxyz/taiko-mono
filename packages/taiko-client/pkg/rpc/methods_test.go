@@ -92,7 +92,7 @@ func TestGetSyncedL1SnippetFromAnchor(t *testing.T) {
 	opts.NoSend = true
 	opts.GasLimit = 1_000_000
 
-	tx, err := client.TaikoL2.Anchor(opts, l1BlockHash, l1StateRoot, l1Height, parentGasUsed)
+	tx, err := client.V1.TaikoL2.Anchor(opts, l1BlockHash, l1StateRoot, l1Height, parentGasUsed)
 	require.Nil(t, err)
 
 	syncedL1StateRoot,

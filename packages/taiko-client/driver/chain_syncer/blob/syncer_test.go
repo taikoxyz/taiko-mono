@@ -14,8 +14,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	v1 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v1"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
@@ -64,12 +64,12 @@ func (s *BlobSyncerTestSuite) TestProcessL1BlocksReorg() {
 func (s *BlobSyncerTestSuite) TestOnBlockProposed() {
 	s.Nil(s.s.onBlockProposed(
 		context.Background(),
-		&metadata.TaikoDataBlockMetadataLegacy{TaikoDataBlockMetadata: bindings.TaikoDataBlockMetadata{Id: 0}},
+		&metadata.TaikoDataBlockMetadataLegacy{TaikoDataBlockMetadata: v1.TaikoDataBlockMetadata{Id: 0}},
 		func() {},
 	))
 	s.NotNil(s.s.onBlockProposed(
 		context.Background(),
-		&metadata.TaikoDataBlockMetadataLegacy{TaikoDataBlockMetadata: bindings.TaikoDataBlockMetadata{Id: 1}},
+		&metadata.TaikoDataBlockMetadataLegacy{TaikoDataBlockMetadata: v1.TaikoDataBlockMetadata{Id: 1}},
 		func() {},
 	))
 }
@@ -82,7 +82,7 @@ func (s *BlobSyncerTestSuite) TestInsertNewHead() {
 	_, err = s.s.insertNewHead(
 		context.Background(),
 		&metadata.TaikoDataBlockMetadataLegacy{
-			TaikoDataBlockMetadata: bindings.TaikoDataBlockMetadata{
+			TaikoDataBlockMetadata: v1.TaikoDataBlockMetadata{
 				Id:         1,
 				L1Height:   l1Head.NumberU64(),
 				L1Hash:     l1Head.Hash(),

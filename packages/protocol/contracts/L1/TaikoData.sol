@@ -42,6 +42,10 @@ library TaikoData {
         uint8 basefeeAdjustmentQuotient;
         uint8 basefeeSharingPctg;
         uint32 gasIssuancePerSecond;
+        // ---------------------------------------------------------------------
+        // Group 6: Others
+        // ---------------------------------------------------------------------
+        uint64 ontakeForkHeight;
     }
 
     /// @dev A proof and the tier of proof it belongs to
@@ -208,7 +212,7 @@ library TaikoData {
         mapping(
             uint64 blockId_mod_blockRingBufferSize
                 => mapping(uint32 transitionId => TransitionState ts)
-        ) transitions;
+            ) transitions;
         // Ring buffer for Ether deposits
         bytes32 __reserve1;
         SlotA slotA; // slot 5

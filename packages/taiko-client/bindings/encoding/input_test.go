@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/stretchr/testify/require"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	v2 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v2"
 )
 
 func TestUnpackTxListBytes(t *testing.T) {
@@ -33,7 +33,7 @@ func TestUnpackTxListBytes(t *testing.T) {
 	chainID, err := cli.ChainID(context.Background())
 	require.Nil(t, err)
 
-	taikoL1, err := bindings.NewTaikoL1Client(
+	taikoL1, err := v2.NewTaikoL1Client(
 		common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
 		cli,
 	)
@@ -50,7 +50,7 @@ func TestUnpackTxListBytes(t *testing.T) {
 
 	txListBytes := randomBytes(1024)
 
-	tx, err := taikoL1.ProposeBlock(
+	tx, err := taikoL1.ProposeBlockV2(
 		opts,
 		randomBytes(1024),
 		txListBytes,

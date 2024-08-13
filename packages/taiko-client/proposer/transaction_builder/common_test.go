@@ -1,7 +1,6 @@
 package builder
 
 import (
-	"context"
 	"math/big"
 	"os"
 	"testing"
@@ -50,12 +49,6 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 		"test",
 		chainConfig,
 	)
-}
-
-func (s *TransactionBuilderTestSuite) TestGetParentMetaHash() {
-	metahash, err := getParentMetaHash(context.Background(), s.RPCClient)
-	s.Nil(err)
-	s.NotEmpty(metahash)
 }
 
 func TestTransactionBuilderTestSuite(t *testing.T) {

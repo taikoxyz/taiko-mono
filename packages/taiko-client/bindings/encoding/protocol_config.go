@@ -5,12 +5,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/params"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	v2 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v2"
 )
 
 var (
 	livenessBond, _             = new(big.Int).SetString("125000000000000000000", 10)
-	InternlDevnetProtocolConfig = &bindings.TaikoDataConfig{
+	InternlDevnetProtocolConfig = &v2.TaikoDataConfig{
 		ChainId:                   params.TaikoInternalL2ANetworkID.Uint64(),
 		BlockMaxProposals:         324_000,
 		BlockRingBufferSize:       360_000,
@@ -22,9 +22,8 @@ var (
 		BasefeeAdjustmentQuotient: 8,
 		BasefeeSharingPctg:        75,
 		GasIssuancePerSecond:      5_000_000,
-		OntakeForkHeight:          374_400,
 	}
-	HeklaProtocolConfig = &bindings.TaikoDataConfig{
+	HeklaProtocolConfig = &v2.TaikoDataConfig{
 		ChainId:                   params.HeklaNetworkID.Uint64(),
 		BlockMaxProposals:         324_000,
 		BlockRingBufferSize:       324_512,
@@ -36,9 +35,8 @@ var (
 		BasefeeAdjustmentQuotient: 8,
 		BasefeeSharingPctg:        75,
 		GasIssuancePerSecond:      5_000_000,
-		OntakeForkHeight:          540_000,
 	}
-	MainnetProtocolConfig = &bindings.TaikoDataConfig{
+	MainnetProtocolConfig = &v2.TaikoDataConfig{
 		ChainId:                   params.TaikoMainnetNetworkID.Uint64(),
 		BlockMaxProposals:         324_000,
 		BlockRingBufferSize:       360_000,
@@ -50,12 +48,11 @@ var (
 		BasefeeAdjustmentQuotient: 8,
 		BasefeeSharingPctg:        75,
 		GasIssuancePerSecond:      5_000_000,
-		OntakeForkHeight:          374_400,
 	}
 )
 
 // GetProtocolConfig returns the protocol config for the given chain ID.
-func GetProtocolConfig(chainID uint64) *bindings.TaikoDataConfig {
+func GetProtocolConfig(chainID uint64) *v2.TaikoDataConfig {
 	switch chainID {
 	case params.HeklaNetworkID.Uint64():
 		return HeklaProtocolConfig

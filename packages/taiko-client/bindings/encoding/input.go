@@ -7,8 +7,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	v2 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v2"
 )
 
 // ABI arguments marshaling components.
@@ -280,17 +280,18 @@ var (
 
 // Contract ABIs.
 var (
-	TaikoL1ABI          *abi.ABI
-	TaikoL2ABI          *abi.ABI
-	TaikoTokenABI       *abi.ABI
-	GuardianProverABI   *abi.ABI
-	LibProposingABI     *abi.ABI
-	LibProvingABI       *abi.ABI
-	LibUtilsABI         *abi.ABI
-	LibVerifyingABI     *abi.ABI
-	SGXVerifierABI      *abi.ABI
-	GuardianVerifierABI *abi.ABI
-	ProverSetABI        *abi.ABI
+	TaikoL1ABI           *abi.ABI
+	TaikoL2ABI           *abi.ABI
+	TaikoTokenABI        *abi.ABI
+	GuardianProverABI    *abi.ABI
+	LibProposingABI      *abi.ABI
+	LibProvingABI        *abi.ABI
+	LibUtilsABI          *abi.ABI
+	LibVerifyingABI      *abi.ABI
+	SGXVerifierABI       *abi.ABI
+	GuardianVerifierABI  *abi.ABI
+	ProverSetABI         *abi.ABI
+	SequencerRegistryABI *abi.ABI
 
 	customErrorMaps []map[string]abi.Error
 )
@@ -298,48 +299,52 @@ var (
 func init() {
 	var err error
 
-	if TaikoL1ABI, err = bindings.TaikoL1ClientMetaData.GetAbi(); err != nil {
+	if TaikoL1ABI, err = v2.TaikoL1ClientMetaData.GetAbi(); err != nil {
 		log.Crit("Get TaikoL1 ABI error", "error", err)
 	}
 
-	if TaikoL2ABI, err = bindings.TaikoL2ClientMetaData.GetAbi(); err != nil {
+	if TaikoL2ABI, err = v2.TaikoL2ClientMetaData.GetAbi(); err != nil {
 		log.Crit("Get TaikoL2 ABI error", "error", err)
 	}
 
-	if TaikoTokenABI, err = bindings.TaikoTokenMetaData.GetAbi(); err != nil {
+	if TaikoTokenABI, err = v2.TaikoTokenMetaData.GetAbi(); err != nil {
 		log.Crit("Get TaikoToken ABI error", "error", err)
 	}
 
-	if GuardianProverABI, err = bindings.GuardianProverMetaData.GetAbi(); err != nil {
+	if GuardianProverABI, err = v2.GuardianProverMetaData.GetAbi(); err != nil {
 		log.Crit("Get GuardianProver ABI error", "error", err)
 	}
 
-	if LibProposingABI, err = bindings.LibProposingMetaData.GetAbi(); err != nil {
+	if LibProposingABI, err = v2.LibProposingMetaData.GetAbi(); err != nil {
 		log.Crit("Get LibProposing ABI error", "error", err)
 	}
 
-	if LibProvingABI, err = bindings.LibProvingMetaData.GetAbi(); err != nil {
+	if LibProvingABI, err = v2.LibProvingMetaData.GetAbi(); err != nil {
 		log.Crit("Get LibProving ABI error", "error", err)
 	}
 
-	if LibUtilsABI, err = bindings.LibUtilsMetaData.GetAbi(); err != nil {
+	if LibUtilsABI, err = v2.LibUtilsMetaData.GetAbi(); err != nil {
 		log.Crit("Get LibUtils ABI error", "error", err)
 	}
 
-	if LibVerifyingABI, err = bindings.LibVerifyingMetaData.GetAbi(); err != nil {
+	if LibVerifyingABI, err = v2.LibVerifyingMetaData.GetAbi(); err != nil {
 		log.Crit("Get LibVerifying ABI error", "error", err)
 	}
 
-	if SGXVerifierABI, err = bindings.SgxVerifierMetaData.GetAbi(); err != nil {
+	if SGXVerifierABI, err = v2.SgxVerifierMetaData.GetAbi(); err != nil {
 		log.Crit("Get SGXVerifier ABI error", err)
 	}
 
-	if GuardianVerifierABI, err = bindings.GuardianVerifierMetaData.GetAbi(); err != nil {
+	if GuardianVerifierABI, err = v2.GuardianVerifierMetaData.GetAbi(); err != nil {
 		log.Crit("Get GuardianVerifier ABI error", "error", err)
 	}
 
-	if ProverSetABI, err = bindings.ProverSetMetaData.GetAbi(); err != nil {
+	if ProverSetABI, err = v2.ProverSetMetaData.GetAbi(); err != nil {
 		log.Crit("Get ProverSet ABI error", "error", err)
+	}
+
+	if SequencerRegistryABI, err = v2.SequencerRegistryMetaData.GetAbi(); err != nil {
+		log.Crit("Get SequencerRegistry ABI error", "error", err)
 	}
 
 	customErrorMaps = []map[string]abi.Error{
@@ -377,8 +382,8 @@ func EncodeBlockParamsOntake(params *BlockParamsV2) ([]byte, error) {
 // EncodeProveBlockInput performs the solidity `abi.encode` for the given TaikoL1.proveBlock input.
 func EncodeProveBlockInput(
 	meta metadata.TaikoBlockMetaData,
-	transition *bindings.TaikoDataTransition,
-	tierProof *bindings.TaikoDataTierProof,
+	transition *v2.TaikoDataTransition,
+	tierProof *v2.TaikoDataTierProof,
 ) ([]byte, error) {
 	var (
 		b   []byte

@@ -43,6 +43,7 @@ fs_permissions = [
 # 5574: Contract code size is xxx bytes and exceeds 24576 byte
 # 5740: Unreachable code
 ignored_error_codes = [2394, 3860, 5574, 5740]
+libs = ["node_modules", "lib"]
 
 [fuzz]
 runs = 200

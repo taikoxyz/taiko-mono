@@ -6,8 +6,8 @@ import (
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	v1 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v1"
+	v2 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v2"
 )
 
 // Tier IDs defined in protocol.
@@ -90,12 +90,17 @@ func ToExecutableData(header *types.Header) *engine.ExecutableData {
 // TransitionProvedEventToV2 converts a *bindings.TaikoL1ClientTransitionProved
 // to *bindings.TaikoL1ClientTransitionProvedV2.
 func TransitionProvedEventToV2(
-	e *bindings.TaikoL1ClientTransitionProved,
+	e *v1.TaikoL1ClientTransitionProved,
 	proposedIn uint64,
-) *bindings.TaikoL1ClientTransitionProvedV2 {
-	return &bindings.TaikoL1ClientTransitionProvedV2{
-		BlockId:      e.BlockId,
-		Tran:         e.Tran,
+) *v2.TaikoL1ClientTransitionProvedV2 {
+	return &v2.TaikoL1ClientTransitionProvedV2{
+		BlockId: e.BlockId,
+		Tran: v2.TaikoDataTransition{
+			ParentHash: e.Tran.ParentHash,
+			BlockHash:  e.Tran.BlockHash,
+			StateRoot:  e.Tran.StateRoot,
+			Graffiti:   e.Tran.Graffiti,
+		},
 		Prover:       e.Prover,
 		ValidityBond: e.ValidityBond,
 		Tier:         e.Tier,
@@ -107,12 +112,17 @@ func TransitionProvedEventToV2(
 // TransitionContestedEventToV2 converts a *bindings.TaikoL1ClientTransitionContested
 // to *bindings.TaikoL1ClientTransitionContestedV2.
 func TransitionContestedEventToV2(
-	e *bindings.TaikoL1ClientTransitionContested,
+	e *v1.TaikoL1ClientTransitionContested,
 	proposedIn uint64,
-) *bindings.TaikoL1ClientTransitionContestedV2 {
-	return &bindings.TaikoL1ClientTransitionContestedV2{
-		BlockId:     e.BlockId,
-		Tran:        e.Tran,
+) *v2.TaikoL1ClientTransitionContestedV2 {
+	return &v2.TaikoL1ClientTransitionContestedV2{
+		BlockId: e.BlockId,
+		Tran: v2.TaikoDataTransition{
+			ParentHash: e.Tran.ParentHash,
+			BlockHash:  e.Tran.BlockHash,
+			StateRoot:  e.Tran.StateRoot,
+			Graffiti:   e.Tran.Graffiti,
+		},
 		Contester:   e.Contester,
 		ContestBond: e.ContestBond,
 		Tier:        e.Tier,
@@ -122,8 +132,8 @@ func TransitionContestedEventToV2(
 }
 
 // BlockVerifiedEventToV2 converts a *bindings.TaikoL1ClientBlockVerified to *bindings.TaikoL1ClientBlockVerifiedV2.
-func BlockVerifiedEventToV2(e *bindings.TaikoL1ClientBlockVerified) *bindings.TaikoL1ClientBlockVerifiedV2 {
-	return &bindings.TaikoL1ClientBlockVerifiedV2{
+func BlockVerifiedEventToV2(e *v1.TaikoL1ClientBlockVerified) *v2.TaikoL1ClientBlockVerifiedV2 {
+	return &v2.TaikoL1ClientBlockVerifiedV2{
 		BlockId:   e.BlockId,
 		Prover:    e.Prover,
 		BlockHash: e.BlockHash,
