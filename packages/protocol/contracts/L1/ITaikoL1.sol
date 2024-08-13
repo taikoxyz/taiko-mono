@@ -6,10 +6,10 @@ import "./TaikoData.sol";
 /// @title ITaikoL1
 /// @custom:security-contact security@taiko.xyz
 interface ITaikoL1 {
-    /// @notice Proposes a Taiko L2 block (version 2)
-    /// @param _params Block parameters, an encoded BlockParamsV2 object.
-    /// @param _txList txList data if calldata is used for DA.
-    /// @return meta_ The metadata of the proposed L2 block.
+    /// @notice Proposes a Taiko L2 block (version 2).
+    /// @param _params Encoded block parameters (BlockParamsV2 object).
+    /// @param _txList Transaction list data if calldata is used for data availability (DA).
+    /// @return meta_ Metadata of the proposed L2 block.
     function proposeBlockV2(
         bytes calldata _params,
         bytes calldata _txList
@@ -17,10 +17,10 @@ interface ITaikoL1 {
         external
         returns (TaikoData.BlockMetadataV2 memory meta_);
 
-    /// @notice Proposes a Taiko L2 block (version 2)
-    /// @param _paramsArr A list of encoded BlockParamsV2 objects.
-    /// @param _txListArr A list of txList.
-    /// @return metaArr_ The metadata objects of the proposed L2 blocks.
+    /// @notice Proposes multiple Taiko L2 blocks (version 2).
+    /// @param _paramsArr List of encoded BlockParamsV2 objects.
+    /// @param _txListArr List of transaction lists.
+    /// @return metaArr_ Metadata objects of the proposed L2 blocks.
     function proposeBlocksV2(
         bytes[] calldata _paramsArr,
         bytes[] calldata _txListArr
@@ -29,36 +29,36 @@ interface ITaikoL1 {
         returns (TaikoData.BlockMetadataV2[] memory metaArr_);
 
     /// @notice Proves or contests a block transition.
-    /// @param _blockId The index of the block to prove. This is also used to
+    /// @param _blockId Index of the block to prove. This is also used to
     /// select the right implementation version.
-    /// @param _input An abi-encoded (TaikoData.BlockMetadata, TaikoData.Transition,
+    /// @param _input ABI-encoded (TaikoData.BlockMetadata, TaikoData.Transition,
     /// TaikoData.TierProof) tuple.
     function proveBlock(uint64 _blockId, bytes calldata _input) external;
 
     /// @notice Proves or contests multiple block transitions.
-    /// @param _blockIds The indices of the blocks to prove.
-    /// @param _inputArr An list of abi-encoded (TaikoData.BlockMetadata, TaikoData.Transition,
+    /// @param _blockIds Indices of the blocks to prove.
+    /// @param _inputArr List of ABI-encoded (TaikoData.BlockMetadata, TaikoData.Transition,
     /// TaikoData.TierProof) tuples.
     function proveBlocks(uint64[] calldata _blockIds, bytes[] calldata _inputArr) external;
 
-    /// @notice Verifies up to a certain number of blocks.
-    /// @param _maxBlocksToVerify Max number of blocks to verify.
+    /// @notice Verifies up to a specified number of blocks.
+    /// @param _maxBlocksToVerify Maximum number of blocks to verify.
     function verifyBlocks(uint64 _maxBlocksToVerify) external;
 
-    /// @notice Pause block proving.
-    /// @param _pause True if paused.
+    /// @notice Pauses or unpauses block proving.
+    /// @param _pause True to pause, false to unpause.
     function pauseProving(bool _pause) external;
 
-    /// @notice Deposits Taiko token to be used as bonds.
-    /// @param _amount The amount of Taiko token to deposit.
+    /// @notice Deposits Taiko tokens to be used as bonds.
+    /// @param _amount Amount of Taiko tokens to deposit.
     function depositBond(uint256 _amount) external;
 
-    /// @notice Withdraws Taiko token.
-    /// @param _amount The amount of Taiko token to withdraw.
+    /// @notice Withdraws Taiko tokens.
+    /// @param _amount Amount of Taiko tokens to withdraw.
     function withdrawBond(uint256 _amount) external;
 
     /// @notice Gets the prover that actually proved a verified block.
-    /// @param _blockId The index of the block.
+    /// @param _blockId Index of the block.
     /// @return The prover's address. If the block is not verified yet, address(0) will be returned.
     function getVerifiedBlockProver(uint64 _blockId) external view returns (address);
 
