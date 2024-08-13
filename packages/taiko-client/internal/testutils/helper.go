@@ -196,62 +196,6 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 	return meta
 }
 
-func (s *ClientTestSuite) ProposeValidBlock(
-	proposer Proposer,
-) *v1.LibProposingBlockProposed {
-	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-
-	l2Head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-
-	// Propose txs in L2 execution engine's mempool
-	sink := make(chan *v1.LibProposingBlockProposed)
-
-	sub, err := s.RPCClient.V1.LibProposing.WatchBlockProposed(nil, sink, nil, nil)
-	s.Nil(err)
-	defer func() {
-		sub.Unsubscribe()
-		close(sink)
-	}()
-
-	baseFeeInfo, err := s.RPCClient.V1.TaikoL2.GetBasefee(nil, l1Head.Number.Uint64()+1, uint32(l2Head.GasUsed))
-	s.Nil(err)
-
-	nonce, err := s.RPCClient.L2.PendingNonceAt(context.Background(), s.TestAddr)
-	s.Nil(err)
-
-	tx := types.NewTransaction(
-		nonce,
-		common.BytesToAddress(RandomBytes(32)),
-		common.Big1,
-		100000,
-		new(big.Int).SetUint64(uint64(10*params.GWei)+baseFeeInfo.Basefee.Uint64()),
-		[]byte{},
-	)
-	signedTx, err := types.SignTx(tx, types.LatestSignerForChainID(s.RPCClient.L2.ChainID), s.TestAddrPrivKey)
-	s.Nil(err)
-	s.Nil(s.RPCClient.L2.SendTransaction(context.Background(), signedTx))
-
-	s.Nil(proposer.ProposeOp(context.Background()))
-
-	event := <-sink
-
-	_, isPending, err := s.RPCClient.L1.TransactionByHash(context.Background(), event.Raw.TxHash)
-	s.Nil(err)
-	s.False(isPending)
-
-	receipt, err := s.RPCClient.L1.TransactionReceipt(context.Background(), event.Raw.TxHash)
-	s.Nil(err)
-	s.Equal(types.ReceiptStatusSuccessful, receipt.Status)
-
-	newL1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-	s.Greater(newL1Head.Number.Uint64(), l1Head.Number.Uint64())
-
-	return event
-}
-
 // RandomHash generates a random blob of data and returns it as a hash.
 func RandomHash() common.Hash {
 	var hash common.Hash
