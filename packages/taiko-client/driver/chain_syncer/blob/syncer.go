@@ -421,6 +421,7 @@ func (s *Syncer) insertNewHead(
 				"minGasExcess", meta.GetBasefeeMinGasExcess(),
 				"maxGasIssuancePerBlock", meta.GetBasefeeMaxGasIssuancePerBlock(),
 			)
+
 			return nil, fmt.Errorf("failed to get L2 baseFee V2: %w", encoding.TryParsingCustomError(err))
 		}
 
