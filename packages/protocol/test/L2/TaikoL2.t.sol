@@ -3,23 +3,25 @@ pragma solidity 0.8.24;
 
 import "../TaikoTest.sol";
 
-contract SkipBasefeeCheckL2 is TaikoL2EIP1559Configurable {
+contract TaikoL2ForTest is TaikoL2 {
     function skipFeeCheck() public pure override returns (bool) {
         return true;
+    }
+
+    function setGasExcess(uint64 _gasExcess) external {
+        parentGasExcess = _gasExcess;
     }
 }
 
 contract TestTaikoL2 is TaikoTest {
     using SafeCast for uint256;
 
-    // Initial salt for semi-random generation
-    uint256 salt = 2_195_684_615_435_261_315_311;
-    // same as `block_gas_limit` in foundry.toml
+    uint64 public constant L1_CHAIN_ID = 12_345;
     uint32 public constant BLOCK_GAS_LIMIT = 30_000_000;
 
     address public addressManager;
-    TaikoL2EIP1559Configurable public L2;
-    SkipBasefeeCheckL2 public L2skip;
+    uint64 public anchorBlockId;
+    TaikoL2ForTest public L2;
 
     function setUp() public {
         addressManager = deployProxy({
@@ -37,33 +39,20 @@ contract TestTaikoL2 is TaikoTest {
             })
         );
 
-        uint64 gasExcess = 0;
-        uint8 quotient = 8;
-        uint32 gasTarget = 60_000_000;
-        uint64 l1ChainId = 12_345;
-
-        L2 = TaikoL2EIP1559Configurable(
+        L2 = TaikoL2ForTest(
             payable(
                 deployProxy({
                     name: "taiko",
-                    impl: address(new TaikoL2EIP1559Configurable()),
-                    data: abi.encodeCall(
-                        TaikoL2.init, (address(0), addressManager, l1ChainId, gasExcess)
-                    ),
+                    impl: address(new TaikoL2ForTest()),
+                    data: abi.encodeCall(TaikoL2.init, (address(0), addressManager, L1_CHAIN_ID, 0)),
                     registerTo: addressManager
                 })
             )
         );
 
-        L2.setConfigAndExcess(LibL2Config.Config(gasTarget, quotient), gasExcess);
-
         ss.authorize(address(L2), true);
-
-        gasExcess = 195_420_300_100;
-
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 30);
-
         vm.deal(address(L2), 100 ether);
     }
 
@@ -72,18 +61,18 @@ contract TestTaikoL2 is TaikoTest {
         vm.fee(1);
 
         vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
-        _anchor(BLOCK_GAS_LIMIT);
+        _anchorV2(BLOCK_GAS_LIMIT);
 
         vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
-        vm.expectRevert(); // L2_PUBLIC_INPUT_HASH_MISMATCH
-        _anchor(BLOCK_GAS_LIMIT);
+        vm.expectRevert(TaikoL2.L2_PUBLIC_INPUT_HASH_MISMATCH.selector);
+        _anchorV2(BLOCK_GAS_LIMIT);
     }
 
     // calling anchor in the same block more than once should fail
     function test_L2_AnchorTx_revert_from_wrong_signer() external {
         vm.fee(1);
-        vm.expectRevert();
-        _anchor(BLOCK_GAS_LIMIT);
+        vm.expectRevert(TaikoL2.L2_INVALID_SENDER.selector);
+        _anchorV2(BLOCK_GAS_LIMIT);
     }
 
     function test_L2_AnchorTx_signing(bytes32 digest) external {
@@ -95,10 +84,10 @@ contract TestTaikoL2 is TaikoTest {
         signer = ecrecover(digest, v + 27, bytes32(r), bytes32(s));
         assertEq(signer, L2.GOLDEN_TOUCH_ADDRESS());
 
-        vm.expectRevert();
+        vm.expectRevert(LibL2Signer.L2_INVALID_GOLDEN_TOUCH_K.selector);
         LibL2Signer.signAnchor(digest, uint8(0));
 
-        vm.expectRevert();
+        vm.expectRevert(LibL2Signer.L2_INVALID_GOLDEN_TOUCH_K.selector);
         LibL2Signer.signAnchor(digest, uint8(3));
     }
 
@@ -109,7 +98,7 @@ contract TestTaikoL2 is TaikoTest {
         assertEq(Alice.balance, 100 ether);
 
         // Random EOA cannot call withdraw
-        vm.expectRevert();
+        vm.expectRevert(Resolver.RESOLVER_DENIED.selector);
         vm.prank(Alice, Alice);
         L2.withdraw(address(0), Alice);
     }
@@ -118,10 +107,15 @@ contract TestTaikoL2 is TaikoTest {
         assertEq(L2.getBlockHash(uint64(1000)), 0);
     }
 
-    function _anchor(uint32 parentGasLimit) private {
-        bytes32 l1Hash = randBytes32();
-        bytes32 l1StateRoot = randBytes32();
-        // TODO
-        // L2.anchorV2(l1Hash, l1StateRoot, 12_345, parentGasLimit);
+    function _anchorV2(uint32 parentGasUsed) private {
+        bytes32 anchorStateRoot = randBytes32();
+        TaikoData.BaseFeeConfig memory baseFeeConfig = TaikoData.BaseFeeConfig({
+            adjustmentQuotient: 8,
+            sharingPctg: 75,
+            gasIssuancePerSecond: 5_000_000,
+            minGasExcess: 1_340_000_000,
+            maxGasIssuancePerBlock: 600_000_000 // two minutes
+         });
+        L2.anchorV2(++anchorBlockId, anchorStateRoot, parentGasUsed, baseFeeConfig);
     }
 }
