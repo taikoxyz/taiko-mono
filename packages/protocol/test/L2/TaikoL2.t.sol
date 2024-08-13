@@ -7,10 +7,6 @@ contract TaikoL2ForTest is TaikoL2 {
     function skipFeeCheck() public pure override returns (bool) {
         return true;
     }
-
-    function setGasExcess(uint64 _gasExcess) external {
-        parentGasExcess = _gasExcess;
-    }
 }
 
 contract TestTaikoL2 is TaikoTest {
