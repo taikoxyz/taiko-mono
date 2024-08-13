@@ -420,6 +420,9 @@ func (s *Syncer) insertNewHead(
 				"sharingPctg", meta.GetBasefeeSharingPctg(),
 				"minGasExcess", meta.GetBasefeeMinGasExcess(),
 				"maxGasIssuancePerBlock", meta.GetBasefeeMaxGasIssuancePerBlock(),
+				"timestamp", meta.GetTimestamp()-parent.Time,
+				"parentGasExcess", parentGasExcess,
+				"parentGasUsed", parent.GasUsed,
 			)
 
 			return nil, fmt.Errorf("failed to get L2 baseFee V2: %w", encoding.TryParsingCustomError(err))
