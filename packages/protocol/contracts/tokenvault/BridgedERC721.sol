@@ -62,7 +62,9 @@ contract BridgedERC721 is
     }
 
     /// @inheritdoc IBridgedERC721
-    function burn(uint256 _tokenId)
+    function burn(
+        uint256 _tokenId
+    )
         external
         whenNotPaused
         onlyFromNamed(LibStrings.B_ERC721_VAULT)
