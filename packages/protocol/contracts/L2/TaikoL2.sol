@@ -110,6 +110,7 @@ contract TaikoL2 is EssentialContract {
     /// - _initialGasExcess = 274*5_000_000 => basefee =0.01 gwei
     /// - _initialGasExcess = 282*5_000_000 => basefee =0.05 gwei
     /// - _initialGasExcess = 288*5_000_000 => basefee =0.1 gwei
+    /// @param _initialGasExcess The initial gas excess value to set.
     function init2(uint64 _initialGasExcess) external onlyOwner reinitializer(2) {
         parentGasExcess = _initialGasExcess;
         parentTimestamp = uint64(block.timestamp);
@@ -269,6 +270,13 @@ contract TaikoL2 is EssentialContract {
         );
     }
 
+    /// @notice Calculates the public input hash for the given block ID.
+    /// @dev This function computes two public input hashes: one for the previous state and one for
+    /// the new state.
+    /// It uses a ring buffer to store the previous 255 block hashes and the current chain ID.
+    /// @param _blockId The ID of the block for which the public input hash is calculated.
+    /// @return publicInputHashOld The public input hash for the previous state.
+    /// @return publicInputHashNew The public input hash for the new state.
     function _calcPublicInputHash(
         uint256 _blockId
     )
@@ -288,13 +296,18 @@ contract TaikoL2 is EssentialContract {
             }
         }
 
+        // Store the current chain ID in the last position of the inputs array.
         inputs[255] = bytes32(block.chainid);
 
+        // Calculate the public input hash for the previous state.
         assembly {
             publicInputHashOld := keccak256(inputs, 8192 /*mul(256, 32)*/ )
         }
 
+        // Update the ring buffer with the block hash of the current block ID.
         inputs[_blockId % 255] = blockhash(_blockId);
+
+        // Calculate the public input hash for the new state.
         assembly {
             publicInputHashNew := keccak256(inputs, 8192 /*mul(256, 32)*/ )
         }
