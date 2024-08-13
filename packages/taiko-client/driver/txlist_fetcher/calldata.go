@@ -6,7 +6,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg"
@@ -26,7 +25,6 @@ func NewCalldataFetch(rpc *rpc.Client) *CalldataFetcher {
 // Fetch fetches the txList bytes from the transaction's calldata.
 func (d *CalldataFetcher) Fetch(
 	ctx context.Context,
-	tx *types.Transaction,
 	meta metadata.TaikoBlockMetaData,
 ) ([]byte, error) {
 	if meta.GetBlobUsed() {

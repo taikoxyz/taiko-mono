@@ -242,11 +242,6 @@ func (s *Syncer) onBlockProposed(
 		"beaconSyncTriggered", s.progressTracker.Triggered(),
 	)
 
-	tx, err := s.rpc.L1.TransactionInBlock(ctx, meta.GetRawBlockHash(), meta.GetTxIndex())
-	if err != nil {
-		return fmt.Errorf("failed to fetch original TaikoL1.proposeBlock transaction: %w", err)
-	}
-
 	// Decode transactions list.
 	var txListFetcher txlistFetcher.TxListFetcher
 	if meta.GetBlobUsed() {
@@ -254,7 +249,7 @@ func (s *Syncer) onBlockProposed(
 	} else {
 		txListFetcher = txlistFetcher.NewCalldataFetch(s.rpc)
 	}
-	txListBytes, err := txListFetcher.Fetch(ctx, tx, meta)
+	txListBytes, err := txListFetcher.Fetch(ctx, meta)
 	if err != nil {
 		return fmt.Errorf("failed to fetch tx list: %w", err)
 	}
@@ -398,8 +393,6 @@ func (s *Syncer) insertNewHead(
 			}
 		}
 
-		cfg := encoding.GetProtocolConfig(s.rpc.L2.ChainID.Uint64())
-
 		// Get L2 baseFee
 		baseFeeInfo, err = s.rpc.V2.TaikoL2.CalculateBaseFee(
 			&bind.CallOpts{BlockNumber: parent.Number, Context: ctx},
@@ -408,7 +401,7 @@ func (s *Syncer) insertNewHead(
 				AdjustmentQuotient:     meta.GetBasefeeAdjustmentQuotient(),
 				SharingPctg:            meta.GetBasefeeSharingPctg(),
 				MinGasExcess:           meta.GetBasefeeMinGasExcess(),
-				MaxGasIssuancePerBlock: meta.GetMaxGasIssuancePerBlock(),
+				MaxGasIssuancePerBlock: meta.GetBasefeeMaxGasIssuancePerBlock(),
 			},
 			meta.GetTimestamp()-parent.Time,
 			parentGasExcess,
