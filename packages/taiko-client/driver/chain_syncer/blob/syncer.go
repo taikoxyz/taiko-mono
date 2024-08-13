@@ -413,6 +413,14 @@ func (s *Syncer) insertNewHead(
 			uint32(parent.GasUsed),
 		)
 		if err != nil {
+			log.Error("failed to get L2 baseFee v2",
+				"error", err,
+				"gasIssuancePerSecond", meta.GetGasIssuancePerSecond(),
+				"adjustmentQuotient", meta.GetBasefeeAdjustmentQuotient(),
+				"sharingPctg", meta.GetBasefeeSharingPctg(),
+				"minGasExcess", meta.GetBasefeeMinGasExcess(),
+				"maxGasIssuancePerBlock", meta.GetBasefeeMaxGasIssuancePerBlock(),
+			)
 			return nil, fmt.Errorf("failed to get L2 baseFee V2: %w", encoding.TryParsingCustomError(err))
 		}
 
