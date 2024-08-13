@@ -3,7 +3,6 @@ package builder
 import (
 	"context"
 	"crypto/ecdsa"
-	"math/big"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
@@ -25,7 +24,6 @@ type CalldataTransactionBuilder struct {
 	gasLimit                uint64
 	extraData               string
 	chainConfig             *config.ChainConfig
-	afterOntake             bool
 }
 
 // NewCalldataTransactionBuilder creates a new CalldataTransactionBuilder instance based on giving configurations.
@@ -76,40 +74,16 @@ func (b *CalldataTransactionBuilder) Build(
 		to = &b.proverSetAddress
 	}
 
-	// Check if the current L2 chain is after ontake fork.
-	if !b.afterOntake {
-		blockNum, err := b.rpc.L2.BlockNumber(ctx)
-		if err != nil {
-			return nil, err
-		}
+	// ABI encode the TaikoL1.proposeBlockV2 / ProverSet.proposeBlockV2 parameters.
+	method = "proposeBlockV2"
 
-		b.afterOntake = b.chainConfig.IsOntake(new(big.Int).SetUint64(blockNum + 1))
-	}
-
-	if !b.afterOntake {
-		// ABI encode the TaikoL1.proposeBlock / ProverSet.proposeBlock parameters.
-		method = "proposeBlock"
-
-		if encodedParams, err = encoding.EncodeBlockParams(&encoding.BlockParams{
-			Coinbase:       b.l2SuggestedFeeRecipient,
-			ExtraData:      rpc.StringToBytes32(b.extraData),
-			ParentMetaHash: parentMetaHash,
-			Signature:      signature,
-		}); err != nil {
-			return nil, err
-		}
-	} else {
-		// ABI encode the TaikoL1.proposeBlockV2 / ProverSet.proposeBlockV2 parameters.
-		method = "proposeBlockV2"
-
-		if encodedParams, err = encoding.EncodeBlockParamsOntake(&encoding.BlockParamsV2{
-			Coinbase:       b.l2SuggestedFeeRecipient,
-			ParentMetaHash: parentMetaHash,
-			AnchorBlockId:  uint64(l1StateBlockNumber),
-			Timestamp:      timestamp,
-		}); err != nil {
-			return nil, err
-		}
+	if encodedParams, err = encoding.EncodeBlockParamsOntake(&encoding.BlockParamsV2{
+		Coinbase:       b.l2SuggestedFeeRecipient,
+		ParentMetaHash: parentMetaHash,
+		AnchorBlockId:  uint64(l1StateBlockNumber),
+		Timestamp:      timestamp,
+	}); err != nil {
+		return nil, err
 	}
 
 	if b.proverSetAddress != rpc.ZeroAddress {

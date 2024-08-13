@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"crypto/sha256"
-	"math/big"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
@@ -28,7 +27,6 @@ type BlobTransactionBuilder struct {
 	gasLimit                uint64
 	extraData               string
 	chainConfig             *config.ChainConfig
-	afterOntake             bool
 }
 
 // NewBlobTransactionBuilder creates a new BlobTransactionBuilder instance based on giving configurations.
@@ -90,45 +88,19 @@ func (b *BlobTransactionBuilder) Build(
 		to = &b.proverSetAddress
 	}
 
-	// Check if the current L2 chain is after ontake fork.
-	if !b.afterOntake {
-		blockNum, err := b.rpc.L2.BlockNumber(ctx)
-		if err != nil {
-			return nil, err
-		}
+	// ABI encode the TaikoL1.proposeBlockV2 / ProverSet.proposeBlockV2 parameters.
+	method = "proposeBlockV2"
 
-		b.afterOntake = b.chainConfig.IsOntake(new(big.Int).SetUint64(blockNum + 1))
-	}
-
-	if !b.afterOntake {
-		// ABI encode the TaikoL1.proposeBlock / ProverSet.proposeBlock parameters.
-		method = "proposeBlock"
-
-		// ABI encode the TaikoL1.proposeBlock / ProverSet.proposeBlock parameters.
-		encodedParams, err = encoding.EncodeBlockParams(&encoding.BlockParams{
-			ExtraData:      rpc.StringToBytes32(b.extraData),
-			Coinbase:       b.l2SuggestedFeeRecipient,
-			ParentMetaHash: parentMetaHash,
-			Signature:      signature,
-		})
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		// ABI encode the TaikoL1.proposeBlockV2 / ProverSet.proposeBlockV2 parameters.
-		method = "proposeBlockV2"
-
-		if encodedParams, err = encoding.EncodeBlockParamsOntake(&encoding.BlockParamsV2{
-			Coinbase:         b.l2SuggestedFeeRecipient,
-			ParentMetaHash:   parentMetaHash,
-			AnchorBlockId:    uint64(l1StateBlockNumber),
-			Timestamp:        timestamp,
-			BlobTxListOffset: 0,
-			BlobTxListLength: uint32(len(txListBytes)),
-			BlobIndex:        0,
-		}); err != nil {
-			return nil, err
-		}
+	if encodedParams, err = encoding.EncodeBlockParamsOntake(&encoding.BlockParamsV2{
+		Coinbase:         b.l2SuggestedFeeRecipient,
+		ParentMetaHash:   parentMetaHash,
+		AnchorBlockId:    uint64(l1StateBlockNumber),
+		Timestamp:        timestamp,
+		BlobTxListOffset: 0,
+		BlobTxListLength: uint32(len(txListBytes)),
+		BlobIndex:        0,
+	}); err != nil {
+		return nil, err
 	}
 
 	if b.proverSetAddress != rpc.ZeroAddress {
