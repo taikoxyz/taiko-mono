@@ -385,22 +385,12 @@ func EncodeProveBlockInput(
 		b   []byte
 		err error
 	)
-	if meta.IsOntakeBlock() {
-		if b, err = proveOntakeBlockInputArgs.Pack(
-			meta.(*metadata.TaikoDataBlockMetadataOntake).InnerMetadata(),
-			transition,
-			tierProof,
-		); err != nil {
-			return nil, fmt.Errorf("failed to abi.encode TakoL1.proveBlock input after ontake fork, %w", err)
-		}
-	} else {
-		if b, err = proveBlockInputArgs.Pack(
-			meta.(*metadata.TaikoDataBlockMetadataLegacy).InnerMetadata(),
-			transition,
-			tierProof,
-		); err != nil {
-			return nil, fmt.Errorf("failed to abi.encode TakoL1.proveBlock input, %w", err)
-		}
+	if b, err = proveOntakeBlockInputArgs.Pack(
+		meta.(*metadata.TaikoDataBlockMetadataOntake).InnerMetadata(),
+		transition,
+		tierProof,
+	); err != nil {
+		return nil, fmt.Errorf("failed to abi.encode TakoL1.proveBlock input after ontake fork, %w", err)
 	}
 
 	return b, nil

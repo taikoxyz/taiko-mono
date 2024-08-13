@@ -99,24 +99,13 @@ func (a *ProveBlockTxBuilder) Build(
 				return nil, fmt.Errorf("tier %d need set guardianProverMinorityAddress", tier)
 			}
 
-			if meta.IsOntakeBlock() {
-				if data, err = encoding.GuardianProverABI.Pack(
-					"approveV2",
-					meta.(*metadata.TaikoDataBlockMetadataOntake).InnerMetadata(),
-					*transition,
-					*tierProof,
-				); err != nil {
-					return nil, err
-				}
-			} else {
-				if data, err = encoding.GuardianProverABI.Pack(
-					"approve",
-					meta.(*metadata.TaikoDataBlockMetadataLegacy).InnerMetadata(),
-					*transition,
-					*tierProof,
-				); err != nil {
-					return nil, err
-				}
+			if data, err = encoding.GuardianProverABI.Pack(
+				"approveV2",
+				meta.(*metadata.TaikoDataBlockMetadataOntake).InnerMetadata(),
+				*transition,
+				*tierProof,
+			); err != nil {
+				return nil, err
 			}
 		}
 

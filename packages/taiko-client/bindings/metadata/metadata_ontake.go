@@ -158,11 +158,6 @@ func (m *TaikoDataBlockMetadataOntake) GetTxHash() common.Hash {
 	return m.Log.TxHash
 }
 
-// IsOntakeBlock returns whether the block is an ontake block.
-func (m *TaikoDataBlockMetadataOntake) IsOntakeBlock() bool {
-	return true
-}
-
 // InnerMetadata returns the inner metadata.
 func (m *TaikoDataBlockMetadataOntake) InnerMetadata() *bindings.TaikoDataBlockMetadataV2 {
 	return &m.TaikoDataBlockMetadataV2
