@@ -10,7 +10,6 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
 // BlobTransactionBuilder is responsible for building a TaikoL1.proposeBlock transaction with txList
@@ -54,7 +53,6 @@ func (b *BlobTransactionBuilder) BuildBlockUnsigned(
 
 	// ABI encode the TaikoL1.proposeBlock parameters.
 	encodedParams, err := encoding.EncodeBlockParamsOntake(&encoding.BlockParamsV2{
-		ExtraData:        rpc.StringToBytes32(opts.ExtraData),
 		Coinbase:         common.HexToAddress(opts.Coinbase),
 		AnchorBlockId:    uint64(opts.L1StateBlockNumber),
 		Timestamp:        opts.Timestamp,
@@ -164,7 +162,6 @@ func (b *BlobTransactionBuilder) BuildBlocksUnsigned(
 	for i, opt := range opts.BlockOpts {
 		params := &encoding.BlockParamsV2{
 			Coinbase:         common.HexToAddress(opt.Coinbase),
-			ExtraData:        rpc.StringToBytes32(opt.ExtraData),
 			AnchorBlockId:    uint64(opt.L1StateBlockNumber),
 			Timestamp:        opt.Timestamp,
 			BlobIndex:        blobInfos[i].index,
@@ -180,7 +177,7 @@ func (b *BlobTransactionBuilder) BuildBlocksUnsigned(
 		encodedParams = append(encodedParams, encoded)
 	}
 
-	var emptyTxLists [][]byte
+	emptyTxLists := make([][]byte, 0)
 
 	for i := range encodedParams {
 		emptyTxLists[i] = []byte{0xff}

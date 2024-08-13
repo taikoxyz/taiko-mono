@@ -120,7 +120,6 @@ func (b *BlobTransactionBuilder) Build(
 
 		if encodedParams, err = encoding.EncodeBlockParamsOntake(&encoding.BlockParamsV2{
 			Coinbase:         b.l2SuggestedFeeRecipient,
-			ExtraData:        rpc.StringToBytes32(b.extraData),
 			ParentMetaHash:   parentMetaHash,
 			AnchorBlockId:    uint64(l1StateBlockNumber),
 			Timestamp:        timestamp,

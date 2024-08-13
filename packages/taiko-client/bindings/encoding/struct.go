@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+
 	v1 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v1"
 	v2 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v2"
 )
@@ -46,7 +47,6 @@ type BlockParams struct {
 // BlockParamsV2 should be same with TaikoData.BlockParamsV2.
 type BlockParamsV2 struct {
 	Coinbase         common.Address
-	ExtraData        [32]byte
 	ParentMetaHash   [32]byte
 	AnchorBlockId    uint64
 	Timestamp        uint64

@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v2"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/signer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -98,13 +99,20 @@ func (c *AnchorTxConstructor) AssembleAnchorV2Tx(
 		"baseFee", utils.WeiToGWei(baseFee),
 	)
 
+	cfg := encoding.GetProtocolConfig(c.rpc.L2.ChainID.Uint64())
+
 	return c.rpc.V2.TaikoL2.AnchorV2(
 		opts,
 		anchorBlockID.Uint64(),
 		anchorStateRoot,
 		uint32(parentGasUsed),
-		gasIssuancePerSecond,
-		basefeeAdjustmentQuotient,
+		bindings.TaikoDataBaseFeeConfig{
+			AdjustmentQuotient:     basefeeAdjustmentQuotient,
+			GasIssuancePerSecond:   gasIssuancePerSecond,
+			SharingPctg:            cfg.BaseFeeConfig.SharingPctg,
+			MinGasExcess:           cfg.BaseFeeConfig.MinGasExcess,
+			MaxGasIssuancePerBlock: cfg.BaseFeeConfig.MaxGasIssuancePerBlock,
+		},
 	)
 }
 

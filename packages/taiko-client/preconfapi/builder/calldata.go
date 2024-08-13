@@ -9,7 +9,6 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
 // CalldataTransactionBuilder is responsible for building a TaikoL1.proposeBlock transaction with txList
@@ -49,7 +48,6 @@ func (b *CalldataTransactionBuilder) BuildBlockUnsigned(
 	// ABI encode the TaikoL1.proposeBlock parameters.
 	encodedParams, err := encoding.EncodeBlockParamsOntake(&encoding.BlockParamsV2{
 		Coinbase:      common.HexToAddress(opts.Coinbase),
-		ExtraData:     rpc.StringToBytes32(opts.ExtraData),
 		AnchorBlockId: uint64(opts.L1StateBlockNumber),
 		Timestamp:     opts.Timestamp,
 	})
@@ -100,7 +98,6 @@ func (b *CalldataTransactionBuilder) BuildBlocksUnsigned(
 		// ABI encode the TaikoL1.proposeBlock parameters.
 		encoded, err := encoding.EncodeBlockParamsOntake(&encoding.BlockParamsV2{
 			Coinbase:      common.HexToAddress(opt.Coinbase),
-			ExtraData:     rpc.StringToBytes32(opt.ExtraData),
 			AnchorBlockId: uint64(opt.L1StateBlockNumber),
 			Timestamp:     opt.Timestamp,
 		})

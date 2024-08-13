@@ -16,7 +16,6 @@ import "./libs/ISequencerRegistry.sol";
 /// L3 "inception layers". The contract also handles the deposit and withdrawal of Taiko tokens
 /// and Ether. Additionally, this contract doesn't hold any Ether. Ether deposited to L2 are held
 /// by the Bridge contract.
-/// @dev Labeled in AddressResolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
 contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     /// @notice The TaikoL1 state.
@@ -37,7 +36,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         emit StateVariablesUpdated(state.slotB);
     }
 
-    modifier onlyRegisteredProposer() {
+    modifier onlyPermittedProposer() {
         LibProposing.checkProposerPermission(this);
         _;
     }
@@ -61,20 +60,25 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         if (_toPause) _pause();
     }
 
+    /// @notice Reinitializes the contract to version 2.
+    /// @dev This function is intended to reset specific state variables for future reuse.
+    /// It can only be called by the owner of the contract and only once due to the reinitializer(2)
+    /// modifier.
     function init2() external onlyOwner reinitializer(2) {
-        // reset some previously used slots for future reuse
+        // Reset some previously used slots for future reuse
         state.slotB.__reservedB1 = 0;
         state.slotB.__reservedB2 = 0;
         state.slotB.__reservedB3 = 0;
         state.__reserve1 = 0;
     }
 
+    /// @inheritdoc ITaikoL1
     function proposeBlockV2(
         bytes calldata _params,
         bytes calldata _txList
     )
         external
-        onlyRegisteredProposer
+        onlyPermittedProposer
         whenNotPaused
         nonReentrant
         emitEventForClient
@@ -98,7 +102,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         bytes[] calldata _txListArr
     )
         external
-        onlyRegisteredProposer
+        onlyPermittedProposer
         whenNotPaused
         nonReentrant
         emitEventForClient
@@ -154,9 +158,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     }
 
     /// @inheritdoc ITaikoL1
-    function verifyBlocks(
-        uint64 _maxBlocksToVerify
-    )
+    function verifyBlocks(uint64 _maxBlocksToVerify)
         external
         whenNotPaused
         whenProvingNotPaused
@@ -182,8 +184,9 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         LibBonds.withdrawBond(state, this, _amount);
     }
 
-    /// @notice Gets the current bond balance of a given address.
-    /// @return The current bond balance.
+    /// @notice Retrieves the current bond balance for a specified user address.
+    /// @param _user The address of the user whose bond balance is being queried.
+    /// @return The current bond balance of the specified user in wei.
     function bondBalanceOf(address _user) external view returns (uint256) {
         return LibBonds.bondBalanceOf(state, _user);
     }
@@ -287,13 +290,22 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
             livenessBond: 125e18, // 125 Taiko token
             stateRootSyncInternal: 16,
             maxAnchorHeightOffset: 64,
-            basefeeAdjustmentQuotient: 8,
-            basefeeSharingPctg: 75,
-            gasIssuancePerSecond: 5_000_000,
+            baseFeeConfig: TaikoData.BaseFeeConfig({
+                adjustmentQuotient: 8,
+                sharingPctg: 75,
+                gasIssuancePerSecond: 5_000_000,
+                minGasExcess: 1_340_000_000,
+                maxGasIssuancePerBlock: 600_000_000 // two minutes
+             }),
             ontakeForkHeight: 374_400 // = 7200 * 52
          });
     }
 
+    /// @notice Proposes a new block and verifies blocks if necessary.
+    /// @param _params The parameters for the block proposal.
+    /// @param _txList The list of transactions for the block.
+    /// @param _config The configuration settings for the Taiko protocol.
+    /// @return meta_ The metadata of the proposed block.
     function _proposeBlock(
         bytes calldata _params,
         bytes calldata _txList,
@@ -309,6 +321,10 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         }
     }
 
+    /// @notice Proves a block and verifies blocks if necessary.
+    /// @param _blockId The ID of the block to be proved.
+    /// @param _input The input data for proving the block.
+    /// @param _config The configuration settings for the Taiko protocol.
     function _proveBlock(
         uint64 _blockId,
         bytes calldata _input,
@@ -323,10 +339,17 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         }
     }
 
-    /// @dev chain_pauser is supposed to be a cold wallet.
+    /// @notice Authorizes the pausing of the contract.
+    /// @dev This function can only be called by the contract owner or an address named
+    /// B_CHAIN_WATCHDOG.
+    /// B_CHAIN_WATCHDOG is intended to be a cold wallet for security purposes.
+    /// @param _account The address attempting to authorize the pause (not used in the function
+    /// body).
+    /// @param _pause A boolean flag indicating the pause state (not used in the function body).
+    /// @dev Note: The authorization check is performed on msg.sender, not _account.
     function _authorizePause(
-        address,
-        bool
+        address _account,
+        bool _pause
     )
         internal
         view

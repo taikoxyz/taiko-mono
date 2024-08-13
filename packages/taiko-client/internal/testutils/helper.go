@@ -18,7 +18,6 @@ import (
 	"github.com/phayes/freeport"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v1"
 	v1 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v1"
 	v2 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v2"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -199,7 +198,7 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 
 func (s *ClientTestSuite) ProposeValidBlock(
 	proposer Proposer,
-) *bindings.LibProposingBlockProposed {
+) *v1.LibProposingBlockProposed {
 	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
@@ -207,7 +206,7 @@ func (s *ClientTestSuite) ProposeValidBlock(
 	s.Nil(err)
 
 	// Propose txs in L2 execution engine's mempool
-	sink := make(chan *bindings.LibProposingBlockProposed)
+	sink := make(chan *v1.LibProposingBlockProposed)
 
 	sub, err := s.RPCClient.V1.LibProposing.WatchBlockProposed(nil, sink, nil, nil)
 	s.Nil(err)

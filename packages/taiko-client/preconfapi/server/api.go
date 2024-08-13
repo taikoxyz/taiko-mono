@@ -40,7 +40,6 @@ type buildBlockParams struct {
 	Timestamp          uint64   `json:"timestamp"`
 	SignedTransactions []string `json:"signedTransactions"`
 	Coinbase           string   `json:"coinbase"`
-	ExtraData          string   `json:"extraData"`
 }
 
 type buildBlockResponse struct {
@@ -75,7 +74,6 @@ func (s *PreconfAPIServer) BuildBlock(c echo.Context) error {
 			Timestamp:          req.Timestamp,
 			SignedTransactions: req.SignedTransactions,
 			Coinbase:           req.Coinbase,
-			ExtraData:          req.ExtraData,
 		},
 	)
 	if err != nil {
@@ -176,7 +174,6 @@ func paramsToOpts(params []buildBlockParams) builder.BuildBlocksUnsignedOpts {
 			Timestamp:          p.Timestamp,
 			SignedTransactions: p.SignedTransactions,
 			Coinbase:           p.Coinbase,
-			ExtraData:          p.ExtraData,
 		})
 	}
 

@@ -5,14 +5,17 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # check until L1 chain is ready
 L1_PROBE_URL=ws://localhost:$(docker port l1_node | grep '0.0.0.0' | awk -F ':' '{print $2}')
 until cast chain-id --rpc-url "$L1_PROBE_URL" 2> /dev/null; do
+    echo "l1 probe sleep"
     sleep 1
 done
 
 # check until L2 chain is ready
-L2_PROBE_URL=ws://localhost:$(docker port l2_node | grep "0.0.0.0" | awk -F ':' 'NR==2 {print $2}')
-until cast chain-id --rpc-url "$L2_PROBE_URL" 2> /dev/null; do
-    sleep 1
-done
+# L2_PROBE_URL=ws://localhost:$(docker port l2_node | grep "0.0.0.0" | awk -F ':' 'NR==2 {print $2}')
+# until cast chain-id --rpc-url "$L2_PROBE_URL" 2> /dev/null; do
+#     echo "l2 probe sleep"
+#     sleep 1
+# done
+
 
 L1_NODE_PORT=$(docker port l1_node | grep '0.0.0.0' | awk -F ':' '{print $2}')
 export L1_NODE_HTTP_ENDPOINT=http://localhost:$L1_NODE_PORT

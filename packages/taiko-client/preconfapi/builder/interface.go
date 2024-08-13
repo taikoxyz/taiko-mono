@@ -17,7 +17,6 @@ type BuildBlockUnsignedOpts struct {
 	Timestamp          uint64
 	SignedTransactions []string
 	Coinbase           string
-	ExtraData          string
 }
 
 type TxBuilder interface {

@@ -207,6 +207,7 @@ export class RelayerAPIService {
         canonicalTokenAddress: tx.canonicalTokenAddress,
         processingFee: BigInt(tx.data.Message.Fee.toString()),
         claimedBy: tx.claimedBy ? getAddress(tx.claimedBy) : undefined,
+        fee: tx.fee ? BigInt(tx.fee) : undefined,
         message: {
           id: tx.data.Message.Id,
           to: getAddress(tx.data.Message.To),

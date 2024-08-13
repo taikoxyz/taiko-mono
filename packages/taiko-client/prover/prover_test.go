@@ -16,7 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v1"
 	v2 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
@@ -431,9 +430,9 @@ func (s *ProverTestSuite) TestGetBlockProofStatus() {
 	s.False(status.IsSubmitted)
 
 	// Valid proof submitted
-	sink := make(chan *bindings.TaikoL1ClientTransitionProved)
+	sink := make(chan *v1.TaikoL1ClientTransitionProved)
 
-	sub, err := s.p.rpc.TaikoL1.WatchTransitionProved(nil, sink, nil)
+	sub, err := s.p.rpc.V1.TaikoL1.WatchTransitionProved(nil, sink, nil)
 	s.Nil(err)
 	defer func() {
 		sub.Unsubscribe()

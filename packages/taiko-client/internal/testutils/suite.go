@@ -149,7 +149,6 @@ func (s *ClientTestSuite) SetupTest() {
 	s.Nil(err)
 
 	s.testnetL1SnapshotID = s.SetL1Snapshot()
-
 }
 
 func (s *ClientTestSuite) setAllowance(key *ecdsa.PrivateKey) {

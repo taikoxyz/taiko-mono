@@ -2,7 +2,6 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-
 import "../../common/IAddressResolver.sol";
 import "../../common/LibStrings.sol";
 import "../../libs/LibMath.sol";
@@ -11,30 +10,14 @@ import "../tiers/ITierRouter.sol";
 import "../TaikoData.sol";
 
 /// @title LibUtils
-/// @notice A library that offers helper functions.
+/// @notice A library that offers helper functions for the Taiko protocol.
 /// @custom:security-contact security@taiko.xyz
 library LibUtils {
     using LibMath for uint256;
 
     /// @dev Emitted when a block is verified.
     /// @param blockId The ID of the verified block.
-    /// @param prover The prover whose transition is used for verifying the
-    /// block.
-    /// @param blockHash The hash of the verified block.
-    /// @param stateRoot Deprecated and is always zero.
-    /// @param tier The tier ID of the proof.
-    event BlockVerified(
-        uint256 indexed blockId,
-        address indexed prover,
-        bytes32 blockHash,
-        bytes32 stateRoot,
-        uint16 tier
-    );
-
-    /// @dev Emitted when a block is verified.
-    /// @param blockId The ID of the verified block.
-    /// @param prover The prover whose transition is used for verifying the
-    /// block.
+    /// @param prover The prover whose transition is used for verifying the block.
     /// @param blockHash The hash of the verified block.
     /// @param tier The tier ID of the proof.
     event BlockVerifiedV2(
@@ -52,19 +35,19 @@ library LibUtils {
     /// @param _genesisBlockHash The block hash of the genesis block.
     function init(TaikoData.State storage _state, bytes32 _genesisBlockHash) internal {
         if (_genesisBlockHash == 0) revert L1_INVALID_GENESIS_HASH();
-        // Init state
+        // Initialize state
         _state.slotA.genesisHeight = uint64(block.number);
         _state.slotA.genesisTimestamp = uint64(block.timestamp);
         _state.slotB.numBlocks = 1;
 
-        // Init the genesis block
+        // Initialize the genesis block
         TaikoData.Block storage blk = _state.blocks[0];
         blk.nextTransitionId = 2;
         blk.proposedAt = uint64(block.timestamp);
         blk.verifiedTransitionId = 1;
         blk.metaHash = bytes32(uint256(1)); // Give the genesis metahash a non-zero value.
 
-        // Init the first state transition
+        // Initialize the first state transition
         TaikoData.TransitionState storage ts = _state.transitions[0][1];
         ts.blockHash = _genesisBlockHash;
         ts.prover = address(0);
@@ -81,7 +64,7 @@ library LibUtils {
     /// @dev Retrieves a block based on its ID.
     /// @param _state Current TaikoData.State.
     /// @param _config Actual TaikoData.Config.
-    /// @param _blockId Id of the block.
+    /// @param _blockId The ID of the block.
     /// @return blk_ The block storage pointer.
     /// @return slot_ The slot value.
     function getBlock(
@@ -101,9 +84,10 @@ library LibUtils {
     /// @dev Retrieves a block's block hash and state root.
     /// @param _state Current TaikoData.State.
     /// @param _config Actual TaikoData.Config.
-    /// @param _blockId Id of the block.
+    /// @param _blockId The ID of the block.
     /// @return blockHash_ The block's block hash.
     /// @return stateRoot_ The block's storage root.
+    /// @return verifiedAt_ The timestamp when the block was verified.
     function getBlockInfo(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
@@ -126,11 +110,11 @@ library LibUtils {
     }
 
     /// @notice This function will revert if the transition is not found.
-    /// @dev Retrieves the transition with a given parentHash.
+    /// @dev Retrieves the transition with a given transition ID.
     /// @param _state Current TaikoData.State.
     /// @param _config Actual TaikoData.Config.
-    /// @param _blockId Id of the block.
-    /// @param _tid The transition id.
+    /// @param _blockId The ID of the block.
+    /// @param _tid The transition ID.
     /// @return The state transition pointer.
     function getTransition(
         TaikoData.State storage _state,
@@ -149,11 +133,11 @@ library LibUtils {
     }
 
     /// @notice This function will revert if the transition is not found.
-    /// @dev Retrieves the transition with a given parentHash.
+    /// @dev Retrieves the transition with a given parent hash.
     /// @param _state Current TaikoData.State.
     /// @param _config Actual TaikoData.Config.
-    /// @param _blockId Id of the block.
-    /// @param _parentHash Parent hash of the block.
+    /// @param _blockId The ID of the block.
+    /// @param _parentHash The parent hash of the block.
     /// @return The state transition pointer.
     function getTransition(
         TaikoData.State storage _state,
@@ -173,8 +157,13 @@ library LibUtils {
         return _state.transitions[slot][tid];
     }
 
-    /// @dev Retrieves the ID of the transition with a given parentHash.
+    /// @dev Retrieves the ID of the transition with a given parent hash.
     /// This function will return 0 if the transition is not found.
+    /// @param _state Current TaikoData.State.
+    /// @param _blk The block storage pointer.
+    /// @param _slot The slot value.
+    /// @param _parentHash The parent hash of the block.
+    /// @return tid_ The transition ID.
     function getTransitionId(
         TaikoData.State storage _state,
         TaikoData.Block storage _blk,
@@ -194,6 +183,11 @@ library LibUtils {
         }
     }
 
+    /// @dev Checks if the current timestamp is past the deadline.
+    /// @param _tsTimestamp The timestamp to check.
+    /// @param _lastUnpausedAt The last unpaused timestamp.
+    /// @param _windowMinutes The window in minutes.
+    /// @return True if the current timestamp is past the deadline, false otherwise.
     function isPostDeadline(
         uint256 _tsTimestamp,
         uint256 _lastUnpausedAt,
@@ -209,6 +203,11 @@ library LibUtils {
         }
     }
 
+    /// @dev Determines if blocks should be verified based on the configuration and block ID.
+    /// @param _config The TaikoData.Config.
+    /// @param _blockId The ID of the block.
+    /// @param _isBlockProposed Whether the block is proposed.
+    /// @return True if blocks should be verified, false otherwise.
     function shouldVerifyBlocks(
         TaikoData.Config memory _config,
         uint64 _blockId,
@@ -221,15 +220,14 @@ library LibUtils {
         if (_config.maxBlocksToVerify == 0) return false;
 
         // Consider each segment of 8 blocks, verification is attempted either on block 3 if it has
-        // been
-        // proved, or on block 7 if it has been proposed. Over time, the ratio of blocks to
+        // been proved, or on block 7 if it has been proposed. Over time, the ratio of blocks to
         // verification attempts averages 4:1, meaning each verification attempt typically covers 4
         // blocks. However, considering worst cases caused by blocks being proved out of order, some
         // verification attempts may verify few or no blocks. In such cases, additional
         // verifications are needed to catch up. Consequently, the `maxBlocksToVerify` parameter
         // should be set high enough, for example 16, to allow for efficient catch-up.
 
-        // Now lets use `maxBlocksToVerify` as an input to calculate the size of each block
+        // Now let's use `maxBlocksToVerify` as an input to calculate the size of each block
         // segment, instead of using 8 as a constant.
         uint256 segmentSize = _config.maxBlocksToVerify >> 1;
 
@@ -238,6 +236,11 @@ library LibUtils {
         return _blockId % segmentSize == (_isBlockProposed ? 0 : segmentSize >> 1);
     }
 
+    /// @dev Determines if the state root should be synchronized based on the configuration and
+    /// block ID.
+    /// @param _stateRootSyncInternal The state root sync interval.
+    /// @param _blockId The ID of the block.
+    /// @return True if the state root should be synchronized, false otherwise.
     function shouldSyncStateRoot(
         uint256 _stateRootSyncInternal,
         uint256 _blockId

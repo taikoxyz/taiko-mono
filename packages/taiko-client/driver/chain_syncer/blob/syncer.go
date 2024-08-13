@@ -21,6 +21,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	v2 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v2"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
@@ -396,12 +397,20 @@ func (s *Syncer) insertNewHead(
 				return nil, fmt.Errorf("failed to fetch parent gas excess: %w", err)
 			}
 		}
+
+		cfg := encoding.GetProtocolConfig(s.rpc.L2.ChainID.Uint64())
+
 		// Get L2 baseFee
 		baseFeeInfo, err = s.rpc.V2.TaikoL2.CalculateBaseFee(
 			&bind.CallOpts{BlockNumber: parent.Number, Context: ctx},
-			meta.GetGasIssuancePerSecond(),
+			v2.TaikoDataBaseFeeConfig{
+				GasIssuancePerSecond:   meta.GetGasIssuancePerSecond(),
+				AdjustmentQuotient:     meta.GetBasefeeAdjustmentQuotient(),
+				SharingPctg:            cfg.BaseFeeConfig.SharingPctg,
+				MinGasExcess:           cfg.BaseFeeConfig.MinGasExcess,
+				MaxGasIssuancePerBlock: cfg.BaseFeeConfig.MaxGasIssuancePerBlock,
+			},
 			meta.GetTimestamp()-parent.Time,
-			meta.GetBasefeeAdjustmentQuotient(),
 			parentGasExcess,
 			uint32(parent.GasUsed),
 		)
