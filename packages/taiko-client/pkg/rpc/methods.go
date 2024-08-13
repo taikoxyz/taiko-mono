@@ -18,7 +18,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v1"
+	v2 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v2"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
 )
 
@@ -289,6 +289,7 @@ func (c *Client) GetPoolContent(
 		return nil, err
 	}
 
+	// TODO: method no longer exists on V2, what to do here?
 	baseFeeInfo, err := c.V1.TaikoL2.GetBasefee(
 		&bind.CallOpts{Context: ctx},
 		l1Head.Number.Uint64(),
@@ -401,8 +402,8 @@ func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProg
 
 // GetProtocolStateVariables gets the protocol states from TaikoL1 contract.
 func (c *Client) GetProtocolStateVariables(opts *bind.CallOpts) (*struct {
-	A bindings.TaikoDataSlotA
-	B bindings.TaikoDataSlotB
+	A v2.TaikoDataSlotA
+	B v2.TaikoDataSlotB
 }, error) {
 	if opts == nil {
 		opts = &bind.CallOpts{}
@@ -416,15 +417,15 @@ func (c *Client) GetProtocolStateVariables(opts *bind.CallOpts) (*struct {
 	defer cancel()
 	opts.Context = ctxWithTimeout
 
-	return GetProtocolStateVariables(c.TaikoL1, opts)
+	return GetProtocolStateVariables(c.V2.TaikoL1, opts)
 }
 
 // GetL2BlockInfo fetches the L2 block information from the protocol.
-func (c *Client) GetL2BlockInfo(ctx context.Context, blockID *big.Int) (bindings.TaikoDataBlock, error) {
+func (c *Client) GetL2BlockInfo(ctx context.Context, blockID *big.Int) (v2.TaikoDataBlock, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
-	return c.TaikoL1.GetBlock(&bind.CallOpts{Context: ctxWithTimeout}, blockID.Uint64())
+	return c.V2.TaikoL1.GetBlock(&bind.CallOpts{Context: ctxWithTimeout}, blockID.Uint64())
 }
 
 // GetTransition fetches the L2 block's corresponding transition state from the protocol.
@@ -432,11 +433,11 @@ func (c *Client) GetTransition(
 	ctx context.Context,
 	blockID *big.Int,
 	transactionID uint32,
-) (bindings.TaikoDataTransitionState, error) {
+) (v2.TaikoDataTransitionState, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
-	return c.TaikoL1.GetTransition(
+	return c.V2.TaikoL1.GetTransition(
 		&bind.CallOpts{Context: ctxWithTimeout},
 		blockID.Uint64(),
 		transactionID,
@@ -473,7 +474,7 @@ func (c *Client) CheckL1Reorg(ctx context.Context, blockID *big.Int) (*ReorgChec
 		// If we rollback to the genesis block, then there is no L1Origin information recorded in the L2 execution
 		// engine for that block, so we will query the protocol to use `GenesisHeight` value to reset the L1 cursor.
 		if blockID.Cmp(common.Big0) == 0 {
-			slotA, _, err := c.TaikoL1.GetStateVariables(&bind.CallOpts{Context: ctxWithTimeout})
+			slotA, _, err := c.V2.TaikoL1.GetStateVariables(&bind.CallOpts{Context: ctxWithTimeout})
 			if err != nil {
 				return result, err
 			}
@@ -693,7 +694,7 @@ func (c *Client) getSyncedL1SnippetFromAnchor(
 // TierProviderTierWithID wraps protocol ITierProviderTier struct with an ID.
 type TierProviderTierWithID struct {
 	ID uint16
-	bindings.ITierProviderTier
+	v2.ITierProviderTier
 }
 
 // GetTiers fetches all protocol supported tiers.
@@ -701,12 +702,12 @@ func (c *Client) GetTiers(ctx context.Context) ([]*TierProviderTierWithID, error
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
-	tierRouterAddress, err := c.TaikoL1.Resolve0(&bind.CallOpts{Context: ctx}, StringToBytes32("tier_router"), false)
+	tierRouterAddress, err := c.V2.TaikoL1.Resolve0(&bind.CallOpts{Context: ctx}, StringToBytes32("tier_router"), false)
 	if err != nil {
 		return nil, err
 	}
 
-	tierRouter, err := bindings.NewTierProvider(tierRouterAddress, c.L1)
+	tierRouter, err := v2.NewTierProvider(tierRouterAddress, c.L1)
 	if err != nil {
 		return nil, err
 	}
@@ -716,7 +717,7 @@ func (c *Client) GetTiers(ctx context.Context) ([]*TierProviderTierWithID, error
 		return nil, err
 	}
 
-	tierProvider, err := bindings.NewTierProvider(providerAddress, c.L1)
+	tierProvider, err := v2.NewTierProvider(providerAddress, c.L1)
 	if err != nil {
 		return nil, err
 	}
@@ -742,8 +743,8 @@ func (c *Client) GetTiers(ctx context.Context) ([]*TierProviderTierWithID, error
 }
 
 // GetTaikoDataSlotBByNumber fetches the state variables by block number.
-func (c *Client) GetTaikoDataSlotBByNumber(ctx context.Context, number uint64) (*bindings.TaikoDataSlotB, error) {
-	iter, err := c.TaikoL1.FilterStateVariablesUpdated(
+func (c *Client) GetTaikoDataSlotBByNumber(ctx context.Context, number uint64) (*v2.TaikoDataSlotB, error) {
+	iter, err := c.V2.TaikoL1.FilterStateVariablesUpdated(
 		&bind.FilterOpts{Context: ctx, Start: number, End: &number},
 	)
 	if err != nil {
@@ -762,7 +763,7 @@ func (c *Client) GetGuardianProverAddress(ctx context.Context) (common.Address, 
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
-	return c.TaikoL1.Resolve0(&bind.CallOpts{Context: ctxWithTimeout}, StringToBytes32("tier_guardian"), false)
+	return c.V2.TaikoL1.Resolve0(&bind.CallOpts{Context: ctxWithTimeout}, StringToBytes32("tier_guardian"), false)
 }
 
 // WaitL1NewPendingTransaction waits until the L1 account has a new pending transaction.
