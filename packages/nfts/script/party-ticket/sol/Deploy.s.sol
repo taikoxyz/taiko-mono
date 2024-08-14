@@ -14,13 +14,12 @@ contract DeployScript is Script {
     uint256 public deployerPrivateKey;
     address public deployerAddress;
 
-    // Hardhat Testnet Values
     string baseURI =
         "https://taikonfts.4everland.link/ipfs/bafybeia5mmkauevbhs4fm6wfib5wfifefrwfremlc67whrrgsgzj46kfsm";
     IMinimalBlacklist blacklist = IMinimalBlacklist(0xfA5EA6f9A13532cd64e805996a941F101CCaAc9a);
 
     uint256 mintFee = 0.002 ether;
-    address payoutWallet = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
+    address payoutWallet = 0x2e44474B7F5726908ef509B6C8d561fA40a52f90;
 
     function setUp() public {
         utils = new UtilsScript();
