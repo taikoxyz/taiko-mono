@@ -104,11 +104,11 @@ contract TaikoPartyTicketTest is Test {
         assertEq(address(token).balance, MINT_FEE * minters.length);
     }
 
-    function test_withdraw() public {
+    function test_payout() public {
         test_winnerFlow();
         uint256 collectedEth = address(token).balance;
         vm.prank(admin);
-        token.withdraw();
+        token.payout();
         assertEq(payoutWallet.balance, collectedEth);
         assertEq(address(token).balance, 0);
     }

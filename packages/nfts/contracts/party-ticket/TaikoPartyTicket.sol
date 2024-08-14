@@ -212,10 +212,7 @@ contract TaikoPartyTicket is
 
     /// @notice Revoke a winner's status
     /// @param tokenIds The IDs of the winner to revoke
-    function revokeWinners(uint256[] calldata tokenIds)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
+    function revokeWinners(uint256[] calldata tokenIds) external onlyRole(DEFAULT_ADMIN_ROLE) {
         for (uint256 i = 0; i < tokenIds.length; i++) {
             revokeWinner(tokenIds[i]);
         }
@@ -249,10 +246,16 @@ contract TaikoPartyTicket is
         _unpause();
     }
 
+    /// @notice Update the payout address
+    /// @param _payoutAddress The new payout address
+    function updatePayoutAddress(address _payoutAddress) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        payoutAddress = _payoutAddress;
+    }
+
     /// @notice Withdraw the contract balance
     /// @dev Can only be called by the admin
     /// @dev Requires the contract to be paused
-    function withdraw() external whenPaused onlyRole(DEFAULT_ADMIN_ROLE) {
+    function payout() external whenPaused onlyRole(DEFAULT_ADMIN_ROLE) {
         payable(payoutAddress).transfer(address(this).balance);
     }
 
