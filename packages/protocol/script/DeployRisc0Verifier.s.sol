@@ -5,13 +5,9 @@ import "@risc0/contracts/groth16/RiscZeroGroth16Verifier.sol";
 import "../test/DeployCapability.sol";
 import "../contracts/verifiers/RiscZeroVerifier.sol";
 
-
-
-contract DeployRisc0Verifier is DeployCapability{
+contract DeployRisc0Verifier is DeployCapability {
     uint256 public deployerPrivKey = vm.envUint("PRIVATE_KEY");
     address public rollupAddressManager = vm.envAddress("ROLLUP_ADDRESS_MANAGER");
-
-
 
     function run() external {
         require(deployerPrivKey != 0, "invalid deployer priv key");
@@ -19,7 +15,7 @@ contract DeployRisc0Verifier is DeployCapability{
 
         vm.startBroadcast(deployerPrivKey);
         RiscZeroGroth16Verifier verifier =
-                    new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
+            new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
         register(rollupAddressManager, "risc0_groth16_verifier", address(verifier));
         deployProxy({
             name: "tier_zkvm_risc0",
@@ -29,5 +25,4 @@ contract DeployRisc0Verifier is DeployCapability{
         });
         vm.stopBroadcast();
     }
-
 }

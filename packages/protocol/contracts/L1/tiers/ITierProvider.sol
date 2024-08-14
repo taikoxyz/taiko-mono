@@ -43,7 +43,7 @@ library LibTiers {
     uint16 public constant TIER_SGX2 = 200;
 
     // @notice ZKVM risc0 tier ID
-    uint16 public constant TIER_ZKVM_RISC0= 290;
+    uint16 public constant TIER_ZKVM_RISC0 = 290;
 
     /// @notice SGX + ZKVM tier ID.
     uint16 public constant TIER_SGX_ZKVM = 300;
