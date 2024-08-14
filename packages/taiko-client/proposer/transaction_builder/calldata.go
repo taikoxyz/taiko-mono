@@ -25,7 +25,6 @@ type CalldataTransactionBuilder struct {
 	gasLimit                uint64
 	extraData               string
 	chainConfig             *config.ChainConfig
-	afterOntake             bool
 }
 
 // NewCalldataTransactionBuilder creates a new CalldataTransactionBuilder instance based on giving configurations.
@@ -48,7 +47,6 @@ func NewCalldataTransactionBuilder(
 		gasLimit,
 		extraData,
 		chainConfig,
-		false,
 	}
 }
 
@@ -86,16 +84,12 @@ func (b *CalldataTransactionBuilder) Build(
 	}
 
 	// Check if the current L2 chain is after ontake fork.
-	if !b.afterOntake {
-		blockNum, err := b.rpc.L2.BlockNumber(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		b.afterOntake = b.chainConfig.IsOntake(new(big.Int).SetUint64(blockNum + 1))
+	blockNum, err := b.rpc.L2.BlockNumber(ctx)
+	if err != nil {
+		return nil, err
 	}
 
-	if !b.afterOntake {
+	if !b.chainConfig.IsOntake(new(big.Int).SetUint64(blockNum + 1)) {
 		// ABI encode the TaikoL1.proposeBlock / ProverSet.proposeBlock parameters.
 		method = "proposeBlock"
 
