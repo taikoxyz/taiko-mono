@@ -17,6 +17,7 @@ library LibStrings {
     bytes32 internal constant B_PROVER_ASSIGNMENT = bytes32("PROVER_ASSIGNMENT");
     bytes32 internal constant B_PROVER_SET = bytes32("prover_set");
     bytes32 internal constant B_QUOTA_MANAGER = bytes32("quota_manager");
+    bytes32 internal constant B_SEQUENCER_REGISTRY = bytes32("sequencer_registry");
     bytes32 internal constant B_SGX_WATCHDOG = bytes32("sgx_watchdog");
     bytes32 internal constant B_SIGNAL_SERVICE = bytes32("signal_service");
     bytes32 internal constant B_TAIKO = bytes32("taiko");

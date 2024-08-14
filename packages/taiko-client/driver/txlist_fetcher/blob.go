@@ -31,18 +31,20 @@ func (d *BlobFetcher) Fetch(
 	ctx context.Context,
 	_ *types.Transaction,
 	meta *bindings.TaikoDataBlockMetadata,
+	emittedInBlockID uint64,
+	blockProposedEventEmittedInTimestamp uint64,
 ) ([]byte, error) {
 	if !meta.BlobUsed {
 		return nil, pkg.ErrBlobUsed
 	}
 
 	// Fetch the L1 block sidecars.
-	sidecars, err := d.ds.GetBlobs(ctx, meta)
+	sidecars, err := d.ds.GetBlobs(ctx, meta, blockProposedEventEmittedInTimestamp)
 	if err != nil {
 		return nil, err
 	}
 
-	log.Info("Fetch sidecars", "blockNumber", meta.L1Height+1, "sidecars", len(sidecars))
+	log.Info("Fetch sidecars", "blockNumber", emittedInBlockID, "sidecars", len(sidecars))
 
 	// Compare the blob hash with the sidecar's kzg commitment.
 	for i, sidecar := range sidecars {
@@ -59,7 +61,16 @@ func (d *BlobFetcher) Fetch(
 			&commitment,
 		) == common.BytesToHash(meta.BlobHash[:]) {
 			blob := eth.Blob(common.FromHex(sidecar.Blob))
-			return blob.ToData()
+			blobData, err := blob.ToData()
+			if err != nil {
+				return nil, err
+			}
+
+			if meta.BlobTxListOffset == 0 && meta.BlobTxListLength == 0 {
+				return blobData, nil
+			}
+
+			return blobData[meta.BlobTxListOffset:meta.BlobTxListLength], nil
 		}
 	}
 

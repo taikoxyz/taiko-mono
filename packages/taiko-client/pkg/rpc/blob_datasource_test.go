@@ -27,6 +27,7 @@ func TestGetBlobsFromBlobScan(t *testing.T) {
 			BlobHash: common.HexToHash("0x0145185449c57dee4e6c921b702e5d572fbeb026f96c220a6a17b79d157d921b"),
 			BlobUsed: true,
 		},
+		0,
 	)
 	require.Nil(t, err)
 	require.NotNil(t, sidecars)

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"math/big"
 	"math/rand"
 	"sync"
 	"time"
@@ -136,6 +137,7 @@ func (p *Proposer) InitFromConfig(ctx context.Context, cfg *Config, txMgr *txmgr
 			cfg.L2SuggestedFeeRecipient,
 			cfg.ProposeBlockTxGasLimit,
 			cfg.ExtraData,
+			len(cfg.PreconfirmationRPC) > 0,
 		)
 	} else {
 		p.txBuilder = builder.NewCalldataTransactionBuilder(
@@ -148,6 +150,7 @@ func (p *Proposer) InitFromConfig(ctx context.Context, cfg *Config, txMgr *txmgr
 			cfg.ProverSetAddress,
 			cfg.ProposeBlockTxGasLimit,
 			cfg.ExtraData,
+			len(cfg.PreconfirmationRPC) > 0,
 		)
 	}
 
@@ -158,6 +161,7 @@ func (p *Proposer) InitFromConfig(ctx context.Context, cfg *Config, txMgr *txmgr
 func (p *Proposer) Start() error {
 	p.wg.Add(1)
 	go p.eventLoop()
+
 	return nil
 }
 
@@ -339,11 +343,28 @@ func (p *Proposer) ProposeTxList(
 		return err
 	}
 
+	var (
+		l1StateBlockNumber = uint32(0)
+		timestamp          = uint64(0)
+		parentMetaHash     = [32]byte{}
+	)
+
+	parent, err := p.getParentOfLatestProposedBlock(ctx, p.rpc)
+	if err != nil {
+		return err
+	}
+
+	if p.IncludeParentMetaHash {
+		parentMetaHash = parent.MetaHash
+	}
+
 	txCandidate, err := p.txBuilder.Build(
 		ctx,
 		p.tierFees,
-		p.IncludeParentMetaHash,
 		compressedTxListBytes,
+		l1StateBlockNumber,
+		timestamp,
+		parentMetaHash,
 	)
 	if err != nil {
 		log.Warn("Failed to build TaikoL1.proposeBlock transaction", "error", encoding.TryParsingCustomError(err))
@@ -420,4 +441,22 @@ func (p *Proposer) initTierFees() error {
 	}
 
 	return nil
+}
+
+// getParentOfLatestProposedBlock returns the parent block of the latest proposed block in protocol
+func (p *Proposer) getParentOfLatestProposedBlock(
+	ctx context.Context,
+	rpc *rpc.Client,
+) (*bindings.TaikoDataBlock, error) {
+	state, err := rpc.TaikoL1.State(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return nil, err
+	}
+
+	parent, err := rpc.GetL2BlockInfo(ctx, new(big.Int).SetUint64(state.SlotB.NumBlocks-1))
+	if err != nil {
+		return nil, err
+	}
+
+	return &parent, nil
 }

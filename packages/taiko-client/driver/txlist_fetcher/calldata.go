@@ -18,6 +18,8 @@ func (d *CalldataFetcher) Fetch(
 	_ context.Context,
 	tx *types.Transaction,
 	meta *bindings.TaikoDataBlockMetadata,
+	_ uint64,
+	_ uint64,
 ) ([]byte, error) {
 	if meta.BlobUsed {
 		return nil, pkg.ErrBlobUsed

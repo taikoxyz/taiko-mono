@@ -76,6 +76,7 @@ func (p *BlobServerResponse) UnmarshalJSON(data []byte) error {
 func (ds *BlobDataSource) GetBlobs(
 	ctx context.Context,
 	meta *bindings.TaikoDataBlockMetadata,
+	emittedInTimestamp uint64,
 ) ([]*blob.Sidecar, error) {
 	if !meta.BlobUsed {
 		return nil, pkg.ErrBlobUnused
@@ -88,7 +89,7 @@ func (ds *BlobDataSource) GetBlobs(
 	if ds.client.L1Beacon == nil {
 		sidecars, err = nil, pkg.ErrBeaconNotFound
 	} else {
-		sidecars, err = ds.client.L1Beacon.GetBlobs(ctx, meta.Timestamp)
+		sidecars, err = ds.client.L1Beacon.GetBlobs(ctx, emittedInTimestamp)
 	}
 	if err != nil {
 		log.Info("Failed to get blobs from beacon, try to use blob server.", "error", err.Error())
