@@ -19,7 +19,7 @@ contract DeployScript is Script {
         "https://taikonfts.4everland.link/ipfs/bafybeia5mmkauevbhs4fm6wfib5wfifefrwfremlc67whrrgsgzj46kfsm";
     IMinimalBlacklist blacklist = IMinimalBlacklist(0xfA5EA6f9A13532cd64e805996a941F101CCaAc9a);
 
-    uint256 mintFee = 0.03 ether;
+    uint256 mintFee = 0.002 ether;
     address payoutWallet = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
 
     function setUp() public {
