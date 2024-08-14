@@ -21,7 +21,7 @@
 
   let classes = classNames('ChainPill relative', $$props.class);
 
-  let buttonClasses = `f-row body-regular bg-neutral-background px-2 py-[6px] !rounded-[10px] dark:hover:bg-primary-secondary-hover flex justify-start content-center ${$$props.class}`;
+  let buttonClasses = `f-row body-regular bg-neutral-background px-2 py-[6px] !rounded-full dark:hover:bg-primary-secondary-hover flex justify-start content-center ${$$props.class}`;
 
   let iconSize = 'min-w-5 max-w-5 min-h-5 max-h-5';
 

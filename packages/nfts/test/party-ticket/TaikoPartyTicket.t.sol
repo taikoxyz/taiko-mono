@@ -88,10 +88,13 @@ contract TaikoPartyTicketTest is Test {
         uint256 winnerTokenId = 0;
 
         // set minters[0] as winner
-        vm.prank(admin);
+        vm.startPrank(admin);
         uint256[] memory winners = new uint256[](1);
         winners[0] = winnerTokenId;
+        // ability to pause the minting and set the winners later
+        token.pause();
         token.setWinners(winners);
+        vm.stopPrank();
         // check winner with both tokenId and address
         assertTrue(token.isWinner(winnerTokenId));
         assertTrue(token.isWinner(minters[0]));

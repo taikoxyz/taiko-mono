@@ -76,7 +76,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
         _;
     }
 
-    modifier nonZeroValue(bytes32 _value) {
+    modifier nonZeroValue(uint256 _value) {
         if (_value == 0) revert ZERO_VALUE();
         _;
     }

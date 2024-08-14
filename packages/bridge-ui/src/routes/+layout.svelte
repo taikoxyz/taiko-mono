@@ -4,13 +4,23 @@
 
   import { onDestroy, onMount } from 'svelte';
 
+  import { browser } from '$app/environment';
   import { AccountConnectionToast } from '$components/AccountConnectionToast';
   import { BridgePausedModal } from '$components/BridgePausedModal';
   import { Header } from '$components/Header';
   import { NotificationToast } from '$components/NotificationToast';
   import { SideNavigation } from '$components/SideNavigation';
   import { SwitchChainModal } from '$components/SwitchChainModal';
+  import {
+    desktopQuery,
+    initializeMediaQueries,
+    mediaQueryHandler,
+    mobileQuery,
+    tabletQuery,
+  } from '$libs/util/responsiveCheck';
   import { startWatching, stopWatching } from '$libs/wagmi';
+
+  let sideBarOpen = false;
 
   const syncPointer = ({ x, y }: { x: number; y: number }) => {
     document.documentElement.style.setProperty('--x', x.toFixed(2));
@@ -21,18 +31,40 @@
 
   onMount(async () => {
     await startWatching();
-    document.body.addEventListener('pointermove', syncPointer);
+    initializeMediaQueries();
+
+    if (desktopQuery) {
+      desktopQuery.addEventListener('change', mediaQueryHandler);
+      document.body.addEventListener('pointermove', syncPointer);
+    }
+    if (tabletQuery) {
+      tabletQuery.addEventListener('change', mediaQueryHandler);
+    }
+    if (mobileQuery) {
+      mobileQuery.addEventListener('change', mediaQueryHandler);
+    }
   });
 
   onDestroy(() => {
     stopWatching();
-    document.body.removeEventListener('pointermove', syncPointer);
+    if (browser) {
+      document.body.removeEventListener('pointermove', syncPointer);
+    }
+    if (desktopQuery) {
+      desktopQuery.removeEventListener('change', mediaQueryHandler);
+    }
+    if (tabletQuery) {
+      tabletQuery.removeEventListener('change', mediaQueryHandler);
+    }
+    if (mobileQuery) {
+      mobileQuery.removeEventListener('change', mediaQueryHandler);
+    }
   });
 </script>
 
 <!-- App components -->
-<SideNavigation>
-  <Header />
+<Header bind:sideBarOpen />
+<SideNavigation bind:sideBarOpen>
   <main>
     <slot />
   </main>

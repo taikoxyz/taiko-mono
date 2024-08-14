@@ -30,8 +30,6 @@ contract TaikoPartyTicket is
 {
     event BlacklistUpdated(address _blacklist);
 
-    /// @notice Owner role
-    bytes32 public constant OWNER_ROLE = keccak256("OWNER_ROLE");
     /// @notice Mint fee
     uint256 public mintFee;
     /// @notice Mint active flag
@@ -79,7 +77,6 @@ contract TaikoPartyTicket is
         blacklist = _blacklistAddress;
 
         _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
-        _grantRole(OWNER_ROLE, _payoutAddress);
 
         _transferOwnership(_msgSender());
     }
@@ -87,7 +84,7 @@ contract TaikoPartyTicket is
     /// @notice Modifier to check if an address is blacklisted
     /// @param _address The address to check
     modifier notBlacklisted(address _address) {
-        if (blacklist.isBlacklisted(_address)) revert ADDRESS_BLACKLISTED();
+        // if (blacklist.isBlacklisted(_address)) revert ADDRESS_BLACKLISTED();
         _;
     }
 
@@ -102,12 +99,13 @@ contract TaikoPartyTicket is
     /// @param tokenId The token ID
     /// @return The token URI
     function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
-        if (winners[tokenId]) {
+        if (winnerIds.length == 0) {
+            return string(abi.encodePacked(baseURI, "/raffle.json"));
+        } else if (winners[tokenId]) {
             return string(abi.encodePacked(baseURI, "/winner.json"));
-        } else if (paused()) {
+        } else {
             return string(abi.encodePacked(baseURI, "/loser.json"));
         }
-        return string(abi.encodePacked(baseURI, "/raffle.json"));
     }
 
     /// @notice Checks if a tokenId is a winner
@@ -133,14 +131,13 @@ contract TaikoPartyTicket is
     /// @param _winners The list of winning token ids
     function setWinners(uint256[] calldata _winners)
         external
-        whenNotPaused
+        whenPaused
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
         for (uint256 i = 0; i < _winners.length; i++) {
             winners[_winners[i]] = true;
             winnerIds.push(_winners[i]);
         }
-        pause();
     }
 
     /// @notice Set the base URI
@@ -217,7 +214,6 @@ contract TaikoPartyTicket is
     /// @param tokenIds The IDs of the winner to revoke
     function revokeWinners(uint256[] calldata tokenIds)
         external
-        whenPaused
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
         for (uint256 i = 0; i < tokenIds.length; i++) {
@@ -233,7 +229,6 @@ contract TaikoPartyTicket is
         uint256 newWinnerId
     )
         external
-        whenPaused
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
         if (!winners[revokeId]) revert CANNOT_REVOKE_NON_WINNER();
@@ -275,6 +270,12 @@ contract TaikoPartyTicket is
             _winners[i] = ownerOf(winnerIds[i]);
         }
         return _winners;
+    }
+
+    /// @notice Get the winner addresses
+    /// @return bool if the winners have been set
+    function areWinnersSet() public view returns (bool) {
+        return winnerIds.length > 0;
     }
 
     /// @notice supportsInterface implementation

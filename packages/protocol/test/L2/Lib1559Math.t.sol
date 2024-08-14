@@ -15,14 +15,25 @@ contract TestLib1559Math is TaikoTest {
 
     function test_basefee() external pure {
         uint256 basefee;
-        for (uint256 i; basefee <= 5000;) {
+        console2.log("excess, basefee");
+        // 1_0000_000 is 0.01 gwei
+        for (uint256 i; basefee <= 10_000_000;) {
             // uint 0.01 gwei
-            basefee = Lib1559Math.basefee(i * 5_000_000, 5_000_000 * 8) / 10_000_000;
+            uint256 excess = i * 5_000_000;
+            uint256 target = 5_000_000 * 8;
+
+            basefee = Lib1559Math.basefee(excess, target);
             if (basefee != 0) {
-                console2.log("basefee (uint 0.01gwei) after", i, "seconds:", basefee);
+                console2.log(
+                    string.concat(Strings.toString(excess), ", ", Strings.toString(basefee))
+                );
             }
             i += 1;
         }
+    }
+
+    function test_mainnet_min_basefee() external pure {
+        console2.log("Mainnet minimal basefee: ", Lib1559Math.basefee(1_340_000_000, 5_000_000 * 8));
     }
 
     function test_change_of_quotient_and_gips() public {
@@ -61,5 +72,24 @@ contract TestLib1559Math is TaikoTest {
             console2.log("basefee: ", basefee);
             assertEq(baselineBasefee, basefee);
         }
+    }
+
+    function test_change_of_quotient_and_gips2() public {
+        uint64 excess = 1;
+        uint64 target = 60_000_000 * 8;
+        uint256 unit = 10_000_000; // 0.01 gwei
+
+        // uint 0.01 gwei
+        uint256 baselineBasefee = Lib1559Math.basefee(excess, target) / unit;
+        console2.log("baseline basefee: ", baselineBasefee);
+
+        console2.log("maintain basefee when target changes");
+        uint64 newTarget = 5_000_000 * 8;
+        uint64 newExcess = Lib1559Math.adjustExcess(excess, target, newTarget);
+        uint256 basefee = Lib1559Math.basefee(newExcess, newTarget) / unit;
+        console2.log("old gas excess: ", excess);
+        console2.log("new gas excess: ", newExcess);
+        console2.log("basefee: ", basefee);
+        assertEq(baselineBasefee, basefee);
     }
 }
