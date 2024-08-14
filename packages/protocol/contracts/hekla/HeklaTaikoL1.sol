@@ -10,7 +10,7 @@ contract HeklaTaikoL1 is TaikoL1 {
     /// @inheritdoc ITaikoL1
     function getConfig() public pure override returns (TaikoData.Config memory) {
         return TaikoData.Config({
-            chainId: LibNetwork.TAIKO_MAINNET,
+            chainId: LibNetwork.TAIKO_HEKLA,
             // Never change this value as ring buffer is being reused!!!
             blockMaxProposals: 324_000,
             // Never change this value as ring buffer is being reused!!!
@@ -20,9 +20,13 @@ contract HeklaTaikoL1 is TaikoL1 {
             livenessBond: 125e18, // 125 Taiko token
             stateRootSyncInternal: 16,
             maxAnchorHeightOffset: 64,
-            basefeeAdjustmentQuotient: 8,
-            basefeeSharingPctg: 75,
-            gasIssuancePerSecond: 5_000_000,
+            baseFeeConfig: TaikoData.BaseFeeConfig({
+                adjustmentQuotient: 8,
+                sharingPctg: 75,
+                gasIssuancePerSecond: 5_000_000,
+                minGasExcess: 1_340_000_000,
+                maxGasIssuancePerBlock: 600_000_000 // two minutes
+             }),
             ontakeForkHeight: 720_000 // = 7200 * 100
          });
     }
