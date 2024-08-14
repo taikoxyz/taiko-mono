@@ -27,7 +27,8 @@
     "galxe:deploy:mainnet": "forge clean && pnpm compile && forge script script/galxe/Deploy.s.sol --rpc-url https://rpc.mainnet.taiko.xyz --legacy --with-gas-price 1",
     "tbzb:deploy:mainnet": "forge clean && pnpm compile && forge script script/trailblazers-badges/sol/Deploy.s.sol --rpc-url https://rpc.mainnet.taiko.xyz --broadcast --legacy --with-gas-price 13 ",
     "taikoon:deploy:v2": "forge clean && pnpm compile && forge script script/taikoon/sol/UpgradeV2.sol --rpc-url https://rpc.mainnet.taiko.xyz --broadcast",
-    "kbw:deploy:hekla": "forge clean && pnpm compile && forge script script/party-ticket/sol/Deploy.s.sol --rpc-url https://rpc.hekla.taiko.xyz --broadcast   --gas-estimate-multiplier 200"
+    "kbw:deploy:hekla": "forge clean && pnpm compile && forge script script/party-ticket/sol/Deploy.s.sol --rpc-url https://rpc.hekla.taiko.xyz --broadcast   --gas-estimate-multiplier 200",
+    "kbw:deploy:mainnet": "forge clean && pnpm compile && forge script script/party-ticket/sol/Deploy.s.sol --rpc-url https://rpc.mainnet.taiko.xyz --broadcast --legacy --with-gas-price 30 "
   },
   "devDependencies": {
     "@types/node": "^20.11.30",
