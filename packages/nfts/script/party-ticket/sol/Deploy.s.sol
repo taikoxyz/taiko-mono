@@ -16,7 +16,7 @@ contract DeployScript is Script {
 
     // Hardhat Testnet Values
     string baseURI =
-        "https://taikonfts.4everland.link/ipfs/bafybeighqzbsghqsnlo2ksf2afvbhyym6xde7cdoz2nri2xcoctuy7rya4";
+        "https://taikonfts.4everland.link/ipfs/bafybeia5mmkauevbhs4fm6wfib5wfifefrwfremlc67whrrgsgzj46kfsm";
     IMinimalBlacklist blacklist = IMinimalBlacklist(0xe61E9034b5633977eC98E302b33e321e8140F105);
 
     uint256 mintFee = 0.03 ether;
