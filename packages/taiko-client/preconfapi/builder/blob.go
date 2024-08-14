@@ -182,7 +182,7 @@ func (b *BlobTransactionBuilder) BuildBlocksUnsigned(
 		encodedParams = append(encodedParams, encoded)
 	}
 
-	var emptyTxLists [][]byte
+	emptyTxLists := make([][]byte, 0)
 
 	for i := range encodedParams {
 		emptyTxLists[i] = []byte{0xff}
