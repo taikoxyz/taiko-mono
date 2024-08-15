@@ -65,7 +65,7 @@ abstract contract TierProviderBase is ITierProvider {
                 validityBond: 250 ether, // TAIKO
                 contestBond: 1640.625 ether, // = 250 TAIKO * 6.5625
                 cooldownWindow: 1440, // 24 hours
-                provingWindow: GRACE_PERIOD + 120, // 2 hours
+                provingWindow: GRACE_PERIOD + 180, // 3 hours
                 maxBlocksToVerifyPerProof: 0
             });
         }
