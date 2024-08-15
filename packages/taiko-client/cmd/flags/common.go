@@ -81,7 +81,7 @@ var (
 		Usage:    "TaikoToken contract `address`",
 		Required: true,
 		Category: commonCategory,
-		EnvVars:  []string{"TAIKO_TOKEN_ADDRESS"},
+		EnvVars:  []string{"TAIKO_TOKEN"},
 	}
 
 	// Optional flags used by all client software.

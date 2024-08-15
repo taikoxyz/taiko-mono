@@ -56,7 +56,7 @@ func (s *ClientTestSuite) SetupTest() {
 		L2Endpoint:                    os.Getenv("L2_WS"),
 		TaikoL1Address:                common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
 		TaikoL2Address:                common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
-		TaikoTokenAddress:             common.HexToAddress(os.Getenv("TAIKO_TOKEN_ADDRESS")),
+		TaikoTokenAddress:             common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		GuardianProverMajorityAddress: common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT")),
 		GuardianProverMinorityAddress: common.HexToAddress(os.Getenv("GUARDIAN_PROVER_MINORITY")),
 		L2EngineEndpoint:              os.Getenv("L2_AUTH"),
@@ -144,7 +144,7 @@ func (s *ClientTestSuite) setAllowance(key *ecdsa.PrivateKey) {
 
 	var (
 		bigInt            = new(big.Int).Exp(big.NewInt(1_000_000_000), new(big.Int).SetUint64(uint64(decimal)), nil)
-		taikoTokenAddress = common.HexToAddress(os.Getenv("TAIKO_TOKEN_ADDRESS"))
+		taikoTokenAddress = common.HexToAddress(os.Getenv("TAIKO_TOKEN"))
 	)
 
 	data, err := encoding.TaikoTokenABI.Pack(
