@@ -30,9 +30,8 @@ abstract contract TierProviderBase is ITierProvider {
                 validityBond: 125 ether, // TKO
                 contestBond: 250 ether, // TKO
                 cooldownWindow: 1440, //24 hours
-                provingWindow: GRACE_PERIOD + 15, // 15 minutes
-                maxBlocksToVerifyPerProof: 0
-            });
+                provingWindow: GRACE_PERIOD + 15 // 15 minutes
+             });
         }
 
         if (_tierId == LibTiers.TIER_SGX) {
@@ -41,9 +40,8 @@ abstract contract TierProviderBase is ITierProvider {
                 validityBond: 125 ether, // TKO
                 contestBond: 820 ether, // =250TKO * 6.5625
                 cooldownWindow: 1440, //24 hours
-                provingWindow: GRACE_PERIOD + 60, // 1 hours
-                maxBlocksToVerifyPerProof: 0
-            });
+                provingWindow: GRACE_PERIOD + 60 // 1 hours
+             });
         }
 
         if (_tierId == LibTiers.TIER_SGX2) {
@@ -52,9 +50,8 @@ abstract contract TierProviderBase is ITierProvider {
                 validityBond: 125 ether, // TKO
                 contestBond: 820 ether, // =250TKO * 6.5625
                 cooldownWindow: 1440, //24 hours
-                provingWindow: GRACE_PERIOD + 60, // 1 hours
-                maxBlocksToVerifyPerProof: 0
-            });
+                provingWindow: GRACE_PERIOD + 60 // 1 hours
+             });
         }
 
         if (_tierId == LibTiers.TIER_SGX_ZKVM) {
@@ -63,9 +60,8 @@ abstract contract TierProviderBase is ITierProvider {
                 validityBond: 250 ether, // TKO
                 contestBond: 1640 ether, // =500TKO * 6.5625
                 cooldownWindow: 1440, //24 hours
-                provingWindow: GRACE_PERIOD + 240, // 4 hours
-                maxBlocksToVerifyPerProof: 0
-            });
+                provingWindow: GRACE_PERIOD + 240 // 4 hours
+             });
         }
 
         if (_tierId == LibTiers.TIER_GUARDIAN_MINORITY) {
@@ -74,9 +70,8 @@ abstract contract TierProviderBase is ITierProvider {
                 validityBond: 250 ether, // TKO
                 contestBond: 1640 ether, // =500TKO * 6.5625
                 cooldownWindow: GRACE_PERIOD + 240, // 4 hours
-                provingWindow: 2880, // 48 hours
-                maxBlocksToVerifyPerProof: 0
-            });
+                provingWindow: 2880 // 48 hours
+             });
         }
 
         if (_tierId == LibTiers.TIER_GUARDIAN) {
@@ -85,9 +80,8 @@ abstract contract TierProviderBase is ITierProvider {
                 validityBond: 0, // must be 0 for top tier
                 contestBond: 0, // must be 0 for top tier
                 cooldownWindow: 1440, // 24 hours
-                provingWindow: GRACE_PERIOD + 2880, // 48 hours
-                maxBlocksToVerifyPerProof: 0
-            });
+                provingWindow: GRACE_PERIOD + 2880 // 48 hours
+             });
         }
 
         revert TIER_NOT_FOUND();
