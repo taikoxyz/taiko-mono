@@ -1,6 +1,8 @@
 package transaction
 
 import (
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
@@ -12,7 +14,9 @@ func (s *TransactionTestSuite) TestBuildTxs() {
 	_, err := s.builder.Build(
 		common.Big256,
 		&metadata.TaikoDataBlockMetadataOntake{
-			TaikoDataBlockMetadataV2: bindings.TaikoDataBlockMetadataV2{},
+			TaikoDataBlockMetadataV2: bindings.TaikoDataBlockMetadataV2{
+				LivenessBond: big.NewInt(1),
+			},
 		},
 		&bindings.TaikoDataTransition{},
 		&bindings.TaikoDataTierProof{},
