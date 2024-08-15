@@ -3,7 +3,7 @@
 source internal/docker/docker_env.sh
 
 export PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
-export TAIKO_L2_ADDRESS=0x1670010000000000000000000000000000010001
+export TAIKO_L2=0x1670010000000000000000000000000000010001
 export L2_SIGNAL_SERVICE=0x1670010000000000000000000000000000010005
 export CONTRACT_OWNER=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 export PROVER_SET_ADMIN=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
@@ -40,6 +40,6 @@ export L2_GENESIS_HASH=$(
         -X POST \
         -H "Content-Type: application/json" \
         -d '{"jsonrpc":"2.0","id":0,"method":"eth_getBlockByNumber","params":["0x0", false]}' \
-        $L2_EXECUTION_ENGINE_HTTP_ENDPOINT | jq .result.hash | sed 's/\"//g'
+        $L2_HTTP | jq .result.hash | sed 's/\"//g'
 )
 echo "L2_GENESIS_HASH: $L2_GENESIS_HASH"

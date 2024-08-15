@@ -14,13 +14,13 @@ import (
 )
 
 var (
-	l1WsEndpoint   = os.Getenv("L1_NODE_WS_ENDPOINT")
-	l2WsEndpoint   = os.Getenv("L2_EXECUTION_ENGINE_WS_ENDPOINT")
-	l2HttpEndpoint = os.Getenv("L2_EXECUTION_ENGINE_HTTP_ENDPOINT")
+	l1WsEndpoint   = os.Getenv("L1_WS")
+	l2WsEndpoint   = os.Getenv("L2_WS")
+	l2HttpEndpoint = os.Getenv("L2_HTTP")
 	l1NodeVersion  = "1.0.0"
 	l2NodeVersion  = "0.1.0"
-	taikoL1        = os.Getenv("TAIKO_L1_ADDRESS")
-	taikoL2        = os.Getenv("TAIKO_L2_ADDRESS")
+	taikoL1        = os.Getenv("TAIKO_L1")
+	taikoL2        = os.Getenv("TAIKO_L2")
 	allowance      = 10.0
 	rpcTimeout     = 5 * time.Second
 )
@@ -70,8 +70,8 @@ func (s *ProverTestSuite) TestNewConfigFromCliContextGuardianProver() {
 		"--" + flags.TxGasLimit.Name, "100000",
 		"--" + flags.Dummy.Name,
 		"--" + flags.ProverCapacity.Name, "8",
-		"--" + flags.GuardianProverMajority.Name, os.Getenv("GUARDIAN_PROVER_CONTRACT_ADDRESS"),
-		"--" + flags.GuardianProverMinority.Name, os.Getenv("GUARDIAN_PROVER_MINORITY_ADDRESS"),
+		"--" + flags.GuardianProverMajority.Name, os.Getenv("GUARDIAN_PROVER_CONTRACT"),
+		"--" + flags.GuardianProverMinority.Name, os.Getenv("GUARDIAN_PROVER_MINORITY"),
 		"--" + flags.Graffiti.Name, "",
 		"--" + flags.ProveUnassignedBlocks.Name,
 		"--" + flags.MaxProposedIn.Name, "100",

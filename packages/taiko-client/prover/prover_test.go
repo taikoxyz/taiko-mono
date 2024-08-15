@@ -51,7 +51,7 @@ func (s *ProverTestSuite) SetupTest() {
 		log.Root(),
 		&metrics.TxMgrMetrics,
 		txmgr.CLIConfig{
-			L1RPCURL:                  os.Getenv("L1_NODE_WS_ENDPOINT"),
+			L1RPCURL:                  os.Getenv("L1_WS"),
 			NumConfirmations:          0,
 			SafeAbortNonceTooLowCount: txmgr.DefaultBatcherFlagValues.SafeAbortNonceTooLowCount,
 			PrivateKey:                common.Bytes2Hex(crypto.FromECDSA(l1ProverPrivKey)),
@@ -80,11 +80,11 @@ func (s *ProverTestSuite) SetupTest() {
 	d := new(driver.Driver)
 	s.Nil(d.InitFromConfig(context.Background(), &driver.Config{
 		ClientConfig: &rpc.ClientConfig{
-			L1Endpoint:       os.Getenv("L1_NODE_WS_ENDPOINT"),
-			L2Endpoint:       os.Getenv("L2_EXECUTION_ENGINE_WS_ENDPOINT"),
-			L2EngineEndpoint: os.Getenv("L2_EXECUTION_ENGINE_AUTH_ENDPOINT"),
-			TaikoL1Address:   common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
-			TaikoL2Address:   common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
+			L1Endpoint:       os.Getenv("L1_WS"),
+			L2Endpoint:       os.Getenv("L2_WS"),
+			L2EngineEndpoint: os.Getenv("L2_AUTH"),
+			TaikoL1Address:   common.HexToAddress(os.Getenv("TAIKO_L1")),
+			TaikoL2Address:   common.HexToAddress(os.Getenv("TAIKO_L2")),
 			JwtSecret:        string(jwtSecret),
 		},
 	}))
@@ -98,13 +98,13 @@ func (s *ProverTestSuite) SetupTest() {
 
 	s.Nil(prop.InitFromConfig(context.Background(), &proposer.Config{
 		ClientConfig: &rpc.ClientConfig{
-			L1Endpoint:        os.Getenv("L1_NODE_WS_ENDPOINT"),
-			L2Endpoint:        os.Getenv("L2_EXECUTION_ENGINE_WS_ENDPOINT"),
-			L2EngineEndpoint:  os.Getenv("L2_EXECUTION_ENGINE_AUTH_ENDPOINT"),
+			L1Endpoint:        os.Getenv("L1_WS"),
+			L2Endpoint:        os.Getenv("L2_WS"),
+			L2EngineEndpoint:  os.Getenv("L2_AUTH"),
 			JwtSecret:         string(jwtSecret),
-			TaikoL1Address:    common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
-			TaikoL2Address:    common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
-			TaikoTokenAddress: common.HexToAddress(os.Getenv("TAIKO_TOKEN_ADDRESS")),
+			TaikoL1Address:    common.HexToAddress(os.Getenv("TAIKO_L1")),
+			TaikoL2Address:    common.HexToAddress(os.Getenv("TAIKO_L2")),
+			TaikoTokenAddress: common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		},
 		L1ProposerPrivKey:          l1ProposerPrivKey,
 		L2SuggestedFeeRecipient:    common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
@@ -128,12 +128,12 @@ func (s *ProverTestSuite) TestInitError() {
 	p := new(Prover)
 
 	s.NotNil(InitFromConfig(ctx, p, &Config{
-		L1WsEndpoint:          os.Getenv("L1_NODE_WS_ENDPOINT"),
-		L2WsEndpoint:          os.Getenv("L2_EXECUTION_ENGINE_WS_ENDPOINT"),
-		L2HttpEndpoint:        os.Getenv("L2_EXECUTION_ENGINE_HTTP_ENDPOINT"),
-		TaikoL1Address:        common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
-		TaikoL2Address:        common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
-		TaikoTokenAddress:     common.HexToAddress(os.Getenv("TAIKO_TOKEN_ADDRESS")),
+		L1WsEndpoint:          os.Getenv("L1_WS"),
+		L2WsEndpoint:          os.Getenv("L2_WS"),
+		L2HttpEndpoint:        os.Getenv("L2_HTTP"),
+		TaikoL1Address:        common.HexToAddress(os.Getenv("TAIKO_L1")),
+		TaikoL2Address:        common.HexToAddress(os.Getenv("TAIKO_L2")),
+		TaikoTokenAddress:     common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		L1ProverPrivKey:       l1ProverPrivKey,
 		Dummy:                 true,
 		ProveUnassignedBlocks: true,
@@ -309,9 +309,9 @@ func (s *ProverTestSuite) TestContestWrongBlocks() {
 
 	s.Nil(s.p.transitionContestedHandler.Handle(context.Background(), contestedEvent))
 
-	s.p.cfg.GuardianProverMajorityAddress = common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT_ADDRESS"))
+	s.p.cfg.GuardianProverMajorityAddress = common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT"))
 	s.True(s.p.IsGuardianProver())
-	s.p.cfg.GuardianProverMinorityAddress = common.HexToAddress(os.Getenv("GUARDIAN_PROVER_MINORITY_ADDRESS"))
+	s.p.cfg.GuardianProverMinorityAddress = common.HexToAddress(os.Getenv("GUARDIAN_PROVER_MINORITY"))
 
 	txBuilder := transaction.NewProveBlockTxBuilder(
 		s.p.rpc,
@@ -347,7 +347,7 @@ func (s *ProverTestSuite) TestContestWrongBlocks() {
 }
 
 func (s *ProverTestSuite) TestSelectSubmitter() {
-	s.p.cfg.GuardianProverMajorityAddress = common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT_ADDRESS"))
+	s.p.cfg.GuardianProverMajorityAddress = common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT"))
 	s.True(s.p.IsGuardianProver())
 	submitter := s.p.selectSubmitter(encoding.TierGuardianMinorityID + 1)
 	s.NotNil(submitter)
@@ -360,7 +360,7 @@ func (s *ProverTestSuite) TestSelectSubmitterNotFound() {
 }
 
 func (s *ProverTestSuite) TestGetSubmitterByTier() {
-	s.p.cfg.GuardianProverMajorityAddress = common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT_ADDRESS"))
+	s.p.cfg.GuardianProverMajorityAddress = common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT"))
 	s.True(s.p.IsGuardianProver())
 
 	submitter := s.p.getSubmitterByTier(encoding.TierGuardianMajorityID)
@@ -521,12 +521,12 @@ func (s *ProverTestSuite) initProver(
 
 	p := new(Prover)
 	s.Nil(InitFromConfig(ctx, p, &Config{
-		L1WsEndpoint:          os.Getenv("L1_NODE_WS_ENDPOINT"),
-		L2WsEndpoint:          os.Getenv("L2_EXECUTION_ENGINE_WS_ENDPOINT"),
-		L2HttpEndpoint:        os.Getenv("L2_EXECUTION_ENGINE_HTTP_ENDPOINT"),
-		TaikoL1Address:        common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
-		TaikoL2Address:        common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
-		TaikoTokenAddress:     common.HexToAddress(os.Getenv("TAIKO_TOKEN_ADDRESS")),
+		L1WsEndpoint:          os.Getenv("L1_WS"),
+		L2WsEndpoint:          os.Getenv("L2_WS"),
+		L2HttpEndpoint:        os.Getenv("L2_HTTP"),
+		TaikoL1Address:        common.HexToAddress(os.Getenv("TAIKO_L1")),
+		TaikoL2Address:        common.HexToAddress(os.Getenv("TAIKO_L2")),
+		TaikoTokenAddress:     common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		L1ProverPrivKey:       key,
 		Dummy:                 true,
 		ProveUnassignedBlocks: true,

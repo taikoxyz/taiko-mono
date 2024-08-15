@@ -27,14 +27,14 @@ func TestUnpackTxListBytes(t *testing.T) {
 	)
 	require.ErrorContains(t, err, "no method with id")
 
-	cli, err := ethclient.Dial(os.Getenv("L1_NODE_WS_ENDPOINT"))
+	cli, err := ethclient.Dial(os.Getenv("L1_WS"))
 	require.Nil(t, err)
 
 	chainID, err := cli.ChainID(context.Background())
 	require.Nil(t, err)
 
 	taikoL1, err := bindings.NewTaikoL1Client(
-		common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
+		common.HexToAddress(os.Getenv("TAIKO_L1")),
 		cli,
 	)
 	require.Nil(t, err)
