@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/suite"
 
+	v2 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v2"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 )
 
@@ -42,8 +43,7 @@ func (s *AnchorTxConstructorTestSuite) TestAssembleAnchorV2Tx() {
 		s.l1Height,
 		s.l1Hash,
 		1024,
-		20_000_000,
-		8,
+		&v2.TaikoDataBaseFeeConfig{},
 		common.Big1,
 		common.Big256,
 	)

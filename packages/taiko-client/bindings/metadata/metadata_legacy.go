@@ -6,7 +6,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v1"
+	v1 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v1"
+	v2 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v2"
 )
 
 // Ensure TaikoDataBlockMetadataLegacy implements TaikoBlockMetaData.
@@ -14,7 +15,7 @@ var _ TaikoBlockMetaData = (*TaikoDataBlockMetadataLegacy)(nil)
 
 // TaikoDataBlockMetadataLegacy is the metadata of a legacy Taiko block.
 type TaikoDataBlockMetadataLegacy struct {
-	bindings.TaikoDataBlockMetadata
+	v1.TaikoDataBlockMetadata
 	types.Log
 	assignedProver common.Address
 	livenessBond   *big.Int
@@ -22,7 +23,7 @@ type TaikoDataBlockMetadataLegacy struct {
 
 // NewTaikoDataBlockMetadataLegacy creates a new instance of TaikoDataBlockMetadataLegacy
 // from the TaikoL1.BlockProposed event.
-func NewTaikoDataBlockMetadataLegacy(e *bindings.LibProposingBlockProposed) *TaikoDataBlockMetadataLegacy {
+func NewTaikoDataBlockMetadataLegacy(e *v1.LibProposingBlockProposed) *TaikoDataBlockMetadataLegacy {
 	return &TaikoDataBlockMetadataLegacy{
 		TaikoDataBlockMetadata: e.Meta,
 		Log:                    e.Raw,
@@ -132,14 +133,9 @@ func (m *TaikoDataBlockMetadataLegacy) GetBlobIndex() uint8 {
 	return 0
 }
 
-// GetBasefeeAdjustmentQuotient returns the L2 block basefee adjustment quotient.
-func (m *TaikoDataBlockMetadataLegacy) GetBasefeeAdjustmentQuotient() uint8 {
-	return 0
-}
-
-// GetGasIssuancePerSecond returns the L2 block gas issuance per second.
-func (m *TaikoDataBlockMetadataLegacy) GetGasIssuancePerSecond() uint32 {
-	return 0
+// GetBaseFeeConfig returns the L2 block basefee configs.
+func (m *TaikoDataBlockMetadataLegacy) GetBaseFeeConfig() *v2.TaikoDataBaseFeeConfig {
+	return &v2.TaikoDataBaseFeeConfig{}
 }
 
 // GetRawBlockHeight returns the raw L1 block height.
@@ -163,7 +159,7 @@ func (m *TaikoDataBlockMetadataLegacy) GetTxHash() common.Hash {
 }
 
 // InnerMetadata returns the inner metadata.
-func (m *TaikoDataBlockMetadataLegacy) InnerMetadata() *bindings.TaikoDataBlockMetadata {
+func (m *TaikoDataBlockMetadataLegacy) InnerMetadata() *v1.TaikoDataBlockMetadata {
 	return &m.TaikoDataBlockMetadata
 }
 

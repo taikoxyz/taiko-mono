@@ -21,7 +21,6 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
-	v2 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v2"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
@@ -366,7 +365,8 @@ func (s *Syncer) insertNewHead(
 			return nil, fmt.Errorf("failed to create TaikoL2.anchor transaction: %w", err)
 		}
 	} else {
-		newGasTarget := uint64(meta.GetGasIssuancePerSecond()) * uint64(meta.GetBasefeeAdjustmentQuotient())
+		newGasTarget := uint64(meta.GetBaseFeeConfig().GasIssuancePerSecond) *
+			uint64(meta.GetBaseFeeConfig().AdjustmentQuotient)
 		parentGasTarget, err := s.rpc.V2.TaikoL2.ParentGasTarget(&bind.CallOpts{
 			BlockNumber: parent.Number, Context: ctx,
 		})
@@ -401,13 +401,7 @@ func (s *Syncer) insertNewHead(
 		// Get L2 baseFee
 		baseFeeInfo, err = s.rpc.V2.TaikoL2.CalculateBaseFee(
 			&bind.CallOpts{BlockNumber: parent.Number, Context: ctx},
-			v2.TaikoDataBaseFeeConfig{
-				GasIssuancePerSecond:   meta.GetGasIssuancePerSecond(),
-				AdjustmentQuotient:     meta.GetBasefeeAdjustmentQuotient(),
-				SharingPctg:            meta.GetBasefeeSharingPctg(),
-				MinGasExcess:           meta.GetBasefeeMinGasExcess(),
-				MaxGasIssuancePerBlock: meta.GetBasefeeMaxGasIssuancePerBlock(),
-			},
+			*meta.GetBaseFeeConfig(),
 			meta.GetTimestamp()-parent.Time,
 			parentGasExcess,
 			uint32(parent.GasUsed),
@@ -415,11 +409,6 @@ func (s *Syncer) insertNewHead(
 		if err != nil {
 			log.Error("failed to get L2 baseFee v2",
 				"error", err,
-				"gasIssuancePerSecond", meta.GetGasIssuancePerSecond(),
-				"adjustmentQuotient", meta.GetBasefeeAdjustmentQuotient(),
-				"sharingPctg", meta.GetBasefeeSharingPctg(),
-				"minGasExcess", meta.GetBasefeeMinGasExcess(),
-				"maxGasIssuancePerBlock", meta.GetBasefeeMaxGasIssuancePerBlock(),
 				"timestamp", meta.GetTimestamp()-parent.Time,
 				"parentGasExcess", parentGasExcess,
 				"parentGasUsed", parent.GasUsed,
@@ -438,8 +427,7 @@ func (s *Syncer) insertNewHead(
 			new(big.Int).SetUint64(meta.GetAnchorBlockID()),
 			anchorBlockHeader.Root,
 			parent.GasUsed,
-			meta.GetGasIssuancePerSecond(),
-			meta.GetBasefeeAdjustmentQuotient(),
+			meta.GetBaseFeeConfig(),
 			new(big.Int).Add(parent.Number, common.Big1),
 			baseFeeInfo.Basefee,
 		)

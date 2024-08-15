@@ -29,6 +29,15 @@ var (
 	_ = abi.ConvertType
 )
 
+// TaikoDataBaseFeeConfig is an auto generated low-level Go binding around an user-defined struct.
+type TaikoDataBaseFeeConfig struct {
+	AdjustmentQuotient     uint8
+	SharingPctg            uint8
+	GasIssuancePerSecond   uint32
+	MinGasExcess           uint64
+	MaxGasIssuancePerBlock uint32
+}
+
 // TaikoDataBlock is an auto generated low-level Go binding around an user-defined struct.
 type TaikoDataBlock struct {
 	MetaHash             [32]byte

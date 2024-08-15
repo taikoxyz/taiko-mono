@@ -29,6 +29,26 @@ var (
 	_ = abi.ConvertType
 )
 
+// IVerifierContext is an auto generated low-level Go binding around an user-defined struct.
+type IVerifierContext struct {
+	MetaHash     [32]byte
+	BlobHash     [32]byte
+	Prover       common.Address
+	BlockId      uint64
+	IsContesting bool
+	BlobUsed     bool
+	MsgSender    common.Address
+}
+
+// TaikoDataBaseFeeConfig is an auto generated low-level Go binding around an user-defined struct.
+type TaikoDataBaseFeeConfig struct {
+	AdjustmentQuotient     uint8
+	SharingPctg            uint8
+	GasIssuancePerSecond   uint32
+	MinGasExcess           uint64
+	MaxGasIssuancePerBlock uint32
+}
+
 // TaikoDataBlockMetadata is an auto generated low-level Go binding around an user-defined struct.
 type TaikoDataBlockMetadata struct {
 	L1Hash         [32]byte
@@ -45,6 +65,44 @@ type TaikoDataBlockMetadata struct {
 	BlobUsed       bool
 	ParentMetaHash [32]byte
 	Sender         common.Address
+}
+
+// TaikoDataBlockMetadataV2 is an auto generated low-level Go binding around an user-defined struct.
+type TaikoDataBlockMetadataV2 struct {
+	AnchorBlockHash  [32]byte
+	Difficulty       [32]byte
+	BlobHash         [32]byte
+	ExtraData        [32]byte
+	Coinbase         common.Address
+	Id               uint64
+	GasLimit         uint32
+	Timestamp        uint64
+	AnchorBlockId    uint64
+	MinTier          uint16
+	BlobUsed         bool
+	ParentMetaHash   [32]byte
+	Proposer         common.Address
+	LivenessBond     *big.Int
+	ProposedAt       uint64
+	ProposedIn       uint64
+	BlobTxListOffset uint32
+	BlobTxListLength uint32
+	BlobIndex        uint8
+	BaseFeeConfig    TaikoDataBaseFeeConfig
+}
+
+// TaikoDataTierProof is an auto generated low-level Go binding around an user-defined struct.
+type TaikoDataTierProof struct {
+	Tier uint16
+	Data []byte
+}
+
+// TaikoDataTransition is an auto generated low-level Go binding around an user-defined struct.
+type TaikoDataTransition struct {
+	ParentHash [32]byte
+	BlockHash  [32]byte
+	StateRoot  [32]byte
+	Graffiti   [32]byte
 }
 
 // GuardianProverMetaData contains all meta data concerning the GuardianProver contract.

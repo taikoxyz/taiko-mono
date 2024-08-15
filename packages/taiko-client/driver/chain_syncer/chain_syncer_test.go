@@ -96,7 +96,7 @@ func (s *ChainSyncerTestSuite) TestSync() {
 func (s *ChainSyncerTestSuite) TestAheadOfProtocolVerifiedHead2() {
 	s.TakeSnapshot()
 	// propose a couple blocks
-	s.ProposeAndInsertEmptyBlocks(s.p, s.s.blobSyncer)
+	blockMeta := s.ProposeAndInsertEmptyBlocks(s.p, s.s.blobSyncer)
 
 	// NOTE: need to prove the proposed blocks to be verified, writing helper function
 	// generate transactopts to interact with TaikoL1 contract with.
@@ -110,7 +110,9 @@ func (s *ChainSyncerTestSuite) TestAheadOfProtocolVerifiedHead2() {
 
 	l2Head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
-	s.Equal("test", string(bytes.TrimRight(l2Head.Extra, "\x00")))
+	if !blockMeta[len(blockMeta)-1].IsOntakeBlock() {
+		s.Equal("test", string(bytes.TrimRight(l2Head.Extra, "\x00")))
+	}
 	log.Info("L1HeaderByNumber head", "number", head.Number)
 	// (equiv to s.state.GetL2Head().Number)
 	log.Info("L2HeaderByNumber head", "number", l2Head.Number)

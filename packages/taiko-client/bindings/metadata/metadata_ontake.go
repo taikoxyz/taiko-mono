@@ -128,14 +128,9 @@ func (m *TaikoDataBlockMetadataOntake) GetBlobIndex() uint8 {
 	return m.BlobIndex
 }
 
-// GetBasefeeAdjustmentQuotient returns the L2 block basefee adjustment quotient.
-func (m *TaikoDataBlockMetadataOntake) GetBasefeeAdjustmentQuotient() uint8 {
-	return m.BaseFeeConfig.AdjustmentQuotient
-}
-
-// GetGasIssuancePerSecond returns the L2 block gas issuance per second.
-func (m *TaikoDataBlockMetadataOntake) GetGasIssuancePerSecond() uint32 {
-	return m.BaseFeeConfig.GasIssuancePerSecond
+// GetBaseFeeConfig returns the L2 block basefee configs.
+func (m *TaikoDataBlockMetadataOntake) GetBaseFeeConfig() *bindings.TaikoDataBaseFeeConfig {
+	return &m.BaseFeeConfig
 }
 
 // GetRawBlockHeight returns the raw L1 block height.
@@ -163,15 +158,6 @@ func (m *TaikoDataBlockMetadataOntake) InnerMetadata() *bindings.TaikoDataBlockM
 	return &m.TaikoDataBlockMetadataV2
 }
 
-func (m *TaikoDataBlockMetadataOntake) GetBasefeeSharingPctg() uint8 {
-	return m.TaikoDataBlockMetadataV2.BaseFeeConfig.SharingPctg
-}
-func (m *TaikoDataBlockMetadataOntake) GetBasefeeMinGasExcess() uint64 {
-	return m.TaikoDataBlockMetadataV2.BaseFeeConfig.MinGasExcess
-}
-func (m *TaikoDataBlockMetadataOntake) GetBasefeeMaxGasIssuancePerBlock() uint32 {
-	return m.TaikoDataBlockMetadataV2.BaseFeeConfig.MaxGasIssuancePerBlock
-}
 func (m *TaikoDataBlockMetadataOntake) IsOntakeBlock() bool {
 	return true
 }

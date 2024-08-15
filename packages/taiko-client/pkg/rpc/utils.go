@@ -31,6 +31,13 @@ func GetProtocolStateVariables(
 	A v2.TaikoDataSlotA
 	B v2.TaikoDataSlotB
 }, error) {
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	defer cancel()
+
 	slotA, slotB, err := taikoL1Client.GetStateVariables(opts)
 	if err != nil {
 		return nil, err

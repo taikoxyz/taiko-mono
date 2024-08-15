@@ -410,9 +410,9 @@ type LibProposingBlockProposedV2 struct {
 	Raw     types.Log // Blockchain specific contextual infos
 }
 
-// FilterBlockProposedV2 is a free log retrieval operation binding the contract event 0xe16dc67efc191da807c8fc2316d1f4d2615d282a5cbebf996def775d727ee9a9.
+// FilterBlockProposedV2 is a free log retrieval operation binding the contract event 0xefe9c6c0b5cbd9c0eed2d1e9c00cfc1a010d6f1aff50f7facd665a639b622b26.
 //
-// Solidity: event BlockProposedV2(uint256 indexed blockId, (bytes32,bytes32,bytes32,bytes32,address,uint64,uint32,uint64,uint64,uint16,bool,bytes32,address,uint96,uint64,uint64,uint32,uint32,uint8,uint8,uint8,uint32) meta)
+// Solidity: event BlockProposedV2(uint256 indexed blockId, (bytes32,bytes32,bytes32,bytes32,address,uint64,uint32,uint64,uint64,uint16,bool,bytes32,address,uint96,uint64,uint64,uint32,uint32,uint8,(uint8,uint8,uint32,uint64,uint32)) meta)
 func (_LibProposing *LibProposingFilterer) FilterBlockProposedV2(opts *bind.FilterOpts, blockId []*big.Int) (*LibProposingBlockProposedV2Iterator, error) {
 
 	var blockIdRule []interface{}
@@ -427,9 +427,9 @@ func (_LibProposing *LibProposingFilterer) FilterBlockProposedV2(opts *bind.Filt
 	return &LibProposingBlockProposedV2Iterator{contract: _LibProposing.contract, event: "BlockProposedV2", logs: logs, sub: sub}, nil
 }
 
-// WatchBlockProposedV2 is a free log subscription operation binding the contract event 0xe16dc67efc191da807c8fc2316d1f4d2615d282a5cbebf996def775d727ee9a9.
+// WatchBlockProposedV2 is a free log subscription operation binding the contract event 0xefe9c6c0b5cbd9c0eed2d1e9c00cfc1a010d6f1aff50f7facd665a639b622b26.
 //
-// Solidity: event BlockProposedV2(uint256 indexed blockId, (bytes32,bytes32,bytes32,bytes32,address,uint64,uint32,uint64,uint64,uint16,bool,bytes32,address,uint96,uint64,uint64,uint32,uint32,uint8,uint8,uint8,uint32) meta)
+// Solidity: event BlockProposedV2(uint256 indexed blockId, (bytes32,bytes32,bytes32,bytes32,address,uint64,uint32,uint64,uint64,uint16,bool,bytes32,address,uint96,uint64,uint64,uint32,uint32,uint8,(uint8,uint8,uint32,uint64,uint32)) meta)
 func (_LibProposing *LibProposingFilterer) WatchBlockProposedV2(opts *bind.WatchOpts, sink chan<- *LibProposingBlockProposedV2, blockId []*big.Int) (event.Subscription, error) {
 
 	var blockIdRule []interface{}
@@ -469,9 +469,9 @@ func (_LibProposing *LibProposingFilterer) WatchBlockProposedV2(opts *bind.Watch
 	}), nil
 }
 
-// ParseBlockProposedV2 is a log parse operation binding the contract event 0xe16dc67efc191da807c8fc2316d1f4d2615d282a5cbebf996def775d727ee9a9.
+// ParseBlockProposedV2 is a log parse operation binding the contract event 0xefe9c6c0b5cbd9c0eed2d1e9c00cfc1a010d6f1aff50f7facd665a639b622b26.
 //
-// Solidity: event BlockProposedV2(uint256 indexed blockId, (bytes32,bytes32,bytes32,bytes32,address,uint64,uint32,uint64,uint64,uint16,bool,bytes32,address,uint96,uint64,uint64,uint32,uint32,uint8,uint8,uint8,uint32) meta)
+// Solidity: event BlockProposedV2(uint256 indexed blockId, (bytes32,bytes32,bytes32,bytes32,address,uint64,uint32,uint64,uint64,uint16,bool,bytes32,address,uint96,uint64,uint64,uint32,uint32,uint8,(uint8,uint8,uint32,uint64,uint32)) meta)
 func (_LibProposing *LibProposingFilterer) ParseBlockProposedV2(log types.Log) (*LibProposingBlockProposedV2, error) {
 	event := new(LibProposingBlockProposedV2)
 	if err := _LibProposing.contract.UnpackLog(event, "BlockProposedV2", log); err != nil {

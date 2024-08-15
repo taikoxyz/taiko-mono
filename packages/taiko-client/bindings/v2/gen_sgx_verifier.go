@@ -46,6 +46,14 @@ type TaikoDataTierProof struct {
 	Data []byte
 }
 
+// TaikoDataTransition is an auto generated low-level Go binding around an user-defined struct.
+type TaikoDataTransition struct {
+	ParentHash [32]byte
+	BlockHash  [32]byte
+	StateRoot  [32]byte
+	Graffiti   [32]byte
+}
+
 // V3StructCertificationData is an auto generated low-level Go binding around an user-defined struct.
 type V3StructCertificationData struct {
 	CertType             uint16
