@@ -20,6 +20,12 @@ var (
 		StateRootSyncInternal: 16,
 		MaxAnchorHeightOffset: 64,
 		OntakeForkHeight:      2,
+		BaseFeeConfig: bindings.TaikoDataBaseFeeConfig{
+			AdjustmentQuotient:     8,
+			GasIssuancePerSecond:   5_000_000,
+			MinGasExcess:           1_340_000_000,
+			MaxGasIssuancePerBlock: 600_000_000,
+		},
 	}
 	HeklaProtocolConfig = &bindings.TaikoDataConfig{
 		ChainId:               params.HeklaNetworkID.Uint64(),
@@ -31,6 +37,12 @@ var (
 		StateRootSyncInternal: 16,
 		MaxAnchorHeightOffset: 64,
 		OntakeForkHeight:      540_000,
+		BaseFeeConfig: bindings.TaikoDataBaseFeeConfig{
+			AdjustmentQuotient:     8,
+			GasIssuancePerSecond:   5_000_000,
+			MinGasExcess:           1_340_000_000,
+			MaxGasIssuancePerBlock: 600_000_000,
+		},
 	}
 	MainnetProtocolConfig = &bindings.TaikoDataConfig{
 		ChainId:               params.TaikoMainnetNetworkID.Uint64(),
@@ -42,6 +54,12 @@ var (
 		StateRootSyncInternal: 16,
 		MaxAnchorHeightOffset: 64,
 		OntakeForkHeight:      374_400,
+		BaseFeeConfig: bindings.TaikoDataBaseFeeConfig{
+			AdjustmentQuotient:     8,
+			GasIssuancePerSecond:   5_000_000,
+			MinGasExcess:           1_340_000_000,
+			MaxGasIssuancePerBlock: 600_000_000,
+		},
 	}
 )
 
