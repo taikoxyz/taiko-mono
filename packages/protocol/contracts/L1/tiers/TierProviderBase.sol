@@ -60,10 +60,10 @@ abstract contract TierProviderBase is ITierProvider {
         if (_tierId == LibTiers.TIER_ZKVM_RISC0) {
             return ITierProvider.Tier({
                 verifierName: LibStrings.B_TIER_ZKVM_RISC0,
-                validityBond: 250 ether, // TKO
+                validityBond: 200 ether, // TKO
                 contestBond: 1640 ether, // =500TKO * 6.5625
                 cooldownWindow: 1440, //24 hours
-                provingWindow: GRACE_PERIOD + 240, // 4 hours
+                provingWindow: GRACE_PERIOD + 120, // 2 hours
                 maxBlocksToVerifyPerProof: 0
             });
         }
