@@ -15,7 +15,7 @@ contract TierProviderV2 is TierProviderBase {
     }
 
     /// @inheritdoc ITierProvider
-    function getMinTier(uint256) public pure override returns (uint16) {
+    function getMinTier(address, uint256) public pure override returns (uint16) {
         return LibTiers.TIER_SGX;
     }
 }
