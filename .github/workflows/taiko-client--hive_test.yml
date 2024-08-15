@@ -43,7 +43,7 @@ jobs:
           cache: true
 
       - name: Clone taikoxyz/hive
-        run: git clone git@github.com:taikoxyz/hive.git
+        run: git clone https://github.com/taikoxyz/hive.git
 
       - name: hive tests
         working-directory: packages/taiko-client
