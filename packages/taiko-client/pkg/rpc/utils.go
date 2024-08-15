@@ -26,7 +26,7 @@ var (
 // GetProtocolStateVariables gets the protocol states from TaikoL1 contract.
 func GetProtocolStateVariables(
 	taikoL1Client *bindings.TaikoL1Client,
-	opts *bind.CallOpts, // TODO: add ctx
+	opts *bind.CallOpts,
 ) (*struct {
 	A bindings.TaikoDataSlotA
 	B bindings.TaikoDataSlotB
