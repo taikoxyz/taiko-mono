@@ -47,7 +47,7 @@ func (v *AnchorTxValidator) ValidateAnchorTx(tx *types.Transaction) error {
 
 	method, err := encoding.TxDataToAnchorMethod(tx.Data())
 	if err != nil {
-		return fmt.Errorf("error getting TaikoL2.anchor transaction method: %w", err)
+		return fmt.Errorf("failed to get TaikoL2.anchor transaction method: %w", err)
 	}
 
 	if method.Name != "anchor" && method.Name != "anchorV2" {
