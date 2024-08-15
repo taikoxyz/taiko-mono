@@ -6,8 +6,7 @@ import "../L1/tiers/TierProviderBase.sol";
 /// @title HeklaTierProvider
 /// @custom:security-contact security@taiko.xyz
 contract HeklaTierProvider is TierProviderBase {
-    // TODO(david): what's the proposer address?
-    address public constant LAB_PROPOSER = 0x0000000000000000000000000000000000000001;
+    address public constant LAB_PROPOSER = 0xD3f681bD6B49887A48cC9C9953720903967E9DC0;
 
     /// @inheritdoc ITierProvider
     function getTierIds() public pure override returns (uint16[] memory tiers_) {
