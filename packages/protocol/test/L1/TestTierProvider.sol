@@ -63,7 +63,7 @@ contract TestTierProvider is ITierProvider, ITierRouter {
     }
 
     /// @inheritdoc ITierProvider
-    function getMinTier(uint256 _rand) public pure override returns (uint16) {
+    function getMinTier(address, uint256 _rand) public pure override returns (uint16) {
         // 10% will be selected to require SGX proofs.
         if (_rand % 10 == 0) return LibTiers.TIER_SGX;
         // Other blocks are optimistic, without validity proofs.

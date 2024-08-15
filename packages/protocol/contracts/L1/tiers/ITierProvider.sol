@@ -28,9 +28,10 @@ interface ITierProvider {
     function getTierIds() external view returns (uint16[] memory);
 
     /// @dev Determines the minimal tier for a block based on a random input.
+    /// @param proposer The address of the block proposer.
     /// @param rand A pseudo-random number.
     /// @return The tier id.
-    function getMinTier(uint256 rand) external view returns (uint16);
+    function getMinTier(address proposer, uint256 rand) external view returns (uint16);
 }
 
 /// @dev Tier ID cannot be zero!
@@ -41,6 +42,9 @@ library LibTiers {
     /// @notice SGX tier ID.
     uint16 public constant TIER_SGX = 200;
     uint16 public constant TIER_SGX2 = 200;
+
+    // @notice ZKVM risc0 tier ID
+    uint16 public constant TIER_ZKVM_RISC0 = 290;
 
     /// @notice SGX + ZKVM tier ID.
     uint16 public constant TIER_SGX_ZKVM = 300;

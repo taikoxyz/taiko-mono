@@ -363,7 +363,8 @@ func (s *Syncer) insertNewHead(
 			return nil, fmt.Errorf("failed to create TaikoL2.anchor transaction: %w", err)
 		}
 	} else {
-		newGasTarget := uint64(meta.GetGasIssuancePerSecond()) * uint64(meta.GetBasefeeAdjustmentQuotient())
+		newGasTarget := uint64(meta.GetBaseFeeConfig().GasIssuancePerSecond) *
+			uint64(meta.GetBaseFeeConfig().AdjustmentQuotient)
 		parentGasTarget, err := s.rpc.TaikoL2.ParentGasTarget(&bind.CallOpts{
 			BlockNumber: parent.Number, Context: ctx,
 		})
@@ -397,9 +398,8 @@ func (s *Syncer) insertNewHead(
 		// Get L2 baseFee
 		baseFeeInfo, err = s.rpc.TaikoL2.CalculateBaseFee(
 			&bind.CallOpts{BlockNumber: parent.Number, Context: ctx},
-			meta.GetGasIssuancePerSecond(),
+			*meta.GetBaseFeeConfig(),
 			meta.GetTimestamp()-parent.Time,
-			meta.GetBasefeeAdjustmentQuotient(),
 			parentGasExcess,
 			uint32(parent.GasUsed),
 		)
@@ -417,8 +417,7 @@ func (s *Syncer) insertNewHead(
 			new(big.Int).SetUint64(meta.GetAnchorBlockID()),
 			anchorBlockHeader.Root,
 			parent.GasUsed,
-			meta.GetGasIssuancePerSecond(),
-			meta.GetBasefeeAdjustmentQuotient(),
+			meta.GetBaseFeeConfig(),
 			new(big.Int).Add(parent.Number, common.Big1),
 			baseFeeInfo.Basefee,
 		)
