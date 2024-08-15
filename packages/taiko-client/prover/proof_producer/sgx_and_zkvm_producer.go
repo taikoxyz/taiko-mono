@@ -243,5 +243,6 @@ func (s *SgxAndZKvmProofProducer) requestCancel(
 
 // Tier implements the ProofProducer interface.
 func (s *SgxAndZKvmProofProducer) Tier() uint16 {
-	return encoding.TierSgxAndZkVMID
+	// TODO: Temporarily use TierZkVMRisc0ID instead of TierSgxAndZkVMID
+	return encoding.TierZkVMRisc0ID
 }

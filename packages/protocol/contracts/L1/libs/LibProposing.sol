@@ -174,7 +174,7 @@ library LibProposing {
         );
 
         // Use the difficulty as a random number
-        meta_.minTier = local.tierProvider.getMinTier(uint256(meta_.difficulty));
+        meta_.minTier = local.tierProvider.getMinTier(meta_.proposer, uint256(meta_.difficulty));
 
         // Create the block that will be stored onchain
         TaikoData.Block memory blk = TaikoData.Block({
