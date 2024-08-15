@@ -46,8 +46,8 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 		s.RPCClient,
 		common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
 		common.Address{},
-		common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT_ADDRESS")),
-		common.HexToAddress(os.Getenv("GUARDIAN_PROVER_MINORITY_ADDRESS")),
+		common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT")),
+		common.HexToAddress(os.Getenv("GUARDIAN_PROVER_MINORITY")),
 	)
 
 	l1ProverPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROVER_PRIVATE_KEY")))
@@ -58,7 +58,7 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 		log.Root(),
 		new(metrics.NoopTxMetrics),
 		txmgr.CLIConfig{
-			L1RPCURL:                  os.Getenv("L1_NODE_WS_ENDPOINT"),
+			L1RPCURL:                  os.Getenv("L1_WS"),
 			NumConfirmations:          0,
 			SafeAbortNonceTooLowCount: txmgr.DefaultBatcherFlagValues.SafeAbortNonceTooLowCount,
 			PrivateKey:                common.Bytes2Hex(crypto.FromECDSA(l1ProverPrivKey)),
@@ -127,8 +127,8 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 
 	s.Nil(prop.InitFromConfig(context.Background(), &proposer.Config{
 		ClientConfig: &rpc.ClientConfig{
-			L1Endpoint:        os.Getenv("L1_NODE_WS_ENDPOINT"),
-			L2Endpoint:        os.Getenv("L2_EXECUTION_ENGINE_WS_ENDPOINT"),
+			L1Endpoint:        os.Getenv("L1_WS"),
+			L2Endpoint:        os.Getenv("L2_WS"),
 			TaikoL1Address:    common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
 			TaikoL2Address:    common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
 			TaikoTokenAddress: common.HexToAddress(os.Getenv("TAIKO_TOKEN_ADDRESS")),
@@ -150,7 +150,7 @@ func (s *ProofSubmitterTestSuite) TestGetRandomBumpedSubmissionDelay() {
 		log.Root(),
 		new(metrics.NoopTxMetrics),
 		txmgr.CLIConfig{
-			L1RPCURL:                  os.Getenv("L1_NODE_WS_ENDPOINT"),
+			L1RPCURL:                  os.Getenv("L1_WS"),
 			NumConfirmations:          0,
 			SafeAbortNonceTooLowCount: txmgr.DefaultBatcherFlagValues.SafeAbortNonceTooLowCount,
 			PrivateKey:                common.Bytes2Hex(crypto.FromECDSA(l1ProverPrivKey)),

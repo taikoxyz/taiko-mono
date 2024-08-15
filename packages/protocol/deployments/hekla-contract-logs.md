@@ -108,7 +108,7 @@
 ### taikoL1
 
 - proxy: `0x79C9109b764609df928d16fC4a91e9081F7e87DB`
-- impl: `0x67a3eBd5D313cB21b4Aab7099455f4dfCC11Af47.`
+- impl: `0xFEE0b488da4DFC7Cd784d47de42b9467C1faE0F3.`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
@@ -121,6 +121,7 @@
   - transfered ownership on Jul 8, 2024
   - upgraded on Jul 11, 2024 at [PR #17779](https://github.com/taikoxyz/taiko-mono/pull/17779)
   - upgraded on Jul 15, 2024 at commit `45281b8`
+  - upgraded on Aug 15, 2024 at `protocol-v1.8.0` with [#17919](https://github.com/taikoxyz/taiko-mono/pull/17919)
 
 ### assignmentHook
 
@@ -134,19 +135,21 @@
 
 ### tierProvider
 
-- impl: `0xDDfaA6F5E9ed78229660953439958636C9e26A34.`
+- impl: `0x312e6D7b46228019499Fd9dBe9F9AA349B0d8E3C`
 - logs:
   - upgraded on May 14, 2024 at commit `0ef7b8caa`
   - upgraded on Jun 14, 2024 at commit `cc10b04`
   - upgraded on Jun 19, 2024 at commit `b7e12e3`
+  - upgraded on Aug 15, 2024 at commit `05d49b0`
 
 ### tierRouter
 
-- impl: `0x18277Dfb30309360Fd4B8FbdD48283D1C71BDB65.`
+- impl: `0x45aB015d317453512d1a07a578411B6D653FAccc`
 - logs:
   - deployed on Jun 10, 2024 at commit `d5965bb`
   - upgraded on Jun 14, 2024 at commit `cc10b04`
   - upgraded on Jun 19, 2024 at commit `b7e12e3`
+  - upgraded on Aug 15, 2024 at commit `05d49b0`
 
 ### prover_set
 

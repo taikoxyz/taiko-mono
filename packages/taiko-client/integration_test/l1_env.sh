@@ -13,7 +13,7 @@ export TAIKO_TOKEN_SYMBOL="TTKOt"
 export TIER_PROVIDER="devnet"
 export PAUSE_TAIKO_L1="false"
 export PAUSE_BRIDGE="false"
-export TAIKO_TOKEN=0x0000000000000000000000000000000000000000
+export TAIKO_TOKEN_ADDRESS=0x0000000000000000000000000000000000000000
 export SHARED_ADDRESS_MANAGER=0x0000000000000000000000000000000000000000
 export PROPOSER=0x0000000000000000000000000000000000000000
 export PROPOSER_ONE=0x0000000000000000000000000000000000000000
@@ -40,6 +40,6 @@ export L2_GENESIS_HASH=$(
         -X POST \
         -H "Content-Type: application/json" \
         -d '{"jsonrpc":"2.0","id":0,"method":"eth_getBlockByNumber","params":["0x0", false]}' \
-        $L2_EXECUTION_ENGINE_HTTP_ENDPOINT | jq .result.hash | sed 's/\"//g'
+        $L2_HTTP | jq .result.hash | sed 's/\"//g'
 )
 echo "L2_GENESIS_HASH: $L2_GENESIS_HASH"

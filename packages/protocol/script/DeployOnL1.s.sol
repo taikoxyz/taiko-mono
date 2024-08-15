@@ -142,7 +142,7 @@ contract DeployOnL1 is DeployCapability {
             });
         }
 
-        address taikoToken = vm.envAddress("TAIKO_TOKEN");
+        address taikoToken = vm.envAddress("TAIKO_TOKEN_ADDRESS");
         if (taikoToken == address(0)) {
             taikoToken = deployProxy({
                 name: "taiko_token",
