@@ -2,7 +2,7 @@ name: "hive tests"
 
 on:
   push:
-    branches: [main]
+    branches: [update_hive_]
     paths:
       - "packages/taiko-client/**"
 
