@@ -26,11 +26,18 @@ var (
 // GetProtocolStateVariables gets the protocol states from TaikoL1 contract.
 func GetProtocolStateVariables(
 	taikoL1Client *bindings.TaikoL1Client,
-	opts *bind.CallOpts,
+	opts *bind.CallOpts, // TODO: add ctx
 ) (*struct {
 	A bindings.TaikoDataSlotA
 	B bindings.TaikoDataSlotB
 }, error) {
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	defer cancel()
+
 	slotA, slotB, err := taikoL1Client.GetStateVariables(opts)
 	if err != nil {
 		return nil, err

@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/kzg4844"
@@ -98,12 +99,12 @@ func (b *BlobTransactionBuilder) Build(
 	}
 
 	// Check if the current L2 chain is after ontake fork.
-	blockNum, err := b.rpc.L2.BlockNumber(ctx)
+	state, err := rpc.GetProtocolStateVariables(b.rpc.TaikoL1, &bind.CallOpts{Context: ctx})
 	if err != nil {
 		return nil, err
 	}
 
-	if !b.chainConfig.IsOntake(new(big.Int).SetUint64(blockNum + 1)) {
+	if !b.chainConfig.IsOntake(new(big.Int).SetUint64(state.B.NumBlocks)) {
 		// ABI encode the TaikoL1.proposeBlock / ProverSet.proposeBlock parameters.
 		method = "proposeBlock"
 
