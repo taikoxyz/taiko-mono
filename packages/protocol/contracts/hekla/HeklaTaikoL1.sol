@@ -9,7 +9,7 @@ contract HeklaTaikoL1 is TaikoL1 {
     /// @inheritdoc ITaikoL1
     function getConfig() public pure override returns (TaikoData.Config memory _config_) {
         return TaikoData.Config({
-            chainId: LibNetwork.TAIKO_MAINNET,
+            chainId: LibNetwork.TAIKO_HEKLA,
             // Never change this value as ring buffer is being reused!!!
             blockMaxProposals: 324_000,
             // Never change this value as ring buffer is being reused!!!
