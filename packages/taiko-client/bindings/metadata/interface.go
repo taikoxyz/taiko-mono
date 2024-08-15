@@ -4,6 +4,8 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 )
 
 // struct BlockM
@@ -29,8 +31,7 @@ type TaikoBlockMetaData interface {
 	GetBlobTxListOffset() uint32
 	GetBlobTxListLength() uint32
 	GetBlobIndex() uint8
-	GetBasefeeAdjustmentQuotient() uint8
-	GetGasIssuancePerSecond() uint32
+	GetBaseFeeConfig() *bindings.TaikoDataBaseFeeConfig
 	GetRawBlockHeight() *big.Int
 	GetRawBlockHash() common.Hash
 	GetTxIndex() uint
