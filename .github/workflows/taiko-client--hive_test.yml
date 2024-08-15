@@ -42,8 +42,8 @@ jobs:
           cache: true
 
       - name: Clone taikoxyz/hive
-        run: git clone git@github.com:taikoxyz/hive.git /tmp/hive
+        run: git clone git@github.com:taikoxyz/hive.git
 
       - name: hive tests
         working-directory: packages/taiko-client
-        run: export HIVE_BASE_DIR=/tmp/hive && go test -v -p=1 ./integration_test -timeout=600s
+        run: export HIVE_BASE_DIR=./hive && go test -v -p=1 ./integration_test -timeout=600s
