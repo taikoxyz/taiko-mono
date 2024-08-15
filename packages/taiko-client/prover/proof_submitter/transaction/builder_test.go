@@ -11,7 +11,7 @@ import (
 func (s *TransactionTestSuite) TestBuildTxs() {
 	_, err := s.builder.Build(
 		common.Big256,
-		&metadata.TaikoDataBlockMetadataLegacy{},
+		&metadata.TaikoDataBlockMetadataOntake{},
 		&bindings.TaikoDataTransition{},
 		&bindings.TaikoDataTierProof{},
 		1,
