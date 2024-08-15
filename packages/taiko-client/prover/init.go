@@ -114,7 +114,8 @@ func (p *Prover) initProofSubmitters(
 				Dummy:               p.cfg.Dummy,
 				RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 			}
-		case encoding.TierSgxAndZkVMID:
+		case encoding.TierZkVMRisc0ID:
+			// TODO: Temporarily use SgxAndZKvmProofProducer to generate zkvm proofs
 			producer = &proofProducer.SgxAndZKvmProofProducer{
 				ZKProofType: proofProducer.ZKProofTypeR0,
 				SGX: proofProducer.SGXProofProducer{
