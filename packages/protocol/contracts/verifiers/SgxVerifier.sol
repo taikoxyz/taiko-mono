@@ -170,7 +170,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
         if (!_isInstanceValid(id, oldInstance)) revert SGX_INVALID_INSTANCE();
 
-        if (oldInstance != newInstance) {
+        if (newInstance != oldInstance && newInstance != address(0)) {
             _replaceInstance(id, oldInstance, newInstance);
         }
     }

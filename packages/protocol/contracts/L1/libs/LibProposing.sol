@@ -208,7 +208,7 @@ library LibProposing {
         );
 
         // Use the difficulty as a random number
-        meta_.minTier = local.tierProvider.getMinTier(uint256(meta_.difficulty));
+        meta_.minTier = local.tierProvider.getMinTier(meta_.proposer, uint256(meta_.difficulty));
 
         if (!local.postFork) {
             metaV1_ = LibData.blockMetadataV2toV1(meta_);
