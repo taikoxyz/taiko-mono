@@ -70,17 +70,6 @@ abstract contract TierProviderBase is ITierProvider {
             });
         }
 
-        if (_tierId == LibTiers.TIER_ZKVM_RISC0) {
-            return ITierProvider.Tier({
-                verifierName: LibStrings.B_TIER_ZKVM_RISC0,
-                validityBond: 250 ether, // TKO
-                contestBond: 1640 ether, // =500TKO * 6.5625
-                cooldownWindow: 1440, //24 hours
-                provingWindow: GRACE_PERIOD + 240, // 4 hours
-                maxBlocksToVerifyPerProof: 0
-            });
-        }
-
         if (_tierId == LibTiers.TIER_SGX_ZKVM) {
             return ITierProvider.Tier({
                 verifierName: LibStrings.B_TIER_SGX_ZKVM,
