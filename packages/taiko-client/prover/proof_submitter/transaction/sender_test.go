@@ -32,7 +32,7 @@ func (s *TransactionTestSuite) SetupTest() {
 
 	s.builder = NewProveBlockTxBuilder(
 		s.RPCClient,
-		common.HexToAddress(os.Getenv("TAIKO_L1")),
+		common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
 		ZeroAddress,
 		common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT")),
 		common.HexToAddress(os.Getenv("GUARDIAN_PROVER_MINORITY")),
