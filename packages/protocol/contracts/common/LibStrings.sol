@@ -28,6 +28,7 @@ library LibStrings {
     bytes32 internal constant B_TIER_ROUTER = bytes32("tier_router");
     bytes32 internal constant B_TIER_SGX = bytes32("tier_sgx");
     bytes32 internal constant B_TIER_SGX2 = bytes32("tier_sgx2");
+    bytes32 internal constant B_TIER_ZKVM_RISC0 = bytes32("tier_zkvm_risc0");
     bytes32 internal constant B_TIER_SGX_ZKVM = bytes32("tier_sgx_zkvm");
     bytes32 internal constant B_RISCZERO_GROTH16_VERIFIER = bytes32("risc0_groth16_verifier");
     bytes32 internal constant B_WITHDRAWER = bytes32("withdrawer");
