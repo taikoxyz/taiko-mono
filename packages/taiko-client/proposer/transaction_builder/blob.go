@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/kzg4844"
@@ -28,7 +29,6 @@ type BlobTransactionBuilder struct {
 	gasLimit                uint64
 	extraData               string
 	chainConfig             *config.ChainConfig
-	afterOntake             bool
 }
 
 // NewBlobTransactionBuilder creates a new BlobTransactionBuilder instance based on giving configurations.
@@ -51,7 +51,6 @@ func NewBlobTransactionBuilder(
 		gasLimit,
 		extraData,
 		chainConfig,
-		false,
 	}
 }
 
@@ -100,16 +99,12 @@ func (b *BlobTransactionBuilder) Build(
 	}
 
 	// Check if the current L2 chain is after ontake fork.
-	if !b.afterOntake {
-		blockNum, err := b.rpc.L2.BlockNumber(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		b.afterOntake = b.chainConfig.IsOntake(new(big.Int).SetUint64(blockNum + 1))
+	state, err := rpc.GetProtocolStateVariables(b.rpc.TaikoL1, &bind.CallOpts{Context: ctx})
+	if err != nil {
+		return nil, err
 	}
 
-	if !b.afterOntake {
+	if !b.chainConfig.IsOntake(new(big.Int).SetUint64(state.B.NumBlocks)) {
 		// ABI encode the TaikoL1.proposeBlock / ProverSet.proposeBlock parameters.
 		method = "proposeBlock"
 
