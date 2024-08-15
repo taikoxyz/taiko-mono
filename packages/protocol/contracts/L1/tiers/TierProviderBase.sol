@@ -33,7 +33,7 @@ abstract contract TierProviderBase is ITierProvider {
                 contestBond: 656.25 ether, // = 100 TAIKO * 6.5625
                 cooldownWindow: 1440, // 24 hours
                 provingWindow: GRACE_PERIOD + 15 // 15 minutes
-            });
+             });
         }
 
         if (_tierId == LibTiers.TIER_SGX) {
@@ -43,7 +43,7 @@ abstract contract TierProviderBase is ITierProvider {
                 contestBond: 984.375 ether, // = 150 TAIKO * 6.5625
                 cooldownWindow: 1440, // 24 hours
                 provingWindow: GRACE_PERIOD + 60 // 1 hour
-            });
+             });
         }
 
         if (_tierId == LibTiers.TIER_SGX2) {
@@ -53,7 +53,7 @@ abstract contract TierProviderBase is ITierProvider {
                 contestBond: 984.375 ether, // = 150 TAIKO * 6.5625
                 cooldownWindow: 1440, // 24 hours
                 provingWindow: GRACE_PERIOD + 60 // 1 hour
-            });
+             });
         }
 
         if (_tierId == LibTiers.TIER_ZKVM_RISC0) {
@@ -63,7 +63,7 @@ abstract contract TierProviderBase is ITierProvider {
                 contestBond: 1640.625 ether, // = 250 TAIKO * 6.5625
                 cooldownWindow: 1440, // 24 hours
                 provingWindow: GRACE_PERIOD + 180 // 3 hours
-            });
+             });
         }
 
         if (_tierId == LibTiers.TIER_SGX_ZKVM) {
@@ -73,7 +73,7 @@ abstract contract TierProviderBase is ITierProvider {
                 contestBond: 1968.75 ether, // = 300 TAIKO * 6.5625
                 cooldownWindow: 1440, // 24 hours
                 provingWindow: GRACE_PERIOD + 240 // 4 hours
-            });
+             });
         }
 
         if (_tierId == LibTiers.TIER_GUARDIAN_MINORITY) {
