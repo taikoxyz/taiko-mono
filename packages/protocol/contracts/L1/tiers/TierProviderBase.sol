@@ -15,7 +15,9 @@ abstract contract TierProviderBase is ITierProvider {
     uint16 public constant GRACE_PERIOD = 240; // 4 hours
 
     /// @inheritdoc ITierProvider
-    function getTier(uint16 _tierId)
+    function getTier(
+        uint16 _tierId
+    )
         public
         pure
         virtual
