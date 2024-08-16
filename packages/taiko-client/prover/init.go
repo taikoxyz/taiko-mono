@@ -115,16 +115,12 @@ func (p *Prover) initProofSubmitters(
 				RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 			}
 		case encoding.TierZkVMRisc0ID:
-			// TODO: Temporarily use SgxAndZKvmProofProducer to generate zkvm proofs
-			producer = &proofProducer.SgxAndZKvmProofProducer{
-				ZKProofType: proofProducer.ZKProofTypeR0,
-				SGX: proofProducer.SGXProofProducer{
-					RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
-					JWT:                 p.cfg.RaikoJWT,
-					ProofType:           proofProducer.ProofTypeSgx,
-					Dummy:               p.cfg.Dummy,
-					RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
-				},
+			producer = &proofProducer.ZKvmProofProducer{
+				ZKProofType:         proofProducer.ZKProofTypeR0,
+				RaikoHostEndpoint:   p.cfg.RaikoZKVMHostEndpoint,
+				JWT:                 p.cfg.RaikoJWT,
+				Dummy:               p.cfg.Dummy,
+				RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 			}
 		case encoding.TierGuardianMinorityID:
 			producer = proofProducer.NewGuardianProofProducer(encoding.TierGuardianMinorityID, p.cfg.EnableLivenessBondProof)

@@ -12,7 +12,7 @@ var (
 		Name:     "guardianProverContractAddress",
 		Usage:    "Address of the GuardianProver contract",
 		Category: healthCheckCategory,
-		EnvVars:  []string{"GUARDIAN_PROVER_CONTRACT_ADDRESS"},
+		EnvVars:  []string{"GUARDIAN_PROVER_CONTRACT"},
 		Required: true,
 	}
 	L1RPCUrl = &cli.StringFlag{
