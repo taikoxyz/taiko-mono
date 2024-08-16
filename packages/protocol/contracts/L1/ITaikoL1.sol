@@ -75,6 +75,7 @@ interface ITaikoL1 {
     /// @return The prover's address. If the block is not verified yet, address(0) will be returned.
     function getVerifiedBlockProver(uint64 _blockId) external view returns (address);
 
+    /// @notice Gets the configuration of the TaikoL1 contract.
     /// @return Config struct containing configuration parameters.
     function getConfig() external pure returns (TaikoData.Config memory);
 }
