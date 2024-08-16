@@ -500,8 +500,8 @@ importers:
         specifier: ^2.10.4
         version: 2.13.1(@types/react@18.3.3)(react@18.3.1)(typescript@5.4.5)(viem@2.18.8(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)(zod@3.23.8))
       '@web3modal/common':
-        specifier: ^4.2.2
-        version: 4.2.3
+        specifier: ^5.0.11
+        version: 5.0.11
       '@web3modal/ui':
         specifier: ^4.2.2
         version: 4.2.3
@@ -729,8 +729,8 @@ importers:
         specifier: ^2.8.0
         version: 2.9.1(@types/react@18.3.3)(bufferutil@4.0.8)(react@18.3.1)(typescript@5.4.5)(utf-8-validate@5.0.10)(viem@2.18.8(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)(zod@3.23.6))(zod@3.23.6)
       '@web3modal/common':
-        specifier: ^4.1.1
-        version: 4.1.11
+        specifier: ^5.0.11
+        version: 5.0.11
       '@web3modal/ui':
         specifier: ^4.1.1
         version: 4.1.11
@@ -5058,6 +5058,9 @@ packages:
 
   '@web3modal/common@4.2.3':
     resolution: {integrity: sha512-n0lvhoRjViqxmkgpy+iEM6E3HBylUgdxUDJU4hUxGmmrbGZGEP7USBRnQOEgXLqLCtWvxKjUAO33JBV/De+Osw==}
+
+  '@web3modal/common@5.0.11':
+    resolution: {integrity: sha512-xI6FKrk4/TofM27e0R5F0e7OWMa0YECJshITgFVrX57ZPbgw0O8bTTgLa0yxYG3A5xMnuz6dOYjAAQV+EXrr9w==}
 
   '@web3modal/core@4.1.11':
     resolution: {integrity: sha512-e475IIWywEtgH1CCB2Pl1C/wgPu0NzAvtTMOPSGNoHsw1ID2n6j/o4CURQb2HJjOoYQjTKKVkzXa44vFh2p9xw==}
@@ -18787,6 +18790,11 @@ snapshots:
       dayjs: 1.11.10
 
   '@web3modal/common@4.2.3':
+    dependencies:
+      bignumber.js: 9.1.2
+      dayjs: 1.11.10
+
+  '@web3modal/common@5.0.11':
     dependencies:
       bignumber.js: 9.1.2
       dayjs: 1.11.10
