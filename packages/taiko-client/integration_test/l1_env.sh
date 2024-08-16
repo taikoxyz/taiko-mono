@@ -40,6 +40,6 @@ export L2_GENESIS_HASH=$(
         -X POST \
         -H "Content-Type: application/json" \
         -d '{"jsonrpc":"2.0","id":0,"method":"eth_getBlockByNumber","params":["0x0", false]}' \
-        $L2_EXECUTION_ENGINE_HTTP_ENDPOINT | jq .result.hash | sed 's/\"//g'
+        $L2_HTTP | jq .result.hash | sed 's/\"//g'
 )
 echo "L2_GENESIS_HASH: $L2_GENESIS_HASH"

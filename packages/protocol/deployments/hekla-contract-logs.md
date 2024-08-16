@@ -295,3 +295,12 @@
 - impl: `0xb190786090Fc4308c4C40808f3bEB55c4463c152`
 - logs:
   - deployed on May 10, 2024 at commit `4903bec`
+
+### delegate_owner
+
+- proxy: `0x95F6077C7786a58FA070D98043b16DF2B1593D2b`
+- impl: `0x36dD2d50C08Ee22553ef34583B367D86c3D44fBd`
+- owner: `0x95F6077C7786a58FA070D98043b16DF2B1593D2b`
+- admin: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
+- logs:
+  - deployed on Aug 15, 2024 at commit `46a3e00`

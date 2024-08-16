@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "../thirdparty/muticall3/Multicall3.sol";
+import "../thirdparty/Multicall3.sol";
 import "../TaikoTest.sol";
 
 contract Target is EssentialContract {
