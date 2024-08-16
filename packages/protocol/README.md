@@ -103,7 +103,7 @@ After understanding the process from the test, proceed to generate the actual `g
    geth attach ~/taiko-l2-network/node/geth.ipc
    ```
 
-   In the Geth console, use `eth.getBlock(0)` to obtain the hash of the genesis block.
+   In the Geth console, use `eth.getBlockV2(0)` to obtain the hash of the genesis block.
 
 4. **Update `test_deploy_on_l1.sh` File:** Update the `L2_GENESIS_HASH` variable in the `test_deploy_on_l1.sh` script with the obtained genesis block hash.
 
