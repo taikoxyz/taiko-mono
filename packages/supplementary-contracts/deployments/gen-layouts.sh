@@ -2,7 +2,6 @@
 
 # Define the list of contracts to inspect
 contracts=(
-    "TokenUnlocking"
 )
 
 # Empty the output file initially

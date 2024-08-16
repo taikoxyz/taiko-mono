@@ -4,6 +4,11 @@ description: "Install pnpm dependencies"
 runs:
   using: "composite"
   steps:
+    - name: Set up Git to use HTTPS
+      shell: bash
+      run: |
+        git config --global url."https://github.com/".insteadOf "git@github.com:"
+
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:

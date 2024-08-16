@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/taikoxyz/taiko-mono/compare/fork-diff-v0.5.0...fork-diff-v0.6.0) (2024-06-06)
+
+
+### Features
+
+* **fork-diff:** update fork.yaml ([#17501](https://github.com/taikoxyz/taiko-mono/issues/17501)) ([8904c9b](https://github.com/taikoxyz/taiko-mono/commit/8904c9be67f3c08ff1c2f310aac27c504a5922e2))
+
 ## [0.5.0](https://github.com/taikoxyz/taiko-mono/compare/fork-diff-v0.4.0...fork-diff-v0.5.0) (2024-05-13)
 
 

@@ -1,8 +1,8 @@
 import { classNames } from '$lib/util/classNames';
 
-export const modalContentWrapperClasses = classNames('sm:w-full', 'md:w-[60vw]', 'lg:w-[40vw]');
+export const modalContentWrapperClasses = classNames('sm:w-full', 'md:w-[60vw]', 'lg:w-[50vw]');
 export const modalTitleClasses = classNames('sm:mt-[0]', 'pt-6');
-export const bodyWrapperClasses = classNames('text-content-secondary', 'my-4');
+export const bodyWrapperClasses = classNames('text-content-secondary', 'my-4', 'w-[6000px]');
 export const footerWrapperClasses = classNames('w-full', 'flex', 'flex-row', 'items-center', 'gap-4');
 export const spinnerSmWrapper = classNames(
   'bg-interactive-tertiary',

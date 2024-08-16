@@ -10,10 +10,12 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
@@ -42,25 +44,12 @@ func (s *BlobSyncerTestSuite) SetupTest() {
 		beaconsync.NewSyncProgressTracker(s.RPCClient.L2, 1*time.Hour),
 		0,
 		nil,
+		nil,
 	)
 	s.Nil(err)
 	s.s = syncer
 
 	s.initProposer()
-}
-func (s *BlobSyncerTestSuite) TestCancelNewSyncer() {
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	syncer, err := NewSyncer(
-		ctx,
-		s.RPCClient,
-		s.s.state,
-		s.s.progressTracker,
-		0,
-		nil,
-	)
-	s.Nil(syncer)
-	s.NotNil(err)
 }
 
 func (s *BlobSyncerTestSuite) TestProcessL1Blocks() {
@@ -75,12 +64,12 @@ func (s *BlobSyncerTestSuite) TestProcessL1BlocksReorg() {
 func (s *BlobSyncerTestSuite) TestOnBlockProposed() {
 	s.Nil(s.s.onBlockProposed(
 		context.Background(),
-		&bindings.TaikoL1ClientBlockProposed{BlockId: common.Big0},
+		&metadata.TaikoDataBlockMetadataLegacy{TaikoDataBlockMetadata: bindings.TaikoDataBlockMetadata{Id: 0}},
 		func() {},
 	))
 	s.NotNil(s.s.onBlockProposed(
 		context.Background(),
-		&bindings.TaikoL1ClientBlockProposed{BlockId: common.Big1},
+		&metadata.TaikoDataBlockMetadataLegacy{TaikoDataBlockMetadata: bindings.TaikoDataBlockMetadata{Id: 1}},
 		func() {},
 	))
 }
@@ -92,9 +81,8 @@ func (s *BlobSyncerTestSuite) TestInsertNewHead() {
 	s.Nil(err)
 	_, err = s.s.insertNewHead(
 		context.Background(),
-		&bindings.TaikoL1ClientBlockProposed{
-			BlockId: common.Big1,
-			Meta: bindings.TaikoDataBlockMetadata{
+		&metadata.TaikoDataBlockMetadataLegacy{
+			TaikoDataBlockMetadata: bindings.TaikoDataBlockMetadata{
 				Id:         1,
 				L1Height:   l1Head.NumberU64(),
 				L1Hash:     l1Head.Hash(),
@@ -104,9 +92,12 @@ func (s *BlobSyncerTestSuite) TestInsertNewHead() {
 				GasLimit:   utils.RandUint32(nil),
 				Timestamp:  uint64(time.Now().Unix()),
 			},
+			Log: types.Log{
+				BlockNumber: l1Head.Number().Uint64(),
+				BlockHash:   l1Head.Hash(),
+			},
 		},
 		parent,
-		common.Big2,
 		[]byte{},
 		&rawdb.L1Origin{
 			BlockID:       common.Big1,
@@ -198,27 +189,20 @@ func (s *BlobSyncerTestSuite) initProposer() {
 
 	s.Nil(prop.InitFromConfig(context.Background(), &proposer.Config{
 		ClientConfig: &rpc.ClientConfig{
-			L1Endpoint:        os.Getenv("L1_NODE_WS_ENDPOINT"),
-			L2Endpoint:        os.Getenv("L2_EXECUTION_ENGINE_WS_ENDPOINT"),
-			L2EngineEndpoint:  os.Getenv("L2_EXECUTION_ENGINE_AUTH_ENDPOINT"),
+			L1Endpoint:        os.Getenv("L1_WS"),
+			L2Endpoint:        os.Getenv("L2_WS"),
+			L2EngineEndpoint:  os.Getenv("L2_AUTH"),
 			JwtSecret:         string(jwtSecret),
 			TaikoL1Address:    common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
 			TaikoL2Address:    common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
 			TaikoTokenAddress: common.HexToAddress(os.Getenv("TAIKO_TOKEN_ADDRESS")),
 		},
-		AssignmentHookAddress:      common.HexToAddress(os.Getenv("ASSIGNMENT_HOOK_ADDRESS")),
 		L1ProposerPrivKey:          l1ProposerPrivKey,
 		L2SuggestedFeeRecipient:    common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
 		ProposeInterval:            1024 * time.Hour,
 		MaxProposedTxListsPerEpoch: 1,
-		ProverEndpoints:            s.ProverEndpoints,
-		OptimisticTierFee:          common.Big256,
-		SgxTierFee:                 common.Big256,
-		MaxTierFeePriceBumps:       3,
-		TierFeePriceBump:           common.Big2,
-		L1BlockBuilderTip:          common.Big0,
 		TxmgrConfigs: &txmgr.CLIConfig{
-			L1RPCURL:                  os.Getenv("L1_NODE_WS_ENDPOINT"),
+			L1RPCURL:                  os.Getenv("L1_WS"),
 			NumConfirmations:          0,
 			SafeAbortNonceTooLowCount: txmgr.DefaultBatcherFlagValues.SafeAbortNonceTooLowCount,
 			PrivateKey:                common.Bytes2Hex(crypto.FromECDSA(l1ProposerPrivKey)),
@@ -232,7 +216,7 @@ func (s *BlobSyncerTestSuite) initProposer() {
 			TxSendTimeout:             txmgr.DefaultBatcherFlagValues.TxSendTimeout,
 			TxNotInMempoolTimeout:     txmgr.DefaultBatcherFlagValues.TxNotInMempoolTimeout,
 		},
-	}))
+	}, nil))
 
 	s.p = prop
 }

@@ -3,8 +3,9 @@
   import { t } from 'svelte-i18n';
   import { formatEther } from 'viem';
 
+  import Alert from '$components/Alert/Alert.svelte';
   import FlatAlert from '$components/Alert/FlatAlert.svelte';
-  import { processingFee, processingFeeMethod } from '$components/Bridge/state';
+  import { calculatingProcessingFee, gasLimitZero, processingFee, processingFeeMethod } from '$components/Bridge/state';
   import { ActionButton, CloseButton } from '$components/Button';
   import { InputBox } from '$components/InputBox';
   import { LoadingText } from '$components/LoadingText';
@@ -12,7 +13,6 @@
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import { ProcessingFeeMethod } from '$libs/fee';
   import { parseToWei } from '$libs/util/parseToWei';
-  import { uid } from '$libs/util/uid';
 
   import NoneOption from './NoneOption.svelte';
   import RecommendedFee from './RecommendedFee.svelte';
@@ -22,10 +22,9 @@
   export let hasEnoughEth: boolean = false;
   export let disabled = false;
 
-  let dialogId = `dialog-${uid()}`;
+  let dialogId = `dialog-${crypto.randomUUID()}`;
 
   let recommendedAmount = BigInt(0);
-  let calculatingRecommendedAmount = false;
   let errorCalculatingRecommendedAmount = false;
 
   let calculatingEnoughEth = false;
@@ -66,15 +65,19 @@
 
   function closeModal() {
     modalOpen = false;
+    manuallyConfirmed = false;
   }
 
   function openModal() {
     tempProcessingFeeMethod = $processingFeeMethod;
     modalOpen = true;
+    $gasLimitZero = false;
+    manuallyConfirmed = false;
   }
 
   function cancelModal() {
     inputBox?.clear();
+    $gasLimitZero = false;
 
     if (tempProcessingFeeMethod === ProcessingFeeMethod.CUSTOM) {
       tempprocessingFee = $processingFee;
@@ -89,8 +92,13 @@
   function inputProcessFee(event: Event) {
     if (tempProcessingFeeMethod !== ProcessingFeeMethod.CUSTOM) return;
 
-    const { value } = event.target as HTMLInputElement;
-    tempprocessingFee = parseToWei(value);
+    const { value: initialValue } = event.target as HTMLInputElement;
+    if (parseToWei(initialValue) <= recommendedAmount) {
+      // If the user tries to input 0 or less, we set it to the current recommended amount
+      inputBox?.setValue(formatEther(recommendedAmount));
+    }
+    const { value: finalValue } = event.target as HTMLInputElement;
+    tempprocessingFee = parseToWei(finalValue);
   }
 
   async function updateProcessingFee(method: ProcessingFeeMethod, recommendedAmount: bigint) {
@@ -112,6 +120,15 @@
     }
   }
 
+  const handleGasLimitZero = () => {
+    $gasLimitZero = !$gasLimitZero;
+    if ($gasLimitZero) {
+      tempProcessingFeeMethod = ProcessingFeeMethod.NONE;
+    } else {
+      tempProcessingFeeMethod = ProcessingFeeMethod.RECOMMENDED;
+    }
+  };
+
   function unselectNoneIfNotEnoughETH(method: ProcessingFeeMethod, enoughEth: boolean) {
     if (method === ProcessingFeeMethod.NONE && enoughEth === false) {
       $processingFeeMethod = ProcessingFeeMethod.RECOMMENDED;
@@ -129,6 +146,12 @@
     updateProcessingFee($processingFeeMethod, recommendedAmount);
   }
   $: unselectNoneIfNotEnoughETH($processingFeeMethod, hasEnoughEth);
+
+  $: manuallyConfirmed = false;
+
+  $: needsConfirmation = tempProcessingFeeMethod !== ProcessingFeeMethod.RECOMMENDED || $gasLimitZero;
+
+  $: confirmDisabled = needsConfirmation && !manuallyConfirmed;
 </script>
 
 {#if small}
@@ -136,7 +159,7 @@
     <div class="f-between-center">
       <span class="text-secondary-content">{$t('processing_fee.title')}</span>
       <span class=" text-primary-content mt-[4px]">
-        {#if calculatingRecommendedAmount}
+        {#if $calculatingProcessingFee}
           <LoadingText mask="0.0017730224073" /> ETH
         {:else if errorCalculatingRecommendedAmount && $processingFeeMethod === ProcessingFeeMethod.RECOMMENDED}
           <FlatAlert type="warning" message={$t('processing_fee.recommended.error')} />
@@ -150,7 +173,7 @@
   </div>
 {:else if textOnly}
   <span class="text-primary-content mt-[4px] {$$props.class}">
-    {#if calculatingRecommendedAmount}
+    {#if $calculatingProcessingFee}
       <LoadingText mask="0.0017730224073" />
     {:else if errorCalculatingRecommendedAmount && $processingFeeMethod === ProcessingFeeMethod.RECOMMENDED}
       <span class="text-warning-sentiment">{$t('processing_fee.recommended.error')}</span>
@@ -176,7 +199,7 @@
     </div>
 
     <span class="body-small-regular text-secondary-content mt-[4px]">
-      {#if calculatingRecommendedAmount}
+      {#if $calculatingProcessingFee}
         <LoadingText mask="0.0001" /> ETH
       {:else if errorCalculatingRecommendedAmount && $processingFeeMethod === ProcessingFeeMethod.RECOMMENDED}
         <FlatAlert type="warning" message={$t('processing_fee.recommended.error')} />
@@ -209,7 +232,7 @@
                 </label>
                 <span class="body-small-regular text-secondary-content">
                   <!-- TODO: think about the UI for this part. Talk to Jane -->
-                  {#if calculatingRecommendedAmount}
+                  {#if $calculatingProcessingFee}
                     <LoadingText mask="0.0001" /> ETH
                   {:else if errorCalculatingRecommendedAmount}
                     <FlatAlert type="warning" message={$t('processing_fee.recommended.error')} />
@@ -222,6 +245,7 @@
                 id="input-recommended"
                 class="radio w-6 h-6 checked:bg-primary-interactive-accent hover:border-primary-interactive-hover"
                 type="radio"
+                disabled={$gasLimitZero}
                 value={ProcessingFeeMethod.RECOMMENDED}
                 name="processingFeeMethod"
                 bind:group={tempProcessingFeeMethod} />
@@ -250,6 +274,14 @@
 
               {#if !hasEnoughEth}
                 <FlatAlert type="error" message={$t('processing_fee.none.warning')} />
+              {:else if tempProcessingFeeMethod === ProcessingFeeMethod.NONE}
+                <div class="my-5">
+                  <Alert type="warning">
+                    <span class="body-small">
+                      {$t('processing_fee.none.alert')}
+                    </span>
+                  </Alert>
+                </div>
               {/if}
             </li>
 
@@ -267,42 +299,89 @@
                 id="input-custom"
                 class="radio w-6 h-6 checked:bg-primary-interactive-accent hover:border-primary-interactive-hover"
                 type="radio"
+                disabled={$gasLimitZero}
                 value={ProcessingFeeMethod.CUSTOM}
                 name="processingFeeMethod"
                 bind:group={tempProcessingFeeMethod} />
             </li>
-          </ul>
-          <div class="relative f-items-center my-[20px]">
+
+            <div class="relative f-items-center my-[20px]">
+              {#if tempProcessingFeeMethod === ProcessingFeeMethod.CUSTOM}
+                <InputBox
+                  type="number"
+                  min="0"
+                  placeholder="0.0015"
+                  disabled={tempProcessingFeeMethod !== ProcessingFeeMethod.CUSTOM}
+                  class="w-full input-box p-6 pr-16 title-subsection-bold placeholder:text-tertiary-content"
+                  on:input={inputProcessFee}
+                  bind:this={inputBox} />
+                <span class="absolute right-6 uppercase body-bold text-secondary-content">ETH</span>
+              {/if}
+            </div>
+
             {#if tempProcessingFeeMethod === ProcessingFeeMethod.CUSTOM}
-              <InputBox
-                type="number"
-                min="0"
-                placeholder="0.01"
-                disabled={tempProcessingFeeMethod !== ProcessingFeeMethod.CUSTOM}
-                class="w-full input-box p-6 pr-16 title-subsection-bold placeholder:text-tertiary-content"
-                on:input={inputProcessFee}
-                bind:this={inputBox} />
-              <span class="absolute right-6 uppercase body-bold text-secondary-content">ETH</span>
+              <div class="my-5">
+                <Alert type="warning">
+                  <span class="body-small">
+                    {$t('processing_fee.custom.warning')}
+                  </span>
+                </Alert>
+              </div>
             {/if}
-          </div>
-          <div class="grid grid-cols-2 gap-[20px]">
-            <ActionButton on:click={cancelModal} priority="secondary">
-              <span class="body-bold">{$t('common.cancel')}</span>
-            </ActionButton>
-            <ActionButton priority="primary" on:click={confirmChanges}>
-              <span class="body-bold">{$t('common.confirm')}</span>
-            </ActionButton>
-          </div>
+
+            <div class="f-between-center">
+              <div class="f-col mr-[18px]">
+                <label for="input-custom" class="body-bold"> {$t('processing_fee.gasLimit.title')}</label>
+                <span class="body-small-regular text-secondary-content">{$t('processing_fee.gasLimit.message')}</span>
+              </div>
+              <input
+                type="checkbox"
+                checked={$gasLimitZero}
+                on:click={handleGasLimitZero}
+                class="checkbox checkbox-primary" />
+            </div>
+
+            {#if $gasLimitZero}
+              <div class="my-5">
+                <Alert type="warning">
+                  <span class="body-small">
+                    {$t('processing_fee.gasLimit.warning.message')}
+                  </span>
+                </Alert>
+              </div>
+            {/if}
+            {#if needsConfirmation}
+              <div class="h-sep" />
+              <div class="f-between-center">
+                <div class="f-col mr-[18px]">
+                  <label for="input-custom" class="body-bold"> Confirm changes</label>
+                  <span class="body-small-regular text-secondary-content">"I understand the changes I've made"</span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={manuallyConfirmed}
+                  on:click={() => (manuallyConfirmed = !manuallyConfirmed)}
+                  class="checkbox checkbox-primary" />
+              </div>
+              <div class="h-sep" />
+            {/if}
+            <div class="grid grid-cols-2 gap-[20px]">
+              <ActionButton on:click={cancelModal} priority="secondary">
+                <span class="body-bold">{$t('common.cancel')}</span>
+              </ActionButton>
+
+              <ActionButton priority="primary" on:click={confirmChanges} disabled={confirmDisabled} onPopup>
+                <span class="body-bold">{$t('common.confirm')}</span>
+              </ActionButton>
+            </div>
+          </ul>
         </div>
       </div>
     </dialog>
   </div>
 {/if}
 
-<RecommendedFee
-  bind:amount={recommendedAmount}
-  bind:calculating={calculatingRecommendedAmount}
-  bind:error={errorCalculatingRecommendedAmount} />
+<RecommendedFee bind:amount={recommendedAmount} bind:error={errorCalculatingRecommendedAmount} />
 
 <NoneOption
   bind:enoughEth={hasEnoughEth}

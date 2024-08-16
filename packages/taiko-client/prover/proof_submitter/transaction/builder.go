@@ -12,6 +12,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
@@ -27,6 +28,7 @@ type TxBuilder func(txOpts *bind.TransactOpts) (*txmgr.TxCandidate, error)
 type ProveBlockTxBuilder struct {
 	rpc                           *rpc.Client
 	taikoL1Address                common.Address
+	proverSetAddress              common.Address
 	guardianProverMajorityAddress common.Address
 	guardianProverMinorityAddress common.Address
 }
@@ -35,16 +37,23 @@ type ProveBlockTxBuilder struct {
 func NewProveBlockTxBuilder(
 	rpc *rpc.Client,
 	taikoL1Address common.Address,
+	proverSetAddress common.Address,
 	guardianProverMajorityAddress common.Address,
 	guardianProverMinorityAddress common.Address,
 ) *ProveBlockTxBuilder {
-	return &ProveBlockTxBuilder{rpc, taikoL1Address, guardianProverMajorityAddress, guardianProverMinorityAddress}
+	return &ProveBlockTxBuilder{
+		rpc,
+		taikoL1Address,
+		proverSetAddress,
+		guardianProverMajorityAddress,
+		guardianProverMinorityAddress,
+	}
 }
 
 // Build creates a new TaikoL1.ProveBlock transaction with the given nonce.
 func (a *ProveBlockTxBuilder) Build(
 	blockID *big.Int,
-	meta *bindings.TaikoDataBlockMetadata,
+	meta metadata.TaikoBlockMetaData,
 	transition *bindings.TaikoDataTransition,
 	tierProof *bindings.TaikoDataTierProof,
 	tier uint16,
@@ -65,17 +74,21 @@ func (a *ProveBlockTxBuilder) Build(
 		)
 
 		if !guardian {
-			to = a.taikoL1Address
-
 			input, err := encoding.EncodeProveBlockInput(meta, transition, tierProof)
 			if err != nil {
 				return nil, err
 			}
-			if data, err = encoding.TaikoL1ABI.Pack("proveBlock", blockID.Uint64(), input); err != nil {
-				if isSubmitProofTxErrorRetryable(err, blockID) {
+
+			if a.proverSetAddress != ZeroAddress {
+				if data, err = encoding.ProverSetABI.Pack("proveBlock", blockID.Uint64(), input); err != nil {
 					return nil, err
 				}
-				return nil, ErrUnretryableSubmission
+				to = a.proverSetAddress
+			} else {
+				if data, err = encoding.TaikoL1ABI.Pack("proveBlock", blockID.Uint64(), input); err != nil {
+					return nil, err
+				}
+				to = a.taikoL1Address
 			}
 		} else {
 			if tier > encoding.TierGuardianMinorityID {
@@ -85,11 +98,25 @@ func (a *ProveBlockTxBuilder) Build(
 			} else {
 				return nil, fmt.Errorf("tier %d need set guardianProverMinorityAddress", tier)
 			}
-			if data, err = encoding.GuardianProverABI.Pack("approve", *meta, *transition, *tierProof); err != nil {
-				if isSubmitProofTxErrorRetryable(err, blockID) {
+
+			if meta.IsOntakeBlock() {
+				if data, err = encoding.GuardianProverABI.Pack(
+					"approveV2",
+					meta.(*metadata.TaikoDataBlockMetadataOntake).InnerMetadata(),
+					*transition,
+					*tierProof,
+				); err != nil {
 					return nil, err
 				}
-				return nil, ErrUnretryableSubmission
+			} else {
+				if data, err = encoding.GuardianProverABI.Pack(
+					"approve",
+					meta.(*metadata.TaikoDataBlockMetadataLegacy).InnerMetadata(),
+					*transition,
+					*tierProof,
+				); err != nil {
+					return nil, err
+				}
 			}
 		}
 

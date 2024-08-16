@@ -42,6 +42,7 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 		1*time.Hour,
 		0,
 		nil,
+		nil,
 	)
 	s.Nil(err)
 	s.s = syncer
@@ -52,26 +53,19 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 
 	s.Nil(prop.InitFromConfig(context.Background(), &proposer.Config{
 		ClientConfig: &rpc.ClientConfig{
-			L1Endpoint:        os.Getenv("L1_NODE_WS_ENDPOINT"),
-			L2Endpoint:        os.Getenv("L2_EXECUTION_ENGINE_WS_ENDPOINT"),
+			L1Endpoint:        os.Getenv("L1_WS"),
+			L2Endpoint:        os.Getenv("L2_WS"),
 			TaikoL1Address:    common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
 			TaikoL2Address:    common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
 			TaikoTokenAddress: common.HexToAddress(os.Getenv("TAIKO_TOKEN_ADDRESS")),
 		},
-		AssignmentHookAddress:      common.HexToAddress(os.Getenv("ASSIGNMENT_HOOK_ADDRESS")),
 		L1ProposerPrivKey:          l1ProposerPrivKey,
 		L2SuggestedFeeRecipient:    common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
 		ProposeInterval:            1024 * time.Hour,
 		MaxProposedTxListsPerEpoch: 1,
-		ProverEndpoints:            s.ProverEndpoints,
-		OptimisticTierFee:          common.Big256,
-		SgxTierFee:                 common.Big256,
-		MaxTierFeePriceBumps:       3,
-		TierFeePriceBump:           common.Big2,
 		ExtraData:                  "test",
-		L1BlockBuilderTip:          common.Big0,
 		TxmgrConfigs: &txmgr.CLIConfig{
-			L1RPCURL:                  os.Getenv("L1_NODE_WS_ENDPOINT"),
+			L1RPCURL:                  os.Getenv("L1_WS"),
 			NumConfirmations:          0,
 			SafeAbortNonceTooLowCount: txmgr.DefaultBatcherFlagValues.SafeAbortNonceTooLowCount,
 			PrivateKey:                common.Bytes2Hex(crypto.FromECDSA(l1ProposerPrivKey)),
@@ -85,7 +79,7 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 			TxSendTimeout:             txmgr.DefaultBatcherFlagValues.TxSendTimeout,
 			TxNotInMempoolTimeout:     txmgr.DefaultBatcherFlagValues.TxNotInMempoolTimeout,
 		},
-	}))
+	}, nil))
 
 	s.p = prop
 }
@@ -102,7 +96,7 @@ func (s *ChainSyncerTestSuite) TestSync() {
 func (s *ChainSyncerTestSuite) TestAheadOfProtocolVerifiedHead2() {
 	s.TakeSnapshot()
 	// propose a couple blocks
-	s.ProposeAndInsertEmptyBlocks(s.p, s.s.blobSyncer)
+	blockMeta := s.ProposeAndInsertEmptyBlocks(s.p, s.s.blobSyncer)
 
 	// NOTE: need to prove the proposed blocks to be verified, writing helper function
 	// generate transactopts to interact with TaikoL1 contract with.
@@ -116,7 +110,9 @@ func (s *ChainSyncerTestSuite) TestAheadOfProtocolVerifiedHead2() {
 
 	l2Head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
-	s.Equal("test", string(bytes.TrimRight(l2Head.Extra, "\x00")))
+	if !blockMeta[len(blockMeta)-1].IsOntakeBlock() {
+		s.Equal("test", string(bytes.TrimRight(l2Head.Extra, "\x00")))
+	}
 	log.Info("L1HeaderByNumber head", "number", head.Number)
 	// (equiv to s.state.GetL2Head().Number)
 	log.Info("L2HeaderByNumber head", "number", l2Head.Number)
@@ -157,5 +153,5 @@ func (s *ChainSyncerTestSuite) RevertSnapshot() {
 }
 
 func (s *ChainSyncerTestSuite) TestAheadOfProtocolVerifiedHead() {
-	s.True(s.s.AheadOfProtocolVerifiedHead(0))
+	s.True(s.s.AheadOfHeadToSync(0))
 }

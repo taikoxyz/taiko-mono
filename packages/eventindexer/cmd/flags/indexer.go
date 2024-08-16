@@ -37,27 +37,6 @@ var (
 		Category: indexerCategory,
 		EnvVars:  []string{"BRIDGE_ADDRESS"},
 	}
-	SwapAddresses = &cli.StringFlag{
-		Name:     "swapAddresses",
-		Usage:    "Comma-delinated list of Swap contract addresses",
-		Required: false,
-		Category: indexerCategory,
-		EnvVars:  []string{"SWAP_ADDRESSES"},
-	}
-	AssignmentHookAddress = &cli.StringFlag{
-		Name:     "assignmentHookAddress",
-		Usage:    "Address of the AssignmentHook contract",
-		Required: false,
-		Category: indexerCategory,
-		EnvVars:  []string{"ASSIGNMENT_HOOK_ADDRESS"},
-	}
-	SgxVerifierAddress = &cli.StringFlag{
-		Name:     "sgxVerifierAddress",
-		Usage:    "Address of the SGXVerifier contract",
-		Required: false,
-		Category: indexerCategory,
-		EnvVars:  []string{"SGX_VERIFIER_ADDRESS"},
-	}
 	BlockBatchSize = &cli.Uint64Flag{
 		Name:     "blockBatchSize",
 		Usage:    "Block batch size when iterating through blocks",
@@ -88,6 +67,13 @@ var (
 		Category: indexerCategory,
 		EnvVars:  []string{"INDEX_NFTS"},
 	}
+	IndexERC20s = &cli.BoolFlag{
+		Name:     "indexERC20s",
+		Usage:    "Whether to index erc20 transfer events or not",
+		Required: false,
+		Category: indexerCategory,
+		EnvVars:  []string{"INDEX_ERC20S"},
+	}
 )
 
 var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
@@ -96,11 +82,9 @@ var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	ETHClientTimeout,
 	L1TaikoAddress,
 	BridgeAddress,
-	SwapAddresses,
-	SgxVerifierAddress,
-	AssignmentHookAddress,
 	BlockBatchSize,
 	SubscriptionBackoff,
 	SyncMode,
 	IndexNFTs,
+	IndexERC20s,
 })

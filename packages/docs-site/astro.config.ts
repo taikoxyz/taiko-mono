@@ -17,18 +17,12 @@ export default defineConfig({
       plugins: [
         starlightLinksValidator({
           exclude: [
-            // "/api-reference/blob-storage",
             "/api-reference/bridge-relayer",
             "/api-reference/event-indexer",
             "/api-reference/prover-server",
           ],
         }),
         starlightOpenAPI([
-          // {
-          //   base: "api-reference/blob-storage",
-          //   label: "Blob Storage API",
-          //   schema: "../blobstorage/docs/swagger.yaml",
-          // },
           {
             base: "api-reference/bridge-relayer",
             label: "Bridge Relayer API",
@@ -39,11 +33,6 @@ export default defineConfig({
             label: "Event Indexer API",
             schema: "../eventindexer/docs/swagger.yaml",
           },
-          {
-            base: "api-reference/prover-server",
-            label: "Prover Server API",
-            schema: "../taiko-client/docs/swagger.yaml",
-          },
         ]),
       ],
       components: {
@@ -52,7 +41,8 @@ export default defineConfig({
       },
       title: "Docs",
       editLink: {
-        baseUrl: "https://github.com/taikoxyz/docs/edit/main/",
+        baseUrl:
+          "https://github.com/taikoxyz/taiko-mono/tree/main/packages/docs-site",
       },
       customCss: ["./src/styles/custom.css"],
       logo: {
@@ -83,14 +73,15 @@ export default defineConfig({
               link: "/core-concepts/based-sequencing/",
             },
             {
-              label: "Contestable rollups",
+              label: "Contestable rollups (BCR)",
               link: "/core-concepts/contestable-rollups/",
             },
             {
-              label: "Booster rollups",
+              label: "Booster rollups (BBR)",
               link: "/core-concepts/booster-rollups/",
             },
             { label: "Multi-proofs", link: "/core-concepts/multi-proofs/" },
+            { label: "Block states", link: "/core-concepts/block-states" },
             {
               label: "Taiko nodes",
               link: "/core-concepts/taiko-nodes/",
@@ -109,29 +100,86 @@ export default defineConfig({
           label: "Guides",
           items: [
             {
-              label: "Set up your wallet",
-              link: "/guides/set-up-your-wallet/",
+              label: "App Developers",
+              collapsed: true,
+              items: [
+                {
+                  label: "Set up your wallet",
+                  link: "/guides/app-developers/set-up-your-wallet/",
+                },
+                {
+                  label: "Receive tokens",
+                  link: "/guides/app-developers/receive-tokens/",
+                },
+                {
+                  label: "Bridge tokens",
+                  link: "/guides/app-developers/bridge-tokens/",
+                },
+                {
+                  label: "Deploy a contract",
+                  link: "/guides/app-developers/deploy-a-contract/",
+                },
+                {
+                  label: "Verify a contract",
+                  link: "/guides/app-developers/verify-a-contract/",
+                },
+              ],
             },
-            { label: "Receive tokens", link: "/guides/receive-tokens/" },
-            { label: "Bridge tokens", link: "/guides/bridge-tokens/" },
-            { label: "Swap tokens", link: "/guides/swap-tokens/" },
-            { label: "Deploy a contract", link: "/guides/deploy-a-contract/" },
-            { label: "Verify a contract", link: "/guides/verify-a-contract/" },
             {
-              label: "Run a Holesky node",
-              link: "/guides/run-a-holesky-node/",
+              label: "Node Operators",
+              collapsed: true,
+              items: [
+                {
+                  label: "Run a Taiko node with Docker",
+                  link: "/guides/node-operators/run-a-taiko-node-with-docker/",
+                },
+
+                {
+                  label: "Run an Ethereum testnet node",
+                  link: "/guides/node-operators/run-an-ethereum-testnet-node/",
+                },
+                {
+                  label: "Build a Taiko node from source",
+                  link: "/guides/node-operators/build-a-taiko-node-from-source/",
+                },
+                {
+                  label: "Run a Taiko mainnet node from source",
+                  link: "/guides/node-operators/run-a-mainnet-taiko-node-from-source/",
+                },
+                {
+                  label: "Run a Taiko testnet node from source",
+                  link: "/guides/node-operators/run-a-testnet-taiko-node-from-source/",
+                },
+                {
+                  label: "Run a Taiko proposer",
+                  link: "/guides/node-operators/enable-a-proposer/",
+                },
+                {
+                  label: "Run a Taiko prover",
+                  link: "/guides/node-operators/enable-a-prover/",
+                },
+                {
+                  label: "Deploy a ProverSet",
+                  link: "guides/node-operators/deploy-a-proverset/",
+                },
+                {
+                  label: "Node troubleshooting",
+                  link: "/guides/node-operators/node-troubleshooting/",
+                },
+              ],
             },
-            { label: "Run a Taiko node", link: "/guides/run-a-taiko-node/" },
-            { label: "Enable a proposer", link: "/guides/enable-a-proposer/" },
-            { label: "Enable a prover", link: "/guides/enable-a-prover/" },
           ],
         },
         {
           label: "Network Reference",
           items: [
             {
-              label: "Addresses",
-              link: "/network-reference/addresses",
+              label: "Mainnet addresses",
+              link: "/network-reference/mainnet-addresses",
+            },
+            {
+              label: "Testnet addresses",
+              link: "/network-reference/testnet-addresses",
             },
             {
               label: "Differences from Ethereum",
@@ -140,6 +188,10 @@ export default defineConfig({
             {
               label: "Network configuration",
               link: "/network-reference/network-configuration",
+            },
+            {
+              label: "Node releases",
+              link: "/network-reference/node-releases",
             },
             {
               label: "RPC configuration",

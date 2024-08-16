@@ -4,6 +4,7 @@ export type SignedBlock = {
 	blockHash: string;
 	signature: string;
 	guardianProverID: number;
+	guardianProverAddress: Address;
 };
 
 export type SignedBlocks = { [key: string]: SignedBlock[] };

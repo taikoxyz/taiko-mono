@@ -26,15 +26,33 @@
         "type": "string"
       },
       "logoURI": {
-        "type": "string"
+        "type": ["string", "null"]
       },
-      "mintable": {
-        "type": "boolean"
-      },
-      "wrapped": {
-        "type": "boolean"
+      "attributes": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "wrapped": {
+              "type": "boolean"
+            },
+            "supported": {
+              "type": "boolean"
+            },
+            "stablecoin": {
+              "type": "boolean"
+            },
+            "quotaLimited": {
+              "type": "boolean"
+            },
+            "mintable": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        }
       }
     },
-    "required": ["name", "addresses", "symbol", "decimals", "type", "logoURI"]
+    "required": ["name", "addresses", "symbol", "decimals", "type"]
   }
 }

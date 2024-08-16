@@ -1,48 +1,38 @@
 <script lang="ts">
-  import { onDestroy, onMount } from 'svelte';
+  import { createEventDispatcher, onDestroy, onMount } from 'svelte';
   import { t } from 'svelte-i18n';
 
-  import { ClaimDialog, ReleaseDialog, RetryDialog } from '$components/Dialogs';
   import { Spinner } from '$components/Spinner';
   import { StatusDot } from '$components/StatusDot';
   import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
-  import { getMessageStatusForMsgHash } from '$libs/bridge/getMessageStatusForMsgHash';
   import { isTransactionProcessable } from '$libs/bridge/isTransactionProcessable';
   import { BridgePausedError } from '$libs/error';
   import { PollingEvent, startPolling } from '$libs/polling/messageStatusPoller';
-  import type { NFT } from '$libs/token';
+  import { bridgeTxService } from '$libs/storage';
   import { isBridgePaused } from '$libs/util/checkForPausedContracts';
   import { account } from '$stores/account';
   import { connectedSourceChain } from '$stores/network';
 
-  export let bridgeTx: BridgeTransaction;
-  export let nft: NFT | null = null;
+  const dispatch = createEventDispatcher();
 
-  let polling: ReturnType<typeof startPolling>;
+  export let bridgeTx: BridgeTransaction;
+  export let bridgeTxStatus: Maybe<MessageStatus>;
+  export let textOnly: boolean = false;
 
   // UI state
   let isProcessable = false; // bridge tx state to be processed: claimed/retried/released
-  let bridgeTxStatus: Maybe<MessageStatus>;
-
+  let polling: ReturnType<typeof startPolling>;
   let loading = false;
+  let hasError = false;
 
   function onProcessable(isTxProcessable: boolean) {
     isProcessable = isTxProcessable;
   }
 
-  async function claimingDone() {
-    // Keeping model and UI in sync
-    bridgeTx.msgStatus = await getMessageStatusForMsgHash({
-      msgHash: bridgeTx.msgHash,
-      srcChainId: Number(bridgeTx.srcChainId),
-      destChainId: Number(bridgeTx.destChainId),
-    });
-    bridgeTxStatus = bridgeTx.msgStatus;
-  }
-
   function onStatusChange(status: MessageStatus) {
     // Keeping model and UI in sync
     bridgeTxStatus = bridgeTx.msgStatus = status;
+    dispatch('statusChange', status);
   }
 
   async function handleRetryClick() {
@@ -50,7 +40,8 @@
       if (paused) throw new BridgePausedError('Bridge is paused');
     });
     if (!$connectedSourceChain || !$account?.address) return;
-    retryModalOpen = true;
+    // retryModalOpen = true;
+    dispatch('openModal', 'retry');
   }
 
   async function handleReleaseClick() {
@@ -58,7 +49,8 @@
       if (paused) throw new BridgePausedError('Bridge is paused');
     });
     if (!$connectedSourceChain || !$account?.address) return;
-    releaseModalOpen = true;
+    // releaseModalOpen = true;
+    dispatch('openModal', 'release');
   }
 
   async function handleClaimClick() {
@@ -67,7 +59,8 @@
     });
     if (!$connectedSourceChain || !$account?.address) return;
 
-    claimModalOpen = true;
+    // claimModalOpen = true;
+    dispatch('openModal', 'claim');
   }
 
   async function release() {
@@ -78,9 +71,15 @@
     // TODO: implement release handling
   }
 
-  $: claimModalOpen = false;
-  $: retryModalOpen = false;
-  $: releaseModalOpen = false;
+  $: if (hasError && $account.address) {
+    if (bridgeTxService.transactionIsStoredLocally($account.address, bridgeTx)) {
+      // If we can't start polling, it maybe an old/outdated transaction in the local storage, so we remove it
+      bridgeTxService.removeTransactions($account.address, [bridgeTx]);
+      if (!bridgeTxService.transactionIsStoredLocally($account.address, bridgeTx)) {
+        dispatch('transactionRemoved', bridgeTx);
+      }
+    }
+  }
 
   onMount(async () => {
     if (bridgeTx && $account?.address) {
@@ -100,8 +99,8 @@
           polling.emitter.on(PollingEvent.STATUS, onStatusChange);
         }
       } catch (err) {
-        console.error(err);
-        // TODO: handle error
+        console.warn('Cannot start polling', err);
+        hasError = true;
       }
     }
   });
@@ -123,29 +122,41 @@
       <span>{$t(`transactions.status.${loading}`)}</span>
     </div>
   {:else if bridgeTxStatus === MessageStatus.NEW}
-    <button class="status-btn" on:click={handleClaimClick}>
-      {$t('transactions.button.claim')}
-    </button>
+    {#if textOnly}
+      <StatusDot type="pending" />
+      <span>{$t('transactions.status.claimable')}</span>
+    {:else}
+      <button class="status-btn" on:click={handleClaimClick}>
+        {$t('transactions.button.claim')}
+      </button>
+    {/if}
   {:else if bridgeTxStatus === MessageStatus.RETRIABLE}
-    <button class="status-btn" on:click={handleRetryClick}>
-      {$t('transactions.button.retry')}
-    </button>
+    {#if textOnly}
+      <StatusDot type="pending" />
+      <span>{$t('transactions.status.retriable')}</span>
+    {:else}
+      <button class="status-btn" on:click={handleRetryClick}>
+        {$t('transactions.button.retry')}
+      </button>
+    {/if}
   {:else if bridgeTxStatus === MessageStatus.DONE}
     <StatusDot type="success" />
     <span>{$t('transactions.status.claimed.name')}</span>
   {:else if bridgeTxStatus === MessageStatus.FAILED}
-    <button class="status-btn" on:click={release} on:click={handleReleaseClick}>
-      {$t('transactions.button.release')}
-    </button>
+    {#if textOnly}
+      <StatusDot type="pending" />
+      <span>{$t('transactions.status.releasable')}</span>
+    {:else}
+      <button class="status-btn" on:click={release} on:click={handleReleaseClick}>
+        {$t('transactions.button.release')}
+      </button>
+    {/if}
+  {:else if bridgeTxStatus === MessageStatus.RECALLED}
+    <StatusDot type="error" />
+    <span>{$t('transactions.status.released.name')}</span>
   {:else}
     <!-- TODO: look into this possible state -->
     <StatusDot type="error" />
     <span>{$t('transactions.status.error.name')}</span>
   {/if}
 </div>
-
-<RetryDialog {bridgeTx} bind:dialogOpen={retryModalOpen} />
-
-<ReleaseDialog {bridgeTx} bind:dialogOpen={releaseModalOpen} />
-
-<ClaimDialog {bridgeTx} bind:loading bind:dialogOpen={claimModalOpen} {nft} on:claimingDone={() => claimingDone()} />

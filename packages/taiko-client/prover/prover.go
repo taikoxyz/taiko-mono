@@ -2,10 +2,8 @@ package prover
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math/big"
-	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -20,6 +18,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/version"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
@@ -29,7 +28,6 @@ import (
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 	proofSubmitter "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter/transaction"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/server"
 	state "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/shared_state"
 )
 
@@ -43,7 +41,6 @@ type Prover struct {
 	rpc *rpc.Client
 
 	// Guardian prover related
-	server                    *server.ProverServer
 	guardianProverHeartbeater guardianProverHeartbeater.BlockSenderHeartbeater
 
 	// Contract configurations
@@ -64,7 +61,7 @@ type Prover struct {
 	proofSubmitters []proofSubmitter.Submitter
 	proofContester  proofSubmitter.Contester
 
-	assignmentExpiredCh chan *bindings.TaikoL1ClientBlockProposed
+	assignmentExpiredCh chan metadata.TaikoBlockMetaData
 	proveNotify         chan struct{}
 
 	// Proof related channels
@@ -86,11 +83,11 @@ func (p *Prover) InitFromCli(ctx context.Context, c *cli.Context) error {
 		return err
 	}
 
-	return InitFromConfig(ctx, p, cfg)
+	return InitFromConfig(ctx, p, cfg, nil)
 }
 
 // InitFromConfig initializes the prover instance based on the given configurations.
-func InitFromConfig(ctx context.Context, p *Prover, cfg *Config) (err error) {
+func InitFromConfig(ctx context.Context, p *Prover, cfg *Config, txMgr *txmgr.SimpleTxManager) (err error) {
 	p.cfg = cfg
 	p.ctx = ctx
 	// Initialize state which will be shared by event handlers.
@@ -110,6 +107,7 @@ func InitFromConfig(ctx context.Context, p *Prover, cfg *Config) (err error) {
 		TaikoL1Address:                cfg.TaikoL1Address,
 		TaikoL2Address:                cfg.TaikoL2Address,
 		TaikoTokenAddress:             cfg.TaikoTokenAddress,
+		ProverSetAddress:              cfg.ProverSetAddress,
 		GuardianProverMinorityAddress: cfg.GuardianProverMinorityAddress,
 		GuardianProverMajorityAddress: cfg.GuardianProverMajorityAddress,
 		Timeout:                       cfg.RPCTimeout,
@@ -118,17 +116,12 @@ func InitFromConfig(ctx context.Context, p *Prover, cfg *Config) (err error) {
 	}
 
 	// Configs
-	protocolConfigs, err := p.rpc.TaikoL1.GetConfig(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return fmt.Errorf("failed to get protocol configs: %w", err)
-	}
-	p.protocolConfig = &protocolConfigs
-
+	p.protocolConfig = encoding.GetProtocolConfig(p.rpc.L2.ChainID.Uint64())
 	log.Info("Protocol configs", "configs", p.protocolConfig)
 
 	chBufferSize := p.protocolConfig.BlockMaxProposals
 	p.proofGenerationCh = make(chan *proofProducer.ProofWithHeader, chBufferSize)
-	p.assignmentExpiredCh = make(chan *bindings.TaikoL1ClientBlockProposed, chBufferSize)
+	p.assignmentExpiredCh = make(chan metadata.TaikoBlockMetaData, chBufferSize)
 	p.proofSubmissionCh = make(chan *proofProducer.ProofRequestBody, p.cfg.Capacity)
 	p.proofContestCh = make(chan *proofProducer.ContestRequestBody, p.cfg.Capacity)
 	p.proveNotify = make(chan struct{}, 1)
@@ -145,18 +138,24 @@ func InitFromConfig(ctx context.Context, p *Prover, cfg *Config) (err error) {
 	p.sharedState.SetTiers(tiers)
 
 	txBuilder := transaction.NewProveBlockTxBuilder(
-		p.rpc, p.cfg.TaikoL1Address,
+		p.rpc,
+		p.cfg.TaikoL1Address,
+		p.cfg.ProverSetAddress,
 		p.cfg.GuardianProverMajorityAddress,
 		p.cfg.GuardianProverMinorityAddress,
 	)
 
-	if p.txmgr, err = txmgr.NewSimpleTxManager(
-		"prover",
-		log.Root(),
-		&metrics.TxMgrMetrics,
-		*cfg.TxmgrConfigs,
-	); err != nil {
-		return err
+	if txMgr != nil {
+		p.txmgr = txMgr
+	} else {
+		if p.txmgr, err = txmgr.NewSimpleTxManager(
+			"prover",
+			log.Root(),
+			&metrics.TxMgrMetrics,
+			*cfg.TxmgrConfigs,
+		); err != nil {
+			return err
+		}
 	}
 
 	// Proof submitters
@@ -169,28 +168,10 @@ func InitFromConfig(ctx context.Context, p *Prover, cfg *Config) (err error) {
 		p.rpc,
 		p.cfg.ProveBlockGasLimit,
 		p.txmgr,
+		p.cfg.ProverSetAddress,
 		p.cfg.Graffiti,
 		txBuilder,
 	)
-
-	// Prover server
-	if p.server, err = server.New(&server.NewProverServerOpts{
-		ProverPrivateKey:      p.cfg.L1ProverPrivKey,
-		MinOptimisticTierFee:  p.cfg.MinOptimisticTierFee,
-		MinSgxTierFee:         p.cfg.MinSgxTierFee,
-		MinSgxAndZkVMTierFee:  p.cfg.MinSgxAndZkVMTierFee,
-		MinEthBalance:         p.cfg.MinEthBalance,
-		MinTaikoTokenBalance:  p.cfg.MinTaikoTokenBalance,
-		MaxExpiry:             p.cfg.MaxExpiry,
-		MaxBlockSlippage:      p.cfg.MaxBlockSlippage,
-		TaikoL1Address:        p.cfg.TaikoL1Address,
-		AssignmentHookAddress: p.cfg.AssignmentHookAddress,
-		RPC:                   p.rpc,
-		ProtocolConfigs:       &protocolConfigs,
-		LivenessBond:          protocolConfigs.LivenessBond,
-	}); err != nil {
-		return err
-	}
 
 	// Guardian prover heartbeat sender
 	if p.IsGuardianProver() && p.cfg.GuardianProverHealthCheckServerEndpoint != nil {
@@ -224,18 +205,11 @@ func InitFromConfig(ctx context.Context, p *Prover, cfg *Config) (err error) {
 // Start starts the main loop of the L2 block prover.
 func (p *Prover) Start() error {
 	// 1. Set approval amount for the contracts.
-	for _, contract := range []common.Address{p.cfg.TaikoL1Address, p.cfg.AssignmentHookAddress} {
+	for _, contract := range []common.Address{p.cfg.TaikoL1Address} {
 		if err := p.setApprovalAmount(p.ctx, contract); err != nil {
 			log.Crit("Failed to set approval amount", "contract", contract, "error", err)
 		}
 	}
-
-	// 2. Start the prover server.
-	go func() {
-		if err := p.server.Start(fmt.Sprintf(":%v", p.cfg.HTTPServerPort)); !errors.Is(err, http.ErrServerClosed) {
-			log.Crit("Failed to start http server", "error", err)
-		}
-	}()
 
 	// 3. Start the guardian prover heartbeat sender if the current prover is a guardian prover.
 	if p.IsGuardianProver() && p.cfg.GuardianProverHealthCheckServerEndpoint != nil {
@@ -284,20 +258,32 @@ func (p *Prover) eventLoop() {
 
 	// Channels
 	chBufferSize := p.protocolConfig.BlockMaxProposals
-	blockProposedCh := make(chan *bindings.TaikoL1ClientBlockProposed, chBufferSize)
+	blockProposedCh := make(chan *bindings.LibProposingBlockProposed, chBufferSize)
 	blockVerifiedCh := make(chan *bindings.TaikoL1ClientBlockVerified, chBufferSize)
 	transitionProvedCh := make(chan *bindings.TaikoL1ClientTransitionProved, chBufferSize)
 	transitionContestedCh := make(chan *bindings.TaikoL1ClientTransitionContested, chBufferSize)
+	blockProposedV2Ch := make(chan *bindings.LibProposingBlockProposedV2, chBufferSize)
+	blockVerifiedV2Ch := make(chan *bindings.TaikoL1ClientBlockVerifiedV2, chBufferSize)
+	transitionProvedV2Ch := make(chan *bindings.TaikoL1ClientTransitionProvedV2, chBufferSize)
+	transitionContestedV2Ch := make(chan *bindings.TaikoL1ClientTransitionContestedV2, chBufferSize)
 	// Subscriptions
-	blockProposedSub := rpc.SubscribeBlockProposed(p.rpc.TaikoL1, blockProposedCh)
+	blockProposedSub := rpc.SubscribeBlockProposed(p.rpc.LibProposing, blockProposedCh)
 	blockVerifiedSub := rpc.SubscribeBlockVerified(p.rpc.TaikoL1, blockVerifiedCh)
 	transitionProvedSub := rpc.SubscribeTransitionProved(p.rpc.TaikoL1, transitionProvedCh)
 	transitionContestedSub := rpc.SubscribeTransitionContested(p.rpc.TaikoL1, transitionContestedCh)
+	blockProposedV2Sub := rpc.SubscribeBlockProposedV2(p.rpc.LibProposing, blockProposedV2Ch)
+	blockVerifiedV2Sub := rpc.SubscribeBlockVerifiedV2(p.rpc.TaikoL1, blockVerifiedV2Ch)
+	transitionProvedV2Sub := rpc.SubscribeTransitionProvedV2(p.rpc.TaikoL1, transitionProvedV2Ch)
+	transitionContestedV2Sub := rpc.SubscribeTransitionContestedV2(p.rpc.TaikoL1, transitionContestedV2Ch)
 	defer func() {
 		blockProposedSub.Unsubscribe()
 		blockVerifiedSub.Unsubscribe()
 		transitionProvedSub.Unsubscribe()
 		transitionContestedSub.Unsubscribe()
+		blockProposedV2Sub.Unsubscribe()
+		blockVerifiedV2Sub.Unsubscribe()
+		transitionProvedV2Sub.Unsubscribe()
+		transitionContestedV2Sub.Unsubscribe()
 	}()
 
 	for {
@@ -309,20 +295,47 @@ func (p *Prover) eventLoop() {
 		case proofWithHeader := <-p.proofGenerationCh:
 			p.withRetry(func() error { return p.submitProofOp(proofWithHeader) })
 		case req := <-p.proofSubmissionCh:
-			p.withRetry(func() error { return p.requestProofOp(req.Event, req.Tier) })
+			p.withRetry(func() error { return p.requestProofOp(req.Meta, req.Tier) })
 		case <-p.proveNotify:
 			if err := p.proveOp(); err != nil {
 				log.Error("Prove new blocks error", "error", err)
 			}
 		case e := <-blockVerifiedCh:
-			p.blockVerifiedHandler.Handle(e)
+			p.blockVerifiedHandler.Handle(encoding.BlockVerifiedEventToV2(e))
 		case e := <-transitionProvedCh:
-			p.withRetry(func() error { return p.transitionProvedHandler.Handle(p.ctx, e) })
+			p.withRetry(func() error {
+				blockInfo, err := p.rpc.GetL2BlockInfo(p.ctx, e.BlockId)
+				if err != nil {
+					return err
+				}
+				return p.transitionProvedHandler.Handle(p.ctx, encoding.TransitionProvedEventToV2(e, blockInfo.ProposedIn))
+			})
 		case e := <-transitionContestedCh:
-			p.withRetry(func() error { return p.transitionContestedHandler.Handle(p.ctx, e) })
-		case e := <-p.assignmentExpiredCh:
-			p.withRetry(func() error { return p.assignmentExpiredHandler.Handle(p.ctx, e) })
+			p.withRetry(func() error {
+				blockInfo, err := p.rpc.GetL2BlockInfo(p.ctx, e.BlockId)
+				if err != nil {
+					return err
+				}
+				return p.transitionContestedHandler.Handle(
+					p.ctx,
+					encoding.TransitionContestedEventToV2(e, blockInfo.ProposedIn),
+				)
+			})
+		case e := <-blockVerifiedV2Ch:
+			p.blockVerifiedHandler.Handle(e)
+		case e := <-transitionProvedV2Ch:
+			p.withRetry(func() error {
+				return p.transitionProvedHandler.Handle(p.ctx, e)
+			})
+		case e := <-transitionContestedV2Ch:
+			p.withRetry(func() error {
+				return p.transitionContestedHandler.Handle(p.ctx, e)
+			})
+		case m := <-p.assignmentExpiredCh:
+			p.withRetry(func() error { return p.assignmentExpiredHandler.Handle(p.ctx, m) })
 		case <-blockProposedCh:
+			reqProving()
+		case <-blockProposedV2Ch:
 			reqProving()
 		case <-forceProvingTicker.C:
 			reqProving()
@@ -331,10 +344,7 @@ func (p *Prover) eventLoop() {
 }
 
 // Close closes the prover instance.
-func (p *Prover) Close(ctx context.Context) {
-	if err := p.server.Shutdown(ctx); err != nil {
-		log.Error("Failed to shut down prover server", "error", err)
-	}
+func (p *Prover) Close(_ context.Context) {
 	p.wg.Wait()
 }
 
@@ -343,6 +353,7 @@ func (p *Prover) proveOp() error {
 	iter, err := eventIterator.NewBlockProposedIterator(p.ctx, &eventIterator.BlockProposedIteratorConfig{
 		Client:               p.rpc.L1,
 		TaikoL1:              p.rpc.TaikoL1,
+		LibProposing:         p.rpc.LibProposing,
 		StartHeight:          new(big.Int).SetUint64(p.sharedState.GetL1Current().Number.Uint64()),
 		OnBlockProposedEvent: p.blockProposedHandler.Handle,
 		BlockConfirmations:   &p.cfg.BlockConfirmations,
@@ -369,7 +380,7 @@ func (p *Prover) contestProofOp(req *proofProducer.ContestRequestBody) error {
 			log.Error(
 				"Proof contest submission reverted",
 				"blockID", req.BlockID,
-				"minTier", req.Meta.MinTier,
+				"minTier", req.Meta.GetMinTier(),
 				"error", err,
 			)
 			return nil
@@ -377,7 +388,7 @@ func (p *Prover) contestProofOp(req *proofProducer.ContestRequestBody) error {
 		log.Error(
 			"Request new proof contest error",
 			"blockID", req.BlockID,
-			"minTier", req.Meta.MinTier,
+			"minTier", req.Meta.GetMinTier(),
 			"error", err,
 		)
 		return err
@@ -387,7 +398,7 @@ func (p *Prover) contestProofOp(req *proofProducer.ContestRequestBody) error {
 }
 
 // requestProofOp requests a new proof generation operation.
-func (p *Prover) requestProofOp(e *bindings.TaikoL1ClientBlockProposed, minTier uint16) error {
+func (p *Prover) requestProofOp(meta metadata.TaikoBlockMetaData, minTier uint16) error {
 	if p.IsGuardianProver() {
 		if minTier > encoding.TierGuardianMinorityID {
 			minTier = encoding.TierGuardianMajorityID
@@ -396,15 +407,15 @@ func (p *Prover) requestProofOp(e *bindings.TaikoL1ClientBlockProposed, minTier 
 		}
 	}
 	if submitter := p.selectSubmitter(minTier); submitter != nil {
-		if err := submitter.RequestProof(p.ctx, e); err != nil {
-			log.Error("Request new proof error", "blockID", e.BlockId, "minTier", e.Meta.MinTier, "error", err)
+		if err := submitter.RequestProof(p.ctx, meta); err != nil {
+			log.Error("Request new proof error", "blockID", meta.GetBlockID(), "minTier", meta.GetMinTier(), "error", err)
 			return err
 		}
 
 		return nil
 	}
 
-	log.Error("Failed to find proof submitter", "blockID", e.BlockId, "minTier", minTier)
+	log.Error("Failed to find proof submitter", "blockID", meta.GetBlockID(), "minTier", minTier)
 	return nil
 }
 
@@ -420,7 +431,7 @@ func (p *Prover) submitProofOp(proofWithHeader *proofProducer.ProofWithHeader) e
 			log.Error(
 				"Proof submission reverted",
 				"blockID", proofWithHeader.BlockID,
-				"minTier", proofWithHeader.Meta.MinTier,
+				"minTier", proofWithHeader.Meta.GetMinTier(),
 				"error", err,
 			)
 			return nil
@@ -428,7 +439,7 @@ func (p *Prover) submitProofOp(proofWithHeader *proofProducer.ProofWithHeader) e
 		log.Error(
 			"Submit proof error",
 			"blockID", proofWithHeader.BlockID,
-			"minTier", proofWithHeader.Meta.MinTier,
+			"minTier", proofWithHeader.Meta.GetMinTier(),
 			"error", err,
 		)
 		return err

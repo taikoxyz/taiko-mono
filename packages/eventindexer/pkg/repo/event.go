@@ -8,22 +8,24 @@ import (
 	"github.com/morkid/paginate"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
+
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
 )
 
 type EventRepository struct {
-	db eventindexer.DB
+	db db.DB
 }
 
-func NewEventRepository(db eventindexer.DB) (*EventRepository, error) {
-	if db == nil {
-		return nil, eventindexer.ErrNoDB
+func NewEventRepository(dbHandler db.DB) (*EventRepository, error) {
+	if dbHandler == nil {
+		return nil, db.ErrNoDB
 	}
 
 	return &EventRepository{
-		db: db,
+		db: dbHandler,
 	}, nil
 }
 
@@ -111,7 +113,7 @@ func (r *EventRepository) Save(ctx context.Context, opts eventindexer.SaveEventO
 		e.FeeTokenAddress = *opts.FeeTokenAddress
 	}
 
-	if err := r.db.GormDB().Create(e).Error; err != nil {
+	if err := r.db.GormDB().WithContext(ctx).Create(e).Error; err != nil {
 		return nil, errors.Wrap(err, "r.db.Create")
 	}
 
@@ -124,7 +126,7 @@ func (r *EventRepository) FindByEventTypeAndBlockID(
 	blockID int64) (*eventindexer.Event, error) {
 	e := &eventindexer.Event{}
 
-	if err := r.db.GormDB().
+	if err := r.db.GormDB().WithContext(ctx).
 		Where("event = ?", eventType).
 		Where("block_id = ?", blockID).First(e).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -143,7 +145,7 @@ func (r *EventRepository) Delete(
 ) error {
 	e := &eventindexer.Event{}
 
-	return r.db.GormDB().Delete(e, id).Error
+	return r.db.GormDB().WithContext(ctx).Delete(e, id).Error
 }
 
 func (r *EventRepository) FindUniqueProvers(
@@ -151,7 +153,7 @@ func (r *EventRepository) FindUniqueProvers(
 ) ([]eventindexer.UniqueProversResponse, error) {
 	addrs := make([]eventindexer.UniqueProversResponse, 0)
 
-	if err := r.db.GormDB().
+	if err := r.db.GormDB().WithContext(ctx).
 		Raw("SELECT address, count(*) AS count FROM events WHERE event = ? GROUP BY address",
 			eventindexer.EventNameTransitionProved).
 		FirstOrInit(&addrs).Error; err != nil {
@@ -166,7 +168,7 @@ func (r *EventRepository) FindUniqueProposers(
 ) ([]eventindexer.UniqueProposersResponse, error) {
 	addrs := make([]eventindexer.UniqueProposersResponse, 0)
 
-	if err := r.db.GormDB().
+	if err := r.db.GormDB().WithContext(ctx).
 		Raw("SELECT address, count(*) AS count FROM events WHERE event = ? GROUP BY address",
 			eventindexer.EventNameBlockProposed).
 		FirstOrInit(&addrs).Error; err != nil {
@@ -183,7 +185,7 @@ func (r *EventRepository) GetCountByAddressAndEventName(
 ) (int, error) {
 	var count int
 
-	if err := r.db.GormDB().
+	if err := r.db.GormDB().WithContext(ctx).
 		Raw("SELECT count(*) AS count FROM events WHERE event = ? AND address = ?", event, address).
 		FirstOrInit(&count).Error; err != nil {
 		return 0, errors.Wrap(err, "r.db.FirstOrInit")
@@ -202,7 +204,7 @@ func (r *EventRepository) GetByAddressAndEventName(
 		DefaultSize: 100,
 	})
 
-	q := r.db.GormDB().
+	q := r.db.GormDB().WithContext(ctx).
 		Raw("SELECT * FROM events WHERE event = ? AND address = ?", event, address)
 
 	reqCtx := pg.With(q)
@@ -219,7 +221,7 @@ func (r *EventRepository) FirstByAddressAndEventName(
 ) (*eventindexer.Event, error) {
 	e := &eventindexer.Event{}
 
-	if err := r.db.GormDB().
+	if err := r.db.GormDB().WithContext(ctx).
 		Where("address = ?", address).
 		Where("event = ?", event).
 		First(e).Error; err != nil {
@@ -242,7 +244,7 @@ func (r *EventRepository) GetAssignedBlocksByProverAddress(
 		DefaultSize: 100,
 	})
 
-	q := r.db.GormDB().
+	q := r.db.GormDB().WithContext(ctx).
 		Raw("SELECT * FROM events WHERE event = ? AND assigned_prover = ?", eventindexer.EventNameBlockProposed, address)
 
 	reqCtx := pg.With(q)
@@ -253,26 +255,53 @@ func (r *EventRepository) GetAssignedBlocksByProverAddress(
 }
 
 // DeleteAllAfterBlockID is used when a reorg is detected
-func (r *EventRepository) DeleteAllAfterBlockID(blockID uint64, srcChainID uint64) error {
+func (r *EventRepository) DeleteAllAfterBlockID(ctx context.Context, blockID uint64, srcChainID uint64) error {
 	query := `
 DELETE FROM events
 WHERE block_id >= ? AND chain_id = ?`
 
-	return r.db.GormDB().Table("events").Exec(query, blockID, srcChainID).Error
+	return r.db.GormDB().WithContext(ctx).Table("events").Exec(query, blockID, srcChainID).Error
 }
 
 // GetLatestBlockID get latest block id
 func (r *EventRepository) FindLatestBlockID(
+	ctx context.Context,
 	srcChainID uint64,
 ) (uint64, error) {
-	q := `SELECT COALESCE(MAX(emitted_block_id), 0) 
+	q := `SELECT COALESCE(MAX(emitted_block_id), 0)
 	FROM events WHERE chain_id = ?`
 
 	var b uint64
 
-	if err := r.db.GormDB().Table("events").Raw(q, srcChainID).Scan(&b).Error; err != nil {
+	if err := r.db.GormDB().WithContext(ctx).Table("events").Raw(q, srcChainID).Scan(&b).Error; err != nil {
 		return 0, err
 	}
 
 	return b, nil
+}
+
+func (r *EventRepository) GetBlockProvenBy(ctx context.Context, blockID int) ([]*eventindexer.Event, error) {
+	e := []*eventindexer.Event{}
+
+	if err := r.db.GormDB().WithContext(ctx).
+		Where("block_id = ?", blockID).
+		Where("event = ?", eventindexer.EventNameTransitionProved).
+		Find(&e).Error; err != nil {
+		return nil, err
+	}
+
+	return e, nil
+}
+
+func (r *EventRepository) GetBlockProposedBy(ctx context.Context, blockID int) (*eventindexer.Event, error) {
+	e := &eventindexer.Event{}
+
+	if err := r.db.GormDB().WithContext(ctx).
+		Where("block_id = ?", blockID).
+		Where("event = ?", eventindexer.EventNameBlockProposed).
+		First(&e).Error; err != nil {
+		return nil, err
+	}
+
+	return e, nil
 }

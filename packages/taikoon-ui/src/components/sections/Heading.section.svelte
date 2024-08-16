@@ -1,10 +1,10 @@
 <script lang="ts">
+  import { ResponsiveController } from '@taiko/ui-lib';
   import { t } from 'svelte-i18n';
 
   import LogoBlack from '$assets/taikoons-big-black.png';
   import LogoWhite from '$assets/taikoons-big-white.png';
   import { AnimatedArrow } from '$components/AnimatedArrow';
-  import { ResponsiveController } from '$components/core/ResponsiveController';
   import { classNames } from '$lib/util/classNames';
   import { Theme, theme } from '$stores/theme';
   import { Section } from '$ui/Section';
@@ -18,7 +18,7 @@
   const imageClasses = classNames('w-full', 'h-auto', 'mb-20');
 
   const mintNowButtonClasses = classNames(
-    'bg-[#E81899]',
+    'bg-[#C8047D]',
     'font-sans',
     'text-[#F3F3F3]',
     'px-3',
@@ -30,7 +30,7 @@
     'text-base',
     'font-bold',
     'gap-2.5',
-    'hover:bg-[#C8047D]',
+    'hover:bg-[#81899]',
   );
 
   $: isHovered = false;

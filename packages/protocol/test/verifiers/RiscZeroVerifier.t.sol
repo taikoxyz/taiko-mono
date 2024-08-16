@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import "../L1/TaikoL1TestBase.sol";
 
-contract MockRiscZeroRemoteVerifier is IRiscZeroReceiptVerifier {
+contract MockRiscZeroRemoteVerifier is IRiscZeroVerifier {
     // To simulate failing and succeeding
     bool public verifying;
 
@@ -14,14 +14,16 @@ contract MockRiscZeroRemoteVerifier is IRiscZeroReceiptVerifier {
     function verify(
         bytes calldata, /*seal*/
         bytes32, /*imageId*/
-        bytes32, /*postStateDigest*/
         bytes32 /*journalDigest*/
     )
         external
         view
-        returns (bool)
     {
-        return verifying;
+        require(verifying, "RiscZeroRemoteVerifier: invalid proof");
+    }
+
+    function verifyIntegrity(Receipt calldata /*receipt*/ ) external view {
+        require(verifying, "RiscZeroRemoteVerifier: invalid integrity");
     }
 }
 
@@ -40,15 +42,14 @@ contract TestRiscZeroVerifier is TaikoL1TestBase {
         riscZeroRemoteVerifier = new MockRiscZeroRemoteVerifier();
         riscZeroRemoteVerifier.setVerifier(true);
 
+        registerAddress("risc0_groth16_verifier", address(riscZeroRemoteVerifier));
+
         // Deploy Taiko's RiscZero proof verifier
         rv = RiscZeroVerifier(
             deployProxy({
                 name: "tier_risc_zero",
                 impl: address(new RiscZeroVerifier()),
-                data: abi.encodeCall(
-                    RiscZeroVerifier.init,
-                    (address(0), address(addressManager), address(riscZeroRemoteVerifier))
-                )
+                data: abi.encodeCall(RiscZeroVerifier.init, (address(0), address(addressManager)))
             })
         );
 
@@ -120,11 +121,10 @@ contract TestRiscZeroVerifier is TaikoL1TestBase {
 
         bytes memory seal = hex"00";
         bytes32 imageId = bytes32("11");
-        bytes32 postStateDigest = bytes32("22");
 
         // TierProof
         TaikoData.TierProof memory proof =
-            TaikoData.TierProof({ tier: 100, data: abi.encode(seal, imageId, postStateDigest) });
+            TaikoData.TierProof({ tier: 100, data: abi.encode(seal, imageId) });
 
         vm.warp(block.timestamp + 5);
 

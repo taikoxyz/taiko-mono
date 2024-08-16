@@ -80,15 +80,17 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _addressManager The address of the {AddressManager} contract.
-    function init(address _owner, address _addressManager) external initializer {
-        __Essential_init(_owner, _addressManager);
+    /// @param _rollupAddressManager The address of the {AddressManager} contract.
+    function init(address _owner, address _rollupAddressManager) external initializer {
+        __Essential_init(_owner, _rollupAddressManager);
     }
 
     /// @notice Adds trusted SGX instances to the registry.
     /// @param _instances The address array of trusted SGX instances.
     /// @return The respective instanceId array per addresses.
-    function addInstances(address[] calldata _instances)
+    function addInstances(
+        address[] calldata _instances
+    )
         external
         onlyOwner
         returns (uint256[] memory)
@@ -98,7 +100,9 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
     /// @notice Deletes SGX instances from the registry.
     /// @param _ids The ids array of SGX instances.
-    function deleteInstances(uint256[] calldata _ids)
+    function deleteInstances(
+        uint256[] calldata _ids
+    )
         external
         onlyFromOwnerOrNamed(LibStrings.B_SGX_WATCHDOG)
     {
@@ -116,11 +120,13 @@ contract SgxVerifier is EssentialContract, IVerifier {
     /// @notice Adds an SGX instance after the attestation is verified
     /// @param _attestation The parsed attestation quote.
     /// @return The respective instanceId
-    function registerInstance(V3Struct.ParsedV3QuoteStruct calldata _attestation)
+    function registerInstance(
+        V3Struct.ParsedV3QuoteStruct calldata _attestation
+    )
         external
         returns (uint256)
     {
-        address automataDcapAttestation = (resolve(LibStrings.B_AUTOMATA_DCAP_ATTESTATION, true));
+        address automataDcapAttestation = resolve(LibStrings.B_AUTOMATA_DCAP_ATTESTATION, true);
 
         if (automataDcapAttestation == address(0)) {
             revert SGX_RA_NOT_SUPPORTED();
@@ -155,17 +161,22 @@ contract SgxVerifier is EssentialContract, IVerifier {
         uint32 id = uint32(bytes4(_proof.data[:4]));
         address newInstance = address(bytes20(_proof.data[4:24]));
 
-        uint64 chainId = ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfig().chainId;
-
         address oldInstance = ECDSA.recover(
             LibPublicInput.hashPublicInputs(
-                _tran, address(this), newInstance, _ctx.prover, _ctx.metaHash, chainId
+                _tran, address(this), newInstance, _ctx.prover, _ctx.metaHash, taikoChainId()
             ),
             _proof.data[24:]
         );
 
         if (!_isInstanceValid(id, oldInstance)) revert SGX_INVALID_INSTANCE();
-        _replaceInstance(id, oldInstance, newInstance);
+
+        if (newInstance != oldInstance && newInstance != address(0)) {
+            _replaceInstance(id, oldInstance, newInstance);
+        }
+    }
+
+    function taikoChainId() internal view virtual returns (uint64) {
+        return ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfig().chainId;
     }
 
     function _addInstances(

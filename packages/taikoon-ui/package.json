@@ -1,10 +1,10 @@
 {
   "name": "taikoon-ui",
-  "version": "0.0.1",
+  "version": "1.2.0",
   "private": true,
   "scripts": {
     "dev": "vite dev",
-    "build": "vite build",
+    "build": "cd ../ui-lib && pnpm build && cd - && vite build",
     "preview": "vite preview",
     "test": "npm run test:integration && npm run test:unit",
     "svelte:check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
@@ -14,15 +14,16 @@
     "format": "prettier --write ./src",
     "test:integration": "playwright test",
     "test:unit": "vitest",
-    "start": "npm run generate:abi && vite dev --open",
-    "generate:abi": "cd ../taikoon && pnpm compile && cd - && wagmi generate"
+    "start": "npm run generate:abi && vite dev --open --host 0.0.0.0",
+    "start:prod": "vite dev --open --host 0.0.0.0 --mode production",
+    "generate:abi": "cd ../nfts && pnpm compile && cd - && wagmi generate"
   },
   "devDependencies": {
     "@chromatic-com/storybook": "^1.3.1",
     "@playwright/test": "^1.28.1",
     "@sveltejs/adapter-auto": "^3.0.0",
     "@sveltejs/kit": "^2.0.0",
-    "@sveltejs/vite-plugin-svelte": "^3.0.0",
+    "@sveltejs/vite-plugin-svelte": "^3.1.0",
     "@types/eslint": "^8.56.0",
     "@types/jest": "^29.5.12",
     "@types/node": "^20.12.7",
@@ -69,6 +70,7 @@
     "minidenticons": "^4.2.1",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.3",
-    "viem": "^2.9.29"
+    "viem": "^2.15.1",
+    "@taiko/ui-lib": "workspace:*"
   }
 }

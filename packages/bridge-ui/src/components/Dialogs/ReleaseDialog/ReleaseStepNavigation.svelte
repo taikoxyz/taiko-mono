@@ -5,7 +5,7 @@
   import { ActionButton } from '$components/Button';
   import { StepBack } from '$components/Stepper';
 
-  import { ReleaseSteps } from './types';
+  import { INITIAL_STEP, ReleaseSteps } from './types';
 
   const dispatch = createEventDispatcher();
 
@@ -15,8 +15,6 @@
   export let releasingDone = false;
   export let releasing = false;
   export let hideContinueButton: boolean;
-
-  const INITIAL_STEP = ReleaseSteps.CHECK;
 
   const getNextStepText = (step: ReleaseSteps) => {
     if (step === ReleaseSteps.REVIEW) {

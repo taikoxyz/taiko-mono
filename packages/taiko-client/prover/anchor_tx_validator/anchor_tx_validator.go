@@ -1,8 +1,6 @@
 package anchortxvalidator
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"math/big"
 
@@ -48,30 +46,16 @@ func (v *AnchorTxValidator) ValidateAnchorTx(tx *types.Transaction) error {
 	}
 
 	method, err := encoding.TaikoL2ABI.MethodById(tx.Data())
-	if err != nil || method.Name != "anchor" {
-		return fmt.Errorf("invalid TaikoL2.anchor transaction selector, error: %w", err)
+	if err != nil {
+		return fmt.Errorf("failed to get TaikoL2.anchor transaction method: %w", err)
+	}
+	if method.Name != "anchor" && method.Name != "anchorV2" {
+		return fmt.Errorf(
+			"invalid TaikoL2.anchor transaction selector, expect: %s, actual: %s",
+			"anchor / anchorV2",
+			method.Name,
+		)
 	}
 
 	return nil
-}
-
-// GetAndValidateAnchorTxReceipt gets and validates the `TaikoL2.anchor` transaction's receipt.
-func (v *AnchorTxValidator) GetAndValidateAnchorTxReceipt(
-	ctx context.Context,
-	tx *types.Transaction,
-) (*types.Receipt, error) {
-	receipt, err := v.rpc.L2.TransactionReceipt(ctx, tx.Hash())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get TaikoL2.anchor transaction receipt, error: %w", err)
-	}
-
-	if receipt.Status != types.ReceiptStatusSuccessful {
-		return nil, fmt.Errorf("invalid TaikoL2.anchor transaction receipt status: %d", receipt.Status)
-	}
-
-	if len(receipt.Logs) == 0 {
-		return nil, errors.New("no event found in TaikoL2.anchor transaction receipt")
-	}
-
-	return receipt, nil
 }

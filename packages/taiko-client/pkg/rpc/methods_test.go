@@ -95,13 +95,11 @@ func TestGetSyncedL1SnippetFromAnchor(t *testing.T) {
 	tx, err := client.TaikoL2.Anchor(opts, l1BlockHash, l1StateRoot, l1Height, parentGasUsed)
 	require.Nil(t, err)
 
-	syncedL1BlockHash,
-		syncedL1StateRoot,
+	syncedL1StateRoot,
 		syncedL1Height,
 		syncedParentGasUsed,
 		err := client.getSyncedL1SnippetFromAnchor(tx)
 	require.Nil(t, err)
-	require.Equal(t, l1BlockHash, syncedL1BlockHash)
 	require.Equal(t, l1StateRoot, syncedL1StateRoot)
 	require.Equal(t, l1Height, syncedL1Height)
 	require.Equal(t, parentGasUsed, syncedParentGasUsed)

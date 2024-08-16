@@ -2,10 +2,12 @@ package http
 
 import (
 	"context"
+	"log/slog"
 	"math/big"
 	"net/http"
 	"os"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
@@ -19,6 +21,12 @@ type ethClient interface {
 	ChainID(ctx context.Context) (*big.Int, error)
 	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
 	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
+	TransactionByHash(ctx context.Context, hash common.Hash) (*types.Transaction, bool, error)
+	TransactionSender(ctx context.Context,
+		tx *types.Transaction,
+		blockHash common.Hash,
+		txIndex uint,
+	) (common.Address, error)
 }
 
 // @title Taiko Bridge Relayer API
@@ -38,7 +46,9 @@ type Server struct {
 	echo                    *echo.Echo
 	eventRepo               relayer.EventRepository
 	srcEthClient            ethClient
+	srcChainID              *big.Int
 	destEthClient           ethClient
+	destChainID             *big.Int
 	processingFeeMultiplier float64
 	taikoL2                 *taikol2.TaikoL2
 }
@@ -82,6 +92,16 @@ func NewServer(opts NewServerOpts) (*Server, error) {
 		return nil, err
 	}
 
+	srcChainID, err := opts.SrcEthClient.ChainID(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	destChainID, err := opts.DestEthClient.ChainID(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
 	srv := &Server{
 		echo:                    opts.Echo,
 		eventRepo:               opts.EventRepo,
@@ -89,6 +109,8 @@ func NewServer(opts NewServerOpts) (*Server, error) {
 		destEthClient:           opts.DestEthClient,
 		processingFeeMultiplier: opts.ProcessingFeeMultiplier,
 		taikoL2:                 opts.TaikoL2,
+		srcChainID:              srcChainID,
+		destChainID:             destChainID,
 	}
 
 	corsOrigins := opts.CorsOrigins
@@ -109,6 +131,11 @@ func (srv *Server) Start(address string) error {
 
 // Shutdown shuts down the HTTP server
 func (srv *Server) Shutdown(ctx context.Context) error {
+	// Close db connection.
+	if err := srv.eventRepo.Close(); err != nil {
+		slog.Error("Failed to close db connection", "err", err)
+	}
+
 	return srv.echo.Shutdown(ctx)
 }
 

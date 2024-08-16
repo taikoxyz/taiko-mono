@@ -114,8 +114,11 @@ type EventRepository interface {
 		req *http.Request,
 		address string,
 	) (paginate.Page, error)
-	DeleteAllAfterBlockID(blockID uint64, srcChainID uint64) error
+	DeleteAllAfterBlockID(ctx context.Context, blockID uint64, srcChainID uint64) error
 	FindLatestBlockID(
+		ctx context.Context,
 		srcChainID uint64,
 	) (uint64, error)
+	GetBlockProvenBy(ctx context.Context, blockID int) ([]*Event, error)
+	GetBlockProposedBy(ctx context.Context, blockID int) (*Event, error)
 }

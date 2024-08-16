@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	chainSyncer "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -81,6 +82,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		cfg.P2PSyncTimeout,
 		cfg.MaxExponent,
 		cfg.BlobServerEndpoint,
+		cfg.SocialScanEndpoint,
 	); err != nil {
 		return err
 	}
@@ -174,7 +176,7 @@ func (d *Driver) ChainSyncer() *chainSyncer.L2ChainSyncer {
 func (d *Driver) reportProtocolStatus() {
 	var (
 		ticker       = time.NewTicker(protocolStatusReportInterval)
-		maxNumBlocks uint64
+		maxNumBlocks = encoding.GetProtocolConfig(d.rpc.L2.ChainID.Uint64()).BlockMaxProposals
 	)
 	d.wg.Add(1)
 
@@ -182,25 +184,6 @@ func (d *Driver) reportProtocolStatus() {
 		ticker.Stop()
 		d.wg.Done()
 	}()
-
-	if err := backoff.Retry(
-		func() error {
-			if d.ctx.Err() != nil {
-				return nil
-			}
-			configs, err := d.rpc.TaikoL1.GetConfig(&bind.CallOpts{Context: d.ctx})
-			if err != nil {
-				return err
-			}
-
-			maxNumBlocks = configs.BlockMaxProposals
-			return nil
-		},
-		backoff.WithContext(backoff.NewConstantBackOff(d.RetryInterval), d.ctx),
-	); err != nil {
-		log.Error("Failed to get protocol state variables", "error", err)
-		return
-	}
 
 	for {
 		select {

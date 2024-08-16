@@ -2,7 +2,6 @@ package processor
 
 import (
 	"context"
-
 	"log/slog"
 
 	"github.com/pkg/errors"
@@ -18,6 +17,7 @@ var (
 // profitable. Otherwise, we compare it to the estimated cost.
 func (p *Processor) isProfitable(
 	ctx context.Context,
+	id int,
 	fee uint64,
 	gasLimit uint64,
 	destChainBaseFee uint64,
@@ -44,10 +44,24 @@ func (p *Processor) isProfitable(
 	slog.Info("isProfitable",
 		"processingFee", fee,
 		"destChainBaseFee", destChainBaseFee,
+		"gasTipCap", gasTipCap,
 		"gasLimit", gasLimit,
 		"shouldProcess", shouldProcess,
 		"estimatedOnchainFee", estimatedOnchainFee,
 	)
+
+	opts := relayer.UpdateFeesAndProfitabilityOpts{
+		Fee:                 fee,
+		DestChainBaseFee:    destChainBaseFee,
+		GasTipCap:           gasTipCap,
+		GasLimit:            gasLimit,
+		IsProfitable:        shouldProcess,
+		EstimatedOnchainFee: estimatedOnchainFee,
+	}
+
+	if err := p.eventRepo.UpdateFeesAndProfitability(ctx, id, &opts); err != nil {
+		slog.Error("failed to update event", "error", err)
+	}
 
 	if !shouldProcess {
 		relayer.UnprofitableMessagesDetected.Inc()

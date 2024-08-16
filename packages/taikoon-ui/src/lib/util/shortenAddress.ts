@@ -17,7 +17,7 @@ export async function shortenAddress(address: IAddress, charsStart = 5, charsEnd
       return name;
     }
   } catch (e) {
-    console.warn(e);
+    // console.warn(e);
   }
 
   return shortened;

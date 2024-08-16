@@ -2,11 +2,6 @@ name: Bridge UI CI/CD
 
 on:
   push:
-    branches-ignore:
-      - main
-      - release-please-*
-    paths:
-      - "packages/bridge-ui/**"
     tags:
       - "bridge-ui-v*"
   pull_request:
@@ -18,18 +13,8 @@ jobs:
     uses: ./.github/workflows/bridge-ui--ci.yml
 
   # Deployment name follow the pattern: deploy_<appname(bridge-ui)>_<network(devnet|hekla|mainnet)>_<environment(preview|production)>
-  deploy_bridge-ui_hekla_preview:
-    if: ${{ github.ref_type != 'tag' }}
-    needs: build-and-test
-    uses: ./.github/workflows/repo--vercel-deploy.yml
-    with:
-      environment: "preview"
-      flags: ""
-    secrets:
-      vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_BRIDGE_UI_HEKLA }}
-      vercel_org_id: ${{ secrets.VERCEL_ORG_ID }}
-      vercel_token: ${{ secrets.VERCEL_TOKEN }}
 
+  # Internal Devnet
   deploy_bridge-ui_devnet_preview:
     if: ${{ github.ref_type != 'tag' }}
     needs: build-and-test
@@ -42,6 +27,19 @@ jobs:
       vercel_org_id: ${{ secrets.VERCEL_ORG_ID }}
       vercel_token: ${{ secrets.VERCEL_TOKEN }}
 
+  # Hekla testnet
+  deploy_bridge-ui_hekla_preview:
+    if: ${{ github.ref_type != 'tag' }}
+    needs: build-and-test
+    uses: ./.github/workflows/repo--vercel-deploy.yml
+    with:
+      environment: "preview"
+      flags: ""
+    secrets:
+      vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_BRIDGE_UI_HEKLA }}
+      vercel_org_id: ${{ secrets.VERCEL_ORG_ID }}
+      vercel_token: ${{ secrets.VERCEL_TOKEN }}
+
   deploy_bridge-ui_hekla_production:
     if: ${{ startsWith(github.ref, 'refs/tags/bridge-ui-v') }}
     needs: build-and-test
@@ -51,5 +49,30 @@ jobs:
       flags: "--prod"
     secrets:
       vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_BRIDGE_UI_HEKLA }}
+      vercel_org_id: ${{ secrets.VERCEL_ORG_ID }}
+      vercel_token: ${{ secrets.VERCEL_TOKEN }}
+
+  # Mainnet
+  deploy_bridge-ui_mainnet_preview:
+    if: ${{ github.ref_type != 'tag' }}
+    needs: build-and-test
+    uses: ./.github/workflows/repo--vercel-deploy.yml
+    with:
+      environment: "preview"
+      flags: ""
+    secrets:
+      vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_BRIDGE_UI_MAINNET }}
+      vercel_org_id: ${{ secrets.VERCEL_ORG_ID }}
+      vercel_token: ${{ secrets.VERCEL_TOKEN }}
+
+  deploy_bridge-ui_mainnet_production:
+    if: ${{ startsWith(github.ref, 'refs/tags/bridge-ui-v') }}
+    needs: build-and-test
+    uses: ./.github/workflows/repo--vercel-deploy.yml
+    with:
+      environment: "production"
+      flags: "--prod"
+    secrets:
+      vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_BRIDGE_UI_MAINNET }}
       vercel_org_id: ${{ secrets.VERCEL_ORG_ID }}
       vercel_token: ${{ secrets.VERCEL_TOKEN }}

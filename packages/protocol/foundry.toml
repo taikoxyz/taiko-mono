@@ -13,11 +13,16 @@ solc_version = "0.8.24"
 evm_version = "cancun"
 remappings = [
   "@openzeppelin/contracts-upgradeable/=node_modules/@openzeppelin/contracts-upgradeable/",
+  "openzeppelin/contracts-upgradeable/=node_modules/@openzeppelin/contracts-upgradeable/",
   "@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/",
-  "solady/=node_modules/solady/",
+  "openzeppelin/contracts/=node_modules/@openzeppelin/contracts/",
+  "@risc0/contracts/=node_modules/risc0-ethereum/contracts/src/",
+  "@solady/=node_modules/solady/",
+  "@optimism/=node_modules/optimism/",
+  "@sp1-contracts/=node_modules/sp1-contracts/contracts/",
   "forge-std/=node_modules/forge-std/",
   "ds-test/=node_modules/ds-test/src/",
-  "p256-verifier/=node_modules/p256-verifier/",
+  "@p256-verifier/contracts/=node_modules/p256-verifier/src/",
 ]
 
 # Do not change the block_gas_limit value, TaikoL2.t.sol depends on it.
@@ -29,6 +34,7 @@ fs_permissions = [
   { access = "read", path = "./out" },
   { access = "read-write", path = "./deployments" },
   { access = "read", path = "./test" },
+  { access = "read", path = "./script/" },
   { access = "read", path = "./genesis" },
 ]
 

@@ -137,3 +137,15 @@ func (c *EthClient) SubscribeNewHead(ctx context.Context, ch chan<- *types.Heade
 
 	return s, nil
 }
+
+// nolint: lll
+func (c *EthClient) TransactionSender(ctx context.Context, tx *types.Transaction, blockHash common.Hash, txIndex uint) (common.Address, error) {
+	return common.Address{}, nil
+}
+
+func (c *EthClient) BalanceAt(
+	ctx context.Context,
+	account common.Address,
+	blockNumber *big.Int) (*big.Int, error) {
+	return big.NewInt(100), nil
+}

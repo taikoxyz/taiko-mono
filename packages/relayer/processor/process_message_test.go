@@ -20,6 +20,7 @@ func Test_sendProcessMessageCall(t *testing.T) {
 
 	_, err := p.sendProcessMessageCall(
 		context.Background(),
+		1,
 		&bridge.BridgeMessageSent{
 			Message: bridge.IBridgeMessage{
 				Id:          1,

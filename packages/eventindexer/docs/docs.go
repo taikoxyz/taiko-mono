@@ -53,6 +53,70 @@ const docTemplate = `{
                 }
             }
         },
+        "/blockProposedBy": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get block proposed by",
+                "operationId": "get-block-proposed-by",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "blockID to query",
+                        "name": "blockID",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/eventindexer.Event"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/blockProvenBy": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get block proven by",
+                "operationId": "get-block-proven-by",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "blockID to query",
+                        "name": "blockID",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/eventindexer.Event"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/chart/chartByTask": {
             "get": {
                 "consumes": [
@@ -91,6 +155,42 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/eventindexer.ChartResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/erc20sByAddress": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get erc20 balances by address and chain ID",
+                "operationId": "get-erc20-balances-by-address-and-chain-id",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "address to query",
+                        "name": "address",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "chainID to query",
+                        "name": "chainID",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/paginate.Page"
                         }
                     }
                 }
@@ -210,6 +310,17 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "decimal.NullDecimal": {
+            "type": "object",
+            "properties": {
+                "decimal": {
+                    "type": "number"
+                },
+                "valid": {
+                    "type": "boolean"
+                }
+            }
+        },
         "eventindexer.ChartItem": {
             "type": "object",
             "properties": {
@@ -229,6 +340,65 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/eventindexer.ChartItem"
                     }
+                }
+            }
+        },
+        "eventindexer.Event": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string"
+                },
+                "amount": {
+                    "$ref": "#/definitions/decimal.NullDecimal"
+                },
+                "assignedProver": {
+                    "type": "string"
+                },
+                "blockID": {
+                    "type": "integer"
+                },
+                "chainID": {
+                    "type": "integer"
+                },
+                "contractAddress": {
+                    "type": "string"
+                },
+                "data": {
+                    "type": "string"
+                },
+                "emittedBlockID": {
+                    "type": "integer"
+                },
+                "event": {
+                    "type": "string"
+                },
+                "feeTokenAddress": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "proofReward": {
+                    "$ref": "#/definitions/decimal.NullDecimal"
+                },
+                "proposerReward": {
+                    "$ref": "#/definitions/decimal.NullDecimal"
+                },
+                "tier": {
+                    "type": "integer"
+                },
+                "to": {
+                    "type": "string"
+                },
+                "tokenID": {
+                    "type": "integer"
+                },
+                "transactedAt": {
+                    "type": "string"
                 }
             }
         },

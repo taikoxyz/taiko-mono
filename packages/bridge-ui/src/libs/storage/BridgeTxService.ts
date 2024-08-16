@@ -8,7 +8,6 @@ import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
 import { getMessageStatusForMsgHash } from '$libs/bridge/getMessageStatusForMsgHash';
 import { isSupportedChain } from '$libs/chain';
 import { FilterLogsError } from '$libs/error';
-import { fetchTransactionReceipt } from '$libs/util/fetchTransactionReceipt';
 import { jsonParseWithDefault } from '$libs/util/jsonParseWithDefault';
 import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
@@ -21,7 +20,11 @@ export class BridgeTxService {
   //Todo: duplicate code in RelayerAPIService
   private static async _getTransactionReceipt(chainId: number, hash: Hash) {
     try {
-      return await fetchTransactionReceipt(hash, chainId);
+      return await waitForTransactionReceipt(config, {
+        hash,
+        chainId: Number(chainId),
+        timeout: pendingTransaction.waitTimeout,
+      });
     } catch (error) {
       log(`Error getting transaction receipt for ${hash}: ${error}`);
       return null;
@@ -94,11 +97,11 @@ export class BridgeTxService {
 
   private async _enhanceTx(tx: BridgeTransaction, address: Address, waitForTx: boolean) {
     // Filters out the transactions that are not from the current address
-    if (tx.from.toLowerCase() !== address.toLowerCase()) return;
+    // if (tx.from.toLowerCase() !== address.toLowerCase()) return;
 
     const bridgeTx: BridgeTransaction = { ...tx }; // prevent mutation
 
-    const { destChainId, srcChainId, hash } = bridgeTx;
+    const { destChainId, srcChainId, srcTxHash } = bridgeTx;
 
     // Ignore transactions from chains not supported by the bridge
     if (!isSupportedChain(Number(srcChainId))) return;
@@ -107,15 +110,11 @@ export class BridgeTxService {
 
     if (waitForTx) {
       // We might want to wait for the transaction to be mined
-      receipt = await waitForTransactionReceipt(config, {
-        hash,
-        chainId: Number(srcChainId),
-        timeout: pendingTransaction.waitTimeout,
-      });
-    } else {
-      // Returns the transaction receipt for hash or null
-      // if the transaction has not been mined.
-      receipt = await BridgeTxService._getTransactionReceipt(Number(srcChainId), hash);
+      try {
+        receipt = await BridgeTxService._getTransactionReceipt(Number(srcChainId), srcTxHash);
+      } catch (error) {
+        console.error('Error waiting for transaction receipt', error);
+      }
     }
 
     if (!receipt) {
@@ -201,7 +200,7 @@ export class BridgeTxService {
   async getTxByHash(hash: Hash, address: Address) {
     const txs = this._getTxFromStorage(address);
 
-    const tx = txs.find((tx) => tx.hash === hash) as BridgeTransaction;
+    const tx = txs.find((tx) => tx.srcTxHash === hash) as BridgeTransaction;
 
     log('Transaction from storage', { ...tx });
 
@@ -237,9 +236,9 @@ export class BridgeTxService {
     log('Removing transactions from storage', txs);
     const txsFromStorage = this._getTxFromStorage(address);
 
-    const txsToRemove = txs.map((tx) => tx.hash);
+    const txsToRemove = txs.map((tx) => tx.srcTxHash);
 
-    const filteredTxs = txsFromStorage.filter((tx) => !txsToRemove.includes(tx.hash));
+    const filteredTxs = txsFromStorage.filter((tx) => !txsToRemove.includes(tx.srcTxHash));
 
     this.updateByAddress(address, filteredTxs);
   }
@@ -248,5 +247,10 @@ export class BridgeTxService {
     log('Clearing storage for address', address);
     const key = `${storageService.bridgeTxPrefix}-${address}`;
     this.storage.removeItem(key);
+  }
+
+  transactionIsStoredLocally(address: Address, tx: BridgeTransaction) {
+    const txs = this._getTxFromStorage(address);
+    return txs.some((t) => t.srcTxHash === tx.srcTxHash);
   }
 }

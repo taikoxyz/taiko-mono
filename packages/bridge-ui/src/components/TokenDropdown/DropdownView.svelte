@@ -11,7 +11,7 @@
   import { OnAccount } from '$components/OnAccount';
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import { tokenService } from '$libs/storage/services';
-  import type { Token } from '$libs/token';
+  import type { NFT, Token } from '$libs/token';
   import { classNames } from '$libs/util/classNames';
   import { noop } from '$libs/util/noop';
   import { truncateString } from '$libs/util/truncateString';
@@ -28,7 +28,7 @@
   };
   export let tokens: Token[] = [];
   export let customTokens: Token[] = [];
-  export let value: Maybe<Token> = null;
+  export let value: Maybe<Token | NFT> = null;
   export let selectToken: (token: Token) => void = noop;
   export let onlyMintable: boolean = false;
 
@@ -81,10 +81,16 @@
 
   $: if (enteredTokenName !== '') {
     filteredTokens = tokens.filter((token) => {
-      return token.name.includes(enteredTokenName) || token.symbol.includes(enteredTokenName);
+      return (
+        token.name.toLowerCase().includes(enteredTokenName.toLowerCase()) ||
+        token.symbol.toLowerCase().includes(enteredTokenName.toLowerCase())
+      );
     });
     filteredCustomTokens = customTokens.filter((token) => {
-      return token.name.includes(enteredTokenName) || token.symbol.includes(enteredTokenName);
+      return (
+        token.name.toLowerCase().includes(enteredTokenName.toLowerCase()) ||
+        token.symbol.includes(enteredTokenName.toLowerCase())
+      );
     });
   } else {
     filteredTokens = tokens;
@@ -119,7 +125,7 @@
     bind:value={enteredTokenName}
     on:input={searchToken}
     class="p-[12px] my-[20px]" />
-  <ul role="listbox" {id} class="gap-2">
+  <ul role="listbox" {id} class="gap-2 overflow-y-scroll h-[180px]">
     {#if activeTab === TabTypes.TOKEN}
       {#each filteredTokens as t (t.symbol)}
         {@const selected = deepEqual(t, value)}
@@ -137,6 +143,8 @@
               <i role="img" aria-label={t.name}>
                 <svelte:component this={symbolToIconMap[t.symbol]} size={28} />
               </i>
+            {:else if t.logoURI}
+              <img src={t.logoURI} alt={t.name} class="w-[28px] h-[28px] rounded-[50%]" />
             {:else}
               <i role="img" aria-label={t.symbol}>
                 <svelte:component this={Erc20} size={28} />

@@ -11,6 +11,7 @@ func Test_isProfitable(t *testing.T) {
 	p := newTestProcessor(true)
 
 	tests := []struct {
+		id             int
 		name           string
 		fee            uint64
 		gasLimit       uint64
@@ -20,6 +21,7 @@ func Test_isProfitable(t *testing.T) {
 		wantErr        error
 	}{
 		{
+			0,
 			"zeroProcessingFee",
 			0,
 			1,
@@ -29,6 +31,7 @@ func Test_isProfitable(t *testing.T) {
 			errImpossible,
 		},
 		{
+			1,
 			"profitable",
 			600000000600001,
 			600000,
@@ -38,6 +41,7 @@ func Test_isProfitable(t *testing.T) {
 			nil,
 		},
 		{
+			2,
 			"unprofitable",
 			590000000600000,
 			600000,
@@ -52,6 +56,7 @@ func Test_isProfitable(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			profitable, err := p.isProfitable(
 				context.Background(),
+				tt.id,
 				tt.fee,
 				tt.gasLimit,
 				tt.baseFee,

@@ -33,7 +33,7 @@ func NewTransitionContestedEventHandler(
 // Handle implements the TransitionContestedHandler interface.
 func (h *TransitionContestedEventHandler) Handle(
 	ctx context.Context,
-	e *bindings.TaikoL1ClientTransitionContested,
+	e *bindings.TaikoL1ClientTransitionContestedV2,
 ) error {
 	log.Info(
 		"🗡 Transition contested",
@@ -85,16 +85,11 @@ func (h *TransitionContestedEventHandler) Handle(
 	}
 
 	// If the proof is invalid, we contest it.
-	blockInfo, err := h.rpc.GetL2BlockInfo(ctx, e.BlockId)
-	if err != nil {
-		return err
-	}
-
-	blockProposedEvent, err := GetBlockProposedEventFromBlockID(
+	meta, err := getMetadataFromBlockID(
 		ctx,
 		h.rpc,
 		e.BlockId,
-		new(big.Int).SetUint64(blockInfo.ProposedIn),
+		new(big.Int).SetUint64(e.ProposedIn),
 	)
 	if err != nil {
 		return err
@@ -102,8 +97,8 @@ func (h *TransitionContestedEventHandler) Handle(
 
 	go func() {
 		h.proofSubmissionCh <- &proofProducer.ProofRequestBody{
-			Tier:  e.Tier + 1, // We need to send a higher tier proof to resolve the current contest.
-			Event: blockProposedEvent,
+			Tier: e.Tier + 1, // We need to send a higher tier proof to resolve the current contest.
+			Meta: meta,
 		}
 	}()
 

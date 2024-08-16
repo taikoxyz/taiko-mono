@@ -257,6 +257,19 @@
   },
   {
     "type": "function",
+    "name": "setQuotaPeriod",
+    "inputs": [
+      {
+        "name": "_quotaPeriod",
+        "type": "uint24",
+        "internalType": "uint24"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "tokenQuota",
     "inputs": [
       {
@@ -451,6 +464,19 @@
   },
   {
     "type": "event",
+    "name": "QuotaPeriodUpdated",
+    "inputs": [
+      {
+        "name": "quotaPeriod",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "QuotaUpdated",
     "inputs": [
       {
@@ -558,7 +584,12 @@
   },
   {
     "type": "error",
-    "name": "ZERO_ADDR_MANAGER",
+    "name": "ZERO_ADDRESS",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZERO_VALUE",
     "inputs": []
   }
 ]

@@ -1,0 +1,42 @@
+name: NFTs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/nfts/**"
+  pull_request:
+    paths:
+      - "packages/nfts/**"
+
+jobs:
+  build-nfts-contracts:
+    runs-on: [taiko-runner]
+    steps:
+      - name: Cancel previous runs
+        uses: styfle/cancel-workflow-action@0.12.1
+        with:
+          access_token: ${{ github.token }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1.2.0
+
+      - name: Install pnpm dependencies
+        uses: ./.github/actions/install-pnpm-dependencies
+
+      - name: Format solidity && update contract layout table
+        working-directory: ./packages/nfts
+        run: pnpm layout && forge fmt
+
+      - name: Solidity compilation
+        working-directory: ./packages/nfts
+        run: pnpm compile
+
+      - name: Unit Tests
+        working-directory: ./packages/nfts
+        run: pnpm test

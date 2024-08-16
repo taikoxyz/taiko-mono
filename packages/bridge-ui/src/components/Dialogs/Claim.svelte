@@ -43,7 +43,7 @@
     }
   }
 
-  export const claim = async (action: ClaimAction) => {
+  export const claim = async (action: ClaimAction, force: boolean = false) => {
     if (!$account.address) {
       throw new NotConnectedError('User is not connected');
     }
@@ -64,15 +64,13 @@
       // Step 3: get the user's wallet
       const wallet = await getConnectedWallet(Number(bridgeTx.destChainId));
 
-      log(`Claiming ${bridgeTx.tokenType} for transaction`, bridgeTx);
-
       // Step 4: Call claim() method on the bridge
       let txHash: Hash;
       if ($selectedRetryMethod === RETRY_OPTION.RETRY_ONCE) {
         log('Claiming with lastAttempt flag');
         txHash = await bridge.processMessage({ wallet, bridgeTx, lastAttempt: true });
       } else {
-        txHash = await bridge.processMessage({ wallet, bridgeTx });
+        txHash = await bridge.processMessage({ wallet, bridgeTx }, force);
       }
 
       dispatch('claimingTxSent', { txHash, action });

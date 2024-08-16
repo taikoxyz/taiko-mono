@@ -32,9 +32,13 @@ export const addressClasses = classNames(
 
 export const chainIconClasses = classNames(
   'w-[24px]',
-  'ml-1',
-  //'md:ml-[0]',
+  // sm
+  'ml-3',
+  // md
   'md:mx-2',
+  // lg
+  'lg:ml-2',
+  'lg:mr-0',
 );
 
 export const connectButtonClasses = classNames(

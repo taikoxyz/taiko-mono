@@ -33,29 +33,17 @@ contract SignalService is EssentialContract, ISignalService {
 
     error SS_EMPTY_PROOF();
     error SS_INVALID_HOPS_WITH_LOOP();
-    error SS_INVALID_SENDER();
     error SS_INVALID_LAST_HOP_CHAINID();
     error SS_INVALID_MID_HOP_CHAINID();
     error SS_INVALID_STATE();
-    error SS_INVALID_VALUE();
     error SS_SIGNAL_NOT_FOUND();
     error SS_UNAUTHORIZED();
 
-    modifier nonZeroApp(address _app) {
-        if (_app == address(0)) revert SS_INVALID_SENDER();
-        _;
-    }
-
-    modifier nonZeroValue(bytes32 _input) {
-        if (_input == 0) revert SS_INVALID_VALUE();
-        _;
-    }
-
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _addressManager The address of the {AddressManager} contract.
-    function init(address _owner, address _addressManager) external initializer {
-        __Essential_init(_owner, _addressManager);
+    /// @param _sharedAddressManager The address of the {AddressManager} contract.
+    function init(address _owner, address _sharedAddressManager) external initializer {
+        __Essential_init(_owner, _sharedAddressManager);
     }
 
     /// @dev Authorize or deauthorize an address for calling syncChainData.
@@ -132,7 +120,7 @@ contract SignalService is EssentialContract, ISignalService {
     )
         public
         view
-        nonZeroValue(_chainData)
+        nonZeroValue(uint256(_chainData))
         returns (bool)
     {
         bytes32 signal = signalForChainData(_chainId, _kind, _blockId);
@@ -204,9 +192,9 @@ contract SignalService is EssentialContract, ISignalService {
         internal
         view
         virtual
-        nonZeroApp(_app)
-        nonZeroValue(_signal)
-        nonZeroValue(_value)
+        nonZeroAddr(_app)
+        nonZeroValue(uint256(_signal))
+        nonZeroValue(uint256(_value))
         returns (bytes32)
     {
         return LibTrieProof.verifyMerkleProof(
@@ -245,9 +233,9 @@ contract SignalService is EssentialContract, ISignalService {
         bytes32 _value
     )
         private
-        nonZeroApp(_app)
-        nonZeroValue(_signal)
-        nonZeroValue(_value)
+        nonZeroAddr(_app)
+        nonZeroValue(uint256(_signal))
+        nonZeroValue(uint256(_value))
         returns (bytes32 slot_)
     {
         slot_ = getSignalSlot(uint64(block.chainid), _app, _signal);
@@ -287,8 +275,8 @@ contract SignalService is EssentialContract, ISignalService {
     )
         private
         view
-        nonZeroApp(_app)
-        nonZeroValue(_signal)
+        nonZeroAddr(_app)
+        nonZeroValue(uint256(_signal))
         returns (bytes32 value_)
     {
         bytes32 slot = getSignalSlot(uint64(block.chainid), _app, _signal);
@@ -306,8 +294,8 @@ contract SignalService is EssentialContract, ISignalService {
     )
         private
         view
-        nonZeroApp(_app)
-        nonZeroValue(_signal)
+        nonZeroAddr(_app)
+        nonZeroValue(uint256(_signal))
         returns (CacheAction[] memory actions)
     {
         HopProof[] memory hopProofs = abi.decode(_proof, (HopProof[]));

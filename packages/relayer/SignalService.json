@@ -859,17 +859,7 @@
   },
   {
     "type": "error",
-    "name": "SS_INVALID_SENDER",
-    "inputs": []
-  },
-  {
-    "type": "error",
     "name": "SS_INVALID_STATE",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "SS_INVALID_VALUE",
     "inputs": []
   },
   {
@@ -884,7 +874,12 @@
   },
   {
     "type": "error",
-    "name": "ZERO_ADDR_MANAGER",
+    "name": "ZERO_ADDRESS",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZERO_VALUE",
     "inputs": []
   }
 ]

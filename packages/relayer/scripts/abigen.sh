@@ -1,4 +1,4 @@
-#/bin/sh
+#!/bin/sh
 
 if [ ! -d "../protocol/out" ]; then
     echo "ABI not generated in protocol package yet. Please run npm install && npx hardhat compile in ../protocol"

@@ -1,22 +1,9 @@
-import { zeroAddress } from 'viem';
-
 import { ETHToken } from '$libs/token';
 import { L1_CHAIN_ID, MOCK_ERC20, MOCK_ERC721, MOCK_ERC1155 } from '$mocks';
 
 import { calculateMessageDataSize } from './calculateMessageDataSize';
 
-vi.mock('../../generated/customTokenConfig', () => {
-  const mockERC20 = {
-    name: 'MockERC20',
-    addresses: { 1: zeroAddress },
-    symbol: 'MOCK',
-    decimals: 18,
-    type: 'ERC20',
-  };
-  return {
-    customToken: [mockERC20],
-  };
-});
+vi.mock('$customToken');
 
 describe('calculateMessageDataSize', () => {
   it('should calculate the message data size for ERC20 correctly', async () => {

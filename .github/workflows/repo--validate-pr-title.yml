@@ -9,7 +9,6 @@ on:
   push:
     branches:
       - release-please-* # Trigger for release-please PRs, but skip the job
-  merge_group: # Trigger in the merge queue, but skip the job
 
 jobs:
   validate-pr-title:
@@ -31,7 +30,6 @@ jobs:
             deps
             deps-dev
             docs-site
-            blobstorage
             branding
             bridge-ui
             eventindexer
@@ -40,7 +38,8 @@ jobs:
             guardian-prover-health-check-ui
             protocol
             relayer
-            taikoon
+            nfts
+            ui-lib
             taiko-client
             supplementary-contracts
           requireScope: true

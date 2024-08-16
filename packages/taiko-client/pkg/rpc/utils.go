@@ -31,6 +31,13 @@ func GetProtocolStateVariables(
 	A bindings.TaikoDataSlotA
 	B bindings.TaikoDataSlotB
 }, error) {
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	defer cancel()
+
 	slotA, slotB, err := taikoL1Client.GetStateVariables(opts)
 	if err != nil {
 		return nil, err
@@ -50,7 +57,7 @@ func CheckProverBalance(
 	address common.Address,
 	bond *big.Int,
 ) (bool, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	// Check allowance on taiko token contract
@@ -60,7 +67,7 @@ func CheckProverBalance(
 	}
 
 	log.Info(
-		"Prover allowance for TaikoL1 contract",
+		"Prover allowance for the contract",
 		"allowance", utils.WeiToEther(allowance),
 		"address", prover.Hex(),
 		"bond", utils.WeiToEther(bond),
@@ -112,8 +119,9 @@ func GetBlockProofStatus(
 	cli *Client,
 	id *big.Int,
 	proverAddress common.Address,
+	proverSetAddress common.Address,
 ) (*BlockProofStatus, error) {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	// Get the local L2 parent header.
@@ -142,7 +150,8 @@ func GetBlockProofStatus(
 		return nil, err
 	}
 
-	if header.Hash() != transition.BlockHash || transition.StateRoot != header.Root {
+	if header.Hash() != transition.BlockHash ||
+		(transition.StateRoot != (common.Hash{}) && transition.StateRoot != header.Root) {
 		log.Info(
 			"Different block hash or state root detected, try submitting a contest",
 			"localBlockHash", header.Hash(),
@@ -158,7 +167,8 @@ func GetBlockProofStatus(
 		}, nil
 	}
 
-	if proverAddress == transition.Prover {
+	if proverAddress == transition.Prover ||
+		(proverSetAddress != ZeroAddress && transition.Prover == proverSetAddress) {
 		log.Info(
 			"📬 Block's proof has already been submitted by current prover",
 			"blockID", id,
@@ -198,7 +208,7 @@ func GetBlockProofStatus(
 // SetHead makes a `debug_setHead` RPC call to set the chain's head, should only be used
 // for testing purpose.
 func SetHead(ctx context.Context, client *EthClient, headNum *big.Int) error {
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	return client.SetHead(ctxWithTimeout, headNum)
@@ -212,10 +222,10 @@ func StringToBytes32(str string) [32]byte {
 	return b
 }
 
-// ctxWithTimeoutOrDefault sets a context timeout if the deadline has not passed or is not set,
+// CtxWithTimeoutOrDefault sets a context timeout if the deadline has not passed or is not set,
 // and otherwise returns the context as passed in. cancel func is always set to an empty function
 // so is safe to defer the cancel.
-func ctxWithTimeoutOrDefault(ctx context.Context, defaultTimeout time.Duration) (context.Context, context.CancelFunc) {
+func CtxWithTimeoutOrDefault(ctx context.Context, defaultTimeout time.Duration) (context.Context, context.CancelFunc) {
 	if utils.IsNil(ctx) {
 		return context.WithTimeout(context.Background(), defaultTimeout)
 	}

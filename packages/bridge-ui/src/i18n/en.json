@@ -6,6 +6,7 @@
   },
   "bridge": {
     "actions": {
+      "acknowledge": "I understand",
       "approve": {
         "rejected": {
           "title": "Request to approve rejected"
@@ -38,7 +39,9 @@
       "nft_scan_again": "Scan again"
     },
     "alerts": {
+      "not_enough_funds": "You do not have enough ETH to cover the processing fee and transaction fee. Please add more ETH to your wallet (>= 0.0015 ETH).",
       "slow_bridging": "Please note: Bridging to L1 will take around 24hrs!",
+      "smart_contract_wallet": "It seems you are using a smart contract wallet. Please double check that the recipient matches your wallet on the destination or change it accordingly.",
       "wrapped_eth": "You are bridging wrapped ETH. Please be aware that un-wrapping will only work on the original chain of the token, <span class=\"font-bold\">NOT</span> on the destination."
     },
     "button": {
@@ -49,6 +52,9 @@
       "bridging": "Bridging",
       "fetch": "Fetch NFT data",
       "import": "Import",
+      "reset": "Reset",
+      "reset_approval": "Reset Approval",
+      "resetting": "Resetting",
       "validating": "Validating..."
     },
     "description": {
@@ -67,6 +73,7 @@
       }
     },
     "errors": {
+      "amount_exceeds_quota": "This amount exceeds the quota. Please lower the amount.",
       "approve_error": {
         "message": "We encountered an issue while trying to approve this token.",
         "title": "Approval failed"
@@ -113,6 +120,10 @@
       "send_message_error": {
         "message": "Please try again",
         "title": "Failed to send"
+      },
+      "transaction_timeout": {
+        "message": "Transaction timed out. Try refreshing the page and retry",
+        "title": "Timed out"
       },
       "unknown_error": {
         "message": "An unexpected error has occurred. Please try again.",
@@ -197,11 +208,8 @@
         "review": "Review"
       }
     },
-    "welcome_modal": {
-      "body": "Welcome to <span class='font-bold text-primary-brand'>Hekla, our final testnet</span>.<br/>Strengthening security may cause some delay in L2→L1 bridging, <span class='font-bold text-primary-brand'>around 24 hours</span> on the testnet. We're striving for shorter delays on the mainnet.",
-      "confirm": "I understand",
-      "link": "Find out more",
-      "title": "Important Update"
+    "usdt_approval": {
+      "info": "You have previously approved a lower amount of USDT. To adjust the approval, you must first reset the previous amount to 0. This requirement is unique to USDT."
     }
   },
   "chain_selector": {
@@ -226,6 +234,7 @@
     "close": "Close",
     "collection": "Collection",
     "confirm": "Confirm",
+    "confirmed": "Confirmed",
     "continue": "Continue",
     "contract_address": "Contract address",
     "customized": "Customized",
@@ -239,21 +248,38 @@
     "name": "Name",
     "not_available_short": "N/A",
     "ok": "Okay",
+    "owner": {
+      "destination": "Destination owner"
+    },
     "recipient": "Recipient",
+    "relayer": "Relayer",
+    "reset_to_wallet": "Reset to current address",
     "review": "Review",
     "search_token": "Search token",
     "see_results": "See results",
     "sender": "Sender",
     "status": "Status",
     "success": "Success",
+    "switch_chain": "Switch chain",
     "switch_to": "Switch to",
     "symbol": "Symbol",
     "to": "To",
     "token_id": "Token ID",
-    "token_standard": "Token standard"
+    "token_standard": "Token standard",
+    "tx_hash": "Tx hash"
   },
   "custom_recipient": {
     "placeholder": "Add custom recipient"
+  },
+  "destOwner": {
+    "alerts": {
+      "smartContract": "You cannot set the destination owner to a contract address"
+    },
+    "description": "You can set a custom address that should be able to claim the transaction on the destination chain, for example if the recipient is a smart contract that cannot manually claim.",
+    "placeholder": "add address that should be able to manually claim...",
+    "title": "Destination owner",
+    "tooltip": "Defaults to your address. You can specify a different address that should be able to claim this transaction.",
+    "tooltip_title": "What is Destination Owner?"
   },
   "faucet": {
     "button": {
@@ -280,9 +306,9 @@
     },
     "title": "Faucet",
     "warning": {
-      "insufficient_balance": "You don't have enough ETH to complete the transaction. Please add some ETH to your wallet.",
+      "insufficient_balance": "You don't have enough ETH to complete the transaction. Please add more ETH to your wallet (>= 0.0015 ETH)",
       "no_connected": "Please connect your wallet to mint tokens.",
-      "not_mintable": "This token is not mintable on this network",
+      "not_mintable": "This token is not mintable on this network. Please switch to the correct network.",
       "token_minted": "You have already minted this token.",
       "unknown": "Something did not work"
     },
@@ -378,12 +404,21 @@
     },
     "custom": {
       "label": "Custom",
-      "text": "Customize your processing fee"
+      "text": "Customize your processing fee",
+      "warning": "Fees set below the recommended level may not attract any relayers. Please adjust values only if you understand the consequences."
     },
     "customized": "Customized",
     "description": "The payment you provide to the relayer for handling your bridge message on the destination chain.",
+    "gasLimit": {
+      "message": "No other account can pay your gas fees when claiming",
+      "title": "Only allow sender to claim",
+      "warning": {
+        "message": "This will prevent any relayer from claiming for you, you will have to claim manually. Do not use this option if you are not 100% sure what you are doing. "
+      }
+    },
     "link": "Customize fee",
     "none": {
+      "alert": "Setting the processing fee to 'None' will require manual claiming.  No relayer will claim for you.",
       "label": "None",
       "text": "Use ETH to manually claim your bridged token later",
       "warning": "Insufficient ETH to cover the gas fees for claiming."
@@ -405,6 +440,18 @@
     "title": "Recipient address",
     "tooltip": "Defaults to your address. You can add a custom recipient address as well.",
     "tooltip_title": "What is Custom Recipient?"
+  },
+  "relayer_component": {
+    "address_input_label": "Enter the recipient address",
+    "description": "This component allows you to manually claim any claimable transaction",
+    "no_tx_found": "No claimable transactions found",
+    "step1": {
+      "title": "Step 1: Select the recipient"
+    },
+    "step2": {
+      "title": "Step 2: Search the transaction you want"
+    },
+    "title": "Relayer Component"
   },
   "switch_modal": {
     "description": "Your current network is not supported. Please select one of the following chains to proceed:",
@@ -472,6 +519,7 @@
         "pre_check": {
           "chain_check": "Connected to the correct chain",
           "funds_check": "Sufficient funds to claim",
+          "only_destowner_can_claim": "This transaction can only be claimed by the destination owner. Please connect to the correct wallet to claim this transaction.",
           "quota_check": "Sufficient daily quota",
           "ready": "You can continue with the claim process!",
           "step": "Claim step",
@@ -483,11 +531,14 @@
               "title": "What is \"Connected to the correct chain\"?"
             },
             "funds": {
-              "description": "In order to claim the transaction yourself, you need enough funds on the destination chain. If you've kept the default processing fee, the relayer will likely claim for you soon.",
+              "description": "In order to claim the transaction yourself, you need enough funds on the destination chain (>= 0.0015 ETH). If you've kept the default processing fee, the relayer will likely claim for you soon.",
               "title": "What is \"Sufficient funds to claim\"?"
             },
+            "processing_fee": {
+              "description": "A processing fee has been set for this transaction. If the fee is high enough, a relayer may claim it automatically. Regardless, you can choose to manually claim the transaction. Note that the fee is non-refundable."
+            },
             "quota": {
-              "description": "Currently there is a daily limit of how much ETH can be bridged to L1. If the quota is reached, please try again the next day.",
+              "description": "Currently there is a daily limit of how much of this asset can be bridged to L1. If the quota is reached, please try again the next day.",
               "title": "What is \"Sufficient daily quota\"?"
             }
           }
@@ -501,6 +552,11 @@
     },
     "description": "Track your bridge transactions here.",
     "details_dialog": {
+      "claimed_by": "Claimed by",
+      "destination_owner": "Destination owner",
+      "initiated_date": "Date initiated",
+      "recipient_address": "Recipient address",
+      "sender_address": "Sender address",
       "title": "Transaction details"
     },
     "errors": {
@@ -512,20 +568,25 @@
       "claimed": "Claimed",
       "failed": "Failed",
       "processing": "Processing",
+      "released": "Released",
       "retry": "Retriable",
       "title": "Filters"
     },
     "header": {
       "amount": "Amount",
+      "date": "Date",
+      "details": "Details",
       "explorer": "Explorer",
       "from": "From",
       "item": "Item",
+      "nft": "NFT",
       "status": "Status",
       "to": "To"
     },
     "link": {
       "explorer": "View details",
-      "explorer_short": "View"
+      "explorer_short": "View",
+      "view": "Details"
     },
     "no_transactions": "No transactions found",
     "release": {
@@ -544,6 +605,7 @@
         "description": "Your asset is now ready for claiming on the destination chain and requires a transaction. If you have set a processing fee, the relayer will automatically handle the claiming process on your behalf.",
         "name": "Claim"
       },
+      "claimable": "Claimable",
       "claimed": {
         "description": "Your asset has successfully completed the bridging process and is now available to you on the destination chain.",
         "name": "Claimed"
@@ -568,11 +630,16 @@
         "description": "Transaction is processing. Depending on the pending blocks to be verified this can take up to several minutes.",
         "name": "Processing"
       },
+      "releasable": "Releasable",
       "release": {
         "description": "Your bridged asset cannot be processed and is now accessible to you on the source chain.",
         "name": "Release"
       },
+      "released": {
+        "name": "Released"
+      },
       "releasing": "Releasing",
+      "retriable": "Retriable",
       "retry": {
         "description": "The relayer was unable to process this message, and you will need to retry the processing yourself.",
         "name": "Retry"

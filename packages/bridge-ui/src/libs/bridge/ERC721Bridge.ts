@@ -1,8 +1,10 @@
 import { getPublicClient, getWalletClient, readContract, simulateContract, writeContract } from '@wagmi/core';
+import { get } from 'svelte/store';
 import { getContract, UserRejectedRequestError } from 'viem';
 
 import { bridgeAbi, erc721Abi, erc721VaultAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
+import { destOwnerAddress, gasLimitZero } from '$components/Bridge/state';
 import { gasLimitConfig } from '$config';
 import {
   ApproveError,
@@ -220,17 +222,20 @@ export class ERC721Bridge extends Bridge {
 
     const minGasLimit = await destBridgeContract.read.getMessageMinGasLimit([BigInt(size)]);
 
-    const gasLimit =
-      fee === 0n
-        ? BigInt(0) // user wants to claim
-        : !isTokenAlreadyDeployed
-          ? BigInt(minGasLimit) + gasLimitConfig.erc721NotDeployedGasLimit // Token is not deployed
-          : BigInt(minGasLimit) + gasLimitConfig.erc721DeployedGasLimit; // Token is deployed
+    let gasLimit: number;
+    if (get(gasLimitZero)) {
+      log('Gas limit is set to 0');
+      gasLimit = 0;
+    } else {
+      gasLimit = !isTokenAlreadyDeployed
+        ? minGasLimit + gasLimitConfig.erc721NotDeployedGasLimit // Token is not deployed
+        : minGasLimit + gasLimitConfig.erc721DeployedGasLimit; // Token is deployed
+    }
 
     const sendERC721Args: NFTBridgeTransferOp = {
       destChainId: BigInt(destChainId),
       to,
-      destOwner: to,
+      destOwner: get(destOwnerAddress) || to,
       token,
       gasLimit: Number(gasLimit),
       fee,

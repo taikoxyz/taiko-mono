@@ -108,31 +108,24 @@ func (p *Prover) initProofSubmitters(
 			producer = &proofProducer.OptimisticProofProducer{}
 		case encoding.TierSgxID:
 			producer = &proofProducer.SGXProofProducer{
-				RaikoHostEndpoint: p.cfg.RaikoHostEndpoint,
-				L1Endpoint:        p.cfg.RaikoL1Endpoint,
-				L1BeaconEndpoint:  p.cfg.RaikoL1BeaconEndpoint,
-				L2Endpoint:        p.cfg.RaikoL2Endpoint,
-				ProofType:         proofProducer.ProofTypeSgx,
-				Dummy:             p.cfg.Dummy,
+				RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
+				JWT:                 p.cfg.RaikoJWT,
+				ProofType:           proofProducer.ProofTypeSgx,
+				Dummy:               p.cfg.Dummy,
+				RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
+			}
+		case encoding.TierZkVMRisc0ID:
+			producer = &proofProducer.ZKvmProofProducer{
+				ZKProofType:         proofProducer.ZKProofTypeR0,
+				RaikoHostEndpoint:   p.cfg.RaikoZKVMHostEndpoint,
+				JWT:                 p.cfg.RaikoJWT,
+				Dummy:               p.cfg.Dummy,
+				RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 			}
 		case encoding.TierGuardianMinorityID:
-			producer = proofProducer.NewGuardianProofProducer(&proofProducer.SGXProofProducer{
-				RaikoHostEndpoint: p.cfg.RaikoHostEndpoint,
-				L1Endpoint:        p.cfg.RaikoL1Endpoint,
-				L1BeaconEndpoint:  p.cfg.RaikoL1BeaconEndpoint,
-				L2Endpoint:        p.cfg.RaikoL2Endpoint,
-				ProofType:         proofProducer.ProofTypeCPU,
-				Dummy:             p.cfg.Dummy,
-			}, encoding.TierGuardianMinorityID, p.cfg.EnableLivenessBondProof)
+			producer = proofProducer.NewGuardianProofProducer(encoding.TierGuardianMinorityID, p.cfg.EnableLivenessBondProof)
 		case encoding.TierGuardianMajorityID:
-			producer = proofProducer.NewGuardianProofProducer(&proofProducer.SGXProofProducer{
-				RaikoHostEndpoint: p.cfg.RaikoHostEndpoint,
-				L1Endpoint:        p.cfg.RaikoL1Endpoint,
-				L1BeaconEndpoint:  p.cfg.RaikoL1BeaconEndpoint,
-				L2Endpoint:        p.cfg.RaikoL2Endpoint,
-				ProofType:         proofProducer.ProofTypeCPU,
-				Dummy:             p.cfg.Dummy,
-			}, encoding.TierGuardianMajorityID, p.cfg.EnableLivenessBondProof)
+			producer = proofProducer.NewGuardianProofProducer(encoding.TierGuardianMajorityID, p.cfg.EnableLivenessBondProof)
 		default:
 			return fmt.Errorf("unsupported tier: %d", tier.ID)
 		}
@@ -141,6 +134,7 @@ func (p *Prover) initProofSubmitters(
 			p.rpc,
 			producer,
 			p.proofGenerationCh,
+			p.cfg.ProverSetAddress,
 			p.cfg.TaikoL2Address,
 			p.cfg.Graffiti,
 			p.cfg.ProveBlockGasLimit,
@@ -220,6 +214,7 @@ func (p *Prover) initEventHandlers() error {
 	opts := &handler.NewBlockProposedEventHandlerOps{
 		SharedState:           p.sharedState,
 		ProverAddress:         p.ProverAddress(),
+		ProverSetAddress:      p.cfg.ProverSetAddress,
 		GenesisHeightL1:       p.genesisHeightL1,
 		RPC:                   p.rpc,
 		ProofGenerationCh:     p.proofGenerationCh,
@@ -259,6 +254,7 @@ func (p *Prover) initEventHandlers() error {
 	p.assignmentExpiredHandler = handler.NewAssignmentExpiredEventHandler(
 		p.rpc,
 		p.ProverAddress(),
+		p.cfg.ProverSetAddress,
 		p.proofSubmissionCh,
 		p.proofContestCh,
 		p.cfg.ContesterMode,

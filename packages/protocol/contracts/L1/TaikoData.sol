@@ -6,6 +6,15 @@ pragma solidity 0.8.24;
 /// protocol.
 /// @custom:security-contact security@taiko.xyz
 library TaikoData {
+    /// @dev Struct that represneds L2 basefee configurations
+    struct BaseFeeConfig {
+        uint8 adjustmentQuotient;
+        uint8 sharingPctg;
+        uint32 gasIssuancePerSecond;
+        uint64 minGasExcess;
+        uint32 maxGasIssuancePerBlock;
+    }
+
     /// @dev Struct holding Taiko configuration parameters. See {TaikoConfig}.
     struct Config {
         // ---------------------------------------------------------------------
@@ -20,8 +29,9 @@ library TaikoData {
         uint64 blockMaxProposals;
         // Size of the block ring buffer, allowing extra space for proposals.
         uint64 blockRingBufferSize;
-        // The maximum number of verifications allowed when a block is proposed.
-        uint64 maxBlocksToVerifyPerProposal;
+        // The maximum number of verifications allowed when a block is proposed
+        // or proved.
+        uint64 maxBlocksToVerify;
         // The maximum gas limit allowed for a block.
         uint32 blockMaxGasLimit;
         // ---------------------------------------------------------------------
@@ -32,15 +42,17 @@ library TaikoData {
         // ---------------------------------------------------------------------
         // Group 4: Cross-chain sync
         // ---------------------------------------------------------------------
-        // The max number of L2 blocks that can stay unsynced on L1 (a value of zero disables
-        // syncing)
-        uint8 blockSyncThreshold;
-    }
-
-    /// @dev Struct representing prover fees per given tier
-    struct TierFee {
-        uint16 tier;
-        uint128 fee;
+        // The number of L2 blocks between each L2-to-L1 state root sync.
+        uint8 stateRootSyncInternal;
+        uint64 maxAnchorHeightOffset;
+        // ---------------------------------------------------------------------
+        // Group 5: Previous configs in TaikoL2
+        // ---------------------------------------------------------------------
+        BaseFeeConfig baseFeeConfig;
+        // ---------------------------------------------------------------------
+        // Group 6: Others
+        // ---------------------------------------------------------------------
+        uint64 ontakeForkHeight;
     }
 
     /// @dev A proof and the tier of proof it belongs to
@@ -57,12 +69,22 @@ library TaikoData {
 
     /// @dev Represents proposeBlock's _data input parameter
     struct BlockParams {
-        address assignedProver;
+        address assignedProver; // DEPRECATED, value ignored.
         address coinbase;
         bytes32 extraData;
         bytes32 parentMetaHash;
-        HookCall[] hookCalls;
-        bytes signature;
+        HookCall[] hookCalls; // DEPRECATED, value ignored.
+        bytes signature; // DEPRECATED, value ignored.
+    }
+
+    struct BlockParamsV2 {
+        address coinbase;
+        bytes32 parentMetaHash;
+        uint64 anchorBlockId; // NEW
+        uint64 timestamp; // NEW
+        uint32 blobTxListOffset; // NEW
+        uint32 blobTxListLength; // NEW
+        uint8 blobIndex; // NEW
     }
 
     /// @dev Struct containing data only required for proving a block
@@ -86,6 +108,31 @@ library TaikoData {
         address sender; // a.k.a proposer
     }
 
+    struct BlockMetadataV2 {
+        bytes32 anchorBlockHash; // `_l1BlockHash` in TaikoL2's anchor tx.
+        bytes32 difficulty;
+        bytes32 blobHash;
+        bytes32 extraData;
+        address coinbase;
+        uint64 id;
+        uint32 gasLimit;
+        uint64 timestamp;
+        uint64 anchorBlockId; // `_l1BlockId` in TaikoL2's anchor tx.
+        uint16 minTier;
+        bool blobUsed;
+        bytes32 parentMetaHash;
+        address proposer;
+        uint96 livenessBond;
+        // Time this block is proposed at, used to check proving window and cooldown window.
+        uint64 proposedAt;
+        // L1 block number, required/used by node/client.
+        uint64 proposedIn;
+        uint32 blobTxListOffset;
+        uint32 blobTxListLength;
+        uint8 blobIndex;
+        BaseFeeConfig baseFeeConfig;
+    }
+
     /// @dev Struct representing transition to be proven.
     struct Transition {
         bytes32 parentHash;
@@ -95,7 +142,7 @@ library TaikoData {
     }
 
     /// @dev Struct representing state transition data.
-    /// 10 slots reserved for upgradability, 6 slots used.
+    /// 6 slots used.
     struct TransitionState {
         bytes32 key; // slot 1, only written/read for the 1st state transition.
         bytes32 blockHash; // slot 2
@@ -116,10 +163,20 @@ library TaikoData {
         address assignedProver; // slot 2
         uint96 livenessBond;
         uint64 blockId; // slot 3
-        uint64 proposedAt; // timestamp
-        uint64 proposedIn; // L1 block number, required/used by node/client.
-        uint32 nextTransitionId;
-        uint32 verifiedTransitionId;
+        // Before the fork, this field is the L1 timestamp when this block is proposed.
+        // After the fork, this is the timestamp of the L2 block.
+        // In a later fork, we an rename this field to `timestamp`.
+        uint64 proposedAt;
+        // Before the fork, this field is the L1 block number where this block is proposed.
+        // After the fork, this is the L1 block number input for the anchor transaction.
+        // In a later fork, we an rename this field to `anchorBlockId`.
+        uint64 proposedIn;
+        uint24 nextTransitionId;
+        bool livenessBondReturned;
+        // The ID of the transaction that is used to verify this block. However, if
+        // this block is not verified as the last block in a batch, verifiedTransitionId
+        // will remain zero.
+        uint24 verifiedTransitionId;
     }
 
     /// @dev Struct representing an Ethereum deposit.
@@ -158,7 +215,7 @@ library TaikoData {
         // Ring buffer for proposed blocks and a some recent verified blocks.
         mapping(uint64 blockId_mod_blockRingBufferSize => Block blk) blocks;
         // Indexing to transition ids (ring buffer not possible)
-        mapping(uint64 blockId => mapping(bytes32 parentHash => uint32 transitionId)) transitionIds;
+        mapping(uint64 blockId => mapping(bytes32 parentHash => uint24 transitionId)) transitionIds;
         // Ring buffer for transitions
         mapping(
             uint64 blockId_mod_blockRingBufferSize
@@ -168,6 +225,7 @@ library TaikoData {
         bytes32 __reserve1;
         SlotA slotA; // slot 5
         SlotB slotB; // slot 6
-        uint256[44] __gap;
+        mapping(address account => uint256 bond) bondBalance;
+        uint256[43] __gap;
     }
 }

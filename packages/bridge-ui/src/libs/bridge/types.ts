@@ -9,7 +9,7 @@ export enum MessageStatus {
   RETRIABLE,
   DONE,
   FAILED,
-  PROVEN, // UI ONLY
+  RECALLED,
 }
 
 // struct Message {
@@ -90,16 +90,18 @@ export type RelayerMessage = {
 export type ModifiedTransactionReceipt = Omit<TransactionReceipt, 'blockNumber'> & { blockNumber: Hex };
 
 export type BridgeTransaction = {
-  hash: Hash;
+  srcTxHash: Hash;
+  destTxHash: Hash;
   from: Address;
   amount: bigint;
   symbol: string;
-  decimals: number;
+  decimals?: number;
   srcChainId: ChainID;
   destChainId: ChainID;
   tokenType: TokenType;
   blockNumber: Hex;
   msgHash: Hash;
+  processingFee: bigint;
   message?: Message;
   msgStatus?: MessageStatus;
 
@@ -109,6 +111,8 @@ export type BridgeTransaction = {
   status?: MessageStatus;
   receipt?: TransactionReceipt;
   canonicalTokenAddress?: Address;
+  claimedBy?: Address;
+  fee?: bigint;
 };
 
 interface BaseBridgeTransferOp {

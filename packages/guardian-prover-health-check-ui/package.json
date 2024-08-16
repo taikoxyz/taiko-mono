@@ -1,6 +1,6 @@
 {
 	"name": "guardian-prover-health-check-ui",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"private": true,
 	"scripts": {
 		"dev": "vite dev",
@@ -46,6 +46,7 @@
 	"dependencies": {
 		"@wagmi/core": "^2.8.0",
 		"axios": "^1.6.7",
+		"debug": "^4.3.4",
 		"svelte-i18n": "^4.0.0",
 		"viem": "^2.9.29"
 	}

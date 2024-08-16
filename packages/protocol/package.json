@@ -1,6 +1,6 @@
 {
   "name": "@taiko/protocol",
-  "version": "1.5.0",
+  "version": "1.8.0",
   "private": true,
   "scripts": {
     "buildMerkle": "ts-node ./utils/airdrop/buildMerkleTree.ts ./utils/airdrop/airdrop_db/example_claimList.json",
@@ -31,7 +31,7 @@
     "eslint-plugin-promise": "^6.1.1",
     "ethers": "^5.7.2",
     "solc": "0.8.24",
-    "solhint": "^4.5.4",
+    "solhint": "^5.0.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.2.2"
   },
@@ -41,7 +41,10 @@
     "ds-test": "github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0",
     "forge-std": "github:foundry-rs/forge-std#v1.7.5",
     "merkletreejs": "^0.3.11",
+    "optimism": "github:ethereum-optimism/optimism#v1.8.0",
     "p256-verifier": "github:taikoxyz/p256-verifier#v0.1.0",
-    "solady": "github:Vectorized/solady#v0.0.167"
+    "risc0-ethereum": "github:risc0/risc0-ethereum#v1.0.0",
+    "solady": "github:Vectorized/solady#v0.0.231",
+    "sp1-contracts": "github:succinctlabs/sp1-contracts#v1.1.0"
   }
 }

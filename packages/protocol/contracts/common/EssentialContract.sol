@@ -36,10 +36,11 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
     /// @param account The account that unpaused the contract.
     event Unpaused(address account);
 
-    error REENTRANT_CALL();
     error INVALID_PAUSE_STATUS();
-    error ZERO_ADDR_MANAGER();
     error FUNC_NOT_IMPLEMENTED();
+    error REENTRANT_CALL();
+    error ZERO_ADDRESS();
+    error ZERO_VALUE();
 
     /// @dev Modifier that ensures the caller is the owner or resolved address of a given name.
     /// @param _name The name to check against.
@@ -67,6 +68,16 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
 
     modifier whenNotPaused() {
         if (paused()) revert INVALID_PAUSE_STATUS();
+        _;
+    }
+
+    modifier nonZeroAddr(address _addr) {
+        if (_addr == address(0)) revert ZERO_ADDRESS();
+        _;
+    }
+
+    modifier nonZeroValue(uint256 _value) {
+        if (_value == 0) revert ZERO_VALUE();
         _;
     }
 
@@ -108,8 +119,13 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _addressManager The address of the {AddressManager} contract.
-    function __Essential_init(address _owner, address _addressManager) internal {
-        if (_addressManager == address(0)) revert ZERO_ADDR_MANAGER();
+    function __Essential_init(
+        address _owner,
+        address _addressManager
+    )
+        internal
+        nonZeroAddr(_addressManager)
+    {
         __Essential_init(_owner);
         __AddressResolver_init(_addressManager);
     }

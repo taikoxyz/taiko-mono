@@ -1,0 +1,67 @@
+@tailwind base;
+
+@layer base {
+  *,
+  ::after,
+  ::before {
+    text-rendering: optimizespeed;
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+    backface-visibility: hidden;
+  }
+
+  html {
+    font-family: 'Public Sans', sans-serif;
+  }
+
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    height: 100%;
+  }
+
+  [data-theme='dark'] body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    /*
+        background-image: url(/bg/grid-dark.svg), url(/bg/spotlights-dark.svg),
+            linear-gradient(270deg, #1f1f1f 0%, #000000 100%);
+            */
+    /* No grid background by default */
+    background-size: 0, cover, cover;
+    background-blend-mode: color-dodge, lighten, multiply;
+    z-index: -1;
+  }
+
+  [data-theme='light'] body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    background-image: url(/bg/grid-light.svg), url(/bg/spotlights-light.svg),
+      linear-gradient(270deg, #e2e2e2 0%, #fff 100%);
+    /* No grid background by default */
+    background-size: 0, cover, cover;
+    background-blend-mode: color-dodge, color, hard-light;
+    z-index: -1;
+  }
+
+  @media (min-width: 768px) {
+    [data-theme='dark'] body::before {
+      background-size: 50px, cover, cover;
+    }
+
+    [data-theme='light'] body::before {
+      background-size: 50px, cover, cover;
+    }
+  }
+}

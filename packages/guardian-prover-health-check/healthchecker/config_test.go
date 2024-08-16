@@ -1,6 +1,7 @@
 package healthchecker
 
 import (
+	"github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check/db"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -47,7 +48,7 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		assert.Equal(t, uint64(30), c.DatabaseMaxConnLifetime)
 		assert.Equal(t, uint64(1000), c.HTTPPort)
 
-		c.OpenDBFunc = func() (DB, error) {
+		c.OpenDBFunc = func() (db.DB, error) {
 			return &mock.DB{}, nil
 		}
 

@@ -90,10 +90,15 @@ func getErrorData(err error) string {
 		}
 	}
 
-	// Hardhat node custom errors, example:
-	// "VM Exception while processing transaction: reverted with an unrecognized custom error (return data: 0xb6d363fd)"
-	if strings.Contains(err.Error(), "reverted with an unrecognized custom error") {
-		return err.Error()[len(err.Error())-11 : len(err.Error())-1]
+	// Anvil node custom errors with reasons, example:
+	// execution reverted: custom error 1a83d90e:, reason: 0x1a83d90e"
+	if strings.Contains(err.Error(), "custom error") && strings.Contains(err.Error(), "reason") {
+		return "0x" + err.Error()[len(err.Error())-8:len(err.Error())]
+	}
+	// Anvil node custom errors, example:
+	// "execution reverted: custom error 712eb087:"
+	if strings.Contains(err.Error(), "custom error") {
+		return "0x" + err.Error()[len(err.Error())-9:len(err.Error())-1]
 	}
 
 	return err.Error()

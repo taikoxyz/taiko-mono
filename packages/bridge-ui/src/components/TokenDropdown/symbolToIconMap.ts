@@ -16,7 +16,7 @@ export const baseSymbolToIconMap: Record<string, ComponentType> = {
  */
 export const symbolToIconMap = new Proxy(baseSymbolToIconMap, {
   get(target, prop: string) {
-    if (prop.startsWith('TTKO')) {
+    if (prop.startsWith('TAIKO')) {
       return TTKOIcon;
     }
     return target[prop] || null;

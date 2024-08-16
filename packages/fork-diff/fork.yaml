@@ -251,7 +251,8 @@ def:
     - title: "node"
       description: "This shows changes to node files"
       sub:
-        - title: "This adds taikoAuth namespace for authenticated APIs."
+        - title: "Files"
+          description: "This adds taikoAuth namespace for authenticated APIs."
           globs:
             - "node/*"
 
@@ -292,7 +293,8 @@ def:
     - title: "rpc"
       description: "This shows changes to the rpc files"
       sub:
-        - title: "This adds taikoAuth namespace for authenticated APIs."
+        - title: "Files"
+          description: "This adds taikoAuth namespace for authenticated APIs."
           globs:
             - "rpc/*"
     #     - title: "second layer"

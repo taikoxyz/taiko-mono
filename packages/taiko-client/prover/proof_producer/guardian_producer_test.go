@@ -10,8 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 )
 
 func TestGuardianProducerRequestProof(t *testing.T) {
@@ -33,14 +33,14 @@ func TestGuardianProducerRequestProof(t *testing.T) {
 	}
 
 	var (
-		producer = NewGuardianProofProducer(&SGXProofProducer{Dummy: true}, encoding.TierGuardianMajorityID, false)
+		producer = NewGuardianProofProducer(encoding.TierGuardianMajorityID, false)
 		blockID  = common.Big32
 	)
 	res, err := producer.RequestProof(
 		context.Background(),
 		&ProofRequestOptions{},
 		blockID,
-		&bindings.TaikoDataBlockMetadata{},
+		&metadata.TaikoDataBlockMetadataLegacy{},
 		header,
 	)
 	require.Nil(t, err)
@@ -70,14 +70,14 @@ func TestGuardianProducerRequestProofReturnLivenessBond(t *testing.T) {
 	}
 
 	var (
-		producer = NewGuardianProofProducer(&SGXProofProducer{Dummy: true}, encoding.TierGuardianMajorityID, true)
+		producer = NewGuardianProofProducer(encoding.TierGuardianMajorityID, true)
 		blockID  = common.Big32
 	)
 	res, err := producer.RequestProof(
 		context.Background(),
 		&ProofRequestOptions{},
 		blockID,
-		&bindings.TaikoDataBlockMetadata{},
+		&metadata.TaikoDataBlockMetadataLegacy{},
 		header,
 	)
 	require.Nil(t, err)
@@ -108,14 +108,14 @@ func TestMinorityRequestProof(t *testing.T) {
 	}
 
 	var (
-		producer = NewGuardianProofProducer(&SGXProofProducer{Dummy: true}, encoding.TierGuardianMinorityID, false)
+		producer = NewGuardianProofProducer(encoding.TierGuardianMinorityID, false)
 		blockID  = common.Big32
 	)
 	res, err := producer.RequestProof(
 		context.Background(),
 		&ProofRequestOptions{},
 		blockID,
-		&bindings.TaikoDataBlockMetadata{},
+		&metadata.TaikoDataBlockMetadataLegacy{},
 		header,
 	)
 	require.Nil(t, err)
@@ -145,14 +145,14 @@ func TestRequestMinorityProofReturnLivenessBond(t *testing.T) {
 	}
 
 	var (
-		producer = NewGuardianProofProducer(&SGXProofProducer{Dummy: true}, encoding.TierGuardianMinorityID, true)
+		producer = NewGuardianProofProducer(encoding.TierGuardianMinorityID, true)
 		blockID  = common.Big32
 	)
 	res, err := producer.RequestProof(
 		context.Background(),
 		&ProofRequestOptions{},
 		blockID,
-		&bindings.TaikoDataBlockMetadata{},
+		&metadata.TaikoDataBlockMetadataLegacy{},
 		header,
 	)
 	require.Nil(t, err)

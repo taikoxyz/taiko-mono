@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"math/big"
-	"net/url"
 	"os"
 	"strconv"
 	"time"
@@ -22,7 +21,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/server"
 )
 
 type ClientTestSuite struct {
@@ -31,9 +29,7 @@ type ClientTestSuite struct {
 	RPCClient           *rpc.Client
 	TestAddrPrivKey     *ecdsa.PrivateKey
 	TestAddr            common.Address
-	ProverEndpoints     []*url.URL
 	AddressManager      *bindings.AddressManager
-	proverServer        *server.ProverServer
 }
 
 func (s *ClientTestSuite) SetupTest() {
@@ -56,14 +52,14 @@ func (s *ClientTestSuite) SetupTest() {
 	s.NotEmpty(jwtSecret)
 
 	rpcCli, err := rpc.NewClient(context.Background(), &rpc.ClientConfig{
-		L1Endpoint:                    os.Getenv("L1_NODE_WS_ENDPOINT"),
-		L2Endpoint:                    os.Getenv("L2_EXECUTION_ENGINE_WS_ENDPOINT"),
+		L1Endpoint:                    os.Getenv("L1_WS"),
+		L2Endpoint:                    os.Getenv("L2_WS"),
 		TaikoL1Address:                common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
 		TaikoL2Address:                common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
 		TaikoTokenAddress:             common.HexToAddress(os.Getenv("TAIKO_TOKEN_ADDRESS")),
-		GuardianProverMajorityAddress: common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT_ADDRESS")),
-		GuardianProverMinorityAddress: common.HexToAddress(os.Getenv("GUARDIAN_PROVER_MINORITY_ADDRESS")),
-		L2EngineEndpoint:              os.Getenv("L2_EXECUTION_ENGINE_AUTH_ENDPOINT"),
+		GuardianProverMajorityAddress: common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT")),
+		GuardianProverMinorityAddress: common.HexToAddress(os.Getenv("GUARDIAN_PROVER_MINORITY")),
+		L2EngineEndpoint:              os.Getenv("L2_AUTH"),
 		JwtSecret:                     string(jwtSecret),
 	})
 	s.Nil(err)
@@ -74,13 +70,14 @@ func (s *ClientTestSuite) SetupTest() {
 	l1ProverPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROVER_PRIVATE_KEY")))
 	s.Nil(err)
 
-	s.ProverEndpoints = []*url.URL{LocalRandomProverEndpoint()}
-	s.proverServer = s.NewTestProverServer(l1ProverPrivKey, s.ProverEndpoints[0])
-
-	balance, err := rpcCli.TaikoToken.BalanceOf(nil, crypto.PubkeyToAddress(l1ProverPrivKey.PublicKey))
+	allowance, err := rpcCli.TaikoToken.Allowance(
+		nil,
+		crypto.PubkeyToAddress(l1ProverPrivKey.PublicKey),
+		common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
+	)
 	s.Nil(err)
 
-	if balance.Cmp(common.Big0) == 0 {
+	if allowance.Cmp(common.Big0) == 0 {
 		ownerPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_CONTRACT_OWNER_PRIVATE_KEY")))
 		s.Nil(err)
 
@@ -91,16 +88,31 @@ func (s *ClientTestSuite) SetupTest() {
 
 		opts, err := bind.NewKeyedTransactorWithChainID(ownerPrivKey, rpcCli.L1.ChainID)
 		s.Nil(err)
-		proverBalance := new(big.Int).Div(balance, common.Big2)
+		proverBalance := new(big.Int).Div(balance, common.Big3)
 		s.Greater(proverBalance.Cmp(common.Big0), 0)
 
 		_, err = rpcCli.TaikoToken.Transfer(opts, crypto.PubkeyToAddress(l1ProverPrivKey.PublicKey), proverBalance)
 		s.Nil(err)
 
-		// Increase allowance for AssignmentHook and TaikoL1
+		_, err = rpcCli.TaikoToken.Transfer(
+			opts,
+			common.HexToAddress(os.Getenv("GUARDIAN_PROVER_MINORITY")),
+			new(big.Int).Div(proverBalance, common.Big2),
+		)
+		s.Nil(err)
+
+		_, err = rpcCli.TaikoToken.Transfer(
+			opts,
+			common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT")),
+			new(big.Int).Div(proverBalance, common.Big2),
+		)
+		s.Nil(err)
+
+		// Increase allowance for TaikoL1
 		s.setAllowance(l1ProverPrivKey)
 		s.setAllowance(ownerPrivKey)
 	}
+
 	s.testnetL1SnapshotID = s.SetL1Snapshot()
 }
 
@@ -110,7 +122,7 @@ func (s *ClientTestSuite) setAllowance(key *ecdsa.PrivateKey) {
 		log.Root(),
 		new(metrics.NoopTxMetrics),
 		txmgr.CLIConfig{
-			L1RPCURL:                  os.Getenv("L1_NODE_WS_ENDPOINT"),
+			L1RPCURL:                  os.Getenv("L1_WS"),
 			NumConfirmations:          0,
 			SafeAbortNonceTooLowCount: txmgr.DefaultBatcherFlagValues.SafeAbortNonceTooLowCount,
 			PrivateKey:                common.Bytes2Hex(crypto.FromECDSA(key)),
@@ -137,18 +149,6 @@ func (s *ClientTestSuite) setAllowance(key *ecdsa.PrivateKey) {
 
 	data, err := encoding.TaikoTokenABI.Pack(
 		"approve",
-		common.HexToAddress(os.Getenv("ASSIGNMENT_HOOK_ADDRESS")),
-		bigInt,
-	)
-	s.Nil(err)
-	_, err = t.Send(context.Background(), txmgr.TxCandidate{
-		TxData: data,
-		To:     &taikoTokenAddress,
-	})
-	s.Nil(err)
-
-	data, err = encoding.TaikoTokenABI.Pack(
-		"approve",
 		common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
 		bigInt,
 	)
@@ -164,7 +164,6 @@ func (s *ClientTestSuite) TearDownTest() {
 	s.RevertL1Snapshot(s.testnetL1SnapshotID)
 
 	s.Nil(rpc.SetHead(context.Background(), s.RPCClient.L2, common.Big0))
-	s.Nil(s.proverServer.Shutdown(context.Background()))
 }
 
 func (s *ClientTestSuite) SetL1Automine(automine bool) {

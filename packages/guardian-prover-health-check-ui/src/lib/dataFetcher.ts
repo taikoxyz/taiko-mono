@@ -29,6 +29,10 @@ import {
 import { get } from 'svelte/store';
 import { getPseudonym } from './guardianProver/addressToPseudonym';
 import { loadGuardians } from './guardianProver/loadConfiguredGuardians';
+import { loadGuardiansFromContract } from './guardianProver/loadGuardiansFromContract';
+import { getLogger } from './util/logger';
+
+const log = getLogger('dataFetcher');
 
 const BLOCKS_TO_CHECK = 20;
 const THRESHOLD = BLOCKS_TO_CHECK / 2;
@@ -63,7 +67,9 @@ export async function refreshData() {
 	if (get(loading) === true) return;
 	loading.set(true);
 
-	if (!get(guardianProvers)) {
+	log('refreshData start');
+
+	if (!get(guardianProvers) || get(guardianProvers).length === 0) {
 		// Initial data fetch
 		await initializeGuardians();
 		await fetchGuardians();
@@ -80,69 +86,100 @@ export async function refreshData() {
 	}
 
 	loading.set(false);
+	log('refreshData end');
 }
 
-async function initializeGuardians() {
-	const guardiansMap = await loadGuardians();
-	const rawGuardians: Guardian[] = Object.entries(guardiansMap).map(([address, name], index) => ({
-		name: name,
-		address: address as Address,
-		id: index + 1, // add +1 as guardian contract numbers starts at 1
-		latestHealthCheck: null,
-		alive: GuardianProverStatus.UNKNOWN,
-		balance: null,
-		lastRestart: null,
-		uptime: null,
-		nodeInfo: null
-	}));
+async function initializeGuardians(): Promise<void> {
+	log('initializeGuardians start');
+	const startTime = Date.now();
 
-	guardianProvers.set(rawGuardians);
+	try {
+		log('Loading contract guardians start');
+		const contractGuardians = await loadGuardiansFromContract();
+		log('Loading contract guardians end', Date.now() - startTime);
+
+		log('Loading pseudonym mapping start');
+		const guardianPseudonymMapping = await loadGuardians();
+		log('Loading pseudonym mapping end', Date.now() - startTime);
+
+		const rawGuardians: Guardian[] = contractGuardians.map((guardian) => {
+			const name = guardianPseudonymMapping[guardian.address] || guardian.address;
+			return {
+				...guardian,
+				name,
+				balance: null,
+				lastRestart: null,
+				uptime: null,
+				versionInfo: null,
+				blockInfo: null,
+				latestHealthCheck: guardian.latestHealthCheck, // Preserve initial state
+				alive: guardian.alive // Preserve initial state
+			};
+		});
+
+		// Batch update guardianProvers store
+		guardianProvers.update(() => rawGuardians);
+	} catch (error) {
+		log('Error initializing guardians:', error);
+		throw error;
+	}
+
+	log('initializeGuardians end', Date.now() - startTime);
 }
 
 async function fetchGuardians() {
-	const existingGuardians = get(guardianProvers);
+	log('fetchGuardians start');
+	const existingGuardians = get(guardianProvers) || [];
 
-	const [required] = await Promise.all([fetchGuardianProverRequirementsFromContract()]);
+	try {
+		const [required] = await Promise.all([fetchGuardianProverRequirementsFromContract()]);
 
-	minGuardianRequirement.set(required);
-	totalGuardianProvers.set(existingGuardians?.length);
+		minGuardianRequirement.set(required);
+		totalGuardianProvers.set(existingGuardians.length);
 
-	const guardianFetchPromises = existingGuardians.map(async (newGuardian) => {
-		const guardian = existingGuardians.find((g) => g.address === newGuardian.address) || {
-			...newGuardian,
-			alive: GuardianProverStatus.UNKNOWN
-		};
-		console.log('fetching guardian info for', guardian.address, guardian.id);
+		const guardianFetchPromises = existingGuardians.map(async (newGuardian) => {
+			const guardian = existingGuardians.find((g) => g.address === newGuardian.address) || {
+				...newGuardian,
+				alive: GuardianProverStatus.UNKNOWN
+			};
 
-		guardian.name = await getPseudonym(guardian.address);
+			guardian.name = await getPseudonym(guardian.address);
+			if (!guardian.name) {
+				guardian.name = guardian.address;
+			}
 
-		console.log('getting balance for', guardian.name, guardian.id, guardian.address);
+			const [status, uptime, balance] = await Promise.all([
+				fetchLatestGuardianProverHealthCheckFromApi(
+					import.meta.env.VITE_GUARDIAN_PROVER_API_URL,
+					guardian.address
+				),
+				fetchUptimeFromApi(import.meta.env.VITE_GUARDIAN_PROVER_API_URL, guardian.address),
+				publicClient.getBalance({ address: guardian.address as Address })
+			]);
 
-		const [status, uptime, balance] = await Promise.all([
-			fetchLatestGuardianProverHealthCheckFromApi(
-				import.meta.env.VITE_GUARDIAN_PROVER_API_URL,
-				guardian.address
-			),
-			fetchUptimeFromApi(import.meta.env.VITE_GUARDIAN_PROVER_API_URL, guardian.address),
-			publicClient.getBalance({ address: guardian.address as Address })
-		]);
+			guardian.balance = formatEther(balance);
+			log('balance', guardian.name, guardian.balance);
 
-		guardian.balance = formatEther(balance);
-		console.log('balance', guardian.name, guardian.balance);
+			guardian.latestHealthCheck = status;
+			guardian.uptime = Math.min(uptime, 100);
 
-		guardian.latestHealthCheck = status;
-		guardian.uptime = Math.min(uptime, 100);
+			return guardian;
+		});
 
-		return guardian;
-	});
+		const updatedGuardians = await Promise.all(guardianFetchPromises);
+		guardianProvers.set(updatedGuardians);
+		lastGuardianFetchTimestamp.set(Date.now());
+		log('updatedGuardians', updatedGuardians);
+	} catch (error) {
+		log('Error fetching guardians:', error);
+		throw error;
+	}
 
-	const updatedGuardians = await Promise.all(guardianFetchPromises);
-	guardianProvers.set(updatedGuardians);
-	lastGuardianFetchTimestamp.set(Date.now());
-	console.log('updatedGuardians', updatedGuardians);
+	log('fetchGuardians end');
 }
 
 async function fetchSignedBlockStats() {
+	log('fetchSignedBlockStats start');
 	const blocks: SignedBlocks = await fetchSignedBlocksFromApi(
 		import.meta.env.VITE_GUARDIAN_PROVER_API_URL
 	);
@@ -151,14 +188,16 @@ async function fetchSignedBlockStats() {
 
 	const signer = await getGuardianProverIdsPerBlockNumber(blocks);
 	signerPerBlock.set(signer);
+	log('fetchSignedBlockStats end');
 }
 
 async function determineLiveliness(): Promise<void> {
+	log('determineLiveliness start');
 	const now = new Date();
 	guardianProvers.update((guardians) =>
 		guardians.map((guardian) => {
 			const latestCheck = guardian.latestHealthCheck;
-			const createdAt = new Date(latestCheck.createdAt);
+			const createdAt = new Date(latestCheck?.createdAt || 0);
 			const secondsSinceLastCheck = (now.getTime() - createdAt.getTime()) / 1000;
 			let aliveStatus = guardian.alive;
 
@@ -181,12 +220,14 @@ async function determineLiveliness(): Promise<void> {
 			return { ...guardian, alive: aliveStatus };
 		})
 	);
+	log('determineLiveliness end');
 }
+
 async function fetchStats(): Promise<void> {
+	log('fetchStats start');
 	const guardians = get(guardianProvers);
 
 	const updatedGuardiansPromises = guardians.map(async (guardian) => {
-		console.log('fetching stats for', guardian.address);
 		const startupDataFetch = fetchStartupDataFromApi(
 			import.meta.env.VITE_GUARDIAN_PROVER_API_URL,
 			guardian.address
@@ -224,4 +265,5 @@ async function fetchStats(): Promise<void> {
 
 	const updatedGuardians = await Promise.all(updatedGuardiansPromises);
 	guardianProvers.set(updatedGuardians);
+	log('fetchStats end');
 }

@@ -1,0 +1,45 @@
+---
+title: Enable a proposer
+description: This guide will you help you enable your Taiko node as a proposer.
+---
+
+import { Aside, Card, CardGrid, Steps} from '@astrojs/starlight/components';
+
+## Prerequisites
+
+- You are already running a Taiko node [with Docker](/guides/node-operators/run-a-taiko-node-with-docker) or [from source](/guides/node-operators/build-a-taiko-node-from-source).
+- You have [set up a prover](/guides/node-operators/enable-a-prover) or [configured a ProverSet](/guides/node-operators/deploy-a-proverset) with a third-party partner.
+
+{/*## Using `stn`
+
+1. Install [stn](https://github.com/d1onys1us/stn) if you haven't already.
+2. Execute `stn config proposer` in your terminal and walk through the steps.*/}
+
+## Using simple-taiko-node
+
+<Aside type="caution">
+You can choose to either use a ProverSet, or leave the `PROVER_SET` variable blank. If you leave it blank, you will eventually run into some nonce issues as the proposer and prover will be using the same address. This may be sufficient for testing, but for a longer term proposer / prover setup, we recommend utilizing a ProverSet.
+</Aside>
+
+<Steps>
+
+1. First, you will need to [set up a prover](/guides/node-operators/enable-a-prover).
+
+2. If you are using a ProverSet, set the ProverSet contract address in the `PROVER_SET` env variable from the previous guide. Otherwise, leave it blank.
+
+3. Next, set the `L1_PROPOSER_PRIVATE_KEY` to an L1 account's private key which will send the Propose Block transactions. If you are not using a ProverSet, this must be the same private key as your prover.
+
+4. Then, set the `L2_SUGGESTED_FEE_RECIPIENT` to an L2 account's public key that will receive the fee.
+
+5. Finally set `ENABLE_PROPOSER` to `true` in simple-taiko-node `.env`.
+
+6. Set `COMPOSE_PROFILES=proposer` or add proposer to the list.
+
+7. Now that the proposer is configured properly, you can run it with `docker compose up -d`!
+
+</Steps>
+
+<Card title="Troubleshooting" icon="error">
+    If you run into any problems, please visit the [node troubleshooting page](/guides/node-operators/node-troubleshooting) for help.
+    If you run into an error that isn't yet listed, please reach out in our [Discord](https://discord.com/invite/taikoxyz)!
+</Card>

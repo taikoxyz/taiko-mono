@@ -61,7 +61,7 @@ contract PrankDestBridge {
     }
 }
 
-contract UpdatedBridgedERC20 is BridgedERC20 {
+contract UpdatedBridgedERC20 is BridgedERC20V2 {
     function helloWorld() public pure returns (string memory) {
         return "helloworld";
     }
@@ -215,7 +215,7 @@ contract TestERC20Vault is TaikoTest {
 
     function test_20Vault_send_erc20_revert_if_allowance_not_set() public {
         vm.startPrank(Alice);
-        vm.expectRevert("ERC20: insufficient allowance");
+        vm.expectRevert(BaseVault.VAULT_INSUFFICIENT_FEE.selector);
         erc20Vault.sendToken(
             ERC20Vault.BridgeTransferOp(
                 destChainId, address(0), Bob, 1, address(erc20), 1_000_000, 1 wei
@@ -416,7 +416,9 @@ contract TestERC20Vault is TaikoTest {
         assertEq(bridgedERC20.balanceOf(Bob), amount);
     }
 
-    function erc20ToCanonicalERC20(uint64 chainId)
+    function erc20ToCanonicalERC20(
+        uint64 chainId
+    )
         internal
         view
         returns (ERC20Vault.CanonicalERC20 memory)
@@ -599,6 +601,19 @@ contract TestERC20Vault is TaikoTest {
         erc20Vault.changeBridgedToken(
             ERC20Vault.CanonicalERC20({
                 chainId: 1,
+                addr: address(erc20),
+                decimals: 18,
+                symbol: "ERC20TT",
+                name: "ERC20 Test token"
+            }),
+            address(usdc)
+        );
+
+        // invalid btoken
+        vm.expectRevert(ERC20Vault.VAULT_INVALID_CTOKEN.selector);
+        erc20Vault.changeBridgedToken(
+            ERC20Vault.CanonicalERC20({
+                chainId: uint64(block.chainid),
                 addr: address(erc20),
                 decimals: 18,
                 symbol: "ERC20TT",

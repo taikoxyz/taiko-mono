@@ -1,0 +1,22 @@
+---
+title: Terminology
+description: Resource page detailing relevant rollup terminology that might need explaining.
+---
+
+This page is dedicated to explaining some terms relevant to the protocol that might be a bit hard to understand!
+
+## Bonding-related
+
+- **Liveness Bond**: The bond provided by a block's assigned prover, serving as a commitment to initially prove the first transition and to provide post-contest proofs within the corresponding proving window.
+
+- **Validity Bond**: The bond provided by the actual prover of a proof, signifying their commitment that the proof is indeed correct and that they are ready to withstand a contest.
+
+- **Contest Bond**: The bond provided by the contester.
+
+In layman's terms, the above terms relate to the protocol in the following manner:
+
+- A **Liveness Bond** is deposited when a prover gets assigned a block to prove; when the block gets verified it gets returned to the prover.
+
+- A **Validity Bond** is only handled when someone other than the original prover proves with a higher tier. The higher tier prover has to deposit it in TaikoL1. If the new proof is correct, it gets returned; otherwise it gets burned.
+
+- A **Contest Bond** is someone putting up a bond to say that a block should be contested and a higher tier should handle this case. If the higher tier proof is incorrect then contestBond is forfeited.

@@ -1,7 +1,7 @@
 import { getTransactionReceipt, readContract } from '@wagmi/core';
 import axios from 'axios';
 import { Buffer } from 'buffer';
-import type { Address, Hash, Hex, TransactionReceipt } from 'viem';
+import { type Address, getAddress, type Hash, type Hex, type TransactionReceipt } from 'viem';
 
 import { bridgeAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
@@ -137,14 +137,23 @@ export class RelayerAPIService {
   async getAllBridgeTransactionByAddress(
     address: Address,
     paginationParams: PaginationParams,
-    chainID?: number,
+    chainId?: number,
   ): Promise<GetAllByAddressResponse> {
-    const params = {
-      address,
-      chainID,
-      event: 'MessageSent',
-      ...paginationParams,
-    };
+    let params;
+    if (chainId) {
+      params = {
+        address,
+        chainID: chainId,
+        event: 'MessageSent',
+        ...paginationParams,
+      };
+    } else {
+      params = {
+        address,
+        event: 'MessageSent',
+        ...paginationParams,
+      };
+    }
 
     const apiTxs: APIResponse = await this.getTransactionsFromAPI(params);
 
@@ -168,40 +177,49 @@ export class RelayerAPIService {
     }
 
     const items = RelayerAPIService._filterDuplicateAndWrongBridge(apiTxs.items);
+
     const txs: BridgeTransaction[] = items.map((tx: APIResponseTransaction) => {
       let data: string | Hex = tx.data.Message.Data;
       if (data === '') {
-        data = '' as Hex;
+        data = '0x' as Hex;
       } else if (data !== '0x') {
         const buffer = Buffer.from(data, 'base64');
         data = `0x${buffer.toString('hex')}`;
       }
+
+      const tokenType: TokenType = _eventToTokenType(tx.eventType);
+
+      const value = tx.data.Message.Value > 0n ? BigInt(tx.amount) : 0n;
 
       const transformedTx = {
         status: tx.status,
         amount: BigInt(tx.amount),
         symbol: tx.canonicalTokenSymbol || 'ETH',
         decimals: tx.canonicalTokenDecimals,
-        hash: tx.data.Raw.transactionHash,
-        from: tx.messageOwner,
+        srcTxHash: tx.data.Raw.transactionHash,
+        destTxHash: tx.processedTxHash,
+        from: getAddress(tx.messageOwner),
         srcChainId: tx.data.Message.SrcChainId,
         destChainId: tx.data.Message.DestChainId,
         msgHash: tx.msgHash,
-        tokenType: _eventToTokenType(tx.eventType),
+        tokenType: tokenType,
         blockNumber: tx.data.Raw.blockNumber,
         canonicalTokenAddress: tx.canonicalTokenAddress,
+        processingFee: BigInt(tx.data.Message.Fee.toString()),
+        claimedBy: tx.claimedBy ? getAddress(tx.claimedBy) : undefined,
+        fee: tx.fee ? BigInt(tx.fee) : undefined,
         message: {
           id: tx.data.Message.Id,
-          to: tx.data.Message.To,
-          destOwner: tx.data.Message.DestOwner,
+          to: getAddress(tx.data.Message.To),
+          destOwner: getAddress(tx.data.Message.DestOwner),
           data: data as Hex,
-          srcOwner: tx.data.Message.SrcOwner,
-          from: tx.data.Message.From,
-          gasLimit: Number(tx.data.Message.GasLimit),
-          value: BigInt(tx.data.Message.Value),
+          srcOwner: getAddress(tx.data.Message.SrcOwner),
+          from: getAddress(tx.data.Message.From),
+          gasLimit: tx.data.Message.GasLimit,
+          value,
           srcChainId: BigInt(tx.data.Message.SrcChainId),
           destChainId: BigInt(tx.data.Message.DestChainId),
-          fee: BigInt(tx.data.Message.Fee),
+          fee: BigInt(tx.data.Message.Fee.toString()),
         },
       } satisfies BridgeTransaction;
 
@@ -210,16 +228,21 @@ export class RelayerAPIService {
 
     const txsPromises = txs.map(async (bridgeTx) => {
       if (!bridgeTx) return;
-      if (bridgeTx.from.toLowerCase() !== address.toLowerCase()) return;
-      const { destChainId, srcChainId, hash, msgHash } = bridgeTx;
+
+      const senderMatch = getAddress(bridgeTx.from) === getAddress(address);
+      const receiverMatch = bridgeTx.message && getAddress(bridgeTx.message.destOwner) === getAddress(address);
+
+      if (!senderMatch && !receiverMatch) return;
+
+      const { destChainId, srcChainId, srcTxHash, msgHash } = bridgeTx;
 
       // Returns the transaction receipt for hash or null
       // if the transaction has not been mined.
-      const receipt = await RelayerAPIService._getTransactionReceipt(Number(srcChainId), hash);
+      const receipt = await RelayerAPIService._getTransactionReceipt(Number(srcChainId), srcTxHash);
 
       // TODO: do we want to show these transactions?
       if (!receipt || receipt === null) {
-        log('Transaction not mined yet', { hash, srcChainId });
+        log('Transaction not mined yet', { srcTxHash, srcChainId });
       }
 
       bridgeTx.receipt = receipt as TransactionReceipt;
@@ -234,6 +257,7 @@ export class RelayerAPIService {
 
       // Update the status
       bridgeTx.msgStatus = msgStatus;
+
       return bridgeTx;
     });
 

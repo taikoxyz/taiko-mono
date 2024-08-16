@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"time"
+	"unicode/utf8"
 
 	"log/slog"
 
@@ -20,17 +21,6 @@ var (
 	ZeroHash    = common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000")
 	ZeroAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
 )
-
-// IsInSlice determines whether v is in slice s
-func IsInSlice[T comparable](v T, s []T) bool {
-	for _, e := range s {
-		if v == e {
-			return true
-		}
-	}
-
-	return false
-}
 
 type confirmer interface {
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
@@ -155,7 +145,20 @@ func decodeDataAsERC20(decodedData []byte) (CanonicalToken, *big.Int, error) {
 		return token, big.NewInt(0), errors.New("data for BigInt is invalid")
 	}
 
-	canonicalTokenData := decodedData[offset.Int64()+canonicalTokenDataStartingindex*32:]
+	// Calculate the starting index for canonicalTokenData
+	startIndex := offset.Int64() + canonicalTokenDataStartingindex*32
+
+	// Boundary check
+	if startIndex >= int64(len(decodedData)) || startIndex < 0 {
+		slog.Warn("startIndex greater than decodedData length",
+			"startIndex", startIndex,
+			"lenDecodedData", int64(len(decodedData)),
+		)
+
+		return token, big.NewInt(0), errors.New("calculated index is out of bounds")
+	}
+
+	canonicalTokenData := decodedData[startIndex:]
 
 	types := []string{"uint64", "address", "uint8", "string", "string"}
 	values, err := decodeABI(types, canonicalTokenData)
@@ -164,11 +167,37 @@ func decodeDataAsERC20(decodedData []byte) (CanonicalToken, *big.Int, error) {
 		return token, big.NewInt(0), err
 	}
 
-	token.ChainId = values[0].(uint64)
-	token.Addr = values[1].(common.Address)
-	token.Decimals = uint8(values[2].(uint8))
-	token.Symbol = values[3].(string)
-	token.Name = values[4].(string)
+	// Type assertions and validations
+	chainId, ok := values[0].(uint64)
+	if !ok {
+		return token, big.NewInt(0), errors.New("invalid chainId type")
+	}
+
+	addr, ok := values[1].(common.Address)
+	if !ok {
+		return token, big.NewInt(0), errors.New("invalid address type")
+	}
+
+	decimals, ok := values[2].(uint8)
+	if !ok {
+		return token, big.NewInt(0), errors.New("invalid decimals type")
+	}
+
+	symbol, ok := values[3].(string)
+	if !ok || !utf8.ValidString(symbol) {
+		return token, big.NewInt(0), errors.New("invalid symbol string")
+	}
+
+	name, ok := values[4].(string)
+	if !ok || !utf8.ValidString(name) {
+		return token, big.NewInt(0), errors.New("invalid name string")
+	}
+
+	token.ChainId = chainId
+	token.Addr = addr
+	token.Decimals = decimals
+	token.Symbol = symbol
+	token.Name = name
 
 	amount, ok := new(big.Int).SetString(common.Bytes2Hex((chunks[canonicalTokenDataStartingindex+3])), 16)
 	if !ok {
@@ -190,7 +219,20 @@ func decodeDataAsNFT(decodedData []byte) (EventType, CanonicalToken, *big.Int, e
 		return EventTypeSendETH, token, big.NewInt(0), errors.New("data for BigInt is invalid")
 	}
 
-	canonicalTokenData := decodedData[offset.Int64()+canonicalTokenDataStartingindex*32:]
+	// Calculate the starting index for canonicalTokenData
+	startIndex := offset.Int64() + canonicalTokenDataStartingindex*32
+
+	// Boundary check
+	if startIndex >= int64(len(decodedData)) || startIndex < 0 {
+		slog.Warn("startIndex greater than decodedData length",
+			"startIndex", startIndex,
+			"lenDecodedData", int64(len(decodedData)),
+		)
+
+		return EventTypeSendETH, token, big.NewInt(0), errors.New("calculated index is out of bounds")
+	}
+
+	canonicalTokenData := decodedData[startIndex:]
 
 	types := []string{"uint64", "address", "string", "string"}
 	values, err := decodeABI(types, canonicalTokenData)
@@ -199,10 +241,31 @@ func decodeDataAsNFT(decodedData []byte) (EventType, CanonicalToken, *big.Int, e
 		return EventTypeSendETH, token, big.NewInt(0), err
 	}
 
-	token.ChainId = values[0].(uint64)
-	token.Addr = values[1].(common.Address)
-	token.Symbol = values[2].(string)
-	token.Name = values[3].(string)
+	// Type assertions and validations
+	chainId, ok := values[0].(uint64)
+	if !ok {
+		return EventTypeSendETH, token, big.NewInt(0), errors.New("invalid chainId type")
+	}
+
+	addr, ok := values[1].(common.Address)
+	if !ok {
+		return EventTypeSendETH, token, big.NewInt(0), errors.New("invalid address type")
+	}
+
+	symbol, ok := values[2].(string)
+	if !ok || !utf8.ValidString(symbol) {
+		return EventTypeSendETH, token, big.NewInt(0), errors.New("invalid symbol string")
+	}
+
+	name, ok := values[3].(string)
+	if !ok || !utf8.ValidString(name) {
+		return EventTypeSendETH, token, big.NewInt(0), errors.New("invalid name string")
+	}
+
+	token.ChainId = chainId
+	token.Addr = addr
+	token.Symbol = symbol
+	token.Name = name
 
 	if offset.Int64() == 128 {
 		amount := big.NewInt(1)

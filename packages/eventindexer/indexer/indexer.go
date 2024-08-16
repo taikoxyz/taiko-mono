@@ -9,14 +9,13 @@ import (
 	"github.com/cyberhorsey/errors"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/assignmenthook"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/bridge"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/sgxverifier"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/swap"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/taikol1"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/repo"
 	"github.com/urfave/cli/v2"
+
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/bridge"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/taikol1"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/repo"
 )
 
 var (
@@ -37,10 +36,14 @@ var (
 )
 
 type Indexer struct {
-	accountRepo    eventindexer.AccountRepository
-	eventRepo      eventindexer.EventRepository
-	nftBalanceRepo eventindexer.NFTBalanceRepository
-	txRepo         eventindexer.TransactionRepository
+	db db.DB
+
+	accountRepo      eventindexer.AccountRepository
+	eventRepo        eventindexer.EventRepository
+	nftBalanceRepo   eventindexer.NFTBalanceRepository
+	nftMetadataRepo  eventindexer.NFTMetadataRepository
+	erc20BalanceRepo eventindexer.ERC20BalanceRepository
+	txRepo           eventindexer.TransactionRepository
 
 	ethClient  *ethclient.Client
 	srcChainID uint64
@@ -50,14 +53,12 @@ type Indexer struct {
 	blockBatchSize      uint64
 	subscriptionBackoff time.Duration
 
-	taikol1        *taikol1.TaikoL1
-	bridge         *bridge.Bridge
-	assignmentHook *assignmenthook.AssignmentHook
-	sgxVerifier    *sgxverifier.SgxVerifier
-	swaps          []*swap.Swap
+	taikol1 *taikol1.TaikoL1
+	bridge  *bridge.Bridge
 
-	indexNfts bool
-	layer     string
+	indexNfts   bool
+	indexERC20s bool
+	layer       string
 
 	wg  *sync.WaitGroup
 	ctx context.Context
@@ -65,6 +66,9 @@ type Indexer struct {
 	syncMode SyncMode
 
 	blockSaveMutex *sync.Mutex
+
+	contractToMetadata      map[common.Address]*eventindexer.ERC20Metadata
+	contractToMetadataMutex *sync.Mutex
 }
 
 func (i *Indexer) Start() error {
@@ -136,6 +140,16 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 		return err
 	}
 
+	erc20BalanceRepository, err := repo.NewERC20BalanceRepository(db)
+	if err != nil {
+		return err
+	}
+
+	nftMetadataRepository, err := repo.NewNFTMetadataRepository(db)
+	if err != nil {
+		return err
+	}
+
 	txRepository, err := repo.NewTransactionRepository(db)
 	if err != nil {
 		return err
@@ -154,6 +168,8 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	var taikoL1 *taikol1.TaikoL1
 
 	if cfg.L1TaikoAddress.Hex() != ZeroAddress.Hex() {
+		slog.Info("setting l1TaikoAddress", "addr", cfg.L1TaikoAddress.Hex())
+
 		taikoL1, err = taikol1.NewTaikoL1(cfg.L1TaikoAddress, ethClient)
 		if err != nil {
 			return errors.Wrap(err, "contracts.NewTaikoL1")
@@ -163,47 +179,21 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	var bridgeContract *bridge.Bridge
 
 	if cfg.BridgeAddress.Hex() != ZeroAddress.Hex() {
+		slog.Info("setting bridgeADdress", "addr", cfg.BridgeAddress.Hex())
+
 		bridgeContract, err = bridge.NewBridge(cfg.BridgeAddress, ethClient)
 		if err != nil {
 			return errors.Wrap(err, "contracts.NewBridge")
 		}
 	}
 
-	var assignmentHookContract *assignmenthook.AssignmentHook
-
-	if cfg.AssignmentHookAddress.Hex() != ZeroAddress.Hex() {
-		assignmentHookContract, err = assignmenthook.NewAssignmentHook(cfg.AssignmentHookAddress, ethClient)
-		if err != nil {
-			return errors.Wrap(err, "contracts.NewAssignmentHook")
-		}
-	}
-
-	var swapContracts []*swap.Swap
-
-	if cfg.SwapAddresses != nil && len(cfg.SwapAddresses) > 0 {
-		for _, v := range cfg.SwapAddresses {
-			swapContract, err := swap.NewSwap(v, ethClient)
-			if err != nil {
-				return errors.Wrap(err, "contracts.NewSwap")
-			}
-
-			swapContracts = append(swapContracts, swapContract)
-		}
-	}
-
-	var sgxVerifierContract *sgxverifier.SgxVerifier
-
-	if cfg.SgxVerifierAddress.Hex() != ZeroAddress.Hex() {
-		sgxVerifierContract, err = sgxverifier.NewSgxVerifier(cfg.SgxVerifierAddress, ethClient)
-		if err != nil {
-			return errors.Wrap(err, "contracts.NewSgxVerifier")
-		}
-	}
-
+	i.db = db
 	i.blockSaveMutex = &sync.Mutex{}
 	i.accountRepo = accountRepository
 	i.eventRepo = eventRepository
 	i.nftBalanceRepo = nftBalanceRepository
+	i.erc20BalanceRepo = erc20BalanceRepository
+	i.nftMetadataRepo = nftMetadataRepository
 	i.txRepo = txRepository
 
 	i.srcChainID = chainID.Uint64()
@@ -211,20 +201,25 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	i.ethClient = ethClient
 	i.taikol1 = taikoL1
 	i.bridge = bridgeContract
-	i.assignmentHook = assignmentHookContract
-	i.sgxVerifier = sgxVerifierContract
-	i.swaps = swapContracts
 	i.blockBatchSize = cfg.BlockBatchSize
 	i.subscriptionBackoff = time.Duration(cfg.SubscriptionBackoff) * time.Second
 	i.wg = &sync.WaitGroup{}
 
 	i.syncMode = cfg.SyncMode
 	i.indexNfts = cfg.IndexNFTs
+	i.indexERC20s = cfg.IndexERC20s
 	i.layer = cfg.Layer
+	i.contractToMetadata = make(map[common.Address]*eventindexer.ERC20Metadata, 0)
+	i.contractToMetadataMutex = &sync.Mutex{}
 
 	return nil
 }
 
 func (i *Indexer) Close(ctx context.Context) {
 	i.wg.Wait()
+
+	// Close db connection.
+	if err := i.db.Close(); err != nil {
+		slog.Error("Failed to close db connection", "err", err)
+	}
 }

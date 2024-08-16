@@ -28,10 +28,12 @@ type Client struct {
 	L1Beacon *BeaconClient
 	// Protocol contracts clients
 	TaikoL1                *bindings.TaikoL1Client
+	LibProposing           *bindings.LibProposing
 	TaikoL2                *bindings.TaikoL2Client
 	TaikoToken             *bindings.TaikoToken
 	GuardianProverMajority *bindings.GuardianProver
 	GuardianProverMinority *bindings.GuardianProver
+	ProverSet              *bindings.ProverSet
 }
 
 // ClientConfig contains all configs which will be used to initializing an
@@ -47,6 +49,7 @@ type ClientConfig struct {
 	TaikoTokenAddress             common.Address
 	GuardianProverMinorityAddress common.Address
 	GuardianProverMajorityAddress common.Address
+	ProverSetAddress              common.Address
 	L2EngineEndpoint              string
 	JwtSecret                     string
 	Timeout                       time.Duration
@@ -64,7 +67,7 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 
 	// Keep retrying to connect to the RPC endpoints until success or context is cancelled.
 	if err := backoff.Retry(func() error {
-		ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+		ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 		defer cancel()
 
 		if l1Client, err = NewEthClient(ctxWithTimeout, cfg.L1Endpoint, cfg.Timeout); err != nil {
@@ -98,10 +101,15 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 		return nil, err
 	}
 
-	ctxWithTimeout, cancel := ctxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	taikoL1, err := bindings.NewTaikoL1Client(cfg.TaikoL1Address, l1Client)
+	if err != nil {
+		return nil, err
+	}
+
+	libProposing, err := bindings.NewLibProposing(cfg.TaikoL1Address, l1Client)
 	if err != nil {
 		return nil, err
 	}
@@ -115,6 +123,7 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 		taikoToken             *bindings.TaikoToken
 		guardianProverMajority *bindings.GuardianProver
 		guardianProverMinority *bindings.GuardianProver
+		proverSet              *bindings.ProverSet
 	)
 	if cfg.TaikoTokenAddress.Hex() != ZeroAddress.Hex() {
 		if taikoToken, err = bindings.NewTaikoToken(cfg.TaikoTokenAddress, l1Client); err != nil {
@@ -128,6 +137,11 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 	}
 	if cfg.GuardianProverMajorityAddress.Hex() != ZeroAddress.Hex() {
 		if guardianProverMajority, err = bindings.NewGuardianProver(cfg.GuardianProverMajorityAddress, l1Client); err != nil {
+			return nil, err
+		}
+	}
+	if cfg.ProverSetAddress.Hex() != ZeroAddress.Hex() {
+		if proverSet, err = bindings.NewProverSet(cfg.ProverSetAddress, l1Client); err != nil {
 			return nil, err
 		}
 	}
@@ -149,10 +163,12 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 		L2CheckPoint:           l2CheckPoint,
 		L2Engine:               l2AuthClient,
 		TaikoL1:                taikoL1,
+		LibProposing:           libProposing,
 		TaikoL2:                taikoL2,
 		TaikoToken:             taikoToken,
 		GuardianProverMajority: guardianProverMajority,
 		GuardianProverMinority: guardianProverMinority,
+		ProverSet:              proverSet,
 	}
 
 	if err := client.ensureGenesisMatched(ctxWithTimeout); err != nil {

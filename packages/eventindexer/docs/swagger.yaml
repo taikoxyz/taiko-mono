@@ -1,4 +1,11 @@
 definitions:
+  decimal.NullDecimal:
+    properties:
+      decimal:
+        type: number
+      valid:
+        type: boolean
+    type: object
   eventindexer.ChartItem:
     properties:
       date:
@@ -12,6 +19,45 @@ definitions:
         items:
           $ref: "#/definitions/eventindexer.ChartItem"
         type: array
+    type: object
+  eventindexer.Event:
+    properties:
+      address:
+        type: string
+      amount:
+        $ref: "#/definitions/decimal.NullDecimal"
+      assignedProver:
+        type: string
+      blockID:
+        type: integer
+      chainID:
+        type: integer
+      contractAddress:
+        type: string
+      data:
+        type: string
+      emittedBlockID:
+        type: integer
+      event:
+        type: string
+      feeTokenAddress:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      proofReward:
+        $ref: "#/definitions/decimal.NullDecimal"
+      proposerReward:
+        $ref: "#/definitions/decimal.NullDecimal"
+      tier:
+        type: integer
+      to:
+        type: string
+      tokenID:
+        type: integer
+      transactedAt:
+        type: string
     type: object
   eventindexer.UniqueProposersResponse:
     properties:
@@ -101,6 +147,48 @@ paths:
           schema:
             $ref: "#/definitions/paginate.Page"
       summary: Get assigned blocks by prover address
+  /blockProposedBy:
+    get:
+      consumes:
+        - application/json
+      operationId: get-block-proposed-by
+      parameters:
+        - description: blockID to query
+          in: query
+          name: blockID
+          required: true
+          type: string
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: "#/definitions/eventindexer.Event"
+            type: array
+      summary: Get block proposed by
+  /blockProvenBy:
+    get:
+      consumes:
+        - application/json
+      operationId: get-block-proven-by
+      parameters:
+        - description: blockID to query
+          in: query
+          name: blockID
+          required: true
+          type: string
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: "#/definitions/eventindexer.Event"
+            type: array
+      summary: Get block proven by
   /chart/chartByTask:
     get:
       consumes:
@@ -130,6 +218,30 @@ paths:
           schema:
             $ref: "#/definitions/eventindexer.ChartResponse"
       summary: Get time series data for displaying charts
+  /erc20sByAddress:
+    get:
+      consumes:
+        - application/json
+      operationId: get-erc20-balances-by-address-and-chain-id
+      parameters:
+        - description: address to query
+          in: query
+          name: address
+          required: true
+          type: string
+        - description: chainID to query
+          in: query
+          name: chainID
+          required: true
+          type: string
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: "#/definitions/paginate.Page"
+      summary: Get erc20 balances by address and chain ID
   /events:
     get:
       consumes:

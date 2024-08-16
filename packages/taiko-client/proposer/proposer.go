@@ -1,15 +1,15 @@
 package proposer
 
 import (
-	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"math/big"
 	"math/rand"
 	"sync"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -22,14 +22,9 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	selector "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/prover_selector"
 	builder "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/transaction_builder"
-)
-
-var (
-	proverAssignmentTimeout    = 30 * time.Minute
-	requestProverServerTimeout = 12 * time.Second
 )
 
 // Proposer keep proposing new transactions from L2 execution engine's tx pool at a fixed interval.
@@ -45,11 +40,7 @@ type Proposer struct {
 
 	proposingTimer *time.Timer
 
-	tiers    []*rpc.TierProviderTierWithID
-	tierFees []encoding.TierFee
-
-	// Prover selector
-	proverSelector selector.ProverSelector
+	tiers []*rpc.TierProviderTierWithID
 
 	// Transaction builder
 	txBuilder builder.ProposeBlockTransactionBuilder
@@ -58,6 +49,7 @@ type Proposer struct {
 	protocolConfigs *bindings.TaikoDataConfig
 
 	lastProposedAt time.Time
+	totalEpochs    uint64
 
 	txmgr *txmgr.SimpleTxManager
 
@@ -72,11 +64,11 @@ func (p *Proposer) InitFromCli(ctx context.Context, c *cli.Context) error {
 		return err
 	}
 
-	return p.InitFromConfig(ctx, cfg)
+	return p.InitFromConfig(ctx, cfg, nil)
 }
 
 // InitFromConfig initializes the proposer instance based on the given configurations.
-func (p *Proposer) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
+func (p *Proposer) InitFromConfig(ctx context.Context, cfg *Config, txMgr *txmgr.SimpleTxManager) (err error) {
 	p.proposerAddress = crypto.PubkeyToAddress(cfg.L1ProposerPrivKey.PublicKey)
 	p.ctx = ctx
 	p.Config = cfg
@@ -88,69 +80,50 @@ func (p *Proposer) InitFromConfig(ctx context.Context, cfg *Config) (err error) 
 	}
 
 	// Protocol configs
-	protocolConfigs, err := p.rpc.TaikoL1.GetConfig(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return fmt.Errorf("failed to get protocol configs: %w", err)
-	}
-	p.protocolConfigs = &protocolConfigs
+	p.protocolConfigs = encoding.GetProtocolConfig(p.rpc.L2.ChainID.Uint64())
 
 	log.Info("Protocol configs", "configs", p.protocolConfigs)
 
 	if p.tiers, err = p.rpc.GetTiers(ctx); err != nil {
 		return err
 	}
-	if err := p.initTierFees(); err != nil {
-		return err
+
+	if txMgr != nil {
+		p.txmgr = txMgr
+	} else {
+		if p.txmgr, err = txmgr.NewSimpleTxManager(
+			"proposer",
+			log.Root(),
+			&metrics.TxMgrMetrics,
+			*cfg.TxmgrConfigs,
+		); err != nil {
+			return err
+		}
 	}
 
-	if p.txmgr, err = txmgr.NewSimpleTxManager(
-		"proposer",
-		log.Root(),
-		&metrics.TxMgrMetrics,
-		*cfg.TxmgrConfigs,
-	); err != nil {
-		return err
-	}
-
-	if p.proverSelector, err = selector.NewETHFeeEOASelector(
-		&protocolConfigs,
-		p.rpc,
-		p.proposerAddress,
-		cfg.TaikoL1Address,
-		cfg.AssignmentHookAddress,
-		p.tierFees,
-		cfg.TierFeePriceBump,
-		cfg.ProverEndpoints,
-		cfg.MaxTierFeePriceBumps,
-		proverAssignmentTimeout,
-		requestProverServerTimeout,
-	); err != nil {
-		return err
-	}
+	chainConfig := config.NewChainConfig(p.rpc.L2.ChainID, new(big.Int).SetUint64(p.protocolConfigs.OntakeForkHeight))
 
 	if cfg.BlobAllowed {
 		p.txBuilder = builder.NewBlobTransactionBuilder(
 			p.rpc,
 			p.L1ProposerPrivKey,
-			p.proverSelector,
-			p.Config.L1BlockBuilderTip,
 			cfg.TaikoL1Address,
+			cfg.ProverSetAddress,
 			cfg.L2SuggestedFeeRecipient,
-			cfg.AssignmentHookAddress,
 			cfg.ProposeBlockTxGasLimit,
 			cfg.ExtraData,
+			chainConfig,
 		)
 	} else {
 		p.txBuilder = builder.NewCalldataTransactionBuilder(
 			p.rpc,
 			p.L1ProposerPrivKey,
-			p.proverSelector,
-			p.Config.L1BlockBuilderTip,
 			cfg.L2SuggestedFeeRecipient,
 			cfg.TaikoL1Address,
-			cfg.AssignmentHookAddress,
+			cfg.ProverSetAddress,
 			cfg.ProposeBlockTxGasLimit,
 			cfg.ExtraData,
+			chainConfig,
 		)
 	}
 
@@ -180,6 +153,7 @@ func (p *Proposer) eventLoop() {
 		// proposing interval timer has been reached
 		case <-p.proposingTimer.C:
 			metrics.ProposerProposeEpochCounter.Add(1)
+			p.totalEpochs++
 
 			// Attempt a proposing operation
 			if err := p.ProposeOp(p.ctx); err != nil {
@@ -197,6 +171,13 @@ func (p *Proposer) Close(_ context.Context) {
 
 // fetchPoolContent fetches the transaction pool content from L2 execution engine.
 func (p *Proposer) fetchPoolContent(filterPoolContent bool) ([]types.Transactions, error) {
+	minTip := p.MinTip
+	// If `--epoch.allowZeroInterval` flag is set, allow proposing zero tip transactions once when
+	// the total epochs number is divisible by the flag value.
+	if p.AllowZeroInterval > 0 && p.totalEpochs%p.AllowZeroInterval == 0 {
+		minTip = 0
+	}
+
 	// Fetch the pool content.
 	preBuiltTxList, err := p.rpc.GetPoolContent(
 		p.ctx,
@@ -205,6 +186,7 @@ func (p *Proposer) fetchPoolContent(filterPoolContent bool) ([]types.Transaction
 		rpc.BlockMaxTxListBytes,
 		p.LocalAddresses,
 		p.MaxProposedTxListsPerEpoch,
+		minTip,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch transaction pool content: %w", err)
@@ -342,9 +324,30 @@ func (p *Proposer) ProposeTxList(
 		return err
 	}
 
+	proverAddress := p.proposerAddress
+	if p.Config.ClientConfig.ProverSetAddress != rpc.ZeroAddress {
+		proverAddress = p.Config.ClientConfig.ProverSetAddress
+	}
+
+	ok, err := rpc.CheckProverBalance(
+		ctx,
+		p.rpc,
+		proverAddress,
+		p.TaikoL1Address,
+		p.protocolConfigs.LivenessBond,
+	)
+
+	if err != nil {
+		log.Warn("Failed to check prover balance", "error", err)
+		return err
+	}
+
+	if !ok {
+		return errors.New("insufficient prover balance")
+	}
+
 	txCandidate, err := p.txBuilder.Build(
 		ctx,
-		p.tierFees,
 		p.IncludeParentMetaHash,
 		compressedTxListBytes,
 	)
@@ -392,35 +395,4 @@ func (p *Proposer) updateProposingTicker() {
 // Name returns the application name.
 func (p *Proposer) Name() string {
 	return "proposer"
-}
-
-// initTierFees initializes the proving fees for every proof tier configured in the protocol for the proposer.
-func (p *Proposer) initTierFees() error {
-	for _, tier := range p.tiers {
-		log.Info(
-			"Protocol tier",
-			"id", tier.ID,
-			"name", string(bytes.TrimRight(tier.VerifierName[:], "\x00")),
-			"validityBond", utils.WeiToEther(tier.ValidityBond),
-			"contestBond", utils.WeiToEther(tier.ContestBond),
-			"provingWindow", tier.ProvingWindow,
-			"cooldownWindow", tier.CooldownWindow,
-		)
-
-		switch tier.ID {
-		case encoding.TierOptimisticID:
-			p.tierFees = append(p.tierFees, encoding.TierFee{Tier: tier.ID, Fee: p.OptimisticTierFee})
-		case encoding.TierSgxID:
-			p.tierFees = append(p.tierFees, encoding.TierFee{Tier: tier.ID, Fee: p.SgxTierFee})
-		case encoding.TierGuardianMinorityID:
-			p.tierFees = append(p.tierFees, encoding.TierFee{Tier: tier.ID, Fee: common.Big0})
-		case encoding.TierGuardianMajorityID:
-			// Guardian prover should not charge any fee.
-			p.tierFees = append(p.tierFees, encoding.TierFee{Tier: tier.ID, Fee: common.Big0})
-		default:
-			return fmt.Errorf("unknown tier: %d", tier.ID)
-		}
-	}
-
-	return nil
 }

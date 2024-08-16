@@ -12,7 +12,6 @@
   import type { BridgeTransaction } from '$libs/bridge';
   import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import { getLogger } from '$libs/util/logger';
-  import { uid } from '$libs/util/uid';
   import { pendingTransactions } from '$stores/pendingTransactions';
 
   import Claim from '../Claim.svelte';
@@ -30,12 +29,12 @@
 
   export let loading = false;
 
+  export let activeStep: RetrySteps = INITIAL_STEP;
+
   const log = getLogger('RetryDialog');
   const dispatch = createEventDispatcher();
 
-  const dialogId = `dialog-${uid()}`;
-
-  export let activeStep: RetrySteps = INITIAL_STEP;
+  const dialogId = `dialog-${crypto.randomUUID()}`;
 
   let canContinue = false;
   let retrying: boolean;
@@ -138,7 +137,7 @@
       </DialogStepper>
 
       {#if activeStep === RetrySteps.CHECK}
-        <ClaimPreCheck tx={bridgeTx} bind:canContinue bind:hideContinueButton />
+        <ClaimPreCheck tx={bridgeTx} bind:canContinue bind:hideContinueButton on:closeDialog={closeDialog} />
       {:else if activeStep === RetrySteps.SELECT}
         <RetryOptionStep bind:canContinue />
       {:else if activeStep === RetrySteps.REVIEW}

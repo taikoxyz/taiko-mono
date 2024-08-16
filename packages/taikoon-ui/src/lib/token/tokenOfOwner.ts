@@ -1,4 +1,6 @@
-import { readContract } from '@wagmi/core';
+import { readContracts } from '@wagmi/core';
+
+import { chainId } from '$lib/chain';
 
 import { taikoonTokenAbi, taikoonTokenAddress } from '../../generated/abi';
 import getConfig from '../../lib/wagmi/getConfig';
@@ -8,19 +10,21 @@ import { balanceOf } from './balanceOf';
 export async function tokenOfOwner(address: IAddress): Promise<number[]> {
   const balance = await balanceOf(address);
 
-  const tokenIds = [];
-  const { config, chainId } = getConfig();
+  const config = getConfig();
+
+  const params = { contracts: [] } as any;
 
   for (const tokenIdx of Array(balance).keys()) {
-    const tokenIdRaw = (await readContract(config, {
+    params.contracts.push({
       abi: taikoonTokenAbi,
       address: taikoonTokenAddress[chainId],
       functionName: 'tokenOfOwnerByIndex',
       args: [address, BigInt(tokenIdx)],
       chainId,
-    })) as bigint;
-    tokenIds.push(parseInt(tokenIdRaw.toString()));
+    });
   }
 
-  return tokenIds;
+  const results = await readContracts(config, params);
+
+  return results.map((item: any) => parseInt(item.result.toString()));
 }

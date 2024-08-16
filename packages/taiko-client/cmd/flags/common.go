@@ -5,6 +5,8 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/urfave/cli/v2"
+
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
 var (
@@ -32,13 +34,6 @@ var (
 		Required: true,
 		Category: commonCategory,
 		EnvVars:  []string{"L2_WS"},
-	}
-	L1HTTPEndpoint = &cli.StringFlag{
-		Name:     "l1.http",
-		Usage:    "HTTP RPC endpoint of a L1 ethereum node",
-		Required: true,
-		Category: commonCategory,
-		EnvVars:  []string{"L1_HTTP"},
 	}
 	L1BeaconEndpoint = &cli.StringFlag{
 		Name:     "l1.beacon",
@@ -72,22 +67,23 @@ var (
 		Usage:    "TaikoL1 contract `address`",
 		Required: true,
 		Category: commonCategory,
-		EnvVars:  []string{"TAIKO_L1"},
+		EnvVars:  []string{"TAIKO_L1_ADDRESS"},
 	}
 	TaikoL2Address = &cli.StringFlag{
 		Name:     "taikoL2",
 		Usage:    "TaikoL2 contract `address`",
 		Required: true,
 		Category: commonCategory,
-		EnvVars:  []string{"TAIKO_L2"},
+		EnvVars:  []string{"TAIKO_L2_ADDRESS"},
 	}
 	TaikoTokenAddress = &cli.StringFlag{
 		Name:     "taikoToken",
 		Usage:    "TaikoToken contract `address`",
 		Required: true,
 		Category: commonCategory,
-		EnvVars:  []string{"TAIKO_TOKEN"},
+		EnvVars:  []string{"TAIKO_TOKEN_ADDRESS"},
 	}
+
 	// Optional flags used by all client software.
 	// Logging
 	Verbosity = &cli.IntFlag{
@@ -146,11 +142,12 @@ var (
 		Value:    12 * time.Second,
 		EnvVars:  []string{"RPC_TIMEOUT"},
 	}
-	AssignmentHookAddress = &cli.StringFlag{
-		Name:     "assignmentHookAddress",
-		Usage:    "Address of the AssignmentHook contract",
+	ProverSetAddress = &cli.StringFlag{
+		Name:     "proverSet",
+		Usage:    "ProverSet contract `address`",
+		Value:    rpc.ZeroAddress.Hex(),
 		Category: commonCategory,
-		EnvVars:  []string{"ASSIGNMENT_HOOK_ADDRESS"},
+		EnvVars:  []string{"PROVER_SET"},
 	}
 )
 
@@ -161,6 +158,7 @@ var CommonFlags = []cli.Flag{
 	TaikoL1Address,
 	TaikoL2Address,
 	// Optional
+	ProverSetAddress,
 	Verbosity,
 	LogJSON,
 	MetricsEnabled,

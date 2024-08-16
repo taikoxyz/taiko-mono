@@ -1,31 +1,36 @@
 <script lang="ts">
   import { onMount } from 'svelte';
 
-  import { goto } from '$app/navigation';
   import { Collection } from '$components/Collection';
+  import { Spinner } from '$components/core/Spinner';
   import { Page } from '$components/Page';
   import Token from '$lib/token';
-  import isCountdownActive from '$lib/util/isCountdownActive';
   import { shortenAddress } from '$lib/util/shortenAddress';
+  import { account } from '$stores/account';
   import { Section } from '$ui/Section';
 
   export let data: any;
 
-  $: tokenIds = [0];
+  $: tokenIds = [] as number[];
   $: isLoading = false;
-  $: title = 'The Collection';
+  $: title = '';
 
-  onMount(async () => {
+  async function load() {
     isLoading = true;
     const { address } = data;
-    title = `${await shortenAddress(address)}'s Collection`;
-    tokenIds = await Token.tokenOfOwner(address.toLowerCase());
+    const isSelfCollection = $account && $account.address?.toLowerCase() === address.toLowerCase();
+    const shortenedAddress = await shortenAddress(address);
+    const ownerTokenIds = await Token.tokenOfOwner(address.toLowerCase());
+    title = isSelfCollection ? 'Your Collection' : `${shortenedAddress}'s Collection`;
+    tokenIds = ownerTokenIds;
     isLoading = false;
+  }
+
+  onMount(async () => {
+    await load();
   });
 
-  if (isCountdownActive()) {
-    goto('/');
-  }
+  $: $account, load();
 </script>
 
 <svelte:head>
@@ -33,7 +38,11 @@
 </svelte:head>
 
 <Page class="z-0">
-  <Section animated>
-    <Collection bind:isLoading {tokenIds} {title} />
+  <Section animated class="justify-center items-center">
+    {#if isLoading}
+      <Spinner size="lg" />
+    {:else}
+      <Collection bind:isLoading {tokenIds} {title} />
+    {/if}
   </Section>
 </Page>

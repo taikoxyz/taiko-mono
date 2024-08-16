@@ -67,7 +67,7 @@ contract SetDcapParams is Script, AttestationBase {
     }
 
     function _configureTcbInfoJson() internal {
-        tcbInfoPath = vm.envString("TCB_INFO_PATH");
+        string memory tcbInfoPath = vm.envString("TCB_INFO_PATH");
         string memory tcbInfoJson = vm.readFile(string.concat(vm.projectRoot(), tcbInfoPath));
         configureTcbInfoJson(dcapAttestationAddress, tcbInfoJson);
         console2.logString("TCB_INFO_JSON set: ");

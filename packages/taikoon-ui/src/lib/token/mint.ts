@@ -1,13 +1,13 @@
-import { waitForTransactionReceipt, writeContract } from '@wagmi/core';
+import { getAccount, waitForTransactionReceipt, writeContract } from '@wagmi/core';
 import { decodeEventLog } from 'viem';
 
-import { FilterLogsError, MintError } from '$lib/error';
+import { chainId } from '$lib/chain';
+import { FilterLogsError } from '$lib/error';
+import calculateGasPrice from '$lib/util/calculateGasPrice';
 import getProof from '$lib/whitelist/getProof';
 import { config } from '$wagmi-config';
 
 import { taikoonTokenAbi, taikoonTokenAddress } from '../../generated/abi';
-import { web3modal } from '../../lib/connect';
-import type { IChainId } from '../../types';
 import { totalWhitelistMintCount } from '../user/totalWhitelistMintCount';
 import { canMint } from './canMint';
 
@@ -18,31 +18,36 @@ export async function mint({
   freeMintCount: number;
   onTransaction: (tx: string) => void;
 }): Promise<number[]> {
-  const { selectedNetworkId } = web3modal.getState();
-  if (!selectedNetworkId) return [];
-  let tx: any;
-  const chainId = selectedNetworkId as IChainId;
-
-  const mintCount = await totalWhitelistMintCount();
+  const account = getAccount(config);
+  if (!account.address) {
+    throw new Error('No account address');
+  }
+  const mintCount = await totalWhitelistMintCount(account.address);
 
   if (freeMintCount > mintCount) {
-    throw new MintError('Not enough free mints left');
+    throw new Error('Not enough free mints left');
   }
 
-  if (await canMint()) {
-    const proof = getProof();
+  let tx: any;
+
+  if (await canMint(account.address)) {
+    const proof = getProof(account.address);
+    const gasPrice = await calculateGasPrice();
     tx = await writeContract(config, {
       abi: taikoonTokenAbi,
       address: taikoonTokenAddress[chainId],
       functionName: 'mint',
       args: [proof, BigInt(mintCount)],
       chainId,
+      gasPrice,
     });
 
     onTransaction(tx);
+  } else {
+    throw new Error(`Connected account cannot mint`);
   }
 
-  let nounId: number = 0;
+  let tokenId: number = 0;
 
   const receipt = await waitForTransactionReceipt(config, { hash: tx });
 
@@ -61,8 +66,8 @@ export async function mint({
           to: string;
           tokenId: bigint;
         } = decoded.args as any;
-        nounId = parseInt(args.tokenId.toString());
-        tokenIds.push(nounId);
+        tokenId = parseInt(args.tokenId.toString());
+        tokenIds.push(tokenId);
       }
     } catch (e: any) {
       throw new FilterLogsError(e.message);

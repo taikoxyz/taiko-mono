@@ -3,8 +3,6 @@ package proposer
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"math/big"
-	"net/url"
 	"strings"
 	"time"
 
@@ -24,7 +22,6 @@ import (
 // Config contains all configurations to initialize a Taiko proposer.
 type Config struct {
 	*rpc.ClientConfig
-	AssignmentHookAddress      common.Address
 	L1ProposerPrivKey          *ecdsa.PrivateKey
 	L2SuggestedFeeRecipient    common.Address
 	ExtraData                  string
@@ -33,18 +30,14 @@ type Config struct {
 	LocalAddressesOnly         bool
 	MinGasUsed                 uint64
 	MinTxListBytes             uint64
+	MinTip                     uint64
 	MinProposingInternal       time.Duration
+	AllowZeroInterval          uint64
 	MaxProposedTxListsPerEpoch uint64
 	ProposeBlockTxGasLimit     uint64
-	ProverEndpoints            []*url.URL
-	OptimisticTierFee          *big.Int
-	SgxTierFee                 *big.Int
-	TierFeePriceBump           *big.Int
-	MaxTierFeePriceBumps       uint64
 	IncludeParentMetaHash      bool
 	BlobAllowed                bool
 	TxmgrConfigs               *txmgr.CLIConfig
-	L1BlockBuilderTip          *big.Int
 }
 
 // NewConfigFromCliContext initializes a Config instance from
@@ -75,21 +68,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		}
 	}
 
-	var proverEndpoints []*url.URL
-	for _, e := range strings.Split(c.String(flags.ProverEndpoints.Name), ",") {
-		endpoint, err := url.Parse(e)
-		if err != nil {
-			return nil, err
-		}
-		proverEndpoints = append(proverEndpoints, endpoint)
-	}
-
-	optimisticTierFee, err := utils.GWeiToWei(c.Float64(flags.OptimisticTierFee.Name))
-	if err != nil {
-		return nil, err
-	}
-
-	sgxTierFee, err := utils.GWeiToWei(c.Float64(flags.SgxTierFee.Name))
+	minTip, err := utils.GWeiToWei(c.Float64(flags.MinTip.Name))
 	if err != nil {
 		return nil, err
 	}
@@ -104,8 +83,8 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			JwtSecret:         string(jwtSecret),
 			TaikoTokenAddress: common.HexToAddress(c.String(flags.TaikoTokenAddress.Name)),
 			Timeout:           c.Duration(flags.RPCTimeout.Name),
+			ProverSetAddress:  common.HexToAddress(c.String(flags.ProverSetAddress.Name)),
 		},
-		AssignmentHookAddress:      common.HexToAddress(c.String(flags.AssignmentHookAddress.Name)),
 		L1ProposerPrivKey:          l1ProposerPrivKey,
 		L2SuggestedFeeRecipient:    common.HexToAddress(l2SuggestedFeeRecipient),
 		ExtraData:                  c.String(flags.ExtraData.Name),
@@ -114,17 +93,13 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		LocalAddressesOnly:         c.Bool(flags.TxPoolLocalsOnly.Name),
 		MinGasUsed:                 c.Uint64(flags.MinGasUsed.Name),
 		MinTxListBytes:             c.Uint64(flags.MinTxListBytes.Name),
+		MinTip:                     minTip.Uint64(),
 		MinProposingInternal:       c.Duration(flags.MinProposingInternal.Name),
 		MaxProposedTxListsPerEpoch: c.Uint64(flags.MaxProposedTxListsPerEpoch.Name),
+		AllowZeroInterval:          c.Uint64(flags.AllowZeroInterval.Name),
 		ProposeBlockTxGasLimit:     c.Uint64(flags.TxGasLimit.Name),
-		ProverEndpoints:            proverEndpoints,
-		OptimisticTierFee:          optimisticTierFee,
-		SgxTierFee:                 sgxTierFee,
-		TierFeePriceBump:           new(big.Int).SetUint64(c.Uint64(flags.TierFeePriceBump.Name)),
-		MaxTierFeePriceBumps:       c.Uint64(flags.MaxTierFeePriceBumps.Name),
 		IncludeParentMetaHash:      c.Bool(flags.ProposeBlockIncludeParentMetaHash.Name),
 		BlobAllowed:                c.Bool(flags.BlobAllowed.Name),
-		L1BlockBuilderTip:          new(big.Int).SetUint64(c.Uint64(flags.L1BlockBuilderTip.Name)),
 		TxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
 			c.String(flags.L1WSEndpoint.Name),
 			l1ProposerPrivKey,

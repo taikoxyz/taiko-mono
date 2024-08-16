@@ -22,7 +22,7 @@ You can see all the changes made in the `taiko-geth` fork at [geth.taiko.xyz](ht
 
 ## taiko-client
 
-The [taiko-client](https://github.com/taikoxyz/taiko-client) software replaces the consensus client piece of an Ethereum mainnet node. It connects to `taiko-geth`, and the compiled binary includes three sub-commands:
+The [taiko-client](https://github.com/taikoxyz/taiko-mono/tree/main/packages/taiko-client) software replaces the consensus client piece of an Ethereum mainnet node. It connects to `taiko-geth`, and the compiled binary includes three sub-commands:
 
 ### `driver`
 
@@ -52,8 +52,9 @@ The driver monitors the execution engine's sync progress: If it's unable to make
 After the L2 execution engine catches up with the latest verified L2 head, the driver subscribes to `TaikoL1.BlockProposed` events. When a new pending block is proposed, the driver:
 
 1. Gets the corresponding `TaikoL1.proposeBlock` L1 transaction.
-2. Decodes the `txList` and block metadata from the transaction's calldata.
-3. Checks whether the `txList` is valid based on the rules defined in the Taiko protocol.
+2. Decompresses the `txListBytes` from the transaction's calldata (and blobdata if enabled).
+3. Decodes the `txList` and block metadata from the decompressed bytes.
+4. Checks whether the `txList` is valid based on the rules defined in the Taiko protocol.
 
 If the `txList` is **valid**, the driver:
 

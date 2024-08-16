@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
@@ -19,21 +20,24 @@ import (
 
 // Sender is responsible for sending proof submission transactions with a backoff policy.
 type Sender struct {
-	rpc      *rpc.Client
-	txmgr    *txmgr.SimpleTxManager
-	gasLimit uint64
+	rpc              *rpc.Client
+	txmgr            *txmgr.SimpleTxManager
+	proverSetAddress common.Address
+	gasLimit         uint64
 }
 
 // NewSender creates a new Sener instance.
 func NewSender(
 	cli *rpc.Client,
 	txmgr *txmgr.SimpleTxManager,
+	proverSetAddress common.Address,
 	gasLimit uint64,
 ) *Sender {
 	return &Sender{
-		rpc:      cli,
-		txmgr:    txmgr,
-		gasLimit: gasLimit,
+		rpc:              cli,
+		txmgr:            txmgr,
+		proverSetAddress: proverSetAddress,
+		gasLimit:         gasLimit,
 	}
 }
 
@@ -44,7 +48,13 @@ func (s *Sender) Send(
 	buildTx TxBuilder,
 ) error {
 	// Check if the proof has already been submitted.
-	proofStatus, err := rpc.GetBlockProofStatus(ctx, s.rpc, proofWithHeader.BlockID, proofWithHeader.Opts.ProverAddress)
+	proofStatus, err := rpc.GetBlockProofStatus(
+		ctx,
+		s.rpc,
+		proofWithHeader.BlockID,
+		proofWithHeader.Opts.ProverAddress,
+		s.proverSetAddress,
+	)
 	if err != nil {
 		return err
 	}
@@ -67,7 +77,7 @@ func (s *Sender) Send(
 	// Send the transaction.
 	receipt, err := s.txmgr.Send(ctx, *txCandidate)
 	if err != nil {
-		return err
+		return encoding.TryParsingCustomError(err)
 	}
 
 	if receipt.Status != types.ReceiptStatusSuccessful {
@@ -102,12 +112,12 @@ func (s *Sender) Send(
 // latest verified head is not ahead of this block proof.
 func (s *Sender) validateProof(ctx context.Context, proofWithHeader *producer.ProofWithHeader) (bool, error) {
 	// 1. Check if the corresponding L1 block is still in the canonical chain.
-	l1Header, err := s.rpc.L1.HeaderByNumber(ctx, new(big.Int).SetUint64(proofWithHeader.Meta.L1Height+1))
+	l1Header, err := s.rpc.L1.HeaderByNumber(ctx, proofWithHeader.Meta.GetRawBlockHeight())
 	if err != nil {
 		log.Warn(
 			"Failed to fetch L1 block",
 			"blockID", proofWithHeader.BlockID,
-			"l1Height", proofWithHeader.Meta.L1Height+1,
+			"l1Height", proofWithHeader.Meta.GetRawBlockHeight(),
 			"error", err,
 		)
 		return false, err
@@ -116,7 +126,7 @@ func (s *Sender) validateProof(ctx context.Context, proofWithHeader *producer.Pr
 		log.Warn(
 			"Reorg detected, skip the current proof submission",
 			"blockID", proofWithHeader.BlockID,
-			"l1Height", proofWithHeader.Meta.L1Height+1,
+			"l1Height", proofWithHeader.Meta.GetRawBlockHeight(),
 			"l1HashOld", proofWithHeader.Opts.EventL1Hash,
 			"l1HashNew", l1Header.Hash(),
 		)

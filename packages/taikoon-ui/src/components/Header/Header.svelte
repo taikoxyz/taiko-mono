@@ -1,17 +1,14 @@
 <script lang="ts">
-  import { getAccount } from '@wagmi/core';
+  import { ResponsiveController } from '@taiko/ui-lib';
   import { zeroAddress } from 'viem';
 
-  import TaikoonsIcon from '$assets/taikoons-icon.png';
   import { Icons } from '$components/core/Icons';
-  import { ResponsiveController } from '$components/core/ResponsiveController';
   import { MobileMenu } from '$components/MobileMenu';
+  import Token from '$lib/token';
+  import User from '$lib/user';
   import { classNames } from '$lib/util/classNames';
-  import isCountdownActive from '$lib/util/isCountdownActive';
   import { account } from '$stores/account';
-  import { connectedSourceChain } from '$stores/network';
   import { pageScroll } from '$stores/pageScroll';
-  import { config } from '$wagmi-config';
 
   import type { IAddress } from '../../types';
   import { ConnectButton } from '../ConnectButton';
@@ -33,30 +30,38 @@
 
   $: headerClasses = classNames(
     baseHeaderClasses,
-    $pageScroll ? 'md:glassy-background-lg' : null,
-    $pageScroll ? 'md:border-b-[1px] md:border-border-divider-default' : 'md:border-b-[1px] md:border-transparent',
+    $pageScroll ? 'glassy-background-lg' : null,
+    $pageScroll ? 'border-b-[1px] border-border-divider-default' : 'border-b-[1px] border-transparent',
     $$props.class,
   );
 
-  $: taikoonsOptions = [
-    {
-      icon: 'FileImageRegular',
-      label: 'The 888',
-      href: '/collection/',
-    },
-  ];
+  $: $account, checkYourCollection();
+  $: displayYourTaikoonsButton = false;
+  $: isChecking = false;
+  async function checkYourCollection() {
+    if (isChecking) return;
+    isChecking = true;
+    if (!$account || !$account.address || $account.address === zeroAddress) {
+      displayYourTaikoonsButton = false;
+      isChecking = false;
+      return;
+    }
 
-  connectedSourceChain.subscribe(async () => {
-    if (address !== zeroAddress) return;
-    const account = getAccount(config);
-    if (!account.address) return;
-    address = account.address;
-    taikoonsOptions.push({
-      icon: 'FileImageRegular',
-      label: 'Collection',
-      href: `/collection/${address.toLowerCase()}`,
-    });
-  });
+    if (displayYourTaikoonsButton) return;
+
+    address = $account.address;
+
+    if (!address || address === zeroAddress) {
+      isChecking = false;
+      return;
+    }
+
+    const canMint = await Token.canMint(address);
+    const totalMintCount = await User.totalWhitelistMintCount(address);
+
+    displayYourTaikoonsButton = !canMint && totalMintCount > 0;
+    isChecking = false;
+  }
 
   let windowSize: 'sm' | 'md' | 'lg' = 'md';
 </script>
@@ -66,38 +71,30 @@
 <div class={wrapperClasses}>
   <div class={classNames(headerClasses, $$props.class)}>
     <a href="/" class={classNames()}>
-      <img alt="taikoons-logo" class={taikoonsIconClasses} src={TaikoonsIcon} />
+      <img alt="taikoons-logo" class={taikoonsIconClasses} src="/taikoons-icon.svg" />
     </a>
 
     {#if windowSize === 'sm'}
       <div class={rightSectionClasses}>
-        {#if isCountdownActive()}
-          <ThemeButton />
-        {:else}
-          <button on:click={() => (isMobileMenuOpen = !isMobileMenuOpen)} class={mobileMenuButtonClasses}>
-            {#if isMobileMenuOpen}
-              <CloseMenuIcon size="14" />
-            {:else}
-              <MenuIcon size="14" />
-            {/if}
-          </button>
-        {/if}
+        <button on:click={() => (isMobileMenuOpen = !isMobileMenuOpen)} class={mobileMenuButtonClasses}>
+          {#if isMobileMenuOpen}
+            <CloseMenuIcon size="14" />
+          {:else}
+            <MenuIcon size="14" />
+          {/if}
+        </button>
       </div>
     {:else}
-      {#if !isCountdownActive()}
-        <div class={menuButtonsWrapperClasses}>
-          <a href="/mint" type="neutral" class={navButtonClasses}>Mint</a>
+      <div class={menuButtonsWrapperClasses}>
+        <a href="/mint" type="neutral" class={navButtonClasses}>Mint</a>
 
-          <a href="/collection" type="neutral" class={navButtonClasses}>Collection</a>
-          {#if address !== zeroAddress}
-            <a href={`/collection/${address.toLowerCase()}`} type="neutral" class={navButtonClasses}> Your taikoons</a>
-          {/if}
-        </div>
-      {/if}
-      <div class={rightSectionClasses}>
-        {#if !isCountdownActive()}
-          <ConnectButton connected={$account?.isConnected} />
+        <a href="/collection" type="neutral" class={navButtonClasses}>Collection</a>
+        {#if displayYourTaikoonsButton}
+          <a href={`/collection/${address.toLowerCase()}`} type="neutral" class={navButtonClasses}> Your taikoons</a>
         {/if}
+      </div>
+      <div class={rightSectionClasses}>
+        <ConnectButton connected={$account?.isConnected} />
         <div class="hidden md:inline-flex">
           <div class={themeButtonSeparatorClasses} />
           <ThemeButton />

@@ -6,6 +6,9 @@ export default {
   content: ['./src/**/*.{html,js,svelte,ts}'],
   theme: {
     extend: {
+      width: {
+        dvw: '100dvw',
+      },
       colors: {
         /***************
          * Base colors *
@@ -247,6 +250,9 @@ export default {
 
           '--warning-sentiment': '#EBB222', // yellow-400
           '--warning-background': '#382800', // yellow-800
+
+          '--neutral-sentiment': '#0052CC', // blue-500
+          '--neutral-sentiment-background': '#002966', //  blue-700
 
           '--elevated-background': '#191E28', // grey-800
           '--neutral-background': '#2B303B', // grey-700

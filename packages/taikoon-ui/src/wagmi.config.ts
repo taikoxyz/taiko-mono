@@ -1,23 +1,22 @@
 import { injected, walletConnect } from '@wagmi/connectors';
 import { createConfig, http, reconnect } from '@wagmi/core';
-import { hardhat, holesky } from '@wagmi/core/chains';
+import { taiko, taikoHekla } from 'viem/chains';
 
 import { PUBLIC_WALLETCONNECT_PROJECT_ID } from '$env/static/public';
+import { isDevelopmentEnv } from '$lib/util/isDevelopmentEnv';
 
 const projectId = PUBLIC_WALLETCONNECT_PROJECT_ID;
 
 const baseConfig = {
-  chains: [hardhat, holesky],
+  chains: [isDevelopmentEnv ? taikoHekla : taiko],
   projectId,
   metadata: {},
   batch: {
-    multicall: false,
+    multicall: true,
   },
   transports: {
-    [hardhat.id]: http('http://localhost:8545'),
-    //[holesky.id]: http('https://1rpc.io/holesky'),
-    [holesky.id]: http('https://ethereum-holesky.blockpi.network/v1/rpc/public'),
-    //[holesky.id]: http('https://l1rpc.hekla.taiko.xyz/'),
+    [taikoHekla.id]: http('https://rpc.hekla.taiko.xyz'),
+    [taiko.id]: http('https://rpc.mainnet.taiko.xyz'),
   },
 } as const;
 

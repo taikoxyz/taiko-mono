@@ -1,0 +1,112 @@
+---
+title: Node Troubleshooting
+description: This page describes common node bugs and potential fixes
+---
+
+ This page describes common node bugs and potential fixes.
+
+### `Caught SIGILL in blst_cgo_init`
+
+If you get this error message, chances are you're using an older CPU that blst has trouble compiling on due to instruction differences.
+
+In this case, please set your env as follows and try again.
+
+```bash
+CGO_CFLAGS="-O -D__BLST_PORTABLE__"
+CGO_CFLAGS_ALLOW="-O -D__BLST_PORTABLE__"
+```
+
+### Failed to decode tx list: beacon client not found
+
+This may mean that you may be missing the `--l1.beacon` flag or have filled it in incorrectly.
+
+Please use an L1 Node that has a blob server configured!
+
+### WARN: ...
+
+All WARN messages can essentially be ignored.
+
+### Dial tcp: lookup l2_execution_engine on 127.0.01153: server misbehaving
+
+This error can occur if there are issues with your L1 node, such as it being out of sync or your node facing rate limitations (e.g., if you are using Blockpi). To address this error, follow these steps:
+
+- Verify the synchronization status of your L1 node.
+- If you are experiencing rate limitations with Blockpi, consider increasing your limits there or running your own L1 node.
+
+### Block batch iterator callback error error="failed to decode tx list: beacon client not found"
+
+Potential Solution #1: Set L1_BEACON_HTPP in .env file and restart your node.
+
+Potential Solution #2: It's possible that the endpoint either lacks WebSocket (ws) support or is malformed. To address this error, ensure the following:
+- Your L1 node is operating correctly.
+- There are no errors in the .env file where you specify L1 endpoints.
+
+### Error: no service selected
+
+You are using an outdated version of simple-taiko-node, please pull a more recent image or specify a profile in the .env file under `COMPOSE_PROFILES`.
+
+### Block batch iterator callback error="failed to check whether L1 chain has been reorged"
+
+If you are using BlockPi and see this error, then:
+
+- Solution #1: Check if the Archive feature is enabled on Blockpi. If the feature is disabled, enable it and reboot the node.
+
+- Solution #2. If solution #1 did not help you, then you need to install an L1 node on your machine and use it as your L1 endpoint.
+
+### Looking for peers
+
+If your node is stuck on `Looking for peers`, open .env file, set DISABLE_P2P_SYNC to true and restart the node.
+
+### Bind for 0.0.0.0:6060 failed: port is already allocated
+
+The port 6060 is already in use by another service. You can either shut down the other program or change the port in the .env file.
+
+### Start: Create EVM proof; Killed
+
+This message is displayed during the certification process when the processing capacity of the node is insufficient.
+Please make sure that the machine you are running it on meets the recommended specifications (especially RAM).
+
+### Required flag "l2.suggestedFeeRecipient" not set
+
+Ensure there are no spaces in the flag field or any other in the .env file.
+
+### Unknown shorthand flag: 'd' in -d
+
+You are using v1 of docker-compose, use the command: `docker-compose up -d` instead of `docker compose up -d`, I highly recommend that you upgrade to the v2 of the [docker compose plugin](https://docs.docker.com/compose/install/linux/).
+
+### Simple-taiko-node-taiko_client_prover_relayer-1 |/bin/sh: /script/start-prover-relayer.sh: not found
+
+This issue occurs on Windows specifically because of the Control Characters in this case the Line Endings, a quick fix would be to delete the node folder, run `git config --global core.autocrlf` false in the shell, then clone the repo again.
+
+### Dial tcp: connect: connection refused
+
+This means that you are not able to connect to the RPC endpoint. Check if you have a firewall up and that you are allowing those ports. For Ubuntu, this would be checked with `sudo ufw status`.
+
+### No contract code at given address
+
+Please ensure your node is running on the correct network and is fully up to date. If the problem still persists, your underlying L1 node is still syncing. Please wait until your L1 node is fully synced before starting your L2 node.
+
+### Database contains incompatible genesis
+
+You may run into this problem if you ran a node for a previous testnet, please run `docker compose down -v` to remove old volumes.
+
+### Block successfully proposed, but no proof request in Raiko
+
+If you notice that your proposer has successfully proposed a block, but your prover seems to have either:
+- failed to submit a proof
+- not sent a proof request to Raiko
+- not attempted to submit a proof at all
+
+In any case, you can have your prover retry the proof request by manually setting a variable in your `.env`. This solution is predicated on your proof window not yet having expired;
+if it has, then the block may have already been proven by someone else and your bond forfeited.
+
+First, retrieve the block number that you were assigned from your logs.
+
+Pause your prover with `docker compose down` (do NOT use `-v` as this will delete your volumes and cause you to resync from genesis).
+
+Set `STARTING_BLOCK_ID={YOUR_ASSIGNED_BLOCKID}` in your `.env` File.
+
+Continue your prover with `docker compose up` (`-d` is optional). You should see logs from `taiko-client-prover-relayer` start up again at your assigned blockID.
+You can search with the following command: `docker compose logs taiko_client_prover_relayer | grep "{YOUR_ASSIGNED_BLOCKID}"`, and then check your Raiko instance for logs pertaining to proof generation!
+
+If the solution fails, please reach out to us in Discord with your logs.

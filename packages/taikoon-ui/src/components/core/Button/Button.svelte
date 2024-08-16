@@ -58,7 +58,7 @@
     link: 'btn-link',
     negative:
       'border border-primary bg-transparent font-bold font-sans hover:bg-content-link-primary hover:border-transparent',
-    mobile: classNames('text-3xl', 'w-full', 'bg-neutral-background', 'py-8', 'justify-start'),
+    mobile: classNames('text-xl', 'w-full', 'bg-neutral-background', 'py-4', 'justify-start'),
   };
 
   const shapeMap: Record<ButtonShape, string> = {

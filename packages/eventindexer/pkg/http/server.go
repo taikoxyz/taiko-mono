@@ -28,20 +28,24 @@ import (
 // @host eventindexer.hekla.taiko.xyz
 // Server represents an eventindexer http server instance.
 type Server struct {
-	echo           *echo.Echo
-	eventRepo      eventindexer.EventRepository
-	nftBalanceRepo eventindexer.NFTBalanceRepository
-	chartRepo      eventindexer.ChartRepository
-	cache          *cache.Cache
+	echo             *echo.Echo
+	eventRepo        eventindexer.EventRepository
+	nftBalanceRepo   eventindexer.NFTBalanceRepository
+	nftMetadataRepo  eventindexer.NFTMetadataRepository
+	erc20BalanceRepo eventindexer.ERC20BalanceRepository
+	chartRepo        eventindexer.ChartRepository
+	cache            *cache.Cache
 }
 
 type NewServerOpts struct {
-	Echo           *echo.Echo
-	EventRepo      eventindexer.EventRepository
-	NFTBalanceRepo eventindexer.NFTBalanceRepository
-	ChartRepo      eventindexer.ChartRepository
-	EthClient      *ethclient.Client
-	CorsOrigins    []string
+	Echo             *echo.Echo
+	EventRepo        eventindexer.EventRepository
+	NFTBalanceRepo   eventindexer.NFTBalanceRepository
+	NFTMetadataRepo  eventindexer.NFTMetadataRepository
+	ERC20BalanceRepo eventindexer.ERC20BalanceRepository
+	ChartRepo        eventindexer.ChartRepository
+	EthClient        *ethclient.Client
+	CorsOrigins      []string
 }
 
 func (opts NewServerOpts) Validate() error {
@@ -61,6 +65,10 @@ func (opts NewServerOpts) Validate() error {
 		return eventindexer.ErrNoNFTBalanceRepository
 	}
 
+	if opts.NFTMetadataRepo == nil {
+		return eventindexer.ErrNoNFTMetadataRepository
+	}
+
 	return nil
 }
 
@@ -72,11 +80,13 @@ func NewServer(opts NewServerOpts) (*Server, error) {
 	cache := cache.New(5*time.Minute, 10*time.Minute)
 
 	srv := &Server{
-		echo:           opts.Echo,
-		eventRepo:      opts.EventRepo,
-		nftBalanceRepo: opts.NFTBalanceRepo,
-		chartRepo:      opts.ChartRepo,
-		cache:          cache,
+		echo:             opts.Echo,
+		eventRepo:        opts.EventRepo,
+		nftBalanceRepo:   opts.NFTBalanceRepo,
+		nftMetadataRepo:  opts.NFTMetadataRepo,
+		erc20BalanceRepo: opts.ERC20BalanceRepo,
+		chartRepo:        opts.ChartRepo,
+		cache:            cache,
 	}
 
 	corsOrigins := opts.CorsOrigins

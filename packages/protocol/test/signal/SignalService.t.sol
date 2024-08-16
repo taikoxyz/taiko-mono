@@ -88,17 +88,17 @@ contract TestSignalService is TaikoTest {
     }
 
     function test_SignalService_sendSignal_revert() public {
-        vm.expectRevert(SignalService.SS_INVALID_VALUE.selector);
+        vm.expectRevert(EssentialContract.ZERO_VALUE.selector);
         signalService.sendSignal(0);
     }
 
     function test_SignalService_isSignalSent_revert() public {
         bytes32 signal = bytes32(uint256(1));
-        vm.expectRevert(SignalService.SS_INVALID_SENDER.selector);
+        vm.expectRevert(EssentialContract.ZERO_ADDRESS.selector);
         signalService.isSignalSent(address(0), signal);
 
         signal = bytes32(uint256(0));
-        vm.expectRevert(SignalService.SS_INVALID_VALUE.selector);
+        vm.expectRevert(EssentialContract.ZERO_VALUE.selector);
         signalService.isSignalSent(Alice, signal);
     }
 
@@ -114,7 +114,7 @@ contract TestSignalService is TaikoTest {
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](1);
 
         // app being address(0) will revert
-        vm.expectRevert(SignalService.SS_INVALID_SENDER.selector);
+        vm.expectRevert(EssentialContract.ZERO_ADDRESS.selector);
         signalService.proveSignalReceived({
             _chainId: 1,
             _app: address(0),
@@ -123,7 +123,7 @@ contract TestSignalService is TaikoTest {
         });
 
         // signal being 0 will revert
-        vm.expectRevert(SignalService.SS_INVALID_VALUE.selector);
+        vm.expectRevert(EssentialContract.ZERO_VALUE.selector);
         signalService.proveSignalReceived({
             _chainId: uint64(block.chainid),
             _app: randAddress(),

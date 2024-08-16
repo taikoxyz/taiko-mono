@@ -31,7 +31,7 @@ export const leftHalfPanel = classNames(halfPanel, 'aspect-square');
 export const rightHalfPanel = classNames(
   halfPanel,
   'md:px-12',
-
+  'min-w-[400px]',
   'my-16',
   'md:my-[0]',
   'md:max-w-[500px]',

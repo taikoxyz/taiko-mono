@@ -2,7 +2,7 @@ import { watchAccount } from '@wagmi/core';
 
 import { config } from '$wagmi-config';
 
-import { isSupportedChain } from '../../lib/chain';
+import { chainId, isSupportedChain } from '../../lib/chain';
 import { refreshUserBalance } from '../../lib/util/balance';
 import { account } from '../../stores/account';
 import { switchChainModal } from '../../stores/modal';
@@ -15,15 +15,19 @@ export async function startWatching() {
   if (!isWatching) {
     unWatchAccount = watchAccount(config, {
       onChange(data) {
-        console.warn('Account changed', data);
+        const { chain } = data;
         account.set(data);
         refreshUserBalance();
-        const { chain } = data;
 
         // We need to check if the chain is supported, and if not
         // we present the user with a modal to switch networks.
-        if (chain && !isSupportedChain(Number(chain.id))) {
-          console.warn('Unsupported chain', chain);
+        const isLocalHost = false; // window.location.hostname === 'localhost';
+        const isVercel = false; // window.location.hostname === 'taikoons-dev.vercel.app';
+        const isSupportedChainId =
+          isLocalHost || isVercel ? isSupportedChain(Number(data.chainId)) : data.chainId === chainId;
+        const isConnected = data.address !== undefined;
+
+        if (!isSupportedChainId && isConnected) {
           switchChainModal.set(true);
           return;
         } else if (chain) {
@@ -39,6 +43,6 @@ export async function startWatching() {
 }
 
 export function stopWatching() {
-  unWatchAccount();
+  unWatchAccount && unWatchAccount();
   isWatching = false;
 }

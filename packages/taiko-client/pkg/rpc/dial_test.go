@@ -21,7 +21,7 @@ func TestDialEngineClientWithBackoff(t *testing.T) {
 
 	client, err := DialEngineClientWithBackoff(
 		context.Background(),
-		os.Getenv("L2_EXECUTION_ENGINE_AUTH_ENDPOINT"),
+		os.Getenv("L2_AUTH"),
 		string(jwtSecret),
 		12*time.Second,
 		10,
@@ -38,7 +38,7 @@ func TestDialEngineClientWithBackoff(t *testing.T) {
 func TestDialClientWithBackoff(t *testing.T) {
 	client, err := DialClientWithBackoff(
 		context.Background(),
-		os.Getenv("L2_EXECUTION_ENGINE_WS_ENDPOINT"),
+		os.Getenv("L2_WS"),
 		12*time.Second,
 		10,
 	)

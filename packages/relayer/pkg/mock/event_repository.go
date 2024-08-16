@@ -6,6 +6,7 @@ import (
 	"errors"
 	"math/rand"
 	"net/http"
+	"time"
 
 	"github.com/morkid/paginate"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
@@ -21,7 +22,12 @@ func NewEventRepository() *EventRepository {
 		events: make([]*relayer.Event, 0),
 	}
 }
-func (r *EventRepository) Save(ctx context.Context, opts relayer.SaveEventOpts) (*relayer.Event, error) {
+
+func (r *EventRepository) Close() error {
+	return nil
+}
+
+func (r *EventRepository) Save(ctx context.Context, opts *relayer.SaveEventOpts) (*relayer.Event, error) {
 	r.events = append(r.events, &relayer.Event{
 		ID:           rand.Int(), // nolint: gosec
 		Data:         datatypes.JSON(opts.Data),
@@ -62,35 +68,77 @@ func (r *EventRepository) UpdateStatus(ctx context.Context, id int, status relay
 	return nil
 }
 
-func (r *EventRepository) FindAllByAddress(
+func (r *EventRepository) UpdateFeesAndProfitability(
 	ctx context.Context,
-	req *http.Request,
-	opts relayer.FindAllByAddressOpts,
-) (paginate.Page, error) {
-	type d struct {
-		Owner string `json:"Owner"`
-	}
+	id int, opts *relayer.UpdateFeesAndProfitabilityOpts,
+) error {
+	var event *relayer.Event
 
-	events := make([]*relayer.Event, 0)
+	var index int
 
-	for _, e := range r.events {
-		m, err := e.Data.MarshalJSON()
-		if err != nil {
-			return paginate.Page{}, err
-		}
+	// Find the event by ID
+	for i, e := range r.events {
+		if e.ID == id {
+			event = e
+			index = i
 
-		data := &d{}
-		if err := json.Unmarshal(m, data); err != nil {
-			return paginate.Page{}, err
-		}
-
-		if data.Owner == opts.Address.Hex() {
-			events = append(events, e)
 			break
 		}
 	}
 
-	return paginate.Page{
+	if event == nil {
+		return nil // Or return an appropriate error if the event is not found
+	}
+
+	// Update the event fields
+	event.Fee = &opts.Fee
+	event.DestChainBaseFee = &opts.DestChainBaseFee
+	event.GasTipCap = &opts.GasTipCap
+	event.GasLimit = &opts.GasLimit
+	event.IsProfitable = &opts.IsProfitable
+	event.EstimatedOnchainFee = &opts.EstimatedOnchainFee
+	currentTime := time.Now().UTC()
+	event.IsProfitableEvaluatedAt = &currentTime
+
+	// Save the updated event back to the slice
+	r.events[index] = event
+
+	return nil
+}
+
+func (r *EventRepository) FindAllByAddress(
+	ctx context.Context,
+	req *http.Request,
+	opts relayer.FindAllByAddressOpts,
+) (*paginate.Page, error) {
+	type d struct {
+		Owner string `json:"Owner"`
+	}
+
+	appendToSlice := func(slice *[]relayer.Event, elements ...relayer.Event) {
+		*slice = append(*slice, elements...)
+	}
+
+	events := &[]relayer.Event{}
+
+	for _, e := range r.events {
+		m, err := e.Data.MarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+
+		data := &d{}
+		if err := json.Unmarshal(m, data); err != nil {
+			return nil, err
+		}
+
+		if data.Owner == opts.Address.Hex() {
+			appendToSlice(events, *e)
+			break
+		}
+	}
+
+	return &paginate.Page{
 		Items: events,
 	}, nil
 }
@@ -162,6 +210,7 @@ func (r *EventRepository) DeleteAllAfterBlockID(blockID uint64, srcChainID uint6
 
 // GetLatestBlockID get latest block id
 func (r *EventRepository) FindLatestBlockID(
+	ctx context.Context,
 	event string,
 	srcChainID uint64,
 	destChainID uint64,

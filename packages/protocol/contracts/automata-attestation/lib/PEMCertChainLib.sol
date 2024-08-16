@@ -213,7 +213,9 @@ contract PEMCertChainLib is IPEMCertChainLib {
         success = true;
     }
 
-    function _removeHeadersAndFooters(string memory pemData)
+    function _removeHeadersAndFooters(
+        string memory pemData
+    )
         private
         pure
         returns (bool success, bytes memory extracted, uint256 endIndex)
@@ -346,7 +348,7 @@ contract PEMCertChainLib is IPEMCertChainLib {
         pure
         returns (bool success, uint256 pcesvn, uint256[] memory cpusvns)
     {
-        // sibiling of tcbOid
+        // sibling of tcbOid
         uint256 tcbPtr = der.nextSiblingOf(oidPtr);
         // get the first svn object in the sequence
         uint256 svnParentPtr = der.firstChildOf(tcbPtr);

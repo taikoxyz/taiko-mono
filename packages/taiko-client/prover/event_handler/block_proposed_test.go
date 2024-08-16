@@ -6,7 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 	state "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/shared_state"
 )
@@ -18,7 +18,7 @@ func (s *EventHandlerTestSuite) TestBlockProposedHandle() {
 		GenesisHeightL1:       0,
 		RPC:                   s.RPCClient,
 		ProofGenerationCh:     make(chan *proofProducer.ProofWithHeader),
-		AssignmentExpiredCh:   make(chan *bindings.TaikoL1ClientBlockProposed),
+		AssignmentExpiredCh:   make(chan metadata.TaikoBlockMetaData),
 		ProofSubmissionCh:     make(chan *proofProducer.ProofRequestBody),
 		ProofContestCh:        make(chan *proofProducer.ContestRequestBody),
 		BackOffRetryInterval:  1 * time.Minute,
@@ -27,7 +27,5 @@ func (s *EventHandlerTestSuite) TestBlockProposedHandle() {
 		ProveUnassignedBlocks: true,
 	}
 	handler := NewBlockProposedEventHandler(opts)
-	e := s.ProposeAndInsertValidBlock(s.proposer, s.blobSyncer)
-	err := handler.Handle(context.Background(), e, func() {})
-	s.Nil(err)
+	s.Nil(handler.Handle(context.Background(), s.ProposeAndInsertValidBlock(s.proposer, s.blobSyncer), func() {}))
 }

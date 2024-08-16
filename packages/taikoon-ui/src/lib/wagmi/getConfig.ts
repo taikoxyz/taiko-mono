@@ -1,18 +1,21 @@
-import { holesky } from '@wagmi/core/chains';
+import { defaultWagmiConfig } from '@web3modal/wagmi';
 
-import { config, publicConfig } from '$wagmi-config';
+import { PUBLIC_WALLETCONNECT_PROJECT_ID } from '$env/static/public';
+import { chains } from '$lib/chain';
 
-import type { IChainId } from '../../types';
-import { web3modal } from '../connect';
+const projectId = PUBLIC_WALLETCONNECT_PROJECT_ID;
+
+const metadata = {
+  name: 'Taiko Trailblazer',
+  description: 'Taiko Trailblazer',
+  url: 'https://trailblazers.taiko.xyz/',
+  icons: ['https://avatars.githubusercontent.com/u/99078433'],
+};
 
 export default function getConfig() {
-  const { selectedNetworkId } = web3modal.getState();
-  const wagmiConfig = selectedNetworkId ? config : publicConfig;
-
-  const chainId = selectedNetworkId ? selectedNetworkId : holesky.id;
-
-  return {
-    config: wagmiConfig,
-    chainId: chainId as IChainId,
-  };
+  return defaultWagmiConfig({
+    projectId,
+    chains,
+    metadata,
+  });
 }

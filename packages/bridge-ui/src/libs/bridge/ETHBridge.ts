@@ -1,7 +1,9 @@
 import { getWalletClient, simulateContract, writeContract } from '@wagmi/core';
+import { get } from 'svelte/store';
 import { getContract, UserRejectedRequestError } from 'viem';
 
 import { bridgeAbi } from '$abi';
+import { destOwnerAddress, gasLimitZero } from '$components/Bridge/state';
 import { BridgePausedError, SendMessageError } from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
 import { isBridgePaused } from '$libs/util/checkForPausedContracts';
@@ -38,31 +40,33 @@ export class ETHBridge extends Bridge {
       value = senderAmount;
     }
 
+    let gasLimit: number;
+    if (get(gasLimitZero)) {
+      log('Gas limit is set to 0');
+      gasLimit = 0;
+    } else {
+      const minGasLimit = await bridgeContract.read.getMessageMinGasLimit([0n]);
+      log('Min gas limit for message', minGasLimit);
+      gasLimit = minGasLimit + 1;
+    }
+
     const message: Message = {
       to,
       srcOwner: owner,
       from: owner,
 
-      destOwner: to,
+      destOwner: get(destOwnerAddress) || to,
 
       srcChainId: BigInt(srcChainId),
       destChainId: BigInt(destChainId),
 
-      gasLimit: 0,
+      gasLimit: Number(gasLimit),
       value,
       fee: processingFee,
 
       data: '0x',
       id: BigInt(0), // will be set in contract
     };
-
-    if (processingFee !== 0n) {
-      const minGasLimit = await bridgeContract.read.getMessageMinGasLimit([0n]);
-      log('Min gas limit for message', minGasLimit);
-
-      const gasLimit = minGasLimit + 1;
-      message.gasLimit = gasLimit;
-    }
 
     log('Preparing transaction with message', message);
 

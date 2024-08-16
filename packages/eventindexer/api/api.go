@@ -9,12 +9,16 @@ import (
 
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/labstack/echo/v4"
+	"github.com/urfave/cli/v2"
+
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/http"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/repo"
-	"github.com/urfave/cli/v2"
 )
 
 type API struct {
+	db db.DB
+
 	httpPort uint64
 	srv      *http.Server
 
@@ -67,23 +71,36 @@ func InitFromConfig(ctx context.Context, api *API, cfg *Config) error {
 		return err
 	}
 
+	erc20BalanceRepository, err := repo.NewERC20BalanceRepository(db)
+	if err != nil {
+		return err
+	}
+
+	nftMetadataRepository, err := repo.NewNFTMetadataRepository(db)
+	if err != nil {
+		return err
+	}
+
 	ethClient, err := ethclient.Dial(cfg.RPCUrl)
 	if err != nil {
 		return err
 	}
 
 	srv, err := http.NewServer(http.NewServerOpts{
-		EventRepo:      eventRepository,
-		NFTBalanceRepo: nftBalanceRepository,
-		ChartRepo:      chartRepository,
-		Echo:           echo.New(),
-		CorsOrigins:    cfg.CORSOrigins,
-		EthClient:      ethClient,
+		EventRepo:        eventRepository,
+		NFTBalanceRepo:   nftBalanceRepository,
+		NFTMetadataRepo:  nftMetadataRepository,
+		ERC20BalanceRepo: erc20BalanceRepository,
+		ChartRepo:        chartRepository,
+		Echo:             echo.New(),
+		CorsOrigins:      cfg.CORSOrigins,
+		EthClient:        ethClient,
 	})
 	if err != nil {
 		return err
 	}
 
+	api.db = db
 	api.srv = srv
 	api.httpPort = cfg.HTTPPort
 
@@ -93,5 +110,10 @@ func InitFromConfig(ctx context.Context, api *API, cfg *Config) error {
 func (api *API) Close(ctx context.Context) {
 	if err := api.srv.Shutdown(ctx); err != nil {
 		slog.Error("srv shutdown", "error", err)
+	}
+
+	// Close db connection.
+	if err := api.db.Close(); err != nil {
+		slog.Error("Failed to close db connection", "err", err)
 	}
 }

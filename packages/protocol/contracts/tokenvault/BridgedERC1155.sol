@@ -31,12 +31,11 @@ contract BridgedERC1155 is
     uint256[46] private __gap;
 
     error BTOKEN_INVALID_PARAMS();
-    error BTOKEN_INVALID_TO_ADDR();
 
     /// @inheritdoc IBridgedERC1155Initializable
     function init(
         address _owner,
-        address _addressManager,
+        address _sharedAddressManager,
         address _srcToken,
         uint256 _srcChainId,
         string calldata _symbol,
@@ -49,7 +48,7 @@ contract BridgedERC1155 is
         // The symbol and the name can be empty for ERC1155 tokens so we use some placeholder data
         // for them instead.
         LibBridgedToken.validateInputs(_srcToken, _srcChainId);
-        __Essential_init(_owner, _addressManager);
+        __Essential_init(_owner, _sharedAddressManager);
 
         // The token URI here is not important as the client will have to read the URI from the
         // canonical contract to fetch meta data.

@@ -1,9 +1,11 @@
 <script lang="ts">
+  import { createEventDispatcher } from 'svelte';
   import { fade, scale } from 'svelte/transition';
 
   import { classNames } from '../../../lib/util/classNames';
   import { IconButton } from '../IconButton';
 
+  const dispatch = createEventDispatcher();
   export let canClose: boolean = true;
 
   export let open: boolean = false;
@@ -25,11 +27,12 @@
   const backdropId: string = `modal-${Date.now()}-backdrop`;
 
   function onBackdropClick(e: any) {
-    if (canClose && e.target.id === backdropId) open = false;
+    if (canClose && e.target.id === backdropId) handleClose;
   }
 
   function handleClose() {
     open = false;
+    dispatch('close');
   }
 
   $: containerClasses = classNames(

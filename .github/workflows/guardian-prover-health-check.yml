@@ -55,8 +55,7 @@ jobs:
           flags: guardian-prover-health-check
 
   push-guardian-prover-health-check-docker-image:
-    # only push docker image on PR merge to main
-    if: ${{ github.event == 'push' && github.ref == 'refs/heads/main' }}
+    if: ${{ github.event_name == 'pull_request' }}
     name: Build and push docker image
     runs-on: [taiko-runner]
 

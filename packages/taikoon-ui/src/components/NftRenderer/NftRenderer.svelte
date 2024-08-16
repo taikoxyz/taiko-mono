@@ -16,8 +16,9 @@
   let tokenURI = '';
 
   async function getTokenUri(id: number) {
-    if (tokenId < 0) return '';
+    if (tokenId <= 0 || Number.isNaN(id)) return '';
     const metadata = await IPFS.getMetadata(id);
+    if (!metadata || !metadata.image) return '';
     tokenURI = metadata.image;
   }
 

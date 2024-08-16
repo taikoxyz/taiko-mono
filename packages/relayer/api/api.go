@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"log/slog"
 	nethttp "net/http"
@@ -17,19 +16,13 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
 	"github.com/urfave/cli/v2"
-	"gorm.io/gorm"
 )
-
-type DB interface {
-	DB() (*sql.DB, error)
-	GormDB() *gorm.DB
-}
 
 type API struct {
 	srv          *http.Server
 	httpPort     uint64
 	ctx          context.Context
-	wg           *sync.WaitGroup
+	wg           sync.WaitGroup
 	srcEthClient *ethclient.Client
 }
 
@@ -84,7 +77,6 @@ func InitFromConfig(ctx context.Context, api *API, cfg *Config) (err error) {
 	api.srv = srv
 	api.httpPort = cfg.HTTPPort
 	api.ctx = ctx
-	api.wg = &sync.WaitGroup{}
 	api.srcEthClient = srcEthClient
 
 	return nil
@@ -112,7 +104,7 @@ func (api *API) Start() error {
 
 	go func() {
 		if err := backoff.Retry(func() error {
-			return utils.ScanBlocks(api.ctx, api.srcEthClient, api.wg)
+			return utils.ScanBlocks(api.ctx, api.srcEthClient, &api.wg)
 		}, backoff.NewConstantBackOff(5*time.Second)); err != nil {
 			slog.Error("scan blocks backoff retry", "error", err)
 		}
