@@ -85,7 +85,7 @@ library LibProposing {
         }
 
         // Verify params against the parent block.
-        TaikoData.Block storage parentBlk =
+        TaikoData.BlockV2 storage parentBlk =
             _state.blocks[(local.b.numBlocks - 1) % _config.blockRingBufferSize];
 
         // Verify the passed in L1 state block number.
@@ -177,7 +177,7 @@ library LibProposing {
         meta_.minTier = local.tierProvider.getMinTier(meta_.proposer, uint256(meta_.difficulty));
 
         // Create the block that will be stored onchain
-        TaikoData.Block memory blk = TaikoData.Block({
+        TaikoData.BlockV2 memory blk = TaikoData.BlockV2({
             metaHash: keccak256(abi.encode(meta_)),
             assignedProver: address(0),
             livenessBond: 0,

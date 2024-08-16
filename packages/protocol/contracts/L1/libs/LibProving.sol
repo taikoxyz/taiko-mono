@@ -134,7 +134,7 @@ library LibProving {
         }
 
         local.slot = meta.id % _config.blockRingBufferSize;
-        TaikoData.Block storage blk = _state.blocks[local.slot];
+        TaikoData.BlockV2 storage blk = _state.blocks[local.slot];
 
         local.proposedAt = meta.proposedAt;
 
@@ -310,7 +310,7 @@ library LibProving {
     /// @return ts_ Transition state.
     function _fetchOrCreateTransition(
         TaikoData.State storage _state,
-        TaikoData.Block storage _blk,
+        TaikoData.BlockV2 storage _blk,
         TaikoData.Transition memory _tran,
         Local memory _local
     )
@@ -380,7 +380,7 @@ library LibProving {
     function _overrideWithHigherProof(
         TaikoData.State storage _state,
         IAddressResolver _resolver,
-        TaikoData.Block storage _blk,
+        TaikoData.BlockV2 storage _blk,
         TaikoData.TransitionState memory _ts,
         TaikoData.Transition memory _tran,
         TaikoData.TierProof memory _proof,

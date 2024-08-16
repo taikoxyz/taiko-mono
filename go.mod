@@ -40,7 +40,7 @@ require (
 	golang.org/x/sync v0.7.0
 	gopkg.in/go-playground/assert.v1 v1.2.1
 	gopkg.in/yaml.v3 v3.0.1
-	gorm.io/datatypes v1.2.0
+	gorm.io/datatypes v1.2.1
 	gorm.io/driver/mysql v1.5.6
 	gorm.io/gorm v1.25.10
 	gotest.tools v2.2.0+incompatible
@@ -256,7 +256,7 @@ require (
 	github.com/raulk/go-watchdog v1.3.0 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/rogpeppe/go-internal v1.11.0 // indirect
-	github.com/rs/cors v1.9.0 // indirect
+	github.com/rs/cors v1.11.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/schollz/progressbar/v3 v3.3.4 // indirect
 	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3 // indirect
