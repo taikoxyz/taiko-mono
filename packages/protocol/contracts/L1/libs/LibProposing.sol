@@ -46,7 +46,6 @@ library LibProposing {
     /// @param _data Encoded data bytes containing the block params.
     /// @param _txList Transaction list bytes (if not blob).
     /// @return meta_ The constructed block's metadata v2.
-    /// @return deposits_ An empty ETH deposit array.
     function proposeBlock(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
@@ -55,7 +54,7 @@ library LibProposing {
         bytes calldata _txList
     )
         public
-        returns (TaikoData.BlockMetadataV2 memory meta_, TaikoData.EthDeposit[] memory deposits_)
+        returns (TaikoData.BlockMetadataV2 memory meta_)
     {
         // Checks proposer access.
         Local memory local;
@@ -206,8 +205,6 @@ library LibProposing {
         if (msg.value != 0 && block.coinbase != address(0)) {
             address(block.coinbase).sendEtherAndVerify(msg.value);
         }
-
-        deposits_ = new TaikoData.EthDeposit[](0);
 
         emit BlockProposedV2(meta_.id, meta_);
     }

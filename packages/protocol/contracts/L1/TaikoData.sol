@@ -59,22 +59,6 @@ library TaikoData {
         bytes data;
     }
 
-    /// @dev Hook and its data (currently used only during proposeBlock).
-    struct HookCall {
-        address hook;
-        bytes data;
-    }
-
-    /// @dev Represents proposeBlock's _data input parameter.
-    struct BlockParams {
-        address assignedProver; // DEPRECATED, value ignored.
-        address coinbase;
-        bytes32 extraData;
-        bytes32 parentMetaHash;
-        HookCall[] hookCalls; // DEPRECATED, value ignored.
-        bytes signature; // DEPRECATED, value ignored.
-    }
-
     struct BlockParamsV2 {
         address coinbase;
         bytes32 parentMetaHash;
@@ -83,26 +67,6 @@ library TaikoData {
         uint32 blobTxListOffset; // NEW
         uint32 blobTxListLength; // NEW
         uint8 blobIndex; // NEW
-    }
-
-    /// @dev Struct containing data only required for proving a block.
-    /// Note: On L2, `block.difficulty` is the pseudo name of `block.prevrandao`, which returns a
-    /// random number provided by the layer 1 chain.
-    struct BlockMetadata {
-        bytes32 l1Hash;
-        bytes32 difficulty;
-        bytes32 blobHash; // or txListHash (if Blob not yet supported)
-        bytes32 extraData;
-        bytes32 depositsHash;
-        address coinbase; // L2 coinbase
-        uint64 id;
-        uint32 gasLimit;
-        uint64 timestamp;
-        uint64 l1Height;
-        uint16 minTier;
-        bool blobUsed;
-        bytes32 parentMetaHash;
-        address sender; // a.k.a proposer
     }
 
     struct BlockMetadataV2 {
@@ -155,22 +119,6 @@ library TaikoData {
 
     /// @dev Struct containing data required for verifying a block.
     /// 3 slots used.
-    struct Block {
-        bytes32 metaHash; // slot 1
-        address assignedProver; // slot 2
-        uint96 livenessBond;
-        uint64 blockId; // slot 3
-        uint64 proposedAt; // timestamp
-        uint64 proposedIn; // L1 block number, required/used by node/client.
-        uint32 nextTransitionId;
-        // The ID of the transaction that is used to verify this block. However, if
-        // this block is not verified as the last block in a batch, verifiedTransitionId
-        // will remain zero.
-        uint32 verifiedTransitionId;
-    }
-
-    /// @dev Struct containing data required for verifying a block.
-    /// 3 slots used.
     struct BlockV2 {
         bytes32 metaHash; // slot 1
         address assignedProver; // slot 2
@@ -188,15 +136,6 @@ library TaikoData {
         // The ID of the transaction that is used to verify this block. However, if this block is
         // not verified as the last block in a batch, verifiedTransitionId will remain zero.
         uint24 verifiedTransitionId;
-    }
-
-    /// @dev Struct representing an Ethereum deposit.
-    /// 2 slots used. Currently removed from protocol, but to be backwards compatible, the struct
-    /// and return values stayed for now.
-    struct EthDeposit {
-        address recipient;
-        uint96 amount;
-        uint64 id;
     }
 
     /// @dev Forge is only able to run coverage in case the contracts by default are capable of

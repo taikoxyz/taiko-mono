@@ -31,7 +31,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
         {
             printBlockAndTrans(meta.id);
 
-            TaikoData.Block memory blk = L1.getBlock(meta.id);
+            TaikoData.BlockV2 memory blk = L1.getBlockV2(meta.id);
             assertEq(blk.nextTransitionId, 2);
             assertEq(blk.verifiedTransitionId, 0);
 
@@ -69,7 +69,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
         {
             printBlockAndTrans(meta.id);
 
-            TaikoData.Block memory blk = L1.getBlock(meta.id);
+            TaikoData.BlockV2 memory blk = L1.getBlockV2(meta.id);
             assertEq(blk.nextTransitionId, 2);
             assertEq(blk.verifiedTransitionId, 0);
 
@@ -104,7 +104,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
         {
             printBlockAndTrans(meta.id);
 
-            TaikoData.Block memory blk = L1.getBlock(meta.id);
+            TaikoData.BlockV2 memory blk = L1.getBlockV2(meta.id);
 
             assertEq(blk.nextTransitionId, 2);
             assertEq(blk.verifiedTransitionId, 1);
@@ -166,7 +166,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
         {
             printBlockAndTrans(meta.id);
 
-            TaikoData.Block memory blk = L1.getBlock(meta.id);
+            TaikoData.BlockV2 memory blk = L1.getBlockV2(meta.id);
             assertEq(blk.nextTransitionId, 2);
             assertEq(blk.verifiedTransitionId, 0);
 
@@ -189,7 +189,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
         {
             printBlockAndTrans(meta.id);
 
-            TaikoData.Block memory blk = L1.getBlock(meta.id);
+            TaikoData.BlockV2 memory blk = L1.getBlockV2(meta.id);
 
             assertEq(blk.nextTransitionId, 2);
             assertEq(blk.verifiedTransitionId, 1);
@@ -254,7 +254,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
         {
             printBlockAndTrans(meta.id);
 
-            TaikoData.Block memory blk = L1.getBlock(meta.id);
+            TaikoData.BlockV2 memory blk = L1.getBlockV2(meta.id);
             assertEq(blk.nextTransitionId, 2);
             assertEq(blk.verifiedTransitionId, 0);
 
@@ -278,7 +278,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
         {
             printBlockAndTrans(meta.id);
 
-            TaikoData.Block memory blk = L1.getBlock(meta.id);
+            TaikoData.BlockV2 memory blk = L1.getBlockV2(meta.id);
 
             assertEq(blk.nextTransitionId, 2);
             assertEq(blk.verifiedTransitionId, 1);
@@ -319,7 +319,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
         {
             printBlockAndTrans(meta.id);
 
-            TaikoData.Block memory blk = L1.getBlock(meta.id);
+            TaikoData.BlockV2 memory blk = L1.getBlockV2(meta.id);
             assertEq(blk.nextTransitionId, 2);
             assertEq(blk.verifiedTransitionId, 0);
 

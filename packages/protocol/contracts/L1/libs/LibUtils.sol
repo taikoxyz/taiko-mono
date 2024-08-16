@@ -67,7 +67,7 @@ library LibUtils {
     /// @param _blockId The ID of the block.
     /// @return blk_ The block storage pointer.
     /// @return slot_ The slot value.
-    function getBlock(
+    function getBlockV2(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
         uint64 _blockId
@@ -97,7 +97,7 @@ library LibUtils {
         view
         returns (bytes32 blockHash_, bytes32 stateRoot_, uint64 verifiedAt_)
     {
-        (TaikoData.BlockV2 storage blk, uint64 slot) = getBlock(_state, _config, _blockId);
+        (TaikoData.BlockV2 storage blk, uint64 slot) = getBlockV2(_state, _config, _blockId);
 
         if (blk.verifiedTransitionId != 0) {
             TaikoData.TransitionState storage transition =
@@ -126,7 +126,7 @@ library LibUtils {
         view
         returns (TaikoData.TransitionState storage)
     {
-        (TaikoData.BlockV2 storage blk, uint64 slot) = getBlock(_state, _config, _blockId);
+        (TaikoData.BlockV2 storage blk, uint64 slot) = getBlockV2(_state, _config, _blockId);
 
         if (_tid == 0 || _tid >= blk.nextTransitionId) revert L1_TRANSITION_NOT_FOUND();
         return _state.transitions[slot][_tid];
@@ -149,7 +149,7 @@ library LibUtils {
         view
         returns (TaikoData.TransitionState storage)
     {
-        (TaikoData.BlockV2 storage blk, uint64 slot) = getBlock(_state, _config, _blockId);
+        (TaikoData.BlockV2 storage blk, uint64 slot) = getBlockV2(_state, _config, _blockId);
 
         uint24 tid = getTransitionId(_state, blk, slot, _parentHash);
         if (tid == 0) revert L1_TRANSITION_NOT_FOUND();

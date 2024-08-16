@@ -178,7 +178,7 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
     }
 
     function printBlockAndTrans(uint64 blockId) internal view {
-        TaikoData.Block memory blk = L1.getBlock(blockId);
+        TaikoData.BlockV2 memory blk = L1.getBlockV2(blockId);
         printBlock(blk);
 
         for (uint32 i = 1; i < blk.nextTransitionId; ++i) {
@@ -198,7 +198,7 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
         return tko.balanceOf(user) + L1.bondBalanceOf(user);
     }
 
-    function printBlock(TaikoData.Block memory blk) internal view {
+    function printBlock(TaikoData.BlockV2 memory blk) internal view {
         (, TaikoData.SlotB memory b) = L1.getStateVariables();
         console2.log("\n==================");
         console2.log("---CHAIN:");
