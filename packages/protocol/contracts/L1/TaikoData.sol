@@ -163,6 +163,22 @@ library TaikoData {
         address assignedProver; // slot 2
         uint96 livenessBond;
         uint64 blockId; // slot 3
+        uint64 proposedAt; // timestamp
+        uint64 proposedIn; // L1 block number, required/used by node/client.
+        uint32 nextTransitionId;
+        // The ID of the transaction that is used to verify this block. However, if
+        // this block is not verified as the last block in a batch, verifiedTransitionId
+        // will remain zero.
+        uint32 verifiedTransitionId;
+    }
+
+    /// @dev Struct containing data required for verifying a block.
+    /// 3 slots used.
+    struct BlockV2 {
+        bytes32 metaHash; // slot 1
+        address assignedProver; // slot 2
+        uint96 livenessBond;
+        uint64 blockId; // slot 3
         // Before the fork, this field is the L1 timestamp when this block is proposed.
         // After the fork, this is the timestamp of the L2 block.
         // In a later fork, we an rename this field to `timestamp`.
@@ -213,7 +229,7 @@ library TaikoData {
     /// @dev Struct holding the state variables for the {TaikoL1} contract.
     struct State {
         // Ring buffer for proposed blocks and a some recent verified blocks.
-        mapping(uint64 blockId_mod_blockRingBufferSize => Block blk) blocks;
+        mapping(uint64 blockId_mod_blockRingBufferSize => BlockV2 blk) blocks;
         // Indexing to transition ids (ring buffer not possible)
         mapping(uint64 blockId => mapping(bytes32 parentHash => uint24 transitionId)) transitionIds;
         // Ring buffer for transitions
@@ -221,8 +237,7 @@ library TaikoData {
             uint64 blockId_mod_blockRingBufferSize
                 => mapping(uint32 transitionId => TransitionState ts)
         ) transitions;
-        // Ring buffer for Ether deposits
-        bytes32 __reserve1;
+        bytes32 __reserve1; // Used as a ring buffer for Ether deposits
         SlotA slotA; // slot 5
         SlotB slotB; // slot 6
         mapping(address account => uint256 bond) bondBalance;

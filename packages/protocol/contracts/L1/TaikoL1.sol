@@ -211,6 +211,14 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     /// @param _blockId Index of the block.
     /// @return blk_ The block.
     function getBlock(uint64 _blockId) external view returns (TaikoData.Block memory blk_) {
+        (TaikoData.BlockV2 memory blk,) = LibUtils.getBlock(state, getConfig(), _blockId);
+        blk_ = LibData.blockV2toV1(blk);
+    }
+
+    /// @notice Gets the details of a block.
+    /// @param _blockId Index of the block.
+    /// @return blk_ The block.
+    function getBlockV2(uint64 _blockId) external view returns (TaikoData.BlockV2 memory blk_) {
         (blk_,) = LibUtils.getBlock(state, getConfig(), _blockId);
     }
 
@@ -291,7 +299,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     }
 
     /// @inheritdoc ITaikoL1
-    function getConfig() public pure virtual override returns (TaikoData.Config memory) {
+    function getConfig() public pure virtual returns (TaikoData.Config memory) {
         return TaikoData.Config({
             chainId: LibNetwork.TAIKO_MAINNET,
             blockMaxProposals: 324_000, // = 7200 * 45
