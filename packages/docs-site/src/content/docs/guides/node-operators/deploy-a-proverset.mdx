@@ -152,7 +152,7 @@ If you've already deployed a ProverSet but would like to upgrade it through the 
     Once you've deployed the contract, you should be able to find the contract address. You can do this on Etherscan manually or with forge!
 
     You will need foundry installed, and an Etherscan API key; you can get this by signing in on `etherscan.io` and navigating to your profile's `API Keys`.
-    Then, navigate to the `protocol` package in `taiko-mono` and execute the following command substituing values in curly braces as necessary.
+    Then, navigate to the `protocol` package in `taiko-mono` and execute the following command substituting values in curly braces as necessary.
 
     ```bash
     forge verify-contract --chain-id 17000 --etherscan-api-key {GET-API-KEY-FROM-ETHERSCAN-FIRST} {PUT-CONTRCT-ADDRESS-HERE}  contracts/team/proving/ProverSet.sol:ProverSet
