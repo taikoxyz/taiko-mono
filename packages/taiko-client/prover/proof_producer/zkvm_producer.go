@@ -46,14 +46,18 @@ type ProofDataV2 struct {
 	Quote    string `json:"quote"`
 }
 
-// SgxAndZKvmProofProducer generates a ZK proof for the given block.
-type SgxAndZKvmProofProducer struct {
-	ZKProofType string // ZK Proof type
-	SGX         SGXProofProducer
+// ZKvmProofProducer generates a ZK proof for the given block.
+type ZKvmProofProducer struct {
+	ZKProofType         string // ZK Proof type
+	RaikoHostEndpoint   string
+	RaikoRequestTimeout time.Duration
+	JWT                 string // JWT provided by Raiko
+	Dummy               bool
+	DummyProofProducer
 }
 
 // RequestProof implements the ProofProducer interface.
-func (s *SgxAndZKvmProofProducer) RequestProof(
+func (s *ZKvmProofProducer) RequestProof(
 	ctx context.Context,
 	opts *ProofRequestOptions,
 	blockID *big.Int,
@@ -61,15 +65,16 @@ func (s *SgxAndZKvmProofProducer) RequestProof(
 	header *types.Header,
 ) (*ProofWithHeader, error) {
 	log.Info(
-		"Request sgx and zk proof from raiko-host service",
+		"Request zk proof from raiko-host service",
 		"blockID", blockID,
 		"coinbase", meta.GetCoinbase(),
 		"height", header.Number,
 		"hash", header.Hash(),
+		"zk type", s.ZKProofType,
 	)
 
-	if s.SGX.Dummy {
-		return s.SGX.DummyProofProducer.RequestProof(opts, blockID, meta, header, s.Tier())
+	if s.Dummy {
+		return s.DummyProofProducer.RequestProof(opts, blockID, meta, header, s.Tier())
 	}
 
 	proof, err := s.callProverDaemon(ctx, opts)
@@ -89,7 +94,7 @@ func (s *SgxAndZKvmProofProducer) RequestProof(
 	}, nil
 }
 
-func (s *SgxAndZKvmProofProducer) RequestCancel(
+func (s *ZKvmProofProducer) RequestCancel(
 	ctx context.Context,
 	opts *ProofRequestOptions,
 ) error {
@@ -97,18 +102,18 @@ func (s *SgxAndZKvmProofProducer) RequestCancel(
 }
 
 // callProverDaemon keeps polling the proverd service to get the requested proof.
-func (s *SgxAndZKvmProofProducer) callProverDaemon(ctx context.Context, opts *ProofRequestOptions) ([]byte, error) {
+func (s *ZKvmProofProducer) callProverDaemon(ctx context.Context, opts *ProofRequestOptions) ([]byte, error) {
 	var (
 		proof []byte
 		start = time.Now()
 	)
 
-	zkCtx, zkCancel := rpc.CtxWithTimeoutOrDefault(ctx, s.SGX.RaikoRequestTimeout)
+	zkCtx, zkCancel := rpc.CtxWithTimeoutOrDefault(ctx, s.RaikoRequestTimeout)
 	defer zkCancel()
 
 	output, err := s.requestProof(zkCtx, opts)
 	if err != nil {
-		log.Error("Failed to request proof", "height", opts.BlockID, "error", err, "endpoint", s.SGX.RaikoHostEndpoint)
+		log.Error("Failed to request proof", "height", opts.BlockID, "error", err, "endpoint", s.RaikoHostEndpoint)
 		return nil, err
 	}
 
@@ -123,14 +128,14 @@ func (s *SgxAndZKvmProofProducer) callProverDaemon(ctx context.Context, opts *Pr
 		"Proof generated",
 		"height", opts.BlockID,
 		"time", time.Since(start),
-		"producer", "SgxAndZKvmProofProducer",
+		"producer", "ZKvmProofProducer",
 	)
 
 	return proof, nil
 }
 
 // requestProof sends a RPC request to proverd to try to get the requested proof.
-func (s *SgxAndZKvmProofProducer) requestProof(
+func (s *ZKvmProofProducer) requestProof(
 	ctx context.Context,
 	opts *ProofRequestOptions,
 ) (*RaikoRequestProofBodyResponseV2, error) {
@@ -154,13 +159,13 @@ func (s *SgxAndZKvmProofProducer) requestProof(
 		return nil, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", s.SGX.RaikoHostEndpoint+"/v2/proof", bytes.NewBuffer(jsonValue))
+	req, err := http.NewRequestWithContext(ctx, "POST", s.RaikoHostEndpoint+"/v2/proof", bytes.NewBuffer(jsonValue))
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	if len(s.SGX.JWT) > 0 {
-		req.Header.Set("Authorization", "Bearer "+base64.StdEncoding.EncodeToString([]byte(s.SGX.JWT)))
+	if len(s.JWT) > 0 {
+		req.Header.Set("Authorization", "Bearer "+base64.StdEncoding.EncodeToString([]byte(s.JWT)))
 	}
 
 	res, err := client.Do(req)
@@ -190,7 +195,7 @@ func (s *SgxAndZKvmProofProducer) requestProof(
 	return &output, nil
 }
 
-func (s *SgxAndZKvmProofProducer) requestCancel(
+func (s *ZKvmProofProducer) requestCancel(
 	ctx context.Context,
 	opts *ProofRequestOptions,
 ) error {
@@ -217,15 +222,15 @@ func (s *SgxAndZKvmProofProducer) requestCancel(
 	req, err := http.NewRequestWithContext(
 		ctx,
 		"POST",
-		s.SGX.RaikoHostEndpoint+"/v2/proof/cancel",
+		s.RaikoHostEndpoint+"/v2/proof/cancel",
 		bytes.NewBuffer(jsonValue),
 	)
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	if len(s.SGX.JWT) > 0 {
-		req.Header.Set("Authorization", "Bearer "+base64.StdEncoding.EncodeToString([]byte(s.SGX.JWT)))
+	if len(s.JWT) > 0 {
+		req.Header.Set("Authorization", "Bearer "+base64.StdEncoding.EncodeToString([]byte(s.JWT)))
 	}
 
 	res, err := client.Do(req)
@@ -242,7 +247,9 @@ func (s *SgxAndZKvmProofProducer) requestCancel(
 }
 
 // Tier implements the ProofProducer interface.
-func (s *SgxAndZKvmProofProducer) Tier() uint16 {
-	// TODO: Temporarily use TierZkVMRisc0ID instead of TierSgxAndZkVMID
-	return encoding.TierZkVMRisc0ID
+func (s *ZKvmProofProducer) Tier() uint16 {
+	switch s.ZKProofType {
+	default:
+		return encoding.TierZkVMRisc0ID
+	}
 }
