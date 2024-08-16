@@ -64,7 +64,7 @@ library LibUtils {
         _state.slotB.numBlocks = 1;
 
         // Init the genesis block
-        TaikoData.Block storage blk = _state.blocks[0];
+        TaikoData.BlockV2 storage blk = _state.blocks[0];
         blk.nextTransitionId = 2;
         blk.proposedAt = uint64(block.timestamp);
         blk.verifiedTransitionId = 1;
@@ -107,7 +107,7 @@ library LibUtils {
     )
         internal
         view
-        returns (TaikoData.Block storage blk_, uint64 slot_)
+        returns (TaikoData.BlockV2 storage blk_, uint64 slot_)
     {
         slot_ = _blockId % _config.blockRingBufferSize;
         blk_ = _state.blocks[slot_];
@@ -129,7 +129,7 @@ library LibUtils {
         view
         returns (bytes32 blockHash_, bytes32 stateRoot_, uint64 verifiedAt_)
     {
-        (TaikoData.Block storage blk, uint64 slot) = getBlock(_state, _config, _blockId);
+        (TaikoData.BlockV2 storage blk, uint64 slot) = getBlock(_state, _config, _blockId);
 
         if (blk.verifiedTransitionId != 0) {
             TaikoData.TransitionState storage transition =
@@ -158,7 +158,7 @@ library LibUtils {
         view
         returns (TaikoData.TransitionState storage)
     {
-        (TaikoData.Block storage blk, uint64 slot) = getBlock(_state, _config, _blockId);
+        (TaikoData.BlockV2 storage blk, uint64 slot) = getBlock(_state, _config, _blockId);
 
         if (_tid == 0 || _tid >= blk.nextTransitionId) revert L1_TRANSITION_NOT_FOUND();
         return _state.transitions[slot][_tid];
@@ -181,7 +181,7 @@ library LibUtils {
         view
         returns (TaikoData.TransitionState storage)
     {
-        (TaikoData.Block storage blk, uint64 slot) = getBlock(_state, _config, _blockId);
+        (TaikoData.BlockV2 storage blk, uint64 slot) = getBlock(_state, _config, _blockId);
 
         uint24 tid = getTransitionId(_state, blk, slot, _parentHash);
         if (tid == 0) revert L1_TRANSITION_NOT_FOUND();
@@ -193,7 +193,7 @@ library LibUtils {
     /// This function will return 0 if the transition is not found.
     function getTransitionId(
         TaikoData.State storage _state,
-        TaikoData.Block storage _blk,
+        TaikoData.BlockV2 storage _blk,
         uint64 _slot,
         bytes32 _parentHash
     )
