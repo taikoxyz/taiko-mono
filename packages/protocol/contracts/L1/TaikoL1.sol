@@ -148,7 +148,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     /// @inheritdoc ITaikoL1
     function proveBlocks(
         uint64[] calldata _blockIds,
-        bytes[] calldata _inputArr
+        bytes[] calldata _inputArr,
+        bytes proof
     )
         external
         whenNotPaused
@@ -162,9 +163,14 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
 
         TaikoData.Config memory config = getConfig();
 
+        IVerifier.Context[] memory ctxs = new IVerifier.Context[](_blockIds.length);
+        TaikoData.Transition[] memory trans = new TaikoData.Transition[](_blockIds.length);
+
         for (uint256 i; i < _blockIds.length; ++i) {
-            _proveBlock(_blockIds[i], _inputArr[i], config);
+            (ctxs[i], trans[i]) = _proveBlock(_blockIds[i], _inputArr[i], config);
         }
+
+        IVerifier(verifier).verifyProof(ctxs, trans, proof);
     }
 
     /// @inheritdoc ITaikoL1

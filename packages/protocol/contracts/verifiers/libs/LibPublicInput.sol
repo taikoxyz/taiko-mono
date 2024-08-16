@@ -18,11 +18,11 @@ library LibPublicInput {
     /// @param _chainId The chain id.
     /// @return The public input hash.
     function hashPublicInputs(
-        TaikoData.Transition memory _tran,
+        TaikoData.Transition[] memory _tran,
         address _verifierContract,
-        address _newInstance,
+        address[] memory _newInstance,
         address _prover,
-        bytes32 _metaHash,
+        bytes32[] memory _metaHash,
         uint64 _chainId
     )
         internal

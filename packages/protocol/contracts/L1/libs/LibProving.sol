@@ -136,6 +136,7 @@ library LibProving {
         bytes calldata _input
     )
         public
+        returns (IVerifier.Context memory ctx, TaikoData.Transition memory tran)
     {
         Local memory local;
 
@@ -144,7 +145,6 @@ library LibProving {
         local.postFork = _blockId >= _config.ontakeForkHeight;
 
         TaikoData.BlockMetadataV2 memory meta;
-        TaikoData.Transition memory tran;
         TaikoData.TierProof memory proof;
 
         if (local.postFork) {
@@ -260,7 +260,7 @@ library LibProving {
             address verifier = _resolver.resolve(local.tier.verifierName, false);
             bool isContesting = proof.tier == ts.tier && local.tier.contestBond != 0;
 
-            IVerifier.Context memory ctx = IVerifier.Context({
+            ctx = IVerifier.Context({
                 metaHash: local.metaHash,
                 blobHash: meta.blobHash,
                 // Separate msgSender to allow the prover to be any address in the future.
@@ -270,8 +270,6 @@ library LibProving {
                 isContesting: isContesting,
                 blobUsed: meta.blobUsed
             });
-
-            IVerifier(verifier).verifyProof(ctx, tran, proof);
         }
 
         local.isTopTier = local.tier.contestBond == 0;

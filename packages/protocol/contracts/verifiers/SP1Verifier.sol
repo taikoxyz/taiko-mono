@@ -42,8 +42,8 @@ contract SP1Verifier is EssentialContract, IVerifier {
 
     /// @inheritdoc IVerifier
     function verifyProof(
-        Context calldata _ctx,
-        TaikoData.Transition calldata _tran,
+        Context[] calldata _ctx,
+        TaikoData.Transition[] calldata _tran,
         TaikoData.TierProof calldata _proof
     )
         external

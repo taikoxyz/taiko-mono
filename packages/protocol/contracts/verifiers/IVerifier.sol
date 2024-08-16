@@ -21,9 +21,9 @@ interface IVerifier {
     /// @param _ctx The context of the proof verification.
     /// @param _tran The transition to verify.
     /// @param _proof The proof to verify.
-    function verifyProof(
-        Context calldata _ctx,
-        TaikoData.Transition calldata _tran,
+    function verifyProofs(
+        Context[] calldata _ctx,
+        TaikoData.Transition[] calldata _tran,
         TaikoData.TierProof calldata _proof
     )
         external;
