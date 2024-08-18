@@ -27,7 +27,11 @@ const (
 	ZKProofTypeSP1 = "sp1"
 )
 
-var ErrProofInProgress = errors.New("work_in_progress")
+var (
+	ErrProofInProgress = errors.New("work_in_progress")
+	ErrRetry           = errors.New("retry")
+	StatusRegistered   = "registered"
+)
 
 // RaikoRequestProofBodyResponseV2 represents the JSON body of the response of the proof requests.
 type RaikoRequestProofBodyResponseV2 struct {
@@ -120,8 +124,9 @@ func (s *ZKvmProofProducer) callProverDaemon(ctx context.Context, opts *ProofReq
 	if output.Data.Status == ErrProofInProgress.Error() {
 		return nil, ErrProofInProgress
 	}
-
-	log.Debug("Proof generation output", "output", output)
+	if output.Data.Status == StatusRegistered {
+		return nil, ErrRetry
+	}
 
 	proof = common.Hex2Bytes(output.Data.Proof.Proof[2:])
 	log.Info(
@@ -183,6 +188,7 @@ func (s *ZKvmProofProducer) requestProof(
 		return nil, err
 	}
 
+	log.Debug("Proof generation output", "output", string(resBytes))
 	var output RaikoRequestProofBodyResponseV2
 	if err := json.Unmarshal(resBytes, &output); err != nil {
 		return nil, err
