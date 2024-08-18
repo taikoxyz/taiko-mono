@@ -2,11 +2,10 @@ name: "Taiko Client Hive Tests"
 
 on:
   push:
-    branches: [feature/introduce-zk2]
+    branches: [main]
     paths:
       - "packages/taiko-client/**"
   pull_request:
-    branches: [ feature/introduce-zk2 ]
     paths:
       - "packages/taiko-client/**"
       - "go.mod"
