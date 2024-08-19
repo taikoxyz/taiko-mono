@@ -80,12 +80,12 @@ abstract contract ComposeVerifier is IVerifier {
 
     /// @notice Returns the mode of the verifier.
     /// @return The mode of the verifier.
-    function getMode() public pure virtual returns (Mode);
+    function getMode() public view virtual returns (Mode);
 
     /// @notice Calculates the threshold based on the number of sub-verifiers and the mode.
     /// @param _numSubVerifiers The number of sub-verifiers.
     /// @return The threshold number of successful verifications required.
-    function _getThreshold(uint256 _numSubVerifiers) private pure returns (uint256) {
+    function _getThreshold(uint256 _numSubVerifiers) private view returns (uint256) {
         Mode mode = getMode();
         if (mode == Mode.ALL) return _numSubVerifiers;
         else if (mode == Mode.ONE) return 1;
