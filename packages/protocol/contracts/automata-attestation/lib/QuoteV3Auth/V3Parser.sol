@@ -68,9 +68,7 @@ library V3Parser {
         success = true;
     }
 
-    function validateParsedInput(
-        V3Struct.ParsedV3QuoteStruct memory v3Quote
-    )
+    function validateParsedInput(V3Struct.ParsedV3QuoteStruct memory v3Quote)
         internal
         pure
         returns (
@@ -149,9 +147,7 @@ library V3Parser {
         authDataV3 = v3Quote.v3AuthData;
     }
 
-    function parseEnclaveReport(
-        bytes memory rawEnclaveReport
-    )
+    function parseEnclaveReport(bytes memory rawEnclaveReport)
         internal
         pure
         returns (V3Struct.EnclaveReport memory enclaveReport)
@@ -183,9 +179,7 @@ library V3Parser {
         }
     }
 
-    function parseAndVerifyHeader(
-        bytes memory rawHeader
-    )
+    function parseAndVerifyHeader(bytes memory rawHeader)
         private
         pure
         returns (bool success, V3Struct.Header memory header)
@@ -264,9 +258,7 @@ library V3Parser {
     /// in bytes should be in big endian according to Intel spec.
     /// @param enclaveReport enclave report
     /// @return packedQEReport enclave report in bytes
-    function packQEReport(
-        V3Struct.EnclaveReport memory enclaveReport
-    )
+    function packQEReport(V3Struct.EnclaveReport memory enclaveReport)
         internal
         pure
         returns (bytes memory packedQEReport)

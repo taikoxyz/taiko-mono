@@ -177,7 +177,7 @@ contract TestERC20Vault is TaikoTest {
                 data: abi.encodeCall(
                     BridgedERC20.init,
                     (address(0), address(addressManager), randAddress(), 100, 18, "USDC", "USDC coin")
-                )
+                    )
             })
         );
 
@@ -188,7 +188,7 @@ contract TestERC20Vault is TaikoTest {
                 data: abi.encodeCall(
                     BridgedERC20.init,
                     (address(0), address(addressManager), randAddress(), 100, 18, "USDT", "USDT coin")
-                )
+                    )
             })
         );
 
@@ -207,7 +207,7 @@ contract TestERC20Vault is TaikoTest {
                         "stETH",
                         "Lido Staked ETH"
                     )
-                )
+                    )
             })
         );
         vm.stopPrank();
@@ -416,9 +416,7 @@ contract TestERC20Vault is TaikoTest {
         assertEq(bridgedERC20.balanceOf(Bob), amount);
     }
 
-    function erc20ToCanonicalERC20(
-        uint64 chainId
-    )
+    function erc20ToCanonicalERC20(uint64 chainId)
         internal
         view
         returns (ERC20Vault.CanonicalERC20 memory)
