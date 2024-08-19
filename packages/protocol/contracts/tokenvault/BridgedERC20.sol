@@ -172,9 +172,7 @@ contract BridgedERC20 is
         return super._beforeTokenTransfer(_from, _to, _amount);
     }
 
-    function _authorizedMintBurn(
-        address addr
-    )
+    function _authorizedMintBurn(address addr)
         private
         onlyFromOwnerOrNamed(LibStrings.B_ERC20_VAULT)
     { }

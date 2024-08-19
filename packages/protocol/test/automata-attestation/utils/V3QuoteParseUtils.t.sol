@@ -80,9 +80,7 @@ contract V3QuoteParseUtils {
         ECDSAQuoteV3AuthDataHelper v3AuthData;
     }
 
-    function parseV3QuoteJson(
-        bytes memory v3QuotePacked
-    )
+    function parseV3QuoteJson(bytes memory v3QuotePacked)
         internal
         pure
         returns (bool success, V3Struct.ParsedV3QuoteStruct memory v3quote)

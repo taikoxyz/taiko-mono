@@ -17,9 +17,7 @@ abstract contract TierProviderBase is ITierProvider {
     /// @inheritdoc ITierProvider
     /// @notice Each tier, except the top tier, has a validity bond that is 50 TAIKO higher than the
     /// previous tier. Additionally, each tier's contest bond is 6.5625 times its validity bond.
-    function getTier(
-        uint16 _tierId
-    )
+    function getTier(uint16 _tierId)
         public
         pure
         virtual
