@@ -160,9 +160,9 @@ contract ERC20Vault is BaseVault {
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _addressManager The address of the {AddressManager} contract.
-    function init(address _owner, address _addressManager) external initializer {
-        __Essential_init(_owner, _addressManager);
+    /// @param _sharedAddressManager The address of the {AddressManager} contract.
+    function init(address _owner, address _sharedAddressManager) external initializer {
+        __Essential_init(_owner, _sharedAddressManager);
     }
 
     /// @notice Change bridged token.
@@ -239,7 +239,9 @@ contract ERC20Vault is BaseVault {
     /// invoking the message call.
     /// @param _op Option for sending ERC20 tokens.
     /// @return message_ The constructed message.
-    function sendToken(BridgeTransferOp calldata _op)
+    function sendToken(
+        BridgeTransferOp calldata _op
+    )
         external
         payable
         whenNotPaused
@@ -375,7 +377,9 @@ contract ERC20Vault is BaseVault {
     /// @return balanceChange_ User token balance actual change after the token
     /// transfer. This value is calculated so we do not assume token balance
     /// change is the amount of token transferred away.
-    function _handleMessage(BridgeTransferOp calldata _op)
+    function _handleMessage(
+        BridgeTransferOp calldata _op
+    )
         private
         returns (bytes memory msgData_, CanonicalERC20 memory ctoken_, uint256 balanceChange_)
     {
@@ -415,7 +419,9 @@ contract ERC20Vault is BaseVault {
     /// @dev Retrieve or deploy a bridged ERC20 token contract.
     /// @param ctoken CanonicalERC20 data.
     /// @return btoken Address of the bridged token contract.
-    function _getOrDeployBridgedToken(CanonicalERC20 memory ctoken)
+    function _getOrDeployBridgedToken(
+        CanonicalERC20 memory ctoken
+    )
         private
         returns (address btoken)
     {

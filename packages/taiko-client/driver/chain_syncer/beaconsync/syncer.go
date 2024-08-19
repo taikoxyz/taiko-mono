@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/eth/downloader"
@@ -104,11 +106,21 @@ func (s *Syncer) getBlockPayload(ctx context.Context, blockID uint64) (*engine.E
 
 	// If the sync mode is `full`, we need to verify the protocol verified block hash before syncing.
 	if s.syncMode == downloader.FullSync.String() {
-		blockInfo, err := s.rpc.GetL2BlockInfo(ctx, new(big.Int).SetUint64(blockID))
+		blockNum := new(big.Int).SetUint64(blockID)
+		var blockInfo bindings.TaikoDataBlockV2
+		if s.state.IsOnTake(blockNum) {
+			blockInfo, err = s.rpc.GetL2BlockInfoV2(ctx, blockNum)
+		} else {
+			blockInfo, err = s.rpc.GetL2BlockInfo(ctx, blockNum)
+		}
 		if err != nil {
 			return nil, err
 		}
-		ts, err := s.rpc.GetTransition(ctx, new(big.Int).SetUint64(blockInfo.BlockId), blockInfo.VerifiedTransitionId)
+		ts, err := s.rpc.GetTransition(
+			ctx,
+			new(big.Int).SetUint64(blockInfo.BlockId),
+			uint32(blockInfo.VerifiedTransitionId.Uint64()),
+		)
 		if err != nil {
 			return nil, err
 		}

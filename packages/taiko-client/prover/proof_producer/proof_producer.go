@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 )
 
 var (
@@ -17,8 +17,8 @@ var (
 
 // ProofRequestBody represents a request body to generate a proof.
 type ProofRequestBody struct {
-	Tier  uint16
-	Event *bindings.TaikoL1ClientBlockProposed
+	Tier uint16
+	Meta metadata.TaikoBlockMetaData
 }
 
 // ContestRequestBody represents a request body to generate a proof for contesting.
@@ -26,7 +26,7 @@ type ContestRequestBody struct {
 	BlockID    *big.Int
 	ProposedIn *big.Int
 	ParentHash common.Hash
-	Meta       *bindings.TaikoDataBlockMetadata
+	Meta       metadata.TaikoBlockMetaData
 	Tier       uint16
 }
 
@@ -48,7 +48,7 @@ type ProofRequestOptions struct {
 
 type ProofWithHeader struct {
 	BlockID *big.Int
-	Meta    *bindings.TaikoDataBlockMetadata
+	Meta    metadata.TaikoBlockMetaData
 	Header  *types.Header
 	Proof   []byte
 	Opts    *ProofRequestOptions
@@ -60,8 +60,12 @@ type ProofProducer interface {
 		ctx context.Context,
 		opts *ProofRequestOptions,
 		blockID *big.Int,
-		meta *bindings.TaikoDataBlockMetadata,
+		meta metadata.TaikoBlockMetaData,
 		header *types.Header,
 	) (*ProofWithHeader, error)
+	RequestCancel(
+		ctx context.Context,
+		opts *ProofRequestOptions,
+	) error
 	Tier() uint16
 }

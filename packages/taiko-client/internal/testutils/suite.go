@@ -52,14 +52,14 @@ func (s *ClientTestSuite) SetupTest() {
 	s.NotEmpty(jwtSecret)
 
 	rpcCli, err := rpc.NewClient(context.Background(), &rpc.ClientConfig{
-		L1Endpoint:                    os.Getenv("L1_NODE_WS_ENDPOINT"),
-		L2Endpoint:                    os.Getenv("L2_EXECUTION_ENGINE_WS_ENDPOINT"),
+		L1Endpoint:                    os.Getenv("L1_WS"),
+		L2Endpoint:                    os.Getenv("L2_WS"),
 		TaikoL1Address:                common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
 		TaikoL2Address:                common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
 		TaikoTokenAddress:             common.HexToAddress(os.Getenv("TAIKO_TOKEN_ADDRESS")),
-		GuardianProverMajorityAddress: common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT_ADDRESS")),
-		GuardianProverMinorityAddress: common.HexToAddress(os.Getenv("GUARDIAN_PROVER_MINORITY_ADDRESS")),
-		L2EngineEndpoint:              os.Getenv("L2_EXECUTION_ENGINE_AUTH_ENDPOINT"),
+		GuardianProverMajorityAddress: common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT")),
+		GuardianProverMinorityAddress: common.HexToAddress(os.Getenv("GUARDIAN_PROVER_MINORITY")),
+		L2EngineEndpoint:              os.Getenv("L2_AUTH"),
 		JwtSecret:                     string(jwtSecret),
 	})
 	s.Nil(err)
@@ -96,14 +96,14 @@ func (s *ClientTestSuite) SetupTest() {
 
 		_, err = rpcCli.TaikoToken.Transfer(
 			opts,
-			common.HexToAddress(os.Getenv("GUARDIAN_PROVER_MINORITY_ADDRESS")),
+			common.HexToAddress(os.Getenv("GUARDIAN_PROVER_MINORITY")),
 			new(big.Int).Div(proverBalance, common.Big2),
 		)
 		s.Nil(err)
 
 		_, err = rpcCli.TaikoToken.Transfer(
 			opts,
-			common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT_ADDRESS")),
+			common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT")),
 			new(big.Int).Div(proverBalance, common.Big2),
 		)
 		s.Nil(err)
@@ -122,7 +122,7 @@ func (s *ClientTestSuite) setAllowance(key *ecdsa.PrivateKey) {
 		log.Root(),
 		new(metrics.NoopTxMetrics),
 		txmgr.CLIConfig{
-			L1RPCURL:                  os.Getenv("L1_NODE_WS_ENDPOINT"),
+			L1RPCURL:                  os.Getenv("L1_WS"),
 			NumConfirmations:          0,
 			SafeAbortNonceTooLowCount: txmgr.DefaultBatcherFlagValues.SafeAbortNonceTooLowCount,
 			PrivateKey:                common.Bytes2Hex(crypto.FromECDSA(key)),

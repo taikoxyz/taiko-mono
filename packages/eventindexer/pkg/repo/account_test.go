@@ -14,18 +14,18 @@ import (
 func Test_NewAccountRepository(t *testing.T) {
 	tests := []struct {
 		name    string
-		db      eventindexer.DB
+		db      db.DB
 		wantErr error
 	}{
 		{
 			"success",
-			&db.DB{},
+			&db.Database{},
 			nil,
 		},
 		{
 			"noDb",
 			nil,
-			eventindexer.ErrNoDB,
+			db.ErrNoDB,
 		},
 	}
 

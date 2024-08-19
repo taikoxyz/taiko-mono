@@ -4,14 +4,17 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"crypto/sha256"
+	"math/big"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/kzg4844"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
@@ -25,6 +28,7 @@ type BlobTransactionBuilder struct {
 	l2SuggestedFeeRecipient common.Address
 	gasLimit                uint64
 	extraData               string
+	chainConfig             *config.ChainConfig
 }
 
 // NewBlobTransactionBuilder creates a new BlobTransactionBuilder instance based on giving configurations.
@@ -36,6 +40,7 @@ func NewBlobTransactionBuilder(
 	l2SuggestedFeeRecipient common.Address,
 	gasLimit uint64,
 	extraData string,
+	chainConfig *config.ChainConfig,
 ) *BlobTransactionBuilder {
 	return &BlobTransactionBuilder{
 		rpc,
@@ -45,6 +50,7 @@ func NewBlobTransactionBuilder(
 		l2SuggestedFeeRecipient,
 		gasLimit,
 		extraData,
+		chainConfig,
 	}
 }
 
@@ -65,7 +71,7 @@ func (b *BlobTransactionBuilder) Build(
 		err            error
 	)
 	if includeParentMetaHash {
-		if parentMetaHash, err = getParentMetaHash(ctx, b.rpc); err != nil {
+		if parentMetaHash, err = getParentMetaHash(ctx, b.rpc, b.chainConfig.OnTakeBlock); err != nil {
 			return nil, err
 		}
 	}
@@ -83,31 +89,59 @@ func (b *BlobTransactionBuilder) Build(
 	signature[64] = uint8(uint(signature[64])) + 27
 
 	var (
-		to   = &b.taikoL1Address
-		data []byte
+		to            = &b.taikoL1Address
+		data          []byte
+		encodedParams []byte
+		method        string
 	)
 	if b.proverSetAddress != rpc.ZeroAddress {
 		to = &b.proverSetAddress
 	}
 
-	// ABI encode the TaikoL1.proposeBlock parameters.
-	encodedParams, err := encoding.EncodeBlockParams(&encoding.BlockParams{
-		ExtraData:      rpc.StringToBytes32(b.extraData),
-		Coinbase:       b.l2SuggestedFeeRecipient,
-		ParentMetaHash: parentMetaHash,
-		Signature:      signature,
-	})
+	// Check if the current L2 chain is after ontake fork.
+	state, err := rpc.GetProtocolStateVariables(b.rpc.TaikoL1, &bind.CallOpts{Context: ctx})
 	if err != nil {
 		return nil, err
 	}
 
-	if b.proverSetAddress != rpc.ZeroAddress {
-		data, err = encoding.ProverSetABI.Pack("proposeBlock", encodedParams, []byte{})
+	if !b.chainConfig.IsOntake(new(big.Int).SetUint64(state.B.NumBlocks)) {
+		// ABI encode the TaikoL1.proposeBlock / ProverSet.proposeBlock parameters.
+		method = "proposeBlock"
+
+		// ABI encode the TaikoL1.proposeBlock / ProverSet.proposeBlock parameters.
+		encodedParams, err = encoding.EncodeBlockParams(&encoding.BlockParams{
+			ExtraData:      rpc.StringToBytes32(b.extraData),
+			Coinbase:       b.l2SuggestedFeeRecipient,
+			ParentMetaHash: parentMetaHash,
+			Signature:      signature,
+		})
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		data, err = encoding.TaikoL1ABI.Pack("proposeBlock", encodedParams, []byte{})
+		// ABI encode the TaikoL1.proposeBlockV2 / ProverSet.proposeBlockV2 parameters.
+		method = "proposeBlockV2"
+
+		if encodedParams, err = encoding.EncodeBlockParamsOntake(&encoding.BlockParamsV2{
+			Coinbase:         b.l2SuggestedFeeRecipient,
+			ParentMetaHash:   parentMetaHash,
+			AnchorBlockId:    0,
+			Timestamp:        0,
+			BlobTxListOffset: 0,
+			BlobTxListLength: uint32(len(txListBytes)),
+			BlobIndex:        0,
+		}); err != nil {
+			return nil, err
+		}
+	}
+
+	if b.proverSetAddress != rpc.ZeroAddress {
+		data, err = encoding.ProverSetABI.Pack(method, encodedParams, []byte{})
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		data, err = encoding.TaikoL1ABI.Pack(method, encodedParams, []byte{})
 		if err != nil {
 			return nil, err
 		}

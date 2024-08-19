@@ -26,8 +26,8 @@ func TestSubscribeBlockVerified(t *testing.T) {
 
 func TestSubscribeBlockProposed(t *testing.T) {
 	require.NotNil(t, SubscribeBlockProposed(
-		newTestClient(t).TaikoL1,
-		make(chan *bindings.TaikoL1ClientBlockProposed, 1024)),
+		newTestClient(t).LibProposing,
+		make(chan *bindings.LibProposingBlockProposed, 1024)),
 	)
 }
 

@@ -92,9 +92,9 @@ contract GuardianProver is IVerifier, EssentialContract {
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _addressManager The address of the {AddressManager} contract.
-    function init(address _owner, address _addressManager) external initializer {
-        __Essential_init(_owner, _addressManager);
+    /// @param _rollupAddressManager The address of the {AddressManager} contract.
+    function init(address _owner, address _rollupAddressManager) external initializer {
+        __Essential_init(_owner, _rollupAddressManager);
     }
 
     /// @notice Set the set of guardians
@@ -185,41 +185,34 @@ contract GuardianProver is IVerifier, EssentialContract {
         external
         whenNotPaused
         nonReentrant
-        returns (bool approved_)
+        returns (bool)
     {
-        bytes32 proofHash = keccak256(abi.encode(_meta, _tran, _proof.data));
-        uint256 _version = version;
-        bytes32 currProofHash = latestProofHash[_version][_meta.id];
+        return _approve({
+            _blockId: _meta.id,
+            _proofHash: keccak256(abi.encode(_meta, _tran, _proof.data)),
+            _blockHash: _tran.blockHash,
+            _data: abi.encode(_meta, _tran, _proof),
+            _proofData: _proof.data
+        });
+    }
 
-        if (currProofHash == 0) {
-            latestProofHash[_version][_meta.id] = proofHash;
-            currProofHash = proofHash;
-        }
-
-        bool conflicting = currProofHash != proofHash;
-        bool pauseProving = conflicting && provingAutoPauseEnabled
-            && address(this) == resolve(LibStrings.B_CHAIN_WATCHDOG, true);
-
-        if (conflicting) {
-            latestProofHash[_version][_meta.id] = proofHash;
-            emit ConflictingProofs(_meta.id, msg.sender, currProofHash, proofHash, pauseProving);
-        }
-
-        if (pauseProving) {
-            ITaikoL1(resolve(LibStrings.B_TAIKO, false)).pauseProving(true);
-        } else {
-            approved_ = _approve(_meta.id, proofHash);
-            emit GuardianApproval(msg.sender, _meta.id, _tran.blockHash, approved_, _proof.data);
-
-            if (approved_) {
-                delete approvals[_version][proofHash];
-                delete latestProofHash[_version][_meta.id];
-
-                ITaikoL1(resolve(LibStrings.B_TAIKO, false)).proveBlock(
-                    _meta.id, abi.encode(_meta, _tran, _proof)
-                );
-            }
-        }
+    function approveV2(
+        TaikoData.BlockMetadataV2 calldata _metaV2,
+        TaikoData.Transition calldata _tran,
+        TaikoData.TierProof calldata _proof
+    )
+        external
+        whenNotPaused
+        nonReentrant
+        returns (bool)
+    {
+        return _approve({
+            _blockId: _metaV2.id,
+            _proofHash: keccak256(abi.encode(_metaV2, _tran, _proof.data)),
+            _blockHash: _tran.blockHash,
+            _data: abi.encode(_metaV2, _tran, _proof),
+            _proofData: _proof.data
+        });
     }
 
     /// @notice Pauses chain proving and verification.
@@ -251,7 +244,55 @@ contract GuardianProver is IVerifier, EssentialContract {
         return guardians.length;
     }
 
-    function _approve(uint256 _blockId, bytes32 _proofHash) internal returns (bool approved_) {
+    function _approve(
+        uint64 _blockId,
+        bytes32 _proofHash,
+        bytes32 _blockHash,
+        bytes memory _data,
+        bytes memory _proofData
+    )
+        internal
+        returns (bool approved_)
+    {
+        uint256 _version = version;
+        bytes32 currProofHash = latestProofHash[_version][_blockId];
+
+        if (currProofHash == 0) {
+            latestProofHash[_version][_blockId] = _proofHash;
+            currProofHash = _proofHash;
+        }
+
+        bool conflicting = currProofHash != _proofHash;
+        bool pauseProving = conflicting && provingAutoPauseEnabled
+            && address(this) == resolve(LibStrings.B_CHAIN_WATCHDOG, true);
+
+        if (conflicting) {
+            latestProofHash[_version][_blockId] = _proofHash;
+            emit ConflictingProofs(_blockId, msg.sender, currProofHash, _proofHash, pauseProving);
+        }
+
+        if (pauseProving) {
+            ITaikoL1(resolve(LibStrings.B_TAIKO, false)).pauseProving(true);
+        } else {
+            approved_ = _saveApproval(_blockId, _proofHash);
+            emit GuardianApproval(msg.sender, _blockId, _blockHash, approved_, _proofData);
+
+            if (approved_) {
+                delete approvals[_version][_proofHash];
+                delete latestProofHash[_version][_blockId];
+
+                ITaikoL1(resolve(LibStrings.B_TAIKO, false)).proveBlock(_blockId, _data);
+            }
+        }
+    }
+
+    function _saveApproval(
+        uint256 _blockId,
+        bytes32 _proofHash
+    )
+        internal
+        returns (bool approved_)
+    {
         uint256 id = guardianIds[msg.sender];
         if (id == 0) revert GP_INVALID_GUARDIAN();
 

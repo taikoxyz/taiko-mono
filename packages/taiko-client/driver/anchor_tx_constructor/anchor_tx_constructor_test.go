@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/suite"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 )
 
@@ -38,6 +39,20 @@ func (s *AnchorTxConstructorTestSuite) TestGasLimit() {
 
 func (s *AnchorTxConstructorTestSuite) TestAssembleAnchorTx() {
 	tx, err := s.c.AssembleAnchorTx(context.Background(), s.l1Height, s.l1Hash, common.Big1, common.Big256, 1024)
+	s.Nil(err)
+	s.NotNil(tx)
+}
+
+func (s *AnchorTxConstructorTestSuite) TestAssembleAnchorV2Tx() {
+	tx, err := s.c.AssembleAnchorV2Tx(
+		context.Background(),
+		s.l1Height,
+		s.l1Hash,
+		1024,
+		&bindings.TaikoDataBaseFeeConfig{},
+		common.Big1,
+		common.Big256,
+	)
 	s.Nil(err)
 	s.NotNil(tx)
 }

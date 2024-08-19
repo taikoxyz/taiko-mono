@@ -16,14 +16,15 @@ library LibVerifying {
         uint64 blockId;
         uint64 slot;
         uint64 numBlocksVerified;
-        uint32 tid;
-        uint32 lastVerifiedTransitionId;
+        uint24 tid;
+        uint24 lastVerifiedTransitionId;
         uint16 tier;
         bytes32 blockHash;
         bytes32 syncStateRoot;
         uint64 syncBlockId;
-        uint32 syncTransitionId;
+        uint24 syncTransitionId;
         address prover;
+        bool postFork;
         ITierRouter tierRouter;
     }
 
@@ -39,7 +40,7 @@ library LibVerifying {
         IAddressResolver _resolver,
         uint64 _maxBlocksToVerify
     )
-        internal
+        public
     {
         if (_maxBlocksToVerify == 0) {
             return;
@@ -50,7 +51,7 @@ library LibVerifying {
         local.blockId = local.b.lastVerifiedBlockId;
         local.slot = local.blockId % _config.blockRingBufferSize;
 
-        TaikoData.Block storage blk = _state.blocks[local.slot];
+        TaikoData.BlockV2 storage blk = _state.blocks[local.slot];
         if (blk.blockId != local.blockId) revert L1_BLOCK_MISMATCH();
 
         local.lastVerifiedTransitionId = blk.verifiedTransitionId;
@@ -76,6 +77,7 @@ library LibVerifying {
                 local.blockId < local.b.numBlocks && local.numBlocksVerified < _maxBlocksToVerify
             ) {
                 local.slot = local.blockId % _config.blockRingBufferSize;
+                local.postFork = local.blockId >= _config.ontakeForkHeight;
 
                 blk = _state.blocks[local.slot];
                 if (blk.blockId != local.blockId) revert L1_BLOCK_MISMATCH();
@@ -126,13 +128,22 @@ library LibVerifying {
                 // either when the transitions are generated or proven. In such cases, both the
                 // provers and contesters of those transitions forfeit their bonds.
 
-                emit LibUtils.BlockVerified({
-                    blockId: local.blockId,
-                    prover: local.prover,
-                    blockHash: local.blockHash,
-                    stateRoot: 0, // DEPRECATED and is always zero.
-                    tier: local.tier
-                });
+                if (local.postFork) {
+                    emit LibUtils.BlockVerifiedV2({
+                        blockId: local.blockId,
+                        prover: local.prover,
+                        blockHash: local.blockHash,
+                        tier: local.tier
+                    });
+                } else {
+                    emit LibUtils.BlockVerified({
+                        blockId: local.blockId,
+                        prover: local.prover,
+                        blockHash: local.blockHash,
+                        stateRoot: 0, // DEPRECATED and is always zero.
+                        tier: local.tier
+                    });
+                }
 
                 if (LibUtils.shouldSyncStateRoot(_config.stateRootSyncInternal, local.blockId)) {
                     bytes32 stateRoot = ts.stateRoot;
@@ -175,5 +186,22 @@ library LibVerifying {
                 }
             }
         }
+    }
+
+    function getVerifiedBlockProver(
+        TaikoData.State storage _state,
+        TaikoData.Config memory _config,
+        uint64 _blockId
+    )
+        internal
+        view
+        returns (address)
+    {
+        (TaikoData.BlockV2 storage blk,) = LibUtils.getBlock(_state, _config, _blockId);
+
+        uint24 tid = blk.verifiedTransitionId;
+        if (tid == 0) return address(0);
+
+        return LibUtils.getTransition(_state, _config, _blockId, tid).prover;
     }
 }

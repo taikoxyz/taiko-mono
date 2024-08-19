@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import "../../verifiers/IVerifier.sol";
 import "./LibBonds.sol";
+import "./LibData.sol";
 import "./LibUtils.sol";
 
 /// @title LibProving
@@ -23,11 +24,13 @@ library LibProving {
         uint96 livenessBond;
         uint64 slot;
         uint64 blockId;
-        uint32 tid;
+        uint24 tid;
         bool lastUnpausedAt;
         bool isTopTier;
         bool inProvingWindow;
         bool sameTransition;
+        bool postFork;
+        uint64 proposedAt;
     }
 
     /// @notice Emitted when a transition is proved.
@@ -44,6 +47,22 @@ library LibProving {
         uint16 tier
     );
 
+    /// @notice Emitted when a transition is proved.
+    /// @param blockId The block ID.
+    /// @param tran The transition data.
+    /// @param prover The prover's address.
+    /// @param validityBond The validity bond amount.
+    /// @param tier The tier of the proof.
+    /// @param proposedIn The L1 block in which a transition is proved.
+    event TransitionProvedV2(
+        uint256 indexed blockId,
+        TaikoData.Transition tran,
+        address prover,
+        uint96 validityBond,
+        uint16 tier,
+        uint64 proposedIn
+    );
+
     /// @notice Emitted when a transition is contested.
     /// @param blockId The block ID.
     /// @param tran The transition data.
@@ -58,12 +77,29 @@ library LibProving {
         uint16 tier
     );
 
+    /// @notice Emitted when a transition is contested.
+    /// @param blockId The block ID.
+    /// @param tran The transition data.
+    /// @param contester The contester's address.
+    /// @param contestBond The contest bond amount.
+    /// @param tier The tier of the proof.
+    /// @param proposedIn The L1 block in which this L2 block is proposed.
+    event TransitionContestedV2(
+        uint256 indexed blockId,
+        TaikoData.Transition tran,
+        address contester,
+        uint96 contestBond,
+        uint16 tier,
+        uint64 proposedIn
+    );
+
     /// @notice Emitted when proving is paused or unpaused.
     /// @param paused The pause status.
     event ProvingPaused(bool paused);
 
     error L1_ALREADY_CONTESTED();
     error L1_ALREADY_PROVED();
+    error L1_BLOCK_MISMATCH();
     error L1_CANNOT_CONTEST();
     error L1_INVALID_PAUSE_STATUS();
     error L1_INVALID_TIER();
@@ -99,13 +135,30 @@ library LibProving {
         uint64 _blockId,
         bytes calldata _input
     )
-        internal
+        public
     {
-        (
-            TaikoData.BlockMetadata memory meta,
-            TaikoData.Transition memory tran,
-            TaikoData.TierProof memory proof
-        ) = abi.decode(_input, (TaikoData.BlockMetadata, TaikoData.Transition, TaikoData.TierProof));
+        Local memory local;
+
+        local.b = _state.slotB;
+        local.blockId = _blockId;
+        local.postFork = _blockId >= _config.ontakeForkHeight;
+
+        TaikoData.BlockMetadataV2 memory meta;
+        TaikoData.Transition memory tran;
+        TaikoData.TierProof memory proof;
+
+        if (local.postFork) {
+            (meta, tran, proof) = abi.decode(
+                _input, (TaikoData.BlockMetadataV2, TaikoData.Transition, TaikoData.TierProof)
+            );
+        } else {
+            TaikoData.BlockMetadata memory metaV1;
+
+            (metaV1, tran, proof) = abi.decode(
+                _input, (TaikoData.BlockMetadata, TaikoData.Transition, TaikoData.TierProof)
+            );
+            meta = LibData.blockMetadataV1toV2(metaV1);
+        }
 
         if (_blockId != meta.id) revert LibUtils.L1_INVALID_BLOCK_ID();
 
@@ -116,18 +169,15 @@ library LibProving {
             revert L1_INVALID_TRANSITION();
         }
 
-        Local memory local;
-        local.b = _state.slotB;
-
         // Check that the block has been proposed but has not yet been verified.
         if (meta.id <= local.b.lastVerifiedBlockId || meta.id >= local.b.numBlocks) {
             revert LibUtils.L1_INVALID_BLOCK_ID();
         }
 
         local.slot = meta.id % _config.blockRingBufferSize;
-        TaikoData.Block storage blk = _state.blocks[local.slot];
+        TaikoData.BlockV2 storage blk = _state.blocks[local.slot];
 
-        local.blockId = blk.blockId;
+        local.proposedAt = local.postFork ? meta.proposedAt : blk.proposedAt;
 
         if (LibUtils.shouldSyncStateRoot(_config.stateRootSyncInternal, local.blockId)) {
             local.stateRoot = tran.stateRoot;
@@ -135,17 +185,23 @@ library LibProving {
 
         local.assignedProver = blk.assignedProver;
         if (local.assignedProver == address(0)) {
-            local.assignedProver = meta.sender;
+            local.assignedProver = meta.proposer;
         }
 
-        local.livenessBond = blk.livenessBond;
+        if (!blk.livenessBondReturned) {
+            local.livenessBond = meta.livenessBond == 0 ? blk.livenessBond : meta.livenessBond;
+        }
         local.metaHash = blk.metaHash;
 
         // Check the integrity of the block data. It's worth noting that in
         // theory, this check may be skipped, but it's included for added
         // caution.
-        if (local.blockId != meta.id || local.metaHash != LibUtils.hashMetadata(meta)) {
-            revert LibUtils.L1_BLOCK_MISMATCH();
+        {
+            bytes32 metaHash = local.postFork
+                ? keccak256(abi.encode(meta))
+                : keccak256(abi.encode(LibData.blockMetadataV2toV1(meta)));
+
+            if (local.metaHash != metaHash) revert L1_BLOCK_MISMATCH();
         }
 
         // Each transition is uniquely identified by the parentHash, with the
@@ -228,13 +284,24 @@ library LibProving {
             // (L1_ALREADY_PROVED).
             _overrideWithHigherProof(_state, _resolver, blk, ts, tran, proof, local);
 
-            emit TransitionProved({
-                blockId: local.blockId,
-                tran: tran,
-                prover: msg.sender,
-                validityBond: local.tier.validityBond,
-                tier: proof.tier
-            });
+            if (local.postFork) {
+                emit TransitionProvedV2({
+                    blockId: local.blockId,
+                    tran: tran,
+                    prover: msg.sender,
+                    validityBond: local.tier.validityBond,
+                    tier: proof.tier,
+                    proposedIn: meta.proposedIn
+                });
+            } else {
+                emit TransitionProved({
+                    blockId: local.blockId,
+                    tran: tran,
+                    prover: msg.sender,
+                    validityBond: local.tier.validityBond,
+                    tier: proof.tier
+                });
+            }
         } else {
             // New transition and old transition on the same tier - and if this transaction tries to
             // prove the same, it reverts
@@ -249,13 +316,24 @@ library LibProving {
                 ts.blockHash = tran.blockHash;
                 ts.stateRoot = local.stateRoot;
 
-                emit TransitionProved({
-                    blockId: local.blockId,
-                    tran: tran,
-                    prover: msg.sender,
-                    validityBond: 0,
-                    tier: proof.tier
-                });
+                if (local.postFork) {
+                    emit TransitionProvedV2({
+                        blockId: local.blockId,
+                        tran: tran,
+                        prover: msg.sender,
+                        validityBond: 0,
+                        tier: proof.tier,
+                        proposedIn: meta.proposedIn
+                    });
+                } else {
+                    emit TransitionProved({
+                        blockId: local.blockId,
+                        tran: tran,
+                        prover: msg.sender,
+                        validityBond: 0,
+                        tier: proof.tier
+                    });
+                }
             } else {
                 // Contesting but not on the highest tier
                 if (ts.contester != address(0)) revert L1_ALREADY_CONTESTED();
@@ -283,13 +361,24 @@ library LibProving {
                 ts.contestBond = local.tier.contestBond;
                 ts.contester = msg.sender;
 
-                emit TransitionContested({
-                    blockId: local.blockId,
-                    tran: tran,
-                    contester: msg.sender,
-                    contestBond: local.tier.contestBond,
-                    tier: proof.tier
-                });
+                if (local.postFork) {
+                    emit TransitionContestedV2({
+                        blockId: local.blockId,
+                        tran: tran,
+                        contester: msg.sender,
+                        contestBond: local.tier.contestBond,
+                        tier: proof.tier,
+                        proposedIn: meta.proposedIn
+                    });
+                } else {
+                    emit TransitionContested({
+                        blockId: local.blockId,
+                        tran: tran,
+                        contester: msg.sender,
+                        contestBond: local.tier.contestBond,
+                        tier: proof.tier
+                    });
+                }
             }
         }
 
@@ -300,12 +389,12 @@ library LibProving {
     /// @dev Handle the transition initialization logic
     function _fetchOrCreateTransition(
         TaikoData.State storage _state,
-        TaikoData.Block storage _blk,
+        TaikoData.BlockV2 storage _blk,
         TaikoData.Transition memory _tran,
         Local memory _local
     )
         private
-        returns (uint32 tid_, TaikoData.TransitionState memory ts_)
+        returns (uint24 tid_, TaikoData.TransitionState memory ts_)
     {
         tid_ = LibUtils.getTransitionId(_state, _blk, _local.slot, _tran.parentHash);
 
@@ -328,7 +417,7 @@ library LibProving {
             // Keep in mind that state.transitions are also reusable storage
             // slots, so it's necessary to reinitialize all transition fields
             // below.
-            ts_.timestamp = _blk.proposedAt;
+            ts_.timestamp = _local.proposedAt;
 
             if (tid_ == 1) {
                 // This approach serves as a cost-saving technique for the
@@ -379,7 +468,7 @@ library LibProving {
     function _overrideWithHigherProof(
         TaikoData.State storage _state,
         IAddressResolver _resolver,
-        TaikoData.Block storage _blk,
+        TaikoData.BlockV2 storage _blk,
         TaikoData.TransitionState memory _ts,
         TaikoData.Transition memory _tran,
         TaikoData.TierProof memory _proof,
@@ -416,6 +505,7 @@ library LibProving {
                 // After the first proof, the block's liveness bond will always be reset to 0.
                 // This means liveness bond will be handled only once for any given block.
                 _blk.livenessBond = 0;
+                _blk.livenessBondReturned = true;
 
                 if (_returnLivenessBond(_local, _proof.data)) {
                     if (_local.assignedProver == msg.sender) {

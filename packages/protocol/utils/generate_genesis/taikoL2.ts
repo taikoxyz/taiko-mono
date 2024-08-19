@@ -515,7 +515,7 @@ async function generateContractConfigs(
                 // TaikoL2 => CrossChainOwned
                 l1ChainId,
                 // TaikoL2
-                gasExcess: param1559.gasExcess,
+                parentGasExcess: param1559.gasExcess,
                 publicInputHash: `${ethers.utils.solidityKeccak256(
                     ["bytes32[256]"],
                     [

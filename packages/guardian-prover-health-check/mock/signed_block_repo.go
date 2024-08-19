@@ -1,6 +1,7 @@
 package mock
 
 import (
+	"context"
 	"errors"
 
 	guardianproverhealthcheck "github.com/taikoxyz/taiko-mono/packages/guardian-prover-health-check"
@@ -16,7 +17,7 @@ func NewSignedBlockRepository() *SignedBlockRepo {
 	}
 }
 
-func (r *SignedBlockRepo) Save(opts guardianproverhealthcheck.SaveSignedBlockOpts) error {
+func (r *SignedBlockRepo) Save(ctx context.Context, opts *guardianproverhealthcheck.SaveSignedBlockOpts) error {
 	r.signedBlocks = append(r.signedBlocks, &guardianproverhealthcheck.SignedBlock{
 		GuardianProverID: opts.GuardianProverID,
 		BlockID:          opts.BlockID,
@@ -30,6 +31,7 @@ func (r *SignedBlockRepo) Save(opts guardianproverhealthcheck.SaveSignedBlockOpt
 }
 
 func (r *SignedBlockRepo) GetByStartingBlockID(
+	ctx context.Context,
 	opts guardianproverhealthcheck.GetSignedBlocksByStartingBlockIDOpts,
 ) ([]*guardianproverhealthcheck.SignedBlock, error) {
 	sb := make([]*guardianproverhealthcheck.SignedBlock, 0)
@@ -44,6 +46,7 @@ func (r *SignedBlockRepo) GetByStartingBlockID(
 }
 
 func (r *SignedBlockRepo) GetMostRecentByGuardianProverAddress(
+	ctx context.Context,
 	address string,
 ) (*guardianproverhealthcheck.SignedBlock, error) {
 	var b *guardianproverhealthcheck.SignedBlock

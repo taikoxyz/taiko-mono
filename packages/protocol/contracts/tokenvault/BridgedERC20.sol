@@ -60,7 +60,7 @@ contract BridgedERC20 is
     /// @inheritdoc IBridgedERC20Initializable
     function init(
         address _owner,
-        address _addressManager,
+        address _sharedAddressManager,
         address _srcToken,
         uint256 _srcChainId,
         uint8 _decimals,
@@ -68,11 +68,12 @@ contract BridgedERC20 is
         string calldata _name
     )
         external
+        virtual
         initializer
     {
         // Check if provided parameters are valid
         LibBridgedToken.validateInputs(_srcToken, _srcChainId);
-        __Essential_init(_owner, _addressManager);
+        __Essential_init(_owner, _sharedAddressManager);
         __ERC20_init(_name, _symbol);
 
         // Set contract properties
@@ -149,7 +150,7 @@ contract BridgedERC20 is
         return migratingAddress != address(0) && !migratingInbound;
     }
 
-    function supportsInterface(bytes4 _interfaceId) public pure returns (bool) {
+    function supportsInterface(bytes4 _interfaceId) public pure virtual returns (bool) {
         return _interfaceId == type(IBridgedERC20).interfaceId
             || _interfaceId == type(IBridgedERC20Initializable).interfaceId
             || _interfaceId == type(IBridgedERC20Migratable).interfaceId
@@ -171,7 +172,9 @@ contract BridgedERC20 is
         return super._beforeTokenTransfer(_from, _to, _amount);
     }
 
-    function _authorizedMintBurn(address addr)
+    function _authorizedMintBurn(
+        address addr
+    )
         private
         onlyFromOwnerOrNamed(LibStrings.B_ERC20_VAULT)
     { }

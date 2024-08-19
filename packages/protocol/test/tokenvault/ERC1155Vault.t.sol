@@ -34,7 +34,9 @@ contract PrankDestBridge {
         destERC1155Vault = ERC1155Vault(addr);
     }
 
-    function sendMessage(IBridge.Message memory message)
+    function sendMessage(
+        IBridge.Message memory message
+    )
         external
         payable
         returns (bytes32 msgHash, IBridge.Message memory _message)

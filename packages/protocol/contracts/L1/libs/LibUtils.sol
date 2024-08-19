@@ -31,6 +31,16 @@ library LibUtils {
         uint16 tier
     );
 
+    /// @dev Emitted when a block is verified.
+    /// @param blockId The ID of the verified block.
+    /// @param prover The prover whose transition is used for verifying the
+    /// block.
+    /// @param blockHash The hash of the verified block.
+    /// @param tier The tier ID of the proof.
+    event BlockVerifiedV2(
+        uint256 indexed blockId, address indexed prover, bytes32 blockHash, uint16 tier
+    );
+
     error L1_BLOCK_MISMATCH();
     error L1_INVALID_BLOCK_ID();
     error L1_INVALID_GENESIS_HASH();
@@ -40,7 +50,13 @@ library LibUtils {
     /// @notice Initializes the Taiko protocol state.
     /// @param _state The state to initialize.
     /// @param _genesisBlockHash The block hash of the genesis block.
-    function init(TaikoData.State storage _state, bytes32 _genesisBlockHash) internal {
+    function init(
+        TaikoData.State storage _state,
+        TaikoData.Config memory _config,
+        bytes32 _genesisBlockHash
+    )
+        internal
+    {
         if (_genesisBlockHash == 0) revert L1_INVALID_GENESIS_HASH();
         // Init state
         _state.slotA.genesisHeight = uint64(block.number);
@@ -48,7 +64,7 @@ library LibUtils {
         _state.slotB.numBlocks = 1;
 
         // Init the genesis block
-        TaikoData.Block storage blk = _state.blocks[0];
+        TaikoData.BlockV2 storage blk = _state.blocks[0];
         blk.nextTransitionId = 2;
         blk.proposedAt = uint64(block.timestamp);
         blk.verifiedTransitionId = 1;
@@ -60,13 +76,22 @@ library LibUtils {
         ts.prover = address(0);
         ts.timestamp = uint64(block.timestamp);
 
-        emit BlockVerified({
-            blockId: 0,
-            prover: address(0),
-            blockHash: _genesisBlockHash,
-            stateRoot: 0,
-            tier: 0
-        });
+        if (_config.ontakeForkHeight == 0) {
+            emit BlockVerifiedV2({
+                blockId: 0,
+                prover: address(0),
+                blockHash: _genesisBlockHash,
+                tier: 0
+            });
+        } else {
+            emit BlockVerified({
+                blockId: 0,
+                prover: address(0),
+                blockHash: _genesisBlockHash,
+                stateRoot: 0,
+                tier: 0
+            });
+        }
     }
 
     /// @dev Retrieves a block based on its ID.
@@ -82,7 +107,7 @@ library LibUtils {
     )
         internal
         view
-        returns (TaikoData.Block storage blk_, uint64 slot_)
+        returns (TaikoData.BlockV2 storage blk_, uint64 slot_)
     {
         slot_ = _blockId % _config.blockRingBufferSize;
         blk_ = _state.blocks[slot_];
@@ -102,9 +127,9 @@ library LibUtils {
     )
         internal
         view
-        returns (bytes32 blockHash_, bytes32 stateRoot_)
+        returns (bytes32 blockHash_, bytes32 stateRoot_, uint64 verifiedAt_)
     {
-        (TaikoData.Block storage blk, uint64 slot) = getBlock(_state, _config, _blockId);
+        (TaikoData.BlockV2 storage blk, uint64 slot) = getBlock(_state, _config, _blockId);
 
         if (blk.verifiedTransitionId != 0) {
             TaikoData.TransitionState storage transition =
@@ -112,6 +137,7 @@ library LibUtils {
 
             blockHash_ = transition.blockHash;
             stateRoot_ = transition.stateRoot;
+            verifiedAt_ = transition.timestamp;
         }
     }
 
@@ -132,7 +158,7 @@ library LibUtils {
         view
         returns (TaikoData.TransitionState storage)
     {
-        (TaikoData.Block storage blk, uint64 slot) = getBlock(_state, _config, _blockId);
+        (TaikoData.BlockV2 storage blk, uint64 slot) = getBlock(_state, _config, _blockId);
 
         if (_tid == 0 || _tid >= blk.nextTransitionId) revert L1_TRANSITION_NOT_FOUND();
         return _state.transitions[slot][_tid];
@@ -155,9 +181,9 @@ library LibUtils {
         view
         returns (TaikoData.TransitionState storage)
     {
-        (TaikoData.Block storage blk, uint64 slot) = getBlock(_state, _config, _blockId);
+        (TaikoData.BlockV2 storage blk, uint64 slot) = getBlock(_state, _config, _blockId);
 
-        uint32 tid = getTransitionId(_state, blk, slot, _parentHash);
+        uint24 tid = getTransitionId(_state, blk, slot, _parentHash);
         if (tid == 0) revert L1_TRANSITION_NOT_FOUND();
 
         return _state.transitions[slot][tid];
@@ -167,13 +193,13 @@ library LibUtils {
     /// This function will return 0 if the transition is not found.
     function getTransitionId(
         TaikoData.State storage _state,
-        TaikoData.Block storage _blk,
+        TaikoData.BlockV2 storage _blk,
         uint64 _slot,
         bytes32 _parentHash
     )
         internal
         view
-        returns (uint32 tid_)
+        returns (uint24 tid_)
     {
         if (_state.transitions[_slot][1].key == _parentHash) {
             tid_ = 1;
@@ -243,9 +269,5 @@ library LibUtils {
             // config._stateRootSyncInternal = 2, we can keep the tests unchanged.
             return _blockId % _stateRootSyncInternal == _stateRootSyncInternal - 1;
         }
-    }
-
-    function hashMetadata(TaikoData.BlockMetadata memory _meta) internal pure returns (bytes32) {
-        return keccak256(abi.encode(_meta));
     }
 }

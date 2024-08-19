@@ -248,7 +248,11 @@
     "name": "Name",
     "not_available_short": "N/A",
     "ok": "Okay",
+    "owner": {
+      "destination": "Destination owner"
+    },
     "recipient": "Recipient",
+    "relayer": "Relayer",
     "reset_to_wallet": "Reset to current address",
     "review": "Review",
     "search_token": "Search token",
@@ -261,7 +265,8 @@
     "symbol": "Symbol",
     "to": "To",
     "token_id": "Token ID",
-    "token_standard": "Token standard"
+    "token_standard": "Token standard",
+    "tx_hash": "Tx hash"
   },
   "custom_recipient": {
     "placeholder": "Add custom recipient"
@@ -436,6 +441,18 @@
     "tooltip": "Defaults to your address. You can add a custom recipient address as well.",
     "tooltip_title": "What is Custom Recipient?"
   },
+  "relayer_component": {
+    "address_input_label": "Enter the recipient address",
+    "description": "This component allows you to manually claim any claimable transaction",
+    "no_tx_found": "No claimable transactions found",
+    "step1": {
+      "title": "Step 1: Select the recipient"
+    },
+    "step2": {
+      "title": "Step 2: Search the transaction you want"
+    },
+    "title": "Relayer Component"
+  },
   "switch_modal": {
     "description": "Your current network is not supported. Please select one of the following chains to proceed:",
     "title": "Incorrect network detected"
@@ -501,8 +518,8 @@
         },
         "pre_check": {
           "chain_check": "Connected to the correct chain",
-          "different_recipient": "The recipient of this transaction does not match the sender or the currently connected wallet. To  manually claim, please connect to the recipient's wallet.",
           "funds_check": "Sufficient funds to claim",
+          "only_destowner_can_claim": "This transaction can only be claimed by the destination owner. Please connect to the correct wallet to claim this transaction.",
           "quota_check": "Sufficient daily quota",
           "ready": "You can continue with the claim process!",
           "step": "Claim step",
@@ -535,6 +552,11 @@
     },
     "description": "Track your bridge transactions here.",
     "details_dialog": {
+      "claimed_by": "Claimed by",
+      "destination_owner": "Destination owner",
+      "initiated_date": "Date initiated",
+      "recipient_address": "Recipient address",
+      "sender_address": "Sender address",
       "title": "Transaction details"
     },
     "errors": {
@@ -552,15 +574,19 @@
     },
     "header": {
       "amount": "Amount",
+      "date": "Date",
+      "details": "Details",
       "explorer": "Explorer",
       "from": "From",
       "item": "Item",
+      "nft": "NFT",
       "status": "Status",
       "to": "To"
     },
     "link": {
       "explorer": "View details",
-      "explorer_short": "View"
+      "explorer_short": "View",
+      "view": "Details"
     },
     "no_transactions": "No transactions found",
     "release": {
@@ -579,6 +605,7 @@
         "description": "Your asset is now ready for claiming on the destination chain and requires a transaction. If you have set a processing fee, the relayer will automatically handle the claiming process on your behalf.",
         "name": "Claim"
       },
+      "claimable": "Claimable",
       "claimed": {
         "description": "Your asset has successfully completed the bridging process and is now available to you on the destination chain.",
         "name": "Claimed"
@@ -603,6 +630,7 @@
         "description": "Transaction is processing. Depending on the pending blocks to be verified this can take up to several minutes.",
         "name": "Processing"
       },
+      "releasable": "Releasable",
       "release": {
         "description": "Your bridged asset cannot be processed and is now accessible to you on the source chain.",
         "name": "Release"
@@ -611,6 +639,7 @@
         "name": "Released"
       },
       "releasing": "Releasing",
+      "retriable": "Retriable",
       "retry": {
         "description": "The relayer was unable to process this message, and you will need to retry the processing yourself.",
         "name": "Retry"

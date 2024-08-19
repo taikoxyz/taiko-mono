@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../../common/EssentialContract.sol";
 import "../../common/LibStrings.sol";
+import "../../libs/LibAddress.sol";
 import "../../L1/ITaikoL1.sol";
 
 interface IHasRecipient {
@@ -46,13 +47,13 @@ contract ProverSet is EssentialContract, IERC1271 {
     function init(
         address _owner,
         address _admin,
-        address _addressManager
+        address _rollupAddressManager
     )
         external
         nonZeroAddr(_admin)
         initializer
     {
-        __Essential_init(_owner, _addressManager);
+        __Essential_init(_owner, _rollupAddressManager);
         admin = _admin;
         IERC20(tkoToken()).approve(taikoL1(), type(uint256).max);
     }
@@ -77,6 +78,11 @@ contract ProverSet is EssentialContract, IERC1271 {
         IERC20(tkoToken()).transfer(admin, _amount);
     }
 
+    /// @notice Withdraws ETH back to the owner address.
+    function withdrawEtherToAdmin(uint256 _amount) external onlyAuthorized {
+        LibAddress.sendEtherAndVerify(admin, _amount);
+    }
+
     /// @notice Propose a Taiko block.
     function proposeBlock(
         bytes calldata _params,
@@ -88,6 +94,19 @@ contract ProverSet is EssentialContract, IERC1271 {
         nonReentrant
     {
         ITaikoL1(taikoL1()).proposeBlock(_params, _txList);
+    }
+
+    /// @notice Propose a Taiko block.
+    function proposeBlockV2(
+        bytes calldata _params,
+        bytes calldata _txList
+    )
+        external
+        payable
+        onlyProver
+        nonReentrant
+    {
+        ITaikoL1(taikoL1()).proposeBlockV2(_params, _txList);
     }
 
     /// @notice Proves or contests a Taiko block.

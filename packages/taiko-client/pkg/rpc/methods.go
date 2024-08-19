@@ -41,40 +41,59 @@ func (c *Client) ensureGenesisMatched(ctx context.Context) error {
 		return err
 	}
 
-	// Fetch the genesis `BlockVerified` event.
-	iter, err := c.TaikoL1.FilterBlockVerified(
-		&bind.FilterOpts{Start: stateVars.A.GenesisHeight, End: &stateVars.A.GenesisHeight, Context: ctxWithTimeout},
-		[]*big.Int{common.Big0},
-		nil,
-	)
-	if err != nil {
-		return err
-	}
-
 	// Fetch the node's genesis block.
 	nodeGenesis, err := c.L2.HeaderByNumber(ctxWithTimeout, common.Big0)
 	if err != nil {
 		return err
 	}
 
-	if iter.Next() {
-		l2GenesisHash := iter.Event.BlockHash
+	var (
+		l2GenesisHash common.Hash
+		filterOpts    = &bind.FilterOpts{
+			Start:   stateVars.A.GenesisHeight,
+			End:     &stateVars.A.GenesisHeight,
+			Context: ctxWithTimeout,
+		}
+	)
 
-		log.Debug("Genesis hash", "node", nodeGenesis.Hash(), "TaikoL1", common.BytesToHash(l2GenesisHash[:]))
-
-		// Node's genesis header and TaikoL1 contract's genesis header must match.
-		if common.BytesToHash(l2GenesisHash[:]) != nodeGenesis.Hash() {
-			return fmt.Errorf(
-				"genesis header hash mismatch, node: %s, TaikoL1 contract: %s",
-				nodeGenesis.Hash(),
-				common.BytesToHash(l2GenesisHash[:]),
-			)
+	// If chain actives ontake fork from genesis, we need to fetch the genesis block hash from `BlockVerifiedV2` event.
+	if encoding.GetProtocolConfig(c.L2.ChainID.Uint64()).OntakeForkHeight == 0 {
+		// Fetch the genesis `BlockVerified2` event.
+		iter, err := c.TaikoL1.FilterBlockVerifiedV2(filterOpts, []*big.Int{common.Big0}, nil)
+		if err != nil {
+			return err
 		}
 
+		if iter.Next() {
+			l2GenesisHash = iter.Event.BlockHash
+		}
+	} else {
+		// Fetch the genesis `BlockVerified` event.
+		iter, err := c.TaikoL1.FilterBlockVerified(filterOpts, []*big.Int{common.Big0}, nil)
+		if err != nil {
+			return err
+		}
+
+		if iter.Next() {
+			l2GenesisHash = iter.Event.BlockHash
+		}
+	}
+
+	log.Debug("Genesis hash", "node", nodeGenesis.Hash(), "TaikoL1", common.BytesToHash(l2GenesisHash[:]))
+
+	if l2GenesisHash == (common.Hash{}) {
+		log.Warn("Genesis block not found in TaikoL1")
 		return nil
 	}
 
-	log.Warn("Genesis block not found in TaikoL1")
+	// Node's genesis header and TaikoL1 contract's genesis header must match.
+	if common.BytesToHash(l2GenesisHash[:]) != nodeGenesis.Hash() {
+		return fmt.Errorf(
+			"genesis header hash mismatch, node: %s, TaikoL1 contract: %s",
+			nodeGenesis.Hash(),
+			common.BytesToHash(l2GenesisHash[:]),
+		)
+	}
 
 	return nil
 }
@@ -401,11 +420,23 @@ func (c *Client) GetProtocolStateVariables(opts *bind.CallOpts) (*struct {
 }
 
 // GetL2BlockInfo fetches the L2 block information from the protocol.
-func (c *Client) GetL2BlockInfo(ctx context.Context, blockID *big.Int) (bindings.TaikoDataBlock, error) {
+func (c *Client) GetL2BlockInfo(ctx context.Context, blockID *big.Int) (bindings.TaikoDataBlockV2, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
-	return c.TaikoL1.GetBlock(&bind.CallOpts{Context: ctxWithTimeout}, blockID.Uint64())
+	blockInfo, err := c.TaikoL1.GetBlock(&bind.CallOpts{Context: ctxWithTimeout}, blockID.Uint64())
+	if err != nil {
+		return bindings.TaikoDataBlockV2{}, err
+	}
+	return *encoding.TaikoDataBlockToV2(&blockInfo), nil
+}
+
+// GetL2BlockInfoV2 fetches the V2 L2 block information from the protocol.
+func (c *Client) GetL2BlockInfoV2(ctx context.Context, blockID *big.Int) (bindings.TaikoDataBlockV2, error) {
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
+	defer cancel()
+
+	return c.TaikoL1.GetBlockV2(&bind.CallOpts{Context: ctxWithTimeout}, blockID.Uint64())
 }
 
 // GetTransition fetches the L2 block's corresponding transition state from the protocol.
@@ -554,7 +585,7 @@ func (c *Client) checkSyncedL1SnippetFromAnchor(
 		return false, err
 	}
 
-	l1BlockHash, l1StateRoot, l1HeightInAnchor, parentGasUsed, err := c.getSyncedL1SnippetFromAnchor(
+	l1StateRoot, l1HeightInAnchor, parentGasUsed, err := c.getSyncedL1SnippetFromAnchor(
 		block.Transactions()[0],
 	)
 	if err != nil {
@@ -586,16 +617,6 @@ func (c *Client) checkSyncedL1SnippetFromAnchor(
 		return false, err
 	}
 
-	if l1Header.Hash() != l1BlockHash {
-		log.Info(
-			"Reorg detected due to L1 block hash mismatch",
-			"blockID", blockID,
-			"l1BlockHashInAnchor", l1BlockHash,
-			"l1BlockHash", l1Header.Hash(),
-		)
-		return true, nil
-	}
-
 	if l1Header.Root != l1StateRoot {
 		log.Info(
 			"Reorg detected due to L1 state root mismatch",
@@ -613,7 +634,6 @@ func (c *Client) checkSyncedL1SnippetFromAnchor(
 func (c *Client) getSyncedL1SnippetFromAnchor(
 	tx *types.Transaction,
 ) (
-	l1BlockHash common.Hash,
 	l1StateRoot common.Hash,
 	l1Height uint64,
 	parentGasUsed uint32,
@@ -621,53 +641,75 @@ func (c *Client) getSyncedL1SnippetFromAnchor(
 ) {
 	method, err := encoding.TaikoL2ABI.MethodById(tx.Data())
 	if err != nil {
-		return common.Hash{}, common.Hash{}, 0, 0, err
+		return common.Hash{}, 0, 0, err
 	}
 
-	if method.Name != "anchor" {
-		return common.Hash{}, common.Hash{}, 0, 0, fmt.Errorf("invalid method name for anchor transaction: %s", method.Name)
+	var ok bool
+	switch method.Name {
+	case "anchor":
+		args := map[string]interface{}{}
+
+		if err := method.Inputs.UnpackIntoMap(args, tx.Data()[4:]); err != nil {
+			return common.Hash{}, 0, 0, err
+		}
+
+		l1StateRoot, ok = args["_l1StateRoot"].([32]byte)
+		if !ok {
+			return common.Hash{},
+				0,
+				0,
+				errors.New("failed to parse l1StateRoot from anchor transaction calldata")
+		}
+		l1Height, ok = args["_l1BlockId"].(uint64)
+		if !ok {
+			return common.Hash{},
+				0,
+				0,
+				errors.New("failed to parse l1Height from anchor transaction calldata")
+		}
+		parentGasUsed, ok = args["_parentGasUsed"].(uint32)
+		if !ok {
+			return common.Hash{},
+				0,
+				0,
+				errors.New("failed to parse parentGasUsed from anchor transaction calldata")
+		}
+	case "anchorV2":
+		args := map[string]interface{}{}
+
+		if err := method.Inputs.UnpackIntoMap(args, tx.Data()[4:]); err != nil {
+			return common.Hash{}, 0, 0, err
+		}
+
+		l1Height, ok = args["_anchorBlockId"].(uint64)
+		if !ok {
+			return common.Hash{},
+				0,
+				0,
+				errors.New("failed to parse anchorBlockId from anchorV2 transaction calldata")
+		}
+		l1StateRoot, ok = args["_anchorStateRoot"].([32]byte)
+		if !ok {
+			return common.Hash{},
+				0,
+				0,
+				errors.New("failed to parse anchorStateRoot from anchorV2 transaction calldata")
+		}
+		parentGasUsed, ok = args["_parentGasUsed"].(uint32)
+		if !ok {
+			return common.Hash{},
+				0,
+				0,
+				errors.New("failed to parse parentGasUsed from anchorV2 transaction calldata")
+		}
+	default:
+		return common.Hash{}, 0, 0, fmt.Errorf(
+			"invalid method name for anchor / anchorV2 transaction: %s",
+			method.Name,
+		)
 	}
 
-	args := map[string]interface{}{}
-
-	if err := method.Inputs.UnpackIntoMap(args, tx.Data()[4:]); err != nil {
-		return common.Hash{}, common.Hash{}, 0, 0, err
-	}
-
-	l1BlockHash, ok := args["_l1BlockHash"].([32]byte)
-	if !ok {
-		return common.Hash{},
-			common.Hash{},
-			0,
-			0,
-			errors.New("failed to parse l1BlockHash from anchor transaction calldata")
-	}
-	l1StateRoot, ok = args["_l1StateRoot"].([32]byte)
-	if !ok {
-		return common.Hash{},
-			common.Hash{},
-			0,
-			0,
-			errors.New("failed to parse l1StateRoot from anchor transaction calldata")
-	}
-	l1Height, ok = args["_l1BlockId"].(uint64)
-	if !ok {
-		return common.Hash{},
-			common.Hash{},
-			0,
-			0,
-			errors.New("failed to parse l1Height from anchor transaction calldata")
-	}
-	parentGasUsed, ok = args["_parentGasUsed"].(uint32)
-	if !ok {
-		return common.Hash{},
-			common.Hash{},
-			0,
-			0,
-			errors.New("failed to parse parentGasUsed from anchor transaction calldata")
-	}
-
-	return l1BlockHash, l1StateRoot, l1Height, parentGasUsed, nil
+	return l1StateRoot, l1Height, parentGasUsed, nil
 }
 
 // TierProviderTierWithID wraps protocol ITierProviderTier struct with an ID.

@@ -6,6 +6,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
+	"golang.org/x/exp/slog"
+
 	"github.com/morkid/paginate"
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
@@ -13,16 +16,16 @@ import (
 )
 
 type NFTBalanceRepository struct {
-	db eventindexer.DB
+	db db.DB
 }
 
-func NewNFTBalanceRepository(db eventindexer.DB) (*NFTBalanceRepository, error) {
-	if db == nil {
-		return nil, eventindexer.ErrNoDB
+func NewNFTBalanceRepository(dbHandler db.DB) (*NFTBalanceRepository, error) {
+	if dbHandler == nil {
+		return nil, db.ErrNoDB
 	}
 
 	return &NFTBalanceRepository{
-		db: db,
+		db: dbHandler,
 	}, nil
 }
 
@@ -136,6 +139,8 @@ func (r *NFTBalanceRepository) IncreaseAndDecreaseBalancesInTx(
 		}
 
 		if strings.Contains(err.Error(), "Deadlock") {
+			slog.Warn("database deadlock")
+
 			retries--
 
 			time.Sleep(100 * time.Millisecond) // backoff before retrying

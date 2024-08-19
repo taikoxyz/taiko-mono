@@ -107,9 +107,9 @@ contract Bridge is EssentialContract, IBridge {
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _addressManager The address of the {AddressManager} contract.
-    function init(address _owner, address _addressManager) external initializer {
-        __Essential_init(_owner, _addressManager);
+    /// @param _sharedAddressManager The address of the {AddressManager} contract.
+    function init(address _owner, address _sharedAddressManager) external initializer {
+        __Essential_init(_owner, _sharedAddressManager);
     }
 
     function init2() external onlyOwner reinitializer(2) {
@@ -126,7 +126,9 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     /// @inheritdoc IBridge
-    function sendMessage(Message calldata _message)
+    function sendMessage(
+        Message calldata _message
+    )
         external
         payable
         override
@@ -353,7 +355,9 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     /// @inheritdoc IBridge
-    function failMessage(Message calldata _message)
+    function failMessage(
+        Message calldata _message
+    )
         external
         sameChain(_message.destChainId)
         diffChain(_message.srcChainId)
@@ -429,7 +433,9 @@ contract Bridge is EssentialContract, IBridge {
     /// @param _chainId The destination chain ID.
     /// @return enabled_ True if the destination chain is enabled.
     /// @return destBridge_ The bridge of the destination chain.
-    function isDestChainEnabled(uint64 _chainId)
+    function isDestChainEnabled(
+        uint64 _chainId
+    )
         public
         view
         returns (bool enabled_, address destBridge_)

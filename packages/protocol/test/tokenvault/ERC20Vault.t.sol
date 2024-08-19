@@ -61,7 +61,7 @@ contract PrankDestBridge {
     }
 }
 
-contract UpdatedBridgedERC20 is BridgedERC20 {
+contract UpdatedBridgedERC20 is BridgedERC20V2 {
     function helloWorld() public pure returns (string memory) {
         return "helloworld";
     }
@@ -416,7 +416,9 @@ contract TestERC20Vault is TaikoTest {
         assertEq(bridgedERC20.balanceOf(Bob), amount);
     }
 
-    function erc20ToCanonicalERC20(uint64 chainId)
+    function erc20ToCanonicalERC20(
+        uint64 chainId
+    )
         internal
         view
         returns (ERC20Vault.CanonicalERC20 memory)

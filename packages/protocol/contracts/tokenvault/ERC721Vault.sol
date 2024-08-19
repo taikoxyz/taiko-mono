@@ -20,9 +20,9 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _addressManager The address of the {AddressManager} contract.
-    function init(address _owner, address _addressManager) external initializer {
-        __Essential_init(_owner, _addressManager);
+    /// @param _sharedAddressManager The address of the {AddressManager} contract.
+    function init(address _owner, address _sharedAddressManager) external initializer {
+        __Essential_init(_owner, _sharedAddressManager);
     }
 
     /// @notice Transfers ERC721 tokens to this vault and sends a message to the
@@ -30,7 +30,9 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     /// by invoking the message call.
     /// @param _op Option for sending the ERC721 token.
     /// @return message_ The constructed message.
-    function sendToken(BridgeTransferOp calldata _op)
+    function sendToken(
+        BridgeTransferOp calldata _op
+    )
         external
         payable
         whenNotPaused
@@ -81,7 +83,9 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     }
 
     /// @inheritdoc IMessageInvocable
-    function onMessageInvocation(bytes calldata _data)
+    function onMessageInvocation(
+        bytes calldata _data
+    )
         external
         payable
         whenNotPaused
@@ -190,7 +194,9 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     /// @param _op BridgeTransferOp data.
     /// @return msgData_ Encoded message data.
     /// @return ctoken_ The canonical token.
-    function _handleMessage(BridgeTransferOp calldata _op)
+    function _handleMessage(
+        BridgeTransferOp calldata _op
+    )
         private
         returns (bytes memory msgData_, CanonicalNFT memory ctoken_)
     {
@@ -224,7 +230,9 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     /// @dev Retrieve or deploy a bridged ERC721 token contract.
     /// @param _ctoken CanonicalNFT data.
     /// @return btoken_ Address of the bridged token contract.
-    function _getOrDeployBridgedToken(CanonicalNFT memory _ctoken)
+    function _getOrDeployBridgedToken(
+        CanonicalNFT memory _ctoken
+    )
         private
         returns (address btoken_)
     {
