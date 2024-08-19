@@ -54,7 +54,7 @@ library LibVerifying {
         local.blockId = local.b.lastVerifiedBlockId;
         local.slot = local.blockId % _config.blockRingBufferSize;
 
-        TaikoData.Block storage blk = _state.blocks[local.slot];
+        TaikoData.BlockV2 storage blk = _state.blocks[local.slot];
         if (blk.blockId != local.blockId) revert L1_BLOCK_MISMATCH();
 
         local.lastVerifiedTransitionId = blk.verifiedTransitionId;
@@ -194,7 +194,7 @@ library LibVerifying {
         view
         returns (address)
     {
-        (TaikoData.Block storage blk,) = LibUtils.getBlock(_state, _config, _blockId);
+        (TaikoData.BlockV2 storage blk,) = LibUtils.getBlockV2(_state, _config, _blockId);
 
         uint24 tid = blk.verifiedTransitionId;
         if (tid == 0) return address(0);

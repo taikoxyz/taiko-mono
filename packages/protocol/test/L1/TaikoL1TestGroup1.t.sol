@@ -23,7 +23,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
         uint256 proposedAt;
         {
             printBlockAndTrans(meta.id);
-            TaikoData.Block memory blk = L1.getBlock(meta.id);
+            TaikoData.BlockV2 memory blk = L1.getBlockV2(meta.id);
             assertEq(meta.minTier, LibTiers.TIER_OPTIMISTIC);
 
             assertEq(blk.nextTransitionId, 1);
@@ -67,7 +67,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
         {
             printBlockAndTrans(meta.id);
 
-            TaikoData.Block memory blk = L1.getBlock(meta.id);
+            TaikoData.BlockV2 memory blk = L1.getBlockV2(meta.id);
             assertEq(blk.nextTransitionId, 2);
             assertEq(blk.verifiedTransitionId, 0);
             assertEq(blk.proposedAt, proposedAt);
@@ -92,7 +92,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
         {
             printBlockAndTrans(meta.id);
 
-            TaikoData.Block memory blk = L1.getBlock(meta.id);
+            TaikoData.BlockV2 memory blk = L1.getBlockV2(meta.id);
             assertEq(blk.nextTransitionId, 2);
             assertEq(blk.verifiedTransitionId, 1);
             assertEq(blk.proposedAt, proposedAt);
@@ -130,7 +130,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
         uint256 proposedAt;
         {
             printBlockAndTrans(meta.id);
-            TaikoData.Block memory blk = L1.getBlock(meta.id);
+            TaikoData.BlockV2 memory blk = L1.getBlockV2(meta.id);
             assertEq(meta.minTier, LibTiers.TIER_OPTIMISTIC);
 
             assertEq(blk.nextTransitionId, 1);
@@ -162,7 +162,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
         {
             printBlockAndTrans(meta.id);
 
-            TaikoData.Block memory blk = L1.getBlock(meta.id);
+            TaikoData.BlockV2 memory blk = L1.getBlockV2(meta.id);
             assertEq(blk.nextTransitionId, 2);
             assertEq(blk.verifiedTransitionId, 0);
             assertEq(blk.proposedAt, proposedAt);
@@ -187,7 +187,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
         {
             printBlockAndTrans(meta.id);
 
-            TaikoData.Block memory blk = L1.getBlock(meta.id);
+            TaikoData.BlockV2 memory blk = L1.getBlockV2(meta.id);
             assertEq(blk.nextTransitionId, 2);
             assertEq(blk.verifiedTransitionId, 1);
             assertEq(blk.proposedAt, proposedAt);
@@ -242,7 +242,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
         {
             printBlockAndTrans(meta.id);
 
-            TaikoData.Block memory blk = L1.getBlock(meta.id);
+            TaikoData.BlockV2 memory blk = L1.getBlockV2(meta.id);
             assertEq(blk.nextTransitionId, 3);
             assertEq(blk.verifiedTransitionId, 2);
 
@@ -292,7 +292,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
         {
             printBlockAndTrans(meta.id);
 
-            TaikoData.Block memory blk = L1.getBlock(meta.id);
+            TaikoData.BlockV2 memory blk = L1.getBlockV2(meta.id);
             assertEq(blk.nextTransitionId, 3);
             assertEq(blk.verifiedTransitionId, 1);
 
@@ -342,7 +342,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
         {
             printBlockAndTrans(meta.id);
 
-            TaikoData.Block memory blk = L1.getBlock(meta.id);
+            TaikoData.BlockV2 memory blk = L1.getBlockV2(meta.id);
             assertEq(blk.nextTransitionId, 3);
             assertEq(blk.verifiedTransitionId, 2);
 
@@ -375,7 +375,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
         uint256 proposedAt;
         {
             printBlockAndTrans(meta.id);
-            TaikoData.Block memory blk = L1.getBlock(meta.id);
+            TaikoData.BlockV2 memory blk = L1.getBlockV2(meta.id);
             assertEq(meta.minTier, LibTiers.TIER_OPTIMISTIC);
 
             assertEq(blk.nextTransitionId, 1);
@@ -407,7 +407,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
         {
             printBlockAndTrans(meta.id);
 
-            TaikoData.Block memory blk = L1.getBlock(meta.id);
+            TaikoData.BlockV2 memory blk = L1.getBlockV2(meta.id);
             assertEq(blk.nextTransitionId, 2);
             assertEq(blk.verifiedTransitionId, 0);
             assertEq(blk.proposedAt, proposedAt);
@@ -434,7 +434,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
         {
             printBlockAndTrans(meta.id);
 
-            TaikoData.Block memory blk = L1.getBlock(meta.id);
+            TaikoData.BlockV2 memory blk = L1.getBlockV2(meta.id);
             assertEq(blk.nextTransitionId, 2);
             assertEq(blk.verifiedTransitionId, 1);
             assertEq(blk.proposedAt, proposedAt);
@@ -467,7 +467,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
         uint256 proposedAt;
         {
             printBlockAndTrans(meta.id);
-            TaikoData.Block memory blk = L1.getBlock(meta.id);
+            TaikoData.BlockV2 memory blk = L1.getBlockV2(meta.id);
             assertEq(meta.minTier, LibTiers.TIER_OPTIMISTIC);
 
             assertEq(blk.nextTransitionId, 1);

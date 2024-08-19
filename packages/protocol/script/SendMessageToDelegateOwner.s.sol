@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import "forge-std/src/Script.sol";
 import "../contracts/L2/DelegateOwner.sol";
 import "../contracts/bridge/IBridge.sol";
-import "../test/thirdparty/muticall3/Multicall3.sol";
+import "../test/thirdparty/Multicall3.sol";
 
 contract SendMessageToDelegateOwner is Script {
     address public delegateOwner = 0x5995941Df88F30Ac140515AA39832db963E2f863;

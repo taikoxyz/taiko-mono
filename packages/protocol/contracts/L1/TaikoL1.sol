@@ -158,9 +158,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     }
 
     /// @inheritdoc ITaikoL1
-    function verifyBlocks(
-        uint64 _maxBlocksToVerify
-    )
+    function verifyBlocks(uint64 _maxBlocksToVerify)
         external
         whenNotPaused
         whenProvingNotPaused
@@ -201,8 +199,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     /// @notice Gets the details of a block.
     /// @param _blockId Index of the block.
     /// @return blk_ The block.
-    function getBlock(uint64 _blockId) external view returns (TaikoData.Block memory blk_) {
-        (blk_,) = LibUtils.getBlock(state, getConfig(), _blockId);
+    function getBlockV2(uint64 _blockId) external view returns (TaikoData.BlockV2 memory blk_) {
+        (blk_,) = LibUtils.getBlockV2(state, getConfig(), _blockId);
     }
 
     /// @notice Gets the state transition for a specific block.
@@ -282,7 +280,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     }
 
     /// @inheritdoc ITaikoL1
-    function getConfig() public pure virtual override returns (TaikoData.Config memory) {
+    function getConfig() public pure virtual returns (TaikoData.Config memory) {
         return TaikoData.Config({
             chainId: LibNetwork.TAIKO_MAINNET,
             blockMaxProposals: 324_000, // = 7200 * 45
@@ -316,7 +314,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         internal
         returns (TaikoData.BlockMetadataV2 memory meta_)
     {
-        (meta_,) = LibProposing.proposeBlock(state, _config, this, _params, _txList);
+        meta_ = LibProposing.proposeBlock(state, _config, this, _params, _txList);
 
         if (LibUtils.shouldVerifyBlocks(_config, meta_.id, true) && !state.slotB.provingPaused) {
             LibVerifying.verifyBlocks(state, _config, this, _config.maxBlocksToVerify);

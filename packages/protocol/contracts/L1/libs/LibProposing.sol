@@ -46,7 +46,6 @@ library LibProposing {
     /// @param _data Encoded data bytes containing the block params.
     /// @param _txList Transaction list bytes (if not blob).
     /// @return meta_ The constructed block's metadata v2.
-    /// @return deposits_ An empty ETH deposit array.
     function proposeBlock(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
@@ -55,7 +54,7 @@ library LibProposing {
         bytes calldata _txList
     )
         public
-        returns (TaikoData.BlockMetadataV2 memory meta_, TaikoData.EthDeposit[] memory deposits_)
+        returns (TaikoData.BlockMetadataV2 memory meta_)
     {
         // Checks proposer access.
         Local memory local;
@@ -85,7 +84,7 @@ library LibProposing {
         }
 
         // Verify params against the parent block.
-        TaikoData.Block storage parentBlk =
+        TaikoData.BlockV2 storage parentBlk =
             _state.blocks[(local.b.numBlocks - 1) % _config.blockRingBufferSize];
 
         // Verify the passed in L1 state block number.
@@ -174,10 +173,10 @@ library LibProposing {
         );
 
         // Use the difficulty as a random number
-        meta_.minTier = local.tierProvider.getMinTier(uint256(meta_.difficulty));
+        meta_.minTier = local.tierProvider.getMinTier(meta_.proposer, uint256(meta_.difficulty));
 
         // Create the block that will be stored onchain
-        TaikoData.Block memory blk = TaikoData.Block({
+        TaikoData.BlockV2 memory blk = TaikoData.BlockV2({
             metaHash: keccak256(abi.encode(meta_)),
             assignedProver: address(0),
             livenessBond: 0,
@@ -207,8 +206,6 @@ library LibProposing {
             address(block.coinbase).sendEtherAndVerify(msg.value);
         }
 
-        deposits_ = new TaikoData.EthDeposit[](0);
-
         emit BlockProposedV2(meta_.id, meta_);
     }
 
@@ -226,9 +223,7 @@ library LibProposing {
     /// @dev Encodes the base fee configuration.
     /// @param _baseFeeConfig The base fee configuration to encode.
     /// @return The encoded base fee configuration as a bytes32 value.
-    function _encodeBaseFeeConfig(
-        TaikoData.BaseFeeConfig memory _baseFeeConfig
-    )
+    function _encodeBaseFeeConfig(TaikoData.BaseFeeConfig memory _baseFeeConfig)
         private
         pure
         returns (bytes32)

@@ -6,6 +6,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -29,7 +31,8 @@ type State struct {
 	l1Current     atomic.Value // Current L1 block sync cursor
 
 	// Constants
-	GenesisL1Height *big.Int
+	GenesisL1Height  *big.Int
+	OnTakeForkHeight *big.Int
 
 	// RPC clients
 	rpc *rpc.Client
@@ -64,6 +67,9 @@ func (s *State) init(ctx context.Context) error {
 
 	log.Info("Genesis L1 height", "height", stateVars.A.GenesisHeight)
 	s.GenesisL1Height = new(big.Int).SetUint64(stateVars.A.GenesisHeight)
+
+	s.OnTakeForkHeight = new(big.Int).SetUint64(encoding.GetProtocolConfig(s.rpc.L2.ChainID.Uint64()).OntakeForkHeight)
+	log.Info("OnTake fork height", "L2 height", s.OnTakeForkHeight)
 
 	// Set the L2 head's latest known L1 origin as current L1 sync cursor.
 	latestL2KnownL1Header, err := s.rpc.LatestL2KnownL1Header(ctx)
@@ -232,4 +238,12 @@ func (s *State) GetHeadBlockID() *big.Int {
 // SubL1HeadsFeed registers a subscription of new L1 heads.
 func (s *State) SubL1HeadsFeed(ch chan *types.Header) event.Subscription {
 	return s.l1HeadsFeed.Subscribe(ch)
+}
+
+// IsOnTake returns whether num is either equal to the ontake block or greater.
+func (s *State) IsOnTake(num *big.Int) bool {
+	if s.OnTakeForkHeight == nil || num == nil {
+		return false
+	}
+	return s.OnTakeForkHeight.Cmp(num) <= 0
 }

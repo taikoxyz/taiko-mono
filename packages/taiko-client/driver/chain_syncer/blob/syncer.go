@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"time"
 
+	v2 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v2"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/beacon/engine"
@@ -625,7 +627,14 @@ func (s *Syncer) retrievePastBlock(
 		currentBlockID = 0
 	}
 
-	blockInfo, err := s.rpc.GetL2BlockInfo(ctx, new(big.Int).SetUint64(currentBlockID))
+	blockNum := new(big.Int).SetUint64(currentBlockID)
+	var blockInfo v2.TaikoDataBlock
+	if s.state.IsOnTake(blockNum) {
+		blockInfo, err = s.rpc.GetL2BlockInfoV2(ctx, blockNum)
+	} else {
+		blockInfo, err = s.rpc.GetL2BlockInfo(ctx, blockNum)
+	}
+
 	if err != nil {
 		return nil, err
 	}

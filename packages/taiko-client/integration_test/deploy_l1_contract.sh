@@ -12,7 +12,7 @@ echo "Deploying contracts 2"
 
 cd ../protocol &&
   forge script script/DeployOnL1.s.sol:DeployOnL1 \
-    --fork-url "$L1_NODE_HTTP_ENDPOINT" \
+    --fork-url "$L1_HTTP" \
     --broadcast \
     --ffi \
     -vvvvv \

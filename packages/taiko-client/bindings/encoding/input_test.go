@@ -27,7 +27,7 @@ func TestUnpackTxListBytes(t *testing.T) {
 	)
 	require.ErrorContains(t, err, "no method with id")
 
-	cli, err := ethclient.Dial(os.Getenv("L1_NODE_WS_ENDPOINT"))
+	cli, err := ethclient.Dial(os.Getenv("L1_WS"))
 	require.Nil(t, err)
 
 	chainID, err := cli.ChainID(context.Background())

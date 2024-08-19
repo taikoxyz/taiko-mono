@@ -425,6 +425,18 @@ func (c *Client) GetL2BlockInfo(ctx context.Context, blockID *big.Int) (v2.Taiko
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
+	blockInfo, err := c.V1.TaikoL1.GetBlock(&bind.CallOpts{Context: ctxWithTimeout}, blockID.Uint64())
+	if err != nil {
+		return v2.TaikoDataBlock{}, err
+	}
+	return *encoding.TaikoDataBlockToV2(&blockInfo), nil
+}
+
+// GetL2BlockInfoV2 fetches the V2 L2 block information from the protocol.
+func (c *Client) GetL2BlockInfoV2(ctx context.Context, blockID *big.Int) (v2.TaikoDataBlock, error) {
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
+	defer cancel()
+
 	return c.V2.TaikoL1.GetBlock(&bind.CallOpts{Context: ctxWithTimeout}, blockID.Uint64())
 }
 

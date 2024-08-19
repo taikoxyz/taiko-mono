@@ -15,17 +15,11 @@ import (
 var (
 	TierOptimisticID       uint16 = 100
 	TierSgxID              uint16 = 200
+	TierZkVMRisc0ID        uint16 = 290
 	TierSgxAndZkVMID       uint16 = 300
 	TierGuardianMinorityID uint16 = 900
 	TierGuardianMajorityID uint16 = 1000
-	ProtocolTiers                 = []uint16{
-		TierOptimisticID,
-		TierSgxID,
-		TierSgxAndZkVMID,
-		TierGuardianMinorityID,
-		TierGuardianMajorityID,
-	}
-	GoldenTouchPrivKey = "92954368afd3caa1f3ce3ead0069c1af414054aefe1ef9aeacc1bf426222ce38"
+	GoldenTouchPrivKey            = "92954368afd3caa1f3ce3ead0069c1af414054aefe1ef9aeacc1bf426222ce38"
 )
 
 // HookCall should be same with TaikoData.HookCall
@@ -139,6 +133,21 @@ func BlockVerifiedEventToV2(e *v1.TaikoL1ClientBlockVerified) *v2.TaikoL1ClientB
 		BlockHash: e.BlockHash,
 		Tier:      e.Tier,
 		Raw:       e.Raw,
+	}
+}
+
+// BlockVerifiedEventToV2 converts a *bindings.TaikoDataBlock to *bindings.TaikoDataBlockV2.
+func TaikoDataBlockToV2(b *v1.TaikoDataBlock) *v2.TaikoDataBlock {
+	return &v2.TaikoDataBlock{
+		MetaHash:             b.MetaHash,
+		AssignedProver:       b.AssignedProver,
+		LivenessBond:         b.LivenessBond,
+		BlockId:              b.BlockId,
+		ProposedAt:           b.ProposedAt,
+		ProposedIn:           b.ProposedIn,
+		NextTransitionId:     big.NewInt(int64(b.NextTransitionId)),
+		LivenessBondReturned: false,
+		VerifiedTransitionId: big.NewInt(int64(b.VerifiedTransitionId)),
 	}
 }
 
