@@ -354,7 +354,7 @@ func (p *Proposer) ProposeTxList(
 	)
 
 	if p.IncludeParentMetaHash {
-		parentMetaHash, err = getParentMetaHash(ctx, p.rpc)
+		parentMetaHash, err = getParentMetaHash(ctx, p.rpc, new(big.Int).SetUint64(p.protocolConfigs.OntakeForkHeight))
 		if err != nil {
 			return err
 		}
@@ -414,16 +414,31 @@ func (p *Proposer) Name() string {
 }
 
 // getParentMetaHash returns the meta hash of the parent block of the latest proposed block in protocol.
-func getParentMetaHash(ctx context.Context, rpc *rpc.Client) (common.Hash, error) {
+func getParentMetaHash(ctx context.Context, rpc *rpc.Client, forkHeight *big.Int) (common.Hash, error) {
 	state, err := rpc.V2.TaikoL1.State(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return common.Hash{}, err
 	}
 
-	parent, err := rpc.GetL2BlockInfo(ctx, new(big.Int).SetUint64(state.SlotB.NumBlocks-1))
+	blockNum := new(big.Int).SetUint64(state.SlotB.NumBlocks - 1)
+	var parent v2.TaikoDataBlockV2
+	if isBlockForked(forkHeight, blockNum) {
+		parent, err = rpc.GetL2BlockInfoV2(ctx, blockNum)
+	} else {
+		parent, err = rpc.GetL2BlockInfo(ctx, blockNum)
+	}
 	if err != nil {
 		return common.Hash{}, err
 	}
 
 	return parent.MetaHash, nil
+}
+
+// isBlockForked returns whether a fork scheduled at block s is active at the
+// given head block.
+func isBlockForked(s, head *big.Int) bool {
+	if s == nil || head == nil {
+		return false
+	}
+	return s.Cmp(head) <= 0
 }

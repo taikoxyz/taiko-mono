@@ -289,7 +289,6 @@ func (c *Client) GetPoolContent(
 		return nil, err
 	}
 
-	// TODO: method no longer exists on V2, what to do here?
 	baseFeeInfo, err := c.V1.TaikoL2.GetBasefee(
 		&bind.CallOpts{Context: ctx},
 		l1Head.Number.Uint64(),

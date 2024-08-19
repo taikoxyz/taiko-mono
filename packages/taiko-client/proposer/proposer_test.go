@@ -285,7 +285,7 @@ func (s *ProposerTestSuite) TestStartClose() {
 }
 
 func (s *ProposerTestSuite) TestGetParentMetaHash() {
-	metahash, err := getParentMetaHash(context.Background(), s.RPCClient)
+	metahash, err := getParentMetaHash(context.Background(), s.RPCClient, big.NewInt(0))
 	s.Nil(err)
 	s.NotEmpty(metahash)
 }
