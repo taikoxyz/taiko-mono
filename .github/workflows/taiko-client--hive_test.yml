@@ -5,9 +5,6 @@ on:
     branches: [update_contract_txs_]
     paths:
       - "packages/taiko-client/**"
-  pull_request:
-    paths:
-      - "packages/taiko-client/**"
       - "go.mod"
       - "go.sum"
 
