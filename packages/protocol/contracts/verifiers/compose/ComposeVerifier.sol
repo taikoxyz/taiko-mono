@@ -54,13 +54,17 @@ abstract contract ComposeVerifier is IVerifier {
                 }
             }
 
-            try IVerifier(subproofs[i].verifier).verifyProof(
-                _ctx, _tran, TaikoData.TierProof(_proof.tier, subproofs[i].proof)
-            ) {
+            (bool success,) = subproofs[i].verifier.call(
+                abi.encodeCall(
+                    IVerifier.verifyProof,
+                    (_ctx, _tran, TaikoData.TierProof(_proof.tier, subproofs[i].proof))
+                )
+            );
+            if (success) {
                 unchecked {
                     numSuccesses += 1;
                 }
-            } catch { }
+            }
         }
 
         if (numSuccesses < threshold) {
