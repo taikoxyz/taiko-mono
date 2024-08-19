@@ -5,15 +5,15 @@ import "../../TaikoTest.sol";
 import "../../../contracts/verifiers/compose/ComposeVerifier.sol";
 
 contract ComposeVerifierWithMode is ComposeVerifier {
-    Mode private mode;
+    uint256 private threshold;
     address[] private verifiers;
 
-    function setMode(Mode _mode) external {
-        mode = _mode;
+    function setThreshold(uint256 _threshold) external {
+        threshold = _threshold;
     }
 
-    function getMode() public view override returns (Mode) {
-        return mode;
+    function getThreshold(uint256) public view override returns (uint256) {
+        return threshold;
     }
 
     function getSubVerifiers() public view override returns (address[] memory) {
@@ -76,7 +76,7 @@ contract ComposeVerifierTest is TaikoTest {
     }
 
     function test_composeVerifeir_All() public {
-        composeVerifier.setMode(ComposeVerifier.Mode.ALL);
+        composeVerifier.setThreshold(3);
 
         // Expect the verification to fail because not all verifiers succeed
         vm.expectRevert(ComposeVerifier.INSUFFICIENT_PROOF.selector);
@@ -84,12 +84,12 @@ contract ComposeVerifierTest is TaikoTest {
     }
 
     function test_composeVerifeir_Majority() public {
-        composeVerifier.setMode(ComposeVerifier.Mode.MAJORITY);
+        composeVerifier.setThreshold(2);
         composeVerifier.verifyProof(ctx, tran, proof);
     }
 
     function test_composeVerifeir_One() public {
-        composeVerifier.setMode(ComposeVerifier.Mode.ONE);
+        composeVerifier.setThreshold(1);
         composeVerifier.verifyProof(ctx, tran, proof);
     }
 }

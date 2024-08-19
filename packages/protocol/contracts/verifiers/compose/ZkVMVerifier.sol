@@ -36,7 +36,7 @@ contract ZkVMVerifier is ComposeVerifier {
     }
 
     /// @inheritdoc ComposeVerifier
-    function getMode() public pure override returns (Mode) {
-        return Mode.ONE;
+    function getThreshold(uint256 /*_numSubVerifiers*/ ) public view override returns (uint256) {
+        return 1;
     }
 }

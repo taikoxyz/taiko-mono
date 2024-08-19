@@ -10,12 +10,6 @@ import "../IVerifier.sol";
 /// considering the overall proof as valid.
 /// @custom:security-contact security@taiko.xyz
 abstract contract ComposeVerifier is IVerifier {
-    enum Mode {
-        ALL,
-        ONE,
-        MAJORITY
-    }
-
     struct SubProof {
         address verifier;
         bytes proof;
@@ -69,7 +63,7 @@ abstract contract ComposeVerifier is IVerifier {
             } catch { }
         }
 
-        if (numSuccesses < _getThreshold(verifiers.length)) {
+        if (numSuccesses < getThreshold(verifiers.length)) {
             revert INSUFFICIENT_PROOF();
         }
     }
@@ -78,17 +72,8 @@ abstract contract ComposeVerifier is IVerifier {
     /// @return An array of addresses of sub-verifiers.
     function getSubVerifiers() public view virtual returns (address[] memory);
 
-    /// @notice Returns the mode of the verifier.
-    /// @return The mode of the verifier.
-    function getMode() public view virtual returns (Mode);
-
     /// @notice Calculates the threshold based on the number of sub-verifiers and the mode.
     /// @param _numSubVerifiers The number of sub-verifiers.
     /// @return The threshold number of successful verifications required.
-    function _getThreshold(uint256 _numSubVerifiers) private view returns (uint256) {
-        Mode mode = getMode();
-        if (mode == Mode.ALL) return _numSubVerifiers;
-        else if (mode == Mode.ONE) return 1;
-        else return _numSubVerifiers / 2 + 1;
-    }
+    function getThreshold(uint256 _numSubVerifiers) public view virtual returns (uint256);
 }
