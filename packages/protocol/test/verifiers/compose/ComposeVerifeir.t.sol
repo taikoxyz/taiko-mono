@@ -68,9 +68,9 @@ contract ComposeVerifierTest is TaikoTest {
         composeVerifier.addSubVerifier(verifier3);
 
         ComposeVerifier.SubProof[] memory subProofs = new ComposeVerifier.SubProof[](3);
-        subProofs[0] = ComposeVerifier.SubProof({ verifier: verifier1, proof: "" });
-        subProofs[1] = ComposeVerifier.SubProof({ verifier: verifier2, proof: "" });
-        subProofs[2] = ComposeVerifier.SubProof({ verifier: verifier3, proof: "" });
+        subProofs[0] = ComposeVerifier.SubProof(verifier1, "");
+        subProofs[1] = ComposeVerifier.SubProof(verifier2, "");
+        subProofs[2] = ComposeVerifier.SubProof(verifier3, "");
 
         proof = TaikoData.TierProof({ tier: 1, data: abi.encode(subProofs) });
     }
