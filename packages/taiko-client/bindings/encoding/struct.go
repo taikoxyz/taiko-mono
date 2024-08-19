@@ -125,6 +125,21 @@ func BlockVerifiedEventToV2(e *bindings.TaikoL1ClientBlockVerified) *bindings.Ta
 	}
 }
 
+// BlockVerifiedEventToV2 converts a *bindings.TaikoDataBlock to *bindings.TaikoDataBlockV2.
+func TaikoDataBlockToV2(b *bindings.TaikoDataBlock) *bindings.TaikoDataBlockV2 {
+	return &bindings.TaikoDataBlockV2{
+		MetaHash:             b.MetaHash,
+		AssignedProver:       b.AssignedProver,
+		LivenessBond:         b.LivenessBond,
+		BlockId:              b.BlockId,
+		ProposedAt:           b.ProposedAt,
+		ProposedIn:           b.ProposedIn,
+		NextTransitionId:     big.NewInt(int64(b.NextTransitionId)),
+		LivenessBondReturned: false,
+		VerifiedTransitionId: big.NewInt(int64(b.VerifiedTransitionId)),
+	}
+}
+
 // BloomToBytes converts a types.Bloom to [8][32]byte slice.
 func BloomToBytes(bloom types.Bloom) [8][32]byte {
 	b := [8][32]byte{}

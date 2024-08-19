@@ -63,7 +63,7 @@ func (b *CalldataTransactionBuilder) Build(
 		err            error
 	)
 	if includeParentMetaHash {
-		if parentMetaHash, err = getParentMetaHash(ctx, b.rpc); err != nil {
+		if parentMetaHash, err = getParentMetaHash(ctx, b.rpc, b.chainConfig.OnTakeBlock); err != nil {
 			return nil, err
 		}
 	}

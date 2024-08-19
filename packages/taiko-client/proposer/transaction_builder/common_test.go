@@ -53,7 +53,7 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 }
 
 func (s *TransactionBuilderTestSuite) TestGetParentMetaHash() {
-	metahash, err := getParentMetaHash(context.Background(), s.RPCClient)
+	metahash, err := getParentMetaHash(context.Background(), s.RPCClient, s.calldataTxBuilder.chainConfig.OnTakeBlock)
 	s.Nil(err)
 	s.NotEmpty(metahash)
 }
