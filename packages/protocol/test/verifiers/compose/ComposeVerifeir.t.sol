@@ -12,12 +12,13 @@ contract ComposeVerifierWithMode is ComposeVerifier {
         threshold = _threshold;
     }
 
-    function getThreshold(uint256) public view override returns (uint256) {
-        return threshold;
-    }
-
-    function getSubVerifiers() public view override returns (address[] memory) {
-        return verifiers;
+    function getSubVerifiersAndThreshold()
+        public
+        view
+        override
+        returns (address[] memory, uint256)
+    {
+        return (verifiers, threshold);
     }
 
     function addSubVerifier(address _verifier) external {

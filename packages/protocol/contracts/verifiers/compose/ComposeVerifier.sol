@@ -28,7 +28,7 @@ abstract contract ComposeVerifier is IVerifier {
     )
         external
     {
-        address[] memory verifiers = getSubVerifiers();
+        (address[] memory verifiers, uint256 threshold) = getSubVerifiersAndThreshold();
 
         for (uint256 i; i < verifiers.length; ++i) {
             // Store the value 1 in the temporary storage slot using inline assembly
@@ -63,17 +63,17 @@ abstract contract ComposeVerifier is IVerifier {
             } catch { }
         }
 
-        if (numSuccesses < getThreshold(verifiers.length)) {
+        if (numSuccesses < threshold) {
             revert INSUFFICIENT_PROOF();
         }
     }
 
-    /// @notice Returns the list of sub-verifiers.
-    /// @return An array of addresses of sub-verifiers.
-    function getSubVerifiers() public view virtual returns (address[] memory);
-
-    /// @notice Calculates the threshold based on the number of sub-verifiers and the mode.
-    /// @param _numSubVerifiers The number of sub-verifiers.
-    /// @return The threshold number of successful verifications required.
-    function getThreshold(uint256 _numSubVerifiers) public view virtual returns (uint256);
+    /// @notice Returns the list of sub-verifiers and calculates the threshold.
+    /// @return verifiers_ An array of addresses of sub-verifiers.
+    /// @return threshold_ The threshold number of successful verifications required.
+    function getSubVerifiersAndThreshold()
+        public
+        view
+        virtual
+        returns (address[] memory verifiers_, uint256 threshold_);
 }

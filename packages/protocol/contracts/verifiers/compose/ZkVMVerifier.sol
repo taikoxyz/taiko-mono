@@ -29,14 +29,15 @@ contract ZkVMVerifier is ComposeVerifier {
     }
 
     /// @inheritdoc ComposeVerifier
-    function getSubVerifiers() public view override returns (address[] memory verifiers_) {
+    function getSubVerifiersAndThreshold()
+        public
+        view
+        override
+        returns (address[] memory verifiers_, uint256 threshold_)
+    {
         verifiers_ = new address[](2);
         verifiers_[0] = risc0Verifier();
         verifiers_[1] = sp1Verifier();
-    }
-
-    /// @inheritdoc ComposeVerifier
-    function getThreshold(uint256 /*_numSubVerifiers*/ ) public view override returns (uint256) {
-        return 1;
+        threshold_ = 1;
     }
 }
