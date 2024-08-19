@@ -32,7 +32,9 @@ contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20 {
         _mint(_account, _amount);
     }
 
-    function burn(uint256 _amount)
+    function burn(
+        uint256 _amount
+    )
         external
         override
         whenNotPaused

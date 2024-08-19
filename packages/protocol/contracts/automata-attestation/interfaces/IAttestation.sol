@@ -7,7 +7,9 @@ import { V3Struct } from "../lib/QuoteV3Auth/V3Struct.sol";
 /// @custom:security-contact security@taiko.xyz
 interface IAttestation {
     function verifyAttestation(bytes calldata data) external returns (bool);
-    function verifyParsedQuote(V3Struct.ParsedV3QuoteStruct calldata v3quote)
+    function verifyParsedQuote(
+        V3Struct.ParsedV3QuoteStruct calldata v3quote
+    )
         external
         returns (bool success, bytes memory retData);
 }
