@@ -1,0 +1,95 @@
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.24;
+
+import "../../TaikoTest.sol";
+import "../../../contracts/verifiers/compose/ComposeVerifier.sol";
+
+contract ComposeVerifierWithMode is ComposeVerifier {
+    Mode private mode;
+    address[] private verifiers;
+
+    function setMode(Mode _mode) external {
+        mode = _mode;
+    }
+
+    function getMode() public view override returns (Mode) {
+        return mode;
+    }
+
+    function getSubVerifiers() public view override returns (address[] memory) {
+        return verifiers;
+    }
+
+    function addSubVerifier(address _verifier) external {
+        verifiers.push(_verifier);
+    }
+}
+
+contract MockVerifier is IVerifier {
+    bool private shouldSucceed;
+
+    constructor(bool _shouldSucceed) {
+        shouldSucceed = _shouldSucceed;
+    }
+
+    function verifyProof(
+        Context calldata,
+        TaikoData.Transition calldata,
+        TaikoData.TierProof calldata
+    )
+        external
+        view
+        override
+    {
+        if (!shouldSucceed) {
+            revert("MockVerifier: Verification failed");
+        }
+    }
+}
+
+contract ComposeVerifierTest is TaikoTest {
+    ComposeVerifierWithMode private composeVerifier;
+
+    IVerifier.Context private ctx;
+    TaikoData.Transition private tran;
+    TaikoData.TierProof proof;
+    address private verifier1;
+    address private verifier2;
+    address private verifier3;
+
+    function setUp() public {
+        verifier1 = address(new MockVerifier(true));
+        verifier2 = address(new MockVerifier(false));
+        verifier3 = address(new MockVerifier(true));
+
+        composeVerifier = new ComposeVerifierWithMode();
+        composeVerifier.addSubVerifier(verifier1);
+        composeVerifier.addSubVerifier(verifier2);
+        composeVerifier.addSubVerifier(verifier3);
+
+        ComposeVerifier.SubProof[] memory subProofs = new ComposeVerifier.SubProof[](3);
+        subProofs[0] = ComposeVerifier.SubProof({ verifier: verifier1, proof: "" });
+        subProofs[1] = ComposeVerifier.SubProof({ verifier: verifier2, proof: "" });
+        subProofs[2] = ComposeVerifier.SubProof({ verifier: verifier3, proof: "" });
+
+        proof = TaikoData.TierProof({ tier: 1, data: abi.encode(subProofs) });
+    }
+
+    function test_composeVerifeir_All() public {
+        composeVerifier.setMode(ComposeVerifier.Mode.ALL);
+
+        // Expect the verification to fail because not all verifiers succeed
+        vm.expectRevert(ComposeVerifier.INSUFFICIENT_PROOF.selector);
+        composeVerifier.verifyProof(ctx, tran, proof);
+    }
+
+    function test_composeVerifeir_Majority() public {
+        composeVerifier.setMode(ComposeVerifier.Mode.MAJORITY);
+        composeVerifier.verifyProof(ctx, tran, proof);
+    }
+
+    function test_composeVerifeir_One() public {
+        composeVerifier.setMode(ComposeVerifier.Mode.ONE);
+        composeVerifier.verifyProof(ctx, tran, proof);
+    }
+}
