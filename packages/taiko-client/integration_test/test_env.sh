@@ -7,7 +7,7 @@ source scripts/common.sh
 DEPLOYMENT_JSON=$(cat ../protocol/deployments/deploy_l1.json)
 export TAIKO_L1_ADDRESS=$(echo "$DEPLOYMENT_JSON" | jq '.taiko' | sed 's/\"//g')
 export TAIKO_L2_ADDRESS=0x1670010000000000000000000000000000010001
-export TAIKO_TOKEN=$(echo "$DEPLOYMENT_JSON" | jq '.taiko_token' | sed 's/\"//g')
+export TAIKO_TOKEN_ADDRESS=$(echo "$DEPLOYMENT_JSON" | jq '.taiko_token' | sed 's/\"//g')
 export SEQUENCER_REGISTRY_ADDRESS=$(echo "$DEPLOYMENT_JSON" | jq '.sequencer_registry' | sed 's/\"//g')
 export TIMELOCK_CONTROLLER=$(echo "$DEPLOYMENT_JSON" | jq '.timelock_controller' | sed 's/\"//g')
 export GUARDIAN_PROVER_CONTRACT=$(echo "$DEPLOYMENT_JSON" | jq '.guardian_prover' | sed 's/\"//g')
@@ -31,7 +31,7 @@ L2_WS=$L2_WS
 L2_AUTH=$L2_AUTH
 TAIKO_L1_ADDRESS=$TAIKO_L1_ADDRESS
 TAIKO_L2_ADDRESS=$TAIKO_L2_ADDRESS
-TAIKO_TOKEN=$TAIKO_TOKEN
+TAIKO_TOKEN_ADDRESS=$TAIKO_TOKEN
 TIMELOCK_CONTROLLER=$TIMELOCK_CONTROLLER
 SEQUENCER_REGISTRY_ADDRESS=$SEQUENCER_REGISTRY_ADDRESS
 GUARDIAN_PROVER_CONTRACT=$GUARDIAN_PROVER_CONTRACT
