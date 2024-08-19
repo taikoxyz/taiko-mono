@@ -40,7 +40,7 @@ abstract contract ComposeVerifier is IVerifier {
             // Store the value 1 in the temporary storage slot using inline assembly
             uint256 slot = uint256(uint160(verifiers[i]));
             assembly {
-                sstore(slot, 1)
+                tstore(slot, 1)
             }
         }
 
