@@ -11,12 +11,12 @@ contract MainnetZkVMVerifier is ZkVMVerifier {
     /// @inheritdoc ZkVMVerifier
     // TODO(daniel|smtm): Add RiscZero verifier
     function risc0Verifier() public pure override returns (address) {
-        return address(0x1);
+        revert("not implemented");
     }
 
     /// @inheritdoc ZkVMVerifier
     // TODO(daniel|smtm): Add RiscZero verifier
     function sp1Verifier() public pure override returns (address) {
-        return address(0x2);
+        revert("not implemented");
     }
 }
