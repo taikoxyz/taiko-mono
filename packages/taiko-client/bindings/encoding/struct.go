@@ -137,8 +137,8 @@ func BlockVerifiedEventToV2(e *v1.TaikoL1ClientBlockVerified) *v2.TaikoL1ClientB
 }
 
 // BlockVerifiedEventToV2 converts a *bindings.TaikoDataBlock to *bindings.TaikoDataBlockV2.
-func TaikoDataBlockToV2(b *v1.TaikoDataBlock) *v2.TaikoDataBlock {
-	return &v2.TaikoDataBlock{
+func TaikoDataBlockToV2(b *v1.TaikoDataBlock) *v2.TaikoDataBlockV2 {
+	return &v2.TaikoDataBlockV2{
 		MetaHash:             b.MetaHash,
 		AssignedProver:       b.AssignedProver,
 		LivenessBond:         b.LivenessBond,
