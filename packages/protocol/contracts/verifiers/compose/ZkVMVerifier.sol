@@ -18,21 +18,21 @@ contract ZkVMVerifier is ComposeVerifier {
 
     /// @notice Returns the address of the Risc0 verifier.
     /// @return The address of the Risc0 verifier.
-    function getRisc0Verifier() public view virtual returns (address) {
+    function risc0Verifier() public view virtual returns (address) {
         return _RISK_ZERO_VERIFIER;
     }
 
     /// @notice Returns the address of the SP1 verifier.
     /// @return The address of the SP1 verifier.
-    function getSp1Verifier() public view virtual returns (address) {
+    function sp1Verifier() public view virtual returns (address) {
         return _SP1_VERIFIER;
     }
 
     /// @inheritdoc ComposeVerifier
     function getSubVerifiers() public view override returns (address[] memory verifiers_) {
         verifiers_ = new address[](2);
-        verifiers_[0] = getRisc0Verifier();
-        verifiers_[1] = getSp1Verifier();
+        verifiers_[0] = risc0Verifier();
+        verifiers_[1] = sp1Verifier();
     }
 
     /// @inheritdoc ComposeVerifier

@@ -10,13 +10,13 @@ contract MainnetZkVMVerifier is ZkVMVerifier {
 
     /// @inheritdoc ZkVMVerifier
     // TODO(daniel|smtm): Add RiscZero verifier
-    function getRisc0Verifier() public pure override returns (address) {
+    function risc0Verifier() public pure override returns (address) {
         return address(0x1);
     }
 
     /// @inheritdoc ZkVMVerifier
     // TODO(daniel|smtm): Add RiscZero verifier
-    function getSp1Verifier() public pure override returns (address) {
+    function sp1Verifier() public pure override returns (address) {
         return address(0x2);
     }
 }
