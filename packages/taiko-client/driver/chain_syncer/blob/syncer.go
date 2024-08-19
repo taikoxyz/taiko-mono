@@ -628,7 +628,7 @@ func (s *Syncer) retrievePastBlock(
 	}
 
 	blockNum := new(big.Int).SetUint64(currentBlockID)
-	var blockInfo v2.TaikoDataBlock
+	var blockInfo v2.TaikoDataBlockV2
 	if s.state.IsOnTake(blockNum) {
 		blockInfo, err = s.rpc.GetL2BlockInfoV2(ctx, blockNum)
 	} else {
@@ -665,7 +665,7 @@ func (s *Syncer) retrievePastBlock(
 					currentBlockID,
 				)
 				// Can't find l1Origin in L2 EE, so we call the contract to get block info
-				blockInfo, err := s.rpc.V2.TaikoL1.GetBlock(&bind.CallOpts{Context: ctx}, currentBlockID)
+				blockInfo, err := s.rpc.V2.TaikoL1.GetBlockV2(&bind.CallOpts{Context: ctx}, currentBlockID)
 				if err != nil {
 					return nil, err
 				}

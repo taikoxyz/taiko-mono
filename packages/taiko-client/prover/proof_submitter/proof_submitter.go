@@ -90,7 +90,7 @@ func NewProofSubmitter(
 // RequestProof implements the Submitter interface.
 func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBlockMetaData) error {
 	var (
-		blockInfo v2.TaikoDataBlock
+		blockInfo v2.TaikoDataBlockV2
 	)
 
 	header, err := s.rpc.WaitL2Header(ctx, meta.GetBlockID())

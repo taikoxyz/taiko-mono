@@ -48,7 +48,7 @@ func (s *State) ResetL1Current(ctx context.Context, blockID *big.Int) error {
 
 	// Fetch the block info from TaikoL1 contract, and set the L1 height.
 	var (
-		blockInfo v2.TaikoDataBlock
+		blockInfo v2.TaikoDataBlockV2
 		err       error
 	)
 	if s.IsOnTake(blockID) {

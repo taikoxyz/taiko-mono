@@ -107,7 +107,7 @@ func (s *Syncer) getBlockPayload(ctx context.Context, blockID uint64) (*engine.E
 	// If the sync mode is `full`, we need to verify the protocol verified block hash before syncing.
 	if s.syncMode == downloader.FullSync.String() {
 		blockNum := new(big.Int).SetUint64(blockID)
-		var blockInfo v2.TaikoDataBlock
+		var blockInfo v2.TaikoDataBlockV2
 		if s.state.IsOnTake(blockNum) {
 			blockInfo, err = s.rpc.GetL2BlockInfoV2(ctx, blockNum)
 		} else {
