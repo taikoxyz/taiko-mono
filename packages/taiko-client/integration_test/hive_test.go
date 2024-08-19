@@ -10,7 +10,7 @@ import (
 )
 
 func TestHiveHandler(t *testing.T) {
-	baseDir := os.Getenv("HIVE_BASE_DIR")
+	baseDir := os.Getenv("HIVE_DIR")
 	if baseDir == "" {
 		t.SkipNow()
 	}
