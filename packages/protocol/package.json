@@ -19,7 +19,7 @@
     "export:simconf": "mkdir -p simulation/out && forge test --match-test 'test_L2_NoFeeCheck_simulation' -vv > simulation/out/simconf_$(date +%s).txt"
   },
   "devDependencies": {
-    "@types/node": "^20.11.30",
+    "@types/node": "^22.4.1",
     "@typescript-eslint/eslint-plugin": "^7.4.0",
     "@typescript-eslint/parser": "^7.7.0",
     "eslint": "^8.51.0",
