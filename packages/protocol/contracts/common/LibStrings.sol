@@ -29,6 +29,7 @@ library LibStrings {
     bytes32 internal constant B_VERIFIER_GUARDIAN_MINORITY = bytes32("verifier_guardian_minority");
     bytes32 internal constant B_VERIFIER_TEE = bytes32("verifier_tee");
     bytes32 internal constant B_VERIFIER_TEE_SGX = bytes32("verifier_tee_sgx");
+    bytes32 internal constant B_VERIFIER_TEE_TDX = bytes32("verifier_tee_tdx");
     bytes32 internal constant B_VERIFIER_ZK = bytes32("verifier_zk");
     bytes32 internal constant B_VERIFIER_ZK_RISC0 = bytes32("verifier_zk_risc0");
     bytes32 internal constant B_VERIFIER_ZK_SP1 = bytes32("verifier_zk_sp1");

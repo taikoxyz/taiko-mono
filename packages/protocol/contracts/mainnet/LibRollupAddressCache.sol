@@ -34,6 +34,9 @@ library LibRollupAddressCache {
             if (_name == LibStrings.B_VERIFIER_TEE_SGX) {
                 return (true, 0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81);
             }
+            if (_name == LibStrings.B_VERIFIER_TEE_TDX) {
+                return (false, address(0));
+            }
             if (_name == LibStrings.B_VERIFIER_TEE) {
                 return (false, address(0));
             }

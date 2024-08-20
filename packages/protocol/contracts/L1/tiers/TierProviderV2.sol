@@ -31,7 +31,7 @@ contract TierProviderV2 is ITierProvider {
 
         if (_tierId == LibTierId.TIER_TEE) {
             return ITierProvider.Tier({
-                // verifierName can also be B_VERIFIER_TEE
+                // verifierName can also be B_VERIFIER_TEE or B_VERIFIER_TEE_TDX
                 verifierName: LibStrings.B_VERIFIER_TEE_SGX,
                 validityBond: 150 ether, // TAIKO
                 contestBond: 984.375 ether, // = 150 TAIKO * 6.5625
