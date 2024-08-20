@@ -47,7 +47,7 @@ contract TestRiscZeroVerifier is TaikoL1TestBase {
         // Deploy Taiko's RiscZero proof verifier
         rv = Risc0Verifier(
             deployProxy({
-                name: "tier_zk_risc0",
+                name: "tier_zkvm_risc0",
                 impl: address(new Risc0Verifier()),
                 data: abi.encodeCall(Risc0Verifier.init, (address(0), address(addressManager)))
             })
