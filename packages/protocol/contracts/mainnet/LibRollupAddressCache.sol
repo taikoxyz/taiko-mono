@@ -34,6 +34,15 @@ library LibRollupAddressCache {
             if (_name == LibStrings.B_VERIFIER_SGX) {
                 return (true, 0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81);
             }
+            if (_name == LibStrings.B_VERIFIER_RISC0) {
+                return (false, address(0));
+            }
+            if (_name == LibStrings.B_VERIFIER_SP1) {
+                return (false, address(0));
+            }
+            if (_name == LibStrings.B_VERIFIER_ZK) {
+                return (false, address(0));
+            }
             if (_name == LibStrings.B_VERIFIER_GUARDIAN_MINORITY) {
                 return (true, 0x579A8d63a2Db646284CBFE31FE5082c9989E985c);
             }
