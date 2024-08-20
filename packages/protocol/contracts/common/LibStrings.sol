@@ -33,7 +33,7 @@ library LibStrings {
     bytes32 internal constant B_VERIFIER_ZK = bytes32("verifier_zk");
     bytes32 internal constant B_VERIFIER_ZK_RISC0 = bytes32("verifier_zk_risc0");
     bytes32 internal constant B_VERIFIER_ZK_SP1 = bytes32("verifier_zk_sp1");
-    bytes32 internal constant B_VERIFIER_ZK_TEE = bytes32("verifier_zk_plus_tee");
+    bytes32 internal constant B_VERIFIER_ZK_TEE = bytes32("verifier_zk_tee");
     bytes32 internal constant B_WITHDRAWER = bytes32("withdrawer");
     bytes32 internal constant H_RETURN_LIVENESS_BOND = keccak256("RETURN_LIVENESS_BOND");
     bytes32 internal constant H_SIGNAL_ROOT = keccak256("SIGNAL_ROOT");
