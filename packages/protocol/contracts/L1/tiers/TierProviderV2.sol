@@ -29,8 +29,9 @@ contract TierProviderV2 is ITierProvider {
             });
         }
 
-        if (_tierId == LibTierId.TIER_TEE_SGX) {
+        if (_tierId == LibTierId.TIER_TEE) {
             return ITierProvider.Tier({
+                // verifierName can also be B_VERIFIER_TEE
                 verifierName: LibStrings.B_VERIFIER_TEE_SGX,
                 validityBond: 150 ether, // TAIKO
                 contestBond: 984.375 ether, // = 150 TAIKO * 6.5625
@@ -40,8 +41,9 @@ contract TierProviderV2 is ITierProvider {
             });
         }
 
-        if (_tierId == LibTierId.TIER_ZK_RISC0) {
+        if (_tierId == LibTierId.TIER_ZK) {
             return ITierProvider.Tier({
+                // verifierName can also be B_VERIFIER_ZK and B_VERIFIER_ZK_SP1
                 verifierName: LibStrings.B_VERIFIER_ZK_RISC0,
                 validityBond: 250 ether, // TAIKO
                 contestBond: 1640.625 ether, // = 250 TAIKO * 6.5625
@@ -90,13 +92,13 @@ contract TierProviderV2 is ITierProvider {
     /// @inheritdoc ITierProvider
     function getTierIds() public pure virtual override returns (uint16[] memory tiers_) {
         tiers_ = new uint16[](3);
-        tiers_[0] = LibTierId.TIER_TEE_SGX;
+        tiers_[0] = LibTierId.TIER_TEE;
         tiers_[1] = LibTierId.TIER_GUARDIAN_MINORITY;
         tiers_[2] = LibTierId.TIER_GUARDIAN;
     }
 
     /// @inheritdoc ITierProvider
     function getMinTier(address, uint256) public pure virtual override returns (uint16) {
-        return LibTierId.TIER_TEE_SGX;
+        return LibTierId.TIER_TEE;
     }
 }

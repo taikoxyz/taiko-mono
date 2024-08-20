@@ -29,9 +29,9 @@ contract TestTierProvider is ITierProvider, ITierRouter {
             });
         }
 
-        if (_tierId == LibTierId.TIER_TEE_SGX) {
+        if (_tierId == LibTierId.TIER_TEE) {
             return ITierProvider.Tier({
-                verifierName: LibStrings.B_VERIFIER_TEE_SGX,
+                verifierName: LibStrings.B_VERIFIER_TEE,
                 validityBond: 250 ether, // TKO
                 contestBond: 1640 ether, // =250TKO * 6.5625
                 cooldownWindow: 1440, //24 hours
@@ -58,14 +58,14 @@ contract TestTierProvider is ITierProvider, ITierRouter {
     function getTierIds() public pure override returns (uint16[] memory tiers_) {
         tiers_ = new uint16[](3);
         tiers_[0] = LibTierId.TIER_OPTIMISTIC;
-        tiers_[1] = LibTierId.TIER_TEE_SGX;
+        tiers_[1] = LibTierId.TIER_TEE;
         tiers_[2] = LibTierId.TIER_GUARDIAN;
     }
 
     /// @inheritdoc ITierProvider
     function getMinTier(address, uint256 _rand) public pure override returns (uint16) {
         // 10% will be selected to require SGX proofs.
-        if (_rand % 10 == 0) return LibTierId.TIER_TEE_SGX;
+        if (_rand % 10 == 0) return LibTierId.TIER_TEE;
         // Other blocks are optimistic, without validity proofs.
         return LibTierId.TIER_OPTIMISTIC;
     }
