@@ -16,9 +16,9 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
         bytes proof;
     }
 
-    error INSUFFICIENT_PROOF();
+    event InvalidSubProof(address indexed verifier, bytes returnData);
 
-    event SubProofError(address indexed verifier, bytes returnData);
+    error INSUFFICIENT_PROOF();
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
@@ -77,7 +77,7 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
                     numSuccesses += 1;
                 }
             } else {
-                emit SubProofError(subproofs[i].verifier, returnData);
+                emit InvalidSubProof(subproofs[i].verifier, returnData);
             }
         }
 
