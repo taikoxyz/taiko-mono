@@ -3,11 +3,11 @@ pragma solidity 0.8.24;
 
 import "./ComposeVerifier.sol";
 
-/// @title ZkVMVerifier
+/// @title ZkComposeVerifier
 /// @notice This contract is a verifier for the Mainnet ZkVM that composes RiscZero and SP1
 /// Verifiers.
 /// @custom:security-contact security@taiko.xyz
-contract ZkVMVerifier is ComposeVerifier {
+contract ZkComposeVerifier is ComposeVerifier {
     address internal immutable _RISK_ZERO_VERIFIER;
     address internal immutable _SP1_VERIFIER;
 

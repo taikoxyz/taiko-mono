@@ -29,13 +29,13 @@ import "../contracts/mainnet/MainnetGuardianProver.sol";
 import "../contracts/automata-attestation/AutomataDcapV3Attestation.sol";
 import "../contracts/automata-attestation/utils/SigVerifyLib.sol";
 import "../contracts/automata-attestation/lib/PEMCertChainLib.sol";
-import "../contracts/mainnet/MainnetSgxVerifier.sol";
+import "../contracts/mainnet/verifiers/MainnetSgxVerifier.sol";
 import "../contracts/team/proving/ProverSet.sol";
 import "../test/common/erc20/FreeMintERC20.sol";
 import "../test/common/erc20/MayFailFreeMintERC20.sol";
 import "../test/L1/TestTierProvider.sol";
 import "../test/DeployCapability.sol";
-import "../contracts/verifiers/RiscZeroVerifier.sol";
+import "../contracts/verifiers/Risc0Verifier.sol";
 
 /// @title DeployOnL1
 /// @notice This script deploys the core Taiko protocol smart contract on L1,
@@ -402,8 +402,8 @@ contract DeployOnL1 is DeployCapability {
 
         deployProxy({
             name: "tier_zkvm_risc0",
-            impl: address(new RiscZeroVerifier()),
-            data: abi.encodeCall(RiscZeroVerifier.init, (owner, rollupAddressManager)),
+            impl: address(new Risc0Verifier()),
+            data: abi.encodeCall(Risc0Verifier.init, (owner, rollupAddressManager)),
             registerTo: rollupAddressManager
         });
     }

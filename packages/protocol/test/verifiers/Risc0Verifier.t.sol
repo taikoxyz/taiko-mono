@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import "../L1/TaikoL1TestBase.sol";
 
-contract MockRiscZeroRemoteVerifier is IRiscZeroVerifier {
+contract MockRisc0RemoteVerifier is IRiscZeroVerifier {
     // To simulate failing and succeeding
     bool public verifying;
 
@@ -28,7 +28,7 @@ contract MockRiscZeroRemoteVerifier is IRiscZeroVerifier {
 }
 
 contract TestRiscZeroVerifier is TaikoL1TestBase {
-    MockRiscZeroRemoteVerifier riscZeroRemoteVerifier;
+    MockRisc0RemoteVerifier riscZeroRemoteVerifier;
 
     function deployTaikoL1() internal override returns (TaikoL1) {
         return
@@ -39,17 +39,17 @@ contract TestRiscZeroVerifier is TaikoL1TestBase {
         // Call the TaikoL1TestBase setUp()
         super.setUp();
 
-        riscZeroRemoteVerifier = new MockRiscZeroRemoteVerifier();
+        riscZeroRemoteVerifier = new MockRisc0RemoteVerifier();
         riscZeroRemoteVerifier.setVerifier(true);
 
         registerAddress("risc0_groth16_verifier", address(riscZeroRemoteVerifier));
 
         // Deploy Taiko's RiscZero proof verifier
-        rv = RiscZeroVerifier(
+        rv = Risc0Verifier(
             deployProxy({
                 name: "tier_risc_zero",
-                impl: address(new RiscZeroVerifier()),
-                data: abi.encodeCall(RiscZeroVerifier.init, (address(0), address(addressManager)))
+                impl: address(new Risc0Verifier()),
+                data: abi.encodeCall(Risc0Verifier.init, (address(0), address(addressManager)))
             })
         );
 
@@ -105,7 +105,7 @@ contract TestRiscZeroVerifier is TaikoL1TestBase {
         (IVerifier.Context memory ctx, TaikoData.Transition memory transition) =
             _getDummyContextAndTransition();
 
-        vm.expectRevert(RiscZeroVerifier.RISC_ZERO_INVALID_IMAGE_ID.selector);
+        vm.expectRevert(Risc0Verifier.RISC_ZERO_INVALID_IMAGE_ID.selector);
         rv.verifyProof(ctx, transition, proof);
 
         vm.stopPrank();
@@ -131,7 +131,7 @@ contract TestRiscZeroVerifier is TaikoL1TestBase {
         (IVerifier.Context memory ctx, TaikoData.Transition memory transition) =
             _getDummyContextAndTransition();
 
-        vm.expectRevert(RiscZeroVerifier.RISC_ZERO_INVALID_PROOF.selector);
+        vm.expectRevert(Risc0Verifier.RISC_ZERO_INVALID_PROOF.selector);
         rv.verifyProof(ctx, transition, proof);
 
         vm.stopPrank();

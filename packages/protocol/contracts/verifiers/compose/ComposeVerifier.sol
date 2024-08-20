@@ -17,6 +17,8 @@ abstract contract ComposeVerifier is IVerifier {
 
     error INSUFFICIENT_PROOF();
 
+    event SubProofError(address indexed verifier, bytes returnData);
+
     /// @notice Verifies one or more sub-proofs.
     /// @param _ctx The context of the proof verification.
     /// @param _tran The transition to verify.
@@ -54,7 +56,7 @@ abstract contract ComposeVerifier is IVerifier {
                 }
             }
 
-            (bool success,) = subproofs[i].verifier.call(
+            (bool success, bytes memory returnData) = subproofs[i].verifier.call(
                 abi.encodeCall(
                     IVerifier.verifyProof,
                     (_ctx, _tran, TaikoData.TierProof(_proof.tier, subproofs[i].proof))
@@ -64,6 +66,8 @@ abstract contract ComposeVerifier is IVerifier {
                 unchecked {
                     numSuccesses += 1;
                 }
+            } else {
+                emit SubProofError(subproofs[i].verifier, returnData);
             }
         }
 

@@ -8,9 +8,9 @@ import "../L1/ITaikoL1.sol";
 import "./IVerifier.sol";
 import "./libs/LibPublicInput.sol";
 
-/// @title RiscZeroVerifier
+/// @title Risc0Verifier
 /// @custom:security-contact security@taiko.xyz
-contract RiscZeroVerifier is EssentialContract, IVerifier {
+contract Risc0Verifier is EssentialContract, IVerifier {
     // [32, 0, 0, 0] -- big-endian uint32(32) for hash bytes len
     bytes private constant FIXED_JOURNAL_HEADER = hex"20000000";
 

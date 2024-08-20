@@ -29,7 +29,7 @@ contract DeploySP1Verifier is DeployCapability {
         });
 
         console2.log();
-        console2.log("Deployed Sp1Verifier impl at address: %s", sp1Verifier);
-        console2.log("Deployed Sp1Verifier proxy at address: %s", proxy);
+        console2.log("Deployed SP1Verifier impl at address: %s", sp1Verifier);
+        console2.log("Deployed SP1Verifier proxy at address: %s", proxy);
     }
 }
