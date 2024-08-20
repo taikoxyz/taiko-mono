@@ -34,19 +34,17 @@ interface ITierProvider {
     function getMinTier(address proposer, uint256 rand) external view returns (uint16);
 }
 
-/// @dev Tier ID cannot be zero!
+/// @dev Definition of all supported tiers. Ensure that each tier has a unique ID to prevent
+/// unexpected behaviors.
 library LibTiers {
     /// @notice Optimistic tier ID.
     uint16 public constant TIER_OPTIMISTIC = 100;
 
-    /// @notice TEE tiers
-    uint16 public constant TIER_SGX = 200;
+    /// @notice TEE tier
     uint16 public constant TIER_TEE = 200;
 
-    // @notice ZK tiers
-    uint16 public constant TIER_RISC0 = 290;
-    uint16 public constant TIER_SP1 = 290;
-    uint16 public constant TIER_ZK = 290; // Either RISC0 or SP1
+    // @notice ZK tier
+    uint16 public constant TIER_ZK = 290;
 
     // @notice TEE + ZK tier
     uint16 public constant TIER_TEE_ZK = 300;

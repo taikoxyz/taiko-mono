@@ -43,8 +43,10 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
         for (uint256 i; i < verifiers.length; ++i) {
             // Store the value 1 in the temporary storage slot using inline assembly
             uint256 slot = uint256(uint160(verifiers[i]));
-            assembly {
-                tstore(slot, 1)
+            if (slot != 0) {
+                assembly {
+                    tstore(slot, 1)
+                }
             }
         }
 

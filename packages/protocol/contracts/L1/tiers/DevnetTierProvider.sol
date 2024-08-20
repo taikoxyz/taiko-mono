@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "./TierProviderBase.sol";
+import "./TierProviderV2.sol";
 import "./ITierRouter.sol";
 
 /// @title DevnetTierProvider
 /// @custom:security-contact security@taiko.xyz
-contract DevnetTierProvider is TierProviderBase, ITierRouter {
+contract DevnetTierProvider is TierProviderV2, ITierRouter {
     /// @inheritdoc ITierRouter
     function getProvider(uint256) external view returns (address) {
         return address(this);

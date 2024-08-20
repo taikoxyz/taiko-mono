@@ -31,7 +31,7 @@ library LibRollupAddressCache {
             if (_name == LibStrings.B_TIER_ROUTER) {
                 return (true, 0x6E997f1F22C40ba37F633B08f3b07E10Ed43155a);
             }
-            if (_name == LibStrings.B_VERIFIER_SGX) {
+            if (_name == LibStrings.B_VERIFIER_ZK) {
                 return (true, 0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81);
             }
             if (_name == LibStrings.B_VERIFIER_GUARDIAN_MINORITY) {
