@@ -2,15 +2,13 @@
 pragma solidity 0.8.24;
 
 import "../../verifiers/compose/TeeComposeVerifier.sol";
+import "../LibRollupAddressCache.sol";
 
 /// @title MainnetTeeComposeVerifier
 /// @custom:security-contact security@taiko.xyz
 contract MainnetTeeComposeVerifier is TeeComposeVerifier {
-    constructor() TeeComposeVerifier(address(0)) { }
-
-    /// @notice This function returns the address of the MainnetSgxVerifier.
-    /// @return The address of a MainnetSgxVerifier.
-    function sgxVerifier() public pure override returns (address) {
-        revert("not implemented");
+    function _getAddress(uint64 _chainId, bytes32 _name) internal view override returns (address) {
+        (bool found, address addr) = LibRollupAddressCache.getAddress(_chainId, _name);
+        return found ? addr : super._getAddress(_chainId, _name);
     }
 }

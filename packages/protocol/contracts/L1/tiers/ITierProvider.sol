@@ -39,15 +39,14 @@ library LibTiers {
     /// @notice Optimistic tier ID.
     uint16 public constant TIER_OPTIMISTIC = 100;
 
-    /// @notice SGX tier ID.
-    uint16 public constant TIER_SGX = 200;
-    uint16 public constant TIER_SGX2 = 200;
+    /// @notice TEE tiers
+    uint16 public constant TIER_TEE = 200;
 
-    // @notice ZKVM risc0 tier ID
-    uint16 public constant TIER_ZKVM_RISC0 = 290;
+    // @notice ZK tiers
+    uint16 public constant TIER_ZK = 290;
 
-    /// @notice SGX + ZKVM tier ID.
-    uint16 public constant TIER_SGX_ZKVM = 300;
+    // @notice TEE + ZK tier
+    uint16 public constant TIER_TEE_ZK = 300;
 
     /// @notice Guardian tier ID with minority approval.
     uint16 public constant TIER_GUARDIAN_MINORITY = 900;

@@ -1,25 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
+import "../../common/LibStrings.sol";
 import "./ComposeVerifier.sol";
 
 /// @title TeeComposeVerifier
 /// @notice This contract is a verifier for the Mainnet ZkVM that composes RiscZero and SP1
 /// Verifiers.
 /// @custom:security-contact security@taiko.xyz
-contract TeeComposeVerifier is ComposeVerifier {
-    address internal immutable _SGX_VERIFIER;
-
-    constructor(address _sgxVerifier) {
-        _SGX_VERIFIER = _sgxVerifier;
-    }
-
-    /// @notice Returns the address of a SgxVerifier.
-    /// @return The address of a SgxVerifier.
-    function sgxVerifier() public view virtual returns (address) {
-        return _SGX_VERIFIER;
-    }
-
+contract TeeComposeVerifier is EssentialContract, ComposeVerifier {
     /// @inheritdoc ComposeVerifier
     function getSubVerifiersAndThreshold()
         public
@@ -28,7 +17,7 @@ contract TeeComposeVerifier is ComposeVerifier {
         returns (address[] memory verifiers_, uint256 threshold_)
     {
         verifiers_ = new address[](1);
-        verifiers_[0] = sgxVerifier();
+        verifiers_[0] = resolve(LibStrings.B_VERIFIER_SGX, false);
         threshold_ = 1;
     }
 }

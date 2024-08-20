@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
+import "../../common/EssentialContract.sol";
 import "../IVerifier.sol";
 
 /// @title ComposeVerifier
@@ -9,7 +10,7 @@ import "../IVerifier.sol";
 /// It ensures that a set of sub-proofs are verified by their respective verifiers before
 /// considering the overall proof as valid.
 /// @custom:security-contact security@taiko.xyz
-abstract contract ComposeVerifier is IVerifier {
+abstract contract ComposeVerifier is EssentialContract, IVerifier {
     struct SubProof {
         address verifier;
         bytes proof;
@@ -18,6 +19,13 @@ abstract contract ComposeVerifier is IVerifier {
     error INSUFFICIENT_PROOF();
 
     event SubProofError(address indexed verifier, bytes returnData);
+
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param _rollupAddressManager The address of the {AddressManager} contract.
+    function init(address _owner, address _rollupAddressManager) external initializer {
+        __Essential_init(_owner, _rollupAddressManager);
+    }
 
     /// @notice Verifies one or more sub-proofs.
     /// @param _ctx The context of the proof verification.
