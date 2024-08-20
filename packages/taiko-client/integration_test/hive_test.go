@@ -10,14 +10,16 @@ import (
 )
 
 func TestHiveHandler(t *testing.T) {
-	baseDir := os.Getenv("HIVE_BASE_DIR")
+	baseDir := os.Getenv("HIVE_DIR")
 	if baseDir == "" {
 		t.SkipNow()
 	}
 	handler, err := hivesim.NewHiveFramework(&hivesim.HiveConfig{
-		BaseDir:        baseDir,
-		SimPattern:     "taiko",
-		SimTestPattern: "taiko-deneb-testnet/test-deneb-genesis",
+		BuildOutput:     false,
+		ContainerOutput: true,
+		BaseDir:         baseDir,
+		SimPattern:      "taiko",
+		SimTestPattern:  "taiko-deneb-testnet/test-deneb-genesis",
 		Clients: []string{
 			"taiko/geth",
 			"taiko/prysm-bn",
