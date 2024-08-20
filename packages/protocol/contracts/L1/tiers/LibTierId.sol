@@ -12,11 +12,11 @@ library LibTierId {
     /// @notice TEE tier
     uint16 public constant TIER_TEE = 200;
 
-    /// @notice ZK tier
-    uint16 public constant TIER_ZK = 290;
+    /// @notice ZKVM tier
+    uint16 public constant TIER_ZKVM = 290;
 
     /// @notice TEE + ZK tier
-    uint16 public constant TIER_ZK_PLUS_TEE = 300;
+    uint16 public constant TIER_ZKVM_PLUS_TEE = 300;
 
     /// @notice Guardian tier ID with minority approval.
     uint16 public constant TIER_GUARDIAN_MINORITY = 900;

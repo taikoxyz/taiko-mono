@@ -17,13 +17,13 @@ contract TestAddressResolver is TaikoL1TestBase {
 
     function test_resolve() external {
         assertEq(
-            bridge.resolve(uint64(block.chainid), bytes32(bytes("verifier_guardian")), false),
+            bridge.resolve(uint64(block.chainid), bytes32(bytes("tier_guardian")), false),
             address(gp),
             "wrong guardianVerifier address"
         );
 
         assertEq(
-            bridge.resolve(uint64(block.chainid), bytes32(bytes("verifier_tee_any")), false),
+            bridge.resolve(uint64(block.chainid), bytes32(bytes("tier_tee")), false),
             address(sv),
             " wrong TEE verifier address"
         );
