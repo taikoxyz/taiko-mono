@@ -1,5 +1,56 @@
 # Changelog
 
+## [0.31.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.30.0...taiko-client-v0.31.0) (2024-08-20)
+
+
+### Features
+
+* **taiko-client:** update hekla's protocol config ([#17955](https://github.com/taikoxyz/taiko-mono/issues/17955)) ([4b6a70d](https://github.com/taikoxyz/taiko-mono/commit/4b6a70dd4fb22146ee6702b8484a4a2b4fbce6c2))
+
+## [0.30.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.29.0...taiko-client-v0.30.0) (2024-08-19)
+
+
+### Features
+
+* **protocol:** introduce `AssembleAnchorV2Tx` method in `AnchorTxConstructor` ([#17850](https://github.com/taikoxyz/taiko-mono/issues/17850)) ([f71b178](https://github.com/taikoxyz/taiko-mono/commit/f71b1780eb98ff3cbbcf7def4388837f33e3fe37))
+* **protocol:** introduce risc0 proof ([#17877](https://github.com/taikoxyz/taiko-mono/issues/17877)) ([bcb57cb](https://github.com/taikoxyz/taiko-mono/commit/bcb57cb81d12d0c09656582ad9140b38015b3a58))
+* **taiko-client:** add `RaikoZKVMHostEndpoint` and rename ([#17926](https://github.com/taikoxyz/taiko-mono/issues/17926)) ([0838f79](https://github.com/taikoxyz/taiko-mono/commit/0838f7993015fc9fc9cacfb3da7b100d52bc856c))
+* **taiko-client:** changes based on the latest basefee improvements ([#17911](https://github.com/taikoxyz/taiko-mono/issues/17911)) ([0c10ac9](https://github.com/taikoxyz/taiko-mono/commit/0c10ac9c4973d3ef8a5e35a8646516639b328fa0))
+* **taiko-client:** client changes for `ontake` fork ([#17746](https://github.com/taikoxyz/taiko-mono/issues/17746)) ([2aabf3d](https://github.com/taikoxyz/taiko-mono/commit/2aabf3de3456ce8cbd56d15be336d08445b9f242))
+* **taiko-client:** client updates based on [#17871](https://github.com/taikoxyz/taiko-mono/issues/17871) ([#17873](https://github.com/taikoxyz/taiko-mono/issues/17873)) ([dbed3ab](https://github.com/taikoxyz/taiko-mono/commit/dbed3aba3d7f49f982f6335b79f5d5b096f890a3))
+* **taiko-client:** introduce `BasefeeSharingPctg` in `BlockMetadata` ([#17853](https://github.com/taikoxyz/taiko-mono/issues/17853)) ([5f2d696](https://github.com/taikoxyz/taiko-mono/commit/5f2d6961b9d077e47f34bf7f5d1fbffaf380bde1))
+* **taiko-client:** introduce `TaikoDataBlockV2` ([#17936](https://github.com/taikoxyz/taiko-mono/issues/17936)) ([c608116](https://github.com/taikoxyz/taiko-mono/commit/c608116523922fa4664968dc73608a118b5b97ba))
+* **taiko-client:** introduce `TierZkVMRisc0ID` ([#17915](https://github.com/taikoxyz/taiko-mono/issues/17915)) ([96aa5c2](https://github.com/taikoxyz/taiko-mono/commit/96aa5c2a5cd096ac3560fe17106ec042a877bfc1))
+* **taiko-client:** remove `basefeeSharingPctg` from metadata ([#17890](https://github.com/taikoxyz/taiko-mono/issues/17890)) ([57c8f6f](https://github.com/taikoxyz/taiko-mono/commit/57c8f6f3a8f920bab8fecd75bfa36a6b71ef808d))
+* **taiko-client:** update `BlockParamsV2` struct ([#17893](https://github.com/taikoxyz/taiko-mono/issues/17893)) ([a1043a8](https://github.com/taikoxyz/taiko-mono/commit/a1043a85631892e0b03e0f9f4bb850d4e9a70967))
+* **taiko-client:** update Go contract bindings ([#17869](https://github.com/taikoxyz/taiko-mono/issues/17869)) ([d9bd72b](https://github.com/taikoxyz/taiko-mono/commit/d9bd72b76aa0bed4ccfe834053f6561a53e1367d))
+* **taiko-client:** update Go contract bindings ([#17885](https://github.com/taikoxyz/taiko-mono/issues/17885)) ([3179074](https://github.com/taikoxyz/taiko-mono/commit/31790747cfc743b218d5a3568b9d70b64df5a86c))
+* **taiko-client:** update ontake basefee calculation ([#17892](https://github.com/taikoxyz/taiko-mono/issues/17892)) ([6972dea](https://github.com/taikoxyz/taiko-mono/commit/6972dea313edbc9a30617d2f7aea2dfc9230c432))
+
+
+### Bug Fixes
+
+* **taiko-client:** avoid seting nil value to `GuardianProverHeartbeater` ([#17802](https://github.com/taikoxyz/taiko-mono/issues/17802)) ([4076324](https://github.com/taikoxyz/taiko-mono/commit/40763241b5f2960f019d6be7e1040c65765f938a))
+* **taiko-client:** fix zk status recognition ([#17946](https://github.com/taikoxyz/taiko-mono/issues/17946)) ([164e476](https://github.com/taikoxyz/taiko-mono/commit/164e47686f41cbb119a230c7a1ad56ef4d0b3117))
+
+
+### Chores
+
+* **protocol:** revert `TAIKO_TOKEN` name changes in `DeployOnL1` ([#17927](https://github.com/taikoxyz/taiko-mono/issues/17927)) ([cf1a15f](https://github.com/taikoxyz/taiko-mono/commit/cf1a15f46344e60448c5fdcbcae02521fb5b7c04))
+* **taiko-client:** add hive tests to workflow ([#17897](https://github.com/taikoxyz/taiko-mono/issues/17897)) ([323d728](https://github.com/taikoxyz/taiko-mono/commit/323d7285d83b83adfd220747fb3f55b5cd72d877))
+* **taiko-client:** update `hive_tests.sh` ([#17923](https://github.com/taikoxyz/taiko-mono/issues/17923)) ([05d49b0](https://github.com/taikoxyz/taiko-mono/commit/05d49b07f9131bc034d00ad6cb7b7868a9af2bfc))
+
+
+### Code Refactoring
+
+* **taiko-client:** rm unused `L1_NODE_HTTP_ENDPOINT` ([#17768](https://github.com/taikoxyz/taiko-mono/issues/17768)) ([73c7aee](https://github.com/taikoxyz/taiko-mono/commit/73c7aeeffaffbf875af84e8be595af828877be2b))
+
+
+### Tests
+
+* **taiko-client:** update hive dependence and fix bug about hive test ([#17930](https://github.com/taikoxyz/taiko-mono/issues/17930)) ([dd40a4e](https://github.com/taikoxyz/taiko-mono/commit/dd40a4e6696b9c27135823cd545e7e5249a66e8c))
+* **taiko-client:** use env names which defined in flag configs ([#17921](https://github.com/taikoxyz/taiko-mono/issues/17921)) ([196b74e](https://github.com/taikoxyz/taiko-mono/commit/196b74eb2b4498bc3e6511915e011a885fcc530f))
+
 ## [0.29.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.28.0...taiko-client-v0.29.0) (2024-07-05)
 
 
