@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import "@risc0/contracts/groth16/RiscZeroGroth16Verifier.sol";
 import "../test/DeployCapability.sol";
-import "../contracts/verifiers/RiscZeroVerifier.sol";
+import "../contracts/verifiers/Risc0Verifier.sol";
 
 contract DeployRisc0Verifier is DeployCapability {
     uint256 public deployerPrivKey = vm.envUint("PRIVATE_KEY");
@@ -18,9 +18,9 @@ contract DeployRisc0Verifier is DeployCapability {
             new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
         register(rollupAddressManager, "risc0_groth16_verifier", address(verifier));
         deployProxy({
-            name: "tier_zkvm_risc0",
-            impl: address(new RiscZeroVerifier()),
-            data: abi.encodeCall(RiscZeroVerifier.init, (address(0), rollupAddressManager)),
+            name: "verifier_zk_risc0",
+            impl: address(new Risc0Verifier()),
+            data: abi.encodeCall(Risc0Verifier.init, (address(0), rollupAddressManager)),
             registerTo: rollupAddressManager
         });
         vm.stopBroadcast();
