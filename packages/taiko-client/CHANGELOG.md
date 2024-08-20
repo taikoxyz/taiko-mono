@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.31.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.30.0...taiko-client-v0.31.0) (2024-08-20)
+
+
+### Features
+
+* **taiko-client:** update hekla's protocol config ([#17955](https://github.com/taikoxyz/taiko-mono/issues/17955)) ([4b6a70d](https://github.com/taikoxyz/taiko-mono/commit/4b6a70dd4fb22146ee6702b8484a4a2b4fbce6c2))
+
 ## [0.30.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.29.0...taiko-client-v0.30.0) (2024-08-19)
 
 
