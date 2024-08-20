@@ -503,8 +503,8 @@ importers:
         specifier: ^5.0.11
         version: 5.0.11
       '@web3modal/ui':
-        specifier: ^4.2.2
-        version: 4.2.3
+        specifier: ^5.1.0
+        version: 5.1.0
       '@web3modal/wagmi':
         specifier: ^4.2.2
         version: 4.2.3(@types/react@18.3.3)(@wagmi/connectors@5.1.2(@types/react@18.3.3)(@wagmi/core@2.13.1(@types/react@18.3.3)(react@18.3.1)(typescript@5.4.5)(viem@2.18.8(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)(zod@3.23.8)))(bufferutil@4.0.8)(encoding@0.1.13)(react-dom@18.3.1(react@18.3.1))(react-native@0.74.1(@babel/core@7.25.2)(@babel/preset-env@7.24.5(@babel/core@7.25.2))(@types/react@18.3.3)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.3.1)(utf-8-validate@5.0.10))(react@18.3.1)(rollup@4.17.2)(typescript@5.4.5)(utf-8-validate@5.0.10)(viem@2.18.8(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)(zod@3.23.8))(zod@3.23.8))(@wagmi/core@2.13.1(@types/react@18.3.3)(react@18.3.1)(typescript@5.4.5)(viem@2.18.8(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)(zod@3.23.8)))(bufferutil@4.0.8)(encoding@0.1.13)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(utf-8-validate@5.0.10)(viem@2.18.8(bufferutil@4.0.8)(typescript@5.4.5)(utf-8-validate@5.0.10)(zod@3.23.8))
@@ -732,8 +732,8 @@ importers:
         specifier: ^5.0.11
         version: 5.0.11
       '@web3modal/ui':
-        specifier: ^4.1.1
-        version: 4.1.11
+        specifier: ^5.1.0
+        version: 5.1.0
       '@web3modal/wagmi':
         specifier: ^4.1.1
         version: 4.1.11(nhv3btjcneav7vr3ub73tnaqau)
@@ -5135,6 +5135,9 @@ packages:
 
   '@web3modal/ui@4.2.3':
     resolution: {integrity: sha512-QPPgE0hii1gpAldTdnrP63D/ryI78Ohz99zRBp8vi81lawot7rbdUbryMoX13hMPCW9vW7JYyvX+jJN7uO3QwA==}
+
+  '@web3modal/ui@5.1.0':
+    resolution: {integrity: sha512-msjkOm/PLkfAVglQ8ZsuCLNuaf4IbkWkjZneO1uU+F2+7sCaGZHskFVmJQBbhwN347m0DTU8KgDP0BvFppW4Aw==}
 
   '@web3modal/wagmi@4.1.11':
     resolution: {integrity: sha512-VoXV9idD0yV7jx0F2Xk722VXqQNCDKqDc+LR8WsuOU64TiTLJx9UDQpNcoigbC3bYCi/4Cpw41iSGgs7utbgyQ==}
@@ -18982,6 +18985,11 @@ snapshots:
       qrcode: 1.5.3
 
   '@web3modal/ui@4.2.3':
+    dependencies:
+      lit: 3.1.0
+      qrcode: 1.5.3
+
+  '@web3modal/ui@5.1.0':
     dependencies:
       lit: 3.1.0
       qrcode: 1.5.3
