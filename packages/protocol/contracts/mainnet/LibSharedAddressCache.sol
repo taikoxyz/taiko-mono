@@ -9,22 +9,9 @@ import "../libs/LibNetwork.sol";
 library LibSharedAddressCache {
     function getAddress(
         uint64 _chainId,
-        bytes32 _name,
-        function(uint64 , bytes32 )  view returns (address) _fallback
-    )
-        internal
-        view
-        returns (address)
-    {
-        (bool found, address addr) = _getAddress(_chainId, _name);
-        return found ? addr : _fallback(_chainId, _name);
-    }
-
-    function _getAddress(
-        uint64 _chainId,
         bytes32 _name
     )
-        private
+        internal
         pure
         returns (bool found, address addr)
     {

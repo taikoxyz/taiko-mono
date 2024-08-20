@@ -11,7 +11,8 @@ import "../LibRollupAddressCache.sol";
 /// @custom:security-contact security@taiko.xyz
 contract MainnetSP1Verifier is SP1Verifier {
     function _getAddress(uint64 _chainId, bytes32 _name) internal view override returns (address) {
-        return LibRollupAddressCache.getAddress(_chainId, _name, super._getAddress);
+        return
+            _getCachedAddress(_chainId, _name, LibRollupAddressCache.getAddress, super._getAddress);
     }
 
     function taikoChainId() internal pure override returns (uint64) {

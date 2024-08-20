@@ -99,4 +99,18 @@ abstract contract AddressResolver is IAddressResolver, Initializable {
 
         return IAddressManager(_addressManager).getAddress(_chainId, _name);
     }
+
+    function _getCachedAddress(
+        uint64 _chainId,
+        bytes32 _name,
+        function(uint64 , bytes32 )  view returns (bool, address) _cache,
+        function(uint64 , bytes32 )  view returns (address) _fallback
+    )
+        internal
+        view
+        returns (address)
+    {
+        (bool found, address addr) = _cache(_chainId, _name);
+        return found ? addr : _fallback(_chainId, _name);
+    }
 }
