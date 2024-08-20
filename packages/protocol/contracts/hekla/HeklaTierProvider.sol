@@ -11,23 +11,23 @@ contract HeklaTierProvider is TierProviderV2 {
     /// @inheritdoc ITierProvider
     function getTierIds() public pure override returns (uint16[] memory tiers_) {
         tiers_ = new uint16[](5);
-        tiers_[0] = LibTiers.TIER_OPTIMISTIC;
-        tiers_[1] = LibTiers.TIER_TEE;
-        tiers_[2] = LibTiers.TIER_ZK;
-        tiers_[3] = LibTiers.TIER_GUARDIAN_MINORITY;
-        tiers_[4] = LibTiers.TIER_GUARDIAN;
+        tiers_[0] = LibTierId.TIER_OPTIMISTIC;
+        tiers_[1] = LibTierId.TIER_TEE;
+        tiers_[2] = LibTierId.TIER_ZK;
+        tiers_[3] = LibTierId.TIER_GUARDIAN_MINORITY;
+        tiers_[4] = LibTierId.TIER_GUARDIAN;
     }
 
     /// @inheritdoc ITierProvider
     function getMinTier(address _proposer, uint256 _rand) public pure override returns (uint16) {
         if (_proposer == LAB_PROPOSER && _rand % 1000 == 0) {
             // 0.1% of the total blocks will require ZKVM proofs.
-            return LibTiers.TIER_ZK;
+            return LibTierId.TIER_ZK;
         } else if (_rand % 2 == 0) {
             // 50% of the total blocks will require SGX proofs.
-            return LibTiers.TIER_TEE;
+            return LibTierId.TIER_TEE;
         } else {
-            return LibTiers.TIER_OPTIMISTIC;
+            return LibTierId.TIER_OPTIMISTIC;
         }
     }
 }

@@ -26,7 +26,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
         bytes32 stateRoot = bytes32(uint256(11));
 
         mineAndWrap(10 seconds);
-        proveBlock(William, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_GUARDIAN, "");
+        proveBlock(William, meta, parentHash, blockHash, stateRoot, LibTierId.TIER_GUARDIAN, "");
 
         {
             printBlockAndTrans(meta.id);
@@ -39,7 +39,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash);
             assertEq(ts.stateRoot, stateRoot);
-            assertEq(ts.tier, LibTiers.TIER_GUARDIAN);
+            assertEq(ts.tier, LibTierId.TIER_GUARDIAN);
             assertEq(ts.contester, address(0));
             assertEq(ts.validityBond, 0);
             assertEq(ts.prover, address(gp));
@@ -57,7 +57,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
             parentHash,
             blockHash,
             stateRoot,
-            LibTiers.TIER_GUARDIAN,
+            LibTierId.TIER_GUARDIAN,
             LibProving.L1_ALREADY_PROVED.selector
         );
 
@@ -65,7 +65,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
         bytes32 blockHash2 = bytes32(uint256(20));
         bytes32 stateRoot2 = bytes32(uint256(21));
         mineAndWrap(10 seconds);
-        proveBlock(William, meta, parentHash, blockHash2, stateRoot2, LibTiers.TIER_GUARDIAN, "");
+        proveBlock(William, meta, parentHash, blockHash2, stateRoot2, LibTierId.TIER_GUARDIAN, "");
 
         {
             printBlockAndTrans(meta.id);
@@ -78,7 +78,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash2);
             assertEq(ts.stateRoot, stateRoot2);
-            assertEq(ts.tier, LibTiers.TIER_GUARDIAN);
+            assertEq(ts.tier, LibTierId.TIER_GUARDIAN);
             assertEq(ts.contester, address(0));
             assertEq(ts.validityBond, 0);
             assertEq(ts.prover, address(gp));
@@ -96,7 +96,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
             parentHash,
             blockHash,
             stateRoot,
-            LibTiers.TIER_TEE,
+            LibTierId.TIER_TEE,
             LibProving.L1_INVALID_TIER.selector
         );
 
@@ -115,7 +115,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash2);
             assertEq(ts.stateRoot, stateRoot2);
-            assertEq(ts.tier, LibTiers.TIER_GUARDIAN);
+            assertEq(ts.tier, LibTierId.TIER_GUARDIAN);
             assertEq(ts.prover, address(gp));
 
             assertEq(totalTkoBalance(tko, L1, Alice), 10_000 ether);
@@ -135,7 +135,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
         giveEthAndTko(Alice, 10_000 ether, 1000 ether);
 
         giveEthAndTko(William, 10_000 ether, 1000 ether);
-        ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTiers.TIER_OPTIMISTIC);
+        ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTierId.TIER_OPTIMISTIC);
 
         console2.log("====== Alice propose a block");
         TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
@@ -156,7 +156,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
             parentHash,
             blockHash,
             stateRoot,
-            LibTiers.TIER_GUARDIAN,
+            LibTierId.TIER_GUARDIAN,
             LibProving.L1_ALREADY_PROVED.selector
         );
 
@@ -164,7 +164,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
         bytes32 blockHash2 = bytes32(uint256(20));
         bytes32 stateRoot2 = bytes32(uint256(21));
         mineAndWrap(10 seconds);
-        proveBlock(William, meta, parentHash, blockHash2, stateRoot2, LibTiers.TIER_GUARDIAN, "");
+        proveBlock(William, meta, parentHash, blockHash2, stateRoot2, LibTierId.TIER_GUARDIAN, "");
 
         {
             printBlockAndTrans(meta.id);
@@ -177,7 +177,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash2);
             assertEq(ts.stateRoot, stateRoot2);
-            assertEq(ts.tier, LibTiers.TIER_GUARDIAN);
+            assertEq(ts.tier, LibTierId.TIER_GUARDIAN);
             assertEq(ts.contester, address(0));
             assertEq(ts.validityBond, 0);
             assertEq(ts.prover, address(gp));
@@ -202,7 +202,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash2);
             assertEq(ts.stateRoot, stateRoot2);
-            assertEq(ts.tier, LibTiers.TIER_GUARDIAN);
+            assertEq(ts.tier, LibTierId.TIER_GUARDIAN);
             assertEq(ts.prover, address(gp));
 
             assertEq(totalTkoBalance(tko, L1, Alice), 10_000 ether - tierOp.validityBond);
@@ -223,7 +223,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
 
         giveEthAndTko(David, 10_000 ether, 1000 ether);
         giveEthAndTko(William, 10_000 ether, 1000 ether);
-        ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTiers.TIER_OPTIMISTIC);
+        ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTierId.TIER_OPTIMISTIC);
 
         console2.log("====== Alice propose a block");
         TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
@@ -246,7 +246,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
             parentHash,
             blockHash,
             stateRoot,
-            LibTiers.TIER_GUARDIAN,
+            LibTierId.TIER_GUARDIAN,
             LibProving.L1_ALREADY_PROVED.selector
         );
 
@@ -254,7 +254,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
         bytes32 blockHash2 = bytes32(uint256(20));
         bytes32 stateRoot2 = bytes32(uint256(21));
         mineAndWrap(10 seconds);
-        proveBlock(William, meta, parentHash, blockHash2, stateRoot2, LibTiers.TIER_GUARDIAN, "");
+        proveBlock(William, meta, parentHash, blockHash2, stateRoot2, LibTierId.TIER_GUARDIAN, "");
 
         {
             printBlockAndTrans(meta.id);
@@ -267,7 +267,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash2);
             assertEq(ts.stateRoot, stateRoot2);
-            assertEq(ts.tier, LibTiers.TIER_GUARDIAN);
+            assertEq(ts.tier, LibTierId.TIER_GUARDIAN);
             assertEq(ts.contester, address(0));
             assertEq(ts.validityBond, 0);
             assertEq(ts.prover, address(gp));
@@ -293,7 +293,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash2);
             assertEq(ts.stateRoot, stateRoot2);
-            assertEq(ts.tier, LibTiers.TIER_GUARDIAN);
+            assertEq(ts.tier, LibTierId.TIER_GUARDIAN);
             assertEq(ts.prover, address(gp));
 
             assertEq(totalTkoBalance(tko, L1, Alice), 10_000 ether - livenessBond);
@@ -321,7 +321,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
         bytes32 stateRoot = bytes32(uint256(11));
 
         mineAndWrap(7 days);
-        proveBlock(William, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_GUARDIAN, "");
+        proveBlock(William, meta, parentHash, blockHash, stateRoot, LibTierId.TIER_GUARDIAN, "");
 
         {
             printBlockAndTrans(meta.id);
@@ -334,7 +334,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash);
             assertEq(ts.stateRoot, stateRoot);
-            assertEq(ts.tier, LibTiers.TIER_GUARDIAN);
+            assertEq(ts.tier, LibTierId.TIER_GUARDIAN);
             assertEq(ts.contester, address(0));
             assertEq(ts.validityBond, 0);
             assertEq(ts.prover, address(gp));

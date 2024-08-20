@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
+import "./LibTierId.sol";
+
 /// @title ITierProvider
 /// @notice Defines interface to return tier configuration.
 /// @custom:security-contact security@taiko.xyz
@@ -32,26 +34,4 @@ interface ITierProvider {
     /// @param rand A pseudo-random number.
     /// @return The tier id.
     function getMinTier(address proposer, uint256 rand) external view returns (uint16);
-}
-
-/// @dev Definition of all supported tiers. Ensure that each tier has a unique ID to prevent
-/// unexpected behaviors.
-library LibTiers {
-    /// @notice Optimistic tier ID.
-    uint16 public constant TIER_OPTIMISTIC = 100;
-
-    /// @notice TEE tier
-    uint16 public constant TIER_TEE = 200;
-
-    // @notice ZK tier
-    uint16 public constant TIER_ZK = 290;
-
-    // @notice TEE + ZK tier
-    uint16 public constant TIER_TEE_ZK = 300;
-
-    /// @notice Guardian tier ID with minority approval.
-    uint16 public constant TIER_GUARDIAN_MINORITY = 900;
-
-    /// @notice Guardian tier ID with majority approval.
-    uint16 public constant TIER_GUARDIAN = 1000;
 }

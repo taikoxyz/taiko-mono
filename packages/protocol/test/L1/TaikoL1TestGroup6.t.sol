@@ -15,8 +15,8 @@ contract TaikoL1TestGroup6 is TaikoL1TestGroupBase {
 
         giveEthAndTko(Alice, 10_000 ether, 1000 ether);
         giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
-        ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTiers.TIER_OPTIMISTIC);
-        ITierProvider.Tier memory tierSgx = TestTierProvider(cp).getTier(LibTiers.TIER_TEE);
+        ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTierId.TIER_OPTIMISTIC);
+        ITierProvider.Tier memory tierSgx = TestTierProvider(cp).getTier(LibTierId.TIER_TEE);
 
         console2.log("====== Alice propose a block");
         TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
@@ -37,7 +37,7 @@ contract TaikoL1TestGroup6 is TaikoL1TestGroupBase {
 
         console2.log("====== Alice cannot proves himself is right");
         mineAndWrap(10 seconds);
-        proveBlock(Alice, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_TEE, "");
+        proveBlock(Alice, meta, parentHash, blockHash, stateRoot, LibTierId.TIER_TEE, "");
 
         {
             printBlockAndTrans(meta.id);
@@ -50,7 +50,7 @@ contract TaikoL1TestGroup6 is TaikoL1TestGroupBase {
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash);
             assertEq(ts.stateRoot, stateRoot);
-            assertEq(ts.tier, LibTiers.TIER_TEE);
+            assertEq(ts.tier, LibTierId.TIER_TEE);
             assertEq(ts.contester, address(0));
             assertEq(ts.validityBond, tierSgx.validityBond);
             assertEq(ts.prover, Alice);
@@ -78,7 +78,7 @@ contract TaikoL1TestGroup6 is TaikoL1TestGroupBase {
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash);
             assertEq(ts.stateRoot, stateRoot);
-            assertEq(ts.tier, LibTiers.TIER_TEE);
+            assertEq(ts.tier, LibTierId.TIER_TEE);
             assertEq(ts.prover, Alice);
 
             assertEq(totalTkoBalance(tko, L1, Taylor), 10_000 ether - tierOp.contestBond);
