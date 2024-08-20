@@ -15,6 +15,7 @@ func TestHiveHandler(t *testing.T) {
 		t.SkipNow()
 	}
 	handler, err := hivesim.NewHiveFramework(&hivesim.HiveConfig{
+		DockerOutput:   true,
 		BaseDir:        baseDir,
 		SimPattern:     "taiko",
 		SimTestPattern: "taiko-deneb-testnet/test-deneb-genesis",
