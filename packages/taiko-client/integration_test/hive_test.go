@@ -15,10 +15,11 @@ func TestHiveHandler(t *testing.T) {
 		t.SkipNow()
 	}
 	handler, err := hivesim.NewHiveFramework(&hivesim.HiveConfig{
-		DockerOutput:   true,
-		BaseDir:        baseDir,
-		SimPattern:     "taiko",
-		SimTestPattern: "taiko-deneb-testnet/test-deneb-genesis",
+		BuildOutput:     false,
+		ContainerOutput: true,
+		BaseDir:         baseDir,
+		SimPattern:      "taiko",
+		SimTestPattern:  "taiko-deneb-testnet/test-deneb-genesis",
 		Clients: []string{
 			"taiko/geth",
 			"taiko/prysm-bn",
