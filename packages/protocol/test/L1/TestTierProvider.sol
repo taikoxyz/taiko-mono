@@ -31,7 +31,7 @@ contract TestTierProvider is ITierProvider, ITierRouter {
 
         if (_tierId == LibTierId.TIER_TEE) {
             return ITierProvider.Tier({
-                verifierName: LibStrings.B_VERIFIER_TEE,
+                verifierName: LibStrings.B_VERIFIER_TEE_ANY,
                 validityBond: 250 ether, // TKO
                 contestBond: 1640 ether, // =250TKO * 6.5625
                 cooldownWindow: 1440, //24 hours

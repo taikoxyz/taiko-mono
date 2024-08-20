@@ -40,7 +40,7 @@ library LibRollupAddressCache {
             if (_name == LibStrings.B_VERIFIER_ZK_SP1) {
                 return (false, address(0));
             }
-            if (_name == LibStrings.B_VERIFIER_ZK) {
+            if (_name == LibStrings.B_VERIFIER_ZK_ANY) {
                 return (false, address(0));
             }
             if (_name == LibStrings.B_VERIFIER_GUARDIAN_MINORITY) {

@@ -23,7 +23,7 @@ contract TestAddressResolver is TaikoL1TestBase {
         );
 
         assertEq(
-            bridge.resolve(uint64(block.chainid), bytes32(bytes("verifier_tee")), false),
+            bridge.resolve(uint64(block.chainid), bytes32(bytes("verifier_tee_any")), false),
             address(sv),
             " wrong TEE verifier address"
         );

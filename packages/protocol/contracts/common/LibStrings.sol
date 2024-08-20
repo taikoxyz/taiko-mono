@@ -27,11 +27,11 @@ library LibStrings {
     bytes32 internal constant B_TIER_ROUTER = bytes32("tier_router");
     bytes32 internal constant B_VERIFIER_GUARDIAN = bytes32("verifier_guardian");
     bytes32 internal constant B_VERIFIER_GUARDIAN_MINORITY = bytes32("verifier_guardian_minority");
-    bytes32 internal constant B_VERIFIER_TEE = bytes32("verifier_tee");
+    bytes32 internal constant B_VERIFIER_TEE_ANY = bytes32("verifier_tee_any");
     bytes32 internal constant B_VERIFIER_TEE_SGX = bytes32("verifier_tee_sgx");
-    bytes32 internal constant B_VERIFIER_ZK = bytes32("verifier_zk");
+    bytes32 internal constant B_VERIFIER_ZK_ANY = bytes32("verifier_zk_any");
     bytes32 internal constant B_VERIFIER_ZK_RISC0 = bytes32("verifier_zk_risc0");
-    bytes32 internal constant B_VERIFIER_ZK_SP1 = bytes32("verifier_zk_sp1");
+    bytes32 internal constant B_VERIFIER_ZK_SP1 = bytes32("verifier_zk_any_sp1");
     bytes32 internal constant B_VERIFIER_ZK_AND_TEE = bytes32("verifier_zk_and_tee");
     bytes32 internal constant B_WITHDRAWER = bytes32("withdrawer");
     bytes32 internal constant H_RETURN_LIVENESS_BOND = keccak256("RETURN_LIVENESS_BOND");
