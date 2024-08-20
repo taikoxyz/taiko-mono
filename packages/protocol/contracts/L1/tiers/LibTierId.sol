@@ -10,10 +10,10 @@ library LibTierId {
     uint16 public constant TIER_OPTIMISTIC = 100;
 
     /// @notice TEE tier
-    uint16 public constant TIER_TEE = 200;
+    uint16 public constant TIER_TEE_SGX = 200;
 
     /// @notice ZK tier
-    uint16 public constant TIER_ZK = 290;
+    uint16 public constant TIER_ZK_RISC0 = 290;
 
     /// @notice TEE + ZK tier
     uint16 public constant TIER_TEE_ZK = 300;

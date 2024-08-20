@@ -19,7 +19,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
 
         mineAndWrap(10 seconds);
         proveBlock(
-            David, meta, GENESIS_BLOCK_HASH, FIRST_BLOCK_HASH, stateRoot, LibTierId.TIER_TEE, ""
+            David, meta, GENESIS_BLOCK_HASH, FIRST_BLOCK_HASH, stateRoot, LibTierId.TIER_TEE_SGX, ""
         );
         mineAndWrap(7 days);
         verifyBlock(1);
@@ -119,7 +119,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
             parentHash,
             blockHash,
             stateRoot,
-            LibTierId.TIER_TEE,
+            LibTierId.TIER_TEE_SGX,
             LibProving.L1_INVALID_TIER.selector
         );
 

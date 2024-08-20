@@ -85,7 +85,7 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
             newInstance = SGX_X_0;
         }
 
-        if (tier == LibTierId.TIER_TEE) {
+        if (tier == LibTierId.TIER_TEE_SGX) {
             bytes memory signature =
                 createSgxSignatureProof(tran, newInstance, prover, keccak256(abi.encode(meta)));
 
@@ -143,7 +143,7 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
             newInstance = SGX_X_0;
         }
 
-        if (tier == LibTierId.TIER_TEE) {
+        if (tier == LibTierId.TIER_TEE_SGX) {
             bytes memory signature =
                 createSgxSignatureProof(tran, newInstance, prover, keccak256(abi.encode(meta)));
 

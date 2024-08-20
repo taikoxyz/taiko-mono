@@ -38,8 +38,8 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
     {
         uint16 tierToProveWith;
         if (minTier == LibTierId.TIER_OPTIMISTIC) {
-            tierToProveWith = LibTierId.TIER_TEE;
-        } else if (minTier == LibTierId.TIER_TEE) {
+            tierToProveWith = LibTierId.TIER_TEE_SGX;
+        } else if (minTier == LibTierId.TIER_TEE_SGX) {
             tierToProveWith = LibTierId.TIER_GUARDIAN;
         }
         proveBlock(Carol, meta, parentHash, blockHash, stateRoot, tierToProveWith, "");
@@ -493,7 +493,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 parentHash,
                 blockHash,
                 stateRoot,
-                LibTierId.TIER_TEE,
+                LibTierId.TIER_TEE_SGX,
                 LibUtils.L1_INVALID_BLOCK_ID.selector
             );
 
@@ -530,7 +530,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 parentHash,
                 blockHash,
                 stateRoot,
-                LibTierId.TIER_TEE,
+                LibTierId.TIER_TEE_SGX,
                 LibUtils.L1_BLOCK_MISMATCH.selector
             );
 
@@ -567,7 +567,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 parentHash,
                 stateRoot,
                 stateRoot,
-                LibTierId.TIER_TEE,
+                LibTierId.TIER_TEE_SGX,
                 LibProving.L1_INVALID_TIER.selector
             );
 
@@ -605,7 +605,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
             parentHash,
             blockHash,
             stateRoot,
-            LibTierId.TIER_TEE,
+            LibTierId.TIER_TEE_SGX,
             LibProving.L1_INVALID_TIER.selector
         );
 

@@ -227,7 +227,7 @@ contract TaikoL1Test is TaikoL1TestBase {
     function test_getTierIds() external {
         uint16[] memory tiers = cp.getTierIds();
         assertEq(tiers[0], LibTierId.TIER_OPTIMISTIC);
-        assertEq(tiers[1], LibTierId.TIER_TEE);
+        assertEq(tiers[1], LibTierId.TIER_TEE_SGX);
         assertEq(tiers[2], LibTierId.TIER_GUARDIAN);
 
         vm.expectRevert();
