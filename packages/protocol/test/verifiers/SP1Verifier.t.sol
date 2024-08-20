@@ -43,7 +43,7 @@ contract TestSP1Verifier is TaikoL1TestBase {
         // Deploy Taiko's SP1 proof verifier ('remitter')
         sp1 = SP1Verifier(
             deployProxy({
-                name: "verifier_zk_any_sp1",
+                name: "verifier_zk_sp1",
                 impl: address(new SP1Verifier()),
                 data: abi.encodeCall(SP1Verifier.init, (address(0), address(addressManager)))
             })

@@ -318,7 +318,7 @@ contract DeployOnL1 is DeployCapability {
         });
 
         deployProxy({
-            name: "verifier_tee_any",
+            name: "verifier_tee",
             impl: address(new SgxVerifier()),
             data: abi.encodeCall(SgxVerifier.init, (owner, rollupAddressManager)),
             registerTo: rollupAddressManager
