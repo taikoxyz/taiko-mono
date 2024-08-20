@@ -72,6 +72,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     /// @param instance The address of the SGX instance.
     event InstanceDeleted(uint256 indexed id, address indexed instance);
 
+    error SGX_INVALID_INPUT();
     error SGX_ALREADY_ATTESTED();
     error SGX_INVALID_ATTESTATION();
     error SGX_INVALID_INSTANCE();
@@ -144,8 +145,8 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
     /// @inheritdoc IVerifier
     function verifyProof(
-        Context calldata _ctx,
-        TaikoData.Transition calldata _tran,
+        Context[] calldata _ctx,
+        TaikoData.Transition[] calldata _tran,
         TaikoData.TierProof calldata _proof
     )
         external
@@ -154,19 +155,35 @@ contract SgxVerifier is EssentialContract, IVerifier {
         // Do not run proof verification to contest an existing proof
         if (_ctx.isContesting) return;
 
+        if (_ctx.length != _tran.length) {
+            revert SGX_INVALID_INPUT();
+        }
+
         // Size is: 89 bytes
-        // 4 bytes + 20 bytes + 65 bytes (signature) = 89
-        if (_proof.data.length != 89) revert SGX_INVALID_PROOF();
+        // 4 bytes + 20 bytes + 20 bytes + 65 bytes (signature) = 109
+        if (_proof.data.length != 109) revert SGX_INVALID_PROOF();
 
         uint32 id = uint32(bytes4(_proof.data[:4]));
-        address newInstance = address(bytes20(_proof.data[4:24]));
+        address oldInstance = address(bytes20(_proof.data[4:24]));
+        address newInstance = address(bytes20(_proof.data[24:44]));
+        bytes memory signature = _proof.data[44:];
 
-        address oldInstance = ECDSA.recover(
-            LibPublicInput.hashPublicInputs(
+        // Collect public inputs
+        bytes32[] memory public_inputs = new bytes32[](_tran.length + 1);
+        // First public input is the block proving program key
+        public_inputs[0] = bytes32(oldInstance);
+        // All other inputs are the block program public inputs (a single 32 byte value)
+        for (uint i = 0; i < _tran.length; i++) {
+            // TODO: For now this assumes the new instance public key to remain the same
+            public_inputs[i + 1] = LibPublicInput.hashPublicInputs(
                 _tran, address(this), newInstance, _ctx.prover, _ctx.metaHash, taikoChainId()
-            ),
-            _proof.data[24:]
-        );
+            );
+        }
+
+        require(oldInstance, ECDSA.recover(
+            keccak256(abi.encodePacked(public_inputs)),
+            signature
+        ), "invalid signature");
 
         if (!_isInstanceValid(id, oldInstance)) revert SGX_INVALID_INSTANCE();
 

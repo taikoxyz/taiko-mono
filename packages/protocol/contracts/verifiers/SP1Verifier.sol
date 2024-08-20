@@ -21,6 +21,7 @@ contract SP1Verifier is EssentialContract, IVerifier {
     /// @param trusted The block's assigned prover.
     event ProgramTrusted(bytes32 programVKey, bool trusted);
 
+    error SP1_INVALID_INPUT();
     error SP1_INVALID_PROGRAM_VKEY();
     error SP1_INVALID_PROOF();
 
@@ -52,22 +53,41 @@ contract SP1Verifier is EssentialContract, IVerifier {
         // Do not run proof verification to contest an existing proof
         if (_ctx.isContesting) return;
 
-        // Avoid in-memory decoding, so in-place decode with slicing.
-        // e.g.: bytes32 programVKey = bytes32(_proof.data[0:32]);
-        if (!isProgramTrusted[bytes32(_proof.data[0:32])]) {
+        if (_ctx.length != _tran.length) {
+            revert SP1_INVALID_INPUT();
+        }
+
+        // Extract the necessary data
+        bytes32 aggregation_program = bytes32(_proof.data[0:32]);
+        bytes32 block_proving_program = bytes32(_proof.data[32:64]);
+        bytes memory proof = _proof.data[64:];
+
+        // Check if the aggregation program is trusted
+        if (!isProgramTrusted[aggregation_program]) {
+            revert SP1_INVALID_PROGRAM_VKEY();
+        }
+        // Check if the block proving program is trusted
+        if (!isProgramTrusted[block_proving_program]) {
             revert SP1_INVALID_PROGRAM_VKEY();
         }
 
-        // Need to be converted from bytes32 to bytes
-        bytes32 hashedPublicInput = LibPublicInput.hashPublicInputs(
-            _tran, address(this), address(0), _ctx.prover, _ctx.metaHash, taikoChainId()
-        );
+        // Collect public inputs
+        bytes32[] memory public_inputs = new bytes32[](_tran.length + 1);
+        // First public input is the block proving program key
+        public_inputs[0] = block_proving_program;
+        // All other inputs are the block program public inputs (a single 32 byte value)
+        for (uint i = 0; i < _tran.length; i++) {
+            // Need to be converted from bytes32 to bytes
+            public_inputs[i + 1] = sha256(abi.encodePacked(LibPublicInput.hashPublicInputs(
+                _tran, address(this), address(0), _ctx.prover, _ctx.metaHash, taikoChainId()
+            )));
+        }
 
         // _proof.data[32:] is the succinct's proof position
         (bool success,) = sp1RemoteVerifier().staticcall(
             abi.encodeCall(
                 ISP1Verifier.verifyProof,
-                (bytes32(_proof.data[0:32]), abi.encode(hashedPublicInput), _proof.data[32:])
+                (block_proving_program, abi.encodePacked(public_inputs), proof)
             )
         );
 
