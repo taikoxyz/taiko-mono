@@ -10,11 +10,12 @@ import (
 )
 
 func TestHiveHandler(t *testing.T) {
-	baseDir := os.Getenv("HIVE_BASE_DIR")
+	baseDir := os.Getenv("HIVE_DIR")
 	if baseDir == "" {
 		t.SkipNow()
 	}
 	handler, err := hivesim.NewHiveFramework(&hivesim.HiveConfig{
+		DockerOutput:   true,
 		BaseDir:        baseDir,
 		SimPattern:     "taiko",
 		SimTestPattern: "taiko-deneb-testnet/test-deneb-genesis",
