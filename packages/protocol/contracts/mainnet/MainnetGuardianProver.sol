@@ -11,7 +11,6 @@ import "./LibRollupAddressCache.sol";
 /// @custom:security-contact security@taiko.xyz
 contract MainnetGuardianProver is GuardianProver {
     function _getAddress(uint64 _chainId, bytes32 _name) internal view override returns (address) {
-        (bool found, address addr) = LibRollupAddressCache.getAddress(_chainId, _name);
-        return found ? addr : super._getAddress(_chainId, _name);
+        return LibRollupAddressCache.getAddress(_chainId, _name, super._getAddress);
     }
 }
