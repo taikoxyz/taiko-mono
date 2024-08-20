@@ -46,7 +46,7 @@ library LibTiers {
     // @notice ZK tiers
     uint16 public constant TIER_RISC0 = 290;
     uint16 public constant TIER_SP1 = 290;
-    uint16 public constant TIER_ZK = 290;
+    uint16 public constant TIER_ZK = 290; // Either RISC0 or SP1
 
     // @notice TEE + ZK tier
     uint16 public constant TIER_TEE_ZK = 300;
