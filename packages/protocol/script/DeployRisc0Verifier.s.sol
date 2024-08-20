@@ -18,7 +18,7 @@ contract DeployRisc0Verifier is DeployCapability {
             new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
         register(rollupAddressManager, "risc0_groth16_verifier", address(verifier));
         deployProxy({
-            name: "tier_zk_risc0",
+            name: "verifier_zk_risc0",
             impl: address(new Risc0Verifier()),
             data: abi.encodeCall(Risc0Verifier.init, (address(0), rollupAddressManager)),
             registerTo: rollupAddressManager

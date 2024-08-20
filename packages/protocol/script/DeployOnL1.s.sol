@@ -318,7 +318,7 @@ contract DeployOnL1 is DeployCapability {
         });
 
         deployProxy({
-            name: "tier_tee",
+            name: "verifier_tee_any",
             impl: address(new SgxVerifier()),
             data: abi.encodeCall(SgxVerifier.init, (owner, rollupAddressManager)),
             registerTo: rollupAddressManager
@@ -346,8 +346,8 @@ contract DeployOnL1 is DeployCapability {
             data: abi.encodeCall(GuardianProver.init, (address(0), rollupAddressManager))
         });
 
-        register(rollupAddressManager, "tier_guardian_minority", guardianProverMinority);
-        register(rollupAddressManager, "tier_guardian", guardianProver);
+        register(rollupAddressManager, "verifier_guardian_minority", guardianProverMinority);
+        register(rollupAddressManager, "verifier_guardian", guardianProver);
         register(
             rollupAddressManager,
             "tier_router",
@@ -401,7 +401,7 @@ contract DeployOnL1 is DeployCapability {
         register(rollupAddressManager, "risc0_groth16_verifier", address(verifier));
 
         deployProxy({
-            name: "tier_zk_risc0",
+            name: "verifier_zk_risc0",
             impl: address(new Risc0Verifier()),
             data: abi.encodeCall(Risc0Verifier.init, (owner, rollupAddressManager)),
             registerTo: rollupAddressManager

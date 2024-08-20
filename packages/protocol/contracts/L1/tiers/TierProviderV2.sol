@@ -31,8 +31,8 @@ contract TierProviderV2 is ITierProvider {
 
         if (_tierId == LibTierId.TIER_TEE) {
             return ITierProvider.Tier({
-                // verifierName can also be B_TIER_TEE
-                verifierName: LibStrings.B_TIER_TEE_SGX,
+                // verifierName can also be B_VERIFIER_TEE_ANY
+                verifierName: LibStrings.B_VERIFIER_TEE_SGX,
                 validityBond: 150 ether, // TAIKO
                 contestBond: 984.375 ether, // = 150 TAIKO * 6.5625
                 cooldownWindow: 1440, // 24 hours
@@ -41,10 +41,10 @@ contract TierProviderV2 is ITierProvider {
             });
         }
 
-        if (_tierId == LibTierId.TIER_ZKVM) {
+        if (_tierId == LibTierId.TIER_ZK) {
             return ITierProvider.Tier({
-                // verifierName can also be B_TIER_ZKVM and B_TIER_ZKVM_SP1
-                verifierName: LibStrings.B_TIER_ZKVM_RISC0,
+                // verifierName can also be B_VERIFIER_ZK_ANY and B_VERIFIER_ZK_SP1
+                verifierName: LibStrings.B_VERIFIER_ZK_RISC0,
                 validityBond: 250 ether, // TAIKO
                 contestBond: 1640.625 ether, // = 250 TAIKO * 6.5625
                 cooldownWindow: 1440, // 24 hours
@@ -53,9 +53,9 @@ contract TierProviderV2 is ITierProvider {
             });
         }
 
-        if (_tierId == LibTierId.TIER_ZKVM_PLUS_TEE) {
+        if (_tierId == LibTierId.TIER_ZK_PLUS_TEE) {
             return ITierProvider.Tier({
-                verifierName: LibStrings.B_TIER_ZKVM_AND_TEE,
+                verifierName: LibStrings.B_VERIFIER_ZK_AND_TEE,
                 validityBond: 300 ether, // TAIKO
                 contestBond: 1968.75 ether, // = 300 TAIKO * 6.5625
                 cooldownWindow: 1440, // 24 hours
@@ -66,7 +66,7 @@ contract TierProviderV2 is ITierProvider {
 
         if (_tierId == LibTierId.TIER_GUARDIAN_MINORITY) {
             return ITierProvider.Tier({
-                verifierName: LibStrings.B_TIER_GUARDIAN_MINORITY,
+                verifierName: LibStrings.B_VERIFIER_GUARDIAN_MINORITY,
                 validityBond: 350 ether, // TAIKO
                 contestBond: 2296.875 ether, // = 350 TAIKO * 6.5625
                 cooldownWindow: GRACE_PERIOD + 240, // 4 hours
@@ -77,7 +77,7 @@ contract TierProviderV2 is ITierProvider {
 
         if (_tierId == LibTierId.TIER_GUARDIAN) {
             return ITierProvider.Tier({
-                verifierName: LibStrings.B_TIER_GUARDIAN,
+                verifierName: LibStrings.B_VERIFIER_GUARDIAN,
                 validityBond: 0, // must be 0 for top tier
                 contestBond: 0, // must be 0 for top tier
                 cooldownWindow: 1440, // 24 hours
