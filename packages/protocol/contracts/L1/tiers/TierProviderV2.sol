@@ -53,9 +53,9 @@ contract TierProviderV2 is ITierProvider {
             });
         }
 
-        if (_tierId == LibTierId.TIER_ZK_PLUS_TEE) {
+        if (_tierId == LibTierId.TIER_TEE_ZK) {
             return ITierProvider.Tier({
-                verifierName: LibStrings.B_VERIFIER_ZK_AND_TEE,
+                verifierName: LibStrings.B_VERIFIER_ZKTEE,
                 validityBond: 300 ether, // TAIKO
                 contestBond: 1968.75 ether, // = 300 TAIKO * 6.5625
                 cooldownWindow: 1440, // 24 hours
