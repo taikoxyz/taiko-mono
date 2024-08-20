@@ -16,8 +16,9 @@ contract TeeComposeVerifier is EssentialContract, ComposeVerifier {
         override
         returns (address[] memory verifiers_, uint256 threshold_)
     {
-        verifiers_ = new address[](1);
+        verifiers_ = new address[](2);
         verifiers_[0] = resolve(LibStrings.B_VERIFIER_TEE_SGX, false);
+        verifiers_[1] = resolve(LibStrings.B_VERIFIER_TEE_TDX, false);
         threshold_ = 1;
     }
 }
