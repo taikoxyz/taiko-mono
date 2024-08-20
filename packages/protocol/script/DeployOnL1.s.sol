@@ -401,7 +401,7 @@ contract DeployOnL1 is DeployCapability {
         register(rollupAddressManager, "risc0_groth16_verifier", address(verifier));
 
         deployProxy({
-            name: "verifier_risc0",
+            name: "verifier_zk_risc0",
             impl: address(new Risc0Verifier()),
             data: abi.encodeCall(Risc0Verifier.init, (owner, rollupAddressManager)),
             registerTo: rollupAddressManager
