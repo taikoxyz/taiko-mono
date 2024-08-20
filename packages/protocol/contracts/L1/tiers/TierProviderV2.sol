@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "./ITierProvider.sol";
 import "../../common/LibStrings.sol";
+import "./ITierProvider.sol";
 
 /// @title TierProviderV2
 /// @custom:security-contact security@taiko.xyz
@@ -17,15 +17,7 @@ contract TierProviderV2 is ITierProvider {
     /// @inheritdoc ITierProvider
     /// @notice Each tier, except the top tier, has a validity bond that is 50 TAIKO higher than the
     /// previous tier. Additionally, each tier's contest bond is 6.5625 times its validity bond.
-    function getTier(
-        uint16 _tierId
-    )
-        public
-        pure
-        virtual
-        override
-        returns (ITierProvider.Tier memory)
-    {
+    function getTier(uint16 _tierId) public pure override returns (ITierProvider.Tier memory) {
         if (_tierId == LibTierId.TIER_OPTIMISTIC) {
             return ITierProvider.Tier({
                 verifierName: "",
