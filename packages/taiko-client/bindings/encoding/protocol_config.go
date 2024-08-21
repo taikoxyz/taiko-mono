@@ -26,6 +26,22 @@ var (
 			MaxGasIssuancePerBlock: 600000000,
 		},
 	}
+	PreconfsDevnetProtocolConfig = &v2.TaikoDataConfig{
+		ChainId:               167010,
+		BlockMaxProposals:     324_000,
+		BlockRingBufferSize:   360_000,
+		MaxBlocksToVerify:     16,
+		BlockMaxGasLimit:      240_000_000,
+		LivenessBond:          livenessBond,
+		StateRootSyncInternal: 16,
+		MaxAnchorHeightOffset: 64,
+		BaseFeeConfig: v2.TaikoDataBaseFeeConfig{
+			AdjustmentQuotient:     8,
+			GasIssuancePerSecond:   5_000_000,
+			MinGasExcess:           1_340_000_000,
+			MaxGasIssuancePerBlock: 600000000,
+		},
+	}
 	HeklaProtocolConfig = &v2.TaikoDataConfig{
 		ChainId:               params.HeklaNetworkID.Uint64(),
 		BlockMaxProposals:     324_000,
@@ -67,6 +83,8 @@ func GetProtocolConfig(chainID uint64) *v2.TaikoDataConfig {
 		return HeklaProtocolConfig
 	case params.TaikoMainnetNetworkID.Uint64():
 		return MainnetProtocolConfig
+	case 167010:
+		return PreconfsDevnetProtocolConfig
 	default:
 		return InternlDevnetProtocolConfig
 	}
