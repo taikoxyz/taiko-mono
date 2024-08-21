@@ -18,7 +18,7 @@ contract TierProviderV2 is ITierProvider {
     /// @notice Each tier, except the top tier, has a validity bond that is 50 TAIKO higher than the
     /// previous tier. Additionally, each tier's contest bond is 6.5625 times its validity bond.
     function getTier(uint16 _tierId) public pure override returns (ITierProvider.Tier memory) {
-        if (_tierId == LibTiers.TIER_OPTIMISTIC) {
+        if (_tierId == LibTierId.TIER_OPTIMISTIC) {
             return ITierProvider.Tier({
                 verifierName: "",
                 validityBond: 100 ether, // TAIKO
@@ -29,7 +29,7 @@ contract TierProviderV2 is ITierProvider {
             });
         }
 
-        if (_tierId == LibTiers.TIER_TEE_SGX) {
+        if (_tierId == LibTierId.TIER_TEE_SGX) {
             return ITierProvider.Tier({
                 verifierName: LibStrings.B_VERIFIER_TEE_SGX,
                 validityBond: 150 ether, // TAIKO
@@ -40,7 +40,7 @@ contract TierProviderV2 is ITierProvider {
             });
         }
 
-        if (_tierId == LibTiers.TIER_ZK_RISC0) {
+        if (_tierId == LibTierId.TIER_ZK_RISC0) {
             return ITierProvider.Tier({
                 verifierName: LibStrings.B_VERIFIER_ZK_RISC0,
                 validityBond: 250 ether, // TAIKO
@@ -51,7 +51,7 @@ contract TierProviderV2 is ITierProvider {
             });
         }
 
-        if (_tierId == LibTiers.TIER_TEE_ZK) {
+        if (_tierId == LibTierId.TIER_TEE_ZK) {
             return ITierProvider.Tier({
                 verifierName: LibStrings.B_VERIFIER_ZK_TEE,
                 validityBond: 300 ether, // TAIKO
@@ -62,7 +62,7 @@ contract TierProviderV2 is ITierProvider {
             });
         }
 
-        if (_tierId == LibTiers.TIER_GUARDIAN_MINORITY) {
+        if (_tierId == LibTierId.TIER_GUARDIAN_MINORITY) {
             return ITierProvider.Tier({
                 verifierName: LibStrings.B_VERIFIER_GUARDIAN_MINORITY,
                 validityBond: 350 ether, // TAIKO
@@ -73,7 +73,7 @@ contract TierProviderV2 is ITierProvider {
             });
         }
 
-        if (_tierId == LibTiers.TIER_GUARDIAN) {
+        if (_tierId == LibTierId.TIER_GUARDIAN) {
             return ITierProvider.Tier({
                 verifierName: LibStrings.B_VERIFIER_GUARDIAN,
                 validityBond: 0, // must be 0 for top tier
@@ -90,13 +90,13 @@ contract TierProviderV2 is ITierProvider {
     /// @inheritdoc ITierProvider
     function getTierIds() public pure virtual override returns (uint16[] memory tiers_) {
         tiers_ = new uint16[](3);
-        tiers_[0] = LibTiers.TIER_TEE_SGX;
-        tiers_[1] = LibTiers.TIER_GUARDIAN_MINORITY;
-        tiers_[2] = LibTiers.TIER_GUARDIAN;
+        tiers_[0] = LibTierId.TIER_TEE_SGX;
+        tiers_[1] = LibTierId.TIER_GUARDIAN_MINORITY;
+        tiers_[2] = LibTierId.TIER_GUARDIAN;
     }
 
     /// @inheritdoc ITierProvider
     function getMinTier(address, uint256) public pure virtual override returns (uint16) {
-        return LibTiers.TIER_TEE_SGX;
+        return LibTierId.TIER_TEE_SGX;
     }
 }

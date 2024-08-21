@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "./LibTiers.sol";
+import "./LibTierId.sol";
 
 /// @title ITierProvider
 /// @notice Defines interface to return tier configuration.
