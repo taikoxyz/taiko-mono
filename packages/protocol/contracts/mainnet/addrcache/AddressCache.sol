@@ -6,18 +6,17 @@ import "../../common/AddressResolver.sol";
 /// @title AddressCache
 /// @custom:security-contact security@taiko.xyz
 abstract contract AddressCache is AddressResolver {
-    function _getAddress(
+    function getAddressFromCache(
         uint64 _chainId,
-        bytes32 _name
-        // function (uint64, bytes32) view  returns  (address) _getAddress
+        bytes32 _name,
+        function (uint64, bytes32) view  returns  (address) _getAddress
     )
         internal
         view
-        override
         returns (address)
     {
         (bool found, address addr) = getCachedAddress(_chainId, _name);
-        return found ? addr : super._getAddress(_chainId, _name);
+        return found ? addr : _getAddress(_chainId, _name);
     }
 
     function getCachedAddress(
