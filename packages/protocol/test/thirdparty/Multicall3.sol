@@ -42,7 +42,9 @@ contract Multicall3 {
     /// @param calls An array of Call structs
     /// @return blockNumber The block number where the calls were executed
     /// @return returnData An array of bytes containing the responses
-    function aggregate(Call[] calldata calls)
+    function aggregate(
+        Call[] calldata calls
+    )
         public
         payable
         returns (uint256 blockNumber, bytes[] memory returnData)
@@ -114,7 +116,9 @@ contract Multicall3 {
     /// @return blockNumber The block number where the calls were executed
     /// @return blockHash The hash of the block where the calls were executed
     /// @return returnData An array of Result structs
-    function blockAndAggregate(Call[] calldata calls)
+    function blockAndAggregate(
+        Call[] calldata calls
+    )
         public
         payable
         returns (uint256 blockNumber, bytes32 blockHash, Result[] memory returnData)
@@ -125,7 +129,9 @@ contract Multicall3 {
     /// @notice Aggregate calls, ensuring each returns success if required
     /// @param calls An array of Call3 structs
     /// @return returnData An array of Result structs
-    function aggregate3(Call3[] calldata calls)
+    function aggregate3(
+        Call3[] calldata calls
+    )
         public
         payable
         returns (Result[] memory returnData)
@@ -162,7 +168,9 @@ contract Multicall3 {
     /// @notice Reverts if msg.value is less than the sum of the call values
     /// @param calls An array of Call3Value structs
     /// @return returnData An array of Result structs
-    function aggregate3Value(Call3Value[] calldata calls)
+    function aggregate3Value(
+        Call3Value[] calldata calls
+    )
         public
         payable
         returns (Result[] memory returnData)
