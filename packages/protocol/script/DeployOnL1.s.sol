@@ -14,6 +14,7 @@ import "../contracts/common/LibStrings.sol";
 import "../contracts/tko/TaikoToken.sol";
 import "../contracts/mainnet/MainnetTaikoL1.sol";
 import "../contracts/devnet/DevnetTaikoL1.sol";
+import "../contracts/devnet/PreconfsTaikoL1.sol";
 import "../contracts/L1/provers/GuardianProver.sol";
 import "../contracts/L1/tiers/DevnetTierProvider.sol";
 import "../contracts/L1/tiers/TierProviderV2.sol";
@@ -305,6 +306,10 @@ contract DeployOnL1 is DeployCapability {
         if (keccak256(abi.encode(vm.envString("TIER_PROVIDER"))) == keccak256(abi.encode("devnet")))
         {
             taikoL1 = TaikoL1(address(new DevnetTaikoL1()));
+        } else if (
+            keccak256(abi.encode(vm.envString("TIER_PROVIDER"))) == keccak256(abi.encode("devnet"))
+        ) {
+            taikoL1 = TaikoL1(address(new PreconfsTaikoL1()));
         } else {
             taikoL1 = TaikoL1(address(new TaikoL1()));
         }
@@ -423,7 +428,10 @@ contract DeployOnL1 is DeployCapability {
     }
 
     function deployTierProvider(string memory tierProviderName) private returns (address) {
-        if (keccak256(abi.encode(tierProviderName)) == keccak256(abi.encode("devnet"))) {
+        if (
+            keccak256(abi.encode(tierProviderName)) == keccak256(abi.encode("devnet"))
+                || keccak256(abi.encode(tierProviderName)) == keccak256(abi.encode("preconfs"))
+        ) {
             return address(new DevnetTierProvider());
         } else if (keccak256(abi.encode(tierProviderName)) == keccak256(abi.encode("testnet"))) {
             return address(new TestTierProvider());

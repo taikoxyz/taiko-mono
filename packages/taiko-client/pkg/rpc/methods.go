@@ -289,6 +289,8 @@ func (c *Client) GetPoolContent(
 		return nil, err
 	}
 
+	log.Info("before base fee", "l1Head", l1Head, "l2Head", l2Head)
+
 	baseFeeInfo, err := c.V1.TaikoL2.GetBasefee(
 		&bind.CallOpts{Context: ctx},
 		l1Head.Number.Uint64(),

@@ -223,9 +223,7 @@ library LibProposing {
     /// @dev Encodes the base fee configuration.
     /// @param _baseFeeConfig The base fee configuration to encode.
     /// @return The encoded base fee configuration as a bytes32 value.
-    function _encodeBaseFeeConfig(
-        TaikoData.BaseFeeConfig memory _baseFeeConfig
-    )
+    function _encodeBaseFeeConfig(TaikoData.BaseFeeConfig memory _baseFeeConfig)
         private
         pure
         returns (bytes32)
