@@ -110,7 +110,7 @@ func (s *ProverTestSuite) SetupTest() {
 		L2SuggestedFeeRecipient:    common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
 		ProposeInterval:            1024 * time.Hour,
 		MaxProposedTxListsPerEpoch: 1,
-	}, s.txmgr))
+	}, s.txmgr, s.txmgr))
 
 	s.proposer = prop
 }
@@ -140,7 +140,7 @@ func (s *ProverTestSuite) TestInitError() {
 		RPCTimeout:            10 * time.Minute,
 		BackOffRetryInterval:  3 * time.Second,
 		BackOffMaxRetries:     12,
-	}, s.txmgr))
+	}, s.txmgr, s.txmgr))
 }
 
 func (s *ProverTestSuite) TestOnBlockProposed() {
@@ -324,7 +324,7 @@ func (s *ProverTestSuite) TestContestWrongBlocks() {
 	// Protocol proof tiers
 	tiers, err := s.RPCClient.GetTiers(context.Background())
 	s.Nil(err)
-	s.Nil(s.p.initProofSubmitters(s.p.txmgr, txBuilder, tiers))
+	s.Nil(s.p.initProofSubmitters(txBuilder, tiers))
 
 	s.p.rpc.GuardianProverMinority, err = bindings.NewGuardianProver(s.p.cfg.GuardianProverMinorityAddress, s.p.rpc.L1)
 	s.Nil(err)
@@ -537,7 +537,7 @@ func (s *ProverTestSuite) initProver(
 		BackOffMaxRetries:     12,
 		L1NodeVersion:         "1.0.0",
 		L2NodeVersion:         "0.1.0",
-	}, s.txmgr))
+	}, s.txmgr, s.txmgr))
 
 	p.guardianProverHeartbeater = guardianProverHeartbeater.New(
 		key,
