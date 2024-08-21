@@ -56,19 +56,18 @@ contract RiscZeroGroth16VerifierTest is TaikoL1TestBase {
 
         vm.warp(block.timestamp + 5);
 
-        (IVerifier.Context memory ctx, TaikoData.Transition memory transition) =
-            _generateTaikoMainnetContextAndTransition();
+        IVerifier.Context[] memory ctx = _generateTaikoMainnetContextAndTransition();
 
         uint64 chainId = L1.getConfig().chainId;
         bytes32 pi = LibPublicInput.hashPublicInputs(
-            transition, address(rv), address(0), ctx.prover, ctx.metaHash, chainId
+            ctx[0].tran, address(rv), address(0), ctx[0].prover, ctx[0].metaHash, chainId
         );
         bytes memory header = hex"20000000"; // [32, 0, 0, 0] -- big-endian uint32(32) for hash
             // bytes len
         assert(sha256(bytes.concat(header, pi)) == journalDigest);
 
         // `verifyProof()`
-        rv.verifyProof(ctx, transition, proof);
+        rv.verifyProofs(ctx, proof);
 
         vm.stopPrank();
     }
@@ -76,25 +75,29 @@ contract RiscZeroGroth16VerifierTest is TaikoL1TestBase {
     function _generateTaikoMainnetContextAndTransition()
         internal
         pure
-        returns (IVerifier.Context memory ctx, TaikoData.Transition memory transition)
+        returns (IVerifier.Context[] memory ctxs)
     {
+        // Transition
+        TaikoData.Transition memory transition = TaikoData.Transition({
+            parentHash: 0x317de24b32f09629524133334ad552a14e3de603d71a9cf9e88d722809f101b3,
+            blockHash: 0x9966d3cf051d3d1e44e2a740169627506a619257c95374e812ca572de91ed885,
+            stateRoot: 0x3ae3de1afa16b93a5c7ea20a0b36b43357061f5b8ef857053d68b2735c3df860,
+            graffiti: 0x8008500000000000000000000000000000000000000000000000000000000000
+        });
         // Context
-        ctx = IVerifier.Context({
+        IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32(0xd7efb262f6f25cc817452a622009a22e5868e53e1f934d899d3ec68d8c4f2c5b),
             blobHash: bytes32(0x015cc9688f24b8d2195e46829b3f726ce006884d5fd2760b7cf414bab9a1b231),
             prover: address(0x70997970C51812dc3A010C7d01b50e0d17dc79C8),
             msgSender: address(0),
             blockId: 223_248, //from mainnet
             isContesting: false,
-            blobUsed: true
+            blobUsed: true,
+            tran: transition,
+            verifier: address(0)
         });
 
-        // Transition
-        transition = TaikoData.Transition({
-            parentHash: 0x317de24b32f09629524133334ad552a14e3de603d71a9cf9e88d722809f101b3,
-            blockHash: 0x9966d3cf051d3d1e44e2a740169627506a619257c95374e812ca572de91ed885,
-            stateRoot: 0x3ae3de1afa16b93a5c7ea20a0b36b43357061f5b8ef857053d68b2735c3df860,
-            graffiti: 0x8008500000000000000000000000000000000000000000000000000000000000
-        });
+        ctxs = new IVerifier.Context[](1);
+        ctxs[0] = ctx;
     }
 }

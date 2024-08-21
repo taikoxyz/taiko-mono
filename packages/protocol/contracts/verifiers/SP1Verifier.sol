@@ -21,7 +21,6 @@ contract SP1Verifier is EssentialContract, IVerifier {
     /// @param trusted The block's assigned prover.
     event ProgramTrusted(bytes32 programVKey, bool trusted);
 
-    error SP1_INVALID_INPUT();
     error SP1_INVALID_PROGRAM_VKEY();
     error SP1_INVALID_PROOF();
 
@@ -42,21 +41,13 @@ contract SP1Verifier is EssentialContract, IVerifier {
     }
 
     /// @inheritdoc IVerifier
-    function verifyProof(
+    function verifyProofs(
         Context[] calldata _ctx,
-        TaikoData.Transition[] calldata _tran,
         TaikoData.TierProof calldata _proof
     )
         external
         view
     {
-        // Do not run proof verification to contest an existing proof
-        if (_ctx.isContesting) return;
-
-        if (_ctx.length != _tran.length) {
-            revert SP1_INVALID_INPUT();
-        }
-
         // Extract the necessary data
         bytes32 aggregation_program = bytes32(_proof.data[0:32]);
         bytes32 block_proving_program = bytes32(_proof.data[32:64]);
@@ -72,15 +63,24 @@ contract SP1Verifier is EssentialContract, IVerifier {
         }
 
         // Collect public inputs
-        bytes32[] memory public_inputs = new bytes32[](_tran.length + 1);
+        bytes32[] memory public_inputs = new bytes32[](_ctx.length + 1);
         // First public input is the block proving program key
         public_inputs[0] = block_proving_program;
         // All other inputs are the block program public inputs (a single 32 byte value)
-        for (uint i = 0; i < _tran.length; i++) {
+        for (uint256 i = 0; i < _ctx.length; i++) {
             // Need to be converted from bytes32 to bytes
-            public_inputs[i + 1] = sha256(abi.encodePacked(LibPublicInput.hashPublicInputs(
-                _tran, address(this), address(0), _ctx.prover, _ctx.metaHash, taikoChainId()
-            )));
+            public_inputs[i + 1] = sha256(
+                abi.encodePacked(
+                    LibPublicInput.hashPublicInputs(
+                        _ctx[i].tran,
+                        address(this),
+                        address(0),
+                        _ctx[i].prover,
+                        _ctx[i].metaHash,
+                        taikoChainId()
+                    )
+                )
+            );
         }
 
         // _proof.data[32:] is the succinct's proof position

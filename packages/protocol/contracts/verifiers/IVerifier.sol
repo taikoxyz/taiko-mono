@@ -15,16 +15,12 @@ interface IVerifier {
         bool isContesting;
         bool blobUsed;
         address msgSender;
+        TaikoData.Transition tran;
+        address verifier;
     }
 
     /// @notice Verifies a proof.
     /// @param _ctx The context of the proof verification.
-    /// @param _tran The transition to verify.
     /// @param _proof The proof to verify.
-    function verifyProofs(
-        Context[] calldata _ctx,
-        TaikoData.Transition[] calldata _tran,
-        TaikoData.TierProof calldata _proof
-    )
-        external;
+    function verifyProofs(Context[] calldata _ctx, TaikoData.TierProof calldata _proof) external;
 }

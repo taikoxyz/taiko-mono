@@ -149,7 +149,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     function proveBlocks(
         uint64[] calldata _blockIds,
         bytes[] calldata _inputArr,
-        bytes proof
+        bytes calldata _proof
     )
         external
         whenNotPaused
@@ -163,14 +163,25 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
 
         TaikoData.Config memory config = getConfig();
 
+        // Run over all blocks and collect all blocks that need to be verified
         IVerifier.Context[] memory ctxs = new IVerifier.Context[](_blockIds.length);
-        TaikoData.Transition[] memory trans = new TaikoData.Transition[](_blockIds.length);
-
         for (uint256 i; i < _blockIds.length; ++i) {
-            (ctxs[i], trans[i]) = _proveBlock(_blockIds[i], _inputArr[i], config);
+            ctxs[i] = _proveBlock(_blockIds[i], _inputArr[i], config);
+            // We have to make sure that we only batch verify the same type of proof
+            if (
+                ctxs[i].verifier != ctxs[0].verifier || ctxs[i].isContesting != ctxs[0].isContesting
+            ) {
+                revert L1_INVALID_PARAMS();
+            }
         }
 
-        IVerifier(verifier).verifyProof(ctxs, trans, proof);
+        // Batch verify the blocks
+        // Do not run proof verification to contest an existing proof
+        if (!ctxs[0].isContesting) {
+            IVerifier(ctxs[0].verifier).verifyProofs(
+                ctxs, abi.decode(_proof, (TaikoData.TierProof))
+            );
+        }
     }
 
     /// @inheritdoc ITaikoL1
@@ -348,8 +359,9 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         TaikoData.Config memory _config
     )
         internal
+        returns (IVerifier.Context memory ctx_)
     {
-        LibProving.proveBlock(state, _config, this, _blockId, _input);
+        ctx_ = LibProving.proveBlock(state, _config, this, _blockId, _input);
 
         if (LibUtils.shouldVerifyBlocks(_config, _blockId, false)) {
             LibVerifying.verifyBlocks(state, _config, this, _config.maxBlocksToVerify);

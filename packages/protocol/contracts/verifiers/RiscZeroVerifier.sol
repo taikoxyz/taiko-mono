@@ -47,39 +47,48 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
     }
 
     /// @inheritdoc IVerifier
-    function verifyProof(
-        Context calldata _ctx,
-        TaikoData.Transition calldata _tran,
-        TaikoData.TierProof calldata _proof
-    )
-        external
-    {
-        // Do not run proof verification to contest an existing proof
-        if (_ctx.isContesting) return;
-
+    function verifyProofs(Context[] calldata _ctx, TaikoData.TierProof calldata _proof) external {
         // Decode will throw if not proper length/encoding
-        (bytes memory seal, bytes32 imageId) = abi.decode(_proof.data, (bytes, bytes32));
+        (bytes memory seal, bytes32 blockImageId, bytes32 aggregationImageId) =
+            abi.decode(_proof.data, (bytes, bytes32, bytes32));
 
-        if (!isImageTrusted[imageId]) {
+        // Check if the aggregation program is trusted
+        if (!isImageTrusted[aggregationImageId]) {
+            revert RISC_ZERO_INVALID_IMAGE_ID();
+        }
+        // Check if the block proving program is trusted
+        if (!isImageTrusted[blockImageId]) {
             revert RISC_ZERO_INVALID_IMAGE_ID();
         }
 
-        bytes32 publicInputHash = LibPublicInput.hashPublicInputs(
-            _tran, address(this), address(0), _ctx.prover, _ctx.metaHash, taikoChainId()
-        );
+        // Collect public inputs
+        bytes32[] memory public_inputs = new bytes32[](_ctx.length + 1);
+        // First public input is the block proving program key
+        public_inputs[0] = blockImageId;
+        // All other inputs are the block program public inputs (a single 32 byte value)
+        for (uint256 i = 0; i < _ctx.length; i++) {
+            public_inputs[i + 1] = LibPublicInput.hashPublicInputs(
+                _ctx[i].tran,
+                address(this),
+                address(0),
+                _ctx[i].prover,
+                _ctx[i].metaHash,
+                taikoChainId()
+            );
+            emit ProofVerified(_ctx[i].metaHash, public_inputs[i + 1]);
+        }
 
         // journalDigest is the sha256 hash of the hashed public input
-        bytes32 journalDigest = sha256(bytes.concat(FIXED_JOURNAL_HEADER, publicInputHash));
+        bytes32 journalDigest =
+            sha256(bytes.concat(FIXED_JOURNAL_HEADER, abi.encodePacked(public_inputs)));
 
         // call risc0 verifier contract
         (bool success,) = resolve(LibStrings.B_RISCZERO_GROTH16_VERIFIER, false).staticcall(
-            abi.encodeCall(IRiscZeroVerifier.verify, (seal, imageId, journalDigest))
+            abi.encodeCall(IRiscZeroVerifier.verify, (seal, aggregationImageId, journalDigest))
         );
         if (!success) {
             revert RISC_ZERO_INVALID_PROOF();
         }
-
-        emit ProofVerified(_ctx.metaHash, publicInputHash);
     }
 
     function taikoChainId() internal view virtual returns (uint64) {
