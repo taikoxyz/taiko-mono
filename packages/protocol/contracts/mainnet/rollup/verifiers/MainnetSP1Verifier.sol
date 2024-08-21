@@ -1,18 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "../../verifiers/SgxVerifier.sol";
-import "../LibRollupAddressCache.sol";
+import "../../../verifiers/SP1Verifier.sol";
+import "../../addrcache/RollupAddressCache.sol";
 
-/// @title MainnetSgxVerifier
+/// @title MainnetSP1Verifier
 /// @dev This contract shall be deployed to replace its parent contract on Ethereum for Taiko
 /// mainnet to reduce gas cost.
-/// @notice See the documentation in {SgxVerifier}.
+/// @notice See the documentation in {RiscZeroVerifier}.
 /// @custom:security-contact security@taiko.xyz
-contract MainnetSgxVerifier is SgxVerifier {
+contract MainnetSP1Verifier is SP1Verifier, RollupAddressCache {
     function _getAddress(uint64 _chainId, bytes32 _name) internal view override returns (address) {
-        (bool found, address addr) = LibRollupAddressCache.getAddress(_chainId, _name);
-        return found ? addr : super._getAddress(_chainId, _name);
+        return getAddressFromCache(_chainId, _name, super._getAddress);
     }
 
     function taikoChainId() internal pure override returns (uint64) {

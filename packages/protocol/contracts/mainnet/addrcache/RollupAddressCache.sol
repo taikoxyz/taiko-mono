@@ -1,24 +1,26 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "../common/LibStrings.sol";
-import "../libs/LibNetwork.sol";
+import "../../common/LibStrings.sol";
+import "../../libs/LibNetwork.sol";
+import "./AddressCache.sol";
 
-/// @title LibRollupAddressCache
+/// @title RollupAddressCache
 /// @custom:security-contact security@taiko.xyz
-library LibRollupAddressCache {
+contract RollupAddressCache is AddressCache {
     // The following constants are used by contracts prior to Ontake, to make this library still
     // usable for the current mainnet, we keep them here.
     bytes32 private constant _B_TIER_GUARDIAN = bytes32("tier_guardian");
     bytes32 private constant _B_TIER_GUARDIAN_MINORITY = bytes32("tier_guardian_minority");
     bytes32 private constant _B_TIER_SGX = bytes32("tier_sgx");
 
-    function getAddress(
+    function getCachedAddress(
         uint64 _chainId,
         bytes32 _name
     )
         internal
         pure
+        override
         returns (bool found, address addr)
     {
         if (_chainId == LibNetwork.ETHEREUM_MAINNET) {
