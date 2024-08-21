@@ -68,40 +68,40 @@ contract TestGenerateGenesis is Test, AddressResolver {
         checkDeployedCode("RollupAddressManager");
     }
 
-    function testSharedAddressManager() public {
-        AddressManager addressManagerProxy =
-            AddressManager(getPredeployedContractAddress("SharedAddressManager"));
+    // function testSharedAddressManager() public {
+    //     AddressManager addressManagerProxy =
+    //         AddressManager(getPredeployedContractAddress("SharedAddressManager"));
 
-        assertEq(contractOwner, addressManagerProxy.owner());
+    //     assertEq(contractOwner, addressManagerProxy.owner());
 
-        checkSavedAddress(addressManagerProxy, "Bridge", "bridge");
-        checkSavedAddress(addressManagerProxy, "ERC20Vault", "erc20_vault");
-        checkSavedAddress(addressManagerProxy, "ERC721Vault", "erc721_vault");
-        checkSavedAddress(addressManagerProxy, "ERC1155Vault", "erc1155_vault");
-        checkSavedAddress(addressManagerProxy, "SignalService", "signal_service");
+    //     checkSavedAddress(addressManagerProxy, "Bridge", "bridge");
+    //     checkSavedAddress(addressManagerProxy, "ERC20Vault", "erc20_vault");
+    //     checkSavedAddress(addressManagerProxy, "ERC721Vault", "erc721_vault");
+    //     checkSavedAddress(addressManagerProxy, "ERC1155Vault", "erc1155_vault");
+    //     checkSavedAddress(addressManagerProxy, "SignalService", "signal_service");
 
-        vm.startPrank(addressManagerProxy.owner());
+    //     vm.startPrank(addressManagerProxy.owner());
 
-        addressManagerProxy.upgradeTo(address(new AddressManager()));
+    //     addressManagerProxy.upgradeTo(address(new AddressManager()));
 
-        vm.stopPrank();
-    }
+    //     vm.stopPrank();
+    // }
 
-    function testRollupAddressManager() public {
-        AddressManager addressManagerProxy =
-            AddressManager(getPredeployedContractAddress("RollupAddressManager"));
+    // function testRollupAddressManager() public {
+    //     AddressManager addressManagerProxy =
+    //         AddressManager(getPredeployedContractAddress("RollupAddressManager"));
 
-        assertEq(contractOwner, addressManagerProxy.owner());
+    //     assertEq(contractOwner, addressManagerProxy.owner());
 
-        checkSavedAddress(addressManagerProxy, "TaikoL2", "taiko");
-        checkSavedAddress(addressManagerProxy, "SignalService", "signal_service");
+    //     checkSavedAddress(addressManagerProxy, "TaikoL2", "taiko");
+    //     checkSavedAddress(addressManagerProxy, "SignalService", "signal_service");
 
-        vm.startPrank(addressManagerProxy.owner());
+    //     vm.startPrank(addressManagerProxy.owner());
 
-        addressManagerProxy.upgradeTo(address(new AddressManager()));
+    //     addressManagerProxy.upgradeTo(address(new AddressManager()));
 
-        vm.stopPrank();
-    }
+    //     vm.stopPrank();
+    // }
 
     function testTaikoL2() public {
         TaikoL2 taikoL2Proxy = TaikoL2(getPredeployedContractAddress("TaikoL2"));

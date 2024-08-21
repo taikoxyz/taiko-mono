@@ -150,7 +150,7 @@ contract DeployOnL1 is DeployCapability {
                 impl: address(new TaikoToken()),
                 data: abi.encodeCall(
                     TaikoToken.init, (owner, vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT"))
-                ),
+                    ),
                 registerTo: sharedAddressManager
             });
         }
@@ -168,89 +168,94 @@ contract DeployOnL1 is DeployCapability {
             registerTo: sharedAddressManager
         });
 
-        deployProxy({
-            name: "mainnet_bridge",
-            impl: address(new MainnetBridge()),
-            data: abi.encodeCall(Bridge.init, (address(0), sharedAddressManager))
-        });
-        address brdige = deployProxy({
-            name: "bridge",
-            impl: address(new Bridge()),
-            data: abi.encodeCall(Bridge.init, (address(0), sharedAddressManager)),
-            registerTo: sharedAddressManager
-        });
+        // deployProxy({
+        //     name: "mainnet_bridge",
+        //     impl: address(new MainnetBridge()),
+        //     data: abi.encodeCall(Bridge.init, (address(0), sharedAddressManager))
+        // });
+        // address brdige = deployProxy({
+        //     name: "bridge",
+        //     impl: address(new Bridge()),
+        //     data: abi.encodeCall(Bridge.init, (address(0), sharedAddressManager)),
+        //     registerTo: sharedAddressManager
+        // });
 
-        if (vm.envBool("PAUSE_BRIDGE")) {
-            Bridge(payable(brdige)).pause();
-        }
+        // if (vm.envBool("PAUSE_BRIDGE")) {
+        //     Bridge(payable(brdige)).pause();
+        // }
 
-        Bridge(payable(brdige)).transferOwnership(owner);
+        // Bridge(payable(brdige)).transferOwnership(owner);
 
-        console2.log("------------------------------------------");
-        console2.log(
-            "Warning - you need to register *all* counterparty bridges to enable multi-hop bridging:"
-        );
-        console2.log(
-            "sharedAddressManager.setAddress(remoteChainId, \"bridge\", address(remoteBridge))"
-        );
-        console2.log("- sharedAddressManager : ", sharedAddressManager);
+        // console2.log("------------------------------------------");
+        // console2.log(
+        //     "Warning - you need to register *all* counterparty bridges to enable multi-hop
+        // bridging:"
+        // );
+        // console2.log(
+        //     "sharedAddressManager.setAddress(remoteChainId, \"bridge\", address(remoteBridge))"
+        // );
+        // console2.log("- sharedAddressManager : ", sharedAddressManager);
 
-        // Deploy Vaults
-        deployProxy({
-            name: "mainnet_erc20_vault",
-            impl: address(new MainnetERC20Vault()),
-            data: abi.encodeCall(ERC20Vault.init, (owner, sharedAddressManager))
-        });
-        deployProxy({
-            name: "erc20_vault",
-            impl: address(new ERC20Vault()),
-            data: abi.encodeCall(ERC20Vault.init, (owner, sharedAddressManager)),
-            registerTo: sharedAddressManager
-        });
+        // // Deploy Vaults
+        // deployProxy({
+        //     name: "mainnet_erc20_vault",
+        //     impl: address(new MainnetERC20Vault()),
+        //     data: abi.encodeCall(ERC20Vault.init, (owner, sharedAddressManager))
+        // });
+        // deployProxy({
+        //     name: "erc20_vault",
+        //     impl: address(new ERC20Vault()),
+        //     data: abi.encodeCall(ERC20Vault.init, (owner, sharedAddressManager)),
+        //     registerTo: sharedAddressManager
+        // });
 
-        deployProxy({
-            name: "mainnet_erc721_vault",
-            impl: address(new MainnetERC721Vault()),
-            data: abi.encodeCall(ERC721Vault.init, (owner, sharedAddressManager))
-        });
-        deployProxy({
-            name: "erc721_vault",
-            impl: address(new ERC721Vault()),
-            data: abi.encodeCall(ERC721Vault.init, (owner, sharedAddressManager)),
-            registerTo: sharedAddressManager
-        });
+        // deployProxy({
+        //     name: "mainnet_erc721_vault",
+        //     impl: address(new MainnetERC721Vault()),
+        //     data: abi.encodeCall(ERC721Vault.init, (owner, sharedAddressManager))
+        // });
+        // deployProxy({
+        //     name: "erc721_vault",
+        //     impl: address(new ERC721Vault()),
+        //     data: abi.encodeCall(ERC721Vault.init, (owner, sharedAddressManager)),
+        //     registerTo: sharedAddressManager
+        // });
 
-        deployProxy({
-            name: "mainnet_erc1155_vault",
-            impl: address(new MainnetERC1155Vault()),
-            data: abi.encodeCall(ERC1155Vault.init, (owner, sharedAddressManager))
-        });
-        deployProxy({
-            name: "erc1155_vault",
-            impl: address(new ERC1155Vault()),
-            data: abi.encodeCall(ERC1155Vault.init, (owner, sharedAddressManager)),
-            registerTo: sharedAddressManager
-        });
+        // deployProxy({
+        //     name: "mainnet_erc1155_vault",
+        //     impl: address(new MainnetERC1155Vault()),
+        //     data: abi.encodeCall(ERC1155Vault.init, (owner, sharedAddressManager))
+        // });
+        // deployProxy({
+        //     name: "erc1155_vault",
+        //     impl: address(new ERC1155Vault()),
+        //     data: abi.encodeCall(ERC1155Vault.init, (owner, sharedAddressManager)),
+        //     registerTo: sharedAddressManager
+        // });
 
-        console2.log("------------------------------------------");
-        console2.log(
-            "Warning - you need to register *all* counterparty vaults to enable multi-hop bridging:"
-        );
-        console2.log(
-            "sharedAddressManager.setAddress(remoteChainId, \"erc20_vault\", address(remoteERC20Vault))"
-        );
-        console2.log(
-            "sharedAddressManager.setAddress(remoteChainId, \"erc721_vault\", address(remoteERC721Vault))"
-        );
-        console2.log(
-            "sharedAddressManager.setAddress(remoteChainId, \"erc1155_vault\", address(remoteERC1155Vault))"
-        );
-        console2.log("- sharedAddressManager : ", sharedAddressManager);
+        // console2.log("------------------------------------------");
+        // console2.log(
+        //     "Warning - you need to register *all* counterparty vaults to enable multi-hop
+        // bridging:"
+        // );
+        // console2.log(
+        //     "sharedAddressManager.setAddress(remoteChainId, \"erc20_vault\",
+        // address(remoteERC20Vault))"
+        // );
+        // console2.log(
+        //     "sharedAddressManager.setAddress(remoteChainId, \"erc721_vault\",
+        // address(remoteERC721Vault))"
+        // );
+        // console2.log(
+        //     "sharedAddressManager.setAddress(remoteChainId, \"erc1155_vault\",
+        // address(remoteERC1155Vault))"
+        // );
+        // console2.log("- sharedAddressManager : ", sharedAddressManager);
 
-        // Deploy Bridged token implementations
-        register(sharedAddressManager, "bridged_erc20", address(new BridgedERC20()));
-        register(sharedAddressManager, "bridged_erc721", address(new BridgedERC721()));
-        register(sharedAddressManager, "bridged_erc1155", address(new BridgedERC1155()));
+        // // Deploy Bridged token implementations
+        // register(sharedAddressManager, "bridged_erc20", address(new BridgedERC20()));
+        // register(sharedAddressManager, "bridged_erc721", address(new BridgedERC721()));
+        // register(sharedAddressManager, "bridged_erc1155", address(new BridgedERC1155()));
     }
 
     function deployRollupContracts(
@@ -273,7 +278,7 @@ contract DeployOnL1 is DeployCapability {
         // Register shared contracts in the new rollup
         copyRegister(rollupAddressManager, _sharedAddressManager, "taiko_token");
         copyRegister(rollupAddressManager, _sharedAddressManager, "signal_service");
-        copyRegister(rollupAddressManager, _sharedAddressManager, "bridge");
+        // copyRegister(rollupAddressManager, _sharedAddressManager, "bridge");
 
         deployProxy({
             name: "sequencer_registry",
@@ -293,7 +298,7 @@ contract DeployOnL1 is DeployCapability {
                     vm.envBytes32("L2_GENESIS_HASH"),
                     vm.envBool("PAUSE_TAIKO_L1")
                 )
-            )
+                )
         });
 
         TaikoL1 taikoL1;
@@ -315,22 +320,22 @@ contract DeployOnL1 is DeployCapability {
                     vm.envBytes32("L2_GENESIS_HASH"),
                     vm.envBool("PAUSE_TAIKO_L1")
                 )
-            ),
+                ),
             registerTo: rollupAddressManager
         });
 
-        deployProxy({
-            name: "mainnet_tier_sgx",
-            impl: address(new MainnetSgxVerifier()),
-            data: abi.encodeCall(SgxVerifier.init, (owner, rollupAddressManager))
-        });
+        // deployProxy({
+        //     name: "mainnet_tier_sgx",
+        //     impl: address(new MainnetSgxVerifier()),
+        //     data: abi.encodeCall(SgxVerifier.init, (owner, rollupAddressManager))
+        // });
 
-        deployProxy({
-            name: "tier_sgx",
-            impl: address(new SgxVerifier()),
-            data: abi.encodeCall(SgxVerifier.init, (owner, rollupAddressManager)),
-            registerTo: rollupAddressManager
-        });
+        // deployProxy({
+        //     name: "tier_sgx",
+        //     impl: address(new SgxVerifier()),
+        //     data: abi.encodeCall(SgxVerifier.init, (owner, rollupAddressManager)),
+        //     registerTo: rollupAddressManager
+        // });
 
         deployProxy({
             name: "mainnet_guardian_prover_minority",
@@ -376,44 +381,45 @@ contract DeployOnL1 is DeployCapability {
 
         // No need to proxy these, because they are 3rd party. If we want to modify, we simply
         // change the registerAddress("automata_dcap_attestation", address(attestation));
-        P256Verifier p256Verifier = new P256Verifier();
-        SigVerifyLib sigVerifyLib = new SigVerifyLib(address(p256Verifier));
-        PEMCertChainLib pemCertChainLib = new PEMCertChainLib();
-        address automateDcapV3AttestationImpl = address(new AutomataDcapV3Attestation());
+        // P256Verifier p256Verifier = new P256Verifier();
+        // SigVerifyLib sigVerifyLib = new SigVerifyLib(address(p256Verifier));
+        // PEMCertChainLib pemCertChainLib = new PEMCertChainLib();
+        // address automateDcapV3AttestationImpl = address(new AutomataDcapV3Attestation());
 
-        address automataProxy = deployProxy({
-            name: "automata_dcap_attestation",
-            impl: automateDcapV3AttestationImpl,
-            data: abi.encodeCall(
-                AutomataDcapV3Attestation.init, (owner, address(sigVerifyLib), address(pemCertChainLib))
-            ),
-            registerTo: rollupAddressManager
-        });
+        // address automataProxy = deployProxy({
+        //     name: "automata_dcap_attestation",
+        //     impl: automateDcapV3AttestationImpl,
+        //     data: abi.encodeCall(
+        //         AutomataDcapV3Attestation.init, (owner, address(sigVerifyLib),
+        // address(pemCertChainLib))
+        //     ),
+        //     registerTo: rollupAddressManager
+        // });
 
-        // Log addresses for the user to register sgx instance
-        console2.log("SigVerifyLib", address(sigVerifyLib));
-        console2.log("PemCertChainLib", address(pemCertChainLib));
-        console2.log("AutomataDcapVaAttestation", automataProxy);
+        // // Log addresses for the user to register sgx instance
+        // console2.log("SigVerifyLib", address(sigVerifyLib));
+        // console2.log("PemCertChainLib", address(pemCertChainLib));
+        // console2.log("AutomataDcapVaAttestation", automataProxy);
 
-        deployProxy({
-            name: "prover_set",
-            impl: address(new ProverSet()),
-            data: abi.encodeCall(
-                ProverSet.init, (owner, vm.envAddress("PROVER_SET_ADMIN"), rollupAddressManager)
-            )
-        });
+        // deployProxy({
+        //     name: "prover_set",
+        //     impl: address(new ProverSet()),
+        //     data: abi.encodeCall(
+        //         ProverSet.init, (owner, vm.envAddress("PROVER_SET_ADMIN"), rollupAddressManager)
+        //     )
+        // });
 
         // Deploy r0 groth16 verifier
-        RiscZeroGroth16Verifier verifier =
-            new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
-        register(rollupAddressManager, "risc0_groth16_verifier", address(verifier));
+        // RiscZeroGroth16Verifier verifier =
+        //     new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
+        // register(rollupAddressManager, "risc0_groth16_verifier", address(verifier));
 
-        deployProxy({
-            name: "tier_zkvm_risc0",
-            impl: address(new RiscZeroVerifier()),
-            data: abi.encodeCall(RiscZeroVerifier.init, (owner, rollupAddressManager)),
-            registerTo: rollupAddressManager
-        });
+        // deployProxy({
+        //     name: "tier_zkvm_risc0",
+        //     impl: address(new RiscZeroVerifier()),
+        //     data: abi.encodeCall(RiscZeroVerifier.init, (owner, rollupAddressManager)),
+        //     registerTo: rollupAddressManager
+        // });
     }
 
     function deployTierProvider(string memory tierProviderName) private returns (address) {
