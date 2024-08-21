@@ -7,7 +7,6 @@ import "./libs/LibProving.sol";
 import "./libs/LibVerifying.sol";
 import "./TaikoEvents.sol";
 import "./ITaikoL1.sol";
-import "./libs/ISequencerRegistry.sol";
 
 /// @title TaikoL1
 /// @notice This contract serves as the "base layer contract" of the Taiko protocol, providing
@@ -149,9 +148,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     }
 
     /// @inheritdoc ITaikoL1
-    function verifyBlocks(
-        uint64 _maxBlocksToVerify
-    )
+    function verifyBlocks(uint64 _maxBlocksToVerify)
         external
         whenNotPaused
         whenProvingNotPaused
