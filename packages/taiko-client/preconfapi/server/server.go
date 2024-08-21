@@ -9,6 +9,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
+	anchorTxConstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/preconfapi/builder"
 )
 
@@ -27,6 +28,7 @@ type PreconfAPIServer struct {
 	db         *badger.DB
 	echo       *echo.Echo
 	txBuilders map[string]builder.TxBuilder // calldata or blob map to txbuilder type
+	anchor     *anchorTxConstructor.AnchorTxConstructor
 }
 
 // NewPreconfAPIServerOpts contains all configurations for creating a prover server instance.
@@ -34,6 +36,7 @@ type NewPreconfAPIServerOpts struct {
 	TxBuilders  map[string]builder.TxBuilder
 	DB          *badger.DB
 	CORSOrigins []string
+	anchor      *anchorTxConstructor.AnchorTxConstructor
 }
 
 // New creates a new prover server instance.
@@ -42,6 +45,7 @@ func New(opts *NewPreconfAPIServerOpts) (*PreconfAPIServer, error) {
 		echo:       echo.New(),
 		txBuilders: opts.TxBuilders,
 		db:         opts.DB,
+		anchor:     opts.anchor,
 	}
 
 	srv.echo.HideBanner = true
@@ -103,4 +107,5 @@ func (s *PreconfAPIServer) configureRoutes() {
 	s.echo.POST("/blocks/build", s.BuildBlocks)
 	s.echo.POST("/block/build", s.BuildBlock)
 	s.echo.GET("/tx/:hash", s.GetTransactionByHash)
+	s.echo.POST("/assembleAnchorTx", s.AssembleAnchorTx)
 }

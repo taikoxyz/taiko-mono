@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
+	"math/big"
 	"net/http"
 
 	badger "github.com/dgraph-io/badger/v4"
@@ -163,6 +164,40 @@ func (s *PreconfAPIServer) GetTransactionByHash(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, tx)
+}
+
+type anchorTxRequest struct {
+	L1Height      uint64 `json:"l1Height"`
+	L1Hash        string `json:"l1Hash"`
+	L2Height      uint64 `json:"l2Height"`
+	BaseFee       string `json:"baseFee"`
+	ParentGasUsed uint64 `json:"parentGasUsed"`
+}
+
+func (s *PreconfAPIServer) AssembleAnchorTx(c echo.Context) error {
+	req := &anchorTxRequest{}
+	if err := c.Bind(req); err != nil {
+		return c.JSON(http.StatusUnprocessableEntity, err)
+	}
+
+	baseFee, ok := new(big.Int).SetString(req.BaseFee, 10)
+	if !ok {
+		return c.JSON(http.StatusBadRequest, "invalid base fee")
+	}
+
+	anchorTx, err := s.anchor.AssembleAnchorTx(
+		c.Request().Context(),
+		new(big.Int).SetUint64(req.L1Height),
+		common.HexToHash(req.L1Hash),
+		new(big.Int).SetUint64(req.L2Height),
+		baseFee,
+		req.ParentGasUsed,
+	)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, err)
+	}
+
+	return c.JSON(http.StatusOK, anchorTx)
 }
 
 func paramsToOpts(params []buildBlockParams) builder.BuildBlocksUnsignedOpts {
