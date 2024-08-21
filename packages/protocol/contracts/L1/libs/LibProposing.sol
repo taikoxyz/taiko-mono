@@ -166,14 +166,16 @@ library LibProposing {
             emit CalldataTxList(meta_.id, _txList);
         }
 
-        local.tierProvider = ITierProvider(
-            ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false)).getProvider(
-                local.b.numBlocks
-            )
-        );
+        // local.tierProvider = ITierProvider(
+        //     ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false)).getProvider(
+        //         local.b.numBlocks
+        //     )
+        // );
 
         // Use the difficulty as a random number
-        meta_.minTier = local.tierProvider.getMinTier(meta_.proposer, uint256(meta_.difficulty));
+        // meta_.minTier = local.tierProvider.getMinTier(meta_.proposer, uint256(meta_.difficulty));
+
+        meta_.minTier = 100;
 
         // Create the block that will be stored onchain
         TaikoData.BlockV2 memory blk = TaikoData.BlockV2({

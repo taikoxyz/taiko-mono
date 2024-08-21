@@ -30,9 +30,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     /// by invoking the message call.
     /// @param _op Option for sending the ERC721 token.
     /// @return message_ The constructed message.
-    function sendToken(
-        BridgeTransferOp calldata _op
-    )
+    function sendToken(BridgeTransferOp calldata _op)
         external
         payable
         whenNotPaused
@@ -83,9 +81,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     }
 
     /// @inheritdoc IMessageInvocable
-    function onMessageInvocation(
-        bytes calldata _data
-    )
+    function onMessageInvocation(bytes calldata _data)
         external
         payable
         whenNotPaused
@@ -194,9 +190,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     /// @param _op BridgeTransferOp data.
     /// @return msgData_ Encoded message data.
     /// @return ctoken_ The canonical token.
-    function _handleMessage(
-        BridgeTransferOp calldata _op
-    )
+    function _handleMessage(BridgeTransferOp calldata _op)
         private
         returns (bytes memory msgData_, CanonicalNFT memory ctoken_)
     {
@@ -230,9 +224,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     /// @dev Retrieve or deploy a bridged ERC721 token contract.
     /// @param _ctoken CanonicalNFT data.
     /// @return btoken_ Address of the bridged token contract.
-    function _getOrDeployBridgedToken(
-        CanonicalNFT memory _ctoken
-    )
+    function _getOrDeployBridgedToken(CanonicalNFT memory _ctoken)
         private
         returns (address btoken_)
     {
