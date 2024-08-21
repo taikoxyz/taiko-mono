@@ -283,6 +283,8 @@ func (c *Client) GetPoolContent(
 		return nil, err
 	}
 
+	// TODO: baseFee
+
 	var localsArg []string
 	for _, local := range locals {
 		localsArg = append(localsArg, local.Hex())
