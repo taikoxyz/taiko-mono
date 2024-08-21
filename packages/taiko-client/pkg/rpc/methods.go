@@ -19,7 +19,6 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	v2 "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/v2"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
 )
 
 var (
@@ -279,28 +278,10 @@ func (c *Client) GetPoolContent(
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
-	l1Head, err := c.L1.HeaderByNumber(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-
 	l2Head, err := c.L2.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-
-	log.Info("before base fee", "l1Head", l1Head, "l2Head", l2Head)
-
-	baseFeeInfo, err := c.V1.TaikoL2.GetBasefee(
-		&bind.CallOpts{Context: ctx},
-		l1Head.Number.Uint64(),
-		uint32(l2Head.GasUsed),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	log.Info("Current base fee", "fee", utils.WeiToGWei(baseFeeInfo.Basefee))
 
 	var localsArg []string
 	for _, local := range locals {
@@ -310,7 +291,7 @@ func (c *Client) GetPoolContent(
 	return c.L2Engine.TxPoolContentWithMinTip(
 		ctxWithTimeout,
 		beneficiary,
-		baseFeeInfo.Basefee,
+		l2Head.BaseFee,
 		uint64(blockMaxGasLimit),
 		maxBytesPerTxList,
 		localsArg,
