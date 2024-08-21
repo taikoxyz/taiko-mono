@@ -153,7 +153,7 @@ library LibProposing {
 
         // Update certain meta fields
         if (meta_.blobUsed) {
-            if (!LibNetwork.isDencunSupported(block.chainid)) revert L1_BLOB_NOT_AVAILABLE();
+            // if (!LibNetwork.isDencunSupported(block.chainid)) revert L1_BLOB_NOT_AVAILABLE();
 
             // Always use the first blob in this transaction. If the
             // proposeBlock functions are called more than once in the same
@@ -223,9 +223,7 @@ library LibProposing {
     /// @dev Encodes the base fee configuration.
     /// @param _baseFeeConfig The base fee configuration to encode.
     /// @return The encoded base fee configuration as a bytes32 value.
-    function _encodeBaseFeeConfig(
-        TaikoData.BaseFeeConfig memory _baseFeeConfig
-    )
+    function _encodeBaseFeeConfig(TaikoData.BaseFeeConfig memory _baseFeeConfig)
         private
         pure
         returns (bytes32)
