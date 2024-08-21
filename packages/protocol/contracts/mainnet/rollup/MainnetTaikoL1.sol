@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "../L1/TaikoL1.sol";
-import "./addrcache/RollupAddressCache.sol";
+import "../../L1/TaikoL1.sol";
+import "../addrcache/RollupAddressCache.sol";
 
 /// @title MainnetTaikoL1
 /// @dev This contract shall be deployed to replace its parent contract on Ethereum for Taiko

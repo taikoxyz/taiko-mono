@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "../../common/AddressResolver.sol";
-
 /// @title AddressCache
 /// @custom:security-contact security@taiko.xyz
-abstract contract AddressCache is AddressResolver {
+abstract contract AddressCache {
     function getAddressFromCache(
         uint64 _chainId,
         bytes32 _name,
