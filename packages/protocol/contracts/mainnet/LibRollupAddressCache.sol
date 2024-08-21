@@ -7,6 +7,12 @@ import "../libs/LibNetwork.sol";
 /// @title LibRollupAddressCache
 /// @custom:security-contact security@taiko.xyz
 library LibRollupAddressCache {
+    // The following constants are used by contracts prior to Ontake, to make this library still
+    // usable for the current mainnet, we keep them here.
+    bytes32 private constant _B_TIER_GUARDIAN = bytes32("tier_guardian");
+    bytes32 private constant _B_TIER_GUARDIAN_MINORITY = bytes32("tier_guardian_minority");
+    bytes32 private constant _B_TIER_SGX = bytes32("tier_sgx");
+
     function getAddress(
         uint64 _chainId,
         bytes32 _name
@@ -31,7 +37,7 @@ library LibRollupAddressCache {
             if (_name == LibStrings.B_TIER_ROUTER) {
                 return (true, 0x6E997f1F22C40ba37F633B08f3b07E10Ed43155a);
             }
-            if (_name == LibStrings.B_VERIFIER_TEE_SGX) {
+            if (_name == LibStrings.B_VERIFIER_TEE_SGX || _name == _B_TIER_SGX) {
                 return (true, 0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81);
             }
             if (_name == LibStrings.B_VERIFIER_TEE_TDX) {
@@ -49,10 +55,13 @@ library LibRollupAddressCache {
             if (_name == LibStrings.B_VERIFIER_ZK) {
                 return (false, address(0));
             }
-            if (_name == LibStrings.B_VERIFIER_GUARDIAN_MINORITY) {
+            if (
+                _name == LibStrings.B_VERIFIER_GUARDIAN_MINORITY
+                    || _name == _B_TIER_GUARDIAN_MINORITY
+            ) {
                 return (true, 0x579A8d63a2Db646284CBFE31FE5082c9989E985c);
             }
-            if (_name == LibStrings.B_VERIFIER_GUARDIAN) {
+            if (_name == LibStrings.B_VERIFIER_GUARDIAN || _name == _B_TIER_GUARDIAN) {
                 return (true, 0xE3D777143Ea25A6E031d1e921F396750885f43aC);
             }
             if (_name == LibStrings.B_AUTOMATA_DCAP_ATTESTATION) {
