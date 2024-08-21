@@ -96,7 +96,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
             parentHash,
             blockHash,
             stateRoot,
-            LibTierId.TIER_TEE_SGX,
+            LibTierId.TIER_TEE,
             LibProving.L1_INVALID_TIER.selector
         );
 

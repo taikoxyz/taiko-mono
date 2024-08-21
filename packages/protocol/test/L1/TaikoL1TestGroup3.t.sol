@@ -19,7 +19,7 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
         giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
         giveEthAndTko(William, 10_000 ether, 1000 ether);
         ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTierId.TIER_OPTIMISTIC);
-        ITierProvider.Tier memory tierSgx = TestTierProvider(cp).getTier(LibTierId.TIER_TEE_SGX);
+        ITierProvider.Tier memory tierSgx = TestTierProvider(cp).getTier(LibTierId.TIER_TEE);
 
         console2.log("====== Alice propose a block");
         TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
@@ -65,7 +65,7 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
 
         console2.log("====== William proves James is right");
         mineAndWrap(10 seconds);
-        proveBlock(William, meta, parentHash, blockHash, stateRoot, LibTierId.TIER_TEE_SGX, "");
+        proveBlock(William, meta, parentHash, blockHash, stateRoot, LibTierId.TIER_TEE, "");
 
         {
             printBlockAndTrans(meta.id);
@@ -78,7 +78,7 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash);
             assertEq(ts.stateRoot, stateRoot);
-            assertEq(ts.tier, LibTierId.TIER_TEE_SGX);
+            assertEq(ts.tier, LibTierId.TIER_TEE);
             assertEq(ts.contester, address(0));
             assertEq(ts.validityBond, tierSgx.validityBond);
             assertEq(ts.prover, William);
@@ -107,7 +107,7 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash);
             assertEq(ts.stateRoot, stateRoot);
-            assertEq(ts.tier, LibTierId.TIER_TEE_SGX);
+            assertEq(ts.tier, LibTierId.TIER_TEE);
             assertEq(ts.prover, William);
 
             assertEq(totalTkoBalance(tko, L1, William), 10_000 ether + tierOp.contestBond * 7 / 8);
@@ -129,7 +129,7 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
         giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
         giveEthAndTko(William, 10_000 ether, 1000 ether);
         ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTierId.TIER_OPTIMISTIC);
-        ITierProvider.Tier memory tierSgx = TestTierProvider(cp).getTier(LibTierId.TIER_TEE_SGX);
+        ITierProvider.Tier memory tierSgx = TestTierProvider(cp).getTier(LibTierId.TIER_TEE);
 
         console2.log("====== Alice propose a block");
         TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
@@ -175,7 +175,7 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
 
         console2.log("====== William proves Tayler is right");
         mineAndWrap(10 seconds);
-        proveBlock(William, meta, parentHash, blockHash2, stateRoot2, LibTierId.TIER_TEE_SGX, "");
+        proveBlock(William, meta, parentHash, blockHash2, stateRoot2, LibTierId.TIER_TEE, "");
 
         {
             printBlockAndTrans(meta.id);
@@ -188,7 +188,7 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash2);
             assertEq(ts.stateRoot, stateRoot2);
-            assertEq(ts.tier, LibTierId.TIER_TEE_SGX);
+            assertEq(ts.tier, LibTierId.TIER_TEE);
             assertEq(ts.contester, address(0));
             assertEq(ts.validityBond, tierSgx.validityBond);
             assertEq(ts.prover, William);
@@ -219,7 +219,7 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash2);
             assertEq(ts.stateRoot, stateRoot2);
-            assertEq(ts.tier, LibTierId.TIER_TEE_SGX);
+            assertEq(ts.tier, LibTierId.TIER_TEE);
             assertEq(ts.contester, address(0));
             assertEq(ts.validityBond, tierSgx.validityBond);
             assertEq(ts.prover, William);
