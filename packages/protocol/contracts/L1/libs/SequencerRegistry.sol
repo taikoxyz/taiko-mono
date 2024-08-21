@@ -2,14 +2,14 @@
 pragma solidity 0.8.24;
 
 import "../../common/EssentialContract.sol";
-import "./ISequencerRegistry.sol";
+import "../access/IProposerAccess.sol";
 
 /// @title SequencerRegistry
 /// A dummy implementation that only whitelist some trusted addresses. A real
 /// implementation would only allow a single proposer address to propose a block
 /// using some selection mechanism.
 /// @custom:security-contact security@taiko.xyz
-contract SequencerRegistry is EssentialContract, ISequencerRegistry {
+contract SequencerRegistry is EssentialContract, IProposerAccess {
     /// @dev Emitted when the status of a sequencer is updated.
     /// @param sequencer The address of the sequencer whose state has updated.
     /// @param enabled If the sequencer is now enabled or not.
@@ -43,8 +43,8 @@ contract SequencerRegistry is EssentialContract, ISequencerRegistry {
         }
     }
 
-    /// @inheritdoc ISequencerRegistry
-    function isEligibleSigner(address _proposer) external view returns (bool) {
+    /// @inheritdoc IProposerAccess
+    function isProposerEligible(address _proposer) external view returns (bool) {
         return sequencers[_proposer];
     }
 }

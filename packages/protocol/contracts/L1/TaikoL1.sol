@@ -84,15 +84,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         emitEventForClient
         returns (TaikoData.BlockMetadataV2 memory)
     {
-        // If there's a sequencer registry, check if the block can be proposed by the current
-        // proposer
-        ISequencerRegistry sequencerRegistry =
-            ISequencerRegistry(resolve(LibStrings.B_SEQUENCER_REGISTRY, true));
-        if (sequencerRegistry != ISequencerRegistry(address(0))) {
-            if (!sequencerRegistry.isEligibleSigner(msg.sender)) {
-                revert L1_INVALID_PROPOSER();
-            }
-        }
         return _proposeBlock(_params, _txList, getConfig());
     }
 

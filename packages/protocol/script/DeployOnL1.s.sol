@@ -282,7 +282,7 @@ contract DeployOnL1 is DeployCapability {
         // copyRegister(rollupAddressManager, _sharedAddressManager, "bridge");
 
         deployProxy({
-            name: "sequencer_registry",
+            name: "proposer_access",
             impl: address(new SequencerRegistry()),
             data: abi.encodeCall(SequencerRegistry.init, (owner)),
             registerTo: rollupAddressManager
