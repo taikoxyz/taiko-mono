@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-/// @title LibTierId
+/// @title LibTiers
 /// @dev Unique identifiers for all supported tiers. Each tier must have a distinct ID to avoid
 /// conflicts.
 /// @custom:security-contact security@taiko.xyz
-library LibTierId {
+library LibTiers {
     /// @notice Optimistic tier ID.
     uint16 public constant TIER_OPTIMISTIC = 100;
 

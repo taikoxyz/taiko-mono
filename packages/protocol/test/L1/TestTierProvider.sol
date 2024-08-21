@@ -18,7 +18,7 @@ contract TestTierProvider is ITierProvider, ITierRouter {
     /// @inheritdoc ITierProvider
 
     function getTier(uint16 _tierId) public pure override returns (ITierProvider.Tier memory) {
-        if (_tierId == LibTierId.TIER_OPTIMISTIC) {
+        if (_tierId == LibTiers.TIER_OPTIMISTIC) {
             return ITierProvider.Tier({
                 verifierName: "",
                 validityBond: 250 ether, // TKO
@@ -29,7 +29,7 @@ contract TestTierProvider is ITierProvider, ITierRouter {
             });
         }
 
-        if (_tierId == LibTierId.TIER_TEE_SGX) {
+        if (_tierId == LibTiers.TIER_TEE_SGX) {
             return ITierProvider.Tier({
                 verifierName: LibStrings.B_VERIFIER_TEE_SGX,
                 validityBond: 250 ether, // TKO
@@ -40,7 +40,7 @@ contract TestTierProvider is ITierProvider, ITierRouter {
             });
         }
 
-        if (_tierId == LibTierId.TIER_GUARDIAN) {
+        if (_tierId == LibTiers.TIER_GUARDIAN) {
             return ITierProvider.Tier({
                 verifierName: LibStrings.B_VERIFIER_GUARDIAN,
                 validityBond: 0, // must be 0 for top tier
@@ -57,16 +57,16 @@ contract TestTierProvider is ITierProvider, ITierRouter {
     /// @inheritdoc ITierProvider
     function getTierIds() public pure override returns (uint16[] memory tiers_) {
         tiers_ = new uint16[](3);
-        tiers_[0] = LibTierId.TIER_OPTIMISTIC;
-        tiers_[1] = LibTierId.TIER_TEE_SGX;
-        tiers_[2] = LibTierId.TIER_GUARDIAN;
+        tiers_[0] = LibTiers.TIER_OPTIMISTIC;
+        tiers_[1] = LibTiers.TIER_TEE_SGX;
+        tiers_[2] = LibTiers.TIER_GUARDIAN;
     }
 
     /// @inheritdoc ITierProvider
     function getMinTier(address, uint256 _rand) public pure override returns (uint16) {
         // 10% will be selected to require SGX proofs.
-        if (_rand % 10 == 0) return LibTierId.TIER_TEE_SGX;
+        if (_rand % 10 == 0) return LibTiers.TIER_TEE_SGX;
         // Other blocks are optimistic, without validity proofs.
-        return LibTierId.TIER_OPTIMISTIC;
+        return LibTiers.TIER_OPTIMISTIC;
     }
 }
