@@ -12,6 +12,6 @@ import "../addrcache/SharedAddressCache.sol";
 /// @custom:security-contact security@taiko.xyz
 contract MainnetERC1155Vault is ERC1155Vault, SharedAddressCache {
     function _getAddress(uint64 _chainId, bytes32 _name) internal view override returns (address) {
-        return getAddressFromCache(_chainId, _name, super._getAddress);
+        return getAddress(_chainId, _name, super._getAddress);
     }
 }

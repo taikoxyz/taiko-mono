@@ -256,7 +256,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
 
         // TierProof
         TaikoData.TierProof memory proof =
-            TaikoData.TierProof({ tier: LibTierId.TIER_GUARDIAN, data: "" });
+            TaikoData.TierProof({ tier: LibTiers.TIER_GUARDIAN, data: "" });
 
         // `verifyProof()`
         sv.verifyProof(ctx, transition, proof);

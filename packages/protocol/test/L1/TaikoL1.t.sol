@@ -163,7 +163,7 @@ contract TaikoL1Test is TaikoL1TestBase {
                     proveBlock(Alice, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
                 } else {
                     proveBlock(
-                        Carol, meta, parentHash, blockHash, stateRoot, LibTierId.TIER_GUARDIAN, ""
+                        Carol, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_GUARDIAN, ""
                     );
                 }
             } else {
@@ -226,9 +226,9 @@ contract TaikoL1Test is TaikoL1TestBase {
 
     function test_getTierIds() external {
         uint16[] memory tiers = cp.getTierIds();
-        assertEq(tiers[0], LibTierId.TIER_OPTIMISTIC);
-        assertEq(tiers[1], LibTierId.TIER_TEE);
-        assertEq(tiers[2], LibTierId.TIER_GUARDIAN);
+        assertEq(tiers[0], LibTiers.TIER_OPTIMISTIC);
+        assertEq(tiers[1], LibTiers.TIER_SGX);
+        assertEq(tiers[2], LibTiers.TIER_GUARDIAN);
 
         vm.expectRevert();
         cp.getTier(123);

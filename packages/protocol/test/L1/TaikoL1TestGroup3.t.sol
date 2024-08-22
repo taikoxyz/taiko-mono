@@ -18,8 +18,8 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
         giveEthAndTko(James, 10_000 ether, 1000 ether);
         giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
         giveEthAndTko(William, 10_000 ether, 1000 ether);
-        ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTierId.TIER_OPTIMISTIC);
-        ITierProvider.Tier memory tierSgx = TestTierProvider(cp).getTier(LibTierId.TIER_TEE);
+        ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTiers.TIER_OPTIMISTIC);
+        ITierProvider.Tier memory tierSgx = TestTierProvider(cp).getTier(LibTiers.TIER_SGX);
 
         console2.log("====== Alice propose a block");
         TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
@@ -51,7 +51,7 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash);
             assertEq(ts.stateRoot, stateRoot);
-            assertEq(ts.tier, LibTierId.TIER_OPTIMISTIC);
+            assertEq(ts.tier, LibTiers.TIER_OPTIMISTIC);
             assertEq(ts.contester, Taylor);
             assertEq(ts.contestBond, tierOp.contestBond);
             assertEq(ts.validityBond, tierOp.validityBond);
@@ -65,7 +65,7 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
 
         console2.log("====== William proves James is right");
         mineAndWrap(10 seconds);
-        proveBlock(William, meta, parentHash, blockHash, stateRoot, LibTierId.TIER_TEE, "");
+        proveBlock(William, meta, parentHash, blockHash, stateRoot, LibTiers.TIER_SGX, "");
 
         {
             printBlockAndTrans(meta.id);
@@ -78,7 +78,7 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash);
             assertEq(ts.stateRoot, stateRoot);
-            assertEq(ts.tier, LibTierId.TIER_TEE);
+            assertEq(ts.tier, LibTiers.TIER_SGX);
             assertEq(ts.contester, address(0));
             assertEq(ts.validityBond, tierSgx.validityBond);
             assertEq(ts.prover, William);
@@ -107,7 +107,7 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash);
             assertEq(ts.stateRoot, stateRoot);
-            assertEq(ts.tier, LibTierId.TIER_TEE);
+            assertEq(ts.tier, LibTiers.TIER_SGX);
             assertEq(ts.prover, William);
 
             assertEq(totalTkoBalance(tko, L1, William), 10_000 ether + tierOp.contestBond * 7 / 8);
@@ -128,8 +128,8 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
         giveEthAndTko(James, 10_000 ether, 1000 ether);
         giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
         giveEthAndTko(William, 10_000 ether, 1000 ether);
-        ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTierId.TIER_OPTIMISTIC);
-        ITierProvider.Tier memory tierSgx = TestTierProvider(cp).getTier(LibTierId.TIER_TEE);
+        ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTiers.TIER_OPTIMISTIC);
+        ITierProvider.Tier memory tierSgx = TestTierProvider(cp).getTier(LibTiers.TIER_SGX);
 
         console2.log("====== Alice propose a block");
         TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
@@ -161,7 +161,7 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash);
             assertEq(ts.stateRoot, stateRoot);
-            assertEq(ts.tier, LibTierId.TIER_OPTIMISTIC);
+            assertEq(ts.tier, LibTiers.TIER_OPTIMISTIC);
             assertEq(ts.contester, Taylor);
             assertEq(ts.contestBond, tierOp.contestBond);
             assertEq(ts.validityBond, tierOp.validityBond);
@@ -175,7 +175,7 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
 
         console2.log("====== William proves Tayler is right");
         mineAndWrap(10 seconds);
-        proveBlock(William, meta, parentHash, blockHash2, stateRoot2, LibTierId.TIER_TEE, "");
+        proveBlock(William, meta, parentHash, blockHash2, stateRoot2, LibTiers.TIER_SGX, "");
 
         {
             printBlockAndTrans(meta.id);
@@ -188,7 +188,7 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash2);
             assertEq(ts.stateRoot, stateRoot2);
-            assertEq(ts.tier, LibTierId.TIER_TEE);
+            assertEq(ts.tier, LibTiers.TIER_SGX);
             assertEq(ts.contester, address(0));
             assertEq(ts.validityBond, tierSgx.validityBond);
             assertEq(ts.prover, William);
@@ -219,7 +219,7 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash2);
             assertEq(ts.stateRoot, stateRoot2);
-            assertEq(ts.tier, LibTierId.TIER_TEE);
+            assertEq(ts.tier, LibTiers.TIER_SGX);
             assertEq(ts.contester, address(0));
             assertEq(ts.validityBond, tierSgx.validityBond);
             assertEq(ts.prover, William);
