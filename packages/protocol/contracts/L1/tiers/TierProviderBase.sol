@@ -48,9 +48,31 @@ abstract contract TierProviderBase is ITierProvider {
             });
         }
 
+        if (_tierId == LibTiers.TIER_TDX) {
+            return ITierProvider.Tier({
+                verifierName: LibStrings.B_TIER_TDX,
+                validityBond: 150 ether, // TAIKO
+                contestBond: 984.375 ether, // = 150 TAIKO * 6.5625
+                cooldownWindow: 1440, // 24 hours
+                provingWindow: GRACE_PERIOD + 60, // 1 hour
+                maxBlocksToVerifyPerProof: 0
+            });
+        }
+
         if (_tierId == LibTiers.TIER_ZKVM_RISC0) {
             return ITierProvider.Tier({
                 verifierName: LibStrings.B_TIER_ZKVM_RISC0,
+                validityBond: 250 ether, // TAIKO
+                contestBond: 1640.625 ether, // = 250 TAIKO * 6.5625
+                cooldownWindow: 1440, // 24 hours
+                provingWindow: GRACE_PERIOD + 180, // 3 hours
+                maxBlocksToVerifyPerProof: 0
+            });
+        }
+
+        if (_tierId == LibTiers.TIER_ZKVM_SP1) {
+            return ITierProvider.Tier({
+                verifierName: LibStrings.B_TIER_ZKVM_SP1,
                 validityBond: 250 ether, // TAIKO
                 contestBond: 1640.625 ether, // = 250 TAIKO * 6.5625
                 cooldownWindow: 1440, // 24 hours
