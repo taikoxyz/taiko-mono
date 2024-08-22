@@ -84,7 +84,7 @@ contract TaikoPartyTicket is
     /// @notice Modifier to check if an address is blacklisted
     /// @param _address The address to check
     modifier notBlacklisted(address _address) {
-        if (blacklist.isBlacklisted(_address)) revert ADDRESS_BLACKLISTED();
+        //    if (blacklist.isBlacklisted(_address)) revert ADDRESS_BLACKLISTED();
         _;
     }
 
