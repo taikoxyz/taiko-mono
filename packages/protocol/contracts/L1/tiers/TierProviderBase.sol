@@ -52,9 +52,8 @@ abstract contract TierProviderBase is ITierProvider {
                 validityBond: 150 ether, // TAIKO
                 contestBond: 984.375 ether, // = 150 TAIKO * 6.5625
                 cooldownWindow: 1440, // 24 hours
-                provingWindow: GRACE_PERIOD + 60, // 1 hour
-                maxBlocksToVerifyPerProof: 0
-            });
+                provingWindow: GRACE_PERIOD + 60 // 1 hour
+             });
         }
 
         if (_tierId == LibTiers.TIER_TEE_ANY) {
@@ -93,7 +92,7 @@ abstract contract TierProviderBase is ITierProvider {
                 validityBond: 250 ether, // TAIKO
                 contestBond: 1640.625 ether, // = 250 TAIKO * 6.5625
                 cooldownWindow: 1440, // 24 hours
-                provingWindow: GRACE_PERIOD + 240 // 4 hours
+                provingWindow: GRACE_PERIOD + 180 // 3 hours
              });
         }
 
