@@ -7,7 +7,7 @@ import "./TierProviderBase.sol";
 /// @custom:security-contact security@taiko.xyz
 contract TierProviderV2 is TierProviderBase {
     /// @inheritdoc ITierProvider
-    function getTierIds() public pure virtual override returns (uint16[] memory tiers_) {
+    function getTierIds() public pure override returns (uint16[] memory tiers_) {
         tiers_ = new uint16[](3);
         tiers_[0] = LibTiers.TIER_TEE_SGX;
         tiers_[1] = LibTiers.TIER_GUARDIAN_MINORITY;
