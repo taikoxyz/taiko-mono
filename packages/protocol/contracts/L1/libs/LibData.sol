@@ -11,9 +11,7 @@ library LibData {
     bytes32 internal constant EMPTY_ETH_DEPOSIT_HASH =
         0x569e75fc77c1a856f6daaf9e69d8a9566ca34aa47f9133711ce065a571af0cfd;
 
-    function blockParamsV1ToV2(
-        TaikoData.BlockParams memory _v1
-    )
+    function blockParamsV1ToV2(TaikoData.BlockParams memory _v1)
         internal
         pure
         returns (TaikoData.BlockParamsV2 memory)
@@ -29,9 +27,7 @@ library LibData {
         });
     }
 
-    function blockMetadataV2toV1(
-        TaikoData.BlockMetadataV2 memory _v2
-    )
+    function blockMetadataV2toV1(TaikoData.BlockMetadataV2 memory _v2)
         internal
         pure
         returns (TaikoData.BlockMetadata memory)
@@ -54,9 +50,7 @@ library LibData {
         });
     }
 
-    function blockMetadataV1toV2(
-        TaikoData.BlockMetadata memory _v1
-    )
+    function blockMetadataV1toV2(TaikoData.BlockMetadata memory _v1)
         internal
         pure
         returns (TaikoData.BlockMetadataV2 memory)
@@ -82,6 +76,23 @@ library LibData {
             blobTxListLength: 0,
             blobIndex: 0,
             baseFeeConfig: TaikoData.BaseFeeConfig(0, 0, 0, 0, 0)
+        });
+    }
+
+    function blockV2toV1(TaikoData.BlockV2 memory _v2)
+        internal
+        pure
+        returns (TaikoData.Block memory)
+    {
+        return TaikoData.Block({
+            metaHash: _v2.metaHash,
+            assignedProver: _v2.assignedProver,
+            livenessBond: _v2.livenessBond,
+            blockId: _v2.blockId,
+            proposedAt: _v2.proposedAt,
+            proposedIn: _v2.proposedIn,
+            nextTransitionId: _v2.nextTransitionId,
+            verifiedTransitionId: _v2.verifiedTransitionId
         });
     }
 }

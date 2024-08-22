@@ -108,7 +108,7 @@
 ### taikoL1
 
 - proxy: `0x79C9109b764609df928d16fC4a91e9081F7e87DB`
-- impl: `0x67a3eBd5D313cB21b4Aab7099455f4dfCC11Af47.`
+- impl: `0xFEE0b488da4DFC7Cd784d47de42b9467C1faE0F3.`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
@@ -121,6 +121,7 @@
   - transfered ownership on Jul 8, 2024
   - upgraded on Jul 11, 2024 at [PR #17779](https://github.com/taikoxyz/taiko-mono/pull/17779)
   - upgraded on Jul 15, 2024 at commit `45281b8`
+  - upgraded on Aug 15, 2024 at `protocol-v1.8.0` with [#17919](https://github.com/taikoxyz/taiko-mono/pull/17919)
 
 ### assignmentHook
 
@@ -134,19 +135,21 @@
 
 ### tierProvider
 
-- impl: `0xDDfaA6F5E9ed78229660953439958636C9e26A34.`
+- impl: `0x312e6D7b46228019499Fd9dBe9F9AA349B0d8E3C`
 - logs:
   - upgraded on May 14, 2024 at commit `0ef7b8caa`
   - upgraded on Jun 14, 2024 at commit `cc10b04`
   - upgraded on Jun 19, 2024 at commit `b7e12e3`
+  - upgraded on Aug 15, 2024 at commit `05d49b0`
 
 ### tierRouter
 
-- impl: `0x18277Dfb30309360Fd4B8FbdD48283D1C71BDB65.`
+- impl: `0x45aB015d317453512d1a07a578411B6D653FAccc`
 - logs:
   - deployed on Jun 10, 2024 at commit `d5965bb`
   - upgraded on Jun 14, 2024 at commit `cc10b04`
   - upgraded on Jun 19, 2024 at commit `b7e12e3`
+  - upgraded on Aug 15, 2024 at commit `05d49b0`
 
 ### prover_set
 
@@ -185,6 +188,20 @@
   - deployed on May 20, 2024 at commit `6e56475`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
   - transfered ownership on Jul 8, 2024
+
+### risc0_groth16_verifier
+
+- addr : 0xc2c2676E31b59085dfDA9b1B066519b20e756D9d
+- logs:
+  - deployed on August 14, 2024 at commit `cba2a1e`
+
+### tier_zkvm_risc0
+
+- proxy : 0x4fEd801C5a876D4289e869cbEfA1E1A448b10714
+- impl : 0x33BD79aA6a24d8ED4413E01FEc546D4d49bF6C39
+- owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
+- logs:
+  - deployed on August 14, 2024 at commit `cba2a1e`
 
 ## L2 Contracts
 
@@ -278,3 +295,12 @@
 - impl: `0xb190786090Fc4308c4C40808f3bEB55c4463c152`
 - logs:
   - deployed on May 10, 2024 at commit `4903bec`
+
+### delegate_owner
+
+- proxy: `0x95F6077C7786a58FA070D98043b16DF2B1593D2b`
+- impl: `0x36dD2d50C08Ee22553ef34583B367D86c3D44fBd`
+- owner: `0x95F6077C7786a58FA070D98043b16DF2B1593D2b`
+- admin: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
+- logs:
+  - deployed on Aug 15, 2024 at commit `46a3e00`

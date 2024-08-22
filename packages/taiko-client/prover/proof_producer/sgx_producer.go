@@ -142,8 +142,6 @@ func (s *SGXProofProducer) callProverDaemon(ctx context.Context, opts *ProofRequ
 		return nil, errProofGenerating
 	}
 
-	log.Debug("Proof generation output", "output", output)
-
 	// Raiko returns "" as proof when proof type is native,
 	// so we just convert "" to bytes
 	if s.ProofType == ProofTypeCPU {
@@ -209,6 +207,8 @@ func (s *SGXProofProducer) requestProof(
 	if err != nil {
 		return nil, err
 	}
+
+	log.Debug("Proof generation output", "output", string(resBytes))
 
 	var output RaikoRequestProofBodyResponse
 	if err := json.Unmarshal(resBytes, &output); err != nil {

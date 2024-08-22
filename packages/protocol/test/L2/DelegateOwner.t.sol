@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "../thirdparty/muticall3/Multicall3.sol";
+import "../thirdparty/Multicall3.sol";
 import "../TaikoTest.sol";
 
 contract Target is EssentialContract {
@@ -47,7 +47,7 @@ contract TestDelegateOwner is TaikoTest {
                 data: abi.encodeCall(
                     DelegateOwner.init,
                     (remoteOwner, address(addressManager), remoteChainId, address(0))
-                ),
+                    ),
                 registerTo: address(addressManager)
             })
         );

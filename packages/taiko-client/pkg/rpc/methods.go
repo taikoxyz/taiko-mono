@@ -420,11 +420,23 @@ func (c *Client) GetProtocolStateVariables(opts *bind.CallOpts) (*struct {
 }
 
 // GetL2BlockInfo fetches the L2 block information from the protocol.
-func (c *Client) GetL2BlockInfo(ctx context.Context, blockID *big.Int) (bindings.TaikoDataBlock, error) {
+func (c *Client) GetL2BlockInfo(ctx context.Context, blockID *big.Int) (bindings.TaikoDataBlockV2, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
-	return c.TaikoL1.GetBlock(&bind.CallOpts{Context: ctxWithTimeout}, blockID.Uint64())
+	blockInfo, err := c.TaikoL1.GetBlock(&bind.CallOpts{Context: ctxWithTimeout}, blockID.Uint64())
+	if err != nil {
+		return bindings.TaikoDataBlockV2{}, err
+	}
+	return *encoding.TaikoDataBlockToV2(&blockInfo), nil
+}
+
+// GetL2BlockInfoV2 fetches the V2 L2 block information from the protocol.
+func (c *Client) GetL2BlockInfoV2(ctx context.Context, blockID *big.Int) (bindings.TaikoDataBlockV2, error) {
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
+	defer cancel()
+
+	return c.TaikoL1.GetBlockV2(&bind.CallOpts{Context: ctxWithTimeout}, blockID.Uint64())
 }
 
 // GetTransition fetches the L2 block's corresponding transition state from the protocol.

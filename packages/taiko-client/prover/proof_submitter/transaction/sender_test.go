@@ -32,10 +32,10 @@ func (s *TransactionTestSuite) SetupTest() {
 
 	s.builder = NewProveBlockTxBuilder(
 		s.RPCClient,
-		common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
+		common.HexToAddress(os.Getenv("TAIKO_L1")),
 		ZeroAddress,
-		common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT_ADDRESS")),
-		common.HexToAddress(os.Getenv("GUARDIAN_PROVER_MINORITY_ADDRESS")),
+		common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT")),
+		common.HexToAddress(os.Getenv("GUARDIAN_PROVER_MINORITY")),
 	)
 
 	l1ProverPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROVER_PRIVATE_KEY")))
@@ -46,7 +46,7 @@ func (s *TransactionTestSuite) SetupTest() {
 		log.Root(),
 		new(metrics.NoopTxMetrics),
 		txmgr.CLIConfig{
-			L1RPCURL:                  os.Getenv("L1_NODE_WS_ENDPOINT"),
+			L1RPCURL:                  os.Getenv("L1_WS"),
 			NumConfirmations:          0,
 			SafeAbortNonceTooLowCount: txmgr.DefaultBatcherFlagValues.SafeAbortNonceTooLowCount,
 			PrivateKey:                common.Bytes2Hex(crypto.FromECDSA(l1ProverPrivKey)),

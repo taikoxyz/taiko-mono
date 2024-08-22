@@ -1,0 +1,50 @@
+name: "Taiko Client Hive Tests"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/taiko-client/**"
+      - "go.mod"
+      - "go.sum"
+
+jobs:
+  hive_tests:
+    name: hive tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.11.0
+        with:
+          access_token: ${{ github.token }}
+
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.21
+          cache: true
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Install pnpm dependencies
+        uses: ./.github/actions/install-pnpm-dependencies
+
+      - name: Clone taikoxyz/hive
+        run: git clone https://github.com/taikoxyz/hive.git /tmp/hive
+
+      - name: Update taiko contract tx list
+        working-directory: .
+        run: |
+          export TAIKO_MONO_DIR=$PWD
+          cd /tmp/hive/simulators/taiko
+          sh scripts/deploy_l1_contract.sh
+
+      - name: Hive tests
+        working-directory: packages/taiko-client
+        run: |
+          export HIVE_DIR=/tmp/hive
+          go test -v -p=1 ./integration_test -timeout=600s

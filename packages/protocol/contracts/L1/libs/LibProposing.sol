@@ -115,7 +115,7 @@ library LibProposing {
         }
 
         // Verify params against the parent block.
-        TaikoData.Block storage parentBlk =
+        TaikoData.BlockV2 storage parentBlk =
             _state.blocks[(local.b.numBlocks - 1) % _config.blockRingBufferSize];
 
         if (local.postFork) {
@@ -208,14 +208,14 @@ library LibProposing {
         );
 
         // Use the difficulty as a random number
-        meta_.minTier = local.tierProvider.getMinTier(uint256(meta_.difficulty));
+        meta_.minTier = local.tierProvider.getMinTier(meta_.proposer, uint256(meta_.difficulty));
 
         if (!local.postFork) {
             metaV1_ = LibData.blockMetadataV2toV1(meta_);
         }
 
         // Create the block that will be stored onchain
-        TaikoData.Block memory blk = TaikoData.Block({
+        TaikoData.BlockV2 memory blk = TaikoData.BlockV2({
             metaHash: local.postFork ? keccak256(abi.encode(meta_)) : keccak256(abi.encode(metaV1_)),
             assignedProver: address(0),
             livenessBond: local.postFork ? 0 : meta_.livenessBond,
@@ -269,9 +269,7 @@ library LibProposing {
         }
     }
 
-    function _encodeBaseFeeConfig(
-        TaikoData.BaseFeeConfig memory _baseFeeConfig
-    )
+    function _encodeBaseFeeConfig(TaikoData.BaseFeeConfig memory _baseFeeConfig)
         private
         pure
         returns (bytes32)
