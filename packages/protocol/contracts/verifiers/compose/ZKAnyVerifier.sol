@@ -5,11 +5,11 @@ import "../../common/EssentialContract.sol";
 import "../../common/LibStrings.sol";
 import "./ComposeVerifier.sol";
 
-/// @title ZkComposeVerifier
+/// @title ZkAnyVerifier
 /// @notice This contract is a verifier for the Mainnet ZkVM that composes RiscZero and SP1
 /// Verifiers.
 /// @custom:security-contact security@taiko.xyz
-contract ZkComposeVerifier is EssentialContract, ComposeVerifier {
+contract ZkAnyVerifier is EssentialContract, ComposeVerifier {
     /// @inheritdoc ComposeVerifier
     function getSubVerifiersAndThreshold()
         public

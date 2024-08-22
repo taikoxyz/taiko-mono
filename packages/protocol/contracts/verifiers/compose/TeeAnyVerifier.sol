@@ -4,11 +4,11 @@ pragma solidity 0.8.24;
 import "../../common/LibStrings.sol";
 import "./ComposeVerifier.sol";
 
-/// @title TeeComposeVerifier
+/// @title TeeAnyVerifier
 /// @notice This contract is a verifier for the Mainnet ZkVM that composes RiscZero and SP1
 /// Verifiers.
 /// @custom:security-contact security@taiko.xyz
-contract TeeComposeVerifier is EssentialContract, ComposeVerifier {
+contract TeeAnyVerifier is EssentialContract, ComposeVerifier {
     /// @inheritdoc ComposeVerifier
     function getSubVerifiersAndThreshold()
         public
