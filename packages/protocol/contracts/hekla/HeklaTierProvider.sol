@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "../L1/tiers/TierProviderV2.sol";
+import "../L1/tiers/TierProviderBase.sol";
 
 /// @title HeklaTierProvider
 /// @custom:security-contact security@taiko.xyz
-contract HeklaTierProvider is TierProviderV2 {
+contract HeklaTierProvider is TierProviderBase {
     address public constant LAB_PROPOSER = 0xD3f681bD6B49887A48cC9C9953720903967E9DC0;
 
     /// @inheritdoc ITierProvider
