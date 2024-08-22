@@ -54,7 +54,7 @@ contract SP1Verifier is EssentialContract, IVerifier {
 
         for (uint256 i; i < _ctxs.length; ++i) {
             // Do not run proof verification to contest an existing proof
-            if (_ctxs[i].isContesting) return;
+            if (_ctxs[i].isContesting) continue;
 
             // Avoid in-memory decoding, so in-place decode with slicing.
             // e.g.: bytes32 programVKey = bytes32(_proof.data[0:32]);

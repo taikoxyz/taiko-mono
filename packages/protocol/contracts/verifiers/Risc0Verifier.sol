@@ -54,7 +54,7 @@ contract Risc0Verifier is EssentialContract, IVerifier {
 
         for (uint256 i; i < _ctxs.length; ++i) {
             // Do not run proof verification to contest an existing proof
-            if (_ctxs[i].isContesting) return;
+            if (_ctxs[i].isContesting) continue;
 
             // Decode will throw if not proper length/encoding
             (bytes memory seal, bytes32 imageId) = abi.decode(_proof.data, (bytes, bytes32));

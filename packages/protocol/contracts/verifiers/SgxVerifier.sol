@@ -156,7 +156,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
         for (uint256 i; i < _ctxs.length; ++i) {
             // Do not run proof verification to contest an existing proof
-            if (_ctxs[i].isContesting) return;
+            if (_ctxs[i].isContesting) continue;
 
             // Size is: 89 bytes
             // 4 bytes + 20 bytes + 65 bytes (signature) = 89
