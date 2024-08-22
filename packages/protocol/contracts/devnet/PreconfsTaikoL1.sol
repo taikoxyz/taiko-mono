@@ -23,8 +23,7 @@ contract PreconfsTaikoL1 is TaikoL1 {
                 gasIssuancePerSecond: 5_000_000,
                 minGasExcess: 1_340_000_000,
                 maxGasIssuancePerBlock: 600_000_000
-            }),
-            ontakeForkHeight: 0
+            })
         });
     }
 }
