@@ -42,6 +42,6 @@ contract MainnetTaikoL1 is TaikoL1, RollupAddressCache {
     }
 
     function _getAddress(uint64 _chainId, bytes32 _name) internal view override returns (address) {
-        return getAddressFromCache(_chainId, _name, super._getAddress);
+        return getAddress(_chainId, _name, super._getAddress);
     }
 }

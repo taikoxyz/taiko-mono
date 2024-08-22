@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 /// @title AddressCache
 /// @custom:security-contact security@taiko.xyz
 abstract contract AddressCache {
-    function getAddressFromCache(
+    function getAddress(
         uint64 _chainId,
         bytes32 _name,
         function (uint64, bytes32) view  returns  (address) _getAddress
