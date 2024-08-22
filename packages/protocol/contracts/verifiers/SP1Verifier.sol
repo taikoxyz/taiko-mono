@@ -43,7 +43,6 @@ contract SP1Verifier is EssentialContract, IVerifier {
     /// @inheritdoc IVerifier
     function verifyProof(
         Context calldata _ctx,
-        TaikoData.Transition calldata _tran,
         TaikoData.TierProof calldata _proof
     )
         external
@@ -60,7 +59,7 @@ contract SP1Verifier is EssentialContract, IVerifier {
 
         // Need to be converted from bytes32 to bytes
         bytes32 hashedPublicInput = LibPublicInput.hashPublicInputs(
-            _tran, address(this), address(0), _ctx.prover, _ctx.metaHash, taikoChainId()
+            _ctx.transition, address(this), address(0), _ctx.prover, _ctx.metaHash, taikoChainId()
         );
 
         // _proof.data[32:] is the succinct's proof position

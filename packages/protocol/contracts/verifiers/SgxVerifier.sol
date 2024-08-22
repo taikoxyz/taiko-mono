@@ -145,7 +145,6 @@ contract SgxVerifier is EssentialContract, IVerifier {
     /// @inheritdoc IVerifier
     function verifyProof(
         Context calldata _ctx,
-        TaikoData.Transition calldata _tran,
         TaikoData.TierProof calldata _proof
     )
         external
@@ -163,7 +162,12 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
         address oldInstance = ECDSA.recover(
             LibPublicInput.hashPublicInputs(
-                _tran, address(this), newInstance, _ctx.prover, _ctx.metaHash, taikoChainId()
+                _ctx.transition,
+                address(this),
+                newInstance,
+                _ctx.prover,
+                _ctx.metaHash,
+                taikoChainId()
             ),
             _proof.data[24:]
         );

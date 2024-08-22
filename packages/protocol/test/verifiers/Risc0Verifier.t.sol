@@ -76,11 +76,10 @@ contract TestRiscZeroVerifier is TaikoL1TestBase {
 
         vm.warp(block.timestamp + 5);
 
-        (IVerifier.Context memory ctx, TaikoData.Transition memory transition) =
-            _getDummyContextAndTransition();
+        IVerifier.Context memory ctx = _getDummyContext();
 
         // `verifyProof()`
-        rv.verifyProof(ctx, transition, proof);
+        rv.verifyProof(ctx, proof);
 
         vm.stopPrank();
     }
@@ -102,11 +101,10 @@ contract TestRiscZeroVerifier is TaikoL1TestBase {
 
         vm.warp(block.timestamp + 5);
 
-        (IVerifier.Context memory ctx, TaikoData.Transition memory transition) =
-            _getDummyContextAndTransition();
+        IVerifier.Context memory ctx = _getDummyContext();
 
         vm.expectRevert(Risc0Verifier.RISC_ZERO_INVALID_IMAGE_ID.selector);
-        rv.verifyProof(ctx, transition, proof);
+        rv.verifyProof(ctx, proof);
 
         vm.stopPrank();
     }
@@ -128,20 +126,15 @@ contract TestRiscZeroVerifier is TaikoL1TestBase {
 
         vm.warp(block.timestamp + 5);
 
-        (IVerifier.Context memory ctx, TaikoData.Transition memory transition) =
-            _getDummyContextAndTransition();
+        IVerifier.Context memory ctx = _getDummyContext();
 
         vm.expectRevert(Risc0Verifier.RISC_ZERO_INVALID_PROOF.selector);
-        rv.verifyProof(ctx, transition, proof);
+        rv.verifyProof(ctx, proof);
 
         vm.stopPrank();
     }
 
-    function _getDummyContextAndTransition()
-        internal
-        pure
-        returns (IVerifier.Context memory ctx, TaikoData.Transition memory transition)
-    {
+    function _getDummyContext() internal pure returns (IVerifier.Context memory ctx) {
         // Context
         ctx = IVerifier.Context({
             metaHash: bytes32("ab"),
@@ -150,15 +143,13 @@ contract TestRiscZeroVerifier is TaikoL1TestBase {
             msgSender: address(0),
             blockId: 10,
             isContesting: false,
-            blobUsed: false
-        });
-
-        // Transition
-        transition = TaikoData.Transition({
-            parentHash: bytes32("12"),
-            blockHash: bytes32("34"),
-            stateRoot: bytes32("56"),
-            graffiti: bytes32("78")
+            blobUsed: false,
+            transition: TaikoData.Transition({
+                parentHash: bytes32("12"),
+                blockHash: bytes32("34"),
+                stateRoot: bytes32("56"),
+                graffiti: bytes32("78")
+            })
         });
     }
 }

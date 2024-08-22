@@ -227,14 +227,7 @@ contract GuardianProver is IVerifier, EssentialContract {
     }
 
     /// @inheritdoc IVerifier
-    function verifyProof(
-        Context calldata _ctx,
-        TaikoData.Transition calldata,
-        TaikoData.TierProof calldata
-    )
-        external
-        view
-    {
+    function verifyProof(Context calldata _ctx, TaikoData.TierProof calldata) external view {
         if (_ctx.msgSender != address(this)) revert GV_PERMISSION_DENIED();
     }
 

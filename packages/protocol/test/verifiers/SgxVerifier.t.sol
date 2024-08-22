@@ -180,6 +180,14 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         // Caller should be TaikoL1 contract
         vm.startPrank(address(L1));
 
+        // Transition
+        TaikoData.Transition memory transition = TaikoData.Transition({
+            parentHash: bytes32("12"),
+            blockHash: bytes32("34"),
+            stateRoot: bytes32("56"),
+            graffiti: bytes32("78")
+        });
+
         // Context
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32("ab"),
@@ -188,15 +196,8 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
             msgSender: KNOWN_ADDRESS,
             blockId: 10,
             isContesting: false,
-            blobUsed: false
-        });
-
-        // Transition
-        TaikoData.Transition memory transition = TaikoData.Transition({
-            parentHash: bytes32("12"),
-            blockHash: bytes32("34"),
-            stateRoot: bytes32("56"),
-            graffiti: bytes32("78")
+            blobUsed: false,
+            transition: transition
         });
 
         // TierProof
@@ -221,7 +222,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         emit SgxVerifier.InstanceAdded(id, newInstance, KNOWN_ADDRESS, block.timestamp);
 
         // `verifyProof()`
-        sv.verifyProof(ctx, transition, proof);
+        sv.verifyProof(ctx, proof);
 
         // Verification
         (address instanceAddr, uint64 instanceAddedAt) = sv.instances(id);
@@ -235,17 +236,6 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
     function test_verifyProof_isContesting() external {
         vm.startPrank(address(L1));
 
-        // Context
-        IVerifier.Context memory ctx = IVerifier.Context({
-            metaHash: bytes32("ab"),
-            blobHash: bytes32("cd"),
-            prover: Alice,
-            msgSender: Alice,
-            blockId: 10,
-            isContesting: true, // skips all verification when true
-            blobUsed: false
-        });
-
         // Transition
         TaikoData.Transition memory transition = TaikoData.Transition({
             parentHash: bytes32("12"),
@@ -254,12 +244,24 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
             graffiti: bytes32("78")
         });
 
+        // Context
+        IVerifier.Context memory ctx = IVerifier.Context({
+            metaHash: bytes32("ab"),
+            blobHash: bytes32("cd"),
+            prover: Alice,
+            msgSender: Alice,
+            blockId: 10,
+            isContesting: true, // skips all verification when true
+            blobUsed: false,
+            transition: transition
+        });
+
         // TierProof
         TaikoData.TierProof memory proof =
             TaikoData.TierProof({ tier: LibTiers.TIER_GUARDIAN, data: "" });
 
         // `verifyProof()`
-        sv.verifyProof(ctx, transition, proof);
+        sv.verifyProof(ctx, proof);
 
         vm.stopPrank();
     }
@@ -267,6 +269,14 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
     // Test `verifyProof()` invalid proof length
     function test_verifyProof_invalidProofLength() external {
         vm.startPrank(address(L1));
+
+        // Transition
+        TaikoData.Transition memory transition = TaikoData.Transition({
+            parentHash: bytes32("12"),
+            blockHash: bytes32("34"),
+            stateRoot: bytes32("56"),
+            graffiti: bytes32("78")
+        });
 
         // Context
         IVerifier.Context memory ctx = IVerifier.Context({
@@ -276,15 +286,8 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
             msgSender: Alice,
             blockId: 10,
             isContesting: false,
-            blobUsed: false
-        });
-
-        // Transition
-        TaikoData.Transition memory transition = TaikoData.Transition({
-            parentHash: bytes32("12"),
-            blockHash: bytes32("34"),
-            stateRoot: bytes32("56"),
-            graffiti: bytes32("78")
+            blobUsed: false,
+            transition: transition
         });
 
         // TierProof
@@ -295,12 +298,20 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
 
         // `verifyProof()`
         vm.expectRevert(SgxVerifier.SGX_INVALID_PROOF.selector);
-        sv.verifyProof(ctx, transition, proof);
+        sv.verifyProof(ctx, proof);
     }
 
     // Test `verifyProof()` invalid signature
     function test_verifyProof_invalidSignature() public {
         vm.startPrank(address(L1));
+
+        // Transition
+        TaikoData.Transition memory transition = TaikoData.Transition({
+            parentHash: bytes32("12"),
+            blockHash: bytes32("34"),
+            stateRoot: bytes32("56"),
+            graffiti: bytes32("78")
+        });
 
         // Context
         IVerifier.Context memory ctx = IVerifier.Context({
@@ -310,15 +321,8 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
             msgSender: Alice,
             blockId: 10,
             isContesting: false,
-            blobUsed: false
-        });
-
-        // Transition
-        TaikoData.Transition memory transition = TaikoData.Transition({
-            parentHash: bytes32("12"),
-            blockHash: bytes32("34"),
-            stateRoot: bytes32("56"),
-            graffiti: bytes32("78")
+            blobUsed: false,
+            transition: transition
         });
 
         // TierProof
@@ -330,7 +334,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
 
         // `verifyProof()`
         vm.expectRevert("ECDSA: invalid signature");
-        sv.verifyProof(ctx, transition, proof);
+        sv.verifyProof(ctx, proof);
 
         vm.stopPrank();
     }
@@ -341,6 +345,14 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
 
         uint32 id = uint32(sv.nextInstanceId());
 
+        // Transition
+        TaikoData.Transition memory transition = TaikoData.Transition({
+            parentHash: bytes32("12"),
+            blockHash: bytes32("34"),
+            stateRoot: bytes32("56"),
+            graffiti: bytes32("78")
+        });
+
         // Context
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32("ab"),
@@ -349,15 +361,8 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
             msgSender: Alice,
             blockId: 10,
             isContesting: false,
-            blobUsed: false
-        });
-
-        // Transition
-        TaikoData.Transition memory transition = TaikoData.Transition({
-            parentHash: bytes32("12"),
-            blockHash: bytes32("34"),
-            stateRoot: bytes32("56"),
-            graffiti: bytes32("78")
+            blobUsed: false,
+            transition: transition
         });
 
         // TierProof
@@ -376,7 +381,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
 
         // `verifyProof()`
         vm.expectRevert(SgxVerifier.SGX_INVALID_INSTANCE.selector);
-        sv.verifyProof(ctx, transition, proof);
+        sv.verifyProof(ctx, proof);
 
         vm.stopPrank();
     }
@@ -384,6 +389,14 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
     // Test `verifyProof()` call is not taiko or higher tier proof
     function test_verifyProof_invalidCaller() public {
         vm.startPrank(Alice); // invalid caller
+
+        // Transition
+        TaikoData.Transition memory transition = TaikoData.Transition({
+            parentHash: bytes32("12"),
+            blockHash: bytes32("34"),
+            stateRoot: bytes32("56"),
+            graffiti: bytes32("78")
+        });
 
         // Context
         IVerifier.Context memory ctx = IVerifier.Context({
@@ -393,15 +406,8 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
             msgSender: Alice,
             blockId: 10,
             isContesting: false,
-            blobUsed: false
-        });
-
-        // Transition
-        TaikoData.Transition memory transition = TaikoData.Transition({
-            parentHash: bytes32("12"),
-            blockHash: bytes32("34"),
-            stateRoot: bytes32("56"),
-            graffiti: bytes32("78")
+            blobUsed: false,
+            transition: transition
         });
 
         // TierProof
@@ -421,7 +427,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
 
         // `verifyProof()`
         vm.expectRevert(AddressResolver.RESOLVER_DENIED.selector);
-        sv.verifyProof(ctx, transition, proof);
+        sv.verifyProof(ctx, proof);
 
         vm.stopPrank();
     }

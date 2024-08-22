@@ -33,15 +33,7 @@ contract MockVerifier is IVerifier {
         shouldSucceed = _shouldSucceed;
     }
 
-    function verifyProof(
-        Context calldata,
-        TaikoData.Transition calldata,
-        TaikoData.TierProof calldata
-    )
-        external
-        view
-        override
-    {
+    function verifyProof(Context calldata, TaikoData.TierProof calldata) external view override {
         if (!shouldSucceed) {
             revert("MockVerifier: Verification failed");
         }
@@ -52,7 +44,6 @@ contract ComposeVerifierTest is TaikoTest {
     ComposeVerifierForTest private composeVerifier;
 
     IVerifier.Context private ctx;
-    TaikoData.Transition private tran;
     TaikoData.TierProof proof;
     address private verifier1;
     address private verifier2;
@@ -81,16 +72,16 @@ contract ComposeVerifierTest is TaikoTest {
 
         // Expect the verification to fail because not all verifiers succeed
         vm.expectRevert(ComposeVerifier.INSUFFICIENT_PROOF.selector);
-        composeVerifier.verifyProof(ctx, tran, proof);
+        composeVerifier.verifyProof(ctx, proof);
     }
 
     function test_composeVerifeir_Majority() public {
         composeVerifier.setThreshold(2);
-        composeVerifier.verifyProof(ctx, tran, proof);
+        composeVerifier.verifyProof(ctx, proof);
     }
 
     function test_composeVerifeir_One() public {
         composeVerifier.setThreshold(1);
-        composeVerifier.verifyProof(ctx, tran, proof);
+        composeVerifier.verifyProof(ctx, proof);
     }
 }

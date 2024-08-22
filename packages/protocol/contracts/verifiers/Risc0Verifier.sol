@@ -47,13 +47,7 @@ contract Risc0Verifier is EssentialContract, IVerifier {
     }
 
     /// @inheritdoc IVerifier
-    function verifyProof(
-        Context calldata _ctx,
-        TaikoData.Transition calldata _tran,
-        TaikoData.TierProof calldata _proof
-    )
-        external
-    {
+    function verifyProof(Context calldata _ctx, TaikoData.TierProof calldata _proof) external {
         // Do not run proof verification to contest an existing proof
         if (_ctx.isContesting) return;
 
@@ -65,7 +59,7 @@ contract Risc0Verifier is EssentialContract, IVerifier {
         }
 
         bytes32 publicInputHash = LibPublicInput.hashPublicInputs(
-            _tran, address(this), address(0), _ctx.prover, _ctx.metaHash, taikoChainId()
+            _ctx.transition, address(this), address(0), _ctx.prover, _ctx.metaHash, taikoChainId()
         );
 
         // journalDigest is the sha256 hash of the hashed public input

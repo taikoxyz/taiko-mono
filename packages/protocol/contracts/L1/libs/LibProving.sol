@@ -268,10 +268,11 @@ library LibProving {
                 msgSender: msg.sender,
                 blockId: local.blockId,
                 isContesting: isContesting,
-                blobUsed: meta.blobUsed
+                blobUsed: meta.blobUsed,
+                transition: tran
             });
 
-            IVerifier(verifier).verifyProof(ctx, tran, proof);
+            IVerifier(verifier).verifyProof(ctx, proof);
         }
 
         local.isTopTier = local.tier.contestBond == 0;
