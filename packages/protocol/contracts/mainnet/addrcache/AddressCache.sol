@@ -7,14 +7,14 @@ abstract contract AddressCache {
     function getAddress(
         uint64 _chainId,
         bytes32 _name,
-        function (uint64, bytes32) view  returns  (address) _getAddress
+        function (uint64, bytes32) view  returns  (address) _fallbackFunc
     )
         internal
         view
         returns (address)
     {
         (bool found, address addr) = getCachedAddress(_chainId, _name);
-        return found ? addr : _getAddress(_chainId, _name);
+        return found ? addr : _fallbackFunc(_chainId, _name);
     }
 
     function getCachedAddress(
