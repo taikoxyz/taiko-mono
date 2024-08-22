@@ -18,6 +18,7 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
 
     event InvalidSubProof(address indexed verifier, bytes returnData);
 
+    error INVALID_VERIFIER();
     error INSUFFICIENT_PROOF();
 
     /// @notice Initializes the contract.
@@ -39,32 +40,22 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
         external
     {
         (address[] memory verifiers, uint256 threshold) = getSubVerifiersAndThreshold();
-
-        for (uint256 i; i < verifiers.length; ++i) {
-            // Store the value 1 in the temporary storage slot using inline assembly
-            uint256 slot = uint256(uint160(verifiers[i]));
-            if (slot != 0) {
-                assembly {
-                    tstore(slot, 1)
-                }
-            }
-        }
-
         SubProof[] memory subproofs = abi.decode(_proof.data, (SubProof[]));
-        uint256 numSuccesses;
+        uint256 numVerified;
 
         for (uint256 i; i < subproofs.length; ++i) {
-            uint256 slot = uint256(uint160(subproofs[i].verifier));
+            if (subproofs[i].verifier == address(0)) revert INVALID_VERIFIER();
 
-            assembly {
-                switch tload(slot)
-                case 1 { tstore(slot, 0) }
-                default {
-                    let message := "INVALID_VERIFIER"
-                    mstore(0x0, message)
-                    revert(0x0, 0x20)
+            // find the verifier
+            bool verifierFound;
+            for (uint256 j; j < verifiers.length; ++j) {
+                if (verifiers[j] == subproofs[i].verifier) {
+                    verifierFound = true;
+                    verifiers[j] = address(0);
                 }
             }
+
+            if (!verifierFound) revert INVALID_VERIFIER();
 
             (bool success, bytes memory returnData) = subproofs[i].verifier.call(
                 abi.encodeCall(
@@ -74,14 +65,14 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
             );
             if (success) {
                 unchecked {
-                    numSuccesses += 1;
+                    numVerified += 1;
                 }
             } else {
                 emit InvalidSubProof(subproofs[i].verifier, returnData);
             }
         }
 
-        if (numSuccesses < threshold) {
+        if (numVerified < threshold) {
             revert INSUFFICIENT_PROOF();
         }
     }
