@@ -30,7 +30,7 @@ var (
 	}
 	L1PrivateTxEndpoint = &cli.StringFlag{
 		Name:     "l1.privateTx",
-		Usage:    "Websocket RPC endpoint of a L1 private ethereum node",
+		Usage:    "RPC endpoint of a L1 private tx ethereum node",
 		Category: commonCategory,
 		EnvVars:  []string{"L1_PRIVATE_TX"},
 	}
