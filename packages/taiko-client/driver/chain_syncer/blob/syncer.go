@@ -378,19 +378,23 @@ func (s *Syncer) insertNewHead(
 
 		var parentGasExcess uint64
 		if newGasTarget != parentGasTarget {
-			oldParentGasExcess, err := s.rpc.V2.TaikoL2.ParentGasExcess(&bind.CallOpts{
-				BlockNumber: parent.Number, Context: ctx,
-			})
-			if err != nil {
-				return nil, fmt.Errorf("failed to fetch old parent gas excess: %w", err)
-			}
-			if parentGasExcess, err = s.rpc.V2.TaikoL2.AdjustExcess(
-				&bind.CallOpts{BlockNumber: parent.Number, Context: ctx},
-				oldParentGasExcess,
-				parentGasTarget,
-				newGasTarget,
-			); err != nil {
-				return nil, fmt.Errorf("failed to adjust parent gas excess: %w", err)
+			if parentGasTarget != 0 {
+				oldParentGasExcess, err := s.rpc.V2.TaikoL2.ParentGasExcess(&bind.CallOpts{
+					BlockNumber: parent.Number, Context: ctx,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("failed to fetch old parent gas excess: %w", err)
+				}
+				parentGasExcess, err = s.rpc.V2.TaikoL2.AdjustExcess(
+					&bind.CallOpts{BlockNumber: parent.Number, Context: ctx},
+					oldParentGasExcess,
+					parentGasTarget,
+					newGasTarget,
+				)
+
+				if err != nil {
+					return nil, fmt.Errorf("failed to adjust parent gas excess: %w", err)
+				}
 			}
 		} else {
 			if parentGasExcess, err = s.rpc.V2.TaikoL2.ParentGasExcess(&bind.CallOpts{
