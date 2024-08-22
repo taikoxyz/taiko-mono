@@ -32,9 +32,8 @@ abstract contract TierProviderBase is ITierProvider {
                 validityBond: 100 ether, // TAIKO
                 contestBond: 656.25 ether, // = 100 TAIKO * 6.5625
                 cooldownWindow: 1440, // 24 hours
-                provingWindow: GRACE_PERIOD + 15, // 15 minutes
-                maxBlocksToVerifyPerProof: 0
-            });
+                provingWindow: GRACE_PERIOD + 15 // 15 minutes
+             });
         }
 
         if (_tierId == LibTiers.TIER_SGX) {
@@ -43,9 +42,8 @@ abstract contract TierProviderBase is ITierProvider {
                 validityBond: 150 ether, // TAIKO
                 contestBond: 984.375 ether, // = 150 TAIKO * 6.5625
                 cooldownWindow: 1440, // 24 hours
-                provingWindow: GRACE_PERIOD + 60, // 1 hour
-                maxBlocksToVerifyPerProof: 0
-            });
+                provingWindow: GRACE_PERIOD + 60 // 1 hour
+             });
         }
 
         if (_tierId == LibTiers.TIER_TDX) {
@@ -65,9 +63,8 @@ abstract contract TierProviderBase is ITierProvider {
                 validityBond: 150 ether, // TAIKO
                 contestBond: 984.375 ether, // = 150 TAIKO * 6.5625
                 cooldownWindow: 1440, // 24 hours
-                provingWindow: GRACE_PERIOD + 60, // 1 hour
-                maxBlocksToVerifyPerProof: 0
-            });
+                provingWindow: GRACE_PERIOD + 60 // 1 hour
+             });
         }
 
         if (_tierId == LibTiers.TIER_ZKVM_RISC0) {
@@ -76,9 +73,8 @@ abstract contract TierProviderBase is ITierProvider {
                 validityBond: 250 ether, // TAIKO
                 contestBond: 1640.625 ether, // = 250 TAIKO * 6.5625
                 cooldownWindow: 1440, // 24 hours
-                provingWindow: GRACE_PERIOD + 180, // 3 hours
-                maxBlocksToVerifyPerProof: 0
-            });
+                provingWindow: GRACE_PERIOD + 180 // 3 hours
+             });
         }
 
         if (_tierId == LibTiers.TIER_ZKVM_SP1) {
@@ -87,9 +83,8 @@ abstract contract TierProviderBase is ITierProvider {
                 validityBond: 250 ether, // TAIKO
                 contestBond: 1640.625 ether, // = 250 TAIKO * 6.5625
                 cooldownWindow: 1440, // 24 hours
-                provingWindow: GRACE_PERIOD + 180, // 3 hours
-                maxBlocksToVerifyPerProof: 0
-            });
+                provingWindow: GRACE_PERIOD + 180 // 3 hours
+             });
         }
 
         if (_tierId == LibTiers.TIER_ZKVM_ANY) {
@@ -98,9 +93,8 @@ abstract contract TierProviderBase is ITierProvider {
                 validityBond: 250 ether, // TAIKO
                 contestBond: 1640.625 ether, // = 250 TAIKO * 6.5625
                 cooldownWindow: 1440, // 24 hours
-                provingWindow: GRACE_PERIOD + 180, // 3 hours
-                maxBlocksToVerifyPerProof: 0
-            });
+                provingWindow: GRACE_PERIOD + 240 // 4 hours
+             });
         }
 
         if (_tierId == LibTiers.TIER_GUARDIAN_MINORITY) {
@@ -109,9 +103,8 @@ abstract contract TierProviderBase is ITierProvider {
                 validityBond: 350 ether, // TAIKO
                 contestBond: 2296.875 ether, // = 350 TAIKO * 6.5625
                 cooldownWindow: GRACE_PERIOD + 240, // 4 hours
-                provingWindow: 2880, // 48 hours
-                maxBlocksToVerifyPerProof: 0
-            });
+                provingWindow: 2880 // 48 hours
+             });
         }
 
         if (_tierId == LibTiers.TIER_GUARDIAN) {
@@ -120,9 +113,8 @@ abstract contract TierProviderBase is ITierProvider {
                 validityBond: 0, // must be 0 for top tier
                 contestBond: 0, // must be 0 for top tier
                 cooldownWindow: 1440, // 24 hours
-                provingWindow: GRACE_PERIOD + 2880, // 48 hours
-                maxBlocksToVerifyPerProof: 0
-            });
+                provingWindow: GRACE_PERIOD + 2880 // 48 hours
+             });
         }
 
         revert TIER_NOT_FOUND();

@@ -24,7 +24,6 @@ library LibVerifying {
         uint64 syncBlockId;
         uint24 syncTransitionId;
         address prover;
-        bool postFork;
         ITierRouter tierRouter;
     }
 
@@ -33,7 +32,11 @@ library LibVerifying {
     error L1_TRANSITION_ID_ZERO();
     error L1_TOO_LATE();
 
-    /// @dev Verifies up to N blocks.
+    /// @notice Verifies up to N blocks.
+    /// @param _state The current state of TaikoData.
+    /// @param _config The configuration of TaikoData.
+    /// @param _resolver The address resolver interface.
+    /// @param _maxBlocksToVerify The maximum number of blocks to verify.
     function verifyBlocks(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
@@ -68,7 +71,7 @@ library LibVerifying {
         // Unchecked is safe:
         // - assignment is within ranges
         // - blockId and numBlocksVerified values incremented will still be OK in the
-        // next 584K years if we verifying one block per every second
+        // next 584K years if we verify one block per every second
 
         unchecked {
             ++local.blockId;
@@ -77,7 +80,6 @@ library LibVerifying {
                 local.blockId < local.b.numBlocks && local.numBlocksVerified < _maxBlocksToVerify
             ) {
                 local.slot = local.blockId % _config.blockRingBufferSize;
-                local.postFork = local.blockId >= _config.ontakeForkHeight;
 
                 blk = _state.blocks[local.slot];
                 if (blk.blockId != local.blockId) revert L1_BLOCK_MISMATCH();
@@ -128,22 +130,12 @@ library LibVerifying {
                 // either when the transitions are generated or proven. In such cases, both the
                 // provers and contesters of those transitions forfeit their bonds.
 
-                if (local.postFork) {
-                    emit LibUtils.BlockVerifiedV2({
-                        blockId: local.blockId,
-                        prover: local.prover,
-                        blockHash: local.blockHash,
-                        tier: local.tier
-                    });
-                } else {
-                    emit LibUtils.BlockVerified({
-                        blockId: local.blockId,
-                        prover: local.prover,
-                        blockHash: local.blockHash,
-                        stateRoot: 0, // DEPRECATED and is always zero.
-                        tier: local.tier
-                    });
-                }
+                emit LibUtils.BlockVerifiedV2({
+                    blockId: local.blockId,
+                    prover: local.prover,
+                    blockHash: local.blockHash,
+                    tier: local.tier
+                });
 
                 if (LibUtils.shouldSyncStateRoot(_config.stateRootSyncInternal, local.blockId)) {
                     bytes32 stateRoot = ts.stateRoot;
@@ -188,6 +180,11 @@ library LibVerifying {
         }
     }
 
+    /// @notice Retrieves the prover of a verified block.
+    /// @param _state The current state of TaikoData.
+    /// @param _config The configuration of TaikoData.
+    /// @param _blockId The ID of the block.
+    /// @return The address of the prover.
     function getVerifiedBlockProver(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
@@ -197,7 +194,7 @@ library LibVerifying {
         view
         returns (address)
     {
-        (TaikoData.BlockV2 storage blk,) = LibUtils.getBlock(_state, _config, _blockId);
+        (TaikoData.BlockV2 storage blk,) = LibUtils.getBlockV2(_state, _config, _blockId);
 
         uint24 tid = blk.verifiedTransitionId;
         if (tid == 0) return address(0);

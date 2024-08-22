@@ -2,7 +2,6 @@
 pragma solidity 0.8.24;
 
 import "../common/EssentialContract.sol";
-import "./libs/LibData.sol";
 import "./libs/LibProposing.sol";
 import "./libs/LibProving.sol";
 import "./libs/LibVerifying.sol";
@@ -16,7 +15,6 @@ import "./ITaikoL1.sol";
 /// L3 "inception layers". The contract also handles the deposit and withdrawal of Taiko tokens
 /// and Ether. Additionally, this contract doesn't hold any Ether. Ether deposited to L2 are held
 /// by the Bridge contract.
-/// @dev Labeled in AddressResolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
 contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     /// @notice The TaikoL1 state.
@@ -24,7 +22,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
 
     uint256[50] private __gap;
 
-    error L1_FORK_ERROR();
     error L1_INVALID_PARAMS();
 
     modifier whenProvingNotPaused() {
@@ -57,12 +54,16 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         initializer
     {
         __Essential_init(_owner, _rollupAddressManager);
-        LibUtils.init(state, getConfig(), _genesisBlockHash);
+        LibUtils.init(state, _genesisBlockHash);
         if (_toPause) _pause();
     }
 
+    /// @notice Reinitializes the contract to version 2.
+    /// @dev This function is intended to reset specific state variables for future reuse.
+    /// It can only be called by the owner of the contract and only once due to the reinitializer(2)
+    /// modifier.
     function init2() external onlyOwner reinitializer(2) {
-        // reset some previously used slots for future reuse
+        // Reset some previously used slots for future reuse
         state.slotB.__reservedB1 = 0;
         state.slotB.__reservedB2 = 0;
         state.slotB.__reservedB3 = 0;
@@ -70,28 +71,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     }
 
     /// @inheritdoc ITaikoL1
-    function proposeBlock(
-        bytes calldata _params,
-        bytes calldata _txList
-    )
-        external
-        payable
-        onlyPermittedProposer
-        whenNotPaused
-        nonReentrant
-        emitEventForClient
-        returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
-    {
-        TaikoData.Config memory config = getConfig();
-
-        (meta_,, deposits_) = LibProposing.proposeBlock(state, config, this, _params, _txList);
-        if (meta_.id >= config.ontakeForkHeight) revert L1_FORK_ERROR();
-
-        if (LibUtils.shouldVerifyBlocks(config, meta_.id, true) && !state.slotB.provingPaused) {
-            LibVerifying.verifyBlocks(state, config, this, config.maxBlocksToVerify);
-        }
-    }
-
     function proposeBlockV2(
         bytes calldata _params,
         bytes calldata _txList
@@ -196,8 +175,9 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         LibBonds.withdrawBond(state, this, _amount);
     }
 
-    /// @notice Gets the current bond balance of a given address.
-    /// @return The current bond balance.
+    /// @notice Retrieves the current bond balance for a specified user address.
+    /// @param _user The address of the user whose bond balance is being queried.
+    /// @return The current bond balance of the specified user in wei.
     function bondBalanceOf(address _user) external view returns (uint256) {
         return LibBonds.bondBalanceOf(state, _user);
     }
@@ -210,16 +190,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     /// @notice Gets the details of a block.
     /// @param _blockId Index of the block.
     /// @return blk_ The block.
-    function getBlock(uint64 _blockId) external view returns (TaikoData.Block memory blk_) {
-        (TaikoData.BlockV2 memory blk,) = LibUtils.getBlock(state, getConfig(), _blockId);
-        blk_ = LibData.blockV2toV1(blk);
-    }
-
-    /// @notice Gets the details of a block.
-    /// @param _blockId Index of the block.
-    /// @return blk_ The block.
     function getBlockV2(uint64 _blockId) external view returns (TaikoData.BlockV2 memory blk_) {
-        (blk_,) = LibUtils.getBlock(state, getConfig(), _blockId);
+        (blk_,) = LibUtils.getBlockV2(state, getConfig(), _blockId);
     }
 
     /// @notice Gets the state transition for a specific block.
@@ -320,6 +292,11 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
          });
     }
 
+    /// @notice Proposes a new block and verifies blocks if necessary.
+    /// @param _params The parameters for the block proposal.
+    /// @param _txList The list of transactions for the block.
+    /// @param _config The configuration settings for the Taiko protocol.
+    /// @return meta_ The metadata of the proposed block.
     function _proposeBlock(
         bytes calldata _params,
         bytes calldata _txList,
@@ -328,14 +305,17 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         internal
         returns (TaikoData.BlockMetadataV2 memory meta_)
     {
-        (, meta_,) = LibProposing.proposeBlock(state, _config, this, _params, _txList);
-        if (meta_.id < _config.ontakeForkHeight) revert L1_FORK_ERROR();
+        meta_ = LibProposing.proposeBlock(state, _config, this, _params, _txList);
 
         if (LibUtils.shouldVerifyBlocks(_config, meta_.id, true) && !state.slotB.provingPaused) {
             LibVerifying.verifyBlocks(state, _config, this, _config.maxBlocksToVerify);
         }
     }
 
+    /// @notice Proves a block and verifies blocks if necessary.
+    /// @param _blockId The ID of the block to be proved.
+    /// @param _input The input data for proving the block.
+    /// @param _config The configuration settings for the Taiko protocol.
     function _proveBlock(
         uint64 _blockId,
         bytes calldata _input,
@@ -350,10 +330,17 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         }
     }
 
-    /// @dev chain_pauser is supposed to be a cold wallet.
+    /// @notice Authorizes the pausing of the contract.
+    /// @dev This function can only be called by the contract owner or an address named
+    /// B_CHAIN_WATCHDOG.
+    /// B_CHAIN_WATCHDOG is intended to be a cold wallet for security purposes.
+    /// @param _account The address attempting to authorize the pause (not used in the function
+    /// body).
+    /// @param _pause A boolean flag indicating the pause state (not used in the function body).
+    /// @dev Note: The authorization check is performed on msg.sender, not _account.
     function _authorizePause(
-        address,
-        bool
+        address _account,
+        bool _pause
     )
         internal
         view

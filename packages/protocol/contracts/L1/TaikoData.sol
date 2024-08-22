@@ -2,11 +2,10 @@
 pragma solidity 0.8.24;
 
 /// @title TaikoData
-/// @notice This library defines various data structures used in the Taiko
-/// protocol.
+/// @notice This library defines various data structures used in the Taiko protocol.
 /// @custom:security-contact security@taiko.xyz
 library TaikoData {
-    /// @dev Struct that represneds L2 basefee configurations
+    /// @dev Struct that represents L2 basefee configurations.
     struct BaseFeeConfig {
         uint8 adjustmentQuotient;
         uint8 sharingPctg;
@@ -29,21 +28,20 @@ library TaikoData {
         uint64 blockMaxProposals;
         // Size of the block ring buffer, allowing extra space for proposals.
         uint64 blockRingBufferSize;
-        // The maximum number of verifications allowed when a block is proposed
-        // or proved.
+        // The maximum number of verifications allowed when a block is proposed or proved.
         uint64 maxBlocksToVerify;
         // The maximum gas limit allowed for a block.
         uint32 blockMaxGasLimit;
         // ---------------------------------------------------------------------
         // Group 3: Proof related configs
         // ---------------------------------------------------------------------
-        // The amount of Taiko token as a prover liveness bond
+        // The amount of Taiko token as a prover liveness bond.
         uint96 livenessBond;
         // ---------------------------------------------------------------------
         // Group 4: Cross-chain sync
         // ---------------------------------------------------------------------
         // The number of L2 blocks between each L2-to-L1 state root sync.
-        uint8 stateRootSyncInternal;
+        uint8 stateRootSyncInternal; // known typo (stateRootSyncInterval)
         uint64 maxAnchorHeightOffset;
         // ---------------------------------------------------------------------
         // Group 5: Previous configs in TaikoL2
@@ -55,26 +53,10 @@ library TaikoData {
         uint64 ontakeForkHeight;
     }
 
-    /// @dev A proof and the tier of proof it belongs to
+    /// @dev A proof and the tier of proof it belongs to.
     struct TierProof {
         uint16 tier;
         bytes data;
-    }
-
-    /// @dev Hook and it's data (currently used only during proposeBlock)
-    struct HookCall {
-        address hook;
-        bytes data;
-    }
-
-    /// @dev Represents proposeBlock's _data input parameter
-    struct BlockParams {
-        address assignedProver; // DEPRECATED, value ignored.
-        address coinbase;
-        bytes32 extraData;
-        bytes32 parentMetaHash;
-        HookCall[] hookCalls; // DEPRECATED, value ignored.
-        bytes signature; // DEPRECATED, value ignored.
     }
 
     struct BlockParamsV2 {
@@ -85,27 +67,6 @@ library TaikoData {
         uint32 blobTxListOffset; // NEW
         uint32 blobTxListLength; // NEW
         uint8 blobIndex; // NEW
-    }
-
-    /// @dev Struct containing data only required for proving a block
-    /// Note: On L2, `block.difficulty` is the pseudo name of
-    /// `block.prevrandao`, which returns a random number provided by the layer
-    /// 1 chain.
-    struct BlockMetadata {
-        bytes32 l1Hash;
-        bytes32 difficulty;
-        bytes32 blobHash; //or txListHash (if Blob not yet supported)
-        bytes32 extraData;
-        bytes32 depositsHash;
-        address coinbase; // L2 coinbase,
-        uint64 id;
-        uint32 gasLimit;
-        uint64 timestamp;
-        uint64 l1Height;
-        uint16 minTier;
-        bool blobUsed;
-        bytes32 parentMetaHash;
-        address sender; // a.k.a proposer
     }
 
     struct BlockMetadataV2 {
@@ -158,22 +119,6 @@ library TaikoData {
 
     /// @dev Struct containing data required for verifying a block.
     /// 3 slots used.
-    struct Block {
-        bytes32 metaHash; // slot 1
-        address assignedProver; // slot 2
-        uint96 livenessBond;
-        uint64 blockId; // slot 3
-        uint64 proposedAt; // timestamp
-        uint64 proposedIn; // L1 block number, required/used by node/client.
-        uint32 nextTransitionId;
-        // The ID of the transaction that is used to verify this block. However, if
-        // this block is not verified as the last block in a batch, verifiedTransitionId
-        // will remain zero.
-        uint32 verifiedTransitionId;
-    }
-
-    /// @dev Struct containing data required for verifying a block.
-    /// 3 slots used.
     struct BlockV2 {
         bytes32 metaHash; // slot 1
         address assignedProver; // slot 2
@@ -183,37 +128,25 @@ library TaikoData {
         // After the fork, this is the timestamp of the L2 block.
         // In a later fork, we an rename this field to `timestamp`.
         uint64 proposedAt;
-        // Before the fork, this field is the L1 block number where this block is proposed.
-        // After the fork, this is the L1 block number input for the anchor transaction.
-        // In a later fork, we an rename this field to `anchorBlockId`.
+        // This is the L1 block number input for the anchor transaction.
+        // In a later fork, we can rename this field to `anchorBlockId`.
         uint64 proposedIn;
         uint24 nextTransitionId;
         bool livenessBondReturned;
-        // The ID of the transaction that is used to verify this block. However, if
-        // this block is not verified as the last block in a batch, verifiedTransitionId
-        // will remain zero.
+        // The ID of the transaction that is used to verify this block. However, if this block is
+        // not verified as the last block in a batch, verifiedTransitionId will remain zero.
         uint24 verifiedTransitionId;
     }
 
-    /// @dev Struct representing an Ethereum deposit.
-    /// 2 slot used. Currently removed from protocol, but to be backwards compatible, the struct and
-    /// return values stayed for now.
-    struct EthDeposit {
-        address recipient;
-        uint96 amount;
-        uint64 id;
-    }
-
-    /// @dev Forge is only able to run coverage in case the contracts by default
-    /// capable of compiling without any optimization (neither optimizer runs,
-    /// no compiling --via-ir flag).
-    /// In order to resolve stack too deep without optimizations, we needed to
-    /// introduce outsourcing vars into structs below.
+    /// @dev Forge is only able to run coverage in case the contracts by default are capable of
+    /// compiling without any optimization (neither optimizer runs, nor compiling --via-ir flag).
+    /// In order to resolve stack too deep without optimizations, we needed to introduce outsourcing
+    /// vars into structs below.
     struct SlotA {
         uint64 genesisHeight;
         uint64 genesisTimestamp;
         uint64 lastSyncedBlockId;
-        uint64 lastSynecdAt; // typo!
+        uint64 lastSynecdAt; // known typo (lastSyncedAt)
     }
 
     struct SlotB {
@@ -232,7 +165,7 @@ library TaikoData {
         mapping(uint64 blockId_mod_blockRingBufferSize => BlockV2 blk) blocks;
         // Indexing to transition ids (ring buffer not possible)
         mapping(uint64 blockId => mapping(bytes32 parentHash => uint24 transitionId)) transitionIds;
-        // Ring buffer for transitions
+        // Ring buffer for transitions.
         mapping(
             uint64 blockId_mod_blockRingBufferSize
                 => mapping(uint32 transitionId => TransitionState ts)

@@ -44,6 +44,7 @@ contract TaikoL2 is EssentialContract {
     uint64 public parentGasTarget;
 
     /// @notice The L1's chain ID.
+    /// @dev Slot 4.
     uint64 public l1ChainId;
 
     uint256[46] private __gap;
@@ -54,10 +55,8 @@ contract TaikoL2 is EssentialContract {
     event Anchored(bytes32 parentHash, uint64 parentGasExcess);
 
     error L2_BASEFEE_MISMATCH();
-    error L2_FORK_ERROR();
     error L2_INVALID_L1_CHAIN_ID();
     error L2_INVALID_L2_CHAIN_ID();
-    error L2_INVALID_PARAM();
     error L2_INVALID_SENDER();
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
     error L2_TOO_LATE();
@@ -111,65 +110,11 @@ contract TaikoL2 is EssentialContract {
     /// - _initialGasExcess = 274*5_000_000 => basefee =0.01 gwei
     /// - _initialGasExcess = 282*5_000_000 => basefee =0.05 gwei
     /// - _initialGasExcess = 288*5_000_000 => basefee =0.1 gwei
+    /// @param _initialGasExcess The initial gas excess value to set.
     function init2(uint64 _initialGasExcess) external onlyOwner reinitializer(2) {
         parentGasExcess = _initialGasExcess;
         parentTimestamp = uint64(block.timestamp);
         parentGasTarget = 0;
-    }
-
-    /// @notice Anchors the latest L1 block details to L2 for cross-layer
-    /// message verification.
-    /// @dev This function can be called freely as the golden touch private key is publicly known,
-    /// but the Taiko node guarantees the first transaction of each block is always this anchor
-    /// transaction, and any subsequent calls will revert with L2_PUBLIC_INPUT_HASH_MISMATCH.
-    /// @param _l1BlockHash The `anchorBlockHash` value in this block's metadata.
-    /// @param _l1StateRoot The state root for the L1 block with id equals `_anchorBlockId`
-    /// @param _l1BlockId The `anchorBlockId` value in this block's metadata.
-    /// @param _parentGasUsed The gas used in the parent block.
-    function anchor(
-        bytes32 _l1BlockHash,
-        bytes32 _l1StateRoot,
-        uint64 _l1BlockId,
-        uint32 _parentGasUsed
-    )
-        external
-        nonZeroValue(uint256(_l1StateRoot))
-        nonZeroValue(uint256(_l1BlockId))
-        onlyGoldenTouch
-        nonReentrant
-    {
-        if (block.number >= ontakeForkHeight()) revert L2_FORK_ERROR();
-
-        // Verify ancestor hashes
-        uint256 parentId = block.number - 1;
-        (bytes32 currentPublicInputHash, bytes32 newPublicInputHash) =
-            _calcPublicInputHash(parentId);
-        if (publicInputHash != currentPublicInputHash) revert L2_PUBLIC_INPUT_HASH_MISMATCH();
-
-        // Verify the base fee per gas is correct
-        (uint256 basefee, uint64 newGasExcess) = getBasefee(_l1BlockId, _parentGasUsed);
-
-        if (!skipFeeCheck() && block.basefee != basefee) revert L2_BASEFEE_MISMATCH();
-
-        if (_l1BlockId > lastSyncedBlock) {
-            // Store the L1's state root as a signal to the local signal service to
-            // allow for multi-hop bridging.
-            ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).syncChainData(
-                l1ChainId, LibStrings.H_STATE_ROOT, _l1BlockId, _l1StateRoot
-            );
-
-            lastSyncedBlock = _l1BlockId;
-        }
-
-        // Update state variables
-        bytes32 parentHash = blockhash(parentId);
-        l2Hashes[parentId] = parentHash;
-
-        publicInputHash = newPublicInputHash;
-        parentGasExcess = newGasExcess;
-        parentTimestamp = uint64(block.timestamp);
-
-        emit Anchored(parentHash, newGasExcess);
     }
 
     function anchorV2(
@@ -186,9 +131,7 @@ contract TaikoL2 is EssentialContract {
         onlyGoldenTouch
         nonReentrant
     {
-        if (block.number < ontakeForkHeight()) revert L2_FORK_ERROR();
-
-        uint256 parentId = block.number - 1;
+        uint64 parentId = uint64(block.number - 1);
 
         // Verify ancestor hashes
         {
@@ -250,43 +193,16 @@ contract TaikoL2 is EssentialContract {
         address _to
     )
         external
+        nonZeroAddr(_to)
         whenNotPaused
         onlyFromOwnerOrNamed(LibStrings.B_WITHDRAWER)
         nonReentrant
     {
-        if (_to == address(0)) revert L2_INVALID_PARAM();
         if (_token == address(0)) {
             _to.sendEtherAndVerify(address(this).balance);
         } else {
             IERC20(_token).safeTransfer(_to, IERC20(_token).balanceOf(address(this)));
         }
-    }
-
-    /// @notice Gets the basefee and gas excess using EIP-1559 configuration for
-    /// the given parameters.
-    /// @dev This function will deprecate after Ontake fork, node/client shall use calculateBaseFee
-    /// instead for base fee prediction.
-    /// @param _anchorBlockId The synced L1 height in the next Taiko block
-    /// @param _parentGasUsed Gas used in the parent block.
-    /// @return basefee_ The calculated EIP-1559 base fee per gas.
-    /// @return parentGasExcess_ The new parentGasExcess value.
-    function getBasefee(
-        uint64 _anchorBlockId,
-        uint32 _parentGasUsed
-    )
-        public
-        view
-        returns (uint256 basefee_, uint64 parentGasExcess_)
-    {
-        LibL2Config.Config memory config = getConfig();
-
-        (basefee_, parentGasExcess_) = Lib1559Math.calc1559BaseFee(
-            uint256(config.gasTargetPerL1Block) * config.basefeeAdjustmentQuotient,
-            parentGasExcess,
-            uint64(_anchorBlockId - lastSyncedBlock) * config.gasTargetPerL1Block,
-            _parentGasUsed,
-            0
-        );
     }
 
     /// @notice Retrieves the block hash for the given L2 block number.
@@ -297,12 +213,6 @@ contract TaikoL2 is EssentialContract {
         if (_blockId >= block.number) return 0;
         if (_blockId + 256 >= block.number) return blockhash(_blockId);
         return l2Hashes[_blockId];
-    }
-
-    /// @notice Returns EIP1559 related configurations.
-    /// @return config_ struct containing configuration parameters.
-    function getConfig() public view virtual returns (LibL2Config.Config memory) {
-        return LibL2Config.get();
     }
 
     /// @notice Returns the new gas excess that will keep the basefee the same.
@@ -326,10 +236,6 @@ contract TaikoL2 is EssentialContract {
     /// @return Returns true to skip checking basefee mismatch.
     function skipFeeCheck() public pure virtual returns (bool) {
         return false;
-    }
-
-    function ontakeForkHeight() public pure virtual returns (uint64) {
-        return 0;
     }
 
     /// @notice Calculates the basefee and the new gas excess value based on parent gas used and gas
@@ -366,6 +272,13 @@ contract TaikoL2 is EssentialContract {
         );
     }
 
+    /// @notice Calculates the public input hash for the given block ID.
+    /// @dev This function computes two public input hashes: one for the previous state and one for
+    /// the new state.
+    /// It uses a ring buffer to store the previous 255 block hashes and the current chain ID.
+    /// @param _blockId The ID of the block for which the public input hash is calculated.
+    /// @return publicInputHashOld The public input hash for the previous state.
+    /// @return publicInputHashNew The public input hash for the new state.
     function _calcPublicInputHash(
         uint256 _blockId
     )
@@ -385,13 +298,18 @@ contract TaikoL2 is EssentialContract {
             }
         }
 
+        // Store the current chain ID in the last position of the inputs array.
         inputs[255] = bytes32(block.chainid);
 
+        // Calculate the public input hash for the previous state.
         assembly {
             publicInputHashOld := keccak256(inputs, 8192 /*mul(256, 32)*/ )
         }
 
+        // Update the ring buffer with the block hash of the current block ID.
         inputs[_blockId % 255] = blockhash(_blockId);
+
+        // Calculate the public input hash for the new state.
         assembly {
             publicInputHashNew := keccak256(inputs, 8192 /*mul(256, 32)*/ )
         }
