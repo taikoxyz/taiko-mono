@@ -264,7 +264,7 @@ contract GuardianProver is IVerifier, EssentialContract {
                 delete approvals[_version][_proofHash];
                 delete latestProofHash[_version][_blockId];
 
-                ITaikoL1(resolve(LibStrings.B_TAIKO, false)).proveBlock(_blockId, _data);
+                ITaikoL1(resolve(LibStrings.B_TAIKO, false)).proveBlocks(_blockId, _data);
             }
         }
     }

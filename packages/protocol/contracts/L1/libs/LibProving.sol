@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 import "../../verifiers/IVerifier.sol";
 import "./LibBonds.sol";
 import "./LibUtils.sol";
+import "./LibVerifying.sol";
 
 /// @title LibProving
 /// @notice A library for handling block contestation and proving in the Taiko protocol.
@@ -70,9 +71,11 @@ library LibProving {
     error L1_ALREADY_PROVED();
     error L1_BLOCK_MISMATCH();
     error L1_CANNOT_CONTEST();
+    error L1_INVALID_PARAMS();
     error L1_INVALID_PAUSE_STATUS();
     error L1_INVALID_TIER();
     error L1_INVALID_TRANSITION();
+    error L1_MULTIPLE_VERIFIERS();
     error L1_NOT_ASSIGNED_PROVER();
     error L1_PROVING_PAUSED();
 
@@ -89,6 +92,57 @@ library LibProving {
         emit ProvingPaused(_pause);
     }
 
+    function proveBlocks(
+        TaikoData.State storage _state,
+        TaikoData.Config memory _config,
+        IAddressResolver _resolver,
+        uint64[] calldata _blockIds,
+        bytes[] calldata _inputs,
+        bytes calldata _proof
+    )
+        public
+    {
+        if (_blockIds.length == 0 || _blockIds.length != _inputs.length) {
+            revert L1_INVALID_PARAMS();
+        }
+
+        IVerifier.Context[] memory ctxs = new IVerifier.Context[](_blockIds.length);
+
+        address onlyVerifier;
+        uint256 count;
+
+        TaikoData.TierProof memory proof = abi.decode(_proof, (TaikoData.TierProof));
+
+        for (uint256 i; i < _blockIds.length; ++i) {
+            (address verifier, IVerifier.Context memory ctx) =
+                _proveBlock(_state, _config, _resolver, _blockIds[i], _inputs[i], proof.tier);
+
+            if (verifier == address(0)) continue;
+
+            if (onlyVerifier == address(0)) {
+                onlyVerifier = verifier;
+            } else if (onlyVerifier != verifier) {
+                revert L1_MULTIPLE_VERIFIERS();
+            }
+
+            unchecked {
+                ctxs[count++] = ctx;
+            }
+        }
+
+        if (onlyVerifier != address(0) && count != 0) {
+            assembly {
+                mstore(ctxs, count)
+            }
+            IVerifier(onlyVerifier).verifyProof(ctxs, proof);
+        }
+        for (uint256 i; i < _blockIds.length; ++i) {
+            if (LibUtils.shouldVerifyBlocks(_config, _blockIds[i], false)) {
+                LibVerifying.verifyBlocks(_state, _config, _resolver, _config.maxBlocksToVerify);
+            }
+        }
+    }
+
     /// @notice Proves or contests a block transition.
     /// @param _state Current TaikoData.State.
     /// @param _config Actual TaikoData.Config.
@@ -97,14 +151,16 @@ library LibProving {
     /// implementation version.
     /// @param _input An abi-encoded (TaikoData.BlockMetadata, TaikoData.Transition,
     /// TaikoData.TierProof) tuple.
-    function proveBlock(
+    function _proveBlock(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
         IAddressResolver _resolver,
         uint64 _blockId,
-        bytes calldata _input
+        bytes calldata _input,
+        uint16 _proofTier
     )
-        public
+        private
+        returns (address verifier_, IVerifier.Context memory ctx_)
     {
         Local memory local;
 
@@ -115,7 +171,8 @@ library LibProving {
         TaikoData.Transition memory tran;
         TaikoData.TierProof memory proof;
 
-        (meta, tran, proof) = abi.decode(
+        // TODO(daniel)
+        (meta, tran,) = abi.decode(
             _input, (TaikoData.BlockMetadataV2, TaikoData.Transition, TaikoData.TierProof)
         );
 
@@ -165,7 +222,7 @@ library LibProving {
 
         // The new proof must meet or exceed the minimum tier required by the block or the previous
         // proof; it cannot be on a lower tier.
-        if (proof.tier == 0 || proof.tier < meta.minTier || proof.tier < ts.tier) {
+        if (_proofTier == 0 || _proofTier < meta.minTier || _proofTier < ts.tier) {
             revert L1_INVALID_TIER();
         }
 
@@ -175,7 +232,7 @@ library LibProving {
             ITierRouter tierRouter = ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false));
             ITierProvider tierProvider = ITierProvider(tierRouter.getProvider(local.blockId));
 
-            local.tier = tierProvider.getTier(proof.tier);
+            local.tier = tierProvider.getTier(_proofTier);
             local.minTier = tierProvider.getTier(meta.minTier);
         }
 
@@ -204,12 +261,10 @@ library LibProving {
         //
         // It's obvious that proof verification is entirely decoupled from Taiko's core protocol.
         if (local.tier.verifierName != "") {
-            address verifier = _resolver.resolve(local.tier.verifierName, false);
-            bool isContesting = proof.tier == ts.tier && local.tier.contestBond != 0;
+            verifier_ = _resolver.resolve(local.tier.verifierName, false);
+            bool isContesting = _proofTier == ts.tier && local.tier.contestBond != 0;
 
-            IVerifier.Context[] memory ctxs = new IVerifier.Context[](1);
-
-            ctxs[0] = IVerifier.Context({
+            ctx_ = IVerifier.Context({
                 metaHash: local.metaHash,
                 blobHash: meta.blobHash,
                 // Separate msgSender to allow the prover to be any address in the future.
@@ -220,15 +275,13 @@ library LibProving {
                 blobUsed: meta.blobUsed,
                 transition: tran
             });
-
-            IVerifier(verifier).verifyProof(ctxs, proof);
         }
 
         local.isTopTier = local.tier.contestBond == 0;
 
         local.sameTransition = tran.blockHash == ts.blockHash && local.stateRoot == ts.stateRoot;
 
-        if (proof.tier > ts.tier) {
+        if (_proofTier > ts.tier) {
             // Handles the case when an incoming tier is higher than the current transition's tier.
             // Reverts when the incoming proof tries to prove the same transition
             // (L1_ALREADY_PROVED).

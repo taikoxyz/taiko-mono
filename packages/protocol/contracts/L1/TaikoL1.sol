@@ -70,6 +70,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         state.__reserve1 = 0;
     }
 
+    // TODO(daniel): remove this.
     /// @inheritdoc ITaikoL1
     function proposeBlockV2(
         bytes calldata _params,
@@ -110,24 +111,10 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     }
 
     /// @inheritdoc ITaikoL1
-    function proveBlock(
-        uint64 _blockId,
-        bytes calldata _input
-    )
-        external
-        whenNotPaused
-        whenProvingNotPaused
-        nonReentrant
-        emitEventForClient
-    {
-        TaikoData.Config memory config = getConfig();
-        _proveBlock(_blockId, _input, config);
-    }
-
-    /// @inheritdoc ITaikoL1
     function proveBlocks(
         uint64[] calldata _blockIds,
-        bytes[] calldata _inputArr
+        bytes[] calldata _inputs,
+        bytes calldata _proof
     )
         external
         whenNotPaused
@@ -135,15 +122,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         nonReentrant
         emitEventForClient
     {
-        if (_blockIds.length == 0 || _blockIds.length != _inputArr.length) {
-            revert L1_INVALID_PARAMS();
-        }
-
-        TaikoData.Config memory config = getConfig();
-
-        for (uint256 i; i < _blockIds.length; ++i) {
-            _proveBlock(_blockIds[i], _inputArr[i], config);
-        }
+        LibProving.proveBlocks(state, getConfig(), this, _blockIds, _inputs, _proof);
     }
 
     /// @inheritdoc ITaikoL1
@@ -308,24 +287,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         meta_ = LibProposing.proposeBlock(state, _config, this, _params, _txList);
 
         if (LibUtils.shouldVerifyBlocks(_config, meta_.id, true) && !state.slotB.provingPaused) {
-            LibVerifying.verifyBlocks(state, _config, this, _config.maxBlocksToVerify);
-        }
-    }
-
-    /// @notice Proves a block and verifies blocks if necessary.
-    /// @param _blockId The ID of the block to be proved.
-    /// @param _input The input data for proving the block.
-    /// @param _config The configuration settings for the Taiko protocol.
-    function _proveBlock(
-        uint64 _blockId,
-        bytes calldata _input,
-        TaikoData.Config memory _config
-    )
-        internal
-    {
-        LibProving.proveBlock(state, _config, this, _blockId, _input);
-
-        if (LibUtils.shouldVerifyBlocks(_config, _blockId, false)) {
             LibVerifying.verifyBlocks(state, _config, this, _config.maxBlocksToVerify);
         }
     }
