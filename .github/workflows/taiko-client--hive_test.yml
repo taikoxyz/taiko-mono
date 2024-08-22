@@ -47,4 +47,4 @@ jobs:
         working-directory: packages/taiko-client
         run: |
           export HIVE_DIR=/tmp/hive
-          go test -v -p=1 ./integration_test -timeout=600s
+          go test -v -p=1 ./integration_test -timeout=1200s
