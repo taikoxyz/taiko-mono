@@ -21,7 +21,6 @@ func TestHiveHandler(t *testing.T) {
 
 func testDenebGenesis(t *testing.T) {
 	handler, err := hivesim.NewHiveFramework(&hivesim.HiveConfig{
-		DockerPull:      true,
 		BuildOutput:     false,
 		ContainerOutput: true,
 		BaseDir:         os.Getenv("HIVE_DIR"),
