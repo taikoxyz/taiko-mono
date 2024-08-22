@@ -18,8 +18,8 @@ contract ZkComposeVerifier is EssentialContract, ComposeVerifier {
         returns (address[] memory verifiers_, uint256 threshold_)
     {
         verifiers_ = new address[](2);
-        verifiers_[0] = resolve(LibStrings.B_VERIFIER_ZK_RISC0, false);
-        verifiers_[1] = resolve(LibStrings.B_VERIFIER_ZK_SP1, false);
+        verifiers_[0] = resolve(LibStrings.B_TIER_ZKVM_RISC0, false);
+        verifiers_[1] = resolve(LibStrings.B_TIER_ZKVM_SP1, false);
         threshold_ = 1;
     }
 }
