@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import "../../TaikoTest.sol";
 import "../../../contracts/verifiers/compose/ComposeVerifier.sol";
 
-contract ComposeVerifierWithMode is ComposeVerifier {
+contract ComposeVerifierForTest is ComposeVerifier {
     uint256 private threshold;
     address[] private verifiers;
 
@@ -49,7 +49,7 @@ contract MockVerifier is IVerifier {
 }
 
 contract ComposeVerifierTest is TaikoTest {
-    ComposeVerifierWithMode private composeVerifier;
+    ComposeVerifierForTest private composeVerifier;
 
     IVerifier.Context private ctx;
     TaikoData.Transition private tran;
@@ -63,7 +63,7 @@ contract ComposeVerifierTest is TaikoTest {
         verifier2 = address(new MockVerifier(false));
         verifier3 = address(new MockVerifier(true));
 
-        composeVerifier = new ComposeVerifierWithMode();
+        composeVerifier = new ComposeVerifierForTest();
         composeVerifier.addSubVerifier(verifier1);
         composeVerifier.addSubVerifier(verifier2);
         composeVerifier.addSubVerifier(verifier3);
