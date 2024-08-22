@@ -3,7 +3,6 @@ pragma solidity 0.8.24;
 
 import "../../common/LibStrings.sol";
 import "./ITierProvider.sol";
-import "./LibTiers.sol";
 
 /// @title TierProviderBase
 /// @custom:security-contact security@taiko.xyz

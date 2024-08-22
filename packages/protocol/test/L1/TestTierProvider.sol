@@ -4,7 +4,6 @@ pragma solidity 0.8.24;
 import "../../contracts/common/LibStrings.sol";
 import "../../contracts/L1/tiers/ITierProvider.sol";
 import "../../contracts/L1/tiers/ITierRouter.sol";
-import "../../contracts/L1/tiers/LibTiers.sol";
 
 /// @title TestTierProvider
 /// @dev Labeled in AddressResolver as "tier_router"
