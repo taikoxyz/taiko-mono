@@ -55,7 +55,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
 
         sv = SgxVerifier(
             deployProxy({
-                name: "verifier_tee_sgx",
+                name: "tier_sgx",
                 impl: address(new SgxVerifier()),
                 data: abi.encodeCall(SgxVerifier.init, (address(0), address(addressManager)))
             })
@@ -89,8 +89,8 @@ abstract contract TaikoL1TestBase is TaikoTest {
         );
 
         registerAddress("taiko", address(L1));
-        registerAddress("verifier_tee_sgx", address(sv));
-        registerAddress("verifier_guardian", address(gp));
+        registerAddress("tier_sgx", address(sv));
+        registerAddress("tier_guardian", address(gp));
         registerAddress("tier_router", address(cp));
         registerAddress("signal_service", address(ss));
         registerL2Address("taiko", address(L2));
@@ -165,14 +165,14 @@ abstract contract TaikoL1TestBase is TaikoTest {
             newInstance = SGX_X_0;
         }
 
-        if (tier == LibTierId.TIER_TEE) {
+        if (tier == LibTiers.TIER_TEE_SGX) {
             bytes memory signature =
                 createSgxSignatureProof(tran, newInstance, prover, keccak256(abi.encode(meta)));
 
             proof.data = bytes.concat(bytes4(0), bytes20(newInstance), signature);
         }
 
-        if (tier == LibTierId.TIER_GUARDIAN) {
+        if (tier == LibTiers.TIER_GUARDIAN) {
             proof.data = "";
 
             // Grant 2 signatures, 3rd might be a revert
