@@ -91,8 +91,7 @@ contract TaikoL2 is EssentialContract {
 
         if (block.number == 0) {
             // This is the case in real L2 genesis
-        }
-        else if (block.number == 1) {
+        } else if (block.number == 1) {
             // This is the case in tests
             uint256 parentHeight = block.number - 1;
             l2Hashes[parentHeight] = blockhash(parentHeight);
@@ -279,9 +278,7 @@ contract TaikoL2 is EssentialContract {
     /// @param _blockId The ID of the block for which the public input hash is calculated.
     /// @return publicInputHashOld The public input hash for the previous state.
     /// @return publicInputHashNew The public input hash for the new state.
-    function _calcPublicInputHash(
-        uint256 _blockId
-    )
+    function _calcPublicInputHash(uint256 _blockId)
         private
         view
         returns (bytes32 publicInputHashOld, bytes32 publicInputHashNew)
