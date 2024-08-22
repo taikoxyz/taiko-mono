@@ -73,21 +73,21 @@ var (
 		Usage:    "TaikoL1 contract `address`",
 		Required: true,
 		Category: commonCategory,
-		EnvVars:  []string{"TAIKO_L1_ADDRESS"},
+		EnvVars:  []string{"TAIKO_L1"},
 	}
 	TaikoL2Address = &cli.StringFlag{
 		Name:     "taikoL2",
 		Usage:    "TaikoL2 contract `address`",
 		Required: true,
 		Category: commonCategory,
-		EnvVars:  []string{"TAIKO_L2_ADDRESS"},
+		EnvVars:  []string{"TAIKO_L2"},
 	}
 	TaikoTokenAddress = &cli.StringFlag{
 		Name:     "taikoToken",
 		Usage:    "TaikoToken contract `address`",
 		Required: true,
 		Category: commonCategory,
-		EnvVars:  []string{"TAIKO_TOKEN_ADDRESS"},
+		EnvVars:  []string{"TAIKO_TOKEN"},
 	}
 
 	// Optional flags used by all client software.
