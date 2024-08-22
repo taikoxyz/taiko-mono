@@ -78,4 +78,16 @@ abstract contract TaikoTest is Test, DeployCapability {
             result := mload(add(input, 32))
         }
     }
+
+    function ctxToList(
+        IVerifier.Context memory _ctx
+    )
+        internal
+        pure
+        returns (IVerifier.Context[] memory)
+    {
+        IVerifier.Context[] memory ctxArray = new IVerifier.Context[](1);
+        ctxArray[0] = _ctx;
+        return ctxArray;
+    }
 }

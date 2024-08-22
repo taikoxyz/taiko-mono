@@ -19,7 +19,7 @@ interface IVerifier {
     }
 
     /// @notice Verifies a proof.
-    /// @param _ctx The context of the proof verification.
+    /// @param _ctxs The context of the proof verification.
     /// @param _proof The proof to verify.
-    function verifyProof(Context calldata _ctx, TaikoData.TierProof calldata _proof) external;
+    function verifyProof(Context[] calldata _ctxs, TaikoData.TierProof calldata _proof) external;
 }

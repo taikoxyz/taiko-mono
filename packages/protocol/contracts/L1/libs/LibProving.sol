@@ -260,7 +260,9 @@ library LibProving {
             address verifier = _resolver.resolve(local.tier.verifierName, false);
             bool isContesting = proof.tier == ts.tier && local.tier.contestBond != 0;
 
-            IVerifier.Context memory ctx = IVerifier.Context({
+            IVerifier.Context[] memory ctxs = new IVerifier.Context[](1);
+
+            ctxs[0] = IVerifier.Context({
                 metaHash: local.metaHash,
                 blobHash: meta.blobHash,
                 // Separate msgSender to allow the prover to be any address in the future.
@@ -272,7 +274,7 @@ library LibProving {
                 transition: tran
             });
 
-            IVerifier(verifier).verifyProof(ctx, proof);
+            IVerifier(verifier).verifyProof(ctxs, proof);
         }
 
         local.isTopTier = local.tier.contestBond == 0;

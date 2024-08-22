@@ -79,7 +79,7 @@ contract TestRiscZeroVerifier is TaikoL1TestBase {
         IVerifier.Context memory ctx = _getDummyContext();
 
         // `verifyProof()`
-        rv.verifyProof(ctx, proof);
+        rv.verifyProof(ctxToList(ctx), proof);
 
         vm.stopPrank();
     }
@@ -103,8 +103,8 @@ contract TestRiscZeroVerifier is TaikoL1TestBase {
 
         IVerifier.Context memory ctx = _getDummyContext();
 
-        vm.expectRevert(Risc0Verifier.RISC_ZERO_INVALID_IMAGE_ID.selector);
-        rv.verifyProof(ctx, proof);
+        vm.expectRevert(Risc0Verifier.RISC0_INVALID_IMAGE_ID.selector);
+        rv.verifyProof(ctxToList(ctx), proof);
 
         vm.stopPrank();
     }
@@ -128,8 +128,8 @@ contract TestRiscZeroVerifier is TaikoL1TestBase {
 
         IVerifier.Context memory ctx = _getDummyContext();
 
-        vm.expectRevert(Risc0Verifier.RISC_ZERO_INVALID_PROOF.selector);
-        rv.verifyProof(ctx, proof);
+        vm.expectRevert(Risc0Verifier.RISC0_INVALID_PROOF.selector);
+        rv.verifyProof(ctxToList(ctx), proof);
 
         vm.stopPrank();
     }

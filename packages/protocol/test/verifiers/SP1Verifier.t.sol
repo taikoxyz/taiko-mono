@@ -75,7 +75,7 @@ contract TestSP1Verifier is TaikoL1TestBase {
         IVerifier.Context memory ctx = _getDummyContext();
 
         // `verifyProof()`
-        sp1.verifyProof(ctx, proof);
+        sp1.verifyProof(ctxToList(ctx), proof);
 
         vm.stopPrank();
     }
@@ -100,7 +100,7 @@ contract TestSP1Verifier is TaikoL1TestBase {
 
         // `verifyProof()`
         vm.expectRevert(SP1Verifier.SP1_INVALID_PROGRAM_VKEY.selector);
-        sp1.verifyProof(ctx, proof);
+        sp1.verifyProof(ctxToList(ctx), proof);
 
         vm.stopPrank();
     }
@@ -125,7 +125,7 @@ contract TestSP1Verifier is TaikoL1TestBase {
         IVerifier.Context memory ctx = _getDummyContext();
 
         vm.expectRevert(SP1Verifier.SP1_INVALID_PROOF.selector);
-        sp1.verifyProof(ctx, proof);
+        sp1.verifyProof(ctxToList(ctx), proof);
 
         vm.stopPrank();
     }

@@ -21,6 +21,7 @@ contract SP1Verifier is EssentialContract, IVerifier {
     /// @param trusted The block's assigned prover.
     event ProgramTrusted(bytes32 programVKey, bool trusted);
 
+    error SP1_AGGREGATION_NOT_SUPPORTED();
     error SP1_INVALID_PROGRAM_VKEY();
     error SP1_INVALID_PROOF();
 
@@ -42,36 +43,46 @@ contract SP1Verifier is EssentialContract, IVerifier {
 
     /// @inheritdoc IVerifier
     function verifyProof(
-        Context calldata _ctx,
+        Context[] calldata _ctxs,
         TaikoData.TierProof calldata _proof
     )
         external
         view
     {
-        // Do not run proof verification to contest an existing proof
-        if (_ctx.isContesting) return;
+        // TODO: support multiple proofs
+        if (_ctxs.length != 1) revert SP1_AGGREGATION_NOT_SUPPORTED();
 
-        // Avoid in-memory decoding, so in-place decode with slicing.
-        // e.g.: bytes32 programVKey = bytes32(_proof.data[0:32]);
-        if (!isProgramTrusted[bytes32(_proof.data[0:32])]) {
-            revert SP1_INVALID_PROGRAM_VKEY();
-        }
+        for (uint256 i; i < _ctxs.length; ++i) {
+            // Do not run proof verification to contest an existing proof
+            if (_ctxs[i].isContesting) return;
 
-        // Need to be converted from bytes32 to bytes
-        bytes32 hashedPublicInput = LibPublicInput.hashPublicInputs(
-            _ctx.transition, address(this), address(0), _ctx.prover, _ctx.metaHash, taikoChainId()
-        );
+            // Avoid in-memory decoding, so in-place decode with slicing.
+            // e.g.: bytes32 programVKey = bytes32(_proof.data[0:32]);
+            if (!isProgramTrusted[bytes32(_proof.data[0:32])]) {
+                revert SP1_INVALID_PROGRAM_VKEY();
+            }
 
-        // _proof.data[32:] is the succinct's proof position
-        (bool success,) = sp1RemoteVerifier().staticcall(
-            abi.encodeCall(
-                ISP1Verifier.verifyProof,
-                (bytes32(_proof.data[0:32]), abi.encode(hashedPublicInput), _proof.data[32:])
-            )
-        );
+            // Need to be converted from bytes32 to bytes
+            bytes32 hashedPublicInput = LibPublicInput.hashPublicInputs(
+                _ctxs[i].transition,
+                address(this),
+                address(0),
+                _ctxs[i].prover,
+                _ctxs[i].metaHash,
+                taikoChainId()
+            );
 
-        if (!success) {
-            revert SP1_INVALID_PROOF();
+            // _proof.data[32:] is the succinct's proof position
+            (bool success,) = sp1RemoteVerifier().staticcall(
+                abi.encodeCall(
+                    ISP1Verifier.verifyProof,
+                    (bytes32(_proof.data[0:32]), abi.encode(hashedPublicInput), _proof.data[32:])
+                )
+            );
+
+            if (!success) {
+                revert SP1_INVALID_PROOF();
+            }
         }
     }
 

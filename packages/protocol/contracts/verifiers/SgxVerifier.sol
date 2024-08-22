@@ -72,6 +72,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     /// @param instance The address of the SGX instance.
     event InstanceDeleted(uint256 indexed id, address indexed instance);
 
+    error SGX_AGGREGATION_NOT_SUPPORTED();
     error SGX_ALREADY_ATTESTED();
     error SGX_INVALID_ATTESTATION();
     error SGX_INVALID_INSTANCE();
@@ -144,38 +145,43 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
     /// @inheritdoc IVerifier
     function verifyProof(
-        Context calldata _ctx,
+        Context[] calldata _ctxs,
         TaikoData.TierProof calldata _proof
     )
         external
         onlyFromNamed(LibStrings.B_TAIKO)
     {
-        // Do not run proof verification to contest an existing proof
-        if (_ctx.isContesting) return;
+        // TODO: support multiple proofs
+        if (_ctxs.length != 1) revert SGX_AGGREGATION_NOT_SUPPORTED();
 
-        // Size is: 89 bytes
-        // 4 bytes + 20 bytes + 65 bytes (signature) = 89
-        if (_proof.data.length != 89) revert SGX_INVALID_PROOF();
+        for (uint256 i; i < _ctxs.length; ++i) {
+            // Do not run proof verification to contest an existing proof
+            if (_ctxs[i].isContesting) return;
 
-        uint32 id = uint32(bytes4(_proof.data[:4]));
-        address newInstance = address(bytes20(_proof.data[4:24]));
+            // Size is: 89 bytes
+            // 4 bytes + 20 bytes + 65 bytes (signature) = 89
+            if (_proof.data.length != 89) revert SGX_INVALID_PROOF();
 
-        address oldInstance = ECDSA.recover(
-            LibPublicInput.hashPublicInputs(
-                _ctx.transition,
-                address(this),
-                newInstance,
-                _ctx.prover,
-                _ctx.metaHash,
-                taikoChainId()
-            ),
-            _proof.data[24:]
-        );
+            uint32 id = uint32(bytes4(_proof.data[:4]));
+            address newInstance = address(bytes20(_proof.data[4:24]));
 
-        if (!_isInstanceValid(id, oldInstance)) revert SGX_INVALID_INSTANCE();
+            address oldInstance = ECDSA.recover(
+                LibPublicInput.hashPublicInputs(
+                    _ctxs[i].transition,
+                    address(this),
+                    newInstance,
+                    _ctxs[i].prover,
+                    _ctxs[i].metaHash,
+                    taikoChainId()
+                ),
+                _proof.data[24:]
+            );
 
-        if (newInstance != oldInstance && newInstance != address(0)) {
-            _replaceInstance(id, oldInstance, newInstance);
+            if (!_isInstanceValid(id, oldInstance)) revert SGX_INVALID_INSTANCE();
+
+            if (newInstance != oldInstance && newInstance != address(0)) {
+                _replaceInstance(id, oldInstance, newInstance);
+            }
         }
     }
 

@@ -222,7 +222,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         emit SgxVerifier.InstanceAdded(id, newInstance, KNOWN_ADDRESS, block.timestamp);
 
         // `verifyProof()`
-        sv.verifyProof(ctx, proof);
+        sv.verifyProof(ctxToList(ctx), proof);
 
         // Verification
         (address instanceAddr, uint64 instanceAddedAt) = sv.instances(id);
@@ -261,7 +261,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
             TaikoData.TierProof({ tier: LibTiers.TIER_GUARDIAN, data: "" });
 
         // `verifyProof()`
-        sv.verifyProof(ctx, proof);
+        sv.verifyProof(ctxToList(ctx), proof);
 
         vm.stopPrank();
     }
@@ -298,7 +298,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
 
         // `verifyProof()`
         vm.expectRevert(SgxVerifier.SGX_INVALID_PROOF.selector);
-        sv.verifyProof(ctx, proof);
+        sv.verifyProof(ctxToList(ctx), proof);
     }
 
     // Test `verifyProof()` invalid signature
@@ -334,7 +334,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
 
         // `verifyProof()`
         vm.expectRevert("ECDSA: invalid signature");
-        sv.verifyProof(ctx, proof);
+        sv.verifyProof(ctxToList(ctx), proof);
 
         vm.stopPrank();
     }
@@ -381,7 +381,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
 
         // `verifyProof()`
         vm.expectRevert(SgxVerifier.SGX_INVALID_INSTANCE.selector);
-        sv.verifyProof(ctx, proof);
+        sv.verifyProof(ctxToList(ctx), proof);
 
         vm.stopPrank();
     }
@@ -427,7 +427,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
 
         // `verifyProof()`
         vm.expectRevert(AddressResolver.RESOLVER_DENIED.selector);
-        sv.verifyProof(ctx, proof);
+        sv.verifyProof(ctxToList(ctx), proof);
 
         vm.stopPrank();
     }

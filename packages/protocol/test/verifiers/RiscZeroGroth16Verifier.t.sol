@@ -67,7 +67,7 @@ contract RiscZeroGroth16VerifierTest is TaikoL1TestBase {
         assert(sha256(bytes.concat(header, pi)) == journalDigest);
 
         // `verifyProof()`
-        rv.verifyProof(ctx, proof);
+        rv.verifyProof(ctxToList(ctx), proof);
 
         vm.stopPrank();
     }

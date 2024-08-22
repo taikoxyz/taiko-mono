@@ -27,8 +27,9 @@ contract Risc0Verifier is EssentialContract, IVerifier {
     /// @dev Emitted when a proof is verified
     event ProofVerified(bytes32 metaHash, bytes32 publicInputHash);
 
-    error RISC_ZERO_INVALID_IMAGE_ID();
-    error RISC_ZERO_INVALID_PROOF();
+    error RISC0_AGGREGATION_NOT_SUPPORTED();
+    error RISC0_INVALID_IMAGE_ID();
+    error RISC0_INVALID_PROOF();
 
     /// @notice Initializes the contract with the provided address manager.
     /// @param _owner The address of the owner.
@@ -47,33 +48,43 @@ contract Risc0Verifier is EssentialContract, IVerifier {
     }
 
     /// @inheritdoc IVerifier
-    function verifyProof(Context calldata _ctx, TaikoData.TierProof calldata _proof) external {
-        // Do not run proof verification to contest an existing proof
-        if (_ctx.isContesting) return;
+    function verifyProof(Context[] calldata _ctxs, TaikoData.TierProof calldata _proof) external {
+        // TODO: support multiple proofs
+        if (_ctxs.length != 1) revert RISC0_AGGREGATION_NOT_SUPPORTED();
 
-        // Decode will throw if not proper length/encoding
-        (bytes memory seal, bytes32 imageId) = abi.decode(_proof.data, (bytes, bytes32));
+        for (uint256 i; i < _ctxs.length; ++i) {
+            // Do not run proof verification to contest an existing proof
+            if (_ctxs[i].isContesting) return;
 
-        if (!isImageTrusted[imageId]) {
-            revert RISC_ZERO_INVALID_IMAGE_ID();
+            // Decode will throw if not proper length/encoding
+            (bytes memory seal, bytes32 imageId) = abi.decode(_proof.data, (bytes, bytes32));
+
+            if (!isImageTrusted[imageId]) {
+                revert RISC0_INVALID_IMAGE_ID();
+            }
+
+            bytes32 publicInputHash = LibPublicInput.hashPublicInputs(
+                _ctxs[i].transition,
+                address(this),
+                address(0),
+                _ctxs[i].prover,
+                _ctxs[i].metaHash,
+                taikoChainId()
+            );
+
+            // journalDigest is the sha256 hash of the hashed public input
+            bytes32 journalDigest = sha256(bytes.concat(FIXED_JOURNAL_HEADER, publicInputHash));
+
+            // call risc0 verifier contract
+            (bool success,) = resolve(LibStrings.B_RISCZERO_GROTH16_VERIFIER, false).staticcall(
+                abi.encodeCall(IRiscZeroVerifier.verify, (seal, imageId, journalDigest))
+            );
+            if (!success) {
+                revert RISC0_INVALID_PROOF();
+            }
+
+            emit ProofVerified(_ctxs[i].metaHash, publicInputHash);
         }
-
-        bytes32 publicInputHash = LibPublicInput.hashPublicInputs(
-            _ctx.transition, address(this), address(0), _ctx.prover, _ctx.metaHash, taikoChainId()
-        );
-
-        // journalDigest is the sha256 hash of the hashed public input
-        bytes32 journalDigest = sha256(bytes.concat(FIXED_JOURNAL_HEADER, publicInputHash));
-
-        // call risc0 verifier contract
-        (bool success,) = resolve(LibStrings.B_RISCZERO_GROTH16_VERIFIER, false).staticcall(
-            abi.encodeCall(IRiscZeroVerifier.verify, (seal, imageId, journalDigest))
-        );
-        if (!success) {
-            revert RISC_ZERO_INVALID_PROOF();
-        }
-
-        emit ProofVerified(_ctx.metaHash, publicInputHash);
     }
 
     function taikoChainId() internal view virtual returns (uint64) {

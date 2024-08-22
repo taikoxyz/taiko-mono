@@ -29,9 +29,9 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
     }
 
     /// @notice Verifies one or more sub-proofs.
-    /// @param _ctx The context of the proof verification.
+    /// @param _ctxs The context of the proof verification.
     /// @param _proof The proof to verify.
-    function verifyProof(Context calldata _ctx, TaikoData.TierProof calldata _proof) external {
+    function verifyProof(Context[] calldata _ctxs, TaikoData.TierProof calldata _proof) external {
         (address[] memory verifiers, uint256 threshold) = getSubVerifiersAndThreshold();
         SubProof[] memory subproofs = abi.decode(_proof.data, (SubProof[]));
         uint256 numVerified;
@@ -53,7 +53,7 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
             (bool success, bytes memory returnData) = subproofs[i].verifier.call(
                 abi.encodeCall(
                     IVerifier.verifyProof,
-                    (_ctx, TaikoData.TierProof(_proof.tier, subproofs[i].proof))
+                    (_ctxs, TaikoData.TierProof(_proof.tier, subproofs[i].proof))
                 )
             );
             if (success) {

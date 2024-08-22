@@ -42,7 +42,7 @@ contract TestGuardianProver2 is TaikoL1TestBase {
             TaikoData.TierProof({ tier: LibTiers.TIER_GUARDIAN, data: "" });
 
         // `verifyProof()`
-        gp.verifyProof(ctx, proof);
+        gp.verifyProof(ctxToList(ctx), proof);
     }
 
     // Tests `verifyProof()` with the wrong prover
@@ -73,6 +73,6 @@ contract TestGuardianProver2 is TaikoL1TestBase {
 
         // `verifyProof()` with invalid ctx.prover
         vm.expectRevert(GuardianProver.GV_PERMISSION_DENIED.selector);
-        gp.verifyProof(ctx, proof);
+        gp.verifyProof(ctxToList(ctx), proof);
     }
 }
