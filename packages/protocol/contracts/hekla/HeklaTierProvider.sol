@@ -12,7 +12,7 @@ contract HeklaTierProvider is TierProviderBase {
     function getTierIds() public pure override returns (uint16[] memory tiers_) {
         tiers_ = new uint16[](5);
         tiers_[0] = LibTiers.TIER_OPTIMISTIC;
-        tiers_[1] = LibTiers.TIER_TEE_SGX;
+        tiers_[1] = LibTiers.TIER_SGX;
         tiers_[2] = LibTiers.TIER_ZKVM_RISC0;
         tiers_[3] = LibTiers.TIER_GUARDIAN_MINORITY;
         tiers_[4] = LibTiers.TIER_GUARDIAN;
@@ -25,7 +25,7 @@ contract HeklaTierProvider is TierProviderBase {
             return LibTiers.TIER_ZKVM_RISC0;
         } else if (_rand % 2 == 0) {
             // 50% of the total blocks will require SGX proofs.
-            return LibTiers.TIER_TEE_SGX;
+            return LibTiers.TIER_SGX;
         } else {
             return LibTiers.TIER_OPTIMISTIC;
         }

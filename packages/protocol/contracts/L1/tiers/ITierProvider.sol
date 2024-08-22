@@ -44,10 +44,10 @@ library LibTiers {
     uint16 public constant TIER_OPTIMISTIC = 100;
 
     /// @notice SGX proof
-    uint16 public constant TIER_TEE_SGX = 200;
+    uint16 public constant TIER_SGX = 200;
 
     /// @notice TDX proof
-    uint16 public constant TIER_TEE_TDX = 200;
+    uint16 public constant TIER_TDX = 200;
 
     /// @notice Any TEE proof
     uint16 public constant TIER_TEE_ANY = 200;

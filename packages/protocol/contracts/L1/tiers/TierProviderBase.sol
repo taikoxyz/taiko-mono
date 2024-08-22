@@ -37,9 +37,9 @@ abstract contract TierProviderBase is ITierProvider {
             });
         }
 
-        if (_tierId == LibTiers.TIER_TEE_SGX) {
+        if (_tierId == LibTiers.TIER_SGX) {
             return ITierProvider.Tier({
-                verifierName: LibStrings.B_TIER_TEE_SGX,
+                verifierName: LibStrings.B_TIER_SGX,
                 validityBond: 150 ether, // TAIKO
                 contestBond: 984.375 ether, // = 150 TAIKO * 6.5625
                 cooldownWindow: 1440, // 24 hours

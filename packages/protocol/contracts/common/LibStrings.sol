@@ -26,8 +26,8 @@ library LibStrings {
     bytes32 internal constant B_TIER_GUARDIAN = bytes32("tier_guardian");
     bytes32 internal constant B_TIER_GUARDIAN_MINORITY = bytes32("tier_guardian_minority");
     bytes32 internal constant B_TIER_ROUTER = bytes32("tier_router");
-    bytes32 internal constant B_TIER_TEE_SGX = bytes32("tier_sgx");
-    bytes32 internal constant B_TIER_TEE_TDX = bytes32("tier_tee_tdx");
+    bytes32 internal constant B_TIER_SGX = bytes32("tier_sgx");
+    bytes32 internal constant B_TIER_TDX = bytes32("tier_tee_tdx");
     bytes32 internal constant B_TIER_TEE = bytes32("tier_tee");
     bytes32 internal constant B_TIER_ZKVM = bytes32("tier_zkvm");
     bytes32 internal constant B_TIER_ZKVM_RISC0 = bytes32("tier_zkvm_risc0");

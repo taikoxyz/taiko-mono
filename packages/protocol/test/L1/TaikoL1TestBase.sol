@@ -165,7 +165,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
             newInstance = SGX_X_0;
         }
 
-        if (tier == LibTiers.TIER_TEE_SGX) {
+        if (tier == LibTiers.TIER_SGX) {
             bytes memory signature =
                 createSgxSignatureProof(tran, newInstance, prover, keccak256(abi.encode(meta)));
 
