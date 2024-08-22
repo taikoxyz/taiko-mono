@@ -46,6 +46,8 @@ type TaikoDataTierProof struct {
 	Data []byte
 }
 
+
+
 // V3StructCertificationData is an auto generated low-level Go binding around an user-defined struct.
 type V3StructCertificationData struct {
 	CertType             uint16
