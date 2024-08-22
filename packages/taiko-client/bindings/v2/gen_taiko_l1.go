@@ -86,7 +86,6 @@ type TaikoDataConfig struct {
 	StateRootSyncInternal uint8
 	MaxAnchorHeightOffset uint64
 	BaseFeeConfig         TaikoDataBaseFeeConfig
-	OntakeForkHeight      uint64
 }
 
 // TaikoDataSlotA is an auto generated low-level Go binding around an user-defined struct.

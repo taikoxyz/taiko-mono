@@ -102,7 +102,7 @@ func (p *Proposer) InitFromConfig(ctx context.Context, cfg *Config, txMgr *txmgr
 		}
 	}
 
-	chainConfig := config.NewChainConfig(p.rpc.L2.ChainID, new(big.Int).SetUint64(p.protocolConfigs.OntakeForkHeight))
+	chainConfig := config.NewChainConfig(p.rpc.L2.ChainID, new(big.Int).SetUint64(encoding.GetOntakeForkHeight(p.rpc.L2.ChainID.Uint64())))
 
 	if cfg.BlobAllowed {
 		p.txBuilder = builder.NewBlobTransactionBuilder(
@@ -354,7 +354,7 @@ func (p *Proposer) ProposeTxList(
 	)
 
 	if p.IncludeParentMetaHash {
-		parentMetaHash, err = getParentMetaHash(ctx, p.rpc, new(big.Int).SetUint64(p.protocolConfigs.OntakeForkHeight))
+		parentMetaHash, err = getParentMetaHash(ctx, p.rpc, new(big.Int).SetUint64(encoding.GetOntakeForkHeight(p.rpc.L2.ChainID.Uint64())))
 		if err != nil {
 			return err
 		}

@@ -68,7 +68,7 @@ func (s *State) init(ctx context.Context) error {
 	log.Info("Genesis L1 height", "height", stateVars.A.GenesisHeight)
 	s.GenesisL1Height = new(big.Int).SetUint64(stateVars.A.GenesisHeight)
 
-	s.OnTakeForkHeight = new(big.Int).SetUint64(encoding.GetProtocolConfig(s.rpc.L2.ChainID.Uint64()).OntakeForkHeight)
+	s.OnTakeForkHeight = new(big.Int).SetUint64(encoding.GetOntakeForkHeight(s.rpc.L2.ChainID.Uint64()))
 	log.Info("OnTake fork height", "L2 height", s.OnTakeForkHeight)
 
 	// Set the L2 head's latest known L1 origin as current L1 sync cursor.
