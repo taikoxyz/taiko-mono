@@ -269,7 +269,9 @@ library LibProposing {
         }
     }
 
-    function _encodeBaseFeeConfig(TaikoData.BaseFeeConfig memory _baseFeeConfig)
+    function _encodeBaseFeeConfig(
+        TaikoData.BaseFeeConfig memory _baseFeeConfig
+    )
         private
         pure
         returns (bytes32)
