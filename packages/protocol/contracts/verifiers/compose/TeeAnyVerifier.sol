@@ -5,7 +5,7 @@ import "../../common/LibStrings.sol";
 import "./ComposeVerifier.sol";
 
 /// @title TeeAnyVerifier
-/// @notice This contract is a verifier for the Mainnet ZkVM that composes RiscZero and SP1
+/// @notice This contract is a verifier for the Mainnet TEE proofs that composes SGX and TDX
 /// Verifiers.
 /// @custom:security-contact security@taiko.xyz
 contract TeeAnyVerifier is EssentialContract, ComposeVerifier {
