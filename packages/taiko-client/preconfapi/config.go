@@ -34,5 +34,12 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		L2HTTPEndpoint:         c.String(flags.L2HTTPEndpoint.Name),
 		DBPath:                 c.String(flags.DBPath.Name),
 		CORSOrigins:            c.StringSlice(flags.CORSOrigins.Name),
+		ClientConfig: &rpc.ClientConfig{
+			L1Endpoint:     c.String(flags.L1WSEndpoint.Name),
+			L2Endpoint:     c.String(flags.L2HTTPEndpoint.Name),
+			TaikoL1Address: common.HexToAddress(c.String(flags.TaikoL1Address.Name)),
+			TaikoL2Address: common.HexToAddress(c.String(flags.TaikoL2Address.Name)),
+			Timeout:        c.Duration(flags.RPCTimeout.Name),
+		},
 	}, nil
 }
