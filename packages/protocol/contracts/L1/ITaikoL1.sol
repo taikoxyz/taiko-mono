@@ -48,11 +48,18 @@ interface ITaikoL1 {
     /// TaikoData.TierProof) tuple.
     function proveBlock(uint64 _blockId, bytes calldata _input) external;
 
-    /// @notice Proves or contests multiple block transitions.
+    /// @notice Proves or contests a block transition (version 2)
+    /// @param _blockId The index of the block to prove. This is also used to
+    /// select the right implementation version.
+    /// @param _input An abi-encoded (TaikoData.BlockMetadata, TaikoData.Transition,
+    /// TaikoData.TierProof) tuple.
+    function proveBlockV2(uint64 _blockId, bytes calldata _input) external;
+
+    /// @notice Proves or contests multiple block transitions (version 2)
     /// @param _blockIds The indices of the blocks to prove.
     /// @param _inputs An list of abi-encoded (TaikoData.BlockMetadata, TaikoData.Transition,
     /// TaikoData.TierProof) tuples.
-    function proveBlocks(uint64[] calldata _blockIds, bytes[] calldata _inputs) external;
+    function proveBlocksV2(uint64[] calldata _blockIds, bytes[] calldata _inputs) external;
 
     /// @notice Verifies up to a certain number of blocks.
     /// @param _maxBlocksToVerify Max number of blocks to verify.
