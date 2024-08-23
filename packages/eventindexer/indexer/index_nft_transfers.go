@@ -77,7 +77,7 @@ func (i *Indexer) isERC1155Transfer(_ context.Context, vLog types.Log) bool {
 }
 
 // isERC721Transfer determines whether a given log is a valid ERC721 transfer event
-func (i *Indexer) isERC721Transfer(ctx context.Context, vLog types.Log) bool {
+func (i *Indexer) isERC721Transfer(_ context.Context, vLog types.Log) bool {
 	// malformed event
 	if len(vLog.Topics) == 0 {
 		return false

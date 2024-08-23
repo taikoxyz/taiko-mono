@@ -202,6 +202,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	i.taikol1 = taikoL1
 	i.bridge = bridgeContract
 	i.blockBatchSize = cfg.BlockBatchSize
+	// nolint: gosec
 	i.subscriptionBackoff = time.Duration(cfg.SubscriptionBackoff) * time.Second
 	i.wg = &sync.WaitGroup{}
 

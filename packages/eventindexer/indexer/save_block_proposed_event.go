@@ -92,6 +92,7 @@ func (i *Indexer) saveBlockProposedEvent(
 		Address:        sender.Hex(),
 		BlockID:        &blockID,
 		AssignedProver: &assignedProver,
+		// nolint: gosec
 		TransactedAt:   time.Unix(int64(block.Time()), 0).UTC(),
 		EmittedBlockID: event.Raw.BlockNumber,
 	})
