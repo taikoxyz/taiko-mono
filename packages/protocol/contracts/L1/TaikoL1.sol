@@ -86,10 +86,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
 
         (meta_,, deposits_) = LibProposing.proposeBlock(state, config, this, _params, _txList);
         if (meta_.id >= config.ontakeForkHeight) revert L1_FORK_ERROR();
-
-        if (LibUtils.shouldVerifyBlocks(config, meta_.id, true) && !state.slotB.provingPaused) {
-            LibVerifying.verifyBlocks(state, config, this, config.maxBlocksToVerify);
-        }
     }
 
     function proposeBlockV2(
