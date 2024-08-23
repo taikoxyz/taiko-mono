@@ -260,7 +260,7 @@ library LibProposing {
             });
         }
 
-        if (LibUtils.shouldVerifyBlocks(_config, meta_.id, false)) {
+        if (LibUtils.shouldVerifyBlocks(_config, meta_.id, false) && !_state.slotB.provingPaused) {
             LibVerifying.verifyBlocks(_state, _config, _resolver, _config.maxBlocksToVerify);
         }
     }
