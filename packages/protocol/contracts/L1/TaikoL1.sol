@@ -326,10 +326,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     {
         (, meta_,) = LibProposing.proposeBlock(state, _config, this, _params, _txList);
         if (meta_.id < _config.ontakeForkHeight) revert L1_FORK_ERROR();
-
-        if (LibUtils.shouldVerifyBlocks(_config, meta_.id, true) && !state.slotB.provingPaused) {
-            LibVerifying.verifyBlocks(state, _config, this, _config.maxBlocksToVerify);
-        }
     }
 
     function _proveBlock(
@@ -340,10 +336,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         internal
     {
         LibProving.proveBlock(state, _config, this, _blockId, _input);
-
-        if (LibUtils.shouldVerifyBlocks(_config, _blockId, false)) {
-            LibVerifying.verifyBlocks(state, _config, this, _config.maxBlocksToVerify);
-        }
     }
 
     /// @dev chain_pauser is supposed to be a cold wallet.
