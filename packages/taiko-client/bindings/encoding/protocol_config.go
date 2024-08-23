@@ -9,11 +9,8 @@ import (
 )
 
 var (
-	HeklaOntakeForkHeight          uint64 = 720_000
-	PreconfsOntakeForkHeight       uint64
-	InternalDevnetOntakeForkheight uint64
-	livenessBond, _                = new(big.Int).SetString("125000000000000000000", 10)
-	InternlDevnetProtocolConfig    = &v2.TaikoDataConfig{
+	livenessBond, _             = new(big.Int).SetString("125000000000000000000", 10)
+	InternlDevnetProtocolConfig = &v2.TaikoDataConfig{
 		ChainId:               params.TaikoInternalL2ANetworkID.Uint64(),
 		BlockMaxProposals:     324_000,
 		BlockRingBufferSize:   360_000,
@@ -44,6 +41,7 @@ var (
 			MinGasExcess:           1_340_000_000,
 			MaxGasIssuancePerBlock: 600000000,
 		},
+		OntakeForkHeight: 0,
 	}
 	HeklaProtocolConfig = &v2.TaikoDataConfig{
 		ChainId:               params.HeklaNetworkID.Uint64(),
@@ -61,6 +59,7 @@ var (
 			MinGasExcess:           1_340_000_000,
 			MaxGasIssuancePerBlock: 500000000,
 		},
+		OntakeForkHeight: 720_000,
 	}
 	MainnetProtocolConfig = &v2.TaikoDataConfig{
 		ChainId:               params.TaikoMainnetNetworkID.Uint64(),
@@ -79,18 +78,6 @@ var (
 		},
 	}
 )
-
-// GetOntakeForkHeight returns the ontake fork height for the given chainID
-func GetOntakeForkHeight(chainID uint64) uint64 {
-	switch chainID {
-	case 167010:
-		return PreconfsOntakeForkHeight
-	case params.HeklaNetworkID.Uint64():
-		return HeklaOntakeForkHeight
-	default:
-		return InternalDevnetOntakeForkheight
-	}
-}
 
 // GetProtocolConfig returns the protocol config for the given chain ID.
 func GetProtocolConfig(chainID uint64) *v2.TaikoDataConfig {

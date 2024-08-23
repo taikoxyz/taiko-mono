@@ -3,8 +3,9 @@ package db
 import (
 	"database/sql"
 	"fmt"
-	"github.com/cyberhorsey/errors"
 	"time"
+
+	"github.com/cyberhorsey/errors"
 
 	"gorm.io/gorm"
 )
@@ -87,12 +88,15 @@ func OpenDBConnection(opts DBConnectionOpts) (DB, error) {
 	}
 
 	// SetMaxOpenConns sets the maximum number of open connections to the database.
+	// nolint: gosec
 	sqlDB.SetMaxOpenConns(int(opts.MaxOpenConns))
 
 	// SetMaxIdleConns sets the maximum number of connections in the idle connection pool.
+	// nolint: gosec
 	sqlDB.SetMaxIdleConns(int(opts.MaxIdleConns))
 
 	// SetConnMaxLifetime sets the maximum amount of time a connection may be reused.
+	// nolint: gosec
 	sqlDB.SetConnMaxLifetime(time.Duration(opts.MaxConnLifetime))
 
 	return db, nil

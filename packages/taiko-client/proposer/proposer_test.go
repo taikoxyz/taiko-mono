@@ -118,10 +118,7 @@ func (s *ProposerTestSuite) TestProposeTxLists() {
 		cfg.L2SuggestedFeeRecipient,
 		cfg.ProposeBlockTxGasLimit,
 		cfg.ExtraData,
-		config.NewChainConfig(
-			s.RPCClient.L2.ChainID,
-			new(big.Int).SetUint64(encoding.GetOntakeForkHeight(s.RPCClient.L2.ChainID.Uint64())),
-		),
+		config.NewChainConfig(s.RPCClient.L2.ChainID, new(big.Int).SetUint64(s.p.protocolConfigs.OntakeForkHeight)),
 	)
 
 	emptyTxListBytes, err := rlp.EncodeToBytes(types.Transactions{})

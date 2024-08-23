@@ -86,8 +86,10 @@ func (i *Indexer) indexRawBlockData(
 
 	// LOGS parsing
 	query := ethereum.FilterQuery{
+		// nolint: gosec
 		FromBlock: big.NewInt(int64(start)),
-		ToBlock:   big.NewInt(int64(end)),
+		// nolint: gosec
+		ToBlock: big.NewInt(int64(end)),
 	}
 
 	logs, err := i.ethClient.FilterLogs(ctx, query)

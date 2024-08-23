@@ -23,7 +23,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     uint256[50] private __gap;
 
     error L1_INVALID_PARAMS();
-    error L1_INVALID_PROPOSER();
 
     modifier whenProvingNotPaused() {
         if (state.slotB.provingPaused) revert LibProving.L1_PROVING_PAUSED();
@@ -148,9 +147,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     }
 
     /// @inheritdoc ITaikoL1
-    function verifyBlocks(
-        uint64 _maxBlocksToVerify
-    )
+    function verifyBlocks(uint64 _maxBlocksToVerify)
         external
         whenNotPaused
         whenProvingNotPaused
@@ -288,8 +285,9 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
                 gasIssuancePerSecond: 5_000_000,
                 minGasExcess: 1_340_000_000,
                 maxGasIssuancePerBlock: 600_000_000 // two minutes
-             })
-        });
+             }),
+            ontakeForkHeight: 374_400 // = 7200 * 52
+         });
     }
 
     /// @notice Proposes a new block and verifies blocks if necessary.

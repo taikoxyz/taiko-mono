@@ -36,8 +36,9 @@ contract MainnetTaikoL1 is TaikoL1 {
                 gasIssuancePerSecond: 5_000_000,
                 minGasExcess: 1_340_000_000, // correspond to 0.008847185 gwei basefee
                 maxGasIssuancePerBlock: 600_000_000 // two minutes
-             })
-        });
+             }),
+            ontakeForkHeight: 374_400 // = 7200 * 52
+         });
     }
 
     function _getAddress(uint64 _chainId, bytes32 _name) internal view override returns (address) {

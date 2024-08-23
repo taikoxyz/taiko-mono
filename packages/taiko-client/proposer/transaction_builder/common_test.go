@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/suite"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 )
@@ -25,7 +26,8 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 	l1ProposerPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROPOSER_PRIVATE_KEY")))
 	s.Nil(err)
 
-	chainConfig := config.NewChainConfig(s.RPCClient.L2.ChainID, new(big.Int).SetUint64(s.RPCClient.L2.ChainID.Uint64()))
+	protocolConfig := encoding.GetProtocolConfig(s.RPCClient.L2.ChainID.Uint64())
+	chainConfig := config.NewChainConfig(s.RPCClient.L2.ChainID, new(big.Int).SetUint64(protocolConfig.OntakeForkHeight))
 
 	s.calldataTxBuilder = NewCalldataTransactionBuilder(
 		s.RPCClient,

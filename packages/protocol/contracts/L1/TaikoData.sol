@@ -47,6 +47,10 @@ library TaikoData {
         // Group 5: Previous configs in TaikoL2
         // ---------------------------------------------------------------------
         BaseFeeConfig baseFeeConfig;
+        // ---------------------------------------------------------------------
+        // Group 6: Others
+        // ---------------------------------------------------------------------
+        uint64 ontakeForkHeight;
     }
 
     /// @dev A proof and the tier of proof it belongs to.
@@ -165,7 +169,7 @@ library TaikoData {
         mapping(
             uint64 blockId_mod_blockRingBufferSize
                 => mapping(uint32 transitionId => TransitionState ts)
-        ) transitions;
+            ) transitions;
         bytes32 __reserve1; // Used as a ring buffer for Ether deposits
         SlotA slotA; // slot 5
         SlotB slotB; // slot 6

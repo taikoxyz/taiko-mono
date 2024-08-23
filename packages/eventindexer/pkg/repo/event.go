@@ -43,6 +43,7 @@ func (r *EventRepository) Save(ctx context.Context, opts eventindexer.SaveEventO
 	if opts.Tier != nil {
 		e.Tier = sql.NullInt16{
 			Valid: true,
+			// nolint: gosec
 			Int16: int16(*opts.Tier),
 		}
 	}
