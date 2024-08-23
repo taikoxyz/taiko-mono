@@ -144,7 +144,13 @@ library LibProving {
         }
 
         for (uint256 i; i < _blockIds.length; ++i) {
-            proveBlock(_state, _config, _resolver, _blockIds[i], _inputs[i]);
+            TaikoData.BlockMetadataV2 memory meta =
+                _proveBlock(_state, _config, _resolver, _blockIds[i], _inputs[i]);
+
+            if (LibUtils.shouldVerifyBlocks(_config, meta.id, true) && !_state.slotB.provingPaused)
+            {
+                LibVerifying.verifyBlocks(_state, _config, _resolver, _config.maxBlocksToVerify);
+            }
         }
     }
 
@@ -180,7 +186,7 @@ library LibProving {
         uint64 _blockId,
         bytes calldata _input
     )
-        internal
+        private
         returns (TaikoData.BlockMetadataV2 memory meta_)
     {
         Local memory local;

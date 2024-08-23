@@ -83,7 +83,15 @@ library LibProposing {
         metaArr_ = new TaikoData.BlockMetadataV2[](_paramsArr.length);
 
         for (uint256 i; i < _paramsArr.length; ++i) {
-            (, metaArr_[i]) = proposeBlock(_state, _config, _resolver, _paramsArr[i], _txListArr[i]);
+            (, metaArr_[i]) =
+                _proposeBlock(_state, _config, _resolver, _paramsArr[i], _txListArr[i]);
+
+            if (
+                LibUtils.shouldVerifyBlocks(_config, metaArr_[i].id, false)
+                    && !_state.slotB.provingPaused
+            ) {
+                LibVerifying.verifyBlocks(_state, _config, _resolver, _config.maxBlocksToVerify);
+            }
         }
     }
 
@@ -112,14 +120,6 @@ library LibProposing {
         }
     }
 
-    /// @dev Proposes a Taiko L2 block.
-    /// @param _state Current TaikoData.State.
-    /// @param _config Actual TaikoData.Config.
-    /// @param _resolver Address resolver interface.
-    /// @param _params Encoded data bytes containing the block params.
-    /// @param _txList Transaction list bytes (if not blob).
-    /// @return metaV1_ The constructed block's metadata v1.
-    /// @return meta_ The constructed block's metadata v2.
     function _proposeBlock(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
