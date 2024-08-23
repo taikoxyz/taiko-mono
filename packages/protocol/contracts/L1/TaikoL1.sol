@@ -80,11 +80,12 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         whenNotPaused
         nonReentrant
         emitEventForClient
-        returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory)
+        returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
     {
         TaikoData.Config memory config = getConfig();
         (meta_,) = LibProposing.proposeBlock(state, config, this, _params, _txList);
         if (meta_.id >= config.ontakeForkHeight) revert L1_FORK_ERROR();
+        deposits_ = new TaikoData.EthDeposit[](0);
     }
 
     function proposeBlockV2(
@@ -133,14 +134,13 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         nonReentrant
         emitEventForClient
     {
-        TaikoData.Config memory config = getConfig();
-        _proveBlock(_blockId, _input, config);
+        LibProving.proveBlock(state, getConfig(), this, _blockId, _input);
     }
 
     /// @inheritdoc ITaikoL1
     function proveBlocks(
         uint64[] calldata _blockIds,
-        bytes[] calldata _inputArr
+        bytes[] calldata _inputs
     )
         external
         whenNotPaused
@@ -148,15 +148,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         nonReentrant
         emitEventForClient
     {
-        if (_blockIds.length == 0 || _blockIds.length != _inputArr.length) {
-            revert L1_INVALID_PARAMS();
-        }
-
-        TaikoData.Config memory config = getConfig();
-
-        for (uint256 i; i < _blockIds.length; ++i) {
-            _proveBlock(_blockIds[i], _inputArr[i], config);
-        }
+        LibProving.proveBlocks(state, getConfig(), this, _blockIds, _inputs);
     }
 
     /// @inheritdoc ITaikoL1
@@ -310,16 +302,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
              }),
             ontakeForkHeight: 374_400 // = 7200 * 52
          });
-    }
-
-    function _proveBlock(
-        uint64 _blockId,
-        bytes calldata _input,
-        TaikoData.Config memory _config
-    )
-        internal
-    {
-        LibProving.proveBlock(state, _config, this, _blockId, _input);
     }
 
     /// @dev chain_pauser is supposed to be a cold wallet.

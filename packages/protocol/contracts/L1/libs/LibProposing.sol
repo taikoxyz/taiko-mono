@@ -59,6 +59,13 @@ library LibProposing {
     error L1_TOO_MANY_BLOCKS();
     error L1_UNEXPECTED_PARENT();
 
+    /// @notice Proposes multiple Taiko L2 blocks.
+    /// @param _state The current state of the Taiko protocol.
+    /// @param _config The configuration parameters for the Taiko protocol.
+    /// @param _resolver The address resolver interface.
+    /// @param _paramsArr An array of encoded data bytes containing the block parameters.
+    /// @param _txListArr An array of transaction list bytes (if not blob).
+    /// @return metaArr_ An array of metadata objects for the proposed L2 blocks.
     function proposeBlocks(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
@@ -80,6 +87,14 @@ library LibProposing {
         }
     }
 
+    /// @notice Proposes a single Taiko L2 block.
+    /// @param _state The current state of the Taiko protocol.
+    /// @param _config The configuration parameters for the Taiko protocol.
+    /// @param _resolver The address resolver interface.
+    /// @param _params Encoded data bytes containing the block parameters.
+    /// @param _txList Transaction list bytes (if not blob).
+    /// @return metaV1_ The metadata of the proposed block (version 1).
+    /// @return meta_ The metadata of the proposed block (version 2).
     function proposeBlock(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,

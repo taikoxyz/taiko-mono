@@ -102,6 +102,7 @@ library LibProving {
     error L1_ALREADY_PROVED();
     error L1_BLOCK_MISMATCH();
     error L1_CANNOT_CONTEST();
+    error L1_INVALID_PARAMS();
     error L1_INVALID_PAUSE_STATUS();
     error L1_INVALID_TIER();
     error L1_INVALID_TRANSITION();
@@ -121,7 +122,33 @@ library LibProving {
         emit ProvingPaused(_pause);
     }
 
-    /// @dev Proves or contests a block transition.
+    /// @dev Proves or contests multiple Taiko L2 blocks.
+    /// @param _state Current TaikoData.State.
+    /// @param _config Actual TaikoData.Config.
+    /// @param _resolver Address resolver interface.
+    /// @param _blockIds The index of the block to prove. This is also used to
+    /// select the right implementation version.
+    /// @param _inputs An abi-encoded (TaikoData.BlockMetadata, TaikoData.Transition,
+    /// TaikoData.TierProof) tuple.
+    function proveBlocks(
+        TaikoData.State storage _state,
+        TaikoData.Config memory _config,
+        IAddressResolver _resolver,
+        uint64[] calldata _blockIds,
+        bytes[] calldata _inputs
+    )
+        public
+    {
+        if (_blockIds.length == 0 || _blockIds.length != _inputs.length) {
+            revert L1_INVALID_PARAMS();
+        }
+
+        for (uint256 i; i < _blockIds.length; ++i) {
+            proveBlock(_state, _config, _resolver, _blockIds[i], _inputs[i]);
+        }
+    }
+
+    /// @dev Proves or contests a single Taiko L2 block.
     /// @param _state Current TaikoData.State.
     /// @param _config Actual TaikoData.Config.
     /// @param _resolver Address resolver interface.
@@ -138,18 +165,35 @@ library LibProving {
     )
         public
     {
+        TaikoData.BlockMetadataV2 memory meta =
+            _proveBlock(_state, _config, _resolver, _blockId, _input);
+
+        if (LibUtils.shouldVerifyBlocks(_config, meta.id, true) && !_state.slotB.provingPaused) {
+            LibVerifying.verifyBlocks(_state, _config, _resolver, _config.maxBlocksToVerify);
+        }
+    }
+
+    function _proveBlock(
+        TaikoData.State storage _state,
+        TaikoData.Config memory _config,
+        IAddressResolver _resolver,
+        uint64 _blockId,
+        bytes calldata _input
+    )
+        internal
+        returns (TaikoData.BlockMetadataV2 memory meta_)
+    {
         Local memory local;
 
         local.b = _state.slotB;
         local.blockId = _blockId;
         local.postFork = _blockId >= _config.ontakeForkHeight;
 
-        TaikoData.BlockMetadataV2 memory meta;
         TaikoData.Transition memory tran;
         TaikoData.TierProof memory proof;
 
         if (local.postFork) {
-            (meta, tran, proof) = abi.decode(
+            (meta_, tran, proof) = abi.decode(
                 _input, (TaikoData.BlockMetadataV2, TaikoData.Transition, TaikoData.TierProof)
             );
         } else {
@@ -158,10 +202,10 @@ library LibProving {
             (metaV1, tran, proof) = abi.decode(
                 _input, (TaikoData.BlockMetadata, TaikoData.Transition, TaikoData.TierProof)
             );
-            meta = LibData.blockMetadataV1toV2(metaV1);
+            meta_ = LibData.blockMetadataV1toV2(metaV1);
         }
 
-        if (_blockId != meta.id) revert LibUtils.L1_INVALID_BLOCK_ID();
+        if (_blockId != meta_.id) revert LibUtils.L1_INVALID_BLOCK_ID();
 
         // Make sure parentHash is not zero
         // To contest an existing transition, simply use any non-zero value as
@@ -171,14 +215,14 @@ library LibProving {
         }
 
         // Check that the block has been proposed but has not yet been verified.
-        if (meta.id <= local.b.lastVerifiedBlockId || meta.id >= local.b.numBlocks) {
+        if (meta_.id <= local.b.lastVerifiedBlockId || meta_.id >= local.b.numBlocks) {
             revert LibUtils.L1_INVALID_BLOCK_ID();
         }
 
-        local.slot = meta.id % _config.blockRingBufferSize;
+        local.slot = meta_.id % _config.blockRingBufferSize;
         TaikoData.BlockV2 storage blk = _state.blocks[local.slot];
 
-        local.proposedAt = local.postFork ? meta.proposedAt : blk.proposedAt;
+        local.proposedAt = local.postFork ? meta_.proposedAt : blk.proposedAt;
 
         if (LibUtils.shouldSyncStateRoot(_config.stateRootSyncInternal, local.blockId)) {
             local.stateRoot = tran.stateRoot;
@@ -186,11 +230,11 @@ library LibProving {
 
         local.assignedProver = blk.assignedProver;
         if (local.assignedProver == address(0)) {
-            local.assignedProver = meta.proposer;
+            local.assignedProver = meta_.proposer;
         }
 
         if (!blk.livenessBondReturned) {
-            local.livenessBond = meta.livenessBond == 0 ? blk.livenessBond : meta.livenessBond;
+            local.livenessBond = meta_.livenessBond == 0 ? blk.livenessBond : meta_.livenessBond;
         }
         local.metaHash = blk.metaHash;
 
@@ -199,8 +243,8 @@ library LibProving {
         // caution.
         {
             bytes32 metaHash = local.postFork
-                ? keccak256(abi.encode(meta))
-                : keccak256(abi.encode(LibData.blockMetadataV2toV1(meta)));
+                ? keccak256(abi.encode(meta_))
+                : keccak256(abi.encode(LibData.blockMetadataV2toV1(meta_)));
 
             if (local.metaHash != metaHash) revert L1_BLOCK_MISMATCH();
         }
@@ -214,7 +258,7 @@ library LibProving {
 
         // The new proof must meet or exceed the minimum tier required by the
         // block or the previous proof; it cannot be on a lower tier.
-        if (proof.tier == 0 || proof.tier < meta.minTier || proof.tier < ts.tier) {
+        if (proof.tier == 0 || proof.tier < meta_.minTier || proof.tier < ts.tier) {
             revert L1_INVALID_TIER();
         }
 
@@ -225,7 +269,7 @@ library LibProving {
             ITierProvider tierProvider = ITierProvider(tierRouter.getProvider(local.blockId));
 
             local.tier = tierProvider.getTier(proof.tier);
-            local.minTier = tierProvider.getTier(meta.minTier);
+            local.minTier = tierProvider.getTier(meta_.minTier);
         }
 
         local.inProvingWindow = !LibUtils.isPostDeadline({
@@ -263,13 +307,13 @@ library LibProving {
 
             IVerifier.Context memory ctx = IVerifier.Context({
                 metaHash: local.metaHash,
-                blobHash: meta.blobHash,
+                blobHash: meta_.blobHash,
                 // Separate msgSender to allow the prover to be any address in the future.
                 prover: msg.sender,
                 msgSender: msg.sender,
                 blockId: local.blockId,
                 isContesting: isContesting,
-                blobUsed: meta.blobUsed
+                blobUsed: meta_.blobUsed
             });
 
             IVerifier(verifier).verifyProof(ctx, tran, proof);
@@ -292,7 +336,7 @@ library LibProving {
                     prover: msg.sender,
                     validityBond: local.tier.validityBond,
                     tier: proof.tier,
-                    proposedIn: meta.proposedIn
+                    proposedIn: meta_.proposedIn
                 });
             } else {
                 emit TransitionProved({
@@ -324,7 +368,7 @@ library LibProving {
                         prover: msg.sender,
                         validityBond: 0,
                         tier: proof.tier,
-                        proposedIn: meta.proposedIn
+                        proposedIn: meta_.proposedIn
                     });
                 } else {
                     emit TransitionProved({
@@ -369,7 +413,7 @@ library LibProving {
                         contester: msg.sender,
                         contestBond: local.tier.contestBond,
                         tier: proof.tier,
-                        proposedIn: meta.proposedIn
+                        proposedIn: meta_.proposedIn
                     });
                 } else {
                     emit TransitionContested({
@@ -385,10 +429,6 @@ library LibProving {
 
         ts.timestamp = uint64(block.timestamp);
         _state.transitions[local.slot][local.tid] = ts;
-
-        if (LibUtils.shouldVerifyBlocks(_config, meta.id, true) && !_state.slotB.provingPaused) {
-            LibVerifying.verifyBlocks(_state, _config, _resolver, _config.maxBlocksToVerify);
-        }
     }
 
     /// @dev Handle the transition initialization logic
