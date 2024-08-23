@@ -36,7 +36,7 @@ type NewPreconfAPIServerOpts struct {
 	TxBuilders  map[string]builder.TxBuilder
 	DB          *badger.DB
 	CORSOrigins []string
-	anchor      *anchorTxConstructor.AnchorTxConstructor
+	Anchor      *anchorTxConstructor.AnchorTxConstructor
 }
 
 // New creates a new prover server instance.
@@ -45,7 +45,7 @@ func New(opts *NewPreconfAPIServerOpts) (*PreconfAPIServer, error) {
 		echo:       echo.New(),
 		txBuilders: opts.TxBuilders,
 		db:         opts.DB,
-		anchor:     opts.anchor,
+		anchor:     opts.Anchor,
 	}
 
 	srv.echo.HideBanner = true

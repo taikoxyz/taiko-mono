@@ -16,6 +16,8 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
 
+	anchortxconstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/preconfapi/builder"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/preconfapi/model"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/preconfapi/server"
@@ -81,10 +83,21 @@ func (p *PreconfAPI) InitFromConfig(ctx context.Context, cfg *Config) (err error
 		return err
 	}
 
+	rpcClient, err := rpc.NewClient(ctx, cfg.ClientConfig)
+	if err != nil {
+		return err
+	}
+
+	anchor, err := anchortxconstructor.New(rpcClient)
+	if err != nil {
+		return err
+	}
+
 	if p.server, err = server.New(&server.NewPreconfAPIServerOpts{
 		TxBuilders:  txBuilders,
 		DB:          p.db,
 		CORSOrigins: p.cfg.CORSOrigins,
+		Anchor:      anchor,
 	}); err != nil {
 		return err
 	}

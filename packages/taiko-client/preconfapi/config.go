@@ -7,9 +7,11 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
 type Config struct {
+	*rpc.ClientConfig
 	TaikoL1Address         common.Address
 	BlobAllowed            bool
 	HTTPPort               uint64

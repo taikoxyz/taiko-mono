@@ -30,7 +30,7 @@ var (
 		EnvVars:  []string{"DB_PATH"},
 	}
 	CORSOrigins = &cli.StringSliceFlag{
-		Name:     "preconfapi.corsORigins",
+		Name:     "preconfapi.corsOrigins",
 		Usage:    "Cors Origins",
 		Category: preconfAPICategory,
 		EnvVars:  []string{"CORS_ORIGINS"},
@@ -39,15 +39,12 @@ var (
 )
 
 // PreconfAPIFlags contains all preconfirmations API flags
-var PreconfAPIFlags = []cli.Flag{
-	TaikoL1Address,
+var PreconfAPIFlags = MergeFlags(CommonFlags, []cli.Flag{
 	TxGasLimit,
 	PreconfAPIHTTPServerPort,
 	BlobAllowed,
 	PollingInterval,
 	L2HTTPEndpoint,
-	Verbosity,
-	LogJSON,
 	DBPath,
 	CORSOrigins,
-}
+})
