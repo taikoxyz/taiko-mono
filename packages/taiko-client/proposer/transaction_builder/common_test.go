@@ -30,8 +30,8 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 	s.calldataTxBuilder = NewCalldataTransactionBuilder(
 		s.RPCClient,
 		l1ProposerPrivKey,
-		common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
-		common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
+		common.HexToAddress(os.Getenv("TAIKO_L2")),
+		common.HexToAddress(os.Getenv("TAIKO_L1")),
 		common.Address{},
 		0,
 		"test",
@@ -40,9 +40,9 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 	s.blobTxBuiler = NewBlobTransactionBuilder(
 		s.RPCClient,
 		l1ProposerPrivKey,
-		common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
+		common.HexToAddress(os.Getenv("TAIKO_L1")),
 		common.Address{},
-		common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
+		common.HexToAddress(os.Getenv("TAIKO_L2")),
 		10_000_000,
 		"test",
 		chainConfig,

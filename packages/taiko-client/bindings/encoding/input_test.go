@@ -34,7 +34,7 @@ func TestUnpackTxListBytes(t *testing.T) {
 	require.Nil(t, err)
 
 	taikoL1, err := v2.NewTaikoL1Client(
-		common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
+		common.HexToAddress(os.Getenv("TAIKO_L1")),
 		cli,
 	)
 	require.Nil(t, err)
