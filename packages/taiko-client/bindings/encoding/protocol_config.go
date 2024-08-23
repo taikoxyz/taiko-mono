@@ -10,10 +10,10 @@ import (
 
 var (
 	HeklaOntakeForkHeight          uint64 = 720_000
-	PreconfsOntakeForkHeight       uint64 = 0
-	InternalDevnetOntakeForkheight uint64 = 0
-	livenessBond, _                       = new(big.Int).SetString("125000000000000000000", 10)
-	InternlDevnetProtocolConfig           = &v2.TaikoDataConfig{
+	PreconfsOntakeForkHeight       uint64
+	InternalDevnetOntakeForkheight uint64
+	livenessBond, _                = new(big.Int).SetString("125000000000000000000", 10)
+	InternlDevnetProtocolConfig    = &v2.TaikoDataConfig{
 		ChainId:               params.TaikoInternalL2ANetworkID.Uint64(),
 		BlockMaxProposals:     324_000,
 		BlockRingBufferSize:   360_000,
