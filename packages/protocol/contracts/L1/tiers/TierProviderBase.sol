@@ -15,10 +15,9 @@ abstract contract TierProviderBase is ITierProvider {
     uint16 public constant GRACE_PERIOD = 240; // 4 hours
 
     /// @inheritdoc ITierProvider
-    /// @notice Each tier, except the top tier, has a validity bond that is 50 TAIKO higher than the
+    /// @notice Each tier, except the top tier, has a validity bond that is 75 TAIKO higher than the
     /// previous tier. Additionally, each tier's contest bond is 6.5625 times its validity bond.
     function getTier(uint16 _tierId) public pure virtual returns (ITierProvider.Tier memory) {
-        // Using _buildTier to simplify tier creation
         if (_tierId == LibTiers.TIER_OPTIMISTIC) {
             // cooldownWindow is 24 hours and provingWindow is 15 minutes
             return _buildTier("", 100 ether, 1440, 15);
@@ -36,7 +35,7 @@ abstract contract TierProviderBase is ITierProvider {
 
         if (_tierId == LibTiers.TIER_GUARDIAN_MINORITY) {
             // cooldownWindow is 4 hours and provingWindow is 48 hours
-            return _buildTier(LibStrings.B_TIER_GUARDIAN_MINORITY, 400 ether, 240, 2880);
+            return _buildTier(LibStrings.B_TIER_GUARDIAN_MINORITY, 325 ether, 240, 2880);
         }
 
         if (_tierId == LibTiers.TIER_GUARDIAN) {
@@ -58,7 +57,7 @@ abstract contract TierProviderBase is ITierProvider {
         returns (ITierProvider.Tier memory)
     {
         // cooldownWindow is 24 hours and provingWindow is 1 hour
-        return _buildTier(_verifierName, 200 ether, 1440, 60);
+        return _buildTier(_verifierName, 175 ether, 1440, 60);
     }
 
     /// @dev Builds a ZK tier with a specific verifier name.
@@ -66,7 +65,7 @@ abstract contract TierProviderBase is ITierProvider {
     /// @return A Tier struct with predefined parameters for ZK.
     function _buildZkTier(bytes32 _verifierName) private pure returns (ITierProvider.Tier memory) {
         // cooldownWindow is 24 hours and provingWindow is 3 hours
-        return _buildTier(_verifierName, 300 ether, 1440, 180);
+        return _buildTier(_verifierName, 250 ether, 1440, 180);
     }
 
     /// @dev Builds a generic tier with specified parameters.
