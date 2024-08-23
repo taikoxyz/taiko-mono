@@ -30,6 +30,7 @@ func (i *Indexer) indexRawBlockData(
 			wg.Go(func() error {
 				slog.Info("processing block data", "blockNum", id)
 
+				// nolint: gosec
 				block, err := i.ethClient.BlockByNumber(ctx, big.NewInt(int64(id)))
 
 				if err != nil {
@@ -57,6 +58,7 @@ func (i *Indexer) indexRawBlockData(
 							return errors.Wrap(err, "i.ethClient.TransactionSender")
 						}
 
+						// nolint: gosec
 						if err := i.accountRepo.Save(ctx, sender, time.Unix(int64(block.Time()), 0)); err != nil {
 							return errors.Wrap(err, "i.accountRepo.Save")
 						}
@@ -65,6 +67,7 @@ func (i *Indexer) indexRawBlockData(
 							t,
 							sender,
 							block.Number(),
+							// nolint: gosec
 							time.Unix(int64(block.Time()), 0),
 							receipt.ContractAddress,
 						); err != nil {
