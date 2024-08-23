@@ -117,7 +117,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         returns (TaikoData.BlockMetadataV2[] memory metaArr_)
     {
         TaikoData.Config memory config = getConfig();
-        metaArr_ = LibProposing.proposeBlocks(state, config, this, _paramsArr, _txListArr);
+        (, metaArr_) = LibProposing.proposeBlocks(state, config, this, _paramsArr, _txListArr);
         for (uint256 i; i < metaArr_.length; ++i) {
             if (metaArr_[i].id < config.ontakeForkHeight) revert L1_FORK_ERROR();
         }

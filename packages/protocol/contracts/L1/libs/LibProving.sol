@@ -142,14 +142,17 @@ library LibProving {
         if (_blockIds.length == 0 || _blockIds.length != _inputs.length) {
             revert L1_INVALID_PARAMS();
         }
+        TaikoData.BlockMetadataV2[] memory metas = new TaikoData.BlockMetadataV2[](_blockIds.length);
 
         for (uint256 i; i < _blockIds.length; ++i) {
-            TaikoData.BlockMetadataV2 memory meta =
-                _proveBlock(_state, _config, _resolver, _blockIds[i], _inputs[i]);
+            metas[i] = _proveBlock(_state, _config, _resolver, _blockIds[i], _inputs[i]);
+        }
 
-            if (LibUtils.shouldVerifyBlocks(_config, meta.id, true) && !_state.slotB.provingPaused)
-            {
-                LibVerifying.verifyBlocks(_state, _config, _resolver, _config.maxBlocksToVerify);
+        if (!_state.slotB.provingPaused) {
+            for (uint256 i; i < _blockIds.length; ++i) {
+                if (LibUtils.shouldVerifyBlocks(_config, metas[i].id, true)) {
+                    LibVerifying.verifyBlocks(_state, _config, _resolver, _config.maxBlocksToVerify);
+                }
             }
         }
     }
@@ -174,8 +177,10 @@ library LibProving {
         TaikoData.BlockMetadataV2 memory meta =
             _proveBlock(_state, _config, _resolver, _blockId, _input);
 
-        if (LibUtils.shouldVerifyBlocks(_config, meta.id, true) && !_state.slotB.provingPaused) {
-            LibVerifying.verifyBlocks(_state, _config, _resolver, _config.maxBlocksToVerify);
+        if (!_state.slotB.provingPaused) {
+            if (LibUtils.shouldVerifyBlocks(_config, meta.id, true)) {
+                LibVerifying.verifyBlocks(_state, _config, _resolver, _config.maxBlocksToVerify);
+            }
         }
     }
 

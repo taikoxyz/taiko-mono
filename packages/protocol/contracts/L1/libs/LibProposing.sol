@@ -65,7 +65,8 @@ library LibProposing {
     /// @param _resolver The address resolver interface.
     /// @param _paramsArr An array of encoded data bytes containing the block parameters.
     /// @param _txListArr An array of transaction list bytes (if not blob).
-    /// @return metaArr_ An array of metadata objects for the proposed L2 blocks.
+    /// @return metaV1s_ An array of metadata objects for the proposed L2 blocks (version 1).
+    /// @return metas_ An array of metadata objects for the proposed L2 blocks (version 2).
     function proposeBlocks(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
@@ -74,23 +75,28 @@ library LibProposing {
         bytes[] calldata _txListArr
     )
         public
-        returns (TaikoData.BlockMetadataV2[] memory metaArr_)
+        returns (
+            TaikoData.BlockMetadata[] memory metaV1s_,
+            TaikoData.BlockMetadataV2[] memory metas_
+        )
     {
         if (_paramsArr.length == 0 || _paramsArr.length != _txListArr.length) {
             revert L1_INVALID_PARAMS();
         }
 
-        metaArr_ = new TaikoData.BlockMetadataV2[](_paramsArr.length);
+        metaV1s_ = new TaikoData.BlockMetadata[](_paramsArr.length);
+        metas_ = new TaikoData.BlockMetadataV2[](_paramsArr.length);
 
         for (uint256 i; i < _paramsArr.length; ++i) {
-            (, metaArr_[i]) =
+            (metaV1s_[i], metas_[i]) =
                 _proposeBlock(_state, _config, _resolver, _paramsArr[i], _txListArr[i]);
+        }
 
-            if (
-                LibUtils.shouldVerifyBlocks(_config, metaArr_[i].id, false)
-                    && !_state.slotB.provingPaused
-            ) {
-                LibVerifying.verifyBlocks(_state, _config, _resolver, _config.maxBlocksToVerify);
+        if (!_state.slotB.provingPaused) {
+            for (uint256 i; i < _paramsArr.length; ++i) {
+                if (LibUtils.shouldVerifyBlocks(_config, metas_[i].id, false)) {
+                    LibVerifying.verifyBlocks(_state, _config, _resolver, _config.maxBlocksToVerify);
+                }
             }
         }
     }
@@ -115,8 +121,10 @@ library LibProposing {
     {
         (metaV1_, meta_) = _proposeBlock(_state, _config, _resolver, _params, _txList);
 
-        if (LibUtils.shouldVerifyBlocks(_config, meta_.id, false) && !_state.slotB.provingPaused) {
-            LibVerifying.verifyBlocks(_state, _config, _resolver, _config.maxBlocksToVerify);
+        if (!_state.slotB.provingPaused) {
+            if (LibUtils.shouldVerifyBlocks(_config, meta_.id, false)) {
+                LibVerifying.verifyBlocks(_state, _config, _resolver, _config.maxBlocksToVerify);
+            }
         }
     }
 
