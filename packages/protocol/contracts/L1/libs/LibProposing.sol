@@ -7,6 +7,7 @@ import "../access/IProposerAccess.sol";
 import "./LibBonds.sol";
 import "./LibData.sol";
 import "./LibUtils.sol";
+import "./LibVerifying.sol";
 
 /// @title LibProposing
 /// @notice A library for handling block proposals in the Taiko protocol.
@@ -257,6 +258,10 @@ library LibProposing {
                 meta: metaV1_,
                 depositsProcessed: deposits_
             });
+        }
+
+        if (LibUtils.shouldVerifyBlocks(_config, meta_.id, false)) {
+            LibVerifying.verifyBlocks(_state, _config, _resolver, _config.maxBlocksToVerify);
         }
     }
 

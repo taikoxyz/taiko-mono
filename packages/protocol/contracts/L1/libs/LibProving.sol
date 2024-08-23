@@ -5,6 +5,7 @@ import "../../verifiers/IVerifier.sol";
 import "./LibBonds.sol";
 import "./LibData.sol";
 import "./LibUtils.sol";
+import "./LibVerifying.sol";
 
 /// @title LibProving
 /// @notice A library for handling block contestation and proving in the Taiko
@@ -384,6 +385,10 @@ library LibProving {
 
         ts.timestamp = uint64(block.timestamp);
         _state.transitions[local.slot][local.tid] = ts;
+
+        if (LibUtils.shouldVerifyBlocks(_config, meta.id, true) && !_state.slotB.provingPaused) {
+            LibVerifying.verifyBlocks(_state, _config, _resolver, _config.maxBlocksToVerify);
+        }
     }
 
     /// @dev Handle the transition initialization logic
