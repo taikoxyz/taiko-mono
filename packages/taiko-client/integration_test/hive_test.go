@@ -16,21 +16,17 @@ func TestHiveHandler(t *testing.T) {
 	}
 	t.Run("taiko-deneb-testnet/test-deneb-genesis", testDenebGenesis)
 	t.Run("taiko-deneb-reorg/test-deneb-reorg", testDenebReorg)
-
 }
 
 func testDenebGenesis(t *testing.T) {
 	handler, err := hivesim.NewHiveFramework(&hivesim.HiveConfig{
-		DockerPull:      true,
 		BuildOutput:     false,
 		ContainerOutput: true,
 		BaseDir:         os.Getenv("HIVE_DIR"),
 		SimPattern:      "taiko",
 		SimTestPattern:  "taiko-deneb-testnet/test-deneb-genesis",
 		Clients: []string{
-			"taiko/geth",
-			"taiko/prysm-bn",
-			"taiko/prysm-vc",
+			"taiko/anvil",
 			"taiko/taiko-geth",
 			"taiko/driver",
 			"taiko/proposer",
@@ -46,7 +42,6 @@ func testDenebGenesis(t *testing.T) {
 
 func testDenebReorg(t *testing.T) {
 	handler, err := hivesim.NewHiveFramework(&hivesim.HiveConfig{
-		DockerPull:      false,
 		BuildOutput:     false,
 		ContainerOutput: true,
 		BaseDir:         os.Getenv("HIVE_DIR"),
