@@ -80,11 +80,10 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         whenNotPaused
         nonReentrant
         emitEventForClient
-        returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
+        returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory)
     {
         TaikoData.Config memory config = getConfig();
-
-        (meta_,, deposits_) = LibProposing.proposeBlock(state, config, this, _params, _txList);
+        (meta_,) = LibProposing.proposeBlock(state, config, this, _params, _txList);
         if (meta_.id >= config.ontakeForkHeight) revert L1_FORK_ERROR();
     }
 
@@ -97,9 +96,11 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         whenNotPaused
         nonReentrant
         emitEventForClient
-        returns (TaikoData.BlockMetadataV2 memory)
+        returns (TaikoData.BlockMetadataV2 memory meta_)
     {
-        return _proposeBlock(_params, _txList, getConfig());
+        TaikoData.Config memory config = getConfig();
+        (, meta_) = LibProposing.proposeBlock(state, config, this, _params, _txList);
+        if (meta_.id < config.ontakeForkHeight) revert L1_FORK_ERROR();
     }
 
     /// @inheritdoc ITaikoL1
@@ -114,15 +115,10 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         emitEventForClient
         returns (TaikoData.BlockMetadataV2[] memory metaArr_)
     {
-        if (_paramsArr.length == 0 || _paramsArr.length != _txListArr.length) {
-            revert L1_INVALID_PARAMS();
-        }
-
-        metaArr_ = new TaikoData.BlockMetadataV2[](_paramsArr.length);
         TaikoData.Config memory config = getConfig();
-
-        for (uint256 i; i < _paramsArr.length; ++i) {
-            metaArr_[i] = _proposeBlock(_paramsArr[i], _txListArr[i], config);
+        metaArr_ = LibProposing.proposeBlocks(state, config, this, _paramsArr, _txListArr);
+        for (uint256 i; i < metaArr_.length; ++i) {
+            if (metaArr_[i].id < config.ontakeForkHeight) revert L1_FORK_ERROR();
         }
     }
 
@@ -314,18 +310,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
              }),
             ontakeForkHeight: 374_400 // = 7200 * 52
          });
-    }
-
-    function _proposeBlock(
-        bytes calldata _params,
-        bytes calldata _txList,
-        TaikoData.Config memory _config
-    )
-        internal
-        returns (TaikoData.BlockMetadataV2 memory meta_)
-    {
-        (, meta_,) = LibProposing.proposeBlock(state, _config, this, _params, _txList);
-        if (meta_.id < _config.ontakeForkHeight) revert L1_FORK_ERROR();
     }
 
     function _proveBlock(
