@@ -72,7 +72,7 @@ func (b *CalldataTransactionBuilder) Build(
 	if err != nil {
 		return nil, err
 	}
-	signature[64] = uint8(uint(signature[64])) + 27
+	signature[64] = signature[64] + 27
 
 	var (
 		to            = &b.taikoL1Address
