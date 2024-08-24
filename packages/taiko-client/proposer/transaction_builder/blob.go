@@ -86,7 +86,7 @@ func (b *BlobTransactionBuilder) Build(
 	if err != nil {
 		return nil, err
 	}
-	signature[64] = uint8(uint(signature[64])) + 27
+	signature[64] = signature[64] + 27
 
 	var (
 		to            = &b.taikoL1Address
@@ -128,6 +128,7 @@ func (b *BlobTransactionBuilder) Build(
 			AnchorBlockId:    0,
 			Timestamp:        0,
 			BlobTxListOffset: 0,
+			// #nosec G115
 			BlobTxListLength: uint32(len(txListBytes)),
 			BlobIndex:        0,
 		}); err != nil {

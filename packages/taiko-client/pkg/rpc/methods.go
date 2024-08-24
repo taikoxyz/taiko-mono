@@ -292,7 +292,7 @@ func (c *Client) GetPoolContent(
 	baseFeeInfo, err := c.TaikoL2.GetBasefee(
 		&bind.CallOpts{Context: ctx},
 		l1Head.Number.Uint64(),
-		uint32(l2Head.GasUsed),
+		uint32(l2Head.GasUsed), // #nosec G115
 	)
 	if err != nil {
 		return nil, err
@@ -602,6 +602,7 @@ func (c *Client) checkSyncedL1SnippetFromAnchor(
 		return true, nil
 	}
 
+	// #nosec G115
 	if parentGasUsed != uint32(parent.GasUsed()) {
 		log.Info(
 			"Reorg detected due to parent gas used mismatch",
