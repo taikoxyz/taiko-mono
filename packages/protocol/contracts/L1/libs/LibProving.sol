@@ -19,6 +19,8 @@ library LibProving {
         TaikoData.SlotB b;
         ITierProvider.Tier tier;
         ITierProvider.Tier minTier;
+        TaikoData.BlockMetadataV2 meta;
+        TaikoData.TierProof proof;
         bytes32 metaHash;
         address assignedProver;
         bytes32 stateRoot;
@@ -32,8 +34,6 @@ library LibProving {
         bool sameTransition;
         bool postFork;
         uint64 proposedAt;
-        TaikoData.BlockMetadataV2 meta;
-        TaikoData.TierProof proof;
     }
 
     /// @notice Emitted when a transition is proved.
@@ -150,19 +150,23 @@ library LibProving {
             revert L1_INVALID_PARAMS();
         }
 
-        IVerifier.ContextV2[] memory ctxs = new IVerifier.ContextV2[](_blockIds.length);
-        address verifier;
         TaikoData.TierProof memory batchProof;
-
         if (_batchProof.length != 0) {
             batchProof = abi.decode(_batchProof, (TaikoData.TierProof));
+            if (batchProof.tier == 0) revert L1_INVALID_TIER();
         }
 
+        IVerifier.ContextV2[] memory ctxs = new IVerifier.ContextV2[](_blockIds.length);
+        address verifier;
+
+        // This loop iterates over each block ID in the _blockIds array.
+        // For each block ID, it calls the _proveBlock function to get the context and verifier.
         for (uint256 i; i < _blockIds.length; ++i) {
             address _verifier;
             (ctxs[i], _verifier) =
                 _proveBlock(_state, _config, _resolver, _blockIds[i], _inputs[i], batchProof);
 
+            // Verify that if batchProof is used, the verifier is the same for all blocks.
             if (batchProof.tier != 0) {
                 if (verifier == address(0)) {
                     verifier = _verifier;
@@ -172,6 +176,7 @@ library LibProving {
             }
         }
 
+        // If batchProof is used, verify the batch proof.
         if (batchProof.tier != 0) {
             if (verifier == address(0)) revert L1_INVALID_VERIFIER();
             IVerifier(verifier).verifyBatchProof(ctxs, batchProof);
@@ -222,14 +227,13 @@ library LibProving {
                     _input, (TaikoData.BlockMetadataV2, TaikoData.Transition, TaikoData.TierProof)
                 );
             } else {
-                // All transitions are proving using the  batch proof.
+                // All transitions are proving using the batch proof.
                 (local.meta, ctx_.tran) =
                     abi.decode(_input, (TaikoData.BlockMetadataV2, TaikoData.Transition));
                 local.proof = _batchProof;
             }
         } else {
             TaikoData.BlockMetadata memory metaV1;
-
             (metaV1, ctx_.tran, local.proof) = abi.decode(
                 _input, (TaikoData.BlockMetadata, TaikoData.Transition, TaikoData.TierProof)
             );
