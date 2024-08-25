@@ -38,6 +38,7 @@ type Config struct {
 	IncludeParentMetaHash      bool
 	BlobAllowed                bool
 	TxmgrConfigs               *txmgr.CLIConfig
+	PrivateTxmgrConfigs        *txmgr.CLIConfig
 }
 
 // NewConfigFromCliContext initializes a Config instance from
@@ -102,6 +103,11 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		BlobAllowed:                c.Bool(flags.BlobAllowed.Name),
 		TxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
 			c.String(flags.L1WSEndpoint.Name),
+			l1ProposerPrivKey,
+			c,
+		),
+		PrivateTxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
+			c.String(flags.L1PrivateTxEndpoint.Name),
 			l1ProposerPrivKey,
 			c,
 		),
