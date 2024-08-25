@@ -59,7 +59,14 @@ interface ITaikoL1 {
     /// @param _blockIds The indices of the blocks to prove.
     /// @param _inputs An list of abi-encoded (TaikoData.BlockMetadata, TaikoData.Transition,
     /// TaikoData.TierProof) tuples.
-    function proveBlocksV2(uint64[] calldata _blockIds, bytes[] calldata _inputs) external;
+    /// @param _batchProof An abi-encoded TaikoData.TierProof that contains the batch/aggregated
+    /// proof for the given blocks.
+    function proveBlocksV2(
+        uint64[] calldata _blockIds,
+        bytes[] calldata _inputs,
+        bytes calldata _batchProof
+    )
+        external;
 
     /// @notice Verifies up to a certain number of blocks.
     /// @param _maxBlocksToVerify Max number of blocks to verify.
