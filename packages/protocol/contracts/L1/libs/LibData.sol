@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 import "../TaikoData.sol";
+import "../../verifiers/IVerifier.sol";
 
 /// @title LibData
 /// @notice A library that offers helper functions.
@@ -101,6 +102,24 @@ library LibData {
             proposedIn: _v2.proposedIn,
             nextTransitionId: _v2.nextTransitionId,
             verifiedTransitionId: _v2.verifiedTransitionId
+        });
+    }
+
+    function verifierContextV2toV1(
+        IVerifier.ContextV2 memory _v2
+    )
+        internal
+        pure
+        returns (IVerifier.Context memory)
+    {
+        return IVerifier.Context({
+            metaHash: _v2.metaHash,
+            blobHash: _v2.blobHash,
+            prover: _v2.prover,
+            blockId: _v2.blockId,
+            isContesting: _v2.isContesting,
+            blobUsed: _v2.blobUsed,
+            msgSender: _v2.msgSender
         });
     }
 }
