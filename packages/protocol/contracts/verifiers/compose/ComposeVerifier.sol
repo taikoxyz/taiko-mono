@@ -77,6 +77,17 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
         }
     }
 
+    /// @inheritdoc IVerifier
+    function verifyBatchProof(
+        Context[] calldata _ctxs,
+        TaikoData.Transition[] calldata _trans,
+        TaikoData.TierProof calldata _proof
+    )
+        external
+    {
+        revert("Not implemented");
+    }
+
     /// @notice Returns the list of sub-verifiers and calculates the threshold.
     /// @return verifiers_ An array of addresses of sub-verifiers.
     /// @return threshold_ The threshold number of successful verifications required.

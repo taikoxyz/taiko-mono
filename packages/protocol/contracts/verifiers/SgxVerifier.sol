@@ -174,6 +174,17 @@ contract SgxVerifier is EssentialContract, IVerifier {
         }
     }
 
+    /// @inheritdoc IVerifier
+    function verifyBatchProof(
+        Context[] calldata _ctxs,
+        TaikoData.Transition[] calldata _trans,
+        TaikoData.TierProof calldata _proof
+    )
+        external
+    {
+        revert("Not implemented");
+    }
+
     function taikoChainId() internal view virtual returns (uint64) {
         return ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfig().chainId;
     }

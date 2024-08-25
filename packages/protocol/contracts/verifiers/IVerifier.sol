@@ -27,4 +27,15 @@ interface IVerifier {
         TaikoData.TierProof calldata _proof
     )
         external;
+
+    /// @notice Verifies multiple proofs.
+    /// @param _ctxs The array of contexts for the proof verifications.
+    /// @param _trans The array of transitions to verify.
+    /// @param _proof The batch proof to verify.
+    function verifyBatchProof(
+        Context[] calldata _ctxs,
+        TaikoData.Transition[] calldata _trans,
+        TaikoData.TierProof calldata _proof
+    )
+        external;
 }
