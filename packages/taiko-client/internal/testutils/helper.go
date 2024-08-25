@@ -135,6 +135,7 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 		close(sink2)
 	}()
 
+	// #nosec G115
 	baseFeeInfo, err := s.RPCClient.TaikoL2.GetBasefee(nil, l1Head.Number.Uint64()+1, uint32(l2Head.GasUsed))
 	s.Nil(err)
 
@@ -214,6 +215,7 @@ func (s *ClientTestSuite) ProposeValidBlock(
 		close(sink)
 	}()
 
+	// #nosec G115
 	baseFeeInfo, err := s.RPCClient.TaikoL2.GetBasefee(nil, l1Head.Number.Uint64()+1, uint32(l2Head.GasUsed))
 	s.Nil(err)
 
