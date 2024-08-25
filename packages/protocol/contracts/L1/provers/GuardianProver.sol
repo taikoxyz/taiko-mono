@@ -241,9 +241,10 @@ contract GuardianProver is IVerifier, EssentialContract {
     /// @inheritdoc IVerifier
     function verifyBatchProof(
         ContextV2[] calldata _ctxs,
-        TaikoData.TierProof calldata _proof
+        TaikoData.TierProof calldata /*_proof*/
     )
         external
+        view
     {
         for (uint256 i; i < _ctxs.length; ++i) {
             if (_ctxs[i].msgSender != address(this)) revert GV_PERMISSION_DENIED();

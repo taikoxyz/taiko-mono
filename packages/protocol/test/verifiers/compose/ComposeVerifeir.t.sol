@@ -49,9 +49,10 @@ contract MockVerifier is IVerifier {
 
     function verifyBatchProof(
         ContextV2[] calldata _ctxs,
-        TaikoData.TierProof calldata _proof
+        TaikoData.TierProof calldata /*_proof*/
     )
         external
+        pure
     {
         revert("Not implemented");
     }

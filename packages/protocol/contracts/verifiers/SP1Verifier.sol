@@ -78,10 +78,11 @@ contract SP1Verifier is EssentialContract, IVerifier {
 
     /// @inheritdoc IVerifier
     function verifyBatchProof(
-        ContextV2[] calldata _ctxs,
-        TaikoData.TierProof calldata _proof
+        ContextV2[] calldata, /*_ctxs*/
+        TaikoData.TierProof calldata /*_proof*/
     )
         external
+        pure
     {
         revert("Not implemented");
     }
