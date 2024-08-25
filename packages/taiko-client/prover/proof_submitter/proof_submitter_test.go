@@ -87,6 +87,7 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 		"test",
 		0,
 		txMgr,
+		nil,
 		builder,
 		tiers,
 		false,
@@ -97,6 +98,7 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 		s.RPCClient,
 		0,
 		txMgr,
+		nil,
 		rpc.ZeroAddress,
 		"test",
 		builder,
@@ -137,7 +139,7 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 		L2SuggestedFeeRecipient:    common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
 		ProposeInterval:            1024 * time.Hour,
 		MaxProposedTxListsPerEpoch: 1,
-	}, txMgr))
+	}, txMgr, txMgr))
 
 	s.proposer = prop
 }
@@ -176,6 +178,7 @@ func (s *ProofSubmitterTestSuite) TestGetRandomBumpedSubmissionDelay() {
 		"test",
 		0,
 		txMgr,
+		nil,
 		s.submitter.txBuilder,
 		s.submitter.tiers,
 		false,
@@ -196,6 +199,7 @@ func (s *ProofSubmitterTestSuite) TestGetRandomBumpedSubmissionDelay() {
 		"test",
 		0,
 		txMgr,
+		nil,
 		s.submitter.txBuilder,
 		s.submitter.tiers,
 		false,

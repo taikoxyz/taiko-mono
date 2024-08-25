@@ -51,7 +51,8 @@ type Proposer struct {
 	lastProposedAt time.Time
 	totalEpochs    uint64
 
-	txmgr *txmgr.SimpleTxManager
+	txmgr        *txmgr.SimpleTxManager
+	privateTxmgr *txmgr.SimpleTxManager
 
 	ctx context.Context
 	wg  sync.WaitGroup
@@ -64,11 +65,15 @@ func (p *Proposer) InitFromCli(ctx context.Context, c *cli.Context) error {
 		return err
 	}
 
-	return p.InitFromConfig(ctx, cfg, nil)
+	return p.InitFromConfig(ctx, cfg, nil, nil)
 }
 
 // InitFromConfig initializes the proposer instance based on the given configurations.
-func (p *Proposer) InitFromConfig(ctx context.Context, cfg *Config, txMgr *txmgr.SimpleTxManager) (err error) {
+func (p *Proposer) InitFromConfig(
+	ctx context.Context, cfg *Config,
+	txMgr *txmgr.SimpleTxManager,
+	privateTxMgr *txmgr.SimpleTxManager,
+) (err error) {
 	p.proposerAddress = crypto.PubkeyToAddress(cfg.L1ProposerPrivKey.PublicKey)
 	p.ctx = ctx
 	p.Config = cfg
@@ -98,6 +103,22 @@ func (p *Proposer) InitFromConfig(ctx context.Context, cfg *Config, txMgr *txmgr
 			*cfg.TxmgrConfigs,
 		); err != nil {
 			return err
+		}
+	}
+	if privateTxMgr != nil {
+		p.privateTxmgr = privateTxMgr
+	} else {
+		if cfg.PrivateTxmgrConfigs != nil && len(cfg.PrivateTxmgrConfigs.L1RPCURL) > 0 {
+			if p.privateTxmgr, err = txmgr.NewSimpleTxManager(
+				"privateTxProposer",
+				log.Root(),
+				&metrics.TxMgrMetrics,
+				*cfg.PrivateTxmgrConfigs,
+			); err != nil {
+				return err
+			}
+		} else {
+			p.privateTxmgr = nil
 		}
 	}
 
@@ -356,14 +377,8 @@ func (p *Proposer) ProposeTxList(
 		return err
 	}
 
-	receipt, err := p.txmgr.Send(ctx, *txCandidate)
-	if err != nil {
-		log.Warn("Failed to send TaikoL1.proposeBlock transaction", "error", encoding.TryParsingCustomError(err))
+	if err := p.sendTx(ctx, txCandidate); err != nil {
 		return err
-	}
-
-	if receipt.Status != types.ReceiptStatusSuccessful {
-		return fmt.Errorf("failed to propose block: %s", receipt.TxHash.Hex())
 	}
 
 	log.Info("📝 Propose transactions succeeded", "txs", txNum)
@@ -390,6 +405,29 @@ func (p *Proposer) updateProposingTicker() {
 	}
 
 	p.proposingTimer = time.NewTimer(duration)
+}
+
+func (p *Proposer) sendTx(ctx context.Context, txCandidate *txmgr.TxCandidate) error {
+	if p.privateTxmgr != nil {
+		receipt, err := p.privateTxmgr.Send(ctx, *txCandidate)
+		if err != nil || receipt.Status != types.ReceiptStatusSuccessful {
+			log.Warn("Failed to send TaikoL1.proposeBlock transaction by private tx manager",
+				"error", encoding.TryParsingCustomError(err),
+			)
+		} else {
+			return nil
+		}
+	}
+	receipt, err := p.txmgr.Send(ctx, *txCandidate)
+	if err != nil {
+		log.Warn("Failed to send TaikoL1.proposeBlock transaction", "error", encoding.TryParsingCustomError(err))
+		return err
+	}
+
+	if receipt.Status != types.ReceiptStatusSuccessful {
+		return fmt.Errorf("failed to propose block: %s", receipt.TxHash.Hex())
+	}
+	return nil
 }
 
 // Name returns the application name.

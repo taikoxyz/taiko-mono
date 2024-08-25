@@ -211,6 +211,7 @@ func (s *Syncer) onBlockProposed(
 	// only happen when testing.
 	if meta.GetTimestamp() > uint64(time.Now().Unix()) {
 		log.Warn("Future L2 block, waiting", "L2BlockTimestamp", meta.GetTimestamp(), "now", time.Now().Unix())
+		// #nosec G115
 		time.Sleep(time.Until(time.Unix(int64(meta.GetTimestamp()), 0)))
 	}
 
@@ -346,6 +347,7 @@ func (s *Syncer) insertNewHead(
 		baseFeeInfo, err = s.rpc.TaikoL2.GetBasefee(
 			&bind.CallOpts{BlockNumber: parent.Number, Context: ctx},
 			meta.GetRawBlockHeight().Uint64()-1,
+			// #nosec G115
 			uint32(parent.GasUsed),
 		)
 		if err != nil {
@@ -403,6 +405,7 @@ func (s *Syncer) insertNewHead(
 			*meta.GetBaseFeeConfig(),
 			meta.GetTimestamp()-parent.Time,
 			parentGasExcess,
+			// #nosec G115
 			uint32(parent.GasUsed),
 		)
 		if err != nil {
@@ -631,6 +634,7 @@ func (s *Syncer) retrievePastBlock(
 	ts, err := s.rpc.GetTransition(
 		ctx,
 		new(big.Int).SetUint64(blockInfo.BlockId),
+		// #nosec G115
 		uint32(blockInfo.VerifiedTransitionId.Uint64()),
 	)
 	if err != nil {

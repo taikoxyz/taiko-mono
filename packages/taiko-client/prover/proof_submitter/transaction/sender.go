@@ -22,6 +22,7 @@ import (
 type Sender struct {
 	rpc              *rpc.Client
 	txmgr            *txmgr.SimpleTxManager
+	privateTxmgr     *txmgr.SimpleTxManager
 	proverSetAddress common.Address
 	gasLimit         uint64
 }
@@ -30,12 +31,14 @@ type Sender struct {
 func NewSender(
 	cli *rpc.Client,
 	txmgr *txmgr.SimpleTxManager,
+	privateTxmgr *txmgr.SimpleTxManager,
 	proverSetAddress common.Address,
 	gasLimit uint64,
 ) *Sender {
 	return &Sender{
 		rpc:              cli,
 		txmgr:            txmgr,
+		privateTxmgr:     privateTxmgr,
 		proverSetAddress: proverSetAddress,
 		gasLimit:         gasLimit,
 	}
@@ -75,6 +78,16 @@ func (s *Sender) Send(
 	}
 
 	// Send the transaction.
+	if s.privateTxmgr != nil {
+		receipt, err := s.privateTxmgr.Send(ctx, *txCandidate)
+		if err != nil || receipt.Status != types.ReceiptStatusSuccessful {
+			log.Warn("Failed to send transaction by private tx manager in sender",
+				"error", encoding.TryParsingCustomError(err),
+			)
+		} else {
+			return nil
+		}
+	}
 	receipt, err := s.txmgr.Send(ctx, *txCandidate)
 	if err != nil {
 		return encoding.TryParsingCustomError(err)
