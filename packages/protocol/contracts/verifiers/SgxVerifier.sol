@@ -181,7 +181,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
         TaikoData.TierProof calldata /*_proof*/
     )
         external
-        pure
+        view
         onlyFromNamed(LibStrings.B_TAIKO)
     {
         revert("Not implemented");
