@@ -104,10 +104,12 @@ library LibProving {
     error L1_ALREADY_PROVED();
     error L1_BLOCK_MISMATCH();
     error L1_CANNOT_CONTEST();
+    error L1_DIFF_VERIFIER();
     error L1_INVALID_PARAMS();
     error L1_INVALID_PAUSE_STATUS();
     error L1_INVALID_TIER();
     error L1_INVALID_TRANSITION();
+    error L1_INVALID_VERIFIER();
     error L1_NOT_ASSIGNED_PROVER();
     error L1_PROVING_PAUSED();
 
@@ -149,15 +151,30 @@ library LibProving {
         }
 
         IVerifier.ContextV2[] memory ctxs = new IVerifier.ContextV2[](_blockIds.length);
-
+        address verifier;
         TaikoData.TierProof memory batchProof;
+
         if (_batchProof.length != 0) {
             batchProof = abi.decode(_batchProof, (TaikoData.TierProof));
         }
 
         for (uint256 i; i < _blockIds.length; ++i) {
-            (ctxs[i],) =
+            address _verifier;
+            (ctxs[i], _verifier) =
                 _proveBlock(_state, _config, _resolver, _blockIds[i], _inputs[i], batchProof);
+
+            if (batchProof.tier != 0) {
+                if (verifier == address(0)) {
+                    verifier = _verifier;
+                } else if (verifier != _verifier) {
+                    revert L1_DIFF_VERIFIER();
+                }
+            }
+        }
+
+        if (batchProof.tier != 0) {
+            if (verifier == address(0)) revert L1_INVALID_VERIFIER();
+            IVerifier(verifier).verifyBatchProof(ctxs, batchProof);
         }
     }
 
