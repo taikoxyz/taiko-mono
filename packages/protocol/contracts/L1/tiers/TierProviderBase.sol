@@ -12,97 +12,86 @@ abstract contract TierProviderBase is ITierProvider {
     /// service may be paused if gas prices are excessively high. Since block proving is
     /// asynchronous, this grace period allows provers to defer submissions until gas
     /// prices become more favorable, potentially reducing transaction costs.
-    uint16 public constant GRACE_PERIOD = 240; // 4 hours
+    uint16 public constant GRACE_PERIOD = 240; // minutes
+    uint96 public constant BOND_UNIT = 75 ether; // TAIKO tokens
 
     /// @inheritdoc ITierProvider
-    /// @notice Each tier, except the top tier, has a validity bond that is 50 TAIKO higher than the
+    /// @notice Each tier, except the top tier, has a validity bond that is 75 TAIKO higher than the
     /// previous tier. Additionally, each tier's contest bond is 6.5625 times its validity bond.
-    function getTier(
-        uint16 _tierId
-    )
-        public
-        pure
-        virtual
-        override
-        returns (ITierProvider.Tier memory)
-    {
+    function getTier(uint16 _tierId) public pure virtual returns (ITierProvider.Tier memory) {
         if (_tierId == LibTiers.TIER_OPTIMISTIC) {
-            return ITierProvider.Tier({
-                verifierName: "",
-                validityBond: 100 ether, // TAIKO
-                contestBond: 656.25 ether, // = 100 TAIKO * 6.5625
-                cooldownWindow: 1440, // 24 hours
-                provingWindow: GRACE_PERIOD + 15, // 15 minutes
-                maxBlocksToVerifyPerProof: 0
-            });
+            // cooldownWindow is 1440 minutes and provingWindow is 15 minutes
+            return _buildTier("", BOND_UNIT, 1440, 15);
         }
 
-        if (_tierId == LibTiers.TIER_SGX) {
-            return ITierProvider.Tier({
-                verifierName: LibStrings.B_TIER_SGX,
-                validityBond: 150 ether, // TAIKO
-                contestBond: 984.375 ether, // = 150 TAIKO * 6.5625
-                cooldownWindow: 1440, // 24 hours
-                provingWindow: GRACE_PERIOD + 60, // 1 hour
-                maxBlocksToVerifyPerProof: 0
-            });
-        }
+        // TEE Tiers
+        if (_tierId == LibTiers.TIER_SGX) return _buildTeeTier(LibStrings.B_TIER_SGX);
+        if (_tierId == LibTiers.TIER_TDX) return _buildTeeTier(LibStrings.B_TIER_TDX);
+        if (_tierId == LibTiers.TIER_TEE_ANY) return _buildTeeTier(LibStrings.B_TIER_TEE_ANY);
 
-        if (_tierId == LibTiers.TIER_SGX2) {
-            return ITierProvider.Tier({
-                verifierName: LibStrings.B_TIER_SGX2,
-                validityBond: 150 ether, // TAIKO
-                contestBond: 984.375 ether, // = 150 TAIKO * 6.5625
-                cooldownWindow: 1440, // 24 hours
-                provingWindow: GRACE_PERIOD + 60, // 1 hour
-                maxBlocksToVerifyPerProof: 0
-            });
-        }
-
-        if (_tierId == LibTiers.TIER_ZKVM_RISC0) {
-            return ITierProvider.Tier({
-                verifierName: LibStrings.B_TIER_ZKVM_RISC0,
-                validityBond: 250 ether, // TAIKO
-                contestBond: 1640.625 ether, // = 250 TAIKO * 6.5625
-                cooldownWindow: 1440, // 24 hours
-                provingWindow: GRACE_PERIOD + 180, // 3 hours
-                maxBlocksToVerifyPerProof: 0
-            });
-        }
-
-        if (_tierId == LibTiers.TIER_SGX_ZKVM) {
-            return ITierProvider.Tier({
-                verifierName: LibStrings.B_TIER_SGX_ZKVM,
-                validityBond: 300 ether, // TAIKO
-                contestBond: 1968.75 ether, // = 300 TAIKO * 6.5625
-                cooldownWindow: 1440, // 24 hours
-                provingWindow: GRACE_PERIOD + 240, // 4 hours
-                maxBlocksToVerifyPerProof: 0
-            });
-        }
+        // ZKVM Tiers
+        if (_tierId == LibTiers.TIER_ZKVM_RISC0) return _buildZkTier(LibStrings.B_TIER_ZKVM_RISC0);
+        if (_tierId == LibTiers.TIER_ZKVM_SP1) return _buildZkTier(LibStrings.B_TIER_ZKVM_SP1);
+        if (_tierId == LibTiers.TIER_ZKVM_ANY) return _buildZkTier(LibStrings.B_TIER_ZKVM_ANY);
 
         if (_tierId == LibTiers.TIER_GUARDIAN_MINORITY) {
-            return ITierProvider.Tier({
-                verifierName: LibStrings.B_TIER_GUARDIAN_MINORITY,
-                validityBond: 350 ether, // TAIKO
-                contestBond: 2296.875 ether, // = 350 TAIKO * 6.5625
-                cooldownWindow: GRACE_PERIOD + 240, // 4 hours
-                provingWindow: 2880, // 48 hours
-                maxBlocksToVerifyPerProof: 0
-            });
+            // cooldownWindow is 240 minutes and provingWindow is 2880 minutes
+            return _buildTier(LibStrings.B_TIER_GUARDIAN_MINORITY, BOND_UNIT * 4, 240, 2880);
         }
 
         if (_tierId == LibTiers.TIER_GUARDIAN) {
-            return ITierProvider.Tier({
-                verifierName: LibStrings.B_TIER_GUARDIAN,
-                validityBond: 0, // must be 0 for top tier
-                contestBond: 0, // must be 0 for top tier
-                cooldownWindow: 1440, // 24 hours
-                provingWindow: GRACE_PERIOD + 2880, // 48 hours
-                maxBlocksToVerifyPerProof: 0
-            });
+            // cooldownWindow is 1440 minutes and provingWindow is 2880 minutes
+            return _buildTier(LibStrings.B_TIER_GUARDIAN, 0, 1440, 2880);
         }
 
         revert TIER_NOT_FOUND();
+    }
+
+    /// @dev Builds a TEE tier with a specific verifier name.
+    /// @param _verifierName The name of the verifier.
+    /// @return A Tier struct with predefined parameters for TEE.
+    function _buildTeeTier(
+        bytes32 _verifierName
+    )
+        private
+        pure
+        returns (ITierProvider.Tier memory)
+    {
+        // cooldownWindow is 1440 minutes and provingWindow is 60 minutes
+        return _buildTier(_verifierName, BOND_UNIT * 2, 1440, 60);
+    }
+
+    /// @dev Builds a ZK tier with a specific verifier name.
+    /// @param _verifierName The name of the verifier.
+    /// @return A Tier struct with predefined parameters for ZK.
+    function _buildZkTier(bytes32 _verifierName) private pure returns (ITierProvider.Tier memory) {
+        // cooldownWindow is 1440 minutes and provingWindow is 180 minutes
+        return _buildTier(_verifierName, BOND_UNIT * 3, 1440, 180);
+    }
+
+    /// @dev Builds a generic tier with specified parameters.
+    /// @param _verifierName The name of the verifier.
+    /// @param _validityBond The validity bond amount.
+    /// @param _cooldownWindow The cooldown window duration in minutes.
+    /// @param _provingWindow The proving window duration in minutes.
+    /// @return A Tier struct with the provided parameters.
+    function _buildTier(
+        bytes32 _verifierName,
+        uint96 _validityBond,
+        uint16 _cooldownWindow,
+        uint16 _provingWindow
+    )
+        private
+        pure
+        returns (ITierProvider.Tier memory)
+    {
+        return ITierProvider.Tier({
+            verifierName: _verifierName,
+            validityBond: _validityBond,
+            contestBond: _validityBond / 10_000 * 65_625,
+            cooldownWindow: _cooldownWindow,
+            provingWindow: GRACE_PERIOD + _provingWindow,
+            maxBlocksToVerifyPerProof: 0
+        });
     }
 }

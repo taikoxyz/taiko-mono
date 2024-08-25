@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "../L1/tiers/ITierRouter.sol";
+import "../../L1/tiers/ITierRouter.sol";
 
 /// @title MainnetTierRouter
 /// @dev Labeled in AddressResolver as "tier_router"
