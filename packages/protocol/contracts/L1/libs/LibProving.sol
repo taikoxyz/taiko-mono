@@ -33,6 +33,7 @@ library LibProving {
         bool postFork;
         uint64 proposedAt;
         TaikoData.BlockMetadataV2 meta;
+        TaikoData.TierProof proof;
     }
 
     /// @notice Emitted when a transition is proved.
@@ -146,8 +147,8 @@ library LibProving {
         if (_blockIds.length == 0 || _blockIds.length != _inputs.length) {
             revert L1_INVALID_PARAMS();
         }
-        // TaikoData.BlockMetadataV2[] memory metas = new
-        // TaikoData.BlockMetadataV2[](_blockIds.length);
+
+        IVerifier.ContextV2[] memory ctxs = new IVerifier.ContextV2[](_blockIds.length);
 
         TaikoData.TierProof memory batchProof;
         if (_batchProof.length != 0) {
@@ -155,7 +156,8 @@ library LibProving {
         }
 
         for (uint256 i; i < _blockIds.length; ++i) {
-            _proveBlock(_state, _config, _resolver, _blockIds[i], _inputs[i], batchProof);
+            (ctxs[i],) =
+                _proveBlock(_state, _config, _resolver, _blockIds[i], _inputs[i], batchProof);
         }
     }
 
@@ -189,32 +191,29 @@ library LibProving {
         TaikoData.TierProof memory _batchProof
     )
         private
-        returns (IVerifier.ContextV2 memory ctx_)
+        returns (IVerifier.ContextV2 memory ctx_, address verifier_)
     {
         Local memory local;
-
         local.b = _state.slotB;
         local.blockId = _blockId;
         local.postFork = _blockId >= _config.ontakeForkHeight;
 
-        TaikoData.TierProof memory proof;
-
         if (local.postFork) {
             if (_batchProof.tier == 0) {
                 // No batch proof is available, each transition is proving using a sepearet proof.
-                (local.meta, ctx_.tran, proof) = abi.decode(
+                (local.meta, ctx_.tran, local.proof) = abi.decode(
                     _input, (TaikoData.BlockMetadataV2, TaikoData.Transition, TaikoData.TierProof)
                 );
             } else {
                 // All transitions are proving using the  batch proof.
                 (local.meta, ctx_.tran) =
                     abi.decode(_input, (TaikoData.BlockMetadataV2, TaikoData.Transition));
-                proof = _batchProof;
+                local.proof = _batchProof;
             }
         } else {
             TaikoData.BlockMetadata memory metaV1;
 
-            (metaV1, ctx_.tran, proof) = abi.decode(
+            (metaV1, ctx_.tran, local.proof) = abi.decode(
                 _input, (TaikoData.BlockMetadata, TaikoData.Transition, TaikoData.TierProof)
             );
             local.meta = LibData.blockMetadataV1toV2(metaV1);
@@ -274,7 +273,10 @@ library LibProving {
 
         // The new proof must meet or exceed the minimum tier required by the
         // block or the previous proof; it cannot be on a lower tier.
-        if (proof.tier == 0 || proof.tier < local.meta.minTier || proof.tier < ts.tier) {
+        if (
+            local.proof.tier == 0 || local.proof.tier < local.meta.minTier
+                || local.proof.tier < ts.tier
+        ) {
             revert L1_INVALID_TIER();
         }
 
@@ -284,7 +286,7 @@ library LibProving {
             ITierRouter tierRouter = ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false));
             ITierProvider tierProvider = ITierProvider(tierRouter.getProvider(local.blockId));
 
-            local.tier = tierProvider.getTier(proof.tier);
+            local.tier = tierProvider.getTier(local.proof.tier);
             local.minTier = tierProvider.getTier(local.meta.minTier);
         }
 
@@ -325,16 +327,17 @@ library LibProving {
                 prover: msg.sender,
                 msgSender: msg.sender,
                 blockId: local.blockId,
-                isContesting: proof.tier == ts.tier && local.tier.contestBond != 0,
+                isContesting: local.proof.tier == ts.tier && local.tier.contestBond != 0,
                 blobUsed: local.meta.blobUsed,
                 tran: ctx_.tran
             });
 
+            verifier_ = _resolver.resolve(local.tier.verifierName, false);
+
             if (_batchProof.tier == 0) {
                 // In the case of per-transition proof, we verify the proof.
-                address verifier = _resolver.resolve(local.tier.verifierName, false);
-                IVerifier(verifier).verifyProof(
-                    LibData.verifierContextV2toV1(ctx_), ctx_.tran, proof
+                IVerifier(verifier_).verifyProof(
+                    LibData.verifierContextV2toV1(ctx_), ctx_.tran, local.proof
                 );
             }
         }
@@ -344,11 +347,11 @@ library LibProving {
         local.sameTransition =
             ctx_.tran.blockHash == ts.blockHash && local.stateRoot == ts.stateRoot;
 
-        if (proof.tier > ts.tier) {
+        if (local.proof.tier > ts.tier) {
             // Handles the case when an incoming tier is higher than the current transition's tier.
             // Reverts when the incoming proof tries to prove the same transition
             // (L1_ALREADY_PROVED).
-            _overrideWithHigherProof(_state, _resolver, blk, ts, ctx_.tran, proof, local);
+            _overrideWithHigherProof(_state, _resolver, blk, ts, ctx_.tran, local.proof, local);
 
             if (local.postFork) {
                 emit TransitionProvedV2({
@@ -356,7 +359,7 @@ library LibProving {
                     tran: ctx_.tran,
                     prover: msg.sender,
                     validityBond: local.tier.validityBond,
-                    tier: proof.tier,
+                    tier: local.proof.tier,
                     proposedIn: local.meta.proposedIn
                 });
             } else {
@@ -365,7 +368,7 @@ library LibProving {
                     tran: ctx_.tran,
                     prover: msg.sender,
                     validityBond: local.tier.validityBond,
-                    tier: proof.tier
+                    tier: local.proof.tier
                 });
             }
         } else {
@@ -388,7 +391,7 @@ library LibProving {
                         tran: ctx_.tran,
                         prover: msg.sender,
                         validityBond: 0,
-                        tier: proof.tier,
+                        tier: local.proof.tier,
                         proposedIn: local.meta.proposedIn
                     });
                 } else {
@@ -397,7 +400,7 @@ library LibProving {
                         tran: ctx_.tran,
                         prover: msg.sender,
                         validityBond: 0,
-                        tier: proof.tier
+                        tier: local.proof.tier
                     });
                 }
             } else {
@@ -433,7 +436,7 @@ library LibProving {
                         tran: ctx_.tran,
                         contester: msg.sender,
                         contestBond: local.tier.contestBond,
-                        tier: proof.tier,
+                        tier: local.proof.tier,
                         proposedIn: local.meta.proposedIn
                     });
                 } else {
@@ -442,7 +445,7 @@ library LibProving {
                         tran: ctx_.tran,
                         contester: msg.sender,
                         contestBond: local.tier.contestBond,
-                        tier: proof.tier
+                        tier: local.proof.tier
                     });
                 }
             }
