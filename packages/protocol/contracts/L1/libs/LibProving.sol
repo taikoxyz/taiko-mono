@@ -157,20 +157,20 @@ library LibProving {
         }
 
         IVerifier.ContextV2[] memory ctxs = new IVerifier.ContextV2[](_blockIds.length);
-        address verifier;
+        bytes32 verifierName;
 
         // This loop iterates over each block ID in the _blockIds array.
         // For each block ID, it calls the _proveBlock function to get the context and verifier.
         for (uint256 i; i < _blockIds.length; ++i) {
-            address _verifier;
-            (ctxs[i], _verifier) =
+            bytes32 _verifierName;
+            (ctxs[i], _verifierName) =
                 _proveBlock(_state, _config, _resolver, _blockIds[i], _inputs[i], batchProof);
 
             // Verify that if batchProof is used, the verifier is the same for all blocks.
             if (batchProof.tier != 0) {
-                if (verifier == address(0)) {
-                    verifier = _verifier;
-                } else if (verifier != _verifier) {
+                if (verifierName == 0) {
+                    verifierName = _verifierName;
+                } else if (verifierName != _verifierName) {
                     revert L1_DIFF_VERIFIER();
                 }
             }
@@ -178,8 +178,8 @@ library LibProving {
 
         // If batchProof is used, verify the batch proof.
         if (batchProof.tier != 0) {
-            if (verifier == address(0)) revert L1_INVALID_VERIFIER();
-            IVerifier(verifier).verifyBatchProof(ctxs, batchProof);
+            if (verifierName == 0) revert L1_INVALID_VERIFIER();
+            IVerifier(_resolver.resolve(verifierName, false)).verifyBatchProof(ctxs, batchProof);
         }
     }
 
@@ -213,7 +213,7 @@ library LibProving {
         TaikoData.TierProof memory _batchProof
     )
         private
-        returns (IVerifier.ContextV2 memory ctx_, address verifier_)
+        returns (IVerifier.ContextV2 memory ctx_, bytes32 verifierName_)
     {
         Local memory local;
         local.b = _state.slotB;
@@ -353,11 +353,11 @@ library LibProving {
                 tran: ctx_.tran
             });
 
-            verifier_ = _resolver.resolve(local.tier.verifierName, false);
+            verifierName_ = local.tier.verifierName;
 
             if (_batchProof.tier == 0) {
                 // In the case of per-transition proof, we verify the proof.
-                IVerifier(verifier_).verifyProof(
+                IVerifier(_resolver.resolve(local.tier.verifierName, false)).verifyProof(
                     LibData.verifierContextV2toV1(ctx_), ctx_.tran, local.proof
                 );
             }
