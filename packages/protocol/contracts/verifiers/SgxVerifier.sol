@@ -181,6 +181,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     )
         external
         pure
+        onlyFromNamed(LibStrings.B_TAIKO)
     {
         revert("Not implemented");
     }
