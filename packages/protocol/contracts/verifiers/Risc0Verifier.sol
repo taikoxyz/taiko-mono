@@ -24,9 +24,6 @@ contract Risc0Verifier is EssentialContract, IVerifier {
     /// @param trusted True if trusted, false otherwise
     event ImageTrusted(bytes32 imageId, bool trusted);
 
-    /// @dev Emitted when a proof is verified
-    event ProofVerified(bytes32 metaHash, bytes32 publicInputHash);
-
     error RISC_ZERO_INVALID_IMAGE_ID();
     error RISC_ZERO_INVALID_PROOF();
 
@@ -53,6 +50,7 @@ contract Risc0Verifier is EssentialContract, IVerifier {
         TaikoData.TierProof calldata _proof
     )
         external
+        view
     {
         // Do not run proof verification to contest an existing proof
         if (_ctx.isContesting) return;
@@ -78,8 +76,6 @@ contract Risc0Verifier is EssentialContract, IVerifier {
         if (!success) {
             revert RISC_ZERO_INVALID_PROOF();
         }
-
-        emit ProofVerified(_ctx.metaHash, publicInputHash);
     }
 
     /// @inheritdoc IVerifier
