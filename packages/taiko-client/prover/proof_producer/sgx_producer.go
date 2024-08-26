@@ -79,7 +79,7 @@ func (s *SGXProofProducer) RequestProof(
 	blockID *big.Int,
 	meta metadata.TaikoBlockMetaData,
 	header *types.Header,
-	firstRequestTime time.Time,
+	requestAt time.Time,
 ) (*ProofWithHeader, error) {
 	log.Info(
 		"Request sgx proof from raiko-host service",
