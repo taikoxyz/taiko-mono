@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -62,6 +63,7 @@ type ProofProducer interface {
 		blockID *big.Int,
 		meta metadata.TaikoBlockMetaData,
 		header *types.Header,
+		firstRequestTime time.Time,
 	) (*ProofWithHeader, error)
 	RequestCancel(
 		ctx context.Context,

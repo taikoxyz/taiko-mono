@@ -3,6 +3,7 @@ package producer
 import (
 	"context"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -36,6 +37,7 @@ func (g *GuardianProofProducer) RequestProof(
 	blockID *big.Int,
 	meta metadata.TaikoBlockMetaData,
 	header *types.Header,
+	firstRequestTime time.Time,
 ) (*ProofWithHeader, error) {
 	log.Info(
 		"Request guardian proof",
@@ -56,7 +58,7 @@ func (g *GuardianProofProducer) RequestProof(
 		}, nil
 	}
 
-	return g.DummyProofProducer.RequestProof(opts, blockID, meta, header, g.Tier())
+	return g.DummyProofProducer.RequestProof(opts, blockID, meta, header, g.Tier(), firstRequestTime)
 }
 
 func (g *GuardianProofProducer) RequestCancel(
