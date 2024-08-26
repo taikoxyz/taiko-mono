@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 import "../common/EssentialContract.sol";
+import "./libs/LibData.sol";
 import "./libs/LibProposing.sol";
 import "./libs/LibProving.sol";
 import "./libs/LibVerifying.sol";
@@ -193,7 +194,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     /// @param _blockId Index of the block.
     /// @return blk_ The block.
     function getBlock(uint64 _blockId) external view returns (TaikoData.Block memory blk_) {
-        (TaikoData.BlockV2 memory blk,) = LibUtils.getBlock(state, getConfig(), _blockId);
+        (TaikoData.BlockV2 memory blk,) = LibUtils.getBlockV2(state, getConfig(), _blockId);
         blk_ = LibData.blockV2toV1(blk);
     }
 
