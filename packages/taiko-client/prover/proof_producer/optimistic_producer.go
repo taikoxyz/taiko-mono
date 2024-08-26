@@ -22,7 +22,7 @@ func (o *OptimisticProofProducer) RequestProof(
 	blockID *big.Int,
 	meta metadata.TaikoBlockMetaData,
 	header *types.Header,
-	firstRequestTime time.Time,
+	requestAt time.Time,
 ) (*ProofWithHeader, error) {
 	log.Info(
 		"Request optimistic proof",
@@ -32,7 +32,7 @@ func (o *OptimisticProofProducer) RequestProof(
 		"hash", header.Hash(),
 	)
 
-	return o.DummyProofProducer.RequestProof(opts, blockID, meta, header, o.Tier(), firstRequestTime)
+	return o.DummyProofProducer.RequestProof(opts, blockID, meta, header, o.Tier(), requestAt)
 }
 
 func (o *OptimisticProofProducer) RequestCancel(

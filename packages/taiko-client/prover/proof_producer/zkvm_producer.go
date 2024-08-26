@@ -67,7 +67,7 @@ func (s *ZKvmProofProducer) RequestProof(
 	blockID *big.Int,
 	meta metadata.TaikoBlockMetaData,
 	header *types.Header,
-	firstRequestTime time.Time,
+	requestAt time.Time,
 ) (*ProofWithHeader, error) {
 	log.Info(
 		"Request zk proof from raiko-host service",
@@ -79,10 +79,10 @@ func (s *ZKvmProofProducer) RequestProof(
 	)
 
 	if s.Dummy {
-		return s.DummyProofProducer.RequestProof(opts, blockID, meta, header, s.Tier(), firstRequestTime)
+		return s.DummyProofProducer.RequestProof(opts, blockID, meta, header, s.Tier(), requestAt)
 	}
 
-	proof, err := s.callProverDaemon(ctx, opts, firstRequestTime)
+	proof, err := s.callProverDaemon(ctx, opts, requestAt)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +110,7 @@ func (s *ZKvmProofProducer) RequestCancel(
 func (s *ZKvmProofProducer) callProverDaemon(
 	ctx context.Context,
 	opts *ProofRequestOptions,
-	firstRequestTime time.Time,
+	requestAt time.Time,
 ) ([]byte, error) {
 	var (
 		proof []byte
@@ -136,7 +136,7 @@ func (s *ZKvmProofProducer) callProverDaemon(
 	log.Info(
 		"Proof generated",
 		"height", opts.BlockID,
-		"time", time.Since(firstRequestTime),
+		"time", time.Since(requestAt),
 		"producer", "ZKvmProofProducer",
 	)
 

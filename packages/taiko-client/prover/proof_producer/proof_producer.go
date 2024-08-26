@@ -63,7 +63,7 @@ type ProofProducer interface {
 		blockID *big.Int,
 		meta metadata.TaikoBlockMetaData,
 		header *types.Header,
-		firstRequestTime time.Time,
+		requestAt time.Time,
 	) (*ProofWithHeader, error)
 	RequestCancel(
 		ctx context.Context,

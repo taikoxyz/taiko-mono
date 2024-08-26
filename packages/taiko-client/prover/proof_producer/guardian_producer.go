@@ -37,7 +37,7 @@ func (g *GuardianProofProducer) RequestProof(
 	blockID *big.Int,
 	meta metadata.TaikoBlockMetaData,
 	header *types.Header,
-	firstRequestTime time.Time,
+	requestAt time.Time,
 ) (*ProofWithHeader, error) {
 	log.Info(
 		"Request guardian proof",
@@ -58,7 +58,7 @@ func (g *GuardianProofProducer) RequestProof(
 		}, nil
 	}
 
-	return g.DummyProofProducer.RequestProof(opts, blockID, meta, header, g.Tier(), firstRequestTime)
+	return g.DummyProofProducer.RequestProof(opts, blockID, meta, header, g.Tier(), requestAt)
 }
 
 func (g *GuardianProofProducer) RequestCancel(

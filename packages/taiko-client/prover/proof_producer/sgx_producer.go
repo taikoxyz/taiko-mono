@@ -90,10 +90,10 @@ func (s *SGXProofProducer) RequestProof(
 	)
 
 	if s.Dummy {
-		return s.DummyProofProducer.RequestProof(opts, blockID, meta, header, s.Tier(), firstRequestTime)
+		return s.DummyProofProducer.RequestProof(opts, blockID, meta, header, s.Tier(), requestAt)
 	}
 
-	proof, err := s.callProverDaemon(ctx, opts, firstRequestTime)
+	proof, err := s.callProverDaemon(ctx, opts, requestAt)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +121,7 @@ func (s *SGXProofProducer) RequestCancel(
 func (s *SGXProofProducer) callProverDaemon(
 	ctx context.Context,
 	opts *ProofRequestOptions,
-	firstRequestTime time.Time,
+	requestAt time.Time,
 ) ([]byte, error) {
 	var (
 		proof []byte
@@ -140,7 +140,7 @@ func (s *SGXProofProducer) callProverDaemon(
 		log.Info(
 			"Proof generating",
 			"height", opts.BlockID,
-			"time", time.Since(firstRequestTime),
+			"time", time.Since(requestAt),
 			"producer", "SGXProofProducer",
 		)
 		return nil, errProofGenerating
@@ -157,7 +157,7 @@ func (s *SGXProofProducer) callProverDaemon(
 	log.Info(
 		"Proof generated",
 		"height", opts.BlockID,
-		"time", time.Since(firstRequestTime),
+		"time", time.Since(requestAt),
 		"producer", "SGXProofProducer",
 	)
 
