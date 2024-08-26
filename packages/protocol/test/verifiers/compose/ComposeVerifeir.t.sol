@@ -24,6 +24,10 @@ contract ComposeVerifierForTest is ComposeVerifier {
     function addSubVerifier(address _verifier) external {
         verifiers.push(_verifier);
     }
+
+    function isCallerAuthorized(address) internal view override returns (bool) {
+        return true;
+    }
 }
 
 contract MockVerifier is IVerifier {

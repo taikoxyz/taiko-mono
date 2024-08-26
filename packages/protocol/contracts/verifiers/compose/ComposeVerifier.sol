@@ -21,6 +21,7 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
 
     event InvalidSubProof(address indexed verifier, bytes returnData);
 
+    error INVALID_CALLER();
     error INVALID_VERIFIER();
     error INSUFFICIENT_PROOF();
 
@@ -41,8 +42,9 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
         TaikoData.TierProof calldata _proof
     )
         external
-        onlyFromNamed(LibStrings.B_TAIKO)
     {
+        if (!isAuthorized(msg.sender)) revert INVALID_CALLER();
+
         (address[] memory verifiers, uint256 threshold) = getSubVerifiersAndThreshold();
         SubProof[] memory subproofs = abi.decode(_proof.data, (SubProof[]));
         uint256 numVerified;
@@ -89,4 +91,11 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
         view
         virtual
         returns (address[] memory verifiers_, uint256 threshold_);
+
+    /// @notice Checks if the given address is authorized for calling the verifyProof function.
+    /// @param _address The address to check.
+    /// @return A boolean indicating whether the address is authorized.
+    function isCallerAuthorized(address _address) internal view virtual returns (bool) {
+        return _address == resolve(LibStrings.B_TAIKO, false);
+    }
 }
