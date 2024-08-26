@@ -86,7 +86,7 @@ contract Risc0Verifier is EssentialContract, IVerifier {
         external
         pure
     {
-        revert("Not implemented");
+        revert NOT_IMPLEMENTED();
     }
 
     function taikoChainId() internal view virtual returns (uint64) {
