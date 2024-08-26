@@ -188,6 +188,15 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         return LibVerifying.getVerifiedBlockProver(state, getConfig(), _blockId);
     }
 
+    /// @dev DEPRECATED but used by node/client for syncing old blocks
+    /// @notice Gets the details of a block.
+    /// @param _blockId Index of the block.
+    /// @return blk_ The block.
+    function getBlock(uint64 _blockId) external view returns (TaikoData.Block memory blk_) {
+        (TaikoData.BlockV2 memory blk,) = LibUtils.getBlock(state, getConfig(), _blockId);
+        blk_ = LibData.blockV2toV1(blk);
+    }
+
     /// @notice Gets the details of a block.
     /// @param _blockId Index of the block.
     /// @return blk_ The block.
