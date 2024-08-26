@@ -55,8 +55,10 @@ contract TaikoL2 is EssentialContract {
     event Anchored(bytes32 parentHash, uint64 parentGasExcess);
 
     error L2_BASEFEE_MISMATCH();
+    error L2_FORK_ERROR();
     error L2_INVALID_L1_CHAIN_ID();
     error L2_INVALID_L2_CHAIN_ID();
+    error L2_INVALID_PARAM();
     error L2_INVALID_SENDER();
     error L2_PUBLIC_INPUT_HASH_MISMATCH();
     error L2_TOO_LATE();

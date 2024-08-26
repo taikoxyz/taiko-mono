@@ -22,6 +22,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
 
     uint256[50] private __gap;
 
+    error L1_FORK_ERROR();
     error L1_INVALID_PARAMS();
 
     modifier whenProvingNotPaused() {
