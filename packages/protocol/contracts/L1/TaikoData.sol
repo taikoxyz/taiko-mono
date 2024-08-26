@@ -53,22 +53,22 @@ library TaikoData {
         uint64 ontakeForkHeight;
     }
 
-    /// @dev A proof and the tier of proof it belongs to.
     /// @dev DEPRECATED
+    /// @dev A proof and the tier of proof it belongs to.
     struct TierProof {
         uint16 tier;
         bytes data;
     }
 
-    /// @dev Hook and it's data (currently used only during proposeBlock)
     /// @dev DEPRECATED
+    /// @dev Hook and it's data (currently used only during proposeBlock)
     struct HookCall {
         address hook;
         bytes data;
     }
 
-    /// @dev Represents proposeBlock's _data input parameter
     /// @dev DEPRECATED
+    /// @dev Represents proposeBlock's _data input parameter
     struct BlockParams {
         address assignedProver; // DEPRECATED, value ignored.
         address coinbase;
@@ -88,11 +88,11 @@ library TaikoData {
         uint8 blobIndex; // NEW
     }
 
+    /// @dev DEPRECATED
     /// @dev Struct containing data only required for proving a block
     /// Note: On L2, `block.difficulty` is the pseudo name of
     /// `block.prevrandao`, which returns a random number provided by the layer
     /// 1 chain.
-    /// @dev DEPRECATED
     struct BlockMetadata {
         bytes32 l1Hash;
         bytes32 difficulty;
@@ -158,9 +158,9 @@ library TaikoData {
         uint8 __reserved1;
     }
 
+    /// @dev DEPRECATED
     /// @dev Struct containing data required for verifying a block.
     /// 3 slots used.
-    /// @dev DEPRECATED
     struct Block {
         bytes32 metaHash; // slot 1
         address assignedProver; // slot 2
@@ -196,10 +196,10 @@ library TaikoData {
         uint24 verifiedTransitionId;
     }
 
+    /// @dev DEPRECATED
     /// @dev Struct representing an Ethereum deposit.
     /// 2 slot used. Currently removed from protocol, but to be backwards compatible, the struct and
     /// return values stayed for now.
-    /// @dev DEPRECATED
     struct EthDeposit {
         address recipient;
         uint96 amount;
