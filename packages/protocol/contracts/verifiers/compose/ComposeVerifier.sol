@@ -43,7 +43,7 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
     )
         external
     {
-        if (!isAuthorized(msg.sender)) revert INVALID_CALLER();
+        if (!isCallerAuthorized(msg.sender)) revert INVALID_CALLER();
 
         (address[] memory verifiers, uint256 threshold) = getSubVerifiersAndThreshold();
         SubProof[] memory subproofs = abi.decode(_proof.data, (SubProof[]));
