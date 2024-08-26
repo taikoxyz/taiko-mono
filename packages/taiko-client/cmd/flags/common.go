@@ -28,6 +28,12 @@ var (
 		Category: commonCategory,
 		EnvVars:  []string{"L1_WS"},
 	}
+	L1PrivateTxEndpoint = &cli.StringFlag{
+		Name:     "l1.privateTx",
+		Usage:    "RPC endpoint of a L1 private tx ethereum node",
+		Category: commonCategory,
+		EnvVars:  []string{"L1_PRIVATE_TX"},
+	}
 	L2WSEndpoint = &cli.StringFlag{
 		Name:     "l2.ws",
 		Usage:    "Websocket RPC endpoint of a L2 taiko-geth execution engine",
@@ -167,6 +173,7 @@ var CommonFlags = []cli.Flag{
 	BackOffMaxRetries,
 	BackOffRetryInterval,
 	RPCTimeout,
+	L1PrivateTxEndpoint,
 }
 
 // MergeFlags merges the given flag slices.
