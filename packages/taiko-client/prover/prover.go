@@ -282,7 +282,7 @@ func (p *Prover) eventLoop() {
 
 	// Channels
 	chBufferSize := p.protocolConfig.BlockMaxProposals
-	blockProposedCh := make(chan *bindings.LibProposingBlockProposed, chBufferSize)
+	blockProposedCh := make(chan *bindings.TaikoL1ClientBlockProposed, chBufferSize)
 	blockVerifiedCh := make(chan *bindings.TaikoL1ClientBlockVerified, chBufferSize)
 	transitionProvedCh := make(chan *bindings.TaikoL1ClientTransitionProved, chBufferSize)
 	transitionContestedCh := make(chan *bindings.TaikoL1ClientTransitionContested, chBufferSize)
@@ -291,7 +291,7 @@ func (p *Prover) eventLoop() {
 	transitionProvedV2Ch := make(chan *bindings.TaikoL1ClientTransitionProvedV2, chBufferSize)
 	transitionContestedV2Ch := make(chan *bindings.TaikoL1ClientTransitionContestedV2, chBufferSize)
 	// Subscriptions
-	blockProposedSub := rpc.SubscribeBlockProposed(p.rpc.LibProposing, blockProposedCh)
+	blockProposedSub := rpc.SubscribeBlockProposed(p.rpc.TaikoL1, blockProposedCh)
 	blockVerifiedSub := rpc.SubscribeBlockVerified(p.rpc.TaikoL1, blockVerifiedCh)
 	transitionProvedSub := rpc.SubscribeTransitionProved(p.rpc.TaikoL1, transitionProvedCh)
 	transitionContestedSub := rpc.SubscribeTransitionContested(p.rpc.TaikoL1, transitionContestedCh)

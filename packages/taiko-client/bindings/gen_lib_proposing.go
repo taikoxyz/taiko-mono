@@ -31,7 +31,7 @@ var (
 
 // LibProposingMetaData contains all meta data concerning the LibProposing contract.
 var LibProposingMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"event\",\"name\":\"BlockProposed\",\"inputs\":[{\"name\":\"blockId\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"assignedProver\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"livenessBond\",\"type\":\"uint96\",\"indexed\":false,\"internalType\":\"uint96\"},{\"name\":\"meta\",\"type\":\"tuple\",\"indexed\":false,\"internalType\":\"structTaikoData.BlockMetadata\",\"components\":[{\"name\":\"l1Hash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"difficulty\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blobHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"extraData\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"depositsHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"coinbase\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"id\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"gasLimit\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"timestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"l1Height\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"minTier\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"blobUsed\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"parentMetaHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"sender\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"depositsProcessed\",\"type\":\"tuple[]\",\"indexed\":false,\"internalType\":\"structTaikoData.EthDeposit[]\",\"components\":[{\"name\":\"recipient\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint96\",\"internalType\":\"uint96\"},{\"name\":\"id\",\"type\":\"uint64\",\"internalType\":\"uint64\"}]}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BlockProposedV2\",\"inputs\":[{\"name\":\"blockId\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"meta\",\"type\":\"tuple\",\"indexed\":false,\"internalType\":\"structTaikoData.BlockMetadataV2\",\"components\":[{\"name\":\"anchorBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"difficulty\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blobHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"extraData\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"coinbase\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"id\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"gasLimit\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"timestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"anchorBlockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"minTier\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"blobUsed\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"parentMetaHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"livenessBond\",\"type\":\"uint96\",\"internalType\":\"uint96\"},{\"name\":\"proposedAt\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"proposedIn\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"blobTxListOffset\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"blobTxListLength\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"blobIndex\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"baseFeeConfig\",\"type\":\"tuple\",\"internalType\":\"structTaikoData.BaseFeeConfig\",\"components\":[{\"name\":\"adjustmentQuotient\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"sharingPctg\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"gasIssuancePerSecond\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"minGasExcess\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"maxGasIssuancePerBlock\",\"type\":\"uint32\",\"internalType\":\"uint32\"}]}]}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BondDebited\",\"inputs\":[{\"name\":\"user\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"CalldataTxList\",\"inputs\":[{\"name\":\"blockId\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"txList\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"ETH_TRANSFER_FAILED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L1_BLOB_NOT_AVAILABLE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L1_BLOB_NOT_FOUND\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L1_INVALID_ANCHOR_BLOCK\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L1_INVALID_PROPOSER\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L1_INVALID_TIMESTAMP\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L1_LIVENESS_BOND_NOT_RECEIVED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L1_TOO_MANY_BLOCKS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L1_UNEXPECTED_PARENT\",\"inputs\":[]}]",
+	ABI: "[{\"type\":\"event\",\"name\":\"BlockProposedV2\",\"inputs\":[{\"name\":\"_blockId\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"_meta\",\"type\":\"tuple\",\"indexed\":false,\"internalType\":\"structTaikoData.BlockMetadataV2\",\"components\":[{\"name\":\"anchorBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"difficulty\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"blobHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"extraData\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"coinbase\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"id\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"gasLimit\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"timestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"anchorBlockId\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"minTier\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"blobUsed\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"parentMetaHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"livenessBond\",\"type\":\"uint96\",\"internalType\":\"uint96\"},{\"name\":\"proposedAt\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"proposedIn\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"blobTxListOffset\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"blobTxListLength\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"blobIndex\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"baseFeeConfig\",\"type\":\"tuple\",\"internalType\":\"structTaikoData.BaseFeeConfig\",\"components\":[{\"name\":\"adjustmentQuotient\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"sharingPctg\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"gasIssuancePerSecond\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"minGasExcess\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"maxGasIssuancePerBlock\",\"type\":\"uint32\",\"internalType\":\"uint32\"}]}]}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BondDebited\",\"inputs\":[{\"name\":\"user\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"CalldataTxList\",\"inputs\":[{\"name\":\"_blockId\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"},{\"name\":\"_txList\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"ETH_TRANSFER_FAILED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L1_BLOB_NOT_AVAILABLE\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L1_BLOB_NOT_FOUND\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L1_INVALID_ANCHOR_BLOCK\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L1_INVALID_PROPOSER\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L1_INVALID_TIMESTAMP\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L1_LIVENESS_BOND_NOT_RECEIVED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L1_TOO_MANY_BLOCKS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"L1_UNEXPECTED_PARENT\",\"inputs\":[]}]",
 }
 
 // LibProposingABI is the input ABI used to generate the binding from.
@@ -180,162 +180,6 @@ func (_LibProposing *LibProposingTransactorRaw) Transact(opts *bind.TransactOpts
 	return _LibProposing.Contract.contract.Transact(opts, method, params...)
 }
 
-// LibProposingBlockProposedIterator is returned from FilterBlockProposed and is used to iterate over the raw logs and unpacked data for BlockProposed events raised by the LibProposing contract.
-type LibProposingBlockProposedIterator struct {
-	Event *LibProposingBlockProposed // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *LibProposingBlockProposedIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(LibProposingBlockProposed)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(LibProposingBlockProposed)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *LibProposingBlockProposedIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *LibProposingBlockProposedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// LibProposingBlockProposed represents a BlockProposed event raised by the LibProposing contract.
-type LibProposingBlockProposed struct {
-	BlockId           *big.Int
-	AssignedProver    common.Address
-	LivenessBond      *big.Int
-	Meta              TaikoDataBlockMetadata
-	DepositsProcessed []TaikoDataEthDeposit
-	Raw               types.Log // Blockchain specific contextual infos
-}
-
-// FilterBlockProposed is a free log retrieval operation binding the contract event 0xcda4e564245eb15494bc6da29f6a42e1941cf57f5314bf35bab8a1fca0a9c60a.
-//
-// Solidity: event BlockProposed(uint256 indexed blockId, address indexed assignedProver, uint96 livenessBond, (bytes32,bytes32,bytes32,bytes32,bytes32,address,uint64,uint32,uint64,uint64,uint16,bool,bytes32,address) meta, (address,uint96,uint64)[] depositsProcessed)
-func (_LibProposing *LibProposingFilterer) FilterBlockProposed(opts *bind.FilterOpts, blockId []*big.Int, assignedProver []common.Address) (*LibProposingBlockProposedIterator, error) {
-
-	var blockIdRule []interface{}
-	for _, blockIdItem := range blockId {
-		blockIdRule = append(blockIdRule, blockIdItem)
-	}
-	var assignedProverRule []interface{}
-	for _, assignedProverItem := range assignedProver {
-		assignedProverRule = append(assignedProverRule, assignedProverItem)
-	}
-
-	logs, sub, err := _LibProposing.contract.FilterLogs(opts, "BlockProposed", blockIdRule, assignedProverRule)
-	if err != nil {
-		return nil, err
-	}
-	return &LibProposingBlockProposedIterator{contract: _LibProposing.contract, event: "BlockProposed", logs: logs, sub: sub}, nil
-}
-
-// WatchBlockProposed is a free log subscription operation binding the contract event 0xcda4e564245eb15494bc6da29f6a42e1941cf57f5314bf35bab8a1fca0a9c60a.
-//
-// Solidity: event BlockProposed(uint256 indexed blockId, address indexed assignedProver, uint96 livenessBond, (bytes32,bytes32,bytes32,bytes32,bytes32,address,uint64,uint32,uint64,uint64,uint16,bool,bytes32,address) meta, (address,uint96,uint64)[] depositsProcessed)
-func (_LibProposing *LibProposingFilterer) WatchBlockProposed(opts *bind.WatchOpts, sink chan<- *LibProposingBlockProposed, blockId []*big.Int, assignedProver []common.Address) (event.Subscription, error) {
-
-	var blockIdRule []interface{}
-	for _, blockIdItem := range blockId {
-		blockIdRule = append(blockIdRule, blockIdItem)
-	}
-	var assignedProverRule []interface{}
-	for _, assignedProverItem := range assignedProver {
-		assignedProverRule = append(assignedProverRule, assignedProverItem)
-	}
-
-	logs, sub, err := _LibProposing.contract.WatchLogs(opts, "BlockProposed", blockIdRule, assignedProverRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(LibProposingBlockProposed)
-				if err := _LibProposing.contract.UnpackLog(event, "BlockProposed", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseBlockProposed is a log parse operation binding the contract event 0xcda4e564245eb15494bc6da29f6a42e1941cf57f5314bf35bab8a1fca0a9c60a.
-//
-// Solidity: event BlockProposed(uint256 indexed blockId, address indexed assignedProver, uint96 livenessBond, (bytes32,bytes32,bytes32,bytes32,bytes32,address,uint64,uint32,uint64,uint64,uint16,bool,bytes32,address) meta, (address,uint96,uint64)[] depositsProcessed)
-func (_LibProposing *LibProposingFilterer) ParseBlockProposed(log types.Log) (*LibProposingBlockProposed, error) {
-	event := new(LibProposingBlockProposed)
-	if err := _LibProposing.contract.UnpackLog(event, "BlockProposed", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
 // LibProposingBlockProposedV2Iterator is returned from FilterBlockProposedV2 and is used to iterate over the raw logs and unpacked data for BlockProposedV2 events raised by the LibProposing contract.
 type LibProposingBlockProposedV2Iterator struct {
 	Event *LibProposingBlockProposedV2 // Event containing the contract specifics and raw log
@@ -412,15 +256,15 @@ type LibProposingBlockProposedV2 struct {
 
 // FilterBlockProposedV2 is a free log retrieval operation binding the contract event 0xefe9c6c0b5cbd9c0eed2d1e9c00cfc1a010d6f1aff50f7facd665a639b622b26.
 //
-// Solidity: event BlockProposedV2(uint256 indexed blockId, (bytes32,bytes32,bytes32,bytes32,address,uint64,uint32,uint64,uint64,uint16,bool,bytes32,address,uint96,uint64,uint64,uint32,uint32,uint8,(uint8,uint8,uint32,uint64,uint32)) meta)
-func (_LibProposing *LibProposingFilterer) FilterBlockProposedV2(opts *bind.FilterOpts, blockId []*big.Int) (*LibProposingBlockProposedV2Iterator, error) {
+// Solidity: event BlockProposedV2(uint256 indexed _blockId, (bytes32,bytes32,bytes32,bytes32,address,uint64,uint32,uint64,uint64,uint16,bool,bytes32,address,uint96,uint64,uint64,uint32,uint32,uint8,(uint8,uint8,uint32,uint64,uint32)) _meta)
+func (_LibProposing *LibProposingFilterer) FilterBlockProposedV2(opts *bind.FilterOpts, _blockId []*big.Int) (*LibProposingBlockProposedV2Iterator, error) {
 
-	var blockIdRule []interface{}
-	for _, blockIdItem := range blockId {
-		blockIdRule = append(blockIdRule, blockIdItem)
+	var _blockIdRule []interface{}
+	for _, _blockIdItem := range _blockId {
+		_blockIdRule = append(_blockIdRule, _blockIdItem)
 	}
 
-	logs, sub, err := _LibProposing.contract.FilterLogs(opts, "BlockProposedV2", blockIdRule)
+	logs, sub, err := _LibProposing.contract.FilterLogs(opts, "BlockProposedV2", _blockIdRule)
 	if err != nil {
 		return nil, err
 	}
@@ -429,15 +273,15 @@ func (_LibProposing *LibProposingFilterer) FilterBlockProposedV2(opts *bind.Filt
 
 // WatchBlockProposedV2 is a free log subscription operation binding the contract event 0xefe9c6c0b5cbd9c0eed2d1e9c00cfc1a010d6f1aff50f7facd665a639b622b26.
 //
-// Solidity: event BlockProposedV2(uint256 indexed blockId, (bytes32,bytes32,bytes32,bytes32,address,uint64,uint32,uint64,uint64,uint16,bool,bytes32,address,uint96,uint64,uint64,uint32,uint32,uint8,(uint8,uint8,uint32,uint64,uint32)) meta)
-func (_LibProposing *LibProposingFilterer) WatchBlockProposedV2(opts *bind.WatchOpts, sink chan<- *LibProposingBlockProposedV2, blockId []*big.Int) (event.Subscription, error) {
+// Solidity: event BlockProposedV2(uint256 indexed _blockId, (bytes32,bytes32,bytes32,bytes32,address,uint64,uint32,uint64,uint64,uint16,bool,bytes32,address,uint96,uint64,uint64,uint32,uint32,uint8,(uint8,uint8,uint32,uint64,uint32)) _meta)
+func (_LibProposing *LibProposingFilterer) WatchBlockProposedV2(opts *bind.WatchOpts, sink chan<- *LibProposingBlockProposedV2, _blockId []*big.Int) (event.Subscription, error) {
 
-	var blockIdRule []interface{}
-	for _, blockIdItem := range blockId {
-		blockIdRule = append(blockIdRule, blockIdItem)
+	var _blockIdRule []interface{}
+	for _, _blockIdItem := range _blockId {
+		_blockIdRule = append(_blockIdRule, _blockIdItem)
 	}
 
-	logs, sub, err := _LibProposing.contract.WatchLogs(opts, "BlockProposedV2", blockIdRule)
+	logs, sub, err := _LibProposing.contract.WatchLogs(opts, "BlockProposedV2", _blockIdRule)
 	if err != nil {
 		return nil, err
 	}
@@ -471,7 +315,7 @@ func (_LibProposing *LibProposingFilterer) WatchBlockProposedV2(opts *bind.Watch
 
 // ParseBlockProposedV2 is a log parse operation binding the contract event 0xefe9c6c0b5cbd9c0eed2d1e9c00cfc1a010d6f1aff50f7facd665a639b622b26.
 //
-// Solidity: event BlockProposedV2(uint256 indexed blockId, (bytes32,bytes32,bytes32,bytes32,address,uint64,uint32,uint64,uint64,uint16,bool,bytes32,address,uint96,uint64,uint64,uint32,uint32,uint8,(uint8,uint8,uint32,uint64,uint32)) meta)
+// Solidity: event BlockProposedV2(uint256 indexed _blockId, (bytes32,bytes32,bytes32,bytes32,address,uint64,uint32,uint64,uint64,uint16,bool,bytes32,address,uint96,uint64,uint64,uint32,uint32,uint8,(uint8,uint8,uint32,uint64,uint32)) _meta)
 func (_LibProposing *LibProposingFilterer) ParseBlockProposedV2(log types.Log) (*LibProposingBlockProposedV2, error) {
 	event := new(LibProposingBlockProposedV2)
 	if err := _LibProposing.contract.UnpackLog(event, "BlockProposedV2", log); err != nil {
@@ -702,15 +546,15 @@ type LibProposingCalldataTxList struct {
 
 // FilterCalldataTxList is a free log retrieval operation binding the contract event 0xa07bc5e8f00f6065c8727821591c519efd2348e4ff0c26560a85592e85b6f418.
 //
-// Solidity: event CalldataTxList(uint256 indexed blockId, bytes txList)
-func (_LibProposing *LibProposingFilterer) FilterCalldataTxList(opts *bind.FilterOpts, blockId []*big.Int) (*LibProposingCalldataTxListIterator, error) {
+// Solidity: event CalldataTxList(uint256 indexed _blockId, bytes _txList)
+func (_LibProposing *LibProposingFilterer) FilterCalldataTxList(opts *bind.FilterOpts, _blockId []*big.Int) (*LibProposingCalldataTxListIterator, error) {
 
-	var blockIdRule []interface{}
-	for _, blockIdItem := range blockId {
-		blockIdRule = append(blockIdRule, blockIdItem)
+	var _blockIdRule []interface{}
+	for _, _blockIdItem := range _blockId {
+		_blockIdRule = append(_blockIdRule, _blockIdItem)
 	}
 
-	logs, sub, err := _LibProposing.contract.FilterLogs(opts, "CalldataTxList", blockIdRule)
+	logs, sub, err := _LibProposing.contract.FilterLogs(opts, "CalldataTxList", _blockIdRule)
 	if err != nil {
 		return nil, err
 	}
@@ -719,15 +563,15 @@ func (_LibProposing *LibProposingFilterer) FilterCalldataTxList(opts *bind.Filte
 
 // WatchCalldataTxList is a free log subscription operation binding the contract event 0xa07bc5e8f00f6065c8727821591c519efd2348e4ff0c26560a85592e85b6f418.
 //
-// Solidity: event CalldataTxList(uint256 indexed blockId, bytes txList)
-func (_LibProposing *LibProposingFilterer) WatchCalldataTxList(opts *bind.WatchOpts, sink chan<- *LibProposingCalldataTxList, blockId []*big.Int) (event.Subscription, error) {
+// Solidity: event CalldataTxList(uint256 indexed _blockId, bytes _txList)
+func (_LibProposing *LibProposingFilterer) WatchCalldataTxList(opts *bind.WatchOpts, sink chan<- *LibProposingCalldataTxList, _blockId []*big.Int) (event.Subscription, error) {
 
-	var blockIdRule []interface{}
-	for _, blockIdItem := range blockId {
-		blockIdRule = append(blockIdRule, blockIdItem)
+	var _blockIdRule []interface{}
+	for _, _blockIdItem := range _blockId {
+		_blockIdRule = append(_blockIdRule, _blockIdItem)
 	}
 
-	logs, sub, err := _LibProposing.contract.WatchLogs(opts, "CalldataTxList", blockIdRule)
+	logs, sub, err := _LibProposing.contract.WatchLogs(opts, "CalldataTxList", _blockIdRule)
 	if err != nil {
 		return nil, err
 	}
@@ -761,7 +605,7 @@ func (_LibProposing *LibProposingFilterer) WatchCalldataTxList(opts *bind.WatchO
 
 // ParseCalldataTxList is a log parse operation binding the contract event 0xa07bc5e8f00f6065c8727821591c519efd2348e4ff0c26560a85592e85b6f418.
 //
-// Solidity: event CalldataTxList(uint256 indexed blockId, bytes txList)
+// Solidity: event CalldataTxList(uint256 indexed _blockId, bytes _txList)
 func (_LibProposing *LibProposingFilterer) ParseCalldataTxList(log types.Log) (*LibProposingCalldataTxList, error) {
 	event := new(LibProposingCalldataTxList)
 	if err := _LibProposing.contract.UnpackLog(event, "CalldataTxList", log); err != nil {

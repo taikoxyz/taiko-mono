@@ -231,18 +231,18 @@ func (s *ProposerTestSuite) TestName() {
 
 func (s *ProposerTestSuite) TestProposeOp() {
 	// Propose txs in L2 execution engine's mempool
-	sink := make(chan *bindings.LibProposingBlockProposed)
+	sink := make(chan *bindings.TaikoL1ClientBlockProposed)
 
-	sub, err := s.p.rpc.LibProposing.WatchBlockProposed(nil, sink, nil, nil)
+	sub, err := s.p.rpc.TaikoL1.WatchBlockProposed(nil, sink, nil, nil)
 	s.Nil(err)
 	defer func() {
 		sub.Unsubscribe()
 		close(sink)
 	}()
 
-	sink2 := make(chan *bindings.LibProposingBlockProposedV2)
+	sink2 := make(chan *bindings.TaikoL1ClientBlockProposedV2)
 
-	sub2, err := s.p.rpc.LibProposing.WatchBlockProposedV2(nil, sink2, nil)
+	sub2, err := s.p.rpc.TaikoL1.WatchBlockProposedV2(nil, sink2, nil)
 	s.Nil(err)
 	defer func() {
 		sub2.Unsubscribe()

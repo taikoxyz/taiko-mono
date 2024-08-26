@@ -107,7 +107,7 @@ func (s *State) eventLoop(ctx context.Context) {
 		// Channels for subscriptions.
 		l1HeadCh             = make(chan *types.Header, 10)
 		l2HeadCh             = make(chan *types.Header, 10)
-		blockProposedCh      = make(chan *bindings.LibProposingBlockProposed, 10)
+		blockProposedCh      = make(chan *bindings.TaikoL1ClientBlockProposed, 10)
 		transitionProvedCh   = make(chan *bindings.TaikoL1ClientTransitionProved, 10)
 		blockVerifiedCh      = make(chan *bindings.TaikoL1ClientBlockVerified, 10)
 		blockProposedV2Ch    = make(chan *bindings.LibProposingBlockProposedV2, 10)
@@ -118,7 +118,7 @@ func (s *State) eventLoop(ctx context.Context) {
 		l1HeadSub               = rpc.SubscribeChainHead(s.rpc.L1, l1HeadCh)
 		l2HeadSub               = rpc.SubscribeChainHead(s.rpc.L2, l2HeadCh)
 		l2BlockVerifiedSub      = rpc.SubscribeBlockVerified(s.rpc.TaikoL1, blockVerifiedCh)
-		l2BlockProposedSub      = rpc.SubscribeBlockProposed(s.rpc.LibProposing, blockProposedCh)
+		l2BlockProposedSub      = rpc.SubscribeBlockProposed(s.rpc.TaikoL1, blockProposedCh)
 		l2TransitionProvedSub   = rpc.SubscribeTransitionProved(s.rpc.TaikoL1, transitionProvedCh)
 		l2BlockVerifiedV2Sub    = rpc.SubscribeBlockVerifiedV2(s.rpc.TaikoL1, blockVerifiedV2Ch)
 		l2BlockProposedV2Sub    = rpc.SubscribeBlockProposedV2(s.rpc.LibProposing, blockProposedV2Ch)
