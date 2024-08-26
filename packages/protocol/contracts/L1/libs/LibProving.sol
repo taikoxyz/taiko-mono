@@ -222,7 +222,7 @@ library LibProving {
 
         if (local.postFork) {
             if (_batchProof.tier == 0) {
-                // No batch proof is available, each transition is proving using a sepearet proof.
+                // No batch proof is available, each transition is proving using a separate proof.
                 (local.meta, ctx_.tran, local.proof) = abi.decode(
                     _input, (TaikoData.BlockMetadataV2, TaikoData.Transition, TaikoData.TierProof)
                 );
