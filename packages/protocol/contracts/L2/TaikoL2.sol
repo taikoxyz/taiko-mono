@@ -107,7 +107,7 @@ contract TaikoL2 is EssentialContract {
         (publicInputHash,) = _calcPublicInputHash(block.number);
     }
 
-    /// @dev DEPRECATED but used by node/client for old blocks
+    /// @dev DEPRECATED but used by node/client for syncing old blocks
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
     /// message verification.
     /// @dev This function can be called freely as the golden touch private key is publicly known,
@@ -253,7 +253,7 @@ contract TaikoL2 is EssentialContract {
         }
     }
 
-    /// @dev DEPRECATED but used by node/client for old blocks
+    /// @dev DEPRECATED but used by node/client for syncing old blocks
     /// @notice Gets the basefee and gas excess using EIP-1559 configuration for
     /// the given parameters.
     /// @dev This function will deprecate after Ontake fork, node/client shall use calculateBaseFee

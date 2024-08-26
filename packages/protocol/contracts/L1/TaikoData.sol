@@ -53,21 +53,21 @@ library TaikoData {
         uint64 ontakeForkHeight;
     }
 
-    /// @dev DEPRECATED but used by node/client for old blocks
+    /// @dev DEPRECATED but used by node/client for syncing old blocks
     /// @dev A proof and the tier of proof it belongs to.
     struct TierProof {
         uint16 tier;
         bytes data;
     }
 
-    /// @dev DEPRECATED but used by node/client for old blocks
+    /// @dev DEPRECATED but used by node/client for syncing old blocks
     /// @dev Hook and it's data (currently used only during proposeBlock)
     struct HookCall {
         address hook;
         bytes data;
     }
 
-    /// @dev DEPRECATED but used by node/client for old blocks
+    /// @dev DEPRECATED but used by node/client for syncing old blocks
     /// @dev Represents proposeBlock's _data input parameter
     struct BlockParams {
         address assignedProver; // DEPRECATED, value ignored.
@@ -88,7 +88,7 @@ library TaikoData {
         uint8 blobIndex; // NEW
     }
 
-    /// @dev DEPRECATED but used by node/client for old blocks
+    /// @dev DEPRECATED but used by node/client for syncing old blocks
     /// @dev Struct containing data only required for proving a block
     /// Note: On L2, `block.difficulty` is the pseudo name of
     /// `block.prevrandao`, which returns a random number provided by the layer
@@ -158,7 +158,7 @@ library TaikoData {
         uint8 __reserved1;
     }
 
-    /// @dev DEPRECATED but used by node/client for old blocks
+    /// @dev DEPRECATED but used by node/client for syncing old blocks
     /// @dev Struct containing data required for verifying a block.
     /// 3 slots used.
     struct Block {
@@ -196,7 +196,7 @@ library TaikoData {
         uint24 verifiedTransitionId;
     }
 
-    /// @dev DEPRECATED but used by node/client for old blocks
+    /// @dev DEPRECATED but used by node/client for syncing old blocks
     /// @dev Struct representing an Ethereum deposit.
     /// 2 slot used. Currently removed from protocol, but to be backwards compatible, the struct and
     /// return values stayed for now.
