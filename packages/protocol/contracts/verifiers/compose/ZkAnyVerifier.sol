@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "../../common/EssentialContract.sol";
 import "../../common/LibStrings.sol";
 import "./ComposeVerifier.sol";
 
@@ -9,7 +8,7 @@ import "./ComposeVerifier.sol";
 /// @notice This contract is a verifier for the Mainnet ZkVM that composes RiscZero and SP1
 /// Verifiers.
 /// @custom:security-contact security@taiko.xyz
-contract ZkAnyVerifier is EssentialContract, ComposeVerifier {
+contract ZkAnyVerifier is ComposeVerifier {
     /// @inheritdoc ComposeVerifier
     function getSubVerifiersAndThreshold()
         public

@@ -12,6 +12,8 @@ import "../IVerifier.sol";
 /// considering the overall proof as valid.
 /// @custom:security-contact security@taiko.xyz
 abstract contract ComposeVerifier is EssentialContract, IVerifier {
+    uint256[50] private __gap;
+
     struct SubProof {
         address verifier;
         bytes proof;

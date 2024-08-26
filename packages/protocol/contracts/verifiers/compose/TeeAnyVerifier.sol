@@ -8,7 +8,7 @@ import "./ComposeVerifier.sol";
 /// @notice This contract is a verifier for the Mainnet TEE proofs that composes SGX and TDX
 /// Verifiers.
 /// @custom:security-contact security@taiko.xyz
-contract TeeAnyVerifier is EssentialContract, ComposeVerifier {
+contract TeeAnyVerifier is ComposeVerifier {
     /// @inheritdoc ComposeVerifier
     function getSubVerifiersAndThreshold()
         public
