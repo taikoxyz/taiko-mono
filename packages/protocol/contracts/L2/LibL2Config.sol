@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
+/// @dev DEPRECATED
 /// @title LibL2Config
 library LibL2Config {
     struct Config {
