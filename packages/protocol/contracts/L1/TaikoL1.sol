@@ -138,21 +138,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     }
 
     /// @inheritdoc ITaikoL1
-    function proveBlockV2(
-        uint64 _blockId,
-        bytes calldata _input
-    )
-        external
-        whenNotPaused
-        whenProvingNotPaused
-        nonReentrant
-        emitEventForClient
-    {
-        LibProving.proveBlock(state, getConfig(), this, _blockId, _input);
-    }
-
-    /// @inheritdoc ITaikoL1
-    function proveBlocksV2(
+    function proveBlocks(
         uint64[] calldata _blockIds,
         bytes[] calldata _inputs,
         bytes calldata _batchProof
