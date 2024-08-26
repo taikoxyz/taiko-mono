@@ -194,7 +194,7 @@ library LibVerifying {
         view
         returns (address)
     {
-        (TaikoData.BlockV2 storage blk,) = LibUtils.getBlockV2(_state, _config, _blockId);
+        (TaikoData.BlockV2 storage blk,) = LibUtils.getBlock(_state, _config, _blockId);
 
         uint24 tid = blk.verifiedTransitionId;
         if (tid == 0) return address(0);

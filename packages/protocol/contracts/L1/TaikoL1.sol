@@ -194,7 +194,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     /// @param _blockId Index of the block.
     /// @return blk_ The block.
     function getBlock(uint64 _blockId) external view returns (TaikoData.Block memory blk_) {
-        (TaikoData.BlockV2 memory blk,) = LibUtils.getBlockV2(state, getConfig(), _blockId);
+        (TaikoData.BlockV2 memory blk,) = LibUtils.getBlock(state, getConfig(), _blockId);
         blk_ = LibData.blockV2toV1(blk);
     }
 
@@ -202,7 +202,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     /// @param _blockId Index of the block.
     /// @return blk_ The block.
     function getBlockV2(uint64 _blockId) external view returns (TaikoData.BlockV2 memory blk_) {
-        (blk_,) = LibUtils.getBlockV2(state, getConfig(), _blockId);
+        (blk_,) = LibUtils.getBlock(state, getConfig(), _blockId);
     }
 
     /// @notice Gets the state transition for a specific block.
