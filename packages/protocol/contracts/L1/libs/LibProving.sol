@@ -109,7 +109,6 @@ library LibProving {
     error L1_INVALID_PAUSE_STATUS();
     error L1_INVALID_TIER();
     error L1_INVALID_TRANSITION();
-    error L1_INVALID_VERIFIER();
     error L1_NOT_ASSIGNED_PROVER();
     error L1_PROVING_PAUSED();
 
@@ -157,7 +156,8 @@ library LibProving {
         }
 
         IVerifier.ContextV2[] memory ctxs = new IVerifier.ContextV2[](_blockIds.length);
-        bytes32 verifierName;
+        bytes32 batchVerifierName;
+        bool batchVerifierNameSet;
 
         // This loop iterates over each block ID in the _blockIds array.
         // For each block ID, it calls the _proveBlock function to get the context and verifier.
@@ -168,18 +168,20 @@ library LibProving {
 
             // Verify that if batchProof is used, the verifier is the same for all blocks.
             if (batchProof.tier != 0) {
-                if (verifierName == 0) {
-                    verifierName = _verifierName;
-                } else if (verifierName != _verifierName) {
+                if (!batchVerifierNameSet) {
+                    batchVerifierNameSet = true;
+                    batchVerifierName = _verifierName;
+                } else if (batchVerifierName != _verifierName) {
                     revert L1_DIFF_VERIFIER();
                 }
             }
         }
 
-        // If batchProof is used, verify the batch proof.
-        if (batchProof.tier != 0) {
-            if (verifierName == 0) revert L1_INVALID_VERIFIER();
-            IVerifier(_resolver.resolve(verifierName, false)).verifyBatchProof(ctxs, batchProof);
+        // If batch verifier name is not empty, verify the batch proof.
+        if (batchVerifierName != "") {
+            IVerifier(_resolver.resolve(batchVerifierName, false)).verifyBatchProof(
+                ctxs, batchProof
+            );
         }
     }
 
