@@ -1,10 +1,11 @@
 module github.com/taikoxyz/taiko-mono
 
 go 1.21
+toolchain go1.22.5
 
 require (
 	github.com/btcsuite/btcd/btcec/v2 v2.3.3
-	github.com/buildkite/terminal-to-html/v3 v3.8.0
+	github.com/buildkite/terminal-to-html/v3 v3.14.0
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/cyberhorsey/errors v0.0.0-20220929234051-087d6d8bb841
