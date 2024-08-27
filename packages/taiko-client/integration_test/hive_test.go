@@ -46,6 +46,9 @@ func TestHiveHandler(t *testing.T) {
 	t.Run(fmt.Sprintf("taiko-deneb-testnet/test-deneb-genesis/clusters(%d)", len(clientGroups)), func(t *testing.T) {
 		testDenebGenesis(t, clientGroups)
 	})
+	t.Run(fmt.Sprintf("taiko-deneb-reorg/test-deneb-reorg/clusters(%d)", len(clientGroups)), func(t *testing.T) {
+		testDenebReorg(t, clientGroups)
+	})
 }
 
 func testDenebGenesis(t *testing.T, clientGroups [][]string) {
