@@ -71,7 +71,11 @@ func (b *BlobTransactionBuilder) Build(
 		err            error
 	)
 	if includeParentMetaHash {
-		if parentMetaHash, err = getParentMetaHash(ctx, b.rpc, b.chainConfig.OnTakeBlock); err != nil {
+		if parentMetaHash, err = getParentMetaHash(
+			ctx,
+			b.rpc,
+			new(big.Int).SetUint64(b.chainConfig.ProtocolConfigs.OntakeForkHeight),
+		); err != nil {
 			return nil, err
 		}
 	}

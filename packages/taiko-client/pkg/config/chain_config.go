@@ -5,19 +5,21 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 )
 
 // ChainConfig is the core config which determines the blockchain settings.
 type ChainConfig struct {
-	ChainID     *big.Int `json:"chainId"`     // ChainId identifies the current chain
-	OnTakeBlock *big.Int `json:"onTakeBlock"` // Ontake switch block (nil = no fork, 0 = already on ontake)
+	// Ontake switch block (nil = no fork, 0 = already on ontake)
+	ProtocolConfigs *bindings.TaikoDataConfig `json:"protocolConfigs"`
 }
 
 // NewChainConfig creates a new ChainConfig instance.
-func NewChainConfig(chainID *big.Int, onTakeBlock *big.Int) *ChainConfig {
-	cfg := &ChainConfig{chainID, onTakeBlock}
+func NewChainConfig(protocolConfigs *bindings.TaikoDataConfig) *ChainConfig {
+	cfg := &ChainConfig{protocolConfigs}
 
 	log.Info("")
 	log.Info(strings.Repeat("-", 153))
@@ -31,10 +33,10 @@ func NewChainConfig(chainID *big.Int, onTakeBlock *big.Int) *ChainConfig {
 }
 
 // NetworkNames are user friendly names to use in the chain spec banner.
-var NetworkNames = map[string]string{
-	params.TaikoMainnetNetworkID.String():     "Taiko Mainnet",
-	params.HeklaNetworkID.String():            "Taiko Hekla Testnet",
-	params.TaikoInternalL2ANetworkID.String(): "Taiko Internal Devnet",
+var NetworkNames = map[uint64]string{
+	params.TaikoMainnetNetworkID.Uint64():     "Taiko Mainnet",
+	params.HeklaNetworkID.Uint64():            "Taiko Hekla Testnet",
+	params.TaikoInternalL2ANetworkID.Uint64(): "Taiko Internal Devnet",
 }
 
 // Description returns a human-readable description of ChainConfig.
@@ -42,15 +44,15 @@ func (c *ChainConfig) Description() string {
 	var banner string
 
 	// Create some basic network config output
-	network := NetworkNames[c.ChainID.String()]
+	network := NetworkNames[c.ProtocolConfigs.ChainId]
 	if network == "" {
 		network = "unknown"
 	}
-	banner += fmt.Sprintf("Chain ID:  %v (%s)\n", c.ChainID, network)
+	banner += fmt.Sprintf("Chain ID:  %v (%s)\n", c.ProtocolConfigs.ChainId, network)
 
 	// Create a list of forks with a short description of them.
 	banner += "Hard forks (block based):\n"
-	banner += fmt.Sprintf(" - Ontake:                   #%-8v\n", c.OnTakeBlock)
+	banner += fmt.Sprintf(" - Ontake:                   #%-8v\n", c.ProtocolConfigs.OntakeForkHeight)
 	banner += "\n"
 
 	return banner
@@ -58,7 +60,7 @@ func (c *ChainConfig) Description() string {
 
 // IsOntake returns whether num is either equal to the ontake block or greater.
 func (c *ChainConfig) IsOntake(num *big.Int) bool {
-	return isBlockForked(c.OnTakeBlock, num)
+	return isBlockForked(new(big.Int).SetUint64(c.ProtocolConfigs.OntakeForkHeight), num)
 }
 
 // isBlockForked returns whether a fork scheduled at block s is active at the
