@@ -51,6 +51,17 @@ contract MockVerifier is IVerifier {
             revert("MockVerifier: Verification failed");
         }
     }
+
+    function verifyBatchProof(
+        ContextV2[] calldata,
+        TaikoData.TierProof calldata
+    )
+        external
+        pure
+        override
+    {
+        revert("NOT_IMPLEMENTED");
+    }
 }
 
 contract ComposeVerifierTest is TaikoTest {

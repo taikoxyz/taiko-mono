@@ -23,6 +23,7 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
     error CV_INVALID_CALLER();
     error CV_INVALID_SUBPROOF_LENGTH();
     error CV_SUB_VERIFIER_NOT_FOUND();
+    error CV_SUB_VERIFIER_CALL_FAILED();
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
@@ -39,6 +40,7 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
     )
         external
         onlyFromNamed(LibStrings.B_TAIKO)
+        nonReentrant
     {
         (address[] memory verifiers, uint256 numSubProofs_) = getSubVerifiersAndThreshold();
 
@@ -72,7 +74,32 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
     )
         external
         onlyFromNamed(LibStrings.B_TAIKO)
-    { }
+        nonReentrant
+    {
+        (address[] memory verifiers, uint256 numSubProofs_) = getSubVerifiersAndThreshold();
+
+        SubProof[] memory subProofs = abi.decode(_proof.data, (SubProof[]));
+        if (subProofs.length != numSubProofs_) revert CV_INVALID_SUBPROOF_LENGTH();
+
+        for (uint256 i; i < subProofs.length; ++i) {
+            if (subProofs[i].verifier == address(0)) revert CV_DUPLICATE_SUBPROOF();
+
+            // find the verifier
+            bool verifierFound;
+            for (uint256 j; j < verifiers.length; ++j) {
+                if (verifiers[j] == subProofs[i].verifier) {
+                    verifierFound = true;
+                    verifiers[j] = address(0);
+                }
+            }
+
+            if (!verifierFound) revert CV_SUB_VERIFIER_NOT_FOUND();
+
+            IVerifier(subProofs[i].verifier).verifyBatchProof(
+                _ctxs, TaikoData.TierProof(_proof.tier, subProofs[i].proof)
+            );
+        }
+    }
 
     /// @notice Returns the list of sub-verifiers and calculates the threshold.
     /// @return verifiers_ An array of addresses of sub-verifiers.
