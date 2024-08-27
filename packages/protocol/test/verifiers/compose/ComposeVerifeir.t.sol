@@ -25,8 +25,9 @@ contract ComposeVerifierForTest is ComposeVerifier {
         verifiers.push(_verifier);
     }
 
-    function isCallerAuthorized(address) internal view override returns (bool) {
-        return true;
+    function _getAddress(uint64, bytes32 _name) internal view override returns (address) {
+        if (_name == LibStrings.B_TAIKO) return msg.sender;
+        else return address(0);
     }
 }
 

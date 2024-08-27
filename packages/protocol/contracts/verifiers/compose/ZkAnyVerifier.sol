@@ -14,11 +14,11 @@ contract ZkAnyVerifier is ComposeVerifier {
         public
         view
         override
-        returns (address[] memory verifiers_, uint256 threshold_)
+        returns (address[] memory verifiers_, uint256 numSubProofs_)
     {
         verifiers_ = new address[](2);
         verifiers_[0] = resolve(LibStrings.B_TIER_ZKVM_RISC0, false);
         verifiers_[1] = resolve(LibStrings.B_TIER_ZKVM_SP1, false);
-        threshold_ = 1;
+        numSubProofs_ = 1;
     }
 }

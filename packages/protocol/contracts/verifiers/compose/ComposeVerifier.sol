@@ -41,21 +41,20 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
         TaikoData.TierProof calldata _proof
     )
         external
+        onlyFromNamed(LibStrings.B_TAIKO)
     {
-        if (!isCallerAuthorized(msg.sender)) revert INVALID_CALLER();
+        (address[] memory verifiers, uint256 numSubProofs_) = getSubVerifiersAndThreshold();
 
-        (address[] memory verifiers, uint256 threshold) = getSubVerifiersAndThreshold();
+        SubProof[] memory subProofs = abi.decode(_proof.data, (SubProof[]));
+        if (subProofs.length != numSubProofs_) revert INVALID_SUBPROOF_LENGTH();
 
-        SubProof[] memory subproofs = abi.decode(_proof.data, (SubProof[]));
-        if (subproofs.length != threshold) revert INVALID_SUBPROOF_LENGTH();
-
-        for (uint256 i; i < subproofs.length; ++i) {
-            if (subproofs[i].verifier == address(0)) revert DUPLICATE_SUBPROOF();
+        for (uint256 i; i < subProofs.length; ++i) {
+            if (subProofs[i].verifier == address(0)) revert DUPLICATE_SUBPROOF();
 
             // find the verifier
             bool verifierFound;
             for (uint256 j; j < verifiers.length; ++j) {
-                if (verifiers[j] == subproofs[i].verifier) {
+                if (verifiers[j] == subProofs[i].verifier) {
                     verifierFound = true;
                     verifiers[j] = address(0);
                 }
@@ -63,25 +62,18 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
 
             if (!verifierFound) revert SUB_VERIFIER_NOT_FOUND();
 
-            IVerifier(subproofs[i].verifier).verifyProof(
-                _ctx, _tran, TaikoData.TierProof(_proof.tier, subproofs[i].proof)
+            IVerifier(subProofs[i].verifier).verifyProof(
+                _ctx, _tran, TaikoData.TierProof(_proof.tier, subProofs[i].proof)
             );
         }
     }
 
     /// @notice Returns the list of sub-verifiers and calculates the threshold.
     /// @return verifiers_ An array of addresses of sub-verifiers.
-    /// @return threshold_ The threshold number of successful verifications required.
+    /// @return numSubProofs_ The number of sub proofs required.
     function getSubVerifiersAndThreshold()
         public
         view
         virtual
-        returns (address[] memory verifiers_, uint256 threshold_);
-
-    /// @notice Checks if the given address is authorized for calling the verifyProof function.
-    /// @param _address The address to check.
-    /// @return A boolean indicating whether the address is authorized.
-    function isCallerAuthorized(address _address) internal view virtual returns (bool) {
-        return _address == resolve(LibStrings.B_TAIKO, false);
-    }
+        returns (address[] memory verifiers_, uint256 numSubProofs_);
 }
