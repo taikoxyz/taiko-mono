@@ -25,6 +25,9 @@ contracts=(
     "QuotaManager"
     "ProverSet"
     "TokenUnlock"
+    "ComposeVerifier"
+    "TeeAnyVerifier"
+    "ZkAnyVerifier"
     # Hekla contracts
     "HeklaTaikoL1"
     # Mainnet contracts

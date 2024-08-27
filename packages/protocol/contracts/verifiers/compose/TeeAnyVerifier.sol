@@ -9,6 +9,8 @@ import "./ComposeVerifier.sol";
 /// Verifiers.
 /// @custom:security-contact security@taiko.xyz
 contract TeeAnyVerifier is ComposeVerifier {
+    uint256[50] private __gap;
+
     /// @inheritdoc ComposeVerifier
     function getSubVerifiersAndThreshold()
         public
