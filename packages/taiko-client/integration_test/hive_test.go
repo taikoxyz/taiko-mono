@@ -2,6 +2,7 @@ package integration_test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 
@@ -33,16 +34,16 @@ func TestHiveHandler(t *testing.T) {
 		},
 	}
 
-	// Single node test.
-	t.Run("taiko-deneb-testnet/test-deneb-genesis", func(t *testing.T) {
+	// Single cluster test.
+	t.Run("taiko-deneb-testnet/test-deneb-genesis/clusters(1)", func(t *testing.T) {
 		testDenebGenesis(t, [][]string{clientGroups[0]})
 	})
-	t.Run("taiko-deneb-reorg/test-deneb-reorg", func(t *testing.T) {
+	t.Run("taiko-deneb-reorg/test-deneb-reorg/clusters(1)", func(t *testing.T) {
 		testDenebReorg(t, [][]string{clientGroups[0]})
 	})
 
-	// Multi nodes test.
-	t.Run("taiko-deneb-testnet/test-deneb-genesis", func(t *testing.T) {
+	// Multi clusters test.
+	t.Run(fmt.Sprintf("taiko-deneb-testnet/test-deneb-genesis/clusters(%d)", len(clientGroups)), func(t *testing.T) {
 		testDenebGenesis(t, clientGroups)
 	})
 }
