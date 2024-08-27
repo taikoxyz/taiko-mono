@@ -42,6 +42,7 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
     )
         external
         onlyFromNamed(LibStrings.B_TAIKO)
+        nonReentrant
     {
         (address[] memory verifiers, uint256 numSubProofs_) = getSubVerifiersAndThreshold();
 
