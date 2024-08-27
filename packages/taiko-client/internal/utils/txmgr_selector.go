@@ -46,13 +46,8 @@ func (s *TxMgrSelector) Select() (*txmgr.SimpleTxManager, bool) {
 		return s.txMgr, false
 	}
 
-	// If the private transaction manager has not failed, return it.
-	if s.privateTxMgrFailedAt == nil {
-		return s.privateTxMgr, true
-	}
-
 	// If the private transaction manager has failed, check if it is time to retry.
-	if time.Now().After(s.privateTxMgrFailedAt.Add(s.privateTxMgrRetryInterval)) {
+	if s.privateTxMgrFailedAt == nil || time.Now().After(s.privateTxMgrFailedAt.Add(s.privateTxMgrRetryInterval)) {
 		return s.privateTxMgr, true
 	}
 
