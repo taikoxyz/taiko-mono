@@ -78,33 +78,38 @@ func (s *Sender) Send(
 	}
 
 	// Send the transaction.
+	var (
+		next    = true
+		receipt *types.Receipt
+	)
 	if s.privateTxmgr != nil {
-		receipt, err := s.privateTxmgr.Send(ctx, *txCandidate)
+		receipt, err = s.privateTxmgr.Send(ctx, *txCandidate)
 		if err != nil || receipt.Status != types.ReceiptStatusSuccessful {
 			log.Warn("Failed to send transaction by private tx manager in sender",
 				"error", encoding.TryParsingCustomError(err),
 			)
 		} else {
-			return nil
+			next = false
 		}
 	}
-	receipt, err := s.txmgr.Send(ctx, *txCandidate)
-	if err != nil {
-		return encoding.TryParsingCustomError(err)
-	}
+	if next {
+		receipt, err = s.txmgr.Send(ctx, *txCandidate)
+		if err != nil {
+			return encoding.TryParsingCustomError(err)
+		}
 
-	if receipt.Status != types.ReceiptStatusSuccessful {
-		log.Error(
-			"Failed to submit proof",
-			"blockID", proofWithHeader.BlockID,
-			"tier", proofWithHeader.Tier,
-			"txHash", receipt.TxHash,
-			"error", encoding.TryParsingCustomErrorFromReceipt(ctx, s.rpc.L1, s.txmgr.From(), receipt),
-		)
-		metrics.ProverSubmissionRevertedCounter.Add(1)
-		return ErrUnretryableSubmission
+		if receipt.Status != types.ReceiptStatusSuccessful {
+			log.Error(
+				"Failed to submit proof",
+				"blockID", proofWithHeader.BlockID,
+				"tier", proofWithHeader.Tier,
+				"txHash", receipt.TxHash,
+				"error", encoding.TryParsingCustomErrorFromReceipt(ctx, s.rpc.L1, s.txmgr.From(), receipt),
+			)
+			metrics.ProverSubmissionRevertedCounter.Add(1)
+			return ErrUnretryableSubmission
+		}
 	}
-
 	log.Info(
 		"💰 Your block proof was accepted",
 		"blockID", proofWithHeader.BlockID,
