@@ -14,24 +14,47 @@ func TestHiveHandler(t *testing.T) {
 	if baseDir == "" {
 		t.SkipNow()
 	}
-	t.Run("taiko-deneb-testnet/test-deneb-genesis", testDenebGenesis)
-	t.Run("taiko-deneb-reorg/test-deneb-reorg", testDenebReorg)
-}
 
-func testDenebGenesis(t *testing.T) {
-	handler, err := hivesim.NewHiveFramework(&hivesim.HiveConfig{
-		BuildOutput:     false,
-		ContainerOutput: true,
-		BaseDir:         os.Getenv("HIVE_DIR"),
-		SimPattern:      "taiko",
-		SimTestPattern:  "taiko-deneb-testnet/test-deneb-genesis",
-		Clients: []string{
+	clientGroups := [][]string{
+		{
 			"taiko/anvil",
 			"taiko/taiko-geth",
 			"taiko/driver",
 			"taiko/proposer",
 			"taiko/prover",
 		},
+		{
+			"taiko/taiko-geth",
+			"taiko/driver",
+		},
+		{
+			"taiko/taiko-geth",
+			"taiko/driver",
+		},
+	}
+
+	// Single node test.
+	t.Run("taiko-deneb-testnet/test-deneb-genesis", func(t *testing.T) {
+		testDenebGenesis(t, [][]string{clientGroups[0]})
+	})
+	t.Run("taiko-deneb-reorg/test-deneb-reorg", func(t *testing.T) {
+		testDenebReorg(t, [][]string{clientGroups[0]})
+	})
+
+	// Multi nodes test.
+	t.Run("taiko-deneb-testnet/test-deneb-genesis", func(t *testing.T) {
+		testDenebGenesis(t, clientGroups)
+	})
+}
+
+func testDenebGenesis(t *testing.T, clientGroups [][]string) {
+	handler, err := hivesim.NewHiveFramework(&hivesim.HiveConfig{
+		BuildOutput:     false,
+		ContainerOutput: true,
+		BaseDir:         os.Getenv("HIVE_DIR"),
+		SimPattern:      "taiko",
+		SimTestPattern:  "taiko-deneb-testnet/test-deneb-genesis",
+		ClientGroups:    clientGroups,
 	})
 	assert.NoError(t, err)
 
@@ -40,20 +63,14 @@ func testDenebGenesis(t *testing.T) {
 	assert.Equal(t, 0, failedCount)
 }
 
-func testDenebReorg(t *testing.T) {
+func testDenebReorg(t *testing.T, clientGroups [][]string) {
 	handler, err := hivesim.NewHiveFramework(&hivesim.HiveConfig{
 		BuildOutput:     false,
 		ContainerOutput: true,
 		BaseDir:         os.Getenv("HIVE_DIR"),
 		SimPattern:      "taiko",
 		SimTestPattern:  "taiko-deneb-reorg/test-deneb-reorg",
-		Clients: []string{
-			"taiko/anvil",
-			"taiko/taiko-geth",
-			"taiko/driver",
-			"taiko/proposer",
-			"taiko/prover",
-		},
+		ClientGroups:    clientGroups,
 	})
 	assert.NoError(t, err)
 
