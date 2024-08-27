@@ -40,24 +40,24 @@ func NewTxMgrSelector(
 }
 
 // Select selects a transaction manager based on the current state.
-func (s *TxMgrSelector) Select() *txmgr.SimpleTxManager {
+func (s *TxMgrSelector) Select() (*txmgr.SimpleTxManager, bool) {
 	// If there is no private transaction manager, return the normal transaction manager.
 	if s.privateTxMgr == nil {
-		return s.txMgr
+		return s.txMgr, false
 	}
 
 	// If the private transaction manager has not failed, return it.
 	if s.privateTxMgrFailedAt == nil {
-		return s.privateTxMgr
+		return s.privateTxMgr, true
 	}
 
 	// If the private transaction manager has failed, check if it is time to retry.
 	if time.Now().After(s.privateTxMgrFailedAt.Add(s.privateTxMgrRetryInterval)) {
-		return s.privateTxMgr
+		return s.privateTxMgr, true
 	}
 
 	// Otherwise, return the normal transaction manager.
-	return s.txMgr
+	return s.txMgr, false
 }
 
 // RecordPrivateTxMgrFailed records the time when the private transaction manager has failed.

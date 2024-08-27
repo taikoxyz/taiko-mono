@@ -392,13 +392,17 @@ func (p *Proposer) updateProposingTicker() {
 
 // sendTx is the internal function to send a transaction with a selected tx manager.
 func (p *Proposer) sendTx(ctx context.Context, txCandidate *txmgr.TxCandidate) error {
-	receipt, err := p.txmgrSelector.Select().Send(ctx, *txCandidate)
+	txMgr, isPrivate := p.txmgrSelector.Select()
+	receipt, err := txMgr.Send(ctx, *txCandidate)
 	if err != nil {
 		log.Warn(
 			"Failed to send TaikoL1.proposeBlock / TaikoL1.proposeBlockV2 transaction by tx manager",
+			"isPrivateMempool", isPrivate,
 			"error", encoding.TryParsingCustomError(err),
 		)
-		p.txmgrSelector.RecordPrivateTxMgrFailed()
+		if isPrivate {
+			p.txmgrSelector.RecordPrivateTxMgrFailed()
+		}
 		return err
 	}
 

@@ -77,9 +77,12 @@ func (s *Sender) Send(
 	}
 
 	// Send the transaction.
-	receipt, err := s.txmgrSelector.Select().Send(ctx, *txCandidate)
+	txMgr, isPrivate := s.txmgrSelector.Select()
+	receipt, err := txMgr.Send(ctx, *txCandidate)
 	if err != nil {
-		s.txmgrSelector.RecordPrivateTxMgrFailed()
+		if isPrivate {
+			s.txmgrSelector.RecordPrivateTxMgrFailed()
+		}
 		return encoding.TryParsingCustomError(err)
 	}
 
@@ -89,7 +92,8 @@ func (s *Sender) Send(
 			"blockID", proofWithHeader.BlockID,
 			"tier", proofWithHeader.Tier,
 			"txHash", receipt.TxHash,
-			"error", encoding.TryParsingCustomErrorFromReceipt(ctx, s.rpc.L1, s.txmgrSelector.Select().From(), receipt),
+			"isPrivateMempool", isPrivate,
+			"error", encoding.TryParsingCustomErrorFromReceipt(ctx, s.rpc.L1, txMgr.From(), receipt),
 		)
 		metrics.ProverSubmissionRevertedCounter.Add(1)
 		return ErrUnretryableSubmission

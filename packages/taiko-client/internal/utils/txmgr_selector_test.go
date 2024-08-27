@@ -17,7 +17,9 @@ func TestNewTxMgrSelector(t *testing.T) {
 }
 
 func TestSelect(t *testing.T) {
-	require.NotNil(t, testSelector.Select())
+	txMgr, isPrivate := testSelector.Select()
+	require.NotNil(t, txMgr)
+	require.False(t, isPrivate)
 }
 
 func TestRecordPrivateTxMgrFailed(t *testing.T) {
