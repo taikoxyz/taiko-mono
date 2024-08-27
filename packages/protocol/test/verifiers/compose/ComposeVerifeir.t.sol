@@ -76,7 +76,7 @@ contract ComposeVerifierTest is TaikoTest {
 
         composeVerifier.setThreshold(1);
 
-        vm.expectRevert(ComposeVerifier.INVALID_SUBPROOF_LENGTH.selector);
+        vm.expectRevert(ComposeVerifier.CV_INVALID_SUBPROOF_LENGTH.selector);
         composeVerifier.verifyProof(ctx, tran, proof);
     }
 

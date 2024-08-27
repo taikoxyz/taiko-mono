@@ -19,10 +19,10 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
         bytes proof;
     }
 
-    error DUPLICATE_SUBPROOF();
-    error INVALID_CALLER();
-    error INVALID_SUBPROOF_LENGTH();
-    error SUB_VERIFIER_NOT_FOUND();
+    error CV_DUPLICATE_SUBPROOF();
+    error CV_INVALID_CALLER();
+    error CV_INVALID_SUBPROOF_LENGTH();
+    error CV_SUB_VERIFIER_NOT_FOUND();
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
@@ -46,10 +46,10 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
         (address[] memory verifiers, uint256 numSubProofs_) = getSubVerifiersAndThreshold();
 
         SubProof[] memory subProofs = abi.decode(_proof.data, (SubProof[]));
-        if (subProofs.length != numSubProofs_) revert INVALID_SUBPROOF_LENGTH();
+        if (subProofs.length != numSubProofs_) revert CV_INVALID_SUBPROOF_LENGTH();
 
         for (uint256 i; i < subProofs.length; ++i) {
-            if (subProofs[i].verifier == address(0)) revert DUPLICATE_SUBPROOF();
+            if (subProofs[i].verifier == address(0)) revert CV_DUPLICATE_SUBPROOF();
 
             // find the verifier
             bool verifierFound;
@@ -60,7 +60,7 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
                 }
             }
 
-            if (!verifierFound) revert SUB_VERIFIER_NOT_FOUND();
+            if (!verifierFound) revert CV_SUB_VERIFIER_NOT_FOUND();
 
             IVerifier(subProofs[i].verifier).verifyProof(
                 _ctx, _tran, TaikoData.TierProof(_proof.tier, subProofs[i].proof)
