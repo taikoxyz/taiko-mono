@@ -167,4 +167,29 @@ contract ComposeVerifierTest is TaikoTest {
         vm.expectRevert("MockVerifier: Verification failed");
         composeVerifier.verifyProof(ctx, tran, proof);
     }
+
+    function test_composeVerifeir_subproof_verifier_not_found() public {
+        ComposeVerifierForTest composeVerifier = new ComposeVerifierForTest();
+        address verifier1 = address(new MockVerifier(true));
+        address verifier2 = address(new MockVerifier(true));
+        address verifier3 = address(new MockVerifier(true));
+
+        composeVerifier.addSubVerifier(verifier1);
+        composeVerifier.addSubVerifier(verifier2);
+        composeVerifier.addSubVerifier(verifier3);
+
+        ComposeVerifier.SubProof[] memory subProofs = new ComposeVerifier.SubProof[](3);
+        subProofs[0] = ComposeVerifier.SubProof(verifier1, "");
+        subProofs[1] = ComposeVerifier.SubProof(verifier2, "");
+        subProofs[2] = ComposeVerifier.SubProof(address((123)), "");
+
+        TaikoData.TierProof memory proof =
+            TaikoData.TierProof({ tier: 1, data: abi.encode(subProofs) });
+
+        composeVerifier.setThreshold(3);
+
+        // Expect the verification to fail because one sub proof is invalid
+        vm.expectRevert(ComposeVerifier.CV_SUB_VERIFIER_NOT_FOUND.selector);
+        composeVerifier.verifyProof(ctx, tran, proof);
+    }
 }
