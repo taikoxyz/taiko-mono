@@ -5,7 +5,9 @@ import "../../libs/LibAddress.sol";
 import "../../libs/LibNetwork.sol";
 import "../access/IProposerAccess.sol";
 import "./LibBonds.sol";
+import "./LibData.sol";
 import "./LibUtils.sol";
+import "./LibVerifying.sol";
 
 /// @title LibProposing
 /// @notice A library for handling block proposals in the Taiko protocol.
@@ -18,68 +20,155 @@ library LibProposing {
         TaikoData.BlockParamsV2 params;
         ITierProvider tierProvider;
         bytes32 parentMetaHash;
+        bool postFork;
+        bytes32 extraData;
     }
 
     /// @notice Emitted when a block is proposed.
-    /// @param _blockId The ID of the proposed block.
-    /// @param _meta The metadata of the proposed block.
-    event BlockProposedV2(uint256 indexed _blockId, TaikoData.BlockMetadataV2 _meta);
+    /// @param blockId The ID of the proposed block.
+    /// @param assignedProver The address of the assigned prover.
+    /// @param livenessBond The liveness bond of the proposed block.
+    /// @param meta The metadata of the proposed block.
+    /// @param depositsProcessed The EthDeposit array about processed deposits in this proposed
+    /// block.
+    event BlockProposed(
+        uint256 indexed blockId,
+        address indexed assignedProver,
+        uint96 livenessBond,
+        TaikoData.BlockMetadata meta,
+        TaikoData.EthDeposit[] depositsProcessed
+    );
+
+    /// @notice Emitted when a block is proposed.
+    /// @param blockId The ID of the proposed block.
+    /// @param meta The metadata of the proposed block.
+    event BlockProposedV2(uint256 indexed blockId, TaikoData.BlockMetadataV2 meta);
 
     /// @notice Emitted when a block's txList is in the calldata.
-    /// @param _blockId The ID of the proposed block.
-    /// @param _txList The txList.
-    event CalldataTxList(uint256 indexed _blockId, bytes _txList);
+    /// @param blockId The ID of the proposed block.
+    /// @param txList The txList.
+    event CalldataTxList(uint256 indexed blockId, bytes txList);
 
     error L1_BLOB_NOT_AVAILABLE();
     error L1_BLOB_NOT_FOUND();
     error L1_INVALID_ANCHOR_BLOCK();
+    error L1_INVALID_PARAMS();
     error L1_INVALID_PROPOSER();
     error L1_INVALID_TIMESTAMP();
     error L1_LIVENESS_BOND_NOT_RECEIVED();
     error L1_TOO_MANY_BLOCKS();
     error L1_UNEXPECTED_PARENT();
 
-    /// @notice Proposes a Taiko L2 block.
-    /// @param _state Current TaikoData.State.
-    /// @param _config Actual TaikoData.Config.
-    /// @param _resolver Address resolver interface.
-    /// @param _data Encoded data bytes containing the block params.
+    /// @notice Proposes multiple Taiko L2 blocks.
+    /// @param _state The current state of the Taiko protocol.
+    /// @param _config The configuration parameters for the Taiko protocol.
+    /// @param _resolver The address resolver interface.
+    /// @param _paramsArr An array of encoded data bytes containing the block parameters.
+    /// @param _txListArr An array of transaction list bytes (if not blob).
+    /// @return metaV1s_ An array of metadata objects for the proposed L2 blocks (version 1).
+    /// @return metas_ An array of metadata objects for the proposed L2 blocks (version 2).
+    function proposeBlocks(
+        TaikoData.State storage _state,
+        TaikoData.Config memory _config,
+        IAddressResolver _resolver,
+        bytes[] calldata _paramsArr,
+        bytes[] calldata _txListArr
+    )
+        public
+        returns (
+            TaikoData.BlockMetadata[] memory metaV1s_,
+            TaikoData.BlockMetadataV2[] memory metas_
+        )
+    {
+        if (_paramsArr.length == 0 || _paramsArr.length != _txListArr.length) {
+            revert L1_INVALID_PARAMS();
+        }
+
+        metaV1s_ = new TaikoData.BlockMetadata[](_paramsArr.length);
+        metas_ = new TaikoData.BlockMetadataV2[](_paramsArr.length);
+
+        for (uint256 i; i < _paramsArr.length; ++i) {
+            (metaV1s_[i], metas_[i]) =
+                _proposeBlock(_state, _config, _resolver, _paramsArr[i], _txListArr[i]);
+        }
+
+        if (!_state.slotB.provingPaused) {
+            for (uint256 i; i < _paramsArr.length; ++i) {
+                if (LibUtils.shouldVerifyBlocks(_config, metas_[i].id, false)) {
+                    LibVerifying.verifyBlocks(_state, _config, _resolver, _config.maxBlocksToVerify);
+                }
+            }
+        }
+    }
+
+    /// @notice Proposes a single Taiko L2 block.
+    /// @param _state The current state of the Taiko protocol.
+    /// @param _config The configuration parameters for the Taiko protocol.
+    /// @param _resolver The address resolver interface.
+    /// @param _params Encoded data bytes containing the block parameters.
     /// @param _txList Transaction list bytes (if not blob).
-    /// @return meta_ The constructed block's metadata v2.
+    /// @return metaV1_ The metadata of the proposed block (version 1).
+    /// @return meta_ The metadata of the proposed block (version 2).
     function proposeBlock(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
         IAddressResolver _resolver,
-        bytes calldata _data,
+        bytes calldata _params,
         bytes calldata _txList
     )
         public
-        returns (TaikoData.BlockMetadataV2 memory meta_)
+        returns (TaikoData.BlockMetadata memory metaV1_, TaikoData.BlockMetadataV2 memory meta_)
+    {
+        (metaV1_, meta_) = _proposeBlock(_state, _config, _resolver, _params, _txList);
+
+        if (!_state.slotB.provingPaused) {
+            if (LibUtils.shouldVerifyBlocks(_config, meta_.id, false)) {
+                LibVerifying.verifyBlocks(_state, _config, _resolver, _config.maxBlocksToVerify);
+            }
+        }
+    }
+
+    function _proposeBlock(
+        TaikoData.State storage _state,
+        TaikoData.Config memory _config,
+        IAddressResolver _resolver,
+        bytes calldata _params,
+        bytes calldata _txList
+    )
+        private
+        returns (TaikoData.BlockMetadata memory metaV1_, TaikoData.BlockMetadataV2 memory meta_)
     {
         // Checks proposer access.
         Local memory local;
         local.b = _state.slotB;
+        local.postFork = local.b.numBlocks >= _config.ontakeForkHeight;
 
-        // Ensure that the ring buffer for proposed blocks still has space for at least one more
-        // block.
+        // It's essential to ensure that the ring buffer for proposed blocks
+        // still has space for at least one more block.
         if (local.b.numBlocks >= local.b.lastVerifiedBlockId + _config.blockMaxProposals + 1) {
             revert L1_TOO_MANY_BLOCKS();
         }
 
-        if (_data.length != 0) {
-            local.params = abi.decode(_data, (TaikoData.BlockParamsV2));
-            // otherwise use a default BlockParamsV2 with 0 values
+        if (local.postFork) {
+            if (_params.length != 0) {
+                local.params = abi.decode(_params, (TaikoData.BlockParamsV2));
+                // otherwise use a default BlockParamsV2 with 0 values
+            }
+        } else {
+            TaikoData.BlockParams memory paramsV1 = abi.decode(_params, (TaikoData.BlockParams));
+            local.params = LibData.blockParamsV1ToV2(paramsV1);
+            local.extraData = paramsV1.extraData;
         }
 
         if (local.params.coinbase == address(0)) {
             local.params.coinbase = msg.sender;
         }
 
-        if (local.params.anchorBlockId == 0) {
+        if (!local.postFork || local.params.anchorBlockId == 0) {
             local.params.anchorBlockId = uint64(block.number - 1);
         }
 
-        if (local.params.timestamp == 0) {
+        if (!local.postFork || local.params.timestamp == 0) {
             local.params.timestamp = uint64(block.timestamp);
         }
 
@@ -87,28 +176,30 @@ library LibProposing {
         TaikoData.BlockV2 storage parentBlk =
             _state.blocks[(local.b.numBlocks - 1) % _config.blockRingBufferSize];
 
-        // Verify the passed in L1 state block number.
-        // We only allow the L1 block to be 2 epochs old.
-        // The other constraint is that the L1 block number needs to be larger than or equal
-        // the one in the previous L2 block.
-        if (
-            local.params.anchorBlockId + _config.maxAnchorHeightOffset < block.number //
-                || local.params.anchorBlockId >= block.number
-                || local.params.anchorBlockId < parentBlk.proposedIn
-        ) {
-            revert L1_INVALID_ANCHOR_BLOCK();
-        }
+        if (local.postFork) {
+            // Verify the passed in L1 state block number.
+            // We only allow the L1 block to be 2 epochs old.
+            // The other constraint is that the L1 block number needs to be larger than or equal
+            // the one in the previous L2 block.
+            if (
+                local.params.anchorBlockId + _config.maxAnchorHeightOffset < block.number //
+                    || local.params.anchorBlockId >= block.number
+                    || local.params.anchorBlockId < parentBlk.proposedIn
+            ) {
+                revert L1_INVALID_ANCHOR_BLOCK();
+            }
 
-        // Verify the passed in timestamp.
-        // We only allow the timestamp to be 2 epochs old.
-        // The other constraint is that the timestamp needs to be larger than or equal the
-        // one in the previous L2 block.
-        if (
-            local.params.timestamp + _config.maxAnchorHeightOffset * 12 < block.timestamp
-                || local.params.timestamp > block.timestamp
-                || local.params.timestamp < parentBlk.proposedAt
-        ) {
-            revert L1_INVALID_TIMESTAMP();
+            // Verify the passed in timestamp.
+            // We only allow the timestamp to be 2 epochs old.
+            // The other constraint is that the timestamp needs to be larger than or equal the
+            // one in the previous L2 block.
+            if (
+                local.params.timestamp + _config.maxAnchorHeightOffset * 12 < block.timestamp
+                    || local.params.timestamp > block.timestamp
+                    || local.params.timestamp < parentBlk.proposedAt
+            ) {
+                revert L1_INVALID_TIMESTAMP();
+            }
         }
 
         // Check if parent block has the right meta hash. This is to allow the proposer to make
@@ -128,10 +219,12 @@ library LibProposing {
                 anchorBlockHash: blockhash(local.params.anchorBlockId),
                 difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", local.b.numBlocks)),
                 blobHash: 0, // to be initialized below
-                // To make sure each L2 block can be executed deterministically by the client
-                // without referring to its metadata on Ethereum, we need to encode
-                // _config.baseFeeConfig into the extraData.
-                extraData: _encodeBaseFeeConfig(_config.baseFeeConfig),
+                // To make sure each L2 block can be exexucated deterministiclly by the client
+                // without referering to its metadata on Ethereum, we need to encode
+                // config.sharingPctg into the extraData.
+                extraData: local.postFork
+                    ? _encodeBaseFeeConfig(_config.baseFeeConfig)
+                    : local.extraData,
                 coinbase: local.params.coinbase,
                 id: local.b.numBlocks,
                 gasLimit: _config.blockMaxGasLimit,
@@ -175,14 +268,18 @@ library LibProposing {
         // Use the difficulty as a random number
         meta_.minTier = local.tierProvider.getMinTier(meta_.proposer, uint256(meta_.difficulty));
 
+        if (!local.postFork) {
+            metaV1_ = LibData.blockMetadataV2toV1(meta_);
+        }
+
         // Create the block that will be stored onchain
         TaikoData.BlockV2 memory blk = TaikoData.BlockV2({
-            metaHash: keccak256(abi.encode(meta_)),
+            metaHash: local.postFork ? keccak256(abi.encode(meta_)) : keccak256(abi.encode(metaV1_)),
             assignedProver: address(0),
-            livenessBond: 0,
+            livenessBond: local.postFork ? 0 : meta_.livenessBond,
             blockId: local.b.numBlocks,
-            proposedAt: local.params.timestamp,
-            proposedIn: local.params.anchorBlockId,
+            proposedAt: local.postFork ? local.params.timestamp : uint64(block.timestamp),
+            proposedIn: local.postFork ? local.params.anchorBlockId : uint64(block.number),
             // For a new block, the next transition ID is always 1, not 0.
             nextTransitionId: 1,
             livenessBondReturned: false,
@@ -206,11 +303,19 @@ library LibProposing {
             address(block.coinbase).sendEtherAndVerify(msg.value);
         }
 
-        emit BlockProposedV2(meta_.id, meta_);
+        if (local.postFork) {
+            emit BlockProposedV2(meta_.id, meta_);
+        } else {
+            emit BlockProposed({
+                blockId: metaV1_.id,
+                assignedProver: msg.sender,
+                livenessBond: _config.livenessBond,
+                meta: metaV1_,
+                depositsProcessed: new TaikoData.EthDeposit[](0)
+            });
+        }
     }
 
-    /// @dev Checks if the proposer has the necessary permissions.
-    /// @param _resolver The address resolver interface.
     function checkProposerPermission(IAddressResolver _resolver) internal view {
         address proposerAccess = _resolver.resolve(LibStrings.B_PROPOSER_ACCESS, true);
         if (proposerAccess == address(0)) return;
@@ -220,9 +325,6 @@ library LibProposing {
         }
     }
 
-    /// @dev Encodes the base fee configuration.
-    /// @param _baseFeeConfig The base fee configuration to encode.
-    /// @return The encoded base fee configuration as a bytes32 value.
     function _encodeBaseFeeConfig(
         TaikoData.BaseFeeConfig memory _baseFeeConfig
     )

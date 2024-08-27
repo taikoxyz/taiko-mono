@@ -17,6 +17,19 @@ interface IVerifier {
         address msgSender;
     }
 
+    struct ContextV2 {
+        bytes32 metaHash;
+        bytes32 blobHash;
+        address prover;
+        uint64 blockId;
+        bool isContesting;
+        bool blobUsed;
+        address msgSender;
+        TaikoData.Transition tran;
+    }
+
+    error NOT_IMPLEMENTED();
+
     /// @notice Verifies a proof.
     /// @param _ctx The context of the proof verification.
     /// @param _tran The transition to verify.
@@ -24,6 +37,15 @@ interface IVerifier {
     function verifyProof(
         Context calldata _ctx,
         TaikoData.Transition calldata _tran,
+        TaikoData.TierProof calldata _proof
+    )
+        external;
+
+    /// @notice Verifies multiple proofs.
+    /// @param _ctxs The array of contexts for the proof verifications.
+    /// @param _proof The batch proof to verify.
+    function verifyBatchProof(
+        ContextV2[] calldata _ctxs,
         TaikoData.TierProof calldata _proof
     )
         external;

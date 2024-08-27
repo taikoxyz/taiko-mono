@@ -149,7 +149,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
         TaikoData.TierProof calldata _proof
     )
         external
-        onlyFromNamed(LibStrings.B_TAIKO)
+        onlyFromNamedEither(LibStrings.B_TAIKO, LibStrings.B_TIER_TEE_ANY)
     {
         // Do not run proof verification to contest an existing proof
         if (_ctx.isContesting) return;
@@ -173,6 +173,18 @@ contract SgxVerifier is EssentialContract, IVerifier {
         if (newInstance != oldInstance && newInstance != address(0)) {
             _replaceInstance(id, oldInstance, newInstance);
         }
+    }
+
+    /// @inheritdoc IVerifier
+    function verifyBatchProof(
+        ContextV2[] calldata, /*_ctxs*/
+        TaikoData.TierProof calldata /*_proof*/
+    )
+        external
+        view
+        onlyFromNamed(LibStrings.B_TAIKO)
+    {
+        revert NOT_IMPLEMENTED();
     }
 
     function taikoChainId() internal view virtual returns (uint64) {
