@@ -17,6 +17,14 @@ contract TestGuardianProver2 is TaikoL1TestBase {
 
     // Tests `verifyProof()` with the correct prover
     function test_guardian_prover_verifyProof() public view {
+        // Transition
+        TaikoData.Transition memory transition = TaikoData.Transition({
+            parentHash: bytes32(0),
+            blockHash: bytes32(0),
+            stateRoot: bytes32(0),
+            graffiti: bytes32(0)
+        });
+
         // Context
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32(0),
@@ -25,9 +33,23 @@ contract TestGuardianProver2 is TaikoL1TestBase {
             msgSender: address(gp),
             blockId: 10,
             isContesting: false,
-            blobUsed: false
+            blobUsed: false,
+            tran: transition,
+            verifier: address(gp)
         });
 
+        // TierProof
+        TaikoData.TierProof memory proof =
+            TaikoData.TierProof({ tier: LibTiers.TIER_GUARDIAN, data: "" });
+
+        // `verifyProofs()`
+        IVerifier.Context[] memory ctxs = new IVerifier.Context[](1);
+        ctxs[0] = ctx;
+        gp.verifyProofs(ctxs, proof);
+    }
+
+    // Tests `verifyProof()` with the wrong prover
+    function test_guardian_prover_verifyProof_invalidProver() public {
         // Transition
         TaikoData.Transition memory transition = TaikoData.Transition({
             parentHash: bytes32(0),
@@ -36,16 +58,6 @@ contract TestGuardianProver2 is TaikoL1TestBase {
             graffiti: bytes32(0)
         });
 
-        // TierProof
-        TaikoData.TierProof memory proof =
-            TaikoData.TierProof({ tier: LibTiers.TIER_GUARDIAN, data: "" });
-
-        // `verifyProof()`
-        gp.verifyProof(ctx, transition, proof);
-    }
-
-    // Tests `verifyProof()` with the wrong prover
-    function test_guardian_prover_verifyProof_invalidProver() public {
         // Context
         IVerifier.Context memory ctx = IVerifier.Context({
             metaHash: bytes32(0),
@@ -54,23 +66,20 @@ contract TestGuardianProver2 is TaikoL1TestBase {
             msgSender: Alice,
             blockId: 10,
             isContesting: false,
-            blobUsed: false
-        });
-
-        // Transition
-        TaikoData.Transition memory transition = TaikoData.Transition({
-            parentHash: bytes32(0),
-            blockHash: bytes32(0),
-            stateRoot: bytes32(0),
-            graffiti: bytes32(0)
+            blobUsed: false,
+            tran: transition,
+            verifier: address(gp)
         });
 
         // TierProof
         TaikoData.TierProof memory proof =
             TaikoData.TierProof({ tier: LibTiers.TIER_GUARDIAN, data: "" });
 
-        // `verifyProof()` with invalid ctx.prover
+        IVerifier.Context[] memory ctxs = new IVerifier.Context[](1);
+        ctxs[0] = ctx;
+
+        // `verifyProofs()` with invalid ctx.prover
         vm.expectRevert(GuardianProver.GV_PERMISSION_DENIED.selector);
-        gp.verifyProof(ctx, transition, proof);
+        gp.verifyProofs(ctxs, proof);
     }
 }

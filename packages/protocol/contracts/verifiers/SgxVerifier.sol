@@ -143,30 +143,43 @@ contract SgxVerifier is EssentialContract, IVerifier {
     }
 
     /// @inheritdoc IVerifier
-    function verifyProof(
-        Context calldata _ctx,
-        TaikoData.Transition calldata _tran,
+    function verifyProofs(
+        Context[] calldata _ctx,
         TaikoData.TierProof calldata _proof
     )
         external
         onlyFromNamed(LibStrings.B_TAIKO)
     {
-        // Do not run proof verification to contest an existing proof
-        if (_ctx.isContesting) return;
-
         // Size is: 89 bytes
-        // 4 bytes + 20 bytes + 65 bytes (signature) = 89
-        if (_proof.data.length != 89) revert SGX_INVALID_PROOF();
+        // 4 bytes + 20 bytes + 20 bytes + 65 bytes (signature) = 109
+        if (_proof.data.length != 109) revert SGX_INVALID_PROOF();
 
         uint32 id = uint32(bytes4(_proof.data[:4]));
-        address newInstance = address(bytes20(_proof.data[4:24]));
+        address oldInstance = address(bytes20(_proof.data[4:24]));
+        address newInstance = address(bytes20(_proof.data[24:44]));
+        bytes memory signature = _proof.data[44:];
 
-        address oldInstance = ECDSA.recover(
-            LibPublicInput.hashPublicInputs(
-                _tran, address(this), newInstance, _ctx.prover, _ctx.metaHash, taikoChainId()
-            ),
-            _proof.data[24:]
-        );
+        // Collect public inputs
+        bytes32[] memory public_inputs = new bytes32[](_ctx.length + 1);
+        // First public input is the current instance public key
+        public_inputs[0] = bytes32(bytes20(oldInstance));
+        // All other inputs are the block program public inputs (a single 32 byte value)
+        for (uint256 i = 0; i < _ctx.length; i++) {
+            // TODO: For now this assumes the new instance public key to remain the same
+            public_inputs[i + 1] = LibPublicInput.hashPublicInputs(
+                _ctx[i].tran,
+                address(this),
+                newInstance,
+                _ctx[i].prover,
+                _ctx[i].metaHash,
+                taikoChainId()
+            );
+        }
+
+        // Verify the blocks
+        if (oldInstance != ECDSA.recover(keccak256(abi.encodePacked(public_inputs)), signature)) {
+            revert SGX_INVALID_PROOF();
+        }
 
         if (!_isInstanceValid(id, oldInstance)) revert SGX_INVALID_INSTANCE();
 

@@ -227,15 +227,10 @@ contract GuardianProver is IVerifier, EssentialContract {
     }
 
     /// @inheritdoc IVerifier
-    function verifyProof(
-        Context calldata _ctx,
-        TaikoData.Transition calldata,
-        TaikoData.TierProof calldata
-    )
-        external
-        view
-    {
-        if (_ctx.msgSender != address(this)) revert GV_PERMISSION_DENIED();
+    function verifyProofs(Context[] calldata _ctx, TaikoData.TierProof calldata) external view {
+        for (uint256 i = 0; i < _ctx.length; i++) {
+            if (_ctx[i].msgSender != address(this)) revert GV_PERMISSION_DENIED();
+        }
     }
 
     /// @notice Returns the number of guardians
