@@ -377,7 +377,7 @@ func (s *Syncer) insertNewHead(
 		}
 
 		var parentGasExcess uint64
-		if newGasTarget != parentGasTarget {
+		if newGasTarget != parentGasTarget && parentGasTarget != 0 {
 			oldParentGasExcess, err := s.rpc.TaikoL2.ParentGasExcess(&bind.CallOpts{
 				BlockNumber: parent.Number, Context: ctx,
 			})

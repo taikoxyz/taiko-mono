@@ -41,6 +41,7 @@ func TestSGXProducerRequestProof(t *testing.T) {
 		blockID,
 		&metadata.TaikoDataBlockMetadataLegacy{},
 		header,
+		time.Now(),
 	)
 	require.Nil(t, err)
 

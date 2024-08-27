@@ -168,6 +168,7 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBl
 				meta.GetBlockID(),
 				meta,
 				header,
+				startTime,
 			)
 			if err != nil {
 				// If request proof has timed out in retry, let's cancel the proof generating and skip
