@@ -28,9 +28,7 @@ library LibVerifying {
     }
 
     error L1_BLOCK_MISMATCH();
-    error L1_INVALID_CONFIG();
     error L1_TRANSITION_ID_ZERO();
-    error L1_TOO_LATE();
 
     /// @notice Verifies up to N blocks.
     /// @param _state The current state of TaikoData.
@@ -194,7 +192,7 @@ library LibVerifying {
         view
         returns (address)
     {
-        (TaikoData.BlockV2 storage blk,) = LibUtils.getBlockV2(_state, _config, _blockId);
+        (TaikoData.BlockV2 storage blk,) = LibUtils.getBlock(_state, _config, _blockId);
 
         uint24 tid = blk.verifiedTransitionId;
         if (tid == 0) return address(0);

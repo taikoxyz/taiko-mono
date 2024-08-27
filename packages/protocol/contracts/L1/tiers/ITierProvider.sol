@@ -23,6 +23,7 @@ interface ITierProvider {
     /// @dev Retrieves the IDs of all supported tiers.
     /// Note that the core protocol requires the number of tiers to be smaller
     /// than 256. In reality, this number should be much smaller.
+    /// Additionally, each tier's ID value must be unique.
     /// @return The ids of the tiers.
     function getTierIds() external view returns (uint16[] memory);
 
@@ -33,20 +34,32 @@ interface ITierProvider {
     function getMinTier(address proposer, uint256 rand) external view returns (uint16);
 }
 
+/// @title LibTiers
+/// @dev Unique identifiers for all supported tiers. Each tier must have a distinct ID to avoid
+/// conflicts.
 /// @dev Tier ID cannot be zero!
+/// @custom:security-contact security@taiko.xyz
 library LibTiers {
     /// @notice Optimistic tier ID.
     uint16 public constant TIER_OPTIMISTIC = 100;
 
-    /// @notice SGX tier ID.
+    /// @notice SGX proof
     uint16 public constant TIER_SGX = 200;
-    uint16 public constant TIER_SGX2 = 200;
 
-    // @notice ZKVM risc0 tier ID
+    /// @notice TDX proof
+    uint16 public constant TIER_TDX = 200;
+
+    /// @notice Any TEE proof
+    uint16 public constant TIER_TEE_ANY = 200;
+
+    /// @notice Risc0's ZKVM proof
     uint16 public constant TIER_ZKVM_RISC0 = 290;
 
-    /// @notice SGX + ZKVM tier ID.
-    uint16 public constant TIER_SGX_ZKVM = 300;
+    /// @notice SP1's ZKVM proof
+    uint16 public constant TIER_ZKVM_SP1 = 290;
+
+    /// @notice Any ZKVM proof
+    uint16 public constant TIER_ZKVM_ANY = 290;
 
     /// @notice Guardian tier ID with minority approval.
     uint16 public constant TIER_GUARDIAN_MINORITY = 900;

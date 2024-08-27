@@ -16,15 +16,13 @@ import "./ITaikoL1.sol";
 /// L3 "inception layers". The contract also handles the deposit and withdrawal of Taiko tokens
 /// and Ether. Additionally, this contract doesn't hold any Ether. Ether deposited to L2 are held
 /// by the Bridge contract.
+/// @dev Labeled in AddressResolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
 contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     /// @notice The TaikoL1 state.
     TaikoData.State public state;
 
     uint256[50] private __gap;
-
-    error L1_FORK_ERROR();
-    error L1_INVALID_PARAMS();
 
     modifier whenProvingNotPaused() {
         if (state.slotB.provingPaused) revert LibProving.L1_PROVING_PAUSED();
@@ -60,19 +58,14 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         if (_toPause) _pause();
     }
 
-    /// @notice Reinitializes the contract to version 2.
-    /// @dev This function is intended to reset specific state variables for future reuse.
-    /// It can only be called by the owner of the contract and only once due to the reinitializer(2)
-    /// modifier.
     function init2() external onlyOwner reinitializer(2) {
-        // Reset some previously used slots for future reuse
+        // reset some previously used slots for future reuse
         state.slotB.__reservedB1 = 0;
         state.slotB.__reservedB2 = 0;
         state.slotB.__reservedB3 = 0;
         state.__reserve1 = 0;
     }
 
-    /// @inheritdoc ITaikoL1
     function proposeBlockV2(
         bytes calldata _params,
         bytes calldata _txList
@@ -84,7 +77,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         emitEventForClient
         returns (TaikoData.BlockMetadataV2 memory)
     {
-        return _proposeBlock(_params, _txList, getConfig());
+        TaikoData.Config memory config = getConfig();
+        return LibProposing.proposeBlock(state, config, this, _params, _txList);
     }
 
     /// @inheritdoc ITaikoL1
@@ -97,18 +91,10 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         whenNotPaused
         nonReentrant
         emitEventForClient
-        returns (TaikoData.BlockMetadataV2[] memory metaArr_)
+        returns (TaikoData.BlockMetadataV2[] memory)
     {
-        if (_paramsArr.length == 0 || _paramsArr.length != _txListArr.length) {
-            revert L1_INVALID_PARAMS();
-        }
-
-        metaArr_ = new TaikoData.BlockMetadataV2[](_paramsArr.length);
         TaikoData.Config memory config = getConfig();
-
-        for (uint256 i; i < _paramsArr.length; ++i) {
-            metaArr_[i] = _proposeBlock(_paramsArr[i], _txListArr[i], config);
-        }
+        return LibProposing.proposeBlocks(state, config, this, _paramsArr, _txListArr);
     }
 
     /// @inheritdoc ITaikoL1
@@ -122,14 +108,14 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         nonReentrant
         emitEventForClient
     {
-        TaikoData.Config memory config = getConfig();
-        _proveBlock(_blockId, _input, config);
+        LibProving.proveBlock(state, getConfig(), this, _blockId, _input);
     }
 
     /// @inheritdoc ITaikoL1
     function proveBlocks(
         uint64[] calldata _blockIds,
-        bytes[] calldata _inputArr
+        bytes[] calldata _inputs,
+        bytes calldata _batchProof
     )
         external
         whenNotPaused
@@ -137,15 +123,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         nonReentrant
         emitEventForClient
     {
-        if (_blockIds.length == 0 || _blockIds.length != _inputArr.length) {
-            revert L1_INVALID_PARAMS();
-        }
-
-        TaikoData.Config memory config = getConfig();
-
-        for (uint256 i; i < _blockIds.length; ++i) {
-            _proveBlock(_blockIds[i], _inputArr[i], config);
-        }
+        LibProving.proveBlocks(state, getConfig(), this, _blockIds, _inputs, _batchProof);
     }
 
     /// @inheritdoc ITaikoL1
@@ -177,9 +155,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         LibBonds.withdrawBond(state, this, _amount);
     }
 
-    /// @notice Retrieves the current bond balance for a specified user address.
-    /// @param _user The address of the user whose bond balance is being queried.
-    /// @return The current bond balance of the specified user in wei.
+    /// @notice Gets the current bond balance of a given address.
+    /// @return The current bond balance.
     function bondBalanceOf(address _user) external view returns (uint256) {
         return LibBonds.bondBalanceOf(state, _user);
     }
@@ -189,12 +166,11 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         return LibVerifying.getVerifiedBlockProver(state, getConfig(), _blockId);
     }
 
-    /// @dev DEPRECATED but used by node/client for syncing old blocks
     /// @notice Gets the details of a block.
     /// @param _blockId Index of the block.
     /// @return blk_ The block.
     function getBlock(uint64 _blockId) external view returns (TaikoData.Block memory blk_) {
-        (TaikoData.BlockV2 memory blk,) = LibUtils.getBlockV2(state, getConfig(), _blockId);
+        (TaikoData.BlockV2 memory blk,) = LibUtils.getBlock(state, getConfig(), _blockId);
         blk_ = LibData.blockV2toV1(blk);
     }
 
@@ -202,7 +178,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     /// @param _blockId Index of the block.
     /// @return blk_ The block.
     function getBlockV2(uint64 _blockId) external view returns (TaikoData.BlockV2 memory blk_) {
-        (blk_,) = LibUtils.getBlockV2(state, getConfig(), _blockId);
+        (blk_,) = LibUtils.getBlock(state, getConfig(), _blockId);
     }
 
     /// @notice Gets the state transition for a specific block.
@@ -303,55 +279,10 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
          });
     }
 
-    /// @notice Proposes a new block and verifies blocks if necessary.
-    /// @param _params The parameters for the block proposal.
-    /// @param _txList The list of transactions for the block.
-    /// @param _config The configuration settings for the Taiko protocol.
-    /// @return meta_ The metadata of the proposed block.
-    function _proposeBlock(
-        bytes calldata _params,
-        bytes calldata _txList,
-        TaikoData.Config memory _config
-    )
-        internal
-        returns (TaikoData.BlockMetadataV2 memory meta_)
-    {
-        meta_ = LibProposing.proposeBlock(state, _config, this, _params, _txList);
-
-        if (LibUtils.shouldVerifyBlocks(_config, meta_.id, true) && !state.slotB.provingPaused) {
-            LibVerifying.verifyBlocks(state, _config, this, _config.maxBlocksToVerify);
-        }
-    }
-
-    /// @notice Proves a block and verifies blocks if necessary.
-    /// @param _blockId The ID of the block to be proved.
-    /// @param _input The input data for proving the block.
-    /// @param _config The configuration settings for the Taiko protocol.
-    function _proveBlock(
-        uint64 _blockId,
-        bytes calldata _input,
-        TaikoData.Config memory _config
-    )
-        internal
-    {
-        LibProving.proveBlock(state, _config, this, _blockId, _input);
-
-        if (LibUtils.shouldVerifyBlocks(_config, _blockId, false)) {
-            LibVerifying.verifyBlocks(state, _config, this, _config.maxBlocksToVerify);
-        }
-    }
-
-    /// @notice Authorizes the pausing of the contract.
-    /// @dev This function can only be called by the contract owner or an address named
-    /// B_CHAIN_WATCHDOG.
-    /// B_CHAIN_WATCHDOG is intended to be a cold wallet for security purposes.
-    /// @param _account The address attempting to authorize the pause (not used in the function
-    /// body).
-    /// @param _pause A boolean flag indicating the pause state (not used in the function body).
-    /// @dev Note: The authorization check is performed on msg.sender, not _account.
+    /// @dev chain_pauser is supposed to be a cold wallet.
     function _authorizePause(
-        address _account,
-        bool _pause
+        address,
+        bool
     )
         internal
         view
