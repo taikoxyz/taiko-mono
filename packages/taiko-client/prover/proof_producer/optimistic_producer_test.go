@@ -43,6 +43,7 @@ func TestOptimisticRequestProof(t *testing.T) {
 		blockID,
 		&metadata.TaikoDataBlockMetadataLegacy{},
 		header,
+		time.Now(),
 	)
 	require.Nil(t, err)
 
@@ -80,6 +81,7 @@ func TestProofCancel(t *testing.T) {
 		blockID,
 		&metadata.TaikoDataBlockMetadataLegacy{},
 		header,
+		time.Now(),
 	)
 	require.Nil(t, err)
 }

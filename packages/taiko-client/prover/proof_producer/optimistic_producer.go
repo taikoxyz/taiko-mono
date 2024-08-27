@@ -3,6 +3,7 @@ package producer
 import (
 	"context"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
@@ -21,6 +22,7 @@ func (o *OptimisticProofProducer) RequestProof(
 	blockID *big.Int,
 	meta metadata.TaikoBlockMetaData,
 	header *types.Header,
+	requestAt time.Time,
 ) (*ProofWithHeader, error) {
 	log.Info(
 		"Request optimistic proof",
@@ -30,7 +32,7 @@ func (o *OptimisticProofProducer) RequestProof(
 		"hash", header.Hash(),
 	)
 
-	return o.DummyProofProducer.RequestProof(opts, blockID, meta, header, o.Tier())
+	return o.DummyProofProducer.RequestProof(opts, blockID, meta, header, o.Tier(), requestAt)
 }
 
 func (o *OptimisticProofProducer) RequestCancel(

@@ -3,6 +3,7 @@ package producer
 import (
 	"bytes"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/core/types"
 
@@ -19,6 +20,7 @@ func (o *DummyProofProducer) RequestProof(
 	meta metadata.TaikoBlockMetaData,
 	header *types.Header,
 	tier uint16,
+	_ time.Time,
 ) (*ProofWithHeader, error) {
 	return &ProofWithHeader{
 		BlockID: blockID,

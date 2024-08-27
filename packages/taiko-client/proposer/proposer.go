@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/big"
 	"math/rand"
 	"sync"
 	"time"
@@ -47,6 +46,8 @@ type Proposer struct {
 
 	// Protocol configurations
 	protocolConfigs *bindings.TaikoDataConfig
+
+	chainConfig *config.ChainConfig
 
 	lastProposedAt time.Time
 	totalEpochs    uint64
@@ -105,7 +106,8 @@ func (p *Proposer) InitFromConfig(
 
 	p.txmgrSelector = utils.NewTxMgrSelector(txMgr, privateTxMgr, nil)
 
-	chainConfig := config.NewChainConfig(p.rpc.L2.ChainID, new(big.Int).SetUint64(p.protocolConfigs.OntakeForkHeight))
+	chainConfig := config.NewChainConfig(p.protocolConfigs)
+	p.chainConfig = chainConfig
 
 	if cfg.BlobAllowed {
 		p.txBuilder = builder.NewBlobTransactionBuilder(
@@ -191,6 +193,7 @@ func (p *Proposer) fetchPoolContent(filterPoolContent bool) ([]types.Transaction
 		p.LocalAddresses,
 		p.MaxProposedTxListsPerEpoch,
 		minTip,
+		p.chainConfig,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch transaction pool content: %w", err)

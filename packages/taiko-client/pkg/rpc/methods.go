@@ -7,6 +7,8 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
+
 	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -275,6 +277,7 @@ func (c *Client) GetPoolContent(
 	locals []common.Address,
 	maxTransactionsLists uint64,
 	minTip uint64,
+	chainConfig *config.ChainConfig,
 ) ([]*miner.PreBuiltTxList, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
@@ -289,11 +292,64 @@ func (c *Client) GetPoolContent(
 		return nil, err
 	}
 
-	baseFeeInfo, err := c.TaikoL2.GetBasefee(
-		&bind.CallOpts{Context: ctx},
-		l1Head.Number.Uint64(),
-		uint32(l2Head.GasUsed), // #nosec G115
-	)
+	var baseFeeInfo struct {
+		Basefee         *big.Int
+		ParentGasExcess uint64
+	}
+	if chainConfig.IsOntake(l2Head.Number) {
+		newGasTarget := uint64(chainConfig.ProtocolConfigs.BaseFeeConfig.GasIssuancePerSecond) *
+			uint64(chainConfig.ProtocolConfigs.BaseFeeConfig.AdjustmentQuotient)
+		parentGasTarget, err := c.TaikoL2.ParentGasTarget(&bind.CallOpts{
+			BlockNumber: l2Head.Number, Context: ctx,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch parent gas target: %w", err)
+		}
+
+		var parentGasExcess uint64
+		if newGasTarget != parentGasTarget && parentGasTarget != 0 {
+			oldParentGasExcess, err := c.TaikoL2.ParentGasExcess(&bind.CallOpts{
+				BlockNumber: l2Head.Number, Context: ctx,
+			})
+			if err != nil {
+				return nil, fmt.Errorf("failed to fetch old parent gas excess: %w", err)
+			}
+			if parentGasExcess, err = c.TaikoL2.AdjustExcess(
+				&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
+				oldParentGasExcess,
+				parentGasTarget,
+				newGasTarget,
+			); err != nil {
+				return nil, fmt.Errorf("failed to adjust parent gas excess: %w", err)
+			}
+		} else {
+			if parentGasExcess, err = c.TaikoL2.ParentGasExcess(&bind.CallOpts{
+				BlockNumber: l2Head.Number, Context: ctx,
+			}); err != nil {
+				return nil, fmt.Errorf("failed to fetch parent gas excess: %w", err)
+			}
+		}
+		baseFeeInfo, err = c.TaikoL2.CalculateBaseFee(
+			&bind.CallOpts{Context: ctx},
+			chainConfig.ProtocolConfigs.BaseFeeConfig,
+			uint64(time.Now().Unix())-l2Head.Time,
+			parentGasExcess,
+			uint32(l2Head.GasUsed), // #nosec G115
+		)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		baseFeeInfo, err = c.TaikoL2.GetBasefee(
+			&bind.CallOpts{Context: ctx},
+			l1Head.Number.Uint64(),
+			uint32(l2Head.GasUsed), // #nosec G115
+		)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	if err != nil {
 		return nil, err
 	}
