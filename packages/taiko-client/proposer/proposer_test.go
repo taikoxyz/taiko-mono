@@ -163,7 +163,7 @@ func (s *ProposerTestSuite) TestProposeTxLists() {
 	}
 
 	for _, txCandidate := range txCandidates {
-		receipt, err := p.txmgr.Send(ctx, txCandidate)
+		receipt, err := p.txmgrSelector.Select().Send(ctx, txCandidate)
 		s.Nil(err)
 		s.Nil(encoding.TryParsingCustomErrorFromReceipt(ctx, p.rpc.L1, p.proposerAddress, receipt))
 	}

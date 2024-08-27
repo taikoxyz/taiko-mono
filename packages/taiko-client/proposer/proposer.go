@@ -51,8 +51,7 @@ type Proposer struct {
 	lastProposedAt time.Time
 	totalEpochs    uint64
 
-	txmgr        *txmgr.SimpleTxManager
-	privateTxmgr *txmgr.SimpleTxManager
+	txmgrSelector *utils.TxMgrSelector
 
 	ctx context.Context
 	wg  sync.WaitGroup
@@ -93,10 +92,8 @@ func (p *Proposer) InitFromConfig(
 		return err
 	}
 
-	if txMgr != nil {
-		p.txmgr = txMgr
-	} else {
-		if p.txmgr, err = txmgr.NewSimpleTxManager(
+	if txMgr == nil {
+		if txMgr, err = txmgr.NewSimpleTxManager(
 			"proposer",
 			log.Root(),
 			&metrics.TxMgrMetrics,
@@ -105,22 +102,8 @@ func (p *Proposer) InitFromConfig(
 			return err
 		}
 	}
-	if privateTxMgr != nil {
-		p.privateTxmgr = privateTxMgr
-	} else {
-		if cfg.PrivateTxmgrConfigs != nil && len(cfg.PrivateTxmgrConfigs.L1RPCURL) > 0 {
-			if p.privateTxmgr, err = txmgr.NewSimpleTxManager(
-				"privateTxProposer",
-				log.Root(),
-				&metrics.TxMgrMetrics,
-				*cfg.PrivateTxmgrConfigs,
-			); err != nil {
-				return err
-			}
-		} else {
-			p.privateTxmgr = nil
-		}
-	}
+
+	p.txmgrSelector = utils.NewTxMgrSelector(txMgr, privateTxMgr, nil)
 
 	chainConfig := config.NewChainConfig(p.rpc.L2.ChainID, new(big.Int).SetUint64(p.protocolConfigs.OntakeForkHeight))
 
@@ -407,20 +390,15 @@ func (p *Proposer) updateProposingTicker() {
 	p.proposingTimer = time.NewTimer(duration)
 }
 
+// sendTx is the internal function to send a transaction with a selected tx manager.
 func (p *Proposer) sendTx(ctx context.Context, txCandidate *txmgr.TxCandidate) error {
-	if p.privateTxmgr != nil {
-		receipt, err := p.privateTxmgr.Send(ctx, *txCandidate)
-		if err != nil || receipt.Status != types.ReceiptStatusSuccessful {
-			log.Warn("Failed to send TaikoL1.proposeBlock transaction by private tx manager",
-				"error", encoding.TryParsingCustomError(err),
-			)
-		} else {
-			return nil
-		}
-	}
-	receipt, err := p.txmgr.Send(ctx, *txCandidate)
+	receipt, err := p.txmgrSelector.Select().Send(ctx, *txCandidate)
 	if err != nil {
-		log.Warn("Failed to send TaikoL1.proposeBlock transaction", "error", encoding.TryParsingCustomError(err))
+		log.Warn(
+			"Failed to send TaikoL1.proposeBlock / TaikoL1.proposeBlockV2 transaction by tx manager",
+			"error", encoding.TryParsingCustomError(err),
+		)
+		p.txmgrSelector.RecordPrivateTxMgrFailed()
 		return err
 	}
 
