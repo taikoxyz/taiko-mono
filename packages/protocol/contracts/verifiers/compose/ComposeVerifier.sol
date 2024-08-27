@@ -31,10 +31,7 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
         __Essential_init(_owner, _rollupAddressManager);
     }
 
-    /// @notice Verifies one or more sub-proofs.
-    /// @param _ctx The context of the proof verification.
-    /// @param _tran The transition to verify.
-    /// @param _proof The proof to verify.
+    /// @inheritdoc IVerifier
     function verifyProof(
         Context calldata _ctx,
         TaikoData.Transition calldata _tran,
@@ -67,6 +64,15 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
             );
         }
     }
+
+    /// @inheritdoc IVerifier
+    function verifyBatchProof(
+        ContextV2[] calldata _ctxs,
+        TaikoData.TierProof calldata _proof
+    )
+        external
+        onlyFromNamed(LibStrings.B_TAIKO)
+    { }
 
     /// @notice Returns the list of sub-verifiers and calculates the threshold.
     /// @return verifiers_ An array of addresses of sub-verifiers.
