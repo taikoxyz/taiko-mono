@@ -24,21 +24,6 @@ library LibProposing {
 
     /// @notice Emitted when a block is proposed.
     /// @param blockId The ID of the proposed block.
-    /// @param assignedProver The address of the assigned prover.
-    /// @param livenessBond The liveness bond of the proposed block.
-    /// @param meta The metadata of the proposed block.
-    /// @param depositsProcessed The EthDeposit array about processed deposits in this proposed
-    /// block.
-    event BlockProposed(
-        uint256 indexed blockId,
-        address indexed assignedProver,
-        uint96 livenessBond,
-        TaikoData.BlockMetadata meta,
-        TaikoData.EthDeposit[] depositsProcessed
-    );
-
-    /// @notice Emitted when a block is proposed.
-    /// @param blockId The ID of the proposed block.
     /// @param meta The metadata of the proposed block.
     event BlockProposedV2(uint256 indexed blockId, TaikoData.BlockMetadataV2 meta);
 
@@ -53,7 +38,6 @@ library LibProposing {
     error L1_INVALID_PARAMS();
     error L1_INVALID_PROPOSER();
     error L1_INVALID_TIMESTAMP();
-    error L1_LIVENESS_BOND_NOT_RECEIVED();
     error L1_TOO_MANY_BLOCKS();
     error L1_UNEXPECTED_PARENT();
 

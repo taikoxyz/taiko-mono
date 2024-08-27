@@ -28,9 +28,7 @@ library LibVerifying {
     }
 
     error L1_BLOCK_MISMATCH();
-    error L1_INVALID_CONFIG();
     error L1_TRANSITION_ID_ZERO();
-    error L1_TOO_LATE();
 
     /// @notice Verifies up to N blocks.
     /// @param _state The current state of TaikoData.
