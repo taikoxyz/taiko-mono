@@ -57,7 +57,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         initializer
     {
         __Essential_init(_owner, _rollupAddressManager);
-        LibUtils.init(state, getConfig(), _genesisBlockHash);
+        LibUtils.init(state, _genesisBlockHash);
         if (_toPause) _pause();
     }
 
@@ -67,25 +67,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         state.slotB.__reservedB2 = 0;
         state.slotB.__reservedB3 = 0;
         state.__reserve1 = 0;
-    }
-
-    /// @inheritdoc ITaikoL1
-    function proposeBlock(
-        bytes calldata _params,
-        bytes calldata _txList
-    )
-        external
-        payable
-        onlyPermittedProposer
-        whenNotPaused
-        nonReentrant
-        emitEventForClient
-        returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
-    {
-        TaikoData.Config memory config = getConfig();
-        (meta_,) = LibProposing.proposeBlock(state, config, this, _params, _txList);
-        if (meta_.id >= config.ontakeForkHeight) revert L1_FORK_ERROR();
-        deposits_ = new TaikoData.EthDeposit[](0);
     }
 
     function proposeBlockV2(
@@ -100,7 +81,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         returns (TaikoData.BlockMetadataV2 memory meta_)
     {
         TaikoData.Config memory config = getConfig();
-        (, meta_) = LibProposing.proposeBlock(state, config, this, _params, _txList);
+        meta_ = LibProposing.proposeBlock(state, config, this, _params, _txList);
         if (meta_.id < config.ontakeForkHeight) revert L1_FORK_ERROR();
     }
 
@@ -117,7 +98,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         returns (TaikoData.BlockMetadataV2[] memory metaArr_)
     {
         TaikoData.Config memory config = getConfig();
-        (, metaArr_) = LibProposing.proposeBlocks(state, config, this, _paramsArr, _txListArr);
+        metaArr_ = LibProposing.proposeBlocks(state, config, this, _paramsArr, _txListArr);
         for (uint256 i; i < metaArr_.length; ++i) {
             if (metaArr_[i].id < config.ontakeForkHeight) revert L1_FORK_ERROR();
         }
