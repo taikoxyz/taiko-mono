@@ -67,6 +67,7 @@ func (s *ZKvmProofProducer) RequestProof(
 	blockID *big.Int,
 	meta metadata.TaikoBlockMetaData,
 	header *types.Header,
+	requestAt time.Time,
 ) (*ProofWithHeader, error) {
 	log.Info(
 		"Request zk proof from raiko-host service",
@@ -78,10 +79,10 @@ func (s *ZKvmProofProducer) RequestProof(
 	)
 
 	if s.Dummy {
-		return s.DummyProofProducer.RequestProof(opts, blockID, meta, header, s.Tier())
+		return s.DummyProofProducer.RequestProof(opts, blockID, meta, header, s.Tier(), requestAt)
 	}
 
-	proof, err := s.callProverDaemon(ctx, opts)
+	proof, err := s.callProverDaemon(ctx, opts, requestAt)
 	if err != nil {
 		return nil, err
 	}
@@ -106,10 +107,13 @@ func (s *ZKvmProofProducer) RequestCancel(
 }
 
 // callProverDaemon keeps polling the proverd service to get the requested proof.
-func (s *ZKvmProofProducer) callProverDaemon(ctx context.Context, opts *ProofRequestOptions) ([]byte, error) {
+func (s *ZKvmProofProducer) callProverDaemon(
+	ctx context.Context,
+	opts *ProofRequestOptions,
+	requestAt time.Time,
+) ([]byte, error) {
 	var (
 		proof []byte
-		start = time.Now()
 	)
 
 	zkCtx, zkCancel := rpc.CtxWithTimeoutOrDefault(ctx, s.RaikoRequestTimeout)
@@ -132,7 +136,7 @@ func (s *ZKvmProofProducer) callProverDaemon(ctx context.Context, opts *ProofReq
 	log.Info(
 		"Proof generated",
 		"height", opts.BlockID,
-		"time", time.Since(start),
+		"time", time.Since(requestAt),
 		"producer", "ZKvmProofProducer",
 	)
 
