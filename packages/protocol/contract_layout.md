@@ -543,6 +543,62 @@
 | isProverSet    | mapping(address => bool) | 253  | 0      | 32    | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
 | __gap          | uint256[47]              | 254  | 0      | 1504  | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
 
+## ComposeVerifier
+| Name           | Type        | Slot | Offset | Bytes | Contract                                                        |
+|----------------|-------------|------|--------|-------|-----------------------------------------------------------------|
+| _initialized   | uint8       | 0    | 0      | 1     | contracts/verifiers/compose/ComposeVerifier.sol:ComposeVerifier |
+| _initializing  | bool        | 0    | 1      | 1     | contracts/verifiers/compose/ComposeVerifier.sol:ComposeVerifier |
+| __gap          | uint256[50] | 1    | 0      | 1600  | contracts/verifiers/compose/ComposeVerifier.sol:ComposeVerifier |
+| _owner         | address     | 51   | 0      | 20    | contracts/verifiers/compose/ComposeVerifier.sol:ComposeVerifier |
+| __gap          | uint256[49] | 52   | 0      | 1568  | contracts/verifiers/compose/ComposeVerifier.sol:ComposeVerifier |
+| _pendingOwner  | address     | 101  | 0      | 20    | contracts/verifiers/compose/ComposeVerifier.sol:ComposeVerifier |
+| __gap          | uint256[49] | 102  | 0      | 1568  | contracts/verifiers/compose/ComposeVerifier.sol:ComposeVerifier |
+| addressManager | address     | 151  | 0      | 20    | contracts/verifiers/compose/ComposeVerifier.sol:ComposeVerifier |
+| __gap          | uint256[49] | 152  | 0      | 1568  | contracts/verifiers/compose/ComposeVerifier.sol:ComposeVerifier |
+| __reentry      | uint8       | 201  | 0      | 1     | contracts/verifiers/compose/ComposeVerifier.sol:ComposeVerifier |
+| __paused       | uint8       | 201  | 1      | 1     | contracts/verifiers/compose/ComposeVerifier.sol:ComposeVerifier |
+| lastUnpausedAt | uint64      | 201  | 2      | 8     | contracts/verifiers/compose/ComposeVerifier.sol:ComposeVerifier |
+| __gap          | uint256[49] | 202  | 0      | 1568  | contracts/verifiers/compose/ComposeVerifier.sol:ComposeVerifier |
+| __gap          | uint256[50] | 251  | 0      | 1600  | contracts/verifiers/compose/ComposeVerifier.sol:ComposeVerifier |
+
+## TeeAnyVerifier
+| Name           | Type        | Slot | Offset | Bytes | Contract                                                      |
+|----------------|-------------|------|--------|-------|---------------------------------------------------------------|
+| _initialized   | uint8       | 0    | 0      | 1     | contracts/verifiers/compose/TeeAnyVerifier.sol:TeeAnyVerifier |
+| _initializing  | bool        | 0    | 1      | 1     | contracts/verifiers/compose/TeeAnyVerifier.sol:TeeAnyVerifier |
+| __gap          | uint256[50] | 1    | 0      | 1600  | contracts/verifiers/compose/TeeAnyVerifier.sol:TeeAnyVerifier |
+| _owner         | address     | 51   | 0      | 20    | contracts/verifiers/compose/TeeAnyVerifier.sol:TeeAnyVerifier |
+| __gap          | uint256[49] | 52   | 0      | 1568  | contracts/verifiers/compose/TeeAnyVerifier.sol:TeeAnyVerifier |
+| _pendingOwner  | address     | 101  | 0      | 20    | contracts/verifiers/compose/TeeAnyVerifier.sol:TeeAnyVerifier |
+| __gap          | uint256[49] | 102  | 0      | 1568  | contracts/verifiers/compose/TeeAnyVerifier.sol:TeeAnyVerifier |
+| addressManager | address     | 151  | 0      | 20    | contracts/verifiers/compose/TeeAnyVerifier.sol:TeeAnyVerifier |
+| __gap          | uint256[49] | 152  | 0      | 1568  | contracts/verifiers/compose/TeeAnyVerifier.sol:TeeAnyVerifier |
+| __reentry      | uint8       | 201  | 0      | 1     | contracts/verifiers/compose/TeeAnyVerifier.sol:TeeAnyVerifier |
+| __paused       | uint8       | 201  | 1      | 1     | contracts/verifiers/compose/TeeAnyVerifier.sol:TeeAnyVerifier |
+| lastUnpausedAt | uint64      | 201  | 2      | 8     | contracts/verifiers/compose/TeeAnyVerifier.sol:TeeAnyVerifier |
+| __gap          | uint256[49] | 202  | 0      | 1568  | contracts/verifiers/compose/TeeAnyVerifier.sol:TeeAnyVerifier |
+| __gap          | uint256[50] | 251  | 0      | 1600  | contracts/verifiers/compose/TeeAnyVerifier.sol:TeeAnyVerifier |
+| __gap          | uint256[50] | 301  | 0      | 1600  | contracts/verifiers/compose/TeeAnyVerifier.sol:TeeAnyVerifier |
+
+## ZkAnyVerifier
+| Name           | Type        | Slot | Offset | Bytes | Contract                                                    |
+|----------------|-------------|------|--------|-------|-------------------------------------------------------------|
+| _initialized   | uint8       | 0    | 0      | 1     | contracts/verifiers/compose/ZkAnyVerifier.sol:ZkAnyVerifier |
+| _initializing  | bool        | 0    | 1      | 1     | contracts/verifiers/compose/ZkAnyVerifier.sol:ZkAnyVerifier |
+| __gap          | uint256[50] | 1    | 0      | 1600  | contracts/verifiers/compose/ZkAnyVerifier.sol:ZkAnyVerifier |
+| _owner         | address     | 51   | 0      | 20    | contracts/verifiers/compose/ZkAnyVerifier.sol:ZkAnyVerifier |
+| __gap          | uint256[49] | 52   | 0      | 1568  | contracts/verifiers/compose/ZkAnyVerifier.sol:ZkAnyVerifier |
+| _pendingOwner  | address     | 101  | 0      | 20    | contracts/verifiers/compose/ZkAnyVerifier.sol:ZkAnyVerifier |
+| __gap          | uint256[49] | 102  | 0      | 1568  | contracts/verifiers/compose/ZkAnyVerifier.sol:ZkAnyVerifier |
+| addressManager | address     | 151  | 0      | 20    | contracts/verifiers/compose/ZkAnyVerifier.sol:ZkAnyVerifier |
+| __gap          | uint256[49] | 152  | 0      | 1568  | contracts/verifiers/compose/ZkAnyVerifier.sol:ZkAnyVerifier |
+| __reentry      | uint8       | 201  | 0      | 1     | contracts/verifiers/compose/ZkAnyVerifier.sol:ZkAnyVerifier |
+| __paused       | uint8       | 201  | 1      | 1     | contracts/verifiers/compose/ZkAnyVerifier.sol:ZkAnyVerifier |
+| lastUnpausedAt | uint64      | 201  | 2      | 8     | contracts/verifiers/compose/ZkAnyVerifier.sol:ZkAnyVerifier |
+| __gap          | uint256[49] | 202  | 0      | 1568  | contracts/verifiers/compose/ZkAnyVerifier.sol:ZkAnyVerifier |
+| __gap          | uint256[50] | 251  | 0      | 1600  | contracts/verifiers/compose/ZkAnyVerifier.sol:ZkAnyVerifier |
+| __gap          | uint256[50] | 301  | 0      | 1600  | contracts/verifiers/compose/ZkAnyVerifier.sol:ZkAnyVerifier |
+
 ## HeklaTaikoL1
 | Name           | Type                   | Slot | Offset | Bytes | Contract                                      |
 |----------------|------------------------|------|--------|-------|-----------------------------------------------|
