@@ -21,6 +21,7 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
 
     error CV_DUPLICATE_SUBPROOF();
     error CV_INVALID_CALLER();
+    error CV_INVALID_SUB_VERIFIER();
     error CV_INVALID_SUBPROOF_LENGTH();
     error CV_SUB_VERIFIER_NOT_FOUND();
 
@@ -50,7 +51,7 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
         if (subProofs.length != numSubProofs_) revert CV_INVALID_SUBPROOF_LENGTH();
 
         for (uint256 i; i < subProofs.length; ++i) {
-            if (subProofs[i].verifier == address(0)) revert CV_DUPLICATE_SUBPROOF();
+            if (subProofs[i].verifier == address(0)) revert CV_INVALID_SUB_VERIFIER();
 
             // find the verifier
             bool verifierFound;

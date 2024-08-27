@@ -186,7 +186,7 @@ contract ComposeVerifierTest is TaikoTest {
             TaikoData.TierProof({ tier: 1, data: abi.encode(subProofs) });
 
         composeVerifier.setThreshold(2);
-        vm.expectRevert(ComposeVerifier.CV_DUPLICATE_SUBPROOF.selector);
+        vm.expectRevert(ComposeVerifier.CV_SUB_VERIFIER_NOT_FOUND.selector);
         composeVerifier.verifyProof(ctx, tran, proof);
     }
 
