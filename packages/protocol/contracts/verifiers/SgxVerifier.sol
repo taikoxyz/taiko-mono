@@ -149,7 +149,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
         TaikoData.TierProof calldata _proof
     )
         external
-        onlyFromNamed(LibStrings.B_TAIKO)
+        onlyFromNamedEither(LibStrings.B_TAIKO, LibStrings.B_TIER_TEE_ANY)
     {
         // Do not run proof verification to contest an existing proof
         if (_ctx.isContesting) return;

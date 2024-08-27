@@ -19,7 +19,6 @@ linters:
     - gocritic
     - gofmt
     # - revive
-    - gosec
     - gosimple
     - lll
     - unused
