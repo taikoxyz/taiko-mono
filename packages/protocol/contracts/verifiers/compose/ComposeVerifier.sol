@@ -19,11 +19,10 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
         bytes proof;
     }
 
-    event InvalidSubProof(address indexed verifier, bytes returnData);
-
+    error DUPLICATE_SUBPROOF();
     error INVALID_CALLER();
-    error INVALID_VERIFIER();
-    error INSUFFICIENT_PROOF();
+    error INVALID_SUBPROOF_LENGTH();
+    error SUB_VERIFIER_NOT_FOUND();
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
@@ -46,11 +45,12 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
         if (!isCallerAuthorized(msg.sender)) revert INVALID_CALLER();
 
         (address[] memory verifiers, uint256 threshold) = getSubVerifiersAndThreshold();
+
         SubProof[] memory subproofs = abi.decode(_proof.data, (SubProof[]));
-        uint256 numVerified;
+        if (subproofs.length != threshold) revert INVALID_SUBPROOF_LENGTH();
 
         for (uint256 i; i < subproofs.length; ++i) {
-            if (subproofs[i].verifier == address(0)) revert INVALID_VERIFIER();
+            if (subproofs[i].verifier == address(0)) revert DUPLICATE_SUBPROOF();
 
             // find the verifier
             bool verifierFound;
@@ -61,25 +61,11 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
                 }
             }
 
-            if (!verifierFound) revert INVALID_VERIFIER();
+            if (!verifierFound) revert SUB_VERIFIER_NOT_FOUND();
 
-            (bool success, bytes memory returnData) = subproofs[i].verifier.call(
-                abi.encodeCall(
-                    IVerifier.verifyProof,
-                    (_ctx, _tran, TaikoData.TierProof(_proof.tier, subproofs[i].proof))
-                )
+            IVerifier(subproofs[i].verifier).verifyProof(
+                _ctx, _tran, TaikoData.TierProof(_proof.tier, subproofs[i].proof)
             );
-            if (success) {
-                unchecked {
-                    numVerified += 1;
-                }
-            } else {
-                emit InvalidSubProof(subproofs[i].verifier, returnData);
-            }
-        }
-
-        if (numVerified < threshold) {
-            revert INSUFFICIENT_PROOF();
         }
     }
 
