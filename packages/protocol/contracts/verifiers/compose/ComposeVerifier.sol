@@ -19,6 +19,8 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
         bytes proof;
     }
 
+    event InvalidSubProof(address indexed verifier, bytes returnData);
+
     error INVALID_CALLER();
     error INVALID_VERIFIER();
     error INSUFFICIENT_PROOF();
@@ -61,16 +63,24 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
 
             if (!verifierFound) revert INVALID_VERIFIER();
 
-            IVerifier(subproofs[i].verifier).verifyProof(
-                _ctx, _tran, TaikoData.TierProof(_proof.tier, subproofs[i].proof)
+            (bool success, bytes memory returnData) = subproofs[i].verifier.call(
+                abi.encodeCall(
+                    IVerifier.verifyProof,
+                    (_ctx, _tran, TaikoData.TierProof(_proof.tier, subproofs[i].proof))
+                )
             );
-
-            unchecked {
-                numVerified += 1;
+            if (success) {
+                unchecked {
+                    numVerified += 1;
+                }
+            } else {
+                emit InvalidSubProof(subproofs[i].verifier, returnData);
             }
         }
 
-        if (numVerified < threshold) revert INSUFFICIENT_PROOF();
+        if (numVerified < threshold) {
+            revert INSUFFICIENT_PROOF();
+        }
     }
 
     /// @notice Returns the list of sub-verifiers and calculates the threshold.
