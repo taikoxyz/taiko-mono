@@ -34,11 +34,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         emit StateVariablesUpdated(state.slotB);
     }
 
-    modifier onlyPermittedProposer() {
-        LibProposing.checkProposerPermission(this);
-        _;
-    }
-
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _rollupAddressManager The address of the {AddressManager} contract.
@@ -71,7 +66,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         bytes calldata _txList
     )
         external
-        onlyPermittedProposer
+        onlyFromOptionalNamed(LibStrings.B_BLOCK_PROPOSER)
         whenNotPaused
         nonReentrant
         emitEventForClient
@@ -87,7 +82,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         bytes[] calldata _txListArr
     )
         external
-        onlyPermittedProposer
+        onlyFromOptionalNamed(LibStrings.B_BLOCK_PROPOSER)
         whenNotPaused
         nonReentrant
         emitEventForClient
