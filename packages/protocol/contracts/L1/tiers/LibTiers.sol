@@ -26,6 +26,9 @@ library LibTiers {
     /// @notice Any ZKVM proof
     uint16 public constant TIER_ZKVM_ANY = 290;
 
+    /// @notice Any ZKVM+TEE proof
+    uint16 public constant TIER_ZKVM_AND_TEE = 300;
+
     /// @notice Guardian tier ID with minority approval.
     uint16 public constant TIER_GUARDIAN_MINORITY = 900;
 
