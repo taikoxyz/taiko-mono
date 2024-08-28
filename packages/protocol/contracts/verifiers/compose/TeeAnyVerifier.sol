@@ -23,8 +23,8 @@ contract TeeAnyVerifier is ComposeVerifier {
         returns (address[] memory verifiers_, uint256 numSubProofs_)
     {
         verifiers_ = new address[](2);
-        verifiers_[0] = resolve(LibStrings.B_TIER_SGX, false);
-        verifiers_[1] = resolve(LibStrings.B_TIER_TDX, false);
+        verifiers_[0] = resolve(LibStrings.B_TIER_SGX, true);
+        verifiers_[1] = resolve(LibStrings.B_TIER_TDX, true);
         numSubProofs_ = 1;
     }
 }
