@@ -5,8 +5,6 @@ import "../../common/LibStrings.sol";
 import "./ComposeVerifier.sol";
 
 /// @title ZkAnyVerifier
-/// @notice This contract is a verifier for the Mainnet ZkVM that composes RiscZero and SP1
-/// Verifiers.
 /// @custom:security-contact security@taiko.xyz
 contract ZkAnyVerifier is ComposeVerifier {
     uint256[50] private __gap;
