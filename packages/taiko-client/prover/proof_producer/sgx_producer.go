@@ -79,6 +79,7 @@ func (s *SGXProofProducer) RequestProof(
 	blockID *big.Int,
 	meta metadata.TaikoBlockMetaData,
 	header *types.Header,
+	requestAt time.Time,
 ) (*ProofWithHeader, error) {
 	log.Info(
 		"Request sgx proof from raiko-host service",
@@ -89,10 +90,10 @@ func (s *SGXProofProducer) RequestProof(
 	)
 
 	if s.Dummy {
-		return s.DummyProofProducer.RequestProof(opts, blockID, meta, header, s.Tier())
+		return s.DummyProofProducer.RequestProof(opts, blockID, meta, header, s.Tier(), requestAt)
 	}
 
-	proof, err := s.callProverDaemon(ctx, opts)
+	proof, err := s.callProverDaemon(ctx, opts, requestAt)
 	if err != nil {
 		return nil, err
 	}
@@ -117,10 +118,13 @@ func (s *SGXProofProducer) RequestCancel(
 }
 
 // callProverDaemon keeps polling the proverd service to get the requested proof.
-func (s *SGXProofProducer) callProverDaemon(ctx context.Context, opts *ProofRequestOptions) ([]byte, error) {
+func (s *SGXProofProducer) callProverDaemon(
+	ctx context.Context,
+	opts *ProofRequestOptions,
+	requestAt time.Time,
+) ([]byte, error) {
 	var (
 		proof []byte
-		start = time.Now()
 	)
 
 	ctx, cancel := rpc.CtxWithTimeoutOrDefault(ctx, s.RaikoRequestTimeout)
@@ -136,7 +140,7 @@ func (s *SGXProofProducer) callProverDaemon(ctx context.Context, opts *ProofRequ
 		log.Info(
 			"Proof generating",
 			"height", opts.BlockID,
-			"time", time.Since(start),
+			"time", time.Since(requestAt),
 			"producer", "SGXProofProducer",
 		)
 		return nil, errProofGenerating
@@ -153,7 +157,7 @@ func (s *SGXProofProducer) callProverDaemon(ctx context.Context, opts *ProofRequ
 	log.Info(
 		"Proof generated",
 		"height", opts.BlockID,
-		"time", time.Since(start),
+		"time", time.Since(requestAt),
 		"producer", "SGXProofProducer",
 	)
 

@@ -42,6 +42,7 @@ func TestGuardianProducerRequestProof(t *testing.T) {
 		blockID,
 		&metadata.TaikoDataBlockMetadataLegacy{},
 		header,
+		time.Now(),
 	)
 	require.Nil(t, err)
 
@@ -79,6 +80,7 @@ func TestGuardianProducerRequestProofReturnLivenessBond(t *testing.T) {
 		blockID,
 		&metadata.TaikoDataBlockMetadataLegacy{},
 		header,
+		time.Now(),
 	)
 	require.Nil(t, err)
 
@@ -117,6 +119,7 @@ func TestMinorityRequestProof(t *testing.T) {
 		blockID,
 		&metadata.TaikoDataBlockMetadataLegacy{},
 		header,
+		time.Now(),
 	)
 	require.Nil(t, err)
 
@@ -154,6 +157,7 @@ func TestRequestMinorityProofReturnLivenessBond(t *testing.T) {
 		blockID,
 		&metadata.TaikoDataBlockMetadataLegacy{},
 		header,
+		time.Now(),
 	)
 	require.Nil(t, err)
 
