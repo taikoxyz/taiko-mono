@@ -24,7 +24,6 @@ interface ITierProvider {
     /// @dev Retrieves the IDs of all supported tiers.
     /// Note that the core protocol requires the number of tiers to be smaller
     /// than 256. In reality, this number should be much smaller.
-    /// Additionally, each tier's ID value must be unique.
     /// @return The ids of the tiers.
     function getTierIds() external view returns (uint16[] memory);
 
