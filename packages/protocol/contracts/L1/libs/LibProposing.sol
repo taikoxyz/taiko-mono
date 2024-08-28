@@ -3,7 +3,6 @@ pragma solidity 0.8.24;
 
 import "../../libs/LibAddress.sol";
 import "../../libs/LibNetwork.sol";
-import "../access/IProposerAccess.sol";
 import "./LibBonds.sol";
 import "./LibData.sol";
 import "./LibUtils.sol";
@@ -257,15 +256,6 @@ library LibProposing {
                 meta: metaV1_,
                 depositsProcessed: deposits_
             });
-        }
-    }
-
-    function checkProposerPermission(IAddressResolver _resolver) internal view {
-        address proposerAccess = _resolver.resolve(LibStrings.B_PROPOSER_ACCESS, true);
-        if (proposerAccess == address(0)) return;
-
-        if (!IProposerAccess(proposerAccess).isProposerEligible(msg.sender)) {
-            revert L1_INVALID_PROPOSER();
         }
     }
 
