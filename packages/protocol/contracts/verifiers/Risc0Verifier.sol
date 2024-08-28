@@ -8,9 +8,9 @@ import "../L1/ITaikoL1.sol";
 import "./IVerifier.sol";
 import "./libs/LibPublicInput.sol";
 
-/// @title RiscZeroVerifier
+/// @title Risc0Verifier
 /// @custom:security-contact security@taiko.xyz
-contract RiscZeroVerifier is EssentialContract, IVerifier {
+contract Risc0Verifier is EssentialContract, IVerifier {
     // [32, 0, 0, 0] -- big-endian uint32(32) for hash bytes len
     bytes private constant FIXED_JOURNAL_HEADER = hex"20000000";
 
@@ -23,9 +23,6 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
     /// @param imageId The id of the image
     /// @param trusted True if trusted, false otherwise
     event ImageTrusted(bytes32 imageId, bool trusted);
-
-    /// @dev Emitted when a proof is verified
-    event ProofVerified(bytes32 metaHash, bytes32 publicInputHash);
 
     error RISC_ZERO_INVALID_IMAGE_ID();
     error RISC_ZERO_INVALID_PROOF();
@@ -53,6 +50,7 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
         TaikoData.TierProof calldata _proof
     )
         external
+        view
     {
         // Do not run proof verification to contest an existing proof
         if (_ctx.isContesting) return;
@@ -78,8 +76,6 @@ contract RiscZeroVerifier is EssentialContract, IVerifier {
         if (!success) {
             revert RISC_ZERO_INVALID_PROOF();
         }
-
-        emit ProofVerified(_ctx.metaHash, publicInputHash);
     }
 
     function taikoChainId() internal view virtual returns (uint64) {

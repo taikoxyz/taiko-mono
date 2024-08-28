@@ -33,25 +33,3 @@ interface ITierProvider {
     /// @return The tier id.
     function getMinTier(address proposer, uint256 rand) external view returns (uint16);
 }
-
-/// @dev Tier ID cannot be zero!
-library LibTiers {
-    /// @notice Optimistic tier ID.
-    uint16 public constant TIER_OPTIMISTIC = 100;
-
-    /// @notice SGX tier ID.
-    uint16 public constant TIER_SGX = 200;
-    uint16 public constant TIER_SGX2 = 200;
-
-    // @notice ZKVM risc0 tier ID
-    uint16 public constant TIER_ZKVM_RISC0 = 290;
-
-    /// @notice SGX + ZKVM tier ID.
-    uint16 public constant TIER_SGX_ZKVM = 300;
-
-    /// @notice Guardian tier ID with minority approval.
-    uint16 public constant TIER_GUARDIAN_MINORITY = 900;
-
-    /// @notice Guardian tier ID with majority approval.
-    uint16 public constant TIER_GUARDIAN = 1000;
-}
