@@ -40,6 +40,7 @@ func TestDummyProducerRequestProof(t *testing.T) {
 		&metadata.TaikoDataBlockMetadataLegacy{},
 		header,
 		tier,
+		time.Now(),
 	)
 	require.Nil(t, err)
 
