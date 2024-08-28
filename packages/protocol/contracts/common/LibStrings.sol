@@ -5,6 +5,7 @@ pragma solidity 0.8.24;
 /// @custom:security-contact security@taiko.xyz
 library LibStrings {
     bytes32 internal constant B_AUTOMATA_DCAP_ATTESTATION = bytes32("automata_dcap_attestation");
+    bytes32 internal constant B_BLOCK_PROPOSER = bytes32("block_proposer");
     bytes32 internal constant B_BRIDGE = bytes32("bridge");
     bytes32 internal constant B_BRIDGE_WATCHDOG = bytes32("bridge_watchdog");
     bytes32 internal constant B_BRIDGED_ERC1155 = bytes32("bridged_erc1155");
@@ -14,7 +15,6 @@ library LibStrings {
     bytes32 internal constant B_ERC1155_VAULT = bytes32("erc1155_vault");
     bytes32 internal constant B_ERC20_VAULT = bytes32("erc20_vault");
     bytes32 internal constant B_ERC721_VAULT = bytes32("erc721_vault");
-    bytes32 internal constant B_PROPOSER_ACCESS = bytes32("proposer_access");
     bytes32 internal constant B_PROVER_ASSIGNMENT = bytes32("PROVER_ASSIGNMENT");
     bytes32 internal constant B_PROVER_SET = bytes32("prover_set");
     bytes32 internal constant B_QUOTA_MANAGER = bytes32("quota_manager");
