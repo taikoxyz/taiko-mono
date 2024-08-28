@@ -85,9 +85,8 @@ contract Risc0Verifier is EssentialContract, IVerifier {
     )
         external
         pure
-    {
-        revert NOT_IMPLEMENTED();
-    }
+        notImplemented
+    { }
 
     function taikoChainId() internal view virtual returns (uint64) {
         return ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfig().chainId;
