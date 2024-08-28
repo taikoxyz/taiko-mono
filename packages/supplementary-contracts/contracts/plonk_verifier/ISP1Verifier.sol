@@ -15,7 +15,9 @@ interface ISP1Verifier {
         bytes32 programVKey,
         bytes calldata publicValues,
         bytes calldata proofBytes
-    ) external view;
+    )
+        external
+        view;
 }
 
 interface ISP1VerifierWithHash is ISP1Verifier {
