@@ -20,6 +20,10 @@ interface BadgeMigration {
     /// @dev Can be called only during an active migration, after the cooldown is over
     /// @dev The final color is determined randomly, and affected by the tamper amounts
     function endMigration() external;
+
+    /// @notice Get the max tamper amount for the calling user and their Trail tier
+    /// @return The maximum tamper amount
+    function getMaximumTampers() external view returns (uint256);
 }
 
 interface TrailRaffle {
