@@ -271,7 +271,7 @@ func (c *Client) WaitL2Header(ctx context.Context, blockID *big.Int) (*types.Hea
 func (c *Client) CalculateBaseFee(
 	ctx context.Context,
 	l2Head *types.Header,
-	anchorBlockId *big.Int,
+	anchorBlockID *big.Int,
 	isOntake bool,
 	baseFeeConfig *bindings.TaikoDataBaseFeeConfig,
 ) (*big.Int, error) {
@@ -330,7 +330,7 @@ func (c *Client) CalculateBaseFee(
 	} else {
 		baseFeeInfo, err = c.TaikoL2.GetBasefee(
 			&bind.CallOpts{Context: ctx},
-			anchorBlockId.Uint64(),
+			anchorBlockID.Uint64(),
 			uint32(l2Head.GasUsed), // #nosec G115
 		)
 		if err != nil {
@@ -346,7 +346,7 @@ func (c *Client) CalculateBaseFee(
 		"Base fee information",
 		"fee", utils.WeiToGWei(baseFeeInfo.Basefee),
 		"l2Head", l2Head.Number,
-		"anchorBlockId", anchorBlockId,
+		"anchorBlockID", anchorBlockID,
 		"isOntake", isOntake,
 	)
 
