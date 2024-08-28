@@ -182,10 +182,9 @@ contract SgxVerifier is EssentialContract, IVerifier {
     )
         external
         view
+        notImplemented
         onlyFromNamed(LibStrings.B_TAIKO)
-    {
-        revert NOT_IMPLEMENTED();
-    }
+    { }
 
     function taikoChainId() internal view virtual returns (uint64) {
         return ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfig().chainId;
