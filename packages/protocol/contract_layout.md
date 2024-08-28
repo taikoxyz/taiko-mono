@@ -853,6 +853,63 @@
 | addressRegistered | mapping(address => bool)                        | 253  | 0      | 32    | contracts/mainnet/rollup/verifiers/MainnetSgxVerifier.sol:MainnetSgxVerifier |
 | __gap             | uint256[47]                                     | 254  | 0      | 1504  | contracts/mainnet/rollup/verifiers/MainnetSgxVerifier.sol:MainnetSgxVerifier |
 
+## MainnetTeeAnyVerifier
+| Name           | Type        | Slot | Offset | Bytes | Contract                                                                           |
+|----------------|-------------|------|--------|-------|------------------------------------------------------------------------------------|
+| _initialized   | uint8       | 0    | 0      | 1     | contracts/mainnet/rollup/verifiers/MainnetTeeAnyVerifier.sol:MainnetTeeAnyVerifier |
+| _initializing  | bool        | 0    | 1      | 1     | contracts/mainnet/rollup/verifiers/MainnetTeeAnyVerifier.sol:MainnetTeeAnyVerifier |
+| __gap          | uint256[50] | 1    | 0      | 1600  | contracts/mainnet/rollup/verifiers/MainnetTeeAnyVerifier.sol:MainnetTeeAnyVerifier |
+| _owner         | address     | 51   | 0      | 20    | contracts/mainnet/rollup/verifiers/MainnetTeeAnyVerifier.sol:MainnetTeeAnyVerifier |
+| __gap          | uint256[49] | 52   | 0      | 1568  | contracts/mainnet/rollup/verifiers/MainnetTeeAnyVerifier.sol:MainnetTeeAnyVerifier |
+| _pendingOwner  | address     | 101  | 0      | 20    | contracts/mainnet/rollup/verifiers/MainnetTeeAnyVerifier.sol:MainnetTeeAnyVerifier |
+| __gap          | uint256[49] | 102  | 0      | 1568  | contracts/mainnet/rollup/verifiers/MainnetTeeAnyVerifier.sol:MainnetTeeAnyVerifier |
+| addressManager | address     | 151  | 0      | 20    | contracts/mainnet/rollup/verifiers/MainnetTeeAnyVerifier.sol:MainnetTeeAnyVerifier |
+| __gap          | uint256[49] | 152  | 0      | 1568  | contracts/mainnet/rollup/verifiers/MainnetTeeAnyVerifier.sol:MainnetTeeAnyVerifier |
+| __reentry      | uint8       | 201  | 0      | 1     | contracts/mainnet/rollup/verifiers/MainnetTeeAnyVerifier.sol:MainnetTeeAnyVerifier |
+| __paused       | uint8       | 201  | 1      | 1     | contracts/mainnet/rollup/verifiers/MainnetTeeAnyVerifier.sol:MainnetTeeAnyVerifier |
+| lastUnpausedAt | uint64      | 201  | 2      | 8     | contracts/mainnet/rollup/verifiers/MainnetTeeAnyVerifier.sol:MainnetTeeAnyVerifier |
+| __gap          | uint256[49] | 202  | 0      | 1568  | contracts/mainnet/rollup/verifiers/MainnetTeeAnyVerifier.sol:MainnetTeeAnyVerifier |
+| __gap          | uint256[50] | 251  | 0      | 1600  | contracts/mainnet/rollup/verifiers/MainnetTeeAnyVerifier.sol:MainnetTeeAnyVerifier |
+| __gap          | uint256[50] | 301  | 0      | 1600  | contracts/mainnet/rollup/verifiers/MainnetTeeAnyVerifier.sol:MainnetTeeAnyVerifier |
+
+## MainnetZkAnyVerifier
+| Name           | Type        | Slot | Offset | Bytes | Contract                                                                         |
+|----------------|-------------|------|--------|-------|----------------------------------------------------------------------------------|
+| _initialized   | uint8       | 0    | 0      | 1     | contracts/mainnet/rollup/verifiers/MainnetZkAnyVerifier.sol:MainnetZkAnyVerifier |
+| _initializing  | bool        | 0    | 1      | 1     | contracts/mainnet/rollup/verifiers/MainnetZkAnyVerifier.sol:MainnetZkAnyVerifier |
+| __gap          | uint256[50] | 1    | 0      | 1600  | contracts/mainnet/rollup/verifiers/MainnetZkAnyVerifier.sol:MainnetZkAnyVerifier |
+| _owner         | address     | 51   | 0      | 20    | contracts/mainnet/rollup/verifiers/MainnetZkAnyVerifier.sol:MainnetZkAnyVerifier |
+| __gap          | uint256[49] | 52   | 0      | 1568  | contracts/mainnet/rollup/verifiers/MainnetZkAnyVerifier.sol:MainnetZkAnyVerifier |
+| _pendingOwner  | address     | 101  | 0      | 20    | contracts/mainnet/rollup/verifiers/MainnetZkAnyVerifier.sol:MainnetZkAnyVerifier |
+| __gap          | uint256[49] | 102  | 0      | 1568  | contracts/mainnet/rollup/verifiers/MainnetZkAnyVerifier.sol:MainnetZkAnyVerifier |
+| addressManager | address     | 151  | 0      | 20    | contracts/mainnet/rollup/verifiers/MainnetZkAnyVerifier.sol:MainnetZkAnyVerifier |
+| __gap          | uint256[49] | 152  | 0      | 1568  | contracts/mainnet/rollup/verifiers/MainnetZkAnyVerifier.sol:MainnetZkAnyVerifier |
+| __reentry      | uint8       | 201  | 0      | 1     | contracts/mainnet/rollup/verifiers/MainnetZkAnyVerifier.sol:MainnetZkAnyVerifier |
+| __paused       | uint8       | 201  | 1      | 1     | contracts/mainnet/rollup/verifiers/MainnetZkAnyVerifier.sol:MainnetZkAnyVerifier |
+| lastUnpausedAt | uint64      | 201  | 2      | 8     | contracts/mainnet/rollup/verifiers/MainnetZkAnyVerifier.sol:MainnetZkAnyVerifier |
+| __gap          | uint256[49] | 202  | 0      | 1568  | contracts/mainnet/rollup/verifiers/MainnetZkAnyVerifier.sol:MainnetZkAnyVerifier |
+| __gap          | uint256[50] | 251  | 0      | 1600  | contracts/mainnet/rollup/verifiers/MainnetZkAnyVerifier.sol:MainnetZkAnyVerifier |
+| __gap          | uint256[50] | 301  | 0      | 1600  | contracts/mainnet/rollup/verifiers/MainnetZkAnyVerifier.sol:MainnetZkAnyVerifier |
+
+## MainnetZkAndTeeVerifier
+| Name           | Type        | Slot | Offset | Bytes | Contract                                                                               |
+|----------------|-------------|------|--------|-------|----------------------------------------------------------------------------------------|
+| _initialized   | uint8       | 0    | 0      | 1     | contracts/mainnet/rollup/verifiers/MainnetZkAndTeeVerifier.sol:MainnetZkAndTeeVerifier |
+| _initializing  | bool        | 0    | 1      | 1     | contracts/mainnet/rollup/verifiers/MainnetZkAndTeeVerifier.sol:MainnetZkAndTeeVerifier |
+| __gap          | uint256[50] | 1    | 0      | 1600  | contracts/mainnet/rollup/verifiers/MainnetZkAndTeeVerifier.sol:MainnetZkAndTeeVerifier |
+| _owner         | address     | 51   | 0      | 20    | contracts/mainnet/rollup/verifiers/MainnetZkAndTeeVerifier.sol:MainnetZkAndTeeVerifier |
+| __gap          | uint256[49] | 52   | 0      | 1568  | contracts/mainnet/rollup/verifiers/MainnetZkAndTeeVerifier.sol:MainnetZkAndTeeVerifier |
+| _pendingOwner  | address     | 101  | 0      | 20    | contracts/mainnet/rollup/verifiers/MainnetZkAndTeeVerifier.sol:MainnetZkAndTeeVerifier |
+| __gap          | uint256[49] | 102  | 0      | 1568  | contracts/mainnet/rollup/verifiers/MainnetZkAndTeeVerifier.sol:MainnetZkAndTeeVerifier |
+| addressManager | address     | 151  | 0      | 20    | contracts/mainnet/rollup/verifiers/MainnetZkAndTeeVerifier.sol:MainnetZkAndTeeVerifier |
+| __gap          | uint256[49] | 152  | 0      | 1568  | contracts/mainnet/rollup/verifiers/MainnetZkAndTeeVerifier.sol:MainnetZkAndTeeVerifier |
+| __reentry      | uint8       | 201  | 0      | 1     | contracts/mainnet/rollup/verifiers/MainnetZkAndTeeVerifier.sol:MainnetZkAndTeeVerifier |
+| __paused       | uint8       | 201  | 1      | 1     | contracts/mainnet/rollup/verifiers/MainnetZkAndTeeVerifier.sol:MainnetZkAndTeeVerifier |
+| lastUnpausedAt | uint64      | 201  | 2      | 8     | contracts/mainnet/rollup/verifiers/MainnetZkAndTeeVerifier.sol:MainnetZkAndTeeVerifier |
+| __gap          | uint256[49] | 202  | 0      | 1568  | contracts/mainnet/rollup/verifiers/MainnetZkAndTeeVerifier.sol:MainnetZkAndTeeVerifier |
+| __gap          | uint256[50] | 251  | 0      | 1600  | contracts/mainnet/rollup/verifiers/MainnetZkAndTeeVerifier.sol:MainnetZkAndTeeVerifier |
+| __gap          | uint256[50] | 301  | 0      | 1600  | contracts/mainnet/rollup/verifiers/MainnetZkAndTeeVerifier.sol:MainnetZkAndTeeVerifier |
+
 ## MainnetSharedAddressManager
 | Name           | Type                                            | Slot | Offset | Bytes | Contract                                                                             |
 |----------------|-------------------------------------------------|------|--------|-------|--------------------------------------------------------------------------------------|
