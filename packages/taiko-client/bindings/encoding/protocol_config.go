@@ -36,7 +36,7 @@ var (
 		LivenessBond:          livenessBond,
 		StateRootSyncInternal: 16,
 		MaxAnchorHeightOffset: 64,
-		OntakeForkHeight:      720_000,
+		OntakeForkHeight:      793_000,
 		BaseFeeConfig: bindings.TaikoDataBaseFeeConfig{
 			AdjustmentQuotient:     8,
 			SharingPctg:            75,
