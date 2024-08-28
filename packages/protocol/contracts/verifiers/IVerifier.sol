@@ -28,8 +28,6 @@ interface IVerifier {
         TaikoData.Transition tran;
     }
 
-    error NOT_IMPLEMENTED();
-
     /// @notice Verifies a proof.
     /// @param _ctx The context of the proof verification.
     /// @param _tran The transition to verify.

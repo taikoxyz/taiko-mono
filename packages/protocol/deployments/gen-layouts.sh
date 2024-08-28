@@ -28,6 +28,7 @@ contracts=(
     "ComposeVerifier"
     "TeeAnyVerifier"
     "ZkAnyVerifier"
+    "ZkAndTeeVerifier"
     # Hekla contracts
     "HeklaTaikoL1"
     # Mainnet contracts

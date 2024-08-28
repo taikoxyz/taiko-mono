@@ -599,6 +599,25 @@
 | __gap          | uint256[50] | 251  | 0      | 1600  | contracts/verifiers/compose/ZkAnyVerifier.sol:ZkAnyVerifier |
 | __gap          | uint256[50] | 301  | 0      | 1600  | contracts/verifiers/compose/ZkAnyVerifier.sol:ZkAnyVerifier |
 
+## ZkAndTeeVerifier
+| Name           | Type        | Slot | Offset | Bytes | Contract                                                          |
+|----------------|-------------|------|--------|-------|-------------------------------------------------------------------|
+| _initialized   | uint8       | 0    | 0      | 1     | contracts/verifiers/compose/ZkAndTeeVerifier.sol:ZkAndTeeVerifier |
+| _initializing  | bool        | 0    | 1      | 1     | contracts/verifiers/compose/ZkAndTeeVerifier.sol:ZkAndTeeVerifier |
+| __gap          | uint256[50] | 1    | 0      | 1600  | contracts/verifiers/compose/ZkAndTeeVerifier.sol:ZkAndTeeVerifier |
+| _owner         | address     | 51   | 0      | 20    | contracts/verifiers/compose/ZkAndTeeVerifier.sol:ZkAndTeeVerifier |
+| __gap          | uint256[49] | 52   | 0      | 1568  | contracts/verifiers/compose/ZkAndTeeVerifier.sol:ZkAndTeeVerifier |
+| _pendingOwner  | address     | 101  | 0      | 20    | contracts/verifiers/compose/ZkAndTeeVerifier.sol:ZkAndTeeVerifier |
+| __gap          | uint256[49] | 102  | 0      | 1568  | contracts/verifiers/compose/ZkAndTeeVerifier.sol:ZkAndTeeVerifier |
+| addressManager | address     | 151  | 0      | 20    | contracts/verifiers/compose/ZkAndTeeVerifier.sol:ZkAndTeeVerifier |
+| __gap          | uint256[49] | 152  | 0      | 1568  | contracts/verifiers/compose/ZkAndTeeVerifier.sol:ZkAndTeeVerifier |
+| __reentry      | uint8       | 201  | 0      | 1     | contracts/verifiers/compose/ZkAndTeeVerifier.sol:ZkAndTeeVerifier |
+| __paused       | uint8       | 201  | 1      | 1     | contracts/verifiers/compose/ZkAndTeeVerifier.sol:ZkAndTeeVerifier |
+| lastUnpausedAt | uint64      | 201  | 2      | 8     | contracts/verifiers/compose/ZkAndTeeVerifier.sol:ZkAndTeeVerifier |
+| __gap          | uint256[49] | 202  | 0      | 1568  | contracts/verifiers/compose/ZkAndTeeVerifier.sol:ZkAndTeeVerifier |
+| __gap          | uint256[50] | 251  | 0      | 1600  | contracts/verifiers/compose/ZkAndTeeVerifier.sol:ZkAndTeeVerifier |
+| __gap          | uint256[50] | 301  | 0      | 1600  | contracts/verifiers/compose/ZkAndTeeVerifier.sol:ZkAndTeeVerifier |
+
 ## HeklaTaikoL1
 | Name           | Type                   | Slot | Offset | Bytes | Contract                                      |
 |----------------|------------------------|------|--------|-------|-----------------------------------------------|
