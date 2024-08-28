@@ -24,7 +24,6 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
     error CV_INVALID_SUB_VERIFIER();
     error CV_INVALID_SUBPROOF_LENGTH();
     error CV_SUB_VERIFIER_NOT_FOUND();
-    error CV_SUB_VERIFIER_CALL_FAILED();
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
