@@ -1,16 +1,20 @@
 service: defender-as-code-test-project
 configValidationMode: error
 frameworkVersion: "3"
+
 provider:
   name: defender
   stage: ${opt:stage, 'dev'}
   stackName: mystack
   ssot: false
+
 custom:
   config: ${file(secrets.${self:provider.stage}.yml)}
+
 defender:
   key: ${self:custom.config.keys.api}
   secret: ${self:custom.config.keys.secret}
+
 resources:
   actions:
     erc-20-vault-balance-drop:
