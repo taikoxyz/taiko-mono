@@ -1,5 +1,5 @@
-const {ethers} = require("ethers");
-const {Defender} = require("@openzeppelin/defender-sdk");
+const { ethers } = require("ethers");
+const { Defender } = require("@openzeppelin/defender-sdk");
 
 const verifyProofSignature = "verifyProof(address,bytes32,bytes32)";
 const verifyProofSelector = ethers.utils
@@ -9,8 +9,8 @@ const verifyProofSelector = ethers.utils
 function alertOrg(notificationClient, message) {
   notificationClient.send({
     channelAlias: "discord_blocks",
-    subject: "SGXVerifier: verifyProof Failure Alert",
-    message: message,
+    subject: "⚠️ SGXVerifier: verifyProof Failure Alert",
+    message,
   });
 }
 
@@ -50,29 +50,29 @@ async function calculateBlockRange(provider, hours = 24) {
 
   console.log(`Calculated block range: from ${fromBlock} to ${toBlock}`);
 
-  return {fromBlock, toBlock};
+  return { fromBlock, toBlock };
 }
 
 async function monitorTransactions(
   provider,
   contractAddress,
   notificationClient,
-  hours
+  hours,
 ) {
-  const {fromBlock, toBlock} = await calculateBlockRange(provider, hours);
+  const { fromBlock, toBlock } = await calculateBlockRange(provider, hours);
 
   const logs = await provider.getLogs({
-    fromBlock: fromBlock,
-    toBlock: toBlock,
+    fromBlock,
+    toBlock,
     address: contractAddress,
   });
 
-  for (let log of logs) {
+  for (const log of logs) {
     const tx = await provider.getTransaction(log.transactionHash);
 
     if (tx.data.startsWith(verifyProofSelector)) {
       const txReceipt = await provider.getTransactionReceipt(
-        log.transactionHash
+        log.transactionHash,
       );
 
       if (txReceipt && txReceipt.status === 0) {
@@ -89,8 +89,8 @@ async function monitorTransactions(
 }
 
 exports.handler = async function (event, context) {
-  const {notificationClient} = context;
-  const {apiKey, apiSecret, taikoL1ApiKey, taikoL1ApiSecret} = event.secrets;
+  const { notificationClient } = context;
+  const { apiKey, apiSecret, taikoL1ApiKey, taikoL1ApiSecret } = event.secrets;
 
   const contractAddress = "0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81";
 
@@ -98,7 +98,7 @@ exports.handler = async function (event, context) {
     apiKey,
     apiSecret,
     taikoL1ApiKey,
-    taikoL1ApiSecret
+    taikoL1ApiSecret,
   );
 
   await monitorTransactions(provider, contractAddress, notificationClient, 24);

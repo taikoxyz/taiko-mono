@@ -1,12 +1,12 @@
-const {ethers} = require("ethers");
-const {Defender} = require("@openzeppelin/defender-sdk");
+const { ethers } = require("ethers");
+const { Defender } = require("@openzeppelin/defender-sdk");
 
 const ERC20_ABI = [
   {
     constant: true,
-    inputs: [{name: "_owner", type: "address"}],
+    inputs: [{ name: "_owner", type: "address" }],
     name: "balanceOf",
-    outputs: [{name: "balance", type: "uint256"}],
+    outputs: [{ name: "balance", type: "uint256" }],
     payable: false,
     stateMutability: "view",
     type: "function",
@@ -31,17 +31,17 @@ async function monitorTokenBalance(
   secrets,
   client,
   tokenName,
-  networkName
+  networkName,
 ) {
   console.log(`Monitoring ${tokenName} balance on ${networkName}`);
   const previousBalance = ethers.BigNumber.from(
-    secrets[previousBalanceKey] || "0"
+    secrets[previousBalanceKey] || "0",
   );
   console.log(
     `Previous ${tokenName} Balance: ${ethers.utils.formatUnits(
       previousBalance,
-      18
-    )}`
+      18,
+    )}`,
   );
 
   let currentBalance;
@@ -51,14 +51,14 @@ async function monitorTokenBalance(
     currentBalance = await getERC20Balance(
       provider,
       tokenAddress,
-      vaultAddress
+      vaultAddress,
     );
   }
   console.log(
     `Current ${tokenName} Balance: ${ethers.utils.formatUnits(
       currentBalance,
-      18
-    )}`
+      18,
+    )}`,
   );
 
   if (!previousBalance.isZero()) {
@@ -68,27 +68,27 @@ async function monitorTokenBalance(
       .div(previousBalance)
       .toNumber();
     console.log(
-      `Calculated drop percentage for ${tokenName}: ${dropPercentage}%`
+      `Calculated drop percentage for ${tokenName}: ${dropPercentage}%`,
     );
 
     if (dropPercentage >= 5) {
       const message = `Alert: ${tokenName} balance has dropped by ${dropPercentage}% on ${networkName}.\nPrevious Balance: ${ethers.utils.formatUnits(
         previousBalance,
-        18
+        18,
       )}\nCurrent Balance: ${ethers.utils.formatUnits(currentBalance, 18)}`;
       alertOrg(
         notificationClient,
-        `${networkName}: ${tokenName} Balance Drop Alert`,
-        message
+        `⚠️ ${networkName}: ${tokenName} Balance Drop Alert`,
+        message,
       );
     } else {
       console.log(
-        `No significant ${tokenName} balance drop detected on ${networkName}`
+        `No significant ${tokenName} balance drop detected on ${networkName}`,
       );
     }
   } else {
     console.log(
-      `No previous ${tokenName} balance to compare on ${networkName}`
+      `No previous ${tokenName} balance to compare on ${networkName}`,
     );
   }
 
@@ -98,14 +98,14 @@ async function monitorTokenBalance(
 function alertOrg(notificationClient, subject, message) {
   notificationClient.send({
     channelAlias: "discord_bridging",
-    subject: subject,
-    message: message,
+    subject,
+    message,
   });
 }
 
 async function storePreviousBalance(client, key, newBalance) {
   console.log(
-    `Storing previous balance under key: ${key}, value: ${newBalance.toString()}`
+    `Storing previous balance under key: ${key}, value: ${newBalance.toString()}`,
   );
   const body = {
     deletes: [],
@@ -129,8 +129,8 @@ function createProvider(apiKey, apiSecret, relayerApiKey, relayerApiSecret) {
 }
 
 exports.handler = async function (event, context) {
-  const {notificationClient} = context;
-  const {apiKey, apiSecret, taikoL1ApiKey, taikoL1ApiSecret} = event.secrets;
+  const { notificationClient } = context;
+  const { apiKey, apiSecret, taikoL1ApiKey, taikoL1ApiSecret } = event.secrets;
 
   console.log(`Starting balance monitoring for L1`);
 
@@ -138,7 +138,7 @@ exports.handler = async function (event, context) {
     apiKey,
     apiSecret,
     taikoL1ApiKey,
-    taikoL1ApiSecret
+    taikoL1ApiSecret,
   );
 
   const l1VaultAddress = "0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab";
@@ -146,7 +146,7 @@ exports.handler = async function (event, context) {
   const l1TokenAddresses = {
     ETH: null,
     TAIKO: ethers.utils.getAddress(
-      "0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800"
+      "0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800",
     ),
     USDC: ethers.utils.getAddress("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"),
     USDT: ethers.utils.getAddress("0xdAC17F958D2ee523a2206206994597C13D831ec7"),
@@ -168,7 +168,7 @@ exports.handler = async function (event, context) {
     event.secrets,
     client,
     "ETH",
-    "L1"
+    "L1",
   );
   await monitorTokenBalance(
     l1Provider,
@@ -179,7 +179,7 @@ exports.handler = async function (event, context) {
     event.secrets,
     client,
     "TAIKO",
-    "L1"
+    "L1",
   );
   await monitorTokenBalance(
     l1Provider,
@@ -190,7 +190,7 @@ exports.handler = async function (event, context) {
     event.secrets,
     client,
     "USDC",
-    "L1"
+    "L1",
   );
   await monitorTokenBalance(
     l1Provider,
@@ -201,7 +201,7 @@ exports.handler = async function (event, context) {
     event.secrets,
     client,
     "USDT",
-    "L1"
+    "L1",
   );
 
   console.log(`Balance monitoring completed`);

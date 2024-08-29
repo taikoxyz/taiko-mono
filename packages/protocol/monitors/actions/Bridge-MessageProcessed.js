@@ -1,4 +1,4 @@
-const {Defender} = require("@openzeppelin/defender-sdk");
+const { Defender } = require("@openzeppelin/defender-sdk");
 const ethers = require("ethers");
 
 const bridgeAbi = [
@@ -180,7 +180,7 @@ const bridgeAbi = [
 ];
 
 async function getLogsByTopic(notificationClient, l1provider, l2provider) {
-  let [
+  const [
     processedMessagesL1,
     processedMessagesL2,
     sentMessagesL1,
@@ -191,38 +191,38 @@ async function getLogsByTopic(notificationClient, l1provider, l2provider) {
       1000,
       "0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC",
       bridgeAbi,
-      l1provider
+      l1provider,
     ),
     fetchLogs(
       "MessageProcessed",
       1000,
       "0x1670000000000000000000000000000000000001",
       bridgeAbi,
-      l2provider
+      l2provider,
     ),
     fetchLogs(
       "MessageSent",
       1000,
       "0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC",
       bridgeAbi,
-      l1provider
+      l1provider,
     ),
     fetchLogs(
       "MessageSent",
       1000,
       "0x1670000000000000000000000000000000000001",
       bridgeAbi,
-      l2provider
+      l2provider,
     ),
   ]);
 
   const unmatchedL1 = findUnmatchedMessages(
     processedMessagesL1,
-    sentMessagesL2
+    sentMessagesL2,
   );
   const unmatchedL2 = findUnmatchedMessages(
     processedMessagesL2,
-    sentMessagesL1
+    sentMessagesL1,
   );
 
   if (unmatchedL1.length > 0 || unmatchedL2.length > 0) {
@@ -249,7 +249,7 @@ async function fetchLogs(eventName, limit, address, abi, provider) {
     });
 
     return logs.map(
-      (log) => iface.decodeEventLog(eventName, log.data, log.topics).msgHash
+      (log) => iface.decodeEventLog(eventName, log.data, log.topics).msgHash,
     );
   } catch (error) {
     console.error(`Error fetching ${eventName} logs:`, error);
@@ -266,7 +266,7 @@ function alertOrg(notificationClient, missingCount) {
 
   notificationClient.send({
     channelAlias: "discord_bridging",
-    subject: "Bridge: MessageProcessed",
+    subject: "🚨 Bridge: MessageProcessed",
     message: outputMessage,
   });
 }
@@ -283,8 +283,8 @@ function createProvider(apiKey, apiSecret, relayerApiKey, relayerApiSecret) {
 }
 
 exports.handler = async function (event, context) {
-  const {notificationClient} = context;
-  let {
+  const { notificationClient } = context;
+  const {
     apiKey,
     apiSecret,
     taikoL1ApiKey,
@@ -297,13 +297,13 @@ exports.handler = async function (event, context) {
     apiKey,
     apiSecret,
     taikoL1ApiKey,
-    taikoL1ApiSecret
+    taikoL1ApiSecret,
   );
   const l2Provider = createProvider(
     apiKey,
     apiSecret,
     taikoL2ApiKey,
-    taikoL2ApiSecret
+    taikoL2ApiSecret,
   );
 
   await getLogsByTopic(notificationClient, l1Provider, l2Provider);

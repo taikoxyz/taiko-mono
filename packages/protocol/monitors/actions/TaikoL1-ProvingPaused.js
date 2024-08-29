@@ -1,5 +1,5 @@
-const {ethers} = require("ethers");
-const {Defender} = require("@openzeppelin/defender-sdk");
+const { ethers } = require("ethers");
+const { Defender } = require("@openzeppelin/defender-sdk");
 
 const ABI = [
   {
@@ -7,18 +7,12 @@ const ABI = [
     inputs: [
       {
         indexed: false,
-        internalType: "uint32",
-        name: "version",
-        type: "uint32",
-      },
-      {
-        indexed: false,
-        internalType: "address[]",
-        name: "guardians",
-        type: "address[]",
+        internalType: "bool",
+        name: "paused",
+        type: "bool",
       },
     ],
-    name: "GuardiansUpdated",
+    name: "ProvingPaused",
     type: "event",
   },
 ];
@@ -26,8 +20,8 @@ const ABI = [
 function alertOrg(notificationClient, message) {
   notificationClient.send({
     channelAlias: "discord_configs",
-    subject: "GuardianProver: GuardiansUpdated Alert",
-    message: message,
+    subject: "⚠️ TaikoL1: ProvingPaused Alert",
+    message,
   });
 }
 
@@ -42,7 +36,7 @@ async function fetchLogsFromL1(
   toBlock,
   address,
   abi,
-  provider
+  provider,
 ) {
   const iface = new ethers.utils.Interface(abi);
   const eventTopic = iface.getEventTopic(eventName);
@@ -56,7 +50,7 @@ async function fetchLogsFromL1(
     });
 
     return logs.map((log) =>
-      iface.decodeEventLog(eventName, log.data, log.topics)
+      iface.decodeEventLog(eventName, log.data, log.topics),
     );
   } catch (error) {
     console.error(`Error fetching logs for ${eventName}:`, error);
@@ -87,14 +81,14 @@ async function calculateBlockTime(provider) {
 }
 
 exports.handler = async function (event, context) {
-  const {notificationClient} = context;
-  const {apiKey, apiSecret, taikoL1ApiKey, taikoL1ApiSecret} = event.secrets;
+  const { notificationClient } = context;
+  const { apiKey, apiSecret, taikoL1ApiKey, taikoL1ApiSecret } = event.secrets;
 
   const taikoL1Provider = createProvider(
     apiKey,
     apiSecret,
     taikoL1ApiKey,
-    taikoL1ApiSecret
+    taikoL1ApiSecret,
   );
 
   const currentBlockNumber = await getLatestBlockNumber(taikoL1Provider);
@@ -105,12 +99,12 @@ exports.handler = async function (event, context) {
   const toBlock = currentBlockNumber;
 
   const logs = await fetchLogsFromL1(
-    "GuardiansUpdated",
+    "ProvingPaused",
     fromBlock,
     toBlock,
-    "0xE3D777143Ea25A6E031d1e921F396750885f43aC",
+    "0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a",
     ABI,
-    taikoL1Provider
+    taikoL1Provider,
   );
 
   console.log(`Logs found: ${logs.length}`);
@@ -118,7 +112,7 @@ exports.handler = async function (event, context) {
   if (logs.length > 0) {
     alertOrg(
       notificationClient,
-      `GuardiansUpdated event detected! Details: ${JSON.stringify(logs)}`
+      `ProvingPaused event detected! Details: ${JSON.stringify(logs)}`,
     );
   }
 

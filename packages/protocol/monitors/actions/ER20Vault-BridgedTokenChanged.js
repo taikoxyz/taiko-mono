@@ -1,5 +1,5 @@
-const {ethers} = require("ethers");
-const {Defender} = require("@openzeppelin/defender-sdk");
+const { ethers } = require("ethers");
+const { Defender } = require("@openzeppelin/defender-sdk");
 
 const ABI = [
   {
@@ -56,8 +56,8 @@ const ABI = [
 function alertOrg(notificationClient, message) {
   notificationClient.send({
     channelAlias: "discord_bridging",
-    subject: "ER20Vault: BridgedTokenChanged Alert",
-    message: message,
+    subject: "⚠️ ER20Vault: BridgedTokenChanged Alert",
+    message,
   });
 }
 
@@ -73,7 +73,7 @@ async function fetchLogs(
   address,
   abi,
   provider,
-  networkName
+  networkName,
 ) {
   const iface = new ethers.utils.Interface(abi);
   const eventTopic = iface.getEventTopic(eventName);
@@ -88,12 +88,12 @@ async function fetchLogs(
 
     return logs.map((log) => {
       const parsedLog = iface.decodeEventLog(eventName, log.data, log.topics);
-      return {...parsedLog, network: networkName};
+      return { ...parsedLog, network: networkName };
     });
   } catch (error) {
     console.error(
       `Error fetching logs for ${eventName} on ${networkName}:`,
-      error
+      error,
     );
     return [];
   }
@@ -124,17 +124,17 @@ async function calculateBlockTime(provider) {
 function calculateBlockRange(
   currentBlockNumber,
   blockTimeInSeconds,
-  minutes = 5
+  minutes = 5,
 ) {
   const blocksInGivenMinutes = Math.floor((minutes * 60) / blockTimeInSeconds);
   const fromBlock = currentBlockNumber - blocksInGivenMinutes;
   const toBlock = currentBlockNumber;
 
-  return {fromBlock, toBlock};
+  return { fromBlock, toBlock };
 }
 
 exports.handler = async function (event, context) {
-  const {notificationClient} = context;
+  const { notificationClient } = context;
   const {
     apiKey,
     apiSecret,
@@ -148,13 +148,13 @@ exports.handler = async function (event, context) {
     apiKey,
     apiSecret,
     taikoL1ApiKey,
-    taikoL1ApiSecret
+    taikoL1ApiSecret,
   );
   const taikoL2Provider = createProvider(
     apiKey,
     apiSecret,
     taikoL2ApiKey,
-    taikoL2ApiSecret
+    taikoL2ApiSecret,
   );
 
   const currentBlockNumberL1 = await getLatestBlockNumber(taikoL1Provider);
@@ -163,13 +163,13 @@ exports.handler = async function (event, context) {
   const blockTimeInSecondsL1 = await calculateBlockTime(taikoL1Provider);
   const blockTimeInSecondsL2 = await calculateBlockTime(taikoL2Provider);
 
-  const {fromBlock: fromBlockL1, toBlock: toBlockL1} = calculateBlockRange(
+  const { fromBlock: fromBlockL1, toBlock: toBlockL1 } = calculateBlockRange(
     currentBlockNumberL1,
-    blockTimeInSecondsL1
+    blockTimeInSecondsL1,
   );
-  const {fromBlock: fromBlockL2, toBlock: toBlockL2} = calculateBlockRange(
+  const { fromBlock: fromBlockL2, toBlock: toBlockL2 } = calculateBlockRange(
     currentBlockNumberL2,
-    blockTimeInSecondsL2
+    blockTimeInSecondsL2,
   );
 
   const logsL1 = await fetchLogs(
@@ -179,7 +179,7 @@ exports.handler = async function (event, context) {
     "0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab",
     ABI,
     taikoL1Provider,
-    "L1"
+    "L1",
   );
   const logsL2 = await fetchLogs(
     "BridgedTokenChanged",
@@ -188,7 +188,7 @@ exports.handler = async function (event, context) {
     "0x1670000000000000000000000000000000000002",
     ABI,
     taikoL2Provider,
-    "L2"
+    "L2",
   );
 
   const logs = [...logsL1, ...logsL2];
@@ -197,12 +197,12 @@ exports.handler = async function (event, context) {
     const logDetails = logs
       .map(
         (log) =>
-          `Network: ${log.network}, Token: ${log.ctoken}, Old Token: ${log.btokenOld}, New Token: ${log.btokenNew}`
+          `Network: ${log.network}, Token: ${log.ctoken}, Old Token: ${log.btokenOld}, New Token: ${log.btokenNew}`,
       )
       .join("\n");
     alertOrg(
       notificationClient,
-      `BridgedTokenChanged event detected!\nDetails:\n${logDetails}`
+      `BridgedTokenChanged event detected!\nDetails:\n${logDetails}`,
     );
   }
 

@@ -1,5 +1,5 @@
-const {ethers} = require("ethers");
-const {Defender} = require("@openzeppelin/defender-sdk");
+const { ethers } = require("ethers");
+const { Defender } = require("@openzeppelin/defender-sdk");
 
 const ABI = [
   {
@@ -81,8 +81,8 @@ const ABI = [
 function alertOrg(notificationClient, message) {
   notificationClient.send({
     channelAlias: "discord_blocks",
-    subject: "TaikoL1: BlockVerified Alert",
-    message: message,
+    subject: "🚨 TaikoL1: BlockVerified Alert",
+    message,
   });
 }
 
@@ -97,11 +97,11 @@ async function fetchLogsFromL1(
   toBlock,
   address,
   abi,
-  provider
+  provider,
 ) {
   const iface = new ethers.utils.Interface(abi);
   const eventTopics = eventNames.map((eventName) =>
-    iface.getEventTopic(eventName)
+    iface.getEventTopic(eventName),
   );
 
   console.log(`eventTopics: ${eventTopics}`);
@@ -144,14 +144,14 @@ async function calculateBlockTime(provider) {
 }
 
 exports.handler = async function (event, context) {
-  const {notificationClient} = context;
-  const {apiKey, apiSecret, taikoL1ApiKey, taikoL1ApiSecret} = event.secrets;
+  const { notificationClient } = context;
+  const { apiKey, apiSecret, taikoL1ApiKey, taikoL1ApiSecret } = event.secrets;
 
   const taikoL1Provider = createProvider(
     apiKey,
     apiSecret,
     taikoL1ApiKey,
-    taikoL1ApiSecret
+    taikoL1ApiSecret,
   );
 
   const currentBlockNumber = await getLatestBlockNumber(taikoL1Provider);
@@ -167,13 +167,13 @@ exports.handler = async function (event, context) {
     toBlock,
     "0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a",
     ABI,
-    taikoL1Provider
+    taikoL1Provider,
   );
 
   if (logs.length === 0) {
     alertOrg(
       notificationClient,
-      `No BlockVerified event detected in the last 5 mins in TaikoL1!`
+      `No BlockVerified event detected in the last 5 mins in TaikoL1!`,
     );
   }
 

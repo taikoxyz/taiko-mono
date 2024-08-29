@@ -1,5 +1,5 @@
-const {ethers} = require("ethers");
-const {Defender} = require("@openzeppelin/defender-sdk");
+const { ethers } = require("ethers");
+const { Defender } = require("@openzeppelin/defender-sdk");
 
 const ABI = [
   {
@@ -32,8 +32,8 @@ const ABI = [
 function alertOrg(notificationClient, message) {
   notificationClient.send({
     channelAlias: "discord_configs",
-    subject: "GuardianProver: Approved Count",
-    message: message,
+    subject: "⚠️ GuardianProver: Approved Count",
+    message,
   });
 }
 
@@ -63,7 +63,7 @@ async function calculateBlockRange(provider) {
 
   console.log(`Calculated block range: from ${fromBlock} to ${toBlock}`);
 
-  return {fromBlock, toBlock};
+  return { fromBlock, toBlock };
 }
 
 async function fetchLogsFromL1(
@@ -72,7 +72,7 @@ async function fetchLogsFromL1(
   toBlock,
   address,
   abi,
-  provider
+  provider,
 ) {
   const iface = new ethers.utils.Interface(abi);
   const eventTopic = iface.getEventTopic(eventName);
@@ -108,17 +108,17 @@ function createProvider(apiKey, apiSecret, relayerApiKey, relayerApiSecret) {
 }
 
 exports.handler = async function (event, context) {
-  const {notificationClient} = context;
-  const {apiKey, apiSecret, taikoL1ApiKey, taikoL1ApiSecret} = event.secrets;
+  const { notificationClient } = context;
+  const { apiKey, apiSecret, taikoL1ApiKey, taikoL1ApiSecret } = event.secrets;
 
   const taikoL1Provider = createProvider(
     apiKey,
     apiSecret,
     taikoL1ApiKey,
-    taikoL1ApiSecret
+    taikoL1ApiSecret,
   );
 
-  const {fromBlock, toBlock} = await calculateBlockRange(taikoL1Provider);
+  const { fromBlock, toBlock } = await calculateBlockRange(taikoL1Provider);
 
   const logs = await fetchLogsFromL1(
     "Approved",
@@ -126,13 +126,13 @@ exports.handler = async function (event, context) {
     toBlock,
     "0xE3D777143Ea25A6E031d1e921F396750885f43aC",
     ABI,
-    taikoL1Provider
+    taikoL1Provider,
   );
 
   if (logs.length > 0) {
     alertOrg(
       notificationClient,
-      `Detected ${logs.length} Approved events in the last 15 mins on Guardian!`
+      `Detected ${logs.length} Approved events in the last 15 mins on Guardian!`,
     );
   }
 

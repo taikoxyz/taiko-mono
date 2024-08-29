@@ -1,5 +1,5 @@
-const {ethers} = require("ethers");
-const {Defender} = require("@openzeppelin/defender-sdk");
+const { ethers } = require("ethers");
+const { Defender } = require("@openzeppelin/defender-sdk");
 
 const ABI = [
   {
@@ -26,8 +26,8 @@ const ABI = [
 function alertOrg(notificationClient, message) {
   notificationClient.send({
     channelAlias: "discord_blocks",
-    subject: "TaikoL1: CalldataTxList Count",
-    message: message,
+    subject: "ℹ️ TaikoL1: CalldataTxList Count",
+    message,
   });
 }
 
@@ -57,7 +57,7 @@ async function calculateBlockRange(provider) {
 
   console.log(`Calculated block range: from ${fromBlock} to ${toBlock}`);
 
-  return {fromBlock, toBlock};
+  return { fromBlock, toBlock };
 }
 
 async function fetchLogsFromL1(
@@ -66,11 +66,11 @@ async function fetchLogsFromL1(
   toBlock,
   address,
   abi,
-  provider
+  provider,
 ) {
   const iface = new ethers.utils.Interface(abi);
   const eventTopics = eventNames.map((eventName) =>
-    iface.getEventTopic(eventName)
+    iface.getEventTopic(eventName),
   );
 
   console.log(`eventTopics: ${eventTopics}`);
@@ -106,17 +106,17 @@ function createProvider(apiKey, apiSecret, relayerApiKey, relayerApiSecret) {
 }
 
 exports.handler = async function (event, context) {
-  const {notificationClient} = context;
-  const {apiKey, apiSecret, taikoL1ApiKey, taikoL1ApiSecret} = event.secrets;
+  const { notificationClient } = context;
+  const { apiKey, apiSecret, taikoL1ApiKey, taikoL1ApiSecret } = event.secrets;
 
   const taikoL1Provider = createProvider(
     apiKey,
     apiSecret,
     taikoL1ApiKey,
-    taikoL1ApiSecret
+    taikoL1ApiSecret,
   );
 
-  const {fromBlock, toBlock} = await calculateBlockRange(taikoL1Provider);
+  const { fromBlock, toBlock } = await calculateBlockRange(taikoL1Provider);
 
   const logs = await fetchLogsFromL1(
     ["CalldataTxList"],
@@ -124,13 +124,13 @@ exports.handler = async function (event, context) {
     toBlock,
     "0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a",
     ABI,
-    taikoL1Provider
+    taikoL1Provider,
   );
 
   if (logs.length > 0) {
     alertOrg(
       notificationClient,
-      `Detected ${logs.length} CalldataTxList events in the last 24 hours on TaikoL1!`
+      `Detected ${logs.length} CalldataTxList events in the last 24 hours on TaikoL1!`,
     );
   }
 
