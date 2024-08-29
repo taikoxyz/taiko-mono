@@ -8,9 +8,7 @@ import "../../verifiers/IVerifier.sol";
 /// @notice A library that offers helper functions.
 /// @custom:security-contact security@taiko.xyz
 library LibData {
-    function blockV2toV1(
-        TaikoData.BlockV2 memory _v2
-    )
+    function blockV2toV1(TaikoData.BlockV2 memory _v2)
         internal
         pure
         returns (TaikoData.Block memory)
@@ -27,9 +25,7 @@ library LibData {
         });
     }
 
-    function verifierContextV2toV1(
-        IVerifier.ContextV2 memory _v2
-    )
+    function verifierContextV2toV1(IVerifier.ContextV2 memory _v2)
         internal
         pure
         returns (IVerifier.Context memory)

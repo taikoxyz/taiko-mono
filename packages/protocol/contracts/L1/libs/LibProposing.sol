@@ -265,9 +265,7 @@ library LibProposing {
         emit BlockProposedV2(meta_.id, meta_);
     }
 
-    function _encodeBaseFeeConfig(
-        TaikoData.BaseFeeConfig memory _baseFeeConfig
-    )
+    function _encodeBaseFeeConfig(TaikoData.BaseFeeConfig memory _baseFeeConfig)
         private
         pure
         returns (bytes32)
