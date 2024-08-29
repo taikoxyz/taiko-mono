@@ -1,7 +1,6 @@
 service: defender-as-code-test-project
 configValidationMode: error
 frameworkVersion: "3"
-
 provider:
   name: defender
   stage: ${opt:stage, 'dev'}
