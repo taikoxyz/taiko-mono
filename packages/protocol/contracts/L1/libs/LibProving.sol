@@ -242,7 +242,6 @@ library LibProving {
         // caution.
         {
             bytes32 metaHash = keccak256(abi.encode(local.meta));
-
             if (local.metaHash != metaHash) revert LibUtils.L1_BLOCK_MISMATCH();
         }
 
