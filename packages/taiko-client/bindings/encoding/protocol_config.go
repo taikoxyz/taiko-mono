@@ -54,7 +54,8 @@ var (
 		LivenessBond:          livenessBond,
 		StateRootSyncInternal: 16,
 		MaxAnchorHeightOffset: 64,
-		OntakeForkHeight:      374_400,
+		// TODO: update this value when mainnet fork height is decided
+		OntakeForkHeight: 9_000_000,
 		BaseFeeConfig: bindings.TaikoDataBaseFeeConfig{
 			AdjustmentQuotient:     8,
 			GasIssuancePerSecond:   5_000_000,
