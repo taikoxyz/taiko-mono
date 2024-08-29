@@ -88,9 +88,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     /// @notice Adds trusted SGX instances to the registry.
     /// @param _instances The address array of trusted SGX instances.
     /// @return The respective instanceId array per addresses.
-    function addInstances(
-        address[] calldata _instances
-    )
+    function addInstances(address[] calldata _instances)
         external
         onlyOwner
         returns (uint256[] memory)
@@ -100,9 +98,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
     /// @notice Deletes SGX instances from the registry.
     /// @param _ids The ids array of SGX instances.
-    function deleteInstances(
-        uint256[] calldata _ids
-    )
+    function deleteInstances(uint256[] calldata _ids)
         external
         onlyFromOwnerOrNamed(LibStrings.B_SGX_WATCHDOG)
     {
@@ -120,9 +116,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     /// @notice Adds an SGX instance after the attestation is verified
     /// @param _attestation The parsed attestation quote.
     /// @return The respective instanceId
-    function registerInstance(
-        V3Struct.ParsedV3QuoteStruct calldata _attestation
-    )
+    function registerInstance(V3Struct.ParsedV3QuoteStruct calldata _attestation)
         external
         returns (uint256)
     {
@@ -174,6 +168,17 @@ contract SgxVerifier is EssentialContract, IVerifier {
             _replaceInstance(id, oldInstance, newInstance);
         }
     }
+
+    /// @inheritdoc IVerifier
+    function verifyBatchProof(
+        ContextV2[] calldata, /*_ctxs*/
+        TaikoData.TierProof calldata /*_proof*/
+    )
+        external
+        view
+        notImplemented
+        onlyFromNamedEither(LibStrings.B_TAIKO, LibStrings.B_TIER_TEE_ANY)
+    { }
 
     function taikoChainId() internal view virtual returns (uint64) {
         return ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfig().chainId;

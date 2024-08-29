@@ -28,6 +28,7 @@ contracts=(
     "ComposeVerifier"
     "TeeAnyVerifier"
     "ZkAnyVerifier"
+    "ZkAndTeeVerifier"
     # Hekla contracts
     "HeklaTaikoL1"
     # Mainnet contracts
@@ -41,6 +42,9 @@ contracts=(
     "MainnetSP1Verifier"
     "MainnetRollupAddressManager"
     "MainnetSgxVerifier"
+    "MainnetTeeAnyVerifier"
+    "MainnetZkAnyVerifier"
+    "MainnetZkAndTeeVerifier"
     "MainnetSharedAddressManager"
     "MainnetSignalService"
     "MainnetTaikoL1"

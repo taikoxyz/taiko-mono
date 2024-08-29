@@ -6,7 +6,7 @@ pragma solidity 0.8.24;
 /// protocol.
 /// @custom:security-contact security@taiko.xyz
 library TaikoData {
-    /// @dev Struct that represneds L2 basefee configurations
+    /// @dev Struct that represents L2 basefee configurations
     struct BaseFeeConfig {
         uint8 adjustmentQuotient;
         uint8 sharingPctg;
