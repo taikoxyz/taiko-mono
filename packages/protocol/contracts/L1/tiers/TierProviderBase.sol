@@ -58,9 +58,7 @@ abstract contract TierProviderBase is ITierProvider {
     /// @dev Builds a TEE tier with a specific verifier name.
     /// @param _verifierName The name of the verifier.
     /// @return A Tier struct with predefined parameters for TEE.
-    function _buildTeeTier(
-        bytes32 _verifierName
-    )
+    function _buildTeeTier(bytes32 _verifierName)
         private
         pure
         returns (ITierProvider.Tier memory)

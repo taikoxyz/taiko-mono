@@ -354,9 +354,7 @@ contract TaikoL2 is EssentialContract {
         );
     }
 
-    function _calcPublicInputHash(
-        uint256 _blockId
-    )
+    function _calcPublicInputHash(uint256 _blockId)
         private
         view
         returns (bytes32 publicInputHashOld, bytes32 publicInputHashNew)
