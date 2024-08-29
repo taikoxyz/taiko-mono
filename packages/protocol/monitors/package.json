@@ -1,0 +1,23 @@
+{
+  "name": "my-service",
+  "version": "1.0.0",
+  "description": "A starter template for the Defender as Code Serverless plugin",
+  "main": "handler.js",
+  "engines": {
+    "node": ">14.16"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "contributors": [
+    {
+      "name": "Nami Shah",
+      "email": "nami@openzeppelin.com"
+    }
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "serverless": "^3.20.0",
+    "@openzeppelin/defender-as-code": "^2.2.0"
+  }
+}

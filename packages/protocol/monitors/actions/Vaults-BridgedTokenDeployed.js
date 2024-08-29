@@ -1,5 +1,5 @@
-const {ethers} = require("ethers");
-const {Defender} = require("@openzeppelin/defender-sdk");
+const { ethers } = require("ethers");
+const { Defender } = require("@openzeppelin/defender-sdk");
 
 const ABIs = {
   ERC1155Vault: [
@@ -161,7 +161,7 @@ async function calculateBlockRange(provider) {
 
   console.log(`Calculated block range: from ${fromBlock} to ${toBlock}`);
 
-  return {fromBlock, toBlock};
+  return { fromBlock, toBlock };
 }
 
 async function fetchLogs(
@@ -170,7 +170,7 @@ async function fetchLogs(
   toBlock,
   address,
   abi,
-  provider
+  provider,
 ) {
   const iface = new ethers.utils.Interface(abi);
   const eventTopic = iface.getEventTopic(eventName);
@@ -213,7 +213,7 @@ async function monitorEvent(
   contractAddress,
   abi,
   subject,
-  notificationClient
+  notificationClient,
 ) {
   const logs = await fetchLogs(
     eventName,
@@ -221,7 +221,7 @@ async function monitorEvent(
     toBlock,
     contractAddress,
     abi,
-    provider
+    provider,
   );
   const eventCount = logs.length;
 
@@ -234,7 +234,7 @@ async function monitorEvent(
 }
 
 exports.handler = async function (event, context) {
-  const {notificationClient} = context;
+  const { notificationClient } = context;
   const {
     apiKey,
     apiSecret,
@@ -248,18 +248,18 @@ exports.handler = async function (event, context) {
     apiKey,
     apiSecret,
     taikoL1ApiKey,
-    taikoL1ApiSecret
+    taikoL1ApiSecret,
   );
   const l2Provider = createProvider(
     apiKey,
     apiSecret,
     taikoL2ApiKey,
-    taikoL2ApiSecret
+    taikoL2ApiSecret,
   );
 
-  const {fromBlock: l1FromBlock, toBlock: l1ToBlock} =
+  const { fromBlock: l1FromBlock, toBlock: l1ToBlock } =
     await calculateBlockRange(l1Provider);
-  const {fromBlock: l2FromBlock, toBlock: l2ToBlock} =
+  const { fromBlock: l2FromBlock, toBlock: l2ToBlock } =
     await calculateBlockRange(l2Provider);
 
   await monitorEvent(
@@ -270,7 +270,7 @@ exports.handler = async function (event, context) {
     "0xaf145913EA4a56BE22E120ED9C24589659881702", // L1
     ABIs.ERC1155Vault,
     " ERC1155Vault.BridgedTokenDeployed",
-    notificationClient
+    notificationClient,
   );
 
   await monitorEvent(
@@ -281,7 +281,7 @@ exports.handler = async function (event, context) {
     "0x1670000000000000000000000000000000000004", // L2
     ABIs.ERC1155Vault,
     " ERC1155Vault.BridgedTokenDeployed",
-    notificationClient
+    notificationClient,
   );
 
   await monitorEvent(
@@ -292,7 +292,7 @@ exports.handler = async function (event, context) {
     "0x0b470dd3A0e1C41228856Fb319649E7c08f419Aa", // L1
     ABIs.ERC721Vault,
     " ERC721Vault.BridgedTokenDeployed",
-    notificationClient
+    notificationClient,
   );
 
   await monitorEvent(
@@ -303,9 +303,8 @@ exports.handler = async function (event, context) {
     "0x1670000000000000000000000000000000000003", // L2
     ABIs.ERC721Vault,
     " ERC721Vault.BridgedTokenDeployed",
-    notificationClient
+    notificationClient,
   );
-
 
   await monitorEvent(
     l1Provider,
@@ -315,7 +314,7 @@ exports.handler = async function (event, context) {
     "0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab", // L1
     ABIs.ERC20Vault,
     " ERC20Vault.BridgedTokenDeployed",
-    notificationClient
+    notificationClient,
   );
 
   await monitorEvent(
@@ -326,7 +325,7 @@ exports.handler = async function (event, context) {
     "0x1670000000000000000000000000000000000002", // L2
     ABIs.ERC20Vault,
     " ERC20Vault.BridgedTokenDeployed",
-    notificationClient
+    notificationClient,
   );
 
   return true;
