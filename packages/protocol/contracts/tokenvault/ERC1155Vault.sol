@@ -31,9 +31,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     /// @param _op Option for sending the ERC1155 token.
     /// @return message_ The constructed message.
 
-    function sendToken(
-        BridgeTransferOp calldata _op
-    )
+    function sendToken(BridgeTransferOp calldata _op)
         external
         payable
         whenNotPaused
@@ -186,9 +184,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     /// @dev See {BaseVault-supportsInterface}.
     /// @param _interfaceId The interface identifier.
     /// @return true if supports, else otherwise.
-    function supportsInterface(
-        bytes4 _interfaceId
-    )
+    function supportsInterface(bytes4 _interfaceId)
         public
         view
         override(BaseVault, ERC1155ReceiverUpgradeable)
@@ -235,9 +231,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     /// @param _op BridgeTransferOp data.
     /// @return msgData_ Encoded message data.
     /// @return ctoken_ The canonical token.
-    function _handleMessage(
-        BridgeTransferOp calldata _op
-    )
+    function _handleMessage(BridgeTransferOp calldata _op)
         private
         returns (bytes memory msgData_, CanonicalNFT memory ctoken_)
     {
@@ -275,9 +269,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
     /// @dev Retrieve or deploy a bridged ERC1155 token contract.
     /// @param _ctoken CanonicalNFT data.
     /// @return btoken_ Address of the bridged token contract.
-    function _getOrDeployBridgedToken(
-        CanonicalNFT memory _ctoken
-    )
+    function _getOrDeployBridgedToken(CanonicalNFT memory _ctoken)
         private
         returns (address btoken_)
     {

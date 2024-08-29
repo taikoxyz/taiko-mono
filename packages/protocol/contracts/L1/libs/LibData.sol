@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 import "../TaikoData.sol";
+import "../../verifiers/IVerifier.sol";
 
 /// @title LibData
 /// @notice A library that offers helper functions.
@@ -11,9 +12,7 @@ library LibData {
     bytes32 internal constant EMPTY_ETH_DEPOSIT_HASH =
         0x569e75fc77c1a856f6daaf9e69d8a9566ca34aa47f9133711ce065a571af0cfd;
 
-    function blockParamsV1ToV2(
-        TaikoData.BlockParams memory _v1
-    )
+    function blockParamsV1ToV2(TaikoData.BlockParams memory _v1)
         internal
         pure
         returns (TaikoData.BlockParamsV2 memory)
@@ -29,9 +28,7 @@ library LibData {
         });
     }
 
-    function blockMetadataV2toV1(
-        TaikoData.BlockMetadataV2 memory _v2
-    )
+    function blockMetadataV2toV1(TaikoData.BlockMetadataV2 memory _v2)
         internal
         pure
         returns (TaikoData.BlockMetadata memory)
@@ -54,9 +51,7 @@ library LibData {
         });
     }
 
-    function blockMetadataV1toV2(
-        TaikoData.BlockMetadata memory _v1
-    )
+    function blockMetadataV1toV2(TaikoData.BlockMetadata memory _v1)
         internal
         pure
         returns (TaikoData.BlockMetadataV2 memory)
@@ -85,9 +80,7 @@ library LibData {
         });
     }
 
-    function blockV2toV1(
-        TaikoData.BlockV2 memory _v2
-    )
+    function blockV2toV1(TaikoData.BlockV2 memory _v2)
         internal
         pure
         returns (TaikoData.Block memory)
@@ -101,6 +94,22 @@ library LibData {
             proposedIn: _v2.proposedIn,
             nextTransitionId: _v2.nextTransitionId,
             verifiedTransitionId: _v2.verifiedTransitionId
+        });
+    }
+
+    function verifierContextV2toV1(IVerifier.ContextV2 memory _v2)
+        internal
+        pure
+        returns (IVerifier.Context memory)
+    {
+        return IVerifier.Context({
+            metaHash: _v2.metaHash,
+            blobHash: _v2.blobHash,
+            prover: _v2.prover,
+            blockId: _v2.blockId,
+            isContesting: _v2.isContesting,
+            blobUsed: _v2.blobUsed,
+            msgSender: _v2.msgSender
         });
     }
 }
