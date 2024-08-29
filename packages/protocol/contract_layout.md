@@ -463,23 +463,6 @@
 | __gap          | uint256[49]              | 252  | 0      | 1568  | contracts/verifiers/Risc0Verifier.sol:Risc0Verifier |
 
 ## SP1Verifier
-| Name             | Type                     | Slot | Offset | Bytes | Contract                                        |
-|------------------|--------------------------|------|--------|-------|-------------------------------------------------|
-| _initialized     | uint8                    | 0    | 0      | 1     | contracts/verifiers/SP1Verifier.sol:SP1Verifier |
-| _initializing    | bool                     | 0    | 1      | 1     | contracts/verifiers/SP1Verifier.sol:SP1Verifier |
-| __gap            | uint256[50]              | 1    | 0      | 1600  | contracts/verifiers/SP1Verifier.sol:SP1Verifier |
-| _owner           | address                  | 51   | 0      | 20    | contracts/verifiers/SP1Verifier.sol:SP1Verifier |
-| __gap            | uint256[49]              | 52   | 0      | 1568  | contracts/verifiers/SP1Verifier.sol:SP1Verifier |
-| _pendingOwner    | address                  | 101  | 0      | 20    | contracts/verifiers/SP1Verifier.sol:SP1Verifier |
-| __gap            | uint256[49]              | 102  | 0      | 1568  | contracts/verifiers/SP1Verifier.sol:SP1Verifier |
-| addressManager   | address                  | 151  | 0      | 20    | contracts/verifiers/SP1Verifier.sol:SP1Verifier |
-| __gap            | uint256[49]              | 152  | 0      | 1568  | contracts/verifiers/SP1Verifier.sol:SP1Verifier |
-| __reentry        | uint8                    | 201  | 0      | 1     | contracts/verifiers/SP1Verifier.sol:SP1Verifier |
-| __paused         | uint8                    | 201  | 1      | 1     | contracts/verifiers/SP1Verifier.sol:SP1Verifier |
-| lastUnpausedAt   | uint64                   | 201  | 2      | 8     | contracts/verifiers/SP1Verifier.sol:SP1Verifier |
-| __gap            | uint256[49]              | 202  | 0      | 1568  | contracts/verifiers/SP1Verifier.sol:SP1Verifier |
-| isProgramTrusted | mapping(bytes32 => bool) | 251  | 0      | 32    | contracts/verifiers/SP1Verifier.sol:SP1Verifier |
-| __gap            | uint256[49]              | 252  | 0      | 1568  | contracts/verifiers/SP1Verifier.sol:SP1Verifier |
 
 ## QuotaManager
 | Name           | Type                                          | Slot | Offset | Bytes | Contract                                       |
