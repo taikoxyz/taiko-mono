@@ -318,7 +318,7 @@ func (c *Client) CalculateBaseFee(
 			}
 		}
 		baseFeeInfo, err = c.TaikoL2.CalculateBaseFee(
-			&bind.CallOpts{Context: ctx},
+			&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
 			*baseFeeConfig,
 			uint64(time.Now().Unix())-l2Head.Time,
 			parentGasExcess,
@@ -329,7 +329,7 @@ func (c *Client) CalculateBaseFee(
 		}
 	} else {
 		baseFeeInfo, err = c.TaikoL2.GetBasefee(
-			&bind.CallOpts{Context: ctx},
+			&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
 			anchorBlockID.Uint64(),
 			uint32(l2Head.GasUsed), // #nosec G115
 		)
