@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.33.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.32.0...taiko-client-v0.33.0) (2024-08-29)
+
+
+### Features
+
+* **taiko-client:** introduce `CalculateBaseFee()` method ([#17989](https://github.com/taikoxyz/taiko-mono/issues/17989)) ([fdee419](https://github.com/taikoxyz/taiko-mono/commit/fdee4195541e5c675561cf34c5e1a9e3e3990bbf))
+* **taiko-client:** introduce `TxMgrSelector` for proposer / prover ([#17986](https://github.com/taikoxyz/taiko-mono/issues/17986)) ([6eb298f](https://github.com/taikoxyz/taiko-mono/commit/6eb298f31723e838ac4261fbecbfcfce371d8606))
+* **taiko-client:** update Go contract bindings ([#17997](https://github.com/taikoxyz/taiko-mono/issues/17997)) ([606114f](https://github.com/taikoxyz/taiko-mono/commit/606114faa0b5642055455f07cbd7ec2c3c23b00c))
+* **taiko-client:** update protocol configs temporarily ([#17999](https://github.com/taikoxyz/taiko-mono/issues/17999)) ([7893700](https://github.com/taikoxyz/taiko-mono/commit/789370090ffb7d985b2d9d55bf4efec8495df6bd))
+
+
+### Bug Fixes
+
+* **taiko-client:** fix CallOpts and `TestTreasuryIncome` test case ([#18000](https://github.com/taikoxyz/taiko-mono/issues/18000)) ([5707a08](https://github.com/taikoxyz/taiko-mono/commit/5707a08ffab3c981f0f23bcb8c7833176903d183))
+
+
+### Chores
+
+* **taiko-client:** don't use color prefix in log's terminal handler ([#17991](https://github.com/taikoxyz/taiko-mono/issues/17991)) ([1675cec](https://github.com/taikoxyz/taiko-mono/commit/1675cecab5773d1c4fdf82b8e000a6f5bebddfc6))
+
+
+### Tests
+
+* **taiko-client:** support full sync and snap sync in hive test ([#17995](https://github.com/taikoxyz/taiko-mono/issues/17995)) ([831198b](https://github.com/taikoxyz/taiko-mono/commit/831198baecc5f0e10c5c8fac1c04f9dad320c63c))
+* **taiko-client:** support multi clusters reorg hive test ([#17987](https://github.com/taikoxyz/taiko-mono/issues/17987)) ([28d9072](https://github.com/taikoxyz/taiko-mono/commit/28d90729adc391cb04b58fa2c32a9e3bfbd989a5))
+
 ## [0.32.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.31.0...taiko-client-v0.32.0) (2024-08-27)
 
 
