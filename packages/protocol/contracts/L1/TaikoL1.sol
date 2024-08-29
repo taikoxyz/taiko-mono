@@ -72,8 +72,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         emitEventForClient
         returns (TaikoData.BlockMetadataV2 memory meta_)
     {
-        TaikoData.Config memory config = getConfig();
-        return LibProposing.proposeBlock(state, config, this, _params, _txList);
+        return LibProposing.proposeBlock(state, getConfig(), this, _params, _txList);
     }
 
     /// @inheritdoc ITaikoL1
@@ -88,8 +87,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         emitEventForClient
         returns (TaikoData.BlockMetadataV2[] memory)
     {
-        TaikoData.Config memory config = getConfig();
-        return LibProposing.proposeBlocks(state, config, this, _paramsArr, _txListArr);
+        return LibProposing.proposeBlocks(state, getConfig(), this, _paramsArr, _txListArr);
     }
 
     /// @inheritdoc ITaikoL1

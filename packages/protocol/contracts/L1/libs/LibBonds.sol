@@ -87,14 +87,14 @@ library LibBonds {
     /// @dev Gets a user's current TAIKO token bond balance.
     /// @param _state The current state of TaikoData.
     /// @param _user The address of the user.
-    /// @return balance_ The current token balance.
+    /// @return The current token balance.
     function bondBalanceOf(
         TaikoData.State storage _state,
         address _user
     )
         internal
         view
-        returns (uint256 balance_)
+        returns (uint256)
     {
         return _state.bondBalance[_user];
     }
