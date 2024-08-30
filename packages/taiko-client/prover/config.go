@@ -59,6 +59,7 @@ type Config struct {
 	L2NodeVersion                           string
 	BlockConfirmations                      uint64
 	TxmgrConfigs                            *txmgr.CLIConfig
+	PrivateTxmgrConfigs                     *txmgr.CLIConfig
 }
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
@@ -174,6 +175,11 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		BlockConfirmations:                      c.Uint64(flags.BlockConfirmations.Name),
 		TxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
 			c.String(flags.L1WSEndpoint.Name),
+			l1ProverPrivKey,
+			c,
+		),
+		PrivateTxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
+			c.String(flags.L1PrivateTxEndpoint.Name),
 			l1ProverPrivKey,
 			c,
 		),

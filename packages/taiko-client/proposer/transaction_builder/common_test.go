@@ -28,13 +28,13 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 	s.Nil(err)
 
 	protocolConfig := encoding.GetProtocolConfig(s.RPCClient.L2.ChainID.Uint64())
-	chainConfig := config.NewChainConfig(s.RPCClient.L2.ChainID, new(big.Int).SetUint64(protocolConfig.OntakeForkHeight))
+	chainConfig := config.NewChainConfig(protocolConfig)
 
 	s.calldataTxBuilder = NewCalldataTransactionBuilder(
 		s.RPCClient,
 		l1ProposerPrivKey,
-		common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
-		common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
+		common.HexToAddress(os.Getenv("TAIKO_L2")),
+		common.HexToAddress(os.Getenv("TAIKO_L1")),
 		common.Address{},
 		0,
 		"test",
@@ -43,9 +43,9 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 	s.blobTxBuiler = NewBlobTransactionBuilder(
 		s.RPCClient,
 		l1ProposerPrivKey,
-		common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
+		common.HexToAddress(os.Getenv("TAIKO_L1")),
 		common.Address{},
-		common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
+		common.HexToAddress(os.Getenv("TAIKO_L2")),
 		10_000_000,
 		"test",
 		chainConfig,
@@ -53,7 +53,11 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 }
 
 func (s *TransactionBuilderTestSuite) TestGetParentMetaHash() {
-	metahash, err := getParentMetaHash(context.Background(), s.RPCClient, s.calldataTxBuilder.chainConfig.OnTakeBlock)
+	metahash, err := getParentMetaHash(
+		context.Background(),
+		s.RPCClient,
+		new(big.Int).SetUint64(s.calldataTxBuilder.chainConfig.ProtocolConfigs.OntakeForkHeight),
+	)
 	s.Nil(err)
 	s.NotEmpty(metahash)
 }

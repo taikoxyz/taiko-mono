@@ -76,6 +76,16 @@ contract SP1Verifier is EssentialContract, IVerifier {
         }
     }
 
+    /// @inheritdoc IVerifier
+    function verifyBatchProof(
+        ContextV2[] calldata, /*_ctxs*/
+        TaikoData.TierProof calldata /*_proof*/
+    )
+        external
+        pure
+        notImplemented
+    { }
+
     function taikoChainId() internal view virtual returns (uint64) {
         return ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfig().chainId;
     }

@@ -54,6 +54,7 @@ func RandUint32(max *big.Int) uint32 {
 		max.SetUint64(math.MaxUint32)
 	}
 	num, _ := rand.Int(rand.Reader, max)
+	// #nosec G115
 	return uint32(num.Uint64())
 }
 

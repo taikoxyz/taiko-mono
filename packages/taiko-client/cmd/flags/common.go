@@ -28,6 +28,12 @@ var (
 		Category: commonCategory,
 		EnvVars:  []string{"L1_WS"},
 	}
+	L1PrivateTxEndpoint = &cli.StringFlag{
+		Name:     "l1.privateTx",
+		Usage:    "RPC endpoint of a L1 private tx ethereum node",
+		Category: commonCategory,
+		EnvVars:  []string{"L1_PRIVATE_TX"},
+	}
 	L2WSEndpoint = &cli.StringFlag{
 		Name:     "l2.ws",
 		Usage:    "Websocket RPC endpoint of a L2 taiko-geth execution engine",
@@ -67,21 +73,21 @@ var (
 		Usage:    "TaikoL1 contract `address`",
 		Required: true,
 		Category: commonCategory,
-		EnvVars:  []string{"TAIKO_L1_ADDRESS"},
+		EnvVars:  []string{"TAIKO_L1"},
 	}
 	TaikoL2Address = &cli.StringFlag{
 		Name:     "taikoL2",
 		Usage:    "TaikoL2 contract `address`",
 		Required: true,
 		Category: commonCategory,
-		EnvVars:  []string{"TAIKO_L2_ADDRESS"},
+		EnvVars:  []string{"TAIKO_L2"},
 	}
 	TaikoTokenAddress = &cli.StringFlag{
 		Name:     "taikoToken",
 		Usage:    "TaikoToken contract `address`",
 		Required: true,
 		Category: commonCategory,
-		EnvVars:  []string{"TAIKO_TOKEN_ADDRESS"},
+		EnvVars:  []string{"TAIKO_TOKEN"},
 	}
 
 	// Optional flags used by all client software.
@@ -167,6 +173,7 @@ var CommonFlags = []cli.Flag{
 	BackOffMaxRetries,
 	BackOffRetryInterval,
 	RPCTimeout,
+	L1PrivateTxEndpoint,
 }
 
 // MergeFlags merges the given flag slices.

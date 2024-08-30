@@ -63,7 +63,11 @@ func (b *CalldataTransactionBuilder) Build(
 		err            error
 	)
 	if includeParentMetaHash {
-		if parentMetaHash, err = getParentMetaHash(ctx, b.rpc, b.chainConfig.OnTakeBlock); err != nil {
+		if parentMetaHash, err = getParentMetaHash(
+			ctx,
+			b.rpc,
+			new(big.Int).SetUint64(b.chainConfig.ProtocolConfigs.OntakeForkHeight),
+		); err != nil {
 			return nil, err
 		}
 	}
@@ -72,7 +76,7 @@ func (b *CalldataTransactionBuilder) Build(
 	if err != nil {
 		return nil, err
 	}
-	signature[64] = uint8(uint(signature[64])) + 27
+	signature[64] = signature[64] + 27
 
 	var (
 		to            = &b.taikoL1Address

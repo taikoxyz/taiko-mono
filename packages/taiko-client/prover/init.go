@@ -93,7 +93,6 @@ func (p *Prover) setApprovalAmount(ctx context.Context, contract common.Address)
 
 // initProofSubmitters initializes the proof submitters from the given tiers in protocol.
 func (p *Prover) initProofSubmitters(
-	txmgr *txmgr.SimpleTxManager,
 	txBuilder *transaction.ProveBlockTxBuilder,
 	tiers []*rpc.TierProviderTierWithID,
 ) error {
@@ -138,7 +137,8 @@ func (p *Prover) initProofSubmitters(
 			p.cfg.TaikoL2Address,
 			p.cfg.Graffiti,
 			p.cfg.ProveBlockGasLimit,
-			txmgr,
+			p.txmgr,
+			p.privateTxmgr,
 			txBuilder,
 			tiers,
 			p.IsGuardianProver(),

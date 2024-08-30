@@ -15,11 +15,13 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer"
@@ -153,6 +155,7 @@ func (s *BlobSyncerTestSuite) TestTreasuryIncome() {
 	s.True(balanceAfter.Cmp(balance) > 0)
 
 	var hasNoneAnchorTxs bool
+	chainConfig := config.NewChainConfig(encoding.GetProtocolConfig(s.RPCClient.L2.ChainID.Uint64()))
 	for i := headBefore + 1; i <= headAfter; i++ {
 		block, err := s.RPCClient.L2.BlockByNumber(context.Background(), new(big.Int).SetUint64(i))
 		s.Nil(err)
@@ -169,8 +172,16 @@ func (s *BlobSyncerTestSuite) TestTreasuryIncome() {
 			s.Nil(err)
 
 			fee := new(big.Int).Mul(block.BaseFee(), new(big.Int).SetUint64(receipt.GasUsed))
-
-			balance = new(big.Int).Add(balance, fee)
+			if chainConfig.IsOntake(block.Number()) {
+				feeCoinbase := new(big.Int).Div(
+					new(big.Int).Mul(fee, new(big.Int).SetUint64(uint64(chainConfig.ProtocolConfigs.BaseFeeConfig.SharingPctg))),
+					new(big.Int).SetUint64(100),
+				)
+				feeTreasury := new(big.Int).Sub(fee, feeCoinbase)
+				balance = new(big.Int).Add(balance, feeTreasury)
+			} else {
+				balance = new(big.Int).Add(balance, fee)
+			}
 		}
 	}
 
@@ -193,9 +204,9 @@ func (s *BlobSyncerTestSuite) initProposer() {
 			L2Endpoint:        os.Getenv("L2_WS"),
 			L2EngineEndpoint:  os.Getenv("L2_AUTH"),
 			JwtSecret:         string(jwtSecret),
-			TaikoL1Address:    common.HexToAddress(os.Getenv("TAIKO_L1_ADDRESS")),
-			TaikoL2Address:    common.HexToAddress(os.Getenv("TAIKO_L2_ADDRESS")),
-			TaikoTokenAddress: common.HexToAddress(os.Getenv("TAIKO_TOKEN_ADDRESS")),
+			TaikoL1Address:    common.HexToAddress(os.Getenv("TAIKO_L1")),
+			TaikoL2Address:    common.HexToAddress(os.Getenv("TAIKO_L2")),
+			TaikoTokenAddress: common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		},
 		L1ProposerPrivKey:          l1ProposerPrivKey,
 		L2SuggestedFeeRecipient:    common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
@@ -216,7 +227,22 @@ func (s *BlobSyncerTestSuite) initProposer() {
 			TxSendTimeout:             txmgr.DefaultBatcherFlagValues.TxSendTimeout,
 			TxNotInMempoolTimeout:     txmgr.DefaultBatcherFlagValues.TxNotInMempoolTimeout,
 		},
-	}, nil))
+		PrivateTxmgrConfigs: &txmgr.CLIConfig{
+			L1RPCURL:                  os.Getenv("L1_WS"),
+			NumConfirmations:          0,
+			SafeAbortNonceTooLowCount: txmgr.DefaultBatcherFlagValues.SafeAbortNonceTooLowCount,
+			PrivateKey:                common.Bytes2Hex(crypto.FromECDSA(l1ProposerPrivKey)),
+			FeeLimitMultiplier:        txmgr.DefaultBatcherFlagValues.FeeLimitMultiplier,
+			FeeLimitThresholdGwei:     txmgr.DefaultBatcherFlagValues.FeeLimitThresholdGwei,
+			MinBaseFeeGwei:            txmgr.DefaultBatcherFlagValues.MinBaseFeeGwei,
+			MinTipCapGwei:             txmgr.DefaultBatcherFlagValues.MinTipCapGwei,
+			ResubmissionTimeout:       txmgr.DefaultBatcherFlagValues.ResubmissionTimeout,
+			ReceiptQueryInterval:      1 * time.Second,
+			NetworkTimeout:            txmgr.DefaultBatcherFlagValues.NetworkTimeout,
+			TxSendTimeout:             txmgr.DefaultBatcherFlagValues.TxSendTimeout,
+			TxNotInMempoolTimeout:     txmgr.DefaultBatcherFlagValues.TxNotInMempoolTimeout,
+		},
+	}, nil, nil))
 
 	s.p = prop
 }

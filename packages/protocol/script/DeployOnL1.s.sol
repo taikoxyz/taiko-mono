@@ -12,30 +12,30 @@ import "@p256-verifier/contracts/P256Verifier.sol";
 
 import "../contracts/common/LibStrings.sol";
 import "../contracts/tko/TaikoToken.sol";
-import "../contracts/mainnet/MainnetTaikoL1.sol";
+import "../contracts/mainnet/rollup/MainnetTaikoL1.sol";
 import "../contracts/devnet/DevnetTaikoL1.sol";
 import "../contracts/L1/provers/GuardianProver.sol";
 import "../contracts/L1/tiers/DevnetTierProvider.sol";
 import "../contracts/L1/tiers/TierProviderV2.sol";
-import "../contracts/mainnet/MainnetBridge.sol";
+import "../contracts/mainnet/shared/MainnetBridge.sol";
 import "../contracts/tokenvault/BridgedERC20.sol";
 import "../contracts/tokenvault/BridgedERC721.sol";
 import "../contracts/tokenvault/BridgedERC1155.sol";
-import "../contracts/mainnet/MainnetERC20Vault.sol";
-import "../contracts/mainnet/MainnetERC1155Vault.sol";
-import "../contracts/mainnet/MainnetERC721Vault.sol";
-import "../contracts/mainnet/MainnetSignalService.sol";
-import "../contracts/mainnet/MainnetGuardianProver.sol";
+import "../contracts/mainnet/shared/MainnetERC20Vault.sol";
+import "../contracts/mainnet/shared/MainnetERC1155Vault.sol";
+import "../contracts/mainnet/shared/MainnetERC721Vault.sol";
+import "../contracts/mainnet/shared/MainnetSignalService.sol";
+import "../contracts/mainnet/rollup/MainnetGuardianProver.sol";
 import "../contracts/automata-attestation/AutomataDcapV3Attestation.sol";
 import "../contracts/automata-attestation/utils/SigVerifyLib.sol";
 import "../contracts/automata-attestation/lib/PEMCertChainLib.sol";
-import "../contracts/mainnet/MainnetSgxVerifier.sol";
+import "../contracts/mainnet/rollup/verifiers/MainnetSgxVerifier.sol";
 import "../contracts/team/proving/ProverSet.sol";
 import "../test/common/erc20/FreeMintERC20.sol";
 import "../test/common/erc20/MayFailFreeMintERC20.sol";
 import "../test/L1/TestTierProvider.sol";
 import "../test/DeployCapability.sol";
-import "../contracts/verifiers/RiscZeroVerifier.sol";
+import "../contracts/verifiers/Risc0Verifier.sol";
 
 /// @title DeployOnL1
 /// @notice This script deploys the core Taiko protocol smart contract on L1,
@@ -402,8 +402,8 @@ contract DeployOnL1 is DeployCapability {
 
         deployProxy({
             name: "tier_zkvm_risc0",
-            impl: address(new RiscZeroVerifier()),
-            data: abi.encodeCall(RiscZeroVerifier.init, (owner, rollupAddressManager)),
+            impl: address(new Risc0Verifier()),
+            data: abi.encodeCall(Risc0Verifier.init, (owner, rollupAddressManager)),
             registerTo: rollupAddressManager
         });
     }

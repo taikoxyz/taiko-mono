@@ -106,28 +106,16 @@ contract TaikoL2 is EssentialContract {
         (publicInputHash,) = _calcPublicInputHash(block.number);
     }
 
-    /// @dev Reinitialize some state variables.
-    /// We may want to init the basefee to a default value using one of the following values.
-    /// - _initialGasExcess = 274*5_000_000 => basefee =0.01 gwei
-    /// - _initialGasExcess = 282*5_000_000 => basefee =0.05 gwei
-    /// - _initialGasExcess = 288*5_000_000 => basefee =0.1 gwei
-    function init2(uint64 _initialGasExcess) external onlyOwner reinitializer(2) {
-        parentGasExcess = _initialGasExcess;
-        parentTimestamp = uint64(block.timestamp);
-        parentGasTarget = 0;
-    }
-
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
     /// message verification.
     /// @dev This function can be called freely as the golden touch private key is publicly known,
     /// but the Taiko node guarantees the first transaction of each block is always this anchor
     /// transaction, and any subsequent calls will revert with L2_PUBLIC_INPUT_HASH_MISMATCH.
-    /// @param _l1BlockHash The `anchorBlockHash` value in this block's metadata.
     /// @param _l1StateRoot The state root for the L1 block with id equals `_anchorBlockId`
     /// @param _l1BlockId The `anchorBlockId` value in this block's metadata.
     /// @param _parentGasUsed The gas used in the parent block.
     function anchor(
-        bytes32 _l1BlockHash,
+        bytes32, /*_l1BlockHash*/
         bytes32 _l1StateRoot,
         uint64 _l1BlockId,
         uint32 _parentGasUsed
@@ -366,9 +354,7 @@ contract TaikoL2 is EssentialContract {
         );
     }
 
-    function _calcPublicInputHash(
-        uint256 _blockId
-    )
+    function _calcPublicInputHash(uint256 _blockId)
         private
         view
         returns (bytes32 publicInputHashOld, bytes32 publicInputHashNew)

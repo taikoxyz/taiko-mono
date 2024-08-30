@@ -14,6 +14,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	producer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
@@ -21,7 +22,7 @@ import (
 // Sender is responsible for sending proof submission transactions with a backoff policy.
 type Sender struct {
 	rpc              *rpc.Client
-	txmgr            *txmgr.SimpleTxManager
+	txmgrSelector    *utils.TxMgrSelector
 	proverSetAddress common.Address
 	gasLimit         uint64
 }
@@ -30,12 +31,13 @@ type Sender struct {
 func NewSender(
 	cli *rpc.Client,
 	txmgr *txmgr.SimpleTxManager,
+	privateTxmgr *txmgr.SimpleTxManager,
 	proverSetAddress common.Address,
 	gasLimit uint64,
 ) *Sender {
 	return &Sender{
 		rpc:              cli,
-		txmgr:            txmgr,
+		txmgrSelector:    utils.NewTxMgrSelector(txmgr, privateTxmgr, nil),
 		proverSetAddress: proverSetAddress,
 		gasLimit:         gasLimit,
 	}
@@ -75,8 +77,12 @@ func (s *Sender) Send(
 	}
 
 	// Send the transaction.
-	receipt, err := s.txmgr.Send(ctx, *txCandidate)
+	txMgr, isPrivate := s.txmgrSelector.Select()
+	receipt, err := txMgr.Send(ctx, *txCandidate)
 	if err != nil {
+		if isPrivate {
+			s.txmgrSelector.RecordPrivateTxMgrFailed()
+		}
 		return encoding.TryParsingCustomError(err)
 	}
 
@@ -86,7 +92,8 @@ func (s *Sender) Send(
 			"blockID", proofWithHeader.BlockID,
 			"tier", proofWithHeader.Tier,
 			"txHash", receipt.TxHash,
-			"error", encoding.TryParsingCustomErrorFromReceipt(ctx, s.rpc.L1, s.txmgr.From(), receipt),
+			"isPrivateMempool", isPrivate,
+			"error", encoding.TryParsingCustomErrorFromReceipt(ctx, s.rpc.L1, txMgr.From(), receipt),
 		)
 		metrics.ProverSubmissionRevertedCounter.Add(1)
 		return ErrUnretryableSubmission

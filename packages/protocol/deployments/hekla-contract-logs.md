@@ -209,7 +209,7 @@
 
 - proxy: `0x1670090000000000000000000000000000000001`
 - impl: `0xD981DaF607bb6D4249f943d1b13a9AE071E8E3B4`
-- owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
+- owner: `0x95F6077C7786a58FA070D98043b16DF2B1593D2b`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
@@ -217,35 +217,38 @@
 ### erc20_vault
 
 - proxy: `0x1670090000000000000000000000000000000002`
-- impl: `0x18D098279287b3e72A9BC5c6CCfa05475567Ee32`
-- owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
+- impl: `0x4A5AE0837cfb6C40c7DaF0885ac6c35e2EE644f1`
+- owner: `0x95F6077C7786a58FA070D98043b16DF2B1593D2b`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
+  - upgraded on Aug 26, 2024 at commit `4e08881`
 
 ### erc721_vault
 
 - proxy: `0x1670090000000000000000000000000000000003`
-- impl: `0x7bbacc9FFd29442DF3173b7685560fCE96E01b62`
-- owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
+- impl: `0x2DdAad1110F2F69238Eb834851437fc05DAb62b9`
+- owner: `0x95F6077C7786a58FA070D98043b16DF2B1593D2b`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
+  - upgraded on Aug 26, 2024 at commit `4e08881`
 
 ### erc1155_vault
 
 - proxy: `0x1670090000000000000000000000000000000004`
-- impl: `0xEEF23D0aa5d19Ba17A652d98378c670b9A3aD30A`
-- owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
+- impl: `0x58366150b4E1B18dd0D3F043Ba45a9BECb53cd85`
+- owner: `0x95F6077C7786a58FA070D98043b16DF2B1593D2b`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
+  - upgraded on Aug 26, 2024 at commit `4e08881`
 
 ### signal_service
 
 - proxy: `0x1670090000000000000000000000000000000005`
 - impl: `0x4c70b7F5E153D497faFa0476575903F9299ed811`
-- owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
+- owner: `0x95F6077C7786a58FA070D98043b16DF2B1593D2b`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
@@ -254,7 +257,7 @@
 
 - proxy: `0x1670090000000000000000000000000000000006`
 - impl: `0x91Cf5766Fbc35bb1a2226DE5052C308a5EDd1d47`
-- owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
+- owner: `0x95F6077C7786a58FA070D98043b16DF2B1593D2b`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
@@ -263,7 +266,7 @@
 
 - proxy: `0x1670090000000000000000000000000000010001`
 - impl: `0x0C74010473C066Cdd20BA32044D1f6E28527A725`
-- owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
+- owner: `0x95F6077C7786a58FA070D98043b16DF2B1593D2b`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
@@ -272,7 +275,7 @@
 
 - proxy: `0x1670090000000000000000000000000000010002`
 - impl: `0xd41f03dF5f46a0686807d9DBDd94a1223FC73AEe`
-- owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
+- owner: `0x95F6077C7786a58FA070D98043b16DF2B1593D2b`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`

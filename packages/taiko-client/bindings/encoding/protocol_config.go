@@ -22,6 +22,7 @@ var (
 		OntakeForkHeight:      2,
 		BaseFeeConfig: bindings.TaikoDataBaseFeeConfig{
 			AdjustmentQuotient:     8,
+			SharingPctg:            75,
 			GasIssuancePerSecond:   5_000_000,
 			MinGasExcess:           1_340_000_000,
 			MaxGasIssuancePerBlock: 600_000_000,
@@ -36,9 +37,10 @@ var (
 		LivenessBond:          livenessBond,
 		StateRootSyncInternal: 16,
 		MaxAnchorHeightOffset: 64,
-		OntakeForkHeight:      540_000,
+		OntakeForkHeight:      793_000,
 		BaseFeeConfig: bindings.TaikoDataBaseFeeConfig{
 			AdjustmentQuotient:     8,
+			SharingPctg:            75,
 			GasIssuancePerSecond:   5_000_000,
 			MinGasExcess:           1_340_000_000,
 			MaxGasIssuancePerBlock: 600_000_000,
@@ -53,7 +55,8 @@ var (
 		LivenessBond:          livenessBond,
 		StateRootSyncInternal: 16,
 		MaxAnchorHeightOffset: 64,
-		OntakeForkHeight:      374_400,
+		// TODO: update this value when mainnet fork height is decided
+		OntakeForkHeight: 9_000_000,
 		BaseFeeConfig: bindings.TaikoDataBaseFeeConfig{
 			AdjustmentQuotient:     8,
 			GasIssuancePerSecond:   5_000_000,
