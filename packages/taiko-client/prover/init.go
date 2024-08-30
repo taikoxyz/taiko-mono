@@ -113,9 +113,9 @@ func (p *Prover) initProofSubmitters(
 				Dummy:               p.cfg.Dummy,
 				RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 			}
-		case encoding.TierZkVMRisc0ID:
+		case encoding.TierZkVMSp1ID:
 			producer = &proofProducer.ZKvmProofProducer{
-				ZKProofType:         proofProducer.ZKProofTypeR0,
+				ZKProofType:         proofProducer.ZKProofTypeSP1,
 				RaikoHostEndpoint:   p.cfg.RaikoZKVMHostEndpoint,
 				JWT:                 p.cfg.RaikoJWT,
 				Dummy:               p.cfg.Dummy,

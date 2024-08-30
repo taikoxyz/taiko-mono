@@ -259,6 +259,8 @@ func (s *ZKvmProofProducer) requestCancel(
 // Tier implements the ProofProducer interface.
 func (s *ZKvmProofProducer) Tier() uint16 {
 	switch s.ZKProofType {
+	case ZKProofTypeSP1:
+		return encoding.TierZkVMSp1ID
 	default:
 		return encoding.TierZkVMRisc0ID
 	}
