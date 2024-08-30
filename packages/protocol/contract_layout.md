@@ -1,4 +1,4 @@
-## TaikoL1
+## contracts/L1/TaikoL1.sol:TaikoL1
 | Name           | Type                   | Slot | Offset | Bytes | Contract                         |
 |----------------|------------------------|------|--------|-------|----------------------------------|
 | _initialized   | uint8                  | 0    | 0      | 1     | contracts/L1/TaikoL1.sol:TaikoL1 |
@@ -17,7 +17,7 @@
 | state          | struct TaikoData.State | 251  | 0      | 1600  | contracts/L1/TaikoL1.sol:TaikoL1 |
 | __gap          | uint256[50]            | 301  | 0      | 1600  | contracts/L1/TaikoL1.sol:TaikoL1 |
 
-## TaikoL2
+## contracts/L2/TaikoL2.sol:TaikoL2
 | Name            | Type                        | Slot | Offset | Bytes | Contract                         |
 |-----------------|-----------------------------|------|--------|-------|----------------------------------|
 | _initialized    | uint8                       | 0    | 0      | 1     | contracts/L2/TaikoL2.sol:TaikoL2 |
@@ -42,7 +42,7 @@
 | l1ChainId       | uint64                      | 254  | 0      | 8     | contracts/L2/TaikoL2.sol:TaikoL2 |
 | __gap           | uint256[46]                 | 255  | 0      | 1472  | contracts/L2/TaikoL2.sol:TaikoL2 |
 
-## SignalService
+## contracts/signal/SignalService.sol:SignalService
 | Name           | Type                                          | Slot | Offset | Bytes | Contract                                         |
 |----------------|-----------------------------------------------|------|--------|-------|--------------------------------------------------|
 | _initialized   | uint8                                         | 0    | 0      | 1     | contracts/signal/SignalService.sol:SignalService |
@@ -62,7 +62,7 @@
 | isAuthorized   | mapping(address => bool)                      | 252  | 0      | 32    | contracts/signal/SignalService.sol:SignalService |
 | __gap          | uint256[48]                                   | 253  | 0      | 1536  | contracts/signal/SignalService.sol:SignalService |
 
-## Bridge
+## contracts/bridge/Bridge.sol:Bridge
 | Name           | Type                                    | Slot | Offset | Bytes | Contract                           |
 |----------------|-----------------------------------------|------|--------|-------|------------------------------------|
 | _initialized   | uint8                                   | 0    | 0      | 1     | contracts/bridge/Bridge.sol:Bridge |
@@ -86,7 +86,7 @@
 | __reserved3    | uint256                                 | 256  | 0      | 32    | contracts/bridge/Bridge.sol:Bridge |
 | __gap          | uint256[44]                             | 257  | 0      | 1408  | contracts/bridge/Bridge.sol:Bridge |
 
-## DelegateOwner
+## contracts/L2/DelegateOwner.sol:DelegateOwner
 | Name           | Type        | Slot | Offset | Bytes | Contract                                     |
 |----------------|-------------|------|--------|-------|----------------------------------------------|
 | _initialized   | uint8       | 0    | 0      | 1     | contracts/L2/DelegateOwner.sol:DelegateOwner |
@@ -108,7 +108,7 @@
 | remoteOwner    | address     | 252  | 8      | 20    | contracts/L2/DelegateOwner.sol:DelegateOwner |
 | __gap          | uint256[48] | 253  | 0      | 1536  | contracts/L2/DelegateOwner.sol:DelegateOwner |
 
-## GuardianProver
+## contracts/L1/provers/GuardianProver.sol:GuardianProver
 | Name                    | Type                                            | Slot | Offset | Bytes | Contract                                               |
 |-------------------------|-------------------------------------------------|------|--------|-------|--------------------------------------------------------|
 | _initialized            | uint8                                           | 0    | 0      | 1     | contracts/L1/provers/GuardianProver.sol:GuardianProver |
@@ -133,7 +133,7 @@
 | latestProofHash         | mapping(uint256 => mapping(uint256 => bytes32)) | 255  | 0      | 32    | contracts/L1/provers/GuardianProver.sol:GuardianProver |
 | __gap                   | uint256[45]                                     | 256  | 0      | 1440  | contracts/L1/provers/GuardianProver.sol:GuardianProver |
 
-## TaikoToken
+## contracts/tko/TaikoToken.sol:TaikoToken
 | Name                                                | Type                                                          | Slot | Offset | Bytes | Contract                                |
 |-----------------------------------------------------|---------------------------------------------------------------|------|--------|-------|-----------------------------------------|
 | _initialized                                        | uint8                                                         | 0    | 0      | 1     | contracts/tko/TaikoToken.sol:TaikoToken |
@@ -170,7 +170,7 @@
 | __gap                                               | uint256[47]                                                   | 457  | 0      | 1504  | contracts/tko/TaikoToken.sol:TaikoToken |
 | __gap                                               | uint256[50]                                                   | 504  | 0      | 1600  | contracts/tko/TaikoToken.sol:TaikoToken |
 
-## BridgedTaikoToken
+## contracts/tko/BridgedTaikoToken.sol:BridgedTaikoToken
 | Name                                                | Type                                                          | Slot | Offset | Bytes | Contract                                              |
 |-----------------------------------------------------|---------------------------------------------------------------|------|--------|-------|-------------------------------------------------------|
 | _initialized                                        | uint8                                                         | 0    | 0      | 1     | contracts/tko/BridgedTaikoToken.sol:BridgedTaikoToken |
@@ -207,7 +207,7 @@
 | __gap                                               | uint256[47]                                                   | 457  | 0      | 1504  | contracts/tko/BridgedTaikoToken.sol:BridgedTaikoToken |
 | __gap                                               | uint256[50]                                                   | 504  | 0      | 1600  | contracts/tko/BridgedTaikoToken.sol:BridgedTaikoToken |
 
-## ERC20Vault
+## contracts/tokenvault/ERC20Vault.sol:ERC20Vault
 | Name               | Type                                                 | Slot | Offset | Bytes | Contract                                       |
 |--------------------|------------------------------------------------------|------|--------|-------|------------------------------------------------|
 | _initialized       | uint8                                                | 0    | 0      | 1     | contracts/tokenvault/ERC20Vault.sol:ERC20Vault |
@@ -230,7 +230,7 @@
 | lastMigrationStart | mapping(uint256 => mapping(address => uint256))      | 304  | 0      | 32    | contracts/tokenvault/ERC20Vault.sol:ERC20Vault |
 | __gap              | uint256[46]                                          | 305  | 0      | 1472  | contracts/tokenvault/ERC20Vault.sol:ERC20Vault |
 
-## ERC721Vault
+## contracts/tokenvault/ERC721Vault.sol:ERC721Vault
 | Name               | Type                                                 | Slot | Offset | Bytes | Contract                                         |
 |--------------------|------------------------------------------------------|------|--------|-------|--------------------------------------------------|
 | _initialized       | uint8                                                | 0    | 0      | 1     | contracts/tokenvault/ERC721Vault.sol:ERC721Vault |
@@ -252,7 +252,7 @@
 | __gap              | uint256[48]                                          | 303  | 0      | 1536  | contracts/tokenvault/ERC721Vault.sol:ERC721Vault |
 | __gap              | uint256[50]                                          | 351  | 0      | 1600  | contracts/tokenvault/ERC721Vault.sol:ERC721Vault |
 
-## ERC1155Vault
+## contracts/tokenvault/ERC1155Vault.sol:ERC1155Vault
 | Name               | Type                                                 | Slot | Offset | Bytes | Contract                                           |
 |--------------------|------------------------------------------------------|------|--------|-------|----------------------------------------------------|
 | _initialized       | uint8                                                | 0    | 0      | 1     | contracts/tokenvault/ERC1155Vault.sol:ERC1155Vault |
@@ -276,7 +276,7 @@
 | __gap              | uint256[50]                                          | 401  | 0      | 1600  | contracts/tokenvault/ERC1155Vault.sol:ERC1155Vault |
 | __gap              | uint256[50]                                          | 451  | 0      | 1600  | contracts/tokenvault/ERC1155Vault.sol:ERC1155Vault |
 
-## BridgedERC20
+## contracts/tokenvault/BridgedERC20.sol:BridgedERC20
 | Name             | Type                                            | Slot | Offset | Bytes | Contract                                           |
 |------------------|-------------------------------------------------|------|--------|-------|----------------------------------------------------|
 | _initialized     | uint8                                           | 0    | 0      | 1     | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
@@ -305,7 +305,7 @@
 | migratingInbound | bool                                            | 303  | 20     | 1     | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
 | __gap            | uint256[47]                                     | 304  | 0      | 1504  | contracts/tokenvault/BridgedERC20.sol:BridgedERC20 |
 
-## BridgedERC20V2
+## contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2
 | Name             | Type                                                   | Slot | Offset | Bytes | Contract                                               |
 |------------------|--------------------------------------------------------|------|--------|-------|--------------------------------------------------------|
 | _initialized     | uint8                                                  | 0    | 0      | 1     | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
@@ -341,7 +341,7 @@
 | _nonces          | mapping(address => struct CountersUpgradeable.Counter) | 403  | 0      | 32    | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
 | __gap            | uint256[49]                                            | 404  | 0      | 1568  | contracts/tokenvault/BridgedERC20V2.sol:BridgedERC20V2 |
 
-## BridgedERC721
+## contracts/tokenvault/BridgedERC721.sol:BridgedERC721
 | Name               | Type                                         | Slot | Offset | Bytes | Contract                                             |
 |--------------------|----------------------------------------------|------|--------|-------|------------------------------------------------------|
 | _initialized       | uint8                                        | 0    | 0      | 1     | contracts/tokenvault/BridgedERC721.sol:BridgedERC721 |
@@ -369,7 +369,7 @@
 | srcChainId         | uint256                                      | 352  | 0      | 32    | contracts/tokenvault/BridgedERC721.sol:BridgedERC721 |
 | __gap              | uint256[48]                                  | 353  | 0      | 1536  | contracts/tokenvault/BridgedERC721.sol:BridgedERC721 |
 
-## BridgedERC1155
+## contracts/tokenvault/BridgedERC1155.sol:BridgedERC1155
 | Name               | Type                                            | Slot | Offset | Bytes | Contract                                               |
 |--------------------|-------------------------------------------------|------|--------|-------|--------------------------------------------------------|
 | _initialized       | uint8                                           | 0    | 0      | 1     | contracts/tokenvault/BridgedERC1155.sol:BridgedERC1155 |
@@ -396,7 +396,7 @@
 | name               | string                                          | 354  | 0      | 32    | contracts/tokenvault/BridgedERC1155.sol:BridgedERC1155 |
 | __gap              | uint256[46]                                     | 355  | 0      | 1472  | contracts/tokenvault/BridgedERC1155.sol:BridgedERC1155 |
 
-## AutomataDcapV3Attestation
+## contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation
 | Name                    | Type                                            | Slot | Offset | Bytes | Contract                                                                               |
 |-------------------------|-------------------------------------------------|------|--------|-------|----------------------------------------------------------------------------------------|
 | _initialized            | uint8                                           | 0    | 0      | 1     | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
@@ -422,7 +422,7 @@
 | qeIdentity              | struct EnclaveIdStruct.EnclaveId                | 257  | 0      | 128   | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
 | __gap                   | uint256[39]                                     | 261  | 0      | 1248  | contracts/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation |
 
-## SgxVerifier
+## contracts/verifiers/SgxVerifier.sol:SgxVerifier
 | Name              | Type                                            | Slot | Offset | Bytes | Contract                                        |
 |-------------------|-------------------------------------------------|------|--------|-------|-------------------------------------------------|
 | _initialized      | uint8                                           | 0    | 0      | 1     | contracts/verifiers/SgxVerifier.sol:SgxVerifier |
@@ -443,7 +443,7 @@
 | addressRegistered | mapping(address => bool)                        | 253  | 0      | 32    | contracts/verifiers/SgxVerifier.sol:SgxVerifier |
 | __gap             | uint256[47]                                     | 254  | 0      | 1504  | contracts/verifiers/SgxVerifier.sol:SgxVerifier |
 
-## Risc0Verifier
+## contracts/verifiers/Risc0Verifier.sol:Risc0Verifier
 | Name           | Type                     | Slot | Offset | Bytes | Contract                                            |
 |----------------|--------------------------|------|--------|-------|-----------------------------------------------------|
 | _initialized   | uint8                    | 0    | 0      | 1     | contracts/verifiers/Risc0Verifier.sol:Risc0Verifier |
@@ -462,7 +462,7 @@
 | isImageTrusted | mapping(bytes32 => bool) | 251  | 0      | 32    | contracts/verifiers/Risc0Verifier.sol:Risc0Verifier |
 | __gap          | uint256[49]              | 252  | 0      | 1568  | contracts/verifiers/Risc0Verifier.sol:Risc0Verifier |
 
-## SP1Verifier
+## contracts/verifiers/SP1Verifier.sol:SP1Verifier
 | Name             | Type                     | Slot | Offset | Bytes | Contract                                        |
 |------------------|--------------------------|------|--------|-------|-------------------------------------------------|
 | _initialized     | uint8                    | 0    | 0      | 1     | contracts/verifiers/SP1Verifier.sol:SP1Verifier |
@@ -481,7 +481,7 @@
 | isProgramTrusted | mapping(bytes32 => bool) | 251  | 0      | 32    | contracts/verifiers/SP1Verifier.sol:SP1Verifier |
 | __gap            | uint256[49]              | 252  | 0      | 1568  | contracts/verifiers/SP1Verifier.sol:SP1Verifier |
 
-## QuotaManager
+## contracts/bridge/QuotaManager.sol:QuotaManager
 | Name           | Type                                          | Slot | Offset | Bytes | Contract                                       |
 |----------------|-----------------------------------------------|------|--------|-------|------------------------------------------------|
 | _initialized   | uint8                                         | 0    | 0      | 1     | contracts/bridge/QuotaManager.sol:QuotaManager |
@@ -501,7 +501,7 @@
 | quotaPeriod    | uint24                                        | 252  | 0      | 3     | contracts/bridge/QuotaManager.sol:QuotaManager |
 | __gap          | uint256[48]                                   | 253  | 0      | 1536  | contracts/bridge/QuotaManager.sol:QuotaManager |
 
-## ProverSet
+## contracts/team/proving/ProverSet.sol:ProverSet
 | Name           | Type                     | Slot | Offset | Bytes | Contract                                       |
 |----------------|--------------------------|------|--------|-------|------------------------------------------------|
 | _initialized   | uint8                    | 0    | 0      | 1     | contracts/team/proving/ProverSet.sol:ProverSet |
@@ -521,7 +521,7 @@
 | admin          | address                  | 252  | 0      | 20    | contracts/team/proving/ProverSet.sol:ProverSet |
 | __gap          | uint256[48]              | 253  | 0      | 1536  | contracts/team/proving/ProverSet.sol:ProverSet |
 
-## TokenUnlock
+## contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock
 | Name           | Type                     | Slot | Offset | Bytes | Contract                                               |
 |----------------|--------------------------|------|--------|-------|--------------------------------------------------------|
 | _initialized   | uint8                    | 0    | 0      | 1     | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
@@ -543,7 +543,7 @@
 | isProverSet    | mapping(address => bool) | 253  | 0      | 32    | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
 | __gap          | uint256[47]              | 254  | 0      | 1504  | contracts/team/tokenunlock/TokenUnlock.sol:TokenUnlock |
 
-## ComposeVerifier
+## contracts/verifiers/compose/ComposeVerifier.sol:ComposeVerifier
 | Name           | Type        | Slot | Offset | Bytes | Contract                                                        |
 |----------------|-------------|------|--------|-------|-----------------------------------------------------------------|
 | _initialized   | uint8       | 0    | 0      | 1     | contracts/verifiers/compose/ComposeVerifier.sol:ComposeVerifier |
@@ -561,7 +561,7 @@
 | __gap          | uint256[49] | 202  | 0      | 1568  | contracts/verifiers/compose/ComposeVerifier.sol:ComposeVerifier |
 | __gap          | uint256[50] | 251  | 0      | 1600  | contracts/verifiers/compose/ComposeVerifier.sol:ComposeVerifier |
 
-## TeeAnyVerifier
+## contracts/verifiers/compose/TeeAnyVerifier.sol:TeeAnyVerifier
 | Name           | Type        | Slot | Offset | Bytes | Contract                                                      |
 |----------------|-------------|------|--------|-------|---------------------------------------------------------------|
 | _initialized   | uint8       | 0    | 0      | 1     | contracts/verifiers/compose/TeeAnyVerifier.sol:TeeAnyVerifier |
@@ -580,7 +580,7 @@
 | __gap          | uint256[50] | 251  | 0      | 1600  | contracts/verifiers/compose/TeeAnyVerifier.sol:TeeAnyVerifier |
 | __gap          | uint256[50] | 301  | 0      | 1600  | contracts/verifiers/compose/TeeAnyVerifier.sol:TeeAnyVerifier |
 
-## ZkAnyVerifier
+## contracts/verifiers/compose/ZkAnyVerifier.sol:ZkAnyVerifier
 | Name           | Type        | Slot | Offset | Bytes | Contract                                                    |
 |----------------|-------------|------|--------|-------|-------------------------------------------------------------|
 | _initialized   | uint8       | 0    | 0      | 1     | contracts/verifiers/compose/ZkAnyVerifier.sol:ZkAnyVerifier |
@@ -599,7 +599,7 @@
 | __gap          | uint256[50] | 251  | 0      | 1600  | contracts/verifiers/compose/ZkAnyVerifier.sol:ZkAnyVerifier |
 | __gap          | uint256[50] | 301  | 0      | 1600  | contracts/verifiers/compose/ZkAnyVerifier.sol:ZkAnyVerifier |
 
-## ZkAndTeeVerifier
+## contracts/verifiers/compose/ZkAndTeeVerifier.sol:ZkAndTeeVerifier
 | Name           | Type        | Slot | Offset | Bytes | Contract                                                          |
 |----------------|-------------|------|--------|-------|-------------------------------------------------------------------|
 | _initialized   | uint8       | 0    | 0      | 1     | contracts/verifiers/compose/ZkAndTeeVerifier.sol:ZkAndTeeVerifier |
@@ -618,7 +618,7 @@
 | __gap          | uint256[50] | 251  | 0      | 1600  | contracts/verifiers/compose/ZkAndTeeVerifier.sol:ZkAndTeeVerifier |
 | __gap          | uint256[50] | 301  | 0      | 1600  | contracts/verifiers/compose/ZkAndTeeVerifier.sol:ZkAndTeeVerifier |
 
-## HeklaTaikoL1
+## contracts/hekla/HeklaTaikoL1.sol:HeklaTaikoL1
 | Name           | Type                   | Slot | Offset | Bytes | Contract                                      |
 |----------------|------------------------|------|--------|-------|-----------------------------------------------|
 | _initialized   | uint8                  | 0    | 0      | 1     | contracts/hekla/HeklaTaikoL1.sol:HeklaTaikoL1 |
@@ -637,7 +637,7 @@
 | state          | struct TaikoData.State | 251  | 0      | 1600  | contracts/hekla/HeklaTaikoL1.sol:HeklaTaikoL1 |
 | __gap          | uint256[50]            | 301  | 0      | 1600  | contracts/hekla/HeklaTaikoL1.sol:HeklaTaikoL1 |
 
-## MainnetBridge
+## contracts/mainnet/shared/MainnetBridge.sol:MainnetBridge
 | Name           | Type                                    | Slot | Offset | Bytes | Contract                                                 |
 |----------------|-----------------------------------------|------|--------|-------|----------------------------------------------------------|
 | _initialized   | uint8                                   | 0    | 0      | 1     | contracts/mainnet/shared/MainnetBridge.sol:MainnetBridge |
@@ -661,7 +661,7 @@
 | __reserved3    | uint256                                 | 256  | 0      | 32    | contracts/mainnet/shared/MainnetBridge.sol:MainnetBridge |
 | __gap          | uint256[44]                             | 257  | 0      | 1408  | contracts/mainnet/shared/MainnetBridge.sol:MainnetBridge |
 
-## MainnetERC1155Vault
+## contracts/mainnet/shared/MainnetERC1155Vault.sol:MainnetERC1155Vault
 | Name               | Type                                                 | Slot | Offset | Bytes | Contract                                                             |
 |--------------------|------------------------------------------------------|------|--------|-------|----------------------------------------------------------------------|
 | _initialized       | uint8                                                | 0    | 0      | 1     | contracts/mainnet/shared/MainnetERC1155Vault.sol:MainnetERC1155Vault |
@@ -685,7 +685,7 @@
 | __gap              | uint256[50]                                          | 401  | 0      | 1600  | contracts/mainnet/shared/MainnetERC1155Vault.sol:MainnetERC1155Vault |
 | __gap              | uint256[50]                                          | 451  | 0      | 1600  | contracts/mainnet/shared/MainnetERC1155Vault.sol:MainnetERC1155Vault |
 
-## MainnetERC20Vault
+## contracts/mainnet/shared/MainnetERC20Vault.sol:MainnetERC20Vault
 | Name               | Type                                                 | Slot | Offset | Bytes | Contract                                                         |
 |--------------------|------------------------------------------------------|------|--------|-------|------------------------------------------------------------------|
 | _initialized       | uint8                                                | 0    | 0      | 1     | contracts/mainnet/shared/MainnetERC20Vault.sol:MainnetERC20Vault |
@@ -708,7 +708,7 @@
 | lastMigrationStart | mapping(uint256 => mapping(address => uint256))      | 304  | 0      | 32    | contracts/mainnet/shared/MainnetERC20Vault.sol:MainnetERC20Vault |
 | __gap              | uint256[46]                                          | 305  | 0      | 1472  | contracts/mainnet/shared/MainnetERC20Vault.sol:MainnetERC20Vault |
 
-## MainnetERC721Vault
+## contracts/mainnet/shared/MainnetERC721Vault.sol:MainnetERC721Vault
 | Name               | Type                                                 | Slot | Offset | Bytes | Contract                                                           |
 |--------------------|------------------------------------------------------|------|--------|-------|--------------------------------------------------------------------|
 | _initialized       | uint8                                                | 0    | 0      | 1     | contracts/mainnet/shared/MainnetERC721Vault.sol:MainnetERC721Vault |
@@ -730,7 +730,7 @@
 | __gap              | uint256[48]                                          | 303  | 0      | 1536  | contracts/mainnet/shared/MainnetERC721Vault.sol:MainnetERC721Vault |
 | __gap              | uint256[50]                                          | 351  | 0      | 1600  | contracts/mainnet/shared/MainnetERC721Vault.sol:MainnetERC721Vault |
 
-## MainnetGuardianProver
+## contracts/mainnet/rollup/MainnetGuardianProver.sol:MainnetGuardianProver
 | Name                    | Type                                            | Slot | Offset | Bytes | Contract                                                                 |
 |-------------------------|-------------------------------------------------|------|--------|-------|--------------------------------------------------------------------------|
 | _initialized            | uint8                                           | 0    | 0      | 1     | contracts/mainnet/rollup/MainnetGuardianProver.sol:MainnetGuardianProver |
@@ -755,7 +755,7 @@
 | latestProofHash         | mapping(uint256 => mapping(uint256 => bytes32)) | 255  | 0      | 32    | contracts/mainnet/rollup/MainnetGuardianProver.sol:MainnetGuardianProver |
 | __gap                   | uint256[45]                                     | 256  | 0      | 1440  | contracts/mainnet/rollup/MainnetGuardianProver.sol:MainnetGuardianProver |
 
-## MainnetProverSet
+## contracts/mainnet/rollup/MainnetProverSet.sol:MainnetProverSet
 | Name           | Type                     | Slot | Offset | Bytes | Contract                                                       |
 |----------------|--------------------------|------|--------|-------|----------------------------------------------------------------|
 | _initialized   | uint8                    | 0    | 0      | 1     | contracts/mainnet/rollup/MainnetProverSet.sol:MainnetProverSet |
@@ -775,7 +775,7 @@
 | admin          | address                  | 252  | 0      | 20    | contracts/mainnet/rollup/MainnetProverSet.sol:MainnetProverSet |
 | __gap          | uint256[48]              | 253  | 0      | 1536  | contracts/mainnet/rollup/MainnetProverSet.sol:MainnetProverSet |
 
-## MainnetRisc0Verifier
+## contracts/mainnet/rollup/verifiers/MainnetRisc0Verifier.sol:MainnetRisc0Verifier
 | Name           | Type                     | Slot | Offset | Bytes | Contract                                                                         |
 |----------------|--------------------------|------|--------|-------|----------------------------------------------------------------------------------|
 | _initialized   | uint8                    | 0    | 0      | 1     | contracts/mainnet/rollup/verifiers/MainnetRisc0Verifier.sol:MainnetRisc0Verifier |
@@ -794,7 +794,7 @@
 | isImageTrusted | mapping(bytes32 => bool) | 251  | 0      | 32    | contracts/mainnet/rollup/verifiers/MainnetRisc0Verifier.sol:MainnetRisc0Verifier |
 | __gap          | uint256[49]              | 252  | 0      | 1568  | contracts/mainnet/rollup/verifiers/MainnetRisc0Verifier.sol:MainnetRisc0Verifier |
 
-## MainnetSP1Verifier
+## contracts/mainnet/rollup/verifiers/MainnetSP1Verifier.sol:MainnetSP1Verifier
 | Name             | Type                     | Slot | Offset | Bytes | Contract                                                                     |
 |------------------|--------------------------|------|--------|-------|------------------------------------------------------------------------------|
 | _initialized     | uint8                    | 0    | 0      | 1     | contracts/mainnet/rollup/verifiers/MainnetSP1Verifier.sol:MainnetSP1Verifier |
@@ -813,7 +813,7 @@
 | isProgramTrusted | mapping(bytes32 => bool) | 251  | 0      | 32    | contracts/mainnet/rollup/verifiers/MainnetSP1Verifier.sol:MainnetSP1Verifier |
 | __gap            | uint256[49]              | 252  | 0      | 1568  | contracts/mainnet/rollup/verifiers/MainnetSP1Verifier.sol:MainnetSP1Verifier |
 
-## MainnetRollupAddressManager
+## contracts/mainnet/rollup/MainnetRollupAddressManager.sol:MainnetRollupAddressManager
 | Name           | Type                                            | Slot | Offset | Bytes | Contract                                                                             |
 |----------------|-------------------------------------------------|------|--------|-------|--------------------------------------------------------------------------------------|
 | _initialized   | uint8                                           | 0    | 0      | 1     | contracts/mainnet/rollup/MainnetRollupAddressManager.sol:MainnetRollupAddressManager |
@@ -832,7 +832,7 @@
 | __addresses    | mapping(uint256 => mapping(bytes32 => address)) | 251  | 0      | 32    | contracts/mainnet/rollup/MainnetRollupAddressManager.sol:MainnetRollupAddressManager |
 | __gap          | uint256[49]                                     | 252  | 0      | 1568  | contracts/mainnet/rollup/MainnetRollupAddressManager.sol:MainnetRollupAddressManager |
 
-## MainnetSgxVerifier
+## contracts/mainnet/rollup/verifiers/MainnetSgxVerifier.sol:MainnetSgxVerifier
 | Name              | Type                                            | Slot | Offset | Bytes | Contract                                                                     |
 |-------------------|-------------------------------------------------|------|--------|-------|------------------------------------------------------------------------------|
 | _initialized      | uint8                                           | 0    | 0      | 1     | contracts/mainnet/rollup/verifiers/MainnetSgxVerifier.sol:MainnetSgxVerifier |
@@ -853,7 +853,7 @@
 | addressRegistered | mapping(address => bool)                        | 253  | 0      | 32    | contracts/mainnet/rollup/verifiers/MainnetSgxVerifier.sol:MainnetSgxVerifier |
 | __gap             | uint256[47]                                     | 254  | 0      | 1504  | contracts/mainnet/rollup/verifiers/MainnetSgxVerifier.sol:MainnetSgxVerifier |
 
-## MainnetTeeAnyVerifier
+## contracts/mainnet/rollup/verifiers/MainnetTeeAnyVerifier.sol:MainnetTeeAnyVerifier
 | Name           | Type        | Slot | Offset | Bytes | Contract                                                                           |
 |----------------|-------------|------|--------|-------|------------------------------------------------------------------------------------|
 | _initialized   | uint8       | 0    | 0      | 1     | contracts/mainnet/rollup/verifiers/MainnetTeeAnyVerifier.sol:MainnetTeeAnyVerifier |
@@ -872,7 +872,7 @@
 | __gap          | uint256[50] | 251  | 0      | 1600  | contracts/mainnet/rollup/verifiers/MainnetTeeAnyVerifier.sol:MainnetTeeAnyVerifier |
 | __gap          | uint256[50] | 301  | 0      | 1600  | contracts/mainnet/rollup/verifiers/MainnetTeeAnyVerifier.sol:MainnetTeeAnyVerifier |
 
-## MainnetZkAnyVerifier
+## contracts/mainnet/rollup/verifiers/MainnetZkAnyVerifier.sol:MainnetZkAnyVerifier
 | Name           | Type        | Slot | Offset | Bytes | Contract                                                                         |
 |----------------|-------------|------|--------|-------|----------------------------------------------------------------------------------|
 | _initialized   | uint8       | 0    | 0      | 1     | contracts/mainnet/rollup/verifiers/MainnetZkAnyVerifier.sol:MainnetZkAnyVerifier |
@@ -891,7 +891,7 @@
 | __gap          | uint256[50] | 251  | 0      | 1600  | contracts/mainnet/rollup/verifiers/MainnetZkAnyVerifier.sol:MainnetZkAnyVerifier |
 | __gap          | uint256[50] | 301  | 0      | 1600  | contracts/mainnet/rollup/verifiers/MainnetZkAnyVerifier.sol:MainnetZkAnyVerifier |
 
-## MainnetZkAndTeeVerifier
+## contracts/mainnet/rollup/verifiers/MainnetZkAndTeeVerifier.sol:MainnetZkAndTeeVerifier
 | Name           | Type        | Slot | Offset | Bytes | Contract                                                                               |
 |----------------|-------------|------|--------|-------|----------------------------------------------------------------------------------------|
 | _initialized   | uint8       | 0    | 0      | 1     | contracts/mainnet/rollup/verifiers/MainnetZkAndTeeVerifier.sol:MainnetZkAndTeeVerifier |
@@ -910,7 +910,7 @@
 | __gap          | uint256[50] | 251  | 0      | 1600  | contracts/mainnet/rollup/verifiers/MainnetZkAndTeeVerifier.sol:MainnetZkAndTeeVerifier |
 | __gap          | uint256[50] | 301  | 0      | 1600  | contracts/mainnet/rollup/verifiers/MainnetZkAndTeeVerifier.sol:MainnetZkAndTeeVerifier |
 
-## MainnetSharedAddressManager
+## contracts/mainnet/shared/MainnetSharedAddressManager.sol:MainnetSharedAddressManager
 | Name           | Type                                            | Slot | Offset | Bytes | Contract                                                                             |
 |----------------|-------------------------------------------------|------|--------|-------|--------------------------------------------------------------------------------------|
 | _initialized   | uint8                                           | 0    | 0      | 1     | contracts/mainnet/shared/MainnetSharedAddressManager.sol:MainnetSharedAddressManager |
@@ -929,7 +929,7 @@
 | __addresses    | mapping(uint256 => mapping(bytes32 => address)) | 251  | 0      | 32    | contracts/mainnet/shared/MainnetSharedAddressManager.sol:MainnetSharedAddressManager |
 | __gap          | uint256[49]                                     | 252  | 0      | 1568  | contracts/mainnet/shared/MainnetSharedAddressManager.sol:MainnetSharedAddressManager |
 
-## MainnetSignalService
+## contracts/mainnet/shared/MainnetSignalService.sol:MainnetSignalService
 | Name           | Type                                          | Slot | Offset | Bytes | Contract                                                               |
 |----------------|-----------------------------------------------|------|--------|-------|------------------------------------------------------------------------|
 | _initialized   | uint8                                         | 0    | 0      | 1     | contracts/mainnet/shared/MainnetSignalService.sol:MainnetSignalService |
@@ -949,7 +949,7 @@
 | isAuthorized   | mapping(address => bool)                      | 252  | 0      | 32    | contracts/mainnet/shared/MainnetSignalService.sol:MainnetSignalService |
 | __gap          | uint256[48]                                   | 253  | 0      | 1536  | contracts/mainnet/shared/MainnetSignalService.sol:MainnetSignalService |
 
-## MainnetTaikoL1
+## contracts/mainnet/rollup/MainnetTaikoL1.sol:MainnetTaikoL1
 | Name           | Type                   | Slot | Offset | Bytes | Contract                                                   |
 |----------------|------------------------|------|--------|-------|------------------------------------------------------------|
 | _initialized   | uint8                  | 0    | 0      | 1     | contracts/mainnet/rollup/MainnetTaikoL1.sol:MainnetTaikoL1 |
@@ -968,7 +968,7 @@
 | state          | struct TaikoData.State | 251  | 0      | 1600  | contracts/mainnet/rollup/MainnetTaikoL1.sol:MainnetTaikoL1 |
 | __gap          | uint256[50]            | 301  | 0      | 1600  | contracts/mainnet/rollup/MainnetTaikoL1.sol:MainnetTaikoL1 |
 
-## MainnetTierRouter
+## contracts/mainnet/rollup/MainnetTierRouter.sol:MainnetTierRouter
 | Name | Type | Slot | Offset | Bytes | Contract |
 |------|------|------|--------|-------|----------|
 
