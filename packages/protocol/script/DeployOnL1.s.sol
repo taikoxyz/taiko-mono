@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@risc0/contracts/groth16/RiscZeroGroth16Verifier.sol";
+import { SP1Verifier as SP1Verifier120rc } from "@sp1-contracts/src/v1.2.0-rc/SP1VerifierPlonk.sol";
 
 // Actually this one is deployed already on mainnet, but we are now deploying our own (non via-ir)
 // version. For mainnet, it is easier to go with one of:
@@ -36,6 +37,7 @@ import "../test/common/erc20/MayFailFreeMintERC20.sol";
 import "../test/L1/TestTierProvider.sol";
 import "../test/DeployCapability.sol";
 import "../contracts/verifiers/Risc0Verifier.sol";
+import "../contracts/verifiers/SP1Verifier.sol";
 
 /// @title DeployOnL1
 /// @notice This script deploys the core Taiko protocol smart contract on L1,
@@ -395,6 +397,12 @@ contract DeployOnL1 is DeployCapability {
             )
         });
 
+        deployZKVerifiers(owner, rollupAddressManager);
+    }
+
+    // deploy both sp1 & risc0 verifiers.
+    // using function to avoid stack too deep error
+    function deployZKVerifiers(address owner, address rollupAddressManager) private {
         // Deploy r0 groth16 verifier
         RiscZeroGroth16Verifier verifier =
             new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
@@ -404,6 +412,17 @@ contract DeployOnL1 is DeployCapability {
             name: "tier_zkvm_risc0",
             impl: address(new Risc0Verifier()),
             data: abi.encodeCall(Risc0Verifier.init, (owner, rollupAddressManager)),
+            registerTo: rollupAddressManager
+        });
+
+        // Deploy sp1 plonk verifier
+        SP1Verifier120rc sp1Verifier120rc = new SP1Verifier120rc();
+        register(rollupAddressManager, "sp1_remote_verifier", address(sp1Verifier120rc));
+
+        deployProxy({
+            name: "tier_zkvm_sp1",
+            impl: address(new SP1Verifier()),
+            data: abi.encodeCall(SP1Verifier.init, (owner, rollupAddressManager)),
             registerTo: rollupAddressManager
         });
     }
