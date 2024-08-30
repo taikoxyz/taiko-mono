@@ -106,7 +106,7 @@ func (p *Proposer) InitFromConfig(
 
 	if privateTxMgr == nil && cfg.PrivateTxmgrConfigs != nil && len(cfg.PrivateTxmgrConfigs.L1RPCURL) > 0 {
 		if privateTxMgr, err = txmgr.NewSimpleTxManager(
-			"privateTxProposer",
+			"privateMempoolProposer",
 			log.Root(),
 			&metrics.TxMgrMetrics,
 			*cfg.PrivateTxmgrConfigs,

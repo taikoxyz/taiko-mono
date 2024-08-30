@@ -169,7 +169,7 @@ func InitFromConfig(
 	} else {
 		if cfg.PrivateTxmgrConfigs != nil && len(cfg.PrivateTxmgrConfigs.L1RPCURL) > 0 {
 			if p.privateTxmgr, err = txmgr.NewSimpleTxManager(
-				"privateTxProver",
+				"privateMempoolProver",
 				log.Root(),
 				&metrics.TxMgrMetrics,
 				*cfg.PrivateTxmgrConfigs,
