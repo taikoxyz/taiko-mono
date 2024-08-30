@@ -58,7 +58,7 @@ type Proposer struct {
 	wg  sync.WaitGroup
 }
 
-// InitFromCli New initializes the given proposer instance based on the command line flags.
+// InitFromCli initializes the given proposer instance based on the command line flags.
 func (p *Proposer) InitFromCli(ctx context.Context, c *cli.Context) error {
 	cfg, err := NewConfigFromCliContext(c)
 	if err != nil {
@@ -99,6 +99,17 @@ func (p *Proposer) InitFromConfig(
 			log.Root(),
 			&metrics.TxMgrMetrics,
 			*cfg.TxmgrConfigs,
+		); err != nil {
+			return err
+		}
+	}
+
+	if privateTxMgr == nil && cfg.PrivateTxmgrConfigs != nil && len(cfg.PrivateTxmgrConfigs.L1RPCURL) > 0 {
+		if privateTxMgr, err = txmgr.NewSimpleTxManager(
+			"privateTxProposer",
+			log.Root(),
+			&metrics.TxMgrMetrics,
+			*cfg.PrivateTxmgrConfigs,
 		); err != nil {
 			return err
 		}
