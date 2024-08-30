@@ -179,7 +179,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			c,
 		),
 		PrivateTxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
-			c.String(flags.L1PrivateTxEndpoint.Name),
+			c.String(flags.L1PrivateEndpoint.Name),
 			l1ProverPrivKey,
 			c,
 		),

@@ -33,3 +33,14 @@ broadcast
 lcov.info
 
 simulation/out/
+
+# Serverless directories
+.serverless
+jspm_packages
+
+*.log
+.DS_Store
+
+secrets*.yml
+.defender
+.platform

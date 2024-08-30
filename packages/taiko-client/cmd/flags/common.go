@@ -28,11 +28,11 @@ var (
 		Category: commonCategory,
 		EnvVars:  []string{"L1_WS"},
 	}
-	L1PrivateTxEndpoint = &cli.StringFlag{
-		Name:     "l1.privateTx",
-		Usage:    "RPC endpoint of a L1 private tx ethereum node",
+	L1PrivateEndpoint = &cli.StringFlag{
+		Name:     "l1.private",
+		Usage:    "RPC endpoint of a L1 node with private mempool",
 		Category: commonCategory,
-		EnvVars:  []string{"L1_PRIVATE_TX"},
+		EnvVars:  []string{"L1_PRIVATE"},
 	}
 	L2WSEndpoint = &cli.StringFlag{
 		Name:     "l2.ws",
@@ -173,7 +173,7 @@ var CommonFlags = []cli.Flag{
 	BackOffMaxRetries,
 	BackOffRetryInterval,
 	RPCTimeout,
-	L1PrivateTxEndpoint,
+	L1PrivateEndpoint,
 }
 
 // MergeFlags merges the given flag slices.

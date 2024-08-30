@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.33.1](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.33.0...taiko-client-v0.33.1) (2024-08-30)
+
+
+### Bug Fixes
+
+* **taiko-client:** initialize private mempool transaction sender in `InitFromConfig` ([#18005](https://github.com/taikoxyz/taiko-mono/issues/18005)) ([58f1c85](https://github.com/taikoxyz/taiko-mono/commit/58f1c85ad471a545f8f00bfd32b3241657f38e8f))
+
 ## [0.33.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.32.0...taiko-client-v0.33.0) (2024-08-29)
 
 
