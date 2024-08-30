@@ -15,12 +15,10 @@ contract DeployScript is Script {
     uint256 public deployerPrivateKey;
     address public deployerAddress;
 
-    string baseURI =
-        "https://taikonfts.4everland.link/ipfs/bafybeiep3ju3glnzsrqdzaibv7v5ifa7dy4bkyprwkjz6wytl37oqwcmya";
-    IMinimalBlacklist blacklist = IMinimalBlacklist(0xfA5EA6f9A13532cd64e805996a941F101CCaAc9a);
-
-    uint256 mintFee = 0.002 ether;
-    address payoutWallet = 0x2e44474B7F5726908ef509B6C8d561fA40a52f90;
+    // hekla
+    //address tokenV1 = 0x1d504615c42130F4fdbEb87775585B250BA78422;
+    // mainnet
+    address tokenV1 = 0x00E6dc8B0a58d505de61309df3568Ba3f9734a6C;
 
     function setUp() public {
         utils = new UtilsScript();
@@ -36,29 +34,18 @@ contract DeployScript is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        // deploy token with empty root
-        address impl = address(new TaikoPartyTicket());
-        address proxy = address(
-            new ERC1967Proxy(
-                impl,
-                abi.encodeCall(
-                    TaikoPartyTicket.initialize, (payoutWallet, mintFee, baseURI, blacklist)
-                )
-            )
-        );
+        TaikoPartyTicket token = TaikoPartyTicket(tokenV1);
 
-        TaikoPartyTicket token = TaikoPartyTicket(proxy);
-
-        console.log("Token Base URI:", baseURI);
         console.log("Deployed TaikoPartyTicket to:", address(token));
-        /*
+
         token.upgradeToAndCall(
-        address(new TaikoPartyTicketV2()), abi.encodeCall(TaikoPartyTicketV2.version, ())
+            address(new TaikoPartyTicketV2()), abi.encodeCall(TaikoPartyTicketV2.version, ())
         );
 
         TaikoPartyTicketV2 tokenV2 = TaikoPartyTicketV2(address(token));
+        console.log("Upgraded token to:", address(tokenV2));
+        console.log("Version:", tokenV2.version());
 
-        */
         string memory finalJson = vm.serializeAddress(jsonRoot, "TaikoPartyTicket", address(token));
         vm.writeJson(finalJson, jsonLocation);
 

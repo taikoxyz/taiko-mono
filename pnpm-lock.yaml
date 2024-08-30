@@ -340,8 +340,8 @@ importers:
         specifier: ^60.0.1
         version: 60.0.1(encoding@0.1.13)
       merkletreejs:
-        specifier: ^0.3.11
-        version: 0.3.11
+        specifier: ^0.4.0
+        version: 0.4.0
       murky:
         specifier: github:dmfxyz/murky
         version: https://codeload.github.com/dmfxyz/murky/tar.gz/5feccd1253d7da820f7cccccdedf64471025455d
@@ -419,8 +419,8 @@ importers:
         specifier: github:foundry-rs/forge-std#v1.7.5
         version: https://codeload.github.com/foundry-rs/forge-std/tar.gz/36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3
       merkletreejs:
-        specifier: ^0.3.11
-        version: 0.3.11
+        specifier: ^0.4.0
+        version: 0.4.0
       optimism:
         specifier: github:ethereum-optimism/optimism#v1.8.0
         version: https://codeload.github.com/ethereum-optimism/optimism/tar.gz/ab3a54febb36398539fd3b849c222b7e70169dc8
@@ -654,8 +654,8 @@ importers:
         specifier: github:foundry-rs/forge-std#v1.7.5
         version: https://codeload.github.com/foundry-rs/forge-std/tar.gz/36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3
       merkletreejs:
-        specifier: ^0.3.11
-        version: 0.3.11
+        specifier: ^0.4.0
+        version: 0.4.0
       p256-verifier:
         specifier: github:taikoxyz/p256-verifier#v0.1.0
         version: p256-verifier#v0.1.0@https://codeload.github.com/taikoxyz/p256-verifier/tar.gz/6ef45b117642786b08a37b4c37c6a6ce151166da
@@ -8651,8 +8651,8 @@ packages:
     resolution: {integrity: sha512-8q7VEgMJW4J8tcfVPy8g09NcQwZdbwFEqhe/WZkoIzjn/3TGDwtOCYtXGxA3O8tPzpczCCDgv+P2P5y00ZJOOg==}
     engines: {node: '>= 8'}
 
-  merkletreejs@0.3.11:
-    resolution: {integrity: sha512-LJKTl4iVNTndhL+3Uz/tfkjD0klIWsHlUzgtuNnNrsf7bAlXR30m+xYB7lHr5Z/l6e/yAIsr26Dabx6Buo4VGQ==}
+  merkletreejs@0.4.0:
+    resolution: {integrity: sha512-a48Ta5kWiVNBgeEbZVMm6FB1hBlp6vEuou/XnZdlkmd2zq6NZR6Sh2j+kR1B0iOZIXrTMcigBYzZ39MLdYhm1g==}
     engines: {node: '>= 7.6.0'}
 
   methods@1.1.2:
@@ -23853,7 +23853,7 @@ snapshots:
 
   merge2@1.4.1: {}
 
-  merkletreejs@0.3.11:
+  merkletreejs@0.4.0:
     dependencies:
       bignumber.js: 9.1.2
       buffer-reverse: 1.0.1
