@@ -61,7 +61,7 @@
     "ds-test": "github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0",
     "forge-std": "github:foundry-rs/forge-std",
     "ipfs-http-client": "^60.0.1",
-    "merkletreejs": "^0.3.11",
+    "merkletreejs": "^0.4.0",
     "murky": "github:dmfxyz/murky",
     "p256-verifier": "github:taikoxyz/p256-verifier#v0.1.0",
     "sharp": "^0.33.3",

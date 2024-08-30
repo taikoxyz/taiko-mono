@@ -40,7 +40,7 @@
     "@openzeppelin/contracts-upgradeable": "4.9.6",
     "ds-test": "github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0",
     "forge-std": "github:foundry-rs/forge-std#v1.7.5",
-    "merkletreejs": "^0.3.11",
+    "merkletreejs": "^0.4.0",
     "optimism": "github:ethereum-optimism/optimism#v1.8.0",
     "p256-verifier": "github:taikoxyz/p256-verifier#v0.1.0",
     "risc0-ethereum": "github:risc0/risc0-ethereum#v1.0.0",
