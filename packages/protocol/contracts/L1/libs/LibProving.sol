@@ -32,23 +32,8 @@ library LibProving {
         bool isTopTier;
         bool inProvingWindow;
         bool sameTransition;
-        bool postFork;
         uint64 proposedAt;
     }
-
-    /// @notice Emitted when a transition is proved.
-    /// @param blockId The block ID.
-    /// @param tran The transition data.
-    /// @param prover The prover's address.
-    /// @param validityBond The validity bond amount.
-    /// @param tier The tier of the proof.
-    event TransitionProved(
-        uint256 indexed blockId,
-        TaikoData.Transition tran,
-        address prover,
-        uint96 validityBond,
-        uint16 tier
-    );
 
     /// @notice Emitted when a transition is proved.
     /// @param blockId The block ID.
@@ -64,20 +49,6 @@ library LibProving {
         uint96 validityBond,
         uint16 tier,
         uint64 proposedIn
-    );
-
-    /// @notice Emitted when a transition is contested.
-    /// @param blockId The block ID.
-    /// @param tran The transition data.
-    /// @param contester The contester's address.
-    /// @param contestBond The contest bond amount.
-    /// @param tier The tier of the proof.
-    event TransitionContested(
-        uint256 indexed blockId,
-        TaikoData.Transition tran,
-        address contester,
-        uint96 contestBond,
-        uint16 tier
     );
 
     /// @notice Emitted when a transition is contested.
@@ -102,7 +73,6 @@ library LibProving {
 
     error L1_ALREADY_CONTESTED();
     error L1_ALREADY_PROVED();
-    error L1_BLOCK_MISMATCH();
     error L1_CANNOT_CONTEST();
     error L1_DIFF_VERIFIER();
     error L1_INVALID_PARAMS();
@@ -220,26 +190,17 @@ library LibProving {
         Local memory local;
         local.b = _state.slotB;
         local.blockId = _blockId;
-        local.postFork = _blockId >= _config.ontakeForkHeight;
 
-        if (local.postFork) {
-            if (_batchProof.tier == 0) {
-                // No batch proof is available, each transition is proving using a separate proof.
-                (local.meta, ctx_.tran, local.proof) = abi.decode(
-                    _input, (TaikoData.BlockMetadataV2, TaikoData.Transition, TaikoData.TierProof)
-                );
-            } else {
-                // All transitions are proving using the batch proof.
-                (local.meta, ctx_.tran) =
-                    abi.decode(_input, (TaikoData.BlockMetadataV2, TaikoData.Transition));
-                local.proof = _batchProof;
-            }
-        } else {
-            TaikoData.BlockMetadata memory metaV1;
-            (metaV1, ctx_.tran, local.proof) = abi.decode(
-                _input, (TaikoData.BlockMetadata, TaikoData.Transition, TaikoData.TierProof)
+        if (_batchProof.tier == 0) {
+            // No batch proof is available, each transition is proving using a separate proof.
+            (local.meta, ctx_.tran, local.proof) = abi.decode(
+                _input, (TaikoData.BlockMetadataV2, TaikoData.Transition, TaikoData.TierProof)
             );
-            local.meta = LibData.blockMetadataV1toV2(metaV1);
+        } else {
+            // All transitions are proving using the batch proof.
+            (local.meta, ctx_.tran) =
+                abi.decode(_input, (TaikoData.BlockMetadataV2, TaikoData.Transition));
+            local.proof = _batchProof;
         }
 
         if (_blockId != local.meta.id) revert LibUtils.L1_INVALID_BLOCK_ID();
@@ -259,7 +220,7 @@ library LibProving {
         local.slot = local.meta.id % _config.blockRingBufferSize;
         TaikoData.BlockV2 storage blk = _state.blocks[local.slot];
 
-        local.proposedAt = local.postFork ? local.meta.proposedAt : blk.proposedAt;
+        local.proposedAt = local.meta.proposedAt;
 
         if (LibUtils.shouldSyncStateRoot(_config.stateRootSyncInternal, local.blockId)) {
             local.stateRoot = ctx_.tran.stateRoot;
@@ -280,11 +241,8 @@ library LibProving {
         // theory, this check may be skipped, but it's included for added
         // caution.
         {
-            bytes32 metaHash = local.postFork
-                ? keccak256(abi.encode(local.meta))
-                : keccak256(abi.encode(LibData.blockMetadataV2toV1(local.meta)));
-
-            if (local.metaHash != metaHash) revert L1_BLOCK_MISMATCH();
+            bytes32 metaHash = keccak256(abi.encode(local.meta));
+            if (local.metaHash != metaHash) revert LibUtils.L1_BLOCK_MISMATCH();
         }
 
         // Each transition is uniquely identified by the parentHash, with the
@@ -376,24 +334,14 @@ library LibProving {
             // (L1_ALREADY_PROVED).
             _overrideWithHigherProof(_state, _resolver, blk, ts, ctx_.tran, local.proof, local);
 
-            if (local.postFork) {
-                emit TransitionProvedV2({
-                    blockId: local.blockId,
-                    tran: ctx_.tran,
-                    prover: msg.sender,
-                    validityBond: local.tier.validityBond,
-                    tier: local.proof.tier,
-                    proposedIn: local.meta.proposedIn
-                });
-            } else {
-                emit TransitionProved({
-                    blockId: local.blockId,
-                    tran: ctx_.tran,
-                    prover: msg.sender,
-                    validityBond: local.tier.validityBond,
-                    tier: local.proof.tier
-                });
-            }
+            emit TransitionProvedV2({
+                blockId: local.blockId,
+                tran: ctx_.tran,
+                prover: msg.sender,
+                validityBond: local.tier.validityBond,
+                tier: local.proof.tier,
+                proposedIn: local.meta.proposedIn
+            });
         } else {
             // New transition and old transition on the same tier - and if this transaction tries to
             // prove the same, it reverts
@@ -408,24 +356,14 @@ library LibProving {
                 ts.blockHash = ctx_.tran.blockHash;
                 ts.stateRoot = local.stateRoot;
 
-                if (local.postFork) {
-                    emit TransitionProvedV2({
-                        blockId: local.blockId,
-                        tran: ctx_.tran,
-                        prover: msg.sender,
-                        validityBond: 0,
-                        tier: local.proof.tier,
-                        proposedIn: local.meta.proposedIn
-                    });
-                } else {
-                    emit TransitionProved({
-                        blockId: local.blockId,
-                        tran: ctx_.tran,
-                        prover: msg.sender,
-                        validityBond: 0,
-                        tier: local.proof.tier
-                    });
-                }
+                emit TransitionProvedV2({
+                    blockId: local.blockId,
+                    tran: ctx_.tran,
+                    prover: msg.sender,
+                    validityBond: 0,
+                    tier: local.proof.tier,
+                    proposedIn: local.meta.proposedIn
+                });
             } else {
                 // Contesting but not on the highest tier
                 if (ts.contester != address(0)) revert L1_ALREADY_CONTESTED();
@@ -453,24 +391,14 @@ library LibProving {
                 ts.contestBond = local.tier.contestBond;
                 ts.contester = msg.sender;
 
-                if (local.postFork) {
-                    emit TransitionContestedV2({
-                        blockId: local.blockId,
-                        tran: ctx_.tran,
-                        contester: msg.sender,
-                        contestBond: local.tier.contestBond,
-                        tier: local.proof.tier,
-                        proposedIn: local.meta.proposedIn
-                    });
-                } else {
-                    emit TransitionContested({
-                        blockId: local.blockId,
-                        tran: ctx_.tran,
-                        contester: msg.sender,
-                        contestBond: local.tier.contestBond,
-                        tier: local.proof.tier
-                    });
-                }
+                emit TransitionContestedV2({
+                    blockId: local.blockId,
+                    tran: ctx_.tran,
+                    contester: msg.sender,
+                    contestBond: local.tier.contestBond,
+                    tier: local.proof.tier,
+                    proposedIn: local.meta.proposedIn
+                });
             }
         }
 

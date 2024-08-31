@@ -18,7 +18,7 @@ contract TaikoL10TestGroup1 is TaikoL1TestGroupBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         for (uint256 i = 1; i <= 5; ++i) {
-            TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
+            TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
 
             // Prove the block
             bytes32 blockHash = bytes32(uint256(10_000 + i));

@@ -2,7 +2,6 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-
 import "../../common/IAddressResolver.sol";
 import "../../common/LibStrings.sol";
 import "../TaikoData.sol";
@@ -11,16 +10,20 @@ import "../TaikoData.sol";
 /// @notice A library that offers helper functions to handle bonds.
 /// @custom:security-contact security@taiko.xyz
 library LibBonds {
-    /// @dev Emitted when token is credited back to a user's bond balance.
+    /// @dev Emitted when a token is credited back to a user's bond balance.
+    /// @param user The address of the user whose bond balance is credited.
+    /// @param amount The amount of tokens credited.
     event BondCredited(address indexed user, uint256 amount);
 
-    /// @dev Emitted when token is debited from a user's bond balance.
+    /// @dev Emitted when a token is debited from a user's bond balance.
+    /// @param user The address of the user whose bond balance is debited.
+    /// @param amount The amount of tokens debited.
     event BondDebited(address indexed user, uint256 amount);
 
-    /// @dev Deposits Taiko token to be used as bonds.
-    /// @param _state Current TaikoData.State.
-    /// @param _resolver Address resolver interface.
-    /// @param _amount The amount of token to deposit.
+    /// @dev Deposits TAIKO tokens to be used as bonds.
+    /// @param _state The current state of TaikoData.
+    /// @param _resolver The address resolver interface.
+    /// @param _amount The amount of tokens to deposit.
     function depositBond(
         TaikoData.State storage _state,
         IAddressResolver _resolver,
@@ -32,10 +35,10 @@ library LibBonds {
         _tko(_resolver).transferFrom(msg.sender, address(this), _amount);
     }
 
-    /// @dev Withdraws Taiko token.
-    /// @param _state Current TaikoData.State.
-    /// @param _resolver Address resolver interface.
-    /// @param _amount The amount of token to withdraw.
+    /// @dev Withdraws TAIKO tokens.
+    /// @param _state The current state of TaikoData.
+    /// @param _resolver The address resolver interface.
+    /// @param _amount The amount of tokens to withdraw.
     function withdrawBond(
         TaikoData.State storage _state,
         IAddressResolver _resolver,
@@ -47,11 +50,11 @@ library LibBonds {
         _tko(_resolver).transfer(msg.sender, _amount);
     }
 
-    /// @dev Debits Taiko tokens as bonds.
-    /// @param _state Current TaikoData.State.
-    /// @param _resolver Address resolver interface.
-    /// @param _user The user address to debit.
-    /// @param _amount The amount of token to debit.
+    /// @dev Debits TAIKO tokens as bonds.
+    /// @param _state The current state of TaikoData.
+    /// @param _resolver The address resolver interface.
+    /// @param _user The address of the user to debit.
+    /// @param _amount The amount of tokens to debit.
     function debitBond(
         TaikoData.State storage _state,
         IAddressResolver _resolver,
@@ -72,19 +75,19 @@ library LibBonds {
         }
     }
 
-    /// @dev Credits Taiko tokens to user's bond balance.
-    /// @param _state Current TaikoData.State.
-    /// @param _user The user address to credit.
-    /// @param _amount The amount of token to credit.
+    /// @dev Credits TAIKO tokens to a user's bond balance.
+    /// @param _state The current state of TaikoData.
+    /// @param _user The address of the user to credit.
+    /// @param _amount The amount of tokens to credit.
     function creditBond(TaikoData.State storage _state, address _user, uint256 _amount) internal {
         _state.bondBalance[_user] += _amount;
         emit BondCredited(_user, _amount);
     }
 
-    /// @dev Gets a user's current Taiko token bond balance.
-    /// @param _state Current TaikoData.State.
-    /// @param _user The user address to credit.
-    /// @return  The current token balance.
+    /// @dev Gets a user's current TAIKO token bond balance.
+    /// @param _state The current state of TaikoData.
+    /// @param _user The address of the user.
+    /// @return The current token balance.
     function bondBalanceOf(
         TaikoData.State storage _state,
         address _user
@@ -96,7 +99,10 @@ library LibBonds {
         return _state.bondBalance[_user];
     }
 
-    function _tko(IAddressResolver _resolver) private view returns (IERC20) {
+    /// @dev Resolves the TAIKO token address using the address resolver.
+    /// @param _resolver The address resolver interface.
+    /// @return tko_ The IERC20 interface of the TAIKO token.
+    function _tko(IAddressResolver _resolver) private view returns (IERC20 tko_) {
         return IERC20(_resolver.resolve(LibStrings.B_TAIKO_TOKEN, false));
     }
 }

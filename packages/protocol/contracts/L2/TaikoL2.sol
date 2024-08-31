@@ -44,6 +44,7 @@ contract TaikoL2 is EssentialContract {
     uint64 public parentGasTarget;
 
     /// @notice The L1's chain ID.
+    /// @dev Slot 4.
     uint64 public l1ChainId;
 
     uint256[46] private __gap;
@@ -106,6 +107,7 @@ contract TaikoL2 is EssentialContract {
         (publicInputHash,) = _calcPublicInputHash(block.number);
     }
 
+    /// @dev DEPRECATED but used by node/client for syncing old blocks
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
     /// message verification.
     /// @dev This function can be called freely as the golden touch private key is publicly known,
@@ -176,7 +178,7 @@ contract TaikoL2 is EssentialContract {
     {
         if (block.number < ontakeForkHeight()) revert L2_FORK_ERROR();
 
-        uint256 parentId = block.number - 1;
+        uint64 parentId = uint64(block.number - 1);
 
         // Verify ancestor hashes
         {
@@ -238,11 +240,11 @@ contract TaikoL2 is EssentialContract {
         address _to
     )
         external
+        nonZeroAddr(_to)
         whenNotPaused
         onlyFromOwnerOrNamed(LibStrings.B_WITHDRAWER)
         nonReentrant
     {
-        if (_to == address(0)) revert L2_INVALID_PARAM();
         if (_token == address(0)) {
             _to.sendEtherAndVerify(address(this).balance);
         } else {
@@ -250,6 +252,7 @@ contract TaikoL2 is EssentialContract {
         }
     }
 
+    /// @dev DEPRECATED but used by node/client for syncing old blocks
     /// @notice Gets the basefee and gas excess using EIP-1559 configuration for
     /// the given parameters.
     /// @dev This function will deprecate after Ontake fork, node/client shall use calculateBaseFee
@@ -266,7 +269,7 @@ contract TaikoL2 is EssentialContract {
         view
         returns (uint256 basefee_, uint64 parentGasExcess_)
     {
-        LibL2Config.Config memory config = getConfig();
+        LibL2Config.Config memory config = LibL2Config.get();
 
         (basefee_, parentGasExcess_) = Lib1559Math.calc1559BaseFee(
             uint256(config.gasTargetPerL1Block) * config.basefeeAdjustmentQuotient,
@@ -285,12 +288,6 @@ contract TaikoL2 is EssentialContract {
         if (_blockId >= block.number) return 0;
         if (_blockId + 256 >= block.number) return blockhash(_blockId);
         return l2Hashes[_blockId];
-    }
-
-    /// @notice Returns EIP1559 related configurations.
-    /// @return config_ struct containing configuration parameters.
-    function getConfig() public view virtual returns (LibL2Config.Config memory) {
-        return LibL2Config.get();
     }
 
     /// @notice Returns the new gas excess that will keep the basefee the same.
@@ -354,6 +351,13 @@ contract TaikoL2 is EssentialContract {
         );
     }
 
+    /// @notice Calculates the public input hash for the given block ID.
+    /// @dev This function computes two public input hashes: one for the previous state and one for
+    /// the new state.
+    /// It uses a ring buffer to store the previous 255 block hashes and the current chain ID.
+    /// @param _blockId The ID of the block for which the public input hash is calculated.
+    /// @return publicInputHashOld The public input hash for the previous state.
+    /// @return publicInputHashNew The public input hash for the new state.
     function _calcPublicInputHash(uint256 _blockId)
         private
         view
@@ -371,13 +375,18 @@ contract TaikoL2 is EssentialContract {
             }
         }
 
+        // Store the current chain ID in the last position of the inputs array.
         inputs[255] = bytes32(block.chainid);
 
+        // Calculate the public input hash for the previous state.
         assembly {
             publicInputHashOld := keccak256(inputs, 8192 /*mul(256, 32)*/ )
         }
 
+        // Update the ring buffer with the block hash of the current block ID.
         inputs[_blockId % 255] = blockhash(_blockId);
+
+        // Calculate the public input hash for the new state.
         assembly {
             publicInputHashNew := keccak256(inputs, 8192 /*mul(256, 32)*/ )
         }

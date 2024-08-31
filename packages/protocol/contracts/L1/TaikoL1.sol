@@ -24,9 +24,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
 
     uint256[50] private __gap;
 
-    error L1_FORK_ERROR();
-    error L1_INVALID_PARAMS();
-
     modifier whenProvingNotPaused() {
         if (state.slotB.provingPaused) revert LibProving.L1_PROVING_PAUSED();
         _;
@@ -52,7 +49,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         initializer
     {
         __Essential_init(_owner, _rollupAddressManager);
-        LibUtils.init(state, getConfig(), _genesisBlockHash);
+        LibUtils.init(state, _genesisBlockHash);
         if (_toPause) _pause();
     }
 
@@ -62,25 +59,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         state.slotB.__reservedB2 = 0;
         state.slotB.__reservedB3 = 0;
         state.__reserve1 = 0;
-    }
-
-    /// @inheritdoc ITaikoL1
-    function proposeBlock(
-        bytes calldata _params,
-        bytes calldata _txList
-    )
-        external
-        payable
-        onlyFromOptionalNamed(LibStrings.B_BLOCK_PROPOSER)
-        whenNotPaused
-        nonReentrant
-        emitEventForClient
-        returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
-    {
-        TaikoData.Config memory config = getConfig();
-        (meta_,) = LibProposing.proposeBlock(state, config, this, _params, _txList);
-        if (meta_.id >= config.ontakeForkHeight) revert L1_FORK_ERROR();
-        deposits_ = new TaikoData.EthDeposit[](0);
     }
 
     function proposeBlockV2(
@@ -94,9 +72,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         emitEventForClient
         returns (TaikoData.BlockMetadataV2 memory meta_)
     {
-        TaikoData.Config memory config = getConfig();
-        (, meta_) = LibProposing.proposeBlock(state, config, this, _params, _txList);
-        if (meta_.id < config.ontakeForkHeight) revert L1_FORK_ERROR();
+        return LibProposing.proposeBlock(state, getConfig(), this, _params, _txList);
     }
 
     /// @inheritdoc ITaikoL1
@@ -109,13 +85,9 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         whenNotPaused
         nonReentrant
         emitEventForClient
-        returns (TaikoData.BlockMetadataV2[] memory metaArr_)
+        returns (TaikoData.BlockMetadataV2[] memory)
     {
-        TaikoData.Config memory config = getConfig();
-        (, metaArr_) = LibProposing.proposeBlocks(state, config, this, _paramsArr, _txListArr);
-        for (uint256 i; i < metaArr_.length; ++i) {
-            if (metaArr_[i].id < config.ontakeForkHeight) revert L1_FORK_ERROR();
-        }
+        return LibProposing.proposeBlocks(state, getConfig(), this, _paramsArr, _txListArr);
     }
 
     /// @inheritdoc ITaikoL1
