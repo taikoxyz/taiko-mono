@@ -30,8 +30,9 @@ contract TrailblazersBadgesS2 is
     AccessControlUpgradeable,
     ERC1155SupplyUpgradeable
 {
+    /// @notice Maximum tamper attempts, per color
     uint256 public constant MAX_TAMPERS = 3;
-
+    /// @notice S2 Badge IDs
     uint256 public constant RAVER_PINK_ID = 0;
     uint256 public constant RAVER_PURPLE_ID = 1;
     uint256 public constant ROBOT_PINK_ID = 2;
@@ -48,19 +49,30 @@ contract TrailblazersBadgesS2 is
     uint256 public constant ANDROID_PURPLE_ID = 13;
     uint256 public constant SHINTO_PINK_ID = 14;
     uint256 public constant SHINTO_PURPLE_ID = 15;
-
+    /// @notice Total badge count
     uint256 public constant BADGE_COUNT = 16;
 
+    /// @notice Cooldown for migration
     mapping(address _user => uint256 _cooldown) public claimCooldowns;
+    /// @notice Cooldown for tampering
     mapping(address _user => uint256 _cooldown) public tamperCooldowns;
+    /// @notice Tamper count
     mapping(address _user => mapping(bool pinkOrPurple => uint256 _tampers)) public migrationTampers;
-
-    mapping(address _user => uint256 _badgeId) public migrationS1BadgeIds;
-    mapping(address _user => uint256 _tokenId) public migrationS1TokenIds;
+    /// @notice S1 Migration Badge ID mapping
+    mapping(address _user => uint256 _badgeId) private migrationS1BadgeIds;
+    /// @notice S1 Migration Token ID mapping
+    mapping(address _user => uint256 _tokenId) private migrationS1TokenIds;
+    /// @notice User to badge ID, token ID mapping
     mapping(address _user => mapping(uint256 _badgeId => uint256 _tokenId)) public userBadges;
+    /// @notice Migration-enabled badge IDs
+    mapping(uint256 _s1BadgeId => bool _enabled) public enabledBadgeIds;
+    /// @notice S1 Badge contract
+    TrailblazersBadges public badges;
+    /// @notice Gap for upgrade safety
+    uint256[43] private __gap;
 
+    /// @notice Errors
     error MAX_TAMPERS_REACHED();
-
     error MIGRATION_NOT_STARTED();
     error MIGRATION_ALREADY_STARTED();
     error TAMPER_IN_PROGRESS();
@@ -69,18 +81,16 @@ contract TrailblazersBadgesS2 is
     error TOKEN_NOT_MINTED();
     error MIGRATION_NOT_ENABLED();
 
+    /// @notice Events
     event MigrationEnabled(uint256 _s1BadgeId, bool _enabled);
 
-    mapping(uint256 _s1BadgeId => bool _enabled) public enabledBadgeIds;
-
+    /// @notice Modifiers
     modifier whenUnpaused(uint256 _badgeId) {
-        if (paused(_badgeId)) {
+        if (!canMigrate(_badgeId) || paused()) {
             revert CONTRACT_PAUSED();
         }
         _;
     }
-
-    TrailblazersBadges public badges;
 
     modifier isMigrating() {
         if (claimCooldowns[_msgSender()] == 0) {
@@ -97,9 +107,6 @@ contract TrailblazersBadgesS2 is
     }
 
     modifier isNotTampering() {
-        // revert if the user is tampering; ie, their cooldown
-        // has not expired
-
         if (tamperCooldowns[_msgSender()] < block.timestamp) {
             revert TAMPER_IN_PROGRESS();
         }
@@ -113,13 +120,14 @@ contract TrailblazersBadgesS2 is
         _;
     }
 
+    /// @notice Contract initializer
+    /// @param _badges The address of the S1 badges contract
     function initialize(address _badges) external initializer {
         __ERC1155_init("");
         __ERC1155Supply_init();
         _transferOwnership(_msgSender());
         __Context_init();
         _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
-
         badges = TrailblazersBadges(_badges);
     }
 
@@ -194,16 +202,9 @@ contract TrailblazersBadgesS2 is
         userBadges[_msgSender()][s2BadgeId] = s2TokenId;
     }
 
-    function _disableMigrations() internal onlyRole(DEFAULT_ADMIN_ROLE) {
-        for (uint256 i = 0; i < 8; i++) {
-            if (enabledBadgeIds[i]) {
-                emit MigrationEnabled(i, false);
-            }
-
-            enabledBadgeIds[i] = false;
-        }
-    }
-
+    /// @notice Enable migrations for a set of badges
+    /// @param _s1BadgeIds The badge IDs to enable
+    /// @dev Can be called only by the contract owner/admin
     function enableMigrations(uint256[] calldata _s1BadgeIds)
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
@@ -214,20 +215,29 @@ contract TrailblazersBadgesS2 is
         }
     }
 
-    function paused(uint256 _s1Badge) public view returns (bool) {
+    /// @notice Check if the migrations for a badge are enabled
+    /// @param _s1Badge The badge ID to check
+    /// @return Whether the badge is enabled for migration
+    function canMigrate(uint256 _s1Badge) public view returns (bool) {
         for (uint256 i = 0; i < 8; i++) {
             if (enabledBadgeIds[i] && i == _s1Badge) {
                 return true;
             }
         }
-        return super.paused();
+        return false;
     }
 
+    /// @notice Pause the contract
+    /// @dev Can be called only by the contract owner/admin
     function pause() public onlyRole(DEFAULT_ADMIN_ROLE) {
         _disableMigrations();
         _pause();
     }
 
+    /// @notice S1 --> S2 badge ID mapping
+    /// @param _s1BadgeId The S1 badge ID
+    /// @return _pinkBadgeId The S2 pink badge ID
+    /// @return _purpleBadgeId The S2 purple badge ID
     function getSeason2BadgeIds(uint256 _s1BadgeId)
         public
         pure
@@ -236,30 +246,53 @@ contract TrailblazersBadgesS2 is
         return (_s1BadgeId * 2, _s1BadgeId * 2 + 1);
     }
 
+    /// @notice S2 --> S1 badge ID mapping
+    /// @param _s2BadgeId The S2 badge ID
+    /// @return _s1BadgeId The S1 badge ID
     function getSeason1BadgeId(uint256 _s2BadgeId) public pure returns (uint256 _s1BadgeId) {
         return _s2BadgeId / 2;
     }
 
+    /// @notice Check if a migration is active for a user
+    /// @param _user The user address
+    /// @return Whether the user has an active migration
     function isMigrationActive(address _user) public view returns (bool) {
         return claimCooldowns[_user] != 0;
     }
 
+    /// @notice Check if a tamper is active for a user
+    /// @param _user The user address
+    /// @return Whether the user has an active tamper
     function isTamperActive(address _user) public view returns (bool) {
         return tamperCooldowns[_user] > block.timestamp;
     }
 
+    /// @notice Get the migration tamper counts for a user
+    /// @param _user The user address
+    /// @return _pinkTampers The pink tamper count
+    /// @return _purpleTampers The purple tamper count
     function getMigrationTampers(address _user)
         public
         view
         returns (uint256 _pinkTampers, uint256 _purpleTampers)
     {
+        if (!isMigrationActive(_user)) {
+            revert MIGRATION_NOT_STARTED();
+        }
         return (migrationTampers[_user][true], migrationTampers[_user][false]);
     }
 
+    /// @notice Retrieve a token ID given their owner and S2 Badge ID
+    /// @param _user The address of the badge owner
+    /// @param _s2BadgeId The S2 badge ID
+    /// @return _tokenId The token ID
     function getTokenId(address _user, uint256 _s2BadgeId) public view returns (uint256 _tokenId) {
         return userBadges[_user][_s2BadgeId];
     }
 
+    /// @notice Retrieve boolean balance for each badge
+    /// @param _owner The addresses to check
+    /// @return _balances The badges atomic balances
     function badgeBalances(address _owner) public view returns (bool[16] memory _balances) {
         for (uint256 i = 0; i < BADGE_COUNT; i++) {
             uint256 tokenId = getTokenId(_owner, i);
@@ -269,6 +302,9 @@ contract TrailblazersBadgesS2 is
         return _balances;
     }
 
+    /// @notice Retrieve the total S2 unique badge balance of an address
+    /// @param _owner The address to check
+    /// @return _balance The total badge balance (count)
     function badgeBalanceOf(address _owner) public view returns (uint256 _balance) {
         bool[16] memory balances = badgeBalances(_owner);
 
@@ -279,6 +315,18 @@ contract TrailblazersBadgesS2 is
         }
 
         return _balance;
+    }
+
+    /// @notice Disable all new migrations
+    /// @dev Doesn't allow for new migration attempts, but tampers and active migrations still run
+    function _disableMigrations() internal onlyRole(DEFAULT_ADMIN_ROLE) {
+        for (uint256 i = 0; i < 8; i++) {
+            if (enabledBadgeIds[i]) {
+                emit MigrationEnabled(i, false);
+            }
+
+            enabledBadgeIds[i] = false;
+        }
     }
 
     /// @notice supportsInterface implementation
