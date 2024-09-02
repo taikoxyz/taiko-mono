@@ -144,12 +144,13 @@
 
 ### tierRouter
 
-- impl: `0x45aB015d317453512d1a07a578411B6D653FAccc`
+- impl: `0xE17dBD745f0144b8b7133cbBA044B74Ff34A7aA2`
 - logs:
   - deployed on Jun 10, 2024 at commit `d5965bb`
   - upgraded on Jun 14, 2024 at commit `cc10b04`
   - upgraded on Jun 19, 2024 at commit `b7e12e3`
   - upgraded on Aug 15, 2024 at commit `05d49b0`
+  - upgraded on Sep 02, 2024 at commit `9dae5c8`
 
 ### prover_set
 
@@ -202,6 +203,14 @@
 - owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
 - logs:
   - deployed on August 14, 2024 at commit `cba2a1e`
+
+### tier_zkvm_sp1
+
+- proxy : 0x3a9f7A8a5De60DB861f53E258d4ACd400b007549
+- impl : 0x893aFd79c01ffF7758Aa9e5F67851278D8122318
+- owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
+- logs:
+  - deployed on September 02, 2024 at commit `16ac02e`
 
 ## L2 Contracts
 
