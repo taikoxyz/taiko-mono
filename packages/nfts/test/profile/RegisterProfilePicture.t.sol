@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import { Test, console } from "forge-std/src/Test.sol";
 import { RegisterProfilePicture } from "../../contracts/profile/RegisterProfilePicture.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { ERC721Mock, ERC1155Mock, MockInvalidNFT } from "../util/MockToken.sol";
+import { ERC721Mock, ERC1155Mock, MockInvalidNFT } from "../util/MockTokens.sol";
 
 contract RegisterProfilePictureTest is Test {
     RegisterProfilePicture public registerProfilePicture;
@@ -48,35 +48,35 @@ contract RegisterProfilePictureTest is Test {
         vm.stopBroadcast();
     }
 
-    function testSetPFPWithERC721() public {
+    function test_SetPFPWithERC721() public {
         vm.startPrank(user);
 
         vm.expectEmit(true, true, true, true);
         emit ProfilePictureSet(user, address(erc721Mock), ERC721_TOKEN_ID);
         registerProfilePicture.setPFP(address(erc721Mock), ERC721_TOKEN_ID);
 
-        (address nftContract, uint256 tokenId) = registerProfilePicture.profilePictures(user);
+        (address nftContract, uint256 tokenId) = registerProfilePicture.profilePicture(user);
         assertEq(nftContract, address(erc721Mock));
         assertEq(tokenId, ERC721_TOKEN_ID);
 
         vm.stopPrank();
     }
 
-    function testSetPFPWithERC1155() public {
+    function test_SetPFPWithERC1155() public {
         vm.startPrank(user);
 
         vm.expectEmit(true, true, true, true);
         emit ProfilePictureSet(user, address(erc1155Mock), ERC1155_TOKEN_ID);
         registerProfilePicture.setPFP(address(erc1155Mock), ERC1155_TOKEN_ID);
 
-        (address nftContract, uint256 tokenId) = registerProfilePicture.profilePictures(user);
+        (address nftContract, uint256 tokenId) = registerProfilePicture.profilePicture(user);
         assertEq(nftContract, address(erc1155Mock));
         assertEq(tokenId, ERC1155_TOKEN_ID);
 
         vm.stopPrank();
     }
 
-    function testGetProfilePictureERC721() public {
+    function test_GetProfilePictureERC721() public {
         vm.startPrank(user);
         registerProfilePicture.setPFP(address(erc721Mock), ERC721_TOKEN_ID);
         string memory uri = registerProfilePicture.getProfilePicture(user);
@@ -84,7 +84,7 @@ contract RegisterProfilePictureTest is Test {
         vm.stopPrank();
     }
 
-    function testGetProfilePictureERC1155() public {
+    function test_GetProfilePictureERC1155() public {
         vm.startPrank(user);
         registerProfilePicture.setPFP(address(erc1155Mock), ERC1155_TOKEN_ID);
         string memory uri = registerProfilePicture.getProfilePicture(user);
@@ -92,7 +92,7 @@ contract RegisterProfilePictureTest is Test {
         vm.stopPrank();
     }
 
-    function testCannotSetPFPWithInvalidNFTContract() public {
+    function test_CannotSetPFPWithInvalidNFTContract() public {
         vm.startPrank(user);
 
         // Expect any kind of revert when trying to set PFP with invalid NFT contract
@@ -102,7 +102,7 @@ contract RegisterProfilePictureTest is Test {
         vm.stopPrank();
     }
 
-    function testCannotSetPFPWithNonOwnedERC721() public {
+    function test_CannotSetPFPWithNonOwnedERC721() public {
         vm.startPrank(otherUser);
 
         vm.expectRevert(abi.encodeWithSignature("NotTokenOwner(address,uint256,address)", address(erc721Mock), ERC721_TOKEN_ID, otherUser));
@@ -111,7 +111,7 @@ contract RegisterProfilePictureTest is Test {
         vm.stopPrank();
     }
 
-    function testCannotSetPFPWithNonOwnedERC1155() public {
+    function test_CannotSetPFPWithNonOwnedERC1155() public {
         vm.startPrank(otherUser);
 
         vm.expectRevert(abi.encodeWithSignature("NotTokenOwner(address,uint256,address)", address(erc1155Mock), ERC1155_TOKEN_ID, otherUser));
@@ -120,7 +120,7 @@ contract RegisterProfilePictureTest is Test {
         vm.stopPrank();
     }
 
-    function testCannotGetProfilePictureAfterTransferERC721() public {
+    function test_CannotGetProfilePictureAfterTransferERC721() public {
         vm.startPrank(user);
 
         registerProfilePicture.setPFP(address(erc721Mock), ERC721_TOKEN_ID);
@@ -132,7 +132,7 @@ contract RegisterProfilePictureTest is Test {
         vm.stopPrank();
     }
 
-    function testCannotGetProfilePictureAfterTransferERC1155() public {
+    function test_CannotGetProfilePictureAfterTransferERC1155() public {
         vm.startPrank(user);
 
         registerProfilePicture.setPFP(address(erc1155Mock), ERC1155_TOKEN_ID);
@@ -144,7 +144,7 @@ contract RegisterProfilePictureTest is Test {
         vm.stopPrank();
     }
 
-    function testChangeProfilePicture() public {
+    function test_ChangeProfilePicture() public {
         vm.startPrank(user);
 
         registerProfilePicture.setPFP(address(erc721Mock), ERC721_TOKEN_ID);
@@ -153,7 +153,7 @@ contract RegisterProfilePictureTest is Test {
         emit ProfilePictureSet(user, address(erc1155Mock), ERC1155_TOKEN_ID);
         registerProfilePicture.setPFP(address(erc1155Mock), ERC1155_TOKEN_ID);
 
-        (address nftContract, uint256 tokenId) = registerProfilePicture.profilePictures(user);
+        (address nftContract, uint256 tokenId) = registerProfilePicture.profilePicture(user);
         assertEq(nftContract, address(erc1155Mock));
         assertEq(tokenId, ERC1155_TOKEN_ID);
 
