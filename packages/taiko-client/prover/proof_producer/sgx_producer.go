@@ -44,6 +44,7 @@ type RaikoRequestProofBody struct {
 	Type     string                      `json:"proof_type"`
 	SGX      *SGXRequestProofBodyParam   `json:"sgx"`
 	RISC0    *RISC0RequestProofBodyParam `json:"risc0"`
+	SP1      *SP1RequestProofBodyParam   `json:"sp1"`
 }
 
 // SGXRequestProofBodyParam represents the JSON body of RaikoRequestProofBody's `sgx` field.
@@ -59,6 +60,12 @@ type RISC0RequestProofBodyParam struct {
 	Snark        bool     `json:"snark"`
 	Profile      bool     `json:"profile"`
 	ExecutionPo2 *big.Int `json:"execution_po2"`
+}
+
+// SP1RequestProofBodyParam represents the JSON body of RaikoRequestProofBody's `sp1` field.
+type SP1RequestProofBodyParam struct {
+	Recursion string `json:"recursion"`
+	Prover    string `json:"prover"`
 }
 
 // RaikoRequestProofBodyResponse represents the JSON body of the response of the proof requests.
