@@ -49,31 +49,14 @@ contract TrailblazersBadgesS2 is
     uint256 public constant SHINTO_PINK_ID = 14;
     uint256 public constant SHINTO_PURPLE_ID = 15;
 
-    uint256[16] public BADGE_IDS = [
-        RAVER_PINK_ID,
-        RAVER_PURPLE_ID,
-        ROBOT_PINK_ID,
-        ROBOT_PURPLE_ID,
-        BOUNCER_PINK_ID,
-        BOUNCER_PURPLE_ID,
-        MASTER_PINK_ID,
-        MASTER_PURPLE_ID,
-        MONK_PINK_ID,
-        MONK_PURPLE_ID,
-        DRUMMER_PINK_ID,
-        DRUMMER_PURPLE_ID,
-        ANDROID_PINK_ID,
-        ANDROID_PURPLE_ID,
-        SHINTO_PINK_ID,
-        SHINTO_PURPLE_ID
-    ];
+    uint256 public constant BADGE_COUNT = 16;
 
     mapping(address _user => uint256 _cooldown) public claimCooldowns;
     mapping(address _user => uint256 _cooldown) public tamperCooldowns;
     mapping(address _user => mapping(bool pinkOrPurple => uint256 _tampers)) public migrationTampers;
 
-    mapping(address _user => uint256 _badgeId) public migrationBadgeIds;
-
+    mapping(address _user => uint256 _badgeId) public migrationS1BadgeIds;
+    mapping(address _user => uint256 _tokenId) public migrationS1TokenIds;
     mapping(address _user => mapping(uint256 _badgeId => uint256 _tokenId)) public userBadges;
 
     error MAX_TAMPERS_REACHED();
@@ -85,7 +68,7 @@ contract TrailblazersBadgesS2 is
     error MIGRATION_NOT_READY();
     error TOKEN_NOT_MINTED();
 
-    mapping(uint256 => bool) public enabledBadgeIds;
+    mapping(uint256 _s1BadgeId => bool _enabled) public enabledBadgeIds;
 
     modifier whenUnpaused(uint256 _badgeId) {
         if (paused(_badgeId)) {
@@ -130,18 +113,23 @@ contract TrailblazersBadgesS2 is
     }
 
     /// @notice Start a migration for a badge
-    /// @param _badgeTokenId The badge token ID (s1)
+    /// @param _s1BadgeId The badge token ID (s1)
     /// @dev Not all badges are eligible for migration at the same time
     /// @dev Defines a cooldown for the migration to be complete
     /// @dev the cooldown is lesser the higher the Pass Tier
-    function startMigration(uint256 _badgeTokenId) external {
+    function startMigration(uint256 _s1BadgeId) external {
+        uint256 s1TokenId = badges.getTokenId(_msgSender(), _s1BadgeId);
+        if (badges.ownerOf(s1TokenId) != _msgSender()) {
+            revert TOKEN_NOT_MINTED();
+        }
         // transfer the badge tokens to the migration contract
-        badges.transferFrom(_msgSender(), address(this), _badgeTokenId);
+        badges.transferFrom(_msgSender(), address(this), s1TokenId);
         // set off the claim cooldown
         claimCooldowns[_msgSender()] = block.timestamp + 1 hours;
         migrationTampers[_msgSender()][true] = 0;
         migrationTampers[_msgSender()][false] = 0;
-        migrationBadgeIds[_msgSender()] = _badgeTokenId;
+        migrationS1BadgeIds[_msgSender()] = _s1BadgeId;
+        migrationS1TokenIds[_msgSender()] = s1TokenId;
     }
 
     /// @notice Tamper (alter) the chances during a migration
@@ -175,11 +163,11 @@ contract TrailblazersBadgesS2 is
             pinkTampers < 3 && purpleTampers < 3 ? block.timestamp % 2 == 0 : pinkTampers < 3;
 
         (uint256 pinkBadgeId, uint256 purpleBadgeId) =
-            getSeason2BadgeIds(migrationBadgeIds[_msgSender()]);
+            getSeason2BadgeIds(migrationS1BadgeIds[_msgSender()]);
         uint256 s2BadgeId = isPink ? pinkBadgeId : purpleBadgeId;
 
         // burn the s1 badge
-        uint256 s1TokenId = migrationBadgeIds[_msgSender()];
+        uint256 s1TokenId = migrationS1TokenIds[_msgSender()];
         badges.burn(s1TokenId);
 
         uint256 s2TokenId = totalSupply() + 1;
@@ -190,7 +178,8 @@ contract TrailblazersBadgesS2 is
         claimCooldowns[_msgSender()] = 0;
         migrationTampers[_msgSender()][true] = 0;
         migrationTampers[_msgSender()][false] = 0;
-        migrationBadgeIds[_msgSender()] = 0;
+        migrationS1BadgeIds[_msgSender()] = 0;
+        migrationS1TokenIds[_msgSender()] = 0;
         userBadges[_msgSender()][s2BadgeId] = s2TokenId;
     }
 
@@ -262,17 +251,13 @@ contract TrailblazersBadgesS2 is
     }
 
     function getTokenId(address _user, uint256 _s2BadgeId) public view returns (uint256 _tokenId) {
-        _tokenId = userBadges[_user][_s2BadgeId];
-        /* if (_tokenId == 0){
-            revert TOKEN_NOT_MINTED();
-        }*/
-        return _tokenId;
+        return userBadges[_user][_s2BadgeId];
     }
 
     function badgeBalances(address _owner) public view returns (bool[16] memory _balances) {
-        for (uint256 i = 0; i < BADGE_IDS.length; i++) {
-            uint256 tokenId = getTokenId(_owner, BADGE_IDS[i]);
-            _balances[i] = tokenId != 0;
+        for (uint256 i = 0; i < BADGE_COUNT; i++) {
+            uint256 tokenId = getTokenId(_owner, i);
+            _balances[i] = tokenId > 0;
         }
 
         return _balances;

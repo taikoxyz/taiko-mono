@@ -21,7 +21,7 @@ contract TrailblazersBadgesTest is Test {
 
     address[3] public minters = [vm.addr(0x1), vm.addr(0x2), vm.addr(0x3)];
 
-    uint256 constant BADGE_ID = 5;
+    uint256 public BADGE_ID;
 
     MockBlacklist public blacklist;
 
@@ -54,6 +54,8 @@ contract TrailblazersBadgesTest is Test {
         );
 
         s1Badges = TrailblazersBadges(proxy);
+
+        BADGE_ID = s1Badges.BADGE_RAVERS();
 
         // deploy the s2 contract
 
@@ -211,7 +213,7 @@ contract TrailblazersBadgesTest is Test {
 
         vm.startPrank(minters[0]);
         s1Badges.approve(address(s2Badges), tokenId);
-        s2Badges.startMigration(tokenId);
+        s2Badges.startMigration(BADGE_ID);
         vm.stopPrank();
 
         assertEq(s1Badges.balanceOf(minters[0]), 0);
@@ -271,21 +273,28 @@ contract TrailblazersBadgesTest is Test {
         s2Badges.endMigration();
         vm.stopPrank();
 
+        // check for s1 burn
         assertEq(s1Badges.balanceOf(minters[0]), 0);
         assertEq(s1Badges.balanceOf(address(s2Badges)), 0);
 
+        // check for s2 state reset
         assertEq(s2Badges.isMigrationActive(minters[0]), false);
         assertEq(s2Badges.isTamperActive(minters[0]), false);
 
-        uint256 s2TokenId = s2Badges.getTokenId(minters[0], s2Badges.DRUMMER_PINK_ID());
-        assertEq(s2TokenId, 0);
-        assertEq(s2Badges.badgeBalanceOf(minters[0]), 1);
+        // check for s2 mint
+        (uint256 pinkBadgeId, uint256 purpleBadgeId) = s2Badges.getSeason2BadgeIds(BADGE_ID);
+        uint256 s2TokenId = s2Badges.getTokenId(minters[0], pinkBadgeId) > 0
+            ? s2Badges.getTokenId(minters[0], pinkBadgeId)
+            : s2Badges.getTokenId(minters[0], purpleBadgeId);
+        assertEq(s2Badges.balanceOf(minters[0], s2TokenId), 1);
 
-        /*
+        // check for s2 badge balances
         bool[16] memory badgeBalances = s2Badges.badgeBalances(minters[0]);
 
-        assertFalse(badgeBalances[s2Badges.RAVER_PINK_ID()]);
-        assertFalse(badgeBalances[s2Badges.RAVER_PURPLE_ID()]);
+        assertTrue(
+            badgeBalances[s2Badges.RAVER_PINK_ID()] || badgeBalances[s2Badges.RAVER_PURPLE_ID()]
+        );
+
         assertFalse(badgeBalances[s2Badges.ROBOT_PINK_ID()]);
         assertFalse(badgeBalances[s2Badges.ROBOT_PURPLE_ID()]);
         assertFalse(badgeBalances[s2Badges.BOUNCER_PINK_ID()]);
@@ -294,15 +303,19 @@ contract TrailblazersBadgesTest is Test {
         assertFalse(badgeBalances[s2Badges.MASTER_PURPLE_ID()]);
         assertFalse(badgeBalances[s2Badges.MONK_PINK_ID()]);
         assertFalse(badgeBalances[s2Badges.MONK_PURPLE_ID()]);
-        //assertEq()
-        */
+        assertFalse(badgeBalances[s2Badges.DRUMMER_PINK_ID()]);
+        assertFalse(badgeBalances[s2Badges.DRUMMER_PURPLE_ID()]);
+        assertFalse(badgeBalances[s2Badges.ANDROID_PINK_ID()]);
+        assertFalse(badgeBalances[s2Badges.ANDROID_PURPLE_ID()]);
+        assertFalse(badgeBalances[s2Badges.SHINTO_PINK_ID()]);
+        assertFalse(badgeBalances[s2Badges.SHINTO_PURPLE_ID()]);
     }
 
     function test_revert_startMigrationTwice() public {
         test_startMigration();
         vm.startPrank(minters[0]);
         vm.expectRevert();
-        s2Badges.startMigration(0);
+        s2Badges.startMigration(BADGE_ID);
         vm.stopPrank();
     }
 
