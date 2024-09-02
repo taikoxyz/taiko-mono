@@ -43,3 +43,7 @@ contract ERC1155Mock is ERC1155 {
         _burnBatch(from, ids, amounts);
     }
 }
+
+contract MockInvalidNFT {
+    // This contract doesn't implement any NFT interface
+}
