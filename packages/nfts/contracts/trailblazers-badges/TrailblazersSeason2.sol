@@ -115,7 +115,7 @@ interface TrailPass {
 
     /// @notice Upgrade a Trail Pass
     /// @param _tier The tier of the Trail Pass
-    /// @dev The price is determined by the tier, and substracted from the existing trail pass price
+    /// @dev The price is determined by the tier, and subtracted from the existing trail pass price
     function upgradeTrailPass(uint256 _tier) external payable;
 
     /// @notice Check if an account has a Trail Pass, any
