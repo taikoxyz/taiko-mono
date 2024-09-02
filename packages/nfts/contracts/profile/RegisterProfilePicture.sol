@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { Ownable2StepUpgradeable } from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
@@ -66,13 +66,13 @@ contract RegisterProfilePicture is Initializable, UUPSUpgradeable, Ownable2StepU
             if (IERC721(profilePicture.nftContract).ownerOf(profilePicture.tokenId) != user) {
                 revert NotTokenOwner(profilePicture.nftContract, profilePicture.tokenId, user);
             }
-            return ERC721Upgradeable(profilePicture.nftContract).tokenURI(profilePicture.tokenId);
+            return ERC721(profilePicture.nftContract).tokenURI(profilePicture.tokenId);
         } else if (IERC1155(profilePicture.nftContract).supportsInterface(type(IERC1155).interfaceId)) {
             // ERC1155 case: Check ownership before returning the URI
             if (IERC1155(profilePicture.nftContract).balanceOf(user, profilePicture.tokenId) == 0) {
                 revert NotTokenOwner(profilePicture.nftContract, profilePicture.tokenId, user);
             }
-            return ERC1155Upgradeable(profilePicture.nftContract).uri(profilePicture.tokenId);
+            return ERC1155(profilePicture.nftContract).uri(profilePicture.tokenId);
         } else {
             // If the contract does not support ERC721 or ERC1155 interfaces
             revert InvalidNFTContract(profilePicture.nftContract);
