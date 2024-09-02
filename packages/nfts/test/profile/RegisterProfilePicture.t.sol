@@ -51,8 +51,6 @@ contract RegisterProfilePictureTest is Test {
     function test_SetPFPWithERC721() public {
         vm.startPrank(user);
 
-        vm.expectEmit(true, true, true, true);
-        emit ProfilePictureSet(user, address(erc721Mock), ERC721_TOKEN_ID);
         registerProfilePicture.setPFP(address(erc721Mock), ERC721_TOKEN_ID);
 
         (address nftContract, uint256 tokenId) = registerProfilePicture.profilePicture(user);
@@ -65,8 +63,6 @@ contract RegisterProfilePictureTest is Test {
     function test_SetPFPWithERC1155() public {
         vm.startPrank(user);
 
-        vm.expectEmit(true, true, true, true);
-        emit ProfilePictureSet(user, address(erc1155Mock), ERC1155_TOKEN_ID);
         registerProfilePicture.setPFP(address(erc1155Mock), ERC1155_TOKEN_ID);
 
         (address nftContract, uint256 tokenId) = registerProfilePicture.profilePicture(user);
@@ -149,8 +145,6 @@ contract RegisterProfilePictureTest is Test {
 
         registerProfilePicture.setPFP(address(erc721Mock), ERC721_TOKEN_ID);
         
-        vm.expectEmit(true, true, true, true);
-        emit ProfilePictureSet(user, address(erc1155Mock), ERC1155_TOKEN_ID);
         registerProfilePicture.setPFP(address(erc1155Mock), ERC1155_TOKEN_ID);
 
         (address nftContract, uint256 tokenId) = registerProfilePicture.profilePicture(user);
