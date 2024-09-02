@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
-/**
- * @title ERC721Mock
- * This mock just provides public mint and burn functions for testing purposes
- */
-contract ERC721Mock is ERC721 {
-    constructor(string memory name, string memory symbol) ERC721(name, symbol) {}
+contract ERC721Mock is Initializable, ERC721Upgradeable {
+    function initialize(string memory name, string memory symbol) public initializer {
+        __ERC721_init(name, symbol);
+    }
 
     function mint(address to, uint256 tokenId) public {
         _mint(to, tokenId);
@@ -20,12 +19,10 @@ contract ERC721Mock is ERC721 {
     }
 }
 
-/**
- * @title ERC1155Mock
- * This mock just provides public mint and burn functions for testing purposes
- */
-contract ERC1155Mock is ERC1155 {
-    constructor(string memory uri) ERC1155(uri) {}
+contract ERC1155Mock is Initializable, ERC1155Upgradeable {
+    function initialize(string memory uri) public initializer {
+        __ERC1155_init(uri);
+    }
 
     function mint(address to, uint256 id, uint256 amount, bytes memory data) public {
         _mint(to, id, amount, data);
