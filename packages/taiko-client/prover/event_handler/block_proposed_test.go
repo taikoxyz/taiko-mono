@@ -15,7 +15,6 @@ func (s *EventHandlerTestSuite) TestBlockProposedHandle() {
 	opts := &NewBlockProposedEventHandlerOps{
 		SharedState:           &state.SharedState{},
 		ProverAddress:         common.Address{},
-		GenesisHeightL1:       0,
 		RPC:                   s.RPCClient,
 		ProofGenerationCh:     make(chan *proofProducer.ProofWithHeader),
 		AssignmentExpiredCh:   make(chan metadata.TaikoBlockMetaData),

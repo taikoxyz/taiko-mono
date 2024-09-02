@@ -47,8 +47,7 @@ type Prover struct {
 	protocolConfig *bindings.TaikoDataConfig
 
 	// States
-	sharedState     *state.SharedState
-	genesisHeightL1 uint64
+	sharedState *state.SharedState
 
 	// Event handlers
 	blockProposedHandler       handler.BlockProposedHandler

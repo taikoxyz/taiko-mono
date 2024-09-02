@@ -32,7 +32,6 @@ type BlockProposedEventHandler struct {
 	sharedState           *state.SharedState
 	proverAddress         common.Address
 	proverSetAddress      common.Address
-	genesisHeightL1       uint64
 	rpc                   *rpc.Client
 	proofGenerationCh     chan<- *proofProducer.ProofWithHeader
 	assignmentExpiredCh   chan<- metadata.TaikoBlockMetaData
@@ -51,7 +50,6 @@ type NewBlockProposedEventHandlerOps struct {
 	SharedState           *state.SharedState
 	ProverAddress         common.Address
 	ProverSetAddress      common.Address
-	GenesisHeightL1       uint64
 	RPC                   *rpc.Client
 	ProofGenerationCh     chan *proofProducer.ProofWithHeader
 	AssignmentExpiredCh   chan metadata.TaikoBlockMetaData
@@ -69,7 +67,6 @@ func NewBlockProposedEventHandler(opts *NewBlockProposedEventHandlerOps) *BlockP
 		opts.SharedState,
 		opts.ProverAddress,
 		opts.ProverSetAddress,
-		opts.GenesisHeightL1,
 		opts.RPC,
 		opts.ProofGenerationCh,
 		opts.AssignmentExpiredCh,

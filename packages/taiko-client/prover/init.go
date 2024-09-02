@@ -171,7 +171,6 @@ func (p *Prover) initL1Current(startingBlockID *big.Int) error {
 	if err != nil {
 		return err
 	}
-	p.genesisHeightL1 = stateVars.A.GenesisHeight
 
 	if startingBlockID == nil {
 		if stateVars.B.LastVerifiedBlockId == 0 {
@@ -223,7 +222,6 @@ func (p *Prover) initEventHandlers() error {
 		SharedState:           p.sharedState,
 		ProverAddress:         p.ProverAddress(),
 		ProverSetAddress:      p.cfg.ProverSetAddress,
-		GenesisHeightL1:       p.genesisHeightL1,
 		RPC:                   p.rpc,
 		ProofGenerationCh:     p.proofGenerationCh,
 		AssignmentExpiredCh:   p.assignmentExpiredCh,
