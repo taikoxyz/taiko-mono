@@ -26,12 +26,12 @@ contract RegisterProfilePicture is Initializable, UUPSUpgradeable, Ownable2StepU
 
     // Function to set the PFP by providing the NFT contract address and token ID
     function setPFP(address nftContract, uint256 tokenId) external {
-        if (ERC165Upgradeable(nftContract).supportsInterface(type(ERC721Upgradeable).interfaceId)) {
+        if (ERC721Upgradeable(nftContract).supportsInterface(type(IERC721).interfaceId)) {
             // Check if the provided contract address is a valid ERC721 contract
             if (ERC721Upgradeable(nftContract).ownerOf(tokenId) != msg.sender) {
                 revert NotTokenOwner(nftContract, tokenId, msg.sender);
             }
-        } else if (ERC165Upgradeable(nftContract).supportsInterface(type(ERC1155Upgradeable).interfaceId)) {
+        } else if (ERC1155Upgradeable(nftContract).supportsInterface(type(IERC1155).interfaceId)) {
             // Check if the provided contract address is a valid ERC1155 contract
             if (ERC1155Upgradeable(nftContract).balanceOf(msg.sender, tokenId) == 0) {
                 revert NotTokenOwner(nftContract, tokenId, msg.sender);
@@ -51,13 +51,13 @@ contract RegisterProfilePicture is Initializable, UUPSUpgradeable, Ownable2StepU
     function getProfilePicture(address user) external view returns (string memory) {
         ProfilePicture memory profilePicture = profilePictures[user];
 
-        if (ERC165Upgradeable(profilePicture.nftContract).supportsInterface(type(ERC721Upgradeable).interfaceId)) {
+        if (ERC165Upgradeable(profilePicture.nftContract).supportsInterface(type(IERC721).interfaceId)) {
             // ERC721 case: Check ownership before returning the URI
             if (ERC721Upgradeable(profilePicture.nftContract).ownerOf(profilePicture.tokenId) != user) {
                 revert NotTokenOwner(profilePicture.nftContract, profilePicture.tokenId, user);
             }
             return ERC721Upgradeable(profilePicture.nftContract).tokenURI(profilePicture.tokenId);
-        } else if (ERC165Upgradeable(profilePicture.nftContract).supportsInterface(type(ERC1155Upgradeable).interfaceId)) {
+        } else if (ERC165Upgradeable(profilePicture.nftContract).supportsInterface(type(IERC1155).interfaceId)) {
             // ERC1155 case: Check ownership before returning the URI
             if (ERC1155Upgradeable(profilePicture.nftContract).balanceOf(user, profilePicture.tokenId) == 0) {
                 revert NotTokenOwner(profilePicture.nftContract, profilePicture.tokenId, user);
