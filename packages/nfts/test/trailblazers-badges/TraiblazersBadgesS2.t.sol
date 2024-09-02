@@ -70,6 +70,13 @@ contract TrailblazersBadgesTest is Test {
         MAX_TAMPERS = s2Badges.MAX_TAMPERS();
 
         s1Badges.setSeason2BadgeContract(address(s2Badges));
+
+        // enable migration for BADGE_ID
+        uint256[] memory enabledBadgeIds = new uint256[](1);
+        enabledBadgeIds[0] = BADGE_ID;
+        s2Badges.enableMigrations(enabledBadgeIds);
+
+
         vm.stopBroadcast();
     }
 
@@ -317,6 +324,24 @@ contract TrailblazersBadgesTest is Test {
         vm.expectRevert();
         s2Badges.startMigration(BADGE_ID);
         vm.stopPrank();
+    }
+
+    function test_revert_migrateDisabled() public {
+        uint256 badgeId = s1Badges.BADGE_ROBOTS();
+        mint_s1(minters[0], badgeId);
+
+        uint256 tokenId = s1Badges.tokenOfOwnerByIndex(minters[0], 0);
+
+        vm.startPrank(minters[0]);
+        s1Badges.approve(address(s2Badges), tokenId);
+        vm.expectRevert();
+        s2Badges.startMigration(badgeId);
+        vm.stopPrank();
+        // ensure no values got changed/updated
+        assertEq(s1Badges.balanceOf(minters[0]), 1);
+        assertEq(s1Badges.balanceOf(address(s2Badges)), 0);
+        assertEq(s1Badges.ownerOf(tokenId), minters[0]);
+        assertEq(s2Badges.isMigrationActive(minters[0]), false);
     }
 
     /*

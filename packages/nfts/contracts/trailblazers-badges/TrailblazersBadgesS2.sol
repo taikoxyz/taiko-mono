@@ -67,6 +67,10 @@ contract TrailblazersBadgesS2 is
     error CONTRACT_PAUSED();
     error MIGRATION_NOT_READY();
     error TOKEN_NOT_MINTED();
+    error MIGRATION_NOT_ENABLED();
+
+
+    event MigrationEnabled(uint256 _s1BadgeId, bool _enabled);
 
     mapping(uint256 _s1BadgeId => bool _enabled) public enabledBadgeIds;
 
@@ -103,11 +107,19 @@ contract TrailblazersBadgesS2 is
         _;
     }
 
+    modifier migrationOpen(uint256 _s1BadgeId) {
+        if (!enabledBadgeIds[_s1BadgeId]){
+            revert MIGRATION_NOT_ENABLED();
+        }
+        _;
+    }
+
     function initialize(address _badges) external initializer {
         __ERC1155_init("");
         __ERC1155Supply_init();
         _transferOwnership(_msgSender());
         __Context_init();
+        _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
 
         badges = TrailblazersBadges(_badges);
     }
@@ -117,7 +129,7 @@ contract TrailblazersBadgesS2 is
     /// @dev Not all badges are eligible for migration at the same time
     /// @dev Defines a cooldown for the migration to be complete
     /// @dev the cooldown is lesser the higher the Pass Tier
-    function startMigration(uint256 _s1BadgeId) external {
+    function startMigration(uint256 _s1BadgeId) external migrationOpen(_s1BadgeId) isNotMigrating {
         uint256 s1TokenId = badges.getTokenId(_msgSender(), _s1BadgeId);
         if (badges.ownerOf(s1TokenId) != _msgSender()) {
             revert TOKEN_NOT_MINTED();
@@ -183,28 +195,23 @@ contract TrailblazersBadgesS2 is
         userBadges[_msgSender()][s2BadgeId] = s2TokenId;
     }
 
-    /// @notice Get the max tamper amount for the calling user and their Trail tier
-    /// @return The maximum tamper amount
-    function getMaximumTampers() external view returns (uint256) { }
-
-    /// @notice supportsInterface implementation
-    /// @param interfaceId The interface ID
-    /// @return Whether the interface is supported
-    function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        override(ERC1155Upgradeable, AccessControlUpgradeable)
-        returns (bool)
-    {
-        return super.supportsInterface(interfaceId);
-    }
-
-    /// @notice Internal method to authorize an upgrade
-    function _authorizeUpgrade(address) internal virtual override onlyOwner { }
 
     function _disableMigrations() internal onlyRole(DEFAULT_ADMIN_ROLE) {
         for (uint256 i = 0; i < 8; i++) {
+            if (enabledBadgeIds[i]) {
+            emit MigrationEnabled(i, false);
+            }
+
             enabledBadgeIds[i] = false;
+        }
+    }
+
+    function enableMigrations(
+        uint256[] calldata _s1BadgeIds
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        for (uint256 i = 0; i < _s1BadgeIds.length; i++) {
+            enabledBadgeIds[_s1BadgeIds[i]] = true;
+            emit MigrationEnabled(_s1BadgeIds[i], true);
         }
     }
 
@@ -274,4 +281,21 @@ contract TrailblazersBadgesS2 is
 
         return _balance;
     }
+
+
+        /// @notice supportsInterface implementation
+    /// @param interfaceId The interface ID
+    /// @return Whether the interface is supported
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(ERC1155Upgradeable, AccessControlUpgradeable)
+        returns (bool)
+    {
+        return super.supportsInterface(interfaceId);
+    }
+
+    /// @notice Internal method to authorize an upgrade
+    function _authorizeUpgrade(address) internal virtual override onlyOwner { }
+
 }
