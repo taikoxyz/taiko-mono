@@ -26,11 +26,35 @@ interface BadgeMigration {
     function getMaximumTampers() external view returns (uint256);
 }
 
+interface TrailRewardVault {
+    /// @notice Claim rewards
+    /// @param _experience The experience amount
+    /// @param _signature The signature to verify
+    /// @dev The user is the _msgSender()
+    function claimRewards(uint256 _experience, bytes memory _signature) external;
+
+    /// @notice Internal method to mint s2 badges from claimRewards
+    /// @param _account The account to mint the badge to
+    /// @param _tokenId The badge token ID
+    /// @param _experience The experience amount
+    /// @param _signature The signature to verify
+    function _mintBadge(
+        address _account,
+        uint256 _tokenId,
+        uint256 _experience,
+        bytes memory _signature
+    )
+        external;
+
+    /// @notice Check if an account can claim rewards
+    /// @param _account The account to check
+    function canClaim(address _account) external view returns (bool);
+}
+
 interface TrailRaffle {
     /// @notice Create a new raffle
     /// @param _startTime The start time of the raffle
     /// @param _endTime The end time of the raffle
-    /// @param _participatingEmblemIds emblem ids that will act as tickets
     /// @param _erc20TokenRewards array of erc20 addresses for rewards
     /// @param _erc20TokenAmounts array of erc20 amounts for rewards
     /// @param _erc721TokenRewards array of erc721 addresses for rewards
@@ -43,7 +67,6 @@ interface TrailRaffle {
     function createRaffle(
         uint256 _startTime,
         uint256 _endTime,
-        uint256[] calldata _participatingEmblemIds,
         address[] calldata _erc20TokenRewards,
         uint256[] calldata _erc20TokenAmounts,
         address[] calldata _erc721TokenRewards,
@@ -75,6 +98,11 @@ interface TrailRaffle {
     /// @param _raffleId The raffle ID
     /// @dev Can be called once, only after the raffle is settled, and only by the winner
     function claimRaffleRewards(uint256 _raffleId) external;
+
+    /// @notice Get the amount of participations in raffles for an account
+    /// @param _account The account to check
+    /// @dev Determined by a user's TrailPass Tier
+    function getRaffleParticipations(address _account) external view returns (uint256);
 }
 
 interface TrailPass {
@@ -84,6 +112,11 @@ interface TrailPass {
     /// @dev The tier is determined by the amount of participations in raffles
     /// @dev The tier also increases the max amount of tampering during a migration
     function purchaseTrailPass(uint256 _tier) external payable;
+
+    /// @notice Upgrade a Trail Pass
+    /// @param _tier The tier of the Trail Pass
+    /// @dev The price is determined by the tier, and substracted from the existing trail pass price
+    function upgradeTrailPass(uint256 _tier) external payable;
 
     /// @notice Check if an account has a Trail Pass, any
     /// @param _account The account to check
@@ -107,8 +140,4 @@ interface TrailPass {
     /// @notice Get the tier of a Trail Pass
     /// @param _account The account to check
     function getTrailPass(address _account) external view returns (uint256 _tier);
-}
-
-contract TrailblazersSeason2 is BadgeMigration, TrailRaffle, TrailPass {
-// implementation details
 }
