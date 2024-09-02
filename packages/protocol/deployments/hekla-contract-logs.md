@@ -135,7 +135,7 @@
 
 ### tierProvider
 
-- impl: `0x312e6D7b46228019499Fd9dBe9F9AA349B0d8E3C`
+- impl: `0x9AaBba3Ae6D4aC3F5487608Da81006454e7933d3`
 - logs:
   - upgraded on May 14, 2024 at commit `0ef7b8caa`
   - upgraded on Jun 14, 2024 at commit `cc10b04`
