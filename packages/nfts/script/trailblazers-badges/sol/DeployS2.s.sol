@@ -73,31 +73,8 @@ contract DeployScript is Script {
 
             s1Token = TrailblazersBadges(proxy);
         }
-        /*
 
-        // deploy token with empty root
-        address impl = address(new TrailblazersBadges());
-        address proxy = address(
-            new ERC1967Proxy(
-                impl,
-                abi.encodeCall(
-                    TrailblazersBadges.initialize, (owner, baseURI, mintSigner, blacklist)
-                )
-            )
-        );
-
-        TrailblazersBadges token = TrailblazersBadges(proxy);
-
-        console.log("Token Base URI:", baseURI);
-        console.log("Deployed TrailblazersBadges to:", address(token));
-
-        vm.serializeAddress(jsonRoot, "Owner", token.owner());
-        vm.serializeAddress(jsonRoot, "MintSigner", token.mintSigner());
-
-        string memory finalJson =
-            vm.serializeAddress(jsonRoot, "TrailblazersBadges", address(token));
-        vm.writeJson(finalJson, jsonLocation);*/
-
+        // deploy s2 contract
         impl = address(new TrailblazersBadgesS2());
         proxy = address(
             new ERC1967Proxy(impl, abi.encodeCall(TrailblazersBadgesS2.initialize, (s1Contract)))
@@ -109,7 +86,7 @@ contract DeployScript is Script {
         console.log("Deployed TrailblazersBadgesS2 to:", address(s2Token));
 
         vm.serializeAddress(jsonRoot, "Owner", s2Token.owner());
-
+        vm.serializeAddress(jsonRoot, "TrailblazersBadgesS1", address(s1Token));
         string memory finalJson =
             vm.serializeAddress(jsonRoot, "TrailblazersBadgesS2", address(s2Token));
         vm.writeJson(finalJson, jsonLocation);
