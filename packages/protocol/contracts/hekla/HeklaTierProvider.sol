@@ -30,7 +30,7 @@ contract HeklaTierProvider is TierProviderBase, ITierRouter {
         if (_proposer == LAB_PROPOSER && _rand % 1000 == 0) {
             // 0.1% of the total blocks will require ZKVM Risc0 proofs.
             return LibTiers.TIER_ZKVM_RISC0;
-        } else  if (_proposer == LAB_PROPOSER && _rand % 1000 == 1) {
+        } else if (_proposer == LAB_PROPOSER && _rand % 1000 == 1) {
             // 0.1% of the total blocks will require ZKVM Sp1 proofs.
             return LibTiers.TIER_ZKVM_SP1;
         } else if (_rand % 2 == 0) {
