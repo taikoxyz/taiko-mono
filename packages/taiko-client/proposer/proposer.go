@@ -39,8 +39,6 @@ type Proposer struct {
 
 	proposingTimer *time.Timer
 
-	tiers []*rpc.TierProviderTierWithID
-
 	// Transaction builder
 	txBuilder builder.ProposeBlockTransactionBuilder
 
@@ -88,10 +86,6 @@ func (p *Proposer) InitFromConfig(
 	p.protocolConfigs = encoding.GetProtocolConfig(p.rpc.L2.ChainID.Uint64())
 
 	log.Info("Protocol configs", "configs", p.protocolConfigs)
-
-	if p.tiers, err = p.rpc.GetTiers(ctx); err != nil {
-		return err
-	}
 
 	if txMgr == nil {
 		if txMgr, err = txmgr.NewSimpleTxManager(
