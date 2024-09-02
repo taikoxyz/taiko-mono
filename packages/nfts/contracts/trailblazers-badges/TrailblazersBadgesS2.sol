@@ -69,7 +69,6 @@ contract TrailblazersBadgesS2 is
     error TOKEN_NOT_MINTED();
     error MIGRATION_NOT_ENABLED();
 
-
     event MigrationEnabled(uint256 _s1BadgeId, bool _enabled);
 
     mapping(uint256 _s1BadgeId => bool _enabled) public enabledBadgeIds;
@@ -108,7 +107,7 @@ contract TrailblazersBadgesS2 is
     }
 
     modifier migrationOpen(uint256 _s1BadgeId) {
-        if (!enabledBadgeIds[_s1BadgeId]){
+        if (!enabledBadgeIds[_s1BadgeId]) {
             revert MIGRATION_NOT_ENABLED();
         }
         _;
@@ -195,20 +194,20 @@ contract TrailblazersBadgesS2 is
         userBadges[_msgSender()][s2BadgeId] = s2TokenId;
     }
 
-
     function _disableMigrations() internal onlyRole(DEFAULT_ADMIN_ROLE) {
         for (uint256 i = 0; i < 8; i++) {
             if (enabledBadgeIds[i]) {
-            emit MigrationEnabled(i, false);
+                emit MigrationEnabled(i, false);
             }
 
             enabledBadgeIds[i] = false;
         }
     }
 
-    function enableMigrations(
-        uint256[] calldata _s1BadgeIds
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function enableMigrations(uint256[] calldata _s1BadgeIds)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
         for (uint256 i = 0; i < _s1BadgeIds.length; i++) {
             enabledBadgeIds[_s1BadgeIds[i]] = true;
             emit MigrationEnabled(_s1BadgeIds[i], true);
@@ -282,8 +281,7 @@ contract TrailblazersBadgesS2 is
         return _balance;
     }
 
-
-        /// @notice supportsInterface implementation
+    /// @notice supportsInterface implementation
     /// @param interfaceId The interface ID
     /// @return Whether the interface is supported
     function supportsInterface(bytes4 interfaceId)
@@ -297,5 +295,4 @@ contract TrailblazersBadgesS2 is
 
     /// @notice Internal method to authorize an upgrade
     function _authorizeUpgrade(address) internal virtual override onlyOwner { }
-
 }

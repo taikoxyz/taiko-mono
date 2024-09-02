@@ -76,7 +76,6 @@ contract TrailblazersBadgesTest is Test {
         enabledBadgeIds[0] = BADGE_ID;
         s2Badges.enableMigrations(enabledBadgeIds);
 
-
         vm.stopBroadcast();
     }
 
@@ -344,9 +343,26 @@ contract TrailblazersBadgesTest is Test {
         assertEq(s2Badges.isMigrationActive(minters[0]), false);
     }
 
-    /*
-    function test_simulateS1() public {
-        vm.prank(minters[0]);
-        s1Badges.mintBadge(minters[0], BADGE_ID, 0, "0x");
-    }*/
+    function test_revert_pausedContract() public {
+        // have the admin pause the contract
+        // ensure no badges are mintable afterwards
+        vm.startPrank(owner);
+        s2Badges.pause();
+        vm.stopPrank();
+
+        mint_s1(minters[0], BADGE_ID);
+
+        uint256 tokenId = s1Badges.tokenOfOwnerByIndex(minters[0], 0);
+
+        vm.startPrank(minters[0]);
+        s1Badges.approve(address(s2Badges), tokenId);
+        vm.expectRevert();
+        s2Badges.startMigration(BADGE_ID);
+        vm.stopPrank();
+        // ensure no values got changed/updated
+        assertEq(s1Badges.balanceOf(minters[0]), 1);
+        assertEq(s1Badges.balanceOf(address(s2Badges)), 0);
+        assertEq(s1Badges.ownerOf(tokenId), minters[0]);
+        assertEq(s2Badges.isMigrationActive(minters[0]), false);
+    }
 }
