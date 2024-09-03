@@ -19,7 +19,9 @@ contract RegisterProfilePictureTest is Test {
     uint256 public constant ERC721_TOKEN_ID = 1;
     uint256 public constant ERC1155_TOKEN_ID = 2;
 
-    event ProfilePictureSet(address indexed user, address indexed nftContract, uint256 indexed tokenId);
+    event ProfilePictureSet(
+        address indexed user, address indexed nftContract, uint256 indexed tokenId
+    );
 
     function setUp() public {
         owner = vm.addr(0x1);
@@ -29,10 +31,8 @@ contract RegisterProfilePictureTest is Test {
         vm.startBroadcast(owner);
 
         RegisterProfilePicture impl = new RegisterProfilePicture();
-        ERC1967Proxy proxy = new ERC1967Proxy(
-            address(impl),
-            abi.encodeCall(RegisterProfilePicture.initialize, ())
-        );
+        ERC1967Proxy proxy =
+            new ERC1967Proxy(address(impl), abi.encodeCall(RegisterProfilePicture.initialize, ()));
         registerProfilePicture = RegisterProfilePicture(address(proxy));
 
         erc721Mock = new ERC721Mock();
@@ -101,7 +101,14 @@ contract RegisterProfilePictureTest is Test {
     function test_CannotSetPFPWithNonOwnedERC721() public {
         vm.startPrank(otherUser);
 
-        vm.expectRevert(abi.encodeWithSignature("NotTokenOwner(address,uint256,address)", address(erc721Mock), ERC721_TOKEN_ID, otherUser));
+        vm.expectRevert(
+            abi.encodeWithSignature(
+                "NotTokenOwner(address,uint256,address)",
+                address(erc721Mock),
+                ERC721_TOKEN_ID,
+                otherUser
+            )
+        );
         registerProfilePicture.setPFP(address(erc721Mock), ERC721_TOKEN_ID);
 
         vm.stopPrank();
@@ -110,7 +117,14 @@ contract RegisterProfilePictureTest is Test {
     function test_CannotSetPFPWithNonOwnedERC1155() public {
         vm.startPrank(otherUser);
 
-        vm.expectRevert(abi.encodeWithSignature("NotTokenOwner(address,uint256,address)", address(erc1155Mock), ERC1155_TOKEN_ID, otherUser));
+        vm.expectRevert(
+            abi.encodeWithSignature(
+                "NotTokenOwner(address,uint256,address)",
+                address(erc1155Mock),
+                ERC1155_TOKEN_ID,
+                otherUser
+            )
+        );
         registerProfilePicture.setPFP(address(erc1155Mock), ERC1155_TOKEN_ID);
 
         vm.stopPrank();
@@ -122,7 +136,11 @@ contract RegisterProfilePictureTest is Test {
         registerProfilePicture.setPFP(address(erc721Mock), ERC721_TOKEN_ID);
         erc721Mock.transferFrom(user, otherUser, ERC721_TOKEN_ID);
 
-        vm.expectRevert(abi.encodeWithSignature("NotTokenOwner(address,uint256,address)", address(erc721Mock), ERC721_TOKEN_ID, user));
+        vm.expectRevert(
+            abi.encodeWithSignature(
+                "NotTokenOwner(address,uint256,address)", address(erc721Mock), ERC721_TOKEN_ID, user
+            )
+        );
         registerProfilePicture.getProfilePicture(user);
 
         vm.stopPrank();
@@ -134,7 +152,14 @@ contract RegisterProfilePictureTest is Test {
         registerProfilePicture.setPFP(address(erc1155Mock), ERC1155_TOKEN_ID);
         erc1155Mock.safeTransferFrom(user, otherUser, ERC1155_TOKEN_ID, 1, "");
 
-        vm.expectRevert(abi.encodeWithSignature("NotTokenOwner(address,uint256,address)", address(erc1155Mock), ERC1155_TOKEN_ID, user));
+        vm.expectRevert(
+            abi.encodeWithSignature(
+                "NotTokenOwner(address,uint256,address)",
+                address(erc1155Mock),
+                ERC1155_TOKEN_ID,
+                user
+            )
+        );
         registerProfilePicture.getProfilePicture(user);
 
         vm.stopPrank();

@@ -4,14 +4,15 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import { Ownable2StepUpgradeable } from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import { UUPSUpgradeable } from
+    "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { Ownable2StepUpgradeable } from
+    "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 
 /// @title A store for trailblazer profile pictures
 /// @author Bennett Yogn
 /// @dev All function calls are currently implemented without side effects
 contract RegisterProfilePicture is Initializable, UUPSUpgradeable, Ownable2StepUpgradeable {
-
     error InvalidNFTContract(address nftContract);
     error NotTokenOwner(address nftContract, uint256 tokenId, address caller);
 
@@ -22,10 +23,12 @@ contract RegisterProfilePicture is Initializable, UUPSUpgradeable, Ownable2StepU
     }
 
     /// @notice mapping of user id to profile picture
-    mapping(address => ProfilePicture) public profilePicture;
+    mapping(address user => ProfilePicture pfp) public profilePicture;
 
-    event ProfilePictureSet(address indexed user, address indexed nftContract, uint256 indexed tokenId);
-    
+    event ProfilePictureSet(
+        address indexed user, address indexed nftContract, uint256 indexed tokenId
+    );
+
     /// @notice Contract initializer
     function initialize() public initializer {
         _transferOwnership(_msgSender());
@@ -67,7 +70,9 @@ contract RegisterProfilePicture is Initializable, UUPSUpgradeable, Ownable2StepU
                 revert NotTokenOwner(profilePicture.nftContract, profilePicture.tokenId, user);
             }
             return ERC721(profilePicture.nftContract).tokenURI(profilePicture.tokenId);
-        } else if (IERC1155(profilePicture.nftContract).supportsInterface(type(IERC1155).interfaceId)) {
+        } else if (
+            IERC1155(profilePicture.nftContract).supportsInterface(type(IERC1155).interfaceId)
+        ) {
             // ERC1155 case: Check ownership before returning the URI
             if (IERC1155(profilePicture.nftContract).balanceOf(user, profilePicture.tokenId) == 0) {
                 revert NotTokenOwner(profilePicture.nftContract, profilePicture.tokenId, user);
