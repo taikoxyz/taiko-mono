@@ -16,6 +16,7 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Pausable.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC721/utils/ERC721HolderUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "@taiko/blacklist/IMinimalBlacklist.sol";
@@ -28,7 +29,8 @@ contract TrailblazersBadgesS2 is
     UUPSUpgradeable,
     Ownable2StepUpgradeable,
     AccessControlUpgradeable,
-    ERC1155SupplyUpgradeable
+    ERC1155SupplyUpgradeable,
+    ERC721HolderUpgradeable
 {
     /// @notice Maximum tamper attempts, per color
     uint256 public constant MAX_TAMPERS = 3;
@@ -80,9 +82,15 @@ contract TrailblazersBadgesS2 is
     error MIGRATION_NOT_READY();
     error TOKEN_NOT_MINTED();
     error MIGRATION_NOT_ENABLED();
+    error TOKEN_NOT_OWNED();
 
     /// @notice Events
-    event MigrationEnabled(uint256 _s1BadgeId, bool _enabled);
+    event MigrationToggled(uint256 _s1BadgeId, bool _enabled);
+    event MigrationStarted(
+        address _user, uint256 _s1BadgeId, uint256 _s1TokenId, uint256 _cooldownExpiration
+    );
+    event MigrationTampered(address _user, bool _pinkOrPurple, uint256 _cooldownExpiration);
+    event MigrationEnded(address _user, uint256 _s2BadgeId, uint256 _s2TokenId);
 
     /// @notice Modifiers
     modifier whenUnpaused(uint256 _badgeId) {
@@ -132,23 +140,27 @@ contract TrailblazersBadgesS2 is
     }
 
     /// @notice Start a migration for a badge
-    /// @param _s1BadgeId The badge token ID (s1)
+    /// @param _s1BadgeId The badge ID (s1)
     /// @dev Not all badges are eligible for migration at the same time
     /// @dev Defines a cooldown for the migration to be complete
     /// @dev the cooldown is lesser the higher the Pass Tier
     function startMigration(uint256 _s1BadgeId) external migrationOpen(_s1BadgeId) isNotMigrating {
         uint256 s1TokenId = badges.getTokenId(_msgSender(), _s1BadgeId);
+
         if (badges.ownerOf(s1TokenId) != _msgSender()) {
-            revert TOKEN_NOT_MINTED();
+            revert TOKEN_NOT_OWNED();
         }
-        // transfer the badge tokens to the migration contract
-        badges.transferFrom(_msgSender(), address(this), s1TokenId);
+
         // set off the claim cooldown
         claimCooldowns[_msgSender()] = block.timestamp + 1 hours;
         migrationTampers[_msgSender()][true] = 0;
         migrationTampers[_msgSender()][false] = 0;
         migrationS1BadgeIds[_msgSender()] = _s1BadgeId;
         migrationS1TokenIds[_msgSender()] = s1TokenId;
+        // transfer the badge tokens to the migration contract
+        badges.transferFrom(_msgSender(), address(this), s1TokenId);
+
+        emit MigrationStarted(_msgSender(), _s1BadgeId, s1TokenId, claimCooldowns[_msgSender()]);
     }
 
     /// @notice Tamper (alter) the chances during a migration
@@ -162,6 +174,7 @@ contract TrailblazersBadgesS2 is
         }
         migrationTampers[_msgSender()][_pinkOrPurple]++;
         tamperCooldowns[_msgSender()] = block.timestamp + 1 hours;
+        emit MigrationTampered(_msgSender(), _pinkOrPurple, tamperCooldowns[_msgSender()]);
     }
 
     /// @notice End a migration
@@ -200,6 +213,8 @@ contract TrailblazersBadgesS2 is
         migrationS1BadgeIds[_msgSender()] = 0;
         migrationS1TokenIds[_msgSender()] = 0;
         userBadges[_msgSender()][s2BadgeId] = s2TokenId;
+
+        emit MigrationEnded(_msgSender(), s2BadgeId, s2TokenId);
     }
 
     /// @notice Enable migrations for a set of badges
@@ -211,7 +226,7 @@ contract TrailblazersBadgesS2 is
     {
         for (uint256 i = 0; i < _s1BadgeIds.length; i++) {
             enabledBadgeIds[_s1BadgeIds[i]] = true;
-            emit MigrationEnabled(_s1BadgeIds[i], true);
+            emit MigrationToggled(_s1BadgeIds[i], true);
         }
     }
 
@@ -322,7 +337,7 @@ contract TrailblazersBadgesS2 is
     function _disableMigrations() internal onlyRole(DEFAULT_ADMIN_ROLE) {
         for (uint256 i = 0; i < 8; i++) {
             if (enabledBadgeIds[i]) {
-                emit MigrationEnabled(i, false);
+                emit MigrationToggled(i, false);
             }
 
             enabledBadgeIds[i] = false;
