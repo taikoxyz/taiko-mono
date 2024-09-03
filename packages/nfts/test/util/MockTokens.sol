@@ -28,7 +28,14 @@ contract ERC1155Mock is Initializable, ERC1155Upgradeable {
         _mint(to, id, amount, data);
     }
 
-    function mintBatch(address to, uint256[] memory ids, uint256[] memory amounts, bytes memory data) public {
+    function mintBatch(
+        address to,
+        uint256[] memory ids,
+        uint256[] memory amounts,
+        bytes memory data
+    )
+        public
+    {
         _mintBatch(to, ids, amounts, data);
     }
 
@@ -42,5 +49,5 @@ contract ERC1155Mock is Initializable, ERC1155Upgradeable {
 }
 
 contract MockInvalidNFT {
-    // This contract doesn't implement any NFT interface
+// This contract doesn't implement any NFT interface
 }
