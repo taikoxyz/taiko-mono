@@ -204,10 +204,17 @@
 - logs:
   - deployed on August 14, 2024 at commit `cba2a1e`
 
+### risc0_groth16_verifier
+
+- addr : 0x2D97b170368E585C5147173A4cD4B3dD5659576A
+- logs:
+  - deployed on September 02, 2024 at commit `16ac02e`
+
+
 ### tier_zkvm_sp1
 
-- proxy : 0x3a9f7A8a5De60DB861f53E258d4ACd400b007549
-- impl : 0x893aFd79c01ffF7758Aa9e5F67851278D8122318
+- proxy : 0xFbE49f777E0078b3Fa0bae6de4794c88d6EA6DDD
+- impl : 0x15eC98183602e353Bb1223c60ba519c0Db637a01
 - owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
 - logs:
   - deployed on September 02, 2024 at commit `16ac02e`
