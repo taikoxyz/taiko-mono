@@ -62,25 +62,25 @@ contract RegisterProfilePicture is Initializable, UUPSUpgradeable, Ownable2StepU
     /// @notice Get the profile picture of a user
     /// @param user The address of user
     function getProfilePicture(address user) external view returns (string memory) {
-        ProfilePicture memory profilePicture = profilePicture[user];
+        ProfilePicture memory userProfilePicture = profilePicture[user];
 
-        if (IERC721(profilePicture.nftContract).supportsInterface(type(IERC721).interfaceId)) {
+        if (IERC721(userProfilePicture.nftContract).supportsInterface(type(IERC721).interfaceId)) {
             // ERC721 case: Check ownership before returning the URI
-            if (IERC721(profilePicture.nftContract).ownerOf(profilePicture.tokenId) != user) {
-                revert NotTokenOwner(profilePicture.nftContract, profilePicture.tokenId, user);
+            if (IERC721(userProfilePicture.nftContract).ownerOf(userProfilePicture.tokenId) != user) {
+                revert NotTokenOwner(userProfilePicture.nftContract, userProfilePicture.tokenId, user);
             }
-            return ERC721(profilePicture.nftContract).tokenURI(profilePicture.tokenId);
+            return ERC721(userProfilePicture.nftContract).tokenURI(userProfilePicture.tokenId);
         } else if (
-            IERC1155(profilePicture.nftContract).supportsInterface(type(IERC1155).interfaceId)
+            IERC1155(userProfilePicture.nftContract).supportsInterface(type(IERC1155).interfaceId)
         ) {
             // ERC1155 case: Check ownership before returning the URI
-            if (IERC1155(profilePicture.nftContract).balanceOf(user, profilePicture.tokenId) == 0) {
-                revert NotTokenOwner(profilePicture.nftContract, profilePicture.tokenId, user);
+            if (IERC1155(userProfilePicture.nftContract).balanceOf(user, userProfilePicture.tokenId) == 0) {
+                revert NotTokenOwner(userProfilePicture.nftContract, userProfilePicture.tokenId, user);
             }
-            return ERC1155(profilePicture.nftContract).uri(profilePicture.tokenId);
+            return ERC1155(userProfilePicture.nftContract).uri(userProfilePicture.tokenId);
         } else {
             // If the contract does not support ERC721 or ERC1155 interfaces
-            revert InvalidNFTContract(profilePicture.nftContract);
+            revert InvalidNFTContract(userProfilePicture.nftContract);
         }
     }
 
