@@ -66,16 +66,24 @@ contract RegisterProfilePicture is Initializable, UUPSUpgradeable, Ownable2StepU
 
         if (IERC721(userProfilePicture.nftContract).supportsInterface(type(IERC721).interfaceId)) {
             // ERC721 case: Check ownership before returning the URI
-            if (IERC721(userProfilePicture.nftContract).ownerOf(userProfilePicture.tokenId) != user) {
-                revert NotTokenOwner(userProfilePicture.nftContract, userProfilePicture.tokenId, user);
+            if (IERC721(userProfilePicture.nftContract).ownerOf(userProfilePicture.tokenId) != user)
+            {
+                revert NotTokenOwner(
+                    userProfilePicture.nftContract, userProfilePicture.tokenId, user
+                );
             }
             return ERC721(userProfilePicture.nftContract).tokenURI(userProfilePicture.tokenId);
         } else if (
             IERC1155(userProfilePicture.nftContract).supportsInterface(type(IERC1155).interfaceId)
         ) {
             // ERC1155 case: Check ownership before returning the URI
-            if (IERC1155(userProfilePicture.nftContract).balanceOf(user, userProfilePicture.tokenId) == 0) {
-                revert NotTokenOwner(userProfilePicture.nftContract, userProfilePicture.tokenId, user);
+            if (
+                IERC1155(userProfilePicture.nftContract).balanceOf(user, userProfilePicture.tokenId)
+                    == 0
+            ) {
+                revert NotTokenOwner(
+                    userProfilePicture.nftContract, userProfilePicture.tokenId, user
+                );
             }
             return ERC1155(userProfilePicture.nftContract).uri(userProfilePicture.tokenId);
         } else {
