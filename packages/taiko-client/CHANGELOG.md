@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.34.1](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.34.0...taiko-client-v0.34.1) (2024-09-04)
+
+
+### Bug Fixes
+
+* **taiko-client:** temp support tier 290 ([#18030](https://github.com/taikoxyz/taiko-mono/issues/18030)) ([f1aeac3](https://github.com/taikoxyz/taiko-mono/commit/f1aeac39d3c2ce06578a64bbe8a2fe4343d212f4))
+
 ## [0.34.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.33.1...taiko-client-v0.34.0) (2024-09-02)
 
 
