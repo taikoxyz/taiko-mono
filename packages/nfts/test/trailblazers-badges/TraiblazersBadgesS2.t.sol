@@ -230,18 +230,25 @@ contract TrailblazersBadgesTest is Test {
         assertEq(s2Badges.isMigrationActive(minters[0]), true);
     }
 
+    function wait(uint256 time) public {
+        vm.warp(block.timestamp + time);
+    }
+
     // happy-path, make 3 pink tampers, and 2 purple ones
     function test_tamperMigration() public {
         test_startMigration();
 
         vm.startPrank(minters[0]);
-
         for (uint256 i = 0; i < MAX_TAMPERS; i++) {
+            wait(s2Badges.COOLDOWN_TAMPER());
             s2Badges.tamperMigration(PINK_TAMPER);
         }
 
+        wait(s2Badges.COOLDOWN_TAMPER());
         s2Badges.tamperMigration(PURPLE_TAMPER);
+        wait(s2Badges.COOLDOWN_TAMPER());
         s2Badges.tamperMigration(PURPLE_TAMPER);
+
         vm.stopPrank();
 
         assertEq(s2Badges.isTamperActive(minters[0]), true);
@@ -272,9 +279,10 @@ contract TrailblazersBadgesTest is Test {
 
     function test_endMigration() public {
         test_tamperMigration();
-        // roll forward the block number 2 hours
 
-        vm.warp(2 hours);
+        wait(s2Badges.COOLDOWN_TAMPER());
+        wait(s2Badges.COOLDOWN_MIGRATION());
+
         vm.startPrank(minters[0]);
         s2Badges.endMigration();
         vm.stopPrank();

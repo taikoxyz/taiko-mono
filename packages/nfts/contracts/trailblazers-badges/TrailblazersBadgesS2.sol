@@ -32,6 +32,8 @@ contract TrailblazersBadgesS2 is
     ERC1155SupplyUpgradeable,
     ERC721HolderUpgradeable
 {
+    uint256 public constant COOLDOWN_MIGRATION = 6 hours;
+    uint256 public constant COOLDOWN_TAMPER = 1 hours;
     /// @notice Maximum tamper attempts, per color
     uint256 public constant MAX_TAMPERS = 3;
     /// @notice S2 Badge IDs
@@ -152,11 +154,12 @@ contract TrailblazersBadgesS2 is
         }
 
         // set off the claim cooldown
-        claimCooldowns[_msgSender()] = block.timestamp + 1 hours;
+        claimCooldowns[_msgSender()] = block.timestamp + COOLDOWN_MIGRATION;
         migrationTampers[_msgSender()][true] = 0;
         migrationTampers[_msgSender()][false] = 0;
         migrationS1BadgeIds[_msgSender()] = _s1BadgeId;
         migrationS1TokenIds[_msgSender()] = s1TokenId;
+        tamperCooldowns[_msgSender()] = 0;
         // transfer the badge tokens to the migration contract
         badges.transferFrom(_msgSender(), address(this), s1TokenId);
 
@@ -172,8 +175,13 @@ contract TrailblazersBadgesS2 is
         if (migrationTampers[_msgSender()][_pinkOrPurple] >= MAX_TAMPERS) {
             revert MAX_TAMPERS_REACHED();
         }
+
+        if (tamperCooldowns[_msgSender()] > block.timestamp) {
+            revert TAMPER_IN_PROGRESS();
+        }
+
         migrationTampers[_msgSender()][_pinkOrPurple]++;
-        tamperCooldowns[_msgSender()] = block.timestamp + 1 hours;
+        tamperCooldowns[_msgSender()] = block.timestamp + COOLDOWN_TAMPER;
         emit MigrationTampered(_msgSender(), _pinkOrPurple, tamperCooldowns[_msgSender()]);
     }
 
@@ -181,8 +189,11 @@ contract TrailblazersBadgesS2 is
     /// @dev Can be called only during an active migration, after the cooldown is over
     /// @dev The final color is determined randomly, and affected by the tamper amounts
     function endMigration() external isMigrating {
+        if (tamperCooldowns[_msgSender()] > block.timestamp) {
+            revert TAMPER_IN_PROGRESS();
+        }
         // check if the cooldown is over
-        if (block.timestamp < claimCooldowns[_msgSender()]) {
+        if (claimCooldowns[_msgSender()] > block.timestamp) {
             revert MIGRATION_NOT_READY();
         }
 
@@ -210,6 +221,7 @@ contract TrailblazersBadgesS2 is
         claimCooldowns[_msgSender()] = 0;
         migrationTampers[_msgSender()][true] = 0;
         migrationTampers[_msgSender()][false] = 0;
+        tamperCooldowns[_msgSender()] = 0;
         migrationS1BadgeIds[_msgSender()] = 0;
         migrationS1TokenIds[_msgSender()] = 0;
         userBadges[_msgSender()][s2BadgeId] = s2TokenId;
