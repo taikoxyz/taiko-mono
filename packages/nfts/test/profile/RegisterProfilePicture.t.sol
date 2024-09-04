@@ -178,4 +178,89 @@ contract RegisterProfilePictureTest is Test {
 
         vm.stopPrank();
     }
+
+    function test_upgrade() public {
+        // Step 1: Deploy the initial implementation (v1) using the proxy
+        vm.startPrank(owner);
+
+        // Deploy v1 implementation and proxy pointing to v1
+        address implV1 = address(new RegisterProfilePicture());
+        ERC1967Proxy proxy = new ERC1967Proxy(implV1, abi.encodeWithSignature("initialize()"));
+        RegisterProfilePicture tokenV1 = RegisterProfilePicture(address(proxy));
+
+        vm.stopPrank();
+
+        // Step 2: Interact with v1
+        vm.startPrank(user);
+        tokenV1.setPFP(address(erc721Mock), ERC721_TOKEN_ID);
+
+        // Verify that the PFP was set correctly
+        string memory uri = tokenV1.getProfilePicture(user);
+        assertEq(uri, erc721Mock.tokenURI(ERC721_TOKEN_ID));
+        vm.stopPrank();
+
+        // Step 3: Upgrade to v2
+        vm.startPrank(owner);
+        address implV2 = address(new RegisterProfilePicture());
+        tokenV1.upgradeToAndCall(implV2, "");
+
+        // Verify that the previous state is still relevant after the upgrade
+        RegisterProfilePicture tokenV2 = RegisterProfilePicture(address(proxy));
+        uri = tokenV2.getProfilePicture(user);
+        assertEq(uri, erc721Mock.tokenURI(ERC721_TOKEN_ID));
+        vm.stopPrank();
+
+        // Step 4: Test setting and retrieving PFP with ERC1155 after the upgrade
+        vm.startPrank(user);
+        tokenV2.setPFP(address(erc1155Mock), ERC1155_TOKEN_ID);
+
+        uri = tokenV2.getProfilePicture(user);
+        assertEq(uri, erc1155Mock.uri(ERC1155_TOKEN_ID));
+        vm.stopPrank();
+    }
+
+    function test_upgrade_throw() public {
+        // Step 1: Deploy the initial implementation (v1) using the proxy
+        vm.startPrank(owner);
+
+        // Deploy v1 implementation and proxy pointing to v1
+        address implV1 = address(new RegisterProfilePicture());
+        ERC1967Proxy proxy = new ERC1967Proxy(implV1, abi.encodeWithSignature("initialize()"));
+        RegisterProfilePicture tokenV1 = RegisterProfilePicture(address(proxy));
+
+        vm.stopPrank();
+
+        // Step 2: Interact with v1
+        vm.startPrank(user);
+        tokenV1.setPFP(address(erc721Mock), ERC721_TOKEN_ID);
+
+        // Verify that the PFP was set correctly
+        string memory uri = tokenV1.getProfilePicture(user);
+        assertEq(uri, erc721Mock.tokenURI(ERC721_TOKEN_ID));
+
+        // Attempt to upgrade as a non-owner and expect a revert
+        address implV2 = address(new RegisterProfilePicture());
+        vm.expectRevert();
+        tokenV1.upgradeToAndCall(implV2, "");
+        vm.stopPrank();
+
+        // Step 3: Upgrade to v2 by the owner
+        vm.startPrank(owner);
+        implV2 = address(new RegisterProfilePicture());
+        tokenV1.upgradeToAndCall(implV2, "");
+
+        // Verify that the previous state is still relevant after the upgrade
+        RegisterProfilePicture tokenV2 = RegisterProfilePicture(address(proxy));
+        uri = tokenV2.getProfilePicture(user);
+        assertEq(uri, erc721Mock.tokenURI(ERC721_TOKEN_ID));
+        vm.stopPrank();
+
+        // Step 4: Test setting and retrieving PFP with ERC1155 after the upgrade
+        vm.startPrank(user);
+        tokenV2.setPFP(address(erc1155Mock), ERC1155_TOKEN_ID);
+
+        uri = tokenV2.getProfilePicture(user);
+        assertEq(uri, erc1155Mock.uri(ERC1155_TOKEN_ID));
+        vm.stopPrank();
+    }
 }
