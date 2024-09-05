@@ -34,7 +34,7 @@ library LibUtils {
     /// @param _state The state to initialize.
     /// @param _genesisBlockHash The block hash of the genesis block.
     function init(TaikoData.State storage _state, bytes32 _genesisBlockHash) internal {
-        require(_genesisBlockHash != bytes32(0), L1_INVALID_GENESIS_HASH());
+        require(_genesisBlockHash != 0, L1_INVALID_GENESIS_HASH());
         // Initialize state
         _state.slotA.genesisHeight = uint64(block.number);
         _state.slotA.genesisTimestamp = uint64(block.timestamp);
