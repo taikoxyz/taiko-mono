@@ -135,7 +135,7 @@
 
 ### tierProvider
 
-- impl: `0x312e6D7b46228019499Fd9dBe9F9AA349B0d8E3C`
+- impl: `0x9AaBba3Ae6D4aC3F5487608Da81006454e7933d3`
 - logs:
   - upgraded on May 14, 2024 at commit `0ef7b8caa`
   - upgraded on Jun 14, 2024 at commit `cc10b04`
@@ -144,12 +144,13 @@
 
 ### tierRouter
 
-- impl: `0x45aB015d317453512d1a07a578411B6D653FAccc`
+- impl: `0xE17dBD745f0144b8b7133cbBA044B74Ff34A7aA2`
 - logs:
   - deployed on Jun 10, 2024 at commit `d5965bb`
   - upgraded on Jun 14, 2024 at commit `cc10b04`
   - upgraded on Jun 19, 2024 at commit `b7e12e3`
   - upgraded on Aug 15, 2024 at commit `05d49b0`
+  - upgraded on Sep 02, 2024 at commit `9dae5c8`
 
 ### prover_set
 
@@ -202,6 +203,21 @@
 - owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
 - logs:
   - deployed on August 14, 2024 at commit `cba2a1e`
+
+### risc0_groth16_verifier
+
+- addr : 0x2D97b170368E585C5147173A4cD4B3dD5659576A
+- logs:
+  - deployed on September 02, 2024 at commit `16ac02e`
+
+
+### tier_zkvm_sp1
+
+- proxy : 0xFbE49f777E0078b3Fa0bae6de4794c88d6EA6DDD
+- impl : 0x15eC98183602e353Bb1223c60ba519c0Db637a01
+- owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
+- logs:
+  - deployed on September 02, 2024 at commit `16ac02e`
 
 ## L2 Contracts
 

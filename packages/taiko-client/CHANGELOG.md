@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.34.1](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.34.0...taiko-client-v0.34.1) (2024-09-04)
+
+
+### Bug Fixes
+
+* **taiko-client:** temp support tier 290 ([#18030](https://github.com/taikoxyz/taiko-mono/issues/18030)) ([f1aeac3](https://github.com/taikoxyz/taiko-mono/commit/f1aeac39d3c2ce06578a64bbe8a2fe4343d212f4))
+
+## [0.34.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.33.1...taiko-client-v0.34.0) (2024-09-02)
+
+
+### Features
+
+* **taiko-client:** introduce sp1 zk proof ([#18003](https://github.com/taikoxyz/taiko-mono/issues/18003)) ([492c208](https://github.com/taikoxyz/taiko-mono/commit/492c208b97e8fa08eb3e11b0a8712a5542eba660))
+* **taiko-client:** remove an unused field in prover ([#18024](https://github.com/taikoxyz/taiko-mono/issues/18024)) ([5d416d2](https://github.com/taikoxyz/taiko-mono/commit/5d416d2366e485b242818fb1a15eb0281cb7cedf))
+* **taiko-client:** remove an unused filed in proposer ([#18021](https://github.com/taikoxyz/taiko-mono/issues/18021)) ([64fdf5c](https://github.com/taikoxyz/taiko-mono/commit/64fdf5c80708b14d2cefadfbd78ee59810df3f65))
+* **taiko-client:** update Go contract bindings ([#18012](https://github.com/taikoxyz/taiko-mono/issues/18012)) ([7f054ca](https://github.com/taikoxyz/taiko-mono/commit/7f054ca4505313f8fc500cdb28bf223a254424e2))
+
 ## [0.33.1](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.33.0...taiko-client-v0.33.1) (2024-08-30)
 
 

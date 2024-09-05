@@ -114,6 +114,19 @@ contract ProverSet is EssentialContract, IERC1271 {
         ITaikoL1(taikoL1()).proveBlock(_blockId, _input);
     }
 
+    /// @notice Batch proves or contests Taiko blocks.
+    function proveBlocks(
+        uint64[] calldata _blockId,
+        bytes[] calldata _input,
+        bytes calldata _batchProof
+    )
+        external
+        onlyProver
+        nonReentrant
+    {
+        ITaikoL1(taikoL1()).proveBlocks(_blockId, _input, _batchProof);
+    }
+
     /// @notice Deposits Taiko token to TaikoL1 contract.
     function depositBond(uint256 _amount) external onlyAuthorized nonReentrant {
         ITaikoL1(taikoL1()).depositBond(_amount);
