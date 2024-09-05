@@ -133,8 +133,6 @@ func (p *Prover) initProofSubmitters(
 			producer = proofProducer.NewGuardianProofProducer(encoding.TierGuardianMinorityID, p.cfg.EnableLivenessBondProof)
 		case encoding.TierGuardianMajorityID:
 			producer = proofProducer.NewGuardianProofProducer(encoding.TierGuardianMajorityID, p.cfg.EnableLivenessBondProof)
-		case 290:
-			continue
 		default:
 			return fmt.Errorf("unsupported tier: %d", tier.ID)
 		}

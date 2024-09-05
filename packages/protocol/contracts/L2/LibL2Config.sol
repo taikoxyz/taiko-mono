@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.24;
+pragma solidity ^0.8.27;
 
 /// @dev DEPRECATED but used by node/client for syncing old blocks
 /// @title LibL2Config
