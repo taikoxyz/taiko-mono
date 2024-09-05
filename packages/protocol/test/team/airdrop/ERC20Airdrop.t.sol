@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.24;
+pragma solidity 0.8.27;
 
 import "../../TaikoTest.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";

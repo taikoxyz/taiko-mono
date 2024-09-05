@@ -23,7 +23,7 @@
 // TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-pragma solidity 0.8.24;
+pragma solidity 0.8.27;
 
 /// @title LibUint512Math
 library LibUint512Math {
