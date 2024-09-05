@@ -128,7 +128,8 @@ library LibUtils {
     {
         (TaikoData.BlockV2 storage blk, uint64 slot) = getBlock(_state, _config, _blockId);
 
-        require(_tid != 0 && _tid < blk.nextTransitionId, L1_TRANSITION_NOT_FOUND());
+        require(_tid != 0, L1_TRANSITION_NOT_FOUND());
+        require(_tid < blk.nextTransitionId, L1_TRANSITION_NOT_FOUND());
         return _state.transitions[slot][_tid];
     }
 

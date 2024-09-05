@@ -56,7 +56,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     error DO_PERMISSION_DENIED();
 
     modifier onlyAdminOrRemoteOwner() {
-        if (!_isAdminOrRemoteOwner(msg.sender)) revert DO_PERMISSION_DENIED();
+        require(_isAdminOrRemoteOwner(msg.sender), DO_PERMISSION_DENIED());
         _;
     }
 
@@ -78,9 +78,9 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         // This contract's owner will be itself.
         __Essential_init(address(this), _sharedAddressManager);
 
-        if (_remoteOwner == address(0) || _remoteChainId == 0 || _remoteChainId == block.chainid) {
-            revert DO_INVALID_PARAM();
-        }
+        require(_remoteOwner != address(0), DO_INVALID_PARAM());
+        require(_remoteChainId != 0, DO_INVALID_PARAM());
+        require(_remoteChainId != block.chainid, DO_INVALID_PARAM());
 
         remoteChainId = _remoteChainId;
         remoteOwner = _remoteOwner;
@@ -104,7 +104,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     /// @dev Updates the admin address.
     /// @param _admin The new admin address.
     function setAdmin(address _admin) external nonReentrant onlyOwner {
-        if (_admin == admin || _admin == address(this)) revert DO_INVALID_PARAM();
+        require(_admin != admin && _admin != address(this), DO_INVALID_PARAM());
 
         emit AdminUpdated(admin, _admin);
         admin = _admin;
@@ -125,14 +125,14 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
 
         if (call.txId == 0) {
             call.txId = nextTxId;
-        } else if (_verifyTxId && call.txId != nextTxId) {
-            revert DO_INVALID_TX_ID();
+        } else {
+            require(!_verifyTxId || call.txId == nextTxId, DO_INVALID_TX_ID());
         }
 
         nextTxId += 1;
 
         // By design, the target must be a contract address if the txdata is not empty
-        if (call.txdata.length != 0 && !Address.isContract(call.target)) revert DO_INVALID_TARGET();
+        require(call.txdata.length == 0 || Address.isContract(call.target), DO_INVALID_TARGET());
 
         (bool success, bytes memory result) = call.isDelegateCall //
             ? call.target.delegatecall(call.txdata)

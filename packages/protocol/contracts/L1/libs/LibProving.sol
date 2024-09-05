@@ -115,7 +115,8 @@ library LibProving {
     )
         public
     {
-        require(_blockIds.length != 0 && _blockIds.length == _inputs.length, L1_INVALID_PARAMS());
+        require(_blockIds.length != 0, L1_INVALID_PARAMS());
+        require(_blockIds.length == _inputs.length, L1_INVALID_PARAMS());
 
         TaikoData.TierProof memory batchProof;
         if (_batchProof.length != 0) {
@@ -206,16 +207,13 @@ library LibProving {
         // Make sure parentHash is not zero
         // To contest an existing transition, simply use any non-zero value as
         // the blockHash and stateRoot.
-        require(
-            ctx_.tran.parentHash != 0 && ctx_.tran.blockHash != 0 && ctx_.tran.stateRoot != 0,
-            L1_INVALID_TRANSITION()
-        );
+        require(ctx_.tran.parentHash != 0, L1_INVALID_TRANSITION());
+        require(ctx_.tran.blockHash != 0, L1_INVALID_TRANSITION());
+        require(ctx_.tran.stateRoot != 0, L1_INVALID_TRANSITION());
 
         // Check that the block has been proposed but has not yet been verified.
-        require(
-            local.meta.id > local.b.lastVerifiedBlockId && local.meta.id < local.b.numBlocks,
-            LibUtils.L1_INVALID_BLOCK_ID()
-        );
+        require(local.meta.id > local.b.lastVerifiedBlockId, LibUtils.L1_INVALID_BLOCK_ID());
+        require(local.meta.id < local.b.numBlocks, LibUtils.L1_INVALID_BLOCK_ID());
 
         local.slot = local.meta.id % _config.blockRingBufferSize;
         TaikoData.BlockV2 storage blk = _state.blocks[local.slot];
@@ -254,11 +252,9 @@ library LibProving {
 
         // The new proof must meet or exceed the minimum tier required by the
         // block or the previous proof; it cannot be on a lower tier.
-        require(
-            local.proof.tier != 0 && local.proof.tier >= local.meta.minTier
-                && local.proof.tier >= ts.tier,
-            L1_INVALID_TIER()
-        );
+        require(local.proof.tier != 0, L1_INVALID_TIER());
+        require(local.proof.tier >= local.meta.minTier, L1_INVALID_TIER());
+        require(local.proof.tier >= ts.tier, L1_INVALID_TIER());
 
         // Retrieve the tier configurations. If the tier is not supported, the
         // subsequent action will result in a revert.

@@ -57,9 +57,8 @@ library LibProposing {
         public
         returns (TaikoData.BlockMetadataV2[] memory metas_)
     {
-        require(
-            _paramsArr.length != 0 && _paramsArr.length == _txListArr.length, L1_INVALID_PARAMS()
-        );
+        require(_paramsArr.length != 0, L1_INVALID_PARAMS());
+        require(_paramsArr.length == _txListArr.length, L1_INVALID_PARAMS());
 
         metas_ = new TaikoData.BlockMetadataV2[](_paramsArr.length);
 
@@ -149,22 +148,22 @@ library LibProposing {
         // The other constraint is that the L1 block number needs to be larger than or equal
         // the one in the previous L2 block.
         require(
-            local.params.anchorBlockId + _config.maxAnchorHeightOffset >= block.number //
-                && local.params.anchorBlockId < block.number
-                && local.params.anchorBlockId >= parentBlk.proposedIn,
+            local.params.anchorBlockId + _config.maxAnchorHeightOffset >= block.number,
             L1_INVALID_ANCHOR_BLOCK()
         );
+        require(local.params.anchorBlockId < block.number, L1_INVALID_ANCHOR_BLOCK());
+        require(local.params.anchorBlockId >= parentBlk.proposedIn, L1_INVALID_ANCHOR_BLOCK());
 
         // Verify the passed in timestamp.
         // We only allow the timestamp to be 2 epochs old.
         // The other constraint is that the timestamp needs to be larger than or equal the
         // one in the previous L2 block.
         require(
-            local.params.timestamp + _config.maxAnchorHeightOffset * 12 >= block.timestamp
-                && local.params.timestamp <= block.timestamp
-                && local.params.timestamp >= parentBlk.proposedAt,
+            local.params.timestamp + _config.maxAnchorHeightOffset * 12 >= block.timestamp,
             L1_INVALID_TIMESTAMP()
         );
+        require(local.params.timestamp <= block.timestamp, L1_INVALID_TIMESTAMP());
+        require(local.params.timestamp >= parentBlk.proposedAt, L1_INVALID_TIMESTAMP());
 
         // Check if parent block has the right meta hash. This is to allow the proposer to make
         // sure the block builds on the expected latest chain state.

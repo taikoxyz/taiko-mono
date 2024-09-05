@@ -84,8 +84,10 @@ contract TaikoL2 is EssentialContract {
     {
         __Essential_init(_owner, _rollupAddressManager);
 
-        require(_l1ChainId != 0 && _l1ChainId != block.chainid, L2_INVALID_L1_CHAIN_ID());
-        require(block.chainid > 1 && block.chainid <= type(uint64).max, L2_INVALID_L2_CHAIN_ID());
+        require(_l1ChainId != 0, L2_INVALID_L1_CHAIN_ID());
+        require(_l1ChainId != block.chainid, L2_INVALID_L1_CHAIN_ID());
+        require(block.chainid > 1, L2_INVALID_L2_CHAIN_ID());
+        require(block.chainid <= type(uint64).max, L2_INVALID_L2_CHAIN_ID());
 
         if (block.number == 0) {
             // This is the case in real L2 genesis

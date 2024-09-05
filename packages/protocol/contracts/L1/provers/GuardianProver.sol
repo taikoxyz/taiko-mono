@@ -110,16 +110,13 @@ contract GuardianProver is IVerifier, EssentialContract {
         onlyOwner
     {
         // We need at most 255 guardians (so the approval bits fit in a uint256)
-        require(
-            _newGuardians.length != 0 && _newGuardians.length <= type(uint8).max,
-            GP_INVALID_GUARDIAN_SET()
-        );
+        require(_newGuardians.length != 0, GP_INVALID_GUARDIAN_SET());
+        require(_newGuardians.length <= type(uint8).max, GP_INVALID_GUARDIAN_SET());
 
         // Minimum number of guardians to approve is at least equal or greater than half the
         // guardians (rounded up) and less or equal than the total number of guardians
-        require(
-            _minGuardians != 0 && _minGuardians <= _newGuardians.length, GP_INVALID_MIN_GUARDIANS()
-        );
+        require(_minGuardians != 0, GP_INVALID_MIN_GUARDIANS());
+        require(_minGuardians <= _newGuardians.length, GP_INVALID_MIN_GUARDIANS());
 
         // Delete the current guardians
         for (uint256 i; i < guardians.length; ++i) {
@@ -201,7 +198,6 @@ contract GuardianProver is IVerifier, EssentialContract {
     /// @notice Pauses chain proving and verification.
     function pauseTaikoProving() external whenNotPaused {
         require(guardianIds[msg.sender] != 0, GP_INVALID_GUARDIAN());
-
         require(address(this) == resolve(LibStrings.B_CHAIN_WATCHDOG, true), GV_PERMISSION_DENIED());
 
         ITaikoL1(resolve(LibStrings.B_TAIKO, false)).pauseProving(true);
