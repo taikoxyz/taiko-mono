@@ -57,7 +57,7 @@ library Lib1559Math {
 
         uint256 f = FixedPointMathLib.WAD;
         uint256 ratio = f * _newGasTarget / _gasTarget;
-        if (ratio > uint256(type(int256).max)) revert EIP1559_INVALID_PARAMS();
+        require(ratio <= uint256(type(int256).max), EIP1559_INVALID_PARAMS());
 
         int256 lnRatio = FixedPointMathLib.lnWad(int256(ratio)); // may be negative
 
@@ -84,7 +84,7 @@ library Lib1559Math {
 
     /// @dev exp(_gasExcess / _gasTarget)
     function ethQty(uint256 _gasExcess, uint256 _gasTarget) internal pure returns (uint256) {
-        if (_gasTarget == 0) revert EIP1559_INVALID_PARAMS();
+        require(_gasTarget > 0, EIP1559_INVALID_PARAMS());
 
         uint256 input = FixedPointMathLib.WAD * _gasExcess / _gasTarget;
         if (input > MAX_EXP_INPUT) {

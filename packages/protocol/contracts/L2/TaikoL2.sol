@@ -64,7 +64,7 @@ contract TaikoL2 is EssentialContract {
     error L2_TOO_LATE();
 
     modifier onlyGoldenTouch() {
-        if (msg.sender != GOLDEN_TOUCH_ADDRESS) revert L2_INVALID_SENDER();
+        require(msg.sender == GOLDEN_TOUCH_ADDRESS, L2_INVALID_SENDER());
         _;
     }
 
@@ -84,12 +84,10 @@ contract TaikoL2 is EssentialContract {
     {
         __Essential_init(_owner, _rollupAddressManager);
 
-        if (_l1ChainId == 0 || _l1ChainId == block.chainid) {
-            revert L2_INVALID_L1_CHAIN_ID();
-        }
-        if (block.chainid <= 1 || block.chainid > type(uint64).max) {
-            revert L2_INVALID_L2_CHAIN_ID();
-        }
+        require(_l1ChainId != 0, L2_INVALID_L1_CHAIN_ID());
+        require(_l1ChainId != block.chainid, L2_INVALID_L1_CHAIN_ID());
+        require(block.chainid > 1, L2_INVALID_L2_CHAIN_ID());
+        require(block.chainid <= type(uint64).max, L2_INVALID_L2_CHAIN_ID());
 
         if (block.number == 0) {
             // This is the case in real L2 genesis
@@ -127,18 +125,18 @@ contract TaikoL2 is EssentialContract {
         onlyGoldenTouch
         nonReentrant
     {
-        if (block.number >= ontakeForkHeight()) revert L2_FORK_ERROR();
+        require(block.number < ontakeForkHeight(), L2_FORK_ERROR());
 
         // Verify ancestor hashes
         uint256 parentId = block.number - 1;
         (bytes32 currentPublicInputHash, bytes32 newPublicInputHash) =
             _calcPublicInputHash(parentId);
-        if (publicInputHash != currentPublicInputHash) revert L2_PUBLIC_INPUT_HASH_MISMATCH();
+        require(publicInputHash == currentPublicInputHash, L2_PUBLIC_INPUT_HASH_MISMATCH());
 
         // Verify the base fee per gas is correct
         (uint256 basefee, uint64 newGasExcess) = getBasefee(_l1BlockId, _parentGasUsed);
 
-        if (!skipFeeCheck() && block.basefee != basefee) revert L2_BASEFEE_MISMATCH();
+        require(skipFeeCheck() || block.basefee == basefee, L2_BASEFEE_MISMATCH());
 
         if (_l1BlockId > lastSyncedBlock) {
             // Store the L1's state root as a signal to the local signal service to
@@ -175,7 +173,7 @@ contract TaikoL2 is EssentialContract {
         onlyGoldenTouch
         nonReentrant
     {
-        if (block.number < ontakeForkHeight()) revert L2_FORK_ERROR();
+        require(block.number >= ontakeForkHeight(), L2_FORK_ERROR());
 
         uint64 parentId = uint64(block.number - 1);
 
@@ -183,7 +181,7 @@ contract TaikoL2 is EssentialContract {
         {
             (bytes32 currentPublicInputHash, bytes32 newPublicInputHash) =
                 _calcPublicInputHash(parentId);
-            if (publicInputHash != currentPublicInputHash) revert L2_PUBLIC_INPUT_HASH_MISMATCH();
+            require(publicInputHash == currentPublicInputHash, L2_PUBLIC_INPUT_HASH_MISMATCH());
             publicInputHash = newPublicInputHash;
         }
 
@@ -209,7 +207,7 @@ contract TaikoL2 is EssentialContract {
                 _parentGasUsed
             );
 
-            if (!skipFeeCheck() && block.basefee != basefee) revert L2_BASEFEE_MISMATCH();
+            require(skipFeeCheck() || block.basefee == basefee, L2_BASEFEE_MISMATCH());
             parentGasExcess = newGasExcess;
         }
 

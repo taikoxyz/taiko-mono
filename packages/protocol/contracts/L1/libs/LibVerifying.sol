@@ -53,14 +53,14 @@ library LibVerifying {
         local.slot = local.blockId % _config.blockRingBufferSize;
 
         TaikoData.BlockV2 storage blk = _state.blocks[local.slot];
-        if (blk.blockId != local.blockId) revert L1_BLOCK_MISMATCH();
+        require(blk.blockId == local.blockId, L1_BLOCK_MISMATCH());
 
         local.lastVerifiedTransitionId = blk.verifiedTransitionId;
         local.tid = local.lastVerifiedTransitionId;
 
         // The following scenario should never occur but is included as a
         // precaution.
-        if (local.tid == 0) revert L1_TRANSITION_ID_ZERO();
+        require(local.tid != 0, L1_TRANSITION_ID_ZERO());
 
         // The `blockHash` variable represents the most recently trusted
         // blockHash on L2.
@@ -80,7 +80,7 @@ library LibVerifying {
                 local.slot = local.blockId % _config.blockRingBufferSize;
 
                 blk = _state.blocks[local.slot];
-                if (blk.blockId != local.blockId) revert L1_BLOCK_MISMATCH();
+                require(blk.blockId == local.blockId, L1_BLOCK_MISMATCH());
 
                 local.tid = LibUtils.getTransitionId(_state, blk, local.slot, local.blockHash);
                 // When `tid` is 0, it indicates that there is no proven

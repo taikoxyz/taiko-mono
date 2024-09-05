@@ -34,7 +34,7 @@ library LibUtils {
     /// @param _state The state to initialize.
     /// @param _genesisBlockHash The block hash of the genesis block.
     function init(TaikoData.State storage _state, bytes32 _genesisBlockHash) internal {
-        if (_genesisBlockHash == 0) revert L1_INVALID_GENESIS_HASH();
+        require(_genesisBlockHash != 0, L1_INVALID_GENESIS_HASH());
         // Initialize state
         _state.slotA.genesisHeight = uint64(block.number);
         _state.slotA.genesisTimestamp = uint64(block.timestamp);
@@ -78,7 +78,7 @@ library LibUtils {
     {
         slot_ = _blockId % _config.blockRingBufferSize;
         blk_ = _state.blocks[slot_];
-        if (blk_.blockId != _blockId) revert L1_INVALID_BLOCK_ID();
+        require(blk_.blockId == _blockId, L1_INVALID_BLOCK_ID());
     }
 
     /// @dev Retrieves a block's block hash and state root.
@@ -128,7 +128,8 @@ library LibUtils {
     {
         (TaikoData.BlockV2 storage blk, uint64 slot) = getBlock(_state, _config, _blockId);
 
-        if (_tid == 0 || _tid >= blk.nextTransitionId) revert L1_TRANSITION_NOT_FOUND();
+        require(_tid != 0, L1_TRANSITION_NOT_FOUND());
+        require(_tid < blk.nextTransitionId, L1_TRANSITION_NOT_FOUND());
         return _state.transitions[slot][_tid];
     }
 
@@ -152,7 +153,7 @@ library LibUtils {
         (TaikoData.BlockV2 storage blk, uint64 slot) = getBlock(_state, _config, _blockId);
 
         uint24 tid = getTransitionId(_state, blk, slot, _parentHash);
-        if (tid == 0) revert L1_TRANSITION_NOT_FOUND();
+        require(tid != 0, L1_TRANSITION_NOT_FOUND());
 
         return _state.transitions[slot][tid];
     }
@@ -176,10 +177,10 @@ library LibUtils {
     {
         if (_state.transitions[_slot][1].key == _parentHash) {
             tid_ = 1;
-            if (tid_ >= _blk.nextTransitionId) revert L1_UNEXPECTED_TRANSITION_ID();
+            require(tid_ < _blk.nextTransitionId, L1_UNEXPECTED_TRANSITION_ID());
         } else {
             tid_ = _state.transitionIds[_blk.blockId][_parentHash];
-            if (tid_ != 0 && tid_ >= _blk.nextTransitionId) revert L1_UNEXPECTED_TRANSITION_ID();
+            require(tid_ == 0 || tid_ < _blk.nextTransitionId, L1_UNEXPECTED_TRANSITION_ID());
         }
     }
 
