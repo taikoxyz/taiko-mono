@@ -25,7 +25,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     uint256[50] private __gap;
 
     modifier whenProvingNotPaused() {
-        if (state.slotB.provingPaused) revert LibProving.L1_PROVING_PAUSED();
+        require(!state.slotB.provingPaused, LibProving.L1_PROVING_PAUSED());
         _;
     }
 

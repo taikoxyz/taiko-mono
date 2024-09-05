@@ -57,9 +57,9 @@ library LibProposing {
         public
         returns (TaikoData.BlockMetadataV2[] memory metas_)
     {
-        if (_paramsArr.length == 0 || _paramsArr.length != _txListArr.length) {
-            revert L1_INVALID_PARAMS();
-        }
+        require(
+            _paramsArr.length != 0 && _paramsArr.length == _txListArr.length, L1_INVALID_PARAMS()
+        );
 
         metas_ = new TaikoData.BlockMetadataV2[](_paramsArr.length);
 
@@ -118,9 +118,10 @@ library LibProposing {
 
         // It's essential to ensure that the ring buffer for proposed blocks
         // still has space for at least one more block.
-        if (local.b.numBlocks >= local.b.lastVerifiedBlockId + _config.blockMaxProposals + 1) {
-            revert L1_TOO_MANY_BLOCKS();
-        }
+        require(
+            local.b.numBlocks < local.b.lastVerifiedBlockId + _config.blockMaxProposals + 1,
+            L1_TOO_MANY_BLOCKS()
+        );
 
         if (_params.length != 0) {
             local.params = abi.decode(_params, (TaikoData.BlockParamsV2));
@@ -147,32 +148,30 @@ library LibProposing {
         // We only allow the L1 block to be 2 epochs old.
         // The other constraint is that the L1 block number needs to be larger than or equal
         // the one in the previous L2 block.
-        if (
-            local.params.anchorBlockId + _config.maxAnchorHeightOffset < block.number //
-                || local.params.anchorBlockId >= block.number
-                || local.params.anchorBlockId < parentBlk.proposedIn
-        ) {
-            revert L1_INVALID_ANCHOR_BLOCK();
-        }
+        require(
+            local.params.anchorBlockId + _config.maxAnchorHeightOffset >= block.number //
+                && local.params.anchorBlockId < block.number
+                && local.params.anchorBlockId >= parentBlk.proposedIn,
+            L1_INVALID_ANCHOR_BLOCK()
+        );
 
         // Verify the passed in timestamp.
         // We only allow the timestamp to be 2 epochs old.
         // The other constraint is that the timestamp needs to be larger than or equal the
         // one in the previous L2 block.
-        if (
-            local.params.timestamp + _config.maxAnchorHeightOffset * 12 < block.timestamp
-                || local.params.timestamp > block.timestamp
-                || local.params.timestamp < parentBlk.proposedAt
-        ) {
-            revert L1_INVALID_TIMESTAMP();
-        }
+        require(
+            local.params.timestamp + _config.maxAnchorHeightOffset * 12 >= block.timestamp
+                && local.params.timestamp <= block.timestamp
+                && local.params.timestamp >= parentBlk.proposedAt,
+            L1_INVALID_TIMESTAMP()
+        );
 
         // Check if parent block has the right meta hash. This is to allow the proposer to make
         // sure the block builds on the expected latest chain state.
         if (local.params.parentMetaHash == 0) {
             local.params.parentMetaHash = parentBlk.metaHash;
-        } else if (local.params.parentMetaHash != parentBlk.metaHash) {
-            revert L1_UNEXPECTED_PARENT();
+        } else {
+            require(local.params.parentMetaHash == parentBlk.metaHash, L1_UNEXPECTED_PARENT());
         }
 
         // Initialize metadata to compute a metaHash, which forms a part of
@@ -209,14 +208,14 @@ library LibProposing {
 
         // Update certain meta fields
         if (meta_.blobUsed) {
-            if (!LibNetwork.isDencunSupported(block.chainid)) revert L1_BLOB_NOT_AVAILABLE();
+            require(LibNetwork.isDencunSupported(block.chainid), L1_BLOB_NOT_AVAILABLE());
 
             // Always use the first blob in this transaction. If the
             // proposeBlock functions are called more than once in the same
             // L1 transaction, these multiple L2 blocks will share the same
             // blob.
             meta_.blobHash = blobhash(local.params.blobIndex);
-            if (meta_.blobHash == 0) revert L1_BLOB_NOT_FOUND();
+            require(meta_.blobHash != 0, L1_BLOB_NOT_FOUND());
         } else {
             meta_.blobHash = keccak256(_txList);
             emit CalldataTxList(meta_.id, _txList);
