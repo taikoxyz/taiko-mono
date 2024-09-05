@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.27;
+pragma solidity ^0.8.27;
 
 import "../L1/TaikoL1TestBase.sol";
 import "@risc0/contracts/groth16/RiscZeroGroth16Verifier.sol";

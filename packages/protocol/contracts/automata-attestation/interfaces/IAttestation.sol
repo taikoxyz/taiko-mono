@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: MIT
-pragma solidity 0.8.27;
+pragma solidity ^0.8.27;
 
 import { V3Struct } from "../lib/QuoteV3Auth/V3Struct.sol";
 

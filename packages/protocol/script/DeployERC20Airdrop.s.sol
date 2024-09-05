@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.27;
+pragma solidity ^0.8.27;
 
 import "../test/DeployCapability.sol";
 import "../contracts/team/airdrop/ERC20Airdrop.sol";
