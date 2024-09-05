@@ -89,7 +89,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
 
     /// @inheritdoc IMessageInvocable
     function onMessageInvocation(bytes calldata _data) external payable onlyAdminOrRemoteOwner {
-        _invokeCall(_data, true);
+        _invokeCall(_data, false);
     }
 
     /// @notice Dryruns a message invocation but always revert.
@@ -97,7 +97,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     /// Note that this function shall not be used in transaction and is designed for offchain
     /// simulation only.
     function dryrunInvocation(bytes calldata _data) external payable {
-        _invokeCall(_data, false);
+        _invokeCall(_data, true);
         revert DO_DRYRUN_SUCCEEDED();
     }
 
@@ -120,13 +120,13 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
 
     function _authorizePause(address, bool) internal pure override notImplemented { }
 
-    function _invokeCall(bytes calldata _data, bool _verifyTxId) private {
+    function _invokeCall(bytes calldata _data, bool _skipVerifyTxId) private {
         Call memory call = abi.decode(_data, (Call));
 
         if (call.txId == 0) {
             call.txId = nextTxId;
         } else {
-            require(!_verifyTxId || call.txId == nextTxId, DO_INVALID_TX_ID());
+            require(_skipVerifyTxId || call.txId == nextTxId, DO_INVALID_TX_ID());
         }
 
         nextTxId += 1;
