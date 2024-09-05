@@ -25,10 +25,10 @@ contract BadgeChampions is
     AccessControlUpgradeable
 {
     struct Champion {
-            address owner;
-            uint256 leagueId;
+        address owner;
         address badgeContract;
         uint256 tokenId;
+        uint256 leagueId;
         uint256 color; // 0 = neutral, 1 = pink, 2 = purple
         uint256 power;
     }
@@ -38,10 +38,8 @@ contract BadgeChampions is
         uint256 closeTime; // registration ends
         uint256 startTime; // league starts (requires admin action)
         uint256 seed;
-        address[] participants;
     }
 
-    mapping(address owner => Champion champion) public champions;
     mapping(uint256 leagueId => League league) public leagues;
     uint256 public currentLeagueId = 0;
 
@@ -57,9 +55,20 @@ contract BadgeChampions is
         51, // Androids
         42, // Drummers
         77 // Shinto
-        ];
+    ];
 
-
+    function getChampionId(
+        uint256 _leagueId,
+        address _owner,
+        address _badgeContract,
+        uint256 _tokenId
+    )
+        public
+        pure
+        returns (bytes memory)
+    {
+        return abi.encodePacked(_owner, _badgeContract, _tokenId, _leagueId);
+    }
 
     event LeagueCreated(
         uint256 indexed leagueId, uint256 openTime, uint256 startTime, uint256 endTime
@@ -67,8 +76,11 @@ contract BadgeChampions is
     event LeagueStarted(uint256 leagueId, uint256 seed);
 
     event ChampionRegistered(
-        uint256 indexed leagueId, address indexed owner,
-        address badgesContract, uint256 tokenId, uint256 power
+        uint256 indexed leagueId,
+        address indexed owner,
+        address badgesContract,
+        uint256 tokenId,
+        uint256 power
     );
 
     error ELEMENT_NOT_FOUND();
@@ -79,8 +91,8 @@ contract BadgeChampions is
     error CHAMPION_NOT_OWNED();
     error INVALID_PARTICIPANT_COUNT();
     error INVALID_ROUND();
-error INVALID_CHAMPION_CONTRACT();
-error INVALID_MATCH();
+    error INVALID_CHAMPION_CONTRACT();
+    error INVALID_MATCH();
 
     function initialize(address _season1Badges, address _season2Badges) external initializer {
         __Context_init();
@@ -93,13 +105,7 @@ error INVALID_MATCH();
     function getCurrentLeague()
         public
         view
-        returns (
-            uint256 openTime,
-            uint256 closeTime,
-            uint256 startTime,
-            uint256 seed,
-            address[] memory participants
-        )
+        returns (uint256 openTime, uint256 closeTime, uint256 startTime, uint256 seed)
     {
         return getLeague(currentLeagueId);
     }
@@ -107,22 +113,10 @@ error INVALID_MATCH();
     function getLeague(uint256 _leagueId)
         public
         view
-        returns (
-            uint256 openTime,
-            uint256 closeTime,
-            uint256 startTime,
-            uint256 seed,
-            address[] memory participants
-        )
+        returns (uint256 openTime, uint256 closeTime, uint256 startTime, uint256 seed)
     {
         League memory league = leagues[_leagueId];
-        return (
-            league.openTime,
-            league.closeTime,
-            league.startTime,
-            league.seed,
-            league.participants
-        );
+        return (league.openTime, league.closeTime, league.startTime, league.seed);
     }
 
     function createLeague(
@@ -133,20 +127,14 @@ error INVALID_MATCH();
         public
         onlyOwner
     {
-        League memory league = League({
-            openTime: _openTime,
-            closeTime: _closeTime,
-            startTime: _startTime,
-            seed: 0,
-            participants: new address[](0)
-        });
+        League memory league =
+            League({ openTime: _openTime, closeTime: _closeTime, startTime: _startTime, seed: 0 });
         currentLeagueId += 1;
 
         leagues[currentLeagueId] = league;
 
-        emit LeagueCreated(currentLeagueId, _openTime, _closeTime,  _startTime
-        );
-        }
+        emit LeagueCreated(currentLeagueId, _openTime, _closeTime, _startTime);
+    }
 
     modifier leagueOpen(uint256 _leagueId) {
         League memory league = leagues[_leagueId];
@@ -158,6 +146,7 @@ error INVALID_MATCH();
     }
 
     modifier ownedToken(address _badgeContract, uint256 _badgeId) {
+        // TODO: erc1155 ownership checkup for s2 badges
         uint256 tokenId = season1Badges.getTokenId(_msgSender(), _badgeId);
 
         if (
@@ -179,31 +168,17 @@ error INVALID_MATCH();
         address _player,
         address _badgeContract,
         uint256 _badgeId
-    ) internal
+    )
+        internal
     {
         if (_badgeContract != address(season1Badges) && _badgeContract != address(season2Badges)) {
             revert INVALID_CHAMPION_CONTRACT();
         }
-        uint256 color = 0; // TODO: make it based on the badge
 
         uint256 tokenId = season1Badges.getTokenId(_player, _badgeId);
         uint256 power = calculatePower(_badgeId);
 
-        Champion memory champion = Champion({
-            leagueId: currentLeagueId,
-            badgeContract: _badgeContract,
-            tokenId: tokenId,
-            owner: _player,
-            color: color,
-            power: power
-        });
-
-        champions[_player] = champion;
-        League storage league = leagues[currentLeagueId];
-        league.participants.push(_player);
-
-        emit ChampionRegistered(
-            currentLeagueId, _player, _badgeContract, tokenId, power);
+        emit ChampionRegistered(currentLeagueId, _player, _badgeContract, tokenId, power);
     }
 
     function registerChampionFor(
@@ -226,22 +201,6 @@ error INVALID_MATCH();
         ownedToken(_badgeContract, _badgeId)
     {
         _registerChampionFor(_msgSender(), _badgeContract, _badgeId);
-    }
-
-    function calculateTotalRounds(uint256 participantCount) public pure returns (uint256) {
-        if (participantCount == 0) {
-            revert INVALID_PARTICIPANT_COUNT();
-        }
-
-        uint256 rounds = 0;
-        uint256 count = participantCount;
-
-        while (count > 1) {
-            count = (count + 1) / 2; // Each round halves the number of participants
-            rounds++;
-        }
-
-        return rounds;
     }
 
     function startLeague(uint256 seed) public onlyOwner {
@@ -277,125 +236,6 @@ error INVALID_MATCH();
         }
     }
 
-    function _indexOf(address[] memory _array, address _element) internal pure returns (uint256) {
-        for (uint256 i = 0; i < _array.length; i++) {
-            if (_array[i] == _element) {
-                return i;
-            }
-        }
-        revert ELEMENT_NOT_FOUND();
-    }
-
-    function _seedBasedRandom(uint256 _extraSeed) internal view returns (uint256) {
-        League memory league = leagues[currentLeagueId];
-        uint256 seed = league.seed + _extraSeed;
-        return seed;
-    }
-
-
-    function _randomizeAddresses(
-        address[] memory addresses,
-        uint256 seed
-    )
-        internal
-        pure
-        returns (address[] memory)
-    {
-        address[] memory shuffledAddresses = addresses;
-        uint256 n = shuffledAddresses.length;
-
-        for (uint256 i = n - 1; i > 0; i--) {
-            uint256 j = uint256(keccak256(abi.encodePacked(seed, i))) % (i + 1);
-            // Swap elements
-            (shuffledAddresses[i], shuffledAddresses[j]) =
-                (shuffledAddresses[j], shuffledAddresses[i]);
-        }
-
-        return shuffledAddresses;
-    }
-
-    ////////////////////////////////////////////////////////////////
-
-    function calculateMatchesInRound(
-        uint256 round,
-        uint256 initialParticipantCount
-    )
-        public
-        pure
-        returns (uint256)
-    {
-        if (initialParticipantCount == 0) {
-            revert INVALID_PARTICIPANT_COUNT();
-        }
-
-        if (round == 0) {
-            revert INVALID_ROUND();
-        }
-        // Calculate the number of participants in the given round
-        uint256 participantsInRound = initialParticipantCount / (2 ** (round - 1));
-
-        // Calculate the number of matches in the given round
-        uint256 matchesInRound = participantsInRound / 2;
-
-        return matchesInRound;
-    }
-
-    function getMatchup(uint256 round, uint256 matchIndex) public view returns (uint256, uint256) {
-        if (round == 0) {
-            revert INVALID_ROUND();
-        }
-        League memory league = leagues[currentLeagueId];
-
-        uint256 firstIndex = matchIndex * 2;
-        uint256 secondIndex = firstIndex + 1;
-
-        uint256 firstParticipantIndex =
-            deterministicIndex(league.seed, firstIndex, round, league.participants.length);
-        uint256 secondParticipantIndex =
-            deterministicIndex(league.seed, secondIndex, round, league.participants.length);
-
-        // Ensure the indices are distinct
-        if (firstParticipantIndex == secondParticipantIndex) {
-            secondParticipantIndex = (secondParticipantIndex + 1) % league.participants.length;
-        }
-
-        return (firstParticipantIndex, secondParticipantIndex);
-    }
-
-    function deterministicIndex(
-        uint256 seed,
-        uint256 index,
-        uint256 round,
-        uint256 participantsLength
-    )
-        internal
-        pure
-        returns (uint256)
-    {
-        return uint256(keccak256(abi.encode(seed, index, round))) % participantsLength;
-    }
-
-    function getParticipants(
-        uint256 round,
-        uint256 matchIndex
-    )
-        public
-        view
-        returns (address, address)
-    {
-        uint256 maxMatchIndex = calculateMatchesInRound(round, leagues[currentLeagueId].participants.length);
-        if (matchIndex >= maxMatchIndex) {
-            revert INVALID_MATCH();
-        }
-        (uint256 first, uint256 second) = getMatchup(round, matchIndex);
-        League memory league = leagues[currentLeagueId];
-        return (league.participants[first], league.participants[second]);
-    }
-
-
-
-
-    ////////////////////////////////////////////////////////////////
     function supportsInterface(bytes4 interfaceId)
         public
         view
@@ -406,52 +246,4 @@ error INVALID_MATCH();
     }
 
     function _authorizeUpgrade(address) internal virtual override onlyOwner { }
-
-
-
-    ////////////////////////////////////////////////////////////////
-
-
-// Deterministically shuffle an array of addresses based on a uint256 seed
-      // Simple linear congruential generator (LCG)
-    function linearCongruentialGenerator(uint256 seed) private pure returns (uint256) {
-        // Parameters for LCG
-        uint256 a = 1664525;
-        uint256 c = 1013904223;
-        uint256 m = 2**32;
-
-        return (a * seed + c) % m;
-    }
-
-     function shuffleAddresses(address[] calldata addresses, uint256 seed) public pure returns (address[] memory) {
-        uint256 n = addresses.length;
-        // Create a memory copy of the calldata array since calldata is read-only
-        address[] memory shuffled = new address[](n);
-
-        for (uint256 i = 0; i < n; i++) {
-            shuffled[i] = addresses[i];
-        }
-
-        // Perform the Fisher-Yates shuffle on the memory array
-        for (uint256 i = n - 1; i > 0; i--) {
-            // Generate a pseudo-random index based on the seed
-            uint256 randomIndex = (linearCongruentialGenerator(seed + i) % (i + 1));
-
-            // Swap the current element with the random index
-            address temp = shuffled[i];
-            shuffled[i] = shuffled[randomIndex];
-            shuffled[randomIndex] = temp;
-        }
-
-        return shuffled;
-    }
-
-    /*
-        we relly on a seed-sort for the participants
-        implement js iterator to extract results
-            - the blocknumber at use is startBlockNumber + round
-
-
-
-    */
 }

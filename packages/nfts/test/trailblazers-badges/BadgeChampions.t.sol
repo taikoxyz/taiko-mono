@@ -45,7 +45,6 @@ contract BadgeChampionsTest is Test {
     uint256 constant CLOSE_TIME = 20_000;
     uint256 constant START_TIME = 30_000;
 
-
     function setUp() public {
         utils = new UtilsScript();
         utils.setUp();
@@ -110,20 +109,14 @@ contract BadgeChampionsTest is Test {
         badgeChampions.createLeague(OPEN_TIME, CLOSE_TIME, START_TIME);
 
         // check league
-        (
-            uint256 openTime,
-            uint256 closeTime,
-            uint256 startTime,
-            uint256 seed,
-            address[] memory participants
-        ) = badgeChampions.getCurrentLeague();
+        (uint256 openTime, uint256 closeTime, uint256 startTime, uint256 seed) =
+            badgeChampions.getCurrentLeague();
 
         assertEq(openTime, OPEN_TIME);
         assertEq(closeTime, CLOSE_TIME);
         assertEq(startTime, START_TIME);
 
         assertEq(seed, 0);
-        assertEq(participants.length, 0);
     }
 
     function test_revert_leagueNotOpen() public {
@@ -147,21 +140,14 @@ contract BadgeChampionsTest is Test {
         badgeChampions.registerChampion(address(token), BADGE_IDS[0]);
 
         // check league
-        (
-            uint256 openTime,
-            uint256 closeTime,
-            uint256 startTime,
-            uint256 seed,
-            address[] memory participants
-        ) = badgeChampions.getCurrentLeague();
+        (uint256 openTime, uint256 closeTime, uint256 startTime, uint256 seed) =
+            badgeChampions.getCurrentLeague();
 
         assertEq(openTime, OPEN_TIME);
         assertEq(closeTime, CLOSE_TIME);
         assertEq(startTime, START_TIME);
 
         assertEq(seed, 0);
-        assertEq(participants.length, 1);
-        assertEq(participants[0], minters[0]);
     }
 
     function test_revert_registerChampion_notOwned() public {
@@ -186,23 +172,14 @@ contract BadgeChampionsTest is Test {
         }
 
         // check league
-        (
-            uint256 openTime,
-            uint256 closeTime,
-            uint256 startTime,
-            uint256 seed,
-            address[] memory participants
-        ) = badgeChampions.getCurrentLeague();
+        (uint256 openTime, uint256 closeTime, uint256 startTime, uint256 seed) =
+            badgeChampions.getCurrentLeague();
 
         assertEq(openTime, OPEN_TIME);
         assertEq(closeTime, CLOSE_TIME);
         assertEq(startTime, START_TIME);
 
         assertEq(seed, 0);
-        assertEq(participants.length, minters.length);
-        for (uint256 i = 0; i < minters.length; i++) {
-            assertEq(participants[i], minters[i]);
-        }
     }
 
     function test_admin_startLeague() public {
@@ -214,23 +191,14 @@ contract BadgeChampionsTest is Test {
         badgeChampions.startLeague(TOURNAMENT_SEED);
 
         // check league
-        (
-            uint256 openTime,
-            uint256 closeTime,
-            uint256 startTime,
-            uint256 seed,
-            address[] memory participants
-        ) = badgeChampions.getCurrentLeague();
+        (uint256 openTime, uint256 closeTime, uint256 startTime, uint256 seed) =
+            badgeChampions.getCurrentLeague();
 
         assertEq(openTime, OPEN_TIME);
         assertEq(closeTime, CLOSE_TIME);
         assertEq(startTime, START_TIME);
 
         assertEq(seed, TOURNAMENT_SEED);
-        assertEq(participants.length, minters.length);
-        for (uint256 i = 0; i < minters.length; i++) {
-            assertEq(participants[i], minters[i]);
-        }
     }
 
     function test_revert_startLeague_notAdmin() public {
@@ -243,7 +211,4 @@ contract BadgeChampionsTest is Test {
         badgeChampions.startLeague(TOURNAMENT_SEED);
         vm.stopPrank();
     }
-
-
-
 }

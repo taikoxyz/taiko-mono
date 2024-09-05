@@ -22,12 +22,13 @@ contract DeployScript is Script {
     BadgeChampions public badgeChampions;
 
     // Hekla
-    address constant S1_ADDRESS = 0x251a530c6C4Cb0839496ca38613F1e33a8AA2984;
-    address constant S2_ADDRESS = 0xcc75A678b91076f8840a0BD4b269c8D6e0Ab2c26;
-    address constant CHAMPIONS_ADDRESS = 0xc8fFF08D23C1176061a261CC5DB57c3B1CE43C04;
+    address constant S1_ADDRESS = 0x04585cd8f5e11574d4f01bFAa1600a7313A8A5fD;
+    address constant S2_ADDRESS = 0xc9Ae80a53A3225206eFbCD094dE9e24e3EFa6D13;
+    address constant CHAMPIONS_ADDRESS = 0x97AC51cF04Af3ccB71b96Ae9e05d5973EEa2F709;
 
     address[] public participants = [
         // @bearni - taiko:hekla
+        0x4100a9B680B1Be1F10Cb8b5a57fE59eA77A8184e,
         0x4100a9B680B1Be1F10Cb8b5a57fE59eA77A8184e,
         address(0x1),
         address(0x2),
@@ -58,41 +59,29 @@ contract DeployScript is Script {
 
         uint256 OPEN_TIME = block.timestamp - 3 minutes;
         uint256 CLOSE_TIME = block.timestamp - 2 minutes;
-        uint256 START_TIME = block.timestamp -1 minutes;
+        uint256 START_TIME = block.timestamp - 1 minutes;
 
-
-        badgeChampions.createLeague(
-            OPEN_TIME, CLOSE_TIME, START_TIME);
-
+        badgeChampions.createLeague(OPEN_TIME, CLOSE_TIME, START_TIME);
 
         for (uint256 i = 0; i < participants.length; i++) {
             uint256 badgeId = i % 7;
             trailblazersBadges.mintTo(participants[i], badgeId);
             badgeChampions.registerChampionFor(
-                participants[i],
-                address(trailblazersBadges),
-               badgeId
+                participants[i], address(trailblazersBadges), badgeId
             );
         }
 
         vm.stopBroadcast();
-
     }
 
-
-
     function run() public {
-
-
-      createFreshTournament();
-
+        createFreshTournament();
 
         // close signups and start the tournament
         vm.startBroadcast(deployerPrivateKey);
 
-        uint256 TOURNAMENT_SEED = block.number * 123456789;
+        uint256 TOURNAMENT_SEED = block.number * 123_456_789;
         badgeChampions.startLeague(TOURNAMENT_SEED);
         vm.stopBroadcast();
-
     }
 }
