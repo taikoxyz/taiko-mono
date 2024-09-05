@@ -240,4 +240,19 @@ contract TrailblazersBadges is ERC721EnumerableUpgradeable, ECDSAWhitelist {
     function burn(uint256 _tokenId) public onlySeason2BadgeContract {
         _burn(_tokenId);
     }
+
+    /// @notice V4
+
+    // admin function for easy minting
+    // for testing only, remove from production
+    function mintTo(address _minter, uint256 _badgeId) public onlyOwner {
+        if (_badgeId > BADGE_SHINTO) revert INVALID_BADGE_ID();
+
+        uint256 tokenId = totalSupply() + 1;
+        badges[tokenId] = _badgeId;
+
+        _mint(_minter, tokenId);
+
+        emit BadgeCreated(tokenId, _minter, _badgeId);
+    }
 }

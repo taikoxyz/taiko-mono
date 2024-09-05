@@ -44,7 +44,7 @@ contract BadgeChampionsTest is Test {
     uint256 constant OPEN_TIME = 10_000;
     uint256 constant CLOSE_TIME = 20_000;
     uint256 constant START_TIME = 30_000;
-    uint256 constant END_TIME = 40_000;
+
 
     function setUp() public {
         utils = new UtilsScript();
@@ -104,32 +104,30 @@ contract BadgeChampionsTest is Test {
         assertEq(token.BADGE_SHINTO(), 7);
     }
 
-    function test_admin_createTournament() public {
-        // create tournament
+    function test_admin_createLeague() public {
+        // create league
         vm.prank(owner);
-        badgeChampions.createTournament(OPEN_TIME, CLOSE_TIME, START_TIME, END_TIME);
+        badgeChampions.createLeague(OPEN_TIME, CLOSE_TIME, START_TIME);
 
-        // check tournament
+        // check league
         (
             uint256 openTime,
             uint256 closeTime,
             uint256 startTime,
-            uint256 endTime,
             uint256 seed,
-            uint256 rounds,
             address[] memory participants
-        ) = badgeChampions.getCurrentTournament();
+        ) = badgeChampions.getCurrentLeague();
 
         assertEq(openTime, OPEN_TIME);
         assertEq(closeTime, CLOSE_TIME);
         assertEq(startTime, START_TIME);
-        assertEq(endTime, END_TIME);
+
         assertEq(seed, 0);
         assertEq(participants.length, 0);
     }
 
-    function test_revert_tournamentNotOpen() public {
-        test_admin_createTournament();
+    function test_revert_leagueNotOpen() public {
+        test_admin_createLeague();
         vm.startPrank(minters[0]);
         vm.expectRevert();
         badgeChampions.registerChampion(address(token), playersToBadgeIds[minters[0]]);
@@ -141,36 +139,33 @@ contract BadgeChampionsTest is Test {
     }
 
     function test_registerChampion() public {
-        test_admin_createTournament();
+        test_admin_createLeague();
 
         wait(OPEN_TIME + 1);
         // register champion
         vm.prank(minters[0]);
         badgeChampions.registerChampion(address(token), BADGE_IDS[0]);
 
-        // check tournament
+        // check league
         (
             uint256 openTime,
             uint256 closeTime,
             uint256 startTime,
-            uint256 endTime,
             uint256 seed,
-            uint256 rounds,
             address[] memory participants
-        ) = badgeChampions.getCurrentTournament();
+        ) = badgeChampions.getCurrentLeague();
 
         assertEq(openTime, OPEN_TIME);
         assertEq(closeTime, CLOSE_TIME);
         assertEq(startTime, START_TIME);
-        assertEq(endTime, END_TIME);
+
         assertEq(seed, 0);
-        assertEq(rounds, 0);
         assertEq(participants.length, 1);
         assertEq(participants[0], minters[0]);
     }
 
     function test_revert_registerChampion_notOwned() public {
-        test_admin_createTournament();
+        test_admin_createLeague();
 
         wait(OPEN_TIME + 1);
         // register champion
@@ -181,7 +176,7 @@ contract BadgeChampionsTest is Test {
     }
 
     function test_registerChampion_all() public {
-        test_admin_createTournament();
+        test_admin_createLeague();
 
         wait(OPEN_TIME + 1);
         // register champion
@@ -190,154 +185,65 @@ contract BadgeChampionsTest is Test {
             badgeChampions.registerChampion(address(token), BADGE_IDS[i]);
         }
 
-        // check tournament
+        // check league
         (
             uint256 openTime,
             uint256 closeTime,
             uint256 startTime,
-            uint256 endTime,
             uint256 seed,
-            uint256 rounds,
             address[] memory participants
-        ) = badgeChampions.getCurrentTournament();
+        ) = badgeChampions.getCurrentLeague();
 
         assertEq(openTime, OPEN_TIME);
         assertEq(closeTime, CLOSE_TIME);
         assertEq(startTime, START_TIME);
-        assertEq(endTime, END_TIME);
+
         assertEq(seed, 0);
-        assertEq(rounds, 0);
         assertEq(participants.length, minters.length);
         for (uint256 i = 0; i < minters.length; i++) {
             assertEq(participants[i], minters[i]);
         }
     }
 
-    function test_admin_startTournament() public {
+    function test_admin_startLeague() public {
         test_registerChampion_all();
 
         wait(CLOSE_TIME + 1);
-        // start tournament
+        // start league
         vm.prank(owner);
-        badgeChampions.startTournament(TOURNAMENT_SEED);
+        badgeChampions.startLeague(TOURNAMENT_SEED);
 
-        // check tournament
+        // check league
         (
             uint256 openTime,
             uint256 closeTime,
             uint256 startTime,
-            uint256 endTime,
             uint256 seed,
-            uint256 rounds,
             address[] memory participants
-        ) = badgeChampions.getCurrentTournament();
+        ) = badgeChampions.getCurrentLeague();
 
         assertEq(openTime, OPEN_TIME);
         assertEq(closeTime, CLOSE_TIME);
         assertEq(startTime, START_TIME);
-        assertEq(endTime, END_TIME);
+
         assertEq(seed, TOURNAMENT_SEED);
-        assertEq(rounds, 3); // 3 for 8 participants
         assertEq(participants.length, minters.length);
         for (uint256 i = 0; i < minters.length; i++) {
             assertEq(participants[i], minters[i]);
         }
     }
 
-    function test_revert_startTournament_notAdmin() public {
+    function test_revert_startLeague_notAdmin() public {
         test_registerChampion_all();
 
         wait(CLOSE_TIME + 1);
-        // start tournament
+        // start league
         vm.startPrank(minters[0]);
         vm.expectRevert();
-        badgeChampions.startTournament(TOURNAMENT_SEED);
+        badgeChampions.startLeague(TOURNAMENT_SEED);
         vm.stopPrank();
     }
 
-    function test_getWinner_single() public {
-        test_admin_startTournament();
 
-        wait(START_TIME + 1);
 
-        uint256 _round = 1;
-        uint256 _match = 0;
-
-        (address leftParticipant, address rightParticipant) =
-            badgeChampions.getParticipants(_round, _match);
-
-        (uint256 leftId, uint256 rightId) = badgeChampions.getMatchup(_round, _match);
-
-        assertTrue(leftId != rightId);
-        // get winner
-        address winner = badgeChampions.getWinner(_round, _match);
-
-        assertTrue(leftParticipant != rightParticipant);
-        assertEq(winner, leftParticipant);
-        assertFalse(winner == rightParticipant);
-    }
-
-    function test_getWinner_round() public {
-        test_admin_startTournament();
-
-        wait(START_TIME + 1);
-        uint256 round = 1; // Assuming we are testing round 1
-        uint256 numMatches = minters.length / 2; // Assuming we have an even number of participants
-
-        for (uint256 matchIndex = 0; matchIndex < numMatches; matchIndex++) {
-            // Retrieve participants for the match
-            (address participant1, address participant2) =
-                badgeChampions.getParticipants(round, matchIndex);
-
-            // Simulate a battle and get the winner
-            address winner = badgeChampions.getWinner(round, matchIndex);
-
-            // Assertions to ensure correctness
-            assertTrue(participant1 != participant2);
-            assertTrue(participant1 == winner || participant2 == winner);
-        }
-    }
-
-    function test_getWinner_tournament() public {
-        test_admin_startTournament();
-
-        wait(START_TIME + 1);
-        // uint256 numRounds = 3; // Assuming we have 3 rounds
-        // uint256 numMatches = minters.length / 2; // Assuming we have an even number of
-        // participants
-
-        (
-            uint256 openTime,
-            uint256 closeTime,
-            uint256 startTime,
-            uint256 endTime,
-            uint256 seed,
-            uint256 rounds,
-            address[] memory participants
-        ) = badgeChampions.getCurrentTournament();
-
-        uint256[] memory participantCount = new uint256[](rounds + 1);
-
-        participantCount[1] = participants.length / 2;
-        participantCount[2] = participantCount[1] / 2;
-        participantCount[3] = participantCount[2] / 2;
-
-        for (uint256 roundIndex = 1; roundIndex <= rounds; roundIndex++) {
-            uint256 numMatches =
-                badgeChampions.calculateMatchesInRound(roundIndex, participants.length);
-            assertEq(numMatches, participantCount[roundIndex]);
-            for (uint256 matchIndex = 0; matchIndex < numMatches; matchIndex++) {
-                // Retrieve participants for the match
-                (address participant1, address participant2) =
-                    badgeChampions.getParticipants(roundIndex, matchIndex);
-
-                // Simulate a battle and get the winner
-                address winner = badgeChampions.getWinner(roundIndex, matchIndex);
-
-                // Assertions to ensure correctness
-                assertTrue(participant1 != participant2);
-                assertTrue(participant1 == winner || participant2 == winner);
-            }
-        }
-    }
 }

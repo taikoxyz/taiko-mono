@@ -9,6 +9,7 @@ import { TrailblazersBadges } from "../../../contracts/trailblazers-badges/Trail
 import { IMinimalBlacklist } from "@taiko/blacklist/IMinimalBlacklist.sol";
 import { TrailblazersBadgesS2 } from
     "../../../contracts/trailblazers-badges/TrailblazersBadgesS2.sol";
+import { BadgeChampions } from "../../../contracts/trailblazers-badges/BadgeChampions.sol";
 
 contract MockBlacklist is IMinimalBlacklist {
     function isBlacklisted(address _account) external pure returns (bool) {
@@ -63,6 +64,9 @@ contract DeployS2Script is Script {
         address impl;
         address proxy;
         TrailblazersBadges s1Token;
+        TrailblazersBadgesS2 s2Token;
+        BadgeChampions badgeChampions;
+
         vm.startBroadcast(deployerPrivateKey);
 
         if (block.chainid == 167_000) {
@@ -92,21 +96,34 @@ contract DeployS2Script is Script {
             )
         );
 
-        TrailblazersBadgesS2 s2Token = TrailblazersBadgesS2(proxy);
+        s2Token = TrailblazersBadgesS2(proxy);
 
         console.log("Token Base URI:", baseURI);
         console.log("Deployed TrailblazersBadgesS2 to:", address(s2Token));
 
-        vm.serializeAddress(jsonRoot, "Owner", s2Token.owner());
+        // Deploy Badge Champions
+        impl = address(new BadgeChampions());
+        proxy = address(
+            new ERC1967Proxy(
+                impl,
+                abi.encodeCall(BadgeChampions.initialize, (address(s1Token), address(s2Token)))
+            )
+        );
+
+        badgeChampions = BadgeChampions(proxy);
+
+        // Register deployment
+
         vm.serializeAddress(jsonRoot, "TrailblazersBadges", address(s1Token));
-        string memory finalJson =
-            vm.serializeAddress(jsonRoot, "TrailblazersBadgesS2", address(s2Token));
+        vm.serializeAddress(jsonRoot, "TrailblazersBadgesS2", address(s2Token));
+        vm.serializeAddress(jsonRoot, "BadgeChampions", address(badgeChampions));
+        string memory finalJson = vm.serializeAddress(jsonRoot, "Owner", s2Token.owner());
         vm.writeJson(finalJson, jsonLocation);
 
         // open up migrations for all badges on hekla
         if (block.chainid != 167_000) {
-            uint256[] memory tokenIds = new uint256[](s1Token.totalSupply());
-            for (uint256 i = 0; i < s1Token.totalSupply(); i++) {
+            uint256[] memory tokenIds = new uint256[](8);
+            for (uint256 i = 0; i < tokenIds.length; i++) {
                 tokenIds[i] = i;
             }
             s2Token.enableMigrations(tokenIds);
