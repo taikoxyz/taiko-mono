@@ -28,20 +28,15 @@ contract DeployScript is Script {
 
         // deploy token with empty root
         address impl = address(new RegisterProfilePicture());
-        address proxy = address(
-            new ERC1967Proxy(
-                impl,
-                abi.encodeCall(
-                    RegisterProfilePicture.initialize, ()
-                )
-            )
-        );
+        address proxy =
+            address(new ERC1967Proxy(impl, abi.encodeCall(RegisterProfilePicture.initialize, ())));
 
         RegisterProfilePicture profile = RegisterProfilePicture(proxy);
 
         console.log("Deployed TaikoPartyTicket to:", address(profile));
 
-        string memory finalJson = vm.serializeAddress(jsonRoot, "RegisterProfilePicture", address(profile));
+        string memory finalJson =
+            vm.serializeAddress(jsonRoot, "RegisterProfilePicture", address(profile));
         vm.writeJson(finalJson, jsonLocation);
 
         vm.stopBroadcast();
