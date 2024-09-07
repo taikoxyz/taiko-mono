@@ -87,7 +87,11 @@ func (s *ZKvmProofProducer) RequestProof(
 		return nil, err
 	}
 
-	metrics.ProverSgxProofGeneratedCounter.Add(1)
+	if s.ZKProofType == ZKProofTypeR0 {
+		metrics.ProverR0ProofGeneratedCounter.Add(1)
+	} else if s.ZKProofType == ZKProofTypeSP1 {
+		metrics.ProverSp1ProofGeneratedCounter.Add(1)
+	}
 
 	return &ProofWithHeader{
 		BlockID: blockID,
