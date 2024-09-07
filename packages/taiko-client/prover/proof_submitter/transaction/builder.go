@@ -79,16 +79,40 @@ func (a *ProveBlockTxBuilder) Build(
 				return nil, err
 			}
 
-			if a.proverSetAddress != ZeroAddress {
-				if data, err = encoding.ProverSetABI.Pack("proveBlock", blockID.Uint64(), input); err != nil {
-					return nil, err
+			if meta.IsOntakeBlock() {
+				if a.proverSetAddress != ZeroAddress {
+					if data, err = encoding.ProverSetABI.Pack(
+						"proveBlocks",
+						[]uint64{blockID.Uint64()},
+						[][]byte{input},
+						[]byte{},
+					); err != nil {
+						return nil, err
+					}
+					to = a.proverSetAddress
+				} else {
+					if data, err = encoding.TaikoL1ABI.Pack(
+						"proveBlocks",
+						[]uint64{blockID.Uint64()},
+						[][]byte{input},
+						[]byte{},
+					); err != nil {
+						return nil, err
+					}
+					to = a.taikoL1Address
 				}
-				to = a.proverSetAddress
 			} else {
-				if data, err = encoding.TaikoL1ABI.Pack("proveBlock", blockID.Uint64(), input); err != nil {
-					return nil, err
+				if a.proverSetAddress != ZeroAddress {
+					if data, err = encoding.ProverSetABI.Pack("proveBlock", blockID.Uint64(), input); err != nil {
+						return nil, err
+					}
+					to = a.proverSetAddress
+				} else {
+					if data, err = encoding.TaikoL1ABI.Pack("proveBlock", blockID.Uint64(), input); err != nil {
+						return nil, err
+					}
+					to = a.taikoL1Address
 				}
-				to = a.taikoL1Address
 			}
 		} else {
 			if tier > encoding.TierGuardianMinorityID {
