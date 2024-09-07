@@ -80,7 +80,8 @@ contract BadgeChampions is
         address indexed owner,
         address badgesContract,
         uint256 tokenId,
-        uint256 power
+        uint256 power,
+        uint256 badgeId
     );
 
     error ELEMENT_NOT_FOUND();
@@ -160,8 +161,9 @@ contract BadgeChampions is
         _;
     }
 
-    function calculatePower(uint256 _badgeId) public view returns (uint256) {
-        return powerLevels[_badgeId % powerLevels.length];
+    function calculatePower(uint256 _badgeId) public pure returns (uint256) {
+        return ((1 + _badgeId) * 125) / 10;
+        //return powerLevels[_badgeId % powerLevels.length];
     }
 
     function _registerChampionFor(
@@ -178,7 +180,7 @@ contract BadgeChampions is
         uint256 tokenId = season1Badges.getTokenId(_player, _badgeId);
         uint256 power = calculatePower(_badgeId);
 
-        emit ChampionRegistered(currentLeagueId, _player, _badgeContract, tokenId, power);
+        emit ChampionRegistered(currentLeagueId, _player, _badgeContract, tokenId, power, _badgeId);
     }
 
     function registerChampionFor(
