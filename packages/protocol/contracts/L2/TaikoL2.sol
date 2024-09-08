@@ -11,6 +11,7 @@ import "../libs/LibAddress.sol";
 import "../signal/ISignalService.sol";
 import "./Lib1559Math.sol";
 import "./LibL2Config.sol";
+import "./IBlockHashReader.sol";
 
 /// @title TaikoL2
 /// @notice Taiko L2 is a smart contract that handles cross-layer message
@@ -19,7 +20,7 @@ import "./LibL2Config.sol";
 /// communication, manage EIP-1559 parameters for gas pricing, and store
 /// verified L1 block information.
 /// @custom:security-contact security@taiko.xyz
-contract TaikoL2 is EssentialContract {
+contract TaikoL2 is EssentialContract, IBlockHashReader {
     using LibAddress for address;
     using SafeERC20 for IERC20;
 
@@ -28,7 +29,7 @@ contract TaikoL2 is EssentialContract {
 
     /// @notice Mapping from L2 block numbers to their block hashes. All L2 block hashes will
     /// be saved in this mapping.
-    mapping(uint256 blockId => bytes32 blockHash) public l2Hashes;
+    mapping(uint256 blockId => bytes32 blockHash) private _l2Hashes;
 
     /// @notice A hash to check the integrity of public inputs.
     /// @dev Slot 2.
@@ -92,10 +93,11 @@ contract TaikoL2 is EssentialContract {
 
         if (block.number == 0) {
             // This is the case in real L2 genesis
-        } else if (block.number == 1) {
+        }
+        else if (block.number == 1) {
             // This is the case in tests
             uint256 parentHeight = block.number - 1;
-            l2Hashes[parentHeight] = blockhash(parentHeight);
+            _l2Hashes[parentHeight] = blockhash(parentHeight);
         } else {
             revert L2_TOO_LATE();
         }
@@ -150,7 +152,7 @@ contract TaikoL2 is EssentialContract {
 
         // Update state variables
         bytes32 parentHash = blockhash(parentId);
-        l2Hashes[parentId] = parentHash;
+        _l2Hashes[parentId] = parentHash;
 
         publicInputHash = newPublicInputHash;
         parentGasExcess = newGasExcess;
@@ -223,7 +225,7 @@ contract TaikoL2 is EssentialContract {
 
         // Update state variables
         bytes32 parentHash = blockhash(parentId);
-        l2Hashes[parentId] = parentHash;
+        _l2Hashes[parentId] = parentHash;
         parentTimestamp = uint64(block.timestamp);
 
         emit Anchored(parentHash, parentGasExcess);
@@ -280,10 +282,10 @@ contract TaikoL2 is EssentialContract {
     /// @param _blockId The L2 block number to retrieve the block hash for.
     /// @return The block hash for the specified L2 block id, or zero if the
     /// block id is greater than or equal to the current block number.
-    function getBlockHash(uint64 _blockId) public view returns (bytes32) {
+    function getBlockHash(uint256 _blockId) public view returns (bytes32) {
         if (_blockId >= block.number) return 0;
         if (_blockId + 256 >= block.number) return blockhash(_blockId);
-        return l2Hashes[_blockId];
+        return _l2Hashes[_blockId];
     }
 
     /// @notice Returns EIP1559 related configurations.
@@ -353,7 +355,9 @@ contract TaikoL2 is EssentialContract {
         );
     }
 
-    function _calcPublicInputHash(uint256 _blockId)
+    function _calcPublicInputHash(
+        uint256 _blockId
+    )
         private
         view
         returns (bytes32 publicInputHashOld, bytes32 publicInputHashNew)
