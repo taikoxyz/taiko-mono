@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.24;
+pragma solidity ^0.8.27;
 
 /// @title IBridgedERC721
 /// @notice Contract for bridging ERC721 tokens across different chains.

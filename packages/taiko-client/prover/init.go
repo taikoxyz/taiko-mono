@@ -121,6 +121,14 @@ func (p *Prover) initProofSubmitters(
 				Dummy:               p.cfg.Dummy,
 				RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 			}
+		case encoding.TierZkVMSp1ID:
+			producer = &proofProducer.ZKvmProofProducer{
+				ZKProofType:         proofProducer.ZKProofTypeSP1,
+				RaikoHostEndpoint:   p.cfg.RaikoZKVMHostEndpoint,
+				JWT:                 p.cfg.RaikoJWT,
+				Dummy:               p.cfg.Dummy,
+				RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
+			}
 		case encoding.TierGuardianMinorityID:
 			producer = proofProducer.NewGuardianProofProducer(encoding.TierGuardianMinorityID, p.cfg.EnableLivenessBondProof)
 		case encoding.TierGuardianMajorityID:
@@ -163,7 +171,6 @@ func (p *Prover) initL1Current(startingBlockID *big.Int) error {
 	if err != nil {
 		return err
 	}
-	p.genesisHeightL1 = stateVars.A.GenesisHeight
 
 	if startingBlockID == nil {
 		if stateVars.B.LastVerifiedBlockId == 0 {
@@ -215,7 +222,6 @@ func (p *Prover) initEventHandlers() error {
 		SharedState:           p.sharedState,
 		ProverAddress:         p.ProverAddress(),
 		ProverSetAddress:      p.cfg.ProverSetAddress,
-		GenesisHeightL1:       p.genesisHeightL1,
 		RPC:                   p.rpc,
 		ProofGenerationCh:     p.proofGenerationCh,
 		AssignmentExpiredCh:   p.assignmentExpiredCh,

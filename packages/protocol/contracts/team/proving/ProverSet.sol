@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.24;
+pragma solidity ^0.8.27;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 import "@openzeppelin/contracts/interfaces/IERC1271.sol";
@@ -112,6 +112,19 @@ contract ProverSet is EssentialContract, IERC1271 {
     /// @notice Proves or contests a Taiko block.
     function proveBlock(uint64 _blockId, bytes calldata _input) external onlyProver nonReentrant {
         ITaikoL1(taikoL1()).proveBlock(_blockId, _input);
+    }
+
+    /// @notice Batch proves or contests Taiko blocks.
+    function proveBlocks(
+        uint64[] calldata _blockId,
+        bytes[] calldata _input,
+        bytes calldata _batchProof
+    )
+        external
+        onlyProver
+        nonReentrant
+    {
+        ITaikoL1(taikoL1()).proveBlocks(_blockId, _input, _batchProof);
     }
 
     /// @notice Deposits Taiko token to TaikoL1 contract.

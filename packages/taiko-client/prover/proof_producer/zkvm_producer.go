@@ -87,7 +87,11 @@ func (s *ZKvmProofProducer) RequestProof(
 		return nil, err
 	}
 
-	metrics.ProverSgxProofGeneratedCounter.Add(1)
+	if s.ZKProofType == ZKProofTypeR0 {
+		metrics.ProverR0ProofGeneratedCounter.Add(1)
+	} else if s.ZKProofType == ZKProofTypeSP1 {
+		metrics.ProverSp1ProofGeneratedCounter.Add(1)
+	}
 
 	return &ProofWithHeader{
 		BlockID: blockID,
@@ -148,17 +152,32 @@ func (s *ZKvmProofProducer) requestProof(
 	ctx context.Context,
 	opts *ProofRequestOptions,
 ) (*RaikoRequestProofBodyResponseV2, error) {
-	reqBody := RaikoRequestProofBody{
-		Type:     s.ZKProofType,
-		Block:    opts.BlockID,
-		Prover:   opts.ProverAddress.Hex()[2:],
-		Graffiti: opts.Graffiti,
-		RISC0: &RISC0RequestProofBodyParam{
-			Bonsai:       true,
-			Snark:        true,
-			Profile:      false,
-			ExecutionPo2: big.NewInt(20),
-		},
+	var reqBody RaikoRequestProofBody
+	switch s.ZKProofType {
+	case ZKProofTypeSP1:
+		reqBody = RaikoRequestProofBody{
+			Type:     s.ZKProofType,
+			Block:    opts.BlockID,
+			Prover:   opts.ProverAddress.Hex()[2:],
+			Graffiti: opts.Graffiti,
+			SP1: &SP1RequestProofBodyParam{
+				Recursion: "plonk",
+				Prover:    "network",
+			},
+		}
+	default:
+		reqBody = RaikoRequestProofBody{
+			Type:     s.ZKProofType,
+			Block:    opts.BlockID,
+			Prover:   opts.ProverAddress.Hex()[2:],
+			Graffiti: opts.Graffiti,
+			RISC0: &RISC0RequestProofBodyParam{
+				Bonsai:       true,
+				Snark:        true,
+				Profile:      false,
+				ExecutionPo2: big.NewInt(20),
+			},
+		}
 	}
 
 	client := &http.Client{}
@@ -259,6 +278,8 @@ func (s *ZKvmProofProducer) requestCancel(
 // Tier implements the ProofProducer interface.
 func (s *ZKvmProofProducer) Tier() uint16 {
 	switch s.ZKProofType {
+	case ZKProofTypeSP1:
+		return encoding.TierZkVMSp1ID
 	default:
 		return encoding.TierZkVMRisc0ID
 	}

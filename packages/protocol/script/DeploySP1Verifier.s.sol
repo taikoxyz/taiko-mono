@@ -1,35 +1,31 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.24;
+pragma solidity ^0.8.27;
 
-import "../contracts/verifiers/SP1Verifier.sol";
+import { SP1Verifier as SP1Verifier120rc } from "@sp1-contracts/src/v1.2.0-rc/SP1VerifierPlonk.sol";
 import "../test/DeployCapability.sol";
+import "../contracts/verifiers/SP1Verifier.sol";
 
 contract DeploySP1Verifier is DeployCapability {
-    // On mainnet, rollup specific address manager is as follows.
-    address public addressManager = 0x579f40D0BE111b823962043702cabe6Aaa290780;
+    uint256 public deployerPrivKey = vm.envUint("PRIVATE_KEY");
+    address public rollupAddressManager = vm.envAddress("ROLLUP_ADDRESS_MANAGER");
 
-    modifier broadcast() {
-        vm.startBroadcast();
-        _;
-        vm.stopBroadcast();
-    }
+    function run() external {
+        require(deployerPrivKey != 0, "invalid deployer priv key");
+        require(rollupAddressManager != address(0), "invalid rollup address manager address");
 
-    function run() external broadcast {
-        // address sp1RemoteVerifierOrGateway = vm.envOr("SP1_REMOTE_VERIFIER_GATEWAY", address(0));
-        // // address(0)
-        // is fine, we can set it later
-        address owner = vm.envOr("SP1_VERIFIER_OWNER", msg.sender);
+        vm.startBroadcast(deployerPrivKey);
 
-        address sp1Verifier = address(new SP1Verifier());
+        // Deploy sp1 plonk verifier
+        SP1Verifier120rc sp1Verifier120rc = new SP1Verifier120rc();
+        register(rollupAddressManager, "sp1_remote_verifier", address(sp1Verifier120rc));
 
-        address proxy = deployProxy({
-            name: "sp1_verifier",
-            impl: sp1Verifier,
-            data: abi.encodeCall(SP1Verifier.init, (owner, addressManager))
+        deployProxy({
+            name: "tier_zkvm_sp1",
+            impl: address(new SP1Verifier()),
+            data: abi.encodeCall(SP1Verifier.init, (address(0), rollupAddressManager)),
+            registerTo: rollupAddressManager
         });
 
-        console2.log();
-        console2.log("Deployed SP1Verifier impl at address: %s", sp1Verifier);
-        console2.log("Deployed SP1Verifier proxy at address: %s", proxy);
+        vm.stopBroadcast();
     }
 }

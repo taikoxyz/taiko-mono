@@ -33,7 +33,7 @@
 | __paused        | uint8                       | 201  | 1      | 1     | contracts/L2/TaikoL2.sol:TaikoL2 |
 | lastUnpausedAt  | uint64                      | 201  | 2      | 8     | contracts/L2/TaikoL2.sol:TaikoL2 |
 | __gap           | uint256[49]                 | 202  | 0      | 1568  | contracts/L2/TaikoL2.sol:TaikoL2 |
-| l2Hashes        | mapping(uint256 => bytes32) | 251  | 0      | 32    | contracts/L2/TaikoL2.sol:TaikoL2 |
+| _blockhashes    | mapping(uint256 => bytes32) | 251  | 0      | 32    | contracts/L2/TaikoL2.sol:TaikoL2 |
 | publicInputHash | bytes32                     | 252  | 0      | 32    | contracts/L2/TaikoL2.sol:TaikoL2 |
 | parentGasExcess | uint64                      | 253  | 0      | 8     | contracts/L2/TaikoL2.sol:TaikoL2 |
 | lastSyncedBlock | uint64                      | 253  | 8      | 8     | contracts/L2/TaikoL2.sol:TaikoL2 |
