@@ -277,10 +277,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         );
     }
 
-    /// @notice Retrieves the block hash for the given L2 block number.
-    /// @param _blockId The L2 block number to retrieve the block hash for.
-    /// @return The block hash for the specified L2 block id, or zero if the
-    /// block id is greater than or equal to the current block number.
+    /// @inheritdoc IBlockHash
     function getBlockHash(uint256 _blockId) public view returns (bytes32) {
         if (_blockId >= block.number) return 0;
         if (_blockId + 256 >= block.number) return blockhash(_blockId);
