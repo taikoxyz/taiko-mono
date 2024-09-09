@@ -241,6 +241,10 @@ var (
 	}
 	blockParamsV2Components = []abi.ArgumentMarshaling{
 		{
+			Name: "proposer",
+			Type: "address",
+		},
+		{
 			Name: "coinbase",
 			Type: "address",
 		},
