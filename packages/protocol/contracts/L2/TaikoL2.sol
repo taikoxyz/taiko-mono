@@ -11,7 +11,7 @@ import "../libs/LibAddress.sol";
 import "../signal/ISignalService.sol";
 import "./Lib1559Math.sol";
 import "./LibL2Config.sol";
-import "./IBlockHashReader.sol";
+import "./IBlockHash.sol";
 
 /// @title TaikoL2
 /// @notice Taiko L2 is a smart contract that handles cross-layer message
@@ -20,7 +20,7 @@ import "./IBlockHashReader.sol";
 /// communication, manage EIP-1559 parameters for gas pricing, and store
 /// verified L1 block information.
 /// @custom:security-contact security@taiko.xyz
-contract TaikoL2 is EssentialContract, IBlockHashReader {
+contract TaikoL2 is EssentialContract, IBlockHash {
     using LibAddress for address;
     using SafeERC20 for IERC20;
 
