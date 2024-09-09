@@ -20,6 +20,7 @@ library LibProposing {
         ITierProvider tierProvider;
         bytes32 parentMetaHash;
         bool postFork;
+        bool allowCustomProposer;
         bytes32 extraData;
     }
 
@@ -51,6 +52,7 @@ library LibProposing {
     error L1_BLOB_NOT_AVAILABLE();
     error L1_BLOB_NOT_FOUND();
     error L1_INVALID_ANCHOR_BLOCK();
+    error L1_INVALID_CUSTOM_PROPOSER();
     error L1_INVALID_PARAMS();
     error L1_INVALID_PROPOSER();
     error L1_INVALID_TIMESTAMP();
@@ -148,10 +150,15 @@ library LibProposing {
             revert L1_TOO_MANY_BLOCKS();
         }
 
+        address permittedProposer = _resolver.resolve(LibStrings.B_BLOCK_PROPOSER, true);
+        if (permittedProposer != address(0)) {
+            require(permittedProposer == msg.sender, L1_INVALID_PROPOSER());
+            local.allowCustomProposer = true;
+        }
+
         if (local.postFork) {
             if (_params.length != 0) {
                 local.params = abi.decode(_params, (TaikoData.BlockParamsV2));
-                // otherwise use a default BlockParamsV2 with 0 values
             }
         } else {
             TaikoData.BlockParams memory paramsV1 = abi.decode(_params, (TaikoData.BlockParams));
@@ -159,8 +166,17 @@ library LibProposing {
             local.extraData = paramsV1.extraData;
         }
 
+        if (local.params.proposer == address(0)) {
+            local.params.proposer = msg.sender;
+        } else {
+            require(
+                local.params.proposer == msg.sender || local.allowCustomProposer,
+                L1_INVALID_CUSTOM_PROPOSER()
+            );
+        }
+
         if (local.params.coinbase == address(0)) {
-            local.params.coinbase = msg.sender;
+            local.params.coinbase = local.params.proposer;
         }
 
         if (!local.postFork || local.params.anchorBlockId == 0) {
@@ -232,7 +248,7 @@ library LibProposing {
                 minTier: 0, // to be initialized below
                 blobUsed: _txList.length == 0,
                 parentMetaHash: local.params.parentMetaHash,
-                proposer: msg.sender,
+                proposer: local.params.proposer,
                 livenessBond: _config.livenessBond,
                 proposedAt: uint64(block.timestamp),
                 proposedIn: uint64(block.number),
@@ -294,7 +310,7 @@ library LibProposing {
             ++_state.slotB.numBlocks;
         }
 
-        LibBonds.debitBond(_state, _resolver, msg.sender, _config.livenessBond);
+        LibBonds.debitBond(_state, _resolver, local.params.proposer, _config.livenessBond);
 
         // Bribe the block builder. Unlike 1559-tips, this tip is only made
         // if this transaction succeeds.
@@ -307,7 +323,7 @@ library LibProposing {
         } else {
             emit BlockProposed({
                 blockId: metaV1_.id,
-                assignedProver: msg.sender,
+                assignedProver: local.params.proposer,
                 livenessBond: _config.livenessBond,
                 meta: metaV1_,
                 depositsProcessed: new TaikoData.EthDeposit[](0)

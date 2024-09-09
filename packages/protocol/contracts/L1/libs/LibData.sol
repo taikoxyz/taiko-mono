@@ -18,6 +18,7 @@ library LibData {
         returns (TaikoData.BlockParamsV2 memory)
     {
         return TaikoData.BlockParamsV2({
+            proposer: address(0),
             coinbase: _v1.coinbase,
             parentMetaHash: _v1.parentMetaHash,
             anchorBlockId: 0,
