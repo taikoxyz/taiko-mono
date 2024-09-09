@@ -29,7 +29,7 @@ contract TaikoL2 is EssentialContract, IBlockHashReader {
 
     /// @notice Mapping from L2 block numbers to their block hashes. All L2 block hashes will
     /// be saved in this mapping.
-    mapping(uint256 blockId => bytes32 blockHash) private _l2Hashes;
+    mapping(uint256 blockId => bytes32 blockHash) private _blockhashes;
 
     /// @notice A hash to check the integrity of public inputs.
     /// @dev Slot 2.
@@ -96,7 +96,7 @@ contract TaikoL2 is EssentialContract, IBlockHashReader {
         } else if (block.number == 1) {
             // This is the case in tests
             uint256 parentHeight = block.number - 1;
-            _l2Hashes[parentHeight] = blockhash(parentHeight);
+            _blockhashes[parentHeight] = blockhash(parentHeight);
         } else {
             revert L2_TOO_LATE();
         }
@@ -151,7 +151,7 @@ contract TaikoL2 is EssentialContract, IBlockHashReader {
 
         // Update state variables
         bytes32 parentHash = blockhash(parentId);
-        _l2Hashes[parentId] = parentHash;
+        _blockhashes[parentId] = parentHash;
 
         publicInputHash = newPublicInputHash;
         parentGasExcess = newGasExcess;
@@ -224,7 +224,7 @@ contract TaikoL2 is EssentialContract, IBlockHashReader {
 
         // Update state variables
         bytes32 parentHash = blockhash(parentId);
-        _l2Hashes[parentId] = parentHash;
+        _blockhashes[parentId] = parentHash;
         parentTimestamp = uint64(block.timestamp);
 
         emit Anchored(parentHash, parentGasExcess);
@@ -284,7 +284,7 @@ contract TaikoL2 is EssentialContract, IBlockHashReader {
     function getBlockHash(uint256 _blockId) public view returns (bytes32) {
         if (_blockId >= block.number) return 0;
         if (_blockId + 256 >= block.number) return blockhash(_blockId);
-        return _l2Hashes[_blockId];
+        return _blockhashes[_blockId];
     }
 
     /// @notice Returns EIP1559 related configurations.
