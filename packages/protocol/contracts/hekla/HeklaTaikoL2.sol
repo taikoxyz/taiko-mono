@@ -7,6 +7,6 @@ import "../L2/TaikoL2.sol";
 /// @custom:security-contact security@taiko.xyz
 contract HeklaTaikoL2 is TaikoL2 {
     function ontakeForkHeight() public pure override returns (uint64) {
-        return 793_000;
+        return 840450;
     }
 }

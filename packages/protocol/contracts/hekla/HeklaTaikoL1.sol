@@ -27,7 +27,7 @@ contract HeklaTaikoL1 is TaikoL1 {
                 minGasExcess: 1_340_000_000,
                 maxGasIssuancePerBlock: 600_000_000 // two minutes
              }),
-            ontakeForkHeight: 793_000
+            ontakeForkHeight: 840450
         });
     }
 }
