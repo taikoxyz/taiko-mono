@@ -66,7 +66,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         bytes calldata _txList
     )
         external
-        onlyFromOptionalNamed(LibStrings.B_BLOCK_PROPOSER)
         whenNotPaused
         nonReentrant
         emitEventForClient
@@ -81,7 +80,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         bytes[] calldata _txListArr
     )
         external
-        onlyFromOptionalNamed(LibStrings.B_BLOCK_PROPOSER)
         whenNotPaused
         nonReentrant
         emitEventForClient

@@ -79,6 +79,7 @@ library TaikoData {
     }
 
     struct BlockParamsV2 {
+        address proposer;
         address coinbase;
         bytes32 parentMetaHash;
         uint64 anchorBlockId; // NEW

@@ -19,6 +19,8 @@ library LibProposing {
         TaikoData.BlockParamsV2 params;
         ITierProvider tierProvider;
         bytes32 parentMetaHash;
+        address permittedProposer;
+        bool allowCustomProposer;
     }
 
     /// @notice Emitted when a block is proposed.
@@ -34,6 +36,7 @@ library LibProposing {
     error L1_BLOB_NOT_AVAILABLE();
     error L1_BLOB_NOT_FOUND();
     error L1_INVALID_ANCHOR_BLOCK();
+    error L1_INVALID_CUSTOM_PROPOSER();
     error L1_INVALID_PARAMS();
     error L1_INVALID_PROPOSER();
     error L1_INVALID_TIMESTAMP();
@@ -122,13 +125,27 @@ library LibProposing {
             L1_TOO_MANY_BLOCKS()
         );
 
+        local.permittedProposer = _resolver.resolve(LibStrings.B_BLOCK_PROPOSER, true);
+        if (local.permittedProposer != address(0)) {
+            require(local.permittedProposer == msg.sender, L1_INVALID_PROPOSER());
+            local.allowCustomProposer = true;
+        }
+
         if (_params.length != 0) {
             local.params = abi.decode(_params, (TaikoData.BlockParamsV2));
-            // otherwise use a default BlockParamsV2 with 0 values
+        }
+
+        if (local.params.proposer == address(0)) {
+            local.params.proposer = msg.sender;
+        } else {
+            require(
+                local.params.proposer == msg.sender || local.allowCustomProposer,
+                L1_INVALID_CUSTOM_PROPOSER()
+            );
         }
 
         if (local.params.coinbase == address(0)) {
-            local.params.coinbase = msg.sender;
+            local.params.coinbase = local.params.proposer;
         }
 
         if (local.params.anchorBlockId == 0) {
@@ -194,7 +211,7 @@ library LibProposing {
                 minTier: 0, // to be initialized below
                 blobUsed: _txList.length == 0,
                 parentMetaHash: local.params.parentMetaHash,
-                proposer: msg.sender,
+                proposer: local.params.proposer,
                 livenessBond: _config.livenessBond,
                 proposedAt: uint64(block.timestamp),
                 proposedIn: uint64(block.number),
@@ -252,7 +269,7 @@ library LibProposing {
             ++_state.slotB.numBlocks;
         }
 
-        LibBonds.debitBond(_state, _resolver, msg.sender, _config.livenessBond);
+        LibBonds.debitBond(_state, _resolver, local.params.proposer, _config.livenessBond);
         emit BlockProposedV2(meta_.id, meta_);
     }
 
