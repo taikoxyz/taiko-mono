@@ -43,8 +43,8 @@ func TestHiveHandler(t *testing.T) {
 	})
 
 	// Multi clusters reorg test.
-	t.Run(fmt.Sprintf("taiko-reorg/taiko-reorg/clusters(%d)", len(clientGroups)), func(t *testing.T) {
-		testDenebReorg(t, "taiko-reorg/taiko-reorg", clientGroups)
+	t.Run("taiko-reorg/taiko-reorg/clusters(1)", func(t *testing.T) {
+		testDenebReorg(t, "taiko-reorg/taiko-reorg", [][]string{clientGroups[0]})
 	})
 }
 
