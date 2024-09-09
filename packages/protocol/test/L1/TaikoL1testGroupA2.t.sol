@@ -102,6 +102,7 @@ contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
 
         // Propose the first block with default parameters
         TaikoData.BlockParamsV2 memory params = TaikoData.BlockParamsV2({
+            proposer: address(0),
             coinbase: address(0),
             parentMetaHash: 0,
             anchorBlockId: 0,
@@ -141,6 +142,7 @@ contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
         // Propose the second block with custom parameters
 
         params = TaikoData.BlockParamsV2({
+            proposer: address(0),
             coinbase: Bob,
             parentMetaHash: 0,
             anchorBlockId: 90,
