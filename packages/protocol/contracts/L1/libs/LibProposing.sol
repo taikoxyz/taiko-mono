@@ -160,19 +160,19 @@ library LibProposing {
             if (_params.length != 0) {
                 local.params = abi.decode(_params, (TaikoData.BlockParamsV2));
             }
-            if (local.params.proposer == address(0)) {
-                local.params.proposer = msg.sender;
-            } else {
-                require(
-                    local.params.proposer == msg.sender || local.allowCustomProposer,
-                    L1_INVALID_CUSTOM_PROPOSER()
-                );
-            }
         } else {
             TaikoData.BlockParams memory paramsV1 = abi.decode(_params, (TaikoData.BlockParams));
             local.params = LibData.blockParamsV1ToV2(paramsV1);
-            local.params.proposer = msg.sender;
             local.extraData = paramsV1.extraData;
+        }
+
+        if (local.params.proposer == address(0)) {
+            local.params.proposer = msg.sender;
+        } else {
+            require(
+                local.params.proposer == msg.sender || local.allowCustomProposer,
+                L1_INVALID_CUSTOM_PROPOSER()
+            );
         }
 
         if (local.params.coinbase == address(0)) {

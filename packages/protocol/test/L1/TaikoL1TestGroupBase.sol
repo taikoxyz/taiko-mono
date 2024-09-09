@@ -30,6 +30,7 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
         TaikoData.HookCall[] memory hookcalls = new TaikoData.HookCall[](0);
         bytes memory txList = new bytes(10);
 
+        console2.log("in test: proposer", proposer);
         vm.prank(proposer);
         if (revertReason != "") vm.expectRevert(revertReason);
         (meta,) = L1.proposeBlock{ value: 3 ether }(

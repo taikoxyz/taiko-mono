@@ -35,7 +35,7 @@ contract TaikoL1TestGroupA2 is TaikoL1TestGroupBase {
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
-        proposeBlock(Alice, TaikoL1.L1_FORK_ERROR.selector);
+        proposeBlock(Alice, LibProposing.L1_INVALID_CUSTOM_PROPOSER.selector);
 
         TaikoData.BlockParamsV2 memory params;
         for (uint64 i = 1; i <= 5; ++i) {
