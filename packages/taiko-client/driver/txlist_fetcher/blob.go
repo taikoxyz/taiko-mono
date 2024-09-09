@@ -37,7 +37,7 @@ func (d *BlobFetcher) Fetch(
 	}
 
 	// Fetch the L1 block sidecars.
-	sidecars, err := d.dataSource.GetBlobs(ctx, meta.GetTimestamp(), meta.GetBlobHash())
+	sidecars, err := d.dataSource.GetBlobs(ctx, meta.GetProposedAt(), meta.GetBlobHash())
 	if err != nil {
 		return nil, err
 	}
