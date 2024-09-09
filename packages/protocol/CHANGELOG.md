@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.0](https://github.com/taikoxyz/taiko-mono/compare/protocol-v1.9.0...protocol-v1.10.0) (2024-09-09)
+
+
+### Features
+
+* **protocol:** allow msg.sender to customize block proposer addresses ([#18048](https://github.com/taikoxyz/taiko-mono/issues/18048)) ([22055cc](https://github.com/taikoxyz/taiko-mono/commit/22055cc95e51d07b6b57ab5cb2e4ccd9a97d594a))
+
 ## [1.9.0](https://github.com/taikoxyz/taiko-mono/compare/protocol-v1.8.0...protocol-v1.9.0) (2024-09-09)
 
 
