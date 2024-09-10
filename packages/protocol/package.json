@@ -20,7 +20,7 @@
     "generate:genesis": "ts-node ./utils/generate_genesis/main.ts",
     "lint:sol": "forge fmt && pnpm solhint 'contracts/**/*.sol'",
     "test:coverage": "mkdir -p coverage && forge coverage --report lcov && lcov --remove ./lcov.info -o ./coverage/lcov.info 'test/' 'script/' 'contracts/thirdparty/' && genhtml coverage/lcov.info --branch-coverage --output-dir coverage --ignore-errors category && open coverage/index.html",
-    "test:genesis": "pnpm compile:l2 && FOUNDRY_PROFILE=genesis ./test/layer2/genesis/generate_genesis.test.sh",
+    "test:genesis": "pnpm compile:l2 && FOUNDRY_PROFILE=genesis ./test/genesis/generate_genesis.test.sh",
     "export:simconf": "mkdir -p simulation/out && FOUNDRY_PROFILE=layer2 forge test --match-test 'test_L2_NoFeeCheck_simulation' -vv > simulation/out/simconf_$(date +%s).txt"
   },
   "devDependencies": {
