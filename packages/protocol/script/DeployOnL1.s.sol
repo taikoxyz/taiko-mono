@@ -11,33 +11,33 @@ import { SP1Verifier as SP1Verifier120rc } from "@sp1-contracts/src/v1.2.0-rc/SP
 // - https://github.com/rdubois-crypto/FreshCryptoLib
 import "@p256-verifier/contracts/P256Verifier.sol";
 
-import "../contracts/common/LibStrings.sol";
-import "../contracts/tko/TaikoToken.sol";
-import "../contracts/mainnet/rollup/MainnetTaikoL1.sol";
-import "../contracts/devnet/DevnetTaikoL1.sol";
-import "../contracts/L1/provers/GuardianProver.sol";
-import "../contracts/L1/tiers/DevnetTierProvider.sol";
-import "../contracts/L1/tiers/TierProviderV2.sol";
-import "../contracts/mainnet/shared/MainnetBridge.sol";
-import "../contracts/tokenvault/BridgedERC20.sol";
-import "../contracts/tokenvault/BridgedERC721.sol";
-import "../contracts/tokenvault/BridgedERC1155.sol";
-import "../contracts/mainnet/shared/MainnetERC20Vault.sol";
-import "../contracts/mainnet/shared/MainnetERC1155Vault.sol";
-import "../contracts/mainnet/shared/MainnetERC721Vault.sol";
-import "../contracts/mainnet/shared/MainnetSignalService.sol";
-import "../contracts/mainnet/rollup/MainnetGuardianProver.sol";
-import "../contracts/automata-attestation/AutomataDcapV3Attestation.sol";
-import "../contracts/automata-attestation/utils/SigVerifyLib.sol";
-import "../contracts/automata-attestation/lib/PEMCertChainLib.sol";
-import "../contracts/mainnet/rollup/verifiers/MainnetSgxVerifier.sol";
-import "../contracts/team/proving/ProverSet.sol";
-import "../test/common/erc20/FreeMintERC20.sol";
-import "../test/common/erc20/MayFailFreeMintERC20.sol";
-import "../test/L1/TestTierProvider.sol";
-import "../test/DeployCapability.sol";
-import "../contracts/verifiers/Risc0Verifier.sol";
-import "../contracts/verifiers/SP1Verifier.sol";
+import "../contracts/shared/common/LibStrings.sol";
+import "../contracts/layer1/token/TaikoToken.sol";
+import "../contracts/layer1/mainnet/rollup/MainnetTaikoL1.sol";
+import "../contracts/layer1/devnet/DevnetTaikoL1.sol";
+import "../contracts/layer1/provers/GuardianProver.sol";
+import "../contracts/layer1/tiers/DevnetTierProvider.sol";
+import "../contracts/layer1/tiers/TierProviderV2.sol";
+import "../contracts/layer1/mainnet/shared/MainnetBridge.sol";
+import "../contracts/shared/tokenvault/BridgedERC20.sol";
+import "../contracts/shared/tokenvault/BridgedERC721.sol";
+import "../contracts/shared/tokenvault/BridgedERC1155.sol";
+import "../contracts/layer1/mainnet/shared/MainnetERC20Vault.sol";
+import "../contracts/layer1/mainnet/shared/MainnetERC1155Vault.sol";
+import "../contracts/layer1/mainnet/shared/MainnetERC721Vault.sol";
+import "../contracts/layer1/mainnet/shared/MainnetSignalService.sol";
+import "../contracts/layer1/mainnet/rollup/MainnetGuardianProver.sol";
+import "../contracts/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
+import "../contracts/layer1/automata-attestation/utils/SigVerifyLib.sol";
+import "../contracts/layer1/automata-attestation/lib/PEMCertChainLib.sol";
+import "../contracts/layer1/mainnet/rollup/verifiers/MainnetSgxVerifier.sol";
+import "../contracts/layer1/team/proving/ProverSet.sol";
+import "../test/shared/common/erc20/FreeMintERC20.sol";
+import "../test/shared/common/erc20/MayFailFreeMintERC20.sol";
+import "../test/layer1/core/TestTierProvider.sol";
+import "../test/shared/DeployCapability.sol";
+import "../contracts/layer1/verifiers/Risc0Verifier.sol";
+import "../contracts/layer1/verifiers/SP1Verifier.sol";
 
 /// @title DeployOnL1
 /// @notice This script deploys the core Taiko protocol smart contract on L1,

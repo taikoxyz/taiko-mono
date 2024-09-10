@@ -6,32 +6,32 @@ import "forge-std/src/Test.sol";
 import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
-import "../contracts/tokenvault/BridgedERC20V2.sol";
-import "../contracts/tokenvault/BridgedERC721.sol";
-import "../contracts/tokenvault/BridgedERC1155.sol";
-import "../contracts/tokenvault/ERC20Vault.sol";
-import "../contracts/tokenvault/ERC721Vault.sol";
-import "../contracts/tokenvault/ERC1155Vault.sol";
+import "../../contracts/shared/tokenvault/BridgedERC20V2.sol";
+import "../../contracts/shared/tokenvault/BridgedERC721.sol";
+import "../../contracts/shared/tokenvault/BridgedERC1155.sol";
+import "../../contracts/shared/tokenvault/ERC20Vault.sol";
+import "../../contracts/shared/tokenvault/ERC721Vault.sol";
+import "../../contracts/shared/tokenvault/ERC1155Vault.sol";
 
-import "../contracts/tko/TaikoToken.sol";
-import "../contracts/L1/TaikoL1.sol";
-import "../contracts/verifiers/SgxVerifier.sol";
-import "../contracts/verifiers/SP1Verifier.sol";
-import "../contracts/verifiers/Risc0Verifier.sol";
-import "../test/L1/TestTierProvider.sol";
-import "../contracts/L1/provers/GuardianProver.sol";
-import "../contracts/bridge/QuotaManager.sol";
+import "../../contracts/layer1/token/TaikoToken.sol";
+import "../../contracts/layer1/TaikoL1.sol";
+import "../../contracts/layer1/verifiers/SgxVerifier.sol";
+import "../../contracts/layer1/verifiers/SP1Verifier.sol";
+import "../../contracts/layer1/verifiers/Risc0Verifier.sol";
+import "../../contracts/layer1/provers/GuardianProver.sol";
+import "../../contracts/layer1/team/airdrop/ERC20Airdrop.sol";
+import "../../contracts/shared/bridge/QuotaManager.sol";
 
-import "../contracts/L2/DelegateOwner.sol";
+import "../../contracts/layer2/DelegateOwner.sol";
 
-import "../contracts/team/airdrop/ERC20Airdrop.sol";
 
-import "../test/common/erc20/FreeMintERC20.sol";
-import "../test/L2/TaikoL2EIP1559Configurable.sol";
+import "./common/erc20/FreeMintERC20.sol";
+import "../layer2/TaikoL2EIP1559Configurable.sol";
+import "../layer1/core/TestTierProvider.sol";
 
 import "./DeployCapability.sol";
 import "./HelperContracts.sol";
-import "./L2/LibL2Signer.sol";
+import "../layer2/LibL2Signer.sol"; // TODO(daniel: delete this
 
 abstract contract TaikoTest is Test, DeployCapability {
     uint256 private _seed = 0x12345678;

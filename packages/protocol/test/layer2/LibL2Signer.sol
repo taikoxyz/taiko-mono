@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../thirdparty/LibUint512Math.sol";
+import "../shared/thirdparty/LibUint512Math.sol";
 
 /// @title LibL2Signer
 /// @notice This contract allows for signing operations required on Taiko L2.

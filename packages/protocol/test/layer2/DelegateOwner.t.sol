@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../thirdparty/Multicall3.sol";
-import "../TaikoTest.sol";
+import "../shared/thirdparty/Multicall3.sol";
+import "../shared/TaikoTest.sol";
 
 contract Target is EssentialContract {
     function init(address _owner) external initializer {

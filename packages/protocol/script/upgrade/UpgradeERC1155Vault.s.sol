@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "forge-std/src/Script.sol";
 import "forge-std/src/console2.sol";
-import "../../contracts/tokenvault/ERC1155Vault.sol";
+import "../../contracts/shared/tokenvault/ERC1155Vault.sol";
 import "./UpgradeScript.s.sol";
 
 contract UpgradeERC1155Vault is UpgradeScript {

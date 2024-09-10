@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../L1/TaikoL1TestBase.sol";
 import { SP1Verifier as SP1PlonkVerifier } from "@sp1-contracts/src/v1.2.0-rc/SP1VerifierPlonk.sol";
+import "../core/TaikoL1TestBase.sol";
 
 contract SP1PlonkVerifierTest is TaikoL1TestBase {
     function deployTaikoL1() internal override returns (TaikoL1) {

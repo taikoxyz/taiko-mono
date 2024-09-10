@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../../TaikoTest.sol";
-import "../../../contracts/verifiers/compose/ComposeVerifier.sol";
+import "../../../shared/TaikoTest.sol";
+import "../../../../contracts/layer1/verifiers/compose/ComposeVerifier.sol";
 
 contract ComposeVerifierForTest is ComposeVerifier {
     uint256 private threshold;

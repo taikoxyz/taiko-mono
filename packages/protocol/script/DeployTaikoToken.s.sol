@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../test/DeployCapability.sol";
-import "../contracts/tko/TaikoToken.sol";
+import "../test/shared/DeployCapability.sol";
+import "../contracts/layer1/token/TaikoToken.sol";
 
 contract DeployTaikoToken is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");

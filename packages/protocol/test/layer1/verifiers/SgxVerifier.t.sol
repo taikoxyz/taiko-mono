@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../L1/TaikoL1TestBase.sol";
 import "../automata-attestation/common/AttestationBase.t.sol";
+import "../core/TaikoL1TestBase.sol";
 
 contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
     address internal SGX_Y =

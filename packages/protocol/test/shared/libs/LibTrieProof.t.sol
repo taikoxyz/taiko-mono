@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "../../../contracts/shared/libs/LibTrieProof.sol";
 import "../TaikoTest.sol";
-import "../../contracts/libs/LibTrieProof.sol";
 
 contract TestLibTrieProof is TaikoTest {
     function test_verifyMerkleProof() public {

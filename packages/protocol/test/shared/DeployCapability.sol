@@ -8,7 +8,7 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "forge-std/src/console2.sol";
 import "forge-std/src/Script.sol";
 
-import "../contracts/common/AddressManager.sol";
+import "../../contracts/shared/common/AddressManager.sol";
 
 /// @title DeployCapability
 abstract contract DeployCapability is Script {

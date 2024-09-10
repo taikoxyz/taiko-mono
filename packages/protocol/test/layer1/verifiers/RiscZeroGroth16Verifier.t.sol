@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../L1/TaikoL1TestBase.sol";
 import "@risc0/contracts/groth16/RiscZeroGroth16Verifier.sol";
 import "@risc0/contracts/groth16/ControlID.sol";
+import "../core/TaikoL1TestBase.sol";
 
 contract RiscZeroGroth16VerifierTest is TaikoL1TestBase {
     function deployTaikoL1() internal override returns (TaikoL1) {

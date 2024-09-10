@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../../test/DeployCapability.sol";
-import "../../test/L1/TestTierProvider.sol";
+import "../../test/shared/DeployCapability.sol";
+import "../../test/layer1/core/TestTierProvider.sol";
 
 contract UpgradeTierProvider is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");

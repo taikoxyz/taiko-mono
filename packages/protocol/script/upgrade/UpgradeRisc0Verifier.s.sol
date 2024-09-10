@@ -5,7 +5,7 @@ import "forge-std/src/Script.sol";
 import "forge-std/src/console2.sol";
 
 import "./UpgradeScript.s.sol";
-import "../../contracts/verifiers/Risc0Verifier.sol";
+import "../../contracts/layer1/verifiers/Risc0Verifier.sol";
 
 contract UpgradeRisc0Verifier is UpgradeScript {
     function run() external setUp {

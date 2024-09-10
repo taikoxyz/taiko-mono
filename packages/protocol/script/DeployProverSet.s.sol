@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../contracts/team/proving/ProverSet.sol";
-import "../test/DeployCapability.sol";
+import "../contracts/layer1/team/proving/ProverSet.sol";
+import "../test/shared/DeployCapability.sol";
 
 contract DeployProverSet is DeployCapability {
     modifier broadcast() {

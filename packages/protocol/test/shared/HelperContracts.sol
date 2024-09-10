@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../contracts/bridge/Bridge.sol";
-import "../contracts/signal/SignalService.sol";
+import "../../contracts/shared/bridge/Bridge.sol";
+import "../../contracts/shared/signal/SignalService.sol";
 
 contract BadReceiver {
     receive() external payable {

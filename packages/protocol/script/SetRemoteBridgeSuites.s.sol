@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../test/DeployCapability.sol";
+import "../test/shared/DeployCapability.sol";
 
 contract SetRemoteBridgeSuites is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");

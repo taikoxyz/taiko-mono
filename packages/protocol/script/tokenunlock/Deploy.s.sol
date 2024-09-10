@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../../test/DeployCapability.sol";
-import "../../contracts/team/tokenunlock/TokenUnlock.sol";
+import "../../test/shared/DeployCapability.sol";
+import "../../contracts/layer1/team/tokenunlock/TokenUnlock.sol";
 
 contract DeployTokenUnlock is DeployCapability {
     using stdJson for string;

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../../TaikoTest.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "../../../shared/TaikoTest.sol";
 
 contract MockERC20Airdrop is ERC20Airdrop {
     function _verifyMerkleProof(

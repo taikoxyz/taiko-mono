@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../../contracts/L2/TaikoL2.sol";
+import "../../contracts/layer2/TaikoL2.sol";
 
 /// @title TaikoL2EIP1559Configurable
 /// @notice TaikoL2 with a setter to change EIP-1559 configurations and states.

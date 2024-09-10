@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "forge-std/src/Script.sol";
 import "forge-std/src/console2.sol";
-import "../../contracts/common/AddressManager.sol";
+import "../../contracts/shared/common/AddressManager.sol";
 import "./UpgradeScript.s.sol";
 
 contract UpgradeAddressManager is UpgradeScript {

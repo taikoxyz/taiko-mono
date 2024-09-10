@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../TaikoTest.sol";
+import "../../../contracts/layer1/provers/GuardianProver.sol";
+import "../../shared/TaikoTest.sol";
 
 contract DummyGuardianProver is GuardianProver {
     uint256 public operationId;

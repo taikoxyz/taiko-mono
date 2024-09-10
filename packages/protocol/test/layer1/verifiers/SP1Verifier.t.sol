@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../L1/TaikoL1TestBase.sol";
+import "../core/TaikoL1TestBase.sol";
 
 contract MockSP1Gateway is ISP1Verifier {
     // To simulate failing and succeeding

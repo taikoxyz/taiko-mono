@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../L1/TaikoL1TestBase.sol";
+import "../../../contracts/layer1/provers/GuardianProver.sol";
+import "./TaikoL1TestBase.sol";
 
 /// @author Kirk Baird <kirk@sigmaprime.io>
 contract TestGuardianProver2 is TaikoL1TestBase {
