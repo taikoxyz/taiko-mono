@@ -5,7 +5,7 @@ services:
     image: ethereum/client-go:v1.13.14
     restart: unless-stopped
     volumes:
-      - ../../deployments:/data
+      - ../../../deployments:/data
       - .:/host
     ports:
       - 18545:8545
