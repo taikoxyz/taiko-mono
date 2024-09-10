@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../shared/TaikoTest.sol";
+import "./TaikoL2Test.sol";
 
 contract SkipBasefeeCheckL2 is TaikoL2EIP1559Configurable {
     function skipFeeCheck() public pure override returns (bool) {
@@ -9,7 +9,7 @@ contract SkipBasefeeCheckL2 is TaikoL2EIP1559Configurable {
     }
 }
 
-contract TestTaikoL2NoFeeCheck is TaikoTest {
+contract TaikoL2NoFeeCheckTests is TaikoL2Test {
     using SafeCast for uint256;
 
     // Initial salt for semi-random generation
