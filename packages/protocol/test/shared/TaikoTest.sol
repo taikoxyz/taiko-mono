@@ -24,7 +24,6 @@ import "../../contracts/shared/bridge/QuotaManager.sol";
 
 import "../../contracts/layer2/DelegateOwner.sol";
 
-
 import "./common/erc20/FreeMintERC20.sol";
 import "../layer2/TaikoL2EIP1559Configurable.sol";
 import "../layer1/core/TestTierProvider.sol";

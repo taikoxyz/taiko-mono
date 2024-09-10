@@ -271,7 +271,11 @@ contract TestGenerateGenesis is Test, AddressResolver {
         assertEq(regularERC20.symbol(), "RGL");
     }
 
-    function getPredeployedContractAddress(string memory contractName) private view returns (address) {
+    function getPredeployedContractAddress(string memory contractName)
+        private
+        view
+        returns (address)
+    {
         return configJSON.readAddress(string.concat(".contractAddresses.", contractName));
     }
 
@@ -283,20 +287,11 @@ contract TestGenerateGenesis is Test, AddressResolver {
         assertEq(address(contractAddress).code, vm.parseBytes(deployedCode));
     }
 
-    function checkProxyImplementation(
-        string memory proxyName
-    )
-        private
-    {
-        return checkProxyImplementation(proxyName,  contractOwner);
+    function checkProxyImplementation(string memory proxyName) private {
+        return checkProxyImplementation(proxyName, contractOwner);
     }
 
-    function checkProxyImplementation(
-        string memory proxyName,
-        address owner
-    )
-        private
-    {
+    function checkProxyImplementation(string memory proxyName, address owner) private {
         vm.startPrank(owner);
         // address contractAddress = getPredeployedContractAddress(contractName);
         address proxyAddress = getPredeployedContractAddress(proxyName);
