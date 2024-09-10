@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../TaikoL2.sol";
+import "../based/TaikoL2.sol";
 
 /// @title MainnetTaikoL2
 /// @custom:security-contact security@taiko.xyz

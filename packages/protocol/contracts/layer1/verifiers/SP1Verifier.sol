@@ -5,8 +5,8 @@ import "@sp1-contracts/src/ISP1Verifier.sol";
 import "../../shared/common/EssentialContract.sol";
 import "../../shared/common/LibStrings.sol";
 import "../based/ITaikoL1.sol";
+import "./LibPublicInput.sol";
 import "./IVerifier.sol";
-import "./libs/LibPublicInput.sol";
 
 /// @title SP1Verifier
 /// @custom:security-contact security@taiko.xyz

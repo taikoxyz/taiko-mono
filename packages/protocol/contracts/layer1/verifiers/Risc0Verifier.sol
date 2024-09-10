@@ -5,8 +5,8 @@ import "@risc0/contracts/IRiscZeroVerifier.sol";
 import "../../shared/common/EssentialContract.sol";
 import "../../shared/common/LibStrings.sol";
 import "../based/ITaikoL1.sol";
+import "./LibPublicInput.sol";
 import "./IVerifier.sol";
-import "./libs/LibPublicInput.sol";
 
 /// @title Risc0Verifier
 /// @custom:security-contact security@taiko.xyz
