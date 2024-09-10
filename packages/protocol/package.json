@@ -8,8 +8,8 @@
     "compile:l1": "FOUNDRY_PROFILE=layer1 forge build --build-info --extra-output storage-layout",
     "compile:l2": "FOUNDRY_PROFILE=layer2 forge build --build-info --extra-output storage-layout",
     "compile": "pnpm compile:l1 && pnpm compile:l2",
-    "test:l1": "FOUNDRY_PROFILE=layer1 forge test -vvv",
-    "test:l2": "FOUNDRY_PROFILE=layer2 forge test -vvv",
+    "test:l1": "FOUNDRY_PROFILE=layer1 forge test -vvv --extra-output storage-layout",
+    "test:l2": "FOUNDRY_PROFILE=layer2 forge test -vvv --extra-output storage-layout",
     "test": "pnpm test:l1 && pnpm test:l2",
     "layout:l1": "./script/gen-layouts.sh layer1",
     "layout:l2": "./script/gen-layouts.sh layer2",
@@ -20,7 +20,7 @@
     "generate:genesis": "ts-node ./utils/generate_genesis/main.ts",
     "lint:sol": "forge fmt && pnpm solhint 'contracts/**/*.sol'",
     "test:coverage": "mkdir -p coverage && forge coverage --report lcov && lcov --remove ./lcov.info -o ./coverage/lcov.info 'test/' 'script/' 'contracts/thirdparty/' && genhtml coverage/lcov.info --branch-coverage --output-dir coverage --ignore-errors category && open coverage/index.html",
-    "test:genesis": "pnpm compile:l2 && FOUNDRY_PROFILE=genesis ./test/genesis/generate_genesis.test.sh",
+    "test:genesis": "pnpm compile:l2 && FOUNDRY_PROFILE=layer2 ./test/genesis/generate_genesis.test.sh",
     "export:simconf": "mkdir -p simulation/out && FOUNDRY_PROFILE=layer2 forge test --match-test 'test_L2_NoFeeCheck_simulation' -vv > simulation/out/simconf_$(date +%s).txt"
   },
   "devDependencies": {

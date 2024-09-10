@@ -53,7 +53,7 @@ module.exports = {
 Then, execute the generation script:
 
 ```sh
-pnpm compile && pnpm generate:genesis config.js
+pnpm compile:genesis && pnpm generate:genesis config.js
 ```
 
 The script will output two JSON files under `./deployments`:

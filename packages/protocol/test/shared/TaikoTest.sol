@@ -12,8 +12,9 @@ import "../../contracts/shared/tokenvault/BridgedERC1155.sol";
 import "../../contracts/shared/tokenvault/ERC20Vault.sol";
 import "../../contracts/shared/tokenvault/ERC721Vault.sol";
 import "../../contracts/shared/tokenvault/ERC1155Vault.sol";
-
 import "./common/erc20/FreeMintERC20.sol";
+import "./common/erc20/RegularERC20.sol";
+import "./common/erc20/MayFailFreeMintERC20.sol";
 import "./DeployCapability.sol";
 import "./HelperContracts.sol";
 
