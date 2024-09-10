@@ -13,7 +13,7 @@ import "../../contracts/shared/signal/SignalService.sol";
 import "../../contracts/layer2/based/TaikoL2.sol";
 import "../shared/common/erc20/RegularERC20.sol";
 
-contract GenerateGenesisTest is Test, AddressResolver {
+contract TestGenerateGenesis is Test, AddressResolver {
     using stdJson for string;
 
     string private configJSON =
