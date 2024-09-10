@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.24;
 
 import "../../libs/LibAddress.sol";
 import "../../libs/LibNetwork.sol";
@@ -152,7 +152,7 @@ library LibProposing {
 
         address permittedProposer = _resolver.resolve(LibStrings.B_BLOCK_PROPOSER, true);
         if (permittedProposer != address(0)) {
-            require(permittedProposer == msg.sender, L1_INVALID_PROPOSER());
+            if (permittedProposer != msg.sender) revert L1_INVALID_PROPOSER();
             local.allowCustomProposer = true;
         }
 
@@ -169,10 +169,9 @@ library LibProposing {
         if (local.params.proposer == address(0)) {
             local.params.proposer = msg.sender;
         } else {
-            require(
-                local.params.proposer == msg.sender || local.allowCustomProposer,
-                L1_INVALID_CUSTOM_PROPOSER()
-            );
+            if (local.params.proposer != msg.sender && !local.allowCustomProposer) {
+                revert L1_INVALID_CUSTOM_PROPOSER();
+            }
         }
 
         if (local.params.coinbase == address(0)) {

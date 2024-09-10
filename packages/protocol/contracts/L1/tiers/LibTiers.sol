@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.24;
 
 /// @title LibTiers
 /// @dev Tier ID cannot be zero and must be unique.

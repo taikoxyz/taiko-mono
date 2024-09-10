@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.24;
 
 import { TCBInfoStruct } from "../../../contracts/automata-attestation/lib/TCBInfoStruct.sol";
 import { EnclaveIdStruct } from "../../../contracts/automata-attestation/lib/EnclaveIdStruct.sol";

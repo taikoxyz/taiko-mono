@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.24;
 
 import "@optimism/packages/contracts-bedrock/src/libraries/Bytes.sol";
 

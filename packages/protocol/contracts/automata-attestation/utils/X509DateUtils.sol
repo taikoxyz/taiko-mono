@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.24;
 
 /// @title X509DateUtils
 /// @custom:security-contact security@taiko.xyz
