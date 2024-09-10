@@ -284,6 +284,7 @@ func (s *Syncer) onBlockProposed(
 			L1BlockHash:   meta.GetRawBlockHash(),
 		},
 	)
+
 	if err != nil {
 		return fmt.Errorf("failed to insert new head to L2 execution engine: %w", err)
 	}
