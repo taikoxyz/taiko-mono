@@ -19,6 +19,7 @@ extend-exclude = [
   "CHANGELOG.md",
   "packages/protocol/audit/code4rena-2024-03-taiko-final-report.md",
   "packages/protocol/contracts/layer1/automata-attestation/**",
+  "packages/protocol/deployments/**",
   # TODO: fix typos and remove these
   "packages/taiko-client/**",
 ]
