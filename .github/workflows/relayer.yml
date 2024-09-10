@@ -14,7 +14,7 @@ on:
 jobs:
   lint-relayer:
     name: lint-relayer
-    runs-on: [taiko-runner, self-hosted]
+    runs-on: [self-hosted, taiko-runner]
     steps:
       - uses: actions/setup-go@v5
         with:
@@ -31,7 +31,7 @@ jobs:
           args: --config=.golangci.yml --timeout=4m
 
   test-relayer:
-    runs-on: [taiko-runner, self-hosted]
+    runs-on: [self-hosted, taiko-runner]
     needs: lint-relayer
     steps:
       - name: Cancel Previous Runs
@@ -57,7 +57,7 @@ jobs:
   push-relayer-docker-image:
     if: ${{ github.event_name == 'pull_request' }}
     name: Build and push docker image
-    runs-on: [taiko-runner, self-hosted]
+    runs-on: [self-hosted, taiko-runner]
 
     steps:
       - name: Checkout

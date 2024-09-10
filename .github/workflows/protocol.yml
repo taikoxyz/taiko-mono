@@ -11,7 +11,7 @@ on:
 
 jobs:
   build-protocol:
-    runs-on: [taiko-runner, self-hosted]
+    runs-on: [self-hosted, taiko-runner]
     permissions:
       # Give the necessary permissions for stefanzweifel/git-auto-commit-action.
       contents: write
