@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../../../shared/core/AddressManager.sol";
+import "../../../shared/common/AddressManager.sol";
 import "../../../shared/common/LibStrings.sol";
 import "../addrcache/RollupAddressCache.sol";
 

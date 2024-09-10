@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../common/EssentialContract.sol";
-import "../common/LibStrings.sol";
-import "../libs/LibAddress.sol";
-import "../libs/LibBytes.sol";
-import "../bridge/IBridge.sol";
+import "../shared/common/EssentialContract.sol";
+import "../shared/common/LibStrings.sol";
+import "../shared/libs/LibAddress.sol";
+import "../shared/libs/LibBytes.sol";
+import "../shared/bridge/IBridge.sol";
 
 /// @title DelegateOwner
 /// @notice This contract will be the owner of all essential contracts deployed on the L2 chain.
