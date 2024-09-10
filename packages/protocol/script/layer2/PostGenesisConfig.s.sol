@@ -4,17 +4,17 @@ pragma solidity ^0.8.24;
 import "forge-std/src/Script.sol";
 import "forge-std/src/console2.sol";
 
-import "../contracts/shared/tokenvault/ERC20Vault.sol";
-import "../contracts/shared/bridge/Bridge.sol";
-import "../contracts/shared/common/AddressManager.sol";
+import "../../contracts/shared/tokenvault/ERC20Vault.sol";
+import "../../contracts/shared/bridge/Bridge.sol";
+import "../../contracts/shared/common/AddressManager.sol";
 
 interface USDCProxy {
     function configureMinter(address minter, uint256 minterAllowedAmount) external;
 }
 
 // Run with:
-//  forge script --rpc-url  https://rpc.mainnet.taiko.xyz script/L2PostGenesisConfig.s.sol
-contract L2PostGenesisConfig is Script {
+//  forge script --rpc-url  https://rpc.mainnet.taiko.xyz script/PostGenesisConfig.s.sol
+contract PostGenesisConfig is Script {
     // All following addresses are L2 addresses
     address public bridgedTKO = 0xA9d23408b9bA935c230493c40C73824Df71A0975;
     address public bridgedUSDC = 0x07d83526730c7438048D55A4fc0b850e2aaB6f0b;

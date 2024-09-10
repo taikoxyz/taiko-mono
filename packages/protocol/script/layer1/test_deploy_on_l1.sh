@@ -22,7 +22,7 @@ PAUSE_BRIDGE=true \
 NUM_MIN_MAJORITY_GUARDIANS=7 \
 NUM_MIN_MINORITY_GUARDIANS=2 \
 TIER_PROVIDER="devnet" \
-forge script script/DeployOnL1.s.sol:DeployOnL1 \
+forge script script/layer1/DeployOnL1.s.sol:DeployOnL1 \
     --fork-url http://localhost:8545 \
     --broadcast \
     --ffi \
@@ -35,7 +35,7 @@ SECURITY_COUNCIL=0x60997970C51812dc3A010C7d01b50e0d17dc79C8 \
 TAIKO_TOKEN_PREMINT_RECIPIENT=0xa0Ee7A142d267C1f36714E4a8F75612F20a79720 \
 TAIKO_TOKEN_NAME="Taiko Token" \
 TAIKO_TOKEN_SYMBOL=TTKO \
-forge script script/DeployTaikoToken.s.sol:DeployTaikoToken \
+forge script script/layer1/DeployTaikoToken.s.sol:DeployTaikoToken \
     --fork-url http://localhost:8545 \
     --broadcast \
     --ffi \

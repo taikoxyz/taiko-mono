@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../test/shared/DeployCapability.sol";
-import "../contracts/shared/common/AddressManager.sol";
-import "../contracts/shared/bridge/Bridge.sol";
+import "../../test/shared/DeployCapability.sol";
+import "../../contracts/shared/common/AddressManager.sol";
+import "../../contracts/shared/bridge/Bridge.sol";
 
 // Run with:
-//  forge script --rpc-url  https://rpc.mainnet.taiko.xyz script/L2PostGenesisQuery.s.sol
-contract L2PostGenesisQuery is DeployCapability {
+//  forge script --rpc-url  https://rpc.mainnet.taiko.xyz script/PostGenesisQuery.s.sol
+contract PostGenesisQuery is DeployCapability {
     uint64 taiko_id = 167_000;
 
     function run() external view {

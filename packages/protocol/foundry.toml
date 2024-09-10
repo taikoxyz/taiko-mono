@@ -53,12 +53,14 @@ wrap_comments = true
 [profile.layer1]
 src = "contracts/layer1"
 test = "test/layer1"
+script = "script/layer1"
 out = "out/layer1"
 evm_version = "cancun"
 
 [profile.layer2]
 src = "contracts/layer2"
 test = "test/layer2"
+script = "script/layer2"
 out = "out/layer2"
 evm_version = "shanghai"
 
@@ -66,5 +68,6 @@ evm_version = "shanghai"
 [profile.genesis]
 src = "contracts/layer2"
 test = "genesis"
+script = "script/layer2"
 out = "out/layer2"
 evm_version = "shanghai"

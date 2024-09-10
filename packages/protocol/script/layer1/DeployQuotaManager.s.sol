@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../test/shared/DeployCapability.sol";
-import "../contracts/shared/bridge/QuotaManager.sol";
+import "../../test/shared/DeployCapability.sol";
+import "../../contracts/shared/bridge/QuotaManager.sol";
 
-contract DeployL1QuotaManager is DeployCapability {
+contract DeployQuotaManager is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
     // MAINNET_L1_SHARED_ADDRESS_MANAGER: 0xEf9EaA1dd30a9AA1df01c36411b5F082aA65fBaa
     address public addressManager = vm.envAddress("L1_SHARED_ADDRESS_MANAGER");

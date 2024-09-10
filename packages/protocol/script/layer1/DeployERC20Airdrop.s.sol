@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../test/shared/DeployCapability.sol";
-import "../contracts/layer1/team/airdrop/ERC20Airdrop.sol";
+import "../../test/shared/DeployCapability.sol";
+import "../../contracts/layer1/team/airdrop/ERC20Airdrop.sol";
 
 // @KorbinianK , @2manslkh
 // As written also in the tests the workflow shall be the following (checklist):

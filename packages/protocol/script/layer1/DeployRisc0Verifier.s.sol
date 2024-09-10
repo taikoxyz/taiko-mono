@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import "@risc0/contracts/groth16/RiscZeroGroth16Verifier.sol";
-import "../test/shared/DeployCapability.sol";
-import "../contracts/layer1/verifiers/Risc0Verifier.sol";
+import "../../test/shared/DeployCapability.sol";
+import "../../contracts/layer1/verifiers/Risc0Verifier.sol";
 
 contract DeployRisc0Verifier is DeployCapability {
     uint256 public deployerPrivKey = vm.envUint("PRIVATE_KEY");
