@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "../TaikoTest.sol";
-import "../../../contracts/shared/libs/LibAddress.sol";
+import "../../../contracts/shared/common/LibAddress.sol";
 
 contract CalldataReceiver {
     // Returns success
