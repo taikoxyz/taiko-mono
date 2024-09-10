@@ -97,4 +97,4 @@ for contract in "${contracts[@]}"; do
 
 done
 
-sed -i '' 's|contracts/.*/\([^/]*\)\.sol:\([^/]*\)|\2|g' $output_file
+sed -i 's|contracts/.*/\([^/]*\)\.sol:\([^/]*\)|\2|g' $output_file
