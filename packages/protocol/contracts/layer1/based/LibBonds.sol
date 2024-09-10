@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "../../shared/common/IAddressResolver.sol";
 import "../../shared/common/LibStrings.sol";
-import "../../shared/core/TaikoData.sol";
+import "./TaikoData.sol";
 
 /// @title LibBonds
 /// @notice A library that offers helper functions to handle bonds.

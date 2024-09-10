@@ -2,12 +2,12 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "../../shared/core/TaikoData.sol";
 import "../../shared/common/EssentialContract.sol";
 import "../../shared/common/LibStrings.sol";
 import "../automata-attestation/interfaces/IAttestation.sol";
 import "../automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
-import "../ITaikoL1.sol";
+import "../based/ITaikoL1.sol";
+import "../based/TaikoData.sol";
 import "./libs/LibPublicInput.sol";
 import "./IVerifier.sol";
 

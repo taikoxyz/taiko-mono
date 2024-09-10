@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../shared/common/EssentialContract.sol";
-import "./libs/LibData.sol";
-import "./libs/LibProposing.sol";
-import "./libs/LibProving.sol";
-import "./libs/LibVerifying.sol";
+import "../../shared/common/EssentialContract.sol";
+import "./LibData.sol";
+import "./LibProposing.sol";
+import "./LibProving.sol";
+import "./LibVerifying.sol";
 import "./TaikoEvents.sol";
 import "./ITaikoL1.sol";
 
@@ -284,7 +284,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
             livenessBond: 125e18, // 125 Taiko token
             stateRootSyncInternal: 16,
             maxAnchorHeightOffset: 64,
-            baseFeeConfig: TaikoData.BaseFeeConfig({
+            baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 8,
                 sharingPctg: 75,
                 gasIssuancePerSecond: 5_000_000,

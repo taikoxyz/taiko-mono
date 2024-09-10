@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "../bridge/IBridge.sol";
 import "../common/EssentialContract.sol";
 import "../common/LibStrings.sol";
-import "../libs/LibBytes.sol";
+import "../common/LibBytes.sol";
 
 /// @title INameSymbol
 /// @notice Interface for contracts that provide name() and symbol()

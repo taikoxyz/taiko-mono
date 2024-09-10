@@ -5,10 +5,10 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "../../shared/common/IAddressResolver.sol";
 import "../../shared/common/LibStrings.sol";
-import "../../shared/libs/LibMath.sol";
-import "../../shared/core/TaikoData.sol";
+import "../../shared/common/LibMath.sol";
 import "../tiers/ITierProvider.sol";
 import "../tiers/ITierRouter.sol";
+import "./TaikoData.sol";
 
 /// @title LibUtils
 /// @notice A library that offers helper functions.

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../../shared/core/TaikoData.sol";
 import "../verifiers/IVerifier.sol";
+import "./TaikoData.sol";
 
 /// @title LibData
 /// @notice A library that offers helper functions.
@@ -77,7 +77,7 @@ library LibData {
             blobTxListOffset: 0,
             blobTxListLength: 0,
             blobIndex: 0,
-            baseFeeConfig: TaikoData.BaseFeeConfig(0, 0, 0, 0, 0)
+            baseFeeConfig: LibSharedData.BaseFeeConfig(0, 0, 0, 0, 0)
         });
     }
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../shared/core/TaikoData.sol";
+import "./TaikoData.sol";
 
 /// @title TaikoEvents
 /// @notice This abstract contract provides event declarations for the Taiko

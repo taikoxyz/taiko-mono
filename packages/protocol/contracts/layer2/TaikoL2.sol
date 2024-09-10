@@ -4,10 +4,10 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import "../shared/core/TaikoData.sol";
+import "../shared/data/LibSharedData.sol";
 import "../shared/common/EssentialContract.sol";
 import "../shared/common/LibStrings.sol";
-import "../shared/libs/LibAddress.sol";
+import "../shared/common/LibAddress.sol";
 import "../shared/signal/ISignalService.sol";
 import "./Lib1559Math.sol";
 import "./LibL2Config.sol";
@@ -164,7 +164,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         uint64 _anchorBlockId,
         bytes32 _anchorStateRoot,
         uint32 _parentGasUsed,
-        TaikoData.BaseFeeConfig calldata _baseFeeConfig
+        LibSharedData.BaseFeeConfig calldata _baseFeeConfig
     )
         external
         nonZeroValue(uint256(_anchorStateRoot))
@@ -326,7 +326,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
     /// @return basefee_ Next block's base fee.
     /// @return parentGasExcess_ The new gas excess value.
     function calculateBaseFee(
-        TaikoData.BaseFeeConfig calldata _baseFeeConfig,
+        LibSharedData.BaseFeeConfig calldata _baseFeeConfig,
         uint64 _blocktime,
         uint64 _parentGasExcess,
         uint32 _parentGasUsed

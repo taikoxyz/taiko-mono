@@ -3,8 +3,8 @@ pragma solidity ^0.8.24;
 
 import "../shared/common/EssentialContract.sol";
 import "../shared/common/LibStrings.sol";
-import "../shared/libs/LibAddress.sol";
-import "../shared/libs/LibBytes.sol";
+import "../shared/common/LibAddress.sol";
+import "../shared/common/LibBytes.sol";
 import "../shared/bridge/IBridge.sol";
 
 /// @title DelegateOwner

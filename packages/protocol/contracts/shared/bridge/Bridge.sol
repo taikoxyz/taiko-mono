@@ -4,9 +4,9 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 import "../common/EssentialContract.sol";
 import "../common/LibStrings.sol";
-import "../libs/LibAddress.sol";
-import "../libs/LibMath.sol";
-import "../libs/LibNetwork.sol";
+import "../common/LibAddress.sol";
+import "../common/LibMath.sol";
+import "../common/LibNetwork.sol";
 import "../signal/ISignalService.sol";
 import "./IBridge.sol";
 import "./IQuotaManager.sol";
@@ -199,7 +199,9 @@ contract Bridge is EssentialContract, IBridge {
             );
 
             // Must reset the context after the message call
-             _storeContext(bytes32(_PLACEHOLDER), address(uint160(_PLACEHOLDER)), uint64(_PLACEHOLDER));
+            _storeContext(
+                bytes32(_PLACEHOLDER), address(uint160(_PLACEHOLDER)), uint64(_PLACEHOLDER)
+            );
         } else {
             _message.srcOwner.sendEtherAndVerify(_message.value, _SEND_ETHER_GAS_LIMIT);
         }

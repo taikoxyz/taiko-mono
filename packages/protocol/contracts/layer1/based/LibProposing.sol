@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../../shared/libs/LibAddress.sol";
-import "../../shared/libs/LibNetwork.sol";
+import "../../shared/common/LibAddress.sol";
+import "../../shared/common/LibNetwork.sol";
 import "./LibBonds.sol";
 import "./LibData.sol";
 import "./LibUtils.sol";
@@ -330,7 +330,7 @@ library LibProposing {
         }
     }
 
-    function _encodeBaseFeeConfig(TaikoData.BaseFeeConfig memory _baseFeeConfig)
+    function _encodeBaseFeeConfig(LibSharedData.BaseFeeConfig memory _baseFeeConfig)
         private
         pure
         returns (bytes32)

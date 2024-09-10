@@ -1,20 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "../../shared/data/LibSharedData.sol";
+
 /// @title TaikoData
 /// @notice This library defines various data structures used in the Taiko
 /// protocol.
 /// @custom:security-contact security@taiko.xyz
 library TaikoData {
-    /// @dev Struct that represents L2 basefee configurations
-    struct BaseFeeConfig {
-        uint8 adjustmentQuotient;
-        uint8 sharingPctg;
-        uint32 gasIssuancePerSecond;
-        uint64 minGasExcess;
-        uint32 maxGasIssuancePerBlock;
-    }
-
     /// @dev Struct holding Taiko configuration parameters. See {TaikoConfig}.
     struct Config {
         // ---------------------------------------------------------------------
@@ -48,7 +41,7 @@ library TaikoData {
         // ---------------------------------------------------------------------
         // Group 5: Previous configs in TaikoL2
         // ---------------------------------------------------------------------
-        BaseFeeConfig baseFeeConfig;
+        LibSharedData.BaseFeeConfig baseFeeConfig;
         // ---------------------------------------------------------------------
         // Group 6: Others
         // ---------------------------------------------------------------------
@@ -131,7 +124,7 @@ library TaikoData {
         uint32 blobTxListOffset;
         uint32 blobTxListLength;
         uint8 blobIndex;
-        BaseFeeConfig baseFeeConfig;
+        LibSharedData.BaseFeeConfig baseFeeConfig;
     }
 
     /// @dev Struct representing transition to be proven.

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "../../../shared/common/LibStrings.sol";
-import "../../../shared/libs/LibNetwork.sol";
+import "../../../shared/common/LibNetwork.sol";
 import "./AddressCache.sol";
 
 /// @title RollupAddressCache

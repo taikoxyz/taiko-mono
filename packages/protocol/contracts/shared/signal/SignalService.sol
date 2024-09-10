@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "../common/EssentialContract.sol";
 import "../common/LibStrings.sol";
-import "../libs/LibTrieProof.sol";
+import "../common/LibTrieProof.sol";
 import "./ISignalService.sol";
 
 /// @title SignalService

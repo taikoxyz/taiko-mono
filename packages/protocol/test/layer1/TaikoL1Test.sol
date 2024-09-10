@@ -3,8 +3,8 @@ pragma solidity ^0.8.24;
 
 import "../shared/TaikoTest.sol";
 
+import "../../contracts/layer1/based/TaikoL1.sol";
 import "../../contracts/layer1/token/TaikoToken.sol";
-import "../../contracts/layer1/TaikoL1.sol";
 import "../../contracts/layer1/verifiers/SgxVerifier.sol";
 import "../../contracts/layer1/verifiers/SP1Verifier.sol";
 import "../../contracts/layer1/verifiers/Risc0Verifier.sol";

@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../../shared/common/EssentialContract.sol";
 import "../../shared/common/LibStrings.sol";
 import "../verifiers/IVerifier.sol";
-import "../ITaikoL1.sol";
+import "../based/ITaikoL1.sol";
 
 /// @title GuardianProver
 /// This prover uses itself as the verifier.

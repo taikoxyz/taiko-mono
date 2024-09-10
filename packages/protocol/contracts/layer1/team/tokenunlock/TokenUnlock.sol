@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "../../../shared/common/EssentialContract.sol";
 import "../../../shared/common/LibStrings.sol";
-import "../../../shared/libs/LibMath.sol";
+import "../../../shared/common/LibMath.sol";
 import "../../provers/ProverSet.sol";
 
 /// @title TokenUnlock
