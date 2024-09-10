@@ -4,7 +4,7 @@ on: workflow_call
 
 jobs:
   check-guardian-prover-health-check-ui:
-    runs-on: [taiko-runner]
+    runs-on: [self-hosted, taiko-runner]
     steps:
       - name: Cancel previous runs
         uses: styfle/cancel-workflow-action@0.12.1

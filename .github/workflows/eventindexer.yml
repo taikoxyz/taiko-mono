@@ -14,7 +14,7 @@ on:
 jobs:
   lint-eventindexer:
     name: lint-eventindexer
-    runs-on: [taiko-runner]
+    runs-on: [self-hosted, taiko-runner]
     steps:
       - uses: actions/setup-go@v5
         with:
@@ -31,7 +31,7 @@ jobs:
           args: --config=.golangci.yml --timeout=4m
 
   test-eventindexer:
-    runs-on: [taiko-runner]
+    runs-on: [self-hosted, taiko-runner]
     needs: lint-eventindexer
     steps:
       - name: Cancel Previous Runs
@@ -57,7 +57,7 @@ jobs:
   push-eventindexer-docker-image:
     if: ${{ github.event_name == 'pull_request' }}
     name: Build and push docker image
-    runs-on: [taiko-runner]
+    runs-on: [self-hosted, taiko-runner]
 
     steps:
       - name: Checkout
