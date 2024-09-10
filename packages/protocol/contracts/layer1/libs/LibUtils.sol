@@ -3,12 +3,12 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import "../../common/IAddressResolver.sol";
-import "../../common/LibStrings.sol";
-import "../../libs/LibMath.sol";
+import "../../shared/common/IAddressResolver.sol";
+import "../../shared/common/LibStrings.sol";
+import "../../shared/libs/LibMath.sol";
+import "../../shared/core/TaikoData.sol";
 import "../tiers/ITierProvider.sol";
 import "../tiers/ITierRouter.sol";
-import "../TaikoData.sol";
 
 /// @title LibUtils
 /// @notice A library that offers helper functions.

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../../L1/provers/GuardianProver.sol";
+import "../../../layer1/provers/GuardianProver.sol";
 import "../addrcache/RollupAddressCache.sol";
 
 /// @title MainnetGuardianProver

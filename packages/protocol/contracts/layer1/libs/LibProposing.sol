@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../../libs/LibAddress.sol";
-import "../../libs/LibNetwork.sol";
+import "../../shared/libs/LibAddress.sol";
+import "../../shared/libs/LibNetwork.sol";
 import "./LibBonds.sol";
 import "./LibData.sol";
 import "./LibUtils.sol";

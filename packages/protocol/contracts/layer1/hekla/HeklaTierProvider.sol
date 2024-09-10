@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../L1/tiers/TierProviderBase.sol";
-import "../L1/tiers/ITierRouter.sol";
+import "../tiers/TierProviderBase.sol";
+import "../tiers/ITierRouter.sol";
 
 /// @title HeklaTierProvider
 /// @custom:security-contact security@taiko.xyz

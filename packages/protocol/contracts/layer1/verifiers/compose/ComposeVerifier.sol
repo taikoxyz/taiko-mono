@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../../common/EssentialContract.sol";
-import "../../common/LibStrings.sol";
+import "../../../shared/common/EssentialContract.sol";
+import "../../../shared/common/LibStrings.sol";
 import "../IVerifier.sol";
 
 /// @title ComposeVerifier

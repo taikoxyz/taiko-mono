@@ -3,9 +3,9 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import "../../common/IAddressResolver.sol";
-import "../../common/LibStrings.sol";
-import "../TaikoData.sol";
+import "../../shared/common/IAddressResolver.sol";
+import "../../shared/common/LibStrings.sol";
+import "../../shared/core/TaikoData.sol";
 
 /// @title LibBonds
 /// @notice A library that offers helper functions to handle bonds.

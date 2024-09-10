@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../L1/TaikoData.sol";
+import "../../shared/core/TaikoData.sol";
 
 /// @title IVerifier
 /// @notice Defines the function that handles proof verification.

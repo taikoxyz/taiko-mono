@@ -17,7 +17,7 @@ import { BytesUtils } from "./utils/BytesUtils.sol";
 // External Libraries
 import { ISigVerifyLib } from "./interfaces/ISigVerifyLib.sol";
 
-import { EssentialContract } from "../common/EssentialContract.sol";
+import { EssentialContract } from "../../shared/common/EssentialContract.sol";
 
 /// @title AutomataDcapV3Attestation
 /// @custom:security-contact security@taiko.xyz

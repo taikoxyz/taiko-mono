@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../../L1/TaikoData.sol";
+import "../../../shared/core/TaikoData.sol";
 
 /// @title LibPublicInput
 /// @notice A library for handling hashing the so-called public input hash, used by sgx and zk

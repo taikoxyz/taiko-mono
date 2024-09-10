@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../../tokenvault/ERC721Vault.sol";
+import "../../../shared/tokenvault/ERC721Vault.sol";
 import "../addrcache/SharedAddressCache.sol";
 
 /// @title MainnetERC721Vault

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../TaikoData.sol";
-import "../../verifiers/IVerifier.sol";
+import "../../shared/core/TaikoData.sol";
+import "../verifiers/IVerifier.sol";
 
 /// @title LibData
 /// @notice A library that offers helper functions.

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../../common/LibStrings.sol";
+import "../../../shared/common/LibStrings.sol";
 import "./ComposeVerifier.sol";
 
 /// @title ZkAnyVerifier

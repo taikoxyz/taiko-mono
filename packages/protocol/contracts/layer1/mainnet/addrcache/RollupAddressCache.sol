@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../../common/LibStrings.sol";
-import "../../libs/LibNetwork.sol";
+import "../../../shared/common/LibStrings.sol";
+import "../../../shared/libs/LibNetwork.sol";
 import "./AddressCache.sol";
 
 /// @title RollupAddressCache
