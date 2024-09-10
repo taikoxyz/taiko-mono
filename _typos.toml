@@ -18,10 +18,7 @@ extend-exclude = [
   "go.mod",
   "CHANGELOG.md",
   "packages/protocol/audit/code4rena-2024-03-taiko-final-report.md",
-  "packages/protocol/contracts/automata-attestation/**",
-  "packages/protocol/contracts/thirdparty/**",
-  "packages/protocol/contracts/compiled/**",
-  "packages/protocol/deployments/**",
+  "packages/protocol/contracts/layer1/automata-attestation/**",
   # TODO: fix typos and remove these
   "packages/taiko-client/**",
 ]
