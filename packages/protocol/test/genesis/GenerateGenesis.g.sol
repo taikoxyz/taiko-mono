@@ -11,7 +11,7 @@ import "../../contracts/shared/tokenvault/ERC20Vault.sol";
 import "../../contracts/shared/tokenvault/ERC721Vault.sol";
 import "../../contracts/shared/signal/SignalService.sol";
 import "../../contracts/layer2/based/TaikoL2.sol";
-import "../shared/common/erc20/RegularERC20.sol";
+import "../shared/token/RegularERC20.sol";
 
 contract TestGenerateGenesis is Test, AddressResolver {
     using stdJson for string;
