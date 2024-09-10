@@ -3,14 +3,14 @@ pragma solidity ^0.8.24;
 
 import "../../based/TaikoL1.sol";
 import "../addrcache/RollupAddressCache.sol";
-import "../reentrylock/FasterReentryLock.sol";
+import "../reentrylock/LibFasterReentryLock.sol";
 
 /// @title MainnetTaikoL1
 /// @dev This contract shall be deployed to replace its parent contract on Ethereum for Taiko
 /// mainnet to reduce gas cost.
 /// @notice See the documentation in {TaikoL1}.
 /// @custom:security-contact security@taiko.xyz
-contract MainnetTaikoL1 is TaikoL1, RollupAddressCache, FasterReentryLock {
+contract MainnetTaikoL1 is TaikoL1, RollupAddressCache {
     /// @inheritdoc ITaikoL1
     function getConfig() public pure override returns (TaikoData.Config memory) {
         // All hard-coded configurations:
@@ -47,10 +47,10 @@ contract MainnetTaikoL1 is TaikoL1, RollupAddressCache, FasterReentryLock {
     }
 
     function _storeReentryLock(uint8 _reentry) internal override {
-        storeReentryLock(_reentry);
+        LibFasterReentryLock.storeReentryLock(_reentry);
     }
 
     function _loadReentryLock() internal view override returns (uint8) {
-        return loadReentryLock();
+        return LibFasterReentryLock.loadReentryLock();
     }
 }

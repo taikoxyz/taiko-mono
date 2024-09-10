@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-/// @title FasterReentryLock
+/// @title LibFasterReentryLock
 /// @custom:security-contact security@taiko.xyz
-abstract contract FasterReentryLock {
+library LibFasterReentryLock {
     /// @dev The slot in transient storage of the reentry lock.
     /// This is the result of keccak256("ownerUUPS.reentry_slot") plus 1. The addition aims to
     /// prevent hash collisions with slots defined in EIP-1967, where slots are derived by

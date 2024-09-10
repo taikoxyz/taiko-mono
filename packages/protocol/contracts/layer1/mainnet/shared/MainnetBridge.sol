@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "../../../shared/bridge/Bridge.sol";
 import "../addrcache/SharedAddressCache.sol";
-import "../reentrylock/FasterReentryLock.sol";
+import "../reentrylock/LibFasterReentryLock.sol";
 
 /// @title MainnetBridge
 /// @dev This contract shall be deployed to replace its parent contract on Ethereum for Taiko
@@ -11,7 +11,7 @@ import "../reentrylock/FasterReentryLock.sol";
 /// not well testee nor necessary.
 /// @notice See the documentation in {Bridge}.
 /// @custom:security-contact security@taiko.xyz
-contract MainnetBridge is Bridge, SharedAddressCache, FasterReentryLock {
+contract MainnetBridge is Bridge, SharedAddressCache {
     /// @dev The slot in transient storage of the call context. This is the keccak256 hash
     /// of "bridge.ctx_slot"
     bytes32 private constant _CTX_SLOT =
@@ -22,11 +22,11 @@ contract MainnetBridge is Bridge, SharedAddressCache, FasterReentryLock {
     }
 
     function _storeReentryLock(uint8 _reentry) internal override {
-        storeReentryLock(_reentry);
+        LibFasterReentryLock.storeReentryLock(_reentry);
     }
 
     function _loadReentryLock() internal view override returns (uint8) {
-        return loadReentryLock();
+        return LibFasterReentryLock.loadReentryLock();
     }
 
     /// @inheritdoc Bridge
