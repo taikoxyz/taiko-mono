@@ -14,7 +14,7 @@ if ! docker info > /dev/null 2>&1; then
     exit 1
 fi
 
-GENESIS_JSON=$(cd "$(dirname "$DIR/../..")"; pwd)/deployments/genesis.json
+GENESIS_JSON=$(cd "$(dirname "$DIR/../../..")"; pwd)/deployments/genesis.json
 TESTNET_CONFIG=$DIR/testnet/docker-compose.yml
 
 touch "$GENESIS_JSON"
