@@ -5,3 +5,4 @@ coverage
 lib
 test/shared/thirdparty/
 contracts/layer1/automata-attestation/
+monitors/

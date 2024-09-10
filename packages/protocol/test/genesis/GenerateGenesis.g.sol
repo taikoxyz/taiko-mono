@@ -17,9 +17,9 @@ contract GenerateGenesisTest is Test, AddressResolver {
     using stdJson for string;
 
     string private configJSON =
-        vm.readFile(string.concat(vm.projectRoot(), "/deployments/genesis_config.json"));
+        vm.readFile(string.concat(vm.projectRoot(), "/test/genesis/data/genesis_config.json"));
     string private genesisAllocJSON =
-        vm.readFile(string.concat(vm.projectRoot(), "/deployments/genesis_alloc.json"));
+        vm.readFile(string.concat(vm.projectRoot(), "/test/genesis/data/genesis_alloc.json"));
     address private contractOwner = configJSON.readAddress(".contractOwner");
     uint256 private l1ChainId = configJSON.readUint(".l1ChainId");
 

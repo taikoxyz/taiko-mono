@@ -64,10 +64,9 @@ script = "script/layer2"
 out = "out/layer2"
 evm_version = "shanghai"
 
-
 [profile.genesis]
 src = "contracts/layer2"
-test = "genesis"
+test = "test/genesis"
 script = "script/layer2"
 out = "out/layer2"
 evm_version = "shanghai"

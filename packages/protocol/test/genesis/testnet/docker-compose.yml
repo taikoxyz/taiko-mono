@@ -1,11 +1,9 @@
-version: "3.9"
-
 services:
   geth:
     image: ethereum/client-go:v1.13.14
     restart: unless-stopped
     volumes:
-      - ../../../deployments:/data
+      - ../data:/data
       - .:/host
     ports:
       - 18545:8545
