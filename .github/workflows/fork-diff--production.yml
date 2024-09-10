@@ -12,7 +12,7 @@ on:
 
 jobs:
   deploy-fork-diff-production:
-    runs-on: [taiko-runner]
+    runs-on: [taiko-runner, self-hosted]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

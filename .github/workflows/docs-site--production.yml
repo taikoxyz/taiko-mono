@@ -11,7 +11,7 @@ on:
 
 jobs:
   deploy-docs-site-production:
-    runs-on: [taiko-runner]
+    runs-on: [taiko-runner, self-hosted]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

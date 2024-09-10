@@ -9,7 +9,7 @@ on:
 jobs:
   merge-gatekeeper:
     if: github.event_name == 'pull_request'
-    runs-on: [taiko-runner]
+    runs-on: [taiko-runner, self-hosted]
     permissions:
       checks: read
       statuses: read

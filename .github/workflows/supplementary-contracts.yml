@@ -11,7 +11,7 @@ on:
 
 jobs:
   build-supplementary-contracts:
-    runs-on: [taiko-runner]
+    runs-on: [taiko-runner, self-hosted]
     steps:
       - name: Cancel previous runs
         uses: styfle/cancel-workflow-action@0.12.1

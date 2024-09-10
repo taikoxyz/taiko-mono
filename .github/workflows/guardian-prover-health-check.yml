@@ -14,7 +14,7 @@ on:
 jobs:
   lint-guardian-prover-health-check:
     name: lint-guardian-prover-health-check
-    runs-on: [taiko-runner]
+    runs-on: [taiko-runner, self-hosted]
     steps:
       - uses: actions/setup-go@v5
         with:
@@ -31,7 +31,7 @@ jobs:
           args: --config=.golangci.yml --timeout=4m
 
   test-guardian-prover-health-check:
-    runs-on: [taiko-runner]
+    runs-on: [taiko-runner, self-hosted]
     needs: lint-guardian-prover-health-check
     steps:
       - name: Cancel Previous Runs
@@ -57,7 +57,7 @@ jobs:
   push-guardian-prover-health-check-docker-image:
     if: ${{ github.event_name == 'pull_request' }}
     name: Build and push docker image
-    runs-on: [taiko-runner]
+    runs-on: [taiko-runner, self-hosted]
 
     steps:
       - name: Checkout

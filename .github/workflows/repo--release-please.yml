@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   release-please:
-    runs-on: [taiko-runner]
+    runs-on: [taiko-runner, self-hosted]
     steps:
       - uses: googleapis/release-please-action@v4
         with:
