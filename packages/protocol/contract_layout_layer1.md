@@ -241,3 +241,71 @@
 | \_\_gap        | uint256[48]                                   | 253  | 0      | 1536  | contracts/bridge/QuotaManager.sol:QuotaManager |
 
 ## contracts/common/AddressManager.sol:AddressManager
+
+| Name           | Type                                            | Slot | Offset | Bytes | Contract                                           |
+| -------------- | ----------------------------------------------- | ---- | ------ | ----- | -------------------------------------------------- |
+| \_initialized  | uint8                                           | 0    | 0      | 1     | contracts/common/AddressManager.sol:AddressManager |
+| \_initializing | bool                                            | 0    | 1      | 1     | contracts/common/AddressManager.sol:AddressManager |
+| \_\_gap        | uint256[50]                                     | 1    | 0      | 1600  | contracts/common/AddressManager.sol:AddressManager |
+| \_owner        | address                                         | 51   | 0      | 20    | contracts/common/AddressManager.sol:AddressManager |
+| \_\_gap        | uint256[49]                                     | 52   | 0      | 1568  | contracts/common/AddressManager.sol:AddressManager |
+| \_pendingOwner | address                                         | 101  | 0      | 20    | contracts/common/AddressManager.sol:AddressManager |
+| \_\_gap        | uint256[49]                                     | 102  | 0      | 1568  | contracts/common/AddressManager.sol:AddressManager |
+| addressManager | address                                         | 151  | 0      | 20    | contracts/common/AddressManager.sol:AddressManager |
+| \_\_gap        | uint256[49]                                     | 152  | 0      | 1568  | contracts/common/AddressManager.sol:AddressManager |
+| \_\_reentry    | uint8                                           | 201  | 0      | 1     | contracts/common/AddressManager.sol:AddressManager |
+| \_\_paused     | uint8                                           | 201  | 1      | 1     | contracts/common/AddressManager.sol:AddressManager |
+| lastUnpausedAt | uint64                                          | 201  | 2      | 8     | contracts/common/AddressManager.sol:AddressManager |
+| \_\_gap        | uint256[49]                                     | 202  | 0      | 1568  | contracts/common/AddressManager.sol:AddressManager |
+| \_\_addresses  | mapping(uint256 => mapping(bytes32 => address)) | 251  | 0      | 32    | contracts/common/AddressManager.sol:AddressManager |
+| \_\_gap        | uint256[49]                                     | 252  | 0      | 1568  | contracts/common/AddressManager.sol:AddressManager |
+
+## contracts/common/AddressResolver.sol:AddressResolver
+
+| Name           | Type        | Slot | Offset | Bytes | Contract                                             |
+| -------------- | ----------- | ---- | ------ | ----- | ---------------------------------------------------- |
+| \_initialized  | uint8       | 0    | 0      | 1     | contracts/common/AddressResolver.sol:AddressResolver |
+| \_initializing | bool        | 0    | 1      | 1     | contracts/common/AddressResolver.sol:AddressResolver |
+| addressManager | address     | 0    | 2      | 20    | contracts/common/AddressResolver.sol:AddressResolver |
+| \_\_gap        | uint256[49] | 1    | 0      | 1568  | contracts/common/AddressResolver.sol:AddressResolver |
+
+## contracts/common/EssentialContract.sol:EssentialContract
+
+| Name           | Type        | Slot | Offset | Bytes | Contract                                                 |
+| -------------- | ----------- | ---- | ------ | ----- | -------------------------------------------------------- |
+| \_initialized  | uint8       | 0    | 0      | 1     | contracts/common/EssentialContract.sol:EssentialContract |
+| \_initializing | bool        | 0    | 1      | 1     | contracts/common/EssentialContract.sol:EssentialContract |
+| \_\_gap        | uint256[50] | 1    | 0      | 1600  | contracts/common/EssentialContract.sol:EssentialContract |
+| \_owner        | address     | 51   | 0      | 20    | contracts/common/EssentialContract.sol:EssentialContract |
+| \_\_gap        | uint256[49] | 52   | 0      | 1568  | contracts/common/EssentialContract.sol:EssentialContract |
+| \_pendingOwner | address     | 101  | 0      | 20    | contracts/common/EssentialContract.sol:EssentialContract |
+| \_\_gap        | uint256[49] | 102  | 0      | 1568  | contracts/common/EssentialContract.sol:EssentialContract |
+| addressManager | address     | 151  | 0      | 20    | contracts/common/EssentialContract.sol:EssentialContract |
+| \_\_gap        | uint256[49] | 152  | 0      | 1568  | contracts/common/EssentialContract.sol:EssentialContract |
+| \_\_reentry    | uint8       | 201  | 0      | 1     | contracts/common/EssentialContract.sol:EssentialContract |
+| \_\_paused     | uint8       | 201  | 1      | 1     | contracts/common/EssentialContract.sol:EssentialContract |
+| lastUnpausedAt | uint64      | 201  | 2      | 8     | contracts/common/EssentialContract.sol:EssentialContract |
+| \_\_gap        | uint256[49] | 202  | 0      | 1568  | contracts/common/EssentialContract.sol:EssentialContract |
+
+## contracts/signal/SignalService.sol:SignalService
+
+| Name           | Type                                          | Slot | Offset | Bytes | Contract                                         |
+| -------------- | --------------------------------------------- | ---- | ------ | ----- | ------------------------------------------------ |
+| \_initialized  | uint8                                         | 0    | 0      | 1     | contracts/signal/SignalService.sol:SignalService |
+| \_initializing | bool                                          | 0    | 1      | 1     | contracts/signal/SignalService.sol:SignalService |
+| \_\_gap        | uint256[50]                                   | 1    | 0      | 1600  | contracts/signal/SignalService.sol:SignalService |
+| \_owner        | address                                       | 51   | 0      | 20    | contracts/signal/SignalService.sol:SignalService |
+| \_\_gap        | uint256[49]                                   | 52   | 0      | 1568  | contracts/signal/SignalService.sol:SignalService |
+| \_pendingOwner | address                                       | 101  | 0      | 20    | contracts/signal/SignalService.sol:SignalService |
+| \_\_gap        | uint256[49]                                   | 102  | 0      | 1568  | contracts/signal/SignalService.sol:SignalService |
+| addressManager | address                                       | 151  | 0      | 20    | contracts/signal/SignalService.sol:SignalService |
+| \_\_gap        | uint256[49]                                   | 152  | 0      | 1568  | contracts/signal/SignalService.sol:SignalService |
+| \_\_reentry    | uint8                                         | 201  | 0      | 1     | contracts/signal/SignalService.sol:SignalService |
+| \_\_paused     | uint8                                         | 201  | 1      | 1     | contracts/signal/SignalService.sol:SignalService |
+| lastUnpausedAt | uint64                                        | 201  | 2      | 8     | contracts/signal/SignalService.sol:SignalService |
+| \_\_gap        | uint256[49]                                   | 202  | 0      | 1568  | contracts/signal/SignalService.sol:SignalService |
+| topBlockId     | mapping(uint64 => mapping(bytes32 => uint64)) | 251  | 0      | 32    | contracts/signal/SignalService.sol:SignalService |
+| isAuthorized   | mapping(address => bool)                      | 252  | 0      | 32    | contracts/signal/SignalService.sol:SignalService |
+| \_\_gap        | uint256[48]                                   | 253  | 0      | 1536  | contracts/signal/SignalService.sol:SignalService |
+
+## contracts/tko/TaikoToken.sol:TaikoToken
