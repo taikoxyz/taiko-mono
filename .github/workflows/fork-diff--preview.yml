@@ -15,7 +15,7 @@ on:
 
 jobs:
   deploy-fork-diff-preview:
-    runs-on: [self-hosted, taiko-runner]
+    runs-on: [taiko-runner]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

@@ -4,7 +4,7 @@ on: [pull_request]
 
 jobs:
   check-for-typos:
-    runs-on: [self-hosted, taiko-runner]
+    runs-on: [taiko-runner]
     steps:
       - name: Checkout the repository
         uses: actions/checkout@v4
