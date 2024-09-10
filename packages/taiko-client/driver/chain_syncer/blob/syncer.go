@@ -271,7 +271,7 @@ func (s *Syncer) onBlockProposed(
 		decompressedTxListBytes = s.txListDecompressor.TryDecompress(meta.GetBlockID(), txListBytes, meta.GetBlobUsed())
 	}
 
-	// Decompress the transactions list and try to insert a new head block to L2 EE.
+	// Decompress the transactions list and try to insert a new head block to L2 EE. force build
 	payloadData, err := s.insertNewHead(
 		ctx,
 		meta,
