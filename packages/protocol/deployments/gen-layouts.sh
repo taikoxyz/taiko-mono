@@ -97,4 +97,11 @@ for contract in "${contracts[@]}"; do
 
 done
 
-sed -i 's|contracts/.*/\([^/]*\)\.sol:\([^/]*\)|\2|g' $output_file
+sed_pattern='s|contracts/.*/\([^/]*\)\.sol:\([^/]*\)|\2|g'
+
+if [[ "$(uname -s)" == "Darwin" ]]; then
+    sed -i '' "$sed_pattern" "$output_file"
+else
+    sed -i "$sed_pattern" "$output_file"
+fi
+
