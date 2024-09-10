@@ -741,6 +741,66 @@
 
 ## MainnetSP1Verifier
 
+| Name             | Type                     | Slot | Offset | Bytes | Contract           |
+| ---------------- | ------------------------ | ---- | ------ | ----- | ------------------ |
+| \_initialized    | uint8                    | 0    | 0      | 1     | MainnetSP1Verifier |
+| \_initializing   | bool                     | 0    | 1      | 1     | MainnetSP1Verifier |
+| \_\_gap          | uint256[50]              | 1    | 0      | 1600  | MainnetSP1Verifier |
+| \_owner          | address                  | 51   | 0      | 20    | MainnetSP1Verifier |
+| \_\_gap          | uint256[49]              | 52   | 0      | 1568  | MainnetSP1Verifier |
+| \_pendingOwner   | address                  | 101  | 0      | 20    | MainnetSP1Verifier |
+| \_\_gap          | uint256[49]              | 102  | 0      | 1568  | MainnetSP1Verifier |
+| addressManager   | address                  | 151  | 0      | 20    | MainnetSP1Verifier |
+| \_\_gap          | uint256[49]              | 152  | 0      | 1568  | MainnetSP1Verifier |
+| \_\_reentry      | uint8                    | 201  | 0      | 1     | MainnetSP1Verifier |
+| \_\_paused       | uint8                    | 201  | 1      | 1     | MainnetSP1Verifier |
+| lastUnpausedAt   | uint64                   | 201  | 2      | 8     | MainnetSP1Verifier |
+| \_\_gap          | uint256[49]              | 202  | 0      | 1568  | MainnetSP1Verifier |
+| isProgramTrusted | mapping(bytes32 => bool) | 251  | 0      | 32    | MainnetSP1Verifier |
+| \_\_gap          | uint256[49]              | 252  | 0      | 1568  | MainnetSP1Verifier |
+
+## MainnetZkAnyVerifier
+
+| Name           | Type        | Slot | Offset | Bytes | Contract             |
+| -------------- | ----------- | ---- | ------ | ----- | -------------------- |
+| \_initialized  | uint8       | 0    | 0      | 1     | MainnetZkAnyVerifier |
+| \_initializing | bool        | 0    | 1      | 1     | MainnetZkAnyVerifier |
+| \_\_gap        | uint256[50] | 1    | 0      | 1600  | MainnetZkAnyVerifier |
+| \_owner        | address     | 51   | 0      | 20    | MainnetZkAnyVerifier |
+| \_\_gap        | uint256[49] | 52   | 0      | 1568  | MainnetZkAnyVerifier |
+| \_pendingOwner | address     | 101  | 0      | 20    | MainnetZkAnyVerifier |
+| \_\_gap        | uint256[49] | 102  | 0      | 1568  | MainnetZkAnyVerifier |
+| addressManager | address     | 151  | 0      | 20    | MainnetZkAnyVerifier |
+| \_\_gap        | uint256[49] | 152  | 0      | 1568  | MainnetZkAnyVerifier |
+| \_\_reentry    | uint8       | 201  | 0      | 1     | MainnetZkAnyVerifier |
+| \_\_paused     | uint8       | 201  | 1      | 1     | MainnetZkAnyVerifier |
+| lastUnpausedAt | uint64      | 201  | 2      | 8     | MainnetZkAnyVerifier |
+| \_\_gap        | uint256[49] | 202  | 0      | 1568  | MainnetZkAnyVerifier |
+| \_\_gap        | uint256[50] | 251  | 0      | 1600  | MainnetZkAnyVerifier |
+| \_\_gap        | uint256[50] | 301  | 0      | 1600  | MainnetZkAnyVerifier |
+
+## MainnetRisc0Verifier
+
+| Name           | Type                     | Slot | Offset | Bytes | Contract             |
+| -------------- | ------------------------ | ---- | ------ | ----- | -------------------- |
+| \_initialized  | uint8                    | 0    | 0      | 1     | MainnetRisc0Verifier |
+| \_initializing | bool                     | 0    | 1      | 1     | MainnetRisc0Verifier |
+| \_\_gap        | uint256[50]              | 1    | 0      | 1600  | MainnetRisc0Verifier |
+| \_owner        | address                  | 51   | 0      | 20    | MainnetRisc0Verifier |
+| \_\_gap        | uint256[49]              | 52   | 0      | 1568  | MainnetRisc0Verifier |
+| \_pendingOwner | address                  | 101  | 0      | 20    | MainnetRisc0Verifier |
+| \_\_gap        | uint256[49]              | 102  | 0      | 1568  | MainnetRisc0Verifier |
+| addressManager | address                  | 151  | 0      | 20    | MainnetRisc0Verifier |
+| \_\_gap        | uint256[49]              | 152  | 0      | 1568  | MainnetRisc0Verifier |
+| \_\_reentry    | uint8                    | 201  | 0      | 1     | MainnetRisc0Verifier |
+| \_\_paused     | uint8                    | 201  | 1      | 1     | MainnetRisc0Verifier |
+| lastUnpausedAt | uint64                   | 201  | 2      | 8     | MainnetRisc0Verifier |
+| \_\_gap        | uint256[49]              | 202  | 0      | 1568  | MainnetRisc0Verifier |
+| isImageTrusted | mapping(bytes32 => bool) | 251  | 0      | 32    | MainnetRisc0Verifier |
+| \_\_gap        | uint256[49]              | 252  | 0      | 1568  | MainnetRisc0Verifier |
+
+## MainnetZkAndTeeVerifier
+
 | Name           | Type        | Slot | Offset | Bytes | Contract                |
 | -------------- | ----------- | ---- | ------ | ----- | ----------------------- |
 | \_initialized  | uint8       | 0    | 0      | 1     | MainnetZkAndTeeVerifier |

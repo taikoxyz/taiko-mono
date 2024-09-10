@@ -97,4 +97,7 @@ for contract in "${contracts[@]}"; do
 
 done
 
-sed -i '' 's/contracts\/.*\/\([^\/]*\)\.sol:\1/\1/g' contract_layout_layer1.md $output_file
+sed -i '' 's/contracts\/.*\/\([^\/]*\)\.sol:\1/\1/g' $output_file
+
+
+
