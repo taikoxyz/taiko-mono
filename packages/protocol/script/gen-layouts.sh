@@ -95,3 +95,5 @@ for contract in "${contracts[@]}"; do
     FOUNDRY_PROFILE=${profile} forge inspect -C ./contracts/${profile} -o ./out/${profile} ${contract} storagelayout --pretty >> $output_file
     echo "" >> $output_file
 done
+
+sed -i '' 's/contracts\/.*\/\([^\/]*\)\.sol:\1/\1/g' contract_layout_layer1.md $output_file
