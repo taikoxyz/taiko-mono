@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "../../../shared/common/EssentialContract.sol";
 import "../../../shared/common/LibStrings.sol";
 import "../../../shared/libs/LibMath.sol";
-import "../proving/ProverSet.sol";
+import "../../provers/ProverSet.sol";
 
 /// @title TokenUnlock
 /// @notice Manages the linear unlocking of Taiko tokens over a four-year period.

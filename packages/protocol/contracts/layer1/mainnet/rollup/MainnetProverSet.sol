@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../../team/proving/ProverSet.sol";
+import "../../provers/ProverSet.sol";
 import "../addrcache/RollupAddressCache.sol";
 import "../reentrylock/FasterReentryLock.sol";
 

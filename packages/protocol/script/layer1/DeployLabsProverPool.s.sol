@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "../../test/shared/DeployCapability.sol";
-import "../../contracts/layer1/team/proving/ProverSet.sol";
+import "../../contracts/layer1/provers/ProverSet.sol";
 
 contract DeployLabsProverPool is DeployCapability {
     address public addressManager = 0x579f40D0BE111b823962043702cabe6Aaa290780;

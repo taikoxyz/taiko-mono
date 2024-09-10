@@ -12,31 +12,31 @@ import { SP1Verifier as SP1Verifier120rc } from "@sp1-contracts/src/v1.2.0-rc/SP
 import "@p256-verifier/contracts/P256Verifier.sol";
 
 import "../../contracts/shared/common/LibStrings.sol";
-import "../../contracts/layer1/token/TaikoToken.sol";
-import "../../contracts/layer1/mainnet/rollup/MainnetTaikoL1.sol";
-import "../../contracts/layer1/devnet/DevnetTaikoL1.sol";
-import "../../contracts/layer1/provers/GuardianProver.sol";
-import "../../contracts/layer1/tiers/DevnetTierProvider.sol";
-import "../../contracts/layer1/tiers/TierProviderV2.sol";
-import "../../contracts/layer1/mainnet/shared/MainnetBridge.sol";
+import "../../contracts/shared/tokenvault/BridgedERC1155.sol";
 import "../../contracts/shared/tokenvault/BridgedERC20.sol";
 import "../../contracts/shared/tokenvault/BridgedERC721.sol";
-import "../../contracts/shared/tokenvault/BridgedERC1155.sol";
-import "../../contracts/layer1/mainnet/shared/MainnetERC20Vault.sol";
+import "../../contracts/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
+import "../../contracts/layer1/automata-attestation/lib/PEMCertChainLib.sol";
+import "../../contracts/layer1/automata-attestation/utils/SigVerifyLib.sol";
+import "../../contracts/layer1/devnet/DevnetTaikoL1.sol";
+import "../../contracts/layer1/devnet/DevnetTierProvider.sol";
+import "../../contracts/layer1/mainnet/rollup/MainnetGuardianProver.sol";
+import "../../contracts/layer1/mainnet/rollup/MainnetTaikoL1.sol";
+import "../../contracts/layer1/mainnet/rollup/verifiers/MainnetSgxVerifier.sol";
+import "../../contracts/layer1/mainnet/shared/MainnetBridge.sol";
 import "../../contracts/layer1/mainnet/shared/MainnetERC1155Vault.sol";
+import "../../contracts/layer1/mainnet/shared/MainnetERC20Vault.sol";
 import "../../contracts/layer1/mainnet/shared/MainnetERC721Vault.sol";
 import "../../contracts/layer1/mainnet/shared/MainnetSignalService.sol";
-import "../../contracts/layer1/mainnet/rollup/MainnetGuardianProver.sol";
-import "../../contracts/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
-import "../../contracts/layer1/automata-attestation/utils/SigVerifyLib.sol";
-import "../../contracts/layer1/automata-attestation/lib/PEMCertChainLib.sol";
-import "../../contracts/layer1/mainnet/rollup/verifiers/MainnetSgxVerifier.sol";
-import "../../contracts/layer1/team/proving/ProverSet.sol";
+import "../../contracts/layer1/provers/GuardianProver.sol";
+import "../../contracts/layer1/provers/ProverSet.sol";
+import "../../contracts/layer1/tiers/TierProviderV2.sol";
+import "../../contracts/layer1/token/TaikoToken.sol";
 import "../../contracts/layer1/verifiers/Risc0Verifier.sol";
 import "../../contracts/layer1/verifiers/SP1Verifier.sol";
+import "../../test/layer1/core/TestTierProvider.sol";
 import "../../test/shared/common/erc20/FreeMintERC20.sol";
 import "../../test/shared/common/erc20/MayFailFreeMintERC20.sol";
-import "../../test/layer1/core/TestTierProvider.sol";
 import "../../test/shared/DeployCapability.sol";
 
 /// @title DeployOnL1

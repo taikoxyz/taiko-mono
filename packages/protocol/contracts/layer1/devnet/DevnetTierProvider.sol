@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./TierProviderBase.sol";
-import "./ITierRouter.sol";
+import "../tiers/TierProviderBase.sol";
+import "../tiers/ITierRouter.sol";
 
 /// @title DevnetTierProvider
 /// @custom:security-contact security@taiko.xyz
