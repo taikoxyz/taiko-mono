@@ -345,6 +345,7 @@ func (s *Syncer) insertNewHead(
 		new(big.Int).SetUint64(meta.GetAnchorBlockID()),
 		meta.IsOntakeBlock(),
 		meta.GetBaseFeeConfig(),
+		meta.GetTimestamp(),
 	); err != nil {
 		return nil, err
 	}
