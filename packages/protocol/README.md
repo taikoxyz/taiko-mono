@@ -53,7 +53,7 @@ module.exports = {
 Then, execute the generation script:
 
 ```sh
-pnpm compile:genesis && pnpm generate:genesis config.js
+pnpm compile:l2 && pnpm genesis:gen config.js
 ```
 
 The script will output two JSON files under `./deployments`:
@@ -74,10 +74,10 @@ The generation of the L2 genesis block and obtaining its hash involves a series 
 
 ### Testing Genesis Block Creation
 
-To understand how the `genesis.json` is built from deployment files and how to generate the genesis block and its hash, you can use the `test:genesis` command. This test serves as a learning tool:
+To understand how the `genesis.json` is built from deployment files and how to generate the genesis block and its hash, you can use the `genesis:test` command. This test serves as a learning tool:
 
 ```sh
-pnpm test:genesis
+pnpm genesis:test
 ```
 
 This test, defined in `./genesis/generate_genesis.test.sh`, compiles the contracts, generates the genesis JSON, and initiates a Geth node using Docker to simulate the deployment of the genesis block. Reviewing this script and its output can help you grasp the steps required to create and initiate a genesis block for the Taiko Protocol.
@@ -86,12 +86,12 @@ This test, defined in `./genesis/generate_genesis.test.sh`, compiles the contrac
 
 After understanding the process from the test, proceed to generate the actual `genesis.json` and the genesis block:
 
-1. **Build the Genesis JSON:** Use the information learned from the `test:genesis` to build the `genesis.json` file from the files in the `/deployments/` directory. The `generate_genesis.test.sh` script contains the necessary commands to create this file.
+1. **Build the Genesis JSON:** Use the information learned from the `genesis:test` to build the `genesis.json` file from the files in the `/deployments/` directory. The `generate_genesis.test.sh` script contains the necessary commands to create this file.
 
 2. **Run Geth to Generate the Genesis Block:** You can use Geth to initialize and run a private network with the genesis block. You can start Geth with the following commands:
 
    ```sh
-   geth --datadir ~/taiko-l2-network/node init /deployments/genesis.json
+   geth --datadir ~/taiko-l2-network/node init test/layer2/genesis/data/genesis.json
    geth --datadir ~/taiko-l2-network/node --networkid 167 --http --http.addr 127.0.0.1 --http.port 8552 --http.corsdomain "*"
    ```
 
@@ -117,7 +117,7 @@ Here’s how you can proceed:
 
 1. **Ensure Sufficient ETH:** Check that the address associated with the private key in `script/test_deploy_on_l1.sh` has enough ETH for deploying contracts on the Hardhat network.
 
-2. **Update Contract Addresses:** After running the genesis block generation script (`pnpm test:genesis`), you will receive a list of pre-computed contract addresses. These addresses need to be added to the `test_deploy_on_l1.sh` file. Make sure to update this file with the correct contract addresses before proceeding with the deployment.
+2. **Update Contract Addresses:** After running the genesis block generation script (`pnpm genesis:test`), you will receive a list of pre-computed contract addresses. These addresses need to be added to the `test_deploy_on_l1.sh` file. Make sure to update this file with the correct contract addresses before proceeding with the deployment.
 
 3. **Start a Local Development Network:** While this guide uses Hardhat as an example, you can use any Ethereum network. If you choose to use Hardhat, start a local Ethereum network for development and testing:
 

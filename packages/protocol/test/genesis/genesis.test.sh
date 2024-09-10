@@ -14,7 +14,7 @@ if ! docker info > /dev/null 2>&1; then
     exit 1
 fi
 
-GENESIS_JSON=$(cd "$(dirname "$DIR/../../..")"; pwd)/deployments/genesis.json
+GENESIS_JSON=$(cd "$(dirname "$DIR/..")"; pwd)/data/genesis.json
 TESTNET_CONFIG=$DIR/testnet/docker-compose.yml
 
 touch "$GENESIS_JSON"
@@ -48,10 +48,10 @@ echo '
 echo "Starting generate_genesis tests..."
 
 # compile the contracts to get latest bytecode
-rm -rf out && pnpm compile
+rm -rf out && pnpm compile:genesis
 
 # run the task
-pnpm run generate:genesis $DIR/test_config.js
+pnpm run genesis:gen $DIR/test_config.js
 
 # generate complete genesis json
 cat "$DIR"/../../deployments/genesis_alloc.json >> "$GENESIS_JSON"
@@ -88,7 +88,7 @@ function waitTestNode {
 
 waitTestNode http://localhost:18545
 
-FOUNDRY_PROFILE=layer2 forge test \
+FOUNDRY_PROFILE=genesis forge test \
   -vvv \
   --gas-report \
   --fork-url http://localhost:18545 \

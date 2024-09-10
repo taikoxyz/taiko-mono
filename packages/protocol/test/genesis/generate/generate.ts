@@ -60,16 +60,13 @@ async function main() {
         result = await deployERC20(config, result);
     }
 
-    const allocSavedPath = path.join(
-        __dirname,
-        "../../deployments/genesis_alloc.json",
-    );
+    const allocSavedPath = path.join(__dirname, "../data/genesis_alloc.json");
 
     fs.writeFileSync(allocSavedPath, JSON.stringify(result.alloc, null, 2));
 
     const layoutSavedPath = path.join(
         __dirname,
-        "../../deployments/genesis_storage_layout.json",
+        "../data/genesis_storage_layout.json",
     );
 
     fs.writeFileSync(
@@ -79,7 +76,7 @@ async function main() {
 
     const configJsonSavedPath = path.join(
         __dirname,
-        "../../deployments/genesis_config.json",
+        "../data/genesis_config.json",
     );
     fs.writeFileSync(configJsonSavedPath, JSON.stringify(config));
 

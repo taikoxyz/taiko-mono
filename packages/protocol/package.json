@@ -7,6 +7,7 @@
     "clean": "rm -rf out abis cache* && forge clean",
     "compile:l1": "FOUNDRY_PROFILE=layer1 forge build --build-info --extra-output storage-layout",
     "compile:l2": "FOUNDRY_PROFILE=layer2 forge build --build-info --extra-output storage-layout",
+    "compile:genesis": "FOUNDRY_PROFILE=genesis forge build --build-info --extra-output storage-layout",
     "compile": "pnpm compile:l1 && pnpm compile:l2",
     "test:l1": "FOUNDRY_PROFILE=layer1 forge test -vvv --extra-output storage-layout",
     "test:l2": "FOUNDRY_PROFILE=layer2 forge test -vvv --extra-output storage-layout",
@@ -17,10 +18,10 @@
     "test:deploy:l1": "./script/download_solc.sh && ./script/layer1/test_deploy_on_l1.sh",
     "eslint": "pnpm exec eslint --fix --ignore-path .eslintignore --ext .js,.ts .",
     "fmt:sol": "forge fmt",
-    "generate:genesis": "ts-node ./utils/generate_genesis/main.ts",
     "lint:sol": "forge fmt && pnpm solhint 'contracts/**/*.sol'",
     "test:coverage": "mkdir -p coverage && forge coverage --report lcov && lcov --remove ./lcov.info -o ./coverage/lcov.info 'test/' 'script/' 'contracts/thirdparty/' && genhtml coverage/lcov.info --branch-coverage --output-dir coverage --ignore-errors category && open coverage/index.html",
-    "test:genesis": "./test/genesis/generate_genesis.test.sh",
+    "genesis:gen": "ts-node ./test/genesis/generate/generate.ts",
+    "genesis:test": "./test/genesis/genesis.test.sh",
     "export:simconf": "mkdir -p simulation/out && FOUNDRY_PROFILE=layer2 forge test --match-test 'test_L2_NoFeeCheck_simulation' -vv > simulation/out/simconf_$(date +%s).txt"
   },
   "devDependencies": {

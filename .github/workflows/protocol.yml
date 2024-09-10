@@ -43,7 +43,7 @@ jobs:
 
       - name: Generate genesis
         working-directory: ./packages/protocol
-        run: pnpm test:genesis
+        run: pnpm genesis:test
 
       - name: Deploy L1 contracts
         working-directory: ./packages/protocol

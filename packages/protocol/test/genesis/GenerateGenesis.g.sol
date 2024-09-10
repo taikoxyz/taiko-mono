@@ -4,22 +4,22 @@ pragma solidity ^0.8.24;
 import "forge-std/src/console2.sol";
 import "forge-std/src/StdJson.sol";
 import "forge-std/src/Test.sol";
-import "../../../contracts/shared/common/AddressManager.sol";
-import "../../../contracts/shared/bridge/Bridge.sol";
-import "../../../contracts/shared/tokenvault/ERC1155Vault.sol";
-import "../../../contracts/shared/tokenvault/ERC20Vault.sol";
-import "../../../contracts/shared/tokenvault/ERC721Vault.sol";
-import "../../../contracts/shared/signal/SignalService.sol";
-import "../../../contracts/layer2/TaikoL2.sol";
-import "./shared/common/erc20/RegularERC20.sol";
+import "../../contracts/shared/common/AddressManager.sol";
+import "../../contracts/shared/bridge/Bridge.sol";
+import "../../contracts/shared/tokenvault/ERC1155Vault.sol";
+import "../../contracts/shared/tokenvault/ERC20Vault.sol";
+import "../../contracts/shared/tokenvault/ERC721Vault.sol";
+import "../../contracts/shared/signal/SignalService.sol";
+import "../../contracts/layer2/based/TaikoL2.sol";
+import "../shared/common/erc20/RegularERC20.sol";
 
 contract TestGenerateGenesis is Test, AddressResolver {
     using stdJson for string;
 
     string private configJSON =
-        vm.readFile(string.concat(vm.projectRoot(), "/deployments/genesis_config.json"));
+        vm.readFile(string.concat(vm.projectRoot(), "/test/genesis/data/genesis_config.json"));
     string private genesisAllocJSON =
-        vm.readFile(string.concat(vm.projectRoot(), "/deployments/genesis_alloc.json"));
+        vm.readFile(string.concat(vm.projectRoot(), "/test/genesis/data/genesis_alloc.json"));
     address private contractOwner = configJSON.readAddress(".contractOwner");
     uint256 private l1ChainId = configJSON.readUint(".l1ChainId");
 

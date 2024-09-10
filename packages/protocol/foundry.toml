@@ -63,3 +63,10 @@ test = "test/layer2"
 script = "script/layer2"
 out = "out/layer2"
 evm_version = "shanghai"
+
+[profile.genesis]
+src = "contracts/layer2"
+test = "test/genesis"
+script = "script/layer2"
+out = "out/layer2"
+evm_version = "shanghai"
