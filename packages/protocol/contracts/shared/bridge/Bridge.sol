@@ -199,7 +199,7 @@ contract Bridge is EssentialContract, IBridge {
             );
 
             // Must reset the context after the message call
-            _resetContext();
+             _storeContext(bytes32(_PLACEHOLDER), address(uint160(_PLACEHOLDER)), uint64(_PLACEHOLDER));
         } else {
             _message.srcOwner.sendEtherAndVerify(_message.value, _SEND_ETHER_GAS_LIMIT);
         }
@@ -511,7 +511,7 @@ contract Bridge is EssentialContract, IBridge {
         if (_shouldCheckForwardedGas) {
             _checkForwardedGas(gasLeft, _gasLimit);
         }
-        _resetContext();
+        _storeContext(bytes32(_PLACEHOLDER), address(uint160(_PLACEHOLDER)), uint64(_PLACEHOLDER));
     }
 
     /// @notice Updates the status of a bridge message.
@@ -523,18 +523,6 @@ contract Bridge is EssentialContract, IBridge {
         if (messageStatus[_msgHash] == _status) revert B_INVALID_STATUS();
         messageStatus[_msgHash] = _status;
         emit MessageStatusChanged(_msgHash, _status);
-    }
-
-    /// @notice Resets the call context
-    function _resetContext() private {
-        // TODO(daniel) remove this when Dencun is supported
-        if (LibNetwork.isDencunSupported(block.chainid)) {
-            _storeContext(bytes32(0), address(0), uint64(0));
-        } else {
-            _storeContext(
-                bytes32(_PLACEHOLDER), address(uint160(_PLACEHOLDER)), uint64(_PLACEHOLDER)
-            );
-        }
     }
 
     /// @notice Stores the call context

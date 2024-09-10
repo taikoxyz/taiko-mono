@@ -20,7 +20,7 @@ contract Verifier {
     }
 }
 
-contract TaikoL1Test is TaikoL1TestBase {
+contract TaikoL1Tests is TaikoL1TestBase {
     function deployTaikoL1() internal override returns (TaikoL1) {
         return TaikoL1(
             payable(

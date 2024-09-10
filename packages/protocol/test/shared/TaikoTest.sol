@@ -13,24 +13,9 @@ import "../../contracts/shared/tokenvault/ERC20Vault.sol";
 import "../../contracts/shared/tokenvault/ERC721Vault.sol";
 import "../../contracts/shared/tokenvault/ERC1155Vault.sol";
 
-import "../../contracts/layer1/token/TaikoToken.sol";
-import "../../contracts/layer1/TaikoL1.sol";
-import "../../contracts/layer1/verifiers/SgxVerifier.sol";
-import "../../contracts/layer1/verifiers/SP1Verifier.sol";
-import "../../contracts/layer1/verifiers/Risc0Verifier.sol";
-import "../../contracts/layer1/provers/GuardianProver.sol";
-import "../../contracts/layer1/team/airdrop/ERC20Airdrop.sol";
-import "../../contracts/shared/bridge/QuotaManager.sol";
-
-import "../../contracts/layer2/DelegateOwner.sol";
-
 import "./common/erc20/FreeMintERC20.sol";
-import "../layer2/TaikoL2EIP1559Configurable.sol";
-import "../layer1/core/TestTierProvider.sol";
-
 import "./DeployCapability.sol";
 import "./HelperContracts.sol";
-import "../layer2/LibL2Signer.sol"; // TODO(daniel: delete this
 
 abstract contract TaikoTest is Test, DeployCapability {
     uint256 private _seed = 0x12345678;
