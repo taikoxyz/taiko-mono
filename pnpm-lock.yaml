@@ -471,8 +471,8 @@ importers:
         specifier: ^5.7.2
         version: 5.7.2(bufferutil@4.0.8)(utf-8-validate@5.0.10)
       solc:
-        specifier: 0.8.24
-        version: 0.8.24
+        specifier: 0.8.27
+        version: 0.8.27
       solhint:
         specifier: ^5.0.3
         version: 5.0.3(typescript@5.4.5)
@@ -10079,6 +10079,11 @@ packages:
 
   solc@0.8.24:
     resolution: {integrity: sha512-G5yUqjTUPc8Np74sCFwfsevhBPlUifUOfhYrgyu6CmYlC6feSw0YS6eZW47XDT23k3JYdKx5nJ+Q7whCEmNcoA==}
+    engines: {node: '>=10.0.0'}
+    hasBin: true
+
+  solc@0.8.27:
+    resolution: {integrity: sha512-BNxMol2tUAbkH7HKlXBcBqrGi2aqgv+uMHz26mJyTtlVgWmBA4ktiw0qVKHfkjf2oaHbwtbtaSeE2dhn/gTAKw==}
     engines: {node: '>=10.0.0'}
     hasBin: true
 
@@ -25381,6 +25386,18 @@ snapshots:
   solady@https://codeload.github.com/Vectorized/solady/tar.gz/de0f336d2033d04e0f77c923d639c7fbffd48b6d: {}
 
   solc@0.8.24:
+    dependencies:
+      command-exists: 1.2.9
+      commander: 8.3.0
+      follow-redirects: 1.15.6(debug@4.3.4)
+      js-sha3: 0.8.0
+      memorystream: 0.3.1
+      semver: 5.7.2
+      tmp: 0.0.33
+    transitivePeerDependencies:
+      - debug
+
+  solc@0.8.27:
     dependencies:
       command-exists: 1.2.9
       commander: 8.3.0
