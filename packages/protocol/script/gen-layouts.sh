@@ -30,7 +30,7 @@ contracts_layer1=(
 "contracts/layer1/verifiers/SP1Verifier.sol:SP1Verifier"
 "contracts/layer1/verifiers/SgxVerifier.sol:SgxVerifier"
 "contracts/layer1/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation"
-"contracts/layer1/TaikoL1.sol:TaikoL1"
+"contracts/layer1/based/TaikoL1.sol:TaikoL1"
 "contracts/layer1/tiers/TierProviderV2.sol:TierProviderV2"
 "contracts/layer1/hekla/HeklaTaikoL1.sol:HeklaTaikoL1"
 "contracts/layer1/hekla/HeklaTierProvider.sol:HeklaTierProvider"
@@ -96,4 +96,4 @@ for contract in "${contracts[@]}"; do
     echo "" >> $output_file
 done
 
-sed -i '' 's/contracts\/.*\/\([^\/]*\)\.sol:\1/\1/g' contract_layout_layer1.md $output_file
+sed -i '' 's/contracts\/.*\/\([^\/]*\)\.sol:\1/\1/g' $output_file
