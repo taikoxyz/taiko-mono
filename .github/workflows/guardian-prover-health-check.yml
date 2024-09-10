@@ -93,7 +93,6 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          platforms: linux/amd64
           push: true
           context: .
           tags: ${{ steps.meta.outputs.tags }}
