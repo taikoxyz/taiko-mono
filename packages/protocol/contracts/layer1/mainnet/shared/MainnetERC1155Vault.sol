@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import "../../../shared/tokenvault/ERC1155Vault.sol";
 import "../addrcache/SharedAddressCache.sol";
+import "../reentrylock/FasterReentryLock.sol";
 
 /// @title MainnetERC1155Vault
 /// @dev This contract shall be deployed to replace its parent contract on Ethereum for Taiko
@@ -10,8 +11,16 @@ import "../addrcache/SharedAddressCache.sol";
 /// not well testee nor necessary.
 /// @notice See the documentation in {ER1155Vault}.
 /// @custom:security-contact security@taiko.xyz
-contract MainnetERC1155Vault is ERC1155Vault, SharedAddressCache {
+contract MainnetERC1155Vault is ERC1155Vault, SharedAddressCache, FasterReentryLock {
     function _getAddress(uint64 _chainId, bytes32 _name) internal view override returns (address) {
         return getAddress(_chainId, _name, super._getAddress);
+    }
+
+    function _storeReentryLock(uint8 _reentry) internal override {
+        storeReentryLock(_reentry);
+    }
+
+    function _loadReentryLock() internal view override returns (uint8) {
+        return loadReentryLock();
     }
 }

@@ -6,6 +6,7 @@ import "../common/EssentialContract.sol";
 import "../common/LibStrings.sol";
 import "../libs/LibAddress.sol";
 import "../libs/LibMath.sol";
+import "../libs/LibNetwork.sol";
 import "../signal/ISignalService.sol";
 import "./IBridge.sol";
 import "./IQuotaManager.sol";
@@ -45,11 +46,6 @@ contract Bridge is EssentialContract, IBridge {
 
     /// @dev The amount of gas not to charge fee per cache operation.
     uint256 private constant _GAS_REFUND_PER_CACHE_OPERATION = 20_000;
-
-    /// @dev The slot in transient storage of the call context. This is the keccak256 hash
-    /// of "bridge.ctx_slot"
-    bytes32 private constant _CTX_SLOT =
-        0xe4ece82196de19aabe639620d7f716c433d1348f96ce727c9989a982dbadc2b9;
 
     /// @dev Gas limit for sending Ether.
     // - EOA gas used is < 21000
@@ -531,6 +527,7 @@ contract Bridge is EssentialContract, IBridge {
 
     /// @notice Resets the call context
     function _resetContext() private {
+        // TODO(daniel) remove this when Dencun is supported
         if (LibNetwork.isDencunSupported(block.chainid)) {
             _storeContext(bytes32(0), address(0), uint64(0));
         } else {
@@ -544,16 +541,8 @@ contract Bridge is EssentialContract, IBridge {
     /// @param _msgHash The message hash.
     /// @param _from The sender's address.
     /// @param _srcChainId The source chain ID.
-    function _storeContext(bytes32 _msgHash, address _from, uint64 _srcChainId) private {
-        if (LibNetwork.isDencunSupported(block.chainid)) {
-            assembly {
-                tstore(_CTX_SLOT, _msgHash)
-                tstore(add(_CTX_SLOT, 1), _from)
-                tstore(add(_CTX_SLOT, 2), _srcChainId)
-            }
-        } else {
-            __ctx = Context(_msgHash, _from, _srcChainId);
-        }
+    function _storeContext(bytes32 _msgHash, address _from, uint64 _srcChainId) internal virtual {
+        __ctx = Context(_msgHash, _from, _srcChainId);
     }
 
     /// @notice Checks if the signal was received and caches cross-chain data if requested.
@@ -597,20 +586,8 @@ contract Bridge is EssentialContract, IBridge {
 
     /// @notice Loads and returns the call context.
     /// @return ctx_ The call context.
-    function _loadContext() private view returns (Context memory) {
-        if (LibNetwork.isDencunSupported(block.chainid)) {
-            bytes32 msgHash;
-            address from;
-            uint64 srcChainId;
-            assembly {
-                msgHash := tload(_CTX_SLOT)
-                from := tload(add(_CTX_SLOT, 1))
-                srcChainId := tload(add(_CTX_SLOT, 2))
-            }
-            return Context(msgHash, from, srcChainId);
-        } else {
-            return __ctx;
-        }
+    function _loadContext() internal view virtual returns (Context memory) {
+        return __ctx;
     }
 
     /// @notice Checks if the signal was received.

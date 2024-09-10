@@ -10,7 +10,7 @@ contract AutomataDcapV3AttestationTest is Test, AttestationBase {
     using BytesUtils for bytes;
     using stdJson for string;
 
-    string internal v3QuoteJsonPath = "/test/automata-attestation/assets/0923/v3quote.json";
+    string internal v3QuoteJsonPath = "/test/layer1/automata-attestation/assets/0923/v3quote.json";
 
     function setUp() public {
         // Call the AttestationBase init setup

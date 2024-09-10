@@ -34,13 +34,13 @@ contract AttestationBase is Test, DcapTestUtils, V3QuoteParseUtils {
     // ref: https://github.com/daimo-eth/p256-verifier
     //string internal rpcUrl = vm.envString("RPC_URL");
     string[] internal tcbInfoPaths = [
-        "/test/automata-attestation/assets/0923/tcb_00606A000000.json",
-        "/test/automata-attestation/assets/0424/tcb_00A067110000.json",
-        "/test/automata-attestation/assets/0424/tcb_00906ED50000.json",
-        "/test/automata-attestation/assets/0424/tcb_30606a000000.json",
-        "/test/automata-attestation/assets/0424/tcb_00706A100000.json"
+        "/test/layer1/automata-attestation/assets/0923/tcb_00606A000000.json",
+        "/test/layer1/automata-attestation/assets/0424/tcb_00A067110000.json",
+        "/test/layer1/automata-attestation/assets/0424/tcb_00906ED50000.json",
+        "/test/layer1/automata-attestation/assets/0424/tcb_30606a000000.json",
+        "/test/layer1/automata-attestation/assets/0424/tcb_00706A100000.json"
     ];
-    string internal idPath = "/test/automata-attestation/assets/0923/identity.json";
+    string internal idPath = "/test/layer1/automata-attestation/assets/0923/identity.json";
     address constant admin = address(1);
     address constant user = 0x0926b716f6aEF52F9F3C3474A2846e1Bf1ACedf6;
     bytes32 mrEnclave = 0x46049af725ec3986eeb788693df7bc5f14d3f2705106a19cd09b9d89237db1a0;

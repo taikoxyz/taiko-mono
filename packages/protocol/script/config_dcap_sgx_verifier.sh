@@ -63,7 +63,7 @@ toggle_check=0
 vm_file_path() {
     local file_path="$1"
     local parent_dir=$(dirname "$file_path")
-    local trimmed_path="/test/automata-attestation/assets/$(basename "$parent_dir")/$(basename "$file_path")"
+    local trimmed_path="/test/layer1/automata-attestation/assets/$(basename "$parent_dir")/$(basename "$file_path")"
     echo "$trimmed_path"
 }
 
