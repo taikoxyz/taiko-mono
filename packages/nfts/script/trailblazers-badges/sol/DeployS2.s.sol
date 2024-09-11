@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import { UtilsScript } from "./Utils.s.sol";
+import { UtilsScript, MockBlacklist } from "./Utils.s.sol";
 import { Script, console } from "forge-std/src/Script.sol";
 import { Merkle } from "murky/Merkle.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -10,15 +10,6 @@ import { IMinimalBlacklist } from "@taiko/blacklist/IMinimalBlacklist.sol";
 import { TrailblazersBadgesS2 } from
     "../../../contracts/trailblazers-badges/TrailblazersBadgesS2.sol";
 import { BadgeChampions } from "../../../contracts/trailblazers-badges/BadgeChampions.sol";
-
-contract MockBlacklist is IMinimalBlacklist {
-    function isBlacklisted(address _account) external pure returns (bool) {
-        if (_account == address(0)) {
-            return true;
-        }
-        return false;
-    }
-}
 
 contract DeployS2Script is Script {
     UtilsScript public utils;
@@ -32,9 +23,11 @@ contract DeployS2Script is Script {
     // string baseURI = "bafybeierqzehlrqeqqeb6fwmil4dj3ij2p6exgoj4lysl53fsxwob6wbdy";
     // IMinimalBlacklist blacklist = IMinimalBlacklist(0xfA5EA6f9A13532cd64e805996a941F101CCaAc9a);
 
-    // Holesky Testnet Values
+    // Hekla Testnet Values
     bytes32 root = 0xf1359c4c4ba41a72025f2534ea8ad23c6b941b55a715838ebdc71202a78c6c87;
-    string baseURI = "bafybeierqzehlrqeqqeb6fwmil4dj3ij2p6exgoj4lysl53fsxwob6wbdy";
+    string baseURI =
+        "https://taikonfts.4everland.link/ipfs/bafybeiebmvj6roz4iuoinackb5c6eeshvppctkydrckqrnxexdnzh6odq4";
+
     IMinimalBlacklist blacklist = IMinimalBlacklist(0xe61E9034b5633977eC98E302b33e321e8140F105);
     address mintSigner = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
 
@@ -52,6 +45,12 @@ contract DeployS2Script is Script {
         utils.setUp();
 
         jsonLocation = utils.getContractJsonLocation();
+
+        string memory projectRoot = vm.projectRoot();
+        jsonLocation = string.concat(
+            projectRoot, "/deployments/trailblazers-badges/", utils.lowercaseNetworkKey(), ".json"
+        );
+
         deployerPrivateKey = utils.getPrivateKey();
         deployerAddress = utils.getAddress();
     }
