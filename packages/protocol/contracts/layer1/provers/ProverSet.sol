@@ -83,8 +83,6 @@ contract ProverSet is EssentialContract, IERC1271 {
         LibAddress.sendEtherAndVerify(admin, _amount);
     }
 
-  
-
     /// @notice Propose a Taiko block.
     function proposeBlockV2(
         bytes calldata _params,

@@ -17,7 +17,7 @@ library TaikoData {
         // ---------------------------------------------------------------------
         // Group 2: Block level configs
         // ---------------------------------------------------------------------
-// The maximum number of verifications allowed when a block is proposed or proved.
+        // The maximum number of verifications allowed when a block is proposed or proved.
         uint64 blockMaxProposals;
         // Size of the block ring buffer, allowing extra space for proposals.
         uint64 blockRingBufferSize;
@@ -29,7 +29,7 @@ library TaikoData {
         // ---------------------------------------------------------------------
         // Group 3: Proof related configs
         // ---------------------------------------------------------------------
-// The amount of Taiko token as a prover liveness bond.
+        // The amount of Taiko token as a prover liveness bond.
         uint96 livenessBond;
         // ---------------------------------------------------------------------
         // Group 4: Cross-chain sync
@@ -47,7 +47,6 @@ library TaikoData {
         uint64 ontakeForkHeight;
     }
 
-
     /// @dev DEPRECATED but used by node/client for syncing old blocks
     /// @dev A proof and the tier of proof it belongs to.
     struct TierProof {
@@ -55,7 +54,6 @@ library TaikoData {
         bytes data;
     }
 
- 
     /// @dev DEPRECATED but used by node/client for syncing old blocks
     /// @dev Hook and it's data (currently used only during proposeBlock)
     struct HookCall {
@@ -85,7 +83,7 @@ library TaikoData {
         uint8 blobIndex; // NEW
     }
 
-/// @dev DEPRECATED but used by node/client for syncing old blocks
+    /// @dev DEPRECATED but used by node/client for syncing old blocks
     /// @dev Struct containing data only required for proving a block
     /// Note: On L2, `block.difficulty` is the pseudo name of
     /// `block.prevrandao`, which returns a random number provided by the layer
@@ -182,7 +180,7 @@ library TaikoData {
         // After the fork, this is the timestamp of the L2 block.
         // In a later fork, we an rename this field to `timestamp`.
         uint64 proposedAt;
- // This is the L1 block number input for the anchor transaction.
+        // This is the L1 block number input for the anchor transaction.
         // In a later fork, we can rename this field to `anchorBlockId`.
         uint64 proposedIn;
         uint24 nextTransitionId;
@@ -192,7 +190,7 @@ library TaikoData {
         uint24 verifiedTransitionId;
     }
 
-/// @dev DEPRECATED but used by node/client for syncing old blocks
+    /// @dev DEPRECATED but used by node/client for syncing old blocks
     /// @dev Struct representing an Ethereum deposit.
     /// 2 slot used. Currently removed from protocol, but to be backwards compatible, the struct and
     /// return values stayed for now.

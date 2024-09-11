@@ -128,13 +128,12 @@ library LibVerifying {
                 // either when the transitions are generated or proven. In such cases, both the
                 // provers and contesters of those transitions forfeit their bonds.
 
-                    emit LibUtils.BlockVerifiedV2({
-                        blockId: local.blockId,
-                        prover: local.prover,
-                        blockHash: local.blockHash,
-                        tier: local.tier
-                    });
-               
+                emit LibUtils.BlockVerifiedV2({
+                    blockId: local.blockId,
+                    prover: local.prover,
+                    blockHash: local.blockHash,
+                    tier: local.tier
+                });
 
                 if (LibUtils.shouldSyncStateRoot(_config.stateRootSyncInternal, local.blockId)) {
                     bytes32 stateRoot = ts.stateRoot;
@@ -179,7 +178,7 @@ library LibVerifying {
         }
     }
 
-  /// @notice Retrieves the prover of a verified block.
+    /// @notice Retrieves the prover of a verified block.
     /// @param _state The current state of TaikoData.
     /// @param _config The configuration of TaikoData.
     /// @param _blockId The ID of the block.

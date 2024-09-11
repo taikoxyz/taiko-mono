@@ -17,7 +17,7 @@ interface ITaikoL1 {
         external
         returns (TaikoData.BlockMetadataV2 memory meta_);
 
-  /// @notice Proposes multiple Taiko L2 blocks (version 2).
+    /// @notice Proposes multiple Taiko L2 blocks (version 2).
     /// @param _paramsArr List of encoded BlockParamsV2 objects.
     /// @param _txListArr List of transaction lists.
     /// @return metaArr_ Metadata objects of the proposed L2 blocks.
@@ -56,15 +56,13 @@ interface ITaikoL1 {
     /// @param _pause True to pause, false to unpause.
     function pauseProving(bool _pause) external;
 
-
     /// @notice Deposits Taiko tokens to be used as bonds.
     /// @param _amount Amount of Taiko tokens to deposit.
     function depositBond(uint256 _amount) external;
 
-   /// @notice Withdraws Taiko tokens.
+    /// @notice Withdraws Taiko tokens.
     /// @param _amount Amount of Taiko tokens to withdraw.
     function withdrawBond(uint256 _amount) external;
-
 
     /// @notice Gets the prover that actually proved a verified block.
     /// @param _blockId Index of the block.

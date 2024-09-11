@@ -36,7 +36,6 @@ library LibBonds {
         _tko(_resolver).transferFrom(msg.sender, address(this), _amount);
     }
 
-
     /// @dev Withdraws TAIKO tokens.
     /// @param _state The current state of TaikoData.
     /// @param _resolver The address resolver interface.
@@ -52,7 +51,7 @@ library LibBonds {
         _tko(_resolver).transfer(msg.sender, _amount);
     }
 
-  /// @dev Debits TAIKO tokens as bonds.
+    /// @dev Debits TAIKO tokens as bonds.
     /// @param _state The current state of TaikoData.
     /// @param _resolver The address resolver interface.
     /// @param _user The address of the user to debit.

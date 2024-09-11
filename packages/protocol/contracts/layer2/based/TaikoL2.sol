@@ -106,7 +106,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         (publicInputHash,) = _calcPublicInputHash(block.number);
     }
 
-/// @dev DEPRECATED but used by node/client for syncing old blocks
+    /// @dev DEPRECATED but used by node/client for syncing old blocks
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
     /// message verification.
     /// @dev This function can be called freely as the golden touch private key is publicly known,
@@ -251,7 +251,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         }
     }
 
-/// @dev DEPRECATED but used by node/client for syncing old blocks
+    /// @dev DEPRECATED but used by node/client for syncing old blocks
     /// @notice Gets the basefee and gas excess using EIP-1559 configuration for
     /// the given parameters.
     /// @dev This function will deprecate after Ontake fork, node/client shall use calculateBaseFee
@@ -285,7 +285,6 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         if (_blockId + 256 >= block.number) return blockhash(_blockId);
         return _blockhashes[_blockId];
     }
-
 
     /// @notice Returns the new gas excess that will keep the basefee the same.
     /// @param _currGasExcess The current gas excess value.
@@ -348,9 +347,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         );
     }
 
-
-
- /// @notice Calculates the public input hash for the given block ID.
+    /// @notice Calculates the public input hash for the given block ID.
     /// @dev This function computes two public input hashes: one for the previous state and one for
     /// the new state.
     /// It uses a ring buffer to store the previous 255 block hashes and the current chain ID.

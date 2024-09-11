@@ -35,12 +35,7 @@ library LibUtils {
     /// @notice Initializes the Taiko protocol state.
     /// @param _state The state to initialize.
     /// @param _genesisBlockHash The block hash of the genesis block.
-    function init(
-        TaikoData.State storage _state,
-        bytes32 _genesisBlockHash
-    )
-        internal
-    {
+    function init(TaikoData.State storage _state, bytes32 _genesisBlockHash) internal {
         if (_genesisBlockHash == 0) revert L1_INVALID_GENESIS_HASH();
         // Init state
         _state.slotA.genesisHeight = uint64(block.number);
@@ -60,12 +55,12 @@ library LibUtils {
         ts.prover = address(0);
         ts.timestamp = uint64(block.timestamp);
 
-            emit BlockVerifiedV2({
-                blockId: 0,
-                prover: address(0),
-                blockHash: _genesisBlockHash,
-                tier: 0
-            });
+        emit BlockVerifiedV2({
+            blockId: 0,
+            prover: address(0),
+            blockHash: _genesisBlockHash,
+            tier: 0
+        });
     }
 
     /// @dev Retrieves a block based on its ID.
@@ -189,7 +184,7 @@ library LibUtils {
         }
     }
 
- /// @dev Checks if the current timestamp is past the deadline.
+    /// @dev Checks if the current timestamp is past the deadline.
     /// @param _tsTimestamp The timestamp to check.
     /// @param _lastUnpausedAt The last unpaused timestamp.
     /// @param _windowMinutes The window in minutes.

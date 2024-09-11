@@ -90,7 +90,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         returns (TaikoData.BlockMetadataV2[] memory metaArr_)
     {
         TaikoData.Config memory config = getConfig();
-         return LibProposing.proposeBlocks(state, config, this, _paramsArr, _txListArr);
+        return LibProposing.proposeBlocks(state, config, this, _paramsArr, _txListArr);
     }
 
     /// @inheritdoc ITaikoL1

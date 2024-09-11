@@ -144,7 +144,7 @@ contract GuardianProver is IVerifier, EssentialContract {
         emit GuardiansUpdated(version, _newGuardians);
     }
 
-   /// @notice Enables or disables proving auto pause.
+    /// @notice Enables or disables proving auto pause.
     /// @param _enable True to enable, false to disable.
     function enableProvingAutoPause(bool _enable) external onlyOwner {
         if (provingAutoPauseEnabled == _enable) revert GP_INVALID_STATUS();
@@ -153,7 +153,7 @@ contract GuardianProver is IVerifier, EssentialContract {
         emit ProvingAutoPauseEnabled(_enable);
     }
 
-       /// @notice Enables unlimited allowance for Taiko L1 contract.
+    /// @notice Enables unlimited allowance for Taiko L1 contract.
     /// @param _enable True if unlimited allowance is approved, false to set the allowance to 0.
     function enableTaikoTokenAllowance(bool _enable) external onlyOwner {
         address tko = resolve(LibStrings.B_TAIKO_TOKEN, false);
@@ -196,7 +196,7 @@ contract GuardianProver is IVerifier, EssentialContract {
         });
     }
 
- /// @notice Called by guardians to approve a guardian proof (version 2).
+    /// @notice Called by guardians to approve a guardian proof (version 2).
     /// @param _metaV2 The block's metadata (version 2).
     /// @param _tran The valid transition.
     /// @param _proof The tier proof.
