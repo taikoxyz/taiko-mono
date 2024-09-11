@@ -268,7 +268,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         view
         returns (uint256 basefee_, uint64 parentGasExcess_)
     {
-        LibL2Config.Config memory config = getConfig();
+        LibL2Config.Config memory config = LibL2Config.get();
 
         (basefee_, parentGasExcess_) = Lib1559Math.calc1559BaseFee(
             uint256(config.gasTargetPerL1Block) * config.basefeeAdjustmentQuotient,
@@ -286,7 +286,6 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         return _blockhashes[_blockId];
     }
 
- 
 
     /// @notice Returns the new gas excess that will keep the basefee the same.
     /// @param _currGasExcess The current gas excess value.
@@ -348,6 +347,8 @@ contract TaikoL2 is EssentialContract, IBlockHash {
             gasTarget, _parentGasExcess, gasIssuance, _parentGasUsed, _baseFeeConfig.minGasExcess
         );
     }
+
+
 
  /// @notice Calculates the public input hash for the given block ID.
     /// @dev This function computes two public input hashes: one for the previous state and one for
