@@ -54,22 +54,22 @@ contract GuardianProver is IVerifier, EssentialContract {
         bytes proofData
     );
 
-    /// @notice Emitted when the set of guardians is updated
-    /// @param version The new version
-    /// @param guardians The new set of guardians
+    /// @notice Emitted when the set of guardians is updated.
+    /// @param version The new version.
+    /// @param guardians The new set of guardians.
     event GuardiansUpdated(uint32 version, address[] guardians);
 
-    /// @notice Emitted when an approval is made
-    /// @param operationId The operation ID
-    /// @param approvalBits The new approval bits
-    /// @param minGuardiansReached If the proof was submitted
+    /// @notice Emitted when an approval is made.
+    /// @param operationId The operation ID.
+    /// @param approvalBits The new approval bits.
+    /// @param minGuardiansReached If the proof was submitted.
     event Approved(uint256 indexed operationId, uint256 approvalBits, bool minGuardiansReached);
 
-    /// @notice Emitted when a guardian prover submit a different proof for the same block
-    /// @param blockId The block ID
-    /// @param guardian The guardian prover address
-    /// @param currentProofHash The existing proof hash
-    /// @param newProofHash The new and different proof hash
+    /// @notice Emitted when a guardian prover submits a different proof for the same block.
+    /// @param blockId The block ID.
+    /// @param guardian The guardian prover address.
+    /// @param currentProofHash The existing proof hash.
+    /// @param newProofHash The new and different proof hash.
     /// @param provingPaused True if TaikoL1's proving is paused.
     event ConflictingProofs(
         uint256 indexed blockId,
@@ -97,10 +97,10 @@ contract GuardianProver is IVerifier, EssentialContract {
         __Essential_init(_owner, _rollupAddressManager);
     }
 
-    /// @notice Set the set of guardians
-    /// @param _newGuardians The new set of guardians
-    /// @param _minGuardians The minimum required to sign
-    /// @param _clearData true to invalidate all existing data.
+    /// @notice Sets the set of guardians.
+    /// @param _newGuardians The new set of guardians.
+    /// @param _minGuardians The minimum required to sign.
+    /// @param _clearData True to invalidate all existing data.
     function setGuardians(
         address[] memory _newGuardians,
         uint8 _minGuardians,
@@ -144,8 +144,8 @@ contract GuardianProver is IVerifier, EssentialContract {
         emit GuardiansUpdated(version, _newGuardians);
     }
 
-    /// @dev Enables or disables proving auto pause.
-    /// @param _enable true to enable, false to disable.
+   /// @notice Enables or disables proving auto pause.
+    /// @param _enable True to enable, false to disable.
     function enableProvingAutoPause(bool _enable) external onlyOwner {
         if (provingAutoPauseEnabled == _enable) revert GP_INVALID_STATUS();
         provingAutoPauseEnabled = _enable;
@@ -153,15 +153,15 @@ contract GuardianProver is IVerifier, EssentialContract {
         emit ProvingAutoPauseEnabled(_enable);
     }
 
-    /// @notice Enables unlimited allowance for Taiko L1 contract.
-    /// param _enable true if unlimited allowance is approved, false to set the allowance to 0.
+       /// @notice Enables unlimited allowance for Taiko L1 contract.
+    /// @param _enable True if unlimited allowance is approved, false to set the allowance to 0.
     function enableTaikoTokenAllowance(bool _enable) external onlyOwner {
         address tko = resolve(LibStrings.B_TAIKO_TOKEN, false);
         address taiko = resolve(LibStrings.B_TAIKO, false);
         IERC20(tko).approve(taiko, _enable ? type(uint256).max : 0);
     }
 
-    /// @dev Withdraws Taiko Token to a given address.
+    /// @notice Withdraws Taiko Token to a given address.
     /// @param _to The recipient address.
     /// @param _amount The amount of Taiko token to withdraw. Use 0 for all balance.
     function withdrawTaikoToken(address _to, uint256 _amount) external onlyOwner {
@@ -196,6 +196,11 @@ contract GuardianProver is IVerifier, EssentialContract {
         });
     }
 
+ /// @notice Called by guardians to approve a guardian proof (version 2).
+    /// @param _metaV2 The block's metadata (version 2).
+    /// @param _tran The valid transition.
+    /// @param _proof The tier proof.
+    /// @return approved_ True if the minimum number of approvals is acquired, false otherwise.
     function approveV2(
         TaikoData.BlockMetadataV2 calldata _metaV2,
         TaikoData.Transition calldata _tran,
@@ -251,12 +256,19 @@ contract GuardianProver is IVerifier, EssentialContract {
         }
     }
 
-    /// @notice Returns the number of guardians
-    /// @return The number of guardians
+    /// @notice Returns the number of guardians.
+    /// @return The number of guardians.
     function numGuardians() public view returns (uint256) {
         return guardians.length;
     }
 
+    /// @notice Internal function to handle the approval process.
+    /// @param _blockId The block ID.
+    /// @param _proofHash The proof hash.
+    /// @param _blockHash The block hash.
+    /// @param _data The encoded data.
+    /// @param _proofData The proof data.
+    /// @return approved_ True if the minimum number of approvals is acquired, false otherwise.
     function _approve(
         uint64 _blockId,
         bytes32 _proofHash,
@@ -299,6 +311,10 @@ contract GuardianProver is IVerifier, EssentialContract {
         }
     }
 
+    /// @notice Internal function to save the approval.
+    /// @param _blockId The block ID.
+    /// @param _proofHash The proof hash.
+    /// @return approved_ True if the minimum number of approvals is acquired, false otherwise.
     function _saveApproval(
         uint256 _blockId,
         bytes32 _proofHash
@@ -320,6 +336,9 @@ contract GuardianProver is IVerifier, EssentialContract {
         emit Approved(_blockId, _approval, approved_);
     }
 
+    /// @notice Internal function to check if the minimum number of approvals is reached.
+    /// @param _approvalBits The approval bits.
+    /// @return True if the minimum number of approvals is reached, false otherwise.
     function _isApproved(uint256 _approvalBits) private view returns (bool) {
         uint256 count;
         uint256 bits = _approvalBits;

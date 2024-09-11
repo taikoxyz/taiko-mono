@@ -8,8 +8,7 @@ import "./LibUtils.sol";
 import "./LibVerifying.sol";
 
 /// @title LibProving
-/// @notice A library for handling block contestation and proving in the Taiko
-/// protocol.
+/// @notice A library that offers helper functions for the Taiko protocol.
 /// @custom:security-contact security@taiko.xyz
 library LibProving {
     using LibMath for uint256;
@@ -32,8 +31,6 @@ library LibProving {
         bool isTopTier;
         bool inProvingWindow;
         bool sameTransition;
-        bool postFork;
-        uint64 proposedAt;
     }
 
     /// @notice Emitted when a transition is proved.
@@ -220,9 +217,7 @@ library LibProving {
         Local memory local;
         local.b = _state.slotB;
         local.blockId = _blockId;
-        local.postFork = _blockId >= _config.ontakeForkHeight;
 
-        if (local.postFork) {
             if (_batchProof.tier == 0) {
                 // No batch proof is available, each transition is proving using a separate proof.
                 (local.meta, ctx_.tran, local.proof) = abi.decode(
@@ -234,13 +229,7 @@ library LibProving {
                     abi.decode(_input, (TaikoData.BlockMetadataV2, TaikoData.Transition));
                 local.proof = _batchProof;
             }
-        } else {
-            TaikoData.BlockMetadata memory metaV1;
-            (metaV1, ctx_.tran, local.proof) = abi.decode(
-                _input, (TaikoData.BlockMetadata, TaikoData.Transition, TaikoData.TierProof)
-            );
-            local.meta = LibData.blockMetadataV1toV2(metaV1);
-        }
+      
 
         if (_blockId != local.meta.id) revert LibUtils.L1_INVALID_BLOCK_ID();
 
@@ -259,7 +248,6 @@ library LibProving {
         local.slot = local.meta.id % _config.blockRingBufferSize;
         TaikoData.BlockV2 storage blk = _state.blocks[local.slot];
 
-        local.proposedAt = local.postFork ? local.meta.proposedAt : blk.proposedAt;
 
         if (LibUtils.shouldSyncStateRoot(_config.stateRootSyncInternal, local.blockId)) {
             local.stateRoot = ctx_.tran.stateRoot;
@@ -280,10 +268,7 @@ library LibProving {
         // theory, this check may be skipped, but it's included for added
         // caution.
         {
-            bytes32 metaHash = local.postFork
-                ? keccak256(abi.encode(local.meta))
-                : keccak256(abi.encode(LibData.blockMetadataV2toV1(local.meta)));
-
+            bytes32 metaHash =keccak256(abi.encode(local.meta));
             if (local.metaHash != metaHash) revert L1_BLOCK_MISMATCH();
         }
 
@@ -376,7 +361,6 @@ library LibProving {
             // (L1_ALREADY_PROVED).
             _overrideWithHigherProof(_state, _resolver, blk, ts, ctx_.tran, local.proof, local);
 
-            if (local.postFork) {
                 emit TransitionProvedV2({
                     blockId: local.blockId,
                     tran: ctx_.tran,
@@ -385,15 +369,7 @@ library LibProving {
                     tier: local.proof.tier,
                     proposedIn: local.meta.proposedIn
                 });
-            } else {
-                emit TransitionProved({
-                    blockId: local.blockId,
-                    tran: ctx_.tran,
-                    prover: msg.sender,
-                    validityBond: local.tier.validityBond,
-                    tier: local.proof.tier
-                });
-            }
+          
         } else {
             // New transition and old transition on the same tier - and if this transaction tries to
             // prove the same, it reverts
@@ -408,7 +384,6 @@ library LibProving {
                 ts.blockHash = ctx_.tran.blockHash;
                 ts.stateRoot = local.stateRoot;
 
-                if (local.postFork) {
                     emit TransitionProvedV2({
                         blockId: local.blockId,
                         tran: ctx_.tran,
@@ -417,15 +392,7 @@ library LibProving {
                         tier: local.proof.tier,
                         proposedIn: local.meta.proposedIn
                     });
-                } else {
-                    emit TransitionProved({
-                        blockId: local.blockId,
-                        tran: ctx_.tran,
-                        prover: msg.sender,
-                        validityBond: 0,
-                        tier: local.proof.tier
-                    });
-                }
+             
             } else {
                 // Contesting but not on the highest tier
                 if (ts.contester != address(0)) revert L1_ALREADY_CONTESTED();
@@ -453,7 +420,6 @@ library LibProving {
                 ts.contestBond = local.tier.contestBond;
                 ts.contester = msg.sender;
 
-                if (local.postFork) {
                     emit TransitionContestedV2({
                         blockId: local.blockId,
                         tran: ctx_.tran,
@@ -462,15 +428,7 @@ library LibProving {
                         tier: local.proof.tier,
                         proposedIn: local.meta.proposedIn
                     });
-                } else {
-                    emit TransitionContested({
-                        blockId: local.blockId,
-                        tran: ctx_.tran,
-                        contester: msg.sender,
-                        contestBond: local.tier.contestBond,
-                        tier: local.proof.tier
-                    });
-                }
+               
             }
         }
 
@@ -515,7 +473,7 @@ library LibProving {
             // Keep in mind that state.transitions are also reusable storage
             // slots, so it's necessary to reinitialize all transition fields
             // below.
-            ts_.timestamp = _local.proposedAt;
+            ts_.timestamp = _local.meta.proposedAt;
 
             if (tid_ == 1) {
                 // This approach serves as a cost-saving technique for the

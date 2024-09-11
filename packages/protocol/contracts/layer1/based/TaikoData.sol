@@ -4,8 +4,7 @@ pragma solidity ^0.8.24;
 import "../../shared/data/LibSharedData.sol";
 
 /// @title TaikoData
-/// @notice This library defines various data structures used in the Taiko
-/// protocol.
+/// @notice This library defines various data structures used in the Taiko protocol.
 /// @custom:security-contact security@taiko.xyz
 library TaikoData {
     /// @dev Struct holding Taiko configuration parameters. See {TaikoConfig}.
@@ -18,7 +17,7 @@ library TaikoData {
         // ---------------------------------------------------------------------
         // Group 2: Block level configs
         // ---------------------------------------------------------------------
-        // The maximum number of proposals allowed in a single block.
+// The maximum number of verifications allowed when a block is proposed or proved.
         uint64 blockMaxProposals;
         // Size of the block ring buffer, allowing extra space for proposals.
         uint64 blockRingBufferSize;
@@ -30,7 +29,7 @@ library TaikoData {
         // ---------------------------------------------------------------------
         // Group 3: Proof related configs
         // ---------------------------------------------------------------------
-        // The amount of Taiko token as a prover liveness bond
+// The amount of Taiko token as a prover liveness bond.
         uint96 livenessBond;
         // ---------------------------------------------------------------------
         // Group 4: Cross-chain sync
@@ -48,18 +47,23 @@ library TaikoData {
         uint64 ontakeForkHeight;
     }
 
-    /// @dev A proof and the tier of proof it belongs to
+
+    /// @dev DEPRECATED but used by node/client for syncing old blocks
+    /// @dev A proof and the tier of proof it belongs to.
     struct TierProof {
         uint16 tier;
         bytes data;
     }
 
+ 
+    /// @dev DEPRECATED but used by node/client for syncing old blocks
     /// @dev Hook and it's data (currently used only during proposeBlock)
     struct HookCall {
         address hook;
         bytes data;
     }
 
+    /// @dev DEPRECATED but used by node/client for syncing old blocks
     /// @dev Represents proposeBlock's _data input parameter
     struct BlockParams {
         address assignedProver; // DEPRECATED, value ignored.
@@ -81,6 +85,7 @@ library TaikoData {
         uint8 blobIndex; // NEW
     }
 
+/// @dev DEPRECATED but used by node/client for syncing old blocks
     /// @dev Struct containing data only required for proving a block
     /// Note: On L2, `block.difficulty` is the pseudo name of
     /// `block.prevrandao`, which returns a random number provided by the layer
@@ -177,18 +182,17 @@ library TaikoData {
         // After the fork, this is the timestamp of the L2 block.
         // In a later fork, we an rename this field to `timestamp`.
         uint64 proposedAt;
-        // Before the fork, this field is the L1 block number where this block is proposed.
-        // After the fork, this is the L1 block number input for the anchor transaction.
-        // In a later fork, we an rename this field to `anchorBlockId`.
+ // This is the L1 block number input for the anchor transaction.
+        // In a later fork, we can rename this field to `anchorBlockId`.
         uint64 proposedIn;
         uint24 nextTransitionId;
         bool livenessBondReturned;
-        // The ID of the transaction that is used to verify this block. However, if
-        // this block is not verified as the last block in a batch, verifiedTransitionId
-        // will remain zero.
+        // The ID of the transaction that is used to verify this block. However, if this block is
+        // not verified as the last block in a batch, verifiedTransitionId will remain zero.
         uint24 verifiedTransitionId;
     }
 
+/// @dev DEPRECATED but used by node/client for syncing old blocks
     /// @dev Struct representing an Ethereum deposit.
     /// 2 slot used. Currently removed from protocol, but to be backwards compatible, the struct and
     /// return values stayed for now.
@@ -207,7 +211,7 @@ library TaikoData {
         uint64 genesisHeight;
         uint64 genesisTimestamp;
         uint64 lastSyncedBlockId;
-        uint64 lastSynecdAt; // typo!
+        uint64 lastSynecdAt; // known typo (lastSyncedAt)
     }
 
     struct SlotB {
