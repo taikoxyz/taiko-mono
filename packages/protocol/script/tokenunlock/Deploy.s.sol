@@ -35,7 +35,7 @@ contract DeployTokenUnlock is DeployCapability {
                 impl: TOKEN_UNLOCK_IMPL,
                 data: abi.encodeCall(
                     TokenUnlock.init, (OWNER, ROLLUP_ADDRESS_MANAGER, recipients[i], TGE)
-                    )
+                )
             });
             vm.stopBroadcast();
             console2.log("grantee:", recipients[i]);
