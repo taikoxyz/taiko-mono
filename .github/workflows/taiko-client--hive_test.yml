@@ -1,8 +1,8 @@
 name: "Taiko Client Hive Tests"
 
 on:
-  push:
-    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "packages/taiko-client/**"
       - "go.mod"
@@ -10,6 +10,7 @@ on:
 
 jobs:
   hive_tests:
+    if: github.event.pull_request.draft == false && contains(github.event.pull_request.labels.*.name, 'option.hivetest')
     name: hive tests
     runs-on: ubuntu-latest
 
