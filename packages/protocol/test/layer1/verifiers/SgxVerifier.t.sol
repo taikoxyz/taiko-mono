@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "../automata-attestation/common/AttestationBase.t.sol";
-import "../core/TaikoL1TestBase.sol";
+import "../based/TaikoL1TestBase.sol";
 
 contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
     address internal SGX_Y =
