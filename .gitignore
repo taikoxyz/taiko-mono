@@ -116,7 +116,6 @@ __pycache__/
 
 # VSCode
 .vscode/launch.json
-
 .vercel
 
 # Idea
