@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# This script is only used by `pnpm test:deploy`.
+# This script is only used by `pnpm test:deploy:l1`.
 set -e
 
 export PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
@@ -13,7 +13,7 @@ L2_SIGNAL_SERVICE=0x1000777700000000000000000000000000000007 \
 CONTRACT_OWNER=0x60997970C51812dc3A010C7d01b50e0d17dc79C8 \
 PROVER_SET_ADMIN=0x60997970C51812dc3A010C7d01b50e0d17dc79C8 \
 TAIKO_TOKEN_PREMINT_RECIPIENT=0xa0Ee7A142d267C1f36714E4a8F75612F20a79720 \
-TAIKO_TOKEN_NAME="Taiko Token Katla" \
+TAIKO_TOKEN_NAME="Taiko Token Test" \
 TAIKO_TOKEN_SYMBOL=TTKOk \
 SHARED_ADDRESS_MANAGER=0x0000000000000000000000000000000000000000 \
 L2_GENESIS_HASH=0xee1950562d42f0da28bd4550d88886bc90894c77c9c9eaefef775d4c8223f259 \
@@ -23,7 +23,7 @@ NUM_MIN_MAJORITY_GUARDIANS=7 \
 NUM_MIN_MINORITY_GUARDIANS=2 \
 TIER_PROVIDER="devnet" \
 FOUNDRY_PROFILE="layer1" \
-forge script script/layer1/DeployOnL1.s.sol:DeployOnL1 \
+forge script ./script/layer1/DeployProtocolOnL1.s.sol:DeployProtocolOnL1 \
     --fork-url http://localhost:8545 \
     --broadcast \
     --ffi \
@@ -35,9 +35,9 @@ export PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f
 SECURITY_COUNCIL=0x60997970C51812dc3A010C7d01b50e0d17dc79C8 \
 TAIKO_TOKEN_PREMINT_RECIPIENT=0xa0Ee7A142d267C1f36714E4a8F75612F20a79720 \
 TAIKO_TOKEN_NAME="Taiko Token" \
-TAIKO_TOKEN_SYMBOL=TTKO \
+TAIKO_TOKEN_SYMBOL=TAIKO \
 FOUNDRY_PROFILE="layer1" \
-forge script script/layer1/DeployTaikoToken.s.sol:DeployTaikoToken \
+forge script ./script/layer1/DeployTaikoToken.s.sol:DeployTaikoToken \
     --fork-url http://localhost:8545 \
     --broadcast \
     --ffi \

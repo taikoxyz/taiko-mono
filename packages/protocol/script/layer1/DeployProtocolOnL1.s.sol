@@ -39,10 +39,10 @@ import "../../test/shared/token/FreeMintERC20.sol";
 import "../../test/shared/token/MayFailFreeMintERC20.sol";
 import "../../test/shared/DeployCapability.sol";
 
-/// @title DeployOnL1
+/// @title DeployProtocolOnL1
 /// @notice This script deploys the core Taiko protocol smart contract on L1,
 /// initializing the rollup.
-contract DeployOnL1 is DeployCapability {
+contract DeployProtocolOnL1 is DeployCapability {
     uint256 public NUM_MIN_MAJORITY_GUARDIANS = vm.envUint("NUM_MIN_MAJORITY_GUARDIANS");
     uint256 public NUM_MIN_MINORITY_GUARDIANS = vm.envUint("NUM_MIN_MINORITY_GUARDIANS");
 
