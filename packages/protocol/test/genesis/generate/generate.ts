@@ -4,20 +4,11 @@ const path = require("path");
 const { ethers } = require("ethers");
 const { deployTaikoL2 } = require("./taikoL2");
 const { deployERC20 } = require("./erc20");
+const config: Config = require("../data/genesis_config.js");
 
 // Generate a L2 genesis JSON based on the given configurations.
 // ref: https://docs.soliditylang.org/en/latest/internals/layout_in_storage.html
 async function main() {
-    if (process.argv.length < 3) {
-        throw new Error("missing config json");
-    }
-
-    const config: Config = require(
-        path.isAbsolute(process.argv[2])
-            ? process.argv[2]
-            : path.join(process.cwd(), process.argv[2]),
-    );
-
     const contractOwner = config.contractOwner;
     const chainId = config.chainId;
     const seedAccounts = config.seedAccounts;
@@ -74,16 +65,9 @@ async function main() {
         JSON.stringify(result.storageLayouts, null, 2),
     );
 
-    const configJsonSavedPath = path.join(
-        __dirname,
-        "../data/genesis_config.json",
-    );
-    fs.writeFileSync(configJsonSavedPath, JSON.stringify(config));
-
     console.log("done");
     console.log(`alloc JSON saved to ${allocSavedPath}`);
     console.log(`layout JSON saved to ${layoutSavedPath}`);
-    console.log(`config JSON saved to ${configJsonSavedPath}`);
 }
 
 main().catch(console.error);
