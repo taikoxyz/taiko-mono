@@ -6,7 +6,7 @@ on:
 
 jobs:
   check_label:
-    runs-on: [taiko-runner]
+    runs-on: ubuntu-latest
     steps:
       - name: Check for "option.do-not-merge" label
         id: check_label
