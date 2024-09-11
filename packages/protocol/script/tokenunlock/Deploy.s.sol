@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.24;
+pragma solidity ^0.8.27;
 
 import "../../test/DeployCapability.sol";
 import "../../contracts/team/tokenunlock/TokenUnlock.sol";
@@ -35,7 +35,7 @@ contract DeployTokenUnlock is DeployCapability {
                 impl: TOKEN_UNLOCK_IMPL,
                 data: abi.encodeCall(
                     TokenUnlock.init, (OWNER, ROLLUP_ADDRESS_MANAGER, recipients[i], TGE)
-                )
+                    )
             });
             vm.stopBroadcast();
             console2.log("grantee:", recipients[i]);

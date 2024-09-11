@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.24;
+pragma solidity ^0.8.27;
 
 import "../../TaikoTest.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
@@ -102,7 +102,7 @@ contract TestERC20Airdrop is TaikoTest {
                 data: abi.encodeCall(
                     BridgedERC20.init,
                     (address(0), address(addressManager), randAddress(), 100, 18, "TKO", "Taiko Token")
-                )
+                    )
             })
         );
 
@@ -129,7 +129,7 @@ contract TestERC20Airdrop is TaikoTest {
                 data: abi.encodeCall(
                     ERC20Airdrop.init,
                     (address(0), claimStart, claimEnd, merkleRoot, address(token), address(vault))
-                )
+                    )
             })
         );
 

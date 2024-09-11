@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.24;
+pragma solidity ^0.8.27;
 
 import "../TaikoTest.sol";
 
@@ -131,7 +131,7 @@ contract TestBridgedERC20 is TaikoTest {
                 data: abi.encodeCall(
                     BridgedERC20.init,
                     (owner, address(manager), srcToken, srcChainId, srcDecimals, name, name)
-                ),
+                    ),
                 registerTo: manager
             })
         );

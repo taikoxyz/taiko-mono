@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.24;
+pragma solidity ^0.8.27;
 
 import "../test/DeployCapability.sol";
 import "../contracts/team/airdrop/ERC20Airdrop.sol";
@@ -37,7 +37,7 @@ contract DeployERC20Airdrop is DeployCapability {
                 impl: address(new ERC20Airdrop()),
                 data: abi.encodeCall(
                     ERC20Airdrop.init, (address(0), 0, 0, bytes32(0), bridgedTko, vaultAddress)
-                )
+                    )
             })
         );
 

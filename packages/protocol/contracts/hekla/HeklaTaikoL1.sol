@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.24;
+pragma solidity ^0.8.27;
 
 import "../L1/TaikoL1.sol";
 
@@ -27,7 +27,7 @@ contract HeklaTaikoL1 is TaikoL1 {
                 minGasExcess: 1_340_000_000,
                 maxGasIssuancePerBlock: 600_000_000 // two minutes
              }),
-            ontakeForkHeight: 793_000
+            ontakeForkHeight: 840_512
         });
     }
 }

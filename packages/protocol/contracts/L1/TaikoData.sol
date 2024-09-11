@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.24;
+pragma solidity ^0.8.27;
 
 /// @title TaikoData
 /// @notice This library defines various data structures used in the Taiko
@@ -78,6 +78,7 @@ library TaikoData {
     }
 
     struct BlockParamsV2 {
+        address proposer;
         address coinbase;
         bytes32 parentMetaHash;
         uint64 anchorBlockId; // NEW
@@ -236,7 +237,7 @@ library TaikoData {
         mapping(
             uint64 blockId_mod_blockRingBufferSize
                 => mapping(uint32 transitionId => TransitionState ts)
-        ) transitions;
+            ) transitions;
         bytes32 __reserve1; // Used as a ring buffer for Ether deposits
         SlotA slotA; // slot 5
         SlotB slotB; // slot 6

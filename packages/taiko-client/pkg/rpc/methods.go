@@ -274,6 +274,7 @@ func (c *Client) CalculateBaseFee(
 	anchorBlockID *big.Int,
 	isOntake bool,
 	baseFeeConfig *bindings.TaikoDataBaseFeeConfig,
+	currentTimestamp uint64,
 ) (*big.Int, error) {
 	var (
 		baseFeeInfo struct {
@@ -320,7 +321,7 @@ func (c *Client) CalculateBaseFee(
 		baseFeeInfo, err = c.TaikoL2.CalculateBaseFee(
 			&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
 			*baseFeeConfig,
-			uint64(time.Now().Unix())-l2Head.Time,
+			currentTimestamp-l2Head.Time,
 			parentGasExcess,
 			uint32(l2Head.GasUsed), // #nosec G115
 		)
@@ -384,6 +385,7 @@ func (c *Client) GetPoolContent(
 		l1Head.Number,
 		chainConfig.IsOntake(l2Head.Number),
 		&chainConfig.ProtocolConfigs.BaseFeeConfig,
+		uint64(time.Now().Unix()),
 	)
 	if err != nil {
 		return nil, err

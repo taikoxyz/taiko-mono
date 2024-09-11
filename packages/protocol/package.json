@@ -1,12 +1,14 @@
 {
   "name": "@taiko/protocol",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "private": true,
   "scripts": {
     "buildMerkle": "ts-node ./utils/airdrop/buildMerkleTree.ts ./utils/airdrop/airdrop_db/example_claimList.json",
     "clean": "rm -rf abis cache* && forge clean",
     "compile": "forge build --build-info --extra-output storage-layout",
-    "layout": "./deployments/gen-layouts.sh",
+    "layout:l1": "./deployments/gen-layouts.sh layer1",
+    "layout:l2": "./deployments/gen-layouts.sh layer2",
+    "layout": "pnpm layout:l1 && pnpm layout:l2",
     "test:deploy": "./script/download_solc.sh && ./script/test_deploy_on_l1.sh",
     "eslint": "pnpm exec eslint --fix --ignore-path .eslintignore --ext .js,.ts .",
     "fmt:sol": "forge fmt",
@@ -30,7 +32,7 @@
     "eslint-plugin-prettier": "^5.1.3",
     "eslint-plugin-promise": "^6.1.1",
     "ethers": "^5.7.2",
-    "solc": "0.8.24",
+    "solc": "0.8.27",
     "solhint": "^5.0.3",
     "ts-node": "^10.9.2",
     "typescript": "^5.2.2"
