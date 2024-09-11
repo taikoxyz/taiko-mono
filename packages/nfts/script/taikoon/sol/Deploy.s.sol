@@ -30,7 +30,7 @@ contract DeployScript is Script {
     // IMinimalBlacklist blacklist = IMinimalBlacklist(0xe61E9034b5633977eC98E302b33e321e8140F105);
 
     // Hardhat Testnet Values
-    address owner = 0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be;
+    address owner = 0x4100a9B680B1Be1F10Cb8b5a57fE59eA77A8184e;
     bytes32 root = 0x1c3b504b4d5640d26ad1aa3b57a9df9ec034f19239768e734b849c306d10b110;
     string baseURI =
         "https://taikonfts.4everland.link/ipfs/bafybeiegdqpwx3he5dvoxqklspdjekjepjcobfaakyficksratn73qbbyy";

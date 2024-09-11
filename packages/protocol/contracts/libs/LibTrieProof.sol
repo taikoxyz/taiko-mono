@@ -4,7 +4,7 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity 0.8.24;
+pragma solidity ^0.8.27;
 
 import "@optimism/packages/contracts-bedrock/src/libraries/rlp/RLPReader.sol";
 import "@optimism/packages/contracts-bedrock/src/libraries/rlp/RLPWriter.sol";

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.24;
+pragma solidity ^0.8.27;
 
 /// @title AddressCache
 /// @custom:security-contact security@taiko.xyz
@@ -14,7 +14,7 @@ abstract contract AddressCache {
     function getAddress(
         uint64 _chainId,
         bytes32 _name,
-        function (uint64, bytes32) view  returns  (address) _fallbackFunc
+        function (uint64, bytes32) view returns (address) _fallbackFunc
     )
         internal
         view

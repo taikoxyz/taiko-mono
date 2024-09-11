@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD 2-Clause License
 
-pragma solidity 0.8.24;
+pragma solidity ^0.8.27;
 
 // Inspired by ensdomains/solsha1 - BSD 2-Clause License
 // https://github.com/ensdomains/solsha1/blob/master/contracts/SHA1.sol

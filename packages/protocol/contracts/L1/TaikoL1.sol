@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.24;
+pragma solidity ^0.8.27;
 
 import "../common/EssentialContract.sol";
 import "./libs/LibData.sol";
@@ -71,7 +71,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     )
         external
         payable
-        onlyFromOptionalNamed(LibStrings.B_BLOCK_PROPOSER)
         whenNotPaused
         nonReentrant
         emitEventForClient
@@ -88,7 +87,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         bytes calldata _txList
     )
         external
-        onlyFromOptionalNamed(LibStrings.B_BLOCK_PROPOSER)
         whenNotPaused
         nonReentrant
         emitEventForClient
@@ -105,7 +103,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         bytes[] calldata _txListArr
     )
         external
-        onlyFromOptionalNamed(LibStrings.B_BLOCK_PROPOSER)
         whenNotPaused
         nonReentrant
         emitEventForClient

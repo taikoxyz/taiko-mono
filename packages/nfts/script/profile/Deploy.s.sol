@@ -39,7 +39,7 @@ contract DeployScript is Script {
 
         RegisterProfilePicture profile = RegisterProfilePicture(proxy);
 
-        console.log("Deployed TaikoPartyTicket to:", address(profile));
+        console.log("Deployed Trailblazers PFP to:", address(profile));
 
         string memory finalJson = vm.serializeAddress(jsonRoot, "RegisterProfilePicture", address(profile));
         vm.writeJson(finalJson, jsonLocation);
