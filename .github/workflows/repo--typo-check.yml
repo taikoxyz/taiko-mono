@@ -4,10 +4,7 @@ on: [pull_request]
 
 jobs:
   check-for-typos:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [taiko-runner]
+    runs-on: [taiko-runner]
 
     steps:
       - name: Checkout the repository
