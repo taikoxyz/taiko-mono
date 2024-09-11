@@ -4,10 +4,22 @@ on: [pull_request]
 
 jobs:
   check-for-typos:
-    runs-on: [taiko-runner]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [taiko-runner]
+
     steps:
       - name: Checkout the repository
         uses: actions/checkout@v4
+
+      - name: Install wget on Ubuntu
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y wget
+
+      - name: Install wget on macOS
+        if: runner.os == 'macOS'
+        run: brew install wget
 
       - name: Check for typos
         uses: crate-ci/typos@master
