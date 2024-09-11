@@ -7,7 +7,7 @@ This package contains Taiko Based Contestable Rrollup protocol and assisting cod
 Before compiling smart contracts, ensure all necessary dependencies are installed and foundry is installed and up to date.
 
 ```sh
-pnpm install && foundryup
+foundryup && pnpm install
 ```
 
 As solidity code are partially compiled for layer 1 (aka Ethereum) and partially compiled for layer 2 (aka Taiko), you need to compile the code for both layer1 and layer2.
@@ -35,10 +35,6 @@ pnpm compile
 pnpm test
 pnpm layout
 ```
-
-## Style Guide
-
-Please see [CONTRIBUTING.md](../../CONTRIBUTING.md) for the source code style guidelines to adhere to.
 
 ## Layer 2 Genesis Block
 
@@ -114,19 +110,19 @@ After understanding the process from the test, proceed to generate the actual `g
 
    In the Geth console, use `eth.getBlock(0)` to obtain the hash of the genesis block.
 
-4. **Update `deploy_taiko_bcr.sh` File:** Update the `L2_GENESIS_HASH` variable in the `deploy_taiko_bcr.sh` script with the obtained genesis block hash.
+4. **Update `deploy_protocol_on_l1.sh` File:** Update the `L2_GENESIS_HASH` variable in the `deploy_protocol_on_l1.sh` script with the obtained genesis block hash.
 
 By following these steps, you will successfully generate the L2 genesis block for the Taiko Protocol, retrieve its hash, and prepare for the L1 contract deployment.
 
 ## Deploying Contracts on Layer 1
 
-To deploy Taiko Protocol on layer 1, you can use any Ethereum network. The deployment relies on `script/deploy_taiko_bcr.sh`, which targets a node at `http://localhost:8545` by default.
+To deploy Taiko Protocol on layer 1, you can use any Ethereum network. The deployment relies on `script/deploy_protocol_on_l1.sh`, which targets a node at `http://localhost:8545` by default.
 
 Here’s how you can proceed:
 
-1. **Secure Sufficient ETH:** Check that the address associated with the private key in `./script/layer1/deploy_taiko_bcr.sh` has enough ETH for deploying contracts on the layer 1 network.
+1. **Secure Sufficient ETH:** Check that the address associated with the private key in `./script/layer1/deploy_protocol_on_l1.sh` has enough ETH for deploying contracts on the layer 1 network.
 
-2. **Update Contract Addresses:** After running the genesis block generation script (`pnpm genesis:test`), you will receive a list of pre-computed contract addresses. These addresses need to be added to the `deploy_taiko_bcr.sh` file. Make sure to update this file with the correct contract addresses before proceeding with the deployment.
+2. **Update Contract Addresses:** After running the genesis block generation script (`pnpm genesis:test`), you will receive a list of pre-computed contract addresses. These addresses need to be added to the `deploy_protocol_on_l1.sh` file. Make sure to update this file with the correct contract addresses before proceeding with the deployment.
 
 3. **Start a Local Network:** Here we use anvil as an example:
 
@@ -140,9 +136,14 @@ anvil --hardfork cancun
 pnpm test:deploy:l1
 ```
 
-This command will deploy the based protocol contracts using the settings and addresses you’ve provided in the `deploy_taiko_bcr.sh` script.
+This command will deploy the based protocol contracts using the settings and addresses you’ve provided in the `deploy_protocol_on_l1.sh` script.
 
-## Running slither
+## Style Guide
 
-1. Install the latest [slither](https://github.com/crytic/slither?tab=readme-ov-file#how-to-install).
-2. From `protocol/`, execute `slither . --checklist > checklist.md` to re-generate the checklist.
+Please see [CONTRIBUTING.md](../../CONTRIBUTING.md) for the source code style guidelines to adhere to.
+
+You need to format and lint your code before committing:
+
+```sh
+pnpm fmt:sol
+```
