@@ -16,7 +16,9 @@ jobs:
 
       - name: Install wget on macOS
         if: runner.os == 'macOS'
-        run: brew install wget
+        run: |
+          command -v brew >/dev/null 2>&1 || { echo >&2 "Brew is not installed. Installing now."; /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"; }
+          brew install wget
 
       - name: Check for typos
         uses: crate-ci/typos@master
