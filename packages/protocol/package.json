@@ -15,7 +15,7 @@
     "layout:l1": "./script/gen-layouts.sh layer1",
     "layout:l2": "./script/gen-layouts.sh layer2",
     "layout": "pnpm layout:l1 && pnpm layout:l2",
-    "test:deploy:l1": "./script/download_solc.sh && ./script/layer1/test_deploy_on_l1.sh",
+    "test:deploy:l1": "./script/download_solc.sh && ./script/layer1/deploy_taiko_bcr.sh",
     "eslint": "pnpm exec eslint --fix --ignore-path .eslintignore --ext .js,.ts .",
     "fmt:sol": "forge fmt",
     "lint:sol": "forge fmt && pnpm solhint 'contracts/**/*.sol'",

@@ -1,30 +1,50 @@
 # Taiko Protocol
 
-This package contains rollup contracts on both L1 and L2, along with other assisting code. Taiko L2's chain ID is [167](https://github.com/ethereum-lists/chains/pull/1611).
+This package contains Taiko Based Contestable Rrollup protocol and assisting code managed by pnpm and foundry.
 
 ## Getting Started
 
-Before compiling smart contracts, ensure all necessary dependencies are installed:
+Before compiling smart contracts, ensure all necessary dependencies are installed and foundry is installed and up to date.
 
 ```sh
-pnpm install
+pnpm install && foundryup
 ```
 
-Then, compile the smart contracts:
+As solidity code are partially compiled for layer 1 (aka Ethereum) and partially compiled for layer 2 (aka Taiko), you need to compile the code for both layer1 and layer2.
+
+To compile, test, and generate contract storage layout tables for layer 1:
+
+```sh
+pnpm compile:l1
+pnpm test:l1
+pnpm layout:l1
+```
+
+You can do the same for layer2:
+
+```sh
+pnpm compile:l2
+pnpm test:l2
+pnpm layout:l2
+```
+
+To compile and test for both layer 1 and layer 2:
 
 ```sh
 pnpm compile
+pnpm test
+pnpm layout
 ```
-
-If you run into `Error: Unknown version provided`, you should upgrade your foundry installation by running `curl -L https://foundry.paradigm.xyz | bash`.
 
 ## Style Guide
 
 Please see [CONTRIBUTING.md](../../CONTRIBUTING.md) for the source code style guidelines to adhere to.
 
-## Generate L2 Genesis JSON's `alloc` Field
+## Layer 2 Genesis Block
 
-Create a `config.js` with the following structure:
+### Generating a dummy genesis block
+
+First, you need to create a `config.js` file in this directory with the following content:
 
 ```javascript
 module.exports = {
@@ -50,43 +70,32 @@ module.exports = {
 };
 ```
 
-Then, execute the generation script:
+Then, compile the layer 2 contracts and execute a script:
 
 ```sh
 pnpm compile:l2 && pnpm genesis:gen config.js
 ```
 
-The script will output two JSON files under `./deployments`:
+The script will output two JSON files under `./test/genesis/data/`:
 
 - `l2_genesis_alloc.json`: the `alloc` field which will be used in L2 genesis JSON file
 - `l2_genesis_storage_layout.json`: the storage layout of those pre-deployed contracts
 
-## Using Foundry
-
-This project also integrates with Foundry for building and testing contracts.
-
-- To compile using foundry: `forge build` or `pnpm compile`
-- To run foundry tests: `forge test --gas-report -vvv` or `pnpm test:foundry`
-
-## Generating and Running the L2 Genesis Block
-
-The generation of the L2 genesis block and obtaining its hash involves a series of steps, including constructing the genesis JSON, followed by the actual generation and retrieval of the genesis block hash. A test can be executed to comprehend this process.
-
-### Testing Genesis Block Creation
-
-To understand how the `genesis.json` is built from deployment files and how to generate the genesis block and its hash, you can use the `genesis:test` command. This test serves as a learning tool:
+You can output the dummy genesis block by running the following command:
 
 ```sh
 pnpm genesis:test
 ```
 
-This test, defined in `./genesis/generate_genesis.test.sh`, compiles the contracts, generates the genesis JSON, and initiates a Geth node using Docker to simulate the deployment of the genesis block. Reviewing this script and its output can help you grasp the steps required to create and initiate a genesis block for the Taiko Protocol.
+This test, defined in `./test/genesis/genesis.test.sh`, compiles the contracts, generates the genesis JSON, and initiates a Geth node using Docker to simulate the deployment of the genesis block. Reviewing this script and its output can help you grasp the steps required to create and initiate a genesis block for the Taiko Protocol.
 
-### Generating the Actual Genesis Block
+If this process is unclear to you, please reach out to us on [Discord](https://discord.gg/taiko) or [GitHub](https://github.com/taikoxyz/taiko-mono/issues).
+
+### Generating Actual Genesis Block
 
 After understanding the process from the test, proceed to generate the actual `genesis.json` and the genesis block:
 
-1. **Build the Genesis JSON:** Use the information learned from the `genesis:test` to build the `genesis.json` file from the files in the `/deployments/` directory. The `generate_genesis.test.sh` script contains the necessary commands to create this file.
+1. **Build the Genesis JSON:** Use the information learned from the `genesis:test` to build the `genesis.json` file from data files in `./test/genesis/data/` directory. The `./test/genesis/genesis.test.sh` script contains the necessary commands to create this file.
 
 2. **Run Geth to Generate the Genesis Block:** You can use Geth to initialize and run a private network with the genesis block. You can start Geth with the following commands:
 
@@ -105,33 +114,33 @@ After understanding the process from the test, proceed to generate the actual `g
 
    In the Geth console, use `eth.getBlock(0)` to obtain the hash of the genesis block.
 
-4. **Update `test_deploy_on_l1.sh` File:** Update the `L2_GENESIS_HASH` variable in the `test_deploy_on_l1.sh` script with the obtained genesis block hash.
+4. **Update `deploy_taiko_bcr.sh` File:** Update the `L2_GENESIS_HASH` variable in the `deploy_taiko_bcr.sh` script with the obtained genesis block hash.
 
 By following these steps, you will successfully generate the L2 genesis block for the Taiko Protocol, retrieve its hash, and prepare for the L1 contract deployment.
 
-## Deploying the L1 Contracts
+## Deploying Contracts on Layer 1
 
-To deploy L1 contracts for Taiko Protocol, you can use any Ethereum network. This guide illustrates the process using a Hardhat local network, but it's adaptable to others. The deployment relies on `script/test_deploy_on_l1.sh`, which targets a node at `http://localhost:8545` by default.
+To deploy Taiko Protocol on layer 1, you can use any Ethereum network. The deployment relies on `script/deploy_taiko_bcr.sh`, which targets a node at `http://localhost:8545` by default.
 
 Here’s how you can proceed:
 
-1. **Ensure Sufficient ETH:** Check that the address associated with the private key in `script/test_deploy_on_l1.sh` has enough ETH for deploying contracts on the Hardhat network.
+1. **Secure Sufficient ETH:** Check that the address associated with the private key in `./script/layer1/deploy_taiko_bcr.sh` has enough ETH for deploying contracts on the layer 1 network.
 
-2. **Update Contract Addresses:** After running the genesis block generation script (`pnpm genesis:test`), you will receive a list of pre-computed contract addresses. These addresses need to be added to the `test_deploy_on_l1.sh` file. Make sure to update this file with the correct contract addresses before proceeding with the deployment.
+2. **Update Contract Addresses:** After running the genesis block generation script (`pnpm genesis:test`), you will receive a list of pre-computed contract addresses. These addresses need to be added to the `deploy_taiko_bcr.sh` file. Make sure to update this file with the correct contract addresses before proceeding with the deployment.
 
-3. **Start a Local Development Network:** While this guide uses Hardhat as an example, you can use any Ethereum network. If you choose to use Hardhat, start a local Ethereum network for development and testing:
+3. **Start a Local Network:** Here we use anvil as an example:
 
 ```sh
-pnpm hardhat node
+anvil --hardfork cancun
 ```
 
 4. **Deploy Contracts Using Foundry:** Once your network is running, open a new terminal window and execute the deployment scripts using Foundry:
 
 ```sh
-pnpm test:deploy
+pnpm test:deploy:l1
 ```
 
-This command will deploy the L1 contracts using the settings and addresses you’ve provided in the `test_deploy_on_l1.sh` script.
+This command will deploy the based protocol contracts using the settings and addresses you’ve provided in the `deploy_taiko_bcr.sh` script.
 
 ## Running slither
 
