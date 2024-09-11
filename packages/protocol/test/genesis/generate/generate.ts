@@ -65,9 +65,16 @@ async function main() {
         JSON.stringify(result.storageLayouts, null, 2),
     );
 
+    const configJsonSavedPath = path.join(
+        __dirname,
+        "../data/genesis_config.json",
+    );
+    fs.writeFileSync(configJsonSavedPath, JSON.stringify(config));
+
     console.log("done");
     console.log(`alloc JSON saved to ${allocSavedPath}`);
     console.log(`layout JSON saved to ${layoutSavedPath}`);
+    console.log(`config JSON saved to ${configJsonSavedPath}`);
 }
 
 main().catch(console.error);
