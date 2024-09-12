@@ -1,16 +1,14 @@
 name: Protocol
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "packages/protocol/**"
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "packages/protocol/**"
 
 jobs:
   build-protocol:
+    if: github.event.pull_request.draft == false
     runs-on: [taiko-runner]
     permissions:
       # Give the necessary permissions for stefanzweifel/git-auto-commit-action.
