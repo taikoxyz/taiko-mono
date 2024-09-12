@@ -81,7 +81,7 @@ func TestGetSyncedL1SnippetFromAnchor(t *testing.T) {
 	l1BlockHash := randomHash()
 	l1StateRoot := randomHash()
 	l1Height := randomHash().Big().Uint64()
-	parentGasUsed := uint32(randomHash().Big().Uint64()) // #nosec G115
+	parentGasUsed := uint32(randomHash().Big().Uint64())
 
 	testAddrPrivKey, err := crypto.ToECDSA(common.Hex2Bytes(encoding.GoldenTouchPrivKey))
 	require.Nil(t, err)

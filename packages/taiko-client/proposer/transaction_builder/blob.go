@@ -132,7 +132,7 @@ func (b *BlobTransactionBuilder) Build(
 			AnchorBlockId:    0,
 			Timestamp:        0,
 			BlobTxListOffset: 0,
-			// #nosec G115
+
 			BlobTxListLength: uint32(len(txListBytes)),
 			BlobIndex:        0,
 		}); err != nil {
