@@ -1,6 +1,6 @@
 ## ERC1155Vault
-| Name               | Type                                                 | Slot | Offset | Bytes | Contract                                           |
-|--------------------|------------------------------------------------------|------|--------|-------|----------------------------------------------------|
+| Name               | Type                                                 | Slot | Offset | Bytes | Contract                                                  |
+|--------------------|------------------------------------------------------|------|--------|-------|-----------------------------------------------------------|
 | _initialized       | uint8                                                | 0    | 0      | 1     | ERC1155Vault |
 | _initializing      | bool                                                 | 0    | 1      | 1     | ERC1155Vault |
 | __gap              | uint256[50]                                          | 1    | 0      | 1600  | ERC1155Vault |
@@ -23,8 +23,8 @@
 | __gap              | uint256[50]                                          | 451  | 0      | 1600  | ERC1155Vault |
 
 ## ERC20Vault
-| Name               | Type                                                 | Slot | Offset | Bytes | Contract                                       |
-|--------------------|------------------------------------------------------|------|--------|-------|------------------------------------------------|
+| Name               | Type                                                 | Slot | Offset | Bytes | Contract                                              |
+|--------------------|------------------------------------------------------|------|--------|-------|-------------------------------------------------------|
 | _initialized       | uint8                                                | 0    | 0      | 1     | ERC20Vault |
 | _initializing      | bool                                                 | 0    | 1      | 1     | ERC20Vault |
 | __gap              | uint256[50]                                          | 1    | 0      | 1600  | ERC20Vault |
@@ -46,8 +46,8 @@
 | __gap              | uint256[46]                                          | 305  | 0      | 1472  | ERC20Vault |
 
 ## ERC721Vault
-| Name               | Type                                                 | Slot | Offset | Bytes | Contract                                         |
-|--------------------|------------------------------------------------------|------|--------|-------|--------------------------------------------------|
+| Name               | Type                                                 | Slot | Offset | Bytes | Contract                                                |
+|--------------------|------------------------------------------------------|------|--------|-------|---------------------------------------------------------|
 | _initialized       | uint8                                                | 0    | 0      | 1     | ERC721Vault |
 | _initializing      | bool                                                 | 0    | 1      | 1     | ERC721Vault |
 | __gap              | uint256[50]                                          | 1    | 0      | 1600  | ERC721Vault |
@@ -68,8 +68,8 @@
 | __gap              | uint256[50]                                          | 351  | 0      | 1600  | ERC721Vault |
 
 ## BridgedERC20
-| Name             | Type                                            | Slot | Offset | Bytes | Contract                                           |
-|------------------|-------------------------------------------------|------|--------|-------|----------------------------------------------------|
+| Name             | Type                                            | Slot | Offset | Bytes | Contract                                                  |
+|------------------|-------------------------------------------------|------|--------|-------|-----------------------------------------------------------|
 | _initialized     | uint8                                           | 0    | 0      | 1     | BridgedERC20 |
 | _initializing    | bool                                            | 0    | 1      | 1     | BridgedERC20 |
 | __gap            | uint256[50]                                     | 1    | 0      | 1600  | BridgedERC20 |
@@ -97,8 +97,8 @@
 | __gap            | uint256[47]                                     | 304  | 0      | 1504  | BridgedERC20 |
 
 ## BridgedERC20V2
-| Name             | Type                                                   | Slot | Offset | Bytes | Contract                                               |
-|------------------|--------------------------------------------------------|------|--------|-------|--------------------------------------------------------|
+| Name             | Type                                                   | Slot | Offset | Bytes | Contract                                                      |
+|------------------|--------------------------------------------------------|------|--------|-------|---------------------------------------------------------------|
 | _initialized     | uint8                                                  | 0    | 0      | 1     | BridgedERC20V2 |
 | _initializing    | bool                                                   | 0    | 1      | 1     | BridgedERC20V2 |
 | __gap            | uint256[50]                                            | 1    | 0      | 1600  | BridgedERC20V2 |
@@ -133,8 +133,8 @@
 | __gap            | uint256[49]                                            | 404  | 0      | 1568  | BridgedERC20V2 |
 
 ## BridgedERC721
-| Name               | Type                                         | Slot | Offset | Bytes | Contract                                             |
-|--------------------|----------------------------------------------|------|--------|-------|------------------------------------------------------|
+| Name               | Type                                         | Slot | Offset | Bytes | Contract                                                    |
+|--------------------|----------------------------------------------|------|--------|-------|-------------------------------------------------------------|
 | _initialized       | uint8                                        | 0    | 0      | 1     | BridgedERC721 |
 | _initializing      | bool                                         | 0    | 1      | 1     | BridgedERC721 |
 | __gap              | uint256[50]                                  | 1    | 0      | 1600  | BridgedERC721 |
@@ -161,8 +161,8 @@
 | __gap              | uint256[48]                                  | 353  | 0      | 1536  | BridgedERC721 |
 
 ## BridgedERC1155
-| Name               | Type                                            | Slot | Offset | Bytes | Contract                                               |
-|--------------------|-------------------------------------------------|------|--------|-------|--------------------------------------------------------|
+| Name               | Type                                            | Slot | Offset | Bytes | Contract                                                      |
+|--------------------|-------------------------------------------------|------|--------|-------|---------------------------------------------------------------|
 | _initialized       | uint8                                           | 0    | 0      | 1     | BridgedERC1155 |
 | _initializing      | bool                                            | 0    | 1      | 1     | BridgedERC1155 |
 | __gap              | uint256[50]                                     | 1    | 0      | 1600  | BridgedERC1155 |
@@ -188,8 +188,8 @@
 | __gap              | uint256[46]                                     | 355  | 0      | 1472  | BridgedERC1155 |
 
 ## Bridge
-| Name           | Type                                    | Slot | Offset | Bytes | Contract                           |
-|----------------|-----------------------------------------|------|--------|-------|------------------------------------|
+| Name           | Type                                    | Slot | Offset | Bytes | Contract                                  |
+|----------------|-----------------------------------------|------|--------|-------|-------------------------------------------|
 | _initialized   | uint8                                   | 0    | 0      | 1     | Bridge |
 | _initializing  | bool                                    | 0    | 1      | 1     | Bridge |
 | __gap          | uint256[50]                             | 1    | 0      | 1600  | Bridge |
@@ -212,8 +212,8 @@
 | __gap          | uint256[44]                             | 257  | 0      | 1408  | Bridge |
 
 ## QuotaManager
-| Name           | Type                                          | Slot | Offset | Bytes | Contract                                       |
-|----------------|-----------------------------------------------|------|--------|-------|------------------------------------------------|
+| Name           | Type                                          | Slot | Offset | Bytes | Contract                                              |
+|----------------|-----------------------------------------------|------|--------|-------|-------------------------------------------------------|
 | _initialized   | uint8                                         | 0    | 0      | 1     | QuotaManager |
 | _initializing  | bool                                          | 0    | 1      | 1     | QuotaManager |
 | __gap          | uint256[50]                                   | 1    | 0      | 1600  | QuotaManager |
@@ -232,8 +232,8 @@
 | __gap          | uint256[48]                                   | 253  | 0      | 1536  | QuotaManager |
 
 ## AddressManager
-| Name           | Type                                            | Slot | Offset | Bytes | Contract                                           |
-|----------------|-------------------------------------------------|------|--------|-------|----------------------------------------------------|
+| Name           | Type                                            | Slot | Offset | Bytes | Contract                                                  |
+|----------------|-------------------------------------------------|------|--------|-------|-----------------------------------------------------------|
 | _initialized   | uint8                                           | 0    | 0      | 1     | AddressManager |
 | _initializing  | bool                                            | 0    | 1      | 1     | AddressManager |
 | __gap          | uint256[50]                                     | 1    | 0      | 1600  | AddressManager |
@@ -251,16 +251,16 @@
 | __gap          | uint256[49]                                     | 252  | 0      | 1568  | AddressManager |
 
 ## AddressResolver
-| Name           | Type        | Slot | Offset | Bytes | Contract                                             |
-|----------------|-------------|------|--------|-------|------------------------------------------------------|
+| Name           | Type        | Slot | Offset | Bytes | Contract                                                    |
+|----------------|-------------|------|--------|-------|-------------------------------------------------------------|
 | _initialized   | uint8       | 0    | 0      | 1     | AddressResolver |
 | _initializing  | bool        | 0    | 1      | 1     | AddressResolver |
 | addressManager | address     | 0    | 2      | 20    | AddressResolver |
 | __gap          | uint256[49] | 1    | 0      | 1568  | AddressResolver |
 
 ## EssentialContract
-| Name           | Type        | Slot | Offset | Bytes | Contract                                                 |
-|----------------|-------------|------|--------|-------|----------------------------------------------------------|
+| Name           | Type        | Slot | Offset | Bytes | Contract                                                        |
+|----------------|-------------|------|--------|-------|-----------------------------------------------------------------|
 | _initialized   | uint8       | 0    | 0      | 1     | EssentialContract |
 | _initializing  | bool        | 0    | 1      | 1     | EssentialContract |
 | __gap          | uint256[50] | 1    | 0      | 1600  | EssentialContract |
@@ -276,8 +276,8 @@
 | __gap          | uint256[49] | 202  | 0      | 1568  | EssentialContract |
 
 ## SignalService
-| Name           | Type                                          | Slot | Offset | Bytes | Contract                                         |
-|----------------|-----------------------------------------------|------|--------|-------|--------------------------------------------------|
+| Name           | Type                                          | Slot | Offset | Bytes | Contract                                                |
+|----------------|-----------------------------------------------|------|--------|-------|---------------------------------------------------------|
 | _initialized   | uint8                                         | 0    | 0      | 1     | SignalService |
 | _initializing  | bool                                          | 0    | 1      | 1     | SignalService |
 | __gap          | uint256[50]                                   | 1    | 0      | 1600  | SignalService |
@@ -296,8 +296,8 @@
 | __gap          | uint256[48]                                   | 253  | 0      | 1536  | SignalService |
 
 ## TaikoToken
-| Name                                                | Type                                                          | Slot | Offset | Bytes | Contract                                |
-|-----------------------------------------------------|---------------------------------------------------------------|------|--------|-------|-----------------------------------------|
+| Name                                                | Type                                                          | Slot | Offset | Bytes | Contract                                         |
+|-----------------------------------------------------|---------------------------------------------------------------|------|--------|-------|--------------------------------------------------|
 | _initialized                                        | uint8                                                         | 0    | 0      | 1     | TaikoToken |
 | _initializing                                       | bool                                                          | 0    | 1      | 1     | TaikoToken |
 | __gap                                               | uint256[50]                                                   | 1    | 0      | 1600  | TaikoToken |
@@ -333,8 +333,8 @@
 | __gap                                               | uint256[50]                                                   | 504  | 0      | 1600  | TaikoToken |
 
 ## ComposeVerifier
-| Name           | Type        | Slot | Offset | Bytes | Contract                                                        |
-|----------------|-------------|------|--------|-------|-----------------------------------------------------------------|
+| Name           | Type        | Slot | Offset | Bytes | Contract                                                               |
+|----------------|-------------|------|--------|-------|------------------------------------------------------------------------|
 | _initialized   | uint8       | 0    | 0      | 1     | ComposeVerifier |
 | _initializing  | bool        | 0    | 1      | 1     | ComposeVerifier |
 | __gap          | uint256[50] | 1    | 0      | 1600  | ComposeVerifier |
@@ -351,8 +351,8 @@
 | __gap          | uint256[50] | 251  | 0      | 1600  | ComposeVerifier |
 
 ## TeeAnyVerifier
-| Name           | Type        | Slot | Offset | Bytes | Contract                                                      |
-|----------------|-------------|------|--------|-------|---------------------------------------------------------------|
+| Name           | Type        | Slot | Offset | Bytes | Contract                                                             |
+|----------------|-------------|------|--------|-------|----------------------------------------------------------------------|
 | _initialized   | uint8       | 0    | 0      | 1     | TeeAnyVerifier |
 | _initializing  | bool        | 0    | 1      | 1     | TeeAnyVerifier |
 | __gap          | uint256[50] | 1    | 0      | 1600  | TeeAnyVerifier |
@@ -370,8 +370,8 @@
 | __gap          | uint256[50] | 301  | 0      | 1600  | TeeAnyVerifier |
 
 ## ZkAndTeeVerifier
-| Name           | Type        | Slot | Offset | Bytes | Contract                                                          |
-|----------------|-------------|------|--------|-------|-------------------------------------------------------------------|
+| Name           | Type        | Slot | Offset | Bytes | Contract                                                                 |
+|----------------|-------------|------|--------|-------|--------------------------------------------------------------------------|
 | _initialized   | uint8       | 0    | 0      | 1     | ZkAndTeeVerifier |
 | _initializing  | bool        | 0    | 1      | 1     | ZkAndTeeVerifier |
 | __gap          | uint256[50] | 1    | 0      | 1600  | ZkAndTeeVerifier |
@@ -389,8 +389,8 @@
 | __gap          | uint256[50] | 301  | 0      | 1600  | ZkAndTeeVerifier |
 
 ## ZkAnyVerifier
-| Name           | Type        | Slot | Offset | Bytes | Contract                                                    |
-|----------------|-------------|------|--------|-------|-------------------------------------------------------------|
+| Name           | Type        | Slot | Offset | Bytes | Contract                                                           |
+|----------------|-------------|------|--------|-------|--------------------------------------------------------------------|
 | _initialized   | uint8       | 0    | 0      | 1     | ZkAnyVerifier |
 | _initializing  | bool        | 0    | 1      | 1     | ZkAnyVerifier |
 | __gap          | uint256[50] | 1    | 0      | 1600  | ZkAnyVerifier |
@@ -408,8 +408,8 @@
 | __gap          | uint256[50] | 301  | 0      | 1600  | ZkAnyVerifier |
 
 ## Risc0Verifier
-| Name           | Type                     | Slot | Offset | Bytes | Contract                                            |
-|----------------|--------------------------|------|--------|-------|-----------------------------------------------------|
+| Name           | Type                     | Slot | Offset | Bytes | Contract                                                   |
+|----------------|--------------------------|------|--------|-------|------------------------------------------------------------|
 | _initialized   | uint8                    | 0    | 0      | 1     | Risc0Verifier |
 | _initializing  | bool                     | 0    | 1      | 1     | Risc0Verifier |
 | __gap          | uint256[50]              | 1    | 0      | 1600  | Risc0Verifier |
@@ -427,8 +427,8 @@
 | __gap          | uint256[49]              | 252  | 0      | 1568  | Risc0Verifier |
 
 ## SP1Verifier
-| Name             | Type                     | Slot | Offset | Bytes | Contract                                        |
-|------------------|--------------------------|------|--------|-------|-------------------------------------------------|
+| Name             | Type                     | Slot | Offset | Bytes | Contract                                               |
+|------------------|--------------------------|------|--------|-------|--------------------------------------------------------|
 | _initialized     | uint8                    | 0    | 0      | 1     | SP1Verifier |
 | _initializing    | bool                     | 0    | 1      | 1     | SP1Verifier |
 | __gap            | uint256[50]              | 1    | 0      | 1600  | SP1Verifier |
@@ -446,8 +446,8 @@
 | __gap            | uint256[49]              | 252  | 0      | 1568  | SP1Verifier |
 
 ## SgxVerifier
-| Name              | Type                                            | Slot | Offset | Bytes | Contract                                        |
-|-------------------|-------------------------------------------------|------|--------|-------|-------------------------------------------------|
+| Name              | Type                                            | Slot | Offset | Bytes | Contract                                               |
+|-------------------|-------------------------------------------------|------|--------|-------|--------------------------------------------------------|
 | _initialized      | uint8                                           | 0    | 0      | 1     | SgxVerifier |
 | _initializing     | bool                                            | 0    | 1      | 1     | SgxVerifier |
 | __gap             | uint256[50]                                     | 1    | 0      | 1600  | SgxVerifier |
@@ -467,8 +467,8 @@
 | __gap             | uint256[47]                                     | 254  | 0      | 1504  | SgxVerifier |
 
 ## AutomataDcapV3Attestation
-| Name                    | Type                                            | Slot | Offset | Bytes | Contract                                                                               |
-|-------------------------|-------------------------------------------------|------|--------|-------|----------------------------------------------------------------------------------------|
+| Name                    | Type                                            | Slot | Offset | Bytes | Contract                                                                                      |
+|-------------------------|-------------------------------------------------|------|--------|-------|-----------------------------------------------------------------------------------------------|
 | _initialized            | uint8                                           | 0    | 0      | 1     | AutomataDcapV3Attestation |
 | _initializing           | bool                                            | 0    | 1      | 1     | AutomataDcapV3Attestation |
 | __gap                   | uint256[50]                                     | 1    | 0      | 1600  | AutomataDcapV3Attestation |
@@ -493,8 +493,8 @@
 | __gap                   | uint256[39]                                     | 261  | 0      | 1248  | AutomataDcapV3Attestation |
 
 ## TaikoL1
-| Name           | Type                   | Slot | Offset | Bytes | Contract                         |
-|----------------|------------------------|------|--------|-------|----------------------------------|
+| Name           | Type                   | Slot | Offset | Bytes | Contract                                   |
+|----------------|------------------------|------|--------|-------|--------------------------------------------|
 | _initialized   | uint8                  | 0    | 0      | 1     | TaikoL1 |
 | _initializing  | bool                   | 0    | 1      | 1     | TaikoL1 |
 | __gap          | uint256[50]            | 1    | 0      | 1600  | TaikoL1 |
@@ -516,8 +516,8 @@
 |------|------|------|--------|-------|----------|
 
 ## HeklaTaikoL1
-| Name           | Type                   | Slot | Offset | Bytes | Contract                                      |
-|----------------|------------------------|------|--------|-------|-----------------------------------------------|
+| Name           | Type                   | Slot | Offset | Bytes | Contract                                             |
+|----------------|------------------------|------|--------|-------|------------------------------------------------------|
 | _initialized   | uint8                  | 0    | 0      | 1     | HeklaTaikoL1 |
 | _initializing  | bool                   | 0    | 1      | 1     | HeklaTaikoL1 |
 | __gap          | uint256[50]            | 1    | 0      | 1600  | HeklaTaikoL1 |
@@ -539,8 +539,8 @@
 |------|------|------|--------|-------|----------|
 
 ## MainnetBridge
-| Name           | Type                                    | Slot | Offset | Bytes | Contract                                                 |
-|----------------|-----------------------------------------|------|--------|-------|----------------------------------------------------------|
+| Name           | Type                                    | Slot | Offset | Bytes | Contract                                                             |
+|----------------|-----------------------------------------|------|--------|-------|----------------------------------------------------------------------|
 | _initialized   | uint8                                   | 0    | 0      | 1     | MainnetBridge |
 | _initializing  | bool                                    | 0    | 1      | 1     | MainnetBridge |
 | __gap          | uint256[50]                             | 1    | 0      | 1600  | MainnetBridge |
@@ -563,8 +563,8 @@
 | __gap          | uint256[44]                             | 257  | 0      | 1408  | MainnetBridge |
 
 ## MainnetSignalService
-| Name           | Type                                          | Slot | Offset | Bytes | Contract                                                               |
-|----------------|-----------------------------------------------|------|--------|-------|------------------------------------------------------------------------|
+| Name           | Type                                          | Slot | Offset | Bytes | Contract                                                                           |
+|----------------|-----------------------------------------------|------|--------|-------|------------------------------------------------------------------------------------|
 | _initialized   | uint8                                         | 0    | 0      | 1     | MainnetSignalService |
 | _initializing  | bool                                          | 0    | 1      | 1     | MainnetSignalService |
 | __gap          | uint256[50]                                   | 1    | 0      | 1600  | MainnetSignalService |
@@ -583,8 +583,8 @@
 | __gap          | uint256[48]                                   | 253  | 0      | 1536  | MainnetSignalService |
 
 ## MainnetERC20Vault
-| Name               | Type                                                 | Slot | Offset | Bytes | Contract                                                         |
-|--------------------|------------------------------------------------------|------|--------|-------|------------------------------------------------------------------|
+| Name               | Type                                                 | Slot | Offset | Bytes | Contract                                                                     |
+|--------------------|------------------------------------------------------|------|--------|-------|------------------------------------------------------------------------------|
 | _initialized       | uint8                                                | 0    | 0      | 1     | MainnetERC20Vault |
 | _initializing      | bool                                                 | 0    | 1      | 1     | MainnetERC20Vault |
 | __gap              | uint256[50]                                          | 1    | 0      | 1600  | MainnetERC20Vault |
@@ -606,8 +606,8 @@
 | __gap              | uint256[46]                                          | 305  | 0      | 1472  | MainnetERC20Vault |
 
 ## MainnetERC1155Vault
-| Name               | Type                                                 | Slot | Offset | Bytes | Contract                                                             |
-|--------------------|------------------------------------------------------|------|--------|-------|----------------------------------------------------------------------|
+| Name               | Type                                                 | Slot | Offset | Bytes | Contract                                                                         |
+|--------------------|------------------------------------------------------|------|--------|-------|----------------------------------------------------------------------------------|
 | _initialized       | uint8                                                | 0    | 0      | 1     | MainnetERC1155Vault |
 | _initializing      | bool                                                 | 0    | 1      | 1     | MainnetERC1155Vault |
 | __gap              | uint256[50]                                          | 1    | 0      | 1600  | MainnetERC1155Vault |
@@ -630,8 +630,8 @@
 | __gap              | uint256[50]                                          | 451  | 0      | 1600  | MainnetERC1155Vault |
 
 ## MainnetERC721Vault
-| Name               | Type                                                 | Slot | Offset | Bytes | Contract                                                           |
-|--------------------|------------------------------------------------------|------|--------|-------|--------------------------------------------------------------------|
+| Name               | Type                                                 | Slot | Offset | Bytes | Contract                                                                       |
+|--------------------|------------------------------------------------------|------|--------|-------|--------------------------------------------------------------------------------|
 | _initialized       | uint8                                                | 0    | 0      | 1     | MainnetERC721Vault |
 | _initializing      | bool                                                 | 0    | 1      | 1     | MainnetERC721Vault |
 | __gap              | uint256[50]                                          | 1    | 0      | 1600  | MainnetERC721Vault |
@@ -652,8 +652,8 @@
 | __gap              | uint256[50]                                          | 351  | 0      | 1600  | MainnetERC721Vault |
 
 ## MainnetSharedAddressManager
-| Name           | Type                                            | Slot | Offset | Bytes | Contract                                                                             |
-|----------------|-------------------------------------------------|------|--------|-------|--------------------------------------------------------------------------------------|
+| Name           | Type                                            | Slot | Offset | Bytes | Contract                                                                                         |
+|----------------|-------------------------------------------------|------|--------|-------|--------------------------------------------------------------------------------------------------|
 | _initialized   | uint8                                           | 0    | 0      | 1     | MainnetSharedAddressManager |
 | _initializing  | bool                                            | 0    | 1      | 1     | MainnetSharedAddressManager |
 | __gap          | uint256[50]                                     | 1    | 0      | 1600  | MainnetSharedAddressManager |
@@ -683,8 +683,8 @@
 |------|------|------|--------|-------|----------|
 
 ## MainnetSgxVerifier
-| Name              | Type                                            | Slot | Offset | Bytes | Contract                                                                     |
-|-------------------|-------------------------------------------------|------|--------|-------|------------------------------------------------------------------------------|
+| Name              | Type                                            | Slot | Offset | Bytes | Contract                                                                            |
+|-------------------|-------------------------------------------------|------|--------|-------|-------------------------------------------------------------------------------------|
 | _initialized      | uint8                                           | 0    | 0      | 1     | MainnetSgxVerifier |
 | _initializing     | bool                                            | 0    | 1      | 1     | MainnetSgxVerifier |
 | __gap             | uint256[50]                                     | 1    | 0      | 1600  | MainnetSgxVerifier |
@@ -704,8 +704,8 @@
 | __gap             | uint256[47]                                     | 254  | 0      | 1504  | MainnetSgxVerifier |
 
 ## MainnetSP1Verifier
-| Name             | Type                     | Slot | Offset | Bytes | Contract                                                                     |
-|------------------|--------------------------|------|--------|-------|------------------------------------------------------------------------------|
+| Name             | Type                     | Slot | Offset | Bytes | Contract                                                                            |
+|------------------|--------------------------|------|--------|-------|-------------------------------------------------------------------------------------|
 | _initialized     | uint8                    | 0    | 0      | 1     | MainnetSP1Verifier |
 | _initializing    | bool                     | 0    | 1      | 1     | MainnetSP1Verifier |
 | __gap            | uint256[50]              | 1    | 0      | 1600  | MainnetSP1Verifier |
@@ -723,8 +723,8 @@
 | __gap            | uint256[49]              | 252  | 0      | 1568  | MainnetSP1Verifier |
 
 ## MainnetZkAnyVerifier
-| Name           | Type        | Slot | Offset | Bytes | Contract                                                                         |
-|----------------|-------------|------|--------|-------|----------------------------------------------------------------------------------|
+| Name           | Type        | Slot | Offset | Bytes | Contract                                                                                |
+|----------------|-------------|------|--------|-------|-----------------------------------------------------------------------------------------|
 | _initialized   | uint8       | 0    | 0      | 1     | MainnetZkAnyVerifier |
 | _initializing  | bool        | 0    | 1      | 1     | MainnetZkAnyVerifier |
 | __gap          | uint256[50] | 1    | 0      | 1600  | MainnetZkAnyVerifier |
@@ -742,8 +742,8 @@
 | __gap          | uint256[50] | 301  | 0      | 1600  | MainnetZkAnyVerifier |
 
 ## MainnetRisc0Verifier
-| Name           | Type                     | Slot | Offset | Bytes | Contract                                                                         |
-|----------------|--------------------------|------|--------|-------|----------------------------------------------------------------------------------|
+| Name           | Type                     | Slot | Offset | Bytes | Contract                                                                                |
+|----------------|--------------------------|------|--------|-------|-----------------------------------------------------------------------------------------|
 | _initialized   | uint8                    | 0    | 0      | 1     | MainnetRisc0Verifier |
 | _initializing  | bool                     | 0    | 1      | 1     | MainnetRisc0Verifier |
 | __gap          | uint256[50]              | 1    | 0      | 1600  | MainnetRisc0Verifier |
@@ -761,8 +761,8 @@
 | __gap          | uint256[49]              | 252  | 0      | 1568  | MainnetRisc0Verifier |
 
 ## MainnetZkAndTeeVerifier
-| Name           | Type        | Slot | Offset | Bytes | Contract                                                                               |
-|----------------|-------------|------|--------|-------|----------------------------------------------------------------------------------------|
+| Name           | Type        | Slot | Offset | Bytes | Contract                                                                                      |
+|----------------|-------------|------|--------|-------|-----------------------------------------------------------------------------------------------|
 | _initialized   | uint8       | 0    | 0      | 1     | MainnetZkAndTeeVerifier |
 | _initializing  | bool        | 0    | 1      | 1     | MainnetZkAndTeeVerifier |
 | __gap          | uint256[50] | 1    | 0      | 1600  | MainnetZkAndTeeVerifier |
@@ -780,8 +780,8 @@
 | __gap          | uint256[50] | 301  | 0      | 1600  | MainnetZkAndTeeVerifier |
 
 ## MainnetTeeAnyVerifier
-| Name           | Type        | Slot | Offset | Bytes | Contract                                                                           |
-|----------------|-------------|------|--------|-------|------------------------------------------------------------------------------------|
+| Name           | Type        | Slot | Offset | Bytes | Contract                                                                                  |
+|----------------|-------------|------|--------|-------|-------------------------------------------------------------------------------------------|
 | _initialized   | uint8       | 0    | 0      | 1     | MainnetTeeAnyVerifier |
 | _initializing  | bool        | 0    | 1      | 1     | MainnetTeeAnyVerifier |
 | __gap          | uint256[50] | 1    | 0      | 1600  | MainnetTeeAnyVerifier |
@@ -799,8 +799,8 @@
 | __gap          | uint256[50] | 301  | 0      | 1600  | MainnetTeeAnyVerifier |
 
 ## MainnetGuardianProver
-| Name                    | Type                                            | Slot | Offset | Bytes | Contract                                                                 |
-|-------------------------|-------------------------------------------------|------|--------|-------|--------------------------------------------------------------------------|
+| Name                    | Type                                            | Slot | Offset | Bytes | Contract                                                                        |
+|-------------------------|-------------------------------------------------|------|--------|-------|---------------------------------------------------------------------------------|
 | _initialized            | uint8                                           | 0    | 0      | 1     | MainnetGuardianProver |
 | _initializing           | bool                                            | 0    | 1      | 1     | MainnetGuardianProver |
 | __gap                   | uint256[50]                                     | 1    | 0      | 1600  | MainnetGuardianProver |
@@ -824,8 +824,8 @@
 | __gap                   | uint256[45]                                     | 256  | 0      | 1440  | MainnetGuardianProver |
 
 ## MainnetTaikoL1
-| Name           | Type                   | Slot | Offset | Bytes | Contract                                                   |
-|----------------|------------------------|------|--------|-------|------------------------------------------------------------|
+| Name           | Type                   | Slot | Offset | Bytes | Contract                                                          |
+|----------------|------------------------|------|--------|-------|-------------------------------------------------------------------|
 | _initialized   | uint8                  | 0    | 0      | 1     | MainnetTaikoL1 |
 | _initializing  | bool                   | 0    | 1      | 1     | MainnetTaikoL1 |
 | __gap          | uint256[50]            | 1    | 0      | 1600  | MainnetTaikoL1 |
@@ -843,8 +843,8 @@
 | __gap          | uint256[50]            | 301  | 0      | 1600  | MainnetTaikoL1 |
 
 ## MainnetRollupAddressManager
-| Name           | Type                                            | Slot | Offset | Bytes | Contract                                                                             |
-|----------------|-------------------------------------------------|------|--------|-------|--------------------------------------------------------------------------------------|
+| Name           | Type                                            | Slot | Offset | Bytes | Contract                                                                                    |
+|----------------|-------------------------------------------------|------|--------|-------|---------------------------------------------------------------------------------------------|
 | _initialized   | uint8                                           | 0    | 0      | 1     | MainnetRollupAddressManager |
 | _initializing  | bool                                            | 0    | 1      | 1     | MainnetRollupAddressManager |
 | __gap          | uint256[50]                                     | 1    | 0      | 1600  | MainnetRollupAddressManager |
@@ -866,8 +866,8 @@
 |------|------|------|--------|-------|----------|
 
 ## MainnetProverSet
-| Name           | Type                     | Slot | Offset | Bytes | Contract                                                       |
-|----------------|--------------------------|------|--------|-------|----------------------------------------------------------------|
+| Name           | Type                     | Slot | Offset | Bytes | Contract                                                              |
+|----------------|--------------------------|------|--------|-------|-----------------------------------------------------------------------|
 | _initialized   | uint8                    | 0    | 0      | 1     | MainnetProverSet |
 | _initializing  | bool                     | 0    | 1      | 1     | MainnetProverSet |
 | __gap          | uint256[50]              | 1    | 0      | 1600  | MainnetProverSet |
@@ -886,8 +886,8 @@
 | __gap          | uint256[48]              | 253  | 0      | 1536  | MainnetProverSet |
 
 ## TokenUnlock
-| Name           | Type                     | Slot | Offset | Bytes | Contract                                               |
-|----------------|--------------------------|------|--------|-------|--------------------------------------------------------|
+| Name           | Type                     | Slot | Offset | Bytes | Contract                                                      |
+|----------------|--------------------------|------|--------|-------|---------------------------------------------------------------|
 | _initialized   | uint8                    | 0    | 0      | 1     | TokenUnlock |
 | _initializing  | bool                     | 0    | 1      | 1     | TokenUnlock |
 | __gap          | uint256[50]              | 1    | 0      | 1600  | TokenUnlock |
@@ -908,8 +908,8 @@
 | __gap          | uint256[47]              | 254  | 0      | 1504  | TokenUnlock |
 
 ## ProverSet
-| Name           | Type                     | Slot | Offset | Bytes | Contract                                       |
-|----------------|--------------------------|------|--------|-------|------------------------------------------------|
+| Name           | Type                     | Slot | Offset | Bytes | Contract                                         |
+|----------------|--------------------------|------|--------|-------|--------------------------------------------------|
 | _initialized   | uint8                    | 0    | 0      | 1     | ProverSet |
 | _initializing  | bool                     | 0    | 1      | 1     | ProverSet |
 | __gap          | uint256[50]              | 1    | 0      | 1600  | ProverSet |
@@ -928,8 +928,8 @@
 | __gap          | uint256[48]              | 253  | 0      | 1536  | ProverSet |
 
 ## GuardianProver
-| Name                    | Type                                            | Slot | Offset | Bytes | Contract                                               |
-|-------------------------|-------------------------------------------------|------|--------|-------|--------------------------------------------------------|
+| Name                    | Type                                            | Slot | Offset | Bytes | Contract                                                   |
+|-------------------------|-------------------------------------------------|------|--------|-------|------------------------------------------------------------|
 | _initialized            | uint8                                           | 0    | 0      | 1     | GuardianProver |
 | _initializing           | bool                                            | 0    | 1      | 1     | GuardianProver |
 | __gap                   | uint256[50]                                     | 1    | 0      | 1600  | GuardianProver |
