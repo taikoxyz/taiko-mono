@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.36.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.35.0...taiko-client-v0.36.0) (2024-09-12)
+
+
+### Features
+
+* **taiko-client:** update Go contract bindings after protocol restructure ([#18075](https://github.com/taikoxyz/taiko-mono/issues/18075)) ([57f4953](https://github.com/taikoxyz/taiko-mono/commit/57f49530828e6da2d28ab3979576befdee626c7d))
+
 ## [0.35.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.34.1...taiko-client-v0.35.0) (2024-09-10)
 
 

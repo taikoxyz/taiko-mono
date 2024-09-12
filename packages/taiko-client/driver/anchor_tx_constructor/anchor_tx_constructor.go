@@ -66,7 +66,7 @@ func (c *AnchorTxConstructor) AssembleAnchorTx(
 		"baseFee", utils.WeiToGWei(baseFee),
 		"gasUsed", parentGasUsed,
 	)
-	// #nosec G115
+
 	return c.rpc.TaikoL2.Anchor(opts, l1Hash, l1Header.Root, l1Height.Uint64(), uint32(parentGasUsed))
 }
 
@@ -77,7 +77,7 @@ func (c *AnchorTxConstructor) AssembleAnchorV2Tx(
 	anchorBlockID *big.Int,
 	anchorStateRoot common.Hash,
 	parentGasUsed uint64,
-	baseFeeConfig *bindings.TaikoDataBaseFeeConfig,
+	baseFeeConfig *bindings.LibSharedDataBaseFeeConfig,
 	// Height of the L2 block which including the TaikoL2.anchorV2 transaction.
 	l2Height *big.Int,
 	baseFee *big.Int,
@@ -97,7 +97,7 @@ func (c *AnchorTxConstructor) AssembleAnchorV2Tx(
 		"basefeeAdjustmentQuotient", baseFeeConfig.AdjustmentQuotient,
 		"baseFee", utils.WeiToGWei(baseFee),
 	)
-	// #nosec G115
+
 	return c.rpc.TaikoL2.AnchorV2(
 		opts,
 		anchorBlockID.Uint64(),

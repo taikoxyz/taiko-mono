@@ -49,7 +49,7 @@ func (s *AnchorTxConstructorTestSuite) TestAssembleAnchorV2Tx() {
 		s.l1Height,
 		s.l1Hash,
 		1024,
-		&bindings.TaikoDataBaseFeeConfig{},
+		&bindings.LibSharedDataBaseFeeConfig{},
 		common.Big1,
 		common.Big256,
 	)
