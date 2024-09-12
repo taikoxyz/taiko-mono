@@ -40,6 +40,7 @@ jobs:
 
       - name: L2-Generate genesis
         working-directory: ./packages/protocol
+        timeout-minutes: 3
         run: pnpm genesis:test
 
       - name: L1-Unit tests
@@ -53,7 +54,7 @@ jobs:
 
       - name: L1-Deploy contracts
         working-directory: ./packages/protocol
-        timeout-minutes: 2
+        timeout-minutes: 3
         run: |
           anvil --hardfork cancun &
           while ! nc -z localhost 8545; do
