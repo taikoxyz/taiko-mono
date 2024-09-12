@@ -6,7 +6,7 @@ source scripts/common.sh
 source integration_test/l1_env.sh
 
 cd ../protocol &&
-  forge script script/DeployOnL1.s.sol:DeployOnL1 \
+  forge script script/layer1/DeployProtocolOnL1.s.sol:DeployProtocolOnL1 \
     --fork-url "$L1_HTTP" \
     --broadcast \
     --ffi \

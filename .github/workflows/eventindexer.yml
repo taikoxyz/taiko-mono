@@ -5,7 +5,10 @@ on:
     branches: [main]
     paths:
       - "packages/eventindexer/**"
+      - "go.mod"
+      - "go.sum"
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "packages/eventindexer/**"
       - "go.mod"
@@ -14,6 +17,7 @@ on:
 jobs:
   lint-eventindexer:
     name: lint-eventindexer
+    if: github.event_name == 'pull_request'
     runs-on: [taiko-runner]
     steps:
       - uses: actions/setup-go@v5
@@ -32,6 +36,7 @@ jobs:
 
   test-eventindexer:
     runs-on: [taiko-runner]
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft == false }}
     needs: lint-eventindexer
     steps:
       - name: Cancel Previous Runs
@@ -55,7 +60,8 @@ jobs:
           flags: eventindexer
 
   push-eventindexer-docker-image:
-    if: ${{ github.event_name == 'pull_request' }}
+    # Skip dependabot PRs
+    if: ${{ github.event_name == 'pull_request' && ! startsWith(github.ref, 'refs/heads/dependabot/') }}
     name: Build and push docker image
     runs-on: [taiko-runner]
 
@@ -93,7 +99,6 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          platforms: linux/amd64
           push: true
           context: .
           tags: ${{ steps.meta.outputs.tags }}

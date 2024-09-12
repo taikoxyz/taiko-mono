@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - "packages/guardian-prover-health-check/**"
+      - "go.mod"
+      - "go.sum"
   pull_request:
     paths:
       - "packages/guardian-prover-health-check/**"
@@ -55,7 +57,8 @@ jobs:
           flags: guardian-prover-health-check
 
   push-guardian-prover-health-check-docker-image:
-    if: ${{ github.event_name == 'pull_request' }}
+    # Skip dependabot PRs
+    if: ${{ github.event_name == 'pull_request' && ! startsWith(github.ref, 'refs/heads/dependabot/') }}
     name: Build and push docker image
     runs-on: [taiko-runner]
 
@@ -93,7 +96,6 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          platforms: linux/amd64
           push: true
           context: .
           tags: ${{ steps.meta.outputs.tags }}

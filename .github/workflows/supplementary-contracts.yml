@@ -1,16 +1,14 @@
 name: Supplementary Contracts
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "packages/supplementary-contracts/**"
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "packages/supplementary-contracts/**"
 
 jobs:
   build-supplementary-contracts:
+    if: github.event.pull_request.draft == false
     runs-on: [taiko-runner]
     steps:
       - name: Cancel previous runs

@@ -211,7 +211,6 @@ func (s *Syncer) onBlockProposed(
 	// only happen when testing.
 	if meta.GetTimestamp() > uint64(time.Now().Unix()) {
 		log.Warn("Future L2 block, waiting", "L2BlockTimestamp", meta.GetTimestamp(), "now", time.Now().Unix())
-		// #nosec G115
 		time.Sleep(time.Until(time.Unix(int64(meta.GetTimestamp()), 0)))
 	}
 
@@ -345,6 +344,7 @@ func (s *Syncer) insertNewHead(
 		new(big.Int).SetUint64(meta.GetAnchorBlockID()),
 		meta.IsOntakeBlock(),
 		meta.GetBaseFeeConfig(),
+		meta.GetTimestamp(),
 	); err != nil {
 		return nil, err
 	}
@@ -585,7 +585,6 @@ func (s *Syncer) retrievePastBlock(
 	ts, err := s.rpc.GetTransition(
 		ctx,
 		new(big.Int).SetUint64(blockInfo.BlockId),
-		// #nosec G115
 		uint32(blockInfo.VerifiedTransitionId.Uint64()),
 	)
 	if err != nil {

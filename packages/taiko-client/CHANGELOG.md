@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.36.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.35.0...taiko-client-v0.36.0) (2024-09-12)
+
+
+### Features
+
+* **taiko-client:** update Go contract bindings after protocol restructure ([#18075](https://github.com/taikoxyz/taiko-mono/issues/18075)) ([57f4953](https://github.com/taikoxyz/taiko-mono/commit/57f49530828e6da2d28ab3979576befdee626c7d))
+
+## [0.35.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.34.1...taiko-client-v0.35.0) (2024-09-10)
+
+
+### Features
+
+* **taiko-client:** add two more new ZK related metrics ([#18043](https://github.com/taikoxyz/taiko-mono/issues/18043)) ([e43eeac](https://github.com/taikoxyz/taiko-mono/commit/e43eeacb5b7a3d1fc412ffafc39f329f68ff7b40))
+* **taiko-client:** remove the legacy `290` tier ([#18035](https://github.com/taikoxyz/taiko-mono/issues/18035)) ([5064037](https://github.com/taikoxyz/taiko-mono/commit/50640377db773763c3ccba1bc4f342cd1e497147))
+* **taiko-client:** update `ontakeForkHeight` to Sep 24, 2024 ([#18047](https://github.com/taikoxyz/taiko-mono/issues/18047)) ([a1ff620](https://github.com/taikoxyz/taiko-mono/commit/a1ff620507e4a8077705c981c3622e3787a55ecd))
+* **taiko-client:** update contract binding & add `Proposer` ([#18053](https://github.com/taikoxyz/taiko-mono/issues/18053)) ([d0554a2](https://github.com/taikoxyz/taiko-mono/commit/d0554a208c4913751ff5b273f3e96ca298279d14))
+* **taiko-client:** use `proveBlocks` by default for post ontake blocks ([#18042](https://github.com/taikoxyz/taiko-mono/issues/18042)) ([15709af](https://github.com/taikoxyz/taiko-mono/commit/15709af1520251f4baeba7d2bbbc8de841bee718))
+
+
+### Bug Fixes
+
+* **taiko-client:** use proposed at, not timestamp when fetching blob ([#18055](https://github.com/taikoxyz/taiko-mono/issues/18055)) ([32d95c1](https://github.com/taikoxyz/taiko-mono/commit/32d95c1d9e887e886da57e580554413b4f3a19c5))
+
 ## [0.34.1](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.34.0...taiko-client-v0.34.1) (2024-09-04)
 
 

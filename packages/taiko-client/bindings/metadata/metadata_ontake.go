@@ -129,7 +129,7 @@ func (m *TaikoDataBlockMetadataOntake) GetBlobIndex() uint8 {
 }
 
 // GetBaseFeeConfig returns the L2 block basefee configs.
-func (m *TaikoDataBlockMetadataOntake) GetBaseFeeConfig() *bindings.TaikoDataBaseFeeConfig {
+func (m *TaikoDataBlockMetadataOntake) GetBaseFeeConfig() *bindings.LibSharedDataBaseFeeConfig {
 	return &m.BaseFeeConfig
 }
 

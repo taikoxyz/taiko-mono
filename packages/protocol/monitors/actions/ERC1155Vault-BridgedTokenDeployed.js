@@ -1,5 +1,5 @@
-const {ethers} = require("ethers");
-const {Defender} = require("@openzeppelin/defender-sdk");
+const { ethers } = require("ethers");
+const { Defender } = require("@openzeppelin/defender-sdk");
 
 const ABI = [
   {
@@ -45,7 +45,7 @@ function alertOrg(notificationClient, message) {
   notificationClient.send({
     channelAlias: "discord_bridging",
     subject: "ERC1155Vault BridgedTokenDeployed Event Count",
-    message: message,
+    message,
   });
 }
 
@@ -75,7 +75,7 @@ async function calculateBlockRange(provider) {
 
   console.log(`Calculated block range: from ${fromBlock} to ${toBlock}`);
 
-  return {fromBlock, toBlock};
+  return { fromBlock, toBlock };
 }
 
 async function fetchLogs(
@@ -84,7 +84,7 @@ async function fetchLogs(
   toBlock,
   address,
   abi,
-  provider
+  provider,
 ) {
   const iface = new ethers.utils.Interface(abi);
   const eventTopic = iface.getEventTopic(eventName);
@@ -120,16 +120,16 @@ function createProvider(apiKey, apiSecret, relayerApiKey, relayerApiSecret) {
 }
 
 exports.handler = async function (event, context) {
-  const {notificationClient} = context;
-  const {apiKey, apiSecret, l1ApiKey, l1ApiSecret, l2ApiKey, l2ApiSecret} =
+  const { notificationClient } = context;
+  const { apiKey, apiSecret, l1ApiKey, l1ApiSecret, l2ApiKey, l2ApiSecret } =
     event.secrets;
 
   const l1Provider = createProvider(apiKey, apiSecret, l1ApiKey, l1ApiSecret);
   const l2Provider = createProvider(apiKey, apiSecret, l2ApiKey, l2ApiSecret);
 
-  const {fromBlock: l1FromBlock, toBlock: l1ToBlock} =
+  const { fromBlock: l1FromBlock, toBlock: l1ToBlock } =
     await calculateBlockRange(l1Provider);
-  const {fromBlock: l2FromBlock, toBlock: l2ToBlock} =
+  const { fromBlock: l2FromBlock, toBlock: l2ToBlock } =
     await calculateBlockRange(l2Provider);
 
   const l1Logs = await fetchLogs(
@@ -138,7 +138,7 @@ exports.handler = async function (event, context) {
     l1ToBlock,
     "0xaf145913EA4a56BE22E120ED9C24589659881702",
     ABI,
-    l1Provider
+    l1Provider,
   );
 
   const l2Logs = await fetchLogs(
@@ -147,7 +147,7 @@ exports.handler = async function (event, context) {
     l2ToBlock,
     "0x1670000000000000000000000000000000000004",
     ABI,
-    l2Provider
+    l2Provider,
   );
 
   const l1EventCount = l1Logs.length;

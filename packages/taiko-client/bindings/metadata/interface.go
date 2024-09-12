@@ -31,7 +31,7 @@ type TaikoBlockMetaData interface {
 	GetBlobTxListOffset() uint32
 	GetBlobTxListLength() uint32
 	GetBlobIndex() uint8
-	GetBaseFeeConfig() *bindings.TaikoDataBaseFeeConfig
+	GetBaseFeeConfig() *bindings.LibSharedDataBaseFeeConfig
 	GetRawBlockHeight() *big.Int
 	GetRawBlockHash() common.Hash
 	GetTxIndex() uint
