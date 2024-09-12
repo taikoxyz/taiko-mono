@@ -371,3 +371,4 @@ contract TrailblazersBadgesS2 is
     /// @notice Internal method to authorize an upgrade
     function _authorizeUpgrade(address) internal virtual override onlyOwner { }
 }
+
