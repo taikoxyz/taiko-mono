@@ -6,6 +6,7 @@ on:
     paths:
       - "packages/eventindexer/**"
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "packages/eventindexer/**"
       - "go.mod"
@@ -14,6 +15,7 @@ on:
 jobs:
   lint-eventindexer:
     name: lint-eventindexer
+    if: github.event_name == 'pull_request'
     runs-on: [taiko-runner]
     steps:
       - uses: actions/setup-go@v5
@@ -32,6 +34,7 @@ jobs:
 
   test-eventindexer:
     runs-on: [taiko-runner]
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft == false }}
     needs: lint-eventindexer
     steps:
       - name: Cancel Previous Runs
