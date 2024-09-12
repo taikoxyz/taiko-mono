@@ -2,9 +2,15 @@ name: Bridge UI CI/CD
 
 on:
   push:
+    paths:
+      - "packages/bridge-ui/**"
+    branches-ignore:
+      - dependabot/**
     tags:
       - "bridge-ui-v*"
+
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "packages/bridge-ui/**"
 

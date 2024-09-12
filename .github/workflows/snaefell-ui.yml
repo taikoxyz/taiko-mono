@@ -2,11 +2,15 @@ name: Snaefell UI CI/CD
 
 on:
   push:
+    paths:
+      - "packages/snaefell-ui/**"
     branches-ignore:
       - dependabot/**
     tags:
       - "snaefull-ui-v*"
+
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "packages/snaefell-ui/**"
 
