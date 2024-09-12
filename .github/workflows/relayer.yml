@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - "packages/relayer/**"
+      - "go.mod"
+      - "go.sum"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
