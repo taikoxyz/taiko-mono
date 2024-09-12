@@ -6,6 +6,7 @@ on:
     paths:
       - "packages/eventindexer/**"
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "packages/eventindexer/**"
       - "go.mod"

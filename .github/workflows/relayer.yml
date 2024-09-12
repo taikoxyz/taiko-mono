@@ -6,6 +6,7 @@ on:
     paths:
       - "packages/relayer/**"
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "packages/relayer/**"
       - "go.mod"

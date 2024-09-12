@@ -5,6 +5,7 @@ on:
     tags:
       - "taikoon-ui-v*"
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "packages/taikoon-ui/**"
 
