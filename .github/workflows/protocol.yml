@@ -1,16 +1,14 @@
 name: Protocol
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "packages/protocol/**"
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "packages/protocol/**"
 
 jobs:
   build-protocol:
+    if: github.event.pull_request.draft == false
     runs-on: [taiko-runner]
     permissions:
       # Give the necessary permissions for stefanzweifel/git-auto-commit-action.
@@ -32,21 +30,30 @@ jobs:
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
 
-      - name: Unit tests
+      - name: Clean up and fmt
         working-directory: ./packages/protocol
-        run: pnpm clean && forge fmt && pnpm test:l1 && pnpm layout:l1 && pnpm test:l2 && pnpm layout:l2
+        run: pnpm clean && forge fmt
+
+      - name: L2-Unit tests
+        working-directory: ./packages/protocol
+        run: pnpm compile:l2 && pnpm test:l2 && pnpm layout:l2
+
+      - name: L2-Generate genesis
+        working-directory: ./packages/protocol
+        run: pnpm genesis:test
+
+      - name: L1-Unit tests
+        working-directory: ./packages/protocol
+        run: pnpm compile:l1 && pnpm test:l1 && pnpm layout:l1
 
       - name: Commit contract layout table
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "forge fmt & update contract layout tables"
 
-      - name: Generate genesis
+      - name: L1-Deploy contracts
         working-directory: ./packages/protocol
-        run: pnpm genesis:test
-
-      - name: Deploy L1 contracts
-        working-directory: ./packages/protocol
+        timeout-minutes: 2
         run: |
           anvil --hardfork cancun &
           while ! nc -z localhost 8545; do

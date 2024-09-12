@@ -1,12 +1,14 @@
 name: Auto Approve PR
 
-on: pull_request_target
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
 
 jobs:
   auto-approve:
+    if: github.event.pull_request.draft == false && github.actor == 'dependabot[bot]'
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
-    if: github.actor == 'dependabot[bot]'
     steps:
       - uses: hmarr/auto-approve-action@v4
