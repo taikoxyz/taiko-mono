@@ -33,19 +33,6 @@ library LibProving {
         bool sameTransition;
     }
 
-    /// @notice Emitted when a transition is proved.
-    /// @param blockId The block ID.
-    /// @param tran The transition data.
-    /// @param prover The prover's address.
-    /// @param validityBond The validity bond amount.
-    /// @param tier The tier of the proof.
-    event TransitionProved(
-        uint256 indexed blockId,
-        TaikoData.Transition tran,
-        address prover,
-        uint96 validityBond,
-        uint16 tier
-    );
 
     /// @notice Emitted when a transition is proved.
     /// @param blockId The block ID.
@@ -61,20 +48,6 @@ library LibProving {
         uint96 validityBond,
         uint16 tier,
         uint64 proposedIn
-    );
-
-    /// @notice Emitted when a transition is contested.
-    /// @param blockId The block ID.
-    /// @param tran The transition data.
-    /// @param contester The contester's address.
-    /// @param contestBond The contest bond amount.
-    /// @param tier The tier of the proof.
-    event TransitionContested(
-        uint256 indexed blockId,
-        TaikoData.Transition tran,
-        address contester,
-        uint96 contestBond,
-        uint16 tier
     );
 
     /// @notice Emitted when a transition is contested.
