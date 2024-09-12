@@ -38,11 +38,6 @@ jobs:
         working-directory: ./packages/protocol
         run: pnpm test:l2 && pnpm layout:l2
 
-      - name: L2-Commit contract layout table
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "forge fmt & update contract layout tables - L2"
-
       - name: L2-Generate genesis
         working-directory: ./packages/protocol
         run: pnpm genesis:test
@@ -51,10 +46,10 @@ jobs:
         working-directory: ./packages/protocol
         run: pnpm test:l1 && pnpm layout:l1
 
-      - name: L1-Commit contract layout table
+      - name: Commit contract layout table
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "forge fmt & update contract layout tables - L1"
+          commit_message: "forge fmt & update contract layout tables"
 
       - name: L1-Deploy contracts
         working-directory: ./packages/protocol
