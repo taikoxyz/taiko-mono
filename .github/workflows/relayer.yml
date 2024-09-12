@@ -58,7 +58,8 @@ jobs:
           flags: relayer
 
   push-relayer-docker-image:
-    if: ${{ github.event_name != 'pull_request' }}
+    # Skip dependabot PRs
+    if: ${{ github.event_name == 'pull_request' && ! startsWith(github.ref, 'refs/heads/dependabot/') }}
     name: Build and push docker image
     runs-on: [taiko-runner]
 

@@ -2,6 +2,8 @@ name: Snaefell UI CI/CD
 
 on:
   push:
+    branches-ignore:
+      - dependabot/**
     tags:
       - "snaefull-ui-v*"
   pull_request:
