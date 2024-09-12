@@ -14,7 +14,7 @@
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
-  - transfered ownership on Jul 8, 2024
+  - transferred ownership on Jul 8, 2024
 
 ### taiko_token
 
@@ -24,7 +24,7 @@
 - logs:
   - deployed on Mar 29, 2024 at commit `b341a68d5`
   - upgraded on Jun 18, 2024, added `batchTransfer` method.
-  - transfered ownership on Jul 8, 2024
+  - transferred ownership on Jul 8, 2024
 
 ### signal_service
 
@@ -34,7 +34,7 @@
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
-  - transfered ownership on Jul 8, 2024
+  - transferred ownership on Jul 8, 2024
 
 ### bridge
 
@@ -44,7 +44,7 @@
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
-  - transfered ownership on Jul 8, 2024
+  - transferred ownership on Jul 8, 2024
 
 ### erc20_vault
 
@@ -54,7 +54,7 @@
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
-  - transfered ownership on Jul 8, 2024
+  - transferred ownership on Jul 8, 2024
 
 ### erc721_vault
 
@@ -64,7 +64,7 @@
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
-  - transfered ownership on Jul 8, 2024
+  - transferred ownership on Jul 8, 2024
 
 ### erc1155_vault
 
@@ -74,7 +74,7 @@
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
-  - transfered ownership on Jul 8, 2024
+  - transferred ownership on Jul 8, 2024
 
 ### bridged_erc20
 
@@ -103,7 +103,7 @@
 - logs:
   - upgraded on May 10, 2024 at commit `13ad99d`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
-  - transfered ownership on Jul 8, 2024
+  - transferred ownership on Jul 8, 2024
 
 ### taikoL1
 
@@ -118,7 +118,7 @@
   - upgraded on Jun 14, 2024 at [PR #17553](https://github.com/taikoxyz/taiko-mono/pull/17553) @commit `baed5b5`
   - upgraded on Jun 19, 2024 at commit `b7e12e3`
   - upgraded on Jun 20, 2024 at commit `6e07ab5`
-  - transfered ownership on Jul 8, 2024
+  - transferred ownership on Jul 8, 2024
   - upgraded on Jul 11, 2024 at [PR #17779](https://github.com/taikoxyz/taiko-mono/pull/17779)
   - upgraded on Jul 15, 2024 at commit `45281b8`
   - upgraded on Aug 15, 2024 at `protocol-v1.8.0` with [#17919](https://github.com/taikoxyz/taiko-mono/pull/17919)
@@ -131,7 +131,7 @@
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 12, 2024 at commit `04bb81e`
-  - transfered ownership on Jul 8, 2024
+  - transferred ownership on Jul 8, 2024
 
 ### tierProvider
 
@@ -178,7 +178,7 @@
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
-  - transfered ownership on Jul 8, 2024
+  - transferred ownership on Jul 8, 2024
 
 ### guardian_minority
 
@@ -188,7 +188,7 @@
 - logs:
   - deployed on May 20, 2024 at commit `6e56475`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
-  - transfered ownership on Jul 8, 2024
+  - transferred ownership on Jul 8, 2024
 
 ### risc0_groth16_verifier
 
@@ -209,7 +209,6 @@
 - addr : 0x2D97b170368E585C5147173A4cD4B3dD5659576A
 - logs:
   - deployed on September 02, 2024 at commit `16ac02e`
-
 
 ### tier_zkvm_sp1
 

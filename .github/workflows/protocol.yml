@@ -34,24 +34,16 @@ jobs:
 
       - name: Unit tests
         working-directory: ./packages/protocol
-        run: pnpm clean && pnpm test
-
-      - name: Format solidity && update contract layout table
-        working-directory: ./packages/protocol
-        run: pnpm layout && forge fmt
+        run: pnpm clean && forge fmt && pnpm test:l1 && pnpm layout:l1 && pnpm test:l2 && pnpm layout:l2
 
       - name: Commit contract layout table
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "forge fmt & update contract layout table"
+          commit_message: "forge fmt & update contract layout tables"
 
       - name: Generate genesis
         working-directory: ./packages/protocol
-        run: pnpm test:genesis
-
-      - name: Run snapshot (Foundry)
-        working-directory: ./packages/protocol
-        run: pnpm snapshot
+        run: pnpm genesis:test
 
       - name: Deploy L1 contracts
         working-directory: ./packages/protocol
@@ -60,4 +52,4 @@ jobs:
           while ! nc -z localhost 8545; do
             sleep 1
           done
-          pnpm test:deploy
+          pnpm test:deploy:l1
