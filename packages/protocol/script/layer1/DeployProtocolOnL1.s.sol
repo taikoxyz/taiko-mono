@@ -34,7 +34,7 @@ import "../../contracts/layer1/tiers/TierProviderV2.sol";
 import "../../contracts/layer1/token/TaikoToken.sol";
 import "../../contracts/layer1/verifiers/Risc0Verifier.sol";
 import "../../contracts/layer1/verifiers/SP1Verifier.sol";
-import "../../test/layer1/core/TestTierProvider.sol";
+import "../../test/layer1/based/TestTierProvider.sol";
 import "../../test/shared/token/FreeMintERC20.sol";
 import "../../test/shared/token/MayFailFreeMintERC20.sol";
 import "../../test/shared/DeployCapability.sol";
