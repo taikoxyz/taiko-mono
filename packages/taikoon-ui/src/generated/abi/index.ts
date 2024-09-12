@@ -4,7 +4,7 @@
 
 /**
  * - [__View Contract on Taiko Mainnet Taikoscan__](https://taikoscan.network/address/0x4A045C5016B200F7E08a4caBB2cdA6E85bF53295)
- * - [__View Contract on Taiko Hekla L2 Taikoscan__](https://hekla.taikoscan.network/address/0xB6Dfbbc4d1074e214d144cb6aD31a30e4F0DCD1A)
+ * - [__View Contract on Taiko Hekla L2 Taikoscan__](https://hekla.taikoscan.network/address/0xf3FBa6f1E6C1998195239e7DD794c1EcEA8Da66B)
  */
 export const taikoonTokenAbi = [
   {
@@ -49,7 +49,9 @@ export const taikoonTokenAbi = [
     type: 'function',
     inputs: [],
     name: 'blacklist',
-    outputs: [{ name: '', internalType: 'contract IMinimalBlacklist', type: 'address' }],
+    outputs: [
+      { name: '', internalType: 'contract IMinimalBlacklist', type: 'address' },
+    ],
     stateMutability: 'view',
   },
   {
@@ -513,7 +515,9 @@ export const taikoonTokenAbi = [
   },
   {
     type: 'error',
-    inputs: [{ name: 'implementation', internalType: 'address', type: 'address' }],
+    inputs: [
+      { name: 'implementation', internalType: 'address', type: 'address' },
+    ],
     name: 'ERC1967InvalidImplementation',
   },
   { type: 'error', inputs: [], name: 'ERC1967NonPayable' },
@@ -599,22 +603,22 @@ export const taikoonTokenAbi = [
     inputs: [{ name: 'slot', internalType: 'bytes32', type: 'bytes32' }],
     name: 'UUPSUnsupportedProxiableUUID',
   },
-] as const;
+] as const
 
 /**
  * - [__View Contract on Taiko Mainnet Taikoscan__](https://taikoscan.network/address/0x4A045C5016B200F7E08a4caBB2cdA6E85bF53295)
- * - [__View Contract on Taiko Hekla L2 Taikoscan__](https://hekla.taikoscan.network/address/0xB6Dfbbc4d1074e214d144cb6aD31a30e4F0DCD1A)
+ * - [__View Contract on Taiko Hekla L2 Taikoscan__](https://hekla.taikoscan.network/address/0xf3FBa6f1E6C1998195239e7DD794c1EcEA8Da66B)
  */
 export const taikoonTokenAddress = {
   167000: '0x4A045C5016B200F7E08a4caBB2cdA6E85bF53295',
-  167009: '0xB6Dfbbc4d1074e214d144cb6aD31a30e4F0DCD1A',
-} as const;
+  167009: '0xf3FBa6f1E6C1998195239e7DD794c1EcEA8Da66B',
+} as const
 
 /**
  * - [__View Contract on Taiko Mainnet Taikoscan__](https://taikoscan.network/address/0x4A045C5016B200F7E08a4caBB2cdA6E85bF53295)
- * - [__View Contract on Taiko Hekla L2 Taikoscan__](https://hekla.taikoscan.network/address/0xB6Dfbbc4d1074e214d144cb6aD31a30e4F0DCD1A)
+ * - [__View Contract on Taiko Hekla L2 Taikoscan__](https://hekla.taikoscan.network/address/0xf3FBa6f1E6C1998195239e7DD794c1EcEA8Da66B)
  */
 export const taikoonTokenConfig = {
   address: taikoonTokenAddress,
   abi: taikoonTokenAbi,
-} as const;
+} as const
