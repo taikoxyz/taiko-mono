@@ -14,6 +14,7 @@ on:
 jobs:
   lint-relayer:
     name: lint-relayer
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft == false }}
     runs-on: [taiko-runner]
     steps:
       - uses: actions/setup-go@v5
@@ -31,6 +32,7 @@ jobs:
           args: --config=.golangci.yml --timeout=4m
 
   test-relayer:
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft == false }}
     runs-on: [taiko-runner]
     needs: lint-relayer
     steps:
@@ -55,7 +57,7 @@ jobs:
           flags: relayer
 
   push-relayer-docker-image:
-    if: ${{ github.event_name == 'pull_request' }}
+    if: ${{ github.event_name != 'pull_request' }}
     name: Build and push docker image
     runs-on: [taiko-runner]
 
