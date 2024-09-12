@@ -26,8 +26,13 @@ env:
 
 jobs:
   build-deploy:
+    if: github.actor != 'dependabot'
     runs-on: [taiko-runner]
     steps:
+      - name: Print Vercel Project ID
+        run: |
+          echo "Vercel Project ID: ${{ env.VERCEL_PROJECT_ID }}"
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
