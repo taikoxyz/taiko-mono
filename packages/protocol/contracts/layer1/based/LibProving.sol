@@ -33,7 +33,6 @@ library LibProving {
         bool sameTransition;
     }
 
-
     /// @notice Emitted when a transition is proved.
     /// @param blockId The block ID.
     /// @param tran The transition data.
