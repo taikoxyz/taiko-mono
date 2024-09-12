@@ -13,34 +13,34 @@ import "./AirdropVault.sol";
 contract ERC20Airdrop is MerkleWhitelist {
     using SafeERC20 for IERC20;
 
-    error REENTRANT_CALL();
-    error CLAIM_NOT_ONGOING();
     /// @notice The address of the Taiko token contract.
-
     IERC20 public token;
-
+    /// @notice The address of the AirdropVault contract.
     AirdropVault public vault;
-
+    /// @notice The start time of the claim period.
     uint256 public claimStart;
+    /// @notice The end time of the claim period.
     uint256 public claimEnd;
 
     uint256[48] private __gap;
 
+    /// @notice Checks if the claim period is ongoing.
     modifier isClaimPeriod() {
-        if (
-            claimStart > block.timestamp /*||
-            claimEnd > block.timestamp*/
-        ) revert CLAIM_NOT_ONGOING();
+        if (claimStart > block.timestamp || claimEnd < block.timestamp) revert CLAIM_NOT_ONGOING();
         _;
     }
 
+    /// @notice Checks if the proof is valid.
     modifier isProofValid(address _user, bytes32[] calldata _proof, uint256 _amount) {
         if (!canClaim(_user, _amount)) revert MINTS_EXCEEDED();
         bytes32 _leaf = leaf(_user, _amount);
         if (!MerkleProof.verify(_proof, root, _leaf)) revert INVALID_PROOF();
-
         _;
     }
+
+    /// @notice Error definition
+    error REENTRANT_CALL();
+    error CLAIM_NOT_ONGOING();
 
     /// @notice Initializes the contract.
     /// @param _claimStart The start time of the claim period.
