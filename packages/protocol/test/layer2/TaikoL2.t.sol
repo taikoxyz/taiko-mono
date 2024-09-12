@@ -9,7 +9,7 @@ contract TaikoL2ForTest is TaikoL2 {
     }
 }
 
-contract TestTaikoL2 is TaikoTest {
+contract TaikoL2Tests is TaikoL2Test {
     using SafeCast for uint256;
 
     uint64 public constant L1_CHAIN_ID = 12_345;
