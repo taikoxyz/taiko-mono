@@ -30,21 +30,35 @@ jobs:
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
 
-      - name: Unit tests
+      - name: Clean up and fmt
         working-directory: ./packages/protocol
-        run: pnpm clean && forge fmt && pnpm test:l1 && pnpm layout:l1 && pnpm test:l2 && pnpm layout:l2
+        run: pnpm clean && forge fmt
 
-      - name: Commit contract layout table
+      - name: L2-Unit tests
+        working-directory: ./packages/protocol
+        run: pnpm test:l2 && pnpm layout:l2
+
+      - name: L2-Commit contract layout table
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "forge fmt & update contract layout tables"
+          commit_message: "forge fmt & update contract layout tables - L2"
 
-      - name: Generate genesis
+      - name: L2-Generate genesis
         working-directory: ./packages/protocol
         run: pnpm genesis:test
 
-      - name: Deploy L1 contracts
+      - name: L1-Unit tests
         working-directory: ./packages/protocol
+        run: pnpm test:l1 && pnpm layout:l1
+
+      - name: L1-Commit contract layout table
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "forge fmt & update contract layout tables - L1"
+
+      - name: L1-Deploy contracts
+        working-directory: ./packages/protocol
+        timeout-minutes: 2
         run: |
           anvil --hardfork cancun &
           while ! nc -z localhost 8545; do
