@@ -143,4 +143,17 @@ contract ERC20AirdropTest is Test {
         vm.expectRevert();
         airdrop.claim(CLAIM_AMOUNT, proof);
     }
+
+    function test_revert_blacklisted_mint() public {
+        vm.warp(CLAIM_START + 1);
+
+        address user = minters[0];
+        blacklist.add(user);
+
+        bytes32[] memory proof = tree.getProof(leaves, 0);
+
+        vm.prank(user);
+        vm.expectRevert();
+        airdrop.claim(CLAIM_AMOUNT, proof);
+    }
 }
