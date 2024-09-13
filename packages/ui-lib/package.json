@@ -39,7 +39,7 @@
 		"svelte": "^4.0.0"
 	},
 	"devDependencies": {
-		"@chromatic-com/storybook": "^1.3.4",
+		"@chromatic-com/storybook": "^2.0.1",
 		"@playwright/test": "^1.28.1",
 		"@storybook/addon-essentials": "^8.0.10",
 		"@storybook/addon-interactions": "^8.0.10",
