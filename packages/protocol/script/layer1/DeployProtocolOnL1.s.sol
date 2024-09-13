@@ -293,7 +293,7 @@ contract DeployProtocolOnL1 is DeployCapability {
                     vm.envBytes32("L2_GENESIS_HASH"),
                     vm.envBool("PAUSE_TAIKO_L1")
                 )
-                )
+            )
         });
 
         TaikoL1 taikoL1;
