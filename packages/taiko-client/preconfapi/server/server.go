@@ -107,5 +107,4 @@ func (s *PreconfAPIServer) configureRoutes() {
 	s.echo.POST("/blocks/build", s.BuildBlocks)
 	s.echo.POST("/block/build", s.BuildBlock)
 	s.echo.GET("/tx/:hash", s.GetTransactionByHash)
-	s.echo.POST("/assembleAnchorTx", s.AssembleAnchorTx)
 }
