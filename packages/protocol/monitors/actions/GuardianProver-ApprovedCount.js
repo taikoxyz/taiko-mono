@@ -132,7 +132,7 @@ exports.handler = async function (event, context) {
   if (logs.length > 0) {
     alertOrg(
       notificationClient,
-      `Detected ${logs.length} Approved events in the last 15 mins on Guardian!`,
+      `@taiko|guardians Detected ${logs.length} Approved events in the last 15 mins on Guardian!`,
     );
   }
 
