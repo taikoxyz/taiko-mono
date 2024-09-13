@@ -2109,7 +2109,7 @@ A different bug report titled **_"No incentive for message non-owners to retryMe
 
 ### Impact
 
-- Protocol can be gamed by a user to gain rewards while additionaly saving money by providing the least possible gas.
+- Protocol can be gamed by a user to gain rewards while additionally saving money by providing the least possible gas.
 
 - There is no incentive for any external user now to ever provide more than `{gas: 10_897_060}` (approx figure).
 

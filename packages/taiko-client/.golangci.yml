@@ -36,7 +36,6 @@ linters:
     - goimports
     - gosimple
     - govet
-    - gosec
     - gofmt
     - ineffassign
     - importas

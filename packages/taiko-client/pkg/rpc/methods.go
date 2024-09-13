@@ -273,7 +273,7 @@ func (c *Client) CalculateBaseFee(
 	l2Head *types.Header,
 	anchorBlockID *big.Int,
 	isOntake bool,
-	baseFeeConfig *bindings.TaikoDataBaseFeeConfig,
+	baseFeeConfig *bindings.LibSharedDataBaseFeeConfig,
 	currentTimestamp uint64,
 ) (*big.Int, error) {
 	var (
@@ -323,7 +323,7 @@ func (c *Client) CalculateBaseFee(
 			*baseFeeConfig,
 			currentTimestamp-l2Head.Time,
 			parentGasExcess,
-			uint32(l2Head.GasUsed), // #nosec G115
+			uint32(l2Head.GasUsed),
 		)
 		if err != nil {
 			return nil, err
@@ -332,7 +332,7 @@ func (c *Client) CalculateBaseFee(
 		baseFeeInfo, err = c.TaikoL2.GetBasefee(
 			&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
 			anchorBlockID.Uint64(),
-			uint32(l2Head.GasUsed), // #nosec G115
+			uint32(l2Head.GasUsed),
 		)
 		if err != nil {
 			return nil, err
@@ -693,7 +693,6 @@ func (c *Client) checkSyncedL1SnippetFromAnchor(
 		return true, nil
 	}
 
-	// #nosec G115
 	if parentGasUsed != uint32(parent.GasUsed()) {
 		log.Info(
 			"Reorg detected due to parent gas used mismatch",

@@ -1,16 +1,14 @@
 name: NFTs
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "packages/nfts/**"
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "packages/nfts/**"
 
 jobs:
   build-nfts-contracts:
+    if: github.event.pull_request.draft == false
     runs-on: [taiko-runner]
     steps:
       - name: Cancel previous runs

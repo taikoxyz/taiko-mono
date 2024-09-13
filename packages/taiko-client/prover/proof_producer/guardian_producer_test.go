@@ -64,10 +64,11 @@ func TestGuardianProducerRequestProofReturnLivenessBond(t *testing.T) {
 		Number:      common.Big256,
 		GasLimit:    1024,
 		GasUsed:     1024,
-		Time:        uint64(time.Now().Unix()),
-		Extra:       randHash().Bytes(),
-		MixDigest:   randHash(),
-		Nonce:       types.BlockNonce{},
+
+		Time:      uint64(time.Now().Unix()),
+		Extra:     randHash().Bytes(),
+		MixDigest: randHash(),
+		Nonce:     types.BlockNonce{},
 	}
 
 	var (

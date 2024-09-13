@@ -50,7 +50,6 @@ func (v *TxListDecompressor) TryDecompress(
 
 	// If calldata is used, the compressed bytes of the transaction list must be
 	// less than or equal to maxBytesPerTxList.
-	// #nosec G115
 	if !blobUsed && (len(txListBytes) > int(v.maxBytesPerTxList)) {
 		log.Info("Compressed transactions list binary too large", "length", len(txListBytes), "blockID", blockID)
 		return []byte{}
@@ -103,7 +102,6 @@ func (v *TxListDecompressor) TryDecompressHekla(
 
 	// If calldata is used, the compressed bytes of the transaction list must be
 	// less than or equal to maxBytesPerTxList.
-	// #nosec G115
 	if !blobUsed && (len(txListBytes) > int(v.maxBytesPerTxList)) {
 		log.Info("Compressed transactions list binary too large", "length", len(txListBytes), "blockID", blockID)
 		return []byte{}

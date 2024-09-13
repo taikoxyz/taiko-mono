@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.9.0](https://github.com/taikoxyz/taiko-mono/compare/protocol-v1.8.0...protocol-v1.9.0) (2024-09-09)
+## [1.9.0](https://github.com/taikoxyz/taiko-mono/compare/protocol-v1.8.0...protocol-v1.9.0) (2024-09-12)
 
 
 ### Features
@@ -54,8 +54,10 @@
 ### Chores
 
 * **main:** release protocol 1.9.0 ([#17783](https://github.com/taikoxyz/taiko-mono/issues/17783)) ([7bfd28a](https://github.com/taikoxyz/taiko-mono/commit/7bfd28a2b332c927cd8b6358623551814260f94e))
+* **main:** release protocol 1.9.0 ([#18051](https://github.com/taikoxyz/taiko-mono/issues/18051)) ([2547ba9](https://github.com/taikoxyz/taiko-mono/commit/2547ba9409705bb759b62e59a7e5d5821349c71a))
 * **protocol:** make two state variables in TaikoL2.sol public and add `adjustExcess` ([#17891](https://github.com/taikoxyz/taiko-mono/issues/17891)) ([ba21f68](https://github.com/taikoxyz/taiko-mono/commit/ba21f6836845ea0227116b701e701815f210d56d))
 * **protocol:** move two files to simplify folder structure ([#17929](https://github.com/taikoxyz/taiko-mono/issues/17929)) ([9dca4fa](https://github.com/taikoxyz/taiko-mono/commit/9dca4faa43ad938880c8e1ac54236ab292bcce6e))
+* **protocol:** re-generate layout files with diff order for comparison with new PR ([#18067](https://github.com/taikoxyz/taiko-mono/issues/18067)) ([078d336](https://github.com/taikoxyz/taiko-mono/commit/078d3367dce86a57d71d48291537e925cb1b4b91))
 * **protocol:** revert `TAIKO_TOKEN` name changes in `DeployOnL1` ([#17927](https://github.com/taikoxyz/taiko-mono/issues/17927)) ([cf1a15f](https://github.com/taikoxyz/taiko-mono/commit/cf1a15f46344e60448c5fdcbcae02521fb5b7c04))
 * **protocol:** revert releasing protocol 1.9.0 ([#17783](https://github.com/taikoxyz/taiko-mono/issues/17783)) ([#18049](https://github.com/taikoxyz/taiko-mono/issues/18049)) ([c033810](https://github.com/taikoxyz/taiko-mono/commit/c033810ecc4c80a4581a95b06ab5127747efd191))
 
@@ -96,6 +98,7 @@
 * **protocol:** remove ProposerAccess for easier composability ([#17994](https://github.com/taikoxyz/taiko-mono/issues/17994)) ([80176a1](https://github.com/taikoxyz/taiko-mono/commit/80176a1525c374039256c779f4a2408971759d22))
 * **protocol:** remove the receive function from TaikoL1.sol ([#17865](https://github.com/taikoxyz/taiko-mono/issues/17865)) ([3542420](https://github.com/taikoxyz/taiko-mono/commit/35424204d9f41d49f4a12869ed4410b6de7f577e))
 * **protocol:** remove uncessary init2() from TaikoL2 ([#17973](https://github.com/taikoxyz/taiko-mono/issues/17973)) ([4e08881](https://github.com/taikoxyz/taiko-mono/commit/4e0888190e172c950dc5e81a5115ee0fb6df3f11))
+* **protocol:** restructure solidity code to match compilation targets ([#18059](https://github.com/taikoxyz/taiko-mono/issues/18059)) ([adc47f4](https://github.com/taikoxyz/taiko-mono/commit/adc47f408282c25c7a50c26e31130fc495734dcc))
 * **protocol:** simplify mainnet address caching ([ee464ca](https://github.com/taikoxyz/taiko-mono/commit/ee464caef68fdec325aa22758bb69e17dd039794))
 * **protocol:** use npm to manage third-party solidity dependency ([#17881](https://github.com/taikoxyz/taiko-mono/issues/17881)) ([d524e69](https://github.com/taikoxyz/taiko-mono/commit/d524e693449de9d65154471786fa4f5e8c45a381))
 
