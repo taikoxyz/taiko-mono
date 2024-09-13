@@ -55,7 +55,7 @@ func (b *CalldataTransactionBuilder) BuildBlockUnsigned(
 		return nil, err
 	}
 
-	data, err := encoding.V2TaikoL1ABI.Pack("proposeBlockV2", encodedParams, compressedTxListBytes)
+	data, err := encoding.TaikoL1ABI.Pack("proposeBlockV2", encodedParams, compressedTxListBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +110,7 @@ func (b *CalldataTransactionBuilder) BuildBlocksUnsigned(
 		txLists = append(txLists, compressedTxListBytes)
 	}
 
-	data, err := encoding.V2TaikoL1ABI.Pack("proposeBlocks", encodedParams, txLists)
+	data, err := encoding.TaikoL1ABI.Pack("proposeBlocks", encodedParams, txLists)
 	if err != nil {
 		return nil, err
 	}

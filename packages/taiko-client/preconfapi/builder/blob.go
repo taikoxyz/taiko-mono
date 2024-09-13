@@ -64,7 +64,7 @@ func (b *BlobTransactionBuilder) BuildBlockUnsigned(
 		return nil, err
 	}
 
-	data, err := encoding.V2TaikoL1ABI.Pack("proposeBlockV2", encodedParams, []byte{})
+	data, err := encoding.TaikoL1ABI.Pack("proposeBlockV2", encodedParams, []byte{})
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +183,7 @@ func (b *BlobTransactionBuilder) BuildBlocksUnsigned(
 		emptyTxLists[i] = []byte{0xff}
 	}
 
-	data, err := encoding.V2TaikoL1ABI.Pack("proposeBlocks", encodedParams, emptyTxLists)
+	data, err := encoding.TaikoL1ABI.Pack("proposeBlocks", encodedParams, emptyTxLists)
 	if err != nil {
 		return nil, err
 	}
