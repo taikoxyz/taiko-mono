@@ -359,7 +359,7 @@ exports.handler = async function (event, context) {
   if (logs.length === 0) {
     alertOrg(
       notificationClient,
-      `No BlockProposed event detected in the last 5 mins on TaikoL1!`,
+      `No BlockProposed event detected in the last 15 mins on TaikoL1!`,
     );
   }
 
