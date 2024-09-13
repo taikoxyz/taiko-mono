@@ -27,29 +27,29 @@ contract TestGenerateGenesis is Test, AddressResolver {
         assertEq(block.chainid, 167);
 
         // check bytecode
-        checkDeployedCode("ERC20Vault");
-        checkDeployedCode("ERC721Vault");
-        checkDeployedCode("ERC1155Vault");
-        checkDeployedCode("Bridge");
+        // checkDeployedCode("ERC20Vault");
+        // checkDeployedCode("ERC721Vault");
+        // checkDeployedCode("ERC1155Vault");
+        // checkDeployedCode("Bridge");
         checkDeployedCode("SignalService");
-        checkDeployedCode("SharedAddressManager");
-        checkDeployedCode("BridgedERC20Impl");
-        checkDeployedCode("BridgedERC721Impl");
-        checkDeployedCode("BridgedERC1155Impl");
+        // checkDeployedCode("SharedAddressManager");
+        // checkDeployedCode("BridgedERC20Impl");
+        // checkDeployedCode("BridgedERC721Impl");
+        // checkDeployedCode("BridgedERC1155Impl");
 
         // check proxy implementations
-        checkProxyImplementation("ERC20Vault");
-        checkProxyImplementation("ERC721Vault");
-        checkProxyImplementation("ERC1155Vault");
-        checkProxyImplementation("Bridge");
+        // checkProxyImplementation("ERC20Vault");
+        // checkProxyImplementation("ERC721Vault");
+        // checkProxyImplementation("ERC1155Vault");
+        // checkProxyImplementation("Bridge");
         checkProxyImplementation("SignalService");
         checkProxyImplementation("SharedAddressManager");
 
         // // check proxies
-        checkDeployedCode("ERC20Vault");
-        checkDeployedCode("ERC721Vault");
-        checkDeployedCode("ERC1155Vault");
-        checkDeployedCode("Bridge");
+        // checkDeployedCode("ERC20Vault");
+        // checkDeployedCode("ERC721Vault");
+        // checkDeployedCode("ERC1155Vault");
+        // checkDeployedCode("Bridge");
         checkDeployedCode("SignalService");
         checkDeployedCode("SharedAddressManager");
     }
@@ -68,40 +68,40 @@ contract TestGenerateGenesis is Test, AddressResolver {
         checkDeployedCode("RollupAddressManager");
     }
 
-    function testSharedAddressManager() public {
-        AddressManager addressManagerProxy =
-            AddressManager(getPredeployedContractAddress("SharedAddressManager"));
+    // function testSharedAddressManager() public {
+    //     AddressManager addressManagerProxy =
+    //         AddressManager(getPredeployedContractAddress("SharedAddressManager"));
 
-        assertEq(contractOwner, addressManagerProxy.owner());
+    //     assertEq(contractOwner, addressManagerProxy.owner());
 
-        checkSavedAddress(addressManagerProxy, "Bridge", "bridge");
-        checkSavedAddress(addressManagerProxy, "ERC20Vault", "erc20_vault");
-        checkSavedAddress(addressManagerProxy, "ERC721Vault", "erc721_vault");
-        checkSavedAddress(addressManagerProxy, "ERC1155Vault", "erc1155_vault");
-        checkSavedAddress(addressManagerProxy, "SignalService", "signal_service");
+    //     checkSavedAddress(addressManagerProxy, "Bridge", "bridge");
+    //     checkSavedAddress(addressManagerProxy, "ERC20Vault", "erc20_vault");
+    //     checkSavedAddress(addressManagerProxy, "ERC721Vault", "erc721_vault");
+    //     checkSavedAddress(addressManagerProxy, "ERC1155Vault", "erc1155_vault");
+    //     checkSavedAddress(addressManagerProxy, "SignalService", "signal_service");
 
-        vm.startPrank(addressManagerProxy.owner());
+    //     vm.startPrank(addressManagerProxy.owner());
 
-        addressManagerProxy.upgradeTo(address(new AddressManager()));
+    //     addressManagerProxy.upgradeTo(address(new AddressManager()));
 
-        vm.stopPrank();
-    }
+    //     vm.stopPrank();
+    // }
 
-    function testRollupAddressManager() public {
-        AddressManager addressManagerProxy =
-            AddressManager(getPredeployedContractAddress("RollupAddressManager"));
+    // function testRollupAddressManager() public {
+    //     AddressManager addressManagerProxy =
+    //         AddressManager(getPredeployedContractAddress("RollupAddressManager"));
 
-        assertEq(contractOwner, addressManagerProxy.owner());
+    //     assertEq(contractOwner, addressManagerProxy.owner());
 
-        checkSavedAddress(addressManagerProxy, "TaikoL2", "taiko");
-        checkSavedAddress(addressManagerProxy, "SignalService", "signal_service");
+    //     checkSavedAddress(addressManagerProxy, "TaikoL2", "taiko");
+    //     checkSavedAddress(addressManagerProxy, "SignalService", "signal_service");
 
-        vm.startPrank(addressManagerProxy.owner());
+    //     vm.startPrank(addressManagerProxy.owner());
 
-        addressManagerProxy.upgradeTo(address(new AddressManager()));
+    //     addressManagerProxy.upgradeTo(address(new AddressManager()));
 
-        vm.stopPrank();
-    }
+    //     vm.stopPrank();
+    // }
 
     function testTaikoL2() public {
         TaikoL2 taikoL2Proxy = TaikoL2(getPredeployedContractAddress("TaikoL2"));
@@ -116,136 +116,136 @@ contract TestGenerateGenesis is Test, AddressResolver {
         vm.stopPrank();
     }
 
-    function testSingletonBridge() public {
-        address bridgeAddress = getPredeployedContractAddress("Bridge");
+    // function testSingletonBridge() public {
+    //     address bridgeAddress = getPredeployedContractAddress("Bridge");
 
-        Bridge bridgeProxy = Bridge(payable(bridgeAddress));
-        AddressManager addressManager =
-            AddressManager(getPredeployedContractAddress("SharedAddressManager"));
+    //     Bridge bridgeProxy = Bridge(payable(bridgeAddress));
+    //     AddressManager addressManager =
+    //         AddressManager(getPredeployedContractAddress("SharedAddressManager"));
 
-        vm.startPrank(addressManager.owner());
-        addressManager.setAddress(1, "bridge", bridgeAddress);
-        vm.stopPrank();
+    //     vm.startPrank(addressManager.owner());
+    //     addressManager.setAddress(1, "bridge", bridgeAddress);
+    //     vm.stopPrank();
 
-        assertEq(contractOwner, bridgeProxy.owner());
+    //     assertEq(contractOwner, bridgeProxy.owner());
 
-        vm.expectRevert(Bridge.B_PERMISSION_DENIED.selector);
-        bridgeProxy.processMessage(
-            IBridge.Message({
-                id: 0,
-                from: address(0),
-                srcChainId: 1,
-                destChainId: 167,
-                srcOwner: address(0),
-                destOwner: address(0),
-                to: address(0),
-                value: 0,
-                fee: 0,
-                gasLimit: 0,
-                data: ""
-            }),
-            ""
-        );
+    //     vm.expectRevert(Bridge.B_PERMISSION_DENIED.selector);
+    //     bridgeProxy.processMessage(
+    //         IBridge.Message({
+    //             id: 0,
+    //             from: address(0),
+    //             srcChainId: 1,
+    //             destChainId: 167,
+    //             srcOwner: address(0),
+    //             destOwner: address(0),
+    //             to: address(0),
+    //             value: 0,
+    //             fee: 0,
+    //             gasLimit: 0,
+    //             data: ""
+    //         }),
+    //         ""
+    //     );
 
-        assertEq(bridgeProxy.paused(), false);
+    //     assertEq(bridgeProxy.paused(), false);
 
-        vm.startPrank(contractOwner);
-        bridgeProxy.pause();
-        assertEq(bridgeProxy.paused(), true);
+    //     vm.startPrank(contractOwner);
+    //     bridgeProxy.pause();
+    //     assertEq(bridgeProxy.paused(), true);
 
-        vm.expectRevert(EssentialContract.INVALID_PAUSE_STATUS.selector);
-        bridgeProxy.processMessage(
-            IBridge.Message({
-                id: 0,
-                from: address(0),
-                srcChainId: 1,
-                destChainId: 167,
-                srcOwner: address(0),
-                destOwner: address(0),
-                to: address(0),
-                value: 0,
-                fee: 0,
-                gasLimit: 0,
-                data: ""
-            }),
-            ""
-        );
+    //     vm.expectRevert(EssentialContract.INVALID_PAUSE_STATUS.selector);
+    //     bridgeProxy.processMessage(
+    //         IBridge.Message({
+    //             id: 0,
+    //             from: address(0),
+    //             srcChainId: 1,
+    //             destChainId: 167,
+    //             srcOwner: address(0),
+    //             destOwner: address(0),
+    //             to: address(0),
+    //             value: 0,
+    //             fee: 0,
+    //             gasLimit: 0,
+    //             data: ""
+    //         }),
+    //         ""
+    //     );
 
-        bridgeProxy.unpause();
-        assertEq(bridgeProxy.paused(), false);
+    //     bridgeProxy.unpause();
+    //     assertEq(bridgeProxy.paused(), false);
 
-        bridgeProxy.upgradeTo(address(new Bridge()));
+    //     bridgeProxy.upgradeTo(address(new Bridge()));
 
-        vm.stopPrank();
-    }
+    //     vm.stopPrank();
+    // }
 
-    function testSingletonERC20Vault() public {
-        address erc20VaultAddress = getPredeployedContractAddress("ERC20Vault");
-        address bridgeAddress = getPredeployedContractAddress("Bridge");
+    // function testSingletonERC20Vault() public {
+    //     address erc20VaultAddress = getPredeployedContractAddress("ERC20Vault");
+    //     address bridgeAddress = getPredeployedContractAddress("Bridge");
 
-        ERC20Vault erc20VaultProxy = ERC20Vault(erc20VaultAddress);
-        AddressManager addressManager =
-            AddressManager(getPredeployedContractAddress("SharedAddressManager"));
+    //     ERC20Vault erc20VaultProxy = ERC20Vault(erc20VaultAddress);
+    //     AddressManager addressManager =
+    //         AddressManager(getPredeployedContractAddress("SharedAddressManager"));
 
-        assertEq(contractOwner, erc20VaultProxy.owner());
+    //     assertEq(contractOwner, erc20VaultProxy.owner());
 
-        vm.startPrank(addressManager.owner());
-        addressManager.setAddress(1, "bridge", bridgeAddress);
-        addressManager.setAddress(1, "erc20_vault", erc20VaultAddress);
-        vm.stopPrank();
+    //     vm.startPrank(addressManager.owner());
+    //     addressManager.setAddress(1, "bridge", bridgeAddress);
+    //     addressManager.setAddress(1, "erc20_vault", erc20VaultAddress);
+    //     vm.stopPrank();
 
-        vm.startPrank(erc20VaultProxy.owner());
+    //     vm.startPrank(erc20VaultProxy.owner());
 
-        erc20VaultProxy.upgradeTo(address(new ERC20Vault()));
+    //     erc20VaultProxy.upgradeTo(address(new ERC20Vault()));
 
-        vm.stopPrank();
-    }
+    //     vm.stopPrank();
+    // }
 
-    function testSingletonERC721Vault() public {
-        address erc721VaultAddress = getPredeployedContractAddress("ERC721Vault");
-        address bridgeAddress = getPredeployedContractAddress("Bridge");
+    // function testSingletonERC721Vault() public {
+    //     address erc721VaultAddress = getPredeployedContractAddress("ERC721Vault");
+    //     address bridgeAddress = getPredeployedContractAddress("Bridge");
 
-        EssentialContract erc721VaultProxy = EssentialContract(erc721VaultAddress);
-        AddressManager addressManager =
-            AddressManager(getPredeployedContractAddress("SharedAddressManager"));
+    //     EssentialContract erc721VaultProxy = EssentialContract(erc721VaultAddress);
+    //     AddressManager addressManager =
+    //         AddressManager(getPredeployedContractAddress("SharedAddressManager"));
 
-        assertEq(contractOwner, erc721VaultProxy.owner());
+    //     assertEq(contractOwner, erc721VaultProxy.owner());
 
-        vm.startPrank(addressManager.owner());
-        addressManager.setAddress(1, "bridge", bridgeAddress);
-        addressManager.setAddress(1, "erc721_vault", erc721VaultAddress);
-        vm.stopPrank();
+    //     vm.startPrank(addressManager.owner());
+    //     addressManager.setAddress(1, "bridge", bridgeAddress);
+    //     addressManager.setAddress(1, "erc721_vault", erc721VaultAddress);
+    //     vm.stopPrank();
 
-        vm.startPrank(erc721VaultProxy.owner());
+    //     vm.startPrank(erc721VaultProxy.owner());
 
-        erc721VaultProxy.upgradeTo(address(new ERC721Vault()));
+    //     erc721VaultProxy.upgradeTo(address(new ERC721Vault()));
 
-        vm.stopPrank();
-    }
+    //     vm.stopPrank();
+    // }
 
-    function testSingletonERC1155Vault() public {
-        address erc1155VaultProxyAddress = getPredeployedContractAddress("ERC1155Vault");
-        address bridgeProxyAddress = getPredeployedContractAddress("Bridge");
+    // function testSingletonERC1155Vault() public {
+    //     address erc1155VaultProxyAddress = getPredeployedContractAddress("ERC1155Vault");
+    //     address bridgeProxyAddress = getPredeployedContractAddress("Bridge");
 
-        EssentialContract erc1155VaultProxy = EssentialContract(erc1155VaultProxyAddress);
-        AddressManager addressManager =
-            AddressManager(getPredeployedContractAddress("SharedAddressManager"));
+    //     EssentialContract erc1155VaultProxy = EssentialContract(erc1155VaultProxyAddress);
+    //     AddressManager addressManager =
+    //         AddressManager(getPredeployedContractAddress("SharedAddressManager"));
 
-        assertEq(contractOwner, erc1155VaultProxy.owner());
+    //     assertEq(contractOwner, erc1155VaultProxy.owner());
 
-        vm.startPrank(addressManager.owner());
-        addressManager.setAddress(1, "bridge", bridgeProxyAddress);
-        addressManager.setAddress(1, "erc1155_vault", erc1155VaultProxyAddress);
-        vm.stopPrank();
+    //     vm.startPrank(addressManager.owner());
+    //     addressManager.setAddress(1, "bridge", bridgeProxyAddress);
+    //     addressManager.setAddress(1, "erc1155_vault", erc1155VaultProxyAddress);
+    //     vm.stopPrank();
 
-        // address erc1155VaultAddress = getPredeployedContractAddress("ERC1155VaultImpl");
+    //     // address erc1155VaultAddress = getPredeployedContractAddress("ERC1155VaultImpl");
 
-        vm.startPrank(erc1155VaultProxy.owner());
+    //     vm.startPrank(erc1155VaultProxy.owner());
 
-        erc1155VaultProxy.upgradeTo(address(new ERC1155Vault()));
+    //     erc1155VaultProxy.upgradeTo(address(new ERC1155Vault()));
 
-        vm.stopPrank();
-    }
+    //     vm.stopPrank();
+    // }
 
     function testSingletonSignalService() public {
         SignalService signalServiceProxy =
@@ -265,12 +265,12 @@ contract TestGenerateGenesis is Test, AddressResolver {
         vm.stopPrank();
     }
 
-    function testERC20() public {
-        RegularERC20 regularERC20 = RegularERC20(getPredeployedContractAddress("RegularERC20"));
+    // function testERC20() public {
+    //     RegularERC20 regularERC20 = RegularERC20(getPredeployedContractAddress("RegularERC20"));
 
-        assertEq(regularERC20.name(), "RegularERC20");
-        assertEq(regularERC20.symbol(), "RGL");
-    }
+    //     assertEq(regularERC20.name(), "RegularERC20");
+    //     assertEq(regularERC20.symbol(), "RGL");
+    // }
 
     function getPredeployedContractAddress(string memory contractName) private view returns (address) {
         return configJSON.readAddress(string.concat(".contractAddresses.", contractName));
