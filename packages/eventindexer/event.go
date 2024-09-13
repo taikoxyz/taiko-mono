@@ -23,7 +23,6 @@ var (
 	EventNameMint                = "Mint"
 	EventNameNFTTransfer         = "Transfer"
 	EventNameInstanceAdded       = "InstanceAdded"
-	EventNameForceBuild          = "ForceBuild"
 )
 
 // Event represents a stored EVM event. The fields will be serialized

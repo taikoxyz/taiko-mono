@@ -257,7 +257,7 @@ func (s *Syncer) onBlockProposed(
 	}
 	txListBytes, err := txListFetcher.Fetch(ctx, tx, meta)
 	if err != nil {
-		return fmt.Errorf("failed to fetch tx list: %w", err)
+		return fmt.Errorf("failed to fetch tx list onBlockProposed: %w", err)
 	}
 
 	var decompressedTxListBytes []byte
@@ -271,7 +271,7 @@ func (s *Syncer) onBlockProposed(
 		decompressedTxListBytes = s.txListDecompressor.TryDecompress(meta.GetBlockID(), txListBytes, meta.GetBlobUsed())
 	}
 
-	// Decompress the transactions list and try to insert a new head block to L2 EE. force build
+	// Decompress the transactions list and try to insert a new head block to L2 EE.
 	payloadData, err := s.insertNewHead(
 		ctx,
 		meta,
