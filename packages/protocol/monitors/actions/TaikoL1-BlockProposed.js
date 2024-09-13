@@ -262,6 +262,12 @@ function alertOrg(notificationClient, message) {
     subject: "🚨 TaikoL1: BlockProposed Alert",
     message,
   });
+
+  notificationClient.send({
+    channelAlias: "tg_taiko_guardians",
+    subject: "🚨 TaikoL1: BlockProposed Alert",
+    message,
+  });
 }
 
 async function getLatestBlockNumber(provider) {

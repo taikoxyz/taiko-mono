@@ -84,6 +84,12 @@ function alertOrg(notificationClient, message) {
     subject: "🚨 TaikoL1: BlockVerified Alert",
     message,
   });
+
+  notificationClient.send({
+    channelAlias: "tg_taiko_guardians",
+    subject: "🚨 TaikoL1: BlockVerified Alert",
+    message,
+  });
 }
 
 async function getLatestBlockNumber(provider) {
