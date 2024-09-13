@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@risc0/contracts/groth16/RiscZeroGroth16Verifier.sol";
 import { SP1Verifier as SP1Verifier120rc } from "@sp1-contracts/src/v1.2.0-rc/SP1VerifierPlonk.sol";
-import "../contracts/preconfs/PreconfsTaikoL1.sol";
 
 // Actually this one is deployed already on mainnet, but we are now deploying our own (non via-ir)
 // version. For mainnet, it is easier to go with one of:
@@ -21,6 +20,7 @@ import "../../contracts/layer1/automata-attestation/lib/PEMCertChainLib.sol";
 import "../../contracts/layer1/automata-attestation/utils/SigVerifyLib.sol";
 import "../../contracts/layer1/devnet/DevnetTaikoL1.sol";
 import "../../contracts/layer1/devnet/DevnetTierProvider.sol";
+import "../../contracts/layer1/preconfs/PreconfsTaikoL1.sol";
 import "../../contracts/layer1/mainnet/rollup/MainnetGuardianProver.sol";
 import "../../contracts/layer1/mainnet/rollup/MainnetTaikoL1.sol";
 import "../../contracts/layer1/mainnet/rollup/verifiers/MainnetSgxVerifier.sol";
