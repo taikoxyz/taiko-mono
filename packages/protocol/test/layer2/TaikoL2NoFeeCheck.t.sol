@@ -49,7 +49,7 @@ contract TaikoL2NoFeeCheckTests is TaikoL2Test {
                     impl: address(new SkipBasefeeCheckL2()),
                     data: abi.encodeCall(
                         TaikoL2.init, (address(0), addressManager, l1ChainId, gasExcess)
-                        ),
+                    ),
                     registerTo: addressManager
                 })
             )

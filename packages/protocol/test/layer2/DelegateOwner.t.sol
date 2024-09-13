@@ -47,7 +47,7 @@ contract TestDelegateOwner is TaikoL2Test {
                 data: abi.encodeCall(
                     DelegateOwner.init,
                     (remoteOwner, address(addressManager), remoteChainId, address(0))
-                    ),
+                ),
                 registerTo: address(addressManager)
             })
         );
