@@ -23,6 +23,11 @@ function alertOrg(notificationClient, message) {
     subject: "⚠️ GuardianProver: ProvingAutoPauseEnabled Alert",
     message,
   });
+  notificationClient.send({
+    channelAlias: "tg_taiko_guardians",
+    subject: "⚠️ GuardianProver: ProvingAutoPauseEnabled Alert",
+    message,
+  });
 }
 
 async function getLatestBlockNumber(provider) {

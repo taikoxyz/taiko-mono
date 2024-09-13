@@ -29,6 +29,12 @@ function alertOrg(notificationClient, message) {
     subject: "⚠️ GuardianProver: GuardiansUpdated Alert",
     message,
   });
+
+  notificationClient.send({
+    channelAlias: "tg_taiko_guardians",
+    subject: "⚠️ GuardianProver: GuardiansUpdated Alert",
+    message,
+  });
 }
 
 async function getLatestBlockNumber(provider) {

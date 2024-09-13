@@ -47,6 +47,12 @@ function alertOrg(notificationClient, message) {
     subject: "🚨 GuardianProver: ConflictingProofs Alert",
     message,
   });
+
+  notificationClient.send({
+    channelAlias: "tg_taiko_guardians",
+    subject: "🚨 GuardianProver: ConflictingProofs Alert",
+    message,
+  });
 }
 
 async function getLatestBlockNumber(provider) {
