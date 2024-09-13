@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import "../L1/TaikoL1.sol";
+import "../based/TaikoL1.sol";
 
 /// @title PreconfsTaikoL1
 /// @custom:security-contact security@taiko.xyz
@@ -17,7 +17,7 @@ contract PreconfsTaikoL1 is TaikoL1 {
             livenessBond: 125e18, // 125 TAIKO token
             stateRootSyncInternal: 16,
             maxAnchorHeightOffset: 64,
-            baseFeeConfig: TaikoData.BaseFeeConfig({
+            baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 8,
                 sharingPctg: 0,
                 gasIssuancePerSecond: 5_000_000,
