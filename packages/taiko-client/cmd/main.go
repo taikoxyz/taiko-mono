@@ -10,6 +10,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/utils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/version"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/preconfapi"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover"
 )
@@ -47,6 +48,13 @@ func main() {
 			Usage:       "Starts the prover software",
 			Description: "Taiko prover software",
 			Action:      utils.SubcommandAction(new(prover.Prover)),
+		},
+		{
+			Name:        "preconfapi",
+			Flags:       flags.PreconfAPIFlags,
+			Usage:       "Starts the preconfirmation API software",
+			Description: "Taiko preconfirmation API software",
+			Action:      utils.SubcommandAction(new(preconfapi.PreconfAPI)),
 		},
 	}
 

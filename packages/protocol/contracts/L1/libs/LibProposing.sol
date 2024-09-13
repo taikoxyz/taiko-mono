@@ -261,7 +261,7 @@ library LibProposing {
 
         // Update certain meta fields
         if (meta_.blobUsed) {
-            if (!LibNetwork.isDencunSupported(block.chainid)) revert L1_BLOB_NOT_AVAILABLE();
+            // if (!LibNetwork.isDencunSupported(block.chainid)) revert L1_BLOB_NOT_AVAILABLE();
 
             // Always use the first blob in this transaction. If the
             // proposeBlock functions are called more than once in the same
@@ -274,14 +274,16 @@ library LibProposing {
             emit CalldataTxList(meta_.id, _txList);
         }
 
-        local.tierProvider = ITierProvider(
-            ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false)).getProvider(
-                local.b.numBlocks
-            )
-        );
+        // local.tierProvider = ITierProvider(
+        //     ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false)).getProvider(
+        //         local.b.numBlocks
+        //     )
+        // );
 
         // Use the difficulty as a random number
-        meta_.minTier = local.tierProvider.getMinTier(meta_.proposer, uint256(meta_.difficulty));
+        // meta_.minTier = local.tierProvider.getMinTier(meta_.proposer, uint256(meta_.difficulty));
+
+        meta_.minTier = 100;
 
         if (!local.postFork) {
             metaV1_ = LibData.blockMetadataV2toV1(meta_);
