@@ -42,10 +42,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		return nil, errors.New("empty L2 check point URL")
 	}
 
-	if !c.IsSet(flags.L1BeaconEndpoint.Name) {
-		return nil, errors.New("empty L1 beacon endpoint")
-	}
-
 	var blobServerEndpoint *url.URL
 	if c.IsSet(flags.BlobServerEndpoint.Name) {
 		if blobServerEndpoint, err = url.Parse(

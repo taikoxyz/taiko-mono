@@ -2,7 +2,6 @@ package rpc
 
 import (
 	"context"
-	"os"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -81,7 +80,7 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 		}
 
 		// NOTE: when running tests, we do not have a L1 beacon endpoint.
-		if cfg.L1BeaconEndpoint != "" && os.Getenv("RUN_TESTS") == "" {
+		if cfg.L1BeaconEndpoint != "" {
 			if l1BeaconClient, err = NewBeaconClient(cfg.L1BeaconEndpoint, defaultTimeout); err != nil {
 				log.Error("Failed to connect to L1 beacon endpoint, retrying", "endpoint", cfg.L1BeaconEndpoint, "err", err)
 				return err
