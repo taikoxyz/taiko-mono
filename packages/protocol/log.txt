@@ -1,0 +1,2057 @@
+No files changed, compilation skipped
+Traces:
+  [58136968] [32mDeployOnL1[0m::[32mrun[0m()[33m[0m
+    ├─ [0] [34mVM[0m::[34menvUint[0m("PRIVATE_KEY")[33m [staticcall][0m
+    │   └─ [34m← [0m<env var value>
+    ├─ [0] [34mVM[0m::[34mstartBroadcast[0m()[33m[0m
+    │   └─ [34m← [0m()
+    ├─ [0] [34mVM[0m::[34menvAddress[0m("TAIKO_L2_ADDRESS")[33m [staticcall][0m
+    │   └─ [34m← [0m<env var value>
+    ├─ [0] [34mVM[0m::[34menvAddress[0m("L2_SIGNAL_SERVICE")[33m [staticcall][0m
+    │   └─ [34m← [0m<env var value>
+    ├─ [0] [34mVM[0m::[34menvAddress[0m("CONTRACT_OWNER")[33m [staticcall][0m
+    │   └─ [34m← [0m<env var value>
+    ├─ [0] [34mVM[0m::[34menvBytes32[0m("L2_GENESIS_HASH")[33m [staticcall][0m
+    │   └─ [34m← [0m<env var value>
+    ├─ [0] [34mVM[0m::[34menvAddress[0m("CONTRACT_OWNER")[33m [staticcall][0m
+    │   └─ [34m← [0m<env var value>
+    ├─ [0] [34mVM[0m::[34menvAddress[0m("SHARED_ADDRESS_MANAGER")[33m [staticcall][0m
+    │   └─ [34m← [0m<env var value>
+    ├─ [1138214] [33m→ [0m[33mnew[0m AddressManager@0x5FbDB2315678afecb367f032d93F642f64180aa3
+    │   ├─ emit [36mInitialized[0m(version: 255)
+    │   └─ [32m← [0m5847 bytes of code
+    ├─ [154230] [33m→ [0m[33mnew[0m ERC1967Proxy@0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+    │   ├─ emit [36mUpgraded[0m(implementation: AddressManager: [0x5FbDB2315678afecb367f032d93F642f64180aa3])
+    │   ├─ [94908] [32mAddressManager[0m::[32minit[0m(0x0000000000000000000000000000000000000000)[33m [delegatecall][0m
+    │   │   ├─ emit [36mOwnershipTransferred[0m(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   │   ├─ emit [36mInitialized[0m(version: 1)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m1380 bytes of code
+    ├─ [0] [32mconsole[0m::[32mlog[0m(">", "shared_address_manager", "@", 0x0000000000000000000000000000000000000000)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  proxy      :", ERC1967Proxy: [0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  impl       :", AddressManager: [0x5FbDB2315678afecb367f032d93F642f64180aa3])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [730] [32mERC1967Proxy[0m::[32mowner[0m()[33m [staticcall][0m
+    │   ├─ [341] [32mAddressManager[0m::[32mowner[0m()[33m [delegatecall][0m
+    │   │   └─ [32m← [0m0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    │   └─ [32m← [0m0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  owner      :", 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  msg.sender :", 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  this       :", DeployOnL1: [0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [34mVM[0m::[34mserializeAddress[0m("<stringified JSON>", "shared_address_manager", 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512)[33m[0m
+    │   └─ [34m← [0m"{\"shared_address_manager\":\"0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512\"}"
+    ├─ [0] [34mVM[0m::[34mprojectRoot[0m()[33m [staticcall][0m
+    │   └─ [34m← [0m"/Users/roger/Documents/GitHub/taiko-mono/packages/protocol"
+    ├─ [0] [34mVM[0m::[34mwriteJson[0m("<stringified JSON>", "/Users/roger/Documents/GitHub/taiko-mono/packages/protocol/deployments/deploy_l1.json")[33m[0m
+    │   └─ [34m← [0m()
+    ├─ [0] [34mVM[0m::[34menvAddress[0m("TAIKO_TOKEN")[33m [staticcall][0m
+    │   └─ [34m← [0m<env var value>
+    ├─ [2716383] [33m→ [0m[33mnew[0m TaikoToken@0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
+    │   ├─ emit [36mInitialized[0m(version: 255)
+    │   └─ [32m← [0m13738 bytes of code
+    ├─ [0] [34mVM[0m::[34menvAddress[0m("TAIKO_TOKEN_PREMINT_RECIPIENT")[33m [staticcall][0m
+    │   └─ [34m← [0m<env var value>
+    ├─ [324223] [33m→ [0m[33mnew[0m ERC1967Proxy@0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9
+    │   ├─ emit [36mUpgraded[0m(implementation: TaikoToken: [0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0])
+    │   ├─ [264755] [32mTaikoToken[0m::[32minit[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266, 0xa0Ee7A142d267C1f36714E4a8F75612F20a79720)[33m [delegatecall][0m
+    │   │   ├─ emit [36mOwnershipTransferred[0m(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   │   ├─ emit [36mTransfer[0m(from: 0x0000000000000000000000000000000000000000, to: 0xa0Ee7A142d267C1f36714E4a8F75612F20a79720, value: 1000000000000000000000000000 [2;49;39m[1e27][0m)
+    │   │   ├─ emit [36mInitialized[0m(version: 1)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m1412 bytes of code
+    ├─ [25766] [32mERC1967Proxy[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7461696b6f5f746f6b656e000000000000000000000000000000000000000000, ERC1967Proxy: [0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9])[33m[0m
+    │   ├─ [25368] [32mAddressManager[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7461696b6f5f746f6b656e000000000000000000000000000000000000000000, ERC1967Proxy: [0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9])[33m [delegatecall][0m
+    │   │   ├─ emit [36mAddressSet[0m(chainId: 31337 [2;49;39m[3.133e4][0m, name: 0x7461696b6f5f746f6b656e000000000000000000000000000000000000000000, newAddress: ERC1967Proxy: [0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9], oldAddress: 0x0000000000000000000000000000000000000000)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m(">", "taiko_token", "@", ERC1967Proxy: [0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  proxy      :", ERC1967Proxy: [0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  impl       :", TaikoToken: [0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [786] [32mERC1967Proxy[0m::[32mowner[0m()[33m [staticcall][0m
+    │   ├─ [397] [32mTaikoToken[0m::[32mowner[0m()[33m [delegatecall][0m
+    │   │   └─ [32m← [0m0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    │   └─ [32m← [0m0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  owner      :", 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  msg.sender :", 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  this       :", DeployOnL1: [0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [34mVM[0m::[34mserializeAddress[0m("<stringified JSON>", "taiko_token", 0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9)[33m[0m
+    │   └─ [34m← [0m"{\"shared_address_manager\":\"0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512\",\"taiko_token\":\"0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9\"}"
+    ├─ [0] [34mVM[0m::[34mprojectRoot[0m()[33m [staticcall][0m
+    │   └─ [34m← [0m"/Users/roger/Documents/GitHub/taiko-mono/packages/protocol"
+    ├─ [0] [34mVM[0m::[34mwriteJson[0m("<stringified JSON>", "/Users/roger/Documents/GitHub/taiko-mono/packages/protocol/deployments/deploy_l1.json")[33m[0m
+    │   └─ [34m← [0m()
+    ├─ [3580650] [33m→ [0m[33mnew[0m SignalService@0x5FC8d32690cc91D4c39d9d3abcBD16989F875707
+    │   ├─ emit [36mInitialized[0m(version: 255)
+    │   └─ [32m← [0m18054 bytes of code
+    ├─ [154804] [33m→ [0m[33mnew[0m ERC1967Proxy@0x0165878A594ca255338adfa4d48449f69242Eb8F
+    │   ├─ emit [36mUpgraded[0m(implementation: SignalService: [0x5FC8d32690cc91D4c39d9d3abcBD16989F875707])
+    │   ├─ [95336] [32mSignalService[0m::[32minit[0m(0x0000000000000000000000000000000000000000, ERC1967Proxy: [0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512])[33m [delegatecall][0m
+    │   │   ├─ emit [36mOwnershipTransferred[0m(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   │   ├─ emit [36mInitialized[0m(version: 1)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m1412 bytes of code
+    ├─ [25766] [32mERC1967Proxy[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7369676e616c5f73657276696365000000000000000000000000000000000000, ERC1967Proxy: [0x0165878A594ca255338adfa4d48449f69242Eb8F])[33m[0m
+    │   ├─ [25368] [32mAddressManager[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7369676e616c5f73657276696365000000000000000000000000000000000000, ERC1967Proxy: [0x0165878A594ca255338adfa4d48449f69242Eb8F])[33m [delegatecall][0m
+    │   │   ├─ emit [36mAddressSet[0m(chainId: 31337 [2;49;39m[3.133e4][0m, name: 0x7369676e616c5f73657276696365000000000000000000000000000000000000, newAddress: ERC1967Proxy: [0x0165878A594ca255338adfa4d48449f69242Eb8F], oldAddress: 0x0000000000000000000000000000000000000000)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m(">", "signal_service", "@", ERC1967Proxy: [0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  proxy      :", ERC1967Proxy: [0x0165878A594ca255338adfa4d48449f69242Eb8F])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  impl       :", SignalService: [0x5FC8d32690cc91D4c39d9d3abcBD16989F875707])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [764] [32mERC1967Proxy[0m::[32mowner[0m()[33m [staticcall][0m
+    │   ├─ [375] [32mSignalService[0m::[32mowner[0m()[33m [delegatecall][0m
+    │   │   └─ [32m← [0m0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    │   └─ [32m← [0m0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  owner      :", 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  msg.sender :", 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  this       :", DeployOnL1: [0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [34mVM[0m::[34mserializeAddress[0m("<stringified JSON>", "signal_service", 0x0165878A594ca255338adfa4d48449f69242Eb8F)[33m[0m
+    │   └─ [34m← [0m"{\"shared_address_manager\":\"0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512\",\"signal_service\":\"0x0165878A594ca255338adfa4d48449f69242Eb8F\",\"taiko_token\":\"0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9\"}"
+    ├─ [0] [34mVM[0m::[34mprojectRoot[0m()[33m [staticcall][0m
+    │   └─ [34m← [0m"/Users/roger/Documents/GitHub/taiko-mono/packages/protocol"
+    ├─ [0] [34mVM[0m::[34mwriteJson[0m("<stringified JSON>", "/Users/roger/Documents/GitHub/taiko-mono/packages/protocol/deployments/deploy_l1.json")[33m[0m
+    │   └─ [34m← [0m()
+    ├─ [3179743] [33m→ [0m[33mnew[0m Bridge@0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6
+    │   ├─ emit [36mInitialized[0m(version: 255)
+    │   └─ [32m← [0m16052 bytes of code
+    ├─ [154847] [33m→ [0m[33mnew[0m ERC1967Proxy@0x8A791620dd6260079BF849Dc5567aDC3F2FdC318
+    │   ├─ emit [36mUpgraded[0m(implementation: Bridge: [0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6])
+    │   ├─ [95379] [32mBridge[0m::[32minit[0m(0x0000000000000000000000000000000000000000, ERC1967Proxy: [0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512])[33m [delegatecall][0m
+    │   │   ├─ emit [36mOwnershipTransferred[0m(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   │   ├─ emit [36mInitialized[0m(version: 1)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m1412 bytes of code
+    ├─ [25766] [32mERC1967Proxy[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x6272696467650000000000000000000000000000000000000000000000000000, ERC1967Proxy: [0x8A791620dd6260079BF849Dc5567aDC3F2FdC318])[33m[0m
+    │   ├─ [25368] [32mAddressManager[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x6272696467650000000000000000000000000000000000000000000000000000, ERC1967Proxy: [0x8A791620dd6260079BF849Dc5567aDC3F2FdC318])[33m [delegatecall][0m
+    │   │   ├─ emit [36mAddressSet[0m(chainId: 31337 [2;49;39m[3.133e4][0m, name: 0x6272696467650000000000000000000000000000000000000000000000000000, newAddress: ERC1967Proxy: [0x8A791620dd6260079BF849Dc5567aDC3F2FdC318], oldAddress: 0x0000000000000000000000000000000000000000)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m(">", "bridge", "@", ERC1967Proxy: [0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  proxy      :", ERC1967Proxy: [0x8A791620dd6260079BF849Dc5567aDC3F2FdC318])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  impl       :", Bridge: [0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [831] [32mERC1967Proxy[0m::[32mowner[0m()[33m [staticcall][0m
+    │   ├─ [442] [32mBridge[0m::[32mowner[0m()[33m [delegatecall][0m
+    │   │   └─ [32m← [0m0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    │   └─ [32m← [0m0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  owner      :", 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  msg.sender :", 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  this       :", DeployOnL1: [0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [34mVM[0m::[34mserializeAddress[0m("<stringified JSON>", "bridge", 0x8A791620dd6260079BF849Dc5567aDC3F2FdC318)[33m[0m
+    │   └─ [34m← [0m"{\"bridge\":\"0x8A791620dd6260079BF849Dc5567aDC3F2FdC318\",\"shared_address_manager\":\"0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512\",\"signal_service\":\"0x0165878A594ca255338adfa4d48449f69242Eb8F\",\"taiko_token\":\"0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9\"}"
+    ├─ [0] [34mVM[0m::[34mprojectRoot[0m()[33m [staticcall][0m
+    │   └─ [34m← [0m"/Users/roger/Documents/GitHub/taiko-mono/packages/protocol"
+    ├─ [0] [34mVM[0m::[34mwriteJson[0m("<stringified JSON>", "/Users/roger/Documents/GitHub/taiko-mono/packages/protocol/deployments/deploy_l1.json")[33m[0m
+    │   └─ [34m← [0m()
+    ├─ [0] [34mVM[0m::[34menvBool[0m("PAUSE_BRIDGE")[33m [staticcall][0m
+    │   └─ [34m← [0m<env var value>
+    ├─ [2273] [32mERC1967Proxy[0m::[32mpause[0m()[33m[0m
+    │   ├─ [1887] [32mBridge[0m::[32mpause[0m()[33m [delegatecall][0m
+    │   │   ├─ emit [36mPaused[0m(account: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m()
+    ├─ [22828] [32mERC1967Proxy[0m::[32mtransferOwnership[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m[0m
+    │   ├─ [22439] [32mBridge[0m::[32mtransferOwnership[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [delegatecall][0m
+    │   │   ├─ emit [36mOwnershipTransferStarted[0m(previousOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("------------------------------------------")[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("Warning - you need to register *all* counterparty bridges to enable multi-hop bridging:")[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("sharedAddressManager.setAddress(remoteChainId, \"bridge\", address(remoteBridge))")[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("- sharedAddressManager : ", ERC1967Proxy: [0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [4052657] [33m→ [0m[33mnew[0m ERC20Vault@0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82
+    │   ├─ emit [36mInitialized[0m(version: 255)
+    │   └─ [32m← [0m20411 bytes of code
+    ├─ [154826] [33m→ [0m[33mnew[0m ERC1967Proxy@0x9A676e781A523b5d0C0e43731313A708CB607508
+    │   ├─ emit [36mUpgraded[0m(implementation: ERC20Vault: [0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82])
+    │   ├─ [95358] [32mERC20Vault[0m::[32minit[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266, ERC1967Proxy: [0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512])[33m [delegatecall][0m
+    │   │   ├─ emit [36mOwnershipTransferred[0m(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   │   ├─ emit [36mInitialized[0m(version: 1)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m1412 bytes of code
+    ├─ [25766] [32mERC1967Proxy[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x65726332305f7661756c74000000000000000000000000000000000000000000, ERC1967Proxy: [0x9A676e781A523b5d0C0e43731313A708CB607508])[33m[0m
+    │   ├─ [25368] [32mAddressManager[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x65726332305f7661756c74000000000000000000000000000000000000000000, ERC1967Proxy: [0x9A676e781A523b5d0C0e43731313A708CB607508])[33m [delegatecall][0m
+    │   │   ├─ emit [36mAddressSet[0m(chainId: 31337 [2;49;39m[3.133e4][0m, name: 0x65726332305f7661756c74000000000000000000000000000000000000000000, newAddress: ERC1967Proxy: [0x9A676e781A523b5d0C0e43731313A708CB607508], oldAddress: 0x0000000000000000000000000000000000000000)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m(">", "erc20_vault", "@", ERC1967Proxy: [0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  proxy      :", ERC1967Proxy: [0x9A676e781A523b5d0C0e43731313A708CB607508])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  impl       :", ERC20Vault: [0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [830] [32mERC1967Proxy[0m::[32mowner[0m()[33m [staticcall][0m
+    │   ├─ [441] [32mERC20Vault[0m::[32mowner[0m()[33m [delegatecall][0m
+    │   │   └─ [32m← [0m0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    │   └─ [32m← [0m0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  owner      :", 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  msg.sender :", 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  this       :", DeployOnL1: [0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [34mVM[0m::[34mserializeAddress[0m("<stringified JSON>", "erc20_vault", 0x9A676e781A523b5d0C0e43731313A708CB607508)[33m[0m
+    │   └─ [34m← [0m"{\"bridge\":\"0x8A791620dd6260079BF849Dc5567aDC3F2FdC318\",\"erc20_vault\":\"0x9A676e781A523b5d0C0e43731313A708CB607508\",\"shared_address_manager\":\"0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512\",\"signal_service\":\"0x0165878A594ca255338adfa4d48449f69242Eb8F\",\"taiko_token\":\"0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9\"}"
+    ├─ [0] [34mVM[0m::[34mprojectRoot[0m()[33m [staticcall][0m
+    │   └─ [34m← [0m"/Users/roger/Documents/GitHub/taiko-mono/packages/protocol"
+    ├─ [0] [34mVM[0m::[34mwriteJson[0m("<stringified JSON>", "/Users/roger/Documents/GitHub/taiko-mono/packages/protocol/deployments/deploy_l1.json")[33m[0m
+    │   └─ [34m← [0m()
+    ├─ [3536793] [33m→ [0m[33mnew[0m ERC721Vault@0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1
+    │   ├─ emit [36mInitialized[0m(version: 255)
+    │   └─ [32m← [0m17835 bytes of code
+    ├─ [154826] [33m→ [0m[33mnew[0m ERC1967Proxy@0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE
+    │   ├─ emit [36mUpgraded[0m(implementation: ERC721Vault: [0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1])
+    │   ├─ [95358] [32mERC721Vault[0m::[32minit[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266, ERC1967Proxy: [0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512])[33m [delegatecall][0m
+    │   │   ├─ emit [36mOwnershipTransferred[0m(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   │   ├─ emit [36mInitialized[0m(version: 1)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m1412 bytes of code
+    ├─ [25766] [32mERC1967Proxy[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x6572633732315f7661756c740000000000000000000000000000000000000000, ERC1967Proxy: [0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE])[33m[0m
+    │   ├─ [25368] [32mAddressManager[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x6572633732315f7661756c740000000000000000000000000000000000000000, ERC1967Proxy: [0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE])[33m [delegatecall][0m
+    │   │   ├─ emit [36mAddressSet[0m(chainId: 31337 [2;49;39m[3.133e4][0m, name: 0x6572633732315f7661756c740000000000000000000000000000000000000000, newAddress: ERC1967Proxy: [0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE], oldAddress: 0x0000000000000000000000000000000000000000)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m(">", "erc721_vault", "@", ERC1967Proxy: [0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  proxy      :", ERC1967Proxy: [0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  impl       :", ERC721Vault: [0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [764] [32mERC1967Proxy[0m::[32mowner[0m()[33m [staticcall][0m
+    │   ├─ [375] [32mERC721Vault[0m::[32mowner[0m()[33m [delegatecall][0m
+    │   │   └─ [32m← [0m0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    │   └─ [32m← [0m0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  owner      :", 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  msg.sender :", 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  this       :", DeployOnL1: [0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [34mVM[0m::[34mserializeAddress[0m("<stringified JSON>", "erc721_vault", 0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE)[33m[0m
+    │   └─ [34m← [0m"{\"bridge\":\"0x8A791620dd6260079BF849Dc5567aDC3F2FdC318\",\"erc20_vault\":\"0x9A676e781A523b5d0C0e43731313A708CB607508\",\"erc721_vault\":\"0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE\",\"shared_address_manager\":\"0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512\",\"signal_service\":\"0x0165878A594ca255338adfa4d48449f69242Eb8F\",\"taiko_token\":\"0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9\"}"
+    ├─ [0] [34mVM[0m::[34mprojectRoot[0m()[33m [staticcall][0m
+    │   └─ [34m← [0m"/Users/roger/Documents/GitHub/taiko-mono/packages/protocol"
+    ├─ [0] [34mVM[0m::[34mwriteJson[0m("<stringified JSON>", "/Users/roger/Documents/GitHub/taiko-mono/packages/protocol/deployments/deploy_l1.json")[33m[0m
+    │   └─ [34m← [0m()
+    ├─ [3639724] [33m→ [0m[33mnew[0m ERC1155Vault@0x3Aa5ebB10DC797CAC828524e59A333d0A371443c
+    │   ├─ emit [36mInitialized[0m(version: 255)
+    │   └─ [32m← [0m18349 bytes of code
+    ├─ [154961] [33m→ [0m[33mnew[0m ERC1967Proxy@0xc6e7DF5E7b4f2A278906862b61205850344D4e7d
+    │   ├─ emit [36mUpgraded[0m(implementation: ERC1155Vault: [0x3Aa5ebB10DC797CAC828524e59A333d0A371443c])
+    │   ├─ [95493] [32mERC1155Vault[0m::[32minit[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266, ERC1967Proxy: [0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512])[33m [delegatecall][0m
+    │   │   ├─ emit [36mOwnershipTransferred[0m(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   │   ├─ emit [36mInitialized[0m(version: 1)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m1412 bytes of code
+    ├─ [25766] [32mERC1967Proxy[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x657263313135355f7661756c7400000000000000000000000000000000000000, ERC1967Proxy: [0xc6e7DF5E7b4f2A278906862b61205850344D4e7d])[33m[0m
+    │   ├─ [25368] [32mAddressManager[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x657263313135355f7661756c7400000000000000000000000000000000000000, ERC1967Proxy: [0xc6e7DF5E7b4f2A278906862b61205850344D4e7d])[33m [delegatecall][0m
+    │   │   ├─ emit [36mAddressSet[0m(chainId: 31337 [2;49;39m[3.133e4][0m, name: 0x657263313135355f7661756c7400000000000000000000000000000000000000, newAddress: ERC1967Proxy: [0xc6e7DF5E7b4f2A278906862b61205850344D4e7d], oldAddress: 0x0000000000000000000000000000000000000000)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m(">", "erc1155_vault", "@", ERC1967Proxy: [0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  proxy      :", ERC1967Proxy: [0xc6e7DF5E7b4f2A278906862b61205850344D4e7d])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  impl       :", ERC1155Vault: [0x3Aa5ebB10DC797CAC828524e59A333d0A371443c])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [808] [32mERC1967Proxy[0m::[32mowner[0m()[33m [staticcall][0m
+    │   ├─ [419] [32mERC1155Vault[0m::[32mowner[0m()[33m [delegatecall][0m
+    │   │   └─ [32m← [0m0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    │   └─ [32m← [0m0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  owner      :", 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  msg.sender :", 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  this       :", DeployOnL1: [0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [34mVM[0m::[34mserializeAddress[0m("<stringified JSON>", "erc1155_vault", 0xc6e7DF5E7b4f2A278906862b61205850344D4e7d)[33m[0m
+    │   └─ [34m← [0m"{\"bridge\":\"0x8A791620dd6260079BF849Dc5567aDC3F2FdC318\",\"erc1155_vault\":\"0xc6e7DF5E7b4f2A278906862b61205850344D4e7d\",\"erc20_vault\":\"0x9A676e781A523b5d0C0e43731313A708CB607508\",\"erc721_vault\":\"0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE\",\"shared_address_manager\":\"0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512\",\"signal_service\":\"0x0165878A594ca255338adfa4d48449f69242Eb8F\",\"taiko_token\":\"0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9\"}"
+    ├─ [0] [34mVM[0m::[34mprojectRoot[0m()[33m [staticcall][0m
+    │   └─ [34m← [0m"/Users/roger/Documents/GitHub/taiko-mono/packages/protocol"
+    ├─ [0] [34mVM[0m::[34mwriteJson[0m("<stringified JSON>", "/Users/roger/Documents/GitHub/taiko-mono/packages/protocol/deployments/deploy_l1.json")[33m[0m
+    │   └─ [34m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("------------------------------------------")[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("Warning - you need to register *all* counterparty vaults to enable multi-hop bridging:")[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("sharedAddressManager.setAddress(remoteChainId, \"erc20_vault\", address(remoteERC20Vault))")[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("sharedAddressManager.setAddress(remoteChainId, \"erc721_vault\", address(remoteERC721Vault))")[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("sharedAddressManager.setAddress(remoteChainId, \"erc1155_vault\", address(remoteERC1155Vault))")[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("- sharedAddressManager : ", ERC1967Proxy: [0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [2132903] [33m→ [0m[33mnew[0m BridgedERC20@0x4ed7c70F96B99c776995fB64377f0d4aB3B0e1C1
+    │   ├─ emit [36mInitialized[0m(version: 255)
+    │   └─ [32m← [0m10824 bytes of code
+    ├─ [25766] [32mERC1967Proxy[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x627269646765645f657263323000000000000000000000000000000000000000, BridgedERC20: [0x4ed7c70F96B99c776995fB64377f0d4aB3B0e1C1])[33m[0m
+    │   ├─ [25368] [32mAddressManager[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x627269646765645f657263323000000000000000000000000000000000000000, BridgedERC20: [0x4ed7c70F96B99c776995fB64377f0d4aB3B0e1C1])[33m [delegatecall][0m
+    │   │   ├─ emit [36mAddressSet[0m(chainId: 31337 [2;49;39m[3.133e4][0m, name: 0x627269646765645f657263323000000000000000000000000000000000000000, newAddress: BridgedERC20: [0x4ed7c70F96B99c776995fB64377f0d4aB3B0e1C1], oldAddress: 0x0000000000000000000000000000000000000000)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("> ", "bridged_erc20", "@", ERC1967Proxy: [0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("\t addr : ", BridgedERC20: [0x4ed7c70F96B99c776995fB64377f0d4aB3B0e1C1])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [2444258] [33m→ [0m[33mnew[0m BridgedERC721@0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f
+    │   ├─ emit [36mInitialized[0m(version: 255)
+    │   └─ [32m← [0m12379 bytes of code
+    ├─ [25766] [32mERC1967Proxy[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x627269646765645f657263373231000000000000000000000000000000000000, BridgedERC721: [0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f])[33m[0m
+    │   ├─ [25368] [32mAddressManager[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x627269646765645f657263373231000000000000000000000000000000000000, BridgedERC721: [0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f])[33m [delegatecall][0m
+    │   │   ├─ emit [36mAddressSet[0m(chainId: 31337 [2;49;39m[3.133e4][0m, name: 0x627269646765645f657263373231000000000000000000000000000000000000, newAddress: BridgedERC721: [0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f], oldAddress: 0x0000000000000000000000000000000000000000)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("> ", "bridged_erc721", "@", ERC1967Proxy: [0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("\t addr : ", BridgedERC721: [0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [2791875] [33m→ [0m[33mnew[0m BridgedERC1155@0x7a2088a1bFc9d81c55368AE168C2C02570cB814F
+    │   ├─ emit [36mInitialized[0m(version: 255)
+    │   └─ [32m← [0m14115 bytes of code
+    ├─ [25766] [32mERC1967Proxy[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x627269646765645f657263313135350000000000000000000000000000000000, BridgedERC1155: [0x7a2088a1bFc9d81c55368AE168C2C02570cB814F])[33m[0m
+    │   ├─ [25368] [32mAddressManager[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x627269646765645f657263313135350000000000000000000000000000000000, BridgedERC1155: [0x7a2088a1bFc9d81c55368AE168C2C02570cB814F])[33m [delegatecall][0m
+    │   │   ├─ emit [36mAddressSet[0m(chainId: 31337 [2;49;39m[3.133e4][0m, name: 0x627269646765645f657263313135350000000000000000000000000000000000, newAddress: BridgedERC1155: [0x7a2088a1bFc9d81c55368AE168C2C02570cB814F], oldAddress: 0x0000000000000000000000000000000000000000)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("> ", "bridged_erc1155", "@", ERC1967Proxy: [0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("\t addr : ", BridgedERC1155: [0x7a2088a1bFc9d81c55368AE168C2C02570cB814F])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("sharedAddressManager: ", ERC1967Proxy: [0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [1138214] [33m→ [0m[33mnew[0m AddressManager@0xc5a5C42992dECbae36851359345FE25997F5C42d
+    │   ├─ emit [36mInitialized[0m(version: 255)
+    │   └─ [32m← [0m5847 bytes of code
+    ├─ [154230] [33m→ [0m[33mnew[0m ERC1967Proxy@0x67d269191c92Caf3cD7723F116c85e6E9bf55933
+    │   ├─ emit [36mUpgraded[0m(implementation: AddressManager: [0xc5a5C42992dECbae36851359345FE25997F5C42d])
+    │   ├─ [94908] [32mAddressManager[0m::[32minit[0m(0x0000000000000000000000000000000000000000)[33m [delegatecall][0m
+    │   │   ├─ emit [36mOwnershipTransferred[0m(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   │   ├─ emit [36mInitialized[0m(version: 1)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m1380 bytes of code
+    ├─ [0] [32mconsole[0m::[32mlog[0m(">", "rollup_address_manager", "@", 0x0000000000000000000000000000000000000000)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  proxy      :", ERC1967Proxy: [0x67d269191c92Caf3cD7723F116c85e6E9bf55933])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  impl       :", AddressManager: [0xc5a5C42992dECbae36851359345FE25997F5C42d])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [730] [32mERC1967Proxy[0m::[32mowner[0m()[33m [staticcall][0m
+    │   ├─ [341] [32mAddressManager[0m::[32mowner[0m()[33m [delegatecall][0m
+    │   │   └─ [32m← [0m0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    │   └─ [32m← [0m0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  owner      :", 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  msg.sender :", 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  this       :", DeployOnL1: [0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [34mVM[0m::[34mserializeAddress[0m("<stringified JSON>", "rollup_address_manager", 0x67d269191c92Caf3cD7723F116c85e6E9bf55933)[33m[0m
+    │   └─ [34m← [0m"{\"bridge\":\"0x8A791620dd6260079BF849Dc5567aDC3F2FdC318\",\"erc1155_vault\":\"0xc6e7DF5E7b4f2A278906862b61205850344D4e7d\",\"erc20_vault\":\"0x9A676e781A523b5d0C0e43731313A708CB607508\",\"erc721_vault\":\"0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE\",\"rollup_address_manager\":\"0x67d269191c92Caf3cD7723F116c85e6E9bf55933\",\"shared_address_manager\":\"0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512\",\"signal_service\":\"0x0165878A594ca255338adfa4d48449f69242Eb8F\",\"taiko_token\":\"0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9\"}"
+    ├─ [0] [34mVM[0m::[34mprojectRoot[0m()[33m [staticcall][0m
+    │   └─ [34m← [0m"/Users/roger/Documents/GitHub/taiko-mono/packages/protocol"
+    ├─ [0] [34mVM[0m::[34mwriteJson[0m("<stringified JSON>", "/Users/roger/Documents/GitHub/taiko-mono/packages/protocol/deployments/deploy_l1.json")[33m[0m
+    │   └─ [34m← [0m()
+    ├─ [1117] [32mERC1967Proxy[0m::[32mgetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7461696b6f5f746f6b656e000000000000000000000000000000000000000000)[33m [staticcall][0m
+    │   ├─ [722] [32mAddressManager[0m::[32mgetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7461696b6f5f746f6b656e000000000000000000000000000000000000000000)[33m [delegatecall][0m
+    │   │   └─ [32m← [0mERC1967Proxy: [0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9]
+    │   └─ [32m← [0mERC1967Proxy: [0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9]
+    ├─ [25766] [32mERC1967Proxy[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7461696b6f5f746f6b656e000000000000000000000000000000000000000000, ERC1967Proxy: [0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9])[33m[0m
+    │   ├─ [25368] [32mAddressManager[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7461696b6f5f746f6b656e000000000000000000000000000000000000000000, ERC1967Proxy: [0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9])[33m [delegatecall][0m
+    │   │   ├─ emit [36mAddressSet[0m(chainId: 31337 [2;49;39m[3.133e4][0m, name: 0x7461696b6f5f746f6b656e000000000000000000000000000000000000000000, newAddress: ERC1967Proxy: [0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9], oldAddress: 0x0000000000000000000000000000000000000000)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("> ", "taiko_token", "@", ERC1967Proxy: [0x67d269191c92Caf3cD7723F116c85e6E9bf55933])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("\t addr : ", ERC1967Proxy: [0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [1117] [32mERC1967Proxy[0m::[32mgetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7369676e616c5f73657276696365000000000000000000000000000000000000)[33m [staticcall][0m
+    │   ├─ [722] [32mAddressManager[0m::[32mgetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7369676e616c5f73657276696365000000000000000000000000000000000000)[33m [delegatecall][0m
+    │   │   └─ [32m← [0mERC1967Proxy: [0x0165878A594ca255338adfa4d48449f69242Eb8F]
+    │   └─ [32m← [0mERC1967Proxy: [0x0165878A594ca255338adfa4d48449f69242Eb8F]
+    ├─ [25766] [32mERC1967Proxy[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7369676e616c5f73657276696365000000000000000000000000000000000000, ERC1967Proxy: [0x0165878A594ca255338adfa4d48449f69242Eb8F])[33m[0m
+    │   ├─ [25368] [32mAddressManager[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7369676e616c5f73657276696365000000000000000000000000000000000000, ERC1967Proxy: [0x0165878A594ca255338adfa4d48449f69242Eb8F])[33m [delegatecall][0m
+    │   │   ├─ emit [36mAddressSet[0m(chainId: 31337 [2;49;39m[3.133e4][0m, name: 0x7369676e616c5f73657276696365000000000000000000000000000000000000, newAddress: ERC1967Proxy: [0x0165878A594ca255338adfa4d48449f69242Eb8F], oldAddress: 0x0000000000000000000000000000000000000000)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("> ", "signal_service", "@", ERC1967Proxy: [0x67d269191c92Caf3cD7723F116c85e6E9bf55933])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("\t addr : ", ERC1967Proxy: [0x0165878A594ca255338adfa4d48449f69242Eb8F])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [1117] [32mERC1967Proxy[0m::[32mgetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x6272696467650000000000000000000000000000000000000000000000000000)[33m [staticcall][0m
+    │   ├─ [722] [32mAddressManager[0m::[32mgetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x6272696467650000000000000000000000000000000000000000000000000000)[33m [delegatecall][0m
+    │   │   └─ [32m← [0mERC1967Proxy: [0x8A791620dd6260079BF849Dc5567aDC3F2FdC318]
+    │   └─ [32m← [0mERC1967Proxy: [0x8A791620dd6260079BF849Dc5567aDC3F2FdC318]
+    ├─ [25766] [32mERC1967Proxy[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x6272696467650000000000000000000000000000000000000000000000000000, ERC1967Proxy: [0x8A791620dd6260079BF849Dc5567aDC3F2FdC318])[33m[0m
+    │   ├─ [25368] [32mAddressManager[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x6272696467650000000000000000000000000000000000000000000000000000, ERC1967Proxy: [0x8A791620dd6260079BF849Dc5567aDC3F2FdC318])[33m [delegatecall][0m
+    │   │   ├─ emit [36mAddressSet[0m(chainId: 31337 [2;49;39m[3.133e4][0m, name: 0x6272696467650000000000000000000000000000000000000000000000000000, newAddress: ERC1967Proxy: [0x8A791620dd6260079BF849Dc5567aDC3F2FdC318], oldAddress: 0x0000000000000000000000000000000000000000)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("> ", "bridge", "@", ERC1967Proxy: [0x67d269191c92Caf3cD7723F116c85e6E9bf55933])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("\t addr : ", ERC1967Proxy: [0x8A791620dd6260079BF849Dc5567aDC3F2FdC318])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [4867763] [33m→ [0m[33mnew[0m TaikoL1@0x9E545E3C0baAB3E08CdfD552C960A1050f373042
+    │   ├─ emit [36mInitialized[0m(version: 255)
+    │   └─ [32m← [0m24481 bytes of code
+    ├─ [0] [34mVM[0m::[34menvBytes32[0m("L2_GENESIS_HASH")[33m [staticcall][0m
+    │   └─ [34m← [0m<env var value>
+    ├─ [0] [34mVM[0m::[34menvBool[0m("PAUSE_TAIKO_L1")[33m [staticcall][0m
+    │   └─ [34m← [0m<env var value>
+    ├─ [295371] [33m→ [0m[33mnew[0m ERC1967Proxy@0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9
+    │   ├─ emit [36mUpgraded[0m(implementation: TaikoL1: [0x9E545E3C0baAB3E08CdfD552C960A1050f373042])
+    │   ├─ [235610] [32mTaikoL1[0m::[32minit[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266, ERC1967Proxy: [0x67d269191c92Caf3cD7723F116c85e6E9bf55933], 0xee1950562d42f0da28bd4550d88886bc90894c77c9c9eaefef775d4c8223f259, true)[33m [delegatecall][0m
+    │   │   ├─ emit [36mOwnershipTransferred[0m(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   │   ├─ emit [36mBlockVerified[0m(blockId: 0, prover: 0x0000000000000000000000000000000000000000, blockHash: 0xee1950562d42f0da28bd4550d88886bc90894c77c9c9eaefef775d4c8223f259, stateRoot: 0x0000000000000000000000000000000000000000000000000000000000000000, tier: 0)
+    │   │   ├─ emit [36mPaused[0m(account: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   │   ├─ emit [36mInitialized[0m(version: 1)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m1476 bytes of code
+    ├─ [25766] [32mERC1967Proxy[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7461696b6f000000000000000000000000000000000000000000000000000000, ERC1967Proxy: [0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9])[33m[0m
+    │   ├─ [25368] [32mAddressManager[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7461696b6f000000000000000000000000000000000000000000000000000000, ERC1967Proxy: [0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9])[33m [delegatecall][0m
+    │   │   ├─ emit [36mAddressSet[0m(chainId: 31337 [2;49;39m[3.133e4][0m, name: 0x7461696b6f000000000000000000000000000000000000000000000000000000, newAddress: ERC1967Proxy: [0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9], oldAddress: 0x0000000000000000000000000000000000000000)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m(">", "taiko", "@", ERC1967Proxy: [0x67d269191c92Caf3cD7723F116c85e6E9bf55933])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  proxy      :", ERC1967Proxy: [0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  impl       :", TaikoL1: [0x9E545E3C0baAB3E08CdfD552C960A1050f373042])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [831] [32mERC1967Proxy[0m::[32mowner[0m()[33m [staticcall][0m
+    │   ├─ [442] [32mTaikoL1[0m::[32mowner[0m()[33m [delegatecall][0m
+    │   │   └─ [32m← [0m0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    │   └─ [32m← [0m0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  owner      :", 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  msg.sender :", 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  this       :", DeployOnL1: [0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [34mVM[0m::[34mserializeAddress[0m("<stringified JSON>", "taiko", 0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9)[33m[0m
+    │   └─ [34m← [0m"{\"bridge\":\"0x8A791620dd6260079BF849Dc5567aDC3F2FdC318\",\"erc1155_vault\":\"0xc6e7DF5E7b4f2A278906862b61205850344D4e7d\",\"erc20_vault\":\"0x9A676e781A523b5d0C0e43731313A708CB607508\",\"erc721_vault\":\"0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE\",\"rollup_address_manager\":\"0x67d269191c92Caf3cD7723F116c85e6E9bf55933\",\"shared_address_manager\":\"0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512\",\"signal_service\":\"0x0165878A594ca255338adfa4d48449f69242Eb8F\",\"taiko\":\"0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9\",\"taiko_token\":\"0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9\"}"
+    ├─ [0] [34mVM[0m::[34mprojectRoot[0m()[33m [staticcall][0m
+    │   └─ [34m← [0m"/Users/roger/Documents/GitHub/taiko-mono/packages/protocol"
+    ├─ [0] [34mVM[0m::[34mwriteJson[0m("<stringified JSON>", "/Users/roger/Documents/GitHub/taiko-mono/packages/protocol/deployments/deploy_l1.json")[33m[0m
+    │   └─ [34m← [0m()
+    ├─ [1927272] [33m→ [0m[33mnew[0m AssignmentHook@0x851356ae760d987E095750cCeb3bC6014560891C
+    │   ├─ emit [36mInitialized[0m(version: 255)
+    │   └─ [32m← [0m9797 bytes of code
+    ├─ [154848] [33m→ [0m[33mnew[0m ERC1967Proxy@0xf5059a5D33d5853360D16C683c16e67980206f36
+    │   ├─ emit [36mUpgraded[0m(implementation: AssignmentHook: [0x851356ae760d987E095750cCeb3bC6014560891C])
+    │   ├─ [95380] [32mAssignmentHook[0m::[32minit[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266, ERC1967Proxy: [0x67d269191c92Caf3cD7723F116c85e6E9bf55933])[33m [delegatecall][0m
+    │   │   ├─ emit [36mOwnershipTransferred[0m(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   │   ├─ emit [36mInitialized[0m(version: 1)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m1412 bytes of code
+    ├─ [25766] [32mERC1967Proxy[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x61737369676e6d656e745f686f6f6b0000000000000000000000000000000000, ERC1967Proxy: [0xf5059a5D33d5853360D16C683c16e67980206f36])[33m[0m
+    │   ├─ [25368] [32mAddressManager[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x61737369676e6d656e745f686f6f6b0000000000000000000000000000000000, ERC1967Proxy: [0xf5059a5D33d5853360D16C683c16e67980206f36])[33m [delegatecall][0m
+    │   │   ├─ emit [36mAddressSet[0m(chainId: 31337 [2;49;39m[3.133e4][0m, name: 0x61737369676e6d656e745f686f6f6b0000000000000000000000000000000000, newAddress: ERC1967Proxy: [0xf5059a5D33d5853360D16C683c16e67980206f36], oldAddress: 0x0000000000000000000000000000000000000000)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m(">", "assignment_hook", "@", ERC1967Proxy: [0x67d269191c92Caf3cD7723F116c85e6E9bf55933])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  proxy      :", ERC1967Proxy: [0xf5059a5D33d5853360D16C683c16e67980206f36])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  impl       :", AssignmentHook: [0x851356ae760d987E095750cCeb3bC6014560891C])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [830] [32mERC1967Proxy[0m::[32mowner[0m()[33m [staticcall][0m
+    │   ├─ [441] [32mAssignmentHook[0m::[32mowner[0m()[33m [delegatecall][0m
+    │   │   └─ [32m← [0m0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    │   └─ [32m← [0m0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  owner      :", 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  msg.sender :", 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  this       :", DeployOnL1: [0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [34mVM[0m::[34mserializeAddress[0m("<stringified JSON>", "assignment_hook", 0xf5059a5D33d5853360D16C683c16e67980206f36)[33m[0m
+    │   └─ [34m← [0m"{\"assignment_hook\":\"0xf5059a5D33d5853360D16C683c16e67980206f36\",\"bridge\":\"0x8A791620dd6260079BF849Dc5567aDC3F2FdC318\",\"erc1155_vault\":\"0xc6e7DF5E7b4f2A278906862b61205850344D4e7d\",\"erc20_vault\":\"0x9A676e781A523b5d0C0e43731313A708CB607508\",\"erc721_vault\":\"0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE\",\"rollup_address_manager\":\"0x67d269191c92Caf3cD7723F116c85e6E9bf55933\",\"shared_address_manager\":\"0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512\",\"signal_service\":\"0x0165878A594ca255338adfa4d48449f69242Eb8F\",\"taiko\":\"0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9\",\"taiko_token\":\"0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9\"}"
+    ├─ [0] [34mVM[0m::[34mprojectRoot[0m()[33m [staticcall][0m
+    │   └─ [34m← [0m"/Users/roger/Documents/GitHub/taiko-mono/packages/protocol"
+    ├─ [0] [34mVM[0m::[34mwriteJson[0m("<stringified JSON>", "/Users/roger/Documents/GitHub/taiko-mono/packages/protocol/deployments/deploy_l1.json")[33m[0m
+    │   └─ [34m← [0m()
+    ├─ [2299094] [33m→ [0m[33mnew[0m SgxVerifier@0x998abeb3E57409262aE5b751f60747921B33613E
+    │   ├─ emit [36mInitialized[0m(version: 255)
+    │   └─ [32m← [0m11654 bytes of code
+    ├─ [154826] [33m→ [0m[33mnew[0m ERC1967Proxy@0x70e0bA845a1A0F2DA3359C97E0285013525FFC49
+    │   ├─ emit [36mUpgraded[0m(implementation: SgxVerifier: [0x998abeb3E57409262aE5b751f60747921B33613E])
+    │   ├─ [95358] [32mSgxVerifier[0m::[32minit[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266, ERC1967Proxy: [0x67d269191c92Caf3cD7723F116c85e6E9bf55933])[33m [delegatecall][0m
+    │   │   ├─ emit [36mOwnershipTransferred[0m(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   │   ├─ emit [36mInitialized[0m(version: 1)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m1412 bytes of code
+    ├─ [25766] [32mERC1967Proxy[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x746965725f736778000000000000000000000000000000000000000000000000, ERC1967Proxy: [0x70e0bA845a1A0F2DA3359C97E0285013525FFC49])[33m[0m
+    │   ├─ [25368] [32mAddressManager[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x746965725f736778000000000000000000000000000000000000000000000000, ERC1967Proxy: [0x70e0bA845a1A0F2DA3359C97E0285013525FFC49])[33m [delegatecall][0m
+    │   │   ├─ emit [36mAddressSet[0m(chainId: 31337 [2;49;39m[3.133e4][0m, name: 0x746965725f736778000000000000000000000000000000000000000000000000, newAddress: ERC1967Proxy: [0x70e0bA845a1A0F2DA3359C97E0285013525FFC49], oldAddress: 0x0000000000000000000000000000000000000000)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m(">", "tier_sgx", "@", ERC1967Proxy: [0x67d269191c92Caf3cD7723F116c85e6E9bf55933])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  proxy      :", ERC1967Proxy: [0x70e0bA845a1A0F2DA3359C97E0285013525FFC49])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  impl       :", SgxVerifier: [0x998abeb3E57409262aE5b751f60747921B33613E])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [809] [32mERC1967Proxy[0m::[32mowner[0m()[33m [staticcall][0m
+    │   ├─ [420] [32mSgxVerifier[0m::[32mowner[0m()[33m [delegatecall][0m
+    │   │   └─ [32m← [0m0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    │   └─ [32m← [0m0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  owner      :", 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  msg.sender :", 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  this       :", DeployOnL1: [0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [34mVM[0m::[34mserializeAddress[0m("<stringified JSON>", "tier_sgx", 0x70e0bA845a1A0F2DA3359C97E0285013525FFC49)[33m[0m
+    │   └─ [34m← [0m"{\"assignment_hook\":\"0xf5059a5D33d5853360D16C683c16e67980206f36\",\"bridge\":\"0x8A791620dd6260079BF849Dc5567aDC3F2FdC318\",\"erc1155_vault\":\"0xc6e7DF5E7b4f2A278906862b61205850344D4e7d\",\"erc20_vault\":\"0x9A676e781A523b5d0C0e43731313A708CB607508\",\"erc721_vault\":\"0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE\",\"rollup_address_manager\":\"0x67d269191c92Caf3cD7723F116c85e6E9bf55933\",\"shared_address_manager\":\"0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512\",\"signal_service\":\"0x0165878A594ca255338adfa4d48449f69242Eb8F\",\"taiko\":\"0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9\",\"taiko_token\":\"0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9\",\"tier_sgx\":\"0x70e0bA845a1A0F2DA3359C97E0285013525FFC49\"}"
+    ├─ [0] [34mVM[0m::[34mprojectRoot[0m()[33m [staticcall][0m
+    │   └─ [34m← [0m"/Users/roger/Documents/GitHub/taiko-mono/packages/protocol"
+    ├─ [0] [34mVM[0m::[34mwriteJson[0m("<stringified JSON>", "/Users/roger/Documents/GitHub/taiko-mono/packages/protocol/deployments/deploy_l1.json")[33m[0m
+    │   └─ [34m← [0m()
+    ├─ [2120089] [33m→ [0m[33mnew[0m GuardianProver@0x99bbA657f2BbC93c02D617f8bA121cB8Fc104Acf
+    │   ├─ emit [36mInitialized[0m(version: 255)
+    │   └─ [32m← [0m10760 bytes of code
+    ├─ [154837] [33m→ [0m[33mnew[0m ERC1967Proxy@0x0E801D84Fa97b50751Dbf25036d067dCf18858bF
+    │   ├─ emit [36mUpgraded[0m(implementation: GuardianProver: [0x99bbA657f2BbC93c02D617f8bA121cB8Fc104Acf])
+    │   ├─ [95369] [32mGuardianProver[0m::[32minit[0m(0x0000000000000000000000000000000000000000, ERC1967Proxy: [0x67d269191c92Caf3cD7723F116c85e6E9bf55933])[33m [delegatecall][0m
+    │   │   ├─ emit [36mOwnershipTransferred[0m(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   │   ├─ emit [36mInitialized[0m(version: 1)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m1412 bytes of code
+    ├─ [0] [32mconsole[0m::[32mlog[0m(">", "guardian_prover_minority", "@", 0x0000000000000000000000000000000000000000)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  proxy      :", ERC1967Proxy: [0x0E801D84Fa97b50751Dbf25036d067dCf18858bF])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  impl       :", GuardianProver: [0x99bbA657f2BbC93c02D617f8bA121cB8Fc104Acf])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [831] [32mERC1967Proxy[0m::[32mowner[0m()[33m [staticcall][0m
+    │   ├─ [442] [32mGuardianProver[0m::[32mowner[0m()[33m [delegatecall][0m
+    │   │   └─ [32m← [0m0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    │   └─ [32m← [0m0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  owner      :", 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  msg.sender :", 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  this       :", DeployOnL1: [0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [34mVM[0m::[34mserializeAddress[0m("<stringified JSON>", "guardian_prover_minority", 0x0E801D84Fa97b50751Dbf25036d067dCf18858bF)[33m[0m
+    │   └─ [34m← [0m"{\"assignment_hook\":\"0xf5059a5D33d5853360D16C683c16e67980206f36\",\"bridge\":\"0x8A791620dd6260079BF849Dc5567aDC3F2FdC318\",\"erc1155_vault\":\"0xc6e7DF5E7b4f2A278906862b61205850344D4e7d\",\"erc20_vault\":\"0x9A676e781A523b5d0C0e43731313A708CB607508\",\"erc721_vault\":\"0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE\",\"guardian_prover_minority\":\"0x0E801D84Fa97b50751Dbf25036d067dCf18858bF\",\"rollup_address_manager\":\"0x67d269191c92Caf3cD7723F116c85e6E9bf55933\",\"shared_address_manager\":\"0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512\",\"signal_service\":\"0x0165878A594ca255338adfa4d48449f69242Eb8F\",\"taiko\":\"0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9\",\"taiko_token\":\"0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9\",\"tier_sgx\":\"0x70e0bA845a1A0F2DA3359C97E0285013525FFC49\"}"
+    ├─ [0] [34mVM[0m::[34mprojectRoot[0m()[33m [staticcall][0m
+    │   └─ [34m← [0m"/Users/roger/Documents/GitHub/taiko-mono/packages/protocol"
+    ├─ [0] [34mVM[0m::[34mwriteJson[0m("<stringified JSON>", "/Users/roger/Documents/GitHub/taiko-mono/packages/protocol/deployments/deploy_l1.json")[33m[0m
+    │   └─ [34m← [0m()
+    ├─ [30275] [32mERC1967Proxy[0m::[32menableTaikoTokenAllowance[0m(true)[33m[0m
+    │   ├─ [29886] [32mGuardianProver[0m::[32menableTaikoTokenAllowance[0m(true)[33m [delegatecall][0m
+    │   │   ├─ [1117] [32mERC1967Proxy[0m::[32mgetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7461696b6f5f746f6b656e000000000000000000000000000000000000000000)[33m [staticcall][0m
+    │   │   │   ├─ [722] [32mAddressManager[0m::[32mgetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7461696b6f5f746f6b656e000000000000000000000000000000000000000000)[33m [delegatecall][0m
+    │   │   │   │   └─ [32m← [0mERC1967Proxy: [0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9]
+    │   │   │   └─ [32m← [0mERC1967Proxy: [0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9]
+    │   │   ├─ [1117] [32mERC1967Proxy[0m::[32mgetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7461696b6f000000000000000000000000000000000000000000000000000000)[33m [staticcall][0m
+    │   │   │   ├─ [722] [32mAddressManager[0m::[32mgetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7461696b6f000000000000000000000000000000000000000000000000000000)[33m [delegatecall][0m
+    │   │   │   │   └─ [32m← [0mERC1967Proxy: [0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9]
+    │   │   │   └─ [32m← [0mERC1967Proxy: [0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9]
+    │   │   ├─ [25059] [32mERC1967Proxy[0m::[32mapprove[0m(ERC1967Proxy: [0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9], 115792089237316195423570985008687907853269984665640564039457584007913129639935 [2;49;39m[1.157e77][0m)[33m[0m
+    │   │   │   ├─ [24664] [32mTaikoToken[0m::[32mapprove[0m(ERC1967Proxy: [0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9], 115792089237316195423570985008687907853269984665640564039457584007913129639935 [2;49;39m[1.157e77][0m)[33m [delegatecall][0m
+    │   │   │   │   ├─ emit [36mApproval[0m(owner: ERC1967Proxy: [0x0E801D84Fa97b50751Dbf25036d067dCf18858bF], spender: ERC1967Proxy: [0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9], value: 115792089237316195423570985008687907853269984665640564039457584007913129639935 [2;49;39m[1.157e77][0m)
+    │   │   │   │   └─ [32m← [0mtrue
+    │   │   │   └─ [32m← [0mtrue
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m()
+    ├─ [154837] [33m→ [0m[33mnew[0m ERC1967Proxy@0x9d4454B023096f34B160D6B654540c56A1F81688
+    │   ├─ emit [36mUpgraded[0m(implementation: GuardianProver: [0x99bbA657f2BbC93c02D617f8bA121cB8Fc104Acf])
+    │   ├─ [95369] [32mGuardianProver[0m::[32minit[0m(0x0000000000000000000000000000000000000000, ERC1967Proxy: [0x67d269191c92Caf3cD7723F116c85e6E9bf55933])[33m [delegatecall][0m
+    │   │   ├─ emit [36mOwnershipTransferred[0m(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   │   ├─ emit [36mInitialized[0m(version: 1)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m1412 bytes of code
+    ├─ [0] [32mconsole[0m::[32mlog[0m(">", "guardian_prover", "@", 0x0000000000000000000000000000000000000000)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  proxy      :", ERC1967Proxy: [0x9d4454B023096f34B160D6B654540c56A1F81688])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  impl       :", GuardianProver: [0x99bbA657f2BbC93c02D617f8bA121cB8Fc104Acf])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [831] [32mERC1967Proxy[0m::[32mowner[0m()[33m [staticcall][0m
+    │   ├─ [442] [32mGuardianProver[0m::[32mowner[0m()[33m [delegatecall][0m
+    │   │   └─ [32m← [0m0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    │   └─ [32m← [0m0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  owner      :", 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  msg.sender :", 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  this       :", DeployOnL1: [0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [34mVM[0m::[34mserializeAddress[0m("<stringified JSON>", "guardian_prover", 0x9d4454B023096f34B160D6B654540c56A1F81688)[33m[0m
+    │   └─ [34m← [0m"{\"assignment_hook\":\"0xf5059a5D33d5853360D16C683c16e67980206f36\",\"bridge\":\"0x8A791620dd6260079BF849Dc5567aDC3F2FdC318\",\"erc1155_vault\":\"0xc6e7DF5E7b4f2A278906862b61205850344D4e7d\",\"erc20_vault\":\"0x9A676e781A523b5d0C0e43731313A708CB607508\",\"erc721_vault\":\"0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE\",\"guardian_prover\":\"0x9d4454B023096f34B160D6B654540c56A1F81688\",\"guardian_prover_minority\":\"0x0E801D84Fa97b50751Dbf25036d067dCf18858bF\",\"rollup_address_manager\":\"0x67d269191c92Caf3cD7723F116c85e6E9bf55933\",\"shared_address_manager\":\"0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512\",\"signal_service\":\"0x0165878A594ca255338adfa4d48449f69242Eb8F\",\"taiko\":\"0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9\",\"taiko_token\":\"0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9\",\"tier_sgx\":\"0x70e0bA845a1A0F2DA3359C97E0285013525FFC49\"}"
+    ├─ [0] [34mVM[0m::[34mprojectRoot[0m()[33m [staticcall][0m
+    │   └─ [34m← [0m"/Users/roger/Documents/GitHub/taiko-mono/packages/protocol"
+    ├─ [0] [34mVM[0m::[34mwriteJson[0m("<stringified JSON>", "/Users/roger/Documents/GitHub/taiko-mono/packages/protocol/deployments/deploy_l1.json")[33m[0m
+    │   └─ [34m← [0m()
+    ├─ [25766] [32mERC1967Proxy[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x746965725f677561726469616e5f6d696e6f7269747900000000000000000000, ERC1967Proxy: [0x0E801D84Fa97b50751Dbf25036d067dCf18858bF])[33m[0m
+    │   ├─ [25368] [32mAddressManager[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x746965725f677561726469616e5f6d696e6f7269747900000000000000000000, ERC1967Proxy: [0x0E801D84Fa97b50751Dbf25036d067dCf18858bF])[33m [delegatecall][0m
+    │   │   ├─ emit [36mAddressSet[0m(chainId: 31337 [2;49;39m[3.133e4][0m, name: 0x746965725f677561726469616e5f6d696e6f7269747900000000000000000000, newAddress: ERC1967Proxy: [0x0E801D84Fa97b50751Dbf25036d067dCf18858bF], oldAddress: 0x0000000000000000000000000000000000000000)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("> ", "tier_guardian_minority", "@", ERC1967Proxy: [0x67d269191c92Caf3cD7723F116c85e6E9bf55933])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("\t addr : ", ERC1967Proxy: [0x0E801D84Fa97b50751Dbf25036d067dCf18858bF])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [25766] [32mERC1967Proxy[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x746965725f677561726469616e00000000000000000000000000000000000000, ERC1967Proxy: [0x9d4454B023096f34B160D6B654540c56A1F81688])[33m[0m
+    │   ├─ [25368] [32mAddressManager[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x746965725f677561726469616e00000000000000000000000000000000000000, ERC1967Proxy: [0x9d4454B023096f34B160D6B654540c56A1F81688])[33m [delegatecall][0m
+    │   │   ├─ emit [36mAddressSet[0m(chainId: 31337 [2;49;39m[3.133e4][0m, name: 0x746965725f677561726469616e00000000000000000000000000000000000000, newAddress: ERC1967Proxy: [0x9d4454B023096f34B160D6B654540c56A1F81688], oldAddress: 0x0000000000000000000000000000000000000000)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("> ", "tier_guardian", "@", ERC1967Proxy: [0x67d269191c92Caf3cD7723F116c85e6E9bf55933])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("\t addr : ", ERC1967Proxy: [0x9d4454B023096f34B160D6B654540c56A1F81688])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [34mVM[0m::[34menvString[0m("TIER_PROVIDER")[33m [staticcall][0m
+    │   └─ [34m← [0m<env var value>
+    ├─ [249285] [33m→ [0m[33mnew[0m DevnetTierProvider@0x809d550fca64d94Bd9F66E60752A544199cfAC3D
+    │   └─ [32m← [0m1274 bytes of code
+    ├─ [25766] [32mERC1967Proxy[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x746965725f726f75746572000000000000000000000000000000000000000000, DevnetTierProvider: [0x809d550fca64d94Bd9F66E60752A544199cfAC3D])[33m[0m
+    │   ├─ [25368] [32mAddressManager[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x746965725f726f75746572000000000000000000000000000000000000000000, DevnetTierProvider: [0x809d550fca64d94Bd9F66E60752A544199cfAC3D])[33m [delegatecall][0m
+    │   │   ├─ emit [36mAddressSet[0m(chainId: 31337 [2;49;39m[3.133e4][0m, name: 0x746965725f726f75746572000000000000000000000000000000000000000000, newAddress: DevnetTierProvider: [0x809d550fca64d94Bd9F66E60752A544199cfAC3D], oldAddress: 0x0000000000000000000000000000000000000000)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("> ", "tier_router", "@", ERC1967Proxy: [0x67d269191c92Caf3cD7723F116c85e6E9bf55933])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("\t addr : ", DevnetTierProvider: [0x809d550fca64d94Bd9F66E60752A544199cfAC3D])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [34mVM[0m::[34menvAddress[0m("GUARDIAN_PROVERS", ",")[33m [staticcall][0m
+    │   └─ [34m← [0m<env var value>
+    ├─ [366605] [32mERC1967Proxy[0m::[32msetGuardians[0m([0x1000777700000000000000000000000000000001, 0x1000777700000000000000000000000000000002, 0x1000777700000000000000000000000000000003, 0x1000777700000000000000000000000000000004, 0x1000777700000000000000000000000000000005, 0x1000777700000000000000000000000000000006, 0x1000777700000000000000000000000000000007], 2, true)[33m[0m
+    │   ├─ [366159] [32mGuardianProver[0m::[32msetGuardians[0m([0x1000777700000000000000000000000000000001, 0x1000777700000000000000000000000000000002, 0x1000777700000000000000000000000000000003, 0x1000777700000000000000000000000000000004, 0x1000777700000000000000000000000000000005, 0x1000777700000000000000000000000000000006, 0x1000777700000000000000000000000000000007], 2, true)[33m [delegatecall][0m
+    │   │   ├─ emit [36mGuardiansUpdated[0m(version: 1, guardians: [0x1000777700000000000000000000000000000001, 0x1000777700000000000000000000000000000002, 0x1000777700000000000000000000000000000003, 0x1000777700000000000000000000000000000004, 0x1000777700000000000000000000000000000005, 0x1000777700000000000000000000000000000006, 0x1000777700000000000000000000000000000007])
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m()
+    ├─ [22806] [32mERC1967Proxy[0m::[32mtransferOwnership[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m[0m
+    │   ├─ [22417] [32mGuardianProver[0m::[32mtransferOwnership[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [delegatecall][0m
+    │   │   ├─ emit [36mOwnershipTransferStarted[0m(previousOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m()
+    ├─ [366605] [32mERC1967Proxy[0m::[32msetGuardians[0m([0x1000777700000000000000000000000000000001, 0x1000777700000000000000000000000000000002, 0x1000777700000000000000000000000000000003, 0x1000777700000000000000000000000000000004, 0x1000777700000000000000000000000000000005, 0x1000777700000000000000000000000000000006, 0x1000777700000000000000000000000000000007], 7, true)[33m[0m
+    │   ├─ [366159] [32mGuardianProver[0m::[32msetGuardians[0m([0x1000777700000000000000000000000000000001, 0x1000777700000000000000000000000000000002, 0x1000777700000000000000000000000000000003, 0x1000777700000000000000000000000000000004, 0x1000777700000000000000000000000000000005, 0x1000777700000000000000000000000000000006, 0x1000777700000000000000000000000000000007], 7, true)[33m [delegatecall][0m
+    │   │   ├─ emit [36mGuardiansUpdated[0m(version: 1, guardians: [0x1000777700000000000000000000000000000001, 0x1000777700000000000000000000000000000002, 0x1000777700000000000000000000000000000003, 0x1000777700000000000000000000000000000004, 0x1000777700000000000000000000000000000005, 0x1000777700000000000000000000000000000006, 0x1000777700000000000000000000000000000007])
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m()
+    ├─ [22806] [32mERC1967Proxy[0m::[32mtransferOwnership[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m[0m
+    │   ├─ [22417] [32mGuardianProver[0m::[32mtransferOwnership[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [delegatecall][0m
+    │   │   ├─ emit [36mOwnershipTransferStarted[0m(previousOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m()
+    ├─ [752384] [33m→ [0m[33mnew[0m P256Verifier@0x82e01223d51Eb87e16A03E24687EDF0F294da6f1
+    │   └─ [32m← [0m3787 bytes of code
+    ├─ [286742] [33m→ [0m[33mnew[0m SigVerifyLib@0x2bdCC0de6bE1f7D2ee689a0342D76F52E8EFABa3
+    │   └─ [32m← [0m1595 bytes of code
+    ├─ [1744632] [33m→ [0m[33mnew[0m PEMCertChainLib@0x7969c5eD335650692Bc04293B07F5BF2e7A673C0
+    │   └─ [32m← [0m8743 bytes of code
+    ├─ [4719358] [33m→ [0m[33mnew[0m AutomataDcapV3Attestation@0x7bc06c482DEAd17c0e297aFbC32f6e63d3846650
+    │   ├─ emit [36mInitialized[0m(version: 255)
+    │   └─ [32m← [0m23740 bytes of code
+    ├─ [176912] [33m→ [0m[33mnew[0m ERC1967Proxy@0xc351628EB244ec633d5f21fBD6621e1a683B1181
+    │   ├─ emit [36mUpgraded[0m(implementation: AutomataDcapV3Attestation: [0x7bc06c482DEAd17c0e297aFbC32f6e63d3846650])
+    │   ├─ [117297] [32mAutomataDcapV3Attestation[0m::[32minit[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266, SigVerifyLib: [0x2bdCC0de6bE1f7D2ee689a0342D76F52E8EFABa3], PEMCertChainLib: [0x7969c5eD335650692Bc04293B07F5BF2e7A673C0])[33m [delegatecall][0m
+    │   │   ├─ emit [36mOwnershipTransferred[0m(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   │   ├─ emit [36mInitialized[0m(version: 1)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m1444 bytes of code
+    ├─ [25766] [32mERC1967Proxy[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x6175746f6d6174615f646361705f6174746573746174696f6e00000000000000, ERC1967Proxy: [0xc351628EB244ec633d5f21fBD6621e1a683B1181])[33m[0m
+    │   ├─ [25368] [32mAddressManager[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x6175746f6d6174615f646361705f6174746573746174696f6e00000000000000, ERC1967Proxy: [0xc351628EB244ec633d5f21fBD6621e1a683B1181])[33m [delegatecall][0m
+    │   │   ├─ emit [36mAddressSet[0m(chainId: 31337 [2;49;39m[3.133e4][0m, name: 0x6175746f6d6174615f646361705f6174746573746174696f6e00000000000000, newAddress: ERC1967Proxy: [0xc351628EB244ec633d5f21fBD6621e1a683B1181], oldAddress: 0x0000000000000000000000000000000000000000)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m(">", "automata_dcap_attestation", "@", ERC1967Proxy: [0x67d269191c92Caf3cD7723F116c85e6E9bf55933])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  proxy      :", ERC1967Proxy: [0xc351628EB244ec633d5f21fBD6621e1a683B1181])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  impl       :", AutomataDcapV3Attestation: [0x7bc06c482DEAd17c0e297aFbC32f6e63d3846650])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [775] [32mERC1967Proxy[0m::[32mowner[0m()[33m [staticcall][0m
+    │   ├─ [386] [32mAutomataDcapV3Attestation[0m::[32mowner[0m()[33m [delegatecall][0m
+    │   │   └─ [32m← [0m0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    │   └─ [32m← [0m0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  owner      :", 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  msg.sender :", 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  this       :", DeployOnL1: [0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [34mVM[0m::[34mserializeAddress[0m("<stringified JSON>", "automata_dcap_attestation", 0xc351628EB244ec633d5f21fBD6621e1a683B1181)[33m[0m
+    │   └─ [34m← [0m"{\"assignment_hook\":\"0xf5059a5D33d5853360D16C683c16e67980206f36\",\"automata_dcap_attestation\":\"0xc351628EB244ec633d5f21fBD6621e1a683B1181\",\"bridge\":\"0x8A791620dd6260079BF849Dc5567aDC3F2FdC318\",\"erc1155_vault\":\"0xc6e7DF5E7b4f2A278906862b61205850344D4e7d\",\"erc20_vault\":\"0x9A676e781A523b5d0C0e43731313A708CB607508\",\"erc721_vault\":\"0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE\",\"guardian_prover\":\"0x9d4454B023096f34B160D6B654540c56A1F81688\",\"guardian_prover_minority\":\"0x0E801D84Fa97b50751Dbf25036d067dCf18858bF\",\"rollup_address_manager\":\"0x67d269191c92Caf3cD7723F116c85e6E9bf55933\",\"shared_address_manager\":\"0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512\",\"signal_service\":\"0x0165878A594ca255338adfa4d48449f69242Eb8F\",\"taiko\":\"0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9\",\"taiko_token\":\"0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9\",\"tier_sgx\":\"0x70e0bA845a1A0F2DA3359C97E0285013525FFC49\"}"
+    ├─ [0] [34mVM[0m::[34mprojectRoot[0m()[33m [staticcall][0m
+    │   └─ [34m← [0m"/Users/roger/Documents/GitHub/taiko-mono/packages/protocol"
+    ├─ [0] [34mVM[0m::[34mwriteJson[0m("<stringified JSON>", "/Users/roger/Documents/GitHub/taiko-mono/packages/protocol/deployments/deploy_l1.json")[33m[0m
+    │   └─ [34m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("SigVerifyLib", SigVerifyLib: [0x2bdCC0de6bE1f7D2ee689a0342D76F52E8EFABa3])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("PemCertChainLib", PEMCertChainLib: [0x7969c5eD335650692Bc04293B07F5BF2e7A673C0])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("AutomataDcapVaAttestation", ERC1967Proxy: [0xc351628EB244ec633d5f21fBD6621e1a683B1181])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [1847979] [33m→ [0m[33mnew[0m ProverSet@0xcbEAF3BDe82155F56486Fb5a1072cb8baAf547cc
+    │   ├─ emit [36mInitialized[0m(version: 255)
+    │   └─ [32m← [0m9401 bytes of code
+    ├─ [0] [34mVM[0m::[34menvAddress[0m("PROVER_SET_ADMIN")[33m [staticcall][0m
+    │   └─ [34m← [0m<env var value>
+    ├─ [206695] [33m→ [0m[33mnew[0m ERC1967Proxy@0x1429859428C0aBc9C2C47C8Ee9FBaf82cFA0F20f
+    │   ├─ emit [36mUpgraded[0m(implementation: ProverSet: [0xcbEAF3BDe82155F56486Fb5a1072cb8baAf547cc])
+    │   ├─ [147080] [32mProverSet[0m::[32minit[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266, 0x60997970c51812Dc3A010C7D01b50E0D17dc79C8, ERC1967Proxy: [0x67d269191c92Caf3cD7723F116c85e6E9bf55933])[33m [delegatecall][0m
+    │   │   ├─ emit [36mOwnershipTransferred[0m(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   │   ├─ [1117] [32mERC1967Proxy[0m::[32mgetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7461696b6f5f746f6b656e000000000000000000000000000000000000000000)[33m [staticcall][0m
+    │   │   │   ├─ [722] [32mAddressManager[0m::[32mgetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7461696b6f5f746f6b656e000000000000000000000000000000000000000000)[33m [delegatecall][0m
+    │   │   │   │   └─ [32m← [0mERC1967Proxy: [0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9]
+    │   │   │   └─ [32m← [0mERC1967Proxy: [0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9]
+    │   │   ├─ [1117] [32mERC1967Proxy[0m::[32mgetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7461696b6f000000000000000000000000000000000000000000000000000000)[33m [staticcall][0m
+    │   │   │   ├─ [722] [32mAddressManager[0m::[32mgetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7461696b6f000000000000000000000000000000000000000000000000000000)[33m [delegatecall][0m
+    │   │   │   │   └─ [32m← [0mERC1967Proxy: [0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9]
+    │   │   │   └─ [32m← [0mERC1967Proxy: [0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9]
+    │   │   ├─ [25059] [32mERC1967Proxy[0m::[32mapprove[0m(ERC1967Proxy: [0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9], 115792089237316195423570985008687907853269984665640564039457584007913129639935 [2;49;39m[1.157e77][0m)[33m[0m
+    │   │   │   ├─ [24664] [32mTaikoToken[0m::[32mapprove[0m(ERC1967Proxy: [0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9], 115792089237316195423570985008687907853269984665640564039457584007913129639935 [2;49;39m[1.157e77][0m)[33m [delegatecall][0m
+    │   │   │   │   ├─ emit [36mApproval[0m(owner: ERC1967Proxy: [0x1429859428C0aBc9C2C47C8Ee9FBaf82cFA0F20f], spender: ERC1967Proxy: [0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9], value: 115792089237316195423570985008687907853269984665640564039457584007913129639935 [2;49;39m[1.157e77][0m)
+    │   │   │   │   └─ [32m← [0mtrue
+    │   │   │   └─ [32m← [0mtrue
+    │   │   ├─ emit [36mInitialized[0m(version: 1)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m1444 bytes of code
+    ├─ [0] [32mconsole[0m::[32mlog[0m(">", "prover_set", "@", 0x0000000000000000000000000000000000000000)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  proxy      :", ERC1967Proxy: [0x1429859428C0aBc9C2C47C8Ee9FBaf82cFA0F20f])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  impl       :", ProverSet: [0xcbEAF3BDe82155F56486Fb5a1072cb8baAf547cc])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [830] [32mERC1967Proxy[0m::[32mowner[0m()[33m [staticcall][0m
+    │   ├─ [441] [32mProverSet[0m::[32mowner[0m()[33m [delegatecall][0m
+    │   │   └─ [32m← [0m0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    │   └─ [32m← [0m0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  owner      :", 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  msg.sender :", 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  this       :", DeployOnL1: [0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [34mVM[0m::[34mserializeAddress[0m("<stringified JSON>", "prover_set", 0x1429859428C0aBc9C2C47C8Ee9FBaf82cFA0F20f)[33m[0m
+    │   └─ [34m← [0m"{\"assignment_hook\":\"0xf5059a5D33d5853360D16C683c16e67980206f36\",\"automata_dcap_attestation\":\"0xc351628EB244ec633d5f21fBD6621e1a683B1181\",\"bridge\":\"0x8A791620dd6260079BF849Dc5567aDC3F2FdC318\",\"erc1155_vault\":\"0xc6e7DF5E7b4f2A278906862b61205850344D4e7d\",\"erc20_vault\":\"0x9A676e781A523b5d0C0e43731313A708CB607508\",\"erc721_vault\":\"0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE\",\"guardian_prover\":\"0x9d4454B023096f34B160D6B654540c56A1F81688\",\"guardian_prover_minority\":\"0x0E801D84Fa97b50751Dbf25036d067dCf18858bF\",\"prover_set\":\"0x1429859428C0aBc9C2C47C8Ee9FBaf82cFA0F20f\",\"rollup_address_manager\":\"0x67d269191c92Caf3cD7723F116c85e6E9bf55933\",\"shared_address_manager\":\"0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512\",\"signal_service\":\"0x0165878A594ca255338adfa4d48449f69242Eb8F\",\"taiko\":\"0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9\",\"taiko_token\":\"0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9\",\"tier_sgx\":\"0x70e0bA845a1A0F2DA3359C97E0285013525FFC49\"}"
+    ├─ [0] [34mVM[0m::[34mprojectRoot[0m()[33m [staticcall][0m
+    │   └─ [34m← [0m"/Users/roger/Documents/GitHub/taiko-mono/packages/protocol"
+    ├─ [0] [34mVM[0m::[34mwriteJson[0m("<stringified JSON>", "/Users/roger/Documents/GitHub/taiko-mono/packages/protocol/deployments/deploy_l1.json")[33m[0m
+    │   └─ [34m← [0m()
+    ├─ [1117] [32mERC1967Proxy[0m::[32mgetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7369676e616c5f73657276696365000000000000000000000000000000000000)[33m [staticcall][0m
+    │   ├─ [722] [32mAddressManager[0m::[32mgetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7369676e616c5f73657276696365000000000000000000000000000000000000)[33m [delegatecall][0m
+    │   │   └─ [32m← [0mERC1967Proxy: [0x0165878A594ca255338adfa4d48449f69242Eb8F]
+    │   └─ [32m← [0mERC1967Proxy: [0x0165878A594ca255338adfa4d48449f69242Eb8F]
+    ├─ [1117] [32mERC1967Proxy[0m::[32mgetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7461696b6f000000000000000000000000000000000000000000000000000000)[33m [staticcall][0m
+    │   ├─ [722] [32mAddressManager[0m::[32mgetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7461696b6f000000000000000000000000000000000000000000000000000000)[33m [delegatecall][0m
+    │   │   └─ [32m← [0mERC1967Proxy: [0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9]
+    │   └─ [32m← [0mERC1967Proxy: [0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9]
+    ├─ [0] [34mVM[0m::[34menvAddress[0m("SHARED_ADDRESS_MANAGER")[33m [staticcall][0m
+    │   └─ [34m← [0m<env var value>
+    ├─ [24890] [32mERC1967Proxy[0m::[32mauthorize[0m(ERC1967Proxy: [0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9], true)[33m[0m
+    │   ├─ [24498] [32mSignalService[0m::[32mauthorize[0m(ERC1967Proxy: [0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9], true)[33m [delegatecall][0m
+    │   │   ├─ emit [36mAuthorized[0m(addr: ERC1967Proxy: [0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9], authorized: true)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m()
+    ├─ [1420] [32mERC1967Proxy[0m::[32mgetConfig[0m()[33m [staticcall][0m
+    │   ├─ [995] [32mTaikoL1[0m::[32mgetConfig[0m()[33m [delegatecall][0m
+    │   │   └─ [32m← [0mConfig({ chainId: 167000 [2;49;39m[1.67e5][0m, blockMaxProposals: 324000 [2;49;39m[3.24e5][0m, blockRingBufferSize: 324512 [2;49;39m[3.245e5][0m, maxBlocksToVerifyPerProposal: 10, blockMaxGasLimit: 240000000 [2;49;39m[2.4e8][0m, livenessBond: 250000000000000000000 [2;49;39m[2.5e20][0m, blockSyncThreshold: 32, checkEOAForCalldataDA: true })
+    │   └─ [32m← [0mConfig({ chainId: 167000 [2;49;39m[1.67e5][0m, blockMaxProposals: 324000 [2;49;39m[3.24e5][0m, blockRingBufferSize: 324512 [2;49;39m[3.245e5][0m, maxBlocksToVerifyPerProposal: 10, blockMaxGasLimit: 240000000 [2;49;39m[2.4e8][0m, livenessBond: 250000000000000000000 [2;49;39m[2.5e20][0m, blockSyncThreshold: 32, checkEOAForCalldataDA: true })
+    ├─ [0] [32mconsole[0m::[32mlog[0m("------------------------------------------")[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("msg.sender: ", 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("address(this): ", DeployOnL1: [0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [764] [32mERC1967Proxy[0m::[32mowner[0m()[33m [staticcall][0m
+    │   ├─ [375] [32mSignalService[0m::[32mowner[0m()[33m [delegatecall][0m
+    │   │   └─ [32m← [0m0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    │   └─ [32m← [0m0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    ├─ [0] [32mconsole[0m::[32mlog[0m("signalService.owner(): ", 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("------------------------------------------")[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [764] [32mERC1967Proxy[0m::[32mowner[0m()[33m [staticcall][0m
+    │   ├─ [375] [32mSignalService[0m::[32mowner[0m()[33m [delegatecall][0m
+    │   │   └─ [32m← [0m0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    │   └─ [32m← [0m0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    ├─ [22784] [32mERC1967Proxy[0m::[32mtransferOwnership[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m[0m
+    │   ├─ [22395] [32mSignalService[0m::[32mtransferOwnership[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [delegatecall][0m
+    │   │   ├─ emit [36mOwnershipTransferStarted[0m(previousOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m()
+    ├─ [0] [34mVM[0m::[34menvAddress[0m("TAIKO_L2_ADDRESS")[33m [staticcall][0m
+    │   └─ [34m← [0m<env var value>
+    ├─ [25766] [32mERC1967Proxy[0m::[32msetAddress[0m(167000 [2;49;39m[1.67e5][0m, 0x7461696b6f000000000000000000000000000000000000000000000000000000, 0x1000777700000000000000000000000000000001)[33m[0m
+    │   ├─ [25368] [32mAddressManager[0m::[32msetAddress[0m(167000 [2;49;39m[1.67e5][0m, 0x7461696b6f000000000000000000000000000000000000000000000000000000, 0x1000777700000000000000000000000000000001)[33m [delegatecall][0m
+    │   │   ├─ emit [36mAddressSet[0m(chainId: 167000 [2;49;39m[1.67e5][0m, name: 0x7461696b6f000000000000000000000000000000000000000000000000000000, newAddress: 0x1000777700000000000000000000000000000001, oldAddress: 0x0000000000000000000000000000000000000000)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("> ", "taiko", "@", ERC1967Proxy: [0x67d269191c92Caf3cD7723F116c85e6E9bf55933])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("\t addr : ", 0x1000777700000000000000000000000000000001)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [34mVM[0m::[34menvAddress[0m("L2_SIGNAL_SERVICE")[33m [staticcall][0m
+    │   └─ [34m← [0m<env var value>
+    ├─ [25766] [32mERC1967Proxy[0m::[32msetAddress[0m(167000 [2;49;39m[1.67e5][0m, 0x7369676e616c5f73657276696365000000000000000000000000000000000000, 0x1000777700000000000000000000000000000007)[33m[0m
+    │   ├─ [25368] [32mAddressManager[0m::[32msetAddress[0m(167000 [2;49;39m[1.67e5][0m, 0x7369676e616c5f73657276696365000000000000000000000000000000000000, 0x1000777700000000000000000000000000000007)[33m [delegatecall][0m
+    │   │   ├─ emit [36mAddressSet[0m(chainId: 167000 [2;49;39m[1.67e5][0m, name: 0x7369676e616c5f73657276696365000000000000000000000000000000000000, newAddress: 0x1000777700000000000000000000000000000007, oldAddress: 0x0000000000000000000000000000000000000000)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("> ", "signal_service", "@", ERC1967Proxy: [0x67d269191c92Caf3cD7723F116c85e6E9bf55933])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("\t addr : ", 0x1000777700000000000000000000000000000007)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [602512] [33m→ [0m[33mnew[0m FreeMintERC20@0x1fA02b2d6A771842690194Cf62D91bdd92BfE28d
+    │   └─ [32m← [0m3715 bytes of code
+    ├─ [0] [32mconsole[0m::[32mlog[0m("HorseToken", FreeMintERC20: [0x1fA02b2d6A771842690194Cf62D91bdd92BfE28d])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [623338] [33m→ [0m[33mnew[0m MayFailFreeMintERC20@0xdbC43Ba45381e02825b14322cDdd15eC4B3164E6
+    │   └─ [32m← [0m3819 bytes of code
+    ├─ [0] [32mconsole[0m::[32mlog[0m("BullToken", MayFailFreeMintERC20: [0xdbC43Ba45381e02825b14322cDdd15eC4B3164E6])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [730] [32mERC1967Proxy[0m::[32mowner[0m()[33m [staticcall][0m
+    │   ├─ [341] [32mAddressManager[0m::[32mowner[0m()[33m [delegatecall][0m
+    │   │   └─ [32m← [0m0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    │   └─ [32m← [0m0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    ├─ [22828] [32mERC1967Proxy[0m::[32mtransferOwnership[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m[0m
+    │   ├─ [22439] [32mAddressManager[0m::[32mtransferOwnership[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [delegatecall][0m
+    │   │   ├─ emit [36mOwnershipTransferStarted[0m(previousOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("** sharedAddressManager ownership transferred to:", 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [22828] [32mERC1967Proxy[0m::[32mtransferOwnership[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m[0m
+    │   ├─ [22439] [32mAddressManager[0m::[32mtransferOwnership[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [delegatecall][0m
+    │   │   ├─ emit [36mOwnershipTransferStarted[0m(previousOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("** rollupAddressManager ownership transferred to:", 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [34mVM[0m::[34mstopBroadcast[0m()[33m[0m
+    │   └─ [34m← [0m()
+    └─ [32m← [0m()
+
+
+[32mScript ran successfully.[0m
+
+== Logs ==
+  > shared_address_manager @ 0x0000000000000000000000000000000000000000
+    proxy      : 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+    impl       : 0x5FbDB2315678afecb367f032d93F642f64180aa3
+    owner      : 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    msg.sender : 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    this       : 0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519
+  > taiko_token @ 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+    proxy      : 0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9
+    impl       : 0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
+    owner      : 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    msg.sender : 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    this       : 0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519
+  > signal_service @ 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+    proxy      : 0x0165878A594ca255338adfa4d48449f69242Eb8F
+    impl       : 0x5FC8d32690cc91D4c39d9d3abcBD16989F875707
+    owner      : 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    msg.sender : 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    this       : 0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519
+  > bridge @ 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+    proxy      : 0x8A791620dd6260079BF849Dc5567aDC3F2FdC318
+    impl       : 0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6
+    owner      : 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    msg.sender : 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    this       : 0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519
+  ------------------------------------------
+  Warning - you need to register *all* counterparty bridges to enable multi-hop bridging:
+  sharedAddressManager.setAddress(remoteChainId, "bridge", address(remoteBridge))
+  - sharedAddressManager :  0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+  > erc20_vault @ 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+    proxy      : 0x9A676e781A523b5d0C0e43731313A708CB607508
+    impl       : 0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82
+    owner      : 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    msg.sender : 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    this       : 0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519
+  > erc721_vault @ 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+    proxy      : 0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE
+    impl       : 0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1
+    owner      : 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    msg.sender : 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    this       : 0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519
+  > erc1155_vault @ 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+    proxy      : 0xc6e7DF5E7b4f2A278906862b61205850344D4e7d
+    impl       : 0x3Aa5ebB10DC797CAC828524e59A333d0A371443c
+    owner      : 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    msg.sender : 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    this       : 0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519
+  ------------------------------------------
+  Warning - you need to register *all* counterparty vaults to enable multi-hop bridging:
+  sharedAddressManager.setAddress(remoteChainId, "erc20_vault", address(remoteERC20Vault))
+  sharedAddressManager.setAddress(remoteChainId, "erc721_vault", address(remoteERC721Vault))
+  sharedAddressManager.setAddress(remoteChainId, "erc1155_vault", address(remoteERC1155Vault))
+  - sharedAddressManager :  0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+  >  bridged_erc20 @ 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+  	 addr :  0x4ed7c70F96B99c776995fB64377f0d4aB3B0e1C1
+  >  bridged_erc721 @ 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+  	 addr :  0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f
+  >  bridged_erc1155 @ 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+  	 addr :  0x7a2088a1bFc9d81c55368AE168C2C02570cB814F
+  sharedAddressManager:  0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+  > rollup_address_manager @ 0x0000000000000000000000000000000000000000
+    proxy      : 0x67d269191c92Caf3cD7723F116c85e6E9bf55933
+    impl       : 0xc5a5C42992dECbae36851359345FE25997F5C42d
+    owner      : 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    msg.sender : 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    this       : 0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519
+  >  taiko_token @ 0x67d269191c92Caf3cD7723F116c85e6E9bf55933
+  	 addr :  0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9
+  >  signal_service @ 0x67d269191c92Caf3cD7723F116c85e6E9bf55933
+  	 addr :  0x0165878A594ca255338adfa4d48449f69242Eb8F
+  >  bridge @ 0x67d269191c92Caf3cD7723F116c85e6E9bf55933
+  	 addr :  0x8A791620dd6260079BF849Dc5567aDC3F2FdC318
+  > taiko @ 0x67d269191c92Caf3cD7723F116c85e6E9bf55933
+    proxy      : 0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9
+    impl       : 0x9E545E3C0baAB3E08CdfD552C960A1050f373042
+    owner      : 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    msg.sender : 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    this       : 0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519
+  > assignment_hook @ 0x67d269191c92Caf3cD7723F116c85e6E9bf55933
+    proxy      : 0xf5059a5D33d5853360D16C683c16e67980206f36
+    impl       : 0x851356ae760d987E095750cCeb3bC6014560891C
+    owner      : 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    msg.sender : 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    this       : 0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519
+  > tier_sgx @ 0x67d269191c92Caf3cD7723F116c85e6E9bf55933
+    proxy      : 0x70e0bA845a1A0F2DA3359C97E0285013525FFC49
+    impl       : 0x998abeb3E57409262aE5b751f60747921B33613E
+    owner      : 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    msg.sender : 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    this       : 0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519
+  > guardian_prover_minority @ 0x0000000000000000000000000000000000000000
+    proxy      : 0x0E801D84Fa97b50751Dbf25036d067dCf18858bF
+    impl       : 0x99bbA657f2BbC93c02D617f8bA121cB8Fc104Acf
+    owner      : 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    msg.sender : 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    this       : 0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519
+  > guardian_prover @ 0x0000000000000000000000000000000000000000
+    proxy      : 0x9d4454B023096f34B160D6B654540c56A1F81688
+    impl       : 0x99bbA657f2BbC93c02D617f8bA121cB8Fc104Acf
+    owner      : 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    msg.sender : 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    this       : 0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519
+  >  tier_guardian_minority @ 0x67d269191c92Caf3cD7723F116c85e6E9bf55933
+  	 addr :  0x0E801D84Fa97b50751Dbf25036d067dCf18858bF
+  >  tier_guardian @ 0x67d269191c92Caf3cD7723F116c85e6E9bf55933
+  	 addr :  0x9d4454B023096f34B160D6B654540c56A1F81688
+  >  tier_router @ 0x67d269191c92Caf3cD7723F116c85e6E9bf55933
+  	 addr :  0x809d550fca64d94Bd9F66E60752A544199cfAC3D
+  > automata_dcap_attestation @ 0x67d269191c92Caf3cD7723F116c85e6E9bf55933
+    proxy      : 0xc351628EB244ec633d5f21fBD6621e1a683B1181
+    impl       : 0x7bc06c482DEAd17c0e297aFbC32f6e63d3846650
+    owner      : 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    msg.sender : 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    this       : 0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519
+  SigVerifyLib 0x2bdCC0de6bE1f7D2ee689a0342D76F52E8EFABa3
+  PemCertChainLib 0x7969c5eD335650692Bc04293B07F5BF2e7A673C0
+  AutomataDcapVaAttestation 0xc351628EB244ec633d5f21fBD6621e1a683B1181
+  > prover_set @ 0x0000000000000000000000000000000000000000
+    proxy      : 0x1429859428C0aBc9C2C47C8Ee9FBaf82cFA0F20f
+    impl       : 0xcbEAF3BDe82155F56486Fb5a1072cb8baAf547cc
+    owner      : 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    msg.sender : 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    this       : 0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519
+  ------------------------------------------
+  msg.sender:  0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+  address(this):  0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519
+  signalService.owner():  0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+  ------------------------------------------
+  >  taiko @ 0x67d269191c92Caf3cD7723F116c85e6E9bf55933
+  	 addr :  0x1000777700000000000000000000000000000001
+  >  signal_service @ 0x67d269191c92Caf3cD7723F116c85e6E9bf55933
+  	 addr :  0x1000777700000000000000000000000000000007
+  HorseToken 0x1fA02b2d6A771842690194Cf62D91bdd92BfE28d
+  BullToken 0xdbC43Ba45381e02825b14322cDdd15eC4B3164E6
+  ** sharedAddressManager ownership transferred to: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+  ** rollupAddressManager ownership transferred to: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+[33mEIP-3855 is not supported in one or more of the RPCs used.
+Unsupported Chain IDs: 31337.
+Contracts deployed with a Solidity version equal or higher than 0.8.20 might not work properly.
+For more information, please see https://eips.ethereum.org/EIPS/eip-3855[0m
+
+## Setting up 1 EVM.
+==========================
+Simulated On-chain Traces:
+
+  [1138214] [33m→ [0m[33mnew[0m AddressManager@0x5FbDB2315678afecb367f032d93F642f64180aa3
+    ├─ emit [36mInitialized[0m(version: 255)
+    └─ [32m← [0m5847 bytes of code
+
+  [156730] [33m→ [0m[33mnew[0m ERC1967Proxy@0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+    ├─ emit [36mUpgraded[0m(implementation: AddressManager: [0x5FbDB2315678afecb367f032d93F642f64180aa3])
+    ├─ [94908] [32mAddressManager[0m::[32minit[0m(0x0000000000000000000000000000000000000000)[33m [delegatecall][0m
+    │   ├─ emit [36mOwnershipTransferred[0m(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   ├─ emit [36mInitialized[0m(version: 1)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m1380 bytes of code
+
+  [2716383] [33m→ [0m[33mnew[0m TaikoToken@0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
+    ├─ emit [36mInitialized[0m(version: 255)
+    └─ [32m← [0m13738 bytes of code
+
+  [326723] [33m→ [0m[33mnew[0m ERC1967Proxy@0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9
+    ├─ emit [36mUpgraded[0m(implementation: TaikoToken: [0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0])
+    ├─ [264755] [32mTaikoToken[0m::[32minit[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266, 0xa0Ee7A142d267C1f36714E4a8F75612F20a79720)[33m [delegatecall][0m
+    │   ├─ emit [36mOwnershipTransferred[0m(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   ├─ emit [36mTransfer[0m(from: 0x0000000000000000000000000000000000000000, to: 0xa0Ee7A142d267C1f36714E4a8F75612F20a79720, value: 1000000000000000000000000000 [2;49;39m[1e27][0m)
+    │   ├─ emit [36mInitialized[0m(version: 1)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m1412 bytes of code
+
+  [32266] [32mERC1967Proxy[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7461696b6f5f746f6b656e000000000000000000000000000000000000000000, ERC1967Proxy: [0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9])[33m[0m
+    ├─ [27368] [32mAddressManager[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7461696b6f5f746f6b656e000000000000000000000000000000000000000000, ERC1967Proxy: [0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9])[33m [delegatecall][0m
+    │   ├─ emit [36mAddressSet[0m(chainId: 31337 [2;49;39m[3.133e4][0m, name: 0x7461696b6f5f746f6b656e000000000000000000000000000000000000000000, newAddress: ERC1967Proxy: [0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9], oldAddress: 0x0000000000000000000000000000000000000000)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m()
+
+  [3580650] [33m→ [0m[33mnew[0m SignalService@0x5FC8d32690cc91D4c39d9d3abcBD16989F875707
+    ├─ emit [36mInitialized[0m(version: 255)
+    └─ [32m← [0m18054 bytes of code
+
+  [157304] [33m→ [0m[33mnew[0m ERC1967Proxy@0x0165878A594ca255338adfa4d48449f69242Eb8F
+    ├─ emit [36mUpgraded[0m(implementation: SignalService: [0x5FC8d32690cc91D4c39d9d3abcBD16989F875707])
+    ├─ [95336] [32mSignalService[0m::[32minit[0m(0x0000000000000000000000000000000000000000, ERC1967Proxy: [0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512])[33m [delegatecall][0m
+    │   ├─ emit [36mOwnershipTransferred[0m(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   ├─ emit [36mInitialized[0m(version: 1)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m1412 bytes of code
+
+  [32266] [32mERC1967Proxy[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7369676e616c5f73657276696365000000000000000000000000000000000000, ERC1967Proxy: [0x0165878A594ca255338adfa4d48449f69242Eb8F])[33m[0m
+    ├─ [27368] [32mAddressManager[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7369676e616c5f73657276696365000000000000000000000000000000000000, ERC1967Proxy: [0x0165878A594ca255338adfa4d48449f69242Eb8F])[33m [delegatecall][0m
+    │   ├─ emit [36mAddressSet[0m(chainId: 31337 [2;49;39m[3.133e4][0m, name: 0x7369676e616c5f73657276696365000000000000000000000000000000000000, newAddress: ERC1967Proxy: [0x0165878A594ca255338adfa4d48449f69242Eb8F], oldAddress: 0x0000000000000000000000000000000000000000)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m()
+
+  [3179743] [33m→ [0m[33mnew[0m Bridge@0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6
+    ├─ emit [36mInitialized[0m(version: 255)
+    └─ [32m← [0m16052 bytes of code
+
+  [157347] [33m→ [0m[33mnew[0m ERC1967Proxy@0x8A791620dd6260079BF849Dc5567aDC3F2FdC318
+    ├─ emit [36mUpgraded[0m(implementation: Bridge: [0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6])
+    ├─ [95379] [32mBridge[0m::[32minit[0m(0x0000000000000000000000000000000000000000, ERC1967Proxy: [0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512])[33m [delegatecall][0m
+    │   ├─ emit [36mOwnershipTransferred[0m(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   ├─ emit [36mInitialized[0m(version: 1)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m1412 bytes of code
+
+  [32266] [32mERC1967Proxy[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x6272696467650000000000000000000000000000000000000000000000000000, ERC1967Proxy: [0x8A791620dd6260079BF849Dc5567aDC3F2FdC318])[33m[0m
+    ├─ [27368] [32mAddressManager[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x6272696467650000000000000000000000000000000000000000000000000000, ERC1967Proxy: [0x8A791620dd6260079BF849Dc5567aDC3F2FdC318])[33m [delegatecall][0m
+    │   ├─ emit [36mAddressSet[0m(chainId: 31337 [2;49;39m[3.133e4][0m, name: 0x6272696467650000000000000000000000000000000000000000000000000000, newAddress: ERC1967Proxy: [0x8A791620dd6260079BF849Dc5567aDC3F2FdC318], oldAddress: 0x0000000000000000000000000000000000000000)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m()
+
+  [13573] [32mERC1967Proxy[0m::[32mpause[0m()[33m[0m
+    ├─ [8687] [32mBridge[0m::[32mpause[0m()[33m [delegatecall][0m
+    │   ├─ emit [36mPaused[0m(account: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m()
+
+  [31328] [32mERC1967Proxy[0m::[32mtransferOwnership[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m[0m
+    ├─ [26439] [32mBridge[0m::[32mtransferOwnership[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [delegatecall][0m
+    │   ├─ emit [36mOwnershipTransferStarted[0m(previousOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m()
+
+  [4052657] [33m→ [0m[33mnew[0m ERC20Vault@0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82
+    ├─ emit [36mInitialized[0m(version: 255)
+    └─ [32m← [0m20411 bytes of code
+
+  [157326] [33m→ [0m[33mnew[0m ERC1967Proxy@0x9A676e781A523b5d0C0e43731313A708CB607508
+    ├─ emit [36mUpgraded[0m(implementation: ERC20Vault: [0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82])
+    ├─ [95358] [32mERC20Vault[0m::[32minit[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266, ERC1967Proxy: [0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512])[33m [delegatecall][0m
+    │   ├─ emit [36mOwnershipTransferred[0m(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   ├─ emit [36mInitialized[0m(version: 1)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m1412 bytes of code
+
+  [32266] [32mERC1967Proxy[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x65726332305f7661756c74000000000000000000000000000000000000000000, ERC1967Proxy: [0x9A676e781A523b5d0C0e43731313A708CB607508])[33m[0m
+    ├─ [27368] [32mAddressManager[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x65726332305f7661756c74000000000000000000000000000000000000000000, ERC1967Proxy: [0x9A676e781A523b5d0C0e43731313A708CB607508])[33m [delegatecall][0m
+    │   ├─ emit [36mAddressSet[0m(chainId: 31337 [2;49;39m[3.133e4][0m, name: 0x65726332305f7661756c74000000000000000000000000000000000000000000, newAddress: ERC1967Proxy: [0x9A676e781A523b5d0C0e43731313A708CB607508], oldAddress: 0x0000000000000000000000000000000000000000)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m()
+
+  [3536793] [33m→ [0m[33mnew[0m ERC721Vault@0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1
+    ├─ emit [36mInitialized[0m(version: 255)
+    └─ [32m← [0m17835 bytes of code
+
+  [157326] [33m→ [0m[33mnew[0m ERC1967Proxy@0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE
+    ├─ emit [36mUpgraded[0m(implementation: ERC721Vault: [0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1])
+    ├─ [95358] [32mERC721Vault[0m::[32minit[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266, ERC1967Proxy: [0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512])[33m [delegatecall][0m
+    │   ├─ emit [36mOwnershipTransferred[0m(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   ├─ emit [36mInitialized[0m(version: 1)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m1412 bytes of code
+
+  [32266] [32mERC1967Proxy[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x6572633732315f7661756c740000000000000000000000000000000000000000, ERC1967Proxy: [0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE])[33m[0m
+    ├─ [27368] [32mAddressManager[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x6572633732315f7661756c740000000000000000000000000000000000000000, ERC1967Proxy: [0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE])[33m [delegatecall][0m
+    │   ├─ emit [36mAddressSet[0m(chainId: 31337 [2;49;39m[3.133e4][0m, name: 0x6572633732315f7661756c740000000000000000000000000000000000000000, newAddress: ERC1967Proxy: [0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE], oldAddress: 0x0000000000000000000000000000000000000000)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m()
+
+  [3639724] [33m→ [0m[33mnew[0m ERC1155Vault@0x3Aa5ebB10DC797CAC828524e59A333d0A371443c
+    ├─ emit [36mInitialized[0m(version: 255)
+    └─ [32m← [0m18349 bytes of code
+
+  [157461] [33m→ [0m[33mnew[0m ERC1967Proxy@0xc6e7DF5E7b4f2A278906862b61205850344D4e7d
+    ├─ emit [36mUpgraded[0m(implementation: ERC1155Vault: [0x3Aa5ebB10DC797CAC828524e59A333d0A371443c])
+    ├─ [95493] [32mERC1155Vault[0m::[32minit[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266, ERC1967Proxy: [0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512])[33m [delegatecall][0m
+    │   ├─ emit [36mOwnershipTransferred[0m(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   ├─ emit [36mInitialized[0m(version: 1)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m1412 bytes of code
+
+  [32266] [32mERC1967Proxy[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x657263313135355f7661756c7400000000000000000000000000000000000000, ERC1967Proxy: [0xc6e7DF5E7b4f2A278906862b61205850344D4e7d])[33m[0m
+    ├─ [27368] [32mAddressManager[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x657263313135355f7661756c7400000000000000000000000000000000000000, ERC1967Proxy: [0xc6e7DF5E7b4f2A278906862b61205850344D4e7d])[33m [delegatecall][0m
+    │   ├─ emit [36mAddressSet[0m(chainId: 31337 [2;49;39m[3.133e4][0m, name: 0x657263313135355f7661756c7400000000000000000000000000000000000000, newAddress: ERC1967Proxy: [0xc6e7DF5E7b4f2A278906862b61205850344D4e7d], oldAddress: 0x0000000000000000000000000000000000000000)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m()
+
+  [2132903] [33m→ [0m[33mnew[0m BridgedERC20@0x4ed7c70F96B99c776995fB64377f0d4aB3B0e1C1
+    ├─ emit [36mInitialized[0m(version: 255)
+    └─ [32m← [0m10824 bytes of code
+
+  [32266] [32mERC1967Proxy[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x627269646765645f657263323000000000000000000000000000000000000000, BridgedERC20: [0x4ed7c70F96B99c776995fB64377f0d4aB3B0e1C1])[33m[0m
+    ├─ [27368] [32mAddressManager[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x627269646765645f657263323000000000000000000000000000000000000000, BridgedERC20: [0x4ed7c70F96B99c776995fB64377f0d4aB3B0e1C1])[33m [delegatecall][0m
+    │   ├─ emit [36mAddressSet[0m(chainId: 31337 [2;49;39m[3.133e4][0m, name: 0x627269646765645f657263323000000000000000000000000000000000000000, newAddress: BridgedERC20: [0x4ed7c70F96B99c776995fB64377f0d4aB3B0e1C1], oldAddress: 0x0000000000000000000000000000000000000000)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m()
+
+  [2444258] [33m→ [0m[33mnew[0m BridgedERC721@0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f
+    ├─ emit [36mInitialized[0m(version: 255)
+    └─ [32m← [0m12379 bytes of code
+
+  [32266] [32mERC1967Proxy[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x627269646765645f657263373231000000000000000000000000000000000000, BridgedERC721: [0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f])[33m[0m
+    ├─ [27368] [32mAddressManager[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x627269646765645f657263373231000000000000000000000000000000000000, BridgedERC721: [0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f])[33m [delegatecall][0m
+    │   ├─ emit [36mAddressSet[0m(chainId: 31337 [2;49;39m[3.133e4][0m, name: 0x627269646765645f657263373231000000000000000000000000000000000000, newAddress: BridgedERC721: [0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f], oldAddress: 0x0000000000000000000000000000000000000000)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m()
+
+  [2791875] [33m→ [0m[33mnew[0m BridgedERC1155@0x7a2088a1bFc9d81c55368AE168C2C02570cB814F
+    ├─ emit [36mInitialized[0m(version: 255)
+    └─ [32m← [0m14115 bytes of code
+
+  [32266] [32mERC1967Proxy[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x627269646765645f657263313135350000000000000000000000000000000000, BridgedERC1155: [0x7a2088a1bFc9d81c55368AE168C2C02570cB814F])[33m[0m
+    ├─ [27368] [32mAddressManager[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x627269646765645f657263313135350000000000000000000000000000000000, BridgedERC1155: [0x7a2088a1bFc9d81c55368AE168C2C02570cB814F])[33m [delegatecall][0m
+    │   ├─ emit [36mAddressSet[0m(chainId: 31337 [2;49;39m[3.133e4][0m, name: 0x627269646765645f657263313135350000000000000000000000000000000000, newAddress: BridgedERC1155: [0x7a2088a1bFc9d81c55368AE168C2C02570cB814F], oldAddress: 0x0000000000000000000000000000000000000000)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m()
+
+  [1138214] [33m→ [0m[33mnew[0m AddressManager@0xc5a5C42992dECbae36851359345FE25997F5C42d
+    ├─ emit [36mInitialized[0m(version: 255)
+    └─ [32m← [0m5847 bytes of code
+
+  [156730] [33m→ [0m[33mnew[0m ERC1967Proxy@0x67d269191c92Caf3cD7723F116c85e6E9bf55933
+    ├─ emit [36mUpgraded[0m(implementation: AddressManager: [0xc5a5C42992dECbae36851359345FE25997F5C42d])
+    ├─ [94908] [32mAddressManager[0m::[32minit[0m(0x0000000000000000000000000000000000000000)[33m [delegatecall][0m
+    │   ├─ emit [36mOwnershipTransferred[0m(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   ├─ emit [36mInitialized[0m(version: 1)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m1380 bytes of code
+
+  [32266] [32mERC1967Proxy[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7461696b6f5f746f6b656e000000000000000000000000000000000000000000, ERC1967Proxy: [0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9])[33m[0m
+    ├─ [27368] [32mAddressManager[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7461696b6f5f746f6b656e000000000000000000000000000000000000000000, ERC1967Proxy: [0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9])[33m [delegatecall][0m
+    │   ├─ emit [36mAddressSet[0m(chainId: 31337 [2;49;39m[3.133e4][0m, name: 0x7461696b6f5f746f6b656e000000000000000000000000000000000000000000, newAddress: ERC1967Proxy: [0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9], oldAddress: 0x0000000000000000000000000000000000000000)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m()
+
+  [32266] [32mERC1967Proxy[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7369676e616c5f73657276696365000000000000000000000000000000000000, ERC1967Proxy: [0x0165878A594ca255338adfa4d48449f69242Eb8F])[33m[0m
+    ├─ [27368] [32mAddressManager[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7369676e616c5f73657276696365000000000000000000000000000000000000, ERC1967Proxy: [0x0165878A594ca255338adfa4d48449f69242Eb8F])[33m [delegatecall][0m
+    │   ├─ emit [36mAddressSet[0m(chainId: 31337 [2;49;39m[3.133e4][0m, name: 0x7369676e616c5f73657276696365000000000000000000000000000000000000, newAddress: ERC1967Proxy: [0x0165878A594ca255338adfa4d48449f69242Eb8F], oldAddress: 0x0000000000000000000000000000000000000000)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m()
+
+  [32266] [32mERC1967Proxy[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x6272696467650000000000000000000000000000000000000000000000000000, ERC1967Proxy: [0x8A791620dd6260079BF849Dc5567aDC3F2FdC318])[33m[0m
+    ├─ [27368] [32mAddressManager[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x6272696467650000000000000000000000000000000000000000000000000000, ERC1967Proxy: [0x8A791620dd6260079BF849Dc5567aDC3F2FdC318])[33m [delegatecall][0m
+    │   ├─ emit [36mAddressSet[0m(chainId: 31337 [2;49;39m[3.133e4][0m, name: 0x6272696467650000000000000000000000000000000000000000000000000000, newAddress: ERC1967Proxy: [0x8A791620dd6260079BF849Dc5567aDC3F2FdC318], oldAddress: 0x0000000000000000000000000000000000000000)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m()
+
+  [4867763] [33m→ [0m[33mnew[0m TaikoL1@0x9E545E3C0baAB3E08CdfD552C960A1050f373042
+    ├─ emit [36mInitialized[0m(version: 255)
+    └─ [32m← [0m24481 bytes of code
+
+  [297871] [33m→ [0m[33mnew[0m ERC1967Proxy@0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9
+    ├─ emit [36mUpgraded[0m(implementation: TaikoL1: [0x9E545E3C0baAB3E08CdfD552C960A1050f373042])
+    ├─ [235610] [32mTaikoL1[0m::[32minit[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266, ERC1967Proxy: [0x67d269191c92Caf3cD7723F116c85e6E9bf55933], 0xee1950562d42f0da28bd4550d88886bc90894c77c9c9eaefef775d4c8223f259, true)[33m [delegatecall][0m
+    │   ├─ emit [36mOwnershipTransferred[0m(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   ├─ emit [36mBlockVerified[0m(blockId: 0, prover: 0x0000000000000000000000000000000000000000, blockHash: 0xee1950562d42f0da28bd4550d88886bc90894c77c9c9eaefef775d4c8223f259, stateRoot: 0x0000000000000000000000000000000000000000000000000000000000000000, tier: 0)
+    │   ├─ emit [36mPaused[0m(account: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   ├─ emit [36mInitialized[0m(version: 1)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m1476 bytes of code
+
+  [32266] [32mERC1967Proxy[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7461696b6f000000000000000000000000000000000000000000000000000000, ERC1967Proxy: [0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9])[33m[0m
+    ├─ [27368] [32mAddressManager[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7461696b6f000000000000000000000000000000000000000000000000000000, ERC1967Proxy: [0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9])[33m [delegatecall][0m
+    │   ├─ emit [36mAddressSet[0m(chainId: 31337 [2;49;39m[3.133e4][0m, name: 0x7461696b6f000000000000000000000000000000000000000000000000000000, newAddress: ERC1967Proxy: [0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9], oldAddress: 0x0000000000000000000000000000000000000000)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m()
+
+  [1927272] [33m→ [0m[33mnew[0m AssignmentHook@0x851356ae760d987E095750cCeb3bC6014560891C
+    ├─ emit [36mInitialized[0m(version: 255)
+    └─ [32m← [0m9797 bytes of code
+
+  [157348] [33m→ [0m[33mnew[0m ERC1967Proxy@0xf5059a5D33d5853360D16C683c16e67980206f36
+    ├─ emit [36mUpgraded[0m(implementation: AssignmentHook: [0x851356ae760d987E095750cCeb3bC6014560891C])
+    ├─ [95380] [32mAssignmentHook[0m::[32minit[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266, ERC1967Proxy: [0x67d269191c92Caf3cD7723F116c85e6E9bf55933])[33m [delegatecall][0m
+    │   ├─ emit [36mOwnershipTransferred[0m(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   ├─ emit [36mInitialized[0m(version: 1)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m1412 bytes of code
+
+  [32266] [32mERC1967Proxy[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x61737369676e6d656e745f686f6f6b0000000000000000000000000000000000, ERC1967Proxy: [0xf5059a5D33d5853360D16C683c16e67980206f36])[33m[0m
+    ├─ [27368] [32mAddressManager[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x61737369676e6d656e745f686f6f6b0000000000000000000000000000000000, ERC1967Proxy: [0xf5059a5D33d5853360D16C683c16e67980206f36])[33m [delegatecall][0m
+    │   ├─ emit [36mAddressSet[0m(chainId: 31337 [2;49;39m[3.133e4][0m, name: 0x61737369676e6d656e745f686f6f6b0000000000000000000000000000000000, newAddress: ERC1967Proxy: [0xf5059a5D33d5853360D16C683c16e67980206f36], oldAddress: 0x0000000000000000000000000000000000000000)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m()
+
+  [2299094] [33m→ [0m[33mnew[0m SgxVerifier@0x998abeb3E57409262aE5b751f60747921B33613E
+    ├─ emit [36mInitialized[0m(version: 255)
+    └─ [32m← [0m11654 bytes of code
+
+  [157326] [33m→ [0m[33mnew[0m ERC1967Proxy@0x70e0bA845a1A0F2DA3359C97E0285013525FFC49
+    ├─ emit [36mUpgraded[0m(implementation: SgxVerifier: [0x998abeb3E57409262aE5b751f60747921B33613E])
+    ├─ [95358] [32mSgxVerifier[0m::[32minit[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266, ERC1967Proxy: [0x67d269191c92Caf3cD7723F116c85e6E9bf55933])[33m [delegatecall][0m
+    │   ├─ emit [36mOwnershipTransferred[0m(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   ├─ emit [36mInitialized[0m(version: 1)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m1412 bytes of code
+
+  [32266] [32mERC1967Proxy[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x746965725f736778000000000000000000000000000000000000000000000000, ERC1967Proxy: [0x70e0bA845a1A0F2DA3359C97E0285013525FFC49])[33m[0m
+    ├─ [27368] [32mAddressManager[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x746965725f736778000000000000000000000000000000000000000000000000, ERC1967Proxy: [0x70e0bA845a1A0F2DA3359C97E0285013525FFC49])[33m [delegatecall][0m
+    │   ├─ emit [36mAddressSet[0m(chainId: 31337 [2;49;39m[3.133e4][0m, name: 0x746965725f736778000000000000000000000000000000000000000000000000, newAddress: ERC1967Proxy: [0x70e0bA845a1A0F2DA3359C97E0285013525FFC49], oldAddress: 0x0000000000000000000000000000000000000000)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m()
+
+  [2120089] [33m→ [0m[33mnew[0m GuardianProver@0x99bbA657f2BbC93c02D617f8bA121cB8Fc104Acf
+    ├─ emit [36mInitialized[0m(version: 255)
+    └─ [32m← [0m10760 bytes of code
+
+  [157337] [33m→ [0m[33mnew[0m ERC1967Proxy@0x0E801D84Fa97b50751Dbf25036d067dCf18858bF
+    ├─ emit [36mUpgraded[0m(implementation: GuardianProver: [0x99bbA657f2BbC93c02D617f8bA121cB8Fc104Acf])
+    ├─ [95369] [32mGuardianProver[0m::[32minit[0m(0x0000000000000000000000000000000000000000, ERC1967Proxy: [0x67d269191c92Caf3cD7723F116c85e6E9bf55933])[33m [delegatecall][0m
+    │   ├─ emit [36mOwnershipTransferred[0m(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   ├─ emit [36mInitialized[0m(version: 1)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m1412 bytes of code
+
+  [56775] [32mERC1967Proxy[0m::[32menableTaikoTokenAllowance[0m(true)[33m[0m
+    ├─ [51886] [32mGuardianProver[0m::[32menableTaikoTokenAllowance[0m(true)[33m [delegatecall][0m
+    │   ├─ [7617] [32mERC1967Proxy[0m::[32mgetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7461696b6f5f746f6b656e000000000000000000000000000000000000000000)[33m [staticcall][0m
+    │   │   ├─ [2722] [32mAddressManager[0m::[32mgetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7461696b6f5f746f6b656e000000000000000000000000000000000000000000)[33m [delegatecall][0m
+    │   │   │   └─ [32m← [0mERC1967Proxy: [0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9]
+    │   │   └─ [32m← [0mERC1967Proxy: [0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9]
+    │   ├─ [3117] [32mERC1967Proxy[0m::[32mgetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7461696b6f000000000000000000000000000000000000000000000000000000)[33m [staticcall][0m
+    │   │   ├─ [2722] [32mAddressManager[0m::[32mgetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7461696b6f000000000000000000000000000000000000000000000000000000)[33m [delegatecall][0m
+    │   │   │   └─ [32m← [0mERC1967Proxy: [0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9]
+    │   │   └─ [32m← [0mERC1967Proxy: [0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9]
+    │   ├─ [29559] [32mERC1967Proxy[0m::[32mapprove[0m(ERC1967Proxy: [0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9], 115792089237316195423570985008687907853269984665640564039457584007913129639935 [2;49;39m[1.157e77][0m)[33m[0m
+    │   │   ├─ [24664] [32mTaikoToken[0m::[32mapprove[0m(ERC1967Proxy: [0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9], 115792089237316195423570985008687907853269984665640564039457584007913129639935 [2;49;39m[1.157e77][0m)[33m [delegatecall][0m
+    │   │   │   ├─ emit [36mApproval[0m(owner: ERC1967Proxy: [0x0E801D84Fa97b50751Dbf25036d067dCf18858bF], spender: ERC1967Proxy: [0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9], value: 115792089237316195423570985008687907853269984665640564039457584007913129639935 [2;49;39m[1.157e77][0m)
+    │   │   │   └─ [32m← [0mtrue
+    │   │   └─ [32m← [0mtrue
+    │   └─ [32m← [0m()
+    └─ [32m← [0m()
+
+  [157337] [33m→ [0m[33mnew[0m ERC1967Proxy@0x9d4454B023096f34B160D6B654540c56A1F81688
+    ├─ emit [36mUpgraded[0m(implementation: GuardianProver: [0x99bbA657f2BbC93c02D617f8bA121cB8Fc104Acf])
+    ├─ [95369] [32mGuardianProver[0m::[32minit[0m(0x0000000000000000000000000000000000000000, ERC1967Proxy: [0x67d269191c92Caf3cD7723F116c85e6E9bf55933])[33m [delegatecall][0m
+    │   ├─ emit [36mOwnershipTransferred[0m(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   ├─ emit [36mInitialized[0m(version: 1)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m1412 bytes of code
+
+  [32266] [32mERC1967Proxy[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x746965725f677561726469616e5f6d696e6f7269747900000000000000000000, ERC1967Proxy: [0x0E801D84Fa97b50751Dbf25036d067dCf18858bF])[33m[0m
+    ├─ [27368] [32mAddressManager[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x746965725f677561726469616e5f6d696e6f7269747900000000000000000000, ERC1967Proxy: [0x0E801D84Fa97b50751Dbf25036d067dCf18858bF])[33m [delegatecall][0m
+    │   ├─ emit [36mAddressSet[0m(chainId: 31337 [2;49;39m[3.133e4][0m, name: 0x746965725f677561726469616e5f6d696e6f7269747900000000000000000000, newAddress: ERC1967Proxy: [0x0E801D84Fa97b50751Dbf25036d067dCf18858bF], oldAddress: 0x0000000000000000000000000000000000000000)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m()
+
+  [32266] [32mERC1967Proxy[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x746965725f677561726469616e00000000000000000000000000000000000000, ERC1967Proxy: [0x9d4454B023096f34B160D6B654540c56A1F81688])[33m[0m
+    ├─ [27368] [32mAddressManager[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x746965725f677561726469616e00000000000000000000000000000000000000, ERC1967Proxy: [0x9d4454B023096f34B160D6B654540c56A1F81688])[33m [delegatecall][0m
+    │   ├─ emit [36mAddressSet[0m(chainId: 31337 [2;49;39m[3.133e4][0m, name: 0x746965725f677561726469616e00000000000000000000000000000000000000, newAddress: ERC1967Proxy: [0x9d4454B023096f34B160D6B654540c56A1F81688], oldAddress: 0x0000000000000000000000000000000000000000)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m()
+
+  [249285] [33m→ [0m[33mnew[0m DevnetTierProvider@0x809d550fca64d94Bd9F66E60752A544199cfAC3D
+    └─ [32m← [0m1274 bytes of code
+
+  [32266] [32mERC1967Proxy[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x746965725f726f75746572000000000000000000000000000000000000000000, DevnetTierProvider: [0x809d550fca64d94Bd9F66E60752A544199cfAC3D])[33m[0m
+    ├─ [27368] [32mAddressManager[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x746965725f726f75746572000000000000000000000000000000000000000000, DevnetTierProvider: [0x809d550fca64d94Bd9F66E60752A544199cfAC3D])[33m [delegatecall][0m
+    │   ├─ emit [36mAddressSet[0m(chainId: 31337 [2;49;39m[3.133e4][0m, name: 0x746965725f726f75746572000000000000000000000000000000000000000000, newAddress: DevnetTierProvider: [0x809d550fca64d94Bd9F66E60752A544199cfAC3D], oldAddress: 0x0000000000000000000000000000000000000000)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m()
+
+  [373105] [32mERC1967Proxy[0m::[32msetGuardians[0m([0x1000777700000000000000000000000000000001, 0x1000777700000000000000000000000000000002, 0x1000777700000000000000000000000000000003, 0x1000777700000000000000000000000000000004, 0x1000777700000000000000000000000000000005, 0x1000777700000000000000000000000000000006, 0x1000777700000000000000000000000000000007], 2, true)[33m[0m
+    ├─ [368159] [32mGuardianProver[0m::[32msetGuardians[0m([0x1000777700000000000000000000000000000001, 0x1000777700000000000000000000000000000002, 0x1000777700000000000000000000000000000003, 0x1000777700000000000000000000000000000004, 0x1000777700000000000000000000000000000005, 0x1000777700000000000000000000000000000006, 0x1000777700000000000000000000000000000007], 2, true)[33m [delegatecall][0m
+    │   ├─ emit [36mGuardiansUpdated[0m(version: 1, guardians: [0x1000777700000000000000000000000000000001, 0x1000777700000000000000000000000000000002, 0x1000777700000000000000000000000000000003, 0x1000777700000000000000000000000000000004, 0x1000777700000000000000000000000000000005, 0x1000777700000000000000000000000000000006, 0x1000777700000000000000000000000000000007])
+    │   └─ [32m← [0m()
+    └─ [32m← [0m()
+
+  [31306] [32mERC1967Proxy[0m::[32mtransferOwnership[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m[0m
+    ├─ [26417] [32mGuardianProver[0m::[32mtransferOwnership[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [delegatecall][0m
+    │   ├─ emit [36mOwnershipTransferStarted[0m(previousOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m()
+
+  [373105] [32mERC1967Proxy[0m::[32msetGuardians[0m([0x1000777700000000000000000000000000000001, 0x1000777700000000000000000000000000000002, 0x1000777700000000000000000000000000000003, 0x1000777700000000000000000000000000000004, 0x1000777700000000000000000000000000000005, 0x1000777700000000000000000000000000000006, 0x1000777700000000000000000000000000000007], 7, true)[33m[0m
+    ├─ [368159] [32mGuardianProver[0m::[32msetGuardians[0m([0x1000777700000000000000000000000000000001, 0x1000777700000000000000000000000000000002, 0x1000777700000000000000000000000000000003, 0x1000777700000000000000000000000000000004, 0x1000777700000000000000000000000000000005, 0x1000777700000000000000000000000000000006, 0x1000777700000000000000000000000000000007], 7, true)[33m [delegatecall][0m
+    │   ├─ emit [36mGuardiansUpdated[0m(version: 1, guardians: [0x1000777700000000000000000000000000000001, 0x1000777700000000000000000000000000000002, 0x1000777700000000000000000000000000000003, 0x1000777700000000000000000000000000000004, 0x1000777700000000000000000000000000000005, 0x1000777700000000000000000000000000000006, 0x1000777700000000000000000000000000000007])
+    │   └─ [32m← [0m()
+    └─ [32m← [0m()
+
+  [31306] [32mERC1967Proxy[0m::[32mtransferOwnership[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m[0m
+    ├─ [26417] [32mGuardianProver[0m::[32mtransferOwnership[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [delegatecall][0m
+    │   ├─ emit [36mOwnershipTransferStarted[0m(previousOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m()
+
+  [752384] [33m→ [0m[33mnew[0m P256Verifier@0x82e01223d51Eb87e16A03E24687EDF0F294da6f1
+    └─ [32m← [0m3787 bytes of code
+
+  [286742] [33m→ [0m[33mnew[0m SigVerifyLib@0x2bdCC0de6bE1f7D2ee689a0342D76F52E8EFABa3
+    └─ [32m← [0m1595 bytes of code
+
+  [1744632] [33m→ [0m[33mnew[0m PEMCertChainLib@0x7969c5eD335650692Bc04293B07F5BF2e7A673C0
+    └─ [32m← [0m8743 bytes of code
+
+  [4719358] [33m→ [0m[33mnew[0m AutomataDcapV3Attestation@0x7bc06c482DEAd17c0e297aFbC32f6e63d3846650
+    ├─ emit [36mInitialized[0m(version: 255)
+    └─ [32m← [0m23740 bytes of code
+
+  [179412] [33m→ [0m[33mnew[0m ERC1967Proxy@0xc351628EB244ec633d5f21fBD6621e1a683B1181
+    ├─ emit [36mUpgraded[0m(implementation: AutomataDcapV3Attestation: [0x7bc06c482DEAd17c0e297aFbC32f6e63d3846650])
+    ├─ [117297] [32mAutomataDcapV3Attestation[0m::[32minit[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266, SigVerifyLib: [0x2bdCC0de6bE1f7D2ee689a0342D76F52E8EFABa3], PEMCertChainLib: [0x7969c5eD335650692Bc04293B07F5BF2e7A673C0])[33m [delegatecall][0m
+    │   ├─ emit [36mOwnershipTransferred[0m(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   ├─ emit [36mInitialized[0m(version: 1)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m1444 bytes of code
+
+  [32266] [32mERC1967Proxy[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x6175746f6d6174615f646361705f6174746573746174696f6e00000000000000, ERC1967Proxy: [0xc351628EB244ec633d5f21fBD6621e1a683B1181])[33m[0m
+    ├─ [27368] [32mAddressManager[0m::[32msetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x6175746f6d6174615f646361705f6174746573746174696f6e00000000000000, ERC1967Proxy: [0xc351628EB244ec633d5f21fBD6621e1a683B1181])[33m [delegatecall][0m
+    │   ├─ emit [36mAddressSet[0m(chainId: 31337 [2;49;39m[3.133e4][0m, name: 0x6175746f6d6174615f646361705f6174746573746174696f6e00000000000000, newAddress: ERC1967Proxy: [0xc351628EB244ec633d5f21fBD6621e1a683B1181], oldAddress: 0x0000000000000000000000000000000000000000)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m()
+
+  [1847979] [33m→ [0m[33mnew[0m ProverSet@0xcbEAF3BDe82155F56486Fb5a1072cb8baAf547cc
+    ├─ emit [36mInitialized[0m(version: 255)
+    └─ [32m← [0m9401 bytes of code
+
+  [227195] [33m→ [0m[33mnew[0m ERC1967Proxy@0x1429859428C0aBc9C2C47C8Ee9FBaf82cFA0F20f
+    ├─ emit [36mUpgraded[0m(implementation: ProverSet: [0xcbEAF3BDe82155F56486Fb5a1072cb8baAf547cc])
+    ├─ [165080] [32mProverSet[0m::[32minit[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266, 0x60997970c51812Dc3A010C7D01b50E0D17dc79C8, ERC1967Proxy: [0x67d269191c92Caf3cD7723F116c85e6E9bf55933])[33m [delegatecall][0m
+    │   ├─ emit [36mOwnershipTransferred[0m(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   ├─ [7617] [32mERC1967Proxy[0m::[32mgetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7461696b6f5f746f6b656e000000000000000000000000000000000000000000)[33m [staticcall][0m
+    │   │   ├─ [2722] [32mAddressManager[0m::[32mgetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7461696b6f5f746f6b656e000000000000000000000000000000000000000000)[33m [delegatecall][0m
+    │   │   │   └─ [32m← [0mERC1967Proxy: [0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9]
+    │   │   └─ [32m← [0mERC1967Proxy: [0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9]
+    │   ├─ [3117] [32mERC1967Proxy[0m::[32mgetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7461696b6f000000000000000000000000000000000000000000000000000000)[33m [staticcall][0m
+    │   │   ├─ [2722] [32mAddressManager[0m::[32mgetAddress[0m(31337 [2;49;39m[3.133e4][0m, 0x7461696b6f000000000000000000000000000000000000000000000000000000)[33m [delegatecall][0m
+    │   │   │   └─ [32m← [0mERC1967Proxy: [0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9]
+    │   │   └─ [32m← [0mERC1967Proxy: [0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9]
+    │   ├─ [29559] [32mERC1967Proxy[0m::[32mapprove[0m(ERC1967Proxy: [0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9], 115792089237316195423570985008687907853269984665640564039457584007913129639935 [2;49;39m[1.157e77][0m)[33m[0m
+    │   │   ├─ [24664] [32mTaikoToken[0m::[32mapprove[0m(ERC1967Proxy: [0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9], 115792089237316195423570985008687907853269984665640564039457584007913129639935 [2;49;39m[1.157e77][0m)[33m [delegatecall][0m
+    │   │   │   ├─ emit [36mApproval[0m(owner: ERC1967Proxy: [0x1429859428C0aBc9C2C47C8Ee9FBaf82cFA0F20f], spender: ERC1967Proxy: [0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9], value: 115792089237316195423570985008687907853269984665640564039457584007913129639935 [2;49;39m[1.157e77][0m)
+    │   │   │   └─ [32m← [0mtrue
+    │   │   └─ [32m← [0mtrue
+    │   ├─ emit [36mInitialized[0m(version: 1)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m1444 bytes of code
+
+  [31390] [32mERC1967Proxy[0m::[32mauthorize[0m(ERC1967Proxy: [0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9], true)[33m[0m
+    ├─ [26498] [32mSignalService[0m::[32mauthorize[0m(ERC1967Proxy: [0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9], true)[33m [delegatecall][0m
+    │   ├─ emit [36mAuthorized[0m(addr: ERC1967Proxy: [0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9], authorized: true)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m()
+
+  [31284] [32mERC1967Proxy[0m::[32mtransferOwnership[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m[0m
+    ├─ [26395] [32mSignalService[0m::[32mtransferOwnership[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [delegatecall][0m
+    │   ├─ emit [36mOwnershipTransferStarted[0m(previousOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m()
+
+  [32266] [32mERC1967Proxy[0m::[32msetAddress[0m(167000 [2;49;39m[1.67e5][0m, 0x7461696b6f000000000000000000000000000000000000000000000000000000, 0x1000777700000000000000000000000000000001)[33m[0m
+    ├─ [27368] [32mAddressManager[0m::[32msetAddress[0m(167000 [2;49;39m[1.67e5][0m, 0x7461696b6f000000000000000000000000000000000000000000000000000000, 0x1000777700000000000000000000000000000001)[33m [delegatecall][0m
+    │   ├─ emit [36mAddressSet[0m(chainId: 167000 [2;49;39m[1.67e5][0m, name: 0x7461696b6f000000000000000000000000000000000000000000000000000000, newAddress: 0x1000777700000000000000000000000000000001, oldAddress: 0x0000000000000000000000000000000000000000)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m()
+
+  [32266] [32mERC1967Proxy[0m::[32msetAddress[0m(167000 [2;49;39m[1.67e5][0m, 0x7369676e616c5f73657276696365000000000000000000000000000000000000, 0x1000777700000000000000000000000000000007)[33m[0m
+    ├─ [27368] [32mAddressManager[0m::[32msetAddress[0m(167000 [2;49;39m[1.67e5][0m, 0x7369676e616c5f73657276696365000000000000000000000000000000000000, 0x1000777700000000000000000000000000000007)[33m [delegatecall][0m
+    │   ├─ emit [36mAddressSet[0m(chainId: 167000 [2;49;39m[1.67e5][0m, name: 0x7369676e616c5f73657276696365000000000000000000000000000000000000, newAddress: 0x1000777700000000000000000000000000000007, oldAddress: 0x0000000000000000000000000000000000000000)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m()
+
+  [602512] [33m→ [0m[33mnew[0m FreeMintERC20@0x1fA02b2d6A771842690194Cf62D91bdd92BfE28d
+    └─ [32m← [0m3715 bytes of code
+
+  [623338] [33m→ [0m[33mnew[0m MayFailFreeMintERC20@0xdbC43Ba45381e02825b14322cDdd15eC4B3164E6
+    └─ [32m← [0m3819 bytes of code
+
+  [31328] [32mERC1967Proxy[0m::[32mtransferOwnership[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m[0m
+    ├─ [26439] [32mAddressManager[0m::[32mtransferOwnership[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [delegatecall][0m
+    │   ├─ emit [36mOwnershipTransferStarted[0m(previousOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m()
+
+  [31328] [32mERC1967Proxy[0m::[32mtransferOwnership[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m[0m
+    ├─ [26439] [32mAddressManager[0m::[32mtransferOwnership[0m(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [delegatecall][0m
+    │   ├─ emit [36mOwnershipTransferStarted[0m(previousOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266, newOwner: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m()
+
+
+==========================
+
+Chain 31337
+
+Estimated gas price: 5 gwei
+
+Estimated total gas used for script: 83607480
+
+Estimated amount required: 0.4180374 ETH
+
+==========================
+
+###
+Finding wallets for all the necessary addresses...
+##
+Sending transactions [0 - 69].
+
+Transactions saved to: /Users/roger/Documents/GitHub/taiko-mono/packages/protocol/broadcast/DeployOnL1.s.sol/31337/run-latest.json
+
+Sensitive values saved to: /Users/roger/Documents/GitHub/taiko-mono/packages/protocol/cache/DeployOnL1.s.sol/31337/run-latest.json
+
+##
+Waiting for receipts.
+
+##### anvil-hardhat
+✅  [Success]Hash: 0xd08a1075b1f9fd24f9c895f4526cfc82ffc85e7d5ac8846995ca90fb33ac85da
+Contract Address: 0x5FbDB2315678afecb367f032d93F642f64180aa3
+Block: 1
+Paid: 0.0051304 ETH (1282600 gas * 4 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x1e3742074fc519df761efa9e923e681b826fd90a0645694b2e334e9540e06050
+Contract Address: 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+Block: 2
+Paid: 0.000893995857756716 ETH (230074 gas * 3.885688334 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x19eb9dd7c02e00ff61ee27826d58c5b68d36bc884c049ede5f200d04ec025c69
+Contract Address: 0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
+Block: 3
+Paid: 0.01127985309120472 ETH (2986715 gas * 3.776675408 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0xa5d72b98d8de70da3f2f63193b5917d816559a4311fa6f57b6af4632b2e12d44
+Contract Address: 0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9
+Block: 4
+Paid: 0.001482072923314791 ETH (400677 gas * 3.698921883 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0xf9afca2c77c860ff7d5320137ef909b767ab767f01504921d780ca6d8abf97ab
+Block: 5
+Paid: 0.00019554760581041 ETH (54110 gas * 3.613890331 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x36e12ea68d04917899e8b1af6d478c4a65202236a5b1beeb0b96ec45e10238fc
+Contract Address: 0x5FC8d32690cc91D4c39d9d3abcBD16989F875707
+Block: 6
+Paid: 0.013867478883021048 ETH (3920212 gas * 3.537430854 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x9fd08d4dafb77fe1e88e05340153e23f7f7ed135618099934de8eb841259728a
+Contract Address: 0x0165878A594ca255338adfa4d48449f69242Eb8F
+Block: 7
+Paid: 0.000805746664644396 ETH (231018 gas * 3.487809022 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0xa549e126a8fb3523c938a9c1593788cc1ea34554ba8a5f91230a22f00e6c8412
+Block: 8
+Paid: 0.000185600142712 ETH (54146 gas * 3.427772 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x33f5b436bef3062e081b581285f4bf645cd4da7cff7e2b6f2fe84fbac21905cb
+Contract Address: 0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6
+Block: 8
+Paid: 0.012140349186492 ETH (3541761 gas * 3.427772 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0xda61544cdf16f6c2908646e6571cb0e63fd023aad5cf83407afbb76e0cb9a717
+Contract Address: 0x8A791620dd6260079BF849Dc5567aDC3F2FdC318
+Block: 8
+Paid: 0.012932373612584 ETH (3772822 gas * 3.427772 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x03887abfd7c8db36074cbf3cc7237f39f9608745016bbd26afb0aeda4d72a71c
+Block: 8
+Paid: 0.013117644689184 ETH (3826872 gas * 3.427772 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x3a66b7af70bd78c0c8f3b2dd8c47ac230414ea84d6584a7d6bb44ab2286e755f
+Block: 9
+Paid: 0.000117348161116622 ETH (34637 gas * 3.387942406 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0xe3d05ee71f121d980261183678b765846c8f28c9673270a7c111a3e8869412c6
+Block: 9
+Paid: 0.000296096002457182 ETH (87397 gas * 3.387942406 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x7ec793b1998a43ccd0b21916166aaaebbf70b5a5ecf317356e4555974de5c160
+Contract Address: 0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82
+Block: 9
+Paid: 0.0152642051131127 ETH (4505450 gas * 3.387942406 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x2d23ae9ab838f192777bbd3d0534f42f2fd422083025243678176b45667e096d
+Contract Address: 0x9A676e781A523b5d0C0e43731313A708CB607508
+Block: 9
+Paid: 0.01604776843277238 ETH (4736730 gas * 3.387942406 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x17d31763da0190bc7c58b63f2a5e69cf9da313271d970d34f81dd8e2e7e2b2d5
+Block: 10
+Paid: 0.00018152621288949 ETH (54110 gas * 3.354762759 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x6afd5a780b9204ade7e2b85312ef1a16cc739d1ee56c2f20c5057bdef3b6e1cc
+Contract Address: 0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1
+Block: 10
+Paid: 0.013137703857216465 ETH (3916135 gas * 3.354762759 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0xfc314844b683a64effd19c6c2de9475e422fa82a025ccac23cddeecff8eb4d28
+Contract Address: 0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE
+Block: 10
+Paid: 0.013913593388117985 ETH (4147415 gas * 3.354762759 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x19f2ff4757ecca13b1e1a6c13e0c2e4ace5259663e59982502b16292fcf4d0db
+Block: 11
+Paid: 0.000179830013949422 ETH (54122 gas * 3.322678651 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x5243c5566b170cb6d3c2f8f88f9002c95151125c38ac03cb1e939d4535633a2d
+Contract Address: 0x3Aa5ebB10DC797CAC828524e59A333d0A371443c
+Block: 12
+Paid: 0.013040529276039624 ETH (3972756 gas * 3.282489354 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x4f356f7b5af3ee988c841c035f7c593f91f8269f47ec83f88c5769e99bb14016
+Contract Address: 0xc6e7DF5E7b4f2A278906862b61205850344D4e7d
+Block: 13
+Paid: 0.000753609973953645 ETH (231415 gas * 3.256530363 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x49acaef4435e43184906b1b0a85d0c501ac5f6b96042344bdf581575b483172a
+Block: 13
+Paid: 0.000929898988624287 ETH (285549 gas * 3.256530363 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0xe7d0f3d0b0010b206ccea0923fe6451bb275cf3b351539bcb9796e1d53f7387f
+Contract Address: 0x4ed7c70F96B99c776995fB64377f0d4aB3B0e1C1
+Block: 13
+Paid: 0.008605596415231458 ETH (2642566 gas * 3.256530363 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0xa46b62df78ae4ced5186a644ee007b3e936903ab1344e7838e8a90918522ff33
+Block: 13
+Paid: 0.0087818854299021 ETH (2696700 gas * 3.256530363 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x13de443b1198596d24fd1abcfe86a0a60bb418bb556495b4eb7bc6726db9fffc
+Contract Address: 0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f
+Block: 13
+Paid: 0.017551487227274964 ETH (5389628 gas * 3.256530363 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0xf4d46ebe77da02cd508ca8ff657974af4dbff78398630ad35afa7e4aef46d42b
+Block: 13
+Paid: 0.017727776241945606 ETH (5443762 gas * 3.256530363 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x97bead60dc0bbd8c64e3b7ab8d38b7f448c1e91796eec50511b22175b7f0e691
+Contract Address: 0x7a2088a1bFc9d81c55368AE168C2C02570cB814F
+Block: 13
+Paid: 0.027721113762596247 ETH (8512469 gas * 3.256530363 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0xe8651f992308e4ad897ffd43d39aafe0583544b4d11c9768c9f1a291b177ff6f
+Block: 14
+Paid: 0.000175616068232592 ETH (54158 gas * 3.242661624 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x4a9a5e534d9f6565647fcbc45d19f5ed98767c94aed3ebd698105232228f83e7
+Contract Address: 0xc5a5C42992dECbae36851359345FE25997F5C42d
+Block: 14
+Paid: 0.004334653867174992 ETH (1336758 gas * 3.242661624 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0xe479a4925f4259ec107a4e7c933c606b98b86339713edfaa93eb9a3c71ce2d37
+Contract Address: 0x67d269191c92Caf3cD7723F116c85e6E9bf55933
+Block: 14
+Paid: 0.005080705997655168 ETH (1566832 gas * 3.242661624 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x5e44293ff4da888db0d5b43f76b1c51e6dfd550795f8dbd72d5f9344b31e8c44
+Block: 14
+Paid: 0.005256166418129808 ETH (1620942 gas * 3.242661624 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0xe23932846a2db1cf5136f05953cd79a0a589e16558e22b645919421c85f10709
+Block: 14
+Paid: 0.005431743574422912 ETH (1675088 gas * 3.242661624 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0xa3d8833b569e3bf38ba76d3f8e5d840b59583daf80a23daafdd4fff4f2837b63
+Block: 14
+Paid: 0.005607009435200112 ETH (1729138 gas * 3.242661624 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x7b821e424204e37755fe145338f24ce0854394409f06a476c3796ce698054b23
+Contract Address: 0x9E545E3C0baAB3E08CdfD552C960A1050f373042
+Block: 15
+Paid: 0.01707675079959765 ETH (5310223 gas * 3.21582555 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x2e5c5fed9f136d3939260d34b83251a3754c8adf2904737b360b62117aaee570
+Contract Address: 0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9
+Block: 15
+Paid: 0.0182745847162872 ETH (5682704 gas * 3.21582555 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0xb85109179ee60aaccda09a95a9585ec8e0f2b54cfba3cdf0e05da2adc12dc987
+Block: 15
+Paid: 0.0184483614973581 ETH (5736742 gas * 3.21582555 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x5ab37609624fe05e1c9256d95a5db13902e8e1be4a27e58ca795f2182fdf6030
+Contract Address: 0x851356ae760d987E095750cCeb3bC6014560891C
+Block: 16
+Paid: 0.006830019253415514 ETH (2134938 gas * 3.199165153 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0xf73579effc1a68fa9759603325111e973974dd44d2ff1a743b9f3aa32f74330d
+Contract Address: 0xf5059a5D33d5853360D16C683c16e67980206f36
+Block: 16
+Paid: 0.00756999255163472 ETH (2366240 gas * 3.199165153 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x584bdfe5679b3d01635d45132ed365fa8cb649f33e42c5340b44c17d5aa2b30b
+Block: 17
+Paid: 0.000172124781265398 ETH (54158 gas * 3.178196781 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0xcb8d6c005baebf589df1cb7c7aac79af83dc426ff910f48748f7726185cd61bd
+Contract Address: 0x998abeb3E57409262aE5b751f60747921B33613E
+Block: 17
+Paid: 0.00823321410708393 ETH (2590530 gas * 3.178196781 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x13c1bf995283c675ba03264c3c9e32e07f30ae17966ddec3b8616299c8e56641
+Contract Address: 0x70e0bA845a1A0F2DA3359C97E0285013525FFC49
+Block: 17
+Paid: 0.00896826745859361 ETH (2821810 gas * 3.178196781 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x23d793fda607a481fabf4994c216c253f9f81644f261b8104c36a8f88d9b0028
+Block: 17
+Paid: 0.009140125271329404 ETH (2875884 gas * 3.178196781 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0xa45a2baaace90ee39ff8587bbd078d07abff5dcfd1ba9cc5e47c2088db2cd1db
+Contract Address: 0x99bbA657f2BbC93c02D617f8bA121cB8Fc104Acf
+Block: 17
+Paid: 0.016586319331337523 ETH (5218783 gas * 3.178196781 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x46bdd72a175a0d08df2d67ae158c07e9b503643b9223d648a9ad15c46090d3d6
+Contract Address: 0x0E801D84Fa97b50751Dbf25036d067dCf18858bF
+Block: 17
+Paid: 0.017320644875784354 ETH (5449834 gas * 3.178196781 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x7fdabae8a329c107d79dc85f95fc4cf26d8c67216e010a5a3ccf4f6051df1c74
+Block: 17
+Paid: 0.017568477482569953 ETH (5527813 gas * 3.178196781 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0xe69053e7aaed91443caa2b5069a6e13770a49a9071202df65dd71ca9cebda8fb
+Contract Address: 0x9d4454B023096f34B160D6B654540c56A1F81688
+Block: 18
+Paid: 0.000731075594250738 ETH (231051 gas * 3.164130838 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0xca002794148107032d42d37373e1ab6cd55e9be275bc46f891750860bcadd57a
+Block: 18
+Paid: 0.000902704379165534 ETH (285293 gas * 3.164130838 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x946f01bf1f9b0ac068423ec78dd8df91f14218ae6aea1290e40e1b43427fbcb6
+Block: 18
+Paid: 0.001073991437949826 ETH (339427 gas * 3.164130838 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x91dab928f636b126dc2b3dde522e94fc1800e1e68034e8a4e2fa3c757a51ca72
+Contract Address: 0x809d550fca64d94Bd9F66E60752A544199cfAC3D
+Block: 18
+Paid: 0.00209395850597164 ETH (661780 gas * 3.164130838 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0xf1101f2e95186dd49adaab6850c39c90a2e86efd7d919211eab012a01df4a70b
+Block: 18
+Paid: 0.00226516962561582 ETH (715890 gas * 3.164130838 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x4b120ca9d9322e04c71ceeb3e6b50b510dc98175e5b14048212972804ad60f4f
+Block: 18
+Paid: 0.003518042036361138 ETH (1111851 gas * 3.164130838 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x7eb24c320ff72b42044602c5803dcedcf4d5465b64c1c7fb05e2bea62201db90
+Block: 18
+Paid: 0.003684911968495582 ETH (1164589 gas * 3.164130838 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0xe592c5bf6fd909468bede555966606b284b99dce0b4d1ac7b402095792760873
+Block: 19
+Paid: 0.001245379450681038 ETH (395961 gas * 3.145207358 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x438e027a2b0b499e3ccf07c9765d92dd35ef790ee384dc68a9bc4733e404c325
+Block: 19
+Paid: 0.001411251396327242 ETH (448699 gas * 3.145207358 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0xa1b89bcad46fbc8f7a338a96d2f26a9d753f8401d697592bbf17e6047ed71d78
+Contract Address: 0x82e01223d51Eb87e16A03E24687EDF0F294da6f1
+Block: 19
+Paid: 0.004134654995545862 ETH (1314589 gas * 3.145207358 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0xb669a1fe08d927e3652706ede58153faa2e3c9be47b92fa5b322e051d1cf5f5a
+Contract Address: 0x2bdCC0de6bE1f7D2ee689a0342D76F52E8EFABa3
+Block: 19
+Paid: 0.00528141646951681 ETH (1679195 gas * 3.145207358 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x11c7af4c297e19da517c8dc0da6b72576707b1c03d8849a37ec9a067783c3830
+Contract Address: 0x7969c5eD335650692Bc04293B07F5BF2e7A673C0
+Block: 20
+Paid: 0.006062057993447232 ETH (1937324 gas * 3.129088368 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x89fd105fc5ef135e9cfc34ca5f09117c776ae5f2801d1dc1f4ad9f972f714d9c
+Contract Address: 0x7bc06c482DEAd17c0e297aFbC32f6e63d3846650
+Block: 21
+Paid: 0.016043440357511784 ETH (5150322 gas * 3.115036372 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x7aa09378ba391fdb5893df32863505e03575c40a50a0491b14fb5850087117e5
+Contract Address: 0xc351628EB244ec633d5f21fBD6621e1a683B1181
+Block: 21
+Paid: 0.016833837226397576 ETH (5404058 gas * 3.115036372 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0xb45a8f7208c830fff41df2a924bc83d9cd433b21871e34ca071f08857b0fd637
+Block: 21
+Paid: 0.017002915170596992 ETH (5458336 gas * 3.115036372 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x0a305affcefbab8949a9b0438b9ccaed2da8f01540144c0de72dfc011dd0c5ac
+Contract Address: 0xcbEAF3BDe82155F56486Fb5a1072cb8baAf547cc
+Block: 21
+Paid: 0.023386543632554732 ETH (7507631 gas * 3.115036372 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x403a01cf745f9c2162c456533043406bb755b7f2932d19a64a2462aba22858d7
+Contract Address: 0x1429859428C0aBc9C2C47C8Ee9FBaf82cFA0F20f
+Block: 21
+Paid: 0.0243257862844038 ETH (7809150 gas * 3.115036372 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0xccbf93d38aa374d3d7ad7d2257e6f46d698e04e22fc9089a36ab7004bf5ec9c2
+Block: 21
+Paid: 0.024490764840737664 ETH (7862112 gas * 3.115036372 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x3721699658ce962bb94d7e753f6842468aad8debed0e04219f80dbd956438f75
+Block: 21
+Paid: 0.024654977098124016 ETH (7914828 gas * 3.115036372 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x5a5e15d2b18814ceae2ae24eaba4ea7fdc803ec3fd8d24cbd161711da558cc59
+Block: 22
+Paid: 0.000167403819785944 ETH (53858 gas * 3.108244268 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x0bc76fa296b88b3746b4a83cdb5a351e92d17c26af41eee754ee645cd1319f71
+Block: 22
+Paid: 0.000335143329952832 ETH (107824 gas * 3.108244268 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x80697a6889b319fa3916f3b0ab78fd5cd8574e0b16ca328125909440b3c145db
+Contract Address: 0x1fA02b2d6A771842690194Cf62D91bdd92BfE28d
+Block: 22
+Paid: 0.002548306496096872 ETH (819854 gas * 3.108244268 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x3dd7ef16797b95d7798ed208a85455b6c8585b44d14949a2bfeec905aeb4db0d
+Contract Address: 0xdbC43Ba45381e02825b14322cDdd15eC4B3164E6
+Block: 22
+Paid: 0.004831355426362624 ETH (1554368 gas * 3.108244268 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0xa8c80edff09585c869cfeaeab0fb77fa581e85c63cfa7033782ae8e965844244
+Block: 22
+Paid: 0.004995346393942304 ETH (1607128 gas * 3.108244268 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0x4aa72575c3837d0c0a53c62e58f492b151c36e6aa52b25d948d7653328613b53
+Block: 22
+Paid: 0.005159337361521984 ETH (1659888 gas * 3.108244268 gwei)
+
+
+Transactions saved to: /Users/roger/Documents/GitHub/taiko-mono/packages/protocol/broadcast/DeployOnL1.s.sol/31337/run-latest.json
+
+Sensitive values saved to: /Users/roger/Documents/GitHub/taiko-mono/packages/protocol/cache/DeployOnL1.s.sol/31337/run-latest.json
+
+
+
+==========================
+
+ONCHAIN EXECUTION COMPLETE & SUCCESSFUL.
+Total Paid: 0.595535579932314784 ETH (183959429 gas * avg 3.268445004 gwei)
+
+Transactions saved to: /Users/roger/Documents/GitHub/taiko-mono/packages/protocol/broadcast/DeployOnL1.s.sol/31337/run-latest.json
+
+Sensitive values saved to: /Users/roger/Documents/GitHub/taiko-mono/packages/protocol/cache/DeployOnL1.s.sol/31337/run-latest.json
+
+No files changed, compilation skipped
+Traces:
+  [3131655] [32mDeployTaikoToken[0m::[32mrun[0m()[33m[0m
+    ├─ [0] [34mVM[0m::[34mstartBroadcast[0m()[33m[0m
+    │   └─ [34m← [0m()
+    ├─ [2716383] [33m→ [0m[33mnew[0m TaikoToken@0x21dF544947ba3E8b3c32561399E88B52Dc8b2823
+    │   ├─ emit [36mInitialized[0m(version: 255)
+    │   └─ [32m← [0m13738 bytes of code
+    ├─ [324223] [33m→ [0m[33mnew[0m ERC1967Proxy@0x2E2Ed0Cfd3AD2f1d34481277b3204d807Ca2F8c2
+    │   ├─ emit [36mUpgraded[0m(implementation: TaikoToken: [0x21dF544947ba3E8b3c32561399E88B52Dc8b2823])
+    │   ├─ [264755] [32mTaikoToken[0m::[32minit[0m(0x60997970c51812Dc3A010C7D01b50E0D17dc79C8, 0xa0Ee7A142d267C1f36714E4a8F75612F20a79720)[33m [delegatecall][0m
+    │   │   ├─ emit [36mOwnershipTransferred[0m(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0x60997970c51812Dc3A010C7D01b50E0D17dc79C8)
+    │   │   ├─ emit [36mTransfer[0m(from: 0x0000000000000000000000000000000000000000, to: 0xa0Ee7A142d267C1f36714E4a8F75612F20a79720, value: 1000000000000000000000000000 [2;49;39m[1e27][0m)
+    │   │   ├─ emit [36mInitialized[0m(version: 1)
+    │   │   └─ [32m← [0m()
+    │   └─ [32m← [0m1412 bytes of code
+    ├─ [0] [32mconsole[0m::[32mlog[0m(">", "taiko_token", "@", 0x0000000000000000000000000000000000000000)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  proxy      :", ERC1967Proxy: [0x2E2Ed0Cfd3AD2f1d34481277b3204d807Ca2F8c2])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  impl       :", TaikoToken: [0x21dF544947ba3E8b3c32561399E88B52Dc8b2823])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [786] [32mERC1967Proxy[0m::[32mowner[0m()[33m [staticcall][0m
+    │   ├─ [397] [32mTaikoToken[0m::[32mowner[0m()[33m [delegatecall][0m
+    │   │   └─ [32m← [0m0x60997970c51812Dc3A010C7D01b50E0D17dc79C8
+    │   └─ [32m← [0m0x60997970c51812Dc3A010C7D01b50E0D17dc79C8
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  owner      :", 0x60997970c51812Dc3A010C7D01b50E0D17dc79C8)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  msg.sender :", 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266)[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [32mconsole[0m::[32mlog[0m("  this       :", DeployTaikoToken: [0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519])[33m [staticcall][0m
+    │   └─ [32m← [0m()
+    ├─ [0] [34mVM[0m::[34mserializeAddress[0m("<stringified JSON>", "taiko_token", 0x2E2Ed0Cfd3AD2f1d34481277b3204d807Ca2F8c2)[33m[0m
+    │   └─ [34m← [0m"{\"taiko_token\":\"0x2E2Ed0Cfd3AD2f1d34481277b3204d807Ca2F8c2\"}"
+    ├─ [0] [34mVM[0m::[34mprojectRoot[0m()[33m [staticcall][0m
+    │   └─ [34m← [0m"/Users/roger/Documents/GitHub/taiko-mono/packages/protocol"
+    ├─ [0] [34mVM[0m::[34mwriteJson[0m("<stringified JSON>", "/Users/roger/Documents/GitHub/taiko-mono/packages/protocol/deployments/deploy_l1.json")[33m[0m
+    │   └─ [34m← [0m()
+    ├─ [0] [34mVM[0m::[34mstopBroadcast[0m()[33m[0m
+    │   └─ [34m← [0m()
+    └─ [32m← [0m()
+
+
+[32mScript ran successfully.[0m
+
+== Logs ==
+  > taiko_token @ 0x0000000000000000000000000000000000000000
+    proxy      : 0x2E2Ed0Cfd3AD2f1d34481277b3204d807Ca2F8c2
+    impl       : 0x21dF544947ba3E8b3c32561399E88B52Dc8b2823
+    owner      : 0x60997970c51812Dc3A010C7D01b50E0D17dc79C8
+    msg.sender : 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+    this       : 0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519
+[33mEIP-3855 is not supported in one or more of the RPCs used.
+Unsupported Chain IDs: 31337.
+Contracts deployed with a Solidity version equal or higher than 0.8.20 might not work properly.
+For more information, please see https://eips.ethereum.org/EIPS/eip-3855[0m
+
+## Setting up 1 EVM.
+==========================
+Simulated On-chain Traces:
+
+  [2716383] [33m→ [0m[33mnew[0m TaikoToken@0x21dF544947ba3E8b3c32561399E88B52Dc8b2823
+    ├─ emit [36mInitialized[0m(version: 255)
+    └─ [32m← [0m13738 bytes of code
+
+  [326723] [33m→ [0m[33mnew[0m ERC1967Proxy@0x2E2Ed0Cfd3AD2f1d34481277b3204d807Ca2F8c2
+    ├─ emit [36mUpgraded[0m(implementation: TaikoToken: [0x21dF544947ba3E8b3c32561399E88B52Dc8b2823])
+    ├─ [264755] [32mTaikoToken[0m::[32minit[0m(0x60997970c51812Dc3A010C7D01b50E0D17dc79C8, 0xa0Ee7A142d267C1f36714E4a8F75612F20a79720)[33m [delegatecall][0m
+    │   ├─ emit [36mOwnershipTransferred[0m(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0x60997970c51812Dc3A010C7D01b50E0D17dc79C8)
+    │   ├─ emit [36mTransfer[0m(from: 0x0000000000000000000000000000000000000000, to: 0xa0Ee7A142d267C1f36714E4a8F75612F20a79720, value: 1000000000000000000000000000 [2;49;39m[1e27][0m)
+    │   ├─ emit [36mInitialized[0m(version: 1)
+    │   └─ [32m← [0m()
+    └─ [32m← [0m1412 bytes of code
+
+
+==========================
+
+Chain 31337
+
+Estimated gas price: 3.216488536 gwei
+
+Estimated total gas used for script: 4403609
+
+Estimated amount required: 0.014164157865526424 ETH
+
+==========================
+
+###
+Finding wallets for all the necessary addresses...
+##
+Sending transactions [0 - 1].
+
+Transactions saved to: /Users/roger/Documents/GitHub/taiko-mono/packages/protocol/broadcast/DeployTaikoToken.s.sol/31337/run-latest.json
+
+Sensitive values saved to: /Users/roger/Documents/GitHub/taiko-mono/packages/protocol/cache/DeployTaikoToken.s.sol/31337/run-latest.json
+
+##
+Waiting for receipts.
+
+##### anvil-hardhat
+✅  [Success]Hash: 0xef96ba891f0796cc88c526732eba3d01469193dcee92483316aa3113a80a56fc
+Contract Address: 0x21dF544947ba3E8b3c32561399E88B52Dc8b2823
+Block: 23
+Paid: 0.009247499875692295 ETH (2986715 gas * 3.096211013 gwei)
+
+
+##### anvil-hardhat
+✅  [Success]Hash: 0xbcfd5ce76ac88e920bfa00a24e5b3979754a9cd964157286c9097f691389ede6
+Contract Address: 0x2E2Ed0Cfd3AD2f1d34481277b3204d807Ca2F8c2
+Block: 24
+Paid: 0.001236721318559697 ETH (400677 gas * 3.086579261 gwei)
+
+
+Transactions saved to: /Users/roger/Documents/GitHub/taiko-mono/packages/protocol/broadcast/DeployTaikoToken.s.sol/31337/run-latest.json
+
+Sensitive values saved to: /Users/roger/Documents/GitHub/taiko-mono/packages/protocol/cache/DeployTaikoToken.s.sol/31337/run-latest.json
+
+
+
+==========================
+
+ONCHAIN EXECUTION COMPLETE & SUCCESSFUL.
+Total Paid: 0.010484221194251992 ETH (3387392 gas * avg 3.091395137 gwei)
+
+Transactions saved to: /Users/roger/Documents/GitHub/taiko-mono/packages/protocol/broadcast/DeployTaikoToken.s.sol/31337/run-latest.json
+
+Sensitive values saved to: /Users/roger/Documents/GitHub/taiko-mono/packages/protocol/cache/DeployTaikoToken.s.sol/31337/run-latest.json
+
