@@ -147,7 +147,7 @@ MR_SIGNER=$MR_SIGNER \
 QEID_PATH=$QEID_PATH \
 TCB_INFO_PATH=$TCB_INFO_PATH \
 V3_QUOTE_BYTES=$V3_QUOTE_BYTES \
-forge script script/SetDcapParams.s.sol:SetDcapParams \
+forge script script/layer1/SetDcapParams.s.sol:SetDcapParams \
     --fork-url $FORK_URL \
     --broadcast \
     --evm-version cancun \
