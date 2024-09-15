@@ -6,8 +6,6 @@ on:
       - "packages/taikoon-ui/**"
     branches-ignore:
       - dependabot/**
-    tags:
-      - "taikoon-ui-v*"
 
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
