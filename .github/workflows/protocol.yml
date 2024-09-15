@@ -60,3 +60,10 @@ jobs:
             sleep 1
           done
           pnpm test:deploy:l1
+
+      - name: Deploy Monitors
+        working-directory: ./monitors
+        env:
+          SERVERLESS_API_KEY: ${{ secrets.DEFENDER_API_KEY }}
+          SERVERLESS_API_SECRET: ${{ secrets.DEFENDER_API_SECRET }}
+        run: npx serverless deploy

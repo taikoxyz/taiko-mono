@@ -2,18 +2,17 @@ service: taiko-defender-as-code
 configValidationMode: error
 frameworkVersion: "3"
 
+useDotenv: true
+
 provider:
   name: defender
   stage: ${opt:stage, 'dev'}
   stackName: mystack
   ssot: false
 
-custom:
-  config: ${file(secrets.${self:provider.stage}.yml)}
-
 defender:
-  key: ${self:custom.config.keys.api}
-  secret: ${self:custom.config.keys.secret}
+  key: ${env:DEFENDER_API_KEY}
+  secret: ${env:DEFENDER_API_SECRET}
 
 resources:
   actions:
