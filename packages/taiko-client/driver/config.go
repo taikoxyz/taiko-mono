@@ -66,7 +66,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	}
 
 	if beaconEndpoint == "" && blobServerEndpoint == nil && socialScanEndpoint == nil {
-		return nil, errors.New("empty L1 beacon endpoint, blob server and social scan endpoint")
+		return nil, errors.New("empty L1 beacon endpoint, blob server and Social Scan endpoint")
 	}
 
 	var timeout = c.Duration(flags.RPCTimeout.Name)
