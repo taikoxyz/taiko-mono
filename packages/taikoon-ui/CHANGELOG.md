@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.3.0](https://github.com/taikoxyz/taiko-mono/compare/taikoon-ui-v1.2.0...taikoon-ui-v1.3.0) (2024-09-13)
+
+
+### Features
+
+* **taikoons:** updated whitelist ([#18082](https://github.com/taikoxyz/taiko-mono/issues/18082)) ([e340c10](https://github.com/taikoxyz/taiko-mono/commit/e340c102f0537d1b1531806f4164d18976bae503))
+
+
+### Build
+
+* **deps-dev:** bump @sveltejs/kit from 2.5.7 to 2.5.21 ([#17901](https://github.com/taikoxyz/taiko-mono/issues/17901)) ([7a32ac4](https://github.com/taikoxyz/taiko-mono/commit/7a32ac40a654521c82cb3ff5b6f5af87d0a915a4))
+* **deps:** bump @web3modal/common from 4.1.11 to 5.0.11 ([#17876](https://github.com/taikoxyz/taiko-mono/issues/17876)) ([6ac4eb0](https://github.com/taikoxyz/taiko-mono/commit/6ac4eb0141be1bc3332da6ff63e8bebd9c00e326))
+
 ## [1.2.0](https://github.com/taikoxyz/taiko-mono/compare/taikoon-ui-v1.1.1...taikoon-ui-v1.2.0) (2024-07-04)
 
 

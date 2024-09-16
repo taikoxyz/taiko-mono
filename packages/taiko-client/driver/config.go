@@ -42,8 +42,9 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		return nil, errors.New("empty L2 check point URL")
 	}
 
-	if !c.IsSet(flags.L1BeaconEndpoint.Name) {
-		return nil, errors.New("empty L1 beacon endpoint")
+	var beaconEndpoint string
+	if c.IsSet(flags.L1BeaconEndpoint.Name) {
+		beaconEndpoint = c.String(flags.L1BeaconEndpoint.Name)
 	}
 
 	var blobServerEndpoint *url.URL
@@ -64,11 +65,15 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		}
 	}
 
+	if beaconEndpoint == "" && blobServerEndpoint == nil && socialScanEndpoint == nil {
+		return nil, errors.New("empty L1 beacon endpoint, blob server and Social Scan endpoint")
+	}
+
 	var timeout = c.Duration(flags.RPCTimeout.Name)
 	return &Config{
 		ClientConfig: &rpc.ClientConfig{
 			L1Endpoint:       c.String(flags.L1WSEndpoint.Name),
-			L1BeaconEndpoint: c.String(flags.L1BeaconEndpoint.Name),
+			L1BeaconEndpoint: beaconEndpoint,
 			L2Endpoint:       c.String(flags.L2WSEndpoint.Name),
 			L2CheckPoint:     l2CheckPoint,
 			TaikoL1Address:   common.HexToAddress(c.String(flags.TaikoL1Address.Name)),

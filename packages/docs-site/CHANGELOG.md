@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.11.9](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.11.8...docs-site-v1.11.9) (2024-09-15)
+
+
+### Documentation
+
+* **docs-site:** add forge verify in faq ([#17937](https://github.com/taikoxyz/taiko-mono/issues/17937)) ([513d9fe](https://github.com/taikoxyz/taiko-mono/commit/513d9fe745ff947e6a1f3f21cfc568432b008d65))
+* **docs-site:** added documentation for PORTERS ([#18033](https://github.com/taikoxyz/taiko-mono/issues/18033)) ([548884d](https://github.com/taikoxyz/taiko-mono/commit/548884d10ca3dc9931c025428f827335e42b55db))
+* **docs-site:** update docs for hekla ontake ([#18090](https://github.com/taikoxyz/taiko-mono/issues/18090)) ([f877568](https://github.com/taikoxyz/taiko-mono/commit/f8775684f32f46f04e8bc8a416f7e2bacfb32530))
+
 ## [1.11.8](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.11.7...docs-site-v1.11.8) (2024-08-08)
 
 
