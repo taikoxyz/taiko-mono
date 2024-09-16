@@ -6,19 +6,13 @@ const ABI = [
     anonymous: false,
     inputs: [
       {
-        indexed: false,
-        internalType: "uint32",
-        name: "version",
-        type: "uint32",
-      },
-      {
-        indexed: false,
-        internalType: "address[]",
-        name: "guardians",
-        type: "address[]",
+        indexed: true,
+        internalType: "bool",
+        name: "enabled",
+        type: "bool",
       },
     ],
-    name: "GuardiansUpdated",
+    name: "ProvingAutoPauseEnabled",
     type: "event",
   },
 ];
@@ -26,7 +20,12 @@ const ABI = [
 function alertOrg(notificationClient, message) {
   notificationClient.send({
     channelAlias: "discord_configs",
-    subject: "⚠️ GuardianProver: GuardiansUpdated Alert",
+    subject: "⚠️ GuardianProver: ProvingAutoPauseEnabled Alert",
+    message,
+  });
+  notificationClient.send({
+    channelAlias: "tg_taiko_guardians",
+    subject: "⚠️ GuardianProver: ProvingAutoPauseEnabled Alert",
     message,
   });
 }
@@ -105,7 +104,7 @@ exports.handler = async function (event, context) {
   const toBlock = currentBlockNumber;
 
   const logs = await fetchLogsFromL1(
-    "GuardiansUpdated",
+    "ProvingAutoPauseEnabled",
     fromBlock,
     toBlock,
     "0xE3D777143Ea25A6E031d1e921F396750885f43aC",
@@ -116,10 +115,12 @@ exports.handler = async function (event, context) {
   console.log(`Logs found: ${logs.length}`);
 
   if (logs.length > 0) {
-    alertOrg(
-      notificationClient,
-      `GuardiansUpdated event detected! Details: ${JSON.stringify(logs)}`,
-    );
+    logs.forEach((log) => {
+      const enabled = log.enabled;
+      const status = enabled ? "ENABLED" : "DISABLED";
+      const message = `Proving Auto-Pause has been ${status}.\n\nDetails:\n- Enabled: ${enabled}\n- Block Number: ${log.blockNumber}`;
+      alertOrg(notificationClient, message);
+    });
   }
 
   return true;

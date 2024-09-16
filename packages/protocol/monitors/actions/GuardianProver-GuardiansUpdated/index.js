@@ -6,37 +6,19 @@ const ABI = [
     anonymous: false,
     inputs: [
       {
-        indexed: true,
-        internalType: "uint256",
-        name: "blockId",
-        type: "uint256",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "guardian",
-        type: "address",
+        indexed: false,
+        internalType: "uint32",
+        name: "version",
+        type: "uint32",
       },
       {
         indexed: false,
-        internalType: "bytes32",
-        name: "currentProofHash",
-        type: "bytes32",
-      },
-      {
-        indexed: false,
-        internalType: "bytes32",
-        name: "newProofHash",
-        type: "bytes32",
-      },
-      {
-        indexed: false,
-        internalType: "bool",
-        name: "provingPaused",
-        type: "bool",
+        internalType: "address[]",
+        name: "guardians",
+        type: "address[]",
       },
     ],
-    name: "ConflictingProofs",
+    name: "GuardiansUpdated",
     type: "event",
   },
 ];
@@ -44,7 +26,13 @@ const ABI = [
 function alertOrg(notificationClient, message) {
   notificationClient.send({
     channelAlias: "discord_configs",
-    subject: "🚨 GuardianProver: ConflictingProofs Alert",
+    subject: "⚠️ GuardianProver: GuardiansUpdated Alert",
+    message,
+  });
+
+  notificationClient.send({
+    channelAlias: "tg_taiko_guardians",
+    subject: "⚠️ GuardianProver: GuardiansUpdated Alert",
     message,
   });
 }
@@ -123,7 +111,7 @@ exports.handler = async function (event, context) {
   const toBlock = currentBlockNumber;
 
   const logs = await fetchLogsFromL1(
-    "ConflictingProofs",
+    "GuardiansUpdated",
     fromBlock,
     toBlock,
     "0xE3D777143Ea25A6E031d1e921F396750885f43aC",
@@ -136,7 +124,7 @@ exports.handler = async function (event, context) {
   if (logs.length > 0) {
     alertOrg(
       notificationClient,
-      `ConflictingProofs event detected! Details: ${JSON.stringify(logs)}`,
+      `GuardiansUpdated event detected! Details: ${JSON.stringify(logs)}`,
     );
   }
 

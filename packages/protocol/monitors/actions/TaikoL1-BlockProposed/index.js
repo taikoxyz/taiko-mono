@@ -262,6 +262,12 @@ function alertOrg(notificationClient, message) {
     subject: "🚨 TaikoL1: BlockProposed Alert",
     message,
   });
+
+  notificationClient.send({
+    channelAlias: "tg_taiko_guardians",
+    subject: "🚨 TaikoL1: BlockProposed Alert",
+    message,
+  });
 }
 
 async function getLatestBlockNumber(provider) {
@@ -359,7 +365,7 @@ exports.handler = async function (event, context) {
   if (logs.length === 0) {
     alertOrg(
       notificationClient,
-      `No BlockProposed event detected in the last 5 mins on TaikoL1!`,
+      `No BlockProposed event detected in the last 15 mins on TaikoL1!`,
     );
   }
 

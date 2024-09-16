@@ -7,20 +7,87 @@ const ABI = [
     inputs: [
       {
         indexed: true,
-        internalType: "bool",
-        name: "enabled",
-        type: "bool",
+        internalType: "uint256",
+        name: "blockId",
+        type: "uint256",
+      },
+      {
+        indexed: true,
+        internalType: "address",
+        name: "prover",
+        type: "address",
+      },
+      {
+        indexed: false,
+        internalType: "bytes32",
+        name: "blockHash",
+        type: "bytes32",
+      },
+      {
+        indexed: false,
+        internalType: "bytes32",
+        name: "stateRoot",
+        type: "bytes32",
+      },
+      {
+        indexed: false,
+        internalType: "uint16",
+        name: "tier",
+        type: "uint16",
       },
     ],
-    name: "ProvingAutoPauseEnabled",
+    name: "BlockVerified",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: "uint256",
+        name: "blockId",
+        type: "uint256",
+      },
+      {
+        indexed: true,
+        internalType: "address",
+        name: "prover",
+        type: "address",
+      },
+      {
+        indexed: false,
+        internalType: "bytes32",
+        name: "blockHash",
+        type: "bytes32",
+      },
+      {
+        indexed: false,
+        internalType: "bytes32",
+        name: "stateRoot",
+        type: "bytes32",
+      },
+      {
+        indexed: false,
+        internalType: "uint16",
+        name: "tier",
+        type: "uint16",
+      },
+    ],
+    name: "BlockVerifiedV2",
     type: "event",
   },
 ];
 
 function alertOrg(notificationClient, message) {
   notificationClient.send({
-    channelAlias: "discord_configs",
-    subject: "⚠️ GuardianProver: ProvingAutoPauseEnabled Alert",
+    channelAlias: "discord_blocks",
+    subject: "🚨 TaikoL1: BlockVerified Alert",
+    message,
+  });
+
+  notificationClient.send({
+    channelAlias: "tg_taiko_guardians",
+    subject: "🚨 TaikoL1: BlockVerified Alert",
     message,
   });
 }
@@ -31,7 +98,7 @@ async function getLatestBlockNumber(provider) {
 }
 
 async function fetchLogsFromL1(
-  eventName,
+  eventNames,
   fromBlock,
   toBlock,
   address,
@@ -39,21 +106,23 @@ async function fetchLogsFromL1(
   provider,
 ) {
   const iface = new ethers.utils.Interface(abi);
-  const eventTopic = iface.getEventTopic(eventName);
+  const eventTopics = eventNames.map((eventName) =>
+    iface.getEventTopic(eventName),
+  );
+
+  console.log(`eventTopics: ${eventTopics}`);
 
   try {
     const logs = await provider.getLogs({
       address,
       fromBlock,
       toBlock,
-      topics: [eventTopic],
+      topics: [eventTopics],
     });
 
-    return logs.map((log) =>
-      iface.decodeEventLog(eventName, log.data, log.topics),
-    );
+    return logs.map((log) => iface.parseLog(log));
   } catch (error) {
-    console.error(`Error fetching logs for ${eventName}:`, error);
+    console.error("Error fetching L1 logs:", error);
     return [];
   }
 }
@@ -99,23 +168,19 @@ exports.handler = async function (event, context) {
   const toBlock = currentBlockNumber;
 
   const logs = await fetchLogsFromL1(
-    "ProvingAutoPauseEnabled",
+    ["BlockVerified", "BlockVerifiedV2"],
     fromBlock,
     toBlock,
-    "0xE3D777143Ea25A6E031d1e921F396750885f43aC",
+    "0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a",
     ABI,
     taikoL1Provider,
   );
 
-  console.log(`Logs found: ${logs.length}`);
-
-  if (logs.length > 0) {
-    logs.forEach((log) => {
-      const enabled = log.enabled;
-      const status = enabled ? "ENABLED" : "DISABLED";
-      const message = `Proving Auto-Pause has been ${status}.\n\nDetails:\n- Enabled: ${enabled}\n- Block Number: ${log.blockNumber}`;
-      alertOrg(notificationClient, message);
-    });
+  if (logs.length === 0) {
+    alertOrg(
+      notificationClient,
+      `@davidcai @yuea7583 No BlockVerified event detected in the last 30 mins in TaikoL1!`,
+    );
   }
 
   return true;

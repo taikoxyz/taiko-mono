@@ -1,6 +1,8 @@
-service: defender-as-code-test-project
+service: taiko-defender-as-code
 configValidationMode: error
 frameworkVersion: "3"
+
+useDotenv: true
 
 provider:
   name: defender
@@ -8,12 +10,9 @@ provider:
   stackName: mystack
   ssot: false
 
-custom:
-  config: ${file(secrets.${self:provider.stage}.yml)}
-
 defender:
-  key: ${self:custom.config.keys.api}
-  secret: ${self:custom.config.keys.secret}
+  key: ${env:DEFENDER_API_KEY}
+  secret: ${env:DEFENDER_API_SECRET}
 
 resources:
   actions:
@@ -23,7 +22,7 @@ resources:
         type: schedule
         frequency: 15
       paused: false
-      path: ./actions/ERC20Vault-BalanceDrop.js
+      path: ./actions/ERC20Vault-BalanceDrop
 
     sgx-verifier-verify-proof-failure-alert:
       name: "SGXVerifier: VerifyProof failure Alert"
@@ -31,7 +30,7 @@ resources:
         type: schedule
         frequency: 5
       paused: false
-      path: ./actions/SGXVerifier-verifyProofFailure.js
+      path: ./actions/SGXVerifier-verifyProofFailure
 
     vaults-bridged-token-deployed:
       name: "Vaults: BridgedTokenDeployed"
@@ -39,7 +38,7 @@ resources:
         type: schedule
         frequency: 1440
       paused: false
-      path: ./actions/Vaults-BridgedTokenDeployed.js
+      path: ./actions/Vaults-BridgedTokenDeployed
 
     er-20-vault-bridged-token-changed:
       name: "ER20Vault : BridgedTokenChanged"
@@ -47,7 +46,7 @@ resources:
         type: schedule
         frequency: 4
       paused: false
-      path: ./actions/ER20Vault-BridgedTokenChanged.js
+      path: ./actions/ER20Vault-BridgedTokenChanged
 
     bridge-message-processed:
       name: "Bridge: MessageProcessed"
@@ -55,7 +54,7 @@ resources:
         type: schedule
         frequency: 15
       paused: false
-      path: ./actions/Bridge-MessageProcessed.js
+      path: ./actions/Bridge-MessageProcessed
 
     taiko-l-1-calldata-tx-list-count:
       name: "TaikoL1: CalldataTxList Count"
@@ -63,7 +62,7 @@ resources:
         type: schedule
         frequency: 1440
       paused: false
-      path: ./actions/TaikoL1-CalldataTxListCount.js
+      path: ./actions/TaikoL1-CalldataTxListCount
 
     guardian-prover-proving-auto-pause-enabled-alert:
       name: "GuardianProver: ProvingAutoPauseEnabled Alert"
@@ -71,7 +70,7 @@ resources:
         type: schedule
         frequency: 4
       paused: false
-      path: ./actions/GuardianProver-ProvingAutoPauseEnabled.js
+      path: ./actions/GuardianProver-ProvingAutoPauseEnabled
 
     guardian-prover-conflicting-proofs-alert:
       name: "GuardianProver: ConflictingProofs Alert"
@@ -79,7 +78,7 @@ resources:
         type: schedule
         frequency: 4
       paused: false
-      path: ./actions/GuardianProver-ConflictingProofs.js
+      path: ./actions/GuardianProver-ConflictingProofs
 
     guardian-prover-approved-count:
       name: "GuardianProver: Approved Count"
@@ -87,7 +86,7 @@ resources:
         type: schedule
         frequency: 15
       paused: false
-      path: ./actions/GuardianProver-ApprovedCount.js
+      path: ./actions/GuardianProver-ApprovedCount
 
     guardian-prover-guardians-updated-alert:
       name: "GuardianProver: GuardiansUpdated Alert"
@@ -95,7 +94,7 @@ resources:
         type: schedule
         frequency: 4
       paused: false
-      path: ./actions/GuardianProver-GuardiansUpdated.js
+      path: ./actions/GuardianProver-GuardiansUpdated
 
     taiko-l-1-proving-paused-alert:
       name: "TaikoL1: ProvingPaused Alert"
@@ -103,7 +102,7 @@ resources:
         type: schedule
         frequency: 4
       paused: false
-      path: ./actions/TaikoL1-ProvingPaused.js
+      path: ./actions/TaikoL1-ProvingPaused
 
     taiko-l-1-transition-contested-count:
       name: "TaikoL1: TransitionContested Count"
@@ -111,7 +110,7 @@ resources:
         type: schedule
         frequency: 60
       paused: false
-      path: ./actions/TaikoL1-TransitionContestedCount.js
+      path: ./actions/TaikoL1-TransitionContestedCount
 
     taiko-l-1-transition-proved-alert:
       name: "TaikoL1: TransitionProved Alert"
@@ -119,7 +118,7 @@ resources:
         type: schedule
         frequency: 4
       paused: false
-      path: ./actions/TaikoL1-TransitionProved.js
+      path: ./actions/TaikoL1-TransitionProved
 
     taiko-l-1-block-verified-alert:
       name: "TaikoL1: BlockVerified Alert"
@@ -127,7 +126,7 @@ resources:
         type: schedule
         frequency: 4
       paused: false
-      path: ./actions/TaikoL1-BlockVerified.js
+      path: ./actions/TaikoL1-BlockVerified
 
     taiko-l-1-block-proposed-alert:
       name: "TaikoL1: BlockProposed Alert"
@@ -135,15 +134,15 @@ resources:
         type: schedule
         frequency: 4
       paused: false
-      path: ./actions/TaikoL1-BlockProposed.js
+      path: ./actions/TaikoL1-BlockProposed
 
   policies:
     policy-Qe:
       eip1559-pricing: true
-      private-transactions: false
+      # private-transactions: false
     policy-hk:
       eip1559-pricing: true
-      private-transactions: false
+      # private-transactions: false
   contracts:
     pem-cert-chain-lib:
       name: pem_cert_chain_lib
@@ -643,7 +642,7 @@ resources:
             signature: Upgraded(address)
   forked-networks: {}
   private-networks:
-    taikol-2:
+    taikol2:
       name: taikol2
       rpc-url: https://rpc.mainnet.taiko.xyz
       configuration:
