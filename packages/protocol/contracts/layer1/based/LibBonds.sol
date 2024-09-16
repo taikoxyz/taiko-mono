@@ -68,8 +68,9 @@ library LibBonds {
     )
         internal
     {
-        uint256 balance = _state.bondBalance[_user];
+        if (_amount == 0) return;
 
+        uint256 balance = _state.bondBalance[_user];
         if (balance >= _amount) {
             unchecked {
                 _state.bondBalance[_user] = balance - _amount;
@@ -93,6 +94,7 @@ library LibBonds {
     )
         internal
     {
+        if (_amount == 0) return;
         unchecked {
             _state.bondBalance[_user] += _amount;
         }
