@@ -43,18 +43,18 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
-	sink := make(chan *bindings.LibProposingBlockProposed)
+	sink := make(chan *bindings.TaikoL1ClientBlockProposed)
 
-	sub, err := s.RPCClient.LibProposing.WatchBlockProposed(nil, sink, nil, nil)
+	sub, err := s.RPCClient.TaikoL1.WatchBlockProposed(nil, sink, nil, nil)
 	s.Nil(err)
 	defer func() {
 		sub.Unsubscribe()
 		close(sink)
 	}()
 
-	sink2 := make(chan *bindings.LibProposingBlockProposedV2)
+	sink2 := make(chan *bindings.TaikoL1ClientBlockProposedV2)
 
-	sub2, err := s.RPCClient.LibProposing.WatchBlockProposedV2(nil, sink2, nil)
+	sub2, err := s.RPCClient.TaikoL1.WatchBlockProposedV2(nil, sink2, nil)
 	s.Nil(err)
 	defer func() {
 		sub2.Unsubscribe()
@@ -118,17 +118,17 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 	s.Nil(err)
 
 	// Propose txs in L2 execution engine's mempool
-	sink := make(chan *bindings.LibProposingBlockProposed)
+	sink := make(chan *bindings.TaikoL1ClientBlockProposed)
 
-	sub, err := s.RPCClient.LibProposing.WatchBlockProposed(nil, sink, nil, nil)
+	sub, err := s.RPCClient.TaikoL1.WatchBlockProposed(nil, sink, nil, nil)
 	s.Nil(err)
 	defer func() {
 		sub.Unsubscribe()
 		close(sink)
 	}()
 
-	sink2 := make(chan *bindings.LibProposingBlockProposedV2)
-	sub2, err := s.RPCClient.LibProposing.WatchBlockProposedV2(nil, sink2, nil)
+	sink2 := make(chan *bindings.TaikoL1ClientBlockProposedV2)
+	sub2, err := s.RPCClient.TaikoL1.WatchBlockProposedV2(nil, sink2, nil)
 	s.Nil(err)
 	defer func() {
 		sub2.Unsubscribe()
@@ -197,7 +197,7 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 
 func (s *ClientTestSuite) ProposeValidBlock(
 	proposer Proposer,
-) *bindings.LibProposingBlockProposed {
+) *bindings.TaikoL1ClientBlockProposed {
 	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
@@ -205,9 +205,9 @@ func (s *ClientTestSuite) ProposeValidBlock(
 	s.Nil(err)
 
 	// Propose txs in L2 execution engine's mempool
-	sink := make(chan *bindings.LibProposingBlockProposed)
+	sink := make(chan *bindings.TaikoL1ClientBlockProposed)
 
-	sub, err := s.RPCClient.LibProposing.WatchBlockProposed(nil, sink, nil, nil)
+	sub, err := s.RPCClient.TaikoL1.WatchBlockProposed(nil, sink, nil, nil)
 	s.Nil(err)
 	defer func() {
 		sub.Unsubscribe()
