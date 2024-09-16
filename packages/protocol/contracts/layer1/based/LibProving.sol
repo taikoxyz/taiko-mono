@@ -515,10 +515,11 @@ library LibProving {
                 // The contested transition is proven to be invalid, contester wins the game.
                 // Contester gets 3/4 of reward, the new prover gets 1/4.
                 reward = _rewardAfterFriction(_ts.validityBond) >> 2;
-
-                LibBonds.creditBond(
-                    _state, _ts.contester, _local.blockId, _ts.contestBond + reward * 3
-                );
+                unchecked {
+                    LibBonds.creditBond(
+                        _state, _ts.contester, _local.blockId, _ts.contestBond + reward * 3
+                    );
+                }
             }
         } else {
             if (_local.sameTransition) revert L1_ALREADY_PROVED();
@@ -536,7 +537,9 @@ library LibProving {
 
                 if (_returnLivenessBond(_local, _proof.data)) {
                     if (_local.assignedProver == msg.sender) {
-                        reward += _local.livenessBond;
+                        unchecked {
+                            reward += _local.livenessBond;
+                        }
                     } else {
                         LibBonds.creditBond(
                             _state, _local.assignedProver, _local.blockId, _local.livenessBond
