@@ -377,7 +377,9 @@ library LibProving {
 
                 // _checkIfContestable(/*_state,*/ tier.cooldownWindow, ts.timestamp);
                 // Burn the contest bond from the prover.
-                LibBonds.debitBond(_state, _resolver, msg.sender, local.blockId, local.tier.contestBond);
+                LibBonds.debitBond(
+                    _state, _resolver, msg.sender, local.blockId, local.tier.contestBond
+                );
 
                 // We retain the contest bond within the transition, just in
                 // case this configuration is altered to a different value
@@ -514,7 +516,9 @@ library LibProving {
                 // Contester gets 3/4 of reward, the new prover gets 1/4.
                 reward = _rewardAfterFriction(_ts.validityBond) >> 2;
 
-                LibBonds.creditBond(_state, _ts.contester, _local.blockId, _ts.contestBond + reward * 3);
+                LibBonds.creditBond(
+                    _state, _ts.contester, _local.blockId, _ts.contestBond + reward * 3
+                );
             }
         } else {
             if (_local.sameTransition) revert L1_ALREADY_PROVED();
@@ -534,7 +538,9 @@ library LibProving {
                     if (_local.assignedProver == msg.sender) {
                         reward += _local.livenessBond;
                     } else {
-                        LibBonds.creditBond(_state, _local.assignedProver, _local.blockId, _local.livenessBond);
+                        LibBonds.creditBond(
+                            _state, _local.assignedProver, _local.blockId, _local.livenessBond
+                        );
                     }
                 }
             }
@@ -542,9 +548,13 @@ library LibProving {
 
         unchecked {
             if (reward > _local.tier.validityBond) {
-                LibBonds.creditBond(_state, msg.sender, _local.blockId, reward - _local.tier.validityBond);
+                LibBonds.creditBond(
+                    _state, msg.sender, _local.blockId, reward - _local.tier.validityBond
+                );
             } else if (reward < _local.tier.validityBond) {
-                LibBonds.debitBond(_state, _resolver, msg.sender, _local.blockId, _local.tier.validityBond - reward);
+                LibBonds.debitBond(
+                    _state, _resolver, msg.sender, _local.blockId, _local.tier.validityBond - reward
+                );
             }
         }
 

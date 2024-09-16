@@ -85,8 +85,17 @@ library LibBonds {
     /// @param _user The address of the user to credit.
     /// @param _blockId The ID of the block to credit for.
     /// @param _amount The amount of tokens to credit.
-    function creditBond(TaikoData.State storage _state, address _user, uint256 _blockId, uint256 _amount) internal {
-        _state.bondBalance[_user] += _amount;
+    function creditBond(
+        TaikoData.State storage _state,
+        address _user,
+        uint256 _blockId,
+        uint256 _amount
+    )
+        internal
+    {
+        unchecked {
+            _state.bondBalance[_user] += _amount;
+        }
         emit BondCredited(_user, _blockId, _amount);
     }
 
