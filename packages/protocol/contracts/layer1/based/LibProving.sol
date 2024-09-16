@@ -377,7 +377,9 @@ library LibProving {
 
                 // _checkIfContestable(/*_state,*/ tier.cooldownWindow, ts.timestamp);
                 // Burn the contest bond from the prover.
-                LibBonds.debitBond(_state, _resolver, msg.sender, local.tier.contestBond);
+                LibBonds.debitBond(
+                    _state, _resolver, msg.sender, local.blockId, local.tier.contestBond
+                );
 
                 // We retain the contest bond within the transition, just in
                 // case this configuration is altered to a different value
@@ -508,13 +510,16 @@ library LibProving {
                 reward = _rewardAfterFriction(_ts.contestBond);
 
                 // We return the validity bond back, but the original prover doesn't get any reward.
-                LibBonds.creditBond(_state, _ts.prover, _ts.validityBond);
+                LibBonds.creditBond(_state, _ts.prover, _local.blockId, _ts.validityBond);
             } else {
                 // The contested transition is proven to be invalid, contester wins the game.
                 // Contester gets 3/4 of reward, the new prover gets 1/4.
                 reward = _rewardAfterFriction(_ts.validityBond) >> 2;
-
-                LibBonds.creditBond(_state, _ts.contester, _ts.contestBond + reward * 3);
+                unchecked {
+                    LibBonds.creditBond(
+                        _state, _ts.contester, _local.blockId, _ts.contestBond + reward * 3
+                    );
+                }
             }
         } else {
             if (_local.sameTransition) revert L1_ALREADY_PROVED();
@@ -532,9 +537,13 @@ library LibProving {
 
                 if (_returnLivenessBond(_local, _proof.data)) {
                     if (_local.assignedProver == msg.sender) {
-                        reward += _local.livenessBond;
+                        unchecked {
+                            reward += _local.livenessBond;
+                        }
                     } else {
-                        LibBonds.creditBond(_state, _local.assignedProver, _local.livenessBond);
+                        LibBonds.creditBond(
+                            _state, _local.assignedProver, _local.blockId, _local.livenessBond
+                        );
                     }
                 }
             }
@@ -542,9 +551,13 @@ library LibProving {
 
         unchecked {
             if (reward > _local.tier.validityBond) {
-                LibBonds.creditBond(_state, msg.sender, reward - _local.tier.validityBond);
+                LibBonds.creditBond(
+                    _state, msg.sender, _local.blockId, reward - _local.tier.validityBond
+                );
             } else if (reward < _local.tier.validityBond) {
-                LibBonds.debitBond(_state, _resolver, msg.sender, _local.tier.validityBond - reward);
+                LibBonds.debitBond(
+                    _state, _resolver, msg.sender, _local.blockId, _local.tier.validityBond - reward
+                );
             }
         }
 

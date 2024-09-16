@@ -269,7 +269,7 @@ library LibProposing {
             ++_state.slotB.numBlocks;
         }
 
-        LibBonds.debitBond(_state, _resolver, local.params.proposer, _config.livenessBond);
+        LibBonds.debitBond(_state, _resolver, local.params.proposer, meta_.id, _config.livenessBond);
 
         emit BlockProposedV2(meta_.id, meta_);
     }
