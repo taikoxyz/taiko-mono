@@ -7,14 +7,14 @@ on:
       - "packages/protocol/monitors/**"
 
 jobs:
-  deploy-defender_monitors:
+  deploy-protocol-monitors:
     if: github.event.pull_request.draft == false
     runs-on: [taiko-runner]
     permissions:
       # Give the necessary permissions for stefanzweifel/git-auto-commit-action.
       contents: write
     steps:
-      - name: Deploy Monitors
+      - name: Deploy Monitors on OZ Defender
         working-directory: ./packages/protocol/monitors
         env:
           SERVERLESS_API_KEY: ${{ secrets.DEFENDER_API_KEY }}
