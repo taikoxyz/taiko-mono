@@ -5,11 +5,10 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "packages/protocol/**"
-    paths-ignore:
-      - "packages/protocol/audit/**"
-      - "packages/protocol/docs/**"
-      - "packages/protocol/simulation/**"
-      - "packages/protocol/deployments/**"
+      - "!packages/protocol/audit/**"
+      - "!packages/protocol/docs/**"
+      - "!packages/protocol/simulation/**"
+      - "!packages/protocol/deployments/**"
 
 jobs:
   build-protocol:
