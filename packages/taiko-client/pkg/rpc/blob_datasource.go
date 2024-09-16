@@ -134,7 +134,7 @@ func (ds *BlobDataSource) getBlobFromServer(ctx context.Context, blobHash common
 		SetHeader("Accept", "application/json").
 		Get(requestURL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get blob from server, request_url: %s, err: %v", requestURL, err)
+		return nil, fmt.Errorf("failed to get blob from server, request_url: %s, err: %w", requestURL, err)
 	}
 	if !resp.IsSuccess() {
 		return nil, fmt.Errorf(
