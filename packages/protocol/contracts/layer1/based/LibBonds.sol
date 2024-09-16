@@ -74,10 +74,10 @@ library LibBonds {
             unchecked {
                 _state.bondBalance[_user] = balance - _amount;
             }
-            emit BondDebited(_user, _blockId, _amount);
         } else {
             _tko(_resolver).transferFrom(_user, address(this), _amount);
         }
+        emit BondDebited(_user, _blockId, _amount);
     }
 
     /// @dev Credits TAIKO tokens to a user's bond balance.
