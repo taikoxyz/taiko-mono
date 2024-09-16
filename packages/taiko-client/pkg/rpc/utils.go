@@ -73,25 +73,41 @@ func CheckProverBalance(
 		"bond", utils.WeiToEther(bond),
 	)
 
-	// Check prover's taiko token balance
-	balance, err := rpc.TaikoToken.BalanceOf(&bind.CallOpts{Context: ctxWithTimeout}, prover)
+	// Check prover's taiko token bondBalance
+	bondBalance, err := rpc.TaikoL1.BondBalanceOf(&bind.CallOpts{Context: ctxWithTimeout}, prover)
 	if err != nil {
 		return false, err
 	}
 
+	// Check prover's taiko token tokenBalance
+	tokenBalance, err := rpc.TaikoToken.BalanceOf(&bind.CallOpts{Context: ctxWithTimeout}, prover)
+	if err != nil {
+		return false, err
+	}
+
+	totalBalance := new(big.Int).Add(bondBalance, tokenBalance)
 	log.Info(
 		"Prover's wallet taiko token balance",
-		"balance", utils.WeiToEther(balance),
+		"bondBalance", utils.WeiToEther(bondBalance),
+		"tokenBalance", utils.WeiToEther(tokenBalance),
+		"totalBalance", utils.WeiToEther(totalBalance),
 		"address", prover.Hex(),
 		"bond", utils.WeiToEther(bond),
 	)
 
-	if bond.Cmp(allowance) > 0 || bond.Cmp(balance) > 0 {
+	if bond.Cmp(allowance) > 0 {
 		log.Info(
-			"Assigned prover does not have required on-chain token balance or allowance",
-			"providedProver", prover.Hex(),
-			"taikoTokenBalance", utils.WeiToEther(balance),
+			"Assigned prover does not have required on-chain token allowance",
 			"allowance", utils.WeiToEther(allowance),
+			"bond", utils.WeiToEther(bond),
+		)
+		return false, nil
+	}
+
+	if bond.Cmp(totalBalance) > 0 {
+		log.Info(
+			"Assigned prover does not have required on-chain token balance",
+			"totalBalance", utils.WeiToEther(totalBalance),
 			"bond", utils.WeiToEther(bond),
 		)
 		return false, nil
