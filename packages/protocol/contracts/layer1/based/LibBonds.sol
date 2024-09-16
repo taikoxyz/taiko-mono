@@ -13,13 +13,15 @@ import "./TaikoData.sol";
 library LibBonds {
     /// @dev Emitted when a token is credited back to a user's bond balance.
     /// @param user The address of the user whose bond balance is credited.
+    /// @param blockId The ID of the block to credit for.
     /// @param amount The amount of tokens credited.
-    event BondCredited(address indexed user, uint256 amount);
+    event BondCredited(address indexed user, uint256 blockId, uint256 amount);
 
     /// @dev Emitted when a token is debited from a user's bond balance.
     /// @param user The address of the user whose bond balance is debited.
+    /// @param blockId The ID of the block to debit for.
     /// @param amount The amount of tokens debited.
-    event BondDebited(address indexed user, uint256 amount);
+    event BondDebited(address indexed user, uint256 blockId, uint256 amount);
 
     /// @dev Deposits TAIKO tokens to be used as bonds.
     /// @param _state The current state of TaikoData.
@@ -55,11 +57,13 @@ library LibBonds {
     /// @param _state The current state of TaikoData.
     /// @param _resolver The address resolver interface.
     /// @param _user The address of the user to debit.
+    /// @param _blockId The ID of the block to debit for.
     /// @param _amount The amount of tokens to debit.
     function debitBond(
         TaikoData.State storage _state,
         IAddressResolver _resolver,
         address _user,
+        uint256 _blockId,
         uint256 _amount
     )
         internal
@@ -70,7 +74,7 @@ library LibBonds {
             unchecked {
                 _state.bondBalance[_user] = balance - _amount;
             }
-            emit BondDebited(_user, _amount);
+            emit BondDebited(_user, _blockId, _amount);
         } else {
             _tko(_resolver).transferFrom(_user, address(this), _amount);
         }
@@ -79,10 +83,11 @@ library LibBonds {
     /// @dev Credits TAIKO tokens to a user's bond balance.
     /// @param _state The current state of TaikoData.
     /// @param _user The address of the user to credit.
+    /// @param _blockId The ID of the block to credit for.
     /// @param _amount The amount of tokens to credit.
-    function creditBond(TaikoData.State storage _state, address _user, uint256 _amount) internal {
+    function creditBond(TaikoData.State storage _state, address _user, uint256 _blockId, uint256 _amount) internal {
         _state.bondBalance[_user] += _amount;
-        emit BondCredited(_user, _amount);
+        emit BondCredited(_user, _blockId, _amount);
     }
 
     /// @dev Gets a user's current TAIKO token bond balance.
