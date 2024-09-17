@@ -6,7 +6,7 @@ on:
 
 jobs:
   check_label:
-    runs-on: ubuntu-latest
+    runs-on: [arc-runner-set]
     steps:
       - name: Check for "option.do-not-merge" label
         id: check_label
