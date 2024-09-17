@@ -443,7 +443,7 @@ func (p *Processor) sendProcessMessageCall(
 	// mul by 1.05 for padding
 	gasLimit := uint64(float64(event.Message.GasLimit))
 
-	var estimatedCost uint64 = 0
+	var estimatedMaxCost uint64
 
 	if bool(p.profitableOnly) {
 		profitable, err := p.isProfitable(
@@ -490,7 +490,7 @@ func (p *Processor) sendProcessMessageCall(
 			return nil, relayer.ErrUnprofitable
 		}
 
-		estimatedCost = gasUsed * (baseFee.Uint64() + gasTipCap.Uint64())
+		estimatedMaxCost = gasUsed * ((baseFee.Uint64() * 2) + gasTipCap.Uint64())
 	}
 
 	// we should check event status one more time, after we have waiting for
@@ -548,10 +548,10 @@ func (p *Processor) sendProcessMessageCall(
 		slog.Info("tx cost", "txHash", hex.EncodeToString(receipt.TxHash.Bytes()),
 			"srcTxHash", event.Raw.TxHash.Hex(),
 			"actualCost", cost,
-			"estimatedCost", estimatedCost,
+			"estimatedMaxCost", estimatedMaxCost,
 		)
 
-		if cost > estimatedCost {
+		if cost > estimatedMaxCost {
 			relayer.UnprofitableMessageAfterTransacting.Inc()
 		} else {
 			relayer.ProfitableMessageAfterTransacting.Inc()
