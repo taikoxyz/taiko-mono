@@ -219,7 +219,12 @@ func (s *SGXProofProducer) requestProof(
 		return nil, err
 	}
 
-	log.Debug("Proof generation output", "output", string(resBytes))
+	log.Debug(
+		"Proof generation output",
+		"blockID", opts.BlockID,
+		"zkType", "sgx",
+		"output", string(resBytes),
+	)
 
 	var output RaikoRequestProofBodyResponse
 	if err := json.Unmarshal(resBytes, &output); err != nil {
