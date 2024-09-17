@@ -4,7 +4,7 @@ on: workflow_call
 
 jobs:
   build:
-    runs-on: [taiko-runner]
+    runs-on: [arc-runner-set]
     steps:
       - name: Cancel previous runs
         uses: styfle/cancel-workflow-action@0.12.1
