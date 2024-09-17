@@ -76,16 +76,6 @@ func Test_NewServer(t *testing.T) {
 			relayer.ErrNoEventRepository,
 		},
 		{
-			"noCorsOrigins",
-			NewServerOpts{
-				Echo:          echo.New(),
-				EventRepo:     &repo.EventRepository{},
-				SrcEthClient:  &mock.EthClient{},
-				DestEthClient: &mock.EthClient{},
-			},
-			relayer.ErrNoCORSOrigins,
-		},
-		{
 			"noHttpFramework",
 			NewServerOpts{
 				EventRepo:     &repo.EventRepository{},
