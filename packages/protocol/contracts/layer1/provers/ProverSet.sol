@@ -120,7 +120,7 @@ contract ProverSet is EssentialContract, IERC1271 {
     }
 
     /// @notice Proves or contests a Taiko block.
-    function proveBlock(uint64 _blockId, bytes calldata _input) external onlyProver  {
+    function proveBlock(uint64 _blockId, bytes calldata _input) external onlyProver {
         ITaikoL1(taikoL1()).proveBlock(_blockId, _input);
     }
 
@@ -137,12 +137,12 @@ contract ProverSet is EssentialContract, IERC1271 {
     }
 
     /// @notice Deposits Taiko token to TaikoL1 contract.
-    function depositBond(uint256 _amount) external onlyAuthorized  {
+    function depositBond(uint256 _amount) external onlyAuthorized {
         ITaikoL1(taikoL1()).depositBond(_amount);
     }
 
     /// @notice Withdraws Taiko token from TaikoL1 contract.
-    function withdrawBond(uint256 _amount) external onlyAuthorized  {
+    function withdrawBond(uint256 _amount) external onlyAuthorized {
         ITaikoL1(taikoL1()).withdrawBond(_amount);
     }
 
