@@ -10,7 +10,7 @@ on:
 
 jobs:
   hive_tests:
-    if: github.event.pull_request.draft == false && contains(github.event.pull_request.labels.*.name, 'option.hive-test')
+    if: github.event.pull_request.draft == false
     name: hive tests
     runs-on: ubuntu-latest
     timeout-minutes: 15

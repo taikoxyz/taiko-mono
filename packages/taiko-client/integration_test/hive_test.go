@@ -80,7 +80,7 @@ func testBlobAPI(t *testing.T, pattern string, clients []string) {
 	handler, err := hivesim.NewHiveFramework(&hivesim.HiveConfig{
 		BuildOutput:     false,
 		ContainerOutput: true,
-		BaseDir:         "/Users/huan/projects/taiko/hive",
+		BaseDir:         os.Getenv("HIVE_DIR"),
 		SimPattern:      "taiko",
 		SimTestPattern:  pattern,
 		ClientGroups:    [][]string{clients},
