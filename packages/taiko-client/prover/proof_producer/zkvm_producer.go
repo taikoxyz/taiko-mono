@@ -211,7 +211,12 @@ func (s *ZKvmProofProducer) requestProof(
 		return nil, err
 	}
 
-	log.Debug("Proof generation output", "output", string(resBytes))
+	log.Debug(
+		"Proof generation output",
+		"blockID", opts.BlockID,
+		"zkType", s.ZKProofType,
+		"output", string(resBytes),
+	)
 	var output RaikoRequestProofBodyResponseV2
 	if err := json.Unmarshal(resBytes, &output); err != nil {
 		return nil, err
