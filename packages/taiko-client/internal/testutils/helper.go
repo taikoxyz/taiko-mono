@@ -17,6 +17,7 @@ import (
 	"github.com/phayes/freeport"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
@@ -202,7 +203,17 @@ func (s *ClientTestSuite) ProposeValidBlock(
 		close(sink)
 	}()
 
-	baseFeeInfo, err := s.RPCClient.TaikoL2.GetBasefee(nil, l1Head.Number.Uint64()+1, uint32(l2Head.GasUsed))
+	ontakeForkHeight, err := s.RPCClient.TaikoL2.OntakeForkHeight(nil)
+	s.Nil(err)
+
+	baseFee, err := s.RPCClient.CalculateBaseFee(
+		context.Background(),
+		l2Head,
+		l1Head.Number,
+		ontakeForkHeight >= l2Head.Number.Uint64(),
+		&encoding.InternlDevnetProtocolConfig.BaseFeeConfig,
+		l1Head.Time,
+	)
 	s.Nil(err)
 
 	nonce, err := s.RPCClient.L2.PendingNonceAt(context.Background(), s.TestAddr)
@@ -213,7 +224,7 @@ func (s *ClientTestSuite) ProposeValidBlock(
 		common.BytesToAddress(RandomBytes(32)),
 		common.Big1,
 		100000,
-		new(big.Int).SetUint64(uint64(10*params.GWei)+baseFeeInfo.Basefee.Uint64()),
+		new(big.Int).SetUint64(uint64(10*params.GWei)+baseFee.Uint64()),
 		[]byte{},
 	)
 	signedTx, err := types.SignTx(tx, types.LatestSignerForChainID(s.RPCClient.L2.ChainID), s.TestAddrPrivKey)
