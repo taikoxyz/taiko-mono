@@ -18,7 +18,7 @@ jobs:
   lint-relayer:
     name: lint-relayer
     if: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft == false }}
-    runs-on: [taiko-runner]
+    runs-on: [arc-runner-set]
     steps:
       - uses: actions/setup-go@v5
         with:
@@ -36,7 +36,7 @@ jobs:
 
   test-relayer:
     if: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft == false }}
-    runs-on: [taiko-runner]
+    runs-on: [arc-runner-set]
     needs: lint-relayer
     steps:
       - name: Cancel Previous Runs
@@ -63,7 +63,7 @@ jobs:
     # Skip dependabot PRs
     if: ${{ github.event_name == 'pull_request' && ! startsWith(github.ref, 'refs/heads/dependabot/') }}
     name: Build and push docker image
-    runs-on: [taiko-runner]
+    runs-on: [arc-runner-set]
 
     steps:
       - name: Checkout
