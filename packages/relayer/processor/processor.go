@@ -66,7 +66,6 @@ type hop struct {
 	taikoAddress         common.Address
 	ethClient            ethClient
 	caller               relayer.Caller
-	blockNum             uint64
 }
 
 // Processor is the main struct which handles message processing and queue
