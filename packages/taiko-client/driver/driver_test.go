@@ -132,7 +132,7 @@ func (s *DriverTestSuite) TestCheckL1ReorgToHigherFork() {
 	// Because of evm_revert operation, the nonce of the proposer need to be adjusted.
 	// Propose ten blocks on another fork
 	for i := 0; i < 10; i++ {
-		s.ProposeInvalidTxListBytes(s.p)
+		s.ProposeValidBlock(s.p)
 	}
 
 	l1Head4, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
@@ -190,7 +190,7 @@ func (s *DriverTestSuite) TestCheckL1ReorgToLowerFork() {
 	s.GreaterOrEqual(l1Head3.Number.Uint64(), l1Head1.Number.Uint64())
 
 	// Propose one blocks on another fork
-	s.ProposeInvalidTxListBytes(s.p)
+	s.ProposeValidBlock(s.p)
 
 	l1Head4, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
@@ -246,9 +246,9 @@ func (s *DriverTestSuite) TestCheckL1ReorgToSameHeightFork() {
 	s.GreaterOrEqual(l1Head3.Number.Uint64(), l1Head1.Number.Uint64())
 
 	// Propose two blocks on another fork
-	s.ProposeInvalidTxListBytes(s.p)
+	s.ProposeValidBlock(s.p)
 	time.Sleep(3 * time.Second)
-	s.ProposeInvalidTxListBytes(s.p)
+	s.ProposeValidBlock(s.p)
 
 	l1Head4, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
