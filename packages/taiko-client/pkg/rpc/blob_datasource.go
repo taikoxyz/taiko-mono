@@ -118,7 +118,7 @@ func (ds *BlobDataSource) getBlobFromServer(ctx context.Context, blobHash common
 		err        error
 	)
 	if ds.socialScanEndpoint != nil {
-		route = "/blobs/" + blobHash.String()
+		route = "/blob/" + blobHash.String()
 		requestURL, err = url.JoinPath(ds.socialScanEndpoint.String(), route)
 	} else {
 		route = "/blobs/" + blobHash.String()
