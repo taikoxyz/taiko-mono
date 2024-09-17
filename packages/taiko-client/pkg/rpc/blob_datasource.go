@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 
@@ -87,7 +88,9 @@ func (ds *BlobDataSource) GetBlobs(
 		sidecars, err = ds.client.L1Beacon.GetBlobs(ctx, timestamp)
 	}
 	if err != nil {
-		log.Info("Failed to get blobs from beacon, try to use blob server.", "error", err.Error())
+		if !errors.Is(err, pkg.ErrBeaconNotFound) {
+			log.Info("Failed to get blobs from beacon, try to use blob server.", "error", err.Error())
+		}
 		if ds.blobServerEndpoint == nil && ds.socialScanEndpoint == nil {
 			log.Info("No blob server endpoint set")
 			return nil, err
@@ -115,7 +118,7 @@ func (ds *BlobDataSource) getBlobFromServer(ctx context.Context, blobHash common
 		err        error
 	)
 	if ds.socialScanEndpoint != nil {
-		route = "/blob/" + blobHash.String()
+		route = "/blobs/" + blobHash.String()
 		requestURL, err = url.JoinPath(ds.socialScanEndpoint.String(), route)
 	} else {
 		route = "/blobs/" + blobHash.String()
@@ -131,7 +134,7 @@ func (ds *BlobDataSource) getBlobFromServer(ctx context.Context, blobHash common
 		SetHeader("Accept", "application/json").
 		Get(requestURL)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get blob from server, request_url: %s, err: %w", requestURL, err)
 	}
 	if !resp.IsSuccess() {
 		return nil, fmt.Errorf(
