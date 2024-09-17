@@ -139,7 +139,7 @@ func (p *Processor) processMessage(
 		return false, msgBody.TimesRetried, nil
 	}
 
-	if err := p.waitForConfirmations(ctx, msgBody.Event.Raw.TxHash, msgBody.Event.Raw.BlockNumber); err != nil {
+	if err := p.waitForConfirmations(ctx, msgBody.Event.Raw.TxHash); err != nil {
 		return false, msgBody.TimesRetried, err
 	}
 
@@ -261,10 +261,6 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 
 			if err != nil {
 				return nil, errors.Wrap(err, "p.waitHeaderSynced")
-			}
-
-			if err != nil {
-				return nil, errors.Wrap(err, "hop.headerSyncer.GetSyncedSnippet")
 			}
 
 			blockNum = event.SyncedInBlockID
