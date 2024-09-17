@@ -91,7 +91,6 @@ contract ProverSet is EssentialContract, IERC1271 {
         external
         payable
         onlyProver
-        nonReentrant
     {
         ITaikoL1(taikoL1()).proposeBlock(_params, _txList);
     }
@@ -104,7 +103,6 @@ contract ProverSet is EssentialContract, IERC1271 {
         external
         payable
         onlyProver
-        nonReentrant
     {
         ITaikoL1(taikoL1()).proposeBlockV2(_params, _txList);
     }
@@ -117,13 +115,12 @@ contract ProverSet is EssentialContract, IERC1271 {
         external
         payable
         onlyProver
-        nonReentrant
     {
         ITaikoL1(taikoL1()).proposeBlocksV2(_paramsArr, _txListArr);
     }
 
     /// @notice Proves or contests a Taiko block.
-    function proveBlock(uint64 _blockId, bytes calldata _input) external onlyProver nonReentrant {
+    function proveBlock(uint64 _blockId, bytes calldata _input) external onlyProver  {
         ITaikoL1(taikoL1()).proveBlock(_blockId, _input);
     }
 
@@ -135,18 +132,17 @@ contract ProverSet is EssentialContract, IERC1271 {
     )
         external
         onlyProver
-        nonReentrant
     {
         ITaikoL1(taikoL1()).proveBlocks(_blockId, _input, _batchProof);
     }
 
     /// @notice Deposits Taiko token to TaikoL1 contract.
-    function depositBond(uint256 _amount) external onlyAuthorized nonReentrant {
+    function depositBond(uint256 _amount) external onlyAuthorized  {
         ITaikoL1(taikoL1()).depositBond(_amount);
     }
 
     /// @notice Withdraws Taiko token from TaikoL1 contract.
-    function withdrawBond(uint256 _amount) external onlyAuthorized nonReentrant {
+    function withdrawBond(uint256 _amount) external onlyAuthorized  {
         ITaikoL1(taikoL1()).withdrawBond(_amount);
     }
 
