@@ -257,8 +257,6 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 		var hopChainID *big.Int
 
 		for _, hop := range p.hops {
-			hop.blockNum = blockNum
-
 			event, err := p.waitHeaderSynced(ctx, hopEthClient, hop.chainID.Uint64(), blockNum)
 
 			if err != nil {
@@ -443,7 +441,7 @@ func (p *Processor) sendProcessMessageCall(
 	}
 
 	// mul by 1.05 for padding
-	gasLimit := uint64(float64(event.Message.GasLimit) * 1.05)
+	gasLimit := uint64(float64(event.Message.GasLimit))
 
 	var estimatedCost uint64 = 0
 
