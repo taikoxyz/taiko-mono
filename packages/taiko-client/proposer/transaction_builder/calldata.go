@@ -3,7 +3,6 @@ package builder
 import (
 	"context"
 	"crypto/ecdsa"
-	"fmt"
 	"math/big"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
@@ -52,8 +51,8 @@ func NewCalldataTransactionBuilder(
 	}
 }
 
-// BuildLegacy implements the ProposeBlockTransactionBuilder interface.
-func (b *CalldataTransactionBuilder) BuildLegacy(
+// Build implements the ProposeBlockTransactionBuilder interface.
+func (b *CalldataTransactionBuilder) Build(
 	ctx context.Context,
 	includeParentMetaHash bool,
 	txListBytes []byte,
@@ -128,63 +127,6 @@ func (b *CalldataTransactionBuilder) BuildLegacy(
 		}
 	} else {
 		data, err = encoding.TaikoL1ABI.Pack(method, encodedParams, txListBytes)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return &txmgr.TxCandidate{
-		TxData:   data,
-		Blobs:    nil,
-		To:       to,
-		GasLimit: b.gasLimit,
-	}, nil
-}
-
-// BuildOntake implements the ProposeBlockTransactionBuilder interface.
-func (b *CalldataTransactionBuilder) BuildOntake(
-	ctx context.Context,
-	txListBytesArray [][]byte,
-) (*txmgr.TxCandidate, error) {
-	// Check if the current L2 chain is after ontake fork.
-	state, err := rpc.GetProtocolStateVariables(b.rpc.TaikoL1, &bind.CallOpts{Context: ctx})
-	if err != nil {
-		return nil, err
-	}
-
-	if !b.chainConfig.IsOntake(new(big.Int).SetUint64(state.B.NumBlocks)) {
-		return nil, fmt.Errorf("ontake transaction buulder is not supported before ontake fork")
-	}
-
-	// ABI encode the TaikoL1.proposeBlocksV2 / ProverSet.proposeBlocksV2 parameters.
-	var (
-		to                 = &b.taikoL1Address
-		data               []byte
-		encodedParamsArray [][]byte
-	)
-
-	for range txListBytesArray {
-		encodedParams, err := encoding.EncodeBlockParamsOntake(&encoding.BlockParamsV2{
-			Coinbase:       b.l2SuggestedFeeRecipient,
-			ParentMetaHash: [32]byte{},
-			AnchorBlockId:  0,
-			Timestamp:      0,
-		})
-		if err != nil {
-			return nil, err
-		}
-		encodedParamsArray = append(encodedParamsArray, encodedParams)
-	}
-
-	if b.proverSetAddress != rpc.ZeroAddress {
-		to = &b.proverSetAddress
-
-		data, err = encoding.ProverSetABI.Pack("proposeBlocksV2", encodedParamsArray, txListBytesArray)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		data, err = encoding.TaikoL1ABI.Pack("proposeBlocksV2", encodedParamsArray, txListBytesArray)
 		if err != nil {
 			return nil, err
 		}

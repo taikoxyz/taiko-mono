@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/phayes/freeport"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
@@ -21,8 +22,16 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
+func (s *ClientTestSuite) ProposeInvalidTxListBytes(proposer Proposer) {
+	invalidTxListBytes := RandomBytes(256)
+
+	s.Nil(proposer.ProposeTxList(context.Background(), invalidTxListBytes, 1))
+}
+
 func (s *ClientTestSuite) proposeEmptyBlockOp(ctx context.Context, proposer Proposer) {
-	s.Nil(proposer.ProposeTxLists(ctx, []types.Transactions{}))
+	emptyTxListBytes, err := rlp.EncodeToBytes(types.Transactions{})
+	s.Nil(err)
+	s.Nil(proposer.ProposeTxList(ctx, emptyTxListBytes, 0))
 }
 
 func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
@@ -53,10 +62,13 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 	}()
 
 	// RLP encoded empty list
-	var emptyTxs types.Transactions
-	s.Nil(proposer.ProposeTxLists(context.Background(), []types.Transactions{emptyTxs}))
+	var emptyTxs []types.Transaction
+	encoded, err := rlp.EncodeToBytes(emptyTxs)
+	s.Nil(err)
 
-	s.ProposeValidBlock(proposer)
+	s.Nil(proposer.ProposeTxList(context.Background(), encoded, 0))
+
+	s.ProposeInvalidTxListBytes(proposer)
 
 	// Random bytes txList
 	s.proposeEmptyBlockOp(context.Background(), proposer)

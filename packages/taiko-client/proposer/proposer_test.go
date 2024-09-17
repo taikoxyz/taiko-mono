@@ -145,7 +145,7 @@ func (s *ProposerTestSuite) TestProposeTxLists() {
 			break
 		}
 
-		candidate, err := txBuilder.BuildLegacy(
+		candidate, err := txBuilder.Build(
 			p.ctx,
 			p.IncludeParentMetaHash,
 			compressedTxListBytes,

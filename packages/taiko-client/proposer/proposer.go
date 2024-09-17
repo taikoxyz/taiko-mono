@@ -4,13 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/big"
 	"math/rand"
 	"sync"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -293,61 +291,46 @@ func (p *Proposer) ProposeOp(ctx context.Context) error {
 		return nil
 	}
 
-	// Propose the transactions lists.
-	return p.ProposeTxLists(ctx, txLists)
-}
+	g, gCtx := errgroup.WithContext(ctx)
+	// Propose all L2 transactions lists.
+	for _, txs := range txLists[:utils.Min(p.MaxProposedTxListsPerEpoch, uint64(len(txLists)))] {
+		nonce, err := p.rpc.L1.PendingNonceAt(ctx, p.proposerAddress)
+		if err != nil {
+			log.Error("Failed to get proposer nonce", "error", err)
+			break
+		}
 
-// ProposeTxList proposes the given transactions lists to TaikoL1 smart contract.
-func (p *Proposer) ProposeTxLists(ctx context.Context, txLists []types.Transactions) error {
-	// Check if the current L2 chain is after ontake fork.
-	state, err := rpc.GetProtocolStateVariables(p.rpc.TaikoL1, &bind.CallOpts{Context: ctx})
-	if err != nil {
+		log.Info("Proposer current pending nonce", "nonce", nonce)
+
+		g.Go(func() error {
+			txListBytes, err := rlp.EncodeToBytes(txs)
+			if err != nil {
+				return fmt.Errorf("failed to encode transactions: %w", err)
+			}
+			if err := p.ProposeTxList(gCtx, txListBytes, uint(txs.Len())); err != nil {
+				return err
+			}
+			p.lastProposedAt = time.Now()
+			return nil
+		})
+
+		if err := p.rpc.WaitL1NewPendingTransaction(ctx, p.proposerAddress, nonce); err != nil {
+			log.Error("Failed to wait for new pending transaction", "error", err)
+		}
+	}
+	if err := g.Wait(); err != nil {
 		return err
 	}
 
-	// If the current L2 chain is before ontake fork, propose the transactions lists one by one.
-	if !p.chainConfig.IsOntake(new(big.Int).SetUint64(state.B.NumBlocks)) {
-		g, gCtx := errgroup.WithContext(ctx)
-		for _, txs := range txLists[:utils.Min(p.MaxProposedTxListsPerEpoch, uint64(len(txLists)))] {
-			nonce, err := p.rpc.L1.PendingNonceAt(ctx, p.proposerAddress)
-			if err != nil {
-				log.Error("Failed to get proposer nonce", "error", err)
-				break
-			}
-
-			log.Info("Proposer current pending nonce", "nonce", nonce)
-
-			g.Go(func() error {
-				if err := p.ProposeTxListLegacy(gCtx, txs); err != nil {
-					return err
-				}
-				p.lastProposedAt = time.Now()
-				return nil
-			})
-
-			if err := p.rpc.WaitL1NewPendingTransaction(ctx, p.proposerAddress, nonce); err != nil {
-				log.Error("Failed to wait for new pending transaction", "error", err)
-			}
-		}
-		if err := g.Wait(); err != nil {
-			return err
-		}
-	}
-
-	// If the current L2 chain is after ontake fork, batch propose all L2 transactions lists.
-	return p.ProposeTxListOntake(ctx, txLists)
+	return nil
 }
 
-// ProposeTxListLegacy proposes the given transactions list to TaikoL1 smart contract.
-func (p *Proposer) ProposeTxListLegacy(
+// ProposeTxList proposes the given transactions list to TaikoL1 smart contract.
+func (p *Proposer) ProposeTxList(
 	ctx context.Context,
-	txList types.Transactions,
+	txListBytes []byte,
+	txNum uint,
 ) error {
-	txListBytes, err := rlp.EncodeToBytes(txList)
-	if err != nil {
-		return fmt.Errorf("failed to encode transactions: %w", err)
-	}
-
 	compressedTxListBytes, err := utils.Compress(txListBytes)
 	if err != nil {
 		return err
@@ -375,7 +358,7 @@ func (p *Proposer) ProposeTxListLegacy(
 		return errors.New("insufficient prover balance")
 	}
 
-	txCandidate, err := p.txBuilder.BuildLegacy(
+	txCandidate, err := p.txBuilder.Build(
 		ctx,
 		p.IncludeParentMetaHash,
 		compressedTxListBytes,
@@ -389,76 +372,10 @@ func (p *Proposer) ProposeTxListLegacy(
 		return err
 	}
 
-	log.Info("📝 Propose transactions succeeded", "txs", len(txList))
+	log.Info("📝 Propose transactions succeeded", "txs", txNum)
 
 	metrics.ProposerProposedTxListsCounter.Add(1)
-	metrics.ProposerProposedTxsCounter.Add(float64(len(txList)))
-
-	return nil
-}
-
-// ProposeTxListOntake proposes the given transactions lists to TaikoL1 smart contract.
-func (p *Proposer) ProposeTxListOntake(
-	ctx context.Context,
-	txLists []types.Transactions,
-) error {
-	var (
-		proverAddress     = p.proposerAddress
-		txListsBytesArray [][]byte
-		txNums            []uint8
-		totalTxs          uint8
-	)
-	for _, txs := range txLists {
-		txListBytes, err := rlp.EncodeToBytes(txs)
-		if err != nil {
-			return fmt.Errorf("failed to encode transactions: %w", err)
-		}
-
-		compressedTxListBytes, err := utils.Compress(txListBytes)
-		if err != nil {
-			return err
-		}
-
-		txListsBytesArray = append(txListsBytesArray, compressedTxListBytes)
-		txNums = append(txNums, uint8(len(txs)))
-		totalTxs += uint8(len(txs))
-	}
-
-	if p.Config.ClientConfig.ProverSetAddress != rpc.ZeroAddress {
-		proverAddress = p.Config.ClientConfig.ProverSetAddress
-	}
-
-	ok, err := rpc.CheckProverBalance(
-		ctx,
-		p.rpc,
-		proverAddress,
-		p.TaikoL1Address,
-		new(big.Int).Mul(p.protocolConfigs.LivenessBond, new(big.Int).SetUint64(uint64(len(txLists)))),
-	)
-
-	if err != nil {
-		log.Warn("Failed to check prover balance", "error", err)
-		return err
-	}
-
-	if !ok {
-		return errors.New("insufficient prover balance")
-	}
-
-	txCandidate, err := p.txBuilder.BuildOntake(ctx, txListsBytesArray)
-	if err != nil {
-		log.Warn("Failed to build TaikoL1.proposeBlocksV2 transaction", "error", encoding.TryParsingCustomError(err))
-		return err
-	}
-
-	if err := p.sendTx(ctx, txCandidate); err != nil {
-		return err
-	}
-
-	log.Info("📝 Batch propose transactions succeeded", "txs", txNums)
-
-	metrics.ProposerProposedTxListsCounter.Add(float64(len(txLists)))
-	metrics.ProposerProposedTxsCounter.Add(float64(totalTxs))
+	metrics.ProposerProposedTxsCounter.Add(float64(txNum))
 
 	return nil
 }
