@@ -60,26 +60,6 @@ func Test_NewServer(t *testing.T) {
 			eventindexer.ErrNoNFTBalanceRepository,
 		},
 		{
-			"noNftMetadataRepo",
-			NewServerOpts{
-				Echo:           echo.New(),
-				EventRepo:      &repo.EventRepository{},
-				NFTBalanceRepo: &repo.NFTBalanceRepository{},
-				CorsOrigins:    make([]string, 0),
-			},
-			eventindexer.ErrNoNFTMetadataRepository,
-		},
-		{
-			"noEventRepo",
-			NewServerOpts{
-				Echo:           echo.New(),
-				EventRepo:      &repo.EventRepository{},
-				NFTBalanceRepo: &repo.NFTBalanceRepository{},
-				CorsOrigins:    make([]string, 0),
-			},
-			eventindexer.ErrNoNFTMetadataRepository,
-		},
-		{
 			"noEventRepo",
 			NewServerOpts{
 				Echo:           echo.New(),
