@@ -47,7 +47,7 @@ func TestHiveHandler(t *testing.T) {
 		testDenebReorg(t, "taiko-reorg/taiko-reorg", [][]string{clientGroups[0]})
 	})
 
-	t.Run("taiko-blob/blob-l1-beacon", func(t *testing.T) {
+	t.Run("taiko-blob/blob-server", func(t *testing.T) {
 		testBlobAPI(t, "taiko-blob/blob-server", []string{
 			"geth",
 			"prysm/prysm-bn",
@@ -63,7 +63,7 @@ func TestHiveHandler(t *testing.T) {
 		})
 	})
 
-	t.Run("taiko-blob/blob-server", func(t *testing.T) {
+	t.Run("taiko-blob/blob-l1-beacon", func(t *testing.T) {
 		testBlobAPI(t, "taiko-blob/blob-l1-beacon", []string{
 			"geth",
 			"prysm/prysm-bn",
