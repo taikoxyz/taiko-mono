@@ -9,7 +9,7 @@ on:
 jobs:
   build-protocol:
     if: github.event.pull_request.draft == false
-    runs-on: [taiko-runner]
+    runs-on: [arc-runner-set]
     permissions:
       # Give the necessary permissions for stefanzweifel/git-auto-commit-action.
       contents: write
