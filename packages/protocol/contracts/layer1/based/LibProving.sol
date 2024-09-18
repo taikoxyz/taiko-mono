@@ -614,7 +614,7 @@ library LibProving {
                     } else {
                         LibBonds.creditBond(_state, _local.assignedProver, _local.livenessBond);
                     }
-                } else if (!_local.isTopTier) {
+                } else {
                     // Reward 50% of liveness bond to the actual prover, the other 50% burnt.
                     unchecked {
                         reward += _rewardAfterFriction(_local.livenessBond);
