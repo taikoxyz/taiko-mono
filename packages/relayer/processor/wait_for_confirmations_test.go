@@ -11,6 +11,6 @@ import (
 func Test_waitForConfirmations(t *testing.T) {
 	p := newTestProcessor(true)
 
-	err := p.waitForConfirmations(context.TODO(), mock.SucceedTxHash, uint64(mock.BlockNum))
+	err := p.waitForConfirmations(context.TODO(), mock.SucceedTxHash)
 	assert.Nil(t, err)
 }

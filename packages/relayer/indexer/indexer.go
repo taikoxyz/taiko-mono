@@ -278,7 +278,7 @@ func (i *Indexer) Start() error {
 		return errors.Wrap(err, "i.setInitialIndexingBlockByMode")
 	}
 
-	go i.eventLoop(i.ctx, i.latestIndexedBlockNumber)
+	go i.eventLoop(i.ctx)
 
 	go func() {
 		if err := backoff.Retry(func() error {
@@ -291,7 +291,7 @@ func (i *Indexer) Start() error {
 	return nil
 }
 
-func (i *Indexer) eventLoop(ctx context.Context, startBlockID uint64) {
+func (i *Indexer) eventLoop(ctx context.Context) {
 	i.wg.Add(1)
 	defer i.wg.Done()
 
