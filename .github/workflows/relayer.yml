@@ -44,6 +44,9 @@ jobs:
         with:
           access_token: ${{ github.token }}
 
+      - name: Install Git
+        run: sudo apt-get update && sudo apt-get install -y git
+
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
