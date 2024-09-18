@@ -423,6 +423,8 @@ library LibProving {
                     } else {
                         LibBonds.creditBond(_state, _local.assignedProver, _local.livenessBond);
                     }
+                } else {
+                    reward += _rewardAfterFriction(_local.livenessBond);
                 }
             }
         }
