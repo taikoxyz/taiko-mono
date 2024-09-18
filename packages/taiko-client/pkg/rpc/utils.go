@@ -85,29 +85,29 @@ func CheckProverBalance(
 		return false, err
 	}
 
-	totalBalance := new(big.Int).Add(bondBalance, tokenBalance)
 	log.Info(
 		"Prover's wallet taiko token balance",
 		"bondBalance", utils.WeiToEther(bondBalance),
 		"tokenBalance", utils.WeiToEther(tokenBalance),
-		"totalBalance", utils.WeiToEther(totalBalance),
 		"address", prover.Hex(),
 		"bond", utils.WeiToEther(bond),
 	)
 
-	if bond.Cmp(allowance) > 0 {
+	if bond.Cmp(allowance) > 0 && bond.Cmp(bondBalance) > 0 {
 		log.Info(
 			"Assigned prover does not have required on-chain token allowance",
 			"allowance", utils.WeiToEther(allowance),
+			"bondBalance", utils.WeiToEther(bondBalance),
 			"bond", utils.WeiToEther(bond),
 		)
 		return false, nil
 	}
 
-	if bond.Cmp(totalBalance) > 0 {
+	if bond.Cmp(bondBalance) > 0 && bond.Cmp(tokenBalance) > 0 {
 		log.Info(
 			"Assigned prover does not have required on-chain token balance",
-			"totalBalance", utils.WeiToEther(totalBalance),
+			"bondBalance", utils.WeiToEther(bondBalance),
+			"tokenBalance", utils.WeiToEther(tokenBalance),
 			"bond", utils.WeiToEther(bond),
 		)
 		return false, nil

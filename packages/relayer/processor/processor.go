@@ -54,6 +54,7 @@ type ethClient interface {
 	SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error)
 	EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error)
 	BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error)
+	CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error)
 }
 
 // hop is a struct which needs to be created based on the config parameters
@@ -66,7 +67,6 @@ type hop struct {
 	taikoAddress         common.Address
 	ethClient            ethClient
 	caller               relayer.Caller
-	blockNum             uint64
 }
 
 // Processor is the main struct which handles message processing and queue

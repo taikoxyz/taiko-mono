@@ -33,7 +33,7 @@ func Test_isProfitable(t *testing.T) {
 		{
 			1,
 			"profitable",
-			600000000600001,
+			7000000000600001,
 			600000,
 			1000000000,
 			1,
