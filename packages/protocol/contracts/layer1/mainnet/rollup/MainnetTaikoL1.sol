@@ -19,13 +19,10 @@ contract MainnetTaikoL1 is TaikoL1, RollupAddressCache {
         // after 256 L2 blocks)
         return TaikoData.Config({
             chainId: LibNetwork.TAIKO_MAINNET,
-            // If we have 1 block per 12 seconds, then each day there will be 86400/12=7200 blocks.
-            // We therefore use 7200 as the base unit to configure blockMaxProposals and
-            // blockRingBufferSize.
-            blockMaxProposals: 324_000, // = 7200 * 45
-            // We give 7200 * 5 = 36000 slots for verifeid blocks in case third party apps will use
-            // their data.
-            blockRingBufferSize: 360_000, // = 7200 * 50
+            // Ring buffers are being reused on the mainnet, therefore the following two
+            // configuration values must NEVER be changed!!!
+            blockMaxProposals: 324_000, // DO NOT CHANGE!!!
+            blockRingBufferSize: 360_000, // DO NOT CHANGE!!!
             maxBlocksToVerify: 16,
             blockMaxGasLimit: 240_000_000,
             livenessBond: 125e18, // 125 Taiko token
@@ -36,9 +33,9 @@ contract MainnetTaikoL1 is TaikoL1, RollupAddressCache {
                 sharingPctg: 75,
                 gasIssuancePerSecond: 5_000_000,
                 minGasExcess: 1_340_000_000, // correspond to 0.008847185 gwei basefee
-                maxGasIssuancePerBlock: 600_000_000 // two minutes
+                maxGasIssuancePerBlock: 600_000_000 // two minutes: 5_000_000 * 120
              }),
-            ontakeForkHeight: 374_400 // = 7200 * 52
+            ontakeForkHeight: 576_000 // = 7200 * 80
          });
     }
 
