@@ -615,7 +615,7 @@ library LibProving {
                         LibBonds.creditBond(_state, _local.assignedProver, _local.livenessBond);
                     }
                 } else {
-                    // Reward 50% of liveness bond to the actual prover, the other 50% burnt.
+                    // Reward a majority of liveness bond to the actual prover
                     unchecked {
                         reward += _rewardAfterFriction(_local.livenessBond);
                     }
