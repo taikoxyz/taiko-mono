@@ -176,12 +176,9 @@ library TaikoData {
         address assignedProver; // slot 2
         uint96 livenessBond;
         uint64 blockId; // slot 3
-        // Before the fork, this field is the L1 timestamp when this block is proposed.
-        // After the fork, this is the timestamp of the L2 block.
-        // In a later fork, we an rename this field to `timestamp`.
+        // This field now represents the timestamp of the L2 block.
         uint64 proposedAt;
-        // This is the L1 block number input for the anchor transaction.
-        // In a later fork, we can rename this field to `anchorBlockId`.
+        // This field now represents the L1 block number input for the anchor transaction.
         uint64 proposedIn;
         uint24 nextTransitionId;
         bool livenessBondReturned;
