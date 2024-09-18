@@ -5,17 +5,7 @@ import (
 
 	"github.com/cyberhorsey/webutils"
 	"github.com/labstack/echo/v4"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 )
-
-type NFTBalanceWithMetadata struct {
-	Balance  eventindexer.NFTBalance   `json:"balance"`
-	Metadata *eventindexer.NFTMetadata `json:"metadata"`
-}
-
-type NFTBalancesResponse struct {
-	Balances []NFTBalanceWithMetadata `json:"balances"`
-}
 
 // GetNFTBalancesByAddressAndChainID
 //
@@ -38,22 +28,6 @@ func (srv *Server) GetNFTBalancesByAddressAndChainID(c echo.Context) error {
 	)
 	if err != nil {
 		return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
-	}
-
-	for i := range *page.Items.(*[]eventindexer.NFTBalance) {
-		v := &(*page.Items.(*[]eventindexer.NFTBalance))[i]
-
-		metadata, err := srv.nftMetadataRepo.GetNFTMetadata(
-			c.Request().Context(),
-			v.ContractAddress,
-			v.TokenID,
-			v.ChainID,
-		)
-		if err != nil {
-			return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
-		}
-
-		v.Metadata = metadata
 	}
 
 	return c.JSON(http.StatusOK, page)
