@@ -252,8 +252,8 @@ library LibProposing {
             assignedProver: address(0),
             livenessBond: 0,
             blockId: local.b.numBlocks,
-            proposedAt: local.params.timestamp,
-            proposedIn: local.params.anchorBlockId,
+            proposedAt: /* now used as */ local.params.timestamp,
+            proposedIn: /* now used as */ local.params.anchorBlockId,
             // For a new block, the next transition ID is always 1, not 0.
             nextTransitionId: 1,
             livenessBondReturned: false,
