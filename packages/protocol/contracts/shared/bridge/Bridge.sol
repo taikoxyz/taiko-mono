@@ -495,7 +495,7 @@ contract Bridge is EssentialContract, IBridge {
         returns (bool success_)
     {
         assert(_message.from != address(this));
-
+        if (_message.data.length == 0) return true;
         if (_gasLimit == 0) return false;
 
         _storeContext(_msgHash, _message.from, _message.srcChainId);
@@ -635,6 +635,8 @@ contract Bridge is EssentialContract, IBridge {
     }
 
     function _messageCalldataCost(uint256 dataLength) private pure returns (uint32) {
+        if (dataLength == 0) return 0;
+
         // The abi encoding of A = (Message calldata msg) is 10 * 32 bytes
         // + 32 bytes (A is a dynamic tuple, offset to first elements)
         // + 32 bytes (offset to last bytes element of Message)
