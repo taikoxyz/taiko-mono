@@ -436,8 +436,18 @@ func (p *Processor) sendProcessMessageCall(
 		return nil, err
 	}
 
-	// mul by 1.05 for padding
 	gasLimit := uint64(float64(event.Message.GasLimit))
+
+	// if destination address is a contract, add padding. check message.to
+	// to see if it is a contract address.
+	code, err := p.destEthClient.CodeAt(ctx, event.Message.To, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(code) != 0 {
+		gasLimit = uint64(float64(gasLimit) * 1.05)
+	}
 
 	var estimatedMaxCost uint64
 
