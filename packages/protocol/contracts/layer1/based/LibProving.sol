@@ -21,7 +21,6 @@ library LibProving {
         TaikoData.BlockMetadataV2 meta;
         TaikoData.TierProof proof;
         bytes32 metaHash;
-        address assignedProver;
         bytes32 stateRoot;
         uint64 slot;
         uint64 blockId;
@@ -222,11 +221,6 @@ library LibProving {
             local.stateRoot = ctx_.tran.stateRoot;
         }
 
-        local.assignedProver = blk.assignedProver;
-        if (local.assignedProver == address(0)) {
-            local.assignedProver = local.meta.proposer;
-        }
-
         local.metaHash = blk.metaHash;
 
         // Check the integrity of the block data. It's worth noting that in
@@ -276,7 +270,7 @@ library LibProving {
             local.tier.contestBond != 0 && ts.contester == address(0) && local.tid == 1
                 && ts.tier == 0 && local.inProvingWindow
         ) {
-            if (msg.sender != local.assignedProver) revert L1_NOT_ASSIGNED_PROVER();
+            if (msg.sender != local.meta.proposer) revert L1_NOT_ASSIGNED_PROVER();
         }
         // We must verify the proof, and any failure in proof verification will
         // result in a revert.
@@ -457,7 +451,7 @@ library LibProving {
                 //
                 // While alternative implementations are possible, introducing
                 // such changes would require additional if-else logic.
-                ts_.prover = _local.assignedProver;
+                ts_.prover = _local.meta.proposer;
             } else {
                 // Furthermore, we index the transition for future retrieval.
                 // It's worth emphasizing that this mapping for indexing is not
@@ -531,13 +525,13 @@ library LibProving {
                 _blk.livenessBond = 0;
 
                 if (_returnLivenessBond(_local, _proof.data)) {
-                    if (_local.assignedProver == msg.sender) {
+                    if (_local.meta.proposer == msg.sender) {
                         unchecked {
                             reward += _local.meta.livenessBond;
                         }
                     } else {
                         LibBonds.creditBond(
-                            _state, _local.assignedProver, _local.blockId, _local.meta.livenessBond
+                            _state, _local.meta.proposer, _local.blockId, _local.meta.livenessBond
                         );
                     }
                 }
