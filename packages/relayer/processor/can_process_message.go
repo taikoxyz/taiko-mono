@@ -16,7 +16,7 @@ import (
 // or its processed, failed, and is in Retriable or Failed state, where the user
 // should finish manually.
 func canProcessMessage(
-	ctx context.Context,
+	_ context.Context,
 	eventStatus relayer.EventStatus,
 	messageOwner common.Address,
 	relayerAddress common.Address,

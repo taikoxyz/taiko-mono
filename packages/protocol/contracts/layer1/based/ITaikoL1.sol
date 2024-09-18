@@ -17,10 +17,10 @@ interface ITaikoL1 {
         external
         returns (TaikoData.BlockMetadataV2 memory meta_);
 
-    /// @notice Proposes multiple Taiko L2 blocks (version 2).
-    /// @param _paramsArr List of encoded BlockParamsV2 objects.
-    /// @param _txListArr List of transaction lists.
-    /// @return metaArr_ Metadata objects of the proposed L2 blocks.
+    /// @notice Proposes multiple Taiko L2 blocks (version 2)
+    /// @param _paramsArr A list of encoded BlockParamsV2 objects.
+    /// @param _txListArr A list of txList.
+    /// @return metaArr_ The metadata objects of the proposed L2 blocks.
     function proposeBlocksV2(
         bytes[] calldata _paramsArr,
         bytes[] calldata _txListArr

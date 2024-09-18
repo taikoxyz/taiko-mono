@@ -27,7 +27,7 @@ env:
 jobs:
   build-deploy:
     if: github.actor != 'dependabot'
-    runs-on: [taiko-runner]
+    runs-on: [arc-runner-set]
     steps:
       - name: Print Vercel Project ID
         run: |

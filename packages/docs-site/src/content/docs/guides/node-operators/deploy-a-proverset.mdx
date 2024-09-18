@@ -97,7 +97,7 @@ This guide outlines how to achieve this with separate EOAs running prover and pr
 
 6. **Deposit your tokens and run your proposer + prover as usual!**
 
-    If you've followed the instructions, send your TAIKO/TTKOh to the ProverSet proxy and begin running your prover and proposer as usual. Send the tokens to your ProverSet contract, and start proving. If you've set up your allowance properly, there should be no need to use the `depositBond` function, as it deposits TTKOh from the ProverSet to TaikoL1.
+    If you've followed the instructions, send your TAIKO/TTKOh to the ProverSet proxy and begin running your prover and proposer as usual. If you've set up your allowance properly, there should be no need to use the `depositBond` function, as it deposits TTKOh from the ProverSet to TaikoL1.
 
     <Aside>
         Make sure to set your `$PROVER_SET` in your `simple-taiko-node` .env file as the proxy address.
@@ -138,7 +138,7 @@ If you've already deployed a ProverSet but would like to upgrade it through the 
 
     <Aside>
     If you are getting EvmErrors, your private key may be formatted incorrectly; try prefixing it with `0x` and rerunning the script.
-    
+
     Depending on the protocol release you use, the path to the ProverSet contract may also be different; change as necessary!
     </Aside>
 
@@ -152,7 +152,7 @@ If you've already deployed a ProverSet but would like to upgrade it through the 
 
     Then, proceed to your original Proxy contract; access the `Write to Proxy` tab and scroll to the `upgradeTo()` function.
 
-    Connect your EOA that you originally deployed the ProverSet from and call the function with your new `Deployed to:` address. 
+    Connect your EOA that you originally deployed the ProverSet from and call the function with your new `Deployed to:` address.
 
     Once the transaction succeeds, you have successfully upgraded your ProverSet.
 

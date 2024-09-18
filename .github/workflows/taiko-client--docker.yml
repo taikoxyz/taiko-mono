@@ -11,7 +11,7 @@ on:
 jobs:
   push-docker-image:
     name: Build and push docker image
-    runs-on: ubuntu-latest
+    runs-on: [ubuntu-latest]
 
     steps:
       - name: Checkout
