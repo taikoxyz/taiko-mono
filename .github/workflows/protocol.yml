@@ -9,7 +9,7 @@ on:
 jobs:
   build-protocol:
     if: github.event.pull_request.draft == false
-    runs-on: [taiko-runner]
+    runs-on: [arc-runner-set]
     permissions:
       # Give the necessary permissions for stefanzweifel/git-auto-commit-action.
       contents: write
@@ -18,6 +18,9 @@ jobs:
         uses: styfle/cancel-workflow-action@0.12.1
         with:
           access_token: ${{ github.token }}
+
+      - name: Install Git
+        run: sudo apt-get update && sudo apt-get install -y git
 
       - name: Checkout repository
         uses: actions/checkout@v4
