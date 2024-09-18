@@ -575,7 +575,7 @@ library LibProving {
         private
     {
         // Higher tier proof overwriting lower tier proof
-        uint256 reward; // reward to the new (current) prover - msg.sender
+        uint256 reward; // reward to the new (current) prover
 
         if (_ts.contester != address(0)) {
             if (_local.sameTransition) {
