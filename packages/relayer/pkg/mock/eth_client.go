@@ -149,3 +149,7 @@ func (c *EthClient) BalanceAt(
 	blockNumber *big.Int) (*big.Int, error) {
 	return big.NewInt(100), nil
 }
+
+func (c *EthClient) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error) {
+	return []byte{}, nil
+}
