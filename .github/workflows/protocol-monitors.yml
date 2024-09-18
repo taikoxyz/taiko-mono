@@ -4,7 +4,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
-      - "packages/protocol/monitors/**"
+      - "packages/monitors/**"
 
 jobs:
   deploy-protocol-monitors:
@@ -15,7 +15,7 @@ jobs:
       contents: write
     steps:
       - name: Deploy Monitors on OZ Defender
-        working-directory: ./packages/protocol/monitors
+        working-directory: ./packages/monitors
         env:
           SERVERLESS_API_KEY: ${{ secrets.DEFENDER_API_KEY }}
           SERVERLESS_API_SECRET: ${{ secrets.DEFENDER_API_SECRET }}

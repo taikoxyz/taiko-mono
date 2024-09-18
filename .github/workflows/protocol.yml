@@ -7,7 +7,6 @@ on:
       - "packages/protocol/**"
       - "!packages/protocol/audit/**"
       - "!packages/protocol/docs/**"
-      - "!packages/protocol/monitors/**"
       - "!packages/protocol/simulation/**"
       - "!packages/protocol/deployments/**"
 
