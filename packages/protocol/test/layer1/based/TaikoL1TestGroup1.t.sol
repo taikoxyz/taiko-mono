@@ -419,7 +419,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
 
             assertEq(
                 totalTkoBalance(tko, L1, Alice),
-                10_000 ether - tierOp.validityBond - livenessBond  / 8
+                10_000 ether - tierOp.validityBond - livenessBond / 8
             );
         }
 
