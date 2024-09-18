@@ -17,7 +17,7 @@ defender:
 resources:
   actions:
     erc-20-vault-balance-drop:
-      name: "ERC20Vault: Balance Drop"
+      name: "ERC20Vault: Balance Drop Test"
       trigger:
         type: schedule
         frequency: 15
@@ -253,21 +253,7 @@ resources:
       name: discord_bridging
       config:
         url: >-
-          https://discord.com/api/webhooks/1235610195586187285/pT1ZoqTmEKcjtAt0JY6KxOeHP-_YP7mC3SG1janVZyuf99RE7XwymIFQ9iNlFiyxm41w
-      paused: false
-    discord-blocks:
-      type: discord
-      name: discord_blocks
-      config:
-        url: >-
-          https://discord.com/api/webhooks/1235610046080221214/tEHgmjlZzZsuxGyv3bEPc1I_SGZ69ZmZ7JsF8ey5VEQadylYePXLjRyGCup1I96rTbRk
-      paused: false
-    discord-configs:
-      type: discord
-      name: discord_configs
-      config:
-        url: >-
-          https://discord.com/api/webhooks/1235609859660185744/d6ygohFcXEJEj6zHlxGhLFqXq4lDfieLrFweae3SnsustZLF0q4aTKKHeuzmrgZBIcvy
+          https://discord.com/api/webhooks/1079966997816811520/RdYRjk74nbjEPb44tKFGAgYqDRSmmk2BAmShGkpnmm6QpK-21n-Avw5TnVEaJ1CWhE0s
       paused: false
   monitors:
     address-manager-l-2-address-set:
@@ -310,7 +296,7 @@ resources:
           {{ metadataFormatted }}
         message-subject: "Defender Monitor: Address Manager (L2): AddressSet triggered"
         channels:
-          - ${self:resources.notifications.discord-configs}
+          - ${self:resources.notifications.discord-bridging}
         severity-level: MEDIUM
       conditions:
         event:
@@ -356,7 +342,7 @@ resources:
           {{ metadataFormatted }}
         message-subject: "Defender Monitor: Address Manager (L1): AddressSet triggered"
         channels:
-          - ${self:resources.notifications.discord-configs}
+          - ${self:resources.notifications.discord-bridging}
         severity-level: MEDIUM
       conditions:
         event:
@@ -409,7 +395,7 @@ resources:
           {{ metadataFormatted }}
         message-subject: "Defender Monitor: TaikoL2: Pause/Unpause triggered"
         channels:
-          - ${self:resources.notifications.discord-configs}
+          - ${self:resources.notifications.discord-bridging}
         severity-level: MEDIUM
       conditions:
         event:
@@ -478,7 +464,7 @@ resources:
           {{ metadataFormatted }}
         message-subject: "Defender Monitor: TaikoL1: Pause/Unpause triggered"
         channels:
-          - ${self:resources.notifications.discord-configs}
+          - ${self:resources.notifications.discord-bridging}
         severity-level: MEDIUM
       conditions:
         event:
@@ -519,7 +505,7 @@ resources:
           {{ matchReasonsFormatted }}
         message-subject: "Defender Monitor: Taiko Mainnet SGX Prover triggered"
         channels:
-          - ${self:resources.notifications.discord-blocks}
+          - ${self:resources.notifications.discord-bridging}
         severity-level: LOW
       conditions:
         event:
@@ -566,7 +552,7 @@ resources:
           {{ matchReasonsFormatted }}
         message-subject: "Defender Monitor: Taiko Mainnet Address Managers triggered"
         channels:
-          - ${self:resources.notifications.discord-configs}
+          - ${self:resources.notifications.discord-bridging}
         severity-level: HIGH
       conditions:
         event:
@@ -620,7 +606,7 @@ resources:
           {{ matchReasonsFormatted }}
         message-subject: "Defender Monitor: Taiko Mainnet Essential Contracts triggered"
         channels:
-          - ${self:resources.notifications.discord-configs}
+          - ${self:resources.notifications.discord-bridging}
         severity-level: HIGH
       conditions:
         event:

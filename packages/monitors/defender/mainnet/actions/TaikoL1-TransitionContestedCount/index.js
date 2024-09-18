@@ -124,7 +124,7 @@ const ABI = [
 
 function alertOrg(notificationClient, message) {
   notificationClient.send({
-    channelAlias: "discord_blocks",
+    channelAlias: "discord_bridging",
     subject: "ℹ️ TaikoL1: TransitionContested Count",
     message,
   });

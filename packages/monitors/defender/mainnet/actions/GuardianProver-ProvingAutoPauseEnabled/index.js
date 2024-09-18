@@ -19,7 +19,7 @@ const ABI = [
 
 function alertOrg(notificationClient, message) {
   notificationClient.send({
-    channelAlias: "discord_configs",
+    channelAlias: "discord_bridging",
     subject: "⚠️ GuardianProver: ProvingAutoPauseEnabled Alert",
     message,
   });
