@@ -69,15 +69,6 @@ func Test_NewServer(t *testing.T) {
 			eventindexer.ErrNoEventRepository,
 		},
 		{
-			"noCorsOrigins",
-			NewServerOpts{
-				Echo:           echo.New(),
-				EventRepo:      &repo.EventRepository{},
-				NFTBalanceRepo: &repo.NFTBalanceRepository{},
-			},
-			eventindexer.ErrNoCORSOrigins,
-		},
-		{
 			"noHttpFramework",
 			NewServerOpts{
 				EventRepo:      &repo.EventRepository{},
