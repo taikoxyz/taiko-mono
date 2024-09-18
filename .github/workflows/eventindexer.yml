@@ -18,7 +18,7 @@ jobs:
   lint-eventindexer:
     name: lint-eventindexer
     if: github.event_name == 'pull_request'
-    runs-on: [arc-runner-set]
+    runs-on: [taiko-runner]
     steps:
       - uses: actions/setup-go@v5
         with:
@@ -35,7 +35,7 @@ jobs:
           args: --config=.golangci.yml --timeout=4m
 
   test-eventindexer:
-    runs-on: [arc-runner-set]
+    runs-on: [taiko-runner]
     if: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft == false }}
     needs: lint-eventindexer
     steps:
@@ -66,7 +66,7 @@ jobs:
     # Skip dependabot PRs
     if: ${{ github.event_name == 'pull_request' && ! startsWith(github.ref, 'refs/heads/dependabot/') }}
     name: Build and push docker image
-    runs-on: [arc-runner-set]
+    runs-on: [taiko-runner]
 
     steps:
       - name: Checkout

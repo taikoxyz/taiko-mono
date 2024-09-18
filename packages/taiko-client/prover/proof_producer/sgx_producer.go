@@ -158,6 +158,9 @@ func (s *SGXProofProducer) callProverDaemon(
 	if s.ProofType == ProofTypeCPU {
 		proof = common.Hex2Bytes(output.Data.Proof)
 	} else {
+		if len(output.Data.Proof) == 0 {
+			return nil, errEmptyProof
+		}
 		proof = common.Hex2Bytes(output.Data.Proof[2:])
 	}
 

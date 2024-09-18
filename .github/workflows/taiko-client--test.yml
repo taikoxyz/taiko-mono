@@ -12,7 +12,7 @@ jobs:
   lint:
     if: github.event.pull_request.draft == false
     name: Lint
-    runs-on: [arc-runner-set]
+    runs-on: [ubuntu-latest]
     steps:
       - uses: actions/checkout@v4
 
@@ -29,7 +29,7 @@ jobs:
   integration_tests:
     if: github.event.pull_request.draft == false
     name: Integration tests
-    runs-on: [arc-runner-set]
+    runs-on: [ubuntu-latest]
     timeout-minutes: 15
 
     steps:
