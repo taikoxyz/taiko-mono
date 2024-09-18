@@ -540,6 +540,11 @@ library LibProving {
                             _state, _local.assignedProver, _local.blockId, _local.meta.livenessBond
                         );
                     }
+                } else {
+                    // Reward a majority of liveness bond to the actual prover
+                    unchecked {
+                        reward += _rewardAfterFriction(_local.livenessBond);
+                    }
                 }
             }
         }
