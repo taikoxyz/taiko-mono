@@ -12,7 +12,7 @@ jobs:
   lint:
     if: github.event.pull_request.draft == false
     name: Lint
-    runs-on: [arc-runner-set]
+    runs-on: [ubuntu-latest]
     steps:
       - uses: actions/checkout@v4
 
