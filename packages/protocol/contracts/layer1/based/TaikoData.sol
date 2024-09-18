@@ -158,7 +158,7 @@ library TaikoData {
     struct Block {
         bytes32 metaHash; // slot 1
         address assignedProver; // slot 2
-        uint96 livenessBond;
+        uint96 livenessBond; // DEPRECATED!!!
         uint64 blockId; // slot 3
         uint64 proposedAt; // timestamp
         uint64 proposedIn; // L1 block number, required/used by node/client.

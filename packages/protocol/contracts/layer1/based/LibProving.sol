@@ -23,7 +23,6 @@ library LibProving {
         bytes32 metaHash;
         address assignedProver;
         bytes32 stateRoot;
-        uint96 livenessBond;
         uint64 slot;
         uint64 blockId;
         uint24 tid;
@@ -228,10 +227,6 @@ library LibProving {
             local.assignedProver = local.meta.proposer;
         }
 
-        if (!blk.livenessBondReturned) {
-            local.livenessBond =
-                local.meta.livenessBond == 0 ? blk.livenessBond : local.meta.livenessBond;
-        }
         local.metaHash = blk.metaHash;
 
         // Check the integrity of the block data. It's worth noting that in
@@ -529,20 +524,18 @@ library LibProving {
             // - 2) the transition is contested.
             reward = _rewardAfterFriction(_ts.validityBond);
 
-            if (_local.livenessBond != 0) {
-                // After the first proof, the block's liveness bond will always be reset to 0.
-                // This means liveness bond will be handled only once for any given block.
-                _blk.livenessBond = 0;
+            if (!_blk.livenessBondReturned) {
+                _blk.livenessBond = 0; // reset this deprecated field to 0
                 _blk.livenessBondReturned = true;
 
                 if (_returnLivenessBond(_local, _proof.data)) {
                     if (_local.assignedProver == msg.sender) {
                         unchecked {
-                            reward += _local.livenessBond;
+                            reward += _local.meta.livenessBond;
                         }
                     } else {
                         LibBonds.creditBond(
-                            _state, _local.assignedProver, _local.blockId, _local.livenessBond
+                            _state, _local.assignedProver, _local.blockId, _local.meta.livenessBond
                         );
                     }
                 }
