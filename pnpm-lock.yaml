@@ -335,7 +335,7 @@ importers:
         version: https://codeload.github.com/dapphub/ds-test/tar.gz/e282159d5170298eb2455a6c05280ab5a73a4ef0
       forge-std:
         specifier: github:foundry-rs/forge-std
-        version: https://codeload.github.com/foundry-rs/forge-std/tar.gz/1ce7535a517406b9aec7ea1ea27c1b41376f712c
+        version: https://codeload.github.com/foundry-rs/forge-std/tar.gz/beb836e33f9a207f4927abb7cd09ad0afe4b3f9f
       ipfs-http-client:
         specifier: ^60.0.1
         version: 60.0.1
@@ -434,8 +434,8 @@ importers:
         specifier: github:Vectorized/solady#v0.0.231
         version: https://codeload.github.com/Vectorized/solady/tar.gz/a12a2575c899a328c1bafdada632dabbff27cf6b
       sp1-contracts:
-        specifier: github:succinctlabs/sp1-contracts#v1.2.0-rc1
-        version: sp1-contracts#v1.2.0-rc1@https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/ef134b7c141e03bb8a8854697422f770cc26dc74
+        specifier: github:succinctlabs/sp1-contracts#v2.0.0
+        version: sp1-contracts#v2.0.0@https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/af1ae093ef8a8f68b022aa8f0f7ad9ffd94aa6fb
     devDependencies:
       '@types/node':
         specifier: ^20.11.30
@@ -7042,15 +7042,15 @@ packages:
     resolution: {integrity: sha512-TMKDUnIte6bfb5nWv7V/caI169OHgvwjb7V4WkeUvbQQdjr5rWKqHFiKWb/fcOwB+CzBT+qbWjvj+DVwRskpIg==}
     engines: {node: '>=14'}
 
-  forge-std@https://codeload.github.com/foundry-rs/forge-std/tar.gz/1ce7535a517406b9aec7ea1ea27c1b41376f712c:
-    resolution: {tarball: https://codeload.github.com/foundry-rs/forge-std/tar.gz/1ce7535a517406b9aec7ea1ea27c1b41376f712c}
-    name: forge-std
-    version: 1.9.2
-
   forge-std@https://codeload.github.com/foundry-rs/forge-std/tar.gz/36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3:
     resolution: {tarball: https://codeload.github.com/foundry-rs/forge-std/tar.gz/36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3}
     name: forge-std
     version: 1.7.5
+
+  forge-std@https://codeload.github.com/foundry-rs/forge-std/tar.gz/beb836e33f9a207f4927abb7cd09ad0afe4b3f9f:
+    resolution: {tarball: https://codeload.github.com/foundry-rs/forge-std/tar.gz/beb836e33f9a207f4927abb7cd09ad0afe4b3f9f}
+    name: forge-std
+    version: 1.9.2
 
   form-data-encoder@2.1.4:
     resolution: {integrity: sha512-yDYSgNMraqvnxiEXO4hi88+YZxaHC6QKzb5N84iRCTDeRO7ZALpir/lVmf/uXUhnwUr2O4HU8s/n6x+yNjQkHw==}
@@ -10133,9 +10133,9 @@ packages:
     resolution: {integrity: sha512-l3BikUxvPOcn5E74dZiq5BGsTb5yEwhaTSzccU6t4sDOH8NWJCstKO5QT2CvtFoK6F0saL7p9xHAqHOlCPJygA==}
     engines: {node: '>= 8'}
 
-  sp1-contracts#v1.2.0-rc1@https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/ef134b7c141e03bb8a8854697422f770cc26dc74:
-    resolution: {tarball: https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/ef134b7c141e03bb8a8854697422f770cc26dc74}
-    name: sp1-contracts#v1.2.0-rc1
+  sp1-contracts#v2.0.0@https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/af1ae093ef8a8f68b022aa8f0f7ad9ffd94aa6fb:
+    resolution: {tarball: https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/af1ae093ef8a8f68b022aa8f0f7ad9ffd94aa6fb}
+    name: sp1-contracts#v2.0.0
     version: 0.0.0
 
   space-separated-tokens@2.0.2:
@@ -21312,9 +21312,9 @@ snapshots:
       cross-spawn: 7.0.3
       signal-exit: 4.1.0
 
-  forge-std@https://codeload.github.com/foundry-rs/forge-std/tar.gz/1ce7535a517406b9aec7ea1ea27c1b41376f712c: {}
-
   forge-std@https://codeload.github.com/foundry-rs/forge-std/tar.gz/36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3: {}
+
+  forge-std@https://codeload.github.com/foundry-rs/forge-std/tar.gz/beb836e33f9a207f4927abb7cd09ad0afe4b3f9f: {}
 
   form-data-encoder@2.1.4: {}
 
@@ -25259,7 +25259,7 @@ snapshots:
 
   source-map@0.7.4: {}
 
-  sp1-contracts#v1.2.0-rc1@https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/ef134b7c141e03bb8a8854697422f770cc26dc74: {}
+  sp1-contracts#v2.0.0@https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/af1ae093ef8a8f68b022aa8f0f7ad9ffd94aa6fb: {}
 
   space-separated-tokens@2.0.2: {}
 

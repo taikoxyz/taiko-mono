@@ -204,19 +204,21 @@
 - logs:
   - deployed on August 14, 2024 at commit `cba2a1e`
 
-### risc0_groth16_verifier
+### sp1_plonk_verifier
 
-- addr : 0x2D97b170368E585C5147173A4cD4B3dD5659576A
+- addr : 0x2D3EdD345fC785172c456b086e6672366c6235b7
 - logs:
   - deployed on September 02, 2024 at commit `16ac02e`
+  - upgraded on September 15, 2024 at commit `6f26434`
 
 ### tier_zkvm_sp1
 
 - proxy : 0xFbE49f777E0078b3Fa0bae6de4794c88d6EA6DDD
-- impl : 0x15eC98183602e353Bb1223c60ba519c0Db637a01
+- impl : 0x28d8F1DdAb35f34F5b97eE844bC74Bd237efe731
 - owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
 - logs:
   - deployed on September 02, 2024 at commit `16ac02e`
+  - upgraded on September 15, 2024 at commit `6f26434`
 
 ## L2 Contracts
 

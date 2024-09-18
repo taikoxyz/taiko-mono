@@ -4,11 +4,14 @@ on: [pull_request]
 
 jobs:
   check-for-typos:
-    runs-on: ubuntu-latest
+    runs-on: [arc-runner-set]
 
     steps:
       - name: Checkout the repository
         uses: actions/checkout@v4
+
+      - name: Install wget
+        run: sudo apt-get update && sudo apt-get install -y wget
 
       - name: Check for typos
         uses: crate-ci/typos@master

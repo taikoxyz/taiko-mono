@@ -57,7 +57,7 @@ func (i *Indexer) indexERC20Transfers(
 }
 
 // isERC20Transfer determines whether a given log is a valid ERC20 transfer event
-func (i *Indexer) isERC20Transfer(ctx context.Context, vLog types.Log) bool {
+func (i *Indexer) isERC20Transfer(_ context.Context, vLog types.Log) bool {
 	// malformed event
 	if len(vLog.Topics) == 0 {
 		return false

@@ -25,19 +25,21 @@ This guide outlines how to achieve this with separate EOAs running prover and pr
 
 1. **Clone the Taiko monorepo**
 
-    The [Taiko monorepo](https://github.com/taikoxyz/taiko-mono) contains the scripts for deploying your `ProverSet`.
+    The [Taiko monorepo](https://github.com/taikoxyz/taiko-mono) contains the scripts for deploying your `ProverSet`. Checkout the latest stable release. (Use `protocol-v1.9.0` for Hekla!)
 
     <Tabs>
         <TabItem label="Mac/Linux">
         ```bash
         git clone https://github.com/taikoxyz/taiko-mono.git
         cd taiko-mono/packages/protocol
+        git checkout tags/{release-tag}
         ```
         </TabItem>
         <TabItem label="Windows">
         ```sh
         git clone https://github.com/taikoxyz/taiko-mono.git
         cd taiko-mono/packages/protocol && git config core.autocrlf false
+        git checkout tags/{release-tag}
         ```
         </TabItem>
     </Tabs>
@@ -53,6 +55,10 @@ This guide outlines how to achieve this with separate EOAs running prover and pr
     ```bash
     ROLLUP_ADDRESS_MANAGER={ADDRESS} PROVER_SET_ADMIN={ADDRESS} forge script --chain-id {CHAIN_ID} --rpc-url {YOUR_RPC_URL} --private-key {PRIVATE_KEY} --broadcast script/DeployProverSet.s.sol:DeployProverSet
     ```
+
+    <Aside>
+        For `protocol-v1.9.0`, the path is script/layer1/DeployProverSet.s.sol:DeployProverSet
+    </Aside>
 
     The script should print your implementation and proxy address with the log:
 
@@ -91,7 +97,7 @@ This guide outlines how to achieve this with separate EOAs running prover and pr
 
 6. **Deposit your tokens and run your proposer + prover as usual!**
 
-    If you've followed the instructions, send your TAIKO/TTKOh to the ProverSet proxy and begin running your prover and proposer as usual. Do not send it to the contract directly! Use the `depositBond` function.
+    If you've followed the instructions, send your TAIKO/TTKOh to the ProverSet proxy and begin running your prover and proposer as usual. If you've set up your allowance properly, there should be no need to use the `depositBond` function, as it deposits TTKOh from the ProverSet to TaikoL1.
 
     <Aside>
         Make sure to set your `$PROVER_SET` in your `simple-taiko-node` .env file as the proxy address.
@@ -115,22 +121,40 @@ If you've already deployed a ProverSet but would like to upgrade it through the 
 
     This will be necessary for the following step.
 
-2. **Navigate to the taiko monorepo**
+2. **Navigate to the taiko monorepo and checkout the release version of ProverSet you want to deploy.**
 
     ```bash
     cd taiko-mono/packages/protocol
+    git checkout tags/{PROTOCOL_RELEASE_TAG}
     ```
 
-3. **Run the UpgradeProverSet.s.sol script**
+3. **Deploy the ProverSet contract from your prover EOA and call upgradeTo with the new implementation address on your original Proxy**
 
     Execute the following command, filling in the values in the curly braces appropriately.
+
     ```bash
-    PROXY_ADDRESS={YOUR_PROXY_ADDRESS} PRIVATE_KEY={YOUR_PRIVATE_KEY} forge script --chain-id 17000 --rpc-url {YOUR_RPC_URL} --broadcast script/upgrade/UpgradeProverSet.s.sol:UpgradeProverSet
+    forge create --private-key {YOUR_PRIVATE_KEY} --chain-id 17000 --rpc-url {YOUR_RPC_URL} contracts/layer1/provers/ProverSet.sol:ProverSet
     ```
 
     <Aside>
     If you are getting EvmErrors, your private key may be formatted incorrectly; try prefixing it with `0x` and rerunning the script.
+
+    Depending on the protocol release you use, the path to the ProverSet contract may also be different; change as necessary!
     </Aside>
+
+    You should see logs like these:
+
+    ```
+    Deployer: 0x3e5c...
+    Deployed to: 0x9186...
+    Transaction hash: 0xf0ebb...
+    ```
+
+    Then, proceed to your original Proxy contract; access the `Write to Proxy` tab and scroll to the `upgradeTo()` function.
+
+    Connect your EOA that you originally deployed the ProverSet from and call the function with your new `Deployed to:` address.
+
+    Once the transaction succeeds, you have successfully upgraded your ProverSet.
 
 </Steps>
 
@@ -142,11 +166,6 @@ If you've already deployed a ProverSet but would like to upgrade it through the 
 
     It's not missing, it's just been deposited as bond in the TaikoL1 contract; you can withdraw it from the ProverSet contract with [withdrawBond()](https://github.com/taikoxyz/taiko-mono/blob/dd09223de53669b84241672eeb4b8574e5c7f821/packages/protocol/contracts/team/proving/ProverSet.sol#L110) manually.
 
-<Card title="Troubleshooting" icon="error">
-        If you run into any problems, please visit the [node troubleshooting page](/guides/node-operators/node-troubleshooting) for help.
-        If you run into an error that isn't yet listed, please reach out in our [Discord](https://discord.com/invite/taikoxyz)!
-</Card>
-
 ### How do I verify my ProverSet contract?
 
     Once you've deployed the contract, you should be able to find the contract address. You can do this on Etherscan manually or with forge!
@@ -155,7 +174,12 @@ If you've already deployed a ProverSet but would like to upgrade it through the 
     Then, navigate to the `protocol` package in `taiko-mono` and execute the following command substituting values in curly braces as necessary.
 
     ```bash
-    forge verify-contract --chain-id 17000 --etherscan-api-key {GET-API-KEY-FROM-ETHERSCAN-FIRST} {PUT-CONTRCT-ADDRESS-HERE}  contracts/team/proving/ProverSet.sol:ProverSet
+    forge verify-contract --chain-id 17000 --etherscan-api-key {GET-API-KEY-FROM-ETHERSCAN-FIRST} {PUT-CONTRACT-ADDRESS-HERE} contracts/team/proving/ProverSet.sol:ProverSet
     ```
 
     You should get a success message and your contract should now show up as verified on Etherscan!
+
+<Card title="Troubleshooting" icon="error">
+        If you run into any problems, please visit the [node troubleshooting page](/guides/node-operators/node-troubleshooting) for help.
+        If you run into an error that isn't yet listed, please reach out in our [Discord](https://discord.com/invite/taikoxyz)!
+</Card>
