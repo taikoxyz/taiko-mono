@@ -545,11 +545,6 @@ library LibProving {
                     unchecked {
                         reward += _rewardAfterFriction(_local.meta.livenessBond);
                     }
-                } else {
-                    // Reward a majority of liveness bond to the actual prover
-                    unchecked {
-                        reward += _rewardAfterFriction(_local.livenessBond);
-                    }
                 }
             }
         }
