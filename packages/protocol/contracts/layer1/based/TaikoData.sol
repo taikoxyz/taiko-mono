@@ -160,8 +160,8 @@ library TaikoData {
         address assignedProver; // DEPRECATED!!!
         uint96 livenessBond; // DEPRECATED!!!
         uint64 blockId; // slot 3
-        uint64 proposedAt; // timestamp
-        uint64 proposedIn; // L1 block number, required/used by node/client.
+        uint64 proposedAt; // used as: local.params.timestamp
+        uint64 proposedIn; // used as: local.params.anchorBlockId
         uint32 nextTransitionId;
         // The ID of the transaction that is used to verify this block. However, if
         // this block is not verified as the last block in a batch, verifiedTransitionId
