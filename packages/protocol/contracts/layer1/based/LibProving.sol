@@ -617,7 +617,7 @@ library LibProving {
                 } else if (!_local.isTopTier) {
                     // Reward 50% of liveness bond to the actual prover, the other 50% burnt.
                     unchecked {
-                        reward += _local.livenessBond >> 1;
+                        reward += _rewardAfterFriction(_local.livenessBond);
                     }
                 }
             }

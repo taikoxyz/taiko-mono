@@ -61,7 +61,7 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
             assertEq(totalTkoBalance(tko, L1, Alice), 10_000 ether - livenessBond);
             assertEq(
                 totalTkoBalance(tko, L1, James),
-                10_000 ether - tierOp.validityBond + livenessBond / 2
+                10_000 ether - tierOp.validityBond + livenessBond * 7 / 8
             );
             assertEq(totalTkoBalance(tko, L1, Taylor), 10_000 ether - tierOp.contestBond);
         }
@@ -174,7 +174,7 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
             assertEq(totalTkoBalance(tko, L1, Alice), 10_000 ether - livenessBond);
             assertEq(
                 totalTkoBalance(tko, L1, James),
-                10_000 ether - tierOp.validityBond + livenessBond / 2
+                10_000 ether - tierOp.validityBond + livenessBond * 7 / 8
             );
             assertEq(totalTkoBalance(tko, L1, Taylor), 10_000 ether - tierOp.contestBond);
         }
@@ -203,7 +203,7 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
             assertEq(totalTkoBalance(tko, L1, Alice), 10_000 ether - livenessBond);
             assertEq(
                 totalTkoBalance(tko, L1, James),
-                10_000 ether - tierOp.validityBond + livenessBond / 2
+                10_000 ether - tierOp.validityBond + livenessBond * 7 / 8
             );
 
             uint256 quarterReward = tierOp.validityBond * 7 / 8 / 4;
@@ -238,7 +238,7 @@ contract TaikoL1TestGroup3 is TaikoL1TestGroupBase {
             uint256 quarterReward = tierOp.validityBond * 7 / 8 / 4;
             assertEq(
                 totalTkoBalance(tko, L1, James),
-                10_000 ether - tierOp.validityBond + livenessBond / 2
+                10_000 ether - tierOp.validityBond + livenessBond * 7 / 8
             );
             assertEq(totalTkoBalance(tko, L1, Taylor), 10_000 ether + quarterReward * 3);
             assertEq(totalTkoBalance(tko, L1, William), 10_000 ether + quarterReward);

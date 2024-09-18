@@ -303,7 +303,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
             assertEq(totalTkoBalance(tko, L1, Alice), 10_000 ether - livenessBond);
             assertEq(
                 totalTkoBalance(tko, L1, Carol),
-                10_000 ether - tierOp.validityBond + livenessBond / 2
+                10_000 ether - tierOp.validityBond + livenessBond * 7 / 8
             );
             assertEq(totalTkoBalance(tko, L1, William), 10_000 ether);
         }
@@ -330,7 +330,7 @@ contract TaikoL1TestGroup5 is TaikoL1TestGroupBase {
             assertEq(totalTkoBalance(tko, L1, Alice), 10_000 ether - livenessBond);
             assertEq(
                 totalTkoBalance(tko, L1, Carol),
-                10_000 ether - tierOp.validityBond + livenessBond / 2
+                10_000 ether - tierOp.validityBond + livenessBond * 7 / 8
             );
             assertEq(totalTkoBalance(tko, L1, William), 10_000 ether);
         }
