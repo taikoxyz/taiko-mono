@@ -495,7 +495,9 @@ contract Bridge is EssentialContract, IBridge {
         returns (bool success_)
     {
         assert(_message.from != address(this));
+
         if (_message.data.length == 0) return true;
+        
         if (_gasLimit == 0) return false;
 
         _storeContext(_msgHash, _message.from, _message.srcChainId);
