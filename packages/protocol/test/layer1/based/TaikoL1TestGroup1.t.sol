@@ -170,7 +170,10 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
 
             provenAt = ts.timestamp;
 
-            assertEq(totalTkoBalance(tko, L1, Taylor), 10_000 ether - tierOp.validityBond + livenessBond/2);
+            assertEq(
+                totalTkoBalance(tko, L1, Taylor),
+                10_000 ether - tierOp.validityBond + livenessBond / 2
+            );
         }
 
         console2.log("====== Verify block");
@@ -195,7 +198,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(ts.timestamp, provenAt);
 
             assertEq(totalTkoBalance(tko, L1, Alice), 10_000 ether - livenessBond);
-            assertEq(totalTkoBalance(tko, L1, Taylor), 10_000 ether + livenessBond/2);
+            assertEq(totalTkoBalance(tko, L1, Taylor), 10_000 ether + livenessBond / 2);
         }
     }
 
@@ -415,7 +418,8 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             provenAt = ts.timestamp;
 
             assertEq(
-                totalTkoBalance(tko, L1, Alice), 10_000 ether - tierOp.validityBond - livenessBond /2
+                totalTkoBalance(tko, L1, Alice),
+                10_000 ether - tierOp.validityBond - livenessBond / 2
             );
         }
 
@@ -440,7 +444,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(ts.validityBond, tierOp.validityBond);
             assertEq(ts.timestamp, provenAt);
 
-            assertEq(totalTkoBalance(tko, L1, Alice), 10_000 ether - livenessBond /2);
+            assertEq(totalTkoBalance(tko, L1, Alice), 10_000 ether - livenessBond / 2);
         }
     }
 
