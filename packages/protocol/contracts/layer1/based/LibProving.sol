@@ -525,8 +525,10 @@ library LibProving {
             reward = _rewardAfterFriction(_ts.validityBond);
 
             if (!_blk.livenessBondReturned) {
-                _blk.livenessBond = 0; // reset this deprecated field to 0
                 _blk.livenessBondReturned = true;
+
+                // reset this deprecated field to 0.
+                _blk.livenessBond = 0;
 
                 if (_returnLivenessBond(_local, _proof.data)) {
                     if (_local.assignedProver == msg.sender) {
