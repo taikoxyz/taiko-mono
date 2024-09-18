@@ -91,7 +91,8 @@ contract DeployS2Script is Script {
         impl = address(new TrailblazersBadgesS2());
         proxy = address(
             new ERC1967Proxy(
-                impl, abi.encodeCall(TrailblazersBadgesS2.initialize, address(s1Token))
+                impl,
+                abi.encodeCall(TrailblazersBadgesS2.initialize, (address(s1Token), mintSigner))
             )
         );
 

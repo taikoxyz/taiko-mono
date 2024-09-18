@@ -11,6 +11,7 @@ import { TrailblazersBadges } from "../../../contracts/trailblazers-badges/Trail
 import { TrailblazersBadgesS2 } from
     "../../../contracts/trailblazers-badges/TrailblazersBadgesS2.sol";
 import { BadgeChampions } from "../../../contracts/trailblazers-badges/BadgeChampions.sol";
+import { TrailblazerBadgesS1MintTo } from "../../../test/util/TrailblazerBadgesS1MintTo.sol";
 
 contract DeployScript is Script {
     UtilsScript public utils;
@@ -54,7 +55,7 @@ contract DeployScript is Script {
         uint256 START_TIME = block.timestamp - 1 minutes;
 
         badgeChampions.createLeague(OPEN_TIME, CLOSE_TIME, START_TIME);
-
+        /*
         for (uint256 i = 0; i < participants.length; i++) {
             uint256 badgeId = i % 7;
             trailblazersBadges.mintTo(participants[i], badgeId);
@@ -62,7 +63,7 @@ contract DeployScript is Script {
                 participants[i], address(trailblazersBadges), badgeId
             );
         }
-
+        */
         vm.stopBroadcast();
     }
 

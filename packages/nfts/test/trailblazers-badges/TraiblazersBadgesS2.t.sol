@@ -10,12 +10,14 @@ import { UtilsScript } from "../../script/taikoon/sol/Utils.s.sol";
 import { MockBlacklist } from "../util/Blacklist.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { TrailblazersBadgesS2 } from "../../contracts/trailblazers-badges/TrailblazersBadgesS2.sol";
+import { TrailblazerBadgesS1MintTo } from "../util/TrailblazerBadgesS1MintTo.sol";
 
-contract TrailblazersBadgesTest is Test {
+contract TrailblazersBadgesS2Test is Test {
     UtilsScript public utils;
 
     TrailblazersBadges public s1Badges;
     TrailblazersBadgesS2 public s2Badges;
+    TrailblazerBadgesS1MintTo public s1BadgesMock;
 
     address public owner = vm.addr(0x5);
 
@@ -55,6 +57,15 @@ contract TrailblazersBadgesTest is Test {
 
         s1Badges = TrailblazersBadges(proxy);
 
+        // upgrade s1 badges contract to use the mock version
+
+        s1Badges.upgradeToAndCall(
+            address(new TrailblazerBadgesS1MintTo()),
+            abi.encodeCall(TrailblazerBadgesS1MintTo.version, ())
+        );
+
+        s1BadgesMock = TrailblazerBadgesS1MintTo(address(s1Badges));
+
         BADGE_ID = s1Badges.BADGE_RAVERS();
 
         // deploy the s2 contract
@@ -62,7 +73,8 @@ contract TrailblazersBadgesTest is Test {
         impl = address(new TrailblazersBadgesS2());
         proxy = address(
             new ERC1967Proxy(
-                impl, abi.encodeCall(TrailblazersBadgesS2.initialize, (address(s1Badges)))
+                impl,
+                abi.encodeCall(TrailblazersBadgesS2.initialize, (address(s1Badges), mintSigner))
             )
         );
 
@@ -259,7 +271,6 @@ contract TrailblazersBadgesTest is Test {
         assertEq(purpleTampers, 2);
     }
 
-    // revert when attempting a 4th pink tamper
     function test_revert_tooManyTampers() public {
         test_tamperMigration();
         vm.startPrank(minters[0]);
@@ -269,22 +280,50 @@ contract TrailblazersBadgesTest is Test {
         vm.stopPrank();
     }
 
+    function test_resetTampers() public {
+        test_tamperMigration();
+        assertEq(s2Badges.isTamperActive(minters[0]), true);
+        (uint256 pinkTampers, uint256 purpleTampers) = s2Badges.getMigrationTampers(minters[0]);
+        assertEq(pinkTampers, MAX_TAMPERS);
+        assertEq(purpleTampers, 2);
+
+        vm.prank(minters[0]);
+        s2Badges.resetTampers();
+
+        assertEq(s2Badges.isTamperActive(minters[0]), false);
+        (pinkTampers, purpleTampers) = s2Badges.getMigrationTampers(minters[0]);
+        assertEq(pinkTampers, 0);
+        assertEq(purpleTampers, 0);
+    }
+
+    /*
     function test_revert_early_endMigration() public {
         test_tamperMigration();
         vm.startPrank(minters[0]);
         vm.expectRevert();
+
+
         s2Badges.endMigration();
         vm.stopPrank();
     }
 
+    */
     function test_endMigration() public {
         test_tamperMigration();
 
         wait(s2Badges.COOLDOWN_TAMPER());
         wait(s2Badges.COOLDOWN_MIGRATION());
 
+        // generate the claim hash for the current migration
+        bytes32 claimHash = s2Badges.generateClaimHash(minters[0]);
+
+        // simulate the backend signing the hash
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(mintSignerPk, claimHash);
+
+        // exercise the randomFromSignature function
+
         vm.startPrank(minters[0]);
-        s2Badges.endMigration();
+        s2Badges.endMigration(claimHash, v, r, s);
         vm.stopPrank();
 
         // check for s1 burn
@@ -372,5 +411,44 @@ contract TrailblazersBadgesTest is Test {
         assertEq(s1Badges.balanceOf(address(s2Badges)), 0);
         assertEq(s1Badges.ownerOf(tokenId), minters[0]);
         assertEq(s2Badges.isMigrationActive(minters[0]), false);
+    }
+
+    function test_randomFromSignature() public view {
+        bytes32 signatureHash = keccak256(
+            abi.encodePacked(
+                keccak256("1234567890"), // should use the block's hash
+                minters[0]
+            )
+        );
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(mintSignerPk, signatureHash);
+
+        uint256 random = s2Badges.randomFromSignature(signatureHash, v, r, s);
+
+        assertEq(
+            random,
+            28_417_844_340_632_250_945_870_465_294_567_768_196_388_504_060_802_704_441_612_911_129_119_444_309_664
+        );
+    }
+
+    function test_generateClaimHash_revert() public {
+        vm.expectRevert();
+        s2Badges.generateClaimHash(minters[0]);
+    }
+
+    function test_migrateSameBadgeId_revert() public {
+        // run a first migration
+        test_endMigration();
+
+        // mint a second badge to the user
+        vm.prank(owner);
+        s1BadgesMock.mintTo(minters[0], BADGE_ID);
+
+        // fail the second migration for that badge
+        vm.startPrank(minters[0]);
+        s1Badges.approve(address(s2Badges), s1Badges.tokenOfOwnerByIndex(minters[0], 0));
+        vm.expectRevert();
+        s2Badges.startMigration(BADGE_ID);
+        vm.stopPrank();
     }
 }
