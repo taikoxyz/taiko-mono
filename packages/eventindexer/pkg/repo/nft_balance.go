@@ -36,14 +36,13 @@ func (r *NFTBalanceRepository) increaseBalanceInDB(
 ) (*eventindexer.NFTBalance, error) {
 	b := &eventindexer.NFTBalance{
 		ContractAddress: opts.ContractAddress,
-		NftMetadataId:   opts.NftMetadataId,
 		TokenID:         opts.TokenID,
 		Address:         opts.Address,
 		ContractType:    opts.ContractType,
 		ChainID:         opts.ChainID,
 	}
 
-	err := db.
+	err := db.WithContext(ctx).
 		Where("contract_address = ?", opts.ContractAddress).
 		Where("token_id = ?", opts.TokenID).
 		Where("address = ?", opts.Address).
@@ -74,14 +73,13 @@ func (r *NFTBalanceRepository) decreaseBalanceInDB(
 ) (*eventindexer.NFTBalance, error) {
 	b := &eventindexer.NFTBalance{
 		ContractAddress: opts.ContractAddress,
-		NftMetadataId:   opts.NftMetadataId,
 		TokenID:         opts.TokenID,
 		Address:         opts.Address,
 		ContractType:    opts.ContractType,
 		ChainID:         opts.ChainID,
 	}
 
-	err := db.
+	err := db.WithContext(ctx).
 		Where("contract_address = ?", opts.ContractAddress).
 		Where("token_id = ?", opts.TokenID).
 		Where("address = ?", opts.Address).
