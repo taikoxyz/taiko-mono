@@ -15,7 +15,7 @@ jobs:
     runs-on: [arc-runner-set]
     steps:
       - name: Install Git
-        run: sudo apt-get update && sudo apt-get install -y git
+        run: sudo apt-get update && sudo apt-get install -y git make
 
       - uses: actions/checkout@v4
 
