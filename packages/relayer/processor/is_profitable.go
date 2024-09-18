@@ -37,7 +37,7 @@ func (p *Processor) isProfitable(
 
 	// if processing fee is higher than baseFee * gasLimit,
 	// we should process.
-	estimatedOnchainFee := (destChainBaseFee + gasTipCap) * uint64(gasLimit)
+	estimatedOnchainFee := ((destChainBaseFee * 2) + gasTipCap) * uint64(gasLimit)
 	if fee > estimatedOnchainFee {
 		shouldProcess = true
 	}
