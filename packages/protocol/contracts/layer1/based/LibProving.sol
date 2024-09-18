@@ -575,7 +575,7 @@ library LibProving {
         private
     {
         // Higher tier proof overwriting lower tier proof
-        uint256 reward; // reward to the new (current) prover
+        uint256 reward; // reward to the new (current) prover - msg.sender
 
         if (_ts.contester != address(0)) {
             if (_local.sameTransition) {
@@ -611,6 +611,8 @@ library LibProving {
                     } else {
                         LibBonds.creditBond(_state, _local.assignedProver, _local.livenessBond);
                     }
+                } else if (!_local.isTopTier) {
+                    reward += _local.livenessBond/2;
                 }
             }
         }

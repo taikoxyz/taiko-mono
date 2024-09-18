@@ -116,7 +116,6 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
         printBlockAndTrans(0);
 
         giveEthAndTko(Alice, 10_000 ether, 1000 ether);
-
         giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
         ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTiers.TIER_OPTIMISTIC);
 
@@ -171,7 +170,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
 
             provenAt = ts.timestamp;
 
-            assertEq(totalTkoBalance(tko, L1, Taylor), 10_000 ether - tierOp.validityBond);
+            assertEq(totalTkoBalance(tko, L1, Taylor), 10_000 ether - tierOp.validityBond + livenessBond/2);
         }
 
         console2.log("====== Verify block");
@@ -196,7 +195,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(ts.timestamp, provenAt);
 
             assertEq(totalTkoBalance(tko, L1, Alice), 10_000 ether - livenessBond);
-            assertEq(totalTkoBalance(tko, L1, Taylor), 10_000 ether);
+            assertEq(totalTkoBalance(tko, L1, Taylor), 10_000 ether + livenessBond/2);
         }
     }
 
@@ -351,17 +350,16 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(totalTkoBalance(tko, L1, Alice), 10_000 ether - L1.getConfig().livenessBond);
         }
     }
+
     // Test summary:
     // 1. Alice proposes a block,
     // 2. Alice proves the block outside the proving window, using the correct parent hash.
     // 3. Alice's proof is used to verify the block.
-
     function test_taikoL1_group_1_case_6() external {
         vm.warp(1_000_000);
         printBlockAndTrans(0);
 
         giveEthAndTko(Alice, 10_000 ether, 1000 ether);
-
         giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
         ITierProvider.Tier memory tierOp = TestTierProvider(cp).getTier(LibTiers.TIER_OPTIMISTIC);
 
@@ -417,7 +415,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             provenAt = ts.timestamp;
 
             assertEq(
-                totalTkoBalance(tko, L1, Alice), 10_000 ether - tierOp.validityBond - livenessBond
+                totalTkoBalance(tko, L1, Alice), 10_000 ether - tierOp.validityBond - livenessBond /2
             );
         }
 
@@ -442,7 +440,7 @@ contract TaikoL1TestGroup1 is TaikoL1TestGroupBase {
             assertEq(ts.validityBond, tierOp.validityBond);
             assertEq(ts.timestamp, provenAt);
 
-            assertEq(totalTkoBalance(tko, L1, Alice), 10_000 ether - livenessBond);
+            assertEq(totalTkoBalance(tko, L1, Alice), 10_000 ether - livenessBond /2);
         }
     }
 
