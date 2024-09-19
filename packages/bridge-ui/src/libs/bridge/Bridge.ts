@@ -6,6 +6,7 @@ import { routingContractsMap } from '$bridgeConfig';
 import { MessageStatusError, ProcessMessageError, ReleaseError, WrongChainError, WrongOwnerError } from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
 import { getConnectedWallet } from '$libs/util/getConnectedWallet';
+import { isSmartContract } from '$libs/util/isSmartContract';
 import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
@@ -262,6 +263,11 @@ export abstract class Bridge {
       console.error('Failed to estimate gas, using fallback', error);
       estimatedGas = 1_300_000n;
     }
+
+    if (message.to && (await isSmartContract(message.to, Number(message.destChainId)))) {
+      log(`Recipient is a smart contract, increasing fees by 5 percent`);
+      estimatedGas = (estimatedGas * 105n) / 100n;
+    }
     if (force) {
       return await writeContract(config, {
         address: bridgeContract.address,
@@ -293,10 +299,13 @@ export abstract class Bridge {
 
     if (!message) throw new ProcessMessageError('Message is not defined');
 
-    const estimatedGas = await bridgeContract.estimateGas.retryMessage([message, isFinalAttempt], {
+    let estimatedGas = await bridgeContract.estimateGas.retryMessage([message, isFinalAttempt], {
       account: client.account,
     });
-
+    if (message.to && (await isSmartContract(message.to, Number(message.destChainId)))) {
+      log(`Recipient is a smart contract, increasing fees by 5 percent`);
+      estimatedGas = (estimatedGas * 105n) / 100n;
+    }
     log('Estimated gas for retryMessage', estimatedGas);
 
     const { request } = await simulateContract(config, {
@@ -319,8 +328,14 @@ export abstract class Bridge {
 
     log('Estimating gas for recallMessage', bridgeContract.address, [message, proof]);
 
-    const estimatedGas = await bridgeContract.estimateGas.recallMessage([message, proof], { account: client.account });
+    let estimatedGas = await bridgeContract.estimateGas.recallMessage([message, proof], { account: client.account });
     log('Estimated gas for recallMessage', estimatedGas);
+
+    if (message.from && (await isSmartContract(message.from, Number(message.srcChainId)))) {
+      log(`Sender is a smart contract, increasing fees by 5 percent`);
+      estimatedGas = (estimatedGas * 105n) / 100n;
+    }
+    log('Estimated gas for retryMessage', estimatedGas);
 
     const { request } = await simulateContract(config, {
       address: bridgeContract.address,
