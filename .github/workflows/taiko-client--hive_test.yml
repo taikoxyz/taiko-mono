@@ -1,8 +1,8 @@
 name: "Taiko Client Hive Tests"
 
 on:
-  push:
-    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "packages/taiko-client/**"
       - "go.mod"
@@ -10,14 +10,19 @@ on:
 
 jobs:
   hive_tests:
+    if: github.event.pull_request.draft == false && contains(github.event.pull_request.labels.*.name, 'option.hive-test')
     name: hive tests
-    runs-on: ubuntu-latest
+    runs-on: [arc-runner-set]
+    timeout-minutes: 20
 
     steps:
       - name: Cancel Previous Runs
         uses: styfle/cancel-workflow-action@0.11.0
         with:
           access_token: ${{ github.token }}
+
+      - name: Install Git
+        run: sudo apt-get update && sudo apt-get install -y git
 
       - uses: actions/checkout@v4
 

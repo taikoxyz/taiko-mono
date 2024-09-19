@@ -3,7 +3,7 @@
   "rules": {
     "avoid-low-level-calls": "off",
     "avoid-tx-origin": "off",
-    "compiler-version": ["error", "0.8.27"],
+    "compiler-version": ["error", "^0.8.24"],
     "func-name-mixedcase": "off",
     "func-visibility": ["error", { "ignoreConstructors": true }],
     "max-line-length": ["error", 120],

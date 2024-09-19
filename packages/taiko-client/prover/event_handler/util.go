@@ -130,6 +130,5 @@ func IsProvingWindowExpired(
 		now       = uint64(time.Now().Unix())
 		expiredAt = metadata.GetTimestamp() + uint64(provingWindow.Seconds())
 	)
-	// #nosec G115
 	return now > expiredAt, time.Unix(int64(expiredAt), 0), time.Duration(expiredAt-now) * time.Second, nil
 }

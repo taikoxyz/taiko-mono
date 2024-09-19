@@ -1,7 +1,4 @@
 [profile.default]
-src = "contracts"
-out = "out"
-test = "test"
 script = "script"
 gas_price = 10_000_000_000 # 10 Gwei
 gas_limit = "18446744073709551615" # u64::MAX
@@ -10,7 +7,6 @@ optimizer_runs = 200
 ffi = true
 memory_limit = 2_073_741_824
 solc_version = "0.8.27"
-evm_version = "cancun"
 remappings = [
   "@openzeppelin/contracts-upgradeable/=node_modules/@openzeppelin/contracts-upgradeable/",
   "openzeppelin/contracts-upgradeable/=node_modules/@openzeppelin/contracts-upgradeable/",
@@ -54,5 +50,23 @@ multiline_func_header = "all"
 number_underscore = "thousands"
 wrap_comments = true
 
+[profile.layer1]
+src = "contracts/layer1"
+test = "test/layer1"
+script = "script/layer1"
+out = "out/layer1"
+evm_version = "cancun"
+
+[profile.layer2]
+src = "contracts/layer2"
+test = "test/layer2"
+script = "script/layer2"
+out = "out/layer2"
+evm_version = "shanghai"
+
 [profile.genesis]
-test = "genesis"
+src = "contracts/layer2"
+test = "test/genesis"
+script = "script/layer2"
+out = "out/layer2"
+evm_version = "shanghai"

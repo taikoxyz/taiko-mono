@@ -5,7 +5,10 @@ on:
     branches: [main]
     paths:
       - "packages/eventindexer/**"
+      - "go.mod"
+      - "go.sum"
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "packages/eventindexer/**"
       - "go.mod"
@@ -14,7 +17,8 @@ on:
 jobs:
   lint-eventindexer:
     name: lint-eventindexer
-    runs-on: [taiko-runner]
+    if: github.event_name == 'pull_request'
+    runs-on: [arc-runner-set]
     steps:
       - uses: actions/setup-go@v5
         with:
@@ -31,13 +35,17 @@ jobs:
           args: --config=.golangci.yml --timeout=4m
 
   test-eventindexer:
-    runs-on: [taiko-runner]
+    runs-on: [arc-runner-set]
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft == false }}
     needs: lint-eventindexer
     steps:
       - name: Cancel Previous Runs
         uses: styfle/cancel-workflow-action@0.12.1
         with:
           access_token: ${{ github.token }}
+
+      - name: Install Git
+        run: sudo apt-get update && sudo apt-get install -y git
 
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -55,11 +63,15 @@ jobs:
           flags: eventindexer
 
   push-eventindexer-docker-image:
-    if: ${{ github.event_name == 'pull_request' }}
+    # Skip dependabot PRs
+    if: ${{ github.event_name == 'pull_request' && ! startsWith(github.ref, 'refs/heads/dependabot/') }}
     name: Build and push docker image
-    runs-on: [taiko-runner]
+    runs-on: [arc-runner-set]
 
     steps:
+      - name: Install Git
+        run: sudo apt-get update && sudo apt-get install -y git
+
       - name: Checkout
         uses: actions/checkout@v4
         with:

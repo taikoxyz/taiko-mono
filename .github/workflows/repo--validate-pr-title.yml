@@ -5,15 +5,11 @@ on:
     types:
       - opened
       - edited
-      - synchronize
-  push:
-    branches:
-      - release-please-* # Trigger for release-please PRs, but skip the job
 
 jobs:
   validate-pr-title:
     if: github.event_name == 'pull_request_target'
-    runs-on: [taiko-runner]
+    runs-on: [arc-runner-set]
     steps:
       - uses: amannn/action-semantic-pull-request@v5
         env:

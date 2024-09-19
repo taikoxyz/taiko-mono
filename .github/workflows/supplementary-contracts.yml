@@ -1,22 +1,23 @@
 name: Supplementary Contracts
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "packages/supplementary-contracts/**"
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "packages/supplementary-contracts/**"
 
 jobs:
   build-supplementary-contracts:
-    runs-on: [taiko-runner]
+    if: github.event.pull_request.draft == false
+    runs-on: [arc-runner-set]
     steps:
       - name: Cancel previous runs
         uses: styfle/cancel-workflow-action@0.12.1
         with:
           access_token: ${{ github.token }}
+
+      - name: Install Git
+        run: sudo apt-get update && sudo apt-get install -y git
 
       - name: Checkout repository
         uses: actions/checkout@v4
