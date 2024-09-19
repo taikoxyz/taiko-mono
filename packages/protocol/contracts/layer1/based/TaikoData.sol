@@ -151,7 +151,7 @@ library TaikoData {
         uint8 __reserved1;
     }
 
- /// @dev DEPRECATED but used by node/client for syncing old blocks
+    /// @dev DEPRECATED but used by node/client for syncing old blocks
     /// @dev Struct containing data required for verifying a block.
     /// 3 slots used.
     struct Block {
@@ -159,7 +159,7 @@ library TaikoData {
         address assignedProver;
         uint96 livenessBond;
         uint64 blockId; // slot 3
-        uint64 proposedAt; 
+        uint64 proposedAt;
         uint64 proposedIn;
         uint32 nextTransitionId;
         // The ID of the transaction that is used to verify this block. However, if
