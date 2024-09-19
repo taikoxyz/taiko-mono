@@ -1,4 +1,4 @@
-name: Protocol
+name: Protocol Docker
 
 on:
   pull_request:
@@ -9,7 +9,7 @@ on:
 jobs:
   build-protocol:
     if: github.event.pull_request.draft == false
-    runs-on: [arc-runner-set]
+    runs-on: [taiko-runner]
     permissions:
       # Give the necessary permissions for stefanzweifel/git-auto-commit-action.
       contents: write
@@ -33,29 +33,10 @@ jobs:
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
 
-      - name: Clean up and fmt
+      - name: Compile
         working-directory: ./packages/protocol
-        run: pnpm clean && forge fmt
+        run: pnpm clean && pnpm compile
 
-      - name: L2-Unit tests
+      - name: L2-Generate Genesis (using docker)
         working-directory: ./packages/protocol
-        run: pnpm compile:l2 && pnpm test:l2 && pnpm layout:l2
-
-      - name: L1-Unit tests
-        working-directory: ./packages/protocol
-        run: pnpm compile:l1 && pnpm test:l1 && pnpm layout:l1
-
-      - name: Commit contract layout table
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "forge fmt & update contract layout tables"
-
-      - name: L1-Deploy contracts
-        working-directory: ./packages/protocol
-        timeout-minutes: 2
-        run: |
-          anvil --hardfork cancun &
-          while ! nc -z localhost 8545; do
-            sleep 1
-          done
-          pnpm test:deploy:l1
+        run: pnpm genesis:test
