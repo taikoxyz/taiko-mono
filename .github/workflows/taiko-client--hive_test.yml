@@ -38,13 +38,6 @@ jobs:
       - name: Clone taikoxyz/hive
         run: git clone https://github.com/taikoxyz/hive.git /tmp/hive
 
-      - name: Update taiko contract tx list
-        working-directory: .
-        run: |
-          export TAIKO_MONO_DIR=$PWD
-          cd /tmp/hive/simulators/taiko
-          sh scripts/deploy_l1_contract.sh
-
       - name: Hive tests
         working-directory: packages/taiko-client
         run: |
