@@ -329,9 +329,8 @@ func (p *Proposer) ProposeTxLists(ctx context.Context, txLists []types.Transacti
 				log.Error("Failed to wait for new pending transaction", "error", err)
 			}
 		}
-		if err := g.Wait(); err != nil {
-			return err
-		}
+
+		return g.Wait()
 	}
 
 	// If the current L2 chain is after ontake fork, batch propose all L2 transactions lists.
@@ -487,7 +486,7 @@ func (p *Proposer) sendTx(ctx context.Context, txCandidate *txmgr.TxCandidate) e
 	receipt, err := txMgr.Send(ctx, *txCandidate)
 	if err != nil {
 		log.Warn(
-			"Failed to send TaikoL1.proposeBlock / TaikoL1.proposeBlockV2 transaction by tx manager",
+			"Failed to send TaikoL1.proposeBlock / TaikoL1.proposeBlocksV2 transaction by tx manager",
 			"isPrivateMempool", isPrivate,
 			"error", encoding.TryParsingCustomError(err),
 		)

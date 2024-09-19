@@ -68,7 +68,7 @@ func (b *BlobTransactionBuilder) BuildLegacy(
 	}
 
 	if b.chainConfig.IsOntake(new(big.Int).SetUint64(state.B.NumBlocks)) {
-		return nil, fmt.Errorf("legacy transaction buulder is not supported after ontake fork")
+		return nil, fmt.Errorf("legacy transaction builder is not supported after ontake fork")
 	}
 
 	var blob = &eth.Blob{}
@@ -151,7 +151,7 @@ func (b *BlobTransactionBuilder) BuildOntake(
 	}
 
 	if !b.chainConfig.IsOntake(new(big.Int).SetUint64(state.B.NumBlocks)) {
-		return nil, fmt.Errorf("ontake transaction buulder is not supported before ontake fork")
+		return nil, fmt.Errorf("ontake transaction builder is not supported before ontake fork")
 	}
 
 	// ABI encode the TaikoL1.proposeBlocksV2 / ProverSet.proposeBlocksV2 parameters.

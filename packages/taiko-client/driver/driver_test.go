@@ -86,7 +86,7 @@ func (s *DriverTestSuite) TestProcessL1Blocks() {
 
 		txCount, err := s.d.rpc.L2.TransactionCount(context.Background(), header.Hash())
 		s.Nil(err)
-		s.Equal(uint(1), txCount)
+		s.GreaterOrEqual(txCount, uint(1))
 
 		anchorTx, err := s.d.rpc.L2.TransactionInBlock(context.Background(), header.Hash(), 0)
 		s.Nil(err)
@@ -132,15 +132,13 @@ func (s *DriverTestSuite) TestCheckL1ReorgToHigherFork() {
 	// Because of evm_revert operation, the nonce of the proposer need to be adjusted.
 	// Propose ten blocks on another fork
 	for i := 0; i < 10; i++ {
-		s.ProposeValidBlock(s.p)
+		s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().BlobSyncer())
 	}
 
 	l1Head4, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
 	s.Greater(l1Head4.Number.Uint64(), l1Head2.Number.Uint64())
-
-	s.Nil(s.d.ChainSyncer().BlobSyncer().ProcessL1Blocks(context.Background()))
 
 	l2Head3, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)

@@ -23,7 +23,7 @@ import (
 )
 
 func (s *ClientTestSuite) proposeEmptyBlockOp(ctx context.Context, proposer Proposer) {
-	s.Nil(proposer.ProposeTxLists(ctx, []types.Transactions{}))
+	s.Nil(proposer.ProposeTxLists(ctx, []types.Transactions{{}}))
 }
 
 func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
@@ -35,32 +35,35 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
-	sink := make(chan *bindings.LibProposingBlockProposed)
-
-	sub, err := s.RPCClient.LibProposing.WatchBlockProposed(nil, sink, nil, nil)
+	sink := make(chan *bindings.TaikoL1ClientBlockProposed)
+	sub, err := s.RPCClient.TaikoL1.WatchBlockProposed(nil, sink, nil, nil)
 	s.Nil(err)
 	defer func() {
 		sub.Unsubscribe()
 		close(sink)
 	}()
 
-	sink2 := make(chan *bindings.LibProposingBlockProposedV2)
-
-	sub2, err := s.RPCClient.LibProposing.WatchBlockProposedV2(nil, sink2, nil)
+	sink2 := make(chan *bindings.TaikoL1ClientBlockProposedV2)
+	sub2, err := s.RPCClient.TaikoL1.WatchBlockProposedV2(nil, sink2, nil)
 	s.Nil(err)
 	defer func() {
 		sub2.Unsubscribe()
 		close(sink2)
 	}()
 
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
 	// RLP encoded empty list
-	var emptyTxs types.Transactions
-	s.Nil(proposer.ProposeTxLists(context.Background(), []types.Transactions{emptyTxs}))
+	s.Nil(proposer.ProposeTxLists(context.Background(), []types.Transactions{{}}))
+	s.Nil(blobSyncer.ProcessL1Blocks(ctx))
 
 	s.ProposeValidBlock(proposer)
+	s.Nil(blobSyncer.ProcessL1Blocks(ctx))
 
 	// Random bytes txList
 	s.proposeEmptyBlockOp(context.Background(), proposer)
+	s.Nil(blobSyncer.ProcessL1Blocks(ctx))
 
 	var txHash common.Hash
 	for i := 0; i < 3; i++ {
@@ -82,13 +85,6 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 	s.Nil(err)
 	s.Greater(newL1Head.Number.Uint64(), l1Head.Number.Uint64())
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	defer cancel()
-
-	s.Nil(backoff.Retry(func() error {
-		return blobSyncer.ProcessL1Blocks(ctx)
-	}, backoff.NewExponentialBackOff()))
-
 	s.Nil(s.RPCClient.WaitTillL2ExecutionEngineSynced(context.Background()))
 
 	return metadataList
@@ -103,28 +99,39 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
-	l2Head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	state, err := s.RPCClient.GetProtocolStateVariables(nil)
+	s.Nil(err)
+
+	l2Head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), new(big.Int).SetUint64(state.B.NumBlocks-1))
 	s.Nil(err)
 
 	// Propose txs in L2 execution engine's mempool
-	sink := make(chan *bindings.LibProposingBlockProposed)
-
-	sub, err := s.RPCClient.LibProposing.WatchBlockProposed(nil, sink, nil, nil)
+	sink := make(chan *bindings.TaikoL1ClientBlockProposed)
+	sub, err := s.RPCClient.TaikoL1.WatchBlockProposed(nil, sink, nil, nil)
 	s.Nil(err)
+
+	sink2 := make(chan *bindings.TaikoL1ClientBlockProposedV2)
+	sub2, err := s.RPCClient.TaikoL1.WatchBlockProposedV2(nil, sink2, nil)
+	s.Nil(err)
+
 	defer func() {
 		sub.Unsubscribe()
-		close(sink)
-	}()
-
-	sink2 := make(chan *bindings.LibProposingBlockProposedV2)
-	sub2, err := s.RPCClient.LibProposing.WatchBlockProposedV2(nil, sink2, nil)
-	s.Nil(err)
-	defer func() {
 		sub2.Unsubscribe()
+		close(sink)
 		close(sink2)
 	}()
 
-	baseFeeInfo, err := s.RPCClient.TaikoL2.GetBasefee(nil, l1Head.Number.Uint64()+1, uint32(l2Head.GasUsed))
+	ontakeForkHeight, err := s.RPCClient.TaikoL2.OntakeForkHeight(nil)
+	s.Nil(err)
+
+	baseFee, err := s.RPCClient.CalculateBaseFee(
+		context.Background(),
+		l2Head,
+		l1Head.Number,
+		l2Head.Number.Uint64()+1 >= ontakeForkHeight,
+		&encoding.InternlDevnetProtocolConfig.BaseFeeConfig,
+		l1Head.Time,
+	)
 	s.Nil(err)
 
 	nonce, err := s.RPCClient.L2.PendingNonceAt(context.Background(), s.TestAddr)
@@ -133,9 +140,9 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 	tx := types.NewTransaction(
 		nonce,
 		common.BytesToAddress(RandomBytes(32)),
-		common.Big1,
-		100000,
-		new(big.Int).SetUint64(uint64(10*params.GWei)+baseFeeInfo.Basefee.Uint64()),
+		common.Big0,
+		100_000,
+		new(big.Int).SetUint64(uint64(10*params.GWei)+baseFee.Uint64()),
 		[]byte{},
 	)
 	signedTx, err := types.SignTx(tx, types.LatestSignerForChainID(s.RPCClient.L2.ChainID), s.TestAddrPrivKey)
@@ -186,21 +193,31 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 
 func (s *ClientTestSuite) ProposeValidBlock(
 	proposer Proposer,
-) *bindings.LibProposingBlockProposed {
+) {
 	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
-	l2Head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	state, err := s.RPCClient.GetProtocolStateVariables(nil)
+	s.Nil(err)
+
+	l2Head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), new(big.Int).SetUint64(state.B.NumBlocks-1))
 	s.Nil(err)
 
 	// Propose txs in L2 execution engine's mempool
-	sink := make(chan *bindings.LibProposingBlockProposed)
+	sink := make(chan *bindings.TaikoL1ClientBlockProposed)
+	sink2 := make(chan *bindings.TaikoL1ClientBlockProposedV2)
 
-	sub, err := s.RPCClient.LibProposing.WatchBlockProposed(nil, sink, nil, nil)
+	sub, err := s.RPCClient.TaikoL1.WatchBlockProposed(nil, sink, nil, nil)
 	s.Nil(err)
+
+	sub2, err := s.RPCClient.TaikoL1.WatchBlockProposedV2(nil, sink2, nil)
+	s.Nil(err)
+
 	defer func() {
 		sub.Unsubscribe()
+		sub2.Unsubscribe()
 		close(sink)
+		close(sink2)
 	}()
 
 	ontakeForkHeight, err := s.RPCClient.TaikoL2.OntakeForkHeight(nil)
@@ -210,7 +227,7 @@ func (s *ClientTestSuite) ProposeValidBlock(
 		context.Background(),
 		l2Head,
 		l1Head.Number,
-		ontakeForkHeight >= l2Head.Number.Uint64(),
+		l2Head.Number.Uint64()+1 >= ontakeForkHeight,
 		&encoding.InternlDevnetProtocolConfig.BaseFeeConfig,
 		l1Head.Time,
 	)
@@ -222,8 +239,8 @@ func (s *ClientTestSuite) ProposeValidBlock(
 	tx := types.NewTransaction(
 		nonce,
 		common.BytesToAddress(RandomBytes(32)),
-		common.Big1,
-		100000,
+		common.Big0,
+		100_000,
 		new(big.Int).SetUint64(uint64(10*params.GWei)+baseFee.Uint64()),
 		[]byte{},
 	)
@@ -233,21 +250,25 @@ func (s *ClientTestSuite) ProposeValidBlock(
 
 	s.Nil(proposer.ProposeOp(context.Background()))
 
-	event := <-sink
+	var txHash common.Hash
+	select {
+	case event := <-sink:
+		txHash = event.Raw.TxHash
+	case event := <-sink2:
+		txHash = event.Raw.TxHash
+	}
 
-	_, isPending, err := s.RPCClient.L1.TransactionByHash(context.Background(), event.Raw.TxHash)
+	_, isPending, err := s.RPCClient.L1.TransactionByHash(context.Background(), txHash)
 	s.Nil(err)
 	s.False(isPending)
 
-	receipt, err := s.RPCClient.L1.TransactionReceipt(context.Background(), event.Raw.TxHash)
+	receipt, err := s.RPCClient.L1.TransactionReceipt(context.Background(), txHash)
 	s.Nil(err)
 	s.Equal(types.ReceiptStatusSuccessful, receipt.Status)
 
 	newL1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 	s.Greater(newL1Head.Number.Uint64(), l1Head.Number.Uint64())
-
-	return event
 }
 
 // RandomHash generates a random blob of data and returns it as a hash.
