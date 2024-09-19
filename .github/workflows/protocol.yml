@@ -59,3 +59,34 @@ jobs:
             sleep 1
           done
           pnpm test:deploy:l1
+
+  genesis-docker:
+    if: github.event.pull_request.draft == false
+    runs-on: [taiko-runner]
+    permissions:
+      # Give the necessary permissions for stefanzweifel/git-auto-commit-action.
+      contents: write
+    steps:
+      - name: Cancel previous runs
+        uses: styfle/cancel-workflow-action@0.12.1
+        with:
+          access_token: ${{ github.token }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1.2.0
+
+      - name: Install pnpm dependencies
+        uses: ./.github/actions/install-pnpm-dependencies
+
+      - name: Compile
+        working-directory: ./packages/protocol
+        run: pnpm clean && pnpm compile
+
+      - name: L2-Generate Genesis (using docker)
+        working-directory: ./packages/protocol
+        run: pnpm genesis:test
