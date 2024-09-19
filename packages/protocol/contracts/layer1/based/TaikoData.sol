@@ -120,10 +120,8 @@ library TaikoData {
         bytes32 parentMetaHash;
         address proposer;
         uint96 livenessBond;
-        // Time this block is proposed at, used to check proving window and cooldown window.
-        uint64 proposedAt;
-        // L1 block number, required/used by node/client.
-        uint64 proposedIn;
+        uint64 proposedAt; // Used by node/client post block proposal.
+        uint64 proposedIn; // Used by node/client post block proposal.
         uint32 blobTxListOffset;
         uint32 blobTxListLength;
         uint8 blobIndex;
@@ -153,15 +151,16 @@ library TaikoData {
         uint8 __reserved1;
     }
 
+ /// @dev DEPRECATED but used by node/client for syncing old blocks
     /// @dev Struct containing data required for verifying a block.
     /// 3 slots used.
     struct Block {
         bytes32 metaHash; // slot 1
-        address assignedProver; // DEPRECATED!!!
-        uint96 livenessBond; // DEPRECATED!!!
+        address assignedProver;
+        uint96 livenessBond;
         uint64 blockId; // slot 3
-        uint64 proposedAt; // used as: local.params.timestamp
-        uint64 proposedIn; // used as: local.params.anchorBlockId
+        uint64 proposedAt; 
+        uint64 proposedIn;
         uint32 nextTransitionId;
         // The ID of the transaction that is used to verify this block. However, if
         // this block is not verified as the last block in a batch, verifiedTransitionId
@@ -173,13 +172,11 @@ library TaikoData {
     /// 3 slots used.
     struct BlockV2 {
         bytes32 metaHash; // slot 1
-        address assignedProver; // slot 2
-        uint96 livenessBond;
+        address assignedProver; // DEPRECATED!!!
+        uint96 livenessBond; // DEPRECATED!!!
         uint64 blockId; // slot 3
-        // This field now represents the timestamp of the L2 block.
-        uint64 proposedAt;
-        // This field now represents the L1 block number input for the anchor transaction.
-        uint64 proposedIn;
+        uint64 proposedAt; // Now represents L2 block's timestamp
+        uint64 proposedIn; // Now represents L2 block's anchorBlockId
         uint24 nextTransitionId;
         bool livenessBondReturned;
         // The ID of the transaction that is used to verify this block. However, if this block is
