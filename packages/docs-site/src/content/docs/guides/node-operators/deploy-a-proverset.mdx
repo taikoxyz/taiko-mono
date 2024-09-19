@@ -133,7 +133,7 @@ If you've already deployed a ProverSet but would like to upgrade it through the 
     Execute the following command, filling in the values in the curly braces appropriately.
 
     ```bash
-    forge create --private-key {YOUR_PRIVATE_KEY} --chain-id 17000 --rpc-url {YOUR_RPC_URL} contracts/layer1/provers/ProverSet.sol:ProverSet
+    forge create --private-key {YOUR_PRIVATE_KEY} --chain-id {CHAIN_ID} --rpc-url {YOUR_RPC_URL} contracts/layer1/provers/ProverSet.sol:ProverSet
     ```
 
     <Aside>
@@ -174,7 +174,7 @@ If you've already deployed a ProverSet but would like to upgrade it through the 
     Then, navigate to the `protocol` package in `taiko-mono` and execute the following command substituting values in curly braces as necessary.
 
     ```bash
-    forge verify-contract --chain-id 17000 --etherscan-api-key {GET-API-KEY-FROM-ETHERSCAN-FIRST} {PUT-CONTRACT-ADDRESS-HERE} contracts/team/proving/ProverSet.sol:ProverSet
+    forge verify-contract --chain-id {CHAIN_ID} --etherscan-api-key {GET-API-KEY-FROM-ETHERSCAN-FIRST} {PUT-CONTRACT-ADDRESS-HERE} contracts/layer1/provers/ProverSet.sol:ProverSet
     ```
 
     You should get a success message and your contract should now show up as verified on Etherscan!
