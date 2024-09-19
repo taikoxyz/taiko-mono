@@ -49,22 +49,9 @@ func TestIntegration_NFTBalance_Increase_And_Decrease(t *testing.T) {
 	nftBalanceRepo, err := NewNFTBalanceRepository(db)
 	assert.Equal(t, nil, err)
 
-	nftMetadataRepo, err := NewNFTMetadataRepository(db)
-	assert.Equal(t, nil, err)
-
-	md, err := nftMetadataRepo.SaveNFTMetadata(context.Background(), &eventindexer.NFTMetadata{
-		ChainID:         1,
-		ContractAddress: "0x123",
-		TokenID:         1,
-		Name:            "test",
-	})
-	assert.Equal(t, nil, err)
-	assert.NotNil(t, md)
-
 	bal1, _, err := nftBalanceRepo.IncreaseAndDecreaseBalancesInTx(context.Background(),
 		eventindexer.UpdateNFTBalanceOpts{
 			ChainID:         1,
-			NftMetadataId:   int64(md.ID),
 			Address:         "0x123",
 			TokenID:         1,
 			ContractAddress: "0x123",
@@ -77,7 +64,6 @@ func TestIntegration_NFTBalance_Increase_And_Decrease(t *testing.T) {
 	bal2, _, err := nftBalanceRepo.IncreaseAndDecreaseBalancesInTx(context.Background(),
 		eventindexer.UpdateNFTBalanceOpts{
 			ChainID:         1,
-			NftMetadataId:   int64(md.ID),
 			Address:         "0x123",
 			TokenID:         1,
 			ContractAddress: "0x123456",
@@ -97,7 +83,6 @@ func TestIntegration_NFTBalance_Increase_And_Decrease(t *testing.T) {
 			"success",
 			eventindexer.UpdateNFTBalanceOpts{
 				ChainID:         1,
-				NftMetadataId:   int64(md.ID),
 				Address:         "0x123",
 				TokenID:         1,
 				ContractAddress: "0x123456789",
@@ -106,7 +91,6 @@ func TestIntegration_NFTBalance_Increase_And_Decrease(t *testing.T) {
 			},
 			eventindexer.UpdateNFTBalanceOpts{
 				ChainID:         1,
-				NftMetadataId:   int64(md.ID),
 				Address:         "0x123",
 				TokenID:         1,
 				ContractAddress: "0x123",
@@ -119,7 +103,6 @@ func TestIntegration_NFTBalance_Increase_And_Decrease(t *testing.T) {
 			"one left",
 			eventindexer.UpdateNFTBalanceOpts{
 				ChainID:         1,
-				NftMetadataId:   int64(md.ID),
 				Address:         "0x123",
 				TokenID:         1,
 				ContractAddress: "0x123456789",
@@ -128,7 +111,6 @@ func TestIntegration_NFTBalance_Increase_And_Decrease(t *testing.T) {
 			},
 			eventindexer.UpdateNFTBalanceOpts{
 				ChainID:         1,
-				NftMetadataId:   int64(md.ID),
 				Address:         "0x123",
 				TokenID:         1,
 				ContractAddress: "0x123456",

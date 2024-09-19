@@ -10,19 +10,16 @@ import (
 // NFTBalance represents a single contractAddress/tokenId pairing for a given holder
 // address
 type NFTBalance struct {
-	ID              int          `json:"id"`
-	NftMetadataId   int64        `json:"nftMetadataId"`
-	ChainID         int64        `json:"chainID"`
-	Address         string       `json:"address"`
-	Amount          int64        `json:"amount"`
-	TokenID         int64        `json:"tokenID"`
-	ContractAddress string       `json:"contractAddress"`
-	ContractType    string       `json:"contractType"`
-	Metadata        *NFTMetadata `json:"metadata" gorm:"foreignKey:NftMetadataId"`
+	ID              int    `json:"id"`
+	ChainID         int64  `json:"chainID"`
+	Address         string `json:"address"`
+	Amount          int64  `json:"amount"`
+	TokenID         int64  `json:"tokenID"`
+	ContractAddress string `json:"contractAddress"`
+	ContractType    string `json:"contractType"`
 }
 
 type UpdateNFTBalanceOpts struct {
-	NftMetadataId   int64
 	ChainID         int64
 	Address         string
 	TokenID         int64

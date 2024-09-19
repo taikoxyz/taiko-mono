@@ -13,7 +13,7 @@ import { Aside, Card, CardGrid, Steps } from "@astrojs/starlight/components";
 ## Enable a prover with simple-taiko-node
 
 <Aside>
-These are the bare minimum required settings along with a functional Taiko node to run a proposer, feel free to customize the rest of the variables in the `.env` file as you see fit!
+These are the bare minimum required settings along with a functional Taiko node to run a prover, feel free to customize the rest of the variables in the `.env` file as you see fit!
 </Aside>
 
 <Steps>
@@ -24,15 +24,19 @@ These are the bare minimum required settings along with a functional Taiko node 
 
 3. Set the `L1_PROVER_PRIVATE_KEY` to an L1 account's private key which will send the Prove Block transactions.
 
-4. You may optionally [deploy a `ProverSet` contract](/guides/node-operators/deploy-a-proverset) to run your proposer. If you are working with a third party prover, you will have to follow the guide with them to negotiate allowance and deposit of TAIKO/TTKOh. A ProverSet is recommended for a longer term stable setup to avoid nonce issues. For testing purposes, you may not feel the need to deploy a ProverSet.
+4. You may optionally [deploy a `ProverSet` contract](/guides/node-operators/deploy-a-proverset) to run your prover. If you are working with a third party prover, you will have to follow the guide with them to negotiate allowance and deposit of TAIKO/TTKOh. A ProverSet is recommended for a longer term stable setup to avoid nonce issues. For testing purposes, you may not feel the need to deploy a ProverSet.
 
 5. Finally set `ENABLE_PROVER` to `true` in simple-taiko-node `.env`.
 
 6. Set `COMPOSE_PROFILES=prover` or add prover to the list.
 
-7. You can then run your prover with `docker compose up -d`!
+7. You can then run your prover with `docker compose up -d`! Please use `docker compose -f docker-compose-hekla.yml up -d` if you are running on Hekla.
 
 </Steps>
+
+<Aside>
+The following steps can be done through the [ProverSet contract](/guides/node-operators/deploy-a-proverset/#deploying-a-proverset) if you have deployed one. We highly recommend this for a stable setup.
+</Aside>
 
 ### Approve TaikoL1 as TAIKO spender (mainnet)
 
@@ -72,17 +76,21 @@ You will need TTKOh deposited on the TaikoL1 contract to secure the bond for the
 
 3. Click the **approve** function and set the spender address to the TaikoL1 contract address: `0x79C9109b764609df928d16fC4a91e9081F7e87DB`.
 
-4. Set the amount to at least the minimum bond amount of 125 TTKOh.
+4. Set the amount to at least the minimum bond amount of 150 TTKOh.
 
-   You will need 125 TTKOh for each bond you sign. After entering 125, you need to set the 18 decimals that the TTKOh contract takes, you can click the plus button and then select 10^18.
+   You will need 150 TTKOh for each bond you sign. After entering 150, you need to set the 18 decimals that the TTKOh contract takes, you can click the plus button and then select 10^18.
+
+   You will notice that the amount subtracted is separate in two transactions, 125 for the `proposeBlock` and 25 for `proveBlock`.
+
+   This is because the `livenessBond` (125) is taken when the block is proposed, and once the proof has been provided in the window is credited in TaikoL1; the `validityBond` (150) is then debited using the existing balance + an extra 25 TTKOh.
+
+   If you have bonded TTKOh in the TaikoL1 contract, it will be used first before more is taken from your ProverSet.
+
+   For an explanation of the difference between these bonds, please refer to the terminology section [here](/resources/terminology).
 
 5. Finally, click the **Write** button.
 
 </Steps>
-
-## Register the prover on the prover marketplace
-
-Finally you can choose to register your prover endpoint on the <a href="https://dojonode.xyz/tatami" target="_blank">community prover marketplace</a> so other can use it to propose blocks.
 
 <Card title="Troubleshooting" icon="error">
     If you run into any problems, please visit the [node troubleshooting page](/guides/node-operators/node-troubleshooting) for help.
