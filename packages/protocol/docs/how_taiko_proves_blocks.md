@@ -68,7 +68,7 @@ Note that the anchor transaction emits an `Anchored` event that may help ZKP to 
 ZKP shall also check the signature of the anchor transaction:
 
 - The signer must be _`TaikoL2.GOLDEN_TOUCH_ADDRESS`_.
-- The signature must use `1` as the `k` value if the calculated `r` is not `0`, otherwise, `k` must be `2`. See [LibL2Signer.sol](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/test/L2/LibL2Signer.sol).
+- The signature must use `1` as the `k` value if the calculated `r` is not `0`, otherwise, `k` must be `2`. See [LibL2Signer.sol](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/test/layer2/LibL2Signer.sol).
 
 ### Block Metadata
 
