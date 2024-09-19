@@ -252,10 +252,9 @@ library LibProposing {
             assignedProver: address(0),
             livenessBond: 0,
             blockId: local.b.numBlocks,
-            proposedAt: local.params.timestamp,
-            proposedIn: local.params.anchorBlockId,
-            // For a new block, the next transition ID is always 1, not 0.
-            nextTransitionId: 1,
+            proposedAt: local.params.timestamp, // name kept but used differently
+            proposedIn: local.params.anchorBlockId, // name kept but used differently
+            nextTransitionId: 1, // For a new block, the next transition ID is always 1, not 0.
             livenessBondReturned: false,
             // For unverified block, its verifiedTransitionId is always 0.
             verifiedTransitionId: 0
