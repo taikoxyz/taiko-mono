@@ -162,7 +162,7 @@ exports.handler = async function (event, context) {
 
   const currentBlockNumber = await getLatestBlockNumber(taikoL1Provider);
   const blockTimeInSeconds = await calculateBlockTime(taikoL1Provider);
-  const blocksInFiveMinutes = Math.floor((5 * 60) / blockTimeInSeconds);
+  const blocksInFiveMinutes = Math.floor((30 * 60) / blockTimeInSeconds);
 
   const fromBlock = currentBlockNumber - blocksInFiveMinutes;
   const toBlock = currentBlockNumber;
