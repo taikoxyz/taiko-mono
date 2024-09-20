@@ -56,7 +56,7 @@ async function calculateBlockTime(provider) {
 async function calculateBlockRange(provider) {
   const currentBlockNumber = await getLatestBlockNumber(provider);
   const blockTimeInSeconds = await calculateBlockTime(provider);
-  const blocksInOneHour = Math.floor((16 * 60) / blockTimeInSeconds);
+  const blocksInOneHour = Math.floor((15 * 60) / blockTimeInSeconds);
 
   const fromBlock = currentBlockNumber - blocksInOneHour;
   const toBlock = currentBlockNumber;

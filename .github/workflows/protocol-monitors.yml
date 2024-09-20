@@ -15,7 +15,7 @@ jobs:
       contents: write
     steps:
       - name: Deploy Monitors on OZ Defender
-        working-directory: ./packages/monitors
+        working-directory: ./packages/monitors/defender/mainnet
         env:
           SERVERLESS_API_KEY: ${{ secrets.DEFENDER_API_KEY }}
           SERVERLESS_API_SECRET: ${{ secrets.DEFENDER_API_SECRET }}
