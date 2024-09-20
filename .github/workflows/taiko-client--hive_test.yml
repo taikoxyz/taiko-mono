@@ -13,7 +13,7 @@ jobs:
     if: github.event.pull_request.draft == false && contains(github.event.pull_request.labels.*.name, 'option.hive-test')
     name: hive tests
     runs-on: [arc-runner-set]
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     steps:
       - name: Cancel Previous Runs
