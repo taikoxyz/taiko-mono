@@ -170,7 +170,7 @@ library LibUtils {
     /// @param _config Actual TaikoData.Config.
     /// @param _blockIds Id array of the block.
     /// @param _tids The transition id array.
-    /// @return The state transition pointer array.
+    /// @return transitions_ The state transition pointer array.
     function getTransitions(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
