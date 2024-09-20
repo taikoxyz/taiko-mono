@@ -20,7 +20,7 @@ type TaikoDataBlockMetadataOntake struct {
 
 // NewTaikoDataBlockMetadataOntake creates a new instance of TaikoDataBlockMetadataOntake
 // from the TaikoL1.BlockProposedV2 event.
-func NewTaikoDataBlockMetadataOntake(e *bindings.LibProposingBlockProposedV2) *TaikoDataBlockMetadataOntake {
+func NewTaikoDataBlockMetadataOntake(e *bindings.TaikoL1ClientBlockProposedV2) *TaikoDataBlockMetadataOntake {
 	return &TaikoDataBlockMetadataOntake{
 		TaikoDataBlockMetadataV2: e.Meta,
 		Log:                      e.Raw,

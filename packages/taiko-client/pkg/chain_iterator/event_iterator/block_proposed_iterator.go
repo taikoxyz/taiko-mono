@@ -69,7 +69,7 @@ func NewBlockProposedIterator(ctx context.Context, cfg *BlockProposedIteratorCon
 		BlockConfirmations:    cfg.BlockConfirmations,
 		OnBlocks: assembleBlockProposedIteratorCallback(
 			cfg.Client,
-			cfg.LibProposing,
+			cfg.TaikoL1,
 			cfg.FilterQuery,
 			cfg.OnBlockProposedEvent,
 			iterator,
@@ -99,7 +99,7 @@ func (i *BlockProposedIterator) end() {
 // by a event iterator's inner block iterator.
 func assembleBlockProposedIteratorCallback(
 	client *rpc.EthClient,
-	libProposing *bindings.LibProposing,
+	taikoL1 *bindings.TaikoL1Client,
 	filterQuery []*big.Int,
 	callback OnBlockProposedEvent,
 	eventIter *BlockProposedIterator,
@@ -112,7 +112,7 @@ func assembleBlockProposedIteratorCallback(
 	) error {
 		endHeight := end.Number.Uint64()
 
-		iter, err := libProposing.FilterBlockProposed(
+		iter, err := taikoL1.FilterBlockProposed(
 			&bind.FilterOpts{Start: start.Number.Uint64(), End: &endHeight, Context: ctx},
 			filterQuery,
 			nil,
@@ -122,7 +122,7 @@ func assembleBlockProposedIteratorCallback(
 		}
 		defer iter.Close()
 
-		iterOntake, err := libProposing.FilterBlockProposedV2(
+		iterOntake, err := taikoL1.FilterBlockProposedV2(
 			&bind.FilterOpts{Start: start.Number.Uint64(), End: &endHeight, Context: ctx},
 			filterQuery,
 		)

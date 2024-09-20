@@ -22,7 +22,7 @@ type TaikoDataBlockMetadataLegacy struct {
 
 // NewTaikoDataBlockMetadataLegacy creates a new instance of TaikoDataBlockMetadataLegacy
 // from the TaikoL1.BlockProposed event.
-func NewTaikoDataBlockMetadataLegacy(e *bindings.LibProposingBlockProposed) *TaikoDataBlockMetadataLegacy {
+func NewTaikoDataBlockMetadataLegacy(e *bindings.TaikoL1ClientBlockProposed) *TaikoDataBlockMetadataLegacy {
 	return &TaikoDataBlockMetadataLegacy{
 		TaikoDataBlockMetadata: e.Meta,
 		Log:                    e.Raw,

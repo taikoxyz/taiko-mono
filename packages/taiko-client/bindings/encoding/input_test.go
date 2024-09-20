@@ -50,7 +50,7 @@ func TestUnpackTxListBytes(t *testing.T) {
 
 	txListBytes := randomBytes(1024)
 
-	tx, err := taikoL1.ProposeBlock(
+	tx, err := taikoL1.ProposeBlockV2(
 		opts,
 		randomBytes(1024),
 		txListBytes,
