@@ -179,17 +179,15 @@ library LibUtils {
     )
         internal
         view
-        returns (TaikoData.TransitionState[] memory)
+        returns (TaikoData.TransitionState[] memory transitions_)
     {
         if (_blockIds.length == 0 || _blockIds.length != _tids.length) {
             revert L1_INVALID_PARAMS();
         }
-        TaikoData.TransitionState[] memory transitions =
-            new TaikoData.TransitionState[](_blockIds.length);
+        transitions_ = new TaikoData.TransitionState[](_blockIds.length);
         for (uint256 i; i < _blockIds.length; ++i) {
-            transitions[i] = getTransition(_state, _config, _blockIds[i], _tids[i]);
+            transitions_[i] = getTransition(_state, _config, _blockIds[i], _tids[i]);
         }
-        return transitions;
     }
 
     /// @notice This function will revert if the transition is not found.
