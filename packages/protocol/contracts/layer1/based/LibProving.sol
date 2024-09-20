@@ -21,9 +21,7 @@ library LibProving {
         TaikoData.BlockMetadataV2 meta;
         TaikoData.TierProof proof;
         bytes32 metaHash;
-        address assignedProver;
         bytes32 stateRoot;
-        uint96 livenessBond;
         uint64 slot;
         uint64 blockId;
         uint24 tid;
@@ -223,15 +221,6 @@ library LibProving {
             local.stateRoot = ctx_.tran.stateRoot;
         }
 
-        local.assignedProver = blk.assignedProver;
-        if (local.assignedProver == address(0)) {
-            local.assignedProver = local.meta.proposer;
-        }
-
-        if (!blk.livenessBondReturned) {
-            local.livenessBond =
-                local.meta.livenessBond == 0 ? blk.livenessBond : local.meta.livenessBond;
-        }
         local.metaHash = blk.metaHash;
 
         // Check the integrity of the block data. It's worth noting that in
@@ -281,7 +270,7 @@ library LibProving {
             local.tier.contestBond != 0 && ts.contester == address(0) && local.tid == 1
                 && ts.tier == 0 && local.inProvingWindow
         ) {
-            if (msg.sender != local.assignedProver) revert L1_NOT_ASSIGNED_PROVER();
+            if (msg.sender != local.meta.proposer) revert L1_NOT_ASSIGNED_PROVER();
         }
         // We must verify the proof, and any failure in proof verification will
         // result in a revert.
@@ -377,7 +366,9 @@ library LibProving {
 
                 // _checkIfContestable(/*_state,*/ tier.cooldownWindow, ts.timestamp);
                 // Burn the contest bond from the prover.
-                LibBonds.debitBond(_state, _resolver, msg.sender, local.tier.contestBond);
+                LibBonds.debitBond(
+                    _state, _resolver, msg.sender, local.blockId, local.tier.contestBond
+                );
 
                 // We retain the contest bond within the transition, just in
                 // case this configuration is altered to a different value
@@ -460,7 +451,7 @@ library LibProving {
                 //
                 // While alternative implementations are possible, introducing
                 // such changes would require additional if-else logic.
-                ts_.prover = _local.assignedProver;
+                ts_.prover = _local.meta.proposer;
             } else {
                 // Furthermore, we index the transition for future retrieval.
                 // It's worth emphasizing that this mapping for indexing is not
@@ -508,13 +499,15 @@ library LibProving {
                 reward = _rewardAfterFriction(_ts.contestBond);
 
                 // We return the validity bond back, but the original prover doesn't get any reward.
-                LibBonds.creditBond(_state, _ts.prover, _ts.validityBond);
+                LibBonds.creditBond(_state, _ts.prover, _local.blockId, _ts.validityBond);
             } else {
                 // The contested transition is proven to be invalid, contester wins the game.
                 // Contester gets 3/4 of reward, the new prover gets 1/4.
                 reward = _rewardAfterFriction(_ts.validityBond) >> 2;
                 unchecked {
-                    LibBonds.creditBond(_state, _ts.contester, _ts.contestBond + reward * 3);
+                    LibBonds.creditBond(
+                        _state, _ts.contester, _local.blockId, _ts.contestBond + reward * 3
+                    );
                 }
             }
         } else {
@@ -525,24 +518,23 @@ library LibProving {
             // - 2) the transition is contested.
             reward = _rewardAfterFriction(_ts.validityBond);
 
-            if (_local.livenessBond != 0) {
-                // After the first proof, the block's liveness bond will always be reset to 0.
-                // This means liveness bond will be handled only once for any given block.
-                _blk.livenessBond = 0;
+            if (!_blk.livenessBondReturned) {
                 _blk.livenessBondReturned = true;
 
                 if (_returnLivenessBond(_local, _proof.data)) {
-                    if (_local.assignedProver == msg.sender) {
+                    if (_local.meta.proposer == msg.sender) {
                         unchecked {
-                            reward += _local.livenessBond;
+                            reward += _local.meta.livenessBond;
                         }
                     } else {
-                        LibBonds.creditBond(_state, _local.assignedProver, _local.livenessBond);
+                        LibBonds.creditBond(
+                            _state, _local.meta.proposer, _local.blockId, _local.meta.livenessBond
+                        );
                     }
                 } else {
                     // Reward a majority of liveness bond to the actual prover
                     unchecked {
-                        reward += _rewardAfterFriction(_local.livenessBond);
+                        reward += _rewardAfterFriction(_local.meta.livenessBond);
                     }
                 }
             }
@@ -550,9 +542,13 @@ library LibProving {
 
         unchecked {
             if (reward > _local.tier.validityBond) {
-                LibBonds.creditBond(_state, msg.sender, reward - _local.tier.validityBond);
+                LibBonds.creditBond(
+                    _state, msg.sender, _local.blockId, reward - _local.tier.validityBond
+                );
             } else if (reward < _local.tier.validityBond) {
-                LibBonds.debitBond(_state, _resolver, msg.sender, _local.tier.validityBond - reward);
+                LibBonds.debitBond(
+                    _state, _resolver, msg.sender, _local.blockId, _local.tier.validityBond - reward
+                );
             }
         }
 

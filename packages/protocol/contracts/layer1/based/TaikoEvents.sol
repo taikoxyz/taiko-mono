@@ -12,10 +12,10 @@ import "./TaikoData.sol";
 /// @custom:security-contact security@taiko.xyz
 abstract contract TaikoEvents {
     /// @dev Emitted when token is credited back to a user's bond balance.
-    event BondCredited(address indexed user, uint256 amount);
+    event BondCredited(address indexed user, uint256 blockId, uint256 amount);
 
     /// @dev Emitted when token is debited from a user's bond balance.
-    event BondDebited(address indexed user, uint256 amount);
+    event BondDebited(address indexed user, uint256 blockId, uint256 amount);
 
     /// @dev DEPRECATED but used by node/client for syncing old blocks
     /// @notice Emitted when a block is proposed.
