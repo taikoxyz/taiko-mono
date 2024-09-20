@@ -49,7 +49,6 @@ linters:
     - sqlclosecheck
     - staticcheck
     - stylecheck
-    - typecheck
     - unconvert
     - unused
     - whitespace
