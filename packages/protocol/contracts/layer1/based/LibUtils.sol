@@ -46,6 +46,7 @@ library LibUtils {
     error L1_INVALID_GENESIS_HASH();
     error L1_TRANSITION_NOT_FOUND();
     error L1_UNEXPECTED_TRANSITION_ID();
+    error L1_INVALID_PARAMS();
 
     /// @notice Initializes the Taiko protocol state.
     /// @param _state The state to initialize.
@@ -164,11 +165,37 @@ library LibUtils {
         return _state.transitions[slot][_tid];
     }
 
+    /// @dev Retrieves the transitions with a batch of parentHash.
+    /// @param _state Current TaikoData.State.
+    /// @param _config Actual TaikoData.Config.
+    /// @param _blockIds Id array of the block.
+    /// @param _tids The transition id array.
+    /// @return The state transition pointer array.
+    function getTransitions(
+        TaikoData.State storage _state,
+        TaikoData.Config memory _config,
+        uint64[] calldata _blockIds,
+        uint32[] calldata _tids
+    )
+        internal
+        view
+        returns (TaikoData.TransitionState[] memory)
+    {
+        if (_blockIds.length == 0 || _blockIds.length != _tids.length) {
+            revert L1_INVALID_PARAMS();
+        }
+        TaikoData.TransitionState[] memory transitions;
+        for (uint256 i; i < _blockIds.length; ++i) {
+            transitions.push(getTransition(_state, _config, _blockIds[i], _tids[i]));
+        }
+        return transitions;
+    }
+
     /// @notice This function will revert if the transition is not found.
     /// @dev Retrieves the transition with a given parentHash.
     /// @param _state Current TaikoData.State.
     /// @param _config Actual TaikoData.Config.
-    /// @param _blockId Id of the block.
+    /// @param _blockId Id of the blocks.
     /// @param _parentHash Parent hash of the block.
     /// @return The state transition pointer.
     function getTransition(
@@ -187,6 +214,32 @@ library LibUtils {
         if (tid == 0) revert L1_TRANSITION_NOT_FOUND();
 
         return _state.transitions[slot][tid];
+    }
+
+    /// @dev Retrieves the transitions with a batch of parentHash.
+    /// @param _state Current TaikoData.State.
+    /// @param _config Actual TaikoData.Config.
+    /// @param _blockIds Id array of the blocks.
+    /// @param _parentHashes Parent hashes of the blocks.
+    /// @return The state transition pointer array.
+    function getTransitions(
+        TaikoData.State storage _state,
+        TaikoData.Config memory _config,
+        uint64[] calldata _blockIds,
+        bytes32[] calldata _parentHashes
+    )
+        internal
+        view
+        returns (TaikoData.TransitionState[] memory)
+    {
+        if (_blockIds.length == 0 || _blockIds.length != _parentHashes.length) {
+            revert L1_INVALID_PARAMS();
+        }
+        TaikoData.TransitionState[] memory transitions;
+        for (uint256 i; i < _blockIds.length; ++i) {
+            transitions.push(getTransition(_state, _config, _blockIds[i], _parentHashes[i]));
+        }
+        return transitions;
     }
 
     /// @dev Retrieves the ID of the transition with a given parentHash.
