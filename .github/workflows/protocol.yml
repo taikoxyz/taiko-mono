@@ -20,7 +20,8 @@ jobs:
           access_token: ${{ github.token }}
 
       - name: Prepare environment
-        run: sudo apt-get update && sudo apt-get install -y git nc
+        continue-on-error: true
+        run: sudo apt-get update && sudo apt-get install -y git netcat
 
       - name: Checkout repository
         uses: actions/checkout@v4
