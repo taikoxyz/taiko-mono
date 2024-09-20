@@ -25,16 +25,12 @@ jobs:
           go-version: 1.21
           cache: true
 
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
-        with:
-          version: v1.60
+      - name: Install golangci-lint
+        run: go install -v github.com/golangci/golangci-lint/cmd/golangci-lint@v1.60.0
 
       - name: Lint
         working-directory: packages/taiko-client
-        run: |
-          cd packages/taiko-client
-          golangci-lint run --path-prefix=./ --config=.golangci.yml
+        run: golangci-lint run --path-prefix=./ --config=.golangci.yml
 
   integration_tests:
     if: github.event.pull_request.draft == false
