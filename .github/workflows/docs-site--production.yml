@@ -11,8 +11,11 @@ on:
 
 jobs:
   deploy-docs-site-production:
-    runs-on: [taiko-runner]
+    runs-on: [arc-runner-set]
     steps:
+      - name: Install Git
+        run: sudo apt-get update && sudo apt-get install -y git
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
