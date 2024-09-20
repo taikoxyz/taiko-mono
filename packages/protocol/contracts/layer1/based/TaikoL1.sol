@@ -243,8 +243,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     }
 
     /// @notice Gets the state transitions for a batch of block.
-    /// @param _blockId Index array of the blocks.
-    /// @param _parentHash The transition id array of the blocks.
+    /// @param _blockIds Index array of the blocks.
+    /// @param _tids The transition id array of the blocks.
     /// @return The state transition array of the blocks.
     function getTransitions(
         uint64[] calldata _blockIds,

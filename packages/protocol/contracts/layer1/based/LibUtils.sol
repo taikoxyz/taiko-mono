@@ -184,9 +184,10 @@ library LibUtils {
         if (_blockIds.length == 0 || _blockIds.length != _tids.length) {
             revert L1_INVALID_PARAMS();
         }
-        TaikoData.TransitionState[] memory transitions;
+        TaikoData.TransitionState[] memory transitions =
+            new TaikoData.TransitionState[](_blockIds.length);
         for (uint256 i; i < _blockIds.length; ++i) {
-            transitions.push(getTransition(_state, _config, _blockIds[i], _tids[i]));
+            transitions[i] = getTransition(_state, _config, _blockIds[i], _tids[i]);
         }
         return transitions;
     }
@@ -235,9 +236,10 @@ library LibUtils {
         if (_blockIds.length == 0 || _blockIds.length != _parentHashes.length) {
             revert L1_INVALID_PARAMS();
         }
-        TaikoData.TransitionState[] memory transitions;
+        TaikoData.TransitionState[] memory transitions =
+            new TaikoData.TransitionState[](_blockIds.length);
         for (uint256 i; i < _blockIds.length; ++i) {
-            transitions.push(getTransition(_state, _config, _blockIds[i], _parentHashes[i]));
+            transitions[i] = getTransition(_state, _config, _blockIds[i], _parentHashes[i]);
         }
         return transitions;
     }
