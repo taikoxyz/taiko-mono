@@ -12,11 +12,8 @@ jobs:
   lint:
     if: github.event.pull_request.draft == false
     name: Lint
-    runs-on: [arc-runner-set]
+    runs-on: [ubuntu-latest]
     steps:
-      - name: Install Git
-        run: sudo apt-get update && sudo apt-get install -y git make
-
       - uses: actions/checkout@v4
 
       - name: Set up Go
