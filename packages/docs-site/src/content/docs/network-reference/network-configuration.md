@@ -5,7 +5,7 @@ description: The network configuration page describes many of the configuration 
 
 ## Tier configuration (Mainnet)
 
-You can view the full `TierProviderV2` tier configuration [here](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/contracts/L1/tiers/TierProviderV2.sol):
+You can view the full `TierProviderV2` tier configuration [here](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/contracts/layer1/tiers/TierProviderV2.sol):
 
 ![mainnet proof tiers](~/assets/content/docs/network-reference/proof-tier-config-mn.webp)
 
@@ -17,7 +17,7 @@ You can view the full network configuration by visiting the TaikoL1 contract on 
 
 ## Tier configuration (Hekla)
 
-You can view the full `TierProviderV2` tier configuration [here](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/contracts/L1/tiers/TierProviderV2.sol):
+You can view the full post ontake fork `HeklaTierProvider` tier configuration [here](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/contracts/layer1/hekla/HeklaTierProvider.sol):
 
 ![hekla proof tiers](~/assets/content/docs/network-reference/proof-tier-config-hekla.webp)
 
