@@ -21,7 +21,7 @@ jobs:
 
       - name: Prepare environment
         continue-on-error: true
-        run: sudo apt-get update && sudo apt-get install -y git netcat
+        run: sudo apt-get update && sudo apt-get install -y git netcat wget
 
       - name: Checkout repository
         uses: actions/checkout@v4
