@@ -212,6 +212,21 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         return LibUtils.getTransition(state, getConfig(), _blockId, _parentHash);
     }
 
+    /// @notice Gets the state transitions for a batch of block.
+    /// @param _blockIds Index of the blocks.
+    /// @param _parentHashes Parent hashes of the blocks.
+    /// @return The state transition array of the blocks.
+    function getTransitions(
+        uint64[] calldata _blockIds,
+        bytes32[] calldata _parentHashes
+    )
+        external
+        view
+        returns (TaikoData.TransitionState[] memory)
+    {
+        return LibUtils.getTransitions(state, getConfig(), _blockIds, _parentHashes);
+    }
+
     /// @notice Gets the state transition for a specific block.
     /// @param _blockId Index of the block.
     /// @param _tid The transition id.
@@ -225,6 +240,21 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         returns (TaikoData.TransitionState memory)
     {
         return LibUtils.getTransition(state, getConfig(), _blockId, _tid);
+    }
+
+    /// @notice Gets the state transitions for a batch of block.
+    /// @param _blockIds Index array of the blocks.
+    /// @param _tids The transition id array of the blocks.
+    /// @return The state transition array of the blocks.
+    function getTransitions(
+        uint64[] calldata _blockIds,
+        uint32[] calldata _tids
+    )
+        external
+        view
+        returns (TaikoData.TransitionState[] memory)
+    {
+        return LibUtils.getTransitions(state, getConfig(), _blockIds, _tids);
     }
 
     /// @notice Returns information about the last verified block.
