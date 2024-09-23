@@ -64,9 +64,10 @@ type Prover struct {
 	proveNotify         chan struct{}
 
 	// Proof related channels
-	proofSubmissionCh chan *proofProducer.ProofRequestBody
-	proofContestCh    chan *proofProducer.ContestRequestBody
-	proofGenerationCh chan *proofProducer.ProofWithHeader
+	proofSubmissionCh      chan *proofProducer.ProofRequestBody
+	proofContestCh         chan *proofProducer.ContestRequestBody
+	proofGenerationCh      chan *proofProducer.ProofWithHeader
+	batchProofGenerationCh chan *proofProducer.BatchProofs
 
 	// Transactions manager
 	txmgr        *txmgr.SimpleTxManager
@@ -126,6 +127,7 @@ func InitFromConfig(
 
 	chBufferSize := p.protocolConfig.BlockMaxProposals
 	p.proofGenerationCh = make(chan *proofProducer.ProofWithHeader, chBufferSize)
+	p.batchProofGenerationCh = make(chan *proofProducer.BatchProofs, chBufferSize)
 	p.assignmentExpiredCh = make(chan metadata.TaikoBlockMetaData, chBufferSize)
 	p.proofSubmissionCh = make(chan *proofProducer.ProofRequestBody, p.cfg.Capacity)
 	p.proofContestCh = make(chan *proofProducer.ContestRequestBody, p.cfg.Capacity)
@@ -317,6 +319,8 @@ func (p *Prover) eventLoop() {
 			p.withRetry(func() error { return p.contestProofOp(req) })
 		case proofWithHeader := <-p.proofGenerationCh:
 			p.withRetry(func() error { return p.submitProofOp(proofWithHeader) })
+		case batchProof := <-p.batchProofGenerationCh:
+			p.withRetry(func() error { return p.submitProofAggregationOp(batchProof) })
 		case req := <-p.proofSubmissionCh:
 			p.withRetry(func() error { return p.requestProofOp(req.Meta, req.Tier) })
 		case <-p.proveNotify:
@@ -463,6 +467,36 @@ func (p *Prover) submitProofOp(proofWithHeader *proofProducer.ProofWithHeader) e
 			"Submit proof error",
 			"blockID", proofWithHeader.BlockID,
 			"minTier", proofWithHeader.Meta.GetMinTier(),
+			"error", err,
+		)
+		return err
+	}
+
+	return nil
+}
+
+// submitProofsOp performs a batch proof submission operation.
+func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs) error {
+	submitter := p.getSubmitterByTier(batchProof.Tier)
+	if submitter == nil {
+		return nil
+	}
+
+	if err := submitter.BatchSubmitProofs(p.ctx, batchProof); err != nil {
+		if strings.Contains(err.Error(), vm.ErrExecutionReverted.Error()) ||
+			strings.Contains(err.Error(), proofSubmitter.ErrInvalidProof.Error()) {
+			log.Error(
+				"Proof submission reverted",
+				//"blockID", proofWithHeader.BlockID,
+				//"minTier", proofWithHeader.Meta.GetMinTier(),
+				"error", err,
+			)
+			return nil
+		}
+		log.Error(
+			"Submit proof error",
+			//"blockID", proofWithHeader.BlockID,
+			//"minTier", proofWithHeader.Meta.GetMinTier(),
 			"error", err,
 		)
 		return err

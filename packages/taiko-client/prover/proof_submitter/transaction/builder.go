@@ -14,6 +14,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
 
 var (
@@ -142,6 +143,74 @@ func (a *ProveBlockTxBuilder) Build(
 					return nil, err
 				}
 			}
+		}
+
+		return &txmgr.TxCandidate{
+			TxData:   data,
+			To:       &to,
+			Blobs:    nil,
+			GasLimit: txOpts.GasLimit,
+			Value:    txOpts.Value,
+		}, nil
+	}
+}
+
+// BuildProveBlocks creates a new TaikoL1.ProveBlocks transaction with the given nonce.
+func (a *ProveBlockTxBuilder) BuildProveBlocks(
+	batchProof *proofProducer.BatchProofs,
+) TxBuilder {
+	return func(txOpts *bind.TransactOpts) (*txmgr.TxCandidate, error) {
+		var (
+			data []byte
+			to   common.Address
+			err  error
+		)
+
+		var (
+			metas       []metadata.TaikoBlockMetaData
+			transitions []bindings.TaikoDataTransition
+			blockIDs    []*big.Int
+		)
+		for i, proof := range batchProof.Proofs {
+			metas[i] = proof.Meta
+			transitions[i] = bindings.TaikoDataTransition{
+				ParentHash: proof.Header.ParentHash,
+				BlockHash:  proof.Opts.BlockHash,
+				StateRoot:  proof.Opts.StateRoot,
+				Graffiti:   rpc.StringToBytes32(proof.Opts.Graffiti),
+			}
+			blockIDs[i] = proof.BlockID
+		}
+		log.Info(
+			"Build batch proof submission transaction",
+			"blockIDs", blockIDs,
+			"gasLimit", txOpts.GasLimit,
+		)
+		input, err := encoding.EncodeProveBlocksInput(metas, transitions)
+		if err != nil {
+			return nil, err
+		}
+
+		if a.proverSetAddress != ZeroAddress {
+			if data, err = encoding.ProverSetABI.Pack(
+				"proveBlocks",
+				blockIDs,
+				input,
+				batchProof.BatchProof,
+			); err != nil {
+				return nil, err
+			}
+			to = a.proverSetAddress
+		} else {
+			if data, err = encoding.TaikoL1ABI.Pack(
+				"proveBlocks",
+				blockIDs,
+				input,
+				batchProof.BatchProof,
+			); err != nil {
+				return nil, err
+			}
+			to = a.taikoL1Address
 		}
 
 		return &txmgr.TxCandidate{

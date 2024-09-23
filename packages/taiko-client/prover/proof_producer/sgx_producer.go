@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -39,6 +40,17 @@ type SGXProofProducer struct {
 // RaikoRequestProofBody represents the JSON body for requesting the proof.
 type RaikoRequestProofBody struct {
 	Block    *big.Int                    `json:"block_number"`
+	Prover   string                      `json:"prover"`
+	Graffiti string                      `json:"graffiti"`
+	Type     string                      `json:"proof_type"`
+	SGX      *SGXRequestProofBodyParam   `json:"sgx"`
+	RISC0    *RISC0RequestProofBodyParam `json:"risc0"`
+	SP1      *SP1RequestProofBodyParam   `json:"sp1"`
+}
+
+// RaikoRequestProofBodyV3 represents the JSON body for requesting the proof.
+type RaikoRequestProofBodyV3 struct {
+	Blocks   [][2]*big.Int               `json:"block_numbers"`
 	Prover   string                      `json:"prover"`
 	Graffiti string                      `json:"graffiti"`
 	Type     string                      `json:"proof_type"`
@@ -117,11 +129,153 @@ func (s *SGXProofProducer) RequestProof(
 	}, nil
 }
 
+func (s *SGXProofProducer) Aggregate(
+	ctx context.Context,
+	items []*ProofWithHeader,
+	requestAt time.Time,
+) (*BatchProofs, error) {
+	log.Info(
+		"Aggregate sgx batch proofs from raiko-host service",
+		"proofs", items,
+	)
+	if len(items) == 0 {
+		return nil, errors.New("invalid items length")
+	}
+	var (
+		blockIDs []*big.Int
+	)
+	for i, item := range items {
+		blockIDs[i] = item.Meta.GetBlockID()
+	}
+	batchProof, err := s.requestBatchProof(
+		ctx,
+		blockIDs,
+		items[0].Opts.ProverAddress,
+		items[0].Opts.Graffiti,
+		requestAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	metrics.ProverSgxProofAggregationGeneratedCounter.Add(1)
+
+	return &BatchProofs{
+		Proofs:     items,
+		BatchProof: batchProof,
+		Tier:       s.Tier(),
+	}, nil
+}
+
 func (s *SGXProofProducer) RequestCancel(
 	_ context.Context,
 	_ *ProofRequestOptions,
 ) error {
 	return nil
+}
+
+func (s *SGXProofProducer) requestBatchProof(
+	ctx context.Context,
+	blockIDs []*big.Int,
+	proverAddress common.Address,
+	graffiti string,
+	requestAt time.Time,
+) ([]byte, error) {
+	var (
+		proof []byte
+	)
+
+	ctx, cancel := rpc.CtxWithTimeoutOrDefault(ctx, s.RaikoRequestTimeout)
+	defer cancel()
+
+	var blocks [][2]*big.Int
+	for i, blockID := range blockIDs {
+		blocks[i][0] = blockID
+	}
+	reqBody := RaikoRequestProofBodyV3{
+		Type:     s.ProofType,
+		Blocks:   blocks,
+		Prover:   proverAddress.Hex()[2:],
+		Graffiti: graffiti,
+		SGX: &SGXRequestProofBodyParam{
+			Setup:     false,
+			Bootstrap: false,
+			Prove:     true,
+		},
+	}
+
+	client := &http.Client{}
+
+	jsonValue, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Debug(
+		"Send batch proof generation request",
+		"blockID", blockIDs,
+		"proofType", "sgx",
+		"output", string(jsonValue),
+	)
+
+	req, err := http.NewRequestWithContext(
+		ctx,
+		"POST",
+		s.RaikoHostEndpoint+"/v3/proof/aggregate",
+		bytes.NewBuffer(jsonValue),
+	)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if len(s.JWT) > 0 {
+		req.Header.Set("Authorization", "Bearer "+base64.StdEncoding.EncodeToString([]byte(s.JWT)))
+	}
+
+	res, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to request batch proof, id: %v, statusCode: %d", blockIDs, res.StatusCode)
+	}
+
+	resBytes, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Debug(
+		"Batch proof generation output",
+		"blockID", blockIDs,
+		"proofType", "sgx",
+		"output", string(resBytes),
+	)
+
+	var output RaikoRequestProofBodyResponseV2
+	if err := json.Unmarshal(resBytes, &output); err != nil {
+		return nil, err
+	}
+
+	if len(output.ErrorMessage) > 0 {
+		return nil, fmt.Errorf("failed to get batch proof, msg: %s", output.ErrorMessage)
+	}
+
+	if len(output.Data.Proof.Proof) == 0 {
+		return nil, errEmptyProof
+	}
+	proof = common.Hex2Bytes(output.Data.Proof.Proof[2:])
+
+	log.Info(
+		"Batch proof generated",
+		"height", blockIDs,
+		"time", time.Since(requestAt),
+		"producer", "SGXProofProducer",
+	)
+
+	return proof, nil
 }
 
 // callProverDaemon keeps polling the proverd service to get the requested proof.
@@ -225,7 +379,7 @@ func (s *SGXProofProducer) requestProof(
 	log.Debug(
 		"Proof generation output",
 		"blockID", opts.BlockID,
-		"zkType", "sgx",
+		"proofType", "sgx",
 		"output", string(resBytes),
 	)
 

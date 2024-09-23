@@ -68,6 +68,14 @@ func (g *GuardianProofProducer) RequestCancel(
 	return nil
 }
 
+func (g *GuardianProofProducer) Aggregate(
+	_ context.Context,
+	_ []*ProofWithHeader,
+	_ time.Time,
+) (*BatchProofs, error) {
+	return nil, nil
+}
+
 // Tier implements the ProofProducer interface.
 func (g *GuardianProofProducer) Tier() uint16 {
 	return g.tier

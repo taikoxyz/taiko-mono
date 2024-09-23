@@ -98,9 +98,11 @@ func (p *Prover) initProofSubmitters(
 ) error {
 	for _, tier := range p.sharedState.GetTiers() {
 		var (
-			producer  proofProducer.ProofProducer
-			submitter proofSubmitter.Submitter
-			err       error
+			producer      proofProducer.ProofProducer
+			submitter     proofSubmitter.Submitter
+			err           error
+			bufferSize    = p.cfg.ProofBufferSize
+			proveInterval = p.cfg.ProveInterval
 		)
 		switch tier.ID {
 		case encoding.TierOptimisticID:
@@ -131,8 +133,12 @@ func (p *Prover) initProofSubmitters(
 			}
 		case encoding.TierGuardianMinorityID:
 			producer = proofProducer.NewGuardianProofProducer(encoding.TierGuardianMinorityID, p.cfg.EnableLivenessBondProof)
+			bufferSize = 0
+			proveInterval = 0
 		case encoding.TierGuardianMajorityID:
 			producer = proofProducer.NewGuardianProofProducer(encoding.TierGuardianMajorityID, p.cfg.EnableLivenessBondProof)
+			bufferSize = 0
+			proveInterval = 0
 		default:
 			return fmt.Errorf("unsupported tier: %d", tier.ID)
 		}
@@ -141,6 +147,7 @@ func (p *Prover) initProofSubmitters(
 			p.rpc,
 			producer,
 			p.proofGenerationCh,
+			p.batchProofGenerationCh,
 			p.cfg.ProverSetAddress,
 			p.cfg.TaikoL2Address,
 			p.cfg.Graffiti,
@@ -151,6 +158,8 @@ func (p *Prover) initProofSubmitters(
 			tiers,
 			p.IsGuardianProver(),
 			p.cfg.GuardianProofSubmissionDelay,
+			bufferSize,
+			proveInterval,
 		); err != nil {
 			return err
 		}

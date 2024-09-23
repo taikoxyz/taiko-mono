@@ -110,6 +110,14 @@ func (s *ZKvmProofProducer) RequestCancel(
 	return s.requestCancel(ctx, opts)
 }
 
+func (s *ZKvmProofProducer) Aggregate(
+	_ context.Context,
+	_ []*ProofWithHeader,
+	_ time.Time,
+) (*BatchProofs, error) {
+	return nil, nil
+}
+
 // callProverDaemon keeps polling the proverd service to get the requested proof.
 func (s *ZKvmProofProducer) callProverDaemon(
 	ctx context.Context,

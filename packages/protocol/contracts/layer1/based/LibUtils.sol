@@ -47,7 +47,6 @@ library LibUtils {
     error L1_INVALID_GENESIS_HASH();
     error L1_TRANSITION_NOT_FOUND();
     error L1_UNEXPECTED_TRANSITION_ID();
-    error L1_INVALID_PARAMS();
 
     /// @notice Initializes the Taiko protocol state.
     /// @param _state The state to initialize.

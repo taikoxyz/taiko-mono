@@ -57,6 +57,12 @@ type ProofWithHeader struct {
 	Tier    uint16
 }
 
+type BatchProofs struct {
+	Proofs     []*ProofWithHeader
+	BatchProof []byte
+	Tier       uint16
+}
+
 type ProofProducer interface {
 	RequestProof(
 		ctx context.Context,
@@ -66,6 +72,11 @@ type ProofProducer interface {
 		header *types.Header,
 		requestAt time.Time,
 	) (*ProofWithHeader, error)
+	Aggregate(
+		ctx context.Context,
+		items []*ProofWithHeader,
+		requestAt time.Time,
+	) (*BatchProofs, error)
 	RequestCancel(
 		ctx context.Context,
 		opts *ProofRequestOptions,

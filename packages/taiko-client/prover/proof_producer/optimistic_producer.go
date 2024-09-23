@@ -2,6 +2,7 @@ package producer
 
 import (
 	"context"
+	"errors"
 	"math/big"
 	"time"
 
@@ -33,6 +34,20 @@ func (o *OptimisticProofProducer) RequestProof(
 	)
 
 	return o.DummyProofProducer.RequestProof(opts, blockID, meta, header, o.Tier(), requestAt)
+}
+func (o *OptimisticProofProducer) Aggregate(
+	_ context.Context,
+	items []*ProofWithHeader,
+	_ time.Time,
+) (*BatchProofs, error) {
+	log.Info(
+		"Aggregate batch optimistic proof",
+		"proofs", items,
+	)
+	if len(items) == 0 {
+		return nil, errors.New("invalid items length")
+	}
+	return o.DummyProofProducer.RequestBatchProofs(items, o.Tier())
 }
 
 func (o *OptimisticProofProducer) RequestCancel(

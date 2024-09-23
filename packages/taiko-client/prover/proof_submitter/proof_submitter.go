@@ -29,6 +29,7 @@ var (
 	submissionDelayRandomBumpRange float64   = 20
 	proofPollingInterval                     = 10 * time.Second
 	ProofTimeout                             = 3 * time.Hour
+	ErrInvalidProof                          = errors.New("found invalid proof")
 )
 
 // ProofSubmitter is responsible requesting proofs for the given L2
@@ -37,6 +38,7 @@ type ProofSubmitter struct {
 	rpc              *rpc.Client
 	proofProducer    proofProducer.ProofProducer
 	resultCh         chan *proofProducer.ProofWithHeader
+	batchResultCh    chan *proofProducer.BatchProofs
 	anchorValidator  *validator.AnchorTxValidator
 	txBuilder        *transaction.ProveBlockTxBuilder
 	sender           *transaction.Sender
@@ -48,6 +50,9 @@ type ProofSubmitter struct {
 	// Guardian prover related.
 	isGuardian      bool
 	submissionDelay time.Duration
+	// Batch proof related
+	proofBuffer   *ProofBuffer
+	proveInterval time.Duration
 }
 
 // NewProofSubmitter creates a new ProofSubmitter instance.
@@ -55,6 +60,7 @@ func NewProofSubmitter(
 	rpcClient *rpc.Client,
 	proofProducer proofProducer.ProofProducer,
 	resultCh chan *proofProducer.ProofWithHeader,
+	batchResultCh chan *proofProducer.BatchProofs,
 	proverSetAddress common.Address,
 	taikoL2Address common.Address,
 	graffiti string,
@@ -65,6 +71,8 @@ func NewProofSubmitter(
 	tiers []*rpc.TierProviderTierWithID,
 	isGuardian bool,
 	submissionDelay time.Duration,
+	proofBufferSize uint64,
+	proveInterval time.Duration,
 ) (*ProofSubmitter, error) {
 	anchorValidator, err := validator.New(taikoL2Address, rpcClient.L2.ChainID, rpcClient)
 	if err != nil {
@@ -75,6 +83,7 @@ func NewProofSubmitter(
 		rpc:              rpcClient,
 		proofProducer:    proofProducer,
 		resultCh:         resultCh,
+		batchResultCh:    batchResultCh,
 		anchorValidator:  anchorValidator,
 		txBuilder:        builder,
 		sender:           transaction.NewSender(rpcClient, txmgr, privateTxmgr, proverSetAddress, gasLimit),
@@ -85,6 +94,8 @@ func NewProofSubmitter(
 		tiers:            tiers,
 		isGuardian:       isGuardian,
 		submissionDelay:  submissionDelay,
+		proofBuffer:      NewProofBuffer(proofBufferSize),
+		proveInterval:    proveInterval,
 	}, nil
 }
 
@@ -137,7 +148,6 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBl
 	if s.proverSetAddress != rpc.ZeroAddress {
 		opts.ProverAddress = s.proverSetAddress
 	}
-
 	startTime := time.Now()
 
 	// Send the generated proof.
@@ -181,8 +191,24 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBl
 				}
 				return fmt.Errorf("failed to request proof (id: %d): %w", meta.GetBlockID(), err)
 			}
-			s.resultCh <- result
 			metrics.ProverQueuedProofCounter.Add(1)
+			if meta.IsOntakeBlock() && s.proofBuffer.MaxLength > 1 {
+				bufferSize, err := s.proofBuffer.Write(result)
+				if err != nil {
+					return fmt.Errorf("failed to add proof into buffer (id: %d)(current buffer size: %d): %w",
+						meta.GetBlockID(),
+						bufferSize,
+						err,
+					)
+				}
+				if s.proofBuffer.MaxLength == uint64(bufferSize) {
+					if err = s.AggregateProofs(ctx); err != nil {
+						return fmt.Errorf("failed to aggregate proof : %w", err)
+					}
+				}
+			} else {
+				s.resultCh <- result
+			}
 			return nil
 		},
 		backoff.WithContext(backoff.NewConstantBackOff(proofPollingInterval), ctx),
@@ -296,6 +322,116 @@ func (s *ProofSubmitter) SubmitProof(
 	metrics.ProverSentProofCounter.Add(1)
 	metrics.ProverLatestProvenBlockIDGauge.Set(float64(proofWithHeader.BlockID.Uint64()))
 
+	return nil
+}
+
+func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proofProducer.BatchProofs) error {
+	log.Info(
+		"Batch submit block proof",
+		"batchProofs", batchProof.Proofs,
+		"proof", common.Bytes2Hex(batchProof.BatchProof),
+		"tier", batchProof.Tier,
+	)
+	var (
+		invalidProofs       []*proofProducer.ProofWithHeader
+		latestProvenBlockID *big.Int
+	)
+	for i, proof := range batchProof.Proofs {
+		// Check if the proof has already been submitted.
+		proofStatus, err := rpc.GetBlockProofStatus(
+			ctx,
+			s.rpc,
+			proof.BlockID,
+			proof.Opts.ProverAddress,
+			s.proverSetAddress,
+		)
+		if err != nil {
+			return err
+		}
+		if proofStatus.IsSubmitted && !proofStatus.Invalid {
+			log.Error("a valid proof for block is already submitted", "blockId", proof.BlockID)
+			invalidProofs[i] = proof
+			break
+		}
+
+		// Check if this proof is still needed to be submitted.
+		ok, err := s.sender.ValidateProof(ctx, proof)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			log.Error("a valid proof for block is already submitted", "blockId", proof.BlockID)
+			invalidProofs[i] = proof
+			break
+		}
+
+		// Get the corresponding L2 block.
+		block, err := s.rpc.L2.BlockByHash(ctx, proof.Header.Hash())
+		if err != nil {
+			log.Error("failed to get L2 block with given hash",
+				"hash", proof.Header.Hash(),
+				"error", err,
+			)
+			invalidProofs[i] = proof
+			break
+		}
+
+		if block.Transactions().Len() == 0 {
+			log.Error("invalid block without anchor transaction, blockID", "blockId", proof.BlockID)
+			invalidProofs[i] = proof
+			break
+		}
+
+		// Validate TaikoL2.anchor transaction inside the L2 block.
+		anchorTx := block.Transactions()[0]
+		if err = s.anchorValidator.ValidateAnchorTx(anchorTx); err != nil {
+			log.Error("invalid anchor transaction", "error", err)
+			invalidProofs[i] = proof
+		}
+		if proof.BlockID.Cmp(latestProvenBlockID) > 0 {
+			latestProvenBlockID = proof.BlockID
+		}
+	}
+
+	if len(invalidProofs) > 0 {
+		s.proofBuffer.ClearItems(invalidProofs...)
+		return ErrInvalidProof
+	}
+
+	// Build the TaikoL1.proveBlocks transaction and send it to the L1 node.
+	if err := s.sender.SendBatchProof(
+		ctx,
+		s.txBuilder.BuildProveBlocks(batchProof),
+	); err != nil {
+		if err.Error() == transaction.ErrUnretryableSubmission.Error() {
+			return nil
+		}
+		metrics.ProverAggregationSubmissionErrorCounter.Add(1)
+		return err
+	}
+
+	metrics.ProverSentProofCounter.Add(1)
+	metrics.ProverLatestProvenBlockIDGauge.Set(float64(latestProvenBlockID.Uint64()))
+
+	return nil
+}
+
+func (s *ProofSubmitter) AggregateProofs(ctx context.Context) error {
+	startTime := time.Now()
+	buffer, err := s.proofBuffer.ReadAll()
+	if err != nil {
+		return fmt.Errorf("failed to read proof from buffer: %w", err)
+	}
+
+	result, err := s.proofProducer.Aggregate(
+		ctx,
+		buffer,
+		startTime,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to request proof aggregation: %w", err)
+	}
+	s.batchResultCh <- result
 	return nil
 }
 

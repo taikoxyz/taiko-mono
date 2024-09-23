@@ -46,8 +46,14 @@ var (
 	ProverSubmissionErrorCounter = factory.NewCounter(prometheus.CounterOpts{
 		Name: "prover_proof_submission_error",
 	})
+	ProverAggregationSubmissionErrorCounter = factory.NewCounter(prometheus.CounterOpts{
+		Name: "prover_proof_aggregation_submission_error",
+	})
 	ProverSgxProofGeneratedCounter = factory.NewCounter(prometheus.CounterOpts{
 		Name: "prover_proof_sgx_generated",
+	})
+	ProverSgxProofAggregationGeneratedCounter = factory.NewCounter(prometheus.CounterOpts{
+		Name: "prover_proof_sgx_aggregation_generated",
 	})
 	ProverR0ProofGeneratedCounter = factory.NewCounter(prometheus.CounterOpts{
 		Name: "prover_proof_r0_generated",

@@ -294,6 +294,10 @@ var (
 		{Name: "TaikoData.Transition", Type: transitionComponentsType},
 		{Name: "TaikoData.TierProof", Type: tierProofComponentsType},
 	}
+	proveBlocksInputArgs = abi.Arguments{
+		{Name: "TaikoData.BlockMetadata", Type: blockMetadataComponentsType},
+		{Name: "TaikoData.Transition", Type: transitionComponentsType},
+	}
 )
 
 // Contract ABIs.
@@ -418,6 +422,34 @@ func EncodeProveBlockInput(
 		); err != nil {
 			return nil, fmt.Errorf("failed to abi.encode TakoL1.proveBlock input, %w", err)
 		}
+	}
+
+	return b, nil
+}
+
+// EncodeProveBlocksInput performs the solidity `abi.encode` for the given TaikoL1.proveBlocks input.
+func EncodeProveBlocksInput(
+	metas []metadata.TaikoBlockMetaData,
+	transitions []bindings.TaikoDataTransition,
+) ([][]byte, error) {
+	var (
+		b   [][]byte
+		err error
+	)
+	if len(metas) != len(transitions) {
+		return nil, fmt.Errorf("both arrays of TaikoBlockMetaData and TaikoDataTransition must be equal in length , %w", err)
+	}
+
+	for i := range metas {
+		input, err := proveBlocksInputArgs.Pack(
+			metas[i].(*metadata.TaikoDataBlockMetadataOntake).InnerMetadata(),
+			transitions[i],
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to abi.encode TaikoL1.proveBlocks input item after ontake fork, %w", err)
+		}
+
+		b = append(b, input)
 	}
 
 	return b, nil
