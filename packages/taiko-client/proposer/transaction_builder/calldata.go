@@ -80,54 +80,33 @@ func (b *CalldataTransactionBuilder) BuildLegacy(
 	signature[64] = signature[64] + 27
 
 	var (
-		to            = &b.taikoL1Address
-		data          []byte
-		encodedParams []byte
-		method        string
+		to   = &b.taikoL1Address
+		data []byte
 	)
 	if b.proverSetAddress != rpc.ZeroAddress {
 		to = &b.proverSetAddress
 	}
 
-	// Check if the current L2 chain is after ontake fork.
-	state, err := rpc.GetProtocolStateVariables(b.rpc.TaikoL1, &bind.CallOpts{Context: ctx})
+	// ABI encode the TaikoL1.proposeBlock / ProverSet.proposeBlock parameters.
+	encodedParams, err := encoding.EncodeBlockParams(&encoding.BlockParams{
+		Coinbase:       b.l2SuggestedFeeRecipient,
+		ExtraData:      rpc.StringToBytes32(b.extraData),
+		ParentMetaHash: parentMetaHash,
+		Signature:      signature,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	if !b.chainConfig.IsOntake(new(big.Int).SetUint64(state.B.NumBlocks)) {
-		// ABI encode the TaikoL1.proposeBlock / ProverSet.proposeBlock parameters.
-		method = "proposeBlock"
-
-		if encodedParams, err = encoding.EncodeBlockParams(&encoding.BlockParams{
-			Coinbase:       b.l2SuggestedFeeRecipient,
-			ExtraData:      rpc.StringToBytes32(b.extraData),
-			ParentMetaHash: parentMetaHash,
-			Signature:      signature,
-		}); err != nil {
-			return nil, err
-		}
-	} else {
-		// ABI encode the TaikoL1.proposeBlockV2 / ProverSet.proposeBlockV2 parameters.
-		method = "proposeBlockV2"
-
-		if encodedParams, err = encoding.EncodeBlockParamsOntake(&encoding.BlockParamsV2{
-			Coinbase:       b.l2SuggestedFeeRecipient,
-			ParentMetaHash: parentMetaHash,
-			AnchorBlockId:  0,
-			Timestamp:      0,
-		}); err != nil {
-			return nil, err
-		}
-	}
-
 	if b.proverSetAddress != rpc.ZeroAddress {
-		data, err = encoding.ProverSetABI.Pack(method, encodedParams, txListBytes)
+		to = &b.proverSetAddress
+
+		data, err = encoding.ProverSetABI.Pack("proposeBlock", encodedParams, txListBytes)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		data, err = encoding.TaikoL1ABI.Pack(method, encodedParams, txListBytes)
+		data, err = encoding.TaikoL1ABI.Pack("proposeBlock", encodedParams, txListBytes)
 		if err != nil {
 			return nil, err
 		}
