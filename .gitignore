@@ -120,6 +120,3 @@ __pycache__/
 
 # Idea
 .idea/
-
-# pnpm lock file
-pnpm-lock.yaml
