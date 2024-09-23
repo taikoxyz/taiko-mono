@@ -21,7 +21,7 @@ jobs:
 
       - name: Prepare environment
         continue-on-error: true
-        run: sudo apt-get update && sudo apt-get install -y git netcat wget
+        run: sudo apt-get update && sudo apt-get install -y git wget
 
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -56,7 +56,7 @@ jobs:
         timeout-minutes: 2
         run: |
           anvil --hardfork cancun &
-          while ! nc -z localhost 8545; do
+          until cast chain-id --rpc-url "http://localhost:8545" 2> /dev/null; do
             sleep 1
           done
           pnpm test:deploy:l1
