@@ -55,6 +55,7 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 		ClientConfig: &rpc.ClientConfig{
 			L1Endpoint:        os.Getenv("L1_WS"),
 			L2Endpoint:        os.Getenv("L2_WS"),
+			L2EngineEndpoint:  os.Getenv("L2_AUTH"),
 			TaikoL1Address:    common.HexToAddress(os.Getenv("TAIKO_L1")),
 			TaikoL2Address:    common.HexToAddress(os.Getenv("TAIKO_L2")),
 			TaikoTokenAddress: common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
