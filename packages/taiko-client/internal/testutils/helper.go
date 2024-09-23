@@ -51,19 +51,17 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 		close(sink2)
 	}()
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	defer cancel()
-
 	// RLP encoded empty list
 	s.Nil(proposer.ProposeTxLists(context.Background(), []types.Transactions{{}}))
-	s.Nil(blobSyncer.ProcessL1Blocks(ctx))
+	s.Nil(blobSyncer.ProcessL1Blocks(context.Background()))
 
+	// Valid transactions lists.
 	s.ProposeValidBlock(proposer)
-	s.Nil(blobSyncer.ProcessL1Blocks(ctx))
+	s.Nil(blobSyncer.ProcessL1Blocks(context.Background()))
 
 	// Random bytes txList
 	s.proposeEmptyBlockOp(context.Background(), proposer)
-	s.Nil(blobSyncer.ProcessL1Blocks(ctx))
+	s.Nil(blobSyncer.ProcessL1Blocks(context.Background()))
 
 	var txHash common.Hash
 	for i := 0; i < 3; i++ {
