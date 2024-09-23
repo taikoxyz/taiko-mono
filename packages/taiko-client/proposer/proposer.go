@@ -324,33 +324,25 @@ func (p *Proposer) ProposeTxLists(ctx context.Context, txLists []types.Transacti
 				p.lastProposedAt = time.Now()
 				return nil
 			})
-
-			g.Go(func() error {
-				if err := p.ProposeTxListLegacy(gCtx, types.Transactions{}); err != nil {
-					return err
-				}
-				p.lastProposedAt = time.Now()
-				return nil
-			})
-
 			if err := p.rpc.WaitL1NewPendingTransaction(ctx, p.proposerAddress, nonce); err != nil {
 				log.Error("Failed to wait for new pending transaction", "error", err)
 			}
-			if err := p.rpc.WaitL1NewPendingTransaction(ctx, p.proposerAddress, nonce+1); err != nil {
-				log.Error("Failed to wait for new pending transaction", "error", err)
+			if !p.chainConfig.IsOntake(new(big.Int).Add(new(big.Int).SetUint64(state.B.NumBlocks), big.NewInt(1))) {
+				g.Go(func() error {
+					if err := p.ProposeTxListLegacy(gCtx, types.Transactions{}); err != nil {
+						return err
+					}
+					p.lastProposedAt = time.Now()
+					return nil
+				})
+				if err := p.rpc.WaitL1NewPendingTransaction(ctx, p.proposerAddress, nonce+1); err != nil {
+					log.Error("Failed to wait for new pending transaction", "error", err)
+				}
 			}
 		}
 
 		return g.Wait()
 	}
-	g, gCtx := errgroup.WithContext(ctx)
-	g.Go(func() error {
-		if err := p.ProposeTxListOntake(gCtx, append([]types.Transactions{}, types.Transactions{})); err != nil {
-			return err
-		}
-		p.lastProposedAt = time.Now()
-		return nil
-	})
 
 	// If the current L2 chain is after ontake fork, batch propose all L2 transactions lists.
 	return p.ProposeTxListOntake(ctx, txLists)
