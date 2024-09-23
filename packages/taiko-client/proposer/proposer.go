@@ -404,8 +404,8 @@ func (p *Proposer) ProposeTxListOntake(
 	var (
 		proverAddress     = p.proposerAddress
 		txListsBytesArray [][]byte
-		txNums            []uint8
-		totalTxs          uint8
+		txNums            []int
+		totalTxs          int
 	)
 	for _, txs := range txLists {
 		txListBytes, err := rlp.EncodeToBytes(txs)
@@ -419,8 +419,8 @@ func (p *Proposer) ProposeTxListOntake(
 		}
 
 		txListsBytesArray = append(txListsBytesArray, compressedTxListBytes)
-		txNums = append(txNums, uint8(len(txs)))
-		totalTxs += uint8(len(txs))
+		txNums = append(txNums, len(txs))
+		totalTxs += len(txs)
 	}
 
 	if p.Config.ClientConfig.ProverSetAddress != rpc.ZeroAddress {
