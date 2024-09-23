@@ -343,7 +343,14 @@ func (p *Proposer) ProposeTxLists(ctx context.Context, txLists []types.Transacti
 
 		return g.Wait()
 	}
-	_ = p.ProposeTxListOntake(ctx, append([]types.Transactions{}, types.Transactions{}))
+	g, gCtx := errgroup.WithContext(ctx)
+	g.Go(func() error {
+		if err := p.ProposeTxListOntake(gCtx, append([]types.Transactions{}, types.Transactions{})); err != nil {
+			return err
+		}
+		p.lastProposedAt = time.Now()
+		return nil
+	})
 
 	// If the current L2 chain is after ontake fork, batch propose all L2 transactions lists.
 	return p.ProposeTxListOntake(ctx, txLists)
