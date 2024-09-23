@@ -194,7 +194,7 @@ library LibUtils {
     /// @dev Retrieves the transition with a given parentHash.
     /// @param _state Current TaikoData.State.
     /// @param _config Actual TaikoData.Config.
-    /// @param _blockId Id of the blocks.
+    /// @param _blockId Id of the block.
     /// @param _parentHash Parent hash of the block.
     /// @return The state transition pointer.
     function getTransition(
