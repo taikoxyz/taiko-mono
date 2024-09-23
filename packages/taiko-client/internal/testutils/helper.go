@@ -97,12 +97,6 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
-	state, err := s.RPCClient.GetProtocolStateVariables(nil)
-	s.Nil(err)
-
-	l2Head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), new(big.Int).SetUint64(state.B.NumBlocks-1))
-	s.Nil(err)
-
 	// Propose txs in L2 execution engine's mempool
 	sink := make(chan *bindings.TaikoL1ClientBlockProposed)
 	sub, err := s.RPCClient.TaikoL1.WatchBlockProposed(nil, sink, nil, nil)
@@ -119,19 +113,6 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 		close(sink2)
 	}()
 
-	ontakeForkHeight, err := s.RPCClient.TaikoL2.OntakeForkHeight(nil)
-	s.Nil(err)
-
-	baseFee, err := s.RPCClient.CalculateBaseFee(
-		context.Background(),
-		l2Head,
-		l1Head.Number,
-		l2Head.Number.Uint64()+1 >= ontakeForkHeight,
-		&encoding.InternlDevnetProtocolConfig.BaseFeeConfig,
-		l1Head.Time,
-	)
-	s.Nil(err)
-
 	nonce, err := s.RPCClient.L2.PendingNonceAt(context.Background(), s.TestAddr)
 	s.Nil(err)
 
@@ -140,7 +121,7 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 		common.BytesToAddress(RandomBytes(32)),
 		common.Big0,
 		100_000,
-		new(big.Int).SetUint64(uint64(10*params.GWei)+baseFee.Uint64()),
+		new(big.Int).SetUint64(uint64(10*params.GWei)),
 		[]byte{},
 	)
 	signedTx, err := types.SignTx(tx, types.LatestSignerForChainID(s.RPCClient.L2.ChainID), s.TestAddrPrivKey)
