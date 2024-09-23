@@ -325,13 +325,25 @@ func (p *Proposer) ProposeTxLists(ctx context.Context, txLists []types.Transacti
 				return nil
 			})
 
+			g.Go(func() error {
+				if err := p.ProposeTxListLegacy(gCtx, types.Transactions{}); err != nil {
+					return err
+				}
+				p.lastProposedAt = time.Now()
+				return nil
+			})
+
 			if err := p.rpc.WaitL1NewPendingTransaction(ctx, p.proposerAddress, nonce); err != nil {
+				log.Error("Failed to wait for new pending transaction", "error", err)
+			}
+			if err := p.rpc.WaitL1NewPendingTransaction(ctx, p.proposerAddress, nonce+1); err != nil {
 				log.Error("Failed to wait for new pending transaction", "error", err)
 			}
 		}
 
 		return g.Wait()
 	}
+	_ = p.ProposeTxListOntake(ctx, append([]types.Transactions{}, types.Transactions{}))
 
 	// If the current L2 chain is after ontake fork, batch propose all L2 transactions lists.
 	return p.ProposeTxListOntake(ctx, txLists)
