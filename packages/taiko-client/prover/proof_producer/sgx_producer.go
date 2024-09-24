@@ -136,7 +136,7 @@ func (s *SGXProofProducer) Aggregate(
 ) (*BatchProofs, error) {
 	log.Info(
 		"Aggregate sgx batch proofs from raiko-host service",
-		"proofs", items,
+		"items", items,
 	)
 	if len(items) == 0 {
 		return nil, errors.New("invalid items length")
