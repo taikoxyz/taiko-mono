@@ -206,7 +206,7 @@ var (
 	}
 	ProveInterval = &cli.DurationFlag{
 		Name: "prover.interval",
-		Usage: "Time interval to prove blocks when the number of pending proof don not exceed prover.batchSize, " +
+		Usage: "Time interval to prove blocks when the number of pending proof do not exceed prover.batchSize, " +
 			"this flag only works post Ontake fork",
 		Category: proposerCategory,
 		Value:    12 * time.Second,
