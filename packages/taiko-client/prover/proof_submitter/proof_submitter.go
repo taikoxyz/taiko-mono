@@ -29,7 +29,7 @@ var (
 	submissionDelayRandomBumpRange float64   = 20
 	proofPollingInterval                     = 10 * time.Second
 	ProofTimeout                             = 3 * time.Hour
-	ErrInvalidProof                          = errors.New("found invalid proof")
+	ErrInvalidProof                          = errors.New("invalid proof found")
 )
 
 // ProofSubmitter is responsible requesting proofs for the given L2
