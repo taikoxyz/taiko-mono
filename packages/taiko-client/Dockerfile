@@ -1,4 +1,6 @@
-FROM golang:1.21-alpine as builder
+FROM --platform=$BUILDPLATFORM golang:1.21-alpine as builder
+ARG TARGETOS
+ARG TARGETARCH
 
 RUN apk update && apk add --no-cache --update gcc musl-dev linux-headers git make build-base
 
@@ -10,7 +12,7 @@ COPY packages/taiko-client/ packages/taiko-client/
 
 WORKDIR /build/packages/taiko-client
 
-RUN make build
+RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} make build
 
 FROM alpine:latest
 
