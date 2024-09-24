@@ -2,7 +2,7 @@ FROM --platform=$BUILDPLATFORM golang:1.21 AS builder
 ARG TARGETOS
 ARG TARGETARCH
 
-RUN apt-get update && apt-get install -y git make
+RUN apt-get update && apt-get install -y git make g++-x86-64-linux-gnu libc6-dev-amd64-cross
 #RUN apk update && apk add --no-cache --update gcc musl-dev linux-headers git make build-base
 
 WORKDIR /build
@@ -13,12 +13,11 @@ COPY packages/taiko-client/ packages/taiko-client/
 
 WORKDIR /build/packages/taiko-client
 
-RUN if [ "GOARCH" == "amd64" ]; then \
-    apt-get install -y g++-x86-64-linux-gnu libc6-dev-amd64-cross; \
-    CGO_ENABLED=1 CC=x86_64-linux-gnu-gcc GOOS=${TARGETOS} GOARCH=${TARGETARCH} make build; \
-  else \
-    CGO_ENABLED=1 GOOS=${TARGETOS} GOARCH=${TARGETARCH} make build; \
-  fi
+RUN if [ "GOARCH" = "amd64" ]; then \
+      CGO_ENABLED=1 CC=x86_64-linux-gnu-gcc GOOS=${TARGETOS} GOARCH=${TARGETARCH} make build; \
+    else \
+      CGO_ENABLED=1 GOOS=${TARGETOS} GOARCH=${TARGETARCH} make build; \
+    fi
 
 FROM alpine:latest
 
