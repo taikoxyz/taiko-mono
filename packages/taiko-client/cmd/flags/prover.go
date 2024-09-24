@@ -205,7 +205,7 @@ var (
 		EnvVars:  []string{"PROVER_BATCH_SIZE"},
 	}
 	ProveInterval = &cli.DurationFlag{
-		Name: "prover.interval",
+		Name: "prover.minProvingInterval",
 		Usage: "Time interval to prove blocks when the number of pending proof do not exceed prover.batchSize, " +
 			"this flag only works post Ontake fork",
 		Category: proposerCategory,
