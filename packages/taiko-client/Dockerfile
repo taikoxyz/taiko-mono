@@ -13,7 +13,9 @@ COPY packages/taiko-client/ packages/taiko-client/
 
 WORKDIR /build/packages/taiko-client
 
-RUN if [ "GOARCH" = "amd64" ]; then \
+RUN echo "TARGETOS=${TARGETOS}, TARGETARCH=${TARGETARCH}" && \
+    if [ "$TARGETARCH" = "amd64" ]; then \
+      apt-get install -y g++-x86-64-linux-gnu libc6-dev-amd64-cross; \
       CGO_ENABLED=1 CC=x86_64-linux-gnu-gcc GOOS=${TARGETOS} GOARCH=${TARGETARCH} make build; \
     else \
       CGO_ENABLED=1 GOOS=${TARGETOS} GOARCH=${TARGETARCH} make build; \
