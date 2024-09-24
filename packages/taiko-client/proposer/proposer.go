@@ -334,7 +334,11 @@ func (p *Proposer) ProposeTxLists(ctx context.Context, txLists []types.Transacti
 	}
 
 	// If the current L2 chain is after ontake fork, batch propose all L2 transactions lists.
-	return p.ProposeTxListOntake(ctx, txLists)
+	if err := p.ProposeTxListOntake(ctx, txLists); err != nil {
+		return err
+	}
+	p.lastProposedAt = time.Now()
+	return nil
 }
 
 // ProposeTxListLegacy proposes the given transactions list to TaikoL1 smart contract.
