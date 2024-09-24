@@ -188,14 +188,14 @@ contract SgxVerifier is EssentialContract, IVerifier {
         bytes memory signature = _proof.data[44:];
 
         // Collect public inputs
-        bytes32[] memory public_inputs = new bytes32[](_ctxs.length + 2);
+        bytes32[] memory publicInputs = new bytes32[](_ctxs.length + 2);
         // First public input is the current instance public key
-        public_inputs[0] = bytes32(uint256(uint160(oldInstance)));
-        public_inputs[1] = bytes32(uint256(uint160(newInstance)));
+        publicInputs[0] = bytes32(uint256(uint160(oldInstance)));
+        publicInputs[1] = bytes32(uint256(uint160(newInstance)));
         // All other inputs are the block program public inputs (a single 32 byte value)
         for (uint256 i; i < _ctxs.length; ++i) {
             // TODO: For now this assumes the new instance public key to remain the same
-            public_inputs[i + 2] = LibPublicInput.hashPublicInputs(
+            publicInputs[i + 2] = LibPublicInput.hashPublicInputs(
                 _ctxs[i].tran,
                 address(this),
                 newInstance,
@@ -205,7 +205,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
             );
         }
 
-        bytes32 signatureHash = keccak256(abi.encodePacked(public_inputs));
+        bytes32 signatureHash = keccak256(abi.encodePacked(publicInputs));
         // Verify the blocks
         if (oldInstance != ECDSA.recover(signatureHash, signature)) {
             revert SGX_INVALID_PROOF();
