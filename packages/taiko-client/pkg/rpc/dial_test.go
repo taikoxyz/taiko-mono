@@ -15,7 +15,6 @@ import (
 
 func TestDialEngineClientWithBackoff(t *testing.T) {
 	jwtSecret, err := jwt.ParseSecretFromFile(os.Getenv("JWT_SECRET"))
-
 	require.Nil(t, err)
 	require.NotEmpty(t, jwtSecret)
 
