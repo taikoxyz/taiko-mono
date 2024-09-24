@@ -328,7 +328,7 @@ func (p *Proposer) ProposeTxLists(ctx context.Context, txLists []types.Transacti
 				log.Error("Failed to wait for new pending transaction", "error", err)
 			}
 			if !p.chainConfig.IsOntake(new(big.Int).Add(new(big.Int).SetUint64(state.B.NumBlocks), big.NewInt(1))) {
-				for i := 0; i < 3; i++ {
+				for i := 0; i < 2; i++ {
 					g.Go(func() error {
 						if err := p.ProposeTxListLegacy(gCtx, types.Transactions{}); err != nil {
 							return err
