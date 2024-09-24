@@ -4,13 +4,14 @@ import (
 	"context"
 
 	opMetrics "github.com/ethereum-optimism/optimism/op-service/metrics"
-	"github.com/ethereum-optimism/optimism/op-service/opio"
+
 	txmgrMetrics "github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
 // Metrics
@@ -91,7 +92,7 @@ func Serve(ctx context.Context, c *cli.Context) error {
 		}
 	}()
 
-	opio.BlockOnInterruptsContext(ctx)
+	rpc.BlockOnInterruptsContext(ctx)
 
 	return nil
 }
