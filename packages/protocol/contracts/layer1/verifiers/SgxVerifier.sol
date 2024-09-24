@@ -199,12 +199,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
             address prover = _ctxs[i].prover;
             bytes32 metaHash = _ctxs[i].metaHash;
             public_inputs[i + 2] = LibPublicInput.hashPublicInputs(
-                tran,
-                address(this),
-                newInstance,
-                prover,
-                metaHash,
-                taikoChainId()
+                tran, address(this), newInstance, prover, metaHash, taikoChainId()
             );
         }
 
