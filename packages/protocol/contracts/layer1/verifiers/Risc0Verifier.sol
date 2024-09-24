@@ -27,7 +27,8 @@ contract Risc0Verifier is EssentialContract, IVerifier {
     /// @dev Emitted when a proof is verified
     event ProofVerified(bytes32 metaHash, bytes32 publicInputHash);
 
-    error RISC_ZERO_INVALID_IMAGE_ID();
+    error RISC_ZERO_INVALID_BLOCK_PROOF_IMAGE_ID();
+    error RISC_ZERO_INVALID_AGGREGATION_IMAGE_ID();
     error RISC_ZERO_INVALID_PROOF();
 
     /// @notice Initializes the contract with the provided address manager.
@@ -62,7 +63,7 @@ contract Risc0Verifier is EssentialContract, IVerifier {
         (bytes memory seal, bytes32 imageId) = abi.decode(_proof.data, (bytes, bytes32));
 
         if (!isImageTrusted[imageId]) {
-            revert RISC_ZERO_INVALID_IMAGE_ID();
+            revert RISC_ZERO_INVALID_BLOCK_PROOF_IMAGE_ID();
         }
 
         bytes32 publicInputHash = LibPublicInput.hashPublicInputs(
@@ -94,30 +95,30 @@ contract Risc0Verifier is EssentialContract, IVerifier {
 
         // Check if the aggregation program is trusted
         if (!isImageTrusted[aggregationImageId]) {
-            revert RISC_ZERO_INVALID_IMAGE_ID();
+            revert RISC_ZERO_INVALID_AGGREGATION_IMAGE_ID();
         }
         // Check if the block proving program is trusted
         if (!isImageTrusted[blockImageId]) {
-            revert RISC_ZERO_INVALID_IMAGE_ID();
+            revert RISC_ZERO_INVALID_BLOCK_PROOF_IMAGE_ID();
         }
 
         // Collect public inputs
-        bytes32[] memory public_inputs = new bytes32[](_ctxs.length + 1);
+        bytes32[] memory publicInputs = new bytes32[](_ctxs.length + 1);
         // First public input is the block proving program key
-        public_inputs[0] = blockImageId;
+        publicInputs[0] = blockImageId;
         // All other inputs are the block program public inputs (a single 32 byte value)
         for (uint256 i; i < _ctxs.length; ++i) {
             TaikoData.Transition memory tran = _ctxs[i].tran;
             address prover = _ctxs[i].prover;
             bytes32 metaHash = _ctxs[i].metaHash;
-            public_inputs[i + 1] = LibPublicInput.hashPublicInputs(
+            publicInputs[i + 1] = LibPublicInput.hashPublicInputs(
                 tran, address(this), address(0), prover, metaHash, taikoChainId()
             );
-            emit ProofVerified(metaHash, public_inputs[i + 1]);
+            emit ProofVerified(metaHash, publicInputs[i + 1]);
         }
 
         // journalDigest is the sha256 hash of the hashed public input
-        bytes32 journalDigest = sha256(abi.encodePacked(public_inputs));
+        bytes32 journalDigest = sha256(abi.encodePacked(publicInputs));
 
         // call risc0 verifier contract
         (bool success,) = resolve(LibStrings.B_RISCZERO_GROTH16_VERIFIER, false).staticcall(
