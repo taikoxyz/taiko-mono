@@ -12,7 +12,8 @@ COPY packages/taiko-client/ packages/taiko-client/
 
 WORKDIR /build/packages/taiko-client
 
-RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} make build
+RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+  make build
 
 FROM alpine:latest
 
