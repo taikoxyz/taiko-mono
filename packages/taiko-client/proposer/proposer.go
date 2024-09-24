@@ -327,7 +327,7 @@ func (p *Proposer) ProposeTxLists(ctx context.Context, txLists []types.Transacti
 			if err := p.rpc.WaitL1NewPendingTransaction(ctx, p.proposerAddress, nonce); err != nil {
 				log.Error("Failed to wait for new pending transaction", "error", err)
 			}
-			if !p.chainConfig.IsOntake(new(big.Int).Add(new(big.Int).SetUint64(state.B.NumBlocks), big.NewInt(1))) {
+			if !p.chainConfig.IsOntake(new(big.Int).Add(new(big.Int).SetUint64(state.B.NumBlocks), big.NewInt(2))) {
 				for i := 0; i < 2; i++ {
 					g.Go(func() error {
 						if err := p.ProposeTxListLegacy(gCtx, types.Transactions{}); err != nil {
@@ -337,7 +337,7 @@ func (p *Proposer) ProposeTxLists(ctx context.Context, txLists []types.Transacti
 						return nil
 					})
 				}
-				if err := p.rpc.WaitL1NewPendingTransaction(ctx, p.proposerAddress, nonce+3); err != nil {
+				if err := p.rpc.WaitL1NewPendingTransaction(ctx, p.proposerAddress, nonce+2); err != nil {
 					log.Error("Failed to wait for new pending transaction", "error", err)
 				}
 			}
