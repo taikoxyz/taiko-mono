@@ -392,8 +392,6 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
 
         vm.startPrank(address(L1));
 
-        uint32 id = uint32(sv.nextInstanceId());
-
         // Context
         IVerifier.ContextV2[] memory ctxs = new IVerifier.ContextV2[](2);
         ctxs[0] = IVerifier.ContextV2({
