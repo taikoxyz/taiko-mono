@@ -19,7 +19,7 @@ var (
 		LivenessBond:          livenessBond,
 		StateRootSyncInternal: 16,
 		MaxAnchorHeightOffset: 64,
-		OntakeForkHeight:      2,
+		OntakeForkHeight:      500,
 		BaseFeeConfig: bindings.LibSharedDataBaseFeeConfig{
 			AdjustmentQuotient:     8,
 			SharingPctg:            75,
