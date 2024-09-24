@@ -168,8 +168,6 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
 
     // Test `verifyProof()` happy path
     function test_verifyProof() external {
-        uint32 id = uint32(sv.nextInstanceId());
-
         // `addInstances()` add an alice instance
         address[] memory instances = new address[](1);
         instances[0] = KNOWN_ADDRESS;
