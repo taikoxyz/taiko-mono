@@ -131,10 +131,10 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
         if (!verified) revert SGX_INVALID_ATTESTATION();
 
-        address[] memory _address = new address[](1);
-        _address[0] = address(bytes20(_attestation.localEnclaveReport.reportData));
+        address[] memory addresses= new address[](1);
+        addresses[0] = address(bytes20(_attestation.localEnclaveReport.reportData));
 
-        return _addInstances(_address, false)[0];
+        return _addInstances(addresses, false)[0];
     }
 
     /// @inheritdoc IVerifier
