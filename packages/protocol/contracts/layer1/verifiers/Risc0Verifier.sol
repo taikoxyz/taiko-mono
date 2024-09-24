@@ -116,7 +116,7 @@ contract Risc0Verifier is EssentialContract, IVerifier {
                 _ctxs[i].metaHash,
                 taikoChainId()
             );
-            emit ProofVerified(metaHash, publicInputs[i + 1]);
+            emit ProofVerified(_ctxs[i].metaHash, publicInputs[i + 1]);
         }
 
         // journalDigest is the sha256 hash of the hashed public input
