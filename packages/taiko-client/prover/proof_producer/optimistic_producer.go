@@ -2,7 +2,6 @@ package producer
 
 import (
 	"context"
-	"errors"
 	"math/big"
 	"time"
 
@@ -35,6 +34,8 @@ func (o *OptimisticProofProducer) RequestProof(
 
 	return o.DummyProofProducer.RequestProof(opts, blockID, meta, header, o.Tier(), requestAt)
 }
+
+// Aggregate implements the ProofProducer interface to aggregate a batch of proofs.
 func (o *OptimisticProofProducer) Aggregate(
 	_ context.Context,
 	items []*ProofWithHeader,
@@ -42,14 +43,15 @@ func (o *OptimisticProofProducer) Aggregate(
 ) (*BatchProofs, error) {
 	log.Info(
 		"Aggregate batch optimistic proof",
-		"proofs", items,
+		"items", items,
 	)
 	if len(items) == 0 {
-		return nil, errors.New("invalid items length")
+		return nil, errInvalidLength
 	}
 	return o.DummyProofProducer.RequestBatchProofs(items, o.Tier())
 }
 
+// RequestCancel implements the ProofProducer interface to cancel the proof generating progress.
 func (o *OptimisticProofProducer) RequestCancel(
 	_ context.Context,
 	_ *ProofRequestOptions,

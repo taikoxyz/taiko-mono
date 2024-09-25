@@ -103,6 +103,7 @@ func (s *ZKvmProofProducer) RequestProof(
 	}, nil
 }
 
+// RequestCancel implements the ProofProducer interface to cancel the proof generating progress.
 func (s *ZKvmProofProducer) RequestCancel(
 	ctx context.Context,
 	opts *ProofRequestOptions,
@@ -110,6 +111,7 @@ func (s *ZKvmProofProducer) RequestCancel(
 	return s.requestCancel(ctx, opts)
 }
 
+// Aggregate implements the ProofProducer interface to aggregate a batch of proofs.
 func (s *ZKvmProofProducer) Aggregate(
 	_ context.Context,
 	_ []*ProofWithHeader,

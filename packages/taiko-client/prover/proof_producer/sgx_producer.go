@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -129,6 +128,7 @@ func (s *SGXProofProducer) RequestProof(
 	}, nil
 }
 
+// Aggregate implements the ProofProducer interface to aggregate a batch of proofs.
 func (s *SGXProofProducer) Aggregate(
 	ctx context.Context,
 	items []*ProofWithHeader,
@@ -139,11 +139,10 @@ func (s *SGXProofProducer) Aggregate(
 		"items", items,
 	)
 	if len(items) == 0 {
-		return nil, errors.New("invalid items length")
+		return nil, errInvalidLength
 	}
-	var (
-		blockIDs []*big.Int
-	)
+
+	blockIDs := make([]*big.Int, len(items))
 	for i, item := range items {
 		blockIDs[i] = item.Meta.GetBlockID()
 	}
@@ -167,6 +166,7 @@ func (s *SGXProofProducer) Aggregate(
 	}, nil
 }
 
+// RequestCancel implements the ProofProducer interface to cancel the proof generating progress.
 func (s *SGXProofProducer) RequestCancel(
 	_ context.Context,
 	_ *ProofRequestOptions,
@@ -174,6 +174,7 @@ func (s *SGXProofProducer) RequestCancel(
 	return nil
 }
 
+// requestBatchProof poll the proof aggregation service to get the aggregated proof.
 func (s *SGXProofProducer) requestBatchProof(
 	ctx context.Context,
 	blockIDs []*big.Int,
@@ -188,7 +189,7 @@ func (s *SGXProofProducer) requestBatchProof(
 	ctx, cancel := rpc.CtxWithTimeoutOrDefault(ctx, s.RaikoRequestTimeout)
 	defer cancel()
 
-	var blocks [][2]*big.Int
+	blocks := make([][2]*big.Int, len(blockIDs))
 	for i, blockID := range blockIDs {
 		blocks[i][0] = blockID
 	}
@@ -213,7 +214,7 @@ func (s *SGXProofProducer) requestBatchProof(
 
 	log.Debug(
 		"Send batch proof generation request",
-		"blockID", blockIDs,
+		"blockIDs", blockIDs,
 		"proofType", "sgx",
 		"output", string(jsonValue),
 	)

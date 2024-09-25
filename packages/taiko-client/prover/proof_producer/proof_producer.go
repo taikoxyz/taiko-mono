@@ -15,6 +15,7 @@ import (
 var (
 	errProofGenerating = errors.New("proof is generating")
 	errEmptyProof      = errors.New("proof is empty")
+	errInvalidLength   = errors.New("invalid items length")
 )
 
 // ProofRequestBody represents a request body to generate a proof.

@@ -325,6 +325,7 @@ func (s *ProofSubmitter) SubmitProof(
 	return nil
 }
 
+// BatchSubmitProofs implements the Submitter interface to submit proof aggregation.
 func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proofProducer.BatchProofs) error {
 	log.Info(
 		"Batch submit block proof",
@@ -336,7 +337,7 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 		invalidProofs       []*proofProducer.ProofWithHeader
 		latestProvenBlockID *big.Int
 	)
-	for i, proof := range batchProof.Proofs {
+	for _, proof := range batchProof.Proofs {
 		// Check if the proof has already been submitted.
 		proofStatus, err := rpc.GetBlockProofStatus(
 			ctx,
@@ -350,7 +351,7 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 		}
 		if proofStatus.IsSubmitted && !proofStatus.Invalid {
 			log.Error("a valid proof for block is already submitted", "blockId", proof.BlockID)
-			invalidProofs[i] = proof
+			invalidProofs = append(invalidProofs, proof)
 			break
 		}
 
@@ -361,7 +362,7 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 		}
 		if !ok {
 			log.Error("a valid proof for block is already submitted", "blockId", proof.BlockID)
-			invalidProofs[i] = proof
+			invalidProofs = append(invalidProofs, proof)
 			break
 		}
 
@@ -372,13 +373,13 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 				"hash", proof.Header.Hash(),
 				"error", err,
 			)
-			invalidProofs[i] = proof
+			invalidProofs = append(invalidProofs, proof)
 			break
 		}
 
 		if block.Transactions().Len() == 0 {
 			log.Error("invalid block without anchor transaction, blockID", "blockId", proof.BlockID)
-			invalidProofs[i] = proof
+			invalidProofs = append(invalidProofs, proof)
 			break
 		}
 
@@ -386,7 +387,7 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 		anchorTx := block.Transactions()[0]
 		if err = s.anchorValidator.ValidateAnchorTx(anchorTx); err != nil {
 			log.Error("invalid anchor transaction", "error", err)
-			invalidProofs[i] = proof
+			invalidProofs = append(invalidProofs, proof)
 		}
 		if proof.BlockID.Cmp(latestProvenBlockID) > 0 {
 			latestProvenBlockID = proof.BlockID
@@ -416,6 +417,7 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 	return nil
 }
 
+// AggregateProofs read all data from buffer and aggregate them.
 func (s *ProofSubmitter) AggregateProofs(ctx context.Context) error {
 	startTime := time.Now()
 	buffer, err := s.proofBuffer.ReadAll()

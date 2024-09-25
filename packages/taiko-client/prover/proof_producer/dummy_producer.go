@@ -32,6 +32,7 @@ func (o *DummyProofProducer) RequestProof(
 	}, nil
 }
 
+// RequestBatchProofs returns a dummy proof aggregation to the result channel.
 func (o *DummyProofProducer) RequestBatchProofs(
 	proofs []*ProofWithHeader,
 	tier uint16,

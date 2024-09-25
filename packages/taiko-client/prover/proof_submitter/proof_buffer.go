@@ -12,12 +12,14 @@ var (
 	errNotEnoughProof = errors.New("not enough proof")
 )
 
+// ProofBuffer caches all single proof with a fixed size.
 type ProofBuffer struct {
 	MaxLength uint64
 	buffer    []*producer.ProofWithHeader
 	mutex     sync.Mutex
 }
 
+// NewProofBuffer creates a new ProofBuffer instance.
 func NewProofBuffer(maxLength uint64) *ProofBuffer {
 	return &ProofBuffer{
 		buffer:    make([]*producer.ProofWithHeader, 0, maxLength),
@@ -25,6 +27,7 @@ func NewProofBuffer(maxLength uint64) *ProofBuffer {
 	}
 }
 
+// Write adds new item to the buffer.
 func (pb *ProofBuffer) Write(item *producer.ProofWithHeader) (int, error) {
 	pb.mutex.Lock()
 	defer pb.mutex.Unlock()
@@ -37,9 +40,8 @@ func (pb *ProofBuffer) Write(item *producer.ProofWithHeader) (int, error) {
 	return len(pb.buffer), nil
 }
 
+// Read returns the content with given length in the buffer.
 func (pb *ProofBuffer) Read(length int) ([]*producer.ProofWithHeader, error) {
-	pb.mutex.Lock()
-	defer pb.mutex.Unlock()
 
 	if length > len(pb.buffer) {
 		return nil, errNotEnoughProof
@@ -51,22 +53,26 @@ func (pb *ProofBuffer) Read(length int) ([]*producer.ProofWithHeader, error) {
 	return data, nil
 }
 
+// ReadAll returns all the content in the buffer.
 func (pb *ProofBuffer) ReadAll() ([]*producer.ProofWithHeader, error) {
 	return pb.Read(len(pb.buffer))
 }
 
+// Len returns current length of the buffer.
 func (pb *ProofBuffer) Len() int {
 	pb.mutex.Lock()
 	defer pb.mutex.Unlock()
 	return len(pb.buffer)
 }
 
+// Clear clears all buffer.
 func (pb *ProofBuffer) Clear() {
 	pb.mutex.Lock()
 	defer pb.mutex.Unlock()
 	pb.buffer = pb.buffer[:0]
 }
 
+// ClearItems clears items that has given block ids in the buffer.
 func (pb *ProofBuffer) ClearItems(items ...*producer.ProofWithHeader) int {
 	pb.mutex.Lock()
 	defer pb.mutex.Unlock()

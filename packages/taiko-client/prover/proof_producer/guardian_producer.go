@@ -61,6 +61,7 @@ func (g *GuardianProofProducer) RequestProof(
 	return g.DummyProofProducer.RequestProof(opts, blockID, meta, header, g.Tier(), requestAt)
 }
 
+// RequestCancel implements the ProofProducer interface to cancel the proof generating progress.
 func (g *GuardianProofProducer) RequestCancel(
 	_ context.Context,
 	_ *ProofRequestOptions,
@@ -68,6 +69,7 @@ func (g *GuardianProofProducer) RequestCancel(
 	return nil
 }
 
+// Aggregate implements the ProofProducer interface to aggregate a batch of proofs.
 func (g *GuardianProofProducer) Aggregate(
 	_ context.Context,
 	_ []*ProofWithHeader,

@@ -209,8 +209,8 @@ var (
 		Usage: "Time interval to prove blocks when the number of pending proof do not exceed prover.batchSize, " +
 			"this flag only works post Ontake fork",
 		Category: proverCategory,
-		Value:    12 * time.Second,
-		EnvVars:  []string{"PROVE_INTERVAL"},
+		Value:    30 * time.Minute,
+		EnvVars:  []string{"PROVE_MIN_PROVING_INTERVAL"},
 	}
 )
 

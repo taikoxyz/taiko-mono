@@ -161,15 +161,12 @@ func (a *ProveBlockTxBuilder) BuildProveBlocks(
 ) TxBuilder {
 	return func(txOpts *bind.TransactOpts) (*txmgr.TxCandidate, error) {
 		var (
-			data []byte
-			to   common.Address
-			err  error
-		)
-
-		var (
-			metas       []metadata.TaikoBlockMetaData
-			transitions []bindings.TaikoDataTransition
-			blockIDs    []*big.Int
+			data        []byte
+			to          common.Address
+			err         error
+			metas       = make([]metadata.TaikoBlockMetaData, len(batchProof.Proofs))
+			transitions = make([]bindings.TaikoDataTransition, len(batchProof.Proofs))
+			blockIDs    = make([]*big.Int, len(batchProof.Proofs))
 		)
 		for i, proof := range batchProof.Proofs {
 			metas[i] = proof.Meta
