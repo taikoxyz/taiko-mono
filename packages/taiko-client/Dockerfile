@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM golang:1.21-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.23-alpine AS builder
 ARG TARGETOS
 ARG TARGETARCH
 
@@ -13,6 +13,8 @@ COPY packages/taiko-client/ packages/taiko-client/
 WORKDIR /build/packages/taiko-client
 RUN if [ "$TARGETARCH" == "amd64" ]; then \
       echo "amd64: TARGETOS=${TARGETOS}, TARGETARCH=${TARGETARCH}"; \
+      GOOS="${TARGETOS}" GOARCH="${TARGETARCH}" \
+      echo "amd64: GOOS=${GOOS}, GOARCH=${TARGETARCH}"; \
     else \
       echo "arm64: TARGETOS=${TARGETOS}, TARGETARCH=${TARGETARCH}"; \
       GOOS="${TARGETOS}" GOARCH="${TARGETARCH}" \
