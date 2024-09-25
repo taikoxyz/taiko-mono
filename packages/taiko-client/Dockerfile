@@ -1,8 +1,8 @@
-FROM --platform=$BUILDPLATFORM golang:1.21 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.21-alpine AS builder
 ARG TARGETOS
 ARG TARGETARCH
 
-RUN apt-get update && apt-get install -y git make g++-x86-64-linux-gnu libc6-dev-amd64-cross
+RUN apk update && apk add --no-cache --update gcc musl-dev linux-headers git make build-base
 
 WORKDIR /build
 
@@ -13,9 +13,9 @@ COPY packages/taiko-client/ packages/taiko-client/
 WORKDIR /build/packages/taiko-client
 RUN echo "TARGETOS=${TARGETOS}, TARGETARCH=${TARGETARCH}" && \
     if [ "$TARGETARCH" = "amd64" ]; then \
-      CGO_ENABLED=1 CC=x86_64-linux-gnu-gcc GOOS=${TARGETOS} GOARCH=${TARGETARCH} make build; \
+      GOOS=${TARGETOS} GOARCH=${TARGETARCH} make build; \
     else \
-      make build; \
+      GOOS=linux GOARCH=amd64 make build; \
     fi
 
 FROM alpine:latest
