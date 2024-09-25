@@ -186,7 +186,7 @@ library LibUtils {
         }
         transitions_ = new TaikoData.TransitionState[](_blockIds.length);
         for (uint256 i; i < _blockIds.length; ++i) {
-            transitions_[i] = getTransition(_state, _config, _blockIds[i], _tids[i]);
+            transitions_[i] = getTransitionOrEmpty(_state, _config, _blockIds[i], _tids[i]);
         }
     }
 
@@ -215,6 +215,31 @@ library LibUtils {
         return _state.transitions[slot][tid];
     }
 
+    /// @notice This function will not revert if the transition is not found.
+    /// @dev Retrieves the transition with a given parentHash.
+    /// @param _state Current TaikoData.State.
+    /// @param _config Actual TaikoData.Config.
+    /// @param _blockId Id of the block.
+    /// @param _parentHash Parent hash of the block.
+    /// @return The state transition pointer.
+    function getTransitionOrEmpty(
+        TaikoData.State storage _state,
+        TaikoData.Config memory _config,
+        uint64 _blockId,
+        bytes32 _parentHash
+    )
+        internal
+        view
+        returns (TaikoData.TransitionState storage)
+    {
+        (TaikoData.BlockV2 storage blk, uint64 slot) = getBlock(_state, _config, _blockId);
+
+        uint24 tid = getTransitionId(_state, blk, slot, _parentHash);
+        if (tid == 0) return TaikoData.TransitionState();
+
+        return _state.transitions[slot][tid];
+    }
+
     /// @dev Retrieves the transitions with a batch of parentHash.
     /// @param _state Current TaikoData.State.
     /// @param _config Actual TaikoData.Config.
@@ -236,7 +261,7 @@ library LibUtils {
         }
         transitions_ = new TaikoData.TransitionState[](_blockIds.length);
         for (uint256 i; i < _blockIds.length; ++i) {
-            transitions_[i] = getTransition(_state, _config, _blockIds[i], _parentHashes[i]);
+            transitions_[i] = getTransitionOrEmpty(_state, _config, _blockIds[i], _parentHashes[i]);
         }
     }
 
