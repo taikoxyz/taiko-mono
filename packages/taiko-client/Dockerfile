@@ -1,6 +1,6 @@
-FROM --platform=$BUILDPLATFORM golang:1.21-alpine AS builder
 ARG TARGETOS
 ARG TARGETARCH
+FROM --platform=$BUILDPLATFORM golang:1.21-alpine AS builder
 
 RUN apk update && apk add --no-cache --update gcc musl-dev linux-headers git make build-base
 
@@ -14,7 +14,7 @@ WORKDIR /build/packages/taiko-client
 RUN echo "TARGETOS=$TARGETOS, TARGETARCH=$TARGETARCH" && \
     if [ $TARGETARCH == 'amd64' ]; then \
       GOOS=$TARGETOS GOARCH=$TARGETARCH make build; \
-    elif [ $TARGETARCH == 'arm64' ] \
+    elif [ $TARGETARCH == 'arm64' ]; then \
       GOOS=$TARGETOS GOARCH=$TARGETARCH make build; \
     else \
       echo "Unsupported architecture, ${TARGETOS}/${TARGETARCH}"; \
