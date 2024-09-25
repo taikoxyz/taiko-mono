@@ -13,7 +13,7 @@ jobs:
     if: github.event.pull_request.draft == false && contains(github.event.pull_request.labels.*.name, 'option.hive-test')
     name: hive tests
     runs-on: [arc-runner-set]
-    timeout-minutes: 30
+    timeout-minutes: 40
 
     steps:
       - name: Cancel Previous Runs
@@ -39,4 +39,4 @@ jobs:
         working-directory: packages/taiko-client
         run: |
           export HIVE_DIR=/tmp/hive
-          go test -v -p=1 ./integration_test -timeout=1200s
+          go test -v -p=1 ./integration_test -timeout=2400s

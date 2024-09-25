@@ -3,22 +3,10 @@
 run:
   timeout: 20m
   tests: true
-  skip-dirs-use-default: true
-  skip-files:
-    - bindings/gen_taiko_l1.go
-    - bindings/gen_taiko_l2.go
-    - bindings/encoding/struct.go
 
 issues:
-  # List of regexps of issue texts to exclude.
-  #
-  # But independently of this option we use default exclude patterns,
-  # it can be disabled by `exclude-use-default: false`.
-  # To list all excluded by default patterns execute `golangci-lint run --help`
-  #
-  # Default: https://golangci-lint.run/usage/false-positives/#default-exclusions
-  exclude:
-    - abcdef
+  exclude-dirs:
+    - bindings
 
 linters:
   disable-all: true
@@ -43,7 +31,8 @@ linters:
     - makezero
     - misspell
     - misspell
-    - megacheck
+    - gosimple
+    - staticcheck
     - revive
     - staticcheck
     - sqlclosecheck
