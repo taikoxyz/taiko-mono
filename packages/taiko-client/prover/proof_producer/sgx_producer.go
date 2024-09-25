@@ -249,7 +249,7 @@ func (s *SGXProofProducer) requestBatchProof(
 
 	log.Debug(
 		"Batch proof generation output",
-		"blockID", blockIDs,
+		"blockIDs", blockIDs,
 		"proofType", "sgx",
 		"output", string(resBytes),
 	)
