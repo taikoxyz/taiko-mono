@@ -165,6 +165,42 @@ library LibUtils {
         return _state.transitions[slot][_tid];
     }
 
+    /// @notice This function will not revert if the transition is not found.
+    /// @dev Retrieves the transition with a given parentHash.
+    /// @param _state Current TaikoData.State.
+    /// @param _config Actual TaikoData.Config.
+    /// @param _blockId Id of the block.
+    /// @param _tid The transition id.
+    /// @return The state transition pointer.
+    function getTransitionOrEmpty(
+        TaikoData.State storage _state,
+        TaikoData.Config memory _config,
+        uint64 _blockId,
+        uint32 _tid
+    )
+        internal
+        view
+        returns (TaikoData.TransitionState memory)
+    {
+        (TaikoData.BlockV2 storage blk, uint64 slot) = getBlock(_state, _config, _blockId);
+
+        if (_tid == 0 || _tid >= blk.nextTransitionId) {
+            return TaikoData.TransitionState(
+                bytes32(0), // key
+                bytes32(0), // blockHash
+                bytes32(0), // stateRoot
+                address(0), // prover
+                0, // validityBond
+                address(0), // contester
+                0, // contestBond
+                0, // timestamp
+                0, // tier
+                0 // __reserved1
+            );
+        }
+        return _state.transitions[slot][_tid];
+    }
+
     /// @dev Retrieves the transitions with a batch of parentHash.
     /// @param _state Current TaikoData.State.
     /// @param _config Actual TaikoData.Config.
@@ -230,12 +266,25 @@ library LibUtils {
     )
         internal
         view
-        returns (TaikoData.TransitionState storage)
+        returns (TaikoData.TransitionState memory)
     {
         (TaikoData.BlockV2 storage blk, uint64 slot) = getBlock(_state, _config, _blockId);
 
         uint24 tid = getTransitionId(_state, blk, slot, _parentHash);
-        if (tid == 0) return TaikoData.TransitionState();
+        if (tid == 0) {
+            return TaikoData.TransitionState(
+                bytes32(0), // key
+                bytes32(0), // blockHash
+                bytes32(0), // stateRoot
+                address(0), // prover
+                0, // validityBond
+                address(0), // contester
+                0, // contestBond
+                0, // timestamp
+                0, // tier
+                0 // __reserved1
+            );
+        }
 
         return _state.transitions[slot][tid];
     }
