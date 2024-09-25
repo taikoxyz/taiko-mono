@@ -66,11 +66,11 @@ func SubscribeBlockVerifiedV2(
 
 // SubscribeBlockProposed subscribes the protocol's BlockProposed events.
 func SubscribeBlockProposed(
-	libProposing *bindings.LibProposing,
-	ch chan *bindings.LibProposingBlockProposed,
+	taikoL1 *bindings.TaikoL1Client,
+	ch chan *bindings.TaikoL1ClientBlockProposed,
 ) event.Subscription {
 	return SubscribeEvent("BlockProposed", func(ctx context.Context) (event.Subscription, error) {
-		sub, err := libProposing.WatchBlockProposed(nil, ch, nil, nil)
+		sub, err := taikoL1.WatchBlockProposed(nil, ch, nil, nil)
 		if err != nil {
 			log.Error("Create TaikoL1.BlockProposed subscription error", "error", err)
 			return nil, err
@@ -84,11 +84,11 @@ func SubscribeBlockProposed(
 
 // SubscribeBlockProposedV2 subscribes the protocol's BlockProposedV2 events.
 func SubscribeBlockProposedV2(
-	libProposing *bindings.LibProposing,
-	ch chan *bindings.LibProposingBlockProposedV2,
+	taikoL1 *bindings.TaikoL1Client,
+	ch chan *bindings.TaikoL1ClientBlockProposedV2,
 ) event.Subscription {
 	return SubscribeEvent("BlockProposedV2", func(ctx context.Context) (event.Subscription, error) {
-		sub, err := libProposing.WatchBlockProposedV2(nil, ch, nil)
+		sub, err := taikoL1.WatchBlockProposedV2(nil, ch, nil)
 		if err != nil {
 			log.Error("Create TaikoL1.BlockProposedV2 subscription error", "error", err)
 			return nil, err

@@ -3,6 +3,7 @@ package builder
 import (
 	"context"
 	"crypto/ecdsa"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
@@ -51,8 +52,8 @@ func NewCalldataTransactionBuilder(
 	}
 }
 
-// Build implements the ProposeBlockTransactionBuilder interface.
-func (b *CalldataTransactionBuilder) Build(
+// BuildLegacy implements the ProposeBlockTransactionBuilder interface.
+func (b *CalldataTransactionBuilder) BuildLegacy(
 	ctx context.Context,
 	includeParentMetaHash bool,
 	txListBytes []byte,
@@ -79,15 +80,51 @@ func (b *CalldataTransactionBuilder) Build(
 	signature[64] = signature[64] + 27
 
 	var (
-		to            = &b.taikoL1Address
-		data          []byte
-		encodedParams []byte
-		method        string
+		to   = &b.taikoL1Address
+		data []byte
 	)
 	if b.proverSetAddress != rpc.ZeroAddress {
 		to = &b.proverSetAddress
 	}
 
+	// ABI encode the TaikoL1.proposeBlock / ProverSet.proposeBlock parameters.
+	encodedParams, err := encoding.EncodeBlockParams(&encoding.BlockParams{
+		Coinbase:       b.l2SuggestedFeeRecipient,
+		ExtraData:      rpc.StringToBytes32(b.extraData),
+		ParentMetaHash: parentMetaHash,
+		Signature:      signature,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if b.proverSetAddress != rpc.ZeroAddress {
+		to = &b.proverSetAddress
+
+		data, err = encoding.ProverSetABI.Pack("proposeBlock", encodedParams, txListBytes)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		data, err = encoding.TaikoL1ABI.Pack("proposeBlock", encodedParams, txListBytes)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &txmgr.TxCandidate{
+		TxData:   data,
+		Blobs:    nil,
+		To:       to,
+		GasLimit: b.gasLimit,
+	}, nil
+}
+
+// BuildOntake implements the ProposeBlockTransactionBuilder interface.
+func (b *CalldataTransactionBuilder) BuildOntake(
+	ctx context.Context,
+	txListBytesArray [][]byte,
+) (*txmgr.TxCandidate, error) {
 	// Check if the current L2 chain is after ontake fork.
 	state, err := rpc.GetProtocolStateVariables(b.rpc.TaikoL1, &bind.CallOpts{Context: ctx})
 	if err != nil {
@@ -95,38 +132,38 @@ func (b *CalldataTransactionBuilder) Build(
 	}
 
 	if !b.chainConfig.IsOntake(new(big.Int).SetUint64(state.B.NumBlocks)) {
-		// ABI encode the TaikoL1.proposeBlock / ProverSet.proposeBlock parameters.
-		method = "proposeBlock"
+		return nil, fmt.Errorf("ontake transaction builder is not supported before ontake fork")
+	}
 
-		if encodedParams, err = encoding.EncodeBlockParams(&encoding.BlockParams{
-			Coinbase:       b.l2SuggestedFeeRecipient,
-			ExtraData:      rpc.StringToBytes32(b.extraData),
-			ParentMetaHash: parentMetaHash,
-			Signature:      signature,
-		}); err != nil {
-			return nil, err
-		}
-	} else {
-		// ABI encode the TaikoL1.proposeBlockV2 / ProverSet.proposeBlockV2 parameters.
-		method = "proposeBlockV2"
+	// ABI encode the TaikoL1.proposeBlocksV2 / ProverSet.proposeBlocksV2 parameters.
+	var (
+		to                 = &b.taikoL1Address
+		data               []byte
+		encodedParamsArray [][]byte
+	)
 
-		if encodedParams, err = encoding.EncodeBlockParamsOntake(&encoding.BlockParamsV2{
+	for range txListBytesArray {
+		encodedParams, err := encoding.EncodeBlockParamsOntake(&encoding.BlockParamsV2{
 			Coinbase:       b.l2SuggestedFeeRecipient,
-			ParentMetaHash: parentMetaHash,
+			ParentMetaHash: [32]byte{},
 			AnchorBlockId:  0,
 			Timestamp:      0,
-		}); err != nil {
+		})
+		if err != nil {
 			return nil, err
 		}
+		encodedParamsArray = append(encodedParamsArray, encodedParams)
 	}
 
 	if b.proverSetAddress != rpc.ZeroAddress {
-		data, err = encoding.ProverSetABI.Pack(method, encodedParams, txListBytes)
+		to = &b.proverSetAddress
+
+		data, err = encoding.ProverSetABI.Pack("proposeBlocksV2", encodedParamsArray, txListBytesArray)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		data, err = encoding.TaikoL1ABI.Pack(method, encodedParams, txListBytes)
+		data, err = encoding.TaikoL1ABI.Pack("proposeBlocksV2", encodedParamsArray, txListBytesArray)
 		if err != nil {
 			return nil, err
 		}
