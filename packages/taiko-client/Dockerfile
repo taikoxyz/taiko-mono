@@ -14,11 +14,13 @@ WORKDIR /build/packages/taiko-client
 RUN echo "TARGETOS=${TARGETOS}, TARGETARCH=${TARGETARCH}" && \
     if [ "$TARGETARCH" = "amd64" ]; then \
       GOOS=${TARGETOS} GOARCH=${TARGETARCH} make build; \
+    elseif [ "$TARGETARCH" = "arm64" ] \
+      GOOS=${TARGETOS} GOARCH=${TARGETARCH} make build; \
     else \
-      GOOS=linux GOARCH=arm64 make build; \
+      echo "Unsupported architecture, ${TARGETOS}/${TARGETARCH}"; \
     fi
 
-FROM alpine:latest
+FROM --platform=$BUILDPLATFORM alpine:latest
 
 RUN apk add --no-cache ca-certificates libstdc++
 
