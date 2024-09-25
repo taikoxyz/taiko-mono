@@ -15,10 +15,12 @@ RUN if [ "$TARGETARCH" == "amd64" ]; then \
       echo "amd64: TARGETOS=${TARGETOS}, TARGETARCH=${TARGETARCH}"; \
       GOOS="${TARGETOS}" GOARCH="${TARGETARCH}" \
       echo "amd64: GOOS=${GOOS}, GOARCH=${TARGETARCH}"; \
+      GOOS=linux GOARCH=amd64 make build; \
     else \
       echo "arm64: TARGETOS=${TARGETOS}, TARGETARCH=${TARGETARCH}"; \
       GOOS="${TARGETOS}" GOARCH="${TARGETARCH}" \
       echo "arm64: GOOS=${GOOS}, GOARCH=${TARGETARCH}"; \
+      GOOS=linux GOARCH=arm64 make build; \
     fi
 
 #FROM alpine:latest
