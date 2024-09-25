@@ -1,6 +1,6 @@
+FROM --platform=$BUILDPLATFORM golang:1.21-alpine AS builder
 ARG TARGETOS
 ARG TARGETARCH
-FROM --platform=$BUILDPLATFORM golang:1.21-alpine AS builder
 
 RUN apk update && apk add --no-cache --update gcc musl-dev linux-headers git make build-base
 
@@ -11,21 +11,18 @@ COPY go.mod go.sum ./
 COPY packages/taiko-client/ packages/taiko-client/
 
 WORKDIR /build/packages/taiko-client
-RUN echo "TARGETOS=$TARGETOS, TARGETARCH=$TARGETARCH" && \
-    if [ $TARGETARCH == 'amd64' ]; then \
-      GOOS=$TARGETOS GOARCH=$TARGETARCH make build; \
-    elif [ $TARGETARCH == 'arm64' ]; then \
-      GOOS=$TARGETOS GOARCH=$TARGETARCH make build; \
+RUN if [ "$TARGETARCH" == "amd64" ]; then \
+      echo "amd64: TARGETOS=${TARGETOS}, TARGETARCH=${TARGETARCH}"; \
     else \
-      echo "Unsupported architecture, ${TARGETOS}/${TARGETARCH}"; \
+      echo "arm64: TARGETOS=${TARGETOS}, TARGETARCH=${TARGETARCH}"; \
     fi
 
-FROM alpine:latest
+#FROM alpine:latest
 
-RUN apk add --no-cache ca-certificates libstdc++
+#RUN apk add --no-cache ca-certificates libstdc++
 
-COPY --from=builder /build/packages/taiko-client/bin/taiko-client /usr/local/bin/
+#COPY --from=builder /build/packages/taiko-client/bin/taiko-client /usr/local/bin/
 
-EXPOSE 6060
+#EXPOSE 6060
 
-ENTRYPOINT ["taiko-client"]
+#ENTRYPOINT ["taiko-client"]
