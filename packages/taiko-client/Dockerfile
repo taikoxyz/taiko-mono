@@ -14,7 +14,8 @@ WORKDIR /build/packages/taiko-client
 RUN if [ "$TARGETARCH" == "amd64" ]; then \
       echo "amd64: TARGETOS=${TARGETOS}, TARGETARCH=${TARGETARCH}"; \
     else \
-      echo "arm64: TARGETOS=${TARGETOS}, TARGETARCH=${TARGETARCH}"; \
+      GOOS=$TARGETOS GOARCH=$TARGETARCH \
+      echo "arm64: GOOS=${GOOS}, GOARCH=${TARGETARCH}"; \
     fi
 
 #FROM alpine:latest
