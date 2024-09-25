@@ -11,16 +11,16 @@ COPY go.mod go.sum ./
 COPY packages/taiko-client/ packages/taiko-client/
 
 WORKDIR /build/packages/taiko-client
-RUN echo "TARGETOS=${TARGETOS}, TARGETARCH=${TARGETARCH}" && \
-    if [ "$TARGETARCH" = "amd64" ]; then \
-      GOOS=${TARGETOS} GOARCH=${TARGETARCH} make build; \
-    elseif [ "$TARGETARCH" = "arm64" ] \
-      GOOS=${TARGETOS} GOARCH=${TARGETARCH} make build; \
+RUN echo "TARGETOS=$TARGETOS, TARGETARCH=$TARGETARCH" && \
+    if [ $TARGETARCH == 'amd64' ]; then \
+      GOOS=$TARGETOS GOARCH=$TARGETARCH make build; \
+    elif [ $TARGETARCH == 'arm64' ] \
+      GOOS=$TARGETOS GOARCH=$TARGETARCH make build; \
     else \
       echo "Unsupported architecture, ${TARGETOS}/${TARGETARCH}"; \
     fi
 
-FROM --platform=$BUILDPLATFORM alpine:latest
+FROM alpine:latest
 
 RUN apk add --no-cache ca-certificates libstdc++
 
