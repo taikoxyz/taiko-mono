@@ -270,7 +270,7 @@ func (s *SGXProofProducer) requestBatchProof(
 
 	log.Info(
 		"Batch proof generated",
-		"height", blockIDs,
+		"blockIDs", blockIDs,
 		"time", time.Since(requestAt),
 		"producer", "SGXProofProducer",
 	)
