@@ -239,7 +239,7 @@ func (s *SGXProofProducer) requestBatchProof(
 
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to request batch proof, id: %v, statusCode: %d", blockIDs, res.StatusCode)
+		return nil, fmt.Errorf("failed to request batch proof, ids: %v, statusCode: %d", blockIDs, res.StatusCode)
 	}
 
 	resBytes, err := io.ReadAll(res.Body)
