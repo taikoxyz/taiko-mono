@@ -123,6 +123,7 @@ func (p *Prover) initProofSubmitters(
 				Dummy:               p.cfg.Dummy,
 				RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 			}
+			bufferSize = p.cfg.ZKVMProofBufferSize
 		case encoding.TierZkVMSp1ID:
 			producer = &proofProducer.ZKvmProofProducer{
 				ZKProofType:         proofProducer.ZKProofTypeSP1,
@@ -131,6 +132,7 @@ func (p *Prover) initProofSubmitters(
 				Dummy:               p.cfg.Dummy,
 				RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 			}
+			bufferSize = p.cfg.ZKVMProofBufferSize
 		case encoding.TierGuardianMinorityID:
 			producer = proofProducer.NewGuardianProofProducer(encoding.TierGuardianMinorityID, p.cfg.EnableLivenessBondProof)
 			bufferSize = 0
