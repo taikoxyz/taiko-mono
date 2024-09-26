@@ -27,6 +27,8 @@ contract DevnetTierProvider is TierProviderBase, ITierRouter {
     function getMinTier(address, uint256 _rand) public pure override returns (uint16) {
         if (_rand % 4 == 0) {
             return LibTiers.TIER_SGX;
+        } else if (_rand % 100 == 0) {
+            return LibTiers.TIER_ZKVM_RISC0;
         } else {
             return LibTiers.TIER_OPTIMISTIC;
         }
