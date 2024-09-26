@@ -190,7 +190,8 @@ library LibUtils {
         return _state.transitions[slot][tid];
     }
 
-    /// @dev Retrieves the transitions with a batch of parentHash.
+    /// @notice Gets the state transitions for a batch of block. For transition that doesn't exist,
+    /// the corresponding transition state will be empty.
     /// @param _state Current TaikoData.State.
     /// @param _config Actual TaikoData.Config.
     /// @param _blockIds Id array of the blocks.
