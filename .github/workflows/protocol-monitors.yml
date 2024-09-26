@@ -30,9 +30,8 @@ jobs:
       - name: Deploy Monitors on OZ Defender
         working-directory: packages/monitors/defender/mainnet
         env:
-          SERVERLESS_API_KEY: ${{ secrets.DEFENDER_API_KEY }}
-          SERVERLESS_API_SECRET: ${{ secrets.DEFENDER_API_SECRET }}
+          DEFENDER_API_KEY: ${{ secrets.DEFENDER_API_KEY }}
+          DEFENDER_API_SECRET: ${{ secrets.DEFENDER_API_SECRET }}
           SERVERLESS_ACCESS_KEY: ${{ secrets.SERVERLESS_ACCESS_KEY }}
         run: |
-          npx serverless login --token $SERVERLESS_ACCESS_KEY
           npx serverless deploy
