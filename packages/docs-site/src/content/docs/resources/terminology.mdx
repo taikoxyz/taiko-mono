@@ -15,8 +15,8 @@ This page is dedicated to explaining some terms relevant to the protocol that mi
 
 In layman's terms, the above terms relate to the protocol in the following manner:
 
-- A **Liveness Bond** is deposited when a prover gets assigned a block to prove; when the block gets verified it gets returned to the prover.
+- A **Liveness Bond** is deposited when a prover gets assigned a block to prove (`proposeBlock` tx); when the block proof is provided within the proofWindow it gets debited to the prover.
 
-- A **Validity Bond** is only handled when someone other than the original prover proves with a higher tier. The higher tier prover has to deposit it in TaikoL1. If the new proof is correct, it gets returned; otherwise it gets burned.
+- A **Validity Bond** is deposited when a block proof is submitted (`proveBlock` tx), and the prover is ready to withstand a contest. If the proof gets verified (i.e. is not contested and is valid), the bond is returned to the prover. The prover can be different from the original assigned prover if the proof is outside the proofWindow, in which case the new prover has to provide the full validityBond amount.
 
 - A **Contest Bond** is someone putting up a bond to say that a block should be contested and a higher tier should handle this case. If the higher tier proof is incorrect then contestBond is forfeited.

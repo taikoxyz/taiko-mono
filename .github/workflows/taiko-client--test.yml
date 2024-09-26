@@ -22,9 +22,12 @@ jobs:
           go-version: 1.21
           cache: true
 
+      - name: Install golangci-lint
+        run: go install -v github.com/golangci/golangci-lint/cmd/golangci-lint@v1.60.0
+
       - name: Lint
         working-directory: packages/taiko-client
-        run: make lint
+        run: golangci-lint run --path-prefix=./ --config=.golangci.yml
 
   integration_tests:
     if: github.event.pull_request.draft == false

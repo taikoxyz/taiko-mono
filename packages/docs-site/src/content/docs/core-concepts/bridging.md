@@ -22,10 +22,10 @@ Taiko deploys two smart contracts which store the hashes of the other chain:
 - TaikoL1 stores the L2 world state root on L1 (deployed on Ethereum)
 - TaikoL2 stores the L1 world state root on L2 (deployed on Taiko)
 
-Every time an L2 block is created on Taiko, the world state root of the enclosing block on L1 is stored in the [TaikoL2](https://github.com/taikoxyz/taiko-mono/blob/fbfcc7f3810d0122f46673944c39e5f4d759d4e0/packages/protocol/contracts/L2/TaikoL2.sol#L151) contract using the `anchor` transaction. To ensure validity, it is part of the (previously the zk circuits, now SGX and ZK) proof data submitted with each block, so no fake L1 world state root can be synchronized to L2."
+Every time an L2 block is created on Taiko, the world state root of the enclosing block on L1 is stored in the [TaikoL2](https://github.com/taikoxyz/taiko-mono/blob/protocol-v1.9.0/packages/protocol/contracts/layer2/based/TaikoL2.sol#L145) contract using the `anchor` transaction. To ensure validity, it is part of the (previously the zk circuits, now SGX and ZK) proof data submitted with each block, so no fake L1 world state root can be synchronized to L2."
 
 The L2 world state root is stored in the TaikoL1 contract using the `syncChainData` function call in
-[`LibVerifying`](https://github.com/taikoxyz/taiko-mono/blob/fbfcc7f3810d0122f46673944c39e5f4d759d4e0/packages/protocol/contracts/L1/libs/LibVerifying.sol#L191).
+[`LibVerifying`](https://github.com/taikoxyz/taiko-mono/blob/protocol-v1.9.0/packages/protocol/contracts/layer1/based/LibVerifying.sol#L179).
 
 Taiko by default synchronizes the world state roots cross-chain with the above mechanism.
 

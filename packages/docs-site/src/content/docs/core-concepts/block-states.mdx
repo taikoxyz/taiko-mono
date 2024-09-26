@@ -8,7 +8,7 @@ import { Code } from '@astrojs/starlight/components';
 ## How can you determine when a Taiko block is `Safe` or `Finalized`?
 
 The `Safe` block state on Taiko is analogous to a `Safe` block state on Ethereum.
-Every Taiko L2 block has a corresponding Ethereum L1 block as it's origin that can be queried through a [`taiko-geth API`](https://github.com/taikoxyz/taiko-geth/blob/caf87509fe0f53fc937a3f5cc26325a380a1744e/eth/taiko_api_backend.go#L50).
+Every Taiko L2 block has a corresponding Ethereum L1 block as it's origin that can be queried through a [`taiko-geth API`](https://github.com/taikoxyz/taiko-geth/blob/v1.8.0/eth/taiko_api_backend.go#L50).
 When that Ethereum L1 block can be considered `Safe`, the corresponding Taiko L2 block can be considered to have reached the same block state.
 
 The `Finalized` block state is referred to as the [`Verified` block state](/core-concepts/multi-proofs#verified-blocks-and-parallel-proving) on Taiko.
@@ -18,17 +18,17 @@ A Taiko block is `Finalized`/`Verified` when every state transition from genesis
 
 <Code code='
     {
-    "method": "taiko_l1OriginByID", 
-    "id":1, 
-    "jsonrpc":"2.0", 
+    "method": "taiko_l1OriginByID",
+    "id":1,
+    "jsonrpc":"2.0",
     "params":[ "0x19a3c" ]
     }' lang="json" title="query.json" />
 <Code code='
-    "result": 
-        { 
-        "blockID": "0x19a3c", 
-        "l2BlockHash": "0x0905c85f9a288ebe94eb85743a65c8cf6266097b8b826cdca4f4018e6267c26a", 
-        "l1BlockHeight": "0x16ef0f", 
+    "result":
+        {
+        "blockID": "0x19a3c",
+        "l2BlockHash": "0x0905c85f9a288ebe94eb85743a65c8cf6266097b8b826cdca4f4018e6267c26a",
+        "l1BlockHeight": "0x16ef0f",
         "l1BlockHash": "0x419f0c5b2cc90078c7040c3b90d174895ce83d76ebfdd75ad2dd5521036d0938"
         }' lang="json" title="response.json" />
 
