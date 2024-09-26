@@ -212,7 +212,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         return LibUtils.getTransition(state, getConfig(), _blockId, _parentHash);
     }
 
-    /// @notice Gets the state transitions for a batch of block.
+    /// @notice Gets the state transitions for a batch of block. For transition that doesn't exist,
+    /// the corresponding transition state will be empty.
     /// @param _blockIds Index of the blocks.
     /// @param _parentHashes Parent hashes of the blocks.
     /// @return The state transition array of the blocks.
