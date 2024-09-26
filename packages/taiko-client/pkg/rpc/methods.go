@@ -383,7 +383,7 @@ func (c *Client) GetPoolContent(
 		ctx,
 		l2Head,
 		l1Head.Number,
-		chainConfig.IsOntake(l2Head.Number),
+		chainConfig.IsOntake(new(big.Int).Add(l2Head.Number, common.Big1)),
 		&chainConfig.ProtocolConfigs.BaseFeeConfig,
 		uint64(time.Now().Unix()),
 	)
