@@ -211,9 +211,7 @@ library LibUtils {
         if (_blockIds.length == 0 || _blockIds.length != _parentHashes.length) {
             revert L1_INVALID_PARAMS();
         }
-
         transitions_ = new TaikoData.TransitionState[](_blockIds.length);
-
         for (uint256 i; i < _blockIds.length; ++i) {
             (TaikoData.BlockV2 storage blk, uint64 slot) = getBlock(_state, _config, _blockIds[i]);
             uint24 tid = getTransitionId(_state, blk, slot, _parentHashes[i]);
