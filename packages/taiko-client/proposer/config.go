@@ -68,7 +68,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			localAddresses = append(localAddresses, common.HexToAddress(account))
 		}
 	}
-
 	minTip, err := utils.GWeiToWei(c.Float64(flags.MinTip.Name))
 	if err != nil {
 		return nil, err
