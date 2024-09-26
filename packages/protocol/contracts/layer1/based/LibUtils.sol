@@ -165,7 +165,8 @@ library LibUtils {
         return _state.transitions[slot][_tid];
     }
 
-    /// @notice This function will revert if the transition is not found.
+    /// @notice This function will revert if the transition is not found. This function will revert
+    /// if the transition is not found.
     /// @dev Retrieves the transition with a given parentHash.
     /// @param _state Current TaikoData.State.
     /// @param _config Actual TaikoData.Config.

@@ -197,7 +197,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         (blk_,) = LibUtils.getBlock(state, getConfig(), _blockId);
     }
 
-    /// @notice Gets the state transition for a specific block.
+    /// @notice This function will revert if the transition is not found. This function will revert
+    /// if the transition is not found.
     /// @param _blockId Index of the block.
     /// @param _parentHash Parent hash of the block.
     /// @return The state transition data of the block.
