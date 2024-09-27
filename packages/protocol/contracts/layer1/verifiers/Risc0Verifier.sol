@@ -87,11 +87,11 @@ contract Risc0Verifier is EssentialContract, IVerifier {
         ContextV2[] calldata _ctxs,
         TaikoData.TierProof calldata _proof
     )
-    external
+        external
     {
         // Decode will throw if not proper length/encoding
         (bytes memory seal, bytes32 blockImageId, bytes32 aggregationImageId) =
-                            abi.decode(_proof.data, (bytes, bytes32, bytes32));
+            abi.decode(_proof.data, (bytes, bytes32, bytes32));
 
         // Check if the aggregation program is trusted
         if (!isImageTrusted[aggregationImageId]) {

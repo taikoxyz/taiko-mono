@@ -12,21 +12,120 @@ const ABI = [
         type: "uint256",
       },
       {
+        components: [
+          {
+            internalType: "bytes32",
+            name: "parentHash",
+            type: "bytes32",
+          },
+          {
+            internalType: "bytes32",
+            name: "blockHash",
+            type: "bytes32",
+          },
+          {
+            internalType: "bytes32",
+            name: "stateRoot",
+            type: "bytes32",
+          },
+          {
+            internalType: "bytes32",
+            name: "graffiti",
+            type: "bytes32",
+          },
+        ],
         indexed: false,
-        internalType: "bytes",
-        name: "txList",
-        type: "bytes",
+        internalType: "struct TaikoData.Transition",
+        name: "tran",
+        type: "tuple",
+      },
+      {
+        indexed: false,
+        internalType: "address",
+        name: "contester",
+        type: "address",
+      },
+      {
+        indexed: false,
+        internalType: "uint96",
+        name: "contestBond",
+        type: "uint96",
+      },
+      {
+        indexed: false,
+        internalType: "uint16",
+        name: "tier",
+        type: "uint16",
       },
     ],
-    name: "CalldataTxList",
+    name: "TransitionContested",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: "uint256",
+        name: "blockId",
+        type: "uint256",
+      },
+      {
+        components: [
+          {
+            internalType: "bytes32",
+            name: "parentHash",
+            type: "bytes32",
+          },
+          {
+            internalType: "bytes32",
+            name: "blockHash",
+            type: "bytes32",
+          },
+          {
+            internalType: "bytes32",
+            name: "stateRoot",
+            type: "bytes32",
+          },
+          {
+            internalType: "bytes32",
+            name: "graffiti",
+            type: "bytes32",
+          },
+        ],
+        indexed: false,
+        internalType: "struct TaikoData.Transition",
+        name: "tran",
+        type: "tuple",
+      },
+      {
+        indexed: false,
+        internalType: "address",
+        name: "contester",
+        type: "address",
+      },
+      {
+        indexed: false,
+        internalType: "uint96",
+        name: "contestBond",
+        type: "uint96",
+      },
+      {
+        indexed: false,
+        internalType: "uint16",
+        name: "tier",
+        type: "uint16",
+      },
+    ],
+    name: "TransitionContestedV2",
     type: "event",
   },
 ];
 
 function alertOrg(notificationClient, message) {
   notificationClient.send({
-    channelAlias: "discord_blocks",
-    subject: "ℹ️ TaikoL1: CalldataTxList Count",
+    channelAlias: "discord_bridging",
+    subject: "ℹ️ TaikoL1: TransitionContested Count",
     message,
   });
 }
@@ -50,9 +149,9 @@ async function calculateBlockTime(provider) {
 async function calculateBlockRange(provider) {
   const currentBlockNumber = await getLatestBlockNumber(provider);
   const blockTimeInSeconds = await calculateBlockTime(provider);
-  const blocksIn24Hours = Math.floor((24 * 60 * 60) / blockTimeInSeconds); // 24 hours in seconds
+  const blocksInOneHour = Math.floor((60 * 60) / blockTimeInSeconds);
 
-  const fromBlock = currentBlockNumber - blocksIn24Hours;
+  const fromBlock = currentBlockNumber - blocksInOneHour;
   const toBlock = currentBlockNumber;
 
   console.log(`Calculated block range: from ${fromBlock} to ${toBlock}`);
@@ -119,7 +218,7 @@ exports.handler = async function (event, context) {
   const { fromBlock, toBlock } = await calculateBlockRange(taikoL1Provider);
 
   const logs = await fetchLogsFromL1(
-    ["CalldataTxList"],
+    ["TransitionContested", "TransitionContestedV2"],
     fromBlock,
     toBlock,
     "0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a",
@@ -130,7 +229,7 @@ exports.handler = async function (event, context) {
   if (logs.length > 0) {
     alertOrg(
       notificationClient,
-      `Detected ${logs.length} CalldataTxList events in the last 24 hours on TaikoL1!`,
+      `Detected ${logs.length} TransitionContested and TransitionContestedV2 events in the last hour on TaikoL1!`,
     );
   }
 

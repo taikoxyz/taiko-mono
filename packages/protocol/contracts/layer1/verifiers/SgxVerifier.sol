@@ -175,8 +175,8 @@ contract SgxVerifier is EssentialContract, IVerifier {
         ContextV2[] calldata _ctxs,
         TaikoData.TierProof calldata _proof
     )
-    external
-    onlyFromNamedEither(LibStrings.B_TAIKO, LibStrings.B_TIER_TEE_ANY)
+        external
+        onlyFromNamedEither(LibStrings.B_TAIKO, LibStrings.B_TIER_TEE_ANY)
     {
         // Size is: 109 bytes
         // 4 bytes + 20 bytes + 20 bytes + 65 bytes (signature) = 109
