@@ -47,25 +47,25 @@ contract DeployScript is Script {
         deployerPrivateKey = utils.getPrivateKey();
         deployerAddress = utils.getAddress();
 
-                    vm.startBroadcast(deployerPrivateKey);
+        vm.startBroadcast(deployerPrivateKey);
 
-        // deploy the vault contract
-        vault = new AirdropVault(erc20);
-        console.log("Deployed AirdropVault to:", address(vault));
 
 
         if (block.chainid != 167_000){
-
             // not mainnet, create mock contracts
             ERC20Mock mockERC20 = new ERC20Mock();
-
+            vault = new AirdropVault(mockERC20);
+            // mint the necessary funds
             mockERC20.mint(address(vault), TOTAL_AVAILABLE_FUNDS);
-
-
             erc20 = ERC20Upgradeable(address(mockERC20));
-        }
+        } else {
+            // deploy the mainnet vault
+            vault = new AirdropVault(erc20);
 
-                    vm.stopBroadcast();
+        }
+        console.log("Deployed AirdropVault to:", address(vault));
+
+        vm.stopBroadcast();
 
     }
 
@@ -93,6 +93,10 @@ contract DeployScript is Script {
 
         console.log("Deployed ERC20Airdrop to:", address(airdrop));
 
+        vault.approveAirdropContractAsSpender(address(airdrop),
+         TOTAL_AVAILABLE_FUNDS);
+
+        console.log("Approved AirdropVault to spend", TOTAL_AVAILABLE_FUNDS, "to Airdrop contract");
         vm.serializeBytes32(jsonRoot, "MerkleRoot", merkleRoot);
         vm.serializeAddress(jsonRoot, "ERC20Airdrop", address(airdrop));
 
