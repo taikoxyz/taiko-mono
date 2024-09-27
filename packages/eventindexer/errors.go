@@ -12,10 +12,6 @@ var (
 		"ERR_NO_NFT_BALANCE_REPOSITORY",
 		"NFTBalanceRepository is required",
 	)
-	ErrNoNFTMetadataRepository = errors.Validation.NewWithKeyAndDetail(
-		"ERR_NO_NFT_METADATA_REPOSITORY",
-		"NFTMetadataRepository is required",
-	)
 	ErrNoStatRepository = errors.Validation.NewWithKeyAndDetail(
 		"ERR_NO_STAT_REPOSITORY",
 		"StatRepository is required",

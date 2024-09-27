@@ -18,7 +18,7 @@ jobs:
   lint-relayer:
     name: lint-relayer
     if: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft == false }}
-    runs-on: [taiko-runner]
+    runs-on: [arc-runner-set]
     steps:
       - uses: actions/setup-go@v5
         with:
@@ -36,13 +36,16 @@ jobs:
 
   test-relayer:
     if: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft == false }}
-    runs-on: [taiko-runner]
+    runs-on: [arc-runner-set]
     needs: lint-relayer
     steps:
       - name: Cancel Previous Runs
         uses: styfle/cancel-workflow-action@0.12.1
         with:
           access_token: ${{ github.token }}
+
+      - name: Install Git
+        run: sudo apt-get update && sudo apt-get install -y git
 
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -63,9 +66,12 @@ jobs:
     # Skip dependabot PRs
     if: ${{ github.event_name == 'pull_request' && ! startsWith(github.ref, 'refs/heads/dependabot/') }}
     name: Build and push docker image
-    runs-on: [taiko-runner]
+    runs-on: [arc-runner-set]
 
     steps:
+      - name: Install Git
+        run: sudo apt-get update && sudo apt-get install -y git
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
