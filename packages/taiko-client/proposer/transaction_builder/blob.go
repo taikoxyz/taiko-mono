@@ -190,12 +190,12 @@ func (b *BlobTransactionBuilder) BuildOntake(
 	}
 
 	if b.proverSetAddress != rpc.ZeroAddress {
-		data, err = encoding.ProverSetABI.Pack("proposeBlocksV2", encodedParamsArray, []byte{})
+		data, err = encoding.ProverSetABI.Pack("proposeBlocksV2", encodedParamsArray, [][]byte{})
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		data, err = encoding.TaikoL1ABI.Pack("proposeBlocksV2", encodedParamsArray, []byte{})
+		data, err = encoding.TaikoL1ABI.Pack("proposeBlocksV2", encodedParamsArray, [][]byte{})
 		if err != nil {
 			return nil, err
 		}
