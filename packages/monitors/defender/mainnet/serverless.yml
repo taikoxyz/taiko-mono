@@ -1,6 +1,8 @@
-service: defender-as-code-test-project
+service: taiko-defender-as-code
 configValidationMode: error
 frameworkVersion: "3"
+
+useDotenv: true
 
 provider:
   name: defender
@@ -8,12 +10,9 @@ provider:
   stackName: mystack
   ssot: false
 
-custom:
-  config: ${file(secrets.${self:provider.stage}.yml)}
-
 defender:
-  key: ${self:custom.config.keys.api}
-  secret: ${self:custom.config.keys.secret}
+  key: ${env:DEFENDER_API_KEY}
+  secret: ${env:DEFENDER_API_SECRET}
 
 resources:
   actions:
@@ -23,7 +22,7 @@ resources:
         type: schedule
         frequency: 15
       paused: false
-      path: ./actions/ERC20Vault-BalanceDrop.js
+      path: ./actions/ERC20Vault-BalanceDrop
 
     sgx-verifier-verify-proof-failure-alert:
       name: "SGXVerifier: VerifyProof failure Alert"
@@ -31,7 +30,7 @@ resources:
         type: schedule
         frequency: 5
       paused: false
-      path: ./actions/SGXVerifier-verifyProofFailure.js
+      path: ./actions/SGXVerifier-verifyProofFailure
 
     vaults-bridged-token-deployed:
       name: "Vaults: BridgedTokenDeployed"
@@ -39,7 +38,7 @@ resources:
         type: schedule
         frequency: 1440
       paused: false
-      path: ./actions/Vaults-BridgedTokenDeployed.js
+      path: ./actions/Vaults-BridgedTokenDeployed
 
     er-20-vault-bridged-token-changed:
       name: "ER20Vault : BridgedTokenChanged"
@@ -47,7 +46,7 @@ resources:
         type: schedule
         frequency: 4
       paused: false
-      path: ./actions/ER20Vault-BridgedTokenChanged.js
+      path: ./actions/ER20Vault-BridgedTokenChanged
 
     bridge-message-processed:
       name: "Bridge: MessageProcessed"
@@ -55,7 +54,7 @@ resources:
         type: schedule
         frequency: 15
       paused: false
-      path: ./actions/Bridge-MessageProcessed.js
+      path: ./actions/Bridge-MessageProcessed
 
     taiko-l-1-calldata-tx-list-count:
       name: "TaikoL1: CalldataTxList Count"
@@ -63,23 +62,7 @@ resources:
         type: schedule
         frequency: 1440
       paused: false
-      path: ./actions/TaikoL1-CalldataTxListCount.js
-
-    guardian-prover-proving-auto-pause-enabled-alert:
-      name: "GuardianProver: ProvingAutoPauseEnabled Alert"
-      trigger:
-        type: schedule
-        frequency: 4
-      paused: false
-      path: ./actions/GuardianProver-ProvingAutoPauseEnabled.js
-
-    guardian-prover-conflicting-proofs-alert:
-      name: "GuardianProver: ConflictingProofs Alert"
-      trigger:
-        type: schedule
-        frequency: 4
-      paused: false
-      path: ./actions/GuardianProver-ConflictingProofs.js
+      path: ./actions/TaikoL1-CalldataTxListCount
 
     guardian-prover-approved-count:
       name: "GuardianProver: Approved Count"
@@ -87,23 +70,7 @@ resources:
         type: schedule
         frequency: 15
       paused: false
-      path: ./actions/GuardianProver-ApprovedCount.js
-
-    guardian-prover-guardians-updated-alert:
-      name: "GuardianProver: GuardiansUpdated Alert"
-      trigger:
-        type: schedule
-        frequency: 4
-      paused: false
-      path: ./actions/GuardianProver-GuardiansUpdated.js
-
-    taiko-l-1-proving-paused-alert:
-      name: "TaikoL1: ProvingPaused Alert"
-      trigger:
-        type: schedule
-        frequency: 4
-      paused: false
-      path: ./actions/TaikoL1-ProvingPaused.js
+      path: ./actions/GuardianProver-ApprovedCount
 
     taiko-l-1-transition-contested-count:
       name: "TaikoL1: TransitionContested Count"
@@ -111,7 +78,7 @@ resources:
         type: schedule
         frequency: 60
       paused: false
-      path: ./actions/TaikoL1-TransitionContestedCount.js
+      path: ./actions/TaikoL1-TransitionContestedCount
 
     taiko-l-1-transition-proved-alert:
       name: "TaikoL1: TransitionProved Alert"
@@ -119,7 +86,7 @@ resources:
         type: schedule
         frequency: 4
       paused: false
-      path: ./actions/TaikoL1-TransitionProved.js
+      path: ./actions/TaikoL1-TransitionProved
 
     taiko-l-1-block-verified-alert:
       name: "TaikoL1: BlockVerified Alert"
@@ -127,7 +94,7 @@ resources:
         type: schedule
         frequency: 4
       paused: false
-      path: ./actions/TaikoL1-BlockVerified.js
+      path: ./actions/TaikoL1-BlockVerified
 
     taiko-l-1-block-proposed-alert:
       name: "TaikoL1: BlockProposed Alert"
@@ -135,15 +102,13 @@ resources:
         type: schedule
         frequency: 4
       paused: false
-      path: ./actions/TaikoL1-BlockProposed.js
+      path: ./actions/TaikoL1-BlockProposed
 
   policies:
-    policy-Qe:
+    policy-ts:
       eip1559-pricing: true
-      private-transactions: false
-    policy-hk:
+    policy-rA:
       eip1559-pricing: true
-      private-transactions: false
   contracts:
     pem-cert-chain-lib:
       name: pem_cert_chain_lib
@@ -254,23 +219,316 @@ resources:
       name: discord_bridging
       config:
         url: >-
-          https://discord.com/api/webhooks/1235610195586187285/pT1ZoqTmEKcjtAt0JY6KxOeHP-_YP7mC3SG1janVZyuf99RE7XwymIFQ9iNlFiyxm41w
-      paused: false
-    discord-blocks:
-      type: discord
-      name: discord_blocks
-      config:
-        url: >-
-          https://discord.com/api/webhooks/1235610046080221214/tEHgmjlZzZsuxGyv3bEPc1I_SGZ69ZmZ7JsF8ey5VEQadylYePXLjRyGCup1I96rTbRk
-      paused: false
-    discord-configs:
-      type: discord
-      name: discord_configs
-      config:
-        url: >-
-          https://discord.com/api/webhooks/1235609859660185744/d6ygohFcXEJEj6zHlxGhLFqXq4lDfieLrFweae3SnsustZLF0q4aTKKHeuzmrgZBIcvy
+          https://discord.com/api/webhooks/1079966997816811520/RdYRjk74nbjEPb44tKFGAgYqDRSmmk2BAmShGkpnmm6QpK-21n-Avw5TnVEaJ1CWhE0s
       paused: false
   monitors:
+    taiko-l-1-prove-block-tx-failure:
+      name: "TaikoL1: proveBlock Tx Failure"
+      type: BLOCK
+      network: mainnet
+      addresses:
+        - "0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a"
+      skip-abi-validation: true
+      paused: false
+      confirm-level: 6
+      notify-config:
+        timeout: 0
+        message: >-
+          **Defender Monitor {{ monitor.name }} Triggered an Alert at {{
+          timestamp }}**
+
+
+          **Network:** {{ monitor.network }}
+
+
+          **Block Hash:** {{ blockHash }}
+
+
+          **Transaction Hash:** {{ transaction.transactionHash }}
+
+
+          **Explorer Link:** {{ transaction.link }}
+
+
+          **Match Reasons**
+
+
+          {{ matchReasonsFormatted }}
+
+
+          **Metadata**
+
+
+          {{ metadataFormatted }}
+        message-subject: "[Alert] OpenZeppelin Defender Monitor TaikoL1: proveBlock Tx Failure"
+        channels:
+          - ${self:resources.notifications.tg-taiko-guardians}
+          - ${self:resources.notifications.discord-bridging}
+        severity-level: HIGH
+      conditions:
+        event:
+          - expression: null
+            signature: >-
+              BlockProposed(uint256,address,uint96,(bytes32,bytes32,bytes32,bytes32,bytes32,address,uint64,uint32,uint64,uint64,uint16,bool,bytes32,address),(address,uint96,uint64)[])
+        function:
+          - expression: null
+            signature: proveBlock(uint64,bytes)
+        transaction: >-
+          (status == "failed") AND (from ==
+          "0x000000629FBCf27A347d1AEbA658435230D74a5f" OR from ==
+          "0x000000633b68f5d8d3a86593ebb815b4663bcbe0" OR from ==
+          "0x00000027F51a57E7FcBC4b481d15fcE5BE68b30B")
+    taiko-l-1-proposed-block-tx-failure:
+      name: "TaikoL1: ProposedBlock Tx Failure"
+      type: BLOCK
+      network: mainnet
+      addresses:
+        - "0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a"
+      skip-abi-validation: true
+      paused: false
+      confirm-level: 1
+      notify-config:
+        timeout: 0
+        message: >-
+          **Defender Monitor {{ monitor.name }} Triggered an Alert at {{
+          timestamp }}**
+
+
+          **Network:** {{ monitor.network }}
+
+
+          **Block Hash:** {{ blockHash }}
+
+
+          **Transaction Hash:** {{ transaction.transactionHash }}
+
+
+          **Explorer Link:** {{ transaction.link }}
+
+
+          **Match Reasons**
+
+
+          {{ matchReasonsFormatted }}
+
+
+          **Metadata**
+
+
+          {{ metadataFormatted }}
+        message-subject: >-
+          [Alert] OpenZeppelin Defender Monitor TaikoL1: ProposedBlock Tx
+          Failure
+        channels:
+          - ${self:resources.notifications.discord-bridging}
+          - ${self:resources.notifications.tg-taiko-guardians}
+        severity-level: HIGH
+      conditions:
+        event:
+          - expression: null
+            signature: >-
+              BlockProposed(uint256,address,uint96,(bytes32,bytes32,bytes32,bytes32,bytes32,address,uint64,uint32,uint64,uint64,uint16,bool,bytes32,address),(address,uint96,uint64)[])
+        function:
+          - expression: null
+            signature: proposeBlock(bytes,bytes)
+        transaction: >-
+          (status == "failed") AND (from ==
+          "0x000000629FBCf27A347d1AEbA658435230D74a5f" OR from ==
+          "0x000000633b68f5d8d3a86593ebb815b4663bcbe0" OR from ==
+          "0x00000027F51a57E7FcBC4b481d15fcE5BE68b30B")
+    guardian-prover-proving-auto-pause-enabled-alert:
+      name: "GuardianProver: ProvingAutoPauseEnabled"
+      type: BLOCK
+      network: mainnet
+      addresses:
+        - "0xE3D777143Ea25A6E031d1e921F396750885f43aC"
+      skip-abi-validation: false
+      paused: false
+      confirm-level: 6
+      notify-config:
+        timeout: 60000
+        message: >-
+          **Defender Monitor {{ monitor.name }} Triggered an Alert at {{
+          timestamp }}**
+
+
+          **Network:** {{ monitor.network }}
+
+
+          **Block Hash:** {{ blockHash }}
+
+
+          **Transaction Hash:** {{ transaction.transactionHash }}
+
+
+          **Explorer Link:** {{ transaction.link }}
+
+
+          **Match Reasons**
+
+
+          {{ matchReasonsFormatted }}
+
+
+          **Metadata**
+
+
+          {{ metadataFormatted }}
+        message-subject: >-
+          [Alert] OpenZeppelin Defender Monitor GuardianProver:
+          ProvingAutoPauseEnabled
+        channels:
+          - ${self:resources.notifications.discord-bridging}
+          - ${self:resources.notifications.tg-taiko-guardians}
+        severity-level: MEDIUM
+      conditions:
+        event:
+          - expression: null
+            signature: GuardiansUpdated(uint32,address[])
+    guardian-prover-conflicting-proofs-alert:
+      name: "GuardianProver: ConflictingProofs Alert"
+      type: BLOCK
+      network: mainnet
+      addresses:
+        - "0xE3D777143Ea25A6E031d1e921F396750885f43aC"
+      skip-abi-validation: false
+      paused: false
+      confirm-level: 1
+      notify-config:
+        timeout: 60000
+        message: >-
+          **Defender Monitor {{ monitor.name }} Triggered an Alert at {{
+          timestamp }}**
+
+
+          **Network:** {{ monitor.network }}
+
+
+          **Block Hash:** {{ blockHash }}
+
+
+          **Transaction Hash:** {{ transaction.transactionHash }}
+
+
+          **Explorer Link:** {{ transaction.link }}
+
+
+          **Match Reasons**
+
+
+          {{ matchReasonsFormatted }}
+
+
+          **Metadata**
+
+
+          {{ metadataFormatted }}
+        message-subject: >-
+          [Alert] OpenZeppelin Defender Monitor GuardianProver:
+          ConflictingProofs Alert
+        channels:
+          - ${self:resources.notifications.discord-bridging}
+          - ${self:resources.notifications.tg-taiko-guardians}
+        severity-level: MEDIUM
+      conditions:
+        event:
+          - expression: null
+            signature: ConflictingProofs(uint256,address,bytes32,bytes32,bool)
+    guardian-prover-guardians-updated-alert:
+      name: "GuardianProver: GuardiansUpdated Alert"
+      type: BLOCK
+      network: mainnet
+      addresses:
+        - "0xE3D777143Ea25A6E031d1e921F396750885f43aC"
+      skip-abi-validation: false
+      paused: false
+      confirm-level: 1
+      notify-config:
+        timeout: 60000
+        message: >-
+          **Defender Monitor {{ monitor.name }} Triggered an Alert at {{
+          timestamp }}**
+
+
+          **Network:** {{ monitor.network }}
+
+
+          **Block Hash:** {{ blockHash }}
+
+
+          **Transaction Hash:** {{ transaction.transactionHash }}
+
+
+          **Explorer Link:** {{ transaction.link }}
+
+
+          **Match Reasons**
+
+
+          {{ matchReasonsFormatted }}
+
+
+          **Metadata**
+
+
+          {{ metadataFormatted }}
+        message-subject: >-
+          [Alert] OpenZeppelin Defender Monitor GuardianProver: GuardiansUpdated
+          Alert
+        channels:
+          - ${self:resources.notifications.discord-bridging}
+          - ${self:resources.notifications.tg-taiko-guardians}
+        severity-level: MEDIUM
+      conditions:
+        event:
+          - expression: null
+            signature: GuardiansUpdated(uint32,address[])
+    taiko-l-1-proving-paused-alert:
+      name: "TaikoL1: ProvingPaused Alert"
+      type: BLOCK
+      network: mainnet
+      addresses:
+        - "0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a"
+      skip-abi-validation: false
+      paused: false
+      confirm-level: 6
+      notify-config:
+        timeout: 60000
+        message: >-
+          **Defender Monitor {{ monitor.name }} Triggered an Alert at {{
+          timestamp }}**
+
+
+          **Network:** {{ monitor.network }}
+
+
+          **Block Hash:** {{ blockHash }}
+
+
+          **Transaction Hash:** {{ transaction.transactionHash }}
+
+
+          **Explorer Link:** {{ transaction.link }}
+
+
+          **Match Reasons**
+
+
+          {{ matchReasonsFormatted }}
+
+
+          **Metadata**
+
+
+          {{ metadataFormatted }}
+        message-subject: "[Alert] OpenZeppelin Defender Monitor TaikoL1: ProvingPaused Alert"
+        channels:
+          - ${self:resources.notifications.discord-bridging}
+        severity-level: HIGH
+      conditions:
+        event:
+          - expression: null
+            signature: ProvingPaused(bool)
     address-manager-l-2-address-set:
       name: "Address Manager (L2): AddressSet"
       type: BLOCK
@@ -311,7 +569,7 @@ resources:
           {{ metadataFormatted }}
         message-subject: "Defender Monitor: Address Manager (L2): AddressSet triggered"
         channels:
-          - ${self:resources.notifications.discord-configs}
+          - ${self:resources.notifications.discord-bridging}
         severity-level: MEDIUM
       conditions:
         event:
@@ -325,7 +583,7 @@ resources:
         - "0x579f40D0BE111b823962043702cabe6Aaa290780"
         - "0xEf9EaA1dd30a9AA1df01c36411b5F082aA65fBaa"
       skip-abi-validation: false
-      paused: false
+      paused: true
       confirm-level: 9007199254740991
       notify-config:
         timeout: 60000
@@ -356,8 +614,7 @@ resources:
 
           {{ metadataFormatted }}
         message-subject: "Defender Monitor: Address Manager (L1): AddressSet triggered"
-        channels:
-          - ${self:resources.notifications.discord-configs}
+        channels: []
         severity-level: MEDIUM
       conditions:
         event:
@@ -410,7 +667,7 @@ resources:
           {{ metadataFormatted }}
         message-subject: "Defender Monitor: TaikoL2: Pause/Unpause triggered"
         channels:
-          - ${self:resources.notifications.discord-configs}
+          - ${self:resources.notifications.discord-bridging}
         severity-level: MEDIUM
       conditions:
         event:
@@ -479,7 +736,7 @@ resources:
           {{ metadataFormatted }}
         message-subject: "Defender Monitor: TaikoL1: Pause/Unpause triggered"
         channels:
-          - ${self:resources.notifications.discord-configs}
+          - ${self:resources.notifications.discord-bridging}
         severity-level: MEDIUM
       conditions:
         event:
@@ -520,7 +777,7 @@ resources:
           {{ matchReasonsFormatted }}
         message-subject: "Defender Monitor: Taiko Mainnet SGX Prover triggered"
         channels:
-          - ${self:resources.notifications.discord-blocks}
+          - ${self:resources.notifications.discord-bridging}
         severity-level: LOW
       conditions:
         event:
@@ -567,7 +824,7 @@ resources:
           {{ matchReasonsFormatted }}
         message-subject: "Defender Monitor: Taiko Mainnet Address Managers triggered"
         channels:
-          - ${self:resources.notifications.discord-configs}
+          - ${self:resources.notifications.discord-bridging}
         severity-level: HIGH
       conditions:
         event:
@@ -621,7 +878,7 @@ resources:
           {{ matchReasonsFormatted }}
         message-subject: "Defender Monitor: Taiko Mainnet Essential Contracts triggered"
         channels:
-          - ${self:resources.notifications.discord-configs}
+          - ${self:resources.notifications.discord-bridging}
         severity-level: HIGH
       conditions:
         event:
@@ -643,7 +900,7 @@ resources:
             signature: Upgraded(address)
   forked-networks: {}
   private-networks:
-    taikol-2:
+    taikol2:
       name: taikol2
       rpc-url: https://rpc.mainnet.taiko.xyz
       configuration:
