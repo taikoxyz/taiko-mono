@@ -15,7 +15,7 @@ import (
 var (
 	errProofGenerating = errors.New("proof is generating")
 	errEmptyProof      = errors.New("proof is empty")
-	errInvalidLength   = errors.New("invalid items length")
+	ErrInvalidLength   = errors.New("invalid items length")
 )
 
 // ProofRequestBody represents a request body to generate a proof.
@@ -62,6 +62,7 @@ type BatchProofs struct {
 	Proofs     []*ProofWithHeader
 	BatchProof []byte
 	Tier       uint16
+	BlockIDs   []*big.Int
 }
 
 type ProofProducer interface {

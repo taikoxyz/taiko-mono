@@ -8,6 +8,8 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+
 	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
@@ -337,33 +339,44 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 		invalidProofs       []*proofProducer.ProofWithHeader
 		latestProvenBlockID *big.Int
 	)
-	for _, proof := range batchProof.Proofs {
-		// Check if the proof has already been submitted.
-		proofStatus, err := rpc.GetBlockProofStatus(
-			ctx,
-			s.rpc,
-			proof.BlockID,
-			proof.Opts.ProverAddress,
-			s.proverSetAddress,
+	if len(batchProof.Proofs) == 0 {
+		return proofProducer.ErrInvalidLength
+	}
+	// Check if the proof has already been submitted.
+	proofStatus, err := rpc.BatchGetBlockProofStatus(
+		ctx,
+		s.rpc,
+		batchProof.BlockIDs,
+		batchProof.Proofs[0].Opts.ProverAddress,
+		s.proverSetAddress,
+	)
+	if err != nil {
+		return err
+	}
+	stateVars, err := s.rpc.GetProtocolStateVariables(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		log.Warn(
+			"Failed to fetch state variables",
+			"error", err,
 		)
-		if err != nil {
-			return err
-		}
-		if proofStatus.IsSubmitted && !proofStatus.Invalid {
-			log.Error("a valid proof for block is already submitted", "blockId", proof.BlockID)
-			invalidProofs = append(invalidProofs, proof)
-			break
-		}
-
+		return err
+	}
+	for i, proof := range batchProof.Proofs {
 		// Check if this proof is still needed to be submitted.
-		ok, err := s.sender.ValidateProof(ctx, proof)
+		ok, err := s.sender.ValidateProof(ctx, proof, new(big.Int).SetUint64(stateVars.B.LastVerifiedBlockId))
 		if err != nil {
 			return err
 		}
 		if !ok {
 			log.Error("a valid proof for block is already submitted", "blockId", proof.BlockID)
 			invalidProofs = append(invalidProofs, proof)
-			break
+			continue
+		}
+
+		if proofStatus[i].IsSubmitted && !proofStatus[i].Invalid {
+			log.Error("a valid proof for block is already submitted", "blockId", proof.BlockID)
+			invalidProofs = append(invalidProofs, proof)
+			continue
 		}
 
 		// Get the corresponding L2 block.
@@ -374,13 +387,13 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 				"error", err,
 			)
 			invalidProofs = append(invalidProofs, proof)
-			break
+			continue
 		}
 
 		if block.Transactions().Len() == 0 {
 			log.Error("invalid block without anchor transaction, blockID", "blockId", proof.BlockID)
 			invalidProofs = append(invalidProofs, proof)
-			break
+			continue
 		}
 
 		// Validate TaikoL2.anchor transaction inside the L2 block.

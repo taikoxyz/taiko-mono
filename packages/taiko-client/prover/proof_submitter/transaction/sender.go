@@ -65,7 +65,7 @@ func (s *Sender) Send(
 	}
 
 	// Check if this proof is still needed to be submitted.
-	ok, err := s.ValidateProof(ctx, proofWithHeader)
+	ok, err := s.ValidateProof(ctx, proofWithHeader, nil)
 	if err != nil || !ok {
 		return err
 	}
@@ -157,7 +157,11 @@ func (s *Sender) SendBatchProof(
 
 // ValidateProof checks if the proof's corresponding L1 block is still in the canonical chain and if the
 // latest verified head is not ahead of this block proof.
-func (s *Sender) ValidateProof(ctx context.Context, proofWithHeader *producer.ProofWithHeader) (bool, error) {
+func (s *Sender) ValidateProof(
+	ctx context.Context,
+	proofWithHeader *producer.ProofWithHeader,
+	latestVerifiedID *big.Int,
+) (bool, error) {
 	// 1. Check if the corresponding L1 block is still in the canonical chain.
 	l1Header, err := s.rpc.L1.HeaderByNumber(ctx, proofWithHeader.Meta.GetRawBlockHeight())
 	if err != nil {
@@ -180,18 +184,22 @@ func (s *Sender) ValidateProof(ctx context.Context, proofWithHeader *producer.Pr
 		return false, nil
 	}
 
+	var verifiedID = latestVerifiedID
 	// 2. Check if latest verified head is ahead of this block proof.
-	stateVars, err := s.rpc.GetProtocolStateVariables(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		log.Warn(
-			"Failed to fetch state variables",
-			"blockID", proofWithHeader.BlockID,
-			"error", err,
-		)
-		return false, err
+	if verifiedID == nil {
+		stateVars, err := s.rpc.GetProtocolStateVariables(&bind.CallOpts{Context: ctx})
+		if err != nil {
+			log.Warn(
+				"Failed to fetch state variables",
+				"blockID", proofWithHeader.BlockID,
+				"error", err,
+			)
+			return false, err
+		}
+		verifiedID = new(big.Int).SetUint64(stateVars.B.LastVerifiedBlockId)
 	}
-	latestVerifiedID := stateVars.B.LastVerifiedBlockId
-	if new(big.Int).SetUint64(latestVerifiedID).Cmp(proofWithHeader.BlockID) >= 0 {
+
+	if verifiedID.Cmp(proofWithHeader.BlockID) >= 0 {
 		log.Info(
 			"Block is already verified, skip current proof submission",
 			"blockID", proofWithHeader.BlockID.Uint64(),

@@ -139,7 +139,7 @@ func (s *SGXProofProducer) Aggregate(
 		"items", items,
 	)
 	if len(items) == 0 {
-		return nil, errInvalidLength
+		return nil, ErrInvalidLength
 	}
 
 	blockIDs := make([]*big.Int, len(items))
@@ -163,6 +163,7 @@ func (s *SGXProofProducer) Aggregate(
 		Proofs:     items,
 		BatchProof: batchProof,
 		Tier:       s.Tier(),
+		BlockIDs:   blockIDs,
 	}, nil
 }
 

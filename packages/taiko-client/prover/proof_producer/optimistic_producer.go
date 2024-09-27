@@ -46,9 +46,18 @@ func (o *OptimisticProofProducer) Aggregate(
 		"items", items,
 	)
 	if len(items) == 0 {
-		return nil, errInvalidLength
+		return nil, ErrInvalidLength
 	}
-	return o.DummyProofProducer.RequestBatchProofs(items, o.Tier())
+	blockIDs := make([]*big.Int, len(items))
+	for i, item := range items {
+		blockIDs[i] = item.Meta.GetBlockID()
+	}
+	batchProof, err := o.DummyProofProducer.RequestBatchProofs(items, o.Tier())
+	if err != nil {
+		return nil, err
+	}
+	batchProof.BlockIDs = blockIDs
+	return batchProof, nil
 }
 
 // RequestCancel implements the ProofProducer interface to cancel the proof generating progress.

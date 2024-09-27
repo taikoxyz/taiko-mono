@@ -42,7 +42,6 @@ func (pb *ProofBuffer) Write(item *producer.ProofWithHeader) (int, error) {
 
 // Read returns the content with given length in the buffer.
 func (pb *ProofBuffer) Read(length int) ([]*producer.ProofWithHeader, error) {
-
 	if length > len(pb.buffer) {
 		return nil, errNotEnoughProof
 	}

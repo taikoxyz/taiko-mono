@@ -221,6 +221,117 @@ func GetBlockProofStatus(
 	}, nil
 }
 
+// BatchGetBlockProofStatus checks whether the batch of L2 block still need new proofs or new contests.
+// Here are the possible status:
+// 1. No proof on chain at all.
+// 2. A valid proof has been submitted.
+// 3. An invalid proof has been submitted, and there is no valid contest.
+// 4. An invalid proof has been submitted, and there is a valid contest.
+func BatchGetBlockProofStatus(
+	ctx context.Context,
+	cli *Client,
+	ids []*big.Int,
+	proverAddress common.Address,
+	proverSetAddress common.Address,
+) ([]*BlockProofStatus, error) {
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
+	defer cancel()
+
+	var (
+		parentHashes = make([][32]byte, len(ids))
+		parents      = make([]*types.Header, len(ids))
+		blockIDs     = make([]uint64, len(ids))
+		result       = make([]*BlockProofStatus, len(ids))
+	)
+	// Get the local L2 parent header.
+	for i, id := range ids {
+		parent, err := cli.L2.HeaderByNumber(ctxWithTimeout, new(big.Int).Sub(id, common.Big1))
+		if err != nil {
+			return nil, err
+		}
+		parentHashes[i] = parent.ParentHash
+		parents[i] = parent
+		blockIDs[i] = id.Uint64()
+	}
+
+	// Get the transition state from TaikoL1 contract.
+	transitions, err := cli.TaikoL1.GetTransitions(
+		&bind.CallOpts{Context: ctxWithTimeout},
+		blockIDs,
+		parentHashes,
+	)
+	if err != nil {
+		return nil, err
+	}
+	for i, transition := range transitions {
+		// no proof on chain
+		if transition.StateRoot == (common.Hash{}) {
+			result[i] = &BlockProofStatus{IsSubmitted: false, ParentHeader: parents[i]}
+			continue
+		}
+
+		header, err := cli.WaitL2Header(ctxWithTimeout, ids[i])
+		if err != nil {
+			return nil, err
+		}
+		if header.Hash() != transition.BlockHash ||
+			(transition.StateRoot != (common.Hash{}) && transition.StateRoot != header.Root) {
+			log.Info(
+				"Different block hash or state root detected, try submitting a contest",
+				"localBlockHash", header.Hash(),
+				"protocolTransitionBlockHash", common.BytesToHash(transition.BlockHash[:]),
+				"localStateRoot", header.Root,
+				"protocolTransitionStateRoot", common.BytesToHash(transition.StateRoot[:]),
+			)
+			result[i] = &BlockProofStatus{
+				IsSubmitted:            true,
+				Invalid:                true,
+				CurrentTransitionState: &transitions[i],
+				ParentHeader:           parents[i],
+			}
+			continue
+		}
+
+		if proverAddress == transition.Prover ||
+			(proverSetAddress != ZeroAddress && transition.Prover == proverSetAddress) {
+			log.Info(
+				"📬 Block's proof has already been submitted by current prover",
+				"blockID", ids[i],
+				"parent", parents[i].Hash().Hex(),
+				"hash", common.Bytes2Hex(transition.BlockHash[:]),
+				"stateRoot", common.Bytes2Hex(transition.StateRoot[:]),
+				"timestamp", transition.Timestamp,
+				"contester", transition.Contester,
+			)
+			result[i] = &BlockProofStatus{
+				IsSubmitted:            true,
+				Invalid:                transition.Contester != ZeroAddress,
+				ParentHeader:           parents[i],
+				CurrentTransitionState: &transitions[i],
+			}
+			continue
+		}
+		log.Info(
+			"📬 Block's proof has already been submitted by another prover",
+			"blockID", ids[i],
+			"prover", transition.Prover,
+			"parent", parents[i].Hash().Hex(),
+			"hash", common.Bytes2Hex(transition.BlockHash[:]),
+			"stateRoot", common.Bytes2Hex(transition.StateRoot[:]),
+			"timestamp", transition.Timestamp,
+			"contester", transition.Contester,
+		)
+
+		result[i] = &BlockProofStatus{
+			IsSubmitted:            true,
+			Invalid:                transition.Contester != ZeroAddress,
+			ParentHeader:           parents[i],
+			CurrentTransitionState: &transitions[i],
+		}
+	}
+	return result, nil
+}
+
 // SetHead makes a `debug_setHead` RPC call to set the chain's head, should only be used
 // for testing purpose.
 func SetHead(ctx context.Context, client *EthClient, headNum *big.Int) error {
