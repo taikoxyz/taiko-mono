@@ -66,7 +66,9 @@ contract ERC20AirdropTest is Test {
             new ERC1967Proxy(
                 impl,
                 abi.encodeCall(
-                    ERC20Airdrop.initialize, (CLAIM_START, CLAIM_END, root, erc20, blacklist, vault)
+                    ERC20Airdrop.initialize,
+                    (CLAIM_START, CLAIM_END,
+                    root, erc20, blacklist, vault)
                 )
             )
         );
