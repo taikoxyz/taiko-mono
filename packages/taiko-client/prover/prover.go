@@ -533,7 +533,6 @@ func (p *Prover) getSubmitterByTier(tier uint16) proofSubmitter.Submitter {
 			if !p.IsGuardianProver() && s.Tier() >= encoding.TierGuardianMinorityID {
 				continue
 			}
-
 			return s
 		}
 	}
