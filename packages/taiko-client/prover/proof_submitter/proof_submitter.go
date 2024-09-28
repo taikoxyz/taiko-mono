@@ -337,7 +337,7 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 	)
 	var (
 		invalidProofs       []*proofProducer.ProofWithHeader
-		latestProvenBlockID *big.Int
+		latestProvenBlockID = big.NewInt(0)
 	)
 	if len(batchProof.Proofs) == 0 {
 		return proofProducer.ErrInvalidLength
