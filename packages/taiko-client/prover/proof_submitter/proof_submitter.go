@@ -203,6 +203,10 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBl
 						err,
 					)
 				}
+				log.Debug("Succeed to generate proof",
+					"blockID", meta.GetBlockID(),
+					"bufferSize", bufferSize,
+				)
 				if s.proofBuffer.MaxLength == uint64(bufferSize) {
 					if err = s.AggregateProofs(ctx); err != nil {
 						return fmt.Errorf("failed to aggregate proof : %w", err)
