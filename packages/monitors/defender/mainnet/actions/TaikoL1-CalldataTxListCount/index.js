@@ -8,41 +8,17 @@ const ABI = [
       {
         indexed: true,
         internalType: "uint256",
-        name: "srcChainId",
+        name: "blockId",
         type: "uint256",
       },
       {
-        indexed: true,
-        internalType: "address",
-        name: "ctoken",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "btoken",
-        type: "address",
-      },
-      {
         indexed: false,
-        internalType: "string",
-        name: "ctokenSymbol",
-        type: "string",
-      },
-      {
-        indexed: false,
-        internalType: "string",
-        name: "ctokenName",
-        type: "string",
-      },
-      {
-        indexed: false,
-        internalType: "uint8",
-        name: "ctokenDecimal",
-        type: "uint8",
+        internalType: "bytes",
+        name: "txList",
+        type: "bytes",
       },
     ],
-    name: "BridgedTokenDeployed",
+    name: "CalldataTxList",
     type: "event",
   },
 ];
@@ -50,7 +26,7 @@ const ABI = [
 function alertOrg(notificationClient, message) {
   notificationClient.send({
     channelAlias: "discord_bridging",
-    subject: "BridgedTokenDeployed Event Count",
+    subject: "ℹ️ TaikoL1: CalldataTxList Count",
     message,
   });
 }
@@ -74,7 +50,7 @@ async function calculateBlockTime(provider) {
 async function calculateBlockRange(provider) {
   const currentBlockNumber = await getLatestBlockNumber(provider);
   const blockTimeInSeconds = await calculateBlockTime(provider);
-  const blocksIn24Hours = Math.floor((24 * 60 * 60) / blockTimeInSeconds);
+  const blocksIn24Hours = Math.floor((24 * 60 * 60) / blockTimeInSeconds); // 24 hours in seconds
 
   const fromBlock = currentBlockNumber - blocksIn24Hours;
   const toBlock = currentBlockNumber;
@@ -84,8 +60,8 @@ async function calculateBlockRange(provider) {
   return { fromBlock, toBlock };
 }
 
-async function fetchLogs(
-  eventName,
+async function fetchLogsFromL1(
+  eventNames,
   fromBlock,
   toBlock,
   address,
@@ -93,14 +69,18 @@ async function fetchLogs(
   provider,
 ) {
   const iface = new ethers.utils.Interface(abi);
-  const eventTopic = iface.getEventTopic(eventName);
-  console.log(`eventTopic: ${eventTopic}`);
+  const eventTopics = eventNames.map((eventName) =>
+    iface.getEventTopic(eventName),
+  );
+
+  console.log(`eventTopics: ${eventTopics}`);
+
   try {
     const logs = await provider.getLogs({
       address,
       fromBlock,
       toBlock,
-      topics: [eventTopic],
+      topics: [eventTopics],
     });
     console.log(`Fetched logs: ${logs.length}`);
     return logs.map((log) => {
@@ -109,7 +89,7 @@ async function fetchLogs(
       return parsedLog;
     });
   } catch (error) {
-    console.error("Error fetching logs:", error);
+    console.error("Error fetching L1 logs:", error);
     return [];
   }
 }
@@ -127,41 +107,31 @@ function createProvider(apiKey, apiSecret, relayerApiKey, relayerApiSecret) {
 
 exports.handler = async function (event, context) {
   const { notificationClient } = context;
-  const { apiKey, apiSecret, l1ApiKey, l1ApiSecret, l2ApiKey, l2ApiSecret } =
-    event.secrets;
+  const { apiKey, apiSecret, taikoL1ApiKey, taikoL1ApiSecret } = event.secrets;
 
-  const l1Provider = createProvider(apiKey, apiSecret, l1ApiKey, l1ApiSecret);
-  const l2Provider = createProvider(apiKey, apiSecret, l2ApiKey, l2ApiSecret);
-
-  const { fromBlock: l1FromBlock, toBlock: l1ToBlock } =
-    await calculateBlockRange(l1Provider);
-  const { fromBlock: l2FromBlock, toBlock: l2ToBlock } =
-    await calculateBlockRange(l2Provider);
-
-  const l1Logs = await fetchLogs(
-    "BridgedTokenDeployed",
-    l1FromBlock,
-    l1ToBlock,
-    "0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab",
-    ABI,
-    l1Provider,
+  const taikoL1Provider = createProvider(
+    apiKey,
+    apiSecret,
+    taikoL1ApiKey,
+    taikoL1ApiSecret,
   );
 
-  const l2Logs = await fetchLogs(
-    "BridgedTokenDeployed",
-    l2FromBlock,
-    l2ToBlock,
-    "0x1670000000000000000000000000000000000002",
+  const { fromBlock, toBlock } = await calculateBlockRange(taikoL1Provider);
+
+  const logs = await fetchLogsFromL1(
+    ["CalldataTxList"],
+    fromBlock,
+    toBlock,
+    "0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a",
     ABI,
-    l2Provider,
+    taikoL1Provider,
   );
 
-  const l1EventCount = l1Logs.length;
-  const l2EventCount = l2Logs.length;
-
-  if (l1EventCount > 0 || l2EventCount > 0) {
-    const alertMessage = `Detected ${l1EventCount} BridgedTokenDeployed events on L1 and ${l2EventCount} events on L2 in the last 24 hours!`;
-    alertOrg(notificationClient, alertMessage);
+  if (logs.length > 0) {
+    alertOrg(
+      notificationClient,
+      `Detected ${logs.length} CalldataTxList events in the last 24 hours on TaikoL1!`,
+    );
   }
 
   return true;
