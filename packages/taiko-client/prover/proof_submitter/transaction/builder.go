@@ -166,7 +166,7 @@ func (a *ProveBlockTxBuilder) BuildProveBlocks(
 			err         error
 			metas       = make([]metadata.TaikoBlockMetaData, len(batchProof.Proofs))
 			transitions = make([]bindings.TaikoDataTransition, len(batchProof.Proofs))
-			blockIDs    = make([]*big.Int, len(batchProof.Proofs))
+			blockIDs    = make([]uint64, len(batchProof.Proofs))
 		)
 		for i, proof := range batchProof.Proofs {
 			metas[i] = proof.Meta
@@ -176,7 +176,7 @@ func (a *ProveBlockTxBuilder) BuildProveBlocks(
 				StateRoot:  proof.Opts.StateRoot,
 				Graffiti:   rpc.StringToBytes32(proof.Opts.Graffiti),
 			}
-			blockIDs[i] = proof.BlockID
+			blockIDs[i] = proof.BlockID.Uint64()
 		}
 		log.Info(
 			"Build batch proof submission transaction",
