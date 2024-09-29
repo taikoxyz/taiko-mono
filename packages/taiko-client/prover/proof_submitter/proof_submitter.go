@@ -159,6 +159,11 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBl
 				log.Error("Failed to request proof, context is canceled", "blockID", opts.BlockID, "error", ctx.Err())
 				return nil
 			}
+			if int(s.proofBuffer.MaxLength) == s.proofBuffer.Len() {
+				if err = s.AggregateProofs(ctx); err != nil {
+					return fmt.Errorf("failed to aggregate proof : %w", err)
+				}
+			}
 			// Check if there is a need to generate proof
 			proofStatus, err := rpc.GetBlockProofStatus(
 				ctx,
@@ -209,7 +214,7 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBl
 				)
 				if s.proofBuffer.MaxLength == uint64(bufferSize) {
 					if err = s.AggregateProofs(ctx); err != nil {
-						return fmt.Errorf("failed to aggregate proof : %w", err)
+						log.Error("failed to aggregate proof", "error", err)
 					}
 				}
 			} else {
@@ -420,6 +425,7 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 	if err := s.sender.SendBatchProof(
 		ctx,
 		s.txBuilder.BuildProveBlocks(batchProof),
+		batchProof,
 	); err != nil {
 		if err.Error() == transaction.ErrUnretryableSubmission.Error() {
 			return nil
@@ -428,6 +434,7 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 		return err
 	}
 
+	// TODO
 	metrics.ProverSentProofCounter.Add(1)
 	metrics.ProverLatestProvenBlockIDGauge.Set(float64(latestProvenBlockID.Uint64()))
 	s.proofBuffer.Clear()

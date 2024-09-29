@@ -16,7 +16,7 @@ var (
 type ProofBuffer struct {
 	MaxLength uint64
 	buffer    []*producer.ProofWithHeader
-	mutex     sync.Mutex
+	mutex     sync.RWMutex
 }
 
 // NewProofBuffer creates a new ProofBuffer instance.
@@ -42,6 +42,8 @@ func (pb *ProofBuffer) Write(item *producer.ProofWithHeader) (int, error) {
 
 // Read returns the content with given length in the buffer.
 func (pb *ProofBuffer) Read(length int) ([]*producer.ProofWithHeader, error) {
+	pb.mutex.RLock()
+	defer pb.mutex.RUnlock()
 	if length > len(pb.buffer) {
 		return nil, errNotEnoughProof
 	}
@@ -54,13 +56,13 @@ func (pb *ProofBuffer) Read(length int) ([]*producer.ProofWithHeader, error) {
 
 // ReadAll returns all the content in the buffer.
 func (pb *ProofBuffer) ReadAll() ([]*producer.ProofWithHeader, error) {
-	return pb.Read(len(pb.buffer))
+	return pb.Read(pb.Len())
 }
 
 // Len returns current length of the buffer.
 func (pb *ProofBuffer) Len() int {
-	pb.mutex.Lock()
-	defer pb.mutex.Unlock()
+	pb.mutex.RLock()
+	defer pb.mutex.RUnlock()
 	return len(pb.buffer)
 }
 

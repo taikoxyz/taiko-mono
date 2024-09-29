@@ -118,6 +118,7 @@ func (s *Sender) Send(
 func (s *Sender) SendBatchProof(
 	ctx context.Context,
 	buildTx TxBuilder,
+	batchProof *producer.BatchProofs,
 ) error {
 	// Assemble the TaikoL1.proveBlocks transaction.
 	txCandidate, err := buildTx(&bind.TransactOpts{GasLimit: s.gasLimit})
@@ -148,8 +149,11 @@ func (s *Sender) SendBatchProof(
 	log.Info(
 		"💰 Your block proof aggregation was accepted",
 		"txHash", receipt.TxHash,
+		"tier", batchProof.Tier,
+		"blockIDs", batchProof.BlockIDs,
 	)
 
+	// TODO
 	metrics.ProverSubmissionAcceptedCounter.Add(1)
 
 	return nil
