@@ -295,7 +295,7 @@ var (
 		{Name: "TaikoData.TierProof", Type: tierProofComponentsType},
 	}
 	proveBlocksInputArgs = abi.Arguments{
-		{Name: "TaikoData.BlockMetadata", Type: blockMetadataComponentsType},
+		{Name: "TaikoData.BlockMetadata", Type: blockMetadataV2ComponentsType},
 		{Name: "TaikoData.Transition", Type: transitionComponentsType},
 	}
 )
