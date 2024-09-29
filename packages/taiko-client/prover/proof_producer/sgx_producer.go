@@ -312,12 +312,12 @@ func (s *SGXProofProducer) callProverDaemon(
 	// Raiko returns "" as proof when proof type is native,
 	// so we just convert "" to bytes
 	if s.ProofType == ProofTypeCPU {
-		proof = common.Hex2Bytes(output.Data.Proof)
+		proof = common.Hex2Bytes(output.Data.Proof.Proof)
 	} else {
-		if len(output.Data.Proof) == 0 {
+		if len(output.Data.Proof.Proof) == 0 {
 			return nil, errEmptyProof
 		}
-		proof = common.Hex2Bytes(output.Data.Proof[2:])
+		proof = common.Hex2Bytes(output.Data.Proof.Proof[2:])
 	}
 
 	log.Info(
@@ -334,7 +334,7 @@ func (s *SGXProofProducer) callProverDaemon(
 func (s *SGXProofProducer) requestProof(
 	ctx context.Context,
 	opts *ProofRequestOptions,
-) (*RaikoRequestProofBodyResponse, error) {
+) (*RaikoRequestProofBodyResponseV2, error) {
 	reqBody := RaikoRequestProofBody{
 		Type:     s.ProofType,
 		Block:    opts.BlockID,
@@ -354,7 +354,7 @@ func (s *SGXProofProducer) requestProof(
 		return nil, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", s.RaikoHostEndpoint+"/v1/proof", bytes.NewBuffer(jsonValue))
+	req, err := http.NewRequestWithContext(ctx, "POST", s.RaikoHostEndpoint+"/v2/proof", bytes.NewBuffer(jsonValue))
 	if err != nil {
 		return nil, err
 	}
@@ -385,7 +385,7 @@ func (s *SGXProofProducer) requestProof(
 		"output", string(resBytes),
 	)
 
-	var output RaikoRequestProofBodyResponse
+	var output RaikoRequestProofBodyResponseV2
 	if err := json.Unmarshal(resBytes, &output); err != nil {
 		return nil, err
 	}
