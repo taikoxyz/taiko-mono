@@ -187,13 +187,20 @@ func (a *ProveBlockTxBuilder) BuildProveBlocks(
 		if err != nil {
 			return nil, err
 		}
+		tierProof, err := encoding.EncodeProveBlocksBatchProof(&bindings.TaikoDataTierProof{
+			Tier: batchProof.Tier,
+			Data: batchProof.BatchProof,
+		})
+		if err != nil {
+			return nil, err
+		}
 
 		if a.proverSetAddress != ZeroAddress {
 			if data, err = encoding.ProverSetABI.Pack(
 				"proveBlocks",
 				blockIDs,
 				input,
-				batchProof.BatchProof,
+				tierProof,
 			); err != nil {
 				return nil, err
 			}
@@ -203,7 +210,7 @@ func (a *ProveBlockTxBuilder) BuildProveBlocks(
 				"proveBlocks",
 				blockIDs,
 				input,
-				batchProof.BatchProof,
+				tierProof,
 			); err != nil {
 				return nil, err
 			}

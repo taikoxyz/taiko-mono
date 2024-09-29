@@ -298,6 +298,9 @@ var (
 		{Name: "TaikoData.BlockMetadata", Type: blockMetadataV2ComponentsType},
 		{Name: "TaikoData.Transition", Type: transitionComponentsType},
 	}
+	proveBlocksBatchProofArgs = abi.Arguments{
+		{Name: "TaikoData.TierProof", Type: tierProofComponentsType},
+	}
 )
 
 // Contract ABIs.
@@ -453,6 +456,19 @@ func EncodeProveBlocksInput(
 	}
 
 	return b, nil
+}
+
+// EncodeProveBlocksBatchProof performs the solidity `abi.encode` for the given TaikoL1.proveBlocks batchProof.
+func EncodeProveBlocksBatchProof(
+	tierProof *bindings.TaikoDataTierProof,
+) ([]byte, error) {
+	input, err := proveBlocksBatchProofArgs.Pack(
+		tierProof,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to abi.encode TaikoL1.proveBlocks input item after ontake fork, %w", err)
+	}
+	return input, nil
 }
 
 // UnpackTxListBytes unpacks the input data of a TaikoL1.proposeBlock transaction, and returns the txList bytes.
