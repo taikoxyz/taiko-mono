@@ -50,7 +50,6 @@ func (pb *ProofBuffer) Read(length int) ([]*producer.ProofWithHeader, error) {
 
 	data := make([]*producer.ProofWithHeader, length)
 	copy(data, pb.buffer[:length])
-	pb.buffer = pb.buffer[length:]
 	return data, nil
 }
 
