@@ -309,6 +309,13 @@ func (s *SGXProofProducer) callProverDaemon(
 		return nil, errProofGenerating
 	}
 
+	if output.Data.Status == ErrProofInProgress.Error() {
+		return nil, ErrProofInProgress
+	}
+	if output.Data.Status == StatusRegistered {
+		return nil, ErrRetry
+	}
+
 	// Raiko returns "" as proof when proof type is native,
 	// so we just convert "" to bytes
 	if s.ProofType == ProofTypeCPU {
