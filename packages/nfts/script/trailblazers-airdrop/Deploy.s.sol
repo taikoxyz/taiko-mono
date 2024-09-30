@@ -31,7 +31,7 @@ contract DeployScript is Script {
 
     // rewards token
     ERC20Upgradeable public erc20;
-
+    ERC20Mock public mockERC20;
     // start and end times for the claim
     uint64 constant CLAIM_DURATION = 1 days;
     uint64 public CLAIM_START = uint64(block.timestamp);
@@ -50,11 +50,10 @@ contract DeployScript is Script {
         if (block.chainid != 167_000) {
             // not mainnet, create mock contracts
             blacklist = new MockBlacklist();
-            ERC20Mock mockERC20 = new ERC20Mock();
+            mockERC20 = new ERC20Mock();
             // mint the necessary funds
-            mockERC20.mint(address(airdrop), TOTAL_AVAILABLE_FUNDS);
             erc20 = ERC20Upgradeable(address(mockERC20));
-        } else { }
+        }
 
         vm.stopBroadcast();
     }
@@ -77,6 +76,11 @@ contract DeployScript is Script {
         );
 
         airdrop = ERC20Airdrop(proxy);
+
+        // mint the necessary funds on hekla
+        if (block.chainid != 167_000) {
+            mockERC20.mint(address(airdrop), TOTAL_AVAILABLE_FUNDS);
+        }
 
         console.log("Deployed ERC20Airdrop to:", address(airdrop));
 
