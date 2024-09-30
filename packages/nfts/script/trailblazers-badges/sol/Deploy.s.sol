@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import { UtilsScript, MockBlacklist } from "./Utils.s.sol";
+import { UtilsScript } from "./Utils.s.sol";
 import { Script, console } from "forge-std/src/Script.sol";
 import { Merkle } from "murky/Merkle.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -48,12 +48,6 @@ contract DeployScript is Script {
         require(owner != address(0), "Owner must be specified");
 
         vm.startBroadcast(deployerPrivateKey);
-
-        if (block.chainid == 167_000) {
-            // mainnet, use existing blacklist
-        } else {
-            blacklist = new MockBlacklist();
-        }
 
         // deploy token with empty root
         address impl = address(new TrailblazersBadges());

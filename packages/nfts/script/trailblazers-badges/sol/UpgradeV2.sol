@@ -14,7 +14,7 @@ contract UpgradeV2 is Script {
     uint256 public deployerPrivateKey;
     address public deployerAddress;
 
-    address s1Token = 0xa20a8856e00F5ad024a55A663F06DCc419FFc4d5;
+    address tokenV1 = 0xa20a8856e00F5ad024a55A663F06DCc419FFc4d5;
     TrailblazersBadges public token;
 
     function setUp() public {
@@ -27,7 +27,7 @@ contract UpgradeV2 is Script {
     }
 
     function run() public {
-        token = TrailblazersBadges(s1Token);
+        token = TrailblazersBadges(tokenV1);
         vm.startBroadcast(deployerPrivateKey);
 
         token.upgradeToAndCall(
