@@ -258,7 +258,13 @@ const ABI = [
 
 function alertOrg(notificationClient, message) {
   notificationClient.send({
-    channelAlias: "discord_blocks",
+    channelAlias: "discord_bridging",
+    subject: "🚨 TaikoL1: BlockProposed Alert",
+    message,
+  });
+
+  notificationClient.send({
+    channelAlias: "tg_taiko_guardians",
     subject: "🚨 TaikoL1: BlockProposed Alert",
     message,
   });
@@ -340,7 +346,7 @@ exports.handler = async function (event, context) {
 
   const currentBlockNumber = await getLatestBlockNumber(taikoL1Provider);
   const blockTimeInSeconds = await calculateBlockTime(taikoL1Provider);
-  const blocksInFiveMinutes = Math.floor((5 * 60) / blockTimeInSeconds);
+  const blocksInFiveMinutes = Math.floor((15 * 60) / blockTimeInSeconds);
 
   const fromBlock = currentBlockNumber - blocksInFiveMinutes;
   const toBlock = currentBlockNumber;
@@ -359,7 +365,7 @@ exports.handler = async function (event, context) {
   if (logs.length === 0) {
     alertOrg(
       notificationClient,
-      `No BlockProposed event detected in the last 5 mins on TaikoL1!`,
+      `No BlockProposed event detected in the last 15 mins on TaikoL1!`,
     );
   }
 

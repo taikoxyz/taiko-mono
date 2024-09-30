@@ -43,6 +43,7 @@ library LibUtils {
 
     error L1_BLOCK_MISMATCH();
     error L1_INVALID_BLOCK_ID();
+    error L1_INVALID_PARAMS();
     error L1_INVALID_GENESIS_HASH();
     error L1_TRANSITION_NOT_FOUND();
     error L1_UNEXPECTED_TRANSITION_ID();
@@ -164,7 +165,8 @@ library LibUtils {
         return _state.transitions[slot][_tid];
     }
 
-    /// @notice This function will revert if the transition is not found.
+    /// @notice This function will revert if the transition is not found. This function will revert
+    /// if the transition is not found.
     /// @dev Retrieves the transition with a given parentHash.
     /// @param _state Current TaikoData.State.
     /// @param _config Actual TaikoData.Config.
@@ -187,6 +189,36 @@ library LibUtils {
         if (tid == 0) revert L1_TRANSITION_NOT_FOUND();
 
         return _state.transitions[slot][tid];
+    }
+
+    /// @notice Gets the state transitions for a batch of block. For transition that doesn't exist,
+    /// the corresponding transition state will be empty.
+    /// @param _state Current TaikoData.State.
+    /// @param _config Actual TaikoData.Config.
+    /// @param _blockIds Id array of the blocks.
+    /// @param _parentHashes Parent hashes of the blocks.
+    /// @return transitions_ The state transition pointer array.
+    function getTransitions(
+        TaikoData.State storage _state,
+        TaikoData.Config memory _config,
+        uint64[] calldata _blockIds,
+        bytes32[] calldata _parentHashes
+    )
+        internal
+        view
+        returns (TaikoData.TransitionState[] memory transitions_)
+    {
+        if (_blockIds.length == 0 || _blockIds.length != _parentHashes.length) {
+            revert L1_INVALID_PARAMS();
+        }
+        transitions_ = new TaikoData.TransitionState[](_blockIds.length);
+        for (uint256 i; i < _blockIds.length; ++i) {
+            (TaikoData.BlockV2 storage blk, uint64 slot) = getBlock(_state, _config, _blockIds[i]);
+            uint24 tid = getTransitionId(_state, blk, slot, _parentHashes[i]);
+            if (tid != 0) {
+                transitions_[i] = _state.transitions[slot][tid];
+            }
+        }
     }
 
     /// @dev Retrieves the ID of the transition with a given parentHash.
