@@ -380,4 +380,59 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
 
         vm.stopPrank();
     }
+
+    // Test `verifyBatchProof()` happy path
+    function test_verifyBatchProofs() public {
+        // setup instances
+        address newInstance = address(0x6Aa1108c1903E3AeF092FF46E4C506fD3ac567c0);
+        address[] memory instances = new address[](1);
+        instances[0] = newInstance;
+        uint256[] memory ids = sv.addInstances(instances);
+        console.log("Instance ID: ", ids[0]);
+
+        vm.startPrank(address(L1));
+
+        // Context
+        IVerifier.ContextV2[] memory ctxs = new IVerifier.ContextV2[](2);
+        ctxs[0] = IVerifier.ContextV2({
+            metaHash: 0x207b2833fb6d804612da24d8785b870a19c7a3f25fa4aaeb9799cd442d65b031,
+            blobHash: 0x01354e8725e60ad91b32ec4ab19158572a0a5b06b2d4d83f6269c9a7d068f49b,
+            prover: 0x70997970C51812dc3A010C7d01b50e0d17dc79C8,
+            msgSender: 0x70997970C51812dc3A010C7d01b50e0d17dc79C8,
+            blockId: 393_333,
+            isContesting: false,
+            blobUsed: true,
+            tran: TaikoData.Transition({
+                parentHash: 0xce519622a374dc014c005d7857de26d952751a9067d3e23ffe14da247aa8a399,
+                blockHash: 0x941d557653da2214cbf3d30af8d9cadbc7b5f77b6c3e48bca548eba04eb9cd79,
+                stateRoot: 0x4203a2fd98d268d272acb24d91e25055a779b443ff3e732f2cee7abcf639b5e9,
+                graffiti: 0x8008500000000000000000000000000000000000000000000000000000000000
+            })
+        });
+        ctxs[1] = IVerifier.ContextV2({
+            metaHash: 0x946ba1a9c02fc2f01da49e31cb5be83c118193d0389987c6be616ce76426b44d,
+            blobHash: 0x01abac8c1fb54f87ff7b0cbf14259b9d5ee7a8de458c587dd6eda43ef8354b4f,
+            prover: 0x70997970C51812dc3A010C7d01b50e0d17dc79C8,
+            msgSender: 0x70997970C51812dc3A010C7d01b50e0d17dc79C8,
+            blockId: 393_334,
+            isContesting: false,
+            blobUsed: true,
+            tran: TaikoData.Transition({
+                parentHash: 0x941d557653da2214cbf3d30af8d9cadbc7b5f77b6c3e48bca548eba04eb9cd79,
+                blockHash: 0xc0dad38646ab264be30995b7b7fd02db65e7115126fb52bfad94c0fc9572287c,
+                stateRoot: 0x222061caab95b6bd0f8dd398088030979efbe56e282cd566f7abd77838558eb9,
+                graffiti: 0x8008500000000000000000000000000000000000000000000000000000000000
+            })
+        });
+
+        // TierProof
+        bytes memory data =
+            hex"000000016aa1108c1903e3aef092ff46e4c506fd3ac567c06aa1108c1903e3aef092ff46e4c506fd3ac567c0dda91ea274c36678a0680bae65216b40bd935e646b6364ea669a6de9b58e0cd11e1c1b86765f98ac5a3113fdc08296aa663378e8e2e44cf08db7a4ba6e5f00f21b";
+        TaikoData.TierProof memory proof = TaikoData.TierProof({ tier: 0, data: data });
+
+        // `verifyProof()`
+        sv.verifyBatchProof(ctxs, proof);
+
+        vm.stopPrank();
+    }
 }

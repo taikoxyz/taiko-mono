@@ -7,36 +7,24 @@ const ABI = [
     inputs: [
       {
         indexed: true,
-        internalType: "uint64",
-        name: "chainId",
-        type: "uint64",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "ctoken",
-        type: "address",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "btoken",
-        type: "address",
+        internalType: "uint256",
+        name: "operationId",
+        type: "uint256",
       },
       {
         indexed: false,
-        internalType: "string",
-        name: "ctokenSymbol",
-        type: "string",
+        internalType: "uint256",
+        name: "approvalBits",
+        type: "uint256",
       },
       {
         indexed: false,
-        internalType: "string",
-        name: "ctokenName",
-        type: "string",
+        internalType: "bool",
+        name: "minGuardiansReached",
+        type: "bool",
       },
     ],
-    name: "BridgedTokenDeployed",
+    name: "Approved",
     type: "event",
   },
 ];
@@ -44,7 +32,7 @@ const ABI = [
 function alertOrg(notificationClient, message) {
   notificationClient.send({
     channelAlias: "discord_bridging",
-    subject: "ERC1155Vault BridgedTokenDeployed Event Count",
+    subject: "⚠️ GuardianProver: Approved Count",
     message,
   });
 }
@@ -68,9 +56,9 @@ async function calculateBlockTime(provider) {
 async function calculateBlockRange(provider) {
   const currentBlockNumber = await getLatestBlockNumber(provider);
   const blockTimeInSeconds = await calculateBlockTime(provider);
-  const blocksIn24Hours = Math.floor((24 * 60 * 60) / blockTimeInSeconds);
+  const blocksInOneHour = Math.floor((15 * 60) / blockTimeInSeconds);
 
-  const fromBlock = currentBlockNumber - blocksIn24Hours;
+  const fromBlock = currentBlockNumber - blocksInOneHour;
   const toBlock = currentBlockNumber;
 
   console.log(`Calculated block range: from ${fromBlock} to ${toBlock}`);
@@ -78,7 +66,7 @@ async function calculateBlockRange(provider) {
   return { fromBlock, toBlock };
 }
 
-async function fetchLogs(
+async function fetchLogsFromL1(
   eventName,
   fromBlock,
   toBlock,
@@ -103,7 +91,7 @@ async function fetchLogs(
       return parsedLog;
     });
   } catch (error) {
-    console.error("Error fetching logs:", error);
+    console.error("Error fetching L1 logs:", error);
     return [];
   }
 }
@@ -121,41 +109,31 @@ function createProvider(apiKey, apiSecret, relayerApiKey, relayerApiSecret) {
 
 exports.handler = async function (event, context) {
   const { notificationClient } = context;
-  const { apiKey, apiSecret, l1ApiKey, l1ApiSecret, l2ApiKey, l2ApiSecret } =
-    event.secrets;
+  const { apiKey, apiSecret, taikoL1ApiKey, taikoL1ApiSecret } = event.secrets;
 
-  const l1Provider = createProvider(apiKey, apiSecret, l1ApiKey, l1ApiSecret);
-  const l2Provider = createProvider(apiKey, apiSecret, l2ApiKey, l2ApiSecret);
-
-  const { fromBlock: l1FromBlock, toBlock: l1ToBlock } =
-    await calculateBlockRange(l1Provider);
-  const { fromBlock: l2FromBlock, toBlock: l2ToBlock } =
-    await calculateBlockRange(l2Provider);
-
-  const l1Logs = await fetchLogs(
-    "BridgedTokenDeployed",
-    l1FromBlock,
-    l1ToBlock,
-    "0xaf145913EA4a56BE22E120ED9C24589659881702",
-    ABI,
-    l1Provider,
+  const taikoL1Provider = createProvider(
+    apiKey,
+    apiSecret,
+    taikoL1ApiKey,
+    taikoL1ApiSecret,
   );
 
-  const l2Logs = await fetchLogs(
-    "BridgedTokenDeployed",
-    l2FromBlock,
-    l2ToBlock,
-    "0x1670000000000000000000000000000000000004",
+  const { fromBlock, toBlock } = await calculateBlockRange(taikoL1Provider);
+
+  const logs = await fetchLogsFromL1(
+    "Approved",
+    fromBlock,
+    toBlock,
+    "0xE3D777143Ea25A6E031d1e921F396750885f43aC",
     ABI,
-    l2Provider,
+    taikoL1Provider,
   );
 
-  const l1EventCount = l1Logs.length;
-  const l2EventCount = l2Logs.length;
-
-  if (l1EventCount > 0 || l2EventCount > 0) {
-    const alertMessage = `Detected ${l1EventCount} ERC1155Vault BridgedTokenDeployed events on L1 and ${l2EventCount} events on L2 in the last 24 hours!`;
-    alertOrg(notificationClient, alertMessage);
+  if (logs.length > 0) {
+    alertOrg(
+      notificationClient,
+      `@taiko|guardians Detected ${logs.length} Approved events in the last 15 mins on Guardian!`,
+    );
   }
 
   return true;

@@ -89,7 +89,7 @@ If the proposed block has a **valid** or **invalid** `txList`, the `prover`:
 
 ## Taiko Node API
 
-Using a Taiko node should feel the same as using any other L1 node, because we essentially re-use the L1 client and make a few backwards-compatible modifications. You can first read about the architecture of Taiko nodes [here](/core-concepts/taiko-nodes).
+Using a Taiko node should feel the same as using any other L1 node, because we essentially re-use the L1 client and make a few backwards-compatible modifications.
 
 ### Differences from a Geth client
 
