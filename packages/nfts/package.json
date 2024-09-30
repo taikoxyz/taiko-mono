@@ -36,7 +36,8 @@
     "tbz:command:hekla": "forge script script/trailblazers-badges/sol/RunCommand.s.sol --rpc-url https://rpc.hekla.taiko.xyz --broadcast   --gas-estimate-multiplier 200",
     "taikoon:deploy:hekla": "forge clean && pnpm compile && forge script script/taikoon/sol/Deploy.s.sol --rpc-url https://rpc.hekla.taiko.xyz --broadcast   --gas-estimate-multiplier 200",
     "pfp:deploy:hekla": "forge clean && pnpm compile && forge script script/profile/Deploy.s.sol --rpc-url https://rpc.hekla.taiko.xyz --broadcast   --gas-estimate-multiplier 200",
-    "pfp:deploy:mainnet": "forge clean && pnpm compile && forge script script/profile/Deploy.s.sol --rpc-url https://rpc.mainnet.taiko.xyz --broadcast   --gas-estimate-multiplier 200"
+    "pfp:deploy:mainnet": "forge clean && pnpm compile && forge script script/profile/Deploy.s.sol --rpc-url https://rpc.mainnet.taiko.xyz --broadcast   --gas-estimate-multiplier 200",
+    "tbz:airdrop:hekla": "forge clean && pnpm compile && forge script script/trailblazers-airdrop/Deploy.s.sol --rpc-url https://rpc.hekla.taiko.xyz --broadcast   --gas-estimate-multiplier 200"
   },
   "devDependencies": {
     "@types/node": "^20.11.30",
@@ -53,7 +54,8 @@
     "solc": "0.8.24",
     "solhint": "^4.5.4",
     "ts-node": "^10.9.2",
-    "typescript": "^5.2.2"
+    "typescript": "^5.2.2",
+    "@taiko/protocol": "workspace:*"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.574.0",

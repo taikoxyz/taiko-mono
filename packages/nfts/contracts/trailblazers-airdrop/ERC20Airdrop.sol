@@ -4,85 +4,82 @@ pragma solidity 0.8.24;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/governance/utils/IVotes.sol";
-import "./MerkleWhitelist.sol";
-import "./AirdropVault.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@taiko/blacklist/IMinimalBlacklist.sol";
+
+import "./MerkleClaimable.sol";
 
 /// @title ERC20Airdrop
 /// @notice Contract for managing Taiko token airdrop for eligible users.
 /// @custom:security-contact security@taiko.xyz
-contract ERC20Airdrop is MerkleWhitelist {
+contract ERC20Airdrop is MerkleClaimable, ReentrancyGuardUpgradeable, PausableUpgradeable {
     using SafeERC20 for IERC20;
 
     /// @notice The address of the Taiko token contract.
     IERC20 public token;
-    /// @notice The address of the AirdropVault contract.
-    AirdropVault public vault;
-    /// @notice The start time of the claim period.
-    uint256 public claimStart;
-    /// @notice The end time of the claim period.
-    uint256 public claimEnd;
+    /// @notice Blackist address
+    IMinimalBlacklist public blacklist;
+
+    /// @notice Event emitted when the blacklist is updated.
+    event BlacklistUpdated(address _blacklist);
+    /// @notice Errors
+
+    error ADDRESS_BLACKLISTED();
 
     uint256[48] private __gap;
 
-    /// @notice Checks if the claim period is ongoing.
-    modifier isClaimPeriod() {
-        if (claimStart > block.timestamp || claimEnd < block.timestamp) revert CLAIM_NOT_ONGOING();
+    /// @notice Modifier to check if the address is not blacklisted.
+    /// @param _address The address to check.
+    modifier isNotBlacklisted(address _address) {
+        if (blacklist.isBlacklisted(_address)) revert ADDRESS_BLACKLISTED();
         _;
     }
-
-    /// @notice Checks if the proof is valid.
-    modifier isProofValid(address _user, bytes32[] calldata _proof, uint256 _amount) {
-        if (!canClaim(_user, _amount)) revert MINTS_EXCEEDED();
-        bytes32 _leaf = leaf(_user, _amount);
-        if (!MerkleProof.verify(_proof, root, _leaf)) revert INVALID_PROOF();
-        _;
-    }
-
-    /// @notice Error definition
-    error REENTRANT_CALL();
-    error CLAIM_NOT_ONGOING();
 
     /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract.
     /// @param _claimStart The start time of the claim period.
     /// @param _claimEnd The end time of the claim period.
     /// @param _merkleRoot The merkle root.
     /// @param _token The address of the token contract.
-    function initialize(
-        uint256 _claimStart,
-        uint256 _claimEnd,
+    function init(
+        address _owner,
+        uint64 _claimStart,
+        uint64 _claimEnd,
         bytes32 _merkleRoot,
         IERC20 _token,
-        IMinimalBlacklist _blacklistAddress,
-        AirdropVault _vault
+        address _blacklist
     )
         external
         initializer
     {
-        __Context_init();
-        __MerkleWhitelist_init(_msgSender(), _merkleRoot, _blacklistAddress);
-        _transferOwnership(_msgSender());
-
+        __ReentrancyGuard_init();
+        __Pausable_init();
+        __MerkleClaimable_init(_claimStart, _claimEnd, _merkleRoot);
+        _transferOwnership(_owner == address(0) ? _msgSender() : _owner);
+        blacklist = IMinimalBlacklist(_blacklist);
         token = _token;
-        claimStart = _claimStart;
-        claimEnd = _claimEnd;
-        vault = _vault;
     }
 
     /// @notice Claims the airdrop for the user.
+    /// @param user The address of the user.
     /// @param amount The amount of tokens to claim.
     /// @param proof The merkle proof.
     function claim(
+        address user,
         uint256 amount,
         bytes32[] calldata proof
     )
         external
-        isClaimPeriod
-        isProofValid(_msgSender(), proof, amount)
+        nonReentrant
+        isNotBlacklisted(user)
     {
-        // Register the proof as claimed
-        _consumeMint(proof, amount);
+        // Check if this can be claimed
+        _verifyClaim(abi.encode(user, amount), proof);
+
         // Transfer the tokens from contract
-        IERC20(token).safeTransferFrom(address(vault), _msgSender(), amount);
+        IERC20(token).transfer(user, amount);
     }
 
     /// @notice Withdraw ERC20 tokens from the Vault
@@ -96,4 +93,7 @@ contract ERC20Airdrop is MerkleWhitelist {
         // Transfer the tokens to owner
         _token.transfer(owner(), _token.balanceOf(address(this)));
     }
+
+    /// @notice Internal method to authorize an upgrade
+    function _authorizeUpgrade(address) internal virtual override onlyOwner { }
 }

@@ -7,7 +7,6 @@ import { Merkle } from "murky/Merkle.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { TrailblazersBadges } from "../../contracts/trailblazers-badges/TrailblazersBadges.sol";
 import { IMinimalBlacklist } from "@taiko/blacklist/IMinimalBlacklist.sol";
-import { AirdropVault } from "../../contracts/trailblazers-airdrop/AirdropVault.sol";
 import { ERC20Airdrop } from "../../contracts/trailblazers-airdrop/ERC20Airdrop.sol";
 import { ERC20Mock } from "../../test/util/MockTokens.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
@@ -19,10 +18,10 @@ contract DeployScript is Script {
     uint256 public deployerPrivateKey;
     address public deployerAddress;
 
+    // only used for production
     IMinimalBlacklist blacklist = IMinimalBlacklist(0xe61E9034b5633977eC98E302b33e321e8140F105);
 
     ERC20Airdrop public airdrop;
-    AirdropVault public vault;
     uint256 constant TOTAL_AVAILABLE_FUNDS = 1000 ether;
 
     uint256 constant CLAIM_AMOUNT = 10 ether;
@@ -34,9 +33,9 @@ contract DeployScript is Script {
     ERC20Upgradeable public erc20;
 
     // start and end times for the claim
-    uint256 constant CLAIM_DURATION = 1 days;
-    uint256 public CLAIM_START = block.timestamp;
-    uint256 public CLAIM_END = CLAIM_START + CLAIM_DURATION;
+    uint64 constant CLAIM_DURATION = 1 days;
+    uint64 public CLAIM_START = uint64(block.timestamp);
+    uint64 public CLAIM_END = CLAIM_START + CLAIM_DURATION;
 
     function setUp() public {
         utils = new UtilsScript();
@@ -52,15 +51,10 @@ contract DeployScript is Script {
             // not mainnet, create mock contracts
             blacklist = new MockBlacklist();
             ERC20Mock mockERC20 = new ERC20Mock();
-            vault = new AirdropVault(mockERC20);
             // mint the necessary funds
-            mockERC20.mint(address(vault), TOTAL_AVAILABLE_FUNDS);
+            mockERC20.mint(address(airdrop), TOTAL_AVAILABLE_FUNDS);
             erc20 = ERC20Upgradeable(address(mockERC20));
-        } else {
-            // deploy the mainnet vault
-            vault = new AirdropVault(erc20);
-        }
-        console.log("Deployed AirdropVault to:", address(vault));
+        } else { }
 
         vm.stopBroadcast();
     }
@@ -76,8 +70,8 @@ contract DeployScript is Script {
             new ERC1967Proxy(
                 impl,
                 abi.encodeCall(
-                    ERC20Airdrop.initialize,
-                    (CLAIM_START, CLAIM_END, merkleRoot, erc20, blacklist, vault)
+                    ERC20Airdrop.init,
+                    (deployerAddress, CLAIM_START, CLAIM_END, merkleRoot, erc20, address(blacklist))
                 )
             )
         );
@@ -86,13 +80,8 @@ contract DeployScript is Script {
 
         console.log("Deployed ERC20Airdrop to:", address(airdrop));
 
-        vault.approveAirdropContractAsSpender(address(airdrop), TOTAL_AVAILABLE_FUNDS);
-
-        console.log("Approved AirdropVault to spend", TOTAL_AVAILABLE_FUNDS, "to Airdrop contract");
         vm.serializeBytes32(jsonRoot, "MerkleRoot", merkleRoot);
-        vm.serializeAddress(jsonRoot, "ERC20Airdrop", address(airdrop));
-
-        string memory finalJson = vm.serializeAddress(jsonRoot, "AirdropVault", address(vault));
+        string memory finalJson = vm.serializeAddress(jsonRoot, "ERC20Airdrop", address(airdrop));
         vm.writeJson(finalJson, jsonLocation);
 
         vm.stopBroadcast();

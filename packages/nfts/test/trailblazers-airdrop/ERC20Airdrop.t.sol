@@ -3,7 +3,6 @@ pragma solidity 0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
 
-import { AirdropVault } from "../../contracts/trailblazers-airdrop/AirdropVault.sol";
 import { ERC20Airdrop } from "../../contracts/trailblazers-airdrop/ERC20Airdrop.sol";
 import { Merkle } from "murky/Merkle.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -19,10 +18,16 @@ contract ERC20AirdropTest is Test {
 
     address public owner = vm.addr(0x5);
 
-    address[3] public minters = [vm.addr(0x1), vm.addr(0x2), vm.addr(0x3)];
-    bytes32[] public leaves = new bytes32[](minters.length);
+    address[3] public minters = [
+        vm.addr(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80),
+        vm.addr(0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d),
+        vm.addr(0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a)
+    ];
 
-    uint256 constant BADGE_ID = 5;
+    bytes32[] public leaves = [
+        bytes32(0xbe00dd3c5d43551e03bf9a60316bee19ede94bf34486c39398c4f9f3b309d7a3),
+        bytes32(0xa097cea9c873bd65b34c8d7d543e90ac1e18e5ec72c17cd95dedd0b52f02022e)
+    ];
 
     Merkle tree = new Merkle();
 
@@ -30,35 +35,30 @@ contract ERC20AirdropTest is Test {
     uint256 mintSignerPk;
 
     ///////////////////////////////
-    uint256 constant CLAIM_START = 100;
-    uint256 constant CLAIM_END = 200;
+    uint64 constant CLAIM_START = 100;
+    uint64 constant CLAIM_END = 200;
 
     ERC20Mock public erc20;
 
     MockBlacklist public blacklist;
 
-    AirdropVault public vault;
-
     uint256 constant TOTAL_AVAILABLE_FUNDS = 1000 ether;
 
-    uint256 constant CLAIM_AMOUNT = 10 ether;
+    uint256 constant CLAIM_AMOUNT = 1 ether;
 
     function setUp() public {
         utils = new UtilsScript();
         utils.setUp();
         // create whitelist merkle tree
         vm.startBroadcast(owner);
-        bytes32 root = tree.getRoot(leaves);
+
+        // mock tree
+        bytes32 merkleRoot = tree.getRoot(leaves);
 
         // deploy supplementary contracts
         erc20 = new ERC20Mock();
 
         blacklist = new MockBlacklist();
-
-        vault = new AirdropVault(erc20);
-
-        // fund the vault
-        erc20.mint(address(vault), TOTAL_AVAILABLE_FUNDS);
 
         // deploy airdrop with empty root
         address impl = address(new ERC20Airdrop());
@@ -66,31 +66,18 @@ contract ERC20AirdropTest is Test {
             new ERC1967Proxy(
                 impl,
                 abi.encodeCall(
-                    ERC20Airdrop.initialize, (CLAIM_START, CLAIM_END, root, erc20, blacklist, vault)
+                    ERC20Airdrop.init,
+                    (owner, CLAIM_START, CLAIM_END, merkleRoot, erc20, address(blacklist))
                 )
             )
         );
 
         airdrop = ERC20Airdrop(proxy);
 
-        // update the merkle tree
-        for (uint256 i = 0; i < minters.length; i++) {
-            leaves[i] = airdrop.leaf(minters[i], CLAIM_AMOUNT);
-        }
-        // update the root
-        root = tree.getRoot(leaves);
-        airdrop.updateRoot(root);
-
-        // authorize the airdrop to interact with the vault
-        vault.approveAirdropContractAsSpender(address(airdrop), TOTAL_AVAILABLE_FUNDS);
+        // fund the airdrop contract
+        erc20.mint(address(airdrop), TOTAL_AVAILABLE_FUNDS);
 
         vm.stopBroadcast();
-    }
-
-    function test_canClaim() public view {
-        for (uint256 i = 0; i < minters.length; i++) {
-            assertTrue(airdrop.canClaim(minters[i], CLAIM_AMOUNT));
-        }
     }
 
     function test_revert_claim_beforeClaimStart() public {
@@ -101,7 +88,7 @@ contract ERC20AirdropTest is Test {
 
         vm.prank(user);
         vm.expectRevert();
-        airdrop.claim(CLAIM_AMOUNT, proof);
+        airdrop.claim(user, CLAIM_AMOUNT, proof);
     }
 
     function test_revert_claim_afterClaimEnd() public {
@@ -112,7 +99,7 @@ contract ERC20AirdropTest is Test {
 
         vm.prank(user);
         vm.expectRevert();
-        airdrop.claim(CLAIM_AMOUNT, proof);
+        airdrop.claim(user, CLAIM_AMOUNT, proof);
     }
 
     function test_claim() public {
@@ -121,14 +108,11 @@ contract ERC20AirdropTest is Test {
 
         bytes32[] memory proof = tree.getProof(leaves, 0);
 
-        assertTrue(airdrop.canClaim(user, CLAIM_AMOUNT));
-
         vm.prank(user);
-        airdrop.claim(CLAIM_AMOUNT, proof);
+        airdrop.claim(user, CLAIM_AMOUNT, proof);
 
         assertEq(erc20.balanceOf(user), CLAIM_AMOUNT);
-        assertEq(erc20.balanceOf(address(vault)), TOTAL_AVAILABLE_FUNDS - CLAIM_AMOUNT);
-        assertFalse(airdrop.canClaim(user, CLAIM_AMOUNT));
+        assertEq(erc20.balanceOf(address(airdrop)), TOTAL_AVAILABLE_FUNDS - CLAIM_AMOUNT);
     }
 
     function test_revert_claim_twice() public {
@@ -137,11 +121,9 @@ contract ERC20AirdropTest is Test {
 
         bytes32[] memory proof = tree.getProof(leaves, 0);
 
-        assertFalse(airdrop.canClaim(user, CLAIM_AMOUNT));
-
         vm.prank(user);
         vm.expectRevert();
-        airdrop.claim(CLAIM_AMOUNT, proof);
+        airdrop.claim(user, CLAIM_AMOUNT, proof);
     }
 
     function test_revert_blacklisted_mint() public {
@@ -154,6 +136,6 @@ contract ERC20AirdropTest is Test {
 
         vm.prank(user);
         vm.expectRevert();
-        airdrop.claim(CLAIM_AMOUNT, proof);
+        airdrop.claim(user, CLAIM_AMOUNT, proof);
     }
 }
