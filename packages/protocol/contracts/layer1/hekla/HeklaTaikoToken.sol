@@ -7,9 +7,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpg
 import "../../shared/common/EssentialContract.sol";
 
 /// @title HeklaTaikoToken
-/// @notice The HeklaTaikoToken (TTKOh), in the protocol is used for prover collateral
-/// in the form of bonds. It is an ERC20 token with 18 decimal places of
-/// precision.
+/// @notice Taiko token for Taiko Hekla testnet.
 /// @dev Labeled in AddressResolver as "taiko_token".
 /// @dev Due to historical reasons, the Taiko Token on Hekla has a different storage layout compared
 /// to the mainnet token contract. Therefore, we need to maintain this file.
@@ -44,10 +42,6 @@ contract HeklaTaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20Vo
 
         // Mint 1 billion tokens
         _mint(_recipient, 1_000_000_000 ether);
-    }
-
-    function symbol() public pure override returns (string memory) {
-        return "TAIKO";
     }
 
     /// @notice Burns tokens from the specified address.
@@ -87,6 +81,14 @@ contract HeklaTaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20Vo
     {
         if (_to == address(this)) revert TKO_INVALID_ADDR();
         return super.transferFrom(_from, _to, _amount);
+    }
+
+    function name() public pure override returns (string memory) {
+        return "Taiko Token";
+    }
+
+    function symbol() public pure override returns (string memory) {
+        return "TAIKO";
     }
 
     function _beforeTokenTransfer(
