@@ -266,7 +266,7 @@ func (s *SGXProofProducer) requestBatchProof(
 	req, err := http.NewRequestWithContext(
 		ctx,
 		"POST",
-		s.RaikoHostEndpoint+"/v3/proof/aggregate",
+		s.RaikoHostEndpoint+"/v3/proof",
 		bytes.NewBuffer(jsonValue),
 	)
 	if err != nil {
