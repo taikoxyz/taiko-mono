@@ -18,6 +18,7 @@ type Submitter interface {
 	AggregateProofs(ctx context.Context) error
 	Producer() proofProducer.ProofProducer
 	Tier() uint16
+	BufferSize() uint64
 }
 
 // Contester is the interface for contesting proofs of the L2 blocks.

@@ -491,3 +491,8 @@ func (s *ProofSubmitter) Producer() proofProducer.ProofProducer {
 func (s *ProofSubmitter) Tier() uint16 {
 	return s.proofProducer.Tier()
 }
+
+// BufferSize returns the size of the proof buffer.
+func (s *ProofSubmitter) BufferSize() uint64 {
+	return s.proofBuffer.MaxLength
+}

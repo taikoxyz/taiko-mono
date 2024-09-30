@@ -314,7 +314,7 @@ func (s *SGXProofProducer) requestBatchProof(
 	if output.Data.Status == StatusRegistered {
 		return nil, ErrRetry
 	}
-	
+
 	if len(output.Data.Proof.Proof) == 0 {
 		return nil, errEmptyProof
 	}
