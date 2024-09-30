@@ -10,7 +10,9 @@ import "../../shared/common/EssentialContract.sol";
 /// @notice The HeklaTaikoToken (TTKOh), in the protocol is used for prover collateral
 /// in the form of bonds. It is an ERC20 token with 18 decimal places of
 /// precision.
-/// @dev Labeled in AddressResolver as "taiko_token"
+/// @dev Labeled in AddressResolver as "taiko_token".
+/// @dev Due to historical reasons, the Taiko Token on Hekla has a different storage layout compared
+/// to the mainnet token contract. Therefore, we need to maintain this file.
 /// @custom:security-contact security@taiko.xyz
 contract HeklaTaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUpgradeable {
     uint256[50] private __gap;
