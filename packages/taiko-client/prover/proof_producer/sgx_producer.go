@@ -397,8 +397,8 @@ func (s *SGXProofProducer) requestProof(
 		return nil, err
 	}
 
-	if len(output.ErrorMessage) > 0 {
-		return nil, fmt.Errorf("failed to get proof, msg: %s", output.ErrorMessage)
+	if len(output.ErrorMessage) > 0 || len(output.Error) > 0 {
+		return nil, fmt.Errorf("failed to get proof,err: %s, msg: %s", output.Error, output.ErrorMessage)
 	}
 
 	return &output, nil

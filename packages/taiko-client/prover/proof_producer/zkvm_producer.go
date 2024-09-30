@@ -37,6 +37,7 @@ var (
 type RaikoRequestProofBodyResponseV2 struct {
 	Data         *RaikoProofDataV2 `json:"data"`
 	ErrorMessage string            `json:"message"`
+	Error        string            `json:"error"`
 }
 
 type RaikoProofDataV2 struct {
@@ -235,8 +236,8 @@ func (s *ZKvmProofProducer) requestProof(
 		return nil, err
 	}
 
-	if len(output.ErrorMessage) > 0 {
-		return nil, fmt.Errorf("failed to get proof, msg: %s", output.ErrorMessage)
+	if len(output.ErrorMessage) > 0 || len(output.Error) > 0 {
+		return nil, fmt.Errorf("failed to get proof,err: %s, msg: %s", output.Error, output.ErrorMessage)
 	}
 
 	return &output, nil
