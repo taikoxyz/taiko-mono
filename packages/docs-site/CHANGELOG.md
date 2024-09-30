@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.12.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.12.0...docs-site-v1.12.1) (2024-09-30)
+
+
+### Chores
+
+* **docs-site:** fix broken diagram and delete self-direction link ([#18180](https://github.com/taikoxyz/taiko-mono/issues/18180)) ([2e20c28](https://github.com/taikoxyz/taiko-mono/commit/2e20c28e1ac482d3f6bb8ac5e182a43675853166))
+
+
+### Documentation
+
+* **docs-site:** add warning to proposer page and update banner ([#18186](https://github.com/taikoxyz/taiko-mono/issues/18186)) ([b02ea92](https://github.com/taikoxyz/taiko-mono/commit/b02ea92af01b37670c2545dbd4e332ab4803ae03))
+
 ## [1.12.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.11.9...docs-site-v1.12.0) (2024-09-19)
 
 
