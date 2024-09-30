@@ -44,6 +44,10 @@ contract HeklaTaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20Vo
         _mint(_recipient, 1_000_000_000 ether);
     }
 
+    function symbol() public pure override returns (string memory) {
+        return "TAIKO";
+    }
+
     /// @notice Burns tokens from the specified address.
     /// @param _from The address to burn tokens from.
     /// @param _amount The amount of tokens to burn.
