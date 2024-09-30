@@ -184,7 +184,10 @@ func (p *Proposer) Close(_ context.Context) {
 
 // fetchPoolContent fetches the transaction pool content from L2 execution engine.
 func (p *Proposer) fetchPoolContent(filterPoolContent bool) ([]types.Transactions, error) {
-	minTip := p.MinTip
+	var (
+		minTip  = p.MinTip
+		startAt = time.Now()
+	)
 	// If `--epoch.allowZeroInterval` flag is set, allow proposing zero tip transactions once when
 	// the total epochs number is divisible by the flag value.
 	if p.AllowZeroInterval > 0 && p.totalEpochs%p.AllowZeroInterval == 0 {
@@ -205,6 +208,8 @@ func (p *Proposer) fetchPoolContent(filterPoolContent bool) ([]types.Transaction
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch transaction pool content: %w", err)
 	}
+
+	metrics.ProposerPoolContentFetchTime.Set(time.Since(startAt).Seconds())
 
 	txLists := []types.Transactions{}
 	for i, txs := range preBuiltTxList {
