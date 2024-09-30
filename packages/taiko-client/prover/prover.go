@@ -62,6 +62,7 @@ type Prover struct {
 
 	assignmentExpiredCh chan metadata.TaikoBlockMetaData
 	proveNotify         chan struct{}
+	aggregationNotify   chan struct{}
 
 	// Proof related channels
 	proofSubmissionCh      chan *proofProducer.ProofRequestBody
@@ -132,6 +133,7 @@ func InitFromConfig(
 	p.proofSubmissionCh = make(chan *proofProducer.ProofRequestBody, p.cfg.Capacity)
 	p.proofContestCh = make(chan *proofProducer.ContestRequestBody, p.cfg.Capacity)
 	p.proveNotify = make(chan struct{}, 1)
+	p.aggregationNotify = make(chan struct{}, 1)
 
 	if err := p.initL1Current(cfg.StartingBlockID); err != nil {
 		return fmt.Errorf("initialize L1 current cursor error: %w", err)
@@ -272,6 +274,14 @@ func (p *Prover) eventLoop() {
 		default:
 		}
 	}
+	// reqAggregation requests performing a aggregate operation, won't block
+	// if we are already aggregating.
+	reqAggregation := func() {
+		select {
+		case p.aggregationNotify <- struct{}{}:
+		default:
+		}
+	}
 	// Call reqProving() right away to catch up with the latest state.
 	reqProving()
 
@@ -280,6 +290,9 @@ func (p *Prover) eventLoop() {
 	// fetching the proposed blocks.
 	forceProvingTicker := time.NewTicker(15 * time.Second)
 	defer forceProvingTicker.Stop()
+
+	forceAggregatingTicker := time.NewTicker(p.cfg.ProveInterval)
+	defer forceAggregatingTicker.Stop()
 
 	// Channels
 	chBufferSize := p.protocolConfig.BlockMaxProposals
@@ -327,6 +340,10 @@ func (p *Prover) eventLoop() {
 			if err := p.proveOp(); err != nil {
 				log.Error("Prove new blocks error", "error", err)
 			}
+		case <-p.aggregationNotify:
+			if err := p.aggregateOp(); err != nil {
+				log.Error("Aggregate proofs error", "error", err)
+			}
 		case e := <-blockVerifiedCh:
 			p.blockVerifiedHandler.Handle(encoding.BlockVerifiedEventToV2(e))
 		case e := <-transitionProvedCh:
@@ -366,6 +383,8 @@ func (p *Prover) eventLoop() {
 			reqProving()
 		case <-forceProvingTicker.C:
 			reqProving()
+		case <-forceProvingTicker.C:
+			reqAggregation()
 		}
 	}
 }
@@ -390,6 +409,23 @@ func (p *Prover) proveOp() error {
 	}
 
 	return iter.Iter()
+}
+
+// aggregateOp aggregates all proofs in buffer.
+func (p *Prover) aggregateOp() error {
+	var wg sync.WaitGroup
+	for _, submitter := range p.proofSubmitters {
+		wg.Add(1)
+		go func(s proofSubmitter.Submitter) {
+			defer wg.Done()
+			err := s.AggregateProofs(p.ctx)
+			log.Error("Failed to aggregate proofs",
+				"error", err,
+				"tier", s.Tier(),
+			)
+		}(submitter)
+	}
+	return nil
 }
 
 // contestProofOp performs a proof contest operation.

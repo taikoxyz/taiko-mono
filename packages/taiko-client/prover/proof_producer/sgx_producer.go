@@ -191,7 +191,7 @@ func (s *SGXProofProducer) requestBatchProof(
 	defer cancel()
 
 	blocks := make([][2]*big.Int, len(blockIDs))
-	for i, _ := range blockIDs {
+	for i := range blockIDs {
 		blocks[i][0] = blockIDs[i]
 	}
 	reqBody := RaikoRequestProofBodyV3{

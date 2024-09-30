@@ -37,24 +37,24 @@ var (
 // ProofSubmitter is responsible requesting proofs for the given L2
 // blocks, and submitting the generated proofs to the TaikoL1 smart contract.
 type ProofSubmitter struct {
-	rpc              *rpc.Client
-	proofProducer    proofProducer.ProofProducer
-	resultCh         chan *proofProducer.ProofWithHeader
-	batchResultCh    chan *proofProducer.BatchProofs
-	anchorValidator  *validator.AnchorTxValidator
-	txBuilder        *transaction.ProveBlockTxBuilder
-	sender           *transaction.Sender
-	proverAddress    common.Address
-	proverSetAddress common.Address
-	taikoL2Address   common.Address
-	graffiti         [32]byte
-	tiers            []*rpc.TierProviderTierWithID
+	rpc               *rpc.Client
+	proofProducer     proofProducer.ProofProducer
+	resultCh          chan *proofProducer.ProofWithHeader
+	batchResultCh     chan *proofProducer.BatchProofs
+	aggregationNotify chan struct{}
+	anchorValidator   *validator.AnchorTxValidator
+	txBuilder         *transaction.ProveBlockTxBuilder
+	sender            *transaction.Sender
+	proverAddress     common.Address
+	proverSetAddress  common.Address
+	taikoL2Address    common.Address
+	graffiti          [32]byte
+	tiers             []*rpc.TierProviderTierWithID
 	// Guardian prover related.
 	isGuardian      bool
 	submissionDelay time.Duration
 	// Batch proof related
-	proofBuffer   *ProofBuffer
-	proveInterval time.Duration
+	proofBuffer *ProofBuffer
 }
 
 // NewProofSubmitter creates a new ProofSubmitter instance.
@@ -63,6 +63,7 @@ func NewProofSubmitter(
 	proofProducer proofProducer.ProofProducer,
 	resultCh chan *proofProducer.ProofWithHeader,
 	batchResultCh chan *proofProducer.BatchProofs,
+	aggregationNotify chan struct{},
 	proverSetAddress common.Address,
 	taikoL2Address common.Address,
 	graffiti string,
@@ -74,7 +75,6 @@ func NewProofSubmitter(
 	isGuardian bool,
 	submissionDelay time.Duration,
 	proofBufferSize uint64,
-	proveInterval time.Duration,
 ) (*ProofSubmitter, error) {
 	anchorValidator, err := validator.New(taikoL2Address, rpcClient.L2.ChainID, rpcClient)
 	if err != nil {
@@ -82,22 +82,22 @@ func NewProofSubmitter(
 	}
 
 	return &ProofSubmitter{
-		rpc:              rpcClient,
-		proofProducer:    proofProducer,
-		resultCh:         resultCh,
-		batchResultCh:    batchResultCh,
-		anchorValidator:  anchorValidator,
-		txBuilder:        builder,
-		sender:           transaction.NewSender(rpcClient, txmgr, privateTxmgr, proverSetAddress, gasLimit),
-		proverAddress:    txmgr.From(),
-		proverSetAddress: proverSetAddress,
-		taikoL2Address:   taikoL2Address,
-		graffiti:         rpc.StringToBytes32(graffiti),
-		tiers:            tiers,
-		isGuardian:       isGuardian,
-		submissionDelay:  submissionDelay,
-		proofBuffer:      NewProofBuffer(proofBufferSize),
-		proveInterval:    proveInterval,
+		rpc:               rpcClient,
+		proofProducer:     proofProducer,
+		resultCh:          resultCh,
+		batchResultCh:     batchResultCh,
+		aggregationNotify: aggregationNotify,
+		anchorValidator:   anchorValidator,
+		txBuilder:         builder,
+		sender:            transaction.NewSender(rpcClient, txmgr, privateTxmgr, proverSetAddress, gasLimit),
+		proverAddress:     txmgr.From(),
+		proverSetAddress:  proverSetAddress,
+		taikoL2Address:    taikoL2Address,
+		graffiti:          rpc.StringToBytes32(graffiti),
+		tiers:             tiers,
+		isGuardian:        isGuardian,
+		submissionDelay:   submissionDelay,
+		proofBuffer:       NewProofBuffer(proofBufferSize),
 	}, nil
 }
 
@@ -159,11 +159,6 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBl
 				log.Error("Failed to request proof, context is canceled", "blockID", opts.BlockID, "error", ctx.Err())
 				return nil
 			}
-			if int(s.proofBuffer.MaxLength) == s.proofBuffer.Len() {
-				if err = s.AggregateProofs(ctx); err != nil {
-					return fmt.Errorf("failed to aggregate proof : %w", err)
-				}
-			}
 			// Check if there is a need to generate proof
 			proofStatus, err := rpc.GetBlockProofStatus(
 				ctx,
@@ -198,7 +193,6 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBl
 				}
 				return fmt.Errorf("failed to request proof (id: %d): %w", meta.GetBlockID(), err)
 			}
-			metrics.ProverQueuedProofCounter.Add(1)
 			if meta.IsOntakeBlock() && s.proofBuffer.MaxLength > 1 {
 				bufferSize, err := s.proofBuffer.Write(result)
 				if err != nil {
@@ -213,13 +207,12 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBl
 					"bufferSize", bufferSize,
 				)
 				if s.proofBuffer.MaxLength == uint64(bufferSize) {
-					if err = s.AggregateProofs(ctx); err != nil {
-						log.Error("failed to aggregate proof", "error", err)
-					}
+					s.aggregationNotify <- struct{}{}
 				}
 			} else {
 				s.resultCh <- result
 			}
+			metrics.ProverQueuedProofCounter.Add(1)
 			return nil
 		},
 		backoff.WithContext(backoff.NewConstantBackOff(proofPollingInterval), ctx),
@@ -448,6 +441,10 @@ func (s *ProofSubmitter) AggregateProofs(ctx context.Context) error {
 	buffer, err := s.proofBuffer.ReadAll()
 	if err != nil {
 		return fmt.Errorf("failed to read proof from buffer: %w", err)
+	}
+	if len(buffer) == 0 {
+		log.Debug("Buffer is empty now, skip aggregating")
+		return nil
 	}
 
 	result, err := s.proofProducer.Aggregate(

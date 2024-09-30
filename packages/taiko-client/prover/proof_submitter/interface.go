@@ -15,6 +15,7 @@ type Submitter interface {
 	RequestProof(ctx context.Context, meta metadata.TaikoBlockMetaData) error
 	SubmitProof(ctx context.Context, proofWithHeader *proofProducer.ProofWithHeader) error
 	BatchSubmitProofs(ctx context.Context, proofsWithHeaders *proofProducer.BatchProofs) error
+	AggregateProofs(ctx context.Context) error
 	Producer() proofProducer.ProofProducer
 	Tier() uint16
 }
