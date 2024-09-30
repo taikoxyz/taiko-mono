@@ -169,9 +169,52 @@ func (s *SGXProofProducer) Aggregate(
 
 // RequestCancel implements the ProofProducer interface to cancel the proof generating progress.
 func (s *SGXProofProducer) RequestCancel(
-	_ context.Context,
-	_ *ProofRequestOptions,
+	ctx context.Context,
+	opts *ProofRequestOptions,
 ) error {
+	reqBody := RaikoRequestProofBody{
+		Type:     s.ProofType,
+		Block:    opts.BlockID,
+		Prover:   opts.ProverAddress.Hex()[2:],
+		Graffiti: opts.Graffiti,
+		SGX: &SGXRequestProofBodyParam{
+			Setup:     false,
+			Bootstrap: false,
+			Prove:     true,
+		},
+	}
+
+	client := &http.Client{}
+
+	jsonValue, err := json.Marshal(reqBody)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequestWithContext(
+		ctx,
+		"POST",
+		s.RaikoHostEndpoint+"/v2/proof/cancel",
+		bytes.NewBuffer(jsonValue),
+	)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if len(s.JWT) > 0 {
+		req.Header.Set("Authorization", "Bearer "+base64.StdEncoding.EncodeToString([]byte(s.JWT)))
+	}
+
+	res, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to cancel requesting proof, statusCode: %d", res.StatusCode)
+	}
+
 	return nil
 }
 

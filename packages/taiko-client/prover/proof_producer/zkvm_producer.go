@@ -114,11 +114,47 @@ func (s *ZKvmProofProducer) RequestCancel(
 
 // Aggregate implements the ProofProducer interface to aggregate a batch of proofs.
 func (s *ZKvmProofProducer) Aggregate(
-	_ context.Context,
-	_ []*ProofWithHeader,
-	_ time.Time,
+	ctx context.Context,
+	items []*ProofWithHeader,
+	requestAt time.Time,
 ) (*BatchProofs, error) {
-	return nil, nil
+	log.Info(
+		"Aggregate zkvm batch proofs from raiko-host service",
+		"items", items,
+		"zkType", s.ZKProofType,
+	)
+	if len(items) == 0 {
+		return nil, ErrInvalidLength
+	}
+
+	blockIDs := make([]*big.Int, len(items))
+	for i, item := range items {
+		blockIDs[i] = item.Meta.GetBlockID()
+	}
+	batchProof, err := s.requestBatchProof(
+		ctx,
+		blockIDs,
+		items[0].Opts.ProverAddress,
+		items[0].Opts.Graffiti,
+		requestAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	switch s.ZKProofType {
+	case ZKProofTypeSP1:
+		metrics.ProverSp1ProofAggregationGeneratedCounter.Add(1)
+	default:
+		metrics.ProverR0ProofAggregationGeneratedCounter.Add(1)
+	}
+
+	return &BatchProofs{
+		Proofs:     items,
+		BatchProof: batchProof,
+		Tier:       s.Tier(),
+		BlockIDs:   blockIDs,
+	}, nil
 }
 
 // callProverDaemon keeps polling the proverd service to get the requested proof.
@@ -292,6 +328,127 @@ func (s *ZKvmProofProducer) requestCancel(
 	}
 
 	return nil
+}
+
+// requestBatchProof poll the proof aggregation service to get the aggregated proof.
+func (s *ZKvmProofProducer) requestBatchProof(
+	ctx context.Context,
+	blockIDs []*big.Int,
+	proverAddress common.Address,
+	graffiti string,
+	requestAt time.Time,
+) ([]byte, error) {
+	var (
+		proof []byte
+	)
+
+	ctx, cancel := rpc.CtxWithTimeoutOrDefault(ctx, s.RaikoRequestTimeout)
+	defer cancel()
+
+	blocks := make([][2]*big.Int, len(blockIDs))
+	for i := range blockIDs {
+		blocks[i][0] = blockIDs[i]
+	}
+	var reqBody RaikoRequestProofBodyV3
+	switch s.ZKProofType {
+	case ZKProofTypeSP1:
+		reqBody = RaikoRequestProofBodyV3{
+			Type:     s.ZKProofType,
+			Blocks:   blocks,
+			Prover:   proverAddress.Hex()[2:],
+			Graffiti: graffiti,
+			SP1: &SP1RequestProofBodyParam{
+				Recursion: "plonk",
+				Prover:    "network",
+			},
+		}
+	default:
+		reqBody = RaikoRequestProofBodyV3{
+			Type:     s.ZKProofType,
+			Blocks:   blocks,
+			Prover:   proverAddress.Hex()[2:],
+			Graffiti: graffiti,
+			RISC0: &RISC0RequestProofBodyParam{
+				Bonsai:       true,
+				Snark:        true,
+				Profile:      false,
+				ExecutionPo2: big.NewInt(20),
+			},
+		}
+	}
+
+	client := &http.Client{}
+
+	jsonValue, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Debug(
+		"Send batch proof generation request",
+		"blockIDs", blockIDs,
+		"zkProofType", s.ZKProofType,
+		"input", string(jsonValue),
+	)
+
+	req, err := http.NewRequestWithContext(
+		ctx,
+		"POST",
+		s.RaikoHostEndpoint+"/v3/proof/aggregate",
+		bytes.NewBuffer(jsonValue),
+	)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if len(s.JWT) > 0 {
+		req.Header.Set("Authorization", "Bearer "+base64.StdEncoding.EncodeToString([]byte(s.JWT)))
+	}
+
+	res, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to request batch proof, ids: %v, statusCode: %d", blockIDs, res.StatusCode)
+	}
+
+	resBytes, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Debug(
+		"Batch proof generation output",
+		"blockIDs", blockIDs,
+		"zkProofType", s.ZKProofType,
+		"output", string(resBytes),
+	)
+
+	var output RaikoRequestProofBodyResponseV2
+	if err := json.Unmarshal(resBytes, &output); err != nil {
+		return nil, err
+	}
+
+	if len(output.ErrorMessage) > 0 {
+		return nil, fmt.Errorf("failed to get batch proof, msg: %s", output.ErrorMessage)
+	}
+
+	if len(output.Data.Proof.Proof) == 0 {
+		return nil, errEmptyProof
+	}
+	proof = common.Hex2Bytes(output.Data.Proof.Proof[2:])
+
+	log.Info(
+		"Batch proof generated",
+		"blockIDs", blockIDs,
+		"time", time.Since(requestAt),
+		"producer", "ZKvmProofProducer",
+	)
+
+	return proof, nil
 }
 
 // Tier implements the ProofProducer interface.
