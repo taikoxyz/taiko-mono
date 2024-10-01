@@ -293,7 +293,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     /// @inheritdoc ITaikoL1
     function getConfig() public pure virtual returns (TaikoData.Config memory) {
         return TaikoData.Config({
-            chainId: LibNetwork.TAIKO_MAINNET,
+            chainId: 167_200,
             blockMaxProposals: 324_000, // = 7200 * 45
             blockRingBufferSize: 360_000, // = 7200 * 50
             maxBlocksToVerify: 16,
@@ -308,7 +308,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
                 minGasExcess: 1_340_000_000,
                 maxGasIssuancePerBlock: 600_000_000 // two minutes
              }),
-            ontakeForkHeight: 374_400 // = 7200 * 52
+            ontakeForkHeight: 2 // = 7200 * 52
          });
     }
 

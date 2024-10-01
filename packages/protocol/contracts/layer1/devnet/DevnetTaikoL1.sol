@@ -10,7 +10,7 @@ contract DevnetTaikoL1 is TaikoL1 {
     /// @inheritdoc ITaikoL1
     function getConfig() public pure override returns (TaikoData.Config memory) {
         return TaikoData.Config({
-            chainId: 167_001,
+            chainId: 167_200,
             blockMaxProposals: 324_000,
             blockRingBufferSize: 360_000,
             maxBlocksToVerify: 16,
