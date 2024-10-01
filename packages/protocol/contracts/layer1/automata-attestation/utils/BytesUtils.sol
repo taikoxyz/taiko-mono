@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BSD 2-Clause License
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.17;
 
 // Inspired by ensdomains/dnssec-oracle - BSD-2-Clause license
 // https://github.com/ensdomains/dnssec-oracle/blob/master/contracts/BytesUtils.sol

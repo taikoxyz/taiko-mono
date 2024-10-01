@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.17;
 
 library LibSharedData {
     /// @dev Struct that represents L2 basefee configurations

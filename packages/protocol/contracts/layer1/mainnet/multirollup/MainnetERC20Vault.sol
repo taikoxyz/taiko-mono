@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.17;
 
 import "../../../shared/tokenvault/ERC20Vault.sol";
 import "../addrcache/SharedAddressCache.sol";

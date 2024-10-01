@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.17;
 
 import "./TaikoData.sol";
 
@@ -81,6 +81,35 @@ interface ITaikoL1 {
     /// @param _blockId The index of the block.
     /// @return The prover's address. If the block is not verified yet, address(0) will be returned.
     function getVerifiedBlockProver(uint64 _blockId) external view returns (address);
+
+    /// @notice Returns information about the last verified block.
+    /// @return blockId_ The last verified block's ID.
+    /// @return blockHash_ The last verified block's blockHash.
+    /// @return stateRoot_ The last verified block's stateRoot.
+    /// @return verifiedAt_ The timestamp this block is verified at.
+    function getLastVerifiedBlock()
+        external
+        view
+        returns (uint64 blockId_, bytes32 blockHash_, bytes32 stateRoot_, uint64 verifiedAt_);
+
+    /// @notice Returns information about the last synchronized block.
+    /// @return blockId_ The last verified block's ID.
+    /// @return blockHash_ The last verified block's blockHash.
+    /// @return stateRoot_ The last verified block's stateRoot.
+    /// @return verifiedAt_ The timestamp this block is verified at.
+    function getLastSyncedBlock()
+        external
+        view
+        returns (uint64 blockId_, bytes32 blockHash_, bytes32 stateRoot_, uint64 verifiedAt_);
+
+    /// @notice Gets the state variables of the TaikoL1 contract.
+    /// @dev This method can be deleted once node/client stops using it.
+    /// @return State variables stored at SlotA.
+    /// @return State variables stored at SlotB.
+    function getStateVariables()
+        external
+        view
+        returns (TaikoData.SlotA memory, TaikoData.SlotB memory);
 
     /// @notice Gets the configuration of the TaikoL1 contract.
     /// @return Config struct containing configuration parameters.

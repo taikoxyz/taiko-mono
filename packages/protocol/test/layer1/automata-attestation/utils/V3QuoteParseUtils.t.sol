@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.17;
 
 import { V3Struct } from
     "../../../../contracts/layer1/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";

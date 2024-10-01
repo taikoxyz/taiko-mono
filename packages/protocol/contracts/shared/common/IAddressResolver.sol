@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.17;
 
 /// @title IAddressResolver
 /// @notice This contract acts as a bridge for name-to-address resolution.

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.17;
 
 import "../../shared/common/EssentialContract.sol";
 import "./LibData.sol";
@@ -243,12 +243,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     {
         return LibUtils.getTransition(state, getConfig(), _blockId, _tid);
     }
+    /// @inheritdoc ITaikoL1
 
-    /// @notice Returns information about the last verified block.
-    /// @return blockId_ The last verified block's ID.
-    /// @return blockHash_ The last verified block's blockHash.
-    /// @return stateRoot_ The last verified block's stateRoot.
-    /// @return verifiedAt_ The timestamp this block is verified at.
     function getLastVerifiedBlock()
         external
         view
@@ -258,11 +254,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         (blockHash_, stateRoot_, verifiedAt_) = LibUtils.getBlockInfo(state, getConfig(), blockId_);
     }
 
-    /// @notice Returns information about the last synchronized block.
-    /// @return blockId_ The last verified block's ID.
-    /// @return blockHash_ The last verified block's blockHash.
-    /// @return stateRoot_ The last verified block's stateRoot.
-    /// @return verifiedAt_ The timestamp this block is verified at.
+    /// @inheritdoc ITaikoL1
     function getLastSyncedBlock()
         external
         view
@@ -272,10 +264,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         (blockHash_, stateRoot_, verifiedAt_) = LibUtils.getBlockInfo(state, getConfig(), blockId_);
     }
 
-    /// @notice Gets the state variables of the TaikoL1 contract.
-    /// @dev This method can be deleted once node/client stops using it.
-    /// @return State variables stored at SlotA.
-    /// @return State variables stored at SlotB.
+    /// @inheritdoc ITaikoL1
     function getStateVariables()
         external
         view

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.17;
 
 import "../../../contracts/shared/common/LibStrings.sol";
 import "../../../contracts/layer1/tiers/ITierProvider.sol";

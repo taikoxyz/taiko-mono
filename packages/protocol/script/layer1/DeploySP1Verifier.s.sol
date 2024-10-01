@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.17;
 
 import { SP1Verifier as SP1Verifier200rc } from "@sp1-contracts/src/v2.0.0/SP1VerifierPlonk.sol";
 import "../../test/shared/DeployCapability.sol";

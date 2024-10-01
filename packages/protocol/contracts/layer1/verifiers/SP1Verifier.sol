@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.17;
 
 import "@sp1-contracts/src/ISP1Verifier.sol";
 import "../../shared/common/EssentialContract.sol";

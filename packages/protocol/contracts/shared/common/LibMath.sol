@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.17;
 
 /// @title LibMath
 /// @dev This library offers additional math functions for uint256.

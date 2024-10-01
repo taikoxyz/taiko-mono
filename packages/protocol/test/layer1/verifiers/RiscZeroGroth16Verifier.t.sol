@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.17;
 
 import "@risc0/contracts/groth16/RiscZeroGroth16Verifier.sol";
 import "@risc0/contracts/groth16/ControlID.sol";

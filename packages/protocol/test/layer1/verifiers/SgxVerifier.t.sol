@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.17;
 
 import "../automata-attestation/common/AttestationBase.t.sol";
 import "../based/TaikoL1TestBase.sol";

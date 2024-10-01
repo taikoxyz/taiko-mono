@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.17;
 
 import "../../../contracts/layer1/provers/GuardianProver.sol";
 import "./TaikoL1TestBase.sol";

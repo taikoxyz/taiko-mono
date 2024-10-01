@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.17;
 
 import "../../contracts/layer1/based/TaikoL1.sol";
 import "../../contracts/layer1/token/TaikoToken.sol";

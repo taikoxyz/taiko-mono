@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.17;
 
 import { Base64 } from "solady/src/utils/Base64.sol";
 import { BytesUtils } from "../../utils/BytesUtils.sol";
