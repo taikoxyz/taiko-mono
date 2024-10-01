@@ -50,9 +50,9 @@ contract DeployScript is Script {
     function createFreshTournament() public {
         vm.startBroadcast(deployerPrivateKey);
 
-        uint256 OPEN_TIME = block.timestamp - 3 minutes;
-        uint256 CLOSE_TIME = block.timestamp - 2 minutes;
-        uint256 START_TIME = block.timestamp - 1 minutes;
+        uint64 OPEN_TIME = uint64(block.timestamp - 3 minutes);
+        uint64 CLOSE_TIME = uint64(block.timestamp - 2 minutes);
+        uint64 START_TIME = uint64(block.timestamp - 1 minutes);
 
         badgeChampions.createLeague(OPEN_TIME, CLOSE_TIME, START_TIME);
         /*
