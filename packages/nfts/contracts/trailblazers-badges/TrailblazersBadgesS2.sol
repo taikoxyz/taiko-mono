@@ -213,6 +213,10 @@ contract TrailblazersBadgesS2 is
     }
 
     /// @notice End a migration
+    /// @param _hash The hash to sign
+    /// @param v signature V field
+    /// @param r signature R field
+    /// @param s signature S field
     /// @dev Can be called only during an active migration, after the cooldown is over
     /// @dev The final color is determined randomly, and affected by the tamper amounts
     function endMigration(bytes32 _hash, uint8 v, bytes32 r, bytes32 s) external isMigrating {
@@ -398,12 +402,22 @@ contract TrailblazersBadgesS2 is
 
     /// @notice Generate a unique hash for each migration uniquely
     /// @param _user The user address
+    /// @param _exp The users experience points
+    /// @param _blockNumber The block number
     /// @return _hash The unique hash
-    function generateClaimHash(address _user) external view returns (bytes32) {
+    function generateClaimHash(
+        address _user,
+        uint256 _exp,
+        uint256 _blockNumber
+    )
+        external
+        view
+        returns (bytes32)
+    {
         if (claimCooldowns[_user] == 0) {
             revert MIGRATION_NOT_STARTED();
         }
-        return keccak256(abi.encodePacked(_user, claimCooldowns[_user]));
+        return keccak256(abi.encodePacked(_user, claimCooldowns[_user], _exp, _blockNumber));
     }
 
     /// @notice Generates a random number from a signature

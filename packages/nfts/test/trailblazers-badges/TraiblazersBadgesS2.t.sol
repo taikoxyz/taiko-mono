@@ -315,7 +315,11 @@ contract TrailblazersBadgesS2Test is Test {
         wait(s2Badges.COOLDOWN_MIGRATION());
 
         // generate the claim hash for the current migration
-        bytes32 claimHash = s2Badges.generateClaimHash(minters[0]);
+        bytes32 claimHash = s2Badges.generateClaimHash(
+            minters[0],
+            0, // experience points
+            0 // block number
+        );
 
         // simulate the backend signing the hash
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(mintSignerPk, claimHash);
@@ -433,7 +437,7 @@ contract TrailblazersBadgesS2Test is Test {
 
     function test_generateClaimHash_revert() public {
         vm.expectRevert();
-        s2Badges.generateClaimHash(minters[0]);
+        s2Badges.generateClaimHash(minters[0], 0, 0);
     }
 
     function test_migrateSameBadgeId_revert() public {
