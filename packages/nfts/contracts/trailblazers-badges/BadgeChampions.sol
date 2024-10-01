@@ -34,9 +34,9 @@ contract BadgeChampions is
     }
 
     struct League {
-        uint256 openTime; // registration starts
-        uint256 closeTime; // registration ends
-        uint256 startTime; // league starts (requires admin action)
+        uint64 openTime; // registration starts
+        uint64 closeTime; // registration ends
+        uint64 startTime; // league starts (requires admin action)
         uint256 seed;
     }
 
@@ -56,19 +56,6 @@ contract BadgeChampions is
         42, // Drummers
         77 // Shinto
     ];
-
-    function getChampionId(
-        uint256 _leagueId,
-        address _owner,
-        address _badgeContract,
-        uint256 _tokenId
-    )
-        public
-        pure
-        returns (bytes memory)
-    {
-        return abi.encodePacked(_owner, _badgeContract, _tokenId, _leagueId);
-    }
 
     event LeagueCreated(
         uint256 indexed leagueId, uint256 openTime, uint256 startTime, uint256 endTime
@@ -95,48 +82,6 @@ contract BadgeChampions is
     error INVALID_CHAMPION_CONTRACT();
     error INVALID_MATCH();
 
-    function initialize(address _season1Badges, address _season2Badges) external initializer {
-        __Context_init();
-        _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
-        _transferOwnership(_msgSender());
-        season1Badges = TrailblazersBadges(_season1Badges);
-        season2Badges = TrailblazersBadgesS2(_season2Badges);
-    }
-
-    function getCurrentLeague()
-        public
-        view
-        returns (uint256 openTime, uint256 closeTime, uint256 startTime, uint256 seed)
-    {
-        return getLeague(currentLeagueId);
-    }
-
-    function getLeague(uint256 _leagueId)
-        public
-        view
-        returns (uint256 openTime, uint256 closeTime, uint256 startTime, uint256 seed)
-    {
-        League memory league = leagues[_leagueId];
-        return (league.openTime, league.closeTime, league.startTime, league.seed);
-    }
-
-    function createLeague(
-        uint256 _openTime,
-        uint256 _closeTime,
-        uint256 _startTime
-    )
-        public
-        onlyOwner
-    {
-        League memory league =
-            League({ openTime: _openTime, closeTime: _closeTime, startTime: _startTime, seed: 0 });
-        currentLeagueId += 1;
-
-        leagues[currentLeagueId] = league;
-
-        emit LeagueCreated(currentLeagueId, _openTime, _closeTime, _startTime);
-    }
-
     modifier leagueOpen(uint256 _leagueId) {
         League memory league = leagues[_leagueId];
         if (block.timestamp < league.openTime || block.timestamp > league.closeTime) {
@@ -159,6 +104,39 @@ contract BadgeChampions is
         }
 
         _;
+    }
+
+    function initialize(address _season1Badges, address _season2Badges) external initializer {
+        __Context_init();
+        _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
+        _transferOwnership(_msgSender());
+        season1Badges = TrailblazersBadges(_season1Badges);
+        season2Badges = TrailblazersBadgesS2(_season2Badges);
+    }
+
+    function getCurrentLeague() public view returns (League memory league) {
+        return getLeague(currentLeagueId);
+    }
+
+    function getLeague(uint256 _leagueId) public view returns (League memory league) {
+        return leagues[_leagueId];
+    }
+
+    function createLeague(
+        uint64 _openTime,
+        uint64 _closeTime,
+        uint64 _startTime
+    )
+        public
+        onlyOwner
+    {
+        League memory league =
+            League({ openTime: _openTime, closeTime: _closeTime, startTime: _startTime, seed: 0 });
+        currentLeagueId += 1;
+
+        leagues[currentLeagueId] = league;
+
+        emit LeagueCreated(currentLeagueId, _openTime, _closeTime, _startTime);
     }
 
     function calculatePower(uint256 _badgeId) public pure returns (uint256) {
@@ -236,6 +214,19 @@ contract BadgeChampions is
         } else {
             return (false, false);
         }
+    }
+
+    function getChampionId(
+        uint256 _leagueId,
+        address _owner,
+        address _badgeContract,
+        uint256 _tokenId
+    )
+        public
+        pure
+        returns (bytes32)
+    {
+        return keccak256(abi.encodePacked(_owner, _badgeContract, _tokenId, _leagueId));
     }
 
     function supportsInterface(bytes4 interfaceId)
