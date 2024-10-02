@@ -3,69 +3,120 @@ pragma solidity ^0.8.24.0;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
 
+/**
+ * @title EventRegister
+ * @notice A contract that allows authorized managers to create events, manage user registrations,
+ *         and track user participation using role-based access control.
+ * @dev Utilizes OpenZeppelin's AccessControl for role management. The contract does not hold any
+ * Ether.
+ */
 contract EventRegister is AccessControl {
-    // Define a role identifier for event managers
+    /**
+     * @dev The role identifier for event managers. This role allows accounts to create events
+     *      and manage registrations.
+     */
     bytes32 public constant EVENT_MANAGER_ROLE = keccak256("EVENT_MANAGER_ROLE");
 
-    // Struct to represent an event or season
+    /**
+     * @dev Represents an event with its associated details.
+     */
     struct Event {
         uint256 id;
+        ///< Unique identifier for the event.
         string name;
+        ///< Name of the event.
         bool exists;
+        ///< Flag indicating whether the event exists.
         bool registrationOpen;
     }
+    ///< Flag indicating whether registrations are open for the event.
 
-    // Mapping from event ID to Event details
+    /**
+     * @dev Mapping from event ID to Event details.
+     */
     mapping(uint256 => Event) public events;
 
-    // Mapping from event ID to a mapping of user addresses to registration status
+    /**
+     * @dev Mapping from event ID to a mapping of user addresses to their registration status.
+     *      Indicates whether a user has registered for a specific event.
+     */
     mapping(uint256 => mapping(address => bool)) public registrations;
 
-    // Event emitted when a new event is created
+    /**
+     * @dev Emitted when a new event is created.
+     * @param id The unique identifier of the created event.
+     * @param name The name of the created event.
+     */
     event EventCreated(uint256 id, string name);
 
-    // Event emitted when a user registers for an event
+    /**
+     * @dev Emitted when a user registers for an event.
+     * @param registrant The address of the user who registered.
+     * @param eventId The unique identifier of the event for which the user registered.
+     */
     event Registered(address indexed registrant, uint256 eventId);
 
-    // Event emitted when registrations are opened for an event
+    /**
+     * @dev Emitted when registrations are opened for an event.
+     * @param eventId The unique identifier of the event whose registrations are opened.
+     */
     event RegistrationOpened(uint256 eventId);
 
-    // Event emitted when registrations are closed for an event
+    /**
+     * @dev Emitted when registrations are closed for an event.
+     * @param eventId The unique identifier of the event whose registrations are closed.
+     */
     event RegistrationClosed(uint256 eventId);
 
-    // Counter for event IDs
+    /**
+     * @dev Counter for assigning unique event IDs.
+     */
     uint256 private nextEventId;
 
     /**
-     * @dev Constructor that sets up the default admin role.
-     * The deployer of the contract is granted the default admin role.
+     * @notice Initializes the contract by granting the deployer the default admin role.
+     * @dev The deployer of the contract is granted the DEFAULT_ADMIN_ROLE, allowing them to manage
+     * roles.
      */
     constructor() {
         _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
     }
 
     /**
-     * @dev Grants EVENT_MANAGER_ROLE to a specified account.
-     * Can only be called by an account with DEFAULT_ADMIN_ROLE.
-     * @param account The address to grant the role to.
+     * @notice Grants the EVENT_MANAGER_ROLE to a specified account.
+     * @dev Only accounts with the DEFAULT_ADMIN_ROLE can call this function.
+     * @param account The address to be granted the EVENT_MANAGER_ROLE.
+     *
+     * Requirements:
+     *
+     * - The caller must have the DEFAULT_ADMIN_ROLE.
      */
     function grantEventManagerRole(address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
         grantRole(EVENT_MANAGER_ROLE, account);
     }
 
     /**
-     * @dev Revokes EVENT_MANAGER_ROLE from a specified account.
-     * Can only be called by an account with DEFAULT_ADMIN_ROLE.
-     * @param account The address to revoke the role from.
+     * @notice Revokes the EVENT_MANAGER_ROLE from a specified account.
+     * @dev Only accounts with the DEFAULT_ADMIN_ROLE can call this function.
+     * @param account The address from which the EVENT_MANAGER_ROLE will be revoked.
+     *
+     * Requirements:
+     *
+     * - The caller must have the DEFAULT_ADMIN_ROLE.
      */
     function revokeEventManagerRole(address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
         revokeRole(EVENT_MANAGER_ROLE, account);
     }
 
     /**
-     * @dev Creates a new event.
-     * Only accounts with EVENT_MANAGER_ROLE can call this function.
-     * @param _name The name of the event.
+     * @notice Creates a new event with the given name.
+     * @dev Only accounts with the EVENT_MANAGER_ROLE can call this function.
+     *      Emits EventCreated and RegistrationOpened events upon successful creation.
+     * @param _name The name of the event to be created.
+     *
+     * Requirements:
+     *
+     * - The caller must have the EVENT_MANAGER_ROLE.
      */
     function createEvent(string memory _name) external onlyRole(EVENT_MANAGER_ROLE) {
         uint256 eventId = nextEventId;
@@ -76,9 +127,16 @@ contract EventRegister is AccessControl {
     }
 
     /**
-     * @dev Opens registrations for a specific event.
-     * Only accounts with EVENT_MANAGER_ROLE can call this function.
-     * @param _eventId The ID of the event to open registrations for.
+     * @notice Opens registrations for a specific event.
+     * @dev Only accounts with the EVENT_MANAGER_ROLE can call this function.
+     *      Emits a RegistrationOpened event upon successful operation.
+     * @param _eventId The unique identifier of the event for which to open registrations.
+     *
+     * Requirements:
+     *
+     * - The event with `_eventId` must exist.
+     * - Registrations for the event must currently be closed.
+     * - The caller must have the EVENT_MANAGER_ROLE.
      */
     function openRegistration(uint256 _eventId) external onlyRole(EVENT_MANAGER_ROLE) {
         require(events[_eventId].exists, "Event does not exist");
@@ -89,9 +147,16 @@ contract EventRegister is AccessControl {
     }
 
     /**
-     * @dev Closes registrations for a specific event.
-     * Only accounts with EVENT_MANAGER_ROLE can call this function.
-     * @param _eventId The ID of the event to close registrations for.
+     * @notice Closes registrations for a specific event.
+     * @dev Only accounts with the EVENT_MANAGER_ROLE can call this function.
+     *      Emits a RegistrationClosed event upon successful operation.
+     * @param _eventId The unique identifier of the event for which to close registrations.
+     *
+     * Requirements:
+     *
+     * - The event with `_eventId` must exist.
+     * - Registrations for the event must currently be open.
+     * - The caller must have the EVENT_MANAGER_ROLE.
      */
     function closeRegistration(uint256 _eventId) external onlyRole(EVENT_MANAGER_ROLE) {
         require(events[_eventId].exists, "Event does not exist");
@@ -104,8 +169,15 @@ contract EventRegister is AccessControl {
     }
 
     /**
-     * @dev Allows a user to register for a specific event.
-     * @param _eventId The ID of the event to register for.
+     * @notice Allows a user to register for a specific event.
+     * @dev Emits a Registered event upon successful registration.
+     * @param _eventId The unique identifier of the event to register for.
+     *
+     * Requirements:
+     *
+     * - The event with `_eventId` must exist.
+     * - Registrations for the event must be open.
+     * - The caller must not have already registered for the event.
      */
     function register(uint256 _eventId) external {
         Event memory currentEvent = events[_eventId];
@@ -119,9 +191,11 @@ contract EventRegister is AccessControl {
     }
 
     /**
-     * @dev Retrieves all registered event IDs for a user.
-     * @param _user The address of the user.
-     * @return An array of event IDs the user has registered for.
+     * @notice Retrieves all event IDs for which a user has registered.
+     * @dev Iterates through all existing events to compile a list of registrations.
+     * @param _user The address of the user whose registrations are to be retrieved.
+     * @return An array of event IDs that the user has registered for.
+     *
      */
     function getRegisteredEvents(address _user) external view returns (uint256[] memory) {
         uint256[] memory temp = new uint256[](nextEventId);
@@ -144,11 +218,16 @@ contract EventRegister is AccessControl {
     }
 
     /**
-     * @dev Retrieves details of a specific event.
-     * @param _eventId The ID of the event.
-     * @return id The event ID.
+     * @notice Retrieves the details of a specific event.
+     * @dev Returns the event's ID, name, and registration status.
+     * @param _eventId The unique identifier of the event to retrieve.
+     * @return id The unique identifier of the event.
      * @return name The name of the event.
-     * @return registrationOpen_ Indicates if registrations are open for this event.
+     * @return registrationOpen_ A boolean indicating whether registrations are open for the event.
+     *
+     * Requirements:
+     *
+     * - The event with `_eventId` must exist.
      */
     function getEvent(uint256 _eventId)
         external
