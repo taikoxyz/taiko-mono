@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
-import "../../../contracts/trailblazer/eventRegister/EventRegister.sol";
+import "../../../contracts/eventRegister/EventRegister.sol";
 
 contract EventRegisterTest is Test {
     EventRegister public eventRegister;
