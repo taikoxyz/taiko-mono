@@ -1,0 +1,31 @@
+services:
+  driver:
+    image: unifi-client-driver
+    container_name: unifi-client-driver
+    build:
+      context: .
+      dockerfile: ./packages/taiko-client/Dockerfile
+    restart: unless-stopped
+    pull_policy: always
+    volumes:
+      - ./host:/host
+    command:
+      - driver
+      - --l1.ws
+      - "${L1_WS}"
+      - --l1.beacon
+      - "${L1_BEACON}"
+      - --l2.ws
+      - "${L2_WS}"
+      - --taikoL1
+      - "${TAIKO_L1}"
+      - --taikoL2
+      - "${TAIKO_L2}"
+      - --jwtSecret
+      - host/jwt.txt
+      - --l2.auth
+      - "${L2_AUTH}"
+      - --verbosity
+      - "4"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
