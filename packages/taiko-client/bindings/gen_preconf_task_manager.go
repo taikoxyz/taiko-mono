@@ -45,7 +45,7 @@ type IPreconfTaskManagerLookaheadSetParam struct {
 
 // PreconfTaskManagerMetaData contains all meta data concerning the PreconfTaskManager contract.
 var PreconfTaskManagerMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[],\"name\":\"getLookaheadBuffer\",\"outputs\":[{\"components\":[{\"internalType\":\"bool\",\"name\":\"isFallback\",\"type\":\"bool\"},{\"internalType\":\"uint40\",\"name\":\"timestamp\",\"type\":\"uint40\"},{\"internalType\":\"uint40\",\"name\":\"prevTimestamp\",\"type\":\"uint40\"},{\"internalType\":\"address\",\"name\":\"preconfer\",\"type\":\"address\"}],\"internalType\":\"structIPreconfTaskManager.LookaheadBufferEntry[64]\",\"name\":\"\",\"type\":\"tuple[64]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"blockParams\",\"type\":\"bytes\"},{\"internalType\":\"bytes\",\"name\":\"txList\",\"type\":\"bytes\"},{\"internalType\":\"uint256\",\"name\":\"lookaheadPointer\",\"type\":\"uint256\"},{\"components\":[{\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"preconfer\",\"type\":\"address\"}],\"internalType\":\"structIPreconfTaskManager.LookaheadSetParam[]\",\"name\":\"lookaheadSetParams\",\"type\":\"tuple[]\"}],\"name\":\"newBlockProposal\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"}]",
+	ABI: "[{\"inputs\":[],\"name\":\"getLookaheadBuffer\",\"outputs\":[{\"components\":[{\"internalType\":\"bool\",\"name\":\"isFallback\",\"type\":\"bool\"},{\"internalType\":\"uint40\",\"name\":\"timestamp\",\"type\":\"uint40\"},{\"internalType\":\"uint40\",\"name\":\"prevTimestamp\",\"type\":\"uint40\"},{\"internalType\":\"address\",\"name\":\"preconfer\",\"type\":\"address\"}],\"internalType\":\"structIPreconfTaskManager.LookaheadBufferEntry[64]\",\"name\":\"\",\"type\":\"tuple[64]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes[]\",\"name\":\"blockParams\",\"type\":\"bytes[]\"},{\"internalType\":\"bytes[]\",\"name\":\"txLists\",\"type\":\"bytes[]\"},{\"internalType\":\"uint256\",\"name\":\"lookaheadPointer\",\"type\":\"uint256\"},{\"components\":[{\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"preconfer\",\"type\":\"address\"}],\"internalType\":\"structIPreconfTaskManager.LookaheadSetParam[]\",\"name\":\"lookaheadSetParams\",\"type\":\"tuple[]\"}],\"name\":\"newBlockProposal\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"}]",
 }
 
 // PreconfTaskManagerABI is the input ABI used to generate the binding from.
@@ -225,23 +225,23 @@ func (_PreconfTaskManager *PreconfTaskManagerCallerSession) GetLookaheadBuffer()
 	return _PreconfTaskManager.Contract.GetLookaheadBuffer(&_PreconfTaskManager.CallOpts)
 }
 
-// NewBlockProposal is a paid mutator transaction binding the contract method 0xf2766b7d.
+// NewBlockProposal is a paid mutator transaction binding the contract method 0x230f1af9.
 //
-// Solidity: function newBlockProposal(bytes blockParams, bytes txList, uint256 lookaheadPointer, (uint256,address)[] lookaheadSetParams) payable returns()
-func (_PreconfTaskManager *PreconfTaskManagerTransactor) NewBlockProposal(opts *bind.TransactOpts, blockParams []byte, txList []byte, lookaheadPointer *big.Int, lookaheadSetParams []IPreconfTaskManagerLookaheadSetParam) (*types.Transaction, error) {
-	return _PreconfTaskManager.contract.Transact(opts, "newBlockProposal", blockParams, txList, lookaheadPointer, lookaheadSetParams)
+// Solidity: function newBlockProposal(bytes[] blockParams, bytes[] txLists, uint256 lookaheadPointer, (uint256,address)[] lookaheadSetParams) payable returns()
+func (_PreconfTaskManager *PreconfTaskManagerTransactor) NewBlockProposal(opts *bind.TransactOpts, blockParams [][]byte, txLists [][]byte, lookaheadPointer *big.Int, lookaheadSetParams []IPreconfTaskManagerLookaheadSetParam) (*types.Transaction, error) {
+	return _PreconfTaskManager.contract.Transact(opts, "newBlockProposal", blockParams, txLists, lookaheadPointer, lookaheadSetParams)
 }
 
-// NewBlockProposal is a paid mutator transaction binding the contract method 0xf2766b7d.
+// NewBlockProposal is a paid mutator transaction binding the contract method 0x230f1af9.
 //
-// Solidity: function newBlockProposal(bytes blockParams, bytes txList, uint256 lookaheadPointer, (uint256,address)[] lookaheadSetParams) payable returns()
-func (_PreconfTaskManager *PreconfTaskManagerSession) NewBlockProposal(blockParams []byte, txList []byte, lookaheadPointer *big.Int, lookaheadSetParams []IPreconfTaskManagerLookaheadSetParam) (*types.Transaction, error) {
-	return _PreconfTaskManager.Contract.NewBlockProposal(&_PreconfTaskManager.TransactOpts, blockParams, txList, lookaheadPointer, lookaheadSetParams)
+// Solidity: function newBlockProposal(bytes[] blockParams, bytes[] txLists, uint256 lookaheadPointer, (uint256,address)[] lookaheadSetParams) payable returns()
+func (_PreconfTaskManager *PreconfTaskManagerSession) NewBlockProposal(blockParams [][]byte, txLists [][]byte, lookaheadPointer *big.Int, lookaheadSetParams []IPreconfTaskManagerLookaheadSetParam) (*types.Transaction, error) {
+	return _PreconfTaskManager.Contract.NewBlockProposal(&_PreconfTaskManager.TransactOpts, blockParams, txLists, lookaheadPointer, lookaheadSetParams)
 }
 
-// NewBlockProposal is a paid mutator transaction binding the contract method 0xf2766b7d.
+// NewBlockProposal is a paid mutator transaction binding the contract method 0x230f1af9.
 //
-// Solidity: function newBlockProposal(bytes blockParams, bytes txList, uint256 lookaheadPointer, (uint256,address)[] lookaheadSetParams) payable returns()
-func (_PreconfTaskManager *PreconfTaskManagerTransactorSession) NewBlockProposal(blockParams []byte, txList []byte, lookaheadPointer *big.Int, lookaheadSetParams []IPreconfTaskManagerLookaheadSetParam) (*types.Transaction, error) {
-	return _PreconfTaskManager.Contract.NewBlockProposal(&_PreconfTaskManager.TransactOpts, blockParams, txList, lookaheadPointer, lookaheadSetParams)
+// Solidity: function newBlockProposal(bytes[] blockParams, bytes[] txLists, uint256 lookaheadPointer, (uint256,address)[] lookaheadSetParams) payable returns()
+func (_PreconfTaskManager *PreconfTaskManagerTransactorSession) NewBlockProposal(blockParams [][]byte, txLists [][]byte, lookaheadPointer *big.Int, lookaheadSetParams []IPreconfTaskManagerLookaheadSetParam) (*types.Transaction, error) {
+	return _PreconfTaskManager.Contract.NewBlockProposal(&_PreconfTaskManager.TransactOpts, blockParams, txLists, lookaheadPointer, lookaheadSetParams)
 }

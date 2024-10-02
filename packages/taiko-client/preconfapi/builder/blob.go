@@ -269,7 +269,7 @@ func (b *BlobTransactionBuilder) BuildBlocksUnsigned(
 		"newBlockProposal",
 		encodedParams,
 		emptyTxLists,
-		lookaheadPointer,
+		new(big.Int).SetUint64(lookaheadPointer),
 		lookaheadSetParams,
 	)
 	if err != nil {
