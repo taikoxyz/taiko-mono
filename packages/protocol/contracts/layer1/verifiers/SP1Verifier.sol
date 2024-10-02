@@ -106,7 +106,12 @@ contract SP1Verifier is EssentialContract, IVerifier {
         // All other inputs are the block program public inputs (a single 32 byte value)
         for (uint256 i = 0; i < _ctxs.length; i++) {
             public_inputs[i + 1] = LibPublicInput.hashPublicInputs(
-                _ctxs[i].tran, address(this), address(0), _ctxs[i].prover, _ctxs[i].metaHash, taikoChainId()
+                _ctxs[i].tran,
+                address(this),
+                address(0),
+                _ctxs[i].prover,
+                _ctxs[i].metaHash,
+                taikoChainId()
             );
         }
 
