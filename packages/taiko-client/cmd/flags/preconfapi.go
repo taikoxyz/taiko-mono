@@ -36,6 +36,13 @@ var (
 		EnvVars:  []string{"CORS_ORIGINS"},
 		Required: true,
 	}
+	PreconfTaskManagerAddress = &cli.StringFlag{
+		Name:     "preconfTaskManager",
+		Usage:    "preconfTaskManager address",
+		Required: true,
+		Category: preconfAPICategory,
+		EnvVars:  []string{"PRECONF_TASK_MANAGER"},
+	}
 )
 
 // PreconfAPIFlags contains all preconfirmations API flags
@@ -47,4 +54,5 @@ var PreconfAPIFlags = MergeFlags(CommonFlags, []cli.Flag{
 	L2HTTPEndpoint,
 	DBPath,
 	CORSOrigins,
+	PreconfTaskManagerAddress,
 })

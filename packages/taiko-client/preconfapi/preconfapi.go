@@ -47,14 +47,26 @@ func (p *PreconfAPI) InitFromCli(ctx context.Context, c *cli.Context) error {
 }
 
 func (p *PreconfAPI) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
+	rpcClient, err := rpc.NewClient(ctx, cfg.ClientConfig)
+	if err != nil {
+		return err
+	}
+
+	ethClient, err := rpc.NewEthClient(ctx, cfg.ClientConfig.L1Endpoint, cfg.ClientConfig.Timeout)
+	if err != nil {
+		return err
+	}
+
 	txBuilders := make(map[string]builder.TxBuilder)
 	txBuilders["blob"] = builder.NewBlobTransactionBuilder(
-		cfg.TaikoL1Address,
+		cfg.PreconfTaskManagerAddress,
+		ethClient,
 		cfg.ProposeBlockTxGasLimit,
 	)
 
 	txBuilders["calldata"] = builder.NewCalldataTransactionBuilder(
-		cfg.TaikoL1Address,
+		cfg.PreconfTaskManagerAddress,
+		ethClient,
 		cfg.ProposeBlockTxGasLimit,
 	)
 
@@ -79,11 +91,6 @@ func (p *PreconfAPI) InitFromConfig(ctx context.Context, cfg *Config) (err error
 	}
 
 	p.db, err = badger.Open(badger.DefaultOptions(p.cfg.DBPath))
-	if err != nil {
-		return err
-	}
-
-	rpcClient, err := rpc.NewClient(ctx, cfg.ClientConfig)
 	if err != nil {
 		return err
 	}

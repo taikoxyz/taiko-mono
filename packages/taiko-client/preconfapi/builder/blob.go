@@ -2,30 +2,40 @@ package builder
 
 import (
 	"context"
+	"errors"
+	"math/big"
+	"strings"
+	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
 // BlobTransactionBuilder is responsible for building a TaikoL1.proposeBlock transaction with txList
 // bytes saved in blob.
 type BlobTransactionBuilder struct {
-	taikoL1Address common.Address
-	gasLimit       uint64
+	preconfTaskManagerAddress common.Address
+	ethClient                 *rpc.EthClient
+	gasLimit                  uint64
 }
 
 // NewBlobTransactionBuilder creates a new BlobTransactionBuilder instance based on giving configurations.
 func NewBlobTransactionBuilder(
-	taikoL1Address common.Address,
+	preconfTaskManagerAddress common.Address,
+	ethClient *rpc.EthClient,
 	gasLimit uint64,
 ) *BlobTransactionBuilder {
 	return &BlobTransactionBuilder{
-		taikoL1Address,
+		preconfTaskManagerAddress,
+		ethClient,
 		gasLimit,
 	}
 }
@@ -64,7 +74,28 @@ func (b *BlobTransactionBuilder) BuildBlockUnsigned(
 		return nil, err
 	}
 
-	data, err := encoding.TaikoL1ABI.Pack("proposeBlockV2", encodedParams, []byte{})
+	lookaheadPointer, err := b.getLookaheadBuffer(common.HexToAddress(opts.Coinbase))
+	if err != nil {
+		return nil, err
+	}
+
+	lookaheadSetParams := make([]bindings.IPreconfTaskManagerLookaheadSetParam, 0)
+	// can be null/0, we are force pushing lookaheads with netherminds
+	// software for now.
+	lookaheadSetParam := bindings.IPreconfTaskManagerLookaheadSetParam{
+		Timestamp: big.NewInt(0),
+		Preconfer: common.HexToAddress(opts.Coinbase),
+	}
+
+	lookaheadSetParams = append(lookaheadSetParams, lookaheadSetParam)
+
+	data, err := encoding.PreconfTaskManagerABI.Pack(
+		"newBlockProposal",
+		[][]byte{encodedParams},
+		[][]byte{[]byte{0xff}},
+		lookaheadPointer,
+		lookaheadSetParams,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +106,7 @@ func (b *BlobTransactionBuilder) BuildBlockUnsigned(
 	}
 
 	blobTx := &types.BlobTx{
-		To:         b.taikoL1Address,
+		To:         b.preconfTaskManagerAddress,
 		Value:      nil, // maxFee / prover selecting no longer happens
 		Gas:        b.gasLimit,
 		Data:       data,
@@ -86,6 +117,42 @@ func (b *BlobTransactionBuilder) BuildBlockUnsigned(
 	tx := types.NewTx(blobTx)
 
 	return tx, nil
+}
+
+func (b *BlobTransactionBuilder) getLookaheadBuffer(preconferAddress common.Address) (uint64, error) {
+	// Create an instance of the contract
+	contract, err := bindings.NewPreconfTaskManager(b.preconfTaskManagerAddress, b.ethClient)
+	if err != nil {
+		return 0, err
+	}
+
+	// Get the lookahead buffer
+	buffer, err := contract.GetLookaheadBuffer(&bind.CallOpts{
+		Context: context.Background(),
+	})
+	if err != nil {
+		return 0, err
+	}
+
+	// Get the current timestamp
+	currentTimestamp := uint64(time.Now().Unix())
+
+	// Iterate through the buffer to find the correct entry
+	var lookaheadPointer uint64 = ^uint64(0) // Default to max uint64 value to signify not found
+	for i, entry := range buffer {
+		if strings.ToLower(entry.Preconfer.Hex()) == strings.ToLower(preconferAddress.Hex()) &&
+			currentTimestamp > entry.PrevTimestamp.Uint64() &&
+			currentTimestamp <= entry.Timestamp.Uint64() {
+			lookaheadPointer = uint64(i)
+			break
+		}
+	}
+
+	if lookaheadPointer == ^uint64(0) {
+		return 0, errors.New("lookahead pointer not found")
+	}
+
+	return lookaheadPointer, nil
 }
 
 // BuildBlocksUnsigned implements the ProposeBlockTransactionBuilder interface to
@@ -183,18 +250,38 @@ func (b *BlobTransactionBuilder) BuildBlocksUnsigned(
 		emptyTxLists[i] = []byte{0xff}
 	}
 
-	data, err := encoding.TaikoL1ABI.Pack("proposeBlocks", encodedParams, emptyTxLists)
+	lookaheadPointer, err := b.getLookaheadBuffer(common.HexToAddress(opts.BlockOpts[0].Coinbase))
 	if err != nil {
 		return nil, err
 	}
 
+	lookaheadSetParams := make([]bindings.IPreconfTaskManagerLookaheadSetParam, 0)
+	// can be null/0, we are force pushing lookaheads with netherminds
+	// software for now.
+	lookaheadSetParam := bindings.IPreconfTaskManagerLookaheadSetParam{
+		Timestamp: big.NewInt(0),
+		Preconfer: common.HexToAddress(opts.BlockOpts[0].Coinbase),
+	}
+
+	lookaheadSetParams = append(lookaheadSetParams, lookaheadSetParam)
+
+	data, err := encoding.PreconfTaskManagerABI.Pack(
+		"newBlockProposal",
+		encodedParams,
+		emptyTxLists,
+		lookaheadPointer,
+		lookaheadSetParams,
+	)
+	if err != nil {
+		return nil, err
+	}
 	sidecar, blobHashes, err := txmgr.MakeSidecar(blobs)
 	if err != nil {
 		return nil, err
 	}
 
 	blobTx := &types.BlobTx{
-		To:         b.taikoL1Address,
+		To:         b.preconfTaskManagerAddress,
 		Value:      nil, // maxFee / prover selecting no longer happens
 		Gas:        b.gasLimit,
 		Data:       data,
