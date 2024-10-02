@@ -92,7 +92,7 @@ func (b *BlobTransactionBuilder) BuildBlockUnsigned(
 	data, err := encoding.PreconfTaskManagerABI.Pack(
 		"newBlockProposal",
 		[][]byte{encodedParams},
-		[][]byte{[]byte{0xff}},
+		[][]byte{{0xff}},
 		lookaheadPointer,
 		lookaheadSetParams,
 	)
