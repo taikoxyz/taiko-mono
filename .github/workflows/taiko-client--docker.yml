@@ -66,7 +66,7 @@ jobs:
           file: packages/taiko-client/Dockerfile
           platforms: ${{ matrix.platform }}
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: ${{ env.REGISTRY_IMAGE }}
           labels: ${{ steps.meta.outputs.labels }}
           outputs: type=image,name=${{ env.REGISTRY_IMAGE }},push-by-digest=true,name-canonical=true,push=true
 
@@ -85,44 +85,47 @@ jobs:
           retention-days: 1
 
   merge:
-      runs-on: arc-runner-set
-      needs:
-        - build
-      steps:
-        - name: Download digests
-          uses: actions/download-artifact@v4
-          with:
-            path: /tmp/digests
-            pattern: digests-*
-            merge-multiple: true
+    runs-on: arc-runner-set
+    needs:
+      - build
+    steps:
+      - name: Prepare Environment
+        run: sudo apt-get update && sudo apt-get install -y jq
 
-        - name: Set up Docker Buildx
-          uses: docker/setup-buildx-action@v3
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
 
-        - name: Docker meta
-          id: meta
-          uses: docker/metadata-action@v5
-          with:
-            images: ${{ env.REGISTRY_IMAGE }}
-            tags: |
-              type=ref,event=branch
-              type=ref,event=pr
-              type=ref,event=tag
-              type=sha
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-        - name: Login to GAR
-          uses: docker/login-action@v3
-          with:
-            registry: us-docker.pkg.dev
-            username: _json_key
-            password: ${{ secrets.GAR_JSON_KEY }}
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY_IMAGE }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=ref,event=tag
+            type=sha
 
-        - name: Create manifest list and push
-          working-directory: /tmp/digests
-          run: |
-            docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-              $(printf '${{ env.REGISTRY_IMAGE }}@sha256:%s ' *)
+      - name: Login to GAR
+        uses: docker/login-action@v3
+        with:
+          registry: us-docker.pkg.dev
+          username: _json_key
+          password: ${{ secrets.GAR_JSON_KEY }}
 
-        - name: Inspect image
-          run: |
-            docker buildx imagetools inspect ${{ env.REGISTRY_IMAGE }}:${{ steps.meta.outputs.version }}
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.REGISTRY_IMAGE }}@sha256:%s ' *)
+
+      - name: Inspect image
+        run: |
+          docker buildx imagetools inspect ${{ env.REGISTRY_IMAGE }}:${{ steps.meta.outputs.version }}
