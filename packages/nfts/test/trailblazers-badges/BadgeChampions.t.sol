@@ -114,7 +114,6 @@ contract BadgeChampionsTest is Test {
         assertEq(league.openTime, OPEN_TIME);
         assertEq(league.closeTime, CLOSE_TIME);
         assertEq(league.startTime, START_TIME);
-
         assertEq(league.seed, 0);
     }
 
