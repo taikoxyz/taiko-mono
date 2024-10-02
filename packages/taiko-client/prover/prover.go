@@ -281,20 +281,20 @@ func (p *Prover) eventLoop() {
 
 	// Channels
 	chBufferSize := p.protocolConfig.BlockMaxProposals
-	blockProposedCh := make(chan *bindings.LibProposingBlockProposed, chBufferSize)
+	blockProposedCh := make(chan *bindings.TaikoL1ClientBlockProposed, chBufferSize)
 	blockVerifiedCh := make(chan *bindings.TaikoL1ClientBlockVerified, chBufferSize)
 	transitionProvedCh := make(chan *bindings.TaikoL1ClientTransitionProved, chBufferSize)
 	transitionContestedCh := make(chan *bindings.TaikoL1ClientTransitionContested, chBufferSize)
-	blockProposedV2Ch := make(chan *bindings.LibProposingBlockProposedV2, chBufferSize)
+	blockProposedV2Ch := make(chan *bindings.TaikoL1ClientBlockProposedV2, chBufferSize)
 	blockVerifiedV2Ch := make(chan *bindings.TaikoL1ClientBlockVerifiedV2, chBufferSize)
 	transitionProvedV2Ch := make(chan *bindings.TaikoL1ClientTransitionProvedV2, chBufferSize)
 	transitionContestedV2Ch := make(chan *bindings.TaikoL1ClientTransitionContestedV2, chBufferSize)
 	// Subscriptions
-	blockProposedSub := rpc.SubscribeBlockProposed(p.rpc.LibProposing, blockProposedCh)
+	blockProposedSub := rpc.SubscribeBlockProposed(p.rpc.TaikoL1, blockProposedCh)
 	blockVerifiedSub := rpc.SubscribeBlockVerified(p.rpc.TaikoL1, blockVerifiedCh)
 	transitionProvedSub := rpc.SubscribeTransitionProved(p.rpc.TaikoL1, transitionProvedCh)
 	transitionContestedSub := rpc.SubscribeTransitionContested(p.rpc.TaikoL1, transitionContestedCh)
-	blockProposedV2Sub := rpc.SubscribeBlockProposedV2(p.rpc.LibProposing, blockProposedV2Ch)
+	blockProposedV2Sub := rpc.SubscribeBlockProposedV2(p.rpc.TaikoL1, blockProposedV2Ch)
 	blockVerifiedV2Sub := rpc.SubscribeBlockVerifiedV2(p.rpc.TaikoL1, blockVerifiedV2Ch)
 	transitionProvedV2Sub := rpc.SubscribeTransitionProvedV2(p.rpc.TaikoL1, transitionProvedV2Ch)
 	transitionContestedV2Sub := rpc.SubscribeTransitionContestedV2(p.rpc.TaikoL1, transitionContestedV2Ch)
@@ -376,7 +376,6 @@ func (p *Prover) proveOp() error {
 	iter, err := eventIterator.NewBlockProposedIterator(p.ctx, &eventIterator.BlockProposedIteratorConfig{
 		Client:               p.rpc.L1,
 		TaikoL1:              p.rpc.TaikoL1,
-		LibProposing:         p.rpc.LibProposing,
 		StartHeight:          new(big.Int).SetUint64(p.sharedState.GetL1Current().Number.Uint64()),
 		OnBlockProposedEvent: p.blockProposedHandler.Handle,
 		BlockConfirmations:   &p.cfg.BlockConfirmations,

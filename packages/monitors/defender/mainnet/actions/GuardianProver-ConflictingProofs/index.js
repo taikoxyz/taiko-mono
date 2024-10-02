@@ -8,31 +8,49 @@ const ABI = [
       {
         indexed: true,
         internalType: "uint256",
-        name: "operationId",
+        name: "blockId",
         type: "uint256",
       },
       {
+        indexed: true,
+        internalType: "address",
+        name: "guardian",
+        type: "address",
+      },
+      {
         indexed: false,
-        internalType: "uint256",
-        name: "approvalBits",
-        type: "uint256",
+        internalType: "bytes32",
+        name: "currentProofHash",
+        type: "bytes32",
+      },
+      {
+        indexed: false,
+        internalType: "bytes32",
+        name: "newProofHash",
+        type: "bytes32",
       },
       {
         indexed: false,
         internalType: "bool",
-        name: "minGuardiansReached",
+        name: "provingPaused",
         type: "bool",
       },
     ],
-    name: "Approved",
+    name: "ConflictingProofs",
     type: "event",
   },
 ];
 
 function alertOrg(notificationClient, message) {
   notificationClient.send({
-    channelAlias: "discord_configs",
-    subject: "⚠️ GuardianProver: Approved Count",
+    channelAlias: "discord_bridging",
+    subject: "🚨 GuardianProver: ConflictingProofs Alert",
+    message,
+  });
+
+  notificationClient.send({
+    channelAlias: "tg_taiko_guardians",
+    subject: "🚨 GuardianProver: ConflictingProofs Alert",
     message,
   });
 }
@@ -40,30 +58,6 @@ function alertOrg(notificationClient, message) {
 async function getLatestBlockNumber(provider) {
   const currentBlock = await provider.getBlock("latest");
   return currentBlock.number;
-}
-
-async function calculateBlockTime(provider) {
-  const latestBlock = await provider.getBlock("latest");
-  const previousBlock = await provider.getBlock(latestBlock.number - 100);
-
-  const timeDiff = latestBlock.timestamp - previousBlock.timestamp;
-  const blockDiff = latestBlock.number - previousBlock.number;
-
-  const blockTime = timeDiff / blockDiff;
-  return blockTime;
-}
-
-async function calculateBlockRange(provider) {
-  const currentBlockNumber = await getLatestBlockNumber(provider);
-  const blockTimeInSeconds = await calculateBlockTime(provider);
-  const blocksInOneHour = Math.floor((16 * 60) / blockTimeInSeconds);
-
-  const fromBlock = currentBlockNumber - blocksInOneHour;
-  const toBlock = currentBlockNumber;
-
-  console.log(`Calculated block range: from ${fromBlock} to ${toBlock}`);
-
-  return { fromBlock, toBlock };
 }
 
 async function fetchLogsFromL1(
@@ -76,7 +70,7 @@ async function fetchLogsFromL1(
 ) {
   const iface = new ethers.utils.Interface(abi);
   const eventTopic = iface.getEventTopic(eventName);
-  console.log(`eventTopic: ${eventTopic}`);
+
   try {
     const logs = await provider.getLogs({
       address,
@@ -84,14 +78,12 @@ async function fetchLogsFromL1(
       toBlock,
       topics: [eventTopic],
     });
-    console.log(`Fetched logs: ${logs.length}`);
-    return logs.map((log) => {
-      const parsedLog = iface.parseLog(log);
-      console.log(`Parsed log: ${JSON.stringify(parsedLog)}`);
-      return parsedLog;
-    });
+
+    return logs.map((log) =>
+      iface.decodeEventLog(eventName, log.data, log.topics),
+    );
   } catch (error) {
-    console.error("Error fetching L1 logs:", error);
+    console.error(`Error fetching logs for ${eventName}:`, error);
     return [];
   }
 }
@@ -107,6 +99,17 @@ function createProvider(apiKey, apiSecret, relayerApiKey, relayerApiSecret) {
   return client.relaySigner.getProvider();
 }
 
+async function calculateBlockTime(provider) {
+  const latestBlock = await provider.getBlock("latest");
+  const previousBlock = await provider.getBlock(latestBlock.number - 100);
+
+  const timeDiff = latestBlock.timestamp - previousBlock.timestamp;
+  const blockDiff = latestBlock.number - previousBlock.number;
+
+  const blockTime = timeDiff / blockDiff;
+  return blockTime;
+}
+
 exports.handler = async function (event, context) {
   const { notificationClient } = context;
   const { apiKey, apiSecret, taikoL1ApiKey, taikoL1ApiSecret } = event.secrets;
@@ -118,10 +121,15 @@ exports.handler = async function (event, context) {
     taikoL1ApiSecret,
   );
 
-  const { fromBlock, toBlock } = await calculateBlockRange(taikoL1Provider);
+  const currentBlockNumber = await getLatestBlockNumber(taikoL1Provider);
+  const blockTimeInSeconds = await calculateBlockTime(taikoL1Provider);
+  const blocksInFiveMinutes = Math.floor((5 * 60) / blockTimeInSeconds);
+
+  const fromBlock = currentBlockNumber - blocksInFiveMinutes;
+  const toBlock = currentBlockNumber;
 
   const logs = await fetchLogsFromL1(
-    "Approved",
+    "ConflictingProofs",
     fromBlock,
     toBlock,
     "0xE3D777143Ea25A6E031d1e921F396750885f43aC",
@@ -129,10 +137,12 @@ exports.handler = async function (event, context) {
     taikoL1Provider,
   );
 
+  console.log(`Logs found: ${logs.length}`);
+
   if (logs.length > 0) {
     alertOrg(
       notificationClient,
-      `Detected ${logs.length} Approved events in the last 15 mins on Guardian!`,
+      `ConflictingProofs event detected! Details: ${JSON.stringify(logs)}`,
     );
   }
 

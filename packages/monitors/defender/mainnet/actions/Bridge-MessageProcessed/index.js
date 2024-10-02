@@ -262,7 +262,7 @@ function findUnmatchedMessages(processedMessages, sentMessages) {
 }
 
 function alertOrg(notificationClient, missingCount) {
-  const outputMessage = `Bridge Health Alert! \nThere are ${missingCount} missing MessageSent events for the processed messages on the other chain.`;
+  const outputMessage = `@cyberhorsey @soylent_ @xiaodino007 Bridge Health Alert! \nThere are ${missingCount} missing MessageSent events for the processed messages on the other chain.`;
 
   notificationClient.send({
     channelAlias: "discord_bridging",
