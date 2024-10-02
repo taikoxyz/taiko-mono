@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import { Script, console } from "forge-std/src/Script.sol";
-import { RegisterGalxePoints } from "../../contracts/galxe/RegisterGalxePoints.sol";
+import { RegisterGalxePoints } from "../../contracts/trailblazer/galxe/RegisterGalxePoints.sol";
 
 contract DeployRegisterMyGalaxyPointScript is Script {
     function run() public {

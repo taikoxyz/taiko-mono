@@ -3,11 +3,12 @@ pragma solidity 0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
 
-import { TrailblazersBadges } from "../../contracts/trailblazers-badges/TrailblazersBadges.sol";
+import { TrailblazersBadges } from
+    "../../../contracts/trailblazer/trailblazers-badges/TrailblazersBadges.sol";
 import { Merkle } from "murky/Merkle.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { UtilsScript } from "../../script/taikoon/sol/Utils.s.sol";
-import { MockBlacklist } from "../util/Blacklist.sol";
+import { UtilsScript } from "../../../script/taikoon/sol/Utils.s.sol";
+import { MockBlacklist } from "../../util/Blacklist.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 contract TrailblazersBadgesTest is Test {

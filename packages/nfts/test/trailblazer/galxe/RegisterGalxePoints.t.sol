@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
 
-import { RegisterGalxePoints } from "../../contracts/galxe/RegisterGalxePoints.sol";
+import { RegisterGalxePoints } from "../../../contracts/trailblazer/galxe/RegisterGalxePoints.sol";
 
 contract RegisterGalxePointsTest is Test {
     RegisterGalxePoints public registerGalxePoints;
