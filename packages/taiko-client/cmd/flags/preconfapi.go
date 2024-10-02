@@ -38,7 +38,7 @@ var (
 	}
 	PreconfTaskManagerAddress = &cli.StringFlag{
 		Name:     "preconfTaskManager",
-		Usage:    "preconfTaskManager address",
+		Usage:    "preconfTaskManager address from Nethermind",
 		Required: true,
 		Category: preconfAPICategory,
 		EnvVars:  []string{"PRECONF_TASK_MANAGER"},
