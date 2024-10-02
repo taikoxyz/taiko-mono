@@ -112,8 +112,8 @@ func (c *EngineClient) TxPoolContentWithMinTip(
 ) ([]*miner.PreBuiltTxList, error) {
 	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
-
 	var result []*miner.PreBuiltTxList
+
 	if err := c.CallContext(
 		timeoutCtx,
 		&result,

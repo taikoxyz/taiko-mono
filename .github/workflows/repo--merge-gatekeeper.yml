@@ -9,7 +9,7 @@ on:
 jobs:
   merge-gatekeeper:
     if: github.event_name == 'pull_request'
-    runs-on: [taiko-runner]
+    runs-on: [arc-runner-set]
     permissions:
       checks: read
       statuses: read
@@ -17,4 +17,5 @@ jobs:
       - name: Run Merge Gatekeeper
         uses: upsidr/merge-gatekeeper@v1
         with:
+          timeout: 1200
           token: ${{ secrets.GITHUB_TOKEN }}

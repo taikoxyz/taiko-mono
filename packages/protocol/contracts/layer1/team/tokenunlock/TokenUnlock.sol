@@ -66,6 +66,11 @@ contract TokenUnlock is EssentialContract {
         _;
     }
 
+    modifier onlyRecipientOrOwner() {
+        if (msg.sender != recipient && msg.sender != owner()) revert PERMISSION_DENIED();
+        _;
+    }
+
     /// @notice Initializes the contract.
     /// @param _owner The contract owner address.
     /// @param _rollupAddressManager The rollup address manager.
@@ -151,7 +156,7 @@ contract TokenUnlock is EssentialContract {
         IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)).safeTransfer(recipient, amount);
     }
 
-    function changeRecipient(address _newRecipient) external onlyRecipient {
+    function changeRecipient(address _newRecipient) external onlyRecipientOrOwner {
         if (_newRecipient == address(0) || _newRecipient == recipient) {
             revert INVALID_PARAM();
         }

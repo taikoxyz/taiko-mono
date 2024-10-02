@@ -30,7 +30,7 @@ interface ITaikoL1 {
         external
         returns (TaikoData.BlockMetadataV2 memory meta_);
 
-    /// @notice Proposes a Taiko L2 block (version 2)
+    /// @notice Proposes multiple Taiko L2 blocks (version 2)
     /// @param _paramsArr A list of encoded BlockParamsV2 objects.
     /// @param _txListArr A list of txList.
     /// @return metaArr_ The metadata objects of the proposed L2 blocks.

@@ -16,7 +16,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/repo"
 )
 
-func newTestServer(url string) *Server {
+func newTestServer() *Server {
 	_ = godotenv.Load("../.test.env")
 
 	srv := &Server{
@@ -24,7 +24,6 @@ func newTestServer(url string) *Server {
 		echo:             echo.New(),
 		eventRepo:        mock.NewEventRepository(),
 		nftBalanceRepo:   mock.NewNFTBalanceRepository(),
-		nftMetadataRepo:  mock.NewNFTMetadataRepository(),
 		erc20BalanceRepo: mock.NewERC20BalanceRepository(),
 	}
 
@@ -47,7 +46,6 @@ func Test_NewServer(t *testing.T) {
 				EventRepo:        &repo.EventRepository{},
 				CorsOrigins:      make([]string, 0),
 				NFTBalanceRepo:   &repo.NFTBalanceRepository{},
-				NFTMetadataRepo:  &repo.NFTMetadataRepository{},
 				ERC20BalanceRepo: &repo.ERC20BalanceRepository{},
 			},
 			nil,
@@ -62,32 +60,11 @@ func Test_NewServer(t *testing.T) {
 			eventindexer.ErrNoNFTBalanceRepository,
 		},
 		{
-			"noNftMetadataRepo",
-			NewServerOpts{
-				Echo:           echo.New(),
-				EventRepo:      &repo.EventRepository{},
-				NFTBalanceRepo: &repo.NFTBalanceRepository{},
-				CorsOrigins:    make([]string, 0),
-			},
-			eventindexer.ErrNoNFTMetadataRepository,
-		},
-		{
 			"noEventRepo",
 			NewServerOpts{
 				Echo:           echo.New(),
-				EventRepo:      &repo.EventRepository{},
-				NFTBalanceRepo: &repo.NFTBalanceRepository{},
 				CorsOrigins:    make([]string, 0),
-			},
-			eventindexer.ErrNoNFTMetadataRepository,
-		},
-		{
-			"noEventRepo",
-			NewServerOpts{
-				Echo:            echo.New(),
-				CorsOrigins:     make([]string, 0),
-				NFTBalanceRepo:  &repo.NFTBalanceRepository{},
-				NFTMetadataRepo: &repo.NFTMetadataRepository{},
+				NFTBalanceRepo: &repo.NFTBalanceRepository{},
 			},
 			eventindexer.ErrNoEventRepository,
 		},
@@ -109,7 +86,7 @@ func Test_NewServer(t *testing.T) {
 }
 
 func Test_Health(t *testing.T) {
-	srv := newTestServer("")
+	srv := newTestServer()
 
 	req, _ := http.NewRequest(echo.GET, "/healthz", nil)
 	rec := httptest.NewRecorder()
@@ -122,7 +99,7 @@ func Test_Health(t *testing.T) {
 }
 
 func Test_Root(t *testing.T) {
-	srv := newTestServer("")
+	srv := newTestServer()
 
 	req, _ := http.NewRequest(echo.GET, "/", nil)
 	rec := httptest.NewRecorder()
@@ -135,7 +112,7 @@ func Test_Root(t *testing.T) {
 }
 
 func Test_StartShutdown(t *testing.T) {
-	srv := newTestServer("")
+	srv := newTestServer()
 
 	go func() {
 		_ = srv.Start(":3928")

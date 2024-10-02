@@ -129,7 +129,7 @@ func (s *BlobSyncerTestSuite) TestTreasuryIncomeAllAnchors() {
 	s.Nil(err)
 
 	s.Greater(headAfter, headBefore)
-	s.Zero(balanceAfter.Cmp(balance))
+	s.Equal(1, balanceAfter.Cmp(balance))
 }
 
 func (s *BlobSyncerTestSuite) TestTreasuryIncome() {

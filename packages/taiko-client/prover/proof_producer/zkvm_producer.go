@@ -136,6 +136,9 @@ func (s *ZKvmProofProducer) callProverDaemon(
 		return nil, ErrRetry
 	}
 
+	if len(output.Data.Proof.Proof) == 0 {
+		return nil, errEmptyProof
+	}
 	proof = common.Hex2Bytes(output.Data.Proof.Proof[2:])
 	log.Info(
 		"Proof generated",
@@ -211,7 +214,12 @@ func (s *ZKvmProofProducer) requestProof(
 		return nil, err
 	}
 
-	log.Debug("Proof generation output", "output", string(resBytes))
+	log.Debug(
+		"Proof generation output",
+		"blockID", opts.BlockID,
+		"zkType", s.ZKProofType,
+		"output", string(resBytes),
+	)
 	var output RaikoRequestProofBodyResponseV2
 	if err := json.Unmarshal(resBytes, &output); err != nil {
 		return nil, err
