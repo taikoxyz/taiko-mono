@@ -104,7 +104,7 @@ First, retrieve the block number that you were assigned from your logs.
 
 Pause your prover with `docker compose down` (do NOT use `-v` as this will delete your volumes and cause you to resync from genesis).
 
-Set `STARTING_BLOCK_ID={YOUR_ASSIGNED_BLOCKID}` in your `.env` File.
+Set `PROVER_STARTING_BLOCK_ID={YOUR_ASSIGNED_BLOCKID}` in your `.env` File.
 
 Continue your prover with `docker compose up` (`-d` is optional). You should see logs from `taiko-client-prover-relayer` start up again at your assigned blockID.
 You can search with the following command: `docker compose logs taiko_client_prover_relayer | grep "{YOUR_ASSIGNED_BLOCKID}"`, and then check your Raiko instance for logs pertaining to proof generation!

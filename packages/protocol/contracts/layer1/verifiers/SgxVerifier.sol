@@ -131,10 +131,10 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
         if (!verified) revert SGX_INVALID_ATTESTATION();
 
-        address[] memory _address = new address[](1);
-        _address[0] = address(bytes20(_attestation.localEnclaveReport.reportData));
+        address[] memory addresses = new address[](1);
+        addresses[0] = address(bytes20(_attestation.localEnclaveReport.reportData));
 
-        return _addInstances(_address, false)[0];
+        return _addInstances(addresses, false)[0];
     }
 
     /// @inheritdoc IVerifier
@@ -172,14 +172,51 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
     /// @inheritdoc IVerifier
     function verifyBatchProof(
-        ContextV2[] calldata, /*_ctxs*/
-        TaikoData.TierProof calldata /*_proof*/
+        ContextV2[] calldata _ctxs,
+        TaikoData.TierProof calldata _proof
     )
         external
-        view
-        notImplemented
         onlyFromNamedEither(LibStrings.B_TAIKO, LibStrings.B_TIER_TEE_ANY)
-    { }
+    {
+        // Size is: 109 bytes
+        // 4 bytes + 20 bytes + 20 bytes + 65 bytes (signature) = 109
+        if (_proof.data.length != 109) revert SGX_INVALID_PROOF();
+
+        uint32 id = uint32(bytes4(_proof.data[:4]));
+        address oldInstance = address(bytes20(_proof.data[4:24]));
+        address newInstance = address(bytes20(_proof.data[24:44]));
+        bytes memory signature = _proof.data[44:];
+
+        // Collect public inputs
+        bytes32[] memory publicInputs = new bytes32[](_ctxs.length + 2);
+        // First public input is the current instance public key
+        publicInputs[0] = bytes32(uint256(uint160(oldInstance)));
+        publicInputs[1] = bytes32(uint256(uint160(newInstance)));
+        // All other inputs are the block program public inputs (a single 32 byte value)
+        for (uint256 i; i < _ctxs.length; ++i) {
+            // TODO: For now this assumes the new instance public key to remain the same
+            publicInputs[i + 2] = LibPublicInput.hashPublicInputs(
+                _ctxs[i].tran,
+                address(this),
+                newInstance,
+                _ctxs[i].prover,
+                _ctxs[i].metaHash,
+                taikoChainId()
+            );
+        }
+
+        bytes32 signatureHash = keccak256(abi.encodePacked(publicInputs));
+        // Verify the blocks
+        if (oldInstance != ECDSA.recover(signatureHash, signature)) {
+            revert SGX_INVALID_PROOF();
+        }
+
+        if (!_isInstanceValid(id, oldInstance)) revert SGX_INVALID_INSTANCE();
+
+        if (newInstance != oldInstance && newInstance != address(0)) {
+            _replaceInstance(id, oldInstance, newInstance);
+        }
+    }
 
     function taikoChainId() internal view virtual returns (uint64) {
         return ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfig().chainId;

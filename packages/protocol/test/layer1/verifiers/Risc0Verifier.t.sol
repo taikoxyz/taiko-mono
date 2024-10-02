@@ -105,7 +105,7 @@ contract TestRiscZeroVerifier is TaikoL1TestBase {
         (IVerifier.Context memory ctx, TaikoData.Transition memory transition) =
             _getDummyContextAndTransition();
 
-        vm.expectRevert(Risc0Verifier.RISC_ZERO_INVALID_IMAGE_ID.selector);
+        vm.expectRevert(Risc0Verifier.RISC_ZERO_INVALID_BLOCK_PROOF_IMAGE_ID.selector);
         rv.verifyProof(ctx, transition, proof);
 
         vm.stopPrank();

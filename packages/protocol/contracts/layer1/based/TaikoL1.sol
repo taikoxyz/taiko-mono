@@ -197,7 +197,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         (blk_,) = LibUtils.getBlock(state, getConfig(), _blockId);
     }
 
-    /// @notice Gets the state transition for a specific block.
+    /// @notice This function will revert if the transition is not found. This function will revert
+    /// if the transition is not found.
     /// @param _blockId Index of the block.
     /// @param _parentHash Parent hash of the block.
     /// @return The state transition data of the block.
@@ -210,6 +211,22 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         returns (TaikoData.TransitionState memory)
     {
         return LibUtils.getTransition(state, getConfig(), _blockId, _parentHash);
+    }
+
+    /// @notice Gets the state transitions for a batch of block. For transition that doesn't exist,
+    /// the corresponding transition state will be empty.
+    /// @param _blockIds Index of the blocks.
+    /// @param _parentHashes Parent hashes of the blocks.
+    /// @return The state transition array of the blocks.
+    function getTransitions(
+        uint64[] calldata _blockIds,
+        bytes32[] calldata _parentHashes
+    )
+        external
+        view
+        returns (TaikoData.TransitionState[] memory)
+    {
+        return LibUtils.getTransitions(state, getConfig(), _blockIds, _parentHashes);
     }
 
     /// @notice Gets the state transition for a specific block.

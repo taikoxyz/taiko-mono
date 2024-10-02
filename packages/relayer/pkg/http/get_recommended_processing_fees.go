@@ -122,14 +122,14 @@ func (srv *Server) GetRecommendedProcessingFees(c echo.Context) error {
 	for _, f := range feeTypes {
 		fees = append(fees, fee{
 			Type:        f.String(),
-			Amount:      srv.getCost(c.Request().Context(), uint64(f), destGasTipCap, destBaseFee, Layer1).String(),
+			Amount:      srv.getCost(uint64(f), destGasTipCap, destBaseFee, Layer1).String(),
 			DestChainID: srcChainID.Uint64(),
 			GasLimit:    strconv.Itoa(int(f)),
 		})
 
 		fees = append(fees, fee{
 			Type:        f.String(),
-			Amount:      srv.getCost(c.Request().Context(), uint64(f), srcGasTipCap, srcBaseFee, Layer2).String(),
+			Amount:      srv.getCost(uint64(f), srcGasTipCap, srcBaseFee, Layer2).String(),
 			DestChainID: destChainID.Uint64(),
 			GasLimit:    strconv.Itoa(int(f)),
 		})
@@ -143,7 +143,6 @@ func (srv *Server) GetRecommendedProcessingFees(c echo.Context) error {
 }
 
 func (srv *Server) getCost(
-	ctx context.Context,
 	gasLimit uint64,
 	gasTipCap *big.Int,
 	baseFee *big.Int,
@@ -151,7 +150,7 @@ func (srv *Server) getCost(
 ) *big.Int {
 	cost := new(big.Int).Mul(
 		new(big.Int).SetUint64(gasLimit),
-		new(big.Int).Add(gasTipCap, baseFee))
+		new(big.Int).Add(gasTipCap, new(big.Int).Mul(baseFee, big.NewInt(2))))
 
 	if destLayer == Layer2 {
 		return cost

@@ -3,6 +3,7 @@ package processor
 import (
 	"context"
 	"log/slog"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
@@ -34,9 +35,9 @@ func (p *Processor) isProfitable(
 		return shouldProcess, errImpossible
 	}
 
-	// if processing fee is higher than baseFee * gasLimit,
+	// if processing fee is higher than baseFee * 2 +gasTipCap +  gasLimit,
 	// we should process.
-	estimatedOnchainFee := (destChainBaseFee + gasTipCap) * uint64(gasLimit)
+	estimatedOnchainFee := ((destChainBaseFee * 2) + gasTipCap) * uint64(gasLimit)
 	if fee > estimatedOnchainFee {
 		shouldProcess = true
 	}
@@ -51,12 +52,13 @@ func (p *Processor) isProfitable(
 	)
 
 	opts := relayer.UpdateFeesAndProfitabilityOpts{
-		Fee:                 fee,
-		DestChainBaseFee:    destChainBaseFee,
-		GasTipCap:           gasTipCap,
-		GasLimit:            gasLimit,
-		IsProfitable:        shouldProcess,
-		EstimatedOnchainFee: estimatedOnchainFee,
+		Fee:                     fee,
+		DestChainBaseFee:        destChainBaseFee,
+		GasTipCap:               gasTipCap,
+		GasLimit:                gasLimit,
+		IsProfitable:            shouldProcess,
+		EstimatedOnchainFee:     estimatedOnchainFee,
+		IsProfitableEvaluatedAt: time.Now().UTC(),
 	}
 
 	if err := p.eventRepo.UpdateFeesAndProfitability(ctx, id, &opts); err != nil {

@@ -135,7 +135,9 @@ contract TaikoL1TestGroup4 is TaikoL1TestGroupBase {
             assertEq(ts.timestamp, block.timestamp);
 
             assertEq(totalTkoBalance(tko, L1, Alice), 10_000 ether - livenessBond);
-            assertEq(tko.balanceOf(David), 10_000 ether - tierOp.validityBond);
+            assertEq(
+                tko.balanceOf(David), 10_000 ether - tierOp.validityBond + livenessBond * 7 / 8
+            );
             assertEq(
                 tko.balanceOf(Taylor),
                 10_000 ether - tierSgx.validityBond + tierOp.validityBond * 7 / 8
