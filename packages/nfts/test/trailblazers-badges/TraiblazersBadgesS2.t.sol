@@ -317,8 +317,7 @@ contract TrailblazersBadgesS2Test is Test {
         // generate the claim hash for the current migration
         bytes32 claimHash = s2Badges.generateClaimHash(
             minters[0],
-            0, // experience points
-            0 // block number
+            0 // experience points
         );
 
         // simulate the backend signing the hash
@@ -327,7 +326,7 @@ contract TrailblazersBadgesS2Test is Test {
         // exercise the randomFromSignature function
 
         vm.startPrank(minters[0]);
-        s2Badges.endMigration(claimHash, v, r, s);
+        s2Badges.endMigration(claimHash, v, r, s, 0);
         vm.stopPrank();
 
         // check for s1 burn
@@ -437,7 +436,7 @@ contract TrailblazersBadgesS2Test is Test {
 
     function test_generateClaimHash_revert() public {
         vm.expectRevert();
-        s2Badges.generateClaimHash(minters[0], 0, 0);
+        s2Badges.generateClaimHash(minters[0], 0);
     }
 
     function test_migrateSameBadgeId_revert() public {

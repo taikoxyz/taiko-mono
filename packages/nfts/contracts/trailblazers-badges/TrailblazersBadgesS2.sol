@@ -8,7 +8,6 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
-import "@taiko/blacklist/IMinimalBlacklist.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
@@ -19,7 +18,6 @@ import "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721Enumer
 import "@openzeppelin/contracts-upgradeable/token/ERC721/utils/ERC721HolderUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
-import "@taiko/blacklist/IMinimalBlacklist.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import "./TrailblazersBadges.sol";
@@ -101,6 +99,7 @@ contract TrailblazersBadgesS2 is
     error TOKEN_NOT_OWNED();
     error NOT_RANDOM_SIGNER();
     error ALREADY_MIGRATED_IN_CYCLE();
+    error HASH_MISMATCH();
 
     /// @notice Events
     event MigrationToggled(uint256 _s1BadgeId, bool _enabled);
@@ -117,16 +116,16 @@ contract TrailblazersBadgesS2 is
         }
         _;
     }
-    /// @notice Reverts if sender is already migrating
 
+    /// @notice Reverts if sender is already migrating
     modifier isNotMigrating() {
         if (claimCooldowns[_msgSender()] != 0) {
             revert MIGRATION_ALREADY_STARTED();
         }
         _;
     }
-    /// @notice Reverts if migrations aren't enabled for that badge
 
+    /// @notice Reverts if migrations aren't enabled for that badge
     modifier migrationOpen(uint256 _s1BadgeId) {
         if (!enabledBadgeIds[migrationCycle][_s1BadgeId]) {
             revert MIGRATION_NOT_ENABLED();
@@ -217,15 +216,32 @@ contract TrailblazersBadgesS2 is
     /// @param v signature V field
     /// @param r signature R field
     /// @param s signature S field
+    /// @param exp The user's experience points
     /// @dev Can be called only during an active migration, after the cooldown is over
     /// @dev The final color is determined randomly, and affected by the tamper amounts
-    function endMigration(bytes32 _hash, uint8 v, bytes32 r, bytes32 s) external isMigrating {
+    function endMigration(
+        bytes32 _hash,
+        uint8 v,
+        bytes32 r,
+        bytes32 s,
+        uint256 exp
+    )
+        external
+        isMigrating
+    {
         if (tamperCooldowns[_msgSender()] > block.timestamp) {
             revert TAMPER_IN_PROGRESS();
         }
         // check if the cooldown is over
         if (claimCooldowns[_msgSender()] > block.timestamp) {
             revert MIGRATION_NOT_READY();
+        }
+
+        // ensure the hash corresponds to the start time
+        bytes32 calculatedHash = generateClaimHash(_msgSender(), exp);
+
+        if (calculatedHash != _hash) {
+            revert HASH_MISMATCH();
         }
 
         // get the tamper amounts
@@ -403,21 +419,12 @@ contract TrailblazersBadgesS2 is
     /// @notice Generate a unique hash for each migration uniquely
     /// @param _user The user address
     /// @param _exp The users experience points
-    /// @param _blockNumber The block number
     /// @return _hash The unique hash
-    function generateClaimHash(
-        address _user,
-        uint256 _exp,
-        uint256 _blockNumber
-    )
-        external
-        view
-        returns (bytes32)
-    {
+    function generateClaimHash(address _user, uint256 _exp) public view returns (bytes32) {
         if (claimCooldowns[_user] == 0) {
             revert MIGRATION_NOT_STARTED();
         }
-        return keccak256(abi.encodePacked(_user, claimCooldowns[_user], _exp, _blockNumber));
+        return keccak256(abi.encodePacked(_user, claimCooldowns[_user], _exp));
     }
 
     /// @notice Generates a random number from a signature

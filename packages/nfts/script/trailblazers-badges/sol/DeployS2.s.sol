@@ -9,7 +9,6 @@ import { TrailblazersBadges } from "../../../contracts/trailblazers-badges/Trail
 import { IMinimalBlacklist } from "@taiko/blacklist/IMinimalBlacklist.sol";
 import { TrailblazersBadgesS2 } from
     "../../../contracts/trailblazers-badges/TrailblazersBadgesS2.sol";
-import { BadgeChampions } from "../../../contracts/trailblazers-badges/BadgeChampions.sol";
 
 contract DeployS2Script is Script {
     UtilsScript public utils;
@@ -64,7 +63,6 @@ contract DeployS2Script is Script {
         address proxy;
         TrailblazersBadges s1Token;
         TrailblazersBadgesS2 s2Token;
-        BadgeChampions badgeChampions;
 
         vm.startBroadcast(deployerPrivateKey);
 
@@ -101,22 +99,10 @@ contract DeployS2Script is Script {
         console.log("Token Base URI:", baseURI);
         console.log("Deployed TrailblazersBadgesS2 to:", address(s2Token));
 
-        // Deploy Badge Champions
-        impl = address(new BadgeChampions());
-        proxy = address(
-            new ERC1967Proxy(
-                impl,
-                abi.encodeCall(BadgeChampions.initialize, (address(s1Token), address(s2Token)))
-            )
-        );
-
-        badgeChampions = BadgeChampions(proxy);
-
         // Register deployment
 
         vm.serializeAddress(jsonRoot, "TrailblazersBadges", address(s1Token));
         vm.serializeAddress(jsonRoot, "TrailblazersBadgesS2", address(s2Token));
-        vm.serializeAddress(jsonRoot, "BadgeChampions", address(badgeChampions));
         string memory finalJson = vm.serializeAddress(jsonRoot, "Owner", s2Token.owner());
         vm.writeJson(finalJson, jsonLocation);
 
