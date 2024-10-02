@@ -122,9 +122,9 @@ func (b *CalldataTransactionBuilder) getLookaheadBuffer(preconferAddress common.
 	currentTimestamp := uint64(time.Now().Unix())
 
 	// Iterate through the buffer to find the correct entry
-	var lookaheadPointer uint64 = ^uint64(0) // Default to max uint64 value to signify not found
+	lookaheadPointer := ^uint64(0) // Default to max uint64 value to signify not found
 	for i, entry := range buffer {
-		if strings.ToLower(entry.Preconfer.Hex()) == strings.ToLower(preconferAddress.Hex()) &&
+		if strings.EqualFold(entry.Preconfer.Hex(), preconferAddress.Hex()) &&
 			currentTimestamp > entry.PrevTimestamp.Uint64() &&
 			currentTimestamp <= entry.Timestamp.Uint64() {
 			lookaheadPointer = uint64(i)
