@@ -8,7 +8,7 @@ const verifyProofSelector = ethers.utils
 
 function alertOrg(notificationClient, message) {
   notificationClient.send({
-    channelAlias: "discord_blocks",
+    channelAlias: "discord_bridging",
     subject: "⚠️ SGXVerifier: verifyProof Failure Alert",
     message,
   });

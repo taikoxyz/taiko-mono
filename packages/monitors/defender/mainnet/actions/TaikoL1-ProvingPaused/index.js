@@ -6,45 +6,21 @@ const ABI = [
     anonymous: false,
     inputs: [
       {
-        indexed: true,
-        internalType: "uint256",
-        name: "blockId",
-        type: "uint256",
-      },
-      {
-        indexed: true,
-        internalType: "address",
-        name: "guardian",
-        type: "address",
-      },
-      {
-        indexed: false,
-        internalType: "bytes32",
-        name: "currentProofHash",
-        type: "bytes32",
-      },
-      {
-        indexed: false,
-        internalType: "bytes32",
-        name: "newProofHash",
-        type: "bytes32",
-      },
-      {
         indexed: false,
         internalType: "bool",
-        name: "provingPaused",
+        name: "paused",
         type: "bool",
       },
     ],
-    name: "ConflictingProofs",
+    name: "ProvingPaused",
     type: "event",
   },
 ];
 
 function alertOrg(notificationClient, message) {
   notificationClient.send({
-    channelAlias: "discord_configs",
-    subject: "🚨 GuardianProver: ConflictingProofs Alert",
+    channelAlias: "discord_bridging",
+    subject: "⚠️ TaikoL1: ProvingPaused Alert",
     message,
   });
 }
@@ -123,10 +99,10 @@ exports.handler = async function (event, context) {
   const toBlock = currentBlockNumber;
 
   const logs = await fetchLogsFromL1(
-    "ConflictingProofs",
+    "ProvingPaused",
     fromBlock,
     toBlock,
-    "0xE3D777143Ea25A6E031d1e921F396750885f43aC",
+    "0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a",
     ABI,
     taikoL1Provider,
   );
@@ -136,7 +112,7 @@ exports.handler = async function (event, context) {
   if (logs.length > 0) {
     alertOrg(
       notificationClient,
-      `ConflictingProofs event detected! Details: ${JSON.stringify(logs)}`,
+      `ProvingPaused event detected! Details: ${JSON.stringify(logs)}`,
     );
   }
 

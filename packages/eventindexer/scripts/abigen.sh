@@ -1,11 +1,11 @@
-#!/bin/sh
+#!/bin/bash
 
 if [ ! -d "../protocol/out" ]; then
     echo "ABI not generated in protocol package yet. Please run npm install && pnpm run compile in ../protocol"
     exit 1
 fi
 
-paths=("TaikoL1.sol" "Bridge.sol" "SgxVerifier.sol" "TaikoToken.sol")
+paths=("layer1/TaikoL1.sol" "layer1/Bridge.sol" "layer1/SgxVerifier.sol" "layer1/TaikoToken.sol")
 
 names=("TaikoL1" "Bridge" "SgxVerifier" "TaikoToken")
 

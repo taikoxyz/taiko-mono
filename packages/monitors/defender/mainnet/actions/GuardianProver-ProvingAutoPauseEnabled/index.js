@@ -6,21 +6,26 @@ const ABI = [
     anonymous: false,
     inputs: [
       {
-        indexed: false,
+        indexed: true,
         internalType: "bool",
-        name: "paused",
+        name: "enabled",
         type: "bool",
       },
     ],
-    name: "ProvingPaused",
+    name: "ProvingAutoPauseEnabled",
     type: "event",
   },
 ];
 
 function alertOrg(notificationClient, message) {
   notificationClient.send({
-    channelAlias: "discord_configs",
-    subject: "⚠️ TaikoL1: ProvingPaused Alert",
+    channelAlias: "discord_bridging",
+    subject: "⚠️ GuardianProver: ProvingAutoPauseEnabled Alert",
+    message,
+  });
+  notificationClient.send({
+    channelAlias: "tg_taiko_guardians",
+    subject: "⚠️ GuardianProver: ProvingAutoPauseEnabled Alert",
     message,
   });
 }
@@ -99,10 +104,10 @@ exports.handler = async function (event, context) {
   const toBlock = currentBlockNumber;
 
   const logs = await fetchLogsFromL1(
-    "ProvingPaused",
+    "ProvingAutoPauseEnabled",
     fromBlock,
     toBlock,
-    "0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a",
+    "0xE3D777143Ea25A6E031d1e921F396750885f43aC",
     ABI,
     taikoL1Provider,
   );
@@ -110,10 +115,12 @@ exports.handler = async function (event, context) {
   console.log(`Logs found: ${logs.length}`);
 
   if (logs.length > 0) {
-    alertOrg(
-      notificationClient,
-      `ProvingPaused event detected! Details: ${JSON.stringify(logs)}`,
-    );
+    logs.forEach((log) => {
+      const enabled = log.enabled;
+      const status = enabled ? "ENABLED" : "DISABLED";
+      const message = `Proving Auto-Pause has been ${status}.\n\nDetails:\n- Enabled: ${enabled}\n- Block Number: ${log.blockNumber}`;
+      alertOrg(notificationClient, message);
+    });
   }
 
   return true;

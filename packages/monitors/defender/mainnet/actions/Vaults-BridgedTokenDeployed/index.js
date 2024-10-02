@@ -130,8 +130,8 @@ const ABIs = {
 function alertOrg(notificationClient, subject, message) {
   notificationClient.send({
     channelAlias: "discord_bridging",
-    subject,
-    message,
+    subject: subject,
+    message: message,
   });
 }
 
@@ -226,9 +226,11 @@ async function monitorEvent(
   const eventCount = logs.length;
 
   if (eventCount > 0) {
-    const alertMessage = `Detected ${eventCount} ${subject} events on ${provider.network.name} in the last 24 hours!`;
+    const alertMessage = `ℹ️ Detected ${eventCount} ${subject} events on ${provider.network.name} in the last 24 hours!`;
     alertOrg(notificationClient, subject, alertMessage);
   }
+
+  return;
 }
 
 exports.handler = async function (event, context) {
@@ -260,7 +262,6 @@ exports.handler = async function (event, context) {
   const { fromBlock: l2FromBlock, toBlock: l2ToBlock } =
     await calculateBlockRange(l2Provider);
 
-  // Monitor ERC1155Vault events
   await monitorEvent(
     l1Provider,
     "BridgedTokenDeployed",
@@ -268,7 +269,7 @@ exports.handler = async function (event, context) {
     l1ToBlock,
     "0xaf145913EA4a56BE22E120ED9C24589659881702", // L1
     ABIs.ERC1155Vault,
-    "ℹ️ ERC1155Vault BridgedTokenDeployed",
+    " ERC1155Vault.BridgedTokenDeployed",
     notificationClient,
   );
 
@@ -279,11 +280,10 @@ exports.handler = async function (event, context) {
     l2ToBlock,
     "0x1670000000000000000000000000000000000004", // L2
     ABIs.ERC1155Vault,
-    "ℹ️ ERC1155Vault BridgedTokenDeployed",
+    " ERC1155Vault.BridgedTokenDeployed",
     notificationClient,
   );
 
-  // Monitor ERC721Vault events
   await monitorEvent(
     l1Provider,
     "BridgedTokenDeployed",
@@ -291,7 +291,7 @@ exports.handler = async function (event, context) {
     l1ToBlock,
     "0x0b470dd3A0e1C41228856Fb319649E7c08f419Aa", // L1
     ABIs.ERC721Vault,
-    "ℹ️ ERC721Vault BridgedTokenDeployed",
+    " ERC721Vault.BridgedTokenDeployed",
     notificationClient,
   );
 
@@ -302,11 +302,10 @@ exports.handler = async function (event, context) {
     l2ToBlock,
     "0x1670000000000000000000000000000000000003", // L2
     ABIs.ERC721Vault,
-    "ℹ️ ERC721Vault BridgedTokenDeployed",
+    " ERC721Vault.BridgedTokenDeployed",
     notificationClient,
   );
 
-  // Monitor ERC20Vault events
   await monitorEvent(
     l1Provider,
     "BridgedTokenDeployed",
@@ -314,7 +313,7 @@ exports.handler = async function (event, context) {
     l1ToBlock,
     "0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab", // L1
     ABIs.ERC20Vault,
-    "ℹ️ ERC20 BridgedTokenDeployed",
+    " ERC20Vault.BridgedTokenDeployed",
     notificationClient,
   );
 
@@ -325,7 +324,7 @@ exports.handler = async function (event, context) {
     l2ToBlock,
     "0x1670000000000000000000000000000000000002", // L2
     ABIs.ERC20Vault,
-    "ℹ️  ERC20Vault BridgedTokenDeployed",
+    " ERC20Vault.BridgedTokenDeployed",
     notificationClient,
   );
 
