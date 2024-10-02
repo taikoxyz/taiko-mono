@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/holiman/uint256"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
@@ -287,6 +288,7 @@ func (b *BlobTransactionBuilder) BuildBlocksUnsigned(
 		Data:       data,
 		Sidecar:    sidecar,
 		BlobHashes: blobHashes,
+		GasTipCap:  uint256.MustFromBig(big.NewInt(1000)),
 	}
 
 	tx := types.NewTx(blobTx)
