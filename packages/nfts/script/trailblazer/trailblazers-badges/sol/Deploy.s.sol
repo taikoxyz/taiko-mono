@@ -6,7 +6,7 @@ import { Script, console } from "forge-std/src/Script.sol";
 import { Merkle } from "murky/Merkle.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { TrailblazersBadges } from
-    "../../../contracts/trailblazer/trailblazers-badges/TrailblazersBadges.sol";
+    "../../../../contracts/trailblazers-badges/TrailblazersBadges.sol";
 import { IMinimalBlacklist } from "@taiko/blacklist/IMinimalBlacklist.sol";
 
 contract DeployScript is Script {
