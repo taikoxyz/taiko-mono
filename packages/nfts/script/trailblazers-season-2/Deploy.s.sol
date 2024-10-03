@@ -5,10 +5,10 @@ import { UtilsScript, MockBlacklist } from "./Utils.s.sol";
 import { Script, console } from "forge-std/src/Script.sol";
 import { Merkle } from "murky/Merkle.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { TrailblazersBadges } from "../../../contracts/trailblazers-badges/TrailblazersBadges.sol";
+import { TrailblazersBadges } from "../../contracts/trailblazers-badges/TrailblazersBadges.sol";
 import { IMinimalBlacklist } from "@taiko/blacklist/IMinimalBlacklist.sol";
 import { TrailblazersBadgesS2 } from
-    "../../../contracts/trailblazers-badges/TrailblazersBadgesS2.sol";
+    "../../contracts/trailblazers-season-2/TrailblazersBadgesS2.sol";
 
 contract DeployS2Script is Script {
     UtilsScript public utils;
@@ -44,11 +44,6 @@ contract DeployS2Script is Script {
         utils.setUp();
 
         jsonLocation = utils.getContractJsonLocation();
-
-        string memory projectRoot = vm.projectRoot();
-        jsonLocation = string.concat(
-            projectRoot, "/deployments/trailblazers-badges/", utils.lowercaseNetworkKey(), ".json"
-        );
 
         deployerPrivateKey = utils.getPrivateKey();
         deployerAddress = utils.getAddress();

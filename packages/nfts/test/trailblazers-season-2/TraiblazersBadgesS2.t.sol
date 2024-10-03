@@ -9,7 +9,7 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { UtilsScript } from "../../script/taikoon/sol/Utils.s.sol";
 import { MockBlacklist } from "../util/Blacklist.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import { TrailblazersBadgesS2 } from "../../contracts/trailblazers-badges/TrailblazersBadgesS2.sol";
+import { TrailblazersBadgesS2 } from "../../contracts/trailblazers-season-2/TrailblazersBadgesS2.sol";
 import { TrailblazerBadgesS1MintTo } from "../util/TrailblazerBadgesS1MintTo.sol";
 
 contract TrailblazersBadgesS2Test is Test {
