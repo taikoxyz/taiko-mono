@@ -409,11 +409,7 @@ func (s *Syncer) insertNewHead(
 		return nil, fmt.Errorf("failed to create execution payloads: %w", err)
 	}
 
-	fc := &engine.ForkchoiceStateV1{
-		HeadBlockHash:      payload.BlockHash,
-		SafeBlockHash:      payload.BlockHash,
-		FinalizedBlockHash: payload.BlockHash,
-	}
+	fc := &engine.ForkchoiceStateV1{HeadBlockHash: payload.BlockHash}
 
 	// Update the fork choice
 	fcRes, err := s.rpc.L2Engine.ForkchoiceUpdate(ctx, fc, nil)

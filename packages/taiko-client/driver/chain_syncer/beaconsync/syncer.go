@@ -73,9 +73,7 @@ func (s *Syncer) TriggerBeaconSync(blockID uint64) error {
 	}
 
 	fcRes, err := s.rpc.L2Engine.ForkchoiceUpdate(s.ctx, &engine.ForkchoiceStateV1{
-		HeadBlockHash:      headPayload.BlockHash,
-		SafeBlockHash:      headPayload.BlockHash,
-		FinalizedBlockHash: headPayload.BlockHash,
+		HeadBlockHash: headPayload.BlockHash,
 	}, nil)
 	if err != nil {
 		return err
