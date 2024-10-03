@@ -18,7 +18,6 @@ var (
 	// Request urls.
 	sidecarsRequestURL = "/eth/v1/beacon/blob_sidecars/%d"
 	genesisRequestURL  = "/eth/v1/beacon/genesis"
-	getConfigSpecPath  = "/eth/v1/config/spec"
 )
 
 type ConfigSpec struct {
