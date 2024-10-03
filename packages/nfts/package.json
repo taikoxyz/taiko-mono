@@ -32,7 +32,9 @@
     "kbw:deploy:mainnet": "forge clean && pnpm compile && forge script script/party-ticket/sol/Deploy.s.sol --rpc-url https://rpc.mainnet.taiko.xyz --broadcast --legacy --with-gas-price 30 ",
     "kbw:upgradeV2:hekla": "forge clean && pnpm compile && forge script script/party-ticket/sol/UpgradeV2.s.sol --rpc-url https://rpc.hekla.taiko.xyz --broadcast   --gas-estimate-multiplier 200",
     "kbw:upgradeV2:mainnet": "forge clean && pnpm compile && forge script script/party-ticket/sol/UpgradeV2.s.sol --rpc-url https://rpc.mainnet.taiko.xyz --broadcast",
-    "pfp:deploy:hekla": "forge clean && pnpm compile && forge script script/profile/Deploy.s.sol --rpc-url https://rpc.hekla.taiko.xyz --broadcast   --gas-estimate-multiplier 200"
+    "pfp:deploy:hekla": "forge clean && pnpm compile && forge script script/profile/Deploy.s.sol --rpc-url https://rpc.hekla.taiko.xyz --broadcast   --gas-estimate-multiplier 200",
+    "pfp:deploy:mainnet": "forge clean && pnpm compile && forge script script/profile/Deploy.s.sol --rpc-url https://rpc.mainnet.taiko.xyz --broadcast   --gas-estimate-multiplier 200",
+    "tbz:airdrop:hekla": "forge clean && pnpm compile && forge script script/trailblazers-airdrop/Deploy.s.sol --rpc-url https://rpc.hekla.taiko.xyz --broadcast   --gas-estimate-multiplier 200"
   },
   "devDependencies": {
     "@types/node": "^20.11.30",
