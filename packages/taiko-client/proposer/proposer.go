@@ -223,6 +223,7 @@ func (p *Proposer) fetchPoolContent(filterPoolContent bool) ([]types.Transaction
 				"bytesLength", txs.BytesLength,
 				"minBytesLength", p.MinTxListBytes,
 			)
+
 			break
 		}
 		txLists = append(txLists, txs.TxList)
