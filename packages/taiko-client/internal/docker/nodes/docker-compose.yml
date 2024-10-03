@@ -18,7 +18,7 @@ services:
 
   l2_execution_engine:
     container_name: l2_node
-    image: us-docker.pkg.dev/evmchain/images/taiko-geth:taiko
+    image: us-docker.pkg.dev/evmchain/images/taiko-geth:sha-5c84a20
     restart: unless-stopped
     pull_policy: always
     volumes:
