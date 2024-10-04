@@ -435,11 +435,6 @@ contract TrailblazersBadgesS2Test is Test {
         );
     }
 
-    function test_generateClaimHash_revert() public {
-        vm.expectRevert();
-        s2Badges.generateClaimHash(minters[0], 0);
-    }
-
     function test_migrateSameBadgeId_revert() public {
         // run a first migration
         test_endMigration();

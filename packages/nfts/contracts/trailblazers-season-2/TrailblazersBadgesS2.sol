@@ -421,9 +421,6 @@ contract TrailblazersBadgesS2 is
     /// @param _exp The users experience points
     /// @return _hash The unique hash
     function generateClaimHash(address _user, uint256 _exp) public view returns (bytes32) {
-        if (claimCooldowns[_user] == 0) {
-            revert MIGRATION_NOT_STARTED();
-        }
         return keccak256(abi.encodePacked(_user, claimCooldowns[_user], _exp));
     }
 
