@@ -27,13 +27,15 @@ import (
 // @license.url https://github.com/taikoxyz/taiko-mono/packages/taiko-client/blob/main/LICENSE.md
 
 type buildBlocksRequest struct {
-	BlockParams    []buildBlockParams `json:"blockParams"`
-	CalldataOrBlob string             `json:"calldataOrBlob"`
+	BlockParams      []buildBlockParams `json:"blockParams"`
+	CalldataOrBlob   string             `json:"calldataOrBlob"`
+	PreconferAddress string             `json:"preconferAddress"`
 }
 
 type buildBlockRequest struct {
 	buildBlockParams
-	CalldataOrBlob string `json:"calldataOrBlob"`
+	CalldataOrBlob   string `json:"calldataOrBlob"`
+	PreconferAddress string `json:"preconferAddress"`
 }
 type buildBlockParams struct {
 	L1StateBlockNumber uint32   `json:"l1StateBlockNumber"`
@@ -74,6 +76,7 @@ func (s *PreconfAPIServer) BuildBlock(c echo.Context) error {
 			Timestamp:          req.Timestamp,
 			SignedTransactions: req.SignedTransactions,
 			Coinbase:           req.Coinbase,
+			PreconferAddress:   req.PreconferAddress,
 		},
 	)
 	if err != nil {
@@ -114,7 +117,7 @@ func (s *PreconfAPIServer) BuildBlocks(c echo.Context) error {
 
 	tx, err := s.txBuilders[t].BuildBlocksUnsigned(
 		c.Request().Context(),
-		paramsToOpts(req.BlockParams),
+		paramsToOpts(req.BlockParams, req.PreconferAddress),
 	)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, err)
@@ -165,7 +168,7 @@ func (s *PreconfAPIServer) GetTransactionByHash(c echo.Context) error {
 	return c.JSON(http.StatusOK, tx)
 }
 
-func paramsToOpts(params []buildBlockParams) builder.BuildBlocksUnsignedOpts {
+func paramsToOpts(params []buildBlockParams, preconferAddress string) builder.BuildBlocksUnsignedOpts {
 	opts := make([]builder.BuildBlockUnsignedOpts, 0)
 
 	for _, p := range params {
@@ -178,6 +181,7 @@ func paramsToOpts(params []buildBlockParams) builder.BuildBlocksUnsignedOpts {
 	}
 
 	return builder.BuildBlocksUnsignedOpts{
-		BlockOpts: opts,
+		BlockOpts:        opts,
+		PreconferAddress: preconferAddress,
 	}
 }

@@ -75,7 +75,7 @@ func (b *BlobTransactionBuilder) BuildBlockUnsigned(
 		return nil, err
 	}
 
-	lookaheadPointer, err := b.getLookaheadBuffer(common.HexToAddress(opts.Coinbase))
+	lookaheadPointer, err := b.getLookaheadBuffer(common.HexToAddress(opts.PreconferAddress))
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +85,7 @@ func (b *BlobTransactionBuilder) BuildBlockUnsigned(
 	// software for now.
 	lookaheadSetParam := bindings.IPreconfTaskManagerLookaheadSetParam{
 		Timestamp: big.NewInt(0),
-		Preconfer: common.HexToAddress(opts.Coinbase),
+		Preconfer: common.HexToAddress(opts.PreconferAddress),
 	}
 
 	lookaheadSetParams = append(lookaheadSetParams, lookaheadSetParam)
@@ -251,7 +251,7 @@ func (b *BlobTransactionBuilder) BuildBlocksUnsigned(
 		emptyTxLists[i] = []byte{0xff}
 	}
 
-	lookaheadPointer, err := b.getLookaheadBuffer(common.HexToAddress(opts.BlockOpts[0].Coinbase))
+	lookaheadPointer, err := b.getLookaheadBuffer(common.HexToAddress(opts.PreconferAddress))
 	if err != nil {
 		return nil, err
 	}
@@ -261,7 +261,7 @@ func (b *BlobTransactionBuilder) BuildBlocksUnsigned(
 	// software for now.
 	lookaheadSetParam := bindings.IPreconfTaskManagerLookaheadSetParam{
 		Timestamp: big.NewInt(0),
-		Preconfer: common.HexToAddress(opts.BlockOpts[0].Coinbase),
+		Preconfer: common.HexToAddress(opts.PreconferAddress),
 	}
 
 	lookaheadSetParams = append(lookaheadSetParams, lookaheadSetParam)

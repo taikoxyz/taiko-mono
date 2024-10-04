@@ -10,13 +10,15 @@ import (
 )
 
 type BuildBlocksUnsignedOpts struct {
-	BlockOpts []BuildBlockUnsignedOpts
+	BlockOpts        []BuildBlockUnsignedOpts
+	PreconferAddress string
 }
 type BuildBlockUnsignedOpts struct {
 	L1StateBlockNumber uint32
 	Timestamp          uint64
 	SignedTransactions []string
 	Coinbase           string
+	PreconferAddress   string
 }
 
 type TxBuilder interface {
