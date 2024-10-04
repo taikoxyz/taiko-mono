@@ -34,7 +34,8 @@
     "tbz:s2:deploy:hekla": "forge clean && forge script script/trailblazers-season-2/Deploy.s.sol --tc DeployS2Script --rpc-url https://rpc.hekla.taiko.xyz --broadcast   --gas-estimate-multiplier 200",
     "taikoon:deploy:hekla": "forge clean && pnpm compile && forge script script/taikoon/sol/Deploy.s.sol --rpc-url https://rpc.hekla.taiko.xyz --broadcast   --gas-estimate-multiplier 200",
     "pfp:deploy:hekla": "forge clean && pnpm compile && forge script script/profile/Deploy.s.sol --rpc-url https://rpc.hekla.taiko.xyz --broadcast   --gas-estimate-multiplier 200",
-    "pfp:deploy:mainnet": "forge clean && pnpm compile && forge script script/profile/Deploy.s.sol --rpc-url https://rpc.mainnet.taiko.xyz --broadcast   --gas-estimate-multiplier 200"
+    "pfp:deploy:mainnet": "forge clean && pnpm compile && forge script script/profile/Deploy.s.sol --rpc-url https://rpc.mainnet.taiko.xyz --broadcast   --gas-estimate-multiplier 200",
+    "tbz:airdrop:hekla": "forge clean && pnpm compile && forge script script/trailblazers-airdrop/Deploy.s.sol --rpc-url https://rpc.hekla.taiko.xyz --broadcast   --gas-estimate-multiplier 200"
   },
   "devDependencies": {
     "@types/node": "^20.11.30",
