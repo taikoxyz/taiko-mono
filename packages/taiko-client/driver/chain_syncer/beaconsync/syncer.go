@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/eth/downloader"
@@ -72,15 +71,15 @@ func (s *Syncer) TriggerBeaconSync(blockID uint64) error {
 		return fmt.Errorf("unexpected NewPayload response status: %s", status.Status)
 	}
 
-	verifiedBlock, err := s.rpc.TaikoL1.GetLastVerifiedBlock(&bind.CallOpts{Context: s.ctx})
+	lastVerifiedBlockHash, err := s.rpc.GetLastVerifiedBlockHash(s.ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to fetch the last verified block hash: %w", err)
 	}
 
 	fcRes, err := s.rpc.L2Engine.ForkchoiceUpdate(s.ctx, &engine.ForkchoiceStateV1{
 		HeadBlockHash:      headPayload.BlockHash,
-		SafeBlockHash:      verifiedBlock.BlockHash,
-		FinalizedBlockHash: verifiedBlock.BlockHash,
+		SafeBlockHash:      lastVerifiedBlockHash,
+		FinalizedBlockHash: lastVerifiedBlockHash,
 	}, nil)
 	if err != nil {
 		return err

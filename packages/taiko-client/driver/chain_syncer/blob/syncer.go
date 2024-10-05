@@ -409,15 +409,15 @@ func (s *Syncer) insertNewHead(
 		return nil, fmt.Errorf("failed to create execution payloads: %w", err)
 	}
 
-	verifiedBlock, err := s.rpc.TaikoL1.GetLastVerifiedBlock(&bind.CallOpts{Context: s.ctx})
+	lastVerifiedBlockHash, err := s.rpc.GetLastVerifiedBlockHash(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to fetch the last verified block hash: %w", err)
 	}
 
 	fc := &engine.ForkchoiceStateV1{
 		HeadBlockHash:      payload.BlockHash,
-		SafeBlockHash:      verifiedBlock.BlockHash,
-		FinalizedBlockHash: verifiedBlock.BlockHash,
+		SafeBlockHash:      lastVerifiedBlockHash,
+		FinalizedBlockHash: lastVerifiedBlockHash,
 	}
 
 	// Update the fork choice
