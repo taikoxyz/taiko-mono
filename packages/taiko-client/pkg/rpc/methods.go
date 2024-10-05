@@ -510,19 +510,6 @@ func (c *Client) GetProtocolStateVariables(opts *bind.CallOpts) (*struct {
 	return GetProtocolStateVariables(c.TaikoL1, opts)
 }
 
-// GetLastVerifiedBlockHash gets the last verified block hash from TaikoL1 contract.
-func (c *Client) GetLastVerifiedBlockHash(ctx context.Context) (common.Hash, error) {
-	ctxWithTimeout, cancel := context.WithTimeout(ctx, defaultTimeout)
-	defer cancel()
-
-	b, err := c.TaikoL1.GetLastVerifiedBlock(&bind.CallOpts{Context: ctxWithTimeout})
-	if err != nil {
-		return common.Hash{}, err
-	}
-
-	return b.BlockHash, nil
-}
-
 // GetL2BlockInfo fetches the L2 block information from the protocol.
 func (c *Client) GetL2BlockInfo(ctx context.Context, blockID *big.Int) (bindings.TaikoDataBlockV2, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
