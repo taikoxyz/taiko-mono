@@ -208,7 +208,7 @@ You can use `sls invoke --function <stack_resource_id>` to manually run an actio
 
 > Each command has a standard output to a JSON object.
 
-More information can be found on our documentation page [here](https://docs.openzeppelin.com/defender/serverless-plugin.html)
+More information can be found on our documentation page [here](https://docs.openzeppelin.com/defender/dac)
 
 ## Caveats
 

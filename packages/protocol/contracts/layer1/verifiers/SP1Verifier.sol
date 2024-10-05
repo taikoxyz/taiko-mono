@@ -22,6 +22,8 @@ contract SP1Verifier is EssentialContract, IVerifier {
     event ProgramTrusted(bytes32 programVKey, bool trusted);
 
     error SP1_INVALID_PROGRAM_VKEY();
+    error SP1_INVALID_AGGREGATION_VKEY();
+    error SP1_INVALID_PARAMS();
     error SP1_INVALID_PROOF();
 
     /// @notice Initializes the contract with the provided address manager.
@@ -54,9 +56,7 @@ contract SP1Verifier is EssentialContract, IVerifier {
 
         // Avoid in-memory decoding, so in-place decode with slicing.
         // e.g.: bytes32 programVKey = bytes32(_proof.data[0:32]);
-        if (!isProgramTrusted[bytes32(_proof.data[0:32])]) {
-            revert SP1_INVALID_PROGRAM_VKEY();
-        }
+        require(isProgramTrusted[bytes32(_proof.data[0:32])], SP1_INVALID_PROGRAM_VKEY());
 
         // Need to be converted from bytes32 to bytes
         bytes32 hashedPublicInput = LibPublicInput.hashPublicInputs(
@@ -71,20 +71,53 @@ contract SP1Verifier is EssentialContract, IVerifier {
             )
         );
 
-        if (!success) {
-            revert SP1_INVALID_PROOF();
-        }
+        require(success, SP1_INVALID_PROOF());
     }
 
     /// @inheritdoc IVerifier
     function verifyBatchProof(
-        ContextV2[] calldata, /*_ctxs*/
-        TaikoData.TierProof calldata /*_proof*/
+        ContextV2[] calldata _ctxs,
+        TaikoData.TierProof calldata _proof
     )
         external
-        pure
-        notImplemented
-    { }
+        view
+    {
+        require(_ctxs.length != 0 && _proof.data.length > 64, SP1_INVALID_PARAMS());
+        // Extract the necessary data
+        bytes32 aggregation_program = bytes32(_proof.data[0:32]);
+        bytes32 block_proving_program = bytes32(_proof.data[32:64]);
+
+        // Check if the aggregation program is trusted
+        require(isProgramTrusted[aggregation_program], SP1_INVALID_AGGREGATION_VKEY());
+        // Check if the block proving program is trusted
+        require(isProgramTrusted[block_proving_program], SP1_INVALID_PROGRAM_VKEY());
+
+        // Collect public inputs
+        bytes32[] memory public_inputs = new bytes32[](_ctxs.length + 1);
+        // First public input is the block proving program key
+        public_inputs[0] = block_proving_program;
+        // All other inputs are the block program public inputs (a single 32 byte value)
+        for (uint256 i; i < _ctxs.length; ++i) {
+            public_inputs[i + 1] = LibPublicInput.hashPublicInputs(
+                _ctxs[i].tran,
+                address(this),
+                address(0),
+                _ctxs[i].prover,
+                _ctxs[i].metaHash,
+                taikoChainId()
+            );
+        }
+
+        // _proof.data[64:] is the succinct's proof position
+        (bool success,) = sp1RemoteVerifier().staticcall(
+            abi.encodeCall(
+                ISP1Verifier.verifyProof,
+                (aggregation_program, abi.encodePacked(public_inputs), _proof.data[64:])
+            )
+        );
+
+        require(success, SP1_INVALID_PROOF());
+    }
 
     function taikoChainId() internal view virtual returns (uint64) {
         return ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfig().chainId;
