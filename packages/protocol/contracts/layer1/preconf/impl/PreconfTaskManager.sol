@@ -6,6 +6,7 @@ import "../../../shared/common/EssentialContract.sol";
 import "../../based/ITaikoL1.sol";
 import "../../based/TaikoData.sol";
 import "../libs/LibNames.sol";
+import "../libs/LibMerkle.sol";
 import "../iface/ILookahead.sol";
 import "../iface/IPreconfServiceManager.sol";
 import "../iface/IPreconfTaskManager.sol";
@@ -14,6 +15,7 @@ import "../iface/IPreconfTaskManager.sol";
 /// @custom:security-contact security@taiko.xyz
 contract PreconfTaskManager is IPreconfTaskManager, EssentialContract {
     using ECDSA for bytes32;
+    using LibMerkle for bytes32[];
 
     struct Receipt {
         uint64 blockId;
@@ -92,7 +94,10 @@ contract PreconfTaskManager is IPreconfTaskManager, EssentialContract {
     {
         require(_transactionHashes.length > _receipt.position, PositionOutOfBounds());
         require(_transactionHashes[_receipt.position] == _receipt.txHash, TxHashMismatch());
-        require(_blockHeader.transactionsHash == merklize(_transactionHashes), TxRootHashMismatch());
+        require(
+            _blockHeader.transactionsHash == _transactionHashes.keccakMerkleize(),
+            TxRootHashMismatch()
+        );
 
         ITaikoL1 taiko = _taikoL1();
         require(taiko.getConfig().chainId == _receipt.chainId, ChainIdMismatch());
@@ -117,10 +122,6 @@ contract PreconfTaskManager is IPreconfTaskManager, EssentialContract {
     }
 
     function hashBlockHeader(BlockHeader calldata _blockHeader) public pure returns (bytes32) {
-        // TODO
-    }
-
-    function merklize(bytes32[] calldata _hashes) public pure returns (bytes32) {
         // TODO
     }
 
