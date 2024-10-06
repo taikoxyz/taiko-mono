@@ -38,15 +38,9 @@ contract PreconfTaskManager is IPreconfTaskManager, EssentialContract {
 
     /// @notice Modifier to update the lookahead and ensure the caller is the current preconfer
     /// @param _lookaheadParams Encoded parameters to set lookahead
-    modifier onlyCurrentPreconfer(bytes calldata _lookaheadParams) {
+    modifier onlyCurrentPreconfer(ILookahead.LookaheadParam[] calldata _lookaheadParams) {
         ILookahead lookahead = ILookahead(resolve(LibNames.B_LOOKAHEAD, false));
-
-        if (lookahead.isLookaheadRequired()) {
-            require(_lookaheadParams.length != 0, LookaheadSetParamsRequired());
-            lookahead.postLookahead(abi.decode(_lookaheadParams, (ILookahead.LookaheadParam)));
-        } else {
-            require(_lookaheadParams.length == 0, LookaheadSetParamsNotRequired());
-        }
+        lookahead.postLookahead(_lookaheadParams);
 
         require(lookahead.isCurrentPreconfer(msg.sender), SenderNotCurrentPreconfer());
 
@@ -54,12 +48,12 @@ contract PreconfTaskManager is IPreconfTaskManager, EssentialContract {
     }
 
     /// @notice Proposes a Taiko L2 block (version 2)
+    /// @param _lookaheadParams parameters to set lookahead
     /// @param _params Block parameters, an encoded BlockParamsV2 object.
     /// @param _txList txList data if calldata is used for DA.
-    /// @param _lookaheadParams encoded parameters to set lookahead
     /// @return meta_ The metadata of the proposed L2 block.
     function newBlockProposal(
-        bytes calldata _lookaheadParams,
+        ILookahead.LookaheadParam[] calldata _lookaheadParams,
         bytes calldata _params,
         bytes calldata _txList
     )
@@ -73,11 +67,12 @@ contract PreconfTaskManager is IPreconfTaskManager, EssentialContract {
     }
 
     /// @notice Proposes multiple Taiko L2 blocks (version 2)
+    /// @param _lookaheadParams parameters to set lookahead
     /// @param _paramsArr A list of encoded BlockParamsV2 objects.
     /// @param _txListArr A list of txList.
     /// @return metaArr_ The metadata objects of the proposed L2 blocks.
     function newBlockProposals(
-        bytes calldata _lookaheadParams,
+        ILookahead.LookaheadParam[] calldata _lookaheadParams,
         bytes[] calldata _paramsArr,
         bytes[] calldata _txListArr
     )

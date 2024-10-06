@@ -65,23 +65,24 @@ contract Lookahead is ILookahead, EssentialContract {
     }
 
     /// @inheritdoc ILookahead
-    function postLookahead(LookaheadParam calldata _lookaheadParams)
+    function postLookahead(LookaheadParam[] calldata _lookaheadParams)
         external
         onlyFromNamed(LibNames.B_PRECONF_SERVICE_MANAGER)
         nonReentrant
-    { }
+    {
+        (uint256 currentEpochTimestamp, uint256 nextEpochTimestamp) =
+            block.timestamp.getEpochTimestamp(beaconGenesisTimestamp);
+
+        if (_isLookaheadRequired(currentEpochTimestamp, nextEpochTimestamp)) {
+            _postLookahead(nextEpochTimestamp, _lookaheadParams);
+        } else {
+            require(_lookaheadParams.length == 0, LookaheadIsNotRequired());
+        }
+    }
 
     /// @inheritdoc ILookahead
     function isCurrentPreconfer(address addr) external view returns (bool) {
         //
-    }
-
-    /// @inheritdoc ILookahead
-    function isLookaheadRequired() external view returns (bool) {
-        (uint256 currentEpochTimestamp, uint256 nextEpochTimestamp) =
-            block.timestamp.getEpochTimestamp(beaconGenesisTimestamp);
-
-        return _isLookaheadRequired(currentEpochTimestamp, nextEpochTimestamp);
     }
 
     function _postLookahead(

@@ -39,8 +39,7 @@ interface ILookahead {
         address indexed poster, uint256 indexed timestamp, address indexed disputer
     );
 
-    function forcePostLookahead(LookaheadParam[] calldata lookaheadParams) external;
-    function postLookahead(LookaheadParam calldata _lookaheadParams) external;
+    function forcePostLookahead(LookaheadParam[] calldata _lookaheadParams) external;
+    function postLookahead(LookaheadParam[] calldata _lookaheadParams) external;
     function isCurrentPreconfer(address addr) external view returns (bool);
-    function isLookaheadRequired() external view returns (bool);
 }
