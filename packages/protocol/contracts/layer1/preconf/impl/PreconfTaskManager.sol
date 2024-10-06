@@ -86,7 +86,6 @@ contract PreconfTaskManager is IPreconfTaskManager, EssentialContract {
         bytes32[] calldata _transactionHashes
     )
         external
-        onlyFromCurrentPreconfer
         nonReentrant
     {
         // For now only tx-inclusion preconfirmation are supported
