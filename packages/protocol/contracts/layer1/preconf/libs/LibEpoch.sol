@@ -14,23 +14,21 @@ library LibEpoch {
     /// beacon genesis timestamp.
     /// @param _timestamp The current timestamp.
     /// @param _beaconGenesisTimestamp The genesis timestamp of the beacon.
-    /// @return currentEpochTimestamp_ The timestamp marking the start of the current epoch.
-    /// @return nextEopocTimestamp_ The timestamp marking the start of the next epoch.
+    /// @return The timestamp marking the start of the current epoch.
     function getEpochTimestamp(
         uint256 _timestamp,
         uint256 _beaconGenesisTimestamp
     )
         internal
         pure
-        returns (uint256 currentEpochTimestamp_, uint256 nextEopocTimestamp_)
+        returns (uint256)
     {
         require(_timestamp >= _beaconGenesisTimestamp, TimestampBeforeBeaconGenesis());
         unchecked {
             uint256 timePassedSinceGenesis = _timestamp - _beaconGenesisTimestamp;
             uint256 timeToCurrentEpochFromGenesis =
                 (timePassedSinceGenesis / SECONDS_IN_EPOCH) * SECONDS_IN_EPOCH;
-            currentEpochTimestamp_ = _beaconGenesisTimestamp + timeToCurrentEpochFromGenesis;
-            nextEopocTimestamp_ = currentEpochTimestamp_ + SECONDS_IN_EPOCH;
+            return _beaconGenesisTimestamp + timeToCurrentEpochFromGenesis;
         }
     }
 }
