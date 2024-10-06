@@ -8,6 +8,8 @@ import "../libs/LibNames.sol";
 /// @title PreconfServiceManager
 /// @custom:security-contact security@taiko.xyz
 contract PreconfServiceManager is IPreconfServiceManager, EssentialContract {
+    uint256[50] private __gap;
+
     /// @inheritdoc IPreconfServiceManager
     function slashOperator(address _operator)
         external

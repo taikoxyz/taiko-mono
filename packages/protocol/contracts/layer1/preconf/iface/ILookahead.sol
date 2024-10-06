@@ -34,13 +34,13 @@ interface ILookahead {
         address fallbackPreconfer;
     }
 
-    event LookaheadUpdated(LookaheadSetParam[]);
+    event LookaheadPosted(LookaheadSetParam[]);
     event IncorrectLookaheadProved(
         address indexed poster, uint256 indexed timestamp, address indexed disputer
     );
 
-    function forceUpdateLookahead(LookaheadSetParam[] calldata lookaheadSetParams) external;
-    function updateLookahead(LookaheadSetParam calldata _lookaheadSetParams) external;
+    function forcePostLookahead(LookaheadSetParam[] calldata lookaheadSetParams) external;
+    function postLookahead(LookaheadSetParam calldata _lookaheadSetParams) external;
     function isCurrentPreconfer(address addr) external view returns (bool);
     function isLookaheadRequired() external view returns (bool);
 }

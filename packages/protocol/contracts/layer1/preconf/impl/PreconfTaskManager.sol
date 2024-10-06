@@ -34,6 +34,8 @@ contract PreconfTaskManager is IPreconfTaskManager, EssentialContract {
     error TxIncluded();
     error TxRootHashMismatch();
 
+    uint256[50] private __gap;
+
     /// @notice Modifier to update the lookahead and ensure the caller is the current preconfer
     /// @param _lookaheadSetParams Encoded parameters to set lookahead
     modifier onlyCurrentPreconfer(bytes calldata _lookaheadSetParams) {
@@ -41,9 +43,7 @@ contract PreconfTaskManager is IPreconfTaskManager, EssentialContract {
 
         if (lookahead.isLookaheadRequired()) {
             require(_lookaheadSetParams.length != 0, LookaheadSetParamsRequired());
-            lookahead.updateLookahead(
-                abi.decode(_lookaheadSetParams, (ILookahead.LookaheadSetParam))
-            );
+            lookahead.postLookahead(abi.decode(_lookaheadSetParams, (ILookahead.LookaheadSetParam)));
         } else {
             require(_lookaheadSetParams.length == 0, LookaheadSetParamsNotRequired());
         }
