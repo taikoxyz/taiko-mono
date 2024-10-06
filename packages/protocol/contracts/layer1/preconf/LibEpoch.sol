@@ -9,8 +9,9 @@ library LibEpoch {
     uint256 internal constant TWO_EPOCHS = 2 * SECONDS_IN_EPOCH;
 
     error TimestampBeforeBeaconGenesis();
-    
-    /// @dev Calculates the current and next epoch timestamps based on the given timestamp and the beacon genesis timestamp.
+
+    /// @dev Calculates the current and next epoch timestamps based on the given timestamp and the
+    /// beacon genesis timestamp.
     /// @param _timestamp The current timestamp.
     /// @param _beaconGenesisTimestamp The genesis timestamp of the beacon.
     /// @return currentEpochTimestamp_ The timestamp marking the start of the current epoch.
@@ -20,7 +21,7 @@ library LibEpoch {
         uint256 _beaconGenesisTimestamp
     )
         internal
-       pure 
+        pure
         returns (uint256 currentEpochTimestamp_, uint256 nextEopocTimestamp_)
     {
         require(_timestamp >= _beaconGenesisTimestamp, TimestampBeforeBeaconGenesis());
