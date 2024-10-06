@@ -1,6 +1,7 @@
 module github.com/taikoxyz/taiko-mono
 
 go 1.23
+
 require (
 	github.com/btcsuite/btcd/btcec/v2 v2.3.4
 	github.com/buildkite/terminal-to-html/v3 v3.8.0
@@ -14,7 +15,7 @@ require (
 	github.com/ethereum/go-ethereum v1.14.11
 	github.com/ethereum/hive v0.0.0-20240822135954-91829ccfb2c5
 	github.com/go-git/go-git/v5 v5.12.0
-	github.com/go-resty/resty/v2 v2.7.0
+	github.com/go-resty/resty/v2 v2.15.3
 	github.com/gomarkdown/markdown v0.0.0-20231222211730-1d6d20845b47
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
