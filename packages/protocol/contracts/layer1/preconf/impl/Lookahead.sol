@@ -32,6 +32,7 @@ contract Lookahead is ILookahead, EssentialContract {
         beaconGenesisTimestamp = _beaconGenesisTimestamp;
     }
 
+    /// @inheritdoc ILookahead
     function forceUpdateLookahead(LookaheadSetParam[] calldata _lookaheadSetParams)
         external
         onlyFromPreconfer
@@ -55,16 +56,19 @@ contract Lookahead is ILookahead, EssentialContract {
         }
     }
 
+    /// @inheritdoc ILookahead
     function updateLookahead(LookaheadSetParam calldata _lookaheadSetParams)
         external
         onlyFromNamed(LibNames.B_PRECONF_SERVICE_MANAGER)
         nonReentrant
     { }
 
+    /// @inheritdoc ILookahead
     function isCurrentPreconfer(address addr) external view returns (bool) {
         //
     }
 
+    /// @inheritdoc ILookahead
     function isLookaheadRequired() external view returns (bool) {
         (uint256 currentEpochTimestamp, uint256 nextEpochTimestamp) =
             block.timestamp.getEpochTimestamp(beaconGenesisTimestamp);
