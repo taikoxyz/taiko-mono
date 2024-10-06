@@ -8,6 +8,13 @@ import "../libs/LibNames.sol";
 /// @title PreconfTaskManager.sol
 /// @custom:security-contact security@taiko.xyz
 contract Lookahead is ILookahead, EssentialContract {
+    function forceUpdateLookahead(LookaheadSetParam[] memory lookaheadSetParams)
+        external
+        nonReentrant
+    {
+        // TODO
+    }
+
     function updateLookahead(LookaheadSetParam calldata _lookaheadSetParams)
         external
         nonReentrant

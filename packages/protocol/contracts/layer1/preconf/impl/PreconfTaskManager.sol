@@ -16,6 +16,10 @@ import "../iface/IPreconfTaskManager.sol";
 contract PreconfTaskManager is IPreconfTaskManager, EssentialContract {
     using ECDSA for bytes32;
 
+    event IncorrectPreconfirmationProved(
+        address indexed preconfer, uint256 indexed blockId, address indexed disputer
+    );
+
     error ChainIdMismatch();
     error BlockHashMismatch();
     error BlockMetadataMismatch();
@@ -134,6 +138,8 @@ contract PreconfTaskManager is IPreconfTaskManager, EssentialContract {
                 || _transactionHashes[_receipt.position] != _receipt.txHash,
             TxIncluded()
         );
+
+        emit IncorrectPreconfirmationProved(_meta.proposer, _meta.id, msg.sender);
 
         // Slash the preconfer
         IPreconfServiceManager psm =
