@@ -6,7 +6,6 @@ import "../../../shared/common/EssentialContract.sol";
 import "../../based/ITaikoL1.sol";
 import "../../based/TaikoData.sol";
 import "../libs/LibNames.sol";
-import "../libs/LibMerkle.sol";
 import "../libs/LibBlockHeader.sol";
 import "../iface/ILookahead.sol";
 import "../iface/IPreconfServiceManager.sol";
@@ -16,16 +15,6 @@ import "../iface/IPreconfTaskManager.sol";
 /// @custom:security-contact security@taiko.xyz
 contract PreconfTaskManager is IPreconfTaskManager, EssentialContract {
     using ECDSA for bytes32;
-    using LibMerkle for bytes32[];
-
-    struct Receipt {
-        uint64 blockId;
-        uint64 chainId;
-        uint32 position;
-        bool isExecutionPreconf;
-        bytes32 txHash;
-        bytes signature;
-    }
 
     error ChainIdMismatch();
     error BlockHashMismatch();
@@ -33,28 +22,45 @@ contract PreconfTaskManager is IPreconfTaskManager, EssentialContract {
     error BlockNotVerified();
     error ExecutionPreconfNotSupported();
     error InvalidSignature();
+    error LookaheadSetParamsNotRequired();
+    error LookaheadSetParamsRequired();
     error PositionOutOfBounds();
     error SenderNotCurrentPreconfer();
     error TxHashMismatch();
     error TxIncluded();
     error TxRootHashMismatch();
 
-    modifier onlyCurrentPreconfer() {
+    /// @notice Modifier to update the lookahead and ensure the caller is the current preconfer
+    /// @param _lookaheadSetParams Encoded parameters to set lookahead
+    modifier onlyCurrentPreconfer(bytes calldata _lookaheadSetParams) {
         ILookahead lookahead = ILookahead(resolve(LibNames.B_LOOKAHEAD, false));
+
+        if (lookahead.isLookaheadRequired()) {
+            require(_lookaheadSetParams.length != 0, LookaheadSetParamsRequired());
+            lookahead.updateLookahead(
+                abi.decode(_lookaheadSetParams, (ILookahead.LookaheadSetParam))
+            );
+        } else {
+            require(_lookaheadSetParams.length == 0, LookaheadSetParamsNotRequired());
+        }
+
         require(lookahead.isCurrentPreconfer(msg.sender), SenderNotCurrentPreconfer());
+
         _;
     }
 
     /// @notice Proposes a Taiko L2 block (version 2)
     /// @param _params Block parameters, an encoded BlockParamsV2 object.
     /// @param _txList txList data if calldata is used for DA.
+    /// @param _lookaheadSetParams encoded parameters to set lookahead
     /// @return meta_ The metadata of the proposed L2 block.
     function newBlockProposal(
+        bytes calldata _lookaheadSetParams,
         bytes calldata _params,
         bytes calldata _txList
     )
         external
-        onlyCurrentPreconfer
+        onlyCurrentPreconfer(_lookaheadSetParams)
         nonReentrant
         returns (TaikoData.BlockMetadataV2 memory)
     {
@@ -67,11 +73,12 @@ contract PreconfTaskManager is IPreconfTaskManager, EssentialContract {
     /// @param _txListArr A list of txList.
     /// @return metaArr_ The metadata objects of the proposed L2 blocks.
     function newBlockProposals(
+        bytes calldata _lookaheadSetParams,
         bytes[] calldata _paramsArr,
         bytes[] calldata _txListArr
     )
         external
-        onlyCurrentPreconfer
+        onlyCurrentPreconfer(_lookaheadSetParams)
         nonReentrant
         returns (TaikoData.BlockMetadataV2[] memory)
     {
@@ -95,9 +102,9 @@ contract PreconfTaskManager is IPreconfTaskManager, EssentialContract {
         // transactions root in the block header.
         // Note: The data cost for _transactionHashes can be very high with this implementation.
         // Consider optimizing this function to reduce data costs.
-        require(
-            _blockHeader.transactionsRoot == _transactionHashes.merklize(), TxRootHashMismatch()
-        );
+        // require(
+        //     _blockHeader.transactionsRoot == _transactionHashes.merklize(), TxRootHashMismatch()
+        // );
 
         ITaikoL1 taiko = ITaikoL1(resolve(LibNames.B_TAIKO, false));
 
