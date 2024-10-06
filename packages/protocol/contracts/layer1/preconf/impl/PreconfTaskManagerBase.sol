@@ -22,6 +22,7 @@ abstract contract PreconfTaskManagerBase is IPreconfTaskManager, EssentialContra
     /// @param _lookaheadParams Encoded parameters to set lookahead
     modifier onlyCurrentPreconfer(ILookahead.LookaheadParam[] calldata _lookaheadParams) {
         ILookahead lookahead = ILookahead(resolve(LibNames.B_LOOKAHEAD, false));
+        // Conditionally post a new lookahead to the lookahead contract
         lookahead.postLookahead(_lookaheadParams);
 
         require(lookahead.isCurrentPreconfer(msg.sender), SenderNotCurrentPreconfer());

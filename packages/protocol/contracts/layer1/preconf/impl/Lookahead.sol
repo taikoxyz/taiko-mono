@@ -63,12 +63,11 @@ contract Lookahead is ILookahead, EssentialContract {
         // Lookahead must be missing
         uint256 epochTimestamp = block.timestamp.getEpochTimestamp(beaconGenesisTimestamp);
 
-        if (!_isLookaheadRequired(epochTimestamp)) {
+        if (_isLookaheadRequired(epochTimestamp)) {
+            _postLookahead(epochTimestamp, _lookaheadParams);
+        } else {
             revert LookaheadIsNotRequired();
         }
-
-        // Update the lookahead for next epoch
-        _postLookahead(epochTimestamp, _lookaheadParams);
     }
 
     /// @inheritdoc ILookahead
