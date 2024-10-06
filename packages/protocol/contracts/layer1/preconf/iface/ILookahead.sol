@@ -16,7 +16,7 @@ interface ILookahead {
         address preconfer;
     }
 
-    struct LookaheadSetParam {
+    struct LookaheadParam {
         // The timestamp of the slot
         uint256 timestamp;
         // The AVS operator who is also the L1 validator for the slot and will preconf L2
@@ -34,13 +34,13 @@ interface ILookahead {
         address fallbackPreconfer;
     }
 
-    event LookaheadPosted(LookaheadSetParam[]);
+    event LookaheadPosted(LookaheadParam[]);
     event IncorrectLookaheadProved(
         address indexed poster, uint256 indexed timestamp, address indexed disputer
     );
 
-    function forcePostLookahead(LookaheadSetParam[] calldata lookaheadSetParams) external;
-    function postLookahead(LookaheadSetParam calldata _lookaheadSetParams) external;
+    function forcePostLookahead(LookaheadParam[] calldata lookaheadParams) external;
+    function postLookahead(LookaheadParam calldata _lookaheadParams) external;
     function isCurrentPreconfer(address addr) external view returns (bool);
     function isLookaheadRequired() external view returns (bool);
 }

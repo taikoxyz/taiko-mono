@@ -37,15 +37,15 @@ contract PreconfTaskManager is IPreconfTaskManager, EssentialContract {
     uint256[50] private __gap;
 
     /// @notice Modifier to update the lookahead and ensure the caller is the current preconfer
-    /// @param _lookaheadSetParams Encoded parameters to set lookahead
-    modifier onlyCurrentPreconfer(bytes calldata _lookaheadSetParams) {
+    /// @param _lookaheadParams Encoded parameters to set lookahead
+    modifier onlyCurrentPreconfer(bytes calldata _lookaheadParams) {
         ILookahead lookahead = ILookahead(resolve(LibNames.B_LOOKAHEAD, false));
 
         if (lookahead.isLookaheadRequired()) {
-            require(_lookaheadSetParams.length != 0, LookaheadSetParamsRequired());
-            lookahead.postLookahead(abi.decode(_lookaheadSetParams, (ILookahead.LookaheadSetParam)));
+            require(_lookaheadParams.length != 0, LookaheadSetParamsRequired());
+            lookahead.postLookahead(abi.decode(_lookaheadParams, (ILookahead.LookaheadParam)));
         } else {
-            require(_lookaheadSetParams.length == 0, LookaheadSetParamsNotRequired());
+            require(_lookaheadParams.length == 0, LookaheadSetParamsNotRequired());
         }
 
         require(lookahead.isCurrentPreconfer(msg.sender), SenderNotCurrentPreconfer());
@@ -56,15 +56,15 @@ contract PreconfTaskManager is IPreconfTaskManager, EssentialContract {
     /// @notice Proposes a Taiko L2 block (version 2)
     /// @param _params Block parameters, an encoded BlockParamsV2 object.
     /// @param _txList txList data if calldata is used for DA.
-    /// @param _lookaheadSetParams encoded parameters to set lookahead
+    /// @param _lookaheadParams encoded parameters to set lookahead
     /// @return meta_ The metadata of the proposed L2 block.
     function newBlockProposal(
-        bytes calldata _lookaheadSetParams,
+        bytes calldata _lookaheadParams,
         bytes calldata _params,
         bytes calldata _txList
     )
         external
-        onlyCurrentPreconfer(_lookaheadSetParams)
+        onlyCurrentPreconfer(_lookaheadParams)
         nonReentrant
         returns (TaikoData.BlockMetadataV2 memory)
     {
@@ -77,12 +77,12 @@ contract PreconfTaskManager is IPreconfTaskManager, EssentialContract {
     /// @param _txListArr A list of txList.
     /// @return metaArr_ The metadata objects of the proposed L2 blocks.
     function newBlockProposals(
-        bytes calldata _lookaheadSetParams,
+        bytes calldata _lookaheadParams,
         bytes[] calldata _paramsArr,
         bytes[] calldata _txListArr
     )
         external
-        onlyCurrentPreconfer(_lookaheadSetParams)
+        onlyCurrentPreconfer(_lookaheadParams)
         nonReentrant
         returns (TaikoData.BlockMetadataV2[] memory)
     {

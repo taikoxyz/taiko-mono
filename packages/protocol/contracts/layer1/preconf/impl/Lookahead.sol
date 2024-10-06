@@ -41,7 +41,7 @@ contract Lookahead is ILookahead, EssentialContract {
     }
 
     /// @inheritdoc ILookahead
-    function forcePostLookahead(LookaheadSetParam[] calldata _lookaheadSetParams)
+    function forcePostLookahead(LookaheadParam[] calldata _lookaheadParams)
         external
         onlyFromPreconfer
         nonReentrant
@@ -55,7 +55,7 @@ contract Lookahead is ILookahead, EssentialContract {
         }
 
         // Update the lookahead for next epoch
-        _postLookahead(nextEpochTimestamp, _lookaheadSetParams);
+        _postLookahead(nextEpochTimestamp, _lookaheadParams);
 
         // Block the preconfer from withdrawing stake from Eigenlayer during the dispute window
         unchecked {
@@ -65,7 +65,7 @@ contract Lookahead is ILookahead, EssentialContract {
     }
 
     /// @inheritdoc ILookahead
-    function postLookahead(LookaheadSetParam calldata _lookaheadSetParams)
+    function postLookahead(LookaheadParam calldata _lookaheadParams)
         external
         onlyFromNamed(LibNames.B_PRECONF_SERVICE_MANAGER)
         nonReentrant
@@ -86,7 +86,7 @@ contract Lookahead is ILookahead, EssentialContract {
 
     function _postLookahead(
         uint256 _epochTimestamp,
-        LookaheadSetParam[] calldata _lookaheadSetParams
+        LookaheadParam[] calldata _lookaheadParams
     )
         internal
     {
