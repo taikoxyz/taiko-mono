@@ -39,7 +39,7 @@ contract PreconfTaskManager is IPreconfTaskManager, EssentialContract {
     error TxIncluded();
     error TxRootHashMismatch();
 
-    modifier onlyFromCurrentPreconfer() {
+    modifier onlyCurrentPreconfer() {
         ILookahead lookahead = ILookahead(resolve(LibNames.B_LOOKAHEAD, false));
         require(lookahead.isCurrentPreconfer(msg.sender), SenderNotCurrentPreconfer());
         _;
@@ -54,7 +54,7 @@ contract PreconfTaskManager is IPreconfTaskManager, EssentialContract {
         bytes calldata _txList
     )
         external
-        onlyFromCurrentPreconfer
+        onlyCurrentPreconfer
         nonReentrant
         returns (TaikoData.BlockMetadataV2 memory)
     {
@@ -71,7 +71,7 @@ contract PreconfTaskManager is IPreconfTaskManager, EssentialContract {
         bytes[] calldata _txListArr
     )
         external
-        onlyFromCurrentPreconfer
+        onlyCurrentPreconfer
         nonReentrant
         returns (TaikoData.BlockMetadataV2[] memory)
     {
