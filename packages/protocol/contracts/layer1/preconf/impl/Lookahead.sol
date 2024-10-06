@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../../shared/common/EssentialContract.sol";
-import "./ILookahead.sol";
+import "../../../shared/common/EssentialContract.sol";
+import "../iface/ILookahead.sol";
 
 /// @title PreconfTaskManager.sol
 /// @custom:security-contact security@taiko.xyz

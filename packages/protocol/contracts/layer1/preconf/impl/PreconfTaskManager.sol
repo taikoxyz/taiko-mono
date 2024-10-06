@@ -2,13 +2,13 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "../../shared/common/EssentialContract.sol";
-import "../based/ITaikoL1.sol";
-import "../based/TaikoData.sol";
-import "./LibNames.sol";
-import "./ILookahead.sol";
-import "./IPreconfServiceManager.sol";
-import "./IPreconfTaskManager.sol";
+import "../../../shared/common/EssentialContract.sol";
+import "../../based/ITaikoL1.sol";
+import "../../based/TaikoData.sol";
+import "../libs/LibNames.sol";
+import "../iface/ILookahead.sol";
+import "../iface/IPreconfServiceManager.sol";
+import "../iface/IPreconfTaskManager.sol";
 
 /// @title PreconfTaskManager.sol
 /// @custom:security-contact security@taiko.xyz
