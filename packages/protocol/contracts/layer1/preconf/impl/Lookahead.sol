@@ -24,15 +24,12 @@ contract Lookahead is ILookahead, EssentialContract {
         uint40 epochTimestamp;
     }
 
-    // Maps the epoch timestamp to the lookahead poster.
+    // A ring buffer from the epoch timestamp to its poster.
     // If the lookahead poster has been slashed, it maps to the 0-address.
-    // Note: This may be optimised to re-use existing slots and reduce gas cost.
     mapping(uint256 epochTimestamp => Poster poster) internal posters;
 
-    // Mapping from a pointer (representing a specific epoch timestamp) to a Entry.
-    // This stores the lookahead information for each epoch, allowing for efficient access and
-    // updates.
-    mapping(uint256 pointer => Entry) internal lookahead;
+    // A ring-buffer of Entries.
+    mapping(uint256 entryPointer => Entry) internal lookahead;
 
     // Pointer to the last entry in the lookahead mapping
     uint64 public lookaheadTail;
@@ -120,7 +117,7 @@ contract Lookahead is ILookahead, EssentialContract {
 
     /// @inheritdoc ILookahead
     function proveIncorrectLookahead(
-        uint256 _lookaheadPointer,
+        uint256 _entryPointer,
         uint256 _slotTimestamp,
         bytes calldata _validatorBLSPubKey,
         LibEIP4788.InclusionProof calldata _validatorInclusionProof
@@ -136,7 +133,7 @@ contract Lookahead is ILookahead, EssentialContract {
         require(poster != address(0), PosterAlreadySlashedOrLookaheadIsEmpty());
 
         // Validate lookahead pointer
-        Entry memory entry = _entryAt(_lookaheadPointer);
+        Entry memory entry = _entryAt(_entryPointer);
         require(_slotTimestamp > entry.validSince, InvalidLookaheadPointer());
         require(_slotTimestamp <= entry.validUntil, InvalidLookaheadPointer());
 
@@ -172,14 +169,14 @@ contract Lookahead is ILookahead, EssentialContract {
 
     /// @inheritdoc ILookahead
     function isCurrentPreconfer(
-        uint256 _lookaheadPointer,
+        uint256 _entryPointer,
         address _address
     )
         external
         view
         returns (bool)
     {
-        Entry memory entry = _entryAt(_lookaheadPointer);
+        Entry memory entry = _entryAt(_entryPointer);
         return _address == entry.preconfer && block.timestamp > entry.validSince
             && block.timestamp <= entry.validUntil;
     }
@@ -440,8 +437,8 @@ contract Lookahead is ILookahead, EssentialContract {
         }
     }
 
-    function _entryAt(uint256 _pointer) private view returns (Entry storage) {
-        return lookahead[_pointer % lookaheadBufferSize];
+    function _entryAt(uint256 _entryPointer) private view returns (Entry storage) {
+        return lookahead[_entryPointer % lookaheadBufferSize];
     }
 
     function _posterFor(uint256 _epochTimestamp) private view returns (Poster storage) {
