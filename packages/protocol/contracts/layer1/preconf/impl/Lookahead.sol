@@ -366,44 +366,41 @@ contract Lookahead is ILookahead, EssentialContract {
         uint256 nextEpochTimestamp = _epochTimestamp.nextEpoch();
         if (block.timestamp < nextEpochTimestamp) return;
 
-        unchecked {
-            uint256 lastSlotTimestampInCurrentEpoch = nextEpochTimestamp - LibEpoch.SECONDS_IN_SLOT;
-            uint256 i = lookaheadTail;
-            Entry storage entry = _entryAt(i);
+        uint256 lastSlotTimestampInCurrentEpoch = nextEpochTimestamp - LibEpoch.SECONDS_IN_SLOT;
+        uint256 i = lookaheadTail;
+        Entry storage entry = _entryAt(i);
 
-            // If the lookahead for next epoch is available
-            if (entry.validUntil >= nextEpochTimestamp) {
-                // Get to the first entry that connects to a slot in the current epoch
-                while (entry.validSince >= nextEpochTimestamp) {
-                    entry = _entryAt(--i);
-                }
-
-                // Switch the connection to the last slot of the current epoch
-                entry.validSince = uint40(lastSlotTimestampInCurrentEpoch);
-
-                emit EntryUpdated(i, entry);
-
-                // Head to the last entry in current epoch
+        // If the lookahead for next epoch is available
+        if (entry.validUntil >= nextEpochTimestamp) {
+            // Get to the first entry that connects to a slot in the current epoch
+            while (entry.validSince >= nextEpochTimestamp) {
                 entry = _entryAt(--i);
             }
 
-            entry.preconfer = _getFallbackPreconfer();
-            entry.validSince = uint40(_epochTimestamp - LibEpoch.SECONDS_IN_SLOT);
-            entry.validUntil = uint40(lastSlotTimestampInCurrentEpoch);
-            entry.isFallback = true;
+            // Switch the connection to the last slot of the current epoch
+            entry.validSince = uint40(lastSlotTimestampInCurrentEpoch);
+
             emit EntryUpdated(i, entry);
 
-            // Nullify the rest of the lookahead entries for this epoch
-            for (entry = _entryAt(--i); entry.validUntil >= _epochTimestamp; entry = _entryAt(--i))
-            {
-                // trick: keep entry.preconfer as-is to avoid setting the storage slot to zeros,
-                // which saves gas for the next sstore operation at the same slot
-                entry.validSince = 0;
-                entry.validUntil = 0;
-                entry.isFallback = false;
+            // Head to the last entry in current epoch
+            entry = _entryAt(--i);
+        }
 
-                emit EntryUpdated(i, entry);
-            }
+        entry.preconfer = _getFallbackPreconfer();
+        entry.validSince = uint40(_epochTimestamp - LibEpoch.SECONDS_IN_SLOT);
+        entry.validUntil = uint40(lastSlotTimestampInCurrentEpoch);
+        entry.isFallback = true;
+        emit EntryUpdated(i, entry);
+
+        // Nullify the rest of the lookahead entries for this epoch
+        for (entry = _entryAt(--i); entry.validUntil >= _epochTimestamp; entry = _entryAt(--i)) {
+            // trick: keep entry.preconfer as-is to avoid setting the storage slot to zeros,
+            // which saves gas for the next sstore operation at the same slot
+            entry.validSince = 0;
+            entry.validUntil = 0;
+            entry.isFallback = false;
+
+            emit EntryUpdated(i, entry);
         }
     }
 
