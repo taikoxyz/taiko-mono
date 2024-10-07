@@ -75,11 +75,16 @@ interface ILookahead {
         view
         returns (bool);
 
- /// @dev Retrieves the addresses of the preconfers assigned to each of the 32 slots within the specified epoch.
- /// @param epochTimestamp The starting timestamp of the epoch for which the lookahead is requested.
- /// @return An array of 32 addresses, each representing the preconfer for a corresponding slot in the epoch.
-    function getLookaheadForEpoch(uint256 epochTimestamp) external view returns (address[32] memory);
-
+    /// @dev Retrieves the addresses of the preconfers assigned to each of the 32 slots within the
+    /// specified epoch.
+    /// @param epochTimestamp The starting timestamp of the epoch for which the lookahead is
+    /// requested.
+    /// @return An array of 32 addresses, each representing the preconfer for a corresponding slot
+    /// in the epoch.
+    function getLookaheadForEpoch(uint256 epochTimestamp)
+        external
+        view
+        returns (address[32] memory);
 
     /// @notice Retrieves the address of the poster responsible for a given epoch timestamp.
     /// @param _epochTimestamp The epoch timestamp to query the poster for.

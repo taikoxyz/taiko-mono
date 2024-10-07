@@ -40,6 +40,7 @@ contract Lookahead is ILookahead, EssentialContract {
 
     error InvalidAssumption();
     error InvalidDisputePeriod();
+    error InvalidEpochTimestamp();
     error InvalidGenesisTimestamp();
     error InvalidLookaheadPointer();
     error InvalidSlotTimestamp();
@@ -167,39 +168,44 @@ contract Lookahead is ILookahead, EssentialContract {
         return _address == entry.preconfer && block.timestamp > entry.validSince
             && block.timestamp <= entry.validUntil;
     }
-    
 
-     /// @dev Returns the full 32 slot preconfer lookahead for the epoch
-    function getLookaheadForEpoch(uint256 epochTimestamp) external view returns (address[32] memory entries_) {
-        // uint256 i = lookaheadTail;
-        // uint256 lastSlotTimestamp = epochTimestamp.nextEpoch() - LibEpoch.SECONDS_IN_SLOT;
+    /// @dev Returns the full 32 slot preconfer lookahead for the epoch
+    function getLookaheadForEpoch(uint256 epochTimestamp)
+        external
+        view
+        returns (address[32] memory entries_)
+    {
+        require(epochTimestamp % LibEpoch.SECONDS_IN_EPOCH == 0, InvalidEpochTimestamp());
 
-        // // Take the tail to the entry that fills the last slot of the epoch.
-        // // This may be an entry in the next epoch who starts preconfing in advanced.
-        // // This may also be an empty slot since the lookahead for next epoch is not yet posted.
-        // while (_entryAt(i).validSince >= lastSlotTimestamp) {
-        //    i-=1;
-        // }
+        uint256 i = lookaheadTail;
+        uint256 lastSlotTimestamp = epochTimestamp.nextEpoch() - LibEpoch.SECONDS_IN_SLOT;
 
-        // LookaheadEntry memory entry = _entryAt(i);
-        // address preconfer = entry.preconfer;
-        // uint256 validSince = entry.validSince;
-        // uint256 validUntil =entry.validUntil;
+        // Take the tail to the entry that fills the last slot of the epoch.
+        // This may be an entry in the next epoch who starts preconfing in advanced.
+        // This may also be an empty slot since the lookahead for next epoch is not yet posted.
+        while (_entryAt(i).validSince >= lastSlotTimestamp) {
+            i -= 1;
+        }
 
-        // // Iterate backwards and fill in the slots
-        // for (uint256 i = 32; i > 0; --i) {
-        //     if ( _entryAt(i).validUntil >= lastSlotTimestamp) {
-        //         entries_[i - 1] = preconfer;
-        //     }
+        LookaheadEntry memory entry = _entryAt(i);
+        address preconfer = entry.preconfer;
+        uint256 validSince = entry.validSince;
+        uint256 validUntil = entry.validUntil;
 
-        //     lastSlotTimestamp -= LibEpoch.SECONDS_IN_SLOT;
+        // Iterate backwards and fill in the slots
+        for (uint256 j = 32; j > 0; --j) {
+            if (validUntil >= lastSlotTimestamp) {
+                entries_[j - 1] = preconfer;
+            }
 
-        //     if (lastSlotTimestamp == validSince) {
-        //         LookaheadEntry memory entry = _entryAt(--i);
-        //         preconfer = entry.preconfer;
-        //         validSince = entry.validSince;
-        //     }
-        // }
+            lastSlotTimestamp -= LibEpoch.SECONDS_IN_SLOT;
+
+            if (lastSlotTimestamp == validSince) {
+                entry = _entryAt(--i);
+                preconfer = entry.preconfer;
+                validSince = entry.validSince;
+            }
+        }
     }
 
     /// @inheritdoc ILookahead
