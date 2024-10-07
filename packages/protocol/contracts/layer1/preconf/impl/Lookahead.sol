@@ -13,7 +13,9 @@ import "../libs/LibEpoch.sol";
 contract Lookahead is ILookahead, EssentialContract {
     using LibEpoch for uint256;
 
-    uint256 private constant DISPUTE_PERIOD = 1 days;
+    uint256 public constant DISPUTE_PERIOD = 1 days;
+
+    uint256 public immutable beaconGenesisTimestamp;
 
     // Maps the epoch timestamp to the lookahead poster.
     // If the lookahead poster has been slashed, it maps to the 0-address.
@@ -21,14 +23,10 @@ contract Lookahead is ILookahead, EssentialContract {
     mapping(uint256 epochTimestamp => address poster) internal posters;
     uint64 internal lookaheadTail;
 
-    uint256[49] private __gap;
+    uint256[48] private __gap;
 
-    bytes32 public immutable DOMAIN_SEPARATOR;
-
-    error PreconferNotRegistered();
     error LookaheadIsNotRequired();
-
-    uint256 public immutable beaconGenesisTimestamp;
+    error PreconferNotRegistered();
 
     modifier onlyFromPreconfer() {
         address registry = resolve(LibNames.B_PRECONF_REGISTRY, false);
