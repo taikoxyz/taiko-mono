@@ -14,8 +14,7 @@ import "../libs/LibEIP4788.sol";
 contract Lookahead is ILookahead, EssentialContract {
     using LibEpoch for uint256;
 
-    uint256 public constant DISPUTE_PERIOD = 1 days;
-
+    uint256 public immutable disputePeriod;
     uint256 public immutable beaconGenesisTimestamp;
     address public immutable beaconBlockRootContract;
 
@@ -28,37 +27,46 @@ contract Lookahead is ILookahead, EssentialContract {
     // Note: This may be optimised to re-use existing slots and reduce gas cost.
     mapping(uint256 epochTimestamp => Poster poster) internal posters;
 
+    // Mapping from a pointer (representing a specific epoch timestamp) to a LookaheadEntry.
+    // This stores the lookahead information for each epoch, allowing for efficient access and updates.
     mapping(uint256 pointer => LookaheadEntry) internal lookahead;
-    uint64 internal lookaheadTail;
+    
+    // Pointer to the last entry in the lookahead mapping
+    uint64 public lookaheadTail;
 
     uint256[47] private __gap;
 
-    event FallbackPreconferEnabled(
-        uint256 indexed epochTimestamp, address indexed fallbackPreconfer
-    );
-
     event EntryUpdated(uint256 indexed id, LookaheadEntry entry);
 
+    error InvalidAssumption();
+    error InvalidDisputePeriod();
+    error InvalidGenesisTimestamp();
+    error InvalidLookaheadPointer();
+    error InvalidSlotTimestamp();
+    error LookaheadEntryIsCorrect();
     error LookaheadIsNotRequired();
     error MissedDisputeWindow();
-    error PreconferNotRegistered();
-    error InvalidLookaheadPointer();
-    error PosterAlreadySlashedOrLookaheadIsEmpty();
-    error LookaheadEntryIsCorrect();
     error NoPreconferAvailable();
-    error InvalidAssumption();
-    error InvalidSlotTimestamp();
-    error InvalidGenesisTimestamp();
+    error PosterAlreadySlashedOrLookaheadIsEmpty();
+    error PreconferNotRegistered();
 
     modifier onlyFromPreconfer() {
-        require(_preconfRegistry().getPreconferIndex(msg.sender) != 0, PreconferNotRegistered());
+        uint256 preconferIndex = _preconfRegistry().getPreconferIndex(msg.sender);
+        require(preconferIndex != 0, PreconferNotRegistered());
         _;
     }
 
-    constructor(uint256 _beaconGenesisTimestamp, address _beaconBlockRootContract) {
+    constructor(
+        uint256 _beaconGenesisTimestamp,
+        address _beaconBlockRootContract,
+        uint256 _disputePeriod
+    ) {
         require(_beaconGenesisTimestamp % LibEpoch.SECONDS_IN_SLOT == 0, InvalidGenesisTimestamp());
+        require(_disputePeriod != 0, InvalidDisputePeriod());
+
         beaconGenesisTimestamp = _beaconGenesisTimestamp;
         beaconBlockRootContract = _beaconBlockRootContract;
+        disputePeriod = _disputePeriod;
     }
 
     /// @notice Initializes the contract.
@@ -72,14 +80,10 @@ contract Lookahead is ILookahead, EssentialContract {
         onlyFromPreconfer
         nonReentrant
     {
+        uint256 epochTimestamp = _toEpochTimestamp(block.timestamp);
         // Lookahead must be missing
-        uint256 epochTimestamp = block.timestamp.toEpochTimestamp(beaconGenesisTimestamp);
-
-        if (_isLookaheadRequired(epochTimestamp)) {
-            _postLookahead(epochTimestamp.nextEpoch(), _lookaheadParams);
-        } else {
-            revert LookaheadIsNotRequired();
-        }
+        require(_isLookaheadRequired(epochTimestamp), LookaheadIsNotRequired());
+        _postLookahead(epochTimestamp.nextEpoch(), _lookaheadParams);
     }
 
     /// @inheritdoc ILookahead
@@ -88,8 +92,7 @@ contract Lookahead is ILookahead, EssentialContract {
         onlyFromNamed(LibNames.B_PRECONF_SERVICE_MANAGER)
         nonReentrant
     {
-        uint256 epochTimestamp = block.timestamp.toEpochTimestamp(beaconGenesisTimestamp);
-
+        uint256 epochTimestamp = _toEpochTimestamp(block.timestamp);
         if (_isLookaheadRequired(epochTimestamp)) {
             _postLookahead(epochTimestamp.nextEpoch(), _lookaheadParams);
         } else {
@@ -97,6 +100,8 @@ contract Lookahead is ILookahead, EssentialContract {
         }
     }
 
+
+    /// @inheritdoc ILookahead
     function proveIncorrectLookahead(
         uint256 _lookaheadPointer,
         uint256 _slotTimestamp,
@@ -105,9 +110,10 @@ contract Lookahead is ILookahead, EssentialContract {
     )
         external
     {
-        require(block.timestamp > DISPUTE_PERIOD + _slotTimestamp, MissedDisputeWindow());
+        require(_slotTimestamp % LibEpoch.SECONDS_IN_SLOT == 0, InvalidSlotTimestamp());    
+        require(block.timestamp < _slotTimestamp + disputePeriod, MissedDisputeWindow());
 
-        uint256 epochTimestamp = _slotTimestamp.toEpochTimestamp(beaconGenesisTimestamp);
+        uint256 epochTimestamp = _toEpochTimestamp(_slotTimestamp);
         Poster memory poster = _posterFor(epochTimestamp);
         require(poster.addr != address(0), PosterAlreadySlashedOrLookaheadIsEmpty());
 
@@ -226,7 +232,7 @@ contract Lookahead is ILookahead, EssentialContract {
         unchecked {
             lookaheadTail = uint64(i);
             _posterFor(_epochTimestamp).addr = msg.sender;
-            _preconfServiceManager().lockStakeUntil(msg.sender, block.timestamp + DISPUTE_PERIOD);
+            _preconfServiceManager().lockStakeUntil(msg.sender, block.timestamp + disputePeriod);
         }
     }
 
@@ -327,5 +333,9 @@ contract Lookahead is ILookahead, EssentialContract {
 
     function _hashBLSPubKey(bytes calldata _BLSPubKey) private pure returns (bytes32) {
         return keccak256(abi.encodePacked(bytes16(0), _BLSPubKey));
+    }
+
+    function _toEpochTimestamp(uint256 _timestamp) private view returns (uint256) {
+        return LibEpoch.toEpochTimestamp(_timestamp, beaconGenesisTimestamp);
     }
 }
