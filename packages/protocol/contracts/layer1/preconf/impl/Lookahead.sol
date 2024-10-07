@@ -109,9 +109,9 @@ contract Lookahead is ILookahead, EssentialContract {
     )
         external
     {
-        uint256 epochTimestamp = _slotTimestamp.toEpochTimestamp(beaconGenesisTimestamp);
         require(block.timestamp > DISPUTE_PERIOD + _slotTimestamp, MissedDisputeWindow());
 
+        uint256 epochTimestamp = _slotTimestamp.toEpochTimestamp(beaconGenesisTimestamp);
         Poster memory poster = _posterFor(epochTimestamp);
         require(poster.addr != address(0), PosterAlreadySlashedOrLookaheadIsEmpty());
 
@@ -124,20 +124,16 @@ contract Lookahead is ILookahead, EssentialContract {
         // If no preconfer is present for a slot, we simply use the 0-address to denote the
         // preconfer.
         address preconferInLookahead;
+
+        // TODO? Fiture out the following logic
         if (_slotTimestamp == entry.validUntil && !entry.isFallback) {
             // The slot was dedicated to a specific preconfer
             preconferInLookahead = entry.preconfer;
-        } else {
-            // The slot was empty and it was the next preconfer who was expected to preconf in
-            // advanced, OR
-            // the slot was empty and the preconfer was expected to be the fallback preconfer for
-            // the epoch.
-            // We still use the zero address because technically the slot itself was empty in the
-            // lookahead.
-            // preconferInLookahead = address(0);
         }
 
-        address preconferInRegistry = _getPreconferInRegistry(_validatorBLSPubKey, _slotTimestamp);
+        address preconferInRegistry = IPreconfRegistry(resolve(LibNames.B_PRECONF_REGISTRY, false))
+            .getPreconferForValidator(_hashBLSPubKey(_validatorBLSPubKey), _slotTimestamp);
+            
         require(preconferInRegistry != preconferInLookahead, LookaheadEntryIsCorrect());
 
         LibEIP4788.verifyValidator(
@@ -223,32 +219,6 @@ contract Lookahead is ILookahead, EssentialContract {
         return bytes32(0);
     }
 
-    function _getPreconferInRegistry(
-        bytes calldata _validatorBLSPubKey,
-        uint256 _slotTimestamp
-    )
-        private
-        view
-        returns (address)
-    {
-        address preconfRegistry = resolve(LibNames.B_PRECONF_REGISTRY, false);
-        IPreconfRegistry.Validator memory validatorInRegistry =
-            IPreconfRegistry(preconfRegistry).getValidator(_hashBLSPubKey(_validatorBLSPubKey));
-
-        // The validator is not proposing yet
-        if (_slotTimestamp < validatorInRegistry.proposingSince) return address(0);
-
-        // The validator is proposing indefinitely
-        if (validatorInRegistry.proposingUntil == 0) return validatorInRegistry.preconfer;
-
-        // The validator is proposing within the current slot
-        if (_slotTimestamp < validatorInRegistry.proposingUntil) {
-            return validatorInRegistry.preconfer;
-        }
-
-        return address(0);
-    }
-
     function _isLookaheadRequired(uint256 _epochTimestamp) private view returns (bool) {
         // If it's the first slot of current epoch, we don't need the lookahead since the offchain
         // node may not have access to it yet.
@@ -264,10 +234,6 @@ contract Lookahead is ILookahead, EssentialContract {
 
     function _posterFor(uint256 _epochTimestamp) private view returns (Poster storage) {
         return posters[_epochTimestamp];
-    }
-
-    function _hashBLSPubKey(bytes calldata _BLSPubKey) private pure returns (bytes32) {
-        return keccak256(abi.encodePacked(bytes16(0), _BLSPubKey));
     }
 
     // TODO: verify `--i` wont underflow
@@ -313,5 +279,9 @@ contract Lookahead is ILookahead, EssentialContract {
 
             emit FallbackPreconferEnabled(_epochTimestamp, fallbackPreconfer);
         }
+    }
+
+    function _hashBLSPubKey(bytes calldata _BLSPubKey) private pure returns (bytes32) {
+        return keccak256(abi.encodePacked(bytes16(0), _BLSPubKey));
     }
 }

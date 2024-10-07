@@ -95,4 +95,13 @@ interface IPreconfRegistry {
 
     /// @dev Returns a validator who is proposing for a registered preconfer
     function getValidator(bytes32 pubKeyHash) external view returns (Validator memory);
+
+    /// @dev Returns the preconfer that is proposing for a validator
+    function getPreconferForValidator(
+        bytes32 pubKeyHash,
+        uint256 slotTimestamp
+    )
+        external
+        view
+        returns (address);
 }
