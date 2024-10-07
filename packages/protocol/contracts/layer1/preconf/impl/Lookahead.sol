@@ -8,7 +8,7 @@ import "../iface/IPreconfServiceManager.sol";
 import "../libs/LibNames.sol";
 import "../libs/LibEpoch.sol";
 
-/// @title PreconfTaskManager
+/// @title Lookahead
 /// @custom:security-contact security@taiko.xyz
 contract Lookahead is ILookahead, EssentialContract {
     using LibEpoch for uint256;

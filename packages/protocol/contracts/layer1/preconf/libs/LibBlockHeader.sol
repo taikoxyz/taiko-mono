@@ -28,15 +28,15 @@ library LibBlockHeader {
         0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347;
 
     function hashBlockHeader(BlockHeader memory header) internal pure returns (bytes32) {
-        bytes memory rlpHeader = RLPWriter.writeList(getBlockHeaderRLPItemsList(header, 0));
+        bytes memory rlpHeader = RLPWriter.writeList(_getBlockHeaderRLPItemsList(header, 0));
         return keccak256(rlpHeader);
     }
 
-    function getBlockHeaderRLPItemsList(
+    function _getBlockHeaderRLPItemsList(
         BlockHeader memory header,
         uint256 extraCapacity
     )
-        internal
+        private
         pure
         returns (bytes[] memory list)
     {

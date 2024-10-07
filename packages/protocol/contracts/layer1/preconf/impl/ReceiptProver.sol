@@ -16,14 +16,14 @@ abstract contract ReceiptProver is IReceiptProver, EssentialContract {
 
     uint256[50] private __gap;
 
-    error ExecutionPreconfNotSupported();
-    error ChainIdMismatch();
     error BlockHashMismatch();
     error BlockMetadataMismatch();
     error BlockNotVerified();
+    error ChainIdMismatch();
+    error ExecutionPreconfNotSupported();
+    error InvalidProofKind();
     error InvalidSignature();
     error TxIncluded();
-    error InvalidProofKind();
 
     /// @notice Initializes the contract.
     function init(address _owner, address _rollupAddressManager) external initializer {
