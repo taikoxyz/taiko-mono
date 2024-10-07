@@ -24,8 +24,7 @@ abstract contract PreconfTaskManager is IPreconfTaskManager, EssentialContract {
     ) {
         ILookahead lookahead = _lookahead();
         require(
-            lookahead.isSenderCurrentPreconfer(_lookaheadPointer, msg.sender),
-            SenderNotCurrentPreconfer()
+            lookahead.isCurrentPreconfer(_lookaheadPointer, msg.sender), SenderNotCurrentPreconfer()
         );
 
         // Conditionally post a new lookahead to the lookahead contract
@@ -80,6 +79,9 @@ abstract contract PreconfTaskManager is IPreconfTaskManager, EssentialContract {
         address preconfer = _receiptProver().proveReceiptViolation(_receipt, _proof);
         _preconfServiceManager().slashOperator(preconfer);
     }
+
+    // --- internal/private helper functions
+    // ----------------------------------------------------------
 
     function _preconfServiceManager() private view returns (IPreconfServiceManager) {
         return IPreconfServiceManager(resolve(LibNames.B_PRECONF_SERVICE_MANAGER, false));

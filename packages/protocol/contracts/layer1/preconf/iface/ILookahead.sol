@@ -36,9 +36,9 @@ interface ILookahead {
 
     function forcePostLookahead(LookaheadParam[] calldata _lookaheadParams) external;
     function postLookahead(LookaheadParam[] calldata _lookaheadParams) external;
-    function isSenderCurrentPreconfer(
+    function isCurrentPreconfer(
         uint256 _lookaheadPointer,
-        address _sender
+        address _address
     )
         external
         view
