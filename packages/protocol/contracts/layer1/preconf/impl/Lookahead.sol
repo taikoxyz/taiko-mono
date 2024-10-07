@@ -7,7 +7,6 @@ import "../iface/IPreconfRegistry.sol";
 import "../iface/IPreconfServiceManager.sol";
 import "../libs/LibNames.sol";
 import "../libs/LibEpoch.sol";
-import "../libs/LibEIP4788.sol";
 
 /// @title Lookahead
 /// @custom:security-contact security@taiko.xyz
@@ -28,15 +27,14 @@ contract Lookahead is ILookahead, EssentialContract {
     mapping(uint256 epochTimestamp => Poster poster) internal posters;
 
     // Mapping from a pointer (representing a specific epoch timestamp) to a LookaheadEntry.
-    // This stores the lookahead information for each epoch, allowing for efficient access and updates.
+    // This stores the lookahead information for each epoch, allowing for efficient access and
+    // updates.
     mapping(uint256 pointer => LookaheadEntry) internal lookahead;
-    
+
     // Pointer to the last entry in the lookahead mapping
     uint64 public lookaheadTail;
 
     uint256[47] private __gap;
-
-    event EntryUpdated(uint256 indexed id, LookaheadEntry entry);
 
     error InvalidAssumption();
     error InvalidDisputePeriod();
@@ -100,7 +98,6 @@ contract Lookahead is ILookahead, EssentialContract {
         }
     }
 
-
     /// @inheritdoc ILookahead
     function proveIncorrectLookahead(
         uint256 _lookaheadPointer,
@@ -110,7 +107,7 @@ contract Lookahead is ILookahead, EssentialContract {
     )
         external
     {
-        require(_slotTimestamp % LibEpoch.SECONDS_IN_SLOT == 0, InvalidSlotTimestamp());    
+        require(_slotTimestamp % LibEpoch.SECONDS_IN_SLOT == 0, InvalidSlotTimestamp());
         require(block.timestamp < _slotTimestamp + disputePeriod, MissedDisputeWindow());
 
         uint256 epochTimestamp = _toEpochTimestamp(_slotTimestamp);
@@ -155,6 +152,7 @@ contract Lookahead is ILookahead, EssentialContract {
         //
     }
 
+    /// @inheritdoc ILookahead
     function getPoster(uint256 _epochTimestamp) public view returns (address) { }
 
     /// @dev Returns the fallback preconfer
@@ -175,7 +173,7 @@ contract Lookahead is ILookahead, EssentialContract {
         uint256 _epochTimestamp,
         LookaheadParam[] calldata _lookaheadParams
     )
-        internal
+        private
     {
         // The tail of the lookahead is tracked and connected to the first new lookahead entry so
         // that when no more preconfers are present in the remaining slots of the current epoch,
@@ -236,45 +234,6 @@ contract Lookahead is ILookahead, EssentialContract {
         }
     }
 
-    /// @notice Retrieves the beacon block root for the block at the specified timestamp
-    function _getBeaconBlockRoot(uint256 timestamp) private view returns (bytes32) {
-        // At block N, we get the beacon block root for block N - 1. So, to get the block root of
-        // the Nth block,
-        // we query the root at block N + 1. If N + 1 is a missed slot, we keep querying until we
-        // find a block N + x
-        // that has the block root for Nth block.
-        uint256 targetTimestamp = timestamp + LibEpoch.SECONDS_IN_SLOT;
-        while (true) {
-            (bool success, bytes memory result) =
-                beaconBlockRootContract.staticcall(abi.encode(targetTimestamp));
-            if (success && result.length > 0) {
-                return abi.decode(result, (bytes32));
-            }
-
-            unchecked {
-                targetTimestamp += LibEpoch.SECONDS_IN_SLOT;
-            }
-        }
-        return bytes32(0);
-    }
-
-    function _isLookaheadRequired(uint256 _epochTimestamp) private view returns (bool) {
-        // If it's the first slot of current epoch, we don't need the lookahead since the offchain
-        // node may not have access to it yet.
-        unchecked {
-            return block.timestamp != _epochTimestamp
-                && _posterFor(_epochTimestamp.nextEpoch()).addr == address(0);
-        }
-    }
-
-    function _entry(uint256 _pointer) private view returns (LookaheadEntry storage) {
-        return lookahead[_pointer]; // TODO
-    }
-
-    function _posterFor(uint256 _epochTimestamp) private view returns (Poster storage) {
-        return posters[_epochTimestamp];
-    }
-
     // TODO: verify `--i` wont underflow
     function _enableFallbackPreconfer(uint256 _epochTimestamp) private {
         // If it is the current epoch's lookahead being proved incorrect then insert a fallback
@@ -323,6 +282,49 @@ contract Lookahead is ILookahead, EssentialContract {
         }
     }
 
+    /// @notice Retrieves the beacon block root for the block at the specified timestamp
+    function _getBeaconBlockRoot(uint256 timestamp) private view returns (bytes32) {
+        // At block N, we get the beacon block root for block N - 1. So, to get the block root of
+        // the Nth block,
+        // we query the root at block N + 1. If N + 1 is a missed slot, we keep querying until we
+        // find a block N + x
+        // that has the block root for Nth block.
+        uint256 targetTimestamp = timestamp + LibEpoch.SECONDS_IN_SLOT;
+        while (true) {
+            (bool success, bytes memory result) =
+                beaconBlockRootContract.staticcall(abi.encode(targetTimestamp));
+            if (success && result.length > 0) {
+                return abi.decode(result, (bytes32));
+            }
+
+            unchecked {
+                targetTimestamp += LibEpoch.SECONDS_IN_SLOT;
+            }
+        }
+        return bytes32(0);
+    }
+
+    function _isLookaheadRequired(uint256 _epochTimestamp) private view returns (bool) {
+        // If it's the first slot of current epoch, we don't need the lookahead since the offchain
+        // node may not have access to it yet.
+        unchecked {
+            return block.timestamp != _epochTimestamp
+                && _posterFor(_epochTimestamp.nextEpoch()).addr == address(0);
+        }
+    }
+
+    function _entry(uint256 _pointer) private view returns (LookaheadEntry storage) {
+        return lookahead[_pointer]; // TODO
+    }
+
+    function _posterFor(uint256 _epochTimestamp) private view returns (Poster storage) {
+        return posters[_epochTimestamp];
+    }
+
+    function _toEpochTimestamp(uint256 _timestamp) private view returns (uint256) {
+        return LibEpoch.toEpochTimestamp(_timestamp, beaconGenesisTimestamp);
+    }
+
     function _preconfRegistry() private view returns (IPreconfRegistry) {
         return IPreconfRegistry(resolve(LibNames.B_PRECONF_REGISTRY, false));
     }
@@ -333,9 +335,5 @@ contract Lookahead is ILookahead, EssentialContract {
 
     function _hashBLSPubKey(bytes calldata _BLSPubKey) private pure returns (bytes32) {
         return keccak256(abi.encodePacked(bytes16(0), _BLSPubKey));
-    }
-
-    function _toEpochTimestamp(uint256 _timestamp) private view returns (uint256) {
-        return LibEpoch.toEpochTimestamp(_timestamp, beaconGenesisTimestamp);
     }
 }

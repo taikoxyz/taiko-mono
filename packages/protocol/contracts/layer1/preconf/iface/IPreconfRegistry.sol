@@ -46,20 +46,6 @@ interface IPreconfRegistry {
     event ValidatorAdded(bytes32 indexed pubKeyHash, address indexed preconfer);
     event ValidatorRemoved(bytes32 indexed pubKeyHash, address indexed preconfer);
 
-    /// @dev The preconfer is already registered in the registry
-    error PreconferAlreadyRegistered();
-    /// @dev The preconfer is not registered in the registry
-    error PreconferNotRegistered();
-    /// @dev The signature is invalid
-    error InvalidValidatorSignature();
-    /// @dev The signature has expired
-    error ValidatorSignatureExpired();
-    /// @dev The validator is already proposing for a preconfer and cannot be added again without
-    /// removal
-    error ValidatorAlreadyActive();
-    /// @dev The validator is already removed or waiting to stop proposing for a preconfer
-    error ValidatorAlreadyInactive();
-
     /// @dev Registers a preconfer by giving them a non-zero registry index
     function registerPreconfer(IAVSDirectory.SignatureWithSaltAndExpiry calldata operatorSignature)
         external;

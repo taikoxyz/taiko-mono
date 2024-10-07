@@ -7,6 +7,15 @@ import "../iface/IPreconfRegistry.sol";
 /// @title Lookahead
 /// @custom:security-contact security@taiko.xyz
 abstract contract PreconferRegistry is IPreconfRegistry, EssentialContract {
+    uint256[50] private __gap;
+
+    error PreconferAlreadyRegistered();
+    error PreconferNotRegistered();
+    error InvalidValidatorSignature();
+    error ValidatorSignatureExpired();
+    error ValidatorAlreadyActive();
+    error ValidatorAlreadyInactive();
+
     function getPreconferForValidator(
         bytes32 _pubKeyHash,
         uint256 _slotTimestamp
