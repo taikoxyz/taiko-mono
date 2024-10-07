@@ -46,8 +46,8 @@ abstract contract PreconfTaskManager is IPreconfTaskManager, EssentialContract {
         nonReentrant
         returns (TaikoData.BlockMetadataV2 memory)
     {
-        ITaikoL1 taiko = ITaikoL1(resolve(LibNames.B_TAIKO, false));
-        return taiko.proposeBlockV2(_params, _txList);
+        address taiko = resolve(LibNames.B_TAIKO, false);
+        return ITaikoL1(taiko).proposeBlockV2(_params, _txList);
     }
 
     /// @inheritdoc IPreconfTaskManager
@@ -61,8 +61,8 @@ abstract contract PreconfTaskManager is IPreconfTaskManager, EssentialContract {
         nonReentrant
         returns (TaikoData.BlockMetadataV2[] memory)
     {
-        ITaikoL1 taiko = ITaikoL1(resolve(LibNames.B_TAIKO, false));
-        return taiko.proposeBlocksV2(_paramsArr, _txListArr);
+        address taiko = resolve(LibNames.B_TAIKO, false);
+        return ITaikoL1(taiko).proposeBlocksV2(_paramsArr, _txListArr);
     }
 
     /// @inheritdoc IPreconfTaskManager
