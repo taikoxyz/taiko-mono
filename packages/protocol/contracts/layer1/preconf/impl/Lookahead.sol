@@ -167,6 +167,40 @@ contract Lookahead is ILookahead, EssentialContract {
         return _address == entry.preconfer && block.timestamp > entry.validSince
             && block.timestamp <= entry.validUntil;
     }
+    
+
+     /// @dev Returns the full 32 slot preconfer lookahead for the epoch
+    function getLookaheadForEpoch(uint256 epochTimestamp) external view returns (address[32] memory entries_) {
+        // uint256 i = lookaheadTail;
+        // uint256 lastSlotTimestamp = epochTimestamp.nextEpoch() - LibEpoch.SECONDS_IN_SLOT;
+
+        // // Take the tail to the entry that fills the last slot of the epoch.
+        // // This may be an entry in the next epoch who starts preconfing in advanced.
+        // // This may also be an empty slot since the lookahead for next epoch is not yet posted.
+        // while (_entryAt(i).validSince >= lastSlotTimestamp) {
+        //    i-=1;
+        // }
+
+        // LookaheadEntry memory entry = _entryAt(i);
+        // address preconfer = entry.preconfer;
+        // uint256 validSince = entry.validSince;
+        // uint256 validUntil =entry.validUntil;
+
+        // // Iterate backwards and fill in the slots
+        // for (uint256 i = 32; i > 0; --i) {
+        //     if ( _entryAt(i).validUntil >= lastSlotTimestamp) {
+        //         entries_[i - 1] = preconfer;
+        //     }
+
+        //     lastSlotTimestamp -= LibEpoch.SECONDS_IN_SLOT;
+
+        //     if (lastSlotTimestamp == validSince) {
+        //         LookaheadEntry memory entry = _entryAt(--i);
+        //         preconfer = entry.preconfer;
+        //         validSince = entry.validSince;
+        //     }
+        // }
+    }
 
     /// @inheritdoc ILookahead
     function getPoster(uint256 _epochTimestamp) external view returns (address) {
