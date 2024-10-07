@@ -25,25 +25,18 @@ interface ILookahead {
         address preconfer;
     }
 
-    struct LookaheadMetadata {
-        // True if the lookahead was proved to be incorrect
-        bool incorrect;
-        // The poster of the lookahead
-        address poster;
-        // Fallback preconfer selected for the epoch in which the lookahead was posted
-        // This is only set when the lookahead is proved to be incorrect
-        address fallbackPreconfer;
-    }
-
     event EntryUpdated(uint256 indexed id, LookaheadEntry entry);
 
     event IncorrectLookaheadProved(
-        address indexed poster, uint256 indexed timestamp, address indexed disputer
+        uint256 indexed slotTimestamp,
+        bytes32 indexed validatorBLSPubKeyHash,
+        address indexed poster,
+        LookaheadEntry entry
     );
 
     function forcePostLookahead(LookaheadParam[] calldata _lookaheadParams) external;
     function postLookahead(LookaheadParam[] calldata _lookaheadParams) external;
-    function isCurrentPreconfer(address addr) external view returns (bool);
+    function isCurrentPreconfer(address _addr) external view returns (bool);
     function getPoster(uint256 _epochTimestamp) external view returns (address);
 
     /// @notice Proves that the lookahead entry is incorrect for a given slot.

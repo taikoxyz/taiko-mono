@@ -130,9 +130,9 @@ contract Lookahead is ILookahead, EssentialContract {
             preconferInLookahead = entry.preconfer;
         }
 
-        address preconferInRegistry = _preconfRegistry().getPreconferForValidator(
-            _hashBLSPubKey(_validatorBLSPubKey), _slotTimestamp
-        );
+        bytes32 pubkeyHash = _hashBLSPubKey(_validatorBLSPubKey);
+        address preconferInRegistry =
+            _preconfRegistry().getPreconferForValidator(pubkeyHash, _slotTimestamp);
 
         require(preconferInRegistry != preconferInLookahead, LookaheadEntryIsCorrect());
 
@@ -142,8 +142,10 @@ contract Lookahead is ILookahead, EssentialContract {
 
         _enableFallbackPreconfer(epochTimestamp);
 
-        // Slash the poster
         _posterFor(epochTimestamp).addr = address(0);
+        emit IncorrectLookaheadProved(_slotTimestamp, pubkeyHash, poster.addr, entry);
+
+        // Slash the poster
         _preconfServiceManager().slashOperator(poster.addr);
     }
 
