@@ -13,24 +13,25 @@ import "../libs/LibEpoch.sol";
 contract Lookahead is ILookahead, EssentialContract {
     using LibEpoch for uint256;
 
-    uint256 public immutable disputePeriod;
-    uint256 public immutable beaconGenesisTimestamp;
     address public immutable beaconBlockRootContract;
+    uint256 public immutable beaconGenesisTimestamp;
+    uint256 public immutable disputePeriod;
+    uint256 public immutable posterBufferSize;
+    uint256 public immutable lookaheadBufferSize;
 
     struct Poster {
         address addr;
+        uint40 epochTimestamp;
     }
 
     // Maps the epoch timestamp to the lookahead poster.
     // If the lookahead poster has been slashed, it maps to the 0-address.
     // Note: This may be optimised to re-use existing slots and reduce gas cost.
-    // TODO(dantaik): convert into a ring buffer
     mapping(uint256 epochTimestamp => Poster poster) internal posters;
 
     // Mapping from a pointer (representing a specific epoch timestamp) to a LookaheadEntry.
     // This stores the lookahead information for each epoch, allowing for efficient access and
     // updates.
-    // TODO(dantaik): convert into a ring buffer
     mapping(uint256 pointer => LookaheadEntry) internal lookahead;
 
     // Pointer to the last entry in the lookahead mapping
@@ -41,8 +42,8 @@ contract Lookahead is ILookahead, EssentialContract {
     error InvalidAssumption();
     error InvalidDisputePeriod();
     error InvalidEpochTimestamp();
-    error InvalidGenesisTimestamp();
     error InvalidLookaheadPointer();
+    error InvalidParam();
     error InvalidSlotTimestamp();
     error LookaheadEntryIsCorrect();
     error LookaheadIsNotRequired();
@@ -64,16 +65,25 @@ contract Lookahead is ILookahead, EssentialContract {
     }
 
     constructor(
-        uint256 _beaconGenesisTimestamp,
         address _beaconBlockRootContract,
-        uint256 _disputePeriod
+        uint256 _beaconGenesisTimestamp,
+        uint256 _disputePeriod,
+        uint256 _posterBufferSize,
+        uint256 _lookaheadBufferSize
     ) {
-        require(_beaconGenesisTimestamp % LibEpoch.SECONDS_IN_SLOT == 0, InvalidGenesisTimestamp());
-        require(_disputePeriod != 0, InvalidDisputePeriod());
+        require(_beaconBlockRootContract != address(0), InvalidParam());
+        require(_beaconGenesisTimestamp % LibEpoch.SECONDS_IN_SLOT == 0, InvalidParam());
+        require(_disputePeriod != 0, InvalidParam());
+        require(_posterBufferSize != 0, InvalidParam());
+        require(_posterBufferSize % LibEpoch.SLOTS_IN_EPOCH == 0, InvalidParam());
+        require(_lookaheadBufferSize != 0, InvalidParam());
+        require(_lookaheadBufferSize % LibEpoch.SLOTS_IN_EPOCH == 0, InvalidParam());
 
-        beaconGenesisTimestamp = _beaconGenesisTimestamp;
         beaconBlockRootContract = _beaconBlockRootContract;
+        beaconGenesisTimestamp = _beaconGenesisTimestamp;
         disputePeriod = _disputePeriod;
+        posterBufferSize = _posterBufferSize;
+        lookaheadBufferSize = _lookaheadBufferSize;
     }
 
     /// @notice Initializes the contract.
@@ -122,8 +132,8 @@ contract Lookahead is ILookahead, EssentialContract {
         require(block.timestamp < _slotTimestamp + disputePeriod, MissedDisputeWindow());
 
         uint256 epochTimestamp = _toEpochTimestamp(_slotTimestamp);
-        Poster memory poster = _posterFor(epochTimestamp);
-        require(poster.addr != address(0), PosterAlreadySlashedOrLookaheadIsEmpty());
+        address poster = getPoster(epochTimestamp);
+        require(poster != address(0), PosterAlreadySlashedOrLookaheadIsEmpty());
 
         // Validate lookahead pointer
         LookaheadEntry memory entry = _entryAt(_lookaheadPointer);
@@ -154,10 +164,10 @@ contract Lookahead is ILookahead, EssentialContract {
         _enableFallbackPreconfer(epochTimestamp);
         _posterFor(epochTimestamp).addr = address(0);
 
-        emit IncorrectLookaheadProved(_slotTimestamp, pubKeyHash, poster.addr, entry);
+        emit IncorrectLookaheadProved(_slotTimestamp, pubKeyHash, poster, entry);
 
         // Slash the poster
-        _preconfServiceManager().slashOperator(poster.addr);
+        _preconfServiceManager().slashOperator(poster);
     }
 
     /// @inheritdoc ILookahead
@@ -265,8 +275,9 @@ contract Lookahead is ILookahead, EssentialContract {
     }
 
     /// @inheritdoc ILookahead
-    function getPoster(uint256 _epochTimestamp) external view returns (address) {
-        return _posterFor(_epochTimestamp).addr;
+    function getPoster(uint256 _epochTimestamp) public view returns (address) {
+        Poster memory poster = _posterFor(_epochTimestamp);
+        return poster.epochTimestamp == _epochTimestamp ? poster.addr : address(0);
     }
 
     /// @notice Retrieves the beacon block root for the block at the specified timestamp
@@ -352,7 +363,11 @@ contract Lookahead is ILookahead, EssentialContract {
 
         unchecked {
             lookaheadTail = uint64(i);
-            _posterFor(_epochTimestamp).addr = msg.sender;
+
+            Poster storage poster = _posterFor(_epochTimestamp);
+            poster.addr = msg.sender;
+            poster.epochTimestamp = uint40(_epochTimestamp);
+
             _preconfServiceManager().lockStakeUntil(msg.sender, block.timestamp + disputePeriod);
         }
     }
@@ -426,11 +441,11 @@ contract Lookahead is ILookahead, EssentialContract {
     }
 
     function _entryAt(uint256 _pointer) private view returns (LookaheadEntry storage) {
-        return lookahead[_pointer];
+        return lookahead[_pointer % lookaheadBufferSize];
     }
 
     function _posterFor(uint256 _epochTimestamp) private view returns (Poster storage) {
-        return posters[_epochTimestamp];
+        return posters[_epochTimestamp % posterBufferSize];
     }
 
     function _toEpochTimestamp(uint256 _timestamp) private view returns (uint256) {
