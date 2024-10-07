@@ -37,6 +37,8 @@ contract Lookahead is ILookahead, EssentialContract {
         uint256 indexed epochTimestamp, address indexed fallbackPreconfer
     );
 
+    event EntryUpdated(uint256 indexed id, LookaheadEntry entry);
+
     error LookaheadIsNotRequired();
     error MissedDisputeWindow();
     error PreconferNotRegistered();
@@ -44,23 +46,22 @@ contract Lookahead is ILookahead, EssentialContract {
     error PosterAlreadySlashedOrLookaheadIsEmpty();
     error LookaheadEntryIsCorrect();
     error NoPreconferAvailable();
+    error InvalidAssumption();
+    error InvalidSlotTimestamp();
+    error InvalidGenesisTimestamp();
 
     modifier onlyFromPreconfer() {
-        address registry = resolve(LibNames.B_PRECONF_REGISTRY, false);
-        require(
-            IPreconfRegistry(registry).getPreconferIndex(msg.sender) != 0, PreconferNotRegistered()
-        );
+        require(_preconfRegistry().getPreconferIndex(msg.sender) != 0, PreconferNotRegistered());
         _;
     }
 
     modifier lockPreconferStake() {
         _;
-        IPreconfServiceManager(resolve(LibNames.B_PRECONF_SERVICE_MANAGER, false)).lockStakeUntil(
-            msg.sender, block.timestamp + DISPUTE_PERIOD
-        );
+        _preconfServiceManager().lockStakeUntil(msg.sender, block.timestamp + DISPUTE_PERIOD);
     }
 
     constructor(uint256 _beaconGenesisTimestamp, address _beaconBlockRootContract) {
+        require(_beaconGenesisTimestamp % LibEpoch.SECONDS_IN_SLOT == 0, InvalidGenesisTimestamp());
         beaconGenesisTimestamp = _beaconGenesisTimestamp;
         beaconBlockRootContract = _beaconBlockRootContract;
     }
@@ -80,7 +81,7 @@ contract Lookahead is ILookahead, EssentialContract {
         uint256 epochTimestamp = block.timestamp.toEpochTimestamp(beaconGenesisTimestamp);
 
         if (_isLookaheadRequired(epochTimestamp)) {
-            _postLookahead(epochTimestamp, _lookaheadParams);
+            _postLookahead(epochTimestamp.nextEpoch(), _lookaheadParams);
         } else {
             revert LookaheadIsNotRequired();
         }
@@ -95,7 +96,7 @@ contract Lookahead is ILookahead, EssentialContract {
         uint256 epochTimestamp = block.timestamp.toEpochTimestamp(beaconGenesisTimestamp);
 
         if (_isLookaheadRequired(epochTimestamp)) {
-            _postLookahead(epochTimestamp, _lookaheadParams);
+            _postLookahead(epochTimestamp.nextEpoch(), _lookaheadParams);
         } else {
             require(_lookaheadParams.length == 0, LookaheadIsNotRequired());
         }
@@ -131,9 +132,10 @@ contract Lookahead is ILookahead, EssentialContract {
             preconferInLookahead = entry.preconfer;
         }
 
-        address preconferInRegistry = IPreconfRegistry(resolve(LibNames.B_PRECONF_REGISTRY, false))
-            .getPreconferForValidator(_hashBLSPubKey(_validatorBLSPubKey), _slotTimestamp);
-            
+        address preconferInRegistry = _preconfRegistry().getPreconferForValidator(
+            _hashBLSPubKey(_validatorBLSPubKey), _slotTimestamp
+        );
+
         require(preconferInRegistry != preconferInLookahead, LookaheadEntryIsCorrect());
 
         LibEIP4788.verifyValidator(
@@ -144,9 +146,7 @@ contract Lookahead is ILookahead, EssentialContract {
 
         // Slash the poster
         _posterFor(epochTimestamp).addr = address(0);
-        IPreconfServiceManager(resolve(LibNames.B_PRECONF_SERVICE_MANAGER, false)).slashOperator(
-            poster.addr
-        );
+        _preconfServiceManager().slashOperator(poster.addr);
     }
 
     /// @inheritdoc ILookahead
@@ -171,30 +171,66 @@ contract Lookahead is ILookahead, EssentialContract {
     }
 
     function _postLookahead(
-        uint256 _currentEpochTimestamp,
+        uint256 _epochTimestamp,
         LookaheadParam[] calldata _lookaheadParams
     )
         internal
         lockPreconferStake
     {
-        uint256 nextEpochTimestamp;
-        uint256 nextEpochEndTimestamp;
-
-        unchecked {
-            nextEpochTimestamp = _currentEpochTimestamp.nextEpoch();
-            nextEpochEndTimestamp = nextEpochTimestamp.nextEpoch();
-        }
-
         // The tail of the lookahead is tracked and connected to the first new lookahead entry so
         // that when no more preconfers are present in the remaining slots of the current epoch,
         // the next epoch's preconfer may start preconfing in advanced.
         //
-        // --[]--[]--[p1]--[]--[]---|---[]--[]--[P2]--[]--[]
+        // --[]--[]--[P1]--[]--[]---|---[]--[]--[P2]--[]--[]
         //   1   2    3    4   5        6    7    8   9   10
         //         Epoch 1                     Epoch 2
         //
         // Here, P2 may start preconfing and proposing blocks from slot 4 itself
         //
+        uint256 i = lookaheadTail;
+        uint40 previousValidUntil = _entry(i).validUntil;
+
+        if (_lookaheadParams.length == 0) {
+            // If no preconfers are present in the lookahead, we use the fallback preconfer for the
+            // entire epoch and, insert it in the last slot of the epoch so that it may start
+            // preconfing in advanced
+            uint256 validUntil = _epochTimestamp - LibEpoch.SECONDS_IN_SLOT;
+            require(validUntil > previousValidUntil, InvalidAssumption());
+
+            LookaheadEntry storage entry = _entry(++i);
+            entry.isFallback = true;
+            entry.validSince = previousValidUntil;
+            entry.validUntil = uint40(validUntil);
+            entry.preconfer = getFallbackPreconfer();
+            emit EntryUpdated(i, entry);
+        } else {
+            for (uint256 j; j < _lookaheadParams.length; j++) {
+                // Each entry must be registered in the preconf registry
+                address preconfer = _lookaheadParams[j].preconfer;
+                require(
+                    preconfer != address(0) && _preconfRegistry().getPreconferIndex(preconfer) != 0,
+                    PreconferNotRegistered()
+                );
+
+                // Ensure that the timestamps belong to a valid slot in the epoch
+                uint40 validUntil = _lookaheadParams[j].validUntil;
+                require(validUntil % LibEpoch.SECONDS_IN_SLOT == 0, InvalidSlotTimestamp());
+                require(validUntil > previousValidUntil, InvalidSlotTimestamp());
+                require(validUntil < _epochTimestamp.nextEpoch(), InvalidSlotTimestamp());
+
+                LookaheadEntry storage entry = _entry(++i);
+                entry.isFallback = false;
+                entry.validSince = previousValidUntil;
+                entry.validUntil = validUntil;
+                entry.preconfer = preconfer;
+                emit EntryUpdated(i, entry);
+
+                previousValidUntil = validUntil;
+            }
+
+            lookaheadTail = uint64(i);
+            _posterFor(_epochTimestamp).addr = msg.sender;
+        }
     }
 
     /// @notice Retrieves the beacon block root for the block at the specified timestamp
@@ -257,6 +293,9 @@ contract Lookahead is ILookahead, EssentialContract {
 
                 // Switch the connection to the last slot of the current epoch
                 entry.validSince = uint40(lastSlotTimestampInCurrentEpoch);
+
+                emit EntryUpdated(i, entry);
+
                 // Head to the last entry in current epoch
                 entry = _entry(--i);
             }
@@ -264,9 +303,9 @@ contract Lookahead is ILookahead, EssentialContract {
             entry.isFallback = true;
             entry.validSince = uint40(_epochTimestamp - LibEpoch.SECONDS_IN_SLOT);
             entry.validUntil = uint40(lastSlotTimestampInCurrentEpoch);
+            entry.preconfer = getFallbackPreconfer();
 
-            address fallbackPreconfer = getFallbackPreconfer();
-            entry.preconfer = fallbackPreconfer;
+            emit EntryUpdated(i, entry);
 
             // Nullify the rest of the lookahead entries for this epoch
             for (entry = _entry(--i); entry.validUntil >= _epochTimestamp; entry = _entry(--i)) {
@@ -275,10 +314,18 @@ contract Lookahead is ILookahead, EssentialContract {
                 entry.isFallback = false;
                 entry.validSince = 0;
                 entry.validUntil = 0;
-            }
 
-            emit FallbackPreconferEnabled(_epochTimestamp, fallbackPreconfer);
+                emit EntryUpdated(i, entry);
+            }
         }
+    }
+
+    function _preconfRegistry() private view returns (IPreconfRegistry) {
+        return IPreconfRegistry(resolve(LibNames.B_PRECONF_REGISTRY, false));
+    }
+
+    function _preconfServiceManager() private view returns (IPreconfServiceManager) {
+        return IPreconfServiceManager(resolve(LibNames.B_PRECONF_SERVICE_MANAGER, false));
     }
 
     function _hashBLSPubKey(bytes calldata _BLSPubKey) private pure returns (bytes32) {

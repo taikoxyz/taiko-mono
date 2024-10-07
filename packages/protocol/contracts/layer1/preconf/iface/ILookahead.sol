@@ -16,8 +16,8 @@ interface ILookahead {
     }
 
     struct LookaheadParam {
-        // The timestamp of the slot
-        uint256 timestamp;
+        // The timestamp until which this preconfer remains the current preconfer.
+        uint40 validUntil;
         // The AVS operator who is also the L1 validator for the slot and will preconf L2
         // transactions
         address preconfer;
