@@ -94,7 +94,7 @@ func (b *BlobTransactionBuilder) BuildBlockUnsigned(
 		"newBlockProposal",
 		[][]byte{encodedParams},
 		[][]byte{{0xff}},
-		lookaheadPointer,
+		new(big.Int).SetUint64(lookaheadPointer),
 		lookaheadSetParams,
 	)
 	if err != nil {
