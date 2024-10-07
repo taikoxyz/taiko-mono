@@ -4,15 +4,14 @@ pragma solidity ^0.8.24;
 /// @title ILookahead
 /// @custom:security-contact security@taiko.xyz
 interface ILookahead {
-    struct LookaheadBufferEntry {
-        // True when the preconfer is randomly selected
+    struct LookaheadEntry {
+        // Indicates if this entry is for a fallback preconfer, which is selected randomly.
         bool isFallback;
-        // Timestamp of the slot at which the provided preconfer is the L1 validator
-        uint40 timestamp;
-        // Timestamp of the last slot that had a valid preconfer
-        uint40 prevTimestamp;
-        // Address of the preconfer who is also the L1 validator
-        // The preconfer will have rights to propose a block in the range (prevTimestamp, timestamp]
+        // The timestamp from which this preconfer becomes the current preconfer.
+        uint40 validSince;
+        // The timestamp until which this preconfer remains the current preconfer.
+        uint40 validUntil;
+        // The address of this preconfer.
         address preconfer;
     }
 

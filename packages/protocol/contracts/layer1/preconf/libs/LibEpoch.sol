@@ -15,7 +15,7 @@ library LibEpoch {
     /// @param _timestamp The current timestamp.
     /// @param _beaconGenesisTimestamp The genesis timestamp of the beacon.
     /// @return The timestamp marking the start of the current epoch.
-    function getEpochTimestamp(
+    function toEpochTimestamp(
         uint256 _timestamp,
         uint256 _beaconGenesisTimestamp
     )
@@ -30,5 +30,21 @@ library LibEpoch {
                 (timePassedSinceGenesis / SECONDS_IN_EPOCH) * SECONDS_IN_EPOCH;
             return _beaconGenesisTimestamp + timeToCurrentEpochFromGenesis;
         }
+    }
+
+    /// @dev Calculates the timestamp for the next epoch based on the given epoch timestamp.
+    /// @param _epochTimestamp The timestamp of the current epoch.
+    /// @return The timestamp of the next epoch.
+    function nextEpoch(uint256 _epochTimestamp) internal pure returns (uint256) {
+        unchecked {
+            return _epochTimestamp + SECONDS_IN_EPOCH;
+        }
+    }
+
+    /// @dev Calculates the timestamp for the previous epoch based on the given epoch timestamp.
+    /// @param _epochTimestamp The timestamp of the current epoch.
+    /// @return The timestamp of the previous epoch.
+    function prevEpoch(uint256 _epochTimestamp) internal pure returns (uint256) {
+        return _epochTimestamp - SECONDS_IN_EPOCH;
     }
 }
