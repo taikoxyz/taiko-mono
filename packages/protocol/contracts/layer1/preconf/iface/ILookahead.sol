@@ -7,22 +7,22 @@ import "../libs/LibEIP4788.sol";
 /// @custom:security-contact security@taiko.xyz
 interface ILookahead {
     struct LookaheadEntry {
-        // Indicates if this entry is for a fallback preconfer, which is selected randomly.
-        bool isFallback;
+        // The address of this preconfer.
+        address preconfer;
         // The timestamp from which this preconfer becomes the current preconfer.
         uint40 validSince; // exclusive
         // The timestamp until which this preconfer remains the current preconfer.
         uint40 validUntil; // inclusive
-        // The address of this preconfer.
-        address preconfer;
+        // Indicates if this entry is for a fallback preconfer, which is selected randomly.
+        bool isFallback;
     }
 
     struct LookaheadParam {
-        // The timestamp until which this preconfer remains the current preconfer.
-        uint40 validUntil;
         // The AVS operator who is also the L1 validator for the slot and will preconf L2
         // transactions
         address preconfer;
+        // The timestamp until which this preconfer remains the current preconfer.
+        uint40 validUntil;
     }
 
     /// @notice Emitted when a lookahead entry is updated.

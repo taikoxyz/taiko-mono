@@ -52,6 +52,11 @@ contract Lookahead is ILookahead, EssentialContract {
     error PreconferNotRegistered();
     error SenderIsNotThePreconfer();
 
+    modifier validEpochTimestamp(uint256 _epochTimestamp) {
+        require(_epochTimestamp % LibEpoch.SECONDS_IN_EPOCH == 0, InvalidEpochTimestamp());
+        _;
+    }
+
     modifier onlyFromPreconfer() {
         uint256 preconferIndex = _preconfRegistry().getPreconferIndex(msg.sender);
         require(preconferIndex != 0, PreconferNotRegistered());
@@ -169,16 +174,15 @@ contract Lookahead is ILookahead, EssentialContract {
             && block.timestamp <= entry.validUntil;
     }
 
-    /// @dev Returns the full 32 slot preconfer lookahead for the epoch
-    function getLookaheadForEpoch(uint256 epochTimestamp)
+    /// @inheritdoc ILookahead
+    function getLookaheadForEpoch(uint256 _epochTimestamp)
         external
         view
+        validEpochTimestamp(_epochTimestamp)
         returns (address[32] memory entries_)
     {
-        require(epochTimestamp % LibEpoch.SECONDS_IN_EPOCH == 0, InvalidEpochTimestamp());
-
         uint256 i = lookaheadTail;
-        uint256 lastSlotTimestamp = epochTimestamp.nextEpoch() - LibEpoch.SECONDS_IN_SLOT;
+        uint256 lastSlotTimestamp = _epochTimestamp.nextEpoch() - LibEpoch.SECONDS_IN_SLOT;
 
         // Take the tail to the entry that fills the last slot of the epoch.
         // This may be an entry in the next epoch who starts preconfing in advanced.
@@ -205,6 +209,58 @@ contract Lookahead is ILookahead, EssentialContract {
                 preconfer = entry.preconfer;
                 validSince = entry.validSince;
             }
+        }
+    }
+
+    /**
+     * @notice Builds and returns lookahead set parameters for an epoch
+     * @dev This function can be used by the offchain node to create the lookahead to be posted.
+     * @param _epochTimestamp The start timestamp of the epoch for which the lookahead is to be
+     * generated
+     * @param _validatorBLSPubKeys The BLS public keys of the validators who are expected to propose
+     * in the epoch
+     * in the same sequence as they appear in the epoch. So at index n - 1, we have the validator
+     * for slot n in that
+     * epoch.
+     */
+    function buildLookaheadParamsForEpoch(
+        uint256 _epochTimestamp,
+        bytes[32] calldata _validatorBLSPubKeys
+    )
+        external
+        view
+        validEpochTimestamp(_epochTimestamp)
+        returns (LookaheadParam[] memory params_)
+    {
+        uint256 count;
+        IPreconfRegistry.Validator memory validator;
+        params_ = new LookaheadParam[](32);
+        IPreconfRegistry preconfRegister = _preconfRegistry();
+
+        for (uint256 i; i < 32; ++i) {
+            uint256 slotTimestamp = _epochTimestamp + (i * LibEpoch.SECONDS_IN_SLOT);
+
+            // Fetch the validator object from the registry
+            validator = preconfRegister.getValidator(_hashBLSPubKey(_validatorBLSPubKeys[i]));
+
+            // Skip deregistered preconfers
+            if (preconfRegister.getPreconferIndex(validator.preconfer) == 0) {
+                continue;
+            }
+
+            // If the validator is allowed to propose in the epoch, add the associated preconfer to
+            // the lookahead
+            if (
+                validator.preconfer != address(0) && slotTimestamp >= validator.proposingSince
+                    && (validator.proposingUntil == 0 || slotTimestamp < validator.proposingUntil)
+            ) {
+                params_[count++] = LookaheadParam(validator.preconfer, uint40(slotTimestamp));
+            }
+        }
+
+        // resize the array
+        assembly {
+            mstore(params_, count)
         }
     }
 
@@ -263,10 +319,10 @@ contract Lookahead is ILookahead, EssentialContract {
             require(validUntil > previousValidUntil, InvalidAssumption());
 
             LookaheadEntry storage entry = _entryAt(++i);
-            entry.isFallback = true;
+            entry.preconfer = _getFallbackPreconfer();
             entry.validSince = previousValidUntil;
             entry.validUntil = uint40(validUntil);
-            entry.preconfer = _getFallbackPreconfer();
+            entry.isFallback = true;
             emit EntryUpdated(i, entry);
         } else {
             for (uint256 j; j < _lookaheadParams.length; j++) {
@@ -284,10 +340,10 @@ contract Lookahead is ILookahead, EssentialContract {
                 require(validUntil < _epochTimestamp.nextEpoch(), InvalidSlotTimestamp());
 
                 LookaheadEntry storage entry = _entryAt(++i);
-                entry.isFallback = false;
+                entry.preconfer = preconfer;
                 entry.validSince = previousValidUntil;
                 entry.validUntil = validUntil;
-                entry.preconfer = preconfer;
+                entry.isFallback = false;
                 emit EntryUpdated(i, entry);
 
                 previousValidUntil = validUntil;
@@ -329,11 +385,10 @@ contract Lookahead is ILookahead, EssentialContract {
                 entry = _entryAt(--i);
             }
 
-            entry.isFallback = true;
+            entry.preconfer = _getFallbackPreconfer();
             entry.validSince = uint40(_epochTimestamp - LibEpoch.SECONDS_IN_SLOT);
             entry.validUntil = uint40(lastSlotTimestampInCurrentEpoch);
-            entry.preconfer = _getFallbackPreconfer();
-
+            entry.isFallback = true;
             emit EntryUpdated(i, entry);
 
             // Nullify the rest of the lookahead entries for this epoch
@@ -341,9 +396,9 @@ contract Lookahead is ILookahead, EssentialContract {
             {
                 // trick: keep entry.preconfer as-is to avoid setting the storage slot to zeros,
                 // which saves gas for the next sstore operation at the same slot
-                entry.isFallback = false;
                 entry.validSince = 0;
                 entry.validUntil = 0;
+                entry.isFallback = false;
 
                 emit EntryUpdated(i, entry);
             }

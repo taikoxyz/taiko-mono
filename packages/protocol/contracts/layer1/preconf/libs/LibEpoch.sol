@@ -4,8 +4,9 @@ pragma solidity ^0.8.24;
 /// @title LibEpoch
 /// @custom:security-contact security@taiko.xyz
 library LibEpoch {
+    uint256 internal constant SLOTS_IN_EPOCH = 32;
     uint256 internal constant SECONDS_IN_SLOT = 12;
-    uint256 internal constant SECONDS_IN_EPOCH = SECONDS_IN_SLOT * 32;
+    uint256 internal constant SECONDS_IN_EPOCH = SECONDS_IN_SLOT * SLOTS_IN_EPOCH;
     uint256 internal constant TWO_EPOCHS = 2 * SECONDS_IN_EPOCH;
 
     error TimestampBeforeBeaconGenesis();
