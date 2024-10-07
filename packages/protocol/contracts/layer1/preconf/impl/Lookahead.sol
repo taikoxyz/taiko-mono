@@ -137,7 +137,7 @@ contract Lookahead is ILookahead, EssentialContract {
         require(preconferInRegistry != preconferInLookahead, LookaheadEntryIsCorrect());
 
         LibEIP4788.verifyValidator(
-            _validatorBLSPubKey, _getBeaconBlockRoot(_slotTimestamp), _validatorInclusionProof
+            _validatorBLSPubKey, getBeaconBlockRoot(_slotTimestamp), _validatorInclusionProof
         );
 
         _enableFallbackPreconfer(epochTimestamp);
@@ -167,6 +167,28 @@ contract Lookahead is ILookahead, EssentialContract {
             uint256 preconferIndex = (block.prevrandao % (nextPreconfIndex - 1)) + 1;
             return preconfRegistry.getPreconferAtIndex(preconferIndex);
         }
+    }
+
+    /// @notice Retrieves the beacon block root for the block at the specified timestamp
+    function getBeaconBlockRoot(uint256 timestamp) public view returns (bytes32) {
+        // At block N, we get the beacon block root for block N - 1. So, to get the block root of
+        // the Nth block,
+        // we query the root at block N + 1. If N + 1 is a missed slot, we keep querying until we
+        // find a block N + x
+        // that has the block root for Nth block.
+        uint256 targetTimestamp = timestamp + LibEpoch.SECONDS_IN_SLOT;
+        while (true) {
+            (bool success, bytes memory result) =
+                beaconBlockRootContract.staticcall(abi.encode(targetTimestamp));
+            if (success && result.length > 0) {
+                return abi.decode(result, (bytes32));
+            }
+
+            unchecked {
+                targetTimestamp += LibEpoch.SECONDS_IN_SLOT;
+            }
+        }
+        return bytes32(0);
     }
 
     function _postLookahead(
@@ -280,28 +302,6 @@ contract Lookahead is ILookahead, EssentialContract {
                 emit EntryUpdated(i, entry);
             }
         }
-    }
-
-    /// @notice Retrieves the beacon block root for the block at the specified timestamp
-    function _getBeaconBlockRoot(uint256 timestamp) private view returns (bytes32) {
-        // At block N, we get the beacon block root for block N - 1. So, to get the block root of
-        // the Nth block,
-        // we query the root at block N + 1. If N + 1 is a missed slot, we keep querying until we
-        // find a block N + x
-        // that has the block root for Nth block.
-        uint256 targetTimestamp = timestamp + LibEpoch.SECONDS_IN_SLOT;
-        while (true) {
-            (bool success, bytes memory result) =
-                beaconBlockRootContract.staticcall(abi.encode(targetTimestamp));
-            if (success && result.length > 0) {
-                return abi.decode(result, (bytes32));
-            }
-
-            unchecked {
-                targetTimestamp += LibEpoch.SECONDS_IN_SLOT;
-            }
-        }
-        return bytes32(0);
     }
 
     function _isLookaheadRequired(uint256 _epochTimestamp) private view returns (bool) {
