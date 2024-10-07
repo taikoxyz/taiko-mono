@@ -29,10 +29,10 @@ contract Lookahead is ILookahead, EssentialContract {
     // Note: This may be optimised to re-use existing slots and reduce gas cost.
     mapping(uint256 epochTimestamp => Poster poster) internal posters;
 
-    // Mapping from a pointer (representing a specific epoch timestamp) to a LookaheadEntry.
+    // Mapping from a pointer (representing a specific epoch timestamp) to a Entry.
     // This stores the lookahead information for each epoch, allowing for efficient access and
     // updates.
-    mapping(uint256 pointer => LookaheadEntry) internal lookahead;
+    mapping(uint256 pointer => Entry) internal lookahead;
 
     // Pointer to the last entry in the lookahead mapping
     uint64 public lookaheadTail;
@@ -45,7 +45,7 @@ contract Lookahead is ILookahead, EssentialContract {
     error InvalidLookaheadPointer();
     error InvalidParam();
     error InvalidSlotTimestamp();
-    error LookaheadEntryIsCorrect();
+    error EntryIsCorrect();
     error LookaheadIsNotRequired();
     error MissedDisputeWindow();
     error NoPreconferAvailable();
@@ -92,7 +92,7 @@ contract Lookahead is ILookahead, EssentialContract {
     }
 
     /// @inheritdoc ILookahead
-    function forcePostLookahead(LookaheadParam[] calldata _lookaheadParams)
+    function forcePostLookahead(EntryParam[] calldata _lookaheadParams)
         external
         onlyFromPreconfer
         nonReentrant
@@ -104,7 +104,7 @@ contract Lookahead is ILookahead, EssentialContract {
     }
 
     /// @inheritdoc ILookahead
-    function postLookahead(LookaheadParam[] calldata _lookaheadParams)
+    function postLookahead(EntryParam[] calldata _lookaheadParams)
         external
         onlyFromNamed(LibNames.B_PRECONF_TASK_MANAGER)
         nonReentrant
@@ -136,7 +136,7 @@ contract Lookahead is ILookahead, EssentialContract {
         require(poster != address(0), PosterAlreadySlashedOrLookaheadIsEmpty());
 
         // Validate lookahead pointer
-        LookaheadEntry memory entry = _entryAt(_lookaheadPointer);
+        Entry memory entry = _entryAt(_lookaheadPointer);
         require(_slotTimestamp > entry.validSince, InvalidLookaheadPointer());
         require(_slotTimestamp <= entry.validUntil, InvalidLookaheadPointer());
 
@@ -155,7 +155,7 @@ contract Lookahead is ILookahead, EssentialContract {
         address preconferInRegistry =
             _preconfRegistry().getPreconferForValidator(pubKeyHash, _slotTimestamp);
 
-        require(preconferInRegistry != preconferInLookahead, LookaheadEntryIsCorrect());
+        require(preconferInRegistry != preconferInLookahead, EntryIsCorrect());
 
         LibEIP4788.verifyValidator(
             _validatorBLSPubKey, getBeaconBlockRoot(_slotTimestamp), _validatorInclusionProof
@@ -179,7 +179,7 @@ contract Lookahead is ILookahead, EssentialContract {
         view
         returns (bool)
     {
-        LookaheadEntry memory entry = _entryAt(_lookaheadPointer);
+        Entry memory entry = _entryAt(_lookaheadPointer);
         return _address == entry.preconfer && block.timestamp > entry.validSince
             && block.timestamp <= entry.validUntil;
     }
@@ -201,7 +201,7 @@ contract Lookahead is ILookahead, EssentialContract {
             i -= 1;
         }
 
-        LookaheadEntry memory entry = _entryAt(i);
+        Entry memory entry = _entryAt(i);
         address preconfer = entry.preconfer;
         uint256 validSince = entry.validSince;
         uint256 validUntil = entry.validUntil;
@@ -233,18 +233,18 @@ contract Lookahead is ILookahead, EssentialContract {
      * for slot n in that
      * epoch.
      */
-    function buildLookaheadParamsForEpoch(
+    function buildEntryParamsForEpoch(
         uint256 _epochTimestamp,
         bytes[32] calldata _validatorBLSPubKeys
     )
         external
         view
         validEpochTimestamp(_epochTimestamp)
-        returns (LookaheadParam[] memory params_)
+        returns (EntryParam[] memory params_)
     {
         uint256 count;
         IPreconfRegistry.Validator memory validator;
-        params_ = new LookaheadParam[](32);
+        params_ = new EntryParam[](32);
         IPreconfRegistry preconfRegister = _preconfRegistry();
 
         for (uint256 i; i < 32; ++i) {
@@ -264,7 +264,7 @@ contract Lookahead is ILookahead, EssentialContract {
                 validator.preconfer != address(0) && slotTimestamp >= validator.proposingSince
                     && (validator.proposingUntil == 0 || slotTimestamp < validator.proposingUntil)
             ) {
-                params_[count++] = LookaheadParam(validator.preconfer, uint40(slotTimestamp));
+                params_[count++] = EntryParam(validator.preconfer, uint40(slotTimestamp));
             }
         }
 
@@ -305,7 +305,7 @@ contract Lookahead is ILookahead, EssentialContract {
 
     function _postLookahead(
         uint256 _epochTimestamp,
-        LookaheadParam[] calldata _lookaheadParams
+        EntryParam[] calldata _lookaheadParams
     )
         private
     {
@@ -329,7 +329,7 @@ contract Lookahead is ILookahead, EssentialContract {
             uint256 validUntil = _epochTimestamp - LibEpoch.SECONDS_IN_SLOT;
             require(validUntil > previousValidUntil, InvalidAssumption());
 
-            LookaheadEntry storage entry = _entryAt(++i);
+            Entry storage entry = _entryAt(++i);
             entry.preconfer = _getFallbackPreconfer();
             entry.validSince = previousValidUntil;
             entry.validUntil = uint40(validUntil);
@@ -350,7 +350,7 @@ contract Lookahead is ILookahead, EssentialContract {
                 require(validUntil > previousValidUntil, InvalidSlotTimestamp());
                 require(validUntil < _epochTimestamp.nextEpoch(), InvalidSlotTimestamp());
 
-                LookaheadEntry storage entry = _entryAt(++i);
+                Entry storage entry = _entryAt(++i);
                 entry.preconfer = preconfer;
                 entry.validSince = previousValidUntil;
                 entry.validUntil = validUntil;
@@ -382,7 +382,7 @@ contract Lookahead is ILookahead, EssentialContract {
         unchecked {
             uint256 lastSlotTimestampInCurrentEpoch = nextEpochTimestamp - LibEpoch.SECONDS_IN_SLOT;
             uint256 i = lookaheadTail;
-            LookaheadEntry storage entry = _entryAt(i);
+            Entry storage entry = _entryAt(i);
 
             // If the lookahead for next epoch is available
             if (entry.validUntil >= nextEpochTimestamp) {
@@ -440,7 +440,7 @@ contract Lookahead is ILookahead, EssentialContract {
         }
     }
 
-    function _entryAt(uint256 _pointer) private view returns (LookaheadEntry storage) {
+    function _entryAt(uint256 _pointer) private view returns (Entry storage) {
         return lookahead[_pointer % lookaheadBufferSize];
     }
 

@@ -20,7 +20,7 @@ abstract contract PreconfTaskManager is IPreconfTaskManager, EssentialContract {
     /// @param _lookaheadParams Encoded parameters to set lookahead
     modifier checkCurrentPreconferAndPostLookahead(
         uint256 _lookaheadPointer,
-        ILookahead.LookaheadParam[] calldata _lookaheadParams
+        ILookahead.EntryParam[] calldata _lookaheadParams
     ) {
         ILookahead lookahead = _lookahead();
         require(
@@ -41,7 +41,7 @@ abstract contract PreconfTaskManager is IPreconfTaskManager, EssentialContract {
     /// @inheritdoc IPreconfTaskManager
     function proposeBlock(
         uint256 _lookaheadPointer,
-        ILookahead.LookaheadParam[] calldata _lookaheadParams,
+        ILookahead.EntryParam[] calldata _lookaheadParams,
         bytes calldata _params,
         bytes calldata _txList
     )
@@ -56,7 +56,7 @@ abstract contract PreconfTaskManager is IPreconfTaskManager, EssentialContract {
     /// @inheritdoc IPreconfTaskManager
     function proposeBlocks(
         uint256 _lookaheadPointer,
-        ILookahead.LookaheadParam[] calldata _lookaheadParams,
+        ILookahead.EntryParam[] calldata _lookaheadParams,
         bytes[] calldata _paramsArr,
         bytes[] calldata _txListArr
     )

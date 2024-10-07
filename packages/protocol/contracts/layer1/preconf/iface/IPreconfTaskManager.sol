@@ -16,7 +16,7 @@ interface IPreconfTaskManager {
     /// @return meta_ The metadata of the proposed L2 block.
     function proposeBlock(
         uint256 _lookaheadPointer,
-        ILookahead.LookaheadParam[] calldata _lookaheadParams,
+        ILookahead.EntryParam[] calldata _lookaheadParams,
         bytes calldata _params,
         bytes calldata _txList
     )
@@ -31,7 +31,7 @@ interface IPreconfTaskManager {
     /// @return metaArr_ The metadata objects of the proposed L2 blocks.
     function proposeBlocks(
         uint256 _lookaheadPointer,
-        ILookahead.LookaheadParam[] calldata _lookaheadParams,
+        ILookahead.EntryParam[] calldata _lookaheadParams,
         bytes[] calldata _paramsArr,
         bytes[] calldata _txListArr
     )

@@ -6,7 +6,7 @@ import "../libs/LibEIP4788.sol";
 /// @title ILookahead
 /// @custom:security-contact security@taiko.xyz
 interface ILookahead {
-    struct LookaheadEntry {
+    struct Entry {
         // The address of this preconfer.
         address preconfer;
         // The timestamp from which this preconfer becomes the current preconfer.
@@ -17,7 +17,7 @@ interface ILookahead {
         bool isFallback;
     }
 
-    struct LookaheadParam {
+    struct EntryParam {
         // The AVS operator who is also the L1 validator for the slot and will preconf L2
         // transactions
         address preconfer;
@@ -26,27 +26,27 @@ interface ILookahead {
     }
 
     /// @notice Emitted when a lookahead entry is updated.
-    event EntryUpdated(uint256 indexed id, LookaheadEntry entry);
+    event EntryUpdated(uint256 indexed id, Entry entry);
 
     /// @notice Emitted when a lookahead entry is proven to be incorrect.
     event IncorrectLookaheadProved(
         uint256 indexed slotTimestamp,
         bytes32 indexed validatorBLSPubKeyHash,
         address indexed poster,
-        LookaheadEntry entry
+        Entry entry
     );
 
     /// @notice Forces the posting of lookahead parameters regardless of current conditions.
     /// This function is only callable by preconfers.
-    /// @param _lookaheadParams An array of `LookaheadParam` structures detailing the lookahead
+    /// @param _lookaheadParams An array of `EntryParam` structures detailing the lookahead
     /// entries.
-    function forcePostLookahead(LookaheadParam[] calldata _lookaheadParams) external;
+    function forcePostLookahead(EntryParam[] calldata _lookaheadParams) external;
 
     /// @notice Posts lookahead parameters if certain conditions are met.
     /// This function is only callable by the PreconfTaskManager.
-    /// @param _lookaheadParams An array of `LookaheadParam` structures detailing the lookahead
+    /// @param _lookaheadParams An array of `EntryParam` structures detailing the lookahead
     /// entries.
-    function postLookahead(LookaheadParam[] calldata _lookaheadParams) external;
+    function postLookahead(EntryParam[] calldata _lookaheadParams) external;
 
     /// @notice Proves that the lookahead entry is incorrect for a given slot.
     /// @param _lookaheadPointer The pointer to the lookahead entry being disputed.
