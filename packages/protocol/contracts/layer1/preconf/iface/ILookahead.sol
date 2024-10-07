@@ -8,9 +8,9 @@ interface ILookahead {
         // Indicates if this entry is for a fallback preconfer, which is selected randomly.
         bool isFallback;
         // The timestamp from which this preconfer becomes the current preconfer.
-        uint40 validSince;
+        uint40 validSince; // exclusive
         // The timestamp until which this preconfer remains the current preconfer.
-        uint40 validUntil;
+        uint40 validUntil; // inclusive
         // The address of this preconfer.
         address preconfer;
     }
