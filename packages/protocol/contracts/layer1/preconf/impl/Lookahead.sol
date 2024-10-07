@@ -55,11 +55,6 @@ contract Lookahead is ILookahead, EssentialContract {
         _;
     }
 
-    modifier lockPreconferStake() {
-        _;
-        _preconfServiceManager().lockStakeUntil(msg.sender, block.timestamp + DISPUTE_PERIOD);
-    }
-
     constructor(uint256 _beaconGenesisTimestamp, address _beaconBlockRootContract) {
         require(_beaconGenesisTimestamp % LibEpoch.SECONDS_IN_SLOT == 0, InvalidGenesisTimestamp());
         beaconGenesisTimestamp = _beaconGenesisTimestamp;
@@ -175,7 +170,6 @@ contract Lookahead is ILookahead, EssentialContract {
         LookaheadParam[] calldata _lookaheadParams
     )
         internal
-        lockPreconferStake
     {
         // The tail of the lookahead is tracked and connected to the first new lookahead entry so
         // that when no more preconfers are present in the remaining slots of the current epoch,
@@ -227,9 +221,12 @@ contract Lookahead is ILookahead, EssentialContract {
 
                 previousValidUntil = validUntil;
             }
+        }
 
+        unchecked {
             lookaheadTail = uint64(i);
             _posterFor(_epochTimestamp).addr = msg.sender;
+            _preconfServiceManager().lockStakeUntil(msg.sender, block.timestamp + DISPUTE_PERIOD);
         }
     }
 
