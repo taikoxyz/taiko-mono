@@ -62,6 +62,25 @@ interface ILookahead {
     )
         external;
 
+    /// @notice Builds and returns lookahead set parameters for an epoch
+    /// @dev This function can be used by the offchain node to create the lookahead to be posted.
+    /// @param _epochTimestamp The start timestamp of the epoch for which the lookahead is to be
+    /// generated
+    /// @param _validatorBLSPubKeys The BLS public keys of the validators who are expected to
+    /// propose
+    /// in the epoch
+    /// in the same sequence as they appear in the epoch. So at index n - 1, we have the validator
+    /// for slot n in that
+    /// epoch.
+    /// @return An array of EntryParam structures for the given epoch.
+    function buildEntryParamsForEpoch(
+        uint256 _epochTimestamp,
+        bytes[32] calldata _validatorBLSPubKeys
+    )
+        external
+        view
+        returns (EntryParam[] memory);
+
     /// @notice Returns if the given address is the current preconfer.
     /// @param _lookaheadPointer The index of the lookahead entry to check.
     /// @param _address The address to verify as the current preconfer.

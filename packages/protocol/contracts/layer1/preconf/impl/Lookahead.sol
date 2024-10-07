@@ -55,7 +55,7 @@ contract Lookahead is ILookahead, EssentialContract {
         _;
     }
 
-    modifier onlyFromPreconfer() {
+    modifier onlyPreconfer() {
         uint256 preconferIndex = _preconfRegistry().getPreconferIndex(msg.sender);
         require(preconferIndex != 0, PreconferNotRegistered());
         _;
@@ -91,7 +91,7 @@ contract Lookahead is ILookahead, EssentialContract {
     /// @inheritdoc ILookahead
     function forcePostLookahead(EntryParam[] calldata _lookaheadParams)
         external
-        onlyFromPreconfer
+        onlyPreconfer
         nonReentrant
     {
         uint256 epochTimestamp = _toEpochTimestamp(block.timestamp);
@@ -168,6 +168,48 @@ contract Lookahead is ILookahead, EssentialContract {
     }
 
     /// @inheritdoc ILookahead
+    function buildEntryParamsForEpoch(
+        uint256 _epochTimestamp,
+        bytes[32] calldata _validatorBLSPubKeys
+    )
+        external
+        view
+        validEpochTimestamp(_epochTimestamp)
+        returns (EntryParam[] memory params_)
+    {
+        uint256 count;
+        IPreconfRegistry.Validator memory validator;
+        params_ = new EntryParam[](32);
+        IPreconfRegistry preconfRegister = _preconfRegistry();
+
+        for (uint256 i; i < 32; ++i) {
+            uint256 slotTimestamp = _epochTimestamp + (i * LibEpoch.SECONDS_IN_SLOT);
+
+            // Fetch the validator object from the registry
+            validator = preconfRegister.getValidator(_hashBLSPubKey(_validatorBLSPubKeys[i]));
+
+            // Skip deregistered preconfers
+            if (preconfRegister.getPreconferIndex(validator.preconfer) == 0) {
+                continue;
+            }
+
+            // If the validator is allowed to propose in the epoch, add the associated preconfer to
+            // the lookahead
+            if (
+                validator.preconfer != address(0) && slotTimestamp >= validator.proposingSince
+                    && (validator.proposingUntil == 0 || slotTimestamp < validator.proposingUntil)
+            ) {
+                params_[count++] = EntryParam(validator.preconfer, uint40(slotTimestamp));
+            }
+        }
+
+        // resize the array
+        assembly {
+            mstore(params_, count)
+        }
+    }
+
+    /// @inheritdoc ILookahead
     function isCurrentPreconfer(
         uint256 _entryPointer,
         address _address
@@ -216,58 +258,6 @@ contract Lookahead is ILookahead, EssentialContract {
                 preconfer = entry.preconfer;
                 validSince = entry.validSince;
             }
-        }
-    }
-
-    /**
-     * @notice Builds and returns lookahead set parameters for an epoch
-     * @dev This function can be used by the offchain node to create the lookahead to be posted.
-     * @param _epochTimestamp The start timestamp of the epoch for which the lookahead is to be
-     * generated
-     * @param _validatorBLSPubKeys The BLS public keys of the validators who are expected to propose
-     * in the epoch
-     * in the same sequence as they appear in the epoch. So at index n - 1, we have the validator
-     * for slot n in that
-     * epoch.
-     */
-    function buildEntryParamsForEpoch(
-        uint256 _epochTimestamp,
-        bytes[32] calldata _validatorBLSPubKeys
-    )
-        external
-        view
-        validEpochTimestamp(_epochTimestamp)
-        returns (EntryParam[] memory params_)
-    {
-        uint256 count;
-        IPreconfRegistry.Validator memory validator;
-        params_ = new EntryParam[](32);
-        IPreconfRegistry preconfRegister = _preconfRegistry();
-
-        for (uint256 i; i < 32; ++i) {
-            uint256 slotTimestamp = _epochTimestamp + (i * LibEpoch.SECONDS_IN_SLOT);
-
-            // Fetch the validator object from the registry
-            validator = preconfRegister.getValidator(_hashBLSPubKey(_validatorBLSPubKeys[i]));
-
-            // Skip deregistered preconfers
-            if (preconfRegister.getPreconferIndex(validator.preconfer) == 0) {
-                continue;
-            }
-
-            // If the validator is allowed to propose in the epoch, add the associated preconfer to
-            // the lookahead
-            if (
-                validator.preconfer != address(0) && slotTimestamp >= validator.proposingSince
-                    && (validator.proposingUntil == 0 || slotTimestamp < validator.proposingUntil)
-            ) {
-                params_[count++] = EntryParam(validator.preconfer, uint40(slotTimestamp));
-            }
-        }
-
-        // resize the array
-        assembly {
-            mstore(params_, count)
         }
     }
 
