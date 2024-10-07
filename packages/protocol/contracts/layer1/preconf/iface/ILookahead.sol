@@ -36,7 +36,13 @@ interface ILookahead {
 
     function forcePostLookahead(LookaheadParam[] calldata _lookaheadParams) external;
     function postLookahead(LookaheadParam[] calldata _lookaheadParams) external;
-    function isCurrentPreconfer(address _addr) external view returns (bool);
+    function isSenderCurrentPreconfer(
+        uint256 _lookaheadPointer,
+        address _sender
+    )
+        external
+        view
+        returns (bool);
     function getPoster(uint256 _epochTimestamp) external view returns (address);
 
     /// @notice Proves that the lookahead entry is incorrect for a given slot.

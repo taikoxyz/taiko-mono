@@ -47,6 +47,7 @@ contract Lookahead is ILookahead, EssentialContract {
     error NoPreconferAvailable();
     error PosterAlreadySlashedOrLookaheadIsEmpty();
     error PreconferNotRegistered();
+    error SenderIsNotThePreconfer();
 
     modifier onlyFromPreconfer() {
         uint256 preconferIndex = _preconfRegistry().getPreconferIndex(msg.sender);
@@ -87,13 +88,14 @@ contract Lookahead is ILookahead, EssentialContract {
     /// @inheritdoc ILookahead
     function postLookahead(LookaheadParam[] calldata _lookaheadParams)
         external
-        onlyFromNamed(LibNames.B_PRECONF_SERVICE_MANAGER)
+        onlyFromNamed(LibNames.B_PRECONF_TASK_MANAGER)
         nonReentrant
     {
         uint256 epochTimestamp = _toEpochTimestamp(block.timestamp);
         if (_isLookaheadRequired(epochTimestamp)) {
             _postLookahead(epochTimestamp.nextEpoch(), _lookaheadParams);
         } else {
+            // Do not allow non-empty _lookaheadParams that will not be used
             require(_lookaheadParams.length == 0, LookaheadIsNotRequired());
         }
     }
@@ -150,8 +152,17 @@ contract Lookahead is ILookahead, EssentialContract {
     }
 
     /// @inheritdoc ILookahead
-    function isCurrentPreconfer(address addr) external view returns (bool) {
-        //
+    function isSenderCurrentPreconfer(
+        uint256 _lookaheadPointer,
+        address _sender
+    )
+        external
+        view
+        returns (bool)
+    {
+        LookaheadEntry memory entry = _entry(_lookaheadPointer);
+        return _sender == entry.preconfer && entry.validSince != 0
+            && block.timestamp > entry.validSince && block.timestamp <= entry.validUntil;
     }
 
     /// @inheritdoc ILookahead

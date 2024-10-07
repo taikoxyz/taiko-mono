@@ -18,15 +18,18 @@ abstract contract PreconfTaskManager is IPreconfTaskManager, EssentialContract {
 
     /// @notice Modifier to update the lookahead and ensure the caller is the current preconfer
     /// @param _lookaheadParams Encoded parameters to set lookahead
-    modifier postLookaheadCheckCurrentPreconfer(
+    modifier checkCurrentPreconferAndPostLookahead(
+        uint256 _lookaheadPointer,
         ILookahead.LookaheadParam[] calldata _lookaheadParams
     ) {
-        ILookahead lookahead = ILookahead(resolve(LibNames.B_LOOKAHEAD, false));
+        ILookahead lookahead = _lookahead();
+        require(
+            lookahead.isSenderCurrentPreconfer(_lookaheadPointer, msg.sender),
+            SenderNotCurrentPreconfer()
+        );
+
         // Conditionally post a new lookahead to the lookahead contract
         lookahead.postLookahead(_lookaheadParams);
-
-        // TODO: verify current prconfer is check after the look ahead is posted
-        require(lookahead.isCurrentPreconfer(msg.sender), SenderNotCurrentPreconfer());
 
         _;
     }
@@ -38,32 +41,32 @@ abstract contract PreconfTaskManager is IPreconfTaskManager, EssentialContract {
 
     /// @inheritdoc IPreconfTaskManager
     function proposeBlock(
+        uint256 _lookaheadPointer,
         ILookahead.LookaheadParam[] calldata _lookaheadParams,
         bytes calldata _params,
         bytes calldata _txList
     )
         external
-        postLookaheadCheckCurrentPreconfer(_lookaheadParams)
+        checkCurrentPreconferAndPostLookahead(_lookaheadPointer, _lookaheadParams)
         nonReentrant
         returns (TaikoData.BlockMetadataV2 memory)
     {
-        address taiko = resolve(LibNames.B_TAIKO, false);
-        return ITaikoL1(taiko).proposeBlockV2(_params, _txList);
+        return _taiko().proposeBlockV2(_params, _txList);
     }
 
     /// @inheritdoc IPreconfTaskManager
     function proposeBlocks(
+        uint256 _lookaheadPointer,
         ILookahead.LookaheadParam[] calldata _lookaheadParams,
         bytes[] calldata _paramsArr,
         bytes[] calldata _txListArr
     )
         external
-        postLookaheadCheckCurrentPreconfer(_lookaheadParams)
+        checkCurrentPreconferAndPostLookahead(_lookaheadPointer, _lookaheadParams)
         nonReentrant
         returns (TaikoData.BlockMetadataV2[] memory)
     {
-        address taiko = resolve(LibNames.B_TAIKO, false);
-        return ITaikoL1(taiko).proposeBlocksV2(_paramsArr, _txListArr);
+        return _taiko().proposeBlocksV2(_paramsArr, _txListArr);
     }
 
     /// @inheritdoc IPreconfTaskManager
@@ -74,9 +77,23 @@ abstract contract PreconfTaskManager is IPreconfTaskManager, EssentialContract {
         external
         nonReentrant
     {
-        address prover = resolve(LibNames.B_RECEIPT_PROVER, false);
-        address preconfer = IReceiptProver(prover).proveReceiptViolation(_receipt, _proof);
-        address psm = resolve(LibNames.B_PRECONF_SERVICE_MANAGER, false);
-        IPreconfServiceManager(psm).slashOperator(preconfer);
+        address preconfer = _receiptProver().proveReceiptViolation(_receipt, _proof);
+        _preconfServiceManager().slashOperator(preconfer);
+    }
+
+    function _preconfServiceManager() private view returns (IPreconfServiceManager) {
+        return IPreconfServiceManager(resolve(LibNames.B_PRECONF_SERVICE_MANAGER, false));
+    }
+
+    function _receiptProver() private view returns (IReceiptProver) {
+        return IReceiptProver(resolve(LibNames.B_RECEIPT_PROVER, false));
+    }
+
+    function _lookahead() private view returns (ILookahead) {
+        return ILookahead(resolve(LibNames.B_LOOKAHEAD, false));
+    }
+
+    function _taiko() private view returns (ITaikoL1) {
+        return ITaikoL1(resolve(LibNames.B_TAIKO, false));
     }
 }
