@@ -25,6 +25,7 @@ abstract contract PreconfTaskManager is IPreconfTaskManager, EssentialContract {
         // Conditionally post a new lookahead to the lookahead contract
         lookahead.postLookahead(_lookaheadParams);
 
+// TODO: verify current prconfer is check after the look ahead is posted
         require(lookahead.isCurrentPreconfer(msg.sender), SenderNotCurrentPreconfer());
 
         _;
