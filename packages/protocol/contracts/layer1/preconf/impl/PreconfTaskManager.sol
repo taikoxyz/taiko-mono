@@ -18,7 +18,9 @@ abstract contract PreconfTaskManager is IPreconfTaskManager, EssentialContract {
 
     /// @notice Modifier to update the lookahead and ensure the caller is the current preconfer
     /// @param _lookaheadParams Encoded parameters to set lookahead
-    modifier onlyCurrentPreconfer(ILookahead.LookaheadParam[] calldata _lookaheadParams) {
+    modifier postLookaheadCheckCurrentPreconfer(
+        ILookahead.LookaheadParam[] calldata _lookaheadParams
+    ) {
         ILookahead lookahead = ILookahead(resolve(LibNames.B_LOOKAHEAD, false));
         // Conditionally post a new lookahead to the lookahead contract
         lookahead.postLookahead(_lookaheadParams);
@@ -34,13 +36,13 @@ abstract contract PreconfTaskManager is IPreconfTaskManager, EssentialContract {
     }
 
     /// @inheritdoc IPreconfTaskManager
-    function newBlockProposal(
+    function proposeBlock(
         ILookahead.LookaheadParam[] calldata _lookaheadParams,
         bytes calldata _params,
         bytes calldata _txList
     )
         external
-        onlyCurrentPreconfer(_lookaheadParams)
+        postLookaheadCheckCurrentPreconfer(_lookaheadParams)
         nonReentrant
         returns (TaikoData.BlockMetadataV2 memory)
     {
@@ -49,13 +51,13 @@ abstract contract PreconfTaskManager is IPreconfTaskManager, EssentialContract {
     }
 
     /// @inheritdoc IPreconfTaskManager
-    function newBlockProposals(
+    function proposeBlocks(
         ILookahead.LookaheadParam[] calldata _lookaheadParams,
         bytes[] calldata _paramsArr,
         bytes[] calldata _txListArr
     )
         external
-        onlyCurrentPreconfer(_lookaheadParams)
+        postLookaheadCheckCurrentPreconfer(_lookaheadParams)
         nonReentrant
         returns (TaikoData.BlockMetadataV2[] memory)
     {

@@ -13,7 +13,7 @@ interface IPreconfTaskManager {
     /// @param _params Block parameters, an encoded BlockParamsV2 object.
     /// @param _txList txList data if calldata is used for DA.
     /// @return meta_ The metadata of the proposed L2 block.
-    function newBlockProposal(
+    function proposeBlock(
         ILookahead.LookaheadParam[] calldata _lookaheadParams,
         bytes calldata _params,
         bytes calldata _txList
@@ -26,7 +26,7 @@ interface IPreconfTaskManager {
     /// @param _paramsArr A list of encoded BlockParamsV2 objects.
     /// @param _txListArr A list of txList.
     /// @return metaArr_ The metadata objects of the proposed L2 blocks.
-    function newBlockProposals(
+    function proposeBlocks(
         ILookahead.LookaheadParam[] calldata _lookaheadParams,
         bytes[] calldata _paramsArr,
         bytes[] calldata _txListArr
