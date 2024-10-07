@@ -22,6 +22,7 @@ abstract contract ReceiptProver is IReceiptProver, EssentialContract {
     error ChainIdMismatch();
     error ExecutionPreconfNotSupported();
     error InvalidProofKind();
+    error InvalidReceipt();
     error InvalidSignature();
     error TxIncluded();
 
@@ -84,14 +85,20 @@ abstract contract ReceiptProver is IReceiptProver, EssentialContract {
         view
         returns (address preconfer_)
     {
+        require(_receipt.position != 0, InvalidReceipt());
+        // For now only tx-inclusion preconfirmation are supported
+        require(!_receipt.isExecutionPreconf, ExecutionPreconfNotSupported());
+
+        ITaikoL1 taiko = ITaikoL1(resolve(LibNames.B_TAIKO, false));
+
+        // Verify chainId
+        require(taiko.getConfig().chainId == _receipt.chainId, ChainIdMismatch());
+
         (
             TaikoData.BlockMetadataV2 memory meta,
             BlockHeader memory blockHeader,
             bytes32[] memory transactionHashes
         ) = abi.decode(_proof, (TaikoData.BlockMetadataV2, BlockHeader, bytes32[]));
-
-        // For now only tx-inclusion preconfirmation are supported
-        require(!_receipt.isExecutionPreconf, ExecutionPreconfNotSupported());
 
         // This function verifies that the provided list of transaction hashes matches the
         // transactions root in the block header.
@@ -100,11 +107,6 @@ abstract contract ReceiptProver is IReceiptProver, EssentialContract {
         // require(
         //     _blockHeader.transactionsRoot == _transactionHashes.merklize(), TxRootHashMismatch()
         // );
-
-        ITaikoL1 taiko = ITaikoL1(resolve(LibNames.B_TAIKO, false));
-
-        // Verify chainId
-        require(taiko.getConfig().chainId == _receipt.chainId, ChainIdMismatch());
 
         // Get the block data for the given block ID.
         // Note that this function may revert as only a few days of transactions are available in
@@ -123,7 +125,7 @@ abstract contract ReceiptProver is IReceiptProver, EssentialContract {
             taiko.getTransition(meta.id, blk.verifiedTransitionId);
         require(LibBlockHeader.hashBlockHeader(blockHeader) == tran.blockHash, BlockHashMismatch());
 
-        // Verify the transaction is not already included in the block.
+        // Verify the transaction is not included in the block.
         require(
             _receipt.position >= transactionHashes.length
                 || transactionHashes[_receipt.position] != _receipt.txHash,

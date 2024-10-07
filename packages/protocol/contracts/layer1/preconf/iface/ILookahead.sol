@@ -105,6 +105,11 @@ interface ILookahead {
         view
         returns (address[32] memory);
 
+    /// @notice Retrieves the fallback preconfer for a given epoch timestamp.
+    /// @param _epochTimestamp The epoch timestamp to query the fallback preconfer for.
+    /// @return The address of the fallback preconfer for the specified epoch timestamp.
+    function getFallbackPreconfer(uint256 _epochTimestamp) external view returns (address);
+
     /// @notice Retrieves the address of the poster responsible for a given epoch timestamp.
     /// @param _epochTimestamp The epoch timestamp to query the poster for.
     /// @return The address of the poster for the specified epoch timestamp.

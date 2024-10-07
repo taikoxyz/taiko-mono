@@ -51,6 +51,7 @@ contract Lookahead is ILookahead, EssentialContract {
     error SenderIsNotThePreconfer();
 
     modifier validEpochTimestamp(uint256 _epochTimestamp) {
+        require(_epochTimestamp >= beaconGenesisTimestamp, InvalidEpochTimestamp());
         require(_epochTimestamp % LibEpoch.SECONDS_IN_EPOCH == 0, InvalidEpochTimestamp());
         _;
     }
@@ -142,9 +143,9 @@ contract Lookahead is ILookahead, EssentialContract {
         // preconfer.
         address preconferInLookahead;
 
-        // TODO(dantaik):Fiture out the following logic
-        if (_slotTimestamp == entry.validUntil && !entry.isFallback) {
-            // The slot was dedicated to a specific preconfer
+        // checks if a slot is empty (has no dedicated preconfer)
+        bool slotHasPreconfer = _slotTimestamp == entry.validUntil && !entry.isFallback;
+        if (slotHasPreconfer) {
             preconferInLookahead = entry.preconfer;
         }
 
@@ -262,6 +263,16 @@ contract Lookahead is ILookahead, EssentialContract {
     }
 
     /// @inheritdoc ILookahead
+    function getFallbackPreconfer(uint256 _epochTimestamp)
+        external
+        view
+        validEpochTimestamp(_epochTimestamp)
+        returns (address)
+    {
+        return _getFallbackPreconfer(_epochTimestamp);
+    }
+
+    /// @inheritdoc ILookahead
     function getPoster(uint256 _epochTimestamp) public view returns (address) {
         Poster memory poster = _posterFor(_epochTimestamp);
         return poster.epochTimestamp == _epochTimestamp ? poster.addr : address(0);
@@ -317,7 +328,7 @@ contract Lookahead is ILookahead, EssentialContract {
             require(validUntil > previousValidUntil, InvalidAssumption());
 
             Entry storage entry = _entryAt(++i);
-            entry.preconfer = _getFallbackPreconfer();
+            entry.preconfer = _getFallbackPreconfer(_epochTimestamp);
             entry.validSince = previousValidUntil;
             entry.validUntil = uint40(validUntil);
             entry.isFallback = true;
@@ -386,7 +397,7 @@ contract Lookahead is ILookahead, EssentialContract {
             entry = _entryAt(--i);
         }
 
-        entry.preconfer = _getFallbackPreconfer();
+        entry.preconfer = _getFallbackPreconfer(_epochTimestamp);
         entry.validSince = uint40(_epochTimestamp - LibEpoch.SECONDS_IN_SLOT);
         entry.validUntil = uint40(lastSlotTimestampInCurrentEpoch);
         entry.isFallback = true;
@@ -413,13 +424,16 @@ contract Lookahead is ILookahead, EssentialContract {
         }
     }
 
-    function _getFallbackPreconfer() private view returns (address) {
+    function _getFallbackPreconfer(uint256 _epochTimestamp) private view returns (address) {
         IPreconfRegistry preconfRegistry = _preconfRegistry();
         uint256 nextPreconfIndex = preconfRegistry.getNextPreconferIndex();
         require(nextPreconfIndex > 1, NoPreconferAvailable());
 
+        // Use a random number that is constant for a given epoch
+        uint256 random = uint256(getBeaconBlockRoot(_epochTimestamp.prevEpoch()));
+
         unchecked {
-            uint256 preconferIndex = (block.prevrandao % (nextPreconfIndex - 1)) + 1;
+            uint256 preconferIndex = (random % (nextPreconfIndex - 1)) + 1;
             return preconfRegistry.getPreconferAtIndex(preconferIndex);
         }
     }
