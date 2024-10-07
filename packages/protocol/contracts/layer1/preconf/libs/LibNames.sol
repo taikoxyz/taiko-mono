@@ -8,5 +8,6 @@ library LibNames {
     bytes32 internal constant B_PRECONF_TASK_MANAGER = bytes32("preconf_task_manager");
     bytes32 internal constant B_PRECONF_SERVICE_MANAGER = bytes32("preconf_service_manager");
     bytes32 internal constant B_PRECONF_REGISTRY = bytes32("preconf_registry");
+    bytes32 internal constant B_RECEIPT_PROVER = bytes32("receipt_prover");
     bytes32 internal constant B_TAIKO = bytes32("taiko");
 }
