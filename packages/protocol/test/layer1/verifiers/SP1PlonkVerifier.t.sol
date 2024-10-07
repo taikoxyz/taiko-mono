@@ -97,4 +97,64 @@ contract SP1PlonkVerifierTest is TaikoL1TestBase {
             graffiti: 0x8008500000000000000000000000000000000000000000000000000000000000
         });
     }
+
+    // Test `verifyBatchProof()` happy path
+    function test_sp1_Plonk_verifyBatchProof() public {
+        vm.startPrank(Emma);
+
+        // proof generation elf vk digest which is not a bn254 hash
+        // but a sha256 hash from the same Sp1Verifykey.
+        sp1.setProgramTrusted(
+            bytes32(0x25a022bd2d3ceba748620b63401e94bb156f195a0dc2cf445c2bdfc20358d393), true
+        );
+        // proof aggregation elf
+        sp1.setProgramTrusted(
+            bytes32(0x000b55d1eea2d844974b3449118e4221bdf44534897d530dd9ae54201a36ad97), true
+        );
+
+        vm.startPrank(address(L1));
+
+        // Context
+        IVerifier.ContextV2[] memory ctxs = new IVerifier.ContextV2[](2);
+        ctxs[0] = IVerifier.ContextV2({
+            metaHash: 0x207b2833fb6d804612da24d8785b870a19c7a3f25fa4aaeb9799cd442d65b031,
+            blobHash: 0x01354e8725e60ad91b32ec4ab19158572a0a5b06b2d4d83f6269c9a7d068f49b,
+            prover: 0x70997970C51812dc3A010C7d01b50e0d17dc79C8,
+            msgSender: 0x70997970C51812dc3A010C7d01b50e0d17dc79C8,
+            blockId: 393_333,
+            isContesting: false,
+            blobUsed: true,
+            tran: TaikoData.Transition({
+                parentHash: 0xce519622a374dc014c005d7857de26d952751a9067d3e23ffe14da247aa8a399,
+                blockHash: 0x941d557653da2214cbf3d30af8d9cadbc7b5f77b6c3e48bca548eba04eb9cd79,
+                stateRoot: 0x4203a2fd98d268d272acb24d91e25055a779b443ff3e732f2cee7abcf639b5e9,
+                graffiti: 0x8008500000000000000000000000000000000000000000000000000000000000
+            })
+        });
+        ctxs[1] = IVerifier.ContextV2({
+            metaHash: 0x946ba1a9c02fc2f01da49e31cb5be83c118193d0389987c6be616ce76426b44d,
+            blobHash: 0x01abac8c1fb54f87ff7b0cbf14259b9d5ee7a8de458c587dd6eda43ef8354b4f,
+            prover: 0x70997970C51812dc3A010C7d01b50e0d17dc79C8,
+            msgSender: 0x70997970C51812dc3A010C7d01b50e0d17dc79C8,
+            blockId: 393_334,
+            isContesting: false,
+            blobUsed: true,
+            tran: TaikoData.Transition({
+                parentHash: 0x941d557653da2214cbf3d30af8d9cadbc7b5f77b6c3e48bca548eba04eb9cd79,
+                blockHash: 0xc0dad38646ab264be30995b7b7fd02db65e7115126fb52bfad94c0fc9572287c,
+                stateRoot: 0x222061caab95b6bd0f8dd398088030979efbe56e282cd566f7abd77838558eb9,
+                graffiti: 0x8008500000000000000000000000000000000000000000000000000000000000
+            })
+        });
+
+        // TierProof
+        bytes memory data =
+            hex"000b55d1eea2d844974b3449118e4221bdf44534897d530dd9ae54201a36ad9725a022bd2d3ceba748620b63401e94bb156f195a0dc2cf445c2bdfc20358d3934aca240a294f40587144c884ce9b2326d1b8e002218abeb9535dbfb27fde012f1eba3fba17ee609acf6acf73790d3063da18707342809998f3d8db3fcd5d094b29bb48d22ff04e45f4de3c6026cd67256e45ca562e786db8b36d51c1c5f2f862c993e38f0851ef22ac10ea44ae5b62899650d8a8bc76a983caef459e88c514e1cbd34aea1b6f71f91410d6365b9e635cb4c56b1f6b98eb883d7815273d49fff1c5a4addb0cca4a2f394210ff2d7fc1c33059201a663c9f38f01ef198ef345d4d3d3810b70c99d241029c4a099d3f5ab3b6f5602e04344cc55c821f97fcc163dd472b252119f2940b56f0eee79a0fd5062b20c3445c79d70c773d69abaeced5b68c25f5ae1c385a7f9e8d4c2bc24f9627fa814d8269f2cf73f704b3c46ea8dd0219d41db81e1dc0ac4f62d8d6b8715c5b1637d160c67cde18ee3c66c860830297cc875656120418336954c73523765728f31a0a0bdbf630ad9d937ddf9a1f8dbf88ca281a280e466fe7f8fe8c000826c01930b0d6af20210003b5eac307cd107dff2239340b36e4cbe03ffa0e3bf434aea3252b9b05504321916ac8110f83de55bc9635c62cb569714ad44343866aa1e60e3dd93c4789c0ae94207861bf09838f83cb32a9033d94d3a4d674fcc435cd1b86afd5260c0f6d1501737120d070b950aff9ce5e2821b54d7df5bc8fb28e4f4312f217e9bca61bde4b57cda1075f7bbaedbc259b0f6c6e92661ad9404e0bcb3f15b9839f09fa87d278c2f0f9d99e7eea9ff1f7f023b455edeac48de876a7943796ffba85f3bf1c662081e7e563255f4c268e8711123094ccd2d38b1d3f1ce2c485529b26ab6372fbc3638ffec3aeff657f21a8cf13152c305d2fb084234246dbad615832e98b8c63e8fe582a6fad6efb41642c0018100a1b2f3e2479cb09eaf1d86e530ad63d1d117430a87dcae5182540ad05fd1a17cd482143e3d18c0c82554c71b16c1a62cbad06037c0c61b9894717e681b12e42a110b132225dd8af852412f687ec229710fe17db56c28aad002d5d1313762864a7e8d79b65b9f59f3adcba9c82b891721f7c488d482d5b715f059e3d299602ea0e25424ef254362ac70781e66d35349755e76683c045f4824a6c3b38a9481ace0378d91f74a89cf1138c78f676a1a72931469f8016d9fe1246ae2ccf83422cfeb943fee210a39abcd0551f545f6929fce1722585de936142b2fe1736ccec";
+        TaikoData.TierProof memory proof = TaikoData.TierProof({ tier: 0, data: data });
+
+        // `verifyProof()`
+        sp1.verifyBatchProof(ctxs, proof);
+
+        vm.stopPrank();
+    }
 }
