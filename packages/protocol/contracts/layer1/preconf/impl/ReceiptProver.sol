@@ -23,7 +23,14 @@ abstract contract ReceiptProver is IReceiptProver, EssentialContract {
     error BlockNotVerified();
     error InvalidSignature();
     error TxIncluded();
+    error InvalidProofKind();
 
+    /// @notice Initializes the contract.
+    function init(address _owner, address _rollupAddressManager) external initializer {
+        __Essential_init(_owner, _rollupAddressManager);
+    }
+
+    /// @inheritdoc IReceiptProver
     function proveReceiptViolation(
         Receipt calldata _receipt,
         bytes calldata _proof
@@ -33,8 +40,14 @@ abstract contract ReceiptProver is IReceiptProver, EssentialContract {
         nonReentrant
         returns (address preconfer_)
     {
-        preconfer_ = _verifyOnChainNatively(_receipt, _proof);
-        // preconfer_ = _verifyOnChainWithSGX(_receipt, _proof);
+        uint8 proofType = uint8(_proof[0]);
+        if (proofType == 0) {
+            preconfer_ = _verifyOnChainNatively(_receipt, _proof[1:]);
+        } else if (proofType == 1) {
+            preconfer_ = _verifyOnChainWithSGX(_receipt, _proof[1:]);
+        } else {
+            revert InvalidProofKind();
+        }
 
         emit ReceiptViolationProved(preconfer_, _receipt);
     }
@@ -71,7 +84,7 @@ abstract contract ReceiptProver is IReceiptProver, EssentialContract {
         view
         returns (address preconfer_)
     {
-         (
+        (
             TaikoData.BlockMetadataV2 memory meta,
             BlockHeader memory blockHeader,
             bytes32[] memory transactionHashes
@@ -120,15 +133,13 @@ abstract contract ReceiptProver is IReceiptProver, EssentialContract {
         return meta.proposer;
     }
 
-
-        function _verifyOnChainWithSGX(
+    function _verifyOnChainWithSGX(
         Receipt calldata _receipt,
         bytes calldata _proof
     )
         private
         view
+        notImplemented
         returns (address preconfer_)
-    {
-        // TODO: Implement this function
-    }
+    { }
 }

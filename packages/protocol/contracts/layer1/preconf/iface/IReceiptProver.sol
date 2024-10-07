@@ -13,13 +13,7 @@ interface IReceiptProver {
         bytes signature;
     }
 
-
-    event ReceiptViolationProved(
-        address indexed preconfer, 
-        Receipt receipt
-    );
-
-
+    event ReceiptViolationProved(address indexed preconfer, Receipt receipt);
 
     function proveReceiptViolation(
         Receipt calldata _receipt,

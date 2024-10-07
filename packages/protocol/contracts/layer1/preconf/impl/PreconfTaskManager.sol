@@ -33,11 +33,7 @@ abstract contract PreconfTaskManager is IPreconfTaskManager, EssentialContract {
         __Essential_init(_owner, _rollupAddressManager);
     }
 
-    /// @notice Proposes a Taiko L2 block (version 2)
-    /// @param _lookaheadParams parameters to set lookahead
-    /// @param _params Block parameters, an encoded BlockParamsV2 object.
-    /// @param _txList txList data if calldata is used for DA.
-    /// @return meta_ The metadata of the proposed L2 block.
+    /// @inheritdoc IPreconfTaskManager
     function newBlockProposal(
         ILookahead.LookaheadParam[] calldata _lookaheadParams,
         bytes calldata _params,
@@ -52,11 +48,7 @@ abstract contract PreconfTaskManager is IPreconfTaskManager, EssentialContract {
         return taiko.proposeBlockV2(_params, _txList);
     }
 
-    /// @notice Proposes multiple Taiko L2 blocks (version 2)
-    /// @param _lookaheadParams parameters to set lookahead
-    /// @param _paramsArr A list of encoded BlockParamsV2 objects.
-    /// @param _txListArr A list of txList.
-    /// @return metaArr_ The metadata objects of the proposed L2 blocks.
+    /// @inheritdoc IPreconfTaskManager
     function newBlockProposals(
         ILookahead.LookaheadParam[] calldata _lookaheadParams,
         bytes[] calldata _paramsArr,
@@ -71,6 +63,7 @@ abstract contract PreconfTaskManager is IPreconfTaskManager, EssentialContract {
         return taiko.proposeBlocksV2(_paramsArr, _txListArr);
     }
 
+    /// @inheritdoc IPreconfTaskManager
     function proveReceiptViolation(
         IReceiptProver.Receipt calldata _receipt,
         bytes calldata _proof

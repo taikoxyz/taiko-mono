@@ -7,8 +7,7 @@ import "../../based/TaikoData.sol";
 
 /// @title IPreconfTaskManager
 /// @custom:security-contact security@taiko.xyz
-interface IPreconfTaskManager { 
-
+interface IPreconfTaskManager {
     /// @notice Proposes a Taiko L2 block (version 2)
     /// @param _lookaheadParams parameters to set lookahead
     /// @param _params Block parameters, an encoded BlockParamsV2 object.
@@ -21,7 +20,6 @@ interface IPreconfTaskManager {
     )
         external
         returns (TaikoData.BlockMetadataV2 memory);
-
 
     /// @notice Proposes multiple Taiko L2 blocks (version 2)
     /// @param _lookaheadParams parameters to set lookahead
@@ -36,14 +34,12 @@ interface IPreconfTaskManager {
         external
         returns (TaikoData.BlockMetadataV2[] memory);
 
-       
-       /// @notice Proves a receipt violation
-       /// @param _receipt The receipt to be proved
-       /// @param _proof The proof data for the receipt
-       function proveReceiptViolation(
+    /// @notice Proves a receipt violation
+    /// @param _receipt The receipt to be proved
+    /// @param _proof The proof data for the receipt
+    function proveReceiptViolation(
         IReceiptProver.Receipt calldata _receipt,
         bytes calldata _proof
     )
         external;
-
 }
