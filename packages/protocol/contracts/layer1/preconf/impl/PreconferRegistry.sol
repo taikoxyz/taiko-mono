@@ -27,13 +27,13 @@ abstract contract PreconferRegistry is IPreconfRegistry, EssentialContract {
         IPreconfRegistry.Validator memory validator = getValidator(_pubKeyHash);
 
         // The validator is not proposing yet
-        if (_slotTimestamp < validator.proposingSince) return address(0);
+        if (_slotTimestamp < validator.startSlot) return address(0);
 
         // The validator is proposing indefinitely
-        if (validator.proposingUntil == 0) return validator.preconfer;
+        if (validator.endSlot == 0) return validator.preconfer;
 
         // The validator is proposing within the current slot
-        if (_slotTimestamp < validator.proposingUntil) {
+        if (_slotTimestamp < validator.endSlot) {
             return validator.preconfer;
         }
 

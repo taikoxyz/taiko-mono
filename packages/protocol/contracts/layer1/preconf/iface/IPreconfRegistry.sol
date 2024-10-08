@@ -10,10 +10,10 @@ interface IPreconfRegistry {
         address preconfer;
         // Timestamp at which the preconfer may start proposing for the preconfer
         // 2 epochs from validator addition timestamp
-        uint40 proposingSince;
+        uint40 startSlot;
         // Timestamp at which the preconfer must stop proposing for the preconfer
         // 2 epochs from validator removal timestamp
-        uint40 proposingUntil;
+        uint40 endSlot;
     }
     // ^ Note: 40 bits are enough for UNIX timestamp. This way we also compress the data to a single
     // slot.
