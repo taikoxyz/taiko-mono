@@ -335,6 +335,7 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 		"Batch submit block proof",
 		"batchProofs", batchProof.Proofs,
 		"proof", common.Bytes2Hex(batchProof.BatchProof),
+		"blockIds", batchProof.BlockIDs,
 		"tier", batchProof.Tier,
 	)
 	var (

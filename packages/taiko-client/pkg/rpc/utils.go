@@ -265,7 +265,7 @@ func BatchGetBlockProofStatus(
 	}
 	for i, transition := range transitions {
 		// no proof on chain
-		if transition.StateRoot == (common.Hash{}) {
+		if transition.BlockHash == (common.Hash{}) {
 			result[i] = &BlockProofStatus{IsSubmitted: false, ParentHeader: parents[i]}
 			continue
 		}
