@@ -247,14 +247,14 @@ func (s *Syncer) onBlockProposed(
 
 	// Decode transactions list.
 	var txListFetcher txlistFetcher.TxListFetcher
-	if meta.GetBlobUsed() {
+	if meta.GetBlobUsed() || meta.GetBlobTxListLength() > 0 {
 		txListFetcher = txlistFetcher.NewBlobTxListFetcher(s.rpc.L1Beacon, s.blobDatasource)
 	} else {
 		txListFetcher = txlistFetcher.NewCalldataFetch(s.rpc)
 	}
 	txListBytes, err := txListFetcher.Fetch(ctx, tx, meta)
 	if err != nil {
-		return fmt.Errorf("failed to fetch tx list: %w", err)
+		return fmt.Errorf("failed to fetch tx list: err: %w", err)
 	}
 
 	var decompressedTxListBytes []byte
@@ -267,6 +267,8 @@ func (s *Syncer) onBlockProposed(
 	} else {
 		decompressedTxListBytes = s.txListDecompressor.TryDecompress(meta.GetBlockID(), txListBytes, meta.GetBlobUsed())
 	}
+
+	panic("ahhh")
 
 	// Decompress the transactions list and try to insert a new head block to L2 EE.
 	payloadData, err := s.insertNewHead(

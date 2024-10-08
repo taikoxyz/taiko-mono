@@ -32,9 +32,11 @@ func (d *BlobFetcher) Fetch(
 	_ *types.Transaction,
 	meta metadata.TaikoBlockMetaData,
 ) ([]byte, error) {
-	if !meta.GetBlobUsed() {
-		return nil, pkg.ErrBlobUsed
-	}
+	// temp comment out because of some bad blocks I proposed, comment back in after they sync
+	// lol.
+	// if !meta.GetBlobUsed() {
+	// 	return nil, pkg.ErrBlobUsed
+	// }
 
 	// Fetch the L1 block sidecars.
 	sidecars, err := d.dataSource.GetBlobs(ctx, meta.GetProposedAt(), meta.GetBlobHash())
@@ -46,15 +48,16 @@ func (d *BlobFetcher) Fetch(
 
 	// Compare the blob hash with the sidecar's kzg commitment.
 	for i, sidecar := range sidecars {
+		commitment := kzg4844.Commitment(common.FromHex(sidecar.KzgCommitment))
+		blobHash := kzg4844.CalcBlobHashV1(sha256.New(), &commitment)
 		log.Info(
 			"Block sidecar",
 			"index", i,
 			"KzgCommitment", sidecar.KzgCommitment,
-			"blobHash", meta.GetBlobHash(),
+			"wantBlobHash", meta.GetBlobHash().Hex(),
+			"sidecarBlobHash", common.BytesToHash(blobHash[:]).Hex(),
 		)
-
-		commitment := kzg4844.Commitment(common.FromHex(sidecar.KzgCommitment))
-		if kzg4844.CalcBlobHashV1(sha256.New(), &commitment) == meta.GetBlobHash() {
+		if blobHash == meta.GetBlobHash() {
 			blob := eth.Blob(common.FromHex(sidecar.Blob))
 			bytes, err := blob.ToData()
 			if err != nil {
