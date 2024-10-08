@@ -6,8 +6,6 @@ pragma solidity ^0.8.24;
 library LibEpoch {
     uint256 internal constant SLOTS_IN_EPOCH = 32;
     uint256 internal constant SECONDS_IN_SLOT = 12;
-    uint256 internal constant SECONDS_IN_EPOCH = SECONDS_IN_SLOT * SLOTS_IN_EPOCH;
-    uint256 internal constant TWO_EPOCHS = 2 * SECONDS_IN_EPOCH;
 
     /// @dev Calculates the current and next epoch timestamps based on the given timestamp and the
     /// beacon genesis timestamp.
@@ -17,11 +15,20 @@ library LibEpoch {
         return (_slot / SLOTS_IN_EPOCH) * SLOTS_IN_EPOCH;
     }
 
-    /// @dev Convert the slot id to its block timestamp on Ethereum.
-    /// @param _slot The slot number to convert.
-    /// @return The timestamp corresponding to the start of the given slot.
-    function slotToTimestamp(uint256 _slot) internal pure returns (uint256) {
-        // TODO(daniel): fix this.
-        return _slot * SECONDS_IN_SLOT;
+    /// @dev Converts the slot number to its corresponding block timestamp.
+    /// @param _slot The slot number to be converted.
+    /// @param _beaconGenesisTimestamp The genesis timestamp of the beacon.
+    /// @param _beaconGenesisSlot The slot number at the genesis of the beacon.
+    /// @return The timestamp corresponding to the start of the specified slot.
+    function slotToTimestamp(
+        uint256 _slot,
+        uint256 _beaconGenesisTimestamp,
+        uint256 _beaconGenesisSlot
+    )
+        internal
+        pure
+        returns (uint256)
+    {
+        return (_slot - _beaconGenesisSlot) * SECONDS_IN_SLOT + _beaconGenesisTimestamp;
     }
 }

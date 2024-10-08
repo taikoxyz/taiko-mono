@@ -15,6 +15,7 @@ contract Lookahead is ILookahead, EssentialContract {
 
     address public immutable beaconBlockRootContract;
     uint256 public immutable beaconGenesisSlot;
+    uint256 public immutable beaconGenesisTimestamp;
     uint256 public immutable disputePeriod;
     uint256 public immutable posterBufferSize;
     uint256 public immutable lookaheadBufferSize;
@@ -64,6 +65,7 @@ contract Lookahead is ILookahead, EssentialContract {
     constructor(
         address _beaconBlockRootContract,
         uint256 _beaconGenesisSlot,
+        uint256 _beaconGenesisTimestamp,
         uint256 _disputePeriod,
         uint256 _posterBufferSize,
         uint256 _lookaheadBufferSize
@@ -77,6 +79,7 @@ contract Lookahead is ILookahead, EssentialContract {
 
         beaconBlockRootContract = _beaconBlockRootContract;
         beaconGenesisSlot = _beaconGenesisSlot;
+        beaconGenesisTimestamp = _beaconGenesisTimestamp;
         disputePeriod = _disputePeriod;
         posterBufferSize = _posterBufferSize;
         lookaheadBufferSize = _lookaheadBufferSize;
@@ -282,7 +285,8 @@ contract Lookahead is ILookahead, EssentialContract {
         // At block N, we get the beacon block root for block N - 1. So, to get the block root of
         // the Nth block, we query the root at block N + 1. If N + 1 is a missed slot, we keep
         // querying until we find a block N + x that has the block root for Nth block.
-        uint256 targetTimestamp = _slot.slotToTimestamp() + LibEpoch.SECONDS_IN_SLOT;
+        uint256 targetTimestamp =
+            (_slot + 1).slotToTimestamp(beaconGenesisTimestamp, beaconGenesisSlot);
         while (true) {
             (bool success, bytes memory result) =
                 beaconBlockRootContract.staticcall(abi.encode(targetTimestamp));
