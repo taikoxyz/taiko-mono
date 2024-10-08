@@ -418,7 +418,7 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 	// Build the TaikoL1.proveBlocks transaction and send it to the L1 node.
 	if err := s.sender.SendBatchProof(
 		ctx,
-		s.txBuilder.BuildProveBlocks(batchProof),
+		s.txBuilder.BuildProveBlocks(batchProof, s.graffiti),
 		batchProof,
 	); err != nil {
 		if err.Error() == transaction.ErrUnretryableSubmission.Error() {

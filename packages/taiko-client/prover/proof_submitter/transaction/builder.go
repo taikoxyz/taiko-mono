@@ -158,6 +158,7 @@ func (a *ProveBlockTxBuilder) Build(
 // BuildProveBlocks creates a new TaikoL1.ProveBlocks transaction with the given nonce.
 func (a *ProveBlockTxBuilder) BuildProveBlocks(
 	batchProof *proofProducer.BatchProofs,
+	graffiti [32]byte,
 ) TxBuilder {
 	return func(txOpts *bind.TransactOpts) (*txmgr.TxCandidate, error) {
 		var (
@@ -174,7 +175,7 @@ func (a *ProveBlockTxBuilder) BuildProveBlocks(
 				ParentHash: proof.Header.ParentHash,
 				BlockHash:  proof.Opts.BlockHash,
 				StateRoot:  proof.Opts.StateRoot,
-				Graffiti:   rpc.StringToBytes32(proof.Opts.Graffiti),
+				Graffiti:   graffiti,
 			}
 			blockIDs[i] = proof.BlockID.Uint64()
 		}

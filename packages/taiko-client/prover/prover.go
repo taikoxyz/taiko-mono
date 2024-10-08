@@ -419,11 +419,12 @@ func (p *Prover) aggregateOp() error {
 		go func(s proofSubmitter.Submitter) {
 			defer wg.Done()
 			if s.BufferSize() > 1 {
-				err := s.AggregateProofs(p.ctx)
-				log.Error("Failed to aggregate proofs",
-					"error", err,
-					"tier", s.Tier(),
-				)
+				if err := s.AggregateProofs(p.ctx); err != nil {
+					log.Error("Failed to aggregate proofs",
+						"error", err,
+						"tier", s.Tier(),
+					)
+				}
 			} else {
 				log.Debug("Skip this aggregateOp since low buffer size",
 					"tier", s.Tier(),
