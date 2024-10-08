@@ -93,7 +93,7 @@ func (b *BlobTransactionBuilder) BuildBlockUnsigned(
 	data, err := encoding.PreconfTaskManagerABI.Pack(
 		"newBlockProposal",
 		[][]byte{encodedParams},
-		[][]byte{{0xff}},
+		[][]byte{{}},
 		new(big.Int).SetUint64(lookaheadPointer),
 		lookaheadSetParams,
 	)
@@ -248,7 +248,7 @@ func (b *BlobTransactionBuilder) BuildBlocksUnsigned(
 	emptyTxLists := make([][]byte, len(encodedParams))
 
 	for i := range encodedParams {
-		emptyTxLists[i] = []byte{0xff}
+		emptyTxLists[i] = []byte{}
 	}
 
 	lookaheadPointer, err := b.getLookaheadBuffer(common.HexToAddress(opts.PreconferAddress))
