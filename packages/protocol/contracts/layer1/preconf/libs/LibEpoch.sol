@@ -18,17 +18,15 @@ library LibEpoch {
     /// @dev Converts the slot number to its corresponding block timestamp.
     /// @param _slot The slot number to be converted.
     /// @param _beaconGenesisTimestamp The genesis timestamp of the beacon.
-    /// @param _beaconGenesisSlot The slot number at the genesis of the beacon.
     /// @return The timestamp corresponding to the start of the specified slot.
     function slotToTimestamp(
         uint256 _slot,
-        uint256 _beaconGenesisTimestamp,
-        uint256 _beaconGenesisSlot
+        uint256 _beaconGenesisTimestamp
     )
         internal
         pure
         returns (uint256)
     {
-        return (_slot - _beaconGenesisSlot) * SECONDS_IN_SLOT + _beaconGenesisTimestamp;
+        return _slot * SECONDS_IN_SLOT + _beaconGenesisTimestamp;
     }
 }

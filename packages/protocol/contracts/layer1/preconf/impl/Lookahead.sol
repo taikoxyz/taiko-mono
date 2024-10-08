@@ -13,10 +13,12 @@ import "../libs/LibEpoch.sol";
 contract Lookahead is ILookahead, EssentialContract {
     using LibEpoch for uint256;
 
+    // On ethereum, the  EL block that corresponds to the first slot is 15537394.
+
     address public immutable beaconBlockRootContract;
-    uint256 public immutable beaconGenesisSlot;
     uint256 public immutable beaconGenesisTimestamp;
-    uint256 public immutable disputePeriod;
+    uint256 public immutable blockIdForBeaconGenesis;
+    uint256 public immutable disputePeriod; // as number of slots
     uint256 public immutable posterBufferSize;
     uint256 public immutable lookaheadBufferSize;
 
@@ -64,8 +66,8 @@ contract Lookahead is ILookahead, EssentialContract {
 
     constructor(
         address _beaconBlockRootContract,
-        uint256 _beaconGenesisSlot,
         uint256 _beaconGenesisTimestamp,
+        uint256 _blockIdForBeaconGenesis,
         uint256 _disputePeriod,
         uint256 _posterBufferSize,
         uint256 _lookaheadBufferSize
@@ -78,8 +80,8 @@ contract Lookahead is ILookahead, EssentialContract {
         require(_lookaheadBufferSize % LibEpoch.SLOTS_IN_EPOCH == 0, InvalidParam());
 
         beaconBlockRootContract = _beaconBlockRootContract;
-        beaconGenesisSlot = _beaconGenesisSlot;
         beaconGenesisTimestamp = _beaconGenesisTimestamp;
+        blockIdForBeaconGenesis = _blockIdForBeaconGenesis;
         disputePeriod = _disputePeriod;
         posterBufferSize = _posterBufferSize;
         lookaheadBufferSize = _lookaheadBufferSize;
@@ -96,7 +98,7 @@ contract Lookahead is ILookahead, EssentialContract {
         onlyPreconfer
         nonReentrant
     {
-        uint256 epochFirstSlot = block.number.toEpochFirstSlot();
+        uint256 epochFirstSlot = _currentSlot().toEpochFirstSlot();
         require(_isLookaheadRequired(epochFirstSlot), LookaheadIsNotRequired());
 
         _postLookahead(epochFirstSlot + LibEpoch.SLOTS_IN_EPOCH, _lookaheadParams);
@@ -108,7 +110,7 @@ contract Lookahead is ILookahead, EssentialContract {
         onlyFromNamed(LibNames.B_PRECONF_TASK_MANAGER)
         nonReentrant
     {
-        uint256 epochFirstSlot = block.number.toEpochFirstSlot();
+        uint256 epochFirstSlot = _currentSlot().toEpochFirstSlot();
         if (_isLookaheadRequired(epochFirstSlot)) {
             _postLookahead(epochFirstSlot + LibEpoch.SLOTS_IN_EPOCH, _lookaheadParams);
         } else {
@@ -127,7 +129,7 @@ contract Lookahead is ILookahead, EssentialContract {
         external
         nonReentrant
     {
-        require(block.number < _slot + disputePeriod, MissedDisputeWindow());
+        require(_currentSlot() < _slot + disputePeriod, MissedDisputeWindow());
 
         uint256 epochFirstSlot = _slot.toEpochFirstSlot();
         address poster = getPoster(epochFirstSlot);
@@ -218,7 +220,7 @@ contract Lookahead is ILookahead, EssentialContract {
         returns (bool)
     {
         Entry memory entry = _entryAt(_entryPointer);
-        return _address == entry.preconfer && block.number > entry.startSlot
+        return _address == entry.preconfer && _currentSlot() > entry.startSlot
             && block.timestamp <= entry.endSlot;
     }
 
@@ -285,8 +287,7 @@ contract Lookahead is ILookahead, EssentialContract {
         // At block N, we get the beacon block root for block N - 1. So, to get the block root of
         // the Nth block, we query the root at block N + 1. If N + 1 is a missed slot, we keep
         // querying until we find a block N + x that has the block root for Nth block.
-        uint256 targetTimestamp =
-            (_slot + 1).slotToTimestamp(beaconGenesisTimestamp, beaconGenesisSlot);
+        uint256 targetTimestamp = (_slot + 1).slotToTimestamp(beaconGenesisTimestamp);
         while (true) {
             (bool success, bytes memory result) =
                 beaconBlockRootContract.staticcall(abi.encode(targetTimestamp));
@@ -368,7 +369,7 @@ contract Lookahead is ILookahead, EssentialContract {
             poster.addr = msg.sender;
             poster.slot = uint40(_epochFirstSlot);
 
-            _preconfServiceManager().lockStakeUntil(msg.sender, block.number + disputePeriod);
+            _preconfServiceManager().lockStakeUntil(msg.sender, _currentSlot() + disputePeriod);
         }
     }
 
@@ -377,7 +378,7 @@ contract Lookahead is ILookahead, EssentialContract {
         // If it is the current epoch's lookahead being proved incorrect then insert a fallback
         // preconfer for the next epoch.
         uint256 nextEpochFirstSlot = _epochFirstSlot + LibEpoch.SLOTS_IN_EPOCH;
-        if (block.number < nextEpochFirstSlot) return;
+        if (_currentSlot() < nextEpochFirstSlot) return;
 
         uint256 epochLastSlot = nextEpochFirstSlot - 1;
         uint256 i = lookaheadTail;
@@ -421,7 +422,7 @@ contract Lookahead is ILookahead, EssentialContract {
         // If it's the first slot of current epoch, we don't need the lookahead since the offchain
         // node may not have access to it yet.
         unchecked {
-            return block.number != _epochFirstSlot
+            return _currentSlot() != _epochFirstSlot
                 && _posterFor(_epochFirstSlot + LibEpoch.SLOTS_IN_EPOCH).addr == address(0);
         }
     }
@@ -446,6 +447,10 @@ contract Lookahead is ILookahead, EssentialContract {
 
     function _posterFor(uint256 _epochFirstSlot) private view returns (Poster storage) {
         return posters[_epochFirstSlot % posterBufferSize];
+    }
+
+    function _currentSlot() private view returns (uint256) {
+        return block.number - blockIdForBeaconGenesis;
     }
 
     function _preconfRegistry() private view returns (IPreconfRegistry) {
