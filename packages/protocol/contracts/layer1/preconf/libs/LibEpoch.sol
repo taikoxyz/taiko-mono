@@ -17,21 +17,11 @@ library LibEpoch {
         return (_slot / SLOTS_IN_EPOCH) * SLOTS_IN_EPOCH;
     }
 
-    /// @dev Calculates the timestamp for the next epoch based on the given epoch timestamp.
-    /// @param _epochFirstSlot The timestamp of the current epoch.
-    /// @return The timestamp of the next epoch.
-    function nextEpoch(uint256 _epochFirstSlot) internal pure returns (uint256) {
-        unchecked {
-            return _epochFirstSlot + SLOTS_IN_EPOCH;
-        }
+    /// @dev Convert the slot id to its block timestamp on Ethereum.
+    /// @param _slot The slot number to convert.
+    /// @return The timestamp corresponding to the start of the given slot.
+    function slotToTimestamp(uint256 _slot) internal pure returns (uint256) {
+        // TODO(daniel): fix this.
+        return _slot * SECONDS_IN_SLOT;
     }
-
-    /// @dev Calculates the timestamp for the previous epoch based on the given epoch timestamp.
-    /// @param _epochFirstSlot The timestamp of the current epoch.
-    /// @return The timestamp of the previous epoch.
-    function prevEpoch(uint256 _epochFirstSlot) internal pure returns (uint256) {
-        return _epochFirstSlot - SLOTS_IN_EPOCH;
-    }
-
-    function slotToTimestamp(uint256 _slot) internal pure returns (uint256) { }
 }

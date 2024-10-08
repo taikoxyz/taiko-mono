@@ -96,7 +96,7 @@ contract Lookahead is ILookahead, EssentialContract {
         uint256 epochFirstSlot = block.number.toEpochFirstSlot();
         require(_isLookaheadRequired(epochFirstSlot), LookaheadIsNotRequired());
 
-        _postLookahead(epochFirstSlot.nextEpoch(), _lookaheadParams);
+        _postLookahead(epochFirstSlot + LibEpoch.SLOTS_IN_EPOCH, _lookaheadParams);
     }
 
     /// @inheritdoc ILookahead
@@ -107,7 +107,7 @@ contract Lookahead is ILookahead, EssentialContract {
     {
         uint256 epochFirstSlot = block.number.toEpochFirstSlot();
         if (_isLookaheadRequired(epochFirstSlot)) {
-            _postLookahead(epochFirstSlot.nextEpoch(), _lookaheadParams);
+            _postLookahead(epochFirstSlot + LibEpoch.SLOTS_IN_EPOCH, _lookaheadParams);
         } else {
             // Do not allow non-empty _lookaheadParams that will not be used
             require(_lookaheadParams.length == 0, LookaheadIsNotRequired());
@@ -226,7 +226,7 @@ contract Lookahead is ILookahead, EssentialContract {
         returns (address[32] memory entries_)
     {
         uint256 i = lookaheadTail;
-        uint256 lastSlot = _epochFirstSlot.nextEpoch() - 1;
+        uint256 lastSlot = _epochFirstSlot + LibEpoch.SLOTS_IN_EPOCH - 1;
 
         // Take the tail to the entry that fills the last slot of the epoch.
         // This may be an entry in the next epoch who starts preconfing in advanced.
@@ -344,7 +344,7 @@ contract Lookahead is ILookahead, EssentialContract {
                 // Ensure that the timestamps belong to a valid slot in the epoch
                 uint40 endSlot = _lookaheadParams[j].endSlot;
                 require(endSlot > previousEndSlot, InvalidSlot());
-                require(endSlot < _epochFirstSlot.nextEpoch(), InvalidSlot());
+                require(endSlot < _epochFirstSlot + LibEpoch.SLOTS_IN_EPOCH, InvalidSlot());
 
                 Entry storage entry = _entryAt(++i);
                 entry.preconfer = preconfer;
@@ -372,7 +372,7 @@ contract Lookahead is ILookahead, EssentialContract {
     function _enableFallbackPreconfer(uint256 _epochFirstSlot) private {
         // If it is the current epoch's lookahead being proved incorrect then insert a fallback
         // preconfer for the next epoch.
-        uint256 nextEpochFirstSlot = _epochFirstSlot.nextEpoch();
+        uint256 nextEpochFirstSlot = _epochFirstSlot + LibEpoch.SLOTS_IN_EPOCH;
         if (block.number < nextEpochFirstSlot) return;
 
         uint256 epochLastSlot = nextEpochFirstSlot - 1;
@@ -418,7 +418,7 @@ contract Lookahead is ILookahead, EssentialContract {
         // node may not have access to it yet.
         unchecked {
             return block.number != _epochFirstSlot
-                && _posterFor(_epochFirstSlot.nextEpoch()).addr == address(0);
+                && _posterFor(_epochFirstSlot + LibEpoch.SLOTS_IN_EPOCH).addr == address(0);
         }
     }
 
@@ -428,7 +428,7 @@ contract Lookahead is ILookahead, EssentialContract {
         require(nextPreconfIndex > 1, NoPreconferAvailable());
 
         // Use a random number that is constant for a given epoch
-        uint256 random = uint256(getBeaconBlockRoot(_epochFirstSlot.prevEpoch()));
+        uint256 random = uint256(getBeaconBlockRoot(_epochFirstSlot - LibEpoch.SLOTS_IN_EPOCH));
 
         unchecked {
             uint256 preconferIndex = (random % (nextPreconfIndex - 1)) + 1;
