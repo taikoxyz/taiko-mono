@@ -80,6 +80,7 @@ func testBlobAPI(t *testing.T, pattern string, clients []string) {
 	handler, err := hivesim.NewHiveFramework(&hivesim.HiveConfig{
 		BuildOutput:     false,
 		ContainerOutput: true,
+		DockerPull:      true,
 		BaseDir:         os.Getenv("HIVE_DIR"),
 		SimPattern:      "taiko",
 		SimTestPattern:  pattern,
@@ -113,7 +114,7 @@ func testDenebReorg(t *testing.T, simPattern string, clientGroups [][]string) {
 	handler, err := hivesim.NewHiveFramework(&hivesim.HiveConfig{
 		BuildOutput:     false,
 		ContainerOutput: true,
-		DockerPull:      false,
+		DockerPull:      true,
 		BaseDir:         os.Getenv("HIVE_DIR"),
 		SimPattern:      "taiko",
 		SimTestPattern:  simPattern,
