@@ -16,11 +16,15 @@ abstract contract PreconferRegistry is IPreconfRegistry, EssentialContract {
     error ValidatorAlreadyActive();
     error ValidatorAlreadyInactive();
 
+    event PreconferRegistered(address indexed preconfer);
+    event PreconferDeregistered(address indexed preconfer);
+    event ValidatorAdded(bytes32 indexed pubKeyHash, address indexed preconfer);
+    event ValidatorRemoved(bytes32 indexed pubKeyHash, address indexed preconfer);
+
     /// @notice Initializes the contract.
     function init(address _owner, address _preconfAddressManager) external initializer {
         __Essential_init(_owner, _preconfAddressManager);
     }
-
 
     function getPreconferForValidator(
         bytes32 _pubKeyHash,
@@ -33,13 +37,13 @@ abstract contract PreconferRegistry is IPreconfRegistry, EssentialContract {
         IPreconfRegistry.Validator memory validator = getValidator(_pubKeyHash);
 
         // The validator is not proposing yet
-        if (_slotTimestamp < validator.proposingSince) return address(0);
+        if (_slotTimestamp < validator.validSince) return address(0);
 
         // The validator is proposing indefinitely
-        if (validator.proposingUntil == 0) return validator.preconfer;
+        if (validator.validUntil == 0) return validator.preconfer;
 
         // The validator is proposing within the current slot
-        if (_slotTimestamp < validator.proposingUntil) {
+        if (_slotTimestamp < validator.validUntil) {
             return validator.preconfer;
         }
 

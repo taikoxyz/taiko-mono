@@ -6,7 +6,6 @@ import "forge-std/src/Test.sol";
 import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
-
 import "./DeployCapability.sol";
 import "./HelperContracts.sol";
 

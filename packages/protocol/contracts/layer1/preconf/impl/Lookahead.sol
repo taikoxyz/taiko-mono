@@ -197,8 +197,8 @@ contract Lookahead is ILookahead, EssentialContract {
             // If the validator is allowed to propose in the epoch, add the associated preconfer to
             // the lookahead
             if (
-                validator.preconfer != address(0) && slotTimestamp >= validator.proposingSince
-                    && (validator.proposingUntil == 0 || slotTimestamp < validator.proposingUntil)
+                validator.preconfer != address(0) && slotTimestamp >= validator.validSince
+                    && (validator.validUntil == 0 || slotTimestamp < validator.validUntil)
             ) {
                 params_[count++] = EntryParam(validator.preconfer, uint40(slotTimestamp));
             }
