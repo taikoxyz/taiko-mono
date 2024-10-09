@@ -4,14 +4,14 @@ pragma solidity ^0.8.24;
 import "forge-std/src/console2.sol";
 import "forge-std/src/StdJson.sol";
 import "forge-std/src/Test.sol";
-import "../../contracts/shared/common/AddressManager.sol";
-import "../../contracts/shared/bridge/Bridge.sol";
-import "../../contracts/shared/tokenvault/ERC1155Vault.sol";
-import "../../contracts/shared/tokenvault/ERC20Vault.sol";
-import "../../contracts/shared/tokenvault/ERC721Vault.sol";
-import "../../contracts/shared/signal/SignalService.sol";
-import "../../contracts/layer2/based/TaikoL2.sol";
-import "../shared/token/RegularERC20.sol";
+import "src/shared/common/AddressManager.sol";
+import "src/shared/bridge/Bridge.sol";
+import "src/shared/tokenvault/ERC1155Vault.sol";
+import "src/shared/tokenvault/ERC20Vault.sol";
+import "src/shared/tokenvault/ERC721Vault.sol";
+import "src/shared/signal/SignalService.sol";
+import "src/layer2/based/TaikoL2.sol";
+import "test/shared/token/RegularERC20.sol";
 
 contract TestGenerateGenesis is Test, AddressResolver {
     using stdJson for string;

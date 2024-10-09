@@ -6,15 +6,7 @@ import "forge-std/src/Test.sol";
 import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
-import "../../contracts/shared/tokenvault/BridgedERC20V2.sol";
-import "../../contracts/shared/tokenvault/BridgedERC721.sol";
-import "../../contracts/shared/tokenvault/BridgedERC1155.sol";
-import "../../contracts/shared/tokenvault/ERC20Vault.sol";
-import "../../contracts/shared/tokenvault/ERC721Vault.sol";
-import "../../contracts/shared/tokenvault/ERC1155Vault.sol";
-import "./token/FreeMintERC20.sol";
-import "./token/RegularERC20.sol";
-import "./token/MayFailFreeMintERC20.sol";
+
 import "./DeployCapability.sol";
 import "./HelperContracts.sol";
 

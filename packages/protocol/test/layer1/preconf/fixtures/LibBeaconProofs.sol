@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
 import {LibEIP4788} from "src/layer1/preconf/libs/LibEIP4788.sol";

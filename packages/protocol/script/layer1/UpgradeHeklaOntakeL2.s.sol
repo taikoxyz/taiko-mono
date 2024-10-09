@@ -2,12 +2,12 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
-import "../../test/shared/DeployCapability.sol";
-import "../../contracts/layer2/hekla/HeklaTaikoL2.sol";
-import "../../contracts/shared/bridge/Bridge.sol";
-import "../../contracts/shared/common/AddressManager.sol";
-import "../../test/shared/thirdparty/Multicall3.sol";
-import "../../contracts/layer2/DelegateOwner.sol";
+import "src/layer2/hekla/HeklaTaikoL2.sol";
+import "src/shared/bridge/Bridge.sol";
+import "src/shared/common/AddressManager.sol";
+import "src/layer2/DelegateOwner.sol";
+import "test/shared/DeployCapability.sol";
+import "test/shared/thirdparty/Multicall3.sol";
 
 contract UpgradeHeklaOntakeL2 is DeployCapability {
     address public delegateOwner = 0x95F6077C7786a58FA070D98043b16DF2B1593D2b;
