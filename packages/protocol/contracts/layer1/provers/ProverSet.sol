@@ -5,9 +5,9 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpg
 import "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "../../shared/common/EssentialContract.sol";
-import "../../shared/common/LibStrings.sol";
-import "../../shared/common/LibAddress.sol";
+import "src/shared/common/EssentialContract.sol";
+import "src/shared/common/LibStrings.sol";
+import "src/shared/common/LibAddress.sol";
 import "../based/ITaikoL1.sol";
 
 interface IHasRecipient {

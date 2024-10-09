@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../../../verifiers/Risc0Verifier.sol";
-import "../../addrcache/RollupAddressCache.sol";
-import "../../reentrylock/LibFasterReentryLock.sol";
+import "src/layer1/verifiers/Risc0Verifier.sol";
+import "src/layer1/mainnet/addrcache/RollupAddressCache.sol";
+import "src/layer1/mainnet/reentrylock/LibFasterReentryLock.sol";
 
 /// @title MainnetRisc0Verifier
 /// @dev This contract shall be deployed to replace its parent contract on Ethereum for Taiko

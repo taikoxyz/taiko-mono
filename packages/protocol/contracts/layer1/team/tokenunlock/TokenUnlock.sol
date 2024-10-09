@@ -6,9 +6,9 @@ import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "../../../shared/common/EssentialContract.sol";
-import "../../../shared/common/LibStrings.sol";
-import "../../../shared/common/LibMath.sol";
+import "src/shared/common/EssentialContract.sol";
+import "src/shared/common/LibStrings.sol";
+import "src/shared/common/LibMath.sol";
 import "../../provers/ProverSet.sol";
 
 /// @title TokenUnlock
