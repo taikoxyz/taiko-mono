@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../../test/shared/DeployCapability.sol";
-import "../../contracts/shared/common/AddressManager.sol";
-import "../../contracts/shared/bridge/Bridge.sol";
+import "test/shared/DeployCapability.sol";
+import "src/shared/common/AddressManager.sol";
+import "src/shared/bridge/Bridge.sol";
 
 // Run with:
 //  forge script --rpc-url  https://rpc.mainnet.taiko.xyz script/PostGenesisQuery.s.sol

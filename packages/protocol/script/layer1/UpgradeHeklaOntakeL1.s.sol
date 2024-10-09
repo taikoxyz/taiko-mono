@@ -2,12 +2,12 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
-import "../../test/shared/DeployCapability.sol";
-import "../../contracts/layer1/hekla/HeklaTaikoL1.sol";
-import "../../contracts/shared/bridge/Bridge.sol";
-import "../../contracts/shared/common/AddressManager.sol";
-import "../../contracts/layer1/provers/ProverSet.sol";
-import "../../contracts/layer1/provers/GuardianProver.sol";
+import "src/layer1/hekla/HeklaTaikoL1.sol";
+import "src/shared/bridge/Bridge.sol";
+import "src/shared/common/AddressManager.sol";
+import "src/layer1/provers/ProverSet.sol";
+import "src/layer1/provers/GuardianProver.sol";
+import "test/shared/DeployCapability.sol";
 
 contract UpgradeHeklaOntakeL1 is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");

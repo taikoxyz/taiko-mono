@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../../test/shared/DeployCapability.sol";
-import "../../contracts/layer1/verifiers/SgxVerifier.sol";
+import "test/shared/DeployCapability.sol";
+import "src/layer1/verifiers/SgxVerifier.sol";
 
 contract AddSGXVerifierInstances is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");

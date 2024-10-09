@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../../test/shared/DeployCapability.sol";
-import "../../contracts/layer2/DelegateOwner.sol";
+import "test/shared/DeployCapability.sol";
+import "src/layer2/DelegateOwner.sol";
 
 //  forge script --rpc-url  https://rpc.mainnet.taiko.xyz script/DeployDelegateOwner.s.sol
 contract DeployDelegateOwner is DeployCapability {

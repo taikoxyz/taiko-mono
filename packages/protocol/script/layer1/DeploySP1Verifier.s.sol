@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import { SP1Verifier as SP1Verifier200rc } from "@sp1-contracts/src/v2.0.0/SP1VerifierPlonk.sol";
-import "../../test/shared/DeployCapability.sol";
-import "../../contracts/layer1/verifiers/SP1Verifier.sol";
+import "test/shared/DeployCapability.sol";
+import "src/layer1/verifiers/SP1Verifier.sol";
 
 contract DeploySP1Verifier is DeployCapability {
     uint256 public deployerPrivKey = vm.envUint("PRIVATE_KEY");

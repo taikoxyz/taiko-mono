@@ -10,26 +10,15 @@ interface IPreconfRegistry {
         address preconfer;
         // Timestamp at which the preconfer may start proposing for the preconfer
         // 2 epochs from validator addition timestamp
-        uint40 proposingSince;
+        uint40 validSince;
         // Timestamp at which the preconfer must stop proposing for the preconfer
         // 2 epochs from validator removal timestamp
-        uint40 proposingUntil;
-    }
-    // ^ Note: 40 bits are enough for UNIX timestamp. This way we also compress the data to a single
-    // slot.
-
-    struct AddValidatorParam {
-        // The public key of the validator
-        LibBLS12381.G1Point pubkey;
-        // The signature of the validator
-        LibBLS12381.G2Point signature;
-        // The timestamp at which the above signature expires
-        uint256 signatureExpiry;
+        uint40 validUntil;
     }
 
-    struct RemoveValidatorParam {
-        // The public key of the validator
-        LibBLS12381.G1Point pubkey;
+    struct ValidatorParam {
+        // The public keys of the validators
+        LibBLS12381.G1Point[] pubkeys;
         // The signature of the validator
         LibBLS12381.G2Point signature;
         // The timestamp at which the above signature expires
@@ -41,11 +30,6 @@ interface IPreconfRegistry {
         ADD
     }
 
-    event PreconferRegistered(address indexed preconfer);
-    event PreconferDeregistered(address indexed preconfer);
-    event ValidatorAdded(bytes32 indexed pubKeyHash, address indexed preconfer);
-    event ValidatorRemoved(bytes32 indexed pubKeyHash, address indexed preconfer);
-
     /// @dev Registers a preconfer by giving them a non-zero registry index
     function registerPreconfer(IAVSDirectory.SignatureWithSaltAndExpiry calldata operatorSignature)
         external;
@@ -54,10 +38,10 @@ interface IPreconfRegistry {
     function deregisterPreconfer() external;
 
     /// @dev Adds consensus layer validators to the system by assigning preconfers to them
-    function addValidators(AddValidatorParam[] calldata addValidatorParams) external;
+    function addValidators(ValidatorParam calldata validatorsParam) external;
 
     /// @dev Removes active validators who are proposing for a preconfer
-    function removeValidators(RemoveValidatorParam[] calldata removeValidatorParams) external;
+    function removeValidators(ValidatorParam calldata validatorParam) external;
 
     /// @dev Returns the message that the validator must sign to add or remove themselves from a
     /// preconfer

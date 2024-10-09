@@ -11,8 +11,8 @@ contract PreconfServiceManager is IPreconfServiceManager, EssentialContract {
     uint256[50] private __gap;
 
     /// @notice Initializes the contract.
-    function init(address _owner, address _rollupAddressManager) external initializer {
-        __Essential_init(_owner, _rollupAddressManager);
+    function init(address _owner, address _preconfAddressManager) external initializer {
+        __Essential_init(_owner, _preconfAddressManager);
     }
 
     /// @inheritdoc IPreconfServiceManager
