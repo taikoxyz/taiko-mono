@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../../shared/signal/ISignalService.sol";
+import "src/shared/signal/ISignalService.sol";
 import "./LibBonds.sol";
 import "./LibUtils.sol";
 

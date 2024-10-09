@@ -20,6 +20,8 @@ remappings = [
   "ds-test/=node_modules/ds-test/src/",
   "@p256-verifier/contracts/=node_modules/p256-verifier/src/",
   "src/=contracts/",
+  "test/=test/",
+  "script/=script/",
 ]
 
 # Do not change the block_gas_limit value, TaikoL2.t.sol depends on it.
