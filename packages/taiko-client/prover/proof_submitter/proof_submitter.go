@@ -161,8 +161,7 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBl
 			}
 			// Check if there is full buffer
 			if s.proofBuffer.MaxLength == uint64(s.proofBuffer.Len()) {
-				log.Debug("Buffer is full now, try to aggregate firstly", "blockID", meta.GetBlockID())
-				s.aggregationNotify <- s.Tier()
+				log.Debug("Buffer is full now", "blockID", meta.GetBlockID())
 				return errBufferOverflow
 			}
 			// Check if there is a need to generate proof
