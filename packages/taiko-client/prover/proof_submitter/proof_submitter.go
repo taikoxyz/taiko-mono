@@ -159,6 +159,12 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBl
 				log.Error("Failed to request proof, context is canceled", "blockID", opts.BlockID, "error", ctx.Err())
 				return nil
 			}
+			// Check if there is full buffer
+			if s.proofBuffer.MaxLength == uint64(s.proofBuffer.Len()) {
+				log.Debug("Buffer is full now, try to aggregate firstly", "blockID", meta.GetBlockID())
+				s.aggregationNotify <- s.Tier()
+				return errBufferOverflow
+			}
 			// Check if there is a need to generate proof
 			proofStatus, err := rpc.GetBlockProofStatus(
 				ctx,
