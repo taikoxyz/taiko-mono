@@ -16,6 +16,12 @@ abstract contract PreconferRegistry is IPreconfRegistry, EssentialContract {
     error ValidatorAlreadyActive();
     error ValidatorAlreadyInactive();
 
+    /// @notice Initializes the contract.
+    function init(address _owner, address _preconfAddressManager) external initializer {
+        __Essential_init(_owner, _preconfAddressManager);
+    }
+
+
     function getPreconferForValidator(
         bytes32 _pubKeyHash,
         uint256 _slotTimestamp
