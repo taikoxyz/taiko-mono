@@ -341,9 +341,9 @@ func (p *Prover) eventLoop() {
 				log.Error("Prove new blocks error", "error", err)
 			}
 		case tier := <-p.aggregationNotify:
-			if err := p.aggregateOp(tier); err != nil {
-				log.Error("Aggregate proofs error", "error", err)
-			}
+			p.withRetry(func() error {
+				return p.aggregateOp(tier)
+			})
 		case e := <-blockVerifiedCh:
 			p.blockVerifiedHandler.Handle(encoding.BlockVerifiedEventToV2(e))
 		case e := <-transitionProvedCh:
