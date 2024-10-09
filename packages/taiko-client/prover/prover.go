@@ -383,7 +383,7 @@ func (p *Prover) eventLoop() {
 			reqProving()
 		case <-forceProvingTicker.C:
 			reqProving()
-		case <-forceProvingTicker.C:
+		case <-forceAggregatingTicker.C:
 			reqAggregation()
 		}
 	}
@@ -529,16 +529,16 @@ func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs)
 			strings.Contains(err.Error(), proofSubmitter.ErrInvalidProof.Error()) {
 			log.Error(
 				"Proof submission reverted",
-				//"blockID", proofWithHeader.BlockID,
-				//"minTier", proofWithHeader.Meta.GetMinTier(),
+				"blockIDs", batchProof.BlockIDs,
+				"tier", batchProof.Tier,
 				"error", err,
 			)
 			return nil
 		}
 		log.Error(
 			"Submit proof error",
-			//"blockID", proofWithHeader.BlockID,
-			//"minTier", proofWithHeader.Meta.GetMinTier(),
+			"blockIDs", batchProof.BlockIDs,
+			"tier", batchProof.Tier,
 			"error", err,
 		)
 		return err
