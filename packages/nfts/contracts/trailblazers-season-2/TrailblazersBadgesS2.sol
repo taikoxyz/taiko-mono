@@ -102,7 +102,7 @@ contract TrailblazersBadgesS2 is
     error HASH_MISMATCH();
 
     /// @notice Events
-    event MigrationToggled(uint256 _s1BadgeId, bool _enabled);
+    event MigrationToggled(uint256 indexed _migrationCycleId, uint256 _s1BadgeId, bool _enabled);
     event MigrationStarted(
         address _user, uint256 _s1BadgeId, uint256 _s1TokenId, uint256 _cooldownExpiration
     );
@@ -298,7 +298,7 @@ contract TrailblazersBadgesS2 is
         migrationCycle++;
         for (uint256 i = 0; i < _s1BadgeIds.length; i++) {
             enabledBadgeIds[migrationCycle][_s1BadgeIds[i]] = true;
-            emit MigrationToggled(_s1BadgeIds[i], true);
+            emit MigrationToggled(migrationCycle, _s1BadgeIds[i], true);
         }
     }
 
@@ -409,7 +409,7 @@ contract TrailblazersBadgesS2 is
     function _disableMigrations() internal onlyRole(DEFAULT_ADMIN_ROLE) {
         for (uint256 i = 0; i < 8; i++) {
             if (enabledBadgeIds[migrationCycle][i]) {
-                emit MigrationToggled(i, false);
+                emit MigrationToggled(migrationCycle, i, false);
             }
 
             enabledBadgeIds[migrationCycle][i] = false;
