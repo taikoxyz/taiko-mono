@@ -444,24 +444,33 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 // AggregateProofs read all data from buffer and aggregate them.
 func (s *ProofSubmitter) AggregateProofs(ctx context.Context) error {
 	startTime := time.Now()
-	buffer, err := s.proofBuffer.ReadAll()
-	if err != nil {
-		return fmt.Errorf("failed to read proof from buffer: %w", err)
-	}
-	if len(buffer) == 0 {
-		log.Debug("Buffer is empty now, skip aggregating")
-		return nil
-	}
+	if err := backoff.Retry(
+		func() error {
+			buffer, err := s.proofBuffer.ReadAll()
+			if err != nil {
+				return fmt.Errorf("failed to read proof from buffer: %w", err)
+			}
+			if len(buffer) == 0 {
+				log.Debug("Buffer is empty now, skip aggregating")
+				return nil
+			}
 
-	result, err := s.proofProducer.Aggregate(
-		ctx,
-		buffer,
-		startTime,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to request proof aggregation: %w", err)
+			result, err := s.proofProducer.Aggregate(
+				ctx,
+				buffer,
+				startTime,
+			)
+			if err != nil {
+				return fmt.Errorf("failed to request proof aggregation: %w", err)
+			}
+			s.batchResultCh <- result
+			return nil
+		},
+		backoff.WithContext(backoff.NewConstantBackOff(proofPollingInterval), ctx),
+	); err != nil {
+		log.Error("Aggregate proof error", "error", err)
+		return err
 	}
-	s.batchResultCh <- result
 	return nil
 }
 
