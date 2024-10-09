@@ -18,7 +18,7 @@ lint:
 	&& goimports -local "github.com/taikoxyz/taiko-mono/packages/taiko-client" -w ./ \
 	&& golangci-lint run
 
-test: lint
+test:
 	@PACKAGE=${PACKAGE} \
 	L2_NODE=$${L2_NODE:-l2_geth} \
 	RUN_TESTS=true \
