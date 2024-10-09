@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../../shared/common/EssentialContract.sol";
+import "src/shared/common/EssentialContract.sol";
 import "./LibData.sol";
 import "./LibProposing.sol";
 import "./LibProving.sol";
@@ -190,9 +190,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         blk_ = LibData.blockV2toV1(blk);
     }
 
-    /// @notice Gets the details of a block.
-    /// @param _blockId Index of the block.
-    /// @return blk_ The block.
+    /// @inheritdoc ITaikoL1
     function getBlockV2(uint64 _blockId) external view returns (TaikoData.BlockV2 memory blk_) {
         (blk_,) = LibUtils.getBlock(state, getConfig(), _blockId);
     }
@@ -229,10 +227,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         return LibUtils.getTransitions(state, getConfig(), _blockIds, _parentHashes);
     }
 
-    /// @notice Gets the state transition for a specific block.
-    /// @param _blockId Index of the block.
-    /// @param _tid The transition id.
-    /// @return The state transition data of the block.
+    /// @inheritdoc ITaikoL1
     function getTransition(
         uint64 _blockId,
         uint32 _tid

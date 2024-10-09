@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.38.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.37.0...taiko-client-v0.38.0) (2024-10-09)
+
+
+### Features
+
+* **taiko-client:** add `proposer_pool_content_fetch_time` metric ([#18190](https://github.com/taikoxyz/taiko-mono/issues/18190)) ([35579df](https://github.com/taikoxyz/taiko-mono/commit/35579dfa938562969da2395492f4472c300574dd))
+
+
+### Chores
+
+* **taiko-client:** bump dependencies ([#18202](https://github.com/taikoxyz/taiko-mono/issues/18202)) ([219a7e8](https://github.com/taikoxyz/taiko-mono/commit/219a7e87c09c7e4ac8d545c65c77a29e6f818701))
+
+
+### Tests
+
+* **taiko-client:** remove an unnecessary test ([#18218](https://github.com/taikoxyz/taiko-mono/issues/18218)) ([d624e29](https://github.com/taikoxyz/taiko-mono/commit/d624e29ce1c0ae9ef6704d96516d632600213e13))
+
 ## [0.37.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.36.0...taiko-client-v0.37.0) (2024-09-28)
 
 
