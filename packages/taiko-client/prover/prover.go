@@ -62,7 +62,7 @@ type Prover struct {
 
 	assignmentExpiredCh chan metadata.TaikoBlockMetaData
 	proveNotify         chan struct{}
-	aggregationNotify   chan struct{}
+	aggregationNotify   chan uint16
 
 	// Proof related channels
 	proofSubmissionCh      chan *proofProducer.ProofRequestBody
@@ -133,7 +133,7 @@ func InitFromConfig(
 	p.proofSubmissionCh = make(chan *proofProducer.ProofRequestBody, p.cfg.Capacity)
 	p.proofContestCh = make(chan *proofProducer.ContestRequestBody, p.cfg.Capacity)
 	p.proveNotify = make(chan struct{}, 1)
-	p.aggregationNotify = make(chan struct{}, 1)
+	p.aggregationNotify = make(chan uint16, 1)
 
 	if err := p.initL1Current(cfg.StartingBlockID); err != nil {
 		return fmt.Errorf("initialize L1 current cursor error: %w", err)
@@ -278,7 +278,7 @@ func (p *Prover) eventLoop() {
 	// if we are already aggregating.
 	reqAggregation := func() {
 		select {
-		case p.aggregationNotify <- struct{}{}:
+		case p.aggregationNotify <- 0:
 		default:
 		}
 	}
@@ -340,8 +340,8 @@ func (p *Prover) eventLoop() {
 			if err := p.proveOp(); err != nil {
 				log.Error("Prove new blocks error", "error", err)
 			}
-		case <-p.aggregationNotify:
-			if err := p.aggregateOp(); err != nil {
+		case tier := <-p.aggregationNotify:
+			if err := p.aggregateOp(tier); err != nil {
 				log.Error("Aggregate proofs error", "error", err)
 			}
 		case e := <-blockVerifiedCh:
@@ -412,13 +412,14 @@ func (p *Prover) proveOp() error {
 }
 
 // aggregateOp aggregates all proofs in buffer.
-func (p *Prover) aggregateOp() error {
+func (p *Prover) aggregateOp(tier uint16) error {
 	var wg sync.WaitGroup
 	for _, submitter := range p.proofSubmitters {
 		wg.Add(1)
 		go func(s proofSubmitter.Submitter) {
 			defer wg.Done()
-			if s.BufferSize() > 1 {
+			if s.BufferSize() > 1 &&
+				(tier == 0 || s.Tier() == tier) {
 				if err := s.AggregateProofs(p.ctx); err != nil {
 					log.Error("Failed to aggregate proofs",
 						"error", err,
@@ -426,12 +427,14 @@ func (p *Prover) aggregateOp() error {
 					)
 				}
 			} else {
-				log.Debug("Skip this aggregateOp since low buffer size",
-					"tier", s.Tier(),
+				log.Debug("Skip this aggregateOp",
+					"tier", tier,
+					"bufferSize", s.BufferSize(),
 				)
 			}
 		}(submitter)
 	}
+
 	return nil
 }
 

@@ -37,7 +37,7 @@ type ProofSubmitterTestSuite struct {
 	proposer               *proposer.Proposer
 	proofCh                chan *producer.ProofWithHeader
 	batchProofGenerationCh chan *producer.BatchProofs
-	aggregationNotify      chan struct{}
+	aggregationNotify      chan uint16
 }
 
 func (s *ProofSubmitterTestSuite) SetupTest() {
@@ -45,7 +45,7 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 
 	s.proofCh = make(chan *producer.ProofWithHeader, 1024)
 	s.batchProofGenerationCh = make(chan *producer.BatchProofs, 1024)
-	s.aggregationNotify = make(chan struct{}, 1)
+	s.aggregationNotify = make(chan uint16, 1)
 
 	builder := transaction.NewProveBlockTxBuilder(
 		s.RPCClient,

@@ -41,7 +41,7 @@ type ProofSubmitter struct {
 	proofProducer     proofProducer.ProofProducer
 	resultCh          chan *proofProducer.ProofWithHeader
 	batchResultCh     chan *proofProducer.BatchProofs
-	aggregationNotify chan struct{}
+	aggregationNotify chan uint16
 	anchorValidator   *validator.AnchorTxValidator
 	txBuilder         *transaction.ProveBlockTxBuilder
 	sender            *transaction.Sender
@@ -63,7 +63,7 @@ func NewProofSubmitter(
 	proofProducer proofProducer.ProofProducer,
 	resultCh chan *proofProducer.ProofWithHeader,
 	batchResultCh chan *proofProducer.BatchProofs,
-	aggregationNotify chan struct{},
+	aggregationNotify chan uint16,
 	proverSetAddress common.Address,
 	taikoL2Address common.Address,
 	graffiti string,
@@ -207,7 +207,7 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBl
 					"bufferSize", bufferSize,
 				)
 				if s.proofBuffer.MaxLength == uint64(bufferSize) {
-					s.aggregationNotify <- struct{}{}
+					s.aggregationNotify <- s.Tier()
 				}
 			} else {
 				s.resultCh <- result

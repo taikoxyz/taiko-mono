@@ -218,7 +218,7 @@ var (
 			"this flag only works post Ontake fork",
 		Category: proverCategory,
 		Value:    30 * time.Minute,
-		EnvVars:  []string{"PROVE_MIN_PROVING_INTERVAL"},
+		EnvVars:  []string{"PROVER_MIN_PROVING_INTERVAL"},
 	}
 )
 
