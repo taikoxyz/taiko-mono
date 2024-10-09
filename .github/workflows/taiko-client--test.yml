@@ -55,9 +55,17 @@ jobs:
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
 
-      - name: Test
+      - name: Test(geth execution node)
         working-directory: packages/taiko-client
-        run: make test
+        run: |
+          export L2_NODE=l2_geth
+          make test
+
+      - name: Test(reth execution node)
+        working-directory: packages/taiko-client
+        run: |
+          export L2_NODE=l2_reth
+          make test
 
       - name: Codecov.io
         uses: codecov/codecov-action@v4
