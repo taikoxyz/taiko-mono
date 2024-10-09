@@ -13,5 +13,5 @@ import "test/shared/TaikoTest.sol";
 // require(_lookaheadBufferSize % LibEpoch.SLOTS_IN_EPOCH == 0, InvalidParam());
 
 contract LookaheadTest is TaikoTest {
-    // Lookahead lookahead = new Lookahead();
+// Lookahead lookahead = new Lookahead();
 }
