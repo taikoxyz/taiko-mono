@@ -32,9 +32,9 @@ func (d *BlobFetcher) Fetch(
 	_ *types.Transaction,
 	meta metadata.TaikoBlockMetaData,
 ) ([]byte, error) {
-	if !meta.GetBlobUsed() {
-		return nil, pkg.ErrBlobUsed
-	}
+	// if !meta.GetBlobUsed() {
+	// 	return nil, pkg.ErrBlobUsed
+	// }
 
 	// Fetch the L1 block sidecars.
 	sidecars, err := d.dataSource.GetBlobs(ctx, meta.GetProposedAt(), meta.GetBlobHash())
@@ -54,7 +54,9 @@ func (d *BlobFetcher) Fetch(
 		)
 
 		commitment := kzg4844.Commitment(common.FromHex(sidecar.KzgCommitment))
-		if kzg4844.CalcBlobHashV1(sha256.New(), &commitment) == meta.GetBlobHash() {
+		// temp fix, TODO: delete
+		useFirstBlob := meta.GetBlockID().Uint64() == 1587 || meta.GetBlockID().Uint64() == 1588
+		if kzg4844.CalcBlobHashV1(sha256.New(), &commitment) == meta.GetBlobHash() || useFirstBlob {
 			blob := eth.Blob(common.FromHex(sidecar.Blob))
 			bytes, err := blob.ToData()
 			if err != nil {

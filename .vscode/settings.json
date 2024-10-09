@@ -9,7 +9,7 @@
   "[toml]": {
     "editor.defaultFormatter": "tamasfe.even-better-toml"
   },
-  "solidity.compileUsingRemoteVersion": "v0.8.24+commit.e11b9ed9",
+  "solidity.compileUsingRemoteVersion": "v0.8.25+commit.b61c2a91",
   "solidity.formatter": "forge",
   "i18n-ally.keystyle": "nested",
   "i18n-ally.localesPaths": [
