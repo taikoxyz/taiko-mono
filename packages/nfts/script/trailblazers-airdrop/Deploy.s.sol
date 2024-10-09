@@ -27,13 +27,13 @@ contract DeployScript is Script {
     uint256 constant CLAIM_AMOUNT = 10 ether;
 
     // hekla test root
-    bytes32 public merkleRoot = 0xea5b2299e76b4860965e9059388d021145269c96b816b07a808ff391cd80753e;
+    bytes32 public merkleRoot = 0xbe8ec647626f95185f551887b3eee43ea9e8965c7baf558a9f8cb22b020597f0;
 
     // rewards token
     ERC20Upgradeable public erc20;
     ERC20Mock public mockERC20;
     // start and end times for the claim
-    uint64 constant CLAIM_DURATION = 1 days;
+    uint64 constant CLAIM_DURATION = 30 days;
     uint64 public CLAIM_START = uint64(block.timestamp);
     uint64 public CLAIM_END = CLAIM_START + CLAIM_DURATION;
 
@@ -81,6 +81,7 @@ contract DeployScript is Script {
         if (block.chainid != 167_000) {
             mockERC20.mint(address(airdrop), TOTAL_AVAILABLE_FUNDS);
         }
+        console.log("ERC20 Token:", address(erc20));
 
         console.log("Deployed ERC20Airdrop to:", address(airdrop));
 
