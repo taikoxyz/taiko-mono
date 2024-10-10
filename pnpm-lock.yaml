@@ -24,10 +24,10 @@ importers:
         version: 2.26.2(debug@4.3.4)
       '@wagmi/connectors':
         specifier: ^4.3.1
-        version: 4.3.10(yrxxgsr3s6m7a4itnzsb2c7inm)
+        version: 4.3.10(vnbhrjghrun7rfuxsawo7otej4)
       '@wagmi/core':
         specifier: ^2.8.1
-        version: 2.10.2(@types/react@18.3.5)(bufferutil@4.0.8)(react@18.2.0)(typescript@5.4.3)(utf-8-validate@5.0.10)(viem@2.9.29(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.22.4))(zod@3.22.4)
+        version: 2.10.2(@types/react@18.3.5)(bufferutil@4.0.8)(react@18.2.0)(typescript@5.4.3)(utf-8-validate@5.0.10)(viem@2.9.29(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.23.8))(zod@3.23.8)
       '@walletconnect/ethereum-provider':
         specifier: ^2.12.2
         version: 2.12.2(@react-native-async-storage/async-storage@1.22.0(react-native@0.73.4(@babel/core@7.25.2)(@babel/preset-env@7.23.9(@babel/core@7.25.2))(bufferutil@4.0.8)(encoding@0.1.13)(react@18.2.0)(utf-8-validate@5.0.10)))(@types/react@18.3.5)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.2.0)(utf-8-validate@5.0.10)
@@ -36,7 +36,7 @@ importers:
         version: 2.6.2(@types/react@18.3.5)(react@18.2.0)
       '@web3modal/wagmi':
         specifier: ^4.1.11
-        version: 4.1.11(@types/react@18.3.5)(@wagmi/connectors@4.3.10(yrxxgsr3s6m7a4itnzsb2c7inm))(@wagmi/core@2.10.2(@types/react@18.3.5)(bufferutil@4.0.8)(react@18.2.0)(typescript@5.4.3)(utf-8-validate@5.0.10)(viem@2.9.29(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.22.4))(zod@3.22.4))(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(viem@2.9.29(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.22.4))
+        version: 4.1.11(@types/react@18.3.5)(@wagmi/connectors@4.3.10(vnbhrjghrun7rfuxsawo7otej4))(@wagmi/core@2.10.2(@types/react@18.3.5)(bufferutil@4.0.8)(react@18.2.0)(typescript@5.4.3)(utf-8-validate@5.0.10)(viem@2.9.29(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.23.8))(zod@3.23.8))(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(viem@2.9.29(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.23.8))
       '@zerodevx/svelte-toast':
         specifier: ^0.9.5
         version: 0.9.5(svelte@4.2.17)
@@ -53,8 +53,8 @@ importers:
         specifier: ^3.3.0
         version: 3.3.0
       moralis:
-        specifier: ^2.26.1
-        version: 2.26.2(debug@4.3.4)
+        specifier: ^2.27.2
+        version: 2.27.2(debug@4.3.4)
       object-hash:
         specifier: ^3.0.0
         version: 3.0.0
@@ -63,7 +63,7 @@ importers:
         version: 4.0.0(svelte@4.2.17)
       viem:
         specifier: ^2.9.29
-        version: 2.9.29(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.22.4)
+        version: 2.9.29(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.23.8)
     devDependencies:
       '@playwright/test':
         specifier: ^1.43.1
@@ -97,7 +97,7 @@ importers:
         version: 2.1.4(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)
       abitype:
         specifier: ^1.0.2
-        version: 1.0.2(typescript@5.4.3)(zod@3.22.4)
+        version: 1.0.2(typescript@5.4.3)(zod@3.23.8)
       ajv:
         specifier: ^8.12.0
         version: 8.12.0
@@ -341,10 +341,10 @@ importers:
         version: 16.4.5
       ds-test:
         specifier: github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0
-        version: https://codeload.github.com/dapphub/ds-test/tar.gz/e282159d5170298eb2455a6c05280ab5a73a4ef0
+        version: git+https://git@github.com:dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0
       forge-std:
         specifier: github:foundry-rs/forge-std
-        version: https://codeload.github.com/foundry-rs/forge-std/tar.gz/8f24d6b04c92975e0795b5868aa0d783251cdeaa
+        version: git+https://git@github.com:foundry-rs/forge-std.git#8f24d6b04c92975e0795b5868aa0d783251cdeaa
       ipfs-http-client:
         specifier: ^60.0.1
         version: 60.0.1(encoding@0.1.13)
@@ -353,19 +353,19 @@ importers:
         version: 0.4.0
       murky:
         specifier: github:dmfxyz/murky
-        version: https://codeload.github.com/dmfxyz/murky/tar.gz/5feccd1253d7da820f7cccccdedf64471025455d
+        version: git+https://git@github.com:dmfxyz/murky.git#5feccd1253d7da820f7cccccdedf64471025455d
       p256-verifier:
         specifier: github:taikoxyz/p256-verifier#v0.1.0
-        version: p256-verifier#v0.1.0@https://codeload.github.com/taikoxyz/p256-verifier/tar.gz/6ef45b117642786b08a37b4c37c6a6ce151166da
+        version: p256-verifier#v0.1.0@git+https://git@github.com:taikoxyz/p256-verifier.git#6ef45b117642786b08a37b4c37c6a6ce151166da
       sharp:
         specifier: ^0.33.3
         version: 0.33.3
       solady:
         specifier: github:Vectorized/solady#v0.0.167
-        version: https://codeload.github.com/Vectorized/solady/tar.gz/de0f336d2033d04e0f77c923d639c7fbffd48b6d
+        version: git+https://git@github.com:Vectorized/solady.git#de0f336d2033d04e0f77c923d639c7fbffd48b6d
       solidity-stringutils:
         specifier: github:Arachnid/solidity-stringutils
-        version: https://codeload.github.com/Arachnid/solidity-stringutils/tar.gz/4b2fcc43fa0426e19ce88b1f1ec16f5903a2e461
+        version: git+https://git@github.com:Arachnid/solidity-stringutils.git#4b2fcc43fa0426e19ce88b1f1ec16f5903a2e461
     devDependencies:
       '@types/node':
         specifier: ^20.11.30
@@ -423,28 +423,28 @@ importers:
         version: 4.9.6
       ds-test:
         specifier: github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0
-        version: https://codeload.github.com/dapphub/ds-test/tar.gz/e282159d5170298eb2455a6c05280ab5a73a4ef0
+        version: git+https://git@github.com:dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0
       forge-std:
         specifier: github:foundry-rs/forge-std#v1.7.5
-        version: https://codeload.github.com/foundry-rs/forge-std/tar.gz/36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3
+        version: git+https://git@github.com:foundry-rs/forge-std.git#36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3
       merkletreejs:
         specifier: ^0.4.0
         version: 0.4.0
       optimism:
         specifier: github:ethereum-optimism/optimism#v1.8.0
-        version: https://codeload.github.com/ethereum-optimism/optimism/tar.gz/ab3a54febb36398539fd3b849c222b7e70169dc8
+        version: git+https://git@github.com:ethereum-optimism/optimism.git#ab3a54febb36398539fd3b849c222b7e70169dc8
       p256-verifier:
         specifier: github:taikoxyz/p256-verifier#v0.1.0
-        version: p256-verifier#v0.1.0@https://codeload.github.com/taikoxyz/p256-verifier/tar.gz/6ef45b117642786b08a37b4c37c6a6ce151166da
+        version: p256-verifier#v0.1.0@git+https://git@github.com:taikoxyz/p256-verifier.git#6ef45b117642786b08a37b4c37c6a6ce151166da
       risc0-ethereum:
         specifier: github:risc0/risc0-ethereum#v1.0.0
-        version: risc0-ethereum#v1.0.0@https://codeload.github.com/risc0/risc0-ethereum/tar.gz/5fbbc7cb44ab37ce438c14c087ba6c4e0a669900
+        version: risc0-ethereum#v1.0.0@git+https://git@github.com:risc0/risc0-ethereum.git#5fbbc7cb44ab37ce438c14c087ba6c4e0a669900
       solady:
         specifier: github:Vectorized/solady#v0.0.231
-        version: https://codeload.github.com/Vectorized/solady/tar.gz/a12a2575c899a328c1bafdada632dabbff27cf6b
+        version: git+https://git@github.com:Vectorized/solady.git#a12a2575c899a328c1bafdada632dabbff27cf6b
       sp1-contracts:
         specifier: github:succinctlabs/sp1-contracts#v2.0.0
-        version: sp1-contracts#v2.0.0@https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/af1ae093ef8a8f68b022aa8f0f7ad9ffd94aa6fb
+        version: sp1-contracts#v2.0.0@git+https://git@github.com:succinctlabs/sp1-contracts.git#af1ae093ef8a8f68b022aa8f0f7ad9ffd94aa6fb
     devDependencies:
       '@types/node':
         specifier: ^20.11.30
@@ -658,19 +658,19 @@ importers:
         version: 4.9.6
       ds-test:
         specifier: github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0
-        version: https://codeload.github.com/dapphub/ds-test/tar.gz/e282159d5170298eb2455a6c05280ab5a73a4ef0
+        version: git+https://git@github.com:dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0
       forge-std:
         specifier: github:foundry-rs/forge-std#v1.7.5
-        version: https://codeload.github.com/foundry-rs/forge-std/tar.gz/36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3
+        version: git+https://git@github.com:foundry-rs/forge-std.git#36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3
       merkletreejs:
         specifier: ^0.4.0
         version: 0.4.0
       p256-verifier:
         specifier: github:taikoxyz/p256-verifier#v0.1.0
-        version: p256-verifier#v0.1.0@https://codeload.github.com/taikoxyz/p256-verifier/tar.gz/6ef45b117642786b08a37b4c37c6a6ce151166da
+        version: p256-verifier#v0.1.0@git+https://git@github.com:taikoxyz/p256-verifier.git#6ef45b117642786b08a37b4c37c6a6ce151166da
       solady:
         specifier: github:Vectorized/solady#v0.0.167
-        version: https://codeload.github.com/Vectorized/solady/tar.gz/de0f336d2033d04e0f77c923d639c7fbffd48b6d
+        version: git+https://git@github.com:Vectorized/solady.git#de0f336d2033d04e0f77c923d639c7fbffd48b6d
     devDependencies:
       '@types/node':
         specifier: ^20.11.30
@@ -733,10 +733,10 @@ importers:
         version: 2.1.4(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)
       '@wagmi/connectors':
         specifier: ^4.1.18
-        version: 4.1.18(@react-native-async-storage/async-storage@1.22.0(react-native@0.73.4(@babel/core@7.25.2)(@babel/preset-env@7.23.9(@babel/core@7.25.2))(bufferutil@4.0.8)(encoding@0.1.13)(react@18.2.0)(utf-8-validate@5.0.10)))(@types/react@18.3.5)(@wagmi/core@2.8.0(@types/react@18.3.5)(bufferutil@4.0.8)(react@18.2.0)(typescript@5.4.3)(utf-8-validate@5.0.10)(viem@2.21.7(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.23.8))(zod@3.23.8))(bufferutil@4.0.8)(encoding@0.1.13)(react-dom@18.2.0(react@18.2.0))(react-native@0.73.4(@babel/core@7.25.2)(@babel/preset-env@7.23.9(@babel/core@7.25.2))(bufferutil@4.0.8)(encoding@0.1.13)(react@18.2.0)(utf-8-validate@5.0.10))(react@18.2.0)(rollup@4.21.3)(typescript@5.4.3)(utf-8-validate@5.0.10)(viem@2.21.7(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.23.8))(zod@3.23.8)
+        version: 4.1.18(@react-native-async-storage/async-storage@1.22.0(react-native@0.73.4(@babel/core@7.25.2)(@babel/preset-env@7.23.9(@babel/core@7.25.2))(bufferutil@4.0.8)(encoding@0.1.13)(react@18.2.0)(utf-8-validate@5.0.10)))(@types/react@18.3.5)(@wagmi/core@2.8.0(@types/react@18.3.5)(bufferutil@4.0.8)(react@18.2.0)(typescript@5.4.3)(utf-8-validate@5.0.10)(viem@2.21.7(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.22.4))(zod@3.22.4))(bufferutil@4.0.8)(encoding@0.1.13)(react-dom@18.2.0(react@18.2.0))(react-native@0.73.4(@babel/core@7.25.2)(@babel/preset-env@7.23.9(@babel/core@7.25.2))(bufferutil@4.0.8)(encoding@0.1.13)(react@18.2.0)(utf-8-validate@5.0.10))(react@18.2.0)(rollup@4.21.3)(typescript@5.4.3)(utf-8-validate@5.0.10)(viem@2.21.7(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.22.4))(zod@3.22.4)
       '@wagmi/core':
         specifier: ^2.8.0
-        version: 2.8.0(@types/react@18.3.5)(bufferutil@4.0.8)(react@18.2.0)(typescript@5.4.3)(utf-8-validate@5.0.10)(viem@2.21.7(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.23.8))(zod@3.23.8)
+        version: 2.8.0(@types/react@18.3.5)(bufferutil@4.0.8)(react@18.2.0)(typescript@5.4.3)(utf-8-validate@5.0.10)(viem@2.21.7(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.22.4))(zod@3.22.4)
       '@web3modal/common':
         specifier: ^5.0.11
         version: 5.1.8
@@ -745,7 +745,7 @@ importers:
         version: 4.1.11
       '@web3modal/wagmi':
         specifier: ^4.1.1
-        version: 4.1.11(xgqwdfny5esqdjztzawvofqbai)
+        version: 4.1.11(7bejpi3a2bqeihrssz3xbwxki4)
       '@zerodevx/svelte-toast':
         specifier: ^0.9.5
         version: 0.9.5(svelte@4.2.13)
@@ -772,7 +772,7 @@ importers:
         version: 3.4.3(ts-node@10.9.2(@types/node@20.12.7)(typescript@5.4.3))
       viem:
         specifier: ^2.15.1
-        version: 2.21.7(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.23.8)
+        version: 2.21.7(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.22.4)
     devDependencies:
       '@chromatic-com/storybook':
         specifier: ^1.3.1
@@ -3508,44 +3508,50 @@ packages:
     resolution: {integrity: sha512-WFVcMPEkKKRCJ8DDkZUTVbLlpwgRn98F4VM/WzN89HM8PmHMnCyk/oG0AmK/seOxtik7uC7Bbi2YBC5Z5XB2zw==}
     engines: {node: '>=16.0.0'}
 
-  '@moralisweb3/api-utils@2.26.2':
-    resolution: {integrity: sha512-2HQdwRzil5AyIZID+YFk3XX6QMkdOVClMgrDtsEvZgKLUa5OXSYasSUymfSf6q8FsKJGkHK9kuqoS2dZM4aBvA==}
+  '@moralisweb3/api-utils@2.27.2':
+    resolution: {integrity: sha512-Z1Ipe+bJZqQcL3p6vtlB8Ih5ne0UJJpXutv4Qg/OGym+YrQpBNCummEQWSAMt6874IQDqNcCJzeBEpcipkzQ+Q==}
 
-  '@moralisweb3/aptos-api@2.26.2':
-    resolution: {integrity: sha512-3VXT4Q9SGE58UnX6UTrU6BExeBxkvDKfVjVd8AR6KlMcK5C6EaON3dlSfdyAqKAHv5rySXnXxZyG7EHURIzW2g==}
+  '@moralisweb3/aptos-api@2.27.2':
+    resolution: {integrity: sha512-x/dUZhlp4ocMfRTLXcLRXdBHx62l8WCNPOWCSSg5Z10WngU1REgL2WTnZPQ2ic+13re3Iv2x1YhZW098xkw0vA==}
 
-  '@moralisweb3/auth@2.26.2':
-    resolution: {integrity: sha512-29qr2jA+jsFup42vghZilmozuwV9/PCW88Or4v9k/XczFX80563ESpjJMXjgSZL3J7XspMt6YzpdqztDpvmyjA==}
+  '@moralisweb3/auth@2.27.2':
+    resolution: {integrity: sha512-q3f0AQo7RCgTtxnAvj66yoj8cBCe/Rz7AfXM4M3+irEmCjs9f+94E/e410qAztGAI2VSQIq/3gGNheJ+nviYCQ==}
 
-  '@moralisweb3/common-aptos-utils@2.26.2':
-    resolution: {integrity: sha512-+8m/953/0zmio1cHREQAvVouoirPMFWr//gy34jYMKJevwkYcDG0IhzHQ7cXEHCMNRPUYtV3OD7JodL6zMRLeQ==}
+  '@moralisweb3/common-aptos-utils@2.27.2':
+    resolution: {integrity: sha512-Th0+9nOV+rQnT39d9rXu24ff+LDtKzGuk8WzRIYAdpIo0Yv7jrWsqkJL2DwZ5vrkNOcNLabktTrLjZEXRCHw3A==}
 
-  '@moralisweb3/common-auth-utils@2.26.2':
-    resolution: {integrity: sha512-Cz526qRzMBBb5ZH/2o+J6p+bXVEL4gh5VaqDVRXODdCu81VhT+xdm2f2lNGZ4lhaFXoxYXAmUD446KM7hP+ZUw==}
+  '@moralisweb3/common-auth-utils@2.27.2':
+    resolution: {integrity: sha512-h35RkVNT+sD7C1PbSi/LwfjNdq7CyhhBShSrImXpl9Fs66jFVzronbiKFe9HOxJjn8tIz9ajxKQU46aJC2ZaHA==}
 
   '@moralisweb3/common-core@2.26.2':
     resolution: {integrity: sha512-gvisSn6kpvZGjzC5HwYeYlnlQk9wM3PMRUamtH5H1iCouQz6M8WhbZ3a9O8ldcjX8SLnxdz8w0Z479xTFIVoqQ==}
 
+  '@moralisweb3/common-core@2.27.2':
+    resolution: {integrity: sha512-/rGs2kdK/f41LizpfWTMfkyO5zFkbiOrn6wxpCTXzrzGequ+D5fWSCeYvA9BEH/XVH0aYR89eVYtQgxs5Zd0Dg==}
+
   '@moralisweb3/common-evm-utils@2.26.2':
     resolution: {integrity: sha512-ZqzCPPTvurXtNi+DuyP6JsAzbxp4KkrsaMQzAvBPGEkIjIGxswDt47NVn6vzKLWqYk/C+IK5t/hBVBla9BfAnw==}
 
-  '@moralisweb3/common-sol-utils@2.26.2':
-    resolution: {integrity: sha512-r8oxkTQfduIUNZ+/scjed6cphv8c4IPtdgarUrzz/cS2y/VcaXjDweLQsyFfMIOk4Fa0DTXaabzd8to5XNz2FQ==}
+  '@moralisweb3/common-evm-utils@2.27.2':
+    resolution: {integrity: sha512-VGhS6f2+PRUqokl3sgp6yVDxbpTPvGdhcITiPxuym6eKWhHbHkp10eS9SR0LRmR1oog6p5HS1fSkGjl0aLr6Dg==}
 
-  '@moralisweb3/common-streams-utils@2.26.2':
-    resolution: {integrity: sha512-bhNgr0G3daG3n0qaB4lQ0/qA63kG2Ich3Zju3dLH8p9KdLeMvFAQIZzlx1aT0Ij7laaoqfnv2Pb0GQ1DTkvimQ==}
+  '@moralisweb3/common-sol-utils@2.27.2':
+    resolution: {integrity: sha512-MzIFxFLtz9a8SVTvfh/WS1f7fBENtxAzpF3xiXI3SBKuoZExnR/ah8pKzY4DVL8FpswoFzVsO+yVBmToxc0aSw==}
 
-  '@moralisweb3/evm-api@2.26.2':
-    resolution: {integrity: sha512-ageSyclGqHh/X6Wr1X1OHiCTBJcvhF1af4DvTe8xF1xnLqYtPk/TY3o2DmW//0bR6lQdebySbc+UEufld5uUpg==}
+  '@moralisweb3/common-streams-utils@2.27.2':
+    resolution: {integrity: sha512-4bYUONJB5vpTnc045iSFlVIOgh/2HoEuNFj3jOzLRj/WD/H4SIeua1x1I33Z8sjTATvRKYJYuXxI1JrgAtNFtA==}
 
-  '@moralisweb3/sol-api@2.26.2':
-    resolution: {integrity: sha512-3fLnMGeuD/4EV6g7Qw6xtkyRh7RXxcIz1eTNZsph1NHQtXMTi9oQgSitTwmWcAHNzKQBXn4zoz5fx2yrIBWPIw==}
+  '@moralisweb3/evm-api@2.27.2':
+    resolution: {integrity: sha512-CLT5bAZQdBkgmz/LydavrpVAKe0aAY1pjafihgyV2nh520rQ3ZSzMHJN2ptGotPJ6ryYXAJgzWXIS4IC0dY4Tw==}
+
+  '@moralisweb3/sol-api@2.27.2':
+    resolution: {integrity: sha512-mlm0RrcDdpgRCIxMenmJ/4CLDbvrJ/26g5Fl7m5oaVT6Lug1KERksTlSYp2PxPqlHme+AU0AfvOiln5A1MorEA==}
 
   '@moralisweb3/streams-typings@1.0.7':
     resolution: {integrity: sha512-ShbVqil0KLOTyTjO6z9JewPcVVE3S6kzkQFnW2flGBRsGdKucpkUdOx1HijOLoaikz/9gH92n+lzTvRFIj0AoA==}
 
-  '@moralisweb3/streams@2.26.2':
-    resolution: {integrity: sha512-PZ8aVE7S/n5MeOTLTxYff28UfNd3qv2AmE31saRPdGMnUTj7UgSiwqGQNt3ZYS0Gh1RjzvshELn9dRll8VrzYg==}
+  '@moralisweb3/streams@2.27.2':
+    resolution: {integrity: sha512-I/y8D/VZGHPA9GM5Tkpa8uNLu3z2q3sBV9r2dzSKy7QX7p5iNTGey+FAfczC9yM+jWo2eDCJK4Il8UTRmUrk8g==}
 
   '@motionone/animation@10.16.3':
     resolution: {integrity: sha512-QUGWpLbMFLhyqKlngjZhjtxM8IqiJQjLK0DF+XOF6od9nhSvlaeEpOY/UMCRVcZn/9Tr2rZO22EkuCIjYdI74g==}
@@ -6983,8 +6989,8 @@ packages:
     resolution: {integrity: sha512-ZmdL2rui+eB2YwhsWzjInR8LldtZHGDoQ1ugH85ppHKwpUHL7j7rN0Ti9NCnGiQbhaZ11FpR+7ao1dNsmduNUg==}
     engines: {node: '>=12'}
 
-  ds-test@https://codeload.github.com/dapphub/ds-test/tar.gz/e282159d5170298eb2455a6c05280ab5a73a4ef0:
-    resolution: {tarball: https://codeload.github.com/dapphub/ds-test/tar.gz/e282159d5170298eb2455a6c05280ab5a73a4ef0}
+  ds-test@git+https://git@github.com:dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0:
+    resolution: {commit: e282159d5170298eb2455a6c05280ab5a73a4ef0, repo: git@github.com:dapphub/ds-test.git, type: git}
     version: 1.0.0
 
   dset@3.1.3:
@@ -7730,12 +7736,12 @@ packages:
   forever-agent@0.6.1:
     resolution: {integrity: sha512-j0KLYPhm6zeac4lz3oJ3o65qvgQCcPubiyotZrXqEaG4hNagNYO8qdlUrX5vwqv9ohqeT/Z3j6+yW067yWWdUw==}
 
-  forge-std@https://codeload.github.com/foundry-rs/forge-std/tar.gz/36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3:
-    resolution: {tarball: https://codeload.github.com/foundry-rs/forge-std/tar.gz/36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3}
+  forge-std@git+https://git@github.com:foundry-rs/forge-std.git#36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3:
+    resolution: {commit: 36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3, repo: git@github.com:foundry-rs/forge-std.git, type: git}
     version: 1.7.5
 
-  forge-std@https://codeload.github.com/foundry-rs/forge-std/tar.gz/8f24d6b04c92975e0795b5868aa0d783251cdeaa:
-    resolution: {tarball: https://codeload.github.com/foundry-rs/forge-std/tar.gz/8f24d6b04c92975e0795b5868aa0d783251cdeaa}
+  forge-std@git+https://git@github.com:foundry-rs/forge-std.git#8f24d6b04c92975e0795b5868aa0d783251cdeaa:
+    resolution: {commit: 8f24d6b04c92975e0795b5868aa0d783251cdeaa, repo: git@github.com:foundry-rs/forge-std.git, type: git}
     version: 1.9.3
 
   form-data-encoder@1.7.1:
@@ -9547,8 +9553,8 @@ packages:
   mock-fs@4.14.0:
     resolution: {integrity: sha512-qYvlv/exQ4+svI3UOvPUpLDF0OMX5euvUH0Ny4N5QyRyhNdgAgUrVH3iUINSzEPLvx0kbo/Bp28GJKIqvE7URw==}
 
-  moralis@2.26.2:
-    resolution: {integrity: sha512-9CfzUuPvTZrwyjQQ+rtpvnIXKR6G793iWDXCBUpZomAUHk/3KcR80KwuBZBAvH9uIfl7MGqkp3C0uk5vX2714Q==}
+  moralis@2.27.2:
+    resolution: {integrity: sha512-SVPJDVRgqUEkLxC8R/QlBHOtAxvUBzK4b/w1oBW9m9oJigywhgNQMKLfu9eJZ3lMxvnVOMBUD+hzw47I4dEg7g==}
 
   motion@10.16.2:
     resolution: {integrity: sha512-p+PurYqfUdcJZvtnmAqu5fJgV2kR0uLFQuBKtLeFVTrYEVllI99tiOTSefVNYuip9ELTEkepIIDftNdze76NAQ==}
@@ -9606,8 +9612,8 @@ packages:
   multihashes@0.4.21:
     resolution: {integrity: sha512-uVSvmeCWf36pU2nB4/1kzYZjsXD9vofZKpgudqkceYY5g2aZZXJ5r9lxuzoRLl1OAp28XljXsEJ/X/85ZsKmKw==}
 
-  murky@https://codeload.github.com/dmfxyz/murky/tar.gz/5feccd1253d7da820f7cccccdedf64471025455d:
-    resolution: {tarball: https://codeload.github.com/dmfxyz/murky/tar.gz/5feccd1253d7da820f7cccccdedf64471025455d}
+  murky@git+https://git@github.com:dmfxyz/murky.git#5feccd1253d7da820f7cccccdedf64471025455d:
+    resolution: {commit: 5feccd1253d7da820f7cccccdedf64471025455d, repo: git@github.com:dmfxyz/murky.git, type: git}
     version: 0.0.0
 
   mute-stream@0.0.8:
@@ -9870,8 +9876,8 @@ packages:
   openapi-types@12.1.3:
     resolution: {integrity: sha512-N4YtSYJqghVu4iek2ZUvcN/0aqH1kRDuNqzcycDxhOUpg7GdvLa2F3DgS6yBNhInhv2r/6I0Flkn7CqL8+nIcw==}
 
-  optimism@https://codeload.github.com/ethereum-optimism/optimism/tar.gz/ab3a54febb36398539fd3b849c222b7e70169dc8:
-    resolution: {tarball: https://codeload.github.com/ethereum-optimism/optimism/tar.gz/ab3a54febb36398539fd3b849c222b7e70169dc8}
+  optimism@git+https://git@github.com:ethereum-optimism/optimism.git#ab3a54febb36398539fd3b849c222b7e70169dc8:
+    resolution: {commit: ab3a54febb36398539fd3b849c222b7e70169dc8, repo: git@github.com:ethereum-optimism/optimism.git, type: git}
     version: 1.0.0
     engines: {node: '>=16', pnpm: '>=9'}
 
@@ -9977,8 +9983,8 @@ packages:
     resolution: {integrity: sha512-R4nPAVTAU0B9D35/Gk3uJf/7XYbQcyohSKdvAxIRSNghFl4e71hVoGnBNQz9cWaXxO2I10KTC+3jMdvvoKw6dQ==}
     engines: {node: '>=6'}
 
-  p256-verifier#v0.1.0@https://codeload.github.com/taikoxyz/p256-verifier/tar.gz/6ef45b117642786b08a37b4c37c6a6ce151166da:
-    resolution: {tarball: https://codeload.github.com/taikoxyz/p256-verifier/tar.gz/6ef45b117642786b08a37b4c37c6a6ce151166da}
+  p256-verifier#v0.1.0@git+https://git@github.com:taikoxyz/p256-verifier.git#6ef45b117642786b08a37b4c37c6a6ce151166da:
+    resolution: {commit: 6ef45b117642786b08a37b4c37c6a6ce151166da, repo: git@github.com:taikoxyz/p256-verifier.git, type: git}
     version: 0.0.0
 
   package-json-from-dist@1.0.0:
@@ -10819,8 +10825,8 @@ packages:
   ripemd160@2.0.2:
     resolution: {integrity: sha512-ii4iagi25WusVoiC4B4lq7pbXfAp3D9v5CwfkY33vffw2+pkDjY1D8GaN7spsxvCSx8dkPqOZCEZyfxcmJG2IA==}
 
-  risc0-ethereum#v1.0.0@https://codeload.github.com/risc0/risc0-ethereum/tar.gz/5fbbc7cb44ab37ce438c14c087ba6c4e0a669900:
-    resolution: {tarball: https://codeload.github.com/risc0/risc0-ethereum/tar.gz/5fbbc7cb44ab37ce438c14c087ba6c4e0a669900}
+  risc0-ethereum#v1.0.0@git+https://git@github.com:risc0/risc0-ethereum.git#5fbbc7cb44ab37ce438c14c087ba6c4e0a669900:
+    resolution: {commit: 5fbbc7cb44ab37ce438c14c087ba6c4e0a669900, repo: git@github.com:risc0/risc0-ethereum.git, type: git}
     version: 0.0.0
 
   rlp@2.2.7:
@@ -11091,12 +11097,12 @@ packages:
     resolution: {integrity: sha512-/GbIKmo8ioc+NIWIhwdecY0ge+qVBSMdgxGygevmdHj24bsfgtCmcUUcQ5ZzcylGFHsN3k4HB4Cgkl96KVnuew==}
     engines: {node: '>=10.0.0'}
 
-  solady@https://codeload.github.com/Vectorized/solady/tar.gz/a12a2575c899a328c1bafdada632dabbff27cf6b:
-    resolution: {tarball: https://codeload.github.com/Vectorized/solady/tar.gz/a12a2575c899a328c1bafdada632dabbff27cf6b}
+  solady@git+https://git@github.com:Vectorized/solady.git#a12a2575c899a328c1bafdada632dabbff27cf6b:
+    resolution: {commit: a12a2575c899a328c1bafdada632dabbff27cf6b, repo: git@github.com:Vectorized/solady.git, type: git}
     version: 0.0.231
 
-  solady@https://codeload.github.com/Vectorized/solady/tar.gz/de0f336d2033d04e0f77c923d639c7fbffd48b6d:
-    resolution: {tarball: https://codeload.github.com/Vectorized/solady/tar.gz/de0f336d2033d04e0f77c923d639c7fbffd48b6d}
+  solady@git+https://git@github.com:Vectorized/solady.git#de0f336d2033d04e0f77c923d639c7fbffd48b6d:
+    resolution: {commit: de0f336d2033d04e0f77c923d639c7fbffd48b6d, repo: git@github.com:Vectorized/solady.git, type: git}
     version: 0.0.167
 
   solc@0.8.24:
@@ -11112,8 +11118,8 @@ packages:
     resolution: {integrity: sha512-OLCH6qm/mZTCpplTXzXTJGId1zrtNuDYP5c2e6snIv/hdRVxPfBBz/bAlL91bY/Accavkayp2Zp2BaDSrLVXTQ==}
     hasBin: true
 
-  solidity-stringutils@https://codeload.github.com/Arachnid/solidity-stringutils/tar.gz/4b2fcc43fa0426e19ce88b1f1ec16f5903a2e461:
-    resolution: {tarball: https://codeload.github.com/Arachnid/solidity-stringutils/tar.gz/4b2fcc43fa0426e19ce88b1f1ec16f5903a2e461}
+  solidity-stringutils@git+https://git@github.com:Arachnid/solidity-stringutils.git#4b2fcc43fa0426e19ce88b1f1ec16f5903a2e461:
+    resolution: {commit: 4b2fcc43fa0426e19ce88b1f1ec16f5903a2e461, repo: git@github.com:Arachnid/solidity-stringutils.git, type: git}
     version: 0.0.0
 
   sonic-boom@2.8.0:
@@ -11146,8 +11152,8 @@ packages:
     resolution: {integrity: sha512-l3BikUxvPOcn5E74dZiq5BGsTb5yEwhaTSzccU6t4sDOH8NWJCstKO5QT2CvtFoK6F0saL7p9xHAqHOlCPJygA==}
     engines: {node: '>= 8'}
 
-  sp1-contracts#v2.0.0@https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/af1ae093ef8a8f68b022aa8f0f7ad9ffd94aa6fb:
-    resolution: {tarball: https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/af1ae093ef8a8f68b022aa8f0f7ad9ffd94aa6fb}
+  sp1-contracts#v2.0.0@git+https://git@github.com:succinctlabs/sp1-contracts.git#af1ae093ef8a8f68b022aa8f0f7ad9ffd94aa6fb:
+    resolution: {commit: af1ae093ef8a8f68b022aa8f0f7ad9ffd94aa6fb, repo: git@github.com:succinctlabs/sp1-contracts.git, type: git}
     version: 0.0.0
 
   space-separated-tokens@2.0.2:
@@ -13100,7 +13106,7 @@ snapshots:
       '@aws-sdk/client-sso-oidc': 3.577.0
       '@aws-sdk/client-sts': 3.577.0(@aws-sdk/client-sso-oidc@3.577.0)
       '@aws-sdk/core': 3.576.0
-      '@aws-sdk/credential-provider-node': 3.577.0(@aws-sdk/client-sso-oidc@3.577.0)(@aws-sdk/client-sts@3.577.0)
+      '@aws-sdk/credential-provider-node': 3.577.0(@aws-sdk/client-sso-oidc@3.577.0)(@aws-sdk/client-sts@3.577.0(@aws-sdk/client-sso-oidc@3.577.0))
       '@aws-sdk/middleware-bucket-endpoint': 3.577.0
       '@aws-sdk/middleware-expect-continue': 3.577.0
       '@aws-sdk/middleware-flexible-checksums': 3.577.0
@@ -13161,7 +13167,7 @@ snapshots:
       '@aws-crypto/sha256-js': 3.0.0
       '@aws-sdk/client-sts': 3.577.0(@aws-sdk/client-sso-oidc@3.577.0)
       '@aws-sdk/core': 3.576.0
-      '@aws-sdk/credential-provider-node': 3.577.0(@aws-sdk/client-sso-oidc@3.577.0)(@aws-sdk/client-sts@3.577.0)
+      '@aws-sdk/credential-provider-node': 3.577.0(@aws-sdk/client-sso-oidc@3.577.0)(@aws-sdk/client-sts@3.577.0(@aws-sdk/client-sso-oidc@3.577.0))
       '@aws-sdk/middleware-host-header': 3.577.0
       '@aws-sdk/middleware-logger': 3.577.0
       '@aws-sdk/middleware-recursion-detection': 3.577.0
@@ -13249,7 +13255,7 @@ snapshots:
       '@aws-crypto/sha256-js': 3.0.0
       '@aws-sdk/client-sso-oidc': 3.577.0
       '@aws-sdk/core': 3.576.0
-      '@aws-sdk/credential-provider-node': 3.577.0(@aws-sdk/client-sso-oidc@3.577.0)(@aws-sdk/client-sts@3.577.0)
+      '@aws-sdk/credential-provider-node': 3.577.0(@aws-sdk/client-sso-oidc@3.577.0)(@aws-sdk/client-sts@3.577.0(@aws-sdk/client-sso-oidc@3.577.0))
       '@aws-sdk/middleware-host-header': 3.577.0
       '@aws-sdk/middleware-logger': 3.577.0
       '@aws-sdk/middleware-recursion-detection': 3.577.0
@@ -13318,13 +13324,13 @@ snapshots:
       '@smithy/util-stream': 3.0.1
       tslib: 2.6.2
 
-  '@aws-sdk/credential-provider-ini@3.577.0(@aws-sdk/client-sso-oidc@3.577.0)(@aws-sdk/client-sts@3.577.0)':
+  '@aws-sdk/credential-provider-ini@3.577.0(@aws-sdk/client-sso-oidc@3.577.0)(@aws-sdk/client-sts@3.577.0(@aws-sdk/client-sso-oidc@3.577.0))':
     dependencies:
       '@aws-sdk/client-sts': 3.577.0(@aws-sdk/client-sso-oidc@3.577.0)
       '@aws-sdk/credential-provider-env': 3.577.0
       '@aws-sdk/credential-provider-process': 3.577.0
       '@aws-sdk/credential-provider-sso': 3.577.0(@aws-sdk/client-sso-oidc@3.577.0)
-      '@aws-sdk/credential-provider-web-identity': 3.577.0(@aws-sdk/client-sts@3.577.0)
+      '@aws-sdk/credential-provider-web-identity': 3.577.0(@aws-sdk/client-sts@3.577.0(@aws-sdk/client-sso-oidc@3.577.0))
       '@aws-sdk/types': 3.577.0
       '@smithy/credential-provider-imds': 3.0.0
       '@smithy/property-provider': 3.0.0
@@ -13335,14 +13341,14 @@ snapshots:
       - '@aws-sdk/client-sso-oidc'
       - aws-crt
 
-  '@aws-sdk/credential-provider-node@3.577.0(@aws-sdk/client-sso-oidc@3.577.0)(@aws-sdk/client-sts@3.577.0)':
+  '@aws-sdk/credential-provider-node@3.577.0(@aws-sdk/client-sso-oidc@3.577.0)(@aws-sdk/client-sts@3.577.0(@aws-sdk/client-sso-oidc@3.577.0))':
     dependencies:
       '@aws-sdk/credential-provider-env': 3.577.0
       '@aws-sdk/credential-provider-http': 3.577.0
-      '@aws-sdk/credential-provider-ini': 3.577.0(@aws-sdk/client-sso-oidc@3.577.0)(@aws-sdk/client-sts@3.577.0)
+      '@aws-sdk/credential-provider-ini': 3.577.0(@aws-sdk/client-sso-oidc@3.577.0)(@aws-sdk/client-sts@3.577.0(@aws-sdk/client-sso-oidc@3.577.0))
       '@aws-sdk/credential-provider-process': 3.577.0
       '@aws-sdk/credential-provider-sso': 3.577.0(@aws-sdk/client-sso-oidc@3.577.0)
-      '@aws-sdk/credential-provider-web-identity': 3.577.0(@aws-sdk/client-sts@3.577.0)
+      '@aws-sdk/credential-provider-web-identity': 3.577.0(@aws-sdk/client-sts@3.577.0(@aws-sdk/client-sso-oidc@3.577.0))
       '@aws-sdk/types': 3.577.0
       '@smithy/credential-provider-imds': 3.0.0
       '@smithy/property-provider': 3.0.0
@@ -13375,7 +13381,7 @@ snapshots:
       - '@aws-sdk/client-sso-oidc'
       - aws-crt
 
-  '@aws-sdk/credential-provider-web-identity@3.577.0(@aws-sdk/client-sts@3.577.0)':
+  '@aws-sdk/credential-provider-web-identity@3.577.0(@aws-sdk/client-sts@3.577.0(@aws-sdk/client-sso-oidc@3.577.0))':
     dependencies:
       '@aws-sdk/client-sts': 3.577.0(@aws-sdk/client-sso-oidc@3.577.0)
       '@aws-sdk/types': 3.577.0
@@ -15875,7 +15881,7 @@ snapshots:
   '@metamask/eth-json-rpc-provider@1.0.1':
     dependencies:
       '@metamask/json-rpc-engine': 7.3.2
-      '@metamask/safe-event-emitter': 3.0.0
+      '@metamask/safe-event-emitter': 3.1.1
       '@metamask/utils': 5.0.2
     transitivePeerDependencies:
       - supports-color
@@ -15883,7 +15889,7 @@ snapshots:
   '@metamask/json-rpc-engine@7.3.2':
     dependencies:
       '@metamask/rpc-errors': 6.1.0
-      '@metamask/safe-event-emitter': 3.0.0
+      '@metamask/safe-event-emitter': 3.1.1
       '@metamask/utils': 8.3.0
     transitivePeerDependencies:
       - supports-color
@@ -15899,7 +15905,7 @@ snapshots:
   '@metamask/json-rpc-middleware-stream@6.0.2':
     dependencies:
       '@metamask/json-rpc-engine': 7.3.2
-      '@metamask/safe-event-emitter': 3.0.0
+      '@metamask/safe-event-emitter': 3.1.1
       '@metamask/utils': 8.3.0
       readable-stream: 3.6.2
     transitivePeerDependencies:
@@ -16196,8 +16202,8 @@ snapshots:
     dependencies:
       '@ethereumjs/tx': 4.2.0
       '@types/debug': 4.1.12
-      debug: 4.3.4
-      semver: 7.6.2
+      debug: 4.3.7
+      semver: 7.6.3
       superstruct: 1.0.3
     transitivePeerDependencies:
       - supports-color
@@ -16205,7 +16211,7 @@ snapshots:
   '@metamask/utils@8.3.0':
     dependencies:
       '@ethereumjs/tx': 4.2.0
-      '@noble/hashes': 1.3.3
+      '@noble/hashes': 1.5.0
       '@scure/base': 1.1.5
       '@types/debug': 4.1.12
       debug: 4.3.4
@@ -16215,47 +16221,47 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@moralisweb3/api-utils@2.26.2(debug@4.3.4)':
+  '@moralisweb3/api-utils@2.27.2(debug@4.3.4)':
     dependencies:
-      '@moralisweb3/common-core': 2.26.2(debug@4.3.4)
-      '@moralisweb3/common-evm-utils': 2.26.2(debug@4.3.4)
-      axios: 1.6.7(debug@4.3.4)
+      '@moralisweb3/common-core': 2.27.2(debug@4.3.4)
+      '@moralisweb3/common-evm-utils': 2.27.2(debug@4.3.4)
+      axios: 1.7.7(debug@4.3.4)
     transitivePeerDependencies:
       - debug
 
-  '@moralisweb3/aptos-api@2.26.2(debug@4.3.4)':
+  '@moralisweb3/aptos-api@2.27.2(debug@4.3.4)':
     dependencies:
-      '@moralisweb3/api-utils': 2.26.2(debug@4.3.4)
-      '@moralisweb3/common-aptos-utils': 2.26.2(debug@4.3.4)
-      '@moralisweb3/common-core': 2.26.2(debug@4.3.4)
+      '@moralisweb3/api-utils': 2.27.2(debug@4.3.4)
+      '@moralisweb3/common-aptos-utils': 2.27.2(debug@4.3.4)
+      '@moralisweb3/common-core': 2.27.2(debug@4.3.4)
     transitivePeerDependencies:
       - debug
 
-  '@moralisweb3/auth@2.26.2(debug@4.3.4)':
+  '@moralisweb3/auth@2.27.2(debug@4.3.4)':
     dependencies:
-      '@moralisweb3/api-utils': 2.26.2(debug@4.3.4)
-      '@moralisweb3/common-aptos-utils': 2.26.2(debug@4.3.4)
-      '@moralisweb3/common-auth-utils': 2.26.2(debug@4.3.4)
-      '@moralisweb3/common-core': 2.26.2(debug@4.3.4)
-      '@moralisweb3/common-evm-utils': 2.26.2(debug@4.3.4)
-      '@moralisweb3/common-sol-utils': 2.26.2(debug@4.3.4)
+      '@moralisweb3/api-utils': 2.27.2(debug@4.3.4)
+      '@moralisweb3/common-aptos-utils': 2.27.2(debug@4.3.4)
+      '@moralisweb3/common-auth-utils': 2.27.2(debug@4.3.4)
+      '@moralisweb3/common-core': 2.27.2(debug@4.3.4)
+      '@moralisweb3/common-evm-utils': 2.27.2(debug@4.3.4)
+      '@moralisweb3/common-sol-utils': 2.27.2(debug@4.3.4)
     transitivePeerDependencies:
       - debug
 
-  '@moralisweb3/common-aptos-utils@2.26.2(debug@4.3.4)':
+  '@moralisweb3/common-aptos-utils@2.27.2(debug@4.3.4)':
     dependencies:
-      '@moralisweb3/common-core': 2.26.2(debug@4.3.4)
-      '@noble/hashes': 1.3.3
+      '@moralisweb3/common-core': 2.27.2(debug@4.3.4)
+      '@noble/hashes': 1.5.0
     transitivePeerDependencies:
       - debug
 
-  '@moralisweb3/common-auth-utils@2.26.2(debug@4.3.4)':
+  '@moralisweb3/common-auth-utils@2.27.2(debug@4.3.4)':
     dependencies:
       '@ethersproject/abi': 5.7.0
-      '@moralisweb3/common-aptos-utils': 2.26.2(debug@4.3.4)
-      '@moralisweb3/common-core': 2.26.2(debug@4.3.4)
-      '@moralisweb3/common-evm-utils': 2.26.2(debug@4.3.4)
-      '@moralisweb3/common-sol-utils': 2.26.2(debug@4.3.4)
+      '@moralisweb3/common-aptos-utils': 2.27.2(debug@4.3.4)
+      '@moralisweb3/common-core': 2.27.2(debug@4.3.4)
+      '@moralisweb3/common-evm-utils': 2.27.2(debug@4.3.4)
+      '@moralisweb3/common-sol-utils': 2.27.2(debug@4.3.4)
       '@moralisweb3/streams-typings': 1.0.7
     transitivePeerDependencies:
       - debug
@@ -16263,6 +16269,12 @@ snapshots:
   '@moralisweb3/common-core@2.26.2(debug@4.3.4)':
     dependencies:
       axios: 1.6.7(debug@4.3.4)
+    transitivePeerDependencies:
+      - debug
+
+  '@moralisweb3/common-core@2.27.2(debug@4.3.4)':
+    dependencies:
+      axios: 1.7.7(debug@4.3.4)
     transitivePeerDependencies:
       - debug
 
@@ -16275,53 +16287,62 @@ snapshots:
     transitivePeerDependencies:
       - debug
 
-  '@moralisweb3/common-sol-utils@2.26.2(debug@4.3.4)':
+  '@moralisweb3/common-evm-utils@2.27.2(debug@4.3.4)':
     dependencies:
-      '@moralisweb3/common-core': 2.26.2(debug@4.3.4)
+      '@ethersproject/address': 5.7.0
+      '@ethersproject/bytes': 5.7.0
+      '@ethersproject/transactions': 5.7.0
+      '@moralisweb3/common-core': 2.27.2(debug@4.3.4)
+    transitivePeerDependencies:
+      - debug
+
+  '@moralisweb3/common-sol-utils@2.27.2(debug@4.3.4)':
+    dependencies:
+      '@moralisweb3/common-core': 2.27.2(debug@4.3.4)
       bn.js: 5.2.1
       bs58: 5.0.0
       buffer: 6.0.3
     transitivePeerDependencies:
       - debug
 
-  '@moralisweb3/common-streams-utils@2.26.2(debug@4.3.4)':
+  '@moralisweb3/common-streams-utils@2.27.2(debug@4.3.4)':
     dependencies:
       '@ethersproject/abi': 5.7.0
-      '@moralisweb3/common-aptos-utils': 2.26.2(debug@4.3.4)
-      '@moralisweb3/common-core': 2.26.2(debug@4.3.4)
-      '@moralisweb3/common-evm-utils': 2.26.2(debug@4.3.4)
+      '@moralisweb3/common-aptos-utils': 2.27.2(debug@4.3.4)
+      '@moralisweb3/common-core': 2.27.2(debug@4.3.4)
+      '@moralisweb3/common-evm-utils': 2.27.2(debug@4.3.4)
       '@moralisweb3/streams-typings': 1.0.7
     transitivePeerDependencies:
       - debug
 
-  '@moralisweb3/evm-api@2.26.2(debug@4.3.4)':
+  '@moralisweb3/evm-api@2.27.2(debug@4.3.4)':
     dependencies:
-      '@moralisweb3/api-utils': 2.26.2(debug@4.3.4)
-      '@moralisweb3/common-core': 2.26.2(debug@4.3.4)
-      '@moralisweb3/common-evm-utils': 2.26.2(debug@4.3.4)
+      '@moralisweb3/api-utils': 2.27.2(debug@4.3.4)
+      '@moralisweb3/common-core': 2.27.2(debug@4.3.4)
+      '@moralisweb3/common-evm-utils': 2.27.2(debug@4.3.4)
     transitivePeerDependencies:
       - debug
 
-  '@moralisweb3/sol-api@2.26.2(debug@4.3.4)':
+  '@moralisweb3/sol-api@2.27.2(debug@4.3.4)':
     dependencies:
-      '@moralisweb3/api-utils': 2.26.2(debug@4.3.4)
-      '@moralisweb3/common-core': 2.26.2(debug@4.3.4)
-      '@moralisweb3/common-sol-utils': 2.26.2(debug@4.3.4)
+      '@moralisweb3/api-utils': 2.27.2(debug@4.3.4)
+      '@moralisweb3/common-core': 2.27.2(debug@4.3.4)
+      '@moralisweb3/common-sol-utils': 2.27.2(debug@4.3.4)
     transitivePeerDependencies:
       - debug
 
   '@moralisweb3/streams-typings@1.0.7': {}
 
-  '@moralisweb3/streams@2.26.2(debug@4.3.4)':
+  '@moralisweb3/streams@2.27.2(debug@4.3.4)':
     dependencies:
       '@ethersproject/abi': 5.7.0
       '@ethersproject/bignumber': 5.7.0
       '@ethersproject/sha2': 5.7.0
       '@ethersproject/strings': 5.7.0
-      '@moralisweb3/api-utils': 2.26.2(debug@4.3.4)
-      '@moralisweb3/common-core': 2.26.2(debug@4.3.4)
-      '@moralisweb3/common-evm-utils': 2.26.2(debug@4.3.4)
-      '@moralisweb3/common-streams-utils': 2.26.2(debug@4.3.4)
+      '@moralisweb3/api-utils': 2.27.2(debug@4.3.4)
+      '@moralisweb3/common-core': 2.27.2(debug@4.3.4)
+      '@moralisweb3/common-evm-utils': 2.27.2(debug@4.3.4)
+      '@moralisweb3/common-streams-utils': 2.27.2(debug@4.3.4)
       '@moralisweb3/streams-typings': 1.0.7
       ethereumjs-util: 7.1.5
       web3-eth-abi: 1.10.4
@@ -16473,7 +16494,7 @@ snapshots:
   '@openzeppelin/defender-sdk-account-client@1.14.4(encoding@0.1.13)':
     dependencies:
       '@openzeppelin/defender-sdk-base-client': 1.14.4(encoding@0.1.13)
-      axios: 1.7.7
+      axios: 1.7.7(debug@4.3.4)
       lodash: 4.17.21
     transitivePeerDependencies:
       - debug
@@ -16482,7 +16503,7 @@ snapshots:
   '@openzeppelin/defender-sdk-action-client@1.14.4(encoding@0.1.13)':
     dependencies:
       '@openzeppelin/defender-sdk-base-client': 1.14.4(encoding@0.1.13)
-      axios: 1.7.7
+      axios: 1.7.7(debug@4.3.4)
       dotenv: 16.4.5
       glob: 11.0.0
       jszip: 3.10.1
@@ -16501,7 +16522,7 @@ snapshots:
   '@openzeppelin/defender-sdk-deploy-client@1.14.4(encoding@0.1.13)':
     dependencies:
       '@openzeppelin/defender-sdk-base-client': 1.14.4(encoding@0.1.13)
-      axios: 1.7.7
+      axios: 1.7.7(debug@4.3.4)
       lodash: 4.17.21
     transitivePeerDependencies:
       - debug
@@ -16510,7 +16531,7 @@ snapshots:
   '@openzeppelin/defender-sdk-key-value-store-client@1.14.4(encoding@0.1.13)':
     dependencies:
       '@openzeppelin/defender-sdk-base-client': 1.14.4(encoding@0.1.13)
-      axios: 1.7.7
+      axios: 1.7.7(debug@4.3.4)
       fs-extra: 11.2.0
       lodash: 4.17.21
     transitivePeerDependencies:
@@ -16520,7 +16541,7 @@ snapshots:
   '@openzeppelin/defender-sdk-monitor-client@1.14.4(bufferutil@4.0.8)(encoding@0.1.13)(utf-8-validate@5.0.10)':
     dependencies:
       '@openzeppelin/defender-sdk-base-client': 1.14.4(encoding@0.1.13)
-      axios: 1.7.7
+      axios: 1.7.7(debug@4.3.4)
       ethers: 6.13.2(bufferutil@4.0.8)(utf-8-validate@5.0.10)
       lodash: 4.17.21
     transitivePeerDependencies:
@@ -16532,7 +16553,7 @@ snapshots:
   '@openzeppelin/defender-sdk-network-client@1.14.4(encoding@0.1.13)':
     dependencies:
       '@openzeppelin/defender-sdk-base-client': 1.14.4(encoding@0.1.13)
-      axios: 1.7.7
+      axios: 1.7.7(debug@4.3.4)
       lodash: 4.17.21
     transitivePeerDependencies:
       - debug
@@ -16541,7 +16562,7 @@ snapshots:
   '@openzeppelin/defender-sdk-notification-channel-client@1.14.4(encoding@0.1.13)':
     dependencies:
       '@openzeppelin/defender-sdk-base-client': 1.14.4(encoding@0.1.13)
-      axios: 1.7.7
+      axios: 1.7.7(debug@4.3.4)
       lodash: 4.17.21
     transitivePeerDependencies:
       - debug
@@ -16550,7 +16571,7 @@ snapshots:
   '@openzeppelin/defender-sdk-proposal-client@1.14.4(bufferutil@4.0.8)(encoding@0.1.13)(utf-8-validate@5.0.10)':
     dependencies:
       '@openzeppelin/defender-sdk-base-client': 1.14.4(encoding@0.1.13)
-      axios: 1.7.7
+      axios: 1.7.7(debug@4.3.4)
       ethers: 6.13.2(bufferutil@4.0.8)(utf-8-validate@5.0.10)
       lodash: 4.17.21
     transitivePeerDependencies:
@@ -16562,7 +16583,7 @@ snapshots:
   '@openzeppelin/defender-sdk-relay-client@1.14.4(encoding@0.1.13)':
     dependencies:
       '@openzeppelin/defender-sdk-base-client': 1.14.4(encoding@0.1.13)
-      axios: 1.7.7
+      axios: 1.7.7(debug@4.3.4)
       lodash: 4.17.21
     transitivePeerDependencies:
       - debug
@@ -16579,7 +16600,7 @@ snapshots:
       '@ethersproject/strings': 5.7.0
       '@openzeppelin/defender-sdk-base-client': 1.14.4(encoding@0.1.13)
       amazon-cognito-identity-js: 6.3.12(encoding@0.1.13)
-      axios: 1.7.7
+      axios: 1.7.7(debug@4.3.4)
       ethers: 6.13.2(bufferutil@4.0.8)(utf-8-validate@5.0.10)
       lodash: 4.17.21
       web3: 1.10.4(bufferutil@4.0.8)(encoding@0.1.13)(utf-8-validate@5.0.10)
@@ -19102,16 +19123,16 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  '@wagmi/connectors@4.1.18(@react-native-async-storage/async-storage@1.22.0(react-native@0.73.4(@babel/core@7.25.2)(@babel/preset-env@7.23.9(@babel/core@7.25.2))(bufferutil@4.0.8)(encoding@0.1.13)(react@18.2.0)(utf-8-validate@5.0.10)))(@types/react@18.3.5)(@wagmi/core@2.8.0(@types/react@18.3.5)(bufferutil@4.0.8)(react@18.2.0)(typescript@5.4.3)(utf-8-validate@5.0.10)(viem@2.21.7(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.23.8))(zod@3.23.8))(bufferutil@4.0.8)(encoding@0.1.13)(react-dom@18.2.0(react@18.2.0))(react-native@0.73.4(@babel/core@7.25.2)(@babel/preset-env@7.23.9(@babel/core@7.25.2))(bufferutil@4.0.8)(encoding@0.1.13)(react@18.2.0)(utf-8-validate@5.0.10))(react@18.2.0)(rollup@4.21.3)(typescript@5.4.3)(utf-8-validate@5.0.10)(viem@2.21.7(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.23.8))(zod@3.23.8)':
+  '@wagmi/connectors@4.1.18(@react-native-async-storage/async-storage@1.22.0(react-native@0.73.4(@babel/core@7.25.2)(@babel/preset-env@7.23.9(@babel/core@7.25.2))(bufferutil@4.0.8)(encoding@0.1.13)(react@18.2.0)(utf-8-validate@5.0.10)))(@types/react@18.3.5)(@wagmi/core@2.8.0(@types/react@18.3.5)(bufferutil@4.0.8)(react@18.2.0)(typescript@5.4.3)(utf-8-validate@5.0.10)(viem@2.21.7(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.22.4))(zod@3.22.4))(bufferutil@4.0.8)(encoding@0.1.13)(react-dom@18.2.0(react@18.2.0))(react-native@0.73.4(@babel/core@7.25.2)(@babel/preset-env@7.23.9(@babel/core@7.25.2))(bufferutil@4.0.8)(encoding@0.1.13)(react@18.2.0)(utf-8-validate@5.0.10))(react@18.2.0)(rollup@4.21.3)(typescript@5.4.3)(utf-8-validate@5.0.10)(viem@2.21.7(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.22.4))(zod@3.22.4)':
     dependencies:
       '@coinbase/wallet-sdk': 3.9.1
       '@metamask/sdk': 0.14.3(@types/react@18.3.5)(bufferutil@4.0.8)(encoding@0.1.13)(react-dom@18.2.0(react@18.2.0))(react-native@0.73.4(@babel/core@7.25.2)(@babel/preset-env@7.23.9(@babel/core@7.25.2))(bufferutil@4.0.8)(encoding@0.1.13)(react@18.2.0)(utf-8-validate@5.0.10))(react@18.2.0)(rollup@4.21.3)(utf-8-validate@5.0.10)
-      '@safe-global/safe-apps-provider': 0.18.1(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.23.8)
-      '@safe-global/safe-apps-sdk': 8.1.0(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.23.8)
-      '@wagmi/core': 2.8.0(@types/react@18.3.5)(bufferutil@4.0.8)(react@18.2.0)(typescript@5.4.3)(utf-8-validate@5.0.10)(viem@2.21.7(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.23.8))(zod@3.23.8)
+      '@safe-global/safe-apps-provider': 0.18.1(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.22.4)
+      '@safe-global/safe-apps-sdk': 8.1.0(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.22.4)
+      '@wagmi/core': 2.8.0(@types/react@18.3.5)(bufferutil@4.0.8)(react@18.2.0)(typescript@5.4.3)(utf-8-validate@5.0.10)(viem@2.21.7(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.22.4))(zod@3.22.4)
       '@walletconnect/ethereum-provider': 2.11.2(@react-native-async-storage/async-storage@1.22.0(react-native@0.73.4(@babel/core@7.25.2)(@babel/preset-env@7.23.9(@babel/core@7.25.2))(bufferutil@4.0.8)(encoding@0.1.13)(react@18.2.0)(utf-8-validate@5.0.10)))(@types/react@18.3.5)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.2.0)(utf-8-validate@5.0.10)
       '@walletconnect/modal': 2.6.2(@types/react@18.3.5)(react@18.2.0)
-      viem: 2.21.7(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.23.8)
+      viem: 2.21.7(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.22.4)
     optionalDependencies:
       typescript: 5.4.3
     transitivePeerDependencies:
@@ -19138,16 +19159,16 @@ snapshots:
       - utf-8-validate
       - zod
 
-  '@wagmi/connectors@4.3.10(yrxxgsr3s6m7a4itnzsb2c7inm)':
+  '@wagmi/connectors@4.3.10(vnbhrjghrun7rfuxsawo7otej4)':
     dependencies:
       '@coinbase/wallet-sdk': 3.9.1
       '@metamask/sdk': 0.20.3(bufferutil@4.0.8)(encoding@0.1.13)(react-dom@18.2.0(react@18.2.0))(react-i18next@13.5.0(i18next@22.5.1)(react-dom@18.2.0(react@18.2.0))(react-native@0.73.4(@babel/core@7.25.2)(@babel/preset-env@7.23.9(@babel/core@7.25.2))(bufferutil@4.0.8)(encoding@0.1.13)(react@18.2.0)(utf-8-validate@5.0.10))(react@18.2.0))(react-native@0.73.4(@babel/core@7.25.2)(@babel/preset-env@7.23.9(@babel/core@7.25.2))(bufferutil@4.0.8)(encoding@0.1.13)(react@18.2.0)(utf-8-validate@5.0.10))(react@18.2.0)(rollup@4.21.3)(utf-8-validate@5.0.10)
-      '@safe-global/safe-apps-provider': 0.18.1(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.22.4)
-      '@safe-global/safe-apps-sdk': 8.1.0(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.22.4)
-      '@wagmi/core': 2.10.2(@types/react@18.3.5)(bufferutil@4.0.8)(react@18.2.0)(typescript@5.4.3)(utf-8-validate@5.0.10)(viem@2.9.29(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.22.4))(zod@3.22.4)
+      '@safe-global/safe-apps-provider': 0.18.1(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.23.8)
+      '@safe-global/safe-apps-sdk': 8.1.0(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.23.8)
+      '@wagmi/core': 2.10.2(@types/react@18.3.5)(bufferutil@4.0.8)(react@18.2.0)(typescript@5.4.3)(utf-8-validate@5.0.10)(viem@2.9.29(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.23.8))(zod@3.23.8)
       '@walletconnect/ethereum-provider': 2.13.0(@react-native-async-storage/async-storage@1.22.0(react-native@0.73.4(@babel/core@7.25.2)(@babel/preset-env@7.23.9(@babel/core@7.25.2))(bufferutil@4.0.8)(encoding@0.1.13)(react@18.2.0)(utf-8-validate@5.0.10)))(@types/react@18.3.5)(bufferutil@4.0.8)(encoding@0.1.13)(react@18.2.0)(utf-8-validate@5.0.10)
       '@walletconnect/modal': 2.6.2(@types/react@18.3.5)(react@18.2.0)
-      viem: 2.9.29(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.22.4)
+      viem: 2.9.29(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.23.8)
     optionalDependencies:
       typescript: 5.4.3
     transitivePeerDependencies:
@@ -19212,11 +19233,11 @@ snapshots:
       - utf-8-validate
       - zod
 
-  '@wagmi/core@2.10.2(@types/react@18.3.5)(bufferutil@4.0.8)(react@18.2.0)(typescript@5.4.3)(utf-8-validate@5.0.10)(viem@2.9.29(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.22.4))(zod@3.22.4)':
+  '@wagmi/core@2.10.2(@types/react@18.3.5)(bufferutil@4.0.8)(react@18.2.0)(typescript@5.4.3)(utf-8-validate@5.0.10)(viem@2.9.29(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.23.8))(zod@3.23.8)':
     dependencies:
       eventemitter3: 5.0.1
-      mipd: 0.0.5(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.22.4)
-      viem: 2.9.29(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.22.4)
+      mipd: 0.0.5(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.23.8)
+      viem: 2.9.29(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.23.8)
       zustand: 4.4.1(@types/react@18.3.5)(react@18.2.0)
     optionalDependencies:
       typescript: 5.4.3
@@ -19241,11 +19262,11 @@ snapshots:
       - immer
       - react
 
-  '@wagmi/core@2.8.0(@types/react@18.3.5)(bufferutil@4.0.8)(react@18.2.0)(typescript@5.4.3)(utf-8-validate@5.0.10)(viem@2.21.7(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.23.8))(zod@3.23.8)':
+  '@wagmi/core@2.8.0(@types/react@18.3.5)(bufferutil@4.0.8)(react@18.2.0)(typescript@5.4.3)(utf-8-validate@5.0.10)(viem@2.21.7(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.22.4))(zod@3.22.4)':
     dependencies:
       eventemitter3: 5.0.1
-      mipd: 0.0.5(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.23.8)
-      viem: 2.21.7(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.23.8)
+      mipd: 0.0.5(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.22.4)
+      viem: 2.21.7(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.22.4)
       zustand: 4.4.1(@types/react@18.3.5)(react@18.2.0)
     optionalDependencies:
       typescript: 5.4.3
@@ -20415,34 +20436,34 @@ snapshots:
       lit: 3.1.0
       qrcode: 1.5.3
 
-  '@web3modal/wagmi@4.1.11(@types/react@18.3.5)(@wagmi/connectors@4.3.10(yrxxgsr3s6m7a4itnzsb2c7inm))(@wagmi/core@2.10.2(@types/react@18.3.5)(bufferutil@4.0.8)(react@18.2.0)(typescript@5.4.3)(utf-8-validate@5.0.10)(viem@2.9.29(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.22.4))(zod@3.22.4))(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(viem@2.9.29(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.22.4))':
+  '@web3modal/wagmi@4.1.11(7bejpi3a2bqeihrssz3xbwxki4)':
     dependencies:
-      '@wagmi/connectors': 4.3.10(yrxxgsr3s6m7a4itnzsb2c7inm)
-      '@wagmi/core': 2.10.2(@types/react@18.3.5)(bufferutil@4.0.8)(react@18.2.0)(typescript@5.4.3)(utf-8-validate@5.0.10)(viem@2.9.29(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.22.4))(zod@3.22.4)
+      '@wagmi/connectors': 4.1.18(@react-native-async-storage/async-storage@1.22.0(react-native@0.73.4(@babel/core@7.25.2)(@babel/preset-env@7.23.9(@babel/core@7.25.2))(bufferutil@4.0.8)(encoding@0.1.13)(react@18.2.0)(utf-8-validate@5.0.10)))(@types/react@18.3.5)(@wagmi/core@2.8.0(@types/react@18.3.5)(bufferutil@4.0.8)(react@18.2.0)(typescript@5.4.3)(utf-8-validate@5.0.10)(viem@2.21.7(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.22.4))(zod@3.22.4))(bufferutil@4.0.8)(encoding@0.1.13)(react-dom@18.2.0(react@18.2.0))(react-native@0.73.4(@babel/core@7.25.2)(@babel/preset-env@7.23.9(@babel/core@7.25.2))(bufferutil@4.0.8)(encoding@0.1.13)(react@18.2.0)(utf-8-validate@5.0.10))(react@18.2.0)(rollup@4.21.3)(typescript@5.4.3)(utf-8-validate@5.0.10)(viem@2.21.7(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.22.4))(zod@3.22.4)
+      '@wagmi/core': 2.8.0(@types/react@18.3.5)(bufferutil@4.0.8)(react@18.2.0)(typescript@5.4.3)(utf-8-validate@5.0.10)(viem@2.21.7(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.22.4))(zod@3.22.4)
       '@web3modal/polyfills': 4.1.11
       '@web3modal/scaffold': 4.1.11(@types/react@18.3.5)(react@18.2.0)
       '@web3modal/scaffold-react': 4.1.11(@types/react@18.3.5)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       '@web3modal/scaffold-utils': 4.1.11(@types/react@18.3.5)(react@18.2.0)
       '@web3modal/scaffold-vue': 4.1.11(@types/react@18.3.5)(react@18.2.0)
       '@web3modal/siwe': 4.1.11(@types/react@18.3.5)(react@18.2.0)
-      viem: 2.9.29(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.22.4)
+      viem: 2.21.7(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.22.4)
     optionalDependencies:
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
     transitivePeerDependencies:
       - '@types/react'
 
-  '@web3modal/wagmi@4.1.11(xgqwdfny5esqdjztzawvofqbai)':
+  '@web3modal/wagmi@4.1.11(@types/react@18.3.5)(@wagmi/connectors@4.3.10(vnbhrjghrun7rfuxsawo7otej4))(@wagmi/core@2.10.2(@types/react@18.3.5)(bufferutil@4.0.8)(react@18.2.0)(typescript@5.4.3)(utf-8-validate@5.0.10)(viem@2.9.29(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.23.8))(zod@3.23.8))(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(viem@2.9.29(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.23.8))':
     dependencies:
-      '@wagmi/connectors': 4.1.18(@react-native-async-storage/async-storage@1.22.0(react-native@0.73.4(@babel/core@7.25.2)(@babel/preset-env@7.23.9(@babel/core@7.25.2))(bufferutil@4.0.8)(encoding@0.1.13)(react@18.2.0)(utf-8-validate@5.0.10)))(@types/react@18.3.5)(@wagmi/core@2.8.0(@types/react@18.3.5)(bufferutil@4.0.8)(react@18.2.0)(typescript@5.4.3)(utf-8-validate@5.0.10)(viem@2.21.7(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.23.8))(zod@3.23.8))(bufferutil@4.0.8)(encoding@0.1.13)(react-dom@18.2.0(react@18.2.0))(react-native@0.73.4(@babel/core@7.25.2)(@babel/preset-env@7.23.9(@babel/core@7.25.2))(bufferutil@4.0.8)(encoding@0.1.13)(react@18.2.0)(utf-8-validate@5.0.10))(react@18.2.0)(rollup@4.21.3)(typescript@5.4.3)(utf-8-validate@5.0.10)(viem@2.21.7(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.23.8))(zod@3.23.8)
-      '@wagmi/core': 2.8.0(@types/react@18.3.5)(bufferutil@4.0.8)(react@18.2.0)(typescript@5.4.3)(utf-8-validate@5.0.10)(viem@2.21.7(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.23.8))(zod@3.23.8)
+      '@wagmi/connectors': 4.3.10(vnbhrjghrun7rfuxsawo7otej4)
+      '@wagmi/core': 2.10.2(@types/react@18.3.5)(bufferutil@4.0.8)(react@18.2.0)(typescript@5.4.3)(utf-8-validate@5.0.10)(viem@2.9.29(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.23.8))(zod@3.23.8)
       '@web3modal/polyfills': 4.1.11
       '@web3modal/scaffold': 4.1.11(@types/react@18.3.5)(react@18.2.0)
       '@web3modal/scaffold-react': 4.1.11(@types/react@18.3.5)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
       '@web3modal/scaffold-utils': 4.1.11(@types/react@18.3.5)(react@18.2.0)
       '@web3modal/scaffold-vue': 4.1.11(@types/react@18.3.5)(react@18.2.0)
       '@web3modal/siwe': 4.1.11(@types/react@18.3.5)(react@18.2.0)
-      viem: 2.21.7(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.23.8)
+      viem: 2.9.29(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.23.8)
     optionalDependencies:
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
@@ -20528,15 +20549,15 @@ snapshots:
       typescript: 5.4.3
       zod: 3.23.8
 
-  abitype@1.0.2(typescript@5.4.3)(zod@3.22.4):
-    optionalDependencies:
-      typescript: 5.4.3
-      zod: 3.22.4
-
-  abitype@1.0.5(typescript@5.4.3)(zod@3.23.8):
+  abitype@1.0.2(typescript@5.4.3)(zod@3.23.8):
     optionalDependencies:
       typescript: 5.4.3
       zod: 3.23.8
+
+  abitype@1.0.5(typescript@5.4.3)(zod@3.22.4):
+    optionalDependencies:
+      typescript: 5.4.3
+      zod: 3.22.4
 
   abitype@1.0.5(typescript@5.4.5)(zod@3.23.8):
     optionalDependencies:
@@ -20912,9 +20933,9 @@ snapshots:
     transitivePeerDependencies:
       - debug
 
-  axios@1.7.7:
+  axios@1.7.7(debug@4.3.4):
     dependencies:
-      follow-redirects: 1.15.9
+      follow-redirects: 1.15.9(debug@4.3.4)
       form-data: 4.0.0
       proxy-from-env: 1.1.0
     transitivePeerDependencies:
@@ -21968,7 +21989,7 @@ snapshots:
 
   dotenv@16.4.5: {}
 
-  ds-test@https://codeload.github.com/dapphub/ds-test/tar.gz/e282159d5170298eb2455a6c05280ab5a73a4ef0: {}
+  ds-test@git+https://git@github.com:dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0: {}
 
   dset@3.1.3: {}
 
@@ -23368,7 +23389,9 @@ snapshots:
     optionalDependencies:
       debug: 4.3.4
 
-  follow-redirects@1.15.9: {}
+  follow-redirects@1.15.9(debug@4.3.4):
+    optionalDependencies:
+      debug: 4.3.4
 
   for-each@0.3.3:
     dependencies:
@@ -23381,9 +23404,9 @@ snapshots:
 
   forever-agent@0.6.1: {}
 
-  forge-std@https://codeload.github.com/foundry-rs/forge-std/tar.gz/36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3: {}
+  forge-std@git+https://git@github.com:foundry-rs/forge-std.git#36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3: {}
 
-  forge-std@https://codeload.github.com/foundry-rs/forge-std/tar.gz/8f24d6b04c92975e0795b5868aa0d783251cdeaa: {}
+  forge-std@git+https://git@github.com:foundry-rs/forge-std.git#8f24d6b04c92975e0795b5868aa0d783251cdeaa: {}
 
   form-data-encoder@1.7.1: {}
 
@@ -24122,7 +24145,7 @@ snapshots:
     dependencies:
       '@ioredis/commands': 1.2.0
       cluster-key-slot: 1.1.2
-      debug: 4.3.4
+      debug: 4.3.7
       denque: 2.1.0
       lodash.defaults: 4.2.0
       lodash.isarguments: 3.1.0
@@ -24708,7 +24731,7 @@ snapshots:
 
   json-rpc-middleware-stream@4.2.3:
     dependencies:
-      '@metamask/safe-event-emitter': 3.0.0
+      '@metamask/safe-event-emitter': 3.1.1
       json-rpc-engine: 6.1.0
       readable-stream: 2.3.8
 
@@ -25901,20 +25924,20 @@ snapshots:
 
   mock-fs@4.14.0: {}
 
-  moralis@2.26.2(debug@4.3.4):
+  moralis@2.27.2(debug@4.3.4):
     dependencies:
-      '@moralisweb3/api-utils': 2.26.2(debug@4.3.4)
-      '@moralisweb3/aptos-api': 2.26.2(debug@4.3.4)
-      '@moralisweb3/auth': 2.26.2(debug@4.3.4)
-      '@moralisweb3/common-aptos-utils': 2.26.2(debug@4.3.4)
-      '@moralisweb3/common-auth-utils': 2.26.2(debug@4.3.4)
-      '@moralisweb3/common-core': 2.26.2(debug@4.3.4)
-      '@moralisweb3/common-evm-utils': 2.26.2(debug@4.3.4)
-      '@moralisweb3/common-sol-utils': 2.26.2(debug@4.3.4)
-      '@moralisweb3/common-streams-utils': 2.26.2(debug@4.3.4)
-      '@moralisweb3/evm-api': 2.26.2(debug@4.3.4)
-      '@moralisweb3/sol-api': 2.26.2(debug@4.3.4)
-      '@moralisweb3/streams': 2.26.2(debug@4.3.4)
+      '@moralisweb3/api-utils': 2.27.2(debug@4.3.4)
+      '@moralisweb3/aptos-api': 2.27.2(debug@4.3.4)
+      '@moralisweb3/auth': 2.27.2(debug@4.3.4)
+      '@moralisweb3/common-aptos-utils': 2.27.2(debug@4.3.4)
+      '@moralisweb3/common-auth-utils': 2.27.2(debug@4.3.4)
+      '@moralisweb3/common-core': 2.27.2(debug@4.3.4)
+      '@moralisweb3/common-evm-utils': 2.27.2(debug@4.3.4)
+      '@moralisweb3/common-sol-utils': 2.27.2(debug@4.3.4)
+      '@moralisweb3/common-streams-utils': 2.27.2(debug@4.3.4)
+      '@moralisweb3/evm-api': 2.27.2(debug@4.3.4)
+      '@moralisweb3/sol-api': 2.27.2(debug@4.3.4)
+      '@moralisweb3/streams': 2.27.2(debug@4.3.4)
       '@moralisweb3/streams-typings': 1.0.7
     transitivePeerDependencies:
       - debug
@@ -25973,7 +25996,7 @@ snapshots:
       multibase: 0.7.0
       varint: 5.0.2
 
-  murky@https://codeload.github.com/dmfxyz/murky/tar.gz/5feccd1253d7da820f7cccccdedf64471025455d: {}
+  murky@git+https://git@github.com:dmfxyz/murky.git#5feccd1253d7da820f7cccccdedf64471025455d: {}
 
   mute-stream@0.0.8: {}
 
@@ -26206,7 +26229,7 @@ snapshots:
 
   openapi-types@12.1.3: {}
 
-  optimism@https://codeload.github.com/ethereum-optimism/optimism/tar.gz/ab3a54febb36398539fd3b849c222b7e70169dc8:
+  optimism@git+https://git@github.com:ethereum-optimism/optimism.git#ab3a54febb36398539fd3b849c222b7e70169dc8:
     dependencies:
       '@changesets/cli': 2.27.8
 
@@ -26325,7 +26348,7 @@ snapshots:
 
   p-try@2.2.0: {}
 
-  p256-verifier#v0.1.0@https://codeload.github.com/taikoxyz/p256-verifier/tar.gz/6ef45b117642786b08a37b4c37c6a6ce151166da: {}
+  p256-verifier#v0.1.0@git+https://git@github.com:taikoxyz/p256-verifier.git#6ef45b117642786b08a37b4c37c6a6ce151166da: {}
 
   package-json-from-dist@1.0.0: {}
 
@@ -27340,7 +27363,7 @@ snapshots:
       hash-base: 3.1.0
       inherits: 2.0.4
 
-  risc0-ethereum#v1.0.0@https://codeload.github.com/risc0/risc0-ethereum/tar.gz/5fbbc7cb44ab37ce438c14c087ba6c4e0a669900: {}
+  risc0-ethereum#v1.0.0@git+https://git@github.com:risc0/risc0-ethereum.git#5fbbc7cb44ab37ce438c14c087ba6c4e0a669900: {}
 
   rlp@2.2.7:
     dependencies:
@@ -27546,7 +27569,7 @@ snapshots:
 
   serverless@4.4.3:
     dependencies:
-      axios: 1.7.7
+      axios: 1.7.7(debug@4.3.4)
       axios-proxy-builder: 0.1.2
       rimraf: 5.0.10
       xml2js: 0.6.2
@@ -27744,9 +27767,9 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  solady@https://codeload.github.com/Vectorized/solady/tar.gz/a12a2575c899a328c1bafdada632dabbff27cf6b: {}
+  solady@git+https://git@github.com:Vectorized/solady.git#a12a2575c899a328c1bafdada632dabbff27cf6b: {}
 
-  solady@https://codeload.github.com/Vectorized/solady/tar.gz/de0f336d2033d04e0f77c923d639c7fbffd48b6d: {}
+  solady@git+https://git@github.com:Vectorized/solady.git#de0f336d2033d04e0f77c923d639c7fbffd48b6d: {}
 
   solc@0.8.24:
     dependencies:
@@ -27835,7 +27858,7 @@ snapshots:
     transitivePeerDependencies:
       - typescript
 
-  solidity-stringutils@https://codeload.github.com/Arachnid/solidity-stringutils/tar.gz/4b2fcc43fa0426e19ce88b1f1ec16f5903a2e461: {}
+  solidity-stringutils@git+https://git@github.com:Arachnid/solidity-stringutils.git#4b2fcc43fa0426e19ce88b1f1ec16f5903a2e461: {}
 
   sonic-boom@2.8.0:
     dependencies:
@@ -27863,7 +27886,7 @@ snapshots:
 
   source-map@0.7.4: {}
 
-  sp1-contracts#v2.0.0@https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/af1ae093ef8a8f68b022aa8f0f7ad9ffd94aa6fb: {}
+  sp1-contracts#v2.0.0@git+https://git@github.com:succinctlabs/sp1-contracts.git#af1ae093ef8a8f68b022aa8f0f7ad9ffd94aa6fb: {}
 
   space-separated-tokens@2.0.2: {}
 
@@ -29070,14 +29093,14 @@ snapshots:
       - utf-8-validate
       - zod
 
-  viem@2.21.7(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.23.8):
+  viem@2.21.7(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.22.4):
     dependencies:
       '@adraffy/ens-normalize': 1.10.0
       '@noble/curves': 1.4.0
       '@noble/hashes': 1.4.0
       '@scure/bip32': 1.4.0
       '@scure/bip39': 1.4.0
-      abitype: 1.0.5(typescript@5.4.3)(zod@3.23.8)
+      abitype: 1.0.5(typescript@5.4.3)(zod@3.22.4)
       isows: 1.0.4(ws@8.17.1(bufferutil@4.0.8)(utf-8-validate@5.0.10))
       webauthn-p256: 0.0.5
       ws: 8.17.1(bufferutil@4.0.8)(utf-8-validate@5.0.10)
@@ -29114,6 +29137,23 @@ snapshots:
       '@scure/bip32': 1.3.2
       '@scure/bip39': 1.2.1
       abitype: 1.0.0(typescript@5.4.3)(zod@3.22.4)
+      isows: 1.0.3(ws@8.13.0(bufferutil@4.0.8)(utf-8-validate@5.0.10))
+      ws: 8.13.0(bufferutil@4.0.8)(utf-8-validate@5.0.10)
+    optionalDependencies:
+      typescript: 5.4.3
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+      - zod
+
+  viem@2.9.29(bufferutil@4.0.8)(typescript@5.4.3)(utf-8-validate@5.0.10)(zod@3.23.8):
+    dependencies:
+      '@adraffy/ens-normalize': 1.10.0
+      '@noble/curves': 1.2.0
+      '@noble/hashes': 1.3.2
+      '@scure/bip32': 1.3.2
+      '@scure/bip39': 1.2.1
+      abitype: 1.0.0(typescript@5.4.3)(zod@3.23.8)
       isows: 1.0.3(ws@8.13.0(bufferutil@4.0.8)(utf-8-validate@5.0.10))
       ws: 8.13.0(bufferutil@4.0.8)(utf-8-validate@5.0.10)
     optionalDependencies:
