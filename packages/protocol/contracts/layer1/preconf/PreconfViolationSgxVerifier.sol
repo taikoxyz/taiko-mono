@@ -49,7 +49,7 @@ contract PreconfViolationSgxVerifier is SgxVerifierBase, IPreconfViolationVerifi
         external
         returns (address)
     {
-        // We verifie the receipt's signature on-chain to support contract-based preconfers.
+        // We verify the receipt's signature on-chain to support contract-based preconfers.
         (TransactionPreconfReceipt memory receipt, bool isValid) = _isReceiptValid(_receipt);
         require(isValid, INVALID_RECEIPT());
 
