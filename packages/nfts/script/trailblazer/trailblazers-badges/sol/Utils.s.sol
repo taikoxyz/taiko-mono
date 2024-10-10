@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import { Script, console } from "forge-std/src/Script.sol";
 import "forge-std/src/StdJson.sol";
 import { IMinimalBlacklist } from "@taiko/blacklist/IMinimalBlacklist.sol";
-import { MockBlacklist } from "../../../test/util/Blacklist.sol";
+import { MockBlacklist } from "../../../../test/util/Blacklist.sol";
 
 contract UtilsScript is Script {
     using stdJson for string;
