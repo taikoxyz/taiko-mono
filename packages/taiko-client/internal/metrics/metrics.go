@@ -4,13 +4,13 @@ import (
 	"context"
 
 	opMetrics "github.com/ethereum-optimism/optimism/op-service/metrics"
-	"github.com/ethereum-optimism/optimism/op-service/opio"
 	txmgrMetrics "github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
 // Metrics
@@ -29,6 +29,7 @@ var (
 	ProposerProposeEpochCounter    = factory.NewCounter(prometheus.CounterOpts{Name: "proposer_epoch"})
 	ProposerProposedTxListsCounter = factory.NewCounter(prometheus.CounterOpts{Name: "proposer_proposed_txLists"})
 	ProposerProposedTxsCounter     = factory.NewCounter(prometheus.CounterOpts{Name: "proposer_proposed_txs"})
+	ProposerPoolContentFetchTime   = factory.NewGauge(prometheus.GaugeOpts{Name: "proposer_pool_content_fetch_time"})
 
 	// Prover
 	ProverLatestVerifiedIDGauge      = factory.NewGauge(prometheus.GaugeOpts{Name: "prover_latestVerified_id"})
@@ -103,7 +104,7 @@ func Serve(ctx context.Context, c *cli.Context) error {
 		}
 	}()
 
-	opio.BlockOnInterruptsContext(ctx)
+	rpc.BlockOnInterruptsContext(ctx)
 
 	return nil
 }

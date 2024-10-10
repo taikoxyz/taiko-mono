@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../../../contracts/shared/common/LibStrings.sol";
-import "../../../contracts/layer1/tiers/ITierProvider.sol";
-import "../../../contracts/layer1/tiers/LibTiers.sol";
-import "../../../contracts/layer1/tiers/ITierRouter.sol";
+import "src/shared/common/LibStrings.sol";
+import "src/layer1/tiers/ITierProvider.sol";
+import "src/layer1/tiers/LibTiers.sol";
+import "src/layer1/tiers/ITierRouter.sol";
 
 /// @title TestTierProvider
 /// @dev Labeled in AddressResolver as "tier_router"

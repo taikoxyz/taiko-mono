@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../../../shared/signal/SignalService.sol";
+import "src/shared/signal/SignalService.sol";
 import "../addrcache/SharedAddressCache.sol";
 import "../reentrylock/LibFasterReentryLock.sol";
 

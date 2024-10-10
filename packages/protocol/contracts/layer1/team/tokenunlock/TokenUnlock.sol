@@ -6,9 +6,9 @@ import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "../../../shared/common/EssentialContract.sol";
-import "../../../shared/common/LibStrings.sol";
-import "../../../shared/common/LibMath.sol";
+import "src/shared/common/EssentialContract.sol";
+import "src/shared/common/LibStrings.sol";
+import "src/shared/common/LibMath.sol";
 import "../../provers/ProverSet.sol";
 
 /// @title TokenUnlock
@@ -63,6 +63,11 @@ contract TokenUnlock is EssentialContract {
 
     modifier onlyRecipient() {
         if (msg.sender != recipient) revert PERMISSION_DENIED();
+        _;
+    }
+
+    modifier onlyRecipientOrOwner() {
+        if (msg.sender != recipient && msg.sender != owner()) revert PERMISSION_DENIED();
         _;
     }
 
@@ -151,7 +156,7 @@ contract TokenUnlock is EssentialContract {
         IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false)).safeTransfer(recipient, amount);
     }
 
-    function changeRecipient(address _newRecipient) external onlyRecipient {
+    function changeRecipient(address _newRecipient) external onlyRecipientOrOwner {
         if (_newRecipient == address(0) || _newRecipient == recipient) {
             revert INVALID_PARAM();
         }
