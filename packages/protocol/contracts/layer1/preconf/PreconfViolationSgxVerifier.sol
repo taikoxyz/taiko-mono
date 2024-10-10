@@ -37,11 +37,6 @@ contract PreconfViolationSgxVerifier is SgxVerifierBase, IPreconfViolationVerifi
     }
 
     /// @inheritdoc IPreconfViolationVerifier
-    function isReceiptValid(bytes calldata _receipt) external view returns (bool isValid_) {
-        (, isValid_) = _isReceiptValid(_receipt);
-    }
-
-    /// @inheritdoc IPreconfViolationVerifier
     function verifyPreconfViolation(
         bytes calldata _receipt,
         bytes calldata _proof
@@ -58,6 +53,11 @@ contract PreconfViolationSgxVerifier is SgxVerifierBase, IPreconfViolationVerifi
         _proveTransactionInclusionWithSGX(receipt, _proof);
 
         return receipt.preconfer;
+    }
+
+    /// @inheritdoc IPreconfViolationVerifier
+    function isReceiptValid(bytes calldata _receipt) external view returns (bool isValid_) {
+        (, isValid_) = _isReceiptValid(_receipt);
     }
 
     function getHashToSign(TransactionPreconfReceipt memory _receipt)
