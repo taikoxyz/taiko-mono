@@ -23,17 +23,11 @@ contract PreconfViolationSgxVerifier is SgxVerifierBase, IPreconfViolationVerifi
 
     uint256[50] private __gap;
 
-    error INVALID_PRECONFER();
+    error BLOCK_ID_MISMATCH();
+    error BLOCK_METADATA_MISMATCH();
+    error BLOCK_NOT_VERIFIED();
+    error CHAIN_ID_MISMATCH();
     error INVALID_RECEIPT();
-    error ChainIdMismatch();
-    error BlockMetadataMismatch();
-    error BlockHashMismatch();
-    error BlockNotVerified();
-    error TxIncluded();
-    error Failed();
-    error NoTransactionReceiptProof();
-
-    error InvalidSgxProof();
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
@@ -58,7 +52,12 @@ contract PreconfViolationSgxVerifier is SgxVerifierBase, IPreconfViolationVerifi
         // We verifie the receipt's signature on-chain to support contract-based preconfers.
         (TransactionPreconfReceipt memory receipt, bool isValid) = _isReceiptValid(_receipt);
         require(isValid, INVALID_RECEIPT());
-        return _proveTransactionInclusionWithSGX(receipt, _proof);
+
+        require(taikoChainId() == receipt.chainId, BLOCK_ID_MISMATCH());
+
+        _proveTransactionInclusionWithSGX(receipt, _proof);
+
+        return receipt.preconfer;
     }
 
     function getHashToSign(TransactionPreconfReceipt memory _receipt)
@@ -100,17 +99,15 @@ contract PreconfViolationSgxVerifier is SgxVerifierBase, IPreconfViolationVerifi
         bytes calldata _proof
     )
         private
-        returns (address preconfer_)
     {
-        // Verify chainId
-        require(taikoChainId() == _receipt.chainId, ChainIdMismatch());
-
         (
             TaikoData.BlockMetadataV2 memory meta,
             uint32 instanceId,
             address newInstance,
             bytes memory sgxSignature
         ) = abi.decode(_proof, (TaikoData.BlockMetadataV2, uint32, address, bytes));
+
+        require(meta.id == _receipt.blockId, BLOCK_ID_MISMATCH());
 
         // Get the block data for the given block ID.
         // Note that this function may revert as only a few days of transactions are available in
@@ -119,13 +116,11 @@ contract PreconfViolationSgxVerifier is SgxVerifierBase, IPreconfViolationVerifi
         TaikoData.BlockV2 memory blk = taikoL1.getBlockV2(meta.id);
 
         // Verify the block has been verified.
-        require(blk.verifiedTransitionId != 0, BlockNotVerified());
-        require(blk.metaHash == keccak256(abi.encode(meta)), BlockMetadataMismatch());
+        require(blk.verifiedTransitionId != 0, BLOCK_NOT_VERIFIED());
+        require(blk.metaHash == keccak256(abi.encode(meta)), BLOCK_METADATA_MISMATCH());
 
         // If the perconfer did not propose the block, violation is proven.
-        if (_receipt.preconfer != meta.proposer) {
-            return _receipt.preconfer;
-        }
+        if (_receipt.preconfer != meta.proposer) return;
 
         // Retrieve the block's block hash to verify the provided block header is correct.
         bytes32 blockHash = taikoL1.getTransition(meta.id, blk.verifiedTransitionId).blockHash;
@@ -147,6 +142,6 @@ contract PreconfViolationSgxVerifier is SgxVerifierBase, IPreconfViolationVerifi
         pure
         returns (bytes32)
     {
-        return keccak256(abi.encodePacked(getHashToSign(_receipt), _blockHash));
+        return keccak256(abi.encode(_receipt, _blockHash));
     }
 }
