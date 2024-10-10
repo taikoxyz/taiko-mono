@@ -290,7 +290,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
          });
     }
 
-    /// @dev chain_pauser is supposed to be a cold wallet.
+    /// @dev chain watchdog is supposed to be a cold wallet.
     function _authorizePause(
         address,
         bool
