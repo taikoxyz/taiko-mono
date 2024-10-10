@@ -13,9 +13,9 @@ contract PreconfViolationSgxVerifier is SgxVerifierBase, IPreconfViolationVerifi
 
     struct TransactionPreconfReceipt {
         bytes32 txHash;
-        uint256 chainId;
-        uint256 blockId;
-        uint256 position;
+        uint64 chainId;
+        uint64 blockId;
+        uint24 position;
         bool isNonRevertGuaranteed;
         address preconfer;
         bytes signature;
@@ -94,36 +94,29 @@ contract PreconfViolationSgxVerifier is SgxVerifierBase, IPreconfViolationVerifi
             && receipt_.preconfer.isValidSignatureNow(getHashToSign(receipt_), receipt_.signature);
     }
 
+    // @dev We do not verify if the block is actually proposed by the perconf, as long as the
+    // inclusion/execution of the transaction can be verified.
     function _proveTransactionInclusionWithSGX(
         TransactionPreconfReceipt memory _receipt,
         bytes calldata _proof
     )
         private
     {
-        (
-            TaikoData.BlockMetadataV2 memory meta,
-            uint32 instanceId,
-            address newInstance,
-            bytes memory sgxSignature
-        ) = abi.decode(_proof, (TaikoData.BlockMetadataV2, uint32, address, bytes));
-
-        require(meta.id == _receipt.blockId, BLOCK_ID_MISMATCH());
+        (uint32 instanceId, address newInstance, bytes memory sgxSignature) =
+            abi.decode(_proof, (uint32, address, bytes));
 
         // Get the block data for the given block ID.
         // Note that this function may revert as only a few days of transactions are available in
         // Taiko BCR protocol's ring buffer.
         ITaikoL1 taikoL1 = ITaikoL1(resolve(LibStrings.B_TAIKO, false));
-        TaikoData.BlockV2 memory blk = taikoL1.getBlockV2(meta.id);
+        TaikoData.BlockV2 memory blk = taikoL1.getBlockV2(_receipt.blockId);
 
         // Verify the block has been verified.
         require(blk.verifiedTransitionId != 0, BLOCK_NOT_VERIFIED());
-        require(blk.metaHash == keccak256(abi.encode(meta)), BLOCK_METADATA_MISMATCH());
-
-        // If the perconfer did not propose the block, violation is proven.
-        if (_receipt.preconfer != meta.proposer) return;
 
         // Retrieve the block's block hash to verify the provided block header is correct.
-        bytes32 blockHash = taikoL1.getTransition(meta.id, blk.verifiedTransitionId).blockHash;
+        bytes32 blockHash =
+            taikoL1.getTransition(_receipt.blockId, blk.verifiedTransitionId).blockHash;
 
         address oldInstance = ECDSA.recover(hashPublicInputs(_receipt, blockHash), sgxSignature);
 
