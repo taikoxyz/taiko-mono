@@ -446,25 +446,26 @@
 | __gap            | uint256[49]              | 252  | 0      | 1568  | SP1Verifier |
 
 ## SgxVerifier
-| Name              | Type                                            | Slot | Offset | Bytes | Contract                                               |
-|-------------------|-------------------------------------------------|------|--------|-------|--------------------------------------------------------|
-| _initialized      | uint8                                           | 0    | 0      | 1     | SgxVerifier |
-| _initializing     | bool                                            | 0    | 1      | 1     | SgxVerifier |
-| __gap             | uint256[50]                                     | 1    | 0      | 1600  | SgxVerifier |
-| _owner            | address                                         | 51   | 0      | 20    | SgxVerifier |
-| __gap             | uint256[49]                                     | 52   | 0      | 1568  | SgxVerifier |
-| _pendingOwner     | address                                         | 101  | 0      | 20    | SgxVerifier |
-| __gap             | uint256[49]                                     | 102  | 0      | 1568  | SgxVerifier |
-| addressManager    | address                                         | 151  | 0      | 20    | SgxVerifier |
-| __gap             | uint256[49]                                     | 152  | 0      | 1568  | SgxVerifier |
-| __reentry         | uint8                                           | 201  | 0      | 1     | SgxVerifier |
-| __paused          | uint8                                           | 201  | 1      | 1     | SgxVerifier |
-| lastUnpausedAt    | uint64                                          | 201  | 2      | 8     | SgxVerifier |
-| __gap             | uint256[49]                                     | 202  | 0      | 1568  | SgxVerifier |
-| nextInstanceId    | uint256                                         | 251  | 0      | 32    | SgxVerifier |
-| instances         | mapping(uint256 => struct SgxVerifier.Instance) | 252  | 0      | 32    | SgxVerifier |
-| addressRegistered | mapping(address => bool)                        | 253  | 0      | 32    | SgxVerifier |
-| __gap             | uint256[47]                                     | 254  | 0      | 1504  | SgxVerifier |
+| Name              | Type                                                | Slot | Offset | Bytes | Contract                                               |
+|-------------------|-----------------------------------------------------|------|--------|-------|--------------------------------------------------------|
+| _initialized      | uint8                                               | 0    | 0      | 1     | SgxVerifier |
+| _initializing     | bool                                                | 0    | 1      | 1     | SgxVerifier |
+| __gap             | uint256[50]                                         | 1    | 0      | 1600  | SgxVerifier |
+| _owner            | address                                             | 51   | 0      | 20    | SgxVerifier |
+| __gap             | uint256[49]                                         | 52   | 0      | 1568  | SgxVerifier |
+| _pendingOwner     | address                                             | 101  | 0      | 20    | SgxVerifier |
+| __gap             | uint256[49]                                         | 102  | 0      | 1568  | SgxVerifier |
+| addressManager    | address                                             | 151  | 0      | 20    | SgxVerifier |
+| __gap             | uint256[49]                                         | 152  | 0      | 1568  | SgxVerifier |
+| __reentry         | uint8                                               | 201  | 0      | 1     | SgxVerifier |
+| __paused          | uint8                                               | 201  | 1      | 1     | SgxVerifier |
+| lastUnpausedAt    | uint64                                              | 201  | 2      | 8     | SgxVerifier |
+| __gap             | uint256[49]                                         | 202  | 0      | 1568  | SgxVerifier |
+| nextInstanceId    | uint256                                             | 251  | 0      | 32    | SgxVerifier |
+| instances         | mapping(uint256 => struct SgxVerifierBase.Instance) | 252  | 0      | 32    | SgxVerifier |
+| addressRegistered | mapping(address => bool)                            | 253  | 0      | 32    | SgxVerifier |
+| __gap             | uint256[47]                                         | 254  | 0      | 1504  | SgxVerifier |
+| __gap             | uint256[50]                                         | 301  | 0      | 1600  | SgxVerifier |
 
 ## AutomataDcapV3Attestation
 | Name                    | Type                                            | Slot | Offset | Bytes | Contract                                                                                      |
@@ -683,25 +684,26 @@
 |------|------|------|--------|-------|----------|
 
 ## MainnetSgxVerifier
-| Name              | Type                                            | Slot | Offset | Bytes | Contract                                                                            |
-|-------------------|-------------------------------------------------|------|--------|-------|-------------------------------------------------------------------------------------|
-| _initialized      | uint8                                           | 0    | 0      | 1     | MainnetSgxVerifier |
-| _initializing     | bool                                            | 0    | 1      | 1     | MainnetSgxVerifier |
-| __gap             | uint256[50]                                     | 1    | 0      | 1600  | MainnetSgxVerifier |
-| _owner            | address                                         | 51   | 0      | 20    | MainnetSgxVerifier |
-| __gap             | uint256[49]                                     | 52   | 0      | 1568  | MainnetSgxVerifier |
-| _pendingOwner     | address                                         | 101  | 0      | 20    | MainnetSgxVerifier |
-| __gap             | uint256[49]                                     | 102  | 0      | 1568  | MainnetSgxVerifier |
-| addressManager    | address                                         | 151  | 0      | 20    | MainnetSgxVerifier |
-| __gap             | uint256[49]                                     | 152  | 0      | 1568  | MainnetSgxVerifier |
-| __reentry         | uint8                                           | 201  | 0      | 1     | MainnetSgxVerifier |
-| __paused          | uint8                                           | 201  | 1      | 1     | MainnetSgxVerifier |
-| lastUnpausedAt    | uint64                                          | 201  | 2      | 8     | MainnetSgxVerifier |
-| __gap             | uint256[49]                                     | 202  | 0      | 1568  | MainnetSgxVerifier |
-| nextInstanceId    | uint256                                         | 251  | 0      | 32    | MainnetSgxVerifier |
-| instances         | mapping(uint256 => struct SgxVerifier.Instance) | 252  | 0      | 32    | MainnetSgxVerifier |
-| addressRegistered | mapping(address => bool)                        | 253  | 0      | 32    | MainnetSgxVerifier |
-| __gap             | uint256[47]                                     | 254  | 0      | 1504  | MainnetSgxVerifier |
+| Name              | Type                                                | Slot | Offset | Bytes | Contract                                                                            |
+|-------------------|-----------------------------------------------------|------|--------|-------|-------------------------------------------------------------------------------------|
+| _initialized      | uint8                                               | 0    | 0      | 1     | MainnetSgxVerifier |
+| _initializing     | bool                                                | 0    | 1      | 1     | MainnetSgxVerifier |
+| __gap             | uint256[50]                                         | 1    | 0      | 1600  | MainnetSgxVerifier |
+| _owner            | address                                             | 51   | 0      | 20    | MainnetSgxVerifier |
+| __gap             | uint256[49]                                         | 52   | 0      | 1568  | MainnetSgxVerifier |
+| _pendingOwner     | address                                             | 101  | 0      | 20    | MainnetSgxVerifier |
+| __gap             | uint256[49]                                         | 102  | 0      | 1568  | MainnetSgxVerifier |
+| addressManager    | address                                             | 151  | 0      | 20    | MainnetSgxVerifier |
+| __gap             | uint256[49]                                         | 152  | 0      | 1568  | MainnetSgxVerifier |
+| __reentry         | uint8                                               | 201  | 0      | 1     | MainnetSgxVerifier |
+| __paused          | uint8                                               | 201  | 1      | 1     | MainnetSgxVerifier |
+| lastUnpausedAt    | uint64                                              | 201  | 2      | 8     | MainnetSgxVerifier |
+| __gap             | uint256[49]                                         | 202  | 0      | 1568  | MainnetSgxVerifier |
+| nextInstanceId    | uint256                                             | 251  | 0      | 32    | MainnetSgxVerifier |
+| instances         | mapping(uint256 => struct SgxVerifierBase.Instance) | 252  | 0      | 32    | MainnetSgxVerifier |
+| addressRegistered | mapping(address => bool)                            | 253  | 0      | 32    | MainnetSgxVerifier |
+| __gap             | uint256[47]                                         | 254  | 0      | 1504  | MainnetSgxVerifier |
+| __gap             | uint256[50]                                         | 301  | 0      | 1600  | MainnetSgxVerifier |
 
 ## MainnetSP1Verifier
 | Name             | Type                     | Slot | Offset | Bytes | Contract                                                                            |
