@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import "src/layer1/based/ITaikoL1.sol";
 import "src/layer1/verifiers/SgxVerifierBase.sol";
-import "src/shared/libs/LibBlockHeader.sol";
 import "./IPreconfViolationVerifier.sol";
 
 /// @title PreconfViolationVerifier
@@ -56,9 +55,10 @@ contract PreconfViolationVerifier is SgxVerifierBase, IPreconfViolationVerifier 
         external
         returns (address)
     {
+        // We verifie the receipt's signature on-chain to support contract-based preconfers.
         (TransactionPreconfReceipt memory receipt, bool isValid) = _isReceiptValid(_receipt);
         require(isValid, INVALID_RECEIPT());
-        return _proveWithSGX(receipt, _proof);
+        return _proveTransactionInclusionWithSGX(receipt, _proof);
     }
 
     function getHashToSign(TransactionPreconfReceipt memory _receipt)
@@ -95,7 +95,7 @@ contract PreconfViolationVerifier is SgxVerifierBase, IPreconfViolationVerifier 
             && receipt_.preconfer.isValidSignatureNow(getHashToSign(receipt_), receipt_.signature);
     }
 
-    function _proveWithSGX(
+    function _proveTransactionInclusionWithSGX(
         TransactionPreconfReceipt memory _receipt,
         bytes calldata _proof
     )

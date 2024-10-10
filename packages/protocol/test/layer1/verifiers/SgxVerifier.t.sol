@@ -40,9 +40,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         vm.expectEmit(true, true, true, true);
         emit SgxVerifierBase.InstanceAdded(startInstance, instances[0], address(0), block.timestamp);
         vm.expectEmit(true, true, true, true);
-        emit SgxVerifierBase.InstanceAdded(
-            startInstance + 1, instances[1], address(0), block.timestamp
-        );
+        emit SgxVerifierBase.InstanceAdded(startInstance + 1, instances[1], address(0), block.timestamp);
 
         // `addInstances()`
         uint256[] memory ids = sv.addInstances(instances);
@@ -153,7 +151,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
             ParseV3QuoteBytes(address(pemCertChainLib), sampleQuote);
 
         vm.prank(Bob, Bob);
-        sv.addInstance(v3quote);
+        sv.registerInstance(v3quote);
     }
 
     function test_registerInstanceTwiceWithSameAttestation() external {
@@ -161,11 +159,11 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
             ParseV3QuoteBytes(address(pemCertChainLib), sampleQuote);
 
         vm.prank(Bob, Bob);
-        sv.addInstance(v3quote);
+        sv.registerInstance(v3quote);
 
         vm.expectRevert(SgxVerifierBase.SGX_ALREADY_ATTESTED.selector);
         vm.prank(Carol, Carol);
-        sv.addInstance(v3quote);
+        sv.registerInstance(v3quote);
     }
 
     // Test `verifyProof()` happy path

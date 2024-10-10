@@ -76,10 +76,10 @@ abstract contract SgxVerifierBase is EssentialContract {
     error SGX_INVALID_INSTANCE();
     error SGX_RA_NOT_SUPPORTED();
 
-    /// @notice Adds an SGX instance after the attestation is verified
+    /// @notice Register an SGX instance after the attestation is verified
     /// @param _attestation The parsed attestation quote.
     /// @return The respective instanceId
-    function addInstance(V3Struct.ParsedV3QuoteStruct calldata _attestation)
+    function registerInstance(V3Struct.ParsedV3QuoteStruct calldata _attestation)
         external
         returns (uint256)
     {
