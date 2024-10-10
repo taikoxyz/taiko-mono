@@ -16,7 +16,8 @@ contract PreconfViolationSgxVerifier is SgxVerifierBase, IPreconfViolationVerifi
         uint64 chainId;
         uint64 blockId;
         uint24 position;
-        bool isNonRevertGuaranteed;
+        bytes32 parentBlockHash;
+        bool executionGuaranteed;
         address preconfer;
         bytes signature;
     }
@@ -28,6 +29,9 @@ contract PreconfViolationSgxVerifier is SgxVerifierBase, IPreconfViolationVerifi
     error BLOCK_NOT_VERIFIED();
     error CHAIN_ID_MISMATCH();
     error INVALID_RECEIPT();
+    error PARENT_BLOCK_HASH_MISMATCH();
+    error PARENT_BLOCK_META_MISMATCH();
+    error PARENT_BLOCK_PRIOR_TO_ONTAKE_FORK();
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
@@ -47,8 +51,6 @@ contract PreconfViolationSgxVerifier is SgxVerifierBase, IPreconfViolationVerifi
         // We verify the receipt's signature on-chain to support contract-based preconfers.
         (TransactionPreconfReceipt memory receipt, bool isValid) = _isReceiptValid(_receipt);
         require(isValid, INVALID_RECEIPT());
-
-        require(taikoChainId() == receipt.chainId, BLOCK_ID_MISMATCH());
 
         _proveTransactionInclusionWithSGX(receipt, _proof);
 
@@ -72,14 +74,10 @@ contract PreconfViolationSgxVerifier is SgxVerifierBase, IPreconfViolationVerifi
                 _receipt.chainId,
                 _receipt.blockId,
                 _receipt.position,
-                _receipt.isNonRevertGuaranteed,
+                _receipt.executionGuaranteed,
                 _receipt.preconfer
             )
         );
-    }
-
-    function taikoChainId() internal view virtual returns (uint64) {
-        return ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfig().chainId;
     }
 
     function _isReceiptValid(bytes calldata _receipt)
@@ -88,9 +86,13 @@ contract PreconfViolationSgxVerifier is SgxVerifierBase, IPreconfViolationVerifi
         returns (TransactionPreconfReceipt memory receipt_, bool isValid_)
     {
         receipt_ = abi.decode(_receipt, (TransactionPreconfReceipt));
-        isValid_ = receipt_.txHash != 0 && receipt_.chainId != 0 && receipt_.blockId != 0
-            && receipt_.position != 0 && receipt_.preconfer != address(0)
-            && receipt_.signature.length != 0
+
+        TaikoData.Config memory config = ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfig();
+        require(receipt_.chainId == config.chainId, BLOCK_ID_MISMATCH());
+        require(receipt_.blockId > config.ontakeForkHeight, PARENT_BLOCK_PRIOR_TO_ONTAKE_FORK());
+
+        isValid_ = receipt_.txHash != 0 && receipt_.position != 0
+            && receipt_.preconfer != address(0) && receipt_.signature.length != 0
             && receipt_.preconfer.isValidSignatureNow(getHashToSign(receipt_), receipt_.signature);
     }
 
@@ -102,8 +104,12 @@ contract PreconfViolationSgxVerifier is SgxVerifierBase, IPreconfViolationVerifi
     )
         private
     {
-        (uint32 instanceId, address newInstance, bytes memory sgxSignature) =
-            abi.decode(_proof, (uint32, address, bytes));
+        (
+            TaikoData.BlockMetadataV2 memory parentMeta,
+            uint32 instanceId,
+            address newInstance,
+            bytes memory sgxSignature
+        ) = abi.decode(_proof, (TaikoData.BlockMetadataV2, uint32, address, bytes));
 
         // Get the block data for the given block ID.
         // Note that this function may revert as only a few days of transactions are available in
@@ -113,6 +119,19 @@ contract PreconfViolationSgxVerifier is SgxVerifierBase, IPreconfViolationVerifi
 
         // Verify the block has been verified.
         require(blk.verifiedTransitionId != 0, BLOCK_NOT_VERIFIED());
+
+        // Retrieve the block's block hash to verify the provided block header is correct.
+        uint64 parentBlockId = _receipt.blockId - 1;
+        TaikoData.BlockV2 memory parentBlk = taikoL1.getBlockV2(parentBlockId);
+        require(
+            parentBlk.metaHash == keccak256(abi.encode(parentMeta)), PARENT_BLOCK_META_MISMATCH()
+        );
+
+        if (parentMeta.proposer != _receipt.preconfer) {
+            bytes32 parentBlockHash =
+                taikoL1.getTransition(parentBlockId, parentBlk.verifiedTransitionId).blockHash;
+            require(parentBlockHash == _receipt.parentBlockHash, PARENT_BLOCK_HASH_MISMATCH());
+        }
 
         // Retrieve the block's block hash to verify the provided block header is correct.
         bytes32 blockHash =
