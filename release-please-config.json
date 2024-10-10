@@ -28,7 +28,6 @@
     "packages/taikoon-ui": {},
     "packages/taiko-client": {},
     "packages/supplementary-contracts": {},
-    "packages/ui-lib": {},
-    "packages/snaefell-ui": {}
+    "packages/ui-lib": {}
   }
 }
