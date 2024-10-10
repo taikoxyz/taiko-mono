@@ -15,6 +15,7 @@ import (
 var (
 	errProofGenerating = errors.New("proof is generating")
 	errEmptyProof      = errors.New("proof is empty")
+	ErrInvalidLength   = errors.New("invalid items length")
 )
 
 // ProofRequestBody represents a request body to generate a proof.
@@ -57,6 +58,13 @@ type ProofWithHeader struct {
 	Tier    uint16
 }
 
+type BatchProofs struct {
+	Proofs     []*ProofWithHeader
+	BatchProof []byte
+	Tier       uint16
+	BlockIDs   []*big.Int
+}
+
 type ProofProducer interface {
 	RequestProof(
 		ctx context.Context,
@@ -66,6 +74,11 @@ type ProofProducer interface {
 		header *types.Header,
 		requestAt time.Time,
 	) (*ProofWithHeader, error)
+	Aggregate(
+		ctx context.Context,
+		items []*ProofWithHeader,
+		requestAt time.Time,
+	) (*BatchProofs, error)
 	RequestCancel(
 		ctx context.Context,
 		opts *ProofRequestOptions,
