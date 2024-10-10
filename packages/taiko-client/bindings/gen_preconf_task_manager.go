@@ -45,7 +45,7 @@ type IPreconfTaskManagerLookaheadSetParam struct {
 
 // PreconfTaskManagerMetaData contains all meta data concerning the PreconfTaskManager contract.
 var PreconfTaskManagerMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[],\"name\":\"getLookaheadBuffer\",\"outputs\":[{\"components\":[{\"internalType\":\"bool\",\"name\":\"isFallback\",\"type\":\"bool\"},{\"internalType\":\"uint40\",\"name\":\"timestamp\",\"type\":\"uint40\"},{\"internalType\":\"uint40\",\"name\":\"prevTimestamp\",\"type\":\"uint40\"},{\"internalType\":\"address\",\"name\":\"preconfer\",\"type\":\"address\"}],\"internalType\":\"structIPreconfTaskManager.LookaheadBufferEntry[64]\",\"name\":\"\",\"type\":\"tuple[64]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes[]\",\"name\":\"blockParams\",\"type\":\"bytes[]\"},{\"internalType\":\"bytes[]\",\"name\":\"txLists\",\"type\":\"bytes[]\"},{\"internalType\":\"uint256\",\"name\":\"lookaheadPointer\",\"type\":\"uint256\"},{\"components\":[{\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"preconfer\",\"type\":\"address\"}],\"internalType\":\"structIPreconfTaskManager.LookaheadSetParam[]\",\"name\":\"lookaheadSetParams\",\"type\":\"tuple[]\"}],\"name\":\"newBlockProposal\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"}]",
+	ABI: "[{\"inputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"preconfer\",\"type\":\"address\"}],\"internalType\":\"structIPreconfTaskManager.LookaheadSetParam[]\",\"name\":\"lookaheadSetParams\",\"type\":\"tuple[]\"}],\"name\":\"forcePushLookahead\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getLookaheadBuffer\",\"outputs\":[{\"components\":[{\"internalType\":\"bool\",\"name\":\"isFallback\",\"type\":\"bool\"},{\"internalType\":\"uint40\",\"name\":\"timestamp\",\"type\":\"uint40\"},{\"internalType\":\"uint40\",\"name\":\"prevTimestamp\",\"type\":\"uint40\"},{\"internalType\":\"address\",\"name\":\"preconfer\",\"type\":\"address\"}],\"internalType\":\"structIPreconfTaskManager.LookaheadBufferEntry[64]\",\"name\":\"\",\"type\":\"tuple[64]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"epochTimestamp\",\"type\":\"uint256\"},{\"internalType\":\"bytes[32]\",\"name\":\"validatorBLSPubKeys\",\"type\":\"bytes[32]\"}],\"name\":\"getLookaheadParamsForEpoch\",\"outputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"preconfer\",\"type\":\"address\"}],\"internalType\":\"structIPreconfTaskManager.LookaheadSetParam[]\",\"name\":\"\",\"type\":\"tuple[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"epochTimestamp\",\"type\":\"uint256\"}],\"name\":\"isLookaheadRequired\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes[]\",\"name\":\"blockParams\",\"type\":\"bytes[]\"},{\"internalType\":\"bytes[]\",\"name\":\"txLists\",\"type\":\"bytes[]\"},{\"internalType\":\"uint256\",\"name\":\"lookaheadPointer\",\"type\":\"uint256\"},{\"components\":[{\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"preconfer\",\"type\":\"address\"}],\"internalType\":\"structIPreconfTaskManager.LookaheadSetParam[]\",\"name\":\"lookaheadSetParams\",\"type\":\"tuple[]\"}],\"name\":\"newBlockProposal\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"}]",
 }
 
 // PreconfTaskManagerABI is the input ABI used to generate the binding from.
@@ -223,6 +223,89 @@ func (_PreconfTaskManager *PreconfTaskManagerSession) GetLookaheadBuffer() ([64]
 // Solidity: function getLookaheadBuffer() view returns((bool,uint40,uint40,address)[64])
 func (_PreconfTaskManager *PreconfTaskManagerCallerSession) GetLookaheadBuffer() ([64]IPreconfTaskManagerLookaheadBufferEntry, error) {
 	return _PreconfTaskManager.Contract.GetLookaheadBuffer(&_PreconfTaskManager.CallOpts)
+}
+
+// GetLookaheadParamsForEpoch is a free data retrieval call binding the contract method 0xa04eb578.
+//
+// Solidity: function getLookaheadParamsForEpoch(uint256 epochTimestamp, bytes[32] validatorBLSPubKeys) view returns((uint256,address)[])
+func (_PreconfTaskManager *PreconfTaskManagerCaller) GetLookaheadParamsForEpoch(opts *bind.CallOpts, epochTimestamp *big.Int, validatorBLSPubKeys [32][]byte) ([]IPreconfTaskManagerLookaheadSetParam, error) {
+	var out []interface{}
+	err := _PreconfTaskManager.contract.Call(opts, &out, "getLookaheadParamsForEpoch", epochTimestamp, validatorBLSPubKeys)
+
+	if err != nil {
+		return *new([]IPreconfTaskManagerLookaheadSetParam), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]IPreconfTaskManagerLookaheadSetParam)).(*[]IPreconfTaskManagerLookaheadSetParam)
+
+	return out0, err
+
+}
+
+// GetLookaheadParamsForEpoch is a free data retrieval call binding the contract method 0xa04eb578.
+//
+// Solidity: function getLookaheadParamsForEpoch(uint256 epochTimestamp, bytes[32] validatorBLSPubKeys) view returns((uint256,address)[])
+func (_PreconfTaskManager *PreconfTaskManagerSession) GetLookaheadParamsForEpoch(epochTimestamp *big.Int, validatorBLSPubKeys [32][]byte) ([]IPreconfTaskManagerLookaheadSetParam, error) {
+	return _PreconfTaskManager.Contract.GetLookaheadParamsForEpoch(&_PreconfTaskManager.CallOpts, epochTimestamp, validatorBLSPubKeys)
+}
+
+// GetLookaheadParamsForEpoch is a free data retrieval call binding the contract method 0xa04eb578.
+//
+// Solidity: function getLookaheadParamsForEpoch(uint256 epochTimestamp, bytes[32] validatorBLSPubKeys) view returns((uint256,address)[])
+func (_PreconfTaskManager *PreconfTaskManagerCallerSession) GetLookaheadParamsForEpoch(epochTimestamp *big.Int, validatorBLSPubKeys [32][]byte) ([]IPreconfTaskManagerLookaheadSetParam, error) {
+	return _PreconfTaskManager.Contract.GetLookaheadParamsForEpoch(&_PreconfTaskManager.CallOpts, epochTimestamp, validatorBLSPubKeys)
+}
+
+// IsLookaheadRequired is a free data retrieval call binding the contract method 0x070923f6.
+//
+// Solidity: function isLookaheadRequired(uint256 epochTimestamp) view returns(bool)
+func (_PreconfTaskManager *PreconfTaskManagerCaller) IsLookaheadRequired(opts *bind.CallOpts, epochTimestamp *big.Int) (bool, error) {
+	var out []interface{}
+	err := _PreconfTaskManager.contract.Call(opts, &out, "isLookaheadRequired", epochTimestamp)
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
+}
+
+// IsLookaheadRequired is a free data retrieval call binding the contract method 0x070923f6.
+//
+// Solidity: function isLookaheadRequired(uint256 epochTimestamp) view returns(bool)
+func (_PreconfTaskManager *PreconfTaskManagerSession) IsLookaheadRequired(epochTimestamp *big.Int) (bool, error) {
+	return _PreconfTaskManager.Contract.IsLookaheadRequired(&_PreconfTaskManager.CallOpts, epochTimestamp)
+}
+
+// IsLookaheadRequired is a free data retrieval call binding the contract method 0x070923f6.
+//
+// Solidity: function isLookaheadRequired(uint256 epochTimestamp) view returns(bool)
+func (_PreconfTaskManager *PreconfTaskManagerCallerSession) IsLookaheadRequired(epochTimestamp *big.Int) (bool, error) {
+	return _PreconfTaskManager.Contract.IsLookaheadRequired(&_PreconfTaskManager.CallOpts, epochTimestamp)
+}
+
+// ForcePushLookahead is a paid mutator transaction binding the contract method 0x188abf5f.
+//
+// Solidity: function forcePushLookahead((uint256,address)[] lookaheadSetParams) returns()
+func (_PreconfTaskManager *PreconfTaskManagerTransactor) ForcePushLookahead(opts *bind.TransactOpts, lookaheadSetParams []IPreconfTaskManagerLookaheadSetParam) (*types.Transaction, error) {
+	return _PreconfTaskManager.contract.Transact(opts, "forcePushLookahead", lookaheadSetParams)
+}
+
+// ForcePushLookahead is a paid mutator transaction binding the contract method 0x188abf5f.
+//
+// Solidity: function forcePushLookahead((uint256,address)[] lookaheadSetParams) returns()
+func (_PreconfTaskManager *PreconfTaskManagerSession) ForcePushLookahead(lookaheadSetParams []IPreconfTaskManagerLookaheadSetParam) (*types.Transaction, error) {
+	return _PreconfTaskManager.Contract.ForcePushLookahead(&_PreconfTaskManager.TransactOpts, lookaheadSetParams)
+}
+
+// ForcePushLookahead is a paid mutator transaction binding the contract method 0x188abf5f.
+//
+// Solidity: function forcePushLookahead((uint256,address)[] lookaheadSetParams) returns()
+func (_PreconfTaskManager *PreconfTaskManagerTransactorSession) ForcePushLookahead(lookaheadSetParams []IPreconfTaskManagerLookaheadSetParam) (*types.Transaction, error) {
+	return _PreconfTaskManager.Contract.ForcePushLookahead(&_PreconfTaskManager.TransactOpts, lookaheadSetParams)
 }
 
 // NewBlockProposal is a paid mutator transaction binding the contract method 0x230f1af9.

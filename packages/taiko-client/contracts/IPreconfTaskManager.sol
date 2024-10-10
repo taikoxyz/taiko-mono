@@ -30,4 +30,14 @@ interface IPreconfTaskManager {
     ) external payable;
 
     function getLookaheadBuffer() external view returns (LookaheadBufferEntry[64] memory);
+
+    function isLookaheadRequired(uint256 epochTimestamp) external view returns (bool);
+    
+    function forcePushLookahead(LookaheadSetParam[] memory lookaheadSetParams) external;
+
+    /// @dev Return the parameters required for the lookahead to be set for the given epoch
+    function getLookaheadParamsForEpoch(uint256 epochTimestamp, bytes[32] memory validatorBLSPubKeys)
+        external
+        view
+        returns (LookaheadSetParam[] memory);
 }

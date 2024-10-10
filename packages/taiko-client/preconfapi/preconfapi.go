@@ -19,6 +19,7 @@ import (
 	anchortxconstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/preconfapi/builder"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/preconfapi/lookahead"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/preconfapi/model"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/preconfapi/server"
 
@@ -57,15 +58,43 @@ func (p *PreconfAPI) InitFromConfig(ctx context.Context, cfg *Config) (err error
 		return err
 	}
 
+	beaconClient, err := rpc.NewBeaconClient(cfg.L1BeaconEndpoint, 5*time.Second)
+	if err != nil {
+		return err
+	}
+
+	genesisTime := beaconClient.GetGenesisTime()
+
+	genesisSlot := beaconClient.GetGenesisSlot()
+
+	secondsPerSlot := beaconClient.GetSecondsPerSlot()
+
+	slotsPerEpoch := beaconClient.GetSlotsPerEpoch()
+
+	lh, err := lookahead.NewLookahead(
+		cfg.PreconfTaskManagerAddress,
+		ethClient,
+		beaconClient,
+		genesisTime,
+		genesisSlot,
+		secondsPerSlot,
+		slotsPerEpoch,
+	)
+	if err != nil {
+		return err
+	}
+
 	txBuilders := make(map[string]builder.TxBuilder)
 	txBuilders["blob"] = builder.NewBlobTransactionBuilder(
 		cfg.PreconfTaskManagerAddress,
+		lh,
 		ethClient,
 		cfg.ProposeBlockTxGasLimit,
 	)
 
 	txBuilders["calldata"] = builder.NewCalldataTransactionBuilder(
 		cfg.PreconfTaskManagerAddress,
+		lh,
 		ethClient,
 		cfg.ProposeBlockTxGasLimit,
 	)
