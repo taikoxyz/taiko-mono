@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 /// @title IPreconfViolationVerifier
 /// @custom:security-contact security@taiko.xyz
-interface IPreconfViolationVerifier{
+interface IPreconfViolationVerifier {
     /// @notice Validates the integrity and authenticity of a receipt.
     /// @param _receipt The serialized receipt data to validate.
     /// @return Returns true if the receipt is valid, otherwise false.
