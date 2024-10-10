@@ -154,7 +154,7 @@ contract AttestationBase is Test, DcapTestUtils, V3QuoteParseUtils {
         address regInstanceAddr =
             address(bytes20(Bytes.slice(v3quote.localEnclaveReport.reportData, 0, 20)));
         console.log("[log] register sgx instance address: %s", regInstanceAddr);
-        uint256 sgxIdx = SgxVerifier(_sgxVerifier).registerInstance(v3quote);
+        uint256 sgxIdx = SgxVerifier(_sgxVerifier).addInstance(v3quote);
         console.log("[log] register sgx instance index: %s", sgxIdx);
     }
 
