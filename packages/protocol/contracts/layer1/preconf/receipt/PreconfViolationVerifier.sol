@@ -7,9 +7,9 @@ import "src/layer1/verifiers/SgxVerifierBase.sol";
 import "src/shared/libs/LibBlockHeader.sol";
 import "./IPreconfViolationVerifier.sol";
 
-/// @title PreconfViolationVerifer
+/// @title PreconfViolationVerifier
 /// @custom:security-contact security@taiko.xyz
-contract PreconfViolationVerifer is SgxVerifierBase, IPreconfViolationVerifier {
+contract PreconfViolationVerifier is SgxVerifierBase, IPreconfViolationVerifier {
     using SignatureChecker for address;
 
     struct TransactionPreconfReceipt {
