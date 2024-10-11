@@ -5,7 +5,6 @@ import "src/layer1/verifiers/SgxVerifierBase.sol";
 import "../automata-attestation/common/AttestationBase.t.sol";
 import "../based/TaikoL1TestBase.sol";
 
-
 contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
     address internal SGX_Y =
         vm.addr(0x9b1bb8cb3bdb539d0d1f03951d27f167f2d5443e7ef0d7ce745cd4ec619d3dd7);
@@ -42,7 +41,9 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         vm.expectEmit(true, true, true, true);
         emit SgxVerifierBase.InstanceAdded(startInstance, instances[0], address(0), block.timestamp);
         vm.expectEmit(true, true, true, true);
-        emit SgxVerifierBase.InstanceAdded(startInstance + 1, instances[1], address(0), block.timestamp);
+        emit SgxVerifierBase.InstanceAdded(
+            startInstance + 1, instances[1], address(0), block.timestamp
+        );
 
         // `addInstances()`
         uint256[] memory ids = sv.addInstances(instances);
