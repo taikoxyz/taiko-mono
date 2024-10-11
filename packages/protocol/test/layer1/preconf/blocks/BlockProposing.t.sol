@@ -226,7 +226,7 @@ contract BlockProposing is BlocksFixtures {
         bytes[] memory txListArr = new bytes[](1);
         txListArr[0] = txList;
 
-         preconfTaskManager.newBlockProposals(
+        preconfTaskManager.newBlockProposals(
             blockParamsArr, txListArr, lookaheadPointer, lookaheadSetParams
         );
     }
