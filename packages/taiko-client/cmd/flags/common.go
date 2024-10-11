@@ -14,6 +14,7 @@ var (
 	metricsCategory  = "METRICS"
 	loggingCategory  = "LOGGING"
 	driverCategory   = "DRIVER"
+	stressCategory   = "STRESS"
 	proposerCategory = "PROPOSER"
 	proverCategory   = "PROVER"
 	txmgrCategory    = "TX_MANAGER"
@@ -24,7 +25,6 @@ var (
 	L1WSEndpoint = &cli.StringFlag{
 		Name:     "l1.ws",
 		Usage:    "Websocket RPC endpoint of a L1 ethereum node",
-		Required: true,
 		Category: commonCategory,
 		EnvVars:  []string{"L1_WS"},
 	}
@@ -37,7 +37,6 @@ var (
 	L2WSEndpoint = &cli.StringFlag{
 		Name:     "l2.ws",
 		Usage:    "Websocket RPC endpoint of a L2 taiko-geth execution engine",
-		Required: true,
 		Category: commonCategory,
 		EnvVars:  []string{"L2_WS"},
 	}
@@ -46,6 +45,13 @@ var (
 		Usage:    "HTTP RPC endpoint of a L1 beacon node",
 		Category: commonCategory,
 		EnvVars:  []string{"L1_BEACON"},
+	}
+	L1HTTPEndpoint = &cli.StringFlag{
+		Name:     "l1.http",
+		Usage:    "HTTP RPC endpoint of a L2 taiko-geth execution engine",
+		Required: true,
+		Category: commonCategory,
+		EnvVars:  []string{"L1_HTTP"},
 	}
 	L2HTTPEndpoint = &cli.StringFlag{
 		Name:     "l2.http",
@@ -160,6 +166,7 @@ var (
 // CommonFlags All common flags.
 var CommonFlags = []cli.Flag{
 	// Required
+	L1HTTPEndpoint,
 	L1WSEndpoint,
 	TaikoL1Address,
 	TaikoL2Address,

@@ -68,8 +68,8 @@ func getProvingWindow(
 	return 0, errTierNotFound
 }
 
-// getMetadataFromBlockID fetches the block meta from the onchain event by the given block id.
-func getMetadataFromBlockID(
+// GetMetadataFromBlockID fetches the block meta from the onchain event by the given block id.
+func GetMetadataFromBlockID(
 	ctx context.Context,
 	rpc *rpc.Client,
 	id *big.Int,

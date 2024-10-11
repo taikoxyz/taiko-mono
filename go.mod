@@ -92,8 +92,10 @@ require (
 	github.com/ethereum/go-verkle v0.1.1-0.20240829091221-dffa7562dbe9 // indirect
 	github.com/ethereum/hive/hiveproxy v0.0.0-20240808014330-625b82294b46 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
+	github.com/fjl/gencodec v0.0.0-20230517082657-f9840df7b83e // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/fsouza/go-dockerclient v1.11.0 // indirect
+	github.com/garslo/gogen v0.0.0-20170306192744-1d203ffc1f61 // indirect
 	github.com/getsentry/sentry-go v0.27.0 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-git/go-billy/v5 v5.5.0 // indirect

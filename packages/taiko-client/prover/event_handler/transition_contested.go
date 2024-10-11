@@ -85,7 +85,7 @@ func (h *TransitionContestedEventHandler) Handle(
 	}
 
 	// If the proof is invalid, we contest it.
-	meta, err := getMetadataFromBlockID(
+	meta, err := GetMetadataFromBlockID(
 		ctx,
 		h.rpc,
 		e.BlockId,

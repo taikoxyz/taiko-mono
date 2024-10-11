@@ -21,7 +21,7 @@ check_env() {
 }
 
 check_command() {
-  if ! command -v "$1" &> /dev/null; then
+  if ! command -v "$1" &>/dev/null; then
     print_error "$1 could not be found"
     exit
   fi
@@ -39,6 +39,6 @@ compose_up() {
   local services=("$@")
   echo
   echo "launching services..."
-  $COMPOSE up --quiet-pull "${services[@]}" -d --wait
+  $COMPOSE up --quiet-pull "${services[@]}" -d --wait --build
   echo "done"
 }
