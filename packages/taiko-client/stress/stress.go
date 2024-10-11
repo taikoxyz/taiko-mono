@@ -166,7 +166,6 @@ func (p *Stress) trigger() {
 	p.wg.Add(1)
 	defer p.wg.Done()
 	var lastBlockTime uint64
-	var nextTrigger time.Duration
 	lastProvedBlockID := p.state.LastProvedBlockID
 	for {
 		if lastProvedBlockID.Cmp(p.cfg.EndingBlockID) > 0 {
@@ -184,17 +183,16 @@ func (p *Stress) trigger() {
 			if err != nil {
 				return err
 			}
-			if lastBlockTime != 0 {
-				nextTrigger = time.Duration(meta.GetTimestamp()-lastBlockTime) * time.Second
+			if lastBlockTime != 0 && lastBlockTime < meta.GetTimestamp() {
+				time.Sleep(time.Duration(meta.GetTimestamp()-lastBlockTime) * time.Second)
 			}
 			lastBlockTime = meta.GetTimestamp()
 			p.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: meta}
 			return nil
 		}, p.backoff); err != nil {
 			log.Error("Operation failed", "error", err)
-			return
+			continue
 		}
-		time.Sleep(nextTrigger)
 		lastProvedBlockID.Add(lastProvedBlockID, common.Big1)
 		p.state.LastProvedBlockID = lastProvedBlockID
 		if err := p.saveState(p.cfg); err != nil {
@@ -223,7 +221,7 @@ func (p *Stress) submitProofOp(proof *proofSubmitter.Proof) error {
 	p.logger.Info("zkvm proof",
 		"zkType", p.zkType,
 		"blockID", proof.BlockID,
-		"cost", proof.EndAt.Sub(proof.BeginAt),
+		"cost", proof.EndAt.Sub(proof.BeginAt).String(),
 		"isTimeout", proof.Timeout,
 	)
 	return nil
