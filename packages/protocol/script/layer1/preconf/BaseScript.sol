@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.so
 contract BaseScript is Script {
     modifier broadcast() {
         uint256 privateKey = vm.envUint("PRIVATE_KEY");
-        require(privateKey != 0, "BaseSript: invalid private key");
+        require(privateKey != 0, "BaseScript: invalid private key");
 
         vm.startBroadcast();
         _;
