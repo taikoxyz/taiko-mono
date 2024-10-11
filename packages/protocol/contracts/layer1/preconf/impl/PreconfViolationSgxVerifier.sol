@@ -15,7 +15,6 @@ contract PreconfViolationSgxVerifier is SgxVerifierBase, IPreconfViolationVerifi
         bytes32 txHash;
         uint64 chainId;
         uint64 blockId;
-        uint24 position;
         bytes32 parentBlockHash;
         bool executionGuaranteed;
         address preconfer;
@@ -73,7 +72,6 @@ contract PreconfViolationSgxVerifier is SgxVerifierBase, IPreconfViolationVerifi
                 _receipt.txHash,
                 _receipt.chainId,
                 _receipt.blockId,
-                _receipt.position,
                 _receipt.executionGuaranteed,
                 _receipt.preconfer
             )
