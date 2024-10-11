@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/log"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
@@ -30,6 +31,9 @@ func (p *Stress) initState(cfg *Config) error {
 		if err := json.Unmarshal(byteValue, p.state); err != nil {
 			return err
 		}
+	}
+	if p.state.LastProvedBlockID == nil {
+		p.state.LastProvedBlockID = common.Big0
 	}
 	p.state.LastProvedBlockID = math.BigMax(p.state.LastProvedBlockID, cfg.StartingBlockID)
 	return nil
