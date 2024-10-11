@@ -56,6 +56,19 @@ interface ITaikoL1 {
     /// @param _pause True to pause, false to unpause.
     function pauseProving(bool _pause) external;
 
+    /// @notice Deposits Taiko token to be used as bonds.
+    /// @param _amount The amount of Taiko token to deposit.
+    function depositBond(uint256 _amount) external;
+
+    /// @notice Withdraws Taiko tokens.
+    /// @param _amount Amount of Taiko tokens to withdraw.
+    function withdrawBond(uint256 _amount) external;
+
+    /// @notice Gets the prover that actually proved a verified block.
+    /// @param _blockId Index of the block.
+    /// @return The prover's address. If the block is not verified yet, address(0) will be returned.
+    function getVerifiedBlockProver(uint64 _blockId) external view returns (address);
+
     /// @notice Gets the details of a block.
     /// @param _blockId Index of the block.
     /// @return blk_ The block.
@@ -72,19 +85,6 @@ interface ITaikoL1 {
         external
         view
         returns (TaikoData.TransitionState memory);
-
-    /// @notice Deposits Taiko token to be used as bonds.
-    /// @param _amount The amount of Taiko token to deposit.
-    function depositBond(uint256 _amount) external;
-
-    /// @notice Withdraws Taiko tokens.
-    /// @param _amount Amount of Taiko tokens to withdraw.
-    function withdrawBond(uint256 _amount) external;
-
-    /// @notice Gets the prover that actually proved a verified block.
-    /// @param _blockId Index of the block.
-    /// @return The prover's address. If the block is not verified yet, address(0) will be returned.
-    function getVerifiedBlockProver(uint64 _blockId) external view returns (address);
 
     /// @notice Gets the configuration of the TaikoL1 contract.
     /// @return Config struct containing configuration parameters.
