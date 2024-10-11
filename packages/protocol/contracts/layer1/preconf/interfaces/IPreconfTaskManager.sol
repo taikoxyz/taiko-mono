@@ -80,7 +80,7 @@ interface IPreconfTaskManager {
     /// @dev The chain id on which the preconfirmation was signed is different from the current
     /// chain's id
     error PreconfirmationChainIdMismatch();
-    /// @dev The dispute window for proving incorrectc lookahead or preconfirmation is over
+    /// @dev The dispute window for proving incorretc lookahead or preconfirmation is over
     error MissedDisputeWindow();
     /// @dev The disputed preconfirmation is correct
     error PreconfirmationIsCorrect();

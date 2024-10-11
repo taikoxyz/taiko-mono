@@ -35,7 +35,7 @@ contract DelegationManager is IDelegationManager {
         emit OperatorSharesIncreased(operator, operator, strategy, shares);
     }
 
-    /// @dev This has been modified from the original EL implementation to accommodate for slashing
+    /// @dev This has been modified from the original EL implementation to accomodate for slashing
     function getOperatorShares(
         address operator,
         address[] memory strategies

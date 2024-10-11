@@ -261,10 +261,10 @@ contract BlockProposing is BlocksFixtures {
 
         uint256 currentEpochStart =
             PreconfConstants.MAINNET_BEACON_GENESIS + PreconfConstants.SECONDS_IN_EPOCH;
-        uint256 currentSlotTimestamp = currentEpochStart + (15 * PreconfConstants.SECONDS_IN_SLOT);
+        uint256 currentSlotTimstamp = currentEpochStart + (15 * PreconfConstants.SECONDS_IN_SLOT);
 
         // Warp to a slot when Address 3 is the expected preconfer
-        vm.warp(currentSlotTimestamp);
+        vm.warp(currentSlotTimstamp);
 
         // Try to propose with a different address than the expected preconfer
         vm.prank(addr_2); // addr_2 is not the expected preconfer (It is addr_3)
