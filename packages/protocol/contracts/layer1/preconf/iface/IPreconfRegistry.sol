@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "src/layer1/avs-mvp/iface/IAVSDirectory.sol";
 import "../libs/BLS12381.sol";
-import "../eigenlayer-mvp/iface/IAVSDirectory.sol";
 
 interface IPreconfRegistry {
     struct Validator {

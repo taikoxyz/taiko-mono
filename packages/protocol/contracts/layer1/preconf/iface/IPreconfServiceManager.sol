@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../eigenlayer-mvp/iface/IAVSDirectory.sol";
+import "src/layer1/avs-mvp/iface/IAVSDirectory.sol";
 
 interface IPreconfServiceManager {
     event StakeLockedUntil(address indexed operator, uint256 timestamp);
