@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "src/layer1/based/TaikoData.sol";
+
 interface ITaikoL1 {
     struct BlockMetadata {
         bytes32 l1Hash;
