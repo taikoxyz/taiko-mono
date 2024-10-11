@@ -95,7 +95,7 @@ func InitFromConfig(
 		L2Endpoint:                    cfg.L2WsEndpoint,
 		TaikoL1Address:                cfg.TaikoL1Address,
 		TaikoL2Address:                cfg.TaikoL2Address,
-		TaikoTokenAddress:             cfg.TaikoTokenAddress,
+		TaikoTokenAddress:             rpc.ZeroAddress,
 		ProverSetAddress:              cfg.ProverSetAddress,
 		GuardianProverMinorityAddress: rpc.ZeroAddress,
 		GuardianProverMajorityAddress: rpc.ZeroAddress,

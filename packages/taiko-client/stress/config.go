@@ -20,7 +20,6 @@ type Config struct {
 	L2HttpEndpoint        string
 	TaikoL1Address        common.Address
 	TaikoL2Address        common.Address
-	TaikoTokenAddress     common.Address
 	ProverSetAddress      common.Address
 	StartingBlockID       *big.Int
 	EndingBlockID         *big.Int
@@ -94,7 +93,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		L2HttpEndpoint:        c.String(flags.L2HTTPEndpoint.Name),
 		TaikoL1Address:        common.HexToAddress(c.String(flags.TaikoL1Address.Name)),
 		TaikoL2Address:        common.HexToAddress(c.String(flags.TaikoL2Address.Name)),
-		TaikoTokenAddress:     common.HexToAddress(c.String(flags.TaikoTokenAddress.Name)),
 		ProverSetAddress:      common.HexToAddress(c.String(flags.ProverSetAddress.Name)),
 		RaikoHostEndpoint:     c.String(flags.RaikoHostEndpoint.Name),
 		RaikoZKVMHostEndpoint: c.String(flags.RaikoZKVMHostEndpoint.Name),

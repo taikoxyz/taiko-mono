@@ -105,10 +105,19 @@ func InitFromConfig(
 		p.ctx,
 	)
 
+	l1Endpoint := cfg.L1WsEndpoint
+	if l1Endpoint == "" {
+		l1Endpoint = cfg.L1HttpEndpoint
+	}
+
+	l2Endpoint := cfg.L2WsEndpoint
+	if l2Endpoint == "" {
+		l2Endpoint = cfg.L2HttpEndpoint
+	}
 	// Clients
 	if p.rpc, err = rpc.NewClient(p.ctx, &rpc.ClientConfig{
-		L1Endpoint:                    cfg.L1WsEndpoint,
-		L2Endpoint:                    cfg.L2WsEndpoint,
+		L1Endpoint:                    l1Endpoint,
+		L2Endpoint:                    l2Endpoint,
 		TaikoL1Address:                cfg.TaikoL1Address,
 		TaikoL2Address:                cfg.TaikoL2Address,
 		TaikoTokenAddress:             cfg.TaikoTokenAddress,

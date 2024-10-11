@@ -48,6 +48,13 @@ var (
 		Category: commonCategory,
 		EnvVars:  []string{"L1_BEACON"},
 	}
+	L1HTTPEndpoint = &cli.StringFlag{
+		Name:     "l1.http",
+		Usage:    "HTTP RPC endpoint of a L2 taiko-geth execution engine",
+		Required: true,
+		Category: commonCategory,
+		EnvVars:  []string{"L1_HTTP"},
+	}
 	L2HTTPEndpoint = &cli.StringFlag{
 		Name:     "l2.http",
 		Usage:    "HTTP RPC endpoint of a L2 taiko-geth execution engine",
