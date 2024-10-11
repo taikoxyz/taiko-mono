@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import "../libs/EIP4788.sol";
 
 interface IPreconfTaskManager {
-
     struct LookaheadBufferEntry {
         // True when the preconfer is randomly selected
         bool isFallback;
@@ -41,8 +40,6 @@ interface IPreconfTaskManager {
         // Start timestamp of the epoch for which the lookahead was posted
         uint64 epochTimestamp;
     }
-
-
 
     event LookaheadUpdated(LookaheadSetParam[]);
 

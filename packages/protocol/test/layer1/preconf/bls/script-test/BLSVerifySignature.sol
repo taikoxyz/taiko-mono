@@ -20,7 +20,7 @@ contract BLSVerifySignature is BaseScript {
     }
 }
 
-contract Target  {
+contract Target {
     event Output(bool);
 
     function verify() external {
