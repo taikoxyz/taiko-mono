@@ -143,6 +143,7 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBl
 		Graffiti:           common.Bytes2Hex(s.graffiti[:]),
 		GasUsed:            header.GasUsed,
 		ParentGasUsed:      parent.GasUsed(),
+		Compressed:         s.proofBuffer.MaxLength > 1,
 	}
 
 	// If the prover set address is provided, we use that address as the prover on chain.

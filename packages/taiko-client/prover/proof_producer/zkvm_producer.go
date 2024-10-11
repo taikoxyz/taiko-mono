@@ -182,10 +182,12 @@ func (s *ZKvmProofProducer) callProverDaemon(
 		return nil, ErrRetry
 	}
 
-	if len(output.Data.Proof.Proof) == 0 {
-		return nil, errEmptyProof
+	if !opts.Compressed {
+		if len(output.Data.Proof.Proof) == 0 {
+			return nil, errEmptyProof
+		}
+		proof = common.Hex2Bytes(output.Data.Proof.Proof[2:])
 	}
-	proof = common.Hex2Bytes(output.Data.Proof.Proof[2:])
 	log.Info(
 		"Proof generated",
 		"height", opts.BlockID,
