@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "src/layer2/based/Lib1559Math.sol";
 import "./TaikoL2Test.sol";
 
 contract TestLib1559Math is TaikoL2Test {
