@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.25;
+pragma solidity ^0.8.24;
 
 interface IStrategyManager {
     event Deposit(address staker, address token, address strategy, uint256 shares);

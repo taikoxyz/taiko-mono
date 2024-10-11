@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Functions in this library have been adapted from:
 // https://github.com/ethyla/bls12-381-hash-to-curve/blob/main/src/HashToCurve.sol
-pragma solidity 0.8.25;
+pragma solidity ^0.8.24;
 
 library BLS12381 {
     using BLS12381 for *;

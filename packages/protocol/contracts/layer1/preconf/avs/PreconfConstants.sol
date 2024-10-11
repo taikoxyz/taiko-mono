@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.25;
+pragma solidity ^0.8.24;
 
 library PreconfConstants {
     uint256 internal constant MAINNET_BEACON_GENESIS = 1606824023;

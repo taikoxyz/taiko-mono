@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.25;
+pragma solidity ^0.8.24;
 
 import {BLS12381} from "../libraries/BLS12381.sol";
 import {PreconfConstants} from "./PreconfConstants.sol";
@@ -7,7 +7,7 @@ import {BLSSignatureChecker} from "./utils/BLSSignatureChecker.sol";
 import {IPreconfRegistry} from "../interfaces/IPreconfRegistry.sol";
 import {IPreconfServiceManager} from "../interfaces/IPreconfServiceManager.sol";
 import {IAVSDirectory} from "../interfaces/eigenlayer-mvp/IAVSDirectory.sol";
-import {Initializable} from "openzeppelin-contracts-upgradeable/proxy/utils/Initializable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 contract PreconfRegistry is IPreconfRegistry, BLSSignatureChecker, Initializable {
     using BLS12381 for BLS12381.G1Point;

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.25;
+pragma solidity ^0.8.24;
 
 interface ISlasher {
     event OperatorSlashed(address indexed operator, address indexed avs);

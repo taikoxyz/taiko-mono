@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.25;
+pragma solidity ^0.8.24;
 
 import {ITaikoL1} from "../interfaces/taiko/ITaikoL1.sol";
 import {EIP4788} from "../libraries/EIP4788.sol";
@@ -7,8 +7,8 @@ import {PreconfConstants} from "./PreconfConstants.sol";
 import {IPreconfTaskManager} from "../interfaces/IPreconfTaskManager.sol";
 import {IPreconfServiceManager} from "../interfaces/IPreconfServiceManager.sol";
 import {IPreconfRegistry} from "../interfaces/IPreconfRegistry.sol";
-import {ECDSA} from "openzeppelin-contracts/utils/cryptography/ECDSA.sol";
-import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
+import {ECDSA} from @openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import {IERC20} from @openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Initializable} from "openzeppelin-contracts-upgradeable/proxy/utils/Initializable.sol";
 
 contract PreconfTaskManager is IPreconfTaskManager, Initializable {
