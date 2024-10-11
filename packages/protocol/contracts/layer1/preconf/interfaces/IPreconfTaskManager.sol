@@ -5,14 +5,6 @@ import "../libraries/EIP4788.sol";
 import "./taiko/ITaikoL1.sol";
 
 interface IPreconfTaskManager {
-    struct PreconfirmationHeader {
-        // The block height for which the preconfirmation is provided
-        uint256 blockId;
-        // The chain id of the target chain on which the preconfirmed transactions are settled
-        uint256 chainId;
-        // The keccak hash of the RLP encoded transaction list
-        bytes32 txListHash;
-    }
 
     struct LookaheadBufferEntry {
         // True when the preconfer is randomly selected
@@ -51,17 +43,10 @@ interface IPreconfTaskManager {
         uint64 epochTimestamp;
     }
 
-    struct ProposerInfo {
-        // Address of the Taiko block proposer
-        address proposer;
-        // Height of the L2 block
-        uint64 blockId;
-    }
+
 
     event LookaheadUpdated(LookaheadSetParam[]);
-    event ProvedIncorrectPreconfirmation(
-        address indexed preconfer, uint256 indexed blockId, address indexed disputer
-    );
+
     event ProvedIncorrectLookahead(
         address indexed poster, uint256 indexed timestamp, address indexed disputer
     );
@@ -82,10 +67,6 @@ interface IPreconfTaskManager {
     error PreconfirmationChainIdMismatch();
     /// @dev The dispute window for proving incorretc lookahead or preconfirmation is over
     error MissedDisputeWindow();
-    /// @dev The disputed preconfirmation is correct
-    error PreconfirmationIsCorrect();
-    /// @dev The sent block metadata does not match the one retrieved from Taiko
-    error MetadataMismatch();
     /// @dev The lookahead poster for the epoch has already been slashed or there is no lookahead
     /// for epoch
     error PosterAlreadySlashedOrLookaheadIsEmpty();
@@ -97,21 +78,11 @@ interface IPreconfTaskManager {
     error NoRegisteredPreconfer();
 
     /// @dev Accepts block proposal by an operator and forwards it to TaikoL1 contract
-    function newBlockProposal(
-        bytes calldata blockParams,
-        bytes calldata txList,
+    function newBlockProposals(
+        bytes[] calldata blockParamsArr,
+        bytes[] calldata txListArr,
         uint256 lookaheadPointer,
         LookaheadSetParam[] calldata lookaheadSetParams
-    )
-        external
-        payable;
-
-    /// @dev Slashes a preconfer if the txn and ordering in a signed preconf does not match the
-    /// actual block
-    function proveIncorrectPreconfirmation(
-        ITaikoL1.BlockMetadata calldata taikoBlockMetadata,
-        PreconfirmationHeader calldata header,
-        bytes calldata signature
     )
         external;
 
@@ -157,9 +128,6 @@ interface IPreconfTaskManager {
 
     /// @dev Returns the lookahead poster for an epoch
     function getLookaheadPoster(uint256 epochTimestamp) external view returns (address);
-
-    /// @dev Returns the block proposer for a block
-    function getBlockProposer(uint256 blockId) external view returns (address);
 
     /// @dev Returns the preconf service manager contract address
     function getPreconfServiceManager() external view returns (address);

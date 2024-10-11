@@ -64,22 +64,4 @@ contract BlocksFixtures is BaseTest {
             preconfRegistry.registerPreconfer(vm.addr(i));
         }
     }
-
-    function setupTaikoBlock(
-        uint256 id,
-        uint256 proposedAt,
-        bytes32 txListHash
-    )
-        internal
-        returns (ITaikoL1.BlockMetadata memory)
-    {
-        ITaikoL1.BlockMetadata memory metadata;
-
-        metadata.blobHash = txListHash;
-        metadata.id = uint64(id);
-
-        taikoL1.setBlock(keccak256(abi.encode(metadata)), proposedAt);
-
-        return metadata;
-    }
 }

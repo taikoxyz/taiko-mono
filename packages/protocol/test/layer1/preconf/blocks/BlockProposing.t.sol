@@ -21,9 +21,6 @@ contract BlockProposing is BlocksFixtures {
         uint256 currentSlotTimestamp = currentEpochStart + (10 * PreconfConstants.SECONDS_IN_SLOT);
         vm.warp(currentSlotTimestamp);
 
-        // Force set the block id to an arbitrary value
-        taikoL1.setBlockId(4);
-
         // Arbitrary lookahead for the next epoch just to avoid fallback selection in this test
         IPreconfTaskManager.LookaheadSetParam[] memory lookaheadSetParams =
             new IPreconfTaskManager.LookaheadSetParam[](1);
@@ -34,14 +31,7 @@ contract BlockProposing is BlocksFixtures {
 
         // Address 1 proposes the block
         vm.prank(addr_1);
-        preconfTaskManager.newBlockProposal("Block Params", "Txn List", 1, lookaheadSetParams);
-
-        // Check that the block proposer has been set correctly
-        assertEq(preconfTaskManager.getBlockProposer(4), addr_1);
-
-        // Verify that Taiko has received the block proposal
-        assertEq(taikoL1.params(), bytes("Block Params"));
-        assertEq(taikoL1.txList(), bytes("Txn List"));
+        _newBlockProposal("Block Params", "Txn List", 1, lookaheadSetParams);
     }
 
     function test_newBlockProposal_preconferCanProposeBlockInAdvanced_Case2() external {
@@ -54,9 +44,6 @@ contract BlockProposing is BlocksFixtures {
         uint256 currentSlotTimestamp = currentEpochStart + (15 * PreconfConstants.SECONDS_IN_SLOT);
         vm.warp(currentSlotTimestamp);
 
-        // Force set the block id to an arbitrary value
-        taikoL1.setBlockId(5);
-
         // Arbitrary lookahead for the next epoch just to avoid fallback selection in this test
         IPreconfTaskManager.LookaheadSetParam[] memory lookaheadSetParams =
             new IPreconfTaskManager.LookaheadSetParam[](1);
@@ -67,14 +54,7 @@ contract BlockProposing is BlocksFixtures {
 
         // Address 3 proposes the block in advance
         vm.prank(addr_3);
-        preconfTaskManager.newBlockProposal("Block Params 2", "Txn List 2", 2, lookaheadSetParams);
-
-        // Check that the block proposer has been set correctly
-        assertEq(preconfTaskManager.getBlockProposer(5), addr_3);
-
-        // Verify that Taiko has received the block proposal
-        assertEq(taikoL1.params(), bytes("Block Params 2"));
-        assertEq(taikoL1.txList(), bytes("Txn List 2"));
+        _newBlockProposal("Block Params 2", "Txn List 2", 2, lookaheadSetParams);
     }
 
     function test_newBlockProposal_preconferCanProposeBlockAtDedicatedSlot() external {
@@ -87,9 +67,6 @@ contract BlockProposing is BlocksFixtures {
         uint256 currentSlotTimestamp = currentEpochStart + (12 * PreconfConstants.SECONDS_IN_SLOT);
         vm.warp(currentSlotTimestamp);
 
-        // Force set the block id to an arbitrary value
-        taikoL1.setBlockId(6);
-
         // Arbitrary lookahead for the next epoch just to avoid fallback selection in this test
         IPreconfTaskManager.LookaheadSetParam[] memory lookaheadSetParams =
             new IPreconfTaskManager.LookaheadSetParam[](1);
@@ -100,46 +77,7 @@ contract BlockProposing is BlocksFixtures {
 
         // Address 1 proposes the block at its dedicated slot
         vm.prank(addr_1);
-        preconfTaskManager.newBlockProposal("Block Params 3", "Txn List 3", 1, lookaheadSetParams);
-
-        // Check that the block proposer has been set correctly
-        assertEq(preconfTaskManager.getBlockProposer(6), addr_1);
-
-        // Verify that Taiko has received the block proposal
-        assertEq(taikoL1.params(), bytes("Block Params 3"));
-        assertEq(taikoL1.txList(), bytes("Txn List 3"));
-    }
-
-    function test_newBlockProposal_forwardsAllValueToTaikoL1() external {
-        // Push preconfer Address 1 to slot 13 and Address 3 to slot 23 of the next epoch
-        prepareLookahead(13, 23);
-
-        uint256 currentEpochStart =
-            PreconfConstants.MAINNET_BEACON_GENESIS + PreconfConstants.SECONDS_IN_EPOCH;
-        // Warp to an arbitrary timestamp before the preconfer's slot
-        uint256 currentSlotTimestamp = currentEpochStart + (10 * PreconfConstants.SECONDS_IN_SLOT);
-        vm.warp(currentSlotTimestamp);
-
-        // Force set the block id to an arbitrary value
-        taikoL1.setBlockId(4);
-
-        // Arbitrary lookahead for the next epoch just to avoid fallback selection in this test
-        IPreconfTaskManager.LookaheadSetParam[] memory lookaheadSetParams =
-            new IPreconfTaskManager.LookaheadSetParam[](1);
-        lookaheadSetParams[0] = IPreconfTaskManager.LookaheadSetParam({
-            preconfer: addr_2,
-            timestamp: currentEpochStart + PreconfConstants.SECONDS_IN_EPOCH
-        });
-
-        // Address 1 proposes the block
-        vm.prank(addr_1);
-        vm.deal(addr_1, 1 ether);
-        preconfTaskManager.newBlockProposal{ value: 1 ether }(
-            "Block Params", "Txn List", 1, lookaheadSetParams
-        );
-
-        // Verify Taiko's balance
-        assertEq(address(taikoL1).balance, 1 ether);
+        _newBlockProposal("Block Params 3", "Txn List 3", 1, lookaheadSetParams);
     }
 
     function test_newBlockProposal_updatesLookaheadForNextEpoch() external {
@@ -170,7 +108,7 @@ contract BlockProposing is BlocksFixtures {
 
         // Address 1 proposes a block and updates the lookahead
         vm.prank(addr_1);
-        preconfTaskManager.newBlockProposal("Block Params", "Txn List", 1, lookaheadSetParams);
+        _newBlockProposal("Block Params", "Txn List", 1, lookaheadSetParams);
 
         // Verify that the lookahead for the next epoch has been updated
         IPreconfTaskManager.LookaheadBufferEntry[128] memory lookaheadBuffer =
@@ -217,7 +155,7 @@ contract BlockProposing is BlocksFixtures {
 
         vm.prank(addr_1);
         vm.expectRevert(IPreconfTaskManager.InvalidLookaheadPointer.selector);
-        preconfTaskManager.newBlockProposal(
+        _newBlockProposal(
             "Block Params", "Txn List", 1, new IPreconfTaskManager.LookaheadSetParam[](0)
         );
     }
@@ -234,7 +172,7 @@ contract BlockProposing is BlocksFixtures {
 
         vm.prank(addr_3);
         vm.expectRevert(IPreconfTaskManager.InvalidLookaheadPointer.selector);
-        preconfTaskManager.newBlockProposal(
+        _newBlockProposal(
             "Block Params", "Txn List", 2, new IPreconfTaskManager.LookaheadSetParam[](0)
         );
     }
@@ -251,7 +189,7 @@ contract BlockProposing is BlocksFixtures {
 
         vm.prank(addr_3);
         vm.expectRevert(IPreconfTaskManager.InvalidLookaheadPointer.selector);
-        preconfTaskManager.newBlockProposal(
+        _newBlockProposal(
             "Block Params", "Txn List", 2, new IPreconfTaskManager.LookaheadSetParam[](0)
         );
     }
@@ -269,8 +207,27 @@ contract BlockProposing is BlocksFixtures {
         // Try to propose with a different address than the expected preconfer
         vm.prank(addr_2); // addr_2 is not the expected preconfer (It is addr_3)
         vm.expectRevert(IPreconfTaskManager.SenderIsNotThePreconfer.selector);
-        preconfTaskManager.newBlockProposal(
+        _newBlockProposal(
             "Block Params", "Txn List", 2, new IPreconfTaskManager.LookaheadSetParam[](0)
+        );
+    }
+
+    function _newBlockProposal(
+        bytes memory blockParams,
+        bytes memory txList,
+        uint256 lookaheadPointer,
+        IPreconfTaskManager.LookaheadSetParam[] memory lookaheadSetParams
+    )
+        internal
+    {
+        bytes[] memory blockParamsArr = new bytes[](1);
+        blockParamsArr[0] = blockParams;
+
+        bytes[] memory txListArr = new bytes[](1);
+        txListArr[0] = txList;
+
+         preconfTaskManager.newBlockProposals(
+            blockParamsArr, txListArr, lookaheadPointer, lookaheadSetParams
         );
     }
 }

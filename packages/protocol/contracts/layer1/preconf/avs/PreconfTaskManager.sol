@@ -29,14 +29,6 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
     uint256 internal constant LOOKAHEAD_BUFFER_SIZE = 128;
     mapping(uint256 lookaheadIndex => LookaheadBufferEntry lookaheadBufferEntry) internal lookahead;
 
-    // A ring buffer that maps the block height to the associated proposer
-    // This is required since the stored block in Taiko has the address of this contract as the
-    // proposer
-    // Stores 4 epochs worth of L2 blocks = 512 (32 slots * 4 blocks a slot * 4 epochs)
-    uint256 internal constant BLOCK_ID_TO_PROPOSER_BUFFER_SIZE = SLOTS_IN_EPOCH * 16;
-    mapping(uint256 blockId_mod_BLOCK_ID_TO_PROPOSER_BUFFER_SIZE => ProposerInfo proposerInfo)
-        internal blockIdToProposer;
-
     // A ring buffer that maps beginning timestamp of an epoch to the lookahead poster for that
     // epoch
     // If the lookahead poster has been slashed or the lookahead is not yet posted, the poster is
@@ -46,7 +38,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
     mapping(uint256 epochTimestamp_mod_LOOKAHEAD_POSTER_BUFFER_SIZE => PosterInfo posterInfo)
         internal lookaheadPosters;
 
-    uint256[46] private __gap; // = 50 - 4
+    uint256[47] private __gap; // = 50 - 3
 
     constructor(
         IPreconfServiceManager _serviceManager,
@@ -75,22 +67,21 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
      * to missed proposals.
      * In this case, `forcePushLookahead` must be called in order to update the lookahead for the
      * next epoch.
-     * @param blockParams Block parameters expected by TaikoL1 contract
-     * @param txList RLP encoded transaction list expected by TaikoL1 contract
+     * @param blockParamsArr A list of block parameters expected by TaikoL1 contract
+     * @param txListArr A list of RLP encoded transaction list expected by TaikoL1 contract
      * @param lookaheadPointer A pointer to the lookahead entry that may prove that the sender is
      * the preconfer
      * for the slot.
      * @param lookaheadSetParams Collection of timestamps and preconfer addresses to be inserted in
      * the lookahead
      */
-    function newBlockProposal(
-        bytes calldata blockParams,
-        bytes calldata txList,
+    function newBlockProposals(
+        bytes[] calldata blockParamsArr,
+        bytes[] calldata txListArr,
         uint256 lookaheadPointer,
         LookaheadSetParam[] calldata lookaheadSetParams
     )
         external
-        payable
     {
         LookaheadBufferEntry memory lookaheadEntry = _getLookaheadEntry(lookaheadPointer);
 
@@ -122,12 +113,6 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
             _updateLookahead(nextEpochTimestamp, lookaheadSetParams);
         }
 
-        // Store the proposer for the block locally
-        // Use Taiko's block number to index
-        (, ITaikoL1.SlotB memory slotB) = taikoL1.getStateVariables();
-        blockIdToProposer[slotB.numBlocks % BLOCK_ID_TO_PROPOSER_BUFFER_SIZE] =
-            ProposerInfo({ proposer: msg.sender, blockId: uint64(slotB.numBlocks) });
-
         // Block the preconfer from withdrawing stake from the restaking service during the dispute
         // window
         preconfServiceManager.lockStakeUntil(
@@ -135,57 +120,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         );
 
         // Forward the block to Taiko's L1 contract
-        taikoL1.proposeBlock{ value: msg.value }(blockParams, txList);
-    }
-
-    /**
-     * @notice Proves that the preconfirmation for a specific block was not respected
-     * @dev The function requires the metadata of the block in the format that Taiko uses. This is
-     * matched
-     * against the metadata hash stored in Taiko.
-     * @param taikoBlockMetadata The metadata of the Taiko block for which the preconfirmation was
-     * provided
-     * @param header The header of the preconfirmation
-     * @param signature The signature of the preconfirmation
-     */
-    function proveIncorrectPreconfirmation(
-        ITaikoL1.BlockMetadata calldata taikoBlockMetadata,
-        PreconfirmationHeader calldata header,
-        bytes calldata signature
-    )
-        external
-    {
-        uint256 blockId = taikoBlockMetadata.id;
-        address proposer = getBlockProposer(blockId);
-
-        // Pull the formalised block from Taiko
-        ITaikoL1.Block memory taikoBlock = taikoL1.getBlock(uint64(blockId));
-
-        if (block.timestamp - taikoBlock.proposedAt >= PreconfConstants.DISPUTE_PERIOD) {
-            // Revert if the dispute window has been missed
-            revert MissedDisputeWindow();
-        } else if (header.chainId != block.chainid) {
-            // Revert if the preconfirmation was provided on another chain
-            revert PreconfirmationChainIdMismatch();
-        } else if (keccak256(abi.encode(taikoBlockMetadata)) != taikoBlock.metaHash) {
-            // Revert if the metadata of the block does not match the one stored in Taiko
-            revert MetadataMismatch();
-        }
-
-        bytes32 headerHash =
-            keccak256(abi.encodePacked(header.blockId, header.chainId, header.txListHash));
-        address preconfSigner = ECDSA.recover(headerHash, signature);
-
-        // Slash if the preconfirmation was given offchain, but block proposal was missed OR
-        // the preconfirmed set of transactions is different from the transactions in the proposed
-        // block.
-        if (preconfSigner != proposer || header.txListHash != taikoBlockMetadata.blobHash) {
-            preconfServiceManager.slashOperator(preconfSigner);
-        } else {
-            revert PreconfirmationIsCorrect();
-        }
-
-        emit ProvedIncorrectPreconfirmation(proposer, blockId, msg.sender);
+        taikoL1.proposeBlocksV2(blockParamsArr, txListArr);
     }
 
     /**
@@ -712,11 +647,5 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         PosterInfo memory posterInfo =
             lookaheadPosters[epochTimestamp % LOOKAHEAD_POSTER_BUFFER_SIZE];
         return posterInfo.epochTimestamp == epochTimestamp ? posterInfo.poster : address(0);
-    }
-
-    function getBlockProposer(uint256 blockId) public view returns (address) {
-        ProposerInfo memory proposerInfo =
-            blockIdToProposer[blockId % BLOCK_ID_TO_PROPOSER_BUFFER_SIZE];
-        return proposerInfo.blockId == blockId ? proposerInfo.proposer : address(0);
     }
 }
