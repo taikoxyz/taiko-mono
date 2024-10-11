@@ -1,7 +1,6 @@
 package stress
 
 import (
-	"errors"
 	"fmt"
 	"math/big"
 	"time"
@@ -57,27 +56,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	var endingBlockID *big.Int
 	if c.IsSet(flags.StressEndingBlockID.Name) {
 		endingBlockID = new(big.Int).SetUint64(c.Uint64(flags.StressEndingBlockID.Name))
-	}
-	// If we are running a guardian prover, we need to prove unassigned blocks and run in contester mode by default.
-	if c.IsSet(flags.GuardianProverMajority.Name) {
-		if err := c.Set(flags.ProveUnassignedBlocks.Name, "true"); err != nil {
-			return nil, err
-		}
-		if err := c.Set(flags.ContesterMode.Name, "true"); err != nil {
-			return nil, err
-		}
-
-		// L1 and L2 node version flags are required only if guardian prover
-		if !c.IsSet(flags.L1NodeVersion.Name) {
-			return nil, errors.New("--prover.l1NodeVersion flag is required if guardian prover is set")
-		}
-		if !c.IsSet(flags.L2NodeVersion.Name) {
-			return nil, errors.New("--prover.l2NodeVersion flag is required if guardian prover is set")
-		}
-	}
-
-	if !c.IsSet(flags.GuardianProverMajority.Name) && !c.IsSet(flags.RaikoHostEndpoint.Name) {
-		return nil, errors.New("empty raiko host endpoint")
 	}
 
 	if c.IsSet(flags.RaikoJWTPath.Name) {
