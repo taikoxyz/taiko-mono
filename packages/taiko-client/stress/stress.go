@@ -176,11 +176,13 @@ func (p *Stress) trigger() {
 			// get l1 info
 			l1Origin, err := p.rpc.L2.L1OriginByID(p.ctx, lastProvedBlockID)
 			if err != nil {
+				log.Error("Get L1Origin failed", "error", err)
 				return err
 			}
 			// get metadata
 			meta, err := handler.GetMetadataFromBlockID(p.ctx, p.rpc, l1Origin.BlockID, l1Origin.L1BlockHeight)
 			if err != nil {
+				log.Error("Get Metadata failed", "error", err, "l1BlockID", l1Origin.BlockID, "l1Height", l1Origin.L1BlockHeight)
 				return err
 			}
 			if lastBlockTime != 0 && lastBlockTime < meta.GetTimestamp() {
