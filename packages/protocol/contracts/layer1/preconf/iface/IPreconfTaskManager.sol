@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "src/layer1/based/TaikoData.sol";
 import "./ILookahead.sol";
 import "./IReceiptProver.sol";
-import "../../based/TaikoData.sol";
 
 /// @title IPreconfTaskManager
 /// @custom:security-contact security@taiko.xyz
