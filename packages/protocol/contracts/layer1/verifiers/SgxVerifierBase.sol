@@ -7,7 +7,6 @@ import "src/shared/common/LibStrings.sol";
 import "../automata-attestation/interfaces/IAttestation.sol";
 import "../automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
 
-
 /// @title SgxVerifierBase
 /// @dev Please see references below:
 /// - Reference #1: https://ethresear.ch/t/2fa-zk-rollups-using-sgx/14462
