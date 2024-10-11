@@ -6,6 +6,7 @@ extend-ignore-identifiers-re = [
   "TGE",
   "tge",
   "preconf",
+  "preconfer"
   "baed",
   "Groth",
   "groth",
