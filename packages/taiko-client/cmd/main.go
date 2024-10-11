@@ -37,7 +37,7 @@ func main() {
 		},
 		{
 			Name:        "stress",
-			Flags:       flags.DriverFlags,
+			Flags:       flags.StressFlags,
 			Usage:       "Starts the stress software",
 			Description: "Taiko stress software",
 			Action:      utils.SubcommandAction(new(stress.Stress)),
