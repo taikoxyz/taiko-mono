@@ -1,4 +1,4 @@
-import "./interface";
+import { Config } from "./interface";
 const fs = require("fs");
 const path = require("path");
 const { ethers } = require("ethers");

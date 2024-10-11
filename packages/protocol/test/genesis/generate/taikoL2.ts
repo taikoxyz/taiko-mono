@@ -1,4 +1,4 @@
-import "./interface";
+import { Config, Result } from "./interface";
 const path = require("path");
 const { ethers } = require("ethers");
 // eslint-disable-next-line node/no-extraneous-require
