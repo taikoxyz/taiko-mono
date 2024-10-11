@@ -61,7 +61,7 @@ interface IPreconfTaskManager {
     /// @dev The chain id on which the preconfirmation was signed is different from the current
     /// chain's id
     error PreconfirmationChainIdMismatch();
-    /// @dev The dispute window for proving incorretc lookahead or preconfirmation is over
+    /// @dev The dispute window for proving incorrectc lookahead or preconfirmation is over
     error MissedDisputeWindow();
     /// @dev The lookahead poster for the epoch has already been slashed or there is no lookahead
     /// for epoch
