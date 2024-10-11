@@ -13,7 +13,7 @@ import "src/layer1/preconf/interfaces/IPreconfRegistry.sol";
 import "src/layer1/preconf/interfaces/IPreconfServiceManager.sol";
 import "src/layer1/preconf/interfaces/eigenlayer-mvp/IAVSDirectory.sol";
 import "src/layer1/preconf/interfaces/eigenlayer-mvp/ISlasher.sol";
-import "src/layer1/preconf/interfaces/taiko/ITaikoL1.sol";
+import "src/layer1/preconf/interfaces/ITaikoL1Partial.sol";
 
 import "../BaseScript.sol";
 import "../misc/EmptyContract.sol";
@@ -47,7 +47,7 @@ contract DeployAVS is BaseScript {
         PreconfTaskManager preconfTaskManagerImpl = new PreconfTaskManager(
             IPreconfServiceManager(preconfServiceManager),
             IPreconfRegistry(preconfRegistry),
-            ITaikoL1(taikoL1),
+            ITaikoL1Partial(taikoL1),
             beaconGenesisTimestamp,
             beaconBlockRootContract
         );

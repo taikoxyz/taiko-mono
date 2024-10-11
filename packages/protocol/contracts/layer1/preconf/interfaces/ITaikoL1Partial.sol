@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "src/layer1/based/TaikoData.sol";
 
-interface ITaikoL1 {
+interface ITaikoL1Partial {
     /// @notice Proposes multiple Taiko L2 blocks (version 2)
     /// @param _paramsArr A list of encoded BlockParamsV2 objects.
     /// @param _txListArr A list of txList.

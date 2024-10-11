@@ -11,7 +11,7 @@ import "src/layer1/preconf/avs/PreconfConstants.sol";
 import "src/layer1/preconf/avs/PreconfTaskManager.sol";
 import "src/layer1/preconf/interfaces/IPreconfRegistry.sol";
 import "src/layer1/preconf/interfaces/IPreconfServiceManager.sol";
-import "src/layer1/preconf/interfaces/taiko/ITaikoL1.sol";
+import "src/layer1/preconf/interfaces/ITaikoL1Partial.sol";
 
 contract LookaheadFixtures is BaseTest {
     PreconfTaskManager internal preconfTaskManager;
@@ -29,7 +29,7 @@ contract LookaheadFixtures is BaseTest {
         preconfTaskManager = new PreconfTaskManager(
             IPreconfServiceManager(address(preconfServiceManager)),
             IPreconfRegistry(address(preconfRegistry)),
-            ITaikoL1(taikoL1),
+            ITaikoL1Partial(taikoL1),
             PreconfConstants.MAINNET_BEACON_GENESIS,
             address(beaconBlockRootContract)
         );

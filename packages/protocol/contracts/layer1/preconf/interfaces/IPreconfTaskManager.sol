@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import "../libraries/EIP4788.sol";
-import "./taiko/ITaikoL1.sol";
 
 interface IPreconfTaskManager {
 
