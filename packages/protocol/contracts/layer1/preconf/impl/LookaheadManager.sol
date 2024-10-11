@@ -11,14 +11,58 @@ import "../iface/IPreconfRegistry.sol";
 import "../libs/EIP4788.sol";
 import "./PreconfConstants.sol";
 
-contract PreconfTaskManager is IPreconfTaskManager, Initializable {
+interface ILookaheadManager {
+    struct LookaheadBufferEntry {
+        // True when the preconfer is randomly selected
+        bool isFallback;
+        // Timestamp of the slot at which the provided preconfer is the L1 validator
+        uint40 timestamp;
+        // Timestamp of the last slot that had a valid preconfer
+        uint40 prevTimestamp;
+        // Address of the preconfer who is also the L1 validator
+        // The preconfer will have rights to propose a block in the range (prevTimestamp, timestamp]
+        address preconfer;
+    }
+
+        struct LookaheadSetParam {
+        // The timestamp of the slot
+        uint256 timestamp;
+        // The AVS operator who is also the L1 validator for the slot and will preconf L2
+        // transactions
+        address preconfer;
+    }
+
+    struct LookaheadMetadata {
+        // True if the lookahead was proved to be incorrect
+        bool incorrect;
+        // The poster of the lookahead
+        address poster;
+        // Fallback preconfer selected for the epoch in which the lookahead was posted
+        // This is only set when the lookahead is proved to be incorrect
+        address fallbackPreconfer;
+    }
+
+        struct PosterInfo {
+        // Address of lookahead poster
+        address poster;
+        // Start timestamp of the epoch for which the lookahead was posted
+        uint64 epochTimestamp;
+    }
+
+       event LookaheadUpdated(LookaheadSetParam[]);
+
+    event ProvedIncorrectLookahead(
+        address indexed poster, uint256 indexed timestamp, address indexed disputer
+    );
+
+}
+contract LookaheadManager is ILookaheadManager, Initializable {
     // Cannot be kept in `PreconfConstants` file because solidity expects array sizes
     // to be stored in the main contract file itself.
     uint256 internal constant SLOTS_IN_EPOCH = 32;
 
     IPreconfServiceManager internal immutable preconfServiceManager;
     IPreconfRegistry internal immutable preconfRegistry;
-    ITaikoL1Partial internal immutable taikoL1;
 
     // EIP-4788
     uint256 internal immutable beaconGenesis;
@@ -40,87 +84,47 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
 
     uint256[47] private __gap; // = 50 - 3
 
+
+    /// @dev The current (or provided) timestamp does not fall in the range provided by the
+    /// lookahead pointer
+    error InvalidLookaheadPointer();
+    /// @dev The block proposer is not the assigned preconfer for the current slot/timestamp
+    error SenderIsNotThePreconfer();
+    /// @dev Preconfer is not present in the registry
+    error PreconferNotRegistered();
+    /// @dev  Epoch timestamp is incorrect
+    error InvalidEpochTimestamp();
+    /// @dev The timestamp in the lookahead is not of a valid future slot in the present epoch
+    error InvalidSlotTimestamp();
+    /// @dev The chain id on which the preconfirmation was signed is different from the current
+    /// chain's id
+    error PreconfirmationChainIdMismatch();
+    /// @dev The dispute window for proving incorrectc lookahead or preconfirmation is over
+    error MissedDisputeWindow();
+    /// @dev The lookahead poster for the epoch has already been slashed or there is no lookahead
+    /// for epoch
+    error PosterAlreadySlashedOrLookaheadIsEmpty();
+    /// @dev The lookahead preconfer matches the one the actual validator is proposing for
+    error LookaheadEntryIsCorrect();
+    /// @dev Cannot force push a lookahead since it is not lagging behind
+    error LookaheadIsNotRequired();
+    /// @dev The registry does not have a single registered preconfer
+    error NoRegisteredPreconfer();
+
+
     constructor(
         IPreconfServiceManager _serviceManager,
         IPreconfRegistry _registry,
-        ITaikoL1Partial _taikoL1,
         uint256 _beaconGenesis,
         address _beaconBlockRootContract
     ) {
         preconfServiceManager = _serviceManager;
         preconfRegistry = _registry;
-        taikoL1 = _taikoL1;
         beaconGenesis = _beaconGenesis;
         beaconBlockRootContract = _beaconBlockRootContract;
     }
 
     function init(IERC20 _taikoToken) external initializer {
-        _taikoToken.approve(address(taikoL1), type(uint256).max);
-    }
-
-    /**
-     * @notice Proposes a new Taiko L2 block.
-     * @dev The first caller in every epoch is expected to pass along the lookahead entries for the
-     * next epoch.
-     * The function reverts if the lookahead is lagging behind. This is possible if it is
-     * the first block proposal of the system or no lookahead was posted for the current epoch due
-     * to missed proposals.
-     * In this case, `forcePushLookahead` must be called in order to update the lookahead for the
-     * next epoch.
-     * @param blockParamsArr A list of block parameters expected by TaikoL1 contract
-     * @param txListArr A list of RLP encoded transaction list expected by TaikoL1 contract
-     * @param lookaheadPointer A pointer to the lookahead entry that may prove that the sender is
-     * the preconfer
-     * for the slot.
-     * @param lookaheadSetParams Collection of timestamps and preconfer addresses to be inserted in
-     * the lookahead
-     */
-    function newBlockProposals(
-        bytes[] calldata blockParamsArr,
-        bytes[] calldata txListArr,
-        uint256 lookaheadPointer,
-        LookaheadSetParam[] calldata lookaheadSetParams
-    )
-        external
-    {
-        LookaheadBufferEntry memory lookaheadEntry = _getLookaheadEntry(lookaheadPointer);
-
-        uint256 epochTimestamp = _getEpochTimestamp(block.timestamp);
-
-        // The current L1 block's timestamp must be within the range retrieved from the lookahead
-        // entry.
-        // The preconfer is allowed to propose a block in advanced if there are no other entries in
-        // the
-        // lookahead between the present slot and the preconfer's own slot.
-        //
-        // ------[Last slot with an entry]---[X]---[X]----[X]----[Preconfer]-------
-        // ------[     prevTimestamp     ]---[ ]---[ ]----[ ]----[timestamp]-------
-        //
-        if (
-            block.timestamp <= lookaheadEntry.prevTimestamp
-                || block.timestamp > lookaheadEntry.timestamp
-        ) {
-            revert InvalidLookaheadPointer();
-        } else if (msg.sender != lookaheadEntry.preconfer) {
-            revert SenderIsNotThePreconfer();
-        }
-
-        uint256 nextEpochTimestamp = epochTimestamp + PreconfConstants.SECONDS_IN_EPOCH;
-
-        // Update the lookahead for the next epoch.
-        // Only called during the first block proposal of the current epoch.
-        if (_isLookaheadRequired(epochTimestamp, nextEpochTimestamp)) {
-            _updateLookahead(nextEpochTimestamp, lookaheadSetParams);
-        }
-
-        // Block the preconfer from withdrawing stake from the restaking service during the dispute
-        // window
-        preconfServiceManager.lockStakeUntil(
-            msg.sender, block.timestamp + PreconfConstants.DISPUTE_PERIOD
-        );
-
-        // Forward the block to Taiko's L1 contract
-        taikoL1.proposeBlocksV2(blockParamsArr, txListArr);
     }
 
     /**
@@ -604,30 +608,6 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         uint256 epochTimestamp = _getEpochTimestamp(block.timestamp);
         uint256 nextEpochTimestamp = epochTimestamp + PreconfConstants.SECONDS_IN_EPOCH;
         return _isLookaheadRequired(epochTimestamp, nextEpochTimestamp);
-    }
-
-    function getPreconfServiceManager() external view returns (address) {
-        return address(preconfServiceManager);
-    }
-
-    function getPreconfRegistry() external view returns (address) {
-        return address(preconfRegistry);
-    }
-
-    function getTaikoL1() external view returns (address) {
-        return address(taikoL1);
-    }
-
-    function getBeaconGenesis() external view returns (uint256) {
-        return beaconGenesis;
-    }
-
-    function getBeaconBlockRootContract() external view returns (address) {
-        return beaconBlockRootContract;
-    }
-
-    function getLookaheadTail() external view returns (uint256) {
-        return lookaheadTail;
     }
 
     function getLookaheadBuffer()
