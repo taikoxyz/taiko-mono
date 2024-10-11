@@ -5,6 +5,7 @@ extend-ignore-identifiers-re = [
   "bafybeiegdqpwx3he5dvoxqklspdjekjepjcobfaakyficksratn73qbbyy",
   "TGE",
   "tge",
+  "preconf",
   "baed",
   "Groth",
   "groth",
