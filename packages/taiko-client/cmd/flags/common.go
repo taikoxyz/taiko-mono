@@ -168,6 +168,7 @@ var (
 // CommonFlags All common flags.
 var CommonFlags = []cli.Flag{
 	// Required
+	L1HTTPEndpoint,
 	L1WSEndpoint,
 	TaikoL1Address,
 	TaikoL2Address,

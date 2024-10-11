@@ -40,22 +40,14 @@ var (
 
 // StressFlags All stress test flags.
 var StressFlags = MergeFlags(CommonFlags, []cli.Flag{
-	L1WSEndpoint,
-	L1HTTPEndpoint,
 	L2WSEndpoint,
 	L2HTTPEndpoint,
-	TaikoL1Address,
-	TaikoL2Address,
-	ProverSetAddress,
 	RaikoHostEndpoint,
 	RaikoZKVMHostEndpoint,
 	RaikoJWTPath,
 	RaikoRequestTimeout,
 	Dummy,
 	Graffiti,
-	BackOffMaxRetries,
-	BackOffRetryInterval,
-	RPCTimeout,
 	ProverCapacity,
 	ProverHTTPServerPort,
 	L1NodeVersion,
