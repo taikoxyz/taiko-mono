@@ -5,9 +5,9 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "../../../shared/common/EssentialContract.sol";
 import "../../based/ITaikoL1.sol";
 import "../libs/LibNames.sol";
-import "../libs/LibBlockHeader.sol";
 import "../iface/IPreconfServiceManager.sol";
 import "../iface/IPreconfTaskManager.sol";
+import "../iface/IPreconfViolationVerifier.sol";
 
 /// @title PreconfTaskManager
 /// @custom:security-contact security@taiko.xyz
@@ -69,14 +69,14 @@ abstract contract PreconfTaskManager is IPreconfTaskManager, EssentialContract {
     }
 
     /// @inheritdoc IPreconfTaskManager
-    function proveReceiptViolation(
-        IReceiptProver.Receipt calldata _receipt,
+    function verifyPreconfViolation(
+        bytes calldata _receipt,
         bytes calldata _proof
     )
         external
         nonReentrant
     {
-        address preconfer = _receiptProver().proveReceiptViolation(_receipt, _proof);
+        address preconfer = _preconfViolationVerifier().verifyPreconfViolation(_receipt, _proof);
         _preconfServiceManager().slashOperator(preconfer);
     }
 
@@ -87,8 +87,8 @@ abstract contract PreconfTaskManager is IPreconfTaskManager, EssentialContract {
         return IPreconfServiceManager(resolve(LibNames.B_PRECONF_SERVICE_MANAGER, false));
     }
 
-    function _receiptProver() private view returns (IReceiptProver) {
-        return IReceiptProver(resolve(LibNames.B_RECEIPT_PROVER, false));
+    function _preconfViolationVerifier() private view returns (IPreconfViolationVerifier) {
+        return IPreconfViolationVerifier(resolve(LibNames.B_PRECONF_VIOLATION_VERIFIER, false));
     }
 
     function _lookahead() private view returns (ILookahead) {

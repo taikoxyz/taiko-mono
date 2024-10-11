@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "src/layer1/based/TaikoData.sol";
 import "./ILookahead.sol";
-import "./IReceiptProver.sol";
+import "./IPreconfViolationVerifier.sol";
 
 /// @title IPreconfTaskManager
 /// @custom:security-contact security@taiko.xyz
@@ -41,8 +41,8 @@ interface IPreconfTaskManager {
     /// @notice Proves a receipt violation
     /// @param _receipt The receipt to be proved
     /// @param _proof The proof data for the receipt
-    function proveReceiptViolation(
-        IReceiptProver.Receipt calldata _receipt,
+    function verifyPreconfViolation(
+        bytes calldata _receipt,
         bytes calldata _proof
     )
         external;
