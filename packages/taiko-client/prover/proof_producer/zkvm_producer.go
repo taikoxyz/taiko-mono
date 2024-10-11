@@ -211,8 +211,9 @@ func (s *ZKvmProofProducer) requestProof(
 			Prover:   opts.ProverAddress.Hex()[2:],
 			Graffiti: opts.Graffiti,
 			SP1: &SP1RequestProofBodyParam{
-				Recursion: "plonk",
+				Recursion: "compressed",
 				Prover:    "network",
+				Verify:    true,
 			},
 		}
 	default:
@@ -283,17 +284,33 @@ func (s *ZKvmProofProducer) requestCancel(
 	ctx context.Context,
 	opts *ProofRequestOptions,
 ) error {
-	reqBody := RaikoRequestProofBody{
-		Type:     s.ZKProofType,
-		Block:    opts.BlockID,
-		Prover:   opts.ProverAddress.Hex()[2:],
-		Graffiti: opts.Graffiti,
-		RISC0: &RISC0RequestProofBodyParam{
-			Bonsai:       true,
-			Snark:        true,
-			Profile:      false,
-			ExecutionPo2: big.NewInt(20),
-		},
+	var reqBody RaikoRequestProofBody
+	switch s.ZKProofType {
+	case ZKProofTypeSP1:
+		reqBody = RaikoRequestProofBody{
+			Type:     s.ZKProofType,
+			Block:    opts.BlockID,
+			Prover:   opts.ProverAddress.Hex()[2:],
+			Graffiti: opts.Graffiti,
+			SP1: &SP1RequestProofBodyParam{
+				Recursion: "compressed",
+				Prover:    "network",
+				Verify:    true,
+			},
+		}
+	default:
+		reqBody = RaikoRequestProofBody{
+			Type:     s.ZKProofType,
+			Block:    opts.BlockID,
+			Prover:   opts.ProverAddress.Hex()[2:],
+			Graffiti: opts.Graffiti,
+			RISC0: &RISC0RequestProofBodyParam{
+				Bonsai:       true,
+				Snark:        true,
+				Profile:      false,
+				ExecutionPo2: big.NewInt(20),
+			},
+		}
 	}
 
 	client := &http.Client{}
@@ -360,6 +377,7 @@ func (s *ZKvmProofProducer) requestBatchProof(
 			SP1: &SP1RequestProofBodyParam{
 				Recursion: "plonk",
 				Prover:    "network",
+				Verify:    true,
 			},
 		}
 	default:

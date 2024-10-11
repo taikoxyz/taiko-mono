@@ -77,6 +77,7 @@ type RISC0RequestProofBodyParam struct {
 type SP1RequestProofBodyParam struct {
 	Recursion string `json:"recursion"`
 	Prover    string `json:"prover"`
+	Verify    bool   `json:"verify"`
 }
 
 // RaikoRequestProofBodyResponse represents the JSON body of the response of the proof requests.

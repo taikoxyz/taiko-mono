@@ -428,7 +428,8 @@ func (p *Prover) aggregateOp(tier uint16) error {
 				}
 			} else {
 				log.Debug("Skip this aggregateOp",
-					"tier", tier,
+					"requestTier", tier,
+					"submitterTier", s.Tier(),
 					"bufferSize", s.BufferSize(),
 				)
 			}
