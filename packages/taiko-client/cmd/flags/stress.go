@@ -55,4 +55,6 @@ var StressFlags = MergeFlags(CommonFlags, []cli.Flag{
 	StressStartingBlockID,
 	StressEndingBlockID,
 	StressZkType,
+	StressDBPath,
+	StressLogPath,
 })
