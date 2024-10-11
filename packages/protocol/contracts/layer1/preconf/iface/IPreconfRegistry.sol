@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "../libs/BLS12381.sol";
-import "./eigenlayer-mvp/IAVSDirectory.sol";
+import "../eigenlayer-mvp/iface/IAVSDirectory.sol";
 
 interface IPreconfRegistry {
     struct Validator {

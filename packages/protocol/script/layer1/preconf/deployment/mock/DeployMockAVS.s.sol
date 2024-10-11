@@ -12,8 +12,8 @@ import "src/layer1/preconf/impl/PreconfTaskManager.sol";
 import "src/layer1/preconf/iface/IPreconfRegistry.sol";
 import "src/layer1/preconf/iface/IPreconfServiceManager.sol";
 import "src/layer1/preconf/iface/IPreconfTaskManager.sol";
-import "src/layer1/preconf/iface/eigenlayer-mvp/IAVSDirectory.sol";
-import "src/layer1/preconf/iface/eigenlayer-mvp/ISlasher.sol";
+import "src/layer1/preconf/eigenlayer-mvp/iface/IAVSDirectory.sol";
+import "src/layer1/preconf/eigenlayer-mvp/iface/ISlasher.sol";
 import "src/layer1/preconf/iface/ITaikoL1Partial.sol";
 
 import "../../BaseScript.sol";

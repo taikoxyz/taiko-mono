@@ -5,12 +5,10 @@ import "forge-std/src/Script.sol";
 import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
-import "src/layer1/preconf/eigenlayer-mvp/AVSDirectory.sol";
-import "src/layer1/preconf/eigenlayer-mvp/DelegationManager.sol";
-import "src/layer1/preconf/eigenlayer-mvp/StrategyManager.sol";
-import "src/layer1/preconf/eigenlayer-mvp/Slasher.sol";
-import "src/layer1/preconf/iface/eigenlayer-mvp/IDelegationManager.sol";
-import "src/layer1/preconf/iface/eigenlayer-mvp/IStrategyManager.sol";
+import "src/layer1/preconf/eigenlayer-mvp/impl/DelegationManager.sol";
+import "src/layer1/preconf/eigenlayer-mvp/impl/StrategyManager.sol";
+import "src/layer1/preconf/eigenlayer-mvp/impl/Slasher.sol";
+import "src/layer1/preconf/eigenlayer-mvp/impl/AVSDirectory.sol";
 
 import "../BaseScript.sol";
 import "../misc/EmptyContract.sol";
