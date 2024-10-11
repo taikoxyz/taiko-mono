@@ -2,11 +2,12 @@
 // solhint-disable-next-line
 pragma solidity ^0.8.24;
 
-import {BaseScript} from "script/layer1/preconf/BaseScript.sol";
-import {BLS12381} from "src/layer1/preconf/libraries/BLS12381.sol";
+import "script/layer1/preconf/BaseScript.sol";
+import "src/layer1/preconf/libraries/BLS12381.sol";
 
 /**
- * @dev At the time of writing this (Sept, 2024) foundry does not support the BLS12381 precompile, thus
+ * @dev At the time of writing this (Sept, 2024) foundry does not support the BLS12381 precompile,
+ * thus
  * a traditional foundry test is not possible for hash to curve functionality. Instead, we test it
  * manually by sending a transaction to a Pectra devnet and verify the outputs on the explorer.
  */

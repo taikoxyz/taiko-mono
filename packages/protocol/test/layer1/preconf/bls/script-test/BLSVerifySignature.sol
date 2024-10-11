@@ -2,12 +2,13 @@
 // solhint-disable-next-line
 pragma solidity ^0.8.24;
 
-import {BaseScript} from "script/layer1/preconf/BaseScript.sol";
-import {BLS12381} from "src/layer1/preconf/libraries/BLS12381.sol";
-import {BLSSignatureChecker} from "src/layer1/preconf/avs/utils/BLSSignatureChecker.sol";
+import "script/layer1/preconf/BaseScript.sol";
+import "src/layer1/preconf/libraries/BLS12381.sol";
+import "src/layer1/preconf/avs/utils/BLSSignatureChecker.sol";
 
 /**
- * @dev At the time of writing this (Sept, 2024) foundry does not support the BLS12381 precompile, thus
+ * @dev At the time of writing this (Sept, 2024) foundry does not support the BLS12381 precompile,
+ * thus
  * a traditional foundry test is not possible to verify a signature. Instead, we test it
  * manually by sending a transaction to a Pectra devnet and verify the outputs on the explorer.
  */
@@ -55,7 +56,8 @@ contract Target is BLSSignatureChecker {
         });
 
         /**
-         * Expected output using DST as empty string "": 0x0000000000000000000000000000000000000000000000000000000000000001
+         * Expected output using DST as empty string "":
+         * 0x0000000000000000000000000000000000000000000000000000000000000001
          */
         emit Output(verifySignature("abc", sig, pubkey));
     }

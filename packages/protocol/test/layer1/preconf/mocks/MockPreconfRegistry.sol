@@ -25,7 +25,12 @@ contract MockPreconfRegistry {
         }
     }
 
-    function addValidator(bytes memory pubKey, address preconfer, uint256 startProposingAt, uint256 stopProposingAt)
+    function addValidator(
+        bytes memory pubKey,
+        address preconfer,
+        uint256 startProposingAt,
+        uint256 stopProposingAt
+    )
         external
     {
         bytes32 key = keccak256(abi.encodePacked(bytes16(0), pubKey));

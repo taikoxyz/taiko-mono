@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {BaseTest} from "../BaseTest.sol";
-import {MockPreconfRegistry} from "../mocks/MockPreconfRegistry.sol";
-import {MockPreconfServiceManager} from "../mocks/MockPreconfServiceManager.sol";
-import {MockBeaconBlockRoot} from "../mocks/MockBeaconBlockRoot.sol";
-import {MockTaikoL1} from "../mocks/MockTaikoL1.sol";
+import "../BaseTest.sol";
+import "../mocks/MockPreconfRegistry.sol";
+import "../mocks/MockPreconfServiceManager.sol";
+import "../mocks/MockBeaconBlockRoot.sol";
+import "../mocks/MockTaikoL1.sol";
 
-import {PreconfConstants} from "src/layer1/preconf/avs/PreconfConstants.sol";
-import {PreconfTaskManager} from "src/layer1/preconf/avs/PreconfTaskManager.sol";
-import {IPreconfRegistry} from "src/layer1/preconf/interfaces/IPreconfRegistry.sol";
-import {IPreconfServiceManager} from "src/layer1/preconf/interfaces/IPreconfServiceManager.sol";
-import {ITaikoL1} from "src/layer1/preconf/interfaces/taiko/ITaikoL1.sol";
+import "src/layer1/preconf/avs/PreconfConstants.sol";
+import "src/layer1/preconf/avs/PreconfTaskManager.sol";
+import "src/layer1/preconf/interfaces/IPreconfRegistry.sol";
+import "src/layer1/preconf/interfaces/IPreconfServiceManager.sol";
+import "src/layer1/preconf/interfaces/taiko/ITaikoL1.sol";
 
 contract LookaheadFixtures is BaseTest {
     PreconfTaskManager internal preconfTaskManager;
@@ -41,7 +41,14 @@ contract LookaheadFixtures is BaseTest {
         }
     }
 
-    function computeFallbackPreconfer(bytes32 randomness, uint256 nextPreconferIndex) internal pure returns (address) {
+    function computeFallbackPreconfer(
+        bytes32 randomness,
+        uint256 nextPreconferIndex
+    )
+        internal
+        pure
+        returns (address)
+    {
         return vm.addr(uint256(randomness) % (nextPreconferIndex - 1) + 1);
     }
 }

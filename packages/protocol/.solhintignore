@@ -1,4 +1,6 @@
 node_modules/
 lib/
 contracts/layer1/automata-attestation/
+contracts/layer1/preconf/eigenlayer-mvp/
+contracts/layer1/preconf/libraries/BLS12381.sol
 test/shared/thirdparty/

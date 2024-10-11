@@ -27,7 +27,7 @@ contract MockPreconfRegistry is IPreconfRegistry, BLSSignatureChecker, Initializ
     mapping(uint256 index => address preconfer) internal indexToPreconfer;
 
     // Maps a validator's BLS pub key hash to the validator's details
-    mapping(bytes32 publicKeyHash => Validator) internal validators;
+    mapping(bytes32 publicKeyHash => Validator validator) internal validators;
 
     constructor(IPreconfServiceManager _preconfServiceManager) {
         preconfServiceManager = _preconfServiceManager;

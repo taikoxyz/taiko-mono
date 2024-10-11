@@ -14,5 +14,5 @@ contract MockBeaconBlockRoot {
         return abi.encode(root);
     }
 
-    receive() external payable {}
+    receive() external payable { }
 }

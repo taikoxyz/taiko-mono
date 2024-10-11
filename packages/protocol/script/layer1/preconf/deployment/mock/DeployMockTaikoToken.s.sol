@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {BaseScript} from "../../BaseScript.sol";
-
-import {MockTaikoToken} from "src/layer1/preconf/mock/MockTaikoToken.sol";
-
-import {console2} from "forge-std/src/Script.sol";
+import "forge-std/src/Script.sol";
+import "src/layer1/preconf/mock/MockTaikoToken.sol";
+import "../../BaseScript.sol";
 
 contract DeployMockTaikoToken is BaseScript {
     function run() external broadcast {

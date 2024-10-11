@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Script} from "forge-std/src/Script.sol";
-import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import "forge-std/src/Script.sol";
+import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 contract BaseScript is Script {
     modifier broadcast() {
@@ -14,7 +14,14 @@ contract BaseScript is Script {
         vm.stopBroadcast();
     }
 
-    function deployProxy(address _impl, address _admin, bytes memory _data) internal returns (address) {
+    function deployProxy(
+        address _impl,
+        address _admin,
+        bytes memory _data
+    )
+        internal
+        returns (address)
+    {
         TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(_impl, _admin, _data);
         return address(proxy);
     }

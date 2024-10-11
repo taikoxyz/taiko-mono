@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "../interfaces/IPreconfServiceManager.sol";
 import "../interfaces/eigenlayer-mvp/ISlasher.sol";
 import "../interfaces/eigenlayer-mvp/IAVSDirectory.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 /**
  * @dev This contract would serve as the address of the AVS w.r.t the restaking platform being used.

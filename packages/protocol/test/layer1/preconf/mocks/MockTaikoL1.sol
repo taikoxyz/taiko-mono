@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {ITaikoL1} from "src/layer1/preconf/interfaces/taiko/ITaikoL1.sol";
+import "src/layer1/preconf/interfaces/taiko/ITaikoL1.sol";
 
 contract MockTaikoL1 is ITaikoL1 {
     bytes public params;
@@ -9,7 +9,10 @@ contract MockTaikoL1 is ITaikoL1 {
     uint256 public blockId;
     Block public blk;
 
-    function proposeBlock(bytes calldata _params, bytes calldata _txList)
+    function proposeBlock(
+        bytes calldata _params,
+        bytes calldata _txList
+    )
         external
         payable
         returns (BlockMetadata memory a, EthDeposit[] memory b)

@@ -1,22 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {BaseScript} from "../BaseScript.sol";
-import {EmptyContract} from "../misc/EmptyContract.sol";
+import "forge-std/src/Script.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
+import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
-import {PreconfRegistry} from "src/layer1/preconf/avs/PreconfRegistry.sol";
-import {PreconfServiceManager} from "src/layer1/preconf/avs/PreconfServiceManager.sol";
-import {PreconfTaskManager} from "src/layer1/preconf/avs/PreconfTaskManager.sol";
-import {IPreconfRegistry} from "src/layer1/preconf/interfaces/IPreconfRegistry.sol";
-import {IPreconfServiceManager} from "src/layer1/preconf/interfaces/IPreconfServiceManager.sol";
-import {IAVSDirectory} from "src/layer1/preconf/interfaces/eigenlayer-mvp/IAVSDirectory.sol";
-import {ISlasher} from "src/layer1/preconf/interfaces/eigenlayer-mvp/ISlasher.sol";
-import {ITaikoL1} from "src/layer1/preconf/interfaces/taiko/ITaikoL1.sol";
+import "src/layer1/preconf/avs/PreconfRegistry.sol";
+import "src/layer1/preconf/avs/PreconfServiceManager.sol";
+import "src/layer1/preconf/avs/PreconfTaskManager.sol";
+import "src/layer1/preconf/interfaces/IPreconfRegistry.sol";
+import "src/layer1/preconf/interfaces/IPreconfServiceManager.sol";
+import "src/layer1/preconf/interfaces/eigenlayer-mvp/IAVSDirectory.sol";
+import "src/layer1/preconf/interfaces/eigenlayer-mvp/ISlasher.sol";
+import "src/layer1/preconf/interfaces/taiko/ITaikoL1.sol";
 
-import {console2} from "forge-std/src/Script.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
-import {ITransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import "../BaseScript.sol";
+import "../misc/EmptyContract.sol";
 
 contract DeployAVS is BaseScript {
     // Required by service manager
@@ -39,7 +39,8 @@ contract DeployAVS is BaseScript {
         address preconfTaskManager = deployProxy(address(emptyContract), address(proxyAdmin), "");
 
         // Deploy implementations
-        PreconfRegistry preconfRegistryImpl = new PreconfRegistry(IPreconfServiceManager(preconfServiceManager));
+        PreconfRegistry preconfRegistryImpl =
+            new PreconfRegistry(IPreconfServiceManager(preconfServiceManager));
         PreconfServiceManager preconfServiceManagerImpl = new PreconfServiceManager(
             preconfRegistry, preconfTaskManager, IAVSDirectory(avsDirectory), ISlasher(slasher)
         );
@@ -57,7 +58,9 @@ contract DeployAVS is BaseScript {
             address(preconfRegistryImpl),
             abi.encodeCall(PreconfRegistry.initialize, ())
         );
-        proxyAdmin.upgrade(ITransparentUpgradeableProxy(preconfServiceManager), address(preconfServiceManagerImpl));
+        proxyAdmin.upgrade(
+            ITransparentUpgradeableProxy(preconfServiceManager), address(preconfServiceManagerImpl)
+        );
         proxyAdmin.upgradeAndCall(
             ITransparentUpgradeableProxy(preconfTaskManager),
             address(preconfTaskManagerImpl),

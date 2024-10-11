@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {BaseTest} from "../BaseTest.sol";
-import {MockPreconfRegistry} from "../mocks/MockPreconfRegistry.sol";
-import {MockPreconfServiceManager} from "../mocks/MockPreconfServiceManager.sol";
-import {MockBeaconBlockRoot} from "../mocks/MockBeaconBlockRoot.sol";
-import {MockTaikoL1} from "../mocks/MockTaikoL1.sol";
+import "../BaseTest.sol";
+import "../mocks/MockPreconfRegistry.sol";
+import "../mocks/MockPreconfServiceManager.sol";
+import "../mocks/MockBeaconBlockRoot.sol";
+import "../mocks/MockTaikoL1.sol";
 
-import {PreconfConstants} from "src/layer1/preconf/avs/PreconfConstants.sol";
-import {PreconfTaskManager} from "src/layer1/preconf/avs/PreconfTaskManager.sol";
-import {IPreconfRegistry} from "src/layer1/preconf/interfaces/IPreconfRegistry.sol";
-import {IPreconfServiceManager} from "src/layer1/preconf/interfaces/IPreconfServiceManager.sol";
-import {IPreconfTaskManager} from "src/layer1/preconf/interfaces/IPreconfTaskManager.sol";
-import {ITaikoL1} from "src/layer1/preconf/interfaces/taiko/ITaikoL1.sol";
+import "src/layer1/preconf/avs/PreconfConstants.sol";
+import "src/layer1/preconf/avs/PreconfTaskManager.sol";
+import "src/layer1/preconf/interfaces/IPreconfRegistry.sol";
+import "src/layer1/preconf/interfaces/IPreconfServiceManager.sol";
+import "src/layer1/preconf/interfaces/IPreconfTaskManager.sol";
+import "src/layer1/preconf/interfaces/taiko/ITaikoL1.sol";
 
 contract BlocksFixtures is BaseTest {
     PreconfTaskManager internal preconfTaskManager;
@@ -40,7 +40,8 @@ contract BlocksFixtures is BaseTest {
     function prepareLookahead(uint256 slot1, uint256 slot2) internal {
         addPreconfersToRegistry(3);
 
-        uint256 nextEpochStart = PreconfConstants.MAINNET_BEACON_GENESIS + PreconfConstants.SECONDS_IN_EPOCH;
+        uint256 nextEpochStart =
+            PreconfConstants.MAINNET_BEACON_GENESIS + PreconfConstants.SECONDS_IN_EPOCH;
 
         IPreconfTaskManager.LookaheadSetParam[] memory lookaheadSetParams =
             new IPreconfTaskManager.LookaheadSetParam[](2);
@@ -64,7 +65,11 @@ contract BlocksFixtures is BaseTest {
         }
     }
 
-    function setupTaikoBlock(uint256 id, uint256 proposedAt, bytes32 txListHash)
+    function setupTaikoBlock(
+        uint256 id,
+        uint256 proposedAt,
+        bytes32 txListHash
+    )
         internal
         returns (ITaikoL1.BlockMetadata memory)
     {
