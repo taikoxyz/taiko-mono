@@ -59,7 +59,7 @@ func (p *Stress) saveState(cfg *Config) error {
 }
 
 func (p *Stress) initLogger(cfg *Config) error {
-	logFilePath := path.Join(cfg.DBPath, logFileName)
+	logFilePath := path.Join(cfg.LogPath, logFileName)
 	logFile, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0666)
 	if err != nil {
 		return err
