@@ -6,10 +6,7 @@ import "src/shared/common/EssentialContract.sol";
 import "src/shared/common/LibStrings.sol";
 import "../automata-attestation/interfaces/IAttestation.sol";
 import "../automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
-import "../based/ITaikoL1.sol";
-import "../based/TaikoData.sol";
-import "./LibPublicInput.sol";
-import "./IVerifier.sol";
+
 
 /// @title SgxVerifierBase
 /// @dev Please see references below:
