@@ -89,8 +89,8 @@ contract PreconfViolationSgxVerifier is SgxVerifierBase, IPreconfViolationVerifi
         require(receipt_.chainId == config.chainId, BLOCK_ID_MISMATCH());
         require(receipt_.blockId > config.ontakeForkHeight, PARENT_BLOCK_PRIOR_TO_ONTAKE_FORK());
 
-        isValid_ = receipt_.txHash != 0 && receipt_.position != 0
-            && receipt_.preconfer != address(0) && receipt_.signature.length != 0
+        isValid_ = receipt_.txHash != 0 && receipt_.preconfer != address(0)
+            && receipt_.signature.length != 0
             && receipt_.preconfer.isValidSignatureNow(getHashToSign(receipt_), receipt_.signature);
     }
 
