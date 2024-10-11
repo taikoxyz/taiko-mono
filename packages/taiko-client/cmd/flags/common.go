@@ -14,6 +14,7 @@ var (
 	metricsCategory  = "METRICS"
 	loggingCategory  = "LOGGING"
 	driverCategory   = "DRIVER"
+	stressCategory   = "STRESS"
 	proposerCategory = "PROPOSER"
 	proverCategory   = "PROVER"
 	txmgrCategory    = "TX_MANAGER"

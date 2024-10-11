@@ -12,6 +12,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/version"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/stress"
 )
 
 func main() {
@@ -33,6 +34,13 @@ func main() {
 			Usage:       "Starts the driver software",
 			Description: "Taiko driver software",
 			Action:      utils.SubcommandAction(new(driver.Driver)),
+		},
+		{
+			Name:        "stress",
+			Flags:       flags.DriverFlags,
+			Usage:       "Starts the stress software",
+			Description: "Taiko stress software",
+			Action:      utils.SubcommandAction(new(stress.Stress)),
 		},
 		{
 			Name:        "proposer",
