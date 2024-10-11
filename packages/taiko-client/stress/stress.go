@@ -131,7 +131,7 @@ func InitFromConfig(
 	}
 
 	// Proof submitter
-	if err := p.initProofSubmitter(cfg.ZkType); err != nil {
+	if err := p.initProofSubmitter(cfg); err != nil {
 		return err
 	}
 

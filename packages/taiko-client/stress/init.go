@@ -71,14 +71,14 @@ func (p *Stress) initLogger(cfg *Config) error {
 
 // initProofSubmitter initializes the proof submitters from the given tiers in protocol.
 func (p *Stress) initProofSubmitter(
-	zkType string,
+	cfg *Config,
 ) error {
 	var (
 		producer  proofProducer.ProofProducer
 		submitter proofSubmitter.Submitter
 		err       error
 	)
-	switch zkType {
+	switch cfg.ZkType {
 	case proofProducer.ZKProofTypeR0:
 		producer = &proofProducer.ZKvmProofProducer{
 			ZKProofType:         proofProducer.ZKProofTypeR0,
@@ -96,7 +96,7 @@ func (p *Stress) initProofSubmitter(
 			RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 		}
 	default:
-		return fmt.Errorf("unsupported tier: %s", zkType)
+		return fmt.Errorf("unsupported tier: %s", cfg.ZkType)
 	}
 
 	if submitter, err = proofSubmitter.NewProofSubmitter(
@@ -111,7 +111,7 @@ func (p *Stress) initProofSubmitter(
 	}
 
 	p.proofSubmitter = submitter
-	p.zkType = zkType
+	p.zkType = cfg.ZkType
 
 	return nil
 }
