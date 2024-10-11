@@ -2,14 +2,13 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "../libraries/BLS12381.sol";
 import "../avs/PreconfConstants.sol";
-import "../avs/utils/BLSSignatureChecker.sol";
+import "../libraries/BLSSignature.sol";
 import "../interfaces/IPreconfRegistry.sol";
 import "../interfaces/IPreconfServiceManager.sol";
 import "../interfaces/eigenlayer-mvp/IAVSDirectory.sol";
 
-contract MockPreconfRegistry is IPreconfRegistry, BLSSignatureChecker, Initializable {
+contract MockPreconfRegistry is IPreconfRegistry, Initializable {
     using BLS12381 for BLS12381.G1Point;
 
     IPreconfServiceManager internal immutable preconfServiceManager;
@@ -179,7 +178,7 @@ contract MockPreconfRegistry is IPreconfRegistry, BLSSignatureChecker, Initializ
 
             // Revert if any signature is invalid
             if (
-                !verifySignature(
+                !BLSSignature.verifySignature(
                     message, removeValidatorParams[i].signature, removeValidatorParams[i].pubkey
                 )
             ) {

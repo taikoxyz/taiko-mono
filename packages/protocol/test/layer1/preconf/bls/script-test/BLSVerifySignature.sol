@@ -3,8 +3,7 @@
 pragma solidity ^0.8.24;
 
 import "script/layer1/preconf/BaseScript.sol";
-import "src/layer1/preconf/libraries/BLS12381.sol";
-import "src/layer1/preconf/avs/utils/BLSSignatureChecker.sol";
+import "src/layer1/preconf/libraries/BLSSignature.sol";
 
 /**
  * @dev At the time of writing this (Sept, 2024) foundry does not support the BLS12381 precompile,
@@ -21,7 +20,7 @@ contract BLSVerifySignature is BaseScript {
     }
 }
 
-contract Target is BLSSignatureChecker {
+contract Target  {
     event Output(bool);
 
     function verify() external {
@@ -59,6 +58,6 @@ contract Target is BLSSignatureChecker {
          * Expected output using DST as empty string "":
          * 0x0000000000000000000000000000000000000000000000000000000000000001
          */
-        emit Output(verifySignature("abc", sig, pubkey));
+        emit Output(BLSSignature.verifySignature("abc", sig, pubkey));
     }
 }
