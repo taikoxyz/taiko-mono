@@ -78,7 +78,7 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
         TaikoData.TierProof calldata _proof
     )
         external
-        onlyFromNamed(LibStrings.B_TAIKO)
+        onlyAuthorizedCaller
         nonReentrant
     {
         (address[] memory verifiers, uint256 numSubProofs_) = getSubVerifiersAndThreshold();
