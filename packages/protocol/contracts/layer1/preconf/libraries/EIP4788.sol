@@ -3,7 +3,7 @@
 // Referenced from: https://ethresear.ch/t/slashing-proofoor-on-chain-slashed-validator-proofs/19421
 pragma solidity ^0.8.24;
 
-import {MerkleUtils} from "./MerkleUtils.sol";
+import "./MerkleUtils.sol";
 
 library EIP4788 {
     struct InclusionProof {
@@ -25,7 +25,8 @@ library EIP4788 {
         bytes32[] beaconBlockProofForProposerIndex;
     }
 
-    /// @dev The validator pub key failed verification against the pub key hash tree root in the validator chunks
+    /// @dev The validator pub key failed verification against the pub key hash tree root in the
+    /// validator chunks
     error InvalidValidatorBLSPubKey();
     /// @dev The proof that the validator is a part of the validator list is invalid.
     error ValidatorProofFailed();
@@ -40,7 +41,10 @@ library EIP4788 {
         bytes memory validatorBLSPubKey,
         bytes32 beaconBlockRoot,
         InclusionProof memory inclusionProof
-    ) internal pure {
+    )
+        internal
+        pure
+    {
         // Validator's BLS public key is verified against the hash tree root within Validator chunks
         bytes32 pubKeyHashTreeRoot = sha256(abi.encodePacked(validatorBLSPubKey, bytes16(0)));
         if (pubKeyHashTreeRoot != inclusionProof.validator[0]) {
@@ -64,7 +68,10 @@ library EIP4788 {
 
         if (
             !MerkleUtils.verifyProof(
-                inclusionProof.beaconStateProof, inclusionProof.beaconStateRoot, inclusionProof.validatorsRoot, 11
+                inclusionProof.beaconStateProof,
+                inclusionProof.beaconStateRoot,
+                inclusionProof.validatorsRoot,
+                11
             )
         ) {
             // Revert if the proof that the validator list is a part of the beacon state fails
@@ -74,7 +81,10 @@ library EIP4788 {
         // Beacon state is verified against the beacon block
         if (
             !MerkleUtils.verifyProof(
-                inclusionProof.beaconBlockProofForState, beaconBlockRoot, inclusionProof.beaconStateRoot, 3
+                inclusionProof.beaconBlockProofForState,
+                beaconBlockRoot,
+                inclusionProof.beaconStateRoot,
+                3
             )
         ) {
             // Revert if the proof for the beacon state being a part of the beacon block fails

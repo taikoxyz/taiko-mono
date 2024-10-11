@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {BLS12381} from "../libraries/BLS12381.sol";
-import {PreconfConstants} from "./PreconfConstants.sol";
-import {BLSSignatureChecker} from "./utils/BLSSignatureChecker.sol";
-import {IPreconfRegistry} from "../interfaces/IPreconfRegistry.sol";
-import {IPreconfServiceManager} from "../interfaces/IPreconfServiceManager.sol";
-import {IAVSDirectory} from "../interfaces/eigenlayer-mvp/IAVSDirectory.sol";
-import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "../interfaces/IPreconfRegistry.sol";
+import "../interfaces/IPreconfServiceManager.sol";
+import "../interfaces/eigenlayer-mvp/IAVSDirectory.sol";
+import "../libraries/BLS12381.sol";
+import "./PreconfConstants.sol";
+import "./utils/BLSSignatureChecker.sol";
 
 contract PreconfRegistry is IPreconfRegistry, BLSSignatureChecker, Initializable {
     using BLS12381 for BLS12381.G1Point;
@@ -21,7 +21,8 @@ contract PreconfRegistry is IPreconfRegistry, BLSSignatureChecker, Initializable
 
     // Maps an index to the preconfer's address
     // We need this mapping to deregister a preconfer in O(1) time.
-    // While it may also be done by just using the above map and sending a "witness" that is calculated offchain,
+    // While it may also be done by just using the above map and sending a "witness" that is
+    // calculated offchain,
     // we ideally do not want the node to maintain historical state.
     mapping(uint256 index => address preconfer) internal indexToPreconfer;
 
@@ -41,9 +42,12 @@ contract PreconfRegistry is IPreconfRegistry, BLSSignatureChecker, Initializable
     /**
      * @notice Registers a preconfer in the registry by giving it a non-zero index
      * @dev This function internally accesses the restaking platform via the AVS service manager
-     * @param operatorSignature The signature of the operator in the format expected by the restaking platform
+     * @param operatorSignature The signature of the operator in the format expected by the
+     * restaking platform
      */
-    function registerPreconfer(IAVSDirectory.SignatureWithSaltAndExpiry calldata operatorSignature) external {
+    function registerPreconfer(IAVSDirectory.SignatureWithSaltAndExpiry calldata operatorSignature)
+        external
+    {
         // Preconfer must not have registered already
         if (preconferToIndex[msg.sender] != 0) {
             revert PreconferAlreadyRegistered();
@@ -112,10 +116,12 @@ contract PreconfRegistry is IPreconfRegistry, BLSSignatureChecker, Initializable
 
             // Note: BLS signature checks are commented out for the POC
 
-            // bytes memory message = _createMessage(ValidatorOp.ADD, addValidatorParams[i].signatureExpiry, msg.sender);
+            // bytes memory message = _createMessage(ValidatorOp.ADD,
+            // addValidatorParams[i].signatureExpiry, msg.sender);
 
             // Revert if any signature is invalid
-            // if (!verifySignature(message, addValidatorParams[i].signature, addValidatorParams[i].pubkey)) {
+            // if (!verifySignature(message, addValidatorParams[i].signature,
+            // addValidatorParams[i].pubkey)) {
             //     revert InvalidValidatorSignature();
             // }
 
@@ -161,7 +167,8 @@ contract PreconfRegistry is IPreconfRegistry, BLSSignatureChecker, Initializable
             bytes32 pubKeyHash = _hashBLSPubKey(removeValidatorParams[i].pubkey);
             Validator memory validator = validators[pubKeyHash];
 
-            // Revert if the validator is not active (or already removed, but waiting to stop proposing)
+            // Revert if the validator is not active (or already removed, but waiting to stop
+            // proposing)
             if (validator.preconfer == address(0) || validator.stopProposingAt != 0) {
                 revert ValidatorAlreadyInactive();
             }
@@ -170,10 +177,12 @@ contract PreconfRegistry is IPreconfRegistry, BLSSignatureChecker, Initializable
             // Todo: It would be reasonable to remove BLS checks altogether for validator removals.
 
             // bytes memory message =
-            //     _createMessage(ValidatorOp.REMOVE, removeValidatorParams[i].signatureExpiry, validator.preconfer);
+            //     _createMessage(ValidatorOp.REMOVE, removeValidatorParams[i].signatureExpiry,
+            // validator.preconfer);
 
             // // Revert if any signature is invalid
-            // if (!verifySignature(message, removeValidatorParams[i].signature, removeValidatorParams[i].pubkey)) {
+            // if (!verifySignature(message, removeValidatorParams[i].signature,
+            // removeValidatorParams[i].pubkey)) {
             //     revert InvalidValidatorSignature();
             // }
 
@@ -183,8 +192,10 @@ contract PreconfRegistry is IPreconfRegistry, BLSSignatureChecker, Initializable
             // }
 
             unchecked {
-                // We also need to delay the removal by two epochs to avoid contradicting the lookahead
-                validators[pubKeyHash].stopProposingAt = uint40(block.timestamp + PreconfConstants.TWO_EPOCHS);
+                // We also need to delay the removal by two epochs to avoid contradicting the
+                // lookahead
+                validators[pubKeyHash].stopProposingAt =
+                    uint40(block.timestamp + PreconfConstants.TWO_EPOCHS);
             }
 
             emit ValidatorRemoved(pubKeyHash, validator.preconfer);
@@ -195,7 +206,11 @@ contract PreconfRegistry is IPreconfRegistry, BLSSignatureChecker, Initializable
     // Views
     //=======
 
-    function getMessageToSign(ValidatorOp validatorOp, uint256 expiry, address preconfer)
+    function getMessageToSign(
+        ValidatorOp validatorOp,
+        uint256 expiry,
+        address preconfer
+    )
         external
         view
         returns (bytes memory)
@@ -227,7 +242,11 @@ contract PreconfRegistry is IPreconfRegistry, BLSSignatureChecker, Initializable
     // Helpers
     //=========
 
-    function _createMessage(ValidatorOp validatorOp, uint256 expiry, address preconfer)
+    function _createMessage(
+        ValidatorOp validatorOp,
+        uint256 expiry,
+        address preconfer
+    )
         internal
         view
         returns (bytes memory)

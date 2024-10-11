@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {ITaikoL1} from "../interfaces/taiko/ITaikoL1.sol";
-import {EIP4788} from "../libraries/EIP4788.sol";
-import {PreconfConstants} from "./PreconfConstants.sol";
-import {IPreconfTaskManager} from "../interfaces/IPreconfTaskManager.sol";
-import {IPreconfServiceManager} from "../interfaces/IPreconfServiceManager.sol";
-import {IPreconfRegistry} from "../interfaces/IPreconfRegistry.sol";
-import {ECDSA} from @openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import {IERC20} from @openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {Initializable} from "openzeppelin-contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "../interfaces/taiko/ITaikoL1.sol";
+import "../interfaces/IPreconfTaskManager.sol";
+import "../interfaces/IPreconfServiceManager.sol";
+import "../interfaces/IPreconfRegistry.sol";
+import "../libraries/EIP4788.sol";
+import "./PreconfConstants.sol";
 
 contract PreconfTaskManager is IPreconfTaskManager, Initializable {
     // Cannot be kept in `PreconfConstants` file because solidity expects array sizes
@@ -30,17 +30,21 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
     mapping(uint256 lookaheadIndex => LookaheadBufferEntry lookaheadBufferEntry) internal lookahead;
 
     // A ring buffer that maps the block height to the associated proposer
-    // This is required since the stored block in Taiko has the address of this contract as the proposer
+    // This is required since the stored block in Taiko has the address of this contract as the
+    // proposer
     // Stores 4 epochs worth of L2 blocks = 512 (32 slots * 4 blocks a slot * 4 epochs)
     uint256 internal constant BLOCK_ID_TO_PROPOSER_BUFFER_SIZE = SLOTS_IN_EPOCH * 16;
-    mapping(uint256 blockId_mod_BLOCK_ID_TO_PROPOSER_BUFFER_SIZE => ProposerInfo proposerInfo) internal
-        blockIdToProposer;
+    mapping(uint256 blockId_mod_BLOCK_ID_TO_PROPOSER_BUFFER_SIZE => ProposerInfo proposerInfo)
+        internal blockIdToProposer;
 
-    // A ring buffer that maps beginning timestamp of an epoch to the lookahead poster for that epoch
-    // If the lookahead poster has been slashed or the lookahead is not yet posted, the poster is the 0-address
+    // A ring buffer that maps beginning timestamp of an epoch to the lookahead poster for that
+    // epoch
+    // If the lookahead poster has been slashed or the lookahead is not yet posted, the poster is
+    // the 0-address
     // Stores posters for 16 latest epochs
     uint256 internal constant LOOKAHEAD_POSTER_BUFFER_SIZE = PreconfConstants.SECONDS_IN_EPOCH * 16;
-    mapping(uint256 epochTimestamp_mod_LOOKAHEAD_POSTER_BUFFER_SIZE => PosterInfo posterInfo) internal lookaheadPosters;
+    mapping(uint256 epochTimestamp_mod_LOOKAHEAD_POSTER_BUFFER_SIZE => PosterInfo posterInfo)
+        internal lookaheadPosters;
 
     uint256[46] private __gap; // = 50 - 4
 
@@ -64,34 +68,47 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
 
     /**
      * @notice Proposes a new Taiko L2 block.
-     * @dev The first caller in every epoch is expected to pass along the lookahead entries for the next epoch.
+     * @dev The first caller in every epoch is expected to pass along the lookahead entries for the
+     * next epoch.
      * The function reverts if the lookahead is lagging behind. This is possible if it is
-     * the first block proposal of the system or no lookahead was posted for the current epoch due to missed proposals.
-     * In this case, `forcePushLookahead` must be called in order to update the lookahead for the next epoch.
+     * the first block proposal of the system or no lookahead was posted for the current epoch due
+     * to missed proposals.
+     * In this case, `forcePushLookahead` must be called in order to update the lookahead for the
+     * next epoch.
      * @param blockParams Block parameters expected by TaikoL1 contract
      * @param txList RLP encoded transaction list expected by TaikoL1 contract
-     * @param lookaheadPointer A pointer to the lookahead entry that may prove that the sender is the preconfer
+     * @param lookaheadPointer A pointer to the lookahead entry that may prove that the sender is
+     * the preconfer
      * for the slot.
-     * @param lookaheadSetParams Collection of timestamps and preconfer addresses to be inserted in the lookahead
+     * @param lookaheadSetParams Collection of timestamps and preconfer addresses to be inserted in
+     * the lookahead
      */
     function newBlockProposal(
         bytes calldata blockParams,
         bytes calldata txList,
         uint256 lookaheadPointer,
         LookaheadSetParam[] calldata lookaheadSetParams
-    ) external payable {
+    )
+        external
+        payable
+    {
         LookaheadBufferEntry memory lookaheadEntry = _getLookaheadEntry(lookaheadPointer);
 
         uint256 epochTimestamp = _getEpochTimestamp(block.timestamp);
 
-        // The current L1 block's timestamp must be within the range retrieved from the lookahead entry.
-        // The preconfer is allowed to propose a block in advanced if there are no other entries in the
+        // The current L1 block's timestamp must be within the range retrieved from the lookahead
+        // entry.
+        // The preconfer is allowed to propose a block in advanced if there are no other entries in
+        // the
         // lookahead between the present slot and the preconfer's own slot.
         //
         // ------[Last slot with an entry]---[X]---[X]----[X]----[Preconfer]-------
         // ------[     prevTimestamp     ]---[ ]---[ ]----[ ]----[timestamp]-------
         //
-        if (block.timestamp <= lookaheadEntry.prevTimestamp || block.timestamp > lookaheadEntry.timestamp) {
+        if (
+            block.timestamp <= lookaheadEntry.prevTimestamp
+                || block.timestamp > lookaheadEntry.timestamp
+        ) {
             revert InvalidLookaheadPointer();
         } else if (msg.sender != lookaheadEntry.preconfer) {
             revert SenderIsNotThePreconfer();
@@ -109,20 +126,25 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         // Use Taiko's block number to index
         (, ITaikoL1.SlotB memory slotB) = taikoL1.getStateVariables();
         blockIdToProposer[slotB.numBlocks % BLOCK_ID_TO_PROPOSER_BUFFER_SIZE] =
-            ProposerInfo({proposer: msg.sender, blockId: uint64(slotB.numBlocks)});
+            ProposerInfo({ proposer: msg.sender, blockId: uint64(slotB.numBlocks) });
 
-        // Block the preconfer from withdrawing stake from the restaking service during the dispute window
-        preconfServiceManager.lockStakeUntil(msg.sender, block.timestamp + PreconfConstants.DISPUTE_PERIOD);
+        // Block the preconfer from withdrawing stake from the restaking service during the dispute
+        // window
+        preconfServiceManager.lockStakeUntil(
+            msg.sender, block.timestamp + PreconfConstants.DISPUTE_PERIOD
+        );
 
         // Forward the block to Taiko's L1 contract
-        taikoL1.proposeBlock{value: msg.value}(blockParams, txList);
+        taikoL1.proposeBlock{ value: msg.value }(blockParams, txList);
     }
 
     /**
      * @notice Proves that the preconfirmation for a specific block was not respected
-     * @dev The function requires the metadata of the block in the format that Taiko uses. This is matched
+     * @dev The function requires the metadata of the block in the format that Taiko uses. This is
+     * matched
      * against the metadata hash stored in Taiko.
-     * @param taikoBlockMetadata The metadata of the Taiko block for which the preconfirmation was provided
+     * @param taikoBlockMetadata The metadata of the Taiko block for which the preconfirmation was
+     * provided
      * @param header The header of the preconfirmation
      * @param signature The signature of the preconfirmation
      */
@@ -130,7 +152,9 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         ITaikoL1.BlockMetadata calldata taikoBlockMetadata,
         PreconfirmationHeader calldata header,
         bytes calldata signature
-    ) external {
+    )
+        external
+    {
         uint256 blockId = taikoBlockMetadata.id;
         address proposer = getBlockProposer(blockId);
 
@@ -148,11 +172,13 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
             revert MetadataMismatch();
         }
 
-        bytes32 headerHash = keccak256(abi.encodePacked(header.blockId, header.chainId, header.txListHash));
+        bytes32 headerHash =
+            keccak256(abi.encodePacked(header.blockId, header.chainId, header.txListHash));
         address preconfSigner = ECDSA.recover(headerHash, signature);
 
         // Slash if the preconfirmation was given offchain, but block proposal was missed OR
-        // the preconfirmed set of transactions is different from the transactions in the proposed block.
+        // the preconfirmed set of transactions is different from the transactions in the proposed
+        // block.
         if (preconfSigner != proposer || header.txListHash != taikoBlockMetadata.blobHash) {
             preconfServiceManager.slashOperator(preconfSigner);
         } else {
@@ -164,11 +190,14 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
 
     /**
      * @notice Proves that the lookahead for a specific slot was incorrect
-     * @dev The logic in this function only works once the lookahead slot has passed. This is because
-     * we pull the proposer from a past beacon block and verify if it is associated with the preconfer.
+     * @dev The logic in this function only works once the lookahead slot has passed. This is
+     * because
+     * we pull the proposer from a past beacon block and verify if it is associated with the
+     * preconfer.
      * @param lookaheadPointer The pointer to the lookahead entry that represents the incorrect slot
      * @param slotTimestamp The timestamp of the slot for which the lookahead was incorrect
-     * @param validatorBLSPubKey The BLS public key of the validator who is proposed the block in the slot
+     * @param validatorBLSPubKey The BLS public key of the validator who is proposed the block in
+     * the slot
      * @param validatorInclusionProof The inclusion proof of the above validator in the Beacon state
      */
     function proveIncorrectLookahead(
@@ -176,7 +205,9 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         uint256 slotTimestamp,
         bytes memory validatorBLSPubKey,
         EIP4788.InclusionProof memory validatorInclusionProof
-    ) external {
+    )
+        external
+    {
         uint256 epochTimestamp = _getEpochTimestamp(slotTimestamp);
 
         address poster = getLookaheadPoster(epochTimestamp);
@@ -192,17 +223,23 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         }
 
         // Verify that the sent validator is the one in Beacon state
-        EIP4788.verifyValidator(validatorBLSPubKey, _getBeaconBlockRoot(slotTimestamp), validatorInclusionProof);
+        EIP4788.verifyValidator(
+            validatorBLSPubKey, _getBeaconBlockRoot(slotTimestamp), validatorInclusionProof
+        );
 
         LookaheadBufferEntry memory lookaheadEntry = _getLookaheadEntry(lookaheadPointer);
 
         // Validate lookahead pointer
-        if (slotTimestamp > lookaheadEntry.timestamp || slotTimestamp <= lookaheadEntry.prevTimestamp) {
+        if (
+            slotTimestamp > lookaheadEntry.timestamp
+                || slotTimestamp <= lookaheadEntry.prevTimestamp
+        ) {
             revert InvalidLookaheadPointer();
         }
 
         // We pull the preconfer present at the required slot timestamp in the lookahead.
-        // If no preconfer is present for a slot, we simply use the 0-address to denote the preconfer.
+        // If no preconfer is present for a slot, we simply use the 0-address to denote the
+        // preconfer.
         address preconferInLookahead;
         if (lookaheadEntry.timestamp == slotTimestamp && !lookaheadEntry.isFallback) {
             // The slot was dedicated to a specific preconfer
@@ -213,19 +250,24 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         bytes32 validatorPubKeyHash = _getValidatorPubKeyHash(validatorBLSPubKey);
 
         // Retrieve the validator object
-        IPreconfRegistry.Validator memory validatorInRegistry = preconfRegistry.getValidator(validatorPubKeyHash);
+        IPreconfRegistry.Validator memory validatorInRegistry =
+            preconfRegistry.getValidator(validatorPubKeyHash);
 
         // Fetch the preconfer associated with the validator from the registry
         address preconferInRegistry = validatorInRegistry.preconfer;
         if (
             slotTimestamp < validatorInRegistry.startProposingAt
-                || (validatorInRegistry.stopProposingAt != 0 && slotTimestamp >= validatorInRegistry.stopProposingAt)
+                || (
+                    validatorInRegistry.stopProposingAt != 0
+                        && slotTimestamp >= validatorInRegistry.stopProposingAt
+                )
         ) {
             // The validator is no longer allowed to propose for the former preconfer
             preconferInRegistry = address(0);
         }
 
-        // Revert if the lookahead preconfer matches the one that the validator pulled from beacon state
+        // Revert if the lookahead preconfer matches the one that the validator pulled from beacon
+        // state
         // is proposing for
         if (preconferInLookahead == preconferInRegistry) {
             revert LookaheadEntryIsCorrect();
@@ -233,7 +275,8 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
 
         uint256 epochEndTimestamp = epochTimestamp + PreconfConstants.SECONDS_IN_EPOCH;
 
-        // If it is the current epoch's lookahead being proved incorrect then insert a fallback preconfer
+        // If it is the current epoch's lookahead being proved incorrect then insert a fallback
+        // preconfer
         if (block.timestamp < epochEndTimestamp) {
             uint256 _lookaheadTail = lookaheadTail;
 
@@ -247,7 +290,8 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
                 }
 
                 // Switch the connection to the last slot of the current epoch
-                lookahead[_lookaheadTail % LOOKAHEAD_BUFFER_SIZE].prevTimestamp = uint40(lastSlotTimestamp);
+                lookahead[_lookaheadTail % LOOKAHEAD_BUFFER_SIZE].prevTimestamp =
+                    uint40(lastSlotTimestamp);
 
                 // Head to the last entry in current epoch
                 _lookaheadTail -= 1;
@@ -269,7 +313,12 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
             while (_getLookaheadEntry(_lookaheadTail).timestamp >= epochTimestamp) {
                 _setLookaheadEntry(
                     _lookaheadTail,
-                    LookaheadBufferEntry({isFallback: false, timestamp: 0, prevTimestamp: 0, preconfer: address(0)})
+                    LookaheadBufferEntry({
+                        isFallback: false,
+                        timestamp: 0,
+                        prevTimestamp: 0,
+                        preconfer: address(0)
+                    })
                 );
                 _lookaheadTail -= 1;
             }
@@ -284,9 +333,11 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
 
     /**
      * @notice Forces the lookahead to be set for the next epoch if it is not already set.
-     * @dev This is called once when the system starts up to push the first lookahead, and later anytime
+     * @dev This is called once when the system starts up to push the first lookahead, and later
+     * anytime
      * when the lookahead is lagging due to missed proposals.
-     * @param lookaheadSetParams Collection of timestamps and preconfer addresses to be inserted in the lookahead
+     * @param lookaheadSetParams Collection of timestamps and preconfer addresses to be inserted in
+     * the lookahead
      */
     function forcePushLookahead(LookaheadSetParam[] calldata lookaheadSetParams) external {
         // Sender must be a preconfer
@@ -305,7 +356,9 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         _updateLookahead(nextEpochTimestamp, lookaheadSetParams);
 
         // Block the preconfer from withdrawing stake from Eigenlayer during the dispute window
-        preconfServiceManager.lockStakeUntil(msg.sender, block.timestamp + PreconfConstants.DISPUTE_PERIOD);
+        preconfServiceManager.lockStakeUntil(
+            msg.sender, block.timestamp + PreconfConstants.DISPUTE_PERIOD
+        );
     }
 
     //=========
@@ -313,7 +366,12 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
     //=========
 
     /// @dev Updates the lookahead for an epoch
-    function _updateLookahead(uint256 epochTimestamp, LookaheadSetParam[] calldata lookaheadSetParams) private {
+    function _updateLookahead(
+        uint256 epochTimestamp,
+        LookaheadSetParam[] calldata lookaheadSetParams
+    )
+        private
+    {
         uint256 epochEndTimestamp = epochTimestamp + PreconfConstants.SECONDS_IN_EPOCH;
 
         // The tail of the lookahead is tracked and connected to the first new lookahead entry so
@@ -330,11 +388,13 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         uint256 prevSlotTimestamp = _getLookaheadEntry(_lookaheadTail).timestamp;
 
         if (lookaheadSetParams.length == 0) {
-            // If no preconfers are present in the lookahead, we use the fallback preconfer for the entire epoch
+            // If no preconfers are present in the lookahead, we use the fallback preconfer for the
+            // entire epoch
             address fallbackPreconfer = getFallbackPreconfer(epochTimestamp);
             _lookaheadTail += 1;
 
-            // and, insert it in the last slot of the epoch so that it may start preconfing in advanced
+            // and, insert it in the last slot of the epoch so that it may start preconfing in
+            // advanced
             _setLookaheadEntry(
                 _lookaheadTail,
                 LookaheadBufferEntry({
@@ -380,10 +440,11 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
 
         lookaheadTail = _lookaheadTail;
         lookaheadPosters[epochTimestamp % LOOKAHEAD_POSTER_BUFFER_SIZE] =
-            PosterInfo({poster: msg.sender, epochTimestamp: uint64(epochTimestamp)});
+            PosterInfo({ poster: msg.sender, epochTimestamp: uint64(epochTimestamp) });
 
         // We directly use the lookahead set params even in the case of a fallback preconfer to
-        // assist the nodes in identifying an incorrect lookahead. The contents of this event can be matched against
+        // assist the nodes in identifying an incorrect lookahead. The contents of this event can be
+        // matched against
         // the output of `getLookaheadParamsForEpoch` to verify the correctness of the lookahead.
         emit LookaheadUpdated(lookaheadSetParams);
     }
@@ -393,8 +454,9 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
      */
     function _getEpochTimestamp(uint256 slotTimestamp) private view returns (uint256) {
         uint256 timePassedSinceGenesis = slotTimestamp - beaconGenesis;
-        uint256 timeToCurrentEpochFromGenesis =
-            (timePassedSinceGenesis / PreconfConstants.SECONDS_IN_EPOCH) * PreconfConstants.SECONDS_IN_EPOCH;
+        uint256 timeToCurrentEpochFromGenesis = (
+            timePassedSinceGenesis / PreconfConstants.SECONDS_IN_EPOCH
+        ) * PreconfConstants.SECONDS_IN_EPOCH;
         return beaconGenesis + timeToCurrentEpochFromGenesis;
     }
 
@@ -402,12 +464,15 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
      * @notice Retrieves the beacon block root for the block at the specified timestamp
      */
     function _getBeaconBlockRoot(uint256 timestamp) private view returns (bytes32) {
-        // At block N, we get the beacon block root for block N - 1. So, to get the block root of the Nth block,
-        // we query the root at block N + 1. If N + 1 is a missed slot, we keep querying until we find a block N + x
+        // At block N, we get the beacon block root for block N - 1. So, to get the block root of
+        // the Nth block,
+        // we query the root at block N + 1. If N + 1 is a missed slot, we keep querying until we
+        // find a block N + x
         // that has the block root for Nth block.
         uint256 targetTimestamp = timestamp + PreconfConstants.SECONDS_IN_SLOT;
         while (true) {
-            (bool success, bytes memory result) = beaconBlockRootContract.staticcall(abi.encode(targetTimestamp));
+            (bool success, bytes memory result) =
+                beaconBlockRootContract.staticcall(abi.encode(targetTimestamp));
             if (success && result.length > 0) {
                 return abi.decode(result, (bytes32));
             }
@@ -419,7 +484,11 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         return bytes32(0);
     }
 
-    function _getLookaheadEntry(uint256 index) internal view returns (LookaheadBufferEntry memory) {
+    function _getLookaheadEntry(uint256 index)
+        internal
+        view
+        returns (LookaheadBufferEntry memory)
+    {
         return lookahead[index % LOOKAHEAD_BUFFER_SIZE];
     }
 
@@ -427,23 +496,38 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         lookahead[index % LOOKAHEAD_BUFFER_SIZE] = entry;
     }
 
-    function _isLookaheadRequired(uint256 epochTimestamp, uint256 nextEpochTimestamp) internal view returns (bool) {
+    function _isLookaheadRequired(
+        uint256 epochTimestamp,
+        uint256 nextEpochTimestamp
+    )
+        internal
+        view
+        returns (bool)
+    {
         // If it's the first slot of current epoch, we don't need the lookahead since the offchain
         // node may not have access to it yet.
-        return block.timestamp != epochTimestamp && getLookaheadPoster(nextEpochTimestamp) == address(0);
+        return block.timestamp != epochTimestamp
+            && getLookaheadPoster(nextEpochTimestamp) == address(0);
     }
 
     /**
      * @dev Assumes that validatorBLSPubKey is 48 bytes long.
-     * Puts 16 empty bytes infront to make it equivalent to 48-byte long pub key stored in uint256[2]
+     * Puts 16 empty bytes infront to make it equivalent to 48-byte long pub key stored in
+     * uint256[2]
      */
-    function _getValidatorPubKeyHash(bytes memory validatorBLSPubKey) internal pure returns (bytes32) {
+    function _getValidatorPubKeyHash(bytes memory validatorBLSPubKey)
+        internal
+        pure
+        returns (bytes32)
+    {
         return keccak256(abi.encodePacked(bytes16(0), validatorBLSPubKey));
     }
 
     function _validateEpochTimestamp(uint256 epochTimestamp) internal view {
-        if (epochTimestamp < beaconGenesis || (epochTimestamp - beaconGenesis) % PreconfConstants.SECONDS_IN_EPOCH != 0)
-        {
+        if (
+            epochTimestamp < beaconGenesis
+                || (epochTimestamp - beaconGenesis) % PreconfConstants.SECONDS_IN_EPOCH != 0
+        ) {
             revert InvalidEpochTimestamp();
         }
     }
@@ -474,12 +558,20 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
 
     /**
      * @notice Returns the full 32 slot preconfer lookahead for the epoch
-     * @dev This function has been added as a helper for the node to get the full 32 slot lookahead without
-     * the need of deconstructing the contract storage. Due to the fact that we are deconstructing an efficient
-     * data structure to fill in all the slots, this is very heavy on gas, and onchain calls to it should be avoided.
-     * @param epochTimestamp The start timestamp of the epoch for which the lookahead is to be generated
+     * @dev This function has been added as a helper for the node to get the full 32 slot lookahead
+     * without
+     * the need of deconstructing the contract storage. Due to the fact that we are deconstructing
+     * an efficient
+     * data structure to fill in all the slots, this is very heavy on gas, and onchain calls to it
+     * should be avoided.
+     * @param epochTimestamp The start timestamp of the epoch for which the lookahead is to be
+     * generated
      */
-    function getLookaheadForEpoch(uint256 epochTimestamp) external view returns (address[SLOTS_IN_EPOCH] memory) {
+    function getLookaheadForEpoch(uint256 epochTimestamp)
+        external
+        view
+        returns (address[SLOTS_IN_EPOCH] memory)
+    {
         _validateEpochTimestamp(epochTimestamp);
 
         address[SLOTS_IN_EPOCH] memory lookaheadForEpoch;
@@ -518,12 +610,18 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
     /**
      * @notice Builds and returns lookahead set parameters for an epoch
      * @dev This function can be used by the offchain node to create the lookahead to be posted.
-     * @param epochTimestamp The start timestamp of the epoch for which the lookahead is to be generated
-     * @param validatorBLSPubKeys The BLS public keys of the validators who are expected to propose in the epoch
-     * in the same sequence as they appear in the epoch. So at index n - 1, we have the validator for slot n in that
+     * @param epochTimestamp The start timestamp of the epoch for which the lookahead is to be
+     * generated
+     * @param validatorBLSPubKeys The BLS public keys of the validators who are expected to propose
+     * in the epoch
+     * in the same sequence as they appear in the epoch. So at index n - 1, we have the validator
+     * for slot n in that
      * epoch.
      */
-    function getLookaheadParamsForEpoch(uint256 epochTimestamp, bytes[SLOTS_IN_EPOCH] memory validatorBLSPubKeys)
+    function getLookaheadParamsForEpoch(
+        uint256 epochTimestamp,
+        bytes[SLOTS_IN_EPOCH] memory validatorBLSPubKeys
+    )
         external
         view
         returns (LookaheadSetParam[] memory)
@@ -545,13 +643,14 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
                 continue;
             }
 
-            // If the validator is allowed to propose in the epoch, add the associated preconfer to the lookahead
+            // If the validator is allowed to propose in the epoch, add the associated preconfer to
+            // the lookahead
             if (
                 validator.preconfer != address(0) && slotTimestamp >= validator.startProposingAt
                     && (validator.stopProposingAt == 0 || slotTimestamp < validator.stopProposingAt)
             ) {
                 lookaheadSetParamsTemp[index] =
-                    LookaheadSetParam({timestamp: slotTimestamp, preconfer: validator.preconfer});
+                    LookaheadSetParam({ timestamp: slotTimestamp, preconfer: validator.preconfer });
                 ++index;
             }
         }
@@ -596,7 +695,11 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         return lookaheadTail;
     }
 
-    function getLookaheadBuffer() external view returns (LookaheadBufferEntry[LOOKAHEAD_BUFFER_SIZE] memory) {
+    function getLookaheadBuffer()
+        external
+        view
+        returns (LookaheadBufferEntry[LOOKAHEAD_BUFFER_SIZE] memory)
+    {
         LookaheadBufferEntry[LOOKAHEAD_BUFFER_SIZE] memory _lookahead;
         for (uint256 i; i < LOOKAHEAD_BUFFER_SIZE; ++i) {
             _lookahead[i] = lookahead[i];
@@ -606,12 +709,14 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
 
     function getLookaheadPoster(uint256 epochTimestamp) public view returns (address) {
         _validateEpochTimestamp(epochTimestamp);
-        PosterInfo memory posterInfo = lookaheadPosters[epochTimestamp % LOOKAHEAD_POSTER_BUFFER_SIZE];
+        PosterInfo memory posterInfo =
+            lookaheadPosters[epochTimestamp % LOOKAHEAD_POSTER_BUFFER_SIZE];
         return posterInfo.epochTimestamp == epochTimestamp ? posterInfo.poster : address(0);
     }
 
     function getBlockProposer(uint256 blockId) public view returns (address) {
-        ProposerInfo memory proposerInfo = blockIdToProposer[blockId % BLOCK_ID_TO_PROPOSER_BUFFER_SIZE];
+        ProposerInfo memory proposerInfo =
+            blockIdToProposer[blockId % BLOCK_ID_TO_PROPOSER_BUFFER_SIZE];
         return proposerInfo.blockId == blockId ? proposerInfo.proposer : address(0);
     }
 }

@@ -63,7 +63,7 @@ library BLS12381 {
         }
         yNeg[0] = fieldModulus[0] - point.y[0];
 
-        return G1Point({x: point.x, y: yNeg});
+        return G1Point({ x: point.x, y: yNeg });
     }
 
     /**
@@ -72,7 +72,14 @@ library BLS12381 {
      * @param message The message to hash
      * @param dst The domain separation tag
      */
-    function hashToCurveG2(bytes memory message, bytes memory dst) internal view returns (G2Point memory r) {
+    function hashToCurveG2(
+        bytes memory message,
+        bytes memory dst
+    )
+        internal
+        view
+        returns (G2Point memory r)
+    {
         // 1. u = hash_to_field(msg, 2)
         FieldPoint2[2] memory u = hashToFieldFp2(message, dst);
         // 2. Q0 = map_to_curve(u[0])
@@ -91,7 +98,14 @@ library BLS12381 {
      * @param message The message to hash
      * @param dst The domain separation tag
      */
-    function hashToFieldFp2(bytes memory message, bytes memory dst) internal view returns (FieldPoint2[2] memory) {
+    function hashToFieldFp2(
+        bytes memory message,
+        bytes memory dst
+    )
+        internal
+        view
+        returns (FieldPoint2[2] memory)
+    {
         // 1. len_in_bytes = count * m * L
         // so always 2 * 2 * 64 = 256
         uint16 lenInBytes = 256;
@@ -118,7 +132,8 @@ library BLS12381 {
 
     /**
      * @notice Returns a G1Point in the compressed form
-     * @dev Based on https://github.com/zcash/librustzcash/blob/6e0364cd42a2b3d2b958a54771ef51a8db79dd29/pairing/src/bls12_381/README.md#serialization
+     * @dev Based on
+     * https://github.com/zcash/librustzcash/blob/6e0364cd42a2b3d2b958a54771ef51a8db79dd29/pairing/src/bls12_381/README.md#serialization
      * @param point The G1 point to compress
      */
     function compress(G1Point memory point) internal pure returns (uint256[2] memory) {
@@ -144,7 +159,14 @@ library BLS12381 {
     /**
      * @notice Adds two G2 points using the precompile at 0x0e
      */
-    function plus(G2Point memory point1, G2Point memory point2) internal view returns (G2Point memory) {
+    function plus(
+        G2Point memory point1,
+        G2Point memory point2
+    )
+        internal
+        view
+        returns (G2Point memory)
+    {
         uint256[8] memory r;
 
         uint256[16] memory input = [
@@ -167,7 +189,9 @@ library BLS12381 {
         ];
 
         // ABI for G2 addition precompile
-        // G2 addition call expects 512 bytes as an input that is interpreted as byte concatenation of two G2 points (256 bytes each). Output is an encoding of addition operation result - single G2 point (256 bytes).
+        // G2 addition call expects 512 bytes as an input that is interpreted as byte concatenation
+        // of two G2 points (256 bytes each). Output is an encoding of addition operation result -
+        // single G2 point (256 bytes).
         assembly {
             let success :=
                 staticcall(
@@ -194,7 +218,9 @@ library BLS12381 {
         uint256[4] memory input = [fp2.u[0], fp2.u[1], fp2.u_I[0], fp2.u_I[1]];
 
         // ABI for mapping Fp2 element to G2 point precompile
-        // Field-to-curve call expects 128 bytes an an input that is interpreted as a an element of the quadratic extension field. Output of this call is 256 bytes and is G2 point following respective encoding rules.
+        // Field-to-curve call expects 128 bytes an an input that is interpreted as a an element of
+        // the quadratic extension field. Output of this call is 256 bytes and is G2 point following
+        // respective encoding rules.
         assembly {
             let success :=
                 staticcall(
@@ -215,7 +241,12 @@ library BLS12381 {
     /**
      * @notice Pairing check using the precompile at 0x11
      */
-    function pairing(G1Point memory a1, G2Point memory b1, G1Point memory a2, G2Point memory b2)
+    function pairing(
+        G1Point memory a1,
+        G2Point memory b1,
+        G1Point memory a2,
+        G2Point memory b2
+    )
         internal
         view
         returns (bool)
@@ -251,7 +282,8 @@ library BLS12381 {
 
         // ABI for pairing precompile
         // Pairing expects 384 (G1Point = 128 bytes, G2Point = 256 bytes) * k bytes as input.
-        // In this case, since two pairs of points are being passed, the input size is 384 * 2 = 768 bytes.
+        // In this case, since two pairs of points are being passed, the input size is 384 * 2 = 768
+        // bytes.
         assembly {
             let success :=
                 staticcall(
@@ -273,7 +305,11 @@ library BLS12381 {
     // Helpers
     //=========
 
-    function _expandMsgXmd(bytes memory message, bytes memory dst, uint16 lenInBytes)
+    function _expandMsgXmd(
+        bytes memory message,
+        bytes memory dst,
+        uint16 lenInBytes
+    )
         internal
         pure
         returns (uint256[] memory)
@@ -349,12 +385,19 @@ library BLS12381 {
             mstore(add(freemem, 0xa0), 1)
 
             // arg[5] = mod.bits @ +96+base.length+exp.length
-            // this field_modulus as hex 4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559787
+            // this field_modulus as hex
+            // 4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559787
             // we add the 0 prefix so that the result will be exactly 64 bytes
             // saves 300 gas per call instead of sending it along every time
             // places the first 32 bytes and the last 32 bytes of the field modulus
-            mstore(add(freemem, 0xc0), 0x000000000000000000000000000000001a0111ea397fe69a4b1ba7b6434bacd7)
-            mstore(add(freemem, 0xe0), 0x64774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab)
+            mstore(
+                add(freemem, 0xc0),
+                0x000000000000000000000000000000001a0111ea397fe69a4b1ba7b6434bacd7
+            )
+            mstore(
+                add(freemem, 0xe0),
+                0x64774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab
+            )
 
             // Invoke contract 0x5, put return value right after mod.length, @ 0x60
             let success :=

@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {ISlasher} from "../interfaces/eigenlayer-mvp/ISlasher.sol";
+import "../interfaces/eigenlayer-mvp/ISlasher.sol";
 
 contract Slasher is ISlasher {
     mapping(address operator => mapping(address avs => bool canSlash)) internal slashingAllowed;
     mapping(address operator => bool slashed) internal isSlashed;
 
     modifier onlyIfSlashingAllowed(address operator, address caller) {
-        require(slashingAllowed[operator][caller], "Slasher: Caller is not allowed to slash the operator");
+        require(
+            slashingAllowed[operator][caller],
+            "Slasher: Caller is not allowed to slash the operator"
+        );
         _;
     }
 

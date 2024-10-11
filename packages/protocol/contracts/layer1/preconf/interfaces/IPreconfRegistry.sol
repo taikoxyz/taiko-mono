@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {BLS12381} from "../libraries/BLS12381.sol";
-import {IAVSDirectory} from "./eigenlayer-mvp/IAVSDirectory.sol";
+import "../libraries/BLS12381.sol";
+import "./eigenlayer-mvp/IAVSDirectory.sol";
 
 interface IPreconfRegistry {
     struct Validator {
@@ -15,7 +15,8 @@ interface IPreconfRegistry {
         // 2 epochs from validator removal timestamp
         uint40 stopProposingAt;
     }
-    // ^ Note: 40 bits are enough for UNIX timestamp. This way we also compress the data to a single slot.
+    // ^ Note: 40 bits are enough for UNIX timestamp. This way we also compress the data to a single
+    // slot.
 
     struct AddValidatorParam {
         // The public key of the validator
@@ -53,13 +54,15 @@ interface IPreconfRegistry {
     error InvalidValidatorSignature();
     /// @dev The signature has expired
     error ValidatorSignatureExpired();
-    /// @dev The validator is already proposing for a preconfer and cannot be added again without removal
+    /// @dev The validator is already proposing for a preconfer and cannot be added again without
+    /// removal
     error ValidatorAlreadyActive();
     /// @dev The validator is already removed or waiting to stop proposing for a preconfer
     error ValidatorAlreadyInactive();
 
     /// @dev Registers a preconfer by giving them a non-zero registry index
-    function registerPreconfer(IAVSDirectory.SignatureWithSaltAndExpiry calldata operatorSignature) external;
+    function registerPreconfer(IAVSDirectory.SignatureWithSaltAndExpiry calldata operatorSignature)
+        external;
 
     /// @dev Deregisters a preconfer from the registry
     function deregisterPreconfer() external;
@@ -70,8 +73,13 @@ interface IPreconfRegistry {
     /// @dev Removes active validators who are proposing for a preconfer
     function removeValidators(RemoveValidatorParam[] calldata removeValidatorParams) external;
 
-    /// @dev Returns the message that the validator must sign to add or remove themselves from a preconfer
-    function getMessageToSign(ValidatorOp validatorOp, uint256 expiry, address preconfer)
+    /// @dev Returns the message that the validator must sign to add or remove themselves from a
+    /// preconfer
+    function getMessageToSign(
+        ValidatorOp validatorOp,
+        uint256 expiry,
+        address preconfer
+    )
         external
         view
         returns (bytes memory);

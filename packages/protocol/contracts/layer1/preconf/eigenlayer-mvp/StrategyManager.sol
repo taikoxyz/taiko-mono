@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {IStrategyManager} from "../interfaces/eigenlayer-mvp/IStrategyManager.sol";
-import {IDelegationManager} from "../interfaces/eigenlayer-mvp/IDelegationManager.sol";
+import "../interfaces/eigenlayer-mvp/IStrategyManager.sol";
+import "../interfaces/eigenlayer-mvp/IDelegationManager.sol";
 
 contract StrategyManager is IStrategyManager {
     IDelegationManager internal immutable delegation;
@@ -13,14 +13,21 @@ contract StrategyManager is IStrategyManager {
         delegation = _delegation;
     }
 
-    function depositIntoStrategy(address strategy, address token, uint256 amount)
+    function depositIntoStrategy(
+        address strategy,
+        address token,
+        uint256 amount
+    )
         external
         payable
         returns (uint256 shares)
     {
         require(strategy == address(0), "StrategyManager: Only ETH strategy supported");
         require(token == address(0), "StrategyManager: Only ETH deposits supported");
-        require(msg.value == ETH_DEPOSIT && amount == ETH_DEPOSIT, "StrategyManager: Invalid ETH deposit");
+        require(
+            msg.value == ETH_DEPOSIT && amount == ETH_DEPOSIT,
+            "StrategyManager: Invalid ETH deposit"
+        );
 
         // In the MVP, the shares equal the sent amount as we do not have any form of reward accrual
         shares = amount;

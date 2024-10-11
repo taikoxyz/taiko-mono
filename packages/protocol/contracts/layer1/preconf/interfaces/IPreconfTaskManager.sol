@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {EIP4788} from "../libraries/EIP4788.sol";
-import {ITaikoL1} from "./taiko/ITaikoL1.sol";
+import "./taiko/ITaikoL1.sol";
+import "../libraries/EIP4788.sol";
 
 interface IPreconfTaskManager {
     struct PreconfirmationHeader {
@@ -29,7 +29,8 @@ interface IPreconfTaskManager {
     struct LookaheadSetParam {
         // The timestamp of the slot
         uint256 timestamp;
-        // The AVS operator who is also the L1 validator for the slot and will preconf L2 transactions
+        // The AVS operator who is also the L1 validator for the slot and will preconf L2
+        // transactions
         address preconfer;
     }
 
@@ -58,10 +59,15 @@ interface IPreconfTaskManager {
     }
 
     event LookaheadUpdated(LookaheadSetParam[]);
-    event ProvedIncorrectPreconfirmation(address indexed preconfer, uint256 indexed blockId, address indexed disputer);
-    event ProvedIncorrectLookahead(address indexed poster, uint256 indexed timestamp, address indexed disputer);
+    event ProvedIncorrectPreconfirmation(
+        address indexed preconfer, uint256 indexed blockId, address indexed disputer
+    );
+    event ProvedIncorrectLookahead(
+        address indexed poster, uint256 indexed timestamp, address indexed disputer
+    );
 
-    /// @dev The current (or provided) timestamp does not fall in the range provided by the lookahead pointer
+    /// @dev The current (or provided) timestamp does not fall in the range provided by the
+    /// lookahead pointer
     error InvalidLookaheadPointer();
     /// @dev The block proposer is not the assigned preconfer for the current slot/timestamp
     error SenderIsNotThePreconfer();
@@ -71,7 +77,8 @@ interface IPreconfTaskManager {
     error InvalidEpochTimestamp();
     /// @dev The timestamp in the lookahead is not of a valid future slot in the present epoch
     error InvalidSlotTimestamp();
-    /// @dev The chain id on which the preconfirmation was signed is different from the current chain's id
+    /// @dev The chain id on which the preconfirmation was signed is different from the current
+    /// chain's id
     error PreconfirmationChainIdMismatch();
     /// @dev The dispute window for proving incorretc lookahead or preconfirmation is over
     error MissedDisputeWindow();
@@ -79,7 +86,8 @@ interface IPreconfTaskManager {
     error PreconfirmationIsCorrect();
     /// @dev The sent block metadata does not match the one retrieved from Taiko
     error MetadataMismatch();
-    /// @dev The lookahead poster for the epoch has already been slashed or there is no lookahead for epoch
+    /// @dev The lookahead poster for the epoch has already been slashed or there is no lookahead
+    /// for epoch
     error PosterAlreadySlashedOrLookaheadIsEmpty();
     /// @dev The lookahead preconfer matches the one the actual validator is proposing for
     error LookaheadEntryIsCorrect();
@@ -94,14 +102,18 @@ interface IPreconfTaskManager {
         bytes calldata txList,
         uint256 lookaheadPointer,
         LookaheadSetParam[] calldata lookaheadSetParams
-    ) external payable;
+    )
+        external
+        payable;
 
-    /// @dev Slashes a preconfer if the txn and ordering in a signed preconf does not match the actual block
+    /// @dev Slashes a preconfer if the txn and ordering in a signed preconf does not match the
+    /// actual block
     function proveIncorrectPreconfirmation(
         ITaikoL1.BlockMetadata calldata taikoBlockMetadata,
         PreconfirmationHeader calldata header,
         bytes calldata signature
-    ) external;
+    )
+        external;
 
     /// @dev Slashes a preconfer if the validator lookahead pushed by them has an incorrect entry
     function proveIncorrectLookahead(
@@ -109,7 +121,8 @@ interface IPreconfTaskManager {
         uint256 slotTimestamp,
         bytes memory validatorBLSPubKey,
         EIP4788.InclusionProof memory validatorInclusionProof
-    ) external;
+    )
+        external;
 
     /// @dev Forces the lookahead to be set for the next epoch if it is lagging behind
     function forcePushLookahead(LookaheadSetParam[] memory lookaheadSetParams) external;
@@ -118,10 +131,16 @@ interface IPreconfTaskManager {
     function getFallbackPreconfer(uint256 epochTimestamp) external view returns (address);
 
     /// @dev Returns the full 32 slot preconfer lookahead for the epoch
-    function getLookaheadForEpoch(uint256 epochTimestamp) external view returns (address[32] memory);
+    function getLookaheadForEpoch(uint256 epochTimestamp)
+        external
+        view
+        returns (address[32] memory);
 
     /// @dev Return the parameters required for the lookahead to be set for the given epoch
-    function getLookaheadParamsForEpoch(uint256 epochTimestamp, bytes[32] memory validatorBLSPubKeys)
+    function getLookaheadParamsForEpoch(
+        uint256 epochTimestamp,
+        bytes[32] memory validatorBLSPubKeys
+    )
         external
         view
         returns (LookaheadSetParam[] memory);

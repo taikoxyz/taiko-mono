@@ -57,7 +57,10 @@ interface ITaikoL1 {
         uint32 l1StateBlockNumber;
     }
 
-    function proposeBlock(bytes calldata _params, bytes calldata _txList)
+    function proposeBlock(
+        bytes calldata _params,
+        bytes calldata _txList
+    )
         external
         payable
         returns (BlockMetadata memory meta_, EthDeposit[] memory deposits_);
