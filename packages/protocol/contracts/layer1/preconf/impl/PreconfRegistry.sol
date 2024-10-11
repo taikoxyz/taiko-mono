@@ -2,14 +2,13 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "../interfaces/IPreconfRegistry.sol";
-import "../interfaces/IPreconfServiceManager.sol";
-import "../interfaces/eigenlayer-mvp/IAVSDirectory.sol";
-import "../libraries/BLS12381.sol";
+import "../iface/IPreconfRegistry.sol";
+import "../iface/IPreconfServiceManager.sol";
+import "../eigenlayer-mvp/iface/IAVSDirectory.sol";
+import "../libs/BLSSignature.sol";
 import "./PreconfConstants.sol";
-import "./utils/BLSSignatureChecker.sol";
 
-contract PreconfRegistry is IPreconfRegistry, BLSSignatureChecker, Initializable {
+contract PreconfRegistry is IPreconfRegistry, Initializable {
     using BLS12381 for BLS12381.G1Point;
 
     IPreconfServiceManager internal immutable preconfServiceManager;

@@ -7,12 +7,12 @@ import "../mocks/MockPreconfServiceManager.sol";
 import "../mocks/MockBeaconBlockRoot.sol";
 import "../mocks/MockTaikoL1.sol";
 
-import "src/layer1/preconf/avs/PreconfConstants.sol";
-import "src/layer1/preconf/avs/PreconfTaskManager.sol";
-import "src/layer1/preconf/interfaces/IPreconfRegistry.sol";
-import "src/layer1/preconf/interfaces/IPreconfServiceManager.sol";
-import "src/layer1/preconf/interfaces/IPreconfTaskManager.sol";
-import "src/layer1/preconf/interfaces/taiko/ITaikoL1.sol";
+import "src/layer1/preconf/impl/PreconfConstants.sol";
+import "src/layer1/preconf/impl/PreconfTaskManager.sol";
+import "src/layer1/preconf/iface/IPreconfRegistry.sol";
+import "src/layer1/preconf/iface/IPreconfServiceManager.sol";
+import "src/layer1/preconf/iface/IPreconfTaskManager.sol";
+import "src/layer1/preconf/iface/ITaikoL1Partial.sol";
 
 contract BlocksFixtures is BaseTest {
     PreconfTaskManager internal preconfTaskManager;
@@ -30,7 +30,7 @@ contract BlocksFixtures is BaseTest {
         preconfTaskManager = new PreconfTaskManager(
             IPreconfServiceManager(address(preconfServiceManager)),
             IPreconfRegistry(address(preconfRegistry)),
-            ITaikoL1(taikoL1),
+            ITaikoL1Partial(taikoL1),
             PreconfConstants.MAINNET_BEACON_GENESIS,
             address(beaconBlockRootContract)
         );
@@ -63,23 +63,5 @@ contract BlocksFixtures is BaseTest {
         for (uint256 i = 1; i <= count; i++) {
             preconfRegistry.registerPreconfer(vm.addr(i));
         }
-    }
-
-    function setupTaikoBlock(
-        uint256 id,
-        uint256 proposedAt,
-        bytes32 txListHash
-    )
-        internal
-        returns (ITaikoL1.BlockMetadata memory)
-    {
-        ITaikoL1.BlockMetadata memory metadata;
-
-        metadata.blobHash = txListHash;
-        metadata.id = uint64(id);
-
-        taikoL1.setBlock(keccak256(abi.encode(metadata)), proposedAt);
-
-        return metadata;
     }
 }

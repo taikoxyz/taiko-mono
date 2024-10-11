@@ -7,14 +7,14 @@ import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 import "src/layer1/preconf/mock/MockPreconfRegistry.sol";
-import "src/layer1/preconf/avs/PreconfServiceManager.sol";
-import "src/layer1/preconf/avs/PreconfTaskManager.sol";
-import "src/layer1/preconf/interfaces/IPreconfRegistry.sol";
-import "src/layer1/preconf/interfaces/IPreconfServiceManager.sol";
-import "src/layer1/preconf/interfaces/IPreconfTaskManager.sol";
-import "src/layer1/preconf/interfaces/eigenlayer-mvp/IAVSDirectory.sol";
-import "src/layer1/preconf/interfaces/eigenlayer-mvp/ISlasher.sol";
-import "src/layer1/preconf/interfaces/taiko/ITaikoL1.sol";
+import "src/layer1/preconf/impl/PreconfServiceManager.sol";
+import "src/layer1/preconf/impl/PreconfTaskManager.sol";
+import "src/layer1/preconf/iface/IPreconfRegistry.sol";
+import "src/layer1/preconf/iface/IPreconfServiceManager.sol";
+import "src/layer1/preconf/iface/IPreconfTaskManager.sol";
+import "src/layer1/preconf/eigenlayer-mvp/iface/IAVSDirectory.sol";
+import "src/layer1/preconf/eigenlayer-mvp/iface/ISlasher.sol";
+import "src/layer1/preconf/iface/ITaikoL1Partial.sol";
 
 import "../../BaseScript.sol";
 import "../../misc/EmptyContract.sol";
@@ -48,7 +48,7 @@ contract DeployMockAVS is BaseScript {
         PreconfTaskManager preconfTaskManagerImpl = new PreconfTaskManager(
             IPreconfServiceManager(preconfServiceManager),
             IPreconfRegistry(preconfRegistry),
-            ITaikoL1(taikoL1),
+            ITaikoL1Partial(taikoL1),
             beaconGenesisTimestamp,
             beaconBlockRootContract
         );

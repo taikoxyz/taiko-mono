@@ -4,8 +4,8 @@ pragma solidity ^0.8.24;
 import "../fixtures/BeaconProofs.sol";
 import "../fixtures/LookaheadFixtures.sol";
 
-import "src/layer1/preconf/avs/PreconfConstants.sol";
-import "src/layer1/preconf/interfaces/IPreconfTaskManager.sol";
+import "src/layer1/preconf/impl/PreconfConstants.sol";
+import "src/layer1/preconf/iface/IPreconfTaskManager.sol";
 
 /// @dev The beacon chain data used here is from slot 9000000 on Ethereum mainnet.
 contract IncorrectLookahead is LookaheadFixtures {

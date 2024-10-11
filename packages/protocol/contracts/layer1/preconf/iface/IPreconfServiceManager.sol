@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./eigenlayer-mvp/IAVSDirectory.sol";
+import "../eigenlayer-mvp/iface/IAVSDirectory.sol";
 
 interface IPreconfServiceManager {
     event StakeLockedUntil(address indexed operator, uint256 timestamp);
@@ -25,7 +25,7 @@ interface IPreconfServiceManager {
     /// lookahead dispute period
     function lockStakeUntil(address operator, uint256 timestamp) external;
 
-    /// @dev Only Callable by PreconfTaskManager to slash an operator for incorret lookahead or
+    /// @dev Only Callable by PreconfTaskManager to slash an operator for incorrect lookahead or
     /// preconfirmation
     function slashOperator(address operator) external;
 

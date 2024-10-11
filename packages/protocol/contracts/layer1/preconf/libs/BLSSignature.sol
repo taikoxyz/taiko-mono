@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../../libraries/BLS12381.sol";
+import "./BLS12381.sol";
 
-contract BLSSignatureChecker {
+library BLSSignature {
     using BLS12381 for *;
 
     /// @dev The domain separation tag for the BLS signature
@@ -23,7 +23,7 @@ contract BLSSignatureChecker {
         BLS12381.G2Point memory sig,
         BLS12381.G1Point memory pubkey
     )
-        internal
+        public
         view
         returns (bool)
     {

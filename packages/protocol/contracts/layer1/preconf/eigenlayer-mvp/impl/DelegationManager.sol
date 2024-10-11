@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../interfaces/eigenlayer-mvp/IDelegationManager.sol";
-import "../interfaces/eigenlayer-mvp/IStrategyManager.sol";
+import "../iface/IDelegationManager.sol";
+import "../iface/IStrategyManager.sol";
 
 contract DelegationManager is IDelegationManager {
     IStrategyManager internal immutable strategyManager;
@@ -35,7 +35,7 @@ contract DelegationManager is IDelegationManager {
         emit OperatorSharesIncreased(operator, operator, strategy, shares);
     }
 
-    /// @dev This has been modified from the original EL implementation to accomodate for slashing
+    /// @dev This has been modified from the original EL implementation to accommodate for slashing
     function getOperatorShares(
         address operator,
         address[] memory strategies
