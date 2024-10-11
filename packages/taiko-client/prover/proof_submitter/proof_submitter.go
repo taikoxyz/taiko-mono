@@ -337,7 +337,6 @@ func (s *ProofSubmitter) SubmitProof(
 func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proofProducer.BatchProofs) error {
 	log.Info(
 		"Batch submit block proof",
-		"batchProofs", batchProof.Proofs,
 		"proof", common.Bytes2Hex(batchProof.BatchProof),
 		"blockIds", batchProof.BlockIDs,
 		"tier", batchProof.Tier,
@@ -466,7 +465,8 @@ func (s *ProofSubmitter) AggregateProofs(ctx context.Context) error {
 				startTime,
 			)
 			if err != nil {
-				return fmt.Errorf("failed to request proof aggregation: %w", err)
+				log.Error("Failed to request proof aggregation", "err", err)
+				return err
 			}
 			s.batchResultCh <- result
 			return nil

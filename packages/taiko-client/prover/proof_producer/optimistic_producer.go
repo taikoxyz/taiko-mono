@@ -43,7 +43,6 @@ func (o *OptimisticProofProducer) Aggregate(
 ) (*BatchProofs, error) {
 	log.Info(
 		"Aggregate batch optimistic proof",
-		"items", items,
 	)
 	if len(items) == 0 {
 		return nil, ErrInvalidLength
