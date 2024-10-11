@@ -3,8 +3,8 @@ pragma solidity ^0.8.24;
 
 import "../fixtures/LookaheadFixtures.sol";
 
-import "src/layer1/preconf/avs/PreconfConstants.sol";
-import "src/layer1/preconf/interfaces/IPreconfTaskManager.sol";
+import "src/layer1/preconf/impl/PreconfConstants.sol";
+import "src/layer1/preconf/iface/IPreconfTaskManager.sol";
 
 contract LookaheadPosting is LookaheadFixtures {
     function setUp() public override {

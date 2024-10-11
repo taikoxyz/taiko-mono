@@ -6,21 +6,21 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
-import "src/layer1/preconf/avs/PreconfRegistry.sol";
-import "src/layer1/preconf/avs/PreconfServiceManager.sol";
-import "src/layer1/preconf/avs/PreconfTaskManager.sol";
-import "src/layer1/preconf/interfaces/IPreconfRegistry.sol";
-import "src/layer1/preconf/interfaces/IPreconfServiceManager.sol";
-import "src/layer1/preconf/interfaces/eigenlayer-mvp/IAVSDirectory.sol";
-import "src/layer1/preconf/interfaces/eigenlayer-mvp/ISlasher.sol";
-import "src/layer1/preconf/interfaces/ITaikoL1Partial.sol";
+import "src/layer1/preconf/impl/PreconfRegistry.sol";
+import "src/layer1/preconf/impl/PreconfServiceManager.sol";
+import "src/layer1/preconf/impl/PreconfTaskManager.sol";
+import "src/layer1/preconf/iface/IPreconfRegistry.sol";
+import "src/layer1/preconf/iface/IPreconfServiceManager.sol";
+import "src/layer1/preconf/iface/eigenlayer-mvp/IAVSDirectory.sol";
+import "src/layer1/preconf/iface/eigenlayer-mvp/ISlasher.sol";
+import "src/layer1/preconf/iface/ITaikoL1Partial.sol";
 
 import "../BaseScript.sol";
 import "../misc/EmptyContract.sol";
 
 contract DeployAVS is BaseScript {
     // Required by service manager
-    address public avsDirectory = vm.envAddress("AVS_DIRECTORY");
+    address public implDirectory = vm.envAddress("AVS_DIRECTORY");
     address public slasher = vm.envAddress("SLASHER");
 
     // Required by task manager
@@ -42,7 +42,7 @@ contract DeployAVS is BaseScript {
         PreconfRegistry preconfRegistryImpl =
             new PreconfRegistry(IPreconfServiceManager(preconfServiceManager));
         PreconfServiceManager preconfServiceManagerImpl = new PreconfServiceManager(
-            preconfRegistry, preconfTaskManager, IAVSDirectory(avsDirectory), ISlasher(slasher)
+            preconfRegistry, preconfTaskManager, IAVSDirectory(implDirectory), ISlasher(slasher)
         );
         PreconfTaskManager preconfTaskManagerImpl = new PreconfTaskManager(
             IPreconfServiceManager(preconfServiceManager),

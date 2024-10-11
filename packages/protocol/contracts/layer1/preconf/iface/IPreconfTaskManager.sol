@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../libraries/EIP4788.sol";
+import "../libs/EIP4788.sol";
 
 interface IPreconfTaskManager {
 

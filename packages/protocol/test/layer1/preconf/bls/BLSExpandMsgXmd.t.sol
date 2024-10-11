@@ -4,7 +4,7 @@
 pragma solidity ^0.8.24;
 
 import "../BaseTest.sol";
-import "src/layer1/preconf/libraries/BLS12381.sol";
+import "src/layer1/preconf/libs/BLS12381.sol";
 
 contract BLSExpendMsgXmd is BaseTest {
     bytes internal expand_msg_dst = "QUUX-V01-CS02-with-expander-SHA256-128";

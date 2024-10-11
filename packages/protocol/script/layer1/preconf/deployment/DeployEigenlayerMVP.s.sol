@@ -9,8 +9,8 @@ import "src/layer1/preconf/eigenlayer-mvp/AVSDirectory.sol";
 import "src/layer1/preconf/eigenlayer-mvp/DelegationManager.sol";
 import "src/layer1/preconf/eigenlayer-mvp/StrategyManager.sol";
 import "src/layer1/preconf/eigenlayer-mvp/Slasher.sol";
-import "src/layer1/preconf/interfaces/eigenlayer-mvp/IDelegationManager.sol";
-import "src/layer1/preconf/interfaces/eigenlayer-mvp/IStrategyManager.sol";
+import "src/layer1/preconf/iface/eigenlayer-mvp/IDelegationManager.sol";
+import "src/layer1/preconf/iface/eigenlayer-mvp/IStrategyManager.sol";
 
 import "../BaseScript.sol";
 import "../misc/EmptyContract.sol";

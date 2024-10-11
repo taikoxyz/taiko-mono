@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/layer1/preconf/libraries/MerkleUtils.sol";
+import "src/layer1/preconf/libs/MerkleUtils.sol";
 import "../BaseTest.sol";
 import "../fixtures/BeaconProofs.sol";
 

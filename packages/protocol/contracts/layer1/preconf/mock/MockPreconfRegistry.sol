@@ -2,11 +2,11 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "../avs/PreconfConstants.sol";
-import "../libraries/BLSSignature.sol";
-import "../interfaces/IPreconfRegistry.sol";
-import "../interfaces/IPreconfServiceManager.sol";
-import "../interfaces/eigenlayer-mvp/IAVSDirectory.sol";
+import "../impl/PreconfConstants.sol";
+import "../libs/BLSSignature.sol";
+import "../iface/IPreconfRegistry.sol";
+import "../iface/IPreconfServiceManager.sol";
+import "../iface/eigenlayer-mvp/IAVSDirectory.sol";
 
 contract MockPreconfRegistry is IPreconfRegistry, Initializable {
     using BLS12381 for BLS12381.G1Point;

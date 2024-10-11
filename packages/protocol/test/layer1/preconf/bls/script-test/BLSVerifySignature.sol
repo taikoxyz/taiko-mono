@@ -3,7 +3,7 @@
 pragma solidity ^0.8.24;
 
 import "script/layer1/preconf/BaseScript.sol";
-import "src/layer1/preconf/libraries/BLSSignature.sol";
+import "src/layer1/preconf/libs/BLSSignature.sol";
 
 /**
  * @dev At the time of writing this (Sept, 2024) foundry does not support the BLS12381 precompile,

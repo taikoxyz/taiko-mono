@@ -7,11 +7,11 @@ import "../mocks/MockPreconfServiceManager.sol";
 import "../mocks/MockBeaconBlockRoot.sol";
 import "../mocks/MockTaikoL1.sol";
 
-import "src/layer1/preconf/avs/PreconfConstants.sol";
-import "src/layer1/preconf/avs/PreconfTaskManager.sol";
-import "src/layer1/preconf/interfaces/IPreconfRegistry.sol";
-import "src/layer1/preconf/interfaces/IPreconfServiceManager.sol";
-import "src/layer1/preconf/interfaces/ITaikoL1Partial.sol";
+import "src/layer1/preconf/impl/PreconfConstants.sol";
+import "src/layer1/preconf/impl/PreconfTaskManager.sol";
+import "src/layer1/preconf/iface/IPreconfRegistry.sol";
+import "src/layer1/preconf/iface/IPreconfServiceManager.sol";
+import "src/layer1/preconf/iface/ITaikoL1Partial.sol";
 
 contract LookaheadFixtures is BaseTest {
     PreconfTaskManager internal preconfTaskManager;

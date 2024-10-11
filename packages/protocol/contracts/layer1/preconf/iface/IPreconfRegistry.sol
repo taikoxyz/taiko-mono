@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../libraries/BLS12381.sol";
+import "../libs/BLS12381.sol";
 import "./eigenlayer-mvp/IAVSDirectory.sol";
 
 interface IPreconfRegistry {

@@ -4,7 +4,7 @@
 pragma solidity ^0.8.24;
 
 import "../BaseTest.sol";
-import "src/layer1/preconf/libraries/BLS12381.sol";
+import "src/layer1/preconf/libs/BLS12381.sol";
 
 contract BLSHashToFieldFp2 is BaseTest {
     bytes internal hash_to_dst = "QUUX-V01-CS02-with-BLS12381G2_XMD:SHA-256_SSWU_RO_";

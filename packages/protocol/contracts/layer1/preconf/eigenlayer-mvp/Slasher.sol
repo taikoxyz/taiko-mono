@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../interfaces/eigenlayer-mvp/ISlasher.sol";
+import "../iface/eigenlayer-mvp/ISlasher.sol";
 
 contract Slasher is ISlasher {
     mapping(address operator => mapping(address avs => bool canSlash)) internal slashingAllowed;

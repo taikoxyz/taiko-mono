@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../interfaces/eigenlayer-mvp/IStrategyManager.sol";
-import "../interfaces/eigenlayer-mvp/IDelegationManager.sol";
+import "../iface/eigenlayer-mvp/IStrategyManager.sol";
+import "../iface/eigenlayer-mvp/IDelegationManager.sol";
 
 contract StrategyManager is IStrategyManager {
     IDelegationManager internal immutable delegation;

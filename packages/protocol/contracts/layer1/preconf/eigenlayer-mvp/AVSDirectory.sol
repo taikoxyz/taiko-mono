@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../interfaces/eigenlayer-mvp/IAVSDirectory.sol";
+import "../iface/eigenlayer-mvp/IAVSDirectory.sol";
 
 contract AVSDirectory is IAVSDirectory {
     bytes32 private constant DOMAIN_TYPEHASH =

@@ -3,8 +3,8 @@ pragma solidity ^0.8.24;
 
 import "../fixtures/BlocksFixtures.sol";
 
-import "src/layer1/preconf/avs/PreconfConstants.sol";
-import "src/layer1/preconf/interfaces/IPreconfTaskManager.sol";
+import "src/layer1/preconf/impl/PreconfConstants.sol";
+import "src/layer1/preconf/iface/IPreconfTaskManager.sol";
 
 contract BlockProposing is BlocksFixtures {
     function setUp() public override {
