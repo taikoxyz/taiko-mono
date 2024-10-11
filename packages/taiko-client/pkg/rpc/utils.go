@@ -274,6 +274,16 @@ func BatchGetBlockProofStatus(
 		return nil, err
 	}
 	for i, transition := range transitions {
+		log.Debug(
+			"📬 Block's proof has already been submitted by another prover",
+			"blockID", ids[i],
+			"prover", transition.Prover,
+			"parent", parents[i].Hash().Hex(),
+			"hash", common.Bytes2Hex(transition.BlockHash[:]),
+			"stateRoot", common.Bytes2Hex(transition.StateRoot[:]),
+			"timestamp", transition.Timestamp,
+			"contester", transition.Contester,
+		)
 		// no proof on chain
 		if transition.BlockHash == (common.Hash{}) {
 			result[i] = &BlockProofStatus{IsSubmitted: false, ParentHeader: parents[i]}
