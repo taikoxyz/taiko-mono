@@ -3,8 +3,8 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import "../../shared/common/IAddressResolver.sol";
-import "../../shared/common/LibStrings.sol";
+import "src/shared/common/IAddressResolver.sol";
+import "src/shared/common/LibStrings.sol";
 import "./TaikoData.sol";
 
 /// @title LibBonds

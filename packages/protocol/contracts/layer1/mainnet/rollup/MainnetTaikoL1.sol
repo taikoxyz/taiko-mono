@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../../based/TaikoL1.sol";
+import "src/layer1/based/TaikoL1.sol";
 import "../addrcache/RollupAddressCache.sol";
 import "../reentrylock/LibFasterReentryLock.sol";
 

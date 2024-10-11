@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "forge-std/src/Script.sol";
 import "forge-std/src/console2.sol";
 
-import "../../test/layer1/automata-attestation/common/AttestationBase.t.sol";
+import "test/layer1/automata-attestation/common/AttestationBase.t.sol";
 
 contract SetDcapParams is Script, AttestationBase {
     uint256 public ownerPrivateKey = vm.envUint("PRIVATE_KEY"); // Owner of the attestation contract

@@ -56,8 +56,25 @@ interface ITaikoL1 {
     /// @param _pause True to pause, false to unpause.
     function pauseProving(bool _pause) external;
 
-    /// @notice Deposits Taiko tokens to be used as bonds.
-    /// @param _amount Amount of Taiko tokens to deposit.
+    /// @notice Gets the details of a block.
+    /// @param _blockId Index of the block.
+    /// @return blk_ The block.
+    function getBlockV2(uint64 _blockId) external view returns (TaikoData.BlockV2 memory blk_);
+
+    /// @notice Gets the state transition for a specific block.
+    /// @param _blockId Index of the block.
+    /// @param _tid The transition id.
+    /// @return The state transition data of the block.
+    function getTransition(
+        uint64 _blockId,
+        uint32 _tid
+    )
+        external
+        view
+        returns (TaikoData.TransitionState memory);
+
+    /// @notice Deposits Taiko token to be used as bonds.
+    /// @param _amount The amount of Taiko token to deposit.
     function depositBond(uint256 _amount) external;
 
     /// @notice Withdraws Taiko tokens.

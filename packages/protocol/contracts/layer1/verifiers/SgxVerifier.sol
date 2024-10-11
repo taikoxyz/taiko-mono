@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "../based/ITaikoL1.sol";
 import "./SgxVerifierBase.sol";
+import "./LibPublicInput.sol";
 import "./IVerifier.sol";
 
 /// @title SgxVerifier
