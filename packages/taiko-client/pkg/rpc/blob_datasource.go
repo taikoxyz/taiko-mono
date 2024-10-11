@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/go-resty/resty/v2"
-	"github.com/prysmaticlabs/prysm/v4/beacon-chain/rpc/eth/blob"
+	"github.com/prysmaticlabs/prysm/v5/api/server/structs"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg"
 )
@@ -77,9 +77,9 @@ func (ds *BlobDataSource) GetBlobs(
 	ctx context.Context,
 	timestamp uint64,
 	blobHash common.Hash,
-) ([]*blob.Sidecar, error) {
+) ([]*structs.Sidecar, error) {
 	var (
-		sidecars []*blob.Sidecar
+		sidecars []*structs.Sidecar
 		err      error
 	)
 	if ds.client.L1Beacon == nil {
@@ -99,9 +99,9 @@ func (ds *BlobDataSource) GetBlobs(
 		if err != nil {
 			return nil, err
 		}
-		sidecars = make([]*blob.Sidecar, len(blobs.Data))
+		sidecars = make([]*structs.Sidecar, len(blobs.Data))
 		for index, value := range blobs.Data {
-			sidecars[index] = &blob.Sidecar{
+			sidecars[index] = &structs.Sidecar{
 				KzgCommitment: value.KzgCommitment,
 				Blob:          value.Blob,
 			}

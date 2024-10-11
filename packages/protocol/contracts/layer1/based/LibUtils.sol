@@ -3,9 +3,9 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import "../../shared/common/IAddressResolver.sol";
-import "../../shared/common/LibStrings.sol";
-import "../../shared/common/LibMath.sol";
+import "src/shared/common/IAddressResolver.sol";
+import "src/shared/common/LibStrings.sol";
+import "src/shared/common/LibMath.sol";
 import "../tiers/ITierProvider.sol";
 import "../tiers/ITierRouter.sol";
 import "./TaikoData.sol";

@@ -24,8 +24,8 @@ contract ERC20Airdrop is MerkleClaimable, ReentrancyGuardUpgradeable, PausableUp
 
     /// @notice Event emitted when the blacklist is updated.
     event BlacklistUpdated(address _blacklist);
-    /// @notice Errors
 
+    /// @notice Errors
     error ADDRESS_BLACKLISTED();
 
     uint256[48] private __gap;
@@ -92,6 +92,14 @@ contract ERC20Airdrop is MerkleClaimable, ReentrancyGuardUpgradeable, PausableUp
         }
         // Transfer the tokens to owner
         _token.transfer(owner(), _token.balanceOf(address(this)));
+    }
+
+    /// @notice Update blacklist contract
+    /// @param _blacklist The new blacklist contract address
+    /// @dev Only the owner can execute this function
+    function updateBlacklist(address _blacklist) external onlyOwner {
+        blacklist = IMinimalBlacklist(_blacklist);
+        emit BlacklistUpdated(_blacklist);
     }
 
     /// @notice Internal method to authorize an upgrade
