@@ -23,8 +23,10 @@ import (
 )
 
 const (
-	ZKProofTypeR0  = "risc0"
-	ZKProofTypeSP1 = "sp1"
+	ZKProofTypeR0       = "risc0"
+	ZKProofTypeSP1      = "sp1"
+	RecursionPlonk      = "plonk"
+	RecursionCompressed = "compressed"
 )
 
 var (
@@ -203,7 +205,15 @@ func (s *ZKvmProofProducer) requestProof(
 	ctx context.Context,
 	opts *ProofRequestOptions,
 ) (*RaikoRequestProofBodyResponseV2, error) {
-	var reqBody RaikoRequestProofBody
+	var (
+		reqBody   RaikoRequestProofBody
+		recursion string
+	)
+	if opts.Compressed {
+		recursion = RecursionCompressed
+	} else {
+		recursion = RecursionPlonk
+	}
 	switch s.ZKProofType {
 	case ZKProofTypeSP1:
 		reqBody = RaikoRequestProofBody{
@@ -212,7 +222,7 @@ func (s *ZKvmProofProducer) requestProof(
 			Prover:   opts.ProverAddress.Hex()[2:],
 			Graffiti: opts.Graffiti,
 			SP1: &SP1RequestProofBodyParam{
-				Recursion: "compressed",
+				Recursion: recursion,
 				Prover:    "network",
 				Verify:    true,
 			},
@@ -285,7 +295,15 @@ func (s *ZKvmProofProducer) requestCancel(
 	ctx context.Context,
 	opts *ProofRequestOptions,
 ) error {
-	var reqBody RaikoRequestProofBody
+	var (
+		reqBody   RaikoRequestProofBody
+		recursion string
+	)
+	if opts.Compressed {
+		recursion = RecursionCompressed
+	} else {
+		recursion = RecursionPlonk
+	}
 	switch s.ZKProofType {
 	case ZKProofTypeSP1:
 		reqBody = RaikoRequestProofBody{
@@ -294,7 +312,7 @@ func (s *ZKvmProofProducer) requestCancel(
 			Prover:   opts.ProverAddress.Hex()[2:],
 			Graffiti: opts.Graffiti,
 			SP1: &SP1RequestProofBodyParam{
-				Recursion: "compressed",
+				Recursion: recursion,
 				Prover:    "network",
 				Verify:    true,
 			},
