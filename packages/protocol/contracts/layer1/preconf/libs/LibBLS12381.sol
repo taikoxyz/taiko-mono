@@ -3,8 +3,8 @@
 // https://github.com/ethyla/bls12-381-hash-to-curve/blob/main/src/HashToCurve.sol
 pragma solidity ^0.8.24;
 
-library BLS12381 {
-    using BLS12381 for *;
+library LibBLS12381 {
+    using LibBLS12381 for *;
 
     struct FieldPoint2 {
         uint256[2] u;

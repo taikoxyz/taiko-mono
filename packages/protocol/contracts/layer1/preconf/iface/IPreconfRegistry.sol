@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../libs/BLS12381.sol";
+import "../libs/LibBLS12381.sol";
 import "../eigenlayer-mvp/iface/IAVSDirectory.sol";
 
 interface IPreconfRegistry {
@@ -20,18 +20,18 @@ interface IPreconfRegistry {
 
     struct AddValidatorParam {
         // The public key of the validator
-        BLS12381.G1Point pubkey;
+        LibBLS12381.G1Point pubkey;
         // The signature of the validator
-        BLS12381.G2Point signature;
+        LibBLS12381.G2Point signature;
         // The timestamp at which the above signature expires
         uint256 signatureExpiry;
     }
 
     struct RemoveValidatorParam {
         // The public key of the validator
-        BLS12381.G1Point pubkey;
+        LibBLS12381.G1Point pubkey;
         // The signature of the validator
-        BLS12381.G2Point signature;
+        LibBLS12381.G2Point signature;
         // The timestamp at which the above signature expires
         uint256 signatureExpiry;
     }

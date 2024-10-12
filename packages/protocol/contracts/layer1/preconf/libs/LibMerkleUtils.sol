@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.24;
 
-library MerkleUtils {
+library LibMerkleUtils {
     uint256 internal constant CHUNKS_LENGTH = 8;
     uint256 internal constant TMP_LENGTH = 4;
 

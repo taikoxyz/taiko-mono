@@ -3,16 +3,16 @@
 pragma solidity ^0.8.24;
 
 import "script/layer1/preconf/BaseScript.sol";
-import "src/layer1/preconf/libs/BLSSignature.sol";
+import "src/layer1/preconf/libs/LibBLSSignature.sol";
 
 /**
- * @dev At the time of writing this (Sept, 2024) foundry does not support the BLS12381 precompile,
+ * @dev At the time of writing this (Sept, 2024) foundry does not support the LibBLS12381 precompile,
  * thus
  * a traditional foundry test is not possible to verify a signature. Instead, we test it
  * manually by sending a transaction to a Pectra devnet and verify the outputs on the explorer.
  */
 contract BLSVerifySignature is BaseScript {
-    using BLS12381 for *;
+    using LibBLS12381 for *;
 
     function run() external broadcast {
         Target target = new Target();
@@ -24,7 +24,7 @@ contract Target {
     event Output(bool);
 
     function verify() external {
-        BLS12381.G2Point memory sig = BLS12381.G2Point({
+        LibBLS12381.G2Point memory sig = LibBLS12381.G2Point({
             x: [
                 0x00000000000000000000000000000000075785f1ffe7faabd27259035731c4ff,
                 0x881c38e87fc963a47425ce52f12f18c348370eaea53008bc683206d7770f5bdf
@@ -43,7 +43,7 @@ contract Target {
             ]
         });
 
-        BLS12381.G1Point memory pubkey = BLS12381.G1Point({
+        LibBLS12381.G1Point memory pubkey = LibBLS12381.G1Point({
             x: [
                 0x00000000000000000000000000000000101936a69d6fbd2feae29545220ad66e,
                 0xb60c3171b8d15de582dd2c645f67cb32377de0c97666e4b4fc7fad8a1c9a81af
@@ -58,6 +58,6 @@ contract Target {
          * Expected output using DST as empty string "":
          * 0x0000000000000000000000000000000000000000000000000000000000000001
          */
-        emit Output(BLSSignature.verifySignature("abc", sig, pubkey));
+        emit Output(LibBLSSignature.verifySignature("abc", sig, pubkey));
     }
 }

@@ -8,7 +8,7 @@ import "src/layer1/based/ITaikoL1.sol";
 import "../iface/IPreconfTaskManager.sol";
 import "../iface/IPreconfServiceManager.sol";
 import "../iface/IPreconfRegistry.sol";
-import "../libs/EIP4788.sol";
+import "../libs/Lib4788.sol";
 import "./PreconfConstants.sol";
 
 contract PreconfTaskManager is IPreconfTaskManager, Initializable {
@@ -139,7 +139,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         uint256 lookaheadPointer,
         uint256 slotTimestamp,
         bytes memory validatorBLSPubKey,
-        EIP4788.InclusionProof memory validatorInclusionProof
+        Lib4788.InclusionProof memory validatorInclusionProof
     )
         external
     {
@@ -158,7 +158,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         }
 
         // Verify that the sent validator is the one in Beacon state
-        EIP4788.verifyValidator(
+        Lib4788.verifyValidator(
             validatorBLSPubKey, _getBeaconBlockRoot(slotTimestamp), validatorInclusionProof
         );
 

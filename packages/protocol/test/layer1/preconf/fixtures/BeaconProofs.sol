@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/layer1/preconf/libs/EIP4788.sol";
+import "src/layer1/preconf/libs/Lib4788.sol";
 
 /// @dev Data has been taken from beacon block at slot 9000000 on Ethereum mainnet
 library BeaconProofs {
@@ -119,9 +119,9 @@ library BeaconProofs {
     function eip4788ValidatorInclusionProof()
         internal
         pure
-        returns (EIP4788.InclusionProof memory)
+        returns (Lib4788.InclusionProof memory)
     {
-        return EIP4788.InclusionProof({
+        return Lib4788.InclusionProof({
             validator: validatorChunks(),
             validatorIndex: validatorIndex(),
             validatorProof: validatorProof(),

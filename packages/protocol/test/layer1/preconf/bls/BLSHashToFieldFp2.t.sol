@@ -4,13 +4,13 @@
 pragma solidity ^0.8.24;
 
 import "../BaseTest.sol";
-import "src/layer1/preconf/libs/BLS12381.sol";
+import "src/layer1/preconf/libs/LibBLS12381.sol";
 
 contract BLSHashToFieldFp2 is BaseTest {
-    bytes internal hash_to_dst = "QUUX-V01-CS02-with-BLS12381G2_XMD:SHA-256_SSWU_RO_";
+    bytes internal hash_to_dst = "QUUX-V01-CS02-with-LibBLS12381G2_XMD:SHA-256_SSWU_RO_";
 
     function test_hashToFieldFp2_empty_msg() public {
-        BLS12381.FieldPoint2[2] memory result = BLS12381.hashToFieldFp2("", hash_to_dst);
+        LibBLS12381.FieldPoint2[2] memory result = LibBLS12381.hashToFieldFp2("", hash_to_dst);
         bytes memory expected_u0 =
             hex"0000000000000000000000000000000003dbc2cce174e91ba93cbb08f26b917f98194a2ea08d1cce75b2b9cc9f21689d80bd79b594a613d0a68eb807dfdc1cf8";
         bytes memory expected_u0_I =
@@ -27,7 +27,7 @@ contract BLSHashToFieldFp2 is BaseTest {
     }
 
     function test_hashToFieldFp2_msg_abc() public {
-        BLS12381.FieldPoint2[2] memory result = BLS12381.hashToFieldFp2("abc", hash_to_dst);
+        LibBLS12381.FieldPoint2[2] memory result = LibBLS12381.hashToFieldFp2("abc", hash_to_dst);
         bytes memory expected_u0 =
             hex"0000000000000000000000000000000015f7c0aa8f6b296ab5ff9c2c7581ade64f4ee6f1bf18f55179ff44a2cf355fa53dd2a2158c5ecb17d7c52f63e7195771";
         bytes memory expected_u0_I =
@@ -44,8 +44,8 @@ contract BLSHashToFieldFp2 is BaseTest {
     }
 
     function test_hash_to_field_msg_fp2_abcdef0123456789() public {
-        BLS12381.FieldPoint2[2] memory result =
-            BLS12381.hashToFieldFp2("abcdef0123456789", hash_to_dst);
+        LibBLS12381.FieldPoint2[2] memory result =
+            LibBLS12381.hashToFieldFp2("abcdef0123456789", hash_to_dst);
         bytes memory expected_u0 =
             hex"000000000000000000000000000000000313d9325081b415bfd4e5364efaef392ecf69b087496973b229303e1816d2080971470f7da112c4eb43053130b785e1";
         bytes memory expected_u0_I =
@@ -62,7 +62,7 @@ contract BLSHashToFieldFp2 is BaseTest {
     }
 
     function test_hashToFieldFp2_msg_q128() public {
-        BLS12381.FieldPoint2[2] memory result = BLS12381.hashToFieldFp2(
+        LibBLS12381.FieldPoint2[2] memory result = LibBLS12381.hashToFieldFp2(
             "q128_qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
             hash_to_dst
         );
@@ -82,7 +82,7 @@ contract BLSHashToFieldFp2 is BaseTest {
     }
 
     function test_hashToFieldFp2_msg_a512() public {
-        BLS12381.FieldPoint2[2] memory result = BLS12381.hashToFieldFp2(
+        LibBLS12381.FieldPoint2[2] memory result = LibBLS12381.hashToFieldFp2(
             "a512_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             hash_to_dst
         );

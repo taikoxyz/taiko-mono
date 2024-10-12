@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./BLS12381.sol";
+import "./LibBLS12381.sol";
 
-library BLSSignature {
-    using BLS12381 for *;
+library LibBLSSignature {
+    using LibBLS12381 for *;
 
     /// @dev The domain separation tag for the BLS signature
     function dst() internal pure returns (bytes memory) {
@@ -20,17 +20,17 @@ library BLSSignature {
      */
     function verifySignature(
         bytes memory message,
-        BLS12381.G2Point memory sig,
-        BLS12381.G1Point memory pubkey
+        LibBLS12381.G2Point memory sig,
+        LibBLS12381.G1Point memory pubkey
     )
         public
         view
         returns (bool)
     {
         // Hash the message bytes into a G2 point
-        BLS12381.G2Point memory msgG2 = message.hashToCurveG2(dst());
+        LibBLS12381.G2Point memory msgG2 = message.hashToCurveG2(dst());
 
         // Return the pairing check that denotes the correctness of the signature
-        return BLS12381.pairing(pubkey, msgG2, BLS12381.negGeneratorG1(), sig);
+        return LibBLS12381.pairing(pubkey, msgG2, LibBLS12381.negGeneratorG1(), sig);
     }
 }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/layer1/preconf/libs/MerkleUtils.sol";
+import "src/layer1/preconf/libs/LibMerkleUtils.sol";
 import "../BaseTest.sol";
 import "../fixtures/BeaconProofs.sol";
 
@@ -10,7 +10,7 @@ contract BeaconProofsVerification is BaseTest {
     function test_beaconProofsVerification_validatorInclusionInValidatorList() public {
         bytes32[8] memory validatorChunks = BeaconProofs.validatorChunks();
 
-        bytes32 validatorHashTreeRoot = MerkleUtils.merkleize(validatorChunks);
+        bytes32 validatorHashTreeRoot = LibMerkleUtils.merkleize(validatorChunks);
 
         bytes32[] memory validatorProof = BeaconProofs.validatorProof();
 
@@ -18,7 +18,7 @@ contract BeaconProofsVerification is BaseTest {
         uint256 validatorIndex = BeaconProofs.validatorIndex();
 
         assertTrue(
-            MerkleUtils.verifyProof(
+            LibMerkleUtils.verifyProof(
                 validatorProof, validatorsRoot, validatorHashTreeRoot, validatorIndex
             )
         );
@@ -32,7 +32,7 @@ contract BeaconProofsVerification is BaseTest {
         bytes32 beaconStateRoot = BeaconProofs.beaconStateRoot();
 
         assertTrue(
-            MerkleUtils.verifyProof(
+            LibMerkleUtils.verifyProof(
                 beaconStateProofForValidatorList, beaconStateRoot, validatorListRoot, 11
             )
         );
@@ -46,7 +46,7 @@ contract BeaconProofsVerification is BaseTest {
         bytes32 beaconBlockRoot = BeaconProofs.beaconBlockRoot();
 
         assertTrue(
-            MerkleUtils.verifyProof(
+            LibMerkleUtils.verifyProof(
                 beaconBlockProofForBeaconState, beaconBlockRoot, beaconStateRoot, 3
             )
         );
@@ -59,10 +59,10 @@ contract BeaconProofsVerification is BaseTest {
         bytes32 beaconBlockRoot = BeaconProofs.beaconBlockRoot();
 
         assertTrue(
-            MerkleUtils.verifyProof(
+            LibMerkleUtils.verifyProof(
                 beaconBlockProofForProposer,
                 beaconBlockRoot,
-                MerkleUtils.toLittleEndian(validatorIndex),
+                LibMerkleUtils.toLittleEndian(validatorIndex),
                 1
             )
         );

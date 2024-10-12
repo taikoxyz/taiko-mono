@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../libs/EIP4788.sol";
+import "../libs/Lib4788.sol";
 
 interface IPreconfTaskManager {
     struct LookaheadBufferEntry {
@@ -87,7 +87,7 @@ interface IPreconfTaskManager {
         uint256 lookaheadPointer,
         uint256 slotTimestamp,
         bytes memory validatorBLSPubKey,
-        EIP4788.InclusionProof memory validatorInclusionProof
+        Lib4788.InclusionProof memory validatorInclusionProof
     )
         external;
 
