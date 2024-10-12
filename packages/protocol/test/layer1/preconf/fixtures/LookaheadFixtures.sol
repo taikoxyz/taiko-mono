@@ -12,8 +12,6 @@ import "../mocks/MockPreconfRegistry.sol";
 import "../mocks/MockPreconfServiceManager.sol";
 import "../mocks/MockBeaconBlockRoot.sol";
 
-
-
 contract LookaheadFixtures is BaseTest {
     PreconfTaskManager internal preconfTaskManager;
     MockPreconfRegistry internal preconfRegistry;

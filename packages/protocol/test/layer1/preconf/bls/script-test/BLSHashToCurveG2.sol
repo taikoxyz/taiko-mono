@@ -6,7 +6,8 @@ import "script/layer1/preconf/BaseScript.sol";
 import "src/layer1/preconf/libs/LibBLS12381.sol";
 
 /**
- * @dev At the time of writing this (Sept, 2024) foundry does not support the LibBLS12381 precompile,
+ * @dev At the time of writing this (Sept, 2024) foundry does not support the LibBLS12381
+ * precompile,
  * thus
  * a traditional foundry test is not possible for hash to curve functionality. Instead, we test it
  * manually by sending a transaction to a Pectra devnet and verify the outputs on the explorer.

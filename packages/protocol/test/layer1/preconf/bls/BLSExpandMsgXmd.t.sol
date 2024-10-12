@@ -24,7 +24,8 @@ contract BLSExpendMsgXmd is BaseTest {
     }
 
     function testExpandMsgXmd_abcdef0123456789_0x20() public {
-        uint256[] memory result = LibBLS12381._expandMsgXmd("abcdef0123456789", expand_msg_dst, 0x20);
+        uint256[] memory result =
+            LibBLS12381._expandMsgXmd("abcdef0123456789", expand_msg_dst, 0x20);
         uint256 expected = 0xeff31487c770a893cfb36f912fbfcbff40d5661771ca4b2cb4eafe524333f5c1;
 
         assertEq(result[0], expected);
@@ -79,7 +80,8 @@ contract BLSExpendMsgXmd is BaseTest {
     }
 
     function testExpandMsgXmd_abcdef0123456789_0x80() public {
-        uint256[] memory result = LibBLS12381._expandMsgXmd("abcdef0123456789", expand_msg_dst, 0x80);
+        uint256[] memory result =
+            LibBLS12381._expandMsgXmd("abcdef0123456789", expand_msg_dst, 0x80);
         bytes memory expected =
             hex"ef904a29bffc4cf9ee82832451c946ac3c8f8058ae97d8d629831a74c6572bd9ebd0df635cd1f208e2038e760c4994984ce73f0d55ea9f22af83ba4734569d4bc95e18350f740c07eef653cbb9f87910d833751825f0ebefa1abe5420bb52be14cf489b37fe1a72f7de2d10be453b2c9d9eb20c7e3f6edc5a60629178d9478df";
 
