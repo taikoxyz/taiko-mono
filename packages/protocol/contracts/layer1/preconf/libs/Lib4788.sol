@@ -3,9 +3,9 @@
 // Referenced from: https://ethresear.ch/t/slashing-proofoor-on-chain-slashed-validator-proofs/19421
 pragma solidity ^0.8.24;
 
-import "./MerkleUtils.sol";
+import "./LibMerkleUtils.sol";
 
-library EIP4788 {
+library Lib4788 {
     struct InclusionProof {
         // `Chunks` of the SSZ encoded validator
         bytes32[8] validator;
@@ -52,9 +52,9 @@ library EIP4788 {
         }
 
         // Validator is verified against the validator list in the beacon state
-        bytes32 validatorHashTreeRoot = MerkleUtils.merkleize(inclusionProof.validator);
+        bytes32 validatorHashTreeRoot = LibMerkleUtils.merkleize(inclusionProof.validator);
         if (
-            !MerkleUtils.verifyProof(
+            !LibMerkleUtils.verifyProof(
                 inclusionProof.validatorProof,
                 inclusionProof.validatorsRoot,
                 validatorHashTreeRoot,
@@ -67,7 +67,7 @@ library EIP4788 {
         }
 
         if (
-            !MerkleUtils.verifyProof(
+            !LibMerkleUtils.verifyProof(
                 inclusionProof.beaconStateProof,
                 inclusionProof.beaconStateRoot,
                 inclusionProof.validatorsRoot,
@@ -80,7 +80,7 @@ library EIP4788 {
 
         // Beacon state is verified against the beacon block
         if (
-            !MerkleUtils.verifyProof(
+            !LibMerkleUtils.verifyProof(
                 inclusionProof.beaconBlockProofForState,
                 beaconBlockRoot,
                 inclusionProof.beaconStateRoot,
@@ -93,10 +93,10 @@ library EIP4788 {
 
         // Validator index is verified against the beacon block
         if (
-            !MerkleUtils.verifyProof(
+            !LibMerkleUtils.verifyProof(
                 inclusionProof.beaconBlockProofForProposerIndex,
                 beaconBlockRoot,
-                MerkleUtils.toLittleEndian(inclusionProof.validatorIndex),
+                LibMerkleUtils.toLittleEndian(inclusionProof.validatorIndex),
                 1
             )
         ) {

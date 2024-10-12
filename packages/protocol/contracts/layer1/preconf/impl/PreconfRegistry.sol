@@ -5,11 +5,11 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "../iface/IPreconfRegistry.sol";
 import "../iface/IPreconfServiceManager.sol";
 import "../eigenlayer-mvp/iface/IAVSDirectory.sol";
-import "../libs/BLSSignature.sol";
+import "../libs/LibBLSSignature.sol";
 import "./PreconfConstants.sol";
 
 contract PreconfRegistry is IPreconfRegistry, Initializable {
-    using BLS12381 for BLS12381.G1Point;
+    using LibBLS12381 for LibBLS12381.G1Point;
 
     IPreconfServiceManager internal immutable preconfServiceManager;
 
@@ -253,7 +253,7 @@ contract PreconfRegistry is IPreconfRegistry, Initializable {
         return abi.encodePacked(block.chainid, validatorOp, expiry, preconfer);
     }
 
-    function _hashBLSPubKey(BLS12381.G1Point calldata pubkey) internal pure returns (bytes32) {
+    function _hashBLSPubKey(LibBLS12381.G1Point calldata pubkey) internal pure returns (bytes32) {
         uint256[2] memory compressedPubKey = pubkey.compress();
         return keccak256(abi.encodePacked(compressedPubKey));
     }

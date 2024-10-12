@@ -4,11 +4,11 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "../iface/ITaikoL1Partial.sol";
+import "src/layer1/based/ITaikoL1.sol";
 import "../iface/IPreconfTaskManager.sol";
 import "../iface/IPreconfServiceManager.sol";
 import "../iface/IPreconfRegistry.sol";
-import "../libs/EIP4788.sol";
+import "../libs/Lib4788.sol";
 import "./PreconfConstants.sol";
 
 contract PreconfTaskManager is IPreconfTaskManager, Initializable {
@@ -18,7 +18,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
 
     IPreconfServiceManager internal immutable preconfServiceManager;
     IPreconfRegistry internal immutable preconfRegistry;
-    ITaikoL1Partial internal immutable taikoL1;
+    ITaikoL1 internal immutable taikoL1;
 
     // EIP-4788
     uint256 internal immutable beaconGenesis;
@@ -43,7 +43,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
     constructor(
         IPreconfServiceManager _serviceManager,
         IPreconfRegistry _registry,
-        ITaikoL1Partial _taikoL1,
+        ITaikoL1 _taikoL1,
         uint256 _beaconGenesis,
         address _beaconBlockRootContract
     ) {
@@ -139,7 +139,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         uint256 lookaheadPointer,
         uint256 slotTimestamp,
         bytes memory validatorBLSPubKey,
-        EIP4788.InclusionProof memory validatorInclusionProof
+        Lib4788.InclusionProof memory validatorInclusionProof
     )
         external
     {
@@ -158,7 +158,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         }
 
         // Verify that the sent validator is the one in Beacon state
-        EIP4788.verifyValidator(
+        Lib4788.verifyValidator(
             validatorBLSPubKey, _getBeaconBlockRoot(slotTimestamp), validatorInclusionProof
         );
 
