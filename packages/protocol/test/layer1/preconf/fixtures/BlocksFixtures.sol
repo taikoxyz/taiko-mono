@@ -5,14 +5,13 @@ import "../BaseTest.sol";
 import "../mocks/MockPreconfRegistry.sol";
 import "../mocks/MockPreconfServiceManager.sol";
 import "../mocks/MockBeaconBlockRoot.sol";
-import "../mocks/MockTaikoL1.sol";
+import "test/layer1/based/MockTaikoL1.sol";
 
 import "src/layer1/preconf/impl/PreconfConstants.sol";
 import "src/layer1/preconf/impl/PreconfTaskManager.sol";
 import "src/layer1/preconf/iface/IPreconfRegistry.sol";
 import "src/layer1/preconf/iface/IPreconfServiceManager.sol";
 import "src/layer1/preconf/iface/IPreconfTaskManager.sol";
-import "src/layer1/preconf/iface/ITaikoL1Partial.sol";
 
 contract BlocksFixtures is BaseTest {
     PreconfTaskManager internal preconfTaskManager;
@@ -30,7 +29,7 @@ contract BlocksFixtures is BaseTest {
         preconfTaskManager = new PreconfTaskManager(
             IPreconfServiceManager(address(preconfServiceManager)),
             IPreconfRegistry(address(preconfRegistry)),
-            ITaikoL1Partial(taikoL1),
+            ITaikoL1(taikoL1),
             PreconfConstants.MAINNET_BEACON_GENESIS,
             address(beaconBlockRootContract)
         );
