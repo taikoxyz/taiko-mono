@@ -4,7 +4,7 @@ services:
     image: ghcr.io/foundry-rs/foundry:nightly
     restart: unless-stopped
     platform: linux/amd64
-    pull_policy: missing
+    pull_policy: always
     ports:
       - "8545"
     entrypoint:
@@ -20,7 +20,7 @@ services:
     container_name: l2_geth
     image: us-docker.pkg.dev/evmchain/images/taiko-geth:taiko
     restart: unless-stopped
-    pull_policy: missing
+    pull_policy: always
     volumes:
       - .:/host
     ports:
@@ -72,7 +72,7 @@ services:
     container_name: l2_reth
     image: us-docker.pkg.dev/evmchain/images/taiko-reth:v1.0.0
     restart: unless-stopped
-    pull_policy: missing
+    pull_policy: always
     volumes:
       - .:/host
     ports:
