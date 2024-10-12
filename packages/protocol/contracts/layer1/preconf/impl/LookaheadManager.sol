@@ -22,7 +22,7 @@ interface ILookaheadManager {
         address preconfer;
     }
 
-        struct LookaheadSetParam {
+    struct LookaheadSetParam {
         // The timestamp of the slot
         uint256 timestamp;
         // The AVS operator who is also the L1 validator for the slot and will preconf L2
@@ -40,20 +40,20 @@ interface ILookaheadManager {
         address fallbackPreconfer;
     }
 
-        struct PosterInfo {
+    struct PosterInfo {
         // Address of lookahead poster
         address poster;
         // Start timestamp of the epoch for which the lookahead was posted
         uint64 epochTimestamp;
     }
 
-       event LookaheadUpdated(LookaheadSetParam[]);
+    event LookaheadUpdated(LookaheadSetParam[]);
 
     event ProvedIncorrectLookahead(
         address indexed poster, uint256 indexed timestamp, address indexed disputer
     );
-
 }
+
 contract LookaheadManager is ILookaheadManager, Initializable {
     // Cannot be kept in `PreconfConstants` file because solidity expects array sizes
     // to be stored in the main contract file itself.
@@ -82,7 +82,6 @@ contract LookaheadManager is ILookaheadManager, Initializable {
 
     uint256[47] private __gap; // = 50 - 3
 
-
     /// @dev The current (or provided) timestamp does not fall in the range provided by the
     /// lookahead pointer
     error InvalidLookaheadPointer();
@@ -109,7 +108,6 @@ contract LookaheadManager is ILookaheadManager, Initializable {
     /// @dev The registry does not have a single registered preconfer
     error NoRegisteredPreconfer();
 
-
     constructor(
         IPreconfServiceManager _serviceManager,
         IPreconfRegistry _registry,
@@ -122,6 +120,7 @@ contract LookaheadManager is ILookaheadManager, Initializable {
         beaconBlockRootContract = _beaconBlockRootContract;
     }
 
+    function init() external initializer { }
 
     /**
      * @notice Proves that the lookahead for a specific slot was incorrect
@@ -158,7 +157,7 @@ contract LookaheadManager is ILookaheadManager, Initializable {
         }
 
         // Verify that the sent validator is the one in Beacon state
-        Lib4788.verifyValidator(
+        EIP4788.verifyValidator(
             validatorBLSPubKey, _getBeaconBlockRoot(slotTimestamp), validatorInclusionProof
         );
 
