@@ -157,7 +157,7 @@ contract LookaheadManager is ILookaheadManager, Initializable {
         }
 
         // Verify that the sent validator is the one in Beacon state
-        EIP4788.verifyValidator(
+        LibEIP4788.verifyValidator(
             validatorBLSPubKey, _getBeaconBlockRoot(slotTimestamp), validatorInclusionProof
         );
 
