@@ -7,7 +7,7 @@ import "../BaseTest.sol";
 import "src/layer1/preconf/libs/LibBLS12381.sol";
 
 contract BLSHashToFieldFp2 is BaseTest {
-    bytes internal hash_to_dst = "QUUX-V01-CS02-with-LibBLS12381G2_XMD:SHA-256_SSWU_RO_";
+    bytes internal hash_to_dst = "QUUX-V01-CS02-with-BLS12381G2_XMD:SHA-256_SSWU_RO_";
 
     function test_hashToFieldFp2_empty_msg() public {
         LibBLS12381.FieldPoint2[2] memory result = LibBLS12381.hashToFieldFp2("", hash_to_dst);
