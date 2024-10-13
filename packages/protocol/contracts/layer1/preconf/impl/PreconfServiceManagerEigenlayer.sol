@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "eigenlayer-contracts/src/contracts/interfaces/ISlasher.sol";
-import "eigenlayer-contracts/src/contracts/interfaces/IAVSDirectory.sol" ;
+import "eigenlayer-contracts/src/contracts/interfaces/IAVSDirectory.sol";
 import "../iface/IPreconfServiceManager.sol";
 
 /// @dev This contract is a Eigenlayer based preconf servicei implementation.
@@ -81,7 +81,7 @@ contract EigenlayerPreconfServiceManager is IPreconfServiceManager, ReentrancyGu
         onlyCallableBy(preconfTaskManager)
     {
         if (slasher.canSlash(operator, address(this))) {
-        slasher.freezeOperator(operator);
+            slasher.freezeOperator(operator);
         }
     }
 }

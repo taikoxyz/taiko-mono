@@ -8,10 +8,8 @@ import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.so
 
 import "src/layer1/based/ITaikoL1.sol";
 import "src/layer1/preconf/impl/PreconfRegistry.sol";
-import "src/layer1/preconf/impl/PreconfServiceManager.sol";
+import "src/layer1/preconf/impl/PreconfServiceManagerMVP.sol";
 import "src/layer1/preconf/impl/PreconfTaskManager.sol";
-import "src/layer1/preconf/iface/IPreconfRegistry.sol";
-import "src/layer1/preconf/iface/IPreconfServiceManager.sol";
 import "src/layer1/preconf/avs-mvp/iface/IAVSDirectory.sol";
 import "src/layer1/preconf/avs-mvp/iface/ISlasher.sol";
 
@@ -41,7 +39,7 @@ contract DeployAVS is BaseScript {
         // Deploy implementations
         PreconfRegistry preconfRegistryImpl =
             new PreconfRegistry(IPreconfServiceManager(preconfServiceManager));
-        PreconfServiceManager preconfServiceManagerImpl = new PreconfServiceManager(
+        PreconfServiceManagerMVP preconfServiceManagerImpl = new PreconfServiceManagerMVP(
             preconfRegistry, preconfTaskManager, IAVSDirectory(implDirectory), ISlasher(slasher)
         );
         PreconfTaskManager preconfTaskManagerImpl = new PreconfTaskManager(
