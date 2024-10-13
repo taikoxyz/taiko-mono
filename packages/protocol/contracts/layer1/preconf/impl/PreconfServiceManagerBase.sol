@@ -6,10 +6,12 @@ import "../iface/IPreconfServiceManager.sol";
 import "../avs-mvp/iface/ISlasher.sol";
 import "../avs-mvp/iface/IAVSDirectory.sol";
 
-/// @dev This contract would serve as the address of the AVS w.r.t the restaking platform being
-/// used.
-/// Currently, this is based on a mock version of Eigenlayer that we have created solely for this
-/// POC. This contract may be modified depending on the interface of the restaking contracts.
+/**
+ * @dev This contract would serve as the address of the AVS w.r.t the restaking platform being used.
+ * Currently, this is based on a mock version of Eigenlayer that we have created solely for this
+ * POC.
+ * This contract may be modified depending on the interface of the restaking contracts.
+ */
 contract PreconfServiceManager is IPreconfServiceManager, ReentrancyGuard {
     address internal immutable preconfRegistry;
     address internal immutable preconfTaskManager;
@@ -40,29 +42,6 @@ contract PreconfServiceManager is IPreconfServiceManager, ReentrancyGuard {
         _;
     }
 
-    /// @dev Simply relays the call to the AVS directory
-    function registerOperatorToAVS(
-        address operator,
-        bytes calldata operatorSignature
-    )
-        external
-        nonReentrant
-        onlyCallableBy(preconfRegistry)
-    {
-        IAVSDirectory.SignatureWithSaltAndExpiry memory sig =
-            abi.decode(operatorSignature, (IAVSDirectory.SignatureWithSaltAndExpiry));
-        avsDirectory.registerOperatorToAVS(operator, sig);
-    }
-
-    /// @dev Simply relays the call to the AVS directory
-    function deregisterOperatorFromAVS(address operator)
-        external
-        nonReentrant
-        onlyCallableBy(preconfRegistry)
-    {
-        avsDirectory.deregisterOperatorFromAVS(operator);
-    }
-
     /// @dev This not completely functional until Eigenlayer decides the logic of their Slasher.
     ///  for now this simply sets a value in the storage and releases an event.
     function lockStakeUntil(
@@ -87,5 +66,25 @@ contract PreconfServiceManager is IPreconfServiceManager, ReentrancyGuard {
             revert OperatorAlreadySlashed();
         }
         slasher.slashOperator(operator);
+    }
+
+    //=======
+    // Views
+    //=======
+
+    function getPreconfRegistry() external view returns (address) {
+        return preconfRegistry;
+    }
+
+    function getPreconfTaskManager() external view returns (address) {
+        return preconfTaskManager;
+    }
+
+    function getAVSDirectory() external view returns (address) {
+        return address(avsDirectory);
+    }
+
+    function getSlasher() external view returns (address) {
+        return address(slasher);
     }
 }
