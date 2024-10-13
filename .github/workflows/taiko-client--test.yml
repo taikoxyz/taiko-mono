@@ -59,7 +59,7 @@ jobs:
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
 
-      - name: Run Tests on ${{ matrix.execution_node }} execution node
+      - name: Run Tests on ${{ matrix.execution_node }} execution engine
         working-directory: packages/taiko-client
         env:
           L2_NODE: ${{ matrix.execution_node }}
