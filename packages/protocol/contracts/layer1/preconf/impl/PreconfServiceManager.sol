@@ -45,13 +45,15 @@ contract PreconfServiceManager is IPreconfServiceManager, ReentrancyGuard {
     /// @dev Simply relays the call to the AVS directory
     function registerOperatorToAVS(
         address operator,
-        IAVSDirectory.SignatureWithSaltAndExpiry memory operatorSignature
+        bytes calldata operatorSignature
     )
         external
         nonReentrant
         onlyCallableBy(preconfRegistry)
     {
-        avsDirectory.registerOperatorToAVS(operator, operatorSignature);
+        IAVSDirectory.SignatureWithSaltAndExpiry memory sig =
+            abi.decode(operatorSignature, (IAVSDirectory.SignatureWithSaltAndExpiry));
+        avsDirectory.registerOperatorToAVS(operator, sig);
     }
 
     /// @dev Simply relays the call to the AVS directory

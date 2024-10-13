@@ -41,9 +41,7 @@ contract MockPreconfRegistry is IPreconfRegistry, Initializable {
      * @dev This function internally accesses Eigenlayer via the AVS service manager
      * @param operatorSignature The signature of the operator in the format expected by Eigenlayer
      */
-    function registerPreconfer(IAVSDirectory.SignatureWithSaltAndExpiry calldata operatorSignature)
-        external
-    {
+    function registerPreconfer(bytes calldata operatorSignature) external {
         // Preconfer must not have registered already
         if (preconferToIndex[msg.sender] != 0) {
             revert PreconferAlreadyRegistered();

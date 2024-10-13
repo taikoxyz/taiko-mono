@@ -44,9 +44,7 @@ contract PreconfRegistry is IPreconfRegistry, Initializable {
      * @param operatorSignature The signature of the operator in the format expected by the
      * restaking platform
      */
-    function registerPreconfer(IAVSDirectory.SignatureWithSaltAndExpiry calldata operatorSignature)
-        external
-    {
+    function registerPreconfer(bytes calldata operatorSignature) external {
         // Preconfer must not have registered already
         if (preconferToIndex[msg.sender] != 0) {
             revert PreconferAlreadyRegistered();
