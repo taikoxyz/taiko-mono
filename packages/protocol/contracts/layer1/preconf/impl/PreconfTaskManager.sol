@@ -54,7 +54,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         beaconBlockRootContract = _beaconBlockRootContract;
     }
 
-    function initialize(IERC20 _taikoToken) external initializer {
+    function init(IERC20 _taikoToken) external initializer {
         _taikoToken.approve(address(taikoL1), type(uint256).max);
     }
 
