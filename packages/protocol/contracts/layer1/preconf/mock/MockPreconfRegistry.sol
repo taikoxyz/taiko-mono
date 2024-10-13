@@ -6,7 +6,7 @@ import "../impl/PreconfConstants.sol";
 import "../libs/LibBLSSignature.sol";
 import "../iface/IPreconfRegistry.sol";
 import "../iface/IPreconfServiceManager.sol";
-import "../eigenlayer-mvp/iface/IAVSDirectory.sol";
+import "../avs-mvp/iface/IAVSDirectory.sol";
 
 contract MockPreconfRegistry is IPreconfRegistry, Initializable {
     using LibBLS12381 for LibBLS12381.G1Point;
