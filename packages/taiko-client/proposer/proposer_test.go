@@ -171,7 +171,7 @@ func (s *ProposerTestSuite) TestProposeTxLists() {
 }
 
 func (s *ProposerTestSuite) TestProposeOpNoEmptyBlock() {
-	// TODO: Temporarily skip this test case when use l2_reth node.
+	// TODO: Temporarily skip this test case when using l2_reth node.
 	if os.Getenv("L2_NODE") == "l2_reth" {
 		s.T().Skip()
 	}
