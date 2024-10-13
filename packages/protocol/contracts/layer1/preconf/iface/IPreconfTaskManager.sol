@@ -125,14 +125,6 @@ interface IPreconfTaskManager {
     /// @dev Returns the lookahead poster for an epoch
     function getLookaheadPoster(uint256 epochTimestamp) external view returns (address);
 
-    /// @dev Returns the preconf service manager contract address
-    function getPreconfServiceManager() external view returns (address);
-
-    /// @dev Returns the preconf registry contract address
-    function getPreconfRegistry() external view returns (address);
-
-    /// @dev Returns the Taiko L1 contract address
-    function getTaikoL1() external view returns (address);
 
     /// @dev Returns the beacon genesis timestamp
     function getBeaconGenesis() external view returns (uint256);

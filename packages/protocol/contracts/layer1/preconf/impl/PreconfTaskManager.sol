@@ -4,25 +4,24 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "src/shared/common/EssentialContract.sol";
 import "src/layer1/based/ITaikoL1.sol";
 import "../iface/IPreconfTaskManager.sol";
 import "../iface/IPreconfServiceManager.sol";
 import "../iface/IPreconfRegistry.sol";
 import "../libs/LibEIP4788.sol";
 import "./PreconfConstants.sol";
+import "./LibStrings.sol";
 
-contract PreconfTaskManager is IPreconfTaskManager, Initializable {
+contract PreconfTaskManager is EssentialContract,IPreconfTaskManager {
     // Cannot be kept in `PreconfConstants` file because solidity expects array sizes
     // to be stored in the main contract file itself.
     uint256 internal constant SLOTS_IN_EPOCH = 32;
 
-    IPreconfServiceManager internal immutable preconfServiceManager;
-    IPreconfRegistry internal immutable preconfRegistry;
-    ITaikoL1 internal immutable taikoL1;
-
+ 
     // EIP-4788
-    uint256 internal immutable beaconGenesis;
-    address internal immutable beaconBlockRootContract;
+    uint256 internal  beaconGenesis;
+    address internal  beaconBlockRootContract;
 
     // A ring buffer of upcoming preconfers (who are also the L1 validators)
     uint256 internal lookaheadTail;
@@ -40,22 +39,22 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
 
     uint256[47] private __gap; // = 50 - 3
 
-    constructor(
-        IPreconfServiceManager _serviceManager,
-        IPreconfRegistry _registry,
-        ITaikoL1 _taikoL1,
-        uint256 _beaconGenesis,
-        address _beaconBlockRootContract
-    ) {
-        preconfServiceManager = _serviceManager;
-        preconfRegistry = _registry;
-        taikoL1 = _taikoL1;
-        beaconGenesis = _beaconGenesis;
-        beaconBlockRootContract = _beaconBlockRootContract;
-    }
 
-    function init(IERC20 _taikoToken) external initializer {
-        _taikoToken.approve(address(taikoL1), type(uint256).max);
+       /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param _preconfAddressManager The address of the {AddressManager} contract.
+    function init(
+        address _owner,
+        address _preconfAddressManager,
+          uint256 _beaconGenesis,
+        address _beaconBlockRootContract
+    )
+        external
+        initializer
+    {
+        __Essential_init(_owner, _preconfAddressManager);
+          beaconGenesis = _beaconGenesis;
+        beaconBlockRootContract = _beaconBlockRootContract;
     }
 
     /**
@@ -115,12 +114,12 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
 
         // Block the preconfer from withdrawing stake from the restaking service during the dispute
         // window
-        preconfServiceManager.lockStakeUntil(
+        _preconfServiceManager().lockStakeUntil(
             msg.sender, block.timestamp + PreconfConstants.DISPUTE_PERIOD
         );
 
         // Forward the block to Taiko's L1 contract
-        taikoL1.proposeBlocksV2(blockParamsArr, txListArr);
+        ITaikoL1(resolve(LibStrings.B_TAIKO,false)).proposeBlocksV2(blockParamsArr, txListArr);
     }
 
     /**
@@ -186,7 +185,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
 
         // Retrieve the validator object
         IPreconfRegistry.Validator memory validatorInRegistry =
-            preconfRegistry.getValidator(validatorPubKeyHash);
+            _preconfRegistry().getValidator(validatorPubKeyHash);
 
         // Fetch the preconfer associated with the validator from the registry
         address preconferInRegistry = validatorInRegistry.preconfer;
@@ -261,7 +260,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
 
         // Slash the poster
         lookaheadPosters[epochTimestamp % LOOKAHEAD_POSTER_BUFFER_SIZE].poster = address(0);
-        preconfServiceManager.slashOperator(poster);
+        _preconfServiceManager().slashOperator(poster);
 
         emit ProvedIncorrectLookahead(poster, slotTimestamp, msg.sender);
     }
@@ -276,7 +275,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
      */
     function forcePushLookahead(LookaheadSetParam[] calldata lookaheadSetParams) external {
         // Sender must be a preconfer
-        if (preconfRegistry.getPreconferIndex(msg.sender) == 0) {
+        if (_preconfRegistry().getPreconferIndex(msg.sender) == 0) {
             revert PreconferNotRegistered();
         }
 
@@ -291,7 +290,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         _updateLookahead(nextEpochTimestamp, lookaheadSetParams);
 
         // Block the preconfer from withdrawing stake from Eigenlayer during the dispute window
-        preconfServiceManager.lockStakeUntil(
+        _preconfServiceManager().lockStakeUntil(
             msg.sender, block.timestamp + PreconfConstants.DISPUTE_PERIOD
         );
     }
@@ -347,7 +346,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
                 uint256 slotTimestamp = lookaheadSetParams[i].timestamp;
 
                 // Each entry must be registered in the preconf registry
-                if (preconfRegistry.getPreconferIndex(preconfer) == 0) {
+                if (_preconfRegistry().getPreconferIndex(preconfer) == 0) {
                     revert PreconferNotRegistered();
                 }
 
@@ -476,7 +475,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
     function getFallbackPreconfer(uint256 epochTimestamp) public view returns (address) {
         _validateEpochTimestamp(epochTimestamp);
 
-        uint256 nextPreconferIndex = preconfRegistry.getNextPreconferIndex();
+        uint256 nextPreconferIndex = _preconfRegistry().getNextPreconferIndex();
 
         // Registry must have at least one preconfer
         if (nextPreconferIndex == 1) {
@@ -488,7 +487,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         uint256 randomness = uint256(_getBeaconBlockRoot(lastEpochTimestamp));
         uint256 preconferIndex = randomness % (nextPreconferIndex - 1) + 1;
 
-        return preconfRegistry.getPreconferAtIndex(preconferIndex);
+        return _preconfRegistry().getPreconferAtIndex(preconferIndex);
     }
 
     /**
@@ -565,13 +564,14 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
 
         uint256 index;
         LookaheadSetParam[32] memory lookaheadSetParamsTemp;
+        IPreconfRegistry preconfRegistry =  _preconfRegistry();
 
         for (uint256 i = 0; i < 32; ++i) {
             uint256 slotTimestamp = epochTimestamp + (i * PreconfConstants.SECONDS_IN_SLOT);
 
             // Fetch the validator object from the registry
             IPreconfRegistry.Validator memory validator =
-                preconfRegistry.getValidator(_getValidatorPubKeyHash(validatorBLSPubKeys[i]));
+               preconfRegistry.getValidator(_getValidatorPubKeyHash(validatorBLSPubKeys[i]));
 
             // Skip deregistered preconfers
             if (preconfRegistry.getPreconferIndex(validator.preconfer) == 0) {
@@ -606,18 +606,6 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         return _isLookaheadRequired(epochTimestamp, nextEpochTimestamp);
     }
 
-    function getPreconfServiceManager() external view returns (address) {
-        return address(preconfServiceManager);
-    }
-
-    function getPreconfRegistry() external view returns (address) {
-        return address(preconfRegistry);
-    }
-
-    function getTaikoL1() external view returns (address) {
-        return address(taikoL1);
-    }
-
     function getBeaconGenesis() external view returns (uint256) {
         return beaconGenesis;
     }
@@ -647,5 +635,13 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         PosterInfo memory posterInfo =
             lookaheadPosters[epochTimestamp % LOOKAHEAD_POSTER_BUFFER_SIZE];
         return posterInfo.epochTimestamp == epochTimestamp ? posterInfo.poster : address(0);
+    }
+
+    function  _preconfServiceManager() private view returns (IPreconfServiceManager) {
+        return IPreconfServiceManager(resolve(LibStrings.B_PRECONF_SERVICE_MANAGER,false));
+    }
+
+    function _preconfRegistry()private view returns (IPreconfRegistry) {
+        return IPreconfRegistry(resolve(LibStrings.B_PRECONF_REGISTRY,false));
     }
 }

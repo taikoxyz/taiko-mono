@@ -1,17 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "src/shared/common/EssentialContract.sol";
 import "../iface/IPreconfRegistry.sol";
 import "../iface/IPreconfServiceManager.sol";
-import "../avs-mvp/iface/IAVSDirectory.sol";
 import "../libs/LibBLSSignature.sol";
 import "./PreconfConstants.sol";
+import "./LibStrings.sol";
 
-contract PreconfRegistry is IPreconfRegistry, Initializable {
+contract PreconfRegistry is EssentialContract, IPreconfRegistry {
     using LibBLS12381 for LibBLS12381.G1Point;
-
-    IPreconfServiceManager internal immutable preconfServiceManager;
 
     uint256 internal nextPreconferIndex;
 
@@ -28,15 +26,23 @@ contract PreconfRegistry is IPreconfRegistry, Initializable {
     // Maps a validator's BLS pub key hash to the validator's details
     mapping(bytes32 publicKeyHash => Validator validator) internal validators;
 
-    uint256[46] private __gap; // = 50 - 4
+    uint256[46] private __gap; 
 
-    constructor(IPreconfServiceManager _preconfServiceManager) {
-        preconfServiceManager = _preconfServiceManager;
+
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param _preconfAddressManager The address of the {AddressManager} contract.
+    function init(
+        address _owner,
+        address _preconfAddressManager
+    )
+        external
+        initializer
+    {
+        __Essential_init(_owner, _preconfAddressManager);
+       nextPreconferIndex = 1;
     }
 
-    function init() external initializer {
-        nextPreconferIndex = 1;
-    }
 
     /**
      * @notice Registers a preconfer in the registry by giving it a non-zero index
@@ -61,7 +67,7 @@ contract PreconfRegistry is IPreconfRegistry, Initializable {
 
         emit PreconferRegistered(msg.sender);
 
-        preconfServiceManager.registerOperatorToAVS(msg.sender, operatorSignature);
+        _preconfServiceManager().registerOperatorToAVS(msg.sender, operatorSignature);
     }
 
     /**
@@ -95,7 +101,7 @@ contract PreconfRegistry is IPreconfRegistry, Initializable {
 
         emit PreconferDeregistered(msg.sender);
 
-        preconfServiceManager.deregisterOperatorFromAVS(msg.sender);
+        _preconfServiceManager().deregisterOperatorFromAVS(msg.sender);
     }
 
     /**
@@ -250,5 +256,10 @@ contract PreconfRegistry is IPreconfRegistry, Initializable {
     function _hashBLSPubKey(LibBLS12381.G1Point calldata pubkey) internal pure returns (bytes32) {
         uint256[2] memory compressedPubKey = pubkey.compress();
         return keccak256(abi.encodePacked(compressedPubKey));
+    }
+
+    function _preconfServiceManager() internal view returns (IPreconfServiceManager) {
+        return IPreconfServiceManager(resolve(
+            LibStrings.B_PRECONF_SERVICE_MANAGER,false));
     }
 }

@@ -1,43 +1,34 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "src/shared/common/EssentialContract.sol";
 import "../iface/IPreconfServiceManager.sol";
 import "../avs-mvp/iface/ISlasher.sol";
 import "../avs-mvp/iface/IAVSDirectory.sol";
+import "./LibStrings.sol";
 
 /// @dev This contract would serve as the address of the AVS w.r.t the restaking platform being
 /// used.
 /// Currently, this is based on a mock version of Eigenlayer that we have created solely for this
 /// POC. This contract may be modified depending on the interface of the restaking contracts.
-contract PreconfServiceManager is IPreconfServiceManager, ReentrancyGuard {
-    address internal immutable preconfRegistry;
-    address internal immutable preconfTaskManager;
-    IAVSDirectory internal immutable avsDirectory;
-    ISlasher internal immutable slasher;
-
+contract PreconfServiceManager is EssentialContract, IPreconfServiceManager {
     /// @dev This is currently just a flag and not actually being used to lock the stake.
     mapping(address operator => uint256 timestamp) public stakeLockedUntil;
 
-    uint256[49] private __gap; // 50 - 1
+    uint256[49] private __gap; 
 
-    constructor(
-        address _preconfRegistry,
-        address _preconfTaskManager,
-        IAVSDirectory _avsDirectory,
-        ISlasher _slasher
-    ) {
-        preconfRegistry = _preconfRegistry;
-        preconfTaskManager = _preconfTaskManager;
-        avsDirectory = _avsDirectory;
-        slasher = _slasher;
-    }
 
-    modifier onlyCallableBy(address allowedSender) {
-        if (msg.sender != allowedSender) {
-            revert SenderIsNotAllowed();
-        }
-        _;
+       /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param _preconfAddressManager The address of the {AddressManager} contract.
+    function init(
+        address _owner,
+        address _preconfAddressManager
+    )
+        external
+        initializer
+    {
+        __Essential_init(_owner, _preconfAddressManager);
     }
 
     /// @dev Simply relays the call to the AVS directory
@@ -47,20 +38,20 @@ contract PreconfServiceManager is IPreconfServiceManager, ReentrancyGuard {
     )
         external
         nonReentrant
-        onlyCallableBy(preconfRegistry)
+        onlyFromNamed(LibStrings.B_PRECONF_REGISTRY)
     {
         IAVSDirectory.SignatureWithSaltAndExpiry memory sig =
             abi.decode(operatorSignature, (IAVSDirectory.SignatureWithSaltAndExpiry));
-        avsDirectory.registerOperatorToAVS(operator, sig);
+        IAVSDirectory(resolve("AVSDirectory", false)).registerOperatorToAVS(operator, sig);
     }
 
     /// @dev Simply relays the call to the AVS directory
     function deregisterOperatorFromAVS(address operator)
         external
         nonReentrant
-        onlyCallableBy(preconfRegistry)
+        onlyFromNamed(LibStrings.B_PRECONF_REGISTRY)
     {
-        avsDirectory.deregisterOperatorFromAVS(operator);
+        IAVSDirectory(resolve("AVSDirectory", false)).deregisterOperatorFromAVS(operator);
     }
 
     /// @dev This not completely functional until Eigenlayer decides the logic of their Slasher.
@@ -71,7 +62,7 @@ contract PreconfServiceManager is IPreconfServiceManager, ReentrancyGuard {
     )
         external
         nonReentrant
-        onlyCallableBy(preconfTaskManager)
+        onlyFromNamed(LibStrings.B_PRECONF_TASK_MANAGER)
     {
         stakeLockedUntil[operator] = timestamp;
         emit StakeLockedUntil(operator, timestamp);
@@ -81,8 +72,9 @@ contract PreconfServiceManager is IPreconfServiceManager, ReentrancyGuard {
     function slashOperator(address operator)
         external
         nonReentrant
-        onlyCallableBy(preconfTaskManager)
+        onlyFromNamed(LibStrings.B_PRECONF_TASK_MANAGER)
     {
+        ISlasher slasher = ISlasher(resolve(LibStrings.B_AVS_SLASHER,false));
         if (slasher.isOperatorSlashed(operator)) {
             revert OperatorAlreadySlashed();
         }
