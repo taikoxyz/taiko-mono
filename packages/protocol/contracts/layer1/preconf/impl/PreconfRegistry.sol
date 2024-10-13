@@ -215,10 +215,6 @@ contract PreconfRegistry is IPreconfRegistry, Initializable {
         return _createMessage(validatorOp, expiry, preconfer);
     }
 
-    function getPreconfServiceManager() external view returns (address) {
-        return address(preconfServiceManager);
-    }
-
     function getNextPreconferIndex() external view returns (uint256) {
         return nextPreconferIndex;
     }

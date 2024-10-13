@@ -6,12 +6,10 @@ import "../iface/IPreconfServiceManager.sol";
 import "../eigenlayer-mvp/iface/ISlasher.sol";
 import "../eigenlayer-mvp/iface/IAVSDirectory.sol";
 
-/**
- * @dev This contract would serve as the address of the AVS w.r.t the restaking platform being used.
- * Currently, this is based on a mock version of Eigenlayer that we have created solely for this
- * POC.
- * This contract may be modified depending on the interface of the restaking contracts.
- */
+/// @dev This contract would serve as the address of the AVS w.r.t the restaking platform being
+/// used.
+/// Currently, this is based on a mock version of Eigenlayer that we have created solely for this
+/// POC. This contract may be modified depending on the interface of the restaking contracts.
 contract PreconfServiceManager is IPreconfServiceManager, ReentrancyGuard {
     address internal immutable preconfRegistry;
     address internal immutable preconfTaskManager;
@@ -89,25 +87,5 @@ contract PreconfServiceManager is IPreconfServiceManager, ReentrancyGuard {
             revert OperatorAlreadySlashed();
         }
         slasher.slashOperator(operator);
-    }
-
-    //=======
-    // Views
-    //=======
-
-    function getPreconfRegistry() external view returns (address) {
-        return preconfRegistry;
-    }
-
-    function getPreconfTaskManager() external view returns (address) {
-        return preconfTaskManager;
-    }
-
-    function getAVSDirectory() external view returns (address) {
-        return address(avsDirectory);
-    }
-
-    function getSlasher() external view returns (address) {
-        return address(slasher);
     }
 }
