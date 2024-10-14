@@ -57,6 +57,7 @@ library LibProposing {
     error L1_INVALID_PROPOSER();
     error L1_INVALID_TIMESTAMP();
     error L1_LIVENESS_BOND_NOT_RECEIVED();
+    error L1_PREV_PROPOSER_DISABLED();
     error L1_TOO_MANY_BLOCKS();
     error L1_UNEXPECTED_PARENT();
 
@@ -172,6 +173,18 @@ library LibProposing {
             if (local.params.proposer != msg.sender && !local.allowCustomProposer) {
                 revert L1_INVALID_CUSTOM_PROPOSER();
             }
+        }
+
+        if (local.params.proposer == _state.previousProposer) {
+            require(!_state.isPreviousProposerDisabled, L1_PREV_PROPOSER_DISABLED());
+        } else if (!_state.isPreviousProposerDisabled && _state.previousProposer != address(0)) {
+            LibBonds.debitBond(
+                _state,
+                _resolver,
+                _state.previousProposer,
+                _config.missingLastBlockSignalPenalty,
+                true
+            );
         }
 
         if (local.params.coinbase == address(0)) {
@@ -304,12 +317,18 @@ library LibProposing {
         // Store the block in the ring buffer
         _state.blocks[local.b.numBlocks % _config.blockRingBufferSize] = blk;
 
+        // Track the last proposer
+        _state.previousProposer = local.params.proposer;
+        if (local.params.isProposerLastBlock) {
+            _state.isPreviousProposerDisabled = true;
+        }
+
         // Increment the counter (cursor) by 1.
         unchecked {
             ++_state.slotB.numBlocks;
         }
 
-        LibBonds.debitBond(_state, _resolver, local.params.proposer, _config.livenessBond);
+        LibBonds.debitBond(_state, _resolver, local.params.proposer, _config.livenessBond, false);
 
         // Bribe the block builder. Unlike 1559-tips, this tip is only made
         // if this transaction succeeds.

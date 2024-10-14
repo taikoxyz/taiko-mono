@@ -17,6 +17,8 @@ library LibBonds {
     /// @dev Emitted when token is debited from a user's bond balance.
     event BondDebited(address indexed user, uint256 amount);
 
+    error L1_DEBIT_BOND_FAILED();
+
     /// @dev Deposits Taiko token to be used as bonds.
     /// @param _state Current TaikoData.State.
     /// @param _resolver Address resolver interface.
@@ -52,14 +54,17 @@ library LibBonds {
     /// @param _resolver Address resolver interface.
     /// @param _user The user address to debit.
     /// @param _amount The amount of token to debit.
+    /// @param _tolerantError True if errors should be tolerant.
     function debitBond(
         TaikoData.State storage _state,
         IAddressResolver _resolver,
         address _user,
-        uint256 _amount
+        uint256 _amount,
+        bool _tolerantError
     )
         internal
     {
+        if (_amount == 0) return;
         uint256 balance = _state.bondBalance[_user];
 
         if (balance >= _amount) {
@@ -68,7 +73,10 @@ library LibBonds {
             }
             emit BondDebited(_user, _amount);
         } else {
-            _tko(_resolver).transferFrom(_user, address(this), _amount);
+            try _tko(_resolver).transferFrom(_user, address(this), _amount) { }
+            catch {
+                require(_tolerantError, L1_DEBIT_BOND_FAILED());
+            }
         }
     }
 
@@ -77,6 +85,7 @@ library LibBonds {
     /// @param _user The user address to credit.
     /// @param _amount The amount of token to credit.
     function creditBond(TaikoData.State storage _state, address _user, uint256 _amount) internal {
+        if (_amount == 0) return;
         _state.bondBalance[_user] += _amount;
         emit BondCredited(_user, _amount);
     }

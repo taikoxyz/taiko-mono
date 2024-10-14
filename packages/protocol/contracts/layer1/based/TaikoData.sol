@@ -32,6 +32,7 @@ library TaikoData {
         // ---------------------------------------------------------------------
         // The amount of Taiko token as a prover liveness bond
         uint96 livenessBond;
+        uint96 missingLastBlockSignalPenalty;
         // ---------------------------------------------------------------------
         // Group 4: Cross-chain sync
         // ---------------------------------------------------------------------
@@ -79,6 +80,7 @@ library TaikoData {
         uint32 blobTxListOffset; // NEW
         uint32 blobTxListLength; // NEW
         uint8 blobIndex; // NEW
+        bool isProposerLastBlock; // NEW
     }
 
     /// @dev Struct containing data only required for proving a block
@@ -234,7 +236,9 @@ library TaikoData {
         bytes32 __reserve1; // Used as a ring buffer for Ether deposits
         SlotA slotA; // slot 5
         SlotB slotB; // slot 6
-        mapping(address account => uint256 bond) bondBalance;
-        uint256[43] __gap;
+        mapping(address account => uint256 bond) bondBalance; // slot 7
+        address previousProposer; // slot 8
+        bool isPreviousProposerDisabled;
+        uint256[42] __gap;
     }
 }

@@ -442,7 +442,7 @@ library LibProving {
 
                 // _checkIfContestable(/*_state,*/ tier.cooldownWindow, ts.timestamp);
                 // Burn the contest bond from the prover.
-                LibBonds.debitBond(_state, _resolver, msg.sender, local.tier.contestBond);
+                LibBonds.debitBond(_state, _resolver, msg.sender, local.tier.contestBond, false);
 
                 // We retain the contest bond within the transition, just in
                 // case this configuration is altered to a different value
@@ -627,7 +627,9 @@ library LibProving {
             if (reward > _local.tier.validityBond) {
                 LibBonds.creditBond(_state, msg.sender, reward - _local.tier.validityBond);
             } else if (reward < _local.tier.validityBond) {
-                LibBonds.debitBond(_state, _resolver, msg.sender, _local.tier.validityBond - reward);
+                LibBonds.debitBond(
+                    _state, _resolver, msg.sender, _local.tier.validityBond - reward, false
+                );
             }
         }
 
