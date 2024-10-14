@@ -32,10 +32,9 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
     mapping(uint256 lookaheadIndex => LookaheadBufferEntry lookaheadBufferEntry) internal lookahead;
 
     // A ring buffer that maps beginning timestamp of an epoch to the lookahead poster for that
-    // epoch
+    // epoch.
     // If the lookahead poster has been slashed or the lookahead is not yet posted, the poster is
-    // the 0-address
-
+    // the 0-address.
     mapping(uint256 epochTimestamp_mod_LOOKAHEAD_POSTER_BUFFER_SIZE => PosterInfo posterInfo)
         internal lookaheadPosters;
 
