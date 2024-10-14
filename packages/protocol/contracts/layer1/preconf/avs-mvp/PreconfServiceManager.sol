@@ -2,12 +2,15 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "eigenlayer-contracts/src/contracts/interfaces/ISlasher.sol";
-import "eigenlayer-contracts/src/contracts/interfaces/IAVSDirectory.sol";
 import "../iface/IPreconfServiceManager.sol";
+import "./iface/ISlasher.sol";
+import "./iface/IAVSDirectory.sol";
 
-/// @dev This contract is a Eigenlayer based preconf servicei implementation.
-contract EigenlayerPreconfServiceManager is IPreconfServiceManager, ReentrancyGuard {
+/// @dev This contract would serve as the address of the AVS w.r.t the restaking platform being
+/// used.
+/// Currently, this is based on a mock version of Eigenlayer that we have created solely for this
+/// POC. This contract may be modified depending on the interface of the restaking contracts.
+contract PreconfServiceManagerMVP is IPreconfServiceManager, ReentrancyGuard {
     address internal immutable preconfRegistry;
     address internal immutable preconfTaskManager;
     IAVSDirectory internal immutable avsDirectory;
@@ -46,8 +49,8 @@ contract EigenlayerPreconfServiceManager is IPreconfServiceManager, ReentrancyGu
         nonReentrant
         onlyCallableBy(preconfRegistry)
     {
-        ISignatureUtils.SignatureWithSaltAndExpiry memory sig =
-            abi.decode(operatorSignature, (ISignatureUtils.SignatureWithSaltAndExpiry));
+        IAVSDirectory.SignatureWithSaltAndExpiry memory sig =
+            abi.decode(operatorSignature, (IAVSDirectory.SignatureWithSaltAndExpiry));
         avsDirectory.registerOperatorToAVS(operator, sig);
     }
 
@@ -80,8 +83,9 @@ contract EigenlayerPreconfServiceManager is IPreconfServiceManager, ReentrancyGu
         nonReentrant
         onlyCallableBy(preconfTaskManager)
     {
-        if (slasher.canSlash(operator, address(this))) {
-            slasher.freezeOperator(operator);
+        if (slasher.isOperatorSlashed(operator)) {
+            revert OperatorAlreadySlashed();
         }
+        slasher.slashOperator(operator);
     }
 }

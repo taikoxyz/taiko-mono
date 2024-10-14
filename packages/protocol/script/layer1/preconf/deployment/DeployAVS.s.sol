@@ -8,10 +8,10 @@ import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.so
 
 import "src/layer1/based/ITaikoL1.sol";
 import "src/layer1/preconf/impl/PreconfRegistry.sol";
-import "src/layer1/preconf/impl/PreconfServiceManagerMVP.sol";
-import "src/layer1/preconf/impl/PreconfTaskManager.sol";
+import "src/layer1/preconf/avs-mvp/PreconfServiceManager.sol";
 import "src/layer1/preconf/avs-mvp/iface/IAVSDirectory.sol";
 import "src/layer1/preconf/avs-mvp/iface/ISlasher.sol";
+import "src/layer1/preconf/impl/PreconfTaskManager.sol";
 
 import "../BaseScript.sol";
 import "../misc/EmptyContract.sol";
