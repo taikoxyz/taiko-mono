@@ -2,7 +2,6 @@ package preconfapi
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -80,7 +79,7 @@ func (p *PreconfAPI) InitFromConfig(ctx context.Context, cfg *Config) (err error
 		genesisSlot,
 		secondsPerSlot,
 		slotsPerEpoch,
-		&ecdsa.PrivateKey{}, // TODO
+		cfg.LookaheadPusherPrivateKey,
 	)
 	if err != nil {
 		return err

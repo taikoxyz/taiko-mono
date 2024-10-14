@@ -1,9 +1,11 @@
 package preconfapi
 
 import (
+	"crypto/ecdsa"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
@@ -14,6 +16,7 @@ type Config struct {
 	*rpc.ClientConfig
 	TaikoL1Address            common.Address
 	PreconfTaskManagerAddress common.Address
+	LookaheadPusherPrivateKey *ecdsa.PrivateKey
 	BlobAllowed               bool
 	HTTPPort                  uint64
 	ProposeBlockTxGasLimit    uint64
@@ -26,6 +29,11 @@ type Config struct {
 // NewConfigFromCliContext initializes a Config instance from
 // command line flags.
 func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
+	pk, err := crypto.HexToECDSA(c.String(flags.LookaheadPusherPrivateKey.Name))
+	if err != nil {
+		return nil, err
+	}
+
 	return &Config{
 		TaikoL1Address:            common.HexToAddress(c.String(flags.TaikoL1Address.Name)),
 		PreconfTaskManagerAddress: common.HexToAddress(c.String(flags.PreconfTaskManagerAddress.Name)),
@@ -36,6 +44,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		L2HTTPEndpoint:            c.String(flags.L2HTTPEndpoint.Name),
 		DBPath:                    c.String(flags.DBPath.Name),
 		CORSOrigins:               c.StringSlice(flags.CORSOrigins.Name),
+		LookaheadPusherPrivateKey: pk,
 		ClientConfig: &rpc.ClientConfig{
 			L1Endpoint:     c.String(flags.L1WSEndpoint.Name),
 			L2Endpoint:     c.String(flags.L2HTTPEndpoint.Name),

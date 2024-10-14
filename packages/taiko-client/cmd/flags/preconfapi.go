@@ -43,6 +43,13 @@ var (
 		Category: preconfAPICategory,
 		EnvVars:  []string{"PRECONF_TASK_MANAGER"},
 	}
+	LookaheadPusherPrivateKey = &cli.StringFlag{
+		Name:     "lookaheadPusherPrivateKey",
+		Usage:    "preconfTaskManager lookahead pusher",
+		Required: true,
+		Category: preconfAPICategory,
+		EnvVars:  []string{"LOOKAHEAD_PUSHER_PRIVATE_KEY"},
+	}
 )
 
 // PreconfAPIFlags contains all preconfirmations API flags
@@ -55,4 +62,5 @@ var PreconfAPIFlags = MergeFlags(CommonFlags, []cli.Flag{
 	DBPath,
 	CORSOrigins,
 	PreconfTaskManagerAddress,
+	LookaheadPusherPrivateKey,
 })
