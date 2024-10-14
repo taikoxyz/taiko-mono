@@ -60,7 +60,7 @@ type buildBlockResponse struct {
 func (s *PreconfAPIServer) BuildBlock(c echo.Context) error {
 	req := &buildBlockRequest{}
 	if err := c.Bind(req); err != nil {
-		return c.JSON(http.StatusUnprocessableEntity, err)
+		return c.JSON(http.StatusUnprocessableEntity, map[string]string{"error": err.Error()})
 	}
 
 	// default to blob
@@ -80,13 +80,13 @@ func (s *PreconfAPIServer) BuildBlock(c echo.Context) error {
 		},
 	)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
 	// RLP encode the transaction
 	var rlpEncodedTx bytes.Buffer
 	if err := rlp.Encode(&rlpEncodedTx, tx); err != nil {
-		return c.JSON(http.StatusInternalServerError, err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
 	hexEncodedTx := hex.EncodeToString(rlpEncodedTx.Bytes())
@@ -106,7 +106,7 @@ func (s *PreconfAPIServer) BuildBlock(c echo.Context) error {
 func (s *PreconfAPIServer) BuildBlocks(c echo.Context) error {
 	req := &buildBlocksRequest{}
 	if err := c.Bind(req); err != nil {
-		return c.JSON(http.StatusUnprocessableEntity, err)
+		return c.JSON(http.StatusUnprocessableEntity, map[string]string{"error": err.Error()})
 	}
 
 	// default to blob
@@ -120,13 +120,13 @@ func (s *PreconfAPIServer) BuildBlocks(c echo.Context) error {
 		paramsToOpts(req.BlockParams, req.PreconferAddress),
 	)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
 	// RLP encode the transaction
 	var rlpEncodedTx bytes.Buffer
 	if err := rlp.Encode(&rlpEncodedTx, tx); err != nil {
-		return c.JSON(http.StatusInternalServerError, err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
 	hexEncodedTx := hex.EncodeToString(rlpEncodedTx.Bytes())
