@@ -154,40 +154,74 @@ func (b *BlobTransactionBuilder) BuildOntake(
 		return nil, fmt.Errorf("ontake transaction builder is not supported before ontake fork")
 	}
 
-	// ABI encode the TaikoL1.proposeBlocksV2 / ProverSet.proposeBlocksV2 parameters.
+	return b.buildOntake(txListBytesArray)
+}
+
+// buildOntake is the inner function to build the real transactions after ontake fork.
+func (b *BlobTransactionBuilder) buildOntake(txListBytesArray [][]byte) (*txmgr.TxCandidate, error) {
 	var (
 		to                 = &b.taikoL1Address
 		data               []byte
 		blobs              []*eth.Blob
 		encodedParamsArray [][]byte
+		cachedBlobOffset   int
+		cachedBlobData     []byte
+		err                error
 	)
 	if b.proverSetAddress != rpc.ZeroAddress {
 		to = &b.proverSetAddress
 	}
 
 	for i := range txListBytesArray {
-		var blob = &eth.Blob{}
-		if err := blob.FromData(txListBytesArray[i]); err != nil {
-			return nil, err
+		offset := cachedBlobOffset
+
+		// Check if the current tx list bytes can be fit into the cached blob data,
+		// if the current tx list bytes can be fit into the cached blob data, then append it.
+		cachedBlobReused := (cachedBlobOffset + len(txListBytesArray[i])) <= eth.MaxBlobDataSize
+
+		if cachedBlobReused {
+			cachedBlobData = append(cachedBlobData, txListBytesArray[i]...)
+			cachedBlobOffset += len(txListBytesArray[i])
+		} else {
+			// Otherwise reset the cached blob data and offset.
+			var blob = &eth.Blob{}
+			if err := blob.FromData(cachedBlobData); err != nil {
+				return nil, err
+			}
+
+			blobs = append(blobs, blob)
+			cachedBlobData = txListBytesArray[i]
+			cachedBlobOffset = 0
+			offset = 0
 		}
 
-		blobs = append(blobs, blob)
-
+		// ABI encode the TaikoL1.proposeBlocksV2 / ProverSet.proposeBlocksV2 parameters.
 		encodedParams, err := encoding.EncodeBlockParamsOntake(&encoding.BlockParamsV2{
 			Coinbase:         b.l2SuggestedFeeRecipient,
 			ParentMetaHash:   [32]byte{},
 			AnchorBlockId:    0,
 			Timestamp:        0,
-			BlobTxListOffset: 0,
+			BlobTxListOffset: uint32(offset),
 			BlobTxListLength: uint32(len(txListBytesArray[i])),
-			BlobIndex:        uint8(i),
+			BlobIndex:        uint8(len(blobs)),
 		})
 		if err != nil {
 			return nil, err
 		}
 
 		encodedParamsArray = append(encodedParamsArray, encodedParams)
+
+		// If the current tx list bytes is the last one, then append the cached blob data to the blobs list.
+		if i == len(txListBytesArray)-1 {
+			var blob = &eth.Blob{}
+			if err := blob.FromData(txListBytesArray[i]); err != nil {
+				return nil, err
+			}
+
+			blobs = append(blobs, blob)
+		}
 	}
+
 	txListArray := make([][]byte, len(encodedParamsArray))
 	if b.proverSetAddress != rpc.ZeroAddress {
 		data, err = encoding.ProverSetABI.Pack("proposeBlocksV2", encodedParamsArray, txListArray)
