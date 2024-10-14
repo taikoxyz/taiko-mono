@@ -46,11 +46,12 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		CORSOrigins:               c.StringSlice(flags.CORSOrigins.Name),
 		LookaheadPusherPrivateKey: pk,
 		ClientConfig: &rpc.ClientConfig{
-			L1Endpoint:     c.String(flags.L1WSEndpoint.Name),
-			L2Endpoint:     c.String(flags.L2HTTPEndpoint.Name),
-			TaikoL1Address: common.HexToAddress(c.String(flags.TaikoL1Address.Name)),
-			TaikoL2Address: common.HexToAddress(c.String(flags.TaikoL2Address.Name)),
-			Timeout:        c.Duration(flags.RPCTimeout.Name),
+			L1Endpoint:       c.String(flags.L1WSEndpoint.Name),
+			L2Endpoint:       c.String(flags.L2HTTPEndpoint.Name),
+			L1BeaconEndpoint: c.String(flags.L1BeaconEndpoint.Name),
+			TaikoL1Address:   common.HexToAddress(c.String(flags.TaikoL1Address.Name)),
+			TaikoL2Address:   common.HexToAddress(c.String(flags.TaikoL2Address.Name)),
+			Timeout:          c.Duration(flags.RPCTimeout.Name),
 		},
 	}, nil
 }

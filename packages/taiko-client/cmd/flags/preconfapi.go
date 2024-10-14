@@ -63,4 +63,5 @@ var PreconfAPIFlags = MergeFlags(CommonFlags, []cli.Flag{
 	CORSOrigins,
 	PreconfTaskManagerAddress,
 	LookaheadPusherPrivateKey,
+	L1BeaconEndpoint,
 })
