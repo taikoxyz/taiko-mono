@@ -5,7 +5,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "../iface/IPreconfRegistry.sol";
 import "../iface/IPreconfServiceManager.sol";
 import "../libs/LibBLSSignature.sol";
-import "./PreconfConstants.sol";
+import "./LibPreconfConstants.sol";
 
 contract PreconfRegistry is IPreconfRegistry, Initializable {
     using LibBLS12381 for LibBLS12381.G1Point;
@@ -139,7 +139,7 @@ contract PreconfRegistry is IPreconfRegistry, Initializable {
                     validators[pubKeyHash] = Validator({
                         preconfer: msg.sender,
                         // The delay is crucial in order to not contradict the lookahead
-                        startProposingAt: uint40(block.timestamp + PreconfConstants.TWO_EPOCHS),
+                        startProposingAt: uint40(block.timestamp + LibPreconfConstants.TWO_EPOCHS),
                         stopProposingAt: uint40(0)
                     });
                 }
@@ -191,7 +191,7 @@ contract PreconfRegistry is IPreconfRegistry, Initializable {
                 // We also need to delay the removal by two epochs to avoid contradicting the
                 // lookahead
                 validators[pubKeyHash].stopProposingAt =
-                    uint40(block.timestamp + PreconfConstants.TWO_EPOCHS);
+                    uint40(block.timestamp + LibPreconfConstants.TWO_EPOCHS);
             }
 
             emit ValidatorRemoved(pubKeyHash, validator.preconfer);

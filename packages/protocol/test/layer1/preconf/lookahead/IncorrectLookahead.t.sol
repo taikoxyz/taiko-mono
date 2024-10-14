@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "../fixtures/BeaconProofs.sol";
 import "../fixtures/LookaheadFixtures.sol";
 
-import "src/layer1/preconf/impl/PreconfConstants.sol";
+import "src/layer1/preconf/impl/LibPreconfConstants.sol";
 import "src/layer1/preconf/iface/IPreconfTaskManager.sol";
 
 /// @dev The beacon chain data used here is from slot 9000000 on Ethereum mainnet.
@@ -13,8 +13,8 @@ contract IncorrectLookahead is LookaheadFixtures {
     // 2.
     // Epoch 1 starts at the genesis timestamp.
     uint256 internal nextEpochStart =
-        PreconfConstants.MAINNET_BEACON_GENESIS + PreconfConstants.SECONDS_IN_EPOCH;
-    uint256 internal slot16Timestamp = nextEpochStart + (15 * PreconfConstants.SECONDS_IN_SLOT);
+        LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_EPOCH;
+    uint256 internal slot16Timestamp = nextEpochStart + (15 * LibPreconfConstants.SECONDS_IN_SLOT);
 
     function setUp() public override {
         super.setUp();
@@ -31,8 +31,8 @@ contract IncorrectLookahead is LookaheadFixtures {
         // ongoing epoch
         // sets a random preconfer for the epoch which is not intended for this test.
         uint256 nextEpochEnd =
-            PreconfConstants.MAINNET_BEACON_GENESIS + (2 * PreconfConstants.SECONDS_IN_EPOCH);
-        vm.warp(nextEpochEnd + (3 * PreconfConstants.SECONDS_IN_SLOT));
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + (2 * LibPreconfConstants.SECONDS_IN_EPOCH);
+        vm.warp(nextEpochEnd + (3 * LibPreconfConstants.SECONDS_IN_SLOT));
 
         // This beacon proposer is not added as a validator for our preconfer in lookahead
         bytes memory beaconProposer = BeaconProofs.validator();
@@ -45,7 +45,7 @@ contract IncorrectLookahead is LookaheadFixtures {
         // Verify that storage has been updated
         assertEq(
             preconfTaskManager.getLookaheadPoster(
-                PreconfConstants.MAINNET_BEACON_GENESIS + PreconfConstants.SECONDS_IN_EPOCH
+                LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_EPOCH
             ),
             address(0)
         );
@@ -65,13 +65,13 @@ contract IncorrectLookahead is LookaheadFixtures {
         // ongoing epoch
         // sets a random preconfer for the epoch which is not intended for this test.
         uint256 nextEpochEnd =
-            PreconfConstants.MAINNET_BEACON_GENESIS + (2 * PreconfConstants.SECONDS_IN_EPOCH);
-        vm.warp(nextEpochEnd + (3 * PreconfConstants.SECONDS_IN_SLOT));
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + (2 * LibPreconfConstants.SECONDS_IN_EPOCH);
+        vm.warp(nextEpochEnd + (3 * LibPreconfConstants.SECONDS_IN_SLOT));
 
         // The beacon proposer is added for the preconfer, but is not allowed to propose at slot 16
         bytes memory beaconProposer = BeaconProofs.validator();
         preconfRegistry.addValidator(
-            beaconProposer, addr_1, slot16Timestamp + PreconfConstants.SECONDS_IN_SLOT, 0
+            beaconProposer, addr_1, slot16Timestamp + LibPreconfConstants.SECONDS_IN_SLOT, 0
         );
 
         // Prove the lookahead to be incorrect
@@ -82,7 +82,7 @@ contract IncorrectLookahead is LookaheadFixtures {
         // Verify that storage has been updated
         assertEq(
             preconfTaskManager.getLookaheadPoster(
-                PreconfConstants.MAINNET_BEACON_GENESIS + PreconfConstants.SECONDS_IN_EPOCH
+                LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_EPOCH
             ),
             address(0)
         );
@@ -102,14 +102,14 @@ contract IncorrectLookahead is LookaheadFixtures {
         // ongoing epoch
         // sets a random preconfer for the epoch which is not intended for this test.
         uint256 nextEpochEnd =
-            PreconfConstants.MAINNET_BEACON_GENESIS + (2 * PreconfConstants.SECONDS_IN_EPOCH);
-        vm.warp(nextEpochEnd + (3 * PreconfConstants.SECONDS_IN_SLOT));
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + (2 * LibPreconfConstants.SECONDS_IN_EPOCH);
+        vm.warp(nextEpochEnd + (3 * LibPreconfConstants.SECONDS_IN_SLOT));
 
         // The beacon proposer is added for the preconfer, but is has lost proposal rights at slot
         // 16
         bytes memory beaconProposer = BeaconProofs.validator();
         preconfRegistry.addValidator(
-            beaconProposer, addr_1, PreconfConstants.MAINNET_BEACON_GENESIS, slot16Timestamp
+            beaconProposer, addr_1, LibPreconfConstants.MAINNET_BEACON_GENESIS, slot16Timestamp
         );
 
         // Prove the lookahead to be incorrect
@@ -120,7 +120,7 @@ contract IncorrectLookahead is LookaheadFixtures {
         // Verify that storage has been updated
         assertEq(
             preconfTaskManager.getLookaheadPoster(
-                PreconfConstants.MAINNET_BEACON_GENESIS + PreconfConstants.SECONDS_IN_EPOCH
+                LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_EPOCH
             ),
             address(0)
         );
@@ -140,8 +140,8 @@ contract IncorrectLookahead is LookaheadFixtures {
         // ongoing epoch
         // sets a random preconfer for the epoch which is not intended for this test.
         uint256 nextEpochEnd =
-            PreconfConstants.MAINNET_BEACON_GENESIS + (2 * PreconfConstants.SECONDS_IN_EPOCH);
-        vm.warp(nextEpochEnd + (3 * PreconfConstants.SECONDS_IN_SLOT));
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + (2 * LibPreconfConstants.SECONDS_IN_EPOCH);
+        vm.warp(nextEpochEnd + (3 * LibPreconfConstants.SECONDS_IN_SLOT));
 
         // The beacon proposer is added for the preconfer, but is has lost proposal rights before
         // slot 16
@@ -149,8 +149,8 @@ contract IncorrectLookahead is LookaheadFixtures {
         preconfRegistry.addValidator(
             beaconProposer,
             addr_1,
-            PreconfConstants.MAINNET_BEACON_GENESIS,
-            slot16Timestamp - PreconfConstants.SECONDS_IN_SLOT
+            LibPreconfConstants.MAINNET_BEACON_GENESIS,
+            slot16Timestamp - LibPreconfConstants.SECONDS_IN_SLOT
         );
 
         // Prove the lookahead to be incorrect
@@ -161,7 +161,7 @@ contract IncorrectLookahead is LookaheadFixtures {
         // Verify that storage has been updated
         assertEq(
             preconfTaskManager.getLookaheadPoster(
-                PreconfConstants.MAINNET_BEACON_GENESIS + PreconfConstants.SECONDS_IN_EPOCH
+                LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_EPOCH
             ),
             address(0)
         );
@@ -181,13 +181,13 @@ contract IncorrectLookahead is LookaheadFixtures {
         // ongoing epoch
         // sets a random preconfer for the epoch which is not intended for this test.
         uint256 nextEpochEnd =
-            PreconfConstants.MAINNET_BEACON_GENESIS + (2 * PreconfConstants.SECONDS_IN_EPOCH);
-        vm.warp(nextEpochEnd + (3 * PreconfConstants.SECONDS_IN_SLOT));
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + (2 * LibPreconfConstants.SECONDS_IN_EPOCH);
+        vm.warp(nextEpochEnd + (3 * LibPreconfConstants.SECONDS_IN_SLOT));
 
         // The beacon proposer belongs to another preconfer
         bytes memory beaconProposer = BeaconProofs.validator();
         preconfRegistry.addValidator(
-            beaconProposer, addr_2, PreconfConstants.MAINNET_BEACON_GENESIS, 0
+            beaconProposer, addr_2, LibPreconfConstants.MAINNET_BEACON_GENESIS, 0
         );
 
         // Prove the lookahead to be incorrect
@@ -198,7 +198,7 @@ contract IncorrectLookahead is LookaheadFixtures {
         // Verify that storage has been updated
         assertEq(
             preconfTaskManager.getLookaheadPoster(
-                PreconfConstants.MAINNET_BEACON_GENESIS + PreconfConstants.SECONDS_IN_EPOCH
+                LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_EPOCH
             ),
             address(0)
         );
@@ -218,19 +218,19 @@ contract IncorrectLookahead is LookaheadFixtures {
         // ongoing epoch
         // sets a random preconfer for the epoch which is not intended for this test.
         uint256 nextEpochEnd =
-            PreconfConstants.MAINNET_BEACON_GENESIS + (2 * PreconfConstants.SECONDS_IN_EPOCH);
-        vm.warp(nextEpochEnd + (3 * PreconfConstants.SECONDS_IN_SLOT));
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + (2 * LibPreconfConstants.SECONDS_IN_EPOCH);
+        vm.warp(nextEpochEnd + (3 * LibPreconfConstants.SECONDS_IN_SLOT));
 
         // Take a slot for which their is no dedicated lookahead entry and set it's beacon block
         // root
         // containing a proposer mapped to a valid preconfer
-        uint256 slot15Timestamp = slot16Timestamp - PreconfConstants.SECONDS_IN_SLOT;
+        uint256 slot15Timestamp = slot16Timestamp - LibPreconfConstants.SECONDS_IN_SLOT;
         beaconBlockRootContract.set(slot16Timestamp, BeaconProofs.beaconBlockRoot());
 
         // The beacon proposer belongs to a valid preconfer who is not in the lookahead at slot 15
         bytes memory beaconProposer = BeaconProofs.validator();
         preconfRegistry.addValidator(
-            beaconProposer, addr_2, PreconfConstants.MAINNET_BEACON_GENESIS, 0
+            beaconProposer, addr_2, LibPreconfConstants.MAINNET_BEACON_GENESIS, 0
         );
 
         // Prove the lookahead to be incorrect
@@ -241,7 +241,7 @@ contract IncorrectLookahead is LookaheadFixtures {
         // Verify that storage has been updated
         assertEq(
             preconfTaskManager.getLookaheadPoster(
-                PreconfConstants.MAINNET_BEACON_GENESIS + PreconfConstants.SECONDS_IN_EPOCH
+                LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_EPOCH
             ),
             address(0)
         );
@@ -261,8 +261,8 @@ contract IncorrectLookahead is LookaheadFixtures {
         // ongoing epoch
         // sets a random preconfer for the epoch which is not intended for this test.
         uint256 nextEpochEnd =
-            PreconfConstants.MAINNET_BEACON_GENESIS + (2 * PreconfConstants.SECONDS_IN_EPOCH);
-        vm.warp(nextEpochEnd + (3 * PreconfConstants.SECONDS_IN_SLOT));
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + (2 * LibPreconfConstants.SECONDS_IN_EPOCH);
+        vm.warp(nextEpochEnd + (3 * LibPreconfConstants.SECONDS_IN_SLOT));
 
         // Take the last slot in the lookahead with the fallback preconfer and set it's beacon block
         // root
@@ -273,13 +273,13 @@ contract IncorrectLookahead is LookaheadFixtures {
         // as the lookahead has the fallback preconfer
         bytes memory beaconProposer = BeaconProofs.validator();
         preconfRegistry.addValidator(
-            beaconProposer, addr_2, PreconfConstants.MAINNET_BEACON_GENESIS, 0
+            beaconProposer, addr_2, LibPreconfConstants.MAINNET_BEACON_GENESIS, 0
         );
 
         // Prove the lookahead to be incorrect
         preconfTaskManager.proveIncorrectLookahead(
             1,
-            nextEpochEnd - PreconfConstants.SECONDS_IN_SLOT,
+            nextEpochEnd - LibPreconfConstants.SECONDS_IN_SLOT,
             beaconProposer,
             BeaconProofs.eip4788ValidatorInclusionProof()
         );
@@ -287,7 +287,7 @@ contract IncorrectLookahead is LookaheadFixtures {
         // Verify that storage has been updated
         assertEq(
             preconfTaskManager.getLookaheadPoster(
-                PreconfConstants.MAINNET_BEACON_GENESIS + PreconfConstants.SECONDS_IN_EPOCH
+                LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_EPOCH
             ),
             address(0)
         );
@@ -302,7 +302,7 @@ contract IncorrectLookahead is LookaheadFixtures {
         postLookahead();
 
         // We wrap to an arbitrary timestamp after the incorrect slot in the next epoch
-        vm.warp(slot16Timestamp + (2 * PreconfConstants.SECONDS_IN_SLOT));
+        vm.warp(slot16Timestamp + (2 * LibPreconfConstants.SECONDS_IN_SLOT));
 
         // This beacon proposer is not added as a validator for our preconfer in lookahead
         bytes memory beaconProposer = BeaconProofs.validator();
@@ -311,7 +311,7 @@ contract IncorrectLookahead is LookaheadFixtures {
 
         // Set beacon block root such that addr_4 is randomly selected
         beaconBlockRootContract.set(
-            PreconfConstants.MAINNET_BEACON_GENESIS + PreconfConstants.SECONDS_IN_SLOT, randomness
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_SLOT, randomness
         );
 
         // Prove the lookahead to be incorrect
@@ -320,7 +320,7 @@ contract IncorrectLookahead is LookaheadFixtures {
         );
 
         uint256 lastSlotTimestamp =
-            nextEpochStart + PreconfConstants.SECONDS_IN_EPOCH - PreconfConstants.SECONDS_IN_SLOT;
+            nextEpochStart + LibPreconfConstants.SECONDS_IN_EPOCH - LibPreconfConstants.SECONDS_IN_SLOT;
 
         // Verify that the lookahead has the fallback preconfer
         IPreconfTaskManager.LookaheadBufferEntry[128] memory lookaheadBuffer =
@@ -331,7 +331,7 @@ contract IncorrectLookahead is LookaheadFixtures {
         );
         assertEq(lookaheadBuffer[3].timestamp, lastSlotTimestamp);
         assertEq(
-            lookaheadBuffer[3].prevTimestamp, nextEpochStart - PreconfConstants.SECONDS_IN_SLOT
+            lookaheadBuffer[3].prevTimestamp, nextEpochStart - LibPreconfConstants.SECONDS_IN_SLOT
         );
         assertEq(lookaheadBuffer[3].isFallback, true);
 
@@ -353,7 +353,7 @@ contract IncorrectLookahead is LookaheadFixtures {
         postLookahead();
 
         // We wrap to an arbitrary timestamp after the incorrect slot in the next epoch
-        vm.warp(slot16Timestamp + (2 * PreconfConstants.SECONDS_IN_SLOT));
+        vm.warp(slot16Timestamp + (2 * LibPreconfConstants.SECONDS_IN_SLOT));
 
         // Force push lookahead for next epoch
         // This to ensure if the first entry in the following epoch connects correctly to the newly
@@ -362,17 +362,17 @@ contract IncorrectLookahead is LookaheadFixtures {
         IPreconfTaskManager.LookaheadSetParam[] memory lookaheadSetParams =
             new IPreconfTaskManager.LookaheadSetParam[](2);
 
-        uint256 nextToNextEpochStart = nextEpochStart + PreconfConstants.SECONDS_IN_EPOCH;
+        uint256 nextToNextEpochStart = nextEpochStart + LibPreconfConstants.SECONDS_IN_EPOCH;
 
         // Slot 13
         lookaheadSetParams[0] = IPreconfTaskManager.LookaheadSetParam({
             preconfer: addr_1,
-            timestamp: nextToNextEpochStart + (12 * PreconfConstants.SECONDS_IN_SLOT)
+            timestamp: nextToNextEpochStart + (12 * LibPreconfConstants.SECONDS_IN_SLOT)
         });
         // Slot 22
         lookaheadSetParams[1] = IPreconfTaskManager.LookaheadSetParam({
             preconfer: addr_2,
-            timestamp: nextToNextEpochStart + (21 * PreconfConstants.SECONDS_IN_SLOT)
+            timestamp: nextToNextEpochStart + (21 * LibPreconfConstants.SECONDS_IN_SLOT)
         });
 
         // Address 1 pushes the lookahead
@@ -386,7 +386,7 @@ contract IncorrectLookahead is LookaheadFixtures {
 
         // Set beacon block root such that addr_4 is randomly selected
         beaconBlockRootContract.set(
-            PreconfConstants.MAINNET_BEACON_GENESIS + PreconfConstants.SECONDS_IN_SLOT, randomness
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_SLOT, randomness
         );
 
         // Prove the lookahead to be incorrect
@@ -395,7 +395,7 @@ contract IncorrectLookahead is LookaheadFixtures {
         );
 
         uint256 lastSlotTimestamp =
-            nextEpochStart + PreconfConstants.SECONDS_IN_EPOCH - PreconfConstants.SECONDS_IN_SLOT;
+            nextEpochStart + LibPreconfConstants.SECONDS_IN_EPOCH - LibPreconfConstants.SECONDS_IN_SLOT;
 
         // Verify that the lookahead has the fallback preconfer
         IPreconfTaskManager.LookaheadBufferEntry[128] memory lookaheadBuffer =
@@ -406,7 +406,7 @@ contract IncorrectLookahead is LookaheadFixtures {
         );
         assertEq(lookaheadBuffer[3].timestamp, lastSlotTimestamp);
         assertEq(
-            lookaheadBuffer[3].prevTimestamp, nextEpochStart - PreconfConstants.SECONDS_IN_SLOT
+            lookaheadBuffer[3].prevTimestamp, nextEpochStart - LibPreconfConstants.SECONDS_IN_SLOT
         );
         assertEq(lookaheadBuffer[3].isFallback, true);
 
@@ -425,7 +425,7 @@ contract IncorrectLookahead is LookaheadFixtures {
         assertEq(lookaheadBuffer[4].preconfer, addr_1);
         assertEq(
             lookaheadBuffer[4].timestamp,
-            nextToNextEpochStart + (12 * PreconfConstants.SECONDS_IN_SLOT)
+            nextToNextEpochStart + (12 * LibPreconfConstants.SECONDS_IN_SLOT)
         );
         assertEq(lookaheadBuffer[4].prevTimestamp, lastSlotTimestamp);
         assertEq(lookaheadBuffer[4].isFallback, false);
@@ -443,7 +443,7 @@ contract IncorrectLookahead is LookaheadFixtures {
         preconfTaskManager.proveIncorrectLookahead(
             2,
             // Epoch does not have a poster yet
-            PreconfConstants.MAINNET_BEACON_GENESIS + (4 * PreconfConstants.SECONDS_IN_EPOCH),
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + (4 * LibPreconfConstants.SECONDS_IN_EPOCH),
             BeaconProofs.validator(),
             BeaconProofs.eip4788ValidatorInclusionProof()
         );
@@ -456,7 +456,7 @@ contract IncorrectLookahead is LookaheadFixtures {
 
         // Wrap into the future when the dispute window is missed
         vm.warp(
-            slot16Timestamp + PreconfConstants.DISPUTE_PERIOD + PreconfConstants.SECONDS_IN_SLOT
+            slot16Timestamp + LibPreconfConstants.DISPUTE_PERIOD + LibPreconfConstants.SECONDS_IN_SLOT
         );
 
         // Reverts when the dispute period is over
@@ -478,8 +478,8 @@ contract IncorrectLookahead is LookaheadFixtures {
         // ongoing epoch
         // sets a random preconfer for the epoch which is not intended for this test.
         uint256 nextEpochEnd =
-            PreconfConstants.MAINNET_BEACON_GENESIS + (2 * PreconfConstants.SECONDS_IN_EPOCH);
-        vm.warp(nextEpochEnd + (3 * PreconfConstants.SECONDS_IN_SLOT));
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + (2 * LibPreconfConstants.SECONDS_IN_EPOCH);
+        vm.warp(nextEpochEnd + (3 * LibPreconfConstants.SECONDS_IN_SLOT));
 
         // Reverts because the pointer is in the past and slot timestamp in future
         vm.expectRevert(IPreconfTaskManager.InvalidLookaheadPointer.selector);
@@ -500,8 +500,8 @@ contract IncorrectLookahead is LookaheadFixtures {
         // ongoing epoch
         // sets a random preconfer for the epoch which is not intended for this test.
         uint256 nextEpochEnd =
-            PreconfConstants.MAINNET_BEACON_GENESIS + (2 * PreconfConstants.SECONDS_IN_EPOCH);
-        vm.warp(nextEpochEnd + (3 * PreconfConstants.SECONDS_IN_SLOT));
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + (2 * LibPreconfConstants.SECONDS_IN_EPOCH);
+        vm.warp(nextEpochEnd + (3 * LibPreconfConstants.SECONDS_IN_SLOT));
 
         // Reverts because the pointer is in the future (slotTimestamp == pointer.prevTimestamp)
         vm.expectRevert(IPreconfTaskManager.InvalidLookaheadPointer.selector);
@@ -519,17 +519,17 @@ contract IncorrectLookahead is LookaheadFixtures {
         postLookahead();
 
         // Wrap to arbitrary timestamp in next epoch
-        vm.warp(slot16Timestamp + (2 * PreconfConstants.SECONDS_IN_SLOT));
+        vm.warp(slot16Timestamp + (2 * LibPreconfConstants.SECONDS_IN_SLOT));
 
         // Push a lookahead for the following epoch
         // This will enable simulating the condition slotTimestamp < pointer.prevTimestamps
         IPreconfTaskManager.LookaheadSetParam[] memory lookaheadSetParams =
             new IPreconfTaskManager.LookaheadSetParam[](1);
-        uint256 nextToNextEpochStart = nextEpochStart + PreconfConstants.SECONDS_IN_EPOCH;
+        uint256 nextToNextEpochStart = nextEpochStart + LibPreconfConstants.SECONDS_IN_EPOCH;
         // Slot 13
         lookaheadSetParams[0] = IPreconfTaskManager.LookaheadSetParam({
             preconfer: addr_1,
-            timestamp: nextToNextEpochStart + (12 * PreconfConstants.SECONDS_IN_SLOT)
+            timestamp: nextToNextEpochStart + (12 * LibPreconfConstants.SECONDS_IN_SLOT)
         });
 
         // Address 1 pushes the lookahead
@@ -556,15 +556,15 @@ contract IncorrectLookahead is LookaheadFixtures {
         // ongoing epoch
         // sets a random preconfer for the epoch which is not intended for this test.
         uint256 nextEpochEnd =
-            PreconfConstants.MAINNET_BEACON_GENESIS + (2 * PreconfConstants.SECONDS_IN_EPOCH);
-        vm.warp(nextEpochEnd + (3 * PreconfConstants.SECONDS_IN_SLOT));
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + (2 * LibPreconfConstants.SECONDS_IN_EPOCH);
+        vm.warp(nextEpochEnd + (3 * LibPreconfConstants.SECONDS_IN_SLOT));
 
         // Add the validator for addr_1 in registry
         // This is also the proposer for the beacon block whose root we have stored (see
         // `postLookahead()`)
         bytes memory beaconProposer = BeaconProofs.validator();
         preconfRegistry.addValidator(
-            beaconProposer, addr_1, PreconfConstants.MAINNET_BEACON_GENESIS, 0
+            beaconProposer, addr_1, LibPreconfConstants.MAINNET_BEACON_GENESIS, 0
         );
 
         // Reverts when the lookahead is tried to be proven incorrect
@@ -583,8 +583,8 @@ contract IncorrectLookahead is LookaheadFixtures {
         // ongoing epoch
         // sets a random preconfer for the epoch which is not intended for this test.
         uint256 nextEpochEnd =
-            PreconfConstants.MAINNET_BEACON_GENESIS + (2 * PreconfConstants.SECONDS_IN_EPOCH);
-        vm.warp(nextEpochEnd + (3 * PreconfConstants.SECONDS_IN_SLOT));
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + (2 * LibPreconfConstants.SECONDS_IN_EPOCH);
+        vm.warp(nextEpochEnd + (3 * LibPreconfConstants.SECONDS_IN_SLOT));
 
         // This beacon proposer is not added as a validator for our preconfer in lookahead
         bytes memory beaconProposer = BeaconProofs.validator();
@@ -606,7 +606,7 @@ contract IncorrectLookahead is LookaheadFixtures {
     function postLookahead() internal {
         // Arbitrary slot in current epoch
         uint256 currentSlotTimestamp =
-            PreconfConstants.MAINNET_BEACON_GENESIS + 2 * PreconfConstants.SECONDS_IN_SLOT;
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + 2 * LibPreconfConstants.SECONDS_IN_SLOT;
         vm.warp(currentSlotTimestamp);
 
         IPreconfTaskManager.LookaheadSetParam[] memory lookaheadSetParams =
@@ -615,7 +615,7 @@ contract IncorrectLookahead is LookaheadFixtures {
         // Slot 5
         lookaheadSetParams[0] = IPreconfTaskManager.LookaheadSetParam({
             preconfer: addr_2,
-            timestamp: nextEpochStart + (4 * PreconfConstants.SECONDS_IN_SLOT)
+            timestamp: nextEpochStart + (4 * LibPreconfConstants.SECONDS_IN_SLOT)
         });
         // Slot 16 (Slot used for fault proofs)
         lookaheadSetParams[1] =
@@ -623,7 +623,7 @@ contract IncorrectLookahead is LookaheadFixtures {
         // Slot 25
         lookaheadSetParams[2] = IPreconfTaskManager.LookaheadSetParam({
             preconfer: addr_3,
-            timestamp: nextEpochStart + (24 * PreconfConstants.SECONDS_IN_SLOT)
+            timestamp: nextEpochStart + (24 * LibPreconfConstants.SECONDS_IN_SLOT)
         });
 
         // Address 1 pushes the lookahead
@@ -632,7 +632,7 @@ contract IncorrectLookahead is LookaheadFixtures {
 
         // Set the beacon block root for slot 16 (in the timestamp of slot 17)
         beaconBlockRootContract.set(
-            slot16Timestamp + PreconfConstants.SECONDS_IN_SLOT, BeaconProofs.beaconBlockRoot()
+            slot16Timestamp + LibPreconfConstants.SECONDS_IN_SLOT, BeaconProofs.beaconBlockRoot()
         );
     }
 
@@ -640,14 +640,14 @@ contract IncorrectLookahead is LookaheadFixtures {
     function postEmptyLookahead() internal {
         // Arbitrary slot in current epoch
         uint256 currentSlotTimestamp =
-            PreconfConstants.MAINNET_BEACON_GENESIS + 2 * PreconfConstants.SECONDS_IN_SLOT;
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + 2 * LibPreconfConstants.SECONDS_IN_SLOT;
         vm.warp(currentSlotTimestamp);
 
         IPreconfTaskManager.LookaheadSetParam[] memory lookaheadSetParams =
             new IPreconfTaskManager.LookaheadSetParam[](0);
 
         beaconBlockRootContract.set(
-            PreconfConstants.MAINNET_BEACON_GENESIS + PreconfConstants.SECONDS_IN_SLOT,
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_SLOT,
             bytes32(uint256(4))
         );
 

@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "../fixtures/LookaheadFixtures.sol";
 
-import "src/layer1/preconf/impl/PreconfConstants.sol";
+import "src/layer1/preconf/impl/LibPreconfConstants.sol";
 import "src/layer1/preconf/iface/IPreconfTaskManager.sol";
 
 contract LookaheadPosting is LookaheadFixtures {
@@ -16,11 +16,11 @@ contract LookaheadPosting is LookaheadFixtures {
 
         // Arbitrary slot in current epoch
         uint256 currentSlotTimestamp =
-            PreconfConstants.MAINNET_BEACON_GENESIS + 2 * PreconfConstants.SECONDS_IN_SLOT;
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + 2 * LibPreconfConstants.SECONDS_IN_SLOT;
         vm.warp(currentSlotTimestamp);
 
         uint256 nextEpochStart =
-            PreconfConstants.MAINNET_BEACON_GENESIS + PreconfConstants.SECONDS_IN_EPOCH;
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_EPOCH;
 
         IPreconfTaskManager.LookaheadSetParam[] memory lookaheadSetParams =
             new IPreconfTaskManager.LookaheadSetParam[](1);
@@ -52,12 +52,12 @@ contract LookaheadPosting is LookaheadFixtures {
 
         // Arbitrary slot in current epoch
         uint256 currentSlotTimestamp =
-            PreconfConstants.MAINNET_BEACON_GENESIS + 2 * PreconfConstants.SECONDS_IN_SLOT;
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + 2 * LibPreconfConstants.SECONDS_IN_SLOT;
         vm.warp(currentSlotTimestamp);
 
         uint256 nextEpochStart =
-            PreconfConstants.MAINNET_BEACON_GENESIS + PreconfConstants.SECONDS_IN_EPOCH;
-        uint256 slot20Timestamp = nextEpochStart + (19 * PreconfConstants.SECONDS_IN_SLOT);
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_EPOCH;
+        uint256 slot20Timestamp = nextEpochStart + (19 * LibPreconfConstants.SECONDS_IN_SLOT);
 
         IPreconfTaskManager.LookaheadSetParam[] memory lookaheadSetParams =
             new IPreconfTaskManager.LookaheadSetParam[](2);
@@ -97,13 +97,13 @@ contract LookaheadPosting is LookaheadFixtures {
 
         // Arbitrary slot in current epoch
         uint256 currentSlotTimestamp =
-            PreconfConstants.MAINNET_BEACON_GENESIS + 2 * PreconfConstants.SECONDS_IN_SLOT;
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + 2 * LibPreconfConstants.SECONDS_IN_SLOT;
         vm.warp(currentSlotTimestamp);
 
         uint256 nextEpochStart =
-            PreconfConstants.MAINNET_BEACON_GENESIS + PreconfConstants.SECONDS_IN_EPOCH;
-        uint256 slot14Timestamp = nextEpochStart + (13 * PreconfConstants.SECONDS_IN_SLOT);
-        uint256 slot31Timestamp = nextEpochStart + (30 * PreconfConstants.SECONDS_IN_SLOT);
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_EPOCH;
+        uint256 slot14Timestamp = nextEpochStart + (13 * LibPreconfConstants.SECONDS_IN_SLOT);
+        uint256 slot31Timestamp = nextEpochStart + (30 * LibPreconfConstants.SECONDS_IN_SLOT);
 
         IPreconfTaskManager.LookaheadSetParam[] memory lookaheadSetParams =
             new IPreconfTaskManager.LookaheadSetParam[](3);
@@ -151,13 +151,13 @@ contract LookaheadPosting is LookaheadFixtures {
 
         // Arbitrary slot in the current epoch
         uint256 currentSlotTimestamp =
-            PreconfConstants.MAINNET_BEACON_GENESIS + 2 * PreconfConstants.SECONDS_IN_SLOT;
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + 2 * LibPreconfConstants.SECONDS_IN_SLOT;
         vm.warp(currentSlotTimestamp);
 
         uint256 nextEpochStart =
-            PreconfConstants.MAINNET_BEACON_GENESIS + PreconfConstants.SECONDS_IN_EPOCH;
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_EPOCH;
         uint256 lastSlotTimestampInNextEpoch =
-            nextEpochStart + PreconfConstants.SECONDS_IN_EPOCH - PreconfConstants.SECONDS_IN_SLOT;
+            nextEpochStart + LibPreconfConstants.SECONDS_IN_EPOCH - LibPreconfConstants.SECONDS_IN_SLOT;
 
         // Create an empty lookahead set
         IPreconfTaskManager.LookaheadSetParam[] memory emptyLookaheadSetParams =
@@ -168,7 +168,7 @@ contract LookaheadPosting is LookaheadFixtures {
         // Push a required root to the mock beacon block root contract
         // This root as a source of randomness selects the preconfer with index 4
         beaconBlockRootContract.set(
-            PreconfConstants.MAINNET_BEACON_GENESIS + PreconfConstants.SECONDS_IN_SLOT, randomness
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_SLOT, randomness
         );
 
         // Address 2 pushes the empty lookahead
@@ -199,13 +199,13 @@ contract LookaheadPosting is LookaheadFixtures {
 
         // Arbitrary slot in the current epoch
         uint256 currentSlotTimestamp =
-            PreconfConstants.MAINNET_BEACON_GENESIS + 2 * PreconfConstants.SECONDS_IN_SLOT;
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + 2 * LibPreconfConstants.SECONDS_IN_SLOT;
         vm.warp(currentSlotTimestamp);
 
         uint256 nextEpochStart =
-            PreconfConstants.MAINNET_BEACON_GENESIS + PreconfConstants.SECONDS_IN_EPOCH;
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_EPOCH;
         uint256 lastSlotTimestampInNextEpoch =
-            nextEpochStart + PreconfConstants.SECONDS_IN_EPOCH - PreconfConstants.SECONDS_IN_SLOT;
+            nextEpochStart + LibPreconfConstants.SECONDS_IN_EPOCH - LibPreconfConstants.SECONDS_IN_SLOT;
 
         // Create an empty lookahead set
         IPreconfTaskManager.LookaheadSetParam[] memory emptyLookaheadSetParams =
@@ -216,7 +216,7 @@ contract LookaheadPosting is LookaheadFixtures {
         // Unlike Case 1, we push the root at a later timestamp to simulate "skipped blocks" and see
         // if the contract iterates forward and finds the required root
         beaconBlockRootContract.set(
-            PreconfConstants.MAINNET_BEACON_GENESIS + 3 * PreconfConstants.SECONDS_IN_SLOT,
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + 3 * LibPreconfConstants.SECONDS_IN_SLOT,
             randomness
         );
 
@@ -262,17 +262,17 @@ contract LookaheadPosting is LookaheadFixtures {
 
         // Arbitrary slot in the current epoch
         uint256 currentSlotTimestamp =
-            PreconfConstants.MAINNET_BEACON_GENESIS + 2 * PreconfConstants.SECONDS_IN_SLOT;
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + 2 * LibPreconfConstants.SECONDS_IN_SLOT;
         vm.warp(currentSlotTimestamp);
 
         uint256 nextEpochStart =
-            PreconfConstants.MAINNET_BEACON_GENESIS + PreconfConstants.SECONDS_IN_EPOCH;
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_EPOCH;
 
         // Create a lookahead set with an unregistered preconfer (addr_6)
         IPreconfTaskManager.LookaheadSetParam[] memory lookaheadSetParams =
             new IPreconfTaskManager.LookaheadSetParam[](1);
         lookaheadSetParams[0] = IPreconfTaskManager.LookaheadSetParam({
-            timestamp: nextEpochStart + PreconfConstants.SECONDS_IN_SLOT,
+            timestamp: nextEpochStart + LibPreconfConstants.SECONDS_IN_SLOT,
             preconfer: addr_6 // addr_6 is not registered
          });
 
@@ -288,17 +288,17 @@ contract LookaheadPosting is LookaheadFixtures {
 
         // Arbitrary slot in the current epoch
         uint256 currentSlotTimestamp =
-            PreconfConstants.MAINNET_BEACON_GENESIS + 2 * PreconfConstants.SECONDS_IN_SLOT;
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + 2 * LibPreconfConstants.SECONDS_IN_SLOT;
         vm.warp(currentSlotTimestamp);
 
         uint256 nextEpochStart =
-            PreconfConstants.MAINNET_BEACON_GENESIS + PreconfConstants.SECONDS_IN_EPOCH;
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_EPOCH;
 
         // Create a valid lookahead set
         IPreconfTaskManager.LookaheadSetParam[] memory lookaheadSetParams =
             new IPreconfTaskManager.LookaheadSetParam[](1);
         lookaheadSetParams[0] = IPreconfTaskManager.LookaheadSetParam({
-            timestamp: nextEpochStart + PreconfConstants.SECONDS_IN_SLOT,
+            timestamp: nextEpochStart + LibPreconfConstants.SECONDS_IN_SLOT,
             preconfer: addr_1
         });
 
@@ -320,11 +320,11 @@ contract LookaheadPosting is LookaheadFixtures {
         addPreconfersToRegistry(1);
 
         uint256 currentSlotTimestamp =
-            PreconfConstants.MAINNET_BEACON_GENESIS + 2 * PreconfConstants.SECONDS_IN_SLOT;
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + 2 * LibPreconfConstants.SECONDS_IN_SLOT;
         vm.warp(currentSlotTimestamp);
 
         uint256 nextEpochStart =
-            PreconfConstants.MAINNET_BEACON_GENESIS + PreconfConstants.SECONDS_IN_EPOCH;
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_EPOCH;
 
         // Create a lookahead set with an invalid timestamp (not a multiple of 12 seconds from epoch
         // start)
@@ -345,17 +345,17 @@ contract LookaheadPosting is LookaheadFixtures {
         addPreconfersToRegistry(1);
 
         uint256 currentSlotTimestamp =
-            PreconfConstants.MAINNET_BEACON_GENESIS + 2 * PreconfConstants.SECONDS_IN_SLOT;
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + 2 * LibPreconfConstants.SECONDS_IN_SLOT;
         vm.warp(currentSlotTimestamp);
 
         uint256 nextEpochStart =
-            PreconfConstants.MAINNET_BEACON_GENESIS + PreconfConstants.SECONDS_IN_EPOCH;
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_EPOCH;
 
         // Create a lookahead set with a timestamp that exceeds the epoch end
         IPreconfTaskManager.LookaheadSetParam[] memory lookaheadSetParams =
             new IPreconfTaskManager.LookaheadSetParam[](1);
         lookaheadSetParams[0] = IPreconfTaskManager.LookaheadSetParam({
-            timestamp: nextEpochStart + PreconfConstants.SECONDS_IN_EPOCH, // Exactly one epoch
+            timestamp: nextEpochStart + LibPreconfConstants.SECONDS_IN_EPOCH, // Exactly one epoch
                 // later, which is the start of the next epoch
             preconfer: addr_1
         });
@@ -372,21 +372,21 @@ contract LookaheadPosting is LookaheadFixtures {
         addPreconfersToRegistry(2);
 
         uint256 currentSlotTimestamp =
-            PreconfConstants.MAINNET_BEACON_GENESIS + 2 * PreconfConstants.SECONDS_IN_SLOT;
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + 2 * LibPreconfConstants.SECONDS_IN_SLOT;
         vm.warp(currentSlotTimestamp);
 
         uint256 nextEpochStart =
-            PreconfConstants.MAINNET_BEACON_GENESIS + PreconfConstants.SECONDS_IN_EPOCH;
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_EPOCH;
 
         // Create a lookahead set with timestamps in the wrong order
         IPreconfTaskManager.LookaheadSetParam[] memory lookaheadSetParams =
             new IPreconfTaskManager.LookaheadSetParam[](2);
         lookaheadSetParams[0] = IPreconfTaskManager.LookaheadSetParam({
-            timestamp: nextEpochStart + 2 * PreconfConstants.SECONDS_IN_SLOT,
+            timestamp: nextEpochStart + 2 * LibPreconfConstants.SECONDS_IN_SLOT,
             preconfer: addr_1
         });
         lookaheadSetParams[1] = IPreconfTaskManager.LookaheadSetParam({
-            timestamp: nextEpochStart + PreconfConstants.SECONDS_IN_SLOT, // Earlier than the
+            timestamp: nextEpochStart + LibPreconfConstants.SECONDS_IN_SLOT, // Earlier than the
                 // previous timestamp
             preconfer: addr_2
         });
@@ -401,21 +401,21 @@ contract LookaheadPosting is LookaheadFixtures {
         addPreconfersToRegistry(2);
 
         uint256 currentSlotTimestamp =
-            PreconfConstants.MAINNET_BEACON_GENESIS + 2 * PreconfConstants.SECONDS_IN_SLOT;
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + 2 * LibPreconfConstants.SECONDS_IN_SLOT;
         vm.warp(currentSlotTimestamp);
 
         uint256 nextEpochStart =
-            PreconfConstants.MAINNET_BEACON_GENESIS + PreconfConstants.SECONDS_IN_EPOCH;
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_EPOCH;
 
         // Create a valid lookahead set
         IPreconfTaskManager.LookaheadSetParam[] memory lookaheadSetParams =
             new IPreconfTaskManager.LookaheadSetParam[](2);
         lookaheadSetParams[0] = IPreconfTaskManager.LookaheadSetParam({
-            timestamp: nextEpochStart + PreconfConstants.SECONDS_IN_SLOT,
+            timestamp: nextEpochStart + LibPreconfConstants.SECONDS_IN_SLOT,
             preconfer: addr_1
         });
         lookaheadSetParams[1] = IPreconfTaskManager.LookaheadSetParam({
-            timestamp: nextEpochStart + 2 * PreconfConstants.SECONDS_IN_SLOT,
+            timestamp: nextEpochStart + 2 * LibPreconfConstants.SECONDS_IN_SLOT,
             preconfer: addr_2
         });
 

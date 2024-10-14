@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "../fixtures/BlocksFixtures.sol";
 
-import "src/layer1/preconf/impl/PreconfConstants.sol";
+import "src/layer1/preconf/impl/LibPreconfConstants.sol";
 import "src/layer1/preconf/iface/IPreconfTaskManager.sol";
 
 contract BlockProposing is BlocksFixtures {
@@ -16,9 +16,9 @@ contract BlockProposing is BlocksFixtures {
         prepareLookahead(13, 23);
 
         uint256 currentEpochStart =
-            PreconfConstants.MAINNET_BEACON_GENESIS + PreconfConstants.SECONDS_IN_EPOCH;
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_EPOCH;
         // Warp to an arbitrary timestamp before the preconfer's slot
-        uint256 currentSlotTimestamp = currentEpochStart + (10 * PreconfConstants.SECONDS_IN_SLOT);
+        uint256 currentSlotTimestamp = currentEpochStart + (10 * LibPreconfConstants.SECONDS_IN_SLOT);
         vm.warp(currentSlotTimestamp);
 
         // Arbitrary lookahead for the next epoch just to avoid fallback selection in this test
@@ -26,7 +26,7 @@ contract BlockProposing is BlocksFixtures {
             new IPreconfTaskManager.LookaheadSetParam[](1);
         lookaheadSetParams[0] = IPreconfTaskManager.LookaheadSetParam({
             preconfer: addr_2,
-            timestamp: currentEpochStart + PreconfConstants.SECONDS_IN_EPOCH
+            timestamp: currentEpochStart + LibPreconfConstants.SECONDS_IN_EPOCH
         });
 
         // Address 1 proposes the block
@@ -39,9 +39,9 @@ contract BlockProposing is BlocksFixtures {
         prepareLookahead(13, 23);
 
         uint256 currentEpochStart =
-            PreconfConstants.MAINNET_BEACON_GENESIS + PreconfConstants.SECONDS_IN_EPOCH;
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_EPOCH;
         // Warp to an arbitrary timestamp after Address 1's slot but before Address 3's slot
-        uint256 currentSlotTimestamp = currentEpochStart + (15 * PreconfConstants.SECONDS_IN_SLOT);
+        uint256 currentSlotTimestamp = currentEpochStart + (15 * LibPreconfConstants.SECONDS_IN_SLOT);
         vm.warp(currentSlotTimestamp);
 
         // Arbitrary lookahead for the next epoch just to avoid fallback selection in this test
@@ -49,7 +49,7 @@ contract BlockProposing is BlocksFixtures {
             new IPreconfTaskManager.LookaheadSetParam[](1);
         lookaheadSetParams[0] = IPreconfTaskManager.LookaheadSetParam({
             preconfer: addr_2,
-            timestamp: currentEpochStart + PreconfConstants.SECONDS_IN_EPOCH
+            timestamp: currentEpochStart + LibPreconfConstants.SECONDS_IN_EPOCH
         });
 
         // Address 3 proposes the block in advance
@@ -62,9 +62,9 @@ contract BlockProposing is BlocksFixtures {
         prepareLookahead(13, 23);
 
         uint256 currentEpochStart =
-            PreconfConstants.MAINNET_BEACON_GENESIS + PreconfConstants.SECONDS_IN_EPOCH;
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_EPOCH;
         // Warp to the exact timestamp of the preconfer's dedicated slot
-        uint256 currentSlotTimestamp = currentEpochStart + (12 * PreconfConstants.SECONDS_IN_SLOT);
+        uint256 currentSlotTimestamp = currentEpochStart + (12 * LibPreconfConstants.SECONDS_IN_SLOT);
         vm.warp(currentSlotTimestamp);
 
         // Arbitrary lookahead for the next epoch just to avoid fallback selection in this test
@@ -72,7 +72,7 @@ contract BlockProposing is BlocksFixtures {
             new IPreconfTaskManager.LookaheadSetParam[](1);
         lookaheadSetParams[0] = IPreconfTaskManager.LookaheadSetParam({
             preconfer: addr_2,
-            timestamp: currentEpochStart + PreconfConstants.SECONDS_IN_EPOCH
+            timestamp: currentEpochStart + LibPreconfConstants.SECONDS_IN_EPOCH
         });
 
         // Address 1 proposes the block at its dedicated slot
@@ -85,10 +85,10 @@ contract BlockProposing is BlocksFixtures {
         prepareLookahead(13, 23);
 
         uint256 currentEpochStart =
-            PreconfConstants.MAINNET_BEACON_GENESIS + PreconfConstants.SECONDS_IN_EPOCH;
-        uint256 nextEpochStart = currentEpochStart + PreconfConstants.SECONDS_IN_EPOCH;
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_EPOCH;
+        uint256 nextEpochStart = currentEpochStart + LibPreconfConstants.SECONDS_IN_EPOCH;
 
-        uint256 currentSlotTimestamp = currentEpochStart + (9 * PreconfConstants.SECONDS_IN_SLOT);
+        uint256 currentSlotTimestamp = currentEpochStart + (9 * LibPreconfConstants.SECONDS_IN_SLOT);
         // Warp to a slot where address 1 can propose a block
         vm.warp(currentSlotTimestamp);
 
@@ -97,12 +97,12 @@ contract BlockProposing is BlocksFixtures {
             new IPreconfTaskManager.LookaheadSetParam[](2);
         // Slot 10
         lookaheadSetParams[0] = IPreconfTaskManager.LookaheadSetParam({
-            timestamp: nextEpochStart + (9 * PreconfConstants.SECONDS_IN_SLOT),
+            timestamp: nextEpochStart + (9 * LibPreconfConstants.SECONDS_IN_SLOT),
             preconfer: addr_1
         });
         // Slot 20
         lookaheadSetParams[1] = IPreconfTaskManager.LookaheadSetParam({
-            timestamp: nextEpochStart + (19 * PreconfConstants.SECONDS_IN_SLOT),
+            timestamp: nextEpochStart + (19 * LibPreconfConstants.SECONDS_IN_SLOT),
             preconfer: addr_2
         });
 
@@ -117,22 +117,22 @@ contract BlockProposing is BlocksFixtures {
         // Check the first entry
         assertEq(lookaheadBuffer[3].preconfer, addr_1);
         assertEq(
-            lookaheadBuffer[3].timestamp, nextEpochStart + (9 * PreconfConstants.SECONDS_IN_SLOT)
+            lookaheadBuffer[3].timestamp, nextEpochStart + (9 * LibPreconfConstants.SECONDS_IN_SLOT)
         );
         assertEq(
             lookaheadBuffer[3].prevTimestamp,
-            currentEpochStart + (22 * PreconfConstants.SECONDS_IN_SLOT)
+            currentEpochStart + (22 * LibPreconfConstants.SECONDS_IN_SLOT)
         );
         assertEq(lookaheadBuffer[3].isFallback, false);
 
         // Check the second entry
         assertEq(lookaheadBuffer[4].preconfer, addr_2);
         assertEq(
-            lookaheadBuffer[4].timestamp, nextEpochStart + (19 * PreconfConstants.SECONDS_IN_SLOT)
+            lookaheadBuffer[4].timestamp, nextEpochStart + (19 * LibPreconfConstants.SECONDS_IN_SLOT)
         );
         assertEq(
             lookaheadBuffer[4].prevTimestamp,
-            nextEpochStart + (9 * PreconfConstants.SECONDS_IN_SLOT)
+            nextEpochStart + (9 * LibPreconfConstants.SECONDS_IN_SLOT)
         );
         assertEq(lookaheadBuffer[4].isFallback, false);
 
@@ -147,11 +147,11 @@ contract BlockProposing is BlocksFixtures {
         prepareLookahead(13, 23);
 
         uint256 currentEpochStart =
-            PreconfConstants.MAINNET_BEACON_GENESIS + PreconfConstants.SECONDS_IN_EPOCH;
-        uint256 dedicatedSlotTimestamp = currentEpochStart + (12 * PreconfConstants.SECONDS_IN_SLOT);
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_EPOCH;
+        uint256 dedicatedSlotTimestamp = currentEpochStart + (12 * LibPreconfConstants.SECONDS_IN_SLOT);
 
         // Warp to a timestamp after the dedicated slot
-        vm.warp(dedicatedSlotTimestamp + PreconfConstants.SECONDS_IN_SLOT);
+        vm.warp(dedicatedSlotTimestamp + LibPreconfConstants.SECONDS_IN_SLOT);
 
         vm.prank(addr_1);
         vm.expectRevert(IPreconfTaskManager.InvalidLookaheadPointer.selector);
@@ -164,11 +164,11 @@ contract BlockProposing is BlocksFixtures {
         prepareLookahead(13, 23);
 
         uint256 currentEpochStart =
-            PreconfConstants.MAINNET_BEACON_GENESIS + PreconfConstants.SECONDS_IN_EPOCH;
-        uint256 prevSlotTimestamp = currentEpochStart + (12 * PreconfConstants.SECONDS_IN_SLOT);
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_EPOCH;
+        uint256 prevSlotTimestamp = currentEpochStart + (12 * LibPreconfConstants.SECONDS_IN_SLOT);
 
         // Warp to a timestamp before the previous slot
-        vm.warp(prevSlotTimestamp - PreconfConstants.SECONDS_IN_SLOT);
+        vm.warp(prevSlotTimestamp - LibPreconfConstants.SECONDS_IN_SLOT);
 
         vm.prank(addr_3);
         vm.expectRevert(IPreconfTaskManager.InvalidLookaheadPointer.selector);
@@ -181,8 +181,8 @@ contract BlockProposing is BlocksFixtures {
         prepareLookahead(13, 23);
 
         uint256 currentEpochStart =
-            PreconfConstants.MAINNET_BEACON_GENESIS + PreconfConstants.SECONDS_IN_EPOCH;
-        uint256 prevSlotTimestamp = currentEpochStart + (12 * PreconfConstants.SECONDS_IN_SLOT);
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_EPOCH;
+        uint256 prevSlotTimestamp = currentEpochStart + (12 * LibPreconfConstants.SECONDS_IN_SLOT);
 
         // Warp to the exact timestamp of the previous slot
         vm.warp(prevSlotTimestamp);
@@ -198,8 +198,8 @@ contract BlockProposing is BlocksFixtures {
         prepareLookahead(13, 23);
 
         uint256 currentEpochStart =
-            PreconfConstants.MAINNET_BEACON_GENESIS + PreconfConstants.SECONDS_IN_EPOCH;
-        uint256 currentSlotTimestamp = currentEpochStart + (15 * PreconfConstants.SECONDS_IN_SLOT);
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_EPOCH;
+        uint256 currentSlotTimestamp = currentEpochStart + (15 * LibPreconfConstants.SECONDS_IN_SLOT);
 
         // Warp to a slot when Address 3 is the expected preconfer
         vm.warp(currentSlotTimestamp);

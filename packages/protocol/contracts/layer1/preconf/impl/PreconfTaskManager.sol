@@ -9,10 +9,10 @@ import "../iface/IPreconfTaskManager.sol";
 import "../iface/IPreconfServiceManager.sol";
 import "../iface/IPreconfRegistry.sol";
 import "../libs/LibEIP4788.sol";
-import "./PreconfConstants.sol";
+import "./LibPreconfConstants.sol";
 
 contract PreconfTaskManager is IPreconfTaskManager, Initializable {
-    // Cannot be kept in `PreconfConstants` file because solidity expects array sizes
+    // Cannot be kept in `LibPreconfConstants` file because solidity expects array sizes
     // to be stored in the main contract file itself.
     uint256 internal constant SLOTS_IN_EPOCH = 32;
 
@@ -34,7 +34,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
     // If the lookahead poster has been slashed or the lookahead is not yet posted, the poster is
     // the 0-address
     // Stores posters for 16 latest epochs
-    uint256 internal constant LOOKAHEAD_POSTER_BUFFER_SIZE = PreconfConstants.SECONDS_IN_EPOCH * 16;
+    uint256 internal constant LOOKAHEAD_POSTER_BUFFER_SIZE = LibPreconfConstants.SECONDS_IN_EPOCH * 16;
     mapping(uint256 epochTimestamp_mod_LOOKAHEAD_POSTER_BUFFER_SIZE => PosterInfo posterInfo)
         internal lookaheadPosters;
 
@@ -105,7 +105,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
             revert SenderIsNotThePreconfer();
         }
 
-        uint256 nextEpochTimestamp = epochTimestamp + PreconfConstants.SECONDS_IN_EPOCH;
+        uint256 nextEpochTimestamp = epochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH;
 
         // Update the lookahead for the next epoch.
         // Only called during the first block proposal of the current epoch.
@@ -116,7 +116,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         // Block the preconfer from withdrawing stake from the restaking service during the dispute
         // window
         preconfServiceManager.lockStakeUntil(
-            msg.sender, block.timestamp + PreconfConstants.DISPUTE_PERIOD
+            msg.sender, block.timestamp + LibPreconfConstants.DISPUTE_PERIOD
         );
 
         // Forward the block to Taiko's L1 contract
@@ -153,7 +153,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         }
 
         // Must not have missed dispute period
-        if (block.timestamp - slotTimestamp > PreconfConstants.DISPUTE_PERIOD) {
+        if (block.timestamp - slotTimestamp > LibPreconfConstants.DISPUTE_PERIOD) {
             revert MissedDisputeWindow();
         }
 
@@ -208,14 +208,14 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
             revert LookaheadEntryIsCorrect();
         }
 
-        uint256 epochEndTimestamp = epochTimestamp + PreconfConstants.SECONDS_IN_EPOCH;
+        uint256 epochEndTimestamp = epochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH;
 
         // If it is the current epoch's lookahead being proved incorrect then insert a fallback
         // preconfer
         if (block.timestamp < epochEndTimestamp) {
             uint256 _lookaheadTail = lookaheadTail;
 
-            uint256 lastSlotTimestamp = epochEndTimestamp - PreconfConstants.SECONDS_IN_SLOT;
+            uint256 lastSlotTimestamp = epochEndTimestamp - LibPreconfConstants.SECONDS_IN_SLOT;
 
             // If the lookahead for next epoch is available
             if (_getLookaheadEntry(_lookaheadTail).timestamp >= epochEndTimestamp) {
@@ -237,7 +237,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
                 LookaheadBufferEntry({
                     isFallback: true,
                     timestamp: uint40(lastSlotTimestamp),
-                    prevTimestamp: uint40(epochTimestamp - PreconfConstants.SECONDS_IN_SLOT),
+                    prevTimestamp: uint40(epochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT),
                     preconfer: getFallbackPreconfer(epochTimestamp)
                 })
             );
@@ -282,7 +282,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
 
         // Lookahead must be missing
         uint256 epochTimestamp = _getEpochTimestamp(block.timestamp);
-        uint256 nextEpochTimestamp = epochTimestamp + PreconfConstants.SECONDS_IN_EPOCH;
+        uint256 nextEpochTimestamp = epochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH;
         if (!_isLookaheadRequired(epochTimestamp, nextEpochTimestamp)) {
             revert LookaheadIsNotRequired();
         }
@@ -292,7 +292,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
 
         // Block the preconfer from withdrawing stake from Eigenlayer during the dispute window
         preconfServiceManager.lockStakeUntil(
-            msg.sender, block.timestamp + PreconfConstants.DISPUTE_PERIOD
+            msg.sender, block.timestamp + LibPreconfConstants.DISPUTE_PERIOD
         );
     }
 
@@ -307,7 +307,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
     )
         private
     {
-        uint256 epochEndTimestamp = epochTimestamp + PreconfConstants.SECONDS_IN_EPOCH;
+        uint256 epochEndTimestamp = epochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH;
 
         // The tail of the lookahead is tracked and connected to the first new lookahead entry so
         // that when no more preconfers are present in the remaining slots of the current epoch,
@@ -334,7 +334,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
                 _lookaheadTail,
                 LookaheadBufferEntry({
                     isFallback: true,
-                    timestamp: uint40(epochEndTimestamp - PreconfConstants.SECONDS_IN_SLOT),
+                    timestamp: uint40(epochEndTimestamp - LibPreconfConstants.SECONDS_IN_SLOT),
                     prevTimestamp: uint40(prevSlotTimestamp),
                     preconfer: fallbackPreconfer
                 })
@@ -390,8 +390,8 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
     function _getEpochTimestamp(uint256 slotTimestamp) private view returns (uint256) {
         uint256 timePassedSinceGenesis = slotTimestamp - beaconGenesis;
         uint256 timeToCurrentEpochFromGenesis = (
-            timePassedSinceGenesis / PreconfConstants.SECONDS_IN_EPOCH
-        ) * PreconfConstants.SECONDS_IN_EPOCH;
+            timePassedSinceGenesis / LibPreconfConstants.SECONDS_IN_EPOCH
+        ) * LibPreconfConstants.SECONDS_IN_EPOCH;
         return beaconGenesis + timeToCurrentEpochFromGenesis;
     }
 
@@ -404,7 +404,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         // we query the root at block N + 1. If N + 1 is a missed slot, we keep querying until we
         // find a block N + x
         // that has the block root for Nth block.
-        uint256 targetTimestamp = timestamp + PreconfConstants.SECONDS_IN_SLOT;
+        uint256 targetTimestamp = timestamp + LibPreconfConstants.SECONDS_IN_SLOT;
         while (true) {
             (bool success, bytes memory result) =
                 beaconBlockRootContract.staticcall(abi.encode(targetTimestamp));
@@ -413,7 +413,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
             }
 
             unchecked {
-                targetTimestamp += PreconfConstants.SECONDS_IN_SLOT;
+                targetTimestamp += LibPreconfConstants.SECONDS_IN_SLOT;
             }
         }
         return bytes32(0);
@@ -461,7 +461,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
     function _validateEpochTimestamp(uint256 epochTimestamp) internal view {
         if (
             epochTimestamp < beaconGenesis
-                || (epochTimestamp - beaconGenesis) % PreconfConstants.SECONDS_IN_EPOCH != 0
+                || (epochTimestamp - beaconGenesis) % LibPreconfConstants.SECONDS_IN_EPOCH != 0
         ) {
             revert InvalidEpochTimestamp();
         }
@@ -484,7 +484,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         }
 
         // Start of the last epoch
-        uint256 lastEpochTimestamp = epochTimestamp - PreconfConstants.SECONDS_IN_EPOCH;
+        uint256 lastEpochTimestamp = epochTimestamp - LibPreconfConstants.SECONDS_IN_EPOCH;
         uint256 randomness = uint256(_getBeaconBlockRoot(lastEpochTimestamp));
         uint256 preconferIndex = randomness % (nextPreconferIndex - 1) + 1;
 
@@ -513,7 +513,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
 
         uint256 _lookaheadTail = lookaheadTail;
         uint256 lastSlotTimestamp =
-            epochTimestamp + PreconfConstants.SECONDS_IN_EPOCH - PreconfConstants.SECONDS_IN_SLOT;
+            epochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH - LibPreconfConstants.SECONDS_IN_SLOT;
 
         // Take the tail to the entry that fills the last slot of the epoch.
         // This may be an entry in the next epoch who starts preconfing in advanced.
@@ -530,7 +530,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
                 lookaheadForEpoch[i - 1] = _entry.preconfer;
             }
 
-            lastSlotTimestamp -= PreconfConstants.SECONDS_IN_SLOT;
+            lastSlotTimestamp -= LibPreconfConstants.SECONDS_IN_SLOT;
             if (lastSlotTimestamp == _entry.prevTimestamp) {
                 _lookaheadTail -= 1;
                 // Reuse the memory space of _entry
@@ -567,7 +567,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         LookaheadSetParam[32] memory lookaheadSetParamsTemp;
 
         for (uint256 i = 0; i < 32; ++i) {
-            uint256 slotTimestamp = epochTimestamp + (i * PreconfConstants.SECONDS_IN_SLOT);
+            uint256 slotTimestamp = epochTimestamp + (i * LibPreconfConstants.SECONDS_IN_SLOT);
 
             // Fetch the validator object from the registry
             IPreconfRegistry.Validator memory validator =
@@ -602,7 +602,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
     /// @dev Returns true if the contract is expecting a lookahead for the next epoch
     function isLookaheadRequired() external view returns (bool) {
         uint256 epochTimestamp = _getEpochTimestamp(block.timestamp);
-        uint256 nextEpochTimestamp = epochTimestamp + PreconfConstants.SECONDS_IN_EPOCH;
+        uint256 nextEpochTimestamp = epochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH;
         return _isLookaheadRequired(epochTimestamp, nextEpochTimestamp);
     }
 
