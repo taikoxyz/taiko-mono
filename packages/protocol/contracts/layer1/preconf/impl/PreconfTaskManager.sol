@@ -16,8 +16,14 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
     // to be stored in the main contract file itself.
     uint256 internal constant SLOTS_IN_EPOCH = 32;
     uint256 internal constant LOOKAHEAD_BUFFER_SIZE = 128;
-    uint256 internal constant POSTER_BUFFER_SIZE =
-        LibPreconfConstants.SECONDS_IN_EPOCH * 16;
+    uint256 internal constant POSTER_BUFFER_SIZE = LibPreconfConstants.SECONDS_IN_EPOCH * 16;
+
+    struct Poster {
+        // Address of lookahead poster
+        address addr;
+        // Start timestamp of the epoch for which the lookahead was posted
+        uint64 epochTimestamp;
+    }
 
     IPreconfServiceManager internal immutable preconfServiceManager;
     IPreconfRegistry internal immutable preconfRegistry;
@@ -29,13 +35,16 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
 
     // A ring buffer of upcoming preconfers (who are also the L1 validators)
     uint256 internal lookaheadTail;
-    mapping(uint256 lookaheadIndex => LookaheadBufferEntry lookaheadBufferEntry) internal lookahead;
+    mapping(
+        uint256 lookaheadIndex_mod_LOOKAHEAD_BUFFER_SIZE
+            => LookaheadBufferEntry lookaheadBufferEntry
+    ) internal lookahead;
 
     // A ring buffer that maps beginning timestamp of an epoch to the lookahead poster for that
     // epoch.
     // If the lookahead poster has been slashed or the lookahead is not yet posted, the poster is
     // the 0-address.
-    mapping(uint256 epochTimestamp_mod_POSTER_BUFFER_SIZE => Poster posterInfo) internal
+    mapping(uint256 epochTimestamp_mod_POSTER_BUFFER_SIZE => Poster poster) internal
         lookaheadPosters;
 
     uint256[47] private __gap; // = 50 - 3
@@ -138,8 +147,8 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
     function proveIncorrectLookahead(
         uint256 lookaheadPointer,
         uint256 slotTimestamp,
-        bytes memory validatorBLSPubKey,
-        LibEIP4788.InclusionProof memory validatorInclusionProof
+        bytes calldata validatorBLSPubKey,
+        LibEIP4788.InclusionProof calldata validatorInclusionProof
     )
         external
     {
@@ -260,7 +269,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         }
 
         // Slash the poster
-        lookaheadPosters[epochTimestamp % POSTER_BUFFER_SIZE].poster = address(0);
+        lookaheadPosters[epochTimestamp % POSTER_BUFFER_SIZE].addr = address(0);
         preconfServiceManager.slashOperator(poster);
 
         emit ProvedIncorrectLookahead(poster, slotTimestamp, msg.sender);
@@ -375,7 +384,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
 
         lookaheadTail = _lookaheadTail;
         lookaheadPosters[epochTimestamp % POSTER_BUFFER_SIZE] =
-            Poster({ poster: msg.sender, epochTimestamp: uint64(epochTimestamp) });
+            Poster({ addr: msg.sender, epochTimestamp: uint64(epochTimestamp) });
 
         // We directly use the lookahead set params even in the case of a fallback preconfer to
         // assist the nodes in identifying an incorrect lookahead. The contents of this event can be
@@ -644,7 +653,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
 
     function getLookaheadPoster(uint256 epochTimestamp) public view returns (address) {
         _validateEpochTimestamp(epochTimestamp);
-        Poster memory posterInfo = lookaheadPosters[epochTimestamp % POSTER_BUFFER_SIZE];
-        return posterInfo.epochTimestamp == epochTimestamp ? posterInfo.poster : address(0);
+        Poster memory poster = lookaheadPosters[epochTimestamp % POSTER_BUFFER_SIZE];
+        return poster.epochTimestamp == epochTimestamp ? poster.addr : address(0);
     }
 }

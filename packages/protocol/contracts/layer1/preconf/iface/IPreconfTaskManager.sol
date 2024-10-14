@@ -24,23 +24,6 @@ interface IPreconfTaskManager {
         address preconfer;
     }
 
-    struct LookaheadMetadata {
-        // True if the lookahead was proved to be incorrect
-        bool incorrect;
-        // The poster of the lookahead
-        address poster;
-        // Fallback preconfer selected for the epoch in which the lookahead was posted
-        // This is only set when the lookahead is proved to be incorrect
-        address fallbackPreconfer;
-    }
-
-    struct Poster {
-        // Address of lookahead poster
-        address poster;
-        // Start timestamp of the epoch for which the lookahead was posted
-        uint64 epochTimestamp;
-    }
-
     event LookaheadUpdated(LookaheadSetParam[]);
 
     event ProvedIncorrectLookahead(
@@ -86,13 +69,13 @@ interface IPreconfTaskManager {
     function proveIncorrectLookahead(
         uint256 lookaheadPointer,
         uint256 slotTimestamp,
-        bytes memory validatorBLSPubKey,
-        LibEIP4788.InclusionProof memory validatorInclusionProof
+        bytes calldata validatorBLSPubKey,
+        LibEIP4788.InclusionProof calldata validatorInclusionProof
     )
         external;
 
     /// @dev Forces the lookahead to be set for the next epoch if it is lagging behind
-    function forcePushLookahead(LookaheadSetParam[] memory lookaheadSetParams) external;
+    function forcePushLookahead(LookaheadSetParam[] calldata lookaheadSetParams) external;
 
     /// @dev Returns the fallback preconfer for the given epoch
     function getFallbackPreconfer(uint256 epochTimestamp) external view returns (address);
@@ -106,7 +89,7 @@ interface IPreconfTaskManager {
     /// @dev Return the parameters required for the lookahead to be set for the given epoch
     function getLookaheadParamsForEpoch(
         uint256 epochTimestamp,
-        bytes[32] memory validatorBLSPubKeys
+        bytes[32] calldata validatorBLSPubKeys
     )
         external
         view
