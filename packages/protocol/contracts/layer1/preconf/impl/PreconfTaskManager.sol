@@ -15,6 +15,9 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
     // Cannot be kept in `LibPreconfConstants` file because solidity expects array sizes
     // to be stored in the main contract file itself.
     uint256 internal constant SLOTS_IN_EPOCH = 32;
+    uint256 internal constant LOOKAHEAD_BUFFER_SIZE = SLOTS_IN_EPOCH * 16;
+    uint256 internal constant LOOKAHEAD_POSTER_BUFFER_SIZE =
+        LibPreconfConstants.SECONDS_IN_EPOCH * 16;
 
     IPreconfServiceManager internal immutable preconfServiceManager;
     IPreconfRegistry internal immutable preconfRegistry;
@@ -26,16 +29,13 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
 
     // A ring buffer of upcoming preconfers (who are also the L1 validators)
     uint256 internal lookaheadTail;
-    uint256 internal constant LOOKAHEAD_BUFFER_SIZE = 128;
     mapping(uint256 lookaheadIndex => LookaheadBufferEntry lookaheadBufferEntry) internal lookahead;
 
     // A ring buffer that maps beginning timestamp of an epoch to the lookahead poster for that
     // epoch
     // If the lookahead poster has been slashed or the lookahead is not yet posted, the poster is
     // the 0-address
-    // Stores posters for 16 latest epochs
-    uint256 internal constant LOOKAHEAD_POSTER_BUFFER_SIZE =
-        LibPreconfConstants.SECONDS_IN_EPOCH * 16;
+
     mapping(uint256 epochTimestamp_mod_LOOKAHEAD_POSTER_BUFFER_SIZE => PosterInfo posterInfo)
         internal lookaheadPosters;
 
