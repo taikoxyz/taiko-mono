@@ -34,7 +34,7 @@ interface IPreconfTaskManager {
         address fallbackPreconfer;
     }
 
-    struct PosterInfo {
+    struct Poster {
         // Address of lookahead poster
         address poster;
         // Start timestamp of the epoch for which the lookahead was posted

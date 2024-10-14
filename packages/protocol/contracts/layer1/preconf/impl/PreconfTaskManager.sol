@@ -15,8 +15,8 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
     // Cannot be kept in `LibPreconfConstants` file because solidity expects array sizes
     // to be stored in the main contract file itself.
     uint256 internal constant SLOTS_IN_EPOCH = 32;
-    uint256 internal constant LOOKAHEAD_BUFFER_SIZE = SLOTS_IN_EPOCH * 16;
-    uint256 internal constant LOOKAHEAD_POSTER_BUFFER_SIZE =
+    uint256 internal constant LOOKAHEAD_BUFFER_SIZE = 128;
+    uint256 internal constant POSTER_BUFFER_SIZE =
         LibPreconfConstants.SECONDS_IN_EPOCH * 16;
 
     IPreconfServiceManager internal immutable preconfServiceManager;
@@ -35,8 +35,8 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
     // epoch.
     // If the lookahead poster has been slashed or the lookahead is not yet posted, the poster is
     // the 0-address.
-    mapping(uint256 epochTimestamp_mod_LOOKAHEAD_POSTER_BUFFER_SIZE => PosterInfo posterInfo)
-        internal lookaheadPosters;
+    mapping(uint256 epochTimestamp_mod_POSTER_BUFFER_SIZE => Poster posterInfo) internal
+        lookaheadPosters;
 
     uint256[47] private __gap; // = 50 - 3
 
@@ -260,7 +260,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         }
 
         // Slash the poster
-        lookaheadPosters[epochTimestamp % LOOKAHEAD_POSTER_BUFFER_SIZE].poster = address(0);
+        lookaheadPosters[epochTimestamp % POSTER_BUFFER_SIZE].poster = address(0);
         preconfServiceManager.slashOperator(poster);
 
         emit ProvedIncorrectLookahead(poster, slotTimestamp, msg.sender);
@@ -374,8 +374,8 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         }
 
         lookaheadTail = _lookaheadTail;
-        lookaheadPosters[epochTimestamp % LOOKAHEAD_POSTER_BUFFER_SIZE] =
-            PosterInfo({ poster: msg.sender, epochTimestamp: uint64(epochTimestamp) });
+        lookaheadPosters[epochTimestamp % POSTER_BUFFER_SIZE] =
+            Poster({ poster: msg.sender, epochTimestamp: uint64(epochTimestamp) });
 
         // We directly use the lookahead set params even in the case of a fallback preconfer to
         // assist the nodes in identifying an incorrect lookahead. The contents of this event can be
@@ -644,8 +644,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
 
     function getLookaheadPoster(uint256 epochTimestamp) public view returns (address) {
         _validateEpochTimestamp(epochTimestamp);
-        PosterInfo memory posterInfo =
-            lookaheadPosters[epochTimestamp % LOOKAHEAD_POSTER_BUFFER_SIZE];
+        Poster memory posterInfo = lookaheadPosters[epochTimestamp % POSTER_BUFFER_SIZE];
         return posterInfo.epochTimestamp == epochTimestamp ? posterInfo.poster : address(0);
     }
 }
