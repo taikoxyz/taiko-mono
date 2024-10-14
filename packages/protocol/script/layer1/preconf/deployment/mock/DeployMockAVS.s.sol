@@ -56,7 +56,7 @@ contract DeployMockAVS is BaseScript {
         proxyAdmin.upgradeAndCall(
             ITransparentUpgradeableProxy(preconfRegistry),
             address(preconfRegistryImpl),
-            abi.encodeCall(MockPreconfRegistry.initialize, ())
+            abi.encodeCall(MockPreconfRegistry.init, ())
         );
         proxyAdmin.upgrade(
             ITransparentUpgradeableProxy(preconfServiceManager), address(preconfServiceManagerImpl)
@@ -64,7 +64,7 @@ contract DeployMockAVS is BaseScript {
         proxyAdmin.upgradeAndCall(
             ITransparentUpgradeableProxy(preconfTaskManager),
             address(preconfTaskManagerImpl),
-            abi.encodeCall(PreconfTaskManager.initialize, IERC20(taikoToken))
+            abi.encodeCall(PreconfTaskManager.init, IERC20(taikoToken))
         );
 
         console2.log("Proxy admin: ", address(proxyAdmin));

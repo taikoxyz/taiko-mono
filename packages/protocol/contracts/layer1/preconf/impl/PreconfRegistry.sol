@@ -33,7 +33,7 @@ contract PreconfRegistry is IPreconfRegistry, Initializable {
         preconfServiceManager = _preconfServiceManager;
     }
 
-    function initialize() external initializer {
+    function init() external initializer {
         nextPreconferIndex = 1;
     }
 
