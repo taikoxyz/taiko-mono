@@ -8,8 +8,8 @@ import "./iface/IAVSDirectory.sol";
 
 /// @dev This contract would serve as the address of the AVS w.r.t the restaking platform being
 /// used.
-/// Currently, this is based on a mock version of Eigenlayer that we have created solely for this
-/// POC. This contract may be modified depending on the interface of the restaking contracts.
+/// Currently, this is based on a mock version of Eigenlayer that we have created solely for a
+/// POC.
 contract PreconfServiceManager is IPreconfServiceManager, ReentrancyGuard {
     address internal immutable preconfRegistry;
     address internal immutable preconfTaskManager;
