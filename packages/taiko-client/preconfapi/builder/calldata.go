@@ -64,16 +64,16 @@ func (b *CalldataTransactionBuilder) BuildBlockUnsigned(
 		return nil, err
 	}
 
-	isLookaheadRequired, err := b.lookahead.IsLookaheadRequired()
-	if err != nil {
-		return nil, err
-	}
-	if isLookaheadRequired {
-		err := b.lookahead.ForcePushLookahead(ctx)
-		if err != nil {
-			return nil, err
-		}
-	}
+	// isLookaheadRequired, err := b.lookahead.IsLookaheadRequired()
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// if isLookaheadRequired {
+	// 	err := b.lookahead.ForcePushLookahead(ctx)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// }
 
 	lookaheadPointer, err := b.lookahead.GetLookaheadBuffer(common.HexToAddress(opts.PreconferAddress))
 	if err != nil {
@@ -150,17 +150,17 @@ func (b *CalldataTransactionBuilder) BuildBlocksUnsigned(
 		txLists = append(txLists, compressedTxListBytes)
 	}
 
-	isLookaheadRequired, err := b.lookahead.IsLookaheadRequired()
-	if err != nil {
-		return nil, err
-	}
+	// isLookaheadRequired, err := b.lookahead.IsLookaheadRequired()
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	if isLookaheadRequired {
-		err := b.lookahead.ForcePushLookahead(ctx)
-		if err != nil {
-			return nil, err
-		}
-	}
+	// if isLookaheadRequired {
+	// 	err := b.lookahead.ForcePushLookahead(ctx)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// }
 
 	lookaheadPointer, err := b.lookahead.GetLookaheadBuffer(common.HexToAddress(opts.PreconferAddress))
 	if err != nil {
