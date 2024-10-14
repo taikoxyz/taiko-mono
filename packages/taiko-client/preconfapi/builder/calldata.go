@@ -68,25 +68,26 @@ func (b *CalldataTransactionBuilder) BuildBlockUnsigned(
 	if err != nil {
 		return nil, err
 	}
-
-	lookaheadSetParams := make([]bindings.IPreconfTaskManagerLookaheadSetParam, 0)
-	var lookaheadPointer = uint64(0)
-
-	if !isLookaheadRequired {
-		lookaheadPointer, err = b.lookahead.GetLookaheadBuffer(common.HexToAddress(opts.PreconferAddress))
+	if isLookaheadRequired {
+		err := b.lookahead.ForcePushLookahead(ctx)
 		if err != nil {
 			return nil, err
 		}
-
-		lookaheadSetParam := bindings.IPreconfTaskManagerLookaheadSetParam{
-			Timestamp: big.NewInt(0),
-			Preconfer: common.HexToAddress(opts.PreconferAddress),
-		}
-
-		lookaheadSetParams = append(lookaheadSetParams, lookaheadSetParam)
-	} else {
-		lookaheadSetParams, err = b.lookahead.GetLookaheadSetParams(ctx)
 	}
+
+	lookaheadPointer, err := b.lookahead.GetLookaheadBuffer(common.HexToAddress(opts.PreconferAddress))
+	if err != nil {
+		return nil, err
+	}
+
+	lookaheadSetParams := make([]bindings.IPreconfTaskManagerLookaheadSetParam, 0)
+
+	lookaheadSetParam := bindings.IPreconfTaskManagerLookaheadSetParam{
+		Timestamp: big.NewInt(0),
+		Preconfer: common.HexToAddress(opts.PreconferAddress),
+	}
+
+	lookaheadSetParams = append(lookaheadSetParams, lookaheadSetParam)
 
 	data, err := encoding.PreconfTaskManagerABI.Pack(
 		"newBlockProposal",
@@ -154,24 +155,26 @@ func (b *CalldataTransactionBuilder) BuildBlocksUnsigned(
 		return nil, err
 	}
 
-	lookaheadSetParams := make([]bindings.IPreconfTaskManagerLookaheadSetParam, 0)
-	var lookaheadPointer = uint64(0)
-
-	if !isLookaheadRequired {
-		lookaheadPointer, err = b.lookahead.GetLookaheadBuffer(common.HexToAddress(opts.PreconferAddress))
+	if isLookaheadRequired {
+		err := b.lookahead.ForcePushLookahead(ctx)
 		if err != nil {
 			return nil, err
 		}
-
-		lookaheadSetParam := bindings.IPreconfTaskManagerLookaheadSetParam{
-			Timestamp: big.NewInt(0),
-			Preconfer: common.HexToAddress(opts.PreconferAddress),
-		}
-
-		lookaheadSetParams = append(lookaheadSetParams, lookaheadSetParam)
-	} else {
-		lookaheadSetParams, err = b.lookahead.GetLookaheadSetParams(ctx)
 	}
+
+	lookaheadPointer, err := b.lookahead.GetLookaheadBuffer(common.HexToAddress(opts.PreconferAddress))
+	if err != nil {
+		return nil, err
+	}
+
+	lookaheadSetParams := make([]bindings.IPreconfTaskManagerLookaheadSetParam, 0)
+
+	lookaheadSetParam := bindings.IPreconfTaskManagerLookaheadSetParam{
+		Timestamp: big.NewInt(0),
+		Preconfer: common.HexToAddress(opts.PreconferAddress),
+	}
+
+	lookaheadSetParams = append(lookaheadSetParams, lookaheadSetParam)
 
 	data, err := encoding.PreconfTaskManagerABI.Pack(
 		"newBlockProposal",

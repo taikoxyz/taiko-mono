@@ -2,6 +2,7 @@ package lookahead
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"math/big"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
@@ -23,6 +25,7 @@ type Lookahead struct {
 	genesisSlot               uint64
 	secondsPerSlot            uint64
 	slotsPerEpoch             uint64
+	privateKey                *ecdsa.PrivateKey
 }
 
 func NewLookahead(
@@ -33,6 +36,7 @@ func NewLookahead(
 	genesisSlot uint64,
 	secondsPerSlot uint64,
 	slotsPerEpoch uint64,
+	privateKey *ecdsa.PrivateKey,
 ) (*Lookahead, error) {
 	// Create an instance of the contract
 	preconfTaskManager, err := bindings.NewPreconfTaskManager(preconfTaskManagerAddress, ethClient)
@@ -49,9 +53,33 @@ func NewLookahead(
 		genesisSlot,
 		secondsPerSlot,
 		slotsPerEpoch,
+		privateKey,
 	}, nil
 }
 
+func (l *Lookahead) ForcePushLookahead(ctx context.Context) error {
+	auth, err := bind.NewKeyedTransactorWithChainID(l.privateKey, l.ethClient.ChainID)
+	if err != nil {
+		return err
+	}
+
+	// Set the context if needed
+	auth.Context = ctx
+
+	params, err := l.GetLookaheadSetParams(ctx)
+	if err != nil {
+		return err
+	}
+
+	tx, err := l.preconfTaskManager.ForcePushLookahead(auth, params)
+	if err != nil {
+		return err
+	}
+
+	_, err = l.waitReceipt(ctx, tx.Hash())
+
+	return err
+}
 func (l *Lookahead) GetLookaheadSetParams(ctx context.Context) ([]bindings.IPreconfTaskManagerLookaheadSetParam, error) {
 	nextEpoch, err := l.getNextEpoch()
 	if err != nil {
@@ -146,4 +174,27 @@ func (l *Lookahead) timeToSlot(timestamp uint64) (uint64, error) {
 		return 0, fmt.Errorf("provided timestamp (%v) precedes genesis time (%v)", timestamp, l.genesisTime)
 	}
 	return (timestamp - l.genesisTime) / l.secondsPerSlot, nil
+}
+
+func (l *Lookahead) waitReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-ticker.C:
+			receipt, err := l.ethClient.TransactionReceipt(ctx, txHash)
+			if err != nil {
+				continue
+			}
+
+			if receipt.Status != types.ReceiptStatusSuccessful {
+				return nil, fmt.Errorf("transaction reverted, hash: %s", txHash)
+			}
+
+			return receipt, nil
+		}
+	}
 }

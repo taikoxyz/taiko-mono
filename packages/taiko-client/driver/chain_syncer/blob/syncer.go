@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 
 	"github.com/ethereum/go-ethereum"
@@ -245,6 +246,7 @@ func (s *Syncer) onBlockProposed(
 		return fmt.Errorf("failed to fetch original TaikoL1.proposeBlock transaction: %w", err)
 	}
 
+	spew.Dump(meta)
 	// Decode transactions list.
 	var txListFetcher txlistFetcher.TxListFetcher
 	if meta.GetBlobUsed() || meta.GetBlobTxListLength() > 0 {

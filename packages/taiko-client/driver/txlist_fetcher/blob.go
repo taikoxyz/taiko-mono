@@ -54,8 +54,10 @@ func (d *BlobFetcher) Fetch(
 		)
 
 		commitment := kzg4844.Commitment(common.FromHex(sidecar.KzgCommitment))
-		// temp fix, TODO: delete
-		useFirstBlob := meta.GetBlockID().Uint64() == 1587 || meta.GetBlockID().Uint64() == 1588
+		// temp fix, TODO: delete. these are bad blocks from bad proposals due to my API errors.
+		// useFirstBlob := meta.GetBlockID().Uint64() == 1587 || meta.GetBlockID().Uint64() == 1588 || meta.GetBlockID().Uint64() == 1589
+		// TODO: delete this later, temp fix as well.
+		useFirstBlob := meta.GetBlobTxListLength() > 0
 		if kzg4844.CalcBlobHashV1(sha256.New(), &commitment) == meta.GetBlobHash() || useFirstBlob {
 			blob := eth.Blob(common.FromHex(sidecar.Blob))
 			bytes, err := blob.ToData()
