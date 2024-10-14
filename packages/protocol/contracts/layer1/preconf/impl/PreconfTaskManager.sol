@@ -34,7 +34,8 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
     // If the lookahead poster has been slashed or the lookahead is not yet posted, the poster is
     // the 0-address
     // Stores posters for 16 latest epochs
-    uint256 internal constant LOOKAHEAD_POSTER_BUFFER_SIZE = LibPreconfConstants.SECONDS_IN_EPOCH * 16;
+    uint256 internal constant LOOKAHEAD_POSTER_BUFFER_SIZE =
+        LibPreconfConstants.SECONDS_IN_EPOCH * 16;
     mapping(uint256 epochTimestamp_mod_LOOKAHEAD_POSTER_BUFFER_SIZE => PosterInfo posterInfo)
         internal lookaheadPosters;
 
@@ -512,8 +513,8 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         address[SLOTS_IN_EPOCH] memory lookaheadForEpoch;
 
         uint256 _lookaheadTail = lookaheadTail;
-        uint256 lastSlotTimestamp =
-            epochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH - LibPreconfConstants.SECONDS_IN_SLOT;
+        uint256 lastSlotTimestamp = epochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH
+            - LibPreconfConstants.SECONDS_IN_SLOT;
 
         // Take the tail to the entry that fills the last slot of the epoch.
         // This may be an entry in the next epoch who starts preconfing in advanced.

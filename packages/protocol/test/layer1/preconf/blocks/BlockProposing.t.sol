@@ -18,7 +18,8 @@ contract BlockProposing is BlocksFixtures {
         uint256 currentEpochStart =
             LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_EPOCH;
         // Warp to an arbitrary timestamp before the preconfer's slot
-        uint256 currentSlotTimestamp = currentEpochStart + (10 * LibPreconfConstants.SECONDS_IN_SLOT);
+        uint256 currentSlotTimestamp =
+            currentEpochStart + (10 * LibPreconfConstants.SECONDS_IN_SLOT);
         vm.warp(currentSlotTimestamp);
 
         // Arbitrary lookahead for the next epoch just to avoid fallback selection in this test
@@ -41,7 +42,8 @@ contract BlockProposing is BlocksFixtures {
         uint256 currentEpochStart =
             LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_EPOCH;
         // Warp to an arbitrary timestamp after Address 1's slot but before Address 3's slot
-        uint256 currentSlotTimestamp = currentEpochStart + (15 * LibPreconfConstants.SECONDS_IN_SLOT);
+        uint256 currentSlotTimestamp =
+            currentEpochStart + (15 * LibPreconfConstants.SECONDS_IN_SLOT);
         vm.warp(currentSlotTimestamp);
 
         // Arbitrary lookahead for the next epoch just to avoid fallback selection in this test
@@ -64,7 +66,8 @@ contract BlockProposing is BlocksFixtures {
         uint256 currentEpochStart =
             LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_EPOCH;
         // Warp to the exact timestamp of the preconfer's dedicated slot
-        uint256 currentSlotTimestamp = currentEpochStart + (12 * LibPreconfConstants.SECONDS_IN_SLOT);
+        uint256 currentSlotTimestamp =
+            currentEpochStart + (12 * LibPreconfConstants.SECONDS_IN_SLOT);
         vm.warp(currentSlotTimestamp);
 
         // Arbitrary lookahead for the next epoch just to avoid fallback selection in this test
@@ -128,7 +131,8 @@ contract BlockProposing is BlocksFixtures {
         // Check the second entry
         assertEq(lookaheadBuffer[4].preconfer, addr_2);
         assertEq(
-            lookaheadBuffer[4].timestamp, nextEpochStart + (19 * LibPreconfConstants.SECONDS_IN_SLOT)
+            lookaheadBuffer[4].timestamp,
+            nextEpochStart + (19 * LibPreconfConstants.SECONDS_IN_SLOT)
         );
         assertEq(
             lookaheadBuffer[4].prevTimestamp,
@@ -148,7 +152,8 @@ contract BlockProposing is BlocksFixtures {
 
         uint256 currentEpochStart =
             LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_EPOCH;
-        uint256 dedicatedSlotTimestamp = currentEpochStart + (12 * LibPreconfConstants.SECONDS_IN_SLOT);
+        uint256 dedicatedSlotTimestamp =
+            currentEpochStart + (12 * LibPreconfConstants.SECONDS_IN_SLOT);
 
         // Warp to a timestamp after the dedicated slot
         vm.warp(dedicatedSlotTimestamp + LibPreconfConstants.SECONDS_IN_SLOT);
@@ -199,7 +204,8 @@ contract BlockProposing is BlocksFixtures {
 
         uint256 currentEpochStart =
             LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_EPOCH;
-        uint256 currentSlotTimestamp = currentEpochStart + (15 * LibPreconfConstants.SECONDS_IN_SLOT);
+        uint256 currentSlotTimestamp =
+            currentEpochStart + (15 * LibPreconfConstants.SECONDS_IN_SLOT);
 
         // Warp to a slot when Address 3 is the expected preconfer
         vm.warp(currentSlotTimestamp);

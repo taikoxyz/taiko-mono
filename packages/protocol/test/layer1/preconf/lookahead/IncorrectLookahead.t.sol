@@ -311,7 +311,8 @@ contract IncorrectLookahead is LookaheadFixtures {
 
         // Set beacon block root such that addr_4 is randomly selected
         beaconBlockRootContract.set(
-            LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_SLOT, randomness
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_SLOT,
+            randomness
         );
 
         // Prove the lookahead to be incorrect
@@ -319,8 +320,8 @@ contract IncorrectLookahead is LookaheadFixtures {
             2, slot16Timestamp, beaconProposer, BeaconProofs.eip4788ValidatorInclusionProof()
         );
 
-        uint256 lastSlotTimestamp =
-            nextEpochStart + LibPreconfConstants.SECONDS_IN_EPOCH - LibPreconfConstants.SECONDS_IN_SLOT;
+        uint256 lastSlotTimestamp = nextEpochStart + LibPreconfConstants.SECONDS_IN_EPOCH
+            - LibPreconfConstants.SECONDS_IN_SLOT;
 
         // Verify that the lookahead has the fallback preconfer
         IPreconfTaskManager.LookaheadBufferEntry[128] memory lookaheadBuffer =
@@ -386,7 +387,8 @@ contract IncorrectLookahead is LookaheadFixtures {
 
         // Set beacon block root such that addr_4 is randomly selected
         beaconBlockRootContract.set(
-            LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_SLOT, randomness
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_SLOT,
+            randomness
         );
 
         // Prove the lookahead to be incorrect
@@ -394,8 +396,8 @@ contract IncorrectLookahead is LookaheadFixtures {
             2, slot16Timestamp, beaconProposer, BeaconProofs.eip4788ValidatorInclusionProof()
         );
 
-        uint256 lastSlotTimestamp =
-            nextEpochStart + LibPreconfConstants.SECONDS_IN_EPOCH - LibPreconfConstants.SECONDS_IN_SLOT;
+        uint256 lastSlotTimestamp = nextEpochStart + LibPreconfConstants.SECONDS_IN_EPOCH
+            - LibPreconfConstants.SECONDS_IN_SLOT;
 
         // Verify that the lookahead has the fallback preconfer
         IPreconfTaskManager.LookaheadBufferEntry[128] memory lookaheadBuffer =
@@ -456,7 +458,8 @@ contract IncorrectLookahead is LookaheadFixtures {
 
         // Wrap into the future when the dispute window is missed
         vm.warp(
-            slot16Timestamp + LibPreconfConstants.DISPUTE_PERIOD + LibPreconfConstants.SECONDS_IN_SLOT
+            slot16Timestamp + LibPreconfConstants.DISPUTE_PERIOD
+                + LibPreconfConstants.SECONDS_IN_SLOT
         );
 
         // Reverts when the dispute period is over

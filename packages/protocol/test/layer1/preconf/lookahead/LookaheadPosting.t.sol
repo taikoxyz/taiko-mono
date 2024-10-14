@@ -156,8 +156,8 @@ contract LookaheadPosting is LookaheadFixtures {
 
         uint256 nextEpochStart =
             LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_EPOCH;
-        uint256 lastSlotTimestampInNextEpoch =
-            nextEpochStart + LibPreconfConstants.SECONDS_IN_EPOCH - LibPreconfConstants.SECONDS_IN_SLOT;
+        uint256 lastSlotTimestampInNextEpoch = nextEpochStart + LibPreconfConstants.SECONDS_IN_EPOCH
+            - LibPreconfConstants.SECONDS_IN_SLOT;
 
         // Create an empty lookahead set
         IPreconfTaskManager.LookaheadSetParam[] memory emptyLookaheadSetParams =
@@ -168,7 +168,8 @@ contract LookaheadPosting is LookaheadFixtures {
         // Push a required root to the mock beacon block root contract
         // This root as a source of randomness selects the preconfer with index 4
         beaconBlockRootContract.set(
-            LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_SLOT, randomness
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_SLOT,
+            randomness
         );
 
         // Address 2 pushes the empty lookahead
@@ -204,8 +205,8 @@ contract LookaheadPosting is LookaheadFixtures {
 
         uint256 nextEpochStart =
             LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_EPOCH;
-        uint256 lastSlotTimestampInNextEpoch =
-            nextEpochStart + LibPreconfConstants.SECONDS_IN_EPOCH - LibPreconfConstants.SECONDS_IN_SLOT;
+        uint256 lastSlotTimestampInNextEpoch = nextEpochStart + LibPreconfConstants.SECONDS_IN_EPOCH
+            - LibPreconfConstants.SECONDS_IN_SLOT;
 
         // Create an empty lookahead set
         IPreconfTaskManager.LookaheadSetParam[] memory emptyLookaheadSetParams =

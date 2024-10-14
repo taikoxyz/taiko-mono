@@ -5,5 +5,4 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "../iface/IPreconfServiceManager.sol";
 
 /// @dev An implementation of IPreconfServiceManager on top of Eigenlayer restaking.
-abstract contract PreconfServiceManager is IPreconfServiceManager, ReentrancyGuard {
-}
+abstract contract PreconfServiceManager is IPreconfServiceManager, ReentrancyGuard { }
