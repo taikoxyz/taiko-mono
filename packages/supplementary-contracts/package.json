@@ -9,7 +9,9 @@
     "layout": "./deployments/gen-layouts.sh",
     "fmt:sol": "forge fmt",
     "lint:sol": "forge fmt && pnpm solhint 'contracts/**/*.sol'",
-    "test": "forge test -vvv --match-path test/*.t.sol"
+    "test": "forge test -vvv --match-path test/*.t.sol",
+    "deploy:blacklist:hekla": "forge script script/blacklist/Deploy.sol --rpc-url https://rpc.hekla.taiko.xyz --broadcast   --gas-estimate-multiplier 200",
+    "deploy:blacklist:mainnet": "forge script script/blacklist/Deploy.sol --rpc-url https://rpc.mainnet.taiko.xyz --broadcast   --gas-estimate-multiplier 100"
   },
   "devDependencies": {
     "@types/node": "^20.11.30",

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../../../shared/tokenvault/ERC1155Vault.sol";
+import "src/shared/tokenvault/ERC1155Vault.sol";
 import "../addrcache/SharedAddressCache.sol";
 import "../reentrylock/LibFasterReentryLock.sol";
 

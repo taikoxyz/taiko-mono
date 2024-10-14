@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20SnapshotUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
-import "../../shared/common/EssentialContract.sol";
+import "src/shared/common/EssentialContract.sol";
 
 /// @title HeklaTaikoToken
 /// @notice Taiko token for Taiko Hekla testnet.
