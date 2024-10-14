@@ -7,7 +7,7 @@ import "../mocks/MockPreconfServiceManager.sol";
 import "../mocks/MockBeaconBlockRoot.sol";
 import "test/layer1/based/MockTaikoL1.sol";
 
-import "src/layer1/preconf/impl/PreconfConstants.sol";
+import "src/layer1/preconf/impl/LibPreconfConstants.sol";
 import "src/layer1/preconf/impl/PreconfTaskManager.sol";
 import "src/layer1/preconf/iface/IPreconfRegistry.sol";
 import "src/layer1/preconf/iface/IPreconfServiceManager.sol";
@@ -30,7 +30,7 @@ contract BlocksFixtures is BaseTest {
             IPreconfServiceManager(address(preconfServiceManager)),
             IPreconfRegistry(address(preconfRegistry)),
             ITaikoL1(taikoL1),
-            PreconfConstants.MAINNET_BEACON_GENESIS,
+            LibPreconfConstants.MAINNET_BEACON_GENESIS,
             address(beaconBlockRootContract)
         );
     }
@@ -40,20 +40,20 @@ contract BlocksFixtures is BaseTest {
         addPreconfersToRegistry(3);
 
         uint256 nextEpochStart =
-            PreconfConstants.MAINNET_BEACON_GENESIS + PreconfConstants.SECONDS_IN_EPOCH;
+            LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_EPOCH;
 
         IPreconfTaskManager.LookaheadSetParam[] memory lookaheadSetParams =
             new IPreconfTaskManager.LookaheadSetParam[](2);
         lookaheadSetParams[0] = IPreconfTaskManager.LookaheadSetParam({
             preconfer: addr_1,
-            timestamp: nextEpochStart + PreconfConstants.SECONDS_IN_SLOT * (slot1 - 1)
+            timestamp: nextEpochStart + LibPreconfConstants.SECONDS_IN_SLOT * (slot1 - 1)
         });
         lookaheadSetParams[1] = IPreconfTaskManager.LookaheadSetParam({
             preconfer: addr_3,
-            timestamp: nextEpochStart + PreconfConstants.SECONDS_IN_SLOT * (slot2 - 1)
+            timestamp: nextEpochStart + LibPreconfConstants.SECONDS_IN_SLOT * (slot2 - 1)
         });
 
-        vm.warp(PreconfConstants.MAINNET_BEACON_GENESIS + PreconfConstants.SECONDS_IN_SLOT);
+        vm.warp(LibPreconfConstants.MAINNET_BEACON_GENESIS + LibPreconfConstants.SECONDS_IN_SLOT);
         vm.prank(addr_1);
         preconfTaskManager.forcePushLookahead(lookaheadSetParams);
     }

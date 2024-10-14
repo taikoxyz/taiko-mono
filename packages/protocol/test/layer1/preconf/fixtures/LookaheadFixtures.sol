@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "test/layer1/based/MockTaikoL1.sol";
-import "src/layer1/preconf/impl/PreconfConstants.sol";
+import "src/layer1/preconf/impl/LibPreconfConstants.sol";
 import "src/layer1/preconf/impl/PreconfTaskManager.sol";
 import "src/layer1/preconf/iface/IPreconfRegistry.sol";
 import "src/layer1/preconf/iface/IPreconfServiceManager.sol";
@@ -29,7 +29,7 @@ contract LookaheadFixtures is BaseTest {
             IPreconfServiceManager(address(preconfServiceManager)),
             IPreconfRegistry(address(preconfRegistry)),
             ITaikoL1(taikoL1),
-            PreconfConstants.MAINNET_BEACON_GENESIS,
+            LibPreconfConstants.MAINNET_BEACON_GENESIS,
             address(beaconBlockRootContract)
         );
     }
