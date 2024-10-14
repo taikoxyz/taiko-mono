@@ -79,6 +79,14 @@ func (p *Stress) initProofSubmitter(
 		err       error
 	)
 	switch cfg.ZkType {
+	case proofProducer.ProofTypeCPU:
+		producer = &proofProducer.SGXProofProducer{
+			RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
+			JWT:                 p.cfg.RaikoJWT,
+			ProofType:           proofProducer.ProofTypeCPU,
+			Dummy:               p.cfg.Dummy,
+			RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
+		}
 	case proofProducer.ZKProofTypeR0:
 		producer = &proofProducer.ZKvmProofProducer{
 			ZKProofType:         proofProducer.ZKProofTypeR0,
