@@ -133,6 +133,15 @@ abstract contract MerkleClaimable is
         emit ConfigChanged(_claimStart, _claimEnd, _merkleRoot);
     }
 
+    /// @notice Check if a claim has been made
+    /// @param user Address of the user
+    /// @param amount Amount of tokens claimed
+    /// @return Whether the claim has been made
+    function hasClaimed(address user, uint256 amount) external view returns (bool) {
+        bytes32 hash = keccak256(abi.encode("CLAIM_TAIKO_AIRDROP", (abi.encode(user, amount))));
+        return isClaimed[hash];
+    }
+
     /// @notice Internal method to authorize an upgrade
     function _authorizeUpgrade(address) internal virtual override onlyOwner { }
 }

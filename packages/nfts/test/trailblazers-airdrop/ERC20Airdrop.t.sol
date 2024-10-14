@@ -75,7 +75,8 @@ contract ERC20AirdropTest is Test {
         airdrop = ERC20Airdrop(proxy);
 
         // fund the airdrop contract
-        erc20.mint(address(airdrop), TOTAL_AVAILABLE_FUNDS);
+        erc20.mint(owner, TOTAL_AVAILABLE_FUNDS);
+        erc20.transfer(address(airdrop), TOTAL_AVAILABLE_FUNDS);
 
         vm.stopBroadcast();
     }
@@ -137,5 +138,14 @@ contract ERC20AirdropTest is Test {
         vm.prank(user);
         vm.expectRevert();
         airdrop.claim(user, CLAIM_AMOUNT, proof);
+    }
+
+    function test_transferOwnership() public {
+        assertEq(airdrop.owner(), owner);
+        vm.prank(owner);
+        airdrop.transferOwnership(minters[0]);
+        vm.prank(minters[0]);
+        airdrop.acceptOwnership();
+        assertEq(airdrop.owner(), minters[0]);
     }
 }
