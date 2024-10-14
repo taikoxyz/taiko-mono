@@ -39,7 +39,7 @@ contract DeployAVS is BaseScript {
         // Deploy implementations
         PreconfRegistry preconfRegistryImpl =
             new PreconfRegistry(IPreconfServiceManager(preconfServiceManager));
-        PreconfServiceManagerMVP preconfServiceManagerImpl = new PreconfServiceManagerMVP(
+        PreconfServiceManager preconfServiceManagerImpl = new PreconfServiceManager(
             preconfRegistry, preconfTaskManager, IAVSDirectory(implDirectory), ISlasher(slasher)
         );
         PreconfTaskManager preconfTaskManagerImpl = new PreconfTaskManager(

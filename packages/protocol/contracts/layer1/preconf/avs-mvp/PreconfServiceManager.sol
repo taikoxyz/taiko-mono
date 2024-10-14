@@ -10,7 +10,7 @@ import "./iface/IAVSDirectory.sol";
 /// used.
 /// Currently, this is based on a mock version of Eigenlayer that we have created solely for this
 /// POC. This contract may be modified depending on the interface of the restaking contracts.
-contract PreconfServiceManagerMVP is IPreconfServiceManager, ReentrancyGuard {
+contract PreconfServiceManager is IPreconfServiceManager, ReentrancyGuard {
     address internal immutable preconfRegistry;
     address internal immutable preconfTaskManager;
     IAVSDirectory internal immutable avsDirectory;

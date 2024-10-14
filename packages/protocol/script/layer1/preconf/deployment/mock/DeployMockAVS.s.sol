@@ -41,7 +41,7 @@ contract DeployMockAVS is BaseScript {
         // Deploy implementations
         MockPreconfRegistry preconfRegistryImpl =
             new MockPreconfRegistry(IPreconfServiceManager(preconfServiceManager));
-        PreconfServiceManagerMVP preconfServiceManagerImpl = new PreconfServiceManagerMVP(
+        PreconfServiceManager preconfServiceManagerImpl = new PreconfServiceManager(
             preconfRegistry, preconfTaskManager, IAVSDirectory(avsDirectory), ISlasher(slasher)
         );
         PreconfTaskManager preconfTaskManagerImpl = new PreconfTaskManager(
