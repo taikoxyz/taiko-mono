@@ -11,7 +11,6 @@ import { SP1Verifier as SP1Verifier200rc } from "@sp1-contracts/src/v2.0.0/SP1Ve
 // - https://github.com/rdubois-crypto/FreshCryptoLib
 import "@p256-verifier/contracts/P256Verifier.sol";
 
-
 import "src/shared/common/LibStrings.sol";
 import "src/shared/tokenvault/BridgedERC1155.sol";
 import "src/shared/tokenvault/BridgedERC20.sol";
