@@ -1,0 +1,85 @@
+name: Blobstorage
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/blobstorage/**"
+      - "go.mod"
+      - "go.sum"
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "packages/blobstorage/**"
+      - "go.mod"
+      - "go.sum"
+
+jobs:
+  lint-blobstorage:
+    name: lint-blobstorage
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft == false }}
+    runs-on: [arc-runner-set]
+    steps:
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 1.23.0
+      - uses: actions/checkout@v4
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          # Optional: version of golangci-lint to use in form of v1.2 or v1.2.3 or `latest` to use the latest version
+          version: latest
+
+          # Optional: working directory, useful for monorepos
+          working-directory: ./packages/blobstorage
+          args: --config=.golangci.yml --timeout=4m
+
+  push-blobstorage-docker-image:
+    # Skip dependabot PRs
+    if: ${{ github.event_name == 'pull_request' && ! startsWith(github.ref, 'refs/heads/dependabot/') }}
+    name: Build and push docker image
+    runs-on: [arc-runner-set]
+
+    steps:
+      - name: Install Git
+        run: sudo apt-get update && sudo apt-get install -y git
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Login to GAR
+        uses: docker/login-action@v3
+        with:
+          registry: us-docker.pkg.dev
+          username: _json_key
+          password: ${{ secrets.GAR_JSON_KEY }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            us-docker.pkg.dev/evmchain/images/blobstorage
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=ref,event=tag
+            type=sha
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          push: true
+          context: .
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            PACKAGE=blobstorage

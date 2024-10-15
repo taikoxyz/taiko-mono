@@ -43,7 +43,7 @@ func NewBlobTransactionBuilder(
 // BuildBlockUnsigned implements the ProposeBlockTransactionBuilder interface to
 // return an unsigned transaction, intended for preconfirmations.
 func (b *BlobTransactionBuilder) BuildBlockUnsigned(
-	ctx context.Context,
+	_ context.Context,
 	opts BuildBlockUnsignedOpts,
 ) (*types.Transaction, error) {
 	txListBytes, err := signedTransactionsToTxListBytes(opts.SignedTransactions)
@@ -133,7 +133,7 @@ func (b *BlobTransactionBuilder) BuildBlockUnsigned(
 // BuildBlocksUnsigned implements the ProposeBlockTransactionBuilder interface to
 // return an unsigned transaction, intended for preconfirmations.
 func (b *BlobTransactionBuilder) BuildBlocksUnsigned(
-	ctx context.Context,
+	_ context.Context,
 	opts BuildBlocksUnsignedOpts,
 ) (*types.Transaction, error) {
 	encodedParams := make([][]byte, 0)

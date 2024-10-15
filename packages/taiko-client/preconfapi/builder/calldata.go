@@ -41,7 +41,7 @@ func NewCalldataTransactionBuilder(
 // BuildBlockUnsigned implements the ProposeBlockTransactionBuilder interface to
 // return an unsigned transaction, intended for preconfirmations.
 func (b *CalldataTransactionBuilder) BuildBlockUnsigned(
-	ctx context.Context,
+	_ context.Context,
 	opts BuildBlockUnsignedOpts,
 ) (*types.Transaction, error) {
 	txListBytes, err := signedTransactionsToTxListBytes(opts.SignedTransactions)
@@ -117,7 +117,7 @@ func (b *CalldataTransactionBuilder) BuildBlockUnsigned(
 // return an unsigned transaction for a tx with multiple blocks,
 // intended for preconfirmations.
 func (b *CalldataTransactionBuilder) BuildBlocksUnsigned(
-	ctx context.Context,
+	_ context.Context,
 	opts BuildBlocksUnsignedOpts,
 ) (*types.Transaction, error) {
 	encodedParams := make([][]byte, 0)
