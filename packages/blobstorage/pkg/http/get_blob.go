@@ -15,9 +15,9 @@ type getBlobResponse struct {
 }
 
 type blobData struct {
-	BlobHash      string `bson:"blob_hash" json:"blob_hash"`
-	KzgCommitment string `bson:"kzg_commitment" json:"kzg_commitment"`
-	Blob          string `bson:"blob" json:"blob"`
+	BlobHash   string `bson:"versionedHash" json:"versionedHash"`
+	Commitment string `bson:"commitment" json:"commitment"`
+	Data       string `bson:"data" json:"data"`
 }
 
 // GetBlob
@@ -32,7 +32,7 @@ type blobData struct {
 //	@Success	200	{object}	getBlobResponse
 //	@Router		/getBlob [get]
 func (srv *Server) GetBlob(c echo.Context) error {
-	blobHashes := c.QueryParam("blobHash")
+	blobHashes := c.Param("blobHash")
 	if blobHashes == "" {
 		return webutils.LogAndRenderErrors(c, http.StatusBadRequest, errors.New("empty blobHash queryparam"))
 	}
@@ -50,9 +50,9 @@ func (srv *Server) GetBlob(c echo.Context) error {
 	// Convert data to the correct type
 	for _, d := range data {
 		response.Data = append(response.Data, blobData{
-			BlobHash:      d.BlobHash,
-			KzgCommitment: d.KzgCommitment,
-			Blob:          d.Blob,
+			BlobHash:   d.BlobHash,
+			Commitment: d.Commitment,
+			Data:       d.Data,
 		},
 		)
 	}
@@ -73,16 +73,16 @@ func (srv *Server) getBlobData(blobHashes []string) ([]blobData, error) {
 			if err == gorm.ErrRecordNotFound {
 				// Handle case where blob hash is not found
 				result.BlobHash = "NOT_FOUND"
-				result.KzgCommitment = "NOT_FOUND"
-				result.Blob = "NOT_FOUND"
+				result.Commitment = "NOT_FOUND"
+				result.Data = "NOT_FOUND"
 			} else {
 				// Return error for other types of errors
 				return nil, err
 			}
 		} else {
 			result.BlobHash = bh.BlobHash
-			result.KzgCommitment = bh.KzgCommitment
-			result.Blob = bh.BlobData
+			result.Commitment = bh.KzgCommitment
+			result.Data = bh.BlobData
 
 			results = append(results, result)
 		}
