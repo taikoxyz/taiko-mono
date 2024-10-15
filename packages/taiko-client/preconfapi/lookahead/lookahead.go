@@ -80,7 +80,8 @@ func (l *Lookahead) ForcePushLookahead(ctx context.Context) error {
 
 	return err
 }
-func (l *Lookahead) GetLookaheadSetParams(ctx context.Context) ([]bindings.IPreconfTaskManagerLookaheadSetParam, error) {
+func (l *Lookahead) GetLookaheadSetParams(ctx context.Context) (
+	[]bindings.IPreconfTaskManagerLookaheadSetParam, error) {
 	nextEpoch, err := l.getNextEpoch()
 	if err != nil {
 		return nil, err
