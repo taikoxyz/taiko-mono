@@ -8,8 +8,9 @@
 #   "--config=${workspaceFolder}/.golangci.yml"
 # ],
 
-output:
-  format: colored-line-number
+run:
+  timeout: 20m
+  tests: true
 
 linters:
   enable:
@@ -34,6 +35,8 @@ linters-settings:
     min-complexity: 75
 
 issues:
+  exclude-dirs:
+    - bindings
   exclude-rules:
     # Exclude some linters from running on tests files.
     - path: _test\.go
@@ -42,7 +45,3 @@ issues:
     - path: /
       linters:
         - typecheck
-
-run:
-  skip-dirs:
-    - contracts/*
