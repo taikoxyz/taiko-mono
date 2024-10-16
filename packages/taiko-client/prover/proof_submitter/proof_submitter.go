@@ -8,7 +8,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/cenkalti/backoff"
+	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -379,12 +379,6 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 			invalidProofs = append(invalidProofs, proof)
 			continue
 		}
-
-		log.Debug("batchProof result",
-			"blockId", proof.BlockID,
-			"status", proofStatus[i].IsSubmitted,
-			"valid", !proofStatus[i].Invalid,
-		)
 
 		if proofStatus[i].IsSubmitted && !proofStatus[i].Invalid {
 			log.Error("a valid proof for block is already submitted", "blockId", proof.BlockID)
