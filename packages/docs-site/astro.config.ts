@@ -42,7 +42,7 @@ export default defineConfig({
       title: "Docs",
       editLink: {
         baseUrl:
-          "https://github.com/taikoxyz/taiko-mono/tree/main/packages/docs-site",
+          "https://github.com/taikoxyz/taiko-mono/edit/main/packages/docs-site",
       },
       customCss: ["./src/styles/custom.css"],
       logo: {
