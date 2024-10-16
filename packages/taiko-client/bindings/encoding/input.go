@@ -435,14 +435,10 @@ func EncodeProveBlocksInput(
 	metas []metadata.TaikoBlockMetaData,
 	transitions []bindings.TaikoDataTransition,
 ) ([][]byte, error) {
-	var (
-		b   = make([][]byte, 0, len(metas))
-		err error
-	)
 	if len(metas) != len(transitions) {
-		return nil, fmt.Errorf("both arrays of TaikoBlockMetaData and TaikoDataTransition must be equal in length , %w", err)
+		return nil, fmt.Errorf("both arrays of TaikoBlockMetaData and TaikoDataTransition must be equal in length")
 	}
-
+	b := make([][]byte, 0, len(metas))
 	for i := range metas {
 		input, err := proveBlocksInputArgs.Pack(
 			metas[i].(*metadata.TaikoDataBlockMetadataOntake).InnerMetadata(),
