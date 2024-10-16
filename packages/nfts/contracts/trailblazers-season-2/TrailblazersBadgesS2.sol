@@ -20,7 +20,7 @@ import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol"
 import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
-import "../trailblazers-badges/TrailblazersBadges.sol";
+import "./TrailblazersS1BadgesV4.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 contract TrailblazersBadgesS2 is
@@ -32,9 +32,9 @@ contract TrailblazersBadgesS2 is
     ERC721HolderUpgradeable
 {
     /// @notice Time between start and end of a migration
-    uint256 public constant COOLDOWN_MIGRATION = 6 hours;
+    uint256 public constant COOLDOWN_MIGRATION = 10 minutes; //6 hours;
     /// @notice Time between tamper attempts
-    uint256 public constant COOLDOWN_TAMPER = 1 hours;
+    uint256 public constant COOLDOWN_TAMPER = 1 minutes; // 1 hours;
     /// @notice Weight of tamper attempts, in %
     uint256 public constant TAMPER_WEIGHT_PERCENT = 5;
     /// @notice Maximum tamper attempts, per color
@@ -74,7 +74,7 @@ contract TrailblazersBadgesS2 is
     /// @notice Migration-enabled badge IDs per cycle
     mapping(uint256 _cycle => mapping(uint256 _s1BadgeId => bool _enabled)) public enabledBadgeIds;
     /// @notice S1 Badge contract
-    TrailblazersBadges public badges;
+    TrailblazersBadgesV4 public badges;
     /// @notice Address authorized to sign the random seeds
     address public randomSigner;
     /// @notice Current migration cycle
@@ -106,7 +106,12 @@ contract TrailblazersBadgesS2 is
     event MigrationStarted(
         address _user, uint256 _s1BadgeId, uint256 _s1TokenId, uint256 _cooldownExpiration
     );
-    event MigrationTampered(address _user, bool _pinkOrPurple, uint256 _cooldownExpiration);
+    event MigrationTampered(
+        address indexed _user,
+        uint256 indexed _s1TokenId,
+        bool _pinkOrPurple,
+        uint256 _cooldownExpiration
+    );
     event MigrationEnded(address _user, uint256 _s2BadgeId, uint256 _s2TokenId);
 
     /// @notice Modifiers
@@ -150,7 +155,7 @@ contract TrailblazersBadgesS2 is
         _transferOwnership(_msgSender());
         __Context_init();
         _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
-        badges = TrailblazersBadges(_badges);
+        badges = TrailblazersBadgesV4(_badges);
         randomSigner = _randomSigner;
     }
 
@@ -200,7 +205,12 @@ contract TrailblazersBadgesS2 is
 
         migrationTampers[_msgSender()][_pinkOrPurple]++;
         tamperCooldowns[_msgSender()] = block.timestamp + COOLDOWN_TAMPER;
-        emit MigrationTampered(_msgSender(), _pinkOrPurple, tamperCooldowns[_msgSender()]);
+        emit MigrationTampered(
+            _msgSender(),
+            migrationS1TokenIds[_msgSender()],
+            _pinkOrPurple,
+            tamperCooldowns[_msgSender()]
+        );
     }
 
     /// @notice Reset the tamper counts

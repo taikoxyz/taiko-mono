@@ -28,7 +28,8 @@ contract DeployS2Script is Script {
         "https://taikonfts.4everland.link/ipfs/bafybeiebmvj6roz4iuoinackb5c6eeshvppctkydrckqrnxexdnzh6odq4";
 
     IMinimalBlacklist blacklist = IMinimalBlacklist(0xe61E9034b5633977eC98E302b33e321e8140F105);
-    address mintSigner = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
+    address claimMintSigner = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
+    address migrationSigner = 0x3cda4F2EaC3fc2FdE78B3DFFe1A1A1Eff88c68c5;
 
     // Hardhat Testnet Values
     //  address owner = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
@@ -72,7 +73,7 @@ contract DeployS2Script is Script {
                 new ERC1967Proxy(
                     impl,
                     abi.encodeCall(
-                        TrailblazersBadges.initialize, (owner, baseURI, mintSigner, blacklist)
+                        TrailblazersBadges.initialize, (owner, baseURI, claimMintSigner, blacklist)
                     )
                 )
             );
@@ -85,7 +86,7 @@ contract DeployS2Script is Script {
         proxy = address(
             new ERC1967Proxy(
                 impl,
-                abi.encodeCall(TrailblazersBadgesS2.initialize, (address(s1Token), mintSigner))
+                abi.encodeCall(TrailblazersBadgesS2.initialize, (address(s1Token), migrationSigner))
             )
         );
 
@@ -100,16 +101,6 @@ contract DeployS2Script is Script {
         vm.serializeAddress(jsonRoot, "TrailblazersBadgesS2", address(s2Token));
         string memory finalJson = vm.serializeAddress(jsonRoot, "Owner", s2Token.owner());
         vm.writeJson(finalJson, jsonLocation);
-
-        // open up migrations for all badges on hekla
-        if (block.chainid != 167_000) {
-            uint256[] memory tokenIds = new uint256[](8);
-            for (uint256 i = 0; i < tokenIds.length; i++) {
-                tokenIds[i] = i;
-            }
-            s2Token.enableMigrations(tokenIds);
-            console.log("Enabled migrations for all badges");
-        }
 
         vm.stopBroadcast();
     }

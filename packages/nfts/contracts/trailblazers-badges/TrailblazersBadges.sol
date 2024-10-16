@@ -221,23 +221,4 @@ contract TrailblazersBadges is ERC721EnumerableUpgradeable, ECDSAWhitelist {
 
         return balances;
     }
-
-    /// @notice V3
-
-    address public season2BadgeContract;
-
-    error INVALID_S2_CONTRACT();
-
-    function setSeason2BadgeContract(address _season2BadgeContract) public onlyOwner {
-        season2BadgeContract = _season2BadgeContract;
-    }
-
-    modifier onlySeason2BadgeContract() {
-        if (msg.sender != season2BadgeContract) revert INVALID_S2_CONTRACT();
-        _;
-    }
-
-    function burn(uint256 _tokenId) public onlySeason2BadgeContract {
-        _burn(_tokenId);
-    }
 }

@@ -62,7 +62,7 @@ contract TrailblazersBadgesS2Test is Test {
 
         s1Badges.upgradeToAndCall(
             address(new TrailblazerBadgesS1MintTo()),
-            abi.encodeCall(TrailblazerBadgesS1MintTo.version, ())
+            abi.encodeCall(TrailblazerBadgesS1MintTo.call, ())
         );
 
         s1BadgesMock = TrailblazerBadgesS1MintTo(address(s1Badges));
@@ -82,7 +82,7 @@ contract TrailblazersBadgesS2Test is Test {
         s2Badges = TrailblazersBadgesS2(proxy);
         MAX_TAMPERS = s2Badges.MAX_TAMPERS();
 
-        s1Badges.setSeason2BadgeContract(address(s2Badges));
+        //   s1Badges.setSeason2BadgeContract(address(s2Badges));
 
         // enable migration for BADGE_ID
         uint256[] memory enabledBadgeIds = new uint256[](1);
