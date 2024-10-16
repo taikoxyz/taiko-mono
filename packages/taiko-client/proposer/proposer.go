@@ -416,18 +416,39 @@ func (p *Proposer) ProposeTxListOntake(
 		txNums            []int
 		totalTxs          int
 	)
-	for _, txs := range txLists {
-		txListBytes, err := rlp.EncodeToBytes(txs)
-		if err != nil {
-			return fmt.Errorf("failed to encode transactions: %w", err)
+	for i, txs := range txLists {
+		if i == 0 && len(txs) > 1 {
+			txListBytesA, err := rlp.EncodeToBytes(txs[:len(txs)/2])
+			if err != nil {
+				return fmt.Errorf("failed to encode transactions: %w", err)
+			}
+			txListBytesB, err := rlp.EncodeToBytes(txs[len(txs)/2:])
+			if err != nil {
+				return fmt.Errorf("failed to encode transactions: %w", err)
+			}
+			compressedTxListBytesA, err := utils.Compress(txListBytesA)
+			if err != nil {
+				return err
+			}
+			txListsBytesArray = append(txListsBytesArray, compressedTxListBytesA)
+			compressedTxListBytesB, err := utils.Compress(txListBytesB)
+			if err != nil {
+				return err
+			}
+			txListsBytesArray = append(txListsBytesArray, compressedTxListBytesB)
+		} else {
+			txListBytes, err := rlp.EncodeToBytes(txs)
+			if err != nil {
+				return fmt.Errorf("failed to encode transactions: %w", err)
+			}
+
+			compressedTxListBytes, err := utils.Compress(txListBytes)
+			if err != nil {
+				return err
+			}
+			txListsBytesArray = append(txListsBytesArray, compressedTxListBytes)
 		}
 
-		compressedTxListBytes, err := utils.Compress(txListBytes)
-		if err != nil {
-			return err
-		}
-
-		txListsBytesArray = append(txListsBytesArray, compressedTxListBytes)
 		txNums = append(txNums, len(txs))
 		totalTxs += len(txs)
 	}
