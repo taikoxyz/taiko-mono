@@ -28,6 +28,7 @@ library LibProving {
         bool isTopTier;
         bool inProvingWindow;
         bool sameTransition;
+        bool isSyncBlock;
     }
 
     /// @notice Emitted when a transition is proved.
@@ -129,7 +130,9 @@ library LibProving {
 
         local.blockId = blk.blockId;
 
-        if (LibUtils.shouldSyncStateRoot(_config.stateRootSyncInternal, local.blockId)) {
+        local.isSyncBlock =
+            LibUtils.shouldSyncStateRoot(_config.stateRootSyncInternal, local.blockId);
+        if (local.isSyncBlock) {
             local.stateRoot = tran.stateRoot;
         }
 
@@ -220,7 +223,9 @@ library LibProving {
 
         local.isTopTier = local.tier.contestBond == 0;
 
-        local.sameTransition = tran.blockHash == ts.blockHash && local.stateRoot == ts.stateRoot;
+        local.sameTransition = local.isSyncBlock
+            ? tran.blockHash == ts.blockHash && local.stateRoot == ts.stateRoot
+            : tran.blockHash == ts.blockHash;
 
         if (proof.tier > ts.tier) {
             // Handles the case when an incoming tier is higher than the current transition's tier.
