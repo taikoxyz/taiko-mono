@@ -314,7 +314,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
     }
 
     function ontakeForkHeight() public pure virtual returns (uint64) {
-        return 2;
+        return 0;
     }
 
     /// @notice Calculates the basefee and the new gas excess value based on parent gas used and gas
