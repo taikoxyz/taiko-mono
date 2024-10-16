@@ -262,7 +262,8 @@ library LibProving {
 
         local.proposedAt = local.postFork ? local.meta.proposedAt : blk.proposedAt;
 
-        local.isSyncBlock = LibUtils.shouldSyncStateRoot(_config.stateRootSyncInternal, local.blockId);
+        local.isSyncBlock =
+            LibUtils.shouldSyncStateRoot(_config.stateRootSyncInternal, local.blockId);
         if (local.isSyncBlock) {
             local.stateRoot = ctx_.tran.stateRoot;
         }
@@ -369,9 +370,9 @@ library LibProving {
 
         local.isTopTier = local.tier.contestBond == 0;
 
-        local.sameTransition = local.isSyncBlock?
-            ctx_.tran.blockHash == ts.blockHash && local.stateRoot == ts.stateRoot:
-            ctx_.tran.blockHash == ts.blockHash;
+        local.sameTransition = local.isSyncBlock
+            ? ctx_.tran.blockHash == ts.blockHash && local.stateRoot == ts.stateRoot
+            : ctx_.tran.blockHash == ts.blockHash;
 
         if (local.proof.tier > ts.tier) {
             // Handles the case when an incoming tier is higher than the current transition's tier.
