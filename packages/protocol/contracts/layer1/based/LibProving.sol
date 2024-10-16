@@ -262,7 +262,8 @@ library LibProving {
 
         local.proposedAt = local.postFork ? local.meta.proposedAt : blk.proposedAt;
 
-        local.isSyncBlock = LibUtils.isSyncBlock(_config.stateRootSyncInternal, local.blockId);
+        local.isSyncBlock =
+            LibUtils.shouldSyncStateRoot(_config.stateRootSyncInternal, local.blockId);
         if (local.isSyncBlock) {
             local.stateRoot = ctx_.tran.stateRoot;
         }

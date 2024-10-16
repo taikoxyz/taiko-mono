@@ -286,7 +286,7 @@ library LibUtils {
         return _blockId % segmentSize == (_isBlockProposed ? 0 : segmentSize >> 1);
     }
 
-    function isSyncBlock(
+    function shouldSyncStateRoot(
         uint256 _stateRootSyncInternal,
         uint256 _blockId
     )
