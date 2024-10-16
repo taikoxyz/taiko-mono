@@ -92,7 +92,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     function addInstances(address[] calldata _instances)
         external
         onlyOwner
-    returns (uint256[] memory)
+        returns (uint256[] memory)
     {
         return _addInstances(_instances, true);
     }
@@ -226,8 +226,8 @@ contract SgxVerifier is EssentialContract, IVerifier {
         address[] memory _instances,
         bool instantValid
     )
-    private
-    returns (uint256[] memory ids)
+        private
+        returns (uint256[] memory ids)
     {
         ids = new uint256[](_instances.length);
 
