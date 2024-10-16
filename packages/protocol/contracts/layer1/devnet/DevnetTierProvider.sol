@@ -21,7 +21,7 @@ contract DevnetTierProvider is TierProviderBase, ITierRouter {
     }
 
     /// @inheritdoc ITierProvider
-    function getMinTier(address, uint256 _rand) public pure override returns (uint16) {
-            return LibTiers.TIER_OPTIMISTIC;
+    function getMinTier(address, uint256) public pure override returns (uint16) {
+        return LibTiers.TIER_OPTIMISTIC;
     }
 }
