@@ -436,7 +436,7 @@ func EncodeProveBlocksInput(
 	transitions []bindings.TaikoDataTransition,
 ) ([][]byte, error) {
 	var (
-		b   [][]byte
+		b   = make([][]byte, 0, len(metas))
 		err error
 	)
 	if len(metas) != len(transitions) {
