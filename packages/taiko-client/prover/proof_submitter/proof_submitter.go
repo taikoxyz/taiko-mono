@@ -160,7 +160,7 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBl
 				return nil
 			}
 			// Check if there is full buffer
-			if s.proofBuffer.MaxLength == uint64(s.proofBuffer.Len()) {
+			if s.proofBuffer.MaxLength > 1 && s.proofBuffer.MaxLength == uint64(s.proofBuffer.Len()) {
 				log.Debug("Buffer is full now", "blockID", meta.GetBlockID())
 				return errBufferOverflow
 			}
