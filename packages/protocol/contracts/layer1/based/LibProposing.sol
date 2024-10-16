@@ -150,9 +150,9 @@ library LibProposing {
             revert L1_TOO_MANY_BLOCKS();
         }
 
-        address permittedProposer = _resolver.resolve(LibStrings.B_BLOCK_PROPOSER, true);
-        if (permittedProposer != address(0)) {
-            if (permittedProposer != msg.sender) revert L1_INVALID_PROPOSER();
+        address preconfRegistry = _resolver.resolve(LibStrings.B_PRECONF_REGISTRY, true);
+        if (preconfRegistry != address(0)) {
+            if (preconfRegistry != msg.sender) revert L1_INVALID_PROPOSER();
             local.allowCustomProposer = true;
         }
 
