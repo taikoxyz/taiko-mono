@@ -54,9 +54,6 @@ contract RollupAddressCache is AddressCache {
         if (_name == LibStrings.B_CHAIN_WATCHDOG) {
             return (true, address(0));
         }
-        if (_name == LibStrings.B_PRECONF_REGISTRY) {
-            return (true, address(0));
-        }
         return (false, address(0));
     }
 }
