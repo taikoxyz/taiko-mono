@@ -53,8 +53,8 @@ contract Risc0Verifier is EssentialContract, IVerifier {
         TaikoData.Transition calldata _tran,
         TaikoData.TierProof calldata _proof
     )
-    external
-    view
+        external
+        view
     {
         // Do not run proof verification to contest an existing proof
         if (_ctx.isContesting) return;
