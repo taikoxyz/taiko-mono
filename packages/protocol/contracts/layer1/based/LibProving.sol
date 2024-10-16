@@ -261,6 +261,7 @@ library LibProving {
         TaikoData.BlockV2 storage blk = _state.blocks[local.slot];
 
         local.proposedAt = local.postFork ? local.meta.proposedAt : blk.proposedAt;
+
         local.isSyncBlock = LibUtils.shouldSyncStateRoot(_config.stateRootSyncInternal, local.blockId);
         if (local.isSyncBlock) {
             local.stateRoot = ctx_.tran.stateRoot;
