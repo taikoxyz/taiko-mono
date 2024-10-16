@@ -90,8 +90,8 @@ contract SgxVerifier is EssentialContract, IVerifier {
     /// @param _instances The address array of trusted SGX instances.
     /// @return The respective instanceId array per addresses.
     function addInstances(address[] calldata _instances)
-    external
-    onlyOwner
+        external
+        onlyOwner
     returns (uint256[] memory)
     {
         return _addInstances(_instances, true);
@@ -100,8 +100,8 @@ contract SgxVerifier is EssentialContract, IVerifier {
     /// @notice Deletes SGX instances from the registry.
     /// @param _ids The ids array of SGX instances.
     function deleteInstances(uint256[] calldata _ids)
-    external
-    onlyFromOwnerOrNamed(LibStrings.B_SGX_WATCHDOG)
+        external
+        onlyFromOwnerOrNamed(LibStrings.B_SGX_WATCHDOG)
     {
         for (uint256 i; i < _ids.length; ++i) {
             uint256 idx = _ids[i];
@@ -118,8 +118,8 @@ contract SgxVerifier is EssentialContract, IVerifier {
     /// @param _attestation The parsed attestation quote.
     /// @return The respective instanceId
     function registerInstance(V3Struct.ParsedV3QuoteStruct calldata _attestation)
-    external
-    returns (uint256)
+        external
+        returns (uint256)
     {
         address automataDcapAttestation = resolve(LibStrings.B_AUTOMATA_DCAP_ATTESTATION, true);
 
@@ -143,8 +143,8 @@ contract SgxVerifier is EssentialContract, IVerifier {
         TaikoData.Transition calldata _tran,
         TaikoData.TierProof calldata _proof
     )
-    external
-    onlyFromNamedEither(LibStrings.B_TAIKO, LibStrings.B_TIER_TEE_ANY)
+        external
+        onlyFromNamedEither(LibStrings.B_TAIKO, LibStrings.B_TIER_TEE_ANY)
     {
         // Do not run proof verification to contest an existing proof
         if (_ctx.isContesting) return;
