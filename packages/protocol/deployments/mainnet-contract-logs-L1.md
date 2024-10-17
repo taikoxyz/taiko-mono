@@ -209,7 +209,7 @@
 
 - ens: `based.taiko.eth`
 - proxy: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`
-- impl: `0xBA1d90BCfA74163bFE09e8eF609b346507D83231`
+- impl: `0xf0E6d34937701622cA887a75c150cC23d4FFDf2F`
 - owner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
@@ -226,6 +226,7 @@
   - Upgrade to `0x5fc54737ECC1de49D58AE1195d4A296257F1E31b` @commit`04d8c87` @tx`0x13f54109cb7f7507ad03562b06ea8d8b472043186e44252302583bc64acfb20b`
   - Upgrade to `0xcEe590fACd976B9BDE87BC1B7620B284c5edD2C3` @commit`2dd30ab` @tx`0xc1f91c375713f601b99cf6d2cdb80c129e036a7c9ec5f75871c4d13216dbbb5c`
   - Upgrade to `0xBA1d90BCfA74163bFE09e8eF609b346507D83231` @commit`bb2abc5` @tx`0x7d584f0a645cad61e634f64ffaf7e1bbfb92749878eb25b39ce0e5cf698897c7`
+  - Upgrade to `0xf0E6d34937701622cA887a75c150cC23d4FFDf2F` @commit`b4f8547` @tx`0x8778064404816273804d74c97b051f3865bc03062cfa4b0e9567f4556ad31981`
 
 #### tier_provider
 
