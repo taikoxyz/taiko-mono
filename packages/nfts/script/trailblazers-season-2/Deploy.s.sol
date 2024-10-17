@@ -11,12 +11,23 @@ import { TrailblazersBadgesS2 } from
     "../../contracts/trailblazers-season-2/TrailblazersBadgesS2.sol";
 import { TrailblazersBadgesV4 } from
     "../../contracts/trailblazers-season-2/TrailblazersS1BadgesV4.sol";
+import { BadgeMigration } from "../../contracts/trailblazers-season-2/BadgeMigration.sol";
 
 contract DeployS2Script is Script {
     UtilsScript public utils;
     string public jsonLocation;
     uint256 public deployerPrivateKey;
     address public deployerAddress;
+
+    BadgeMigration migration;
+
+    bool constant PINK_TAMPER = true;
+    bool constant PURPLE_TAMPER = false;
+
+    uint256 public MAX_TAMPERS = 3;
+    uint256 public COOLDOWN_MIGRATION = 1 hours;
+    uint256 public COOLDOWN_TAMPER = 5 minutes;
+    uint256 public TAMPER_WEIGHT_PERCENT = 5;
 
     // Taiko Mainnet Values
     //address owner = 0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be;
@@ -53,7 +64,6 @@ contract DeployS2Script is Script {
     }
 
     function run() public {
-        /*
         string memory jsonRoot = "root";
         address owner = deployerAddress;
         require(owner != address(0), "Owner must be specified");
@@ -76,7 +86,7 @@ contract DeployS2Script is Script {
                 new ERC1967Proxy(
                     impl,
                     abi.encodeCall(
-        TrailblazersBadges.initialize, (owner, baseURI, claimMintSigner, blacklist)
+                        TrailblazersBadges.initialize, (owner, baseURI, claimMintSigner, blacklist)
                     )
                 )
             );
@@ -96,18 +106,39 @@ contract DeployS2Script is Script {
         impl = address(new TrailblazersBadgesS2());
         proxy = address(
             new ERC1967Proxy(
-                impl,
-        abi.encodeCall(TrailblazersBadgesS2.initialize, (address(s1Token), migrationSigner))
+                impl, abi.encodeCall(TrailblazersBadgesS2.initialize, (address(owner), "ipfs://"))
             )
         );
 
         s2Token = TrailblazersBadgesS2(proxy);
 
+        // deploy the migration contract
+
+        BadgeMigration.Config memory config = BadgeMigration.Config(
+            COOLDOWN_MIGRATION, COOLDOWN_TAMPER, TAMPER_WEIGHT_PERCENT, MAX_TAMPERS
+        );
+
+        impl = address(new BadgeMigration());
+        proxy = address(
+            new ERC1967Proxy(
+                impl,
+                abi.encodeCall(
+                    BadgeMigration.initialize,
+                    (address(s1Token), address(s2Token), migrationSigner, config)
+                )
+            )
+        );
+        migration = BadgeMigration(proxy);
+
+        // assign relations
+        s1Token.setMigrationContract(address(migration));
+        s2Token.setMinter(address(migration));
+
         console.log("Token Base URI:", baseURI);
         console.log("Deployed TrailblazersBadgesS2 to:", address(s2Token));
 
         // assign the s2 contract to the s1 contract
-        s1Token.setSeason2BadgeContract(address(s2Token));
+        s1Token.setMigrationContract(address(s2Token));
         console.log("Assigned TrailblazersBadgesS2 to TrailblazersBadgesV4");
         // Register deployment
 
@@ -116,6 +147,6 @@ contract DeployS2Script is Script {
         string memory finalJson = vm.serializeAddress(jsonRoot, "Owner", s2Token.owner());
         vm.writeJson(finalJson, jsonLocation);
 
-        vm.stopBroadcast();*/
+        vm.stopBroadcast();
     }
 }

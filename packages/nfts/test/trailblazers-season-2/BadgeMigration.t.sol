@@ -72,8 +72,6 @@ contract TrailblazersBadgesS2Test is Test {
             abi.encodeCall(TrailblazerBadgesS1MintTo.call, ())
         );
 
-        TrailblazerBadgesS1MintTo s1BadgesMock = TrailblazerBadgesS1MintTo(address(s1BadgesV2));
-
         BADGE_ID = s1BadgesV2.BADGE_RAVERS();
 
         // upgrade s1 contract to v4
