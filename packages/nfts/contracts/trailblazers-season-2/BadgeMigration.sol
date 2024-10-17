@@ -31,20 +31,22 @@ contract BadgeMigration is
     AccessControlUpgradeable,
     ERC721HolderUpgradeable
 {
+    /// @notice Season 1 Badges ERC721 contract
     TrailblazersBadgesV4 public s1Badges;
+    /// @notice Season 2 Badges ERC1155 contract
     TrailblazersBadgesS2 public s2Badges;
+    /// @notice Wallet authorized to sign as a source of randomness
     address public randomSigner;
-
     /// @notice Migration-enabled badge IDs per cycle
-    mapping(uint256 _cycle => mapping(uint256 _s1BadgeId => bool _enabled)) public enabledBadgeIds;
-
+    mapping(uint256 cycle => mapping(uint256 s1BadgeId => bool enabled)) public enabledBadgeIds;
     /// @notice Current migration cycle
-    uint256 private _migrationCycle;
+    uint256 private migrationCycle;
     /// @notice Mapping of unique user-per-mint-per-cycle
     mapping(
-        uint256 _migrationCycle
-            => mapping(address _minter => mapping(uint256 _s1BadgeId => bool _mintEnded))
+        uint256 migrationCycle
+            => mapping(address minter => mapping(uint256 s1BadgeId => bool mintEnded))
     ) public migrationCycleUniqueMints;
+    /// @notice Configuration struct
 
     struct Config {
         uint256 cooldownMigration;
@@ -52,8 +54,10 @@ contract BadgeMigration is
         uint256 tamperWeightPercent;
         uint256 baseMaxTampers;
     }
+    /// @notice Current config
 
     Config private config;
+    /// @notice Migration struct
 
     struct Migration {
         uint256 migrationCycle;
@@ -66,10 +70,13 @@ contract BadgeMigration is
         uint256 pinkTampers;
         uint256 purpleTampers;
     }
+    /// @notice Migrations per user
 
     mapping(address _user => Migration[] _migration) public migrations;
-
+    /// @notice Gap for upgrade safety
+    uint256[43] private __gap;
     /// @notice Errors
+
     error MAX_TAMPERS_REACHED();
     error MIGRATION_NOT_STARTED();
     error MIGRATION_ALREADY_STARTED();
@@ -82,9 +89,7 @@ contract BadgeMigration is
     error HASH_MISMATCH();
 
     /// @notice Events
-    event MigrationCycleToggled(
-        uint256 indexed _migrationCycleId, uint256 _s1BadgeId, bool _enabled
-    );
+    event MigrationCycleToggled(uint256 indexed migrationCycleId, uint256 s1BadgeId, bool enabled);
 
     event MigrationUpdated(
         uint256 indexed migrationCycle,
@@ -98,10 +103,10 @@ contract BadgeMigration is
         uint256 purpleTampers
     );
 
-    /// @notice Modifiers
+    /// @notice Check if the message sender has an active migration
     modifier isMigrating() {
-        Migration memory _migration = getActiveMigrationFor(_msgSender());
-        if (_migration.cooldownExpiration == 0) {
+        Migration memory migration_ = getActiveMigrationFor(_msgSender());
+        if (migration_.cooldownExpiration == 0) {
             revert MIGRATION_NOT_STARTED();
         }
         _;
@@ -119,23 +124,30 @@ contract BadgeMigration is
     }
 
     /// @notice Reverts if migrations aren't enabled for that badge
+    /// @param _s1BadgeId The badge ID
     modifier migrationOpen(uint256 _s1BadgeId) {
-        if (!enabledBadgeIds[_migrationCycle][_s1BadgeId]) {
+        if (!enabledBadgeIds[migrationCycle][_s1BadgeId]) {
             revert MIGRATION_NOT_ENABLED();
         }
         _;
     }
 
     /// @notice Limits migrations to one per user, badge and cycle
+    /// @param _s1BadgeId The badge ID
+    /// @param _minter The minter address
     modifier hasntMigratedInCycle(uint256 _s1BadgeId, address _minter) {
         // check that the minter hasn't used the migration within this cycle
-        if (migrationCycleUniqueMints[_migrationCycle][_minter][_s1BadgeId]) {
+        if (migrationCycleUniqueMints[migrationCycle][_minter][_s1BadgeId]) {
             revert ALREADY_MIGRATED_IN_CYCLE();
         }
         _;
     }
 
     /// @notice Contract initializer
+    /// @param _s1Badges The Season 1 Badges contract address
+    /// @param _s2Badges The Season 2 Badges contract address
+    /// @param _randomSigner The random signer address
+    /// @param _config The initial configuration
     function initialize(
         address _s1Badges,
         address _s2Badges,
@@ -154,10 +166,14 @@ contract BadgeMigration is
         config = _config;
     }
 
+    /// @notice Upgrade configuration
+    /// @param _config The new configuration
     function setConfig(Config memory _config) external onlyRole(DEFAULT_ADMIN_ROLE) {
         config = _config;
     }
 
+    /// @notice Get the current configuration
+    /// @return The current configuration
     function getConfig() external view returns (Config memory) {
         return config;
     }
@@ -166,11 +182,11 @@ contract BadgeMigration is
     /// @dev Doesn't allow for new migration attempts, but tampers and active migrations still run
     function _disableMigrations() internal onlyRole(DEFAULT_ADMIN_ROLE) {
         for (uint256 i = 0; i < 8; i++) {
-            if (enabledBadgeIds[_migrationCycle][i]) {
-                emit MigrationCycleToggled(_migrationCycle, i, false);
+            if (enabledBadgeIds[migrationCycle][i]) {
+                emit MigrationCycleToggled(migrationCycle, i, false);
             }
 
-            enabledBadgeIds[_migrationCycle][i] = false;
+            enabledBadgeIds[migrationCycle][i] = false;
         }
     }
 
@@ -181,15 +197,17 @@ contract BadgeMigration is
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        _migrationCycle++;
+        migrationCycle++;
         for (uint256 i = 0; i < _s1BadgeIds.length; i++) {
-            enabledBadgeIds[_migrationCycle][_s1BadgeIds[i]] = true;
-            emit MigrationCycleToggled(_migrationCycle, _s1BadgeIds[i], true);
+            enabledBadgeIds[migrationCycle][_s1BadgeIds[i]] = true;
+            emit MigrationCycleToggled(migrationCycle, _s1BadgeIds[i], true);
         }
     }
 
-    function migrationCycle() external view returns (uint256) {
-        return _migrationCycle;
+    /// @notice Get the current migration cycle
+    /// @return The current migration cycle
+    function getMigrationCycle() external view returns (uint256) {
+        return migrationCycle;
     }
 
     /// @notice Pause the contract
@@ -204,8 +222,11 @@ contract BadgeMigration is
     /// @dev Not all badges are eligible for migration at the same time
     /// @dev Defines a cooldown for the migration to be complete
     /// @dev the cooldown is lesser the higher the Pass Tier
-    function startMigration(uint256 _s1BadgeId) external migrationOpen(_s1BadgeId) isNotMigrating 
-    //  hasntMigratedInCycle(_s1BadgeId, _msgSender())
+    function startMigration(uint256 _s1BadgeId)
+        external
+        migrationOpen(_s1BadgeId)
+        isNotMigrating
+        hasntMigratedInCycle(_s1BadgeId, _msgSender())
     {
         uint256 s1TokenId = s1Badges.getTokenId(_msgSender(), _s1BadgeId);
 
@@ -214,7 +235,7 @@ contract BadgeMigration is
         }
 
         Migration memory _migration = Migration(
-            _migrationCycle, // migrationCycle
+            migrationCycle, // migrationCycle
             _msgSender(), // user
             _s1BadgeId,
             s1TokenId,
@@ -243,6 +264,9 @@ contract BadgeMigration is
         );
     }
 
+    /// @notice Get the active migration for a user
+    /// @param _user The user address
+    /// @return The active migration
     function getActiveMigrationFor(address _user) public view returns (Migration memory) {
         if (migrations[_user].length == 0) {
             revert MIGRATION_NOT_STARTED();
@@ -250,6 +274,8 @@ contract BadgeMigration is
         return migrations[_user][migrations[_user].length - 1];
     }
 
+    /// @notice Update a migration
+    /// @param _migration The updated migration
     function _updateMigration(Migration memory _migration) internal virtual {
         migrations[_migration.user][migrations[_migration.user].length - 1] = _migration;
 
@@ -266,15 +292,19 @@ contract BadgeMigration is
         );
     }
 
-    function maxTampers(uint256 exp) internal view virtual returns (uint256 value) {
-        // start at 3 tampers
-        // add +1 tamper for every 100 exp
-        value = exp / 100;
+    /// @notice Get the maximum number of tampers for a given experience
+    /// @param _exp The user's experience points
+    function maxTampers(uint256 _exp) public view virtual returns (uint256 value) {
+        value = _exp / 100;
         value += 2 * config.baseMaxTampers;
         return value;
     }
 
     /// @notice Tamper (alter) the chances during a migration
+    /// @param _hash The hash to sign
+    /// @param v signature V field
+    /// @param r signature R field
+    /// @param s signature S field
     /// @param _pinkOrPurple true for pink, false for purple
     /// @dev Can be called only during an active migration
     /// @dev Implements a cooldown before allowing to re-tamper
@@ -290,116 +320,111 @@ contract BadgeMigration is
         external
         isMigrating
     {
-        (address _recovered,,) = ECDSA.tryRecover(_hash, v, r, s);
-        if (_recovered != randomSigner) revert NOT_RANDOM_SIGNER();
-        // Hash the signature parts to get a deterministic pseudo-random number
+        (address recovered_,,) = ECDSA.tryRecover(_hash, v, r, s);
+        if (recovered_ != randomSigner) revert NOT_RANDOM_SIGNER();
+        Migration memory migration_ = getActiveMigrationFor(_msgSender());
 
-        Migration memory _migration = getActiveMigrationFor(_msgSender());
-
-        if ((_migration.pinkTampers + _migration.purpleTampers) > maxTampers(exp)) {
+        if ((migration_.pinkTampers + migration_.purpleTampers) > maxTampers(exp)) {
             revert MAX_TAMPERS_REACHED();
         }
 
-        if (_migration.tamperExpiration > block.timestamp) {
+        if (migration_.tamperExpiration > block.timestamp) {
             revert TAMPER_IN_PROGRESS();
         }
 
         if (_pinkOrPurple) {
-            _migration.pinkTampers++;
+            migration_.pinkTampers++;
         } else {
-            _migration.purpleTampers++;
+            migration_.purpleTampers++;
         }
 
-        _migration.tamperExpiration = block.timestamp + config.cooldownTamper;
+        migration_.tamperExpiration = block.timestamp + config.cooldownTamper;
 
-        // update migration
-        _updateMigration(_migration);
+        _updateMigration(migration_);
     }
 
     /// @notice Reset the tamper counts
     /// @dev Can be called only during an active migration
     function resetTampers() external isMigrating {
-        Migration memory _migration = getActiveMigrationFor(_msgSender());
-        _migration.pinkTampers = 0;
-        _migration.purpleTampers = 0;
-        _migration.tamperExpiration = 0;
+        Migration memory migration_ = getActiveMigrationFor(_msgSender());
+        migration_.pinkTampers = 0;
+        migration_.purpleTampers = 0;
+        migration_.tamperExpiration = 0;
 
-        _updateMigration(_migration);
+        _updateMigration(migration_);
     }
 
     /// @notice End a migration
     /// @param _hash The hash to sign
-    /// @param v signature V field
-    /// @param r signature R field
-    /// @param s signature S field
-    /// @param exp The user's experience points
+    /// @param _v signature V field
+    /// @param _r signature R field
+    /// @param _s signature S field
+    /// @param _exp The user's experience points
     /// @dev Can be called only during an active migration, after the cooldown is over
     /// @dev The final color is determined randomly, and affected by the tamper amounts
     function endMigration(
         bytes32 _hash,
-        uint8 v,
-        bytes32 r,
-        bytes32 s,
-        uint256 exp
+        uint8 _v,
+        bytes32 _r,
+        bytes32 _s,
+        uint256 _exp
     )
         external
         isMigrating
     {
-        Migration memory _migration = getActiveMigrationFor(_msgSender());
+        Migration memory migration_ = getActiveMigrationFor(_msgSender());
 
-        if (_migration.tamperExpiration > block.timestamp) {
+        if (migration_.tamperExpiration > block.timestamp) {
             revert TAMPER_IN_PROGRESS();
         }
         // check if the cooldown is over
-        if (_migration.cooldownExpiration > block.timestamp) {
+        if (migration_.cooldownExpiration > block.timestamp) {
             revert MIGRATION_NOT_READY();
         }
-
         // ensure the hash corresponds to the start time
-        bytes32 calculatedHash = generateClaimHash(_msgSender(), exp);
+        bytes32 calculatedHash_ = generateClaimHash(_msgSender(), _exp);
 
-        if (calculatedHash != _hash) {
+        if (calculatedHash_ != _hash) {
             revert HASH_MISMATCH();
         }
 
         // get the tamper amounts
-        uint256 pinkTampers = _migration.pinkTampers;
-        uint256 purpleTampers = _migration.purpleTampers;
+        uint256 pinkTampers_ = migration_.pinkTampers;
+        uint256 purpleTampers_ = migration_.purpleTampers;
 
-        uint256 randomSeed = randomFromSignature(_hash, v, r, s);
-        bool isPinkOrPurple;
+        uint256 randomSeed_ = randomFromSignature(_hash, _v, _r, _s);
+        bool isPinkOrPurple_;
         // Calculate the difference in tampers and adjust chances
-        if (pinkTampers > purpleTampers) {
-            uint256 extraChance = (pinkTampers - purpleTampers) * config.tamperWeightPercent;
+        if (pinkTampers_ > purpleTampers_) {
+            uint256 extraChance = (pinkTampers_ - purpleTampers_) * config.tamperWeightPercent;
             uint256 chance = 50 + extraChance; // Base 50% + extra chance
-            isPinkOrPurple = (randomSeed % 100) < chance; // True for pink
-        } else if (purpleTampers > pinkTampers) {
-            uint256 extraChance = (purpleTampers - pinkTampers) * config.tamperWeightPercent;
+            isPinkOrPurple_ = (randomSeed_ % 100) < chance; // True for pink
+        } else if (purpleTampers_ > pinkTampers_) {
+            uint256 extraChance = (purpleTampers_ - pinkTampers_) * config.tamperWeightPercent;
             uint256 chance = 50 + extraChance; // Base 50% + extra chance
-            isPinkOrPurple = (randomSeed % 100) >= chance; // False for purple
+            isPinkOrPurple_ = (randomSeed_ % 100) >= chance; // False for purple
         } else {
             // Equal number of pink and purple tampers, 50/50 chance
-            isPinkOrPurple = (randomSeed % 100) < 50;
+            isPinkOrPurple_ = (randomSeed_ % 100) < 50;
         }
 
-        uint256 s1BadgeId = _migration.s1BadgeId;
-        uint256 s1TokenId = _migration.s1TokenId;
-        s1Badges.burn(s1TokenId);
+        uint256 s1BadgeId_ = migration_.s1BadgeId;
+        uint256 s1TokenId_ = migration_.s1TokenId;
+        s1Badges.burn(s1TokenId_);
 
-        TrailblazersBadgesS2.MovementType pinkOrPurple = isPinkOrPurple
+        TrailblazersBadgesS2.MovementType pinkOrPurple = isPinkOrPurple_
             ? TrailblazersBadgesS2.MovementType.Minnow
             : TrailblazersBadgesS2.MovementType.Whale;
 
         // mint the badge
-        s2Badges.mint(_msgSender(), TrailblazersBadgesS2.BadgeType(s1BadgeId), pinkOrPurple);
+        s2Badges.mint(_msgSender(), TrailblazersBadgesS2.BadgeType(s1BadgeId_), pinkOrPurple);
+        uint256 s2TokenId_ = s2Badges.totalSupply();
 
-        uint256 s2TokenId = s2Badges.totalSupply();
+        migration_.s2TokenId = s2TokenId_;
+        migration_.cooldownExpiration = 0;
+        migration_.tamperExpiration = 0;
 
-        _migration.s2TokenId = s2TokenId;
-        _migration.cooldownExpiration = 0;
-        _migration.tamperExpiration = 0;
-
-        _updateMigration(_migration);
+        _updateMigration(migration_);
     }
 
     /// @notice Generate a unique hash for each migration uniquely
@@ -417,38 +442,37 @@ contract BadgeMigration is
         if (migrations[_user].length == 0) {
             return false;
         }
-        Migration memory _migration = getActiveMigrationFor(_user);
-        return _migration.cooldownExpiration != 0;
+        Migration memory migration_ = getActiveMigrationFor(_user);
+        return migration_.cooldownExpiration != 0;
     }
 
     /// @notice Generates a random number from a signature
-    /// @param _hash The hash to sign (keccak256(startMigrationBlockHash, _msgSender()))
-    /// @param v signature V field
-    /// @param r signature R field
-    /// @param s signature S field
+    /// @param _hash The hash to sign
+    /// @param _v signature V field
+    /// @param _r signature R field
+    /// @param _s signature S field
     /// @return _random The pseudo-random number
     function randomFromSignature(
         bytes32 _hash,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
+        uint8 _v,
+        bytes32 _r,
+        bytes32 _s
     )
         public
         view
         returns (uint256 _random)
     {
-        (address _recovered,,) = ECDSA.tryRecover(_hash, v, r, s);
-        if (_recovered != randomSigner) revert NOT_RANDOM_SIGNER();
-        // Hash the signature parts to get a deterministic pseudo-random number
-        return uint256(keccak256(abi.encodePacked(r, s, v)));
+        (address recovered_,,) = ECDSA.tryRecover(_hash, _v, _r, _s);
+        if (recovered_ != randomSigner) revert NOT_RANDOM_SIGNER();
+        return uint256(keccak256(abi.encodePacked(_r, _s, _v)));
     }
 
     /// @notice Check if a tamper is active for a user
     /// @param _user The user address
     /// @return Whether the user has an active tamper
     function isTamperActive(address _user) public view returns (bool) {
-        Migration memory _migration = getActiveMigrationFor(_user);
-        return _migration.tamperExpiration > block.timestamp;
+        Migration memory migration_ = getActiveMigrationFor(_user);
+        return migration_.tamperExpiration > block.timestamp;
     }
 
     /// @notice Get the migration tamper counts for a user
@@ -463,15 +487,15 @@ contract BadgeMigration is
         if (!isMigrationActive(_user)) {
             revert MIGRATION_NOT_STARTED();
         }
-        Migration memory _migration = getActiveMigrationFor(_user);
-        return (_migration.pinkTampers, _migration.purpleTampers);
+        Migration memory migration_ = getActiveMigrationFor(_user);
+        return (migration_.pinkTampers, migration_.purpleTampers);
     }
 
     /// @notice supportsInterface implementation
-    /// @param interfaceId The interface ID
+    /// @param _interfaceId The interface ID
     /// @return Whether the interface is supported
-    function supportsInterface(bytes4 interfaceId) public view override returns (bool) {
-        return super.supportsInterface(interfaceId);
+    function supportsInterface(bytes4 _interfaceId) public view override returns (bool) {
+        return super.supportsInterface(_interfaceId);
     }
 
     /// @notice Internal method to authorize an upgrade

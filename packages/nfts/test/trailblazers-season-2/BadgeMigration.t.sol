@@ -355,7 +355,7 @@ contract TrailblazersBadgesS2Test is Test {
     }
 
     function test_rollCycle() public {
-        assertEq(migration.migrationCycle(), 1);
+        assertEq(migration.getMigrationCycle(), 1);
 
         test_endMigration();
 
@@ -368,6 +368,6 @@ contract TrailblazersBadgesS2Test is Test {
         migration.enableMigrations(enabledBadgeIds);
 
         // check cycle id
-        assertEq(migration.migrationCycle(), 2);
+        assertEq(migration.getMigrationCycle(), 2);
     }
 }

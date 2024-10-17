@@ -29,6 +29,7 @@ contract TrailblazersBadgesS2 is
     Ownable2StepUpgradeable,
     ERC1155SupplyUpgradeable
 {
+    /// @notice Badge types
     enum BadgeType {
         Ravers, // s1 id: 0
         Robots, // s1 id: 1
@@ -40,34 +41,35 @@ contract TrailblazersBadgesS2 is
         Shinto // s1 id: 7
 
     }
-
+    /// @notice Movement types
     enum MovementType {
         Dev, // s1 neutral
         Minnow, // s1 based/pink
         Whale // s1 boosted/purple
 
     }
+    /// @notice Badge struct
 
     struct Badge {
         uint256 tokenId;
         BadgeType badgeType;
         MovementType movementType;
     }
+    /// @notice Badge mapping
 
     mapping(uint256 tokenId => Badge badge) private badges;
-
+    /// @notice Badge URI template
     string public uriTemplate;
-
+    /// @notice Minter address; BadgeMigration contract
     address public minter;
-
     /// @notice Gap for upgrade safety
     uint256[43] private __gap;
 
     /// @notice Errors
     error NOT_MINTER();
     error TOKEN_NOT_MINTED();
-    /// @notice Modifiers
 
+    /// @notice Allow only the minter to call the function
     modifier onlyMinter() {
         if (minter != _msgSender()) {
             revert NOT_MINTER();
@@ -75,6 +77,9 @@ contract TrailblazersBadgesS2 is
         _;
     }
 
+    /// @notice Initialize the contract
+    /// @param _minter The minter address
+    /// @param _uriTemplate The badge URI template
     function initialize(
         address _minter,
         string calldata _uriTemplate
@@ -92,10 +97,18 @@ contract TrailblazersBadgesS2 is
         uriTemplate = _uriTemplate;
     }
 
+    /// @notice Set the minter address
+    /// @param _minter The minter address
+    /// @dev Only the owner can call this function
     function setMinter(address _minter) external virtual onlyOwner {
         minter = _minter;
     }
 
+    /// @notice Mint a badge
+    /// @param _to The address to mint the badge to
+    /// @param _badgeType The badge type
+    /// @param _movementType The movement type
+    /// @dev Only the minter can call this function
     function mint(
         address _to,
         BadgeType _badgeType,
@@ -105,12 +118,16 @@ contract TrailblazersBadgesS2 is
         virtual
         onlyMinter
     {
-        uint256 tokenId = totalSupply() + 1;
-        Badge memory badge = Badge(tokenId, _badgeType, _movementType);
-        _mint(_to, tokenId, 1, "");
-        badges[tokenId] = badge;
+        uint256 tokenId_ = totalSupply() + 1;
+        Badge memory badge_ = Badge(tokenId_, _badgeType, _movementType);
+        _mint(_to, tokenId_, 1, "");
+        badges[tokenId_] = badge_;
     }
 
+    /// @notice Internal method to assemble URIs
+    /// @param _badgeType The badge type
+    /// @param _movementType The movement type
+    /// @return The URI
     function _uri(
         BadgeType _badgeType,
         MovementType _movementType
@@ -120,12 +137,16 @@ contract TrailblazersBadgesS2 is
         virtual
         returns (string memory)
     {
-        string memory badgeType = Strings.toString(uint256(_badgeType));
-        string memory movementType = Strings.toString(uint256(_movementType));
+        string memory badgeType_ = Strings.toString(uint256(_badgeType));
+        string memory movementType_ = Strings.toString(uint256(_movementType));
 
-        return string(abi.encodePacked(uriTemplate, badgeType, "/", movementType, ".json"));
+        return string(abi.encodePacked(uriTemplate, badgeType_, "/", movementType_, ".json"));
     }
 
+    /// @notice Retrieve the URI for a badge given the type & movement
+    /// @param _badgeType The badge type
+    /// @param _movementType The movement type
+    /// @return The URI
     function uri(
         BadgeType _badgeType,
         MovementType _movementType
@@ -138,39 +159,32 @@ contract TrailblazersBadgesS2 is
         return _uri(_badgeType, _movementType);
     }
 
-    function uri(uint256 tokenId) public view virtual override returns (string memory) {
-        if (tokenId > totalSupply()) {
+    /// @notice Retrieve the URI for a badge given the token ID
+    /// @param _tokenId The token ID
+    /// @return The URI
+    function uri(uint256 _tokenId) public view virtual override returns (string memory) {
+        if (_tokenId > totalSupply()) {
             revert TOKEN_NOT_MINTED();
         }
-        Badge memory badge = badges[tokenId];
-        return _uri(badge.badgeType, badge.movementType);
+        Badge memory badge_ = badges[_tokenId];
+        return _uri(badge_.badgeType, badge_.movementType);
     }
 
-    function getBadge(uint256 tokenId) external view virtual returns (Badge memory) {
-        if (tokenId < totalSupply()) {
+    /// @notice Retrieve a badge
+    /// @param _tokenId The token ID
+    /// @return The badge
+    function getBadge(uint256 _tokenId) external view virtual returns (Badge memory) {
+        if (_tokenId < totalSupply()) {
             revert TOKEN_NOT_MINTED();
         }
-        return badges[tokenId];
-    }
-
-    /// @notice Retrieve boolean balance for each badge
-    /// @param _owner The addresses to check
-    /// @return _balances The badges atomic balances
-    function badgeBalances(address _owner) public view returns (bool[16] memory _balances) {
-        /*
-        for (uint256 i = 0; i < BADGE_COUNT; i++) {
-            uint256 tokenId = getTokenId(_owner, i);
-            _balances[i] = tokenId > 0;
-        }
-
-        return _balances;*/
+        return badges[_tokenId];
     }
 
     /// @notice supportsInterface implementation
-    /// @param interfaceId The interface ID
+    /// @param _interfaceId The interface ID
     /// @return Whether the interface is supported
-    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
-        return super.supportsInterface(interfaceId);
+    function supportsInterface(bytes4 _interfaceId) public view virtual override returns (bool) {
+        return super.supportsInterface(_interfaceId);
     }
 
     /// @notice Internal method to authorize an upgrade
