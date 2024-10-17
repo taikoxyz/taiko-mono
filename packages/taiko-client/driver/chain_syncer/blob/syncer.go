@@ -257,6 +257,12 @@ func (s *Syncer) onBlockProposed(
 		return fmt.Errorf("failed to fetch tx list: %w", err)
 	}
 
+	log.Info("TestResult",
+		"txListBytes", len(txListBytes),
+		"offset", meta.GetBlobTxListOffset(),
+		"length", meta.GetBlobTxListLength(),
+		"txListBytes", txListBytes,
+	)
 	var decompressedTxListBytes []byte
 	if s.rpc.L2.ChainID.Cmp(params.HeklaNetworkID) == 0 {
 		decompressedTxListBytes = s.txListDecompressor.TryDecompressHekla(
