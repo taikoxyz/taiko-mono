@@ -3,11 +3,11 @@
 </p>
 
 <h1 align="center">
-  Taiko
+  Taiko Core Rollup
 </h1>
 
 <p align="center">
-  A based rollup.
+  A vanilla implementation of Taiko stack based rollup.
 </p>
 
 <div align="center">
