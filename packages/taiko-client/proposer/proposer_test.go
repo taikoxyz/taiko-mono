@@ -198,6 +198,12 @@ func (s *ProposerTestSuite) TestProposeOpNoEmptyBlock() {
 			[]int{100},
 		},
 		{
+			p.protocolConfigs.BlockMaxGasLimit,
+			rpc.BlockMaxTxListBytes,
+			p.MaxProposedTxListsPerEpoch * 5,
+			[]int{100},
+		},
+		{
 			p.protocolConfigs.BlockMaxGasLimit / 100,
 			rpc.BlockMaxTxListBytes,
 			7,
