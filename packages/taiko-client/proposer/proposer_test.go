@@ -197,13 +197,13 @@ func (s *ProposerTestSuite) TestProposeOpNoEmptyBlock() {
 			p.MaxProposedTxListsPerEpoch,
 			[]int{100},
 		},
-		{
+		{ // TODO: Need fix the maxTransactionsLists relate error.
 			p.protocolConfigs.BlockMaxGasLimit,
 			rpc.BlockMaxTxListBytes,
 			p.MaxProposedTxListsPerEpoch * 5,
 			[]int{100},
 		},
-		{
+		{ // TODO: Need fix the blockMaxGasLimit relate error.
 			p.protocolConfigs.BlockMaxGasLimit / 100,
 			rpc.BlockMaxTxListBytes,
 			7,
