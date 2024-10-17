@@ -258,6 +258,7 @@ func (s *Syncer) onBlockProposed(
 	}
 
 	log.Info("TestResult",
+		"blockId", meta.GetBlockID(),
 		"txListBytes", len(txListBytes),
 		"offset", meta.GetBlobTxListOffset(),
 		"length", meta.GetBlobTxListLength(),
