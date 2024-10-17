@@ -394,7 +394,7 @@ func (s *ZKvmProofProducer) requestBatchProof(
 			Prover:   proverAddress.Hex()[2:],
 			Graffiti: graffiti,
 			SP1: &SP1RequestProofBodyParam{
-				Recursion: "plonk",
+				Recursion: RecursionCompressed,
 				Prover:    "network",
 				Verify:    true,
 			},
