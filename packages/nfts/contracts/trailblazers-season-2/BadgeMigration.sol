@@ -353,49 +353,25 @@ contract BadgeMigration is
         }
 
         uint256 s1BadgeId = _migration.s1BadgeId;
-        //        (uint256 pinkBadgeId, uint256 purpleBadgeId) = getSeason2BadgeIds(s1BadgeId);
-        //    uint256 s2BadgeId = isPinkOrPurple ? pinkBadgeId : purpleBadgeId;
-
-        // burn the s1 badge
         uint256 s1TokenId = _migration.s1TokenId;
         s1Badges.burn(s1TokenId);
 
+        TrailblazersBadgesS2.MovementType pinkOrPurple = isPinkOrPurple
+            ? TrailblazersBadgesS2.MovementType.Minnow
+            : TrailblazersBadgesS2.MovementType.Whale;
+
         // mint the badge
-        s2Badges.mint(
-            _msgSender(),
-            TrailblazersBadgesS2.BadgeType(s1BadgeId),
-            isPinkOrPurple
-                ? TrailblazersBadgesS2.MovementType.Minnow
-                : TrailblazersBadgesS2.MovementType.Whale
-        );
+        s2Badges.mint(_msgSender(), TrailblazersBadgesS2.BadgeType(s1BadgeId), pinkOrPurple);
+
         uint256 s2TokenId = s2Badges.totalSupply();
 
         _migration.s2TokenId = s2TokenId;
         _migration.cooldownExpiration = 0;
         _migration.tamperExpiration = 0;
 
-        emit MigrationEnded(
-            _msgSender(),
-            s1BadgeId,
-            uint256(
-                isPinkOrPurple
-                    ? TrailblazersBadgesS2.MovementType.Minnow
-                    : TrailblazersBadgesS2.MovementType.Whale
-            ),
-            s2TokenId
-        );
-    }
+        _updateMigration(_migration);
 
-    /// @notice S1 --> S2 badge ID mapping
-    /// @param _s1BadgeId The S1 badge ID
-    /// @return _pinkBadgeId The S2 pink badge ID
-    /// @return _purpleBadgeId The S2 purple badge ID
-    function getSeason2BadgeIds(uint256 _s1BadgeId)
-        public
-        pure
-        returns (uint256 _pinkBadgeId, uint256 _purpleBadgeId)
-    {
-        return (_s1BadgeId * 2, _s1BadgeId * 2 + 1);
+        emit MigrationEnded(_msgSender(), s1BadgeId, uint256(pinkOrPurple), s2TokenId);
     }
 
     /// @notice Generate a unique hash for each migration uniquely

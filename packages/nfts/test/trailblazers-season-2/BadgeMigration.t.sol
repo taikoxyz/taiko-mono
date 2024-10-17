@@ -241,45 +241,16 @@ contract TrailblazersBadgesS2Test is Test {
         migration.endMigration(claimHash, v, r, s, 0);
         vm.stopPrank();
 
-        /*
         // check for s1 burn
-        assertEq(s1BadgesV2.balanceOf(minters[0]), 0);
-        assertEq(s1BadgesV2.balanceOf(address(s2Badges)), 0);
+        assertEq(s1BadgesV4.balanceOf(minters[0]), 0);
+        assertEq(s1BadgesV4.balanceOf(address(s2Badges)), 0);
 
         // check for s2 state reset
         assertEq(migration.isMigrationActive(minters[0]), false);
         assertEq(migration.isTamperActive(minters[0]), false);
 
         // check for s2 mint
-        (uint256 pinkBadgeId, uint256 purpleBadgeId) = migration.getSeason2BadgeIds(BADGE_ID);
-        uint256 s2TokenId = migration.getTokenId(minters[0], pinkBadgeId) > 0
-            ? migration.getTokenId(minters[0], pinkBadgeId)
-            : migration.getTokenId(minters[0], purpleBadgeId);
-        assertEq(s2Badges.balanceOf(minters[0], s2TokenId), 1);
-
-        */
-
-        // check for s2 badge balances
-        //    bool[16] memory badgeBalances = s2Badges.badgeBalances(minters[0]);
-        /*
-        assertTrue(
-        badgeBalances[s2Badges.RAVER_PINK_ID()] || badgeBalances[s2Badges.RAVER_PURPLE_ID()]
-        );
-
-        assertFalse(badgeBalances[s2Badges.ROBOT_PINK_ID()]);
-        assertFalse(badgeBalances[s2Badges.ROBOT_PURPLE_ID()]);
-        assertFalse(badgeBalances[s2Badges.BOUNCER_PINK_ID()]);
-        assertFalse(badgeBalances[s2Badges.BOUNCER_PURPLE_ID()]);
-        assertFalse(badgeBalances[s2Badges.MASTER_PINK_ID()]);
-        assertFalse(badgeBalances[s2Badges.MASTER_PURPLE_ID()]);
-        assertFalse(badgeBalances[s2Badges.MONK_PINK_ID()]);
-        assertFalse(badgeBalances[s2Badges.MONK_PURPLE_ID()]);
-        assertFalse(badgeBalances[s2Badges.DRUMMER_PINK_ID()]);
-        assertFalse(badgeBalances[s2Badges.DRUMMER_PURPLE_ID()]);
-        assertFalse(badgeBalances[s2Badges.ANDROID_PINK_ID()]);
-        assertFalse(badgeBalances[s2Badges.ANDROID_PURPLE_ID()]);
-        assertFalse(badgeBalances[s2Badges.SHINTO_PINK_ID()]);
-        assertFalse(badgeBalances[s2Badges.SHINTO_PURPLE_ID()]);*/
+        assertEq(s2Badges.balanceOf(minters[0], 1), 1);
     }
 
     function test_revert_startMigrationTwice() public {
