@@ -22,7 +22,7 @@ type TaikoDataBlockMetadataLegacy struct {
 
 // NewTaikoDataBlockMetadataLegacy creates a new instance of TaikoDataBlockMetadataLegacy
 // from the TaikoL1.BlockProposed event.
-func NewTaikoDataBlockMetadataLegacy(e *bindings.LibProposingBlockProposed) *TaikoDataBlockMetadataLegacy {
+func NewTaikoDataBlockMetadataLegacy(e *bindings.TaikoL1ClientBlockProposed) *TaikoDataBlockMetadataLegacy {
 	return &TaikoDataBlockMetadataLegacy{
 		TaikoDataBlockMetadata: e.Meta,
 		Log:                    e.Raw,
@@ -133,8 +133,8 @@ func (m *TaikoDataBlockMetadataLegacy) GetBlobIndex() uint8 {
 }
 
 // GetBaseFeeConfig returns the L2 block basefee configs.
-func (m *TaikoDataBlockMetadataLegacy) GetBaseFeeConfig() *bindings.TaikoDataBaseFeeConfig {
-	return &bindings.TaikoDataBaseFeeConfig{}
+func (m *TaikoDataBlockMetadataLegacy) GetBaseFeeConfig() *bindings.LibSharedDataBaseFeeConfig {
+	return &bindings.LibSharedDataBaseFeeConfig{}
 }
 
 // GetRawBlockHeight returns the raw L1 block height.

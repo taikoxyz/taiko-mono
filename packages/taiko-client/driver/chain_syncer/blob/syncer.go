@@ -134,7 +134,6 @@ func (s *Syncer) processL1Blocks(ctx context.Context) error {
 	iter, err := eventIterator.NewBlockProposedIterator(ctx, &eventIterator.BlockProposedIteratorConfig{
 		Client:               s.rpc.L1,
 		TaikoL1:              s.rpc.TaikoL1,
-		LibProposing:         s.rpc.LibProposing,
 		StartHeight:          s.state.GetL1Current().Number,
 		EndHeight:            l1End.Number,
 		FilterQuery:          nil,
@@ -211,7 +210,6 @@ func (s *Syncer) onBlockProposed(
 	// only happen when testing.
 	if meta.GetTimestamp() > uint64(time.Now().Unix()) {
 		log.Warn("Future L2 block, waiting", "L2BlockTimestamp", meta.GetTimestamp(), "now", time.Now().Unix())
-		// #nosec G115
 		time.Sleep(time.Until(time.Unix(int64(meta.GetTimestamp()), 0)))
 	}
 
@@ -411,10 +409,15 @@ func (s *Syncer) insertNewHead(
 		return nil, fmt.Errorf("failed to create execution payloads: %w", err)
 	}
 
+	lastVerifiedBlockHash, err := s.rpc.GetLastVerifiedBlockHash(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch the last verified block hash: %w", err)
+	}
+
 	fc := &engine.ForkchoiceStateV1{
 		HeadBlockHash:      payload.BlockHash,
-		SafeBlockHash:      payload.BlockHash,
-		FinalizedBlockHash: payload.BlockHash,
+		SafeBlockHash:      lastVerifiedBlockHash,
+		FinalizedBlockHash: lastVerifiedBlockHash,
 	}
 
 	// Update the fork choice
@@ -586,7 +589,6 @@ func (s *Syncer) retrievePastBlock(
 	ts, err := s.rpc.GetTransition(
 		ctx,
 		new(big.Int).SetUint64(blockInfo.BlockId),
-		// #nosec G115
 		uint32(blockInfo.VerifiedTransitionId.Uint64()),
 	)
 	if err != nil {

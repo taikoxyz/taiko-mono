@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../../../shared/common/LibStrings.sol";
-import "../../../shared/common/LibNetwork.sol";
+import "src/shared/common/LibStrings.sol";
+import "src/shared/common/LibNetwork.sol";
 import "./AddressCache.sol";
 
 /// @title RollupAddressCache
@@ -48,7 +48,7 @@ contract RollupAddressCache is AddressCache {
         if (_name == LibStrings.B_AUTOMATA_DCAP_ATTESTATION) {
             return (true, 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3);
         }
-        if (_name == LibStrings.B_BLOCK_PROPOSER) {
+        if (_name == LibStrings.B_PRECONF_REGISTRY) {
             return (true, address(0));
         }
         if (_name == LibStrings.B_CHAIN_WATCHDOG) {

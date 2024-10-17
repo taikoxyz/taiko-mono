@@ -2,6 +2,7 @@ package proposer
 
 import (
 	"context"
+	"math/big"
 	"os"
 	"testing"
 	"time"
@@ -145,7 +146,7 @@ func (s *ProposerTestSuite) TestProposeTxLists() {
 			break
 		}
 
-		candidate, err := txBuilder.Build(
+		candidate, err := txBuilder.BuildLegacy(
 			p.ctx,
 			p.IncludeParentMetaHash,
 			compressedTxListBytes,
@@ -170,6 +171,10 @@ func (s *ProposerTestSuite) TestProposeTxLists() {
 }
 
 func (s *ProposerTestSuite) TestProposeOpNoEmptyBlock() {
+	// TODO: Temporarily skip this test case when using l2_reth node.
+	if os.Getenv("L2_NODE") == "l2_reth" {
+		s.T().Skip()
+	}
 	defer s.Nil(s.s.ProcessL1Blocks(context.Background()))
 
 	p := s.p
@@ -232,18 +237,18 @@ func (s *ProposerTestSuite) TestName() {
 
 func (s *ProposerTestSuite) TestProposeOp() {
 	// Propose txs in L2 execution engine's mempool
-	sink := make(chan *bindings.LibProposingBlockProposed)
+	sink := make(chan *bindings.TaikoL1ClientBlockProposed)
 
-	sub, err := s.p.rpc.LibProposing.WatchBlockProposed(nil, sink, nil, nil)
+	sub, err := s.p.rpc.TaikoL1.WatchBlockProposed(nil, sink, nil, nil)
 	s.Nil(err)
 	defer func() {
 		sub.Unsubscribe()
 		close(sink)
 	}()
 
-	sink2 := make(chan *bindings.LibProposingBlockProposedV2)
+	sink2 := make(chan *bindings.TaikoL1ClientBlockProposedV2)
 
-	sub2, err := s.p.rpc.LibProposing.WatchBlockProposedV2(nil, sink2, nil)
+	sub2, err := s.p.rpc.TaikoL1.WatchBlockProposedV2(nil, sink2, nil)
 	s.Nil(err)
 	defer func() {
 		sub2.Unsubscribe()
@@ -281,6 +286,41 @@ func (s *ProposerTestSuite) TestProposeEmptyBlockOp() {
 	s.p.MinProposingInternal = 1 * time.Second
 	s.p.lastProposedAt = time.Now().Add(-10 * time.Second)
 	s.Nil(s.p.ProposeOp(context.Background()))
+}
+
+func (s *ProposerTestSuite) TestProposeTxListOntake() {
+	for i := 0; i < int(s.p.protocolConfigs.OntakeForkHeight); i++ {
+		s.ProposeAndInsertValidBlock(s.p, s.s)
+	}
+
+	l2Head, err := s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.GreaterOrEqual(l2Head.Number.Uint64(), s.p.protocolConfigs.OntakeForkHeight)
+
+	sink := make(chan *bindings.TaikoL1ClientBlockProposedV2)
+	sub, err := s.p.rpc.TaikoL1.WatchBlockProposedV2(nil, sink, nil)
+	s.Nil(err)
+	defer func() {
+		sub.Unsubscribe()
+		close(sink)
+	}()
+	s.Nil(s.p.ProposeTxListOntake(context.Background(), []types.Transactions{{}, {}}))
+	s.Nil(s.s.ProcessL1Blocks(context.Background()))
+
+	var l1Height *big.Int
+	for i := 0; i < 2; i++ {
+		event := <-sink
+		if l1Height == nil {
+			l1Height = new(big.Int).SetUint64(event.Raw.BlockNumber)
+			continue
+		}
+		s.Equal(l1Height.Uint64(), event.Raw.BlockNumber)
+	}
+
+	newL2head, err := s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	s.Equal(l2Head.Number.Uint64()+2, newL2head.Number.Uint64())
 }
 
 func (s *ProposerTestSuite) TestUpdateProposingTicker() {

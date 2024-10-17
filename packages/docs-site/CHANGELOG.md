@@ -1,5 +1,52 @@
 # Changelog
 
+## [1.12.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.12.1...docs-site-v1.12.2) (2024-10-14)
+
+
+### Bug Fixes
+
+* **docs-site:** fix edit link ([#18243](https://github.com/taikoxyz/taiko-mono/issues/18243)) ([ea55bc2](https://github.com/taikoxyz/taiko-mono/commit/ea55bc24ea7184655804b88cc3c424b69fc87103))
+
+## [1.12.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.12.0...docs-site-v1.12.1) (2024-09-30)
+
+
+### Chores
+
+* **docs-site:** fix broken diagram and delete self-direction link ([#18180](https://github.com/taikoxyz/taiko-mono/issues/18180)) ([2e20c28](https://github.com/taikoxyz/taiko-mono/commit/2e20c28e1ac482d3f6bb8ac5e182a43675853166))
+
+
+### Documentation
+
+* **docs-site:** add warning to proposer page and update banner ([#18186](https://github.com/taikoxyz/taiko-mono/issues/18186)) ([b02ea92](https://github.com/taikoxyz/taiko-mono/commit/b02ea92af01b37670c2545dbd4e332ab4803ae03))
+
+## [1.12.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.11.9...docs-site-v1.12.0) (2024-09-19)
+
+
+### Features
+
+* **docs-site:** sitewide banner for ontake fork notification ([#18111](https://github.com/taikoxyz/taiko-mono/issues/18111)) ([5ed6c80](https://github.com/taikoxyz/taiko-mono/commit/5ed6c8085e44b77283fe5ef8874f751126364d84))
+* **docs-site:** update docs for ontake fork hekla ([#18143](https://github.com/taikoxyz/taiko-mono/issues/18143)) ([49b5071](https://github.com/taikoxyz/taiko-mono/commit/49b50712551849d185c98237098d236bb0cf884c))
+* **docs-site:** update graphics and links for hekla ontake fork ([#18146](https://github.com/taikoxyz/taiko-mono/issues/18146)) ([48a27af](https://github.com/taikoxyz/taiko-mono/commit/48a27afe6be22fc7e1a9d2346ae292544faac0b3))
+
+
+### Bug Fixes
+
+* **docs-site:** remove duplicate wording ([#18105](https://github.com/taikoxyz/taiko-mono/issues/18105)) ([92c53f8](https://github.com/taikoxyz/taiko-mono/commit/92c53f8655dbdab4c7db1b023823a4e760240894))
+
+
+### Documentation
+
+* **docs-site:** fix broken link ([#18139](https://github.com/taikoxyz/taiko-mono/issues/18139)) ([e56b81b](https://github.com/taikoxyz/taiko-mono/commit/e56b81bbd83f26c95641cf7deab82dbb5a3da835))
+
+## [1.11.9](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.11.8...docs-site-v1.11.9) (2024-09-15)
+
+
+### Documentation
+
+* **docs-site:** add forge verify in faq ([#17937](https://github.com/taikoxyz/taiko-mono/issues/17937)) ([513d9fe](https://github.com/taikoxyz/taiko-mono/commit/513d9fe745ff947e6a1f3f21cfc568432b008d65))
+* **docs-site:** added documentation for PORTERS ([#18033](https://github.com/taikoxyz/taiko-mono/issues/18033)) ([548884d](https://github.com/taikoxyz/taiko-mono/commit/548884d10ca3dc9931c025428f827335e42b55db))
+* **docs-site:** update docs for hekla ontake ([#18090](https://github.com/taikoxyz/taiko-mono/issues/18090)) ([f877568](https://github.com/taikoxyz/taiko-mono/commit/f8775684f32f46f04e8bc8a416f7e2bacfb32530))
+
 ## [1.11.8](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.11.7...docs-site-v1.11.8) (2024-08-08)
 
 

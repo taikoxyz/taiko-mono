@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../../test/shared/DeployCapability.sol";
-import "../../contracts/shared/bridge/QuotaManager.sol";
+import "test/shared/DeployCapability.sol";
+import "src/shared/bridge/QuotaManager.sol";
 
 contract DeployQuotaManager is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");

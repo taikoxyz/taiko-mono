@@ -64,11 +64,11 @@ func (s *State) init(ctx context.Context) error {
 		return err
 	}
 
-	log.Info("Genesis L1 height", "height", stateVars.A.GenesisHeight)
 	s.GenesisL1Height = new(big.Int).SetUint64(stateVars.A.GenesisHeight)
+	log.Info("Genesis L1 height", "height", stateVars.A.GenesisHeight)
 
 	s.OnTakeForkHeight = new(big.Int).SetUint64(encoding.GetProtocolConfig(s.rpc.L2.ChainID.Uint64()).OntakeForkHeight)
-	log.Info("OnTake fork height", "L2 height", s.OnTakeForkHeight)
+	log.Info("OnTake fork height", "height", s.OnTakeForkHeight)
 
 	// Set the L2 head's latest known L1 origin as current L1 sync cursor.
 	latestL2KnownL1Header, err := s.rpc.LatestL2KnownL1Header(ctx)
@@ -107,10 +107,10 @@ func (s *State) eventLoop(ctx context.Context) {
 		// Channels for subscriptions.
 		l1HeadCh             = make(chan *types.Header, 10)
 		l2HeadCh             = make(chan *types.Header, 10)
-		blockProposedCh      = make(chan *bindings.LibProposingBlockProposed, 10)
+		blockProposedCh      = make(chan *bindings.TaikoL1ClientBlockProposed, 10)
 		transitionProvedCh   = make(chan *bindings.TaikoL1ClientTransitionProved, 10)
 		blockVerifiedCh      = make(chan *bindings.TaikoL1ClientBlockVerified, 10)
-		blockProposedV2Ch    = make(chan *bindings.LibProposingBlockProposedV2, 10)
+		blockProposedV2Ch    = make(chan *bindings.TaikoL1ClientBlockProposedV2, 10)
 		transitionProvedV2Ch = make(chan *bindings.TaikoL1ClientTransitionProvedV2, 10)
 		blockVerifiedV2Ch    = make(chan *bindings.TaikoL1ClientBlockVerifiedV2, 10)
 
@@ -118,10 +118,10 @@ func (s *State) eventLoop(ctx context.Context) {
 		l1HeadSub               = rpc.SubscribeChainHead(s.rpc.L1, l1HeadCh)
 		l2HeadSub               = rpc.SubscribeChainHead(s.rpc.L2, l2HeadCh)
 		l2BlockVerifiedSub      = rpc.SubscribeBlockVerified(s.rpc.TaikoL1, blockVerifiedCh)
-		l2BlockProposedSub      = rpc.SubscribeBlockProposed(s.rpc.LibProposing, blockProposedCh)
+		l2BlockProposedSub      = rpc.SubscribeBlockProposed(s.rpc.TaikoL1, blockProposedCh)
 		l2TransitionProvedSub   = rpc.SubscribeTransitionProved(s.rpc.TaikoL1, transitionProvedCh)
 		l2BlockVerifiedV2Sub    = rpc.SubscribeBlockVerifiedV2(s.rpc.TaikoL1, blockVerifiedV2Ch)
-		l2BlockProposedV2Sub    = rpc.SubscribeBlockProposedV2(s.rpc.LibProposing, blockProposedV2Ch)
+		l2BlockProposedV2Sub    = rpc.SubscribeBlockProposedV2(s.rpc.TaikoL1, blockProposedV2Ch)
 		l2TransitionProvedV2Sub = rpc.SubscribeTransitionProvedV2(s.rpc.TaikoL1, transitionProvedV2Ch)
 	)
 

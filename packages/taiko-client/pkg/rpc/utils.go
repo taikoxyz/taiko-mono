@@ -3,7 +3,10 @@ package rpc
 import (
 	"context"
 	"math/big"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -21,6 +24,13 @@ var (
 	ZeroAddress         common.Address
 	BlobBytes                  = params.BlobTxBytesPerFieldElement * params.BlobTxFieldElementsPerBlob
 	BlockMaxTxListBytes uint64 = (params.BlobTxBytesPerFieldElement - 1) * params.BlobTxFieldElementsPerBlob
+	// DefaultInterruptSignals is a set of default interrupt signals.
+	DefaultInterruptSignals = []os.Signal{
+		os.Interrupt,
+		os.Kill,
+		syscall.SIGTERM,
+		syscall.SIGQUIT,
+	}
 )
 
 // GetProtocolStateVariables gets the protocol states from TaikoL1 contract.
@@ -73,25 +83,41 @@ func CheckProverBalance(
 		"bond", utils.WeiToEther(bond),
 	)
 
-	// Check prover's taiko token balance
-	balance, err := rpc.TaikoToken.BalanceOf(&bind.CallOpts{Context: ctxWithTimeout}, prover)
+	// Check prover's taiko token bondBalance
+	bondBalance, err := rpc.TaikoL1.BondBalanceOf(&bind.CallOpts{Context: ctxWithTimeout}, prover)
+	if err != nil {
+		return false, err
+	}
+
+	// Check prover's taiko token tokenBalance
+	tokenBalance, err := rpc.TaikoToken.BalanceOf(&bind.CallOpts{Context: ctxWithTimeout}, prover)
 	if err != nil {
 		return false, err
 	}
 
 	log.Info(
 		"Prover's wallet taiko token balance",
-		"balance", utils.WeiToEther(balance),
+		"bondBalance", utils.WeiToEther(bondBalance),
+		"tokenBalance", utils.WeiToEther(tokenBalance),
 		"address", prover.Hex(),
 		"bond", utils.WeiToEther(bond),
 	)
 
-	if bond.Cmp(allowance) > 0 || bond.Cmp(balance) > 0 {
+	if bond.Cmp(allowance) > 0 && bond.Cmp(bondBalance) > 0 {
 		log.Info(
-			"Assigned prover does not have required on-chain token balance or allowance",
-			"providedProver", prover.Hex(),
-			"taikoTokenBalance", utils.WeiToEther(balance),
+			"Assigned prover does not have required on-chain token allowance",
 			"allowance", utils.WeiToEther(allowance),
+			"bondBalance", utils.WeiToEther(bondBalance),
+			"bond", utils.WeiToEther(bond),
+		)
+		return false, nil
+	}
+
+	if bond.Cmp(bondBalance) > 0 && bond.Cmp(tokenBalance) > 0 {
+		log.Info(
+			"Assigned prover does not have required on-chain token balance",
+			"bondBalance", utils.WeiToEther(bondBalance),
+			"tokenBalance", utils.WeiToEther(tokenBalance),
 			"bond", utils.WeiToEther(bond),
 		)
 		return false, nil
@@ -234,4 +260,20 @@ func CtxWithTimeoutOrDefault(ctx context.Context, defaultTimeout time.Duration) 
 	}
 
 	return ctx, func() {}
+}
+
+// BlockOnInterruptsContext blocks until a SIGTERM is received.
+// Passing in signals will override the default signals.
+// The function will stop blocking if the context is closed.
+func BlockOnInterruptsContext(ctx context.Context, signals ...os.Signal) {
+	if len(signals) == 0 {
+		signals = DefaultInterruptSignals
+	}
+	interruptChannel := make(chan os.Signal, 1)
+	signal.Notify(interruptChannel, signals...)
+	select {
+	case <-interruptChannel:
+	case <-ctx.Done():
+		signal.Stop(interruptChannel)
+	}
 }

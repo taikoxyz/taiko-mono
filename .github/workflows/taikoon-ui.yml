@@ -2,9 +2,13 @@ name: Taikoon UI CI/CD
 
 on:
   push:
-    tags:
-      - "taikoon-ui-v*"
+    paths:
+      - "packages/taikoon-ui/**"
+    branches-ignore:
+      - dependabot/**
+
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "packages/taikoon-ui/**"
 

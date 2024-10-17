@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/prysmaticlabs/prysm/v4/io/file"
+	"github.com/prysmaticlabs/prysm/v5/io/file"
 )
 
 // Taken from: https://github.com/prysmaticlabs/prysm/blob/v2.1.4/cmd/beacon-chain/execution/options.go#L43

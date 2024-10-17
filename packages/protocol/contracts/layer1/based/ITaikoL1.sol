@@ -30,7 +30,7 @@ interface ITaikoL1 {
         external
         returns (TaikoData.BlockMetadataV2 memory meta_);
 
-    /// @notice Proposes a Taiko L2 block (version 2)
+    /// @notice Proposes multiple Taiko L2 blocks (version 2)
     /// @param _paramsArr A list of encoded BlockParamsV2 objects.
     /// @param _txListArr A list of txList.
     /// @return metaArr_ The metadata objects of the proposed L2 blocks.
@@ -68,6 +68,23 @@ interface ITaikoL1 {
     /// @notice Pause block proving.
     /// @param _pause True if paused.
     function pauseProving(bool _pause) external;
+
+    /// @notice Gets the details of a block.
+    /// @param _blockId Index of the block.
+    /// @return blk_ The block.
+    function getBlockV2(uint64 _blockId) external view returns (TaikoData.BlockV2 memory blk_);
+
+    /// @notice Gets the state transition for a specific block.
+    /// @param _blockId Index of the block.
+    /// @param _tid The transition id.
+    /// @return The state transition data of the block.
+    function getTransition(
+        uint64 _blockId,
+        uint32 _tid
+    )
+        external
+        view
+        returns (TaikoData.TransitionState memory);
 
     /// @notice Deposits Taiko token to be used as bonds.
     /// @param _amount The amount of Taiko token to deposit.

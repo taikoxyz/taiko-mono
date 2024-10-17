@@ -139,7 +139,7 @@ func (p *Processor) processMessage(
 		return false, msgBody.TimesRetried, nil
 	}
 
-	if err := p.waitForConfirmations(ctx, msgBody.Event.Raw.TxHash, msgBody.Event.Raw.BlockNumber); err != nil {
+	if err := p.waitForConfirmations(ctx, msgBody.Event.Raw.TxHash); err != nil {
 		return false, msgBody.TimesRetried, err
 	}
 
@@ -257,16 +257,10 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 		var hopChainID *big.Int
 
 		for _, hop := range p.hops {
-			hop.blockNum = blockNum
-
 			event, err := p.waitHeaderSynced(ctx, hopEthClient, hop.chainID.Uint64(), blockNum)
 
 			if err != nil {
 				return nil, errors.Wrap(err, "p.waitHeaderSynced")
-			}
-
-			if err != nil {
-				return nil, errors.Wrap(err, "hop.headerSyncer.GetSyncedSnippet")
 			}
 
 			blockNum = event.SyncedInBlockID
@@ -442,10 +436,20 @@ func (p *Processor) sendProcessMessageCall(
 		return nil, err
 	}
 
-	// mul by 1.05 for padding
-	gasLimit := uint64(float64(event.Message.GasLimit) * 1.05)
+	gasLimit := uint64(float64(event.Message.GasLimit))
 
-	var estimatedCost uint64 = 0
+	// if destination address is a contract, add padding. check message.to
+	// to see if it is a contract address.
+	code, err := p.destEthClient.CodeAt(ctx, event.Message.To, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(code) != 0 {
+		gasLimit = uint64(float64(gasLimit) * 1.05)
+	}
+
+	var estimatedMaxCost uint64
 
 	if bool(p.profitableOnly) {
 		profitable, err := p.isProfitable(
@@ -492,7 +496,7 @@ func (p *Processor) sendProcessMessageCall(
 			return nil, relayer.ErrUnprofitable
 		}
 
-		estimatedCost = gasUsed * (baseFee.Uint64() + gasTipCap.Uint64())
+		estimatedMaxCost = gasUsed * ((baseFee.Uint64() * 2) + gasTipCap.Uint64())
 	}
 
 	// we should check event status one more time, after we have waiting for
@@ -550,10 +554,10 @@ func (p *Processor) sendProcessMessageCall(
 		slog.Info("tx cost", "txHash", hex.EncodeToString(receipt.TxHash.Bytes()),
 			"srcTxHash", event.Raw.TxHash.Hex(),
 			"actualCost", cost,
-			"estimatedCost", estimatedCost,
+			"estimatedMaxCost", estimatedMaxCost,
 		)
 
-		if cost > estimatedCost {
+		if cost > estimatedMaxCost {
 			relayer.UnprofitableMessageAfterTransacting.Inc()
 		} else {
 			relayer.ProfitableMessageAfterTransacting.Inc()

@@ -4,11 +4,11 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import "../../shared/data/LibSharedData.sol";
-import "../../shared/common/EssentialContract.sol";
-import "../../shared/common/LibStrings.sol";
-import "../../shared/common/LibAddress.sol";
-import "../../shared/signal/ISignalService.sol";
+import "src/shared/data/LibSharedData.sol";
+import "src/shared/common/EssentialContract.sol";
+import "src/shared/common/LibStrings.sol";
+import "src/shared/common/LibAddress.sol";
+import "src/shared/signal/ISignalService.sol";
 import "./Lib1559Math.sol";
 import "./LibL2Config.sol";
 import "./IBlockHash.sol";

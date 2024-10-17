@@ -5,9 +5,9 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpg
 import "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "../../shared/common/EssentialContract.sol";
-import "../../shared/common/LibStrings.sol";
-import "../../shared/common/LibAddress.sol";
+import "src/shared/common/EssentialContract.sol";
+import "src/shared/common/LibStrings.sol";
+import "src/shared/common/LibAddress.sol";
 import "../based/ITaikoL1.sol";
 
 interface IHasRecipient {
@@ -91,7 +91,6 @@ contract ProverSet is EssentialContract, IERC1271 {
         external
         payable
         onlyProver
-        nonReentrant
     {
         ITaikoL1(taikoL1()).proposeBlock(_params, _txList);
     }
@@ -104,13 +103,24 @@ contract ProverSet is EssentialContract, IERC1271 {
         external
         payable
         onlyProver
-        nonReentrant
     {
         ITaikoL1(taikoL1()).proposeBlockV2(_params, _txList);
     }
 
+    /// @notice Propose multiple Taiko blocks.
+    function proposeBlocksV2(
+        bytes[] calldata _paramsArr,
+        bytes[] calldata _txListArr
+    )
+        external
+        payable
+        onlyProver
+    {
+        ITaikoL1(taikoL1()).proposeBlocksV2(_paramsArr, _txListArr);
+    }
+
     /// @notice Proves or contests a Taiko block.
-    function proveBlock(uint64 _blockId, bytes calldata _input) external onlyProver nonReentrant {
+    function proveBlock(uint64 _blockId, bytes calldata _input) external onlyProver {
         ITaikoL1(taikoL1()).proveBlock(_blockId, _input);
     }
 
@@ -122,18 +132,17 @@ contract ProverSet is EssentialContract, IERC1271 {
     )
         external
         onlyProver
-        nonReentrant
     {
         ITaikoL1(taikoL1()).proveBlocks(_blockId, _input, _batchProof);
     }
 
     /// @notice Deposits Taiko token to TaikoL1 contract.
-    function depositBond(uint256 _amount) external onlyAuthorized nonReentrant {
+    function depositBond(uint256 _amount) external onlyAuthorized {
         ITaikoL1(taikoL1()).depositBond(_amount);
     }
 
     /// @notice Withdraws Taiko token from TaikoL1 contract.
-    function withdrawBond(uint256 _amount) external onlyAuthorized nonReentrant {
+    function withdrawBond(uint256 _amount) external onlyAuthorized {
         ITaikoL1(taikoL1()).withdrawBond(_amount);
     }
 

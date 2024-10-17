@@ -1,11 +1,8 @@
 name: "CI"
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "packages/taiko-client/**"
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "packages/taiko-client/**"
       - "go.mod"
@@ -13,24 +10,34 @@ on:
 
 jobs:
   lint:
+    if: github.event.pull_request.draft == false
     name: Lint
-    runs-on: ubuntu-latest
+    runs-on: [ubuntu-latest]
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: 1.21
+          go-version: 1.23
           cache: true
+
+      - name: Install golangci-lint
+        run: go install -v github.com/golangci/golangci-lint/cmd/golangci-lint@v1.60.0
 
       - name: Lint
         working-directory: packages/taiko-client
-        run: make lint
+        run: golangci-lint run --path-prefix=./ --config=.golangci.yml
 
   integration_tests:
+    if: github.event.pull_request.draft == false
     name: Integration tests
-    runs-on: ubuntu-latest
+    runs-on: [ubuntu-latest]
+    timeout-minutes: 15
+
+    strategy:
+      matrix:
+        execution_node: [l2_geth, l2_reth]
 
     steps:
       - name: Cancel Previous Runs
@@ -46,14 +53,16 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: 1.21
+          go-version: 1.23
           cache: true
 
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
 
-      - name: Test
+      - name: Run Tests on ${{ matrix.execution_node }} execution engine
         working-directory: packages/taiko-client
+        env:
+          L2_NODE: ${{ matrix.execution_node }}
         run: make test
 
       - name: Codecov.io

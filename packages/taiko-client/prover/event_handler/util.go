@@ -93,7 +93,6 @@ func getMetadataFromBlockID(
 	iter, err := eventIterator.NewBlockProposedIterator(ctx, &eventIterator.BlockProposedIteratorConfig{
 		Client:               rpc.L1,
 		TaikoL1:              rpc.TaikoL1,
-		LibProposing:         rpc.LibProposing,
 		StartHeight:          new(big.Int).Sub(proposedIn, common.Big1),
 		EndHeight:            proposedIn,
 		OnBlockProposedEvent: callback,
@@ -130,6 +129,5 @@ func IsProvingWindowExpired(
 		now       = uint64(time.Now().Unix())
 		expiredAt = metadata.GetTimestamp() + uint64(provingWindow.Seconds())
 	)
-	// #nosec G115
 	return now > expiredAt, time.Unix(int64(expiredAt), 0), time.Duration(expiredAt-now) * time.Second, nil
 }

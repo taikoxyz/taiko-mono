@@ -20,7 +20,7 @@ type TaikoDataBlockMetadataOntake struct {
 
 // NewTaikoDataBlockMetadataOntake creates a new instance of TaikoDataBlockMetadataOntake
 // from the TaikoL1.BlockProposedV2 event.
-func NewTaikoDataBlockMetadataOntake(e *bindings.LibProposingBlockProposedV2) *TaikoDataBlockMetadataOntake {
+func NewTaikoDataBlockMetadataOntake(e *bindings.TaikoL1ClientBlockProposedV2) *TaikoDataBlockMetadataOntake {
 	return &TaikoDataBlockMetadataOntake{
 		TaikoDataBlockMetadataV2: e.Meta,
 		Log:                      e.Raw,
@@ -129,7 +129,7 @@ func (m *TaikoDataBlockMetadataOntake) GetBlobIndex() uint8 {
 }
 
 // GetBaseFeeConfig returns the L2 block basefee configs.
-func (m *TaikoDataBlockMetadataOntake) GetBaseFeeConfig() *bindings.TaikoDataBaseFeeConfig {
+func (m *TaikoDataBlockMetadataOntake) GetBaseFeeConfig() *bindings.LibSharedDataBaseFeeConfig {
 	return &m.BaseFeeConfig
 }
 

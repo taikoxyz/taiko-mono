@@ -3,13 +3,14 @@ package rpc
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/go-resty/resty/v2"
-	"github.com/prysmaticlabs/prysm/v4/beacon-chain/rpc/eth/blob"
+	"github.com/prysmaticlabs/prysm/v5/api/server/structs"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg"
 )
@@ -76,9 +77,9 @@ func (ds *BlobDataSource) GetBlobs(
 	ctx context.Context,
 	timestamp uint64,
 	blobHash common.Hash,
-) ([]*blob.Sidecar, error) {
+) ([]*structs.Sidecar, error) {
 	var (
-		sidecars []*blob.Sidecar
+		sidecars []*structs.Sidecar
 		err      error
 	)
 	if ds.client.L1Beacon == nil {
@@ -87,7 +88,9 @@ func (ds *BlobDataSource) GetBlobs(
 		sidecars, err = ds.client.L1Beacon.GetBlobs(ctx, timestamp)
 	}
 	if err != nil {
-		log.Info("Failed to get blobs from beacon, try to use blob server.", "error", err.Error())
+		if !errors.Is(err, pkg.ErrBeaconNotFound) {
+			log.Info("Failed to get blobs from beacon, try to use blob server.", "error", err.Error())
+		}
 		if ds.blobServerEndpoint == nil && ds.socialScanEndpoint == nil {
 			log.Info("No blob server endpoint set")
 			return nil, err
@@ -96,9 +99,9 @@ func (ds *BlobDataSource) GetBlobs(
 		if err != nil {
 			return nil, err
 		}
-		sidecars = make([]*blob.Sidecar, len(blobs.Data))
+		sidecars = make([]*structs.Sidecar, len(blobs.Data))
 		for index, value := range blobs.Data {
-			sidecars[index] = &blob.Sidecar{
+			sidecars[index] = &structs.Sidecar{
 				KzgCommitment: value.KzgCommitment,
 				Blob:          value.Blob,
 			}
@@ -131,7 +134,7 @@ func (ds *BlobDataSource) getBlobFromServer(ctx context.Context, blobHash common
 		SetHeader("Accept", "application/json").
 		Get(requestURL)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get blob from server, request_url: %s, err: %w", requestURL, err)
 	}
 	if !resp.IsSuccess() {
 		return nil, fmt.Errorf(

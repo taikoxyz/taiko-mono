@@ -1,23 +1,18 @@
 //SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { V3Struct } from "./lib/QuoteV3Auth/V3Struct.sol";
-import { V3Parser } from "./lib/QuoteV3Auth/V3Parser.sol";
-import { IPEMCertChainLib } from "./lib/interfaces/IPEMCertChainLib.sol";
-import { PEMCertChainLib } from "./lib/PEMCertChainLib.sol";
-import { TCBInfoStruct } from "./lib/TCBInfoStruct.sol";
-import { EnclaveIdStruct } from "./lib/EnclaveIdStruct.sol";
-import { IAttestation } from "./interfaces/IAttestation.sol";
-
-// Internal Libraries
-import { Base64 } from "solady/src/utils/Base64.sol";
-import { LibString } from "solady/src/utils/LibString.sol";
-import { BytesUtils } from "./utils/BytesUtils.sol";
-
-// External Libraries
-import { ISigVerifyLib } from "./interfaces/ISigVerifyLib.sol";
-
-import { EssentialContract } from "../../shared/common/EssentialContract.sol";
+import "solady/src/utils/Base64.sol";
+import "solady/src/utils/LibString.sol";
+import "src/shared/common/EssentialContract.sol";
+import "./lib/QuoteV3Auth/V3Struct.sol";
+import "./lib/QuoteV3Auth/V3Parser.sol";
+import "./lib/interfaces/IPEMCertChainLib.sol";
+import "./lib/PEMCertChainLib.sol";
+import "./lib/TCBInfoStruct.sol";
+import "./lib/EnclaveIdStruct.sol";
+import "./interfaces/IAttestation.sol";
+import "./utils/BytesUtils.sol";
+import "./interfaces/ISigVerifyLib.sol";
 
 /// @title AutomataDcapV3Attestation
 /// @custom:security-contact security@taiko.xyz
