@@ -175,15 +175,22 @@ contract TrailblazersBadgesS2Test is Test {
         test_startMigration();
 
         vm.startPrank(minters[0]);
+
+        uint256 points = 0;
+        bytes32 _hash = migration.generateClaimHash(minters[0], points);
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(mintSignerPk, _hash);
+
         for (uint256 i = 0; i < MAX_TAMPERS; i++) {
             wait(COOLDOWN_TAMPER);
-            migration.tamperMigration(PINK_TAMPER);
+            migration.tamperMigration(_hash, v, r, s, points, PINK_TAMPER);
         }
 
         wait(COOLDOWN_TAMPER);
-        migration.tamperMigration(PURPLE_TAMPER);
+        migration.tamperMigration(_hash, v, r, s, points, PURPLE_TAMPER);
         wait(COOLDOWN_TAMPER);
-        migration.tamperMigration(PURPLE_TAMPER);
+
+        migration.tamperMigration(_hash, v, r, s, points, PURPLE_TAMPER);
 
         vm.stopPrank();
 
@@ -196,10 +203,15 @@ contract TrailblazersBadgesS2Test is Test {
     }
 
     function test_revert_tooManyTampers() public {
+        uint256 points = 0;
+        bytes32 _hash = migration.generateClaimHash(minters[0], points);
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(mintSignerPk, _hash);
+
         test_tamperMigration();
         vm.startPrank(minters[0]);
         vm.expectRevert();
-        migration.tamperMigration(PINK_TAMPER);
+        migration.tamperMigration(_hash, v, r, s, points, PINK_TAMPER);
 
         vm.stopPrank();
     }
@@ -330,7 +342,7 @@ contract TrailblazersBadgesS2Test is Test {
         assertEq(newConfig.cooldownMigration, 1 hours);
         assertEq(newConfig.cooldownTamper, 5 minutes);
         assertEq(newConfig.tamperWeightPercent, 5);
-        assertEq(newConfig.maxTampers, 3);
+        assertEq(newConfig.baseMaxTampers, 3);
     }
 
     function test_setConfig_revert__notOwner() public {

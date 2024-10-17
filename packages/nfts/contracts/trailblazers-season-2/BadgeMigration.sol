@@ -50,7 +50,7 @@ contract BadgeMigration is
         uint256 cooldownMigration;
         uint256 cooldownTamper;
         uint256 tamperWeightPercent;
-        uint256 maxTampers;
+        uint256 baseMaxTampers;
     }
 
     Config private config;
@@ -266,15 +266,37 @@ contract BadgeMigration is
         );
     }
 
+    function maxTampers(uint256 exp) internal view virtual returns (uint256 value) {
+        // start at 3 tampers
+        // add +1 tamper for every 100 exp
+        value = exp / 100;
+        value += 2 * config.baseMaxTampers;
+        return value;
+    }
+
     /// @notice Tamper (alter) the chances during a migration
     /// @param _pinkOrPurple true for pink, false for purple
     /// @dev Can be called only during an active migration
     /// @dev Implements a cooldown before allowing to re-tamper
     /// @dev The max tamper amount is determined by Pass Tier
-    function tamperMigration(bool _pinkOrPurple) external isMigrating {
+    function tamperMigration(
+        bytes32 _hash,
+        uint8 v,
+        bytes32 r,
+        bytes32 s,
+        uint256 exp,
+        bool _pinkOrPurple
+    )
+        external
+        isMigrating
+    {
+        (address _recovered,,) = ECDSA.tryRecover(_hash, v, r, s);
+        if (_recovered != randomSigner) revert NOT_RANDOM_SIGNER();
+        // Hash the signature parts to get a deterministic pseudo-random number
+
         Migration memory _migration = getActiveMigrationFor(_msgSender());
 
-        if ((_migration.pinkTampers + _migration.purpleTampers) > config.maxTampers * 2) {
+        if ((_migration.pinkTampers + _migration.purpleTampers) > maxTampers(exp)) {
             revert MAX_TAMPERS_REACHED();
         }
 
