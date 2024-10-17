@@ -34,7 +34,7 @@ contract BadgeMigration is
     TrailblazersBadgesV4 public s1Badges;
     TrailblazersBadgesS2 public s2Badges;
     address public randomSigner;
-
+    /*
     /// @notice Time between start and end of a migration
     uint256 public constant COOLDOWN_MIGRATION = 1 minutes; //6 hours;
     /// @notice Time between tamper attempts
@@ -43,6 +43,8 @@ contract BadgeMigration is
     uint256 public constant TAMPER_WEIGHT_PERCENT = 5;
     /// @notice Maximum tamper attempts, per color
     uint256 public constant MAX_TAMPERS = 3;
+
+    */
 
     /// @notice Migration-enabled badge IDs per cycle
     mapping(uint256 _cycle => mapping(uint256 _s1BadgeId => bool _enabled)) public enabledBadgeIds;
@@ -54,6 +56,15 @@ contract BadgeMigration is
         uint256 _migrationCycle
             => mapping(address _minter => mapping(uint256 _s1BadgeId => bool _mintEnded))
     ) public migrationCycleUniqueMints;
+
+    struct Config {
+        uint256 cooldownMigration;
+        uint256 cooldownTamper;
+        uint256 tamperWeightPercent;
+        uint256 maxTampers;
+    }
+
+    Config public config;
 
     struct Migration {
         uint256 migrationCycle;
@@ -141,7 +152,8 @@ contract BadgeMigration is
     function initialize(
         address _s1Badges,
         address _s2Badges,
-        address _randomSigner
+        address _randomSigner,
+        Config memory _config
     )
         external
         initializer
@@ -152,6 +164,11 @@ contract BadgeMigration is
         s1Badges = TrailblazersBadgesV4(_s1Badges);
         s2Badges = TrailblazersBadgesS2(_s2Badges);
         randomSigner = _randomSigner;
+        config = _config;
+    }
+
+    function setConfig(Config memory _config) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        config = _config;
     }
 
     /// @notice Disable all new migrations
@@ -207,7 +224,7 @@ contract BadgeMigration is
             _s1BadgeId,
             s1TokenId,
             0, // s2TokenId, unset
-            block.timestamp + COOLDOWN_MIGRATION, // cooldownExpiration
+            block.timestamp + config.cooldownMigration, // cooldownExpiration
             0, // tamperExpiration, unset
             0, // pinkTampers
             0 // purpleTampers
@@ -240,7 +257,7 @@ contract BadgeMigration is
     function tamperMigration(bool _pinkOrPurple) external isMigrating {
         Migration memory _migration = getActiveMigrationFor(_msgSender());
 
-        if ((_migration.pinkTampers + _migration.purpleTampers) > MAX_TAMPERS * 2) {
+        if ((_migration.pinkTampers + _migration.purpleTampers) > config.maxTampers * 2) {
             revert MAX_TAMPERS_REACHED();
         }
 
@@ -254,7 +271,7 @@ contract BadgeMigration is
             _migration.purpleTampers++;
         }
 
-        _migration.tamperExpiration = block.timestamp + COOLDOWN_TAMPER;
+        _migration.tamperExpiration = block.timestamp + config.cooldownTamper;
 
         // update migration
         _updateMigration(_migration);
@@ -319,11 +336,11 @@ contract BadgeMigration is
         bool isPinkOrPurple;
         // Calculate the difference in tampers and adjust chances
         if (pinkTampers > purpleTampers) {
-            uint256 extraChance = (pinkTampers - purpleTampers) * TAMPER_WEIGHT_PERCENT;
+            uint256 extraChance = (pinkTampers - purpleTampers) * config.tamperWeightPercent;
             uint256 chance = 50 + extraChance; // Base 50% + extra chance
             isPinkOrPurple = (randomSeed % 100) < chance; // True for pink
         } else if (purpleTampers > pinkTampers) {
-            uint256 extraChance = (purpleTampers - pinkTampers) * TAMPER_WEIGHT_PERCENT;
+            uint256 extraChance = (purpleTampers - pinkTampers) * config.tamperWeightPercent;
             uint256 chance = 50 + extraChance; // Base 50% + extra chance
             isPinkOrPurple = (randomSeed % 100) >= chance; // False for purple
         } else {

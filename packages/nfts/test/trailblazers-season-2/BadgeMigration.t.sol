@@ -36,7 +36,10 @@ contract TrailblazersBadgesS2Test is Test {
     bool constant PINK_TAMPER = true;
     bool constant PURPLE_TAMPER = false;
 
-    uint256 public MAX_TAMPERS;
+    uint256 public MAX_TAMPERS = 3;
+    uint256 public COOLDOWN_MIGRATION = 1 hours;
+    uint256 public COOLDOWN_TAMPER = 5 minutes;
+    uint256 public TAMPER_WEIGHT_PERCENT = 5;
 
     BadgeMigration public migration;
 
@@ -93,18 +96,21 @@ contract TrailblazersBadgesS2Test is Test {
 
         // deploy the migration contract
 
+        BadgeMigration.Config memory config = BadgeMigration.Config(
+            COOLDOWN_MIGRATION, COOLDOWN_TAMPER, TAMPER_WEIGHT_PERCENT, MAX_TAMPERS
+        );
+
         impl = address(new BadgeMigration());
         proxy = address(
             new ERC1967Proxy(
                 impl,
                 abi.encodeCall(
-                    BadgeMigration.initialize, (address(s1BadgesV2), address(s2Badges), mintSigner)
+                    BadgeMigration.initialize,
+                    (address(s1BadgesV2), address(s2Badges), mintSigner, config)
                 )
             )
         );
         migration = BadgeMigration(proxy);
-        MAX_TAMPERS = migration.MAX_TAMPERS();
-
         s1BadgesV4.setMigrationContract(address(migration));
         s2Badges.setMinter(address(migration));
         // enable migration for BADGE_ID
@@ -170,13 +176,13 @@ contract TrailblazersBadgesS2Test is Test {
 
         vm.startPrank(minters[0]);
         for (uint256 i = 0; i < MAX_TAMPERS; i++) {
-            wait(migration.COOLDOWN_TAMPER());
+            wait(COOLDOWN_TAMPER);
             migration.tamperMigration(PINK_TAMPER);
         }
 
-        wait(migration.COOLDOWN_TAMPER());
+        wait(COOLDOWN_TAMPER);
         migration.tamperMigration(PURPLE_TAMPER);
-        wait(migration.COOLDOWN_TAMPER());
+        wait(COOLDOWN_TAMPER);
         migration.tamperMigration(PURPLE_TAMPER);
 
         vm.stopPrank();
@@ -217,8 +223,8 @@ contract TrailblazersBadgesS2Test is Test {
     function test_endMigration() public {
         test_tamperMigration();
 
-        wait(migration.COOLDOWN_TAMPER());
-        wait(migration.COOLDOWN_MIGRATION());
+        wait(COOLDOWN_TAMPER);
+        wait(COOLDOWN_MIGRATION);
 
         // generate the claim hash for the current migration
         bytes32 claimHash = migration.generateClaimHash(
