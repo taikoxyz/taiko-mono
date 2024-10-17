@@ -3,12 +3,27 @@ package integration_test
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"os"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/hive/hivesim"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
 )
+
+func TestL2NodeGenesisHash(t *testing.T) {
+	utils.LoadEnv()
+	genesisHash := common.HexToHash("0x01974e6ec215bbe53dac12e24590bf22502f3f30c070dbe5676c062f1e316665")
+	client, err := ethclient.Dial(os.Getenv("L2_HTTP"))
+	assert.NoError(t, err)
+	header, err := client.HeaderByNumber(context.Background(), big.NewInt(0))
+	assert.NoError(t, err)
+	assert.Equal(t, genesisHash.Hex(), header.Hash().Hex())
+}
 
 func TestHiveHandler(t *testing.T) {
 	baseDir := os.Getenv("HIVE_DIR")
