@@ -13,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/miner"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/stretchr/testify/suite"
 
@@ -171,10 +170,6 @@ func (s *ProposerTestSuite) TestProposeTxLists() {
 }
 
 func (s *ProposerTestSuite) TestProposeOpNoEmptyBlock() {
-	// TODO: Temporarily skip this test case when using l2_reth node.
-	if os.Getenv("L2_NODE") == "l2_reth" {
-		s.T().Skip()
-	}
 	defer s.Nil(s.s.ProcessL1Blocks(context.Background()))
 
 	p := s.p
@@ -187,23 +182,61 @@ func (s *ProposerTestSuite) TestProposeOpNoEmptyBlock() {
 		_, err = testutils.SendDynamicFeeTx(s.RPCClient.L2, s.TestAddrPrivKey, &to, nil, nil)
 		s.Nil(err)
 	}
+	time.Sleep(time.Second)
 
-	var preBuiltTxList []*miner.PreBuiltTxList
-	for i := 0; i < 3 && len(preBuiltTxList) == 0; i++ {
-		preBuiltTxList, err = s.RPCClient.GetPoolContent(
-			context.Background(),
-			p.proposerAddress,
+	for _, testCase := range []struct {
+		blockMaxGasLimit     uint32
+		blockMaxTxListBytes  uint64
+		maxTransactionsLists uint64
+
+		txLengthList []int
+	}{
+		{
 			p.protocolConfigs.BlockMaxGasLimit,
 			rpc.BlockMaxTxListBytes,
-			p.LocalAddresses,
 			p.MaxProposedTxListsPerEpoch,
+			[]int{100},
+		},
+		{
+			p.protocolConfigs.BlockMaxGasLimit / 100,
+			rpc.BlockMaxTxListBytes,
+			7,
+			[]int{15, 15, 15, 15, 15, 15, 10},
+		},
+	} {
+		res, err := s.RPCClient.GetPoolContent(
+			context.Background(),
+			p.proposerAddress,
+			testCase.blockMaxGasLimit,
+			testCase.blockMaxTxListBytes,
+			p.LocalAddresses,
+			testCase.maxTransactionsLists,
 			0,
 			p.chainConfig,
 		)
-		time.Sleep(time.Second)
+		s.Nil(err)
+
+		s.GreaterOrEqual(int(testCase.maxTransactionsLists), len(res))
+		for i, txsLen := range testCase.txLengthList {
+			s.Equal(txsLen, res[i].TxList.Len())
+			s.GreaterOrEqual(uint64(testCase.blockMaxGasLimit), res[i].EstimatedGasUsed)
+			s.GreaterOrEqual(testCase.blockMaxTxListBytes, res[i].BytesLength)
+		}
 	}
+
+	preBuiltTxList, err := s.RPCClient.GetPoolContent(
+		context.Background(),
+		p.proposerAddress,
+		p.protocolConfigs.BlockMaxGasLimit,
+		rpc.BlockMaxTxListBytes,
+		p.LocalAddresses,
+		p.MaxProposedTxListsPerEpoch,
+		0,
+		p.chainConfig,
+	)
 	s.Nil(err)
-	s.Equal(true, len(preBuiltTxList) > 0)
+	s.Equal(1, len(preBuiltTxList))
+	s.Equal(100, preBuiltTxList[0].TxList.Len())
 
 	var (
 		blockMinGasLimit    uint64 = math.MaxUint64
