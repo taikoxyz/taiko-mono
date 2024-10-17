@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"strconv"
 	"strings"
 	"time"
@@ -18,10 +19,23 @@ var (
 	// Request urls.
 	sidecarsRequestURL = "/eth/v1/beacon/blob_sidecars/%d"
 	genesisRequestURL  = "/eth/v1/beacon/genesis"
+	proposerDutiesURL  = "/eth/v1/validator/duties/proposer/%d"
 )
 
 type ConfigSpec struct {
 	SecondsPerSlot string `json:"SECONDS_PER_SLOT"`
+}
+
+// ProposerDuty represents a single proposer duty
+type ProposerDuty struct {
+	Pubkey         string `json:"pubkey"`
+	ValidatorIndex string `json:"validator_index"`
+	Slot           string `json:"slot"`
+}
+
+// ProposerDutiesResponse represents the API response structure
+type ProposerDutiesResponse struct {
+	Data []ProposerDuty `json:"data"`
 }
 
 type GenesisResponse struct {
@@ -36,6 +50,7 @@ type BeaconClient struct {
 	timeout        time.Duration
 	genesisTime    uint64
 	secondsPerSlot uint64
+	slotsPerEpoch  uint64
 }
 
 // NewBeaconClient returns a new beacon client.
@@ -79,7 +94,31 @@ func NewBeaconClient(endpoint string, timeout time.Duration) (*BeaconClient, err
 
 	log.Info("L1 seconds per slot", "seconds", secondsPerSlot)
 
-	return &BeaconClient{cli, timeout, uint64(genesisTime), uint64(secondsPerSlot)}, nil
+	slotsPerEpoch := 32
+
+	return &BeaconClient{
+		cli,
+		timeout,
+		uint64(genesisTime),
+		uint64(secondsPerSlot),
+		uint64(slotsPerEpoch),
+	}, nil
+}
+
+func (c *BeaconClient) GetGenesisTime() uint64 {
+	return c.genesisTime
+}
+
+func (c *BeaconClient) GetSecondsPerSlot() uint64 {
+	return c.secondsPerSlot
+}
+
+func (c *BeaconClient) GetGenesisSlot() uint64 {
+	return 0
+}
+
+func (c *BeaconClient) GetSlotsPerEpoch() uint64 {
+	return c.slotsPerEpoch
 }
 
 // GetBlobs returns the sidecars for a given slot.
@@ -102,6 +141,23 @@ func (c *BeaconClient) GetBlobs(ctx context.Context, time uint64) ([]*structs.Si
 	}
 
 	return sidecars.Data, nil
+}
+
+func (c *BeaconClient) GetProposerDuties(ctx context.Context, epoch *big.Int) ([]ProposerDuty, error) {
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
+	defer cancel()
+
+	resBytes, err := c.Get(ctxWithTimeout, c.BaseURL().Path+fmt.Sprintf(proposerDutiesURL, epoch.Uint64()))
+	if err != nil {
+		return nil, err
+	}
+
+	var duties ProposerDutiesResponse
+	if err = json.Unmarshal(resBytes, &duties); err != nil {
+		return nil, err
+	}
+
+	return duties.Data, nil
 }
 
 // timeToSlot returns the slots of the given timestamp.
