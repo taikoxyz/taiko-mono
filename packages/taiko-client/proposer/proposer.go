@@ -431,17 +431,13 @@ func (p *Proposer) ProposeTxListOntake(
 				return err
 			}
 			txListsBytesArray = append(txListsBytesArray, compressedTxListBytesA)
+			log.Debug("compressedTxListBytesA", len(compressedTxListBytesA))
 			compressedTxListBytesB, err := utils.Compress(txListBytesB)
 			if err != nil {
 				return err
 			}
 			txListsBytesArray = append(txListsBytesArray, compressedTxListBytesB)
-			log.Info("TestResult",
-				"compressedTxListBytesA", len(compressedTxListBytesA),
-				"compressedTxListBytesB", len(compressedTxListBytesB),
-				"compressedTxListBytesA", compressedTxListBytesA,
-				"compressedTxListBytesB", compressedTxListBytesB,
-			)
+			log.Debug("compressedTxListBytesB", len(compressedTxListBytesB))
 		} else {
 			txListBytes, err := rlp.EncodeToBytes(txs)
 			if err != nil {
