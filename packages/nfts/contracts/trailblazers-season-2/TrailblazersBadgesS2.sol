@@ -92,7 +92,7 @@ contract TrailblazersBadgesS2 is
         uriTemplate = _uriTemplate;
     }
 
-    function updateMinter(address _minter) external virtual onlyOwner {
+    function setMinter(address _minter) external virtual onlyOwner {
         minter = _minter;
     }
 
@@ -151,6 +151,19 @@ contract TrailblazersBadgesS2 is
             revert TOKEN_NOT_MINTED();
         }
         return badges[tokenId];
+    }
+
+    /// @notice Retrieve boolean balance for each badge
+    /// @param _owner The addresses to check
+    /// @return _balances The badges atomic balances
+    function badgeBalances(address _owner) public view returns (bool[16] memory _balances) {
+        /*
+        for (uint256 i = 0; i < BADGE_COUNT; i++) {
+            uint256 tokenId = getTokenId(_owner, i);
+            _balances[i] = tokenId > 0;
+        }
+
+        return _balances;*/
     }
 
     /// @notice supportsInterface implementation

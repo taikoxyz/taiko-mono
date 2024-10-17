@@ -22,20 +22,20 @@ contract TrailblazersBadgesV4 is TrailblazersBadgesV3 {
         return super._update(to, tokenId, auth);
     }
 
-    address public season2BadgeContract;
+    address public migrationContract;
 
     error INVALID_S2_CONTRACT();
 
-    function setSeason2BadgeContract(address _season2BadgeContract) public onlyOwner {
-        season2BadgeContract = _season2BadgeContract;
+    function setMigrationContract(address _migrationContract) public onlyOwner {
+        migrationContract = _migrationContract;
     }
 
-    modifier onlySeason2BadgeContract() {
-        if (msg.sender != season2BadgeContract) revert INVALID_S2_CONTRACT();
+    modifier onlyMigrationContract() {
+        if (msg.sender != migrationContract) revert INVALID_S2_CONTRACT();
         _;
     }
 
-    function burn(uint256 _tokenId) public onlySeason2BadgeContract {
+    function burn(uint256 _tokenId) public onlyMigrationContract {
         _burn(_tokenId);
     }
 }
