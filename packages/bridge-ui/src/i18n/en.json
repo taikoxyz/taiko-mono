@@ -22,7 +22,7 @@
       },
       "bridge": {
         "success": {
-          "message": "Your funds are being prepared for claiming on Taiko.",
+          "message": "Your funds are being prepared for claiming on CoreRollup.",
           "title": "Transaction completed"
         },
         "timeout": {
@@ -623,7 +623,7 @@
         "name": "Failed"
       },
       "pending": {
-        "description": "Your asset is not yet eligible for claiming. The bridging process from Taiko to Holesky may take several hours before becoming claimable. Sepolia to Taiko bridging should be claimable within minutes.",
+        "description": "Your asset is not yet eligible for claiming. The bridging process from CoreRollup to Holesky may take several hours before becoming claimable. Sepolia to CoreRollup bridging should be claimable within minutes.",
         "name": "Pending"
       },
       "processing": {

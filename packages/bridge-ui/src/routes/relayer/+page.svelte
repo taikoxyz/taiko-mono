@@ -4,7 +4,7 @@
 </script>
 
 <svelte:head>
-  <title>Taiko Bridge | Relayer</title>
+  <title>CoreRollup Bridge | Relayer</title>
 </svelte:head>
 <Page>
   <Relayer />

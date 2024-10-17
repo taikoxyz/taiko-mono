@@ -4,7 +4,7 @@
 </script>
 
 <svelte:head>
-  <title>Taiko Bridge | Transactions</title>
+  <title>CoreRollup Bridge | Transactions</title>
 </svelte:head>
 <Page>
   <Transactions />
