@@ -9,6 +9,8 @@ import { TrailblazersBadges } from "../../contracts/trailblazers-badges/Trailbla
 import { IMinimalBlacklist } from "@taiko/blacklist/IMinimalBlacklist.sol";
 import { TrailblazersBadgesS2 } from
     "../../contracts/trailblazers-season-2/TrailblazersBadgesS2.sol";
+import { TrailblazersBadgesV4 } from
+    "../../contracts/trailblazers-season-2/TrailblazersS1BadgesV4.sol";
 
 contract DeployS2Script is Script {
     UtilsScript public utils;
@@ -57,14 +59,14 @@ contract DeployS2Script is Script {
 
         address impl;
         address proxy;
-        TrailblazersBadges s1Token;
+        TrailblazersBadgesV4 s1Token;
         TrailblazersBadgesS2 s2Token;
 
         vm.startBroadcast(deployerPrivateKey);
 
         if (block.chainid == 167_000) {
             // mainnet, use existing contract
-            s1Token = TrailblazersBadges(s1Contract);
+            s1Token = TrailblazersBadgesV4(s1Contract);
         } else {
             // hekla/localhost, deploy a s1 contract
             impl = address(new TrailblazersBadges());
@@ -78,7 +80,15 @@ contract DeployS2Script is Script {
                 )
             );
 
-            s1Token = TrailblazersBadges(proxy);
+            TrailblazersBadges s1TokenV2 = TrailblazersBadges(proxy);
+
+            // upgrade s1 contract to v4
+            s1TokenV2.upgradeToAndCall(
+                address(new TrailblazersBadgesV4()),
+                abi.encodeCall(TrailblazersBadgesV4.version, ())
+            );
+
+            s1Token = TrailblazersBadgesV4(address(s1TokenV2));
         }
 
         // deploy s2 contract
@@ -95,6 +105,9 @@ contract DeployS2Script is Script {
         console.log("Token Base URI:", baseURI);
         console.log("Deployed TrailblazersBadgesS2 to:", address(s2Token));
 
+        // assign the s2 contract to the s1 contract
+        s1Token.setSeason2BadgeContract(address(s2Token));
+        console.log("Assigned TrailblazersBadgesS2 to TrailblazersBadgesV4");
         // Register deployment
 
         vm.serializeAddress(jsonRoot, "TrailblazersBadges", address(s1Token));

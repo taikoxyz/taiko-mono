@@ -32,7 +32,7 @@ contract TrailblazersBadgesS2 is
     ERC721HolderUpgradeable
 {
     /// @notice Time between start and end of a migration
-    uint256 public constant COOLDOWN_MIGRATION = 10 minutes; //6 hours;
+    uint256 public constant COOLDOWN_MIGRATION = 1 minutes; //6 hours;
     /// @notice Time between tamper attempts
     uint256 public constant COOLDOWN_TAMPER = 1 minutes; // 1 hours;
     /// @notice Weight of tamper attempts, in %
@@ -430,8 +430,8 @@ contract TrailblazersBadgesS2 is
     /// @param _user The user address
     /// @param _exp The users experience points
     /// @return _hash The unique hash
-    function generateClaimHash(address _user, uint256 _exp) public view returns (bytes32) {
-        return keccak256(abi.encodePacked(_user, claimCooldowns[_user], _exp));
+    function generateClaimHash(address _user, uint256 _exp) public pure returns (bytes32) {
+        return keccak256(abi.encodePacked(_user, _exp));
     }
 
     /// @notice Generates a random number from a signature
