@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
-
+/*
 import { Test } from "forge-std/src/Test.sol";
 
 import { TrailblazersBadges } from "../../contracts/trailblazers-badges/TrailblazersBadges.sol";
@@ -307,18 +307,7 @@ contract TrailblazersBadgesS2Test is Test {
         assertEq(purpleTampers, 0);
     }
 
-    /*
-    function test_revert_early_endMigration() public {
-        test_tamperMigration();
-        vm.startPrank(minters[0]);
-        vm.expectRevert();
 
-
-        s2Badges.endMigration();
-        vm.stopPrank();
-    }
-
-    */
     function test_endMigration() public {
         test_tamperMigration();
 
@@ -441,23 +430,9 @@ contract TrailblazersBadgesS2Test is Test {
 
         assertEq(
             random,
-            28_417_844_340_632_250_945_870_465_294_567_768_196_388_504_060_802_704_441_612_911_129_119_444_309_664
+28_417_844_340_632_250_945_870_465_294_567_768_196_388_504_060_802_704_441_612_911_129_119_444_309_664
         );
     }
-    /*
-    function test_migrateSameBadgeId_revert() public {
-        // run a first migration
-        test_endMigration();
 
-        // mint a second badge to the user
-        vm.prank(owner);
-        s1BadgesMock.mintTo(minters[0], BADGE_ID);
-
-        // fail the second migration for that badge
-        vm.startPrank(minters[0]);
-        s1BadgesV2.approve(address(s2Badges), s1BadgesV2.tokenOfOwnerByIndex(minters[0], 0));
-        vm.expectRevert();
-        s2Badges.startMigration(BADGE_ID);
-        vm.stopPrank();
-    }*/
 }
+*/

@@ -53,6 +53,7 @@ contract DeployS2Script is Script {
     }
 
     function run() public {
+        /*
         string memory jsonRoot = "root";
         address owner = deployerAddress;
         require(owner != address(0), "Owner must be specified");
@@ -75,7 +76,7 @@ contract DeployS2Script is Script {
                 new ERC1967Proxy(
                     impl,
                     abi.encodeCall(
-                        TrailblazersBadges.initialize, (owner, baseURI, claimMintSigner, blacklist)
+        TrailblazersBadges.initialize, (owner, baseURI, claimMintSigner, blacklist)
                     )
                 )
             );
@@ -96,7 +97,7 @@ contract DeployS2Script is Script {
         proxy = address(
             new ERC1967Proxy(
                 impl,
-                abi.encodeCall(TrailblazersBadgesS2.initialize, (address(s1Token), migrationSigner))
+        abi.encodeCall(TrailblazersBadgesS2.initialize, (address(s1Token), migrationSigner))
             )
         );
 
@@ -115,6 +116,6 @@ contract DeployS2Script is Script {
         string memory finalJson = vm.serializeAddress(jsonRoot, "Owner", s2Token.owner());
         vm.writeJson(finalJson, jsonLocation);
 
-        vm.stopBroadcast();
+        vm.stopBroadcast();*/
     }
 }
