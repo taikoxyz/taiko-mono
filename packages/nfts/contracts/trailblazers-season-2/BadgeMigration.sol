@@ -50,7 +50,7 @@ contract BadgeMigration is
     mapping(uint256 _cycle => mapping(uint256 _s1BadgeId => bool _enabled)) public enabledBadgeIds;
 
     /// @notice Current migration cycle
-    uint256 public migrationCycle;
+    uint256 private _migrationCycle;
     /// @notice Mapping of unique user-per-mint-per-cycle
     mapping(
         uint256 _migrationCycle
@@ -133,7 +133,7 @@ contract BadgeMigration is
 
     /// @notice Reverts if migrations aren't enabled for that badge
     modifier migrationOpen(uint256 _s1BadgeId) {
-        if (!enabledBadgeIds[migrationCycle][_s1BadgeId]) {
+        if (!enabledBadgeIds[_migrationCycle][_s1BadgeId]) {
             revert MIGRATION_NOT_ENABLED();
         }
         _;
@@ -142,7 +142,7 @@ contract BadgeMigration is
     /// @notice Limits migrations to one per user, badge and cycle
     modifier hasntMigratedInCycle(uint256 _s1BadgeId, address _minter) {
         // check that the minter hasn't used the migration within this cycle
-        if (migrationCycleUniqueMints[migrationCycle][_minter][_s1BadgeId]) {
+        if (migrationCycleUniqueMints[_migrationCycle][_minter][_s1BadgeId]) {
             revert ALREADY_MIGRATED_IN_CYCLE();
         }
         _;
@@ -179,11 +179,11 @@ contract BadgeMigration is
     /// @dev Doesn't allow for new migration attempts, but tampers and active migrations still run
     function _disableMigrations() internal onlyRole(DEFAULT_ADMIN_ROLE) {
         for (uint256 i = 0; i < 8; i++) {
-            if (enabledBadgeIds[migrationCycle][i]) {
-                emit MigrationToggled(migrationCycle, i, false);
+            if (enabledBadgeIds[_migrationCycle][i]) {
+                emit MigrationToggled(_migrationCycle, i, false);
             }
 
-            enabledBadgeIds[migrationCycle][i] = false;
+            enabledBadgeIds[_migrationCycle][i] = false;
         }
     }
 
@@ -194,11 +194,15 @@ contract BadgeMigration is
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        migrationCycle++;
+        _migrationCycle++;
         for (uint256 i = 0; i < _s1BadgeIds.length; i++) {
-            enabledBadgeIds[migrationCycle][_s1BadgeIds[i]] = true;
-            emit MigrationToggled(migrationCycle, _s1BadgeIds[i], true);
+            enabledBadgeIds[_migrationCycle][_s1BadgeIds[i]] = true;
+            emit MigrationToggled(_migrationCycle, _s1BadgeIds[i], true);
         }
+    }
+
+    function migrationCycle() external view returns (uint256) {
+        return _migrationCycle;
     }
 
     /// @notice Pause the contract
@@ -223,7 +227,7 @@ contract BadgeMigration is
         }
 
         Migration memory _migration = Migration(
-            migrationCycle, // migrationCycle
+            _migrationCycle, // migrationCycle
             _msgSender(), // user
             _s1BadgeId,
             s1TokenId,

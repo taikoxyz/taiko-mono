@@ -341,4 +341,21 @@ contract TrailblazersBadgesS2Test is Test {
         migration.setConfig(config);
         vm.stopPrank();
     }
+
+    function test_rollCycle() public {
+        assertEq(migration.migrationCycle(), 1);
+
+        test_endMigration();
+
+        // close the current cycle
+        vm.startPrank(owner);
+        migration.pause();
+        // launch the next cycle
+        uint256[] memory enabledBadgeIds = new uint256[](1);
+        enabledBadgeIds[0] = BADGE_ID;
+        migration.enableMigrations(enabledBadgeIds);
+
+        // check cycle id
+        assertEq(migration.migrationCycle(), 2);
+    }
 }
