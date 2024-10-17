@@ -21,6 +21,7 @@ import "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import "./TrailblazersS1BadgesV4.sol";
+import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 contract TrailblazersBadgesS2 is
     ContextUpgradeable,
@@ -53,7 +54,7 @@ contract TrailblazersBadgesS2 is
         MovementType movementType;
     }
 
-    mapping(uint256 tokenId => Badge badge) public badges;
+    mapping(uint256 tokenId => Badge badge) private badges;
 
     string public uriTemplate;
 
@@ -64,6 +65,8 @@ contract TrailblazersBadgesS2 is
 
     /// @notice Errors
     error NOT_MINTER();
+    error TOKEN_NOT_MINTED();
+    /// @notice Modifiers
 
     modifier onlyMinter() {
         if (minter != _msgSender()) {
@@ -117,7 +120,10 @@ contract TrailblazersBadgesS2 is
         virtual
         returns (string memory)
     {
-        return string(abi.encodePacked(uriTemplate, _badgeType, "/", _movementType, ".json"));
+        string memory badgeType = Strings.toString(uint256(_badgeType));
+        string memory movementType = Strings.toString(uint256(_movementType));
+
+        return string(abi.encodePacked(uriTemplate, badgeType, "/", movementType, ".json"));
     }
 
     function uri(
@@ -133,8 +139,18 @@ contract TrailblazersBadgesS2 is
     }
 
     function uri(uint256 tokenId) public view virtual override returns (string memory) {
+        if (tokenId > totalSupply()) {
+            revert TOKEN_NOT_MINTED();
+        }
         Badge memory badge = badges[tokenId];
         return _uri(badge.badgeType, badge.movementType);
+    }
+
+    function getBadge(uint256 tokenId) external view virtual returns (Badge memory) {
+        if (tokenId < totalSupply()) {
+            revert TOKEN_NOT_MINTED();
+        }
+        return badges[tokenId];
     }
 
     /// @notice supportsInterface implementation

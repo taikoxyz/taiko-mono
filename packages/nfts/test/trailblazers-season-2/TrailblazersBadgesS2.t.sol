@@ -19,6 +19,8 @@ contract TrailblazersBadgesS2Test is Test {
 
     TrailblazersBadgesS2 public nft;
 
+    uint256 public TOKEN_ID = 1;
+
     function setUp() public {
         utils = new UtilsScript();
         utils.setUp();
@@ -46,7 +48,30 @@ contract TrailblazersBadgesS2Test is Test {
             TrailblazersBadgesS2.MovementType.Minnow
         );
 
-        assertEq(nft.balanceOf(minters[0], 1), 1);
+        assertEq(nft.balanceOf(minters[0], TOKEN_ID), 1);
+
+        TrailblazersBadgesS2.Badge memory badge = nft.getBadge(TOKEN_ID);
+        assertEq(badge.tokenId, TOKEN_ID);
+        assertEq(uint8(badge.badgeType), uint8(TrailblazersBadgesS2.BadgeType.Ravers));
+        assertEq(uint8(badge.movementType), uint8(TrailblazersBadgesS2.MovementType.Minnow));
+    }
+
+    function test_uri_byTokenId() public {
+        test_mint();
+        assertEq(nft.uri(TOKEN_ID), "ipfs://hash/0/1.json");
+    }
+
+    function test_uri_byTypeAndMovement() public {
+        test_mint();
+        assertEq(
+            nft.uri(TrailblazersBadgesS2.BadgeType.Ravers, TrailblazersBadgesS2.MovementType.Minnow),
+            "ipfs://hash/0/1.json"
+        );
+    }
+
+    function test_uri_revert__tokenNotMinted() public {
+        vm.expectRevert();
+        nft.uri(TOKEN_ID);
     }
 
     function test_mint_revert__notAuthorizedMinter() public {
