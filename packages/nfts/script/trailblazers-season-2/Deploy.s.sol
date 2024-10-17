@@ -137,13 +137,10 @@ contract DeployS2Script is Script {
         console.log("Token Base URI:", baseURI);
         console.log("Deployed TrailblazersBadgesS2 to:", address(s2Token));
 
-        // assign the s2 contract to the s1 contract
-        s1Token.setMigrationContract(address(s2Token));
-        console.log("Assigned TrailblazersBadgesS2 to TrailblazersBadgesV4");
         // Register deployment
-
         vm.serializeAddress(jsonRoot, "TrailblazersBadges", address(s1Token));
         vm.serializeAddress(jsonRoot, "TrailblazersBadgesS2", address(s2Token));
+        vm.serializeAddress(jsonRoot, "BadgeMigration", address(migration));
         string memory finalJson = vm.serializeAddress(jsonRoot, "Owner", s2Token.owner());
         vm.writeJson(finalJson, jsonLocation);
 
