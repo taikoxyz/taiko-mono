@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import "@sp1-contracts/src/ISP1Verifier.sol";
-import "../../shared/common/EssentialContract.sol";
-import "../../shared/common/LibStrings.sol";
+import "src/shared/common/EssentialContract.sol";
+import "src/shared/common/LibStrings.sol";
 import "../based/ITaikoL1.sol";
 import "./LibPublicInput.sol";
 import "./IVerifier.sol";
@@ -84,21 +84,21 @@ contract SP1Verifier is EssentialContract, IVerifier {
     {
         require(_ctxs.length != 0 && _proof.data.length > 64, SP1_INVALID_PARAMS());
         // Extract the necessary data
-        bytes32 aggregation_program = bytes32(_proof.data[0:32]);
-        bytes32 block_proving_program = bytes32(_proof.data[32:64]);
+        bytes32 aggregationProgram = bytes32(_proof.data[0:32]);
+        bytes32 blockProvingProgram = bytes32(_proof.data[32:64]);
 
         // Check if the aggregation program is trusted
-        require(isProgramTrusted[aggregation_program], SP1_INVALID_AGGREGATION_VKEY());
+        require(isProgramTrusted[aggregationProgram], SP1_INVALID_AGGREGATION_VKEY());
         // Check if the block proving program is trusted
-        require(isProgramTrusted[block_proving_program], SP1_INVALID_PROGRAM_VKEY());
+        require(isProgramTrusted[blockProvingProgram], SP1_INVALID_PROGRAM_VKEY());
 
         // Collect public inputs
-        bytes32[] memory public_inputs = new bytes32[](_ctxs.length + 1);
+        bytes32[] memory publicInputs = new bytes32[](_ctxs.length + 1);
         // First public input is the block proving program key
-        public_inputs[0] = block_proving_program;
+        publicInputs[0] = blockProvingProgram;
         // All other inputs are the block program public inputs (a single 32 byte value)
         for (uint256 i; i < _ctxs.length; ++i) {
-            public_inputs[i + 1] = LibPublicInput.hashPublicInputs(
+            publicInputs[i + 1] = LibPublicInput.hashPublicInputs(
                 _ctxs[i].tran,
                 address(this),
                 address(0),
@@ -112,7 +112,7 @@ contract SP1Verifier is EssentialContract, IVerifier {
         (bool success,) = sp1RemoteVerifier().staticcall(
             abi.encodeCall(
                 ISP1Verifier.verifyProof,
-                (aggregation_program, abi.encodePacked(public_inputs), _proof.data[64:])
+                (aggregationProgram, abi.encodePacked(publicInputs), _proof.data[64:])
             )
         );
 

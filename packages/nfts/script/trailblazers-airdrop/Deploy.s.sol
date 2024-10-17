@@ -19,22 +19,21 @@ contract DeployScript is Script {
     address public deployerAddress;
 
     // only used for production
-    IMinimalBlacklist blacklist = IMinimalBlacklist(0xe61E9034b5633977eC98E302b33e321e8140F105);
+    IMinimalBlacklist blacklist = IMinimalBlacklist(0xfA5EA6f9A13532cd64e805996a941F101CCaAc9a);
 
     ERC20Airdrop public airdrop;
     uint256 constant TOTAL_AVAILABLE_FUNDS = 1000 ether;
-
-    uint256 constant CLAIM_AMOUNT = 10 ether;
 
     // hekla test root
     bytes32 public merkleRoot = 0xbe8ec647626f95185f551887b3eee43ea9e8965c7baf558a9f8cb22b020597f0;
 
     // rewards token
-    ERC20Upgradeable public erc20;
+    ERC20Upgradeable public erc20 = ERC20Upgradeable(0xA9d23408b9bA935c230493c40C73824Df71A0975);
     ERC20Mock public mockERC20;
     // start and end times for the claim
-    uint64 constant CLAIM_DURATION = 1 days;
-    uint64 public CLAIM_START = uint64(block.timestamp);
+    uint64 constant CLAIM_DURATION = 30 days;
+    // uint64 public CLAIM_START = uint64(block.timestamp);
+    uint64 public CLAIM_START = 1_728_683_700; // 2024-06-10 23:55:00 UTC
     uint64 public CLAIM_END = CLAIM_START + CLAIM_DURATION;
 
     function setUp() public {
@@ -81,6 +80,7 @@ contract DeployScript is Script {
         if (block.chainid != 167_000) {
             mockERC20.mint(address(airdrop), TOTAL_AVAILABLE_FUNDS);
         }
+        console.log("ERC20 Token:", address(erc20));
 
         console.log("Deployed ERC20Airdrop to:", address(airdrop));
 

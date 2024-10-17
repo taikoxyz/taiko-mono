@@ -3,7 +3,10 @@ package rpc
 import (
 	"context"
 	"math/big"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -21,6 +24,13 @@ var (
 	ZeroAddress         common.Address
 	BlobBytes                  = params.BlobTxBytesPerFieldElement * params.BlobTxFieldElementsPerBlob
 	BlockMaxTxListBytes uint64 = (params.BlobTxBytesPerFieldElement - 1) * params.BlobTxFieldElementsPerBlob
+	// DefaultInterruptSignals is a set of default interrupt signals.
+	DefaultInterruptSignals = []os.Signal{
+		os.Interrupt,
+		os.Kill,
+		syscall.SIGTERM,
+		syscall.SIGQUIT,
+	}
 )
 
 // GetProtocolStateVariables gets the protocol states from TaikoL1 contract.
@@ -250,4 +260,20 @@ func CtxWithTimeoutOrDefault(ctx context.Context, defaultTimeout time.Duration) 
 	}
 
 	return ctx, func() {}
+}
+
+// BlockOnInterruptsContext blocks until a SIGTERM is received.
+// Passing in signals will override the default signals.
+// The function will stop blocking if the context is closed.
+func BlockOnInterruptsContext(ctx context.Context, signals ...os.Signal) {
+	if len(signals) == 0 {
+		signals = DefaultInterruptSignals
+	}
+	interruptChannel := make(chan os.Signal, 1)
+	signal.Notify(interruptChannel, signals...)
+	select {
+	case <-interruptChannel:
+	case <-ctx.Done():
+		signal.Stop(interruptChannel)
+	}
 }

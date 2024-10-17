@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
-import "../../../shared/TaikoTest.sol";
-import "../../../../contracts/layer1/team/tokenunlock/TokenUnlock.sol";
+import "src/layer1/team/tokenunlock/TokenUnlock.sol";
+import "test/shared/TaikoTest.sol";
 
 contract MyERC20 is ERC20, ERC20Votes {
     constructor(address owner) ERC20("Taiko Token", "TKO") ERC20Permit("Taiko Token") {

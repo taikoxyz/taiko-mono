@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.12.1...docs-site-v1.12.2) (2024-10-14)
+
+
+### Bug Fixes
+
+* **docs-site:** fix edit link ([#18243](https://github.com/taikoxyz/taiko-mono/issues/18243)) ([ea55bc2](https://github.com/taikoxyz/taiko-mono/commit/ea55bc24ea7184655804b88cc3c424b69fc87103))
+
 ## [1.12.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.12.0...docs-site-v1.12.1) (2024-09-30)
 
 
