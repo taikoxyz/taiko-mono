@@ -10,14 +10,8 @@ import "src/shared/data/LibSharedData.sol";
 library TaikoData {
     /// @dev Struct holding Taiko configuration parameters. See {TaikoConfig}.
     struct Config {
-        // ---------------------------------------------------------------------
-        // Group 1: General configs
-        // ---------------------------------------------------------------------
         // The chain ID of the network where Taiko contracts are deployed.
         uint64 chainId;
-        // ---------------------------------------------------------------------
-        // Group 2: Block level configs
-        // ---------------------------------------------------------------------
         // The maximum number of proposals allowed in a single block.
         uint64 blockMaxProposals;
         // Size of the block ring buffer, allowing extra space for proposals.
@@ -27,25 +21,14 @@ library TaikoData {
         uint64 maxBlocksToVerify;
         // The maximum gas limit allowed for a block.
         uint32 blockMaxGasLimit;
-        // ---------------------------------------------------------------------
-        // Group 3: Proof related configs
-        // ---------------------------------------------------------------------
         // The amount of Taiko token as a prover liveness bond
         uint96 livenessBond;
-        // ---------------------------------------------------------------------
-        // Group 4: Cross-chain sync
-        // ---------------------------------------------------------------------
         // The number of L2 blocks between each L2-to-L1 state root sync.
         uint8 stateRootSyncInternal;
         uint64 maxAnchorHeightOffset;
-        // ---------------------------------------------------------------------
-        // Group 5: Previous configs in TaikoL2
-        // ---------------------------------------------------------------------
         LibSharedData.BaseFeeConfig baseFeeConfig;
-        // ---------------------------------------------------------------------
-        // Group 6: Others
-        // ---------------------------------------------------------------------
         uint64 ontakeForkHeight;
+        uint24 anchorTransactionGasLimit;
     }
 
     /// @dev A proof and the tier of proof it belongs to
