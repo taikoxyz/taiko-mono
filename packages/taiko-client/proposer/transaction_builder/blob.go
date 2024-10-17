@@ -214,7 +214,7 @@ func (b *BlobTransactionBuilder) buildOntake(txListBytesArray [][]byte) (*txmgr.
 		// If the current tx list bytes is the last one, then append the cached blob data to the blobs list.
 		if i == len(txListBytesArray)-1 {
 			var blob = &eth.Blob{}
-			if err := blob.FromData(cachedBlobData); err != nil {
+			if err := blob.FromData(txListBytesArray[i]); err != nil {
 				return nil, err
 			}
 
