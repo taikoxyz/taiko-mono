@@ -34,17 +34,6 @@ contract BadgeMigration is
     TrailblazersBadgesV4 public s1Badges;
     TrailblazersBadgesS2 public s2Badges;
     address public randomSigner;
-    /*
-    /// @notice Time between start and end of a migration
-    uint256 public constant COOLDOWN_MIGRATION = 1 minutes; //6 hours;
-    /// @notice Time between tamper attempts
-    uint256 public constant COOLDOWN_TAMPER = 1 minutes; // 1 hours;
-    /// @notice Weight of tamper attempts, in %
-    uint256 public constant TAMPER_WEIGHT_PERCENT = 5;
-    /// @notice Maximum tamper attempts, per color
-    uint256 public constant MAX_TAMPERS = 3;
-
-    */
 
     /// @notice Migration-enabled badge IDs per cycle
     mapping(uint256 _cycle => mapping(uint256 _s1BadgeId => bool _enabled)) public enabledBadgeIds;
@@ -85,9 +74,7 @@ contract BadgeMigration is
     error MIGRATION_NOT_STARTED();
     error MIGRATION_ALREADY_STARTED();
     error TAMPER_IN_PROGRESS();
-    error CONTRACT_PAUSED();
     error MIGRATION_NOT_READY();
-    error TOKEN_NOT_MINTED();
     error MIGRATION_NOT_ENABLED();
     error TOKEN_NOT_OWNED();
     error NOT_RANDOM_SIGNER();
@@ -95,21 +82,21 @@ contract BadgeMigration is
     error HASH_MISMATCH();
 
     /// @notice Events
-    event MigrationToggled(uint256 indexed _migrationCycleId, uint256 _s1BadgeId, bool _enabled);
-    event MigrationStarted(
-        address _user, uint256 _s1BadgeId, uint256 _s1TokenId, uint256 _cooldownExpiration
-    );
-    event MigrationTampered(
-        address indexed _user,
-        uint256 indexed _s1TokenId,
-        bool _pinkOrPurple,
-        uint256 _cooldownExpiration
-    );
-    event MigrationEnded(
-        address _user, uint256 _s2BadgeId, uint256 _s2MovementId, uint256 _s2TokenId
+    event MigrationCycleToggled(
+        uint256 indexed _migrationCycleId, uint256 _s1BadgeId, bool _enabled
     );
 
-    event MigrationTamperReset(address _user);
+    event MigrationUpdated(
+        uint256 indexed migrationCycle,
+        address indexed user,
+        uint256 s1BadgeId,
+        uint256 s1TokenId,
+        uint256 s2TokenId,
+        uint256 cooldownExpiration,
+        uint256 tamperExpiration,
+        uint256 pinkTampers,
+        uint256 purpleTampers
+    );
 
     /// @notice Modifiers
     modifier isMigrating() {
@@ -180,7 +167,7 @@ contract BadgeMigration is
     function _disableMigrations() internal onlyRole(DEFAULT_ADMIN_ROLE) {
         for (uint256 i = 0; i < 8; i++) {
             if (enabledBadgeIds[_migrationCycle][i]) {
-                emit MigrationToggled(_migrationCycle, i, false);
+                emit MigrationCycleToggled(_migrationCycle, i, false);
             }
 
             enabledBadgeIds[_migrationCycle][i] = false;
@@ -197,7 +184,7 @@ contract BadgeMigration is
         _migrationCycle++;
         for (uint256 i = 0; i < _s1BadgeIds.length; i++) {
             enabledBadgeIds[_migrationCycle][_s1BadgeIds[i]] = true;
-            emit MigrationToggled(_migrationCycle, _s1BadgeIds[i], true);
+            emit MigrationCycleToggled(_migrationCycle, _s1BadgeIds[i], true);
         }
     }
 
@@ -243,7 +230,17 @@ contract BadgeMigration is
         // transfer the badge tokens to the migration contract
         s1Badges.transferFrom(_msgSender(), address(this), s1TokenId);
 
-        emit MigrationStarted(_msgSender(), _s1BadgeId, s1TokenId, _migration.cooldownExpiration);
+        emit MigrationUpdated(
+            _migration.migrationCycle,
+            _migration.user,
+            _migration.s1BadgeId,
+            _migration.s1TokenId,
+            _migration.s2TokenId,
+            _migration.cooldownExpiration,
+            _migration.tamperExpiration,
+            _migration.pinkTampers,
+            _migration.purpleTampers
+        );
     }
 
     function getActiveMigrationFor(address _user) public view returns (Migration memory) {
@@ -255,6 +252,18 @@ contract BadgeMigration is
 
     function _updateMigration(Migration memory _migration) internal virtual {
         migrations[_migration.user][migrations[_migration.user].length - 1] = _migration;
+
+        emit MigrationUpdated(
+            _migration.migrationCycle,
+            _migration.user,
+            _migration.s1BadgeId,
+            _migration.s1TokenId,
+            _migration.s2TokenId,
+            _migration.cooldownExpiration,
+            _migration.tamperExpiration,
+            _migration.pinkTampers,
+            _migration.purpleTampers
+        );
     }
 
     /// @notice Tamper (alter) the chances during a migration
@@ -283,9 +292,6 @@ contract BadgeMigration is
 
         // update migration
         _updateMigration(_migration);
-        emit MigrationTampered(
-            _msgSender(), _migration.s1TokenId, _pinkOrPurple, _migration.tamperExpiration
-        );
     }
 
     /// @notice Reset the tamper counts
@@ -297,8 +303,6 @@ contract BadgeMigration is
         _migration.tamperExpiration = 0;
 
         _updateMigration(_migration);
-
-        emit MigrationTamperReset(_msgSender());
     }
 
     /// @notice End a migration
@@ -374,8 +378,6 @@ contract BadgeMigration is
         _migration.tamperExpiration = 0;
 
         _updateMigration(_migration);
-
-        emit MigrationEnded(_msgSender(), s1BadgeId, uint256(pinkOrPurple), s2TokenId);
     }
 
     /// @notice Generate a unique hash for each migration uniquely
