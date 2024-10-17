@@ -44,10 +44,6 @@ contract BadgeMigration is
     /// @notice Maximum tamper attempts, per color
     uint256 public constant MAX_TAMPERS = 3;
 
-    /// @notice Cooldown for migration
-
-    mapping(address _user => uint256 _cooldown) public claimCooldowns;
-
     /// @notice Migration-enabled badge IDs per cycle
     mapping(uint256 _cycle => mapping(uint256 _s1BadgeId => bool _enabled)) public enabledBadgeIds;
 
@@ -59,16 +55,19 @@ contract BadgeMigration is
             => mapping(address _minter => mapping(uint256 _s1BadgeId => bool _mintEnded))
     ) public migrationCycleUniqueMints;
 
-    /// @notice Tamper count
-    mapping(address _user => mapping(bool pinkOrPurple => uint256 _tampers)) public migrationTampers;
-    /// @notice S1 Migration Badge ID mapping
-    mapping(address _user => uint256 _badgeId) private migrationS1BadgeIds;
-    /// @notice S1 Migration Token ID mapping
-    mapping(address _user => uint256 _tokenId) private migrationS1TokenIds;
-    /// @notice Cooldown for tampering
-    mapping(address _user => uint256 _cooldown) public tamperCooldowns;
-    /// @notice User to badge ID, token ID mapping
-    mapping(address _user => mapping(uint256 _badgeId => uint256 _tokenId)) public userBadges;
+    struct Migration {
+        uint256 migrationCycle;
+        address user;
+        uint256 s1BadgeId;
+        uint256 s1TokenId;
+        uint256 s2TokenId;
+        uint256 cooldownExpiration;
+        uint256 tamperExpiration;
+        uint256 pinkTampers;
+        uint256 purpleTampers;
+    }
+
+    mapping(address _user => Migration[] _migration) public migrations;
 
     /// @notice Errors
     error MAX_TAMPERS_REACHED();
@@ -99,9 +98,12 @@ contract BadgeMigration is
         address _user, uint256 _s2BadgeId, uint256 _s2MovementId, uint256 _s2TokenId
     );
 
+    event MigrationTamperReset(address _user);
+
     /// @notice Modifiers
     modifier isMigrating() {
-        if (claimCooldowns[_msgSender()] == 0) {
+        Migration memory _migration = getActiveMigrationFor(_msgSender());
+        if (_migration.cooldownExpiration == 0) {
             revert MIGRATION_NOT_STARTED();
         }
         _;
@@ -109,7 +111,10 @@ contract BadgeMigration is
 
     /// @notice Reverts if sender is already migrating
     modifier isNotMigrating() {
-        if (claimCooldowns[_msgSender()] != 0) {
+        if (
+            migrations[_msgSender()].length > 0
+                && migrations[_msgSender()][migrations[_msgSender()].length - 1].cooldownExpiration == 0
+        ) {
             revert MIGRATION_ALREADY_STARTED();
         }
         _;
@@ -187,11 +192,8 @@ contract BadgeMigration is
     /// @dev Not all badges are eligible for migration at the same time
     /// @dev Defines a cooldown for the migration to be complete
     /// @dev the cooldown is lesser the higher the Pass Tier
-    function startMigration(uint256 _s1BadgeId)
-        external
-        migrationOpen(_s1BadgeId)
-        isNotMigrating
-        hasntMigratedInCycle(_s1BadgeId, _msgSender())
+    function startMigration(uint256 _s1BadgeId) external migrationOpen(_s1BadgeId) isNotMigrating 
+    //  hasntMigratedInCycle(_s1BadgeId, _msgSender())
     {
         uint256 s1TokenId = s1Badges.getTokenId(_msgSender(), _s1BadgeId);
 
@@ -199,17 +201,35 @@ contract BadgeMigration is
             revert TOKEN_NOT_OWNED();
         }
 
-        // set off the claim cooldown
-        claimCooldowns[_msgSender()] = block.timestamp + COOLDOWN_MIGRATION;
-        migrationTampers[_msgSender()][true] = 0;
-        migrationTampers[_msgSender()][false] = 0;
-        migrationS1BadgeIds[_msgSender()] = _s1BadgeId;
-        migrationS1TokenIds[_msgSender()] = s1TokenId;
-        tamperCooldowns[_msgSender()] = 0;
+        Migration memory _migration = Migration(
+            migrationCycle, // migrationCycle
+            _msgSender(), // user
+            _s1BadgeId,
+            s1TokenId,
+            0, // s2TokenId, unset
+            block.timestamp + COOLDOWN_MIGRATION, // cooldownExpiration
+            0, // tamperExpiration, unset
+            0, // pinkTampers
+            0 // purpleTampers
+        );
+
+        migrations[_msgSender()].push(_migration);
+
         // transfer the badge tokens to the migration contract
         s1Badges.transferFrom(_msgSender(), address(this), s1TokenId);
 
-        emit MigrationStarted(_msgSender(), _s1BadgeId, s1TokenId, claimCooldowns[_msgSender()]);
+        emit MigrationStarted(_msgSender(), _s1BadgeId, s1TokenId, _migration.cooldownExpiration);
+    }
+
+    function getActiveMigrationFor(address _user) public view returns (Migration memory) {
+        if (migrations[_user].length == 0) {
+            revert MIGRATION_NOT_STARTED();
+        }
+        return migrations[_user][migrations[_user].length - 1];
+    }
+
+    function _updateMigration(Migration memory _migration) internal virtual {
+        migrations[_migration.user][migrations[_migration.user].length - 1] = _migration;
     }
 
     /// @notice Tamper (alter) the chances during a migration
@@ -218,30 +238,42 @@ contract BadgeMigration is
     /// @dev Implements a cooldown before allowing to re-tamper
     /// @dev The max tamper amount is determined by Pass Tier
     function tamperMigration(bool _pinkOrPurple) external isMigrating {
-        if (migrationTampers[_msgSender()][_pinkOrPurple] >= MAX_TAMPERS) {
+        Migration memory _migration = getActiveMigrationFor(_msgSender());
+
+        if ((_migration.pinkTampers + _migration.purpleTampers) > MAX_TAMPERS * 2) {
             revert MAX_TAMPERS_REACHED();
         }
 
-        if (tamperCooldowns[_msgSender()] > block.timestamp) {
+        if (_migration.tamperExpiration > block.timestamp) {
             revert TAMPER_IN_PROGRESS();
         }
 
-        migrationTampers[_msgSender()][_pinkOrPurple]++;
-        tamperCooldowns[_msgSender()] = block.timestamp + COOLDOWN_TAMPER;
+        if (_pinkOrPurple) {
+            _migration.pinkTampers++;
+        } else {
+            _migration.purpleTampers++;
+        }
+
+        _migration.tamperExpiration = block.timestamp + COOLDOWN_TAMPER;
+
+        // update migration
+        _updateMigration(_migration);
         emit MigrationTampered(
-            _msgSender(),
-            migrationS1TokenIds[_msgSender()],
-            _pinkOrPurple,
-            tamperCooldowns[_msgSender()]
+            _msgSender(), _migration.s1TokenId, _pinkOrPurple, _migration.tamperExpiration
         );
     }
 
     /// @notice Reset the tamper counts
     /// @dev Can be called only during an active migration
     function resetTampers() external isMigrating {
-        migrationTampers[_msgSender()][true] = 0;
-        migrationTampers[_msgSender()][false] = 0;
-        tamperCooldowns[_msgSender()] = 0;
+        Migration memory _migration = getActiveMigrationFor(_msgSender());
+        _migration.pinkTampers = 0;
+        _migration.purpleTampers = 0;
+        _migration.tamperExpiration = 0;
+
+        _updateMigration(_migration);
+
+        emit MigrationTamperReset(_msgSender());
     }
 
     /// @notice End a migration
@@ -262,11 +294,13 @@ contract BadgeMigration is
         external
         isMigrating
     {
-        if (tamperCooldowns[_msgSender()] > block.timestamp) {
+        Migration memory _migration = getActiveMigrationFor(_msgSender());
+
+        if (_migration.tamperExpiration > block.timestamp) {
             revert TAMPER_IN_PROGRESS();
         }
         // check if the cooldown is over
-        if (claimCooldowns[_msgSender()] > block.timestamp) {
+        if (_migration.cooldownExpiration > block.timestamp) {
             revert MIGRATION_NOT_READY();
         }
 
@@ -278,8 +312,8 @@ contract BadgeMigration is
         }
 
         // get the tamper amounts
-        uint256 pinkTampers = migrationTampers[_msgSender()][true];
-        uint256 purpleTampers = migrationTampers[_msgSender()][false];
+        uint256 pinkTampers = _migration.pinkTampers;
+        uint256 purpleTampers = _migration.purpleTampers;
 
         uint256 randomSeed = randomFromSignature(_hash, v, r, s);
         bool isPinkOrPurple;
@@ -297,12 +331,12 @@ contract BadgeMigration is
             isPinkOrPurple = (randomSeed % 100) < 50;
         }
 
-        uint256 s1BadgeId = migrationS1BadgeIds[_msgSender()];
+        uint256 s1BadgeId = _migration.s1BadgeId;
         //        (uint256 pinkBadgeId, uint256 purpleBadgeId) = getSeason2BadgeIds(s1BadgeId);
         //    uint256 s2BadgeId = isPinkOrPurple ? pinkBadgeId : purpleBadgeId;
 
         // burn the s1 badge
-        uint256 s1TokenId = migrationS1TokenIds[_msgSender()];
+        uint256 s1TokenId = _migration.s1TokenId;
         s1Badges.burn(s1TokenId);
 
         // mint the badge
@@ -315,15 +349,10 @@ contract BadgeMigration is
         );
         uint256 s2TokenId = s2Badges.totalSupply();
 
-        // reset the cooldowns
-        claimCooldowns[_msgSender()] = 0;
-        migrationTampers[_msgSender()][true] = 0;
-        migrationTampers[_msgSender()][false] = 0;
-        tamperCooldowns[_msgSender()] = 0;
-        migrationS1BadgeIds[_msgSender()] = 0;
-        migrationS1TokenIds[_msgSender()] = 0;
-        // userBadges[_msgSender()][s2BadgeId] = s2TokenId;
-        migrationCycleUniqueMints[migrationCycle][_msgSender()][s1BadgeId] = true;
+        _migration.s2TokenId = s2TokenId;
+        _migration.cooldownExpiration = 0;
+        _migration.tamperExpiration = 0;
+
         emit MigrationEnded(
             _msgSender(),
             s1BadgeId,
@@ -360,7 +389,11 @@ contract BadgeMigration is
     /// @param _user The user address
     /// @return Whether the user has an active migration
     function isMigrationActive(address _user) public view returns (bool) {
-        return claimCooldowns[_user] != 0;
+        if (migrations[_user].length == 0) {
+            return false;
+        }
+        Migration memory _migration = getActiveMigrationFor(_user);
+        return _migration.cooldownExpiration != 0;
     }
 
     /// @notice Generates a random number from a signature
@@ -389,7 +422,8 @@ contract BadgeMigration is
     /// @param _user The user address
     /// @return Whether the user has an active tamper
     function isTamperActive(address _user) public view returns (bool) {
-        return tamperCooldowns[_user] > block.timestamp;
+        Migration memory _migration = getActiveMigrationFor(_user);
+        return _migration.tamperExpiration > block.timestamp;
     }
 
     /// @notice Get the migration tamper counts for a user
@@ -404,15 +438,8 @@ contract BadgeMigration is
         if (!isMigrationActive(_user)) {
             revert MIGRATION_NOT_STARTED();
         }
-        return (migrationTampers[_user][true], migrationTampers[_user][false]);
-    }
-
-    /// @notice Retrieve a token ID given their owner and S2 Badge ID
-    /// @param _user The address of the badge owner
-    /// @param _s2BadgeId The S2 badge ID
-    /// @return _tokenId The token ID
-    function getTokenId(address _user, uint256 _s2BadgeId) public view returns (uint256 _tokenId) {
-        return userBadges[_user][_s2BadgeId];
+        Migration memory _migration = getActiveMigrationFor(_user);
+        return (_migration.pinkTampers, _migration.purpleTampers);
     }
 
     /// @notice supportsInterface implementation
