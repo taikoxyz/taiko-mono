@@ -64,7 +64,7 @@ contract BadgeMigration is
         uint256 maxTampers;
     }
 
-    Config public config;
+    Config private config;
 
     struct Migration {
         uint256 migrationCycle;
@@ -169,6 +169,10 @@ contract BadgeMigration is
 
     function setConfig(Config memory _config) external onlyRole(DEFAULT_ADMIN_ROLE) {
         config = _config;
+    }
+
+    function getConfig() external view returns (Config memory) {
+        return config;
     }
 
     /// @notice Disable all new migrations

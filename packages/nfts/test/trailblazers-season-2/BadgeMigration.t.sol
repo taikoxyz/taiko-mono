@@ -348,4 +348,26 @@ contract TrailblazersBadgesS2Test is Test {
             28_417_844_340_632_250_945_870_465_294_567_768_196_388_504_060_802_704_441_612_911_129_119_444_309_664
         );
     }
+
+    function test_setConfig() public {
+        BadgeMigration.Config memory config = BadgeMigration.Config(1 hours, 5 minutes, 5, 3);
+        vm.prank(owner);
+        migration.setConfig(config);
+
+        BadgeMigration.Config memory newConfig = migration.getConfig();
+
+        assertEq(newConfig.cooldownMigration, 1 hours);
+        assertEq(newConfig.cooldownTamper, 5 minutes);
+        assertEq(newConfig.tamperWeightPercent, 5);
+        assertEq(newConfig.maxTampers, 3);
+    }
+
+    function test_setConfig_revert__notOwner() public {
+        BadgeMigration.Config memory config = BadgeMigration.Config(1 hours, 5 minutes, 5, 3);
+
+        vm.startPrank(minters[0]);
+        vm.expectRevert();
+        migration.setConfig(config);
+        vm.stopPrank();
+    }
 }
