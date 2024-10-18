@@ -21,21 +21,6 @@ library LibUtils {
     /// @param prover The prover whose transition is used for verifying the
     /// block.
     /// @param blockHash The hash of the verified block.
-    /// @param stateRoot Deprecated and is always zero.
-    /// @param tier The tier ID of the proof.
-    event BlockVerified(
-        uint256 indexed blockId,
-        address indexed prover,
-        bytes32 blockHash,
-        bytes32 stateRoot,
-        uint16 tier
-    );
-
-    /// @dev Emitted when a block is verified.
-    /// @param blockId The ID of the verified block.
-    /// @param prover The prover whose transition is used for verifying the
-    /// block.
-    /// @param blockHash The hash of the verified block.
     /// @param tier The tier ID of the proof.
     event BlockVerifiedV2(
         uint256 indexed blockId, address indexed prover, bytes32 blockHash, uint16 tier
@@ -51,13 +36,7 @@ library LibUtils {
     /// @notice Initializes the Taiko protocol state.
     /// @param _state The state to initialize.
     /// @param _genesisBlockHash The block hash of the genesis block.
-    function init(
-        TaikoData.State storage _state,
-        TaikoData.Config memory _config,
-        bytes32 _genesisBlockHash
-    )
-        internal
-    {
+    function init(TaikoData.State storage _state, bytes32 _genesisBlockHash) internal {
         if (_genesisBlockHash == 0) revert L1_INVALID_GENESIS_HASH();
         // Init state
         _state.slotA.genesisHeight = uint64(block.number);
@@ -77,22 +56,12 @@ library LibUtils {
         ts.prover = address(0);
         ts.timestamp = uint64(block.timestamp);
 
-        if (_config.ontakeForkHeight == 0) {
-            emit BlockVerifiedV2({
-                blockId: 0,
-                prover: address(0),
-                blockHash: _genesisBlockHash,
-                tier: 0
-            });
-        } else {
-            emit BlockVerified({
-                blockId: 0,
-                prover: address(0),
-                blockHash: _genesisBlockHash,
-                stateRoot: 0,
-                tier: 0
-            });
-        }
+        emit BlockVerifiedV2({
+            blockId: 0,
+            prover: address(0),
+            blockHash: _genesisBlockHash,
+            tier: 0
+        });
     }
 
     /// @dev Retrieves a block based on its ID.
@@ -223,6 +192,11 @@ library LibUtils {
 
     /// @dev Retrieves the ID of the transition with a given parentHash.
     /// This function will return 0 if the transition is not found.
+    /// @param _state Current TaikoData.State.
+    /// @param _blk The block storage pointer.
+    /// @param _slot The slot value.
+    /// @param _parentHash The parent hash of the block.
+    /// @return tid_ The transition ID.
     function getTransitionId(
         TaikoData.State storage _state,
         TaikoData.BlockV2 storage _blk,
@@ -242,6 +216,11 @@ library LibUtils {
         }
     }
 
+    /// @dev Checks if the current timestamp is past the deadline.
+    /// @param _tsTimestamp The timestamp to check.
+    /// @param _lastUnpausedAt The last unpaused timestamp.
+    /// @param _windowMinutes The window in minutes.
+    /// @return True if the current timestamp is past the deadline, false otherwise.
     function isPostDeadline(
         uint256 _tsTimestamp,
         uint256 _lastUnpausedAt,
@@ -257,6 +236,11 @@ library LibUtils {
         }
     }
 
+    /// @dev Determines if blocks should be verified based on the configuration and block ID.
+    /// @param _config The TaikoData.Config.
+    /// @param _blockId The ID of the block.
+    /// @param _isBlockProposed Whether the block is proposed.
+    /// @return True if blocks should be verified, false otherwise.
     function shouldVerifyBlocks(
         TaikoData.Config memory _config,
         uint64 _blockId,
@@ -286,6 +270,11 @@ library LibUtils {
         return _blockId % segmentSize == (_isBlockProposed ? 0 : segmentSize >> 1);
     }
 
+    /// @dev Determines if the state root should be synchronized based on the configuration and
+    /// block ID.
+    /// @param _stateRootSyncInternal The state root sync interval.
+    /// @param _blockId The ID of the block.
+    /// @return True if the state root should be synchronized, false otherwise.
     function shouldSyncStateRoot(
         uint256 _stateRootSyncInternal,
         uint256 _blockId

@@ -8,10 +8,9 @@ ffi = true
 memory_limit = 2_073_741_824
 solc_version = "0.8.27"
 remappings = [
-  "@openzeppelin/contracts-upgradeable/=node_modules/@openzeppelin/contracts-upgradeable/",
-  "openzeppelin/contracts-upgradeable/=node_modules/@openzeppelin/contracts-upgradeable/",
-  "@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/",
-  "openzeppelin/contracts/=node_modules/@openzeppelin/contracts/",
+  "openzeppelin/=node_modules/@openzeppelin/",
+  "@openzeppelin=node_modules/@openzeppelin",
+  "@openzeppelin-upgrades/contracts/=node_modules/@openzeppelin/contracts-upgradeable/",
   "@risc0/contracts/=node_modules/risc0-ethereum/contracts/src/",
   "@solady/=node_modules/solady/",
   "@optimism/=node_modules/optimism/",
@@ -19,9 +18,11 @@ remappings = [
   "forge-std/=node_modules/forge-std/",
   "ds-test/=node_modules/ds-test/src/",
   "@p256-verifier/contracts/=node_modules/p256-verifier/src/",
+  "eigenlayer-middleware/=node_modules/eigenlayer-middleware/",
+  "eigenlayer-contracts/=node_modules/eigenlayer-contracts/",
   "src/=contracts/",
   "test/=test/",
-  "script/=script/"
+  "script/=script/",
 ]
 
 # Do not change the block_gas_limit value, TaikoL2.t.sol depends on it.
