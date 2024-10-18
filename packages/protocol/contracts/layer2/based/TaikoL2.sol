@@ -9,7 +9,7 @@ import "src/shared/common/EssentialContract.sol";
 import "src/shared/common/LibStrings.sol";
 import "src/shared/common/LibAddress.sol";
 import "src/shared/signal/ISignalService.sol";
-import "./Lib1559Math.sol";
+import "./LibEIP1559.sol";
 import "./LibL2Config.sol";
 import "./IBlockHash.sol";
 
@@ -268,7 +268,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
     {
         LibL2Config.Config memory config = LibL2Config.get();
 
-        (basefee_, parentGasExcess_) = Lib1559Math.calc1559BaseFee(
+        (basefee_, parentGasExcess_) = LibEIP1559.calc1559BaseFee(
             uint256(config.gasTargetPerL1Block) * config.basefeeAdjustmentQuotient,
             parentGasExcess,
             uint64(_anchorBlockId - lastSyncedBlock) * config.gasTargetPerL1Block,
@@ -298,7 +298,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         pure
         returns (uint64 newGasExcess_)
     {
-        return Lib1559Math.adjustExcess(_currGasExcess, _currGasTarget, _newGasTarget);
+        return LibEIP1559.adjustExcess(_currGasExcess, _currGasTarget, _newGasTarget);
     }
 
     /// @notice Tells if we need to validate basefee (for simulation).
@@ -340,7 +340,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         uint256 gasTarget =
             uint256(_baseFeeConfig.gasIssuancePerSecond) * _baseFeeConfig.adjustmentQuotient;
 
-        return Lib1559Math.calc1559BaseFee(
+        return LibEIP1559.calc1559BaseFee(
             gasTarget, _parentGasExcess, gasIssuance, _parentGasUsed, _baseFeeConfig.minGasExcess
         );
     }
