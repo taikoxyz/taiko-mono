@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { SP1Verifier as SP1Verifier200rc } from "@sp1-contracts/src/v2.0.0/SP1VerifierPlonk.sol";
+import { SP1Verifier as SP1Verifier300rc } from "@sp1-contracts/src/v3.0.0-rc3/SP1VerifierPlonk.sol";
 import "test/shared/DeployCapability.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
 
@@ -16,8 +16,8 @@ contract DeploySP1Verifier is DeployCapability {
         vm.startBroadcast(deployerPrivKey);
 
         // Deploy sp1 plonk verifier
-        SP1Verifier200rc sp1Verifier200rc = new SP1Verifier200rc();
-        register(rollupAddressManager, "sp1_remote_verifier", address(sp1Verifier200rc));
+        SP1Verifier300rc sp1Verifier300rc = new SP1Verifier300rc();
+        register(rollupAddressManager, "sp1_remote_verifier", address(sp1Verifier300rc));
 
         deployProxy({
             name: "tier_zkvm_sp1",
