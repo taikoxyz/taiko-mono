@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.3](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.12.2...docs-site-v1.12.3) (2024-10-20)
+
+
+### Chores
+
+* **docs-site:** remove banner ([#18267](https://github.com/taikoxyz/taiko-mono/issues/18267)) ([1a46093](https://github.com/taikoxyz/taiko-mono/commit/1a460932a704d3660269336540812f33d7e8cbc4))
+
 ## [1.12.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.12.1...docs-site-v1.12.2) (2024-10-14)
 
 
