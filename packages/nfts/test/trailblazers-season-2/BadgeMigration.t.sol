@@ -81,6 +81,9 @@ contract TrailblazersBadgesS2Test is Test {
 
         s1BadgesV4 = TrailblazersBadgesV4(address(s1BadgesV2));
 
+        // set cooldown migration
+        s1BadgesV4.setMigrationLockDuration(365 days);
+
         // deploy the s2 erc1155 token contract
 
         impl = address(new TrailblazersBadgesS2());
@@ -149,19 +152,13 @@ contract TrailblazersBadgesS2Test is Test {
     function test_startMigration() public {
         mint_s1(minters[0], BADGE_ID);
 
-        uint256 tokenId = s1BadgesV4.tokenOfOwnerByIndex(minters[0], 0);
+        vm.prank(minters[0]);
+        s1BadgesV4.startMigration(BADGE_ID);
 
-        vm.startPrank(minters[0]);
-        s1BadgesV4.approve(address(migration), tokenId);
-        migration.startMigration(BADGE_ID);
-        vm.stopPrank();
-        /*
-        assertEq(s1BadgesV2.balanceOf(minters[0]), 0);
-        assertEq(s1BadgesV2.balanceOf(address(s2Badges)), 1);
-
-        assertEq(s1BadgesV2.ownerOf(tokenId), address(s2Badges));
-
-        assertEq(migration.isMigrationActive(minters[0]), true);*/
+        uint256 tokenId = s1BadgesV4.getTokenId(minters[0], BADGE_ID);
+        assertEq(s1BadgesV4.balanceOf(minters[0]), 1);
+        assertEq(migration.isMigrationActive(minters[0]), true);
+        assertEq(s1BadgesV4.unlockTimestamps(tokenId), block.timestamp + 365 days);
     }
 
     function wait(uint256 time) public {
@@ -251,10 +248,6 @@ contract TrailblazersBadgesS2Test is Test {
         migration.endMigration(claimHash, v, r, s, 0);
         vm.stopPrank();
 
-        // check for s1 burn
-        assertEq(s1BadgesV4.balanceOf(minters[0]), 0);
-        assertEq(s1BadgesV4.balanceOf(address(s2Badges)), 0);
-
         // check for s2 state reset
         assertEq(migration.isMigrationActive(minters[0]), false);
         assertEq(migration.isTamperActive(minters[0]), false);
@@ -267,7 +260,7 @@ contract TrailblazersBadgesS2Test is Test {
         test_startMigration();
         vm.startPrank(minters[0]);
         vm.expectRevert();
-        migration.startMigration(BADGE_ID);
+        s1BadgesV4.startMigration(BADGE_ID);
         vm.stopPrank();
     }
 
@@ -278,9 +271,8 @@ contract TrailblazersBadgesS2Test is Test {
         uint256 tokenId = s1BadgesV4.tokenOfOwnerByIndex(minters[0], 0);
 
         vm.startPrank(minters[0]);
-        s1BadgesV4.approve(address(migration), tokenId);
         vm.expectRevert();
-        migration.startMigration(badgeId);
+        s1BadgesV4.startMigration(badgeId);
         vm.stopPrank();
         // ensure no values got changed/updated
         assertEq(s1BadgesV4.balanceOf(minters[0]), 1);
@@ -301,9 +293,8 @@ contract TrailblazersBadgesS2Test is Test {
         uint256 tokenId = s1BadgesV4.tokenOfOwnerByIndex(minters[0], 0);
 
         vm.startPrank(minters[0]);
-        s1BadgesV4.approve(address(migration), tokenId);
         vm.expectRevert();
-        migration.startMigration(BADGE_ID);
+        s1BadgesV4.startMigration(BADGE_ID);
         vm.stopPrank();
         // ensure no values got changed/updated
         assertEq(s1BadgesV4.balanceOf(minters[0]), 1);
@@ -367,5 +358,14 @@ contract TrailblazersBadgesS2Test is Test {
 
         // check cycle id
         assertEq(migration.getMigrationCycle(), 2);
+    }
+
+    function test_revertTransferAfterMigrationStarts() public {
+        test_startMigration();
+        assertEq(s1BadgesV4.balanceOf(minters[0]), 1);
+        uint256 tokenId = s1BadgesV4.getTokenId(minters[0], BADGE_ID);
+        vm.prank(minters[0]);
+        vm.expectRevert();
+        s1BadgesV4.transferFrom(minters[0], minters[1], tokenId);
     }
 }

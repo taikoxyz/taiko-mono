@@ -25,8 +25,8 @@ contract DeployS2Script is Script {
     bool constant PURPLE_TAMPER = false;
 
     uint256 public MAX_TAMPERS = 3;
-    uint256 public COOLDOWN_MIGRATION = 1 hours;
-    uint256 public COOLDOWN_TAMPER = 5 minutes;
+    uint256 public COOLDOWN_MIGRATION = 1 minutes;
+    uint256 public COOLDOWN_TAMPER = 1 minutes;
     uint256 public TAMPER_WEIGHT_PERCENT = 5;
 
     // Taiko Mainnet Values
@@ -136,6 +136,7 @@ contract DeployS2Script is Script {
 
         console.log("Token Base URI:", baseURI);
         console.log("Deployed TrailblazersBadgesS2 to:", address(s2Token));
+        console.log("Deployed BadgeMigration to:", address(migration));
 
         // Register deployment
         vm.serializeAddress(jsonRoot, "TrailblazersBadges", address(s1Token));

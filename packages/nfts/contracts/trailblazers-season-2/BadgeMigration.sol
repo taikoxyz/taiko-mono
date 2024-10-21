@@ -87,6 +87,7 @@ contract BadgeMigration is
     error NOT_RANDOM_SIGNER();
     error ALREADY_MIGRATED_IN_CYCLE();
     error HASH_MISMATCH();
+    error NOT_S1_CONTRACT();
 
     /// @notice Events
     event MigrationCycleToggled(uint256 indexed migrationCycleId, uint256 s1BadgeId, bool enabled);
@@ -113,10 +114,10 @@ contract BadgeMigration is
     }
 
     /// @notice Reverts if sender is already migrating
-    modifier isNotMigrating() {
+    modifier isNotMigrating(address _user) {
         if (
-            migrations[_msgSender()].length > 0
-                && migrations[_msgSender()][migrations[_msgSender()].length - 1].cooldownExpiration == 0
+            migrations[_user].length > 0
+                && migrations[_user][migrations[_user].length - 1].cooldownExpiration == 0
         ) {
             revert MIGRATION_ALREADY_STARTED();
         }
@@ -139,6 +140,13 @@ contract BadgeMigration is
         // check that the minter hasn't used the migration within this cycle
         if (migrationCycleUniqueMints[migrationCycle][_minter][_s1BadgeId]) {
             revert ALREADY_MIGRATED_IN_CYCLE();
+        }
+        _;
+    }
+
+    modifier onlyS1Contract() {
+        if (_msgSender() != address(s1Badges)) {
+            revert NOT_S1_CONTRACT();
         }
         _;
     }
@@ -222,21 +230,26 @@ contract BadgeMigration is
     /// @dev Not all badges are eligible for migration at the same time
     /// @dev Defines a cooldown for the migration to be complete
     /// @dev the cooldown is lesser the higher the Pass Tier
-    function startMigration(uint256 _s1BadgeId)
+    /// @dev Must be called from the s1 badges contract
+    function startMigration(
+        address _user,
+        uint256 _s1BadgeId
+    )
         external
+        onlyS1Contract
         migrationOpen(_s1BadgeId)
-        isNotMigrating
-        hasntMigratedInCycle(_s1BadgeId, _msgSender())
+        isNotMigrating(_user)
+        hasntMigratedInCycle(_s1BadgeId, _user)
     {
-        uint256 s1TokenId = s1Badges.getTokenId(_msgSender(), _s1BadgeId);
+        uint256 s1TokenId = s1Badges.getTokenId(_user, _s1BadgeId);
 
-        if (s1Badges.ownerOf(s1TokenId) != _msgSender()) {
+        if (s1Badges.ownerOf(s1TokenId) != _user) {
             revert TOKEN_NOT_OWNED();
         }
 
         Migration memory _migration = Migration(
             migrationCycle, // migrationCycle
-            _msgSender(), // user
+            _user, // user
             _s1BadgeId,
             s1TokenId,
             0, // s2TokenId, unset
@@ -246,10 +259,8 @@ contract BadgeMigration is
             0 // purpleTampers
         );
 
-        migrations[_msgSender()].push(_migration);
-
-        // transfer the badge tokens to the migration contract
-        s1Badges.transferFrom(_msgSender(), address(this), s1TokenId);
+        migrations[_user].push(_migration);
+        migrationCycleUniqueMints[migrationCycle][_user][_s1BadgeId] = true;
 
         emit MigrationUpdated(
             _migration.migrationCycle,
@@ -409,8 +420,6 @@ contract BadgeMigration is
         }
 
         uint256 s1BadgeId_ = migration_.s1BadgeId;
-        uint256 s1TokenId_ = migration_.s1TokenId;
-        s1Badges.burn(s1TokenId_);
 
         TrailblazersBadgesS2.MovementType pinkOrPurple = isPinkOrPurple_
             ? TrailblazersBadgesS2.MovementType.Minnow
