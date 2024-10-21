@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "src/shared/common/IAddressResolver.sol";
+import "src/shared/common/LibAddress.sol";
 import "src/shared/common/LibStrings.sol";
 import "./TaikoData.sol";
 
@@ -11,11 +12,15 @@ import "./TaikoData.sol";
 /// @notice A library that offers helper functions to handle bonds.
 /// @custom:security-contact security@taiko.xyz
 library LibBonds {
+    using LibAddress for address;
+
     /// @dev Emitted when token is credited back to a user's bond balance.
     event BondCredited(address indexed user, uint256 amount);
 
     /// @dev Emitted when token is debited from a user's bond balance.
     event BondDebited(address indexed user, uint256 amount);
+
+    error L1_INVALID_MSG_VALUE();
 
     /// @dev Deposits Taiko token to be used as bonds.
     /// @param _state Current TaikoData.State.
@@ -29,7 +34,7 @@ library LibBonds {
         internal
     {
         _state.bondBalance[msg.sender] += _amount;
-        _tko(_resolver).transferFrom(msg.sender, address(this), _amount);
+        _depositBond(_resolver, _amount);
     }
 
     /// @dev Withdraws Taiko token.
@@ -44,7 +49,13 @@ library LibBonds {
         internal
     {
         _state.bondBalance[msg.sender] -= _amount;
-        _tko(_resolver).transfer(msg.sender, _amount);
+
+        address bondToken = _resolver.resolve(LibStrings.B_TAIKO_TOKEN, true);
+        if (bondToken == address(0)) {
+            msg.sender.sendEtherAndVerify(_amount);
+        } else {
+            IERC20(bondToken).transfer(msg.sender, _amount);
+        }
     }
 
     /// @dev Debits Taiko tokens as bonds.
@@ -66,10 +77,10 @@ library LibBonds {
             unchecked {
                 _state.bondBalance[_user] = balance - _amount;
             }
-            emit BondDebited(_user, _amount);
         } else {
-            _tko(_resolver).transferFrom(_user, address(this), _amount);
+            _depositBond(_resolver, _amount);
         }
+        emit BondDebited(_user, _amount);
     }
 
     /// @dev Credits Taiko tokens to user's bond balance.
@@ -96,7 +107,13 @@ library LibBonds {
         return _state.bondBalance[_user];
     }
 
-    function _tko(IAddressResolver _resolver) private view returns (IERC20) {
-        return IERC20(_resolver.resolve(LibStrings.B_TAIKO_TOKEN, false));
+    function _depositBond(IAddressResolver _resolver, uint256 _amount) private {
+        address bondToken = _resolver.resolve(LibStrings.B_TAIKO_TOKEN, true);
+        if (bondToken == address(0)) {
+            require(msg.value == _amount, L1_INVALID_MSG_VALUE());
+        } else {
+            require(msg.value == 0, L1_INVALID_MSG_VALUE());
+            IERC20(bondToken).transferFrom(msg.sender, address(this), _amount);
+        }
     }
 }

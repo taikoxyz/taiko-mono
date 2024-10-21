@@ -88,7 +88,7 @@ interface ITaikoL1 {
 
     /// @notice Deposits Taiko token to be used as bonds.
     /// @param _amount The amount of Taiko token to deposit.
-    function depositBond(uint256 _amount) external;
+    function depositBond(uint256 _amount) external payable;
 
     /// @notice Withdraws Taiko token.
     /// @param _amount The amount of Taiko token to withdraw.
