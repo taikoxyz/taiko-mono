@@ -112,5 +112,5 @@ func (srv *Server) configureRoutes() {
 	srv.echo.GET("/healthz", srv.Health)
 	srv.echo.GET("/", srv.Health)
 
-	srv.echo.GET("/getBlob", srv.GetBlob)
+	srv.echo.GET("/blobs/:blobHash", srv.GetBlob)
 }
