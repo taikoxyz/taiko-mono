@@ -1,6 +1,6 @@
-# Taiko Protocol
+# UniFi Protocol
 
-This repository contains the Taiko Based Contestable Rollup (BCR) protocol and supporting tools. The project is managed using `pnpm` and `foundry`.
+This repository contains the UniFi Based Contestable Rollup (BCR) protocol and supporting tools. The project is managed using `pnpm` and `foundry`.
 
 ## Prerequisites
 
@@ -17,7 +17,7 @@ foundryup && pnpm install
 
 ## Compilation and Testing
 
-Taiko’s protocol is split between Layer 1 (L1) and Layer 2 (L2). The smart contracts need to be compiled and tested separately for each layer:
+UniFi’s protocol is split between Layer 1 (L1) and Layer 2 (L2). The smart contracts need to be compiled and tested separately for each layer:
 
 ### Layer 1 (Ethereum, Duncan Hardfork)
 
@@ -29,7 +29,7 @@ pnpm test:l1
 pnpm layout:l1
 ```
 
-### Layer 2 (Taiko, Shanghai Hardfork)
+### Layer 2 (UniFi, Shanghai Hardfork)
 
 Similarly, for L2:
 
@@ -82,7 +82,7 @@ pnpm genesis:gen
 
 This generates the following JSON files in `./test/genesis/data/`:
 
-- `l2_genesis_alloc.json`: Contains the `alloc` field for the L2 genesis block. Use this in a `geth` or `taiko-geth` genesis block following [this guide](https://geth.ethereum.org/docs/fundamentals/private-network#creating-genesis-block).
+- `l2_genesis_alloc.json`: Contains the `alloc` field for the L2 genesis block. Use this in a `geth` or `unifi-geth` genesis block following [this guide](https://geth.ethereum.org/docs/fundamentals/private-network#creating-genesis-block).
 - `l2_genesis_storage_layout.json`: Displays the storage layout of the pre-deployed contracts.
 
 To validate the genesis data:
@@ -91,23 +91,23 @@ To validate the genesis data:
 pnpm genesis:test
 ```
 
-This runs tests using Docker and `taiko-geth` to simulate the L2 genesis block deployment, and generates a `genesis.json` file in `./test/genesis/data/`.
+This runs tests using Docker and `unifi-geth` to simulate the L2 genesis block deployment, and generates a `genesis.json` file in `./test/genesis/data/`.
 
 ### Generating an Actual Genesis Block
 
 To generate the actual L2 genesis block, create a `genesis.json` file based on `l2_genesis_alloc.json`, following [this guide](https://geth.ethereum.org/docs/fundamentals/private-network#creating-genesis-block).
 
-Next, initialize `taiko-geth` with the generated `genesis.json`:
+Next, initialize `unifi-geth` with the generated `genesis.json`:
 
 ```bash
-geth --datadir ~/taiko-l2-network/node init test/layer2/genesis/data/genesis.json
-geth --datadir ~/taiko-l2-network/node --networkid 167 --http --http.addr 127.0.0.1 --http.port 8552 --http.corsdomain "*"
+geth --datadir ~/unifi-l2-network/node init test/layer2/genesis/data/genesis.json
+geth --datadir ~/unifi-l2-network/node --networkid 167 --http --http.addr 127.0.0.1 --http.port 8552 --http.corsdomain "*"
 ```
 
 You can retrieve the genesis block hash by attaching to the `geth` instance:
 
 ```bash
-geth attach ~/taiko-l2-network/node/geth.ipc
+geth attach ~/unifi-l2-network/node/geth.ipc
 ```
 
 Then run:
@@ -118,9 +118,9 @@ eth.getBlock(0)
 
 Copy the genesis block hash and replace the `L2_GENESIS_HASH` variable in `deploy_protocol_on_l1.sh` with this value.
 
-### Deploying Taiko BCR on Layer 1
+### Deploying UniFi BCR on Layer 1
 
-To deploy Taiko BCR on L1, start a local L1 network:
+To deploy UniFi BCR on L1, start a local L1 network:
 
 ```bash
 anvil --hardfork cancun
