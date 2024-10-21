@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { SP1Verifier as SP1PlonkVerifier } from "@sp1-contracts/src/v3.0.0-rc3/SP1VerifierPlonk.sol";
+import { SP1Verifier as SuccinctVerifier } from "@sp1-contracts/src/v3.0.0-rc3/SP1VerifierPlonk.sol";
 import "../based/TaikoL1TestBase.sol";
 
-contract SP1PlonkVerifierTest is TaikoL1TestBase {
+contract SuccinctVerifierTest is TaikoL1TestBase {
     function deployTaikoL1() internal override returns (TaikoL1) {
         return
             TaikoL1(payable(deployProxy({ name: "taiko", impl: address(new TaikoL1()), data: "" })));
@@ -15,8 +15,8 @@ contract SP1PlonkVerifierTest is TaikoL1TestBase {
         // Call the TaikoL1TestBase setUp()
         super.setUp();
 
-        SP1PlonkVerifier verifier = new SP1PlonkVerifier();
-        console2.log("Deployed SP1PlonkVerifier to", address(verifier));
+        SuccinctVerifier verifier = new SuccinctVerifier();
+        console2.log("Deployed SuccinctVerifier to", address(verifier));
         registerAddress("sp1_remote_verifier", address(verifier));
 
         // Deploy Taiko's SP1 proof verifier
