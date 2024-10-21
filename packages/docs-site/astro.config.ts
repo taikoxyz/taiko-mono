@@ -19,7 +19,7 @@ export default defineConfig({
           exclude: [
             "/api-reference/bridge-relayer",
             "/api-reference/event-indexer",
-            "/api-reference/prover-server",
+            "/api-reference/preconf-server",
           ],
         }),
         starlightOpenAPI([
@@ -33,6 +33,11 @@ export default defineConfig({
             label: "Event Indexer API",
             schema: "../eventindexer/docs/swagger.yaml",
           },
+          {
+            base: "api-reference/preconf-server",
+            label: "Preconf Server API",
+            schema: "../taiko-client/docs/swagger.yaml",
+          }
         ]),
       ],
       components: {
