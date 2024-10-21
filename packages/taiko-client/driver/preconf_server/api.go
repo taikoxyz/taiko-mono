@@ -32,28 +32,30 @@ type PreconfTransactionsGroup struct {
 	BaseFeePerGas         uint64         `json:"baseFeePerGas"`
 }
 
-// CreateBlocksByGroupsRequestBody represents a request body when handling preconfirmation blocks creation requests.
-type CreateBlocksByGroupsRequestBody struct {
+// CreateOrUpdateBlocksFromBatchResponseBodyRequestBody represents a request body when handling
+// preconfirmation blocks creation requests.
+type CreateOrUpdateBlocksFromBatchResponseBodyRequestBody struct {
 	TransactionsGroups []PreconfTransactionsGroup `json:"transactionsGroups"`
 }
 
-// CreateBlocksByGroupsResponseBody represents a response body when handling preconfirmation blocks creation requests.
-type CreateBlocksByGroupsResponseBody struct {
+// CreateOrUpdateBlocksFromBatchResponseBody represents a response body when handling preconfirmation
+// blocks creation requests.
+type CreateOrUpdateBlocksFromBatchResponseBody struct {
 	PreconfHeaders []types.Header `json:"preconfHeaders"`
 }
 
-// CreateBlocksByGroups handles a preconfirmation blocks creation request,
+// CreateOrUpdateBlocksFromBatch handles a preconfirmation blocks creation request,
 // if the preconfirmation block groups in request are valid, it will insert the correspoinding new preconfirmation
 // blocks to the backend L2 execution engine and return a success response.
 //
-//	@Summary	  Insert preconfirmation blocks by the given groups to the backend L2 execution engine, please note that
+//	@Summary	Insert preconfirmation blocks by the given groups to the backend L2 execution engine, please note that
 //	            the AVS service should sort the groups and make sure all the groups are valid at first.
-//	@Param      body body CreateBlocksByGroupsRequestBody true "preconf blocks creation request body"
-//	@Accept			json
-//	@Produce		json
-//	@Success		200		{object} CreateBlocksByGroupsResponseBody
-//	@Router			/perconfBlocks [post]
-func (s *PreconfAPIServer) CreateBlocksByGroups(c echo.Context) error {
+//	@Param    body body CreateOrUpdateBlocksFromBatchResponseBodyRequestBody true "preconf blocks creation request body"
+//	@Accept	  json
+//	@Produce	json
+//	@Success	200		{object} CreateOrUpdateBlocksFromBatchResponseBody
+//	@Router		/perconfBlocks [post]
+func (s *PreconfAPIServer) CreateOrUpdateBlocksFromBatch(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
 
