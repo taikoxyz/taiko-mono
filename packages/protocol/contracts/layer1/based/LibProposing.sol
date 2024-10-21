@@ -124,9 +124,9 @@ library LibProposing {
             revert L1_TOO_MANY_BLOCKS();
         }
 
-        address preconfRegistry = _resolver.resolve(LibStrings.B_PRECONF_REGISTRY, true);
-        if (preconfRegistry != address(0)) {
-            if (preconfRegistry != msg.sender) revert L1_INVALID_PROPOSER();
+        address preconfTaskManager = _resolver.resolve(LibStrings.B_PRECONF_TASK_MANAGER, true);
+        if (preconfTaskManager != address(0)) {
+            if (preconfTaskManager != msg.sender) revert L1_INVALID_PROPOSER();
             local.allowCustomProposer = true;
         }
 
