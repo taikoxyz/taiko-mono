@@ -78,8 +78,8 @@ type ResetPreconfHeadResponseBody struct {
 
 // ResetPreconfHead resets the backend L2 execution engine preconfirmation head.
 //
-//	@Description	 Resets the backend L2 execution engine preconfirmation head, please note that
-//	@Description     the AVS service should make sure the new head height is from a valid preconfirmation head.
+//	@Description	  Resets the backend L2 execution engine preconfirmation head, please note that
+//	@Description      the AVS service should make sure the new head height is from a valid preconfirmation head.
 //	@Param      body body ResetPreconfHeadRequestBody true "preconf blocks creation request body"
 //	@Accept			json
 //	@Produce		json
