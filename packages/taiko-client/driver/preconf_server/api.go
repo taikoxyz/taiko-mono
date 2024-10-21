@@ -8,8 +8,10 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// PreconfBlockGroupStatus represents the status of a preconfirmation block group.
 type PreconfBlockGroupStatus string
 
+// PreconfBlockGroupStatus values.
 const (
 	StatusFinalBlockGroup   PreconfBlockGroupStatus = "finalBlockGroup"
 	StatusFinalPreconfGroup PreconfBlockGroupStatus = "finalPreconfGroup"
