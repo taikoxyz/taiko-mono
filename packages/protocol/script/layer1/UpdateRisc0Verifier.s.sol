@@ -14,7 +14,7 @@ contract UpdateRisc0Verifier is DeployCapability {
 
         vm.startBroadcast(deployerPrivKey);
         RiscZeroGroth16Verifier verifier =
-                    new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
+            new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
         register(rollupAddressManager, "risc0_groth16_verifier", address(verifier));
         vm.stopBroadcast();
     }
