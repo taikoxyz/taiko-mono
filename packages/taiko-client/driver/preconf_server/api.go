@@ -53,13 +53,13 @@ type CreateOrUpdateBlocksFromBatchResponseBody struct {
 // if the preconfirmation block groups in request are valid, it will insert the correspoinding new preconfirmation
 // blocks to the backend L2 execution engine and return a success response.
 //
-//	@Description	Insert preconfirmation blocks by the given groups to the backend L2 execution engine, please note that
-//	@Description    the AVS service should sort the groups and make sure all the groups are valid at first.
+//	@Summary	Insert preconfirmation blocks by the given groups to the backend L2 execution engine, please note that
+//	            the AVS service should sort the groups and make sure all the groups are valid at first.
 //	@Param    body body CreateOrUpdateBlocksFromBatchResponseBodyRequestBody true "preconf blocks creation request body"
 //	@Accept	  json
 //	@Produce	json
 //	@Success	200		{object} CreateOrUpdateBlocksFromBatchResponseBody
-//	@Router		/preconfBlocks [post]
+//	@Router		/perconfBlocks [post]
 func (s *PreconfAPIServer) CreateOrUpdateBlocksFromBatch(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
@@ -78,8 +78,8 @@ type ResetPreconfHeadResponseBody struct {
 
 // ResetPreconfHead resets the backend L2 execution engine preconfirmation head.
 //
-//	@Description	 Resets the backend L2 execution engine preconfirmation head, please note that
-//	@Description     the AVS service should make sure the new head height is from a valid preconfirmation head.
+//	@Summary	  Resets the backend L2 execution engine preconfirmation head, please note that
+//	            the AVS service should make sure the new head height is from a valid preconfirmation head.
 //	@Param      body body ResetPreconfHeadRequestBody true "preconf blocks creation request body"
 //	@Accept			json
 //	@Produce		json
@@ -95,7 +95,7 @@ func (s *PreconfAPIServer) ResetPreconfHead(c echo.Context) error {
 //	@ID			   	health-check
 //	@Accept			json
 //	@Produce		json
-//	@Success		200	{object} string
+//	@Success		200	{object} Status
 //	@Router			/healthz [get]
 func (s *PreconfAPIServer) HealthCheck(c echo.Context) error {
 	return c.NoContent(http.StatusOK)

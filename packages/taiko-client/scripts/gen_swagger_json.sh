@@ -1,3 +1,3 @@
 #/bin/sh
 
-swag init -g server.go -d driver/preconf_server --pd
+swag init -g api.go -d prover/server --pd
