@@ -30,6 +30,11 @@ type PreconfTransactionsGroup struct {
 	Random                common.Hash    `json:"prevRandao"`
 	SuggestedFeeRecipient common.Address `json:"suggestedFeeRecipient"`
 	BaseFeePerGas         uint64         `json:"baseFeePerGas"`
+
+	// AnchorV2 parameters
+	AnchorBlockId   uint64      `json:"anchorBlockId"`
+	AnchorStateRoot common.Hash `json:"anchorStateRoot"`
+	ParentGasUsed   uint32      `json:"parentGasUsed"`
 }
 
 // CreateOrUpdateBlocksFromBatchResponseBodyRequestBody represents a request body when handling
