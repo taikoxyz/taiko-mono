@@ -1,0 +1,226 @@
+definitions:
+  big.Int:
+    type: object
+  preconf_server.CreateOrUpdateBlocksFromBatchResponseBody:
+    properties:
+      preconfHeaders:
+        items:
+          $ref: "#/definitions/types.Header"
+        type: array
+    type: object
+  preconf_server.CreateOrUpdateBlocksFromBatchResponseBodyRequestBody:
+    properties:
+      transactionsGroups:
+        items:
+          $ref: "#/definitions/preconf_server.PreconfTransactionsGroup"
+        type: array
+    type: object
+  preconf_server.PreconfTransactionsGroup:
+    properties:
+      anchorBlockId:
+        description: AnchorV2 parameters
+        type: integer
+      anchorStateRoot:
+        items:
+          type: integer
+        type: array
+      baseFeePerGas:
+        type: integer
+      blockId:
+        type: integer
+      groupId:
+        type: integer
+      groupStatus:
+        $ref: "#/definitions/preconf_server.PreconfTxsGroupStatus"
+      parentGasUsed:
+        type: integer
+      prevRandao:
+        items:
+          type: integer
+        type: array
+      signature:
+        type: string
+      suggestedFeeRecipient:
+        items:
+          type: integer
+        type: array
+      timestamp:
+        description: Block parameters
+        type: integer
+      transactions:
+        items:
+          $ref: "#/definitions/types.Transaction"
+        type: array
+    type: object
+  preconf_server.PreconfTxsGroupStatus:
+    enum:
+      - finalBlockGroup
+      - finalPreconfGroup
+    type: string
+    x-enum-varnames:
+      - StatusFinalBlockGroup
+      - StatusFinalPreconfGroup
+  preconf_server.ResetPreconfHeadRequestBody:
+    properties:
+      newHead:
+        type: integer
+    type: object
+  preconf_server.ResetPreconfHeadResponseBody:
+    properties:
+      currentHead:
+        $ref: "#/definitions/types.Header"
+    type: object
+  types.Header:
+    properties:
+      baseFeePerGas:
+        allOf:
+          - $ref: "#/definitions/big.Int"
+        description: BaseFee was added by EIP-1559 and is ignored in legacy headers.
+      blobGasUsed:
+        description: BlobGasUsed was added by EIP-4844 and is ignored in legacy headers.
+        type: integer
+      difficulty:
+        $ref: "#/definitions/big.Int"
+      excessBlobGas:
+        description:
+          ExcessBlobGas was added by EIP-4844 and is ignored in legacy
+          headers.
+        type: integer
+      extraData:
+        items:
+          type: integer
+        type: array
+      gasLimit:
+        type: integer
+      gasUsed:
+        type: integer
+      logsBloom:
+        items:
+          type: integer
+        type: array
+      miner:
+        items:
+          type: integer
+        type: array
+      mixHash:
+        items:
+          type: integer
+        type: array
+      nonce:
+        items:
+          type: integer
+        type: array
+      number:
+        $ref: "#/definitions/big.Int"
+      parentBeaconBlockRoot:
+        description:
+          ParentBeaconRoot was added by EIP-4788 and is ignored in legacy
+          headers.
+        items:
+          type: integer
+        type: array
+      parentHash:
+        items:
+          type: integer
+        type: array
+      receiptsRoot:
+        items:
+          type: integer
+        type: array
+      requestsRoot:
+        description: RequestsHash was added by EIP-7685 and is ignored in legacy headers.
+        items:
+          type: integer
+        type: array
+      sha3Uncles:
+        items:
+          type: integer
+        type: array
+      stateRoot:
+        items:
+          type: integer
+        type: array
+      timestamp:
+        type: integer
+      transactionsRoot:
+        items:
+          type: integer
+        type: array
+      withdrawalsRoot:
+        description:
+          WithdrawalsHash was added by EIP-4895 and is ignored in legacy
+          headers.
+        items:
+          type: integer
+        type: array
+    type: object
+  types.Transaction:
+    type: object
+info:
+  contact:
+    email: info@taiko.xyz
+    name: API Support
+    url: https://community.taiko.xyz/
+  license:
+    name: MIT
+    url: https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md
+  termsOfService: http://swagger.io/terms/
+  title: Taiko Preconfirmation Server API
+  version: "1.0"
+paths:
+  /healthz:
+    get:
+      consumes:
+        - application/json
+      operationId: health-check
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+      summary: Get current server health status
+  /preconfBlocks:
+    post:
+      consumes:
+        - application/json
+      description: |-
+        Insert preconfirmation blocks by the given groups to the backend L2 execution engine, please note that
+        the AVS service should sort the groups and make sure all the groups are valid at first.
+      parameters:
+        - description: preconf blocks creation request body
+          in: body
+          name: body
+          required: true
+          schema:
+            $ref: "#/definitions/preconf_server.CreateOrUpdateBlocksFromBatchResponseBodyRequestBody"
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: "#/definitions/preconf_server.CreateOrUpdateBlocksFromBatchResponseBody"
+  /preconfHead:
+    put:
+      consumes:
+        - application/json
+      description: |-
+        Resets the backend L2 execution engine preconfirmation head, please note that
+        the AVS service should make sure the new head height is from a valid preconfirmation head.
+      parameters:
+        - description: preconf blocks creation request body
+          in: body
+          name: body
+          required: true
+          schema:
+            $ref: "#/definitions/preconf_server.ResetPreconfHeadRequestBody"
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: "#/definitions/preconf_server.ResetPreconfHeadResponseBody"
+swagger: "2.0"
