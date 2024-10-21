@@ -4,12 +4,12 @@ pragma solidity ^0.8.24;
 import "@solady/src/utils/FixedPointMathLib.sol";
 import "src/shared/common/LibMath.sol";
 
-/// @title Lib1559Math
+/// @title LibEIP1559
 /// @notice Implements e^(x) based bonding curve for EIP-1559
 /// @dev See https://ethresear.ch/t/make-eip-1559-more-like-an-amm-curve/9082 but some minor
 /// difference as stated in docs/eip1559_on_l2.md.
 /// @custom:security-contact security@taiko.xyz
-library Lib1559Math {
+library LibEIP1559 {
     using LibMath for uint256;
 
     uint128 public constant MAX_EXP_INPUT = 135_305_999_368_893_231_588;
