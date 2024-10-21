@@ -8,22 +8,22 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// PreconfBlockGroupStatus represents the status of a preconfirmation block group.
-type PreconfBlockGroupStatus string
+// PreconfTxsGroupStatus represents the status of a preconfirmation transactions group.
+type PreconfTxsGroupStatus string
 
 // PreconfBlockGroupStatus values.
 const (
-	StatusFinalBlockGroup   PreconfBlockGroupStatus = "finalBlockGroup"
-	StatusFinalPreconfGroup PreconfBlockGroupStatus = "finalPreconfGroup"
+	StatusFinalBlockGroup   PreconfTxsGroupStatus = "finalBlockGroup"
+	StatusFinalPreconfGroup PreconfTxsGroupStatus = "finalPreconfGroup"
 )
 
 // PreconfTransactionsGroup represents a preconfirmation block group.
 type PreconfTransactionsGroup struct {
-	BlockID          uint64                  `json:"blockId"`
-	ID               uint64                  `json:"groupId"`
-	TransactionsList types.Transactions      `json:"transactions"`
-	GroupStatus      PreconfBlockGroupStatus `json:"groupStatus"`
-	Signature        string                  `json:"signature"`
+	BlockID          uint64                `json:"blockId"`
+	ID               uint64                `json:"groupId"`
+	TransactionsList types.Transactions    `json:"transactions"`
+	GroupStatus      PreconfTxsGroupStatus `json:"groupStatus"`
+	Signature        string                `json:"signature"`
 
 	// Block parameters
 	Timestamp             uint64         `json:"timestamp"`

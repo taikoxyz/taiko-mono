@@ -3,9 +3,11 @@ package preconf_server
 import (
 	"os"
 
-	"github.com/labstack/echo-jwt/v4"
+	echojwt "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+
+	chainSyncer "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer"
 )
 
 // @title Taiko Preconfirmation Server API
@@ -20,13 +22,15 @@ import (
 // @license.url https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md
 // PreconfAPIServer represents a preconfirmation server instance.
 type PreconfAPIServer struct {
-	echo *echo.Echo
+	echo        *echo.Echo
+	chainSyncer *chainSyncer.L2ChainSyncer
 }
 
 // New creates a new preconfirmation server instance.
-func New() (*PreconfAPIServer, error) {
+func New(chainSyncer *chainSyncer.L2ChainSyncer) (*PreconfAPIServer, error) {
 	server := &PreconfAPIServer{
-		echo: echo.New(),
+		echo:        echo.New(),
+		chainSyncer: chainSyncer,
 	}
 
 	server.echo.HideBanner = true
