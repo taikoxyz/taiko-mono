@@ -491,9 +491,9 @@ contract BadgeMigration is
 
         uint256 randomSeed_ = randomFromSignature(_hash, _v, _r, _s);
 
-        uint256 devWeight_ = migration_.devTampers * config.tamperWeightPercent;
-        uint256 whaleWeight_ = migration_.whaleTampers * config.tamperWeightPercent;
-        uint256 minnowWeight_ = migration_.minnowTampers * config.tamperWeightPercent;
+        uint256 devWeight_ = 1 + migration_.devTampers * config.tamperWeightPercent;
+        uint256 whaleWeight_ = 1 + migration_.whaleTampers * config.tamperWeightPercent;
+        uint256 minnowWeight_ = 1 + migration_.minnowTampers * config.tamperWeightPercent;
 
         uint256 totalWeight_ = devWeight_ + whaleWeight_ + minnowWeight_;
 
