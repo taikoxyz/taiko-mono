@@ -1,308 +1,326 @@
 {
-  "swagger": "2.0",
-  "info": {
-    "title": "Taiko Preconfirmation Server API",
-    "termsOfService": "http://swagger.io/terms/",
-    "contact": {
-      "name": "API Support",
-      "url": "https://community.taiko.xyz/",
-      "email": "info@taiko.xyz"
+    "swagger": "2.0",
+    "info": {
+        "title": "Taiko Preconfirmation Server API",
+        "termsOfService": "http://swagger.io/terms/",
+        "contact": {
+            "name": "API Support",
+            "url": "https://community.taiko.xyz/",
+            "email": "info@taiko.xyz"
+        },
+        "license": {
+            "name": "MIT",
+            "url": "https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md"
+        },
+        "version": "1.0"
     },
-    "license": {
-      "name": "MIT",
-      "url": "https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md"
+    "paths": {
+        "/healthz": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get current server health status",
+                "operationId": "health-check",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/tentativeBlocks": {
+            "post": {
+                "description": "Insert a group of transactions into a tentative block for preconfirmation. If the group is the\nfirst for a block, a new tentative block will be created. Otherwise, the transactions will\nbe appended to the existing tentative block. The API will fail if:\n1) the block is not tentative, 2) any transaction in the group is invalid or a duplicate, 3)\nblock-level parameters are invalid or do not match the current tentative block’s parameters,\n4) the group ID is not exactly 1 greater than the previous one, or 5) the last group of\nthe block indicates no further transactions are allowed.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "parameters": [
+                    {
+                        "description": "preconf blocks creation request body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/preconfserver.BuildTentativeBlocksRequestBody"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/preconfserver.BuildTentativeBlocksResponseBody"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Remove all tentative blocks from the blockchain beyond the specified block height,\nensuring the latest block ID does not exceed the given height. This method will fail if\nthe block with an ID one greater than the specified height is not a tentative block. If the\nspecified block height is greater than the latest tentative block ID, the method will succeed\nwithout modifying the blockchain.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "parameters": [
+                    {
+                        "description": "preconf blocks creation request body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/preconfserver.RemoveTentativeBlocksRequestBody"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/preconfserver.RemoveTentativeBlocksResponseBody"
+                        }
+                    }
+                }
+            }
+        }
     },
-    "version": "1.0"
-  },
-  "paths": {
-    "/healthz": {
-      "get": {
-        "consumes": ["application/json"],
-        "produces": ["application/json"],
-        "summary": "Get current server health status",
-        "operationId": "health-check",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "schema": {
-              "type": "string"
+    "definitions": {
+        "big.Int": {
+            "type": "object"
+        },
+        "preconfserver.BuildTentativeBlocksRequestBody": {
+            "type": "object",
+            "properties": {
+                "transactionsGroups": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/preconfserver.PreconfTransactionsGroup"
+                    }
+                }
             }
-          }
+        },
+        "preconfserver.BuildTentativeBlocksResponseBody": {
+            "type": "object",
+            "properties": {
+                "tentativeHeaders": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.Header"
+                    }
+                }
+            }
+        },
+        "preconfserver.PreconfTransactionsGroup": {
+            "type": "object",
+            "properties": {
+                "anchorBlockID": {
+                    "description": "AnchorV2 parameters",
+                    "type": "integer"
+                },
+                "anchorStateRoot": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "baseFeePerGas": {
+                    "type": "integer"
+                },
+                "blockId": {
+                    "type": "integer"
+                },
+                "groupId": {
+                    "type": "integer"
+                },
+                "groupStatus": {
+                    "$ref": "#/definitions/preconfserver.PreconfTxsGroupStatus"
+                },
+                "parentGasUsed": {
+                    "type": "integer"
+                },
+                "prevRandao": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "signature": {
+                    "type": "string"
+                },
+                "suggestedFeeRecipient": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "timestamp": {
+                    "description": "Block parameters",
+                    "type": "integer"
+                },
+                "transactions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/types.Transaction"
+                    }
+                }
+            }
+        },
+        "preconfserver.PreconfTxsGroupStatus": {
+            "type": "string",
+            "enum": [
+                "finalBlockGroup",
+                "finalPreconfGroup"
+            ],
+            "x-enum-varnames": [
+                "StatusFinalBlockGroup",
+                "StatusFinalPreconfGroup"
+            ]
+        },
+        "preconfserver.RemoveTentativeBlocksRequestBody": {
+            "type": "object",
+            "properties": {
+                "newHead": {
+                    "type": "integer"
+                }
+            }
+        },
+        "preconfserver.RemoveTentativeBlocksResponseBody": {
+            "type": "object",
+            "properties": {
+                "currentHead": {
+                    "$ref": "#/definitions/types.Header"
+                }
+            }
+        },
+        "types.Header": {
+            "type": "object",
+            "properties": {
+                "baseFeePerGas": {
+                    "description": "BaseFee was added by EIP-1559 and is ignored in legacy headers.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/big.Int"
+                        }
+                    ]
+                },
+                "blobGasUsed": {
+                    "description": "BlobGasUsed was added by EIP-4844 and is ignored in legacy headers.",
+                    "type": "integer"
+                },
+                "difficulty": {
+                    "$ref": "#/definitions/big.Int"
+                },
+                "excessBlobGas": {
+                    "description": "ExcessBlobGas was added by EIP-4844 and is ignored in legacy headers.",
+                    "type": "integer"
+                },
+                "extraData": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "gasLimit": {
+                    "type": "integer"
+                },
+                "gasUsed": {
+                    "type": "integer"
+                },
+                "logsBloom": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "miner": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "mixHash": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "nonce": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "number": {
+                    "$ref": "#/definitions/big.Int"
+                },
+                "parentBeaconBlockRoot": {
+                    "description": "ParentBeaconRoot was added by EIP-4788 and is ignored in legacy headers.",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "parentHash": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "receiptsRoot": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "requestsRoot": {
+                    "description": "RequestsHash was added by EIP-7685 and is ignored in legacy headers.",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "sha3Uncles": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "stateRoot": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "timestamp": {
+                    "type": "integer"
+                },
+                "transactionsRoot": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "withdrawalsRoot": {
+                    "description": "WithdrawalsHash was added by EIP-4895 and is ignored in legacy headers.",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "types.Transaction": {
+            "type": "object"
         }
-      }
-    },
-    "/tentativeBlocks": {
-      "post": {
-        "description": "Insert a group of transactions into a tentative block for preconfirmation. If the group is the\nfirst for a block, a new tentative block will be created. Otherwise, the transactions will\nbe appended to the existing tentative block. The API will fail if:\n1) the block is not tentative, 2) any transaction in the group is invalid or a duplicate, 3)\nblock-level parameters are invalid or do not match the current tentative block’s parameters,\n4) the group ID is not exactly 1 greater than the previous one, or 5) the last group of\nthe block indicates no further transactions are allowed.",
-        "consumes": ["application/json"],
-        "produces": ["application/json"],
-        "parameters": [
-          {
-            "description": "preconf blocks creation request body",
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/preconfserver.BuildTentativeBlocksRequestBody"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "schema": {
-              "$ref": "#/definitions/preconfserver.BuildTentativeBlocksResponseBody"
-            }
-          }
-        }
-      },
-      "delete": {
-        "description": "Remove all tentative blocks from the blockchain beyond the specified block height,\nensuring the latest block ID does not exceed the given height. This method will fail if\nthe block with an ID one greater than the specified height is not a tentative block. If the\nspecified block height is greater than the latest tentative block ID, the method will succeed\nwithout modifying the blockchain.",
-        "consumes": ["application/json"],
-        "produces": ["application/json"],
-        "parameters": [
-          {
-            "description": "preconf blocks creation request body",
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/preconfserver.RemoveTentativeBlocksRequestBody"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "schema": {
-              "$ref": "#/definitions/preconfserver.RemoveTentativeBlocksResponseBody"
-            }
-          }
-        }
-      }
     }
-  },
-  "definitions": {
-    "big.Int": {
-      "type": "object"
-    },
-    "preconfserver.BuildTentativeBlocksRequestBody": {
-      "type": "object",
-      "properties": {
-        "transactionsGroups": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/preconfserver.PreconfTransactionsGroup"
-          }
-        }
-      }
-    },
-    "preconfserver.BuildTentativeBlocksResponseBody": {
-      "type": "object",
-      "properties": {
-        "tentativeHeaders": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/types.Header"
-          }
-        }
-      }
-    },
-    "preconfserver.PreconfTransactionsGroup": {
-      "type": "object",
-      "properties": {
-        "anchorBlockID": {
-          "description": "AnchorV2 parameters",
-          "type": "integer"
-        },
-        "anchorStateRoot": {
-          "type": "array",
-          "items": {
-            "type": "integer"
-          }
-        },
-        "baseFeePerGas": {
-          "type": "integer"
-        },
-        "blockId": {
-          "type": "integer"
-        },
-        "groupId": {
-          "type": "integer"
-        },
-        "groupStatus": {
-          "$ref": "#/definitions/preconfserver.PreconfTxsGroupStatus"
-        },
-        "parentGasUsed": {
-          "type": "integer"
-        },
-        "prevRandao": {
-          "type": "array",
-          "items": {
-            "type": "integer"
-          }
-        },
-        "signature": {
-          "type": "string"
-        },
-        "suggestedFeeRecipient": {
-          "type": "array",
-          "items": {
-            "type": "integer"
-          }
-        },
-        "timestamp": {
-          "description": "Block parameters",
-          "type": "integer"
-        },
-        "transactions": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/types.Transaction"
-          }
-        }
-      }
-    },
-    "preconfserver.PreconfTxsGroupStatus": {
-      "type": "string",
-      "enum": ["finalBlockGroup", "finalPreconfGroup"],
-      "x-enum-varnames": ["StatusFinalBlockGroup", "StatusFinalPreconfGroup"]
-    },
-    "preconfserver.RemoveTentativeBlocksRequestBody": {
-      "type": "object",
-      "properties": {
-        "newHead": {
-          "type": "integer"
-        }
-      }
-    },
-    "preconfserver.RemoveTentativeBlocksResponseBody": {
-      "type": "object",
-      "properties": {
-        "currentHead": {
-          "$ref": "#/definitions/types.Header"
-        }
-      }
-    },
-    "types.Header": {
-      "type": "object",
-      "properties": {
-        "baseFeePerGas": {
-          "description": "BaseFee was added by EIP-1559 and is ignored in legacy headers.",
-          "allOf": [
-            {
-              "$ref": "#/definitions/big.Int"
-            }
-          ]
-        },
-        "blobGasUsed": {
-          "description": "BlobGasUsed was added by EIP-4844 and is ignored in legacy headers.",
-          "type": "integer"
-        },
-        "difficulty": {
-          "$ref": "#/definitions/big.Int"
-        },
-        "excessBlobGas": {
-          "description": "ExcessBlobGas was added by EIP-4844 and is ignored in legacy headers.",
-          "type": "integer"
-        },
-        "extraData": {
-          "type": "array",
-          "items": {
-            "type": "integer"
-          }
-        },
-        "gasLimit": {
-          "type": "integer"
-        },
-        "gasUsed": {
-          "type": "integer"
-        },
-        "logsBloom": {
-          "type": "array",
-          "items": {
-            "type": "integer"
-          }
-        },
-        "miner": {
-          "type": "array",
-          "items": {
-            "type": "integer"
-          }
-        },
-        "mixHash": {
-          "type": "array",
-          "items": {
-            "type": "integer"
-          }
-        },
-        "nonce": {
-          "type": "array",
-          "items": {
-            "type": "integer"
-          }
-        },
-        "number": {
-          "$ref": "#/definitions/big.Int"
-        },
-        "parentBeaconBlockRoot": {
-          "description": "ParentBeaconRoot was added by EIP-4788 and is ignored in legacy headers.",
-          "type": "array",
-          "items": {
-            "type": "integer"
-          }
-        },
-        "parentHash": {
-          "type": "array",
-          "items": {
-            "type": "integer"
-          }
-        },
-        "receiptsRoot": {
-          "type": "array",
-          "items": {
-            "type": "integer"
-          }
-        },
-        "requestsRoot": {
-          "description": "RequestsHash was added by EIP-7685 and is ignored in legacy headers.",
-          "type": "array",
-          "items": {
-            "type": "integer"
-          }
-        },
-        "sha3Uncles": {
-          "type": "array",
-          "items": {
-            "type": "integer"
-          }
-        },
-        "stateRoot": {
-          "type": "array",
-          "items": {
-            "type": "integer"
-          }
-        },
-        "timestamp": {
-          "type": "integer"
-        },
-        "transactionsRoot": {
-          "type": "array",
-          "items": {
-            "type": "integer"
-          }
-        },
-        "withdrawalsRoot": {
-          "description": "WithdrawalsHash was added by EIP-4895 and is ignored in legacy headers.",
-          "type": "array",
-          "items": {
-            "type": "integer"
-          }
-        }
-      }
-    },
-    "types.Transaction": {
-      "type": "object"
-    }
-  }
 }

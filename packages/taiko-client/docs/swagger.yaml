@@ -5,14 +5,14 @@ definitions:
     properties:
       transactionsGroups:
         items:
-          $ref: "#/definitions/preconfserver.PreconfTransactionsGroup"
+          $ref: '#/definitions/preconfserver.PreconfTransactionsGroup'
         type: array
     type: object
   preconfserver.BuildTentativeBlocksResponseBody:
     properties:
       tentativeHeaders:
         items:
-          $ref: "#/definitions/types.Header"
+          $ref: '#/definitions/types.Header'
         type: array
     type: object
   preconfserver.PreconfTransactionsGroup:
@@ -31,7 +31,7 @@ definitions:
       groupId:
         type: integer
       groupStatus:
-        $ref: "#/definitions/preconfserver.PreconfTxsGroupStatus"
+        $ref: '#/definitions/preconfserver.PreconfTxsGroupStatus'
       parentGasUsed:
         type: integer
       prevRandao:
@@ -49,17 +49,17 @@ definitions:
         type: integer
       transactions:
         items:
-          $ref: "#/definitions/types.Transaction"
+          $ref: '#/definitions/types.Transaction'
         type: array
     type: object
   preconfserver.PreconfTxsGroupStatus:
     enum:
-      - finalBlockGroup
-      - finalPreconfGroup
+    - finalBlockGroup
+    - finalPreconfGroup
     type: string
     x-enum-varnames:
-      - StatusFinalBlockGroup
-      - StatusFinalPreconfGroup
+    - StatusFinalBlockGroup
+    - StatusFinalPreconfGroup
   preconfserver.RemoveTentativeBlocksRequestBody:
     properties:
       newHead:
@@ -68,22 +68,21 @@ definitions:
   preconfserver.RemoveTentativeBlocksResponseBody:
     properties:
       currentHead:
-        $ref: "#/definitions/types.Header"
+        $ref: '#/definitions/types.Header'
     type: object
   types.Header:
     properties:
       baseFeePerGas:
         allOf:
-          - $ref: "#/definitions/big.Int"
+        - $ref: '#/definitions/big.Int'
         description: BaseFee was added by EIP-1559 and is ignored in legacy headers.
       blobGasUsed:
         description: BlobGasUsed was added by EIP-4844 and is ignored in legacy headers.
         type: integer
       difficulty:
-        $ref: "#/definitions/big.Int"
+        $ref: '#/definitions/big.Int'
       excessBlobGas:
-        description:
-          ExcessBlobGas was added by EIP-4844 and is ignored in legacy
+        description: ExcessBlobGas was added by EIP-4844 and is ignored in legacy
           headers.
         type: integer
       extraData:
@@ -111,10 +110,9 @@ definitions:
           type: integer
         type: array
       number:
-        $ref: "#/definitions/big.Int"
+        $ref: '#/definitions/big.Int'
       parentBeaconBlockRoot:
-        description:
-          ParentBeaconRoot was added by EIP-4788 and is ignored in legacy
+        description: ParentBeaconRoot was added by EIP-4788 and is ignored in legacy
           headers.
         items:
           type: integer
@@ -147,8 +145,7 @@ definitions:
           type: integer
         type: array
       withdrawalsRoot:
-        description:
-          WithdrawalsHash was added by EIP-4895 and is ignored in legacy
+        description: WithdrawalsHash was added by EIP-4895 and is ignored in legacy
           headers.
         items:
           type: integer
@@ -171,10 +168,10 @@ paths:
   /healthz:
     get:
       consumes:
-        - application/json
+      - application/json
       operationId: health-check
       produces:
-        - application/json
+      - application/json
       responses:
         "200":
           description: OK
@@ -184,7 +181,7 @@ paths:
   /tentativeBlocks:
     delete:
       consumes:
-        - application/json
+      - application/json
       description: |-
         Remove all tentative blocks from the blockchain beyond the specified block height,
         ensuring the latest block ID does not exceed the given height. This method will fail if
@@ -192,22 +189,22 @@ paths:
         specified block height is greater than the latest tentative block ID, the method will succeed
         without modifying the blockchain.
       parameters:
-        - description: preconf blocks creation request body
-          in: body
-          name: body
-          required: true
-          schema:
-            $ref: "#/definitions/preconfserver.RemoveTentativeBlocksRequestBody"
+      - description: preconf blocks creation request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/preconfserver.RemoveTentativeBlocksRequestBody'
       produces:
-        - application/json
+      - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: "#/definitions/preconfserver.RemoveTentativeBlocksResponseBody"
+            $ref: '#/definitions/preconfserver.RemoveTentativeBlocksResponseBody'
     post:
       consumes:
-        - application/json
+      - application/json
       description: |-
         Insert a group of transactions into a tentative block for preconfirmation. If the group is the
         first for a block, a new tentative block will be created. Otherwise, the transactions will
@@ -217,17 +214,17 @@ paths:
         4) the group ID is not exactly 1 greater than the previous one, or 5) the last group of
         the block indicates no further transactions are allowed.
       parameters:
-        - description: preconf blocks creation request body
-          in: body
-          name: body
-          required: true
-          schema:
-            $ref: "#/definitions/preconfserver.BuildTentativeBlocksRequestBody"
+      - description: preconf blocks creation request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/preconfserver.BuildTentativeBlocksRequestBody'
       produces:
-        - application/json
+      - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: "#/definitions/preconfserver.BuildTentativeBlocksResponseBody"
+            $ref: '#/definitions/preconfserver.BuildTentativeBlocksResponseBody'
 swagger: "2.0"
