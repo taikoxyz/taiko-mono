@@ -1,4 +1,4 @@
-package preconf_server
+package preconfserver
 
 import (
 	"net/http"
@@ -32,7 +32,7 @@ type PreconfTransactionsGroup struct {
 	BaseFeePerGas         uint64         `json:"baseFeePerGas"`
 
 	// AnchorV2 parameters
-	AnchorBlockId   uint64      `json:"anchorBlockId"`
+	AnchorBlockID   uint64      `json:"anchorBlockID"`
 	AnchorStateRoot common.Hash `json:"anchorStateRoot"`
 	ParentGasUsed   uint32      `json:"parentGasUsed"`
 }

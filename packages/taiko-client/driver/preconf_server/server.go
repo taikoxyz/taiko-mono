@@ -1,4 +1,4 @@
-package preconf_server
+package preconfserver
 
 import (
 	"os"
