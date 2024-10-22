@@ -13,10 +13,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
+      - name: List contents of docs directory
+        run: ls -la packages/taiko-client/docs
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./packages/taiko-client/docs # Set this to where your `index.html` is located
+          publish_dir: /packages/taiko-client/docs # Set this to where your `index.html` is located
           publish_branch: gh-pages
