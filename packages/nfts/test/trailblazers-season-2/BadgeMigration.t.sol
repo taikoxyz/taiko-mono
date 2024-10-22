@@ -391,7 +391,7 @@ contract TrailblazersBadgesS2Test is Test {
         assertEq(migration.isMigrationActive(minters[0]), true);
     }
 
-    function test_startMigration_expBased_revert_hashMissmatch() public {
+    function test_startMigration_expBased_revert_hashMismatch() public {
         mint_s1(minters[0], BADGE_ID);
 
         uint256 points = 100;
