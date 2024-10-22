@@ -63,6 +63,11 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         state.__reserve1 = 0;
     }
 
+    function init3() external onlyOwner reinitializer(3) {
+        // this value from EssentialContract is no longer used.
+        __lastUnpausedAt = 0;
+    }
+
     /// @inheritdoc ITaikoL1
     function proposeBlockV2(
         bytes calldata _params,
