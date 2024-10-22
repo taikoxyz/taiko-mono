@@ -21,11 +21,13 @@ jobs:
           go-version: "1.23"
 
       - name: Install swaggo
-        run: export CGO_ENABLED=0
+        run: |
+          export CGO_ENABLED=0
           go install github.com/swaggo/swag/cmd/swag@latest
 
       - name: Generate Swagger documentation
         run: |
+          export CGO_ENABLED=0
           cd packages/taiko-client
           ./scripts/gen_swagger_json.sh
 
