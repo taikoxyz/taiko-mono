@@ -28,6 +28,7 @@ contract DeployS2Script is Script {
     uint256 public COOLDOWN_MIGRATION = 1 minutes;
     uint256 public COOLDOWN_TAMPER = 1 minutes;
     uint256 public TAMPER_WEIGHT_PERCENT = 5;
+    uint256 public POINTS_CLAIM_MULTIPLICATION_FACTOR = 10; // 10%
 
     // Taiko Mainnet Values
     //address owner = 0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be;
@@ -115,7 +116,11 @@ contract DeployS2Script is Script {
         // deploy the migration contract
 
         BadgeMigration.Config memory config = BadgeMigration.Config(
-            COOLDOWN_MIGRATION, COOLDOWN_TAMPER, TAMPER_WEIGHT_PERCENT, MAX_TAMPERS
+            COOLDOWN_MIGRATION,
+            COOLDOWN_TAMPER,
+            TAMPER_WEIGHT_PERCENT,
+            MAX_TAMPERS,
+            POINTS_CLAIM_MULTIPLICATION_FACTOR
         );
 
         impl = address(new BadgeMigration());

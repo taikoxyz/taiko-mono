@@ -39,6 +39,7 @@ contract BadgeMigration is
     address public randomSigner;
     /// @notice Migration-enabled badge IDs per cycle
     mapping(uint256 cycle => mapping(uint256 s1BadgeId => bool enabled)) public enabledBadgeIds;
+    uint256[] public currentCycleEnabledMigrationIds;
     /// @notice Current migration cycle
     uint256 private migrationCycle;
     /// @notice Mapping of unique user-per-mint-per-cycle
@@ -46,6 +47,9 @@ contract BadgeMigration is
         uint256 migrationCycle
             => mapping(address minter => mapping(uint256 s1BadgeId => bool mintEnded))
     ) public migrationCycleUniqueMints;
+    /// @notice User experience points
+    mapping(address user => uint256 experience) public userExperience;
+    /// @notice Tamper colors available
 
     enum TamperColor {
         Dev, // neutral
@@ -60,6 +64,7 @@ contract BadgeMigration is
         uint256 cooldownTamper;
         uint256 tamperWeightPercent;
         uint256 baseMaxTampers;
+        uint256 pointsClaimMultiplicationFactor;
     }
     /// @notice Current config
 
@@ -96,8 +101,9 @@ contract BadgeMigration is
     error ALREADY_MIGRATED_IN_CYCLE();
     error HASH_MISMATCH();
     error NOT_S1_CONTRACT();
-
+    error EXP_TOO_LOW();
     /// @notice Events
+
     event MigrationCycleToggled(uint256 indexed migrationCycleId, uint256 s1BadgeId, bool enabled);
 
     event MigrationUpdated(
@@ -205,6 +211,7 @@ contract BadgeMigration is
 
             enabledBadgeIds[migrationCycle][i] = false;
         }
+        currentCycleEnabledMigrationIds = new uint256[](0);
     }
 
     /// @notice Enable migrations for a set of badges
@@ -219,6 +226,7 @@ contract BadgeMigration is
             enabledBadgeIds[migrationCycle][_s1BadgeIds[i]] = true;
             emit MigrationCycleToggled(migrationCycle, _s1BadgeIds[i], true);
         }
+        currentCycleEnabledMigrationIds = _s1BadgeIds;
     }
 
     /// @notice Get the current migration cycle
@@ -234,33 +242,23 @@ contract BadgeMigration is
         _pause();
     }
 
-    /// @notice Start a migration for a badge
-    /// @param _s1BadgeId The badge ID (s1)
-    /// @dev Not all badges are eligible for migration at the same time
-    /// @dev Defines a cooldown for the migration to be complete
-    /// @dev the cooldown is lesser the higher the Pass Tier
-    /// @dev Must be called from the s1 badges contract
-    function startMigration(
+    /// @notice Internal logic to start a migration
+    /// @param _user The user address
+    /// @param _s1BadgeId The badge ID
+    /// @param _s1TokenId The badge token ID
+    function _startMigration(
         address _user,
-        uint256 _s1BadgeId
+        uint256 _s1BadgeId,
+        uint256 _s1TokenId
     )
-        external
-        onlyS1Contract
-        migrationOpen(_s1BadgeId)
-        isNotMigrating(_user)
-        hasntMigratedInCycle(_s1BadgeId, _user)
+        internal
+        virtual
     {
-        uint256 s1TokenId = s1Badges.getTokenId(_user, _s1BadgeId);
-
-        if (s1Badges.ownerOf(s1TokenId) != _user) {
-            revert TOKEN_NOT_OWNED();
-        }
-
         Migration memory _migration = Migration(
             migrationCycle, // migrationCycle
             _user, // user
             _s1BadgeId,
-            s1TokenId,
+            _s1TokenId,
             0, // s2TokenId, unset
             block.timestamp + config.cooldownMigration, // cooldownExpiration
             0, // tamperExpiration, unset
@@ -284,6 +282,76 @@ contract BadgeMigration is
             _migration.whaleTampers,
             _migration.minnowTampers
         );
+    }
+
+    /// @notice Start a migration for a badge using the user's experience points
+    /// @param _hash The hash to sign of the signature
+    /// @param _v The signature V field
+    /// @param _r The signature R field
+    /// @param _s The signature S field
+    /// @param _exp The user's experience points
+    function startMigration(
+        bytes32 _hash,
+        uint8 _v,
+        bytes32 _r,
+        bytes32 _s,
+        uint256 _exp
+    )
+        external
+        virtual
+        isNotMigrating(_msgSender())
+    {
+        bytes32 calculatedHash_ = generateClaimHash(_msgSender(), _exp);
+
+        if (calculatedHash_ != _hash) {
+            revert HASH_MISMATCH();
+        }
+
+        (address recovered_,,) = ECDSA.tryRecover(_hash, _v, _r, _s);
+        if (recovered_ != randomSigner) {
+            revert NOT_RANDOM_SIGNER();
+        }
+
+        if (_exp < userExperience[_msgSender()]) {
+            revert EXP_TOO_LOW();
+        }
+
+        userExperience[_msgSender()] = _exp;
+
+        uint256 randomSeed_ = randomFromSignature(_hash, _v, _r, _s);
+        uint256 s1BadgeId_ =
+            currentCycleEnabledMigrationIds[randomSeed_ % currentCycleEnabledMigrationIds.length];
+
+        if (migrationCycleUniqueMints[migrationCycle][_msgSender()][s1BadgeId_]) {
+            revert ALREADY_MIGRATED_IN_CYCLE();
+        }
+
+        _startMigration(_msgSender(), (randomSeed_ % 8), 0);
+    }
+
+    /// @notice Start a migration for a badge
+    /// @param _s1BadgeId The badge ID (s1)
+    /// @dev Not all badges are eligible for migration at the same time
+    /// @dev Defines a cooldown for the migration to be complete
+    /// @dev the cooldown is lesser the higher the Pass Tier
+    /// @dev Must be called from the s1 badges contract
+    function startMigration(
+        address _user,
+        uint256 _s1BadgeId
+    )
+        external
+        virtual
+        onlyS1Contract
+        migrationOpen(_s1BadgeId)
+        isNotMigrating(_user)
+        hasntMigratedInCycle(_s1BadgeId, _user)
+    {
+        uint256 s1TokenId_ = s1Badges.getTokenId(_user, _s1BadgeId);
+
+        if (s1Badges.ownerOf(s1TokenId_) != _user) {
+            revert TOKEN_NOT_OWNED();
+        }
+        _startMigration(_user, _s1BadgeId, s1TokenId_);
     }
 
     /// @notice Get the active migration for a user

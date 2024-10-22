@@ -37,6 +37,7 @@ contract TrailblazersBadgesS2Test is Test {
     uint256 public COOLDOWN_MIGRATION = 1 hours;
     uint256 public COOLDOWN_TAMPER = 5 minutes;
     uint256 public TAMPER_WEIGHT_PERCENT = 5;
+    uint256 public POINTS_CLAIM_MULTIPLICATION_FACTOR = 10; // 10%
 
     BadgeMigration public migration;
 
@@ -95,7 +96,11 @@ contract TrailblazersBadgesS2Test is Test {
         // deploy the migration contract
 
         BadgeMigration.Config memory config = BadgeMigration.Config(
-            COOLDOWN_MIGRATION, COOLDOWN_TAMPER, TAMPER_WEIGHT_PERCENT, MAX_TAMPERS
+            COOLDOWN_MIGRATION,
+            COOLDOWN_TAMPER,
+            TAMPER_WEIGHT_PERCENT,
+            MAX_TAMPERS,
+            POINTS_CLAIM_MULTIPLICATION_FACTOR
         );
 
         impl = address(new BadgeMigration());
@@ -324,7 +329,7 @@ contract TrailblazersBadgesS2Test is Test {
     }
 
     function test_setConfig() public {
-        BadgeMigration.Config memory config = BadgeMigration.Config(1 hours, 5 minutes, 5, 3);
+        BadgeMigration.Config memory config = BadgeMigration.Config(1 hours, 5 minutes, 5, 3, 1);
         vm.prank(owner);
         migration.setConfig(config);
 
@@ -337,7 +342,7 @@ contract TrailblazersBadgesS2Test is Test {
     }
 
     function test_setConfig_revert__notOwner() public {
-        BadgeMigration.Config memory config = BadgeMigration.Config(1 hours, 5 minutes, 5, 3);
+        BadgeMigration.Config memory config = BadgeMigration.Config(1 hours, 5 minutes, 5, 3, 1);
 
         vm.startPrank(minters[0]);
         vm.expectRevert();
@@ -369,5 +374,46 @@ contract TrailblazersBadgesS2Test is Test {
         vm.prank(minters[0]);
         vm.expectRevert();
         s1BadgesV4.transferFrom(minters[0], minters[1], tokenId);
+    }
+
+    function test_startMigration_expBased() public {
+        mint_s1(minters[0], BADGE_ID);
+
+        uint256 points = 100;
+        bytes32 _hash = migration.generateClaimHash(minters[0], points);
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(mintSignerPk, _hash);
+
+        vm.prank(minters[0]);
+        migration.startMigration(_hash, v, r, s, points);
+
+        assertEq(s1BadgesV4.balanceOf(minters[0]), 1);
+        assertEq(migration.isMigrationActive(minters[0]), true);
+    }
+
+    function test_startMigration_expBased_revert_hashMissmatch() public {
+        mint_s1(minters[0], BADGE_ID);
+
+        uint256 points = 100;
+        bytes32 _hash = migration.generateClaimHash(minters[0], points);
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(mintSignerPk, _hash);
+
+        vm.prank(minters[0]);
+        vm.expectRevert(BadgeMigration.HASH_MISMATCH.selector);
+        migration.startMigration(_hash, v, s, r, points + 1);
+    }
+
+    function test_startMigration_expBased_revert_notRandomSigner() public {
+        mint_s1(minters[0], BADGE_ID);
+
+        uint256 points = 100;
+        bytes32 _hash = migration.generateClaimHash(minters[0], points);
+        (, uint256 badSignerPk) = makeAddrAndKey("badSigner");
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(badSignerPk, _hash);
+
+        vm.prank(minters[0]);
+        vm.expectRevert(BadgeMigration.NOT_RANDOM_SIGNER.selector);
+        migration.startMigration(_hash, v, r, s, points);
     }
 }
