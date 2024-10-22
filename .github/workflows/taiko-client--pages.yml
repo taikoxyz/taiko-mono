@@ -1,0 +1,22 @@
+name: GitHub Pages
+
+on:
+  push:
+    branches:
+      - preconf-driver-apis
+
+jobs:
+  deploy:
+    runs-on: [arc-runner-set]
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./packages/taiko-client/docs/ # Set this to where your `index.html` is located
+          publish_branch: gh-pages
