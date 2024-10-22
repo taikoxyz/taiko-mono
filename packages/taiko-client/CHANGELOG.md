@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.39.1](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.39.0...taiko-client-v0.39.1) (2024-10-22)
+
+
+### Bug Fixes
+
+* **taiko-client:** fix `lastVerifiedBlockHash` fetch ([#18277](https://github.com/taikoxyz/taiko-mono/issues/18277)) ([8512f45](https://github.com/taikoxyz/taiko-mono/commit/8512f456f033130ecb0e5493a3c36be025908228))
+
 ## [0.39.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.38.0...taiko-client-v0.39.0) (2024-10-21)
 
 
