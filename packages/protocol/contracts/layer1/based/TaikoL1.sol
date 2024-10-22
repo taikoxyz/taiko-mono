@@ -149,6 +149,14 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         LibBonds.withdrawBond(state, this, _amount);
     }
 
+
+    function unpause() public override whenPaused {
+        _authorizePause(msg.sender, false);
+        __paused = _FALSE;
+        state.slotB.lastUnpausedAt = uint64(block.timestamp);
+        emit Unpaused(msg.sender);
+    }
+
     /// @notice Gets the current bond balance of a given address.
     /// @return The current bond balance.
     function bondBalanceOf(address _user) external view returns (uint256) {
@@ -257,10 +265,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         return (state.slotA, state.slotB);
     }
 
-    /// @inheritdoc EssentialContract
-    function unpause() public override {
-        super.unpause(); // permission checked inside
-        state.slotB.lastUnpausedAt = uint64(block.timestamp);
+    function lastUnpausedAt() public override  view returns (uint64) {
+        return state.slotB.lastUnpausedAt;
     }
 
     /// @inheritdoc ITaikoL1
