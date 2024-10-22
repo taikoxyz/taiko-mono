@@ -26,6 +26,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	builder "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/transaction_builder"
+	// "github.com/ethereum/go-ethereum/params"
 )
 
 // Proposer keep proposing new transactions from L2 execution engine's tx pool at a fixed interval.
@@ -267,6 +268,22 @@ func (p *Proposer) fetchPoolContent(filterPoolContent bool) ([]types.Transaction
 
 	log.Info("Transactions lists count", "count", len(txLists))
 
+	var (
+		profitableTxLists []types.Transactions
+	)
+	for _, txs := range txLists {
+		profitable, err := p.isProfitable(txs)
+		if err != nil {
+			log.Error("Failed to check profitability", "error", err)
+			continue
+		}
+
+		if profitable {
+			profitableTxLists = append(profitableTxLists, txs)
+		}
+	}
+	txLists = profitableTxLists
+
 	return txLists, nil
 }
 
@@ -293,12 +310,13 @@ func (p *Proposer) ProposeOp(ctx context.Context) error {
 		return err
 	}
 
-	// If the pool content is empty, return.
+	// If there are no profitable transactions, return without proposing
 	if len(txLists) == 0 {
+		log.Info("No profitable transactions to propose")
 		return nil
 	}
 
-	// Propose the transactions lists.
+	// Propose the profitable transactions lists
 	return p.ProposeTxLists(ctx, txLists)
 }
 
@@ -514,4 +532,80 @@ func (p *Proposer) sendTx(ctx context.Context, txCandidate *txmgr.TxCandidate) e
 // Name returns the application name.
 func (p *Proposer) Name() string {
 	return "proposer"
+}
+
+// isProfitable checks if a transaction list is profitable to propose
+
+// Profitability is determined by comparing the revenue from transaction fees
+// to the costs of proposing and proving the block. Specifically:
+
+func (p *Proposer) isProfitable(txList types.Transactions) (bool, error) {
+	totalTransactionFees := new(big.Int)
+	totalGasConsumed := uint64(0)
+
+	for _, tx := range txList {
+		gasConsumed := tx.Gas()
+		priorityGasPrice, err := p.getPriorityGasPrice(tx)
+
+		if err != nil {
+			return false, err
+		}
+		// priorityGasPrice * gasConsumed
+		transactionFees := new(big.Int).Mul(new(big.Int).SetUint64(gasConsumed), priorityGasPrice)
+		totalGasConsumed += gasConsumed
+
+		totalTransactionFees.Add(totalTransactionFees, transactionFees)
+	}
+
+	costs, err := p.estimateTotalCosts(totalGasConsumed)
+	if err != nil {
+		return false, err
+	}
+
+	return totalTransactionFees.Cmp(costs) > 0, nil
+}
+
+func (p *Proposer) getPriorityGasPrice(tx *types.Transaction) (*big.Int, error) {
+	baseFee, err := p.rpc.L2.SuggestGasPrice(p.ctx)
+	if err != nil {
+		return nil, err
+	}
+	return new(big.Int).Sub(tx.GasPrice(), baseFee), nil
+}
+
+// Sum of all transactions in block > Total costs
+// Total Costs =
+// (gas needed for block proposal + gas needed for proof verification ) *
+//
+// (gas price on L1 + 50% for price fluctuation) +
+//
+//	off chain proving costs (estimated with a margin for the provers' revenue)
+func (p *Proposer) estimateTotalCosts(gasUsed uint64) (*big.Int, error) {
+	// TODO: how to get this value?
+	gasNeededForProposal := big.NewInt(0)
+	// TODO: how to get this value?
+	gasNeededForProofVerification := big.NewInt(0)
+
+	totalL1GasNeeded := new(big.Int).Add(
+		gasNeededForProposal,
+		gasNeededForProofVerification,
+	)
+
+	l1GasPrice, err := p.rpc.L1.SuggestGasPrice(p.ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Add 50% to l1GasPrice to account for price fluctuation
+	adjustedL1GasPrice := new(big.Int).Mul(l1GasPrice, big.NewInt(3))
+	adjustedL1GasPrice.Div(adjustedL1GasPrice, big.NewInt(2))
+
+	l1Costs := new(big.Int).Mul(totalL1GasNeeded, adjustedL1GasPrice)
+
+	// TODO: how to get these?
+	offChainCosts := big.NewInt(0)
+
+	totalCosts := new(big.Int).Add(l1Costs, offChainCosts)
+
+	return totalCosts, nil
 }
