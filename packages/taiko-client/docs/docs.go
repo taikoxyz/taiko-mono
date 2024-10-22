@@ -44,9 +44,9 @@ const docTemplate = `{
                 }
             }
         },
-        "/preconfBlocks": {
+        "/tentativeBlocks": {
             "post": {
-                "description": "Insert preconfirmation blocks by the given groups to the backend L2 execution engine, please note that\nthe AVS service should sort the groups and make sure all the groups are valid at first.",
+                "description": "Insert a group of transactions into a tentative block for preconfirmation. If the group is the\nfirst for a block, a new tentative block will be created. Otherwise, the transactions will\nbe appended to the existing tentative block. The API will fail if:\n1) the block is not tentative, 2) any transaction in the group is invalid or a duplicate, 3)\nblock-level parameters are invalid or do not match the current tentative block’s parameters,\n4) the group ID is not exactly 1 greater than the previous one, or 5) the last group of\nthe block indicates no further transactions are allowed.",
                 "consumes": [
                     "application/json"
                 ],
@@ -60,7 +60,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/preconf_server.CreateOrUpdateBlocksFromBatchResponseBodyRequestBody"
+                            "$ref": "#/definitions/preconfserver.BuildTentativeBlocksRequestBody"
                         }
                     }
                 ],
@@ -68,15 +68,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/preconf_server.CreateOrUpdateBlocksFromBatchResponseBody"
+                            "$ref": "#/definitions/preconfserver.BuildTentativeBlocksResponseBody"
                         }
                     }
                 }
-            }
-        },
-        "/preconfHead": {
-            "put": {
-                "description": "Resets the backend L2 execution engine preconfirmation head, please note that\nthe AVS service should make sure the new head height is from a valid preconfirmation head.",
+            },
+            "delete": {
+                "description": "Remove all tentative blocks from the blockchain beyond the specified block height,\nensuring the latest block ID does not exceed the given height. This method will fail if\nthe block with an ID one greater than the specified height is not a tentative block. If the\nspecified block height is greater than the latest tentative block ID, the method will succeed\nwithout modifying the blockchain.",
                 "consumes": [
                     "application/json"
                 ],
@@ -90,7 +88,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/preconf_server.ResetPreconfHeadRequestBody"
+                            "$ref": "#/definitions/preconfserver.RemoveTentativeBlocksRequestBody"
                         }
                     }
                 ],
@@ -98,7 +96,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/preconf_server.ResetPreconfHeadResponseBody"
+                            "$ref": "#/definitions/preconfserver.RemoveTentativeBlocksResponseBody"
                         }
                     }
                 }
@@ -109,10 +107,21 @@ const docTemplate = `{
         "big.Int": {
             "type": "object"
         },
-        "preconf_server.CreateOrUpdateBlocksFromBatchResponseBody": {
+        "preconfserver.BuildTentativeBlocksRequestBody": {
             "type": "object",
             "properties": {
-                "preconfHeaders": {
+                "transactionsGroups": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/preconfserver.PreconfTransactionsGroup"
+                    }
+                }
+            }
+        },
+        "preconfserver.BuildTentativeBlocksResponseBody": {
+            "type": "object",
+            "properties": {
+                "tentativeHeaders": {
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/types.Header"
@@ -120,21 +129,10 @@ const docTemplate = `{
                 }
             }
         },
-        "preconf_server.CreateOrUpdateBlocksFromBatchResponseBodyRequestBody": {
+        "preconfserver.PreconfTransactionsGroup": {
             "type": "object",
             "properties": {
-                "transactionsGroups": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/preconf_server.PreconfTransactionsGroup"
-                    }
-                }
-            }
-        },
-        "preconf_server.PreconfTransactionsGroup": {
-            "type": "object",
-            "properties": {
-                "anchorBlockId": {
+                "anchorBlockID": {
                     "description": "AnchorV2 parameters",
                     "type": "integer"
                 },
@@ -154,7 +152,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "groupStatus": {
-                    "$ref": "#/definitions/preconf_server.PreconfTxsGroupStatus"
+                    "$ref": "#/definitions/preconfserver.PreconfTxsGroupStatus"
                 },
                 "parentGasUsed": {
                     "type": "integer"
@@ -186,7 +184,7 @@ const docTemplate = `{
                 }
             }
         },
-        "preconf_server.PreconfTxsGroupStatus": {
+        "preconfserver.PreconfTxsGroupStatus": {
             "type": "string",
             "enum": [
                 "finalBlockGroup",
@@ -197,7 +195,7 @@ const docTemplate = `{
                 "StatusFinalPreconfGroup"
             ]
         },
-        "preconf_server.ResetPreconfHeadRequestBody": {
+        "preconfserver.RemoveTentativeBlocksRequestBody": {
             "type": "object",
             "properties": {
                 "newHead": {
@@ -205,7 +203,7 @@ const docTemplate = `{
                 }
             }
         },
-        "preconf_server.ResetPreconfHeadResponseBody": {
+        "preconfserver.RemoveTentativeBlocksResponseBody": {
             "type": "object",
             "properties": {
                 "currentHead": {

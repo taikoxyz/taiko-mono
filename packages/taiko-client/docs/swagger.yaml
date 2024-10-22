@@ -1,23 +1,23 @@
 definitions:
   big.Int:
     type: object
-  preconf_server.CreateOrUpdateBlocksFromBatchResponseBody:
+  preconfserver.BuildTentativeBlocksRequestBody:
     properties:
-      preconfHeaders:
+      transactionsGroups:
+        items:
+          $ref: "#/definitions/preconfserver.PreconfTransactionsGroup"
+        type: array
+    type: object
+  preconfserver.BuildTentativeBlocksResponseBody:
+    properties:
+      tentativeHeaders:
         items:
           $ref: "#/definitions/types.Header"
         type: array
     type: object
-  preconf_server.CreateOrUpdateBlocksFromBatchResponseBodyRequestBody:
+  preconfserver.PreconfTransactionsGroup:
     properties:
-      transactionsGroups:
-        items:
-          $ref: "#/definitions/preconf_server.PreconfTransactionsGroup"
-        type: array
-    type: object
-  preconf_server.PreconfTransactionsGroup:
-    properties:
-      anchorBlockId:
+      anchorBlockID:
         description: AnchorV2 parameters
         type: integer
       anchorStateRoot:
@@ -31,7 +31,7 @@ definitions:
       groupId:
         type: integer
       groupStatus:
-        $ref: "#/definitions/preconf_server.PreconfTxsGroupStatus"
+        $ref: "#/definitions/preconfserver.PreconfTxsGroupStatus"
       parentGasUsed:
         type: integer
       prevRandao:
@@ -52,7 +52,7 @@ definitions:
           $ref: "#/definitions/types.Transaction"
         type: array
     type: object
-  preconf_server.PreconfTxsGroupStatus:
+  preconfserver.PreconfTxsGroupStatus:
     enum:
       - finalBlockGroup
       - finalPreconfGroup
@@ -60,12 +60,12 @@ definitions:
     x-enum-varnames:
       - StatusFinalBlockGroup
       - StatusFinalPreconfGroup
-  preconf_server.ResetPreconfHeadRequestBody:
+  preconfserver.RemoveTentativeBlocksRequestBody:
     properties:
       newHead:
         type: integer
     type: object
-  preconf_server.ResetPreconfHeadResponseBody:
+  preconfserver.RemoveTentativeBlocksResponseBody:
     properties:
       currentHead:
         $ref: "#/definitions/types.Header"
@@ -181,46 +181,53 @@ paths:
           schema:
             type: string
       summary: Get current server health status
-  /preconfBlocks:
+  /tentativeBlocks:
+    delete:
+      consumes:
+        - application/json
+      description: |-
+        Remove all tentative blocks from the blockchain beyond the specified block height,
+        ensuring the latest block ID does not exceed the given height. This method will fail if
+        the block with an ID one greater than the specified height is not a tentative block. If the
+        specified block height is greater than the latest tentative block ID, the method will succeed
+        without modifying the blockchain.
+      parameters:
+        - description: preconf blocks creation request body
+          in: body
+          name: body
+          required: true
+          schema:
+            $ref: "#/definitions/preconfserver.RemoveTentativeBlocksRequestBody"
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: "#/definitions/preconfserver.RemoveTentativeBlocksResponseBody"
     post:
       consumes:
         - application/json
       description: |-
-        Insert preconfirmation blocks by the given groups to the backend L2 execution engine, please note that
-        the AVS service should sort the groups and make sure all the groups are valid at first.
+        Insert a group of transactions into a tentative block for preconfirmation. If the group is the
+        first for a block, a new tentative block will be created. Otherwise, the transactions will
+        be appended to the existing tentative block. The API will fail if:
+        1) the block is not tentative, 2) any transaction in the group is invalid or a duplicate, 3)
+        block-level parameters are invalid or do not match the current tentative block’s parameters,
+        4) the group ID is not exactly 1 greater than the previous one, or 5) the last group of
+        the block indicates no further transactions are allowed.
       parameters:
         - description: preconf blocks creation request body
           in: body
           name: body
           required: true
           schema:
-            $ref: "#/definitions/preconf_server.CreateOrUpdateBlocksFromBatchResponseBodyRequestBody"
+            $ref: "#/definitions/preconfserver.BuildTentativeBlocksRequestBody"
       produces:
         - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: "#/definitions/preconf_server.CreateOrUpdateBlocksFromBatchResponseBody"
-  /preconfHead:
-    put:
-      consumes:
-        - application/json
-      description: |-
-        Resets the backend L2 execution engine preconfirmation head, please note that
-        the AVS service should make sure the new head height is from a valid preconfirmation head.
-      parameters:
-        - description: preconf blocks creation request body
-          in: body
-          name: body
-          required: true
-          schema:
-            $ref: "#/definitions/preconf_server.ResetPreconfHeadRequestBody"
-      produces:
-        - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: "#/definitions/preconf_server.ResetPreconfHeadResponseBody"
+            $ref: "#/definitions/preconfserver.BuildTentativeBlocksResponseBody"
 swagger: "2.0"
