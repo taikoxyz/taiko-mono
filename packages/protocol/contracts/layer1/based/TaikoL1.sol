@@ -149,7 +149,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         LibBonds.withdrawBond(state, this, _amount);
     }
 
-
     function unpause() public override whenPaused {
         _authorizePause(msg.sender, false);
         __paused = _FALSE;
@@ -265,7 +264,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         return (state.slotA, state.slotB);
     }
 
-    function lastUnpausedAt() public override  view returns (uint64) {
+    function lastUnpausedAt() public view override returns (uint64) {
         return state.slotB.lastUnpausedAt;
     }
 

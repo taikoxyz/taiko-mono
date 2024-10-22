@@ -98,11 +98,11 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
 
     /// @notice Returns true if the contract is paused, and false otherwise.
     /// @return true if paused, false otherwise.
-    function paused() public virtual view returns (bool) {
+    function paused() public view virtual returns (bool) {
         return __paused == _TRUE;
     }
 
-    function lastUnpausedAt() public virtual view returns (uint64) {
+    function lastUnpausedAt() public view virtual returns (uint64) {
         return __lastUnpausedAt;
     }
 
