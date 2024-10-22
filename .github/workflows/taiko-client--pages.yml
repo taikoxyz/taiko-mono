@@ -11,7 +11,9 @@ jobs:
     runs-on: [arc-runner-set]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+        with:
+          ref: preconf-driver-apis
 
       - name: Set up Go
         uses: actions/setup-go@v4
@@ -44,8 +46,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: List contents of docs directory
-        run: ls -la packages/taiko-client/docs
+        with:
+          ref: preconf-driver-apis
+
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
