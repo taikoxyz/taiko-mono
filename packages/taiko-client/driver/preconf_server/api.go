@@ -1,4 +1,4 @@
-package preconf_server
+package preconfserver
 
 import (
 	"net/http"
@@ -32,60 +32,68 @@ type PreconfTransactionsGroup struct {
 	BaseFeePerGas         uint64         `json:"baseFeePerGas"`
 
 	// AnchorV2 parameters
-	AnchorBlockId   uint64      `json:"anchorBlockId"`
+	AnchorBlockID   uint64      `json:"anchorBlockID"`
 	AnchorStateRoot common.Hash `json:"anchorStateRoot"`
 	ParentGasUsed   uint32      `json:"parentGasUsed"`
 }
 
-// CreateOrUpdateBlocksFromBatchResponseBodyRequestBody represents a request body when handling
+// buildTentativeBlocksRequestBody represents a request body when handling
 // preconfirmation blocks creation requests.
-type CreateOrUpdateBlocksFromBatchResponseBodyRequestBody struct {
+type BuildTentativeBlocksRequestBody struct {
 	TransactionsGroups []PreconfTransactionsGroup `json:"transactionsGroups"`
 }
 
 // CreateOrUpdateBlocksFromBatchResponseBody represents a response body when handling preconfirmation
 // blocks creation requests.
-type CreateOrUpdateBlocksFromBatchResponseBody struct {
-	PreconfHeaders []types.Header `json:"preconfHeaders"`
+type BuildTentativeBlocksResponseBody struct {
+	PreconfHeaders []types.Header `json:"tentativeHeaders"`
 }
 
-// CreateOrUpdateBlocksFromBatch handles a preconfirmation blocks creation request,
+// BuildTentativeBlocks handles a preconfirmation blocks creation request,
 // if the preconfirmation block groups in request are valid, it will insert the correspoinding new preconfirmation
 // blocks to the backend L2 execution engine and return a success response.
 //
-//	@Summary	Insert preconfirmation blocks by the given groups to the backend L2 execution engine, please note that
-//	            the AVS service should sort the groups and make sure all the groups are valid at first.
-//	@Param    body body CreateOrUpdateBlocksFromBatchResponseBodyRequestBody true "preconf blocks creation request body"
-//	@Accept	  json
-//	@Produce	json
-//	@Success	200		{object} CreateOrUpdateBlocksFromBatchResponseBody
-//	@Router		/perconfBlocks [post]
-func (s *PreconfAPIServer) CreateOrUpdateBlocksFromBatch(c echo.Context) error {
+//		@Description	Insert a group of transactions into a tentative block for preconfirmation. If the group is the
+//		@Description	first for a block, a new tentative block will be created. Otherwise, the transactions will
+//		@Description	be appended to the existing tentative block. The API will fail if:
+//		@Description	1) the block is not tentative, 2) any transaction in the group is invalid or a duplicate, 3)
+//	  @Description	block-level parameters are invalid or do not match the current tentative block’s parameters,
+//	  @Description	4) the group ID is not exactly 1 greater than the previous one, or 5) the last group of
+//	  @Description	the block indicates no further transactions are allowed.
+//		@Param  body body BuildTentativeBlocksRequestBody true "preconf blocks creation request body"
+//		@Accept	  json
+//		@Produce	json
+//		@Success	200		{object} BuildTentativeBlocksResponseBody
+//		@Router		/tentativeBlocks [post]
+func (s *PreconfAPIServer) BuildTentativeBlocks(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
 
-// ResetPreconfHeadRequestBody represents a request body when resetting the backend
+// RemoveTentativeBlocksRequestBody represents a request body when resetting the backend
 // L2 execution engine preconfirmation head.
-type ResetPreconfHeadRequestBody struct {
+type RemoveTentativeBlocksRequestBody struct {
 	NewHead uint64 `json:"newHead"`
 }
 
-// ResetPreconfHeadResponseBody represents a response body when resetting the backend
+// RemoveTentativeBlocksResponseBody represents a response body when resetting the backend
 // L2 execution engine preconfirmation head.
-type ResetPreconfHeadResponseBody struct {
+type RemoveTentativeBlocksResponseBody struct {
 	CurrentHead types.Header `json:"currentHead"`
 }
 
-// ResetPreconfHead resets the backend L2 execution engine preconfirmation head.
+// RemoveTentativeBlocks removes the backend L2 execution engine preconfirmation head.
 //
-//	@Summary	  Resets the backend L2 execution engine preconfirmation head, please note that
-//	            the AVS service should make sure the new head height is from a valid preconfirmation head.
-//	@Param      body body ResetPreconfHeadRequestBody true "preconf blocks creation request body"
-//	@Accept			json
-//	@Produce		json
-//	@Success		200	{object} ResetPreconfHeadResponseBody
-//	@Router			/preconfHead [put]
-func (s *PreconfAPIServer) ResetPreconfHead(c echo.Context) error {
+//		@Description	 Remove all tentative blocks from the blockchain beyond the specified block height,
+//	  @Description	 ensuring the latest block ID does not exceed the given height. This method will fail if
+//	  @Description	 the block with an ID one greater than the specified height is not a tentative block. If the
+//	  @Description	 specified block height is greater than the latest tentative block ID, the method will succeed
+//	  @Description	 without modifying the blockchain.
+//		@Param      body body RemoveTentativeBlocksRequestBody true "preconf blocks creation request body"
+//		@Accept			json
+//		@Produce		json
+//		@Success		200	{object} RemoveTentativeBlocksResponseBody
+//		@Router			/tentativeBlocks [delete]
+func (s *PreconfAPIServer) RemoveTentativeBlocks(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
 
@@ -95,7 +103,7 @@ func (s *PreconfAPIServer) ResetPreconfHead(c echo.Context) error {
 //	@ID			   	health-check
 //	@Accept			json
 //	@Produce		json
-//	@Success		200	{object} Status
+//	@Success		200	{object} string
 //	@Router			/healthz [get]
 func (s *PreconfAPIServer) HealthCheck(c echo.Context) error {
 	return c.NoContent(http.StatusOK)

@@ -1,4 +1,4 @@
-package preconf_server
+package preconfserver
 
 import (
 	"os"
@@ -75,6 +75,6 @@ func (s *PreconfAPIServer) configureMiddleware(corsOrigins []string) {
 func (s *PreconfAPIServer) configureRoutes() {
 	s.echo.GET("/", s.HealthCheck)
 	s.echo.GET("/healthz", s.HealthCheck)
-	s.echo.POST("/perconfTransactions", s.CreateOrUpdateBlocksFromBatch)
-	s.echo.PUT("/preconfHead", s.ResetPreconfHead)
+	s.echo.POST("/tentativeBlocks", s.BuildTentativeBlocks)
+	s.echo.DELETE("/tentativeBlocks", s.RemoveTentativeBlocks)
 }
