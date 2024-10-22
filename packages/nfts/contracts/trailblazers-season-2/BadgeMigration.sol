@@ -119,6 +119,14 @@ contract BadgeMigration is
         uint256 minnowTampers
     );
 
+    event MigrationComplete(
+        uint256 indexed migrationCycle,
+        address indexed user,
+        uint256 s1TokenId,
+        uint256 s2TokenId,
+        uint256 finalColor
+    );
+
     /// @notice Check if the message sender has an active migration
     modifier isMigrating() {
         Migration memory migration_ = getActiveMigrationFor(_msgSender());
@@ -132,7 +140,7 @@ contract BadgeMigration is
     modifier isNotMigrating(address _user) {
         if (
             migrations[_user].length > 0
-                && migrations[_user][migrations[_user].length - 1].cooldownExpiration == 0
+                && migrations[_user][migrations[_user].length - 1].cooldownExpiration > block.timestamp
         ) {
             revert MIGRATION_ALREADY_STARTED();
         }
@@ -481,34 +489,29 @@ contract BadgeMigration is
             revert HASH_MISMATCH();
         }
 
-        // get the tamper amounts
-        uint256 whaleTampers_ = migration_.whaleTampers;
-        uint256 minnowTampers_ = migration_.minnowTampers;
-
         uint256 randomSeed_ = randomFromSignature(_hash, _v, _r, _s);
-        bool isPinkOrPurple_;
-        // Calculate the difference in tampers and adjust chances
-        if (whaleTampers_ > minnowTampers_) {
-            uint256 extraChance = (whaleTampers_ - minnowTampers_) * config.tamperWeightPercent;
-            uint256 chance = 50 + extraChance; // Base 50% + extra chance
-            isPinkOrPurple_ = (randomSeed_ % 100) < chance; // True for pink
-        } else if (minnowTampers_ > whaleTampers_) {
-            uint256 extraChance = (minnowTampers_ - whaleTampers_) * config.tamperWeightPercent;
-            uint256 chance = 50 + extraChance; // Base 50% + extra chance
-            isPinkOrPurple_ = (randomSeed_ % 100) >= chance; // False for purple
+
+        uint256 devWeight_ = migration_.devTampers * config.tamperWeightPercent;
+        uint256 whaleWeight_ = migration_.whaleTampers * config.tamperWeightPercent;
+        uint256 minnowWeight_ = migration_.minnowTampers * config.tamperWeightPercent;
+
+        uint256 totalWeight_ = devWeight_ + whaleWeight_ + minnowWeight_;
+
+        uint256 randomValue = randomSeed_ % totalWeight_;
+
+        TrailblazersBadgesS2.MovementType finalColor_;
+        if (randomValue < devWeight_) {
+            finalColor_ = TrailblazersBadgesS2.MovementType.Dev;
+        } else if (randomValue < devWeight_ + whaleWeight_) {
+            finalColor_ = TrailblazersBadgesS2.MovementType.Whale;
         } else {
-            // Equal number of pink and purple tampers, 50/50 chance
-            isPinkOrPurple_ = (randomSeed_ % 100) < 50;
+            finalColor_ = TrailblazersBadgesS2.MovementType.Minnow;
         }
 
         uint256 s1BadgeId_ = migration_.s1BadgeId;
 
-        TrailblazersBadgesS2.MovementType pinkOrPurple = isPinkOrPurple_
-            ? TrailblazersBadgesS2.MovementType.Minnow
-            : TrailblazersBadgesS2.MovementType.Whale;
-
         // mint the badge
-        s2Badges.mint(_msgSender(), TrailblazersBadgesS2.BadgeType(s1BadgeId_), pinkOrPurple);
+        s2Badges.mint(_msgSender(), TrailblazersBadgesS2.BadgeType(s1BadgeId_), finalColor_);
         uint256 s2TokenId_ = s2Badges.totalSupply();
 
         migration_.s2TokenId = s2TokenId_;
@@ -516,6 +519,14 @@ contract BadgeMigration is
         migration_.tamperExpiration = 0;
 
         _updateMigration(migration_);
+
+        emit MigrationComplete(
+            migration_.migrationCycle,
+            migration_.user,
+            migration_.s1TokenId,
+            migration_.s2TokenId,
+            uint256(finalColor_)
+        );
     }
 
     /// @notice Generate a unique hash for each migration uniquely
