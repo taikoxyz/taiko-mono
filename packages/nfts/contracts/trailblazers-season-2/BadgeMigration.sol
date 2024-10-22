@@ -46,8 +46,15 @@ contract BadgeMigration is
         uint256 migrationCycle
             => mapping(address minter => mapping(uint256 s1BadgeId => bool mintEnded))
     ) public migrationCycleUniqueMints;
-    /// @notice Configuration struct
 
+    enum TamperColor {
+        Dev, // neutral
+        Whale, // based, pink
+        Minnow // boosted, purple
+
+    }
+
+    /// @notice Configuration struct
     struct Config {
         uint256 cooldownMigration;
         uint256 cooldownTamper;
@@ -67,8 +74,9 @@ contract BadgeMigration is
         uint256 s2TokenId;
         uint256 cooldownExpiration;
         uint256 tamperExpiration;
-        uint256 pinkTampers;
-        uint256 purpleTampers;
+        uint256 devTampers;
+        uint256 whaleTampers;
+        uint256 minnowTampers;
     }
     /// @notice Migrations per user
 
@@ -100,8 +108,9 @@ contract BadgeMigration is
         uint256 s2TokenId,
         uint256 cooldownExpiration,
         uint256 tamperExpiration,
-        uint256 pinkTampers,
-        uint256 purpleTampers
+        uint256 devTampers,
+        uint256 whaleTampers,
+        uint256 minnowTampers
     );
 
     /// @notice Check if the message sender has an active migration
@@ -255,8 +264,9 @@ contract BadgeMigration is
             0, // s2TokenId, unset
             block.timestamp + config.cooldownMigration, // cooldownExpiration
             0, // tamperExpiration, unset
-            0, // pinkTampers
-            0 // purpleTampers
+            0, // dev tampers
+            0, // whaleTampers
+            0 // minnowTampers
         );
 
         migrations[_user].push(_migration);
@@ -270,8 +280,9 @@ contract BadgeMigration is
             _migration.s2TokenId,
             _migration.cooldownExpiration,
             _migration.tamperExpiration,
-            _migration.pinkTampers,
-            _migration.purpleTampers
+            _migration.devTampers,
+            _migration.whaleTampers,
+            _migration.minnowTampers
         );
     }
 
@@ -298,8 +309,9 @@ contract BadgeMigration is
             _migration.s2TokenId,
             _migration.cooldownExpiration,
             _migration.tamperExpiration,
-            _migration.pinkTampers,
-            _migration.purpleTampers
+            _migration.devTampers,
+            _migration.whaleTampers,
+            _migration.minnowTampers
         );
     }
 
@@ -316,7 +328,7 @@ contract BadgeMigration is
     /// @param v signature V field
     /// @param r signature R field
     /// @param s signature S field
-    /// @param _pinkOrPurple true for pink, false for purple
+    /// @param _tamperColor the tamper's color
     /// @dev Can be called only during an active migration
     /// @dev Implements a cooldown before allowing to re-tamper
     /// @dev The max tamper amount is determined by Pass Tier
@@ -326,7 +338,7 @@ contract BadgeMigration is
         bytes32 r,
         bytes32 s,
         uint256 exp,
-        bool _pinkOrPurple
+        TamperColor _tamperColor
     )
         external
         isMigrating
@@ -335,7 +347,7 @@ contract BadgeMigration is
         if (recovered_ != randomSigner) revert NOT_RANDOM_SIGNER();
         Migration memory migration_ = getActiveMigrationFor(_msgSender());
 
-        if ((migration_.pinkTampers + migration_.purpleTampers) > maxTampers(exp)) {
+        if ((migration_.whaleTampers + migration_.minnowTampers) > maxTampers(exp)) {
             revert MAX_TAMPERS_REACHED();
         }
 
@@ -343,10 +355,12 @@ contract BadgeMigration is
             revert TAMPER_IN_PROGRESS();
         }
 
-        if (_pinkOrPurple) {
-            migration_.pinkTampers++;
+        if (_tamperColor == TamperColor.Dev) {
+            migration_.devTampers++;
+        } else if (_tamperColor == TamperColor.Whale) {
+            migration_.whaleTampers++;
         } else {
-            migration_.purpleTampers++;
+            migration_.minnowTampers++;
         }
 
         migration_.tamperExpiration = block.timestamp + config.cooldownTamper;
@@ -358,8 +372,8 @@ contract BadgeMigration is
     /// @dev Can be called only during an active migration
     function resetTampers() external isMigrating {
         Migration memory migration_ = getActiveMigrationFor(_msgSender());
-        migration_.pinkTampers = 0;
-        migration_.purpleTampers = 0;
+        migration_.whaleTampers = 0;
+        migration_.minnowTampers = 0;
         migration_.tamperExpiration = 0;
 
         _updateMigration(migration_);
@@ -400,18 +414,18 @@ contract BadgeMigration is
         }
 
         // get the tamper amounts
-        uint256 pinkTampers_ = migration_.pinkTampers;
-        uint256 purpleTampers_ = migration_.purpleTampers;
+        uint256 whaleTampers_ = migration_.whaleTampers;
+        uint256 minnowTampers_ = migration_.minnowTampers;
 
         uint256 randomSeed_ = randomFromSignature(_hash, _v, _r, _s);
         bool isPinkOrPurple_;
         // Calculate the difference in tampers and adjust chances
-        if (pinkTampers_ > purpleTampers_) {
-            uint256 extraChance = (pinkTampers_ - purpleTampers_) * config.tamperWeightPercent;
+        if (whaleTampers_ > minnowTampers_) {
+            uint256 extraChance = (whaleTampers_ - minnowTampers_) * config.tamperWeightPercent;
             uint256 chance = 50 + extraChance; // Base 50% + extra chance
             isPinkOrPurple_ = (randomSeed_ % 100) < chance; // True for pink
-        } else if (purpleTampers_ > pinkTampers_) {
-            uint256 extraChance = (purpleTampers_ - pinkTampers_) * config.tamperWeightPercent;
+        } else if (minnowTampers_ > whaleTampers_) {
+            uint256 extraChance = (minnowTampers_ - whaleTampers_) * config.tamperWeightPercent;
             uint256 chance = 50 + extraChance; // Base 50% + extra chance
             isPinkOrPurple_ = (randomSeed_ % 100) >= chance; // False for purple
         } else {
@@ -486,18 +500,19 @@ contract BadgeMigration is
 
     /// @notice Get the migration tamper counts for a user
     /// @param _user The user address
-    /// @return _pinkTampers The pink tamper count
-    /// @return _purpleTampers The purple tamper count
+    /// @return _devTampers The Dev tamper count
+    /// @return _whaleTampers The Whale tamper count
+    /// @return _minnowTampers The Minnow tamper count
     function getMigrationTampers(address _user)
         public
         view
-        returns (uint256 _pinkTampers, uint256 _purpleTampers)
+        returns (uint256 _devTampers, uint256 _whaleTampers, uint256 _minnowTampers)
     {
         if (!isMigrationActive(_user)) {
             revert MIGRATION_NOT_STARTED();
         }
         Migration memory migration_ = getActiveMigrationFor(_user);
-        return (migration_.pinkTampers, migration_.purpleTampers);
+        return (migration_.devTampers, migration_.whaleTampers, migration_.minnowTampers);
     }
 
     /// @notice supportsInterface implementation

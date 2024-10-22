@@ -41,22 +41,23 @@ contract TrailblazersBadgesS2 is
         Shinto // s1 id: 7
 
     }
+
     /// @notice Movement types
     enum MovementType {
         Dev, // s1 neutral
-        Minnow, // s1 based/pink
-        Whale // s1 boosted/purple
+        Whale, // s1 based/pink
+        Minnow // s1 boosted/purple
 
     }
-    /// @notice Badge struct
 
+    /// @notice Badge struct
     struct Badge {
         uint256 tokenId;
         BadgeType badgeType;
         MovementType movementType;
     }
-    /// @notice Badge mapping
 
+    /// @notice Badge mapping
     mapping(uint256 tokenId => Badge badge) private badges;
     /// @notice Badge URI template
     string public uriTemplate;

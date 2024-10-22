@@ -33,9 +33,6 @@ contract TrailblazersBadgesS2Test is Test {
     address mintSigner;
     uint256 mintSignerPk;
 
-    bool constant PINK_TAMPER = true;
-    bool constant PURPLE_TAMPER = false;
-
     uint256 public MAX_TAMPERS = 3;
     uint256 public COOLDOWN_MIGRATION = 1 hours;
     uint256 public COOLDOWN_TAMPER = 5 minutes;
@@ -178,23 +175,25 @@ contract TrailblazersBadgesS2Test is Test {
 
         for (uint256 i = 0; i < MAX_TAMPERS; i++) {
             wait(COOLDOWN_TAMPER);
-            migration.tamperMigration(_hash, v, r, s, points, PINK_TAMPER);
+            migration.tamperMigration(_hash, v, r, s, points, BadgeMigration.TamperColor.Whale);
         }
 
         wait(COOLDOWN_TAMPER);
-        migration.tamperMigration(_hash, v, r, s, points, PURPLE_TAMPER);
+        migration.tamperMigration(_hash, v, r, s, points, BadgeMigration.TamperColor.Minnow);
         wait(COOLDOWN_TAMPER);
 
-        migration.tamperMigration(_hash, v, r, s, points, PURPLE_TAMPER);
+        migration.tamperMigration(_hash, v, r, s, points, BadgeMigration.TamperColor.Minnow);
 
         vm.stopPrank();
 
         assertEq(migration.isTamperActive(minters[0]), true);
         assertEq(migration.isMigrationActive(minters[0]), true);
 
-        (uint256 pinkTampers, uint256 purpleTampers) = migration.getMigrationTampers(minters[0]);
-        assertEq(pinkTampers, MAX_TAMPERS);
-        assertEq(purpleTampers, 2);
+        (uint256 devTampers, uint256 whaleTampers, uint256 minnowTampers) =
+            migration.getMigrationTampers(minters[0]);
+        assertEq(devTampers, 0);
+        assertEq(whaleTampers, MAX_TAMPERS);
+        assertEq(minnowTampers, 2);
     }
 
     function test_revert_tooManyTampers() public {
@@ -206,7 +205,7 @@ contract TrailblazersBadgesS2Test is Test {
         test_tamperMigration();
         vm.startPrank(minters[0]);
         vm.expectRevert();
-        migration.tamperMigration(_hash, v, r, s, points, PINK_TAMPER);
+        migration.tamperMigration(_hash, v, r, s, points, BadgeMigration.TamperColor.Whale);
 
         vm.stopPrank();
     }
@@ -214,17 +213,20 @@ contract TrailblazersBadgesS2Test is Test {
     function test_resetTampers() public {
         test_tamperMigration();
         assertEq(migration.isTamperActive(minters[0]), true);
-        (uint256 pinkTampers, uint256 purpleTampers) = migration.getMigrationTampers(minters[0]);
-        assertEq(pinkTampers, MAX_TAMPERS);
-        assertEq(purpleTampers, 2);
+        (uint256 devTampers, uint256 whaleTampers, uint256 minnowTampers) =
+            migration.getMigrationTampers(minters[0]);
+        assertEq(devTampers, 0);
+        assertEq(whaleTampers, MAX_TAMPERS);
+        assertEq(minnowTampers, 2);
 
         vm.prank(minters[0]);
         migration.resetTampers();
 
         assertEq(migration.isTamperActive(minters[0]), false);
-        (pinkTampers, purpleTampers) = migration.getMigrationTampers(minters[0]);
-        assertEq(pinkTampers, 0);
-        assertEq(purpleTampers, 0);
+        (devTampers, whaleTampers, minnowTampers) = migration.getMigrationTampers(minters[0]);
+        assertEq(devTampers, 0);
+        assertEq(whaleTampers, 0);
+        assertEq(minnowTampers, 0);
     }
 
     function test_endMigration() public {

@@ -58,14 +58,14 @@ contract TrailblazersBadgesS2Test is Test {
 
     function test_uri_byTokenId() public {
         test_mint();
-        assertEq(nft.uri(TOKEN_ID), "ipfs://hash/0/1.json");
+        assertEq(nft.uri(TOKEN_ID), "ipfs://hash/0/2.json");
     }
 
     function test_uri_byTypeAndMovement() public {
         test_mint();
         assertEq(
             nft.uri(TrailblazersBadgesS2.BadgeType.Ravers, TrailblazersBadgesS2.MovementType.Minnow),
-            "ipfs://hash/0/1.json"
+            "ipfs://hash/0/2.json"
         );
     }
 
