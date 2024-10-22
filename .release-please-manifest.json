@@ -1,6 +1,6 @@
 {
   "packages/bridge-ui": "2.12.0",
-  "packages/docs-site": "1.12.2",
+  "packages/docs-site": "1.12.3",
   "packages/eventindexer": "0.13.0",
   "packages/fork-diff": "0.6.1",
   "packages/guardian-prover-health-check": "0.1.0",
@@ -9,7 +9,7 @@
   "packages/relayer": "0.12.0",
   "packages/snaefell-ui": "1.1.0",
   "packages/supplementary-contracts": "1.0.0",
-  "packages/taiko-client": "0.38.0",
+  "packages/taiko-client": "0.39.1",
   "packages/taikoon-ui": "1.3.0",
   "packages/ui-lib": "1.0.0"
 }

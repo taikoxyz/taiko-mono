@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@risc0/contracts/groth16/RiscZeroGroth16Verifier.sol";
-import { SP1Verifier as SP1Verifier200rc } from "@sp1-contracts/src/v2.0.0/SP1VerifierPlonk.sol";
+import { SP1Verifier as SuccinctVerifier } from "@sp1-contracts/src/v3.0.0-rc3/SP1VerifierPlonk.sol";
 
 // Actually this one is deployed already on mainnet, but we are now deploying our own (non via-ir)
 // version. For mainnet, it is easier to go with one of:
@@ -416,8 +416,8 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
 
         // Deploy sp1 plonk verifier
-        SP1Verifier200rc sp1Verifier200rc = new SP1Verifier200rc();
-        register(rollupAddressManager, "sp1_remote_verifier", address(sp1Verifier200rc));
+        SuccinctVerifier succinctVerifier = new SuccinctVerifier();
+        register(rollupAddressManager, "sp1_remote_verifier", address(succinctVerifier));
 
         deployProxy({
             name: "tier_zkvm_sp1",
