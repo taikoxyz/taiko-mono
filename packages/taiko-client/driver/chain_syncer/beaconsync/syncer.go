@@ -85,7 +85,6 @@ func (s *Syncer) TriggerBeaconSync(blockID uint64) error {
 			s.ctx,
 			new(big.Int).SetUint64(stateVars.B.LastVerifiedBlockId),
 		)
-
 		if err != nil {
 			return fmt.Errorf("failed to fetch the last verified block hash: %w", err)
 		}
