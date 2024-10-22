@@ -6,8 +6,39 @@ on:
       - preconf-driver-apis
 
 jobs:
-  deploy:
+  swagger-gen:
+    if: ${{ !contains(github.event.head_commit.message, 'Update Swagger documentation') }}
     runs-on: [arc-runner-set]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.23"
+
+      - name: Install swaggo
+        run: go install github.com/swaggo/swag/cmd/swag@latest
+
+      - name: Generate Swagger documentation
+        run: |
+          cd packages/taiko-client
+          ./scripts/gen_swagger_json.sh
+
+      - name: Commit Swagger docs
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "Update Swagger documentation"
+          git push origin HEAD:${{ github.ref_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  deploy:
+    if: ${{ !contains(github.event.head_commit.message, 'Update Swagger documentation') }}
+    runs-on: [arc-runner-set]
+    needs: swagger-gen
     permissions:
       contents: write
     steps:
@@ -19,5 +50,5 @@ jobs:
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: /packages/taiko-client/docs # Set this to where your `index.html` is located
+          publish_dir: packages/taiko-client/docs # Set this to where your `index.html` is located
           publish_branch: gh-pages
