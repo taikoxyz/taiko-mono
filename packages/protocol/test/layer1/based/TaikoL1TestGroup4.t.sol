@@ -16,8 +16,8 @@ contract TaikoL1TestGroup4 is TaikoL1TestGroupBase {
         giveEthAndTko(Alice, 10_000 ether, 1000 ether);
 
         giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
-        ITierProvider.Tier memory tierOp = ITierProvider(cp).getTier(LibTiers.TIER_OPTIMISTIC);
-        ITierProvider.Tier memory tierSgx = ITierProvider(cp).getTier(LibTiers.TIER_SGX);
+        ITierProvider.Tier memory tierOp = ITierProvider(tr).getTier(LibTiers.TIER_OPTIMISTIC);
+        ITierProvider.Tier memory tierSgx = ITierProvider(tr).getTier(LibTiers.TIER_SGX);
 
         console2.log("====== Alice propose a block");
         TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
@@ -95,8 +95,8 @@ contract TaikoL1TestGroup4 is TaikoL1TestGroupBase {
 
         giveEthAndTko(David, 10_000 ether, 1000 ether);
         giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
-        ITierProvider.Tier memory tierOp = ITierProvider(cp).getTier(LibTiers.TIER_OPTIMISTIC);
-        ITierProvider.Tier memory tierSgx = ITierProvider(cp).getTier(LibTiers.TIER_SGX);
+        ITierProvider.Tier memory tierOp = ITierProvider(tr).getTier(LibTiers.TIER_OPTIMISTIC);
+        ITierProvider.Tier memory tierSgx = ITierProvider(tr).getTier(LibTiers.TIER_SGX);
 
         console2.log("====== Alice propose a block");
         TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
