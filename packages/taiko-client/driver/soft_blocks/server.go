@@ -10,7 +10,7 @@ import (
 	chainSyncer "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer"
 )
 
-// @title Taiko Preconfirmation Server API
+// @title Taiko Soft Block Server API
 // @version 1.0
 // @termsOfService http://swagger.io/terms/
 
@@ -20,13 +20,13 @@ import (
 
 // @license.name MIT
 // @license.url https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md
-// SoftBlockAPIServer represents a preconfirmation server instance.
+// SoftBlockAPIServer represents a soft blcok server instance.
 type SoftBlockAPIServer struct {
 	echo        *echo.Echo
 	chainSyncer *chainSyncer.L2ChainSyncer
 }
 
-// New creates a new preconfirmation server instance.
+// New creates a new soft blcok server instance.
 func New(chainSyncer *chainSyncer.L2ChainSyncer) (*SoftBlockAPIServer, error) {
 	server := &SoftBlockAPIServer{
 		echo:        echo.New(),

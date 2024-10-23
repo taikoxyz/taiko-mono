@@ -16,7 +16,7 @@ const (
 	BatchMarkerEOP TransactionBatchMarker = "end_of_preconf"
 )
 
-// TransactionBatch represents a preconfirmation block group.
+// TransactionBatch represents a soft block group.
 type TransactionBatch struct {
 	BlockID          uint64                 `json:"blockId"`
 	ID               uint64                 `json:"batchId"`
@@ -34,19 +34,19 @@ type TransactionBatch struct {
 }
 
 // BuildSoftBlockRequestBody represents a request body when handling
-// preconfirmation blocks creation requests.
+// soft blocks creation requests.
 type BuildSoftBlockRequestBody struct {
 	TransactionBatch TransactionBatch `json:"transactionBatch"`
 }
 
-// CreateOrUpdateBlocksFromBatchResponseBody represents a response body when handling preconfirmation
+// CreateOrUpdateBlocksFromBatchResponseBody represents a response body when handling soft
 // blocks creation requests.
 type BuildSoftBlockResponseBody struct {
 	BlockHeader types.Header `json:"blockHeader"`
 }
 
-// BuildSoftBlock handles a preconfirmation block creation request,
-// if the preconfirmation block groups in request are valid, it will insert the correspoinding new preconfirmation
+// BuildSoftBlock handles a soft block creation request,
+// if the soft block group in request are valid, it will insert the correspoinding new preconfirmation
 // block to the backend L2 execution engine and return a success response.
 //
 //		@Description	Insert a group of transactions into a soft block for preconfirmation. If the group is the
@@ -66,19 +66,19 @@ func (s *SoftBlockAPIServer) BuildSoftBlock(c echo.Context) error {
 }
 
 // RemoveSoftBlocksRequestBody represents a request body when resetting the backend
-// L2 execution engine preconfirmation head.
+// L2 execution engine soft head.
 type RemoveSoftBlocksRequestBody struct {
 	NewHead uint64 `json:"newHead"`
 }
 
 // RemoveSoftBlocksResponseBody represents a response body when resetting the backend
-// L2 execution engine preconfirmation head.
+// L2 execution engine soft head.
 type RemoveSoftBlocksResponseBody struct {
 	CurrentHead  types.Header `json:"currentHead"`
 	HeadsRemoved uint64       `json:"headsRemoved"`
 }
 
-// RemoveSoftBlocks removes the backend L2 execution engine preconfirmation head.
+// RemoveSoftBlocks removes the backend L2 execution engine soft head.
 //
 //		@Description	 Remove all soft blocks from the blockchain beyond the specified block height,
 //	  @Description	 ensuring the latest block ID does not exceed the given height. This method will fail if
