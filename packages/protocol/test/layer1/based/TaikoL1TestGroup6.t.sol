@@ -19,7 +19,7 @@ contract TaikoL1TestGroup6 is TaikoL1TestGroupBase {
         ITierProvider.Tier memory tierSgx = ITierProvider(tr).getTier(LibTiers.TIER_SGX);
 
         console2.log("====== Alice propose a block");
-        TaikoData.BlockMetadata memory meta = proposeBlock(Alice, "");
+        TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
 
         console2.log("====== Alice proves the block as the assigned prover");
         bytes32 parentHash = GENESIS_BLOCK_HASH;
@@ -42,10 +42,9 @@ contract TaikoL1TestGroup6 is TaikoL1TestGroupBase {
         {
             printBlockAndTrans(meta.id);
 
-            TaikoData.Block memory blk = L1.getBlock(meta.id);
+            TaikoData.BlockV2 memory blk = L1.getBlockV2(meta.id);
             assertEq(blk.nextTransitionId, 2);
             assertEq(blk.verifiedTransitionId, 0);
-            assertEq(blk.livenessBond, 0);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash);
@@ -69,11 +68,10 @@ contract TaikoL1TestGroup6 is TaikoL1TestGroupBase {
         {
             printBlockAndTrans(meta.id);
 
-            TaikoData.Block memory blk = L1.getBlock(meta.id);
+            TaikoData.BlockV2 memory blk = L1.getBlockV2(meta.id);
 
             assertEq(blk.nextTransitionId, 2);
             assertEq(blk.verifiedTransitionId, 1);
-            assertEq(blk.livenessBond, 0);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, 1);
             assertEq(ts.blockHash, blockHash);

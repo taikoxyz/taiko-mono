@@ -24,7 +24,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
 
     uint256[50] private __gap;
 
-    error L1_FORK_ERROR();
     error L1_INVALID_PARAMS();
 
     modifier whenProvingNotPaused() {
@@ -52,7 +51,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         initializer
     {
         __Essential_init(_owner, _rollupAddressManager);
-        LibUtils.init(state, getConfig(), _genesisBlockHash);
+        LibUtils.init(state, _genesisBlockHash);
         if (_toPause) _pause();
     }
 
@@ -64,26 +63,12 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         state.__reserve1 = 0;
     }
 
-    /// @inheritdoc ITaikoL1
-    function proposeBlock(
-        bytes calldata _params,
-        bytes calldata _txList
-    )
-        external
-        payable
-        whenNotPaused
-        nonReentrant
-        emitEventForClient
-        returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
-    {
-        TaikoData.Config memory config = getConfig();
-
-        TaikoData.BlockMetadataV2 memory metaV2;
-        (meta_, metaV2) = LibProposing.proposeBlock(state, config, this, _params, _txList);
-        if (metaV2.id >= config.ontakeForkHeight) revert L1_FORK_ERROR();
-        deposits_ = new TaikoData.EthDeposit[](0);
+    function init3() external onlyOwner reinitializer(3) {
+        // this value from EssentialContract is no longer used.
+        __lastUnpausedAt = 0;
     }
 
+    /// @inheritdoc ITaikoL1
     function proposeBlockV2(
         bytes calldata _params,
         bytes calldata _txList
@@ -95,8 +80,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         returns (TaikoData.BlockMetadataV2 memory meta_)
     {
         TaikoData.Config memory config = getConfig();
-        (, meta_) = LibProposing.proposeBlock(state, config, this, _params, _txList);
-        if (meta_.id < config.ontakeForkHeight) revert L1_FORK_ERROR();
+        return LibProposing.proposeBlock(state, config, this, _params, _txList);
     }
 
     /// @inheritdoc ITaikoL1
@@ -111,10 +95,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         returns (TaikoData.BlockMetadataV2[] memory metaArr_)
     {
         TaikoData.Config memory config = getConfig();
-        (, metaArr_) = LibProposing.proposeBlocks(state, config, this, _paramsArr, _txListArr);
-        for (uint256 i; i < metaArr_.length; ++i) {
-            if (metaArr_[i].id < config.ontakeForkHeight) revert L1_FORK_ERROR();
-        }
+        return LibProposing.proposeBlocks(state, config, this, _paramsArr, _txListArr);
     }
 
     /// @inheritdoc ITaikoL1
@@ -171,6 +152,13 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     /// @inheritdoc ITaikoL1
     function withdrawBond(uint256 _amount) external whenNotPaused {
         LibBonds.withdrawBond(state, this, _amount);
+    }
+
+    function unpause() public override whenPaused {
+        _authorizePause(msg.sender, false);
+        __paused = _FALSE;
+        state.slotB.lastUnpausedAt = uint64(block.timestamp);
+        emit Unpaused(msg.sender);
     }
 
     /// @notice Gets the current bond balance of a given address.
@@ -281,10 +269,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         return (state.slotA, state.slotB);
     }
 
-    /// @inheritdoc EssentialContract
-    function unpause() public override {
-        super.unpause(); // permission checked inside
-        state.slotB.lastUnpausedAt = uint64(block.timestamp);
+    function lastUnpausedAt() public view override returns (uint64) {
+        return state.slotB.lastUnpausedAt;
     }
 
     /// @inheritdoc ITaikoL1
@@ -309,7 +295,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
          });
     }
 
-    /// @dev chain_pauser is supposed to be a cold wallet.
+    /// @dev chain watchdog is supposed to be a cold wallet.
     function _authorizePause(
         address,
         bool

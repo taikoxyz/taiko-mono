@@ -14,7 +14,7 @@ library LibStrings {
     bytes32 internal constant B_ERC1155_VAULT = bytes32("erc1155_vault");
     bytes32 internal constant B_ERC20_VAULT = bytes32("erc20_vault");
     bytes32 internal constant B_ERC721_VAULT = bytes32("erc721_vault");
-    bytes32 internal constant B_PRECONF_REGISTRY = bytes32("preconf_registry");
+    bytes32 internal constant B_PRECONF_TASK_MANAGER = bytes32("preconf_task_manager");
     bytes32 internal constant B_PROVER_ASSIGNMENT = bytes32("PROVER_ASSIGNMENT");
     bytes32 internal constant B_PROVER_SET = bytes32("prover_set");
     bytes32 internal constant B_QUOTA_MANAGER = bytes32("quota_manager");
