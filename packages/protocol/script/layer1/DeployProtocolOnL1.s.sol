@@ -291,8 +291,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
 
         TaikoL1 taikoL1;
-        if (keccak256(abi.encode(vm.envString("TIER_PROVIDER"))) == keccak256(abi.encode("devnet")))
-        {
+        if (keccak256(abi.encode(vm.envString("TIER_ROUTER"))) == keccak256(abi.encode("devnet"))) {
             taikoL1 = TaikoL1(address(new DevnetTaikoL1()));
         } else {
             taikoL1 = TaikoL1(address(new TaikoL1()));
@@ -353,7 +352,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         register(
             rollupAddressManager,
             "tier_router",
-            address(deployTierProvider(vm.envString("TIER_PROVIDER")))
+            address(deployTierRouter(vm.envString("TIER_ROUTER")))
         );
 
         address[] memory guardians = vm.envAddress("GUARDIAN_PROVERS", ",");
@@ -427,12 +426,12 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
     }
 
-    function deployTierProvider(string memory tierProviderName) private returns (address) {
-        if (keccak256(abi.encode(tierProviderName)) == keccak256(abi.encode("devnet"))) {
+    function deployTierRouter(string memory tierRouterName) private returns (address) {
+        if (keccak256(abi.encode(tierRouterName)) == keccak256(abi.encode("devnet"))) {
             return address(new DevnetTierProvider());
-        } else if (keccak256(abi.encode(tierProviderName)) == keccak256(abi.encode("testnet"))) {
+        } else if (keccak256(abi.encode(tierRouterName)) == keccak256(abi.encode("testnet"))) {
             return address(new TestTierProvider());
-        } else if (keccak256(abi.encode(tierProviderName)) == keccak256(abi.encode("mainnet"))) {
+        } else if (keccak256(abi.encode(tierRouterName)) == keccak256(abi.encode("mainnet"))) {
             return address(new MainnetTierRouter());
         } else {
             revert("invalid tier provider");
