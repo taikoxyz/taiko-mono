@@ -46,9 +46,9 @@ type BuildSoftBlockResponseBody struct {
 	BlockHeader types.Header `json:"blockHeader"`
 }
 
-// BuildSoftBlocks handles a preconfirmation block creation request,
+// BuildSoftBlock handles a preconfirmation block creation request,
 // if the preconfirmation block groups in request are valid, it will insert the correspoinding new preconfirmation
-// blocks to the backend L2 execution engine and return a success response.
+// block to the backend L2 execution engine and return a success response.
 //
 //		@Description	Insert a group of transactions into a soft block for preconfirmation. If the group is the
 //		@Description	first for a block, a new soft block will be created. Otherwise, the transactions will
@@ -62,7 +62,7 @@ type BuildSoftBlockResponseBody struct {
 //		@Produce	json
 //		@Success	200		{object} BuildSoftBlocksResponseBody
 //		@Router		/softBlocks [post]
-func (s *SoftBlockAPIServer) BuildSoftBlocks(c echo.Context) error {
+func (s *SoftBlockAPIServer) BuildSoftBlock(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
 
@@ -76,7 +76,7 @@ type RemoveSoftBlocksRequestBody struct {
 // L2 execution engine preconfirmation head.
 type RemoveSoftBlocksResponseBody struct {
 	CurrentHead types.Header `json:"currentHead"`
-	// ? add a return value to indicaate how many soft blocks have been removed?
+	HeadRemoved uint64       `json:"headRemoved"`
 }
 
 // RemoveSoftBlocks removes the backend L2 execution engine preconfirmation head.

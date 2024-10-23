@@ -75,6 +75,6 @@ func (s *SoftBlockAPIServer) configureMiddleware(corsOrigins []string) {
 func (s *SoftBlockAPIServer) configureRoutes() {
 	s.echo.GET("/", s.HealthCheck)
 	s.echo.GET("/healthz", s.HealthCheck)
-	s.echo.POST("/softBlocks", s.BuildSoftBlocks)
+	s.echo.POST("/softBlocks", s.BuildSoftBlock)
 	s.echo.DELETE("/softBlocks", s.RemoveSoftBlocks)
 }
