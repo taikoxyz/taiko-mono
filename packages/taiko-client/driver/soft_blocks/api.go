@@ -3,7 +3,6 @@ package softblocks
 import (
 	"net/http"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/labstack/echo/v4"
 )
@@ -21,17 +20,17 @@ const (
 type TransactionBatch struct {
 	BlockID          uint64                 `json:"blockId"`
 	ID               uint64                 `json:"batchId"`
-	TransactionsList []byte                 `json:"transactions"`
+	TransactionsList string                 `json:"transactions"`
 	BatchMarker      TransactionBatchMarker `json:"batchType"`
 	Signature        string                 `json:"signature"`
 
 	// Block parameters
-	Timestamp uint64         `json:"timestamp"`
-	Coinbase  common.Address `json:"coinbase"`
+	Timestamp uint64 `json:"timestamp"`
+	Coinbase  string `json:"coinbase"`
 
 	// AnchorV2 parameters
-	AnchorBlockID   uint64      `json:"anchorBlockID"`
-	AnchorStateRoot common.Hash `json:"anchorStateRoot"`
+	AnchorBlockID   uint64 `json:"anchorBlockID"`
+	AnchorStateRoot string `json:"anchorStateRoot"`
 }
 
 // BuildSoftBlockRequestBody represents a request body when handling
