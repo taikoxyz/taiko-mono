@@ -49,19 +49,18 @@ type BuildSoftBlockResponseBody struct {
 // if the preconfirmation block groups in request are valid, it will insert the correspoinding new preconfirmation
 // block to the backend L2 execution engine and return a success response.
 //
-//			@Description	Insert a group of transactions into a soft block for preconfirmation. If the group is the
-//			@Description	first for a block, a new soft block will be created. Otherwise, the transactions will
-//			@Description	be appended to the existing soft block. The API will fail if:
-//			@Description	1) the block is not soft
-//	  	@Description	2) any transaction in the group is invalid or a duplicate
-//		  @Description	3) block-level parameters are invalid or do not match the current soft block’s parameters
-//		  @Description	4) the group ID is not exactly 1 greater than the previous one
-//		  @Description	5) the last group ofthe block indicates no further transactions are allowed
-//			@Param  body body BuildSoftBlockRequestBody true "preconf blocks creation request body"
-//			@Accept	  json
-//			@Produce	json
-//			@Success	200		{object} BuildSoftBlockResponseBody
-//			@Router		/softBlocks [post]
+//		@Description	Insert a group of transactions into a soft block for preconfirmation. If the group is the
+//		@Description	first for a block, a new soft block will be created. Otherwise, the transactions will
+//		@Description	be appended to the existing soft block. The API will fail if:
+//		@Description	1) the block is not soft
+//	  @Description	2) block-level parameters are invalid or do not match the current soft block’s parameters
+//	  @Description	3) the group ID is not exactly 1 greater than the previous one
+//	  @Description	4) the last group of the block indicates no further transactions are allowed
+//		@Param  body body BuildSoftBlockRequestBody true "preconf blocks creation request body"
+//		@Accept	  json
+//		@Produce	json
+//		@Success	200		{object} BuildSoftBlockResponseBody
+//		@Router		/softBlocks [post]
 func (s *SoftBlockAPIServer) BuildSoftBlock(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
