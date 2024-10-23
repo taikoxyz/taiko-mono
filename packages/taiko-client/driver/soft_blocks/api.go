@@ -7,10 +7,10 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// TransactionBatchMarker represents the status of a preconfirmation transactions group.
+// TransactionBatchMarker represents the status of a soft block transactions group.
 type TransactionBatchMarker string
 
-// PreconfBlockBatchMarker values.
+// BatchMarker values.
 const (
 	BatchMarkerEOB TransactionBatchMarker = "end_of_block"
 	BatchMarkerEOP TransactionBatchMarker = "end_of_preconf"
@@ -46,7 +46,7 @@ type BuildSoftBlockResponseBody struct {
 }
 
 // BuildSoftBlock handles a soft block creation request,
-// if the soft block group in request are valid, it will insert the correspoinding new preconfirmation
+// if the soft block group in request are valid, it will insert the correspoinding new soft
 // block to the backend L2 execution engine and return a success response.
 //
 //		@Description	Insert a group of transactions into a soft block for preconfirmation. If the group is the
@@ -56,7 +56,7 @@ type BuildSoftBlockResponseBody struct {
 //	  @Description	2) block-level parameters are invalid or do not match the current soft block’s parameters
 //	  @Description	3) the group ID is not exactly 1 greater than the previous one
 //	  @Description	4) the last group of the block indicates no further transactions are allowed
-//		@Param  body body BuildSoftBlockRequestBody true "preconf blocks creation request body"
+//		@Param  body body BuildSoftBlockRequestBody true "soft block creation request body"
 //		@Accept	  json
 //		@Produce	json
 //		@Success	200		{object} BuildSoftBlockResponseBody
@@ -85,7 +85,7 @@ type RemoveSoftBlocksResponseBody struct {
 //	  @Description	 the block with an ID one greater than the specified height is not a soft block. If the
 //	  @Description	 specified block height is greater than the latest soft block ID, the method will succeed
 //	  @Description	 without modifying the blockchain.
-//		@Param      body body RemoveSoftBlocksRequestBody true "preconf blocks creation request body"
+//		@Param      body body RemoveSoftBlocksRequestBody true "soft blocks removing request body"
 //		@Accept			json
 //		@Produce		json
 //		@Success		200	{object} RemoveSoftBlocksResponseBody

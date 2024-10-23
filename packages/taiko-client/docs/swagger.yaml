@@ -174,7 +174,7 @@ paths:
         specified block height is greater than the latest soft block ID, the method will succeed
         without modifying the blockchain.
       parameters:
-        - description: preconf blocks creation request body
+        - description: soft blocks removing request body
           in: body
           name: body
           required: true
@@ -199,7 +199,7 @@ paths:
         3) the group ID is not exactly 1 greater than the previous one
         4) the last group of the block indicates no further transactions are allowed
       parameters:
-        - description: preconf blocks creation request body
+        - description: soft block creation request body
           in: body
           name: body
           required: true

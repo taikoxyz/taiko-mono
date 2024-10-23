@@ -55,7 +55,7 @@ const docTemplate = `{
                 ],
                 "parameters": [
                     {
-                        "description": "preconf blocks creation request body",
+                        "description": "soft block creation request body",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -83,7 +83,7 @@ const docTemplate = `{
                 ],
                 "parameters": [
                     {
-                        "description": "preconf blocks creation request body",
+                        "description": "soft blocks removing request body",
                         "name": "body",
                         "in": "body",
                         "required": true,
