@@ -22,6 +22,7 @@ import "src/layer1/devnet/DevnetTaikoL1.sol";
 import "src/layer1/devnet/DevnetTierProvider.sol";
 import "src/layer1/mainnet/rollup/MainnetGuardianProver.sol";
 import "src/layer1/mainnet/rollup/MainnetTaikoL1.sol";
+import "src/layer1/mainnet/rollup/MainnetTierRouter.sol";
 import "src/layer1/mainnet/rollup/verifiers/MainnetSgxVerifier.sol";
 import "src/layer1/mainnet/multirollup/MainnetBridge.sol";
 import "src/layer1/mainnet/multirollup/MainnetERC1155Vault.sol";
@@ -30,7 +31,6 @@ import "src/layer1/mainnet/multirollup/MainnetERC721Vault.sol";
 import "src/layer1/mainnet/multirollup/MainnetSignalService.sol";
 import "src/layer1/provers/GuardianProver.sol";
 import "src/layer1/provers/ProverSet.sol";
-import "src/layer1/tiers/TierProviderV2.sol";
 import "src/layer1/token/TaikoToken.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
@@ -433,7 +433,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         } else if (keccak256(abi.encode(tierProviderName)) == keccak256(abi.encode("testnet"))) {
             return address(new TestTierProvider());
         } else if (keccak256(abi.encode(tierProviderName)) == keccak256(abi.encode("mainnet"))) {
-            return address(new TierProviderV2());
+            return address(new MainnetTierRouter());
         } else {
             revert("invalid tier provider");
         }
