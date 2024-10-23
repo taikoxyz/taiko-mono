@@ -20,15 +20,15 @@ import (
 
 // @license.name MIT
 // @license.url https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md
-// PreconfAPIServer represents a preconfirmation server instance.
-type PreconfAPIServer struct {
+// SoftBlockAPIServer represents a preconfirmation server instance.
+type SoftBlockAPIServer struct {
 	echo        *echo.Echo
 	chainSyncer *chainSyncer.L2ChainSyncer
 }
 
 // New creates a new preconfirmation server instance.
-func New(chainSyncer *chainSyncer.L2ChainSyncer) (*PreconfAPIServer, error) {
-	server := &PreconfAPIServer{
+func New(chainSyncer *chainSyncer.L2ChainSyncer) (*SoftBlockAPIServer, error) {
+	server := &SoftBlockAPIServer{
 		echo:        echo.New(),
 		chainSyncer: chainSyncer,
 	}
@@ -52,7 +52,7 @@ func LogSkipper(c echo.Context) bool {
 }
 
 // configureMiddleware configures the server middlewares.
-func (s *PreconfAPIServer) configureMiddleware(corsOrigins []string) {
+func (s *SoftBlockAPIServer) configureMiddleware(corsOrigins []string) {
 	s.echo.Use(middleware.RequestID())
 
 	s.echo.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
@@ -72,9 +72,9 @@ func (s *PreconfAPIServer) configureMiddleware(corsOrigins []string) {
 }
 
 // configureRoutes contains all routes which will be used by prover server.
-func (s *PreconfAPIServer) configureRoutes() {
+func (s *SoftBlockAPIServer) configureRoutes() {
 	s.echo.GET("/", s.HealthCheck)
 	s.echo.GET("/healthz", s.HealthCheck)
-	s.echo.POST("/tentativeBlocks", s.BuildTentativeBlocks)
-	s.echo.DELETE("/tentativeBlocks", s.RemoveTentativeBlocks)
+	s.echo.POST("/softBlocks", s.BuildSoftBlock)
+	s.echo.DELETE("/softBlocks", s.RemoveSoftBlocks)
 }
