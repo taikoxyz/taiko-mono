@@ -20,7 +20,7 @@ definitions:
     properties:
       currentHead:
         $ref: "#/definitions/types.Header"
-      headRemoved:
+      headsRemoved:
         type: integer
     type: object
   softblocks.TransactionBatch:
@@ -29,9 +29,7 @@ definitions:
         description: AnchorV2 parameters
         type: integer
       anchorStateRoot:
-        items:
-          type: integer
-        type: array
+        type: string
       batchId:
         type: integer
       batchType:
@@ -39,18 +37,14 @@ definitions:
       blockId:
         type: integer
       coinbase:
-        items:
-          type: integer
-        type: array
+        type: string
       signature:
         type: string
       timestamp:
         description: Block parameters
         type: integer
       transactions:
-        items:
-          type: integer
-        type: array
+        type: string
     type: object
   softblocks.TransactionBatchMarker:
     enum:
@@ -153,7 +147,7 @@ info:
     name: MIT
     url: https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md
   termsOfService: http://swagger.io/terms/
-  title: Taiko Preconfirmation Server API
+  title: Taiko Soft Block Server API
   version: "1.0"
 paths:
   /healthz:
@@ -200,10 +194,10 @@ paths:
         Insert a group of transactions into a soft block for preconfirmation. If the group is the
         first for a block, a new soft block will be created. Otherwise, the transactions will
         be appended to the existing soft block. The API will fail if:
-        1) the block is not soft, 2) any transaction in the group is invalid or a duplicate, 3)
-        block-level parameters are invalid or do not match the current soft block’s parameters,
-        4) the group ID is not exactly 1 greater than the previous one, or 5) the last group of
-        the block indicates no further transactions are allowed.
+        1) the block is not soft
+        2) block-level parameters are invalid or do not match the current soft block’s parameters
+        3) the group ID is not exactly 1 greater than the previous one
+        4) the last group of the block indicates no further transactions are allowed
       parameters:
         - description: preconf blocks creation request body
           in: body

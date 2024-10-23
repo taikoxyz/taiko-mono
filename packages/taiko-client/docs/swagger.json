@@ -1,7 +1,7 @@
 {
   "swagger": "2.0",
   "info": {
-    "title": "Taiko Preconfirmation Server API",
+    "title": "Taiko Soft Block Server API",
     "termsOfService": "http://swagger.io/terms/",
     "contact": {
       "name": "API Support",
@@ -33,7 +33,7 @@
     },
     "/softBlocks": {
       "post": {
-        "description": "Insert a group of transactions into a soft block for preconfirmation. If the group is the\nfirst for a block, a new soft block will be created. Otherwise, the transactions will\nbe appended to the existing soft block. The API will fail if:\n1) the block is not soft, 2) any transaction in the group is invalid or a duplicate, 3)\nblock-level parameters are invalid or do not match the current soft block’s parameters,\n4) the group ID is not exactly 1 greater than the previous one, or 5) the last group of\nthe block indicates no further transactions are allowed.",
+        "description": "Insert a group of transactions into a soft block for preconfirmation. If the group is the\nfirst for a block, a new soft block will be created. Otherwise, the transactions will\nbe appended to the existing soft block. The API will fail if:\n1) the block is not soft\n2) block-level parameters are invalid or do not match the current soft block’s parameters\n3) the group ID is not exactly 1 greater than the previous one\n4) the last group of the block indicates no further transactions are allowed",
         "consumes": ["application/json"],
         "produces": ["application/json"],
         "parameters": [
@@ -116,7 +116,7 @@
         "currentHead": {
           "$ref": "#/definitions/types.Header"
         },
-        "headRemoved": {
+        "headsRemoved": {
           "type": "integer"
         }
       }
@@ -129,10 +129,7 @@
           "type": "integer"
         },
         "anchorStateRoot": {
-          "type": "array",
-          "items": {
-            "type": "integer"
-          }
+          "type": "string"
         },
         "batchId": {
           "type": "integer"
@@ -144,10 +141,7 @@
           "type": "integer"
         },
         "coinbase": {
-          "type": "array",
-          "items": {
-            "type": "integer"
-          }
+          "type": "string"
         },
         "signature": {
           "type": "string"
@@ -157,10 +151,7 @@
           "type": "integer"
         },
         "transactions": {
-          "type": "array",
-          "items": {
-            "type": "integer"
-          }
+          "type": "string"
         }
       }
     },

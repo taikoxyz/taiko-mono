@@ -46,7 +46,7 @@ const docTemplate = `{
         },
         "/softBlocks": {
             "post": {
-                "description": "Insert a group of transactions into a soft block for preconfirmation. If the group is the\nfirst for a block, a new soft block will be created. Otherwise, the transactions will\nbe appended to the existing soft block. The API will fail if:\n1) the block is not soft, 2) any transaction in the group is invalid or a duplicate, 3)\nblock-level parameters are invalid or do not match the current soft block’s parameters,\n4) the group ID is not exactly 1 greater than the previous one, or 5) the last group of\nthe block indicates no further transactions are allowed.",
+                "description": "Insert a group of transactions into a soft block for preconfirmation. If the group is the\nfirst for a block, a new soft block will be created. Otherwise, the transactions will\nbe appended to the existing soft block. The API will fail if:\n1) the block is not soft\n2) block-level parameters are invalid or do not match the current soft block’s parameters\n3) the group ID is not exactly 1 greater than the previous one\n4) the last group of the block indicates no further transactions are allowed",
                 "consumes": [
                     "application/json"
                 ],
@@ -137,7 +137,7 @@ const docTemplate = `{
                 "currentHead": {
                     "$ref": "#/definitions/types.Header"
                 },
-                "headRemoved": {
+                "headsRemoved": {
                     "type": "integer"
                 }
             }
@@ -150,10 +150,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "anchorStateRoot": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "string"
                 },
                 "batchId": {
                     "type": "integer"
@@ -165,10 +162,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "coinbase": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "string"
                 },
                 "signature": {
                     "type": "string"
@@ -178,10 +172,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "transactions": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
+                    "type": "string"
                 }
             }
         },
@@ -322,7 +313,7 @@ var SwaggerInfo = &swag.Spec{
 	Host:             "",
 	BasePath:         "",
 	Schemes:          []string{},
-	Title:            "Taiko Preconfirmation Server API",
+	Title:            "Taiko Soft Block Server API",
 	Description:      "",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
