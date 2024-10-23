@@ -16,14 +16,8 @@ const (
 	BatchMarkerEOP TransactionBatchMarker = "end_of_preconf"
 )
 
-// TransactionBatch represents a soft block group.
-type TransactionBatch struct {
-	BlockID          uint64                 `json:"blockId"`
-	ID               uint64                 `json:"batchId"`
-	TransactionsList string                 `json:"transactions"`
-	BatchMarker      TransactionBatchMarker `json:"batchType"`
-	Signature        string                 `json:"signature"`
-
+// SoftBlockParams represents the parameters for building a soft block.
+type SoftBlockParams struct {
 	// Block parameters
 	Timestamp uint64 `json:"timestamp"`
 	Coinbase  string `json:"coinbase"`
@@ -31,6 +25,16 @@ type TransactionBatch struct {
 	// AnchorV2 parameters
 	AnchorBlockID   uint64 `json:"anchorBlockID"`
 	AnchorStateRoot string `json:"anchorStateRoot"`
+}
+
+// TransactionBatch represents a soft block group.
+type TransactionBatch struct {
+	BlockID          uint64                 `json:"blockId"`
+	ID               uint64                 `json:"batchId"`
+	TransactionsList string                 `json:"transactions"`
+	BatchMarker      TransactionBatchMarker `json:"batchType"`
+	Signature        string                 `json:"signature"`
+	BlockParams      *SoftBlockParams       `json:"blockParams"`
 }
 
 // BuildSoftBlockRequestBody represents a request body when handling

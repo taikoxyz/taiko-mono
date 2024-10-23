@@ -23,26 +23,31 @@ definitions:
       headsRemoved:
         type: integer
     type: object
-  softblocks.TransactionBatch:
+  softblocks.SoftBlockParams:
     properties:
       anchorBlockID:
         description: AnchorV2 parameters
         type: integer
       anchorStateRoot:
         type: string
+      coinbase:
+        type: string
+      timestamp:
+        description: Block parameters
+        type: integer
+    type: object
+  softblocks.TransactionBatch:
+    properties:
       batchId:
         type: integer
       batchType:
         $ref: "#/definitions/softblocks.TransactionBatchMarker"
       blockId:
         type: integer
-      coinbase:
-        type: string
+      blockParams:
+        $ref: "#/definitions/softblocks.SoftBlockParams"
       signature:
         type: string
-      timestamp:
-        description: Block parameters
-        type: integer
       transactions:
         type: string
     type: object

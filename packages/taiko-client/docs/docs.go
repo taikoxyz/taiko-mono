@@ -142,7 +142,7 @@ const docTemplate = `{
                 }
             }
         },
-        "softblocks.TransactionBatch": {
+        "softblocks.SoftBlockParams": {
             "type": "object",
             "properties": {
                 "anchorBlockID": {
@@ -152,6 +152,18 @@ const docTemplate = `{
                 "anchorStateRoot": {
                     "type": "string"
                 },
+                "coinbase": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "description": "Block parameters",
+                    "type": "integer"
+                }
+            }
+        },
+        "softblocks.TransactionBatch": {
+            "type": "object",
+            "properties": {
                 "batchId": {
                     "type": "integer"
                 },
@@ -161,15 +173,11 @@ const docTemplate = `{
                 "blockId": {
                     "type": "integer"
                 },
-                "coinbase": {
-                    "type": "string"
+                "blockParams": {
+                    "$ref": "#/definitions/softblocks.SoftBlockParams"
                 },
                 "signature": {
                     "type": "string"
-                },
-                "timestamp": {
-                    "description": "Block parameters",
-                    "type": "integer"
                 },
                 "transactions": {
                     "type": "string"
