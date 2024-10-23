@@ -14,7 +14,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
     SP1Verifier public sp1;
     SgxVerifier public sv;
     GuardianProver public gp;
-    TestTierProvider public cp;
+    TestTierRouter public cp;
     Bridge public bridge;
 
     bytes32 public GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
@@ -75,7 +75,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
 
         setupGuardianProverMultisig();
 
-        cp = new TestTierProvider();
+        cp = new TestTierRouter();
 
         bridge = Bridge(
             payable(

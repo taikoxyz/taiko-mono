@@ -19,7 +19,7 @@ import "src/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
 import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
 import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
 import "src/layer1/devnet/DevnetTaikoL1.sol";
-import "src/layer1/devnet/DevnetTierProvider.sol";
+import "src/layer1/devnet/DevnetTierRouter.sol";
 import "src/layer1/mainnet/rollup/MainnetGuardianProver.sol";
 import "src/layer1/mainnet/rollup/MainnetTaikoL1.sol";
 import "src/layer1/mainnet/rollup/MainnetTierRouter.sol";
@@ -34,7 +34,7 @@ import "src/layer1/provers/ProverSet.sol";
 import "src/layer1/token/TaikoToken.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
-import "test/layer1/based/TestTierProvider.sol";
+import "test/layer1/based/TestTierRouter.sol";
 import "test/shared/token/FreeMintERC20.sol";
 import "test/shared/token/MayFailFreeMintERC20.sol";
 import "test/shared/DeployCapability.sol";
@@ -428,9 +428,9 @@ contract DeployProtocolOnL1 is DeployCapability {
 
     function deployTierRouter(string memory tierRouterName) private returns (address) {
         if (keccak256(abi.encode(tierRouterName)) == keccak256(abi.encode("devnet"))) {
-            return address(new DevnetTierProvider());
+            return address(new DevnetTierRouter());
         } else if (keccak256(abi.encode(tierRouterName)) == keccak256(abi.encode("testnet"))) {
-            return address(new TestTierProvider());
+            return address(new TestTierRouter());
         } else if (keccak256(abi.encode(tierRouterName)) == keccak256(abi.encode("mainnet"))) {
             return address(new MainnetTierRouter());
         } else {
