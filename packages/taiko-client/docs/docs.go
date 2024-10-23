@@ -44,9 +44,9 @@ const docTemplate = `{
                 }
             }
         },
-        "/tentativeBlocks": {
+        "/softBlocks": {
             "post": {
-                "description": "Insert a group of transactions into a tentative block for preconfirmation. If the group is the\nfirst for a block, a new tentative block will be created. Otherwise, the transactions will\nbe appended to the existing tentative block. The API will fail if:\n1) the block is not tentative, 2) any transaction in the group is invalid or a duplicate, 3)\nblock-level parameters are invalid or do not match the current tentative block’s parameters,\n4) the group ID is not exactly 1 greater than the previous one, or 5) the last group of\nthe block indicates no further transactions are allowed.",
+                "description": "Insert a group of transactions into a soft block for preconfirmation. If the group is the\nfirst for a block, a new soft block will be created. Otherwise, the transactions will\nbe appended to the existing soft block. The API will fail if:\n1) the block is not soft, 2) any transaction in the group is invalid or a duplicate, 3)\nblock-level parameters are invalid or do not match the current soft block’s parameters,\n4) the group ID is not exactly 1 greater than the previous one, or 5) the last group of\nthe block indicates no further transactions are allowed.",
                 "consumes": [
                     "application/json"
                 ],
@@ -60,7 +60,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/preconfserver.BuildTentativeBlocksRequestBody"
+                            "$ref": "#/definitions/preconfserver.BuildSoftBlocksRequestBody"
                         }
                     }
                 ],
@@ -68,13 +68,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/preconfserver.BuildTentativeBlocksResponseBody"
+                            "$ref": "#/definitions/preconfserver.BuildSoftBlocksResponseBody"
                         }
                     }
                 }
             },
             "delete": {
-                "description": "Remove all tentative blocks from the blockchain beyond the specified block height,\nensuring the latest block ID does not exceed the given height. This method will fail if\nthe block with an ID one greater than the specified height is not a tentative block. If the\nspecified block height is greater than the latest tentative block ID, the method will succeed\nwithout modifying the blockchain.",
+                "description": "Remove all soft blocks from the blockchain beyond the specified block height,\nensuring the latest block ID does not exceed the given height. This method will fail if\nthe block with an ID one greater than the specified height is not a soft block. If the\nspecified block height is greater than the latest soft block ID, the method will succeed\nwithout modifying the blockchain.",
                 "consumes": [
                     "application/json"
                 ],
@@ -88,7 +88,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/preconfserver.RemoveTentativeBlocksRequestBody"
+                            "$ref": "#/definitions/preconfserver.RemoveSoftBlocksRequestBody"
                         }
                     }
                 ],
@@ -96,7 +96,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/preconfserver.RemoveTentativeBlocksResponseBody"
+                            "$ref": "#/definitions/preconfserver.RemoveSoftBlocksResponseBody"
                         }
                     }
                 }
@@ -107,21 +107,21 @@ const docTemplate = `{
         "big.Int": {
             "type": "object"
         },
-        "preconfserver.BuildTentativeBlocksRequestBody": {
+        "preconfserver.BuildSoftBlocksRequestBody": {
             "type": "object",
             "properties": {
                 "transactionsGroups": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/preconfserver.PreconfTransactionsGroup"
+                        "$ref": "#/definitions/preconfserver.TransactionBatch"
                     }
                 }
             }
         },
-        "preconfserver.BuildTentativeBlocksResponseBody": {
+        "preconfserver.BuildSoftBlocksResponseBody": {
             "type": "object",
             "properties": {
-                "tentativeHeaders": {
+                "softHeaders": {
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/types.Header"
@@ -129,7 +129,7 @@ const docTemplate = `{
                 }
             }
         },
-        "preconfserver.PreconfTransactionsGroup": {
+        "preconfserver.TransactionBatch": {
             "type": "object",
             "properties": {
                 "anchorBlockID": {
@@ -191,11 +191,11 @@ const docTemplate = `{
                 "finalPreconfGroup"
             ],
             "x-enum-varnames": [
-                "StatusFinalBlockGroup",
-                "StatusFinalPreconfGroup"
+                "BatchMarkerEOB",
+                "BatchMarkerEOP"
             ]
         },
-        "preconfserver.RemoveTentativeBlocksRequestBody": {
+        "preconfserver.RemoveSoftBlocksRequestBody": {
             "type": "object",
             "properties": {
                 "newHead": {
@@ -203,7 +203,7 @@ const docTemplate = `{
                 }
             }
         },
-        "preconfserver.RemoveTentativeBlocksResponseBody": {
+        "preconfserver.RemoveSoftBlocksResponseBody": {
             "type": "object",
             "properties": {
                 "currentHead": {

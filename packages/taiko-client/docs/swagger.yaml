@@ -1,21 +1,21 @@
 definitions:
   big.Int:
     type: object
-  preconfserver.BuildTentativeBlocksRequestBody:
+  preconfserver.BuildSoftBlocksRequestBody:
     properties:
       transactionsGroups:
         items:
-          $ref: '#/definitions/preconfserver.PreconfTransactionsGroup'
+          $ref: "#/definitions/preconfserver.TransactionBatch"
         type: array
     type: object
-  preconfserver.BuildTentativeBlocksResponseBody:
+  preconfserver.BuildSoftBlocksResponseBody:
     properties:
-      tentativeHeaders:
+      softHeaders:
         items:
-          $ref: '#/definitions/types.Header'
+          $ref: "#/definitions/types.Header"
         type: array
     type: object
-  preconfserver.PreconfTransactionsGroup:
+  preconfserver.TransactionBatch:
     properties:
       anchorBlockID:
         description: AnchorV2 parameters
@@ -31,7 +31,7 @@ definitions:
       groupId:
         type: integer
       groupStatus:
-        $ref: '#/definitions/preconfserver.PreconfTxsGroupStatus'
+        $ref: "#/definitions/preconfserver.PreconfTxsGroupStatus"
       parentGasUsed:
         type: integer
       prevRandao:
@@ -49,40 +49,41 @@ definitions:
         type: integer
       transactions:
         items:
-          $ref: '#/definitions/types.Transaction'
+          $ref: "#/definitions/types.Transaction"
         type: array
     type: object
   preconfserver.PreconfTxsGroupStatus:
     enum:
-    - finalBlockGroup
-    - finalPreconfGroup
+      - finalBlockGroup
+      - finalPreconfGroup
     type: string
     x-enum-varnames:
-    - StatusFinalBlockGroup
-    - StatusFinalPreconfGroup
-  preconfserver.RemoveTentativeBlocksRequestBody:
+      - BatchMarkerEOB
+      - BatchMarkerEOP
+  preconfserver.RemoveSoftBlocksRequestBody:
     properties:
       newHead:
         type: integer
     type: object
-  preconfserver.RemoveTentativeBlocksResponseBody:
+  preconfserver.RemoveSoftBlocksResponseBody:
     properties:
       currentHead:
-        $ref: '#/definitions/types.Header'
+        $ref: "#/definitions/types.Header"
     type: object
   types.Header:
     properties:
       baseFeePerGas:
         allOf:
-        - $ref: '#/definitions/big.Int'
+          - $ref: "#/definitions/big.Int"
         description: BaseFee was added by EIP-1559 and is ignored in legacy headers.
       blobGasUsed:
         description: BlobGasUsed was added by EIP-4844 and is ignored in legacy headers.
         type: integer
       difficulty:
-        $ref: '#/definitions/big.Int'
+        $ref: "#/definitions/big.Int"
       excessBlobGas:
-        description: ExcessBlobGas was added by EIP-4844 and is ignored in legacy
+        description:
+          ExcessBlobGas was added by EIP-4844 and is ignored in legacy
           headers.
         type: integer
       extraData:
@@ -110,9 +111,10 @@ definitions:
           type: integer
         type: array
       number:
-        $ref: '#/definitions/big.Int'
+        $ref: "#/definitions/big.Int"
       parentBeaconBlockRoot:
-        description: ParentBeaconRoot was added by EIP-4788 and is ignored in legacy
+        description:
+          ParentBeaconRoot was added by EIP-4788 and is ignored in legacy
           headers.
         items:
           type: integer
@@ -145,7 +147,8 @@ definitions:
           type: integer
         type: array
       withdrawalsRoot:
-        description: WithdrawalsHash was added by EIP-4895 and is ignored in legacy
+        description:
+          WithdrawalsHash was added by EIP-4895 and is ignored in legacy
           headers.
         items:
           type: integer
@@ -168,63 +171,63 @@ paths:
   /healthz:
     get:
       consumes:
-      - application/json
+        - application/json
       operationId: health-check
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
             type: string
       summary: Get current server health status
-  /tentativeBlocks:
+  /softBlocks:
     delete:
       consumes:
-      - application/json
+        - application/json
       description: |-
-        Remove all tentative blocks from the blockchain beyond the specified block height,
+        Remove all soft blocks from the blockchain beyond the specified block height,
         ensuring the latest block ID does not exceed the given height. This method will fail if
-        the block with an ID one greater than the specified height is not a tentative block. If the
-        specified block height is greater than the latest tentative block ID, the method will succeed
+        the block with an ID one greater than the specified height is not a soft block. If the
+        specified block height is greater than the latest soft block ID, the method will succeed
         without modifying the blockchain.
       parameters:
-      - description: preconf blocks creation request body
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/preconfserver.RemoveTentativeBlocksRequestBody'
+        - description: preconf blocks creation request body
+          in: body
+          name: body
+          required: true
+          schema:
+            $ref: "#/definitions/preconfserver.RemoveSoftBlocksRequestBody"
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/preconfserver.RemoveTentativeBlocksResponseBody'
+            $ref: "#/definitions/preconfserver.RemoveSoftBlocksResponseBody"
     post:
       consumes:
-      - application/json
+        - application/json
       description: |-
-        Insert a group of transactions into a tentative block for preconfirmation. If the group is the
-        first for a block, a new tentative block will be created. Otherwise, the transactions will
-        be appended to the existing tentative block. The API will fail if:
-        1) the block is not tentative, 2) any transaction in the group is invalid or a duplicate, 3)
-        block-level parameters are invalid or do not match the current tentative block’s parameters,
+        Insert a group of transactions into a soft block for preconfirmation. If the group is the
+        first for a block, a new soft block will be created. Otherwise, the transactions will
+        be appended to the existing soft block. The API will fail if:
+        1) the block is not soft, 2) any transaction in the group is invalid or a duplicate, 3)
+        block-level parameters are invalid or do not match the current soft block’s parameters,
         4) the group ID is not exactly 1 greater than the previous one, or 5) the last group of
         the block indicates no further transactions are allowed.
       parameters:
-      - description: preconf blocks creation request body
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/preconfserver.BuildTentativeBlocksRequestBody'
+        - description: preconf blocks creation request body
+          in: body
+          name: body
+          required: true
+          schema:
+            $ref: "#/definitions/preconfserver.BuildSoftBlocksRequestBody"
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/preconfserver.BuildTentativeBlocksResponseBody'
+            $ref: "#/definitions/preconfserver.BuildSoftBlocksResponseBody"
 swagger: "2.0"
