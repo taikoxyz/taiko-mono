@@ -10,13 +10,14 @@ import (
 )
 
 var (
-	commonCategory   = "COMMON"
-	metricsCategory  = "METRICS"
-	loggingCategory  = "LOGGING"
-	driverCategory   = "DRIVER"
-	proposerCategory = "PROPOSER"
-	proverCategory   = "PROVER"
-	txmgrCategory    = "TX_MANAGER"
+	commonCategory     = "COMMON"
+	metricsCategory    = "METRICS"
+	loggingCategory    = "LOGGING"
+	driverCategory     = "DRIVER"
+	proposerCategory   = "PROPOSER"
+	proverCategory     = "PROVER"
+	txmgrCategory      = "TX_MANAGER"
+	preconfAPICategory = "PRECONFA_API"
 )
 
 // Required flags used by all client software.
