@@ -2,6 +2,7 @@ package proposer
 
 import (
 	"context"
+	"math"
 	"math/big"
 	"os"
 	"testing"
@@ -206,7 +207,7 @@ func (s *ProposerTestSuite) TestProposeOpNoEmptyBlock() {
 			p.protocolConfigs.BlockMaxGasLimit / 100,
 			rpc.BlockMaxTxListBytes,
 			7,
-			[]int{10, 15, 15, 15, 15, 15, 15},
+			[]int{15, 15, 15, 15, 15, 15, 10},
 		},
 	} {
 		res, err := s.RPCClient.GetPoolContent(
@@ -229,7 +230,7 @@ func (s *ProposerTestSuite) TestProposeOpNoEmptyBlock() {
 		}
 	}
 
-	/*preBuiltTxList, err := s.RPCClient.GetPoolContent(
+	preBuiltTxList, err := s.RPCClient.GetPoolContent(
 		context.Background(),
 		p.proposerAddress,
 		p.protocolConfigs.BlockMaxGasLimit,
@@ -266,7 +267,7 @@ func (s *ProposerTestSuite) TestProposeOpNoEmptyBlock() {
 	p.MinTxListBytes = blockMinTxListBytes
 	p.ProposeInterval = time.Second
 	p.MinProposingInternal = time.Minute
-	s.Nil(p.ProposeOp(context.Background()))*/
+	s.Nil(p.ProposeOp(context.Background()))
 }
 
 func (s *ProposerTestSuite) TestName() {
