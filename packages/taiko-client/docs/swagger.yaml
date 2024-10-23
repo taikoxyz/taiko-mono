@@ -13,14 +13,16 @@ definitions:
     type: object
   softblocks.RemoveSoftBlocksRequestBody:
     properties:
-      newHead:
+      newLastBlockId:
         type: integer
     type: object
   softblocks.RemoveSoftBlocksResponseBody:
     properties:
-      currentHead:
-        $ref: "#/definitions/types.Header"
       headsRemoved:
+        type: integer
+      lastBlockId:
+        type: integer
+      lastProposedBlockID:
         type: integer
     type: object
   softblocks.SoftBlockParams:

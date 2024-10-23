@@ -126,7 +126,7 @@ const docTemplate = `{
         "softblocks.RemoveSoftBlocksRequestBody": {
             "type": "object",
             "properties": {
-                "newHead": {
+                "newLastBlockId": {
                     "type": "integer"
                 }
             }
@@ -134,10 +134,13 @@ const docTemplate = `{
         "softblocks.RemoveSoftBlocksResponseBody": {
             "type": "object",
             "properties": {
-                "currentHead": {
-                    "$ref": "#/definitions/types.Header"
-                },
                 "headsRemoved": {
+                    "type": "integer"
+                },
+                "lastBlockId": {
+                    "type": "integer"
+                },
+                "lastProposedBlockID": {
                     "type": "integer"
                 }
             }

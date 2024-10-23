@@ -72,14 +72,15 @@ func (s *SoftBlockAPIServer) BuildSoftBlock(c echo.Context) error {
 // RemoveSoftBlocksRequestBody represents a request body when resetting the backend
 // L2 execution engine soft head.
 type RemoveSoftBlocksRequestBody struct {
-	NewHead uint64 `json:"newHead"`
+	NewLastBlockID uint64 `json:"newLastBlockId"`
 }
 
 // RemoveSoftBlocksResponseBody represents a response body when resetting the backend
 // L2 execution engine soft head.
 type RemoveSoftBlocksResponseBody struct {
-	CurrentHead  types.Header `json:"currentHead"`
-	HeadsRemoved uint64       `json:"headsRemoved"`
+	LastBlockID         uint64 `json:"lastBlockId"`
+	LastProposedBlockID uint64 `json:"lastProposedBlockID"`
+	HeadsRemoved        uint64 `json:"headsRemoved"`
 }
 
 // RemoveSoftBlocks removes the backend L2 execution engine soft head.
