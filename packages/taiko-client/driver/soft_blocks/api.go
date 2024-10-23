@@ -26,30 +26,27 @@ type TransactionBatch struct {
 	Signature        string                 `json:"signature"`
 
 	// Block parameters
-	Timestamp             uint64         `json:"timestamp"`
-	Random                common.Hash    `json:"prevRandao"` // ? remove
-	SuggestedFeeRecipient common.Address `json:"coinbase"` // ? rename SuggestedFeeRecipient
-	BaseFeePerGas         uint64         `json:"baseFeePerGas"` // ? remove
+	Timestamp uint64         `json:"timestamp"`
+	Coinbase  common.Address `json:"coinbase"`
 
 	// AnchorV2 parameters
 	AnchorBlockID   uint64      `json:"anchorBlockID"`
 	AnchorStateRoot common.Hash `json:"anchorStateRoot"`
-	ParentGasUsed   uint32      `json:"parentGasUsed"` // ? remove
 }
 
 // buildSoftBlocksRequestBody represents a request body when handling
 // preconfirmation blocks creation requests.
 type BuildSoftBlockRequestBody struct {
-	transactionBatch TransactionBatch `json:"transactionBatch"`
+	TransactionBatch TransactionBatch `json:"transactionBatch"`
 }
 
 // CreateOrUpdateBlocksFromBatchResponseBody represents a response body when handling preconfirmation
 // blocks creation requests.
 type BuildSoftBlockResponseBody struct {
-	blockHeader types.Header `json:"blockHeader"`
+	BlockHeader types.Header `json:"blockHeader"`
 }
 
-// BuildSoftBlock handles a preconfirmation block creation request,
+// BuildSoftBlocks handles a preconfirmation block creation request,
 // if the preconfirmation block groups in request are valid, it will insert the correspoinding new preconfirmation
 // blocks to the backend L2 execution engine and return a success response.
 //
@@ -65,7 +62,7 @@ type BuildSoftBlockResponseBody struct {
 //		@Produce	json
 //		@Success	200		{object} BuildSoftBlocksResponseBody
 //		@Router		/softBlocks [post]
-func (s *SoftBlockAPIServer) BuildSoftBlock(c echo.Context) error {
+func (s *SoftBlockAPIServer) BuildSoftBlocks(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
 
@@ -73,7 +70,6 @@ func (s *SoftBlockAPIServer) BuildSoftBlock(c echo.Context) error {
 // L2 execution engine preconfirmation head.
 type RemoveSoftBlocksRequestBody struct {
 	NewHead uint64 `json:"newHead"`
-	
 }
 
 // RemoveSoftBlocksResponseBody represents a response body when resetting the backend
