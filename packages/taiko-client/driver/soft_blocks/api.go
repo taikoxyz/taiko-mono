@@ -34,7 +34,7 @@ type TransactionBatch struct {
 	AnchorStateRoot common.Hash `json:"anchorStateRoot"`
 }
 
-// buildSoftBlocksRequestBody represents a request body when handling
+// BuildSoftBlockRequestBody represents a request body when handling
 // preconfirmation blocks creation requests.
 type BuildSoftBlockRequestBody struct {
 	TransactionBatch TransactionBatch `json:"transactionBatch"`
@@ -57,10 +57,10 @@ type BuildSoftBlockResponseBody struct {
 //	  @Description	block-level parameters are invalid or do not match the current soft block’s parameters,
 //	  @Description	4) the group ID is not exactly 1 greater than the previous one, or 5) the last group of
 //	  @Description	the block indicates no further transactions are allowed.
-//		@Param  body body BuildSoftBlocksRequestBody true "preconf blocks creation request body"
+//		@Param  body body BuildSoftBlockRequestBody true "preconf blocks creation request body"
 //		@Accept	  json
 //		@Produce	json
-//		@Success	200		{object} BuildSoftBlocksResponseBody
+//		@Success	200		{object} BuildSoftBlockResponseBody
 //		@Router		/softBlocks [post]
 func (s *SoftBlockAPIServer) BuildSoftBlock(c echo.Context) error {
 	return c.NoContent(http.StatusOK)

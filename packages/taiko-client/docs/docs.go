@@ -60,7 +60,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/preconfserver.BuildSoftBlocksRequestBody"
+                            "$ref": "#/definitions/softblocks.BuildSoftBlockRequestBody"
                         }
                     }
                 ],
@@ -68,7 +68,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/preconfserver.BuildSoftBlocksResponseBody"
+                            "$ref": "#/definitions/softblocks.BuildSoftBlockResponseBody"
                         }
                     }
                 }
@@ -88,7 +88,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/preconfserver.RemoveSoftBlocksRequestBody"
+                            "$ref": "#/definitions/softblocks.RemoveSoftBlocksRequestBody"
                         }
                     }
                 ],
@@ -96,7 +96,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/preconfserver.RemoveSoftBlocksResponseBody"
+                            "$ref": "#/definitions/softblocks.RemoveSoftBlocksResponseBody"
                         }
                     }
                 }
@@ -107,29 +107,42 @@ const docTemplate = `{
         "big.Int": {
             "type": "object"
         },
-        "preconfserver.BuildSoftBlocksRequestBody": {
+        "softblocks.BuildSoftBlockRequestBody": {
             "type": "object",
             "properties": {
-                "transactionsGroups": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/preconfserver.TransactionBatch"
-                    }
+                "transactionBatch": {
+                    "$ref": "#/definitions/softblocks.TransactionBatch"
                 }
             }
         },
-        "preconfserver.BuildSoftBlocksResponseBody": {
+        "softblocks.BuildSoftBlockResponseBody": {
             "type": "object",
             "properties": {
-                "softHeaders": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/types.Header"
-                    }
+                "blockHeader": {
+                    "$ref": "#/definitions/types.Header"
                 }
             }
         },
-        "preconfserver.TransactionBatch": {
+        "softblocks.RemoveSoftBlocksRequestBody": {
+            "type": "object",
+            "properties": {
+                "newHead": {
+                    "type": "integer"
+                }
+            }
+        },
+        "softblocks.RemoveSoftBlocksResponseBody": {
+            "type": "object",
+            "properties": {
+                "currentHead": {
+                    "$ref": "#/definitions/types.Header"
+                },
+                "headRemoved": {
+                    "type": "integer"
+                }
+            }
+        },
+        "softblocks.TransactionBatch": {
             "type": "object",
             "properties": {
                 "anchorBlockID": {
@@ -142,22 +155,16 @@ const docTemplate = `{
                         "type": "integer"
                     }
                 },
-                "baseFeePerGas": {
+                "batchId": {
                     "type": "integer"
+                },
+                "batchType": {
+                    "$ref": "#/definitions/softblocks.TransactionBatchMarker"
                 },
                 "blockId": {
                     "type": "integer"
                 },
-                "groupId": {
-                    "type": "integer"
-                },
-                "groupStatus": {
-                    "$ref": "#/definitions/preconfserver.PreconfTxsGroupStatus"
-                },
-                "parentGasUsed": {
-                    "type": "integer"
-                },
-                "prevRandao": {
+                "coinbase": {
                     "type": "array",
                     "items": {
                         "type": "integer"
@@ -166,12 +173,6 @@ const docTemplate = `{
                 "signature": {
                     "type": "string"
                 },
-                "suggestedFeeRecipient": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
-                },
                 "timestamp": {
                     "description": "Block parameters",
                     "type": "integer"
@@ -179,37 +180,21 @@ const docTemplate = `{
                 "transactions": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/types.Transaction"
+                        "type": "integer"
                     }
                 }
             }
         },
-        "preconfserver.PreconfTxsGroupStatus": {
+        "softblocks.TransactionBatchMarker": {
             "type": "string",
             "enum": [
-                "finalBlockGroup",
-                "finalPreconfGroup"
+                "end_of_block",
+                "end_of_preconf"
             ],
             "x-enum-varnames": [
                 "BatchMarkerEOB",
                 "BatchMarkerEOP"
             ]
-        },
-        "preconfserver.RemoveSoftBlocksRequestBody": {
-            "type": "object",
-            "properties": {
-                "newHead": {
-                    "type": "integer"
-                }
-            }
-        },
-        "preconfserver.RemoveSoftBlocksResponseBody": {
-            "type": "object",
-            "properties": {
-                "currentHead": {
-                    "$ref": "#/definitions/types.Header"
-                }
-            }
         },
         "types.Header": {
             "type": "object",
@@ -327,9 +312,6 @@ const docTemplate = `{
                     }
                 }
             }
-        },
-        "types.Transaction": {
-            "type": "object"
         }
     }
 }`

@@ -1,21 +1,29 @@
 definitions:
   big.Int:
     type: object
-  preconfserver.BuildSoftBlocksRequestBody:
+  softblocks.BuildSoftBlockRequestBody:
     properties:
-      transactionsGroups:
-        items:
-          $ref: "#/definitions/preconfserver.TransactionBatch"
-        type: array
+      transactionBatch:
+        $ref: "#/definitions/softblocks.TransactionBatch"
     type: object
-  preconfserver.BuildSoftBlocksResponseBody:
+  softblocks.BuildSoftBlockResponseBody:
     properties:
-      softHeaders:
-        items:
-          $ref: "#/definitions/types.Header"
-        type: array
+      blockHeader:
+        $ref: "#/definitions/types.Header"
     type: object
-  preconfserver.TransactionBatch:
+  softblocks.RemoveSoftBlocksRequestBody:
+    properties:
+      newHead:
+        type: integer
+    type: object
+  softblocks.RemoveSoftBlocksResponseBody:
+    properties:
+      currentHead:
+        $ref: "#/definitions/types.Header"
+      headRemoved:
+        type: integer
+    type: object
+  softblocks.TransactionBatch:
     properties:
       anchorBlockID:
         description: AnchorV2 parameters
@@ -24,52 +32,34 @@ definitions:
         items:
           type: integer
         type: array
-      baseFeePerGas:
+      batchId:
         type: integer
+      batchType:
+        $ref: "#/definitions/softblocks.TransactionBatchMarker"
       blockId:
         type: integer
-      groupId:
-        type: integer
-      groupStatus:
-        $ref: "#/definitions/preconfserver.PreconfTxsGroupStatus"
-      parentGasUsed:
-        type: integer
-      prevRandao:
+      coinbase:
         items:
           type: integer
         type: array
       signature:
         type: string
-      suggestedFeeRecipient:
-        items:
-          type: integer
-        type: array
       timestamp:
         description: Block parameters
         type: integer
       transactions:
         items:
-          $ref: "#/definitions/types.Transaction"
+          type: integer
         type: array
     type: object
-  preconfserver.PreconfTxsGroupStatus:
+  softblocks.TransactionBatchMarker:
     enum:
-      - finalBlockGroup
-      - finalPreconfGroup
+      - end_of_block
+      - end_of_preconf
     type: string
     x-enum-varnames:
       - BatchMarkerEOB
       - BatchMarkerEOP
-  preconfserver.RemoveSoftBlocksRequestBody:
-    properties:
-      newHead:
-        type: integer
-    type: object
-  preconfserver.RemoveSoftBlocksResponseBody:
-    properties:
-      currentHead:
-        $ref: "#/definitions/types.Header"
-    type: object
   types.Header:
     properties:
       baseFeePerGas:
@@ -154,8 +144,6 @@ definitions:
           type: integer
         type: array
     type: object
-  types.Transaction:
-    type: object
 info:
   contact:
     email: info@taiko.xyz
@@ -197,14 +185,14 @@ paths:
           name: body
           required: true
           schema:
-            $ref: "#/definitions/preconfserver.RemoveSoftBlocksRequestBody"
+            $ref: "#/definitions/softblocks.RemoveSoftBlocksRequestBody"
       produces:
         - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: "#/definitions/preconfserver.RemoveSoftBlocksResponseBody"
+            $ref: "#/definitions/softblocks.RemoveSoftBlocksResponseBody"
     post:
       consumes:
         - application/json
@@ -222,12 +210,12 @@ paths:
           name: body
           required: true
           schema:
-            $ref: "#/definitions/preconfserver.BuildSoftBlocksRequestBody"
+            $ref: "#/definitions/softblocks.BuildSoftBlockRequestBody"
       produces:
         - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: "#/definitions/preconfserver.BuildSoftBlocksResponseBody"
+            $ref: "#/definitions/softblocks.BuildSoftBlockResponseBody"
 swagger: "2.0"
