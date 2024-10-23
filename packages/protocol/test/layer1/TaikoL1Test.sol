@@ -9,7 +9,7 @@ import "src/layer1/verifiers/Risc0Verifier.sol";
 import "src/layer1/provers/GuardianProver.sol";
 import "src/layer1/team/airdrop/ERC20Airdrop.sol";
 import "src/shared/bridge/QuotaManager.sol";
-import "../layer1/based/TestTierProvider.sol";
+import "../layer1/based/TestTierRouter.sol";
 import "../shared/TaikoTest.sol";
 
 abstract contract TaikoL1Test is TaikoTest { }
