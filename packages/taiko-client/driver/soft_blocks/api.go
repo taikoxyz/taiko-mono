@@ -21,7 +21,7 @@ const (
 type TransactionBatch struct {
 	BlockID          uint64                 `json:"blockId"`
 	ID               uint64                 `json:"batchId"`
-	TransactionsList types.Transactions     `json:"transactions"`
+	TransactionsList []byte                 `json:"transactions"`
 	BatchMarker      TransactionBatchMarker `json:"batchType"`
 	Signature        string                 `json:"signature"`
 
