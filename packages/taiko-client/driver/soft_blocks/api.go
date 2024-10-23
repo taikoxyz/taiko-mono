@@ -1,4 +1,4 @@
-package preconfserver
+package softblocks
 
 import (
 	"net/http"
