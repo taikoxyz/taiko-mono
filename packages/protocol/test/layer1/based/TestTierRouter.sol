@@ -6,10 +6,10 @@ import "src/layer1/tiers/ITierProvider.sol";
 import "src/layer1/tiers/LibTiers.sol";
 import "src/layer1/tiers/ITierRouter.sol";
 
-/// @title TestTierProvider
+/// @title TestTierRouter
 /// @dev Labeled in AddressResolver as "tier_router"
 /// @custom:security-contact security@taiko.xyz
-contract TestTierProvider is ITierProvider, ITierRouter {
+contract TestTierRouter is ITierProvider, ITierRouter {
     uint256[50] private __gap;
 
     /// @inheritdoc ITierRouter
