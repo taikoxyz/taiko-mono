@@ -75,8 +75,8 @@ type RemoveSoftBlocksRequestBody struct {
 // RemoveSoftBlocksResponseBody represents a response body when resetting the backend
 // L2 execution engine preconfirmation head.
 type RemoveSoftBlocksResponseBody struct {
-	CurrentHead types.Header `json:"currentHead"`
-	HeadRemoved uint64       `json:"headRemoved"`
+	CurrentHead  types.Header `json:"currentHead"`
+	HeadsRemoved uint64       `json:"headsRemoved"`
 }
 
 // RemoveSoftBlocks removes the backend L2 execution engine preconfirmation head.
