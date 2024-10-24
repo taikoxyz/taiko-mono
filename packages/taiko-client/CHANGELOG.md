@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.39.2](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.39.1...taiko-client-v0.39.2) (2024-10-24)
+
+
+### Bug Fixes
+
+* **protocol:** fix issue in mainnet deployment script ([#18283](https://github.com/taikoxyz/taiko-mono/issues/18283)) ([5c371a1](https://github.com/taikoxyz/taiko-mono/commit/5c371a181af444999f611e03774ec096ffbd1226))
+* **taiko-client:** fix path parsing in `/eth/v1/config/spec` ([#18295](https://github.com/taikoxyz/taiko-mono/issues/18295)) ([6633c80](https://github.com/taikoxyz/taiko-mono/commit/6633c80fbcabb6f06ce5467501da4207bc84be84))
+
 ## [0.39.1](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.39.0...taiko-client-v0.39.1) (2024-10-22)
 
 
