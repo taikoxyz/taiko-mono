@@ -2,6 +2,7 @@ package proposer
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"math/big"
 	"os"
 	"testing"
@@ -117,6 +118,84 @@ func (s *ProposerTestSuite) SetupTest() {
 
 	s.p = p
 	s.cancel = cancel
+}
+
+func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
+	if os.Getenv("L2_NODE") == "l2_reth" {
+		s.T().Skip()
+	}
+	skList := []string{
+		"0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d", // 0x70997970C51812dc3A010C7d01b50e0d17dc79C8
+		"0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a", // 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC
+		"0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6", // 0x90F79bf6EB2c4f870365E785982E1f101E93b906
+		"0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a", // 0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65
+		"0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba", // 0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc
+	}
+
+	var (
+		p     = s.p
+		privs []*ecdsa.PrivateKey
+	)
+
+	for _, sk := range skList {
+		priv, err := crypto.ToECDSA(common.FromHex(sk))
+		s.Nil(err)
+		privs = append(privs, priv)
+	}
+
+	for i := 0; i < 300; i++ {
+		for _, priv := range privs {
+			to := common.BigToAddress(big.NewInt(int64(i)))
+			_, err := testutils.SendDynamicFeeTx(s.RPCClient.L2, priv, &to, big.NewInt(1), nil)
+			s.Nil(err)
+		}
+	}
+
+	for _, testCase := range []struct {
+		blockMaxGasLimit     uint32
+		blockMaxTxListBytes  uint64
+		maxTransactionsLists uint64
+
+		txLengthList []int
+	}{
+		{
+			p.protocolConfigs.BlockMaxGasLimit,
+			rpc.BlockMaxTxListBytes,
+			p.MaxProposedTxListsPerEpoch,
+			[]int{1500},
+		},
+		{
+			p.protocolConfigs.BlockMaxGasLimit,
+			rpc.BlockMaxTxListBytes,
+			p.MaxProposedTxListsPerEpoch * 5,
+			[]int{1500},
+		},
+		{
+			p.protocolConfigs.BlockMaxGasLimit / 100,
+			rpc.BlockMaxTxListBytes,
+			200,
+			[]int{114, 114, 114, 114, 114, 114, 114, 114, 114, 114, 114, 114, 114, 18},
+		},
+	} {
+		res, err := s.RPCClient.GetPoolContent(
+			context.Background(),
+			p.proposerAddress,
+			testCase.blockMaxGasLimit,
+			testCase.blockMaxTxListBytes,
+			p.LocalAddresses,
+			testCase.maxTransactionsLists,
+			0,
+			p.chainConfig,
+		)
+		s.Nil(err)
+
+		s.GreaterOrEqual(int(testCase.maxTransactionsLists), len(res))
+		for i, txsLen := range testCase.txLengthList {
+			s.Equal(txsLen, res[i].TxList.Len())
+			s.GreaterOrEqual(uint64(testCase.blockMaxGasLimit), res[i].EstimatedGasUsed)
+			s.GreaterOrEqual(testCase.blockMaxTxListBytes, res[i].BytesLength)
+		}
+	}
 }
 
 func (s *ProposerTestSuite) TestProposeTxLists() {
