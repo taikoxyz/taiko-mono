@@ -7,7 +7,7 @@ import "src/layer2/DelegateOwner.sol";
 //  forge script --rpc-url  https://rpc.mainnet.taiko.xyz script/DeployDelegateOwner.s.sol
 contract DeployDelegateOwner is DeployCapability {
     address public l2Sam = 0x1670000000000000000000000000000000000006;
-    address public testAccount2 = 0x4757D97449acA795510b9f3152C6a9019A3545c3; // owned by Daniel W
+    address public testAccount2 = vm.envAddress("TEST_ACCOUNT2");
 
     address public l1Owner = testAccount2;
     address public l2Admin = testAccount2;

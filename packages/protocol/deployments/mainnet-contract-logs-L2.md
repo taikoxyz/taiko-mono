@@ -120,8 +120,8 @@
 
 - proxy: `0x5995941Df88F30Ac140515AA39832db963E2f863`
 - impl: `0x1f0511cDae2fbfD93563469dA02b82dEd320C8Bd`
-- admin: `0x4757D97449acA795510b9f3152C6a9019A3545c3` // owned by Daniel W
-- remoteOwner: `0x3c181965C5cFAE61a9010A283e5e0C1445649810` // owned by Daniel W, // TODO: david and Daniel to change to `0x4757D97449acA795510b9f3152C6a9019A3545c3`
+- admin: `0x4757D97449acA795510b9f3152C6a9019A3545c3`
+- remoteOwner: `0x3c181965C5cFAE61a9010A283e5e0C1445649810` // TODO: david and Daniel to change to `0x4757D97449acA795510b9f3152C6a9019A3545c3`
 - todo:
   - test various use cases
   - transfer remote owner to `admin.taiko.eth`
