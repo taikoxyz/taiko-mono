@@ -3,6 +3,8 @@ package proposer
 import (
 	"context"
 	"crypto/ecdsa"
+	"fmt"
+	"maps"
 	"math/big"
 	"os"
 	"testing"
@@ -125,6 +127,8 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 	if os.Getenv("L2_NODE") == "l2_reth" {
 		s.T().Skip()
 	}
+	defer s.Nil(s.s.ProcessL1Blocks(context.Background()))
+
 	privetKeyHexList := []string{
 		"0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d", // 0x70997970C51812dc3A010C7d01b50e0d17dc79C8
 		"0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a", // 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC
@@ -146,17 +150,20 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 		privKeys = append(privKeys, priv)
 	}
 
+	originNonces := make(map[common.Address]uint64)
 	for _, priv := range privKeys {
 		auth, err := bind.NewKeyedTransactorWithChainID(priv, chainID)
 		s.Nil(err)
 		nonce, err := l2Cli.PendingNonceAt(context.Background(), auth.From)
 		s.Nil(err)
+		originNonces[auth.From] = nonce
 		for i := 0; i < 300; i++ {
 			_, err = testutils.AssembleTestTx(s.RPCClient.L2, priv, nonce+uint64(i), &auth.From, big.NewInt(1), nil)
 			s.Nil(err)
 		}
 	}
 
+	signer := types.LatestSignerForChainID(chainID)
 	for _, testCase := range []struct {
 		blockMaxGasLimit     uint32
 		blockMaxTxListBytes  uint64
@@ -195,6 +202,22 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 		)
 		s.Nil(err)
 
+		checkNonces := maps.Clone(originNonces)
+		// Make sure all the nonce are in order.
+		for _, txList := range res {
+			for _, tx := range txList.TxList {
+				sender, err := types.Sender(signer, tx)
+				s.Nil(err)
+				s.Equalf(checkNonces[sender], tx.Nonce(),
+					fmt.Sprintf("%s nonce check, expect: %d, actual: %d",
+						sender.String(),
+						checkNonces[sender],
+						tx.Nonce(),
+					))
+				checkNonces[sender]++
+			}
+		}
+
 		s.GreaterOrEqual(int(testCase.maxTransactionsLists), len(res))
 		for i, txsLen := range testCase.txLengthList {
 			s.Equal(txsLen, res[i].TxList.Len())
@@ -202,6 +225,8 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 			s.GreaterOrEqual(testCase.blockMaxTxListBytes, res[i].BytesLength)
 		}
 	}
+
+	s.Nil(p.ProposeOp(context.Background()))
 }
 
 func (s *ProposerTestSuite) TestProposeTxLists() {
