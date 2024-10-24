@@ -228,13 +228,9 @@
   - Upgrade to `0xBA1d90BCfA74163bFE09e8eF609b346507D83231` @commit`bb2abc5` @tx`0x7d584f0a645cad61e634f64ffaf7e1bbfb92749878eb25b39ce0e5cf698897c7`
   - Upgrade to `0xf0E6d34937701622cA887a75c150cC23d4FFDf2F` @commit`b4f8547` @tx`0x8778064404816273804d74c97b051f3865bc03062cfa4b0e9567f4556ad31981`
 
-#### tier_provider
+#### tier_router
 
-- impl: `0x3a1A900680BaADb889202faf12915F7E47B71ddd`
-- logs:
-  - deployed on May 1, 2024 @commit`56dddf2b6`
-  - deployed on May 15, 2024 @commit`cd5144255`
-  - deployed on Jul 2, 2024 @commit`d2b00ce`
+- impl: `TBD`
 
 #### tier_sgx
 
