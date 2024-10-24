@@ -77,8 +77,6 @@ library LibAddress {
             _addr.staticcall(abi.encodeCall(IERC165.supportsInterface, (_interfaceId)));
         if (success && data.length == 32) {
             result_ = abi.decode(data, (bool));
-        } else {
-            result_ = false;
         }
     }
 }
