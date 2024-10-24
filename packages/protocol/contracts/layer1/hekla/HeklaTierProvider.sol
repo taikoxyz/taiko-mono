@@ -27,17 +27,23 @@ contract HeklaTierProvider is TierProviderBase, ITierRouter {
 
     /// @inheritdoc ITierProvider
     function getMinTier(address _proposer, uint256 _rand) public pure override returns (uint16) {
-        if (_proposer == LAB_PROPOSER && _rand % 1000 == 0) {
-            // 0.1% of the total blocks will require ZKVM Risc0 proofs.
-            return LibTiers.TIER_ZKVM_RISC0;
-        } else if (_proposer == LAB_PROPOSER && _rand % 1000 == 1) {
-            // 0.1% of the total blocks will require ZKVM Sp1 proofs.
-            return LibTiers.TIER_ZKVM_SP1;
-        } else if (_rand % 2 == 0) {
-            // 50% of the total blocks will require SGX proofs.
-            return LibTiers.TIER_SGX;
+        if (_proposer == LAB_PROPOSER) {
+            if (_rand % 1000 == 0) {
+                // 0.1% of the total blocks will require ZKVM Risc0 proofs.
+                return LibTiers.TIER_ZKVM_RISC0;
+            } else if (_rand % 1000 == 1) {
+                // 0.1% of the total blocks will require ZKVM Sp1 proofs.
+                return LibTiers.TIER_ZKVM_SP1;
+            } else {
+                return LibTiers.TIER_SGX;
+            }
         } else {
-            return LibTiers.TIER_OPTIMISTIC;
+            if (_rand % 2 == 0) {
+                // 50% of the total blocks will require SGX proofs.
+                return LibTiers.TIER_SGX;
+            } else {
+                return LibTiers.TIER_OPTIMISTIC;
+            }
         }
     }
 }
