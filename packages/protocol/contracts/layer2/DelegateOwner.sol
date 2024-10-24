@@ -48,6 +48,11 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     /// @param newAdmin The new admin address.
     event AdminUpdated(address indexed oldAdmin, address indexed newAdmin);
 
+    /// @notice Emitted when the remote owner has been changed.
+    /// @param oldRemoteOwner The old remote owner address.
+    /// @param newRemoteOwner The new remote owner address.
+    event RemoteOwnerUpdated(address indexed oldRemoteOwner, address indexed newRemoteOwner);
+
     error DO_DRYRUN_SUCCEEDED();
     error DO_INVALID_PARAM();
     error DO_INVALID_SENDER();
@@ -104,15 +109,24 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     /// @dev Updates the admin address.
     /// @param _admin The new admin address.
     function setAdmin(address _admin) external nonReentrant onlyOwner {
-        if (_admin == admin || _admin == address(this)) revert DO_INVALID_PARAM();
+        if (_admin == admin) revert DO_INVALID_PARAM();
 
         emit AdminUpdated(admin, _admin);
         admin = _admin;
     }
 
+    /// @dev Updates the remote owner address.
+    /// @param _remoteOwner The new admin address.
+    function setRemoteOwner(address _remoteOwner) external nonReentrant onlyAdminOrRemoteOwner {
+        if (_remoteOwner == remoteOwner || _remoteOwner == address(0)) revert DO_INVALID_PARAM();
+
+        emit RemoteOwnerUpdated(remoteOwner, _remoteOwner);
+        remoteOwner = _remoteOwner;
+    }
+
     /// @dev Accepts contract ownership
     /// @param _target Target addresses.
-    function acceptOwnership(address _target) external nonReentrant onlyOwner {
+    function acceptOwnership(address _target) external nonReentrant {
         Ownable2StepUpgradeable(_target).acceptOwnership();
     }
 
