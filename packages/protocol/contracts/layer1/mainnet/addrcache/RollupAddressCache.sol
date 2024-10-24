@@ -52,7 +52,7 @@ contract RollupAddressCache is AddressCache {
             return (true, address(0));
         }
         if (_name == LibStrings.B_CHAIN_WATCHDOG) {
-            return (true, address(0));
+            return (true, 0xE3D777143Ea25A6E031d1e921F396750885f43aC);
         }
         return (false, address(0));
     }
