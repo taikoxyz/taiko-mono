@@ -34,7 +34,8 @@ contract RollupAddressCache is AddressCache {
             return (true, 0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a);
         }
         if (_name == LibStrings.B_TIER_ROUTER) {
-            return (true, 0x6E997f1F22C40ba37F633B08f3b07E10Ed43155a);
+            // TODO: david, we need to deploy it first, then change this value.
+            return (true, address(0));
         }
         if (_name == LibStrings.B_TIER_SGX) {
             return (true, 0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81);
