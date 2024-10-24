@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
-import "@openzeppelin/contracts/interfaces/IERC1271.sol";
 
 /// @title LibAddress
 /// @dev Provides utilities for address-related operations.
