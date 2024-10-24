@@ -282,6 +282,50 @@ func SignatureFromRSV(r, s string, v byte) []byte {
 	return append(append(hexutil.MustDecode(r), hexutil.MustDecode(s)...), v)
 }
 
+func SendDynamicFeeTxWithNonce(
+	client *rpc.EthClient,
+	priv *ecdsa.PrivateKey,
+	nonce uint64,
+	to *common.Address,
+	value *big.Int,
+	data []byte,
+) (*types.Transaction, error) {
+	head, err := client.HeaderByNumber(context.Background(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	auth, err := bind.NewKeyedTransactorWithChainID(priv, client.ChainID)
+	if err != nil {
+		return nil, err
+	}
+
+	gasTipCap, err := client.SuggestGasTipCap(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	tx, err := auth.Signer(auth.From, types.NewTx(&types.DynamicFeeTx{
+		To:        to,
+		Nonce:     nonce,
+		Value:     value,
+		GasTipCap: gasTipCap,
+		GasFeeCap: new(big.Int).Add(
+			gasTipCap,
+			new(big.Int).Mul(head.BaseFee, big.NewInt(2)),
+		),
+		Gas:  2100_000,
+		Data: data,
+	}))
+	if err != nil {
+		return nil, err
+	}
+	if err = client.SendTransaction(context.Background(), tx); err != nil {
+		return nil, err
+	}
+	return tx, nil
+}
+
 // SendDynamicFeeTx sends a dynamic transaction, used for tests.
 func SendDynamicFeeTx(
 	client *rpc.EthClient,
