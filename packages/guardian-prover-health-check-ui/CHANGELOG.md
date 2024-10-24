@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/taikoxyz/taiko-mono/compare/guardian-prover-health-check-ui-v0.2.0...guardian-prover-health-check-ui-v0.2.1) (2024-10-24)
+
+
+### Build
+
+* **deps-dev:** bump @sveltejs/kit from 2.5.7 to 2.5.21 ([#17901](https://github.com/taikoxyz/taiko-mono/issues/17901)) ([7a32ac4](https://github.com/taikoxyz/taiko-mono/commit/7a32ac40a654521c82cb3ff5b6f5af87d0a915a4))
+
 ## [0.2.0](https://github.com/taikoxyz/taiko-mono/compare/guardian-prover-health-check-ui-v0.1.0...guardian-prover-health-check-ui-v0.2.0) (2024-07-28)
 
 
