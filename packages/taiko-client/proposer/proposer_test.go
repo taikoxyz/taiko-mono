@@ -134,25 +134,25 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 	}
 
 	var (
-		p       = s.p
-		privs   []*ecdsa.PrivateKey
-		l2Cli   = s.RPCClient.L2
-		chainID = l2Cli.ChainID
+		p        = s.p
+		privKeys []*ecdsa.PrivateKey
+		l2Cli    = s.RPCClient.L2
+		chainID  = l2Cli.ChainID
 	)
 
 	for _, sk := range skList {
 		priv, err := crypto.ToECDSA(common.FromHex(sk))
 		s.Nil(err)
-		privs = append(privs, priv)
+		privKeys = append(privKeys, priv)
 	}
 
-	for _, priv := range privs {
+	for _, priv := range privKeys {
 		auth, err := bind.NewKeyedTransactorWithChainID(priv, chainID)
 		s.Nil(err)
 		nonce, err := l2Cli.PendingNonceAt(context.Background(), auth.From)
 		s.Nil(err)
 		for i := 0; i < 300; i++ {
-			_, err = testutils.SendDynamicFeeTxWithNonce(s.RPCClient.L2, priv, nonce+uint64(i), &auth.From, big.NewInt(1), nil)
+			_, err = testutils.AssembleTestTx(s.RPCClient.L2, priv, nonce+uint64(i), &auth.From, big.NewInt(1), nil)
 			s.Nil(err)
 		}
 	}

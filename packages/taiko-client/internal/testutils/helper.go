@@ -282,7 +282,7 @@ func SignatureFromRSV(r, s string, v byte) []byte {
 	return append(append(hexutil.MustDecode(r), hexutil.MustDecode(s)...), v)
 }
 
-func SendDynamicFeeTxWithNonce(
+func AssembleTestTx(
 	client *rpc.EthClient,
 	priv *ecdsa.PrivateKey,
 	nonce uint64,
