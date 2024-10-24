@@ -2,13 +2,14 @@
 pragma solidity ^0.8.24;
 
 import "src/layer1/tiers/ITierRouter.sol";
+import "src/layer1/tiers/TierProviderV2.sol";
 
 /// @title MainnetTierRouter
 /// @dev Labeled in AddressResolver as "tier_router"
 /// @custom:security-contact security@taiko.xyz
-contract MainnetTierRouter is ITierRouter {
+contract MainnetTierRouter is ITierRouter, TierProviderV2 {
     /// @inheritdoc ITierRouter
-    function getProvider(uint256) external pure returns (address) {
-        return 0x4cffe56C947E26D07C14020499776DB3e9AE3a23; // TierProviderV2
+    function getProvider(uint256) external view returns (address) {
+        return address(this);
     }
 }
