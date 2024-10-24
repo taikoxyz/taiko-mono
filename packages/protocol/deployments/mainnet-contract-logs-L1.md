@@ -230,7 +230,9 @@
 
 #### tier_router
 
-- impl: `TBD`
+- impl: `0x2cD242BfD58E6D1810323D07b065413095c7AFd0`
+- logs:
+  - deployed on Oct 24, 2024 @commit`7334b1d`
 
 #### tier_sgx
 
