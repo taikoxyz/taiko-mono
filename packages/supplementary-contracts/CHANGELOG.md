@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.1.0](https://github.com/taikoxyz/taiko-mono/compare/supplementary-contracts-v1.0.0...supplementary-contracts-v1.1.0) (2024-10-24)
+
+
+### Features
+
+* **nfts:** tbz v3 mainnet upgrade ([#18230](https://github.com/taikoxyz/taiko-mono/issues/18230)) ([c7f74b7](https://github.com/taikoxyz/taiko-mono/commit/c7f74b7e0f6cd4579a30b5880ff119b8ddb86a4c))
+* **supplementary-contracts:** add batch gnosis-safe ERC20 transfer script ([#17655](https://github.com/taikoxyz/taiko-mono/issues/17655)) ([bd6a7a0](https://github.com/taikoxyz/taiko-mono/commit/bd6a7a0eac8333fa9c5b8563c3269b032efe5378))
+
+
+### Bug Fixes
+
+* **nfts:** blacklist patch ([#17427](https://github.com/taikoxyz/taiko-mono/issues/17427)) ([3dc3d14](https://github.com/taikoxyz/taiko-mono/commit/3dc3d14f6f663f7faa4387b2e4ee46e0d096ec22))
+* **supplementary-contracts:** fix pragma in IMinimalBlackList ([#18210](https://github.com/taikoxyz/taiko-mono/issues/18210)) ([30ed0e7](https://github.com/taikoxyz/taiko-mono/commit/30ed0e79c1b1aca14ebf67034640f27a2c3322f1))
+
+
+### Build
+
+* **deps:** bump merkletreejs from 0.3.11 to 0.4.0 ([#17942](https://github.com/taikoxyz/taiko-mono/issues/17942)) ([1624b71](https://github.com/taikoxyz/taiko-mono/commit/1624b711e3fe1862f000e1d2970d6aee1b8990c9))
+
 ## 1.0.0 (2024-05-14)
 
 
