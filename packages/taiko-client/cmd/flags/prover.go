@@ -195,6 +195,31 @@ var (
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_BLOCK_CONFIRMATIONS"},
 	}
+	// Batch proof related flag
+	BatchSize = &cli.Uint64Flag{
+		Name: "prover.batchSize",
+		Usage: "The default size of batch proof, when it arrives, submit a batch of proof immediately, " +
+			"this flag only works post Ontake fork",
+		Value:    1,
+		Category: proverCategory,
+		EnvVars:  []string{"PROVER_BATCH_SIZE"},
+	}
+	ZKVMBatchSize = &cli.Uint64Flag{
+		Name: "prover.zkvm.batchSize",
+		Usage: "The size of batch ZKVM proof, when it arrives, submit a batch of proof immediately, " +
+			"this flag only works post Ontake fork",
+		Value:    1,
+		Category: proverCategory,
+		EnvVars:  []string{"PROVER_ZKVM_BATCH_SIZE"},
+	}
+	ProveInterval = &cli.DurationFlag{
+		Name: "prover.minProvingInterval",
+		Usage: "Time interval to prove blocks even the number of pending proof do not exceed prover.batchSize, " +
+			"this flag only works post Ontake fork",
+		Category: proverCategory,
+		Value:    30 * time.Minute,
+		EnvVars:  []string{"PROVER_MIN_PROVING_INTERVAL"},
+	}
 )
 
 // ProverFlags All prover flags.
@@ -227,4 +252,7 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	BlockConfirmations,
 	RaikoRequestTimeout,
 	RaikoZKVMHostEndpoint,
+	BatchSize,
+	ZKVMBatchSize,
+	ProveInterval,
 }, TxmgrFlags)
