@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/taikoxyz/taiko-mono/compare/ui-lib-v1.0.0...ui-lib-v1.0.1) (2024-10-24)
+
+
+### Build
+
+* **deps-dev:** bump @sveltejs/kit from 2.5.7 to 2.5.21 ([#17901](https://github.com/taikoxyz/taiko-mono/issues/17901)) ([7a32ac4](https://github.com/taikoxyz/taiko-mono/commit/7a32ac40a654521c82cb3ff5b6f5af87d0a915a4))
+
 ## 1.0.0 (2024-05-25)
 
 ### Features
