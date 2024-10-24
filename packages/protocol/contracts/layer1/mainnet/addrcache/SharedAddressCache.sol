@@ -28,7 +28,7 @@ contract SharedAddressCache is AddressCache {
                 return (true, 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC);
             }
             if (_name == LibStrings.B_BRIDGED_ERC20) {
-                return (true, 0x79BC0Aada00fcF6E7AB514Bfeb093b5Fae3653e3);
+                return (true, 0x65666141a541423606365123Ed280AB16a09A2e1);
             }
             if (_name == LibStrings.B_BRIDGED_ERC721) {
                 return (true, 0xC3310905E2BC9Cfb198695B75EF3e5B69C6A1Bf7);
