@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -133,8 +134,10 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 	}
 
 	var (
-		p     = s.p
-		privs []*ecdsa.PrivateKey
+		p       = s.p
+		privs   []*ecdsa.PrivateKey
+		l2Cli   = s.RPCClient.L2
+		chainID = l2Cli.ChainID
 	)
 
 	for _, sk := range skList {
@@ -143,10 +146,13 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 		privs = append(privs, priv)
 	}
 
-	for i := 0; i < 300; i++ {
-		for _, priv := range privs {
-			to := common.BigToAddress(big.NewInt(int64(i)))
-			_, err := testutils.SendDynamicFeeTx(s.RPCClient.L2, priv, &to, big.NewInt(1), nil)
+	for _, priv := range privs {
+		auth, err := bind.NewKeyedTransactorWithChainID(priv, chainID)
+		s.Nil(err)
+		nonce, err := l2Cli.PendingNonceAt(context.Background(), auth.From)
+		s.Nil(err)
+		for i := 0; i < 300; i++ {
+			_, err = testutils.SendDynamicFeeTxWithNonce(s.RPCClient.L2, priv, nonce+uint64(i), &auth.From, big.NewInt(1), nil)
 			s.Nil(err)
 		}
 	}
@@ -171,10 +177,10 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 			[]int{1500},
 		},
 		{
-			p.protocolConfigs.BlockMaxGasLimit / 100,
+			p.protocolConfigs.BlockMaxGasLimit / 50,
 			rpc.BlockMaxTxListBytes,
 			200,
-			[]int{114, 114, 114, 114, 114, 114, 114, 114, 114, 114, 114, 114, 114, 18},
+			[]int{129, 129, 129, 129, 129, 129, 129, 129, 129, 129, 129, 81},
 		},
 	} {
 		res, err := s.RPCClient.GetPoolContent(
