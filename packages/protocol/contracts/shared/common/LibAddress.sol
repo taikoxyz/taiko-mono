@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import "@openzeppelin/contracts/interfaces/IERC1271.sol";
 
@@ -74,10 +73,12 @@ library LibAddress {
         view
         returns (bool result_)
     {
-        if (!Address.isContract(_addr)) return false;
-
-        try IERC165(_addr).supportsInterface(_interfaceId) returns (bool _result) {
-            result_ = _result;
-        } catch { }
+        (bool success, bytes memory data) =
+            _addr.staticcall(abi.encodeCall(IERC165.supportsInterface, (_interfaceId)));
+        if (success && data.length == 32) {
+            result_ = abi.decode(data, (bool));
+        } else {
+            result_ = false;
+        }
     }
 }
