@@ -24,10 +24,9 @@ contract AddressManager is EssentialContract, IAddressManager {
     error AM_ADDRESS_ALREADY_SET();
 
     /// @notice Initializes the contract.
-    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    function init(address _owner) external initializer {
-        __Essential_init(_owner);
-        addressManager = address(this);
+    /// @param _owner The owner of this contract.
+    function init(address _owner) external reinitializer(2) {
+        __Essential_init(_owner, address(this));
     }
 
     function init2() external onlyOwner reinitializer(2) {
