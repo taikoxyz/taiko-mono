@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.39.3](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.39.2...taiko-client-v0.39.3) (2024-10-24)
+
+
+### Tests
+
+* **taiko-client:** introduce TestTxPoolContentWithMinTip test case ([#18285](https://github.com/taikoxyz/taiko-mono/issues/18285)) ([d572f4c](https://github.com/taikoxyz/taiko-mono/commit/d572f4c412e59094ea9a4c5ff0b0667c9c04bd66))
+
 ## [0.39.2](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.39.1...taiko-client-v0.39.2) (2024-10-24)
 
 
