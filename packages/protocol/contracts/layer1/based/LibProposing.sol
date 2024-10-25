@@ -14,6 +14,8 @@ import "./LibVerifying.sol";
 library LibProposing {
     using LibAddress for address;
 
+    uint256 internal constant SECONDS_PER_BLOCK = 12;
+
     struct Local {
         TaikoData.SlotB b;
         TaikoData.BlockParamsV2 params;
@@ -175,8 +177,8 @@ library LibProposing {
         // The other constraint is that the timestamp needs to be larger than or equal the
         // one in the previous L2 block.
         if (
-            local.params.timestamp + _config.maxAnchorHeightOffset * 12 < block.timestamp
-                || local.params.timestamp > block.timestamp
+            local.params.timestamp + _config.maxAnchorHeightOffset * SECONDS_PER_BLOCK
+                < block.timestamp || local.params.timestamp > block.timestamp
                 || local.params.timestamp < parentBlk.proposedAt
         ) {
             revert L1_INVALID_TIMESTAMP();

@@ -16,6 +16,8 @@ import "./TaikoData.sol";
 library LibUtils {
     using LibMath for uint256;
 
+    uint256 internal constant SECONDS_IN_MINUTE = 12;
+
     /// @dev Emitted when a block is verified.
     /// @param blockId The ID of the verified block.
     /// @param prover The prover whose transition is used for verifying the
@@ -230,7 +232,8 @@ library LibUtils {
         returns (bool)
     {
         unchecked {
-            uint256 deadline = _tsTimestamp.max(_lastUnpausedAt) + _windowMinutes * 60;
+            uint256 deadline =
+                _tsTimestamp.max(_lastUnpausedAt) + _windowMinutes * SECONDS_IN_MINUTE;
             return block.timestamp >= deadline;
         }
     }
