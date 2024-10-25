@@ -14,6 +14,8 @@ import "./LibVerifying.sol";
 library LibProposing {
     using LibAddress for address;
 
+    uint256 internal constant SECONDS_PER_BLOCK = 12;
+
     struct Local {
         TaikoData.SlotB b;
         TaikoData.BlockParamsV2 params;
@@ -179,8 +181,10 @@ library LibProposing {
         }
 
         if (local.params.anchorBlockId == 0) {
-            local.params.anchorBlockId =
-                local.postFork ? uint64(block.number - 1) : uint64(block.number);
+            unchecked {
+                local.params.anchorBlockId =
+                    local.postFork ? uint64(block.number - 1) : uint64(block.number);
+            }
         }
 
         if (local.params.timestamp == 0) {
@@ -188,8 +192,10 @@ library LibProposing {
         }
 
         // Verify params against the parent block.
-        TaikoData.BlockV2 storage parentBlk =
-            _state.blocks[(local.b.numBlocks - 1) % _config.blockRingBufferSize];
+        TaikoData.BlockV2 storage parentBlk;
+        unchecked {
+            parentBlk = _state.blocks[(local.b.numBlocks - 1) % _config.blockRingBufferSize];
+        }
 
         if (local.postFork) {
             // Verify the passed in L1 state block number.
@@ -209,8 +215,8 @@ library LibProposing {
             // The other constraint is that the timestamp needs to be larger than or equal the
             // one in the previous L2 block.
             if (
-                local.params.timestamp + _config.maxAnchorHeightOffset * 12 < block.timestamp
-                    || local.params.timestamp > block.timestamp
+                local.params.timestamp + _config.maxAnchorHeightOffset * SECONDS_PER_BLOCK
+                    < block.timestamp || local.params.timestamp > block.timestamp
                     || local.params.timestamp < parentBlk.proposedAt
             ) {
                 revert L1_INVALID_TIMESTAMP();
