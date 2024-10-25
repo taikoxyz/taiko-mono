@@ -200,8 +200,8 @@ library LibProposing {
             anchorBlockHash: blockhash(local.params.anchorBlockId),
             difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", local.b.numBlocks)),
             blobHash: 0, // to be initialized below
-            // To make sure each L2 block can be exexucated deterministiclly by the client
-            // without referering to its metadata on Ethereum, we need to encode
+            // To make sure each L2 block can be executed deterministically by the client
+            // without referring to its metadata on Ethereum, we need to encode
             // config.sharingPctg into the extraData.
             extraData: _encodeBaseFeeConfig(_config.baseFeeConfig),
             coinbase: local.params.coinbase,

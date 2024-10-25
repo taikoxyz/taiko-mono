@@ -11,6 +11,16 @@ import "./TaikoData.sol";
 /// @notice A library that offers helper functions to handle bonds.
 /// @custom:security-contact security@taiko.xyz
 library LibBonds {
+    /// @dev Emitted when tokens are deposited into a user's bond balance.
+    /// @param user The address of the user who deposited the tokens.
+    /// @param amount The amount of tokens deposited.
+    event BondDeposited(address indexed user, uint256 amount);
+
+    /// @dev Emitted when tokens are withdrawn from a user's bond balance.
+    /// @param user The address of the user who withdrew the tokens.
+    /// @param amount The amount of tokens withdrawn.
+    event BondWithdrawn(address indexed user, uint256 amount);
+
     /// @dev Emitted when a token is credited back to a user's bond balance.
     /// @param user The address of the user whose bond balance is credited.
     /// @param blockId The ID of the block to credit for.
@@ -34,6 +44,7 @@ library LibBonds {
     )
         internal
     {
+        emit BondDeposited(msg.sender, _amount);
         _state.bondBalance[msg.sender] += _amount;
         _tko(_resolver).transferFrom(msg.sender, address(this), _amount);
     }
@@ -49,6 +60,7 @@ library LibBonds {
     )
         internal
     {
+        emit BondWithdrawn(msg.sender, _amount);
         _state.bondBalance[msg.sender] -= _amount;
         _tko(_resolver).transfer(msg.sender, _amount);
     }
@@ -76,6 +88,7 @@ library LibBonds {
                 _state.bondBalance[_user] = balance - _amount;
             }
         } else {
+            emit BondDeposited(msg.sender, _amount);
             _tko(_resolver).transferFrom(_user, address(this), _amount);
         }
         emit BondDebited(_user, _blockId, _amount);
