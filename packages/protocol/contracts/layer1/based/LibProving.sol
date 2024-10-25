@@ -311,6 +311,7 @@ library LibProving {
                 ctx_.tran.blockHash == ts.blockHash && ctx_.tran.stateRoot == ts.stateRoot;
         } else {
             local.sameTransition = ctx_.tran.blockHash == ts.blockHash;
+            // For non sync-block, we set the stateRoot to 0 before emitting it in events
             ctx_.tran.stateRoot = 0;
         }
 
