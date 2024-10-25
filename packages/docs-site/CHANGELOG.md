@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.14.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.13.0...docs-site-v1.14.0) (2024-10-25)
+
+
+### Features
+
+* **docs-site:** add banner for mainnet protocol upgrade ([#18306](https://github.com/taikoxyz/taiko-mono/issues/18306)) ([550dda3](https://github.com/taikoxyz/taiko-mono/commit/550dda334dfa2d53a757ce46091acaba4248371a))
+
 ## [1.13.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.12.3...docs-site-v1.13.0) (2024-10-25)
 
 
