@@ -213,7 +213,7 @@ var (
 		EnvVars:  []string{"PROVER_ZKVM_BATCH_SIZE"},
 	}
 	ProveInterval = &cli.DurationFlag{
-		Name: "prover.minProvingInterval",
+		Name: "prover.forceBatchProvingInterval",
 		Usage: "Time interval to prove blocks even the number of pending proof do not exceed prover.batchSize, " +
 			"this flag only works post Ontake fork",
 		Category: proverCategory,
