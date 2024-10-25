@@ -16,7 +16,7 @@ import "./TaikoData.sol";
 library LibUtils {
     using LibMath for uint256;
 
-    uint256 internal constant SECONDS_IN_MINUTE = 12;
+    uint256 internal constant SECONDS_IN_MINUTE = 60;
 
     /// @dev Emitted when a block is verified.
     /// @param blockId The ID of the verified block.
