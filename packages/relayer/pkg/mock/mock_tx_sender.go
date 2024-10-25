@@ -2,10 +2,12 @@ package mock
 
 import (
 	"context"
+	"math/big"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
 )
 
 type TxManager struct {
@@ -33,4 +35,21 @@ func (t *TxManager) Close() {
 
 func (t *TxManager) IsClosed() bool {
 	return false
+}
+
+func (t *TxManager) SendAsync(ctx context.Context, candidate txmgr.TxCandidate, ch chan txmgr.SendResponse) {
+	panic("unimplemented")
+}
+
+func (t *TxManager) SuggestGasPriceCaps(ctx context.Context) (
+	tipCap *big.Int,
+	baseFee *big.Int,
+	blobBaseFee *big.Int,
+	err error,
+) {
+	panic("unimplemented")
+}
+
+func (t *TxManager) API() rpc.API {
+	panic("unimplemented")
 }

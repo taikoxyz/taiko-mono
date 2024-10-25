@@ -409,9 +409,24 @@ func (s *Syncer) insertNewHead(
 		return nil, fmt.Errorf("failed to create execution payloads: %w", err)
 	}
 
-	lastVerifiedBlockHash, err := s.rpc.GetLastVerifiedBlockHash(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch the last verified block hash: %w", err)
+	var lastVerifiedBlockHash common.Hash
+	if lastVerifiedBlockHash, err = s.rpc.GetLastVerifiedBlockHash(ctx); err != nil {
+		log.Debug("Failed to fetch last verified block hash", "error", err)
+
+		stateVars, err := s.rpc.GetProtocolStateVariables(&bind.CallOpts{Context: ctx})
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch protocol state variables: %w", err)
+		}
+
+		lastVerifiedBlockHeader, err := s.rpc.L2.HeaderByNumber(
+			ctx,
+			new(big.Int).SetUint64(stateVars.B.LastVerifiedBlockId),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch last verified block: %w", err)
+		}
+
+		lastVerifiedBlockHash = lastVerifiedBlockHeader.Hash()
 	}
 
 	fc := &engine.ForkchoiceStateV1{

@@ -111,7 +111,7 @@
 ### taikoL1
 
 - proxy: `0x79C9109b764609df928d16fC4a91e9081F7e87DB`
-- impl: `0xb179D4038DD6084c548EEf674DAC262F51264e5e.`
+- impl: `0xDC76feE152224F280E5c181835AE9cf6Ad208901.`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
@@ -126,6 +126,7 @@
   - upgraded on Jul 15, 2024 at commit `45281b8`
   - upgraded on Aug 15, 2024 at `protocol-v1.8.0` with [#17919](https://github.com/taikoxyz/taiko-mono/pull/17919)
   - upgraded on Sep 20, 2024 at commit `fd1c039`
+  - upgraded on Oct 16, 2024 at commit `233806e`
 
 ### assignmentHook
 
@@ -148,13 +149,14 @@
 
 ### tierRouter
 
-- impl: `0xE17dBD745f0144b8b7133cbBA044B74Ff34A7aA2`
+- impl: `0xACF97d3b3c15c3C009eB04a640954d48237fc3ff`
 - logs:
   - deployed on Jun 10, 2024 at commit `d5965bb`
   - upgraded on Jun 14, 2024 at commit `cc10b04`
   - upgraded on Jun 19, 2024 at commit `b7e12e3`
   - upgraded on Aug 15, 2024 at commit `05d49b0`
   - upgraded on Sep 02, 2024 at commit `9dae5c8`
+  - upgraded on Oct 24, 2024 at commit `78f9ac0`
 
 ### prover_set
 
@@ -200,9 +202,10 @@
 
 ### risc0_groth16_verifier
 
-- addr : 0xc2c2676E31b59085dfDA9b1B066519b20e756D9d
+- addr : 0x5fd84014c62D5ea28D4533D5B1B48Ca44e571057
 - logs:
   - deployed on August 14, 2024 at commit `cba2a1e`
+  - upgraded on October 22, 2024 at commit `684a909`
 
 ### tier_zkvm_risc0
 
@@ -214,10 +217,11 @@
 
 ### sp1_plonk_verifier
 
-- addr : 0x2D3EdD345fC785172c456b086e6672366c6235b7
+- addr : 0xa5287276f63b669E09cF6Dc6F44e941d77D7139e
 - logs:
   - deployed on September 02, 2024 at commit `16ac02e`
   - upgraded on September 15, 2024 at commit `6f26434`
+  - upgraded on October 22, 2024 at commit `684a909`
 
 ### tier_zkvm_sp1
 
