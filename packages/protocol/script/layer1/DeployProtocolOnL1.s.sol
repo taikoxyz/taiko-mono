@@ -19,9 +19,10 @@ import "src/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
 import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
 import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
 import "src/layer1/devnet/DevnetTaikoL1.sol";
-import "src/layer1/devnet/DevnetTierProvider.sol";
+import "src/layer1/devnet/DevnetTierRouter.sol";
 import "src/layer1/mainnet/rollup/MainnetGuardianProver.sol";
 import "src/layer1/mainnet/rollup/MainnetTaikoL1.sol";
+import "src/layer1/mainnet/rollup/MainnetTierRouter.sol";
 import "src/layer1/mainnet/rollup/verifiers/MainnetSgxVerifier.sol";
 import "src/layer1/mainnet/multirollup/MainnetBridge.sol";
 import "src/layer1/mainnet/multirollup/MainnetERC1155Vault.sol";
@@ -30,11 +31,10 @@ import "src/layer1/mainnet/multirollup/MainnetERC721Vault.sol";
 import "src/layer1/mainnet/multirollup/MainnetSignalService.sol";
 import "src/layer1/provers/GuardianProver.sol";
 import "src/layer1/provers/ProverSet.sol";
-import "src/layer1/tiers/TierProviderV2.sol";
 import "src/layer1/token/TaikoToken.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
-import "test/layer1/based/TestTierProvider.sol";
+import "test/layer1/based/TestTierRouter.sol";
 import "test/shared/token/FreeMintERC20.sol";
 import "test/shared/token/MayFailFreeMintERC20.sol";
 import "test/shared/DeployCapability.sol";
@@ -291,8 +291,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
 
         TaikoL1 taikoL1;
-        if (keccak256(abi.encode(vm.envString("TIER_PROVIDER"))) == keccak256(abi.encode("devnet")))
-        {
+        if (keccak256(abi.encode(vm.envString("TIER_ROUTER"))) == keccak256(abi.encode("devnet"))) {
             taikoL1 = TaikoL1(address(new DevnetTaikoL1()));
         } else {
             taikoL1 = TaikoL1(address(new TaikoL1()));
@@ -353,7 +352,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         register(
             rollupAddressManager,
             "tier_router",
-            address(deployTierProvider(vm.envString("TIER_PROVIDER")))
+            address(deployTierRouter(vm.envString("TIER_ROUTER")))
         );
 
         address[] memory guardians = vm.envAddress("GUARDIAN_PROVERS", ",");
@@ -427,13 +426,13 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
     }
 
-    function deployTierProvider(string memory tierProviderName) private returns (address) {
-        if (keccak256(abi.encode(tierProviderName)) == keccak256(abi.encode("devnet"))) {
-            return address(new DevnetTierProvider());
-        } else if (keccak256(abi.encode(tierProviderName)) == keccak256(abi.encode("testnet"))) {
-            return address(new TestTierProvider());
-        } else if (keccak256(abi.encode(tierProviderName)) == keccak256(abi.encode("mainnet"))) {
-            return address(new TierProviderV2());
+    function deployTierRouter(string memory tierRouterName) private returns (address) {
+        if (keccak256(abi.encode(tierRouterName)) == keccak256(abi.encode("devnet"))) {
+            return address(new DevnetTierRouter());
+        } else if (keccak256(abi.encode(tierRouterName)) == keccak256(abi.encode("testnet"))) {
+            return address(new TestTierRouter());
+        } else if (keccak256(abi.encode(tierRouterName)) == keccak256(abi.encode("mainnet"))) {
+            return address(new MainnetTierRouter());
         } else {
             revert("invalid tier provider");
         }

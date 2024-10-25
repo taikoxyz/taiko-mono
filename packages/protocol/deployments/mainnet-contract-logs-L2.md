@@ -41,7 +41,7 @@
   - set erc1155_vault@1 to `0xaf145913EA4a56BE22E120ED9C24589659881702` @tx`0x4a16a8a7d02f696b753208bbf8e7e3501d6b70b9a764fa2b4e115add46c13cb3`
   - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`0xf68861171c602e3e75ca69e950957fcb908c7949c6df9a9ea3026c238ebb1e9c`
   - register `taiko_token` to `0xA9d23408b9bA935c230493c40C73824Df71A0975` @tx`0xc77434f4e37959cdc0eac125303b78dd192d8727173373cc7a6158ca7d829dad`
-  - register `bridged_erc20` to `0x98161D67f762A9E589E502348579FA38B1Ac47A8` @tx``
+  - register `bridged_erc20` to `0x98161D67f762A9E589E502348579FA38B1Ac47A8` @tx`0xf377885a94467d520bd765a186d3c3524099fe28e936d05656d0da2509628e65`
 
 #### bridge
 
@@ -115,16 +115,6 @@
   - changed owner to `0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8` @tx`0xf68861171c602e3e75ca69e950957fcb908c7949c6df9a9ea3026c238ebb1e9c`
 - todo:
   - change owner to DelegateOwner
-
-#### delegate_owner
-
-- proxy: `0x5995941Df88F30Ac140515AA39832db963E2f863`
-- impl: `0x1f0511cDae2fbfD93563469dA02b82dEd320C8Bd`
-- admin: `0x3c181965C5cFAE61a9010A283e5e0C1445649810` // owned by Daniel W
-- remoteOwner: `0x3c181965C5cFAE61a9010A283e5e0C1445649810` // owned by Daniel W
-- todo:
-  - test various use cases
-  - transfer remote owner to `admin.taiko.eth`
 
 ## Rollup Specific
 
