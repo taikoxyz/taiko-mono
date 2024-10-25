@@ -566,7 +566,7 @@ library LibProving {
 
     /// @dev Returns the reward after applying 12.5% friction.
     function _rewardAfterFriction(uint256 _amount) private pure returns (uint256) {
-        return _amount == 0 ? 0 : (_amount * 7) >> 3;
+        return (_amount * 7) >> 3;
     }
 
     /// @dev Returns if the liveness bond shall be returned.
