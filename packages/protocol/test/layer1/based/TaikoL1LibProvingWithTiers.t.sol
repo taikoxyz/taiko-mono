@@ -430,9 +430,9 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
         for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
-            bool storeStateRoot = LibUtils.isSyncBlock(syncInternal, blockId);
+            bool isSyncBlock = LibUtils.isSyncBlock(syncInternal, blockId);
             console2.log("blockId:", blockId);
-            console2.log("storeStateRoot:", storeStateRoot);
+            console2.log("isSyncBlock:", isSyncBlock);
 
             printVariables("before propose");
             TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, 1024);
@@ -451,7 +451,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
 
             // Re-prove as guardian
             stateRoot = bytes32(2_000_000 + blockId + 200);
-            if (!storeStateRoot) {
+            if (!isSyncBlock) {
                 // Changing stateRoot doesn't help
                 proveBlock(
                     Carol,
