@@ -122,14 +122,14 @@
 
 - ens: `v721.based.taiko.eth`
 - proxy: `0x0b470dd3A0e1C41228856Fb319649E7c08f419Aa`
-- impl: `0x6e88046ff7Af8ef14ECa80e06C734bf59851896a`
+- impl: `0xD961e3Ef2D7DF58cDc67BFd9055255430E5e3fEc`
 - owner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
   - upgraded from `0xEC04849E7722Fd69797a155796Db75aC8F94f692` to `0x41A7BDD153a5AfFb10Ed1AD3D6a4e5ad001495FA` @commit`b90b932` @tx`0x416560cd96dc75ccffebe889e8d1ab3e08b33f814dc4a2bf7c6f9555071d1f6f`
   - upgraded from `0x41A7BDD153a5AfFb10Ed1AD3D6a4e5ad001495FA` to `0x2dfef0339009Ce10786fc118C883BB97af3163eD` @commit`fa481c1` @tx`0x02ed558762eae5f0a930ba4a1047a02d4a793ea48890268c32df04e882f138ff`
   - upgraded from `0x2dfef0339009Ce10786fc118C883BB97af3163eD` to `0x55B5df6B53466446221180498BfD1C59e54732c4` @commit`d907359` @tx`0xdb5e926c96d112ce1389da77a927fba6c7d04a711839b9e14777530ebcf83914`
-  - upgraded from `0x55B5df6B53466446221180498BfD1C59e54732c4` to `0x6e88046ff7Af8ef14ECa80e06C734bf59851896a` @commit`bb2abc5` @tx`0x7d584f0a645cad61e634f64ffaf7e1bbfb92749878eb25b39ce0e5cf698897c7`
+  - upgraded from `0x55B5df6B53466446221180498BfD1C59e54732c4` to `0xD961e3Ef2D7DF58cDc67BFd9055255430E5e3fEc` @commit`bb2abc5` @tx`0x7d584f0a645cad61e634f64ffaf7e1bbfb92749878eb25b39ce0e5cf698897c7`
 
 #### erc1155_vault
 
@@ -228,13 +228,11 @@
   - Upgrade to `0xBA1d90BCfA74163bFE09e8eF609b346507D83231` @commit`bb2abc5` @tx`0x7d584f0a645cad61e634f64ffaf7e1bbfb92749878eb25b39ce0e5cf698897c7`
   - Upgrade to `0xf0E6d34937701622cA887a75c150cC23d4FFDf2F` @commit`b4f8547` @tx`0x8778064404816273804d74c97b051f3865bc03062cfa4b0e9567f4556ad31981`
 
-#### tier_provider
+#### tier_router
 
-- impl: `0x3a1A900680BaADb889202faf12915F7E47B71ddd`
+- impl: `0x2cD242BfD58E6D1810323D07b065413095c7AFd0`
 - logs:
-  - deployed on May 1, 2024 @commit`56dddf2b6`
-  - deployed on May 15, 2024 @commit`cd5144255`
-  - deployed on Jul 2, 2024 @commit`d2b00ce`
+  - deployed on Oct 24, 2024 @commit`7334b1d`
 
 #### tier_sgx
 
