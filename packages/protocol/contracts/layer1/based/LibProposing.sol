@@ -179,7 +179,8 @@ library LibProposing {
         }
 
         if (local.params.anchorBlockId == 0) {
-            local.params.anchorBlockId = uint64(block.number - 1);
+            local.params.anchorBlockId =
+                local.postFork ? uint64(block.number - 1) : uint64(block.number);
         }
 
         if (local.params.timestamp == 0) {
@@ -289,7 +290,7 @@ library LibProposing {
             livenessBond: local.postFork ? 0 : meta_.livenessBond,
             blockId: local.b.numBlocks,
             proposedAt: local.params.timestamp,
-            proposedIn: local.postFork ? local.params.anchorBlockId : uint64(block.number),
+            proposedIn: local.params.anchorBlockId,
             // For a new block, the next transition ID is always 1, not 0.
             nextTransitionId: 1,
             livenessBondReturned: false,
