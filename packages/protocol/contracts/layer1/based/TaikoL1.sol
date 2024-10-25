@@ -225,8 +225,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         view
         returns (TaikoData.TransitionState memory)
     {
-        return LibUtils.getTransition(state, getConfig(), _blockId,
-  SafeCastUpgradeable.toUint24(_tid));
+        return
+            LibUtils.getTransition(state, getConfig(), _blockId, SafeCastUpgradeable.toUint24(_tid));
     }
 
     /// @notice Returns information about the last verified block.
