@@ -307,7 +307,7 @@ library LibProving {
             if (_batchProof.tier == 0) {
                 // In the case of per-transition proof, we verify the proof.
                 IVerifier(_resolver.resolve(local.tier.verifierName, false)).verifyProof(
-                    LibData.verifierContextV2toV1(ctx_), ctx_.tran, local.proof
+                    LibData.verifierContextV2ToV1(ctx_), ctx_.tran, local.proof
                 );
             }
         }

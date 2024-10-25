@@ -177,7 +177,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     /// @return blk_ The block.
     function getBlock(uint64 _blockId) external view returns (TaikoData.Block memory blk_) {
         (TaikoData.BlockV2 memory blk,) = LibUtils.getBlock(state, getConfig(), _blockId);
-        blk_ = LibData.blockV2toV1(blk);
+        blk_ = LibData.blockV2ToV1(blk);
     }
 
     /// @inheritdoc ITaikoL1
