@@ -6,6 +6,6 @@ pragma solidity ^0.8.24;
 interface IBlockHash {
     /// @notice Retrieves the block hash for a given block ID.
     /// @param _blockId The ID of the block whose hash is being requested.
-    /// @return The block hash of the specified block ID, or 0 if no hash is found.
-    function getBlockHash(uint256 _blockId) external view returns (bytes32);
+    /// @return blockHash The block hash of the specified block ID, or 0 if no hash is found.
+    function getBlockHash(uint256 _blockId) external view returns (bytes32 blockHash);
 }

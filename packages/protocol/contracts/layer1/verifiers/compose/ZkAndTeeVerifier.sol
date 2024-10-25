@@ -10,6 +10,9 @@ contract ZkAndTeeVerifier is ComposeVerifier {
     uint256[50] private __gap;
 
     /// @inheritdoc ComposeVerifier
+    /// @notice Gets the sub-verifiers and the threshold
+    /// @return verifiers_ An array of addresses of the sub-verifiers
+    /// @return numSubProofs_ The number of sub-proofs required
     function getSubVerifiersAndThreshold()
         public
         view

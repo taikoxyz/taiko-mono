@@ -25,6 +25,8 @@ contract Risc0Verifier is EssentialContract, IVerifier {
     event ImageTrusted(bytes32 imageId, bool trusted);
 
     /// @dev Emitted when a proof is verified
+    /// @param metaHash The meta hash of the proof
+    /// @param publicInputHash The public input hash of the proof
     event ProofVerified(bytes32 metaHash, bytes32 publicInputHash);
 
     error RISC_ZERO_INVALID_BLOCK_PROOF_IMAGE_ID();
@@ -47,7 +49,11 @@ contract Risc0Verifier is EssentialContract, IVerifier {
         emit ImageTrusted(_imageId, _trusted);
     }
 
+    /// @notice Verifies a proof.
     /// @inheritdoc IVerifier
+    /// @param _ctx The context of the proof.
+    /// @param _tran The transition data of the proof.
+    /// @param _proof The tier proof data.
     function verifyProof(
         Context calldata _ctx,
         TaikoData.Transition calldata _tran,
@@ -82,7 +88,10 @@ contract Risc0Verifier is EssentialContract, IVerifier {
         }
     }
 
+    /// @notice Verifies a batch proof.
     /// @inheritdoc IVerifier
+    /// @param _ctxs The array of contexts of the proofs.
+    /// @param _proof The tier proof data.
     function verifyBatchProof(
         ContextV2[] calldata _ctxs,
         TaikoData.TierProof calldata _proof
@@ -131,6 +140,8 @@ contract Risc0Verifier is EssentialContract, IVerifier {
         }
     }
 
+    /// @notice Returns the chain ID of the Taiko chain.
+    /// @return The chain ID of the Taiko chain.
     function taikoChainId() internal view virtual returns (uint64) {
         return ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfig().chainId;
     }

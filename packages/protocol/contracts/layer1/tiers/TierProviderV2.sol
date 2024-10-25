@@ -6,7 +6,8 @@ import "./TierProviderBase.sol";
 /// @title TierProviderV2
 /// @custom:security-contact security@taiko.xyz
 contract TierProviderV2 is TierProviderBase {
-    /// @inheritdoc ITierProvider
+    /// @notice Returns an array of tier IDs.
+    /// @return tiers_ An array of tier IDs.
     function getTierIds() public pure override returns (uint16[] memory tiers_) {
         tiers_ = new uint16[](3);
         tiers_[0] = LibTiers.TIER_SGX;
@@ -14,8 +15,11 @@ contract TierProviderV2 is TierProviderBase {
         tiers_[2] = LibTiers.TIER_GUARDIAN;
     }
 
-    /// @inheritdoc ITierProvider
-    function getMinTier(address, uint256) public pure override returns (uint16) {
+    /// @notice Returns the minimum tier for a given address and value.
+    /// @param _address The address to check the tier for.
+    /// @param _value The value to check the tier for.
+    /// @return The minimum tier ID.
+    function getMinTier(address _address, uint256 _value) public pure override returns (uint16) {
         return LibTiers.TIER_SGX;
     }
 }

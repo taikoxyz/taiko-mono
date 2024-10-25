@@ -37,6 +37,10 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
     }
 
     /// @inheritdoc IVerifier
+    /// @notice Verifies a single proof by delegating to sub-verifiers.
+    /// @param _ctx The context of the proof.
+    /// @param _tran The transition data of the proof.
+    /// @param _proof The tier proof containing sub-proofs.
     function verifyProof(
         Context calldata _ctx,
         TaikoData.Transition calldata _tran,
@@ -72,6 +76,9 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
     }
 
     /// @inheritdoc IVerifier
+    /// @notice Verifies a batch of proofs by delegating to sub-verifiers.
+    /// @param _ctxs The contexts of the proofs.
+    /// @param _proof The tier proof containing sub-proofs.
     function verifyBatchProof(
         ContextV2[] calldata _ctxs,
         TaikoData.TierProof calldata _proof

@@ -5,11 +5,13 @@ pragma solidity ^0.8.24;
 /// @title LibL2Config
 library LibL2Config {
     struct Config {
+        /// @dev Target gas per L1 block
         uint32 gasTargetPerL1Block;
+        /// @dev Base fee adjustment quotient
         uint8 basefeeAdjustmentQuotient;
     }
 
-    /// @notice Returns EIP1559 related configurations.
+    /// @dev Returns EIP1559 related configurations.
     /// @return config_ struct containing configuration parameters.
     function get() internal pure returns (Config memory config_) {
         // Assuming we sell 3x more blockspace than Ethereum: 15_000_000 * 4

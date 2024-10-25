@@ -172,7 +172,7 @@ contract GuardianProver is IVerifier, EssentialContract {
         tko.transfer(_to, amount);
     }
 
-    /// @dev Called by guardians to approve a guardian proof
+    /// @notice Called by guardians to approve a guardian proof.
     /// @param _meta The block's metadata.
     /// @param _tran The valid transition.
     /// @param _proof The tier proof.
@@ -262,7 +262,7 @@ contract GuardianProver is IVerifier, EssentialContract {
         return guardians.length;
     }
 
-    /// @notice Internal function to handle the approval process.
+    /// @dev Internal function to handle the approval process.
     /// @param _blockId The block ID.
     /// @param _proofHash The proof hash.
     /// @param _blockHash The block hash.
@@ -311,7 +311,7 @@ contract GuardianProver is IVerifier, EssentialContract {
         }
     }
 
-    /// @notice Internal function to save the approval.
+    /// @dev Internal function to save the approval.
     /// @param _blockId The block ID.
     /// @param _proofHash The proof hash.
     /// @return approved_ True if the minimum number of approvals is acquired, false otherwise.
@@ -336,7 +336,7 @@ contract GuardianProver is IVerifier, EssentialContract {
         emit Approved(_blockId, _approval, approved_);
     }
 
-    /// @notice Internal function to check if the minimum number of approvals is reached.
+    /// @dev Internal function to check if the minimum number of approvals is reached.
     /// @param _approvalBits The approval bits.
     /// @return True if the minimum number of approvals is reached, false otherwise.
     function _isApproved(uint256 _approvalBits) private view returns (bool) {

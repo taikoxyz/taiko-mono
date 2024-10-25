@@ -161,6 +161,12 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         emit Anchored(parentHash, newGasExcess);
     }
 
+    /// @notice Anchors the latest L1 block details to L2 for cross-layer
+    /// message verification with additional base fee configuration.
+    /// @param _anchorBlockId The synced L1 height in the next Taiko block.
+    /// @param _anchorStateRoot The state root for the L1 block with id equals `_anchorBlockId`.
+    /// @param _parentGasUsed Gas used in the parent block.
+    /// @param _baseFeeConfig The base fee config object.
     function anchorV2(
         uint64 _anchorBlockId,
         bytes32 _anchorStateRoot,
@@ -256,7 +262,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
     /// @dev DEPRECATED but used by node/client for syncing old blocks
     /// @notice Gets the basefee and gas excess using EIP-1559 configuration for
     /// the given parameters.
-    /// @param _anchorBlockId The synced L1 height in the next Taiko block
+    /// @param _anchorBlockId The synced L1 height in the next Taiko block.
     /// @param _parentGasUsed Gas used in the parent block.
     /// @return basefee_ The calculated EIP-1559 base fee per gas.
     /// @return parentGasExcess_ The new parentGasExcess value.
@@ -309,6 +315,8 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         return false;
     }
 
+    /// @notice Returns the fork height.
+    /// @return Returns the fork height.
     function ontakeForkHeight() public pure virtual returns (uint64) {
         return 0;
     }
@@ -347,8 +355,8 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         );
     }
 
-    /// @notice Calculates the public input hash for the given block ID.
-    /// @dev This function computes two public input hashes: one for the previous state and one for
+    /// @dev Calculates the public input hash for the given block ID.
+    /// This function computes two public input hashes: one for the previous state and one for
     /// the new state.
     /// It uses a ring buffer to store the previous 255 block hashes and the current chain ID.
     /// @param _blockId The ID of the block for which the public input hash is calculated.

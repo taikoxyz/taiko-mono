@@ -19,6 +19,8 @@ abstract contract TierProviderBase is ITierProvider {
     /// @inheritdoc ITierProvider
     /// @notice Each tier, except the top tier, has a validity bond that is 75 TAIKO higher than the
     /// previous tier. Additionally, each tier's contest bond is 6.5625 times its validity bond.
+    /// @param _tierId The ID of the tier to retrieve.
+    /// @return A Tier struct with the parameters for the specified tier.
     function getTier(uint16 _tierId) public pure virtual returns (ITierProvider.Tier memory) {
         if (_tierId == LibTiers.TIER_OPTIMISTIC) {
             // cooldownWindow is 1440 minutes and provingWindow is 15 minutes

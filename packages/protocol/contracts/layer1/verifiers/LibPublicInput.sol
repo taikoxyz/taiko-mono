@@ -9,13 +9,13 @@ import "../../layer1/based/TaikoData.sol";
 /// @custom:security-contact security@taiko.xyz
 library LibPublicInput {
     /// @notice Hashes the public input for the proof verification.
-    /// @param _tran The transition to verify.
-    /// @param _verifierContract The contract address which as current verifier.
-    /// @param _newInstance The new instance address. For SGX it is the new signer address, for ZK
-    /// this variable is not used and must have value address(0).
-    /// @param _prover The prover address.
+    /// @param _tran The transition data to verify.
+    /// @param _verifierContract The address of the current verifier contract.
+    /// @param _newInstance The new instance address. For SGX, it is the new signer address. For ZK,
+    /// this variable is not used and must have the value address(0).
+    /// @param _prover The address of the prover.
     /// @param _metaHash The meta hash.
-    /// @param _chainId The chain id.
+    /// @param _chainId The chain ID.
     /// @return The public input hash.
     function hashPublicInputs(
         TaikoData.Transition memory _tran,

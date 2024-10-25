@@ -33,7 +33,7 @@ contract SP1Verifier is EssentialContract, IVerifier {
         __Essential_init(_owner, _addressManager);
     }
 
-    /// @notice Sets/unsets an the program's verification key as trusted entity
+    /// @notice Sets/unsets the program's verification key as a trusted entity
     /// @param _programVKey The verification key of the program.
     /// @param _trusted True if trusted, false otherwise.
     function setProgramTrusted(bytes32 _programVKey, bool _trusted) external onlyOwner {
@@ -42,6 +42,10 @@ contract SP1Verifier is EssentialContract, IVerifier {
         emit ProgramTrusted(_programVKey, _trusted);
     }
 
+    /// @notice Verifies a proof
+    /// @param _ctx The context of the proof
+    /// @param _tran The transition data
+    /// @param _proof The proof data
     /// @inheritdoc IVerifier
     function verifyProof(
         Context calldata _ctx,
@@ -74,6 +78,9 @@ contract SP1Verifier is EssentialContract, IVerifier {
         require(success, SP1_INVALID_PROOF());
     }
 
+    /// @notice Verifies a batch proof
+    /// @param _ctxs The contexts of the proofs
+    /// @param _proof The proof data
     /// @inheritdoc IVerifier
     function verifyBatchProof(
         ContextV2[] calldata _ctxs,
@@ -119,10 +126,14 @@ contract SP1Verifier is EssentialContract, IVerifier {
         require(success, SP1_INVALID_PROOF());
     }
 
+    /// @dev Returns the Taiko chain ID
+    /// @return The chain ID
     function taikoChainId() internal view virtual returns (uint64) {
         return ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfig().chainId;
     }
 
+    /// @dev Returns the address of the SP1 remote verifier
+    /// @return The address of the SP1 remote verifier
     function sp1RemoteVerifier() public view virtual returns (address) {
         return resolve(LibStrings.B_SP1_REMOTE_VERIFIER, false);
     }

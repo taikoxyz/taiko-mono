@@ -30,8 +30,8 @@ interface IVerifier {
 
     /// @notice Verifies a proof.
     /// @param _ctx The context of the proof verification.
-    /// @param _tran The transition to verify.
-    /// @param _proof The proof to verify.
+    /// @param _tran The transition data to verify.
+    /// @param _proof The tier proof containing sub-proofs to verify.
     function verifyProof(
         Context calldata _ctx,
         TaikoData.Transition calldata _tran,
@@ -41,7 +41,7 @@ interface IVerifier {
 
     /// @notice Verifies multiple proofs.
     /// @param _ctxs The array of contexts for the proof verifications.
-    /// @param _proof The batch proof to verify.
+    /// @param _proof The tier proof containing sub-proofs to verify.
     function verifyBatchProof(
         ContextV2[] calldata _ctxs,
         TaikoData.TierProof calldata _proof

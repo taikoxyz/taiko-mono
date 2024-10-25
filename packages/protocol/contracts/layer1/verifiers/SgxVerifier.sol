@@ -138,6 +138,10 @@ contract SgxVerifier is EssentialContract, IVerifier {
     }
 
     /// @inheritdoc IVerifier
+    /// @notice Verifies the proof of a single transition.
+    /// @param _ctx The context of the proof.
+    /// @param _tran The transition data.
+    /// @param _proof The proof data.
     function verifyProof(
         Context calldata _ctx,
         TaikoData.Transition calldata _tran,
@@ -171,6 +175,9 @@ contract SgxVerifier is EssentialContract, IVerifier {
     }
 
     /// @inheritdoc IVerifier
+    /// @notice Verifies the proof of a batch of transitions.
+    /// @param _ctxs The array of contexts of the proofs.
+    /// @param _proof The proof data.
     function verifyBatchProof(
         ContextV2[] calldata _ctxs,
         TaikoData.TierProof calldata _proof
@@ -218,10 +225,16 @@ contract SgxVerifier is EssentialContract, IVerifier {
         }
     }
 
+    /// @notice Returns the chain ID of the Taiko chain.
+    /// @return The chain ID.
     function taikoChainId() internal view virtual returns (uint64) {
         return ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfig().chainId;
     }
 
+    /// @notice Adds new SGX instances to the registry.
+    /// @param _instances The address array of new SGX instances.
+    /// @param instantValid A boolean indicating if the instances should be instantly valid.
+    /// @return ids The respective instanceId array per addresses.
     function _addInstances(
         address[] memory _instances,
         bool instantValid
@@ -253,6 +266,10 @@ contract SgxVerifier is EssentialContract, IVerifier {
         }
     }
 
+    /// @notice Replaces an old SGX instance with a new one.
+    /// @param id The ID of the SGX instance.
+    /// @param oldInstance The address of the old SGX instance.
+    /// @param newInstance The address of the new SGX instance.
     function _replaceInstance(uint256 id, address oldInstance, address newInstance) private {
         // Replacing an instance means, it went through a cooldown (if added by on-chain RA) so no
         // need to have a cooldown
@@ -260,6 +277,10 @@ contract SgxVerifier is EssentialContract, IVerifier {
         emit InstanceAdded(id, newInstance, oldInstance, block.timestamp);
     }
 
+    /// @notice Checks if an SGX instance is valid.
+    /// @param id The ID of the SGX instance.
+    /// @param instance The address of the SGX instance.
+    /// @return True if the instance is valid, false otherwise.
     function _isInstanceValid(uint256 id, address instance) private view returns (bool) {
         if (instance == address(0)) return false;
         if (instance != instances[id].addr) return false;

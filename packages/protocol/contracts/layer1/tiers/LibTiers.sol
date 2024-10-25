@@ -9,13 +9,13 @@ library LibTiers {
     uint16 public constant TIER_OPTIMISTIC = 100;
 
     /// @notice TEE tiers
-    /// Although these tiers have diffeerent IDs, at most one should be selected in a verifier.
+    /// @dev Although these tiers have different IDs, at most one should be selected in a verifier.
     uint16 public constant TIER_SGX = 200;
     uint16 public constant TIER_TDX = 201;
     uint16 public constant TIER_TEE_ANY = 202;
 
     /// @notice ZK Tiers.
-    /// Although these tiers have diffeerent IDs, at most one should be selected in a verifier.
+    /// @dev Although these tiers have different IDs, at most one should be selected in a verifier.
     uint16 public constant TIER_ZKVM_RISC0 = 250;
     uint16 public constant TIER_ZKVM_SP1 = 251;
     uint16 public constant TIER_ZKVM_ANY = 252;

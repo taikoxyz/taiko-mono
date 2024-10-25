@@ -124,6 +124,10 @@ abstract contract SgxVerifierBase is EssentialContract {
         }
     }
 
+    /// @dev Adds new SGX instances to the registry.
+    /// @param _instances The address array of new SGX instances.
+    /// @param instantValid A boolean indicating if the instances should be instantly valid.
+    /// @return ids The respective instanceId array per addresses.
     function _addInstances(
         address[] memory _instances,
         bool instantValid
@@ -155,6 +159,10 @@ abstract contract SgxVerifierBase is EssentialContract {
         }
     }
 
+    /// @dev Replaces an old SGX instance with a new one.
+    /// @param id The ID of the SGX instance.
+    /// @param oldInstance The address of the old SGX instance.
+    /// @param newInstance The address of the new SGX instance.
     function _replaceInstance(uint256 id, address oldInstance, address newInstance) internal {
         // Replacing an instance means, it went through a cooldown (if added by on-chain RA) so no
         // need to have a cooldown
@@ -162,6 +170,10 @@ abstract contract SgxVerifierBase is EssentialContract {
         emit InstanceAdded(id, newInstance, oldInstance, block.timestamp);
     }
 
+    /// @dev Checks if an SGX instance is valid.
+    /// @param id The ID of the SGX instance.
+    /// @param instance The address of the SGX instance.
+    /// @return True if the instance is valid, false otherwise.
     function _isInstanceValid(uint256 id, address instance) internal view returns (bool) {
         if (instance == address(0)) return false;
         if (instance != instances[id].addr) return false;

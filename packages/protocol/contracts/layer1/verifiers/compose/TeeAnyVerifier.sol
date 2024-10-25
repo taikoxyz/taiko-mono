@@ -10,12 +10,18 @@ contract TeeAnyVerifier is ComposeVerifier {
     uint256[50] private __gap;
 
     /// @inheritdoc ComposeVerifier
+    /// @notice Checks if the caller is authorized
+    /// @param _caller The address of the caller
+    /// @return True if the caller is authorized, false otherwise
     function isCallerAuthorized(address _caller) public view override returns (bool) {
         return _caller == resolve(LibStrings.B_TAIKO, false)
             || _caller == resolve(LibStrings.B_TIER_ZKVM_AND_TEE, true);
     }
 
     /// @inheritdoc ComposeVerifier
+    /// @notice Gets the sub-verifiers and the threshold
+    /// @return verifiers_ An array of addresses of the sub-verifiers
+    /// @return numSubProofs_ The number of sub-proofs required
     function getSubVerifiersAndThreshold()
         public
         view
