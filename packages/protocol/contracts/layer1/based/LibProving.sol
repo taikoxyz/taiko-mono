@@ -28,7 +28,6 @@ library LibProving {
         bool isTopTier;
         bool inProvingWindow;
         bool sameTransition;
-        bool isSyncBlock;
     }
 
     /// @notice Emitted when a transition is proved.
@@ -217,9 +216,6 @@ library LibProving {
         local.slot = local.meta.id % _config.blockRingBufferSize;
         TaikoData.BlockV2 storage blk = _state.blocks[local.slot];
 
-        local.isSyncBlock =
-            LibUtils.shouldSyncStateRoot(_config.stateRootSyncInternal, local.blockId);
-
         local.metaHash = blk.metaHash;
 
         // Check the integrity of the block data. It's worth noting that in
@@ -310,7 +306,7 @@ library LibProving {
 
         local.isTopTier = local.tier.contestBond == 0;
 
-        if (local.isSyncBlock) {
+        if (LibUtils.isSyncBlock(_config.stateRootSyncInternal, local.blockId)) {
             local.sameTransition =
                 ctx_.tran.blockHash == ts.blockHash && ctx_.tran.stateRoot == ts.stateRoot;
         } else {
