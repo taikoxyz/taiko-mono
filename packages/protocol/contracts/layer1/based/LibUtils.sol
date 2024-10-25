@@ -16,6 +16,8 @@ import "./TaikoData.sol";
 library LibUtils {
     using LibMath for uint256;
 
+    uint256 internal constant SECONDS_IN_MINUTE = 60;
+
     /// @dev Emitted when a block is verified.
     /// @param blockId The ID of the verified block.
     /// @param prover The prover whose transition is used for verifying the
@@ -26,7 +28,6 @@ library LibUtils {
         uint256 indexed blockId, address indexed prover, bytes32 blockHash, uint16 tier
     );
 
-    error L1_BLOCK_MISMATCH();
     error L1_INVALID_BLOCK_ID();
     error L1_INVALID_PARAMS();
     error L1_INVALID_GENESIS_HASH();
@@ -47,6 +48,8 @@ library LibUtils {
         TaikoData.BlockV2 storage blk = _state.blocks[0];
         blk.nextTransitionId = 2;
         blk.proposedAt = uint64(block.timestamp);
+        // TODO:
+        // blk.proposedIn = uint64(block.number);
         blk.verifiedTransitionId = 1;
         blk.metaHash = bytes32(uint256(1)); // Give the genesis metahash a non-zero value.
 
@@ -122,7 +125,7 @@ library LibUtils {
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
         uint64 _blockId,
-        uint32 _tid
+        uint24 _tid
     )
         internal
         view
@@ -231,7 +234,8 @@ library LibUtils {
         returns (bool)
     {
         unchecked {
-            uint256 deadline = _tsTimestamp.max(_lastUnpausedAt) + _windowMinutes * 60;
+            uint256 deadline =
+                _tsTimestamp.max(_lastUnpausedAt) + _windowMinutes * SECONDS_IN_MINUTE;
             return block.timestamp >= deadline;
         }
     }

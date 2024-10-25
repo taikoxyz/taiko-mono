@@ -542,7 +542,7 @@ contract TaikoL1LibProvingWithTiers is TaikoL1TestBase {
                 blockHash,
                 stateRoot,
                 LibTiers.TIER_SGX,
-                LibUtils.L1_BLOCK_MISMATCH.selector
+                LibProving.L1_BLOCK_MISMATCH.selector
             );
 
             parentHash = blockHash;

@@ -225,7 +225,7 @@ library TaikoData {
         // Ring buffer for transitions
         mapping(
             uint64 blockId_mod_blockRingBufferSize
-                => mapping(uint32 transitionId => TransitionState ts)
+                => mapping(uint24 transitionId => TransitionState ts)
         ) transitions;
         bytes32 __reserve1; // Used as a ring buffer for Ether deposits
         SlotA slotA; // slot 5
