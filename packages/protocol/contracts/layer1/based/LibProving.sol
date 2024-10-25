@@ -517,7 +517,7 @@ library LibProving {
             if (_local.sameTransition) revert L1_ALREADY_PROVED();
 
             // The code below will be executed if
-            // - 1) the transition is proved for the fist time, or
+            // - 1) the transition is proved for the first time, or
             // - 2) the transition is contested.
             reward = _rewardAfterFriction(_ts.validityBond);
 
