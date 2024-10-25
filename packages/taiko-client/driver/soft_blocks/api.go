@@ -3,6 +3,7 @@ package softblocks
 import (
 	"net/http"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/labstack/echo/v4"
 )
@@ -18,34 +19,45 @@ const (
 
 // SoftBlockParams represents the parameters for building a soft block.
 type SoftBlockParams struct {
-	// Block parameters
+	// @param timestamp uint64 Timestamp of the soft block
 	Timestamp uint64 `json:"timestamp"`
-	Coinbase  string `json:"coinbase"`
+	// @param coinbase uint64 Coinbase of the soft block
+	Coinbase string `json:"coinbase"`
 
-	// AnchorV2 parameters
-	AnchorBlockID   uint64 `json:"anchorBlockID"`
-	AnchorStateRoot string `json:"anchorStateRoot"`
+	// @param anchorBlockID uint64 `_anchorBlockId` parameter of the `anchorV2` transaction in soft block
+	AnchorBlockID uint64 `json:"anchorBlockID"`
+	// @param anchorStateRoot string `_anchorStateRoot` parameter of the `anchorV2` transaction in soft block
+	AnchorStateRoot common.Hash `json:"anchorStateRoot"`
 }
 
 // TransactionBatch represents a soft block group.
 type TransactionBatch struct {
-	BlockID          uint64                 `json:"blockId"`
-	ID               uint64                 `json:"batchId"`
-	TransactionsList string                 `json:"transactions"`
-	BatchMarker      TransactionBatchMarker `json:"batchType"`
-	Signature        string                 `json:"signature"`
-	BlockParams      *SoftBlockParams       `json:"blockParams"`
+	// @param blockId uint64 Block ID of the soft block
+	BlockID uint64 `json:"blockId"`
+	// @param batchId uint64 ID of this transaction batch
+	ID uint64 `json:"batchId"`
+	// @param transactions string zlib compressed RLP encoded bytes of a transactions list
+	TransactionsList []byte `json:"transactions"`
+	// @param batchType TransactionBatchMarker Marker of the transaction batch,
+	// @param either `end_of_block`, `end_of_preconf` or empty
+	BatchMarker TransactionBatchMarker `json:"batchType"`
+	// @param signature string Signature of this transaction batch
+	Signature string `json:"signature"`
+	// @param blockParams SoftBlockParams Block parameters of the soft block
+	BlockParams *SoftBlockParams `json:"blockParams"`
 }
 
 // BuildSoftBlockRequestBody represents a request body when handling
 // soft blocks creation requests.
 type BuildSoftBlockRequestBody struct {
+	// @param transactionBatch TransactionBatch Transaction batch to be inserted into the soft block
 	TransactionBatch TransactionBatch `json:"transactionBatch"`
 }
 
 // CreateOrUpdateBlocksFromBatchResponseBody represents a response body when handling soft
 // blocks creation requests.
 type BuildSoftBlockResponseBody struct {
+	// @param blockHeader types.Header Header of the soft block
 	BlockHeader types.Header `json:"blockHeader"`
 }
 
@@ -66,21 +78,41 @@ type BuildSoftBlockResponseBody struct {
 //		@Success	200		{object} BuildSoftBlockResponseBody
 //		@Router		/softBlocks [post]
 func (s *SoftBlockAPIServer) BuildSoftBlock(c echo.Context) error {
-	return c.NoContent(http.StatusOK)
+	// Check if the L2 execution engine is syncing from L1.
+	progress, err := s.rpc.L2ExecutionEngineSyncProgress(c.Request().Context())
+	if err != nil {
+		return err
+	}
+	if progress.IsSyncing() {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "L2 execution engine is syncing"})
+	}
+
+	// Insert the soft block.
+	header, err := s.chainSyncer.BlobSyncer().InsertSoftBlock(c.Request().Context())
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, BuildSoftBlockResponseBody{BlockHeader: *header})
 }
 
 // RemoveSoftBlocksRequestBody represents a request body when resetting the backend
 // L2 execution engine soft head.
 type RemoveSoftBlocksRequestBody struct {
+	// @param newLastBlockID uint64 New last block ID of the blockchain, it should
+	// @param not smaller than the canonical chain's highest block ID.
 	NewLastBlockID uint64 `json:"newLastBlockId"`
 }
 
 // RemoveSoftBlocksResponseBody represents a response body when resetting the backend
 // L2 execution engine soft head.
 type RemoveSoftBlocksResponseBody struct {
-	LastBlockID         uint64 `json:"lastBlockId"`
+	// @param lastBlockID uint64 Current highest block ID of the blockchain (including soft blocks)
+	LastBlockID uint64 `json:"lastBlockId"`
+	// @param lastProposedBlockID uint64 Highest block ID of the cnonical chain
 	LastProposedBlockID uint64 `json:"lastProposedBlockID"`
-	HeadsRemoved        uint64 `json:"headsRemoved"`
+	// @param headsRemoved uint64 Number of soft heads removed
+	HeadsRemoved uint64 `json:"headsRemoved"`
 }
 
 // RemoveSoftBlocks removes the backend L2 execution engine soft head.

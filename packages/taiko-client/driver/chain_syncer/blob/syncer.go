@@ -106,6 +106,11 @@ func (s *Syncer) ProcessL1Blocks(ctx context.Context) error {
 	}
 }
 
+// InsertSoftBlock inserts a soft block into the L2 execution engine's blockchain.
+func (s *Syncer) InsertSoftBlock(ctx context.Context) (*types.Header, error) {
+	return nil, nil
+}
+
 // processL1Blocks is the inner method which responsible for processing
 // all new L1 blocks.
 func (s *Syncer) processL1Blocks(ctx context.Context) error {

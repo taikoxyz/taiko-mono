@@ -111,7 +111,12 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "transactionBatch": {
-                    "$ref": "#/definitions/softblocks.TransactionBatch"
+                    "description": "@param transactionBatch TransactionBatch Transaction batch to be inserted into the soft block",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/softblocks.TransactionBatch"
+                        }
+                    ]
                 }
             }
         },
@@ -119,7 +124,12 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "blockHeader": {
-                    "$ref": "#/definitions/types.Header"
+                    "description": "@param blockHeader types.Header Header of the soft block",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/types.Header"
+                        }
+                    ]
                 }
             }
         },
@@ -127,6 +137,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "newLastBlockId": {
+                    "description": "@param newLastBlockID uint64 New last block ID of the blockchain, it should\n@param not smaller than the canonical chain's highest block ID.",
                     "type": "integer"
                 }
             }
@@ -135,12 +146,15 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "headsRemoved": {
+                    "description": "@param headsRemoved uint64 Number of soft heads removed",
                     "type": "integer"
                 },
                 "lastBlockId": {
+                    "description": "@param lastBlockID uint64 Current highest block ID of the blockchain (including soft blocks)",
                     "type": "integer"
                 },
                 "lastProposedBlockID": {
+                    "description": "@param lastProposedBlockID uint64 Highest block ID of the cnonical chain",
                     "type": "integer"
                 }
             }
@@ -149,17 +163,22 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "anchorBlockID": {
-                    "description": "AnchorV2 parameters",
+                    "description": "@param anchorBlockID uint64 ` + "`" + `_anchorBlockId` + "`" + ` parameter of the ` + "`" + `anchorV2` + "`" + ` transaction in soft block",
                     "type": "integer"
                 },
                 "anchorStateRoot": {
-                    "type": "string"
+                    "description": "@param anchorStateRoot string ` + "`" + `_anchorStateRoot` + "`" + ` parameter of the ` + "`" + `anchorV2` + "`" + ` transaction in soft block",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
                 },
                 "coinbase": {
+                    "description": "@param coinbase uint64 Coinbase of the soft block",
                     "type": "string"
                 },
                 "timestamp": {
-                    "description": "Block parameters",
+                    "description": "@param timestamp uint64 Timestamp of the soft block",
                     "type": "integer"
                 }
             }
@@ -168,22 +187,39 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "batchId": {
+                    "description": "@param batchId uint64 ID of this transaction batch",
                     "type": "integer"
                 },
                 "batchType": {
-                    "$ref": "#/definitions/softblocks.TransactionBatchMarker"
+                    "description": "@param batchType TransactionBatchMarker Marker of the transaction batch,\n@param either ` + "`" + `end_of_block` + "`" + `, ` + "`" + `end_of_preconf` + "`" + ` or empty",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/softblocks.TransactionBatchMarker"
+                        }
+                    ]
                 },
                 "blockId": {
+                    "description": "@param blockId uint64 Block ID of the soft block",
                     "type": "integer"
                 },
                 "blockParams": {
-                    "$ref": "#/definitions/softblocks.SoftBlockParams"
+                    "description": "@param blockParams SoftBlockParams Block parameters of the soft block",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/softblocks.SoftBlockParams"
+                        }
+                    ]
                 },
                 "signature": {
+                    "description": "@param signature string Signature of this transaction batch",
                     "type": "string"
                 },
                 "transactions": {
-                    "type": "string"
+                    "description": "@param transactions string zlib compressed RLP encoded bytes of a transactions list",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
                 }
             }
         },

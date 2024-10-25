@@ -8,6 +8,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 
 	chainSyncer "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
 // @title Taiko Soft Block Server API
@@ -24,6 +25,7 @@ import (
 type SoftBlockAPIServer struct {
 	echo        *echo.Echo
 	chainSyncer *chainSyncer.L2ChainSyncer
+	rpc         *rpc.Client
 }
 
 // New creates a new soft blcok server instance.
