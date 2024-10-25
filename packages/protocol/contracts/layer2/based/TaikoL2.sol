@@ -231,7 +231,9 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         emit Anchored(parentHash, parentGasExcess);
     }
 
-    /// @notice Withdraw token or Ether from this address
+    /// @notice Withdraw token or Ether from this address.
+    /// Note: This contract receives a portion of L2 base fees, while the remainder is directed to
+    /// L2 block's coinbase address.
     /// @param _token Token address or address(0) if Ether.
     /// @param _to Withdraw to address.
     function withdraw(
