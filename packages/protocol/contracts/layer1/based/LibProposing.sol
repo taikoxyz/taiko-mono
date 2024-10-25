@@ -289,7 +289,7 @@ library LibProposing {
             livenessBond: local.postFork ? 0 : meta_.livenessBond,
             blockId: local.b.numBlocks,
             proposedAt: local.params.timestamp,
-            proposedIn: local.params.anchorBlockId,
+            proposedIn: local.postFork ? local.params.anchorBlockId : uint64(block.number),
             // For a new block, the next transition ID is always 1, not 0.
             nextTransitionId: 1,
             livenessBondReturned: false,
