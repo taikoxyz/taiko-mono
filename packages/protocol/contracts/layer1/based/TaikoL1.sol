@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import "src/shared/common/EssentialContract.sol";
 import "./LibData.sol";
 import "./LibProposing.sol";
@@ -224,7 +225,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         view
         returns (TaikoData.TransitionState memory)
     {
-        return LibUtils.getTransition(state, getConfig(), _blockId, _tid);
+        return LibUtils.getTransition(state, getConfig(), _blockId,
+  SafeCastUpgradeable.toUint24(_tid));
     }
 
     /// @notice Returns information about the last verified block.

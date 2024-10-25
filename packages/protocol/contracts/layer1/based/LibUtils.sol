@@ -48,7 +48,8 @@ library LibUtils {
         TaikoData.BlockV2 storage blk = _state.blocks[0];
         blk.nextTransitionId = 2;
         blk.proposedAt = uint64(block.timestamp);
-        blk.proposedIn = uint64(block.number);
+        // TODO:
+        // blk.proposedIn = uint64(block.number);
         blk.verifiedTransitionId = 1;
         blk.metaHash = bytes32(uint256(1)); // Give the genesis metahash a non-zero value.
 
@@ -124,7 +125,7 @@ library LibUtils {
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
         uint64 _blockId,
-        uint32 _tid
+        uint24 _tid
     )
         internal
         view
