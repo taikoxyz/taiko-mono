@@ -172,30 +172,6 @@ contract GuardianProver is IVerifier, EssentialContract {
         tko.transfer(_to, amount);
     }
 
-    /// @dev Called by guardians to approve a guardian proof
-    /// @param _meta The block's metadata.
-    /// @param _tran The valid transition.
-    /// @param _proof The tier proof.
-    /// @return approved_ True if the minimum number of approval is acquired, false otherwise.
-    function approve(
-        TaikoData.BlockMetadata calldata _meta,
-        TaikoData.Transition calldata _tran,
-        TaikoData.TierProof calldata _proof
-    )
-        external
-        whenNotPaused
-        nonReentrant
-        returns (bool)
-    {
-        return _approve({
-            _blockId: _meta.id,
-            _proofHash: keccak256(abi.encode(_meta, _tran, _proof.data)),
-            _blockHash: _tran.blockHash,
-            _data: abi.encode(_meta, _tran, _proof),
-            _proofData: _proof.data
-        });
-    }
-
     /// @notice Called by guardians to approve a guardian proof (version 2).
     /// @param _metaV2 The block's metadata (version 2).
     /// @param _tran The valid transition.
