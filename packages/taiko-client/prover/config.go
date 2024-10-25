@@ -62,7 +62,7 @@ type Config struct {
 	PrivateTxmgrConfigs                     *txmgr.CLIConfig
 	ProofBufferSize                         uint64
 	ZKVMProofBufferSize                     uint64
-	ProveInterval                           time.Duration
+	ForceProveInterval                      time.Duration
 }
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
@@ -188,6 +188,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		),
 		ProofBufferSize:     c.Uint64(flags.BatchSize.Name),
 		ZKVMProofBufferSize: c.Uint64(flags.ZKVMBatchSize.Name),
-		ProveInterval:       c.Duration(flags.ProveInterval.Name),
+		ForceProveInterval:  c.Duration(flags.ForceProveInterval.Name),
 	}, nil
 }

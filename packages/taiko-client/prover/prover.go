@@ -291,7 +291,7 @@ func (p *Prover) eventLoop() {
 	forceProvingTicker := time.NewTicker(15 * time.Second)
 	defer forceProvingTicker.Stop()
 
-	forceAggregatingTicker := time.NewTicker(p.cfg.ProveInterval)
+	forceAggregatingTicker := time.NewTicker(p.cfg.ForceProveInterval)
 	defer forceAggregatingTicker.Stop()
 
 	// Channels
