@@ -204,6 +204,7 @@ library LibProposing {
             blobHash: 0, // to be initialized below
             // To make sure each L2 block can be executed deterministically by the client
             // without referring to its metadata on Ethereum, we need to encode
+            // config.sharingPctg into the extraData.
             extraData: _encodeBaseFeeConfig(_config.baseFeeConfig),
             coinbase: local.params.coinbase,
             id: local.b.numBlocks,
