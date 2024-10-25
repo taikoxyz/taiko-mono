@@ -26,7 +26,6 @@ library LibUtils {
         uint256 indexed blockId, address indexed prover, bytes32 blockHash, uint16 tier
     );
 
-    error L1_BLOCK_MISMATCH();
     error L1_INVALID_BLOCK_ID();
     error L1_INVALID_PARAMS();
     error L1_INVALID_GENESIS_HASH();
