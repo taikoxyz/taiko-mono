@@ -33,6 +33,8 @@ contract BadgeMigration is
 {
     /// @notice Season 1 Badges ERC721 contract
     TrailblazersBadgesV4 public s1Badges;
+    /// @notice badges role key
+    bytes32 public constant S1_BADGES_ROLE = keccak256("S1_BADGES_ROLE");
     /// @notice Season 2 Badges ERC1155 contract
     TrailblazersBadgesS2 public s2Badges;
     /// @notice Wallet authorized to sign as a source of randomness
@@ -167,13 +169,6 @@ contract BadgeMigration is
         _;
     }
 
-    modifier onlyS1Contract() {
-        if (_msgSender() != address(s1Badges)) {
-            revert NOT_S1_CONTRACT();
-        }
-        _;
-    }
-
     /// @notice Contract initializer
     /// @param _s1Badges The Season 1 Badges contract address
     /// @param _s2Badges The Season 2 Badges contract address
@@ -192,6 +187,7 @@ contract BadgeMigration is
         __Context_init();
         _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
         s1Badges = TrailblazersBadgesV4(_s1Badges);
+        _grantRole(S1_BADGES_ROLE, _s1Badges);
         s2Badges = TrailblazersBadgesS2(_s2Badges);
         randomSigner = _randomSigner;
         config = _config;
@@ -349,7 +345,7 @@ contract BadgeMigration is
     )
         external
         virtual
-        onlyS1Contract
+        onlyRole(S1_BADGES_ROLE)
         migrationOpen(_s1BadgeId)
         isNotMigrating(_user)
         hasntMigratedInCycle(_s1BadgeId, _user)

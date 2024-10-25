@@ -27,6 +27,7 @@ contract TrailblazersBadgesS2 is
     ContextUpgradeable,
     UUPSUpgradeable,
     Ownable2StepUpgradeable,
+    AccessControlUpgradeable,
     ERC1155SupplyUpgradeable
 {
     /// @notice Badge types
@@ -59,24 +60,23 @@ contract TrailblazersBadgesS2 is
 
     /// @notice Badge mapping
     mapping(uint256 tokenId => Badge badge) private badges;
+    /// @notice User, Badge, and Movement relation to tokenId
+    mapping(
+        address user
+            => mapping(BadgeType badgeType => mapping(MovementType movementType => uint256 tokenId))
+    ) private userBadges;
     /// @notice Badge URI template
     string public uriTemplate;
     /// @notice Minter address; BadgeMigration contract
     address public minter;
+    /// @notice Minter role
+    bytes32 public constant MINTER = keccak256("MINTER");
     /// @notice Gap for upgrade safety
     uint256[43] private __gap;
 
     /// @notice Errors
     error NOT_MINTER();
     error TOKEN_NOT_MINTED();
-
-    /// @notice Allow only the minter to call the function
-    modifier onlyMinter() {
-        if (minter != _msgSender()) {
-            revert NOT_MINTER();
-        }
-        _;
-    }
 
     /// @notice Initialize the contract
     /// @param _minter The minter address
@@ -93,7 +93,8 @@ contract TrailblazersBadgesS2 is
         __ERC1155Supply_init();
         _transferOwnership(_msgSender());
         __Context_init();
-
+        _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
+        _grantRole(MINTER, _minter);
         minter = _minter;
         uriTemplate = _uriTemplate;
     }
@@ -101,8 +102,9 @@ contract TrailblazersBadgesS2 is
     /// @notice Set the minter address
     /// @param _minter The minter address
     /// @dev Only the owner can call this function
-    function setMinter(address _minter) external virtual onlyOwner {
+    function setMinter(address _minter) external virtual onlyRole(DEFAULT_ADMIN_ROLE) {
         minter = _minter;
+        _grantRole(MINTER, _minter);
     }
 
     /// @notice Mint a badge
@@ -117,7 +119,7 @@ contract TrailblazersBadgesS2 is
     )
         external
         virtual
-        onlyMinter
+        onlyRole(MINTER)
     {
         uint256 tokenId_ = totalSupply() + 1;
         Badge memory badge_ = Badge(tokenId_, _badgeType, _movementType);
@@ -184,7 +186,13 @@ contract TrailblazersBadgesS2 is
     /// @notice supportsInterface implementation
     /// @param _interfaceId The interface ID
     /// @return Whether the interface is supported
-    function supportsInterface(bytes4 _interfaceId) public view virtual override returns (bool) {
+    function supportsInterface(bytes4 _interfaceId)
+        public
+        view
+        virtual
+        override(AccessControlUpgradeable, ERC1155Upgradeable)
+        returns (bool)
+    {
         return super.supportsInterface(_interfaceId);
     }
 

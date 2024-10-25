@@ -251,9 +251,8 @@ contract TrailblazersBadgesS2Test is Test {
 
         // exercise the randomFromSignature function
 
-        vm.startPrank(minters[0]);
+        vm.prank(minters[0]);
         migration.endMigration(claimHash, v, r, s, 0);
-        vm.stopPrank();
 
         // check for s2 state reset
         assertEq(migration.isMigrationActive(minters[0]), false);
