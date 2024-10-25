@@ -228,35 +228,31 @@ library LibProposing {
         // the block data to be stored on-chain for future integrity checks.
         // If we choose to persist all data fields in the metadata, it will
         // require additional storage slots.
-        unchecked {
-            meta_ = TaikoData.BlockMetadataV2({
-                anchorBlockHash: blockhash(local.params.anchorBlockId),
-                difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", local.b.numBlocks)),
-                blobHash: 0, // to be initialized below
-                // To make sure each L2 block can be exexucated deterministiclly by the client
-                // without referering to its metadata on Ethereum, we need to encode
-                // config.sharingPctg into the extraData.
-                extraData: local.postFork
-                    ? _encodeBaseFeeConfig(_config.baseFeeConfig)
-                    : local.extraData,
-                coinbase: local.params.coinbase,
-                id: local.b.numBlocks,
-                gasLimit: _config.blockMaxGasLimit,
-                timestamp: local.params.timestamp,
-                anchorBlockId: local.params.anchorBlockId,
-                minTier: 0, // to be initialized below
-                blobUsed: _txList.length == 0,
-                parentMetaHash: local.params.parentMetaHash,
-                proposer: local.params.proposer,
-                livenessBond: _config.livenessBond,
-                proposedAt: uint64(block.timestamp),
-                proposedIn: uint64(block.number),
-                blobTxListOffset: local.params.blobTxListOffset,
-                blobTxListLength: local.params.blobTxListLength,
-                blobIndex: local.params.blobIndex,
-                baseFeeConfig: _config.baseFeeConfig
-            });
-        }
+        meta_ = TaikoData.BlockMetadataV2({
+            anchorBlockHash: blockhash(local.params.anchorBlockId),
+            difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", local.b.numBlocks)),
+            blobHash: 0, // to be initialized below
+            // To make sure each L2 block can be exexucated deterministiclly by the client
+            // without referering to its metadata on Ethereum, we need to encode
+            // config.sharingPctg into the extraData.
+            extraData: local.postFork ? _encodeBaseFeeConfig(_config.baseFeeConfig) : local.extraData,
+            coinbase: local.params.coinbase,
+            id: local.b.numBlocks,
+            gasLimit: _config.blockMaxGasLimit,
+            timestamp: local.params.timestamp,
+            anchorBlockId: local.params.anchorBlockId,
+            minTier: 0, // to be initialized below
+            blobUsed: _txList.length == 0,
+            parentMetaHash: local.params.parentMetaHash,
+            proposer: local.params.proposer,
+            livenessBond: _config.livenessBond,
+            proposedAt: uint64(block.timestamp),
+            proposedIn: uint64(block.number),
+            blobTxListOffset: local.params.blobTxListOffset,
+            blobTxListLength: local.params.blobTxListLength,
+            blobIndex: local.params.blobIndex,
+            baseFeeConfig: _config.baseFeeConfig
+        });
 
         // Update certain meta fields
         if (meta_.blobUsed) {
