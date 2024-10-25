@@ -368,7 +368,6 @@ library LibProving {
                     revert L1_CANNOT_CONTEST();
                 }
 
-                // _checkIfContestable(/*_state,*/ tier.cooldownWindow, ts.timestamp);
                 // Burn the contest bond from the prover.
                 LibBonds.debitBond(
                     _state, _resolver, msg.sender, local.blockId, local.tier.contestBond
