@@ -14,6 +14,7 @@ interface IHasRecipient {
     function recipient() external view returns (address);
 }
 
+/// @dev Implements the contract for handling TKO tokens and relaying `proveBlock` calls.
 /// @title ProverSet
 /// @notice A contract that holds TKO token and acts as a Taiko prover. This contract will simply
 /// relay `proveBlock` calls to TaikoL1 so msg.sender doesn't need to hold any TKO.
@@ -21,7 +22,7 @@ interface IHasRecipient {
 contract ProverSet is EssentialContract, IERC1271 {
     bytes4 private constant _EIP1271_MAGICVALUE = 0x1626ba7e;
 
-    mapping(address prover => bool isProver) public isProver; // slot 1
+    mapping(address => bool) public isProver; // slot 1
     address public admin; // slot 2
 
     uint256[48] private __gap;
@@ -50,11 +51,12 @@ contract ProverSet is EssentialContract, IERC1271 {
         address _rollupAddressManager
     )
         external
-        nonZeroAddr(_admin)
         initializer
+        nonZeroAddr(_admin)
     {
         __Essential_init(_owner, _rollupAddressManager);
         admin = _admin;
+        // Sets the maximum allowance for Taiko token interactions
         IERC20(tkoToken()).approve(taikoL1(), type(uint256).max);
     }
 
@@ -95,7 +97,7 @@ contract ProverSet is EssentialContract, IERC1271 {
         ITaikoL1(taikoL1()).proposeBlock(_params, _txList);
     }
 
-    /// @notice Propose a Taiko block.
+    /// @notice Propose a Taiko block (Version 2).
     function proposeBlockV2(
         bytes calldata _params,
         bytes calldata _txList
@@ -137,11 +139,13 @@ contract ProverSet is EssentialContract, IERC1271 {
     }
 
     /// @notice Deposits Taiko token to TaikoL1 contract.
+    /// @param _amount The amount of TKO to deposit as bond
     function depositBond(uint256 _amount) external onlyAuthorized {
         ITaikoL1(taikoL1()).depositBond(_amount);
     }
 
     /// @notice Withdraws Taiko token from TaikoL1 contract.
+    /// @param _amount The amount of TKO to withdraw as bond
     function withdrawBond(uint256 _amount) external onlyAuthorized {
         ITaikoL1(taikoL1()).withdrawBond(_amount);
     }
