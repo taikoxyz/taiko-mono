@@ -1,7 +1,7 @@
 services:
   l1_node:
     container_name: l1_node
-    image: ghcr.io/foundry-rs/foundry:nightly
+    image: ghcr.io/foundry-rs/foundry:nightly-2044faec64f99a21f0e5f0094458a973612d0712
     restart: unless-stopped
     platform: linux/amd64
     pull_policy: always

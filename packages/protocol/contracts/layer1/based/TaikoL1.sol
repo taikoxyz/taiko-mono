@@ -49,7 +49,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         bool _toPause
     )
         external
-        initializer
+        reinitializer(2)
     {
         __Essential_init(_owner, _rollupAddressManager);
         LibUtils.init(state, getConfig(), _genesisBlockHash);
