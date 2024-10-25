@@ -54,20 +54,23 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         if (_toPause) _pause();
     }
 
+    /// @notice Resets some previously used slots for future reuse.
     function init2() external onlyOwner reinitializer(2) {
-        // reset some previously used slots for future reuse
         state.slotB.__reservedB1 = 0;
         state.slotB.__reservedB2 = 0;
         state.slotB.__reservedB3 = 0;
         state.__reserve1 = 0;
     }
 
+    /// @notice Resets the value from EssentialContract that is no longer used.
     function init3() external onlyOwner reinitializer(3) {
-        // this value from EssentialContract is no longer used.
         __lastUnpausedAt = 0;
     }
 
     /// @inheritdoc ITaikoL1
+    /// @param _params Encoded data bytes containing the block parameters.
+    /// @param _txList Transaction list bytes (if not blob).
+    /// @return meta_ The metadata of the proposed block (version 2).
     function proposeBlockV2(
         bytes calldata _params,
         bytes calldata _txList
@@ -83,6 +86,9 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     }
 
     /// @inheritdoc ITaikoL1
+    /// @param _paramsArr An array of encoded data bytes containing the block parameters.
+    /// @param _txListArr An array of transaction list bytes (if not blob).
+    /// @return metaArr_ An array of metadata objects for the proposed L2 blocks (version 2).
     function proposeBlocksV2(
         bytes[] calldata _paramsArr,
         bytes[] calldata _txListArr
@@ -98,6 +104,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     }
 
     /// @inheritdoc ITaikoL1
+    /// @param _blockId The ID of the block to prove.
+    /// @param _input The input data for proving the block.
     function proveBlock(
         uint64 _blockId,
         bytes calldata _input
@@ -112,6 +120,9 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     }
 
     /// @inheritdoc ITaikoL1
+    /// @param _blockIds An array of block IDs to prove.
+    /// @param _inputs An array of input data for proving the blocks.
+    /// @param _batchProof The batch proof data.
     function proveBlocks(
         uint64[] calldata _blockIds,
         bytes[] calldata _inputs,
@@ -127,6 +138,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     }
 
     /// @inheritdoc ITaikoL1
+    /// @param _maxBlocksToVerify The maximum number of blocks to verify.
     function verifyBlocks(uint64 _maxBlocksToVerify)
         external
         whenNotPaused
@@ -138,21 +150,25 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     }
 
     /// @inheritdoc ITaikoL1
+    /// @param _pause true to pause proving, false to unpause.
     function pauseProving(bool _pause) external {
         _authorizePause(msg.sender, _pause);
         LibProving.pauseProving(state, _pause);
     }
 
     /// @inheritdoc ITaikoL1
+    /// @param _amount The amount of bond to deposit.
     function depositBond(uint256 _amount) external whenNotPaused {
         LibBonds.depositBond(state, this, _amount);
     }
 
     /// @inheritdoc ITaikoL1
+    /// @param _amount The amount of bond to withdraw.
     function withdrawBond(uint256 _amount) external whenNotPaused {
         LibBonds.withdrawBond(state, this, _amount);
     }
 
+    /// @notice Unpauses the contract.
     function unpause() public override whenPaused {
         _authorizePause(msg.sender, false);
         __paused = _FALSE;
@@ -161,18 +177,21 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     }
 
     /// @notice Gets the current bond balance of a given address.
+    /// @param _user The address of the user.
     /// @return The current bond balance.
     function bondBalanceOf(address _user) external view returns (uint256) {
         return LibBonds.bondBalanceOf(state, _user);
     }
 
     /// @inheritdoc ITaikoL1
+    /// @param _blockId The ID of the block.
+    /// @return prover_ The address of the prover.
     function getVerifiedBlockProver(uint64 _blockId) external view returns (address prover_) {
         return LibVerifying.getVerifiedBlockProver(state, getConfig(), _blockId);
     }
 
     /// @notice Gets the details of a block.
-    /// @param _blockId Index of the block.
+    /// @param _blockId The ID of the block.
     /// @return blk_ The block.
     function getBlock(uint64 _blockId) external view returns (TaikoData.Block memory blk_) {
         (TaikoData.BlockV2 memory blk,) = LibUtils.getBlock(state, getConfig(), _blockId);
@@ -180,14 +199,15 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     }
 
     /// @inheritdoc ITaikoL1
+    /// @param _blockId The ID of the block.
+    /// @return blk_ The block (version 2).
     function getBlockV2(uint64 _blockId) external view returns (TaikoData.BlockV2 memory blk_) {
         (blk_,) = LibUtils.getBlock(state, getConfig(), _blockId);
     }
 
-    /// @notice This function will revert if the transition is not found. This function will revert
-    /// if the transition is not found.
-    /// @param _blockId Index of the block.
-    /// @param _parentHash Parent hash of the block.
+    /// @notice This function will revert if the transition is not found.
+    /// @param _blockId The ID of the block.
+    /// @param _parentHash The parent hash of the block.
     /// @return The state transition data of the block.
     function getTransition(
         uint64 _blockId,
@@ -200,10 +220,10 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         return LibUtils.getTransition(state, getConfig(), _blockId, _parentHash);
     }
 
-    /// @notice Gets the state transitions for a batch of block. For transition that doesn't exist,
+    /// @notice Gets the state transitions for a batch of blocks. For transitions that don't exist,
     /// the corresponding transition state will be empty.
-    /// @param _blockIds Index of the blocks.
-    /// @param _parentHashes Parent hashes of the blocks.
+    /// @param _blockIds An array of block indices.
+    /// @param _parentHashes An array of parent hashes of the blocks.
     /// @return The state transition array of the blocks.
     function getTransitions(
         uint64[] calldata _blockIds,
@@ -217,6 +237,9 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     }
 
     /// @inheritdoc ITaikoL1
+    /// @param _blockId The ID of the block.
+    /// @param _tid The transition ID.
+    /// @return The state transition data of the block.
     function getTransition(
         uint64 _blockId,
         uint32 _tid
@@ -244,9 +267,9 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     }
 
     /// @notice Returns information about the last synchronized block.
-    /// @return blockId_ The last verified block's ID.
-    /// @return blockHash_ The last verified block's blockHash.
-    /// @return stateRoot_ The last verified block's stateRoot.
+    /// @return blockId_ The last synchronized block's ID.
+    /// @return blockHash_ The last synchronized block's blockHash.
+    /// @return stateRoot_ The last synchronized block's stateRoot.
     /// @return verifiedAt_ The timestamp this block is verified at.
     function getLastSyncedBlock()
         external
@@ -269,11 +292,14 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         return (state.slotA, state.slotB);
     }
 
+    /// @notice Returns the timestamp of the last unpaused state.
+    /// @return The timestamp of the last unpaused state.
     function lastUnpausedAt() public view override returns (uint64) {
         return state.slotB.lastUnpausedAt;
     }
 
     /// @inheritdoc ITaikoL1
+    /// @return The configuration parameters for the Taiko protocol.
     function getConfig() public pure virtual returns (TaikoData.Config memory) {
         return TaikoData.Config({
             chainId: LibNetwork.TAIKO_MAINNET,
@@ -296,6 +322,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     }
 
     /// @dev chain watchdog is supposed to be a cold wallet.
+    /// @param _pause true to pause, false to unpause.
     function _authorizePause(
         address,
         bool

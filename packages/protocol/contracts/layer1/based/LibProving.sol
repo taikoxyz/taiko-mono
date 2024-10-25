@@ -8,7 +8,7 @@ import "./LibUtils.sol";
 import "./LibVerifying.sol";
 
 /// @title LibProving
-/// @notice A library that offers helper functions for the Taiko protocol.
+/// @notice A library that offers transition proving and contesting helper functions.
 /// @custom:security-contact security@taiko.xyz
 library LibProving {
     using LibMath for uint256;
@@ -93,6 +93,7 @@ library LibProving {
         emit ProvingPaused(_pause);
     }
 
+    /// @notice Proves or contests multiple Taiko L2 blocks.
     /// @dev Proves or contests multiple Taiko L2 blocks.
     /// @param _state Current TaikoData.State.
     /// @param _config Actual TaikoData.Config.
@@ -153,6 +154,7 @@ library LibProving {
         }
     }
 
+    /// @notice Proves or contests a single Taiko L2 block.
     /// @dev Proves or contests a single Taiko L2 block.
     /// @param _state Current TaikoData.State.
     /// @param _config Actual TaikoData.Config.
@@ -174,6 +176,18 @@ library LibProving {
         _proveBlock(_state, _config, _resolver, _blockId, _input, noBatchProof);
     }
 
+    /// @dev Proves or contests a single Taiko L2 block.
+    /// @param _state Current TaikoData.State.
+    /// @param _config Actual TaikoData.Config.
+    /// @param _resolver Address resolver interface.
+    /// @param _blockId The index of the block to prove. This is also used to
+    /// select the right implementation version.
+    /// @param _input An abi-encoded (TaikoData.BlockMetadata, TaikoData.Transition,
+    /// TaikoData.TierProof) tuple.
+    /// @param _batchProof An abi-encoded TaikoData.TierProof that contains the batch/aggregated
+    /// proof for the given blocks.
+    /// @return ctx_ The context of the verifier.
+    /// @return verifierName_ The name of the verifier.
     function _proveBlock(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
@@ -403,7 +417,13 @@ library LibProving {
         }
     }
 
-    /// @dev Handle the transition initialization logic
+    /// @dev Handles the transition initialization logic
+    /// @param _state Current TaikoData.State.
+    /// @param _blk Current TaikoData.BlockV2.
+    /// @param _tran Current TaikoData.Transition.
+    /// @param _local Current Local struct.
+    /// @return tid_ The transition ID.
+    /// @return ts_ The transition state.
     function _fetchOrCreateTransition(
         TaikoData.State storage _state,
         TaikoData.BlockV2 storage _blk,
@@ -473,15 +493,13 @@ library LibProving {
 
     /// @dev Handles what happens when either the first transition is being proven or there is a
     /// higher tier proof incoming
-    ///
-    /// Assume Alice is the initial prover, Bob is the contester, and Cindy is the subsequent
-    /// prover. The validity bond `V` is set at 100, and the contestation bond `C` at 500. If Bob
-    /// successfully contests, he receives a reward of 65.625, calculated as 3/4 of 7/8 of 100. Cindy
-    /// receives 21.875, which is 1/4 of 7/8 of 100, while the protocol retains 12.5 as friction.
-    /// Bob's Return on Investment (ROI) is 13.125%, calculated from 65.625 divided by 500.
-    // To establish the expected ROI `r` for valid contestations, where the contestation bond `C` to
-    // validity bond `V` ratio is `C/V = 21/(32*r)`, and if `r` set at 10%, the C/V ratio will be
-    // 6.5625.
+    /// @param _state Current TaikoData.State.
+    /// @param _resolver Address resolver interface.
+    /// @param _blk Current TaikoData.BlockV2.
+    /// @param _ts Current TaikoData.TransitionState.
+    /// @param _tran Current TaikoData.Transition.
+    /// @param _proof Current TaikoData.TierProof.
+    /// @param _local Current Local struct.
     function _overrideWithHigherProof(
         TaikoData.State storage _state,
         IAddressResolver _resolver,
@@ -567,11 +585,16 @@ library LibProving {
     }
 
     /// @dev Returns the reward after applying 12.5% friction.
+    /// @param _amount The amount to apply friction to.
+    /// @return The reward after applying friction.
     function _rewardAfterFriction(uint256 _amount) private pure returns (uint256) {
         return (_amount * 7) >> 3;
     }
 
     /// @dev Returns if the liveness bond shall be returned.
+    /// @param _local Current Local struct.
+    /// @param _proofData The proof data.
+    /// @return True if the liveness bond shall be returned, false otherwise.
     function _returnLivenessBond(
         Local memory _local,
         bytes memory _proofData

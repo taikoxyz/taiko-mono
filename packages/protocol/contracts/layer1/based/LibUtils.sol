@@ -11,7 +11,7 @@ import "../tiers/ITierRouter.sol";
 import "./TaikoData.sol";
 
 /// @title LibUtils
-/// @notice A library that offers helper functions.
+/// @notice A library that offers general helper functions.
 /// @custom:security-contact security@taiko.xyz
 library LibUtils {
     using LibMath for uint256;
@@ -93,6 +93,7 @@ library LibUtils {
     /// @param _blockId Id of the block.
     /// @return blockHash_ The block's block hash.
     /// @return stateRoot_ The block's storage root.
+    /// @return verifiedAt_ The timestamp when the block was verified.
     function getBlockInfo(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,

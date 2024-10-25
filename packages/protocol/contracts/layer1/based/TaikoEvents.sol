@@ -11,30 +11,30 @@ import "./TaikoData.sol";
 /// L1 libraries.
 /// @custom:security-contact security@taiko.xyz
 abstract contract TaikoEvents {
-    /// @dev Emitted when tokens are deposited into a user's bond balance.
+    /// @notice Emitted when tokens are deposited into a user's bond balance.
     /// @param user The address of the user who deposited the tokens.
     /// @param amount The amount of tokens deposited.
     event BondDeposited(address indexed user, uint256 amount);
 
-    /// @dev Emitted when tokens are withdrawn from a user's bond balance.
+    /// @notice Emitted when tokens are withdrawn from a user's bond balance.
     /// @param user The address of the user who withdrew the tokens.
     /// @param amount The amount of tokens withdrawn.
     event BondWithdrawn(address indexed user, uint256 amount);
 
-    /// @dev Emitted when a token is credited back to a user's bond balance.
+    /// @notice Emitted when a token is credited back to a user's bond balance.
     /// @param user The address of the user whose bond balance is credited.
     /// @param blockId The ID of the block to credit for.
     /// @param amount The amount of tokens credited.
     event BondCredited(address indexed user, uint256 blockId, uint256 amount);
 
-    /// @dev Emitted when a token is debited from a user's bond balance.
+    /// @notice Emitted when a token is debited from a user's bond balance.
     /// @param user The address of the user whose bond balance is debited.
     /// @param blockId The ID of the block to debit for.
     /// @param amount The amount of tokens debited.
     event BondDebited(address indexed user, uint256 blockId, uint256 amount);
 
-    /// @dev DEPRECATED but used by node/client for syncing old blocks
     /// @notice Emitted when a block is proposed.
+    /// @dev DEPRECATED but used by node/client for syncing old blocks.
     /// @param blockId The ID of the proposed block.
     /// @param assignedProver The address of the assigned prover.
     /// @param livenessBond The liveness bond of the proposed block.
@@ -59,8 +59,8 @@ abstract contract TaikoEvents {
     /// @param txList The txList.
     event CalldataTxList(uint256 indexed blockId, bytes txList);
 
-    /// @dev DEPRECATED but used by node/client for syncing old blocks
     /// @notice Emitted when a transition is proved.
+    /// @dev DEPRECATED but used by node/client for syncing old blocks.
     /// @param blockId The block ID.
     /// @param tran The transition data.
     /// @param prover The prover's address.
@@ -90,8 +90,8 @@ abstract contract TaikoEvents {
         uint64 proposedIn
     );
 
-    /// @dev DEPRECATED but used by node/client for syncing old blocks
     /// @notice Emitted when a transition is contested.
+    /// @dev DEPRECATED but used by node/client for syncing old blocks.
     /// @param blockId The block ID.
     /// @param tran The transition data.
     /// @param contester The contester's address.
@@ -125,8 +125,8 @@ abstract contract TaikoEvents {
     /// @param paused The pause status.
     event ProvingPaused(bool paused);
 
-    /// @dev DEPRECATED but used by node/client for syncing old blocks
-    /// @dev Emitted when a block is verified.
+    /// @notice Emitted when a block is verified.
+    /// @dev DEPRECATED but used by node/client for syncing old blocks.
     /// @param blockId The ID of the verified block.
     /// @param prover The prover whose transition is used for verifying the
     /// block.
@@ -141,7 +141,7 @@ abstract contract TaikoEvents {
         uint16 tier
     );
 
-    /// @dev Emitted when a block is verified.
+    /// @notice Emitted when a block is verified.
     /// @param blockId The ID of the verified block.
     /// @param prover The prover whose transition is used for verifying the
     /// block.

@@ -9,7 +9,7 @@ import "./LibUtils.sol";
 import "./LibVerifying.sol";
 
 /// @title LibProposing
-/// @notice A library for handling block proposals in the Taiko protocol.
+/// @notice A library that offers block proposing helper functions.
 /// @custom:security-contact security@taiko.xyz
 library LibProposing {
     using LibAddress for address;
@@ -106,6 +106,13 @@ library LibProposing {
         }
     }
 
+    /// @notice Proposes a Taiko L2 block.
+    /// @param _state The current state of the Taiko protocol.
+    /// @param _config The configuration parameters for the Taiko protocol.
+    /// @param _resolver The address resolver interface.
+    /// @param _params Encoded data bytes containing the block parameters.
+    /// @param _txList Transaction list bytes (if not blob).
+    /// @return meta_ The metadata of the proposed block (version 2).
     function _proposeBlock(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
@@ -275,6 +282,9 @@ library LibProposing {
         emit BlockProposedV2(meta_.id, meta_);
     }
 
+    /// @notice Encodes the base fee configuration.
+    /// @param _baseFeeConfig The base fee configuration.
+    /// @return The encoded base fee configuration.
     function _encodeBaseFeeConfig(LibSharedData.BaseFeeConfig memory _baseFeeConfig)
         private
         pure

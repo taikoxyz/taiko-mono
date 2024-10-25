@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import "./TaikoData.sol";
 
 /// @title ITaikoL1
+/// @notice Interface for the Taiko L1 contract
 /// @custom:security-contact security@taiko.xyz
 interface ITaikoL1 {
     /// @notice Proposes a Taiko L2 block (version 2)
@@ -37,7 +38,7 @@ interface ITaikoL1 {
 
     /// @notice Proves or contests multiple block transitions (version 2)
     /// @param _blockIds The indices of the blocks to prove.
-    /// @param _inputs An list of abi-encoded (TaikoData.BlockMetadata, TaikoData.Transition,
+    /// @param _inputs A list of abi-encoded (TaikoData.BlockMetadata, TaikoData.Transition,
     /// TaikoData.TierProof) tuples.
     /// @param _batchProof An abi-encoded TaikoData.TierProof that contains the batch/aggregated
     /// proof for the given blocks.
