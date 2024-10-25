@@ -100,8 +100,8 @@ func (p *Prover) initProofSubmitters(
 		var (
 			producer   proofProducer.ProofProducer
 			submitter  proofSubmitter.Submitter
-			err        error
 			bufferSize = p.cfg.ProofBufferSize
+			err        error
 		)
 		switch tier.ID {
 		case encoding.TierOptimisticID:
