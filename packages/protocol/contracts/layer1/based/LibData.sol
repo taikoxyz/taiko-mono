@@ -15,8 +15,8 @@ library LibData {
     {
         return TaikoData.Block({
             metaHash: _v2.metaHash,
-            assignedProver: _v2.assignedProver,
-            livenessBond: _v2.livenessBond,
+            assignedProver: address(0), // assigned prover is now meta.proposer.
+            livenessBond: 0, // liveness bond is now meta.livenessBond
             blockId: _v2.blockId,
             proposedAt: _v2.proposedAt,
             proposedIn: _v2.proposedIn,

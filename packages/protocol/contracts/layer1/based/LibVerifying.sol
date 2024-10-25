@@ -119,7 +119,7 @@ library LibVerifying {
                 local.blockHash = ts.blockHash;
                 local.prover = ts.prover;
 
-                LibBonds.creditBond(_state, local.prover, ts.validityBond);
+                LibBonds.creditBond(_state, local.prover, local.blockId, ts.validityBond);
 
                 // Note: We exclusively address the bonds linked to the
                 // transition used for verification. While there may exist

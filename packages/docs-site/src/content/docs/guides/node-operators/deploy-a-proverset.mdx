@@ -93,11 +93,11 @@ This guide outlines how to achieve this with separate EOAs running prover and pr
 
 5. **Configure the contract as necessary**
 
-    Manage the contract's allowance with [approveAllowance()](https://github.com/taikoxyz/taiko-mono/blob/116d3f4886dea01333b829677ec9b6d4492479c6/packages/protocol/contracts/team/proving/ProverSet.sol#L63). TaikoL1's contract allowance is by default set to `UINT256.MAX` in the init function.
+    Manage the contract's allowance with [approveAllowance()](https://github.com/taikoxyz/taiko-mono/blob/protocol-v1.9.0/packages/protocol/contracts/layer1/provers/ProverSet.sol#L64). TaikoL1's contract allowance is by default set to `UINT256.MAX` in the init function.
 
 6. **Deposit your tokens and run your proposer + prover as usual!**
 
-    If you've followed the instructions, send your TAIKO/TTKOh to the ProverSet proxy and begin running your prover and proposer as usual. Send the tokens to your ProverSet contract, and start proving. If you've set up your allowance properly, there should be no need to use the `depositBond` function, as it deposits TTKOh from the ProverSet to TaikoL1.
+    If you've followed the instructions, send your TAIKO/TTKOh to the ProverSet proxy and begin running your prover and proposer as usual. If you've set up your allowance properly, there should be no need to use the `depositBond` function, as it deposits TTKOh from the ProverSet to TaikoL1.
 
     <Aside>
         Make sure to set your `$PROVER_SET` in your `simple-taiko-node` .env file as the proxy address.
@@ -106,7 +106,7 @@ This guide outlines how to achieve this with separate EOAs running prover and pr
     Ensure that you have set up the EOAs correctly to avoid problems.
 
     <Aside>
-    You can withdraw the deposited tokens to the `admin` address with [withdrawToAdmin()](https://github.com/taikoxyz/taiko-mono/blob/116d3f4886dea01333b829677ec9b6d4492479c6/packages/protocol/contracts/team/proving/ProverSet.sol#L76).
+    You can withdraw the deposited tokens to the `admin` address with [withdrawToAdmin()](https://github.com/taikoxyz/taiko-mono/blob/protocol-v1.9.0/packages/protocol/contracts/layer1/provers/ProverSet.sol#L77).
     </Aside>
 
 </Steps>
@@ -133,12 +133,12 @@ If you've already deployed a ProverSet but would like to upgrade it through the 
     Execute the following command, filling in the values in the curly braces appropriately.
 
     ```bash
-    forge create --private-key {YOUR_PRIVATE_KEY} --chain-id 17000 --rpc-url {YOUR_RPC_URL} contracts/layer1/provers/ProverSet.sol:ProverSet
+    forge create --private-key {YOUR_PRIVATE_KEY} --chain-id {CHAIN_ID} --rpc-url {YOUR_RPC_URL} contracts/layer1/provers/ProverSet.sol:ProverSet
     ```
 
     <Aside>
     If you are getting EvmErrors, your private key may be formatted incorrectly; try prefixing it with `0x` and rerunning the script.
-    
+
     Depending on the protocol release you use, the path to the ProverSet contract may also be different; change as necessary!
     </Aside>
 
@@ -152,7 +152,7 @@ If you've already deployed a ProverSet but would like to upgrade it through the 
 
     Then, proceed to your original Proxy contract; access the `Write to Proxy` tab and scroll to the `upgradeTo()` function.
 
-    Connect your EOA that you originally deployed the ProverSet from and call the function with your new `Deployed to:` address. 
+    Connect your EOA that you originally deployed the ProverSet from and call the function with your new `Deployed to:` address.
 
     Once the transaction succeeds, you have successfully upgraded your ProverSet.
 
@@ -164,7 +164,7 @@ If you've already deployed a ProverSet but would like to upgrade it through the 
 
     If you've managed to propose and prove some blocks, it's likely you're wondering where your tokens went after.
 
-    It's not missing, it's just been deposited as bond in the TaikoL1 contract; you can withdraw it from the ProverSet contract with [withdrawBond()](https://github.com/taikoxyz/taiko-mono/blob/dd09223de53669b84241672eeb4b8574e5c7f821/packages/protocol/contracts/team/proving/ProverSet.sol#L110) manually.
+    It's not missing, it's just been deposited as bond in the TaikoL1 contract; you can withdraw it to the ProverSet contract with [withdrawBond()](https://github.com/taikoxyz/taiko-mono/blob/protocol-v1.9.0/packages/protocol/contracts/layer1/provers/ProverSet.sol#L136) manually.
 
 ### How do I verify my ProverSet contract?
 
@@ -174,7 +174,7 @@ If you've already deployed a ProverSet but would like to upgrade it through the 
     Then, navigate to the `protocol` package in `taiko-mono` and execute the following command substituting values in curly braces as necessary.
 
     ```bash
-    forge verify-contract --chain-id 17000 --etherscan-api-key {GET-API-KEY-FROM-ETHERSCAN-FIRST} {PUT-CONTRACT-ADDRESS-HERE} contracts/team/proving/ProverSet.sol:ProverSet
+    forge verify-contract --chain-id {CHAIN_ID} --etherscan-api-key {GET-API-KEY-FROM-ETHERSCAN-FIRST} {PUT-CONTRACT-ADDRESS-HERE} contracts/layer1/provers/ProverSet.sol:ProverSet
     ```
 
     You should get a success message and your contract should now show up as verified on Etherscan!
