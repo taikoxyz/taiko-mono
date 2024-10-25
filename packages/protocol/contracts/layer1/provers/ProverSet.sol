@@ -10,7 +10,12 @@ import "src/shared/common/LibStrings.sol";
 import "src/shared/common/LibAddress.sol";
 import "../based/ITaikoL1.sol";
 
+/// @title IHasRecipient
+/// @notice Interface to get the recipient address.
+/// @dev This interface is used to retrieve the recipient address associated with a contract.
 interface IHasRecipient {
+    /// @notice Returns the recipient address.
+    /// @return The address of the recipient.
     function recipient() external view returns (address);
 }
 
@@ -44,6 +49,9 @@ contract ProverSet is EssentialContract, IERC1271 {
     }
 
     /// @notice Initializes the contract.
+    /// @param _owner The owner of the contract.
+    /// @param _admin The admin of the contract.
+    /// @param _rollupAddressManager The address of the rollup address manager.
     function init(
         address _owner,
         address _admin,
@@ -58,11 +66,16 @@ contract ProverSet is EssentialContract, IERC1271 {
         IERC20(tkoToken()).approve(taikoL1(), type(uint256).max);
     }
 
+    /// @notice Approves allowance for a given address.
+    /// @param _address The address to approve allowance for.
+    /// @param _allowance The amount of allowance to approve.
     function approveAllowance(address _address, uint256 _allowance) external onlyOwner {
         IERC20(tkoToken()).approve(_address, _allowance);
     }
 
     /// @notice Enables or disables a prover.
+    /// @param _prover The address of the prover.
+    /// @param _isProver The status to set for the prover.
     function enableProver(address _prover, bool _isProver) external onlyAuthorized {
         if (isProver[_prover] == _isProver) revert INVALID_STATUS();
         isProver[_prover] = _isProver;
@@ -71,21 +84,27 @@ contract ProverSet is EssentialContract, IERC1271 {
     }
 
     /// @notice Withdraws Taiko tokens back to the admin address.
+    /// @param _amount The amount of tokens to withdraw.
     function withdrawToAdmin(uint256 _amount) external onlyAuthorized {
         IERC20(tkoToken()).transfer(admin, _amount);
     }
 
     /// @notice Withdraws ETH back to the owner address.
+    /// @param _amount The amount of ETH to withdraw.
     function withdrawEtherToAdmin(uint256 _amount) external onlyAuthorized {
         LibAddress.sendEtherAndVerify(admin, _amount);
     }
 
     /// @notice Propose a Taiko block.
+    /// @param _params The parameters for the block proposal.
+    /// @param _txList The transaction list for the block proposal.
     function proposeBlockV2(bytes calldata _params, bytes calldata _txList) external onlyProver {
         ITaikoL1(taikoL1()).proposeBlockV2(_params, _txList);
     }
 
     /// @notice Propose multiple Taiko blocks.
+    /// @param _paramsArr The array of parameters for the block proposals.
+    /// @param _txListArr The array of transaction lists for the block proposals.
     function proposeBlocksV2(
         bytes[] calldata _paramsArr,
         bytes[] calldata _txListArr
@@ -97,11 +116,16 @@ contract ProverSet is EssentialContract, IERC1271 {
     }
 
     /// @notice Proves or contests a Taiko block.
+    /// @param _blockId The ID of the block to prove or contest.
+    /// @param _input The input data for the proof or contest.
     function proveBlock(uint64 _blockId, bytes calldata _input) external onlyProver {
         ITaikoL1(taikoL1()).proveBlock(_blockId, _input);
     }
 
     /// @notice Batch proves or contests Taiko blocks.
+    /// @param _blockId The array of block IDs to prove or contest.
+    /// @param _input The array of input data for the proofs or contests.
+    /// @param _batchProof The batch proof data.
     function proveBlocks(
         uint64[] calldata _blockId,
         bytes[] calldata _input,
@@ -114,11 +138,13 @@ contract ProverSet is EssentialContract, IERC1271 {
     }
 
     /// @notice Deposits Taiko token to TaikoL1 contract.
+    /// @param _amount The amount of tokens to deposit.
     function depositBond(uint256 _amount) external onlyAuthorized {
         ITaikoL1(taikoL1()).depositBond(_amount);
     }
 
     /// @notice Withdraws Taiko token from TaikoL1 contract.
+    /// @param _amount The amount of tokens to withdraw.
     function withdrawBond(uint256 _amount) external onlyAuthorized {
         ITaikoL1(taikoL1()).withdrawBond(_amount);
     }
@@ -129,7 +155,10 @@ contract ProverSet is EssentialContract, IERC1271 {
         ERC20VotesUpgradeable(tkoToken()).delegate(_delegatee);
     }
 
-    // This function is necessary for this contract to become an assigned prover.
+    /// @notice Checks if a signature is valid.
+    /// @param _hash The hash of the data to be signed.
+    /// @param _signature The signature to validate.
+    /// @return magicValue_ The magic value if the signature is valid.
     function isValidSignature(
         bytes32 _hash,
         bytes calldata _signature
@@ -144,10 +173,14 @@ contract ProverSet is EssentialContract, IERC1271 {
         }
     }
 
+    /// @dev Resolves the address of the TaikoL1 contract.
+    /// @return The address of the TaikoL1 contract.
     function taikoL1() internal view virtual returns (address) {
         return resolve(LibStrings.B_TAIKO, false);
     }
 
+    /// @dev Resolves the address of the TKO token contract.
+    /// @return The address of the TKO token contract.
     function tkoToken() internal view virtual returns (address) {
         return resolve(LibStrings.B_TAIKO_TOKEN, false);
     }

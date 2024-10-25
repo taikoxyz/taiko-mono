@@ -40,7 +40,9 @@ contract PreconfServiceManager is IPreconfServiceManager, ReentrancyGuard {
         _;
     }
 
-    /// @dev Simply relays the call to the AVS directory
+    /// @notice Registers an operator to AVS
+    /// @param operator The address of the operator to register
+    /// @param operatorSignature The signature, salt, and expiry of the operator
     function registerOperatorToAVS(
         address operator,
         bytes calldata operatorSignature
@@ -54,7 +56,8 @@ contract PreconfServiceManager is IPreconfServiceManager, ReentrancyGuard {
         avsDirectory.registerOperatorToAVS(operator, sig);
     }
 
-    /// @dev Simply relays the call to the AVS directory
+    /// @notice Deregisters an operator from AVS
+    /// @param operator The address of the operator to deregister
     function deregisterOperatorFromAVS(address operator)
         external
         nonReentrant
@@ -63,8 +66,9 @@ contract PreconfServiceManager is IPreconfServiceManager, ReentrancyGuard {
         avsDirectory.deregisterOperatorFromAVS(operator);
     }
 
-    /// @dev This not completely functional until Eigenlayer decides the logic of their Slasher.
-    ///  for now this simply sets a value in the storage and releases an event.
+    /// @notice Locks the stake of an operator until a specified timestamp
+    /// @param operator The address of the operator
+    /// @param timestamp The timestamp until which the stake is locked
     function lockStakeUntil(
         address operator,
         uint256 timestamp
@@ -77,7 +81,8 @@ contract PreconfServiceManager is IPreconfServiceManager, ReentrancyGuard {
         emit StakeLockedUntil(operator, timestamp);
     }
 
-    /// @dev This not completely functional until Eigenlayer decides the logic of their Slasher.
+    /// @notice Slashes an operator
+    /// @param operator The address of the operator to be slashed
     function slashOperator(address operator)
         external
         nonReentrant

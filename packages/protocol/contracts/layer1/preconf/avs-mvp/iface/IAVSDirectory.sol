@@ -3,27 +3,33 @@ pragma solidity ^0.8.24;
 
 interface IAVSDirectory {
     struct SignatureWithSaltAndExpiry {
-        // the signature itself, formatted as a single bytes object
+        /// @notice The signature itself, formatted as a single bytes object
         bytes signature;
-        // the salt used to generate the signature
+        /// @notice The salt used to generate the signature
         bytes32 salt;
-        // the expiration timestamp (UTC) of the signature
+        /// @notice The expiration timestamp (UTC) of the signature
         uint256 expiry;
     }
 
-    /// @dev This function will be left without implementation in the MVP
+    /// @notice Registers an operator to AVS
+    /// @param operator The address of the operator to register
+    /// @param operatorSignature The signature, salt, and expiry of the operator
     function registerOperatorToAVS(
         address operator,
         SignatureWithSaltAndExpiry memory operatorSignature
     )
         external;
 
-    /// @dev This function will be left without implementation in the MVP
+    /// @notice Deregisters an operator from AVS
+    /// @param operator The address of the operator to deregister
     function deregisterOperatorFromAVS(address operator) external;
 
-    /// @dev This function will have the implementation in the MVP so that the node can pull the
-    /// message
-    ///    to be signed
+    /// @notice Calculates the digest hash for operator AVS registration
+    /// @param operator The address of the operator
+    /// @param avs The address of the AVS
+    /// @param salt The salt used to generate the signature
+    /// @param expiry The expiration timestamp (UTC) of the signature
+    /// @return The digest hash for operator AVS registration
     function calculateOperatorAVSRegistrationDigestHash(
         address operator,
         address avs,

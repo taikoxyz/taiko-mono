@@ -19,6 +19,7 @@ contract TierProviderV2 is TierProviderBase {
     /// @param _address The address to check the tier for.
     /// @param _value The value to check the tier for.
     /// @return The minimum tier ID.
+    // solhint-disable-next-line no-unused-vars
     function getMinTier(address _address, uint256 _value) public pure override returns (uint16) {
         return LibTiers.TIER_SGX;
     }

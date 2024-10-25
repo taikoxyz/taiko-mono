@@ -33,16 +33,15 @@ contract PreconfRegistry is IPreconfRegistry, Initializable {
         preconfServiceManager = _preconfServiceManager;
     }
 
+    /// @notice Initializes the contract setting the initial preconfer index
     function init() external initializer {
         nextPreconferIndex = 1;
     }
 
-    /**
-     * @notice Registers a preconfer in the registry by giving it a non-zero index
-     * @dev This function internally accesses the restaking platform via the AVS service manager
-     * @param operatorSignature The signature of the operator in the format expected by the
-     * restaking platform
-     */
+    /// @notice Registers a preconfer in the registry by giving it a non-zero index
+    /// @dev This function internally accesses the restaking platform via the AVS service manager
+    /// @param operatorSignature The signature of the operator in the format expected by the
+    /// restaking platform
     function registerPreconfer(bytes calldata operatorSignature) external {
         // Preconfer must not have registered already
         if (preconferToIndex[msg.sender] != 0) {
@@ -63,11 +62,9 @@ contract PreconfRegistry is IPreconfRegistry, Initializable {
         preconfServiceManager.registerOperatorToAVS(msg.sender, operatorSignature);
     }
 
-    /**
-     * @notice Deregisters a preconfer from the registry by setting its index to zero
-     * @dev It assigns the index of the last preconfer to the preconfer being removed and
-     * decrements the global index counter.
-     */
+    /// @notice Deregisters a preconfer from the registry by setting its index to zero
+    /// @dev It assigns the index of the last preconfer to the preconfer being removed and
+    /// decrements the global index counter.
     function deregisterPreconfer() external {
         // Preconfer must have registered already
         uint256 removedPreconferIndex = preconferToIndex[msg.sender];
@@ -97,12 +94,10 @@ contract PreconfRegistry is IPreconfRegistry, Initializable {
         preconfServiceManager.deregisterOperatorFromAVS(msg.sender);
     }
 
-    /**
-     * @notice Assigns a validator to a preconfer
-     * @dev This function verifies BLS signatures which is a very expensive operation costing about
-     * ~350K units of gas per signature.
-     * @param addValidatorParams Contains the public key, signature, expiry, and preconfer
-     */
+    /// @notice Assigns a validator to a preconfer
+    /// @dev This function verifies BLS signatures which is a very expensive operation costing about
+    /// ~350K units of gas per signature.
+    /// @param addValidatorParams Contains the public key, signature, expiry, and preconfer
     function addValidators(AddValidatorParam[] calldata addValidatorParams) external {
         for (uint256 i; i < addValidatorParams.length; ++i) {
             // Revert if preconfer is not registered
@@ -152,12 +147,10 @@ contract PreconfRegistry is IPreconfRegistry, Initializable {
         }
     }
 
-    /**
-     * @notice Unassigns a validator from a preconfer
-     * @dev Instead of removing the validator immediately, we delay the removal by two epochs,
-     * & set the `stopProposingAt` timestamp.
-     * @param removeValidatorParams Contains the public key, signature and expiry
-     */
+    /// @notice Unassigns a validator from a preconfer
+    /// @dev Instead of removing the validator immediately, we delay the removal by two epochs, &
+    /// set the `stopProposingAt` timestamp.
+    /// @param removeValidatorParams Contains the public key, signature and expiry
     function removeValidators(RemoveValidatorParam[] calldata removeValidatorParams) external {
         for (uint256 i; i < removeValidatorParams.length; ++i) {
             bytes32 pubKeyHash = _hashBLSPubKey(removeValidatorParams[i].pubkey);
@@ -202,6 +195,11 @@ contract PreconfRegistry is IPreconfRegistry, Initializable {
     // Views
     //=======
 
+    /// @notice Creates a message to be signed by the validator
+    /// @param validatorOp The operation to be performed by the validator
+    /// @param expiry The expiry time of the signature
+    /// @param preconfer The address of the preconfer
+    /// @return The message to be signed
     function getMessageToSign(
         ValidatorOp validatorOp,
         uint256 expiry,
@@ -214,18 +212,29 @@ contract PreconfRegistry is IPreconfRegistry, Initializable {
         return _createMessage(validatorOp, expiry, preconfer);
     }
 
+    /// @notice Returns the next preconfer index
+    /// @return The next preconfer index
     function getNextPreconferIndex() external view returns (uint256) {
         return nextPreconferIndex;
     }
 
+    /// @notice Returns the index of a preconfer
+    /// @param preconfer The address of the preconfer
+    /// @return The index of the preconfer
     function getPreconferIndex(address preconfer) external view returns (uint256) {
         return preconferToIndex[preconfer];
     }
 
+    /// @notice Returns the address of the preconfer at a given index
+    /// @param index The index of the preconfer
+    /// @return The address of the preconfer
     function getPreconferAtIndex(uint256 index) external view returns (address) {
         return indexToPreconfer[index];
     }
 
+    /// @notice Returns the details of a validator
+    /// @param pubKeyHash The hash of the validator's public key
+    /// @return The details of the validator
     function getValidator(bytes32 pubKeyHash) external view returns (Validator memory) {
         return validators[pubKeyHash];
     }
@@ -234,6 +243,11 @@ contract PreconfRegistry is IPreconfRegistry, Initializable {
     // Helpers
     //=========
 
+    /// @dev Creates a message to be signed by the validator
+    /// @param validatorOp The operation to be performed by the validator
+    /// @param expiry The expiry time of the signature
+    /// @param preconfer The address of the preconfer
+    /// @return The message to be signed
     function _createMessage(
         ValidatorOp validatorOp,
         uint256 expiry,
@@ -246,6 +260,9 @@ contract PreconfRegistry is IPreconfRegistry, Initializable {
         return abi.encodePacked(block.chainid, validatorOp, expiry, preconfer);
     }
 
+    /// @dev Hashes the BLS public key
+    /// @param pubkey The BLS public key
+    /// @return The hash of the BLS public key
     function _hashBLSPubKey(LibBLS12381.G1Point calldata pubkey) internal pure returns (bytes32) {
         uint256[2] memory compressedPubKey = pubkey.compress();
         return keccak256(abi.encodePacked(compressedPubKey));

@@ -52,20 +52,27 @@ interface IPreconfRegistry {
     error ValidatorAlreadyActive();
     error ValidatorAlreadyInactive();
 
-    /// @dev Registers a preconfer by giving them a non-zero registry index
+    /// @notice Registers a preconfer by giving them a non-zero registry index
+    /// @param operatorSignature The signature of the operator
     function registerPreconfer(bytes calldata operatorSignature) external;
 
-    /// @dev Deregisters a preconfer from the registry
+    /// @notice Deregisters a preconfer from the registry
     function deregisterPreconfer() external;
 
-    /// @dev Adds consensus layer validators to the system by assigning preconfers to them
+    /// @notice Adds consensus layer validators to the system by assigning preconfers to them
+    /// @param addValidatorParams The parameters for adding validators
     function addValidators(AddValidatorParam[] calldata addValidatorParams) external;
 
-    /// @dev Removes active validators who are proposing for a preconfer
+    /// @notice Removes active validators who are proposing for a preconfer
+    /// @param removeValidatorParams The parameters for removing validators
     function removeValidators(RemoveValidatorParam[] calldata removeValidatorParams) external;
 
-    /// @dev Returns the message that the validator must sign to add or remove themselves from a
+    /// @notice Returns the message that the validator must sign to add or remove themselves from a
     /// preconfer
+    /// @param validatorOp The operation to be performed (ADD or REMOVE)
+    /// @param expiry The timestamp at which the signature expires
+    /// @param preconfer The address of the preconfer
+    /// @return The message to be signed by the validator
     function getMessageToSign(
         ValidatorOp validatorOp,
         uint256 expiry,
@@ -75,15 +82,22 @@ interface IPreconfRegistry {
         view
         returns (bytes memory);
 
-    /// @dev Returns the index of the next preconfer
+    /// @notice Returns the index of the next preconfer
+    /// @return The index of the next preconfer
     function getNextPreconferIndex() external view returns (uint256);
 
-    /// @dev Returns the index of the preconfer
+    /// @notice Returns the index of the preconfer
+    /// @param preconfer The address of the preconfer
+    /// @return The index of the preconfer
     function getPreconferIndex(address preconfer) external view returns (uint256);
 
-    /// @dev Returns the preconfer at the given index
+    /// @notice Returns the preconfer at the given index
+    /// @param index The index of the preconfer
+    /// @return The address of the preconfer
     function getPreconferAtIndex(uint256 index) external view returns (address);
 
-    /// @dev Returns a validator who is proposing for a registered preconfer
+    /// @notice Returns a validator who is proposing for a registered preconfer
+    /// @param pubKeyHash The hash of the public key of the validator
+    /// @return The validator who is proposing for the preconfer
     function getValidator(bytes32 pubKeyHash) external view returns (Validator memory);
 }

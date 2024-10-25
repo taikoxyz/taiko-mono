@@ -37,14 +37,14 @@ interface IPreconfTaskManager {
     error SenderIsNotThePreconfer();
     /// @dev Preconfer is not present in the registry
     error PreconferNotRegistered();
-    /// @dev  Epoch timestamp is incorrect
+    /// @dev Epoch timestamp is incorrect
     error InvalidEpochTimestamp();
     /// @dev The timestamp in the lookahead is not of a valid future slot in the present epoch
     error InvalidSlotTimestamp();
     /// @dev The chain id on which the preconfirmation was signed is different from the current
     /// chain's id
     error PreconfirmationChainIdMismatch();
-    /// @dev The dispute window for proving incorrectc lookahead or preconfirmation is over
+    /// @dev The dispute window for proving incorrect lookahead or preconfirmation is over
     error MissedDisputeWindow();
     /// @dev The lookahead poster for the epoch has already been slashed or there is no lookahead
     /// for epoch
@@ -56,7 +56,11 @@ interface IPreconfTaskManager {
     /// @dev The registry does not have a single registered preconfer
     error NoRegisteredPreconfer();
 
-    /// @dev Accepts block proposal by an operator and forwards it to TaikoL1 contract
+    /// @notice Accepts block proposal by an operator and forwards it to TaikoL1 contract
+    /// @param blockParamsArr Array of block parameters
+    /// @param txListArr Array of transaction lists
+    /// @param lookaheadPointer Pointer to the lookahead
+    /// @param lookaheadSetParams Array of lookahead set parameters
     function newBlockProposals(
         bytes[] calldata blockParamsArr,
         bytes[] calldata txListArr,
@@ -65,7 +69,11 @@ interface IPreconfTaskManager {
     )
         external;
 
-    /// @dev Slashes a preconfer if the validator lookahead pushed by them has an incorrect entry
+    /// @notice Slashes a preconfer if the validator lookahead pushed by them has an incorrect entry
+    /// @param lookaheadPointer Pointer to the lookahead
+    /// @param slotTimestamp Timestamp of the slot
+    /// @param validatorBLSPubKey BLS public key of the validator
+    /// @param validatorInclusionProof Inclusion proof of the validator
     function proveIncorrectLookahead(
         uint256 lookaheadPointer,
         uint256 slotTimestamp,
@@ -74,19 +82,27 @@ interface IPreconfTaskManager {
     )
         external;
 
-    /// @dev Forces the lookahead to be set for the next epoch if it is lagging behind
+    /// @notice Forces the lookahead to be set for the next epoch if it is lagging behind
+    /// @param lookaheadSetParams Array of lookahead set parameters
     function forcePushLookahead(LookaheadSetParam[] calldata lookaheadSetParams) external;
 
-    /// @dev Returns the fallback preconfer for the given epoch
+    /// @notice Returns the fallback preconfer for the given epoch
+    /// @param epochTimestamp Timestamp of the epoch
+    /// @return address of the fallback preconfer
     function getFallbackPreconfer(uint256 epochTimestamp) external view returns (address);
 
-    /// @dev Returns the full 32 slot preconfer lookahead for the epoch
+    /// @notice Returns the full 32 slot preconfer lookahead for the epoch
+    /// @param epochTimestamp Timestamp of the epoch
+    /// @return address[32] memory Array of preconfer addresses
     function getLookaheadForEpoch(uint256 epochTimestamp)
         external
         view
         returns (address[32] memory);
 
-    /// @dev Return the parameters required for the lookahead to be set for the given epoch
+    /// @notice Return the parameters required for the lookahead to be set for the given epoch
+    /// @param epochTimestamp Timestamp of the epoch
+    /// @param validatorBLSPubKeys Array of BLS public keys of the validators
+    /// @return LookaheadSetParam[] memory Array of lookahead set parameters
     function getLookaheadParamsForEpoch(
         uint256 epochTimestamp,
         bytes[32] calldata validatorBLSPubKeys
@@ -95,31 +111,41 @@ interface IPreconfTaskManager {
         view
         returns (LookaheadSetParam[] memory);
 
-    /// @dev Returns true is a lookahead is not posted for an epoch
+    /// @notice Returns true if a lookahead is not posted for an epoch
     /// @dev In the event that a lookahead was posted but later invalidated, this returns false
+    /// @return bool True if lookahead is required, false otherwise
     function isLookaheadRequired() external view returns (bool);
 
-    /// @dev Returns the current lookahead tail
+    /// @notice Returns the current lookahead tail
+    /// @return uint256 Current lookahead tail
     function getLookaheadTail() external view returns (uint256);
 
-    /// @dev Returns the entire lookahead buffer
+    /// @notice Returns the entire lookahead buffer
+    /// @return LookaheadBufferEntry[128] memory Array of lookahead buffer entries
     function getLookaheadBuffer() external view returns (LookaheadBufferEntry[128] memory);
 
-    /// @dev Returns the lookahead poster for an epoch
+    /// @notice Returns the lookahead poster for an epoch
+    /// @param epochTimestamp Timestamp of the epoch
+    /// @return address of the lookahead poster
     function getLookaheadPoster(uint256 epochTimestamp) external view returns (address);
 
-    /// @dev Returns the preconf service manager contract address
+    /// @notice Returns the preconf service manager contract address
+    /// @return address of the preconf service manager contract
     function getPreconfServiceManager() external view returns (address);
 
-    /// @dev Returns the preconf registry contract address
+    /// @notice Returns the preconf registry contract address
+    /// @return address of the preconf registry contract
     function getPreconfRegistry() external view returns (address);
 
-    /// @dev Returns the Taiko L1 contract address
+    /// @notice Returns the Taiko L1 contract address
+    /// @return address of the Taiko L1 contract
     function getTaikoL1() external view returns (address);
 
-    /// @dev Returns the beacon genesis timestamp
+    /// @notice Returns the beacon genesis timestamp
+    /// @return uint256 Beacon genesis timestamp
     function getBeaconGenesis() external view returns (uint256);
 
-    /// @dev Returns the beacon block root contract address
+    /// @notice Returns the beacon block root contract address
+    /// @return address of the beacon block root contract
     function getBeaconBlockRootContract() external view returns (address);
 }
