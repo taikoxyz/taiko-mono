@@ -157,8 +157,10 @@ library LibProposing {
         }
 
         // Verify params against the parent block.
-        TaikoData.BlockV2 storage parentBlk =
-            _state.blocks[(local.b.numBlocks - 1) % _config.blockRingBufferSize];
+        TaikoData.BlockV2 storage parentBlk;
+        unchecked {
+            parentBlk = _state.blocks[(local.b.numBlocks - 1) % _config.blockRingBufferSize];
+        }
 
         // Verify the passed in L1 state block number.
         // We only allow the L1 block to be 2 epochs old.
@@ -196,7 +198,6 @@ library LibProposing {
         // the block data to be stored on-chain for future integrity checks.
         // If we choose to persist all data fields in the metadata, it will
         // require additional storage slots.
-        unchecked {
             meta_ = TaikoData.BlockMetadataV2({
                 anchorBlockHash: blockhash(local.params.anchorBlockId),
                 difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", local.b.numBlocks)),
@@ -222,7 +223,7 @@ library LibProposing {
                 blobIndex: local.params.blobIndex,
                 baseFeeConfig: _config.baseFeeConfig
             });
-        }
+
 
         // Update certain meta fields
         if (meta_.blobUsed) {
