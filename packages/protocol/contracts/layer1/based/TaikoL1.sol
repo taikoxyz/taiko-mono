@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import "src/shared/common/EssentialContract.sol";
 import "./LibData.sol";
 import "./LibProposing.sol";
@@ -23,8 +24,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     TaikoData.State public state;
 
     uint256[50] private __gap;
-
-    error L1_INVALID_PARAMS();
 
     modifier whenProvingNotPaused() {
         if (state.slotB.provingPaused) revert LibProving.L1_PROVING_PAUSED();
@@ -177,7 +176,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     /// @return blk_ The block.
     function getBlock(uint64 _blockId) external view returns (TaikoData.Block memory blk_) {
         (TaikoData.BlockV2 memory blk,) = LibUtils.getBlock(state, getConfig(), _blockId);
-        blk_ = LibData.blockV2toV1(blk);
+        blk_ = LibData.blockV2ToV1(blk);
     }
 
     /// @inheritdoc ITaikoL1
@@ -227,7 +226,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         view
         returns (TaikoData.TransitionState memory)
     {
-        return LibUtils.getTransition(state, getConfig(), _blockId, _tid);
+        return
+            LibUtils.getTransition(state, getConfig(), _blockId, SafeCastUpgradeable.toUint24(_tid));
     }
 
     /// @notice Returns information about the last verified block.

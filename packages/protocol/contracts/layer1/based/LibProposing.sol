@@ -14,6 +14,8 @@ import "./LibVerifying.sol";
 library LibProposing {
     using LibAddress for address;
 
+    uint256 internal constant SECONDS_PER_BLOCK = 12;
+
     struct Local {
         TaikoData.SlotB b;
         TaikoData.BlockParamsV2 params;
@@ -177,8 +179,8 @@ library LibProposing {
         // The other constraint is that the timestamp needs to be larger than or equal the
         // one in the previous L2 block.
         if (
-            local.params.timestamp + _config.maxAnchorHeightOffset * 12 < block.timestamp
-                || local.params.timestamp > block.timestamp
+            local.params.timestamp + _config.maxAnchorHeightOffset * SECONDS_PER_BLOCK
+                < block.timestamp || local.params.timestamp > block.timestamp
                 || local.params.timestamp < parentBlk.proposedAt
         ) {
             revert L1_INVALID_TIMESTAMP();
@@ -200,8 +202,8 @@ library LibProposing {
             anchorBlockHash: blockhash(local.params.anchorBlockId),
             difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", local.b.numBlocks)),
             blobHash: 0, // to be initialized below
-            // To make sure each L2 block can be exexucated deterministiclly by the client
-            // without referering to its metadata on Ethereum, we need to encode
+            // To make sure each L2 block can be executed deterministically by the client
+            // without referring to its metadata on Ethereum, we need to encode
             // config.sharingPctg into the extraData.
             extraData: _encodeBaseFeeConfig(_config.baseFeeConfig),
             coinbase: local.params.coinbase,

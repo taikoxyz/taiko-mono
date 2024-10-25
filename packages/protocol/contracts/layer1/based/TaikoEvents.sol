@@ -11,10 +11,26 @@ import "./TaikoData.sol";
 /// L1 libraries.
 /// @custom:security-contact security@taiko.xyz
 abstract contract TaikoEvents {
-    /// @dev Emitted when token is credited back to a user's bond balance.
+    /// @dev Emitted when tokens are deposited into a user's bond balance.
+    /// @param user The address of the user who deposited the tokens.
+    /// @param amount The amount of tokens deposited.
+    event BondDeposited(address indexed user, uint256 amount);
+
+    /// @dev Emitted when tokens are withdrawn from a user's bond balance.
+    /// @param user The address of the user who withdrew the tokens.
+    /// @param amount The amount of tokens withdrawn.
+    event BondWithdrawn(address indexed user, uint256 amount);
+
+    /// @dev Emitted when a token is credited back to a user's bond balance.
+    /// @param user The address of the user whose bond balance is credited.
+    /// @param blockId The ID of the block to credit for.
+    /// @param amount The amount of tokens credited.
     event BondCredited(address indexed user, uint256 blockId, uint256 amount);
 
-    /// @dev Emitted when token is debited from a user's bond balance.
+    /// @dev Emitted when a token is debited from a user's bond balance.
+    /// @param user The address of the user whose bond balance is debited.
+    /// @param blockId The ID of the block to debit for.
+    /// @param amount The amount of tokens debited.
     event BondDebited(address indexed user, uint256 blockId, uint256 amount);
 
     /// @dev DEPRECATED but used by node/client for syncing old blocks

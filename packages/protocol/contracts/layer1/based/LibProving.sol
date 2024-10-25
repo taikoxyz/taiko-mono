@@ -299,7 +299,7 @@ library LibProving {
             if (_batchProof.tier == 0) {
                 // In the case of per-transition proof, we verify the proof.
                 IVerifier(_resolver.resolve(local.tier.verifierName, false)).verifyProof(
-                    LibData.verifierContextV2toV1(ctx_), ctx_.tran, local.proof
+                    LibData.verifierContextV2ToV1(ctx_), ctx_.tran, local.proof
                 );
             }
         }
@@ -365,7 +365,6 @@ library LibProving {
                     revert L1_CANNOT_CONTEST();
                 }
 
-                // _checkIfContestable(/*_state,*/ tier.cooldownWindow, ts.timestamp);
                 // Burn the contest bond from the prover.
                 LibBonds.debitBond(
                     _state, _resolver, msg.sender, local.blockId, local.tier.contestBond
@@ -515,7 +514,7 @@ library LibProving {
             if (_local.sameTransition) revert L1_ALREADY_PROVED();
 
             // The code below will be executed if
-            // - 1) the transition is proved for the fist time, or
+            // - 1) the transition is proved for the first time, or
             // - 2) the transition is contested.
             reward = _rewardAfterFriction(_ts.validityBond);
 
