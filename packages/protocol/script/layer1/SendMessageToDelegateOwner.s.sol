@@ -11,7 +11,7 @@ contract SendMessageToDelegateOwner is Script {
     address public delegateOwnerImpl = 0x1f0511cDae2fbfD93563469dA02b82dEd320C8Bd;
     address public multicall3 = 0xcA11bde05977b3631167028862bE2a173976CA11;
     address public l1Bridge = 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC;
-    address public testAccount1 = vm.envAddress("TEST_ACCOUNT1");
+    address public testAccount1 = 0x3c181965C5cFAE61a9010A283e5e0C1445649810;
 
     modifier broadcast() {
         vm.startBroadcast();
