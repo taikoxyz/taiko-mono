@@ -149,7 +149,9 @@ library LibProposing {
         }
 
         if (local.params.anchorBlockId == 0) {
-            local.params.anchorBlockId = uint64(block.number - 1);
+            unchecked {
+                local.params.anchorBlockId = uint64(block.number - 1);
+            }
         }
 
         if (local.params.timestamp == 0) {
