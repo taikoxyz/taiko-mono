@@ -149,7 +149,9 @@ library LibProposing {
         }
 
         if (local.params.anchorBlockId == 0) {
+            unchecked {
             local.params.anchorBlockId = uint64(block.number - 1);
+            }
         }
 
         if (local.params.timestamp == 0) {
@@ -184,6 +186,7 @@ library LibProposing {
                 || local.params.timestamp < parentBlk.proposedAt
         ) {
             revert L1_INVALID_TIMESTAMP();
+
         }
 
         // Check if parent block has the right meta hash. This is to allow the proposer to make
