@@ -243,6 +243,9 @@ library LibProving {
         TaikoData.TransitionState memory ts;
         (local.tid, ts) = _fetchOrCreateTransition(_state, blk, ctx_.tran, local);
 
+        // Resest a deprecated field.
+        ts.__reserved1 = 0;
+
         // The new proof must meet or exceed the minimum tier required by the block or the previous
         // proof; it cannot be on a lower tier.
         if (

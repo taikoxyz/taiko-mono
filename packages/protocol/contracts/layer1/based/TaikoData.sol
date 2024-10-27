@@ -129,7 +129,7 @@ library TaikoData {
         uint96 validityBond;
         address contester; // slot 5
         uint96 contestBond;
-        uint64 timestamp; // slot 6 (90 bits)
+        uint64 timestamp; // slot 6 (80 bits)
         uint16 tier;
         uint8 __reserved1;
     }
