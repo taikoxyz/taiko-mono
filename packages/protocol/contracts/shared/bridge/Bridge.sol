@@ -104,10 +104,13 @@ contract Bridge is EssentialContract, IBridge {
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _sharedAddressManager The address of the {AddressManager} contract.
-    function init(address _owner, address _sharedAddressManager) external reinitializer(2) {
+    function init(address _owner, address _sharedAddressManager) external initializer {
         __Essential_init(_owner, _sharedAddressManager);
     }
 
+    /// @notice Reinitializes the contract to reset unused storage fields to zero
+    /// @dev This function must be called even for new deployments to ensure proper initialization
+    /// of storage slots and enable future reinitializers to be called.
     function init2() external onlyOwner reinitializer(2) {
         // reset some previously used slots for future reuse
         __reserved1 = 0;

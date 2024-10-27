@@ -10,9 +10,7 @@ import "./BridgedERC20.sol";
 /// @title BridgedERC20V2
 /// @notice An upgradeable ERC20 contract that represents tokens bridged from
 /// another chain. This implementation adds ERC20Permit support to BridgedERC20.
-///
-/// Most of the code were copied from OZ's ERC20PermitUpgradeable.sol contract.
-///
+/// @dev Most of the code were copied from OZ's ERC20PermitUpgradeable.sol contract.
 /// @custom:security-contact security@taiko.xyz
 contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradeable {
     using CountersUpgradeable for CountersUpgradeable.Counter;
@@ -42,7 +40,7 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
         external
         virtual
         override
-        reinitializer(2)
+        initializer
     {
         // Check if provided parameters are valid
         LibBridgedToken.validateInputs(_srcToken, _srcChainId);
@@ -56,23 +54,13 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
         __srcDecimals = _decimals;
     }
 
-    /// @dev This function shall be called when upgrading a deployed contract from {BridgedERC20} to
-    /// {BridgedERC20V2}.
-    function init2() external reinitializer(2) {
-        __EIP712_init_unchained(name(), "1");
-    }
-    /**
-     * @inheritdoc IERC20PermitUpgradeable
-     */
+    /// @inheritdoc IERC20PermitUpgradeable
     // solhint-disable-next-line func-name-mixedcase
-
     function DOMAIN_SEPARATOR() external view override returns (bytes32) {
         return _domainSeparatorV4();
     }
 
-    /**
-     * @inheritdoc IERC20PermitUpgradeable
-     */
+    /// @inheritdoc IERC20PermitUpgradeable
     function permit(
         address owner,
         address spender,
@@ -100,9 +88,7 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
         _approve(owner, spender, value);
     }
 
-    /**
-     * @inheritdoc IERC20PermitUpgradeable
-     */
+    /// @inheritdoc IERC20PermitUpgradeable
     function nonces(address owner) public view virtual override returns (uint256) {
         return _nonces[owner].current();
     }
@@ -113,11 +99,7 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
             || super.supportsInterface(_interfaceId);
     }
 
-    /**
-     * @dev "Consume a nonce": return the current value and increment.
-     *
-     * _Available since v4.1._
-     */
+    /// @dev "Consume a nonce": return the current value and increment.
     function _useNonce(address owner) internal virtual returns (uint256 current) {
         CountersUpgradeable.Counter storage nonce = _nonces[owner];
         current = nonce.current();
