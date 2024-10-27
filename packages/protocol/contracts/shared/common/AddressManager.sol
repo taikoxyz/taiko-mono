@@ -29,6 +29,9 @@ contract AddressManager is EssentialContract, IAddressManager {
         __Essential_init(_owner, address(this));
     }
 
+    /// @notice Reinitializes the contract to reset unused storage fields to zero
+    /// @dev This function must be called even for new deployments to enable future reinitializers
+    /// can be called.
     function init2() external onlyOwner reinitializer(2) {
         addressManager = address(this);
     }

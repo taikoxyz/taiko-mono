@@ -57,8 +57,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     }
 
     /// @notice Reinitializes the contract to reset unused storage fields to zero
-    /// @dev This function must be called even for new deployments to ensure proper initialization
-    /// of storage slots and enable future reinitializers to be called.
+    /// @dev This function must be called even for new deployments to enable future reinitializers
+    /// can be called.
     function init2() external onlyOwner reinitializer(2) {
         // reset some previously used slots for future reuse
         state.slotB.__reservedB1 = 0;
