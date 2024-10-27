@@ -122,8 +122,10 @@ library LibProposing {
 
         // It's essential to ensure that the ring buffer for proposed blocks
         // still has space for at least one more block.
-        if (local.b.numBlocks >= local.b.lastVerifiedBlockId + _config.blockMaxProposals + 1) {
-            revert L1_TOO_MANY_BLOCKS();
+        unchecked {
+            if (local.b.numBlocks >= local.b.lastVerifiedBlockId + _config.blockMaxProposals + 1) {
+                revert L1_TOO_MANY_BLOCKS();
+            }
         }
 
         address preconfTaskManager = _resolver.resolve(LibStrings.B_PRECONF_TASK_MANAGER, true);
