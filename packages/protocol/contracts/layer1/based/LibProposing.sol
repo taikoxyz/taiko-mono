@@ -150,7 +150,7 @@ library LibProposing {
 
         if (local.params.anchorBlockId == 0) {
             unchecked {
-            local.params.anchorBlockId = uint64(block.number - 1);
+              local.params.anchorBlockId = uint64(block.number - 1);
             }
         }
 
