@@ -97,10 +97,10 @@ library LibProving {
     /// @param _resolver Address resolver interface.
     /// @param _blockIds The index of the block to prove. This is also used to select the right
     /// implementation version.
-    /// @param _inputs An abi-encoded (TaikoData.BlockMetadata, TaikoData.Transition,
+    /// @param _inputs A list of abi-encoded (TaikoData.BlockMetadataV2, TaikoData.Transition,
     /// TaikoData.TierProof) tuple.
-    /// @param _batchProof An abi-encoded TaikoData.TierProof that contains the batch/aggregated
-    /// proof for the given blocks.
+    /// @param _batchProof A list of abi-encoded TaikoData.TierProof that contains the
+    /// batch/aggregated proof for the given blocks.
     function proveBlocks(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
@@ -157,7 +157,7 @@ library LibProving {
     /// @param _resolver Address resolver interface.
     /// @param _blockId The index of the block to prove. This is also used to select the right
     /// implementation version.
-    /// @param _input An abi-encoded (TaikoData.BlockMetadata, TaikoData.Transition,
+    /// @param _input An abi-encoded (TaikoData.BlockMetadataV2, TaikoData.Transition,
     /// TaikoData.TierProof) tuple.
     function proveBlock(
         TaikoData.State storage _state,
@@ -178,7 +178,7 @@ library LibProving {
     /// @param _resolver Address resolver interface.
     /// @param _blockId The index of the block to prove. This is also used to select the right
     /// implementation version.
-    /// @param _input An abi-encoded (TaikoData.BlockMetadata, TaikoData.Transition,
+    /// @param _input An abi-encoded (TaikoData.BlockMetadataV2, TaikoData.Transition,
     /// TaikoData.TierProof) tuple.
     /// @param _batchProof An abi-encoded TaikoData.TierProof that contains the batch/aggregated
     /// proof for the given blocks.
