@@ -113,8 +113,8 @@ library LibUtils {
         }
     }
 
+    /// @dev Retrieves the transition with a transition ID.
     /// @dev This function will revert if the transition is not found.
-    /// @dev Retrieves the transition with a given parentHash.
     /// @param _state Current TaikoData.State.
     /// @param _config Actual TaikoData.Config.
     /// @param _blockId Id of the block.
@@ -136,9 +136,9 @@ library LibUtils {
         return _state.transitions[slot][_tid];
     }
 
+    /// @dev Retrieves the transition with a given parentHash.
     /// @dev This function will revert if the transition is not found. This function will revert if
     /// the transition is not found.
-    /// @dev Retrieves the transition with a given parentHash.
     /// @param _state Current TaikoData.State.
     /// @param _config Actual TaikoData.Config.
     /// @param _blockId Id of the block.
