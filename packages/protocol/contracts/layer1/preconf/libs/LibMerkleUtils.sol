@@ -2,6 +2,8 @@
 
 pragma solidity ^0.8.24;
 
+/// @title LibMerkleUtils
+/// @custom:security-contact security@taiko.xyz
 library LibMerkleUtils {
     uint256 internal constant CHUNKS_LENGTH = 8;
     uint256 internal constant TMP_LENGTH = 4;

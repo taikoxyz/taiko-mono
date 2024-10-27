@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+/// @title IStrategyManager
+/// @custom:security-contact security@taiko.xyz
 interface IStrategyManager {
     event Deposit(address staker, address token, address strategy, uint256 shares);
 

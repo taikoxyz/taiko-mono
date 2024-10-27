@@ -3,6 +3,8 @@ pragma solidity ^0.8.24;
 
 import "../libs/LibEIP4788.sol";
 
+/// @title IPreconfTaskManager
+/// @custom:security-contact security@taiko.xyz
 interface IPreconfTaskManager {
     struct LookaheadBufferEntry {
         // True when the preconfer is randomly selected
