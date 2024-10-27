@@ -254,7 +254,7 @@ library LibUtils {
         returns (bool)
     {
         if (_config.maxBlocksToVerify == 0) return false;
-        // If maxBlocksToVerify = 16, segmentSize = 8, verification will be trigged by
+        // If maxBlocksToVerify = 16, segmentSize = 8, verification will be triggered by
         // proposeBlock(s) for blocks 0, 8, 16, 24, ..., and by proveBlock(s) for blocks 4, 12, 20,
         // 28, ...
         uint256 segmentSize = _config.maxBlocksToVerify >> 1;
