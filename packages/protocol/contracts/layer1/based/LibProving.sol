@@ -238,8 +238,8 @@ library LibProving {
 
         // Each transition is uniquely identified by the parentHash, with the blockHash and
         // stateRoot open for later updates as higher-tier proofs become available. In cases where a
-        // transition with the specified parentHash does not exist, the transition ID (tid) will be
-        // set to 0.
+        // transition with the specified parentHash does not exist, a new transition will be
+        // created.
         TaikoData.TransitionState memory ts;
         (local.tid, ts) = _fetchOrCreateTransition(_state, blk, ctx_.tran, local);
 
