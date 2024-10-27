@@ -107,6 +107,7 @@ abstract contract TaikoL1TestBase is TaikoTest {
         );
 
         L1.init(address(0), address(addressManager), GENESIS_BLOCK_HASH, false);
+        mine(1);
 
         gp.enableTaikoTokenAllowance(true);
         printVariables("init  ");
