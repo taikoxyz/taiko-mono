@@ -13,10 +13,10 @@ import "./ITaikoL1.sol";
 /// @title TaikoL1
 /// @notice This contract serves as the "base layer contract" of the Taiko protocol, providing
 /// functionalities for proposing, proving, and verifying blocks. The term "base layer contract"
-/// means that although this is usually deployed on L1, it can also be deployed on L2s to create L3
-/// "inception layers". The contract also handles the deposit and withdrawal of Taiko tokens and
-/// Ether. Additionally, this contract doesn't hold any Ether. Ether deposited to L2 are held by the
-/// Bridge contract.
+/// means that although this is usually deployed on L1, it can also be deployed on L2s to create
+/// L3 "inception layers". The contract also handles the deposit and withdrawal of Taiko tokens
+/// and Ether. Additionally, this contract doesn't hold any Ether. Ether deposited to L2 are held
+/// by the Bridge contract.
 /// @dev Labeled in AddressResolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
 contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
@@ -63,7 +63,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         state.__reserve1 = 0;
     }
 
-    /// @notice This function shall be called by previously deployed contracts.
     function init3() external onlyOwner reinitializer(3) {
         // this value from EssentialContract is no longer used.
         __lastUnpausedAt = 0;
@@ -155,7 +154,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         LibBonds.withdrawBond(state, this, _amount);
     }
 
-    /// @notice Unpauses the contract.
     function unpause() public override whenPaused {
         _authorizePause(msg.sender, false);
         __paused = _FALSE;
@@ -164,7 +162,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     }
 
     /// @notice Gets the current bond balance of a given address.
-    /// @param _user The address of the user.
     /// @return The current bond balance.
     function bondBalanceOf(address _user) external view returns (uint256) {
         return LibBonds.bondBalanceOf(state, _user);
@@ -188,7 +185,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         (blk_,) = LibUtils.getBlock(state, getConfig(), _blockId);
     }
 
-    /// @notice This function will revert if the transition is not found.
+    /// @notice This function will revert if the transition is not found. This function will revert
+    /// if the transition is not found.
     /// @param _blockId Index of the block.
     /// @param _parentHash Parent hash of the block.
     /// @return The state transition data of the block.
@@ -203,7 +201,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         return LibUtils.getTransition(state, getConfig(), _blockId, _parentHash);
     }
 
-    /// @notice Gets the state transitions for a batch of blocks. For transitions that don't exist,
+    /// @notice Gets the state transitions for a batch of block. For transition that doesn't exist,
     /// the corresponding transition state will be empty.
     /// @param _blockIds Index of the blocks.
     /// @param _parentHashes Parent hashes of the blocks.
@@ -273,8 +271,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         return (state.slotA, state.slotB);
     }
 
-    /// @notice Returns the last unpaused timestamp.
-    /// @return The last unpaused timestamp.
     function lastUnpausedAt() public view override returns (uint64) {
         return state.slotB.lastUnpausedAt;
     }
