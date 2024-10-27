@@ -8,7 +8,7 @@ import "./TaikoData.sol";
 /// @notice A library that offers helper functions.
 /// @custom:security-contact security@taiko.xyz
 library LibData {
-    /// @notice Converts a BlockV2 struct to a Block struct.
+    /// @dev Converts a BlockV2 struct to a Block struct.
     /// @param _v2 The BlockV2 struct to convert.
     /// @return The converted Block struct.
     function blockV2ToV1(TaikoData.BlockV2 memory _v2)
@@ -28,7 +28,7 @@ library LibData {
         });
     }
 
-    /// @notice Converts a ContextV2 struct to a Context struct.
+    /// @dev Converts a ContextV2 struct to a Context struct.
     /// @param _v2 The ContextV2 struct to convert.
     /// @return The converted Context struct.
     function verifierContextV2ToV1(IVerifier.ContextV2 memory _v2)

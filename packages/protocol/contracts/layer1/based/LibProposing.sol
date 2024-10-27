@@ -24,12 +24,12 @@ library LibProposing {
         bool allowCustomProposer;
     }
 
-    /// @notice Emitted when a block is proposed.
+    /// @dev Emitted when a block is proposed.
     /// @param blockId The ID of the proposed block.
     /// @param meta The metadata of the proposed block.
     event BlockProposedV2(uint256 indexed blockId, TaikoData.BlockMetadataV2 meta);
 
-    /// @notice Emitted when a block's txList is in the calldata.
+    /// @dev Emitted when a block's txList is in the calldata.
     /// @param blockId The ID of the proposed block.
     /// @param txList The txList.
     event CalldataTxList(uint256 indexed blockId, bytes txList);
@@ -44,7 +44,7 @@ library LibProposing {
     error L1_TOO_MANY_BLOCKS();
     error L1_UNEXPECTED_PARENT();
 
-    /// @notice Proposes multiple Taiko L2 blocks.
+    /// @dev Proposes multiple Taiko L2 blocks.
     /// @param _state The current state of the Taiko protocol.
     /// @param _config The configuration parameters for the Taiko protocol.
     /// @param _resolver The address resolver interface.
@@ -80,7 +80,7 @@ library LibProposing {
         }
     }
 
-    /// @notice Proposes a single Taiko L2 block.
+    /// @dev Proposes a single Taiko L2 block.
     /// @param _state The current state of the Taiko protocol.
     /// @param _config The configuration parameters for the Taiko protocol.
     /// @param _resolver The address resolver interface.
@@ -106,7 +106,7 @@ library LibProposing {
         }
     }
 
-    /// @notice Proposes a single Taiko L2 block.
+    /// @dev Proposes a single Taiko L2 block.
     /// @param _state The current state of the Taiko protocol.
     /// @param _config The configuration parameters for the Taiko protocol.
     /// @param _resolver The address resolver interface.
@@ -282,7 +282,7 @@ library LibProposing {
         emit BlockProposedV2(meta_.id, meta_);
     }
 
-    /// @notice Encodes the base fee configuration.
+    /// @dev Encodes the base fee configuration.
     /// @param _baseFeeConfig The base fee configuration.
     /// @return The encoded base fee configuration.
     function _encodeBaseFeeConfig(LibSharedData.BaseFeeConfig memory _baseFeeConfig)
