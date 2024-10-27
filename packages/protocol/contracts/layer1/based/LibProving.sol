@@ -8,7 +8,7 @@ import "./LibUtils.sol";
 import "./LibVerifying.sol";
 
 /// @title LibProving
-/// @notice A library that offers helper functions for the Taiko protocol.
+/// @notice A library that offers helper functions for proving and contesting block transitions.
 /// @custom:security-contact security@taiko.xyz
 library LibProving {
     using LibMath for uint256;

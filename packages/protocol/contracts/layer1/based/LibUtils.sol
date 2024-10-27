@@ -11,7 +11,7 @@ import "../tiers/ITierRouter.sol";
 import "./TaikoData.sol";
 
 /// @title LibUtils
-/// @notice A library that offers helper functions.
+/// @notice A library that offers utility helper functions.
 /// @custom:security-contact security@taiko.xyz
 library LibUtils {
     using LibMath for uint256;

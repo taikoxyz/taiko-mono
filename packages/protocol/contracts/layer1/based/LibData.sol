@@ -5,7 +5,7 @@ import "../verifiers/IVerifier.sol";
 import "./TaikoData.sol";
 
 /// @title LibData
-/// @notice A library that offers helper functions.
+/// @notice A library that offers helper functions for data conversion.
 /// @custom:security-contact security@taiko.xyz
 library LibData {
     /// @dev Converts a BlockV2 struct to a Block struct.

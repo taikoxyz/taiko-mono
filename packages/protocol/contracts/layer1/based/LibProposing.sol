@@ -9,7 +9,7 @@ import "./LibUtils.sol";
 import "./LibVerifying.sol";
 
 /// @title LibProposing
-/// @notice A library for handling block proposals in the Taiko protocol.
+/// @notice A library that offers helper functions for block proposals.
 /// @custom:security-contact security@taiko.xyz
 library LibProposing {
     using LibAddress for address;
