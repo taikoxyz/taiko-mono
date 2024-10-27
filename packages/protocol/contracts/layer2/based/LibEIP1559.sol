@@ -12,6 +12,7 @@ import "src/shared/common/LibMath.sol";
 library LibEIP1559 {
     using LibMath for uint256;
 
+    /// @notice The maximum allowable input value for the exp() function.
     uint128 public constant MAX_EXP_INPUT = 135_305_999_368_893_231_588;
 
     error EIP1559_INVALID_PARAMS();

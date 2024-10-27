@@ -7,6 +7,8 @@ import "../iface/IPreconfServiceManager.sol";
 import "../libs/LibBLSSignature.sol";
 import "./LibPreconfConstants.sol";
 
+/// @title PreconfRegistry
+/// @custom:security-contact security@taiko.xyz
 contract PreconfRegistry is IPreconfRegistry, Initializable {
     using LibBLS12381 for LibBLS12381.G1Point;
 

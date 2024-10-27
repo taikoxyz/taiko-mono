@@ -11,6 +11,8 @@ import "../iface/IPreconfRegistry.sol";
 import "../libs/LibEIP4788.sol";
 import "./LibPreconfConstants.sol";
 
+/// @title PreconfTaskManager
+/// @custom:security-contact security@taiko.xyz
 contract PreconfTaskManager is IPreconfTaskManager, Initializable {
     // Cannot be kept in `LibPreconfConstants` file because solidity expects array sizes
     // to be stored in the main contract file itself.
