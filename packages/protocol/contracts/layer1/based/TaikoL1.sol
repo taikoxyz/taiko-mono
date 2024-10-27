@@ -47,13 +47,16 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         bool _toPause
     )
         external
-        reinitializer(2)
+        initializer
     {
         __Essential_init(_owner, _rollupAddressManager);
         LibUtils.init(state, _genesisBlockHash);
         if (_toPause) _pause();
     }
 
+    /// @notice Reinitializes the contract to reset unused storage fields to zero
+    /// @dev This function must be called even for new deployments to ensure proper initialization
+    /// of storage slots and enable future reinitializers to be called.
     function init2() external onlyOwner reinitializer(2) {
         // reset some previously used slots for future reuse
         state.slotB.__reservedB1 = 0;
@@ -62,6 +65,9 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         state.__reserve1 = 0;
     }
 
+    /// @notice Reinitializes the contract to reset unused storage fields to zero
+    /// @dev This function must be called even for new deployments to ensure proper initialization
+    /// of storage slots and enable future reinitializers to be called.
     function init3() external onlyOwner reinitializer(3) {
         // this value from EssentialContract is no longer used.
         __lastUnpausedAt = 0;
