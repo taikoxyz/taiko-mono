@@ -9,7 +9,7 @@ import "./LibUtils.sol";
 import "./LibVerifying.sol";
 
 /// @title LibProposing
-/// @notice A library that offers helper functions for block proposals.
+/// @notice A library for handling block proposals in the Taiko protocol.
 /// @custom:security-contact security@taiko.xyz
 library LibProposing {
     using LibAddress for address;
@@ -24,12 +24,12 @@ library LibProposing {
         bool allowCustomProposer;
     }
 
-    /// @dev Emitted when a block is proposed.
+    /// @notice Emitted when a block is proposed.
     /// @param blockId The ID of the proposed block.
     /// @param meta The metadata of the proposed block.
     event BlockProposedV2(uint256 indexed blockId, TaikoData.BlockMetadataV2 meta);
 
-    /// @dev Emitted when a block's txList is in the calldata.
+    /// @notice Emitted when a block's txList is in the calldata.
     /// @param blockId The ID of the proposed block.
     /// @param txList The txList.
     event CalldataTxList(uint256 indexed blockId, bytes txList);
@@ -44,7 +44,7 @@ library LibProposing {
     error L1_TOO_MANY_BLOCKS();
     error L1_UNEXPECTED_PARENT();
 
-    /// @dev Proposes multiple Taiko L2 blocks.
+    /// @notice Proposes multiple Taiko L2 blocks.
     /// @param _state The current state of the Taiko protocol.
     /// @param _config The configuration parameters for the Taiko protocol.
     /// @param _resolver The address resolver interface.
@@ -80,7 +80,7 @@ library LibProposing {
         }
     }
 
-    /// @dev Proposes a single Taiko L2 block.
+    /// @notice Proposes a single Taiko L2 block.
     /// @param _state The current state of the Taiko protocol.
     /// @param _config The configuration parameters for the Taiko protocol.
     /// @param _resolver The address resolver interface.
@@ -106,13 +106,6 @@ library LibProposing {
         }
     }
 
-    /// @dev Proposes a single Taiko L2 block.
-    /// @param _state The current state of the Taiko protocol.
-    /// @param _config The configuration parameters for the Taiko protocol.
-    /// @param _resolver The address resolver interface.
-    /// @param _params Encoded data bytes containing the block parameters.
-    /// @param _txList Transaction list bytes (if not blob).
-    /// @return meta_ The metadata of the proposed block (version 2).
     function _proposeBlock(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
@@ -127,8 +120,8 @@ library LibProposing {
         Local memory local;
         local.b = _state.slotB;
 
-        // It's essential to ensure that the ring buffer for proposed blocks still has space for at
-        // least one more block.
+        // It's essential to ensure that the ring buffer for proposed blocks
+        // still has space for at least one more block.
         unchecked {
             if (local.b.numBlocks >= local.b.lastVerifiedBlockId + _config.blockMaxProposals + 1) {
                 revert L1_TOO_MANY_BLOCKS();
@@ -173,8 +166,9 @@ library LibProposing {
             parentBlk = _state.blocks[(local.b.numBlocks - 1) % _config.blockRingBufferSize];
         }
 
-        // Verify the passed in L1 state block number. We only allow the L1 block to be 2 epochs
-        // old. The other constraint is that the L1 block number needs to be larger than or equal
+        // Verify the passed in L1 state block number.
+        // We only allow the L1 block to be 2 epochs old.
+        // The other constraint is that the L1 block number needs to be larger than or equal
         // the one in the previous L2 block.
         if (
             local.params.anchorBlockId + _config.maxAnchorHeightOffset < block.number //
@@ -184,9 +178,10 @@ library LibProposing {
             revert L1_INVALID_ANCHOR_BLOCK();
         }
 
-        // Verify the passed in timestamp. We only allow the timestamp to be 2 epochs old. The other
-        // constraint is that the timestamp needs to be larger than or equal the one in the previous
-        // L2 block.
+        // Verify the passed in timestamp.
+        // We only allow the timestamp to be 2 epochs old.
+        // The other constraint is that the timestamp needs to be larger than or equal the
+        // one in the previous L2 block.
         if (
             local.params.timestamp + _config.maxAnchorHeightOffset * SECONDS_PER_BLOCK
                 < block.timestamp || local.params.timestamp > block.timestamp
@@ -195,24 +190,25 @@ library LibProposing {
             revert L1_INVALID_TIMESTAMP();
         }
 
-        // Check if parent block has the right meta hash. This is to allow the proposer to make sure
-        // the block builds on the expected latest chain state.
+        // Check if parent block has the right meta hash. This is to allow the proposer to make
+        // sure the block builds on the expected latest chain state.
         if (local.params.parentMetaHash == 0) {
             local.params.parentMetaHash = parentBlk.metaHash;
         } else if (local.params.parentMetaHash != parentBlk.metaHash) {
             revert L1_UNEXPECTED_PARENT();
         }
 
-        // Initialize metadata to compute a metaHash, which forms a part of the block data to be
-        // stored on-chain for future integrity checks. If we choose to persist all data fields in
-        // the metadata, it will require additional storage slots.
+        // Initialize metadata to compute a metaHash, which forms a part of
+        // the block data to be stored on-chain for future integrity checks.
+        // If we choose to persist all data fields in the metadata, it will
+        // require additional storage slots.
         meta_ = TaikoData.BlockMetadataV2({
             anchorBlockHash: blockhash(local.params.anchorBlockId),
             difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", local.b.numBlocks)),
             blobHash: 0, // to be initialized below
-            // To make sure each L2 block can be executed deterministically by the client without
-            // referring to its metadata on Ethereum, we need to encode config.sharingPctg into the
-            // extraData.
+            // To make sure each L2 block can be executed deterministically by the client
+            // without referring to its metadata on Ethereum, we need to encode
+            // config.sharingPctg into the extraData.
             extraData: _encodeBaseFeeConfig(_config.baseFeeConfig),
             coinbase: local.params.coinbase,
             id: local.b.numBlocks,
@@ -236,9 +232,10 @@ library LibProposing {
         if (meta_.blobUsed) {
             if (!LibNetwork.isDencunSupported(block.chainid)) revert L1_BLOB_NOT_AVAILABLE();
 
-            // Always use the first blob in this transaction. If the proposeBlock functions are
-            // called more than once in the same L1 transaction, these multiple L2 blocks will share
-            // the same blob.
+            // Always use the first blob in this transaction. If the
+            // proposeBlock functions are called more than once in the same
+            // L1 transaction, these multiple L2 blocks will share the same
+            // blob.
             meta_.blobHash = blobhash(local.params.blobIndex);
             if (meta_.blobHash == 0) revert L1_BLOB_NOT_FOUND();
         } else {
@@ -282,9 +279,6 @@ library LibProposing {
         emit BlockProposedV2(meta_.id, meta_);
     }
 
-    /// @dev Encodes the base fee configuration.
-    /// @param _baseFeeConfig The base fee configuration.
-    /// @return The encoded base fee configuration.
     function _encodeBaseFeeConfig(LibSharedData.BaseFeeConfig memory _baseFeeConfig)
         private
         pure

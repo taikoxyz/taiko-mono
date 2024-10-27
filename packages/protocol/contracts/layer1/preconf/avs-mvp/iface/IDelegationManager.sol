@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-/// @title IDelegationManager
-/// @custom:security-contact security@taiko.xyz
 interface IDelegationManager {
     event OperatorSharesIncreased(
         address indexed operator, address staker, address strategy, uint256 shares

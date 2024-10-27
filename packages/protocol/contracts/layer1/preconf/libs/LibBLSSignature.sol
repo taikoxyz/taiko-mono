@@ -3,8 +3,6 @@ pragma solidity ^0.8.24;
 
 import "./LibBLS12381.sol";
 
-/// @title LibBLSSignature
-/// @custom:security-contact security@taiko.xyz
 library LibBLSSignature {
     using LibBLS12381 for *;
 

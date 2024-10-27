@@ -3,8 +3,6 @@
 // https://github.com/ethyla/bls12-381-hash-to-curve/blob/main/src/HashToCurve.sol
 pragma solidity ^0.8.24;
 
-/// @title LibBLS12381
-/// @custom:security-contact security@taiko.xyz
 library LibBLS12381 {
     using LibBLS12381 for *;
 

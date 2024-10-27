@@ -8,7 +8,7 @@ import "./LibUtils.sol";
 import "./LibVerifying.sol";
 
 /// @title LibProving
-/// @notice A library that offers helper functions for proving and contesting block transitions.
+/// @notice A library that offers helper functions for the Taiko protocol.
 /// @custom:security-contact security@taiko.xyz
 library LibProving {
     using LibMath for uint256;
@@ -30,7 +30,7 @@ library LibProving {
         bool sameTransition;
     }
 
-    /// @dev Emitted when a transition is proved.
+    /// @notice Emitted when a transition is proved.
     /// @param blockId The block ID.
     /// @param tran The transition data.
     /// @param prover The prover's address.
@@ -46,7 +46,7 @@ library LibProving {
         uint64 proposedIn
     );
 
-    /// @dev Emitted when a transition is contested.
+    /// @notice Emitted when a transition is contested.
     /// @param blockId The block ID.
     /// @param tran The transition data.
     /// @param contester The contester's address.
@@ -62,7 +62,7 @@ library LibProving {
         uint64 proposedIn
     );
 
-    /// @dev Emitted when proving is paused or unpaused.
+    /// @notice Emitted when proving is paused or unpaused.
     /// @param paused The pause status.
     event ProvingPaused(bool paused);
 
@@ -78,7 +78,7 @@ library LibProving {
     error L1_NOT_ASSIGNED_PROVER();
     error L1_PROVING_PAUSED();
 
-    /// @dev Pauses or unpauses the proving process.
+    /// @notice Pauses or unpauses the proving process.
     /// @param _state Current TaikoData.State.
     /// @param _pause The pause status.
     function pauseProving(TaikoData.State storage _state, bool _pause) internal {
@@ -95,12 +95,12 @@ library LibProving {
     /// @param _state Current TaikoData.State.
     /// @param _config Actual TaikoData.Config.
     /// @param _resolver Address resolver interface.
-    /// @param _blockIds The index of the block to prove. This is also used to select the right
-    /// implementation version.
-    /// @param _inputs A list of abi-encoded (TaikoData.BlockMetadataV2, TaikoData.Transition,
+    /// @param _blockIds The index of the block to prove. This is also used to
+    /// select the right implementation version.
+    /// @param _inputs An abi-encoded (TaikoData.BlockMetadata, TaikoData.Transition,
     /// TaikoData.TierProof) tuple.
-    /// @param _batchProof A list of abi-encoded TaikoData.TierProof that contains the
-    /// batch/aggregated proof for the given blocks.
+    /// @param _batchProof An abi-encoded TaikoData.TierProof that contains the batch/aggregated
+    /// proof for the given blocks.
     function proveBlocks(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
@@ -125,8 +125,8 @@ library LibProving {
         bytes32 batchVerifierName;
         bool batchVerifierNameSet;
 
-        // This loop iterates over each block ID in the _blockIds array. For each block ID, it calls
-        // the _proveBlock function to get the context and verifier.
+        // This loop iterates over each block ID in the _blockIds array.
+        // For each block ID, it calls the _proveBlock function to get the context and verifier.
         for (uint256 i; i < _blockIds.length; ++i) {
             bytes32 _verifierName;
             (ctxs[i], _verifierName) =
@@ -155,9 +155,9 @@ library LibProving {
     /// @param _state Current TaikoData.State.
     /// @param _config Actual TaikoData.Config.
     /// @param _resolver Address resolver interface.
-    /// @param _blockId The index of the block to prove. This is also used to select the right
-    /// implementation version.
-    /// @param _input An abi-encoded (TaikoData.BlockMetadataV2, TaikoData.Transition,
+    /// @param _blockId The index of the block to prove. This is also used to
+    /// select the right implementation version.
+    /// @param _input An abi-encoded (TaikoData.BlockMetadata, TaikoData.Transition,
     /// TaikoData.TierProof) tuple.
     function proveBlock(
         TaikoData.State storage _state,
@@ -172,18 +172,6 @@ library LibProving {
         _proveBlock(_state, _config, _resolver, _blockId, _input, noBatchProof);
     }
 
-    /// @dev Proves or contests a single Taiko L2 block.
-    /// @param _state Current TaikoData.State.
-    /// @param _config Actual TaikoData.Config.
-    /// @param _resolver Address resolver interface.
-    /// @param _blockId The index of the block to prove. This is also used to select the right
-    /// implementation version.
-    /// @param _input An abi-encoded (TaikoData.BlockMetadataV2, TaikoData.Transition,
-    /// TaikoData.TierProof) tuple.
-    /// @param _batchProof An abi-encoded TaikoData.TierProof that contains the batch/aggregated
-    /// proof for the given blocks.
-    /// @return ctx_ The context of the verifier.
-    /// @return verifierName_ The name of the verifier.
     function _proveBlock(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
@@ -213,8 +201,9 @@ library LibProving {
 
         if (_blockId != local.meta.id) revert LibUtils.L1_INVALID_BLOCK_ID();
 
-        // Make sure parentHash is not zero. To contest an existing transition, simply use any
-        // non-zero value as the blockHash and stateRoot.
+        // Make sure parentHash is not zero
+        // To contest an existing transition, simply use any non-zero value as
+        // the blockHash and stateRoot.
         if (ctx_.tran.parentHash == 0 || ctx_.tran.blockHash == 0 || ctx_.tran.stateRoot == 0) {
             revert L1_INVALID_TRANSITION();
         }
@@ -229,25 +218,23 @@ library LibProving {
 
         local.metaHash = blk.metaHash;
 
-        // Check the integrity of the block data. It's worth noting that in theory, this check may
-        // be skipped, but it's included for added caution.
+        // Check the integrity of the block data. It's worth noting that in
+        // theory, this check may be skipped, but it's included for added
+        // caution.
         {
             bytes32 metaHash = keccak256(abi.encode(local.meta));
             if (local.metaHash != metaHash) revert L1_BLOCK_MISMATCH();
         }
 
-        // Each transition is uniquely identified by the parentHash, with the blockHash and
-        // stateRoot open for later updates as higher-tier proofs become available. In cases where a
-        // transition with the specified parentHash does not exist, a new transition will be
-        // created.
+        // Each transition is uniquely identified by the parentHash, with the
+        // blockHash and stateRoot open for later updates as higher-tier proofs
+        // become available. In cases where a transition with the specified
+        // parentHash does not exist, the transition ID (tid) will be set to 0.
         TaikoData.TransitionState memory ts;
         (local.tid, ts) = _fetchOrCreateTransition(_state, blk, ctx_.tran, local);
 
-        // Resest a deprecated field.
-        ts.__reserved1 = 0;
-
-        // The new proof must meet or exceed the minimum tier required by the block or the previous
-        // proof; it cannot be on a lower tier.
+        // The new proof must meet or exceed the minimum tier required by the
+        // block or the previous proof; it cannot be on a lower tier.
         if (
             local.proof.tier == 0 || local.proof.tier < local.meta.minTier
                 || local.proof.tier < ts.tier
@@ -255,8 +242,8 @@ library LibProving {
             revert L1_INVALID_TIER();
         }
 
-        // Retrieve the tier configurations. If the tier is not supported, the subsequent action
-        // will result in a revert.
+        // Retrieve the tier configurations. If the tier is not supported, the
+        // subsequent action will result in a revert.
         {
             ITierRouter tierRouter = ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false));
             ITierProvider tierProvider = ITierProvider(tierRouter.getProvider(local.blockId));
@@ -271,22 +258,29 @@ library LibProving {
             _windowMinutes: local.minTier.provingWindow
         });
 
-        // Checks if only the assigned prover is permissioned to prove the block. The assigned
-        // prover is granted exclusive permission to prove only the first transition.
+        // Checks if only the assigned prover is permissioned to prove the block.
+        // The assigned prover is granted exclusive permission to prove only the first
+        // transition.
         if (
             local.tier.contestBond != 0 && ts.contester == address(0) && local.tid == 1
                 && ts.tier == 0 && local.inProvingWindow
         ) {
             if (msg.sender != local.meta.proposer) revert L1_NOT_ASSIGNED_PROVER();
         }
-        // We must verify the proof, and any failure in proof verification will result in a revert.
-        // It's crucial to emphasize that the proof can be assessed in two potential modes: "proving
-        // mode" and "contesting mode." However, the precise verification logic is defined within
-        // each tier's IVerifier contract implementation. We simply specify to the verifier contract
-        // which mode it should utilize - if the new tier is higher than the previous tier, we
-        // employ the proving mode; otherwise, we employ the contesting mode (the new tier cannot be
-        // lower than the previous tier, this has been checked above). It's obvious that proof
-        // verification is entirely decoupled from Taiko's core protocol.
+        // We must verify the proof, and any failure in proof verification will
+        // result in a revert.
+        //
+        // It's crucial to emphasize that the proof can be assessed in two
+        // potential modes: "proving mode" and "contesting mode." However, the
+        // precise verification logic is defined within each tier's IVerifier
+        // contract implementation. We simply specify to the verifier contract
+        // which mode it should utilize - if the new tier is higher than the
+        // previous tier, we employ the proving mode; otherwise, we employ the
+        // contesting mode (the new tier cannot be lower than the previous tier,
+        // this has been checked above).
+        //
+        // It's obvious that proof verification is entirely decoupled from
+        // Taiko's core protocol.
         if (local.tier.verifierName != "") {
             ctx_ = IVerifier.ContextV2({
                 metaHash: local.metaHash,
@@ -376,9 +370,12 @@ library LibProving {
                     _state, _resolver, msg.sender, local.blockId, local.tier.contestBond
                 );
 
-                // We retain the contest bond within the transition, just in case this configuration
-                // is altered to a different value before the contest is resolved. It's worth noting
-                // that the previous value of ts.contestBond doesn't have any significance.
+                // We retain the contest bond within the transition, just in
+                // case this configuration is altered to a different value
+                // before the contest is resolved.
+                //
+                // It's worth noting that the previous value of ts.contestBond
+                // doesn't have any significance.
                 ts.contestBond = local.tier.contestBond;
                 ts.contester = msg.sender;
 
@@ -403,13 +400,7 @@ library LibProving {
         }
     }
 
-    /// @dev Handle the transition initialization logic.
-    /// @param _state Current TaikoData.State.
-    /// @param _blk Current TaikoData.BlockV2.
-    /// @param _tran Current TaikoData.Transition.
-    /// @param _local Current Local struct.
-    /// @return tid_ The transition ID.
-    /// @return ts_ The transition state.
+    /// @dev Handle the transition initialization logic
     function _fetchOrCreateTransition(
         TaikoData.State storage _state,
         TaikoData.BlockV2 storage _blk,
@@ -422,41 +413,50 @@ library LibProving {
         tid_ = LibUtils.getTransitionId(_state, _blk, _local.slot, _tran.parentHash);
 
         if (tid_ == 0) {
-            // In cases where a transition with the provided parentHash is not found, we must
-            // essentially "create" one and set it to its initial state. This initial state can be
-            // viewed as a special transition on tier-0. Subsequently, we transform this tier-0
-            // transition into a non-zero-tier transition with a proof. This approach ensures that
-            // the same logic is applicable for both 0-to-non-zero transition updates and
-            // non-zero-to-non-zero transition updates.
+            // In cases where a transition with the provided parentHash is not
+            // found, we must essentially "create" one and set it to its initial
+            // state. This initial state can be viewed as a special transition
+            // on tier-0.
+            //
+            // Subsequently, we transform this tier-0 transition into a
+            // non-zero-tier transition with a proof. This approach ensures that
+            // the same logic is applicable for both 0-to-non-zero transition
+            // updates and non-zero-to-non-zero transition updates.
             unchecked {
-                // Unchecked is safe: Not realistic 2**32 different fork choice per block will be
-                // proven and none of them is valid
+                // Unchecked is safe:  Not realistic 2**32 different fork choice
+                // per block will be proven and none of them is valid
                 tid_ = _blk.nextTransitionId++;
             }
 
-            // Keep in mind that state.transitions are also reusable storage slots, so it's
-            // necessary to reinitialize all transition fields below.
+            // Keep in mind that state.transitions are also reusable storage
+            // slots, so it's necessary to reinitialize all transition fields
+            // below.
             ts_.timestamp = _local.meta.proposedAt;
 
             if (tid_ == 1) {
-                // This approach serves as a cost-saving technique for the majority of blocks, where
-                // the first transition is expected to be the correct one. Writing to `transitions`
-                // is more economical since it resides in the ring buffer, whereas writing to
+                // This approach serves as a cost-saving technique for the
+                // majority of blocks, where the first transition is expected to
+                // be the correct one. Writing to `transitions` is more economical
+                // since it resides in the ring buffer, whereas writing to
                 // `transitionIds` is not as cost-effective.
                 ts_.key = _tran.parentHash;
 
-                // In the case of this first transition, the block's assigned prover has the
-                // privilege to re-prove it, but only when the assigned prover matches the previous
-                // prover. To ensure this, we establish the transition's prover as the block's
-                // assigned prover. Consequently, when we carry out a 0-to-non-zero transition
-                // update, the previous prover will consistently be the block's assigned prover.
-                // While alternative implementations are possible, introducing such changes would
-                // require additional if-else logic.
+                // In the case of this first transition, the block's assigned
+                // prover has the privilege to re-prove it, but only when the
+                // assigned prover matches the previous prover. To ensure this,
+                // we establish the transition's prover as the block's assigned
+                // prover. Consequently, when we carry out a 0-to-non-zero
+                // transition update, the previous prover will consistently be
+                // the block's assigned prover.
+                //
+                // While alternative implementations are possible, introducing
+                // such changes would require additional if-else logic.
                 ts_.prover = _local.meta.proposer;
             } else {
-                // Furthermore, we index the transition for future retrieval. It's worth emphasizing
-                // that this mapping for indexing is not reusable. However, given that the majority
-                // of blocks will only possess one transition — the correct one — we don't need
+                // Furthermore, we index the transition for future retrieval.
+                // It's worth emphasizing that this mapping for indexing is not
+                // reusable. However, given that the majority of blocks will
+                // only possess one transition — the correct one — we don't need
                 // to be concerned about the cost in this case.
 
                 // There is no need to initialize ts.key here because it's only used when tid == 1
@@ -469,14 +469,16 @@ library LibProving {
     }
 
     /// @dev Handles what happens when either the first transition is being proven or there is a
-    /// higher tier proof incoming.
-    /// @param _state Current TaikoData.State.
-    /// @param _resolver Address resolver interface.
-    /// @param _blk Current TaikoData.BlockV2.
-    /// @param _ts Current TaikoData.TransitionState.
-    /// @param _tran Current TaikoData.Transition.
-    /// @param _proof Current TaikoData.TierProof.
-    /// @param _local Current Local struct.
+    /// higher tier proof incoming
+    ///
+    /// Assume Alice is the initial prover, Bob is the contester, and Cindy is the subsequent
+    /// prover. The validity bond `V` is set at 100, and the contestation bond `C` at 500. If Bob
+    /// successfully contests, he receives a reward of 65.625, calculated as 3/4 of 7/8 of 100. Cindy
+    /// receives 21.875, which is 1/4 of 7/8 of 100, while the protocol retains 12.5 as friction.
+    /// Bob's Return on Investment (ROI) is 13.125%, calculated from 65.625 divided by 500.
+    // To establish the expected ROI `r` for valid contestations, where the contestation bond `C` to
+    // validity bond `V` ratio is `C/V = 21/(32*r)`, and if `r` set at 10%, the C/V ratio will be
+    // 6.5625.
     function _overrideWithHigherProof(
         TaikoData.State storage _state,
         IAddressResolver _resolver,
@@ -511,8 +513,9 @@ library LibProving {
         } else {
             if (_local.sameTransition) revert L1_ALREADY_PROVED();
 
-            // The code below will be executed if - 1) the transition is proved for the first time,
-            // or - 2) the transition is contested.
+            // The code below will be executed if
+            // - 1) the transition is proved for the first time, or
+            // - 2) the transition is contested.
             reward = _rewardAfterFriction(_ts.validityBond);
 
             if (!_blk.livenessBondReturned) {
@@ -561,16 +564,11 @@ library LibProving {
     }
 
     /// @dev Returns the reward after applying 12.5% friction.
-    /// @param _amount The amount to apply friction to.
-    /// @return The reward after applying friction.
     function _rewardAfterFriction(uint256 _amount) private pure returns (uint256) {
         return (_amount * 7) >> 3;
     }
 
     /// @dev Returns if the liveness bond shall be returned.
-    /// @param _local Current Local struct.
-    /// @param _proofData The proof data.
-    /// @return True if the liveness bond shall be returned, false otherwise.
     function _returnLivenessBond(
         Local memory _local,
         bytes memory _proofData

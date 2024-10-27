@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-/// @title IAVSDirectory
-/// @custom:security-contact security@taiko.xyz
 interface IAVSDirectory {
     struct SignatureWithSaltAndExpiry {
         // the signature itself, formatted as a single bytes object

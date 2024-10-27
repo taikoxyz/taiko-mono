@@ -5,12 +5,9 @@ import "../verifiers/IVerifier.sol";
 import "./TaikoData.sol";
 
 /// @title LibData
-/// @notice A library that offers helper functions for data conversion.
+/// @notice A library that offers helper functions.
 /// @custom:security-contact security@taiko.xyz
 library LibData {
-    /// @dev Converts a BlockV2 struct to a Block struct.
-    /// @param _v2 The BlockV2 struct to convert.
-    /// @return The converted Block struct.
     function blockV2ToV1(TaikoData.BlockV2 memory _v2)
         internal
         pure
@@ -28,9 +25,6 @@ library LibData {
         });
     }
 
-    /// @dev Converts a ContextV2 struct to a Context struct.
-    /// @param _v2 The ContextV2 struct to convert.
-    /// @return The converted Context struct.
     function verifierContextV2ToV1(IVerifier.ContextV2 memory _v2)
         internal
         pure

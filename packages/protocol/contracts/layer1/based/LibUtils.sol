@@ -11,7 +11,7 @@ import "../tiers/ITierRouter.sol";
 import "./TaikoData.sol";
 
 /// @title LibUtils
-/// @notice A library that offers utility helper functions.
+/// @notice A library that offers helper functions.
 /// @custom:security-contact security@taiko.xyz
 library LibUtils {
     using LibMath for uint256;
@@ -20,7 +20,8 @@ library LibUtils {
 
     /// @dev Emitted when a block is verified.
     /// @param blockId The ID of the verified block.
-    /// @param prover The prover whose transition is used for verifying the block.
+    /// @param prover The prover whose transition is used for verifying the
+    /// block.
     /// @param blockHash The hash of the verified block.
     /// @param tier The tier ID of the proof.
     event BlockVerifiedV2(
@@ -33,7 +34,7 @@ library LibUtils {
     error L1_TRANSITION_NOT_FOUND();
     error L1_UNEXPECTED_TRANSITION_ID();
 
-    /// @dev Initializes the Taiko protocol state.
+    /// @notice Initializes the Taiko protocol state.
     /// @param _state The state to initialize.
     /// @param _genesisBlockHash The block hash of the genesis block.
     function init(TaikoData.State storage _state, bytes32 _genesisBlockHash) internal {
@@ -91,7 +92,6 @@ library LibUtils {
     /// @param _blockId Id of the block.
     /// @return blockHash_ The block's block hash.
     /// @return stateRoot_ The block's storage root.
-    /// @return verifiedAt_ The timestamp when the block was verified.
     function getBlockInfo(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
@@ -113,8 +113,8 @@ library LibUtils {
         }
     }
 
-    /// @dev Retrieves the transition with a transition ID.
-    /// @dev This function will revert if the transition is not found.
+    /// @notice This function will revert if the transition is not found.
+    /// @dev Retrieves the transition with a given parentHash.
     /// @param _state Current TaikoData.State.
     /// @param _config Actual TaikoData.Config.
     /// @param _blockId Id of the block.
@@ -136,9 +136,9 @@ library LibUtils {
         return _state.transitions[slot][_tid];
     }
 
+    /// @notice This function will revert if the transition is not found. This function will revert
+    /// if the transition is not found.
     /// @dev Retrieves the transition with a given parentHash.
-    /// @dev This function will revert if the transition is not found. This function will revert if
-    /// the transition is not found.
     /// @param _state Current TaikoData.State.
     /// @param _config Actual TaikoData.Config.
     /// @param _blockId Id of the block.
@@ -162,8 +162,8 @@ library LibUtils {
         return _state.transitions[slot][tid];
     }
 
-    /// @dev Gets the state transitions for a batch of block. For transition that doesn't exist, the
-    /// corresponding transition state will be empty.
+    /// @notice Gets the state transitions for a batch of block. For transition that doesn't exist,
+    /// the corresponding transition state will be empty.
     /// @param _state Current TaikoData.State.
     /// @param _config Actual TaikoData.Config.
     /// @param _blockIds Id array of the blocks.
@@ -192,8 +192,8 @@ library LibUtils {
         }
     }
 
-    /// @dev Retrieves the ID of the transition with a given parentHash. This function will return 0
-    /// if the transition is not found.
+    /// @dev Retrieves the ID of the transition with a given parentHash.
+    /// This function will return 0 if the transition is not found.
     /// @param _state Current TaikoData.State.
     /// @param _blk The block storage pointer.
     /// @param _slot The slot value.
@@ -254,9 +254,18 @@ library LibUtils {
         returns (bool)
     {
         if (_config.maxBlocksToVerify == 0) return false;
-        // If maxBlocksToVerify = 16, segmentSize = 8, verification will be trigged by
-        // proposeBlock(s) for blocks 0, 8, 16, 24, ..., and by proveBlock(s) for blocks 4, 12, 20,
-        // 28, ...
+
+        // Consider each segment of 8 blocks, verification is attempted either on block 3 if it has
+        // been
+        // proved, or on block 7 if it has been proposed. Over time, the ratio of blocks to
+        // verification attempts averages 4:1, meaning each verification attempt typically covers 4
+        // blocks. However, considering worst cases caused by blocks being proved out of order, some
+        // verification attempts may verify few or no blocks. In such cases, additional
+        // verifications are needed to catch up. Consequently, the `maxBlocksToVerify` parameter
+        // should be set high enough, for example 16, to allow for efficient catch-up.
+
+        // Now lets use `maxBlocksToVerify` as an input to calculate the size of each block
+        // segment, instead of using 8 as a constant.
         uint256 segmentSize = _config.maxBlocksToVerify >> 1;
 
         if (segmentSize <= 1) return true;

@@ -41,11 +41,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
 
     /// @notice The last synced L1 block height.
     uint64 public lastSyncedBlock;
-
-    /// @notice The last L2 block's timestamp.
     uint64 public parentTimestamp;
-
-    /// @notice The last L2 block's gas target.
     uint64 public parentGasTarget;
 
     /// @notice The L1's chain ID.
@@ -165,15 +161,6 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         emit Anchored(parentHash, newGasExcess);
     }
 
-    /// @notice Anchors the latest L1 block details to L2 for cross-layer
-    /// message verification.
-    /// @dev This function can be called freely as the golden touch private key is publicly known,
-    /// but the Taiko node guarantees the first transaction of each block is always this anchor
-    /// transaction, and any subsequent calls will revert with L2_PUBLIC_INPUT_HASH_MISMATCH.
-    /// @param _anchorBlockId The `anchorBlockId` value in this block's metadata.
-    /// @param _anchorStateRoot The state root for the L1 block with id equals `_anchorBlockId`.
-    /// @param _parentGasUsed The gas used in the parent block.
-    /// @param _baseFeeConfig The base fee configuration.
     function anchorV2(
         uint64 _anchorBlockId,
         bytes32 _anchorStateRoot,
@@ -322,14 +309,6 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         return false;
     }
 
-    /// @notice Returns the parent timestamp.
-    /// @return The timestamp of the parent block.
-    function getParentTimestamp() public view returns (uint64) {
-        return parentTimestamp;
-    }
-
-    /// @notice Returns the Ontake fork height.
-    /// @return The Ontake fork height.
     function ontakeForkHeight() public pure virtual returns (uint64) {
         return 0;
     }

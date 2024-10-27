@@ -3,8 +3,6 @@ pragma solidity ^0.8.24;
 
 import "../libs/LibBLS12381.sol";
 
-/// @title IPreconfRegistry
-/// @custom:security-contact security@taiko.xyz
 interface IPreconfRegistry {
     struct Validator {
         // Preconfer that the validator proposer blocks for

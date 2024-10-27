@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-/// @title LibPreconfConstants
-/// @custom:security-contact security@taiko.xyz
 library LibPreconfConstants {
     uint256 internal constant MAINNET_BEACON_GENESIS = 1_606_824_023;
     uint256 internal constant SECONDS_IN_SLOT = 12;
