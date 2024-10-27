@@ -254,17 +254,9 @@ library LibUtils {
         returns (bool)
     {
         if (_config.maxBlocksToVerify == 0) return false;
-
-        // Consider each segment of 8 blocks, verification is attempted either on block 3 if it has
-        // been proved, or on block 7 if it has been proposed. Over time, the ratio of blocks to
-        // verification attempts averages 4:1, meaning each verification attempt typically covers 4
-        // blocks. However, considering worst cases caused by blocks being proved out of order, some
-        // verification attempts may verify few or no blocks. In such cases, additional
-        // verifications are needed to catch up. Consequently, the `maxBlocksToVerify` parameter
-        // should be set high enough, for example 16, to allow for efficient catch-up.
-
-        // Now lets use `maxBlocksToVerify` as an input to calculate the size of each block segment,
-        // instead of using 8 as a constant.
+        // If maxBlocksToVerify = 16, segmentSize = 8, verification will be trigged by
+        // proposeBlock(s) for blocks 0, 8, 16, 24, ..., and by proveBlock(s) for blocks 4, 12, 20,
+        // 28, ...
         uint256 segmentSize = _config.maxBlocksToVerify >> 1;
 
         if (segmentSize <= 1) return true;
