@@ -25,10 +25,11 @@ contract AddressManager is EssentialContract, IAddressManager {
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract.
-    function init(address _owner) external reinitializer(2) {
+    function init(address _owner) external initializer {
         __Essential_init(_owner, address(this));
     }
 
+    /// @notice This function shall be called by previously deployed contracts.
     function init2() external onlyOwner reinitializer(2) {
         addressManager = address(this);
     }
