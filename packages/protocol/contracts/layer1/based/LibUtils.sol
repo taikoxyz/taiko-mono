@@ -278,7 +278,7 @@ library LibUtils {
     /// @param _stateRootSyncInternal The state root sync interval.
     /// @param _blockId The ID of the block.
     /// @return True if the state root should be synchronized, false otherwise.
-    function shouldSyncStateRoot(
+    function isSyncBlock(
         uint256 _stateRootSyncInternal,
         uint256 _blockId
     )

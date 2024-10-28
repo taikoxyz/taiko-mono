@@ -205,7 +205,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     /// the corresponding transition state will be empty.
     /// @param _blockIds Index of the blocks.
     /// @param _parentHashes Parent hashes of the blocks.
-    /// @return The state transition array of the blocks.
+    /// @return The state transition array of the blocks. Note that a transition's state root will
+    /// be zero if the block is not a sync-block.
     function getTransitions(
         uint64[] calldata _blockIds,
         bytes32[] calldata _parentHashes

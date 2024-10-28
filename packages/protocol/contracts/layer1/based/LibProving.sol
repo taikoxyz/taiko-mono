@@ -21,7 +21,6 @@ library LibProving {
         TaikoData.BlockMetadataV2 meta;
         TaikoData.TierProof proof;
         bytes32 metaHash;
-        bytes32 stateRoot;
         uint64 slot;
         uint64 blockId;
         uint24 tid;
@@ -29,7 +28,6 @@ library LibProving {
         bool isTopTier;
         bool inProvingWindow;
         bool sameTransition;
-        bool isSyncBlock;
     }
 
     /// @notice Emitted when a transition is proved.
@@ -218,12 +216,6 @@ library LibProving {
         local.slot = local.meta.id % _config.blockRingBufferSize;
         TaikoData.BlockV2 storage blk = _state.blocks[local.slot];
 
-        local.isSyncBlock =
-            LibUtils.shouldSyncStateRoot(_config.stateRootSyncInternal, local.blockId);
-        if (local.isSyncBlock) {
-            local.stateRoot = ctx_.tran.stateRoot;
-        }
-
         local.metaHash = blk.metaHash;
 
         // Check the integrity of the block data. It's worth noting that in
@@ -314,9 +306,14 @@ library LibProving {
 
         local.isTopTier = local.tier.contestBond == 0;
 
-        local.sameTransition = local.isSyncBlock
-            ? ctx_.tran.blockHash == ts.blockHash && local.stateRoot == ts.stateRoot
-            : ctx_.tran.blockHash == ts.blockHash;
+        if (LibUtils.isSyncBlock(_config.stateRootSyncInternal, local.blockId)) {
+            local.sameTransition =
+                ctx_.tran.blockHash == ts.blockHash && ctx_.tran.stateRoot == ts.stateRoot;
+        } else {
+            local.sameTransition = ctx_.tran.blockHash == ts.blockHash;
+            // For non sync-block, we set the stateRoot to 0 before emitting it in events
+            ctx_.tran.stateRoot = 0;
+        }
 
         if (local.proof.tier > ts.tier) {
             // Handles the case when an incoming tier is higher than the current transition's tier.
@@ -344,7 +341,7 @@ library LibProving {
 
                 ts.prover = msg.sender;
                 ts.blockHash = ctx_.tran.blockHash;
-                ts.stateRoot = local.stateRoot;
+                ts.stateRoot = ctx_.tran.stateRoot;
 
                 emit TransitionProvedV2({
                     blockId: local.blockId,
@@ -562,7 +559,7 @@ library LibProving {
 
         if (!_local.sameTransition) {
             _ts.blockHash = _tran.blockHash;
-            _ts.stateRoot = _local.stateRoot;
+            _ts.stateRoot = _tran.stateRoot;
         }
     }
 

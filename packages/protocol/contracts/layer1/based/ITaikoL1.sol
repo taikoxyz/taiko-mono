@@ -77,7 +77,8 @@ interface ITaikoL1 {
     /// @notice Gets the state transition for a specific block.
     /// @param _blockId Index of the block.
     /// @param _tid The transition id.
-    /// @return The state transition data of the block.
+    /// @return The state transition data of the block. The transition's state root will be zero if
+    /// the block is not a sync-block.
     function getTransition(
         uint64 _blockId,
         uint32 _tid
