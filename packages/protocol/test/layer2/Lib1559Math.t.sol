@@ -36,7 +36,7 @@ contract TestLib1559Math is TaikoL2Test {
         console2.log("Mainnet minimal basefee: ", Lib1559Math.basefee(1_340_000_000, 5_000_000 * 8));
     }
 
-    function test_change_of_quotient_and_gips() public {
+    function test_change_of_quotient_and_gasIssuancePerSecond() public {
         uint64 excess = 150 * 2_000_000;
         uint64 target = 4 * 2_000_000;
         uint256 unit = 10_000_000; // 0.01 gwei
@@ -74,7 +74,7 @@ contract TestLib1559Math is TaikoL2Test {
         }
     }
 
-    function test_change_of_quotient_and_gips2() public {
+    function test_change_of_quotient_and_gasIssuancePerSecond2() public {
         uint64 excess = 1;
         uint64 target = 60_000_000 * 8;
         uint256 unit = 10_000_000; // 0.01 gwei
