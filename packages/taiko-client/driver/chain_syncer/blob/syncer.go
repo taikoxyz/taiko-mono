@@ -854,13 +854,12 @@ func (s *Syncer) InsertSoftBlockFromTransactionsBatch(
 		return nil, fmt.Errorf("failed to fetch canonical head: %w", err)
 	}
 
+	// Step 4, update the fork choice
 	fc = &engine.ForkchoiceStateV1{
 		HeadBlockHash:      payload.BlockHash,
 		SafeBlockHash:      canonicalHead.L2BlockHash,
 		FinalizedBlockHash: lastVerifiedBlockHash,
 	}
-
-	// Update the fork choice
 	fcRes, err = s.rpc.L2Engine.ForkchoiceUpdate(ctx, fc, nil)
 	if err != nil {
 		return nil, err
