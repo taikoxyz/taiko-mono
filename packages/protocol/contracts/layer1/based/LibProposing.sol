@@ -14,6 +14,8 @@ import "./LibVerifying.sol";
 library LibProposing {
     using LibAddress for address;
 
+    uint256 internal constant SECONDS_PER_BLOCK = 12;
+
     struct Local {
         TaikoData.SlotB b;
         TaikoData.BlockParamsV2 params;
@@ -178,17 +180,22 @@ library LibProposing {
             local.params.coinbase = local.params.proposer;
         }
 
-        if (!local.postFork || local.params.anchorBlockId == 0) {
-            local.params.anchorBlockId = uint64(block.number - 1);
+        if (local.params.anchorBlockId == 0) {
+            unchecked {
+                local.params.anchorBlockId =
+                    local.postFork ? uint64(block.number - 1) : uint64(block.number);
+            }
         }
 
-        if (!local.postFork || local.params.timestamp == 0) {
+        if (local.params.timestamp == 0) {
             local.params.timestamp = uint64(block.timestamp);
         }
 
         // Verify params against the parent block.
-        TaikoData.BlockV2 storage parentBlk =
-            _state.blocks[(local.b.numBlocks - 1) % _config.blockRingBufferSize];
+        TaikoData.BlockV2 storage parentBlk;
+        unchecked {
+            parentBlk = _state.blocks[(local.b.numBlocks - 1) % _config.blockRingBufferSize];
+        }
 
         if (local.postFork) {
             // Verify the passed in L1 state block number.
@@ -208,8 +215,8 @@ library LibProposing {
             // The other constraint is that the timestamp needs to be larger than or equal the
             // one in the previous L2 block.
             if (
-                local.params.timestamp + _config.maxAnchorHeightOffset * 12 < block.timestamp
-                    || local.params.timestamp > block.timestamp
+                local.params.timestamp + _config.maxAnchorHeightOffset * SECONDS_PER_BLOCK
+                    < block.timestamp || local.params.timestamp > block.timestamp
                     || local.params.timestamp < parentBlk.proposedAt
             ) {
                 revert L1_INVALID_TIMESTAMP();
@@ -228,35 +235,31 @@ library LibProposing {
         // the block data to be stored on-chain for future integrity checks.
         // If we choose to persist all data fields in the metadata, it will
         // require additional storage slots.
-        unchecked {
-            meta_ = TaikoData.BlockMetadataV2({
-                anchorBlockHash: blockhash(local.params.anchorBlockId),
-                difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", local.b.numBlocks)),
-                blobHash: 0, // to be initialized below
-                // To make sure each L2 block can be exexucated deterministiclly by the client
-                // without referering to its metadata on Ethereum, we need to encode
-                // config.sharingPctg into the extraData.
-                extraData: local.postFork
-                    ? _encodeBaseFeeConfig(_config.baseFeeConfig)
-                    : local.extraData,
-                coinbase: local.params.coinbase,
-                id: local.b.numBlocks,
-                gasLimit: _config.blockMaxGasLimit,
-                timestamp: local.params.timestamp,
-                anchorBlockId: local.params.anchorBlockId,
-                minTier: 0, // to be initialized below
-                blobUsed: _txList.length == 0,
-                parentMetaHash: local.params.parentMetaHash,
-                proposer: local.params.proposer,
-                livenessBond: _config.livenessBond,
-                proposedAt: uint64(block.timestamp),
-                proposedIn: uint64(block.number),
-                blobTxListOffset: local.params.blobTxListOffset,
-                blobTxListLength: local.params.blobTxListLength,
-                blobIndex: local.params.blobIndex,
-                baseFeeConfig: _config.baseFeeConfig
-            });
-        }
+        meta_ = TaikoData.BlockMetadataV2({
+            anchorBlockHash: blockhash(local.params.anchorBlockId),
+            difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", local.b.numBlocks)),
+            blobHash: 0, // to be initialized below
+            // To make sure each L2 block can be exexucated deterministiclly by the client
+            // without referering to its metadata on Ethereum, we need to encode
+            // config.sharingPctg into the extraData.
+            extraData: local.postFork ? _encodeBaseFeeConfig(_config.baseFeeConfig) : local.extraData,
+            coinbase: local.params.coinbase,
+            id: local.b.numBlocks,
+            gasLimit: _config.blockMaxGasLimit,
+            timestamp: local.params.timestamp,
+            anchorBlockId: local.params.anchorBlockId,
+            minTier: 0, // to be initialized below
+            blobUsed: _txList.length == 0,
+            parentMetaHash: local.params.parentMetaHash,
+            proposer: local.params.proposer,
+            livenessBond: _config.livenessBond,
+            proposedAt: uint64(block.timestamp),
+            proposedIn: uint64(block.number),
+            blobTxListOffset: local.params.blobTxListOffset,
+            blobTxListLength: local.params.blobTxListLength,
+            blobIndex: local.params.blobIndex,
+            baseFeeConfig: _config.baseFeeConfig
+        });
 
         // Update certain meta fields
         if (meta_.blobUsed) {
@@ -292,8 +295,8 @@ library LibProposing {
             assignedProver: address(0),
             livenessBond: local.postFork ? 0 : meta_.livenessBond,
             blockId: local.b.numBlocks,
-            proposedAt: local.postFork ? local.params.timestamp : uint64(block.timestamp),
-            proposedIn: local.postFork ? local.params.anchorBlockId : uint64(block.number),
+            proposedAt: local.params.timestamp,
+            proposedIn: local.params.anchorBlockId,
             // For a new block, the next transition ID is always 1, not 0.
             nextTransitionId: 1,
             livenessBondReturned: false,
