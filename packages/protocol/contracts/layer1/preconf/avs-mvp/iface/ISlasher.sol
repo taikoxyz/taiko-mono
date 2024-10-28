@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+/// @title ISlasher
+/// @custom:security-contact security@taiko.xyz
 interface ISlasher {
     event OperatorSlashed(address indexed operator, address indexed avs);
     event OptedIntoSlashing(address indexed operator, address indexed avs);

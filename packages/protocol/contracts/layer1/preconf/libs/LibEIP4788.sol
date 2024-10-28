@@ -5,6 +5,8 @@ pragma solidity ^0.8.24;
 
 import "./LibMerkleUtils.sol";
 
+/// @title LibEIP4788
+/// @custom:security-contact security@taiko.xyz
 library LibEIP4788 {
     struct InclusionProof {
         // `Chunks` of the SSZ encoded validator

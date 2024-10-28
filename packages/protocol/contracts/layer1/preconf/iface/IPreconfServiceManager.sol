@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+/// @title IPreconfServiceManager
+/// @custom:security-contact security@taiko.xyz
 interface IPreconfServiceManager {
     event StakeLockedUntil(address indexed operator, uint256 timestamp);
 

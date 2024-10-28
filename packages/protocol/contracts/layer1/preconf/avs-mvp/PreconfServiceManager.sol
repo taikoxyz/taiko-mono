@@ -6,10 +6,11 @@ import "../iface/IPreconfServiceManager.sol";
 import "./iface/ISlasher.sol";
 import "./iface/IAVSDirectory.sol";
 
+/// @title PreconfServiceManager
 /// @dev This contract would serve as the address of the AVS w.r.t the restaking platform being
-/// used.
-/// Currently, this is based on a mock version of Eigenlayer that we have created solely for a
+/// used. Currently, this is based on a mock version of Eigenlayer that we have created solely for a
 /// POC.
+/// @custom:security-contact security@taiko.xyz
 contract PreconfServiceManager is IPreconfServiceManager, ReentrancyGuard {
     address internal immutable preconfRegistry;
     address internal immutable preconfTaskManager;
