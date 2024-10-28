@@ -16,10 +16,11 @@ import (
 // TransactionBatchMarker represents the status of a soft block transactions group.
 type TransactionBatchMarker string
 
-// BatchMarker values.
+// BatchMarker valid values.
 const (
-	BatchMarkerEOB TransactionBatchMarker = "end_of_block"
-	BatchMarkerEOP TransactionBatchMarker = "end_of_preconf"
+	BatchMarkerEmpty TransactionBatchMarker = ""
+	BatchMarkerEOB   TransactionBatchMarker = "endOfBlock"
+	BatchMarkerEOP   TransactionBatchMarker = "endOfPreconf"
 )
 
 // SoftBlockParams represents the parameters for building a soft block.
@@ -177,16 +178,13 @@ func (s *SoftBlockAPIServer) BuildSoftBlock(c echo.Context) error {
 	}
 
 	// Insert the soft block.
-	header, err := s.chainSyncer.BlobSyncer().InsertSoftBlockFromTransactionsBatch(
+	header, err := s.chainSyncer.InsertSoftBlockFromTransactionsBatch(
 		c.Request().Context(),
 		reqBody.TransactionBatch.BlockID,
 		reqBody.TransactionBatch.ID,
 		txListBytes,
 		string(reqBody.TransactionBatch.BatchMarker),
-		reqBody.TransactionBatch.BlockParams.Timestamp,
-		reqBody.TransactionBatch.BlockParams.Coinbase,
-		reqBody.TransactionBatch.BlockParams.AnchorBlockID,
-		reqBody.TransactionBatch.BlockParams.AnchorStateRoot,
+		reqBody.TransactionBatch.BlockParams,
 	)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})

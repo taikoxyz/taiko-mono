@@ -1,17 +1,31 @@
 package softblocks
 
 import (
+	"context"
 	"os"
 
+	"github.com/ethereum/go-ethereum/core/types"
 	echojwt "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	chainSyncer "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer"
 	txListDecompressor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_decompressor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
+
+// softBlockChainSyncer is an interface for soft block chain syncer.
+type softBlockChainSyncer interface {
+	InsertSoftBlockFromTransactionsBatch(
+		// Transactions batch parameters
+		ctx context.Context,
+		blockID uint64,
+		batchID uint64,
+		txListBytes []byte,
+		batchMarker string,
+		softBlockParams *SoftBlockParams,
+	) (*types.Header, error)
+}
 
 // @title Taiko Soft Block Server API
 // @version 1.0
@@ -26,13 +40,13 @@ import (
 // SoftBlockAPIServer represents a soft blcok server instance.
 type SoftBlockAPIServer struct {
 	echo               *echo.Echo
-	chainSyncer        *chainSyncer.L2ChainSyncer
+	chainSyncer        softBlockChainSyncer
 	rpc                *rpc.Client
 	txListDecompressor *txListDecompressor.TxListDecompressor
 }
 
 // New creates a new soft blcok server instance.
-func New(chainSyncer *chainSyncer.L2ChainSyncer, cli *rpc.Client) (*SoftBlockAPIServer, error) {
+func New(chainSyncer softBlockChainSyncer, cli *rpc.Client) (*SoftBlockAPIServer, error) {
 	server := &SoftBlockAPIServer{
 		echo:        echo.New(),
 		chainSyncer: chainSyncer,

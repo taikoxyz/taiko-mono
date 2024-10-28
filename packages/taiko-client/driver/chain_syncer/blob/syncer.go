@@ -25,6 +25,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
+	softblocks "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/soft_blocks"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
@@ -696,15 +697,10 @@ func (s *Syncer) InsertSoftBlockFromTransactionsBatch(
 	// Transactions batch parameters
 	ctx context.Context,
 	blockID uint64,
-	batchID uint64, // TODO(DavidCai): verify batch ID
+	batchID uint64,
 	txListBytes []byte,
-	batchMarker string, // TODO(DavidCai): handle batch marker
-	// Block parameters
-	timestamp uint64,
-	coinbase common.Address,
-	// Anchor parameters
-	anchorBlockID uint64,
-	anchorStateRoot common.Hash,
+	batchMarker softblocks.TransactionBatchMarker,
+	blockParams softblocks.SoftBlockParams,
 ) (*types.Header, error) {
 	parent, err := s.rpc.L2.HeaderByNumber(ctx, new(big.Int).Sub(new(big.Int).SetUint64(blockID), common.Big1))
 	if err != nil {
@@ -736,10 +732,10 @@ func (s *Syncer) InsertSoftBlockFromTransactionsBatch(
 	baseFee, err := s.rpc.CalculateBaseFee(
 		ctx,
 		parent,
-		new(big.Int).SetUint64(anchorBlockID),
+		new(big.Int).SetUint64(blockParams.AnchorBlockID),
 		true,
 		&protocolConfig.BaseFeeConfig,
-		timestamp,
+		blockParams.Timestamp,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate base fee: %w", err)
@@ -750,8 +746,8 @@ func (s *Syncer) InsertSoftBlockFromTransactionsBatch(
 		// Assemble a TaikoL2.anchorV2 transaction.
 		anchorTx, err := s.anchorConstructor.AssembleAnchorV2Tx(
 			ctx,
-			new(big.Int).SetUint64(anchorBlockID),
-			anchorStateRoot,
+			new(big.Int).SetUint64(blockParams.AnchorBlockID),
+			blockParams.AnchorStateRoot,
 			parent.GasUsed,
 			&protocolConfig.BaseFeeConfig,
 			new(big.Int).SetUint64(blockID),
@@ -762,33 +758,58 @@ func (s *Syncer) InsertSoftBlockFromTransactionsBatch(
 		}
 
 		txList = append([]*types.Transaction{anchorTx}, txList...)
-		if txListBytes, err = rlp.EncodeToBytes(txList); err != nil {
-			log.Error("Encode txList error", "blockID", blockID, "error", err)
-			return nil, err
-		}
 	} else {
 		prevSoftBlock, err := s.rpc.L2.BlockByNumber(ctx, new(big.Int).SetUint64(blockID-1))
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch previous soft block (%d): %w", blockID, err)
 		}
+
+		// Check the previous soft block status.
+		l1Origin, err := s.rpc.L2.L1OriginByID(ctx, prevSoftBlock.Number())
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch L1 origin for block %d: %w", blockID, err)
+		}
+		if l1Origin.BatchID.Uint64()+1 != batchID {
+			return nil, fmt.Errorf("batch ID mismatch: expected %d, got %d", l1Origin.BatchID.Uint64()+1, batchID)
+		}
+		if l1Origin.EndOfBlock {
+			return nil, fmt.Errorf("soft block %d has already been marked as ended", blockID)
+		}
+		if l1Origin.EndOfPreconf {
+			return nil, fmt.Errorf("preconfirmation from %s has already been marked as ended", blockParams.Coinbase)
+		}
+
 		txList = append(prevSoftBlock.Transactions(), txList...)
 	}
 
+	if txListBytes, err = rlp.EncodeToBytes(txList); err != nil {
+		log.Error("Encode txList error", "blockID", blockID, "error", err)
+		return nil, err
+	}
+
 	attributes := &engine.PayloadAttributes{
-		Timestamp:             timestamp,
+		Timestamp:             blockParams.Timestamp,
 		Random:                difficulty,
-		SuggestedFeeRecipient: coinbase,
+		SuggestedFeeRecipient: blockParams.Coinbase,
 		Withdrawals:           []*types.Withdrawal{},
 		BlockMetadata: &engine.BlockMetadata{
-			Beneficiary: coinbase,
+			Beneficiary: blockParams.Coinbase,
 			GasLimit:    uint64(protocolConfig.BlockMaxGasLimit) + consensus.AnchorGasLimit,
-			Timestamp:   timestamp,
+			Timestamp:   blockParams.Timestamp,
 			TxList:      txListBytes,
 			MixHash:     difficulty,
 			ExtraData:   extraData[:],
 		},
 		BaseFeePerGas: baseFee,
-		L1Origin:      nil, // TODO(DavidCai): check L1 origin
+		L1Origin: &rawdb.L1Origin{
+			BlockID:       new(big.Int).SetUint64(blockID),
+			L2BlockHash:   common.Hash{}, // Will be set by taiko-geth.
+			L1BlockHeight: nil,           // No L1 block height for soft blocks.
+			BatchID:       new(big.Int).SetUint64(batchID),
+			EndOfBlock:    batchMarker == softblocks.BatchMarkerEOB,
+			EndOfPreconf:  batchMarker == softblocks.BatchMarkerEOP,
+			Preconfer:     blockParams.Coinbase,
+		},
 	}
 
 	log.Info(
