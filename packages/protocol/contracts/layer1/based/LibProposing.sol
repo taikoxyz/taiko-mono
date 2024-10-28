@@ -164,6 +164,7 @@ library LibProposing {
                 local.params.anchorBlockId = uint64(block.number - 1);
             }
 
+            // We deliberately avoid subtracting 12 second to use a more recent timestamp.
             if (local.params.timestamp == 0) {
                 local.params.timestamp = uint64(block.timestamp);
             }
