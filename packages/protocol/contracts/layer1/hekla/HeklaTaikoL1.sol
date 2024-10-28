@@ -22,8 +22,8 @@ contract HeklaTaikoL1 is TaikoL1 {
             maxAnchorHeightOffset: 64,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 8,
-                sharingPctg: 75,
-                gasIssuancePerSecond: 5_000_000,
+                sharingPctg: 80,
+                gasIssuancePerSecond: 1_000_000,
                 minGasExcess: 1_340_000_000,
                 maxGasIssuancePerBlock: 600_000_000 // two minutes
              }),
