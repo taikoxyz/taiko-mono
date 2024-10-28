@@ -432,7 +432,7 @@ func (s *Syncer) insertNewHead(
 
 	fc := &engine.ForkchoiceStateV1{
 		HeadBlockHash:      payload.BlockHash,
-		SafeBlockHash:      lastVerifiedBlockHash,
+		SafeBlockHash:      payload.BlockHash,
 		FinalizedBlockHash: lastVerifiedBlockHash,
 	}
 
@@ -849,9 +849,14 @@ func (s *Syncer) InsertSoftBlockFromTransactionsBatch(
 		return nil, fmt.Errorf("failed to fetch last verified block hash: %w", err)
 	}
 
+	canonicalHead, err := s.rpc.L2.HeadL1Origin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch canonical head: %w", err)
+	}
+
 	fc = &engine.ForkchoiceStateV1{
 		HeadBlockHash:      payload.BlockHash,
-		SafeBlockHash:      payload.BlockHash, // TODO(DavidCai): use last canonical block hash.
+		SafeBlockHash:      canonicalHead.L2BlockHash,
 		FinalizedBlockHash: lastVerifiedBlockHash,
 	}
 
