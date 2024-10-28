@@ -184,7 +184,7 @@ library LibProposing {
             L1_INVALID_ANCHOR_BLOCK()
         );
         require(local.params.anchorBlockId < block.number, L1_INVALID_ANCHOR_BLOCK());
-        
+
         // parentBlk.proposedIn is actually parent's params.anchorBlockId
         require(local.params.anchorBlockId >= parentBlk.proposedIn, L1_INVALID_ANCHOR_BLOCK());
 
@@ -196,7 +196,7 @@ library LibProposing {
             L1_INVALID_TIMESTAMP()
         );
         require(local.params.timestamp <= block.timestamp, L1_INVALID_TIMESTAMP());
-        
+
         // parentBlk.proposedAt is actually parent's params.timestamp
         require(local.params.timestamp >= parentBlk.proposedAt, L1_INVALID_TIMESTAMP());
 
