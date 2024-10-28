@@ -131,7 +131,7 @@ library LibProposing {
         // It's essential to ensure that the ring buffer for proposed blocks still has space for at
         // least one more block.
         unchecked {
-            require(local.b.numBlocks + 1 >= _config.ontakeForkHeight, L1_FORK_HEIGHT_ERROR());
+            require(local.b.numBlocks >= _config.ontakeForkHeight, L1_FORK_HEIGHT_ERROR());
             require(
                 local.b.numBlocks < local.b.lastVerifiedBlockId + _config.blockMaxProposals + 1,
                 L1_TOO_MANY_BLOCKS()
