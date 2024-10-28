@@ -137,8 +137,7 @@ library LibUtils {
     }
 
     /// @dev Retrieves the transition with a given parentHash.
-    /// @dev This function will revert if the transition is not found. This function will revert if
-    /// the transition is not found.
+    /// @dev This function will revert if the transition is not found. 
     /// @param _state Current TaikoData.State.
     /// @param _config Actual TaikoData.Config.
     /// @param _blockId Id of the block.
