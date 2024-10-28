@@ -46,7 +46,7 @@ contract TaikoL1TestGroupA1 is TaikoL1TestGroupBase {
             assertTrue(blk.livenessBond > 0);
             assertEq(blk.assignedProver, address(0));
             assertEq(blk.proposedAt, block.timestamp);
-            assertEq(blk.proposedIn, block.number);
+            assertEq(blk.proposedIn, block.number - 1);
 
             // Prove the block
             bytes32 blockHash = bytes32(uint256(10_000 + i));
@@ -70,8 +70,8 @@ contract TaikoL1TestGroupA1 is TaikoL1TestGroupBase {
             TaikoData.Block memory blk = L1.getBlock(i);
             assertEq(blk.livenessBond, 0);
             assertEq(blk.assignedProver, address(0));
-            assertEq(blk.proposedAt, block.timestamp);
             assertEq(blk.proposedIn, block.number - 1);
+            assertEq(blk.proposedAt, block.timestamp);
 
             // Prove the block
             bytes32 blockHash = bytes32(uint256(10_000 + i));
