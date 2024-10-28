@@ -52,6 +52,26 @@ var (
 		Category: driverCategory,
 		EnvVars:  []string{"BLOB_SOCIAL_SCAN_ENDPOINT"},
 	}
+	// soft block server
+	SoftBlockServerPort = &cli.Uint64Flag{
+		Name:     "softBlock.port",
+		Usage:    "HTTP port of the soft block server, 0 means disabled",
+		Category: driverCategory,
+		EnvVars:  []string{"SOFT_BLOCK_SERVER_PORT"},
+	}
+	SoftBlockServerJWTSecret = &cli.StringFlag{
+		Name:     "softBlock.jwtSecret",
+		Usage:    "Path to a JWT secret to use for the soft block server",
+		Category: driverCategory,
+		EnvVars:  []string{"SOFT_BLOCK_SERVER_JWT_SECRET"},
+	}
+	SoftBlockServerCORSOrigins = &cli.StringFlag{
+		Name:     "softBlock.corsOrigins",
+		Usage:    "CORS Origins settings for the soft block server",
+		Category: driverCategory,
+		Value:    "*",
+		EnvVars:  []string{"SOFT_BLOCK_SERVER_CORS_ORIGINS"},
+	}
 )
 
 // DriverFlags All driver flags.
@@ -66,4 +86,7 @@ var DriverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	MaxExponent,
 	BlobServerEndpoint,
 	SocialScanEndpoint,
+	SoftBlockServerPort,
+	SoftBlockServerJWTSecret,
+	SoftBlockServerCORSOrigins,
 })

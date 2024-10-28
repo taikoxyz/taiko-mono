@@ -183,7 +183,7 @@ func (s *SoftBlockAPIServer) BuildSoftBlock(c echo.Context) error {
 		reqBody.TransactionBatch.BlockID,
 		reqBody.TransactionBatch.ID,
 		txListBytes,
-		string(reqBody.TransactionBatch.BatchMarker),
+		reqBody.TransactionBatch.BatchMarker,
 		reqBody.TransactionBatch.BlockParams,
 	)
 	if err != nil {

@@ -700,7 +700,7 @@ func (s *Syncer) InsertSoftBlockFromTransactionsBatch(
 	batchID uint64,
 	txListBytes []byte,
 	batchMarker softblocks.TransactionBatchMarker,
-	blockParams softblocks.SoftBlockParams,
+	blockParams *softblocks.SoftBlockParams,
 ) (*types.Header, error) {
 	parent, err := s.rpc.L2.HeaderByNumber(ctx, new(big.Int).Sub(new(big.Int).SetUint64(blockID), common.Big1))
 	if err != nil {

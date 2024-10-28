@@ -2,6 +2,7 @@ package softblocks
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	"github.com/ethereum/go-ethereum/core/types"
@@ -22,7 +23,7 @@ type softBlockChainSyncer interface {
 		blockID uint64,
 		batchID uint64,
 		txListBytes []byte,
-		batchMarker string,
+		batchMarker TransactionBatchMarker,
 		softBlockParams *SoftBlockParams,
 	) (*types.Header, error)
 }
@@ -45,8 +46,13 @@ type SoftBlockAPIServer struct {
 	txListDecompressor *txListDecompressor.TxListDecompressor
 }
 
-// New creates a new soft blcok server instance.
-func New(chainSyncer softBlockChainSyncer, cli *rpc.Client) (*SoftBlockAPIServer, error) {
+// Start creates a new soft blcok server instance, and starts the server.
+func Start(
+	cors string,
+	jwtSecret []byte,
+	chainSyncer softBlockChainSyncer,
+	cli *rpc.Client,
+) (*SoftBlockAPIServer, error) {
 	server := &SoftBlockAPIServer{
 		echo:        echo.New(),
 		chainSyncer: chainSyncer,
@@ -58,9 +64,9 @@ func New(chainSyncer softBlockChainSyncer, cli *rpc.Client) (*SoftBlockAPIServer
 	}
 
 	server.echo.HideBanner = true
-	server.configureMiddleware([]string{"*"}) // TODO: add flags
+	server.configureMiddleware([]string{cors})
 	server.configureRoutes()
-	server.echo.Use(echojwt.JWT([]byte("secret"))) // TODO: add flags
+	server.echo.Use(echojwt.JWT(jwtSecret))
 
 	return server, nil
 }
@@ -93,6 +99,16 @@ func (s *SoftBlockAPIServer) configureMiddleware(corsOrigins []string) {
 		AllowOrigins:     corsOrigins,
 		AllowCredentials: true,
 	}))
+}
+
+// Start starts the HTTP server.
+func (s *SoftBlockAPIServer) Start(port uint64) error {
+	return s.echo.Start(fmt.Sprintf(":%v", port))
+}
+
+// Shutdown shuts down the HTTP server.
+func (s *SoftBlockAPIServer) Shutdown(ctx context.Context) error {
+	return s.echo.Shutdown(ctx)
 }
 
 // configureRoutes contains all routes which will be used by prover server.
