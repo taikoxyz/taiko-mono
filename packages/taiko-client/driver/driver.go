@@ -92,14 +92,12 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 	d.l1HeadSub = d.state.SubL1HeadsFeed(d.l1HeadCh)
 
 	if d.SoftBlockServerPort > 0 {
-		if d.softblockServer, err = softblocks.Start(
+		d.softblockServer = softblocks.New(
 			d.SoftBlockServerCORSOrigins,
 			d.SoftBlockServerJWTSecret,
 			d.l2ChainSyncer.BlobSyncer(),
 			d.rpc,
-		); err != nil {
-			return err
-		}
+		)
 	}
 
 	return nil
@@ -113,9 +111,11 @@ func (d *Driver) Start() error {
 
 	// Start the soft block server if it is enabled.
 	if d.softblockServer != nil {
-		if err := d.softblockServer.Start(d.SoftBlockServerPort); err != nil {
-			return err
-		}
+		go func() {
+			if err := d.softblockServer.Start(d.SoftBlockServerPort); err != nil {
+				log.Crit("Failed to start soft block server", "error", err)
+			}
+		}()
 	}
 
 	return nil

@@ -46,13 +46,13 @@ type SoftBlockAPIServer struct {
 	txListDecompressor *txListDecompressor.TxListDecompressor
 }
 
-// Start creates a new soft blcok server instance, and starts the server.
-func Start(
+// New creates a new soft blcok server instance, and starts the server.
+func New(
 	cors string,
 	jwtSecret []byte,
 	chainSyncer softBlockChainSyncer,
 	cli *rpc.Client,
-) (*SoftBlockAPIServer, error) {
+) *SoftBlockAPIServer {
 	server := &SoftBlockAPIServer{
 		echo:        echo.New(),
 		chainSyncer: chainSyncer,
@@ -66,9 +66,11 @@ func Start(
 	server.echo.HideBanner = true
 	server.configureMiddleware([]string{cors})
 	server.configureRoutes()
-	server.echo.Use(echojwt.JWT(jwtSecret))
+	if jwtSecret != nil {
+		server.echo.Use(echojwt.JWT(jwtSecret))
+	}
 
-	return server, nil
+	return server
 }
 
 // LogSkipper implements the `middleware.Skipper` interface.

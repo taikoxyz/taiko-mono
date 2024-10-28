@@ -45,6 +45,9 @@ func (s *DriverTestSuite) SetupTest() {
 			TaikoL2Address:   common.HexToAddress(os.Getenv("TAIKO_L2")),
 			JwtSecret:        string(jwtSecret),
 		},
+		SoftBlockServerPort:        testutils.RandomHash().Big().Uint64(),
+		SoftBlockServerJWTSecret:   nil,
+		SoftBlockServerCORSOrigins: "*",
 	}))
 	s.d = d
 	s.cancel = cancel
@@ -342,6 +345,25 @@ func (s *DriverTestSuite) InitProposer() {
 		},
 	}, nil, nil))
 	s.p = p
+}
+
+func (s *DriverTestSuite) TestInsertSoftBlocks() {
+	// Start the soft block server.
+	go func() { s.Nil(s.d.softblockServer.Start(s.d.SoftBlockServerPort)) }()
+	defer s.d.softblockServer.Shutdown(s.d.ctx)
+
+	l2Head1, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	s.Nil(s.d.ChainSyncer().BlobSyncer().ProcessL1Blocks(context.Background()))
+
+	// Propose a valid L2 block
+	s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().BlobSyncer())
+
+	l2Head2, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	s.Greater(l2Head2.Number.Uint64(), l2Head1.Number.Uint64())
 }
 
 func TestDriverTestSuite(t *testing.T) {
