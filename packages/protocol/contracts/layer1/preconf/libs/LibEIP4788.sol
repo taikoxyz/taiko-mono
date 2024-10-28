@@ -49,61 +49,50 @@ library LibEIP4788 {
     {
         // Validator's BLS public key is verified against the hash tree root within Validator chunks
         bytes32 pubKeyHashTreeRoot = sha256(abi.encodePacked(validatorBLSPubKey, bytes16(0)));
-        if (pubKeyHashTreeRoot != inclusionProof.validator[0]) {
-            revert InvalidValidatorBLSPubKey();
-        }
+        require(pubKeyHashTreeRoot == inclusionProof.validator[0], InvalidValidatorBLSPubKey());
 
         // Validator is verified against the validator list in the beacon state
         bytes32 validatorHashTreeRoot = LibMerkleUtils.merkleize(inclusionProof.validator);
-        if (
-            !LibMerkleUtils.verifyProof(
+        require(
+            LibMerkleUtils.verifyProof(
                 inclusionProof.validatorProof,
                 inclusionProof.validatorsRoot,
                 validatorHashTreeRoot,
                 inclusionProof.validatorIndex
-            )
-        ) {
-            // Revert if the proof that the expected validator is a part of the validator
-            // list in beacon state fails
-            revert ValidatorProofFailed();
-        }
+            ),
+            ValidatorProofFailed()
+        );
 
-        if (
-            !LibMerkleUtils.verifyProof(
+        require(
+            LibMerkleUtils.verifyProof(
                 inclusionProof.beaconStateProof,
                 inclusionProof.beaconStateRoot,
                 inclusionProof.validatorsRoot,
                 11
-            )
-        ) {
-            // Revert if the proof that the validator list is a part of the beacon state fails
-            revert BeaconStateProofFailed();
-        }
+            ),
+            BeaconStateProofFailed()
+        );
 
         // Beacon state is verified against the beacon block
-        if (
-            !LibMerkleUtils.verifyProof(
+        require(
+            LibMerkleUtils.verifyProof(
                 inclusionProof.beaconBlockProofForState,
                 beaconBlockRoot,
                 inclusionProof.beaconStateRoot,
                 3
-            )
-        ) {
-            // Revert if the proof for the beacon state being a part of the beacon block fails
-            revert BeaconBlockProofForStateFailed();
-        }
+            ),
+            BeaconBlockProofForStateFailed()
+        );
 
         // Validator index is verified against the beacon block
-        if (
-            !LibMerkleUtils.verifyProof(
+        require(
+            LibMerkleUtils.verifyProof(
                 inclusionProof.beaconBlockProofForProposerIndex,
                 beaconBlockRoot,
                 LibMerkleUtils.toLittleEndian(inclusionProof.validatorIndex),
                 1
-            )
-        ) {
-            // Revert if the proof that the proposer index is a part of the beacon block fails
-            revert BeaconBlockProofForProposerIndex();
-        }
+            ),
+            BeaconBlockProofForProposerIndex()
+        );
     }
 }
