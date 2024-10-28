@@ -160,14 +160,17 @@ library LibProposing {
             local.params.coinbase = local.params.proposer;
         }
 
-        if (local.params.anchorBlockId == 0) {
-            unchecked {
+        unchecked {
+            // Note that `timestamp` and `anchorBlockId` are not necessarily associated with the
+            // same L1 block
+            if (local.params.anchorBlockId == 0) {
                 local.params.anchorBlockId = uint64(block.number - 1);
             }
-        }
 
-        if (local.params.timestamp == 0) {
-            local.params.timestamp = uint64(block.timestamp);
+            // We deliberately avoid subtracting 12 second to use a more recent timestamp.
+            if (local.params.timestamp == 0) {
+                local.params.timestamp = uint64(block.timestamp);
+            }
         }
 
         // Verify params against the parent block.
@@ -180,7 +183,7 @@ library LibProposing {
         if (
             local.params.anchorBlockId + _config.maxAnchorHeightOffset < block.number //
                 || local.params.anchorBlockId >= block.number
-                || local.params.anchorBlockId < parentBlk.proposedIn
+                || local.params.anchorBlockId < parentBlk.proposedIn // parent.params.anchorBlockId
         ) {
             revert L1_INVALID_ANCHOR_BLOCK();
         }
@@ -190,7 +193,7 @@ library LibProposing {
         if (
             local.params.timestamp + _config.maxAnchorHeightOffset * SECONDS_PER_BLOCK
                 < block.timestamp || local.params.timestamp > block.timestamp
-                || local.params.timestamp < parentBlk.proposedAt
+                || local.params.timestamp < parentBlk.proposedAt // parent.params.timestamp
         ) {
             revert L1_INVALID_TIMESTAMP();
         }
@@ -258,8 +261,8 @@ library LibProposing {
             assignedProver: address(0),
             livenessBond: 0,
             blockId: local.b.numBlocks,
-            proposedAt: local.params.timestamp, // name kept but used differently
-            proposedIn: local.params.anchorBlockId, // name kept but used differently
+            proposedAt: local.params.timestamp, // = params.timestamp post Ontake
+            proposedIn: local.params.anchorBlockId, // = params.anchorBlockId post Ontake
             nextTransitionId: 1, // For a new block, the next transition ID is always 1, not 0.
             livenessBondReturned: false,
             // For unverified block, its verifiedTransitionId is always 0.
