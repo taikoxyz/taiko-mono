@@ -35,9 +35,7 @@ contract PreconfServiceManager is IPreconfServiceManager, ReentrancyGuard {
     }
 
     modifier onlyCallableBy(address allowedSender) {
-        if (msg.sender != allowedSender) {
-            revert SenderIsNotAllowed();
-        }
+        require(msg.sender == allowedSender, SenderIsNotAllowed());
         _;
     }
 
@@ -84,9 +82,7 @@ contract PreconfServiceManager is IPreconfServiceManager, ReentrancyGuard {
         nonReentrant
         onlyCallableBy(preconfTaskManager)
     {
-        if (slasher.isOperatorSlashed(operator)) {
-            revert OperatorAlreadySlashed();
-        }
+        require(!slasher.isOperatorSlashed(operator), OperatorAlreadySlashed());
         slasher.slashOperator(operator);
     }
 }
