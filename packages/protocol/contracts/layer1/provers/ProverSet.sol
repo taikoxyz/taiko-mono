@@ -32,8 +32,10 @@ contract ProverSet is EssentialContract, IERC1271 {
     error PERMISSION_DENIED();
 
     modifier onlyAuthorized() {
-        require(msg.sender == admin, PERMISSION_DENIED());
-        require(msg.sender == IHasRecipient(admin).recipient(), PERMISSION_DENIED());
+        require(
+            msg.sender == admin || msg.sender == IHasRecipient(admin).recipient(),
+            PERMISSION_DENIED()
+        );
         _;
     }
 

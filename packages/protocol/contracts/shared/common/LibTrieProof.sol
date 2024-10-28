@@ -47,7 +47,7 @@ library LibTrieProof {
             bytes memory rlpAccount =
                 SecureMerkleTrie.get(abi.encodePacked(_addr), _accountProof, _rootHash);
 
-            if (rlpAccount.length == 0) revert LTP_INVALID_ACCOUNT_PROOF();
+            require(rlpAccount.length != 0, LTP_INVALID_ACCOUNT_PROOF());
 
             RLPReader.RLPItem[] memory accountState = RLPReader.readList(rlpAccount);
 
@@ -61,6 +61,6 @@ library LibTrieProof {
             bytes.concat(_slot), RLPWriter.writeUint(uint256(_value)), _storageProof, storageRoot_
         );
 
-        if (!verified) revert LTP_INVALID_INCLUSION_PROOF();
+        require(verified, LTP_INVALID_INCLUSION_PROOF());
     }
 }

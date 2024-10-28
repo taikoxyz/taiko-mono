@@ -158,7 +158,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
 
         // Must not have missed dispute period
         require(
-            block.timestamp - slotTimestamp <= LibPreconfConstants.DISPUTE_PERIOD,
+            block.timestamp <= slotTimestamp + LibPreconfConstants.DISPUTE_PERIOD,
             MissedDisputeWindow()
         );
 

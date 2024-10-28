@@ -127,9 +127,9 @@ contract PreconfRegistry is IPreconfRegistry, Initializable {
 
             // Update the validator if it has no preconfer assigned, or if it has stopped proposing
             // for the former preconfer
-            require(validator.preconfer == address(0), ValidatorAlreadyActive());
             require(
-                validator.stopProposingAt == 0 || block.timestamp > validator.stopProposingAt,
+                validator.preconfer == address(0)
+                    || (validator.stopProposingAt != 0 && block.timestamp > validator.stopProposingAt),
                 ValidatorAlreadyActive()
             );
 
