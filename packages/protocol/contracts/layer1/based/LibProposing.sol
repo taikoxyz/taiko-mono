@@ -186,7 +186,7 @@ library LibProposing {
             }
 
             if (local.params.timestamp == 0) {
-                local.params.timestamp = uint64(block.timestamp - SECONDS_PER_BLOCK);
+                local.params.timestamp = uint64(block.timestamp);
             }
         }
 
