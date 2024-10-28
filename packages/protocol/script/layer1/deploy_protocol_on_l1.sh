@@ -29,7 +29,7 @@ forge script ./script/layer1/DeployProtocolOnL1.s.sol:DeployProtocolOnL1 \
     --ffi \
     -vvvv \
     --private-key $PRIVATE_KEY \
-    --block-gas-limit 100000000
+    --block-gas-limit 200000000
 
 export PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 SECURITY_COUNCIL=0x60997970C51812dc3A010C7d01b50e0d17dc79C8 \
