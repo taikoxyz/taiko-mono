@@ -213,8 +213,6 @@ library LibProving {
 
         if (_blockId != local.meta.id) revert LibUtils.L1_INVALID_BLOCK_ID();
 
-        // Make sure parentHash is not zero. To contest an existing transition, simply use any
-        // non-zero value as the blockHash and stateRoot.
         if (ctx_.tran.parentHash == 0 || ctx_.tran.blockHash == 0 || ctx_.tran.stateRoot == 0) {
             revert L1_INVALID_TRANSITION();
         }
@@ -511,8 +509,8 @@ library LibProving {
         } else {
             if (_local.sameTransition) revert L1_ALREADY_PROVED();
 
-            // The code below will be executed if - 1) the transition is proved for the first time,
-            // or - 2) the transition is contested.
+            // The code below will be executed if 1) the transition is proved for the first time
+            // or 2) the transition is contested.
             reward = _rewardAfterFriction(_ts.validityBond);
 
             if (!_blk.livenessBondReturned) {

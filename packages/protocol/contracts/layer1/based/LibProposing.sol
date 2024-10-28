@@ -173,9 +173,7 @@ library LibProposing {
             parentBlk = _state.blocks[(local.b.numBlocks - 1) % _config.blockRingBufferSize];
         }
 
-        // Verify the passed in L1 state block number. We only allow the L1 block to be 2 epochs
-        // old. The other constraint is that the L1 block number needs to be larger than or equal
-        // the one in the previous L2 block.
+        // Verify the passed in L1 state block number to anchor.
         if (
             local.params.anchorBlockId + _config.maxAnchorHeightOffset < block.number //
                 || local.params.anchorBlockId >= block.number
@@ -184,9 +182,8 @@ library LibProposing {
             revert L1_INVALID_ANCHOR_BLOCK();
         }
 
-        // Verify the passed in timestamp. We only allow the timestamp to be 2 epochs old. The other
-        // constraint is that the timestamp needs to be larger than or equal the one in the previous
-        // L2 block.
+        // Verify the provided timestamp to anchor. Note that local.params.anchorBlockId and
+        // local.params.timestamp may not correspond to the same L1 block.
         if (
             local.params.timestamp + _config.maxAnchorHeightOffset * SECONDS_PER_BLOCK
                 < block.timestamp || local.params.timestamp > block.timestamp
@@ -210,9 +207,10 @@ library LibProposing {
             anchorBlockHash: blockhash(local.params.anchorBlockId),
             difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", local.b.numBlocks)),
             blobHash: 0, // to be initialized below
-            // To make sure each L2 block can be executed deterministically by the client without
-            // referring to its metadata on Ethereum, we need to encode config.sharingPctg into the
-            // extraData.
+            // Encode _config.baseFeeConfig into extraData to allow L2 block execution without
+            // metadata. Metadata might be unavailable until the block is proposed on-chain. In
+            // preconfirmation scenarios, multiple blocks may be built but not yet proposed, making
+            // metadata unavailable.
             extraData: _encodeBaseFeeConfig(_config.baseFeeConfig),
             coinbase: local.params.coinbase,
             id: local.b.numBlocks,
@@ -235,10 +233,6 @@ library LibProposing {
         // Update certain meta fields
         if (meta_.blobUsed) {
             if (!LibNetwork.isDencunSupported(block.chainid)) revert L1_BLOB_NOT_AVAILABLE();
-
-            // Always use the first blob in this transaction. If the proposeBlock functions are
-            // called more than once in the same L1 transaction, these multiple L2 blocks will share
-            // the same blob.
             meta_.blobHash = blobhash(local.params.blobIndex);
             if (meta_.blobHash == 0) revert L1_BLOB_NOT_FOUND();
         } else {
@@ -282,7 +276,7 @@ library LibProposing {
         emit BlockProposedV2(meta_.id, meta_);
     }
 
-    /// @dev Encodes the base fee configuration.
+    /// @dev Encodes the base fee configuration into a bytes32.
     /// @param _baseFeeConfig The base fee configuration.
     /// @return The encoded base fee configuration.
     function _encodeBaseFeeConfig(LibSharedData.BaseFeeConfig memory _baseFeeConfig)
