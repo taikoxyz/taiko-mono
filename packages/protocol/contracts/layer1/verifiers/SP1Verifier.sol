@@ -52,7 +52,7 @@ contract SP1Verifier is EssentialContract, IVerifier {
         view
     {
         // Do not run proof verification to contest an existing proof
-        require(!_ctx.isContesting, SP1_INVALID_PROOF());
+        if (_ctx.isContesting) return;
 
         // Avoid in-memory decoding, so in-place decode with slicing.
         // e.g.: bytes32 programVKey = bytes32(_proof.data[0:32]);
