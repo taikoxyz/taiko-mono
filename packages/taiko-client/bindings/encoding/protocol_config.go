@@ -40,7 +40,7 @@ var (
 		OntakeForkHeight:      840_512,
 		BaseFeeConfig: bindings.LibSharedDataBaseFeeConfig{
 			AdjustmentQuotient:     8,
-			SharingPctg:            75,
+			SharingPctg:            80,
 			GasIssuancePerSecond:   5_000_000,
 			MinGasExcess:           1_340_000_000,
 			MaxGasIssuancePerBlock: 600_000_000,
