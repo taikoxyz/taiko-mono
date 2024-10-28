@@ -109,7 +109,7 @@ library LibProving {
         bytes[] calldata _inputs,
         bytes calldata _batchProof
     )
-        public
+        internal
     {
         if (_blockIds.length == 0 || _blockIds.length != _inputs.length) {
             revert L1_INVALID_PARAMS();
@@ -166,7 +166,7 @@ library LibProving {
         uint64 _blockId,
         bytes calldata _input
     )
-        public
+        internal
     {
         TaikoData.TierProof memory noBatchProof;
         _proveBlock(_state, _config, _resolver, _blockId, _input, noBatchProof);
