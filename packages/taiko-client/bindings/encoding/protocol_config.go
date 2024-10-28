@@ -58,6 +58,7 @@ var (
 		OntakeForkHeight:      538_304,
 		BaseFeeConfig: bindings.LibSharedDataBaseFeeConfig{
 			AdjustmentQuotient:     8,
+			SharingPctg:            75,
 			GasIssuancePerSecond:   5_000_000,
 			MinGasExcess:           1_340_000_000,
 			MaxGasIssuancePerBlock: 600_000_000,
@@ -75,4 +76,14 @@ func GetProtocolConfig(chainID uint64) *bindings.TaikoDataConfig {
 	default:
 		return InternlDevnetProtocolConfig
 	}
+}
+
+// EncodeBaseFeeConfig encodes the block.extraData field from the given base fee config.
+func EncodeBaseFeeConfig(baseFeeConfig *bindings.LibSharedDataBaseFeeConfig) [32]byte {
+	var (
+		bytes32Value [32]byte
+		uintValue    = new(big.Int).SetUint64(uint64(baseFeeConfig.SharingPctg))
+	)
+	copy(bytes32Value[32-len(uintValue.Bytes()):], uintValue.Bytes())
+	return bytes32Value
 }

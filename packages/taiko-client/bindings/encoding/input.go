@@ -294,6 +294,9 @@ var (
 		{Name: "TaikoData.Transition", Type: transitionComponentsType},
 		{Name: "TaikoData.TierProof", Type: tierProofComponentsType},
 	}
+	stringType, _                  = abi.NewType("string", "TAIKO_DIFFICULTY", nil)
+	uint64Type, _                  = abi.NewType("uint64", "local.b.numBlocks", nil)
+	difficultyCalculationInputArgs = abi.Arguments{{Type: stringType}, {Type: uint64Type}}
 )
 
 // Contract ABIs.
@@ -420,6 +423,16 @@ func EncodeProveBlockInput(
 		}
 	}
 
+	return b, nil
+}
+
+// EncodeDifficultCalcutionParams performs the solidity `abi.encode` for the
+// `block.difficulty` hash payload.
+func EncodeDifficultyCalcutionParams(numBlocks uint64) ([]byte, error) {
+	b, err := difficultyCalculationInputArgs.Pack("TAIKO_DIFFICULTY", numBlocks)
+	if err != nil {
+		return nil, fmt.Errorf("failed to abi.encode `block.difficulty` hash payload, %w", err)
+	}
 	return b, nil
 }
 

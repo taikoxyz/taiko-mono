@@ -17,6 +17,7 @@ import (
 	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -104,11 +105,6 @@ func (s *Syncer) ProcessL1Blocks(ctx context.Context) error {
 
 		return nil
 	}
-}
-
-// InsertSoftBlock inserts a soft block into the L2 execution engine's blockchain.
-func (s *Syncer) InsertSoftBlock(ctx context.Context) (*types.Header, error) {
-	return nil, nil
 }
 
 // processL1Blocks is the inner method which responsible for processing
@@ -492,7 +488,7 @@ func (s *Syncer) createExecutionPayloads(
 		"timestamp", attributes.BlockMetadata.Timestamp,
 		"mixHash", attributes.BlockMetadata.MixHash,
 		"baseFee", utils.WeiToGWei(attributes.BaseFeePerGas),
-		"extraData", string(attributes.BlockMetadata.ExtraData),
+		"extraData", common.Bytes2Hex(attributes.BlockMetadata.ExtraData),
 		"l1OriginHeight", attributes.L1Origin.L1BlockHeight,
 		"l1OriginHash", attributes.L1Origin.L1BlockHash,
 	)
@@ -692,4 +688,181 @@ func (s *Syncer) checkReorg(
 	}
 
 	return reorgCheckResult, nil
+}
+
+// InsertSoftBlockFromTransactionsBatch inserts a soft block into the L2 execution engine's blockchain
+// from the given transactions batch.
+func (s *Syncer) InsertSoftBlockFromTransactionsBatch(
+	// Transactions batch parameters
+	ctx context.Context,
+	blockID uint64,
+	batchID uint64, // TODO(DavidCai): verify batch ID
+	txListBytes []byte,
+	batchMarker string, // TODO(DavidCai): handle batch marker
+	// Block parameters
+	timestamp uint64,
+	coinbase common.Address,
+	// Anchor parameters
+	anchorBlockID uint64,
+	anchorStateRoot common.Hash,
+) (*types.Header, error) {
+	parent, err := s.rpc.L2.HeaderByNumber(ctx, new(big.Int).Sub(new(big.Int).SetUint64(blockID), common.Big1))
+	if err != nil {
+		return nil, err
+	}
+
+	if parent.Number.Uint64()+1 != blockID {
+		return nil, fmt.Errorf("parent block number (%d) is not equal to blockID - 1 (%d)", parent.Number.Uint64(), blockID)
+	}
+
+	// Calculate the other block parameters
+	difficultyHashPaylaod, err := encoding.EncodeDifficultyCalcutionParams(blockID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode `block.difficulty` calculation parameters: %w", err)
+	}
+
+	var (
+		txList         []*types.Transaction
+		fc             = &engine.ForkchoiceStateV1{HeadBlockHash: parent.Hash()}
+		difficulty     = crypto.Keccak256Hash(difficultyHashPaylaod)
+		protocolConfig = encoding.GetProtocolConfig(s.rpc.L2.ChainID.Uint64())
+		extraData      = encoding.EncodeBaseFeeConfig(&protocolConfig.BaseFeeConfig)
+	)
+
+	if err := rlp.DecodeBytes(txListBytes, &txList); err != nil {
+		return nil, fmt.Errorf("failed to RLP decode txList bytes: %w", err)
+	}
+
+	baseFee, err := s.rpc.CalculateBaseFee(
+		ctx,
+		parent,
+		new(big.Int).SetUint64(anchorBlockID),
+		true,
+		&protocolConfig.BaseFeeConfig,
+		timestamp,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate base fee: %w", err)
+	}
+
+	// Insert the anchor transaction at the head of the transactions list.
+	if batchID == 0 {
+		// Assemble a TaikoL2.anchorV2 transaction.
+		anchorTx, err := s.anchorConstructor.AssembleAnchorV2Tx(
+			ctx,
+			new(big.Int).SetUint64(anchorBlockID),
+			anchorStateRoot,
+			parent.GasUsed,
+			&protocolConfig.BaseFeeConfig,
+			new(big.Int).SetUint64(blockID),
+			baseFee,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create TaikoL2.anchorV2 transaction: %w", err)
+		}
+
+		txList = append([]*types.Transaction{anchorTx}, txList...)
+		if txListBytes, err = rlp.EncodeToBytes(txList); err != nil {
+			log.Error("Encode txList error", "blockID", blockID, "error", err)
+			return nil, err
+		}
+	} else {
+		prevSoftBlock, err := s.rpc.L2.BlockByNumber(ctx, new(big.Int).SetUint64(blockID-1))
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch previous soft block (%d): %w", blockID, err)
+		}
+		txList = append(prevSoftBlock.Transactions(), txList...)
+	}
+
+	attributes := &engine.PayloadAttributes{
+		Timestamp:             timestamp,
+		Random:                difficulty,
+		SuggestedFeeRecipient: coinbase,
+		Withdrawals:           []*types.Withdrawal{},
+		BlockMetadata: &engine.BlockMetadata{
+			Beneficiary: coinbase,
+			GasLimit:    uint64(protocolConfig.BlockMaxGasLimit) + consensus.AnchorGasLimit,
+			Timestamp:   timestamp,
+			TxList:      txListBytes,
+			MixHash:     difficulty,
+			ExtraData:   extraData[:],
+		},
+		BaseFeePerGas: baseFee,
+		L1Origin:      nil, // TODO(DavidCai): check L1 origin
+	}
+
+	log.Info(
+		"Soft block payloadAttributes",
+		"blockID", blockID,
+		"timestamp", attributes.Timestamp,
+		"random", attributes.Random,
+		"suggestedFeeRecipient", attributes.SuggestedFeeRecipient,
+		"withdrawals", len(attributes.Withdrawals),
+		"gasLimit", attributes.BlockMetadata.GasLimit,
+		"timestamp", attributes.BlockMetadata.Timestamp,
+		"mixHash", attributes.BlockMetadata.MixHash,
+		"baseFee", utils.WeiToGWei(attributes.BaseFeePerGas),
+		"extraData", common.Bytes2Hex(attributes.BlockMetadata.ExtraData),
+	)
+
+	// Step 1, prepare a payload
+	fcRes, err := s.rpc.L2Engine.ForkchoiceUpdate(ctx, fc, attributes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update fork choice: %w", err)
+	}
+	if fcRes.PayloadStatus.Status != engine.VALID {
+		return nil, fmt.Errorf("unexpected ForkchoiceUpdate response status: %s", fcRes.PayloadStatus.Status)
+	}
+	if fcRes.PayloadID == nil {
+		return nil, errors.New("empty payload ID")
+	}
+
+	// Step 2, get the payload
+	payload, err := s.rpc.L2Engine.GetPayload(ctx, fcRes.PayloadID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get payload: %w", err)
+	}
+
+	log.Info(
+		"Soft block payload",
+		"blockID", blockID,
+		"baseFee", utils.WeiToGWei(payload.BaseFeePerGas),
+		"number", payload.Number,
+		"hash", payload.BlockHash,
+		"gasLimit", payload.GasLimit,
+		"gasUsed", payload.GasUsed,
+		"timestamp", payload.Timestamp,
+		"withdrawalsHash", payload.WithdrawalsHash,
+	)
+
+	// Step 3, execute the payload
+	execStatus, err := s.rpc.L2Engine.NewPayload(ctx, payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create a new payload: %w", err)
+	}
+	if execStatus.Status != engine.VALID {
+		return nil, fmt.Errorf("unexpected NewPayload response status: %s", execStatus.Status)
+	}
+
+	lastVerifiedBlockHash, err := s.rpc.GetLastVerifiedBlockHash(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch last verified block hash: %w", err)
+	}
+
+	fc = &engine.ForkchoiceStateV1{
+		HeadBlockHash:      payload.BlockHash,
+		SafeBlockHash:      payload.BlockHash, // TODO(DavidCai): use last canonical block hash.
+		FinalizedBlockHash: lastVerifiedBlockHash,
+	}
+
+	// Update the fork choice
+	fcRes, err = s.rpc.L2Engine.ForkchoiceUpdate(ctx, fc, nil)
+	if err != nil {
+		return nil, err
+	}
+	if fcRes.PayloadStatus.Status != engine.VALID {
+		return nil, fmt.Errorf("unexpected ForkchoiceUpdate response status: %s", fcRes.PayloadStatus.Status)
+	}
+
+	return s.rpc.L2.HeaderByHash(ctx, payload.BlockHash)
 }

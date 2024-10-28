@@ -1,10 +1,15 @@
 package softblocks
 
 import (
+	"math/big"
 	"net/http"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/labstack/echo/v4"
 )
 
@@ -21,8 +26,8 @@ const (
 type SoftBlockParams struct {
 	// @param timestamp uint64 Timestamp of the soft block
 	Timestamp uint64 `json:"timestamp"`
-	// @param coinbase uint64 Coinbase of the soft block
-	Coinbase string `json:"coinbase"`
+	// @param coinbase string Coinbase of the soft block
+	Coinbase common.Address `json:"coinbase"`
 
 	// @param anchorBlockID uint64 `_anchorBlockId` parameter of the `anchorV2` transaction in soft block
 	AnchorBlockID uint64 `json:"anchorBlockID"`
@@ -45,6 +50,26 @@ type TransactionBatch struct {
 	Signature string `json:"signature"`
 	// @param blockParams SoftBlockParams Block parameters of the soft block
 	BlockParams *SoftBlockParams `json:"blockParams"`
+}
+
+// ValidateSignature validates the signature of the transaction batch.
+func (b *TransactionBatch) ValidateSignature() (bool, error) {
+	batchWithoutSig := *b
+	batchWithoutSig.Signature = ""
+
+	payload, err := rlp.EncodeToBytes(batchWithoutSig)
+	if err != nil {
+		return false, err
+	}
+
+	log.Debug("Validating signature", "payload", payload, "signature", b.Signature)
+
+	pubKey, err := crypto.SigToPub(payload, common.FromHex(b.Signature))
+	if err != nil {
+		return false, err
+	}
+
+	return crypto.PubkeyToAddress(*pubKey).Hex() == b.BlockParams.Coinbase.Hex(), nil
 }
 
 // BuildSoftBlockRequestBody represents a request body when handling
@@ -78,17 +103,91 @@ type BuildSoftBlockResponseBody struct {
 //		@Success	200		{object} BuildSoftBlockResponseBody
 //		@Router		/softBlocks [post]
 func (s *SoftBlockAPIServer) BuildSoftBlock(c echo.Context) error {
+	// Parse the request body.
+	reqBody := new(BuildSoftBlockRequestBody)
+	if err := c.Bind(reqBody); err != nil {
+		return c.JSON(http.StatusUnprocessableEntity, map[string]string{"error": err.Error()})
+	}
+
+	log.Info(
+		"New soft block building request",
+		"blockID", reqBody.TransactionBatch.BlockID,
+		"batchID", reqBody.TransactionBatch.ID,
+		"batchMarker", reqBody.TransactionBatch.BatchMarker,
+		"transactionsListBytes", len(reqBody.TransactionBatch.TransactionsList),
+		"signature", reqBody.TransactionBatch.Signature,
+		"timestamp", reqBody.TransactionBatch.BlockParams.Timestamp,
+		"coinbase", reqBody.TransactionBatch.BlockParams.Coinbase,
+		"anchorBlockID", reqBody.TransactionBatch.BlockParams.AnchorBlockID,
+		"anchorStateRoot", reqBody.TransactionBatch.BlockParams.AnchorStateRoot,
+	)
+
+	// Request body validation.
+	if reqBody.TransactionBatch.BlockParams == nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "blockParams is required"})
+	}
+	if reqBody.TransactionBatch.BlockParams.AnchorBlockID == 0 {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "non-zero anchorBlockID is required"})
+	}
+	if reqBody.TransactionBatch.BlockParams.AnchorStateRoot == (common.Hash{}) {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "empty anchorStateRoot"})
+	}
+	if reqBody.TransactionBatch.BlockParams.Timestamp == 0 {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "non-zero timestamp is required"})
+	}
+	if reqBody.TransactionBatch.BlockParams.Coinbase == (common.Address{}) {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "empty coinbase"})
+	}
+
+	ok, err := reqBody.TransactionBatch.ValidateSignature()
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	if !ok {
+		log.Warn(
+			"Invalid signature",
+			"signature", reqBody.TransactionBatch.Signature,
+			"coinbase", reqBody.TransactionBatch.BlockParams.Coinbase.Hex(),
+		)
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid signature"})
+	}
+
 	// Check if the L2 execution engine is syncing from L1.
 	progress, err := s.rpc.L2ExecutionEngineSyncProgress(c.Request().Context())
 	if err != nil {
-		return err
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 	if progress.IsSyncing() {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "L2 execution engine is syncing"})
 	}
 
+	var txListBytes []byte
+	if s.rpc.L2.ChainID.Cmp(params.HeklaNetworkID) == 0 {
+		txListBytes = s.txListDecompressor.TryDecompressHekla(
+			new(big.Int).SetUint64(reqBody.TransactionBatch.BlockID),
+			reqBody.TransactionBatch.TransactionsList,
+			true,
+		)
+	} else {
+		txListBytes = s.txListDecompressor.TryDecompress(
+			new(big.Int).SetUint64(reqBody.TransactionBatch.BlockID),
+			reqBody.TransactionBatch.TransactionsList,
+			true,
+		)
+	}
+
 	// Insert the soft block.
-	header, err := s.chainSyncer.BlobSyncer().InsertSoftBlock(c.Request().Context())
+	header, err := s.chainSyncer.BlobSyncer().InsertSoftBlockFromTransactionsBatch(
+		c.Request().Context(),
+		reqBody.TransactionBatch.BlockID,
+		reqBody.TransactionBatch.ID,
+		txListBytes,
+		string(reqBody.TransactionBatch.BatchMarker),
+		reqBody.TransactionBatch.BlockParams.Timestamp,
+		reqBody.TransactionBatch.BlockParams.Coinbase,
+		reqBody.TransactionBatch.BlockParams.AnchorBlockID,
+		reqBody.TransactionBatch.BlockParams.AnchorStateRoot,
+	)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}

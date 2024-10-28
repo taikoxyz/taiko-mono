@@ -7,7 +7,9 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	chainSyncer "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer"
+	txListDecompressor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_decompressor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
@@ -23,16 +25,22 @@ import (
 // @license.url https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md
 // SoftBlockAPIServer represents a soft blcok server instance.
 type SoftBlockAPIServer struct {
-	echo        *echo.Echo
-	chainSyncer *chainSyncer.L2ChainSyncer
-	rpc         *rpc.Client
+	echo               *echo.Echo
+	chainSyncer        *chainSyncer.L2ChainSyncer
+	rpc                *rpc.Client
+	txListDecompressor *txListDecompressor.TxListDecompressor
 }
 
 // New creates a new soft blcok server instance.
-func New(chainSyncer *chainSyncer.L2ChainSyncer) (*SoftBlockAPIServer, error) {
+func New(chainSyncer *chainSyncer.L2ChainSyncer, cli *rpc.Client) (*SoftBlockAPIServer, error) {
 	server := &SoftBlockAPIServer{
 		echo:        echo.New(),
 		chainSyncer: chainSyncer,
+		txListDecompressor: txListDecompressor.NewTxListDecompressor(
+			uint64(encoding.GetProtocolConfig(cli.L2.ChainID.Uint64()).BlockMaxGasLimit),
+			rpc.BlockMaxTxListBytes,
+			cli.L2.ChainID,
+		),
 	}
 
 	server.echo.HideBanner = true
