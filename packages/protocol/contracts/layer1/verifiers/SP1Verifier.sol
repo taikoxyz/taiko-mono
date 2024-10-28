@@ -52,7 +52,7 @@ contract SP1Verifier is EssentialContract, IVerifier {
         view
     {
         // Do not run proof verification to contest an existing proof
-        if (_ctx.isContesting) return;
+        require(!_ctx.isContesting, SP1_INVALID_PROOF());
 
         // Avoid in-memory decoding, so in-place decode with slicing.
         // e.g.: bytes32 programVKey = bytes32(_proof.data[0:32]);
@@ -82,7 +82,8 @@ contract SP1Verifier is EssentialContract, IVerifier {
         external
         view
     {
-        require(_ctxs.length != 0 && _proof.data.length > 64, SP1_INVALID_PARAMS());
+        require(_ctxs.length != 0, SP1_INVALID_PARAMS());
+        require(_proof.data.length > 64, SP1_INVALID_PARAMS());
         // Extract the necessary data
         bytes32 aggregationProgram = bytes32(_proof.data[0:32]);
         bytes32 blockProvingProgram = bytes32(_proof.data[32:64]);
