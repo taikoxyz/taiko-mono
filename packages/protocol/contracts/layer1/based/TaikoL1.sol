@@ -189,12 +189,14 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     /// @param _blockId Index of the block.
     /// @return blk_ The block.
     function getBlock(uint64 _blockId) external view returns (TaikoData.Block memory blk_) {
+        require(_blockId < getConfig().ontakeForkHeight, L1_INVALID_PARAMS());
         (TaikoData.BlockV2 memory blk,) = LibUtils.getBlock(state, getConfig(), _blockId);
         blk_ = LibData.blockV2toV1(blk);
     }
 
     /// @inheritdoc ITaikoL1
     function getBlockV2(uint64 _blockId) external view returns (TaikoData.BlockV2 memory blk_) {
+        require(_blockId >= getConfig().ontakeForkHeight, L1_INVALID_PARAMS());
         (blk_,) = LibUtils.getBlock(state, getConfig(), _blockId);
     }
 
