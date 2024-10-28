@@ -182,7 +182,8 @@ library LibProposing {
 
         unchecked {
             if (local.params.anchorBlockId == 0) {
-                local.params.anchorBlockId = uint64(block.number - 1);
+                local.params.anchorBlockId =
+                    local.postFork ? uint64(block.number - 1) : uint64(block.number);
             }
 
             if (local.params.timestamp == 0) {
