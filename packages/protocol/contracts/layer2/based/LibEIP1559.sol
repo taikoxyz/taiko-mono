@@ -18,7 +18,7 @@ library LibEIP1559 {
     error EIP1559_INVALID_PARAMS();
 
     function calc1559BaseFee(
-        uint256 _gasTarget,
+        uint64 _gasTarget,
         uint64 _gasExcess,
         uint64 _gasIssuance,
         uint32 _parentGasUsed,
@@ -50,15 +50,17 @@ library LibEIP1559 {
     )
         internal
         pure
-        returns (uint64)
+        returns (bool success_, uint64 newGasExcess_)
     {
         if (_gasTarget == 0) {
-            return _newGasTarget;
+            return (true, _newGasTarget);
         }
 
         uint256 f = FixedPointMathLib.WAD;
         uint256 ratio = f * _newGasTarget / _gasTarget;
-        if (ratio > uint256(type(int256).max)) revert EIP1559_INVALID_PARAMS();
+        if (ratio == 0 || ratio > uint256(type(int256).max)) {
+            return (false, _gasExcess);
+        }
 
         int256 lnRatio = FixedPointMathLib.lnWad(int256(ratio)); // may be negative
 
@@ -74,17 +76,18 @@ library LibEIP1559 {
             default { newGasExcess := div(x, f) }
         }
 
-        return uint64(newGasExcess.min(type(uint64).max));
+        return (true, uint64(newGasExcess.min(type(uint64).max)));
     }
 
     /// @dev exp(_gasExcess / _gasTarget) / _gasTarget
-    function basefee(uint256 _gasExcess, uint256 _gasTarget) internal pure returns (uint256) {
+    function basefee(uint64 _gasExcess, uint64 _gasTarget) internal pure returns (uint256) {
+        if (_gasTarget == 0) return 1;
         uint256 fee = ethQty(_gasExcess, _gasTarget) / _gasTarget;
         return fee == 0 ? 1 : fee;
     }
 
     /// @dev exp(_gasExcess / _gasTarget)
-    function ethQty(uint256 _gasExcess, uint256 _gasTarget) internal pure returns (uint256) {
+    function ethQty(uint64 _gasExcess, uint64 _gasTarget) internal pure returns (uint256) {
         if (_gasTarget == 0) revert EIP1559_INVALID_PARAMS();
 
         uint256 input = FixedPointMathLib.WAD * _gasExcess / _gasTarget;

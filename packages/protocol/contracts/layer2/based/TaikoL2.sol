@@ -58,6 +58,9 @@ contract TaikoL2 is EssentialContract, IBlockHash {
     /// @param parentGasExcess The gas excess value used to calculate the base fee.
     event Anchored(bytes32 parentHash, uint64 parentGasExcess);
 
+    event UpdateGasTargetSucceeded(uint64 oldGasTarget, uint64 newGasTarget);
+    event UpdateGasTargetFailed(uint64 oldGasTarget, uint64 newGasTarget);
+
     error L2_BASEFEE_MISMATCH();
     error L2_FORK_ERROR();
     error L2_INVALID_L1_CHAIN_ID();
@@ -206,10 +209,25 @@ contract TaikoL2 is EssentialContract, IBlockHash {
                 uint64(_baseFeeConfig.gasIssuancePerSecond) * _baseFeeConfig.adjustmentQuotient;
 
             if (parentGasTarget != newGasTarget) {
-                if (parentGasTarget != 0) {
-                    parentGasExcess = adjustExcess(parentGasExcess, parentGasTarget, newGasTarget);
+                if (parentGasTarget == 0) {
+                    parentGasTarget = newGasTarget;
+                    emit UpdateGasTargetSucceeded(0, newGasTarget);
+                } else {
+                    bool _success;
+                    uint64 _newGasExcess;
+
+                    (_success, _newGasExcess) =
+                        adjustExcess(parentGasExcess, parentGasTarget, newGasTarget);
+
+                    if (_success) {
+                        emit UpdateGasTargetSucceeded(parentGasTarget, newGasTarget);
+
+                        parentGasTarget = newGasTarget;
+                        parentGasExcess = _newGasExcess;
+                    } else {
+                        emit UpdateGasTargetFailed(parentGasTarget, newGasTarget);
+                    }
                 }
-                parentGasTarget = newGasTarget;
             }
         }
 
@@ -284,7 +302,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         LibL2Config.Config memory config = LibL2Config.get();
 
         (basefee_, parentGasExcess_) = LibEIP1559.calc1559BaseFee(
-            uint256(config.gasTargetPerL1Block) * config.basefeeAdjustmentQuotient,
+            uint64(config.gasTargetPerL1Block) * config.basefeeAdjustmentQuotient,
             parentGasExcess,
             uint64(_anchorBlockId - lastSyncedBlock) * config.gasTargetPerL1Block,
             _parentGasUsed,
@@ -303,6 +321,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
     /// @param _currGasExcess The current gas excess value.
     /// @param _currGasTarget The current gas target.
     /// @param _newGasTarget The new gas target.
+    /// @return success_ True if the new gas trget can be applied.
     /// @return newGasExcess_ The new gas excess value.
     function adjustExcess(
         uint64 _currGasExcess,
@@ -311,7 +330,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
     )
         public
         pure
-        returns (uint64 newGasExcess_)
+        returns (bool success_, uint64 newGasExcess_)
     {
         return LibEIP1559.adjustExcess(_currGasExcess, _currGasTarget, _newGasTarget);
     }
@@ -360,8 +379,8 @@ contract TaikoL2 is EssentialContract, IBlockHash {
             gasIssuance = _baseFeeConfig.maxGasIssuancePerBlock;
         }
 
-        uint256 gasTarget =
-            uint256(_baseFeeConfig.gasIssuancePerSecond) * _baseFeeConfig.adjustmentQuotient;
+        uint64 gasTarget =
+            uint64(_baseFeeConfig.gasIssuancePerSecond) * _baseFeeConfig.adjustmentQuotient;
 
         return LibEIP1559.calc1559BaseFee(
             gasTarget, _parentGasExcess, gasIssuance, _parentGasUsed, _baseFeeConfig.minGasExcess
