@@ -180,14 +180,14 @@ library LibProposing {
             local.params.coinbase = local.params.proposer;
         }
 
-        unchecked {
-            if (local.params.anchorBlockId == 0) {
+        if (local.params.anchorBlockId == 0) {
+            unchecked {
                 local.params.anchorBlockId = uint64(block.number - 1);
             }
+        }
 
-            if (local.params.timestamp == 0) {
-                local.params.timestamp = uint64(block.timestamp);
-            }
+        if (local.params.timestamp == 0) {
+            local.params.timestamp = uint64(block.timestamp);
         }
 
         // Verify params against the parent block.
@@ -294,8 +294,8 @@ library LibProposing {
             assignedProver: address(0),
             livenessBond: local.postFork ? 0 : meta_.livenessBond,
             blockId: local.b.numBlocks,
-            proposedAt: local.params.timestamp,
-            proposedIn: local.params.anchorBlockId,
+            proposedAt: local.postFork ? local.params.timestamp : uint64(block.timestamp),
+            proposedIn: local.postFork ? local.params.anchorBlockId : uint64(block.number),
             // For a new block, the next transition ID is always 1, not 0.
             nextTransitionId: 1,
             livenessBondReturned: false,
