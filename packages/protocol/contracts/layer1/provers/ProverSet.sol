@@ -81,18 +81,27 @@ contract ProverSet is EssentialContract, IERC1271 {
         LibAddress.sendEtherAndVerify(admin, _amount);
     }
 
-    /// @notice Propose a Taiko block.
-    function proposeBlockV2(bytes calldata _params, bytes calldata _txList) external onlyProver {
+    /// @notice Proposes a block only when it is the first block proposal in the current L1 block.
+    function proposeBlockV2Conditionally(
+        bytes calldata _params,
+        bytes calldata _txList
+    )
+        external
+        onlyProver
+    {
         ITaikoL1 taiko = ITaikoL1(taikoL1());
-        if (_params[0] == 0x01) {
-            // Check if the first byte is 1. If true, ensure this block is the first block proposed
-            // in the current L1 block.
-            require(taiko.lastProposedIn() != block.number, NOT_FIRST_PROPOSAL());
-        }
-        taiko.proposeBlockV2(_params[1:], _txList);
+        // Check if the first byte is 1. If true, ensure this block is the first block proposed
+        // in the current L1 block.
+        require(taiko.lastProposedIn() != block.number, NOT_FIRST_PROPOSAL());
+        taiko.proposeBlockV2(_params, _txList);
     }
 
-    /// @notice Propose multiple Taiko blocks.
+    /// @notice Proposes a Taiko block.
+    function proposeBlockV2(bytes calldata _params, bytes calldata _txList) external onlyProver {
+        ITaikoL1(taikoL1()).proposeBlockV2(_params[1:], _txList);
+    }
+
+    /// @notice Proposes multiple Taiko blocks.
     function proposeBlocksV2(
         bytes[] calldata _paramsArr,
         bytes[] calldata _txListArr
