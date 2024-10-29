@@ -36,6 +36,7 @@ library LibProposing {
 
     error L1_BLOB_NOT_AVAILABLE();
     error L1_BLOB_NOT_FOUND();
+    error L1_FORK_HEIGHT_ERROR();
     error L1_INVALID_ANCHOR_BLOCK();
     error L1_INVALID_CUSTOM_PROPOSER();
     error L1_INVALID_PARAMS();
@@ -129,6 +130,8 @@ library LibProposing {
 
         // It's essential to ensure that the ring buffer for proposed blocks still has space for at
         // least one more block.
+        require(local.b.numBlocks >= _config.ontakeForkHeight, L1_FORK_HEIGHT_ERROR());
+
         unchecked {
             require(
                 local.b.numBlocks < local.b.lastVerifiedBlockId + _config.blockMaxProposals + 1,
