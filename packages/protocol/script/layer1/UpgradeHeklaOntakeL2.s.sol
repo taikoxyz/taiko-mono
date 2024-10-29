@@ -27,7 +27,7 @@ contract UpgradeHeklaOntakeL2 is DeployCapability {
     }
 
     function run() external broadcast {
-        Multicall3.Call3[] memory calls = new Multicall3.Call3[](4);
+        Multicall3.Call3[] memory calls = new Multicall3.Call3[](5);
         // TaikoL2
         calls[0].target = 0x1670090000000000000000000000000000010001;
         calls[0].allowFailure = false;
