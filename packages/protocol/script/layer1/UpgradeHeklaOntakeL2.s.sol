@@ -17,6 +17,7 @@ contract UpgradeHeklaOntakeL2 is DeployCapability {
     address public newHeklaTaikoL2 = vm.envAddress("NEW_HEKLA_TAIKO_L2");
     address public newBridge = vm.envAddress("NEW_BRIDGE");
     address public newAddressManager = vm.envAddress("NEW_ADDRESS_MANAGER");
+    address public newBridgedERC20 = vm.envAddress("NEW_BRIDGED_ERC20");
 
     modifier broadcast() {
         require(privateKey != 0, "invalid private key");
@@ -26,7 +27,7 @@ contract UpgradeHeklaOntakeL2 is DeployCapability {
     }
 
     function run() external broadcast {
-        Multicall3.Call3[] memory calls = new Multicall3.Call3[](4);
+        Multicall3.Call3[] memory calls = new Multicall3.Call3[](5);
         // TaikoL2
         calls[0].target = 0x1670090000000000000000000000000000010001;
         calls[0].allowFailure = false;
@@ -43,6 +44,12 @@ contract UpgradeHeklaOntakeL2 is DeployCapability {
         calls[3].target = 0x1670090000000000000000000000000000000006;
         calls[3].allowFailure = false;
         calls[3].callData = abi.encodeCall(UUPSUpgradeable.upgradeTo, (newAddressManager));
+        // Register Bridged ERC20
+        calls[4].target = 0x1670090000000000000000000000000000000006;
+        calls[4].allowFailure = false;
+        calls[4].callData = abi.encodeCall(
+            AddressManager.setAddress, (167_009, bytes32(bytes("bridged_erc20")), newBridgedERC20)
+        );
 
         DelegateOwner.Call memory dcall = DelegateOwner.Call({
             txId: 0,
