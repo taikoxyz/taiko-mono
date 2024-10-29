@@ -162,17 +162,14 @@ library LibProposing {
             local.params.coinbase = local.params.proposer;
         }
 
-        unchecked {
-            // Note that `timestamp` and `anchorBlockId` are not necessarily associated with the
-            // same L1 block
-            if (local.params.anchorBlockId == 0) {
+        if (local.params.anchorBlockId == 0) {
+            unchecked {
                 local.params.anchorBlockId = uint64(block.number - 1);
             }
+        }
 
-            // We deliberately avoid subtracting 12 second to use a more recent timestamp.
-            if (local.params.timestamp == 0) {
-                local.params.timestamp = uint64(block.timestamp);
-            }
+        if (local.params.timestamp == 0) {
+            local.params.timestamp = uint64(block.timestamp);
         }
 
         // Verify params against the parent block.
