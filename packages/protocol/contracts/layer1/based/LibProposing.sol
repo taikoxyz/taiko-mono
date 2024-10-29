@@ -180,14 +180,12 @@ library LibProposing {
             local.params.coinbase = local.params.proposer;
         }
 
-        unchecked {
-            if (local.params.anchorBlockId == 0) {
-                local.params.anchorBlockId = uint64(block.number - 1);
-            }
+        if (!local.postFork || local.params.anchorBlockId == 0) {
+            local.params.anchorBlockId = uint64(block.number - 1);
+        }
 
-            if (local.params.timestamp == 0) {
-                local.params.timestamp = uint64(block.timestamp);
-            }
+        if (!local.postFork || local.params.timestamp == 0) {
+            local.params.timestamp = uint64(block.timestamp);
         }
 
         // Verify params against the parent block.
