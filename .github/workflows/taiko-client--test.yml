@@ -4,6 +4,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
+      - "packages/protocol/contracts/**"
       - "packages/taiko-client/**"
       - "go.mod"
       - "go.sum"
