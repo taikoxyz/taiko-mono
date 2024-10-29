@@ -190,6 +190,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         }
 
         // Check if the gas settings has changed
+        // TODO(daniel): extract a public view method
         {
             uint64 newGasTarget =
                 uint64(_baseFeeConfig.gasIssuancePerSecond) * _baseFeeConfig.adjustmentQuotient;
@@ -200,16 +201,16 @@ contract TaikoL2 is EssentialContract, IBlockHash {
                     emit UpdateGasTargetSucceeded(0, newGasTarget);
                 } else {
                     bool _success;
-                    uint64 _parentGasExcess;
+                    uint64 _newGasExcess;
 
-                    (_success, _parentGasExcess) =
+                    (_success, _newGasExcess) =
                         Lib1559Math.adjustExcess(parentGasExcess, parentGasTarget, newGasTarget);
 
                     if (_success) {
                         emit UpdateGasTargetSucceeded(parentGasTarget, newGasTarget);
 
                         parentGasTarget = newGasTarget;
-                        parentGasExcess = _parentGasExcess;
+                        parentGasExcess = _newGasExcess;
                     } else {
                         emit UpdateGasTargetFailed(parentGasTarget, newGasTarget);
                     }
@@ -218,17 +219,15 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         }
 
         // Verify the base fee per gas is correct
-        {
-            (uint256 basefee, uint64 newGasExcess) = calculateBaseFee(
-                _baseFeeConfig,
-                uint64(block.timestamp - parentTimestamp),
-                parentGasExcess,
-                _parentGasUsed
-            );
+        (uint256 basefee, uint64 newGasExcess) = calculateBaseFee(
+            _baseFeeConfig,
+            uint64(block.timestamp - parentTimestamp),
+            parentGasExcess,
+            _parentGasUsed
+        );
 
-            if (!skipFeeCheck() && block.basefee != basefee) revert L2_BASEFEE_MISMATCH();
-            parentGasExcess = newGasExcess;
-        }
+        if (!skipFeeCheck() && block.basefee != basefee) revert L2_BASEFEE_MISMATCH();
+        parentGasExcess = newGasExcess;
 
         if (_anchorBlockId > lastSyncedBlock) {
             // Store the L1's state root as a signal to the local signal service to
