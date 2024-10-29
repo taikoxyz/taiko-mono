@@ -66,7 +66,7 @@ cat ../protocol/out/layer1/ProverSet.sol/ProverSet.json |
 	jq .abi |
 	${ABIGEN_BIN} --abi - --type ProverSet --pkg bindings --out $DIR/../bindings/gen_prover_set.go
 
-cat ../protocol/out/layer1/DevnetTierProvider.sol/DevnetTierProvider.json |
+cat ../protocol/out/layer1/MainnetTierRouter.sol/MainnetTierRouter.json |
 	jq .abi |
 	${ABIGEN_BIN} --abi - --type TierProvider --pkg bindings --out $DIR/../bindings/gen_tier_provider.go
 
