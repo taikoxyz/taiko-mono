@@ -217,7 +217,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
                     uint64 _newGasExcess;
 
                     (_success, _newGasExcess) =
-                        adjustExcess(parentGasExcess, parentGasTarget, newGasTarget);
+                        LibEIP1559.adjustExcess(parentGasExcess, parentGasTarget, newGasTarget);
 
                     if (_success) {
                         emit UpdateGasTargetSucceeded(parentGasTarget, newGasTarget);
@@ -291,9 +291,11 @@ contract TaikoL2 is EssentialContract, IBlockHash {
     /// @param _parentGasUsed Gas used in the parent block.
     /// @return basefee_ The calculated EIP-1559 base fee per gas.
     /// @return parentGasExcess_ The new parentGasExcess value.
+    // TODO(danielw): implement this function
     function getBasefee(
         uint64 _anchorBlockId,
-        uint32 _parentGasUsed
+        uint32 _parentGasUsed,
+        LibSharedData.BaseFeeConfig calldata _baseFeeConfig
     )
         public
         view
@@ -315,24 +317,6 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         if (_blockId >= block.number) return 0;
         if (_blockId + 256 >= block.number) return blockhash(_blockId);
         return _blockhashes[_blockId];
-    }
-
-    /// @notice Returns the new gas excess that will keep the basefee the same.
-    /// @param _currGasExcess The current gas excess value.
-    /// @param _currGasTarget The current gas target.
-    /// @param _newGasTarget The new gas target.
-    /// @return success_ True if the new gas trget can be applied.
-    /// @return newGasExcess_ The new gas excess value.
-    function adjustExcess(
-        uint64 _currGasExcess,
-        uint64 _currGasTarget,
-        uint64 _newGasTarget
-    )
-        public
-        pure
-        returns (bool success_, uint64 newGasExcess_)
-    {
-        return LibEIP1559.adjustExcess(_currGasExcess, _currGasTarget, _newGasTarget);
     }
 
     /// @notice Tells if we need to validate basefee (for simulation).
