@@ -8,7 +8,6 @@ import "src/shared/bridge/Bridge.sol";
 import "src/shared/common/AddressManager.sol";
 import "test/shared/thirdparty/Multicall3.sol";
 import "src/layer2/DelegateOwner.sol";
-import { BridgedERC20V2 } from "../../contracts/shared/tokenvault/BridgedERC20V2.sol";
 
 contract UpgradeHeklaOntakeL2 is DeployCapability {
     address public delegateOwner = 0x95F6077C7786a58FA070D98043b16DF2B1593D2b;
