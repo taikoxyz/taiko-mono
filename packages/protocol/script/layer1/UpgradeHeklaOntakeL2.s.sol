@@ -8,6 +8,7 @@ import "src/shared/bridge/Bridge.sol";
 import "src/shared/common/AddressManager.sol";
 import "test/shared/thirdparty/Multicall3.sol";
 import "src/layer2/DelegateOwner.sol";
+import { BridgedERC20V2 } from "../../contracts/shared/tokenvault/BridgedERC20V2.sol";
 
 contract UpgradeHeklaOntakeL2 is DeployCapability {
     address public delegateOwner = 0x95F6077C7786a58FA070D98043b16DF2B1593D2b;
@@ -17,6 +18,7 @@ contract UpgradeHeklaOntakeL2 is DeployCapability {
     address public newHeklaTaikoL2 = vm.envAddress("NEW_HEKLA_TAIKO_L2");
     address public newBridge = vm.envAddress("NEW_BRIDGE");
     address public newAddressManager = vm.envAddress("NEW_ADDRESS_MANAGER");
+    address public newBridgedERC20V2 = vm.envAddress("NEW_BRIDGED_ERC20_V2");
 
     modifier broadcast() {
         require(privateKey != 0, "invalid private key");
@@ -43,6 +45,10 @@ contract UpgradeHeklaOntakeL2 is DeployCapability {
         calls[3].target = 0x1670090000000000000000000000000000000006;
         calls[3].allowFailure = false;
         calls[3].callData = abi.encodeCall(UUPSUpgradeable.upgradeTo, (newAddressManager));
+        // Bridged ERC20 V2
+        calls[4].target = 0x1670090000000000000000000000000000000002;
+        calls[4].allowFailure = false;
+        calls[4].callData = abi.encodeCall(UUPSUpgradeable.upgradeTo, (newBridgedERC20V2));
 
         DelegateOwner.Call memory dcall = DelegateOwner.Call({
             txId: 0,
