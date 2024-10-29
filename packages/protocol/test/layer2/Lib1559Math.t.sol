@@ -17,10 +17,10 @@ contract TestLib1559Math is TaikoL2Test {
         uint256 basefee;
         console2.log("excess, basefee");
         // 1_0000_000 is 0.01 gwei
-        for (uint256 i; basefee <= 10_000_000;) {
+        for (uint64 i; basefee <= 10_000_000;) {
             // uint 0.01 gwei
-            uint256 excess = i * 5_000_000;
-            uint256 target = 5_000_000 * 8;
+            uint64 excess = i * 5_000_000;
+            uint64 target = 5_000_000 * 8;
 
             basefee = Lib1559Math.basefee(excess, target);
             if (basefee != 0) {
@@ -91,5 +91,36 @@ contract TestLib1559Math is TaikoL2Test {
         console2.log("new gas excess: ", newExcess);
         console2.log("basefee: ", basefee);
         assertEq(baselineBasefee, basefee);
+    }
+
+    /// forge-config: layer2.fuzz.runs = 1000
+    /// forge-config: layer2.fuzz.show-logs = true
+    function test_fuzz_ethQty(uint64 _gasExcess, uint64 _gasTarget) external pure {
+        if (_gasTarget == 0) {
+            _gasTarget = 1;
+        }
+
+        Lib1559Math.ethQty(_gasExcess, _gasTarget);
+    }
+
+    /// forge-config: layer2.fuzz.runs = 1000
+    /// forge-config: layer2.fuzz.show-logs = true
+    function test_fuzz_adjustExcess(
+        uint64 _gasExcess,
+        uint64 _gasTarget,
+        uint64 _newGasTarget
+    )
+        external
+        pure
+    {
+        if (_gasTarget == 0) {
+            _gasTarget = 1;
+        }
+
+        if (_newGasTarget == 0) {
+            _newGasTarget = 1;
+        }
+
+        Lib1559Math.adjustExcess(_gasExcess, _gasTarget, _newGasTarget);
     }
 }
