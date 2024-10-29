@@ -30,6 +30,7 @@ contract ProverSet is EssentialContract, IERC1271 {
 
     error INVALID_STATUS();
     error PERMISSION_DENIED();
+    error NOT_FIRST_PROPOSAL();
 
     modifier onlyAuthorized() {
         if (msg.sender != admin && msg.sender != IHasRecipient(admin).recipient()) {
@@ -82,7 +83,13 @@ contract ProverSet is EssentialContract, IERC1271 {
 
     /// @notice Propose a Taiko block.
     function proposeBlockV2(bytes calldata _params, bytes calldata _txList) external onlyProver {
-        ITaikoL1(taikoL1()).proposeBlockV2(_params, _txList);
+        ITaikoL1 taiko = ITaikoL1(taikoL1());
+        if (_params[0] == 0x01) {
+            // Check if the first byte is 1. If true, ensure this block is the first block proposed
+            // in the current L1 block.
+            require(taiko.lastProposedIn() != block.number, NOT_FIRST_PROPOSAL());
+        }
+        taiko.proposeBlockV2(_params[1:], _txList);
     }
 
     /// @notice Propose multiple Taiko blocks.
@@ -97,7 +104,14 @@ contract ProverSet is EssentialContract, IERC1271 {
     }
 
     /// @notice Proves or contests a Taiko block.
-    function proveBlock(uint64 _blockId, bytes calldata _input) external onlyProver {
+    function proveBlock(
+        uint64 _blockId,
+        bytes calldata _input,
+        bool _revertIfNotTheFirstProposalInL1Block
+    )
+        external
+        onlyProver
+    {
         ITaikoL1(taikoL1()).proveBlock(_blockId, _input);
     }
 

@@ -43,6 +43,7 @@ contract MockTaikoL1 is ITaikoL1 {
 
     function withdrawBond(uint256 _amount) external virtual { }
 
+    function lastProposedIn() external view virtual returns (uint64) { }
     function getVerifiedBlockProver(uint64 _blockId) external view virtual returns (address) { }
 
     function getBlockV2(uint64 _blockId)

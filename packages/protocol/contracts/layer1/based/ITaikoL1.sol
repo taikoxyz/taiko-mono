@@ -64,6 +64,10 @@ interface ITaikoL1 {
     /// @param _amount Amount of Taiko tokens to withdraw.
     function withdrawBond(uint256 _amount) external;
 
+    /// @notice Retrieves the ID of the L1 block where the most recent block was proposed.
+    /// @return The ID of the L1 block where the most recent block was proposed.
+    function lastProposedIn() external view returns (uint64);
+
     /// @notice Gets the prover that actually proved a verified block.
     /// @param _blockId Index of the block.
     /// @return The prover's address. If the block is not verified yet, address(0) will be returned.

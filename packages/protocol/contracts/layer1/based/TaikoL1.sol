@@ -266,7 +266,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     }
 
     /// @notice Gets the state variables of the TaikoL1 contract.
-    /// @dev This method can be deleted once node/client stops using it.
     /// @return State variables stored at SlotA.
     /// @return State variables stored at SlotB.
     function getStateVariables()
@@ -275,6 +274,12 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         returns (TaikoData.SlotA memory, TaikoData.SlotB memory)
     {
         return (state.slotA, state.slotB);
+    }
+
+    /// @notice Retrieves the ID of the L1 block where the most recent block was proposed.
+    /// @return The ID of the L1 block where the most recent block was proposed.
+    function lastProposedIn() external view returns (uint64) {
+        return state.slotB.lastProposedIn;
     }
 
     /// @notice Returns the timestamp of the last unpaused state.
