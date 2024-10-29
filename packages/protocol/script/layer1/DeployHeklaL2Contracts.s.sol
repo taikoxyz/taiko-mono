@@ -27,8 +27,9 @@ contract DeployHeklaL2Contracts is DeployCapability {
         // Bridged ERC20 V2
         address bridgedERC20V2 = address(new BridgedERC20V2());
         // Register to SharedAddressManager
-        register("0x1670090000000000000000000000000000000006", B_BRIDGED_ERC20, bridgedERC20V2);
-        
+        address sharedAddressManager = 0x1670090000000000000000000000000000000006;
+        register(sharedAddressManager, "bridged_erc20", bridgedERC20V2);
+
         console2.log("> hekla_taiko_l2@", heklaTaikoL2);
         console2.log("> bridge@", bridge);
         console2.log("> address_manager@", addressManager);
