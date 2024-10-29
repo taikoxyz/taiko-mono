@@ -18,7 +18,7 @@ contract DeployHeklaL2Contracts is DeployCapability {
     }
 
     function run() external broadcast {
-        // TaikoL1
+        // TaikoL2
         address heklaTaikoL2 = address(new HeklaTaikoL2());
         // Bridge
         address bridge = address(new Bridge());
