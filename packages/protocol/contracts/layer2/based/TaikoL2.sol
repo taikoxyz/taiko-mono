@@ -308,7 +308,6 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         return LibL2Config.get();
     }
 
-
     /// @notice Tells if we need to validate basefee (for simulation).
     /// @return Returns true to skip checking basefee mismatch.
     function skipFeeCheck() public pure virtual returns (bool) {

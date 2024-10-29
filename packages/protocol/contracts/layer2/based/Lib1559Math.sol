@@ -57,7 +57,7 @@ library Lib1559Math {
 
         uint256 f = FixedPointMathLib.WAD;
         uint256 ratio = f * _newGasTarget / _gasTarget;
-        if (ratio > uint256(type(int256).max)) {
+        if (ratio == 0 || ratio > uint256(type(int256).max)) {
             return (false, _gasExcess);
         }
 
