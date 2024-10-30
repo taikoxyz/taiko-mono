@@ -511,10 +511,6 @@
 | state          | struct TaikoData.State | 251  | 0      | 1600  | TaikoL1 |
 | __gap          | uint256[50]            | 301  | 0      | 1600  | TaikoL1 |
 
-## TierProviderV2
-| Name | Type | Slot | Offset | Bytes | Contract |
-|------|------|------|--------|-------|----------|
-
 ## HeklaTaikoL1
 | Name           | Type                   | Slot | Offset | Bytes | Contract                                             |
 |----------------|------------------------|------|--------|-------|------------------------------------------------------|
@@ -535,8 +531,6 @@
 | __gap          | uint256[50]            | 301  | 0      | 1600  | HeklaTaikoL1 |
 
 ## HeklaTierProvider
-| Name | Type | Slot | Offset | Bytes | Contract |
-|------|------|------|--------|-------|----------|
 
 ## MainnetBridge
 | Name           | Type                                    | Slot | Offset | Bytes | Contract                                                             |
