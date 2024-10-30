@@ -45,6 +45,7 @@ import "test/shared/DeployCapability.sol";
 contract DeployProtocolOnL1 is DeployCapability {
     uint256 public NUM_MIN_MAJORITY_GUARDIANS = vm.envUint("NUM_MIN_MAJORITY_GUARDIANS");
     uint256 public NUM_MIN_MINORITY_GUARDIANS = vm.envUint("NUM_MIN_MINORITY_GUARDIANS");
+    address public DAO_FALLBACK_PROPOSER = 0xD3f681bD6B49887A48cC9C9953720903967E9DC0;
 
     address public constant MAINNET_CONTRACT_OWNER = 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F; // admin.taiko.eth
 
@@ -432,7 +433,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         } else if (keccak256(abi.encode(tierRouterName)) == keccak256(abi.encode("testnet"))) {
             return address(new TestTierRouter());
         } else if (keccak256(abi.encode(tierRouterName)) == keccak256(abi.encode("mainnet"))) {
-            return address(new MainnetTierRouter());
+            return address(new MainnetTierRouter(DAO_FALLBACK_PROPOSER));
         } else {
             revert("invalid tier provider");
         }

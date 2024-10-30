@@ -11,6 +11,7 @@ interface ITierProvider {
         uint96 contestBond;
         uint24 cooldownWindow; // in minutes
         uint16 provingWindow; // in minutes
+        uint8 maxBlocksToVerifyPerProof; // DEPRECATED
     }
 
     error TIER_NOT_FOUND();
