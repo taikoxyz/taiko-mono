@@ -59,7 +59,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
     event Anchored(bytes32 parentHash, uint64 parentGasExcess);
 
     event UpdateGasTargetSucceeded(uint64 oldGasTarget, uint64 newGasTarget);
-    event UpdateGasTargetFailed(uint64 oldGasTarget);
+    event UpdateGasTargetFailed();
 
     error L2_BASEFEE_MISMATCH();
     error L2_FORK_ERROR();
@@ -227,7 +227,12 @@ contract TaikoL2 is EssentialContract, IBlockHash {
     )
         public
         view
-        returns (uint256 basefee_, uint64 parentGasExcess_, uint64 parentGasTarget_)
+        returns (
+            uint256 basefee_,
+            uint64 parentGasExcess_,
+            uint64 parentGasTarget_,
+            bool newGasTargetApplied_
+        )
     {
         // Check if the gas settings has changed
         uint64 newGasTarget =
@@ -238,18 +243,16 @@ contract TaikoL2 is EssentialContract, IBlockHash {
                 parentGasExcess_ = parentGasExcess;
                 parentGasTarget_ = newGasTarget;
             } else {
-                bool success;
                 uint64 newGasExcess;
-
-                (success, newGasExcess) =
+                (newGasTargetApplied_, newGasExcess) =
                     LibEIP1559.adjustExcess(parentGasExcess, parentGasTarget, newGasTarget);
 
-                if (success) {
+                if (newGasTargetApplied_) {
                     parentGasExcess_ = newGasExcess;
                     parentGasTarget_ = newGasTarget;
                 } else {
                     parentGasExcess_ = parentGasExcess;
-                    parentGasTarget_ = 0; // indicate a failure
+                    parentGasTarget_ = parentGasTarget;
                 }
             }
         }
@@ -265,7 +268,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         }
 
         (basefee_, parentGasExcess_) = LibEIP1559.calc1559BaseFee(
-            parentGasTarget,
+            parentGasTarget_,
             parentGasExcess_,
             gasIssuance,
             _parentGasUsed,
@@ -353,11 +356,10 @@ contract TaikoL2 is EssentialContract, IBlockHash {
 
     /// @notice Verifies the base fee per gas is correct
     function _verifyBaseFeeAndUpdateGasExcess(uint64 _l1BlockId, uint32 _parentGasUsed) private {
-        (uint256 basefee_, uint64 parentGasExcess_) = getBasefee(_l1BlockId, _parentGasUsed);
+        uint256 basefee_;
+        (basefee_, parentGasExcess) = getBasefee(_l1BlockId, _parentGasUsed);
 
         require(skipFeeCheck() || block.basefee == basefee_, L2_BASEFEE_MISMATCH());
-
-        parentGasTarget = parentGasExcess_;
     }
 
     /// @notice Verifies the base fee per gas is correct
@@ -367,18 +369,20 @@ contract TaikoL2 is EssentialContract, IBlockHash {
     )
         private
     {
-        (uint256 basefee_, uint64 parentGasExcess_, uint64 parentGasTarget_) =
+        uint256 basefee_;
+        bool newGasTargetApplied_;
+        uint64 parentGasTarget_;
+
+        (basefee_, parentGasExcess, parentGasTarget_, newGasTargetApplied_) =
             getBasefeeV2(_parentGasUsed, _baseFeeConfig);
 
         require(skipFeeCheck() || block.basefee == basefee_, L2_BASEFEE_MISMATCH());
 
-        parentGasExcess = parentGasExcess_;
-
-        if (parentGasTarget_ == 0) {
-            emit UpdateGasTargetFailed(parentGasTarget);
+        if (!newGasTargetApplied_) {
+            emit UpdateGasTargetFailed();
         } else if (parentGasTarget != parentGasTarget_) {
-            parentGasTarget = parentGasTarget_;
             emit UpdateGasTargetSucceeded(parentGasTarget, parentGasTarget_);
+            parentGasTarget = parentGasTarget_;
         }
     }
 
