@@ -99,6 +99,6 @@ abstract contract TierProviderBase is ITierProvider {
             cooldownWindow: _cooldownWindow * 60,
             provingWindow: GRACE_PERIOD + _provingWindow,
             maxBlocksToVerifyPerProof: 0 // DEPRECATED
-        });
+         });
     }
 }
