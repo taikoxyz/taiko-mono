@@ -137,23 +137,8 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         uint256 parentId = block.number - 1;
         _verifyAndUpdateAncestorsHash(parentId);
         _verifyBaseFeeAndUpdateGasExcess(_l1BlockId, _parentGasUsed);
-
-        if (_l1BlockId > lastSyncedBlock) {
-            // Store the L1's state root as a signal to the local signal service to
-            // allow for multi-hop bridging.
-            ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).syncChainData(
-                l1ChainId, LibStrings.H_STATE_ROOT, _l1BlockId, _l1StateRoot
-            );
-
-            lastSyncedBlock = _l1BlockId;
-        }
-
-        // Update state variables
-        bytes32 parentHash = blockhash(parentId);
-        _blockhashes[parentId] = parentHash;
-        _parentTimestamp = uint64(block.timestamp);
-
-        emit Anchored(parentHash, parentGasExcess);
+        _syncChainData(_l1BlockId, _l1StateRoot);
+        _updateParentHashAndTimestamp(parentId);
     }
 
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
@@ -225,22 +210,8 @@ contract TaikoL2 is EssentialContract, IBlockHash {
             parentGasExcess = newGasExcess;
         }
 
-        if (_anchorBlockId > lastSyncedBlock) {
-            // Store the L1's state root as a signal to the local signal service to
-            // allow for multi-hop bridging.
-            ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).syncChainData(
-                l1ChainId, LibStrings.H_STATE_ROOT, _anchorBlockId, _anchorStateRoot
-            );
-
-            lastSyncedBlock = _anchorBlockId;
-        }
-
-        // Update state variables
-        bytes32 parentHash = blockhash(parentId);
-        _blockhashes[parentId] = parentHash;
-        _parentTimestamp = uint64(block.timestamp);
-
-        emit Anchored(parentHash, parentGasExcess);
+        _syncChainData(_anchorBlockId, _anchorStateRoot);
+        _updateParentHashAndTimestamp(parentId);
     }
 
     /// @notice Withdraw token or Ether from this address.
@@ -359,6 +330,25 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         return LibEIP1559.calc1559BaseFee(
             gasTarget, _parentGasExcess, gasIssuance, _parentGasUsed, _baseFeeConfig.minGasExcess
         );
+    }
+
+    function _syncChainData(uint64 _anchorBlockId, bytes32 _anchorStateRoot) private {
+        if (_anchorBlockId <= lastSyncedBlock) return;
+
+        // Store the L1's state root as a signal to the local signal service to
+        // allow for multi-hop bridging.
+        ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).syncChainData(
+            l1ChainId, LibStrings.H_STATE_ROOT, _anchorBlockId, _anchorStateRoot
+        );
+
+        lastSyncedBlock = _anchorBlockId;
+    }
+
+    function _updateParentHashAndTimestamp(uint256 _parentId) private {
+        bytes32 parentHash = blockhash(_parentId);
+        _blockhashes[_parentId] = parentHash;
+        _parentTimestamp = uint64(block.timestamp);
+        emit Anchored(parentHash, parentGasExcess);
     }
 
     /// @notice Verifies the base fee per gas is correct
