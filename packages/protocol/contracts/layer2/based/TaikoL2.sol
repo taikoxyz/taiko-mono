@@ -151,7 +151,6 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         // Update state variables
         bytes32 parentHash = blockhash(parentId);
         _blockhashes[parentId] = parentHash;
-
         _parentTimestamp = uint64(block.timestamp);
 
         emit Anchored(parentHash, parentGasExcess);
