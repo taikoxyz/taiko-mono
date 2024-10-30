@@ -56,14 +56,6 @@ contract TestTierRouter is ITierProvider, ITierRouter {
     }
 
     /// @inheritdoc ITierProvider
-    function getTierIds() public pure override returns (uint16[] memory tiers_) {
-        tiers_ = new uint16[](3);
-        tiers_[0] = LibTiers.TIER_OPTIMISTIC;
-        tiers_[1] = LibTiers.TIER_SGX;
-        tiers_[2] = LibTiers.TIER_GUARDIAN;
-    }
-
-    /// @inheritdoc ITierProvider
     function getMinTier(address, uint256 _rand) public pure override returns (uint16) {
         // 10% will be selected to require SGX proofs.
         if (_rand % 10 == 0) return LibTiers.TIER_SGX;
