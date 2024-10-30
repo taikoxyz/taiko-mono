@@ -180,7 +180,7 @@ library LibProposing {
         if (
             local.params.anchorBlockId + _config.maxAnchorHeightOffset < block.number //
                 || local.params.anchorBlockId >= block.number
-                || local.params.anchorBlockId < parentBlk.proposedIn // parent.params.anchorBlockId
+                || local.params.anchorBlockId < parentBlk.anchorBlockId
         ) {
             revert L1_INVALID_ANCHOR_BLOCK();
         }
@@ -190,7 +190,7 @@ library LibProposing {
         if (
             local.params.timestamp + _config.maxAnchorHeightOffset * SECONDS_PER_BLOCK
                 < block.timestamp || local.params.timestamp > block.timestamp
-                || local.params.timestamp < parentBlk.proposedAt // parent.params.timestamp
+                || local.params.timestamp < parentBlk.timestamp
         ) {
             revert L1_INVALID_TIMESTAMP();
         }
@@ -258,8 +258,8 @@ library LibProposing {
             assignedProver: address(0),
             livenessBond: 0,
             blockId: local.b.numBlocks,
-            proposedAt: local.params.timestamp, // = params.timestamp post Ontake
-            proposedIn: local.params.anchorBlockId, // = params.anchorBlockId post Ontake
+            timestamp: local.params.timestamp,
+            anchorBlockId: local.params.anchorBlockId,
             nextTransitionId: 1, // For a new block, the next transition ID is always 1, not 0.
             livenessBondReturned: false,
             // For unverified block, its verifiedTransitionId is always 0.

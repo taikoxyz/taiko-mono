@@ -157,8 +157,8 @@ library TaikoData {
         address assignedProver; // DEPRECATED!!!
         uint96 livenessBond; // DEPRECATED!!!
         uint64 blockId; // slot 3
-        uint64 proposedAt; // Now represents L2 block's timestamp
-        uint64 proposedIn; // Now represents L2 block's anchorBlockId
+        uint64 timestamp;
+        uint64 anchorBlockId;
         uint24 nextTransitionId;
         bool livenessBondReturned;
         // The ID of the transaction that is used to verify this block. However, if this block is
