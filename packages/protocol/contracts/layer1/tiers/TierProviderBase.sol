@@ -98,6 +98,6 @@ abstract contract TierProviderBase is ITierProvider {
             contestBond: _validityBond / 10_000 * 65_625,
             cooldownWindow: _cooldownWindow * 60,
             provingWindow: GRACE_PERIOD + _provingWindow
-         });
+        });
     }
 }
