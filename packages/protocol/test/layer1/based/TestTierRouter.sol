@@ -16,8 +16,8 @@ contract TestTierRouter is ITierProvider, ITierRouter {
     function getProvider(uint256) external view returns (address) {
         return address(this);
     }
-    /// @inheritdoc ITierProvider
 
+    /// @inheritdoc ITierProvider
     function getTier(uint16 _tierId) public pure override returns (ITierProvider.Tier memory) {
         if (_tierId == LibTiers.TIER_OPTIMISTIC) {
             return ITierProvider.Tier({
@@ -53,6 +53,14 @@ contract TestTierRouter is ITierProvider, ITierRouter {
         }
 
         revert TIER_NOT_FOUND();
+    }
+
+    /// @inheritdoc ITierProvider
+    function getTierIds() public pure override returns (uint16[] memory tiers_) {
+        tiers_ = new uint16[](3);
+        tiers_[0] = LibTiers.TIER_OPTIMISTIC;
+        tiers_[1] = LibTiers.TIER_SGX;
+        tiers_[2] = LibTiers.TIER_GUARDIAN;
     }
 
     /// @inheritdoc ITierProvider
