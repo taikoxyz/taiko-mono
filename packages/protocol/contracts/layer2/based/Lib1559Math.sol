@@ -52,7 +52,7 @@ library Lib1559Math {
         returns (uint64)
     {
         if (_gasTarget == 0) {
-            return _newGasTarget;
+            return _gasExcess;
         }
 
         uint256 f = FixedPointMathLib.WAD;
