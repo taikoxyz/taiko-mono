@@ -59,7 +59,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
     event Anchored(bytes32 parentHash, uint64 parentGasExcess);
 
     event UpdateGasTargetSucceeded(uint64 oldGasTarget, uint64 newGasTarget);
-    event UpdateGasTargetFailed(uint64 oldGasTarget, uint64 newGasTarget);
+    event UpdateGasTargetFailed(uint64 oldGasTarget);
 
     error L2_BASEFEE_MISMATCH();
     error L2_FORK_ERROR();
@@ -249,7 +249,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
                     parentGasTarget_ = newGasTarget;
                 } else {
                     parentGasExcess_ = parentGasExcess;
-                    parentGasTarget_ = parentGasTarget;
+                    parentGasTarget_ = 0; // indicate a failure
                 }
             }
         }
@@ -353,9 +353,11 @@ contract TaikoL2 is EssentialContract, IBlockHash {
 
     /// @notice Verifies the base fee per gas is correct
     function _verifyBaseFeeAndUpdateGasExcess(uint64 _l1BlockId, uint32 _parentGasUsed) private {
-        uint256 basefee;
-        (basefee, parentGasExcess) = getBasefee(_l1BlockId, _parentGasUsed);
-        require(skipFeeCheck() || block.basefee == basefee, L2_BASEFEE_MISMATCH());
+        (uint256 basefee_, uint64 parentGasExcess_) = getBasefee(_l1BlockId, _parentGasUsed);
+
+        require(skipFeeCheck() || block.basefee == basefee_, L2_BASEFEE_MISMATCH());
+
+        parentGasTarget = parentGasExcess_;
     }
 
     /// @notice Verifies the base fee per gas is correct
@@ -365,9 +367,19 @@ contract TaikoL2 is EssentialContract, IBlockHash {
     )
         private
     {
-        uint256 basefee;
-        (basefee, parentGasExcess, parentGasTarget) = getBasefeeV2(_parentGasUsed, _baseFeeConfig);
-        require(skipFeeCheck() || block.basefee == basefee, L2_BASEFEE_MISMATCH());
+        (uint256 basefee_, uint64 parentGasExcess_, uint64 parentGasTarget_) =
+            getBasefeeV2(_parentGasUsed, _baseFeeConfig);
+
+        require(skipFeeCheck() || block.basefee == basefee_, L2_BASEFEE_MISMATCH());
+
+        parentGasExcess = parentGasExcess_;
+
+        if (parentGasTarget_ == 0) {
+            emit UpdateGasTargetFailed(parentGasTarget);
+        } else if (parentGasTarget != parentGasTarget_) {
+            parentGasTarget = parentGasTarget_;
+            emit UpdateGasTargetSucceeded(parentGasTarget, parentGasTarget_);
+        }
     }
 
     /// @notice Verifies ancestor hashes and saves the new aggregated hash.
