@@ -371,10 +371,10 @@
 | __lastUnpausedAt | uint64                      | 201  | 2      | 8     | TaikoL2 |
 | __gap            | uint256[49]                 | 202  | 0      | 1568  | TaikoL2 |
 | _blockhashes     | mapping(uint256 => bytes32) | 251  | 0      | 32    | TaikoL2 |
-| publicInputHash  | bytes32                     | 252  | 0      | 32    | TaikoL2 |
+| ancestorsHash    | bytes32                     | 252  | 0      | 32    | TaikoL2 |
 | parentGasExcess  | uint64                      | 253  | 0      | 8     | TaikoL2 |
 | lastSyncedBlock  | uint64                      | 253  | 8      | 8     | TaikoL2 |
-| parentTimestamp  | uint64                      | 253  | 16     | 8     | TaikoL2 |
+| _parentTimestamp | uint64                      | 253  | 16     | 8     | TaikoL2 |
 | parentGasTarget  | uint64                      | 253  | 24     | 8     | TaikoL2 |
 | l1ChainId        | uint64                      | 254  | 0      | 8     | TaikoL2 |
 | __gap            | uint256[46]                 | 255  | 0      | 1472  | TaikoL2 |
@@ -396,10 +396,10 @@
 | __lastUnpausedAt | uint64                      | 201  | 2      | 8     | HeklaTaikoL2 |
 | __gap            | uint256[49]                 | 202  | 0      | 1568  | HeklaTaikoL2 |
 | _blockhashes     | mapping(uint256 => bytes32) | 251  | 0      | 32    | HeklaTaikoL2 |
-| publicInputHash  | bytes32                     | 252  | 0      | 32    | HeklaTaikoL2 |
+| ancestorsHash    | bytes32                     | 252  | 0      | 32    | HeklaTaikoL2 |
 | parentGasExcess  | uint64                      | 253  | 0      | 8     | HeklaTaikoL2 |
 | lastSyncedBlock  | uint64                      | 253  | 8      | 8     | HeklaTaikoL2 |
-| parentTimestamp  | uint64                      | 253  | 16     | 8     | HeklaTaikoL2 |
+| _parentTimestamp | uint64                      | 253  | 16     | 8     | HeklaTaikoL2 |
 | parentGasTarget  | uint64                      | 253  | 24     | 8     | HeklaTaikoL2 |
 | l1ChainId        | uint64                      | 254  | 0      | 8     | HeklaTaikoL2 |
 | __gap            | uint256[46]                 | 255  | 0      | 1472  | HeklaTaikoL2 |
@@ -421,10 +421,10 @@
 | __lastUnpausedAt | uint64                      | 201  | 2      | 8     | MainnetTaikoL2 |
 | __gap            | uint256[49]                 | 202  | 0      | 1568  | MainnetTaikoL2 |
 | _blockhashes     | mapping(uint256 => bytes32) | 251  | 0      | 32    | MainnetTaikoL2 |
-| publicInputHash  | bytes32                     | 252  | 0      | 32    | MainnetTaikoL2 |
+| ancestorsHash    | bytes32                     | 252  | 0      | 32    | MainnetTaikoL2 |
 | parentGasExcess  | uint64                      | 253  | 0      | 8     | MainnetTaikoL2 |
 | lastSyncedBlock  | uint64                      | 253  | 8      | 8     | MainnetTaikoL2 |
-| parentTimestamp  | uint64                      | 253  | 16     | 8     | MainnetTaikoL2 |
+| _parentTimestamp | uint64                      | 253  | 16     | 8     | MainnetTaikoL2 |
 | parentGasTarget  | uint64                      | 253  | 24     | 8     | MainnetTaikoL2 |
 | l1ChainId        | uint64                      | 254  | 0      | 8     | MainnetTaikoL2 |
 | __gap            | uint256[46]                 | 255  | 0      | 1472  | MainnetTaikoL2 |
