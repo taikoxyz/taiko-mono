@@ -13,8 +13,8 @@ contract HeklaTierRouter is TierProviderBase, ITierRouter {
         // 0xD3f681bD6B49887A48cC9C9953720903967E9DC0
         DAO_FALLBACK_PROPOSER = _daoFallbackProposer;
     }
-    /// @inheritdoc ITierRouter
 
+    /// @inheritdoc ITierRouter
     function getProvider(uint256) external view returns (address) {
         return address(this);
     }
