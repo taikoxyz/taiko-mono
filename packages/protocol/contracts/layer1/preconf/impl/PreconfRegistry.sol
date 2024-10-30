@@ -47,9 +47,7 @@ contract PreconfRegistry is IPreconfRegistry, Initializable {
      */
     function registerPreconfer(bytes calldata operatorSignature) external {
         // Preconfer must not have registered already
-        if (preconferToIndex[msg.sender] != 0) {
-            revert PreconferAlreadyRegistered();
-        }
+        require(preconferToIndex[msg.sender] == 0, PreconferAlreadyRegistered());
 
         uint256 _nextPreconferIndex = nextPreconferIndex;
 
@@ -73,9 +71,7 @@ contract PreconfRegistry is IPreconfRegistry, Initializable {
     function deregisterPreconfer() external {
         // Preconfer must have registered already
         uint256 removedPreconferIndex = preconferToIndex[msg.sender];
-        if (removedPreconferIndex == 0) {
-            revert PreconferNotRegistered();
-        }
+        require(removedPreconferIndex != 0, PreconferNotRegistered());
 
         // Remove the preconfer and exchange its index with the last preconfer
         preconferToIndex[msg.sender] = 0;
@@ -108,9 +104,7 @@ contract PreconfRegistry is IPreconfRegistry, Initializable {
     function addValidators(AddValidatorParam[] calldata addValidatorParams) external {
         for (uint256 i; i < addValidatorParams.length; ++i) {
             // Revert if preconfer is not registered
-            if (preconferToIndex[msg.sender] == 0) {
-                revert PreconferNotRegistered();
-            }
+            require(preconferToIndex[msg.sender] != 0, PreconferNotRegistered());
 
             // Note: BLS signature checks are commented out for the POC
 
@@ -133,21 +127,19 @@ contract PreconfRegistry is IPreconfRegistry, Initializable {
 
             // Update the validator if it has no preconfer assigned, or if it has stopped proposing
             // for the former preconfer
-            if (
+            require(
                 validator.preconfer == address(0)
-                    || (validator.stopProposingAt != 0 && block.timestamp > validator.stopProposingAt)
-            ) {
-                unchecked {
-                    validators[pubKeyHash] = Validator({
-                        preconfer: msg.sender,
-                        // The delay is crucial in order to not contradict the lookahead
-                        startProposingAt: uint40(block.timestamp + LibPreconfConstants.TWO_EPOCHS),
-                        stopProposingAt: uint40(0)
-                    });
-                }
-            } else {
-                // Validator is already proposing for a preconfer
-                revert ValidatorAlreadyActive();
+                    || (validator.stopProposingAt != 0 && block.timestamp > validator.stopProposingAt),
+                ValidatorAlreadyActive()
+            );
+
+            unchecked {
+                validators[pubKeyHash] = Validator({
+                    preconfer: msg.sender,
+                    // The delay is crucial in order to not contradict the lookahead
+                    startProposingAt: uint40(block.timestamp + LibPreconfConstants.TWO_EPOCHS),
+                    stopProposingAt: uint40(0)
+                });
             }
 
             emit ValidatorAdded(pubKeyHash, msg.sender);
@@ -167,9 +159,8 @@ contract PreconfRegistry is IPreconfRegistry, Initializable {
 
             // Revert if the validator is not active (or already removed, but waiting to stop
             // proposing)
-            if (validator.preconfer == address(0) || validator.stopProposingAt != 0) {
-                revert ValidatorAlreadyInactive();
-            }
+            require(validator.preconfer != address(0), ValidatorAlreadyInactive());
+            require(validator.stopProposingAt == 0, ValidatorAlreadyInactive());
 
             // Note: BLS signature checks have been commented out
             // Todo: It would be reasonable to remove BLS checks altogether for validator removals.

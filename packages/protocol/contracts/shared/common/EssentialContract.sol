@@ -35,7 +35,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
     /// @dev Modifier that ensures the caller is the owner or resolved address of a given name.
     /// @param _name The name to check against.
     modifier onlyFromOwnerOrNamed(bytes32 _name) {
-        if (msg.sender != owner() && msg.sender != resolve(_name, true)) revert RESOLVER_DENIED();
+        require(msg.sender == owner() || msg.sender == resolve(_name, true), RESOLVER_DENIED());
         _;
     }
 
@@ -45,29 +45,29 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
     }
 
     modifier nonReentrant() {
-        if (_loadReentryLock() == _TRUE) revert REENTRANT_CALL();
+        require(_loadReentryLock() != _TRUE, REENTRANT_CALL());
         _storeReentryLock(_TRUE);
         _;
         _storeReentryLock(_FALSE);
     }
 
     modifier whenPaused() {
-        if (!paused()) revert INVALID_PAUSE_STATUS();
+        require(paused(), INVALID_PAUSE_STATUS());
         _;
     }
 
     modifier whenNotPaused() {
-        if (paused()) revert INVALID_PAUSE_STATUS();
+        require(!paused(), INVALID_PAUSE_STATUS());
         _;
     }
 
     modifier nonZeroAddr(address _addr) {
-        if (_addr == address(0)) revert ZERO_ADDRESS();
+        require(_addr != address(0), ZERO_ADDRESS());
         _;
     }
 
     modifier nonZeroValue(uint256 _value) {
-        if (_value == 0) revert ZERO_VALUE();
+        require(_value != 0, ZERO_VALUE());
         _;
     }
 

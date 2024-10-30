@@ -107,14 +107,9 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         // ------[Last slot with an entry]---[X]---[X]----[X]----[Preconfer]-------
         // ------[     prevTimestamp     ]---[ ]---[ ]----[ ]----[timestamp]-------
         //
-        if (
-            block.timestamp <= lookaheadEntry.prevTimestamp
-                || block.timestamp > lookaheadEntry.timestamp
-        ) {
-            revert InvalidLookaheadPointer();
-        } else if (msg.sender != lookaheadEntry.preconfer) {
-            revert SenderIsNotThePreconfer();
-        }
+        require(block.timestamp > lookaheadEntry.prevTimestamp, InvalidLookaheadPointer());
+        require(block.timestamp <= lookaheadEntry.timestamp, InvalidLookaheadPointer());
+        require(msg.sender == lookaheadEntry.preconfer, SenderIsNotThePreconfer());
 
         uint256 nextEpochTimestamp = epochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH;
 
@@ -159,14 +154,13 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         address poster = getLookaheadPoster(epochTimestamp);
 
         // Poster must not have been slashed
-        if (poster == address(0)) {
-            revert PosterAlreadySlashedOrLookaheadIsEmpty();
-        }
+        require(poster != address(0), PosterAlreadySlashedOrLookaheadIsEmpty());
 
         // Must not have missed dispute period
-        if (block.timestamp - slotTimestamp > LibPreconfConstants.DISPUTE_PERIOD) {
-            revert MissedDisputeWindow();
-        }
+        require(
+            block.timestamp <= slotTimestamp + LibPreconfConstants.DISPUTE_PERIOD,
+            MissedDisputeWindow()
+        );
 
         // Verify that the sent validator is the one in Beacon state
         LibEIP4788.verifyValidator(
@@ -176,12 +170,8 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         LookaheadBufferEntry memory lookaheadEntry = _getLookaheadEntry(lookaheadPointer);
 
         // Validate lookahead pointer
-        if (
-            slotTimestamp > lookaheadEntry.timestamp
-                || slotTimestamp <= lookaheadEntry.prevTimestamp
-        ) {
-            revert InvalidLookaheadPointer();
-        }
+        require(slotTimestamp <= lookaheadEntry.timestamp, InvalidLookaheadPointer());
+        require(slotTimestamp > lookaheadEntry.prevTimestamp, InvalidLookaheadPointer());
 
         // We pull the preconfer present at the required slot timestamp in the lookahead.
         // If no preconfer is present for a slot, we simply use the 0-address to denote the
@@ -215,9 +205,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         // Revert if the lookahead preconfer matches the one that the validator pulled from beacon
         // state
         // is proposing for
-        if (preconferInLookahead == preconferInRegistry) {
-            revert LookaheadEntryIsCorrect();
-        }
+        require(preconferInLookahead != preconferInRegistry, LookaheadEntryIsCorrect());
 
         uint256 epochEndTimestamp = epochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH;
 
@@ -287,16 +275,12 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
      */
     function forcePushLookahead(LookaheadSetParam[] calldata lookaheadSetParams) external {
         // Sender must be a preconfer
-        if (preconfRegistry.getPreconferIndex(msg.sender) == 0) {
-            revert PreconferNotRegistered();
-        }
+        require(preconfRegistry.getPreconferIndex(msg.sender) != 0, PreconferNotRegistered());
 
         // Lookahead must be missing
         uint256 epochTimestamp = _getEpochTimestamp(block.timestamp);
         uint256 nextEpochTimestamp = epochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH;
-        if (!_isLookaheadRequired(epochTimestamp, nextEpochTimestamp)) {
-            revert LookaheadIsNotRequired();
-        }
+        require(_isLookaheadRequired(epochTimestamp, nextEpochTimestamp), LookaheadIsNotRequired());
 
         // Update the lookahead for next epoch
         _updateLookahead(nextEpochTimestamp, lookaheadSetParams);
@@ -358,17 +342,12 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
                 uint256 slotTimestamp = lookaheadSetParams[i].timestamp;
 
                 // Each entry must be registered in the preconf registry
-                if (preconfRegistry.getPreconferIndex(preconfer) == 0) {
-                    revert PreconferNotRegistered();
-                }
+                require(preconfRegistry.getPreconferIndex(preconfer) != 0, PreconferNotRegistered());
 
                 // Ensure that the timestamps belong to a valid slot in the epoch
-                if (
-                    (slotTimestamp - epochTimestamp) % 12 != 0 || slotTimestamp >= epochEndTimestamp
-                        || slotTimestamp <= prevSlotTimestamp
-                ) {
-                    revert InvalidSlotTimestamp();
-                }
+                require((slotTimestamp - epochTimestamp) % 12 == 0, InvalidSlotTimestamp());
+                require(slotTimestamp < epochEndTimestamp, InvalidSlotTimestamp());
+                require(slotTimestamp > prevSlotTimestamp, InvalidSlotTimestamp());
 
                 // Update the lookahead entry
                 _setLookaheadEntry(
@@ -470,12 +449,11 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
     }
 
     function _validateEpochTimestamp(uint256 epochTimestamp) internal view {
-        if (
-            epochTimestamp < beaconGenesis
-                || (epochTimestamp - beaconGenesis) % LibPreconfConstants.SECONDS_IN_EPOCH != 0
-        ) {
-            revert InvalidEpochTimestamp();
-        }
+        require(epochTimestamp >= beaconGenesis, InvalidEpochTimestamp());
+        require(
+            (epochTimestamp - beaconGenesis) % LibPreconfConstants.SECONDS_IN_EPOCH == 0,
+            InvalidEpochTimestamp()
+        );
     }
 
     //=======
@@ -490,9 +468,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         uint256 nextPreconferIndex = preconfRegistry.getNextPreconferIndex();
 
         // Registry must have at least one preconfer
-        if (nextPreconferIndex == 1) {
-            revert NoRegisteredPreconfer();
-        }
+        require(nextPreconferIndex != 1, NoRegisteredPreconfer());
 
         // Start of the last epoch
         uint256 lastEpochTimestamp = epochTimestamp - LibPreconfConstants.SECONDS_IN_EPOCH;
