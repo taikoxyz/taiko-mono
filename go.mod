@@ -23,7 +23,7 @@ require (
 	github.com/labstack/echo/v4 v4.12.0
 	github.com/labstack/gommon v0.4.2
 	github.com/modern-go/reflect2 v1.0.2
-	github.com/morkid/paginate v1.1.7
+	github.com/morkid/paginate v1.1.8
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
 	github.com/pkg/errors v0.9.1
