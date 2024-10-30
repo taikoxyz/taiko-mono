@@ -52,8 +52,8 @@ library LibEIP1559 {
         pure
         returns (bool success_, uint64 newGasExcess_)
     {
-        if (_gasTarget == 0) {
-            return (true, _newGasTarget);
+        if (_gasTarget == 0 || _newGasTarget == 0) {
+            return (false, _gasExcess);
         }
 
         uint256 f = FixedPointMathLib.WAD;
