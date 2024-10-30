@@ -294,8 +294,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
     // TODO(danielw): implement this function
     function getBasefee(
         uint64 _anchorBlockId,
-        uint32 _parentGasUsed,
-        LibSharedData.BaseFeeConfig calldata _baseFeeConfig
+        uint32 _parentGasUsed
     )
         public
         view
