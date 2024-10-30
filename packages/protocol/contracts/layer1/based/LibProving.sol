@@ -317,11 +317,11 @@ library LibProving {
             local.isTopTier = local.tier.contestBond == 0;
         }
 
-        local.inProvingWindow =  !LibUtils.isPostDeadline({
-                _tsTimestamp: ts.timestamp,
-                _lastUnpausedAt: local.b.lastUnpausedAt,
-                _windowMinutes: local.minTier.provingWindow
-            });
+        local.inProvingWindow = !LibUtils.isPostDeadline({
+            _tsTimestamp: ts.timestamp,
+            _lastUnpausedAt: local.b.lastUnpausedAt,
+            _windowMinutes: local.minTier.provingWindow
+        });
 
         // Checks if only the assigned prover is permissioned to prove the block.
         // The assigned prover is granted exclusive permission to prove only the first
@@ -659,7 +659,7 @@ library LibProving {
         pure
         returns (bool)
     {
-        return   _local.inProvingWindow && _local.tid == 1
+        return _local.inProvingWindow && _local.tid == 1
             || _local.isTopTier && _proofData.length == 32
                 && bytes32(_proofData) == LibStrings.H_RETURN_LIVENESS_BOND;
     }
