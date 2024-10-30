@@ -43,13 +43,13 @@ abstract contract TierProviderBase is ITierProvider {
         // Guardian Minority Tiers
         if (_tierId == LibTiers.TIER_GUARDIAN_MINORITY) {
             // cooldownWindow is 240 minutes and provingWindow is 2880 minutes
-            return _buildTier(LibStrings.B_TIER_GUARDIAN_MINORITY, BOND_UNIT * 4, 6, 0);
+            return _buildTier(LibStrings.B_TIER_GUARDIAN_MINORITY, BOND_UNIT * 4, 4, 0);
         }
 
         // Guardian Major Tiers
         if (_tierId == LibTiers.TIER_GUARDIAN) {
             // cooldownWindow is 1440 minutes and provingWindow is 2880 minutes
-            return _buildTier(LibStrings.B_TIER_GUARDIAN, 0, 6, 0);
+            return _buildTier(LibStrings.B_TIER_GUARDIAN, 0, 4, 0);
         }
 
         revert TIER_NOT_FOUND();
