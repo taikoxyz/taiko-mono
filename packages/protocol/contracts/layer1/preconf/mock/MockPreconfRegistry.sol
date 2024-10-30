@@ -43,9 +43,7 @@ contract MockPreconfRegistry is IPreconfRegistry, Initializable {
      */
     function registerPreconfer(bytes calldata operatorSignature) external {
         // Preconfer must not have registered already
-        if (preconferToIndex[msg.sender] != 0) {
-            revert PreconferAlreadyRegistered();
-        }
+        require(preconferToIndex[msg.sender] == 0, PreconferAlreadyRegistered());
 
         uint256 _nextPreconferIndex = nextPreconferIndex;
 
@@ -68,9 +66,7 @@ contract MockPreconfRegistry is IPreconfRegistry, Initializable {
      */
     function deregisterPreconfer() external {
         // Preconfer must have registered already
-        if (preconferToIndex[msg.sender] == 0) {
-            revert PreconferNotRegistered();
-        }
+        require(preconferToIndex[msg.sender] != 0, PreconferNotRegistered());
 
         unchecked {
             uint256 _nextPreconferIndex = nextPreconferIndex - 1;
@@ -101,9 +97,7 @@ contract MockPreconfRegistry is IPreconfRegistry, Initializable {
     function addValidators(AddValidatorParam[] calldata addValidatorParams) external {
         for (uint256 i; i < addValidatorParams.length; ++i) {
             // Revert if preconfer is not registered
-            if (preconferToIndex[msg.sender] == 0) {
-                revert PreconferNotRegistered();
-            }
+            require(preconferToIndex[msg.sender] != 0, PreconferNotRegistered());
 
             // bytes memory message = _createMessage(ValidatorOp.ADD,
             // addValidatorParams[i].signatureExpiry, msg.sender);
@@ -115,9 +109,10 @@ contract MockPreconfRegistry is IPreconfRegistry, Initializable {
             //}
 
             // Revert if the signature has expired
-            if (block.timestamp > addValidatorParams[i].signatureExpiry) {
-                revert ValidatorSignatureExpired();
-            }
+            require(
+                block.timestamp <= addValidatorParams[i].signatureExpiry,
+                ValidatorSignatureExpired()
+            );
 
             // Point compress the public key just how it is done on the consensus layer
             uint256[2] memory compressedPubKey = addValidatorParams[i].pubkey.compress();
@@ -128,21 +123,19 @@ contract MockPreconfRegistry is IPreconfRegistry, Initializable {
 
             // Update the validator if it has no preconfer assigned, or if it has stopped proposing
             // for the former preconfer
-            if (
+            require(
                 validator.preconfer == address(0)
-                    || (validator.stopProposingAt != 0 && block.timestamp > validator.stopProposingAt)
-            ) {
-                unchecked {
-                    validators[pubKeyHash] = Validator({
-                        preconfer: msg.sender,
-                        // The delay is crucial in order to not contradict the lookahead
-                        startProposingAt: uint40(block.timestamp + LibPreconfConstants.TWO_EPOCHS),
-                        stopProposingAt: uint40(0)
-                    });
-                }
-            } else {
-                // Validator is already proposing for a preconfer
-                revert ValidatorAlreadyActive();
+                    || (validator.stopProposingAt != 0 && block.timestamp > validator.stopProposingAt),
+                ValidatorAlreadyActive()
+            );
+
+            unchecked {
+                validators[pubKeyHash] = Validator({
+                    preconfer: msg.sender,
+                    // The delay is crucial in order to not contradict the lookahead
+                    startProposingAt: uint40(block.timestamp + LibPreconfConstants.TWO_EPOCHS),
+                    stopProposingAt: uint40(0)
+                });
             }
 
             emit ValidatorAdded(pubKeyHash, msg.sender);
@@ -166,27 +159,26 @@ contract MockPreconfRegistry is IPreconfRegistry, Initializable {
 
             // Revert if the validator is not active (or already removed, but waiting to stop
             // proposing)
-            if (validator.preconfer == address(0) || validator.stopProposingAt != 0) {
-                revert ValidatorAlreadyInactive();
-            }
+            require(validator.preconfer != address(0), ValidatorAlreadyInactive());
+            require(validator.stopProposingAt == 0, ValidatorAlreadyInactive());
 
             bytes memory message = _createMessage(
                 ValidatorOp.REMOVE, removeValidatorParams[i].signatureExpiry, validator.preconfer
             );
 
             // Revert if any signature is invalid
-            if (
-                !LibBLSSignature.verifySignature(
+            require(
+                LibBLSSignature.verifySignature(
                     message, removeValidatorParams[i].signature, removeValidatorParams[i].pubkey
-                )
-            ) {
-                revert InvalidValidatorSignature();
-            }
+                ),
+                InvalidValidatorSignature()
+            );
 
             // Revert if the signature has expired
-            if (block.timestamp > removeValidatorParams[i].signatureExpiry) {
-                revert ValidatorSignatureExpired();
-            }
+            require(
+                block.timestamp <= removeValidatorParams[i].signatureExpiry,
+                ValidatorSignatureExpired()
+            );
 
             unchecked {
                 // We also need to delay the removal by two epochs to avoid contradicting the

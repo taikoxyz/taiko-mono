@@ -130,8 +130,9 @@ library LibProposing {
 
         // It's essential to ensure that the ring buffer for proposed blocks still has space for at
         // least one more block.
+        require(local.b.numBlocks >= _config.ontakeForkHeight, L1_FORK_HEIGHT_ERROR());
+
         unchecked {
-            require(local.b.numBlocks >= _config.ontakeForkHeight, L1_FORK_HEIGHT_ERROR());
             require(
                 local.b.numBlocks < local.b.lastVerifiedBlockId + _config.blockMaxProposals + 1,
                 L1_TOO_MANY_BLOCKS()
@@ -140,7 +141,7 @@ library LibProposing {
 
         address preconfTaskManager = _resolver.resolve(LibStrings.B_PRECONF_TASK_MANAGER, true);
         if (preconfTaskManager != address(0)) {
-            if (preconfTaskManager != msg.sender) revert L1_INVALID_PROPOSER();
+            require(preconfTaskManager == msg.sender, L1_INVALID_PROPOSER());
             local.allowCustomProposer = true;
         }
 
@@ -151,9 +152,10 @@ library LibProposing {
         if (local.params.proposer == address(0)) {
             local.params.proposer = msg.sender;
         } else {
-            if (local.params.proposer != msg.sender && !local.allowCustomProposer) {
-                revert L1_INVALID_CUSTOM_PROPOSER();
-            }
+            require(
+                local.params.proposer == msg.sender || local.allowCustomProposer,
+                L1_INVALID_CUSTOM_PROPOSER()
+            );
         }
 
         if (local.params.coinbase == address(0)) {
@@ -177,30 +179,33 @@ library LibProposing {
         }
 
         // Verify the passed in L1 state block number to anchor.
-        if (
-            local.params.anchorBlockId + _config.maxAnchorHeightOffset < block.number //
-                || local.params.anchorBlockId >= block.number
-                || local.params.anchorBlockId < parentBlk.proposedIn // parent.params.anchorBlockId
-        ) {
-            revert L1_INVALID_ANCHOR_BLOCK();
-        }
+        require(
+            local.params.anchorBlockId + _config.maxAnchorHeightOffset >= block.number,
+            L1_INVALID_ANCHOR_BLOCK()
+        );
+        require(local.params.anchorBlockId < block.number, L1_INVALID_ANCHOR_BLOCK());
+
+        // parentBlk.proposedIn is actually parent's params.anchorBlockId
+        require(local.params.anchorBlockId >= parentBlk.proposedIn, L1_INVALID_ANCHOR_BLOCK());
 
         // Verify the provided timestamp to anchor. Note that local.params.anchorBlockId and
         // local.params.timestamp may not correspond to the same L1 block.
-        if (
+        require(
             local.params.timestamp + _config.maxAnchorHeightOffset * SECONDS_PER_BLOCK
-                < block.timestamp || local.params.timestamp > block.timestamp
-                || local.params.timestamp < parentBlk.proposedAt // parent.params.timestamp
-        ) {
-            revert L1_INVALID_TIMESTAMP();
-        }
+                >= block.timestamp,
+            L1_INVALID_TIMESTAMP()
+        );
+        require(local.params.timestamp <= block.timestamp, L1_INVALID_TIMESTAMP());
+
+        // parentBlk.proposedAt is actually parent's params.timestamp
+        require(local.params.timestamp >= parentBlk.proposedAt, L1_INVALID_TIMESTAMP());
 
         // Check if parent block has the right meta hash. This is to allow the proposer to make sure
         // the block builds on the expected latest chain state.
         if (local.params.parentMetaHash == 0) {
             local.params.parentMetaHash = parentBlk.metaHash;
-        } else if (local.params.parentMetaHash != parentBlk.metaHash) {
-            revert L1_UNEXPECTED_PARENT();
+        } else {
+            require(local.params.parentMetaHash == parentBlk.metaHash, L1_UNEXPECTED_PARENT());
         }
 
         // Initialize metadata to compute a metaHash, which forms a part of the block data to be
@@ -235,9 +240,9 @@ library LibProposing {
 
         // Update certain meta fields
         if (meta_.blobUsed) {
-            if (!LibNetwork.isDencunSupported(block.chainid)) revert L1_BLOB_NOT_AVAILABLE();
+            require(LibNetwork.isDencunSupported(block.chainid), L1_BLOB_NOT_AVAILABLE());
             meta_.blobHash = blobhash(local.params.blobIndex);
-            if (meta_.blobHash == 0) revert L1_BLOB_NOT_FOUND();
+            require(meta_.blobHash != 0, L1_BLOB_NOT_FOUND());
         } else {
             meta_.blobHash = keccak256(_txList);
             emit CalldataTxList(meta_.id, _txList);
