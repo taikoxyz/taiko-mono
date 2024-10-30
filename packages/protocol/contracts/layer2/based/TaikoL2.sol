@@ -33,7 +33,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
 
     /// @notice A hash to check the integrity of public inputs.
     /// @dev Slot 2.
-    bytes32 public publicInputHash;
+    bytes32 public ancestorsHash;
 
     /// @notice The gas excess value used to calculate the base fee.
     /// @dev Slot 3.
@@ -108,7 +108,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
 
         l1ChainId = _l1ChainId;
         parentGasExcess = _initialGasExcess;
-        (publicInputHash,) = _calcPublicInputHash(block.number);
+        (ancestorsHash,) = _calcAncestorsHash(block.number);
     }
 
     /// @dev DEPRECATED but used by node/client for syncing old blocks
@@ -136,9 +136,10 @@ contract TaikoL2 is EssentialContract, IBlockHash {
 
         // Verify ancestor hashes
         uint256 parentId = block.number - 1;
-        (bytes32 currentPublicInputHash, bytes32 newPublicInputHash) =
-            _calcPublicInputHash(parentId);
-        require(publicInputHash == currentPublicInputHash, L2_PUBLIC_INPUT_HASH_MISMATCH());
+        (bytes32 currAncestorsHash, bytes32 newAncestorsHash) =
+            _verifyAndUpdateAncestorsHash(parentId);
+
+        require(ancestorsHash == currAncestorsHash, L2_PUBLIC_INPUT_HASH_MISMATCH());
 
         // Verify the base fee per gas is correct
         (uint256 basefee, uint64 newGasExcess) = getBasefee(_l1BlockId, _parentGasUsed);
@@ -158,7 +159,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         bytes32 parentHash = blockhash(parentId);
         _blockhashes[parentId] = parentHash;
 
-        publicInputHash = newPublicInputHash;
+        ancestorsHash = newAncestorsHash;
         parentGasExcess = newGasExcess;
         _parentTimestamp = uint64(block.timestamp);
 
@@ -191,14 +192,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         require(block.number >= ontakeForkHeight(), L2_FORK_ERROR());
 
         uint256 parentId = block.number - 1;
-
-        // Verify ancestor hashes
-        {
-            (bytes32 currentPublicInputHash, bytes32 newPublicInputHash) =
-                _calcPublicInputHash(parentId);
-            require(publicInputHash == currentPublicInputHash, L2_PUBLIC_INPUT_HASH_MISMATCH());
-            publicInputHash = newPublicInputHash;
-        }
+        _verifyAndUpdateAncesterHashes(parentId);
 
         // Check if the gas settings has changed
         {
@@ -377,17 +371,24 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         );
     }
 
-    /// @notice Calculates the public input hash for the given block ID.
+    function _verifyAndUpdateAncestorsHash(uint256 _parentId) private {
+        // Verify ancestor hashes
+        (bytes32 currAncestorsHash, bytes32 newAncestorsHash) = _calcAncestorsHash(_parentId);
+        require(ancestorsHash == currAncestorsHash, L2_PUBLIC_INPUT_HASH_MISMATCH());
+        ancestorsHash = newAncestorsHash;
+    }
+
+    /// @notice Calculates the aggregated ancestor block hash for the given block ID.
     /// @dev This function computes two public input hashes: one for the previous state and one for
     /// the new state.
     /// It uses a ring buffer to store the previous 255 block hashes and the current chain ID.
     /// @param _blockId The ID of the block for which the public input hash is calculated.
-    /// @return publicInputHashOld The public input hash for the previous state.
-    /// @return publicInputHashNew The public input hash for the new state.
-    function _calcPublicInputHash(uint256 _blockId)
+    /// @return currAncestorsHash The public input hash for the previous state.
+    /// @return newAncestorsHash The public input hash for the new state.
+    function _calcAncestorsHash(uint256 _blockId)
         private
         view
-        returns (bytes32 publicInputHashOld, bytes32 publicInputHashNew)
+        returns (bytes32 currAncestorsHash_, bytes32 newAncestorsHash_)
     {
         bytes32[256] memory inputs;
 
@@ -404,12 +405,12 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         inputs[255] = bytes32(block.chainid);
 
         assembly {
-            publicInputHashOld := keccak256(inputs, 8192 /*mul(256, 32)*/ )
+            currAncestorsHash_ := keccak256(inputs, 8192 /*mul(256, 32)*/ )
         }
 
         inputs[_blockId % 255] = blockhash(_blockId);
         assembly {
-            publicInputHashNew := keccak256(inputs, 8192 /*mul(256, 32)*/ )
+            newAncestorsHash_ := keccak256(inputs, 8192 /*mul(256, 32)*/ )
         }
     }
 }
