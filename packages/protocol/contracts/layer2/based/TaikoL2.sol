@@ -127,8 +127,8 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         uint32 _parentGasUsed
     )
         external
-        nonZeroValue(uint256(_l1StateRoot))
-        nonZeroValue(uint256(_l1BlockId))
+        nonZeroBytes32(_l1StateRoot)
+        nonZeroValue(_l1BlockId)
         onlyGoldenTouch
         nonReentrant
     {
@@ -157,10 +157,10 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         LibSharedData.BaseFeeConfig calldata _baseFeeConfig
     )
         external
-        nonZeroValue(uint256(_anchorStateRoot))
-        nonZeroValue(uint256(_anchorBlockId))
-        nonZeroValue(uint256(_baseFeeConfig.gasIssuancePerSecond))
-        nonZeroValue(uint256(_baseFeeConfig.adjustmentQuotient))
+        nonZeroBytes32(_anchorStateRoot)
+        nonZeroValue(_anchorBlockId)
+        nonZeroValue(_baseFeeConfig.gasIssuancePerSecond)
+        nonZeroValue(_baseFeeConfig.adjustmentQuotient)
         onlyGoldenTouch
         nonReentrant
     {
