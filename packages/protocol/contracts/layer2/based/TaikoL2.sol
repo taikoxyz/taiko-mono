@@ -43,7 +43,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
     uint64 public lastSyncedBlock;
 
     /// @notice The last L2 block's timestamp.
-    uint64 public parentTimestamp;
+    uint64 private _parentTimestamp;
 
     /// @notice The last L2 block's gas target.
     uint64 public parentGasTarget;
@@ -71,7 +71,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
     error L2_TOO_LATE();
 
     modifier onlyGoldenTouch() {
-        if (msg.sender != GOLDEN_TOUCH_ADDRESS) revert L2_INVALID_SENDER();
+        require(msg.sender == GOLDEN_TOUCH_ADDRESS, L2_INVALID_SENDER());
         _;
     }
 
@@ -91,12 +91,10 @@ contract TaikoL2 is EssentialContract, IBlockHash {
     {
         __Essential_init(_owner, _rollupAddressManager);
 
-        if (_l1ChainId == 0 || _l1ChainId == block.chainid) {
-            revert L2_INVALID_L1_CHAIN_ID();
-        }
-        if (block.chainid <= 1 || block.chainid > type(uint64).max) {
-            revert L2_INVALID_L2_CHAIN_ID();
-        }
+        require(_l1ChainId != 0, L2_INVALID_L1_CHAIN_ID());
+        require(_l1ChainId != block.chainid, L2_INVALID_L1_CHAIN_ID());
+        require(block.chainid > 1, L2_INVALID_L2_CHAIN_ID());
+        require(block.chainid <= type(uint64).max, L2_INVALID_L2_CHAIN_ID());
 
         if (block.number == 0) {
             // This is the case in real L2 genesis
@@ -134,18 +132,17 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         onlyGoldenTouch
         nonReentrant
     {
-        if (block.number >= ontakeForkHeight()) revert L2_FORK_ERROR();
+        require(block.number < ontakeForkHeight(), L2_FORK_ERROR());
 
         // Verify ancestor hashes
         uint256 parentId = block.number - 1;
         (bytes32 currentPublicInputHash, bytes32 newPublicInputHash) =
             _calcPublicInputHash(parentId);
-        if (publicInputHash != currentPublicInputHash) revert L2_PUBLIC_INPUT_HASH_MISMATCH();
+        require(publicInputHash == currentPublicInputHash, L2_PUBLIC_INPUT_HASH_MISMATCH());
 
         // Verify the base fee per gas is correct
         (uint256 basefee, uint64 newGasExcess) = getBasefee(_l1BlockId, _parentGasUsed);
-
-        if (!skipFeeCheck() && block.basefee != basefee) revert L2_BASEFEE_MISMATCH();
+        require(skipFeeCheck() || block.basefee == basefee, L2_BASEFEE_MISMATCH());
 
         if (_l1BlockId > lastSyncedBlock) {
             // Store the L1's state root as a signal to the local signal service to
@@ -163,7 +160,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
 
         publicInputHash = newPublicInputHash;
         parentGasExcess = newGasExcess;
-        parentTimestamp = uint64(block.timestamp);
+        _parentTimestamp = uint64(block.timestamp);
 
         emit Anchored(parentHash, newGasExcess);
     }
@@ -191,7 +188,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         onlyGoldenTouch
         nonReentrant
     {
-        if (block.number < ontakeForkHeight()) revert L2_FORK_ERROR();
+        require(block.number >= ontakeForkHeight(), L2_FORK_ERROR());
 
         uint256 parentId = block.number - 1;
 
@@ -199,7 +196,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         {
             (bytes32 currentPublicInputHash, bytes32 newPublicInputHash) =
                 _calcPublicInputHash(parentId);
-            if (publicInputHash != currentPublicInputHash) revert L2_PUBLIC_INPUT_HASH_MISMATCH();
+            require(publicInputHash == currentPublicInputHash, L2_PUBLIC_INPUT_HASH_MISMATCH());
             publicInputHash = newPublicInputHash;
         }
 
@@ -235,12 +232,12 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         {
             (uint256 basefee, uint64 newGasExcess) = calculateBaseFee(
                 _baseFeeConfig,
-                uint64(block.timestamp - parentTimestamp),
+                uint64(block.timestamp - _parentTimestamp),
                 parentGasExcess,
                 _parentGasUsed
             );
 
-            if (!skipFeeCheck() && block.basefee != basefee) revert L2_BASEFEE_MISMATCH();
+            require(skipFeeCheck() || block.basefee == basefee, "L2_BASEFEE_MISMATCH");
             parentGasExcess = newGasExcess;
         }
 
@@ -257,7 +254,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         // Update state variables
         bytes32 parentHash = blockhash(parentId);
         _blockhashes[parentId] = parentHash;
-        parentTimestamp = uint64(block.timestamp);
+        _parentTimestamp = uint64(block.timestamp);
 
         emit Anchored(parentHash, parentGasExcess);
     }
@@ -311,6 +308,16 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         );
     }
 
+    function getBasefeeV2(
+        uint64 _anchorBlockId,
+        uint32 _parentGasUsed,
+        LibSharedData.BaseFeeConfig calldata _baseFeeConfig
+    )
+        public
+        view
+        returns (uint256 basefee_, uint64 parentGasExcess_)
+    { }
+
     /// @inheritdoc IBlockHash
     function getBlockHash(uint256 _blockId) public view returns (bytes32) {
         if (_blockId >= block.number) return 0;
@@ -327,7 +334,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
     /// @notice Returns the parent timestamp.
     /// @return The timestamp of the parent block.
     function getParentTimestamp() public view returns (uint64) {
-        return parentTimestamp;
+        return _parentTimestamp;
     }
 
     /// @notice Returns the Ontake fork height.
