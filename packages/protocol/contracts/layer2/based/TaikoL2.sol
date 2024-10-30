@@ -168,48 +168,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
 
         uint256 parentId = block.number - 1;
         _verifyAndUpdateAncestorsHash(parentId);
-
-        // Check if the gas settings has changed
-        {
-            uint64 newGasTarget =
-                uint64(_baseFeeConfig.gasIssuancePerSecond) * _baseFeeConfig.adjustmentQuotient;
-
-            if (parentGasTarget != newGasTarget) {
-                if (parentGasTarget == 0) {
-                    parentGasTarget = newGasTarget;
-                    emit UpdateGasTargetSucceeded(0, newGasTarget);
-                } else {
-                    bool _success;
-                    uint64 _newGasExcess;
-
-                    (_success, _newGasExcess) =
-                        LibEIP1559.adjustExcess(parentGasExcess, parentGasTarget, newGasTarget);
-
-                    if (_success) {
-                        emit UpdateGasTargetSucceeded(parentGasTarget, newGasTarget);
-
-                        parentGasTarget = newGasTarget;
-                        parentGasExcess = _newGasExcess;
-                    } else {
-                        emit UpdateGasTargetFailed(parentGasTarget, newGasTarget);
-                    }
-                }
-            }
-        }
-
-        // Verify the base fee per gas is correct
-        {
-            (uint256 basefee, uint64 newGasExcess) = calculateBaseFee(
-                _baseFeeConfig,
-                uint64(block.timestamp - _parentTimestamp),
-                parentGasExcess,
-                _parentGasUsed
-            );
-
-            require(skipFeeCheck() || block.basefee == basefee, "L2_BASEFEE_MISMATCH");
-            parentGasExcess = newGasExcess;
-        }
-
+        _verifyBaseFeeAndUpdateGasExcessV2(_parentGasUsed, _baseFeeConfig);
         _syncChainData(_anchorBlockId, _anchorStateRoot);
         _updateParentHashAndTimestamp(parentId);
     }
@@ -353,9 +312,54 @@ contract TaikoL2 is EssentialContract, IBlockHash {
 
     /// @notice Verifies the base fee per gas is correct
     function _verifyBaseFeeAndUpdateGasExcess(uint64 _l1BlockId, uint32 _parentGasUsed) private {
-        (uint256 basefee, uint64 newParentGasExcess) = getBasefee(_l1BlockId, _parentGasUsed);
+        uint256 basefee;
+        (basefee, parentGasExcess) = getBasefee(_l1BlockId, _parentGasUsed);
         require(skipFeeCheck() || block.basefee == basefee, L2_BASEFEE_MISMATCH());
-        parentGasExcess = newParentGasExcess;
+    }
+
+    /// @notice Verifies the base fee per gas is correct
+    function _verifyBaseFeeAndUpdateGasExcessV2(
+        uint32 _parentGasUsed,
+        LibSharedData.BaseFeeConfig calldata _baseFeeConfig
+    )
+        private
+    {
+        // Check if the gas settings has changed
+        uint64 newGasTarget =
+            uint64(_baseFeeConfig.gasIssuancePerSecond) * _baseFeeConfig.adjustmentQuotient;
+
+        if (parentGasTarget != newGasTarget) {
+            if (parentGasTarget == 0) {
+                parentGasTarget = newGasTarget;
+                emit UpdateGasTargetSucceeded(0, newGasTarget);
+            } else {
+                bool _success;
+                uint64 _newGasExcess;
+
+                (_success, _newGasExcess) =
+                    LibEIP1559.adjustExcess(parentGasExcess, parentGasTarget, newGasTarget);
+
+                if (_success) {
+                    emit UpdateGasTargetSucceeded(parentGasTarget, newGasTarget);
+
+                    parentGasTarget = newGasTarget;
+                    parentGasExcess = _newGasExcess;
+                } else {
+                    emit UpdateGasTargetFailed(parentGasTarget, newGasTarget);
+                }
+            }
+        }
+
+        // Verify the base fee per gas is correct
+        uint256 basefee;
+        (basefee, parentGasExcess) = calculateBaseFee(
+            _baseFeeConfig,
+            uint64(block.timestamp - _parentTimestamp),
+            parentGasExcess,
+            _parentGasUsed
+        );
+
+        require(skipFeeCheck() || block.basefee == basefee, "L2_BASEFEE_MISMATCH");
     }
 
     /// @notice Verifies ancestor hashes and saves the new aggregated hash.
