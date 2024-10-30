@@ -20,6 +20,17 @@ contract HeklaTierRouter is TierProviderBase, ITierRouter {
     }
 
     /// @inheritdoc ITierProvider
+    function getTierIds() external pure returns (uint16[] memory ids_) {
+        ids_ = new uint16[](6);
+        ids_[0] = LibTiers.TIER_OPTIMISTIC;
+        ids_[1] = LibTiers.TIER_SGX;
+        ids_[2] = LibTiers.TIER_ZKVM_RISC0;
+        ids_[3] = LibTiers.TIER_ZKVM_SP1;
+        ids_[4] = LibTiers.TIER_GUARDIAN_MINORITY;
+        ids_[5] = LibTiers.TIER_GUARDIAN;
+    }
+
+    /// @inheritdoc ITierProvider
     function getMinTier(address _proposer, uint256 _rand) public view override returns (uint16) {
         if (_proposer == DAO_FALLBACK_PROPOSER) {
             if (_rand % 1000 == 0) return LibTiers.TIER_ZKVM_RISC0;

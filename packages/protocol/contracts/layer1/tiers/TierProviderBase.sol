@@ -17,21 +17,6 @@ abstract contract TierProviderBase is ITierProvider {
     uint96 public constant BOND_UNIT = 75 ether; // TAIKO tokens
 
     /// @inheritdoc ITierProvider
-    function getTierIds() external pure returns (uint16[] memory ids_) {
-        ids_ = new uint16[](10);
-        ids_[0] = LibTiers.TIER_OPTIMISTIC;
-        ids_[1] = LibTiers.TIER_SGX;
-        ids_[2] = LibTiers.TIER_TDX;
-        ids_[3] = LibTiers.TIER_TEE_ANY;
-        ids_[4] = LibTiers.TIER_ZKVM_RISC0;
-        ids_[5] = LibTiers.TIER_ZKVM_SP1;
-        ids_[6] = LibTiers.TIER_ZKVM_ANY;
-        ids_[7] = LibTiers.TIER_ZKVM_AND_TEE;
-        ids_[8] = LibTiers.TIER_GUARDIAN_MINORITY;
-        ids_[9] = LibTiers.TIER_GUARDIAN;
-    }
-
-    /// @inheritdoc ITierProvider
     /// @notice Each tier, except the top tier, has a validity bond that is 75 TAIKO higher than the
     /// previous tier. Additionally, each tier's contest bond is 6.5625 times its validity bond.
     function getTier(uint16 _tierId) public pure virtual returns (ITierProvider.Tier memory) {
