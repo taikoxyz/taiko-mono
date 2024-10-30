@@ -42,7 +42,7 @@ library LibEIP1559 {
     }
 
     /// @dev Returns the new gas excess that will keep the basefee the same.
-    /// `_newGasTarget * ln(_newGasTarget / _target) + _gasExcess * _newGasTarget / _target`
+    /// `_newGasTarget * ln(_newGasTarget / _gasTarget) + _gasExcess * _newGasTarget / _gasTarget`
     function adjustExcess(
         uint64 _gasExcess,
         uint64 _gasTarget,
@@ -53,7 +53,7 @@ library LibEIP1559 {
         returns (uint64)
     {
         if (_gasTarget == 0) {
-            return _newGasTarget;
+            return _gasExcess;
         }
 
         uint256 f = FixedPointMathLib.WAD;
