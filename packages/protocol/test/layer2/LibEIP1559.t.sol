@@ -104,7 +104,7 @@ contract TestLibEIP1559 is TaikoL2Test {
         LibEIP1559.ethQty(_gasExcess, _gasTarget);
     }
 
-    /// forge-config: layer2.fuzz.runs = 1000
+    /// forge-config: layer2.fuzz.runs = 5000
     /// forge-config: layer2.fuzz.show-logs = true
     function test_fuzz_adjustExcess(
         uint64 _gasExcess,
@@ -112,14 +112,13 @@ contract TestLibEIP1559 is TaikoL2Test {
         uint64 _newGasTarget
     )
         external
-        pure
     {
         if (_gasTarget == 0) _gasTarget = 1;
         if (_newGasTarget == 0) _newGasTarget = 1;
         LibEIP1559.adjustExcess(_gasExcess, _gasTarget, _newGasTarget);
     }
 
-    /// forge-config: layer2.fuzz.runs = 1000
+    /// forge-config: layer2.fuzz.runs = 5000
     /// forge-config: layer2.fuzz.show-logs = true
     function test_fuzz_calc1559BaseFee(
         uint64 _gasTarget,

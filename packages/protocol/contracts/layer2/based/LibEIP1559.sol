@@ -53,14 +53,14 @@ library LibEIP1559 {
         returns (bool success_, uint64 newGasExcess_)
     {
         if (_gasTarget == 0 || _newGasTarget == 0) {
-            return (false, _gasExcess);
+            return (false, 0);
         }
 
         uint256 f = FixedPointMathLib.WAD;
         uint256 ratio = f * _newGasTarget / _gasTarget;
 
         if (ratio == 0 || ratio > uint256(type(int256).max)) {
-            return (false, _gasExcess);
+            return (false, 0);
         }
 
         int256 lnRatio = FixedPointMathLib.lnWad(int256(ratio)); // may be negative

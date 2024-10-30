@@ -251,6 +251,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
                     parentGasExcess_ = newGasExcess;
                     parentGasTarget_ = newGasTarget;
                 } else {
+                    // asssert(newGasExcess == 0);
                     parentGasExcess_ = parentGasExcess;
                     parentGasTarget_ = parentGasTarget;
                 }
@@ -299,40 +300,6 @@ contract TaikoL2 is EssentialContract, IBlockHash {
     /// @return The Ontake fork height.
     function ontakeForkHeight() public pure virtual returns (uint64) {
         return 0;
-    }
-
-    /// @notice Calculates the basefee and the new gas excess value based on parent gas used and gas
-    /// excess.
-    /// @param _baseFeeConfig The base fee config object.
-    /// @param _blocktime The time between this block and the parent block.
-    /// @param _parentGasExcess The current gas excess value.
-    /// @param _parentGasUsed Total gas used by the parent block.
-    /// @return basefee_ Next block's base fee.
-    /// @return parentGasExcess_ The new gas excess value.
-    function _calculateBaseFee(
-        LibSharedData.BaseFeeConfig calldata _baseFeeConfig,
-        uint64 _blocktime,
-        uint64 _parentGasExcess,
-        uint32 _parentGasUsed
-    )
-        private
-        pure
-        returns (uint256 basefee_, uint64 parentGasExcess_)
-    {
-        uint64 gasIssuance = _blocktime * _baseFeeConfig.gasIssuancePerSecond;
-        if (
-            _baseFeeConfig.maxGasIssuancePerBlock != 0
-                && gasIssuance > _baseFeeConfig.maxGasIssuancePerBlock
-        ) {
-            gasIssuance = _baseFeeConfig.maxGasIssuancePerBlock;
-        }
-
-        uint64 gasTarget =
-            uint64(_baseFeeConfig.gasIssuancePerSecond) * _baseFeeConfig.adjustmentQuotient;
-
-        return LibEIP1559.calc1559BaseFee(
-            gasTarget, _parentGasExcess, gasIssuance, _parentGasUsed, _baseFeeConfig.minGasExcess
-        );
     }
 
     function _syncChainData(uint64 _anchorBlockId, bytes32 _anchorStateRoot) private {
