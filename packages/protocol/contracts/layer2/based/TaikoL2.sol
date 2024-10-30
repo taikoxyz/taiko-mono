@@ -384,9 +384,9 @@ contract TaikoL2 is EssentialContract, IBlockHash {
 
     /// @notice Verifies ancestor hashes and saves the new aggregated hash.
     function _verifyAndUpdateAncestorsHash(uint256 _parentId) private {
-        (bytes32 currAncestorsHash, bytes32 newAncestorsHash) = _calcAncestorsHash(_parentId);
-        require(ancestorsHash == currAncestorsHash, L2_PUBLIC_INPUT_HASH_MISMATCH());
-        ancestorsHash = newAncestorsHash;
+        (bytes32 currAncestorsHash_, bytes32 newAncestorsHash_) = _calcAncestorsHash(_parentId);
+        require(ancestorsHash == currAncestorsHash_, L2_PUBLIC_INPUT_HASH_MISMATCH());
+        ancestorsHash = newAncestorsHash_;
     }
 
     /// @notice Calculates the aggregated ancestor block hash for the given block ID.
