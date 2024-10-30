@@ -63,9 +63,7 @@ func (b *TransactionBatch) ValidateSignature() (bool, error) {
 		return false, err
 	}
 
-	log.Debug("Validating signature", "payload", payload, "signature", b.Signature)
-
-	pubKey, err := crypto.SigToPub(payload, common.FromHex(b.Signature))
+	pubKey, err := crypto.SigToPub(crypto.Keccak256(payload), common.FromHex(b.Signature))
 	if err != nil {
 		return false, err
 	}

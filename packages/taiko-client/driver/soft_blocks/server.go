@@ -61,6 +61,7 @@ func New(
 			rpc.BlockMaxTxListBytes,
 			cli.L2.ChainID,
 		),
+		rpc: cli,
 	}
 
 	server.echo.HideBanner = true
