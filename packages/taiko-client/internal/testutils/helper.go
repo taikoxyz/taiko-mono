@@ -17,7 +17,6 @@ import (
 	"github.com/phayes/freeport"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
@@ -202,12 +201,15 @@ func (s *ClientTestSuite) ProposeValidBlock(
 	ontakeForkHeight, err := s.RPCClient.TaikoL2.OntakeForkHeight(nil)
 	s.Nil(err)
 
+	protocolConfigs, err := rpc.GetProtocolConfigs(s.RPCClient.TaikoL1, nil)
+	s.Nil(err)
+
 	baseFee, err := s.RPCClient.CalculateBaseFee(
 		context.Background(),
 		l2Head,
 		l1Head.Number,
 		l2Head.Number.Uint64()+1 >= ontakeForkHeight,
-		&encoding.InternlDevnetProtocolConfig.BaseFeeConfig,
+		&protocolConfigs.BaseFeeConfig,
 		l1Head.Time,
 	)
 	s.Nil(err)
