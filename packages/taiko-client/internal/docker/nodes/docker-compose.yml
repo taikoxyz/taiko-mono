@@ -16,8 +16,8 @@ services:
       - --hardfork
       - cancun
 
-  l2_execution_engine:
-    container_name: l2_node
+  l2_geth:
+    container_name: l2_geth
     image: us-docker.pkg.dev/evmchain/images/taiko-geth:taiko
     restart: unless-stopped
     pull_policy: always
@@ -67,3 +67,41 @@ services:
       - --ws.api
       - admin,debug,eth,net,web3,txpool,miner,taiko
       - --taiko
+
+  l2_reth:
+    container_name: l2_reth
+    image: us-docker.pkg.dev/evmchain/images/taiko-reth:v1.0.0
+    restart: unless-stopped
+    pull_policy: always
+    volumes:
+      - .:/host
+    ports:
+      - "8545"
+      - "8546"
+      - "8551"
+    command:
+      - node
+      - --datadir
+      - /data/taiko-geth
+      - --chain
+      - "167001"
+      - --http
+      - --http.addr
+      - "0.0.0.0"
+      - --http.corsdomain
+      - "*"
+      - --ws
+      - --ws.addr
+      - "0.0.0.0"
+      - --ws.origins
+      - "*"
+      - --authrpc.addr
+      - "0.0.0.0"
+      - --authrpc.port
+      - "8551"
+      - --authrpc.jwtsecret
+      - /host/jwt.hex
+      - --http.api
+      - admin,debug,eth,net,web3,txpool,taiko
+      - --ws.api
+      - admin,debug,eth,net,web3,txpool,taiko

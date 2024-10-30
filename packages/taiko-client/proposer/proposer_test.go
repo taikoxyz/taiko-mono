@@ -2,12 +2,16 @@ package proposer
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"fmt"
+	"maps"
 	"math/big"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -119,6 +123,112 @@ func (s *ProposerTestSuite) SetupTest() {
 	s.cancel = cancel
 }
 
+func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
+	if os.Getenv("L2_NODE") == "l2_reth" {
+		s.T().Skip()
+	}
+	defer s.Nil(s.s.ProcessL1Blocks(context.Background()))
+
+	privetKeyHexList := []string{
+		"0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d", // 0x70997970C51812dc3A010C7d01b50e0d17dc79C8
+		"0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a", // 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC
+		"0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6", // 0x90F79bf6EB2c4f870365E785982E1f101E93b906
+		"0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a", // 0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65
+		"0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba", // 0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc
+	}
+
+	var (
+		p        = s.p
+		privKeys []*ecdsa.PrivateKey
+		l2Cli    = s.RPCClient.L2
+		chainID  = l2Cli.ChainID
+	)
+
+	for _, sk := range privetKeyHexList {
+		priv, err := crypto.ToECDSA(common.FromHex(sk))
+		s.Nil(err)
+		privKeys = append(privKeys, priv)
+	}
+
+	originNonces := make(map[common.Address]uint64)
+	for _, priv := range privKeys {
+		auth, err := bind.NewKeyedTransactorWithChainID(priv, chainID)
+		s.Nil(err)
+		nonce, err := l2Cli.PendingNonceAt(context.Background(), auth.From)
+		s.Nil(err)
+		originNonces[auth.From] = nonce
+		for i := 0; i < 300; i++ {
+			_, err = testutils.AssembleTestTx(s.RPCClient.L2, priv, nonce+uint64(i), &auth.From, big.NewInt(1), nil)
+			s.Nil(err)
+		}
+	}
+
+	signer := types.LatestSignerForChainID(chainID)
+	for _, testCase := range []struct {
+		blockMaxGasLimit     uint32
+		blockMaxTxListBytes  uint64
+		maxTransactionsLists uint64
+
+		txLengthList []int
+	}{
+		{
+			p.protocolConfigs.BlockMaxGasLimit,
+			rpc.BlockMaxTxListBytes,
+			p.MaxProposedTxListsPerEpoch,
+			[]int{1500},
+		},
+		{
+			p.protocolConfigs.BlockMaxGasLimit,
+			rpc.BlockMaxTxListBytes,
+			p.MaxProposedTxListsPerEpoch * 5,
+			[]int{1500},
+		},
+		{
+			p.protocolConfigs.BlockMaxGasLimit / 50,
+			rpc.BlockMaxTxListBytes,
+			200,
+			[]int{129, 129, 129, 129, 129, 129, 129, 129, 129, 129, 129, 81},
+		},
+	} {
+		res, err := s.RPCClient.GetPoolContent(
+			context.Background(),
+			p.proposerAddress,
+			testCase.blockMaxGasLimit,
+			testCase.blockMaxTxListBytes,
+			p.LocalAddresses,
+			testCase.maxTransactionsLists,
+			0,
+			p.chainConfig,
+		)
+		s.Nil(err)
+
+		checkNonces := maps.Clone(originNonces)
+		// Make sure all the nonce are in order.
+		for _, txList := range res {
+			for _, tx := range txList.TxList {
+				sender, err := types.Sender(signer, tx)
+				s.Nil(err)
+				s.Equalf(checkNonces[sender], tx.Nonce(),
+					fmt.Sprintf("%s nonce check, expect: %d, actual: %d",
+						sender.String(),
+						checkNonces[sender],
+						tx.Nonce(),
+					))
+				checkNonces[sender]++
+			}
+		}
+
+		s.GreaterOrEqual(int(testCase.maxTransactionsLists), len(res))
+		for i, txsLen := range testCase.txLengthList {
+			s.Equal(txsLen, res[i].TxList.Len())
+			s.GreaterOrEqual(uint64(testCase.blockMaxGasLimit), res[i].EstimatedGasUsed)
+			s.GreaterOrEqual(testCase.blockMaxTxListBytes, res[i].BytesLength)
+		}
+	}
+
+	s.Nil(p.ProposeOp(context.Background()))
+}
+
 func (s *ProposerTestSuite) TestProposeTxLists() {
 	p := s.p
 	ctx := p.ctx
@@ -171,6 +281,10 @@ func (s *ProposerTestSuite) TestProposeTxLists() {
 }
 
 func (s *ProposerTestSuite) TestProposeOpNoEmptyBlock() {
+	// TODO: Temporarily skip this test case when using l2_reth node.
+	if os.Getenv("L2_NODE") == "l2_reth" {
+		s.T().Skip()
+	}
 	defer s.Nil(s.s.ProcessL1Blocks(context.Background()))
 
 	p := s.p

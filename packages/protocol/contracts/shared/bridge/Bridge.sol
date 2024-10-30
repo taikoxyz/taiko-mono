@@ -108,6 +108,7 @@ contract Bridge is EssentialContract, IBridge {
         __Essential_init(_owner, _sharedAddressManager);
     }
 
+    /// @notice This function shall be called by previously deployed contracts.
     function init2() external onlyOwner reinitializer(2) {
         // reset some previously used slots for future reuse
         __reserved1 = 0;

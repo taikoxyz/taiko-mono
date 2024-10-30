@@ -56,6 +56,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         if (_toPause) _pause();
     }
 
+    /// @notice This function shall be called by previously deployed contracts.
     function init2() external onlyOwner reinitializer(2) {
         // reset some previously used slots for future reuse
         state.slotB.__reservedB1 = 0;
@@ -77,8 +78,10 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_)
     {
         TaikoData.Config memory config = getConfig();
-        (meta_,) = LibProposing.proposeBlock(state, config, this, _params, _txList);
-        if (meta_.id >= config.ontakeForkHeight) revert L1_FORK_ERROR();
+
+        TaikoData.BlockMetadataV2 memory metaV2;
+        (meta_, metaV2) = LibProposing.proposeBlock(state, config, this, _params, _txList);
+        if (metaV2.id >= config.ontakeForkHeight) revert L1_FORK_ERROR();
         deposits_ = new TaikoData.EthDeposit[](0);
     }
 

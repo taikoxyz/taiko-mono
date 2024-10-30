@@ -35,6 +35,10 @@ jobs:
     runs-on: [ubuntu-latest]
     timeout-minutes: 15
 
+    strategy:
+      matrix:
+        execution_node: [l2_geth]
+
     steps:
       - name: Cancel Previous Runs
         uses: styfle/cancel-workflow-action@0.11.0
@@ -55,8 +59,10 @@ jobs:
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
 
-      - name: Test
+      - name: Run Tests on ${{ matrix.execution_node }} execution engine
         working-directory: packages/taiko-client
+        env:
+          L2_NODE: ${{ matrix.execution_node }}
         run: make test
 
       - name: Codecov.io

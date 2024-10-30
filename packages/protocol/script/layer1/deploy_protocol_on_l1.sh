@@ -21,7 +21,7 @@ PAUSE_TAIKO_L1=true \
 PAUSE_BRIDGE=true \
 NUM_MIN_MAJORITY_GUARDIANS=7 \
 NUM_MIN_MINORITY_GUARDIANS=2 \
-TIER_PROVIDER="devnet" \
+TIER_ROUTER="devnet" \
 FOUNDRY_PROFILE="layer1" \
 forge script ./script/layer1/DeployProtocolOnL1.s.sol:DeployProtocolOnL1 \
     --fork-url http://localhost:8545 \

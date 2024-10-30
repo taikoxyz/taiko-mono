@@ -34,7 +34,7 @@ contract RollupAddressCache is AddressCache {
             return (true, 0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a);
         }
         if (_name == LibStrings.B_TIER_ROUTER) {
-            return (true, 0x6E997f1F22C40ba37F633B08f3b07E10Ed43155a);
+            return (true, 0x2cD242BfD58E6D1810323D07b065413095c7AFd0);
         }
         if (_name == LibStrings.B_TIER_SGX) {
             return (true, 0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81);
@@ -48,11 +48,11 @@ contract RollupAddressCache is AddressCache {
         if (_name == LibStrings.B_AUTOMATA_DCAP_ATTESTATION) {
             return (true, 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3);
         }
-        if (_name == LibStrings.B_BLOCK_PROPOSER) {
+        if (_name == LibStrings.B_PRECONF_REGISTRY) {
             return (true, address(0));
         }
         if (_name == LibStrings.B_CHAIN_WATCHDOG) {
-            return (true, address(0));
+            return (true, 0xE3D777143Ea25A6E031d1e921F396750885f43aC);
         }
         return (false, address(0));
     }

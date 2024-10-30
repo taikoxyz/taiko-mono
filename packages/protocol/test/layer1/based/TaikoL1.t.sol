@@ -224,16 +224,6 @@ contract TaikoL1Tests is TaikoL1TestBase {
         proposeBlock(Alice, 1024);
     }
 
-    function test_getTierIds() external {
-        uint16[] memory tiers = cp.getTierIds();
-        assertEq(tiers[0], LibTiers.TIER_OPTIMISTIC);
-        assertEq(tiers[1], LibTiers.TIER_SGX);
-        assertEq(tiers[2], LibTiers.TIER_GUARDIAN);
-
-        vm.expectRevert();
-        cp.getTier(123);
-    }
-
     function proposeButRevert(address proposer, uint24 txListSize, bytes4 revertReason) internal {
         uint256 msgValue = 2 ether;
         TaikoData.HookCall[] memory hookcalls = new TaikoData.HookCall[](0);

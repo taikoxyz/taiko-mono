@@ -55,10 +55,10 @@ var (
 		LivenessBond:          livenessBond,
 		StateRootSyncInternal: 16,
 		MaxAnchorHeightOffset: 64,
-		// TODO: update this value when mainnet fork height is decided
-		OntakeForkHeight: 9_000_000,
+		OntakeForkHeight:      538_304,
 		BaseFeeConfig: bindings.LibSharedDataBaseFeeConfig{
 			AdjustmentQuotient:     8,
+			SharingPctg:            75,
 			GasIssuancePerSecond:   5_000_000,
 			MinGasExcess:           1_340_000_000,
 			MaxGasIssuancePerBlock: 600_000_000,

@@ -6,18 +6,18 @@ import "src/layer1/tiers/ITierProvider.sol";
 import "src/layer1/tiers/LibTiers.sol";
 import "src/layer1/tiers/ITierRouter.sol";
 
-/// @title TestTierProvider
+/// @title TestTierRouter
 /// @dev Labeled in AddressResolver as "tier_router"
 /// @custom:security-contact security@taiko.xyz
-contract TestTierProvider is ITierProvider, ITierRouter {
+contract TestTierRouter is ITierProvider, ITierRouter {
     uint256[50] private __gap;
 
     /// @inheritdoc ITierRouter
     function getProvider(uint256) external view returns (address) {
         return address(this);
     }
-    /// @inheritdoc ITierProvider
 
+    /// @inheritdoc ITierProvider
     function getTier(uint16 _tierId) public pure override returns (ITierProvider.Tier memory) {
         if (_tierId == LibTiers.TIER_OPTIMISTIC) {
             return ITierProvider.Tier({
