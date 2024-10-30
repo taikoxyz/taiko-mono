@@ -136,10 +136,8 @@ contract TaikoL2 is EssentialContract, IBlockHash {
 
         // Verify ancestor hashes
         uint256 parentId = block.number - 1;
-        (bytes32 currAncestorsHash, bytes32 newAncestorsHash) =
-            _verifyAndUpdateAncestorsHash(parentId);
+        _verifyAndUpdateAncestorsHash(parentId);
 
-        require(ancestorsHash == currAncestorsHash, L2_PUBLIC_INPUT_HASH_MISMATCH());
 
         // Verify the base fee per gas is correct
         (uint256 basefee, uint64 newGasExcess) = getBasefee(_l1BlockId, _parentGasUsed);
@@ -159,7 +157,6 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         bytes32 parentHash = blockhash(parentId);
         _blockhashes[parentId] = parentHash;
 
-        ancestorsHash = newAncestorsHash;
         parentGasExcess = newGasExcess;
         _parentTimestamp = uint64(block.timestamp);
 
@@ -192,7 +189,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         require(block.number >= ontakeForkHeight(), L2_FORK_ERROR());
 
         uint256 parentId = block.number - 1;
-        _verifyAndUpdateAncesterHashes(parentId);
+        _verifyAndUpdateAncestorsHash(parentId);
 
         // Check if the gas settings has changed
         {
@@ -371,8 +368,9 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         );
     }
 
+    /// @notice Verifies ancestor hashes and saves the new aggregated hash.
     function _verifyAndUpdateAncestorsHash(uint256 _parentId) private {
-        // Verify ancestor hashes
+
         (bytes32 currAncestorsHash, bytes32 newAncestorsHash) = _calcAncestorsHash(_parentId);
         require(ancestorsHash == currAncestorsHash, L2_PUBLIC_INPUT_HASH_MISMATCH());
         ancestorsHash = newAncestorsHash;
@@ -383,8 +381,8 @@ contract TaikoL2 is EssentialContract, IBlockHash {
     /// the new state.
     /// It uses a ring buffer to store the previous 255 block hashes and the current chain ID.
     /// @param _blockId The ID of the block for which the public input hash is calculated.
-    /// @return currAncestorsHash The public input hash for the previous state.
-    /// @return newAncestorsHash The public input hash for the new state.
+    /// @return currAncestorsHash_ The public input hash for the previous state.
+    /// @return newAncestorsHash_ The public input hash for the new state.
     function _calcAncestorsHash(uint256 _blockId)
         private
         view
