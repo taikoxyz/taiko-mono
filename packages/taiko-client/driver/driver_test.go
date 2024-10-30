@@ -15,7 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/go-resty/resty/v2"
@@ -440,7 +439,6 @@ func (s *DriverTestSuite) TestInsertSoftBlocks() {
 		}).
 		Post(url.String() + "/softBlocks")
 	s.Nil(err)
-	log.Info("Response", "res", res.String())
 	s.True(res.IsSuccess())
 }
 

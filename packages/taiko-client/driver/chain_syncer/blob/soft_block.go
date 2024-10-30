@@ -218,5 +218,19 @@ func (s *Syncer) InsertSoftBlockFromTransactionsBatch(
 		return nil, fmt.Errorf("unexpected ForkchoiceUpdate response status: %s", fcRes.PayloadStatus.Status)
 	}
 
-	return s.rpc.L2.HeaderByHash(ctx, payload.BlockHash)
+	header, err := s.rpc.L2.HeaderByHash(ctx, payload.BlockHash)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Info(
+		"⏰ New soft L2 block inserted",
+		"blockID", blockID,
+		"hash", header.Hash(),
+		"transactions", len(payload.Transactions),
+		"baseFee", utils.WeiToGWei(header.BaseFee),
+		"withdrawals", len(payload.Withdrawals),
+	)
+
+	return header, nil
 }
