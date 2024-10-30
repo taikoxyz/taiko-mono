@@ -21,8 +21,8 @@ library LibData {
             assignedProver: address(0), // assigned prover is now meta.proposer.
             livenessBond: 0, // liveness bond is now meta.livenessBond
             blockId: _v2.blockId,
-            proposedAt: _v2.proposedAt,
-            proposedIn: _v2.proposedIn,
+            proposedAt: 0,
+            proposedIn: 0,
             nextTransitionId: _v2.nextTransitionId,
             verifiedTransitionId: _v2.verifiedTransitionId
         });
