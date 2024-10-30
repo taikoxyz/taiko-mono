@@ -223,13 +223,12 @@ contract TaikoL2 is EssentialContract, IBlockHash {
     }
 
     function getBasefeeV2(
-        uint64 _anchorBlockId,
         uint32 _parentGasUsed,
         LibSharedData.BaseFeeConfig calldata _baseFeeConfig
     )
         public
         view
-        returns (uint256 basefee_, uint64 parentGasExcess_)
+        returns (uint256 basefee_, uint64 parentGasExcess_, uint64 parentGasTarget_)
     { }
 
     /// @inheritdoc IBlockHash
@@ -265,13 +264,13 @@ contract TaikoL2 is EssentialContract, IBlockHash {
     /// @param _parentGasUsed Total gas used by the parent block.
     /// @return basefee_ Next block's base fee.
     /// @return parentGasExcess_ The new gas excess value.
-    function calculateBaseFee(
+    function _calculateBaseFee(
         LibSharedData.BaseFeeConfig calldata _baseFeeConfig,
         uint64 _blocktime,
         uint64 _parentGasExcess,
         uint32 _parentGasUsed
     )
-        public
+        private
         pure
         returns (uint256 basefee_, uint64 parentGasExcess_)
     {
@@ -352,7 +351,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
 
         // Verify the base fee per gas is correct
         uint256 basefee;
-        (basefee, parentGasExcess) = calculateBaseFee(
+        (basefee, parentGasExcess) = _calculateBaseFee(
             _baseFeeConfig,
             uint64(block.timestamp - _parentTimestamp),
             parentGasExcess,
