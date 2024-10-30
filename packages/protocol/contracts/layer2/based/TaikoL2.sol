@@ -202,7 +202,6 @@ contract TaikoL2 is EssentialContract, IBlockHash {
     /// @param _parentGasUsed Gas used in the parent block.
     /// @return basefee_ The calculated EIP-1559 base fee per gas.
     /// @return parentGasExcess_ The new parentGasExcess value.
-    // TODO(danielw): implement this function
     function getBasefee(
         uint64 _anchorBlockId,
         uint32 _parentGasUsed
@@ -229,7 +228,50 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         public
         view
         returns (uint256 basefee_, uint64 parentGasExcess_, uint64 parentGasTarget_)
-    { }
+    {
+        // Check if the gas settings has changed
+        uint64 newGasTarget =
+            uint64(_baseFeeConfig.gasIssuancePerSecond) * _baseFeeConfig.adjustmentQuotient;
+
+        if (parentGasTarget != newGasTarget) {
+            if (parentGasTarget == 0) {
+                parentGasExcess_ = parentGasExcess;
+                parentGasTarget_ = newGasTarget;
+            } else {
+                bool success;
+                uint64 newGasExcess;
+
+                (success, newGasExcess) =
+                    LibEIP1559.adjustExcess(parentGasExcess, parentGasTarget, newGasTarget);
+
+                if (success) {
+                    parentGasExcess_ = newGasExcess;
+                    parentGasTarget_ = newGasTarget;
+                } else {
+                    parentGasExcess_ = parentGasExcess;
+                    parentGasTarget_ = parentGasTarget;
+                }
+            }
+        }
+
+        uint64 gasIssuance =
+            uint64(block.timestamp - _parentTimestamp) * _baseFeeConfig.gasIssuancePerSecond;
+
+        if (
+            _baseFeeConfig.maxGasIssuancePerBlock != 0
+                && gasIssuance > _baseFeeConfig.maxGasIssuancePerBlock
+        ) {
+            gasIssuance = _baseFeeConfig.maxGasIssuancePerBlock;
+        }
+
+        (basefee_, parentGasExcess_) = LibEIP1559.calc1559BaseFee(
+            parentGasTarget,
+            parentGasExcess_,
+            gasIssuance,
+            _parentGasUsed,
+            _baseFeeConfig.minGasExcess
+        );
+    }
 
     /// @inheritdoc IBlockHash
     function getBlockHash(uint256 _blockId) public view returns (bytes32) {
@@ -323,42 +365,9 @@ contract TaikoL2 is EssentialContract, IBlockHash {
     )
         private
     {
-        // Check if the gas settings has changed
-        uint64 newGasTarget =
-            uint64(_baseFeeConfig.gasIssuancePerSecond) * _baseFeeConfig.adjustmentQuotient;
-
-        if (parentGasTarget != newGasTarget) {
-            if (parentGasTarget == 0) {
-                parentGasTarget = newGasTarget;
-                emit UpdateGasTargetSucceeded(0, newGasTarget);
-            } else {
-                bool _success;
-                uint64 _newGasExcess;
-
-                (_success, _newGasExcess) =
-                    LibEIP1559.adjustExcess(parentGasExcess, parentGasTarget, newGasTarget);
-
-                if (_success) {
-                    emit UpdateGasTargetSucceeded(parentGasTarget, newGasTarget);
-
-                    parentGasTarget = newGasTarget;
-                    parentGasExcess = _newGasExcess;
-                } else {
-                    emit UpdateGasTargetFailed(parentGasTarget, newGasTarget);
-                }
-            }
-        }
-
-        // Verify the base fee per gas is correct
         uint256 basefee;
-        (basefee, parentGasExcess) = _calculateBaseFee(
-            _baseFeeConfig,
-            uint64(block.timestamp - _parentTimestamp),
-            parentGasExcess,
-            _parentGasUsed
-        );
-
-        require(skipFeeCheck() || block.basefee == basefee, "L2_BASEFEE_MISMATCH");
+        (basefee, parentGasExcess, parentGasTarget) = getBasefeeV2(_parentGasUsed, _baseFeeConfig);
+        require(skipFeeCheck() || block.basefee == basefee, L2_BASEFEE_MISMATCH());
     }
 
     /// @notice Verifies ancestor hashes and saves the new aggregated hash.
