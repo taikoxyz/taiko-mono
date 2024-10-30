@@ -153,7 +153,7 @@
 
 ### tierRouter
 
-- impl: `0xACF97d3b3c15c3C009eB04a640954d48237fc3ff`
+- impl: `0x45f63AF6ff5803BF4F2817FEe690f1cd5d5bc681`
 - logs:
   - deployed on Jun 10, 2024 at commit `d5965bb`
   - upgraded on Jun 14, 2024 at commit `cc10b04`
@@ -161,6 +161,7 @@
   - upgraded on Aug 15, 2024 at commit `05d49b0`
   - upgraded on Sep 02, 2024 at commit `9dae5c8`
   - upgraded on Oct 24, 2024 at commit `78f9ac0`
+  - upgraded on Oct 30, 2024 at commit `63455f9`
 
 ### prover_set
 
