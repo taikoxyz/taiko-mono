@@ -91,8 +91,7 @@ contract ProverSet is EssentialContract, IERC1271 {
         onlyProver
     {
         ITaikoL1 taiko = ITaikoL1(taikoL1());
-        // Check if the first byte is 1. If true, ensure this block is the first block proposed
-        // in the current L1 block.
+        // Ensure this block is the first block proposed in the current L1 block.
         require(taiko.lastProposedIn() != block.number, NOT_FIRST_PROPOSAL());
         taiko.proposeBlockV2(_params, _txList);
     }
