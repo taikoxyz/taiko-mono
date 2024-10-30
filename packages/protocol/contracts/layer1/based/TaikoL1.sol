@@ -28,7 +28,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     error L1_FORK_HEIGHT_ERROR();
 
     modifier whenProvingNotPaused() {
-        if (state.slotB.provingPaused) revert LibProving.L1_PROVING_PAUSED();
+        require(!state.slotB.provingPaused, LibProving.L1_PROVING_PAUSED());
         _;
     }
 

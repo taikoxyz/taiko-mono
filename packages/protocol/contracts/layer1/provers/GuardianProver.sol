@@ -110,14 +110,12 @@ contract GuardianProver is IVerifier, EssentialContract {
         onlyOwner
     {
         // We need at most 255 guardians (so the approval bits fit in a uint256)
-        if (_newGuardians.length == 0 || _newGuardians.length > type(uint8).max) {
-            revert GP_INVALID_GUARDIAN_SET();
-        }
+        require(_newGuardians.length != 0, GP_INVALID_GUARDIAN_SET());
+        require(_newGuardians.length <= type(uint8).max, GP_INVALID_GUARDIAN_SET());
         // Minimum number of guardians to approve is at least equal or greater than half the
         // guardians (rounded up) and less or equal than the total number of guardians
-        if (_minGuardians == 0 || _minGuardians > _newGuardians.length) {
-            revert GP_INVALID_MIN_GUARDIANS();
-        }
+        require(_minGuardians != 0, GP_INVALID_MIN_GUARDIANS());
+        require(_minGuardians <= _newGuardians.length, GP_INVALID_MIN_GUARDIANS());
 
         // Delete the current guardians
         for (uint256 i; i < guardians.length; ++i) {
@@ -128,9 +126,9 @@ contract GuardianProver is IVerifier, EssentialContract {
         // Set the new guardians
         for (uint256 i; i < _newGuardians.length; ++i) {
             address guardian = _newGuardians[i];
-            if (guardian == address(0)) revert GP_INVALID_GUARDIAN();
+            require(guardian != address(0), GP_INVALID_GUARDIAN());
             // This makes sure there are not duplicate addresses
-            if (guardianIds[guardian] != 0) revert GP_INVALID_GUARDIAN_SET();
+            require(guardianIds[guardian] == 0, GP_INVALID_GUARDIAN_SET());
 
             // Save and index the guardian
             guardians.push(guardian);
@@ -147,7 +145,7 @@ contract GuardianProver is IVerifier, EssentialContract {
     /// @notice Enables or disables proving auto pause.
     /// @param _enable True to enable, false to disable.
     function enableProvingAutoPause(bool _enable) external onlyOwner {
-        if (provingAutoPauseEnabled == _enable) revert GP_INVALID_STATUS();
+        require(provingAutoPauseEnabled != _enable, GP_INVALID_STATUS());
         provingAutoPauseEnabled = _enable;
 
         emit ProvingAutoPauseEnabled(_enable);
@@ -165,7 +163,7 @@ contract GuardianProver is IVerifier, EssentialContract {
     /// @param _to The recipient address.
     /// @param _amount The amount of Taiko token to withdraw. Use 0 for all balance.
     function withdrawTaikoToken(address _to, uint256 _amount) external onlyOwner {
-        if (_to == address(0)) revert GV_ZERO_ADDRESS();
+        require(_to != address(0), GV_ZERO_ADDRESS());
 
         IERC20 tko = IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false));
         uint256 amount = _amount == 0 ? tko.balanceOf(address(this)) : _amount;
@@ -198,11 +196,9 @@ contract GuardianProver is IVerifier, EssentialContract {
 
     /// @notice Pauses chain proving and verification.
     function pauseTaikoProving() external whenNotPaused {
-        if (guardianIds[msg.sender] == 0) revert GP_INVALID_GUARDIAN();
+        require(guardianIds[msg.sender] != 0, GP_INVALID_GUARDIAN());
 
-        if (address(this) != resolve(LibStrings.B_CHAIN_WATCHDOG, true)) {
-            revert GV_PERMISSION_DENIED();
-        }
+        require(address(this) == resolve(LibStrings.B_CHAIN_WATCHDOG, true), GV_PERMISSION_DENIED());
 
         ITaikoL1(resolve(LibStrings.B_TAIKO, false)).pauseProving(true);
     }
@@ -216,7 +212,7 @@ contract GuardianProver is IVerifier, EssentialContract {
         external
         view
     {
-        if (_ctx.msgSender != address(this)) revert GV_PERMISSION_DENIED();
+        require(_ctx.msgSender == address(this), GV_PERMISSION_DENIED());
     }
 
     /// @inheritdoc IVerifier
@@ -228,7 +224,7 @@ contract GuardianProver is IVerifier, EssentialContract {
         view
     {
         for (uint256 i; i < _ctxs.length; ++i) {
-            if (_ctxs[i].msgSender != address(this)) revert GV_PERMISSION_DENIED();
+            require(_ctxs[i].msgSender == address(this), GV_PERMISSION_DENIED());
         }
     }
 
@@ -299,7 +295,7 @@ contract GuardianProver is IVerifier, EssentialContract {
         returns (bool approved_)
     {
         uint256 id = guardianIds[msg.sender];
-        if (id == 0) revert GP_INVALID_GUARDIAN();
+        require(id != 0, GP_INVALID_GUARDIAN());
 
         uint256 _version = version;
 
