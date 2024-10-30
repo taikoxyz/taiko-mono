@@ -134,14 +134,9 @@ contract TaikoL2 is EssentialContract, IBlockHash {
     {
         require(block.number < ontakeForkHeight(), L2_FORK_ERROR());
 
-        // Verify ancestor hashes
         uint256 parentId = block.number - 1;
         _verifyAndUpdateAncestorsHash(parentId);
-
-
-        // Verify the base fee per gas is correct
-        (uint256 basefee, uint64 newGasExcess) = getBasefee(_l1BlockId, _parentGasUsed);
-        require(skipFeeCheck() || block.basefee == basefee, L2_BASEFEE_MISMATCH());
+        _verifyBaseFeeAndUpdateGasExcess(_l1BlockId, _parentGasUsed);
 
         if (_l1BlockId > lastSyncedBlock) {
             // Store the L1's state root as a signal to the local signal service to
@@ -157,10 +152,9 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         bytes32 parentHash = blockhash(parentId);
         _blockhashes[parentId] = parentHash;
 
-        parentGasExcess = newGasExcess;
         _parentTimestamp = uint64(block.timestamp);
 
-        emit Anchored(parentHash, newGasExcess);
+        emit Anchored(parentHash, parentGasExcess);
     }
 
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
@@ -366,6 +360,13 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         return LibEIP1559.calc1559BaseFee(
             gasTarget, _parentGasExcess, gasIssuance, _parentGasUsed, _baseFeeConfig.minGasExcess
         );
+    }
+
+    /// @notice Verifies the base fee per gas is correct
+    function _verifyBaseFeeAndUpdateGasExcess(uint64 _l1BlockId, uint32 _parentGasUsed) private {
+        (uint256 basefee, uint64 newParentGasExcess) = getBasefee(_l1BlockId, _parentGasUsed);
+        require(skipFeeCheck() || block.basefee == basefee, L2_BASEFEE_MISMATCH());
+        parentGasExcess = newParentGasExcess;
     }
 
     /// @notice Verifies ancestor hashes and saves the new aggregated hash.
