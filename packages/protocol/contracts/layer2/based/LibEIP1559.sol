@@ -17,6 +17,14 @@ library LibEIP1559 {
 
     error EIP1559_INVALID_PARAMS();
 
+    /// @notice Calculates the base fee and gas excess for EIP-1559
+    /// @param _gasTarget The target gas usage
+    /// @param _gasExcess The current gas excess
+    /// @param _gasIssuance The gas issuance
+    /// @param _parentGasUsed The gas used by the parent block
+    /// @param _minGasExcess The minimum gas excess
+    /// @return basefee_ The calculated base fee
+    /// @return gasExcess_ The calculated gas excess
     function calc1559BaseFee(
         uint64 _gasTarget,
         uint64 _gasExcess,
@@ -41,8 +49,14 @@ library LibEIP1559 {
         basefee_ = basefee(gasExcess_, _gasTarget);
     }
 
-    /// @dev Returns the new gas excess that will keep the basefee the same.
-    /// `_newGasTarget * ln(_newGasTarget / _target) + _gasExcess * _newGasTarget / _target`
+    /// @dev Adjusts the gas excess to maintain the same base fee when the gas target changes.
+    /// The formula used for adjustment is:
+    /// `_newGasTarget*ln(_newGasTarget/_gasTarget)+_gasExcess*_newGasTarget/_gasTarget`
+    /// @param _gasExcess The current gas excess.
+    /// @param _gasTarget The current gas target.
+    /// @param _newGasTarget The new gas target.
+    /// @return success_ Indicates if the adjustment was successful.
+    /// @return newGasExcess_ The adjusted gas excess.
     function adjustExcess(
         uint64 _gasExcess,
         uint64 _gasTarget,
@@ -80,14 +94,20 @@ library LibEIP1559 {
         return (true, uint64(newGasExcess.min(type(uint64).max)));
     }
 
-    /// @dev exp(_gasExcess / _gasTarget) / _gasTarget
+    /// @dev Calculates the base fee using the formula: exp(_gasExcess/_gasTarget)/_gasTarget
+    /// @param _gasExcess The current gas excess.
+    /// @param _gasTarget The current gas target.
+    /// @return The calculated base fee.
     function basefee(uint64 _gasExcess, uint64 _gasTarget) internal pure returns (uint256) {
         if (_gasTarget == 0) return 1;
         uint256 fee = ethQty(_gasExcess, _gasTarget) / _gasTarget;
         return fee == 0 ? 1 : fee;
     }
 
-    /// @dev exp(_gasExcess / _gasTarget)
+    /// @dev Calculates the exponential of the ratio of gas excess to gas target.
+    /// @param _gasExcess The current gas excess.
+    /// @param _gasTarget The current gas target.
+    /// @return The calculated exponential value.
     function ethQty(uint64 _gasExcess, uint64 _gasTarget) internal pure returns (uint256) {
         if (_gasTarget == 0) revert EIP1559_INVALID_PARAMS();
 

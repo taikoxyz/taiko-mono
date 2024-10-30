@@ -221,6 +221,14 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         );
     }
 
+    /// @notice Calculates the base fee and gas excess using EIP-1559 configuration for the given
+    /// parameters.
+    /// @param _parentGasUsed Gas used in the parent block.
+    /// @param _baseFeeConfig Configuration parameters for base fee calculation.
+    /// @return basefee_ The calculated EIP-1559 base fee per gas.
+    /// @return parentGasExcess_ The new parentGasExcess value.
+    /// @return parentGasTarget_ The new parentGasTarget value.
+    /// @return newGasTargetApplied_ Indicates if a new gas target was applied.
     function getBasefeeV2(
         uint32 _parentGasUsed,
         LibSharedData.BaseFeeConfig calldata _baseFeeConfig
@@ -302,34 +310,56 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         return 0;
     }
 
+    /// @dev Synchronizes chain data with the given anchor block ID and state root.
+    /// @param _anchorBlockId The ID of the anchor block.
+    /// @param _anchorStateRoot The state root of the anchor block.
     function _syncChainData(uint64 _anchorBlockId, bytes32 _anchorStateRoot) private {
+        /// @dev If the anchor block ID is less than or equal to the last synced block, return
+        /// early.
         if (_anchorBlockId <= lastSyncedBlock) return;
 
-        // Store the L1's state root as a signal to the local signal service to
-        // allow for multi-hop bridging.
+        /// @dev Store the L1's state root as a signal to the local signal service to
+        /// allow for multi-hop bridging.
         ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).syncChainData(
             l1ChainId, LibStrings.H_STATE_ROOT, _anchorBlockId, _anchorStateRoot
         );
 
+        /// @dev Update the last synced block to the current anchor block ID.
         lastSyncedBlock = _anchorBlockId;
     }
 
+    /// @dev Updates the parent block hash and timestamp.
+    /// @param _parentId The ID of the parent block.
     function _updateParentHashAndTimestamp(uint256 _parentId) private {
+        // Get the block hash of the parent block.
         bytes32 parentHash = blockhash(_parentId);
+
+        // Store the parent block hash in the _blockhashes mapping.
         _blockhashes[_parentId] = parentHash;
+
+        // Update the parent timestamp to the current block timestamp.
         _parentTimestamp = uint64(block.timestamp);
+
+        // Emit an event to signal that the parent hash and gas excess have been anchored.
         emit Anchored(parentHash, parentGasExcess);
     }
+    /// @dev Verifies that the base fee per gas is correct and updates the gas excess.
+    /// @param _l1BlockId The ID of the L1 block.
+    /// @param _parentGasUsed The gas used by the parent block.
 
-    /// @notice Verifies the base fee per gas is correct
     function _verifyBaseFeeAndUpdateGasExcess(uint64 _l1BlockId, uint32 _parentGasUsed) private {
         uint256 basefee_;
+
+        // Calculate the base fee and update the parent gas excess.
         (basefee_, parentGasExcess) = getBasefee(_l1BlockId, _parentGasUsed);
 
+        // Ensure the base fee matches the expected value or skip the check if allowed.
         require(skipFeeCheck() || block.basefee == basefee_, L2_BASEFEE_MISMATCH());
     }
 
-    /// @notice Verifies the base fee per gas is correct
+    /// @dev Verifies that the base fee per gas is correct and updates the gas excess.
+    /// @param _parentGasUsed The gas used by the parent block.
+    /// @param _baseFeeConfig The configuration parameters for calculating the base fee.
     function _verifyBaseFeeAndUpdateGasExcessV2(
         uint32 _parentGasUsed,
         LibSharedData.BaseFeeConfig calldata _baseFeeConfig
@@ -353,14 +383,20 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         }
     }
 
-    /// @notice Verifies ancestor hashes and saves the new aggregated hash.
+    /// @dev Verifies the current ancestor hash and updates it with a new aggregated hash.
+    /// @param _parentId The ID of the parent block.
     function _verifyAndUpdateAncestorsHash(uint256 _parentId) private {
+        // Calculate the current and new ancestor hashes based on the parent block ID.
         (bytes32 currAncestorsHash_, bytes32 newAncestorsHash_) = _calcAncestorsHash(_parentId);
+
+        // Ensure the current ancestor hash matches the expected value.
         require(ancestorsHash == currAncestorsHash_, L2_PUBLIC_INPUT_HASH_MISMATCH());
+
+        // Update the ancestor hash to the new calculated value.
         ancestorsHash = newAncestorsHash_;
     }
 
-    /// @notice Calculates the aggregated ancestor block hash for the given block ID.
+    /// @dev Calculates the aggregated ancestor block hash for the given block ID.
     /// @dev This function computes two public input hashes: one for the previous state and one for
     /// the new state.
     /// It uses a ring buffer to store the previous 255 block hashes and the current chain ID.
