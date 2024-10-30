@@ -16,8 +16,8 @@ contract TestTierRouter is ITierProvider, ITierRouter {
     function getProvider(uint256) external view returns (address) {
         return address(this);
     }
-    /// @inheritdoc ITierProvider
 
+    /// @inheritdoc ITierProvider
     function getTier(uint16 _tierId) public pure override returns (ITierProvider.Tier memory) {
         if (_tierId == LibTiers.TIER_OPTIMISTIC) {
             return ITierProvider.Tier({
