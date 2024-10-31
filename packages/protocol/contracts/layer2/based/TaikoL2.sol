@@ -9,7 +9,12 @@ import "./TaikoL2V1.sol";
 contract TaikoL2 is TaikoL2V1 {
     uint256[50] private __gap;
 
+    /// @notice Emitted when the gas target update succeeds.
+    /// @param oldGasTarget The previous gas target.
+    /// @param newGasTarget The new gas target.
     event UpdateGasTargetSucceeded(uint64 oldGasTarget, uint64 newGasTarget);
+
+    /// @notice Emitted when the gas target update fails.
     event UpdateGasTargetFailed();
 
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
@@ -38,7 +43,7 @@ contract TaikoL2 is TaikoL2V1 {
         require(block.number >= ontakeForkHeight(), L2_FORK_ERROR());
 
         uint256 parentId = block.number - 1;
-        _verifyAndUpdateAncestorsHash(parentId);
+        _verifyAndUpdatePublicInputHash(parentId);
         _verifyBaseFeeAndUpdateGasExcessV2(_parentGasUsed, _baseFeeConfig);
         _syncChainData(_anchorBlockId, _anchorStateRoot);
         _updateParentHashAndTimestamp(parentId);
@@ -82,7 +87,6 @@ contract TaikoL2 is TaikoL2V1 {
                     parentGasExcess_ = newGasExcess;
                     parentGasTarget_ = newGasTarget;
                 } else {
-                    // assert(newGasExcess == 0);
                     parentGasExcess_ = parentGasExcess;
                     parentGasTarget_ = parentGasTarget;
                 }

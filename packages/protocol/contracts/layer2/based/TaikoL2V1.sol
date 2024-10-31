@@ -132,7 +132,7 @@ contract TaikoL2V1 is EssentialContract, IBlockHash {
         require(block.number < ontakeForkHeight(), L2_FORK_ERROR());
 
         uint256 parentId = block.number - 1;
-        _verifyAndUpdateAncestorsHash(parentId);
+        _verifyAndUpdatePublicInputHash(parentId);
         _verifyBaseFeeAndUpdateGasExcess(_l1BlockId, _parentGasUsed);
         _syncChainData(_l1BlockId, _l1StateRoot);
         _updateParentHashAndTimestamp(parentId);
@@ -244,31 +244,19 @@ contract TaikoL2V1 is EssentialContract, IBlockHash {
         // Emit an event to signal that the parent hash and gas excess have been anchored.
         emit Anchored(parentHash, parentGasExcess);
     }
-    /// @dev Verifies that the base fee per gas is correct and updates the gas excess.
-    /// @param _l1BlockId The ID of the L1 block.
-    /// @param _parentGasUsed The gas used by the parent block.
 
-    function _verifyBaseFeeAndUpdateGasExcess(uint64 _l1BlockId, uint32 _parentGasUsed) internal {
-        uint256 basefee_;
-
-        // Calculate the base fee and update the parent gas excess.
-        (basefee_, parentGasExcess) = getBasefee(_l1BlockId, _parentGasUsed);
-
-        // Ensure the base fee matches the expected value or skip the check if allowed.
-        require(skipFeeCheck() || block.basefee == basefee_, L2_BASEFEE_MISMATCH());
-    }
-
-    /// @dev Verifies the current ancestor hash and updates it with a new aggregated hash.
+    /// @dev Verifies the current ancestor block hash and updates it with a new aggregated hash.
     /// @param _parentId The ID of the parent block.
-    function _verifyAndUpdateAncestorsHash(uint256 _parentId) internal {
+    function _verifyAndUpdatePublicInputHash(uint256 _parentId) internal {
         // Calculate the current and new ancestor hashes based on the parent block ID.
-        (bytes32 currAncestorsHash_, bytes32 newAncestorsHash_) = _calcPublicInputHash(_parentId);
+        (bytes32 currPublicInputHash_, bytes32 newPublicInputHash_) =
+            _calcPublicInputHash(_parentId);
 
-        // Ensure the current ancestor hash matches the expected value.
-        require(publicInputHash == currAncestorsHash_, L2_PUBLIC_INPUT_HASH_MISMATCH());
+        // Ensure the current ancestor block hash matches the expected value.
+        require(publicInputHash == currPublicInputHash_, L2_PUBLIC_INPUT_HASH_MISMATCH());
 
-        // Update the ancestor hash to the new calculated value.
-        publicInputHash = newAncestorsHash_;
+        // Update the ancestor block hash to the new calculated value.
+        publicInputHash = newPublicInputHash_;
     }
 
     /// @dev Calculates the aggregated ancestor block hash for the given block ID.
@@ -276,12 +264,12 @@ contract TaikoL2V1 is EssentialContract, IBlockHash {
     /// the new state.
     /// It uses a ring buffer to store the previous 255 block hashes and the current chain ID.
     /// @param _blockId The ID of the block for which the public input hash is calculated.
-    /// @return currAncestorsHash_ The public input hash for the previous state.
-    /// @return newAncestorsHash_ The public input hash for the new state.
+    /// @return currPublicInputHash_ The public input hash for the previous state.
+    /// @return newPublicInputHash_ The public input hash for the new state.
     function _calcPublicInputHash(uint256 _blockId)
         private
         view
-        returns (bytes32 currAncestorsHash_, bytes32 newAncestorsHash_)
+        returns (bytes32 currPublicInputHash_, bytes32 newPublicInputHash_)
     {
         bytes32[256] memory inputs;
 
@@ -298,12 +286,25 @@ contract TaikoL2V1 is EssentialContract, IBlockHash {
         inputs[255] = bytes32(block.chainid);
 
         assembly {
-            currAncestorsHash_ := keccak256(inputs, 8192 /*mul(256, 32)*/ )
+            currPublicInputHash_ := keccak256(inputs, 8192 /*mul(256, 32)*/ )
         }
 
         inputs[_blockId % 255] = blockhash(_blockId);
         assembly {
-            newAncestorsHash_ := keccak256(inputs, 8192 /*mul(256, 32)*/ )
+            newPublicInputHash_ := keccak256(inputs, 8192 /*mul(256, 32)*/ )
         }
+    }
+
+    /// @dev Verifies that the base fee per gas is correct and updates the gas excess.
+    /// @param _l1BlockId The ID of the L1 block.
+    /// @param _parentGasUsed The gas used by the parent block.
+    function _verifyBaseFeeAndUpdateGasExcess(uint64 _l1BlockId, uint32 _parentGasUsed) private {
+        uint256 basefee_;
+
+        // Calculate the base fee and update the parent gas excess.
+        (basefee_, parentGasExcess) = getBasefee(_l1BlockId, _parentGasUsed);
+
+        // Ensure the base fee matches the expected value or skip the check if allowed.
+        require(skipFeeCheck() || block.basefee == basefee_, L2_BASEFEE_MISMATCH());
     }
 }
