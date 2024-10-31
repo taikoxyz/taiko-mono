@@ -115,16 +115,12 @@ contract TaikoL2Tests is TaikoL2Test {
     )
         external
     {
-        if (_parentGasUsed == 0) _parentGasUsed = 1;
-        if (_adjustmentQuotient == 0) _adjustmentQuotient = 1;
-        if (_gasIssuancePerSecond == 0) _gasIssuancePerSecond = 1;
-
         LibSharedData.BaseFeeConfig memory baseFeeConfig = LibSharedData.BaseFeeConfig({
             adjustmentQuotient: _adjustmentQuotient,
             sharingPctg: uint8(_sharingPctg % 100),
-            gasIssuancePerSecond: uint32(_gasIssuancePerSecond % 10_000_000),
-            minGasExcess: uint64(_minGasExcess % 50_000_000_000),
-            maxGasIssuancePerBlock: uint32(_maxGasIssuancePerBlock % 1_200_000_000)
+            gasIssuancePerSecond: _gasIssuancePerSecond,
+            minGasExcess: _minGasExcess ,
+            maxGasIssuancePerBlock: _maxGasIssuancePerBlock
         });
 
         (
@@ -133,28 +129,9 @@ contract TaikoL2Tests is TaikoL2Test {
             uint64 parentGasExcess_,
             bool newGasTargetApplied_
         ) = L2.getBasefeeV2(_parentGasUsed, baseFeeConfig);
+
+        assertTrue(basefee_ != 0, "basefee is 0");
         assertTrue(!newGasTargetApplied_, "newGasTargetApplied_ is true");
-    }
-
-    function test_getBasefeeV2() external {
-        bytes32 _anchorStateRoot = bytes32(uint256(1));
-
-        LibSharedData.BaseFeeConfig memory baseFeeConfig = LibSharedData.BaseFeeConfig({
-            adjustmentQuotient: 1,
-            sharingPctg: 2,
-            gasIssuancePerSecond: 1,
-            minGasExcess: 5_555_456_012,
-            maxGasIssuancePerBlock: 63
-        });
-
-        console.log("adjustmentQuotient", baseFeeConfig.adjustmentQuotient);
-        console.log("sharingPctg", baseFeeConfig.sharingPctg);
-        console.log("gasIssuancePerSecond", baseFeeConfig.gasIssuancePerSecond);
-        console.log("minGasExcess", baseFeeConfig.minGasExcess);
-        console.log("maxGasIssuancePerBlock", baseFeeConfig.maxGasIssuancePerBlock);
-
-        vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
-        L2.getBasefeeV2(144_916, baseFeeConfig);
     }
 
     function _anchorV2(uint32 parentGasUsed) private {

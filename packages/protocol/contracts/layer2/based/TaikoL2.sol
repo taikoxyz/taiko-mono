@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "./TaikoL2V1.sol";
-import "forge-std/src/console2.sol";
+
 /// @title TaikoL2
 /// @notice TaikoL2's V2 version that supports Ontake hardfork.
 /// @custom:security-contact security@taiko.xyz
@@ -50,13 +50,6 @@ contract TaikoL2 is TaikoL2V1 {
         onlyGoldenTouch
         nonReentrant
     {
-        console2.log("_parentGasUsed", _parentGasUsed);
-        console2.log("adjustmentQuotient", _baseFeeConfig.adjustmentQuotient);
-        console2.log("sharingPctg", _baseFeeConfig.sharingPctg);
-        console2.log("gasIssuancePerSecond", _baseFeeConfig.gasIssuancePerSecond);
-        console2.log("minGasExcess", _baseFeeConfig.minGasExcess);
-        console2.log("maxGasIssuancePerBlock", _baseFeeConfig.maxGasIssuancePerBlock);
-
         require(block.number >= ontakeForkHeight(), L2_FORK_ERROR());
 
         uint256 parentId = block.number - 1;
