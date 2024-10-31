@@ -18,7 +18,7 @@ contract UpgradeMainnetOntakeL2 is DeployCapability {
     }
 
     function run() external broadcast {
-        // MainnetRollupAddressManager
+        // MainnetSharedAddressManager
         console2.log(address(new MainnetSharedAddressManager()));
         // MainnetBridge
         console2.log(address(new MainnetBridge()));
