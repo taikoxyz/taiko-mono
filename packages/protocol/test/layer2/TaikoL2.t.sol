@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "./TaikoL2Test.sol";
 
-contract TaikoL2ForTest is TaikoL2 {
+contract TaikoL2V2ForTest is TaikoL2V2 {
     function skipFeeCheck() public pure override returns (bool) {
         return true;
     }
@@ -17,7 +17,7 @@ contract TaikoL2Tests is TaikoL2Test {
 
     address public addressManager;
     uint64 public anchorBlockId;
-    TaikoL2ForTest public L2;
+    TaikoL2V2ForTest public L2;
 
     function setUp() public {
         addressManager = deployProxy({
@@ -35,11 +35,11 @@ contract TaikoL2Tests is TaikoL2Test {
             })
         );
 
-        L2 = TaikoL2ForTest(
+        L2 = TaikoL2V2ForTest(
             payable(
                 deployProxy({
                     name: "taiko",
-                    impl: address(new TaikoL2ForTest()),
+                    impl: address(new TaikoL2V2ForTest()),
                     data: abi.encodeCall(TaikoL2.init, (address(0), addressManager, L1_CHAIN_ID, 0)),
                     registerTo: addressManager
                 })

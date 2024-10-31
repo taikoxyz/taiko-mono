@@ -29,7 +29,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
 
     /// @notice Mapping from L2 block numbers to their block hashes. All L2 block hashes will
     /// be saved in this mapping.
-    mapping(uint256 blockId => bytes32 blockHash) private _blockhashes;
+    mapping(uint256 blockId => bytes32 blockHash) internal _blockhashes;
 
     /// @notice A hash to check the integrity of public inputs.
     /// @dev Slot 2.
@@ -43,7 +43,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
     uint64 public lastSyncedBlock;
 
     /// @notice The last L2 block's timestamp.
-    uint64 private _parentTimestamp;
+    uint64 internal parentTimestamp;
 
     /// @notice The last L2 block's gas target.
     uint64 public parentGasTarget;
@@ -57,9 +57,6 @@ contract TaikoL2 is EssentialContract, IBlockHash {
     /// @param parentHash The hash of the parent block.
     /// @param parentGasExcess The gas excess value used to calculate the base fee.
     event Anchored(bytes32 parentHash, uint64 parentGasExcess);
-
-    event UpdateGasTargetSucceeded(uint64 oldGasTarget, uint64 newGasTarget);
-    event UpdateGasTargetFailed();
 
     error L2_BASEFEE_MISMATCH();
     error L2_FORK_ERROR();
@@ -141,38 +138,6 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         _updateParentHashAndTimestamp(parentId);
     }
 
-    /// @notice Anchors the latest L1 block details to L2 for cross-layer
-    /// message verification.
-    /// @dev This function can be called freely as the golden touch private key is publicly known,
-    /// but the Taiko node guarantees the first transaction of each block is always this anchor
-    /// transaction, and any subsequent calls will revert with L2_PUBLIC_INPUT_HASH_MISMATCH.
-    /// @param _anchorBlockId The `anchorBlockId` value in this block's metadata.
-    /// @param _anchorStateRoot The state root for the L1 block with id equals `_anchorBlockId`.
-    /// @param _parentGasUsed The gas used in the parent block.
-    /// @param _baseFeeConfig The base fee configuration.
-    function anchorV2(
-        uint64 _anchorBlockId,
-        bytes32 _anchorStateRoot,
-        uint32 _parentGasUsed,
-        LibSharedData.BaseFeeConfig calldata _baseFeeConfig
-    )
-        external
-        nonZeroBytes32(_anchorStateRoot)
-        nonZeroValue(_anchorBlockId)
-        nonZeroValue(_baseFeeConfig.gasIssuancePerSecond)
-        nonZeroValue(_baseFeeConfig.adjustmentQuotient)
-        onlyGoldenTouch
-        nonReentrant
-    {
-        require(block.number >= ontakeForkHeight(), L2_FORK_ERROR());
-
-        uint256 parentId = block.number - 1;
-        _verifyAndUpdateAncestorsHash(parentId);
-        _verifyBaseFeeAndUpdateGasExcessV2(_parentGasUsed, _baseFeeConfig);
-        _syncChainData(_anchorBlockId, _anchorStateRoot);
-        _updateParentHashAndTimestamp(parentId);
-    }
-
     /// @notice Withdraw token or Ether from this address.
     /// Note: This contract receives a portion of L2 base fees, while the remainder is directed to
     /// L2 block's coinbase address.
@@ -221,70 +186,6 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         );
     }
 
-    /// @notice Calculates the base fee and gas excess using EIP-1559 configuration for the given
-    /// parameters.
-    /// @param _parentGasUsed Gas used in the parent block.
-    /// @param _baseFeeConfig Configuration parameters for base fee calculation.
-    /// @return basefee_ The calculated EIP-1559 base fee per gas.
-    /// @return parentGasExcess_ The new parentGasExcess value.
-    /// @return parentGasTarget_ The new parentGasTarget value.
-    /// @return newGasTargetApplied_ Indicates if a new gas target was applied.
-    function getBasefeeV2(
-        uint32 _parentGasUsed,
-        LibSharedData.BaseFeeConfig calldata _baseFeeConfig
-    )
-        public
-        view
-        returns (
-            uint256 basefee_,
-            uint64 parentGasExcess_,
-            uint64 parentGasTarget_,
-            bool newGasTargetApplied_
-        )
-    {
-        // Check if the gas settings has changed
-        uint64 newGasTarget =
-            uint64(_baseFeeConfig.gasIssuancePerSecond) * _baseFeeConfig.adjustmentQuotient;
-
-        if (parentGasTarget != newGasTarget) {
-            if (parentGasTarget == 0) {
-                parentGasExcess_ = parentGasExcess;
-                parentGasTarget_ = newGasTarget;
-            } else {
-                uint64 newGasExcess;
-                (newGasTargetApplied_, newGasExcess) =
-                    LibEIP1559.adjustExcess(parentGasExcess, parentGasTarget, newGasTarget);
-
-                if (newGasTargetApplied_) {
-                    parentGasExcess_ = newGasExcess;
-                    parentGasTarget_ = newGasTarget;
-                } else {
-                    // asssert(newGasExcess == 0);
-                    parentGasExcess_ = parentGasExcess;
-                    parentGasTarget_ = parentGasTarget;
-                }
-            }
-        }
-
-        uint64 gasIssuance =
-            uint64(block.timestamp - _parentTimestamp) * _baseFeeConfig.gasIssuancePerSecond;
-
-        if (
-            _baseFeeConfig.maxGasIssuancePerBlock != 0
-                && gasIssuance > _baseFeeConfig.maxGasIssuancePerBlock
-        ) {
-            gasIssuance = _baseFeeConfig.maxGasIssuancePerBlock;
-        }
-
-        (basefee_, parentGasExcess_) = LibEIP1559.calc1559BaseFee(
-            parentGasTarget_,
-            parentGasExcess_,
-            gasIssuance,
-            _parentGasUsed,
-            _baseFeeConfig.minGasExcess
-        );
-    }
-
     /// @inheritdoc IBlockHash
     function getBlockHash(uint256 _blockId) public view returns (bytes32) {
         if (_blockId >= block.number) return 0;
@@ -301,7 +202,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
     /// @notice Returns the parent timestamp.
     /// @return The timestamp of the parent block.
     function getParentTimestamp() public view returns (uint64) {
-        return _parentTimestamp;
+        return parentTimestamp;
     }
 
     /// @notice Returns the Ontake fork height.
@@ -313,7 +214,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
     /// @dev Synchronizes chain data with the given anchor block ID and state root.
     /// @param _anchorBlockId The ID of the anchor block.
     /// @param _anchorStateRoot The state root of the anchor block.
-    function _syncChainData(uint64 _anchorBlockId, bytes32 _anchorStateRoot) private {
+    function _syncChainData(uint64 _anchorBlockId, bytes32 _anchorStateRoot) internal {
         /// @dev If the anchor block ID is less than or equal to the last synced block, return
         /// early.
         if (_anchorBlockId <= lastSyncedBlock) return;
@@ -330,7 +231,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
 
     /// @dev Updates the parent block hash and timestamp.
     /// @param _parentId The ID of the parent block.
-    function _updateParentHashAndTimestamp(uint256 _parentId) private {
+    function _updateParentHashAndTimestamp(uint256 _parentId) internal {
         // Get the block hash of the parent block.
         bytes32 parentHash = blockhash(_parentId);
 
@@ -338,7 +239,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         _blockhashes[_parentId] = parentHash;
 
         // Update the parent timestamp to the current block timestamp.
-        _parentTimestamp = uint64(block.timestamp);
+        parentTimestamp = uint64(block.timestamp);
 
         // Emit an event to signal that the parent hash and gas excess have been anchored.
         emit Anchored(parentHash, parentGasExcess);
@@ -347,7 +248,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
     /// @param _l1BlockId The ID of the L1 block.
     /// @param _parentGasUsed The gas used by the parent block.
 
-    function _verifyBaseFeeAndUpdateGasExcess(uint64 _l1BlockId, uint32 _parentGasUsed) private {
+    function _verifyBaseFeeAndUpdateGasExcess(uint64 _l1BlockId, uint32 _parentGasUsed) internal {
         uint256 basefee_;
 
         // Calculate the base fee and update the parent gas excess.
@@ -357,35 +258,9 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         require(skipFeeCheck() || block.basefee == basefee_, L2_BASEFEE_MISMATCH());
     }
 
-    /// @dev Verifies that the base fee per gas is correct and updates the gas excess.
-    /// @param _parentGasUsed The gas used by the parent block.
-    /// @param _baseFeeConfig The configuration parameters for calculating the base fee.
-    function _verifyBaseFeeAndUpdateGasExcessV2(
-        uint32 _parentGasUsed,
-        LibSharedData.BaseFeeConfig calldata _baseFeeConfig
-    )
-        private
-    {
-        uint256 basefee_;
-        bool newGasTargetApplied_;
-        uint64 parentGasTarget_;
-
-        (basefee_, parentGasExcess, parentGasTarget_, newGasTargetApplied_) =
-            getBasefeeV2(_parentGasUsed, _baseFeeConfig);
-
-        require(skipFeeCheck() || block.basefee == basefee_, L2_BASEFEE_MISMATCH());
-
-        if (!newGasTargetApplied_) {
-            emit UpdateGasTargetFailed();
-        } else if (parentGasTarget != parentGasTarget_) {
-            emit UpdateGasTargetSucceeded(parentGasTarget, parentGasTarget_);
-            parentGasTarget = parentGasTarget_;
-        }
-    }
-
     /// @dev Verifies the current ancestor hash and updates it with a new aggregated hash.
     /// @param _parentId The ID of the parent block.
-    function _verifyAndUpdateAncestorsHash(uint256 _parentId) private {
+    function _verifyAndUpdateAncestorsHash(uint256 _parentId) internal {
         // Calculate the current and new ancestor hashes based on the parent block ID.
         (bytes32 currAncestorsHash_, bytes32 newAncestorsHash_) = _calcAncestorsHash(_parentId);
 

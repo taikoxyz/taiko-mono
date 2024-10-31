@@ -112,6 +112,7 @@ contract TestLibEIP1559 is TaikoL2Test {
         uint64 _newGasTarget
     )
         external
+        pure
     {
         if (_gasTarget == 0) _gasTarget = 1;
         if (_newGasTarget == 0) _newGasTarget = 1;
