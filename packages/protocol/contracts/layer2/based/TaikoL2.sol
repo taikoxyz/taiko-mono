@@ -6,7 +6,6 @@ import "./TaikoL2V1.sol";
 /// @title TaikoL2
 /// @notice TaikoL2's V2 version that supports Ontake hardfork.
 /// @custom:security-contact security@taiko.xyz
-
 contract TaikoL2 is TaikoL2V1 {
     using LibMath for uint256;
 
