@@ -62,7 +62,7 @@ contracts_layer1=(
 contracts_layer2=(
 "contracts/layer2/token/BridgedTaikoToken.sol:BridgedTaikoToken"
 "contracts/layer2/DelegateOwner.sol:DelegateOwner"
-"contracts/layer2/based/TaikoL2.sol:TaikoL2"
+"contracts/layer2/based/TaikoL2V1.sol:TaikoL2V1"
 "contracts/layer2/based/TaikoL2.sol:TaikoL2"
 "contracts/layer2/hekla/HeklaTaikoL2.sol:HeklaTaikoL2"
 "contracts/layer2/mainnet/MainnetTaikoL2.sol:MainnetTaikoL2"
