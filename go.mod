@@ -23,12 +23,12 @@ require (
 	github.com/labstack/echo/v4 v4.12.0
 	github.com/labstack/gommon v0.4.2
 	github.com/modern-go/reflect2 v1.0.2
-	github.com/morkid/paginate v1.1.7
+	github.com/morkid/paginate v1.1.8
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
 	github.com/pkg/errors v0.9.1
 	github.com/pressly/goose/v3 v3.20.0
-	github.com/prometheus/client_golang v1.20.4
+	github.com/prometheus/client_golang v1.20.5
 	github.com/prysmaticlabs/prysm/v5 v5.1.0
 	github.com/rabbitmq/amqp091-go v1.10.0
 	github.com/shopspring/decimal v1.4.0
@@ -40,9 +40,9 @@ require (
 	golang.org/x/sync v0.8.0
 	gopkg.in/go-playground/assert.v1 v1.2.1
 	gopkg.in/yaml.v3 v3.0.1
-	gorm.io/datatypes v1.2.1
+	gorm.io/datatypes v1.2.4
 	gorm.io/driver/mysql v1.5.6
-	gorm.io/gorm v1.25.10
+	gorm.io/gorm v1.25.11
 	gotest.tools v2.2.0+incompatible
 )
 

@@ -11,7 +11,7 @@ contract MainnetTierRouter is ITierRouter, TierProviderBase {
     address public immutable DAO_FALLBACK_PROPOSER;
 
     constructor(address _daoFallbackProposer) {
-        // 0xD3f681bD6B49887A48cC9C9953720903967E9DC0
+        // 0x68d30f47F19c07bCCEf4Ac7FAE2Dc12FCa3e0dC9
         DAO_FALLBACK_PROPOSER = _daoFallbackProposer;
     }
 
