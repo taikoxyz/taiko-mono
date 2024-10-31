@@ -13,14 +13,14 @@ import "./LibEIP1559.sol";
 import "./LibL2Config.sol";
 import "./IBlockHash.sol";
 
-/// @title TaikoL2
-/// @notice Taiko L2 is a smart contract that handles cross-layer message
+/// @title TaikoL2V1
+/// @notice Taiko L2 (v1) is a smart contract that handles cross-layer message
 /// verification and manages EIP-1559 gas pricing for Layer 2 (L2) operations.
 /// It is used to anchor the latest L1 block details to L2 for cross-layer
 /// communication, manage EIP-1559 parameters for gas pricing, and store
 /// verified L1 block information.
 /// @custom:security-contact security@taiko.xyz
-contract TaikoL2V1 is EssentialContract, IBlockHash {
+abstract contract TaikoL2V1 is EssentialContract, IBlockHash {
     using LibAddress for address;
     using SafeERC20 for IERC20;
 
