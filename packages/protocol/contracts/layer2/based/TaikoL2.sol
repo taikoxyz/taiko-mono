@@ -132,8 +132,8 @@ contract TaikoL2 is TaikoL2V1 {
         LibSharedData.BaseFeeConfig calldata _baseFeeConfig
     )
         private
-        returns (uint256 basefee_)
     {
+        uint256 basefee_;
         bool newGasTargetApplied_;
         uint64 parentGasTarget_;
         uint64 parentGasExcess_;
