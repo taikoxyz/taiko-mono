@@ -82,7 +82,7 @@ contract TaikoL2 is TaikoL2V1 {
                     parentGasExcess_ = newGasExcess;
                     parentGasTarget_ = newGasTarget;
                 } else {
-                    // asssert(newGasExcess == 0);
+                    // assert(newGasExcess == 0);
                     parentGasExcess_ = parentGasExcess;
                     parentGasTarget_ = parentGasTarget;
                 }
