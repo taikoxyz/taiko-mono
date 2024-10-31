@@ -305,7 +305,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
                 maxGasIssuancePerBlock: 600_000_000 // two minutes
              }),
             ontakeForkHeight: 0
-         });
+        });
     }
 
     /// @dev chain watchdog is supposed to be a cold wallet.
