@@ -21,7 +21,8 @@ library LibNetwork {
     function isEthereumTestnet(uint256 _chainId) internal pure returns (bool) {
         return _chainId == LibNetwork.ETHEREUM_ROPSTEN || _chainId == LibNetwork.ETHEREUM_RINKEBY
             || _chainId == LibNetwork.ETHEREUM_GOERLI || _chainId == LibNetwork.ETHEREUM_KOVAN
-            || _chainId == LibNetwork.ETHEREUM_HOLESKY || _chainId == LibNetwork.ETHEREUM_SEPOLIA;
+            || _chainId == LibNetwork.ETHEREUM_HOLESKY || _chainId == LibNetwork.ETHEREUM_SEPOLIA
+            || _chainId == LibNetwork.ETHEREUM_HELDER;
     }
 
     /// @dev Checks if the chain ID represents an Ethereum testnet or the Etheruem mainnet.

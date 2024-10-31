@@ -29,6 +29,8 @@ contracts_layer1=(
 "contracts/layer1/verifiers/Risc0Verifier.sol:Risc0Verifier"
 "contracts/layer1/verifiers/SP1Verifier.sol:SP1Verifier"
 "contracts/layer1/verifiers/SgxVerifier.sol:SgxVerifier"
+"contracts/layer1/verifiers/ProverRegistryVerifier.sol:ProverRegistryVerifier"
+"contracts/layer1/automata-attestation/AttestationVerifier.sol:AttestationVerifier"
 "contracts/layer1/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation"
 "contracts/layer1/based/TaikoL1.sol:TaikoL1"
 "contracts/layer1/tiers/TierProviderV2.sol:TierProviderV2"
