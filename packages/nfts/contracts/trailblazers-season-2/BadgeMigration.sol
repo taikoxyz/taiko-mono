@@ -54,7 +54,7 @@ contract BadgeMigration is
     /// @notice Tamper colors available
 
     enum TamperColor {
-        Dev, // neutral
+        Undefined, // unused
         Whale, // based, pink
         Minnow // boosted, purple
 
@@ -81,7 +81,6 @@ contract BadgeMigration is
         uint256 s2TokenId;
         uint256 cooldownExpiration;
         uint256 tamperExpiration;
-        uint256 devTampers;
         uint256 whaleTampers;
         uint256 minnowTampers;
     }
@@ -104,6 +103,7 @@ contract BadgeMigration is
     error HASH_MISMATCH();
     error NOT_S1_CONTRACT();
     error EXP_TOO_LOW();
+    error INVALID_TAMPER_COLOR();
     /// @notice Events
 
     event MigrationCycleToggled(uint256 indexed migrationCycleId, uint256 s1BadgeId, bool enabled);
@@ -116,7 +116,6 @@ contract BadgeMigration is
         uint256 s2TokenId,
         uint256 cooldownExpiration,
         uint256 tamperExpiration,
-        uint256 devTampers,
         uint256 whaleTampers,
         uint256 minnowTampers
     );
@@ -266,7 +265,6 @@ contract BadgeMigration is
             0, // s2TokenId, unset
             block.timestamp + config.cooldownMigration, // cooldownExpiration
             0, // tamperExpiration, unset
-            0, // dev tampers
             0, // whaleTampers
             0 // minnowTampers
         );
@@ -282,7 +280,6 @@ contract BadgeMigration is
             _migration.s2TokenId,
             _migration.cooldownExpiration,
             _migration.tamperExpiration,
-            _migration.devTampers,
             _migration.whaleTampers,
             _migration.minnowTampers
         );
@@ -381,7 +378,6 @@ contract BadgeMigration is
             _migration.s2TokenId,
             _migration.cooldownExpiration,
             _migration.tamperExpiration,
-            _migration.devTampers,
             _migration.whaleTampers,
             _migration.minnowTampers
         );
@@ -427,12 +423,12 @@ contract BadgeMigration is
             revert TAMPER_IN_PROGRESS();
         }
 
-        if (_tamperColor == TamperColor.Dev) {
-            migration_.devTampers++;
-        } else if (_tamperColor == TamperColor.Whale) {
+        if (_tamperColor == TamperColor.Whale) {
             migration_.whaleTampers++;
-        } else {
+        } else if (_tamperColor == TamperColor.Minnow) {
             migration_.minnowTampers++;
+        } else {
+            revert INVALID_TAMPER_COLOR();
         }
 
         migration_.tamperExpiration = block.timestamp + config.cooldownTamper;
@@ -487,21 +483,18 @@ contract BadgeMigration is
 
         uint256 randomSeed_ = randomFromSignature(_hash, _v, _r, _s);
 
-        uint256 devWeight_ = 33 + migration_.devTampers * config.tamperWeightPercent;
-        uint256 whaleWeight_ = 33 + migration_.whaleTampers * config.tamperWeightPercent;
-        uint256 minnowWeight_ = 33 + migration_.minnowTampers * config.tamperWeightPercent;
+        uint256 whaleWeight_ = 50 + migration_.whaleTampers * config.tamperWeightPercent;
+        uint256 minnowWeight_ = 50 + migration_.minnowTampers * config.tamperWeightPercent;
 
-        uint256 totalWeight_ = devWeight_ + whaleWeight_ + minnowWeight_;
+        uint256 totalWeight_ = whaleWeight_ + minnowWeight_;
 
         uint256 randomValue = randomSeed_ % totalWeight_;
 
         TrailblazersBadgesS2.MovementType finalColor_;
-        if (randomValue < devWeight_) {
-            finalColor_ = TrailblazersBadgesS2.MovementType.Dev;
-        } else if (randomValue < devWeight_ + whaleWeight_) {
-            finalColor_ = TrailblazersBadgesS2.MovementType.Whale;
-        } else {
+        if (randomValue < minnowWeight_) {
             finalColor_ = TrailblazersBadgesS2.MovementType.Minnow;
+        } else {
+            finalColor_ = TrailblazersBadgesS2.MovementType.Whale;
         }
 
         uint256 s1BadgeId_ = migration_.s1BadgeId;
@@ -575,19 +568,18 @@ contract BadgeMigration is
 
     /// @notice Get the migration tamper counts for a user
     /// @param _user The user address
-    /// @return _devTampers The Dev tamper count
     /// @return _whaleTampers The Whale tamper count
     /// @return _minnowTampers The Minnow tamper count
     function getMigrationTampers(address _user)
         public
         view
-        returns (uint256 _devTampers, uint256 _whaleTampers, uint256 _minnowTampers)
+        returns (uint256 _whaleTampers, uint256 _minnowTampers)
     {
         if (!isMigrationActive(_user)) {
             revert MIGRATION_NOT_STARTED();
         }
         Migration memory migration_ = getActiveMigrationFor(_user);
-        return (migration_.devTampers, migration_.whaleTampers, migration_.minnowTampers);
+        return (migration_.whaleTampers, migration_.minnowTampers);
     }
 
     /// @notice supportsInterface implementation

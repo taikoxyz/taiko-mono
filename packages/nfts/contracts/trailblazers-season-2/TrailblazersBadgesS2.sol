@@ -45,7 +45,7 @@ contract TrailblazersBadgesS2 is
 
     /// @notice Movement types
     enum MovementType {
-        Dev, // s1 neutral
+        Undefined, // unused
         Whale, // s1 based/pink
         Minnow // s1 boosted/purple
 
@@ -70,7 +70,7 @@ contract TrailblazersBadgesS2 is
     /// @notice Minter address; BadgeMigration contract
     address public minter;
     /// @notice Minter role
-    bytes32 public constant MINTER = keccak256("MINTER");
+    bytes32 public constant MINTER_ROLE = keccak256("MINTER");
     /// @notice Gap for upgrade safety
     uint256[43] private __gap;
 
@@ -94,7 +94,7 @@ contract TrailblazersBadgesS2 is
         _transferOwnership(_msgSender());
         __Context_init();
         _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
-        _grantRole(MINTER, _minter);
+        _grantRole(MINTER_ROLE, _minter);
         minter = _minter;
         uriTemplate = _uriTemplate;
     }
@@ -104,7 +104,7 @@ contract TrailblazersBadgesS2 is
     /// @dev Only the owner can call this function
     function setMinter(address _minter) external virtual onlyRole(DEFAULT_ADMIN_ROLE) {
         minter = _minter;
-        _grantRole(MINTER, _minter);
+        _grantRole(MINTER_ROLE, _minter);
     }
 
     /// @notice Mint a badge
@@ -119,7 +119,7 @@ contract TrailblazersBadgesS2 is
     )
         external
         virtual
-        onlyRole(MINTER)
+        onlyRole(MINTER_ROLE)
     {
         uint256 tokenId_ = totalSupply() + 1;
         Badge memory badge_ = Badge(tokenId_, _badgeType, _movementType);

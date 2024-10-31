@@ -194,9 +194,8 @@ contract TrailblazersBadgesS2Test is Test {
         assertEq(migration.isTamperActive(minters[0]), true);
         assertEq(migration.isMigrationActive(minters[0]), true);
 
-        (uint256 devTampers, uint256 whaleTampers, uint256 minnowTampers) =
-            migration.getMigrationTampers(minters[0]);
-        assertEq(devTampers, 0);
+        (uint256 whaleTampers, uint256 minnowTampers) = migration.getMigrationTampers(minters[0]);
+
         assertEq(whaleTampers, MAX_TAMPERS);
         assertEq(minnowTampers, 2);
     }
@@ -218,9 +217,8 @@ contract TrailblazersBadgesS2Test is Test {
     function test_resetTampers() public {
         test_tamperMigration();
         assertEq(migration.isTamperActive(minters[0]), true);
-        (uint256 devTampers, uint256 whaleTampers, uint256 minnowTampers) =
-            migration.getMigrationTampers(minters[0]);
-        assertEq(devTampers, 0);
+        (uint256 whaleTampers, uint256 minnowTampers) = migration.getMigrationTampers(minters[0]);
+
         assertEq(whaleTampers, MAX_TAMPERS);
         assertEq(minnowTampers, 2);
 
@@ -228,8 +226,7 @@ contract TrailblazersBadgesS2Test is Test {
         migration.resetTampers();
 
         assertEq(migration.isTamperActive(minters[0]), false);
-        (devTampers, whaleTampers, minnowTampers) = migration.getMigrationTampers(minters[0]);
-        assertEq(devTampers, 0);
+        (whaleTampers, minnowTampers) = migration.getMigrationTampers(minters[0]);
         assertEq(whaleTampers, 0);
         assertEq(minnowTampers, 0);
     }
