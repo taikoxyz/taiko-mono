@@ -123,13 +123,7 @@ contract TaikoL2Tests is TaikoL2Test {
             maxGasIssuancePerBlock: _maxGasIssuancePerBlock
         });
 
-        (
-            uint256 basefee_,
-            uint64 parentGasTarget_,
-            uint64 parentGasExcess_,
-            bool newGasTargetApplied_
-        ) = L2.getBasefeeV2(_parentGasUsed, baseFeeConfig);
-
+        (uint256 basefee_,,,) = L2.getBasefeeV2(_parentGasUsed, baseFeeConfig);
         assertTrue(basefee_ != 0, "basefee is 0");
     }
 
