@@ -33,7 +33,7 @@ contract TaikoL2V1 is EssentialContract, IBlockHash {
 
     /// @notice A hash to check the integrity of public inputs.
     /// @dev Slot 2.
-    bytes32 public ancestorsHash;
+    bytes32 public publicInputHash;
 
     /// @notice The gas excess value used to calculate the base fee.
     /// @dev Slot 3.
@@ -105,7 +105,7 @@ contract TaikoL2V1 is EssentialContract, IBlockHash {
 
         l1ChainId = _l1ChainId;
         parentGasExcess = _initialGasExcess;
-        (ancestorsHash,) = _calcAncestorsHash(block.number);
+        (publicInputHash,) = _calcPublicInputHash(block.number);
     }
 
     /// @dev DEPRECATED but used by node/client for syncing old blocks
@@ -262,13 +262,13 @@ contract TaikoL2V1 is EssentialContract, IBlockHash {
     /// @param _parentId The ID of the parent block.
     function _verifyAndUpdateAncestorsHash(uint256 _parentId) internal {
         // Calculate the current and new ancestor hashes based on the parent block ID.
-        (bytes32 currAncestorsHash_, bytes32 newAncestorsHash_) = _calcAncestorsHash(_parentId);
+        (bytes32 currAncestorsHash_, bytes32 newAncestorsHash_) = _calcPublicInputHash(_parentId);
 
         // Ensure the current ancestor hash matches the expected value.
-        require(ancestorsHash == currAncestorsHash_, L2_PUBLIC_INPUT_HASH_MISMATCH());
+        require(publicInputHash == currAncestorsHash_, L2_PUBLIC_INPUT_HASH_MISMATCH());
 
         // Update the ancestor hash to the new calculated value.
-        ancestorsHash = newAncestorsHash_;
+        publicInputHash = newAncestorsHash_;
     }
 
     /// @dev Calculates the aggregated ancestor block hash for the given block ID.
@@ -278,7 +278,7 @@ contract TaikoL2V1 is EssentialContract, IBlockHash {
     /// @param _blockId The ID of the block for which the public input hash is calculated.
     /// @return currAncestorsHash_ The public input hash for the previous state.
     /// @return newAncestorsHash_ The public input hash for the new state.
-    function _calcAncestorsHash(uint256 _blockId)
+    function _calcPublicInputHash(uint256 _blockId)
         private
         view
         returns (bytes32 currAncestorsHash_, bytes32 newAncestorsHash_)
