@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "./TaikoL2Test.sol";
 
-contract TaikoL2V2ForTest is TaikoL2V2 {
+contract TaikoL2ForTest is TaikoL2 {
     function skipFeeCheck() public pure override returns (bool) {
         return true;
     }
@@ -17,7 +17,7 @@ contract TaikoL2Tests is TaikoL2Test {
 
     address public addressManager;
     uint64 public anchorBlockId;
-    TaikoL2V2ForTest public L2;
+    TaikoL2ForTest public L2;
 
     function setUp() public {
         addressManager = deployProxy({
@@ -35,12 +35,12 @@ contract TaikoL2Tests is TaikoL2Test {
             })
         );
 
-        L2 = TaikoL2V2ForTest(
+        L2 = TaikoL2ForTest(
             payable(
                 deployProxy({
                     name: "taiko",
-                    impl: address(new TaikoL2V2ForTest()),
-                    data: abi.encodeCall(TaikoL2.init, (address(0), addressManager, L1_CHAIN_ID, 0)),
+                    impl: address(new TaikoL2ForTest()),
+                    data: abi.encodeCall(TaikoL2V1.init, (address(0), addressManager, L1_CHAIN_ID, 0)),
                     registerTo: addressManager
                 })
             )
@@ -60,14 +60,14 @@ contract TaikoL2Tests is TaikoL2Test {
         _anchorV2(BLOCK_GAS_LIMIT);
 
         vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
-        vm.expectRevert(TaikoL2.L2_PUBLIC_INPUT_HASH_MISMATCH.selector);
+        vm.expectRevert(TaikoL2V1.L2_PUBLIC_INPUT_HASH_MISMATCH.selector);
         _anchorV2(BLOCK_GAS_LIMIT);
     }
 
     // calling anchor in the same block more than once should fail
     function test_L2_AnchorTx_revert_from_wrong_signer() external {
         vm.fee(1);
-        vm.expectRevert(TaikoL2.L2_INVALID_SENDER.selector);
+        vm.expectRevert(TaikoL2V1.L2_INVALID_SENDER.selector);
         _anchorV2(BLOCK_GAS_LIMIT);
     }
 
