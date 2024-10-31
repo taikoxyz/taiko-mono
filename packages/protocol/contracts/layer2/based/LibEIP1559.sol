@@ -94,7 +94,7 @@ library LibEIP1559 {
             default { newGasExcess := div(x, f) }
         }
 
-        return (true, uint64(newGasExcess.min(type(uint64).max)));
+        return (true, newGasExcess.capToUint64());
     }
 
     /// @dev Calculates the base fee using the formula: exp(_gasExcess/_gasTarget)/_gasTarget
