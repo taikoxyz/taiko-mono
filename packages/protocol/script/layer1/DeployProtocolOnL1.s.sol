@@ -63,6 +63,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         addressNotNull(vm.envAddress("TAIKO_L2_ADDRESS"), "TAIKO_L2_ADDRESS");
         addressNotNull(vm.envAddress("L2_SIGNAL_SERVICE"), "L2_SIGNAL_SERVICE");
         addressNotNull(vm.envAddress("CONTRACT_OWNER"), "CONTRACT_OWNER");
+        addressNotNull(vm.envAddress("AUTOMATA_DCAP_ATTESTATION"), "AUTOMATA_DCAP_ATTESTATION");
 
         require(vm.envBytes32("L2_GENESIS_HASH") != 0, "L2_GENESIS_HASH");
         address contractOwner = vm.envAddress("CONTRACT_OWNER");
@@ -335,7 +336,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             address attestationVerifier = deployProxy({
                 name: "attestation_verifier",
                 impl: address(new AttestationVerifier()),
-                data: abi.encodeCall(AttestationVerifier.init, (owner, address(0)))
+                data: abi.encodeCall(AttestationVerifier.init, (owner, vm.envAddress("AUTOMATA_DCAP_ATTESTATION"), true))
             });
 
             deployProxy({

@@ -6,12 +6,12 @@ import "../../contracts/layer1/automata-attestation/AttestationVerifier.sol";
 import "../../contracts/layer1/automata-attestation/interfaces/IAttestationVerifier.sol";
 
 contract DeployAttestationVerifier is DeployCapability {
-    address public automataDcapAttesattion = vm.envAddress("AUTOMATA_DCAP_ATTESTATION");
+    address public automataDcapAttestation = vm.envAddress("AUTOMATA_DCAP_ATTESTATION");
     bool public checkPCR10 = vm.envOr("CHECK_PRC10", true);
     bool public simulateVerify = vm.envOr("SIMULATE_VERIFY", false);
 
     function run() external {
-        require(automataDcapAttesattion != address(0), "invalid automata DCAP attestation address");
+        require(automataDcapAttestation != address(0), "invalid automata DCAP attestation address");
 
         vm.startBroadcast();
 
@@ -21,7 +21,7 @@ contract DeployAttestationVerifier is DeployCapability {
         address proxy = deployProxy({
             name: "attestation_verifier",
             impl: address(attesatationVerifier),
-            data: abi.encodeCall(AttestationVerifier.init, (msg.sender, automataDcapAttesattion, true))
+            data: abi.encodeCall(AttestationVerifier.init, (msg.sender, automataDcapAttestation, true))
         });
 
         vm.stopBroadcast();

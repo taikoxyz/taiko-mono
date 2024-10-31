@@ -11,7 +11,7 @@ pragma solidity ^0.8.24;
  * @dev should also implement Risc0 Guest Program to use this interface.
  * See https://dev.risczero.com/api/blockchain-integration/bonsai-on-eth to learn more
  */
-interface IAttestation {
+interface IAttestationV2 {
     /**
      * @notice full on-chain verification for an attestation
      * @dev must further specify the structure of inputs/outputs, to be serialized and passed to this method

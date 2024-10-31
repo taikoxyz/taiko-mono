@@ -7,7 +7,7 @@ import "./interfaces/IAttestationVerifier.sol";
 
 /// @title AttestationVerifier
 contract AttestationVerifier is IAttestationVerifier, EssentialContract {
-    IAttestation public attestationVerifier; // slot 1
+    IAttestationV2 public automataDcapAttestation; // slot 1
     mapping(bytes32 pcr10 => bool trusted) public trustedPcr10; // slot 2
     bool checkPcr10; // slot3
 
@@ -15,14 +15,14 @@ contract AttestationVerifier is IAttestationVerifier, EssentialContract {
 
     function init(
         address _owner,
-        address _attestationVerifier,
+        address _automataDcapAttestation,
         bool _checkPcr10
     )
         external
         initializer
     {
         __Essential_init(_owner);
-        attestationVerifier = IAttestation(_attestationVerifier);
+        automataDcapAttestation = IAttestationV2(_automataDcapAttestation);
         checkPcr10 = _checkPcr10;
     }
 
@@ -41,9 +41,9 @@ contract AttestationVerifier is IAttestationVerifier, EssentialContract {
     ) 
         external
     {
-        if (address(attestationVerifier) == address(0)) return;
+        if (address(automataDcapAttestation) == address(0)) return;
 
-        (bool succ, bytes memory output) = attestationVerifier
+        (bool succ, bytes memory output) = automataDcapAttestation
             .verifyAndAttestOnChain(_report);
         if (!succ) revert INVALID_REPORT();
 
