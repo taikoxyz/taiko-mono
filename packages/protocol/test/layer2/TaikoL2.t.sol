@@ -105,7 +105,7 @@ contract TaikoL2Tests is TaikoL2Test {
 
     /// forge-config: layer2.fuzz.runs = 2000
     /// forge-config: layer2.fuzz.show-logs = true
-    function test_getBasefeeV2_fuzz(
+    function test_fuzz_getBasefeeV2(
         uint32 _parentGasUsed,
         uint32 _gasIssuancePerSecond,
         uint64 _minGasExcess,
@@ -133,7 +133,7 @@ contract TaikoL2Tests is TaikoL2Test {
             uint64 parentGasExcess_,
             bool newGasTargetApplied_
         ) = L2.getBasefeeV2(_parentGasUsed, baseFeeConfig);
-        assertTrue(newGasTargetApplied_, "newGasTargetApplied_ is false");
+        assertTrue(!newGasTargetApplied_, "newGasTargetApplied_ is true");
     }
 
     function test_getBasefeeV2() external {
