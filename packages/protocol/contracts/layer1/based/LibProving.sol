@@ -314,6 +314,7 @@ library LibProving {
 
             local.tier = tierProvider.getTier(local.proof.tier);
             local.minTier = tierProvider.getTier(local.meta.minTier);
+            local.isTopTier = local.tier.contestBond == 0;
         }
 
         local.inProvingWindow = !LibUtils.isPostDeadline({
@@ -326,8 +327,8 @@ library LibProving {
         // The assigned prover is granted exclusive permission to prove only the first
         // transition.
         if (
-            local.tier.contestBond != 0 && ts.contester == address(0) && local.tid == 1
-                && ts.tier == 0 && local.inProvingWindow
+            !local.isTopTier && ts.contester == address(0) && local.tid == 1 && ts.tier == 0
+                && local.inProvingWindow
         ) {
             if (msg.sender != local.assignedProver) revert L1_NOT_ASSIGNED_PROVER();
         }
@@ -353,7 +354,7 @@ library LibProving {
                 prover: msg.sender,
                 msgSender: msg.sender,
                 blockId: local.blockId,
-                isContesting: local.proof.tier == ts.tier && local.tier.contestBond != 0,
+                isContesting: local.proof.tier == ts.tier && !local.isTopTier,
                 blobUsed: local.meta.blobUsed,
                 tran: ctx_.tran
             });
@@ -367,8 +368,6 @@ library LibProving {
                 );
             }
         }
-
-        local.isTopTier = local.tier.contestBond == 0;
 
         local.sameTransition = local.isSyncBlock
             ? ctx_.tran.blockHash == ts.blockHash && local.stateRoot == ts.stateRoot
