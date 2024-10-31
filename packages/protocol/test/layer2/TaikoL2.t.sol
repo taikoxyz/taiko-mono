@@ -131,7 +131,6 @@ contract TaikoL2Tests is TaikoL2Test {
         ) = L2.getBasefeeV2(_parentGasUsed, baseFeeConfig);
 
         assertTrue(basefee_ != 0, "basefee is 0");
-        assertTrue(!newGasTargetApplied_, "newGasTargetApplied_ is true");
     }
 
     /// forge-config: layer2.fuzz.runs = 2000
@@ -163,8 +162,6 @@ contract TaikoL2Tests is TaikoL2Test {
         vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
         L2.anchorV2(++anchorBlockId, anchorStateRoot, _parentGasUsed, baseFeeConfig);
 
-        // change the gas issuance to change the gas target
-
         (
             uint256 basefee_,
             uint64 parentGasTarget_,
@@ -173,7 +170,9 @@ contract TaikoL2Tests is TaikoL2Test {
         ) = L2.getBasefeeV2(_parentGasUsed, baseFeeConfig);
 
         assertTrue(basefee_ != 0, "basefee is 0");
+        assertTrue(!newGasTargetApplied_, "newGasTargetApplied_ is true");
 
+        // change the gas issuance to change the gas target
         baseFeeConfig.gasIssuancePerSecond += 1;
 
         (basefee_, parentGasTarget_, parentGasExcess_, newGasTargetApplied_) =
