@@ -100,8 +100,8 @@ library LibEIP1559 {
     /// @return The calculated base fee.
     function basefee(uint64 _gasExcess, uint64 _gasTarget) internal pure returns (uint256) {
         if (_gasTarget == 0) return 1;
-        uint256 fee = ethQty(_gasExcess, _gasTarget) / _gasTarget;
-        return fee == 0 ? 1 : fee;
+
+        return (ethQty(_gasExcess, _gasTarget) / _gasTarget).max(1);
     }
 
     /// @dev Calculates the exponential of the ratio of gas excess to gas target.
