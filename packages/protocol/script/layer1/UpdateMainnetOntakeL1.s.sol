@@ -34,7 +34,7 @@ contract UpgradeMainnetOntakeL1 is DeployCapability {
         // MainnetTaikoL1
         console2.log(address(new MainnetTaikoL1()));
         // MainnetTierRouter
-        console2.log(address(new MainnetTierRouter()));
+        console2.log(address(new MainnetTierRouter(0x68d30f47F19c07bCCEf4Ac7FAE2Dc12FCa3e0dC9)));
         // MainnetSgxVerifier
         console2.log(address(new MainnetSgxVerifier()));
         // GuardianProver
