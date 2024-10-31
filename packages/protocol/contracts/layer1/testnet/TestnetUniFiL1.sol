@@ -3,10 +3,7 @@ pragma solidity ^0.8.24;
 
 import "../based/TaikoL1.sol";
 
-/// @title DevnetTaikoL1
-/// @dev Labeled in AddressResolver as "taiko"
-/// @custom:security-contact security@taiko.xyz
-contract DevnetTaikoL1 is TaikoL1 {
+contract TestnetUniFiL1 is TaikoL1 {
     /// @inheritdoc ITaikoL1
     function getConfig() public pure override returns (TaikoData.Config memory) {
         return TaikoData.Config({
@@ -16,7 +13,7 @@ contract DevnetTaikoL1 is TaikoL1 {
             maxBlocksToVerify: 16,
             blockMaxGasLimit: 240_000_000,
             livenessBond: 125e18, // 125 Taiko token
-            stateRootSyncInternal: 16,
+            stateRootSyncInternal: 4,
             maxAnchorHeightOffset: 64,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 8,
@@ -25,7 +22,7 @@ contract DevnetTaikoL1 is TaikoL1 {
                 minGasExcess: 1_340_000_000,
                 maxGasIssuancePerBlock: 600_000_000
             }),
-            ontakeForkHeight: 2
+            ontakeForkHeight: 0
         });
     }
 }

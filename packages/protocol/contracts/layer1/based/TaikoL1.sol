@@ -293,7 +293,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     /// @inheritdoc ITaikoL1
     function getConfig() public pure virtual returns (TaikoData.Config memory) {
         return TaikoData.Config({
-            chainId: 167_200,
+            chainId: 8787,
             blockMaxProposals: 324_000, // = 7200 * 45
             blockRingBufferSize: 360_000, // = 7200 * 50
             maxBlocksToVerify: 16,

@@ -24,18 +24,18 @@ contract TestTierProvider is ITierProvider, ITierRouter {
                 verifierName: "",
                 validityBond: 250 ether, // TKO
                 contestBond: 500 ether, // TKO
-                cooldownWindow: 1440, //24 hours
+                cooldownWindow: 1, // 1 minute
                 provingWindow: 30, // 0.5 hours
                 maxBlocksToVerifyPerProof: 0
             });
         }
 
-        if (_tierId == LibTiers.TIER_SGX) {
+        if (_tierId == LibTiers.TIER_TDX) {
             return ITierProvider.Tier({
-                verifierName: LibStrings.B_TIER_SGX,
+                verifierName: LibStrings.B_TIER_TDX,
                 validityBond: 250 ether, // TKO
                 contestBond: 1640 ether, // =250TKO * 6.5625
-                cooldownWindow: 1440, //24 hours
+                cooldownWindow: 1, // 1 minute
                 provingWindow: 60, // 1 hours
                 maxBlocksToVerifyPerProof: 0
             });
@@ -46,7 +46,7 @@ contract TestTierProvider is ITierProvider, ITierRouter {
                 verifierName: LibStrings.B_TIER_GUARDIAN,
                 validityBond: 0, // must be 0 for top tier
                 contestBond: 0, // must be 0 for top tier
-                cooldownWindow: 60, //1 hours
+                cooldownWindow: 1, //1 minute
                 provingWindow: 2880, // 48 hours
                 maxBlocksToVerifyPerProof: 0
             });
@@ -59,14 +59,14 @@ contract TestTierProvider is ITierProvider, ITierRouter {
     function getTierIds() public pure override returns (uint16[] memory tiers_) {
         tiers_ = new uint16[](3);
         tiers_[0] = LibTiers.TIER_OPTIMISTIC;
-        tiers_[1] = LibTiers.TIER_SGX;
+        tiers_[1] = LibTiers.TIER_TDX;
         tiers_[2] = LibTiers.TIER_GUARDIAN;
     }
 
     /// @inheritdoc ITierProvider
     function getMinTier(address, uint256 _rand) public pure override returns (uint16) {
-        // 10% will be selected to require SGX proofs.
-        if (_rand % 10 == 0) return LibTiers.TIER_SGX;
+        // 10% will be selected to require TDX proofs.
+        if (_rand % 10 == 0) return LibTiers.TIER_TDX;
         // Other blocks are optimistic, without validity proofs.
         return LibTiers.TIER_OPTIMISTIC;
     }

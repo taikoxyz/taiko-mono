@@ -31,6 +31,6 @@ abstract contract TaikoTokenBase is TaikoTokenBase0, ERC20VotesUpgradeable {
     }
 
     function symbol() public pure override returns (string memory) {
-        return "TAIKO";
+        return "PUFFER";
     }
 }

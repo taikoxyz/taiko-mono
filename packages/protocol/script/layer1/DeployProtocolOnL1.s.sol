@@ -15,6 +15,7 @@ import "../../contracts/shared/common/LibStrings.sol";
 import "../../contracts/shared/tokenvault/BridgedERC1155.sol";
 import "../../contracts/shared/tokenvault/BridgedERC20.sol";
 import "../../contracts/shared/tokenvault/BridgedERC721.sol";
+import "../../contracts/layer1/automata-attestation/AttestationVerifier.sol";
 import "../../contracts/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
 import "../../contracts/layer1/automata-attestation/lib/PEMCertChainLib.sol";
 import "../../contracts/layer1/automata-attestation/utils/SigVerifyLib.sol";
@@ -23,6 +24,8 @@ import "../../contracts/layer1/devnet/DevnetTierProvider.sol";
 import "../../contracts/layer1/mainnet/rollup/MainnetGuardianProver.sol";
 import "../../contracts/layer1/mainnet/rollup/MainnetTaikoL1.sol";
 import "../../contracts/layer1/mainnet/rollup/verifiers/MainnetSgxVerifier.sol";
+import "../../contracts/layer1/testnet/TestnetUniFiL1.sol";
+import "../../contracts/layer1/verifiers/ProverRegistryVerifier.sol";
 import "../../contracts/layer1/mainnet/multirollup/MainnetBridge.sol";
 import "../../contracts/layer1/mainnet/multirollup/MainnetERC1155Vault.sol";
 import "../../contracts/layer1/mainnet/multirollup/MainnetERC20Vault.sol";
@@ -294,6 +297,8 @@ contract DeployProtocolOnL1 is DeployCapability {
         if (keccak256(abi.encode(vm.envString("TIER_PROVIDER"))) == keccak256(abi.encode("devnet")))
         {
             taikoL1 = TaikoL1(address(new DevnetTaikoL1()));
+        } else if (keccak256(abi.encode(vm.envString("TIER_PROVIDER"))) == keccak256(abi.encode("testnet"))) {
+            taikoL1 = TaikoL1(address(new TestnetUniFiL1()));
         } else {
             taikoL1 = TaikoL1(address(new TaikoL1()));
         }
@@ -325,6 +330,21 @@ contract DeployProtocolOnL1 is DeployCapability {
             data: abi.encodeCall(SgxVerifier.init, (owner, rollupAddressManager)),
             registerTo: rollupAddressManager
         });
+
+        {
+            address attestationVerifier = deployProxy({
+                name: "attestation_verifier",
+                impl: address(new AttestationVerifier()),
+                data: abi.encodeCall(AttestationVerifier.init, (owner, address(0)))
+            });
+
+            deployProxy({
+                name: "tier_tdx",
+                impl: address(new ProverRegistryVerifier()),
+                data: abi.encodeCall(ProverRegistryVerifier.init, (owner, rollupAddressManager, attestationVerifier, 3600, 25)),
+                registerTo: rollupAddressManager
+            });
+        }
 
         deployProxy({
             name: "mainnet_guardian_prover_minority",
