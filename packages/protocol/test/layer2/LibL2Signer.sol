@@ -53,7 +53,7 @@ library LibL2Signer {
         view
         returns (uint8 v, uint256 r, uint256 s)
     {
-        if (k != 1 && k != 2) revert L2_INVALID_GOLDEN_TOUCH_K();
+        require(k == 1 || k == 2, L2_INVALID_GOLDEN_TOUCH_K());
 
         r = k == 1 ? GX : GX2;
 

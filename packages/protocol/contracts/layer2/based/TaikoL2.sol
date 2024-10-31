@@ -2,11 +2,14 @@
 pragma solidity ^0.8.24;
 
 import "./TaikoL2V1.sol";
-
+import "forge-std/src/console2.sol";
 /// @title TaikoL2
 /// @notice TaikoL2's V2 version that supports Ontake hardfork.
 /// @custom:security-contact security@taiko.xyz
+
 contract TaikoL2 is TaikoL2V1 {
+    using LibMath for uint256;
+
     uint256[50] private __gap;
 
     /// @notice Emitted when the gas target has been updated.
@@ -47,6 +50,13 @@ contract TaikoL2 is TaikoL2V1 {
         onlyGoldenTouch
         nonReentrant
     {
+        console2.log("_parentGasUsed", _parentGasUsed);
+        console2.log("adjustmentQuotient", _baseFeeConfig.adjustmentQuotient);
+        console2.log("sharingPctg", _baseFeeConfig.sharingPctg);
+        console2.log("gasIssuancePerSecond", _baseFeeConfig.gasIssuancePerSecond);
+        console2.log("minGasExcess", _baseFeeConfig.minGasExcess);
+        console2.log("maxGasIssuancePerBlock", _baseFeeConfig.maxGasIssuancePerBlock);
+
         require(block.number >= ontakeForkHeight(), L2_FORK_ERROR());
 
         uint256 parentId = block.number - 1;
@@ -77,7 +87,7 @@ contract TaikoL2 is TaikoL2V1 {
             bool newGasTargetApplied_
         )
     {
-        // Check if the gas settings has changed
+        // gasIssuancePerSecond (uint32) * adjustmentQuotient (uint8), will never overflow
         uint64 newGasTarget =
             uint64(_baseFeeConfig.gasIssuancePerSecond) * _baseFeeConfig.adjustmentQuotient;
 
@@ -101,8 +111,9 @@ contract TaikoL2 is TaikoL2V1 {
             }
         }
 
-        uint64 gasIssuance =
-            uint64(block.timestamp - parentTimestamp) * _baseFeeConfig.gasIssuancePerSecond;
+        // uint64 * uint32 will never overflow
+        uint256 gasIssuance =
+            (block.timestamp - parentTimestamp) * _baseFeeConfig.gasIssuancePerSecond;
 
         if (
             _baseFeeConfig.maxGasIssuancePerBlock != 0
@@ -114,7 +125,7 @@ contract TaikoL2 is TaikoL2V1 {
         (basefee_, parentGasExcess_) = LibEIP1559.calc1559BaseFee(
             parentGasTarget_,
             parentGasExcess_,
-            gasIssuance,
+            gasIssuance.capToUint64(),
             _parentGasUsed,
             _baseFeeConfig.minGasExcess
         );
@@ -128,8 +139,8 @@ contract TaikoL2 is TaikoL2V1 {
         LibSharedData.BaseFeeConfig calldata _baseFeeConfig
     )
         private
+        returns (uint256 basefee_)
     {
-        uint256 basefee_;
         bool newGasTargetApplied_;
         uint64 parentGasTarget_;
         uint64 parentGasExcess_;
