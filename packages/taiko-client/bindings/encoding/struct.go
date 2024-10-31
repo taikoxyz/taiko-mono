@@ -14,6 +14,7 @@ import (
 var (
 	TierOptimisticID       uint16 = 100
 	TierSgxID              uint16 = 200
+	TierTdxID              uint16 = 201
 	TierZkVMRisc0ID        uint16 = 250
 	TierZkVMSp1ID          uint16 = 251
 	TierSgxAndZkVMID       uint16 = 300

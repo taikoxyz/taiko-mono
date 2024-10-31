@@ -9,7 +9,8 @@ import (
 )
 
 const (
-	UniFiChainId = 167_200
+	UniFiDevnetChainId  uint64 = 167_200
+	UniFiTestnetChainId uint64 = 8787
 )
 
 var (
@@ -69,7 +70,7 @@ var (
 		},
 	}
 	UniFiProtocolConfig = &bindings.TaikoDataConfig{
-		ChainId:               UniFiChainId,
+		ChainId:               UniFiDevnetChainId,
 		BlockMaxProposals:     324_000,
 		BlockRingBufferSize:   360_000,
 		MaxBlocksToVerify:     16,
@@ -86,6 +87,24 @@ var (
 		},
 		OntakeForkHeight: 2,
 	}
+	UniFiTestnetProtocolConfig = &bindings.TaikoDataConfig{
+		ChainId:               UniFiTestnetChainId,
+		BlockMaxProposals:     324_000,
+		BlockRingBufferSize:   360_000,
+		MaxBlocksToVerify:     16,
+		BlockMaxGasLimit:      240_000_000,
+		LivenessBond:          livenessBond,
+		StateRootSyncInternal: 4,
+		MaxAnchorHeightOffset: 64,
+		BaseFeeConfig: bindings.LibSharedDataBaseFeeConfig{
+			AdjustmentQuotient:     8,
+			SharingPctg:            75,
+			GasIssuancePerSecond:   5_000_000,
+			MinGasExcess:           1_340_000_000,
+			MaxGasIssuancePerBlock: 600_000_000,
+		},
+		OntakeForkHeight: 0,
+	}
 )
 
 // GetProtocolConfig returns the protocol config for the given chain ID.
@@ -95,8 +114,10 @@ func GetProtocolConfig(chainID uint64) *bindings.TaikoDataConfig {
 		return HeklaProtocolConfig
 	case params.TaikoMainnetNetworkID.Uint64():
 		return MainnetProtocolConfig
-	case UniFiChainId:
+	case UniFiDevnetChainId:
 		return UniFiProtocolConfig
+	case UniFiTestnetChainId:
+		return UniFiTestnetProtocolConfig
 	default:
 		return InternlDevnetProtocolConfig
 	}

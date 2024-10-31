@@ -74,6 +74,11 @@ type RaikoRequestProofBodyResponse struct {
 	ErrorMessage string          `json:"message"`
 }
 
+type AutomataRequestProofBodyResponse struct {
+	Version uint64 `json:"version"`
+	Data    string `json:"data"`
+}
+
 type RaikoProofData struct {
 	Proof  string `json:"proof"` //nolint:revive,stylecheck
 	Status string `json:"status"`

@@ -113,6 +113,15 @@ func (p *Prover) initProofSubmitters(
 				Dummy:               p.cfg.Dummy,
 				RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 			}
+		case encoding.TierTdxID:
+			producer = &proofProducer.TDXProofProducer{
+				Endpoint:           p.cfg.RaikoHostEndpoint,
+				ProofType:          proofProducer.ProofTypeTdx,
+				JWT:                p.cfg.RaikoJWT,
+				Dummy:              p.cfg.Dummy,
+				RequestTimeout:     p.cfg.RaikoRequestTimeout,
+				DummyProofProducer: proofProducer.DummyProofProducer{},
+			}
 		case encoding.TierZkVMRisc0ID:
 			producer = &proofProducer.ZKvmProofProducer{
 				ZKProofType:         proofProducer.ZKProofTypeR0,
