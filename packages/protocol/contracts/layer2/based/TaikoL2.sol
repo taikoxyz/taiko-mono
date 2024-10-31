@@ -125,6 +125,7 @@ contract TaikoL2 is TaikoL2V1 {
     {
         uint256 basefee_;
         bool newGasTargetApplied_;
+        uint64 parentGasExcess_;
         uint64 parentGasTarget_;
 
         (basefee_, parentGasExcess_, parentGasTarget_, newGasTargetApplied_) =
