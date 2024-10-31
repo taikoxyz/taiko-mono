@@ -103,6 +103,79 @@ contract TaikoL2Tests is TaikoL2Test {
         assertEq(L2.getBlockHash(uint64(1000)), 0);
     }
 
+    /// forge-config: layer2.fuzz.runs = 2000
+    /// forge-config: layer2.fuzz.show-logs = true
+    function test_fuzz_getBasefeeV2(
+        uint32 _parentGasUsed,
+        uint32 _gasIssuancePerSecond,
+        uint64 _minGasExcess,
+        uint32 _maxGasIssuancePerBlock,
+        uint8 _adjustmentQuotient,
+        uint8 _sharingPctg
+    )
+        external
+    {
+        LibSharedData.BaseFeeConfig memory baseFeeConfig = LibSharedData.BaseFeeConfig({
+            adjustmentQuotient: _adjustmentQuotient,
+            sharingPctg: uint8(_sharingPctg % 100),
+            gasIssuancePerSecond: _gasIssuancePerSecond,
+            minGasExcess: _minGasExcess,
+            maxGasIssuancePerBlock: _maxGasIssuancePerBlock
+        });
+
+        (uint256 basefee_,,,) = L2.getBasefeeV2(_parentGasUsed, baseFeeConfig);
+        assertTrue(basefee_ != 0, "basefee is 0");
+    }
+
+    /// forge-config: layer2.fuzz.runs = 2000
+    /// forge-config: layer2.fuzz.show-logs = true
+    function test_fuzz_anchorV2(
+        uint32 _parentGasUsed,
+        uint32 _gasIssuancePerSecond,
+        uint64 _minGasExcess,
+        uint32 _maxGasIssuancePerBlock,
+        uint8 _adjustmentQuotient,
+        uint8 _sharingPctg
+    )
+        external
+    {
+        if (_parentGasUsed == 0) _parentGasUsed = 1;
+        if (_gasIssuancePerSecond == 0) _gasIssuancePerSecond = 1;
+        if (_gasIssuancePerSecond == type(uint32).max) _gasIssuancePerSecond -= 1;
+        if (_adjustmentQuotient == 0) _adjustmentQuotient = 1;
+
+        LibSharedData.BaseFeeConfig memory baseFeeConfig = LibSharedData.BaseFeeConfig({
+            adjustmentQuotient: _adjustmentQuotient,
+            sharingPctg: uint8(_sharingPctg % 100),
+            gasIssuancePerSecond: _gasIssuancePerSecond,
+            minGasExcess: _minGasExcess,
+            maxGasIssuancePerBlock: _maxGasIssuancePerBlock
+        });
+
+        bytes32 anchorStateRoot = bytes32(uint256(1));
+        vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
+        L2.anchorV2(++anchorBlockId, anchorStateRoot, _parentGasUsed, baseFeeConfig);
+
+        (
+            uint256 basefee_,
+            uint64 parentGasTarget_,
+            uint64 parentGasExcess_,
+            bool newGasTargetApplied_
+        ) = L2.getBasefeeV2(_parentGasUsed, baseFeeConfig);
+
+        assertTrue(basefee_ != 0, "basefee is 0");
+        assertTrue(!newGasTargetApplied_, "newGasTargetApplied_ is true");
+
+        // change the gas issuance to change the gas target
+        baseFeeConfig.gasIssuancePerSecond += 1;
+
+        (basefee_, parentGasTarget_, parentGasExcess_, newGasTargetApplied_) =
+            L2.getBasefeeV2(_parentGasUsed, baseFeeConfig);
+
+        assertTrue(basefee_ != 0, "basefee is 0");
+        assertTrue(newGasTargetApplied_, "newGasTargetApplied_ is false");
+    }
+
     function _anchorV2(uint32 parentGasUsed) private {
         bytes32 anchorStateRoot = randBytes32();
         LibSharedData.BaseFeeConfig memory baseFeeConfig = LibSharedData.BaseFeeConfig({

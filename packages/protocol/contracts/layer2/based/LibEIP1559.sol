@@ -71,8 +71,11 @@ library LibEIP1559 {
         }
 
         uint256 f = FixedPointMathLib.WAD;
-        uint256 ratio = f * _newGasTarget / _gasTarget;
+        if (_newGasTarget >= type(uint256).max / f) {
+            return (false, 0);
+        }
 
+        uint256 ratio = f * _newGasTarget / _gasTarget;
         if (ratio == 0 || ratio > uint256(type(int256).max)) {
             return (false, 0);
         }
@@ -91,7 +94,7 @@ library LibEIP1559 {
             default { newGasExcess := div(x, f) }
         }
 
-        return (true, uint64(newGasExcess.min(type(uint64).max)));
+        return (true, newGasExcess.capToUint64());
     }
 
     /// @dev Calculates the base fee using the formula: exp(_gasExcess/_gasTarget)/_gasTarget
