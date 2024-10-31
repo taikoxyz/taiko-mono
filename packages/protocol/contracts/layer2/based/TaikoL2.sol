@@ -9,14 +9,19 @@ import "./TaikoL2V1.sol";
 contract TaikoL2 is TaikoL2V1 {
     uint256[50] private __gap;
 
-    /// @notice Emitted when the gas target update succeeds.
+    /// @notice Emitted when the gas target has been updated.
     /// @param oldGasTarget The previous gas target.
     /// @param newGasTarget The new gas target.
-    event UpdateGasTargetSucceeded(uint64 oldGasTarget, uint64 newGasTarget);
+    event GasTargetUpdated(uint64 oldGasTarget, uint64 newGasTarget);
+
+    /// @notice Emitted when the gas excess has been updated.
+    /// @param oldGasExcess The previous gas excess.
+    /// @param newGasExcess The new gas excess.
+    event GasExcessUpdated(uint64 oldGasExcess, uint64 newGasExcess);
 
     /// @notice Emitted when the gas target update fails.
     event UpdateGasTargetFailed(
-        uint64 parentGasExcess, uint64 parentGasTarget, LibSharedData.BaseFeeConfig baseFeeConfig
+        uint64 parentGasTarget, uint64 parentGasExcess, LibSharedData.BaseFeeConfig baseFeeConfig
     );
 
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
@@ -56,8 +61,8 @@ contract TaikoL2 is TaikoL2V1 {
     /// @param _parentGasUsed Gas used in the parent block.
     /// @param _baseFeeConfig Configuration parameters for base fee calculation.
     /// @return basefee_ The calculated EIP-1559 base fee per gas.
-    /// @return parentGasExcess_ The new parentGasExcess value.
     /// @return parentGasTarget_ The new parentGasTarget value.
+    /// @return parentGasExcess_ The new parentGasExcess value.
     /// @return newGasTargetApplied_ Indicates if a new gas target was applied.
     function getBasefeeV2(
         uint32 _parentGasUsed,
@@ -67,8 +72,8 @@ contract TaikoL2 is TaikoL2V1 {
         view
         returns (
             uint256 basefee_,
-            uint64 parentGasExcess_,
             uint64 parentGasTarget_,
+            uint64 parentGasExcess_,
             bool newGasTargetApplied_
         )
     {
@@ -89,6 +94,7 @@ contract TaikoL2 is TaikoL2V1 {
                     parentGasExcess_ = newGasExcess;
                     parentGasTarget_ = newGasTarget;
                 } else {
+                    // Use the current excess and target values
                     parentGasExcess_ = parentGasExcess;
                     parentGasTarget_ = parentGasTarget;
                 }
@@ -125,23 +131,22 @@ contract TaikoL2 is TaikoL2V1 {
     {
         uint256 basefee_;
         bool newGasTargetApplied_;
-        uint64 parentGasExcess_;
         uint64 parentGasTarget_;
+        uint64 parentGasExcess_;
 
-        (basefee_, parentGasExcess_, parentGasTarget_, newGasTargetApplied_) =
+        (basefee_, parentGasTarget_, parentGasExcess_, newGasTargetApplied_) =
             getBasefeeV2(_parentGasUsed, _baseFeeConfig);
 
         require(skipFeeCheck() || block.basefee == basefee_, L2_BASEFEE_MISMATCH());
 
         if (!newGasTargetApplied_) {
-            emit UpdateGasTargetFailed(parentGasExcess, parentGasTarget, _baseFeeConfig);
-        } else if (parentGasTarget != parentGasTarget_) {
-            emit UpdateGasTargetSucceeded(parentGasTarget, parentGasTarget_);
+            emit UpdateGasTargetFailed(parentGasTarget, parentGasExcess, _baseFeeConfig);
+        } else {
+            emit GasTargetUpdated(parentGasTarget, parentGasTarget_);
             parentGasTarget = parentGasTarget_;
         }
 
-        // The previous value `parentGasExcess` may be used by `UpdateGasTargetFailed`, so we have
-        // to update it after the event is emitted.
+        emit GasExcessUpdated(parentGasExcess, parentGasExcess_);
         parentGasExcess = parentGasExcess_;
     }
 }
