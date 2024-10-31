@@ -88,6 +88,7 @@ contract TaikoL2 is TaikoL2V1 {
             if (parentGasTarget == 0) {
                 parentGasExcess_ = parentGasExcess;
                 parentGasTarget_ = newGasTarget;
+                newGasTargetApplied_ = true;
             } else {
                 uint64 newGasExcess;
                 (newGasTargetApplied_, newGasExcess) =
