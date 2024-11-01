@@ -233,7 +233,7 @@
 - impl: `0x2Ae89453c6c79Add793db7B9d23c275b90C26065`
 - logs:
   - deployed on Oct 24, 2024 @commit`7334b1d`
-  - deployed on Nov 1, 2024 @commit`7334b1d`
+  - deployed on Nov 1, 2024 @commit`f4f4796`
 
 #### tier_sgx
 
