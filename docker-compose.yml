@@ -29,3 +29,39 @@ services:
       - "4"
     extra_hosts:
       - "host.docker.internal:host-gateway"
+  prover:
+    image: unifi-client-prover
+    container_name: unifi-client-prover
+    build:
+      context: .
+      dockerfile: ./packages/taiko-client/Dockerfile
+    restart: unless-stopped
+    pull_policy: always
+    command:
+      - prover
+      - --l1.ws
+      - "${L1_WS}"
+      - --l2.ws
+      - "${L2_WS}"
+      - --l2.http
+      - "${L2_HTTP}"
+      - --taikoL1
+      - "${TAIKO_L1}"
+      - --taikoL2
+      - "${TAIKO_L2}"
+      - --taikoToken
+      - "${TAIKO_TOKEN}"
+      - --proverSet
+      - "${PROVER_SET}"
+      - --l1.proverPrivKey
+      - "${L1_PROVER_PRIVKEY}"
+      - --prover.capacity
+      - "${PROVER_CAPACITY}"
+      - --raiko.host
+      - "${RAIKO_HOST}"
+      - --prover.l1NodeVersion
+      - "${L1_NODE_VERSION}"
+      - --prover.l2NodeVersion
+      - "${L2_NODE_VERSION}"
+      - --verbosity
+      - "4"

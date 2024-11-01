@@ -131,7 +131,7 @@ func (t *TDXProofProducer) requestProof(
 		Block:                  opts.BlockID,
 		L1InclusionBlockNumber: meta.GetProposedIn(),
 		Network:                "unifi_testnet",
-		L1Network:              "localnet",
+		L1Network:              "holesky",
 		Graffiti:               opts.Graffiti,
 		Prover:                 opts.ProverAddress.Hex()[2:],
 		ProofType:              "Native",
