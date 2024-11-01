@@ -1,6 +1,6 @@
 services:
   driver:
-    image: unifi-client-driver
+    image: unifi-client
     container_name: unifi-client-driver
     build:
       context: .
@@ -30,11 +30,8 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
   prover:
-    image: unifi-client-prover
+    image: unifi-client
     container_name: unifi-client-prover
-    build:
-      context: .
-      dockerfile: ./packages/taiko-client/Dockerfile
     restart: unless-stopped
     pull_policy: always
     command:
