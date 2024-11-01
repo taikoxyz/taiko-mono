@@ -53,7 +53,7 @@ library LibEIP1559 {
         returns (uint64)
     {
         if (_gasTarget == 0) {
-            return _gasExcess;
+            return _newGasTarget;
         }
 
         uint256 f = FixedPointMathLib.WAD;
