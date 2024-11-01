@@ -4,6 +4,11 @@ on:
   push:
     branches:
       - main
+    tags:
+      - '*'
+  delete:
+    tags:
+      - '*'
 
 permissions:
   contents: write
