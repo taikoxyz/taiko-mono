@@ -68,7 +68,6 @@ library LibEIP1559 {
     {
         if (_gasTarget == 0 || _newGasTarget == 0) {
             return (false, 0);
-        }
 
         uint256 f = FixedPointMathLib.WAD;
         if (_newGasTarget >= type(uint256).max / f) {

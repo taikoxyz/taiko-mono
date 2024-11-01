@@ -11,7 +11,7 @@ contract MainnetTierRouter is ITierRouter, TierProviderBase {
     address public immutable DAO_FALLBACK_PROPOSER;
 
     constructor(address _daoFallbackProposer) {
-        // 0xD3f681bD6B49887A48cC9C9953720903967E9DC0
+        // 0x68d30f47F19c07bCCEf4Ac7FAE2Dc12FCa3e0dC9
         DAO_FALLBACK_PROPOSER = _daoFallbackProposer;
     }
 
@@ -22,18 +22,14 @@ contract MainnetTierRouter is ITierRouter, TierProviderBase {
 
     /// @inheritdoc ITierProvider
     function getTierIds() external pure returns (uint16[] memory tiers_) {
-        tiers_ = new uint16[](4);
+        tiers_ = new uint16[](3);
         tiers_[0] = LibTiers.TIER_SGX;
-        tiers_[1] = LibTiers.TIER_ZKVM_ANY;
-        tiers_[2] = LibTiers.TIER_GUARDIAN_MINORITY;
-        tiers_[3] = LibTiers.TIER_GUARDIAN;
+        tiers_[1] = LibTiers.TIER_GUARDIAN_MINORITY;
+        tiers_[2] = LibTiers.TIER_GUARDIAN;
     }
 
     /// @inheritdoc ITierProvider
     function getMinTier(address _proposer, uint256 _rand) public view override returns (uint16) {
-        if (_proposer == DAO_FALLBACK_PROPOSER) {
-            return _rand % 500 == 0 ? LibTiers.TIER_ZKVM_ANY : LibTiers.TIER_SGX;
-        }
         return LibTiers.TIER_SGX;
     }
 }
