@@ -7,7 +7,6 @@ import "src/layer1/mainnet/multirollup/MainnetSignalService.sol";
 import "src/layer1/mainnet/multirollup/MainnetBridge.sol";
 import "src/layer1/mainnet/rollup/MainnetRollupAddressManager.sol";
 import "src/layer1/mainnet/rollup/MainnetTaikoL1.sol";
-import "src/layer1/mainnet/rollup/MainnetTierRouter.sol";
 import "src/layer1/mainnet/rollup/verifiers/MainnetSgxVerifier.sol";
 import "src/layer1/provers/GuardianProver.sol";
 import "src/layer1/mainnet/rollup/MainnetProverSet.sol";
@@ -33,8 +32,6 @@ contract UpgradeMainnetOntakeL1 is DeployCapability {
         console2.log(address(new MainnetRollupAddressManager()));
         // MainnetTaikoL1
         console2.log(address(new MainnetTaikoL1()));
-        // MainnetTierRouter
-        console2.log(address(new MainnetTierRouter(0x68d30f47F19c07bCCEf4Ac7FAE2Dc12FCa3e0dC9)));
         // MainnetSgxVerifier
         console2.log(address(new MainnetSgxVerifier()));
         // GuardianProver
