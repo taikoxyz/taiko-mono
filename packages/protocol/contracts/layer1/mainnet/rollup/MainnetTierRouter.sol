@@ -29,6 +29,7 @@ contract MainnetTierRouter is ITierRouter, TierProviderBase {
     }
 
     /// @inheritdoc ITierProvider
+    // solhint-disable-next-line no-unused-vars
     function getMinTier(address _proposer, uint256 _rand) public view override returns (uint16) {
         return LibTiers.TIER_SGX;
     }
