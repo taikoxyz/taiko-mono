@@ -244,7 +244,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     /// @return blockId_ The last verified block's ID.
     /// @return blockHash_ The last verified block's blockHash.
     /// @return stateRoot_ The last verified block's stateRoot.
-    /// @return verifiedAt_ The timestamp this block is verified at.
+    /// @return verifiedAt_ The timestamp this block is proven at.
     function getLastVerifiedBlock()
         external
         view
@@ -258,7 +258,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     /// @return blockId_ The last verified block's ID.
     /// @return blockHash_ The last verified block's blockHash.
     /// @return stateRoot_ The last verified block's stateRoot.
-    /// @return verifiedAt_ The timestamp this block is verified at.
+    /// @return verifiedAt_ The timestamp this block is proven at.
     function getLastSyncedBlock()
         external
         view

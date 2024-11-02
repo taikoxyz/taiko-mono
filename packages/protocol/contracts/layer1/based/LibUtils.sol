@@ -91,7 +91,7 @@ library LibUtils {
     /// @param _blockId Id of the block.
     /// @return blockHash_ The block's block hash.
     /// @return stateRoot_ The block's storage root.
-    /// @return verifiedAt_ The timestamp when the block was verified.
+    /// @return verifiedAt_ The timestamp when the block was proven at.
     function getBlockInfo(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
