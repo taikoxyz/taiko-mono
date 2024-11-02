@@ -36,16 +36,14 @@ abstract contract TierProviderBase is ITierProvider {
         if (_tierId == LibTiers.TIER_ZKVM_RISC0) return _buildZkTier(LibStrings.B_TIER_ZKVM_RISC0);
         if (_tierId == LibTiers.TIER_ZKVM_SP1) return _buildZkTier(LibStrings.B_TIER_ZKVM_SP1);
         if (_tierId == LibTiers.TIER_ZKVM_ANY) return _buildZkTier(LibStrings.B_TIER_ZKVM_ANY);
-
-        // ZKVM+TEE Tier
         if (_tierId == LibTiers.TIER_ZKVM_AND_TEE) {
-            return _buildTier(LibStrings.B_TIER_ZKVM_AND_TEE, BOND_UNIT * 4, 240, 180);
+            return _buildZkTier(LibStrings.B_TIER_ZKVM_AND_TEE);
         }
 
         // Guardian Minority Tiers
         if (_tierId == LibTiers.TIER_GUARDIAN_MINORITY) {
             // cooldownWindow is 240 minutes and provingWindow is 2880 minutes
-            return _buildTier(LibStrings.B_TIER_GUARDIAN_MINORITY, BOND_UNIT * 4, 240, 0);
+            return _buildTier(LibStrings.B_TIER_GUARDIAN_MINORITY, BOND_UNIT * 3, 240, 0);
         }
 
         // Guardian Major Tiers
