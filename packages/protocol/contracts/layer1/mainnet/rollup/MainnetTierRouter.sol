@@ -5,6 +5,8 @@ import "src/layer1/tiers/ITierRouter.sol";
 import "src/layer1/tiers/TierProviderBase.sol";
 
 /// @title MainnetTierRouter
+/// @dev Any changes to the configuration in this file must be announced and documented on our site.
+/// Ensure all modifications are reviewed by the devrel team.
 /// @dev Labeled in AddressResolver as "tier_router"
 /// @custom:security-contact security@taiko.xyz
 contract MainnetTierRouter is ITierRouter, TierProviderBase {

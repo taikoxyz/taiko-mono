@@ -6,6 +6,8 @@ import "./ITierProvider.sol";
 import "./LibTiers.sol";
 
 /// @title TierProviderBase
+/// @dev Any changes to the configuration in this file must be announced and documented on our site.
+/// Ensure all modifications are reviewed by the devrel team.
 /// @custom:security-contact security@taiko.xyz
 abstract contract TierProviderBase is ITierProvider {
     /// @dev Grace period for block proving service.
