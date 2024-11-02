@@ -22,42 +22,50 @@ abstract contract TierProviderBase is ITierProvider {
     /// previous tier. Additionally, each tier's contest bond is 6.5625 times its validity bond.
     function getTier(uint16 _tierId) public pure virtual returns (ITierProvider.Tier memory) {
         if (_tierId == LibTiers.TIER_OPTIMISTIC) {
-            // cooldownWindow is 24 hours and provingWindow is 90+0 minutes
-            return _buildTier(LibStrings.B_TIER_OPTIMISTIC, 1, 1440, 0);
+            return _buildTier(LibStrings.B_TIER_OPTIMISTIC, 1, 1440, 30);
         }
 
         // TEE Tiers
         if (_tierId == LibTiers.TIER_SGX) {
+            // cooldownWindow is 60 minutes and provingWindow is 60 minutes
             return _buildTier(LibStrings.B_TIER_SGX, 2, 60, 60);
         }
         if (_tierId == LibTiers.TIER_TDX) {
+            // cooldownWindow is 60 minutes and provingWindow is 60 minutes
             return _buildTier(LibStrings.B_TIER_TDX, 2, 60, 60);
         }
         if (_tierId == LibTiers.TIER_TEE_ANY) {
+            // cooldownWindow is 60 minutes and provingWindow is 60 minutes
             return _buildTier(LibStrings.B_TIER_TEE_ANY, 2, 60, 60);
         }
 
         // ZKVM Tiers
         if (_tierId == LibTiers.TIER_ZKVM_RISC0) {
+            // cooldownWindow is 60 minutes and provingWindow is 90 minutes
             return _buildTier(LibStrings.B_TIER_ZKVM_RISC0, 3, 60, 90);
         }
         if (_tierId == LibTiers.TIER_ZKVM_SP1) {
+            // cooldownWindow is 60 minutes and provingWindow is 90 minutes
             return _buildTier(LibStrings.B_TIER_ZKVM_SP1, 3, 60, 90);
         }
         if (_tierId == LibTiers.TIER_ZKVM_ANY) {
+            // cooldownWindow is 60 minutes and provingWindow is 90 minutes
             return _buildTier(LibStrings.B_TIER_ZKVM_ANY, 3, 60, 90);
         }
         if (_tierId == LibTiers.TIER_ZKVM_AND_TEE) {
+            // cooldownWindow is 60 minutes and provingWindow is 90 minutes
             return _buildTier(LibStrings.B_TIER_ZKVM_AND_TEE, 3, 60, 90);
         }
 
         // Guardian Minority Tiers
         if (_tierId == LibTiers.TIER_GUARDIAN_MINORITY) {
-            return _buildTier(LibStrings.B_TIER_GUARDIAN_MINORITY, 4, 60, 90);
+            // cooldownWindow is 60 minutes and provingWindow is 120 minutes
+            return _buildTier(LibStrings.B_TIER_GUARDIAN_MINORITY, 4, 60, 120);
         }
 
         // Guardian Major Tiers
         if (_tierId == LibTiers.TIER_GUARDIAN) {
+            // cooldownWindow is 120 minutes
             return _buildTier(LibStrings.B_TIER_GUARDIAN, 0, 120, 0);
         }
 
