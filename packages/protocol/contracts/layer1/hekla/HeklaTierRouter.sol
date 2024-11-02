@@ -5,6 +5,8 @@ import "../tiers/TierProviderBase.sol";
 import "../tiers/ITierRouter.sol";
 
 /// @title HeklaTierRouter
+/// @dev Any changes to the configuration in this file must be announced and documented on our site.
+/// Ensure all modifications are reviewed by the devrel team.
 /// @custom:security-contact security@taiko.xyz
 contract HeklaTierRouter is TierProviderBase, ITierRouter {
     address public immutable DAO_FALLBACK_PROPOSER;
