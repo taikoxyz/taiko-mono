@@ -46,7 +46,7 @@ library LibProposing {
     error L1_UNEXPECTED_PARENT();
 
     /// @dev Proposes multiple Taiko L2 blocks.
-    /// @param _state The current state of the Taiko protocol.
+    /// @param _state Pointer to the protocol's storage.
     /// @param _config The configuration parameters for the Taiko protocol.
     /// @param _resolver The address resolver interface.
     /// @param _paramsArr An array of encoded data bytes containing the block parameters.
@@ -82,7 +82,7 @@ library LibProposing {
     }
 
     /// @dev Proposes a single Taiko L2 block.
-    /// @param _state The current state of the Taiko protocol.
+    /// @param _state Pointer to the protocol's storage.
     /// @param _config The configuration parameters for the Taiko protocol.
     /// @param _resolver The address resolver interface.
     /// @param _params Encoded data bytes containing the block parameters.
@@ -108,7 +108,7 @@ library LibProposing {
     }
 
     /// @dev Proposes a single Taiko L2 block.
-    /// @param _state The current state of the Taiko protocol.
+    /// @param _state Pointer to the protocol's storage.
     /// @param _config The configuration parameters for the Taiko protocol.
     /// @param _resolver The address resolver interface.
     /// @param _params Encoded data bytes containing the block parameters.

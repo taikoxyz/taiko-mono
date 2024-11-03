@@ -56,11 +56,11 @@ interface ITaikoL1 {
     /// @param _pause True to pause, false to unpause.
     function pauseProving(bool _pause) external;
 
-    /// @notice Deposits Taiko token to be used as bonds.
+    /// @notice Deposits bond ERC20 token or Ether.
     /// @param _amount The amount of Taiko token to deposit.
-    function depositBond(uint256 _amount) external;
+    function depositBond(uint256 _amount) external payable;
 
-    /// @notice Withdraws Taiko tokens.
+    /// @notice Withdraws bond ERC20 token or Ether.
     /// @param _amount Amount of Taiko tokens to withdraw.
     function withdrawBond(uint256 _amount) external;
 

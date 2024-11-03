@@ -39,7 +39,7 @@ contract MockTaikoL1 is ITaikoL1 {
 
     function pauseProving(bool _pause) external virtual { }
 
-    function depositBond(uint256 _amount) external virtual { }
+    function depositBond(uint256 _amount) external payable virtual { }
 
     function withdrawBond(uint256 _amount) external virtual { }
 

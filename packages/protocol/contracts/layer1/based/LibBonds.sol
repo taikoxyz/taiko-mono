@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "src/shared/common/IAddressResolver.sol";
+import "src/shared/common/LibAddress.sol";
 import "src/shared/common/LibStrings.sol";
 import "./TaikoData.sol";
 
@@ -33,8 +34,10 @@ library LibBonds {
     /// @param amount The amount of tokens debited.
     event BondDebited(address indexed user, uint256 blockId, uint256 amount);
 
+    error L1_INVALID_MSG_VALUE();
+
     /// @dev Deposits TAIKO tokens to be used as bonds.
-    /// @param _state The current state of TaikoData.
+    /// @param _state Pointer to the protocol's storage.
     /// @param _resolver The address resolver interface.
     /// @param _amount The amount of tokens to deposit.
     function depositBond(
@@ -46,11 +49,19 @@ library LibBonds {
     {
         emit BondDeposited(msg.sender, _amount);
         _state.bondBalance[msg.sender] += _amount;
-        _tko(_resolver).transferFrom(msg.sender, address(this), _amount);
+
+        address bondToken = _bondToken(_resolver);
+
+        if (bondToken != address(0)) {
+            require(msg.value == 0, L1_INVALID_MSG_VALUE());
+            IERC20(bondToken).transferFrom(msg.sender, address(this), _amount);
+        } else {
+            require(msg.value == _amount, L1_INVALID_MSG_VALUE());
+        }
     }
 
     /// @dev Withdraws TAIKO tokens.
-    /// @param _state The current state of TaikoData.
+    /// @param _state Pointer to the protocol's storage.
     /// @param _resolver The address resolver interface.
     /// @param _amount The amount of tokens to withdraw.
     function withdrawBond(
@@ -62,11 +73,18 @@ library LibBonds {
     {
         emit BondWithdrawn(msg.sender, _amount);
         _state.bondBalance[msg.sender] -= _amount;
-        _tko(_resolver).transfer(msg.sender, _amount);
+
+        address bondToken = _bondToken(_resolver);
+
+        if (bondToken != address(0)) {
+            IERC20(bondToken).transfer(msg.sender, _amount);
+        } else {
+            LibAddress.sendEtherAndVerify(msg.sender, _amount);
+        }
     }
 
     /// @dev Gets a user's current TAIKO token bond balance.
-    /// @param _state The current state of TaikoData.
+    /// @param _state Pointer to the protocol's storage.
     /// @param _user The address of the user.
     /// @return The current token balance.
     function bondBalanceOf(
@@ -81,7 +99,7 @@ library LibBonds {
     }
 
     /// @dev Debits TAIKO tokens as bonds.
-    /// @param _state The current state of TaikoData.
+    /// @param _state Pointer to the protocol's storage.
     /// @param _resolver The address resolver interface.
     /// @param _user The address of the user to debit.
     /// @param _blockId The ID of the block to debit for.
@@ -104,13 +122,21 @@ library LibBonds {
             }
         } else {
             emit BondDeposited(msg.sender, _amount);
-            _tko(_resolver).transferFrom(_user, address(this), _amount);
+
+            address bondToken = _bondToken(_resolver);
+
+            if (bondToken != address(0)) {
+                IERC20(bondToken).transferFrom(_user, address(this), _amount);
+                require(msg.value == 0, L1_INVALID_MSG_VALUE());
+            } else {
+                require(msg.value == _amount, L1_INVALID_MSG_VALUE());
+            }
         }
         emit BondDebited(_user, _blockId, _amount);
     }
 
     /// @dev Credits TAIKO tokens to a user's bond balance.
-    /// @param _state The current state of TaikoData.
+    /// @param _state Pointer to the protocol's storage.
     /// @param _user The address of the user to credit.
     /// @param _blockId The ID of the block to credit for.
     /// @param _amount The amount of tokens to credit.
@@ -129,10 +155,11 @@ library LibBonds {
         emit BondCredited(_user, _blockId, _amount);
     }
 
-    /// @dev Resolves the TAIKO token address using the address resolver.
+    /// @dev Resolves the bond token address using the address resolver, returns address(0) if Ether
+    /// is used as bond asset.
     /// @param _resolver The address resolver interface.
-    /// @return tko_ The IERC20 interface of the TAIKO token.
-    function _tko(IAddressResolver _resolver) private view returns (IERC20) {
-        return IERC20(_resolver.resolve(LibStrings.B_TAIKO_TOKEN, false));
+    /// @return The IERC20 interface of the TAIKO token.
+    function _bondToken(IAddressResolver _resolver) private view returns (address) {
+        return _resolver.resolve(LibStrings.B_BOND_TOKEN, true);
     }
 }
