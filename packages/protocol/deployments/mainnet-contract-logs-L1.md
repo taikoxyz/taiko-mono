@@ -215,7 +215,7 @@
 
 - ens: `based.taiko.eth`
 - proxy: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`
-- impl: `0x4229d14F520848aa83760Cf748abEB8A69cdaB2d`
+- impl: `0xA3E75eDA1Be2114816f388A5cF53EbA142DCDB17`
 - owner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
@@ -234,6 +234,7 @@
   - Upgrade to `0xBA1d90BCfA74163bFE09e8eF609b346507D83231` @commit`bb2abc5` @tx`0x7d584f0a645cad61e634f64ffaf7e1bbfb92749878eb25b39ce0e5cf698897c7`
   - Upgrade to `0xf0E6d34937701622cA887a75c150cC23d4FFDf2F` @commit`b4f8547` @tx`0x8778064404816273804d74c97b051f3865bc03062cfa4b0e9567f4556ad31981`
   - Upgrade to `0x4229d14F520848aa83760Cf748abEB8A69cdaB2d` @commit`9345f14` @tx`0x13ea4d044a313cf667d16514465e6b96227ef7198bda7b19c70eefee44e9bccd`
+  - Upgrade to `0xA3E75eDA1Be2114816f388A5cF53EbA142DCDB17` @commit`ea0158f` @tx``
 
 #### tier_router
 
