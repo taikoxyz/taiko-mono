@@ -17,6 +17,7 @@
   html,
   body {
     height: 100%;
+    font-family: 'Inter', sans-serif;
   }
 
   body {
@@ -30,8 +31,6 @@
     right: 0;
     bottom: 0;
     left: 0;
-    background-image: url(/bg/grid-dark.svg), url(/bg/spotlights-dark.svg),
-      linear-gradient(270deg, #1f1f1f 0%, #000000 100%);
     /* No grid background by default */
     background-size: 0, cover, cover;
     background-blend-mode: color-dodge, lighten, multiply;
@@ -45,8 +44,6 @@
     right: 0;
     bottom: 0;
     left: 0;
-    background-image: url(/bg/grid-light.svg), url(/bg/spotlights-light.svg),
-      linear-gradient(270deg, #e2e2e2 0%, #fff 100%);
     /* No grid background by default */
     background-size: 0, cover, cover;
     background-blend-mode: color-dodge, color, hard-light;

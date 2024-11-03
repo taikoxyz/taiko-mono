@@ -1,2 +1,3 @@
 export { default as Logo } from './Logo.svelte';
-export { default as LogoWithText } from './LogoWithText.svelte';
+export { default as LogoWithTextDark } from './LogoWithTextDark.svelte';
+export { default as LogoWithTextLight } from './LogoWithTextLight.svelte';

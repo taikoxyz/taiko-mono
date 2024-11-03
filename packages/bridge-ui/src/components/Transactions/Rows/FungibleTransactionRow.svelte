@@ -90,7 +90,7 @@
 
   // Dynamic classes
   $: commonContainerClasses = classNames(
-    'flex text-primary-content md:h-[80px] h-[70px] w-full my-[5px] md:my-[0px] hover:bg-[#C8047D]/10 px-[14px] py-[10px] rounded-[10px]',
+    'flex text-primary-content md:h-[80px] h-[70px] w-full my-[5px] md:my-[0px] hover:bg-[#3D88FF]/[0.05] px-[14px] py-[10px] rounded-[10px]',
   );
   $: desktopContainerClasses = classNames(commonContainerClasses, 'items-center');
   $: tabletContainerClasses = classNames(commonContainerClasses, 'cursor-pointer');

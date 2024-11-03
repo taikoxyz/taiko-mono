@@ -195,6 +195,10 @@ export default {
 
         'divider-border': 'var(--divider-border)',
       },
+
+      backgroundColor: {
+        'custom-primary': 'var(--custom-bg-primary)',
+      },
     },
   },
 
@@ -216,16 +220,16 @@ export default {
           '--btn-text-case': 'capitalize',
           // '--rounded-box': '0.625rem', // 10px
 
-          '--primary-brand': '#C8047D', // pink-500
+          '--primary-brand': '#2A35BD', //Puffer secondary color
           '--primary-content': '#F3F3F3', // grey-10
-          '--primary-link': '#FF6FC8', // pink-200
-          '--primary-link-hover': '#FFC6E9', // pink-50
+          '--primary-link': '#2A35BD', //Puffer secondary color
+          '--primary-link-hover': '#2A35BD', //Puffer secondary color
           '--primary-icon': '#CACBCE', // grey-100
           '--primary-background': '#0B101B', // grey-900
-          '--primary-interactive': '#C8047D', // pink-500
-          '--primary-interactive-accent': '#E81899', // pink-400
-          '--primary-interactive-hover': '#E81899', // pink-400
-          '--primary-border-hover': '#FF6FC8', // pink-200
+          '--primary-interactive': '#2A35BD', //Puffer secondary color
+          '--primary-interactive-accent': '#5653eb', //Puffer secondary color
+          '--primary-interactive-hover': '#2A35BD', //Puffer secondary color
+          '--primary-border-hover': '#2A35BD', //Puffer secondary color
           '--primary-border-dark': '#5D636F', // grey-500
           '--primary-border-accent': '#E81899', // pink-400
           '--primary-base-background': '#FFFFFF', // grey-0
@@ -239,7 +243,7 @@ export default {
           '--secondary-interactive-hover': '#ADB1B8', // grey-200
 
           '--tertiary-content': '#5D636F', // grey-500
-          '--tertiary-interactive-accent': '#5D636F', // grey-500
+          '--tertiary-interactive-accent': '#3D88FF0D', // grey-500
           '--tertiary-interactive-hover': '#444A55', // grey-600
 
           '--positive-sentiment': '#47E0A0', // green-300
@@ -260,18 +264,18 @@ export default {
           '--neutral-accent': '#2B303B', // grey-700
           '--overlay-background': 'rgba(12, 17, 28, 0.5)', // grey-900|50%
           '--overlay-dialog': 'rgba(12, 17, 28, 0.90)', // grey-900|90%
-          '--divider-border': '#444A55', // grey-600
+          '--divider-border': '#232B74', // grey-600
 
           '--dialog-background': '#2B303B', // grey-700
           '--dialog-dialog-interactive-disabled': '#444A55', // grey-600
 
           // ================================ //
 
-          primary: '#C8047D', // pink-500,
+          primary: '#2A35BD', //Puffer secondary color
           'primary-focus': '#E81899', // pink-400
           'primary-content': '#F3F3F3', // grey-10
 
-          secondary: '#E81899', // pink-400
+          secondary: '#2A35BD', //Puffer secondary color
           // 'secondary-focus': '',
           'secondary-content': '#ADB1B8', // grey-200
 
@@ -290,22 +294,25 @@ export default {
           'error-content': '#F15C5D', // red-300
           warning: '#382800', // yellow-800
           'warning-content': '#EBB222', // yellow-400
+
+          // Add your custom background colors for dark theme
+          '--custom-bg-primary': '##0E152E',
         },
 
         light: {
           'color-scheme': 'light',
           '--btn-text-case': 'capitalize',
 
-          '--primary-brand': '#C8047D', // pink-500
+          '--primary-brand': '#2A35BD', //Puffer secondary color
           '--primary-content': '#191E28', // grey-800
-          '--primary-link': '#C8047D', // pink-500
-          '--primary-link-hover': '#E81899', // pink-400
+          '--primary-link': '#2A35BD', //Puffer secondary color
+          '--primary-link-hover': '#2A35BD', //Puffer secondary color
           '--primary-icon': '#5D636F', // grey-500
           '--primary-background': '#FAFAFA', // grey-5
-          '--primary-interactive': '#C8047D', // pink-500
-          '--primary-interactive-accent': '#E81899', // pink-400
-          '--primary-interactive-hover': '#E3E3E3', //grey-50
-          '--primary-border-hover': '#FF6FC8', // pink-200
+          '--primary-interactive': '#2A35BD', //Puffer secondary color
+          '--primary-interactive-accent': '#5653eb', //Puffer secondary color
+          '--primary-interactive-hover': '#2A35BD', //Puffer secondary color
+          '--primary-border-hover': '#2A35BD', //Puffer secondary color
           '--primary-border-accent': '#E81899', // pink-400
 
           // TODO: these two are yet to be decided
@@ -313,7 +320,8 @@ export default {
           '--primary-base-content': '#191E28', // grey-800
 
           '--secondary-brand': '#E81899', // pink-400
-          '--secondary-content': '#444A55', // grey-600
+          '--secondary-content': '#424242', // grey-600
+
           '--secondary-icon': '#2B303B', // grey-700
           '--secondary-interactive-accent': '#E3E3E3', // grey-50
           '--secondary-interactive-hover': '##F3F3F3', // grey-10
@@ -322,7 +330,7 @@ export default {
 
           // TODO: these two are missing. Remain the same as dark theme
           '--tertiary-interactive-hover': '#444A55', // grey-600
-          '--tertiary-interactive-accent': '#5D636F', // grey-500
+          '--tertiary-interactive-accent': '#3D88FF0D', // grey-500
 
           '--positive-sentiment': '#005E36', // green-700
           '--positive-background': '#BFFFE4', // green-50
@@ -343,11 +351,11 @@ export default {
           '--dialog-background': '#FFFFFF', // grey-0
           '--dialog-dialog-interactive-disabled': '#E3E3E3', // grey-50
 
-          '--divider-border': '#CACBCE', // grey-100
+          '--divider-border': '#E5EEF7',
 
           // ================================ //
 
-          primary: '#C8047D', // pink-500,
+          primary: '#2A35BD', //Puffer secondary color
           'primary-focus': '#E81899', // pink-400
           'primary-content': '#191E28', // grey-800
 
@@ -370,6 +378,9 @@ export default {
           'error-content': '#BB1A1B', // red-600
           warning: '#FFF6DE', // yellow-10
           'warning-content': '#775602', // yellow-700
+
+          // Add your custom background colors for light theme
+          '--custom-bg-primary': '#3D88FF0D', // 5% opacity of #3D88FF
         },
       },
     ],

@@ -10,7 +10,7 @@
     md:border-divider-border
     md:glassy-gradient-card
     dark:md:dark-glass-background-gradient
-    light:md:light-glass-background-gradient
+    md:light-glass-background-gradient
     `;
 
   export let title: string = '';

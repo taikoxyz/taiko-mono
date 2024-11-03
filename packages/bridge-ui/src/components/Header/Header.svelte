@@ -3,12 +3,13 @@
   import BridgeTabs from '$components/Bridge/BridgeTabs.svelte';
   import { ConnectButton } from '$components/ConnectButton';
   import { IconFlipper } from '$components/Icon';
-  import LogoWithText from '$components/Logo/LogoWithText.svelte';
+  import LogoWithTextDark from '$components/Logo/LogoWithTextDark.svelte';
+  import LogoWithTextLight from '$components/Logo/LogoWithTextLight.svelte';
   import { drawerToggleId } from '$components/SideNavigation';
   import { ThemeButton } from '$components/ThemeButton';
   import { account } from '$stores/account';
-
   export let sideBarOpen = false;
+  import { theme } from '$stores/theme';
 
   const handleSideBarOpen = () => {
     sideBarOpen = !sideBarOpen;
@@ -37,7 +38,11 @@
  ">
   <div class="flex justify-between items-center w-full">
     <div class="lg:w-[226px] w-auto">
-      <LogoWithText class="md:w-[125px] w-[77px]" />
+      {#if $theme === 'light'}
+        <LogoWithTextLight />
+      {:else}
+        <LogoWithTextDark />
+      {/if}
     </div>
 
     {#if isBridgePage || isTransactionsPage}

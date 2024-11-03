@@ -4,7 +4,7 @@
 </script>
 
 <svelte:head>
-  <title>Taiko Bridge | Faucet</title>
+  <title>Puffer Bridge | Faucet</title>
 </svelte:head>
 <Page>
   <Faucet />

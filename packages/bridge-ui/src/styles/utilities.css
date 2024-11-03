@@ -30,7 +30,7 @@
   }
 
   .light-glass-background-gradient {
-    background: linear-gradient(226deg, rgba(250, 250, 250, 0.9) 1.26%, rgba(250, 249, 249, 0.9) 100%);
+    background: #fff;
   }
 
   /* Flex shortcuts */

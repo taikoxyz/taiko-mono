@@ -79,11 +79,11 @@
     
     /* hover:border-2 */
     /* hover:border-primary-border-hover */
-    enabled:hover:shadow-[0_0_0_2px_#FF6FC8] 
+    enabled:hover:shadow-[0_0_0_2px_#5653eb] 
     
     /* focus:border-[3px] */
     /* focus:border-primary-border-accent */
-    focus:!shadow-[0_0_0_3px_#E81899];
+    focus:!shadow-[0_0_0_3px_#5653eb];
   }
 
   .input-box.withValdiation {
@@ -159,11 +159,9 @@
       rounded-full 
       bg-transparent 
 
-      /* primary-interactive[#C8047D => pink-500] */
-      shadow-[0_0_0_1px_#C8047D]
+      shadow-[0_0_0_1px_#232B74]
 
-      /* primary-interactive-accent[#E81899 => pink-400] */
-      hover:shadow-[0_0_0_2px_#E81899];
+      hover:shadow-[0_0_0_2px_#232B74];
   }
 
   /* Other components */
@@ -199,7 +197,7 @@
     color: var(--primary-content);
     text-align: center;
     /* Title Section/Bold */
-    font-family: 'Clash Grotesk', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: 26px;
     font-style: normal;
     font-weight: 600;
@@ -209,7 +207,7 @@
 
   h2 {
     color: var(--primary-content);
-    font-family: 'Clash Grotesk', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: 18px;
     font-style: normal;
     font-weight: 600;

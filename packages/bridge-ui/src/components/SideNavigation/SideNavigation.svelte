@@ -11,12 +11,7 @@
   import { Icon } from '$components/Icon';
   import { LinkButton } from '$components/LinkButton';
   import { ThemeButton } from '$components/ThemeButton';
-  import {
-    PUBLIC_DEFAULT_EXPLORER,
-    PUBLIC_DEFAULT_SWAP_URL,
-    PUBLIC_GUIDE_URL,
-    PUBLIC_TESTNET_NAME,
-  } from '$env/static/public';
+  import { PUBLIC_DEFAULT_EXPLORER, PUBLIC_GUIDE_URL, PUBLIC_TESTNET_NAME } from '$env/static/public';
   import { connectedSourceChain } from '$stores/network';
 
   let testnetName = PUBLIC_TESTNET_NAME || '';
@@ -93,14 +88,7 @@
                 <span>{$t('nav.transactions')}</span>
               </LinkButton>
             </li>
-            {#if PUBLIC_DEFAULT_SWAP_URL && PUBLIC_DEFAULT_SWAP_URL !== ''}
-              <li class="border-t border-t-divider-border pt-2">
-                <LinkButton href={PUBLIC_DEFAULT_SWAP_URL} external>
-                  <Icon type="swap" />
-                  <span>{$t('nav.swap')}</span>
-                </LinkButton>
-              </li>
-            {/if}
+
             <li>
               <LinkButton
                 href={$connectedSourceChain

@@ -28,8 +28,9 @@ input[type='number'] {
 .btn.btn-disabled,
 .btn[disabled],
 .btn:disabled {
+  background-color: var(--primary-interactive);
+  opacity: 0.6;
   --tw-border-opacity: 1;
-  --tw-bg-opacity: 1;
   --tw-text-opacity: 1;
   @apply text-tertiary-content;
 }
