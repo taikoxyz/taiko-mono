@@ -32,6 +32,9 @@ func (s *Syncer) InsertSoftBlockFromTransactionsBatch(
 	batchMarker softblocks.TransactionBatchMarker,
 	blockParams *softblocks.SoftBlockParams,
 ) (*types.Header, error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	parent, err := s.rpc.L2.HeaderByNumber(ctx, new(big.Int).Sub(new(big.Int).SetUint64(blockID), common.Big1))
 	if err != nil {
 		return nil, err

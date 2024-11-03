@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
@@ -48,6 +49,7 @@ type Syncer struct {
 	reorgDetectedFlag   bool
 	maxRetrieveExponent uint64
 	blobDatasource      *rpc.BlobDataSource
+	mutex               *sync.Mutex
 }
 
 // NewSyncer creates a new syncer instance.
@@ -88,12 +90,15 @@ func NewSyncer(
 			blobServerEndpoint,
 			socialScanEndpoint,
 		),
+		mutex: new(sync.Mutex),
 	}, nil
 }
 
 // ProcessL1Blocks fetches all `TaikoL1.BlockProposed` events between given
 // L1 block heights, and then tries inserting them into L2 execution engine's blockchain.
 func (s *Syncer) ProcessL1Blocks(ctx context.Context) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	for {
 		if err := s.processL1Blocks(ctx); err != nil {
 			return err

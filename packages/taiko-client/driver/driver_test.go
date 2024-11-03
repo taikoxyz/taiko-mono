@@ -445,6 +445,9 @@ func (s *DriverTestSuite) TestInsertSoftBlocks() {
 		Post(url.String() + "/softBlocks")
 	s.Nil(err)
 	s.True(res.IsSuccess())
+
+	// Propose a valid L2 block
+	s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().BlobSyncer())
 }
 
 func TestDriverTestSuite(t *testing.T) {
