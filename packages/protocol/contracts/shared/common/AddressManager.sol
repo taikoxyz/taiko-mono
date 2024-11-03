@@ -48,7 +48,7 @@ contract AddressManager is EssentialContract, IAddressManager {
         onlyOwner
     {
         address oldAddress = __addresses[_chainId][_name];
-        if (_newAddress == oldAddress) revert AM_ADDRESS_ALREADY_SET();
+        require(_newAddress != oldAddress, AM_ADDRESS_ALREADY_SET());
         __addresses[_chainId][_name] = _newAddress;
         emit AddressSet(_chainId, _name, _newAddress, oldAddress);
     }

@@ -3,6 +3,7 @@ package encoding
 import (
 	"errors"
 	"fmt"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/log"
@@ -444,7 +445,7 @@ func UnpackTxListBytes(txData []byte) ([]byte, error) {
 	}
 
 	// Only check for safety.
-	if method.Name != "proposeBlock" {
+	if method.Name != "proposeBlock" && method.Name != "proposeBlockV2" {
 		return nil, fmt.Errorf("invalid method name: %s", method.Name)
 	}
 
@@ -461,4 +462,14 @@ func UnpackTxListBytes(txData []byte) ([]byte, error) {
 	}
 
 	return inputs, nil
+}
+
+// EncodeBaseFeeConfig encodes the block.extraData field from the given base fee config.
+func EncodeBaseFeeConfig(baseFeeConfig *bindings.LibSharedDataBaseFeeConfig) [32]byte {
+	var (
+		bytes32Value [32]byte
+		uintValue    = new(big.Int).SetUint64(uint64(baseFeeConfig.SharingPctg))
+	)
+	copy(bytes32Value[32-len(uintValue.Bytes()):], uintValue.Bytes())
+	return bytes32Value
 }

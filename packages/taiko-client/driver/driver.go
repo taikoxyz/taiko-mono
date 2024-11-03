@@ -15,7 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	chainSyncer "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer"
 	softblocks "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/soft_blocks"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
@@ -198,9 +197,15 @@ func (d *Driver) ChainSyncer() *chainSyncer.L2ChainSyncer {
 
 // reportProtocolStatus reports some protocol status intervally.
 func (d *Driver) reportProtocolStatus() {
+	protocolConfigs, err := rpc.GetProtocolConfigs(d.rpc.TaikoL1, &bind.CallOpts{Context: d.ctx})
+	if err != nil {
+		log.Error("Failed to get protocol configs", "error", err)
+		return
+	}
+
 	var (
 		ticker       = time.NewTicker(protocolStatusReportInterval)
-		maxNumBlocks = encoding.GetProtocolConfig(d.rpc.L2.ChainID.Uint64()).BlockMaxProposals
+		maxNumBlocks = protocolConfigs.BlockMaxProposals
 	)
 	d.wg.Add(1)
 

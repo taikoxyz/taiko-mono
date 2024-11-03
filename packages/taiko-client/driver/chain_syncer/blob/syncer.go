@@ -21,7 +21,6 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
@@ -66,6 +65,11 @@ func NewSyncer(
 		return nil, fmt.Errorf("failed to initialize anchor constructor: %w", err)
 	}
 
+	protocolConfigs, err := rpc.GetProtocolConfigs(client.TaikoL1, &bind.CallOpts{Context: ctx})
+	if err != nil {
+		return nil, err
+	}
+
 	return &Syncer{
 		ctx:               ctx,
 		rpc:               client,
@@ -73,7 +77,7 @@ func NewSyncer(
 		progressTracker:   progressTracker,
 		anchorConstructor: constructor,
 		txListDecompressor: txListDecompressor.NewTxListDecompressor(
-			uint64(encoding.GetProtocolConfig(client.L2.ChainID.Uint64()).BlockMaxGasLimit),
+			uint64(protocolConfigs.BlockMaxGasLimit),
 			rpc.BlockMaxTxListBytes,
 			client.L2.ChainID,
 		),
