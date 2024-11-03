@@ -13,5 +13,5 @@ cd ../protocol &&
     -vvvvv \
     --evm-version cancun \
     --private-key "$PRIVATE_KEY" \
-    --block-gas-limit 100000000 \
+    --block-gas-limit 200000000 \
     --legacy
