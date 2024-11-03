@@ -33,7 +33,7 @@ library LibVerifying {
     /// @dev Verifies up to N blocks.
     /// @param _state Pointer to the protocol's storage.
     /// @param _config The protocol's configuration.
-    /// @param _resolver The address resolver interface.
+    /// @param _resolver The address resolver.
     /// @param _maxBlocksToVerify The maximum number of blocks to verify.
     function verifyBlocks(
         TaikoData.State storage _state,

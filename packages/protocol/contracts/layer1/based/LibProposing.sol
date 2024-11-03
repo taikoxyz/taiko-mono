@@ -48,7 +48,7 @@ library LibProposing {
     /// @dev Proposes multiple Taiko L2 blocks.
     /// @param _state Pointer to the protocol's storage.
     /// @param _config The configuration parameters for the Taiko protocol.
-    /// @param _resolver The address resolver interface.
+    /// @param _resolver The address resolver.
     /// @param _paramsArr An array of encoded data bytes containing the block parameters.
     /// @param _txListArr An array of transaction list bytes (if not blob).
     /// @return metas_ An array of metadata objects for the proposed L2 blocks (version 2).
@@ -84,7 +84,7 @@ library LibProposing {
     /// @dev Proposes a single Taiko L2 block.
     /// @param _state Pointer to the protocol's storage.
     /// @param _config The configuration parameters for the Taiko protocol.
-    /// @param _resolver The address resolver interface.
+    /// @param _resolver The address resolver.
     /// @param _params Encoded data bytes containing the block parameters.
     /// @param _txList Transaction list bytes (if not blob).
     /// @return meta_ The metadata of the proposed block (version 2).
@@ -110,7 +110,7 @@ library LibProposing {
     /// @dev Proposes a single Taiko L2 block.
     /// @param _state Pointer to the protocol's storage.
     /// @param _config The configuration parameters for the Taiko protocol.
-    /// @param _resolver The address resolver interface.
+    /// @param _resolver The address resolver.
     /// @param _params Encoded data bytes containing the block parameters.
     /// @param _txList Transaction list bytes (if not blob).
     /// @return meta_ The metadata of the proposed block (version 2).
