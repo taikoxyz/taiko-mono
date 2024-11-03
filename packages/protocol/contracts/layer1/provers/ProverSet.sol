@@ -82,7 +82,7 @@ contract ProverSet is EssentialContract, IERC1271 {
         LibAddress.sendEtherAndVerify(admin, _amount);
     }
 
-/// @notice Proposes a block only when it is the first block proposal in the current L1 block.
+    /// @notice Proposes a block only when it is the first block proposal in the current L1 block.
     function proposeBlockV2Conditionally(
         bytes calldata _params,
         bytes calldata _txList
