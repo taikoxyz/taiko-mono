@@ -66,9 +66,8 @@ contract ProverSet is EssentialContract, IERC1271 {
 
     function approveAllowance(address _address, uint256 _allowance) external onlyOwner {
         address _bondToken = bondToken();
-        if (_bondToken != address(0)) {
-            IERC20(_bondToken).approve(_address, _allowance);
-        }
+        require(_bondToken != address(0), INVALID_BOND_TOKEN());
+        IERC20(_bondToken).approve(_address, _allowance);
     }
 
     /// @notice Enables or disables a prover.
