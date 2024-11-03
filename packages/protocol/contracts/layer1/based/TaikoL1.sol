@@ -207,7 +207,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         view
         returns (TaikoData.TransitionState memory)
     {
-        return LibUtils.getTransition(state, getConfig(), _blockId, _parentHash);
+        return LibUtils.getTransitionByParentHash(state, getConfig(), _blockId, _parentHash);
     }
 
     /// @notice Gets the state transitions for a batch of block. For transition that doesn't exist,
@@ -236,8 +236,9 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         view
         returns (TaikoData.TransitionState memory)
     {
-        return
-            LibUtils.getTransition(state, getConfig(), _blockId, SafeCastUpgradeable.toUint24(_tid));
+        return LibUtils.getTransitionById(
+            state, getConfig(), _blockId, SafeCastUpgradeable.toUint24(_tid)
+        );
     }
 
     /// @notice Returns information about the last verified block.

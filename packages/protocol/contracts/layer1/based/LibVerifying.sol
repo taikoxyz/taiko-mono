@@ -193,6 +193,6 @@ library LibVerifying {
         uint24 tid = blk.verifiedTransitionId;
         if (tid == 0) return address(0);
 
-        return LibUtils.getTransition(_state, _config, _blockId, tid).prover;
+        return LibUtils.getTransitionById(_state, _config, _blockId, tid).prover;
     }
 }

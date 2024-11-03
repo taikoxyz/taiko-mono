@@ -42,7 +42,7 @@ library LibBonds {
         IAddressResolver _resolver,
         uint256 _amount
     )
-        internal
+        public
     {
         emit BondDeposited(msg.sender, _amount);
         _state.bondBalance[msg.sender] += _amount;
@@ -58,11 +58,26 @@ library LibBonds {
         IAddressResolver _resolver,
         uint256 _amount
     )
-        internal
+        public
     {
         emit BondWithdrawn(msg.sender, _amount);
         _state.bondBalance[msg.sender] -= _amount;
         _tko(_resolver).transfer(msg.sender, _amount);
+    }
+
+    /// @dev Gets a user's current TAIKO token bond balance.
+    /// @param _state The current state of TaikoData.
+    /// @param _user The address of the user.
+    /// @return The current token balance.
+    function bondBalanceOf(
+        TaikoData.State storage _state,
+        address _user
+    )
+        public
+        view
+        returns (uint256)
+    {
+        return _state.bondBalance[_user];
     }
 
     /// @dev Debits TAIKO tokens as bonds.
@@ -112,21 +127,6 @@ library LibBonds {
             _state.bondBalance[_user] += _amount;
         }
         emit BondCredited(_user, _blockId, _amount);
-    }
-
-    /// @dev Gets a user's current TAIKO token bond balance.
-    /// @param _state The current state of TaikoData.
-    /// @param _user The address of the user.
-    /// @return The current token balance.
-    function bondBalanceOf(
-        TaikoData.State storage _state,
-        address _user
-    )
-        internal
-        view
-        returns (uint256)
-    {
-        return _state.bondBalance[_user];
     }
 
     /// @dev Resolves the TAIKO token address using the address resolver.
