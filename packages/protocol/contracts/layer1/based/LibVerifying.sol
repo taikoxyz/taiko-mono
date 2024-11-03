@@ -153,7 +153,7 @@ library LibVerifying {
 
                 if (local.syncStateRoot != 0) {
                     _state.slotA.lastSyncedBlockId = local.syncBlockId;
-                    _state.slotA.lastSynecdAt = uint64(block.timestamp);
+                    _state.slotA.lastSyncedAt = uint64(block.timestamp);
 
                     // We write the synced block's verifiedTransitionId to storage
                     if (local.syncBlockId != lastVerifiedBlockId) {

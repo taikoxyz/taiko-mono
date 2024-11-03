@@ -186,7 +186,7 @@ library LibProposing {
         require(local.params.anchorBlockId < block.number, L1_INVALID_ANCHOR_BLOCK());
 
         // parentBlk.proposedIn is actually parent's params.anchorBlockId
-        require(local.params.anchorBlockId >= parentBlk.proposedIn, L1_INVALID_ANCHOR_BLOCK());
+        require(local.params.anchorBlockId >= parentBlk.anchorBlockId, L1_INVALID_ANCHOR_BLOCK());
 
         // Verify the provided timestamp to anchor. Note that local.params.anchorBlockId and
         // local.params.timestamp may not correspond to the same L1 block.
@@ -198,7 +198,7 @@ library LibProposing {
         require(local.params.timestamp <= block.timestamp, L1_INVALID_TIMESTAMP());
 
         // parentBlk.proposedAt is actually parent's params.timestamp
-        require(local.params.timestamp >= parentBlk.proposedAt, L1_INVALID_TIMESTAMP());
+        require(local.params.timestamp >= parentBlk.timestamp, L1_INVALID_TIMESTAMP());
 
         // Check if parent block has the right meta hash. This is to allow the proposer to make sure
         // the block builds on the expected latest chain state.
@@ -263,8 +263,8 @@ library LibProposing {
             assignedProver: address(0),
             livenessBond: 0,
             blockId: local.b.numBlocks,
-            proposedAt: local.params.timestamp, // = params.timestamp post Ontake
-            proposedIn: local.params.anchorBlockId, // = params.anchorBlockId post Ontake
+            timestamp: local.params.timestamp,
+            anchorBlockId: local.params.anchorBlockId,
             nextTransitionId: 1, // For a new block, the next transition ID is always 1, not 0.
             livenessBondReturned: false,
             // For unverified block, its verifiedTransitionId is always 0.
