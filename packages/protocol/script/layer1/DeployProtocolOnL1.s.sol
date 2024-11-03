@@ -340,7 +340,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             data: abi.encodeCall(GuardianProver.init, (address(0), rollupAddressManager))
         });
 
-        GuardianProver(guardianProverMinority).enableTaikoTokenAllowance(true);
+        GuardianProver(guardianProverMinority).enableBondAllowance(true);
 
         address guardianProver = deployProxy({
             name: "guardian_prover",
