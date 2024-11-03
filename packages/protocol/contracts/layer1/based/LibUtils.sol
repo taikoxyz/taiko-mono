@@ -36,7 +36,7 @@ library LibUtils {
     /// @dev Initializes the Taiko protocol state.
     /// @param _state The state to initialize.
     /// @param _genesisBlockHash The block hash of the genesis block.
-    function init(TaikoData.State storage _state, bytes32 _genesisBlockHash) internal {
+    function init(TaikoData.State storage _state, bytes32 _genesisBlockHash) public {
         require(_genesisBlockHash != 0, L1_INVALID_GENESIS_HASH());
         // Init state
         _state.slotA.genesisHeight = uint64(block.number);
@@ -65,6 +65,88 @@ library LibUtils {
         });
     }
 
+    /// @dev Retrieves a block's block hash and state root.
+    /// @param _state Current TaikoData.State.
+    /// @param _config Actual TaikoData.Config.
+    /// @param _blockId Id of the block.
+    /// @return blockHash_ The block's block hash.
+    /// @return stateRoot_ The block's storage root.
+    /// @return verifiedAt_ The timestamp when the block was proven at.
+    function getBlockInfo(
+        TaikoData.State storage _state,
+        TaikoData.Config memory _config,
+        uint64 _blockId
+    )
+        public
+        view
+        returns (bytes32 blockHash_, bytes32 stateRoot_, uint64 verifiedAt_)
+    {
+        (TaikoData.BlockV2 storage blk, uint64 slot) = getBlock(_state, _config, _blockId);
+
+        if (blk.verifiedTransitionId != 0) {
+            TaikoData.TransitionState storage transition =
+                _state.transitions[slot][blk.verifiedTransitionId];
+
+            blockHash_ = transition.blockHash;
+            stateRoot_ = transition.stateRoot;
+            verifiedAt_ = transition.timestamp;
+        }
+    }
+
+    /// @dev Gets the state transitions for a batch of block. For transition that doesn't exist, the
+    /// corresponding transition state will be empty.
+    /// @param _state Current TaikoData.State.
+    /// @param _config Actual TaikoData.Config.
+    /// @param _blockIds Id array of the blocks.
+    /// @param _parentHashes Parent hashes of the blocks.
+    /// @return transitions_ The state transition pointer array.
+    function getTransitions(
+        TaikoData.State storage _state,
+        TaikoData.Config memory _config,
+        uint64[] calldata _blockIds,
+        bytes32[] calldata _parentHashes
+    )
+        public
+        view
+        returns (TaikoData.TransitionState[] memory transitions_)
+    {
+        require(_blockIds.length != 0, L1_INVALID_PARAMS());
+        require(_blockIds.length == _parentHashes.length, L1_INVALID_PARAMS());
+        transitions_ = new TaikoData.TransitionState[](_blockIds.length);
+        for (uint256 i; i < _blockIds.length; ++i) {
+            (TaikoData.BlockV2 storage blk, uint64 slot) = getBlock(_state, _config, _blockIds[i]);
+            uint24 tid = getTransitionId(_state, blk, slot, _parentHashes[i]);
+            if (tid != 0) {
+                transitions_[i] = _state.transitions[slot][tid];
+            }
+        }
+    }
+
+    /// @dev Retrieves the transition with a given parentHash.
+    /// @dev This function will revert if the transition is not found.
+    /// @param _state Current TaikoData.State.
+    /// @param _config Actual TaikoData.Config.
+    /// @param _blockId Id of the block.
+    /// @param _parentHash Parent hash of the block.
+    /// @return The state transition pointer.
+    function getTransitionByParentHash(
+        TaikoData.State storage _state,
+        TaikoData.Config memory _config,
+        uint64 _blockId,
+        bytes32 _parentHash
+    )
+        public
+        view
+        returns (TaikoData.TransitionState storage)
+    {
+        (TaikoData.BlockV2 storage blk, uint64 slot) = getBlock(_state, _config, _blockId);
+
+        uint24 tid = getTransitionId(_state, blk, slot, _parentHash);
+        require(tid != 0, L1_TRANSITION_NOT_FOUND());
+
+        return _state.transitions[slot][tid];
+    }
+
     /// @dev Retrieves a block based on its ID.
     /// @param _state Current TaikoData.State.
     /// @param _config Actual TaikoData.Config.
@@ -85,34 +167,6 @@ library LibUtils {
         require(blk_.blockId == _blockId, L1_INVALID_BLOCK_ID());
     }
 
-    /// @dev Retrieves a block's block hash and state root.
-    /// @param _state Current TaikoData.State.
-    /// @param _config Actual TaikoData.Config.
-    /// @param _blockId Id of the block.
-    /// @return blockHash_ The block's block hash.
-    /// @return stateRoot_ The block's storage root.
-    /// @return verifiedAt_ The timestamp when the block was verified.
-    function getBlockInfo(
-        TaikoData.State storage _state,
-        TaikoData.Config memory _config,
-        uint64 _blockId
-    )
-        internal
-        view
-        returns (bytes32 blockHash_, bytes32 stateRoot_, uint64 verifiedAt_)
-    {
-        (TaikoData.BlockV2 storage blk, uint64 slot) = getBlock(_state, _config, _blockId);
-
-        if (blk.verifiedTransitionId != 0) {
-            TaikoData.TransitionState storage transition =
-                _state.transitions[slot][blk.verifiedTransitionId];
-
-            blockHash_ = transition.blockHash;
-            stateRoot_ = transition.stateRoot;
-            verifiedAt_ = transition.timestamp;
-        }
-    }
-
     /// @dev Retrieves the transition with a transition ID.
     /// @dev This function will revert if the transition is not found.
     /// @param _state Current TaikoData.State.
@@ -120,7 +174,7 @@ library LibUtils {
     /// @param _blockId Id of the block.
     /// @param _tid The transition id.
     /// @return The state transition pointer.
-    function getTransition(
+    function getTransitionById(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
         uint64 _blockId,
@@ -135,60 +189,6 @@ library LibUtils {
         require(_tid != 0, L1_TRANSITION_NOT_FOUND());
         require(_tid < blk.nextTransitionId, L1_TRANSITION_NOT_FOUND());
         return _state.transitions[slot][_tid];
-    }
-
-    /// @dev Retrieves the transition with a given parentHash.
-    /// @dev This function will revert if the transition is not found.
-    /// @param _state Current TaikoData.State.
-    /// @param _config Actual TaikoData.Config.
-    /// @param _blockId Id of the block.
-    /// @param _parentHash Parent hash of the block.
-    /// @return The state transition pointer.
-    function getTransition(
-        TaikoData.State storage _state,
-        TaikoData.Config memory _config,
-        uint64 _blockId,
-        bytes32 _parentHash
-    )
-        internal
-        view
-        returns (TaikoData.TransitionState storage)
-    {
-        (TaikoData.BlockV2 storage blk, uint64 slot) = getBlock(_state, _config, _blockId);
-
-        uint24 tid = getTransitionId(_state, blk, slot, _parentHash);
-        require(tid != 0, L1_TRANSITION_NOT_FOUND());
-
-        return _state.transitions[slot][tid];
-    }
-
-    /// @dev Gets the state transitions for a batch of block. For transition that doesn't exist, the
-    /// corresponding transition state will be empty.
-    /// @param _state Current TaikoData.State.
-    /// @param _config Actual TaikoData.Config.
-    /// @param _blockIds Id array of the blocks.
-    /// @param _parentHashes Parent hashes of the blocks.
-    /// @return transitions_ The state transition pointer array.
-    function getTransitions(
-        TaikoData.State storage _state,
-        TaikoData.Config memory _config,
-        uint64[] calldata _blockIds,
-        bytes32[] calldata _parentHashes
-    )
-        internal
-        view
-        returns (TaikoData.TransitionState[] memory transitions_)
-    {
-        require(_blockIds.length != 0, L1_INVALID_PARAMS());
-        require(_blockIds.length == _parentHashes.length, L1_INVALID_PARAMS());
-        transitions_ = new TaikoData.TransitionState[](_blockIds.length);
-        for (uint256 i; i < _blockIds.length; ++i) {
-            (TaikoData.BlockV2 storage blk, uint64 slot) = getBlock(_state, _config, _blockIds[i]);
-            uint24 tid = getTransitionId(_state, blk, slot, _parentHashes[i]);
-            if (tid != 0) {
-                transitions_[i] = _state.transitions[slot][tid];
-            }
-        }
     }
 
     /// @dev Retrieves the ID of the transition with a given parentHash. This function will return 0

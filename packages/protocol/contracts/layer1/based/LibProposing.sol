@@ -59,7 +59,7 @@ library LibProposing {
         bytes[] calldata _paramsArr,
         bytes[] calldata _txListArr
     )
-        public
+        internal
         returns (TaikoData.BlockMetadataV2[] memory metas_)
     {
         if (_paramsArr.length == 0 || _paramsArr.length != _txListArr.length) {
@@ -95,7 +95,7 @@ library LibProposing {
         bytes calldata _params,
         bytes calldata _txList
     )
-        public
+        internal
         returns (TaikoData.BlockMetadataV2 memory meta_)
     {
         meta_ = _proposeBlock(_state, _config, _resolver, _params, _txList);

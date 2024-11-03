@@ -12,7 +12,7 @@ library LibData {
     /// @param _v2 The BlockV2 struct to convert.
     /// @return The converted Block struct.
     function blockV2ToV1(TaikoData.BlockV2 memory _v2)
-        internal
+        public
         pure
         returns (TaikoData.Block memory)
     {

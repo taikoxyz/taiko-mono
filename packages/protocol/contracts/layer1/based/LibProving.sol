@@ -82,7 +82,7 @@ library LibProving {
     /// @dev Pauses or unpauses the proving process.
     /// @param _state Current TaikoData.State.
     /// @param _pause The pause status.
-    function pauseProving(TaikoData.State storage _state, bool _pause) internal {
+    function pauseProving(TaikoData.State storage _state, bool _pause) public {
         require(_state.slotB.provingPaused != _pause, L1_INVALID_PAUSE_STATUS());
         _state.slotB.provingPaused = _pause;
 
@@ -110,7 +110,7 @@ library LibProving {
         bytes[] calldata _inputs,
         bytes calldata _batchProof
     )
-        public
+        public // Will reach contract size limit if changed to `internal`
     {
         require(_blockIds.length != 0, L1_INVALID_PARAMS());
         require(_blockIds.length == _inputs.length, L1_INVALID_PARAMS());
@@ -166,7 +166,7 @@ library LibProving {
         uint64 _blockId,
         bytes calldata _input
     )
-        public
+        public // Will reach contract size limit if changed to `internal`
     {
         TaikoData.TierProof memory noBatchProof;
         _proveBlock(_state, _config, _resolver, _blockId, _input, noBatchProof);

@@ -34,7 +34,7 @@ contract RollupAddressCache is AddressCache {
             return (true, 0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a);
         }
         if (_name == LibStrings.B_TIER_ROUTER) {
-            return (true, 0x2Ae89453c6c79Add793db7B9d23c275b90C26065);
+            return (true, 0x8f1C1D58C858e9a9eeCc587d7D51AECfd16b5542);
         }
         if (_name == LibStrings.B_TIER_SGX) {
             return (true, 0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81);

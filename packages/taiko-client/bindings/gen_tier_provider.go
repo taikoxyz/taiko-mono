@@ -31,17 +31,16 @@ var (
 
 // ITierProviderTier is an auto generated low-level Go binding around an user-defined struct.
 type ITierProviderTier struct {
-	VerifierName              [32]byte
-	ValidityBond              *big.Int
-	ContestBond               *big.Int
-	CooldownWindow            *big.Int
-	ProvingWindow             uint16
-	MaxBlocksToVerifyPerProof uint8
+	VerifierName   [32]byte
+	ValidityBond   *big.Int
+	ContestBond    *big.Int
+	CooldownWindow *big.Int
+	ProvingWindow  uint16
 }
 
 // TierProviderMetaData contains all meta data concerning the TierProvider contract.
 var TierProviderMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"function\",\"name\":\"BOND_UNIT\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint96\",\"internalType\":\"uint96\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"GRACE_PERIOD\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint16\",\"internalType\":\"uint16\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getMinTier\",\"inputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint16\",\"internalType\":\"uint16\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"getProvider\",\"inputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getTier\",\"inputs\":[{\"name\":\"_tierId\",\"type\":\"uint16\",\"internalType\":\"uint16\"}],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structITierProvider.Tier\",\"components\":[{\"name\":\"verifierName\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"validityBond\",\"type\":\"uint96\",\"internalType\":\"uint96\"},{\"name\":\"contestBond\",\"type\":\"uint96\",\"internalType\":\"uint96\"},{\"name\":\"cooldownWindow\",\"type\":\"uint24\",\"internalType\":\"uint24\"},{\"name\":\"provingWindow\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"maxBlocksToVerifyPerProof\",\"type\":\"uint8\",\"internalType\":\"uint8\"}]}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"getTierIds\",\"inputs\":[],\"outputs\":[{\"name\":\"tiers_\",\"type\":\"uint16[]\",\"internalType\":\"uint16[]\"}],\"stateMutability\":\"pure\"},{\"type\":\"error\",\"name\":\"TIER_NOT_FOUND\",\"inputs\":[]}]",
+	ABI: "[{\"type\":\"function\",\"name\":\"BOND_UNIT\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint96\",\"internalType\":\"uint96\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"GRACE_PERIOD\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint16\",\"internalType\":\"uint16\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getMinTier\",\"inputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint16\",\"internalType\":\"uint16\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"getProvider\",\"inputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getTier\",\"inputs\":[{\"name\":\"_tierId\",\"type\":\"uint16\",\"internalType\":\"uint16\"}],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structITierProvider.Tier\",\"components\":[{\"name\":\"verifierName\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"validityBond\",\"type\":\"uint96\",\"internalType\":\"uint96\"},{\"name\":\"contestBond\",\"type\":\"uint96\",\"internalType\":\"uint96\"},{\"name\":\"cooldownWindow\",\"type\":\"uint24\",\"internalType\":\"uint24\"},{\"name\":\"provingWindow\",\"type\":\"uint16\",\"internalType\":\"uint16\"}]}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"getTierIds\",\"inputs\":[],\"outputs\":[{\"name\":\"tiers_\",\"type\":\"uint16[]\",\"internalType\":\"uint16[]\"}],\"stateMutability\":\"pure\"},{\"type\":\"error\",\"name\":\"TIER_NOT_FOUND\",\"inputs\":[]}]",
 }
 
 // TierProviderABI is the input ABI used to generate the binding from.
@@ -316,7 +315,7 @@ func (_TierProvider *TierProviderCallerSession) GetProvider(arg0 *big.Int) (comm
 
 // GetTier is a free data retrieval call binding the contract method 0x576c3de7.
 //
-// Solidity: function getTier(uint16 _tierId) pure returns((bytes32,uint96,uint96,uint24,uint16,uint8))
+// Solidity: function getTier(uint16 _tierId) pure returns((bytes32,uint96,uint96,uint24,uint16))
 func (_TierProvider *TierProviderCaller) GetTier(opts *bind.CallOpts, _tierId uint16) (ITierProviderTier, error) {
 	var out []interface{}
 	err := _TierProvider.contract.Call(opts, &out, "getTier", _tierId)
@@ -333,14 +332,14 @@ func (_TierProvider *TierProviderCaller) GetTier(opts *bind.CallOpts, _tierId ui
 
 // GetTier is a free data retrieval call binding the contract method 0x576c3de7.
 //
-// Solidity: function getTier(uint16 _tierId) pure returns((bytes32,uint96,uint96,uint24,uint16,uint8))
+// Solidity: function getTier(uint16 _tierId) pure returns((bytes32,uint96,uint96,uint24,uint16))
 func (_TierProvider *TierProviderSession) GetTier(_tierId uint16) (ITierProviderTier, error) {
 	return _TierProvider.Contract.GetTier(&_TierProvider.CallOpts, _tierId)
 }
 
 // GetTier is a free data retrieval call binding the contract method 0x576c3de7.
 //
-// Solidity: function getTier(uint16 _tierId) pure returns((bytes32,uint96,uint96,uint24,uint16,uint8))
+// Solidity: function getTier(uint16 _tierId) pure returns((bytes32,uint96,uint96,uint24,uint16))
 func (_TierProvider *TierProviderCallerSession) GetTier(_tierId uint16) (ITierProviderTier, error) {
 	return _TierProvider.Contract.GetTier(&_TierProvider.CallOpts, _tierId)
 }

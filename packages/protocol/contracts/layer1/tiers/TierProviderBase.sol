@@ -6,6 +6,8 @@ import "./ITierProvider.sol";
 import "./LibTiers.sol";
 
 /// @title TierProviderBase
+/// @dev Any changes to the configuration in this file must be announced and documented on our site.
+/// Ensure all modifications are reviewed by the devrel team.
 /// @custom:security-contact security@taiko.xyz
 abstract contract TierProviderBase is ITierProvider {
     /// @dev Grace period for block proving service.
@@ -21,8 +23,8 @@ abstract contract TierProviderBase is ITierProvider {
     /// previous tier. Additionally, each tier's contest bond is 6.5625 times its validity bond.
     function getTier(uint16 _tierId) public pure virtual returns (ITierProvider.Tier memory) {
         if (_tierId == LibTiers.TIER_OPTIMISTIC) {
-            // cooldownWindow is 24 hours and provingWindow is 15 minutes
-            return _buildTier("", BOND_UNIT, 24, 15);
+            // cooldownWindow is 1440 minutes and provingWindow is 15 minutes
+            return _buildTier("", BOND_UNIT, 1440, 15);
         }
 
         // TEE Tiers
@@ -34,23 +36,20 @@ abstract contract TierProviderBase is ITierProvider {
         if (_tierId == LibTiers.TIER_ZKVM_RISC0) return _buildZkTier(LibStrings.B_TIER_ZKVM_RISC0);
         if (_tierId == LibTiers.TIER_ZKVM_SP1) return _buildZkTier(LibStrings.B_TIER_ZKVM_SP1);
         if (_tierId == LibTiers.TIER_ZKVM_ANY) return _buildZkTier(LibStrings.B_TIER_ZKVM_ANY);
-
-        // ZKVM+TEE Tier
         if (_tierId == LibTiers.TIER_ZKVM_AND_TEE) {
-            // cooldownWindow is 2 hours and provingWindow is 3 hours
-            return _buildTier(LibStrings.B_TIER_ZKVM_AND_TEE, BOND_UNIT * 4, 2, 180);
+            return _buildZkTier(LibStrings.B_TIER_ZKVM_AND_TEE);
         }
 
         // Guardian Minority Tiers
         if (_tierId == LibTiers.TIER_GUARDIAN_MINORITY) {
-            // cooldownWindow is 4 hours
-            return _buildTier(LibStrings.B_TIER_GUARDIAN_MINORITY, BOND_UNIT * 4, 4, 0);
+            // cooldownWindow is 240 minutes and provingWindow is 2880 minutes
+            return _buildTier(LibStrings.B_TIER_GUARDIAN_MINORITY, BOND_UNIT * 3, 240, 0);
         }
 
         // Guardian Major Tiers
         if (_tierId == LibTiers.TIER_GUARDIAN) {
-            // cooldownWindow is 4 hours
-            return _buildTier(LibStrings.B_TIER_GUARDIAN, 0, 4, 0);
+            // cooldownWindow is 1440 minutes and provingWindow is 2880 minutes
+            return _buildTier(LibStrings.B_TIER_GUARDIAN, 0, 240, 0);
         }
 
         revert TIER_NOT_FOUND();
@@ -64,22 +63,22 @@ abstract contract TierProviderBase is ITierProvider {
         pure
         returns (ITierProvider.Tier memory)
     {
-        // cooldownWindow is 4 hours and provingWindow is 60 minutes
-        return _buildTier(_verifierName, BOND_UNIT * 2, 4, 60);
+        // cooldownWindow is 1440 minutes and provingWindow is 60 minutes
+        return _buildTier(_verifierName, BOND_UNIT * 2, 240, 60);
     }
 
     /// @dev Builds a ZK tier with a specific verifier name.
     /// @param _verifierName The name of the verifier.
     /// @return A Tier struct with predefined parameters for ZK.
     function _buildZkTier(bytes32 _verifierName) private pure returns (ITierProvider.Tier memory) {
-        // cooldownWindow is 4 hours and provingWindow is 3 hours
-        return _buildTier(_verifierName, BOND_UNIT * 3, 4, 180);
+        // cooldownWindow is 1440 minutes and provingWindow is 180 minutes
+        return _buildTier(_verifierName, BOND_UNIT * 3, 240, 180);
     }
 
     /// @dev Builds a generic tier with specified parameters.
     /// @param _verifierName The name of the verifier.
     /// @param _validityBond The validity bond amount.
-    /// @param _cooldownWindow The cooldown window duration in hours.
+    /// @param _cooldownWindow The cooldown window duration in minutes.
     /// @param _provingWindow The proving window duration in minutes.
     /// @return A Tier struct with the provided parameters.
     function _buildTier(
@@ -96,7 +95,7 @@ abstract contract TierProviderBase is ITierProvider {
             verifierName: _verifierName,
             validityBond: _validityBond,
             contestBond: _validityBond / 10_000 * 65_625,
-            cooldownWindow: _cooldownWindow * 60,
+            cooldownWindow: _cooldownWindow,
             provingWindow: GRACE_PERIOD + _provingWindow,
             maxBlocksToVerifyPerProof: 0 // DEPRECATED
          });
