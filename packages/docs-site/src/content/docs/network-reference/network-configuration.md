@@ -3,9 +3,30 @@ title: Network configuration
 description: The network configuration page describes many of the configuration details of the network.
 ---
 
+## Cooldown Window, Proving Window and Bonds
+
+This segment lists the cooldown windows and proving windows for every tier of proof in the Taiko protocol.
+
+The cooldown window describes how long after the proof has been provided that the block is verified.
+
+The proving window describes how long a prover has to provide a proof for a block after they have been assigned the block (i.e. a block has been proposed with them as the assigned prover).
+
+We've appended a 4 hour "grace period" temporarily to proving windows, the reason is described [here](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/contracts/layer1/tiers/TierProviderBase.sol#L13). You can consider the below proving windows + 4 hours as the actual proving window until further notice!
+
+You can find all the corresponding values below in the above link too!
+
+| Tier              | Cooldown Window | Proving Window | Bond      |
+| ----------------- | --------------- | -------------- | --------- |
+| Optimistic        | 1440 minutes    | 15 minutes     | 75 TAIKO  |
+| SGX               | 240 minutes     | 60 minutes     | 150 TAIKO |
+| ZK                | 240 minutes     | 180 minutes    | 225 TAIKO |
+| SGX & ZK          | 240 minutes     | 180 minutes    | 225 TAIKO |
+| Guardian Minority | 240 minutes     | 2880 minutes   | 225 TAIKO |
+| Guardian          | 240 minutes     | 2880 minutes   | 0 TAIKO   |
+
 ## Tier configuration (Mainnet)
 
-You can view the full `TierProviderV2` tier configuration [here](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/contracts/layer1/tiers/TierProviderV2.sol):
+You can view the full `MainnetTierRouter` tier configuration [here](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/contracts/layer1/mainnet/rollup/MainnetTierRouter.sol):
 
 ![mainnet proof tiers](~/assets/content/docs/network-reference/proof-tier-config-mn.webp)
 
@@ -17,7 +38,7 @@ You can view the full network configuration by visiting the TaikoL1 contract on 
 
 ## Tier configuration (Hekla)
 
-You can view the full post ontake fork `HeklaTierProvider` tier configuration [here](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/contracts/layer1/hekla/HeklaTierProvider.sol):
+You can view the full post ontake fork `HeklaTierRouter` tier configuration [here](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/contracts/layer1/hekla/HeklaTierRouter.sol):
 
 ![hekla proof tiers](~/assets/content/docs/network-reference/proof-tier-config-hekla.webp)
 
