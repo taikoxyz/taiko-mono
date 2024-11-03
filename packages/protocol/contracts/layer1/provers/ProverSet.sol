@@ -84,6 +84,8 @@ contract ProverSet is EssentialContract, IERC1271 {
         address _bondToken = bondToken();
         if (_bondToken != address(0)) {
             IERC20(_bondToken).transfer(admin, _amount);
+        } else {
+            LibAddress.sendEtherAndVerify(admin, _amount);
         }
     }
 
