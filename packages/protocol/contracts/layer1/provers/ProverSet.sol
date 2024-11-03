@@ -32,14 +32,15 @@ contract ProverSet is EssentialContract, IERC1271 {
     error PERMISSION_DENIED();
 
     modifier onlyAuthorized() {
-        if (msg.sender != admin && msg.sender != IHasRecipient(admin).recipient()) {
-            revert PERMISSION_DENIED();
-        }
+        require(
+            msg.sender == admin || msg.sender == IHasRecipient(admin).recipient(),
+            PERMISSION_DENIED()
+        );
         _;
     }
 
     modifier onlyProver() {
-        if (!isProver[msg.sender]) revert PERMISSION_DENIED();
+        require(isProver[msg.sender], PERMISSION_DENIED());
         _;
     }
 
@@ -58,16 +59,13 @@ contract ProverSet is EssentialContract, IERC1271 {
         IERC20(tkoToken()).approve(taikoL1(), type(uint256).max);
     }
 
-    /// @notice Receives ETH as fees.
-    receive() external payable { }
-
     function approveAllowance(address _address, uint256 _allowance) external onlyOwner {
         IERC20(tkoToken()).approve(_address, _allowance);
     }
 
     /// @notice Enables or disables a prover.
     function enableProver(address _prover, bool _isProver) external onlyAuthorized {
-        if (isProver[_prover] == _isProver) revert INVALID_STATUS();
+        require(isProver[_prover] != _isProver, INVALID_STATUS());
         isProver[_prover] = _isProver;
 
         emit ProverEnabled(_prover, _isProver);
@@ -84,26 +82,7 @@ contract ProverSet is EssentialContract, IERC1271 {
     }
 
     /// @notice Propose a Taiko block.
-    function proposeBlock(
-        bytes calldata _params,
-        bytes calldata _txList
-    )
-        external
-        payable
-        onlyProver
-    {
-        ITaikoL1(taikoL1()).proposeBlock(_params, _txList);
-    }
-
-    /// @notice Propose a Taiko block.
-    function proposeBlockV2(
-        bytes calldata _params,
-        bytes calldata _txList
-    )
-        external
-        payable
-        onlyProver
-    {
+    function proposeBlockV2(bytes calldata _params, bytes calldata _txList) external onlyProver {
         ITaikoL1(taikoL1()).proposeBlockV2(_params, _txList);
     }
 
@@ -113,7 +92,6 @@ contract ProverSet is EssentialContract, IERC1271 {
         bytes[] calldata _txListArr
     )
         external
-        payable
         onlyProver
     {
         ITaikoL1(taikoL1()).proposeBlocksV2(_paramsArr, _txListArr);

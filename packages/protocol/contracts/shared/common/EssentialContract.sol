@@ -8,13 +8,13 @@ import "./AddressResolver.sol";
 /// @title EssentialContract
 /// @custom:security-contact security@taiko.xyz
 abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable, AddressResolver {
-    uint8 private constant _FALSE = 1;
-    uint8 private constant _TRUE = 2;
+    uint8 internal constant _FALSE = 1;
+    uint8 internal constant _TRUE = 2;
 
     /// @dev Slot 1.
-    uint8 private __reentry;
-    uint8 private __paused;
-    uint64 public lastUnpausedAt;
+    uint8 internal __reentry;
+    uint8 internal __paused;
+    uint64 internal __lastUnpausedAt;
 
     uint256[49] private __gap;
 
@@ -35,7 +35,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
     /// @dev Modifier that ensures the caller is the owner or resolved address of a given name.
     /// @param _name The name to check against.
     modifier onlyFromOwnerOrNamed(bytes32 _name) {
-        if (msg.sender != owner() && msg.sender != resolve(_name, true)) revert RESOLVER_DENIED();
+        require(msg.sender == owner() || msg.sender == resolve(_name, true), RESOLVER_DENIED());
         _;
     }
 
@@ -45,29 +45,29 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
     }
 
     modifier nonReentrant() {
-        if (_loadReentryLock() == _TRUE) revert REENTRANT_CALL();
+        require(_loadReentryLock() != _TRUE, REENTRANT_CALL());
         _storeReentryLock(_TRUE);
         _;
         _storeReentryLock(_FALSE);
     }
 
     modifier whenPaused() {
-        if (!paused()) revert INVALID_PAUSE_STATUS();
+        require(paused(), INVALID_PAUSE_STATUS());
         _;
     }
 
     modifier whenNotPaused() {
-        if (paused()) revert INVALID_PAUSE_STATUS();
+        require(!paused(), INVALID_PAUSE_STATUS());
         _;
     }
 
     modifier nonZeroAddr(address _addr) {
-        if (_addr == address(0)) revert ZERO_ADDRESS();
+        require(_addr != address(0), ZERO_ADDRESS());
         _;
     }
 
     modifier nonZeroValue(uint256 _value) {
-        if (_value == 0) revert ZERO_VALUE();
+        require(_value != 0, ZERO_VALUE());
         _;
     }
 
@@ -102,6 +102,10 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
         return __paused == _TRUE;
     }
 
+    function lastUnpausedAt() public view virtual returns (uint64) {
+        return __lastUnpausedAt;
+    }
+
     function inNonReentrant() public view returns (bool) {
         return _loadReentryLock() == _TRUE;
     }
@@ -133,7 +137,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
 
     function _unpause() internal whenPaused {
         __paused = _FALSE;
-        lastUnpausedAt = uint64(block.timestamp);
+        __lastUnpausedAt = uint64(block.timestamp);
         emit Unpaused(msg.sender);
     }
 
