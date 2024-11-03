@@ -47,17 +47,8 @@ library LibBonds {
     )
         public
     {
-        emit BondDeposited(msg.sender, _amount);
         _state.bondBalance[msg.sender] += _amount;
-
-        address bondToken = _bondToken(_resolver);
-
-        if (bondToken != address(0)) {
-            require(msg.value == 0, L1_INVALID_MSG_VALUE());
-            IERC20(bondToken).transferFrom(msg.sender, address(this), _amount);
-        } else {
-            require(msg.value == _amount, L1_INVALID_MSG_VALUE());
-        }
+        _handleDeposit(_resolver, _amount);
     }
 
     /// @dev Withdraws TAIKO tokens.
@@ -121,16 +112,7 @@ library LibBonds {
                 _state.bondBalance[_user] = balance - _amount;
             }
         } else {
-            emit BondDeposited(msg.sender, _amount);
-
-            address bondToken = _bondToken(_resolver);
-
-            if (bondToken != address(0)) {
-                IERC20(bondToken).transferFrom(_user, address(this), _amount);
-                require(msg.value == 0, L1_INVALID_MSG_VALUE());
-            } else {
-                require(msg.value == _amount, L1_INVALID_MSG_VALUE());
-            }
+            _handleDeposit(_resolver, _amount);
         }
         emit BondDebited(_user, _blockId, _amount);
     }
@@ -161,5 +143,17 @@ library LibBonds {
     /// @return The IERC20 interface of the TAIKO token.
     function _bondToken(IAddressResolver _resolver) private view returns (address) {
         return _resolver.resolve(LibStrings.B_BOND_TOKEN, true);
+    }
+
+    function _handleDeposit(IAddressResolver _resolver, uint256 _amount) private {
+        address bondToken = _bondToken(_resolver);
+
+        if (bondToken != address(0)) {
+            require(msg.value == 0, L1_INVALID_MSG_VALUE());
+            IERC20(bondToken).transferFrom(msg.sender, address(this), _amount);
+        } else {
+            require(msg.value == _amount, L1_INVALID_MSG_VALUE());
+        }
+        emit BondDeposited(msg.sender, _amount);
     }
 }
