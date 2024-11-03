@@ -6,19 +6,6 @@ import "./TaikoData.sol";
 /// @title ITaikoL1
 /// @custom:security-contact security@taiko.xyz
 interface ITaikoL1 {
-    /// @notice Proposes a Taiko L2 block.
-    /// @param _params Block parameters, currently an encoded BlockParams object.
-    /// @param _txList txList data if calldata is used for DA.
-    /// @return meta_ The metadata of the proposed L2 block.
-    /// @return deposits_ The Ether deposits processed.
-    function proposeBlock(
-        bytes calldata _params,
-        bytes calldata _txList
-    )
-        external
-        payable
-        returns (TaikoData.BlockMetadata memory meta_, TaikoData.EthDeposit[] memory deposits_);
-
     /// @notice Proposes a Taiko L2 block (version 2)
     /// @param _params Block parameters, an encoded BlockParamsV2 object.
     /// @param _txList txList data if calldata is used for DA.
@@ -42,9 +29,9 @@ interface ITaikoL1 {
         returns (TaikoData.BlockMetadataV2[] memory metaArr_);
 
     /// @notice Proves or contests a block transition.
-    /// @param _blockId The index of the block to prove. This is also used to
-    /// select the right implementation version.
-    /// @param _input An abi-encoded (TaikoData.BlockMetadata, TaikoData.Transition,
+    /// @param _blockId Index of the block to prove. This is also used to select the right
+    /// implementation version.
+    /// @param _input ABI-encoded (TaikoData.BlockMetadata, TaikoData.Transition,
     /// TaikoData.TierProof) tuple.
     function proveBlock(uint64 _blockId, bytes calldata _input) external;
 
@@ -61,13 +48,26 @@ interface ITaikoL1 {
     )
         external;
 
-    /// @notice Verifies up to a certain number of blocks.
-    /// @param _maxBlocksToVerify Max number of blocks to verify.
+    /// @notice Verifies up to a specified number of blocks.
+    /// @param _maxBlocksToVerify Maximum number of blocks to verify.
     function verifyBlocks(uint64 _maxBlocksToVerify) external;
 
-    /// @notice Pause block proving.
-    /// @param _pause True if paused.
+    /// @notice Pauses or unpauses block proving.
+    /// @param _pause True to pause, false to unpause.
     function pauseProving(bool _pause) external;
+
+    /// @notice Deposits Taiko token to be used as bonds.
+    /// @param _amount The amount of Taiko token to deposit.
+    function depositBond(uint256 _amount) external;
+
+    /// @notice Withdraws Taiko tokens.
+    /// @param _amount Amount of Taiko tokens to withdraw.
+    function withdrawBond(uint256 _amount) external;
+
+    /// @notice Gets the prover that actually proved a verified block.
+    /// @param _blockId Index of the block.
+    /// @return The prover's address. If the block is not verified yet, address(0) will be returned.
+    function getVerifiedBlockProver(uint64 _blockId) external view returns (address);
 
     /// @notice Gets the details of a block.
     /// @param _blockId Index of the block.
@@ -77,7 +77,8 @@ interface ITaikoL1 {
     /// @notice Gets the state transition for a specific block.
     /// @param _blockId Index of the block.
     /// @param _tid The transition id.
-    /// @return The state transition data of the block.
+    /// @return The state transition data of the block. The transition's state root will be zero if
+    /// the block is not a sync-block.
     function getTransition(
         uint64 _blockId,
         uint32 _tid
@@ -85,19 +86,6 @@ interface ITaikoL1 {
         external
         view
         returns (TaikoData.TransitionState memory);
-
-    /// @notice Deposits Taiko token to be used as bonds.
-    /// @param _amount The amount of Taiko token to deposit.
-    function depositBond(uint256 _amount) external;
-
-    /// @notice Withdraws Taiko token.
-    /// @param _amount The amount of Taiko token to withdraw.
-    function withdrawBond(uint256 _amount) external;
-
-    /// @notice Gets the prover that actually proved a verified block.
-    /// @param _blockId The index of the block.
-    /// @return The prover's address. If the block is not verified yet, address(0) will be returned.
-    function getVerifiedBlockProver(uint64 _blockId) external view returns (address);
 
     /// @notice Gets the configuration of the TaikoL1 contract.
     /// @return Config struct containing configuration parameters.

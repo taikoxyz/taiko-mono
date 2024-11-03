@@ -10,11 +10,6 @@ import "./LibTiers.sol";
 /// Ensure all modifications are reviewed by the devrel team.
 /// @custom:security-contact security@taiko.xyz
 abstract contract TierProviderBase is ITierProvider {
-    /// @dev Grace period for block proving service.
-    /// @notice This constant defines the time window (in minutes) during which the block proving
-    /// service may be paused if gas prices are excessively high. Since block proving is
-    /// asynchronous, this grace period allows provers to defer submissions until gas
-    /// prices become more favorable, potentially reducing transaction costs.
     uint96 public constant BOND_UNIT = 50 ether; // TAIKO tokens
 
     /// @inheritdoc ITierProvider
