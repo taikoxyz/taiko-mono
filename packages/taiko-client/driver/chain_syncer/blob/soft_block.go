@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
@@ -18,12 +19,12 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	softblocks "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/soft_blocks"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
 // InsertSoftBlockFromTransactionsBatch inserts a soft block into the L2 execution engine's blockchain
 // from the given transactions batch.
 func (s *Syncer) InsertSoftBlockFromTransactionsBatch(
-	// Transactions batch parameters
 	ctx context.Context,
 	blockID uint64,
 	batchID uint64,
@@ -45,13 +46,16 @@ func (s *Syncer) InsertSoftBlockFromTransactionsBatch(
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode `block.difficulty` calculation parameters: %w", err)
 	}
+	protocolConfigs, err := rpc.GetProtocolConfigs(s.rpc.TaikoL1, &bind.CallOpts{Context: ctx})
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch protocol configs: %w", err)
+	}
 
 	var (
-		txList         []*types.Transaction
-		fc             = &engine.ForkchoiceStateV1{HeadBlockHash: parent.Hash()}
-		difficulty     = crypto.Keccak256Hash(difficultyHashPaylaod)
-		protocolConfig = encoding.GetProtocolConfig(s.rpc.L2.ChainID.Uint64())
-		extraData      = encoding.EncodeBaseFeeConfig(&protocolConfig.BaseFeeConfig)
+		txList     []*types.Transaction
+		fc         = &engine.ForkchoiceStateV1{HeadBlockHash: parent.Hash()}
+		difficulty = crypto.Keccak256Hash(difficultyHashPaylaod)
+		extraData  = encoding.EncodeBaseFeeConfig(&protocolConfigs.BaseFeeConfig)
 	)
 
 	if err := rlp.DecodeBytes(txListBytes, &txList); err != nil {
@@ -63,7 +67,7 @@ func (s *Syncer) InsertSoftBlockFromTransactionsBatch(
 		parent,
 		new(big.Int).SetUint64(blockParams.AnchorBlockID),
 		true,
-		&protocolConfig.BaseFeeConfig,
+		&protocolConfigs.BaseFeeConfig,
 		blockParams.Timestamp,
 	)
 	if err != nil {
@@ -78,7 +82,7 @@ func (s *Syncer) InsertSoftBlockFromTransactionsBatch(
 			new(big.Int).SetUint64(blockParams.AnchorBlockID),
 			blockParams.AnchorStateRoot,
 			parent.GasUsed,
-			&protocolConfig.BaseFeeConfig,
+			&protocolConfigs.BaseFeeConfig,
 			new(big.Int).SetUint64(blockID),
 			baseFee,
 		)
@@ -123,7 +127,7 @@ func (s *Syncer) InsertSoftBlockFromTransactionsBatch(
 		Withdrawals:           []*types.Withdrawal{},
 		BlockMetadata: &engine.BlockMetadata{
 			Beneficiary: blockParams.Coinbase,
-			GasLimit:    uint64(protocolConfig.BlockMaxGasLimit) + consensus.AnchorGasLimit,
+			GasLimit:    uint64(protocolConfigs.BlockMaxGasLimit) + consensus.AnchorGasLimit,
 			Timestamp:   blockParams.Timestamp,
 			TxList:      txListBytes,
 			MixHash:     difficulty,

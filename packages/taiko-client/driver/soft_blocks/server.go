@@ -10,7 +10,6 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	txListDecompressor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_decompressor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
@@ -52,12 +51,17 @@ func New(
 	jwtSecret []byte,
 	chainSyncer softBlockChainSyncer,
 	cli *rpc.Client,
-) *SoftBlockAPIServer {
+) (*SoftBlockAPIServer, error) {
+	protocolConfigs, err := rpc.GetProtocolConfigs(cli.TaikoL1, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch protocol configs: %w", err)
+	}
+
 	server := &SoftBlockAPIServer{
 		echo:        echo.New(),
 		chainSyncer: chainSyncer,
 		txListDecompressor: txListDecompressor.NewTxListDecompressor(
-			uint64(encoding.GetProtocolConfig(cli.L2.ChainID.Uint64()).BlockMaxGasLimit),
+			uint64(protocolConfigs.BlockMaxGasLimit),
 			rpc.BlockMaxTxListBytes,
 			cli.L2.ChainID,
 		),
@@ -71,7 +75,7 @@ func New(
 		server.echo.Use(echojwt.JWT(jwtSecret))
 	}
 
-	return server
+	return server, nil
 }
 
 // LogSkipper implements the `middleware.Skipper` interface.

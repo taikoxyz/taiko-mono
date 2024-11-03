@@ -91,12 +91,14 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 	d.l1HeadSub = d.state.SubL1HeadsFeed(d.l1HeadCh)
 
 	if d.SoftBlockServerPort > 0 {
-		d.softblockServer = softblocks.New(
+		if d.softblockServer, err = softblocks.New(
 			d.SoftBlockServerCORSOrigins,
 			d.SoftBlockServerJWTSecret,
 			d.l2ChainSyncer.BlobSyncer(),
 			d.rpc,
-		)
+		); err != nil {
+			return err
+		}
 	}
 
 	return nil
