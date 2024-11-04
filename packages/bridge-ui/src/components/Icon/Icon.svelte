@@ -356,19 +356,19 @@
   {:else if type === 'approve-light'}
     <path
       d="m14.79,2.07c0-.87-.7-1.57-1.57-1.57H2.57c-.87,0-1.57.7-1.57,1.57h0c0,.87.7,1.57,1.57,1.57h10.64c.87,0,1.57-.7,1.57-1.57h0Zm-5.02,4.13c0-.87-.7-1.57-1.57-1.57H2.57c-.87,0-1.57.7-1.57,1.57h0c0,.87.7,1.57,1.57,1.57h5.63c.87,0,1.57-.7,1.57-1.57h0Z"
-      style="fill:#e22b91; fill-rule:evenodd; stroke-width:0px;" />
-    <rect x="11.34" y="16.55" width="7.66" height="2.95" style="fill:#e22b91; stroke-width:0px;" />
+      style="fill:#2A35BD; fill-rule:evenodd; stroke-width:0px;" />
+    <rect x="11.34" y="16.55" width="7.66" height="2.95" style="fill:#2A35BD; stroke-width:0px;" />
     <path
       d="m14.53,5.91c0-.71-.57-1.28-1.28-1.28s-1.28.57-1.28,1.28v7.07s-1.77-1.77-1.77-1.77c-.5-.5-1.31-.5-1.81,0-.5.5-.5,1.31,0,1.81l3.53,3.53h3.54s3.54,0,3.54,0v-4.17c0-1.59-1.29-2.89-2.89-2.89h-1.59v-3.58Z"
       style="fill:#e7e7e7; stroke-width:0px;" />
   {:else if type === 'approve-dark'}
     <path
       d="m14.79,2.07c0-.87-.7-1.57-1.57-1.57H2.57c-.87,0-1.57.7-1.57,1.57h0c0,.87.7,1.57,1.57,1.57h10.64c.87,0,1.57-.7,1.57-1.57h0Zm-5.02,4.13c0-.87-.7-1.57-1.57-1.57H2.57c-.87,0-1.57.7-1.57,1.57h0c0,.87.7,1.57,1.57,1.57h5.63c.87,0,1.57-.7,1.57-1.57h0Z"
-      style="fill:#e22b91; fill-rule:evenodd; stroke-width:0px;" />
-    <rect x="11.34" y="16.55" width="7.66" height="2.95" style="fill:#e22b91; stroke-width:0px;" />
+      style="fill:#2A35BD; fill-rule:evenodd; stroke-width:0px;" />
+    <rect x="11.34" y="16.55" width="7.66" height="2.95" style="fill:#2A35BD; stroke-width:0px;" />
     <path
       d="m14.53,5.91c0-.71-.57-1.28-1.28-1.28s-1.28.57-1.28,1.28v7.07s-1.77-1.77-1.77-1.77c-.5-.5-1.31-.5-1.81,0-.5.5-.5,1.31,0,1.81l3.53,3.53h3.54s3.54,0,3.54,0v-4.17c0-1.59-1.29-2.89-2.89-2.89h-1.59v-3.58Z"
-      style="fill:#f3f3f4; stroke-width:0px;" />
+      style="fill:#2A35BD; stroke-width:0px;" />
   {:else if type === 'bridge-light'}
     <defs>
       <linearGradient
@@ -379,19 +379,19 @@
         y2="683.21"
         gradientTransform="translate(1116 697.97) scale(1 -1)"
         gradientUnits="userSpaceOnUse">
-        <stop offset="0" stop-color="#e22b91" />
-        <stop offset="1" stop-color="#f7c7dd" stop-opacity="0" />
+        <stop offset="0" stop-color="#2A35BD" />
+        <stop offset="1" stop-color="#3D88FF" stop-opacity="0" />
       </linearGradient>
     </defs>
     <path
       d="m7.81,9.8c0,.63.25,1.24.7,1.69.45.45,1.06.7,1.69.7h6.91c.63,0,1.24-.25,1.69-.7.45-.45.7-1.06.7-1.69V2.89c0-.63-.25-1.24-.7-1.69-.45-.45-1.06-.7-1.69-.7h-6.91c-.63,0-1.24.25-1.69.7-.45.45-.7,1.06-.7,1.69v6.91Z"
-      style="fill:#e22b91; stroke-width:0px;" />
+      style="fill:#2A35BD; stroke-width:0px;" />
     <path
       d="m1.21,18.79c.45.45,1.06.7,1.69.7h6.91c.63,0,1.24-.25,1.69-.7l7.3-7.3c.45-.45.7-1.06.7-1.69V2.89c0-.63-.25-1.24-.7-1.69-.45-.45-1.06-.7-1.69-.7h-6.91c-.63,0-1.24.25-1.69.7L1.21,8.5c-.45.45-.7,1.06-.7,1.69v6.91c0,.63.25,1.24.7,1.69Z"
       style="fill:url(#b); stroke-width:0px;" />
     <path
       d="m2.89,19.5c-.63,0-1.24-.25-1.69-.7-.45-.45-.7-1.06-.7-1.69v-6.91c0-.63.25-1.24.7-1.69.45-.45,1.06-.7,1.69-.7h1.33v3.99c0,1.06.42,2.07,1.17,2.82.75.75,1.76,1.17,2.82,1.17h3.99v1.33c0,.63-.25,1.24-.7,1.69-.45.45-1.06.7-1.69.7H2.89Z"
-      style="fill:#f7c7dd; stroke-width:0px;" />
+      style="fill:#3D88FF0D; stroke-width:0px;" />
   {:else if type === 'bridge-dark'}
     <defs>
       <linearGradient
@@ -402,19 +402,19 @@
         y2="679.92"
         gradientTransform="translate(1116 697.97) scale(1 -1)"
         gradientUnits="userSpaceOnUse">
-        <stop offset="0" stop-color="#e22b91" />
-        <stop offset="1" stop-color="#e22b91" stop-opacity="0" />
+        <stop offset="0" stop-color="#2A35BD" />
+        <stop offset="1" stop-color="#2A35BD" stop-opacity="0" />
       </linearGradient>
     </defs>
     <path
       d="m7.81,9.8c0,.63.25,1.24.7,1.69.45.45,1.06.7,1.69.7h6.91c.63,0,1.24-.25,1.69-.7.45-.45.7-1.06.7-1.69V2.89c0-.63-.25-1.24-.7-1.69-.45-.45-1.06-.7-1.69-.7h-6.91c-.63,0-1.24.25-1.69.7-.45.45-.7,1.06-.7,1.69v6.91Z"
-      style="fill:#e22b91; stroke-width:0px;" />
+      style="fill:#2A35BD; stroke-width:0px;" />
     <path
       d="m1.21,18.79c.45.45,1.06.7,1.69.7h6.91c.63,0,1.24-.25,1.69-.7l7.3-7.3c.45-.45.7-1.06.7-1.69V2.89c0-.63-.25-1.24-.7-1.69-.45-.45-1.06-.7-1.69-.7h-6.91c-.63,0-1.24.25-1.69.7L1.21,8.5c-.45.45-.7,1.06-.7,1.69v6.91c0,.63.25,1.24.7,1.69Z"
       style="fill:url(#b); stroke-width:0px;" />
     <path
       d="m2.89,19.5c-.63,0-1.24-.25-1.69-.7-.45-.45-.7-1.06-.7-1.69v-6.91c0-.63.25-1.24.7-1.69.45-.45,1.06-.7,1.69-.7h1.33v3.99c0,1.06.42,2.07,1.17,2.82.75.75,1.76,1.17,2.82,1.17h3.99v1.33c0,.63-.25,1.24-.7,1.69-.45.45-1.06.7-1.69.7H2.89Z"
-      style="fill:#f3f3f4; stroke-width:0px;" />
+      style="fill:#3D88FF0D; stroke-width:0px;" />
   {:else if type === 'success-light'}
     <circle cx="10" cy="10" r="9.5" style="fill:#005e36; isolation:isolate; opacity:.05; stroke-width:0px;" />
     <ellipse cx="10" cy="10" rx="7.01" ry="7" style="fill:#005e36; isolation:isolate; opacity:.2; stroke-width:0px;" />
@@ -436,16 +436,16 @@
         y2="679.5"
         gradientTransform="translate(1116 697.97) scale(1 -1)"
         gradientUnits="userSpaceOnUse">
-        <stop offset="0" stop-color="#e22b91" />
-        <stop offset="1" stop-color="#e22b91" stop-opacity="0" />
+        <stop offset="0" stop-color="#2A35BD" />
+        <stop offset="1" stop-color="#2A35BD" stop-opacity="0" />
       </linearGradient>
     </defs>
     <path
       d="m7.69,9.79c0,.67.27,1.31.74,1.78s1.11.74,1.78.74h7.27c.67,0,1.31-.27,1.78-.74.47-.47.74-1.11.74-1.78V2.52c0-.67-.27-1.31-.74-1.78-.47-.47-1.11-.74-1.78-.74h-7.27c-.67,0-1.31.27-1.78.74-.47.47-.74,1.11-.74,1.78v7.27Z"
-      style="fill:#e22b91; stroke-width:0px;" />
+      style="fill:#2A35BD; stroke-width:0px;" />
     <path
       d="m2.52,20c-.67,0-1.31-.27-1.78-.74C.27,18.79,0,18.15,0,17.48v-7.27c0-.67.27-1.31.74-1.78.47-.47,1.11-.74,1.78-.74h1.4v4.2c0,1.11.44,2.18,1.23,2.97.79.79,1.85,1.23,2.97,1.23h4.2v1.4c0,.67-.27,1.31-.74,1.78-.47.47-1.11.74-1.78.74H2.52Z"
-      style="fill:#e22b91; stroke-width:0px;" />
+      style="fill:#2A35BD; stroke-width:0px;" />
     <path
       d="m.74,19.26c.47.47,1.11.74,1.78.74h7.27c.67,0,1.31-.27,1.78-.74l7.68-7.68c.47-.47.74-1.11.74-1.78V2.52c0-.67-.27-1.31-.74-1.78C18.79.27,18.15,0,17.48,0h-7.27c-.67,0-1.31.27-1.78.74L.74,8.42C.27,8.9,0,9.54,0,10.2v7.27c0,.67.27,1.31.74,1.78Z"
       style="fill:url(#b); stroke-width:0px;" />
