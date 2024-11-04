@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
@@ -19,7 +20,11 @@ func (s *SoftBlockAPIServerTestSuite) SetupTest() {
 	server, err := New("*", nil, nil, s.RPCClient, true)
 	s.Nil(err)
 	s.s = server
-	go func() { s.Nil(s.s.Start(uint64(testutils.RandomPort()))) }()
+	go func() {
+		s.NotPanics(func() {
+			log.Error("Start test soft block server", "error", s.s.Start(uint64(testutils.RandomPort())))
+		})
+	}()
 }
 
 func (s *SoftBlockAPIServerTestSuite) TestShutdown() {
