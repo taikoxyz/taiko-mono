@@ -1,5 +1,43 @@
 # Changelog
 
+## [0.14.0](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.13.0...eventindexer-v0.14.0) (2024-11-04)
+
+
+### Features
+
+* **eventindexer:** indexing nft metadata ([#17538](https://github.com/taikoxyz/taiko-mono/issues/17538)) ([d0e25ba](https://github.com/taikoxyz/taiko-mono/commit/d0e25ba6d1a871d4e6153fba663ccdfa63f16f05))
+* **eventindexer:** rm assignmenthook for latest protocol changes ([#17647](https://github.com/taikoxyz/taiko-mono/issues/17647)) ([d461fed](https://github.com/taikoxyz/taiko-mono/commit/d461feddf2e5672be417af66acf538c30a7fbe49))
+* **eventindexer:** updates for ontake fork eventindexer ([#18178](https://github.com/taikoxyz/taiko-mono/issues/18178)) ([227c5b1](https://github.com/taikoxyz/taiko-mono/commit/227c5b11685708aa783eacc6a7a59539bb00dbcc))
+
+
+### Bug Fixes
+
+* **eventindexer:** include end block in indexRawBlockData ([#17583](https://github.com/taikoxyz/taiko-mono/issues/17583)) ([1754b16](https://github.com/taikoxyz/taiko-mono/commit/1754b16fec1bf7dcb276f9b22be3dcfd87f0174c))
+* **eventindexer:** remove nft metadata indexing, far too slowy and bug ridden right now ([#18126](https://github.com/taikoxyz/taiko-mono/issues/18126)) ([f0ab1e1](https://github.com/taikoxyz/taiko-mono/commit/f0ab1e1fc86d3790eea743dee6aa717886321adc))
+* **eventindexer:** remove redundant `opts.CorsOrigins` check ([#17306](https://github.com/taikoxyz/taiko-mono/issues/17306)) ([d025599](https://github.com/taikoxyz/taiko-mono/commit/d025599d89e8f623c185f62cd45e6c1963e1b3c8))
+* **eventindexer:** slow md indexing ([#17816](https://github.com/taikoxyz/taiko-mono/issues/17816)) ([a82326e](https://github.com/taikoxyz/taiko-mono/commit/a82326ef9eb42b1a88894a2a7d0a991e849177f2))
+
+
+### Chores
+
+* **eventindexer:** upgrade eventindexer ([#17747](https://github.com/taikoxyz/taiko-mono/issues/17747)) ([42331f4](https://github.com/taikoxyz/taiko-mono/commit/42331f492960e73325ae5387917e6865c929a4ef))
+
+
+### Documentation
+
+* **repo:** remove unexist badge and action in readme ([#17928](https://github.com/taikoxyz/taiko-mono/issues/17928)) ([465456e](https://github.com/taikoxyz/taiko-mono/commit/465456ef17df5a0915b9b17cc081e215ed1c67b8))
+
+
+### Tests
+
+* **taiko-client:** introduce multi nodes hive test ([#17981](https://github.com/taikoxyz/taiko-mono/issues/17981)) ([9910863](https://github.com/taikoxyz/taiko-mono/commit/9910863865ecf7f583552e74f6a5d2e1a4060dca))
+* **taiko-client:** introduce TestTxPoolContentWithMinTip test case ([#18285](https://github.com/taikoxyz/taiko-mono/issues/18285)) ([d572f4c](https://github.com/taikoxyz/taiko-mono/commit/d572f4c412e59094ea9a4c5ff0b0667c9c04bd66))
+
+
+### Workflow
+
+* **protocol:** trigger patch release (1.10.1) ([#18358](https://github.com/taikoxyz/taiko-mono/issues/18358)) ([f4f4796](https://github.com/taikoxyz/taiko-mono/commit/f4f4796488059b02c79d6fb15170df58dd31dc4e))
+
 ## [0.13.0](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.12.0...eventindexer-v0.13.0) (2023-10-18)
 
 
