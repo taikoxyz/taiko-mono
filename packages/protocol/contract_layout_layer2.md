@@ -354,31 +354,6 @@
 | remoteOwner      | address     | 252  | 8      | 20    | DelegateOwner |
 | __gap            | uint256[48] | 253  | 0      | 1536  | DelegateOwner |
 
-## TaikoL2V1
-| Name             | Type                        | Slot | Offset | Bytes | Contract                                       |
-|------------------|-----------------------------|------|--------|-------|------------------------------------------------|
-| _initialized     | uint8                       | 0    | 0      | 1     | TaikoL2V1 |
-| _initializing    | bool                        | 0    | 1      | 1     | TaikoL2V1 |
-| __gap            | uint256[50]                 | 1    | 0      | 1600  | TaikoL2V1 |
-| _owner           | address                     | 51   | 0      | 20    | TaikoL2V1 |
-| __gap            | uint256[49]                 | 52   | 0      | 1568  | TaikoL2V1 |
-| _pendingOwner    | address                     | 101  | 0      | 20    | TaikoL2V1 |
-| __gap            | uint256[49]                 | 102  | 0      | 1568  | TaikoL2V1 |
-| addressManager   | address                     | 151  | 0      | 20    | TaikoL2V1 |
-| __gap            | uint256[49]                 | 152  | 0      | 1568  | TaikoL2V1 |
-| __reentry        | uint8                       | 201  | 0      | 1     | TaikoL2V1 |
-| __paused         | uint8                       | 201  | 1      | 1     | TaikoL2V1 |
-| __lastUnpausedAt | uint64                      | 201  | 2      | 8     | TaikoL2V1 |
-| __gap            | uint256[49]                 | 202  | 0      | 1568  | TaikoL2V1 |
-| _blockhashes     | mapping(uint256 => bytes32) | 251  | 0      | 32    | TaikoL2V1 |
-| publicInputHash  | bytes32                     | 252  | 0      | 32    | TaikoL2V1 |
-| parentGasExcess  | uint64                      | 253  | 0      | 8     | TaikoL2V1 |
-| lastSyncedBlock  | uint64                      | 253  | 8      | 8     | TaikoL2V1 |
-| parentTimestamp  | uint64                      | 253  | 16     | 8     | TaikoL2V1 |
-| parentGasTarget  | uint64                      | 253  | 24     | 8     | TaikoL2V1 |
-| l1ChainId        | uint64                      | 254  | 0      | 8     | TaikoL2V1 |
-| __gap            | uint256[46]                 | 255  | 0      | 1472  | TaikoL2V1 |
-
 ## TaikoL2
 | Name             | Type                        | Slot | Offset | Bytes | Contract                                   |
 |------------------|-----------------------------|------|--------|-------|--------------------------------------------|
