@@ -3,7 +3,7 @@
   "packages/docs-site": "1.14.0",
   "packages/eventindexer": "0.13.0",
   "packages/fork-diff": "0.6.1",
-  "packages/guardian-prover-health-check": "0.1.0",
+  "packages/guardian-prover-health-check": "0.1.1",
   "packages/guardian-prover-health-check-ui": "0.2.0",
   "packages/protocol": "1.10.0",
   "packages/relayer": "0.12.0",
