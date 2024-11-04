@@ -17,17 +17,17 @@ jobs:
     uses: ./.github/workflows/taikoon-ui--ci.yml
 
   # Deployment name follow the pattern: deploy_<appname(taikoon-ui)>_<network(devnet|hekla|mainnet)>_<environment(preview|production)>
-  deploy_taikoon-ui_mainnet_preview:
-    if: ${{ github.ref_name != 'main' }}
-    needs: build-and-test
-    uses: ./.github/workflows/repo--vercel-deploy.yml
-    with:
-      environment: "preview"
-      flags: ""
-    secrets:
-      vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_TAIKOON_UI_MAINNET }}
-      vercel_org_id: ${{ secrets.VERCEL_ORG_ID }}
-      vercel_token: ${{ secrets.VERCEL_TOKEN }}
+  # deploy_taikoon-ui_mainnet_preview:
+  #   if: ${{ github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'option.workflow_on') || github.event.pull_request.draft == false && github.head_ref != 'release-please-*') }}
+  #   needs: build-and-test
+  #   uses: ./.github/workflows/repo--vercel-deploy.yml
+  #   with:
+  #     environment: "preview"
+  #     flags: ""
+  #   secrets:
+  #     vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_TAIKOON_UI_MAINNET }}
+  #     vercel_org_id: ${{ secrets.VERCEL_ORG_ID }}
+  #     vercel_token: ${{ secrets.VERCEL_TOKEN }}
 
   deploy_taikoon-ui_mainnet_production:
     if: ${{ startsWith(github.ref, 'refs/tags/taikoon-ui-v') }}
