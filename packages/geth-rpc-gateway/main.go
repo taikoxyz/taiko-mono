@@ -65,7 +65,9 @@ func main() {
 
 // CORS middleware to enable CORS headers
 func enableCORS(next http.Handler) http.Handler {
+	log.Printf("enableCORS")
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("CORS middleware invoked for %s %s", r.Method, r.URL.Path)
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
