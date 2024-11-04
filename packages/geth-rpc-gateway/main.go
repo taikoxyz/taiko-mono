@@ -68,11 +68,15 @@ func enableCORS(next http.Handler) http.Handler {
 	log.Printf("enableCORS")
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("CORS middleware invoked for %s %s", r.Method, r.URL.Path)
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+
+		// Set specific origin instead of wildcard '*'
+		origin := "https://bridge.internal.taiko.xyz"
+		w.Header().Set("Access-Control-Allow-Origin", origin)
+		w.Header().Set("Access-Control-Allow-Methods", r.Method)
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
 		if r.Method == "OPTIONS" {
+			log.Printf("Preflight request for %s %s", r.Method, r.URL.Path)
 			w.WriteHeader(http.StatusOK)
 			return
 		}
