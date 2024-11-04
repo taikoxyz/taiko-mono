@@ -246,11 +246,11 @@ func (s *Syncer) InsertSoftBlockFromTransactionsBatch(
 }
 
 // RemoveSoftBlocks removes soft blocks from the L2 execution engine's blockchain.
-func (s *Syncer) RemoveSoftBlocks(ctx context.Context, newLastBlockId uint64) error {
+func (s *Syncer) RemoveSoftBlocks(ctx context.Context, newLastBlockID uint64) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	newHead, err := s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(newLastBlockId))
+	newHead, err := s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(newLastBlockID))
 	if err != nil {
 		return err
 	}

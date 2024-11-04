@@ -24,7 +24,7 @@ type softBlockChainSyncer interface {
 		batchMarker TransactionBatchMarker,
 		softBlockParams *SoftBlockParams,
 	) (*types.Header, error)
-	RemoveSoftBlocks(ctx context.Context, newLastBlockId uint64) error
+	RemoveSoftBlocks(ctx context.Context, newLastBlockID uint64) error
 }
 
 // @title Taiko Soft Block Server API

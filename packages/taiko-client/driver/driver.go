@@ -129,7 +129,9 @@ func (d *Driver) Close(_ context.Context) {
 	d.state.Close()
 	// Close the soft block server if it is enabled.
 	if d.softblockServer != nil {
-		d.softblockServer.Shutdown(d.ctx)
+		if err := d.softblockServer.Shutdown(d.ctx); err != nil {
+			log.Error("Failed to shutdown soft block server", "error", err)
+		}
 	}
 	d.wg.Wait()
 }
