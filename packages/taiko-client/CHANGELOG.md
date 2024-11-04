@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.40.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.39.2...taiko-client-v0.40.0) (2024-11-04)
+
+
+### Features
+
+* **taiko-client:** client changes based on [#18150](https://github.com/taikoxyz/taiko-mono/issues/18150) ([#18350](https://github.com/taikoxyz/taiko-mono/issues/18350)) ([ddc6473](https://github.com/taikoxyz/taiko-mono/commit/ddc647327e8d58f5a2def5b902ad06800982544b))
+* **taiko-client:** update Go contract bindings ([#18381](https://github.com/taikoxyz/taiko-mono/issues/18381)) ([71cfc5c](https://github.com/taikoxyz/taiko-mono/commit/71cfc5ce1ef06dcf099a4ce9b22bea6100406148))
+* **taiko-client:** update Go contract bindings ([#18384](https://github.com/taikoxyz/taiko-mono/issues/18384)) ([8dd14a1](https://github.com/taikoxyz/taiko-mono/commit/8dd14a1b4b21ce77ed3aac935b1d2c950e11e729))
+
+
+### Chores
+
+* **taiko-client:** add `BaseFeeConfig.SharingPctg` to mainnet protocol config ([#18341](https://github.com/taikoxyz/taiko-mono/issues/18341)) ([75d14a7](https://github.com/taikoxyz/taiko-mono/commit/75d14a7afac83b4578a3c32456a28ae70373d5cb))
+* **taiko-client:** update docker-compose config ([#18330](https://github.com/taikoxyz/taiko-mono/issues/18330)) ([74e4ca4](https://github.com/taikoxyz/taiko-mono/commit/74e4ca4aaef07af4958a7b61c95e385022b1cf3c))
+* **taiko-client:** update Go contract bindings generation script ([#18324](https://github.com/taikoxyz/taiko-mono/issues/18324)) ([4f698a0](https://github.com/taikoxyz/taiko-mono/commit/4f698a02bb1714caf527629a637323a9964cdb11))
+
+
+### Tests
+
+* **taiko-client:** introduce TestTxPoolContentWithMinTip test case ([#18285](https://github.com/taikoxyz/taiko-mono/issues/18285)) ([d572f4c](https://github.com/taikoxyz/taiko-mono/commit/d572f4c412e59094ea9a4c5ff0b0667c9c04bd66))
+
+
+### Workflow
+
+* **protocol:** trigger patch release (1.10.1) ([#18358](https://github.com/taikoxyz/taiko-mono/issues/18358)) ([f4f4796](https://github.com/taikoxyz/taiko-mono/commit/f4f4796488059b02c79d6fb15170df58dd31dc4e))
+
 ## [0.39.2](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.39.1...taiko-client-v0.39.2) (2024-10-24)
 
 
