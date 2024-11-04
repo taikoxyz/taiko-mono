@@ -138,17 +138,20 @@ func (s *SoftBlockAPIServer) BuildSoftBlock(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "empty coinbase"})
 	}
 
-	ok, err := reqBody.TransactionBatch.ValidateSignature()
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-	}
-	if !ok {
-		log.Warn(
-			"Invalid signature",
-			"signature", reqBody.TransactionBatch.Signature,
-			"coinbase", reqBody.TransactionBatch.BlockParams.Coinbase.Hex(),
-		)
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid signature"})
+	// If the `--softBlock.signatureCheck` flag is enabled, validate the signature.
+	if s.checkSig {
+		ok, err := reqBody.TransactionBatch.ValidateSignature()
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+		if !ok {
+			log.Warn(
+				"Invalid signature",
+				"signature", reqBody.TransactionBatch.Signature,
+				"coinbase", reqBody.TransactionBatch.BlockParams.Coinbase.Hex(),
+			)
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid signature"})
+		}
 	}
 
 	// Check if the L2 execution engine is syncing from L1.

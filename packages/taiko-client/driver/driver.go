@@ -96,6 +96,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 			d.SoftBlockServerJWTSecret,
 			d.l2ChainSyncer.BlobSyncer(),
 			d.rpc,
+			d.Config.SoftBlockServerCheckSig,
 		); err != nil {
 			return err
 		}

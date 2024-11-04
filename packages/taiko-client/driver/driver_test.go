@@ -363,6 +363,7 @@ func (s *DriverTestSuite) TestInsertSoftBlocks() {
 		nil,
 		s.d.ChainSyncer().BlobSyncer(),
 		s.RPCClient,
+		true,
 	)
 	s.Nil(err)
 	go func() { s.d.softblockServer.Start(port) }()

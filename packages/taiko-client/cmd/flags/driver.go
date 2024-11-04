@@ -72,6 +72,13 @@ var (
 		Value:    "*",
 		EnvVars:  []string{"SOFT_BLOCK_SERVER_CORS_ORIGINS"},
 	}
+	SoftBlockServerCheckSig = &cli.BoolFlag{
+		Name:     "softBlock.signatureCheck",
+		Usage:    "If the soft block server will check the signature of the incoming transactions batches",
+		Category: driverCategory,
+		Value:    true,
+		EnvVars:  []string{"SOFT_BLOCK_SERVER_SIGNATURE_CHECK"},
+	}
 )
 
 // DriverFlags All driver flags.
@@ -89,4 +96,5 @@ var DriverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	SoftBlockServerPort,
 	SoftBlockServerJWTSecret,
 	SoftBlockServerCORSOrigins,
+	SoftBlockServerCheckSig,
 })

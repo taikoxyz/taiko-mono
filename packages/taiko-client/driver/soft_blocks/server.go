@@ -43,6 +43,7 @@ type SoftBlockAPIServer struct {
 	chainSyncer        softBlockChainSyncer
 	rpc                *rpc.Client
 	txListDecompressor *txListDecompressor.TxListDecompressor
+	checkSig           bool
 }
 
 // New creates a new soft blcok server instance, and starts the server.
@@ -51,6 +52,7 @@ func New(
 	jwtSecret []byte,
 	chainSyncer softBlockChainSyncer,
 	cli *rpc.Client,
+	checkSig bool,
 ) (*SoftBlockAPIServer, error) {
 	protocolConfigs, err := rpc.GetProtocolConfigs(cli.TaikoL1, nil)
 	if err != nil {
@@ -65,7 +67,8 @@ func New(
 			rpc.BlockMaxTxListBytes,
 			cli.L2.ChainID,
 		),
-		rpc: cli,
+		rpc:      cli,
+		checkSig: checkSig,
 	}
 
 	server.echo.HideBanner = true
