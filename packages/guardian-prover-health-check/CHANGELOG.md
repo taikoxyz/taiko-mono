@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.1.1](https://github.com/taikoxyz/taiko-mono/compare/guardian-prover-health-check-v0.1.0...guardian-prover-health-check-v0.1.1) (2024-11-04)
+
+
+### Bug Fixes
+
+* **guardian-prover-health-check:** upgrades relate Database operation ([#17752](https://github.com/taikoxyz/taiko-mono/issues/17752)) ([c7b8b72](https://github.com/taikoxyz/taiko-mono/commit/c7b8b72463b813f7eb20ba18143a3ba26e42e830))
+
+
+### Chores
+
+* **taiko-client:** keep env vars same with the flag name ([#17964](https://github.com/taikoxyz/taiko-mono/issues/17964)) ([d08a1de](https://github.com/taikoxyz/taiko-mono/commit/d08a1de8a36a4bac484bf0390728cb8ed87b3a0b))
+
+
+### Documentation
+
+* **repo:** remove unexist badge and action in readme ([#17928](https://github.com/taikoxyz/taiko-mono/issues/17928)) ([465456e](https://github.com/taikoxyz/taiko-mono/commit/465456ef17df5a0915b9b17cc081e215ed1c67b8))
+
+
+### Tests
+
+* **taiko-client:** use env names which defined in flag configs ([#17921](https://github.com/taikoxyz/taiko-mono/issues/17921)) ([196b74e](https://github.com/taikoxyz/taiko-mono/commit/196b74eb2b4498bc3e6511915e011a885fcc530f))
+
+
+### Workflow
+
+* **protocol:** trigger patch release (1.10.1) ([#18358](https://github.com/taikoxyz/taiko-mono/issues/18358)) ([f4f4796](https://github.com/taikoxyz/taiko-mono/commit/f4f4796488059b02c79d6fb15170df58dd31dc4e))
+
+
+### Build
+
+* **guardian-prover-health-check:** upgrade scripts and ignore abi json files ([#17751](https://github.com/taikoxyz/taiko-mono/issues/17751)) ([a569cd3](https://github.com/taikoxyz/taiko-mono/commit/a569cd316f77e1653cb2bbedabe388b3f7fc5a6c))
+
 ## [0.12.0](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.11.0...relayer-v0.12.0) (2023-10-18)
 
 
