@@ -179,7 +179,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     function getBlock(uint64 _blockId) external view returns (TaikoData.Block memory blk_) {
         require(_blockId < getConfig().ontakeForkHeight, L1_FORK_HEIGHT_ERROR());
 
-        (TaikoData.BlockV2 memory blk,) = LibUtils.getBlock(state, getConfig(), _blockId);
+        (TaikoData.BlockV2 memory blk,) = LibUtils.getBlock(state, getConfig(), _blockId, true);
         blk_ = LibData.blockV2ToV1(blk);
     }
 
@@ -187,7 +187,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     function getBlockV2(uint64 _blockId) external view returns (TaikoData.BlockV2 memory blk_) {
         require(_blockId >= getConfig().ontakeForkHeight, L1_FORK_HEIGHT_ERROR());
 
-        (blk_,) = LibUtils.getBlock(state, getConfig(), _blockId);
+        (blk_,) = LibUtils.getBlock(state, getConfig(), _blockId, true);
     }
 
     /// @notice This function will revert if the transition is not found. This function will revert
@@ -287,6 +287,18 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     /// @return The ID of the Li block where the most recent block was proposed.
     function lastProposedIn() external view returns (uint56) {
         return state.slotB.lastProposedIn;
+    }
+
+    /// @notice Retrieves a block in the ring buffer.
+    /// @param _blockId The slot value.
+    /// @return blk_ The block in the ring buffer.
+    /// @return slot_ The slot value.
+    function debugGetBlock(uint64 _blockId)
+        external
+        view
+        returns (TaikoData.BlockV2 memory blk_, uint64 slot_)
+    {
+        return LibUtils.getBlock(state, getConfig(), _blockId, false);
     }
 
     /// @inheritdoc ITaikoL1

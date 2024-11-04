@@ -81,7 +81,7 @@ library LibUtils {
         view
         returns (bytes32 blockHash_, bytes32 stateRoot_, uint64 verifiedAt_)
     {
-        (TaikoData.BlockV2 storage blk, uint64 slot) = getBlock(_state, _config, _blockId);
+        (TaikoData.BlockV2 storage blk, uint64 slot) = getBlock(_state, _config, _blockId, true);
 
         if (blk.verifiedTransitionId != 0) {
             TaikoData.TransitionState storage transition =
@@ -114,7 +114,8 @@ library LibUtils {
         require(_blockIds.length == _parentHashes.length, L1_INVALID_PARAMS());
         transitions_ = new TaikoData.TransitionState[](_blockIds.length);
         for (uint256 i; i < _blockIds.length; ++i) {
-            (TaikoData.BlockV2 storage blk, uint64 slot) = getBlock(_state, _config, _blockIds[i]);
+            (TaikoData.BlockV2 storage blk, uint64 slot) =
+                getBlock(_state, _config, _blockIds[i], true);
             uint24 tid = getTransitionId(_state, blk, slot, _parentHashes[i]);
             if (tid != 0) {
                 transitions_[i] = _state.transitions[slot][tid];
@@ -139,7 +140,7 @@ library LibUtils {
         view
         returns (TaikoData.TransitionState storage)
     {
-        (TaikoData.BlockV2 storage blk, uint64 slot) = getBlock(_state, _config, _blockId);
+        (TaikoData.BlockV2 storage blk, uint64 slot) = getBlock(_state, _config, _blockId, true);
 
         uint24 tid = getTransitionId(_state, blk, slot, _parentHash);
         require(tid != 0, L1_TRANSITION_NOT_FOUND());
@@ -156,7 +157,8 @@ library LibUtils {
     function getBlock(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
-        uint64 _blockId
+        uint64 _blockId,
+        bool _checkId
     )
         internal
         view
@@ -164,7 +166,7 @@ library LibUtils {
     {
         slot_ = _blockId % _config.blockRingBufferSize;
         blk_ = _state.blocks[slot_];
-        require(blk_.blockId == _blockId, L1_INVALID_BLOCK_ID());
+        require(blk_.blockId == _blockId || !_checkId, L1_INVALID_BLOCK_ID());
     }
 
     /// @dev Retrieves the transition with a transition ID.
@@ -184,7 +186,7 @@ library LibUtils {
         view
         returns (TaikoData.TransitionState storage)
     {
-        (TaikoData.BlockV2 storage blk, uint64 slot) = getBlock(_state, _config, _blockId);
+        (TaikoData.BlockV2 storage blk, uint64 slot) = getBlock(_state, _config, _blockId, true);
 
         require(_tid != 0, L1_TRANSITION_NOT_FOUND());
         require(_tid < blk.nextTransitionId, L1_TRANSITION_NOT_FOUND());
