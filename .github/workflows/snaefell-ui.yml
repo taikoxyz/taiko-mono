@@ -1,18 +1,7 @@
 name: Snaefell UI CI/CD
 
 on:
-  push:
-    paths:
-      - "packages/snaefell-ui/**"
-    branches-ignore:
-      - dependabot/**
-    tags:
-      - "snaefull-ui-v*"
-
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-    paths:
-      - "packages/snaefell-ui/**"
+  workflow_dispatch:
 
 jobs:
   build-and-test:
@@ -20,20 +9,18 @@ jobs:
 
   # Deployment name follow the pattern: deploy_<appname(snaefell-ui)>_<network(devnet|hekla|mainnet)>_<environment(preview|production)>
   # The following Vercel project is not found, so disable it at least for now.
-  # deploy_snaefell-ui_mainnet_preview:
-  #   if: ${{ github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'option.workflow_on') || github.event.pull_request.draft == false && github.head_ref != 'release-please-*') }}
-  #   needs: build-and-test
-  #   uses: ./.github/workflows/repo--vercel-deploy.yml
-  #   with:
-  #     environment: "preview"
-  #     flags: ""
-  #   secrets:
-  #     vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_SNAEFELL_UI_MAINNET }}
-  #     vercel_org_id: ${{ secrets.VERCEL_ORG_ID }}
-  #     vercel_token: ${{ secrets.VERCEL_TOKEN }}
+  deploy_snaefell-ui_mainnet_preview:
+    needs: build-and-test
+    uses: ./.github/workflows/repo--vercel-deploy.yml
+    with:
+      environment: "preview"
+      flags: ""
+    secrets:
+      vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_SNAEFELL_UI_MAINNET }}
+      vercel_org_id: ${{ secrets.VERCEL_ORG_ID }}
+      vercel_token: ${{ secrets.VERCEL_TOKEN }}
 
   deploy_snaefell-ui_mainnet_production:
-    if: ${{ startsWith(github.ref, 'refs/tags/snaefull-ui-v') }}
     needs: build-and-test
     uses: ./.github/workflows/repo--vercel-deploy.yml
     with:
