@@ -16,26 +16,27 @@ on:
 
 jobs:
   build-and-test:
+    if: ${{ github.event_name == 'pull_request'  && (contains(github.event.pull_request.labels.*.name, 'option.workflow_on') || github.event.pull_request.draft == false && github.head_ref != 'release-please-*') }}  
     uses: ./.github/workflows/bridge-ui--ci.yml
 
   # Deployment name follow the pattern: deploy_<appname(bridge-ui)>_<network(devnet|hekla|mainnet)>_<environment(preview|production)>
 
   # Internal Devnet
-  deploy_bridge-ui_devnet_preview:
-    if: ${{ github.ref_type != 'tag' }}
-    needs: build-and-test
-    uses: ./.github/workflows/repo--vercel-deploy.yml
-    with:
-      environment: "preview"
-      flags: ""
-    secrets:
-      vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_BRIDGE_UI_INTERNAL }}
-      vercel_org_id: ${{ secrets.VERCEL_ORG_ID }}
-      vercel_token: ${{ secrets.VERCEL_TOKEN }}
+  # deploy_bridge-ui_devnet_preview:
+  #   if: ${{ github.event_name == 'pull_request'  && (contains(github.event.pull_request.labels.*.name, 'option.workflow_on') || github.event.pull_request.draft == false && github.head_ref != 'release-please-*') }}
+  #   needs: build-and-test
+  #   uses: ./.github/workflows/repo--vercel-deploy.yml
+  #   with:
+  #     environment: "preview"
+  #     flags: ""
+  #   secrets:
+  #     vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_BRIDGE_UI_INTERNAL }}
+  #     vercel_org_id: ${{ secrets.VERCEL_ORG_ID }}
+  #     vercel_token: ${{ secrets.VERCEL_TOKEN }}
 
   # Hekla testnet
   deploy_bridge-ui_hekla_preview:
-    if: ${{ github.ref_type != 'tag' }}
+    if: ${{ github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'option.workflow_on') || github.event.pull_request.draft == false && github.head_ref != 'release-please-*') }}
     needs: build-and-test
     uses: ./.github/workflows/repo--vercel-deploy.yml
     with:
@@ -60,7 +61,7 @@ jobs:
 
   # Mainnet
   deploy_bridge-ui_mainnet_preview:
-    if: ${{ github.ref_type != 'tag' }}
+    if: ${{ github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'option.workflow_on') || github.event.pull_request.draft == false && github.head_ref != 'release-please-*') }}
     needs: build-and-test
     uses: ./.github/workflows/repo--vercel-deploy.yml
     with:
