@@ -29,17 +29,20 @@ contract ProverSet is EssentialContract, IERC1271 {
     event ProverEnabled(address indexed prover, bool indexed enabled);
 
     error INVALID_STATUS();
+    error INVALID_BOND_TOKEN();
     error PERMISSION_DENIED();
+    error NOT_FIRST_PROPOSAL();
 
     modifier onlyAuthorized() {
-        if (msg.sender != admin && msg.sender != IHasRecipient(admin).recipient()) {
-            revert PERMISSION_DENIED();
-        }
+        require(
+            msg.sender == admin || msg.sender == IHasRecipient(admin).recipient(),
+            PERMISSION_DENIED()
+        );
         _;
     }
 
     modifier onlyProver() {
-        if (!isProver[msg.sender]) revert PERMISSION_DENIED();
+        require(isProver[msg.sender], PERMISSION_DENIED());
         _;
     }
 
@@ -55,19 +58,22 @@ contract ProverSet is EssentialContract, IERC1271 {
     {
         __Essential_init(_owner, _rollupAddressManager);
         admin = _admin;
-        IERC20(tkoToken()).approve(taikoL1(), type(uint256).max);
+
+        address _bondToken = bondToken();
+        if (_bondToken != address(0)) {
+            IERC20(_bondToken).approve(taikoL1(), type(uint256).max);
+        }
     }
 
-    /// @notice Receives ETH as fees.
-    receive() external payable { }
-
     function approveAllowance(address _address, uint256 _allowance) external onlyOwner {
-        IERC20(tkoToken()).approve(_address, _allowance);
+        address _bondToken = bondToken();
+        require(_bondToken != address(0), INVALID_BOND_TOKEN());
+        IERC20(_bondToken).approve(_address, _allowance);
     }
 
     /// @notice Enables or disables a prover.
     function enableProver(address _prover, bool _isProver) external onlyAuthorized {
-        if (isProver[_prover] == _isProver) revert INVALID_STATUS();
+        require(isProver[_prover] != _isProver, INVALID_STATUS());
         isProver[_prover] = _isProver;
 
         emit ProverEnabled(_prover, _isProver);
@@ -75,7 +81,12 @@ contract ProverSet is EssentialContract, IERC1271 {
 
     /// @notice Withdraws Taiko tokens back to the admin address.
     function withdrawToAdmin(uint256 _amount) external onlyAuthorized {
-        IERC20(tkoToken()).transfer(admin, _amount);
+        address _bondToken = bondToken();
+        if (_bondToken != address(0)) {
+            IERC20(_bondToken).transfer(admin, _amount);
+        } else {
+            LibAddress.sendEtherAndVerify(admin, _amount);
+        }
     }
 
     /// @notice Withdraws ETH back to the owner address.
@@ -83,27 +94,22 @@ contract ProverSet is EssentialContract, IERC1271 {
         LibAddress.sendEtherAndVerify(admin, _amount);
     }
 
-    /// @notice Propose a Taiko block.
-    function proposeBlock(
+    /// @notice Proposes a block only when it is the first block proposal in the current L1 block.
+    function proposeBlockV2Conditionally(
         bytes calldata _params,
         bytes calldata _txList
     )
         external
-        payable
         onlyProver
     {
-        ITaikoL1(taikoL1()).proposeBlock(_params, _txList);
+        ITaikoL1 taiko = ITaikoL1(taikoL1());
+        // Ensure this block is the first block proposed in the current L1 block.
+        require(taiko.lastProposedIn() != block.number, NOT_FIRST_PROPOSAL());
+        taiko.proposeBlockV2(_params, _txList);
     }
 
     /// @notice Propose a Taiko block.
-    function proposeBlockV2(
-        bytes calldata _params,
-        bytes calldata _txList
-    )
-        external
-        payable
-        onlyProver
-    {
+    function proposeBlockV2(bytes calldata _params, bytes calldata _txList) external onlyProver {
         ITaikoL1(taikoL1()).proposeBlockV2(_params, _txList);
     }
 
@@ -113,7 +119,6 @@ contract ProverSet is EssentialContract, IERC1271 {
         bytes[] calldata _txListArr
     )
         external
-        payable
         onlyProver
     {
         ITaikoL1(taikoL1()).proposeBlocksV2(_paramsArr, _txListArr);
@@ -149,7 +154,9 @@ contract ProverSet is EssentialContract, IERC1271 {
     /// @notice Delegates token voting right to a delegatee.
     /// @param _delegatee The delegatee to receive the voting right.
     function delegate(address _delegatee) external onlyAuthorized nonReentrant {
-        ERC20VotesUpgradeable(tkoToken()).delegate(_delegatee);
+        address _bondToken = bondToken();
+        require(_bondToken != address(0), INVALID_BOND_TOKEN());
+        ERC20VotesUpgradeable(_bondToken).delegate(_delegatee);
     }
 
     // This function is necessary for this contract to become an assigned prover.
@@ -171,7 +178,7 @@ contract ProverSet is EssentialContract, IERC1271 {
         return resolve(LibStrings.B_TAIKO, false);
     }
 
-    function tkoToken() internal view virtual returns (address) {
-        return resolve(LibStrings.B_TAIKO_TOKEN, false);
+    function bondToken() internal view virtual returns (address) {
+        return resolve(LibStrings.B_BOND_TOKEN, true);
     }
 }
