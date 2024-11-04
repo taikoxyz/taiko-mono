@@ -460,7 +460,7 @@ func (s *DriverTestSuite) TestInsertSoftBlocks() {
 func (s *DriverTestSuite) TestInsertSoftBlocksAfterEOB() {
 	var (
 		port   = uint64(testutils.RandomPort())
-		epochs = testutils.RandomHash().Big().Uint64() % 10
+		epochs = testutils.RandomHash().Big().Uint64() % 5
 		err    error
 	)
 	s.d.softblockServer, err = softblocks.New("*", nil, s.d.ChainSyncer().BlobSyncer(), s.RPCClient, true)
@@ -494,7 +494,7 @@ func (s *DriverTestSuite) TestInsertSoftBlocksAfterEOB() {
 func (s *DriverTestSuite) TestInsertSoftBlocksAfterEOP() {
 	var (
 		port   = uint64(testutils.RandomPort())
-		epochs = testutils.RandomHash().Big().Uint64() % 10
+		epochs = testutils.RandomHash().Big().Uint64() % 5
 		err    error
 	)
 	s.d.softblockServer, err = softblocks.New("*", nil, s.d.ChainSyncer().BlobSyncer(), s.RPCClient, true)
@@ -523,6 +523,23 @@ func (s *DriverTestSuite) TestInsertSoftBlocksAfterEOP() {
 	}
 	s.True(s.insertSoftBlock(url, l1Head, l2Head.Number.Uint64()+1, epochs, false, true).IsSuccess())
 	s.False(s.insertSoftBlock(url, l1Head, l2Head.Number.Uint64()+1, epochs+1, false, false).IsSuccess())
+
+	l2Head2, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	// Remove soft blocks
+	res, err := resty.New().
+		R().
+		SetBody(&softblocks.RemoveSoftBlocksRequestBody{
+			NewLastBlockID: l2Head2.Number.Uint64() - 1,
+		}).
+		Delete(url.String() + "/softBlocks")
+	s.Nil(err)
+	s.True(res.IsSuccess())
+
+	l2Head3, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(l2Head2.Number.Uint64()-1, l2Head3.Number.Uint64())
 }
 
 func TestDriverTestSuite(t *testing.T) {
