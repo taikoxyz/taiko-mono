@@ -475,7 +475,7 @@ func UnpackTxListBytes(txData []byte) ([]byte, error) {
 	}
 
 	// Only check for safety.
-	if method.Name != "proposeBlock" {
+	if method.Name != "proposeBlock" && method.Name != "proposeBlockV2" {
 		return nil, fmt.Errorf("invalid method name: %s", method.Name)
 	}
 

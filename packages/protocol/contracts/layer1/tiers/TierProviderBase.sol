@@ -6,6 +6,8 @@ import "./ITierProvider.sol";
 import "./LibTiers.sol";
 
 /// @title TierProviderBase
+/// @dev Any changes to the configuration in this file must be announced and documented on our site.
+/// Ensure all modifications are reviewed by the devrel team.
 /// @custom:security-contact security@taiko.xyz
 abstract contract TierProviderBase is ITierProvider {
     /// @dev Grace period for block proving service.
@@ -34,22 +36,20 @@ abstract contract TierProviderBase is ITierProvider {
         if (_tierId == LibTiers.TIER_ZKVM_RISC0) return _buildZkTier(LibStrings.B_TIER_ZKVM_RISC0);
         if (_tierId == LibTiers.TIER_ZKVM_SP1) return _buildZkTier(LibStrings.B_TIER_ZKVM_SP1);
         if (_tierId == LibTiers.TIER_ZKVM_ANY) return _buildZkTier(LibStrings.B_TIER_ZKVM_ANY);
-
-        // ZKVM+TEE Tier
         if (_tierId == LibTiers.TIER_ZKVM_AND_TEE) {
-            return _buildTier(LibStrings.B_TIER_ZKVM_AND_TEE, BOND_UNIT * 4, 1440, 180);
+            return _buildZkTier(LibStrings.B_TIER_ZKVM_AND_TEE);
         }
 
         // Guardian Minority Tiers
         if (_tierId == LibTiers.TIER_GUARDIAN_MINORITY) {
             // cooldownWindow is 240 minutes and provingWindow is 2880 minutes
-            return _buildTier(LibStrings.B_TIER_GUARDIAN_MINORITY, BOND_UNIT * 4, 240, 2880);
+            return _buildTier(LibStrings.B_TIER_GUARDIAN_MINORITY, BOND_UNIT * 3, 240, 0);
         }
 
         // Guardian Major Tiers
         if (_tierId == LibTiers.TIER_GUARDIAN) {
             // cooldownWindow is 1440 minutes and provingWindow is 2880 minutes
-            return _buildTier(LibStrings.B_TIER_GUARDIAN, 0, 1440, 2880);
+            return _buildTier(LibStrings.B_TIER_GUARDIAN, 0, 240, 0);
         }
 
         revert TIER_NOT_FOUND();
@@ -64,7 +64,7 @@ abstract contract TierProviderBase is ITierProvider {
         returns (ITierProvider.Tier memory)
     {
         // cooldownWindow is 1440 minutes and provingWindow is 60 minutes
-        return _buildTier(_verifierName, BOND_UNIT * 2, 1440, 60);
+        return _buildTier(_verifierName, BOND_UNIT * 2, 240, 60);
     }
 
     /// @dev Builds a ZK tier with a specific verifier name.
@@ -72,7 +72,7 @@ abstract contract TierProviderBase is ITierProvider {
     /// @return A Tier struct with predefined parameters for ZK.
     function _buildZkTier(bytes32 _verifierName) private pure returns (ITierProvider.Tier memory) {
         // cooldownWindow is 1440 minutes and provingWindow is 180 minutes
-        return _buildTier(_verifierName, BOND_UNIT * 3, 1440, 180);
+        return _buildTier(_verifierName, BOND_UNIT * 3, 240, 180);
     }
 
     /// @dev Builds a generic tier with specified parameters.
@@ -97,7 +97,7 @@ abstract contract TierProviderBase is ITierProvider {
             contestBond: _validityBond / 10_000 * 65_625,
             cooldownWindow: _cooldownWindow,
             provingWindow: GRACE_PERIOD + _provingWindow,
-            maxBlocksToVerifyPerProof: 0
-        });
+            maxBlocksToVerifyPerProof: 0 // DEPRECATED
+         });
     }
 }

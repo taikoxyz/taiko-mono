@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { TCBInfoStruct } from "src/layer1/automata-attestation/lib/TCBInfoStruct.sol";
-import { EnclaveIdStruct } from "src/layer1/automata-attestation/lib/EnclaveIdStruct.sol";
-import { V3Struct } from "src/layer1/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
-import { JSONParserLib } from "solady/src/utils/JSONParserLib.sol";
-import { LibString } from "solady/src/utils/LibString.sol";
+import "src/layer1/automata-attestation/lib/TCBInfoStruct.sol";
+import "src/layer1/automata-attestation/lib/EnclaveIdStruct.sol";
+import "src/layer1/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
+import "solady/src/utils/JSONParserLib.sol";
+import "solady/src/utils/LibString.sol";
 
 contract DcapTestUtils {
     using JSONParserLib for JSONParserLib.Item;

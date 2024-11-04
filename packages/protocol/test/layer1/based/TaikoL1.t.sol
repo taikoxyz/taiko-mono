@@ -11,6 +11,7 @@ contract TaikoL1_NoCooldown is TaikoL1 {
         config.blockMaxProposals = 10;
         config.blockRingBufferSize = 12;
         config.livenessBond = 1e18; // 1 Taiko token
+        config.ontakeForkHeight = 0;
     }
 }
 
@@ -45,7 +46,8 @@ contract TaikoL1Tests is TaikoL1TestBase {
 
         for (uint256 blockId = 1; blockId < conf.blockMaxProposals * 3; blockId++) {
             //printVariables("before propose");
-            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, 1024);
+            TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, 1024);
+
             //printVariables("after propose");
             mine(1);
 
@@ -74,7 +76,8 @@ contract TaikoL1Tests is TaikoL1TestBase {
 
         for (uint256 blockId = 1; blockId <= 20; ++blockId) {
             printVariables("before propose");
-            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, 1024);
+            TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, 1024);
+
             printVariables("after propose");
 
             bytes32 blockHash = bytes32(1e10 + blockId);
@@ -87,7 +90,7 @@ contract TaikoL1Tests is TaikoL1TestBase {
 
             verifyBlock(2);
 
-            TaikoData.Block memory blk = L1.getBlock(meta.id);
+            TaikoData.BlockV2 memory blk = L1.getBlockV2(meta.id);
             assertEq(meta.id, blk.blockId);
 
             TaikoData.TransitionState memory ts = L1.getTransition(meta.id, parentHash);
@@ -108,7 +111,8 @@ contract TaikoL1Tests is TaikoL1TestBase {
 
         for (uint256 blockId = 1; blockId <= conf.blockMaxProposals; blockId++) {
             printVariables("before propose");
-            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, 1024);
+            TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, 1024);
+
             printVariables("after propose");
 
             bytes32 blockHash = bytes32(1e10 + blockId);
@@ -134,7 +138,8 @@ contract TaikoL1Tests is TaikoL1TestBase {
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
         for (uint256 blockId = 1; blockId <= conf.blockMaxProposals; blockId++) {
-            (TaikoData.BlockMetadata memory meta,) = proposeBlock(Alice, 1024);
+            TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, 1024);
+
             bytes32 blockHash;
             bytes32 stateRoot;
             if (blockId % 2 == 0) {
@@ -189,13 +194,12 @@ contract TaikoL1Tests is TaikoL1TestBase {
     function test_pauseProving() external {
         L1.pauseProving(true);
 
-        TaikoData.BlockMetadata memory meta;
-
         giveEthAndTko(Alice, 1000 ether, 1000 ether);
         giveEthAndTko(Bob, 1e8 ether, 100 ether);
 
         // Proposing is still possible
-        (meta,) = proposeBlock(Alice, 1024);
+        TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, 1024);
+
         // Proving is not, so supply the revert reason to proveBlock
         proveBlock(
             Bob,
@@ -224,25 +228,9 @@ contract TaikoL1Tests is TaikoL1TestBase {
         proposeBlock(Alice, 1024);
     }
 
-    function test_getTierIds() external {
-        uint16[] memory tiers = tr.getTierIds();
-        assertEq(tiers[0], LibTiers.TIER_OPTIMISTIC);
-        assertEq(tiers[1], LibTiers.TIER_SGX);
-        assertEq(tiers[2], LibTiers.TIER_GUARDIAN);
-
-        vm.expectRevert();
-        tr.getTier(123);
-    }
-
     function proposeButRevert(address proposer, uint24 txListSize, bytes4 revertReason) internal {
-        uint256 msgValue = 2 ether;
-        TaikoData.HookCall[] memory hookcalls = new TaikoData.HookCall[](0);
-
         vm.prank(proposer, proposer);
         vm.expectRevert(revertReason);
-        L1.proposeBlock{ value: msgValue }(
-            abi.encode(TaikoData.BlockParams(address(0), address(0), 0, 0, hookcalls, "")),
-            new bytes(txListSize)
-        );
+        L1.proposeBlockV2("", new bytes(txListSize));
     }
 }

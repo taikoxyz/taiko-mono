@@ -4,6 +4,11 @@ on:
   push:
     branches:
       - main
+    tags:
+      - '*'
+  delete:
+    tags:
+      - '*'
 
 permissions:
   contents: write
@@ -11,7 +16,6 @@ permissions:
 
 jobs:
   release-please:
-    if: ${{ !contains(github.event.head_commit.message, 'chore(main):') }}
     runs-on: [arc-runner-set]
     steps:
       - uses: googleapis/release-please-action@v4

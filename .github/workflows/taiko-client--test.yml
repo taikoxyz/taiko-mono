@@ -37,7 +37,7 @@ jobs:
 
     strategy:
       matrix:
-        execution_node: [l2_geth, l2_reth]
+        execution_node: [l2_geth]
 
     steps:
       - name: Cancel Previous Runs

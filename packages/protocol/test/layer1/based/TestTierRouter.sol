@@ -16,8 +16,8 @@ contract TestTierRouter is ITierProvider, ITierRouter {
     function getProvider(uint256) external view returns (address) {
         return address(this);
     }
-    /// @inheritdoc ITierProvider
 
+    /// @inheritdoc ITierProvider
     function getTier(uint16 _tierId) public pure override returns (ITierProvider.Tier memory) {
         if (_tierId == LibTiers.TIER_OPTIMISTIC) {
             return ITierProvider.Tier({
@@ -26,8 +26,8 @@ contract TestTierRouter is ITierProvider, ITierRouter {
                 contestBond: 500 ether, // TKO
                 cooldownWindow: 1440, //24 hours
                 provingWindow: 30, // 0.5 hours
-                maxBlocksToVerifyPerProof: 0
-            });
+                maxBlocksToVerifyPerProof: 0 // DEPRECATED
+             });
         }
 
         if (_tierId == LibTiers.TIER_SGX) {
@@ -37,8 +37,8 @@ contract TestTierRouter is ITierProvider, ITierRouter {
                 contestBond: 1640 ether, // =250TKO * 6.5625
                 cooldownWindow: 1440, //24 hours
                 provingWindow: 60, // 1 hours
-                maxBlocksToVerifyPerProof: 0
-            });
+                maxBlocksToVerifyPerProof: 0 // DEPRECATED
+             });
         }
 
         if (_tierId == LibTiers.TIER_GUARDIAN) {
@@ -48,8 +48,8 @@ contract TestTierRouter is ITierProvider, ITierRouter {
                 contestBond: 0, // must be 0 for top tier
                 cooldownWindow: 60, //1 hours
                 provingWindow: 2880, // 48 hours
-                maxBlocksToVerifyPerProof: 0
-            });
+                maxBlocksToVerifyPerProof: 0 // DEPRECATED
+             });
         }
 
         revert TIER_NOT_FOUND();

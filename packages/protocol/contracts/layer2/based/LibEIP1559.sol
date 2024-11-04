@@ -4,14 +4,15 @@ pragma solidity ^0.8.24;
 import "@solady/src/utils/FixedPointMathLib.sol";
 import "src/shared/common/LibMath.sol";
 
-/// @title Lib1559Math
+/// @title LibEIP1559
 /// @notice Implements e^(x) based bonding curve for EIP-1559
 /// @dev See https://ethresear.ch/t/make-eip-1559-more-like-an-amm-curve/9082 but some minor
 /// difference as stated in docs/eip1559_on_l2.md.
 /// @custom:security-contact security@taiko.xyz
-library Lib1559Math {
+library LibEIP1559 {
     using LibMath for uint256;
 
+    /// @notice The maximum allowable input value for the exp() function.
     uint128 public constant MAX_EXP_INPUT = 135_305_999_368_893_231_588;
 
     error EIP1559_INVALID_PARAMS();
@@ -41,7 +42,7 @@ library Lib1559Math {
     }
 
     /// @dev Returns the new gas excess that will keep the basefee the same.
-    /// `_newGasTarget * ln(_newGasTarget / _target) + _gasExcess * _newGasTarget / _target`
+    /// `_newGasTarget * ln(_newGasTarget / _gasTarget) + _gasExcess * _newGasTarget / _gasTarget`
     function adjustExcess(
         uint64 _gasExcess,
         uint64 _gasTarget,
@@ -57,7 +58,7 @@ library Lib1559Math {
 
         uint256 f = FixedPointMathLib.WAD;
         uint256 ratio = f * _newGasTarget / _gasTarget;
-        if (ratio > uint256(type(int256).max)) revert EIP1559_INVALID_PARAMS();
+        if (ratio == 0 || ratio > uint256(type(int256).max)) revert EIP1559_INVALID_PARAMS();
 
         int256 lnRatio = FixedPointMathLib.lnWad(int256(ratio)); // may be negative
 

@@ -104,10 +104,11 @@ contract Bridge is EssentialContract, IBridge {
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _sharedAddressManager The address of the {AddressManager} contract.
-    function init(address _owner, address _sharedAddressManager) external reinitializer(2) {
+    function init(address _owner, address _sharedAddressManager) external initializer {
         __Essential_init(_owner, _sharedAddressManager);
     }
 
+    /// @notice This function shall be called by previously deployed contracts.
     function init2() external onlyOwner reinitializer(2) {
         // reset some previously used slots for future reuse
         __reserved1 = 0;
@@ -468,7 +469,7 @@ contract Bridge is EssentialContract, IBridge {
     /// @dev Considering that the watchdog is a hot wallet, in case its private key is leaked, we
     /// only allow watchdog to pause the bridge, but does not allow it to unpause the bridge.
     function _authorizePause(address addr, bool toPause) internal view override {
-        // Owner and chain_pauser can pause/unpause the bridge.
+        // Owner and chain watchdog can pause/unpause the bridge.
         if (addr == owner() || addr == resolve(LibStrings.B_CHAIN_WATCHDOG, true)) return;
 
         // bridge_watchdog can pause the bridge, but cannot unpause it.
