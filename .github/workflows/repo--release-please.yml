@@ -9,7 +9,7 @@ on:
   delete:
     tags:
       - '*'
-      
+
 permissions:
   contents: write
   pull-requests: write
