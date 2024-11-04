@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.11.0](https://github.com/taikoxyz/taiko-mono/compare/protocol-v1.10.0...protocol-v1.11.0) (2024-11-04)
+
+
+### Features
+
+* **protocol:** add `lastProposedIn` to slotB ([#18379](https://github.com/taikoxyz/taiko-mono/issues/18379)) ([96b380a](https://github.com/taikoxyz/taiko-mono/commit/96b380a452f1055da960146b4bf1e94c1842da73))
+* **protocol:** allow any ERC20 tokens or Ether to be used as bonds ([#18380](https://github.com/taikoxyz/taiko-mono/issues/18380)) ([1920521](https://github.com/taikoxyz/taiko-mono/commit/1920521a2478d1e31745742f1ddbb296cdd98f6f))
+* **protocol:** increase risc0 frequency in Hekla ([#18407](https://github.com/taikoxyz/taiko-mono/issues/18407)) ([350264c](https://github.com/taikoxyz/taiko-mono/commit/350264c98d6a96ea11d5b1cef684a81605d3826b))
+* **protocol:** update `B_TIER_ROUTER` in `RollupAddressCache` ([#18370](https://github.com/taikoxyz/taiko-mono/issues/18370)) ([9748ae5](https://github.com/taikoxyz/taiko-mono/commit/9748ae527a75124f8674bb66280b9161ce79d046))
+
+
+### Chores
+
+* **protocol:** change bond amounts, proving windows, and cooldown windows ([#18371](https://github.com/taikoxyz/taiko-mono/issues/18371)) ([fac5c16](https://github.com/taikoxyz/taiko-mono/commit/fac5c167357f430cfb030e7ceaa41bb8e4b938d4))
+* **protocol:** optimize Taiko L1 gas cost ([#18376](https://github.com/taikoxyz/taiko-mono/issues/18376)) ([ea0158f](https://github.com/taikoxyz/taiko-mono/commit/ea0158f0cbaa974f90f9174410c705e6cbdc48aa))
+* **protocol:** restore proving window changes ([#18368](https://github.com/taikoxyz/taiko-mono/issues/18368)) ([9182fba](https://github.com/taikoxyz/taiko-mono/commit/9182fbaf05d309f9827310f3616992c0cc88a22d))
+
+
+### Documentation
+
+* **protocol:** update mainnet deployment docs ([#18366](https://github.com/taikoxyz/taiko-mono/issues/18366)) ([bbd69ca](https://github.com/taikoxyz/taiko-mono/commit/bbd69ca583257ade30ac9ea2601509af5bc0789a))
+
+
+### Code Refactoring
+
+* **protocol:** remove unused code post Ontake fork ([#18150](https://github.com/taikoxyz/taiko-mono/issues/18150)) ([8543cec](https://github.com/taikoxyz/taiko-mono/commit/8543cecdef9d10d038bc5a7313230006acd26e22))
+
 ## [1.10.0](https://github.com/taikoxyz/taiko-mono/compare/protocol-v1.9.0...protocol-v1.10.0) (2024-11-01)
 
 
