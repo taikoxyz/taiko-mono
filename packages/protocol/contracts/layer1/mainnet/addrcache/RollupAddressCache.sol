@@ -21,6 +21,9 @@ contract RollupAddressCache is AddressCache {
             return (false, address(0));
         }
 
+        if (_name == LibStrings.B_BOND_TOKEN) {
+            return (true, 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800);
+        }
         if (_name == LibStrings.B_TAIKO_TOKEN) {
             return (true, 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800);
         }
@@ -34,7 +37,7 @@ contract RollupAddressCache is AddressCache {
             return (true, 0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a);
         }
         if (_name == LibStrings.B_TIER_ROUTER) {
-            return (true, 0x2cD242BfD58E6D1810323D07b065413095c7AFd0);
+            return (true, 0x8f1C1D58C858e9a9eeCc587d7D51AECfd16b5542);
         }
         if (_name == LibStrings.B_TIER_SGX) {
             return (true, 0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81);
@@ -48,7 +51,7 @@ contract RollupAddressCache is AddressCache {
         if (_name == LibStrings.B_AUTOMATA_DCAP_ATTESTATION) {
             return (true, 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3);
         }
-        if (_name == LibStrings.B_PRECONF_REGISTRY) {
+        if (_name == LibStrings.B_PRECONF_TASK_MANAGER) {
             return (true, address(0));
         }
         if (_name == LibStrings.B_CHAIN_WATCHDOG) {

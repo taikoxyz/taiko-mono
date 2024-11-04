@@ -21,7 +21,7 @@ jobs:
   # Deployment name follow the pattern: deploy_<appname(snaefell-ui)>_<network(devnet|hekla|mainnet)>_<environment(preview|production)>
   # The following Vercel project is not found, so disable it at least for now.
   # deploy_snaefell-ui_mainnet_preview:
-  #   if: ${{ github.ref_name != 'main' }}
+  #   if: ${{ github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'option.workflow_on') || github.event.pull_request.draft == false && github.head_ref != 'release-please-*') }}
   #   needs: build-and-test
   #   uses: ./.github/workflows/repo--vercel-deploy.yml
   #   with:

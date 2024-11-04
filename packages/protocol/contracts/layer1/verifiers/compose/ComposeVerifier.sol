@@ -19,14 +19,13 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
         bytes proof;
     }
 
-    error CV_DUPLICATE_SUBPROOF();
     error CV_INVALID_CALLER();
     error CV_INVALID_SUB_VERIFIER();
     error CV_INVALID_SUBPROOF_LENGTH();
     error CV_SUB_VERIFIER_NOT_FOUND();
 
     modifier onlyAuthorizedCaller() {
-        if (!isCallerAuthorized(msg.sender)) revert CV_INVALID_CALLER();
+        require(isCallerAuthorized(msg.sender), CV_INVALID_CALLER());
         _;
     }
 
@@ -50,10 +49,10 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
         (address[] memory verifiers, uint256 numSubProofs_) = getSubVerifiersAndThreshold();
 
         SubProof[] memory subProofs = abi.decode(_proof.data, (SubProof[]));
-        if (subProofs.length != numSubProofs_) revert CV_INVALID_SUBPROOF_LENGTH();
+        require(subProofs.length == numSubProofs_, CV_INVALID_SUBPROOF_LENGTH());
 
         for (uint256 i; i < subProofs.length; ++i) {
-            if (subProofs[i].verifier == address(0)) revert CV_INVALID_SUB_VERIFIER();
+            require(subProofs[i].verifier != address(0), CV_INVALID_SUB_VERIFIER());
 
             // find the verifier
             bool verifierFound;
@@ -64,7 +63,7 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
                 }
             }
 
-            if (!verifierFound) revert CV_SUB_VERIFIER_NOT_FOUND();
+            require(verifierFound, CV_SUB_VERIFIER_NOT_FOUND());
 
             IVerifier(subProofs[i].verifier).verifyProof(
                 _ctx, _tran, TaikoData.TierProof(_proof.tier, subProofs[i].proof)
@@ -84,10 +83,10 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
         (address[] memory verifiers, uint256 numSubProofs_) = getSubVerifiersAndThreshold();
 
         SubProof[] memory subProofs = abi.decode(_proof.data, (SubProof[]));
-        if (subProofs.length != numSubProofs_) revert CV_INVALID_SUBPROOF_LENGTH();
+        require(subProofs.length == numSubProofs_, CV_INVALID_SUBPROOF_LENGTH());
 
         for (uint256 i; i < subProofs.length; ++i) {
-            if (subProofs[i].verifier == address(0)) revert CV_DUPLICATE_SUBPROOF();
+            require(subProofs[i].verifier != address(0), CV_INVALID_SUB_VERIFIER());
 
             // find the verifier
             bool verifierFound;
@@ -98,7 +97,7 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
                 }
             }
 
-            if (!verifierFound) revert CV_SUB_VERIFIER_NOT_FOUND();
+            require(verifierFound, CV_SUB_VERIFIER_NOT_FOUND());
 
             IVerifier(subProofs[i].verifier).verifyBatchProof(
                 _ctxs, TaikoData.TierProof(_proof.tier, subProofs[i].proof)
