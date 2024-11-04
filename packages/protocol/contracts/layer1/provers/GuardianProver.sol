@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "src/shared/common/EssentialContract.sol";
+import "src/shared/common/LibAddress.sol";
 import "src/shared/common/LibStrings.sol";
 import "../verifiers/IVerifier.sol";
 import "../based/ITaikoL1.sol";
@@ -83,6 +84,7 @@ contract GuardianProver is IVerifier, EssentialContract {
     /// @param enabled True if TaikoL1 proving auto-pause is enabled.
     event ProvingAutoPauseEnabled(bool indexed enabled);
 
+    error GP_BOND_NOT_ERC20();
     error GP_INVALID_GUARDIAN();
     error GP_INVALID_GUARDIAN_SET();
     error GP_INVALID_MIN_GUARDIANS();
@@ -153,21 +155,27 @@ contract GuardianProver is IVerifier, EssentialContract {
 
     /// @notice Enables unlimited allowance for Taiko L1 contract.
     /// @param _enable True if unlimited allowance is approved, false to set the allowance to 0.
-    function enableTaikoTokenAllowance(bool _enable) external onlyOwner {
-        address tko = resolve(LibStrings.B_TAIKO_TOKEN, false);
+    function enableBondAllowance(bool _enable) external onlyOwner {
+        address bondToken = resolve(LibStrings.B_BOND_TOKEN, true);
+        require(bondToken != address(0), GP_BOND_NOT_ERC20());
+
         address taiko = resolve(LibStrings.B_TAIKO, false);
-        IERC20(tko).approve(taiko, _enable ? type(uint256).max : 0);
+        IERC20(bondToken).approve(taiko, _enable ? type(uint256).max : 0);
     }
 
-    /// @notice Withdraws Taiko Token to a given address.
+    /// @notice Withdraws bond asset to a given address.
     /// @param _to The recipient address.
     /// @param _amount The amount of Taiko token to withdraw. Use 0 for all balance.
-    function withdrawTaikoToken(address _to, uint256 _amount) external onlyOwner {
+    function withdrawBond(address _to, uint256 _amount) external onlyOwner {
         require(_to != address(0), GV_ZERO_ADDRESS());
 
-        IERC20 tko = IERC20(resolve(LibStrings.B_TAIKO_TOKEN, false));
-        uint256 amount = _amount == 0 ? tko.balanceOf(address(this)) : _amount;
-        tko.transfer(_to, amount);
+        address bondToken = resolve(LibStrings.B_BOND_TOKEN, true);
+        if (bondToken != address(0)) {
+            uint256 amount = _amount == 0 ? IERC20(bondToken).balanceOf(address(this)) : _amount;
+            IERC20(bondToken).transfer(_to, amount);
+        } else {
+            LibAddress.sendEtherAndVerify(_to, address(this).balance);
+        }
     }
 
     /// @notice Called by guardians to approve a guardian proof (version 2).

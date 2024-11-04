@@ -48,6 +48,7 @@ contract TestTokenUnlock is TaikoTest {
             })
         );
 
+        addressManager.setAddress(uint64(block.chainid), "bond_token", address(tko));
         addressManager.setAddress(uint64(block.chainid), "taiko_token", address(tko));
         addressManager.setAddress(uint64(block.chainid), "assignment_hook", assignmentHook);
         addressManager.setAddress(uint64(block.chainid), "taiko", taikoL1);
