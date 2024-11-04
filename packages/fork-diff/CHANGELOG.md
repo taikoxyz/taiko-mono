@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.2](https://github.com/taikoxyz/taiko-mono/compare/fork-diff-v0.6.1...fork-diff-v0.6.2) (2024-11-04)
+
+
+### Workflow
+
+* **protocol:** trigger patch release (1.10.1) ([#18358](https://github.com/taikoxyz/taiko-mono/issues/18358)) ([f4f4796](https://github.com/taikoxyz/taiko-mono/commit/f4f4796488059b02c79d6fb15170df58dd31dc4e))
+
 ## [0.6.1](https://github.com/taikoxyz/taiko-mono/compare/fork-diff-v0.6.0...fork-diff-v0.6.1) (2024-10-04)
 
 
