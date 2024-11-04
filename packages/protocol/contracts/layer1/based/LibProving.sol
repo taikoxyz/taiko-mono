@@ -144,7 +144,7 @@ library LibProving {
         }
 
         // If batch verifier name is not empty, verify the batch proof.
-        if (batchVerifierName != "") {
+        if (batchVerifierName != LibStrings.B_TIER_OPTIMISTIC) {
             IVerifier(_resolver.resolve(batchVerifierName, false)).verifyBatchProof(
                 ctxs, batchProof
             );
