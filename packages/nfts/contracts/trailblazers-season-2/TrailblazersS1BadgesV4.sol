@@ -2,13 +2,13 @@
 pragma solidity 0.8.24;
 
 import "../trailblazers-badges/TrailblazersBadgesV3.sol";
-import "./BadgeMigration.sol";
+import "./BadgeRecruitment.sol";
 
 contract TrailblazersBadgesV4 is TrailblazersBadgesV3 {
-    /// @notice Duration for which a s1 badge is locked after migration is started
-    uint256 public migrationLockDuration;
-    /// @notice BadgeMigration contract
-    BadgeMigration public migrationContract;
+    /// @notice Duration for which a s1 badge is locked after recruitment is started
+    uint256 public recruitmentLockDuration;
+    /// @notice BadgeRecruitment contract
+    BadgeRecruitment public recruitmentContract;
     /// @notice Mapping of badge token id to unlock timestamp
     mapping(uint256 tokenId => uint256 unlockTimestamp) public unlockTimestamps;
 
@@ -43,28 +43,28 @@ contract TrailblazersBadgesV4 is TrailblazersBadgesV3 {
         return super._update(to, tokenId, auth);
     }
 
-    /// @notice Set migration contract
-    /// @param _migrationContract Address of the migration contract
+    /// @notice Set recruitment contract
+    /// @param _recruitmentContract Address of the recruitment contract
     /// @dev Only owner
-    function setMigrationContract(address _migrationContract) public onlyOwner {
-        migrationContract = BadgeMigration(_migrationContract);
+    function setRecruitmentContract(address _recruitmentContract) public onlyOwner {
+        recruitmentContract = BadgeRecruitment(_recruitmentContract);
     }
 
-    /// @notice Set migration lock duration
+    /// @notice Set recruitment lock duration
     /// @param _duration Duration in seconds
     /// @dev Only owner
-    function setMigrationLockDuration(uint256 _duration) public onlyOwner {
-        migrationLockDuration = _duration;
+    function setRecruitmentLockDuration(uint256 _duration) public onlyOwner {
+        recruitmentLockDuration = _duration;
     }
 
-    /// @notice Start migration for a badge
+    /// @notice Start recruitment for a badge
     /// @param _badgeId Badge id
-    function startMigration(uint256 _badgeId) public {
-        if (migrationLockDuration == 0) {
+    function startRecruitment(uint256 _badgeId) public {
+        if (recruitmentLockDuration == 0) {
             revert MIGRATION_LOCK_DURATION_NOT_SET();
         }
         uint256 tokenId = getTokenId(_msgSender(), _badgeId);
-        unlockTimestamps[tokenId] = block.timestamp + migrationLockDuration;
-        migrationContract.startMigration(_msgSender(), _badgeId);
+        unlockTimestamps[tokenId] = block.timestamp + recruitmentLockDuration;
+        recruitmentContract.startRecruitment(_msgSender(), _badgeId);
     }
 }

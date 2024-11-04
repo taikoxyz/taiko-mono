@@ -24,7 +24,7 @@ import "./TrailblazersS1BadgesV4.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "./TrailblazersBadgesS2.sol";
 
-contract BadgeMigration is
+contract BadgeRecruitment is
     PausableUpgradeable,
     UUPSUpgradeable,
     Ownable2StepUpgradeable,
@@ -39,21 +39,21 @@ contract BadgeMigration is
     TrailblazersBadgesS2 public s2Badges;
     /// @notice Wallet authorized to sign as a source of randomness
     address public randomSigner;
-    /// @notice Migration-enabled badge IDs per cycle
+    /// @notice Recruitment-enabled badge IDs per cycle
     mapping(uint256 cycle => mapping(uint256 s1BadgeId => bool enabled)) public enabledBadgeIds;
-    uint256[] public currentCycleEnabledMigrationIds;
-    /// @notice Current migration cycle
-    uint256 private migrationCycle;
+    uint256[] public currentCycleEnabledRecruitmentIds;
+    /// @notice Current recruitment cycle
+    uint256 private recruitmentCycle;
     /// @notice Mapping of unique user-per-mint-per-cycle
     mapping(
-        uint256 migrationCycle
+        uint256 recruitmentCycle
             => mapping(address minter => mapping(uint256 s1BadgeId => bool mintEnded))
-    ) public migrationCycleUniqueMints;
+    ) public recruitmentCycleUniqueMints;
     /// @notice User experience points
     mapping(address user => uint256 experience) public userExperience;
-    /// @notice Tamper colors available
+    /// @notice Influence colors available
 
-    enum TamperColor {
+    enum InfluenceColor {
         Undefined, // unused
         Whale, // based, pink
         Minnow // boosted, purple
@@ -62,31 +62,31 @@ contract BadgeMigration is
 
     /// @notice Configuration struct
     struct Config {
-        uint256 cooldownMigration;
-        uint256 cooldownTamper;
-        uint256 tamperWeightPercent;
-        uint256 baseMaxTampers;
+        uint256 cooldownRecruitment;
+        uint256 cooldownInfluence;
+        uint256 influenceWeightPercent;
+        uint256 baseMaxInfluences;
         uint256 pointsClaimMultiplicationFactor;
     }
     /// @notice Current config
 
     Config private config;
-    /// @notice Migration struct
+    /// @notice Recruitment struct
 
-    struct Migration {
-        uint256 migrationCycle;
+    struct Recruitment {
+        uint256 recruitmentCycle;
         address user;
         uint256 s1BadgeId;
         uint256 s1TokenId;
         uint256 s2TokenId;
         uint256 cooldownExpiration;
-        uint256 tamperExpiration;
-        uint256 whaleTampers;
-        uint256 minnowTampers;
+        uint256 influenceExpiration;
+        uint256 whaleInfluences;
+        uint256 minnowInfluences;
     }
-    /// @notice Migrations per user
+    /// @notice Recruitments per user
 
-    mapping(address _user => Migration[] _migration) public migrations;
+    mapping(address _user => Recruitment[] _recruitment) public recruitments;
     /// @notice Gap for upgrade safety
     uint256[43] private __gap;
     /// @notice Errors
@@ -106,32 +106,32 @@ contract BadgeMigration is
     error INVALID_TAMPER_COLOR();
     /// @notice Events
 
-    event MigrationCycleToggled(uint256 indexed migrationCycleId, uint256 s1BadgeId, bool enabled);
+    event RecruitmentCycleToggled(uint256 indexed recruitmentCycleId, uint256 s1BadgeId, bool enabled);
 
-    event MigrationUpdated(
-        uint256 indexed migrationCycle,
+    event RecruitmentUpdated(
+        uint256 indexed recruitmentCycle,
         address indexed user,
         uint256 s1BadgeId,
         uint256 s1TokenId,
         uint256 s2TokenId,
         uint256 cooldownExpiration,
-        uint256 tamperExpiration,
-        uint256 whaleTampers,
-        uint256 minnowTampers
+        uint256 influenceExpiration,
+        uint256 whaleInfluences,
+        uint256 minnowInfluences
     );
 
-    event MigrationComplete(
-        uint256 indexed migrationCycle,
+    event RecruitmentComplete(
+        uint256 indexed recruitmentCycle,
         address indexed user,
         uint256 s1TokenId,
         uint256 s2TokenId,
         uint256 finalColor
     );
 
-    /// @notice Check if the message sender has an active migration
+    /// @notice Check if the message sender has an active recruitment
     modifier isMigrating() {
-        Migration memory migration_ = getActiveMigrationFor(_msgSender());
-        if (migration_.cooldownExpiration == 0) {
+        Recruitment memory recruitment_ = getActiveRecruitmentFor(_msgSender());
+        if (recruitment_.cooldownExpiration == 0) {
             revert MIGRATION_NOT_STARTED();
         }
         _;
@@ -140,29 +140,29 @@ contract BadgeMigration is
     /// @notice Reverts if sender is already migrating
     modifier isNotMigrating(address _user) {
         if (
-            migrations[_user].length > 0
-                && migrations[_user][migrations[_user].length - 1].cooldownExpiration > block.timestamp
+            recruitments[_user].length > 0
+                && recruitments[_user][recruitments[_user].length - 1].cooldownExpiration > block.timestamp
         ) {
             revert MIGRATION_ALREADY_STARTED();
         }
         _;
     }
 
-    /// @notice Reverts if migrations aren't enabled for that badge
+    /// @notice Reverts if recruitments aren't enabled for that badge
     /// @param _s1BadgeId The badge ID
-    modifier migrationOpen(uint256 _s1BadgeId) {
-        if (!enabledBadgeIds[migrationCycle][_s1BadgeId]) {
+    modifier recruitmentOpen(uint256 _s1BadgeId) {
+        if (!enabledBadgeIds[recruitmentCycle][_s1BadgeId]) {
             revert MIGRATION_NOT_ENABLED();
         }
         _;
     }
 
-    /// @notice Limits migrations to one per user, badge and cycle
+    /// @notice Limits recruitments to one per user, badge and cycle
     /// @param _s1BadgeId The badge ID
     /// @param _minter The minter address
     modifier hasntMigratedInCycle(uint256 _s1BadgeId, address _minter) {
-        // check that the minter hasn't used the migration within this cycle
-        if (migrationCycleUniqueMints[migrationCycle][_minter][_s1BadgeId]) {
+        // check that the minter hasn't used the recruitment within this cycle
+        if (recruitmentCycleUniqueMints[recruitmentCycle][_minter][_s1BadgeId]) {
             revert ALREADY_MIGRATED_IN_CYCLE();
         }
         _;
@@ -204,52 +204,52 @@ contract BadgeMigration is
         return config;
     }
 
-    /// @notice Disable all new migrations
-    /// @dev Doesn't allow for new migration attempts, but tampers and active migrations still run
-    function _disableMigrations() internal onlyRole(DEFAULT_ADMIN_ROLE) {
+    /// @notice Disable all new recruitments
+    /// @dev Doesn't allow for new recruitment attempts, but influences and active recruitments still run
+    function _disableRecruitments() internal onlyRole(DEFAULT_ADMIN_ROLE) {
         for (uint256 i = 0; i < 8; i++) {
-            if (enabledBadgeIds[migrationCycle][i]) {
-                emit MigrationCycleToggled(migrationCycle, i, false);
+            if (enabledBadgeIds[recruitmentCycle][i]) {
+                emit RecruitmentCycleToggled(recruitmentCycle, i, false);
             }
 
-            enabledBadgeIds[migrationCycle][i] = false;
+            enabledBadgeIds[recruitmentCycle][i] = false;
         }
-        currentCycleEnabledMigrationIds = new uint256[](0);
+        currentCycleEnabledRecruitmentIds = new uint256[](0);
     }
 
-    /// @notice Enable migrations for a set of badges
+    /// @notice Enable recruitments for a set of badges
     /// @param _s1BadgeIds The badge IDs to enable
     /// @dev Can be called only by the contract owner/admin
-    function enableMigrations(uint256[] calldata _s1BadgeIds)
+    function enableRecruitments(uint256[] calldata _s1BadgeIds)
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        migrationCycle++;
+        recruitmentCycle++;
         for (uint256 i = 0; i < _s1BadgeIds.length; i++) {
-            enabledBadgeIds[migrationCycle][_s1BadgeIds[i]] = true;
-            emit MigrationCycleToggled(migrationCycle, _s1BadgeIds[i], true);
+            enabledBadgeIds[recruitmentCycle][_s1BadgeIds[i]] = true;
+            emit RecruitmentCycleToggled(recruitmentCycle, _s1BadgeIds[i], true);
         }
-        currentCycleEnabledMigrationIds = _s1BadgeIds;
+        currentCycleEnabledRecruitmentIds = _s1BadgeIds;
     }
 
-    /// @notice Get the current migration cycle
-    /// @return The current migration cycle
-    function getMigrationCycle() external view returns (uint256) {
-        return migrationCycle;
+    /// @notice Get the current recruitment cycle
+    /// @return The current recruitment cycle
+    function getRecruitmentCycle() external view returns (uint256) {
+        return recruitmentCycle;
     }
 
     /// @notice Pause the contract
     /// @dev Can be called only by the contract owner/admin
     function pause() public onlyRole(DEFAULT_ADMIN_ROLE) {
-        _disableMigrations();
+        _disableRecruitments();
         _pause();
     }
 
-    /// @notice Internal logic to start a migration
+    /// @notice Internal logic to start a recruitment
     /// @param _user The user address
     /// @param _s1BadgeId The badge ID
     /// @param _s1TokenId The badge token ID
-    function _startMigration(
+    function _startRecruitment(
         address _user,
         uint256 _s1BadgeId,
         uint256 _s1TokenId
@@ -257,41 +257,41 @@ contract BadgeMigration is
         internal
         virtual
     {
-        Migration memory _migration = Migration(
-            migrationCycle, // migrationCycle
+        Recruitment memory _recruitment = Recruitment(
+            recruitmentCycle, // recruitmentCycle
             _user, // user
             _s1BadgeId,
             _s1TokenId,
             0, // s2TokenId, unset
-            block.timestamp + config.cooldownMigration, // cooldownExpiration
-            0, // tamperExpiration, unset
-            0, // whaleTampers
-            0 // minnowTampers
+            block.timestamp + config.cooldownRecruitment, // cooldownExpiration
+            0, // influenceExpiration, unset
+            0, // whaleInfluences
+            0 // minnowInfluences
         );
 
-        migrations[_user].push(_migration);
-        migrationCycleUniqueMints[migrationCycle][_user][_s1BadgeId] = true;
+        recruitments[_user].push(_recruitment);
+        recruitmentCycleUniqueMints[recruitmentCycle][_user][_s1BadgeId] = true;
 
-        emit MigrationUpdated(
-            _migration.migrationCycle,
-            _migration.user,
-            _migration.s1BadgeId,
-            _migration.s1TokenId,
-            _migration.s2TokenId,
-            _migration.cooldownExpiration,
-            _migration.tamperExpiration,
-            _migration.whaleTampers,
-            _migration.minnowTampers
+        emit RecruitmentUpdated(
+            _recruitment.recruitmentCycle,
+            _recruitment.user,
+            _recruitment.s1BadgeId,
+            _recruitment.s1TokenId,
+            _recruitment.s2TokenId,
+            _recruitment.cooldownExpiration,
+            _recruitment.influenceExpiration,
+            _recruitment.whaleInfluences,
+            _recruitment.minnowInfluences
         );
     }
 
-    /// @notice Start a migration for a badge using the user's experience points
+    /// @notice Start a recruitment for a badge using the user's experience points
     /// @param _hash The hash to sign of the signature
     /// @param _v The signature V field
     /// @param _r The signature R field
     /// @param _s The signature S field
     /// @param _exp The user's experience points
-    function startMigration(
+    function startRecruitment(
         bytes32 _hash,
         uint8 _v,
         bytes32 _r,
@@ -321,29 +321,29 @@ contract BadgeMigration is
 
         uint256 randomSeed_ = randomFromSignature(_hash, _v, _r, _s);
         uint256 s1BadgeId_ =
-            currentCycleEnabledMigrationIds[randomSeed_ % currentCycleEnabledMigrationIds.length];
+            currentCycleEnabledRecruitmentIds[randomSeed_ % currentCycleEnabledRecruitmentIds.length];
 
-        if (migrationCycleUniqueMints[migrationCycle][_msgSender()][s1BadgeId_]) {
+        if (recruitmentCycleUniqueMints[recruitmentCycle][_msgSender()][s1BadgeId_]) {
             revert ALREADY_MIGRATED_IN_CYCLE();
         }
 
-        _startMigration(_msgSender(), (randomSeed_ % 8), 0);
+        _startRecruitment(_msgSender(), (randomSeed_ % 8), 0);
     }
 
-    /// @notice Start a migration for a badge
+    /// @notice Start a recruitment for a badge
     /// @param _s1BadgeId The badge ID (s1)
-    /// @dev Not all badges are eligible for migration at the same time
-    /// @dev Defines a cooldown for the migration to be complete
+    /// @dev Not all badges are eligible for recruitment at the same time
+    /// @dev Defines a cooldown for the recruitment to be complete
     /// @dev the cooldown is lesser the higher the Pass Tier
     /// @dev Must be called from the s1 badges contract
-    function startMigration(
+    function startRecruitment(
         address _user,
         uint256 _s1BadgeId
     )
         external
         virtual
         onlyRole(S1_BADGES_ROLE)
-        migrationOpen(_s1BadgeId)
+        recruitmentOpen(_s1BadgeId)
         isNotMigrating(_user)
         hasntMigratedInCycle(_s1BadgeId, _user)
     {
@@ -352,110 +352,110 @@ contract BadgeMigration is
         if (s1Badges.ownerOf(s1TokenId_) != _user) {
             revert TOKEN_NOT_OWNED();
         }
-        _startMigration(_user, _s1BadgeId, s1TokenId_);
+        _startRecruitment(_user, _s1BadgeId, s1TokenId_);
     }
 
-    /// @notice Get the active migration for a user
+    /// @notice Get the active recruitment for a user
     /// @param _user The user address
-    /// @return The active migration
-    function getActiveMigrationFor(address _user) public view returns (Migration memory) {
-        if (migrations[_user].length == 0) {
+    /// @return The active recruitment
+    function getActiveRecruitmentFor(address _user) public view returns (Recruitment memory) {
+        if (recruitments[_user].length == 0) {
             revert MIGRATION_NOT_STARTED();
         }
-        return migrations[_user][migrations[_user].length - 1];
+        return recruitments[_user][recruitments[_user].length - 1];
     }
 
-    /// @notice Update a migration
-    /// @param _migration The updated migration
-    function _updateMigration(Migration memory _migration) internal virtual {
-        migrations[_migration.user][migrations[_migration.user].length - 1] = _migration;
+    /// @notice Update a recruitment
+    /// @param _recruitment The updated recruitment
+    function _updateRecruitment(Recruitment memory _recruitment) internal virtual {
+        recruitments[_recruitment.user][recruitments[_recruitment.user].length - 1] = _recruitment;
 
-        emit MigrationUpdated(
-            _migration.migrationCycle,
-            _migration.user,
-            _migration.s1BadgeId,
-            _migration.s1TokenId,
-            _migration.s2TokenId,
-            _migration.cooldownExpiration,
-            _migration.tamperExpiration,
-            _migration.whaleTampers,
-            _migration.minnowTampers
+        emit RecruitmentUpdated(
+            _recruitment.recruitmentCycle,
+            _recruitment.user,
+            _recruitment.s1BadgeId,
+            _recruitment.s1TokenId,
+            _recruitment.s2TokenId,
+            _recruitment.cooldownExpiration,
+            _recruitment.influenceExpiration,
+            _recruitment.whaleInfluences,
+            _recruitment.minnowInfluences
         );
     }
 
-    /// @notice Get the maximum number of tampers for a given experience
+    /// @notice Get the maximum number of influences for a given experience
     /// @param _exp The user's experience points
-    function maxTampers(uint256 _exp) public view virtual returns (uint256 value) {
+    function maxInfluences(uint256 _exp) public view virtual returns (uint256 value) {
         value = _exp / 100;
-        value += 2 * config.baseMaxTampers;
+        value += 2 * config.baseMaxInfluences;
         return value;
     }
 
-    /// @notice Tamper (alter) the chances during a migration
+    /// @notice Influence (alter) the chances during a recruitment
     /// @param _hash The hash to sign
     /// @param v signature V field
     /// @param r signature R field
     /// @param s signature S field
-    /// @param _tamperColor the tamper's color
-    /// @dev Can be called only during an active migration
-    /// @dev Implements a cooldown before allowing to re-tamper
-    /// @dev The max tamper amount is determined by Pass Tier
-    function tamperMigration(
+    /// @param _influenceColor the influence's color
+    /// @dev Can be called only during an active recruitment
+    /// @dev Implements a cooldown before allowing to re-influence
+    /// @dev The max influence amount is determined by Pass Tier
+    function influenceRecruitment(
         bytes32 _hash,
         uint8 v,
         bytes32 r,
         bytes32 s,
         uint256 exp,
-        TamperColor _tamperColor
+        InfluenceColor _influenceColor
     )
         external
         isMigrating
     {
         (address recovered_,,) = ECDSA.tryRecover(_hash, v, r, s);
         if (recovered_ != randomSigner) revert NOT_RANDOM_SIGNER();
-        Migration memory migration_ = getActiveMigrationFor(_msgSender());
+        Recruitment memory recruitment_ = getActiveRecruitmentFor(_msgSender());
 
-        if ((migration_.whaleTampers + migration_.minnowTampers) > maxTampers(exp)) {
+        if ((recruitment_.whaleInfluences + recruitment_.minnowInfluences) > maxInfluences(exp)) {
             revert MAX_TAMPERS_REACHED();
         }
 
-        if (migration_.tamperExpiration > block.timestamp) {
+        if (recruitment_.influenceExpiration > block.timestamp) {
             revert TAMPER_IN_PROGRESS();
         }
 
-        if (_tamperColor == TamperColor.Whale) {
-            migration_.whaleTampers++;
-        } else if (_tamperColor == TamperColor.Minnow) {
-            migration_.minnowTampers++;
+        if (_influenceColor == InfluenceColor.Whale) {
+            recruitment_.whaleInfluences++;
+        } else if (_influenceColor == InfluenceColor.Minnow) {
+            recruitment_.minnowInfluences++;
         } else {
             revert INVALID_TAMPER_COLOR();
         }
 
-        migration_.tamperExpiration = block.timestamp + config.cooldownTamper;
+        recruitment_.influenceExpiration = block.timestamp + config.cooldownInfluence;
 
-        _updateMigration(migration_);
+        _updateRecruitment(recruitment_);
     }
 
-    /// @notice Reset the tamper counts
-    /// @dev Can be called only during an active migration
-    function resetTampers() external isMigrating {
-        Migration memory migration_ = getActiveMigrationFor(_msgSender());
-        migration_.whaleTampers = 0;
-        migration_.minnowTampers = 0;
-        migration_.tamperExpiration = 0;
+    /// @notice Reset the influence counts
+    /// @dev Can be called only during an active recruitment
+    function resetInfluences() external isMigrating {
+        Recruitment memory recruitment_ = getActiveRecruitmentFor(_msgSender());
+        recruitment_.whaleInfluences = 0;
+        recruitment_.minnowInfluences = 0;
+        recruitment_.influenceExpiration = 0;
 
-        _updateMigration(migration_);
+        _updateRecruitment(recruitment_);
     }
 
-    /// @notice End a migration
+    /// @notice End a recruitment
     /// @param _hash The hash to sign
     /// @param _v signature V field
     /// @param _r signature R field
     /// @param _s signature S field
     /// @param _exp The user's experience points
-    /// @dev Can be called only during an active migration, after the cooldown is over
-    /// @dev The final color is determined randomly, and affected by the tamper amounts
-    function endMigration(
+    /// @dev Can be called only during an active recruitment, after the cooldown is over
+    /// @dev The final color is determined randomly, and affected by the influence amounts
+    function endRecruitment(
         bytes32 _hash,
         uint8 _v,
         bytes32 _r,
@@ -465,13 +465,13 @@ contract BadgeMigration is
         external
         isMigrating
     {
-        Migration memory migration_ = getActiveMigrationFor(_msgSender());
+        Recruitment memory recruitment_ = getActiveRecruitmentFor(_msgSender());
 
-        if (migration_.tamperExpiration > block.timestamp) {
+        if (recruitment_.influenceExpiration > block.timestamp) {
             revert TAMPER_IN_PROGRESS();
         }
         // check if the cooldown is over
-        if (migration_.cooldownExpiration > block.timestamp) {
+        if (recruitment_.cooldownExpiration > block.timestamp) {
             revert MIGRATION_NOT_READY();
         }
         // ensure the hash corresponds to the start time
@@ -483,8 +483,8 @@ contract BadgeMigration is
 
         uint256 randomSeed_ = randomFromSignature(_hash, _v, _r, _s);
 
-        uint256 whaleWeight_ = 50 + migration_.whaleTampers * config.tamperWeightPercent;
-        uint256 minnowWeight_ = 50 + migration_.minnowTampers * config.tamperWeightPercent;
+        uint256 whaleWeight_ = 50 + recruitment_.whaleInfluences * config.influenceWeightPercent;
+        uint256 minnowWeight_ = 50 + recruitment_.minnowInfluences * config.influenceWeightPercent;
 
         uint256 totalWeight_ = whaleWeight_ + minnowWeight_;
 
@@ -497,28 +497,28 @@ contract BadgeMigration is
             finalColor_ = TrailblazersBadgesS2.MovementType.Whale;
         }
 
-        uint256 s1BadgeId_ = migration_.s1BadgeId;
+        uint256 s1BadgeId_ = recruitment_.s1BadgeId;
 
         // mint the badge
         s2Badges.mint(_msgSender(), TrailblazersBadgesS2.BadgeType(s1BadgeId_), finalColor_);
         uint256 s2TokenId_ = s2Badges.totalSupply();
 
-        migration_.s2TokenId = s2TokenId_;
-        migration_.cooldownExpiration = 0;
-        migration_.tamperExpiration = 0;
+        recruitment_.s2TokenId = s2TokenId_;
+        recruitment_.cooldownExpiration = 0;
+        recruitment_.influenceExpiration = 0;
 
-        _updateMigration(migration_);
+        _updateRecruitment(recruitment_);
 
-        emit MigrationComplete(
-            migration_.migrationCycle,
-            migration_.user,
-            migration_.s1TokenId,
-            migration_.s2TokenId,
+        emit RecruitmentComplete(
+            recruitment_.recruitmentCycle,
+            recruitment_.user,
+            recruitment_.s1TokenId,
+            recruitment_.s2TokenId,
             uint256(finalColor_)
         );
     }
 
-    /// @notice Generate a unique hash for each migration uniquely
+    /// @notice Generate a unique hash for each recruitment uniquely
     /// @param _user The user address
     /// @param _exp The users experience points
     /// @return _hash The unique hash
@@ -526,15 +526,15 @@ contract BadgeMigration is
         return keccak256(abi.encodePacked(_user, _exp));
     }
 
-    /// @notice Check if a migration is active for a user
+    /// @notice Check if a recruitment is active for a user
     /// @param _user The user address
-    /// @return Whether the user has an active migration
-    function isMigrationActive(address _user) public view returns (bool) {
-        if (migrations[_user].length == 0) {
+    /// @return Whether the user has an active recruitment
+    function isRecruitmentActive(address _user) public view returns (bool) {
+        if (recruitments[_user].length == 0) {
             return false;
         }
-        Migration memory migration_ = getActiveMigrationFor(_user);
-        return migration_.cooldownExpiration != 0;
+        Recruitment memory recruitment_ = getActiveRecruitmentFor(_user);
+        return recruitment_.cooldownExpiration != 0;
     }
 
     /// @notice Generates a random number from a signature
@@ -558,28 +558,28 @@ contract BadgeMigration is
         return uint256(keccak256(abi.encodePacked(_r, _s, _v)));
     }
 
-    /// @notice Check if a tamper is active for a user
+    /// @notice Check if a influence is active for a user
     /// @param _user The user address
-    /// @return Whether the user has an active tamper
-    function isTamperActive(address _user) public view returns (bool) {
-        Migration memory migration_ = getActiveMigrationFor(_user);
-        return migration_.tamperExpiration > block.timestamp;
+    /// @return Whether the user has an active influence
+    function isInfluenceActive(address _user) public view returns (bool) {
+        Recruitment memory recruitment_ = getActiveRecruitmentFor(_user);
+        return recruitment_.influenceExpiration > block.timestamp;
     }
 
-    /// @notice Get the migration tamper counts for a user
+    /// @notice Get the recruitment influence counts for a user
     /// @param _user The user address
-    /// @return _whaleTampers The Whale tamper count
-    /// @return _minnowTampers The Minnow tamper count
-    function getMigrationTampers(address _user)
+    /// @return _whaleInfluences The Whale influence count
+    /// @return _minnowInfluences The Minnow influence count
+    function getRecruitmentInfluences(address _user)
         public
         view
-        returns (uint256 _whaleTampers, uint256 _minnowTampers)
+        returns (uint256 _whaleInfluences, uint256 _minnowInfluences)
     {
-        if (!isMigrationActive(_user)) {
+        if (!isRecruitmentActive(_user)) {
             revert MIGRATION_NOT_STARTED();
         }
-        Migration memory migration_ = getActiveMigrationFor(_user);
-        return (migration_.whaleTampers, migration_.minnowTampers);
+        Recruitment memory recruitment_ = getActiveRecruitmentFor(_user);
+        return (recruitment_.whaleInfluences, recruitment_.minnowInfluences);
     }
 
     /// @notice supportsInterface implementation

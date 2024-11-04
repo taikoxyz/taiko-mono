@@ -11,7 +11,7 @@ import { TrailblazersBadgesS2 } from
     "../../contracts/trailblazers-season-2/TrailblazersBadgesS2.sol";
 import { TrailblazersBadgesV4 } from
     "../../contracts/trailblazers-season-2/TrailblazersS1BadgesV4.sol";
-import { BadgeMigration } from "../../contracts/trailblazers-season-2/BadgeMigration.sol";
+import { BadgeRecruitment } from "../../contracts/trailblazers-season-2/BadgeRecruitment.sol";
 
 contract DeployS2Script is Script {
     UtilsScript public utils;
@@ -19,7 +19,7 @@ contract DeployS2Script is Script {
     uint256 public deployerPrivateKey;
     address public deployerAddress;
 
-    BadgeMigration migration;
+    BadgeRecruitment recruitment;
 
     bool constant PINK_TAMPER = true;
     bool constant PURPLE_TAMPER = false;
@@ -43,7 +43,7 @@ contract DeployS2Script is Script {
 
     IMinimalBlacklist blacklist = IMinimalBlacklist(0xe61E9034b5633977eC98E302b33e321e8140F105);
     address claimMintSigner = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
-    address migrationSigner = 0x3cda4F2EaC3fc2FdE78B3DFFe1A1A1Eff88c68c5;
+    address recruitmentSigner = 0x3cda4F2EaC3fc2FdE78B3DFFe1A1A1Eff88c68c5;
 
     // Hardhat Testnet Values
     //  address owner = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
@@ -113,9 +113,9 @@ contract DeployS2Script is Script {
 
         s2Token = TrailblazersBadgesS2(proxy);
 
-        // deploy the migration contract
+        // deploy the recruitment contract
 
-        BadgeMigration.Config memory config = BadgeMigration.Config(
+        BadgeRecruitment.Config memory config = BadgeRecruitment.Config(
             COOLDOWN_MIGRATION,
             COOLDOWN_TAMPER,
             TAMPER_WEIGHT_PERCENT,
@@ -123,33 +123,33 @@ contract DeployS2Script is Script {
             POINTS_CLAIM_MULTIPLICATION_FACTOR
         );
 
-        impl = address(new BadgeMigration());
+        impl = address(new BadgeRecruitment());
         proxy = address(
             new ERC1967Proxy(
                 impl,
                 abi.encodeCall(
-                    BadgeMigration.initialize,
-                    (address(s1Token), address(s2Token), migrationSigner, config)
+                    BadgeRecruitment.initialize,
+                    (address(s1Token), address(s2Token), recruitmentSigner, config)
                 )
             )
         );
-        migration = BadgeMigration(proxy);
+        recruitment = BadgeRecruitment(proxy);
 
         // assign relations
-        s1Token.setMigrationContract(address(migration));
-        s2Token.setMinter(address(migration));
+        s1Token.setRecruitmentContract(address(recruitment));
+        s2Token.setMinter(address(recruitment));
 
         // set the lock duration
-        s1Token.setMigrationLockDuration(S1_LOCK_DURATION);
+        s1Token.setRecruitmentLockDuration(S1_LOCK_DURATION);
 
         console.log("Token Base URI:", baseURI);
         console.log("Deployed TrailblazersBadgesS2 to:", address(s2Token));
-        console.log("Deployed BadgeMigration to:", address(migration));
+        console.log("Deployed BadgeRecruitment to:", address(recruitment));
 
         // Register deployment
         vm.serializeAddress(jsonRoot, "TrailblazersBadges", address(s1Token));
         vm.serializeAddress(jsonRoot, "TrailblazersBadgesS2", address(s2Token));
-        vm.serializeAddress(jsonRoot, "BadgeMigration", address(migration));
+        vm.serializeAddress(jsonRoot, "BadgeRecruitment", address(recruitment));
         string memory finalJson = vm.serializeAddress(jsonRoot, "Owner", s2Token.owner());
         vm.writeJson(finalJson, jsonLocation);
 
