@@ -15,7 +15,6 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
@@ -162,8 +161,11 @@ func (s *BlobSyncerTestSuite) TestTreasuryIncome() {
 	s.Greater(headAfter, headBefore)
 	s.True(balanceAfter.Cmp(balance) > 0)
 
+	protocolConfigs, err := rpc.GetProtocolConfigs(s.RPCClient.TaikoL1, nil)
+	s.Nil(err)
+
 	var hasNoneAnchorTxs bool
-	chainConfig := config.NewChainConfig(encoding.GetProtocolConfig(s.RPCClient.L2.ChainID.Uint64()))
+	chainConfig := config.NewChainConfig(&protocolConfigs)
 	for i := headBefore + 1; i <= headAfter; i++ {
 		block, err := s.RPCClient.L2.BlockByNumber(context.Background(), new(big.Int).SetUint64(i))
 		s.Nil(err)

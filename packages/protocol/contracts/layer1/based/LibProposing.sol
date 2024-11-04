@@ -278,6 +278,7 @@ library LibProposing {
         unchecked {
             ++_state.slotB.numBlocks;
         }
+        _state.slotB.lastProposedIn = uint56(block.number);
 
         LibBonds.debitBond(_state, _resolver, local.params.proposer, meta_.id, _config.livenessBond);
 

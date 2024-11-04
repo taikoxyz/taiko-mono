@@ -58,10 +58,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
 
     /// @notice This function shall be called by previously deployed contracts.
     function init2() external onlyOwner reinitializer(2) {
-        // reset some previously used slots for future reuse
-        state.slotB.__reservedB1 = 0;
-        state.slotB.__reservedB2 = 0;
-        state.slotB.__reservedB3 = 0;
         state.__reserve1 = 0;
     }
 
@@ -285,6 +281,12 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     /// @return The timestamp of the last unpaused state.
     function lastUnpausedAt() public view override returns (uint64) {
         return state.slotB.lastUnpausedAt;
+    }
+
+    /// @notice Retrieves the ID of the L1 block where the most recent L2 block was proposed.
+    /// @return The ID of the Li block where the most recent block was proposed.
+    function lastProposedIn() external view returns (uint56) {
+        return state.slotB.lastProposedIn;
     }
 
     /// @inheritdoc ITaikoL1
