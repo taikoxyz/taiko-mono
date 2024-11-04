@@ -87,6 +87,10 @@ func (p *Prover) getProof(
 ) (*StorageProof, error) {
 	var ethProof StorageProof
 
+	if key[:2] != "0x" {
+		key = "0x" + key
+	}
+
 	err := c.CallContext(ctx,
 		&ethProof,
 		"eth_getProof",

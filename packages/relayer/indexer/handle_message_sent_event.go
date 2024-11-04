@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	defaultConfirmations = 5
+	defaultConfirmations = 2
 )
 
 // handleMessageSentEvent handles an individual MessageSent event

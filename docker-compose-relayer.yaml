@@ -1,0 +1,107 @@
+services:
+  api-l1:
+    image: unifi-relayer
+    container_name: unifi-relayer-api-l1
+    build:
+      context: .
+      dockerfile: ./packages/relayer/Dockerfile
+    restart: always
+    volumes:
+      - ./packages/relayer/.l1api.env:/usr/local/bin/.env
+    command:
+      - api
+    ports:
+      - "4110:4110"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+  api-l2:
+    image: unifi-relayer
+    container_name: unifi-relayer-api-l2
+    build:
+      context: .
+      dockerfile: ./packages/relayer/Dockerfile
+    restart: always
+    volumes:
+      - ./packages/relayer/.l2api.env:/usr/local/bin/.env
+    command:
+      - api
+    ports:
+      - "4111:4110"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+  indexer-l1:
+    image: unifi-relayer
+    container_name: unifi-relayer-indexer-l1
+    build:
+      context: .
+      dockerfile: ./packages/relayer/Dockerfile
+    restart: always
+    volumes:
+      - ./packages/relayer/.l1indexer.env:/usr/local/bin/.env
+    command:
+      - indexer
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+  indexer-l1-msg-claimed:
+    image: unifi-relayer
+    container_name: unifi-relayer-indexer-l1-msg-claimed
+    build:
+      context: .
+      dockerfile: ./packages/relayer/Dockerfile
+    restart: always
+    volumes:
+      - ./packages/relayer/.l1indexer-msg-processed.env:/usr/local/bin/.env
+    command:
+      - indexer
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+  indexer-l2:
+    image: unifi-relayer
+    container_name: unifi-relayer-indexer-l2
+    build:
+      context: .
+      dockerfile: ./packages/relayer/Dockerfile
+    restart: always
+    command:
+      - indexer
+    volumes:
+      - ./packages/relayer/.l2indexer.env:/usr/local/bin/.env
+  indexer-l2-msg-claimed:
+    image: unifi-relayer
+    container_name: unifi-relayer-indexer-l2-msg-claimed
+    build:
+      context: .
+      dockerfile: ./packages/relayer/Dockerfile
+    restart: always
+    volumes:
+      - ./packages/relayer/.l2indexer-msg-claimed.env:/usr/local/bin/.env
+    command:
+      - indexer
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+  processor-l1:
+    image: unifi-relayer
+    container_name: unifi-relayer-processor-l1
+    build:
+      context: .
+      dockerfile: ./packages/relayer/Dockerfile
+    restart: always
+    volumes:
+      - ./packages/relayer/.l1processor.env:/usr/local/bin/.env
+    command:
+      - processor
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+  processor-l2:
+    image: unifi-relayer
+    container_name: unifi-relayer-processor-l2
+    build:
+      context: .
+      dockerfile: ./packages/relayer/Dockerfile
+    restart: always
+    volumes:
+      - ./packages/relayer/.l2processor.env:/usr/local/bin/.env
+    command:
+      - processor
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
