@@ -1,10 +1,14 @@
 name: Supplementary Contracts
 
 on:
-  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "packages/supplementary-contracts/**"
 
 jobs:
   build-supplementary-contracts:
+    if: contains(github.event.pull_request.labels.*.name, 'option.workflow_on') || github.event.pull_request.draft == false && github.head_ref != 'release-please-*' 
     runs-on: [arc-runner-set]
     steps:
       - name: Cancel previous runs
