@@ -1,5 +1,62 @@
 # Changelog
 
+## [0.13.0](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.12.0...relayer-v0.13.0) (2024-11-04)
+
+
+### Features
+
+* **eventindexer:** rm assignmenthook for latest protocol changes ([#17647](https://github.com/taikoxyz/taiko-mono/issues/17647)) ([d461fed](https://github.com/taikoxyz/taiko-mono/commit/d461feddf2e5672be417af66acf538c30a7fbe49))
+* **relayer:** add is_profitable and fee related columns ([#17619](https://github.com/taikoxyz/taiko-mono/issues/17619)) ([e2359d4](https://github.com/taikoxyz/taiko-mono/commit/e2359d4fea214a56b7c0aa3cc2642c0ec55ba245))
+* **relayer:** add numLatestBlocksStartWhenCrawling in crawler ([#17599](https://github.com/taikoxyz/taiko-mono/issues/17599)) ([0e031b3](https://github.com/taikoxyz/taiko-mono/commit/0e031b3ab4239cb5e2f18aacfebd0b30a2e935d3))
+* **relayer:** adding a prometheus guage for relayer balance ([#17659](https://github.com/taikoxyz/taiko-mono/issues/17659)) ([4d99b9f](https://github.com/taikoxyz/taiko-mono/commit/4d99b9f7468e5ce9883b51fd4a407afc6a5f1695))
+* **relayer:** configurable conf timeout, increase default ([#17880](https://github.com/taikoxyz/taiko-mono/issues/17880)) ([7bf7d69](https://github.com/taikoxyz/taiko-mono/commit/7bf7d691978588c17a03b858162d5b2aad2de872))
+* **relayer:** flags for processing and indexing minimum amounts ([#17685](https://github.com/taikoxyz/taiko-mono/issues/17685)) ([04a3370](https://github.com/taikoxyz/taiko-mono/commit/04a33702b6931b5981f3e6c2455130ac202d11e7))
+* **relayer:** pad if contract ([#18131](https://github.com/taikoxyz/taiko-mono/issues/18131)) ([56143f0](https://github.com/taikoxyz/taiko-mono/commit/56143f096cfd792aaa3b578b8b64132744beeacc))
+
+
+### Bug Fixes
+
+* **eventindexer:** remove nft metadata indexing, far too slowy and bug ridden right now ([#18126](https://github.com/taikoxyz/taiko-mono/issues/18126)) ([f0ab1e1](https://github.com/taikoxyz/taiko-mono/commit/f0ab1e1fc86d3790eea743dee6aa717886321adc))
+* **relayer:** bounds check for erc20 + nft data ([#17601](https://github.com/taikoxyz/taiko-mono/issues/17601)) ([503511a](https://github.com/taikoxyz/taiko-mono/commit/503511a89fef2ce25743e013ff116df9e290ebc1))
+* **relayer:** erc20/nft decoding should fail when not valid UTF8 or incorrect typing ([#17637](https://github.com/taikoxyz/taiko-mono/issues/17637)) ([ba20c21](https://github.com/taikoxyz/taiko-mono/commit/ba20c21a5681719534f39bb1aa03ab92577024ad))
+* **relayer:** fix for profitable detection ([#18134](https://github.com/taikoxyz/taiko-mono/issues/18134)) ([c2f59c3](https://github.com/taikoxyz/taiko-mono/commit/c2f59c30c085f19c5fed64e07c7961009060c428))
+* **relayer:** negative index check ([#17615](https://github.com/taikoxyz/taiko-mono/issues/17615)) ([74e161a](https://github.com/taikoxyz/taiko-mono/commit/74e161ae6d41a779e5dcde8e3d1ddccc4089605d))
+* **relayer:** nil check ([#17625](https://github.com/taikoxyz/taiko-mono/issues/17625)) ([47fd810](https://github.com/taikoxyz/taiko-mono/commit/47fd8106e648651fdde2fdc87a8f71fbdf5f6f41))
+* **relayer:** profitability changes ([#18124](https://github.com/taikoxyz/taiko-mono/issues/18124)) ([10eb73c](https://github.com/taikoxyz/taiko-mono/commit/10eb73cf3d165781ece2554fb48a777c54a37e82))
+* **relayer:** requeue back to original queue on select errors ([#17584](https://github.com/taikoxyz/taiko-mono/issues/17584)) ([bc2379f](https://github.com/taikoxyz/taiko-mono/commit/bc2379f59585e0bf41866dfc270dfdd07e842416))
+
+
+### Chores
+
+* **relayer:** avoid copy big struct ([#17686](https://github.com/taikoxyz/taiko-mono/issues/17686)) ([a1cf7d2](https://github.com/taikoxyz/taiko-mono/commit/a1cf7d252be36ca37d5a7e9580d73100cddc1bc1))
+* **relayer:** close db connection before stop service. ([#17709](https://github.com/taikoxyz/taiko-mono/issues/17709)) ([9e928ad](https://github.com/taikoxyz/taiko-mono/commit/9e928ad4644c68cdc4ac5426bc10895100bf30a7))
+* **relayer:** delete duplicate DB interface ([#17687](https://github.com/taikoxyz/taiko-mono/issues/17687)) ([b89e97b](https://github.com/taikoxyz/taiko-mono/commit/b89e97b1cd7795753bba57b8ca6caf8a77e22613))
+* **relayer:** delete duplicate DB interface ([#17698](https://github.com/taikoxyz/taiko-mono/issues/17698)) ([c28c984](https://github.com/taikoxyz/taiko-mono/commit/c28c98442392739160f916f134d88d82fdb1354c))
+* **relayer:** fix some carps ([#17681](https://github.com/taikoxyz/taiko-mono/issues/17681)) ([f095698](https://github.com/taikoxyz/taiko-mono/commit/f095698fb86df89a1d8581ba40ecd4d23e2e92e3))
+* **relayer:** handle error and return point ([#17682](https://github.com/taikoxyz/taiko-mono/issues/17682)) ([e99a860](https://github.com/taikoxyz/taiko-mono/commit/e99a860c4a14849712bf14f3a940f2c46dd2d700))
+* **relayer:** update bindings/taikol1 ([#17672](https://github.com/taikoxyz/taiko-mono/issues/17672)) ([990085e](https://github.com/taikoxyz/taiko-mono/commit/990085ee92be7d747be1e9ba4a43a646b98061dc))
+* **relayer:** upgrade event db operation ([#17699](https://github.com/taikoxyz/taiko-mono/issues/17699)) ([bf593ee](https://github.com/taikoxyz/taiko-mono/commit/bf593ee5377a1f73131051517e7869f6564848a9))
+
+
+### Documentation
+
+* **repo:** remove unexist badge and action in readme ([#17928](https://github.com/taikoxyz/taiko-mono/issues/17928)) ([465456e](https://github.com/taikoxyz/taiko-mono/commit/465456ef17df5a0915b9b17cc081e215ed1c67b8))
+
+
+### Tests
+
+* **taiko-client:** introduce TestTxPoolContentWithMinTip test case ([#18285](https://github.com/taikoxyz/taiko-mono/issues/18285)) ([d572f4c](https://github.com/taikoxyz/taiko-mono/commit/d572f4c412e59094ea9a4c5ff0b0667c9c04bd66))
+
+
+### Workflow
+
+* **protocol:** trigger patch release (1.10.1) ([#18358](https://github.com/taikoxyz/taiko-mono/issues/18358)) ([f4f4796](https://github.com/taikoxyz/taiko-mono/commit/f4f4796488059b02c79d6fb15170df58dd31dc4e))
+
+
+### Build
+
+* **relayer:** upgrade scripts and ignore abi json files ([#17826](https://github.com/taikoxyz/taiko-mono/issues/17826)) ([8774a48](https://github.com/taikoxyz/taiko-mono/commit/8774a484b594f3deef64063778fc1d70e4fe7dcc))
+
 ## [0.12.0](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.11.0...relayer-v0.12.0) (2023-10-18)
 
 
