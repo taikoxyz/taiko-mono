@@ -15,6 +15,7 @@ on:
 
 jobs:
   lint-guardian-prover-health-check:
+    if: ${{ github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'option.workflow_on') || github.event.pull_request.draft == false && github.head_ref != 'release-please-*') }}
     name: lint-guardian-prover-health-check
     runs-on: [taiko-runner]
     steps:
@@ -33,6 +34,7 @@ jobs:
           args: --config=.golangci.yml --timeout=4m
 
   test-guardian-prover-health-check:
+    if: ${{ github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'option.workflow_on') || github.event.pull_request.draft == false && github.head_ref != 'release-please-*') }}
     runs-on: [taiko-runner]
     needs: lint-guardian-prover-health-check
     steps:
@@ -58,7 +60,7 @@ jobs:
 
   push-guardian-prover-health-check-docker-image:
     # Skip dependabot PRs
-    if: ${{ github.event_name == 'pull_request' && ! startsWith(github.ref, 'refs/heads/dependabot/') }}
+    if: ${{ github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'option.workflow_on') || github.event.pull_request.draft == false && github.head_ref != 'release-please-*') }}
     name: Build and push docker image
     runs-on: [taiko-runner]
 

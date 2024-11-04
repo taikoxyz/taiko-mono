@@ -5,16 +5,14 @@ env:
   VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_FORK_DIFF }}
 
 on:
-  workflow_dispatch:
-  push:
-    branches-ignore:
-      - main
-      - release-please-*
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "packages/fork-diff/**"
 
 jobs:
   deploy-fork-diff-preview:
+    if: contains(github.event.pull_request.labels.*.name, 'option.workflow_on') || github.event.pull_request.draft == false && github.head_ref != 'release-please-*' 
     runs-on: [arc-runner-set]
     steps:
       - name: Install Git
