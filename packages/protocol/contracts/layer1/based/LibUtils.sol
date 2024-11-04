@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-
 import "src/shared/common/IAddressResolver.sol";
 import "src/shared/common/LibStrings.sol";
 import "src/shared/common/LibMath.sol";
@@ -66,8 +64,8 @@ library LibUtils {
     }
 
     /// @dev Retrieves a block's block hash and state root.
-    /// @param _state Current TaikoData.State.
-    /// @param _config Actual TaikoData.Config.
+    /// @param _state Pointer to the protocol's storage.
+    /// @param _config The protocol's configuration.
     /// @param _blockId Id of the block.
     /// @return blockHash_ The block's block hash.
     /// @return stateRoot_ The block's storage root.
@@ -95,8 +93,8 @@ library LibUtils {
 
     /// @dev Gets the state transitions for a batch of block. For transition that doesn't exist, the
     /// corresponding transition state will be empty.
-    /// @param _state Current TaikoData.State.
-    /// @param _config Actual TaikoData.Config.
+    /// @param _state Pointer to the protocol's storage.
+    /// @param _config The protocol's configuration.
     /// @param _blockIds Id array of the blocks.
     /// @param _parentHashes Parent hashes of the blocks.
     /// @return transitions_ The state transition pointer array.
@@ -124,8 +122,8 @@ library LibUtils {
 
     /// @dev Retrieves the transition with a given parentHash.
     /// @dev This function will revert if the transition is not found.
-    /// @param _state Current TaikoData.State.
-    /// @param _config Actual TaikoData.Config.
+    /// @param _state Pointer to the protocol's storage.
+    /// @param _config The protocol's configuration.
     /// @param _blockId Id of the block.
     /// @param _parentHash Parent hash of the block.
     /// @return The state transition pointer.
@@ -148,8 +146,8 @@ library LibUtils {
     }
 
     /// @dev Retrieves a block based on its ID.
-    /// @param _state Current TaikoData.State.
-    /// @param _config Actual TaikoData.Config.
+    /// @param _state Pointer to the protocol's storage.
+    /// @param _config The protocol's configuration.
     /// @param _blockId Id of the block.
     /// @return blk_ The block storage pointer.
     /// @return slot_ The slot value.
@@ -169,8 +167,8 @@ library LibUtils {
 
     /// @dev Retrieves the transition with a transition ID.
     /// @dev This function will revert if the transition is not found.
-    /// @param _state Current TaikoData.State.
-    /// @param _config Actual TaikoData.Config.
+    /// @param _state Pointer to the protocol's storage.
+    /// @param _config The protocol's configuration.
     /// @param _blockId Id of the block.
     /// @param _tid The transition id.
     /// @return The state transition pointer.
@@ -193,7 +191,7 @@ library LibUtils {
 
     /// @dev Retrieves the ID of the transition with a given parentHash. This function will return 0
     /// if the transition is not found.
-    /// @param _state Current TaikoData.State.
+    /// @param _state Pointer to the protocol's storage.
     /// @param _blk The block storage pointer.
     /// @param _slot The slot value.
     /// @param _parentHash The parent hash of the block.
