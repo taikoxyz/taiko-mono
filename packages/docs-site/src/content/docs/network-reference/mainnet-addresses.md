@@ -34,7 +34,7 @@ description: Network reference page describing various important addresses on Ta
 | P256Verifier                    | `0x11A9ebA17EbF92b40fcf9a640Ebbc47Db6fBeab0` | N/A                        |
 | SigVerifyLib                    | `0x47bB416ee947fE4a4b655011aF7d6E3A1B80E6e9` | N/A                        |
 | TokenUnlock                     | `0x035AFfC82612de31E9Db2259B9482D0Dd53B7819` | N/A                        |
-| ProverSet                       | `0x518845daA8870bE2C59E49620Fc262AD48953C9a` | N/A                        |
+| ProverSet                       | `0x3022Ed0346CCE0c08268c8ad081458AfD95E8763` | N/A                        |
 | labprover                       | `0x68d30f47F19c07bCCEf4Ac7FAE2Dc12FCa3e0dC9` | labprover.taiko.eth        |
 | labcontester                    | `0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3` | labcontester.taiko.eth     |
 
