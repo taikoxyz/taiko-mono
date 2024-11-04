@@ -155,7 +155,10 @@ contract DeployProtocolOnL1 is DeployCapability {
                 ),
                 registerTo: sharedAddressManager
             });
+        } else {
+            register(sharedAddressManager, "taiko_token", taikoToken);
         }
+        register(sharedAddressManager, "bond_token", taikoToken);
 
         // Deploy Bridging contracts
         deployProxy({
@@ -274,6 +277,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         // ---------------------------------------------------------------
         // Register shared contracts in the new rollup
         copyRegister(rollupAddressManager, _sharedAddressManager, "taiko_token");
+        copyRegister(rollupAddressManager, _sharedAddressManager, "bond_token");
         copyRegister(rollupAddressManager, _sharedAddressManager, "signal_service");
         copyRegister(rollupAddressManager, _sharedAddressManager, "bridge");
 
@@ -340,7 +344,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             data: abi.encodeCall(GuardianProver.init, (address(0), rollupAddressManager))
         });
 
-        GuardianProver(guardianProverMinority).enableTaikoTokenAllowance(true);
+        GuardianProver(guardianProverMinority).enableBondAllowance(true);
 
         address guardianProver = deployProxy({
             name: "guardian_prover",

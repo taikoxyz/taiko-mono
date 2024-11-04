@@ -80,7 +80,7 @@ library LibProving {
     error L1_PROVING_PAUSED();
 
     /// @dev Pauses or unpauses the proving process.
-    /// @param _state Current TaikoData.State.
+    /// @param _state Pointer to the protocol's storage.
     /// @param _pause The pause status.
     function pauseProving(TaikoData.State storage _state, bool _pause) public {
         require(_state.slotB.provingPaused != _pause, L1_INVALID_PAUSE_STATUS());
@@ -93,9 +93,9 @@ library LibProving {
     }
 
     /// @dev Proves or contests multiple Taiko L2 blocks.
-    /// @param _state Current TaikoData.State.
-    /// @param _config Actual TaikoData.Config.
-    /// @param _resolver Address resolver interface.
+    /// @param _state Pointer to the protocol's storage.
+    /// @param _config The protocol's configuration.
+    /// @param _resolver The address resolver.
     /// @param _blockIds The index of the block to prove. This is also used to select the right
     /// implementation version.
     /// @param _inputs A list of abi-encoded (TaikoData.BlockMetadataV2, TaikoData.Transition,
@@ -152,9 +152,9 @@ library LibProving {
     }
 
     /// @dev Proves or contests a single Taiko L2 block.
-    /// @param _state Current TaikoData.State.
-    /// @param _config Actual TaikoData.Config.
-    /// @param _resolver Address resolver interface.
+    /// @param _state Pointer to the protocol's storage.
+    /// @param _config The protocol's configuration.
+    /// @param _resolver The address resolver.
     /// @param _blockId The index of the block to prove. This is also used to select the right
     /// implementation version.
     /// @param _input An abi-encoded (TaikoData.BlockMetadataV2, TaikoData.Transition,
@@ -173,9 +173,9 @@ library LibProving {
     }
 
     /// @dev Proves or contests a single Taiko L2 block.
-    /// @param _state Current TaikoData.State.
-    /// @param _config Actual TaikoData.Config.
-    /// @param _resolver Address resolver interface.
+    /// @param _state Pointer to the protocol's storage.
+    /// @param _config The protocol's configuration.
+    /// @param _resolver The address resolver.
     /// @param _blockId The index of the block to prove. This is also used to select the right
     /// implementation version.
     /// @param _input An abi-encoded (TaikoData.BlockMetadataV2, TaikoData.Transition,
@@ -393,7 +393,7 @@ library LibProving {
     }
 
     /// @dev Handle the transition initialization logic.
-    /// @param _state Current TaikoData.State.
+    /// @param _state Pointer to the protocol's storage.
     /// @param _blk Current TaikoData.BlockV2.
     /// @param _tran Current TaikoData.Transition.
     /// @param _local Current Local struct.
@@ -459,8 +459,8 @@ library LibProving {
 
     /// @dev Handles what happens when either the first transition is being proven or there is a
     /// higher tier proof incoming.
-    /// @param _state Current TaikoData.State.
-    /// @param _resolver Address resolver interface.
+    /// @param _state Pointer to the protocol's storage.
+    /// @param _resolver The address resolver.
     /// @param _blk Current TaikoData.BlockV2.
     /// @param _ts Current TaikoData.TransitionState.
     /// @param _tran Current TaikoData.Transition.
