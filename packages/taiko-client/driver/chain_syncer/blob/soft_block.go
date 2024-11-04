@@ -95,7 +95,7 @@ func (s *Syncer) InsertSoftBlockFromTransactionsBatch(
 
 		txList = append([]*types.Transaction{anchorTx}, txList...)
 	} else {
-		prevSoftBlock, err := s.rpc.L2.BlockByNumber(ctx, new(big.Int).SetUint64(blockID-1))
+		prevSoftBlock, err := s.rpc.L2.BlockByNumber(ctx, new(big.Int).SetUint64(blockID))
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch previous soft block (%d): %w", blockID, err)
 		}

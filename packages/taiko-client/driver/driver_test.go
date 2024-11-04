@@ -392,6 +392,83 @@ func (s *DriverTestSuite) TestInsertSoftBlocks() {
 	s.Nil(err)
 	s.True(res.IsSuccess())
 
+	// Try to insert a soft block with batch ID 0
+	s.True(s.insertSoftBlock(url, l1Head1, l2Head2.Number.Uint64()+1, 0, false, false).IsSuccess())
+	l2Head3, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	s.Equal(2, len(l2Head3.Transactions()))
+
+	l1Origin, err := s.RPCClient.L2.L1OriginByID(context.Background(), new(big.Int).Add(l2Head2.Number, common.Big1))
+	s.Nil(err)
+	s.Equal(l2Head3.Number().Uint64(), l1Origin.BlockID.Uint64())
+	s.Equal(l2Head3.Hash(), l1Origin.L2BlockHash)
+	s.Equal(uint64(0), l1Origin.L1BlockHeight.Uint64())
+	s.Equal(common.Hash{}, l1Origin.L1BlockHash)
+	s.Equal(false, l1Origin.EndOfBlock)
+	s.Equal(false, l1Origin.EndOfPreconf)
+	s.Equal(uint64(0), l1Origin.BatchID.Uint64())
+	s.True(l1Origin.IsSoftblock())
+
+	// Try to patch a soft block with batch ID 1
+	s.True(s.insertSoftBlock(url, l1Head1, l2Head2.Number.Uint64()+1, 1, true, false).IsSuccess())
+	l2Head4, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(3, len(l2Head4.Transactions()))
+	s.Equal(l2Head3.Number().Uint64(), l2Head4.Number().Uint64())
+	s.NotEqual(l2Head3.Hash(), l2Head4.Hash())
+
+	l1Origin2, err := s.RPCClient.L2.L1OriginByID(context.Background(), new(big.Int).Add(l2Head2.Number, common.Big1))
+	s.Nil(err)
+	s.Equal(l2Head4.Number().Uint64(), l1Origin2.BlockID.Uint64())
+	s.Equal(l2Head4.Hash(), l1Origin2.L2BlockHash)
+	s.Equal(uint64(0), l1Origin2.L1BlockHeight.Uint64())
+	s.Equal(common.Hash{}, l1Origin2.L1BlockHash)
+	s.Equal(true, l1Origin2.EndOfBlock)
+	s.Equal(false, l1Origin2.EndOfPreconf)
+	s.Equal(uint64(1), l1Origin2.BatchID.Uint64())
+	s.True(l1Origin2.IsSoftblock())
+
+	canonicalL1Origin, err := s.RPCClient.L2.HeadL1Origin(context.Background())
+	s.Nil(err)
+	s.Equal(l2Head2.Number.Uint64(), canonicalL1Origin.BlockID.Uint64())
+
+	// // Try to patch an ended soft block
+	s.False(s.insertSoftBlock(url, l1Head1, l2Head2.Number.Uint64()+1, 1, true, true).IsSuccess())
+
+	// Propose 3 valid L2 blocks
+	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().BlobSyncer())
+
+	l2Head5, err := s.d.rpc.L2.BlockByNumber(context.Background(), l2Head3.Number())
+	s.Nil(err)
+	s.Equal(l2Head3.Number().Uint64(), l2Head5.Number().Uint64())
+	s.Equal(1, len(l2Head5.Transactions()))
+
+	l1Origin3, err := s.RPCClient.L2.L1OriginByID(context.Background(), l2Head5.Number())
+	s.Nil(err)
+	s.Equal(l2Head3.Number().Uint64(), l1Origin3.BlockID.Uint64())
+	s.Equal(l2Head5.Hash(), l1Origin3.L2BlockHash)
+	s.NotZero(l1Origin3.L1BlockHeight.Uint64())
+	s.NotEmpty(l1Origin3.L1BlockHash)
+	s.Equal(false, l1Origin3.EndOfBlock)
+	s.Equal(false, l1Origin3.EndOfPreconf)
+	s.Equal(uint64(0), l1Origin3.BatchID.Uint64())
+	s.False(l1Origin3.IsSoftblock())
+}
+
+func TestDriverTestSuite(t *testing.T) {
+	suite.Run(t, new(DriverTestSuite))
+}
+
+// insertSoftBlock inserts a soft block with the given parameters.
+func (s *DriverTestSuite) insertSoftBlock(
+	url *url.URL,
+	anchoredL1Block *types.Header,
+	l2BlockID uint64,
+	batchID uint64,
+	endOfBlock bool,
+	endOfPreconf bool,
+) *resty.Response {
 	preconferPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROPOSER_PRIVATE_KEY")))
 	s.Nil(err)
 
@@ -415,16 +492,25 @@ func (s *DriverTestSuite) TestInsertSoftBlocks() {
 	b, err := encodeAndCompressTxList([]*types.Transaction{signedTx})
 	s.Nil(err)
 
+	var marker softblocks.TransactionBatchMarker
+	if endOfBlock {
+		marker = softblocks.BatchMarkerEOB
+	} else if endOfPreconf {
+		marker = softblocks.BatchMarkerEOP
+	} else {
+		marker = softblocks.BatchMarkerEmpty
+	}
+
 	txBatch := softblocks.TransactionBatch{
-		BlockID:          l2Head2.Number.Uint64() + 1,
-		ID:               0,
+		BlockID:          l2BlockID,
+		ID:               batchID,
 		TransactionsList: b,
-		BatchMarker:      softblocks.BatchMarkerEmpty,
+		BatchMarker:      marker,
 		Signature:        "",
 		BlockParams: &softblocks.SoftBlockParams{
-			AnchorBlockID:   l1Head1.Number.Uint64(),
-			AnchorStateRoot: l1Head1.Root,
-			Timestamp:       l1Head1.Time + 12,
+			AnchorBlockID:   anchoredL1Block.Number.Uint64(),
+			AnchorStateRoot: anchoredL1Block.Root,
+			Timestamp:       anchoredL1Block.Time + 12,
 			Coinbase:        preconferAddress,
 		},
 	}
@@ -437,32 +523,16 @@ func (s *DriverTestSuite) TestInsertSoftBlocks() {
 	s.Nil(err)
 	txBatch.Signature = common.Bytes2Hex(sig)
 
-	// Try to propose a soft block
-	res, err = resty.New().
+	// Try to propose a soft block with batch ID 0
+	res, err := resty.New().
 		R().
 		SetBody(&softblocks.BuildSoftBlockRequestBody{
 			TransactionBatch: txBatch,
 		}).
 		Post(url.String() + "/softBlocks")
 	s.Nil(err)
-	s.True(res.IsSuccess())
 
-	// Propose a valid L2 block
-	s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().BlobSyncer())
-}
-
-func TestDriverTestSuite(t *testing.T) {
-	suite.Run(t, new(DriverTestSuite))
-}
-
-// encodeAndCompressTxList encodes and compresses the given transactions list.
-func encodeAndCompressTxList(txs types.Transactions) ([]byte, error) {
-	b, err := rlp.EncodeToBytes(txs)
-	if err != nil {
-		return nil, err
-	}
-
-	return compress(b)
+	return res
 }
 
 // compress compresses the given txList bytes using zlib.
@@ -480,4 +550,14 @@ func compress(txListBytes []byte) ([]byte, error) {
 	}
 
 	return b.Bytes(), nil
+}
+
+// encodeAndCompressTxList encodes and compresses the given transactions list.
+func encodeAndCompressTxList(txs types.Transactions) ([]byte, error) {
+	b, err := rlp.EncodeToBytes(txs)
+	if err != nil {
+		return nil, err
+	}
+
+	return compress(b)
 }

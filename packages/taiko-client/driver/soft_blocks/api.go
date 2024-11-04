@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"net/http"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -161,6 +162,25 @@ func (s *SoftBlockAPIServer) BuildSoftBlock(c echo.Context) error {
 	}
 	if progress.IsSyncing() {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "L2 execution engine is syncing"})
+	}
+
+	// Check if the softblock batch or the current preconf process is ended.
+	l1Origin, err := s.rpc.L2.L1OriginByID(
+		c.Request().Context(),
+		new(big.Int).SetUint64(reqBody.TransactionBatch.BlockID),
+	)
+	if err != nil && err.Error() != ethereum.NotFound.Error() {
+		return err
+	}
+	if l1Origin != nil {
+		if l1Origin.EndOfBlock {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "soft block has already been marked as ended"})
+		}
+		if l1Origin.EndOfPreconf {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": "preconfirmation has already been marked as ended",
+			})
+		}
 	}
 
 	var txListBytes []byte
