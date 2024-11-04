@@ -31,9 +31,9 @@ library LibVerifying {
     error L1_TRANSITION_ID_ZERO();
 
     /// @dev Verifies up to N blocks.
-    /// @param _state The current state of TaikoData.
-    /// @param _config The configuration of TaikoData.
-    /// @param _resolver The address resolver interface.
+    /// @param _state Pointer to the protocol's storage.
+    /// @param _config The protocol's configuration.
+    /// @param _resolver The address resolver.
     /// @param _maxBlocksToVerify The maximum number of blocks to verify.
     function verifyBlocks(
         TaikoData.State storage _state,
@@ -175,8 +175,8 @@ library LibVerifying {
     }
 
     /// @dev Retrieves the prover of a verified block.
-    /// @param _state The current state of TaikoData.
-    /// @param _config The configuration of TaikoData.
+    /// @param _state Pointer to the protocol's storage.
+    /// @param _config The protocol's configuration.
     /// @param _blockId The ID of the block.
     /// @return The address of the prover.
     function getVerifiedBlockProver(

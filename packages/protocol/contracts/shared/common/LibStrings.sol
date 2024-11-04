@@ -5,6 +5,7 @@ pragma solidity ^0.8.24;
 /// @custom:security-contact security@taiko.xyz
 library LibStrings {
     bytes32 internal constant B_AUTOMATA_DCAP_ATTESTATION = bytes32("automata_dcap_attestation");
+    bytes32 internal constant B_BOND_TOKEN = bytes32("bond_token");
     bytes32 internal constant B_BRIDGE = bytes32("bridge");
     bytes32 internal constant B_BRIDGE_WATCHDOG = bytes32("bridge_watchdog");
     bytes32 internal constant B_BRIDGED_ERC1155 = bytes32("bridged_erc1155");

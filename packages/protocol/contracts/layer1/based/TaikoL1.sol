@@ -144,7 +144,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     }
 
     /// @inheritdoc ITaikoL1
-    function depositBond(uint256 _amount) external whenNotPaused {
+    function depositBond(uint256 _amount) external payable whenNotPaused {
         LibBonds.depositBond(state, this, _amount);
     }
 

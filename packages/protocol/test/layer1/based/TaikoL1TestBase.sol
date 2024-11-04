@@ -105,11 +105,12 @@ abstract contract TaikoL1TestBase is TaikoTest {
                 registerTo: address(addressManager)
             })
         );
+        registerAddress("bond_token", address(tko));
 
         L1.init(address(0), address(addressManager), GENESIS_BLOCK_HASH, false);
         mine(1);
 
-        gp.enableTaikoTokenAllowance(true);
+        gp.enableBondAllowance(true);
         printVariables("init  ");
     }
 
