@@ -17,7 +17,7 @@ on:
 jobs:
   lint-relayer:
     name: lint-relayer
-    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft == false }}
+    if: ${{ github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'option.workflow_on') || github.event.pull_request.draft == false && github.head_ref != 'release-please-*') }}
     runs-on: [arc-runner-set]
     steps:
       - uses: actions/setup-go@v5
@@ -35,7 +35,7 @@ jobs:
           args: --config=.golangci.yml --timeout=4m
 
   test-relayer:
-    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft == false }}
+    if: ${{ github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'option.workflow_on') || github.event.pull_request.draft == false && github.head_ref != 'release-please-*') }}
     runs-on: [arc-runner-set]
     needs: lint-relayer
     steps:
@@ -64,7 +64,7 @@ jobs:
 
   push-relayer-docker-image:
     # Skip dependabot PRs
-    if: ${{ github.event_name == 'pull_request' && ! startsWith(github.ref, 'refs/heads/dependabot/') }}
+    if: ${{ github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'option.workflow_on') || github.event.pull_request.draft == false && github.head_ref != 'release-please-*') }}
     name: Build and push docker image
     runs-on: [arc-runner-set]
 
