@@ -3,6 +3,8 @@ title: Network configuration
 description: The network configuration page describes many of the configuration details of the network.
 ---
 
+import {Aside} from '@astrojs/starlight/components';
+
 ## Cooldown Window, Proving Window and Bonds
 
 This segment lists the cooldown windows and proving windows for every tier of proof in the Taiko protocol.
@@ -21,8 +23,12 @@ You can find all the corresponding values below in the above link too!
 | SGX               | 240 minutes     | 60 minutes     | 150 TAIKO |
 | ZK                | 240 minutes     | 180 minutes    | 225 TAIKO |
 | SGX & ZK          | 240 minutes     | 180 minutes    | 225 TAIKO |
-| Guardian Minority | 240 minutes     | 2880 minutes   | 225 TAIKO |
-| Guardian          | 240 minutes     | 2880 minutes   | 0 TAIKO   |
+| Guardian Minority | 240 minutes     | 0 minutes      | 225 TAIKO |
+| Guardian          | 240 minutes     | 0 minutes      | 0 TAIKO   |
+
+<Aside>
+Guardian and Guardian Minority proving window is just the grace period (4 hours).
+</Aside>
 
 ## Tier configuration (Mainnet)
 
