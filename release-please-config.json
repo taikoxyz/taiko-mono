@@ -24,7 +24,11 @@
     "packages/guardian-prover-health-check-ui": {},
     "packages/protocol": {},
     "packages/relayer": {},
+    "packages/nfts": {},
+    "packages/taikoon-ui": {},
     "packages/taiko-client": {},
-    "packages/ui-lib": {}
+    "packages/supplementary-contracts": {},
+    "packages/ui-lib": {},
+    "packages/snaefell-ui": {}
   }
 }
