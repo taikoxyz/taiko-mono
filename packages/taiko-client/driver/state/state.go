@@ -6,8 +6,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -64,10 +62,15 @@ func (s *State) init(ctx context.Context) error {
 		return err
 	}
 
-	s.GenesisL1Height = new(big.Int).SetUint64(stateVars.A.GenesisHeight)
-	log.Info("Genesis L1 height", "height", stateVars.A.GenesisHeight)
+	protocolConfigs, err := rpc.GetProtocolConfigs(s.rpc.TaikoL1, &bind.CallOpts{Context: ctx})
+	if err != nil {
+		return err
+	}
 
-	s.OnTakeForkHeight = new(big.Int).SetUint64(encoding.GetProtocolConfig(s.rpc.L2.ChainID.Uint64()).OntakeForkHeight)
+	s.GenesisL1Height = new(big.Int).SetUint64(stateVars.A.GenesisHeight)
+	s.OnTakeForkHeight = new(big.Int).SetUint64(protocolConfigs.OntakeForkHeight)
+
+	log.Info("Genesis L1 height", "height", stateVars.A.GenesisHeight)
 	log.Info("OnTake fork height", "height", s.OnTakeForkHeight)
 
 	// Set the L2 head's latest known L1 origin as current L1 sync cursor.
