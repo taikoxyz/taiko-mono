@@ -6,7 +6,10 @@ on:
       - main
     tags:
       - '*'
-
+  delete:
+    tags:
+      - '*'
+      
 permissions:
   contents: write
   pull-requests: write
