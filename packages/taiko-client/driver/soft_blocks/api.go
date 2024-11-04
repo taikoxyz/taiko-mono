@@ -83,7 +83,7 @@ type BuildSoftBlockRequestBody struct {
 // blocks creation requests.
 type BuildSoftBlockResponseBody struct {
 	// @param blockHeader types.Header Header of the soft block
-	BlockHeader types.Header `json:"blockHeader"`
+	BlockHeader *types.Header `json:"blockHeader"`
 }
 
 // BuildSoftBlock handles a soft block creation request,
@@ -211,7 +211,7 @@ func (s *SoftBlockAPIServer) BuildSoftBlock(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
 
-	return c.JSON(http.StatusOK, BuildSoftBlockResponseBody{BlockHeader: *header})
+	return c.JSON(http.StatusOK, BuildSoftBlockResponseBody{BlockHeader: header})
 }
 
 // RemoveSoftBlocksRequestBody represents a request body when resetting the backend
@@ -246,7 +246,50 @@ type RemoveSoftBlocksResponseBody struct {
 //		@Success		200	{object} RemoveSoftBlocksResponseBody
 //		@Router			/softBlocks [delete]
 func (s *SoftBlockAPIServer) RemoveSoftBlocks(c echo.Context) error {
-	return c.NoContent(http.StatusOK)
+	// Parse the request body.
+	reqBody := new(RemoveSoftBlocksRequestBody)
+	if err := c.Bind(reqBody); err != nil {
+		return c.JSON(http.StatusUnprocessableEntity, map[string]string{"error": err.Error()})
+	}
+
+	// Request body validation.
+	canonicalHeadL1Origin, err := s.rpc.L2.HeadL1Origin(c.Request().Context())
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	currentHead, err := s.rpc.L2.HeaderByNumber(c.Request().Context(), nil)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	log.Info(
+		"New soft block removing request",
+		"newLastBlockId", reqBody.NewLastBlockID,
+		"canonicalHead", canonicalHeadL1Origin.BlockID.Uint64(),
+		"currentHead", currentHead.Number.Uint64(),
+	)
+
+	if reqBody.NewLastBlockID < canonicalHeadL1Origin.BlockID.Uint64() {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "newLastBlockId must not be smaller than the canonical chain's highest block ID",
+		})
+	}
+
+	if err := s.chainSyncer.RemoveSoftBlocks(c.Request().Context(), reqBody.NewLastBlockID); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	newHead, err := s.rpc.L2.HeaderByNumber(c.Request().Context(), nil)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, RemoveSoftBlocksResponseBody{
+		LastBlockID:         newHead.Number.Uint64(),
+		LastProposedBlockID: canonicalHeadL1Origin.BlockID.Uint64(),
+		HeadsRemoved:        currentHead.Number.Uint64() - newHead.Number.Uint64(),
+	})
 }
 
 // HealthCheck is the endpoints for probes.

@@ -17,7 +17,6 @@ import (
 // softBlockChainSyncer is an interface for soft block chain syncer.
 type softBlockChainSyncer interface {
 	InsertSoftBlockFromTransactionsBatch(
-		// Transactions batch parameters
 		ctx context.Context,
 		blockID uint64,
 		batchID uint64,
@@ -25,6 +24,7 @@ type softBlockChainSyncer interface {
 		batchMarker TransactionBatchMarker,
 		softBlockParams *SoftBlockParams,
 	) (*types.Header, error)
+	RemoveSoftBlocks(ctx context.Context, newLastBlockId uint64) error
 }
 
 // @title Taiko Soft Block Server API

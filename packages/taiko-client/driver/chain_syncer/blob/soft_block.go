@@ -160,6 +160,7 @@ func (s *Syncer) InsertSoftBlockFromTransactionsBatch(
 		"mixHash", attributes.BlockMetadata.MixHash,
 		"baseFee", utils.WeiToGWei(attributes.BaseFeePerGas),
 		"extraData", common.Bytes2Hex(attributes.BlockMetadata.ExtraData),
+		"transactions", len(txList),
 	)
 
 	// Step 1, prepare a payload
@@ -237,7 +238,40 @@ func (s *Syncer) InsertSoftBlockFromTransactionsBatch(
 		"transactions", len(payload.Transactions),
 		"baseFee", utils.WeiToGWei(header.BaseFee),
 		"withdrawals", len(payload.Withdrawals),
+		"endOfBlock", attributes.L1Origin.EndOfBlock,
+		"endOfPreconf", attributes.L1Origin.EndOfPreconf,
 	)
 
 	return header, nil
+}
+
+// RemoveSoftBlocks removes soft blocks from the L2 execution engine's blockchain.
+func (s *Syncer) RemoveSoftBlocks(ctx context.Context, newLastBlockId uint64) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	newHead, err := s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(newLastBlockId))
+	if err != nil {
+		return err
+	}
+
+	lastVerifiedBlockHash, err := s.rpc.GetLastVerifiedBlockHash(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to fetch last verified block hash: %w", err)
+	}
+
+	fc := &engine.ForkchoiceStateV1{
+		HeadBlockHash:      newHead.Hash(),
+		SafeBlockHash:      newHead.Hash(),
+		FinalizedBlockHash: lastVerifiedBlockHash,
+	}
+	fcRes, err := s.rpc.L2Engine.ForkchoiceUpdate(ctx, fc, nil)
+	if err != nil {
+		return err
+	}
+	if fcRes.PayloadStatus.Status != engine.VALID {
+		return fmt.Errorf("unexpected ForkchoiceUpdate response status: %s", fcRes.PayloadStatus.Status)
+	}
+
+	return nil
 }

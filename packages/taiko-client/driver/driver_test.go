@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/go-resty/resty/v2"
@@ -358,13 +359,7 @@ func (s *DriverTestSuite) TestInsertSoftBlocks() {
 		port = uint64(testutils.RandomPort())
 		err  error
 	)
-	s.d.softblockServer, err = softblocks.New(
-		"*",
-		nil,
-		s.d.ChainSyncer().BlobSyncer(),
-		s.RPCClient,
-		true,
-	)
+	s.d.softblockServer, err = softblocks.New("*", nil, s.d.ChainSyncer().BlobSyncer(), s.RPCClient, true)
 	s.Nil(err)
 	go func() { s.d.softblockServer.Start(port) }()
 	defer s.d.softblockServer.Shutdown(s.d.ctx)
@@ -433,27 +428,101 @@ func (s *DriverTestSuite) TestInsertSoftBlocks() {
 	s.Nil(err)
 	s.Equal(l2Head2.Number.Uint64(), canonicalL1Origin.BlockID.Uint64())
 
-	// // Try to patch an ended soft block
-	s.False(s.insertSoftBlock(url, l1Head1, l2Head2.Number.Uint64()+1, 1, true, true).IsSuccess())
+	// Try to patch an ended soft block
+	s.False(s.insertSoftBlock(url, l1Head1, l2Head2.Number.Uint64()+1, 1, true, false).IsSuccess())
+
+	// Try to insert a new soft block with batch ID 0
+	s.True(s.insertSoftBlock(url, l1Head1, l2Head2.Number.Uint64()+2, 0, false, false).IsSuccess())
+	l2Head5, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(2, len(l2Head5.Transactions()))
 
 	// Propose 3 valid L2 blocks
 	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().BlobSyncer())
 
-	l2Head5, err := s.d.rpc.L2.BlockByNumber(context.Background(), l2Head3.Number())
+	l2Head6, err := s.d.rpc.L2.BlockByNumber(context.Background(), l2Head3.Number())
 	s.Nil(err)
-	s.Equal(l2Head3.Number().Uint64(), l2Head5.Number().Uint64())
-	s.Equal(1, len(l2Head5.Transactions()))
+	s.Equal(l2Head3.Number().Uint64(), l2Head6.Number().Uint64())
+	s.Equal(1, len(l2Head6.Transactions()))
 
-	l1Origin3, err := s.RPCClient.L2.L1OriginByID(context.Background(), l2Head5.Number())
+	l1Origin3, err := s.RPCClient.L2.L1OriginByID(context.Background(), l2Head6.Number())
 	s.Nil(err)
 	s.Equal(l2Head3.Number().Uint64(), l1Origin3.BlockID.Uint64())
-	s.Equal(l2Head5.Hash(), l1Origin3.L2BlockHash)
+	s.Equal(l2Head6.Hash(), l1Origin3.L2BlockHash)
 	s.NotZero(l1Origin3.L1BlockHeight.Uint64())
 	s.NotEmpty(l1Origin3.L1BlockHash)
 	s.Equal(false, l1Origin3.EndOfBlock)
 	s.Equal(false, l1Origin3.EndOfPreconf)
 	s.Equal(uint64(0), l1Origin3.BatchID.Uint64())
 	s.False(l1Origin3.IsSoftblock())
+}
+
+func (s *DriverTestSuite) TestInsertSoftBlocksAfterEOB() {
+	var (
+		port   = uint64(testutils.RandomPort())
+		epochs = testutils.RandomHash().Big().Uint64() % 10
+		err    error
+	)
+	s.d.softblockServer, err = softblocks.New("*", nil, s.d.ChainSyncer().BlobSyncer(), s.RPCClient, true)
+	s.Nil(err)
+	go func() { s.d.softblockServer.Start(port) }()
+	defer s.d.softblockServer.Shutdown(s.d.ctx)
+
+	url, err := url.Parse(fmt.Sprintf("http://localhost:%v", port))
+	s.Nil(err)
+
+	headL1Origin, err := s.RPCClient.L2.HeadL1Origin(context.Background())
+	s.Nil(err)
+
+	for range headL1Origin.BlockID.Uint64() + epochs + 1 {
+		s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().BlobSyncer())
+	}
+
+	l1Head, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	l2Head, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	for i := range epochs {
+		s.True(s.insertSoftBlock(url, l1Head, l2Head.Number.Uint64()+1, i, false, false).IsSuccess())
+	}
+	s.True(s.insertSoftBlock(url, l1Head, l2Head.Number.Uint64()+1, epochs, true, false).IsSuccess())
+	s.False(s.insertSoftBlock(url, l1Head, l2Head.Number.Uint64()+1, epochs+1, false, false).IsSuccess())
+}
+
+func (s *DriverTestSuite) TestInsertSoftBlocksAfterEOP() {
+	var (
+		port   = uint64(testutils.RandomPort())
+		epochs = testutils.RandomHash().Big().Uint64() % 10
+		err    error
+	)
+	s.d.softblockServer, err = softblocks.New("*", nil, s.d.ChainSyncer().BlobSyncer(), s.RPCClient, true)
+	s.Nil(err)
+	go func() { s.d.softblockServer.Start(port) }()
+	defer s.d.softblockServer.Shutdown(s.d.ctx)
+
+	url, err := url.Parse(fmt.Sprintf("http://localhost:%v", port))
+	s.Nil(err)
+
+	headL1Origin, err := s.RPCClient.L2.HeadL1Origin(context.Background())
+	s.Nil(err)
+
+	for range headL1Origin.BlockID.Uint64() + epochs + 1 {
+		s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().BlobSyncer())
+	}
+
+	l1Head, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	l2Head, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	for i := range epochs {
+		s.True(s.insertSoftBlock(url, l1Head, l2Head.Number.Uint64()+1, i, false, false).IsSuccess())
+	}
+	s.True(s.insertSoftBlock(url, l1Head, l2Head.Number.Uint64()+1, epochs, false, true).IsSuccess())
+	s.False(s.insertSoftBlock(url, l1Head, l2Head.Number.Uint64()+1, epochs+1, false, false).IsSuccess())
 }
 
 func TestDriverTestSuite(t *testing.T) {
@@ -474,7 +543,7 @@ func (s *DriverTestSuite) insertSoftBlock(
 
 	preconferAddress := crypto.PubkeyToAddress(preconferPrivKey.PublicKey)
 
-	nonce, err := s.RPCClient.L2.PendingNonceAt(context.Background(), s.TestAddr)
+	nonce, err := s.RPCClient.L2.NonceAt(context.Background(), s.TestAddr, nil)
 	s.Nil(err)
 
 	tx := types.NewTransaction(
@@ -487,7 +556,12 @@ func (s *DriverTestSuite) insertSoftBlock(
 	)
 	signedTx, err := types.SignTx(tx, types.LatestSignerForChainID(s.RPCClient.L2.ChainID), s.TestAddrPrivKey)
 	s.Nil(err)
-	s.Nil(s.RPCClient.L2.SendTransaction(context.Background(), signedTx))
+
+	// If the transaction is underpriced, we just ingore it.
+	err = s.RPCClient.L2.SendTransaction(context.Background(), signedTx)
+	if err != nil {
+		s.Equal("replacement transaction underpriced", err.Error())
+	}
 
 	b, err := encodeAndCompressTxList([]*types.Transaction{signedTx})
 	s.Nil(err)
@@ -531,7 +605,7 @@ func (s *DriverTestSuite) insertSoftBlock(
 		}).
 		Post(url.String() + "/softBlocks")
 	s.Nil(err)
-
+	log.Info("Soft block response", "body", res.String())
 	return res
 }
 
