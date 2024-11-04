@@ -33,11 +33,11 @@ contract TrailblazersBadgesS2Test is Test {
     address mintSigner;
     uint256 mintSignerPk;
 
-    uint256 public MAX_TAMPERS = 3;
-    uint256 public COOLDOWN_MIGRATION = 1 hours;
-    uint256 public COOLDOWN_TAMPER = 5 minutes;
-    uint256 public TAMPER_WEIGHT_PERCENT = 5;
-    uint256 public POINTS_CLAIM_MULTIPLICATION_FACTOR = 10; // 10%
+    uint256 public MAX_INFLUENCES = 3;
+    uint256 public COOLDOWN_RECRUITMENT = 1 hours;
+    uint256 public COOLDOWN_INFLUENCE = 5 minutes;
+    uint256 public INFLUENCE_WEIGHT_PERCENT = 5;
+    uint256 public MAX_INFLUENCES_DIVIDER = 100;
 
     BadgeRecruitment public recruitment;
 
@@ -96,11 +96,11 @@ contract TrailblazersBadgesS2Test is Test {
         // deploy the recruitment contract
 
         BadgeRecruitment.Config memory config = BadgeRecruitment.Config(
-            COOLDOWN_MIGRATION,
-            COOLDOWN_TAMPER,
-            TAMPER_WEIGHT_PERCENT,
-            MAX_TAMPERS,
-            POINTS_CLAIM_MULTIPLICATION_FACTOR
+            COOLDOWN_RECRUITMENT,
+            COOLDOWN_INFLUENCE,
+            INFLUENCE_WEIGHT_PERCENT,
+            MAX_INFLUENCES,
+            MAX_INFLUENCES_DIVIDER
         );
 
         impl = address(new BadgeRecruitment());
@@ -178,26 +178,34 @@ contract TrailblazersBadgesS2Test is Test {
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(mintSignerPk, _hash);
 
-        for (uint256 i = 0; i < MAX_TAMPERS; i++) {
-            wait(COOLDOWN_TAMPER);
-            recruitment.influenceRecruitment(_hash, v, r, s, points, BadgeRecruitment.InfluenceColor.Whale);
+        wait(COOLDOWN_INFLUENCE);
+
+        recruitment.influenceRecruitment(
+            _hash, v, r, s, points, BadgeRecruitment.InfluenceColor.Minnow
+        );
+        wait(COOLDOWN_INFLUENCE);
+
+        recruitment.influenceRecruitment(
+            _hash, v, r, s, points, BadgeRecruitment.InfluenceColor.Minnow
+        );
+
+        for (uint256 i = 0; i < MAX_INFLUENCES; i++) {
+            wait(COOLDOWN_INFLUENCE);
+            recruitment.influenceRecruitment(
+                _hash, v, r, s, points, BadgeRecruitment.InfluenceColor.Whale
+            );
         }
-
-        wait(COOLDOWN_TAMPER);
-        recruitment.influenceRecruitment(_hash, v, r, s, points, BadgeRecruitment.InfluenceColor.Minnow);
-        wait(COOLDOWN_TAMPER);
-
-        recruitment.influenceRecruitment(_hash, v, r, s, points, BadgeRecruitment.InfluenceColor.Minnow);
 
         vm.stopPrank();
 
         assertEq(recruitment.isInfluenceActive(minters[0]), true);
         assertEq(recruitment.isRecruitmentActive(minters[0]), true);
 
-        (uint256 whaleInfluences, uint256 minnowInfluences) = recruitment.getRecruitmentInfluences(minters[0]);
+        (uint256 whaleInfluences, uint256 minnowInfluences) =
+            recruitment.getRecruitmentInfluences(minters[0]);
 
-        assertEq(whaleInfluences, MAX_TAMPERS);
-        assertEq(minnowInfluences, 2);
+        assertEq(whaleInfluences, MAX_INFLUENCES);
+        assertEq(minnowInfluences, 0);
     }
 
     function test_revert_tooManyInfluences() public {
@@ -209,33 +217,18 @@ contract TrailblazersBadgesS2Test is Test {
         test_influenceRecruitment();
         vm.startPrank(minters[0]);
         vm.expectRevert();
-        recruitment.influenceRecruitment(_hash, v, r, s, points, BadgeRecruitment.InfluenceColor.Whale);
+        recruitment.influenceRecruitment(
+            _hash, v, r, s, points, BadgeRecruitment.InfluenceColor.Whale
+        );
 
         vm.stopPrank();
-    }
-
-    function test_resetInfluences() public {
-        test_influenceRecruitment();
-        assertEq(recruitment.isInfluenceActive(minters[0]), true);
-        (uint256 whaleInfluences, uint256 minnowInfluences) = recruitment.getRecruitmentInfluences(minters[0]);
-
-        assertEq(whaleInfluences, MAX_TAMPERS);
-        assertEq(minnowInfluences, 2);
-
-        vm.prank(minters[0]);
-        recruitment.resetInfluences();
-
-        assertEq(recruitment.isInfluenceActive(minters[0]), false);
-        (whaleInfluences, minnowInfluences) = recruitment.getRecruitmentInfluences(minters[0]);
-        assertEq(whaleInfluences, 0);
-        assertEq(minnowInfluences, 0);
     }
 
     function test_endRecruitment() public {
         test_influenceRecruitment();
 
-        wait(COOLDOWN_TAMPER);
-        wait(COOLDOWN_MIGRATION);
+        wait(COOLDOWN_INFLUENCE);
+        wait(COOLDOWN_RECRUITMENT);
 
         // generate the claim hash for the current recruitment
         bytes32 claimHash = recruitment.generateClaimHash(
@@ -325,7 +318,8 @@ contract TrailblazersBadgesS2Test is Test {
     }
 
     function test_setConfig() public {
-        BadgeRecruitment.Config memory config = BadgeRecruitment.Config(1 hours, 5 minutes, 5, 3, 1);
+        BadgeRecruitment.Config memory config =
+            BadgeRecruitment.Config(1 hours, 5 minutes, 5, 3, 100);
         vm.prank(owner);
         recruitment.setConfig(config);
 
@@ -338,7 +332,8 @@ contract TrailblazersBadgesS2Test is Test {
     }
 
     function test_setConfig_revert__notOwner() public {
-        BadgeRecruitment.Config memory config = BadgeRecruitment.Config(1 hours, 5 minutes, 5, 3, 1);
+        BadgeRecruitment.Config memory config =
+            BadgeRecruitment.Config(1 hours, 5 minutes, 5, 3, 100);
 
         vm.startPrank(minters[0]);
         vm.expectRevert();

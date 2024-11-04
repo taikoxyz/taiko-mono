@@ -66,7 +66,7 @@ contract BadgeRecruitment is
         uint256 cooldownInfluence;
         uint256 influenceWeightPercent;
         uint256 baseMaxInfluences;
-        uint256 pointsClaimMultiplicationFactor;
+        uint256 maxInfluencesDivider;
     }
     /// @notice Current config
 
@@ -91,22 +91,24 @@ contract BadgeRecruitment is
     uint256[43] private __gap;
     /// @notice Errors
 
-    error MAX_TAMPERS_REACHED();
-    error MIGRATION_NOT_STARTED();
-    error MIGRATION_ALREADY_STARTED();
-    error TAMPER_IN_PROGRESS();
-    error MIGRATION_NOT_READY();
-    error MIGRATION_NOT_ENABLED();
+    error MAX_INFLUENCES_REACHED();
+    error RECRUITMENT_NOT_STARTED();
+    error RECRUITMENT_ALREADY_STARTED();
+    error INFLUENCE_IN_PROGRESS();
+    error RECRUITMENT_NOT_READY();
+    error RECRUITMENT_NOT_ENABLED();
     error TOKEN_NOT_OWNED();
     error NOT_RANDOM_SIGNER();
     error ALREADY_MIGRATED_IN_CYCLE();
     error HASH_MISMATCH();
     error NOT_S1_CONTRACT();
     error EXP_TOO_LOW();
-    error INVALID_TAMPER_COLOR();
+    error INVALID_INFLUENCE_COLOR();
     /// @notice Events
 
-    event RecruitmentCycleToggled(uint256 indexed recruitmentCycleId, uint256 s1BadgeId, bool enabled);
+    event RecruitmentCycleToggled(
+        uint256 indexed recruitmentCycleId, uint256 s1BadgeId, bool enabled
+    );
 
     event RecruitmentUpdated(
         uint256 indexed recruitmentCycle,
@@ -132,7 +134,7 @@ contract BadgeRecruitment is
     modifier isMigrating() {
         Recruitment memory recruitment_ = getActiveRecruitmentFor(_msgSender());
         if (recruitment_.cooldownExpiration == 0) {
-            revert MIGRATION_NOT_STARTED();
+            revert RECRUITMENT_NOT_STARTED();
         }
         _;
     }
@@ -141,9 +143,10 @@ contract BadgeRecruitment is
     modifier isNotMigrating(address _user) {
         if (
             recruitments[_user].length > 0
-                && recruitments[_user][recruitments[_user].length - 1].cooldownExpiration > block.timestamp
+                && recruitments[_user][recruitments[_user].length - 1].cooldownExpiration
+                    > block.timestamp
         ) {
-            revert MIGRATION_ALREADY_STARTED();
+            revert RECRUITMENT_ALREADY_STARTED();
         }
         _;
     }
@@ -152,7 +155,7 @@ contract BadgeRecruitment is
     /// @param _s1BadgeId The badge ID
     modifier recruitmentOpen(uint256 _s1BadgeId) {
         if (!enabledBadgeIds[recruitmentCycle][_s1BadgeId]) {
-            revert MIGRATION_NOT_ENABLED();
+            revert RECRUITMENT_NOT_ENABLED();
         }
         _;
     }
@@ -205,7 +208,8 @@ contract BadgeRecruitment is
     }
 
     /// @notice Disable all new recruitments
-    /// @dev Doesn't allow for new recruitment attempts, but influences and active recruitments still run
+    /// @dev Doesn't allow for new recruitment attempts, but influences and active recruitments
+    /// still run
     function _disableRecruitments() internal onlyRole(DEFAULT_ADMIN_ROLE) {
         for (uint256 i = 0; i < 8; i++) {
             if (enabledBadgeIds[recruitmentCycle][i]) {
@@ -320,8 +324,8 @@ contract BadgeRecruitment is
         userExperience[_msgSender()] = _exp;
 
         uint256 randomSeed_ = randomFromSignature(_hash, _v, _r, _s);
-        uint256 s1BadgeId_ =
-            currentCycleEnabledRecruitmentIds[randomSeed_ % currentCycleEnabledRecruitmentIds.length];
+        uint256 s1BadgeId_ = currentCycleEnabledRecruitmentIds[randomSeed_
+            % currentCycleEnabledRecruitmentIds.length];
 
         if (recruitmentCycleUniqueMints[recruitmentCycle][_msgSender()][s1BadgeId_]) {
             revert ALREADY_MIGRATED_IN_CYCLE();
@@ -360,7 +364,7 @@ contract BadgeRecruitment is
     /// @return The active recruitment
     function getActiveRecruitmentFor(address _user) public view returns (Recruitment memory) {
         if (recruitments[_user].length == 0) {
-            revert MIGRATION_NOT_STARTED();
+            revert RECRUITMENT_NOT_STARTED();
         }
         return recruitments[_user][recruitments[_user].length - 1];
     }
@@ -386,7 +390,7 @@ contract BadgeRecruitment is
     /// @notice Get the maximum number of influences for a given experience
     /// @param _exp The user's experience points
     function maxInfluences(uint256 _exp) public view virtual returns (uint256 value) {
-        value = _exp / 100;
+        value = _exp / config.maxInfluencesDivider;
         value += 2 * config.baseMaxInfluences;
         return value;
     }
@@ -416,33 +420,25 @@ contract BadgeRecruitment is
         Recruitment memory recruitment_ = getActiveRecruitmentFor(_msgSender());
 
         if ((recruitment_.whaleInfluences + recruitment_.minnowInfluences) > maxInfluences(exp)) {
-            revert MAX_TAMPERS_REACHED();
+            revert MAX_INFLUENCES_REACHED();
         }
 
         if (recruitment_.influenceExpiration > block.timestamp) {
-            revert TAMPER_IN_PROGRESS();
+            revert INFLUENCE_IN_PROGRESS();
         }
 
+        // apply the influence, and reset the other
         if (_influenceColor == InfluenceColor.Whale) {
             recruitment_.whaleInfluences++;
+            recruitment_.minnowInfluences = 0;
         } else if (_influenceColor == InfluenceColor.Minnow) {
             recruitment_.minnowInfluences++;
+            recruitment_.whaleInfluences = 0;
         } else {
-            revert INVALID_TAMPER_COLOR();
+            revert INVALID_INFLUENCE_COLOR();
         }
 
         recruitment_.influenceExpiration = block.timestamp + config.cooldownInfluence;
-
-        _updateRecruitment(recruitment_);
-    }
-
-    /// @notice Reset the influence counts
-    /// @dev Can be called only during an active recruitment
-    function resetInfluences() external isMigrating {
-        Recruitment memory recruitment_ = getActiveRecruitmentFor(_msgSender());
-        recruitment_.whaleInfluences = 0;
-        recruitment_.minnowInfluences = 0;
-        recruitment_.influenceExpiration = 0;
 
         _updateRecruitment(recruitment_);
     }
@@ -468,11 +464,11 @@ contract BadgeRecruitment is
         Recruitment memory recruitment_ = getActiveRecruitmentFor(_msgSender());
 
         if (recruitment_.influenceExpiration > block.timestamp) {
-            revert TAMPER_IN_PROGRESS();
+            revert INFLUENCE_IN_PROGRESS();
         }
         // check if the cooldown is over
         if (recruitment_.cooldownExpiration > block.timestamp) {
-            revert MIGRATION_NOT_READY();
+            revert RECRUITMENT_NOT_READY();
         }
         // ensure the hash corresponds to the start time
         bytes32 calculatedHash_ = generateClaimHash(_msgSender(), _exp);
@@ -576,7 +572,7 @@ contract BadgeRecruitment is
         returns (uint256 _whaleInfluences, uint256 _minnowInfluences)
     {
         if (!isRecruitmentActive(_user)) {
-            revert MIGRATION_NOT_STARTED();
+            revert RECRUITMENT_NOT_STARTED();
         }
         Recruitment memory recruitment_ = getActiveRecruitmentFor(_user);
         return (recruitment_.whaleInfluences, recruitment_.minnowInfluences);

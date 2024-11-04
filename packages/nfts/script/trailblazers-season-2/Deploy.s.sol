@@ -21,14 +21,14 @@ contract DeployS2Script is Script {
 
     BadgeRecruitment recruitment;
 
-    bool constant PINK_TAMPER = true;
-    bool constant PURPLE_TAMPER = false;
+    bool constant PINK_INFLUENCE = true;
+    bool constant PURPLE_INFLUENCE = false;
 
-    uint256 public MAX_TAMPERS = 3;
-    uint256 public COOLDOWN_MIGRATION = 10 minutes;
-    uint256 public COOLDOWN_TAMPER = 2 minutes;
-    uint256 public TAMPER_WEIGHT_PERCENT = 5;
-    uint256 public POINTS_CLAIM_MULTIPLICATION_FACTOR = 10; // 10%
+    uint256 public MAX_INFLUENCES = 3;
+    uint256 public COOLDOWN_RECRUITMENT = 10 minutes;
+    uint256 public COOLDOWN_INFLUENCE = 2 minutes;
+    uint256 public INFLUENCE_WEIGHT_PERCENT = 5;
+    uint256 public MAX_INFLUENCES_DIVIDER = 100;
     uint256 public S1_LOCK_DURATION = 365 days;
     // Taiko Mainnet Values
     //address owner = 0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be;
@@ -116,11 +116,11 @@ contract DeployS2Script is Script {
         // deploy the recruitment contract
 
         BadgeRecruitment.Config memory config = BadgeRecruitment.Config(
-            COOLDOWN_MIGRATION,
-            COOLDOWN_TAMPER,
-            TAMPER_WEIGHT_PERCENT,
-            MAX_TAMPERS,
-            POINTS_CLAIM_MULTIPLICATION_FACTOR
+            COOLDOWN_RECRUITMENT,
+            COOLDOWN_INFLUENCE,
+            INFLUENCE_WEIGHT_PERCENT,
+            MAX_INFLUENCES,
+            MAX_INFLUENCES_DIVIDER
         );
 
         impl = address(new BadgeRecruitment());

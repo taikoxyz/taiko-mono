@@ -14,7 +14,7 @@ contract TrailblazersBadgesV4 is TrailblazersBadgesV3 {
 
     /// @notice Errors
     error BADGE_LOCKED();
-    error MIGRATION_LOCK_DURATION_NOT_SET();
+    error RECRUITMENT_LOCK_DURATION_NOT_SET();
 
     /// @notice Updated version function
     /// @return Version string
@@ -61,7 +61,7 @@ contract TrailblazersBadgesV4 is TrailblazersBadgesV3 {
     /// @param _badgeId Badge id
     function startRecruitment(uint256 _badgeId) public {
         if (recruitmentLockDuration == 0) {
-            revert MIGRATION_LOCK_DURATION_NOT_SET();
+            revert RECRUITMENT_LOCK_DURATION_NOT_SET();
         }
         uint256 tokenId = getTokenId(_msgSender(), _badgeId);
         unlockTimestamps[tokenId] = block.timestamp + recruitmentLockDuration;
