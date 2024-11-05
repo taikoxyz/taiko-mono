@@ -144,8 +144,9 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Copy headers from the original request, except for Accept-Encoding
+	// Copy headers from the original request, excluding Accept-Encoding
 	for name, values := range r.Header {
+		log.Printf("proxy req name %s, value %s", name, values)
 		if name == "Accept-Encoding" {
 			continue
 		}
@@ -162,18 +163,48 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 
-	// Copy headers from the response
+	// Log headers before setting them to diagnose any discrepancies
+	log.Printf("Received Content-Type from upstream: %s", resp.Header.Get("Content-Type"))
+
+	// Prepare to copy headers from the response
 	for name, values := range resp.Header {
-		for _, value := range values {
-			w.Header().Add(name, value)
+		log.Printf("response name %s, value %s", name, values)
+		switch name {
+		case "Content-Length", "Transfer-Encoding", "Connection":
+			// Skip these headers
+			continue
+		default:
+			for _, value := range values {
+				w.Header().Add(name, value)
+			}
 		}
 	}
 
-	// Set the response status code
-	w.WriteHeader(resp.StatusCode)
+	// Explicitly set Content-Type if it's present in the response
+	if contentType := resp.Header.Get("Content-Type"); contentType != "" {
+		w.Header().Set("Content-Type", contentType)
+	} else {
+		w.Header().Set("Content-Type", "application/json") // default if not provided
+	}
+	log.Printf("Set Content-Type header: %s", w.Header().Get("Content-Type"))
 
-	// Copy the response body
-	io.Copy(w, resp.Body)
+	// Read the response body into a buffer to set Content-Type explicitly
+	var buf bytes.Buffer
+	if _, err := io.Copy(&buf, resp.Body); err != nil {
+		log.Printf("Error reading response body into buffer: %v", err)
+		http.Error(w, "Failed to read response body", http.StatusInternalServerError)
+		return
+	}
+
+	// Write status code and ensure Content-Type is set
+	w.WriteHeader(resp.StatusCode)
+	log.Printf("Response status code: %d", resp.StatusCode)
+	log.Printf("Final Content-Type header: %s", w.Header().Get("Content-Type"))
+
+	// Write the buffered body to the response
+	if _, err := io.Copy(w, &buf); err != nil {
+		log.Printf("Error copying buffer to response: %v", err)
+	}
 }
 
 func isDebugMethod(method string) bool {
