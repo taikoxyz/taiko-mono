@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"errors"
 	"math/big"
 	"os"
 	"os/signal"
@@ -31,6 +32,7 @@ var (
 		syscall.SIGTERM,
 		syscall.SIGQUIT,
 	}
+	ErrSlotBMarshal = errors.New("abi: cannot marshal in to go type: length insufficient 160 require 192")
 )
 
 // GetProtocolConfigs gets the protocol configs from TaikoL1 contract.
@@ -65,7 +67,12 @@ func GetProtocolStateVariables(
 
 	slotA, slotB, err := taikoL1Client.GetStateVariables(opts)
 	if err != nil {
-		return nil, err
+		if errors.Is(err, ErrSlotBMarshal) {
+			slotA, slotB, err = taikoL1Client.GetStateVariables(opts)
+		}
+		if err != nil {
+			return nil, err
+		}
 	}
 	return &struct {
 		A bindings.TaikoDataSlotA

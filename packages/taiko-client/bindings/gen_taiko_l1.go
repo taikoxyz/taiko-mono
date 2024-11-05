@@ -143,6 +143,16 @@ type TaikoDataSlotB struct {
 	LastUnpausedAt      uint64
 }
 
+type TaikoDataSlotBV1 struct {
+	NumBlocks           uint64
+	LastVerifiedBlockId uint64
+	ProvingPaused       bool
+	ReservedB1          uint8
+	ReservedB2          uint16
+	ReservedB3          uint32
+	LastUnpausedAt      uint64
+}
+
 // TaikoDataTransition is an auto generated low-level Go binding around an user-defined struct.
 type TaikoDataTransition struct {
 	ParentHash [32]byte
@@ -594,6 +604,21 @@ func (_TaikoL1Client *TaikoL1ClientCaller) GetStateVariables(opts *bind.CallOpts
 
 	out0 := *abi.ConvertType(out[0], new(TaikoDataSlotA)).(*TaikoDataSlotA)
 	out1 := *abi.ConvertType(out[1], new(TaikoDataSlotB)).(*TaikoDataSlotB)
+
+	return out0, out1, err
+
+}
+
+func (_TaikoL1Client *TaikoL1ClientCaller) GetStateVariablesV1(opts *bind.CallOpts) (TaikoDataSlotA, TaikoDataSlotBV1, error) {
+	var out []interface{}
+	err := _TaikoL1Client.contract.Call(opts, &out, "getStateVariables")
+
+	if err != nil {
+		return *new(TaikoDataSlotA), *new(TaikoDataSlotBV1), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(TaikoDataSlotA)).(*TaikoDataSlotA)
+	out1 := *abi.ConvertType(out[1], new(TaikoDataSlotB)).(*TaikoDataSlotBV1)
 
 	return out0, out1, err
 
