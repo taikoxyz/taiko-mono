@@ -23,7 +23,7 @@ import "./IBlockHash.sol";
 /// @custom:security-contact security@taiko.xyz
 contract TaikoL2 is EssentialContract, IBlockHash {
     using LibAddress for address;
-     using LibMath for uint256;
+    using LibMath for uint256;
     using SafeERC20 for IERC20;
 
     /// @notice Golden touch address is the only address that can do the anchor transaction.
@@ -60,8 +60,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
     /// @param parentGasExcess The gas excess value used to calculate the base fee.
     event Anchored(bytes32 parentHash, uint64 parentGasExcess);
 
-
-   /// @notice Emitted when the gas target has been updated.
+    /// @notice Emitted when the gas target has been updated.
     /// @param oldGasTarget The previous gas target.
     /// @param newGasTarget The new gas target.
     /// @param oldGasExcess The previous gas excess.
@@ -69,7 +68,6 @@ contract TaikoL2 is EssentialContract, IBlockHash {
     event EIP1559Update(
         uint64 oldGasTarget, uint64 newGasTarget, uint64 oldGasExcess, uint64 newGasExcess
     );
-
 
     error L2_BASEFEE_MISMATCH();
     error L2_FORK_ERROR();
@@ -121,19 +119,18 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         (publicInputHash,) = _calcPublicInputHash(block.number);
     }
 
-      /// @dev DEPRECATED but its ABI will still be used by node/client for syncing old blocks.
+    /// @dev DEPRECATED but its ABI will still be used by node/client for syncing old blocks.
     function anchor(
         bytes32, /*_l1BlockHash*/
-        bytes32 /*_l1StateRoot*/,
-        uint64 /*_l1BlockId*/,
+        bytes32, /*_l1StateRoot*/
+        uint64, /*_l1BlockId*/
         uint32 /*_parentGasUsed */
     )
         external
         notImplemented
-    {
-    }
+    { }
 
-     /// @notice Anchors the latest L1 block details to L2 for cross-layer
+    /// @notice Anchors the latest L1 block details to L2 for cross-layer
     /// message verification.
     /// @dev This function can be called freely as the golden touch private key is publicly known,
     /// but the Taiko node guarantees the first transaction of each block is always this anchor
@@ -165,8 +162,6 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         _updateParentHashAndTimestamp(parentId);
     }
 
-
-
     /// @notice Withdraw token or Ether from this address.
     /// Note: This contract receives a portion of L2 base fees, while the remainder is directed to
     /// L2 block's coinbase address.
@@ -197,12 +192,10 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         public
         view
         notImplemented
-        returns (uint256 /*basefee_*/, uint64 /*parentGasExcess_*/)
-    {
+        returns (uint256, /*basefee_*/ uint64 /*parentGasExcess_*/ )
+    { }
 
-    }
-
-     /// @notice Calculates the base fee and gas excess using EIP-1559 configuration for the given
+    /// @notice Calculates the base fee and gas excess using EIP-1559 configuration for the given
     /// parameters.
     /// @param _parentGasUsed Gas used in the parent block.
     /// @param _baseFeeConfig Configuration parameters for base fee calculation.
@@ -238,8 +231,6 @@ contract TaikoL2 is EssentialContract, IBlockHash {
             newGasTarget_, newGasExcess_, gasIssuance, _parentGasUsed, _baseFeeConfig.minGasExcess
         );
     }
-
-
 
     /// @inheritdoc IBlockHash
     function getBlockHash(uint256 _blockId) public view returns (bytes32) {
@@ -369,6 +360,4 @@ contract TaikoL2 is EssentialContract, IBlockHash {
             newPublicInputHash_ := keccak256(inputs, 8192 /*mul(256, 32)*/ )
         }
     }
-
-
 }

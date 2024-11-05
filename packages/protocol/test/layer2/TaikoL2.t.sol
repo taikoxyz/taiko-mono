@@ -156,8 +156,7 @@ contract TaikoL2Tests is TaikoL2Test {
         vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
         L2.anchorV2(++anchorBlockId, anchorStateRoot, _parentGasUsed, baseFeeConfig);
 
-        (uint256 basefee, uint64 newGasTarget,) =
-            L2.getBasefeeV2(_parentGasUsed, baseFeeConfig);
+        (uint256 basefee, uint64 newGasTarget,) = L2.getBasefeeV2(_parentGasUsed, baseFeeConfig);
 
         assertTrue(basefee != 0, "basefee is 0");
         assertEq(newGasTarget, L2.parentGasTarget());
