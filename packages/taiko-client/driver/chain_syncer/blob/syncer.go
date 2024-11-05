@@ -49,7 +49,7 @@ type Syncer struct {
 	reorgDetectedFlag   bool
 	maxRetrieveExponent uint64
 	blobDatasource      *rpc.BlobDataSource
-	mutex               *sync.Mutex
+	mutex               sync.Mutex
 }
 
 // NewSyncer creates a new syncer instance.
@@ -90,7 +90,6 @@ func NewSyncer(
 			blobServerEndpoint,
 			socialScanEndpoint,
 		),
-		mutex: new(sync.Mutex),
 	}, nil
 }
 

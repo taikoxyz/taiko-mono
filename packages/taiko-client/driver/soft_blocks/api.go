@@ -77,7 +77,7 @@ func (b *TransactionBatch) ValidateSignature() (bool, error) {
 // soft blocks creation requests.
 type BuildSoftBlockRequestBody struct {
 	// @param transactionBatch TransactionBatch Transaction batch to be inserted into the soft block
-	TransactionBatch TransactionBatch `json:"transactionBatch"`
+	TransactionBatch *TransactionBatch `json:"transactionBatch"`
 }
 
 // CreateOrUpdateBlocksFromBatchResponseBody represents a response body when handling soft
@@ -108,6 +108,9 @@ func (s *SoftBlockAPIServer) BuildSoftBlock(c echo.Context) error {
 	reqBody := new(BuildSoftBlockRequestBody)
 	if err := c.Bind(reqBody); err != nil {
 		s.returnError(c, http.StatusUnprocessableEntity, err)
+	}
+	if reqBody.TransactionBatch == nil {
+		return s.returnError(c, http.StatusBadRequest, errors.New("transactionBatch is required"))
 	}
 
 	log.Info(

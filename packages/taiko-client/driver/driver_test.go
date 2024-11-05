@@ -592,7 +592,7 @@ func (s *DriverTestSuite) insertSoftBlock(
 		marker = softblocks.BatchMarkerEmpty
 	}
 
-	txBatch := softblocks.TransactionBatch{
+	txBatch := &softblocks.TransactionBatch{
 		BlockID:          l2BlockID,
 		ID:               batchID,
 		TransactionsList: b,
