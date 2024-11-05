@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/labstack/echo/v4"
 )
@@ -107,7 +106,7 @@ func (s *SoftBlockAPIServer) BuildSoftBlock(c echo.Context) error {
 	// Parse the request body.
 	reqBody := new(BuildSoftBlockRequestBody)
 	if err := c.Bind(reqBody); err != nil {
-		s.returnError(c, http.StatusUnprocessableEntity, err)
+		return s.returnError(c, http.StatusUnprocessableEntity, err)
 	}
 	if reqBody.TransactionBatch == nil {
 		return s.returnError(c, http.StatusBadRequest, errors.New("transactionBatch is required"))
@@ -189,27 +188,17 @@ func (s *SoftBlockAPIServer) BuildSoftBlock(c echo.Context) error {
 		}
 	}
 
-	var txListBytes []byte
-	if s.rpc.L2.ChainID.Cmp(params.HeklaNetworkID) == 0 {
-		txListBytes = s.txListDecompressor.TryDecompressHekla(
-			new(big.Int).SetUint64(reqBody.TransactionBatch.BlockID),
-			reqBody.TransactionBatch.TransactionsList,
-			true,
-		)
-	} else {
-		txListBytes = s.txListDecompressor.TryDecompress(
-			new(big.Int).SetUint64(reqBody.TransactionBatch.BlockID),
-			reqBody.TransactionBatch.TransactionsList,
-			true,
-		)
-	}
-
 	// Insert the soft block.
 	header, err := s.chainSyncer.InsertSoftBlockFromTransactionsBatch(
 		c.Request().Context(),
 		reqBody.TransactionBatch.BlockID,
 		reqBody.TransactionBatch.ID,
-		txListBytes,
+		s.txListDecompressor.TryDecompress(
+			s.rpc.L2.ChainID,
+			new(big.Int).SetUint64(reqBody.TransactionBatch.BlockID),
+			reqBody.TransactionBatch.TransactionsList,
+			true,
+		),
 		reqBody.TransactionBatch.BatchMarker,
 		reqBody.TransactionBatch.BlockParams,
 	)
