@@ -7,10 +7,10 @@ contract TestLibEIP1559 is TaikoL2Test {
     using LibMath for uint256;
 
     function test_ethQty() external {
-        assertEq(LibEIP1559.ethQty(0, 60_000_000 * 8), 1);
-        assertEq(LibEIP1559.ethQty(60_000_000, 60_000_000 * 8), 1);
-        assertEq(LibEIP1559.ethQty(60_000_000 * 100, 60_000_000 * 8), 268_337);
-        assertEq(LibEIP1559.ethQty(60_000_000 * 200, 60_000_000 * 8), 72_004_899_337);
+        assertEq(LibEIP1559.ethQty(60_000_000 * 8, 0), 1);
+        assertEq(LibEIP1559.ethQty(60_000_000 * 8, 60_000_000), 1);
+        assertEq(LibEIP1559.ethQty(60_000_000 * 8, 60_000_000 * 100), 268_337);
+        assertEq(LibEIP1559.ethQty(60_000_000 * 8, 60_000_000 * 200), 72_004_899_337);
     }
 
     function test_basefee() external pure {
@@ -100,10 +100,10 @@ contract TestLibEIP1559 is TaikoL2Test {
 
     /// forge-config: layer2.fuzz.runs = 1000
     /// forge-config: layer2.fuzz.show-logs = true
-    function test_fuzz_ethQty(uint64 _gasExcess, uint64 _gasTarget) external pure {
+    function test_fuzz_ethQty(uint64 _gasTarget, uint64 _gasExcess) external pure {
         if (_gasTarget == 0) _gasTarget = 1;
 
-        LibEIP1559.ethQty(_gasExcess, _gasTarget);
+        LibEIP1559.ethQty(_gasTarget, _gasExcess);
     }
 
     /// forge-config: layer2.fuzz.runs = 2000

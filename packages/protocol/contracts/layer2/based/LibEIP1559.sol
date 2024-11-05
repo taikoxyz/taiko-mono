@@ -15,8 +15,6 @@ library LibEIP1559 {
     /// @notice The maximum allowable input value for the exp() function.
     uint128 public constant MAX_EXP_INPUT = 135_305_999_368_893_231_588;
 
-    error EIP1559_INVALID_PARAMS();
-
     /// @notice Calculates the base fee and gas excess for EIP-1559
     /// @param _gasTarget The target gas usage
     /// @param _gasExcess The current gas excess
@@ -107,16 +105,15 @@ library LibEIP1559 {
     function basefee(uint64 _gasTarget, uint64 _gasExcess) internal pure returns (uint256) {
         if (_gasTarget == 0) return 1;
 
-        return (ethQty(_gasExcess, _gasTarget) / _gasTarget).max(1);
+        return (ethQty(_gasTarget, _gasExcess) / _gasTarget).max(1);
     }
 
     /// @dev Calculates the exponential of the ratio of gas excess to gas target.
-    /// @param _gasExcess The current gas excess.
     /// @param _gasTarget The current gas target.
+    /// @param _gasExcess The current gas excess.
     /// @return The calculated exponential value.
-    function ethQty(uint64 _gasExcess, uint64 _gasTarget) internal pure returns (uint256) {
-        if (_gasTarget == 0) revert EIP1559_INVALID_PARAMS();
-
+    function ethQty(uint64 _gasTarget, uint64 _gasExcess) internal pure returns (uint256) {
+        assert(_gasTarget != 0);
         uint256 input = FixedPointMathLib.WAD * _gasExcess / _gasTarget;
         if (input > MAX_EXP_INPUT) {
             input = MAX_EXP_INPUT;
