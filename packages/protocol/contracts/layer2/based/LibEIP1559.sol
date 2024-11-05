@@ -46,47 +46,46 @@ library LibEIP1559 {
         // bonding curve, regardless the actual amount of gas used by this
         // block, however, this block's gas used will affect the next
         // block's base fee.
-        basefee_ = basefee(gasExcess_, _gasTarget);
+        basefee_ = basefee(_gasTarget, gasExcess_);
     }
 
     /// @dev Adjusts the gas excess to maintain the same base fee when the gas target changes.
     /// The formula used for adjustment is:
     /// `_newGasTarget*ln(_newGasTarget/_gasTarget)+_gasExcess*_newGasTarget/_gasTarget`
-    /// @param _gasExcess The current gas excess.
-    /// @param _gasTarget The current gas target.
+    /// @param _oldGasTarget The current gas target.
     /// @param _newGasTarget The new gas target.
-    /// @return success_ Indicates if the adjustment was successful.
-    /// @return newGasExcess_ The adjusted gas excess.
+    /// @param _oldGasExcess The current gas excess.
+    /// @return newGasTarget_ The new gas target value.
+    /// @return newGasExcess_ The new gas excess value.
     function adjustExcess(
-        uint64 _gasExcess,
-        uint64 _gasTarget,
-        uint64 _newGasTarget
+        uint64 _oldGasTarget,
+        uint64 _newGasTarget,
+        uint64 _oldGasExcess
     )
         internal
         pure
-        returns (bool success_, uint64 newGasExcess_)
+        returns (uint64 newGasTarget_, uint64 newGasExcess_)
     {
-        if (_gasTarget == 0 || _newGasTarget == 0) {
-            return (false, 0);
-        }
-
         uint256 f = FixedPointMathLib.WAD;
-        if (_newGasTarget >= type(uint256).max / f) {
-            return (false, 0);
+
+        if (
+            _oldGasTarget == 0 || _newGasTarget == 0 || _oldGasExcess == _newGasTarget
+                || _newGasTarget >= type(uint256).max / f
+        ) {
+            return (_oldGasTarget, _oldGasExcess);
         }
 
-        uint256 ratio = f * _newGasTarget / _gasTarget;
+        uint256 ratio = f * _newGasTarget / _oldGasTarget;
         if (ratio == 0 || ratio > uint256(type(int256).max)) {
-            return (false, 0);
+            return (_newGasTarget, _oldGasExcess);
         }
 
         int256 lnRatio = FixedPointMathLib.lnWad(int256(ratio)); // may be negative
-
         uint256 newGasExcess;
 
         assembly {
             // compute x = (_newGasTarget * lnRatio + _gasExcess * ratio)
-            let x := add(mul(_newGasTarget, lnRatio), mul(_gasExcess, ratio))
+            let x := add(mul(_newGasTarget, lnRatio), mul(_oldGasExcess, ratio))
 
             // If x < 0, set newGasExcess to 0, otherwise calculate newGasExcess = x / f
             switch slt(x, 0)
@@ -94,14 +93,14 @@ library LibEIP1559 {
             default { newGasExcess := div(x, f) }
         }
 
-        return (true, newGasExcess.capToUint64());
+        return (_newGasTarget, newGasExcess.capToUint64());
     }
 
     /// @dev Calculates the base fee using the formula: exp(_gasExcess/_gasTarget)/_gasTarget
-    /// @param _gasExcess The current gas excess.
     /// @param _gasTarget The current gas target.
+    /// @param _gasExcess The current gas excess.
     /// @return The calculated base fee.
-    function basefee(uint64 _gasExcess, uint64 _gasTarget) internal pure returns (uint256) {
+    function basefee(uint64 _gasTarget, uint64 _gasExcess) internal pure returns (uint256) {
         if (_gasTarget == 0) return 1;
 
         return (ethQty(_gasExcess, _gasTarget) / _gasTarget).max(1);

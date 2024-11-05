@@ -14,16 +14,10 @@ contract TaikoL2 is TaikoL2V1 {
     /// @notice Emitted when the gas target has been updated.
     /// @param oldGasTarget The previous gas target.
     /// @param newGasTarget The new gas target.
-    event GasTargetUpdated(uint64 oldGasTarget, uint64 newGasTarget);
-
-    /// @notice Emitted when the gas excess has been updated.
     /// @param oldGasExcess The previous gas excess.
     /// @param newGasExcess The new gas excess.
-    event GasExcessUpdated(uint64 oldGasExcess, uint64 newGasExcess);
-
-    /// @notice Emitted when the gas target update fails.
-    event UpdateGasTargetFailed(
-        uint64 parentGasTarget, uint64 parentGasExcess, LibSharedData.BaseFeeConfig baseFeeConfig
+    event EIP1559Update(
+        uint64 oldGasTarget, uint64 newGasTarget, uint64 oldGasExcess, uint64 newGasExcess
     );
 
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
@@ -63,50 +57,25 @@ contract TaikoL2 is TaikoL2V1 {
     /// @param _parentGasUsed Gas used in the parent block.
     /// @param _baseFeeConfig Configuration parameters for base fee calculation.
     /// @return basefee_ The calculated EIP-1559 base fee per gas.
-    /// @return parentGasTarget_ The new parentGasTarget value.
-    /// @return parentGasExcess_ The new parentGasExcess value.
-    /// @return newGasTargetApplied_ Indicates if a new gas target was applied.
+    /// @return newGasTarget_ The new gas target value.
+    /// @return newGasExcess_ The new gas excess value.
     function getBasefeeV2(
         uint32 _parentGasUsed,
         LibSharedData.BaseFeeConfig calldata _baseFeeConfig
     )
         public
         view
-        returns (
-            uint256 basefee_,
-            uint64 parentGasTarget_,
-            uint64 parentGasExcess_,
-            bool newGasTargetApplied_
-        )
+        returns (uint256 basefee_, uint64 newGasTarget_, uint64 newGasExcess_)
     {
-        // gasIssuancePerSecond (uint32) * adjustmentQuotient (uint8), will never overflow
+        // uint32 * uint8 will never overflow
         uint64 newGasTarget =
             uint64(_baseFeeConfig.gasIssuancePerSecond) * _baseFeeConfig.adjustmentQuotient;
 
-        if (parentGasTarget != newGasTarget) {
-            if (parentGasTarget == 0) {
-                parentGasExcess_ = parentGasExcess;
-                parentGasTarget_ = newGasTarget;
-                newGasTargetApplied_ = true;
-            } else {
-                uint64 newGasExcess;
-                (newGasTargetApplied_, newGasExcess) =
-                    LibEIP1559.adjustExcess(parentGasExcess, parentGasTarget, newGasTarget);
+        (newGasTarget_, newGasExcess_) =
+            LibEIP1559.adjustExcess(parentGasTarget, newGasTarget, parentGasExcess);
 
-                if (newGasTargetApplied_) {
-                    parentGasExcess_ = newGasExcess;
-                    parentGasTarget_ = newGasTarget;
-                } else {
-                    // Use the current excess and target values
-                    parentGasExcess_ = parentGasExcess;
-                    parentGasTarget_ = parentGasTarget;
-                }
-            }
-        }
-
-        // uint64 * uint32 will never overflow
-        uint256 gasIssuance =
-            (block.timestamp - parentTimestamp) * _baseFeeConfig.gasIssuancePerSecond;
+        uint64 gasIssuance =
+            uint64(block.timestamp - parentTimestamp) * _baseFeeConfig.gasIssuancePerSecond;
 
         if (
             _baseFeeConfig.maxGasIssuancePerBlock != 0
@@ -115,12 +84,8 @@ contract TaikoL2 is TaikoL2V1 {
             gasIssuance = _baseFeeConfig.maxGasIssuancePerBlock;
         }
 
-        (basefee_, parentGasExcess_) = LibEIP1559.calc1559BaseFee(
-            parentGasTarget_,
-            parentGasExcess_,
-            gasIssuance.capToUint64(),
-            _parentGasUsed,
-            _baseFeeConfig.minGasExcess
+        (basefee_, newGasExcess_) = LibEIP1559.calc1559BaseFee(
+            newGasTarget_, newGasExcess_, gasIssuance, _parentGasUsed, _baseFeeConfig.minGasExcess
         );
     }
 
@@ -133,24 +98,14 @@ contract TaikoL2 is TaikoL2V1 {
     )
         private
     {
-        uint256 basefee_;
-        bool newGasTargetApplied_;
-        uint64 parentGasTarget_;
-        uint64 parentGasExcess_;
-
-        (basefee_, parentGasTarget_, parentGasExcess_, newGasTargetApplied_) =
+        (uint256 basefee, uint64 newGasTarget, uint64 newGasExcess) =
             getBasefeeV2(_parentGasUsed, _baseFeeConfig);
 
-        require(skipFeeCheck() || block.basefee == basefee_, L2_BASEFEE_MISMATCH());
+        require(block.basefee == basefee || skipFeeCheck(), L2_BASEFEE_MISMATCH());
 
-        if (!newGasTargetApplied_) {
-            emit UpdateGasTargetFailed(parentGasTarget, parentGasExcess, _baseFeeConfig);
-        } else {
-            emit GasTargetUpdated(parentGasTarget, parentGasTarget_);
-            parentGasTarget = parentGasTarget_;
-        }
+        emit EIP1559Update(parentGasTarget, newGasTarget, parentGasExcess, newGasExcess);
 
-        emit GasExcessUpdated(parentGasExcess, parentGasExcess_);
-        parentGasExcess = parentGasExcess_;
+        parentGasTarget = newGasTarget;
+        parentGasExcess = newGasExcess;
     }
 }

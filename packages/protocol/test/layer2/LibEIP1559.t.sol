@@ -22,7 +22,7 @@ contract TestLibEIP1559 is TaikoL2Test {
             uint64 excess = i * 5_000_000;
             uint64 target = 5_000_000 * 8;
 
-            basefee = LibEIP1559.basefee(excess, target);
+            basefee = LibEIP1559.basefee(target, excess);
             if (basefee != 0) {
                 console2.log(
                     string.concat(Strings.toString(excess), ", ", Strings.toString(basefee))
@@ -33,7 +33,7 @@ contract TestLibEIP1559 is TaikoL2Test {
     }
 
     function test_mainnet_min_basefee() external pure {
-        console2.log("Mainnet minimal basefee: ", LibEIP1559.basefee(1_340_000_000, 5_000_000 * 8));
+        console2.log("Mainnet minimal basefee: ", LibEIP1559.basefee(5_000_000 * 8, 1_340_000_000));
     }
 
     function test_change_of_quotient_and_gasIssuancePerSecond() public {
@@ -42,10 +42,10 @@ contract TestLibEIP1559 is TaikoL2Test {
         uint256 unit = 10_000_000; // 0.01 gwei
 
         // uint 0.01 gwei
-        uint256 baselineBasefee = LibEIP1559.basefee(excess, target) / unit;
+        uint256 baselineBasefee = LibEIP1559.basefee(target, excess) / unit;
         console2.log("baseline basefee: ", baselineBasefee);
 
-        uint256 basefee = LibEIP1559.basefee(excess, target * 2) / unit;
+        uint256 basefee = LibEIP1559.basefee(target * 2, excess) / unit;
         console2.log("basefee will decrease if target increases:", basefee);
 
         basefee = LibEIP1559.basefee(excess, target / 2) / unit;
@@ -54,11 +54,12 @@ contract TestLibEIP1559 is TaikoL2Test {
         console2.log("maintain basefee when target increases");
         {
             uint64 newTarget = 5 * 2_000_000;
-            (bool success, uint64 newExcess) = LibEIP1559.adjustExcess(excess, target, newTarget);
-            assertTrue(success, "adjustExcess failed");
-            basefee = LibEIP1559.basefee(newExcess, newTarget) / unit;
+            (uint64 newTarget_, uint64 newExcess_) =
+                LibEIP1559.adjustExcess(target, newTarget, excess);
+            assertEq(newTarget_, newTarget, "adjustExcess failed");
+            basefee = LibEIP1559.basefee(newTarget_, newExcess_) / unit;
             console2.log("old gas excess: ", excess);
-            console2.log("new gas excess: ", newExcess);
+            console2.log("new gas excess: ", newExcess_);
             console2.log("basefee: ", basefee);
             assertEq(baselineBasefee, basefee);
         }
@@ -66,11 +67,12 @@ contract TestLibEIP1559 is TaikoL2Test {
         console2.log("maintain basefee when target decreases");
         {
             uint64 newTarget = 3 * 2_000_000;
-            (bool success, uint64 newExcess) = LibEIP1559.adjustExcess(excess, target, newTarget);
-            assertTrue(success, "adjustExcess failed");
-            basefee = LibEIP1559.basefee(newExcess, newTarget) / unit;
+            (uint64 newTarget_, uint64 newExcess_) =
+                LibEIP1559.adjustExcess(target, newTarget, excess);
+            assertEq(newTarget_, newTarget, "adjustExcess failed");
+            basefee = LibEIP1559.basefee(newTarget_, newExcess_) / unit;
             console2.log("old gas excess: ", excess);
-            console2.log("new gas excess: ", newExcess);
+            console2.log("new gas excess: ", newExcess_);
             console2.log("basefee: ", basefee);
             assertEq(baselineBasefee, basefee);
         }
@@ -82,16 +84,16 @@ contract TestLibEIP1559 is TaikoL2Test {
         uint256 unit = 10_000_000; // 0.01 gwei
 
         // uint 0.01 gwei
-        uint256 baselineBasefee = LibEIP1559.basefee(excess, target) / unit;
+        uint256 baselineBasefee = LibEIP1559.basefee(target, excess) / unit;
         console2.log("baseline basefee: ", baselineBasefee);
 
         console2.log("maintain basefee when target changes");
         uint64 newTarget = 5_000_000 * 8;
-        (bool success, uint64 newExcess) = LibEIP1559.adjustExcess(excess, target, newTarget);
-        assertTrue(success, "adjustExcess failed");
-        uint256 basefee = LibEIP1559.basefee(newExcess, newTarget) / unit;
+        (uint64 newTarget_, uint64 newExcess_) = LibEIP1559.adjustExcess(target, newTarget, excess);
+        assertEq(newTarget_, newTarget, "adjustExcess failed");
+        uint256 basefee = LibEIP1559.basefee(newTarget_, newExcess_) / unit;
         console2.log("old gas excess: ", excess);
-        console2.log("new gas excess: ", newExcess);
+        console2.log("new gas excess: ", newExcess_);
         console2.log("basefee: ", basefee);
         assertEq(baselineBasefee, basefee);
     }
@@ -107,16 +109,16 @@ contract TestLibEIP1559 is TaikoL2Test {
     /// forge-config: layer2.fuzz.runs = 2000
     /// forge-config: layer2.fuzz.show-logs = true
     function test_fuzz_adjustExcess(
-        uint64 _gasExcess,
         uint64 _gasTarget,
-        uint64 _newGasTarget
+        uint64 _newGasTarget,
+        uint64 _gasExcess
     )
         external
         pure
     {
         if (_gasTarget == 0) _gasTarget = 1;
         if (_newGasTarget == 0) _newGasTarget = 1;
-        LibEIP1559.adjustExcess(_gasExcess, _gasTarget, _newGasTarget);
+        LibEIP1559.adjustExcess(_gasTarget, _newGasTarget, _gasExcess);
     }
 
     /// forge-config: layer2.fuzz.runs = 2000
