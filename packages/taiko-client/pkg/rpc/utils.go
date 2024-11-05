@@ -65,10 +65,18 @@ func GetProtocolStateVariables(
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
 	defer cancel()
 
+	var slotBV1 bindings.TaikoDataSlotBV1
 	slotA, slotB, err := taikoL1Client.GetStateVariables(opts)
 	if err != nil {
 		if errors.Is(err, ErrSlotBMarshal) {
-			slotA, slotB, err = taikoL1Client.GetStateVariables(opts)
+			slotA, slotBV1, err = taikoL1Client.GetStateVariablesV1(opts)
+			slotB = bindings.TaikoDataSlotB{
+				NumBlocks:           slotBV1.NumBlocks,
+				LastVerifiedBlockId: slotBV1.LastVerifiedBlockId,
+				ProvingPaused:       slotBV1.ProvingPaused,
+				LastProposedIn:      nil,
+				LastUnpausedAt:      slotBV1.LastUnpausedAt,
+			}
 		}
 		if err != nil {
 			return nil, err
