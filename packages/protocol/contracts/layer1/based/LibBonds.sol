@@ -35,6 +35,7 @@ library LibBonds {
     event BondDebited(address indexed user, uint256 blockId, uint256 amount);
 
     error L1_INVALID_MSG_VALUE();
+    error L1_ETH_NOT_PAID_AS_BOND();
 
     /// @dev Deposits TAIKO tokens to be used as bonds.
     /// @param _state Pointer to the protocol's storage.
@@ -48,7 +49,7 @@ library LibBonds {
         public
     {
         _state.bondBalance[msg.sender] += _amount;
-        _handleDeposit(_resolver, _amount);
+        _handleDeposit(_resolver, msg.sender, _amount);
     }
 
     /// @dev Withdraws TAIKO tokens.
@@ -111,7 +112,8 @@ library LibBonds {
                 _state.bondBalance[_user] = balance - _amount;
             }
         } else {
-            _handleDeposit(_resolver, _amount);
+            // Note that the following function call will revert if bond asset is Ether.
+            _handleDeposit(_resolver, _user, _amount);
         }
         emit BondDebited(_user, _blockId, _amount);
     }
@@ -138,17 +140,18 @@ library LibBonds {
 
     /// @dev Handles the deposit of bond tokens or Ether.
     /// @param _resolver The address resolver.
+    /// @param _user The user who made the deposit
     /// @param _amount The amount of tokens or Ether to deposit.
-    function _handleDeposit(IAddressResolver _resolver, uint256 _amount) private {
+    function _handleDeposit(IAddressResolver _resolver, address _user, uint256 _amount) private {
         address bondToken = _bondToken(_resolver);
 
         if (bondToken != address(0)) {
             require(msg.value == 0, L1_INVALID_MSG_VALUE());
-            IERC20(bondToken).transferFrom(msg.sender, address(this), _amount);
+            IERC20(bondToken).transferFrom(_user, address(this), _amount);
         } else {
-            require(msg.value == _amount, L1_INVALID_MSG_VALUE());
+            require(msg.value == _amount, L1_ETH_NOT_PAID_AS_BOND());
         }
-        emit BondDeposited(msg.sender, _amount);
+        emit BondDeposited(_user, _amount);
     }
 
     /// @dev Resolves the bond token address using the address resolver, returns address(0) if Ether
