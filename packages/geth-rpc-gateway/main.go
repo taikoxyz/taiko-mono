@@ -144,12 +144,17 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Copy headers from the original request, except for Accept-Encoding
 	for name, values := range r.Header {
+		if name == "Accept-Encoding" {
+			continue
+		}
 		for _, value := range values {
 			proxyReq.Header.Add(name, value)
 		}
 	}
 
+	// Send the request to the target URL
 	resp, err := http.DefaultClient.Do(proxyReq)
 	if err != nil {
 		http.Error(w, "Failed to reach target server", http.StatusInternalServerError)
@@ -157,13 +162,17 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 
+	// Copy headers from the response
 	for name, values := range resp.Header {
 		for _, value := range values {
 			w.Header().Add(name, value)
 		}
 	}
 
+	// Set the response status code
 	w.WriteHeader(resp.StatusCode)
+
+	// Copy the response body
 	io.Copy(w, resp.Body)
 }
 
