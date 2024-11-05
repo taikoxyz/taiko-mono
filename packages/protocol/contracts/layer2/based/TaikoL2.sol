@@ -13,6 +13,7 @@ import "src/shared/signal/ISignalService.sol";
 import "./LibEIP1559.sol";
 import "./LibL2Config.sol";
 import "./IBlockHash.sol";
+import "./TaikoL2Deprecated.sol";
 
 /// @title TaikoL2
 /// @notice Taiko L2 is a smart contract that handles cross-layer message
@@ -21,7 +22,7 @@ import "./IBlockHash.sol";
 /// communication, manage EIP-1559 parameters for gas pricing, and store
 /// verified L1 block information.
 /// @custom:security-contact security@taiko.xyz
-contract TaikoL2 is EssentialContract, IBlockHash {
+contract TaikoL2 is EssentialContract, IBlockHash, TaikoL2Deprecated {
     using LibAddress for address;
     using LibMath for uint256;
     using SafeERC20 for IERC20;
@@ -45,10 +46,10 @@ contract TaikoL2 is EssentialContract, IBlockHash {
     uint64 public lastSyncedBlock;
 
     /// @notice The last L2 block's timestamp.
-    uint64 internal parentTimestamp;
+    uint64 public parentTimestamp;
 
     /// @notice The last L2 block's gas target.
-    uint64 private parentGasTarget;
+    uint64 public parentGasTarget;
 
     /// @notice The L1's chain ID.
     uint64 public l1ChainId;
@@ -119,17 +120,6 @@ contract TaikoL2 is EssentialContract, IBlockHash {
         (publicInputHash,) = _calcPublicInputHash(block.number);
     }
 
-    /// @dev DEPRECATED but its ABI will still be used by node/client for syncing old blocks.
-    function anchor(
-        bytes32, /*_l1BlockHash*/
-        bytes32, /*_l1StateRoot*/
-        uint64, /*_l1BlockId*/
-        uint32 /*_parentGasUsed */
-    )
-        external
-        notImplemented
-    { }
-
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
     /// message verification.
     /// @dev This function can be called freely as the golden touch private key is publicly known,
@@ -183,17 +173,6 @@ contract TaikoL2 is EssentialContract, IBlockHash {
             IERC20(_token).safeTransfer(_to, IERC20(_token).balanceOf(address(this)));
         }
     }
-
-    /// @dev DEPRECATED but its ABI will still be used by node/client for syncing old blocks.
-    function getBasefee(
-        uint64 _anchorBlockId,
-        uint32 _parentGasUsed
-    )
-        public
-        view
-        notImplemented
-        returns (uint256, /*basefee_*/ uint64 /*parentGasExcess_*/ )
-    { }
 
     /// @notice Calculates the base fee and gas excess using EIP-1559 configuration for the given
     /// parameters.

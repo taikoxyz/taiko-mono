@@ -167,7 +167,7 @@ contract TaikoL2Tests is TaikoL2Test {
         (basefee, newGasTarget,) = L2.getBasefeeV2(_parentGasUsed, baseFeeConfig);
 
         assertTrue(basefee != 0, "basefee is 0");
-        assertTrue(newGasTarget != L2.parentGasTarget(), "?????");
+        assertTrue(newGasTarget != L2.parentGasTarget());
     }
 
     function _anchorV2(uint32 parentGasUsed) private {
