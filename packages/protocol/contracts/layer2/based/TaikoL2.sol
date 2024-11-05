@@ -15,7 +15,7 @@ import "./LibL2Config.sol";
 import "./IBlockHash.sol";
 
 /// @title TaikoL2
-/// @notice Taiko L2is a smart contract that handles cross-layer message
+/// @notice Taiko L2 is a smart contract that handles cross-layer message
 /// verification and manages EIP-1559 gas pricing for Layer 2 (L2) operations.
 /// It is used to anchor the latest L1 block details to L2 for cross-layer
 /// communication, manage EIP-1559 parameters for gas pricing, and store
@@ -31,7 +31,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
 
     /// @notice Mapping from L2 block numbers to their block hashes. All L2 block hashes will
     /// be saved in this mapping.
-    mapping(uint256 blockId => bytes32 blockHash) internal _blockhashes;
+    mapping(uint256 blockId => bytes32 blockHash) private _blockhashes;
 
     /// @notice A hash to check the integrity of public inputs.
     /// @dev Slot 2.
@@ -48,7 +48,7 @@ contract TaikoL2 is EssentialContract, IBlockHash {
     uint64 internal parentTimestamp;
 
     /// @notice The last L2 block's gas target.
-    uint64 public parentGasTarget;
+    uint64 private parentGasTarget;
 
     /// @notice The L1's chain ID.
     uint64 public l1ChainId;
