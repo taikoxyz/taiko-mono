@@ -87,10 +87,6 @@ interface ITaikoL1 {
         view
         returns (TaikoData.TransitionState memory);
 
-    /// @notice Retrieves the ID of the L1 block where the most recent L2 block was proposed.
-    /// @return The ID of the Li block where the most recent block was proposed.
-    function lastProposedIn() external view returns (uint56);
-
     /// @notice Gets the configuration of the TaikoL1 contract.
     /// @return Config struct containing configuration parameters.
     function getConfig() external pure returns (TaikoData.Config memory);

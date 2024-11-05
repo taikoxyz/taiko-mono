@@ -31,7 +31,6 @@ contract ProverSet is EssentialContract, IERC1271 {
     error INVALID_STATUS();
     error INVALID_BOND_TOKEN();
     error PERMISSION_DENIED();
-    error NOT_FIRST_PROPOSAL();
 
     modifier onlyAuthorized() {
         require(
@@ -92,20 +91,6 @@ contract ProverSet is EssentialContract, IERC1271 {
     /// @notice Withdraws ETH back to the owner address.
     function withdrawEtherToAdmin(uint256 _amount) external onlyAuthorized {
         LibAddress.sendEtherAndVerify(admin, _amount);
-    }
-
-    /// @notice Proposes a block only when it is the first block proposal in the current L1 block.
-    function proposeBlockV2Conditionally(
-        bytes calldata _params,
-        bytes calldata _txList
-    )
-        external
-        onlyProver
-    {
-        ITaikoL1 taiko = ITaikoL1(taikoL1());
-        // Ensure this block is the first block proposed in the current L1 block.
-        require(taiko.lastProposedIn() != block.number, NOT_FIRST_PROPOSAL());
-        taiko.proposeBlockV2(_params, _txList);
     }
 
     /// @notice Propose a Taiko block.

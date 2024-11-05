@@ -62,7 +62,5 @@ contract MockTaikoL1 is ITaikoL1 {
         returns (TaikoData.TransitionState memory)
     { }
 
-    function lastProposedIn() external view returns (uint56) { }
-
     function getConfig() external pure virtual returns (TaikoData.Config memory) { }
 }
