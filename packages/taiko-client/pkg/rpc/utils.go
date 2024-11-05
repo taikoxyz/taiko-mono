@@ -70,6 +70,9 @@ func GetProtocolStateVariables(
 	if err != nil {
 		if errors.Is(err, ErrSlotBMarshal) {
 			slotA, slotBV1, err = taikoL1Client.GetStateVariablesV1(opts)
+			if err != nil {
+				return nil, err
+			}
 			slotB = bindings.TaikoDataSlotB{
 				NumBlocks:           slotBV1.NumBlocks,
 				LastVerifiedBlockId: slotBV1.LastVerifiedBlockId,
@@ -77,8 +80,7 @@ func GetProtocolStateVariables(
 				LastProposedIn:      nil,
 				LastUnpausedAt:      slotBV1.LastUnpausedAt,
 			}
-		}
-		if err != nil {
+		} else {
 			return nil, err
 		}
 	}
