@@ -24,7 +24,18 @@ abstract contract TaikoL2Deprecated {
         uint32 _parentGasUsed
     )
         public
-        view
+        pure
         returns (uint256, /*basefee_*/ uint64 /*parentGasExcess_*/ )
     { }
+
+      function adjustExcess(
+        uint64 _currGasExcess,
+        uint64 _currGasTarget,
+        uint64 _newGasTarget
+    )
+        public
+        pure
+        returns (uint64 /*newGasExcess_*/)
+    {
+    }
 }
