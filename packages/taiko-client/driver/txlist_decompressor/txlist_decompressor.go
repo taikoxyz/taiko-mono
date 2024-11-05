@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
@@ -39,6 +40,20 @@ func NewTxListDecompressor(
 //     less than or equal to maxBytesPerTxList.
 //  2. The transaction list bytes must be able to be RLP decoded into a list of transactions.
 func (v *TxListDecompressor) TryDecompress(
+	chainID *big.Int,
+	blockID *big.Int,
+	txListBytes []byte,
+	blobUsed bool,
+) []byte {
+	if chainID.Cmp(params.HeklaNetworkID) != 0 {
+		return v.tryDecompressHekla(blockID, txListBytes, blobUsed)
+	}
+
+	return v.tryDecompress(blockID, txListBytes, blobUsed)
+}
+
+// tryDecompress is the inner implementation of TryDecompress.
+func (v *TxListDecompressor) tryDecompress(
 	blockID *big.Int,
 	txListBytes []byte,
 	blobUsed bool,
@@ -76,10 +91,10 @@ func (v *TxListDecompressor) TryDecompress(
 	return txListBytes
 }
 
-// TryDecompressHekla is the same as TryDecompress, but it's used for Hekla network with
+// TryDecompressHekla is the same as tryDecompress, but it's used for Hekla network with
 // an incorrect legacy bytes size check.
 // ref: https://github.com/taikoxyz/taiko-client/pull/783
-func (v *TxListDecompressor) TryDecompressHekla(
+func (v *TxListDecompressor) tryDecompressHekla(
 	blockID *big.Int,
 	txListBytes []byte,
 	blobUsed bool,
