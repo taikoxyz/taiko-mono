@@ -40,7 +40,7 @@ contract TaikoL2Tests is TaikoL2Test {
                 deployProxy({
                     name: "taiko",
                     impl: address(new TaikoL2ForTest()),
-                    data: abi.encodeCall(TaikoL2V1.init, (address(0), addressManager, L1_CHAIN_ID, 0)),
+                    data: abi.encodeCall(TaikoL2.init, (address(0), addressManager, L1_CHAIN_ID, 0)),
                     registerTo: addressManager
                 })
             )
@@ -60,14 +60,14 @@ contract TaikoL2Tests is TaikoL2Test {
         _anchorV2(BLOCK_GAS_LIMIT);
 
         vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
-        vm.expectRevert(TaikoL2V1.L2_PUBLIC_INPUT_HASH_MISMATCH.selector);
+        vm.expectRevert(TaikoL2.L2_PUBLIC_INPUT_HASH_MISMATCH.selector);
         _anchorV2(BLOCK_GAS_LIMIT);
     }
 
     // calling anchor in the same block more than once should fail
     function test_L2_AnchorTx_revert_from_wrong_signer() external {
         vm.fee(1);
-        vm.expectRevert(TaikoL2V1.L2_INVALID_SENDER.selector);
+        vm.expectRevert(TaikoL2.L2_INVALID_SENDER.selector);
         _anchorV2(BLOCK_GAS_LIMIT);
     }
 
@@ -156,7 +156,7 @@ contract TaikoL2Tests is TaikoL2Test {
         vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
         L2.anchorV2(++anchorBlockId, anchorStateRoot, _parentGasUsed, baseFeeConfig);
 
-        (uint256 basefee, uint64 newGasTarget, uint64 newGasExcess) =
+        (uint256 basefee, uint64 newGasTarget,) =
             L2.getBasefeeV2(_parentGasUsed, baseFeeConfig);
 
         assertTrue(basefee != 0, "basefee is 0");
@@ -165,7 +165,7 @@ contract TaikoL2Tests is TaikoL2Test {
         // change the gas issuance to change the gas target
         baseFeeConfig.gasIssuancePerSecond += 1;
 
-        (basefee, newGasTarget, ) = L2.getBasefeeV2(_parentGasUsed, baseFeeConfig);
+        (basefee, newGasTarget,) = L2.getBasefeeV2(_parentGasUsed, baseFeeConfig);
 
         assertTrue(basefee != 0, "basefee is 0");
         assertTrue(newGasTarget != L2.parentGasTarget(), "?????");
