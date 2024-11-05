@@ -594,14 +594,14 @@ func (c *Client) CheckL1Reorg(ctx context.Context, blockID *big.Int) (*ReorgChec
 		// If we rollback to the genesis block, then there is no L1Origin information recorded in the L2 execution
 		// engine for that block, so we will query the protocol to use `GenesisHeight` value to reset the L1 cursor.
 		if blockID.Cmp(common.Big0) == 0 {
-			slotA, _, err := c.TaikoL1.GetStateVariables(&bind.CallOpts{Context: ctxWithTimeout})
+			state, err := GetProtocolStateVariables(c.TaikoL1, &bind.CallOpts{Context: ctxWithTimeout})
 			if err != nil {
 				return result, err
 			}
 
 			if result.L1CurrentToReset, err = c.L1.HeaderByNumber(
 				ctxWithTimeout,
-				new(big.Int).SetUint64(slotA.GenesisHeight),
+				new(big.Int).SetUint64(state.A.GenesisHeight),
 			); err != nil {
 				return nil, err
 			}
