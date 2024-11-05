@@ -84,6 +84,7 @@ func enableCORS(next http.Handler) http.Handler {
 		if r.Method == "OPTIONS" {
 			log.Printf("Preflight request for %s %s", r.Method, r.URL.Path)
 			w.WriteHeader(http.StatusOK)
+			return
 		}
 
 		next.ServeHTTP(w, r)
