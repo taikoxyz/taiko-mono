@@ -23,7 +23,7 @@ import "./IBlockHash.sol";
 /// @custom:security-contact security@taiko.xyz
 contract TaikoL2 is EssentialContract, IBlockHash {
     using LibAddress for address;
-    using LibMath for uint256;
+    using LibMath for uint;
     using SafeERC20 for IERC20;
 
     /// @notice Golden touch address is the only address that can do the anchor transaction.
@@ -287,7 +287,8 @@ contract TaikoL2 is EssentialContract, IBlockHash {
 
         uint256 gasTarget = uint256(config.gasTargetPerL1Block) * config.basefeeAdjustmentQuotient;
 
-        (basefee_, parentGasExcess_) = LibEIP1559.calc1559BaseFee(
+
+            (basefee_, parentGasExcess_) = LibEIP1559.calc1559BaseFee(
             gasTarget.capToUint64(),
             parentGasExcess,
             uint64(_anchorBlockId - lastSyncedBlock) * config.gasTargetPerL1Block,
