@@ -13,7 +13,7 @@ contract TaikoL10TestGroup11 is TaikoL1TestGroupBase {
 
         giveEthAndTko(Zachary, 10_000 ether, 1000 ether);
 
-        ITierProvider.Tier memory tierOp = ITierProvider(tr).getTier(LibTiers.TIER_OPTIMISTIC);
+        ITierProvider(tr).getTier(LibTiers.TIER_OPTIMISTIC);
 
         console2.log("====== Zachary proposes a block");
 
