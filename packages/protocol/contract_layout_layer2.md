@@ -378,7 +378,6 @@
 | parentGasTarget  | uint64                      | 253  | 24     | 8     | TaikoL2 |
 | l1ChainId        | uint64                      | 254  | 0      | 8     | TaikoL2 |
 | __gap            | uint256[46]                 | 255  | 0      | 1472  | TaikoL2 |
-| __gap            | uint256[50]                 | 301  | 0      | 1600  | TaikoL2 |
 
 ## HeklaTaikoL2
 | Name             | Type                        | Slot | Offset | Bytes | Contract                                             |
@@ -404,7 +403,6 @@
 | parentGasTarget  | uint64                      | 253  | 24     | 8     | HeklaTaikoL2 |
 | l1ChainId        | uint64                      | 254  | 0      | 8     | HeklaTaikoL2 |
 | __gap            | uint256[46]                 | 255  | 0      | 1472  | HeklaTaikoL2 |
-| __gap            | uint256[50]                 | 301  | 0      | 1600  | HeklaTaikoL2 |
 
 ## MainnetTaikoL2
 | Name             | Type                        | Slot | Offset | Bytes | Contract                                                   |
@@ -430,5 +428,4 @@
 | parentGasTarget  | uint64                      | 253  | 24     | 8     | MainnetTaikoL2 |
 | l1ChainId        | uint64                      | 254  | 0      | 8     | MainnetTaikoL2 |
 | __gap            | uint256[46]                 | 255  | 0      | 1472  | MainnetTaikoL2 |
-| __gap            | uint256[50]                 | 301  | 0      | 1600  | MainnetTaikoL2 |
 
