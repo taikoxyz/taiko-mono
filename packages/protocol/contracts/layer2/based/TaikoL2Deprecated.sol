@@ -1,12 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "src/shared/data/LibSharedData.sol";
+
 /// @title TaikoL2Deprecated
 /// @notice This contract includes deprecated functions whose ABI are still used by client for old
 /// blocks.
 /// @custom:security-contact security@taiko.xyz
 abstract contract TaikoL2Deprecated {
     error L2_DEPRECATED_METHOD();
+
+    modifier deprecated() {
+        _;
+        revert L2_DEPRECATED_METHOD();
+    }
 
     function anchor(
         bytes32, /*_l1BlockHash*/
@@ -15,27 +22,36 @@ abstract contract TaikoL2Deprecated {
         uint32 /*_parentGasUsed */
     )
         external
-    {
-        revert L2_DEPRECATED_METHOD();
-    }
+        deprecated
+    { }
 
     function getBasefee(
-        uint64 _anchorBlockId,
-        uint32 _parentGasUsed
+        uint64, /*_anchorBlockId*/
+        uint32 /*_parentGasUsed*/
     )
         public
         pure
         returns (uint256, /*basefee_*/ uint64 /*parentGasExcess_*/ )
     { }
 
-      function adjustExcess(
-        uint64 _currGasExcess,
-        uint64 _currGasTarget,
-        uint64 _newGasTarget
+    function adjustExcess(
+        uint64, /*_currGasExcess*/
+        uint64, /*_currGasTarget*/
+        uint64 /*_newGasTarget*/
     )
         public
         pure
-        returns (uint64 /*newGasExcess_*/)
-    {
-    }
+        returns (uint64 /*newGasExcess_*/ )
+    { }
+
+    function calculateBaseFee(
+        LibSharedData.BaseFeeConfig calldata, /*_baseFeeConfig*/
+        uint64, /*_blocktime*/
+        uint64, /*_parentGasExcess*/
+        uint32 /*_parentGasUsed*/
+    )
+        public
+        pure
+        returns (uint256, /*basefee_*/ uint64 /*parentGasExcess_*/ )
+    { }
 }
