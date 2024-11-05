@@ -1,6 +1,7 @@
 package softblocks
 
 import (
+	"errors"
 	"math/big"
 	"net/http"
 
@@ -106,7 +107,7 @@ func (s *SoftBlockAPIServer) BuildSoftBlock(c echo.Context) error {
 	// Parse the request body.
 	reqBody := new(BuildSoftBlockRequestBody)
 	if err := c.Bind(reqBody); err != nil {
-		return c.JSON(http.StatusUnprocessableEntity, map[string]string{"error": err.Error()})
+		s.returnError(c, http.StatusUnprocessableEntity, err)
 	}
 
 	log.Info(
@@ -124,19 +125,19 @@ func (s *SoftBlockAPIServer) BuildSoftBlock(c echo.Context) error {
 
 	// Request body validation.
 	if reqBody.TransactionBatch.BlockParams == nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "blockParams is required"})
+		return s.returnError(c, http.StatusBadRequest, errors.New("blockParams is required"))
 	}
 	if reqBody.TransactionBatch.BlockParams.AnchorBlockID == 0 {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "non-zero anchorBlockID is required"})
+		return s.returnError(c, http.StatusBadRequest, errors.New("non-zero anchorBlockID is required"))
 	}
 	if reqBody.TransactionBatch.BlockParams.AnchorStateRoot == (common.Hash{}) {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "empty anchorStateRoot"})
+		return s.returnError(c, http.StatusBadRequest, errors.New("empty anchorStateRoot"))
 	}
 	if reqBody.TransactionBatch.BlockParams.Timestamp == 0 {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "non-zero timestamp is required"})
+		return s.returnError(c, http.StatusBadRequest, errors.New("non-zero timestamp is required"))
 	}
 	if reqBody.TransactionBatch.BlockParams.Coinbase == (common.Address{}) {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "empty coinbase"})
+		return s.returnError(c, http.StatusBadRequest, errors.New("empty coinbase"))
 	}
 
 	// If the `--softBlock.signatureCheck` flag is enabled, validate the signature.
@@ -151,7 +152,7 @@ func (s *SoftBlockAPIServer) BuildSoftBlock(c echo.Context) error {
 				"signature", reqBody.TransactionBatch.Signature,
 				"coinbase", reqBody.TransactionBatch.BlockParams.Coinbase.Hex(),
 			)
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid signature"})
+			return s.returnError(c, http.StatusBadRequest, errors.New("invalid signature"))
 		}
 	}
 
@@ -161,7 +162,7 @@ func (s *SoftBlockAPIServer) BuildSoftBlock(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 	if progress.IsSyncing() {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "L2 execution engine is syncing"})
+		return s.returnError(c, http.StatusBadRequest, errors.New("L2 execution engine is syncing"))
 	}
 
 	// Check if the softblock batch or the current preconf process is ended.
@@ -170,16 +171,18 @@ func (s *SoftBlockAPIServer) BuildSoftBlock(c echo.Context) error {
 		new(big.Int).SetUint64(reqBody.TransactionBatch.BlockID),
 	)
 	if err != nil && err.Error() != ethereum.NotFound.Error() {
-		return err
+		return s.returnError(c, http.StatusInternalServerError, err)
 	}
 	if l1Origin != nil {
 		if l1Origin.EndOfBlock {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "soft block has already been marked as ended"})
+			return s.returnError(c, http.StatusBadRequest, errors.New("soft block has already been marked as ended"))
 		}
 		if l1Origin.EndOfPreconf {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "preconfirmation has already been marked as ended",
-			})
+			return s.returnError(
+				c,
+				http.StatusBadRequest,
+				errors.New("preconfirmation has already been marked as ended"),
+			)
 		}
 	}
 
@@ -208,7 +211,7 @@ func (s *SoftBlockAPIServer) BuildSoftBlock(c echo.Context) error {
 		reqBody.TransactionBatch.BlockParams,
 	)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return s.returnError(c, http.StatusInternalServerError, err)
 	}
 
 	return c.JSON(http.StatusOK, BuildSoftBlockResponseBody{BlockHeader: header})
@@ -249,18 +252,18 @@ func (s *SoftBlockAPIServer) RemoveSoftBlocks(c echo.Context) error {
 	// Parse the request body.
 	reqBody := new(RemoveSoftBlocksRequestBody)
 	if err := c.Bind(reqBody); err != nil {
-		return c.JSON(http.StatusUnprocessableEntity, map[string]string{"error": err.Error()})
+		return s.returnError(c, http.StatusUnprocessableEntity, err)
 	}
 
 	// Request body validation.
 	canonicalHeadL1Origin, err := s.rpc.L2.HeadL1Origin(c.Request().Context())
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return s.returnError(c, http.StatusInternalServerError, err)
 	}
 
 	currentHead, err := s.rpc.L2.HeaderByNumber(c.Request().Context(), nil)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return s.returnError(c, http.StatusInternalServerError, err)
 	}
 
 	log.Info(
@@ -271,18 +274,20 @@ func (s *SoftBlockAPIServer) RemoveSoftBlocks(c echo.Context) error {
 	)
 
 	if reqBody.NewLastBlockID < canonicalHeadL1Origin.BlockID.Uint64() {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "newLastBlockId must not be smaller than the canonical chain's highest block ID",
-		})
+		return s.returnError(
+			c,
+			http.StatusBadRequest,
+			errors.New("newLastBlockId must not be smaller than the canonical chain's highest block ID"),
+		)
 	}
 
 	if err := s.chainSyncer.RemoveSoftBlocks(c.Request().Context(), reqBody.NewLastBlockID); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return s.returnError(c, http.StatusBadRequest, err)
 	}
 
 	newHead, err := s.rpc.L2.HeaderByNumber(c.Request().Context(), nil)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return s.returnError(c, http.StatusInternalServerError, err)
 	}
 
 	return c.JSON(http.StatusOK, RemoveSoftBlocksResponseBody{
@@ -302,4 +307,9 @@ func (s *SoftBlockAPIServer) RemoveSoftBlocks(c echo.Context) error {
 //	@Router			/healthz [get]
 func (s *SoftBlockAPIServer) HealthCheck(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
+}
+
+// returnError is a helper function to return an error response.
+func (s *SoftBlockAPIServer) returnError(c echo.Context, statusCode int, err error) error {
+	return c.JSON(statusCode, map[string]string{"error": err.Error()})
 }
