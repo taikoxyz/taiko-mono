@@ -74,6 +74,8 @@ func enableCORS(next http.Handler) http.Handler {
 
 		// Set Access-Control-Allow-Origin only if the request has an Origin header
 		if origin != "" {
+			log.Printf("CORS middleware invoked for origin %s", origin)
+			w.Header().Del("Access-Control-Allow-Origin") // Clear any existing header
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Vary", "Origin") // Ensure caching based on origin
 		}
