@@ -146,7 +146,7 @@ contract TaikoL2 is EssentialContract, IBlockHash, TaikoL2Deprecated {
 
         uint256 parentId = block.number - 1;
         _verifyAndUpdatePublicInputHash(parentId);
-        _verifyBaseFeeAndUpdateGasExcessV2(_parentGasUsed, _baseFeeConfig);
+        _verifyBaseFeeAndUpdateGasExcess(_parentGasUsed, _baseFeeConfig);
         _syncChainData(_anchorBlockId, _anchorStateRoot);
         _updateParentHashAndTimestamp(parentId);
     }
@@ -280,7 +280,7 @@ contract TaikoL2 is EssentialContract, IBlockHash, TaikoL2Deprecated {
     /// @dev Verifies that the base fee per gas is correct and updates the gas excess.
     /// @param _parentGasUsed The gas used by the parent block.
     /// @param _baseFeeConfig The configuration parameters for calculating the base fee.
-    function _verifyBaseFeeAndUpdateGasExcessV2(
+    function _verifyBaseFeeAndUpdateGasExcess(
         uint32 _parentGasUsed,
         LibSharedData.BaseFeeConfig calldata _baseFeeConfig
     )
