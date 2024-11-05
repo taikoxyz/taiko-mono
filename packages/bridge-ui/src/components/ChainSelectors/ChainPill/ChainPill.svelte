@@ -61,7 +61,7 @@
           <i role="img" aria-label={value.name}>
             <img src={icon} alt="chain-logo" class="rounded-full {iconSize}" />
           </i>
-          <span>{truncateString(value.name, 8)}</span>
+          <span>{value.name}</span>
         {/if}
       </div>
     </button>

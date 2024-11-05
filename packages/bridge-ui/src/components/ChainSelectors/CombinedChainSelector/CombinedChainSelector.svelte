@@ -60,7 +60,7 @@
               <img src={icon} alt="chain-logo" class="rounded-full {iconSize}" />
             </i>
           </div>
-          <span class="text-primary-content text-base">{truncateString(srcChain.name, 8)}</span>
+          <span class="text-primary-content text-base">{srcChain.name}</span>
         </div>
       {:else}
         <span class="text-base text-secondary-content"> {$t('chain_selector.from_placeholder')}</span>
@@ -92,7 +92,7 @@
               <img src={icon} alt="chain-logo" class="rounded-full {iconSize}" />
             </i>
           </div>
-          <span class="text-primary-content text-base">{truncateString(destChain.name, 8)}</span>
+          <span class="text-primary-content text-base">{destChain.name}</span>
         </div>
       {:else}
         <span class="text-base text-secondary-content"> {$t('chain_selector.to_placeholder')}</span>
