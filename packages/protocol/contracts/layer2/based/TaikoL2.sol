@@ -65,8 +65,13 @@ contract TaikoL2 is EssentialContract, IBlockHash, TaikoL2Deprecated {
     /// @param newGasTarget The new gas target.
     /// @param oldGasExcess The previous gas excess.
     /// @param newGasExcess The new gas excess.
+    /// @param basefee The base fee in this block.
     event EIP1559Update(
-        uint64 oldGasTarget, uint64 newGasTarget, uint64 oldGasExcess, uint64 newGasExcess
+        uint64 oldGasTarget,
+        uint64 newGasTarget,
+        uint64 oldGasExcess,
+        uint64 newGasExcess,
+        uint256 basefee
     );
 
     error L2_BASEFEE_MISMATCH();
@@ -291,7 +296,7 @@ contract TaikoL2 is EssentialContract, IBlockHash, TaikoL2Deprecated {
 
         require(block.basefee == basefee || skipFeeCheck(), L2_BASEFEE_MISMATCH());
 
-        emit EIP1559Update(parentGasTarget, newGasTarget, parentGasExcess, newGasExcess);
+        emit EIP1559Update(parentGasTarget, newGasTarget, parentGasExcess, newGasExcess, basefee);
 
         parentGasTarget = newGasTarget;
         parentGasExcess = newGasExcess;
