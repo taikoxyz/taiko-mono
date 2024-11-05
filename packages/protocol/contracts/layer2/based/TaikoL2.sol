@@ -224,12 +224,6 @@ contract TaikoL2 is EssentialContract, IBlockHash, TaikoL2Deprecated {
         return false;
     }
 
-    /// @notice Returns the parent timestamp.
-    /// @return The timestamp of the parent block.
-    function getParentTimestamp() public view returns (uint64) {
-        return parentTimestamp;
-    }
-
     /// @notice Returns the Ontake fork height.
     /// @return The Ontake fork height.
     function ontakeForkHeight() public pure virtual returns (uint64) {
@@ -239,7 +233,7 @@ contract TaikoL2 is EssentialContract, IBlockHash, TaikoL2Deprecated {
     /// @dev Synchronizes chain data with the given anchor block ID and state root.
     /// @param _anchorBlockId The ID of the anchor block.
     /// @param _anchorStateRoot The state root of the anchor block.
-    function _syncChainData(uint64 _anchorBlockId, bytes32 _anchorStateRoot) internal {
+    function _syncChainData(uint64 _anchorBlockId, bytes32 _anchorStateRoot) private {
         /// @dev If the anchor block ID is less than or equal to the last synced block, return
         /// early.
         if (_anchorBlockId <= lastSyncedBlock) return;
