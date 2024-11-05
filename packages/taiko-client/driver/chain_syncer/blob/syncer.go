@@ -19,7 +19,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
@@ -265,23 +264,17 @@ func (s *Syncer) onBlockProposed(
 		return fmt.Errorf("failed to fetch tx list: %w", err)
 	}
 
-	var decompressedTxListBytes []byte
-	if s.rpc.L2.ChainID.Cmp(params.HeklaNetworkID) == 0 {
-		decompressedTxListBytes = s.txListDecompressor.TryDecompressHekla(
-			meta.GetBlockID(),
-			txListBytes,
-			meta.GetBlobUsed(),
-		)
-	} else {
-		decompressedTxListBytes = s.txListDecompressor.TryDecompress(meta.GetBlockID(), txListBytes, meta.GetBlobUsed())
-	}
-
 	// Decompress the transactions list and try to insert a new head block to L2 EE.
 	payloadData, err := s.insertNewHead(
 		ctx,
 		meta,
 		parent,
-		decompressedTxListBytes,
+		s.txListDecompressor.TryDecompress(
+			s.rpc.L2.ChainID,
+			meta.GetBlockID(),
+			txListBytes,
+			meta.GetBlobUsed(),
+		),
 		&rawdb.L1Origin{
 			BlockID:       meta.GetBlockID(),
 			L2BlockHash:   common.Hash{}, // Will be set by taiko-geth.
