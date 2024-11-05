@@ -45,7 +45,7 @@ func (v *TxListDecompressor) TryDecompress(
 	txListBytes []byte,
 	blobUsed bool,
 ) []byte {
-	if chainID.Cmp(params.HeklaNetworkID) != 0 {
+	if chainID.Cmp(params.HeklaNetworkID) == 0 {
 		return v.tryDecompressHekla(blockID, txListBytes, blobUsed)
 	}
 
