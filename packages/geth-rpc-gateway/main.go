@@ -146,7 +146,6 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Copy headers from the original request, except for Accept-Encoding
 	for name, values := range r.Header {
-		log.Printf("proxy req name %s, value %s", name, values)
 		if name == "Accept-Encoding" {
 			continue
 		}
@@ -165,15 +164,9 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Copy headers from the response
 	for name, values := range resp.Header {
-		log.Printf("response name %s, value %s", name, values)
 		for _, value := range values {
 			w.Header().Add(name, value)
 		}
-	}
-
-	// Optionally, re-add Accept-Encoding in the response back to the client
-	if encoding := r.Header.Get("Accept-Encoding"); encoding != "" {
-		w.Header().Set("Accept-Encoding", encoding)
 	}
 
 	// Set the response status code
