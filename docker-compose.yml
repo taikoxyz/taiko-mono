@@ -50,6 +50,8 @@ services:
       - "${TAIKO_TOKEN}"
       - --proverSet
       - "${PROVER_SET}"
+      - --tx.gasLimit
+      - "${TX_GAS_LIMIT}"
       - --l1.proverPrivKey
       - "${L1_PROVER_PRIVKEY}"
       - --prover.capacity

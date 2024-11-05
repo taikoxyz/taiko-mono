@@ -66,6 +66,8 @@ services:
       - indexer
     volumes:
       - ./packages/relayer/.l2indexer.env:/usr/local/bin/.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
   indexer-l2-msg-claimed:
     image: unifi-relayer
     container_name: unifi-relayer-indexer-l2-msg-claimed
