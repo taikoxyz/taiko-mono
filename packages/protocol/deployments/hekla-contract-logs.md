@@ -211,6 +211,14 @@
   - upgraded on Sep 20, 2024 at commit `fd1c039`
   - upgraded on Oct 29, 2024 at commit `3d12cb2`
 
+### tier_sgx
+
+- proxy : 0x532EFBf6D62720D0B2a2Bb9d11066E8588cAE6D9
+- impl : 0x3c1b6b0F179dab0dE5e11C9B2a531C5c693Fd70C
+- owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
+- logs:
+  - upgraded on Nov 6, 2024 at commit `0706f0a`
+
 ### risc0_groth16_verifier
 
 - addr : 0x5fd84014c62D5ea28D4533D5B1B48Ca44e571057
@@ -221,10 +229,11 @@
 ### tier_zkvm_risc0
 
 - proxy : 0x4fEd801C5a876D4289e869cbEfA1E1A448b10714
-- impl : 0x33BD79aA6a24d8ED4413E01FEc546D4d49bF6C39
+- impl : 0xAF9F3B3f9276f24e4143e6247795cf71985C4890
 - owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
 - logs:
   - deployed on August 14, 2024 at commit `cba2a1e`
+  - upgraded on Nov 6, 2024 at commit `0706f0a`
 
 ### sp1_plonk_verifier
 
@@ -237,11 +246,12 @@
 ### tier_zkvm_sp1
 
 - proxy : 0xFbE49f777E0078b3Fa0bae6de4794c88d6EA6DDD
-- impl : 0x28d8F1DdAb35f34F5b97eE844bC74Bd237efe731
+- impl : 0xB83b7f7fA8f4e6332769D123b8C973F485aC4bBc.
 - owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
 - logs:
   - deployed on September 02, 2024 at commit `16ac02e`
   - upgraded on September 15, 2024 at commit `6f26434`
+  - upgraded on Nov 6, 2024 at commit `0706f0a`
 
 ## L2 Contracts
 
