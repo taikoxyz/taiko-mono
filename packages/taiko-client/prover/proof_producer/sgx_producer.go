@@ -304,7 +304,7 @@ func (s *SGXProofProducer) requestBatchProof(
 		return nil, err
 	}
 
-	if len(output.ErrorMessage) > 0 {
+	if len(output.ErrorMessage) > 0 || len(output.Error) > 0 {
 		return nil, fmt.Errorf("failed to get batch proof, msg: %s", output.ErrorMessage)
 	}
 

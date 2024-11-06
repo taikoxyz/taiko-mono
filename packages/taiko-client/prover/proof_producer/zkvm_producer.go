@@ -469,7 +469,7 @@ func (s *ZKvmProofProducer) requestBatchProof(
 		return nil, err
 	}
 
-	if len(output.ErrorMessage) > 0 {
+	if len(output.ErrorMessage) > 0 || len(output.Error) > 0 {
 		return nil, fmt.Errorf("failed to get batch proof, msg: %s", output.ErrorMessage)
 	}
 	if output.Data.Status == ErrProofInProgress.Error() {
