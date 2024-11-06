@@ -38,7 +38,7 @@ library LibVerifying {
     function verifyBlocks(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
-        IAddressResolver _resolver,
+        IResolver _resolver,
         uint64 _maxBlocksToVerify
     )
         internal
@@ -96,8 +96,9 @@ library LibVerifying {
                 }
 
                 if (local.tierRouter == ITierRouter(address(0))) {
-                    local.tierRouter =
-                        ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false));
+                    local.tierRouter = ITierRouter(
+                        _resolver.resolve(block.chainid, LibStrings.B_TIER_ROUTER, false)
+                    );
                 }
 
                 uint24 cooldown = ITierProvider(local.tierRouter.getProvider(local.blockId)).getTier(
@@ -162,8 +163,9 @@ library LibVerifying {
                     }
 
                     // Ask signal service to write cross chain signal
-                    ISignalService(_resolver.resolve(LibStrings.B_SIGNAL_SERVICE, false))
-                        .syncChainData(
+                    ISignalService(
+                        _resolver.resolve(block.chainid, LibStrings.B_SIGNAL_SERVICE, false)
+                    ).syncChainData(
                         _config.chainId,
                         LibStrings.H_STATE_ROOT,
                         local.syncBlockId,

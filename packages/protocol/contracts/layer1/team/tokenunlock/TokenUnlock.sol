@@ -116,7 +116,8 @@ contract TokenUnlock is EssentialContract {
             TAIKO_TOKEN_NOT_USED_AS_BOND_TOKEN()
         );
 
-        bytes memory data = abi.encodeCall(ProverSet.init, (owner(), address(this), addressManager));
+        bytes memory data =
+            abi.encodeCall(ProverSet.init, (owner(), address(this), address(resolver)));
         proverSet_ = address(new ERC1967Proxy(resolve(LibStrings.B_PROVER_SET, false), data));
 
         isProverSet[proverSet_] = true;

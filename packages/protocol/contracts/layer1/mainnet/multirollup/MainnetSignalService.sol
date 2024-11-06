@@ -12,7 +12,8 @@ import "../reentrylock/LibFasterReentryLock.sol";
 /// @notice See the documentation in {SignalService}.
 /// @custom:security-contact security@taiko.xyz
 contract MainnetSignalService is SignalService, SharedAddressCache {
-       // function _getAddress(uint64 _chainId, bytes32 _name) internal view override returns (address) {
+    // function _getAddress(uint64 _chainId, bytes32 _name) internal view override returns (address)
+    // {
     //     return getAddress(_chainId, _name, super._getAddress);
     // }
 

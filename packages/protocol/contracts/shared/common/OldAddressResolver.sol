@@ -51,7 +51,7 @@ abstract contract HasAddressResolver is IAddressResolver, Initializable {
         _disableInitializers();
     }
 
-    function resolver() public virtual returns ( IAddressResolver) {
+    function resolver() public virtual returns (IAddressResolver) {
         return _addressResolver;
     }
 

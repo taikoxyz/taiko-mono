@@ -55,7 +55,7 @@ library LibProposing {
     function proposeBlocks(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
-        IAddressResolver _resolver,
+        IResolver _resolver,
         bytes[] calldata _paramsArr,
         bytes[] calldata _txListArr
     )
@@ -91,7 +91,7 @@ library LibProposing {
     function proposeBlock(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
-        IAddressResolver _resolver,
+        IResolver _resolver,
         bytes calldata _params,
         bytes calldata _txList
     )
@@ -117,7 +117,7 @@ library LibProposing {
     function _proposeBlock(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
-        IAddressResolver _resolver,
+        IResolver _resolver,
         bytes calldata _params,
         bytes calldata _txList
     )
@@ -139,7 +139,8 @@ library LibProposing {
             );
         }
 
-        address preconfTaskManager = _resolver.resolve(LibStrings.B_PRECONF_TASK_MANAGER, true);
+        address preconfTaskManager =
+            _resolver.resolve(block.chainid, LibStrings.B_PRECONF_TASK_MANAGER, true);
         if (preconfTaskManager != address(0)) {
             require(preconfTaskManager == msg.sender, L1_INVALID_PROPOSER());
             local.allowCustomProposer = true;
@@ -249,9 +250,8 @@ library LibProposing {
         }
 
         local.tierProvider = ITierProvider(
-            ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false)).getProvider(
-                local.b.numBlocks
-            )
+            ITierRouter(_resolver.resolve(block.chainid, LibStrings.B_TIER_ROUTER, false))
+                .getProvider(local.b.numBlocks)
         );
 
         // Use the difficulty as a random number

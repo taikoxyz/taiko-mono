@@ -12,6 +12,4 @@ abstract contract AddressResolver is IAddressResolver, Initializable {
     /// @notice Address of the AddressManager.
     address public addressManager;
     uint256[49] private __gap;
-
-
 }

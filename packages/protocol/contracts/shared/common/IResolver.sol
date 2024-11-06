@@ -19,7 +19,7 @@ interface IResolver {
     /// @return Address associated with the given name on the specified
     /// chain.
     function resolve(
-        uint64 _chainId,
+        uint256 _chainId,
         bytes32 _name,
         bool _allowZeroAddress
     )

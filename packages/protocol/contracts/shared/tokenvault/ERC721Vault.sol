@@ -243,7 +243,14 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     function _deployBridgedToken(CanonicalNFT memory _ctoken) private returns (address btoken_) {
         bytes memory data = abi.encodeCall(
             IBridgedERC721Initializable.init,
-            (owner(), addressManager, _ctoken.addr, _ctoken.chainId, _ctoken.symbol, _ctoken.name)
+            (
+                owner(),
+                address(resolver),
+                _ctoken.addr,
+                _ctoken.chainId,
+                _ctoken.symbol,
+                _ctoken.name
+            )
         );
 
         btoken_ = address(new ERC1967Proxy(resolve(LibStrings.B_BRIDGED_ERC721, false), data));

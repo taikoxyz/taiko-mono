@@ -436,7 +436,7 @@ contract ERC20Vault is BaseVault {
             IBridgedERC20Initializable.init,
             (
                 owner(),
-                addressManager,
+                address(resolver),
                 ctoken.addr,
                 ctoken.chainId,
                 ctoken.decimals,

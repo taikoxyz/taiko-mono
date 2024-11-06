@@ -79,7 +79,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         returns (TaikoData.BlockMetadataV2 memory meta_)
     {
         TaikoData.Config memory config = getConfig();
-        return LibProposing.proposeBlock(state, config, this, _params, _txList);
+        return LibProposing.proposeBlock(state, config, resolver, _params, _txList);
     }
 
     /// @inheritdoc ITaikoL1
@@ -94,7 +94,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         returns (TaikoData.BlockMetadataV2[] memory metaArr_)
     {
         TaikoData.Config memory config = getConfig();
-        return LibProposing.proposeBlocks(state, config, this, _paramsArr, _txListArr);
+        return LibProposing.proposeBlocks(state, config, resolver, _paramsArr, _txListArr);
     }
 
     /// @inheritdoc ITaikoL1
@@ -108,7 +108,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         nonReentrant
         emitEventForClient
     {
-        LibProving.proveBlock(state, getConfig(), this, _blockId, _input);
+        LibProving.proveBlock(state, getConfig(), resolver, _blockId, _input);
     }
 
     /// @inheritdoc ITaikoL1
@@ -123,7 +123,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         nonReentrant
         emitEventForClient
     {
-        LibProving.proveBlocks(state, getConfig(), this, _blockIds, _inputs, _batchProof);
+        LibProving.proveBlocks(state, getConfig(), resolver, _blockIds, _inputs, _batchProof);
     }
 
     /// @inheritdoc ITaikoL1
@@ -134,7 +134,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         nonReentrant
         emitEventForClient
     {
-        LibVerifying.verifyBlocks(state, getConfig(), this, _maxBlocksToVerify);
+        LibVerifying.verifyBlocks(state, getConfig(), resolver, _maxBlocksToVerify);
     }
 
     /// @inheritdoc ITaikoL1
@@ -145,12 +145,12 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
 
     /// @inheritdoc ITaikoL1
     function depositBond(uint256 _amount) external payable whenNotPaused {
-        LibBonds.depositBond(state, this, _amount);
+        LibBonds.depositBond(state, resolver, _amount);
     }
 
     /// @inheritdoc ITaikoL1
     function withdrawBond(uint256 _amount) external whenNotPaused {
-        LibBonds.withdrawBond(state, this, _amount);
+        LibBonds.withdrawBond(state, resolver, _amount);
     }
 
     /// @notice Unpauses the contract.
