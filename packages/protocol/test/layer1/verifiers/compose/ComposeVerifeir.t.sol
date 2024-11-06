@@ -25,10 +25,11 @@ contract ComposeVerifierForTest is ComposeVerifier {
         verifiers.push(_verifier);
     }
 
-    function _getAddress(uint64, bytes32 _name) internal view override returns (address) {
-        if (_name == LibStrings.B_TAIKO) return msg.sender;
-        else return address(0);
-    }
+    // TODO: test will fail
+    // function _getAddress(uint64, bytes32 _name) internal view override returns (address) {
+    //     if (_name == LibStrings.B_TAIKO) return msg.sender;
+    //     else return address(0);
+    // }
 }
 
 contract MockVerifier is IVerifier {

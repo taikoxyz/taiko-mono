@@ -11,9 +11,9 @@ import "src/layer1/mainnet/reentrylock/LibFasterReentryLock.sol";
 /// @notice See the documentation in {Risc0Verifier}.
 /// @custom:security-contact security@taiko.xyz
 contract MainnetRisc0Verifier is Risc0Verifier, RollupAddressCache {
-    function _getAddress(uint64 _chainId, bytes32 _name) internal view override returns (address) {
-        return getAddress(_chainId, _name, super._getAddress);
-    }
+       // function _getAddress(uint64 _chainId, bytes32 _name) internal view override returns (address) {
+    //     return getAddress(_chainId, _name, super._getAddress);
+    // }
 
     function _storeReentryLock(uint8 _reentry) internal override {
         LibFasterReentryLock.storeReentryLock(_reentry);

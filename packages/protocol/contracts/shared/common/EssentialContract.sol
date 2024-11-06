@@ -4,12 +4,15 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import "./AddressResolver.sol";
+import "./IResolver.sol";
 
 /// @title EssentialContract
 /// @custom:security-contact security@taiko.xyz
 abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable, AddressResolver {
     uint8 internal constant _FALSE = 1;
     uint8 internal constant _TRUE = 2;
+
+    IResolver internal immutable resolver;
 
     /// @dev Slot 1.
     uint8 internal __reentry;
@@ -29,6 +32,7 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
     error INVALID_PAUSE_STATUS();
     error FUNC_NOT_IMPLEMENTED();
     error REENTRANT_CALL();
+    error RESOLVER_DENIED();
     error ZERO_ADDRESS();
     error ZERO_VALUE();
 
@@ -76,8 +80,39 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
         _;
     }
 
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
+
+    /// @dev Modifier that ensures the caller is the resolved address of a given
+    /// name.
+    /// @param _name The name to check against.
+    modifier onlyFromNamed(bytes32 _name) {
+        require(msg.sender == resolve(_name, true), RESOLVER_DENIED());
+        _;
+    }
+
+    /// @dev Modifier that ensures the caller is the resolved address of a given
+    /// name, if the name is set.
+    /// @param _name The name to check against.
+    modifier onlyFromOptionalNamed(bytes32 _name) {
+        address addr = resolve(_name, true);
+        require(addr == address(0) || msg.sender == addr, RESOLVER_DENIED());
+        _;
+    }
+
+    /// @dev Modifier that ensures the caller is a resolved address to either _name1 or _name2
+    /// name.
+    /// @param _name1 The first name to check against.
+    /// @param _name2 The second name to check against.
+    modifier onlyFromNamedEither(bytes32 _name1, bytes32 _name2) {
+        require(
+            msg.sender == resolve(_name1, true) || msg.sender == resolve(_name2, true),
+            RESOLVER_DENIED()
+        );
+        _;
+    }
+
+// TODO
+    constructor(/*IResolver _resolver*/) {
+        resolver = IResolver(address(0));
         _disableInitializers();
     }
 
@@ -115,6 +150,29 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
         return _loadReentryLock() == _TRUE;
     }
 
+    function resolve(
+        uint64 _chainId,
+        bytes32 _name,
+        bool _allowZeroAddress
+    )
+        public
+        view
+        returns (address)
+    {
+        return resolver.resolve(_chainId, _name, _allowZeroAddress);
+    }
+
+      function resolve(
+        bytes32 _name,
+        bool _allowZeroAddress
+    )
+        public
+        view
+        returns (address)
+    {
+        return resolver.resolve(uint64(block.chainid), _name, _allowZeroAddress);
+    }
+
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _addressManager The address of the {AddressManager} contract.
@@ -126,7 +184,6 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
         nonZeroAddr(_addressManager)
     {
         __Essential_init(_owner);
-        __AddressResolver_init(_addressManager);
     }
 
     function __Essential_init(address _owner) internal virtual onlyInitializing {
