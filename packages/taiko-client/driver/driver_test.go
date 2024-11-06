@@ -460,7 +460,7 @@ func (s *DriverTestSuite) TestInsertSoftBlocks() {
 func (s *DriverTestSuite) TestInsertSoftBlocksAfterEOB() {
 	var (
 		port   = uint64(testutils.RandomPort())
-		epochs = testutils.RandomHash().Big().Uint64() % 5
+		epochs = testutils.RandomHash().Big().Uint64()%10 + 5
 		err    error
 	)
 	s.d.softblockServer, err = softblocks.New("*", nil, s.d.ChainSyncer().BlobSyncer(), s.RPCClient, true)
@@ -485,10 +485,43 @@ func (s *DriverTestSuite) TestInsertSoftBlocksAfterEOB() {
 	s.Nil(err)
 
 	for i := range epochs {
-		s.True(s.insertSoftBlock(url, l1Head, l2Head.Number.Uint64()+1, i, false, false).IsSuccess())
+		s.True(s.insertSoftBlock(url, l1Head, l2Head.Number.Uint64()+1+i, 0, false, false).IsSuccess())
+		s.True(s.insertSoftBlock(url, l1Head, l2Head.Number.Uint64()+1+i, 1, true, false).IsSuccess())
+		s.False(s.insertSoftBlock(url, l1Head, l2Head.Number.Uint64()+1+i, 0, true, false).IsSuccess())
 	}
-	s.True(s.insertSoftBlock(url, l1Head, l2Head.Number.Uint64()+1, epochs, true, false).IsSuccess())
-	s.False(s.insertSoftBlock(url, l1Head, l2Head.Number.Uint64()+1, epochs+1, false, false).IsSuccess())
+	s.True(s.insertSoftBlock(url, l1Head, l2Head.Number.Uint64()+1+epochs, 0, true, false).IsSuccess())
+	s.False(s.insertSoftBlock(url, l1Head, l2Head.Number.Uint64()+1+epochs, 1, false, false).IsSuccess())
+	s.True(s.insertSoftBlock(url, l1Head, l2Head.Number.Uint64()+2+epochs, 0, false, true).IsSuccess())
+	s.False(s.insertSoftBlock(url, l1Head, l2Head.Number.Uint64()+2+epochs, 1, true, false).IsSuccess())
+
+	l2Head2, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	s.Equal(l2Head.Number.Uint64()+2+epochs, l2Head2.Number.Uint64())
+
+	l1Origin, err := s.RPCClient.L2.L1OriginByID(context.Background(), l2Head2.Number)
+	s.Nil(err)
+
+	s.Equal(l2Head2.Number.Uint64(), l1Origin.BlockID.Uint64())
+	s.Equal(false, l1Origin.EndOfBlock)
+	s.Equal(true, l1Origin.EndOfPreconf)
+	s.True(l1Origin.IsSoftblock())
+
+	headL1Origin, err = s.RPCClient.L2.HeadL1Origin(context.Background())
+	s.Nil(err)
+	s.Equal(l2Head.Number.Uint64(), headL1Origin.BlockID.Uint64())
+	s.False(headL1Origin.IsSoftblock())
+
+	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().BlobSyncer())
+
+	l2Head3, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	s.Less(l2Head3.Number.Uint64(), l2Head2.Number.Uint64())
+	headL1Origin, err = s.RPCClient.L2.HeadL1Origin(context.Background())
+	s.Nil(err)
+	s.Equal(l2Head3.Number.Uint64(), headL1Origin.BlockID.Uint64())
+	s.False(headL1Origin.IsSoftblock())
 }
 
 func (s *DriverTestSuite) TestInsertSoftBlocksAfterEOP() {
