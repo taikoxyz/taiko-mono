@@ -11,8 +11,8 @@ abstract contract TaikoL2Deprecated {
     error L2_DEPRECATED_METHOD();
 
     modifier deprecated() {
-        _;
         revert L2_DEPRECATED_METHOD();
+        _;
     }
 
     function anchor(
@@ -31,6 +31,7 @@ abstract contract TaikoL2Deprecated {
     )
         public
         pure
+        deprecated
         returns (uint256, /*basefee_*/ uint64 /*parentGasExcess_*/ )
     { }
 
@@ -41,6 +42,7 @@ abstract contract TaikoL2Deprecated {
     )
         public
         pure
+        deprecated
         returns (uint64 /*newGasExcess_*/ )
     { }
 
@@ -52,6 +54,7 @@ abstract contract TaikoL2Deprecated {
     )
         public
         pure
+        deprecated
         returns (uint256, /*basefee_*/ uint64 /*parentGasExcess_*/ )
     { }
 }
