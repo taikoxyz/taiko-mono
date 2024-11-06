@@ -63,6 +63,8 @@ func GetProtocolStateVariables(
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
 	defer cancel()
 
+	// Notice: sloB.LastProposedIn and slotB.LastUnpausedAt are always 0
+	// before upgrading contract, but we can ignore it since we won't use it.
 	slotA, slotB, err := taikoL1Client.GetStateVariables(opts)
 	if err != nil {
 		return nil, err

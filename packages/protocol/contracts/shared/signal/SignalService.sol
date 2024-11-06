@@ -120,7 +120,7 @@ contract SignalService is EssentialContract, ISignalService {
     )
         public
         view
-        nonZeroValue(uint256(_chainData))
+        nonZeroBytes32(_chainData)
         returns (bool)
     {
         bytes32 signal = signalForChainData(_chainId, _kind, _blockId);
@@ -193,8 +193,8 @@ contract SignalService is EssentialContract, ISignalService {
         view
         virtual
         nonZeroAddr(_app)
-        nonZeroValue(uint256(_signal))
-        nonZeroValue(uint256(_value))
+        nonZeroBytes32(_signal)
+        nonZeroBytes32(_value)
         returns (bytes32)
     {
         return LibTrieProof.verifyMerkleProof(
@@ -234,8 +234,8 @@ contract SignalService is EssentialContract, ISignalService {
     )
         private
         nonZeroAddr(_app)
-        nonZeroValue(uint256(_signal))
-        nonZeroValue(uint256(_value))
+        nonZeroBytes32(_signal)
+        nonZeroBytes32(_value)
         returns (bytes32 slot_)
     {
         slot_ = getSignalSlot(uint64(block.chainid), _app, _signal);
@@ -276,7 +276,7 @@ contract SignalService is EssentialContract, ISignalService {
         private
         view
         nonZeroAddr(_app)
-        nonZeroValue(uint256(_signal))
+        nonZeroBytes32(_signal)
         returns (bytes32 value_)
     {
         bytes32 slot = getSignalSlot(uint64(block.chainid), _app, _signal);
@@ -295,7 +295,7 @@ contract SignalService is EssentialContract, ISignalService {
         private
         view
         nonZeroAddr(_app)
-        nonZeroValue(uint256(_signal))
+        nonZeroBytes32(_signal)
         returns (CacheAction[] memory actions)
     {
         HopProof[] memory hopProofs = abi.decode(_proof, (HopProof[]));
