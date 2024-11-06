@@ -56,6 +56,14 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         if (_toPause) _pause();
     }
 
+    function initL2Genesis(
+        bytes32 _genesisBlockHash
+    )
+    external
+    {
+        LibUtils.initGenesis(state, _genesisBlockHash);
+    }
+
     /// @notice This function shall be called by previously deployed contracts.
     function init2() external onlyOwner reinitializer(2) {
         state.__reserve1 = 0;

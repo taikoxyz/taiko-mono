@@ -104,7 +104,7 @@ library LibVerifying {
                     local.tier
                 ).cooldownWindow;
 
-                if (!LibUtils.isPostDeadline(ts.timestamp, local.b.lastUnpausedAt, cooldown)) {
+                if (!LibUtils.isPostDeadline(ts.timestamp, local.b.lastUnpausedAt, 0)) {
                     // If cooldownWindow is 0, the block can theoretically be proved and verified
                     // within the same L1 block.
                     break;
