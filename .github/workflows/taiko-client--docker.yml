@@ -2,7 +2,7 @@ name: "Build and Push Multi-Arch Docker Image"
 
 on:
   push:
-    branches: [main]
+    branches: [softblock]
     tags:
       - "taiko-client-v*"
     paths:
