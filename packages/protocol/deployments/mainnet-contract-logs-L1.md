@@ -183,6 +183,10 @@
   - taiko: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`
   - tier_router: `0x6e997f1f22c40ba37f633b08f3b07e10ed43155a`
   - tier_sgx: `0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81`
+  - risc0_groth16_verifier: `0xcF706D99C265fC2349AE43c5f6BFD7931FE5308D`
+  - tier_zkvm_risc0: `0x55902b2D3DF2A65370A89C86Ae9dd71Ecd508edc`
+  - sp1_remote_verifier: `0x5673e375a71930BF6496Af98fd3b9CB017942448`
+  - tier_zkvm_sp1: `0x1e18454eD45101Ba3Af5351f3D6D2daffE5a34Bf`
   - tier_guardian_minority: `0x579A8d63a2Db646284CBFE31FE5082c9989E985c`
   - tier_guardian: `0xE3D777143Ea25A6E031d1e921F396750885f43aC`
   - automata_dcap_attestation: `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3`
@@ -257,6 +261,20 @@
   - Upgraded from `0xEE5F6648307319263FFBaE91f68ac700b188fF24` to `0x7EE4CEF8a945639e09DDf3032e9d95c8d90f07f3` @commit`dd09223` @tx`0x2e246e4b4637c4bf13dccea873a30e35e704bafa7f02e30c877ecec7d786e662`
   - Upgraded from `0x7EE4CEF8a945639e09DDf3032e9d95c8d90f07f3` to `0x81DFEA931500cdcf0460e9EC45FA283A6B7f0838` @commit`9345f14` @tx`0x13ea4d044a313cf667d16514465e6b96227ef7198bda7b19c70eefee44e9bccd`
 
+#### tier_risk0
+
+- proxy: `0x55902b2D3DF2A65370A89C86Ae9dd71Ecd508edc`
+- impl: `0xefe30A0D56a5804F695f971010597262CAd9A2c3`
+- logs:
+  - deployed on Nov 6, 2024 @commit`bfb0386`
+
+#### tier_sp1
+
+- proxy: `0x1e18454eD45101Ba3Af5351f3D6D2daffE5a34Bf`
+- impl: `0x00c04822Ba7AEa1113B2A7A29bBcDcA70E257C7b`
+- logs:
+  - deployed on Nov 6, 2024 @commit`bfb0386`
+
 #### guardian_prover_minority
 
 - ens: `guardians1.based.taiko.eth`
@@ -325,6 +343,18 @@
 - impl: `0x02772b7B3a5Bea0141C993Dbb8D0733C19F46169`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
+
+#### risc0_groth16_verifier
+
+- impl: `0xcF706D99C265fC2349AE43c5f6BFD7931FE5308D`
+- logs:
+  - deployed on Nov 6, 2024 @commit`bfb0386`
+
+#### sp1_remote_verifier
+
+- impl: `0x5673e375a71930BF6496Af98fd3b9CB017942448`
+- logs:
+  - deployed on Nov 6, 2024 @commit`bfb0386`
 
 #### automata_dcap_attestation
 
