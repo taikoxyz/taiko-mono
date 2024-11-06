@@ -553,9 +553,21 @@ func (s *DriverTestSuite) TestInsertSoftBlocksAfterEOP() {
 
 	for i := range epochs {
 		s.True(s.insertSoftBlock(url, l1Head, l2Head.Number.Uint64()+1, i, false, false).IsSuccess())
+
+		latestSafeBlock, err := s.RPCClient.L2.HeaderByNumber(context.Background(), big.NewInt(-4))
+		s.Nil(err)
+		s.Equal(l2Head.Number.Uint64(), latestSafeBlock.Number.Uint64())
+
+		latestFinalizedBlock, err := s.RPCClient.L2.HeaderByNumber(context.Background(), big.NewInt(-3))
+		s.Nil(err)
+		s.Equal(uint64(0), latestFinalizedBlock.Number.Uint64())
 	}
 	s.True(s.insertSoftBlock(url, l1Head, l2Head.Number.Uint64()+1, epochs, false, true).IsSuccess())
 	s.False(s.insertSoftBlock(url, l1Head, l2Head.Number.Uint64()+1, epochs+1, false, false).IsSuccess())
+
+	latestSafeBlock, err := s.RPCClient.L2.HeaderByNumber(context.Background(), big.NewInt(-4))
+	s.Nil(err)
+	s.Equal(l2Head.Number.Uint64(), latestSafeBlock.Number.Uint64())
 
 	l2Head2, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
@@ -573,6 +585,10 @@ func (s *DriverTestSuite) TestInsertSoftBlocksAfterEOP() {
 	l2Head3, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 	s.Equal(l2Head2.Number.Uint64()-1, l2Head3.Number.Uint64())
+
+	latestFinalizedBlock, err := s.RPCClient.L2.HeaderByNumber(context.Background(), big.NewInt(-3))
+	s.Nil(err)
+	s.Equal(uint64(0), latestFinalizedBlock.Number.Uint64())
 }
 
 func TestDriverTestSuite(t *testing.T) {
