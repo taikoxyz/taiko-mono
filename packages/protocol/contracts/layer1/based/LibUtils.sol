@@ -63,6 +63,26 @@ library LibUtils {
         });
     }
 
+    function initGenesis(
+        TaikoData.State storage _state,
+        bytes32 _genesisBlockHash
+    )
+    internal
+    {
+        if (_genesisBlockHash == 0) revert L1_INVALID_GENESIS_HASH();
+
+        // Init the first state transition
+        TaikoData.TransitionState storage ts = _state.transitions[0][1];
+        ts.blockHash = _genesisBlockHash;
+
+        emit BlockVerifiedV2({
+            blockId: 0,
+            prover: address(0),
+            blockHash: _genesisBlockHash,
+            tier: 0
+        });
+    }
+
     /// @dev Retrieves a block's block hash and state root.
     /// @param _state Pointer to the protocol's storage.
     /// @param _config The protocol's configuration.
