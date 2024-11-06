@@ -174,7 +174,8 @@ contract TrailblazersBadgesS2Test is Test {
         vm.startPrank(minters[0]);
 
         uint256 points = 0;
-        bytes32 _hash = recruitment.generateClaimHash(minters[0], points);
+        bytes32 _hash =
+            recruitment.generateClaimHash(BadgeRecruitment.HashType.Influence, minters[0], points);
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(mintSignerPk, _hash);
 
@@ -210,7 +211,8 @@ contract TrailblazersBadgesS2Test is Test {
 
     function test_revert_tooManyInfluences() public {
         uint256 points = 0;
-        bytes32 _hash = recruitment.generateClaimHash(minters[0], points);
+        bytes32 _hash =
+            recruitment.generateClaimHash(BadgeRecruitment.HashType.Influence, minters[0], points);
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(mintSignerPk, _hash);
 
@@ -232,6 +234,7 @@ contract TrailblazersBadgesS2Test is Test {
 
         // generate the claim hash for the current recruitment
         bytes32 claimHash = recruitment.generateClaimHash(
+            BadgeRecruitment.HashType.End,
             minters[0],
             0 // experience points
         );
@@ -371,7 +374,8 @@ contract TrailblazersBadgesS2Test is Test {
         mint_s1(minters[0], BADGE_ID);
 
         uint256 points = 100;
-        bytes32 _hash = recruitment.generateClaimHash(minters[0], points);
+        bytes32 _hash =
+            recruitment.generateClaimHash(BadgeRecruitment.HashType.Start, minters[0], points);
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(mintSignerPk, _hash);
 
@@ -386,7 +390,8 @@ contract TrailblazersBadgesS2Test is Test {
         mint_s1(minters[0], BADGE_ID);
 
         uint256 points = 100;
-        bytes32 _hash = recruitment.generateClaimHash(minters[0], points);
+        bytes32 _hash =
+            recruitment.generateClaimHash(BadgeRecruitment.HashType.Start, minters[0], points);
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(mintSignerPk, _hash);
 
@@ -399,7 +404,8 @@ contract TrailblazersBadgesS2Test is Test {
         mint_s1(minters[0], BADGE_ID);
 
         uint256 points = 100;
-        bytes32 _hash = recruitment.generateClaimHash(minters[0], points);
+        bytes32 _hash =
+            recruitment.generateClaimHash(BadgeRecruitment.HashType.Start, minters[0], points);
         (, uint256 badSignerPk) = makeAddrAndKey("badSigner");
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(badSignerPk, _hash);
 

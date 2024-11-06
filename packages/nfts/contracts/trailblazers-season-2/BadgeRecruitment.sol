@@ -47,7 +47,13 @@ contract BadgeRecruitment is
     /// @notice Mapping of unique user-per-mint-per-cycle
     mapping(
         uint256 recruitmentCycle
-            => mapping(address minter => mapping(uint256 s1BadgeId => bool mintEnded))
+            => mapping(
+                address minter
+                    => mapping(
+                        uint256 s1BadgeId
+                            => mapping(RecruitmentType recruitmentType => bool mintEnded)
+                    )
+            )
     ) public recruitmentCycleUniqueMints;
     /// @notice User experience points
     mapping(address user => uint256 experience) public userExperience;
@@ -58,6 +64,20 @@ contract BadgeRecruitment is
         Whale, // based, pink
         Minnow // boosted, purple
 
+    }
+
+    /// @notice Recruitment types
+    enum RecruitmentType {
+        Undefined,
+        Claim,
+        Migration
+    }
+    /// @notice Hash types
+    enum HashType {
+        Undefined,
+        Start,
+        End,
+        Influence
     }
 
     /// @notice Configuration struct
@@ -163,9 +183,14 @@ contract BadgeRecruitment is
     /// @notice Limits recruitments to one per user, badge and cycle
     /// @param _s1BadgeId The badge ID
     /// @param _minter The minter address
-    modifier hasntMigratedInCycle(uint256 _s1BadgeId, address _minter) {
+    /// @param _recruitmentType The recruitment type
+    modifier hasntMigratedInCycle(
+        uint256 _s1BadgeId,
+        address _minter,
+        RecruitmentType _recruitmentType
+    ) {
         // check that the minter hasn't used the recruitment within this cycle
-        if (recruitmentCycleUniqueMints[recruitmentCycle][_minter][_s1BadgeId]) {
+        if (recruitmentCycleUniqueMints[recruitmentCycle][_minter][_s1BadgeId][_recruitmentType]) {
             revert ALREADY_MIGRATED_IN_CYCLE();
         }
         _;
@@ -253,10 +278,12 @@ contract BadgeRecruitment is
     /// @param _user The user address
     /// @param _s1BadgeId The badge ID
     /// @param _s1TokenId The badge token ID
+    /// @param _recruitmentType The recruitment type
     function _startRecruitment(
         address _user,
         uint256 _s1BadgeId,
-        uint256 _s1TokenId
+        uint256 _s1TokenId,
+        RecruitmentType _recruitmentType
     )
         internal
         virtual
@@ -274,7 +301,7 @@ contract BadgeRecruitment is
         );
 
         recruitments[_user].push(_recruitment);
-        recruitmentCycleUniqueMints[recruitmentCycle][_user][_s1BadgeId] = true;
+        recruitmentCycleUniqueMints[recruitmentCycle][_user][_s1BadgeId][_recruitmentType] = true;
 
         emit RecruitmentUpdated(
             _recruitment.recruitmentCycle,
@@ -306,7 +333,7 @@ contract BadgeRecruitment is
         virtual
         isNotMigrating(_msgSender())
     {
-        bytes32 calculatedHash_ = generateClaimHash(_msgSender(), _exp);
+        bytes32 calculatedHash_ = generateClaimHash(HashType.Start, _msgSender(), _exp);
 
         if (calculatedHash_ != _hash) {
             revert HASH_MISMATCH();
@@ -327,11 +354,54 @@ contract BadgeRecruitment is
         uint256 s1BadgeId_ = currentCycleEnabledRecruitmentIds[randomSeed_
             % currentCycleEnabledRecruitmentIds.length];
 
-        if (recruitmentCycleUniqueMints[recruitmentCycle][_msgSender()][s1BadgeId_]) {
+        if (
+            recruitmentCycleUniqueMints[recruitmentCycle][_msgSender()][s1BadgeId_][RecruitmentType
+                .Claim]
+        ) {
             revert ALREADY_MIGRATED_IN_CYCLE();
         }
 
-        _startRecruitment(_msgSender(), (randomSeed_ % 8), 0);
+        _startRecruitment(_msgSender(), s1BadgeId_, 0, RecruitmentType.Claim);
+    }
+
+    /// @notice Start a recruitment for a badge using the user's experience points
+    /// @param _hash The hash to sign of the signature
+    /// @param _v The signature V field
+    /// @param _r The signature R field
+    /// @param _s The signature S field
+    /// @param _exp The user's experience points
+    /// @param _s1BadgeId The badge ID (s1)
+    function startRecruitment(
+        bytes32 _hash,
+        uint8 _v,
+        bytes32 _r,
+        bytes32 _s,
+        uint256 _exp,
+        uint256 _s1BadgeId
+    )
+        external
+        virtual
+        isNotMigrating(_msgSender())
+        hasntMigratedInCycle(_s1BadgeId, _msgSender(), RecruitmentType.Claim)
+    {
+        bytes32 calculatedHash_ = generateClaimHash(HashType.Start, _msgSender(), _exp);
+
+        if (calculatedHash_ != _hash) {
+            revert HASH_MISMATCH();
+        }
+
+        (address recovered_,,) = ECDSA.tryRecover(_hash, _v, _r, _s);
+        if (recovered_ != randomSigner) {
+            revert NOT_RANDOM_SIGNER();
+        }
+
+        if (_exp < userExperience[_msgSender()]) {
+            revert EXP_TOO_LOW();
+        }
+
+        userExperience[_msgSender()] = _exp;
+
+        _startRecruitment(_msgSender(), _s1BadgeId, 0, RecruitmentType.Claim);
     }
 
     /// @notice Start a recruitment for a badge
@@ -349,14 +419,14 @@ contract BadgeRecruitment is
         onlyRole(S1_BADGES_ROLE)
         recruitmentOpen(_s1BadgeId)
         isNotMigrating(_user)
-        hasntMigratedInCycle(_s1BadgeId, _user)
+        hasntMigratedInCycle(_s1BadgeId, _user, RecruitmentType.Migration)
     {
         uint256 s1TokenId_ = s1Badges.getTokenId(_user, _s1BadgeId);
 
         if (s1Badges.ownerOf(s1TokenId_) != _user) {
             revert TOKEN_NOT_OWNED();
         }
-        _startRecruitment(_user, _s1BadgeId, s1TokenId_);
+        _startRecruitment(_user, _s1BadgeId, s1TokenId_, RecruitmentType.Migration);
     }
 
     /// @notice Get the active recruitment for a user
@@ -397,29 +467,35 @@ contract BadgeRecruitment is
 
     /// @notice Influence (alter) the chances during a recruitment
     /// @param _hash The hash to sign
-    /// @param v signature V field
-    /// @param r signature R field
-    /// @param s signature S field
+    /// @param _v signature V field
+    /// @param _r signature R field
+    /// @param _s signature S field
     /// @param _influenceColor the influence's color
     /// @dev Can be called only during an active recruitment
     /// @dev Implements a cooldown before allowing to re-influence
     /// @dev The max influence amount is determined by Pass Tier
     function influenceRecruitment(
         bytes32 _hash,
-        uint8 v,
-        bytes32 r,
-        bytes32 s,
-        uint256 exp,
+        uint8 _v,
+        bytes32 _r,
+        bytes32 _s,
+        uint256 _exp,
         InfluenceColor _influenceColor
     )
         external
         isMigrating
     {
-        (address recovered_,,) = ECDSA.tryRecover(_hash, v, r, s);
+        bytes32 calculatedHash_ = generateClaimHash(HashType.Influence, _msgSender(), _exp);
+
+        if (calculatedHash_ != _hash) {
+            revert HASH_MISMATCH();
+        }
+
+        (address recovered_,,) = ECDSA.tryRecover(_hash, _v, _r, _s);
         if (recovered_ != randomSigner) revert NOT_RANDOM_SIGNER();
         Recruitment memory recruitment_ = getActiveRecruitmentFor(_msgSender());
 
-        if ((recruitment_.whaleInfluences + recruitment_.minnowInfluences) > maxInfluences(exp)) {
+        if ((recruitment_.whaleInfluences + recruitment_.minnowInfluences) > maxInfluences(_exp)) {
             revert MAX_INFLUENCES_REACHED();
         }
 
@@ -471,7 +547,7 @@ contract BadgeRecruitment is
             revert RECRUITMENT_NOT_READY();
         }
         // ensure the hash corresponds to the start time
-        bytes32 calculatedHash_ = generateClaimHash(_msgSender(), _exp);
+        bytes32 calculatedHash_ = generateClaimHash(HashType.End, _msgSender(), _exp);
 
         if (calculatedHash_ != _hash) {
             revert HASH_MISMATCH();
@@ -518,8 +594,16 @@ contract BadgeRecruitment is
     /// @param _user The user address
     /// @param _exp The users experience points
     /// @return _hash The unique hash
-    function generateClaimHash(address _user, uint256 _exp) public pure returns (bytes32) {
-        return keccak256(abi.encodePacked(_user, _exp));
+    function generateClaimHash(
+        HashType _hashType,
+        address _user,
+        uint256 _exp
+    )
+        public
+        pure
+        returns (bytes32)
+    {
+        return keccak256(abi.encodePacked(_hashType, _user, _exp));
     }
 
     /// @notice Check if a recruitment is active for a user
