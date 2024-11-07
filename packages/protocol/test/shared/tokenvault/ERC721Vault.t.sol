@@ -139,7 +139,8 @@ contract ERC721VaultTest is TaikoTest {
         destChainIdBridge = new PrankDestBridge(destChainErc721Vault);
         vm.deal(address(destChainIdBridge), 100 ether);
 
-        signalServiceNoProofCheck = deploySignalService(resolver, address(new SignalServiceNoProofCheck()));
+        signalServiceNoProofCheck =
+            deploySignalService(resolver, address(new SignalServiceNoProofCheck()));
 
         resolver.setAddress(block.chainid, "signal_service", address(signalServiceNoProofCheck));
 

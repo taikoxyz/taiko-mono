@@ -107,7 +107,8 @@ contract TestERC20Vault is TaikoTest {
         destChainIdBridge = new PrankDestBridge(erc20Vault);
         vm.deal(address(destChainIdBridge), 100 ether);
 
-        signalServiceNoProofCheck = deploySignalService(resolver, address(new SignalServiceNoProofCheck()));
+        signalServiceNoProofCheck =
+            deploySignalService(resolver, address(new SignalServiceNoProofCheck()));
 
         resolver.setAddress(block.chainid, "signal_service", address(signalServiceNoProofCheck));
 

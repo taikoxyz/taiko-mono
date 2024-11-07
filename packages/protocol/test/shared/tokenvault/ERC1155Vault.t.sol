@@ -162,7 +162,8 @@ contract ERC1155VaultTest is TaikoTest {
         destChainIdBridge = new PrankDestBridge(destChainErc1155Vault);
         vm.deal(address(destChainIdBridge), 100 ether);
 
-        signalServiceNoProofCheck = deploySignalService(resolver, address(new SignalServiceNoProofCheck()));
+        signalServiceNoProofCheck =
+            deploySignalService(resolver, address(new SignalServiceNoProofCheck()));
         // // SignalServiceNoProofCheck(
         //     deployProxy({
         //         name: "signal_service",
