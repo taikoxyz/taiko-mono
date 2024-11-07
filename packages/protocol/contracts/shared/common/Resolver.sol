@@ -3,10 +3,10 @@ pragma solidity ^0.8.24;
 
 import "./EssentialContract.sol";
 
-/// @title AddressManager
+/// @title Resolver
 /// @notice See the documentation in {IAddressManager}.
 /// @custom:security-contact security@taiko.xyz
-contract AddressManager is EssentialContract, IAddressManager {
+contract Resolver is EssentialContract, IResolver {
     /// @dev Mapping of chainId to mapping of name to address.
     mapping(uint256 chainId => mapping(bytes32 name => address addr)) private __addresses;
 
@@ -22,6 +22,7 @@ contract AddressManager is EssentialContract, IAddressManager {
     );
 
     error AM_ADDRESS_ALREADY_SET();
+    error RESOLVED_ADDRESS_ZERO();
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract.
@@ -48,9 +49,17 @@ contract AddressManager is EssentialContract, IAddressManager {
         emit AddressSet(_chainId, _name, _newAddress, oldAddress);
     }
 
-    /// @inheritdoc IAddressManager
-    function getAddress(uint64 _chainId, bytes32 _name) external view override returns (address) {
-        return __addresses[_chainId][_name];
+    function resolve(
+        uint256 _chainId,
+        bytes32 _name,
+        bool _allowZeroAddress
+    )
+        external
+        view
+        returns (address addr_)
+    {
+        addr_ = __addresses[_chainId][_name];
+        require(addr_ != address(0) || _allowZeroAddress, RESOLVED_ADDRESS_ZERO());
     }
 
     function _authorizePause(address, bool) internal pure override notImplemented { }

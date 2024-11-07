@@ -289,7 +289,7 @@ contract ERC1155Vault is BaseNFTVault, ERC1155ReceiverUpgradeable {
             IBridgedERC1155Initializable.init,
             (
                 owner(),
-                address(resolver),
+                address(resolver()),
                 _ctoken.addr,
                 _ctoken.chainId,
                 _ctoken.symbol,

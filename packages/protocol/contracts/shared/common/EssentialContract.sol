@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
-import "./AddressResolver.sol";
 import "./IResolver.sol";
 
 /// @title EssentialContract
@@ -12,8 +11,8 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
     uint8 internal constant _FALSE = 1;
     uint8 internal constant _TRUE = 2;
 
-    IResolver public resolver;
-    uint256[49] private __gap_old_AddressResolver;
+    address private __resolver;
+    uint256[49] private __gapFromOldAddressResolver;
 
     /// @dev Slot 1.
     uint8 internal __reentry;
@@ -30,10 +29,13 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
     /// @param account The account that unpaused the contract.
     event Unpaused(address account);
 
+    event ResolverUpdated(address oldResolver, address newResolver);
+
     error INVALID_PAUSE_STATUS();
     error FUNC_NOT_IMPLEMENTED();
     error REENTRANT_CALL();
     error RESOLVER_DENIED();
+    error RESOLVER_NOT_FOUND();
     error ZERO_ADDRESS();
     error ZERO_VALUE();
 
@@ -110,10 +112,13 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
         _;
     }
 
-    // TODO
-    constructor( /*IResolver _resolver*/ ) {
-        // resolver = IResolver(address(0));
+    constructor() {
         _disableInitializers();
+    }
+
+    function setResolver(address _resolver) external onlyOwner {
+        emit ResolverUpdated(__resolver, _resolver);
+        __resolver = _resolver;
     }
 
     /// @notice Pauses the contract.
@@ -159,19 +164,24 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
         view
         returns (address)
     {
-        return resolver.resolve(_chainId, _name, _allowZeroAddress);
+        return resolver().resolve(_chainId, _name, _allowZeroAddress);
     }
 
     function resolve(bytes32 _name, bool _allowZeroAddress) public view returns (address) {
-        return resolver.resolve(uint64(block.chainid), _name, _allowZeroAddress);
+        return resolver().resolve(block.chainid, _name, _allowZeroAddress);
     }
 
+    function resolver() public view virtual returns (IResolver) {
+        require(__resolver != address(0), RESOLVER_NOT_FOUND());
+        return IResolver(__resolver);
+    }
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _resolver The address of the {AddressManager} contract.
+
     function __Essential_init(address _owner, address _resolver) internal nonZeroAddr(_resolver) {
         __Essential_init(_owner);
-        resolver = IResolver(_resolver);
+        __resolver = _resolver;
     }
 
     function __Essential_init(address _owner) internal virtual onlyInitializing {

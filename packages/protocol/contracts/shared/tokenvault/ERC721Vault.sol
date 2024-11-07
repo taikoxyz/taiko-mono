@@ -245,7 +245,7 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
             IBridgedERC721Initializable.init,
             (
                 owner(),
-                address(resolver),
+                address(resolver()),
                 _ctoken.addr,
                 _ctoken.chainId,
                 _ctoken.symbol,

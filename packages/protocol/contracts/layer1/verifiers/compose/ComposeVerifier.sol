@@ -31,9 +31,9 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _rollupAddressManager The address of the {AddressManager} contract.
-    function init(address _owner, address _rollupAddressManager) external initializer {
-        __Essential_init(_owner, _rollupAddressManager);
+    /// @param _taikoResolver The address of the {AddressManager} contract.
+    function init(address _owner, address _taikoResolver) external initializer {
+        __Essential_init(_owner, _taikoResolver);
     }
 
     /// @inheritdoc IVerifier
