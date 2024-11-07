@@ -73,17 +73,6 @@ contract BridgeTest is TaikoTest {
         resolver.setAddress(destChainId, "bridge", address(destChainBridge));
         resolver.setAddress(destChainId, "taiko", address(uint160(123)));
         resolver.setAddress(destChainId, "bridge_watchdog", address(uint160(123)));
-
-        // register(
-        //     address(resolver), "signal_service", address(signalServiceNoProofCheck), destChainId
-        // );
-
-        // register(address(resolver), "bridge", address(destChainBridge), destChainId);
-
-        // register(address(resolver), "taiko", address(uint160(123)), destChainId);
-
-        // register(address(resolver), "bridge_watchdog", address(uint160(123)), destChainId);
-
         vm.stopPrank();
     }
 
