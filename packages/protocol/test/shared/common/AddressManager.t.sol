@@ -4,7 +4,7 @@
 // import "../TaikoTest.sol";
 
 // /// @author Kirk Baird <kirk@sigmaprime.io>
-// contract TestAddressManager is TaikoTest {
+// contract TestDefaultResolver is TaikoTest {
 //     function deployTaikoL1() internal override returns (TaikoL1) {
 //         return
 //             TaikoL1(payable(deployProxy({ name: "taiko", impl: address(new TaikoL1()), data: "" })));
@@ -20,14 +20,14 @@
 //         bytes32 name = bytes32(bytes("Bob"));
 //         address newAddress = Bob;
 //         // logs
-//         vm.expectEmit(address(addressManager));
-//         emit AddressManager.AddressSet(chainid, name, newAddress, address(0));
+//         vm.expectEmit(address(resolver));
+//         emit DefaultResolver.AddressSet(chainid, name, newAddress, address(0));
 
 //         // call `setAddress()`
-//         addressManager.setAddress(chainid, name, newAddress);
+//         resolver.setAddress(chainid, name, newAddress);
 
 //         // validation
-//         assertEq(addressManager.getAddress(chainid, name), Bob, "should return Bob address");
+//         assertEq(resolver.getAddress(chainid, name), Bob, "should return Bob address");
 //     }
 
 //     function test_setAddress_callerNotOwner() external {
@@ -39,12 +39,12 @@
 
 //         // call `setAddress()`
 //         vm.expectRevert("Ownable: caller is not the owner");
-//         addressManager.setAddress(chainid, name, newAddress);
+//         resolver.setAddress(chainid, name, newAddress);
 //     }
 
 //     function test_getAddress() external {
 //         assertEq(
-//             addressManager.getAddress(uint64(block.chainid), bytes32(bytes("taiko"))),
+//             resolver.getAddress(uint64(block.chainid), bytes32(bytes("taiko"))),
 //             address(L1),
 //             "expected address should be TaikoL1"
 //         );

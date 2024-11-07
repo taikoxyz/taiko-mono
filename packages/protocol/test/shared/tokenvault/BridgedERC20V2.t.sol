@@ -120,14 +120,17 @@ contract TestBridgedERC20 is TaikoTest {
         uint256 srcChainId = 1000;
         uint8 srcDecimals = 11;
         return BridgedERC20(
-            deployProxy({
+
+
+
+            deploy({
                 name: "bridged_token1",
                 impl: address(new BridgedERC20V2()),
                 data: abi.encodeCall(
                     BridgedERC20.init,
-                    (owner, address(manager), srcToken, srcChainId, srcDecimals, name, name)
+                    (owner, address(resolver), srcToken, srcChainId, srcDecimals, name, name)
                 ),
-                registerTo: manager
+                resolver: resolver
             })
         );
     }

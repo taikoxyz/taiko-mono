@@ -69,7 +69,7 @@ contract UpdatedBridgedERC20 is BridgedERC20V2 {
 
 contract TestERC20Vault is TaikoTest {
     TaikoToken tko;
-    AddressManager addressManager;
+    DefaultResolver resolver;
     Bridge bridge;
     ERC20Vault erc20Vault;
     ERC20Vault destChainIdERC20Vault;
@@ -90,11 +90,11 @@ contract TestERC20Vault is TaikoTest {
         vm.deal(Carol, 1 ether);
         vm.deal(Bob, 1 ether);
 
-        addressManager = AddressManager(
+        resolver = DefaultResolver(
             deployProxy({
                 name: "address_manager",
-                impl: address(new AddressManager()),
-                data: abi.encodeCall(AddressManager.init, (address(0)))
+                impl: address(new DefaultResolver()),
+                data: abi.encodeCall(DefaultResolver.init, (address(0)))
             })
         );
 
@@ -106,13 +106,13 @@ contract TestERC20Vault is TaikoTest {
             })
         );
 
-        addressManager.setAddress(uint64(block.chainid), "taiko_token", address(tko));
+        resolver.setAddress(uint64(block.chainid), "taiko_token", address(tko));
 
         erc20Vault = ERC20Vault(
             deployProxy({
                 name: "erc20_vault",
                 impl: address(new ERC20Vault()),
-                data: abi.encodeCall(ERC20Vault.init, (address(0), address(addressManager)))
+                data: abi.encodeCall(ERC20Vault.init, (address(0), address(resolver)))
             })
         );
 
@@ -120,7 +120,7 @@ contract TestERC20Vault is TaikoTest {
             deployProxy({
                 name: "erc20_vault",
                 impl: address(new ERC20Vault()),
-                data: abi.encodeCall(ERC20Vault.init, (address(0), address(addressManager)))
+                data: abi.encodeCall(ERC20Vault.init, (address(0), address(resolver)))
             })
         );
 
@@ -135,8 +135,8 @@ contract TestERC20Vault is TaikoTest {
                 deployProxy({
                     name: "bridge",
                     impl: address(new Bridge()),
-                    data: abi.encodeCall(Bridge.init, (address(0), address(addressManager))),
-                    registerTo: address(addressManager)
+                    data: abi.encodeCall(Bridge.init, (address(0), address(resolver))),
+                    registerTo: address(resolver)
                 })
             )
         );
@@ -148,27 +148,27 @@ contract TestERC20Vault is TaikoTest {
             deployProxy({
                 name: "signal_service",
                 impl: address(new SkipProofCheckSignal()),
-                data: abi.encodeCall(SignalService.init, (address(0), address(addressManager)))
+                data: abi.encodeCall(SignalService.init, (address(0), address(resolver)))
             })
         );
 
-        addressManager.setAddress(
+        resolver.setAddress(
             uint64(block.chainid), "signal_service", address(mockProofSignalService)
         );
 
-        addressManager.setAddress(destChainId, "signal_service", address(mockProofSignalService));
+        resolver.setAddress(destChainId, "signal_service", address(mockProofSignalService));
 
-        addressManager.setAddress(uint64(block.chainid), "erc20_vault", address(erc20Vault));
+        resolver.setAddress(uint64(block.chainid), "erc20_vault", address(erc20Vault));
 
-        addressManager.setAddress(destChainId, "erc20_vault", address(destChainIdERC20Vault));
+        resolver.setAddress(destChainId, "erc20_vault", address(destChainIdERC20Vault));
 
-        addressManager.setAddress(destChainId, "bridge", address(destChainIdBridge));
+        resolver.setAddress(destChainId, "bridge", address(destChainIdBridge));
 
         address bridgedERC20 = address(new BridgedERC20());
 
-        addressManager.setAddress(destChainId, "bridged_erc20", bridgedERC20);
+        resolver.setAddress(destChainId, "bridged_erc20", bridgedERC20);
 
-        addressManager.setAddress(uint64(block.chainid), "bridged_erc20", bridgedERC20);
+        resolver.setAddress(uint64(block.chainid), "bridged_erc20", bridgedERC20);
 
         usdc = BridgedERC20(
             deployProxy({
@@ -176,7 +176,7 @@ contract TestERC20Vault is TaikoTest {
                 impl: address(new BridgedERC20()),
                 data: abi.encodeCall(
                     BridgedERC20.init,
-                    (address(0), address(addressManager), randAddress(), 100, 18, "USDC", "USDC coin")
+                    (address(0), address(resolver), randAddress(), 100, 18, "USDC", "USDC coin")
                 )
             })
         );
@@ -187,7 +187,7 @@ contract TestERC20Vault is TaikoTest {
                 impl: address(new BridgedERC20()),
                 data: abi.encodeCall(
                     BridgedERC20.init,
-                    (address(0), address(addressManager), randAddress(), 100, 18, "USDT", "USDT coin")
+                    (address(0), address(resolver), randAddress(), 100, 18, "USDT", "USDT coin")
                 )
             })
         );
@@ -200,7 +200,7 @@ contract TestERC20Vault is TaikoTest {
                     BridgedERC20.init,
                     (
                         address(0),
-                        address(addressManager),
+                        address(resolver),
                         randAddress(),
                         100,
                         18,
