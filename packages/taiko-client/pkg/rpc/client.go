@@ -53,6 +53,7 @@ type ClientConfig struct {
 	L2EngineEndpoint              string
 	JwtSecret                     string
 	Timeout                       time.Duration
+	PriorityFee					  *big.Int
 }
 
 // NewClient initializes all RPC clients used by Taiko client software.
@@ -100,10 +101,12 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 	}, backoff.WithContext(backoff.NewExponentialBackOff(), ctx)); err != nil {
 		return nil, err
 	}
-
+	 // Here, we assume PriorityFee is set in the ClientConfig
+    priorityFee := cfg.PriorityFee
+	
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
-
+	// Creating instances for other components
 	taikoL1, err := bindings.NewTaikoL1Client(cfg.TaikoL1Address, l1Client)
 	if err != nil {
 		return nil, err
