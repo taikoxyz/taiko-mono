@@ -3,8 +3,8 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
-import "../common/LibAddress.sol";
-import "../common/LibStrings.sol";
+import "../libs/LibAddress.sol";
+import "../libs/LibStrings.sol";
 import "./IBridgedERC721.sol";
 import "./BaseNFTVault.sol";
 

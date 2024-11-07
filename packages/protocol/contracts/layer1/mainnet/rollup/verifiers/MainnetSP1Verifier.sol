@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "src/layer1/verifiers/SP1Verifier.sol";
 import "src/layer1/mainnet/reentrylock/LibFasterReentryLock.sol";
-import "src/shared/common/LibNetwork.sol";
+import "src/shared/libs/LibNetwork.sol";
 
 /// @title MainnetSP1Verifier
 /// @dev This contract shall be deployed to replace its parent contract on Ethereum for Taiko

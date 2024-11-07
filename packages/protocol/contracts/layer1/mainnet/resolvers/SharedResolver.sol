@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/shared/common/LibStrings.sol";
-import "src/shared/common/LibNetwork.sol";
+import "src/shared/libs/LibStrings.sol";
+import "src/shared/libs/LibNetwork.sol";
 import "src/shared/common/ResolverBase.sol";
 
 /// @title SharedResolver

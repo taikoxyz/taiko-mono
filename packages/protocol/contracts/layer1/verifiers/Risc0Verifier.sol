@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "@risc0/contracts/IRiscZeroVerifier.sol";
 import "src/shared/common/EssentialContract.sol";
-import "src/shared/common/LibStrings.sol";
+import "src/shared/libs/LibStrings.sol";
 import "../based/ITaikoL1.sol";
 import "./LibPublicInput.sol";
 import "./IVerifier.sol";

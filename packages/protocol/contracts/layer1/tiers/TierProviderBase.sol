@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/shared/common/LibStrings.sol";
+import "src/shared/libs/LibStrings.sol";
 import "./ITierProvider.sol";
 import "./LibTiers.sol";
 

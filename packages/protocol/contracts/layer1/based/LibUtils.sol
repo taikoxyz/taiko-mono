@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import "src/shared/common/IResolver.sol";
-import "src/shared/common/LibStrings.sol";
-import "src/shared/common/LibMath.sol";
+import "src/shared/libs/LibStrings.sol";
+import "src/shared/libs/LibMath.sol";
 import "../tiers/ITierProvider.sol";
 import "../tiers/ITierRouter.sol";
 import "./TaikoData.sol";

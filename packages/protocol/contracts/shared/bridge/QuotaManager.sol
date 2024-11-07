@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import "../common/EssentialContract.sol";
-import "../common/LibStrings.sol";
-import "../common/LibMath.sol";
+import "../libs/LibStrings.sol";
+import "../libs/LibMath.sol";
 import "./IQuotaManager.sol";
 
 /// @title QuotaManager
