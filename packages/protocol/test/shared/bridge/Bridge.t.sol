@@ -36,9 +36,9 @@ contract BridgeTest is TaikoTest {
     BadReceiver badReceiver;
     GoodReceiver goodReceiver;
     Bridge bridge;
-    Bridge destChainBridge;
+    Bridge destBridge;
     SignalService signalService;
-    SignalService signalServiceNoProofCheck;
+    SignalService destSignalService;
     UntrustedSendMessageRelayer untrustedSenderContract;
 
     NonMaliciousContract1 nonmaliciousContract1;
@@ -46,44 +46,37 @@ contract BridgeTest is TaikoTest {
 
     address mockDAO = randAddress(); //as "real" L1 owner
 
-    uint64 destChainId = 19_389;
+    uint64 chainId;
+    uint64 destChainId;
 
     function setUp() public {
         vm.startPrank(Alice);
         vm.deal(Alice, 100 ether);
 
-        uint64 l1ChainId = uint64(block.chainid);
+        chainId = uint64(block.chainid);
+        destChainId = chainId + 1;
 
         // Deploy on local chain
         resolver = deployDefaultResolver();
 
         bridge = deployBridge(resolver, address(new Bridge()));
-         signalService = deploySignalService(resolver, address(new SignalService()));
-       untrustedSenderContract = new UntrustedSendMessageRelayer();
+        signalService = deploySignalService(resolver, address(new SignalService()));
+        untrustedSenderContract = new UntrustedSendMessageRelayer();
         vm.deal(address(untrustedSenderContract), 10 ether);
-
-
 
         // Deploy on destination chain
         vm.chainId(destChainId);
-        signalServiceNoProofCheck = deploySignalService(resolver, address(new SignalServiceNoProofCheck()));
-         destChainBridge = deployBridge(resolver, address(new Bridge()));
-         vm.deal(address(destChainBridge), 100 ether);
-        vm.chainId(l1ChainId);
+        destSignalService = deploySignalService(resolver, address(new SignalServiceNoProofCheck()));
+        destBridge = deployBridge(resolver, address(new Bridge()));
+        vm.deal(address(destBridge), 100 ether);
+        vm.chainId(chainId);
 
-
-    // Register contracts from destination chain
+        // Register contracts from destination chain
         // resolver.setAddress(destChainId, "signal_service", address(signalServiceNoProofCheck));
-    //  resolver.setAddress(destChainId, "bridge", address(destChainBridge));
+        //  resolver.setAddress(destChainId, "bridge", address(destBridge));
         resolver.setAddress(destChainId, "taiko", address(uint160(123)));
         resolver.setAddress(destChainId, "bridge_watchdog", address(uint160(123)));
 
-        
-
-       
-        
-       
-     
         vm.stopPrank();
     }
 
@@ -105,13 +98,13 @@ contract BridgeTest is TaikoTest {
         // corresponding to the message
         bytes memory proof = hex"00";
 
-        bytes32 msgHash = destChainBridge.hashMessage(message);
+        bytes32 msgHash = destBridge.hashMessage(message);
 
         vm.chainId(destChainId);
         vm.prank(Bob, Bob);
-        destChainBridge.processMessage(message, proof);
+        destBridge.processMessage(message, proof);
 
-        IBridge.Status status = destChainBridge.messageStatus(msgHash);
+        IBridge.Status status = destBridge.messageStatus(msgHash);
 
         assertEq(status == IBridge.Status.DONE, true);
         // Alice has 100 ether + 1000 wei balance, because we did not use the
@@ -143,14 +136,14 @@ contract BridgeTest is TaikoTest {
         // corresponding to the message
         bytes memory proof = hex"00";
 
-        bytes32 msgHash = destChainBridge.hashMessage(message);
+        bytes32 msgHash = destBridge.hashMessage(message);
 
         vm.chainId(destChainId);
 
         vm.prank(Bob, Bob);
-        destChainBridge.processMessage(message, proof);
+        destBridge.processMessage(message, proof);
 
-        IBridge.Status status = destChainBridge.messageStatus(msgHash);
+        IBridge.Status status = destBridge.messageStatus(msgHash);
 
         assertEq(status == IBridge.Status.DONE, true);
 
@@ -180,14 +173,14 @@ contract BridgeTest is TaikoTest {
         // corresponding to the message
         bytes memory proof = hex"00";
 
-        bytes32 msgHash = destChainBridge.hashMessage(message);
+        bytes32 msgHash = destBridge.hashMessage(message);
 
         vm.chainId(destChainId);
 
         vm.prank(Bob, Bob);
-        destChainBridge.processMessage(message, proof);
+        destBridge.processMessage(message, proof);
 
-        IBridge.Status status = destChainBridge.messageStatus(msgHash);
+        IBridge.Status status = destBridge.messageStatus(msgHash);
 
         assertEq(status == IBridge.Status.DONE, true);
 
@@ -370,11 +363,11 @@ contract BridgeTest is TaikoTest {
         (IBridge.Message memory message, bytes memory proof) =
             setUpPredefinedSuccessfulProcessMessageCall();
 
-        bytes32 msgHash = destChainBridge.hashMessage(message);
+        bytes32 msgHash = destBridge.hashMessage(message);
 
-        destChainBridge.processMessage(message, proof);
+        destBridge.processMessage(message, proof);
 
-        IBridge.Status status = destChainBridge.messageStatus(msgHash);
+        IBridge.Status status = destBridge.messageStatus(msgHash);
 
         assertEq(status == IBridge.Status.DONE, true);
     }
@@ -390,11 +383,11 @@ contract BridgeTest is TaikoTest {
         // etch bad receiver at the to address, so it fails.
         vm.etch(message.to, address(badReceiver).code);
 
-        bytes32 msgHash = destChainBridge.hashMessage(message);
+        bytes32 msgHash = destBridge.hashMessage(message);
 
-        destChainBridge.processMessage(message, proof);
+        destBridge.processMessage(message, proof);
 
-        IBridge.Status status = destChainBridge.messageStatus(msgHash);
+        IBridge.Status status = destBridge.messageStatus(msgHash);
 
         assertEq(status == IBridge.Status.RETRIABLE, true);
 
@@ -402,11 +395,11 @@ contract BridgeTest is TaikoTest {
 
         vm.prank(message.destOwner);
         vm.expectRevert(Bridge.B_RETRY_FAILED.selector);
-        destChainBridge.retryMessage(message, false);
+        destBridge.retryMessage(message, false);
 
         vm.prank(message.destOwner);
-        destChainBridge.retryMessage(message, true);
-        IBridge.Status postRetryStatus = destChainBridge.messageStatus(msgHash);
+        destBridge.retryMessage(message, true);
+        IBridge.Status postRetryStatus = destBridge.messageStatus(msgHash);
         assertEq(postRetryStatus == IBridge.Status.FAILED, true);
     }
 
@@ -418,19 +411,19 @@ contract BridgeTest is TaikoTest {
         // etch bad receiver at the to address, so it fails.
         vm.etch(message.to, address(badReceiver).code);
 
-        bytes32 msgHash = destChainBridge.hashMessage(message);
+        bytes32 msgHash = destBridge.hashMessage(message);
 
-        destChainBridge.processMessage(message, proof);
+        destBridge.processMessage(message, proof);
 
-        IBridge.Status status = destChainBridge.messageStatus(msgHash);
+        IBridge.Status status = destBridge.messageStatus(msgHash);
 
         assertEq(status == IBridge.Status.RETRIABLE, true);
 
         vm.stopPrank();
 
         vm.prank(message.destOwner);
-        destChainBridge.failMessage(message);
-        IBridge.Status postRetryStatus = destChainBridge.messageStatus(msgHash);
+        destBridge.failMessage(message);
+        IBridge.Status postRetryStatus = destBridge.messageStatus(msgHash);
         assertEq(postRetryStatus == IBridge.Status.FAILED, true);
     }
 
@@ -452,13 +445,13 @@ contract BridgeTest is TaikoTest {
         });
 
         bytes memory proof = hex"00";
-        bytes32 msgHash = destChainBridge.hashMessage(message);
+        bytes32 msgHash = destBridge.hashMessage(message);
         vm.chainId(destChainId);
         vm.prank(Bob, Bob);
 
-        destChainBridge.processMessage(message, proof);
+        destBridge.processMessage(message, proof);
 
-        IBridge.Status status = destChainBridge.messageStatus(msgHash);
+        IBridge.Status status = destBridge.messageStatus(msgHash);
         assertEq(status == IBridge.Status.DONE, true); // test pass check
     }
 
@@ -480,13 +473,13 @@ contract BridgeTest is TaikoTest {
         });
 
         bytes memory proof = hex"00";
-        bytes32 msgHash = destChainBridge.hashMessage(message);
+        bytes32 msgHash = destBridge.hashMessage(message);
         vm.chainId(destChainId);
         vm.prank(Bob, Bob);
 
-        destChainBridge.processMessage(message, proof);
+        destBridge.processMessage(message, proof);
 
-        IBridge.Status status = destChainBridge.messageStatus(msgHash);
+        IBridge.Status status = destBridge.messageStatus(msgHash);
         assertEq(status == IBridge.Status.RETRIABLE, true); //Test fail check
     }
 
@@ -501,7 +494,7 @@ contract BridgeTest is TaikoTest {
         });
 
         vm.expectRevert(Bridge.B_INVALID_STATUS.selector);
-        destChainBridge.retryMessage(message, true);
+        destBridge.retryMessage(message, true);
     }
 
     function retry_message_reverts_when_last_attempt_and_message_is_not_owner() public {
@@ -516,7 +509,7 @@ contract BridgeTest is TaikoTest {
         });
 
         vm.expectRevert(Bridge.B_PERMISSION_DENIED.selector);
-        destChainBridge.retryMessage(message, true);
+        destBridge.retryMessage(message, true);
     }
 
     function setUpPredefinedSuccessfulProcessMessageCall()
@@ -528,13 +521,13 @@ contract BridgeTest is TaikoTest {
         uint64 dest = 1337;
         resolver.setAddress(1336, "bridge", 0x564540a26Fb667306b3aBdCB4ead35BEb88698ab);
 
-        resolver.setAddress(dest, "bridge", address(destChainBridge));
+        resolver.setAddress(dest, "bridge", address(destBridge));
 
         vm.deal(address(bridge), 100 ether);
 
-        resolver.setAddress(dest, "signal_service", address(signalServiceNoProofCheck));
+        resolver.setAddress(dest, "signal_service", address(destSignalService));
 
-        vm.deal(address(destChainBridge), 1 ether);
+        vm.deal(address(destBridge), 1 ether);
 
         vm.chainId(dest);
 
