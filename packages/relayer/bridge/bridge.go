@@ -194,7 +194,7 @@ func (b *Bridge) submitBridgeTx(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "b.destEthClient.ChainID")
 	}
-
+	// Create the transaction options (auth)
 	auth, err := bind.NewKeyedTransactorWithChainID(b.ecdsaKey, new(big.Int).SetUint64(srcChainId.Uint64()))
 	if err != nil {
 		return errors.Wrap(err, "b.NewKeyedTransactorWithChainID")
@@ -212,6 +212,32 @@ func (b *Bridge) submitBridgeTx(ctx context.Context) error {
 	value.Add(b.bridgeMessageValue, processingFee)
 	auth.Value = value
 
+	// Retrieve the gas price and priority fee for EIP-1559
+	//maxFeePerGas, err := b.srcEthClient.SuggestGasPrice(ctx) // For example, using `SuggestGasPrice`
+	//if err != nil {
+	//	return errors.Wrap(err, "failed to get max fee per gas")
+	//}
+	
+	//maxPriorityFeePerGas, err := b.srcEthClient.SuggestGasTipCap(ctx)
+	//if err != nil {
+	//	return errors.Wrap(err, "failed to get max priority fee per gas")
+	//}
+
+	// Set a fixed priority fee (e.g., 1 Gwei or 1000000000 wei)
+	fixedPriorityFee := big.NewInt(1000000000) // 1 Gwei = 1000000000 wei
+
+	// Set the max fee per gas (this can be dynamic, here it uses a simple example)
+	maxFeePerGas, err := b.srcEthClient.SuggestGasPrice(ctx) // You can also use a fixed value here
+	if err != nil {
+		return errors.Wrap(err, "failed to get max fee per gas")
+	}
+
+	// Set the EIP-1559 transaction fields (max fee and fixed priority fee)
+	auth.GasPrice = nil // Ensure this is nil to use EIP-1559
+	auth.MaxFeePerGas = maxFeePerGas
+	auth.MaxPriorityFeePerGas = fixedPriorityFee
+	
+	// Create the bridge message
 	message := bridge.IBridgeMessage{
 		Id:          0,
 		From:        b.addr,
