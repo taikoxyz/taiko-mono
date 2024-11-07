@@ -14,6 +14,7 @@ on:
 
 jobs:
   deploy-fork-diff-preview:
+    if: ${{ github.event.pull_request.draft == false }}
     runs-on: [arc-runner-set]
     steps:
       - name: Install Git

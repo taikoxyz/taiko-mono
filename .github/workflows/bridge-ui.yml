@@ -17,6 +17,7 @@ on:
 
 jobs:
   build-and-test:
+    if: ${{ github.event.pull_request.draft == false }}
     uses: ./.github/workflows/bridge-ui--ci.yml
 
   # Deployment name follow the pattern: deploy_<appname(bridge-ui)>_<network(devnet|hekla|mainnet)>_<environment(preview|production)>
