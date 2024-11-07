@@ -35,13 +35,12 @@ contract TestDelegateOwner is TaikoL2Test {
         delegateOwner = deployDelegateOwner(resolver, remoteOwner, remoteChainId);
         signalService = deploySignalService(resolver, address(new SkipProofCheckSignal()));
         bridge = deployBridge(resolver, address(new Bridge()));
-
         resolver.setAddress(remoteChainId, "bridge", remoteBridge);
         vm.stopPrank();
     }
 
     function test_delegate_owner_single_non_delegatecall() public {
-        Target target1 = deployTarget("target1", address(new Target()));
+        Target target1 = _deployTarget("target1", address(new Target()));
 
         bytes memory data = abi.encode(
             DelegateOwner.Call(
@@ -107,13 +106,11 @@ contract TestDelegateOwner is TaikoL2Test {
     }
 
     function test_delegate_owner_delegate_multicall() public {
+        address delegateOwnerImpl2 = address(new DelegateOwner());
         address impl1 = address(new Target());
         address impl2 = address(new Target());
-
-        address delegateOwnerImpl2 = address(new DelegateOwner());
-
-        Target target1 = deployTarget("target1", impl1);
-        Target target2 = deployTarget("target2", impl2);
+        Target target1 = _deployTarget("target1", impl1);
+        Target target2 = _deployTarget("target2", impl2);
 
         Multicall3.Call3[] memory calls = new Multicall3.Call3[](4);
         calls[0].target = address(target1);
@@ -165,7 +162,7 @@ contract TestDelegateOwner is TaikoL2Test {
         assertEq(delegateOwner.admin(), David);
     }
 
-    function deployTarget(bytes32 name, address impl) private returns (Target) {
+    function _deployTarget(bytes32 name, address impl) private returns (Target) {
         return Target(
             deploy({
                 name: name,
