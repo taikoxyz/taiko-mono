@@ -52,27 +52,38 @@ contract BridgeTest is TaikoTest {
         vm.startPrank(Alice);
         vm.deal(Alice, 100 ether);
 
+        uint64 l1ChainId = uint64(block.chainid);
+
+        // Deploy on local chain
         resolver = deployDefaultResolver();
 
-        address bridgeImpl = address(new Bridge());
-        bridge = deployBridge(resolver, bridgeImpl);
-        destChainBridge = deployBridge(resolver, bridgeImpl);
-
-        uint64 l1ChainId = uint64(block.chainid);
-        // vm.chainId(l1ChainId);
-
-        signalServiceNoProofCheck = deploySignalService(resolver, address(new SignalServiceNoProofCheck()));
-        signalService = deploySignalService(resolver, address(new SignalService()));
-      
-
-        vm.deal(address(destChainBridge), 100 ether);
-
-        untrustedSenderContract = new UntrustedSendMessageRelayer();
+        bridge = deployBridge(resolver, address(new Bridge()));
+         signalService = deploySignalService(resolver, address(new SignalService()));
+       untrustedSenderContract = new UntrustedSendMessageRelayer();
         vm.deal(address(untrustedSenderContract), 10 ether);
-        resolver.setAddress(destChainId, "signal_service", address(signalServiceNoProofCheck));
-        resolver.setAddress(destChainId, "bridge", address(destChainBridge));
+
+
+
+        // Deploy on destination chain
+        vm.chainId(destChainId);
+        signalServiceNoProofCheck = deploySignalService(resolver, address(new SignalServiceNoProofCheck()));
+         destChainBridge = deployBridge(resolver, address(new Bridge()));
+         vm.deal(address(destChainBridge), 100 ether);
+        vm.chainId(l1ChainId);
+
+
+    // Register contracts from destination chain
+        // resolver.setAddress(destChainId, "signal_service", address(signalServiceNoProofCheck));
+    //  resolver.setAddress(destChainId, "bridge", address(destChainBridge));
         resolver.setAddress(destChainId, "taiko", address(uint160(123)));
         resolver.setAddress(destChainId, "bridge_watchdog", address(uint160(123)));
+
+        
+
+       
+        
+       
+     
         vm.stopPrank();
     }
 

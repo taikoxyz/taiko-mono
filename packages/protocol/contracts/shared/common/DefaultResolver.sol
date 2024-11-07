@@ -22,7 +22,7 @@ contract DefaultResolver is EssentialContract, ResolverBase {
         uint256 indexed chainId, bytes32 indexed name, address newAddress, address oldAddress
     );
 
-    error AM_ADDRESS_ALREADY_SET(); // TODO: rename
+    error AM_ADDRESS_ALREADY_SET(bytes32 name); // TODO: rename
     error RESOLVED_ADDRESS_ZERO(); // TODO: rename
 
     /// @notice Initializes the contract.
@@ -45,7 +45,7 @@ contract DefaultResolver is EssentialContract, ResolverBase {
         onlyOwner
     {
         address oldAddress = __addresses[_chainId][_name];
-        require(_newAddress != oldAddress, AM_ADDRESS_ALREADY_SET());
+        require(_newAddress != oldAddress, AM_ADDRESS_ALREADY_SET(_name));
         __addresses[_chainId][_name] = _newAddress;
         emit AddressSet(_chainId, _name, _newAddress, oldAddress);
     }
