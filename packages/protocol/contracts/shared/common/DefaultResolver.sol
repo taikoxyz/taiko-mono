@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "./EssentialContract.sol";
+import "./ResolverBase.sol";
 
 /// @title DefaultResolver
 /// @notice See the documentation in {IResolver}.
@@ -18,7 +19,7 @@ contract DefaultResolver is EssentialContract, ResolverBase {
     /// @param newAddress The new address.
     /// @param oldAddress The old address.
     event AddressSet(
-        uint64 indexed chainId, bytes32 indexed name, address newAddress, address oldAddress
+        uint256 indexed chainId, bytes32 indexed name, address newAddress, address oldAddress
     );
 
     error AM_ADDRESS_ALREADY_SET(); // TODO: rename
@@ -35,7 +36,7 @@ contract DefaultResolver is EssentialContract, ResolverBase {
     /// @param _name The name to which the address will be mapped.
     /// @param _newAddress The Ethereum address to be mapped.
     function setAddress(
-        uint64 _chainId,
+        uint256 _chainId,
         bytes32 _name,
         address _newAddress
     )
@@ -49,17 +50,8 @@ contract DefaultResolver is EssentialContract, ResolverBase {
         emit AddressSet(_chainId, _name, _newAddress, oldAddress);
     }
 
-    function resolve(
-        uint256 _chainId,
-        bytes32 _name,
-        bool _allowZeroAddress
-    )
-        external
-        view
-        returns (address addr_)
-    {
-        addr_ = __addresses[_chainId][_name];
-        require(addr_ != address(0) || _allowZeroAddress, RESOLVED_ADDRESS_ZERO());
+    function getAddress(uint256 _chainId, bytes32 _name) internal view override returns (address) {
+        return __addresses[_chainId][_name];
     }
 
     function _authorizePause(address, bool) internal pure override notImplemented { }
