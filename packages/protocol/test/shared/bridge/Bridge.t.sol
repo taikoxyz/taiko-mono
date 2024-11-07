@@ -38,7 +38,7 @@ contract BridgeTest is TaikoTest {
     Bridge bridge;
     Bridge destChainBridge;
     SignalService signalService;
-    SignalService mockProofSignalService;
+    SignalService signalServiceNoProofCheck;
     UntrustedSendMessageRelayer untrustedSenderContract;
 
     NonMaliciousContract1 nonmaliciousContract1;
@@ -61,35 +61,21 @@ contract BridgeTest is TaikoTest {
         uint64 l1ChainId = uint64(block.chainid);
         // vm.chainId(l1ChainId);
 
-        mockProofSignalService = deploySignalService(resolver, address(new SkipProofCheckSignal()));
-        // SkipProofCheckSignal(
-        //     deployProxy({
-        //         name: "signal_service",
-        //         impl: address(new SkipProofCheckSignal()),
-        //         data: abi.encodeCall(SignalService.init, (address(0), address(resolver))),
-        //         registerTo: address(resolver)
-        //     })
-        // );
-
+        signalServiceNoProofCheck = deploySignalService(resolver, address(new SignalServiceNoProofCheck()));
         signalService = deploySignalService(resolver, address(new SignalService()));
-        //     deployProxy({
-        //         name: "signal_service",
-        //         impl: address(new SignalService()),
-        //         data: abi.encodeCall(SignalService.init, (address(0), address(resolver)))
-        //     })
-        // );
+      
 
         vm.deal(address(destChainBridge), 100 ether);
 
         untrustedSenderContract = new UntrustedSendMessageRelayer();
         vm.deal(address(untrustedSenderContract), 10 ether);
-        resolver.setAddress(destChainId, "signal_service", address(mockProofSignalService));
+        resolver.setAddress(destChainId, "signal_service", address(signalServiceNoProofCheck));
         resolver.setAddress(destChainId, "bridge", address(destChainBridge));
         resolver.setAddress(destChainId, "taiko", address(uint160(123)));
         resolver.setAddress(destChainId, "bridge_watchdog", address(uint160(123)));
 
         // register(
-        //     address(resolver), "signal_service", address(mockProofSignalService), destChainId
+        //     address(resolver), "signal_service", address(signalServiceNoProofCheck), destChainId
         // );
 
         // register(address(resolver), "bridge", address(destChainBridge), destChainId);
@@ -546,7 +532,7 @@ contract BridgeTest is TaikoTest {
 
         vm.deal(address(bridge), 100 ether);
 
-        resolver.setAddress(dest, "signal_service", address(mockProofSignalService));
+        resolver.setAddress(dest, "signal_service", address(signalServiceNoProofCheck));
 
         vm.deal(address(destChainBridge), 1 ether);
 

@@ -52,10 +52,10 @@ contract BridgeTest2 is TaikoTest {
         //     })
         // );
 
-        signalService = deploySignalService(resolver, address(new SkipProofCheckSignal()));
+        signalService = deploySignalService(resolver, address(new SignalServiceNoProofCheck()));
         //     deployProxy({
         //         name: "signal_service",
-        //         impl: address(new SkipProofCheckSignal()),
+        //         impl: address(new SignalServiceNoProofCheck()),
         //         data: abi.encodeCall(SignalService.init, (address(0), address(resolver))),
         //         registerTo: address(resolver)
         //     })

@@ -33,7 +33,7 @@ contract TestDelegateOwner is TaikoL2Test {
         multicall = new Multicall3();
         resolver = deployDefaultResolver();
         delegateOwner = deployDelegateOwner(resolver, remoteOwner, remoteChainId);
-        signalService = deploySignalService(resolver, address(new SkipProofCheckSignal()));
+        signalService = deploySignalService(resolver, address(new SignalServiceNoProofCheck()));
         bridge = deployBridge(resolver, address(new Bridge()));
         resolver.setAddress(remoteChainId, "bridge", remoteBridge);
         vm.stopPrank();

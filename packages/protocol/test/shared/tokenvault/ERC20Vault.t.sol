@@ -74,7 +74,7 @@ contract TestERC20Vault is TaikoTest {
     ERC20Vault erc20Vault;
     ERC20Vault destChainIdERC20Vault;
     PrankDestBridge destChainIdBridge;
-    SignalService mockProofSignalService;
+    SignalService signalServiceNoProofCheck;
     FreeMintERC20 erc20;
     FreeMintERC20 weirdNamedToken;
     uint64 destChainId = 7;
@@ -107,11 +107,11 @@ contract TestERC20Vault is TaikoTest {
         destChainIdBridge = new PrankDestBridge(erc20Vault);
         vm.deal(address(destChainIdBridge), 100 ether);
 
-        mockProofSignalService = deploySignalService(resolver, address(new SkipProofCheckSignal()));
+        signalServiceNoProofCheck = deploySignalService(resolver, address(new SignalServiceNoProofCheck()));
 
-        resolver.setAddress(block.chainid, "signal_service", address(mockProofSignalService));
+        resolver.setAddress(block.chainid, "signal_service", address(signalServiceNoProofCheck));
 
-        resolver.setAddress(destChainId, "signal_service", address(mockProofSignalService));
+        resolver.setAddress(destChainId, "signal_service", address(signalServiceNoProofCheck));
 
         resolver.setAddress(block.chainid, "erc20_vault", address(erc20Vault));
 

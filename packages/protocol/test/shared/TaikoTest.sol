@@ -121,7 +121,7 @@ abstract contract TaikoTest is Test, Script {
         internal
         returns (SignalService)
     {
-        return SkipProofCheckSignal(
+        return SignalServiceNoProofCheck(
             deploy({
                 name: "signal_service",
                 impl: signalServiceImpl,

@@ -95,7 +95,7 @@ contract ERC1155VaultTest is TaikoTest {
     Bridge bridge;
     Bridge destChainBridge;
     PrankDestBridge destChainIdBridge;
-    SignalService mockProofSignalService;
+    SignalService signalServiceNoProofCheck;
     ERC1155Vault erc1155Vault;
     ERC1155Vault destChainErc1155Vault;
     TestTokenERC1155 ctoken1155;
@@ -162,18 +162,18 @@ contract ERC1155VaultTest is TaikoTest {
         destChainIdBridge = new PrankDestBridge(destChainErc1155Vault);
         vm.deal(address(destChainIdBridge), 100 ether);
 
-        mockProofSignalService = deploySignalService(resolver, address(new SkipProofCheckSignal()));
-        // // SkipProofCheckSignal(
+        signalServiceNoProofCheck = deploySignalService(resolver, address(new SignalServiceNoProofCheck()));
+        // // SignalServiceNoProofCheck(
         //     deployProxy({
         //         name: "signal_service",
-        //         impl: address(new SkipProofCheckSignal()),
+        //         impl: address(new SignalServiceNoProofCheck()),
         //         data: abi.encodeCall(SignalService.init, (address(0), address(resolver)))
         //     })
         // );
 
-        resolver.setAddress(block.chainid, "signal_service", address(mockProofSignalService));
+        resolver.setAddress(block.chainid, "signal_service", address(signalServiceNoProofCheck));
 
-        resolver.setAddress(destChainId, "signal_service", address(mockProofSignalService));
+        resolver.setAddress(destChainId, "signal_service", address(signalServiceNoProofCheck));
         resolver.setAddress(block.chainid, "bridge", address(bridge));
         resolver.setAddress(destChainId, "bridge", address(destChainIdBridge));
         resolver.setAddress(block.chainid, "erc1155_vault", address(erc1155Vault));
@@ -182,10 +182,10 @@ contract ERC1155VaultTest is TaikoTest {
         // Below 2-2 registrations (mock) are needed bc of
         // LibBridgeRecall.sol's
         // resolve address
-        resolver.setAddress(destChainId, "erc721_vault", address(mockProofSignalService));
-        resolver.setAddress(destChainId, "erc20_vault", address(mockProofSignalService));
-        resolver.setAddress(block.chainid, "erc721_vault", address(mockProofSignalService));
-        resolver.setAddress(block.chainid, "erc20_vault", address(mockProofSignalService));
+        resolver.setAddress(destChainId, "erc721_vault", address(signalServiceNoProofCheck));
+        resolver.setAddress(destChainId, "erc20_vault", address(signalServiceNoProofCheck));
+        resolver.setAddress(block.chainid, "erc721_vault", address(signalServiceNoProofCheck));
+        resolver.setAddress(block.chainid, "erc20_vault", address(signalServiceNoProofCheck));
 
         vm.deal(address(bridge), 100 ether);
 
