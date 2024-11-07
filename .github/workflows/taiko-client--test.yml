@@ -7,10 +7,12 @@ on:
       - "packages/taiko-client/**"
       - "go.mod"
       - "go.sum"
+    branches-ignore:
+      - release-please--branches--**
 
 jobs:
   lint:
-    if: contains(github.event.pull_request.labels.*.name, 'option.workflow_on') || github.event.pull_request.draft == false && github.head_ref != 'release-please-*' 
+    if: contains(github.event.pull_request.labels.*.name, 'option.workflow_on') || github.event.pull_request.draft == false && github.head_ref != 'release-please-*'
     name: Lint
     runs-on: [ubuntu-latest]
     steps:
@@ -30,7 +32,7 @@ jobs:
         run: golangci-lint run --path-prefix=./ --config=.golangci.yml
 
   integration_tests:
-    if: contains(github.event.pull_request.labels.*.name, 'option.workflow_on') || github.event.pull_request.draft == false && github.head_ref != 'release-please-*' 
+    if: contains(github.event.pull_request.labels.*.name, 'option.workflow_on') || github.event.pull_request.draft == false && github.head_ref != 'release-please-*'
     name: Integration tests
     runs-on: [ubuntu-latest]
     timeout-minutes: 15
