@@ -16,29 +16,23 @@ contract TaikoL2Tests is TaikoL2Test {
     uint32 public constant BLOCK_GAS_LIMIT = 30_000_000;
 
     DefaultResolver public resolver;
+    SignalService signalService;
     uint64 public anchorBlockId;
     TaikoL2ForTest public L2;
 
     function setUp() public {
         resolver = DefaultResolver(
-            deployProxy({
-                name: "address_manager",
+            deploy({
+                name: "resolver",
                 impl: address(new DefaultResolver()),
                 data: abi.encodeCall(DefaultResolver.init, (address(0)))
             })
         );
 
-        SignalService ss = SignalService(
-            deployProxy({
-                name: "signal_service",
-                impl: address(new SignalService()),
-                data: abi.encodeCall(SignalService.init, (address(0), address(resolver))),
-                resolver: resolver
-            })
-        );
+        signalService = deploySignalService(resolver, address(new SignalService()));
 
         L2 = TaikoL2ForTest(
-            deployProxy({
+            deploy({
                 name: "taiko",
                 impl: address(new TaikoL2ForTest()),
                 data: abi.encodeCall(TaikoL2.init, (address(0), address(resolver), L1_CHAIN_ID, 0)),
@@ -46,7 +40,7 @@ contract TaikoL2Tests is TaikoL2Test {
             })
         );
 
-        ss.authorize(address(L2), true);
+        signalService.authorize(address(L2), true);
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 30);
         vm.deal(address(L2), 100 ether);

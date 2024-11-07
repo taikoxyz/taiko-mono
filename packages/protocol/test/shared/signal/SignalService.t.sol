@@ -156,9 +156,7 @@ contract TestSignalService is TaikoTest {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                AddressResolver.RESOLVER_ZERO_ADDR.selector,
-                srcChainId,
-                strToBytes32("signal_service")
+                AddressResolver.RESOLVER_ZERO_ADDR.selector, srcChainId, "signal_service"
             )
         );
         signalService.proveSignalReceived({
@@ -245,7 +243,7 @@ contract TestSignalService is TaikoTest {
             abi.encodeWithSelector(
                 AddressResolver.RESOLVER_ZERO_ADDR.selector,
                 proofs[0].chainId,
-                strToBytes32("signal_service")
+                bytes32("signal_service")
             )
         );
 
@@ -418,7 +416,7 @@ contract TestSignalService is TaikoTest {
             abi.encodeWithSelector(
                 AddressResolver.RESOLVER_ZERO_ADDR.selector,
                 proofs[0].chainId,
-                strToBytes32("signal_service")
+                bytes32("signal_service")
             )
         );
         signalService.proveSignalReceived({

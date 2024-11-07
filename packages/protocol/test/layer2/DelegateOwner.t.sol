@@ -11,78 +11,37 @@ contract Target is EssentialContract {
 }
 
 contract TestDelegateOwner is TaikoL2Test {
-    address public owner;
     address public remoteOwner;
-    Bridge public bridge;
-    SignalService public signalService;
-    DefaultResolver public resolver;
-    DelegateOwner public delegateOwner;
+    address public owner;
+
     Multicall3 public multicall;
+    DefaultResolver public resolver;
+    SignalService public signalService;
+    Bridge public bridge;
+    DelegateOwner public delegateOwner;
 
     uint64 remoteChainId = uint64(block.chainid + 1);
     address remoteBridge = vm.addr(0x2000);
 
     function setUp() public {
+        remoteOwner = vm.addr(0x2000);
         owner = vm.addr(0x1000);
         vm.deal(owner, 100 ether);
-
-        remoteOwner = vm.addr(0x2000);
 
         vm.startPrank(owner);
 
         multicall = new Multicall3();
-
-        resolver = DefaultResolver(
-            deployProxy({
-                name: "resolver",
-                impl: address(new DefaultResolver()),
-                data: abi.encodeCall(DefaultResolver.init, (address(0)))
-            })
-        );
-
-        delegateOwner = DelegateOwner(
-            deployProxy({
-                name: "delegate_owner",
-                impl: address(new DelegateOwner()),
-                data: abi.encodeCall(
-                    DelegateOwner.init, (remoteOwner, address(resolver), remoteChainId, address(0))
-                ),
-                resolver: resolver
-            })
-        );
-
-        signalService = SkipProofCheckSignal(
-            deployProxy({
-                name: "signal_service",
-                impl: address(new SkipProofCheckSignal()),
-                data: abi.encodeCall(SignalService.init, (address(0), address(resolver))),
-                resolver: resolver
-            })
-        );
-
-        bridge = Bridge(
-            payable(
-                deployProxy({
-                    name: "bridge",
-                    impl: address(new Bridge()),
-                    data: abi.encodeCall(Bridge.init, (address(0), address(resolver))),
-                    resolver: resolver
-                })
-            )
-        );
+        resolver = deployDefaultResolver();
+        delegateOwner = deployDelegateOwner(resolver, remoteOwner, remoteChainId);
+        signalService = deploySignalService(resolver, address(new SkipProofCheckSignal()));
+        bridge = deployBridge(resolver, address(new Bridge()));
 
         resolver.setAddress(remoteChainId, "bridge", remoteBridge);
         vm.stopPrank();
     }
 
     function test_delegate_owner_single_non_delegatecall() public {
-        Target target1 = Target(
-            deployProxy({
-                name: "target1",
-                impl: address(new Target()),
-                data: abi.encodeCall(Target.init, (address(delegateOwner)))
-            })
-        );
+        Target target1 = deployTarget("target1", address(new Target()));
 
         bytes memory data = abi.encode(
             DelegateOwner.Call(
@@ -153,20 +112,8 @@ contract TestDelegateOwner is TaikoL2Test {
 
         address delegateOwnerImpl2 = address(new DelegateOwner());
 
-        Target target1 = Target(
-            deployProxy({
-                name: "target1",
-                impl: impl1,
-                data: abi.encodeCall(Target.init, (address(delegateOwner)))
-            })
-        );
-        Target target2 = Target(
-            deployProxy({
-                name: "target2",
-                impl: impl1,
-                data: abi.encodeCall(Target.init, (address(delegateOwner)))
-            })
-        );
+        Target target1 = deployTarget("target1", impl1);
+        Target target2 = deployTarget("target2", impl2);
 
         Multicall3.Call3[] memory calls = new Multicall3.Call3[](4);
         calls[0].target = address(target1);
@@ -216,5 +163,15 @@ contract TestDelegateOwner is TaikoL2Test {
         assertEq(target2.impl(), impl2);
         assertEq(delegateOwner.impl(), delegateOwnerImpl2);
         assertEq(delegateOwner.admin(), David);
+    }
+
+    function deployTarget(bytes32 name, address impl) private returns (Target) {
+        return Target(
+            deploy({
+                name: name,
+                impl: impl,
+                data: abi.encodeCall(Target.init, (address(delegateOwner)))
+            })
+        );
     }
 }
