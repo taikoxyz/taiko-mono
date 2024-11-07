@@ -56,8 +56,10 @@ definitions:
           type: integer
         type: array
       coinbase:
-        description: "@param coinbase uint64 Coinbase of the soft block"
-        type: string
+        description: "@param coinbase string Coinbase of the soft block"
+        items:
+          type: integer
+        type: array
       timestamp:
         description: "@param timestamp uint64 Timestamp of the soft block"
         type: integer
@@ -95,10 +97,12 @@ definitions:
     type: object
   softblocks.TransactionBatchMarker:
     enum:
-      - end_of_block
-      - end_of_preconf
+      - ""
+      - endOfBlock
+      - endOfPreconf
     type: string
     x-enum-varnames:
+      - BatchMarkerEmpty
       - BatchMarkerEOB
       - BatchMarkerEOP
   types.Header:
@@ -238,13 +242,13 @@ paths:
       consumes:
         - application/json
       description: |-
-        Insert a group of transactions into a soft block for preconfirmation. If the group is the
+        Insert a batch of transactions into a soft block for preconfirmation. If the batch is the
         first for a block, a new soft block will be created. Otherwise, the transactions will
         be appended to the existing soft block. The API will fail if:
         1) the block is not soft
         2) block-level parameters are invalid or do not match the current soft block’s parameters
-        3) the group ID is not exactly 1 greater than the previous one
-        4) the last group of the block indicates no further transactions are allowed
+        3) the batch ID is not exactly 1 greater than the previous one
+        4) the last batch of the block indicates no further transactions are allowed
       parameters:
         - description: soft block creation request body
           in: body
