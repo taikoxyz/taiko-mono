@@ -15,7 +15,6 @@ on:
 
 jobs:
   build-protocol:
-    if: contains(github.event.pull_request.labels.*.name, 'option.workflow_on') || github.event.pull_request.draft == false && github.head_ref != 'release-please-*'
     runs-on: [arc-runner-set]
     permissions:
       # Give the necessary permissions for stefanzweifel/git-auto-commit-action.
@@ -69,7 +68,6 @@ jobs:
           pnpm test:deploy:l1
 
   genesis-docker:
-    if: contains(github.event.pull_request.labels.*.name, 'option.workflow_on') || github.event.pull_request.draft == false && github.head_ref != 'release-please-*'
     runs-on: [taiko-runner]
     permissions:
       # Give the necessary permissions for stefanzweifel/git-auto-commit-action.
