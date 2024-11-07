@@ -8,6 +8,24 @@ import "test/layer2/LibL2Signer.sol";
 import "test/shared/TaikoTest.sol";
 
 abstract contract TaikoL2Test is TaikoTest {
+    function deployTaikoL2(
+        DefaultResolver resolver,
+        address taikoL2Impl,
+        uint64 l1ChainId
+    )
+        internal
+        returns (TaikoL2)
+    {
+        return TaikoL2(
+            deploy({
+                name: "taiko",
+                impl: taikoL2Impl,
+                data: abi.encodeCall(TaikoL2.init, (address(0), address(resolver), l1ChainId, 0)),
+                resolver: resolver
+            })
+        );
+    }
+
     function deployDelegateOwner(
         DefaultResolver resolver,
         address remoteOwner,

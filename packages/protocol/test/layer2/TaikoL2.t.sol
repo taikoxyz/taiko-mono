@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "./TaikoL2Test.sol";
 
-contract TaikoL2ForTest is TaikoL2 {
+contract TaikoL2WithoutBaseFeeCheck is TaikoL2 {
     function skipFeeCheck() public pure override returns (bool) {
         return true;
     }
@@ -18,28 +18,12 @@ contract TaikoL2Tests is TaikoL2Test {
     DefaultResolver public resolver;
     SignalService signalService;
     uint64 public anchorBlockId;
-    TaikoL2ForTest public L2;
+    TaikoL2 public L2;
 
     function setUp() public {
-        resolver = DefaultResolver(
-            deploy({
-                name: "resolver",
-                impl: address(new DefaultResolver()),
-                data: abi.encodeCall(DefaultResolver.init, (address(0)))
-            })
-        );
-
+        resolver = deployDefaultResolver();
         signalService = deploySignalService(resolver, address(new SignalService()));
-
-        L2 = TaikoL2ForTest(
-            deploy({
-                name: "taiko",
-                impl: address(new TaikoL2ForTest()),
-                data: abi.encodeCall(TaikoL2.init, (address(0), address(resolver), L1_CHAIN_ID, 0)),
-                resolver: resolver
-            })
-        );
-
+        L2 = deployTaikoL2(resolver, address(new TaikoL2WithoutBaseFeeCheck()), L1_CHAIN_ID);
         signalService.authorize(address(L2), true);
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 30);
