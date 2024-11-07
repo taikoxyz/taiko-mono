@@ -12,6 +12,8 @@ on:
       - "packages/guardian-prover-health-check/**"
       - "go.mod"
       - "go.sum"
+    branches-ignore:
+      - release-please--branches--**
 
 jobs:
   lint-guardian-prover-health-check:
