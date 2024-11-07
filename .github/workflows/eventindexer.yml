@@ -13,6 +13,8 @@ on:
       - "packages/eventindexer/**"
       - "go.mod"
       - "go.sum"
+    branches-ignore:
+      - release-please--branches--**
 
 jobs:
   lint-eventindexer:

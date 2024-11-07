@@ -84,18 +84,18 @@ type BuildSoftBlockResponseBody struct {
 }
 
 // BuildSoftBlock handles a soft block creation request,
-// if the soft block group in request are valid, it will insert the correspoinding new soft
+// if the soft block transactions batch in request are valid, it will insert or reorg the correspoinding the soft
 // block to the backend L2 execution engine and return a success response.
 //
-//		@Description	Insert a group of transactions into a soft block for preconfirmation. If the group is the
+//		@Description	Insert a batch of transactions into a soft block for preconfirmation. If the batch is the
 //		@Description	first for a block, a new soft block will be created. Otherwise, the transactions will
 //		@Description	be appended to the existing soft block. The API will fail if:
 //		@Description	1) the block is not soft
 //	  	@Description	2) block-level parameters are invalid or do not match the current soft block’s parameters
-//	  	@Description	3) the group ID is not exactly 1 greater than the previous one
-//	  	@Description	4) the last group of the block indicates no further transactions are allowed
-//		@Param  body BuildSoftBlockRequestBody true "soft block creation request body"
-//		@Accept	  json
+//	  	@Description	3) the batch ID is not exactly 1 greater than the previous one
+//	  	@Description	4) the last batch of the block indicates no further transactions are allowed
+//		@Param  	body BuildSoftBlockRequestBody true "soft block creation request body"
+//		@Accept	  	json
 //		@Produce	json
 //		@Success	200		{object} BuildSoftBlockResponseBody
 //		@Router		/softBlocks [post]

@@ -7,6 +7,8 @@ on:
   pull_request:
     paths:
       - "packages/guardian-prover-health-check-ui/**"
+    branches-ignore:
+      - release-please--branches--**
 
 jobs:
   build-and-test:
@@ -25,8 +27,6 @@ jobs:
   #     vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_GUARDIAN_UI_INTERNAL }}
   #     vercel_org_id: ${{ secrets.VERCEL_ORG_ID }}
   #     vercel_token: ${{ secrets.VERCEL_TOKEN }}
-
-
 
   deploy_guardians-ui_hekla_preview:
     if: ${{ github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'option.workflow_on') || github.event.pull_request.draft == false && github.head_ref != 'release-please-*') }}

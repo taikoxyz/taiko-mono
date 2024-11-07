@@ -100,6 +100,20 @@ func (s *Syncer) InsertSoftBlockFromTransactionsBatch(
 			return nil, fmt.Errorf("failed to fetch previous soft block (%d): %w", blockID, err)
 		}
 
+		// Ensure the previous soft block is the current chain head.
+		blockNums, err := s.rpc.L2.BlockNumber(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch the chain block number: %w", err)
+		}
+
+		if prevSoftBlock.Number().Uint64() != blockNums {
+			return nil, fmt.Errorf(
+				"soft block (%d) to update is not the current chain head (%d)",
+				prevSoftBlock.Number().Uint64(),
+				blockNums,
+			)
+		}
+
 		// Check the previous soft block status.
 		l1Origin, err := s.rpc.L2.L1OriginByID(ctx, prevSoftBlock.Number())
 		if err != nil {

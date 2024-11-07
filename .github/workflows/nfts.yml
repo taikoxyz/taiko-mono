@@ -6,10 +6,12 @@ on:
     paths:
       - "packages/nfts/**"
       - "!packages/nfts/contract_layout_*"
+    branches-ignore:
+      - release-please--branches--**
 
 jobs:
   build-nfts-contracts:
-    if: contains(github.event.pull_request.labels.*.name, 'option.workflow_on') || github.event.pull_request.draft == false && github.head_ref != 'release-please-*' 
+    if: ${{ github.event.pull_request.draft == false }}
     runs-on: [arc-runner-set]
     steps:
       - name: Cancel previous runs

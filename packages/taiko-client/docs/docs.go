@@ -46,7 +46,7 @@ const docTemplate = `{
         },
         "/softBlocks": {
             "post": {
-                "description": "Insert a group of transactions into a soft block for preconfirmation. If the group is the\nfirst for a block, a new soft block will be created. Otherwise, the transactions will\nbe appended to the existing soft block. The API will fail if:\n1) the block is not soft\n2) block-level parameters are invalid or do not match the current soft block’s parameters\n3) the group ID is not exactly 1 greater than the previous one\n4) the last group of the block indicates no further transactions are allowed",
+                "description": "Insert a batch of transactions into a soft block for preconfirmation. If the batch is the\nfirst for a block, a new soft block will be created. Otherwise, the transactions will\nbe appended to the existing soft block. The API will fail if:\n1) the block is not soft\n2) block-level parameters are invalid or do not match the current soft block’s parameters\n3) the batch ID is not exactly 1 greater than the previous one\n4) the last batch of the block indicates no further transactions are allowed",
                 "consumes": [
                     "application/json"
                 ],
@@ -174,8 +174,11 @@ const docTemplate = `{
                     }
                 },
                 "coinbase": {
-                    "description": "@param coinbase uint64 Coinbase of the soft block",
-                    "type": "string"
+                    "description": "@param coinbase string Coinbase of the soft block",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
                 },
                 "timestamp": {
                     "description": "@param timestamp uint64 Timestamp of the soft block",
@@ -226,10 +229,12 @@ const docTemplate = `{
         "softblocks.TransactionBatchMarker": {
             "type": "string",
             "enum": [
-                "end_of_block",
-                "end_of_preconf"
+                "",
+                "endOfBlock",
+                "endOfPreconf"
             ],
             "x-enum-varnames": [
+                "BatchMarkerEmpty",
                 "BatchMarkerEOB",
                 "BatchMarkerEOP"
             ]
