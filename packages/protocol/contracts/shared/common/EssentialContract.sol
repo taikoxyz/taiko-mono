@@ -13,14 +13,14 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
     uint8 internal constant _TRUE = 2;
 
     IResolver public resolver;
-    uint256[49] private __gap0;
+    uint256[49] private __gap_old_AddressResolver;
 
     /// @dev Slot 1.
     uint8 internal __reentry;
     uint8 internal __paused;
     uint64 internal __lastUnpausedAt;
 
-    uint256[49] private __gap1;
+    uint256[49] private __gap;
 
     /// @notice Emitted when the contract is paused.
     /// @param account The account that paused the contract.
