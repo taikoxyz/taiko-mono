@@ -26,6 +26,8 @@ import "./token/RegularERC20.sol";
 import "./token/MayFailFreeMintERC20.sol";
 import "./HelperContracts.sol";
 
+import "src/layer1/token/TaikoToken.sol"; // why we need Taiko token here? TODO
+
 abstract contract TaikoTest is Test, Script {
     uint256 private _seed = 0x12345678;
     address internal Alice = vm.addr(0x1);
@@ -129,6 +131,40 @@ abstract contract TaikoTest is Test, Script {
         );
     }
 
+    function deployTaikoToken(DefaultResolver resolver) internal returns (TaikoToken) {
+        return TaikoToken(
+            deploy({
+                name: "taiko_token",
+                impl: address(new TaikoToken()),
+                data: abi.encodeCall(TaikoToken.init, (address(0), address(this))),
+                resolver: resolver
+            })
+        );
+    }
+
+    function deployBridgedERC20(
+        DefaultResolver resolver,
+        address srcToken,
+        uint256 srcChainId,
+        uint8 decimals,
+        string memory symbol,
+        string memory name
+    )
+        internal
+        returns (BridgedERC20)
+    {
+        return BridgedERC20(
+            deploy({
+                name: "erc20_token",
+                impl: address(new BridgedERC20()),
+                data: abi.encodeCall(
+                    BridgedERC20.init,
+                    (address(0), address(resolver), srcToken, srcChainId, decimals, symbol, name)
+                )
+            })
+        );
+    }
+
     function deployBridge(DefaultResolver resolver, address bridgeImpl) internal returns (Bridge) {
         return Bridge(
             deploy({
@@ -141,13 +177,42 @@ abstract contract TaikoTest is Test, Script {
     }
 
     function deployQuotaManager(DefaultResolver resolver) internal returns (QuotaManager) {
-         return QuotaManager(
-                deploy({
-                    name: "quota_manager",
-                    impl: address(new QuotaManager()),
-                    data: abi.encodeCall(QuotaManager.init, (address(0), address(resolver), 24 hours))
-                })
+        return QuotaManager(
+            deploy({
+                name: "quota_manager",
+                impl: address(new QuotaManager()),
+                data: abi.encodeCall(QuotaManager.init, (address(0), address(resolver), 24 hours))
+            })
         );
+    }
 
+    function deployERC20Vault(DefaultResolver resolver) internal returns (ERC20Vault) {
+        return ERC20Vault(
+            deploy({
+                name: "erc20_vault",
+                impl: address(new ERC20Vault()),
+                data: abi.encodeCall(ERC20Vault.init, (address(0), address(resolver)))
+            })
+        );
+    }
+
+    function deployERC721Vault(DefaultResolver resolver) internal returns (ERC721Vault) {
+        return ERC721Vault(
+            deploy({
+                name: "erc721_vault",
+                impl: address(new ERC721Vault()),
+                data: abi.encodeCall(ERC721Vault.init, (address(0), address(resolver)))
+            })
+        );
+    }
+
+    function deployERC1155Vault(DefaultResolver resolver) internal returns (ERC1155Vault) {
+        return ERC1155Vault(
+            deploy({
+                name: "erc1155_vault",
+                impl: address(new ERC1155Vault()),
+                data: abi.encodeCall(ERC1155Vault.init, (address(0), address(resolver)))
+            })
+        );
     }
 }

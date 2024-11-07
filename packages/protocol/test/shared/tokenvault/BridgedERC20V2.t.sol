@@ -120,9 +120,6 @@ contract TestBridgedERC20 is TaikoTest {
         uint256 srcChainId = 1000;
         uint8 srcDecimals = 11;
         return BridgedERC20(
-
-
-
             deploy({
                 name: "bridged_token1",
                 impl: address(new BridgedERC20V2()),

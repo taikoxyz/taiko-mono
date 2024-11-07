@@ -1,13 +1,14 @@
-// // SPDX-License-Identifier: MIT
-// pragma solidity ^0.8.24;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
 
-// import "../TaikoTest.sol";
+import "../TaikoTest.sol";
 
 // /// @author Kirk Baird <kirk@sigmaprime.io>
 // contract TestAddressResolver is TaikoTest {
 //     function deployTaikoL1() internal override returns (TaikoL1) {
 //         return
-//             TaikoL1(payable(deployProxy({ name: "taiko", impl: address(new TaikoL1()), data: "" })));
+//             TaikoL1(payable(deployProxy({ name: "taiko", impl: address(new TaikoL1()), data: ""
+// })));
 //     }
 
 //     function setUp() public override {

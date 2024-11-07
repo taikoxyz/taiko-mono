@@ -95,7 +95,7 @@ contract ERC1155VaultTest is TaikoTest {
     Bridge bridge;
     Bridge destChainBridge;
     PrankDestBridge destChainIdBridge;
-    SkipProofCheckSignal mockProofSignalService;
+    SignalService mockProofSignalService;
     ERC1155Vault erc1155Vault;
     ERC1155Vault destChainErc1155Vault;
     TestTokenERC1155 ctoken1155;
@@ -141,45 +141,42 @@ contract ERC1155VaultTest is TaikoTest {
         //     })
         // );
 
-        erc1155Vault = ERC1155Vault(
-            deployProxy({
-                name: "erc1155_vault",
-                impl: address(new ERC1155Vault()),
-                data: abi.encodeCall(ERC1155Vault.init, (address(0), address(resolver)))
-            })
-        );
+        erc1155Vault = deployERC1155Vault(resolver);
+        destChainErc1155Vault = deployERC1155Vault(resolver);
+        // ERC1155Vault(
+        //     deployProxy({
+        //         name: "erc1155_vault",
+        //         impl: address(new ERC1155Vault()),
+        //         data: abi.encodeCall(ERC1155Vault.init, (address(0), address(resolver)))
+        //     })
+        // );
 
-        destChainErc1155Vault = ERC1155Vault(
-            deployProxy({
-                name: "erc1155_vault",
-                impl: address(new ERC1155Vault()),
-                data: abi.encodeCall(ERC1155Vault.init, (address(0), address(resolver)))
-            })
-        );
+        // destChainErc1155Vault = ERC1155Vault(
+        //     deployProxy({
+        //         name: "erc1155_vault",
+        //         impl: address(new ERC1155Vault()),
+        //         data: abi.encodeCall(ERC1155Vault.init, (address(0), address(resolver)))
+        //     })
+        // );
 
         destChainIdBridge = new PrankDestBridge(destChainErc1155Vault);
         vm.deal(address(destChainIdBridge), 100 ether);
 
-        mockProofSignalService = SkipProofCheckSignal(
-            deployProxy({
-                name: "signal_service",
-                impl: address(new SkipProofCheckSignal()),
-                data: abi.encodeCall(SignalService.init, (address(0), address(resolver)))
-            })
-        );
+        mockProofSignalService = deploySignalService(resolver, address(new SkipProofCheckSignal()));
+        // // SkipProofCheckSignal(
+        //     deployProxy({
+        //         name: "signal_service",
+        //         impl: address(new SkipProofCheckSignal()),
+        //         data: abi.encodeCall(SignalService.init, (address(0), address(resolver)))
+        //     })
+        // );
 
-        resolver.setAddress(
-            uint64(block.chainid), "signal_service", address(mockProofSignalService)
-        );
+        resolver.setAddress(block.chainid, "signal_service", address(mockProofSignalService));
 
         resolver.setAddress(destChainId, "signal_service", address(mockProofSignalService));
-
-        resolver.setAddress(uint64(block.chainid), "bridge", address(bridge));
-
+        resolver.setAddress(block.chainid, "bridge", address(bridge));
         resolver.setAddress(destChainId, "bridge", address(destChainIdBridge));
-
-        resolver.setAddress(uint64(block.chainid), "erc1155_vault", address(erc1155Vault));
-
+        resolver.setAddress(block.chainid, "erc1155_vault", address(erc1155Vault));
         resolver.setAddress(destChainId, "erc1155_vault", address(destChainErc1155Vault));
 
         // Below 2-2 registrations (mock) are needed bc of
@@ -187,19 +184,15 @@ contract ERC1155VaultTest is TaikoTest {
         // resolve address
         resolver.setAddress(destChainId, "erc721_vault", address(mockProofSignalService));
         resolver.setAddress(destChainId, "erc20_vault", address(mockProofSignalService));
-        resolver.setAddress(
-            uint64(block.chainid), "erc721_vault", address(mockProofSignalService)
-        );
-        resolver.setAddress(
-            uint64(block.chainid), "erc20_vault", address(mockProofSignalService)
-        );
+        resolver.setAddress(block.chainid, "erc721_vault", address(mockProofSignalService));
+        resolver.setAddress(block.chainid, "erc20_vault", address(mockProofSignalService));
 
         vm.deal(address(bridge), 100 ether);
 
         address bridgedERC1155 = address(new BridgedERC1155());
 
         resolver.setAddress(destChainId, "bridged_erc1155", bridgedERC1155);
-        resolver.setAddress(uint64(block.chainid), "bridged_erc1155", bridgedERC1155);
+        resolver.setAddress(block.chainid, "bridged_erc1155", bridgedERC1155);
 
         ctoken1155 = new TestTokenERC1155("http://example.host.com/");
         vm.stopPrank();
@@ -719,7 +712,7 @@ contract ERC1155VaultTest is TaikoTest {
         destChainIdBridge.setERC1155Vault(address(erc1155Vault));
 
         vm.prank(Carol, Carol);
-        resolver.setAddress(uint64(block.chainid), "bridge", address(destChainIdBridge));
+        resolver.setAddress(block.chainid, "bridge", address(destChainIdBridge));
 
         destChainIdBridge.sendReceiveERC1155ToERC1155Vault(
             canonicalToken,

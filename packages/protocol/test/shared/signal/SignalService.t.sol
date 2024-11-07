@@ -25,7 +25,7 @@ contract MockSignalService is SignalService {
 
 contract TestSignalService is TaikoTest {
     DefaultResolver resolver;
-    MockSignalService signalService;
+    SignalService signalService;
     SignalService realSignalService;
     uint64 public destChainId = 7;
     address taiko;
@@ -44,10 +44,9 @@ contract TestSignalService is TaikoTest {
         //     })
         // );
 
-        signalService = deploySignalService(resolver,address(new MockSignalService()));
+        signalService = deploySignalService(resolver, address(new MockSignalService()));
 
-
-        realSignalService = deploySignalService(resolver,address(new SignalService()));
+        realSignalService = deploySignalService(resolver, address(new SignalService()));
         //     deployProxy({
         //         name: "signal_service",
         //         impl: address(new SignalService()),
@@ -579,9 +578,7 @@ contract TestSignalService is TaikoTest {
         vm.startPrank(Alice);
         resolver.setAddress(srcChainId, "signal_service", randAddress());
         for (uint256 i; i < proofs.length; ++i) {
-            resolver.setAddress(
-                proofs[i].chainId, "signal_service", randAddress() /*relay1*/
-            );
+            resolver.setAddress(proofs[i].chainId, "signal_service", randAddress() /*relay1*/ );
         }
         vm.stopPrank();
 

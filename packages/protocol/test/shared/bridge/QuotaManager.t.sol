@@ -23,8 +23,7 @@ contract QuotaManagerTest is TaikoTest {
 
         resolver.setAddress(block.chainid, "bridge", bridge);
 
-        qm =deployQuotaManager(resolver);
-
+        qm = deployQuotaManager(resolver);
 
         vm.stopPrank();
     }

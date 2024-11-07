@@ -111,7 +111,7 @@ contract ERC721VaultTest is TaikoTest {
     Bridge bridge;
     Bridge destChainBridge;
     PrankDestBridge destChainIdBridge;
-    SkipProofCheckSignal mockProofSignalService;
+    SignalService mockProofSignalService;
     ERC721Vault erc721Vault;
     ERC721Vault destChainErc721Vault;
     TestTokenERC721 canonicalToken721;
@@ -124,82 +124,32 @@ contract ERC721VaultTest is TaikoTest {
         vm.deal(Carol, 100 ether);
         vm.deal(Bob, 100 ether);
 
-        resolver = DefaultResolver(
-            deployProxy({
-                name: "address_manager",
-                impl: address(new DefaultResolver()),
-                data: abi.encodeCall(DefaultResolver.init, (address(0)))
-            })
-        );
+        resolver = deployDefaultResolver();
 
-        bridge = Bridge(
-            payable(
-                deployProxy({
-                    name: "bridge",
-                    impl: address(new Bridge()),
-                    data: abi.encodeCall(Bridge.init, (address(0), address(resolver))),
-                    registerTo: address(resolver)
-                })
-            )
-        );
+        bridge = deployBridge(resolver, address(new Bridge()));
 
-        destChainBridge = Bridge(
-            payable(
-                deployProxy({
-                    name: "bridge",
-                    impl: address(new Bridge()),
-                    data: abi.encodeCall(Bridge.init, (address(0), address(resolver))),
-                    registerTo: address(resolver)
-                })
-            )
-        );
+        destChainBridge = deployBridge(resolver, address(new Bridge()));
 
-        signalService = SignalService(
-            deployProxy({
-                name: "signal_service",
-                impl: address(new SignalService()),
-                data: abi.encodeCall(SignalService.init, (address(0), address(resolver)))
-            })
-        );
+        signalService = deploySignalService(resolver, address(new SignalService()));
 
-        erc721Vault = ERC721Vault(
-            deployProxy({
-                name: "erc721_vault",
-                impl: address(new ERC721Vault()),
-                data: abi.encodeCall(ERC721Vault.init, (address(0), address(resolver)))
-            })
-        );
+        erc721Vault = deployERC721Vault(resolver);
 
-        destChainErc721Vault = ERC721Vault(
-            deployProxy({
-                name: "erc721_vault",
-                impl: address(new ERC721Vault()),
-                data: abi.encodeCall(ERC721Vault.init, (address(0), address(resolver)))
-            })
-        );
+        destChainErc721Vault = deployERC721Vault(resolver);
 
         destChainIdBridge = new PrankDestBridge(destChainErc721Vault);
         vm.deal(address(destChainIdBridge), 100 ether);
 
-        mockProofSignalService = SkipProofCheckSignal(
-            deployProxy({
-                name: "signal_service",
-                impl: address(new SkipProofCheckSignal()),
-                data: abi.encodeCall(SignalService.init, (address(0), address(resolver)))
-            })
-        );
+        mockProofSignalService = deploySignalService(resolver, address(new SkipProofCheckSignal()));
 
-        resolver.setAddress(
-            uint64(block.chainid), "signal_service", address(mockProofSignalService)
-        );
+        resolver.setAddress(block.chainid, "signal_service", address(mockProofSignalService));
 
         resolver.setAddress(destChainId, "signal_service", address(mockProofSignalService));
 
-        resolver.setAddress(uint64(block.chainid), "bridge", address(bridge));
+        resolver.setAddress(block.chainid, "bridge", address(bridge));
 
         resolver.setAddress(destChainId, "bridge", address(destChainIdBridge));
 
-        resolver.setAddress(uint64(block.chainid), "erc721_vault", address(erc721Vault));
+        resolver.setAddress(block.chainid, "erc721_vault", address(erc721Vault));
 
         resolver.setAddress(destChainId, "erc721_vault", address(destChainErc721Vault));
         // Below 2-2 registrations (mock) are needed bc of
@@ -207,13 +157,13 @@ contract ERC721VaultTest is TaikoTest {
         // resolve address
         resolver.setAddress(destChainId, "erc1155_vault", address(erc721Vault));
         resolver.setAddress(destChainId, "erc20_vault", address(erc721Vault));
-        resolver.setAddress(uint64(block.chainid), "erc1155_vault", address(erc721Vault));
-        resolver.setAddress(uint64(block.chainid), "erc20_vault", address(erc721Vault));
+        resolver.setAddress(block.chainid, "erc1155_vault", address(erc721Vault));
+        resolver.setAddress(block.chainid, "erc20_vault", address(erc721Vault));
 
         address bridgedERC721 = address(new BridgedERC721());
 
         resolver.setAddress(destChainId, "bridged_erc721", bridgedERC721);
-        resolver.setAddress(uint64(block.chainid), "bridged_erc721", bridgedERC721);
+        resolver.setAddress(block.chainid, "bridged_erc721", bridgedERC721);
 
         vm.stopPrank();
 
@@ -674,7 +624,7 @@ contract ERC721VaultTest is TaikoTest {
         destChainIdBridge.setERC721Vault(address(erc721Vault));
 
         vm.prank(Carol, Carol);
-        resolver.setAddress(uint64(block.chainid), "bridge", address(destChainIdBridge));
+        resolver.setAddress(block.chainid, "bridge", address(destChainIdBridge));
 
         destChainIdBridge.sendReceiveERC721ToERC721Vault(
             canonicalToken, Bob, Bob, tokenIds, bytes32(0), address(erc721Vault), chainId, 0
