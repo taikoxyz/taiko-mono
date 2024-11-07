@@ -64,7 +64,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     /// @param _remoteOwner The real owner on L1 that can send a cross-chain message to invoke
     /// `onMessageInvocation`.
     /// @param _remoteChainId The L1 chain's ID.
-    /// @param _sharedResolver The address of the {AddressManager} contract.
+    /// @param _sharedResolver The {IResolver} used by multipel rollups.
     /// @param _admin The admin address.
     function init(
         address _remoteOwner,

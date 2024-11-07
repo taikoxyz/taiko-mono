@@ -52,7 +52,7 @@ interface IBridgedERC20Migratable {
 interface IBridgedERC20Initializable {
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _sharedResolver The address of the {AddressManager} contract.
+    /// @param _sharedResolver The {IResolver} used by multipel rollups.
     /// @param _srcToken The source token address.
     /// @param _srcChainId The source chain ID.
     /// @param _decimals The number of decimal places of the source token.

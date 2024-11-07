@@ -32,7 +32,7 @@ interface IBridgedERC1155 {
 interface IBridgedERC1155Initializable {
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _sharedResolver The address of the {AddressManager} contract.
+    /// @param _sharedResolver The {IResolver} used by multipel rollups.
     /// @param _srcToken Address of the source token.
     /// @param _srcChainId Source chain ID.
     /// @param _symbol Symbol of the bridged token.
