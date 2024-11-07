@@ -60,20 +60,18 @@ contract BridgeTest is TaikoTest {
         resolver = deployDefaultResolver();
 
         bridge = deployBridge(resolver, address(new Bridge()));
-        signalService = deploySignalService(resolver, address(new SignalService()));
+        signalService = deploySignalService(resolver, address(new SignalServiceNoProofCheck()));
         untrustedSenderContract = new UntrustedSendMessageRelayer();
         vm.deal(address(untrustedSenderContract), 10 ether);
 
         // Deploy on destination chain
         vm.chainId(destChainId);
-        destSignalService = deploySignalService(resolver, address(new SignalServiceNoProofCheck()));
+        destSignalService = deploySignalService(resolver, address(new SignalService()));
         destBridge = deployBridge(resolver, address(new Bridge()));
         vm.deal(address(destBridge), 100 ether);
         vm.chainId(chainId);
 
         // Register contracts from destination chain
-        // resolver.setAddress(destChainId, "signal_service", address(signalServiceNoProofCheck));
-        //  resolver.setAddress(destChainId, "bridge", address(destBridge));
         resolver.setAddress(destChainId, "taiko", address(uint160(123)));
         resolver.setAddress(destChainId, "bridge_watchdog", address(uint160(123)));
 
