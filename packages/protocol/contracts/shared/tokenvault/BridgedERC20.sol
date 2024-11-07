@@ -60,7 +60,7 @@ contract BridgedERC20 is
     /// @inheritdoc IBridgedERC20Initializable
     function init(
         address _owner,
-        address _sharedAddressManager,
+        address _sharedResolver,
         address _srcToken,
         uint256 _srcChainId,
         uint8 _decimals,
@@ -73,7 +73,7 @@ contract BridgedERC20 is
     {
         // Check if provided parameters are valid
         LibBridgedToken.validateInputs(_srcToken, _srcChainId);
-        __Essential_init(_owner, _sharedAddressManager);
+        __Essential_init(_owner, _sharedResolver);
         __ERC20_init(_name, _symbol);
 
         // Set contract properties

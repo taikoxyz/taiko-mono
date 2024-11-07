@@ -103,9 +103,9 @@ contract Bridge is EssentialContract, IBridge {
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _sharedAddressManager The address of the {AddressManager} contract.
-    function init(address _owner, address _sharedAddressManager) external initializer {
-        __Essential_init(_owner, _sharedAddressManager);
+    /// @param _sharedResolver The address of the {AddressManager} contract.
+    function init(address _owner, address _sharedResolver) external initializer {
+        __Essential_init(_owner, _sharedResolver);
     }
 
     /// @notice This function shall be called by previously deployed contracts.

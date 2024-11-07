@@ -3,10 +3,10 @@ pragma solidity ^0.8.24;
 
 import "./EssentialContract.sol";
 
-/// @title Resolver
-/// @notice See the documentation in {IAddressManager}.
+/// @title DefaultResolver
+/// @notice See the documentation in {IResolver}.
 /// @custom:security-contact security@taiko.xyz
-contract Resolver is EssentialContract, IResolver {
+contract DefaultResolver is EssentialContract, ResolverBase {
     /// @dev Mapping of chainId to mapping of name to address.
     mapping(uint256 chainId => mapping(bytes32 name => address addr)) private __addresses;
 
@@ -21,8 +21,8 @@ contract Resolver is EssentialContract, IResolver {
         uint64 indexed chainId, bytes32 indexed name, address newAddress, address oldAddress
     );
 
-    error AM_ADDRESS_ALREADY_SET();
-    error RESOLVED_ADDRESS_ZERO();
+    error AM_ADDRESS_ALREADY_SET(); // TODO: rename
+    error RESOLVED_ADDRESS_ZERO(); // TODO: rename
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract.

@@ -2,19 +2,13 @@
 pragma solidity ^0.8.24;
 
 import "src/layer1/verifiers/compose/ZkAnyVerifier.sol";
-import "src/layer1/mainnet/addrcache/RollupAddressCache.sol";
 import "src/layer1/mainnet/reentrylock/LibFasterReentryLock.sol";
 
 /// @title MainnetZkAnyVerifier
 /// @dev This contract shall be deployed to replace its parent contract on Ethereum for Taiko
 /// mainnet to reduce gas cost.
 /// @custom:security-contact security@taiko.xyz
-contract MainnetZkAnyVerifier is ZkAnyVerifier, RollupAddressCache {
-    // function _getAddress(uint64 _chainId, bytes32 _name) internal view override returns (address)
-    // {
-    //     return getAddress(_chainId, _name, super._getAddress);
-    // }
-
+contract MainnetZkAnyVerifier is ZkAnyVerifier {
     function _storeReentryLock(uint8 _reentry) internal override {
         LibFasterReentryLock.storeReentryLock(_reentry);
     }

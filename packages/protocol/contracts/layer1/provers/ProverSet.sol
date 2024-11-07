@@ -50,13 +50,13 @@ contract ProverSet is EssentialContract, IERC1271 {
     function init(
         address _owner,
         address _admin,
-        address _taikoResolver
+        address _rollupResolver
     )
         external
         nonZeroAddr(_admin)
         initializer
     {
-        __Essential_init(_owner, _taikoResolver);
+        __Essential_init(_owner, _rollupResolver);
         admin = _admin;
 
         address _bondToken = bondToken();

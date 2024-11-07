@@ -74,12 +74,12 @@ contract TokenUnlock is EssentialContract {
 
     /// @notice Initializes the contract.
     /// @param _owner The contract owner address.
-    /// @param _taikoResolver The rollup address manager.
+    /// @param _rollupResolver The rollup address manager.
     /// @param _recipient Who will be the grantee for this contract.
     /// @param _tgeTimestamp The token generation event timestamp.
     function init(
         address _owner,
-        address _taikoResolver,
+        address _rollupResolver,
         address _recipient,
         uint64 _tgeTimestamp
     )
@@ -90,7 +90,7 @@ contract TokenUnlock is EssentialContract {
     {
         if (_owner == _recipient) revert INVALID_PARAM();
 
-        __Essential_init(_owner, _taikoResolver);
+        __Essential_init(_owner, _rollupResolver);
 
         recipient = _recipient;
         tgeTimestamp = _tgeTimestamp;

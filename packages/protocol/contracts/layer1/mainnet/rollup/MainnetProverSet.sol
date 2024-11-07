@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import "src/layer1/provers/ProverSet.sol";
-import "../addrcache/RollupAddressCache.sol";
 import "../reentrylock/LibFasterReentryLock.sol";
 
 /// @title MainnetProverSet
@@ -11,12 +10,7 @@ import "../reentrylock/LibFasterReentryLock.sol";
 /// not well testee nor necessary.
 /// @notice See the documentation in {ProverSet}.
 /// @custom:security-contact security@taiko.xyz
-contract MainnetProverSet is ProverSet, RollupAddressCache {
-    // function _getAddress(uint64 _chainId, bytes32 _name) internal view override returns (address)
-    // {
-    //     return getAddress(_chainId, _name, super._getAddress);
-    // }
-
+contract MainnetProverSet is ProverSet {
     function _storeReentryLock(uint8 _reentry) internal override {
         LibFasterReentryLock.storeReentryLock(_reentry);
     }

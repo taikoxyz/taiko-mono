@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import "src/layer1/verifiers/SgxVerifier.sol";
-import "src/layer1/mainnet/addrcache/RollupAddressCache.sol";
 import "src/layer1/mainnet/reentrylock/LibFasterReentryLock.sol";
 
 /// @title MainnetSgxVerifier
@@ -10,12 +9,7 @@ import "src/layer1/mainnet/reentrylock/LibFasterReentryLock.sol";
 /// mainnet to reduce gas cost.
 /// @notice See the documentation in {SgxVerifier}.
 /// @custom:security-contact security@taiko.xyz
-contract MainnetSgxVerifier is SgxVerifier, RollupAddressCache {
-    // function _getAddress(uint64 _chainId, bytes32 _name) internal view override returns (address)
-    // {
-    //     return getAddress(_chainId, _name, super._getAddress);
-    // }
-
+contract MainnetSgxVerifier is SgxVerifier {
     function _storeReentryLock(uint8 _reentry) internal override {
         LibFasterReentryLock.storeReentryLock(_reentry);
     }

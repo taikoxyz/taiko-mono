@@ -33,9 +33,9 @@ contract Risc0Verifier is EssentialContract, IVerifier {
 
     /// @notice Initializes the contract with the provided address manager.
     /// @param _owner The address of the owner.
-    /// @param _taikoResolver The address of the AddressManager.
-    function init(address _owner, address _taikoResolver) external initializer {
-        __Essential_init(_owner, _taikoResolver);
+    /// @param _rollupResolver The address of the AddressManager.
+    function init(address _owner, address _rollupResolver) external initializer {
+        __Essential_init(_owner, _rollupResolver);
     }
 
     /// @notice Sets/unsets an the imageId as trusted entity

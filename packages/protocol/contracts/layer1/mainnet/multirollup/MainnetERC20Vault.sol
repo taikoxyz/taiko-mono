@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import "src/shared/tokenvault/ERC20Vault.sol";
-import "../addrcache/SharedAddressCache.sol";
 import "../reentrylock/LibFasterReentryLock.sol";
 
 /// @title MainnetERC20Vault
@@ -11,12 +10,7 @@ import "../reentrylock/LibFasterReentryLock.sol";
 /// not well testee nor necessary.
 /// @notice See the documentation in {ER20Vault}.
 /// @custom:security-contact security@taiko.xyz
-contract MainnetERC20Vault is ERC20Vault, SharedAddressCache {
-    // function _getAddress(uint64 _chainId, bytes32 _name) internal view override returns (address)
-    // {
-    //     return getAddress(_chainId, _name, super._getAddress);
-    // }
-
+contract MainnetERC20Vault is ERC20Vault {
     function _storeReentryLock(uint8 _reentry) internal override {
         LibFasterReentryLock.storeReentryLock(_reentry);
     }
