@@ -24,7 +24,7 @@ contract MockSignalService is SignalService {
 }
 
 contract TestSignalService is TaikoTest {
-    AddressManager addressManager;
+    DefaultResolver resolver;
     MockSignalService signalService;
     SignalService realSignalService;
     uint64 public destChainId = 7;
@@ -35,30 +35,25 @@ contract TestSignalService is TaikoTest {
         vm.deal(Alice, 1 ether);
         vm.deal(Bob, 1 ether);
 
-        addressManager = AddressManager(
-            deployProxy({
-                name: "address_manager",
-                impl: address(new AddressManager()),
-                data: abi.encodeCall(AddressManager.init, (address(0))),
-                registerTo: address(addressManager)
-            })
-        );
+        resolver = deployDefaultResolver();
+        //     deployProxy({
+        //         name: "address_manager",
+        //         impl: address(new DefaultResolver()),
+        //         data: abi.encodeCall(DefaultResolver.init, (address(0))),
+        //         registerTo: address(resolver)
+        //     })
+        // );
 
-        signalService = MockSignalService(
-            deployProxy({
-                name: "signal_service",
-                impl: address(new MockSignalService()),
-                data: abi.encodeCall(SignalService.init, (address(0), address(addressManager)))
-            })
-        );
+        signalService = deploySignalService(resolver,address(new MockSignalService()));
 
-        realSignalService = SignalService(
-            deployProxy({
-                name: "signal_service",
-                impl: address(new SignalService()),
-                data: abi.encodeCall(SignalService.init, (Alice, address(addressManager)))
-            })
-        );
+
+        realSignalService = deploySignalService(resolver,address(new SignalService()));
+        //     deployProxy({
+        //         name: "signal_service",
+        //         impl: address(new SignalService()),
+        //         data: abi.encodeCall(SignalService.init, (Alice, address(resolver)))
+        //     })
+        // );
 
         taiko = randAddress();
         signalService.authorize(taiko, true);
@@ -77,7 +72,7 @@ contract TestSignalService is TaikoTest {
         address srcBridge = 0xde5B0e8a8034eF30a8b71d78e658C85dFE3FC657;
 
         vm.prank(Alice);
-        addressManager.setAddress(32_382, "signal_service", srcSignalService);
+        resolver.setAddress(32_382, "signal_service", srcSignalService);
 
         bytes32 stateRoot = hex"7a889e6436fc1cde7827f75217adf5371afb14cc56860e6d9032ba5e28214819";
         uint64 blockId = 5570;
@@ -150,13 +145,13 @@ contract TestSignalService is TaikoTest {
 
         // Did not call the following, so revert with RESOLVER_ZERO_ADDR
         //   vm.prank(Alice);
-        //   addressManager.setAddress(srcChainId, "signal_service", randAddress());
+        //   resolver.setAddress(srcChainId, "signal_service", randAddress());
 
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](1);
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                AddressResolver.RESOLVER_ZERO_ADDR.selector, srcChainId, "signal_service"
+                IResolver.RESOLVED_TO_ZERO_ADDRESS.selector, srcChainId, "signal_service"
             )
         );
         signalService.proveSignalReceived({
@@ -171,7 +166,7 @@ contract TestSignalService is TaikoTest {
         uint64 srcChainId = uint64(block.chainid - 1);
 
         vm.prank(Alice);
-        addressManager.setAddress(srcChainId, "signal_service", randAddress());
+        resolver.setAddress(srcChainId, "signal_service", randAddress());
 
         // proofs.length must > 0 in order not to revert
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](0);
@@ -189,7 +184,7 @@ contract TestSignalService is TaikoTest {
         uint64 srcChainId = uint64(block.chainid - 1);
 
         vm.prank(Alice);
-        addressManager.setAddress(srcChainId, "signal_service", randAddress());
+        resolver.setAddress(srcChainId, "signal_service", randAddress());
 
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](1);
 
@@ -210,7 +205,7 @@ contract TestSignalService is TaikoTest {
         uint64 srcChainId = uint64(block.chainid - 1);
 
         vm.prank(Alice);
-        addressManager.setAddress(srcChainId, "signal_service", randAddress());
+        resolver.setAddress(srcChainId, "signal_service", randAddress());
 
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](2);
 
@@ -231,7 +226,7 @@ contract TestSignalService is TaikoTest {
         uint64 srcChainId = uint64(block.chainid + 1);
 
         vm.prank(Alice);
-        addressManager.setAddress(srcChainId, "signal_service", randAddress());
+        resolver.setAddress(srcChainId, "signal_service", randAddress());
 
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](2);
 
@@ -241,7 +236,7 @@ contract TestSignalService is TaikoTest {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                AddressResolver.RESOLVER_ZERO_ADDR.selector,
+                IResolver.RESOLVED_TO_ZERO_ADDRESS.selector,
                 proofs[0].chainId,
                 bytes32("signal_service")
             )
@@ -259,7 +254,7 @@ contract TestSignalService is TaikoTest {
         uint64 srcChainId = uint64(block.chainid + 1);
 
         vm.prank(Alice);
-        addressManager.setAddress(srcChainId, "signal_service", randAddress());
+        resolver.setAddress(srcChainId, "signal_service", randAddress());
 
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](1);
 
@@ -294,7 +289,7 @@ contract TestSignalService is TaikoTest {
         uint64 srcChainId = uint64(block.chainid + 1);
 
         vm.prank(Alice);
-        addressManager.setAddress(srcChainId, "signal_service", randAddress());
+        resolver.setAddress(srcChainId, "signal_service", randAddress());
 
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](1);
 
@@ -340,7 +335,7 @@ contract TestSignalService is TaikoTest {
         uint64 srcChainId = uint64(block.chainid + 1);
 
         vm.prank(Alice);
-        addressManager.setAddress(srcChainId, "signal_service", randAddress());
+        resolver.setAddress(srcChainId, "signal_service", randAddress());
 
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](1);
 
@@ -386,7 +381,7 @@ contract TestSignalService is TaikoTest {
         uint64 srcChainId = uint64(block.chainid + 1);
 
         vm.prank(Alice);
-        addressManager.setAddress(srcChainId, "signal_service", randAddress());
+        resolver.setAddress(srcChainId, "signal_service", randAddress());
 
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](3);
 
@@ -414,7 +409,7 @@ contract TestSignalService is TaikoTest {
         // expect RESOLVER_ZERO_ADDR
         vm.expectRevert(
             abi.encodeWithSelector(
-                AddressResolver.RESOLVER_ZERO_ADDR.selector,
+                IResolver.RESOLVED_TO_ZERO_ADDRESS.selector,
                 proofs[0].chainId,
                 bytes32("signal_service")
             )
@@ -428,8 +423,8 @@ contract TestSignalService is TaikoTest {
 
         // Add two trusted hop relayers
         vm.startPrank(Alice);
-        addressManager.setAddress(proofs[0].chainId, "signal_service", randAddress() /*relay1*/ );
-        addressManager.setAddress(proofs[1].chainId, "signal_service", randAddress() /*relay2*/ );
+        resolver.setAddress(proofs[0].chainId, "signal_service", randAddress() /*relay1*/ );
+        resolver.setAddress(proofs[1].chainId, "signal_service", randAddress() /*relay2*/ );
         vm.stopPrank();
 
         vm.expectRevert(SignalService.SS_SIGNAL_NOT_FOUND.selector);
@@ -457,7 +452,7 @@ contract TestSignalService is TaikoTest {
         uint64 srcChainId = uint64(block.chainid + 1);
 
         vm.prank(Alice);
-        addressManager.setAddress(srcChainId, "signal_service", randAddress());
+        resolver.setAddress(srcChainId, "signal_service", randAddress());
 
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](3);
 
@@ -484,8 +479,8 @@ contract TestSignalService is TaikoTest {
 
         // Add two trusted hop relayers
         vm.startPrank(Alice);
-        addressManager.setAddress(proofs[0].chainId, "signal_service", randAddress() /*relay1*/ );
-        addressManager.setAddress(proofs[1].chainId, "signal_service", randAddress() /*relay2*/ );
+        resolver.setAddress(proofs[0].chainId, "signal_service", randAddress() /*relay1*/ );
+        resolver.setAddress(proofs[1].chainId, "signal_service", randAddress() /*relay2*/ );
         vm.stopPrank();
 
         vm.prank(taiko);
@@ -582,9 +577,9 @@ contract TestSignalService is TaikoTest {
 
         // Add two trusted hop relayers
         vm.startPrank(Alice);
-        addressManager.setAddress(srcChainId, "signal_service", randAddress());
+        resolver.setAddress(srcChainId, "signal_service", randAddress());
         for (uint256 i; i < proofs.length; ++i) {
-            addressManager.setAddress(
+            resolver.setAddress(
                 proofs[i].chainId, "signal_service", randAddress() /*relay1*/
             );
         }

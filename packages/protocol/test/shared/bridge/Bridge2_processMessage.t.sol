@@ -74,7 +74,7 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         vm.stopPrank();
 
         vm.prank(owner);
-        addressManager.setAddress(message.srcChainId, "bridge", address(0));
+        resolver.setAddress(message.srcChainId, "bridge", address(0));
 
         vm.startPrank(Alice);
 
@@ -399,7 +399,7 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         assertSameTotalBalance
     {
         vm.startPrank(owner);
-        addressManager.setAddress(
+        resolver.setAddress(
             uint64(block.chainid), "quota_manager", address(new OutOfQuotaManager())
         );
         vm.stopPrank();
@@ -431,7 +431,7 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         assertSameTotalBalance
     {
         vm.startPrank(owner);
-        addressManager.setAddress(
+        resolver.setAddress(
             uint64(block.chainid), "quota_manager", address(new OutOfQuotaManager())
         );
         vm.stopPrank();

@@ -74,7 +74,7 @@ contract BridgeTest2_recallMessage is BridgeTest2 {
         (, IBridge.Message memory m) = bridge.sendMessage{ value: 1 ether }(message);
 
         vm.prank(owner);
-        addressManager.setAddress(uint64(block.chainid), "signal_service", address(0));
+        resolver.setAddress(block.chainid, "signal_service", address(0));
 
         vm.prank(Carol);
         vm.expectRevert();

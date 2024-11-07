@@ -11,6 +11,7 @@
     "compile": "pnpm compile:l1 && pnpm compile:l2",
     "test:l1": "FOUNDRY_PROFILE=layer1 forge test -vvv --extra-output storage-layout",
     "test:l2": "FOUNDRY_PROFILE=layer2 forge test -vvv --extra-output storage-layout",
+    "test:shared": "FOUNDRY_PROFILE=shared forge test -vvv --extra-output storage-layout",
     "test": "pnpm test:l1 && pnpm test:l2",
     "layout:l1": "./script/gen-layouts.sh layer1",
     "layout:l2": "./script/gen-layouts.sh layer2",

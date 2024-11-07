@@ -10,7 +10,7 @@ contract BridgeTest2 is TaikoTest {
     uint64 public remoteChainId;
     address public remoteBridge;
 
-    AddressManager public addressManager;
+    DefaultResolver public resolver;
     SignalService public signalService;
     Bridge public bridge;
 
@@ -44,37 +44,37 @@ contract BridgeTest2 is TaikoTest {
 
         vm.startPrank(owner);
 
-        addressManager = AddressManager(
-            deployProxy({
-                name: "address_manager",
-                impl: address(new AddressManager()),
-                data: abi.encodeCall(AddressManager.init, (address(0)))
-            })
-        );
+        resolver = deployDefaultResolver();
+        //     deployProxy({
+        //         name: "address_manager",
+        //         impl: address(new DefaultResolver()),
+        //         data: abi.encodeCall(DefaultResolver.init, (address(0)))
+        //     })
+        // );
 
-        signalService = SkipProofCheckSignal(
-            deployProxy({
-                name: "signal_service",
-                impl: address(new SkipProofCheckSignal()),
-                data: abi.encodeCall(SignalService.init, (address(0), address(addressManager))),
-                registerTo: address(addressManager)
-            })
-        );
+        signalService = deploySignalService(resolver,address(new SkipProofCheckSignal()));
+        //     deployProxy({
+        //         name: "signal_service",
+        //         impl: address(new SkipProofCheckSignal()),
+        //         data: abi.encodeCall(SignalService.init, (address(0), address(resolver))),
+        //         registerTo: address(resolver)
+        //     })
+        // );
 
-        bridge = Bridge(
-            payable(
-                deployProxy({
-                    name: "bridge",
-                    impl: address(new Bridge()),
-                    data: abi.encodeCall(Bridge.init, (address(0), address(addressManager))),
-                    registerTo: address(addressManager)
-                })
-            )
-        );
+        bridge = deployBridge(resolver, address(new Bridge()));
+        //     payable(
+        //         deployProxy({
+        //             name: "bridge",
+        //             impl: address(new Bridge()),
+        //             data: abi.encodeCall(Bridge.init, (address(0), address(resolver))),
+        //             registerTo: address(resolver)
+        //         })
+        //     )
+        // );
 
         vm.deal(address(bridge), 10_000 ether);
 
-        addressManager.setAddress(remoteChainId, "bridge", remoteBridge);
+        resolver.setAddress(remoteChainId, "bridge", remoteBridge);
         vm.stopPrank();
     }
 

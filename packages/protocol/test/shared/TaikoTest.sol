@@ -20,6 +20,7 @@ import "src/shared/tokenvault/ERC20Vault.sol";
 import "src/shared/tokenvault/ERC721Vault.sol";
 import "src/shared/tokenvault/ERC1155Vault.sol";
 import "src/shared/bridge/Bridge.sol";
+import "src/shared/bridge/QuotaManager.sol";
 import "./token/FreeMintERC20.sol";
 import "./token/RegularERC20.sol";
 import "./token/MayFailFreeMintERC20.sol";
@@ -137,5 +138,16 @@ abstract contract TaikoTest is Test, Script {
                 resolver: resolver
             })
         );
+    }
+
+    function deployQuotaManager(DefaultResolver resolver) internal returns (QuotaManager) {
+         return QuotaManager(
+                deploy({
+                    name: "quota_manager",
+                    impl: address(new QuotaManager()),
+                    data: abi.encodeCall(QuotaManager.init, (address(0), address(resolver), 24 hours))
+                })
+        );
+
     }
 }

@@ -109,7 +109,7 @@ contract BridgeTest2_sendMessage is BridgeTest2 {
         bridge.sendMessage(message);
 
         vm.prank(owner);
-        addressManager.setAddress(uint64(block.chainid), "signal_service", address(0));
+        resolver.setAddress(uint64(block.chainid), "signal_service", address(0));
 
         vm.prank(Alice);
         vm.expectRevert();

@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "../TaikoTest.sol";
 
 contract QuotaManagerTest is TaikoTest {
-    AddressManager public am;
+    DefaultResolver public resolver;
     QuotaManager public qm;
 
     address bridge = vm.addr(0x100);
@@ -13,25 +13,18 @@ contract QuotaManagerTest is TaikoTest {
         vm.startPrank(Alice); // The owner
         vm.deal(Alice, 100 ether);
 
-        am = AddressManager(
-            deployProxy({
-                name: "address_manager",
-                impl: address(new AddressManager()),
-                data: abi.encodeCall(AddressManager.init, (address(0)))
-            })
-        );
+        resolver = deployDefaultResolver();
+        //     deployProxy({
+        //         name: "address_manager",
+        //         impl: address(new DefaultResolver()),
+        //         data: abi.encodeCall(DefaultResolver.init, (address(0)))
+        //     })
+        // );
 
-        am.setAddress(uint64(block.chainid), LibStrings.B_BRIDGE, bridge);
+        resolver.setAddress(block.chainid, "bridge", bridge);
 
-        qm = QuotaManager(
-            payable(
-                deployProxy({
-                    name: "quota_manager",
-                    impl: address(new QuotaManager()),
-                    data: abi.encodeCall(QuotaManager.init, (address(0), address(am), 24 hours))
-                })
-            )
-        );
+        qm =deployQuotaManager(resolver);
+
 
         vm.stopPrank();
     }

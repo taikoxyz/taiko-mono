@@ -4,18 +4,13 @@ pragma solidity ^0.8.24;
 import "../TaikoTest.sol";
 
 contract TestBridgedERC20 is TaikoTest {
-    address manager;
+    DefaultResolver resolver;
     address vault = randAddress();
     address owner = randAddress();
 
     function setUp() public {
-        manager = deployProxy({
-            name: "address_manager",
-            impl: address(new AddressManager()),
-            data: abi.encodeCall(AddressManager.init, (address(0)))
-        });
-
-        register(manager, "erc20_vault", vault);
+        resolver = deployDefaultResolver();
+        resolver.setAddress(block.chainid, "erc20_vault", vault);
     }
 
     function test_20Vault_migration__change_migration_status() public {

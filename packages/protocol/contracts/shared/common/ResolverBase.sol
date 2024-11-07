@@ -7,7 +7,7 @@ import "./IResolver.sol";
 /// @notice See the documentation in {IResolver}.
 /// @custom:security-contact security@taiko.xyz
 abstract contract ResolverBase is IResolver {
-    error RESOLVED_TO_ZERO_ADDRESS();
+
 
     function resolve(
         uint256 _chainId,
