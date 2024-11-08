@@ -57,7 +57,7 @@ abstract contract TaikoTest is Test, Script {
     address internal Yasmine = randAddress();
     address internal Zachary = randAddress();
 
-    address deployer = msg.sender;
+    address internal deployer = msg.sender;
     DefaultResolver internal resolver;
     uint64 srcChainId;
     uint64 destChainId;
@@ -82,6 +82,7 @@ abstract contract TaikoTest is Test, Script {
     }
 
     function prepareContracts() internal {
+        console2.log("deployer: ", deployer);
         vm.deal(deployer, 100 ether);
         vm.startPrank(deployer);
 
@@ -128,6 +129,9 @@ abstract contract TaikoTest is Test, Script {
 
     function register(bytes32 name, address addr) internal {
         resolver.setAddress(block.chainid, name, addr);
+        console2.log(">", string.concat("'", bytes32ToString(name), "'"));
+        console2.log("  addr    :", addr);
+        console2.log("  chain id:", block.chainid);
     }
 
     function deploy(
@@ -152,7 +156,7 @@ abstract contract TaikoTest is Test, Script {
         console2.log("  chain id:", block.chainid);
         if (resolver != IResolver(address(0))) {
             console2.log("  resolver:", address(resolver));
-            register(name, proxy);
+            resolver.setAddress(block.chainid, name, proxy);
         }
     }
 

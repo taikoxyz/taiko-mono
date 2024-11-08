@@ -5,15 +5,19 @@ import "../TaikoTest.sol";
 
 contract TestBridgedERC20 is TaikoTest {
     address vault = randAddress();
-    address owner = randAddress();
+
+    function prepareContractsOnSourceChain() internal override {
+        register("erc20_vault", vault);
+    }
 
     function setUp() public {
         prepareContracts();
-        resolver.setAddress(block.chainid, "erc20_vault", vault);
     }
 
     function test_20Vault_migration__change_migration_status() public {
+        vm.startPrank(deployer);
         BridgedERC20 btoken = deployBridgedToken("FOO");
+        vm.stopPrank();
 
         vm.expectRevert();
         btoken.changeMigrationStatus(Emma, false);
@@ -32,25 +36,31 @@ contract TestBridgedERC20 is TaikoTest {
     function test_20Vault_migration___only_vault_can_min__but_cannot_burn_when_migration_off()
         public
     {
+        vm.startPrank(deployer);
         BridgedERC20 btoken = deployBridgedToken("BAR");
-        // only erc20_vault can brun and mint
-        vm.prank(vault, vault);
-        btoken.mint(Bob, 1000);
-        //Vault cannot burn only if it owns the tokens
-        vm.expectRevert();
-        vm.prank(Bob, Bob);
-        btoken.burn(600);
-        assertEq(btoken.balanceOf(Bob), 1000);
         vm.stopPrank();
 
+        // only erc20_vault can brun and mint
+        vm.prank(vault);
+        btoken.mint(Bob, 1000);
+
+        // Vault cannot burn only if it owns the tokens
+        vm.expectRevert();
+        vm.prank(Bob);
+        btoken.burn(600);
+
+        assertEq(btoken.balanceOf(Bob), 1000);
+
         // Owner can burn/mint
-        vm.prank(owner, owner);
+        vm.prank(deployer);
         btoken.mint(Bob, 1000);
     }
 
     function test_20Vault_migration__old_to_new() public {
+        vm.startPrank(deployer);
         BridgedERC20 oldToken = deployBridgedToken("OLD");
         BridgedERC20 newToken = deployBridgedToken("NEW");
+        vm.stopPrank();
 
         vm.startPrank(vault);
         oldToken.mint(Bob, 100);
@@ -66,7 +76,7 @@ contract TestBridgedERC20 is TaikoTest {
         vm.expectRevert();
         oldToken.mint(Bob, 10);
 
-        vm.prank(owner);
+        vm.prank(deployer);
         vm.expectRevert();
         oldToken.mint(Bob, 10);
 
@@ -86,7 +96,7 @@ contract TestBridgedERC20 is TaikoTest {
         vm.expectRevert();
         newToken.mint(Bob, 10);
 
-        vm.prank(owner);
+        vm.prank(deployer);
         newToken.mint(Bob, 10);
 
         vm.prank(vault);
@@ -114,17 +124,18 @@ contract TestBridgedERC20 is TaikoTest {
         assertEq(newToken.balanceOf(Bob), 210);
     }
 
-    function deployBridgedToken(string memory name) internal returns (BridgedERC20) {
+    function deployBridgedToken(bytes32 name) internal returns (BridgedERC20) {
         address srcToken = randAddress();
         uint256 srcChainId = 1000;
         uint8 srcDecimals = 11;
+        string memory _name = bytes32ToString(name);
         return BridgedERC20(
             deploy({
-                name: "bridged_token1",
+                name: name,
                 impl: address(new BridgedERC20V2()),
                 data: abi.encodeCall(
                     BridgedERC20.init,
-                    (owner, address(resolver), srcToken, srcChainId, srcDecimals, name, name)
+                    (deployer, address(resolver), srcToken, srcChainId, srcDecimals, _name, _name)
                 )
             })
         );

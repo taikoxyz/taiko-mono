@@ -279,7 +279,7 @@ contract BridgeTest is TaikoTest {
         uint256 starterBalanceVault = address(bridge).balance;
         uint256 starterBalanceAlice = Alice.balance;
 
-        vm.prank(Alice, Alice);
+        vm.prank(Alice);
         (, IBridge.Message memory _message) = bridge.sendMessage{ value: amount + fee }(message);
         assertEq(bridge.isMessageSent(_message), true);
 

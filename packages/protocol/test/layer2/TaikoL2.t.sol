@@ -75,7 +75,7 @@ contract TaikoL2Tests is TaikoL2Test {
 
         // Random EOA cannot call withdraw
         vm.expectRevert(EssentialContract.RESOLVER_DENIED.selector);
-        vm.prank(Alice, Alice);
+        vm.prank(Alice);
         L2.withdraw(address(0), Alice);
     }
 
