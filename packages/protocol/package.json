@@ -12,7 +12,7 @@
     "test:l1": "FOUNDRY_PROFILE=layer1 forge test -vvv --extra-output storage-layout",
     "test:l2": "FOUNDRY_PROFILE=layer2 forge test -vvv --extra-output storage-layout",
     "test:shared": "FOUNDRY_PROFILE=shared forge test -vvv --extra-output storage-layout",
-    "test": "pnpm test:l1 && pnpm test:l2",
+    "test": "pnpm test:l1 && pnpm test:l2 && test:shared",
     "layout:l1": "./script/gen-layouts.sh layer1",
     "layout:l2": "./script/gen-layouts.sh layer2",
     "layout": "pnpm layout:l1 && pnpm layout:l2",
