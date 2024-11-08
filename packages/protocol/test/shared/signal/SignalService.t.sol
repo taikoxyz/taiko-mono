@@ -150,7 +150,7 @@ contract TestSignalService is TaikoTest {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                IResolver.RESOLVED_TO_ZERO_ADDRESS.selector, srcChainId, "signal_service"
+                IResolver.RESOLVED_TO_ZERO_ADDRESS.selector, srcChainId, bytes32("signal_service")
             )
         );
         signalService.proveSignalReceived({
