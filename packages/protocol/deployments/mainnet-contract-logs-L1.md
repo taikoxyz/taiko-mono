@@ -175,13 +175,13 @@
 
 - ens: `ram.based.taiko.eth`
 - proxy: `0x579f40D0BE111b823962043702cabe6Aaa290780`
-- impl: `0x08AAB23975eE4C6b7F73E169Ab9Ea4698cA0a6Db`
+- impl: `0x85cd63895b227Ba12bE029492bdfA79E254f7BF6`
 - names:
   - taiko_token: `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800`
   - signal_service: `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C`
   - bridge: `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC`
   - taiko: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`
-  - tier_router: `0x7037AefEaa6f472d7a07CF7b15b86543B7A7bB75`
+  - tier_router: `0x6Cc40878Fef0918b1dCBF4cfbC6F7E46e9Db269E`
   - tier_sgx: `0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81`
   - risc0_groth16_verifier: `0xcF706D99C265fC2349AE43c5f6BFD7931FE5308D`
   - tier_zkvm_risc0: `0x55902b2D3DF2A65370A89C86Ae9dd71Ecd508edc`
@@ -243,11 +243,12 @@
 
 #### tier_router
 
-- impl: `0x8f1C1D58C858e9a9eeCc587d7D51AECfd16b5542`
+- impl: `0x6Cc40878Fef0918b1dCBF4cfbC6F7E46e9Db269E`
 - logs:
   - deployed on Oct 24, 2024 @commit`7334b1d`
   - deployed on Nov 1, 2024 @commit`f4f4796`
   - deployed on Nov 2, 2024 @commit`9182fba`
+  - deployed on Nov 8, 2024 @commit``
 
 #### tier_sgx
 
