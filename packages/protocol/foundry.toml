@@ -73,7 +73,7 @@ src = "contracts/shared"
 test = "test/shared"
 script = "script/shared"
 out = "out/shared"
-evm_version = "cancun"
+evm_version = "shanghai"
 
 [profile.genesis]
 src = "contracts/layer2"

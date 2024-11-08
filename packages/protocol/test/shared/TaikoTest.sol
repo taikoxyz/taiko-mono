@@ -68,6 +68,20 @@ abstract contract TaikoTest is Test, Script {
         return keccak256(abi.encodePacked("bytes32", _seed++));
     }
 
+    function bytes32ToString(bytes32 _bytes32) public pure returns (string memory) {
+        uint8 i = 0;
+        // Find the first null character to determine actual string length
+        while (i < 32 && _bytes32[i] != 0) {
+            i++;
+        }
+        // Create a string with the correct length and copy bytes
+        bytes memory bytesArray = new bytes(i);
+        for (i = 0; i < bytesArray.length; i++) {
+            bytesArray[i] = _bytes32[i];
+        }
+        return string(bytesArray);
+    }
+
     function deploy(
         bytes32 name,
         address impl,
@@ -83,7 +97,7 @@ abstract contract TaikoTest is Test, Script {
             string.concat(vm.projectRoot(), "/deployments/deploy_l1.json")
         );
 
-        console2.log(">", _name);
+        console2.log(">", bytes32ToString(name));
         console2.log("  proxy      :", proxy);
         console2.log("  impl       :", impl);
         console2.log("  owner      :", OwnableUpgradeable(proxy).owner());
