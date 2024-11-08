@@ -24,7 +24,6 @@ contract BridgeTest2 is TaikoTest {
     }
 
     function setUp() public {
-        deployer = Olivia;
         prepareContracts();
     }
 
