@@ -337,7 +337,7 @@ func (s *ProofSubmitter) SubmitProof(
 // BatchSubmitProofs implements the Submitter interface to submit proof aggregation.
 func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proofProducer.BatchProofs) error {
 	log.Info(
-		"Batch submit block proof",
+		"Batch submit block proofs",
 		"proof", common.Bytes2Hex(batchProof.BatchProof),
 		"blockIds", batchProof.BlockIDs,
 		"tier", batchProof.Tier,
