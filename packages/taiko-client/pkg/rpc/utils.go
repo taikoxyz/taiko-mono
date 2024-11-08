@@ -247,7 +247,7 @@ func GetBlockProofStatus(
 	}, nil
 }
 
-// BatchGetBlockProofStatus checks whether the batch of L2 block still need new proofs or new contests.
+// BatchGetBlockProofStatus checks whether the batch of L2 blocks still need new proofs or new contests.
 // Here are the possible status:
 // 1. No proof on chain at all.
 // 2. A valid proof has been submitted.
