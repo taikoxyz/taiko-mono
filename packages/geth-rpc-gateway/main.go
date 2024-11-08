@@ -19,13 +19,12 @@ type JSONRPCRequest struct {
 }
 
 var (
-	upgrader              = websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
-	methodsUsingPrimary   map[string]bool
-	primaryURL            *url.URL
-	secondaryURL          *url.URL
-	webSocketURL          *url.URL
-	webSocketSecondaryURL *url.URL
-	enableDebugEndpoints  bool
+	upgrader             = websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
+	methodsUsingPrimary  map[string]bool
+	primaryURL           *url.URL
+	secondaryURL         *url.URL
+	webSocketURL         *url.URL
+	enableDebugEndpoints bool
 )
 
 func main() {
@@ -43,10 +42,6 @@ func main() {
 	if err != nil || webSocketURL == nil {
 		log.Fatalf("Failed to parse WebSocket target URL: %v", err)
 	}
-	webSocketSecondaryURL, err = url.Parse(os.Getenv("WEBSOCKET_TARGET_URL_SECONDARY"))
-	if err != nil || webSocketSecondaryURL == nil {
-		log.Fatalf("Failed to parse WebSocket secondary target URL: %v", err)
-	}
 
 	methodsUsingPrimary = parsePrimaryMethods(os.Getenv("PRIMARY_METHODS"))
 	enableDebugEndpoints = os.Getenv("ENABLE_DEBUG_ENDPOINTS") == "true"
@@ -57,10 +52,22 @@ func main() {
 		w.Write([]byte("OK"))
 	})
 
-	// Wrap the root handler with CORS middleware
-	http.Handle("/", enableCORS(http.HandlerFunc(rootHandler)))
+	// Determine if server should handle WebSocket or RPC based on environment variable
+	if os.Getenv("IS_WEBSOCKET") == "true" {
+		log.Println("Starting in WebSocket mode")
+		http.HandleFunc("/", rootWebSocketHandler) // WebSocket handler without CORS
+	} else {
+		log.Println("Starting in RPC mode")
+		http.Handle("/", enableCORS(http.HandlerFunc(rootHandler))) // HTTP handler with CORS middleware
+	}
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
+}
+
+// WebSocket handler for `/` path when in WebSocket mode
+func rootWebSocketHandler(w http.ResponseWriter, r *http.Request) {
+	log.Printf("WebSocket connection initiated...")
+	handleWebSocket(w, r, webSocketURL)
 }
 
 // CORS middleware to enable CORS headers
@@ -90,24 +97,22 @@ func enableCORS(next http.Handler) http.Handler {
 }
 
 func rootHandler(w http.ResponseWriter, r *http.Request) {
+	log.Printf("rootHandler...")
+
 	// Check for WebSocket Upgrade
 	if strings.ToLower(r.Header.Get("Upgrade")) == "websocket" {
-		var wsTargetURL *url.URL
-		method := r.URL.Query().Get("method")
-		if shouldUsePrimaryURL(method) {
-			wsTargetURL = webSocketURL
-			log.Printf("WebSocket request hitting WEBSOCKET_TARGET_URL with method: %s", method)
-		} else {
-			wsTargetURL = webSocketSecondaryURL
-			log.Printf("WebSocket request hitting WEBSOCKET_TARGET_URL_SECONDARY with method: %s", method)
-		}
-		handleWebSocket(w, r, wsTargetURL)
+		handleWebSocket(w, r, webSocketURL)
 		return
 	}
 
 	// Handle HTTP requests
+
 	bodyBytes, err := ioutil.ReadAll(r.Body)
+
+	log.Printf("Handle HTTP requests...")
 	if err != nil {
+		log.Printf("Error")
+
 		http.Error(w, "Failed to read request body", http.StatusBadRequest)
 		return
 	}
@@ -118,25 +123,31 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var jsonReq JSONRPCRequest
-	if err := json.Unmarshal(bodyBytes, &jsonReq); err != nil {
-		http.Error(w, "Invalid JSON in request body", http.StatusBadRequest)
-		return
-	}
-
+	// Determine the target URL and extract methods
+	usePrimaryURL, methods := shouldUsePrimaryURL(bodyBytes)
 	var targetURL *url.URL
-	if shouldUsePrimaryURL(jsonReq.Method) {
+	if usePrimaryURL {
 		targetURL = primaryURL
-		log.Printf("HTTP request hitting TARGET_URL_PRIMARY with method: %s", jsonReq.Method)
+		log.Printf("HTTP request hitting TARGET_URL_PRIMARY")
 	} else {
 		targetURL = secondaryURL
-		log.Printf("HTTP request hitting TARGET_URL_SECONDARY with method: %s", jsonReq.Method)
+		log.Printf("HTTP request hitting TARGET_URL_SECONDARY")
 	}
 
-	if enableDebugEndpoints && isDebugMethod(jsonReq.Method) && jsonReq.Method != "debug_traceBlock" && jsonReq.Method != "debug_traceBlockByNumber" {
-		http.Error(w, "Unsupported method", http.StatusBadRequest)
-		return
+	// Check each method for debug restrictions
+	for _, method := range methods {
+		if enableDebugEndpoints && isDebugMethod(method) && method != "debug_traceBlock" && method != "debug_traceBlockByNumber" {
+			http.Error(w, "Unsupported method", http.StatusBadRequest)
+			return
+		}
 	}
+
+	// Forward the original JSON payload as-is to the target URL
+	forwardRequest(w, r, targetURL, bodyBytes)
+}
+
+// Function to forward the request to the target URL
+func forwardRequest(w http.ResponseWriter, r *http.Request, targetURL *url.URL, bodyBytes []byte) {
 
 	proxyReq, err := http.NewRequest(r.Method, targetURL.String()+r.RequestURI, ioutil.NopCloser(bytes.NewReader(bodyBytes)))
 	if err != nil {
@@ -223,9 +234,32 @@ func parsePrimaryMethods(methods string) map[string]bool {
 	return methodMap
 }
 
-// Checks if a method should use the primary URL
-func shouldUsePrimaryURL(method string) bool {
-	return methodsUsingPrimary[method]
+// Checks if any method should use the primary URL and returns all methods
+func shouldUsePrimaryURL(bodyBytes []byte) (bool, []string) {
+	var singleRequest JSONRPCRequest
+	var multipleRequests []JSONRPCRequest
+	methods := []string{}
+
+	// Try unmarshalling as a single request
+	if err := json.Unmarshal(bodyBytes, &singleRequest); err == nil {
+		methods = append(methods, singleRequest.Method)
+		return methodsUsingPrimary[singleRequest.Method], methods
+	}
+
+	// Try unmarshalling as an array of requests
+	if err := json.Unmarshal(bodyBytes, &multipleRequests); err == nil {
+		usePrimary := false
+		for _, req := range multipleRequests {
+			methods = append(methods, req.Method)
+			if methodsUsingPrimary[req.Method] {
+				usePrimary = true
+			}
+		}
+		return usePrimary, methods
+	}
+
+	log.Printf("Invalid JSON in request body: unable to parse as single or multiple requests")
+	return false, methods // Default to secondary URL if JSON is invalid
 }
 
 func handleWebSocket(w http.ResponseWriter, r *http.Request, targetURL *url.URL) {
