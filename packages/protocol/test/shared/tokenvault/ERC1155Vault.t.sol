@@ -123,7 +123,7 @@ contract ERC1155VaultTest is TaikoTest {
         register("bridged_erc1155", address(new BridgedERC1155()));
     }
 
-    function setUp() public override{
+    function setUp() public override {
         super.setUp();
 
         vm.deal(Alice, 100 ether);
@@ -573,7 +573,7 @@ contract ERC1155VaultTest is TaikoTest {
         assertEq(ERC1155(deployedContract).balanceOf(Bob, 1), 1);
         assertEq(ERC1155(deployedContract).balanceOf(Alice, 1), 0);
 
-        vm.prank(Bob, Bob);
+        vm.prank(Bob);
         ERC1155(deployedContract).setApprovalForAll(address(destVault), true);
 
         sendOpts = BaseNFTVault.BridgeTransferOp(
@@ -587,7 +587,7 @@ contract ERC1155VaultTest is TaikoTest {
             amounts
         );
 
-        vm.prank(Bob, Bob);
+        vm.prank(Bob);
         destVault.sendToken{ value: GAS_LIMIT }(sendOpts);
 
         vm.chainId(chainId);
@@ -674,7 +674,7 @@ contract ERC1155VaultTest is TaikoTest {
         assertEq(ERC1155(deployedContract).balanceOf(Bob, 1), 1);
         assertEq(ERC1155(deployedContract).balanceOf(Alice, 1), 0);
 
-        vm.prank(Bob, Bob);
+        vm.prank(Bob);
         ERC1155(deployedContract).setApprovalForAll(address(destVault), true);
 
         sendOpts = BaseNFTVault.BridgeTransferOp(

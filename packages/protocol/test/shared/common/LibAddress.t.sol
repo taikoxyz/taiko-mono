@@ -67,10 +67,7 @@ contract TestLibAddress is TaikoTest {
     EtherSenderContract bridge;
     CalldataReceiver calledContract;
 
-    function setUp() public override {
-        deployer = Alice;
-        super.setUp();
-
+    function prepareContractsOnSourceChain() internal override {
         bridge = new EtherSenderContract();
         vm.deal(address(bridge), 1 ether);
 
@@ -78,9 +75,9 @@ contract TestLibAddress is TaikoTest {
     }
 
     function test_sendEther() public {
-        uint256 balanceBefore = Alice.balance;
-        bridge.sendEther((Alice), 0.5 ether, 2300, "");
-        assertEq(Alice.balance, balanceBefore + 0.5 ether);
+        uint256 balanceBefore = deployer.balance;
+        bridge.sendEther((deployer), 0.5 ether, 2300, "");
+        assertEq(deployer.balance, balanceBefore + 0.5 ether);
 
         // Cannot send to address(0)
         vm.expectRevert(LibAddress.ETH_TRANSFER_FAILED.selector);
@@ -103,24 +100,24 @@ contract TestLibAddress is TaikoTest {
     }
 
     function test_sendEtherAndVerify() public {
-        uint256 balanceBefore = Alice.balance;
-        bridge.sendEtherAndVerify(Alice, 0.5 ether, 2300);
-        assertEq(Alice.balance, balanceBefore + 0.5 ether);
+        uint256 balanceBefore = deployer.balance;
+        bridge.sendEtherAndVerify(deployer, 0.5 ether, 2300);
+        assertEq(deployer.balance, balanceBefore + 0.5 ether);
 
         // Send 0 ether is also possible
-        bridge.sendEtherAndVerify(Alice, 0, 2300);
+        bridge.sendEtherAndVerify(deployer, 0, 2300);
 
         // If sending fails, call reverts
         vm.expectRevert(LibAddress.ETH_TRANSFER_FAILED.selector);
         bridge.sendEtherAndVerify(address(calledContract), 0.1 ether, 2300);
 
         //Call sendEtherAndVerify without the gasLimit
-        bridge.sendEtherAndVerify(Alice, 0.5 ether);
-        assertEq(Alice.balance, balanceBefore + 1 ether);
+        bridge.sendEtherAndVerify(deployer, 0.5 ether);
+        assertEq(deployer.balance, balanceBefore + 1 ether);
     }
 
     function test_supportsInterface() public {
-        bool doesSupport = bridge.supportsInterface(Alice, 0x10101010);
+        bool doesSupport = bridge.supportsInterface(deployer, 0x10101010);
 
         assertEq(doesSupport, false);
 

@@ -7,7 +7,7 @@ import "forge-std/src/console2.sol";
 contract TestSignalService is TaikoTest {
     SignalService mockSignalService;
     SignalService signalService;
-    address taiko =  randAddress();
+    address taiko = randAddress();
 
     function prepareContractsOnSourceChain() internal override {
         mockSignalService = deploySignalService(address(new SignalServiceNoHopCheck()));
@@ -18,7 +18,6 @@ contract TestSignalService is TaikoTest {
 
         vm.deal(Bob, 1 ether);
     }
-
 
     function test_real_signal() public {
         vm.chainId(167_001);

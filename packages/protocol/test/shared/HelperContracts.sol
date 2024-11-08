@@ -47,8 +47,7 @@ contract SignalServiceNoProofCheck is SignalService {
         pure
         override
         returns (uint256)
-    {   }
-
+    { }
 
     function _verifyHopProof(
         uint64, /*chainId*/

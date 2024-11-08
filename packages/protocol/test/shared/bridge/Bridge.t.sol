@@ -32,25 +32,20 @@ contract NonMaliciousContract1 {
 }
 
 contract BridgeTest is TaikoTest {
-    BadReceiver badReceiver;
     GoodReceiver goodReceiver;
-    Bridge bridge;
-    Bridge destBridge;
     SignalService signalService;
-    SignalService destSignalService;
-    UntrustedSendMessageRelayer untrustedSenderContract;
+    Bridge bridge;
 
-    NonMaliciousContract1 nonmaliciousContract1;
-    MaliciousContract2 maliciousContract2;
+    SignalService destSignalService;
+    Bridge destBridge;
 
     function prepareContractsOnSourceChain() internal override {
         goodReceiver = new GoodReceiver();
-        badReceiver = new BadReceiver();
 
         bridge = deployBridge(address(new Bridge()));
         signalService = deploySignalService(address(new SignalServiceNoProofCheck()));
-        untrustedSenderContract = new UntrustedSendMessageRelayer();
-        vm.deal(address(untrustedSenderContract), 10 ether);
+
+        vm.deal(Alice, 100 ether);
     }
 
     function prepareContractsOnDestinationChain() internal override {
@@ -61,11 +56,6 @@ contract BridgeTest is TaikoTest {
         // Register contracts from destination chain
         register("taiko", address(uint160(123)));
         register("bridge_watchdog", address(uint160(123)));
-    }
-
-    function setUp() public override {
-        deployer = Alice;
-        super.setUp();
     }
 
     function test_Bridge_send_ether_to_to_with_value() public {
@@ -89,7 +79,7 @@ contract BridgeTest is TaikoTest {
         bytes32 msgHash = destBridge.hashMessage(message);
 
         vm.chainId(destChainId);
-        vm.prank(Bob, Bob);
+        vm.prank(Bob);
         destBridge.processMessage(message, proof);
 
         IBridge.Status status = destBridge.messageStatus(msgHash);
@@ -125,7 +115,7 @@ contract BridgeTest is TaikoTest {
         bytes32 msgHash = destBridge.hashMessage(message);
 
         vm.chainId(destChainId);
-        vm.prank(Bob, Bob);
+        vm.prank(Bob);
         destBridge.processMessage(message, proof);
 
         IBridge.Status status = destBridge.messageStatus(msgHash);
@@ -159,7 +149,7 @@ contract BridgeTest is TaikoTest {
         bytes32 msgHash = destBridge.hashMessage(message);
 
         vm.chainId(destChainId);
-        vm.prank(Bob, Bob);
+        vm.prank(Bob);
         destBridge.processMessage(message, proof);
 
         IBridge.Status status = destBridge.messageStatus(msgHash);
@@ -309,6 +299,10 @@ contract BridgeTest is TaikoTest {
 
         uint256 starterBalanceVault = address(bridge).balance;
 
+        UntrustedSendMessageRelayer untrustedSenderContract;
+        untrustedSenderContract = new UntrustedSendMessageRelayer();
+        vm.deal(address(untrustedSenderContract), 10 ether);
+
         (, message) = untrustedSenderContract.sendMessage(address(bridge), message, amount + fee);
 
         assertEq(address(bridge).balance, (starterBalanceVault + amount + fee));
@@ -335,7 +329,7 @@ contract BridgeTest is TaikoTest {
     }
 
     function test_processMessage_InvokeMessageCall_DoS1() public {
-        nonmaliciousContract1 = new NonMaliciousContract1();
+        NonMaliciousContract1 nonmaliciousContract1 = new NonMaliciousContract1();
 
         IBridge.Message memory message = IBridge.Message({
             id: 0,
@@ -354,7 +348,7 @@ contract BridgeTest is TaikoTest {
         bytes memory proof = hex"00";
         bytes32 msgHash = destBridge.hashMessage(message);
         vm.chainId(destChainId);
-        vm.prank(Bob, Bob);
+        vm.prank(Bob);
 
         destBridge.processMessage(message, proof);
 
@@ -363,7 +357,7 @@ contract BridgeTest is TaikoTest {
     }
 
     function test_processMessage_InvokeMessageCall_DoS2_testfail() public {
-        maliciousContract2 = new MaliciousContract2();
+        MaliciousContract2 maliciousContract2 = new MaliciousContract2();
 
         IBridge.Message memory message = IBridge.Message({
             id: 0,
@@ -382,7 +376,7 @@ contract BridgeTest is TaikoTest {
         bytes memory proof = hex"00";
         bytes32 msgHash = destBridge.hashMessage(message);
         vm.chainId(destChainId);
-        vm.prank(Bob, Bob);
+        vm.prank(Bob);
 
         destBridge.processMessage(message, proof);
 

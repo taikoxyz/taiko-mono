@@ -23,7 +23,6 @@ contract BridgeTest2 is TaikoTest {
         _;
     }
 
-
     function prepareContractsOnSourceChain() internal override {
         signalService = deploySignalService(address(new SignalServiceNoProofCheck()));
         bridge = deployBridge(address(new Bridge()));
