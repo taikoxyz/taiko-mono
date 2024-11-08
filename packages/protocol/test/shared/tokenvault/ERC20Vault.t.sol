@@ -313,7 +313,7 @@ contract TestERC20Vault is TaikoTest {
         vm.prank(deployer);
         BridgedERC20(payable(bridgedAddressAfter)).upgradeTo(address(newBridgedContract));
 
-        vm.prank(Alice, Alice);
+        vm.prank(Alice);
         try UpdatedBridgedERC20(bridgedAddressAfter).helloWorld() {
             // It should support now this function call
         } catch {

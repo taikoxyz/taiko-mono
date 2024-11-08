@@ -743,7 +743,7 @@ contract ERC1155VaultTest is TaikoTest {
         destVault.sendToken{ value: GAS_LIMIT }(sendOpts);
 
         // Also Vault cannot burn tokens it does not own (even if the priv key compromised)
-        vm.prank(address(destVault), address(destVault));
+        vm.prank(address(destVault));
         vm.expectRevert("ERC1155: burn amount exceeds balance");
         BridgedERC1155(deployedContract).burn(1, 20);
 
