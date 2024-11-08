@@ -8,10 +8,6 @@ contract QuotaManagerTest is TaikoTest {
 
     address bridge = vm.addr(0x100);
 
-    function setUp() public {
-        deployer = Alice;
-        prepareContracts();
-    }
 
     function prepareContractsOnSourceChain() internal override {
         qm = deployQuotaManager();
@@ -25,7 +21,7 @@ contract QuotaManagerTest is TaikoTest {
         vm.expectRevert();
         qm.updateQuota(Ether, 10 ether);
 
-        vm.prank(Alice);
+        vm.prank(deployer);
         qm.updateQuota(Ether, 10 ether);
         assertEq(qm.availableQuota(address(0), 0), 10 ether);
 

@@ -19,9 +19,6 @@ contract TestSignalService is TaikoTest {
         vm.deal(Bob, 1 ether);
     }
 
-    function setUp() public {
-        prepareContracts();
-    }
 
     function test_real_signal() public {
         vm.chainId(167_001);

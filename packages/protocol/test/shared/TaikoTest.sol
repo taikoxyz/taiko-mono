@@ -81,7 +81,7 @@ abstract contract TaikoTest is Test, Script {
         vm.stopPrank();
     }
 
-    function prepareContracts() internal {
+    function setUp() public virtual {
         console2.log("deployer: ", deployer);
         vm.deal(deployer, 100 ether);
         vm.startPrank(deployer);

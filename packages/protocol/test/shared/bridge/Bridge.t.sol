@@ -63,9 +63,9 @@ contract BridgeTest is TaikoTest {
         register("bridge_watchdog", address(uint160(123)));
     }
 
-    function setUp() public {
+    function setUp() public override {
         deployer = Alice;
-        prepareContracts();
+        super.setUp();
     }
 
     function test_Bridge_send_ether_to_to_with_value() public {

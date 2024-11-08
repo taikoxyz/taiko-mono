@@ -123,8 +123,8 @@ contract ERC1155VaultTest is TaikoTest {
         register("bridged_erc1155", address(new BridgedERC1155()));
     }
 
-    function setUp() public {
-        prepareContracts();
+    function setUp() public override{
+        super.setUp();
 
         vm.deal(Alice, 100 ether);
         vm.deal(Bob, 100 ether);

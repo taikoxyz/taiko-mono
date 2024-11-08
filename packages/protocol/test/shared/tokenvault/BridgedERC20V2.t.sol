@@ -10,9 +10,6 @@ contract TestBridgedERC20 is TaikoTest {
         register("erc20_vault", vault);
     }
 
-    function setUp() public {
-        prepareContracts();
-    }
 
     function test_20Vault_migration__change_migration_status() public {
         vm.startPrank(deployer);

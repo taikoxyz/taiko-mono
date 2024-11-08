@@ -67,9 +67,9 @@ contract TestLibAddress is TaikoTest {
     EtherSenderContract bridge;
     CalldataReceiver calledContract;
 
-    function setUp() public {
+    function setUp() public override {
         deployer = Alice;
-        prepareContracts();
+        super.setUp();
 
         bridge = new EtherSenderContract();
         vm.deal(address(bridge), 1 ether);
