@@ -90,7 +90,6 @@ contract UpdatedBridgedERC1155 is BridgedERC1155 {
 
 contract ERC1155VaultTest is TaikoTest {
     uint32 private constant GAS_LIMIT = 2_000_000;
-    DefaultResolver resolver;
     Bridge bridge;
     PrankDestBridge destBridge;
     SignalService signalService;
@@ -98,32 +97,31 @@ contract ERC1155VaultTest is TaikoTest {
     ERC1155Vault srcVault;
     ERC1155Vault destVault;
     TestTokenERC1155 ctoken1155;
-    uint64 srcChainId;
-    uint64 destChainId;
 
     function setUp() public {
-        srcChainId = uint64(block.chainid);
-        destChainId = srcChainId + 1;
-        vm.startPrank(Carol);
         vm.deal(Alice, 100 ether);
-        vm.deal(Carol, 100 ether);
         vm.deal(Bob, 100 ether);
+
+        deployer = Carol;
+        prepareContracts();
+        vm.startPrank(Carol);
+
         resolver = deployDefaultResolver();
 
-        bridge = deployBridge(resolver, address(new Bridge()));
+        bridge = deployBridge(address(new Bridge()));
         vm.deal(address(bridge), 100 ether);
 
-        signalService = deploySignalService(resolver, address(new SignalServiceNoProofCheck()));
+        signalService = deploySignalService(address(new SignalServiceNoProofCheck()));
 
-        srcVault = deployERC1155Vault(resolver);
+        srcVault = deployERC1155Vault();
 
         vm.chainId(destChainId);
-        destVault = deployERC1155Vault(resolver);
+        destVault = deployERC1155Vault();
         destBridge = new PrankDestBridge(destVault);
         resolver.setAddress(destChainId, "bridge", address(destBridge));
         resolver.setAddress(destChainId, "bridged_erc1155", address(new BridgedERC1155()));
 
-        destSignalService = deploySignalService(resolver, address(new SignalServiceNoProofCheck()));
+        destSignalService = deploySignalService(address(new SignalServiceNoProofCheck()));
 
         vm.deal(address(destBridge), 100 ether);
         resolver.setAddress(block.chainid, "bridged_erc1155", address(new BridgedERC1155()));

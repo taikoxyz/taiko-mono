@@ -32,7 +32,6 @@ contract NonMaliciousContract1 {
 }
 
 contract BridgeTest is TaikoTest {
-    DefaultResolver resolver;
     BadReceiver badReceiver;
     GoodReceiver goodReceiver;
     Bridge bridge;
@@ -44,41 +43,29 @@ contract BridgeTest is TaikoTest {
     NonMaliciousContract1 nonmaliciousContract1;
     MaliciousContract2 maliciousContract2;
 
-    address mockDAO = randAddress(); //as "real" L1 owner
-
-    uint64 chainId;
-    uint64 destChainId;
-
-    function setUp() public {
-        vm.startPrank(Alice);
-        vm.deal(Alice, 100 ether);
-
-        chainId = uint64(block.chainid);
-        destChainId = chainId + 1;
-
+    function prepareContractsOnSourceChain() internal override {
         goodReceiver = new GoodReceiver();
         badReceiver = new BadReceiver();
 
-        // Deploy on local chain
-        resolver = deployDefaultResolver();
-
-        bridge = deployBridge(resolver, address(new Bridge()));
-        signalService = deploySignalService(resolver, address(new SignalServiceNoProofCheck()));
+        bridge = deployBridge(address(new Bridge()));
+        signalService = deploySignalService(address(new SignalServiceNoProofCheck()));
         untrustedSenderContract = new UntrustedSendMessageRelayer();
         vm.deal(address(untrustedSenderContract), 10 ether);
+    }
 
-        // Deploy on destination chain
-        vm.chainId(destChainId);
-        destSignalService = deploySignalService(resolver, address(new SignalServiceNoProofCheck()));
-        destBridge = deployBridge(resolver, address(new Bridge()));
+    function prepareContractsOnDestinationChain() internal override {
+        destSignalService = deploySignalService(address(new SignalServiceNoProofCheck()));
+        destBridge = deployBridge(address(new Bridge()));
         vm.deal(address(destBridge), 100 ether);
-        vm.chainId(chainId);
 
         // Register contracts from destination chain
-        resolver.setAddress(destChainId, "taiko", address(uint160(123)));
-        resolver.setAddress(destChainId, "bridge_watchdog", address(uint160(123)));
+        register("taiko", address(uint160(123)));
+        register("bridge_watchdog", address(uint160(123)));
+    }
 
-        vm.stopPrank();
+    function setUp() public {
+        deployer = Alice;
+        prepareContracts();
     }
 
     function test_Bridge_send_ether_to_to_with_value() public {

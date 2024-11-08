@@ -4,21 +4,18 @@ pragma solidity ^0.8.24;
 import "../TaikoTest.sol";
 
 contract QuotaManagerTest is TaikoTest {
-    DefaultResolver public resolver;
     QuotaManager public qm;
 
     address bridge = vm.addr(0x100);
 
     function setUp() public {
-        vm.startPrank(Alice); // The owner
-        vm.deal(Alice, 100 ether);
+        deployer = Alice;
+        prepareContracts();
+    }
 
-        resolver = deployDefaultResolver();
-        resolver.setAddress(block.chainid, "bridge", bridge);
-
-        qm = deployQuotaManager(resolver);
-
-        vm.stopPrank();
+    function prepareContractsOnSourceChain() internal override {
+        qm = deployQuotaManager();
+        register("bridge", bridge);
     }
 
     function test_quota_manager_consume_configged() public {

@@ -106,7 +106,6 @@ contract UpdatedBridgedERC721 is BridgedERC721 {
 contract ERC721VaultTest is TaikoTest {
     uint32 private constant GAS_LIMIT = 2_000_000;
 
-    DefaultResolver resolver;
     BadReceiver badReceiver;
     Bridge bridge;
     Bridge destChainBridge;
@@ -116,31 +115,31 @@ contract ERC721VaultTest is TaikoTest {
     ERC721Vault destChainErc721Vault;
     TestTokenERC721 canonicalToken721;
     SignalService signalService;
-    uint64 destChainId = 19_389;
 
     function setUp() public {
-        vm.startPrank(Carol);
         vm.deal(Alice, 100 ether);
-        vm.deal(Carol, 100 ether);
         vm.deal(Bob, 100 ether);
+
+        deployer = Carol;
+        prepareContracts();
+        vm.startPrank(Carol);
 
         resolver = deployDefaultResolver();
 
-        bridge = deployBridge(resolver, address(new Bridge()));
+        bridge = deployBridge(address(new Bridge()));
 
-        destChainBridge = deployBridge(resolver, address(new Bridge()));
+        destChainBridge = deployBridge(address(new Bridge()));
 
-        signalService = deploySignalService(resolver, address(new SignalService()));
+        signalService = deploySignalService(address(new SignalService()));
 
-        erc721Vault = deployERC721Vault(resolver);
+        erc721Vault = deployERC721Vault();
 
-        destChainErc721Vault = deployERC721Vault(resolver);
+        destChainErc721Vault = deployERC721Vault();
 
         destChainIdBridge = new PrankDestBridge(destChainErc721Vault);
         vm.deal(address(destChainIdBridge), 100 ether);
 
-        signalServiceNoProofCheck =
-            deploySignalService(resolver, address(new SignalServiceNoProofCheck()));
+        signalServiceNoProofCheck = deploySignalService(address(new SignalServiceNoProofCheck()));
 
         resolver.setAddress(block.chainid, "signal_service", address(signalServiceNoProofCheck));
 

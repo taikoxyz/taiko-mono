@@ -24,35 +24,22 @@ contract MockSignalService is SignalService {
 }
 
 contract TestSignalService is TaikoTest {
-    DefaultResolver resolver;
     SignalService signalService;
     SignalService realSignalService;
-    uint64 public destChainId = 7;
     address taiko;
 
     function setUp() public {
+        deployer = Alice;
+        prepareContracts();
         vm.startPrank(Alice);
         vm.deal(Alice, 1 ether);
         vm.deal(Bob, 1 ether);
 
         resolver = deployDefaultResolver();
-        //     deployProxy({
-        //         name: "address_manager",
-        //         impl: address(new DefaultResolver()),
-        //         data: abi.encodeCall(DefaultResolver.init, (address(0))),
-        //         registerTo: address(resolver)
-        //     })
-        // );
 
-        signalService = deploySignalService(resolver, address(new MockSignalService()));
+        signalService = deploySignalService(address(new MockSignalService()));
 
-        realSignalService = deploySignalService(resolver, address(new SignalService()));
-        //     deployProxy({
-        //         name: "signal_service",
-        //         impl: address(new SignalService()),
-        //         data: abi.encodeCall(SignalService.init, (Alice, address(resolver)))
-        //     })
-        // );
+        realSignalService = deploySignalService(address(new SignalService()));
 
         taiko = randAddress();
         signalService.authorize(taiko, true);

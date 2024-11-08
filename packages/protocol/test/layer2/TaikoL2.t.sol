@@ -21,6 +21,8 @@ contract TaikoL2Tests is TaikoL2Test {
     TaikoL2 public L2;
 
     function setUp() public {
+        deployer = Alice;
+        prepareContracts();
         resolver = deployDefaultResolver();
         signalService = deploySignalService(resolver, address(new SignalService()));
         L2 = deployTaikoL2(resolver, address(new TaikoL2WithoutBaseFeeCheck()), L1_CHAIN_ID);

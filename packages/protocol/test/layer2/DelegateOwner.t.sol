@@ -23,7 +23,7 @@ contract TestDelegateOwner is TaikoL2Test {
     uint64 remoteChainId = uint64(block.chainid + 1);
     address remoteBridge = vm.addr(0x2000);
 
-    function setUp() public {
+    function setUp() public override {
         remoteOwner = vm.addr(0x2000);
         owner = vm.addr(0x1000);
         vm.deal(owner, 100 ether);

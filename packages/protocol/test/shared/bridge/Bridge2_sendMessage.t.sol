@@ -23,7 +23,7 @@ contract BridgeTest2_sendMessage is BridgeTest2 {
         vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
         bridge.sendMessage(message);
 
-        message.destChainId = remoteChainId + 1;
+        message.destChainId = destChainId + 1;
         vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
         bridge.sendMessage(message);
 
@@ -31,8 +31,8 @@ contract BridgeTest2_sendMessage is BridgeTest2 {
         vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
         bridge.sendMessage(message);
 
-        // an bridge has been registered for remoteChainId
-        message.destChainId = remoteChainId;
+        // an bridge has been registered for destChainId
+        message.destChainId = destChainId;
         bridge.sendMessage(message); // id = 0
 
         message.value = 10_000_000;
@@ -69,7 +69,7 @@ contract BridgeTest2_sendMessage is BridgeTest2 {
         IBridge.Message memory message;
         message.srcOwner = Alice;
         message.destOwner = Bob;
-        message.destChainId = remoteChainId;
+        message.destChainId = destChainId;
         message.fee = 1;
         vm.expectRevert(Bridge.B_INVALID_FEE.selector);
         bridge.sendMessage(message);
@@ -103,12 +103,12 @@ contract BridgeTest2_sendMessage is BridgeTest2 {
         IBridge.Message memory message;
         message.srcOwner = Alice;
         message.destOwner = Bob;
-        message.destChainId = remoteChainId;
+        message.destChainId = destChainId;
 
         vm.prank(Alice);
         bridge.sendMessage(message);
 
-        vm.prank(owner);
+        vm.prank(deployer);
         resolver.setAddress(uint64(block.chainid), "signal_service", address(0));
 
         vm.prank(Alice);

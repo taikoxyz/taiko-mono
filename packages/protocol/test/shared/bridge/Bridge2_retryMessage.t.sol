@@ -28,7 +28,7 @@ contract BridgeTest2_retryMessage is BridgeTest2 {
         IBridge.Message memory message;
 
         message.destChainId = uint64(block.chainid);
-        message.srcChainId = remoteChainId;
+        message.srcChainId = destChainId;
 
         message.fee = 0;
         message.value = 2 ether;
@@ -38,7 +38,7 @@ contract BridgeTest2_retryMessage is BridgeTest2 {
         message.gasLimit = 1_000_000;
 
         vm.prank(Carol);
-        bridge.processMessage(message, fakeProof);
+        bridge.processMessage(message, FAKE_PROOF);
         bytes32 hash = bridge.hashMessage(message);
         assertTrue(bridge.messageStatus(hash) == IBridge.Status.RETRIABLE);
 
@@ -69,7 +69,7 @@ contract BridgeTest2_retryMessage is BridgeTest2 {
         IBridge.Message memory message;
 
         message.destChainId = uint64(block.chainid);
-        message.srcChainId = remoteChainId;
+        message.srcChainId = destChainId;
 
         message.fee = 0;
         message.value = 2 ether;
@@ -79,7 +79,7 @@ contract BridgeTest2_retryMessage is BridgeTest2 {
         message.gasLimit = 1_000_000;
 
         vm.prank(Carol);
-        bridge.processMessage(message, fakeProof);
+        bridge.processMessage(message, FAKE_PROOF);
         bytes32 hash = bridge.hashMessage(message);
         assertTrue(bridge.messageStatus(hash) == IBridge.Status.RETRIABLE);
 

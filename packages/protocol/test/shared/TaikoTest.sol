@@ -57,6 +57,50 @@ abstract contract TaikoTest is Test, Script {
     address internal Yasmine = randAddress();
     address internal Zachary = randAddress();
 
+    address deployer = msg.sender;
+    DefaultResolver internal resolver;
+    uint64 srcChainId;
+    uint64 destChainId;
+
+    modifier onSourceChain() {
+        vm.chainId(srcChainId);
+        _;
+    }
+
+    modifier onDestinationChain() {
+        vm.chainId(destChainId);
+        _;
+        vm.chainId(srcChainId);
+    }
+
+    modifier transactedBy(address transactor) {
+        vm.deal(transactor, 100 ether);
+        vm.startPrank(transactor);
+
+        _;
+        vm.stopPrank();
+    }
+
+    function prepareContracts() internal {
+        vm.deal(deployer, 100 ether);
+        vm.startPrank(deployer);
+
+        srcChainId = uint64(block.chainid);
+        destChainId = srcChainId + 1;
+
+        resolver = deployDefaultResolver();
+
+        prepareContractsOnSourceChain();
+
+        vm.chainId(destChainId);
+        prepareContractsOnDestinationChain();
+        vm.chainId(srcChainId);
+        vm.stopPrank();
+    }
+
+    function prepareContractsOnSourceChain() internal virtual { }
+    function prepareContractsOnDestinationChain() internal virtual { }
+
     // TODO: delete this
     function randAddress() internal returns (address) {
         bytes32 randomHash = keccak256(abi.encodePacked("address", _seed++));
@@ -82,6 +126,10 @@ abstract contract TaikoTest is Test, Script {
         return string(bytesArray);
     }
 
+    function register(bytes32 name, address addr) internal {
+        resolver.setAddress(block.chainid, name, addr);
+    }
+
     function deploy(
         bytes32 name,
         address impl,
@@ -102,21 +150,10 @@ abstract contract TaikoTest is Test, Script {
         console2.log("  impl    :", impl);
         console2.log("  owner   :", OwnableUpgradeable(proxy).owner());
         console2.log("  chain id:", block.chainid);
-    }
-
-    function deploy(
-        bytes32 name,
-        address impl,
-        bytes memory data,
-        DefaultResolver resolver
-    )
-        internal
-        returns (address proxy)
-    {
-        require(address(resolver) != address(0), "resolver is address(0)");
-        proxy = deploy(name, impl, data);
-        console2.log("  resolver:", address(resolver));
-        resolver.setAddress(block.chainid, name, proxy);
+        if (resolver != IResolver(address(0))) {
+            console2.log("  resolver:", address(resolver));
+            register(name, proxy);
+        }
     }
 
     function deployDefaultResolver() internal returns (DefaultResolver) {
@@ -129,38 +166,29 @@ abstract contract TaikoTest is Test, Script {
         );
     }
 
-    function deploySignalService(
-        DefaultResolver resolver,
-        address signalServiceImpl
-    )
-        internal
-        returns (SignalService)
-    {
+    function deploySignalService(address signalServiceImpl) internal returns (SignalService) {
         return SignalServiceNoProofCheck(
             deploy({
                 name: "signal_service",
                 impl: signalServiceImpl,
-                data: abi.encodeCall(SignalService.init, (address(0), address(resolver))),
-                resolver: resolver
+                data: abi.encodeCall(SignalService.init, (address(0), address(resolver)))
             })
         );
     }
 
-    function deployTaikoToken(DefaultResolver resolver) internal returns (TaikoToken) {
+    function deployTaikoToken() internal returns (TaikoToken) {
         return TaikoToken(
             deploy({
                 name: "taiko_token",
                 impl: address(new TaikoToken()),
-                data: abi.encodeCall(TaikoToken.init, (address(0), address(this))),
-                resolver: resolver
+                data: abi.encodeCall(TaikoToken.init, (address(0), address(this)))
             })
         );
     }
 
     function deployBridgedERC20(
-        DefaultResolver resolver,
         address srcToken,
-        uint256 srcChainId,
+        uint256 _srcChainId,
         uint8 decimals,
         string memory symbol,
         string memory name
@@ -174,63 +202,58 @@ abstract contract TaikoTest is Test, Script {
                 impl: address(new BridgedERC20()),
                 data: abi.encodeCall(
                     BridgedERC20.init,
-                    (address(0), address(resolver), srcToken, srcChainId, decimals, symbol, name)
+                    (address(0), address(resolver), srcToken, _srcChainId, decimals, symbol, name)
                 )
             })
         );
     }
 
-    function deployBridge(DefaultResolver resolver, address bridgeImpl) internal returns (Bridge) {
+    function deployBridge(address bridgeImpl) internal returns (Bridge) {
         return Bridge(
             deploy({
                 name: "bridge",
                 impl: bridgeImpl,
-                data: abi.encodeCall(Bridge.init, (address(0), address(resolver))),
-                resolver: resolver
+                data: abi.encodeCall(Bridge.init, (address(0), address(resolver)))
             })
         );
     }
 
-    function deployQuotaManager(DefaultResolver resolver) internal returns (QuotaManager) {
+    function deployQuotaManager() internal returns (QuotaManager) {
         return QuotaManager(
             deploy({
                 name: "quota_manager",
                 impl: address(new QuotaManager()),
-                data: abi.encodeCall(QuotaManager.init, (address(0), address(resolver), 24 hours)),
-                resolver: resolver
+                data: abi.encodeCall(QuotaManager.init, (address(0), address(resolver), 24 hours))
             })
         );
     }
 
-    function deployERC20Vault(DefaultResolver resolver) internal returns (ERC20Vault) {
+    function deployERC20Vault() internal returns (ERC20Vault) {
         return ERC20Vault(
             deploy({
                 name: "erc20_vault",
                 impl: address(new ERC20Vault()),
-                data: abi.encodeCall(ERC20Vault.init, (address(0), address(resolver))),
-                resolver: resolver
+                data: abi.encodeCall(ERC20Vault.init, (address(0), address(resolver)))
             })
         );
     }
 
-    function deployERC721Vault(DefaultResolver resolver) internal returns (ERC721Vault) {
+    function deployERC721Vault() internal returns (ERC721Vault) {
         return ERC721Vault(
             deploy({
                 name: "erc721_vault",
                 impl: address(new ERC721Vault()),
-                data: abi.encodeCall(ERC721Vault.init, (address(0), address(resolver))),
-                resolver: resolver
+                data: abi.encodeCall(ERC721Vault.init, (address(0), address(resolver)))
             })
         );
     }
 
-    function deployERC1155Vault(DefaultResolver resolver) internal returns (ERC1155Vault) {
+    function deployERC1155Vault() internal returns (ERC1155Vault) {
         return ERC1155Vault(
             deploy({
                 name: "erc1155_vault",
                 impl: address(new ERC1155Vault()),
-                data: abi.encodeCall(ERC1155Vault.init, (address(0), address(resolver))),
-                resolver: resolver
+                data: abi.encodeCall(ERC1155Vault.init, (address(0), address(resolver)))
             })
         );
     }

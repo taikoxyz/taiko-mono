@@ -4,12 +4,11 @@ pragma solidity ^0.8.24;
 import "../TaikoTest.sol";
 
 contract TestBridgedERC20 is TaikoTest {
-    DefaultResolver resolver;
     address vault = randAddress();
     address owner = randAddress();
 
     function setUp() public {
-        resolver = deployDefaultResolver();
+        prepareContracts();
         resolver.setAddress(block.chainid, "erc20_vault", vault);
     }
 
@@ -126,8 +125,7 @@ contract TestBridgedERC20 is TaikoTest {
                 data: abi.encodeCall(
                     BridgedERC20.init,
                     (owner, address(resolver), srcToken, srcChainId, srcDecimals, name, name)
-                ),
-                resolver: resolver
+                )
             })
         );
     }

@@ -69,7 +69,6 @@ contract UpdatedBridgedERC20 is BridgedERC20V2 {
 
 contract TestERC20Vault is TaikoTest {
     TaikoToken tko;
-    DefaultResolver resolver;
     Bridge bridge;
     ERC20Vault erc20Vault;
     ERC20Vault destChainIdERC20Vault;
@@ -77,25 +76,24 @@ contract TestERC20Vault is TaikoTest {
     SignalService signalServiceNoProofCheck;
     FreeMintERC20 erc20;
     FreeMintERC20 weirdNamedToken;
-    uint64 destChainId = 7;
-    uint64 srcChainId = uint64(block.chainid);
 
     BridgedERC20 usdc;
     BridgedERC20 usdt;
     BridgedERC20 stETH;
 
     function setUp() public {
-        vm.startPrank(Carol);
         vm.deal(Alice, 1 ether);
-        vm.deal(Carol, 1 ether);
         vm.deal(Bob, 1 ether);
 
-        resolver = deployDefaultResolver();
+        deployer = Carol;
+        prepareContracts();
 
-        tko = deployTaikoToken(resolver);
+        vm.startPrank(Carol);
 
-        erc20Vault = deployERC20Vault(resolver);
-        destChainIdERC20Vault = deployERC20Vault(resolver);
+        tko = deployTaikoToken();
+
+        erc20Vault = deployERC20Vault();
+        destChainIdERC20Vault = deployERC20Vault();
 
         erc20 = new FreeMintERC20("ERC20", "ERC20");
         erc20.mint(Alice);
@@ -103,12 +101,11 @@ contract TestERC20Vault is TaikoTest {
         weirdNamedToken = new FreeMintERC20("", "123456abcdefgh");
         weirdNamedToken.mint(Alice);
 
-        bridge = deployBridge(resolver, address(new Bridge()));
+        bridge = deployBridge(address(new Bridge()));
         destChainIdBridge = new PrankDestBridge(erc20Vault);
         vm.deal(address(destChainIdBridge), 100 ether);
 
-        signalServiceNoProofCheck =
-            deploySignalService(resolver, address(new SignalServiceNoProofCheck()));
+        signalServiceNoProofCheck = deploySignalService(address(new SignalServiceNoProofCheck()));
 
         resolver.setAddress(block.chainid, "signal_service", address(signalServiceNoProofCheck));
 
@@ -126,9 +123,9 @@ contract TestERC20Vault is TaikoTest {
 
         resolver.setAddress(block.chainid, "bridged_erc20", bridgedERC20);
 
-        usdc = deployBridgedERC20(resolver, randAddress(), 100, 18, "USDC", "USDC coin");
-        usdt = deployBridgedERC20(resolver, randAddress(), 100, 18, "USDT", "USDT coin");
-        stETH = deployBridgedERC20(resolver, randAddress(), 100, 18, "stETH", "Lido Staked ETH");
+        usdc = deployBridgedERC20(randAddress(), 100, 18, "USDC", "USDC coin");
+        usdt = deployBridgedERC20(randAddress(), 100, 18, "USDT", "USDT coin");
+        stETH = deployBridgedERC20(randAddress(), 100, 18, "stETH", "Lido Staked ETH");
         vm.stopPrank();
     }
 

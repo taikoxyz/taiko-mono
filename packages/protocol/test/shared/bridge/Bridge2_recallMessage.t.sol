@@ -26,15 +26,15 @@ contract BridgeTest2_recallMessage is BridgeTest2 {
         IBridge.Message memory message;
         message.srcOwner = Alice;
         message.destOwner = Bob;
-        message.destChainId = remoteChainId;
+        message.destChainId = destChainId;
         message.value = 1 ether;
 
         vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
-        bridge.recallMessage(message, fakeProof);
+        bridge.recallMessage(message, FAKE_PROOF);
 
         message.srcChainId = uint64(block.chainid);
         vm.expectRevert(Bridge.B_MESSAGE_NOT_SENT.selector);
-        bridge.recallMessage(message, fakeProof);
+        bridge.recallMessage(message, FAKE_PROOF);
 
         uint256 aliceBalance = Alice.balance;
         uint256 carolBalance = Carol.balance;
@@ -45,7 +45,7 @@ contract BridgeTest2_recallMessage is BridgeTest2 {
         assertEq(Carol.balance, carolBalance - 1 ether);
         assertEq(address(bridge).balance, bridgeBalance + 1 ether);
 
-        bridge.recallMessage(m, fakeProof);
+        bridge.recallMessage(m, FAKE_PROOF);
         bytes32 hash = bridge.hashMessage(m);
         assertTrue(bridge.messageStatus(hash) == IBridge.Status.RECALLED);
 
@@ -55,7 +55,7 @@ contract BridgeTest2_recallMessage is BridgeTest2 {
 
         // recall the same message again
         vm.expectRevert(Bridge.B_INVALID_STATUS.selector);
-        bridge.recallMessage(m, fakeProof);
+        bridge.recallMessage(m, FAKE_PROOF);
     }
 
     function test_bridge2_recallMessage_missing_local_signal_service()
@@ -66,19 +66,19 @@ contract BridgeTest2_recallMessage is BridgeTest2 {
         IBridge.Message memory message;
         message.srcOwner = Alice;
         message.destOwner = Bob;
-        message.destChainId = remoteChainId;
+        message.destChainId = destChainId;
         message.value = 1 ether;
         message.srcChainId = uint64(block.chainid);
 
         vm.prank(Carol);
         (, IBridge.Message memory m) = bridge.sendMessage{ value: 1 ether }(message);
 
-        vm.prank(owner);
+        vm.prank(deployer);
         resolver.setAddress(block.chainid, "signal_service", address(0));
 
         vm.prank(Carol);
         vm.expectRevert();
-        bridge.recallMessage(m, fakeProof);
+        bridge.recallMessage(m, FAKE_PROOF);
     }
 
     function test_bridge2_recallMessage_callable_sender() public dealEther(Carol) {
@@ -90,7 +90,7 @@ contract BridgeTest2_recallMessage is BridgeTest2 {
         IBridge.Message memory message;
         message.srcOwner = Alice;
         message.destOwner = Bob;
-        message.destChainId = remoteChainId;
+        message.destChainId = destChainId;
         message.value = 1 ether;
         message.srcChainId = uint64(block.chainid);
 
@@ -98,7 +98,7 @@ contract BridgeTest2_recallMessage is BridgeTest2 {
         (bytes32 mhash, IBridge.Message memory m) = bridge.sendMessage{ value: 1 ether }(message);
 
         vm.prank(address(callableSender));
-        bridge.recallMessage(m, fakeProof);
+        bridge.recallMessage(m, FAKE_PROOF);
         bytes32 hash = bridge.hashMessage(m);
         assertTrue(bridge.messageStatus(hash) == IBridge.Status.RECALLED);
 

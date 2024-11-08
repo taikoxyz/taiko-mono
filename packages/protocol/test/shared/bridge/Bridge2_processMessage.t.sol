@@ -46,41 +46,41 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         IBridge.Message memory message;
 
         vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
-        bridge.processMessage(message, fakeProof);
+        bridge.processMessage(message, FAKE_PROOF);
 
         message.destChainId = uint64(block.chainid);
         vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
-        bridge.processMessage(message, fakeProof);
+        bridge.processMessage(message, FAKE_PROOF);
 
         message.srcChainId = uint64(block.chainid);
         vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
-        bridge.processMessage(message, fakeProof);
+        bridge.processMessage(message, FAKE_PROOF);
 
-        message.srcChainId = remoteChainId + 1;
+        message.srcChainId = destChainId + 1;
         vm.expectRevert(Bridge.B_PERMISSION_DENIED.selector);
-        bridge.processMessage(message, fakeProof);
+        bridge.processMessage(message, FAKE_PROOF);
 
-        message.srcChainId = remoteChainId;
+        message.srcChainId = destChainId;
         vm.expectRevert(); // RESOLVER_ZERO_ADDR src bridge not registered
-        bridge.processMessage(message, fakeProof);
+        bridge.processMessage(message, FAKE_PROOF);
 
         message.gasLimit = 1_000_000;
         bytes32 hash = bridge.hashMessage(message);
         assertTrue(bridge.messageStatus(hash) == IBridge.Status.NEW);
 
-        bridge.processMessage(message, fakeProof);
+        bridge.processMessage(message, FAKE_PROOF);
         assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
 
         vm.stopPrank();
 
-        vm.prank(owner);
+        vm.prank(deployer);
         resolver.setAddress(message.srcChainId, "bridge", address(0));
 
         vm.startPrank(Alice);
 
         message.id += 1;
         vm.expectRevert(); // RESOLVER_ZERO_ADDR src bridge not registered
-        bridge.processMessage(message, fakeProof);
+        bridge.processMessage(message, FAKE_PROOF);
 
         vm.stopPrank();
     }
@@ -93,27 +93,27 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         IBridge.Message memory message;
 
         message.destChainId = uint64(block.chainid);
-        message.srcChainId = remoteChainId;
+        message.srcChainId = destChainId;
 
         message.gasLimit = 1_000_000;
         message.fee = 0;
         message.value = 2 ether;
         vm.expectRevert(LibAddress.ETH_TRANSFER_FAILED.selector);
-        bridge.processMessage(message, fakeProof);
+        bridge.processMessage(message, FAKE_PROOF);
 
         message.destOwner = Alice;
         uint256 aliceBalance = Alice.balance;
-        bridge.processMessage(message, fakeProof);
+        bridge.processMessage(message, FAKE_PROOF);
         assertEq(Alice.balance, aliceBalance + 2 ether);
 
         message.to = address(bridge);
         aliceBalance = Alice.balance;
-        bridge.processMessage(message, fakeProof);
+        bridge.processMessage(message, FAKE_PROOF);
         assertEq(Alice.balance, aliceBalance + 2 ether);
 
         message.to = address(signalService);
         aliceBalance = Alice.balance;
-        bridge.processMessage(message, fakeProof);
+        bridge.processMessage(message, FAKE_PROOF);
         assertEq(Alice.balance, aliceBalance + 2 ether);
 
         bytes32 hash = bridge.hashMessage(message);
@@ -131,27 +131,27 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         IBridge.Message memory message;
 
         message.destChainId = uint64(block.chainid);
-        message.srcChainId = remoteChainId;
+        message.srcChainId = destChainId;
 
         message.gasLimit = 0;
         message.fee = 0;
         message.value = 2 ether;
         vm.expectRevert(Bridge.B_PERMISSION_DENIED.selector);
-        bridge.processMessage(message, fakeProof);
+        bridge.processMessage(message, FAKE_PROOF);
 
         message.destOwner = Alice;
         uint256 aliceBalance = Alice.balance;
-        bridge.processMessage(message, fakeProof);
+        bridge.processMessage(message, FAKE_PROOF);
         assertEq(Alice.balance, aliceBalance + 2 ether);
 
         message.to = address(bridge);
         aliceBalance = Alice.balance;
-        bridge.processMessage(message, fakeProof);
+        bridge.processMessage(message, FAKE_PROOF);
         assertEq(Alice.balance, aliceBalance + 2 ether);
 
         message.to = address(signalService);
         aliceBalance = Alice.balance;
-        bridge.processMessage(message, fakeProof);
+        bridge.processMessage(message, FAKE_PROOF);
         assertEq(Alice.balance, aliceBalance + 2 ether);
 
         bytes32 hash = bridge.hashMessage(message);
@@ -163,7 +163,7 @@ contract BridgeTest2_processMessage is BridgeTest2 {
 
         vm.prank(Bob);
         vm.expectRevert(Bridge.B_PERMISSION_DENIED.selector);
-        bridge.processMessage(message, fakeProof);
+        bridge.processMessage(message, FAKE_PROOF);
 
         hash = bridge.hashMessage(message);
         assertTrue(bridge.messageStatus(hash) == IBridge.Status.NEW);
@@ -177,7 +177,7 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         IBridge.Message memory message;
 
         message.destChainId = uint64(block.chainid);
-        message.srcChainId = remoteChainId;
+        message.srcChainId = destChainId;
 
         message.gasLimit = 1;
         message.fee = 5_000_000;
@@ -187,7 +187,7 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         uint256 bobBalance = Bob.balance;
         uint256 aliceBalance = Alice.balance;
 
-        bridge.processMessage(message, fakeProof);
+        bridge.processMessage(message, FAKE_PROOF);
 
         assertEq(Bob.balance, bobBalance + 2 ether);
         assertEq(Alice.balance, aliceBalance + 5_000_000);
@@ -199,7 +199,7 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         bobBalance = Bob.balance;
         aliceBalance = Alice.balance;
 
-        bridge.processMessage(message, fakeProof);
+        bridge.processMessage(message, FAKE_PROOF);
         assertTrue(Bob.balance > bobBalance + 2 ether);
         assertTrue(Alice.balance < aliceBalance + 5_000_000);
     }
@@ -212,7 +212,7 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         IBridge.Message memory message;
 
         message.destChainId = uint64(block.chainid);
-        message.srcChainId = remoteChainId;
+        message.srcChainId = destChainId;
 
         message.gasLimit = 0;
         message.fee = 5_000_000;
@@ -221,7 +221,7 @@ contract BridgeTest2_processMessage is BridgeTest2 {
 
         uint256 aliceBalance = Alice.balance;
 
-        bridge.processMessage(message, fakeProof);
+        bridge.processMessage(message, FAKE_PROOF);
 
         assertEq(Alice.balance, aliceBalance + 2 ether + 5_000_000);
 
@@ -237,7 +237,7 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         IBridge.Message memory message;
 
         message.destChainId = uint64(block.chainid);
-        message.srcChainId = remoteChainId;
+        message.srcChainId = destChainId;
 
         message.gasLimit = 1_000_000;
         message.fee = 0;
@@ -248,7 +248,7 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         uint256 aliceBalance = Alice.balance;
         uint256 davidBalance = David.balance;
 
-        bridge.processMessage(message, fakeProof);
+        bridge.processMessage(message, FAKE_PROOF);
         bytes32 hash = bridge.hashMessage(message);
         assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
 
@@ -264,7 +264,7 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         IBridge.Message memory message;
 
         message.destChainId = uint64(block.chainid);
-        message.srcChainId = remoteChainId;
+        message.srcChainId = destChainId;
 
         message.gasLimit = 0;
         message.fee = 0;
@@ -274,7 +274,7 @@ contract BridgeTest2_processMessage is BridgeTest2 {
 
         uint256 davidBalance = David.balance;
 
-        bridge.processMessage(message, fakeProof);
+        bridge.processMessage(message, FAKE_PROOF);
         bytes32 hash = bridge.hashMessage(message);
         assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
 
@@ -289,7 +289,7 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         IBridge.Message memory message;
 
         message.destChainId = uint64(block.chainid);
-        message.srcChainId = remoteChainId;
+        message.srcChainId = destChainId;
 
         message.gasLimit = 1_000_000;
         message.fee = 5_000_000;
@@ -300,7 +300,7 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         uint256 aliceBalance = Alice.balance;
         uint256 davidBalance = David.balance;
 
-        bridge.processMessage(message, fakeProof);
+        bridge.processMessage(message, FAKE_PROOF);
         bytes32 hash = bridge.hashMessage(message);
         assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
 
@@ -317,7 +317,7 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         IBridge.Message memory message;
 
         message.destChainId = uint64(block.chainid);
-        message.srcChainId = remoteChainId;
+        message.srcChainId = destChainId;
 
         message.gasLimit = 0;
         message.fee = 1_000_000;
@@ -327,7 +327,7 @@ contract BridgeTest2_processMessage is BridgeTest2 {
 
         uint256 davidBalance = David.balance;
 
-        bridge.processMessage(message, fakeProof);
+        bridge.processMessage(message, FAKE_PROOF);
         bytes32 hash = bridge.hashMessage(message);
         assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
 
@@ -341,7 +341,7 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         IBridge.Message memory message;
 
         message.destChainId = uint64(block.chainid);
-        message.srcChainId = remoteChainId;
+        message.srcChainId = destChainId;
 
         message.gasLimit = 1_000_000;
         message.fee = 0;
@@ -351,14 +351,14 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         message.data = abi.encodeCall(Target.anotherFunc, (""));
 
         uint256 aliceBalance = Alice.balance;
-        bridge.processMessage(message, fakeProof);
+        bridge.processMessage(message, FAKE_PROOF);
         bytes32 hash = bridge.hashMessage(message);
         assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
         assertEq(Alice.balance, aliceBalance + 2 ether);
         assertEq(target.receivedEther(), 0 ether);
 
         message.data = "1";
-        bridge.processMessage(message, fakeProof);
+        bridge.processMessage(message, FAKE_PROOF);
         hash = bridge.hashMessage(message);
         assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
         assertEq(target.receivedEther(), 2 ether);
@@ -371,14 +371,14 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         message.to = Bob;
         message.data = "something else";
 
-        bridge.processMessage(message, fakeProof);
+        bridge.processMessage(message, FAKE_PROOF);
         hash = bridge.hashMessage(message);
         assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
         assertEq(Bob.balance, 2 ether);
 
         message.to = address(target);
         message.data = abi.encodeCall(Target.onMessageInvocation, (""));
-        bridge.processMessage(message, fakeProof);
+        bridge.processMessage(message, FAKE_PROOF);
         hash = bridge.hashMessage(message);
         assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
         assertEq(target.receivedEther(), 4 ether);
@@ -398,7 +398,7 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         dealEther(Alice)
         assertSameTotalBalance
     {
-        vm.startPrank(owner);
+        vm.startPrank(deployer);
         resolver.setAddress(
             uint64(block.chainid), "quota_manager", address(new OutOfQuotaManager())
         );
@@ -407,7 +407,7 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         IBridge.Message memory message;
 
         message.destChainId = uint64(block.chainid);
-        message.srcChainId = remoteChainId;
+        message.srcChainId = destChainId;
 
         message.gasLimit = 1_000_000;
         message.fee = 5_000_000;
@@ -417,11 +417,11 @@ contract BridgeTest2_processMessage is BridgeTest2 {
 
         vm.prank(Bob);
         vm.expectRevert(Bridge.B_OUT_OF_ETH_QUOTA.selector);
-        bridge.processMessage(message, fakeProof);
+        bridge.processMessage(message, FAKE_PROOF);
 
         vm.prank(Alice);
         vm.expectRevert(Bridge.B_OUT_OF_ETH_QUOTA.selector);
-        bridge.processMessage(message, fakeProof);
+        bridge.processMessage(message, FAKE_PROOF);
     }
 
     function test_bridge2_processMessage_and_retryMessage_malicious_way()
@@ -430,7 +430,7 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         dealEther(Alice)
         assertSameTotalBalance
     {
-        vm.startPrank(owner);
+        vm.startPrank(deployer);
         resolver.setAddress(
             uint64(block.chainid), "quota_manager", address(new OutOfQuotaManager())
         );
@@ -439,7 +439,7 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         IBridge.Message memory message;
 
         message.destChainId = uint64(block.chainid);
-        message.srcChainId = remoteChainId;
+        message.srcChainId = destChainId;
 
         bytes32 hashOfMaliciousMessage =
             0x3c6e0b8a9c15224b7f0a1e5f4c8f7683d5a0a4e32a34c6c7c7e1f4d9a9d9f6b4;
@@ -452,6 +452,6 @@ contract BridgeTest2_processMessage is BridgeTest2 {
 
         vm.prank(Alice);
         vm.expectRevert(Bridge.B_OUT_OF_ETH_QUOTA.selector);
-        bridge.processMessage(message, fakeProof);
+        bridge.processMessage(message, FAKE_PROOF);
     }
 }
