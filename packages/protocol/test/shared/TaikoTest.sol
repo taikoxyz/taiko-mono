@@ -24,7 +24,7 @@ import "src/shared/bridge/QuotaManager.sol";
 import "./token/FreeMintERC20.sol";
 import "./token/RegularERC20.sol";
 import "./token/MayFailFreeMintERC20.sol";
-import "./HelperContracts.sol";
+import "./TaikoTest.h.sol";
 
 import "src/layer1/token/TaikoToken.sol"; // why we need Taiko token here? TODO
 

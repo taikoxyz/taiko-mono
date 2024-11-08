@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../TaikoTest.sol";
-import "forge-std/src/console2.sol";
+import "./SignalService.h.sol";
 
 contract TestSignalService is TaikoTest {
     SignalService mockSignalService;
