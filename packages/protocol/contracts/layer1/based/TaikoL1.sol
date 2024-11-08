@@ -25,6 +25,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
 
     uint256[50] private __gap;
 
+    event GasPerBlock(bool isProposeBlock, uint256 gasUsed);
+
     error L1_FORK_HEIGHT_ERROR();
 
     modifier whenProvingNotPaused() {
@@ -35,6 +37,12 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     modifier emitEventForClient() {
         _;
         emit StateVariablesUpdated(state.slotB);
+    }
+
+    modifier measureGasUsed(bool _proposeBlock, uint256 _batchSize) {
+        uint256 gas = gasleft();
+        _;
+        emit GasPerBlock(_proposeBlock, gas - gasleft() / _batchSize);
     }
 
     /// @notice Initializes the contract.
@@ -73,6 +81,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         bytes calldata _txList
     )
         external
+        measureGasUsed(true, 1)
         whenNotPaused
         nonReentrant
         emitEventForClient
@@ -88,6 +97,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         bytes[] calldata _txListArr
     )
         external
+        measureGasUsed(true, _paramsArr.length)
         whenNotPaused
         nonReentrant
         emitEventForClient
@@ -103,6 +113,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         bytes calldata _input
     )
         external
+        measureGasUsed(false, 1)
         whenNotPaused
         whenProvingNotPaused
         nonReentrant
@@ -118,6 +129,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         bytes calldata _batchProof
     )
         external
+        measureGasUsed(false, _blockIds.length)
         whenNotPaused
         whenProvingNotPaused
         nonReentrant
