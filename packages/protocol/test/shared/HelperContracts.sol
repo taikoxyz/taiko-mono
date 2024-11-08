@@ -47,5 +47,42 @@ contract SignalServiceNoProofCheck is SignalService {
         pure
         override
         returns (uint256)
-    { }
+    {   }
+
+
+    function _verifyHopProof(
+        uint64, /*chainId*/
+        address, /*app*/
+        bytes32, /*signal*/
+        bytes32, /*value*/
+        HopProof memory, /*hop*/
+        address /*relay*/
+    )
+        internal
+        pure
+        override
+        returns (bytes32)
+    {
+        // Skip verifying the merkle proof entirely
+        return bytes32(uint256(789));
+    }
+}
+
+contract SignalServiceNoHopCheck is SignalService {
+    function _verifyHopProof(
+        uint64, /*chainId*/
+        address, /*app*/
+        bytes32, /*signal*/
+        bytes32, /*value*/
+        HopProof memory, /*hop*/
+        address /*relay*/
+    )
+        internal
+        pure
+        override
+        returns (bytes32)
+    {
+        // Skip verifying the merkle proof entirely
+        return bytes32(uint256(789));
+    }
 }
