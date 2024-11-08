@@ -26,10 +26,10 @@ contract MainnetTierRouter is ITierRouter, TierProviderBase {
     function getTierIds() external pure returns (uint16[] memory tiers_) {
         tiers_ = new uint16[](5);
         tiers_[0] = LibTiers.TIER_SGX;
-        tiers_[1] = LibTiers.TIER_GUARDIAN_MINORITY;
-        tiers_[2] = LibTiers.TIER_GUARDIAN;
-        tiers_[3] = LibTiers.TIER_ZKVM_SP1;
-        tiers_[4] = LibTiers.TIER_ZKVM_RISC0;
+        tiers_[1] = LibTiers.TIER_ZKVM_RISC0;
+        tiers_[2] = LibTiers.TIER_ZKVM_SP1;
+        tiers_[3] = LibTiers.TIER_GUARDIAN_MINORITY;
+        tiers_[4] = LibTiers.TIER_GUARDIAN;
     }
 
     /// @inheritdoc ITierProvider
