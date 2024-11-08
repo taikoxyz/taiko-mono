@@ -14,13 +14,6 @@ contract QuotaManagerTest is TaikoTest {
         vm.deal(Alice, 100 ether);
 
         resolver = deployDefaultResolver();
-        //     deployProxy({
-        //         name: "address_manager",
-        //         impl: address(new DefaultResolver()),
-        //         data: abi.encodeCall(DefaultResolver.init, (address(0)))
-        //     })
-        // );
-
         resolver.setAddress(block.chainid, "bridge", bridge);
 
         qm = deployQuotaManager(resolver);

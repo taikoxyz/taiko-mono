@@ -196,7 +196,8 @@ abstract contract TaikoTest is Test, Script {
             deploy({
                 name: "quota_manager",
                 impl: address(new QuotaManager()),
-                data: abi.encodeCall(QuotaManager.init, (address(0), address(resolver), 24 hours))
+                data: abi.encodeCall(QuotaManager.init, (address(0), address(resolver), 24 hours)),
+                resolver: resolver
             })
         );
     }
@@ -206,7 +207,8 @@ abstract contract TaikoTest is Test, Script {
             deploy({
                 name: "erc20_vault",
                 impl: address(new ERC20Vault()),
-                data: abi.encodeCall(ERC20Vault.init, (address(0), address(resolver)))
+                data: abi.encodeCall(ERC20Vault.init, (address(0), address(resolver))),
+                resolver: resolver
             })
         );
     }
@@ -216,7 +218,8 @@ abstract contract TaikoTest is Test, Script {
             deploy({
                 name: "erc721_vault",
                 impl: address(new ERC721Vault()),
-                data: abi.encodeCall(ERC721Vault.init, (address(0), address(resolver)))
+                data: abi.encodeCall(ERC721Vault.init, (address(0), address(resolver))),
+                resolver: resolver
             })
         );
     }
@@ -226,7 +229,8 @@ abstract contract TaikoTest is Test, Script {
             deploy({
                 name: "erc1155_vault",
                 impl: address(new ERC1155Vault()),
-                data: abi.encodeCall(ERC1155Vault.init, (address(0), address(resolver)))
+                data: abi.encodeCall(ERC1155Vault.init, (address(0), address(resolver))),
+                resolver: resolver
             })
         );
     }
