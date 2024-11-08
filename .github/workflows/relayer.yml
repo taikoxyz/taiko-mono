@@ -13,6 +13,8 @@ on:
       - "packages/relayer/**"
       - "go.mod"
       - "go.sum"
+    branches-ignore:
+      - release-please--branches--**
 
 jobs:
   lint-relayer:
