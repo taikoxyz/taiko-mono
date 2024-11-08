@@ -69,7 +69,7 @@ contract BridgeTest is TaikoTest {
 
         // Deploy on destination chain
         vm.chainId(destChainId);
-        destSignalService = deploySignalService(resolver, address(new SignalService()));
+        destSignalService = deploySignalService(resolver, address(new SignalServiceNoProofCheck()));
         destBridge = deployBridge(resolver, address(new Bridge()));
         vm.deal(address(destBridge), 100 ether);
         vm.chainId(chainId);
