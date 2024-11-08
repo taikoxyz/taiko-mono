@@ -24,22 +24,21 @@ contract MainnetTierRouter is ITierRouter, TierProviderBase {
 
     /// @inheritdoc ITierProvider
     function getTierIds() external pure returns (uint16[] memory tiers_) {
-        tiers_ = new uint16[](3);
+        tiers_ = new uint16[](5);
         tiers_[0] = LibTiers.TIER_SGX;
-        tiers_[1] = LibTiers.TIER_GUARDIAN_MINORITY;
-        tiers_[2] = LibTiers.TIER_GUARDIAN;
+        tiers_[1] = LibTiers.TIER_ZKVM_RISC0;
+        tiers_[2] = LibTiers.TIER_ZKVM_SP1;
+        tiers_[3] = LibTiers.TIER_GUARDIAN_MINORITY;
+        tiers_[4] = LibTiers.TIER_GUARDIAN;
     }
 
     /// @inheritdoc ITierProvider
-    function getMinTier(
-        address, /*_proposer*/
-        uint256 /*_rand*/
-    )
-        public
-        pure
-        override
-        returns (uint16)
-    {
+    function getMinTier(address _proposer, uint256 _rand) public view override returns (uint16) {
+        if (_proposer == DAO_FALLBACK_PROPOSER) {
+            if (_rand % 1000 == 0) return LibTiers.TIER_ZKVM_RISC0;
+            else if (_rand % 1000 == 1) return LibTiers.TIER_ZKVM_SP1;
+            else return LibTiers.TIER_SGX;
+        }
         return LibTiers.TIER_SGX;
     }
 }
