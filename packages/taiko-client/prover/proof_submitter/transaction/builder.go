@@ -155,7 +155,7 @@ func (a *ProveBlockTxBuilder) Build(
 	}
 }
 
-// BuildProveBlocks creates a new TaikoL1.ProveBlocks transaction with the given nonce.
+// BuildProveBlocks creates a new TaikoL1.ProveBlocks transaction.
 func (a *ProveBlockTxBuilder) BuildProveBlocks(
 	batchProof *proofProducer.BatchProofs,
 	graffiti [32]byte,
