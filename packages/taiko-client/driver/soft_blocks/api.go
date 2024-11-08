@@ -49,17 +49,14 @@ type TransactionBatch struct {
 	// @param either `end_of_block`, `end_of_preconf` or empty
 	BatchMarker TransactionBatchMarker `json:"batchType"`
 	// @param signature string Signature of this transaction batch
-	Signature string `json:"signature"`
+	Signature string `json:"signature" rlp:"-"`
 	// @param blockParams SoftBlockParams Block parameters of the soft block
 	BlockParams *SoftBlockParams `json:"blockParams"`
 }
 
 // ValidateSignature validates the signature of the transaction batch.
 func (b *TransactionBatch) ValidateSignature() (bool, error) {
-	batchWithoutSig := *b
-	batchWithoutSig.Signature = ""
-
-	payload, err := rlp.EncodeToBytes(batchWithoutSig)
+	payload, err := rlp.EncodeToBytes(b)
 	if err != nil {
 		return false, err
 	}
@@ -82,7 +79,7 @@ type BuildSoftBlockRequestBody struct {
 // CreateOrUpdateBlocksFromBatchResponseBody represents a response body when handling soft
 // blocks creation requests.
 type BuildSoftBlockResponseBody struct {
-	// @param blockHeader types.Header Header of the soft block
+	// @param blockHeader types.Header of the soft block
 	BlockHeader *types.Header `json:"blockHeader"`
 }
 
@@ -94,11 +91,11 @@ type BuildSoftBlockResponseBody struct {
 //		@Description	first for a block, a new soft block will be created. Otherwise, the transactions will
 //		@Description	be appended to the existing soft block. The API will fail if:
 //		@Description	1) the block is not soft
-//	  @Description	2) block-level parameters are invalid or do not match the current soft block’s parameters
-//	  @Description	3) the batch ID is not exactly 1 greater than the previous one
-//	  @Description	4) the last batch of the block indicates no further transactions are allowed
-//		@Param  body body BuildSoftBlockRequestBody true "soft block creation request body"
-//		@Accept	  json
+//	  	@Description	2) block-level parameters are invalid or do not match the current soft block’s parameters
+//	  	@Description	3) the batch ID is not exactly 1 greater than the previous one
+//	  	@Description	4) the last batch of the block indicates no further transactions are allowed
+//		@Param  	body BuildSoftBlockRequestBody true "soft block creation request body"
+//		@Accept	  	json
 //		@Produce	json
 //		@Success	200		{object} BuildSoftBlockResponseBody
 //		@Router		/softBlocks [post]
@@ -230,12 +227,12 @@ type RemoveSoftBlocksResponseBody struct {
 
 // RemoveSoftBlocks removes the backend L2 execution engine soft head.
 //
-//		@Description	 Remove all soft blocks from the blockchain beyond the specified block height,
-//	  @Description	 ensuring the latest block ID does not exceed the given height. This method will fail if
-//	  @Description	 the block with an ID one greater than the specified height is not a soft block. If the
-//	  @Description	 specified block height is greater than the latest soft block ID, the method will succeed
-//	  @Description	 without modifying the blockchain.
-//		@Param      body body RemoveSoftBlocksRequestBody true "soft blocks removing request body"
+//		@Description	Remove all soft blocks from the blockchain beyond the specified block height,
+//	  	@Description	ensuring the latest block ID does not exceed the given height. This method will fail if
+//	  	@Description	the block with an ID one greater than the specified height is not a soft block. If the
+//	  	@Description	specified block height is greater than the latest soft block ID, the method will succeed
+//	  	@Description	without modifying the blockchain.
+//		@Param      	body RemoveSoftBlocksRequestBody true "soft blocks removing request body"
 //		@Accept			json
 //		@Produce		json
 //		@Success		200	{object} RemoveSoftBlocksResponseBody
