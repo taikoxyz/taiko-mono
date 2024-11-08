@@ -17,7 +17,7 @@ abstract contract ResolverBase is IResolver {
         returns (address addr_)
     {
         addr_ = getAddress(_chainId, _name);
-        require(addr_ != address(0) || _allowZeroAddress, RESOLVED_TO_ZERO_ADDRESS());
+        require(addr_ != address(0) || _allowZeroAddress, RESOLVED_TO_ZERO_ADDRESS(_chainId, _name));
     }
 
     function getAddress(uint256 _chainId, bytes32 _name) internal view virtual returns (address);

@@ -97,10 +97,11 @@ abstract contract TaikoTest is Test, Script {
             string.concat(vm.projectRoot(), "/deployments/deploy_l1.json")
         );
 
-        console2.log(">", bytes32ToString(name));
-        console2.log("  proxy      :", proxy);
-        console2.log("  impl       :", impl);
-        console2.log("  owner      :", OwnableUpgradeable(proxy).owner());
+        console2.log(">", string.concat("'", bytes32ToString(name), "'"));
+        console2.log("  proxy   :", proxy);
+        console2.log("  impl    :", impl);
+        console2.log("  owner   :", OwnableUpgradeable(proxy).owner());
+        console2.log("  chain id:", block.chainid);
     }
 
     function deploy(
@@ -114,7 +115,7 @@ abstract contract TaikoTest is Test, Script {
     {
         require(address(resolver) != address(0), "resolver is address(0)");
         proxy = deploy(name, impl, data);
-        console2.log("  registered :", address(resolver));
+        console2.log("  resolver:", address(resolver));
         resolver.setAddress(block.chainid, name, proxy);
     }
 
