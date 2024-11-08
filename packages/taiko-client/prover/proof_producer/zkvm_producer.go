@@ -258,6 +258,13 @@ func (s *ZKvmProofProducer) requestProof(
 		req.Header.Set("Authorization", "Bearer "+base64.StdEncoding.EncodeToString([]byte(s.JWT)))
 	}
 
+	log.Debug(
+		"Send proof generation request",
+		"blockID", opts.BlockID,
+		"zkProofType", s.ZKProofType,
+		"input", string(jsonValue),
+	)
+
 	res, err := client.Do(req)
 	if err != nil {
 		return nil, err
