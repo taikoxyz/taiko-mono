@@ -7,7 +7,7 @@ contract TestLibAddress is TaikoTest {
     EtherSenderContract bridge;
     CalldataReceiver calledContract;
 
-    function prepareContractsOnSourceChain() internal override {
+    function setUpOnSourceChain() internal override {
         bridge = new EtherSenderContract();
         vm.deal(address(bridge), 1 ether);
 

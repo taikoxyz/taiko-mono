@@ -11,7 +11,7 @@ contract BridgeTest is TaikoTest {
     SignalService destSignalService;
     Bridge destBridge;
 
-    function prepareContractsOnSourceChain() internal override {
+    function setUpOnSourceChain() internal override {
         goodReceiver = new GoodReceiver();
 
         bridge = deployBridge(address(new Bridge()));
@@ -20,7 +20,7 @@ contract BridgeTest is TaikoTest {
         vm.deal(Alice, 100 ether);
     }
 
-    function prepareContractsOnDestinationChain() internal override {
+    function setUpOnDestinationChain() internal override {
         destSignalService = deploySignalService(address(new SignalServiceNoProofCheck()));
         destBridge = deployBridge(address(new Bridge()));
         vm.deal(address(destBridge), 100 ether);

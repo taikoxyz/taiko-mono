@@ -6,7 +6,7 @@ import "../TaikoTest.sol";
 contract TestBridgedERC20 is TaikoTest {
     address vault = randAddress();
 
-    function prepareContractsOnSourceChain() internal override {
+    function setUpOnSourceChain() internal override {
         register("erc20_vault", vault);
     }
 

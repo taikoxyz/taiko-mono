@@ -23,13 +23,13 @@ contract BridgeTest2 is TaikoTest {
         _;
     }
 
-    function prepareContractsOnSourceChain() internal override {
+    function setUpOnSourceChain() internal override {
         signalService = deploySignalService(address(new SignalServiceNoProofCheck()));
         bridge = deployBridge(address(new Bridge()));
         vm.deal(address(bridge), 10_000 ether);
     }
 
-    function prepareContractsOnDestinationChain() internal override {
+    function setUpOnDestinationChain() internal override {
         destBridge = vm.addr(0x2000);
         register("bridge", destBridge);
     }

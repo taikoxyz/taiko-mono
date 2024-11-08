@@ -8,7 +8,7 @@ contract TestSignalService is TaikoTest {
     SignalService signalService;
     address taiko = randAddress();
 
-    function prepareContractsOnSourceChain() internal override {
+    function setUpOnSourceChain() internal override {
         mockSignalService = deploySignalService(address(new SignalServiceNoHopCheck()));
         mockSignalService.authorize(taiko, true);
 

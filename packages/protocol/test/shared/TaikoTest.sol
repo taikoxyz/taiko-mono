@@ -91,16 +91,16 @@ abstract contract TaikoTest is Test, Script {
 
         resolver = deployDefaultResolver();
 
-        prepareContractsOnSourceChain();
+        setUpOnSourceChain();
 
         vm.chainId(destChainId);
-        prepareContractsOnDestinationChain();
+        setUpOnDestinationChain();
         vm.chainId(srcChainId);
         vm.stopPrank();
     }
 
-    function prepareContractsOnSourceChain() internal virtual { }
-    function prepareContractsOnDestinationChain() internal virtual { }
+    function setUpOnSourceChain() internal virtual { }
+    function setUpOnDestinationChain() internal virtual { }
 
     // TODO: delete this
     function randAddress() internal returns (address) {

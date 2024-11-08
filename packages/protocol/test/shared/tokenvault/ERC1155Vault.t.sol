@@ -15,7 +15,7 @@ contract ERC1155VaultTest is TaikoTest {
     PrankDestBridge destBridge;
     ERC1155Vault destVault;
 
-    function prepareContractsOnSourceChain() internal override {
+    function setUpOnSourceChain() internal override {
         ctoken1155 = new TestTokenERC1155("http://example.host.com/");
 
         signalService = deploySignalService(address(new SignalServiceNoProofCheck()));
@@ -29,7 +29,7 @@ contract ERC1155VaultTest is TaikoTest {
         vm.deal(Bob, 100 ether);
     }
 
-    function prepareContractsOnDestinationChain() internal override {
+    function setUpOnDestinationChain() internal override {
         destVault = deployERC1155Vault();
         destBridge = new PrankDestBridge(destVault);
         destSignalService = deploySignalService(address(new SignalServiceNoProofCheck()));
