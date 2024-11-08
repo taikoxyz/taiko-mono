@@ -159,7 +159,7 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBl
 				log.Error("Failed to request proof, context is canceled", "blockID", opts.BlockID, "error", ctx.Err())
 				return nil
 			}
-			// Check if there is full buffer
+			// Check if the proof buffer is full
 			if s.proofBuffer.MaxLength > 1 && s.proofBuffer.MaxLength == uint64(s.proofBuffer.Len()) {
 				log.Debug("Buffer is full now", "blockID", meta.GetBlockID())
 				return errBufferOverflow
