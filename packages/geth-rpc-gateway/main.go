@@ -66,8 +66,15 @@ func main() {
 
 // WebSocket handler for `/` path when in WebSocket mode
 func rootWebSocketHandler(w http.ResponseWriter, r *http.Request) {
-	log.Printf("WebSocket connection initiated...")
-	handleWebSocket(w, r, webSocketURL)
+	// Check for WebSocket Upgrade
+	if strings.ToLower(r.Header.Get("Upgrade")) == "websocket" {
+		log.Printf("WebSocket connection initiated...")
+		handleWebSocket(w, r, webSocketURL)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OK"))
 }
 
 // CORS middleware to enable CORS headers
