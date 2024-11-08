@@ -174,7 +174,6 @@ contract ERC721VaultTest is TaikoTest {
         vm.stopPrank();
     }
 
-
     function test_721Vault_sendToken_721() public {
         vm.prank(Alice, Alice);
         canonicalToken721.approve(address(erc721Vault), 1);

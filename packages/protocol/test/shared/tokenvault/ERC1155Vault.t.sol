@@ -98,12 +98,12 @@ contract ERC1155VaultTest is TaikoTest {
     ERC1155Vault srcVault;
     ERC1155Vault destVault;
     TestTokenERC1155 ctoken1155;
-    uint64 srcChainId ;
-    uint64 destChainId ;
+    uint64 srcChainId;
+    uint64 destChainId;
 
     function setUp() public {
-          srcChainId = uint64(block.chainid);
-     destChainId = srcChainId + 1;
+        srcChainId = uint64(block.chainid);
+        destChainId = srcChainId + 1;
         vm.startPrank(Carol);
         vm.deal(Alice, 100 ether);
         vm.deal(Carol, 100 ether);
@@ -113,7 +113,7 @@ contract ERC1155VaultTest is TaikoTest {
         bridge = deployBridge(resolver, address(new Bridge()));
         vm.deal(address(bridge), 100 ether);
 
-        signalService = deploySignalService(resolver, address(new SignalService()));
+        signalService = deploySignalService(resolver, address(new SignalServiceNoProofCheck()));
 
         srcVault = deployERC1155Vault(resolver);
 
@@ -134,11 +134,10 @@ contract ERC1155VaultTest is TaikoTest {
         ctoken1155.mint(1, 10);
         ctoken1155.mint(2, 10);
 
-         vm.chainId(srcChainId);
+        vm.chainId(srcChainId);
 
         vm.stopPrank();
     }
-
 
     function test_1155Vault_sendToken_1155() public {
         vm.prank(Alice, Alice);
@@ -259,7 +258,6 @@ contract ERC1155VaultTest is TaikoTest {
             name: ""
         });
 
-
         vm.chainId(destChainId);
 
         destBridge.sendReceiveERC1155ToERC1155Vault(
@@ -310,7 +308,6 @@ contract ERC1155VaultTest is TaikoTest {
             symbol: "",
             name: ""
         });
-
 
         vm.chainId(destChainId);
 
@@ -397,7 +394,6 @@ contract ERC1155VaultTest is TaikoTest {
             name: ""
         });
 
-
         vm.chainId(destChainId);
 
         destBridge.sendReceiveERC1155ToERC1155Vault(
@@ -452,7 +448,7 @@ contract ERC1155VaultTest is TaikoTest {
 
         bridge.recallMessage(message, bytes(""));
 
-        // Alice got back her NFTs, and vault has 0
+        // // Alice got back her NFTs, and vault has 0
         assertEq(ctoken1155.balanceOf(Alice, 1), 10);
         assertEq(ctoken1155.balanceOf(address(srcVault), 1), 0);
     }
@@ -736,7 +732,6 @@ contract ERC1155VaultTest is TaikoTest {
             symbol: "",
             name: ""
         });
-
 
         vm.chainId(destChainId);
 
