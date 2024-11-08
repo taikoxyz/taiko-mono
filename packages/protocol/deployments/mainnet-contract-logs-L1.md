@@ -185,8 +185,8 @@
   - tier_sgx: `0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81`
   - risc0_groth16_verifier: `0xcF706D99C265fC2349AE43c5f6BFD7931FE5308D`
   - tier_zkvm_risc0: `0x55902b2D3DF2A65370A89C86Ae9dd71Ecd508edc`
-  - sp1_remote_verifier: `0x5673e375a71930BF6496Af98fd3b9CB017942448`
-  - tier_zkvm_sp1: `0x1e18454eD45101Ba3Af5351f3D6D2daffE5a34Bf`
+  - sp1_remote_verifier: `0x2D33d748644dAb8B3FB0E07642d9dE96b816d067`
+  - tier_zkvm_sp1: `0x5c44f2239925b0d86d2BFEe539f19CD0A08Af452`
   - tier_guardian_minority: `0x579A8d63a2Db646284CBFE31FE5082c9989E985c`
   - tier_guardian: `0xE3D777143Ea25A6E031d1e921F396750885f43aC`
   - automata_dcap_attestation: `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3`
@@ -270,10 +270,10 @@
 
 #### tier_sp1
 
-- proxy: `0x1e18454eD45101Ba3Af5351f3D6D2daffE5a34Bf`
-- impl: `0x00c04822Ba7AEa1113B2A7A29bBcDcA70E257C7b`
+- proxy: `0x5c44f2239925b0d86d2BFEe539f19CD0A08Af452`
+- impl: `0x5f5b83Ca87E2fBc513B800FeD6cCD626536d7219`
 - logs:
-  - deployed on Nov 6, 2024 @commit`bfb0386`
+  - deployed on Nov 8, 2024 @commit`0b11101`
 
 #### guardian_prover_minority
 
@@ -352,9 +352,9 @@
 
 #### sp1_remote_verifier
 
-- impl: `0x5673e375a71930BF6496Af98fd3b9CB017942448`
+- impl: `0x2D33d748644dAb8B3FB0E07642d9dE96b816d067`
 - logs:
-  - deployed on Nov 6, 2024 @commit`bfb0386`
+  - deployed on Nov 8, 2024 @commit`0b11101`
 
 #### automata_dcap_attestation
 
