@@ -15,14 +15,15 @@ description: Network reference page describing various important addresses on Ta
 | ERC20Vault             | `0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab` | v20.based.taiko.eth     |
 | ERC721Vault            | `0x0b470dd3A0e1C41228856Fb319649E7c08f419Aa` | v721.based.taiko.eth    |
 | ERC1155Vault           | `0xaf145913EA4a56BE22E120ED9C24589659881702` | v1155.based.taiko.eth   |
-| BridgedERC20           | `0xcc5d488073FA918cBbd73B9A523F3858C4de7372` | N/A                     |
-| BridgedERC721          | `0xc4096E9ff1526Bd1840B65e9f45695135aC12De7` | N/A                     |
-| BridgedERC1155         | `0x39E4C1214e733639d059979079A151911e42791d` | N/A                     |
+| BridgedERC20           | `0x65666141a541423606365123Ed280AB16a09A2e1` | N/A                     |
+| BridgedERC721          | `0xC3310905E2BC9Cfb198695B75EF3e5B69C6A1Bf7` | N/A                     |
+| BridgedERC1155         | `0x3c90963cFBa436400B0F9C46Aa9224cB379c2c40` | N/A                     |
 
 | Contract Name (Rollup-Specific) | Address                                      | ENS                        |
 | ------------------------------- | -------------------------------------------- | -------------------------- |
 | TaikoL1                         | `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a` | based.taiko.eth            |
 | RollupAddressManager            | `0x579f40D0BE111b823962043702cabe6Aaa290780` | ram.based.taiko.eth        |
+| TierRouter                      | `0x8f1C1D58C858e9a9eeCc587d7D51AECfd16b5542` | N/A                        |
 | GuardianProver                  | `0xE3D777143Ea25A6E031d1e921F396750885f43aC` | guardians.based.taiko.eth  |
 | GuardianProverMinority          | `0x579A8d63a2Db646284CBFE31FE5082c9989E985c` | guardians1.based.taiko.eth |
 | AssignmentHook                  | `0x537a2f0D3a5879b41BCb5A2afE2EA5c4961796F6` | N/A                        |
@@ -33,7 +34,7 @@ description: Network reference page describing various important addresses on Ta
 | P256Verifier                    | `0x11A9ebA17EbF92b40fcf9a640Ebbc47Db6fBeab0` | N/A                        |
 | SigVerifyLib                    | `0x47bB416ee947fE4a4b655011aF7d6E3A1B80E6e9` | N/A                        |
 | TokenUnlock                     | `0x035AFfC82612de31E9Db2259B9482D0Dd53B7819` | N/A                        |
-| ProverSet                       | `0x34f2B21107AfE3584949c184A1E6236FFDAC4f6F` | N/A                        |
+| ProverSet                       | `0x3022Ed0346CCE0c08268c8ad081458AfD95E8763` | N/A                        |
 | labprover                       | `0x68d30f47F19c07bCCEf4Ac7FAE2Dc12FCa3e0dC9` | labprover.taiko.eth        |
 | labcontester                    | `0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3` | labcontester.taiko.eth     |
 

@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.16.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.15.0...docs-site-v1.16.0) (2024-11-07)
+
+
+### Features
+
+* **docs-site:** update graphic for hekla network config ([#18457](https://github.com/taikoxyz/taiko-mono/issues/18457)) ([1d9b753](https://github.com/taikoxyz/taiko-mono/commit/1d9b753d7163104e5593d3c46d019d9cdae7d549))
+
+## [1.15.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.14.0...docs-site-v1.15.0) (2024-11-05)
+
+
+### Features
+
+* **docs-site:** update network config, list cooldown, proving windows and bonds for every tier, remove banner ([#18377](https://github.com/taikoxyz/taiko-mono/issues/18377)) ([df16035](https://github.com/taikoxyz/taiko-mono/commit/df160358ad022025e76b5957ad0952e4f804dacd))
+
+
+### Documentation
+
+* **docs-site:** update mainnet prover docs ([#18367](https://github.com/taikoxyz/taiko-mono/issues/18367)) ([4fd7b59](https://github.com/taikoxyz/taiko-mono/commit/4fd7b5922dd1447d91ec7fea83c987cb1643cc1b))
+
+
+### Workflow
+
+* **protocol:** trigger patch release (1.10.1) ([#18358](https://github.com/taikoxyz/taiko-mono/issues/18358)) ([f4f4796](https://github.com/taikoxyz/taiko-mono/commit/f4f4796488059b02c79d6fb15170df58dd31dc4e))
+
 ## [1.14.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.13.0...docs-site-v1.14.0) (2024-10-25)
 
 

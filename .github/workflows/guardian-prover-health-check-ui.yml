@@ -7,6 +7,8 @@ on:
   pull_request:
     paths:
       - "packages/guardian-prover-health-check-ui/**"
+    branches-ignore:
+      - release-please--branches--**
 
 jobs:
   build-and-test:

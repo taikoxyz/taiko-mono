@@ -1,0 +1,47 @@
+---
+title: Network configuration
+description: The network configuration page describes many of the configuration details of the network.
+---
+
+import {Aside} from '@astrojs/starlight/components';
+
+## Cooldown Window, Proving Window and Bonds
+
+This segment lists the cooldown windows and proving windows for every tier of proof in the Taiko protocol.
+
+The cooldown window describes how long after the proof has been provided that the block is verified.
+
+The proving window describes how long a prover has to provide a proof for a block after they have been assigned the block (i.e. a block has been proposed with them as the assigned prover).
+
+You can find all the corresponding values below in the above link too!
+
+| Tier              | Cooldown Window | Proving Window | Bond      |
+| ----------------- | --------------- | -------------- | --------- |
+| Optimistic        | 1440 minutes    | 255 minutes    | 75 TAIKO  |
+| SGX               | 240 minutes     | 300 minutes    | 150 TAIKO |
+| ZK                | 240 minutes     | 420 minutes    | 225 TAIKO |
+| SGX & ZK          | 240 minutes     | 420 minutes    | 225 TAIKO |
+| Guardian Minority | 240 minutes     | 240 minutes    | 225 TAIKO |
+| Guardian          | 240 minutes     | 240 minutes    | 0 TAIKO   |
+
+## Tier configuration (Mainnet)
+
+You can view the full `MainnetTierRouter` tier configuration [here](https://etherscan.io/address/0x8f1C1D58C858e9a9eeCc587d7D51AECfd16b5542#code):
+
+![mainnet proof tiers](~/assets/content/docs/network-reference/proof-tier-config-mn.webp)
+
+If the function of the bonds is not clear to you, please find out more [here](/resources/terminology#bonding-related).
+
+## Network configuration (Mainnet)
+
+You can view the full network configuration by visiting the TaikoL1 contract on Etherscan [here](https://etherscan.io/address/0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a#readProxyContract). Then connect your wallet, and select "Read as Proxy". You can then see the config details for the network.
+
+## Tier configuration (Hekla)
+
+You can view the full post ontake fork `HeklaTierRouter` tier configuration [here](https://holesky.etherscan.io/address/0x98d4FaD098526c4582063FA588C5e96229270366#code):
+
+![hekla proof tiers](~/assets/content/docs/network-reference/proof-tier-config-hekla.webp)
+
+## Network configuration (Hekla)
+
+You can view the full network configuration by visiting the TaikoL1 contract on Etherscan [here](https://holesky.etherscan.io/address/0x79C9109b764609df928d16fC4a91e9081F7e87DB#readProxyContract). Then connect your wallet, and select "Read as Proxy". You can then see the config details for the network.
