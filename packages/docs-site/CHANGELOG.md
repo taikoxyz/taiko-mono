@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.16.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.15.0...docs-site-v1.16.0) (2024-11-07)
+
+
+### Features
+
+* **docs-site:** update graphic for hekla network config ([#18457](https://github.com/taikoxyz/taiko-mono/issues/18457)) ([1d9b753](https://github.com/taikoxyz/taiko-mono/commit/1d9b753d7163104e5593d3c46d019d9cdae7d549))
+
 ## [1.15.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.14.0...docs-site-v1.15.0) (2024-11-05)
 
 
