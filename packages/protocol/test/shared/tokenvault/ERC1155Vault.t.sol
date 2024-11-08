@@ -22,9 +22,11 @@ contract ERC1155VaultTest is TaikoTest {
         bridge = deployBridge(address(new Bridge()));
         srcVault = deployERC1155Vault();
 
-        vm.deal(address(bridge), 100 ether);
-
         register("bridged_erc1155", address(new BridgedERC1155()));
+
+        vm.deal(address(bridge), 100 ether);
+        vm.deal(Alice, 100 ether);
+        vm.deal(Bob, 100 ether);
     }
 
     function prepareContractsOnDestinationChain() internal override {
@@ -32,17 +34,14 @@ contract ERC1155VaultTest is TaikoTest {
         destBridge = new PrankDestBridge(destVault);
         destSignalService = deploySignalService(address(new SignalServiceNoProofCheck()));
 
-        vm.deal(address(destBridge), 100 ether);
-
         register("bridge", address(destBridge));
         register("bridged_erc1155", address(new BridgedERC1155()));
+
+        vm.deal(address(destBridge), 100 ether);
     }
 
     function setUp() public override {
         super.setUp();
-
-        vm.deal(Alice, 100 ether);
-        vm.deal(Bob, 100 ether);
 
         vm.startPrank(Alice);
         ctoken1155.mint(1, 10);
