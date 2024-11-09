@@ -4,9 +4,9 @@ pragma solidity ^0.8.24;
 import "../TaikoTest.sol";
 
 contract QuotaManagerTest is TaikoTest {
-    QuotaManager public qm;
-
-    address bridge = vm.addr(0x100);
+    // Contracts on Ethereum
+    QuotaManager private qm;
+    address private bridge = randAddress();
 
     function setUpOnEthereum() internal override {
         qm = deployQuotaManager();

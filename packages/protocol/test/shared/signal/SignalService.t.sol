@@ -4,9 +4,9 @@ pragma solidity ^0.8.24;
 import "./SignalService.h.sol";
 
 contract TestSignalService is TaikoTest {
-    SignalService mockSignalService;
-    SignalService signalService;
-    address taiko = randAddress();
+    SignalService private mockSignalService;
+    SignalService private signalService;
+    address private taiko = randAddress();
 
     function setUpOnEthereum() internal override {
         mockSignalService = deploySignalService(address(new SignalServiceNoHopCheck()));

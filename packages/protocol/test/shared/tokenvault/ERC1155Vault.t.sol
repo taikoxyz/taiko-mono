@@ -6,55 +6,55 @@ import "./ERC1155Vault.h.sol";
 contract ERC1155VaultTest is TaikoTest {
     uint32 private constant GAS_LIMIT = 2_000_000;
 
-    TestTokenERC1155 ctoken1155;
-    SignalService signalService;
-    Bridge bridge;
-    ERC1155Vault srcVault;
+    TestTokenERC1155 private eERC1155Token;
+    SignalService  private eSignalService;
+    Bridge  private eBridge;
+    ERC1155Vault  private eVault;
 
-    SignalService destSignalService;
-    PrankDestBridge destBridge;
-    ERC1155Vault destVault;
+    SignalService  private tSignalService;
+    PrankDestBridge  private tBridge;
+    ERC1155Vault  private tVault;
 
     function setUpOnEthereum() internal override {
-        ctoken1155 = new TestTokenERC1155("http://example.host.com/");
+        eERC1155Token = new TestTokenERC1155("http://example.host.com/");
 
-        signalService = deploySignalService(address(new SignalServiceNoProofCheck()));
-        bridge = deployBridge(address(new Bridge()));
-        srcVault = deployERC1155Vault();
+        eSignalService = deploySignalService(address(new SignalServiceNoProofCheck()));
+        eBridge = deployBridge(address(new Bridge()));
+        eVault = deployERC1155Vault();
 
         register("bridged_erc1155", address(new BridgedERC1155()));
 
-        vm.deal(address(bridge), 100 ether);
+        vm.deal(address(eBridge), 100 ether);
         vm.deal(Alice, 100 ether);
         vm.deal(Bob, 100 ether);
     }
 
     function setUpOnTaiko() internal override {
-        destVault = deployERC1155Vault();
-        destBridge = new PrankDestBridge(destVault);
-        destSignalService = deploySignalService(address(new SignalServiceNoProofCheck()));
+        tVault = deployERC1155Vault();
+        tBridge = new PrankDestBridge(tVault);
+        tSignalService = deploySignalService(address(new SignalServiceNoProofCheck()));
 
-        register("bridge", address(destBridge));
+        register("bridge", address(tBridge));
         register("bridged_erc1155", address(new BridgedERC1155()));
 
-        vm.deal(address(destBridge), 100 ether);
+        vm.deal(address(tBridge), 100 ether);
     }
 
     function setUp() public override {
         super.setUp();
 
         vm.startPrank(Alice);
-        ctoken1155.mint(1, 10);
-        ctoken1155.mint(2, 10);
+        eERC1155Token.mint(1, 10);
+        eERC1155Token.mint(2, 10);
         vm.stopPrank();
     }
 
     function test_1155Vault_sendToken_1155() public {
         vm.prank(Alice);
-        ctoken1155.setApprovalForAll(address(srcVault), true);
+        eERC1155Token.setApprovalForAll(address(eVault), true);
 
-        assertEq(ctoken1155.balanceOf(Alice, 1), 10);
-        assertEq(ctoken1155.balanceOf(address(srcVault), 1), 0);
+        assertEq(eERC1155Token.balanceOf(Alice, 1), 10);
+        assertEq(eERC1155Token.balanceOf(address(eVault), 1), 0);
 
         uint256[] memory tokenIds = new uint256[](1);
         tokenIds[0] = 1;
@@ -67,24 +67,24 @@ contract ERC1155VaultTest is TaikoTest {
             address(0),
             Alice,
             GAS_LIMIT,
-            address(ctoken1155),
+            address(eERC1155Token),
             GAS_LIMIT,
             tokenIds,
             amounts
         );
         vm.prank(Alice);
-        srcVault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        eVault.sendToken{ value: GAS_LIMIT }(sendOpts);
 
-        assertEq(ctoken1155.balanceOf(Alice, 1), 8);
-        assertEq(ctoken1155.balanceOf(address(srcVault), 1), 2);
+        assertEq(eERC1155Token.balanceOf(Alice, 1), 8);
+        assertEq(eERC1155Token.balanceOf(address(eVault), 1), 2);
     }
 
     function test_1155Vault_sendToken_with_invalid_token_address_1155() public {
         vm.prank(Alice);
-        ctoken1155.setApprovalForAll(address(srcVault), true);
+        eERC1155Token.setApprovalForAll(address(eVault), true);
 
-        assertEq(ctoken1155.balanceOf(Alice, 1), 10);
-        assertEq(ctoken1155.balanceOf(address(srcVault), 1), 0);
+        assertEq(eERC1155Token.balanceOf(Alice, 1), 10);
+        assertEq(eERC1155Token.balanceOf(address(eVault), 1), 0);
 
         uint256[] memory tokenIds = new uint256[](1);
         tokenIds[0] = 1;
@@ -97,15 +97,15 @@ contract ERC1155VaultTest is TaikoTest {
         );
         vm.prank(Alice);
         vm.expectRevert(BaseNFTVault.VAULT_INVALID_TOKEN.selector);
-        srcVault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        eVault.sendToken{ value: GAS_LIMIT }(sendOpts);
     }
 
     function test_1155Vault_sendToken_with_0_tokens_1155() public {
         vm.prank(Alice);
-        ctoken1155.setApprovalForAll(address(srcVault), true);
+        eERC1155Token.setApprovalForAll(address(eVault), true);
 
-        assertEq(ctoken1155.balanceOf(Alice, 1), 10);
-        assertEq(ctoken1155.balanceOf(address(srcVault), 1), 0);
+        assertEq(eERC1155Token.balanceOf(Alice, 1), 10);
+        assertEq(eERC1155Token.balanceOf(address(eVault), 1), 0);
 
         uint256[] memory tokenIds = new uint256[](1);
         tokenIds[0] = 1;
@@ -118,14 +118,14 @@ contract ERC1155VaultTest is TaikoTest {
             address(0),
             Alice,
             GAS_LIMIT,
-            address(ctoken1155),
+            address(eERC1155Token),
             GAS_LIMIT,
             tokenIds,
             amounts
         );
         vm.prank(Alice);
         vm.expectRevert(BaseNFTVault.VAULT_INVALID_AMOUNT.selector);
-        srcVault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        eVault.sendToken{ value: GAS_LIMIT }(sendOpts);
     }
 
     function test_1155Vault_receiveTokens_from_newly_deployed_bridged_contract_on_destination_chain_1155(
@@ -133,10 +133,10 @@ contract ERC1155VaultTest is TaikoTest {
         public
     {
         vm.prank(Alice);
-        ctoken1155.setApprovalForAll(address(srcVault), true);
+        eERC1155Token.setApprovalForAll(address(eVault), true);
 
-        assertEq(ctoken1155.balanceOf(Alice, 1), 10);
-        assertEq(ctoken1155.balanceOf(address(srcVault), 1), 0);
+        assertEq(eERC1155Token.balanceOf(Alice, 1), 10);
+        assertEq(eERC1155Token.balanceOf(address(eVault), 1), 0);
 
         uint256[] memory tokenIds = new uint256[](1);
         tokenIds[0] = 1;
@@ -149,42 +149,42 @@ contract ERC1155VaultTest is TaikoTest {
             address(0),
             Alice,
             GAS_LIMIT,
-            address(ctoken1155),
+            address(eERC1155Token),
             GAS_LIMIT,
             tokenIds,
             amounts
         );
         vm.prank(Alice);
-        srcVault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        eVault.sendToken{ value: GAS_LIMIT }(sendOpts);
 
-        assertEq(ctoken1155.balanceOf(Alice, 1), 8);
-        assertEq(ctoken1155.balanceOf(address(srcVault), 1), 2);
+        assertEq(eERC1155Token.balanceOf(Alice, 1), 8);
+        assertEq(eERC1155Token.balanceOf(address(eVault), 1), 2);
 
         amounts[0] = 2;
         BaseNFTVault.CanonicalNFT memory ctoken = BaseNFTVault.CanonicalNFT({
             chainId: ethereumChainId,
-            addr: address(ctoken1155),
+            addr: address(eERC1155Token),
             symbol: "",
             name: ""
         });
 
         vm.chainId(taikoChainId);
 
-        destBridge.sendReceiveERC1155ToERC1155Vault(
+        tBridge.sendReceiveERC1155ToERC1155Vault(
             ctoken,
             Alice,
             Alice,
             tokenIds,
             amounts,
             bytes32(0),
-            address(srcVault),
+            address(eVault),
             ethereumChainId,
             0
         );
 
         // Query canonicalToBridged
         address deployedContract =
-            destVault.canonicalToBridged(ethereumChainId, address(ctoken1155));
+            tVault.canonicalToBridged(ethereumChainId, address(eERC1155Token));
 
         // Alice bridged over 2 items
         assertEq(ERC1155(deployedContract).balanceOf(Alice, 1), 2);
@@ -194,10 +194,10 @@ contract ERC1155VaultTest is TaikoTest {
         public
     {
         vm.prank(Alice);
-        ctoken1155.setApprovalForAll(address(srcVault), true);
+        eERC1155Token.setApprovalForAll(address(eVault), true);
 
-        assertEq(ctoken1155.balanceOf(Alice, 1), 10);
-        assertEq(ctoken1155.balanceOf(address(srcVault), 1), 0);
+        assertEq(eERC1155Token.balanceOf(Alice, 1), 10);
+        assertEq(eERC1155Token.balanceOf(address(eVault), 1), 0);
 
         uint256[] memory tokenIds = new uint256[](1);
         tokenIds[0] = 1;
@@ -210,41 +210,41 @@ contract ERC1155VaultTest is TaikoTest {
             address(0),
             Alice,
             GAS_LIMIT,
-            address(ctoken1155),
+            address(eERC1155Token),
             GAS_LIMIT,
             tokenIds,
             amounts
         );
         vm.prank(Alice);
-        srcVault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        eVault.sendToken{ value: GAS_LIMIT }(sendOpts);
 
-        assertEq(ctoken1155.balanceOf(Alice, 1), 8);
-        assertEq(ctoken1155.balanceOf(address(srcVault), 1), 2);
+        assertEq(eERC1155Token.balanceOf(Alice, 1), 8);
+        assertEq(eERC1155Token.balanceOf(address(eVault), 1), 2);
 
         BaseNFTVault.CanonicalNFT memory ctoken = BaseNFTVault.CanonicalNFT({
             chainId: ethereumChainId,
-            addr: address(ctoken1155),
+            addr: address(eERC1155Token),
             symbol: "",
             name: ""
         });
 
         vm.chainId(taikoChainId);
 
-        destBridge.sendReceiveERC1155ToERC1155Vault(
+        tBridge.sendReceiveERC1155ToERC1155Vault(
             ctoken,
             Alice,
             Alice,
             tokenIds,
             amounts,
             bytes32(0),
-            address(srcVault),
+            address(eVault),
             ethereumChainId,
             0
         );
 
         // Query canonicalToBridged
         address deployedContract =
-            destVault.canonicalToBridged(ethereumChainId, address(ctoken1155));
+            tVault.canonicalToBridged(ethereumChainId, address(eERC1155Token));
 
         // Alice bridged over 2 items
         assertEq(ERC1155(deployedContract).balanceOf(Alice, 1), 2);
@@ -260,43 +260,43 @@ contract ERC1155VaultTest is TaikoTest {
             address(0),
             Alice,
             GAS_LIMIT,
-            address(ctoken1155),
+            address(eERC1155Token),
             GAS_LIMIT,
             tokenIds,
             amounts
         );
         vm.prank(Alice);
-        srcVault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        eVault.sendToken{ value: GAS_LIMIT }(sendOpts);
 
-        assertEq(ctoken1155.balanceOf(Alice, 1), 7);
-        assertEq(ctoken1155.balanceOf(address(srcVault), 1), 3);
+        assertEq(eERC1155Token.balanceOf(Alice, 1), 7);
+        assertEq(eERC1155Token.balanceOf(address(eVault), 1), 3);
 
         vm.chainId(taikoChainId);
 
-        destBridge.sendReceiveERC1155ToERC1155Vault(
+        tBridge.sendReceiveERC1155ToERC1155Vault(
             ctoken,
             Alice,
             Alice,
             tokenIds,
             amounts,
             bytes32(0),
-            address(srcVault),
+            address(eVault),
             ethereumChainId,
             0
         );
 
         // Query canonicalToBridged
-        address bridgedContract = destVault.canonicalToBridged(ethereumChainId, address(ctoken1155));
+        address bridgedContract = tVault.canonicalToBridged(ethereumChainId, address(eERC1155Token));
 
         assertEq(bridgedContract, deployedContract);
     }
 
     function test_1155Vault_receiveTokens_erc1155_with_ether_to_dave() public {
         vm.prank(Alice);
-        ctoken1155.setApprovalForAll(address(srcVault), true);
+        eERC1155Token.setApprovalForAll(address(eVault), true);
 
-        assertEq(ctoken1155.balanceOf(Alice, 1), 10);
-        assertEq(ctoken1155.balanceOf(address(srcVault), 1), 0);
+        assertEq(eERC1155Token.balanceOf(Alice, 1), 10);
+        assertEq(eERC1155Token.balanceOf(address(eVault), 1), 0);
 
         uint256[] memory tokenIds = new uint256[](1);
         tokenIds[0] = 1;
@@ -311,42 +311,42 @@ contract ERC1155VaultTest is TaikoTest {
             address(0),
             David,
             GAS_LIMIT,
-            address(ctoken1155),
+            address(eERC1155Token),
             GAS_LIMIT,
             tokenIds,
             amounts
         );
         vm.prank(Alice);
-        srcVault.sendToken{ value: etherValue }(sendOpts);
+        eVault.sendToken{ value: etherValue }(sendOpts);
 
-        assertEq(ctoken1155.balanceOf(Alice, 1), 8);
-        assertEq(ctoken1155.balanceOf(address(srcVault), 1), 2);
+        assertEq(eERC1155Token.balanceOf(Alice, 1), 8);
+        assertEq(eERC1155Token.balanceOf(address(eVault), 1), 2);
 
         amounts[0] = 2;
         BaseNFTVault.CanonicalNFT memory ctoken = BaseNFTVault.CanonicalNFT({
             chainId: ethereumChainId,
-            addr: address(ctoken1155),
+            addr: address(eERC1155Token),
             symbol: "",
             name: ""
         });
 
         vm.chainId(taikoChainId);
 
-        destBridge.sendReceiveERC1155ToERC1155Vault(
+        tBridge.sendReceiveERC1155ToERC1155Vault(
             ctoken,
             Alice,
             David,
             tokenIds,
             amounts,
             bytes32(0),
-            address(srcVault),
+            address(eVault),
             ethereumChainId,
             etherValue
         );
 
         // Query canonicalToBridged
         address deployedContract =
-            destVault.canonicalToBridged(ethereumChainId, address(ctoken1155));
+            tVault.canonicalToBridged(ethereumChainId, address(eERC1155Token));
 
         // Alice bridged over 2 items and etherValue to David
         assertEq(ERC1155(deployedContract).balanceOf(David, 1), 2);
@@ -355,10 +355,10 @@ contract ERC1155VaultTest is TaikoTest {
 
     function test_1155Vault_onMessageRecalled_1155() public {
         vm.prank(Alice);
-        ctoken1155.setApprovalForAll(address(srcVault), true);
+        eERC1155Token.setApprovalForAll(address(eVault), true);
 
-        assertEq(ctoken1155.balanceOf(Alice, 1), 10);
-        assertEq(ctoken1155.balanceOf(address(srcVault), 1), 0);
+        assertEq(eERC1155Token.balanceOf(Alice, 1), 10);
+        assertEq(eERC1155Token.balanceOf(address(eVault), 1), 0);
 
         uint256[] memory tokenIds = new uint256[](1);
         tokenIds[0] = 1;
@@ -371,34 +371,34 @@ contract ERC1155VaultTest is TaikoTest {
             address(0),
             Alice,
             GAS_LIMIT,
-            address(ctoken1155),
+            address(eERC1155Token),
             GAS_LIMIT,
             tokenIds,
             amounts
         );
 
         vm.prank(Alice);
-        IBridge.Message memory message = srcVault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        IBridge.Message memory message = eVault.sendToken{ value: GAS_LIMIT }(sendOpts);
 
-        assertEq(ctoken1155.balanceOf(Alice, 1), 8);
-        assertEq(ctoken1155.balanceOf(address(srcVault), 1), 2);
+        assertEq(eERC1155Token.balanceOf(Alice, 1), 8);
+        assertEq(eERC1155Token.balanceOf(address(eVault), 1), 2);
 
-        bridge.recallMessage(message, bytes(""));
+        eBridge.recallMessage(message, bytes(""));
 
         // // Alice got back her NFTs, and vault has 0
-        assertEq(ctoken1155.balanceOf(Alice, 1), 10);
-        assertEq(ctoken1155.balanceOf(address(srcVault), 1), 0);
+        assertEq(eERC1155Token.balanceOf(Alice, 1), 10);
+        assertEq(eERC1155Token.balanceOf(address(eVault), 1), 0);
     }
 
     function test_1155Vault_receiveTokens_multiple_1155() public {
         vm.prank(Alice);
-        ctoken1155.setApprovalForAll(address(srcVault), true);
+        eERC1155Token.setApprovalForAll(address(eVault), true);
 
-        assertEq(ctoken1155.balanceOf(Alice, 1), 10);
-        assertEq(ctoken1155.balanceOf(address(srcVault), 1), 0);
+        assertEq(eERC1155Token.balanceOf(Alice, 1), 10);
+        assertEq(eERC1155Token.balanceOf(address(eVault), 1), 0);
 
-        assertEq(ctoken1155.balanceOf(Alice, 2), 10);
-        assertEq(ctoken1155.balanceOf(address(srcVault), 2), 0);
+        assertEq(eERC1155Token.balanceOf(Alice, 2), 10);
+        assertEq(eERC1155Token.balanceOf(address(eVault), 2), 0);
 
         uint256[] memory tokenIds = new uint256[](2);
         tokenIds[0] = 1;
@@ -413,44 +413,44 @@ contract ERC1155VaultTest is TaikoTest {
             address(0),
             Alice,
             GAS_LIMIT,
-            address(ctoken1155),
+            address(eERC1155Token),
             GAS_LIMIT,
             tokenIds,
             amounts
         );
         vm.prank(Alice);
-        srcVault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        eVault.sendToken{ value: GAS_LIMIT }(sendOpts);
 
-        assertEq(ctoken1155.balanceOf(Alice, 1), 8);
-        assertEq(ctoken1155.balanceOf(address(srcVault), 1), 2);
+        assertEq(eERC1155Token.balanceOf(Alice, 1), 8);
+        assertEq(eERC1155Token.balanceOf(address(eVault), 1), 2);
 
-        assertEq(ctoken1155.balanceOf(Alice, 2), 5);
-        assertEq(ctoken1155.balanceOf(address(srcVault), 2), 5);
+        assertEq(eERC1155Token.balanceOf(Alice, 2), 5);
+        assertEq(eERC1155Token.balanceOf(address(eVault), 2), 5);
 
         BaseNFTVault.CanonicalNFT memory ctoken = BaseNFTVault.CanonicalNFT({
             chainId: ethereumChainId,
-            addr: address(ctoken1155),
+            addr: address(eERC1155Token),
             symbol: "",
             name: ""
         });
 
         vm.chainId(taikoChainId);
 
-        destBridge.sendReceiveERC1155ToERC1155Vault(
+        tBridge.sendReceiveERC1155ToERC1155Vault(
             ctoken,
             Alice,
             Alice,
             tokenIds,
             amounts,
             bytes32(0),
-            address(srcVault),
+            address(eVault),
             ethereumChainId,
             0
         );
 
         // Query canonicalToBridged
         address deployedContract =
-            destVault.canonicalToBridged(ethereumChainId, address(ctoken1155));
+            tVault.canonicalToBridged(ethereumChainId, address(eERC1155Token));
 
         // Alice bridged over 2 items
         assertEq(ERC1155(deployedContract).balanceOf(Alice, 1), 2);
@@ -459,10 +459,10 @@ contract ERC1155VaultTest is TaikoTest {
 
     function test_1155Vault_bridge_back_but_owner_is_different_now_1155() public {
         vm.prank(Alice);
-        ctoken1155.setApprovalForAll(address(srcVault), true);
+        eERC1155Token.setApprovalForAll(address(eVault), true);
 
-        assertEq(ctoken1155.balanceOf(Alice, 1), 10);
-        assertEq(ctoken1155.balanceOf(address(srcVault), 1), 0);
+        assertEq(eERC1155Token.balanceOf(Alice, 1), 10);
+        assertEq(eERC1155Token.balanceOf(address(eVault), 1), 0);
 
         uint256[] memory tokenIds = new uint256[](1);
         tokenIds[0] = 1;
@@ -475,42 +475,42 @@ contract ERC1155VaultTest is TaikoTest {
             address(0),
             Alice,
             GAS_LIMIT,
-            address(ctoken1155),
+            address(eERC1155Token),
             GAS_LIMIT,
             tokenIds,
             amounts
         );
         vm.prank(Alice);
-        srcVault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        eVault.sendToken{ value: GAS_LIMIT }(sendOpts);
 
-        assertEq(ctoken1155.balanceOf(address(srcVault), 1), 1);
+        assertEq(eERC1155Token.balanceOf(address(eVault), 1), 1);
 
         // This canonicalToken is basically need to be exact same as the
         // sendToken() puts together
         // - here is just mocking putting it together.
         BaseNFTVault.CanonicalNFT memory canonicalToken = BaseNFTVault.CanonicalNFT({
             chainId: ethereumChainId,
-            addr: address(ctoken1155),
+            addr: address(eERC1155Token),
             symbol: "TT",
             name: "TT"
         });
 
         vm.chainId(taikoChainId);
 
-        destBridge.sendReceiveERC1155ToERC1155Vault(
+        tBridge.sendReceiveERC1155ToERC1155Vault(
             canonicalToken,
             Alice,
             Alice,
             tokenIds,
             amounts,
             bytes32(0),
-            address(srcVault),
+            address(eVault),
             ethereumChainId,
             0
         );
         // Query canonicalToBridged
         address deployedContract =
-            destVault.canonicalToBridged(ethereumChainId, address(ctoken1155));
+            tVault.canonicalToBridged(ethereumChainId, address(eERC1155Token));
 
         // Alice bridged over 1 from tokenId 1
         assertEq(ERC1155(deployedContract).balanceOf(Alice, 1), 1);
@@ -524,7 +524,7 @@ contract ERC1155VaultTest is TaikoTest {
         assertEq(ERC1155(deployedContract).balanceOf(Alice, 1), 0);
 
         vm.prank(Bob);
-        ERC1155(deployedContract).setApprovalForAll(address(destVault), true);
+        ERC1155(deployedContract).setApprovalForAll(address(tVault), true);
 
         sendOpts = BaseNFTVault.BridgeTransferOp(
             ethereumChainId,
@@ -538,40 +538,40 @@ contract ERC1155VaultTest is TaikoTest {
         );
 
         vm.prank(Bob);
-        destVault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        tVault.sendToken{ value: GAS_LIMIT }(sendOpts);
 
         vm.chainId(ethereumChainId);
 
-        assertEq(ctoken1155.balanceOf(address(srcVault), 1), 1);
+        assertEq(eERC1155Token.balanceOf(address(eVault), 1), 1);
 
-        destBridge.setERC1155Vault(address(srcVault));
+        tBridge.setERC1155Vault(address(eVault));
 
         vm.prank(deployer);
-        register("bridge", address(destBridge));
+        register("bridge", address(tBridge));
 
-        destBridge.sendReceiveERC1155ToERC1155Vault(
+        tBridge.sendReceiveERC1155ToERC1155Vault(
             canonicalToken,
             Bob,
             Bob,
             tokenIds,
             amounts,
             bytes32(0),
-            address(srcVault),
+            address(eVault),
             ethereumChainId,
             0
         );
 
-        assertEq(ctoken1155.balanceOf(Bob, 1), 1);
+        assertEq(eERC1155Token.balanceOf(Bob, 1), 1);
     }
 
     function test_1155Vault_bridge_back_but_original_owner_cannot_claim_it_anymore_if_sold_1155()
         public
     {
         vm.prank(Alice);
-        ctoken1155.setApprovalForAll(address(srcVault), true);
+        eERC1155Token.setApprovalForAll(address(eVault), true);
 
-        assertEq(ctoken1155.balanceOf(Alice, 1), 10);
-        assertEq(ctoken1155.balanceOf(address(srcVault), 1), 0);
+        assertEq(eERC1155Token.balanceOf(Alice, 1), 10);
+        assertEq(eERC1155Token.balanceOf(address(eVault), 1), 0);
 
         uint256[] memory tokenIds = new uint256[](1);
         tokenIds[0] = 1;
@@ -584,43 +584,43 @@ contract ERC1155VaultTest is TaikoTest {
             address(0),
             Alice,
             GAS_LIMIT,
-            address(ctoken1155),
+            address(eERC1155Token),
             GAS_LIMIT,
             tokenIds,
             amounts
         );
         vm.prank(Alice);
-        srcVault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        eVault.sendToken{ value: GAS_LIMIT }(sendOpts);
 
-        assertEq(ctoken1155.balanceOf(address(srcVault), 1), 1);
+        assertEq(eERC1155Token.balanceOf(address(eVault), 1), 1);
 
         // This canonicalToken is basically need to be exact same as the
         // sendToken() puts together
         // - here is just mocking putting it together.
         BaseNFTVault.CanonicalNFT memory canonicalToken = BaseNFTVault.CanonicalNFT({
             chainId: ethereumChainId,
-            addr: address(ctoken1155),
+            addr: address(eERC1155Token),
             symbol: "TT",
             name: "TT"
         });
 
         vm.chainId(taikoChainId);
 
-        destBridge.sendReceiveERC1155ToERC1155Vault(
+        tBridge.sendReceiveERC1155ToERC1155Vault(
             canonicalToken,
             Alice,
             Alice,
             tokenIds,
             amounts,
             bytes32(0),
-            address(srcVault),
+            address(eVault),
             ethereumChainId,
             0
         );
 
         // Query canonicalToBridged
         address deployedContract =
-            destVault.canonicalToBridged(ethereumChainId, address(ctoken1155));
+            tVault.canonicalToBridged(ethereumChainId, address(eERC1155Token));
         // Alice bridged over 1 from tokenId 1
         assertEq(ERC1155(deployedContract).balanceOf(Alice, 1), 1);
 
@@ -633,7 +633,7 @@ contract ERC1155VaultTest is TaikoTest {
         assertEq(ERC1155(deployedContract).balanceOf(Alice, 1), 0);
 
         vm.prank(Bob);
-        ERC1155(deployedContract).setApprovalForAll(address(destVault), true);
+        ERC1155(deployedContract).setApprovalForAll(address(tVault), true);
 
         sendOpts = BaseNFTVault.BridgeTransferOp(
             ethereumChainId,
@@ -648,15 +648,15 @@ contract ERC1155VaultTest is TaikoTest {
 
         vm.prank(Alice);
         vm.expectRevert("ERC1155: caller is not token owner or approved");
-        destVault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        tVault.sendToken{ value: GAS_LIMIT }(sendOpts);
     }
 
     function test_1155Vault_upgrade_bridged_tokens_1155() public {
         vm.prank(Alice);
-        ctoken1155.setApprovalForAll(address(srcVault), true);
+        eERC1155Token.setApprovalForAll(address(eVault), true);
 
-        assertEq(ctoken1155.balanceOf(Alice, 1), 10);
-        assertEq(ctoken1155.balanceOf(address(srcVault), 1), 0);
+        assertEq(eERC1155Token.balanceOf(Alice, 1), 10);
+        assertEq(eERC1155Token.balanceOf(address(eVault), 1), 0);
 
         uint256[] memory tokenIds = new uint256[](1);
         tokenIds[0] = 1;
@@ -669,41 +669,41 @@ contract ERC1155VaultTest is TaikoTest {
             address(0),
             Alice,
             GAS_LIMIT,
-            address(ctoken1155),
+            address(eERC1155Token),
             GAS_LIMIT,
             tokenIds,
             amounts
         );
         vm.prank(Alice);
-        srcVault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        eVault.sendToken{ value: GAS_LIMIT }(sendOpts);
 
-        assertEq(ctoken1155.balanceOf(Alice, 1), 8);
-        assertEq(ctoken1155.balanceOf(address(srcVault), 1), 2);
+        assertEq(eERC1155Token.balanceOf(Alice, 1), 8);
+        assertEq(eERC1155Token.balanceOf(address(eVault), 1), 2);
 
         BaseNFTVault.CanonicalNFT memory ctoken = BaseNFTVault.CanonicalNFT({
             chainId: ethereumChainId,
-            addr: address(ctoken1155),
+            addr: address(eERC1155Token),
             symbol: "",
             name: ""
         });
 
         vm.chainId(taikoChainId);
 
-        destBridge.sendReceiveERC1155ToERC1155Vault(
+        tBridge.sendReceiveERC1155ToERC1155Vault(
             ctoken,
             Alice,
             Alice,
             tokenIds,
             amounts,
             bytes32(0),
-            address(srcVault),
+            address(eVault),
             ethereumChainId,
             0
         );
 
         // Query canonicalToBridged
         address deployedContract =
-            destVault.canonicalToBridged(ethereumChainId, address(ctoken1155));
+            tVault.canonicalToBridged(ethereumChainId, address(eERC1155Token));
 
         try UpdatedBridgedERC1155(deployedContract).helloWorld() {
             fail();
@@ -723,10 +723,10 @@ contract ERC1155VaultTest is TaikoTest {
 
     function test_1155Vault_shall_not_be_able_to_burn_arbitrarily() public {
         vm.prank(Alice);
-        ctoken1155.setApprovalForAll(address(srcVault), true);
+        eERC1155Token.setApprovalForAll(address(eVault), true);
 
-        assertEq(ctoken1155.balanceOf(Alice, 1), 10);
-        assertEq(ctoken1155.balanceOf(address(srcVault), 1), 0);
+        assertEq(eERC1155Token.balanceOf(Alice, 1), 10);
+        assertEq(eERC1155Token.balanceOf(address(eVault), 1), 0);
 
         uint256[] memory tokenIds = new uint256[](1);
         tokenIds[0] = 1;
@@ -739,43 +739,43 @@ contract ERC1155VaultTest is TaikoTest {
             address(0),
             Alice,
             GAS_LIMIT,
-            address(ctoken1155),
+            address(eERC1155Token),
             GAS_LIMIT,
             tokenIds,
             amounts
         );
         vm.prank(Alice);
-        srcVault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        eVault.sendToken{ value: GAS_LIMIT }(sendOpts);
 
-        assertEq(ctoken1155.balanceOf(address(srcVault), 1), 1);
+        assertEq(eERC1155Token.balanceOf(address(eVault), 1), 1);
 
         // This canonicalToken is basically need to be exact same as the
         // sendToken() puts together
         // - here is just mocking putting it together.
         BaseNFTVault.CanonicalNFT memory canonicalToken = BaseNFTVault.CanonicalNFT({
             chainId: ethereumChainId,
-            addr: address(ctoken1155),
+            addr: address(eERC1155Token),
             symbol: "TT",
             name: "TT"
         });
 
         vm.chainId(taikoChainId);
 
-        destBridge.sendReceiveERC1155ToERC1155Vault(
+        tBridge.sendReceiveERC1155ToERC1155Vault(
             canonicalToken,
             Alice,
             Alice,
             tokenIds,
             amounts,
             bytes32(0),
-            address(srcVault),
+            address(eVault),
             ethereumChainId,
             0
         );
 
         // Query canonicalToBridged
         address deployedContract =
-            destVault.canonicalToBridged(ethereumChainId, address(ctoken1155));
+            tVault.canonicalToBridged(ethereumChainId, address(eERC1155Token));
         // Alice bridged over 1 from tokenId 1
         assertEq(ERC1155(deployedContract).balanceOf(Alice, 1), 1);
 
@@ -793,17 +793,17 @@ contract ERC1155VaultTest is TaikoTest {
         // Alice hasn't approved the vault yet!
         vm.prank(Alice);
         vm.expectRevert("ERC1155: caller is not token owner or approved");
-        destVault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        tVault.sendToken{ value: GAS_LIMIT }(sendOpts);
 
         // Also Vault cannot burn tokens it does not own (even if the priv key compromised)
-        vm.prank(address(destVault));
+        vm.prank(address(tVault));
         vm.expectRevert("ERC1155: burn amount exceeds balance");
         BridgedERC1155(deployedContract).burn(1, 20);
 
         // After setApprovalForAll() ERC1155Vault can transfer and burn
         vm.prank(Alice);
-        ERC1155(deployedContract).setApprovalForAll(address(destVault), true);
+        ERC1155(deployedContract).setApprovalForAll(address(tVault), true);
         vm.prank(Alice);
-        destVault.sendToken{ value: GAS_LIMIT }(sendOpts);
+        tVault.sendToken{ value: GAS_LIMIT }(sendOpts);
     }
 }

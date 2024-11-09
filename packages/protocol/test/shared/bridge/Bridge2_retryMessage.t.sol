@@ -38,27 +38,27 @@ contract BridgeTest2_retryMessage is BridgeTest2 {
         message.gasLimit = 1_000_000;
 
         vm.prank(Carol);
-        bridge.processMessage(message, FAKE_PROOF);
-        bytes32 hash = bridge.hashMessage(message);
-        assertTrue(bridge.messageStatus(hash) == IBridge.Status.RETRIABLE);
+        eBridge.processMessage(message, FAKE_PROOF);
+        bytes32 hash = eBridge.hashMessage(message);
+        assertTrue(eBridge.messageStatus(hash) == IBridge.Status.RETRIABLE);
 
         vm.expectRevert(Bridge.B_PERMISSION_DENIED.selector);
         vm.prank(Carol);
-        bridge.retryMessage(message, true);
+        eBridge.retryMessage(message, true);
 
         vm.expectRevert(Bridge.B_RETRY_FAILED.selector);
         vm.prank(Carol);
-        bridge.retryMessage(message, false);
+        eBridge.retryMessage(message, false);
 
         vm.expectRevert(Bridge.B_RETRY_FAILED.selector);
         vm.prank(Alice);
-        bridge.retryMessage(message, false);
+        eBridge.retryMessage(message, false);
 
         vm.prank(Alice);
-        bridge.retryMessage(message, true);
+        eBridge.retryMessage(message, true);
 
-        hash = bridge.hashMessage(message);
-        assertTrue(bridge.messageStatus(hash) == IBridge.Status.FAILED);
+        hash = eBridge.hashMessage(message);
+        assertTrue(eBridge.messageStatus(hash) == IBridge.Status.FAILED);
     }
 
     function test_bridge2_retryMessage_2() public dealEther(Alice) dealEther(Carol) {
@@ -79,17 +79,17 @@ contract BridgeTest2_retryMessage is BridgeTest2 {
         message.gasLimit = 1_000_000;
 
         vm.prank(Carol);
-        bridge.processMessage(message, FAKE_PROOF);
-        bytes32 hash = bridge.hashMessage(message);
-        assertTrue(bridge.messageStatus(hash) == IBridge.Status.RETRIABLE);
+        eBridge.processMessage(message, FAKE_PROOF);
+        bytes32 hash = eBridge.hashMessage(message);
+        assertTrue(eBridge.messageStatus(hash) == IBridge.Status.RETRIABLE);
 
         target.setToFail(false);
 
         vm.prank(Alice);
-        bridge.retryMessage(message, false);
+        eBridge.retryMessage(message, false);
 
-        hash = bridge.hashMessage(message);
-        assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
+        hash = eBridge.hashMessage(message);
+        assertTrue(eBridge.messageStatus(hash) == IBridge.Status.DONE);
 
         uint256 totalBalance2 = getBalanceForAccounts() + address(target).balance;
         assertEq(totalBalance2, totalBalance);

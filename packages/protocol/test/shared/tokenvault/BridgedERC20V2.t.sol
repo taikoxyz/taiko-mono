@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "../TaikoTest.sol";
 
 contract TestBridgedERC20 is TaikoTest {
-    address vault = randAddress();
+    address private vault = randAddress();
 
     function setUpOnEthereum() internal override {
         register("erc20_vault", vault);

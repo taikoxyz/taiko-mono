@@ -4,38 +4,41 @@ pragma solidity ^0.8.24;
 import "../TaikoTest.sol";
 
 contract BridgeTest2 is TaikoTest {
-    bytes public constant FAKE_PROOF = "";
+    bytes internal constant FAKE_PROOF = "";
 
-    SignalService public signalService;
-    Bridge public bridge;
-    address public destBridge;
+    // Contracts on Ethereum
+    SignalService internal eSignalService;
+    Bridge internal eBridge;
+
+    // Contracts on Taiko
+    address internal tBridge = randAddress();
 
     modifier assertSameTotalBalance() {
         uint256 totalBalance = getBalanceForAccounts();
         _;
         uint256 totalBalance2 = getBalanceForAccounts();
         assertEq(totalBalance2, totalBalance);
-        assertEq(address(signalService).balance, 0);
+        assertEq(address(eSignalService).balance, 0);
     }
 
+    // TODO remove this
     modifier dealEther(address addr) {
         vm.deal(addr, 100 ether);
         _;
     }
 
     function setUpOnEthereum() internal override {
-        signalService = deploySignalService(address(new SignalServiceNoProofCheck()));
-        bridge = deployBridge(address(new Bridge()));
-        vm.deal(address(bridge), 10_000 ether);
+        eSignalService = deploySignalService(address(new SignalServiceNoProofCheck()));
+        eBridge = deployBridge(address(new Bridge()));
+        vm.deal(address(eBridge), 10_000 ether);
     }
 
     function setUpOnTaiko() internal override {
-        destBridge = vm.addr(0x2000);
-        register("bridge", destBridge);
+        register("bridge", tBridge);
     }
 
     function getBalanceForAccounts() public view returns (uint256) {
-        return Alice.balance + Bob.balance + Carol.balance + David.balance + address(bridge).balance
-            + deployer.balance;
+        return Alice.balance + Bob.balance + Carol.balance + David.balance
+            + address(eBridge).balance + deployer.balance;
     }
 }
