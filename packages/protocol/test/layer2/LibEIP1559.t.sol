@@ -129,7 +129,7 @@ contract TestLibEIP1559 is TaikoL2Test {
             assertEq(newGasTarget_, 0);
             assertEq(newGasExcess_, _oldGasExcess);
         } else {
-            assertTrue(newGasTarget_ != 0 || newGasExcess_ != 0);
+            assertTrue(newGasTarget_ != 0);
         }
     }
 
