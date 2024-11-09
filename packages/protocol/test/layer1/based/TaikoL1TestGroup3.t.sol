@@ -24,13 +24,13 @@ contract TaikoL1TestGroup3 is TaikoL1Test {
             ontakeForkHeight: 0 // or 1
          });
     }
+
     // Test summary:
     // 1. Alice proposes a block,
     // 2. James proves the block outside the proving window, using the correct parent hash.
     // 3. Taylor contests James' proof.
     // 4. William proves James is correct and Taylor is wrong.
     // 5. William's proof is used to verify the block.
-
     function test_taikoL1_group_3_case_1() external {
         mineOneBlockAndWrap(1000 seconds);
 

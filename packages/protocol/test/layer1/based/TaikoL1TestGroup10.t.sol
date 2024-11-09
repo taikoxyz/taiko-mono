@@ -24,6 +24,7 @@ contract TaikoL10TestGroup1 is TaikoL1Test {
             ontakeForkHeight: 0 // or 1
          });
     }
+
     // Test summary:
     // 1. Alice proposes 5 blocks,
     // 2. Alice proves all 5 block within the proving window, using the correct parent hash.

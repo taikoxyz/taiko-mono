@@ -24,6 +24,7 @@ contract TaikoL1TestGroup8 is TaikoL1Test {
             ontakeForkHeight: 0 // or 1
          });
     }
+
     // Test summary:
     // 1. Alice proposes a block,
     // 2. TaikoL1 is paused.
@@ -32,7 +33,6 @@ contract TaikoL1TestGroup8 is TaikoL1Test {
     // 5. TaikoL1 is unpaused.
     // 6. Alice attempts again to prove the first block within the proving window.
     // 7. Alice tries to propose another block.
-
     function test_taikoL1_group_8_case_1() external {
         mineOneBlockAndWrap(1000 seconds);
         giveEthAndTko(Alice, 10_000 ether, 1000 ether);

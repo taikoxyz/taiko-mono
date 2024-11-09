@@ -24,13 +24,13 @@ contract TaikoL1TestGroup4 is TaikoL1Test {
             ontakeForkHeight: 0 // or 1
          });
     }
+
     // Test summary:
     // 1. Alice proposes a block, Alice is the prover.
     // 2. Alice proves the block within the proving window, using the correct parent hash.
     // 3. Taylor contests then proves Alice is wrong  in the same transaction with a higher-tier
     // proof.
     // 4. Taylor's proof is used to verify the block.
-
     function test_taikoL1_group_4_case_1() external {
         mineOneBlockAndWrap(1000 seconds);
 

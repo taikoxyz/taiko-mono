@@ -24,6 +24,7 @@ contract TaikoL1TestGroup1 is TaikoL1Test {
             ontakeForkHeight: 0 // or 1
          });
     }
+
     // Test summary:
     // 1. Alice proposes a block
     // 2. Alice proves the block within the proving window, using the correct parent hash.
@@ -367,7 +368,7 @@ contract TaikoL1TestGroup1 is TaikoL1Test {
             assertEq(ts.prover, Taylor);
             assertEq(ts.validityBond, minTier.validityBond);
 
-            assertEq(getBondTokenBalance(Alice), 10_000 ether - taikoL1.getConfig().livenessBond);
+            assertEq(getBondTokenBalance(Alice), 10_000 ether - livenessBond);
         }
     }
 

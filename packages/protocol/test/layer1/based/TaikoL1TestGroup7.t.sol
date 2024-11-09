@@ -24,11 +24,11 @@ contract TaikoL1TestGroup7 is TaikoL1Test {
             ontakeForkHeight: 0 // or 1
          });
     }
+
     // Test summary:
     // 1. Alice proposes a block,
     // 2. Alice proves the block within the proving window, using the correct parent hash.
     // 3. After the cooldown window, Taylor contests Alice's proof, and fails.
-
     function test_taikoL1_group_7_case_1() external {
         mineOneBlockAndWrap(1000 seconds);
 

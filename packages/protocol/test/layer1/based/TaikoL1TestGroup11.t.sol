@@ -24,10 +24,10 @@ contract TaikoL10TestGroup11 is TaikoL1Test {
             ontakeForkHeight: 0 // or 1
          });
     }
+
     // Test summary:
     // 1. Zachary proposes a block with a custom proposer in the block parameters
     // 2. The proposal will revert as Zachary is not registered as the preconf task manager.
-
     function test_taikoL1_group_11_case_1() external {
         mineOneBlockAndWrap(1000 seconds);
         printBlockAndTrans(0);
@@ -65,7 +65,7 @@ contract TaikoL10TestGroup11 is TaikoL1Test {
         TaikoData.BlockMetadataV2 memory meta = proposeBlock(Zachary, params, "");
 
         assertEq(getBondTokenBalance(Zachary), 10_000 ether);
-        assertEq(getBondTokenBalance(Alice), 10_000 ether - taikoL1.getConfig().livenessBond);
+        assertEq(getBondTokenBalance(Alice), 10_000 ether - livenessBond);
 
         console2.log("====== Alice proves the block");
         // Prove the block
