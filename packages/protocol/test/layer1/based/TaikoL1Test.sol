@@ -15,6 +15,7 @@ abstract contract TaikoL1Test is Layer1Test {
     TestVerifier internal tier1Verifier;
     TestVerifier internal tier2Verifier;
     TestVerifier internal tier3Verifier;
+    TestVerifier internal tier4Verifier;
     TaikoL1 internal taikoL1;
     uint16 minTierId;
     ITierProvider.Tier internal minTier;
@@ -31,6 +32,7 @@ abstract contract TaikoL1Test is Layer1Test {
         tier1Verifier = deployVerifier("");
         tier2Verifier = deployVerifier("tier_2");
         tier3Verifier = deployVerifier("tier_3");
+        tier4Verifier = deployVerifier("tier_4");
         taikoL1 = deployTaikoL1(getConfig());
 
         signalService.authorize(address(taikoL1), true);

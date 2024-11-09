@@ -24,11 +24,11 @@ contract TaikoL1TestGroup1 is TaikoL1Test {
             ontakeForkHeight: 0 // or 1
          });
     }
-
     // Test summary:
     // 1. Alice proposes a block
     // 2. Alice proves the block within the proving window, using the correct parent hash.
     // 3. Alice's proof is used to verify the block.
+
     function test_taikoL1_group_1_case_1() external {
         mineOneBlockAndWrap(1000);
         printBlockAndTrans(0);
@@ -143,7 +143,6 @@ contract TaikoL1TestGroup1 is TaikoL1Test {
         console2.log("====== Alice propose a block");
         TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
 
-        uint96 livenessBond = taikoL1.getConfig().livenessBond;
         uint256 proposedAt;
         {
             printBlockAndTrans(meta.id);
@@ -386,7 +385,6 @@ contract TaikoL1TestGroup1 is TaikoL1Test {
         console2.log("====== Alice propose a block");
         TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
 
-        uint96 livenessBond = taikoL1.getConfig().livenessBond;
         uint256 proposedAt;
         {
             printBlockAndTrans(meta.id);
@@ -478,7 +476,6 @@ contract TaikoL1TestGroup1 is TaikoL1Test {
         console2.log("====== Alice propose a block with herself as the assigned prover");
         TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
 
-        uint96 livenessBond = taikoL1.getConfig().livenessBond;
         uint256 proposedAt;
         {
             printBlockAndTrans(meta.id);

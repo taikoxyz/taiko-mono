@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import "src/shared/libs/LibStrings.sol";
 import "src/layer1/tiers/ITierProvider.sol";
-import "src/layer1/tiers/LibTiers.sol";
 import "src/layer1/tiers/ITierRouter.sol";
 
 /// @title TestTierRouter
@@ -50,6 +49,17 @@ contract TestTierRouter is ITierProvider, ITierRouter {
         if (_tierId == 73) {
             return ITierProvider.Tier({
                 verifierName: "tier_3",
+                validityBond: BOND_UINT * 5,
+                contestBond: BOND_UINT * 6,
+                cooldownWindow: ONE_HOUR,
+                provingWindow: ONE_HOUR,
+                maxBlocksToVerifyPerProof: 0 // DEPRECATED
+             });
+        }
+
+        if (_tierId == 74) {
+            return ITierProvider.Tier({
+                verifierName: "tier_4",
                 validityBond: 0, // must be 0 for top tier
                 contestBond: 0, // must be 0 for top tier
                 cooldownWindow: ONE_HOUR,
@@ -57,16 +67,16 @@ contract TestTierRouter is ITierProvider, ITierRouter {
                 maxBlocksToVerifyPerProof: 0 // DEPRECATED
              });
         }
-
         revert TIER_NOT_FOUND();
     }
 
     /// @inheritdoc ITierProvider
     function getTierIds() public pure override returns (uint16[] memory tiers_) {
-        tiers_ = new uint16[](3);
+        tiers_ = new uint16[](4);
         tiers_[0] = 71;
         tiers_[1] = 72;
         tiers_[2] = 73;
+        tiers_[3] = 74;
     }
 
     /// @inheritdoc ITierProvider
