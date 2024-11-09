@@ -1,22 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "test/layer1/Layer1Test.sol";
-
-contract DummyGuardianProver is GuardianProver {
-    uint256 public operationId;
-
-    function init() external initializer {
-        __Essential_init(address(0));
-    }
-
-    function approve(bytes32 hash) external returns (bool) {
-        return _saveApproval(operationId++, hash);
-    }
-}
+import "./GuardianProver.h.sol";
 
 contract TestGuardianProver is Layer1Test {
-    DummyGuardianProver guardianProver;
+    GuardianProverTarget guardianProver;
 
     function getSigners(uint256 numGuardians) internal returns (address[] memory signers) {
         signers = new address[](numGuardians);
@@ -27,11 +15,11 @@ contract TestGuardianProver is Layer1Test {
     }
 
     function setUpOnEthereum() internal override {
-        guardianProver = DummyGuardianProver(
+        guardianProver = GuardianProverTarget(
             deploy({
                 name: "guardians",
-                impl: address(new DummyGuardianProver()),
-                data: abi.encodeCall(DummyGuardianProver.init, ())
+                impl: address(new GuardianProverTarget()),
+                data: abi.encodeCall(GuardianProverTarget.init, ())
             })
         );
     }

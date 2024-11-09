@@ -3,9 +3,9 @@ pragma solidity ^0.8.24;
 
 import "src/layer1/based/ITaikoL1.sol";
 
-/// @title MockTaikoL1
+/// @title TaikoL1Stub
 /// @custom:security-contact security@taiko.xyz
-contract MockTaikoL1 is ITaikoL1 {
+contract TaikoL1Stub is ITaikoL1 {
     function proposeBlockV2(
         bytes calldata _params,
         bytes calldata _txList

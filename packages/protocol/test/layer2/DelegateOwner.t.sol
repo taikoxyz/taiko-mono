@@ -2,13 +2,8 @@
 pragma solidity ^0.8.24;
 
 import "../shared/thirdparty/Multicall3.sol";
+import "../shared/common/stubs/EssentialContractStub.sol";
 import "./Layer2Test.sol";
-
-contract Target is EssentialContract {
-    function init(address _owner) external initializer {
-        __Essential_init(_owner);
-    }
-}
 
 contract TestDelegateOwner is Layer2Test {
     // Contracts on Ethereum
@@ -33,13 +28,13 @@ contract TestDelegateOwner is Layer2Test {
 
     function test_delegate_owner_single_non_delegatecall() public onTaiko {
         vm.startPrank(deployer);
-        Target tkoTarget1 = _deployTarget("tkoTarget1", address(new Target()));
+        EssentialContractStub stub1 = _deployEssentialContractStub("stub1", address(new EssentialContractStub()));
         vm.stopPrank();
 
-        bytes memory data = abi.encode(
+        bytes memory data = abi.encode( 
             DelegateOwner.Call(
                 uint64(0),
-                address(tkoTarget1),
+                address(stub1),
                 false, // CALL
                 abi.encodeCall(EssentialContract.pause, ())
             )
@@ -63,7 +58,7 @@ contract TestDelegateOwner is Layer2Test {
         assertTrue(tBridge.messageStatus(hash) == IBridge.Status.DONE);
 
         assertEq(tDelegateOwner.nextTxId(), 1);
-        assertTrue(tkoTarget1.paused());
+        assertTrue(stub1.paused());
     }
 
     function test_delegate_owner_single_non_delegatecall_self() public onTaiko {
@@ -101,20 +96,20 @@ contract TestDelegateOwner is Layer2Test {
 
     function test_delegate_owner_delegate_tMulticall() public onTaiko {
         address tDelegateOwnerImpl2 = address(new DelegateOwner());
-        address impl1 = address(new Target());
-        address impl2 = address(new Target());
+        address impl1 = address(new EssentialContractStub());
+        address impl2 = address(new EssentialContractStub());
 
         vm.startPrank(deployer);
-        Target tkoTarget1 = _deployTarget("tkoTarget1", impl1);
-        Target tTarget2 = _deployTarget("tTarget2", impl2);
+        EssentialContractStub stub1 = _deployEssentialContractStub("stub1", impl1);
+        EssentialContractStub stub2 = _deployEssentialContractStub("stub2", impl2);
         vm.stopPrank();
 
         Multicall3.Call3[] memory calls = new Multicall3.Call3[](4);
-        calls[0].target = address(tkoTarget1);
+        calls[0].target = address(stub1);
         calls[0].allowFailure = false;
         calls[0].callData = abi.encodeCall(EssentialContract.pause, ());
 
-        calls[1].target = address(tTarget2);
+        calls[1].target = address(stub2);
         calls[1].allowFailure = false;
         calls[1].callData = abi.encodeCall(UUPSUpgradeable.upgradeTo, (impl2));
 
@@ -153,18 +148,18 @@ contract TestDelegateOwner is Layer2Test {
         assertTrue(tBridge.messageStatus(hash) == IBridge.Status.DONE);
 
         assertEq(tDelegateOwner.nextTxId(), 1);
-        assertTrue(tkoTarget1.paused());
-        assertEq(tTarget2.impl(), impl2);
+        assertTrue(stub1.paused());
+        assertEq(stub2.impl(), impl2);
         assertEq(tDelegateOwner.impl(), tDelegateOwnerImpl2);
         assertEq(tDelegateOwner.admin(), David);
     }
 
-    function _deployTarget(bytes32 name, address impl) private returns (Target) {
-        return Target(
+    function _deployEssentialContractStub(bytes32 name, address impl) private returns (EssentialContractStub) {
+        return EssentialContractStub(
             deploy({
                 name: name,
                 impl: impl,
-                data: abi.encodeCall(Target.init, (address(tDelegateOwner)))
+                data: abi.encodeCall(EssentialContractStub.init, (address(tDelegateOwner)))
             })
         );
     }

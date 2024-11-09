@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "src/layer1/verifiers/IVerifier.sol";
 
-contract TestVerifier is IVerifier {
+contract VerifierStub is IVerifier {
     bool private shouldFail;
 
     function makeVerifierToFail() external {

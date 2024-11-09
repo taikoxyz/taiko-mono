@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import "../Layer1Test.sol";
-import "./TestTierRouter.sol";
-import "./TestVerifier.sol";
+import "./stubs/TierRouterStub.sol";
+import "./stubs/VerifierStub.sol";
 
 abstract contract TaikoL1Test is Layer1Test {
     bytes32 internal GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
@@ -12,10 +12,10 @@ abstract contract TaikoL1Test is Layer1Test {
     SignalService internal signalService;
     Bridge internal bridge;
     ITierRouter internal tierRouter;
-    TestVerifier internal tier1Verifier;
-    TestVerifier internal tier2Verifier;
-    TestVerifier internal tier3Verifier;
-    TestVerifier internal tier4Verifier;
+    VerifierStub internal tier1Verifier;
+    VerifierStub internal tier2Verifier;
+    VerifierStub internal tier3Verifier;
+    VerifierStub internal tier4Verifier;
     TaikoL1 internal taikoL1;
     uint16 minTierId;
     ITierProvider.Tier internal minTier;
@@ -165,7 +165,7 @@ abstract contract TaikoL1Test is Layer1Test {
     }
 
     function deployTierRouter() internal returns (ITierRouter tierRouter_) {
-        tierRouter_ = new TestTierRouter();
+        tierRouter_ = new TierRouterStub();
         register("tier_router", address(tierRouter_));
     }
 
@@ -182,8 +182,8 @@ abstract contract TaikoL1Test is Layer1Test {
         );
     }
 
-    function deployVerifier(bytes32 name) internal returns (TestVerifier verifier) {
-        verifier = new TestVerifier();
+    function deployVerifier(bytes32 name) internal returns (VerifierStub verifier) {
+        verifier = new VerifierStub();
         register(name, address(verifier));
     }
 
