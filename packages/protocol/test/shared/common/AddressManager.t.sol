@@ -45,7 +45,7 @@ import "../TaikoTest.sol";
 
 //     function test_getAddress() external {
 //         assertEq(
-//             resolver.getAddress(uint64(block.chainid), bytes32(bytes("taiko"))),
+//             resolver.getAddress(ethereumChainId, bytes32(bytes("taiko"))),
 //             address(L1),
 //             "expected address should be TaikoL1"
 //         );

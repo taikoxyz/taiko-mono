@@ -26,13 +26,13 @@ contract BridgeTest2_recallMessage is BridgeTest2 {
         IBridge.Message memory message;
         message.srcOwner = Alice;
         message.destOwner = Bob;
-        message.destChainId = destChainId;
+        message.destChainId  = taikoChainId;
         message.value = 1 ether;
 
         vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
         bridge.recallMessage(message, FAKE_PROOF);
 
-        message.srcChainId = uint64(block.chainid);
+        message.srcChainId = ethereumChainId;
         vm.expectRevert(Bridge.B_MESSAGE_NOT_SENT.selector);
         bridge.recallMessage(message, FAKE_PROOF);
 
@@ -66,9 +66,9 @@ contract BridgeTest2_recallMessage is BridgeTest2 {
         IBridge.Message memory message;
         message.srcOwner = Alice;
         message.destOwner = Bob;
-        message.destChainId = destChainId;
+        message.destChainId  = taikoChainId;
         message.value = 1 ether;
-        message.srcChainId = uint64(block.chainid);
+        message.srcChainId = ethereumChainId;
 
         vm.prank(Carol);
         (, IBridge.Message memory m) = bridge.sendMessage{ value: 1 ether }(message);
@@ -90,9 +90,9 @@ contract BridgeTest2_recallMessage is BridgeTest2 {
         IBridge.Message memory message;
         message.srcOwner = Alice;
         message.destOwner = Bob;
-        message.destChainId = destChainId;
+        message.destChainId  = taikoChainId;
         message.value = 1 ether;
-        message.srcChainId = uint64(block.chainid);
+        message.srcChainId = ethereumChainId;
 
         vm.prank(address(callableSender));
         (bytes32 mhash, IBridge.Message memory m) = bridge.sendMessage{ value: 1 ether }(message);
@@ -105,7 +105,7 @@ contract BridgeTest2_recallMessage is BridgeTest2 {
         (bytes32 msgHash, address from, uint64 srcChainId) = callableSender.ctx();
         assertEq(msgHash, mhash);
         assertEq(from, address(bridge));
-        assertEq(srcChainId, block.chainid);
+        assertEq(srcChainId, ethereumChainId);
 
         uint256 totalBalance2 = getBalanceForAccounts() + address(callableSender).balance;
         assertEq(totalBalance2, totalBalance);

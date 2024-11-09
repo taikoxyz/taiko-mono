@@ -10,8 +10,8 @@ contract BridgeTest2_failMessage is BridgeTest2 {
         assertSameTotalBalance
     {
         IBridge.Message memory message;
-        message.destChainId = uint64(block.chainid);
-        message.srcChainId = destChainId;
+        message.destChainId = ethereumChainId;
+        message.srcChainId  = taikoChainId;
         message.gasLimit = 1_000_000;
         message.fee = 1000;
         message.value = 2 ether;
@@ -30,8 +30,8 @@ contract BridgeTest2_failMessage is BridgeTest2 {
     {
         IBridge.Message memory message;
 
-        message.destChainId = uint64(block.chainid);
-        message.srcChainId = destChainId;
+        message.destChainId = ethereumChainId;
+        message.srcChainId  = taikoChainId;
 
         message.fee = 0;
         message.value = 2 ether;
@@ -65,8 +65,8 @@ contract BridgeTest2_failMessage is BridgeTest2 {
     {
         IBridge.Message memory message;
 
-        message.destChainId = uint64(block.chainid);
-        message.srcChainId = destChainId;
+        message.destChainId = ethereumChainId;
+        message.srcChainId  = taikoChainId;
 
         message.gasLimit = 0;
         message.fee = 1_000_000;

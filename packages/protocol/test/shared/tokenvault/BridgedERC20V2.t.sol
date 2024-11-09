@@ -122,7 +122,6 @@ contract TestBridgedERC20 is TaikoTest {
 
     function deployBridgedToken(bytes32 name) internal returns (BridgedERC20) {
         address srcToken = randAddress();
-        uint256 srcChainId = 1000;
         uint8 srcDecimals = 11;
         string memory _name = bytes32ToString(name);
         return BridgedERC20(
@@ -131,7 +130,7 @@ contract TestBridgedERC20 is TaikoTest {
                 impl: address(new BridgedERC20V2()),
                 data: abi.encodeCall(
                     BridgedERC20.init,
-                    (deployer, address(resolver), srcToken, srcChainId, srcDecimals, _name, _name)
+                    (deployer, address(resolver), srcToken, taikoChainId, srcDecimals, _name, _name)
                 )
             })
         );

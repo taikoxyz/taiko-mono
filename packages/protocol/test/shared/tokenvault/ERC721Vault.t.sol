@@ -58,7 +58,7 @@ contract ERC721VaultTest is TaikoTest {
         amounts[0] = 0;
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
-            destChainId,
+            taikoChainId,
             address(0),
             Alice,
             GAS_LIMIT,
@@ -86,7 +86,7 @@ contract ERC721VaultTest is TaikoTest {
         amounts[0] = 0;
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
-            destChainId, address(0), Alice, GAS_LIMIT, address(0), GAS_LIMIT, tokenIds, amounts
+            taikoChainId, address(0), Alice, GAS_LIMIT, address(0), GAS_LIMIT, tokenIds, amounts
         );
         vm.prank(Alice);
         vm.expectRevert(BaseNFTVault.VAULT_INVALID_TOKEN.selector);
@@ -105,7 +105,7 @@ contract ERC721VaultTest is TaikoTest {
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = 1;
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
-            destChainId,
+            taikoChainId,
             address(0),
             Alice,
             GAS_LIMIT,
@@ -135,7 +135,7 @@ contract ERC721VaultTest is TaikoTest {
         amounts[0] = 0;
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
-            destChainId,
+            taikoChainId,
             address(0),
             Alice,
             GAS_LIMIT,
@@ -150,21 +150,21 @@ contract ERC721VaultTest is TaikoTest {
         assertEq(canonicalToken721.ownerOf(1), address(vault));
 
         BaseNFTVault.CanonicalNFT memory canonicalToken = BaseNFTVault.CanonicalNFT({
-            chainId: 31_337,
+            chainId: ethereumChainId,
             addr: address(canonicalToken721),
             symbol: "TT",
             name: "TT"
         });
 
-        uint64 chainId = uint64(block.chainid);
-        vm.chainId(destChainId);
+
+        vm.chainId(taikoChainId);
 
         destBridge.sendReceiveERC721ToERC721Vault(
-            canonicalToken, Alice, Alice, tokenIds, bytes32(0), address(vault), chainId, 0
+            canonicalToken, Alice, Alice, tokenIds, bytes32(0), address(vault), ethereumChainId, 0
         );
 
         // Query canonicalToBridged
-        address deployedContract = destVault.canonicalToBridged(chainId, address(canonicalToken721));
+        address deployedContract = destVault.canonicalToBridged(ethereumChainId, address(canonicalToken721));
 
         // Alice bridged over tokenId 1
         assertEq(ERC721(deployedContract).ownerOf(1), Alice);
@@ -185,7 +185,7 @@ contract ERC721VaultTest is TaikoTest {
         amounts[0] = 0;
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
-            destChainId,
+            taikoChainId,
             address(0),
             Alice,
             GAS_LIMIT,
@@ -203,34 +203,34 @@ contract ERC721VaultTest is TaikoTest {
         // sendToken() puts together
         // - here is just mocking putting it together.
         BaseNFTVault.CanonicalNFT memory canonicalToken = BaseNFTVault.CanonicalNFT({
-            chainId: 31_337,
+            chainId: ethereumChainId,
             addr: address(canonicalToken721),
             symbol: "TT",
             name: "TT"
         });
 
-        uint64 chainId = uint64(block.chainid);
-        vm.chainId(destChainId);
+
+        vm.chainId(taikoChainId);
 
         destBridge.sendReceiveERC721ToERC721Vault(
-            canonicalToken, Alice, Alice, tokenIds, bytes32(0), address(vault), chainId, 0
+            canonicalToken, Alice, Alice, tokenIds, bytes32(0), address(vault), ethereumChainId, 0
         );
 
         // Query canonicalToBridged
-        address deployedContract = destVault.canonicalToBridged(chainId, address(canonicalToken721));
+        address deployedContract = destVault.canonicalToBridged(ethereumChainId, address(canonicalToken721));
 
         // Alice bridged over tokenId 1
         assertEq(ERC721(deployedContract).ownerOf(1), Alice);
 
         // Change back to 'L1'
-        vm.chainId(chainId);
+        vm.chainId(ethereumChainId);
 
         tokenIds[0] = 2;
 
         amounts[0] = 0;
 
         sendOpts = BaseNFTVault.BridgeTransferOp(
-            destChainId,
+            taikoChainId,
             address(0),
             Alice,
             GAS_LIMIT,
@@ -244,14 +244,14 @@ contract ERC721VaultTest is TaikoTest {
 
         assertEq(canonicalToken721.ownerOf(2), address(vault));
 
-        vm.chainId(destChainId);
+        vm.chainId(taikoChainId);
 
         destBridge.sendReceiveERC721ToERC721Vault(
-            canonicalToken, Alice, Alice, tokenIds, bytes32(0), address(vault), chainId, 0
+            canonicalToken, Alice, Alice, tokenIds, bytes32(0), address(vault), ethereumChainId, 0
         );
 
         // Query canonicalToBridged
-        address bridgedContract = destVault.canonicalToBridged(chainId, address(canonicalToken721));
+        address bridgedContract = destVault.canonicalToBridged(ethereumChainId, address(canonicalToken721));
 
         assertEq(bridgedContract, deployedContract);
     }
@@ -270,7 +270,7 @@ contract ERC721VaultTest is TaikoTest {
 
         uint256 etherValue = 0.1 ether;
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
-            destChainId,
+            taikoChainId,
             address(0),
             David,
             GAS_LIMIT,
@@ -285,21 +285,21 @@ contract ERC721VaultTest is TaikoTest {
         assertEq(canonicalToken721.ownerOf(1), address(vault));
 
         BaseNFTVault.CanonicalNFT memory canonicalToken = BaseNFTVault.CanonicalNFT({
-            chainId: 31_337,
+            chainId: ethereumChainId,
             addr: address(canonicalToken721),
             symbol: "TT",
             name: "TT"
         });
 
-        uint64 chainId = uint64(block.chainid);
-        vm.chainId(destChainId);
+
+        vm.chainId(taikoChainId);
 
         destBridge.sendReceiveERC721ToERC721Vault(
-            canonicalToken, Alice, David, tokenIds, bytes32(0), address(vault), chainId, etherValue
+            canonicalToken, Alice, David, tokenIds, bytes32(0), address(vault), ethereumChainId, etherValue
         );
 
         // Query canonicalToBridged
-        address deployedContract = destVault.canonicalToBridged(chainId, address(canonicalToken721));
+        address deployedContract = destVault.canonicalToBridged(ethereumChainId, address(canonicalToken721));
 
         // Alice bridged over tokenId 1 and etherValue to David
         assertEq(ERC721(deployedContract).ownerOf(1), David);
@@ -319,7 +319,7 @@ contract ERC721VaultTest is TaikoTest {
         amounts[0] = 0;
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
-            destChainId,
+            taikoChainId,
             address(0),
             Alice,
             GAS_LIMIT,
@@ -358,7 +358,7 @@ contract ERC721VaultTest is TaikoTest {
         amounts[1] = 0;
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
-            destChainId,
+            taikoChainId,
             address(0),
             Alice,
             GAS_LIMIT,
@@ -374,22 +374,21 @@ contract ERC721VaultTest is TaikoTest {
         assertEq(canonicalToken721.ownerOf(2), address(vault));
 
         BaseNFTVault.CanonicalNFT memory canonicalToken = BaseNFTVault.CanonicalNFT({
-            chainId: 31_337,
+            chainId: ethereumChainId,
             addr: address(canonicalToken721),
             symbol: "TT",
             name: "TT"
         });
 
-        uint64 srcChainId = uint64(block.chainid);
-        vm.chainId(destChainId);
+        vm.chainId(taikoChainId);
 
         destBridge.sendReceiveERC721ToERC721Vault(
-            canonicalToken, Alice, Alice, tokenIds, bytes32(0), address(vault), srcChainId, 0
+            canonicalToken, Alice, Alice, tokenIds, bytes32(0), address(vault), ethereumChainId, 0
         );
 
         // Query canonicalToBridged
         address deployedContract =
-            destVault.canonicalToBridged(srcChainId, address(canonicalToken721));
+            destVault.canonicalToBridged(ethereumChainId, address(canonicalToken721));
 
         // Alice bridged over tokenId 1
         assertEq(ERC721(deployedContract).ownerOf(1), Alice);
@@ -411,7 +410,7 @@ contract ERC721VaultTest is TaikoTest {
         amounts[0] = 0;
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
-            destChainId,
+            taikoChainId,
             address(0),
             Alice,
             GAS_LIMIT,
@@ -429,21 +428,21 @@ contract ERC721VaultTest is TaikoTest {
         // sendToken() puts together
         // - here is just mocking putting it together.
         BaseNFTVault.CanonicalNFT memory canonicalToken = BaseNFTVault.CanonicalNFT({
-            chainId: 31_337,
+            chainId: ethereumChainId,
             addr: address(canonicalToken721),
             symbol: "TT",
             name: "TT"
         });
 
-        uint64 chainId = uint64(block.chainid);
-        vm.chainId(destChainId);
+
+        vm.chainId(taikoChainId);
 
         destBridge.sendReceiveERC721ToERC721Vault(
-            canonicalToken, Alice, Alice, tokenIds, bytes32(0), address(vault), chainId, 0
+            canonicalToken, Alice, Alice, tokenIds, bytes32(0), address(vault), ethereumChainId, 0
         );
 
         // Query canonicalToBridged
-        address deployedContract = destVault.canonicalToBridged(chainId, address(canonicalToken721));
+        address deployedContract = destVault.canonicalToBridged(ethereumChainId, address(canonicalToken721));
 
         // Alice bridged over tokenId 1
         assertEq(ERC721(deployedContract).ownerOf(1), Alice);
@@ -459,7 +458,7 @@ contract ERC721VaultTest is TaikoTest {
         ERC721(deployedContract).approve(address(destVault), 1);
 
         sendOpts = BaseNFTVault.BridgeTransferOp(
-            chainId,
+            ethereumChainId,
             address(0),
             Bob,
             GAS_LIMIT,
@@ -472,7 +471,7 @@ contract ERC721VaultTest is TaikoTest {
         vm.prank(Bob, Bob);
         destVault.sendToken{ value: GAS_LIMIT }(sendOpts);
 
-        vm.chainId(chainId);
+        vm.chainId(ethereumChainId);
 
         assertEq(ERC721(canonicalToken721).ownerOf(1), address(vault));
 
@@ -482,7 +481,7 @@ contract ERC721VaultTest is TaikoTest {
         resolver.setAddress(block.chainid, "bridge", address(destBridge));
 
         destBridge.sendReceiveERC721ToERC721Vault(
-            canonicalToken, Bob, Bob, tokenIds, bytes32(0), address(vault), chainId, 0
+            canonicalToken, Bob, Bob, tokenIds, bytes32(0), address(vault), ethereumChainId, 0
         );
 
         assertEq(canonicalToken721.ownerOf(1), Bob);
@@ -505,7 +504,7 @@ contract ERC721VaultTest is TaikoTest {
         amounts[0] = 0;
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
-            destChainId,
+            taikoChainId,
             address(0),
             Alice,
             GAS_LIMIT,
@@ -523,21 +522,21 @@ contract ERC721VaultTest is TaikoTest {
         // sendToken() puts together
         // - here is just mocking putting it together.
         BaseNFTVault.CanonicalNFT memory canonicalToken = BaseNFTVault.CanonicalNFT({
-            chainId: 31_337,
+            chainId: ethereumChainId,
             addr: address(canonicalToken721),
             symbol: "TT",
             name: "TT"
         });
 
-        uint64 chainId = uint64(block.chainid);
-        vm.chainId(destChainId);
+
+        vm.chainId(taikoChainId);
 
         destBridge.sendReceiveERC721ToERC721Vault(
-            canonicalToken, Alice, Alice, tokenIds, bytes32(0), address(vault), chainId, 0
+            canonicalToken, Alice, Alice, tokenIds, bytes32(0), address(vault), ethereumChainId, 0
         );
 
         // Query canonicalToBridged
-        address deployedContract = destVault.canonicalToBridged(chainId, address(canonicalToken721));
+        address deployedContract = destVault.canonicalToBridged(ethereumChainId, address(canonicalToken721));
 
         // Alice bridged over tokenId 1
         assertEq(ERC721(deployedContract).ownerOf(1), Alice);
@@ -554,7 +553,7 @@ contract ERC721VaultTest is TaikoTest {
 
         // Alice puts together a malicious bridging back message
         sendOpts = BaseNFTVault.BridgeTransferOp(
-            chainId,
+            ethereumChainId,
             address(0),
             Alice,
             GAS_LIMIT,
@@ -584,7 +583,7 @@ contract ERC721VaultTest is TaikoTest {
         amounts[0] = 0;
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
-            destChainId,
+            taikoChainId,
             address(0),
             Alice,
             GAS_LIMIT,
@@ -602,21 +601,21 @@ contract ERC721VaultTest is TaikoTest {
         // sendToken() puts together
         // - here is just mocking putting it together.
         BaseNFTVault.CanonicalNFT memory canonicalToken = BaseNFTVault.CanonicalNFT({
-            chainId: 31_337,
+            chainId: ethereumChainId,
             addr: address(canonicalToken721),
             symbol: "TT",
             name: "TT"
         });
 
-        uint64 chainId = uint64(block.chainid);
-        vm.chainId(destChainId);
+
+        vm.chainId(taikoChainId);
 
         destBridge.sendReceiveERC721ToERC721Vault(
-            canonicalToken, Alice, Alice, tokenIds, bytes32(0), address(vault), chainId, 0
+            canonicalToken, Alice, Alice, tokenIds, bytes32(0), address(vault), ethereumChainId, 0
         );
 
         // Query canonicalToBridged
-        address deployedContract = destVault.canonicalToBridged(chainId, address(canonicalToken721));
+        address deployedContract = destVault.canonicalToBridged(ethereumChainId, address(canonicalToken721));
 
         try UpdatedBridgedERC721(deployedContract).helloWorld() {
             fail();
@@ -652,7 +651,7 @@ contract ERC721VaultTest is TaikoTest {
         amounts[0] = 0;
 
         BaseNFTVault.BridgeTransferOp memory sendOpts = BaseNFTVault.BridgeTransferOp(
-            destChainId,
+            taikoChainId,
             address(0),
             Alice,
             GAS_LIMIT,
@@ -670,28 +669,28 @@ contract ERC721VaultTest is TaikoTest {
         // sendToken() puts together
         // - here is just mocking putting it together.
         BaseNFTVault.CanonicalNFT memory canonicalToken = BaseNFTVault.CanonicalNFT({
-            chainId: 31_337,
+            chainId: ethereumChainId,
             addr: address(canonicalToken721),
             symbol: "TT",
             name: "TT"
         });
 
-        uint64 chainId = uint64(block.chainid);
-        vm.chainId(destChainId);
+
+        vm.chainId(taikoChainId);
 
         destBridge.sendReceiveERC721ToERC721Vault(
-            canonicalToken, Alice, Alice, tokenIds, bytes32(0), address(vault), chainId, 0
+            canonicalToken, Alice, Alice, tokenIds, bytes32(0), address(vault), ethereumChainId, 0
         );
 
         // Query canonicalToBridged
-        address deployedContract = destVault.canonicalToBridged(chainId, address(canonicalToken721));
+        address deployedContract = destVault.canonicalToBridged(ethereumChainId, address(canonicalToken721));
 
         // Alice bridged over tokenId 1
         assertEq(ERC721(deployedContract).ownerOf(1), Alice);
 
         // Alice tries to bridge back message
         sendOpts = BaseNFTVault.BridgeTransferOp(
-            chainId,
+            ethereumChainId,
             address(0),
             Alice,
             GAS_LIMIT,

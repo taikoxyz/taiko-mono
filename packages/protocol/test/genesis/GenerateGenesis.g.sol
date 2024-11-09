@@ -313,7 +313,7 @@ contract TestGenerateGenesis is Test, AddressResolver {
     {
         assertEq(
             getPredeployedContractAddress(contractName),
-            addressManager.getAddress(uint64(block.chainid), name)
+            addressManager.getAddress(ethereumChainId, name)
         );
     }
 }

@@ -49,8 +49,8 @@ contract TestDelegateOwner is TaikoL2Test {
 
         IBridge.Message memory message;
         message.from = srcBridge;
-        message.destChainId = destChainId;
-        message.srcChainId = srcChainId;
+        message.destChainId  = taikoChainId;
+        message.srcChainId = ethereumChainId;
         message.destOwner = Bob;
         message.data = abi.encodeCall(DelegateOwner.onMessageInvocation, (data));
         message.to = address(delegateOwner);
@@ -82,8 +82,8 @@ contract TestDelegateOwner is TaikoL2Test {
 
         IBridge.Message memory message;
         message.from = srcBridge;
-        message.destChainId = destChainId;
-        message.srcChainId = srcChainId;
+        message.destChainId  = taikoChainId;
+        message.srcChainId = ethereumChainId;
         message.destOwner = Bob;
         message.data = abi.encodeCall(DelegateOwner.onMessageInvocation, (data));
         message.to = address(delegateOwner);
@@ -139,8 +139,8 @@ contract TestDelegateOwner is TaikoL2Test {
 
         IBridge.Message memory message;
         message.from = srcBridge;
-        message.destChainId = destChainId;
-        message.srcChainId = srcChainId;
+        message.destChainId  = taikoChainId;
+        message.srcChainId = ethereumChainId;
         message.destOwner = Bob;
         message.data = abi.encodeCall(DelegateOwner.onMessageInvocation, (data));
         message.to = address(delegateOwner);

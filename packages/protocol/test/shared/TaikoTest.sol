@@ -59,18 +59,18 @@ abstract contract TaikoTest is Test, Script {
 
     address internal deployer = msg.sender;
     DefaultResolver internal resolver;
-    uint64 srcChainId;
-    uint64 destChainId;
+    uint64 ethereumChainId;
+    uint64 taikoChainId;
 
     modifier onEthereum() {
-        vm.chainId(srcChainId);
+        vm.chainId(ethereumChainId);
         _;
     }
 
     modifier onTaiko() {
-        vm.chainId(destChainId);
+        vm.chainId(taikoChainId);
         _;
-        vm.chainId(srcChainId);
+        vm.chainId(ethereumChainId);
     }
 
     modifier transactedBy(address transactor) {
@@ -86,16 +86,16 @@ abstract contract TaikoTest is Test, Script {
         vm.deal(deployer, 100 ether);
         vm.startPrank(deployer);
 
-        srcChainId = uint64(block.chainid);
-        destChainId = srcChainId + 10_000;
+        ethereumChainId = uint64(block.chainid);
+        taikoChainId = ethereumChainId + 10_000;
 
         resolver = deployDefaultResolver();
 
         setUpOnEthereum();
 
-        vm.chainId(destChainId);
+        vm.chainId(taikoChainId);
         setUpOnTaiko();
-        vm.chainId(srcChainId);
+        vm.chainId(ethereumChainId);
         vm.stopPrank();
     }
 
@@ -193,7 +193,7 @@ abstract contract TaikoTest is Test, Script {
 
     function deployBridgedERC20(
         address srcToken,
-        uint256 _srcChainId,
+        uint256 _ethereumChainId,
         uint8 decimals,
         string memory symbol,
         string memory name
@@ -207,7 +207,7 @@ abstract contract TaikoTest is Test, Script {
                 impl: address(new BridgedERC20()),
                 data: abi.encodeCall(
                     BridgedERC20.init,
-                    (address(0), address(resolver), srcToken, _srcChainId, decimals, symbol, name)
+                    (address(0), address(resolver), srcToken, _ethereumChainId, decimals, symbol, name)
                 )
             })
         );

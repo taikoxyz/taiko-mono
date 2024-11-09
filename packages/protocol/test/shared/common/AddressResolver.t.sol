@@ -18,13 +18,13 @@ import "../TaikoTest.sol";
 
 //     function test_resolve() external {
 //         assertEq(
-//             bridge.resolve(uint64(block.chainid), bytes32(bytes("tier_guardian")), false),
+//             bridge.resolve(ethereumChainId, bytes32(bytes("tier_guardian")), false),
 //             address(gp),
 //             "wrong guardianVerifier address"
 //         );
 
 //         assertEq(
-//             bridge.resolve(uint64(block.chainid), bytes32(bytes("tier_sgx")), false),
+//             bridge.resolve(ethereumChainId, bytes32(bytes("tier_sgx")), false),
 //             address(sv),
 //             " wrong sgxVerifier address"
 //         );

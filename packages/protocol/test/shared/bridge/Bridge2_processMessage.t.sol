@@ -48,19 +48,19 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
         bridge.processMessage(message, FAKE_PROOF);
 
-        message.destChainId = uint64(block.chainid);
+        message.destChainId = ethereumChainId;
         vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
         bridge.processMessage(message, FAKE_PROOF);
 
-        message.srcChainId = uint64(block.chainid);
+        message.srcChainId = ethereumChainId;
         vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
         bridge.processMessage(message, FAKE_PROOF);
 
-        message.srcChainId = destChainId + 1;
+        message.srcChainId = taikoChainId + 1;
         vm.expectRevert(Bridge.B_PERMISSION_DENIED.selector);
         bridge.processMessage(message, FAKE_PROOF);
 
-        message.srcChainId = destChainId;
+        message.srcChainId  = taikoChainId;
         vm.expectRevert(); // RESOLVER_ZERO_ADDR src bridge not registered
         bridge.processMessage(message, FAKE_PROOF);
 
@@ -92,8 +92,8 @@ contract BridgeTest2_processMessage is BridgeTest2 {
     {
         IBridge.Message memory message;
 
-        message.destChainId = uint64(block.chainid);
-        message.srcChainId = destChainId;
+        message.destChainId = ethereumChainId;
+        message.srcChainId  = taikoChainId;
 
         message.gasLimit = 1_000_000;
         message.fee = 0;
@@ -130,8 +130,8 @@ contract BridgeTest2_processMessage is BridgeTest2 {
 
         IBridge.Message memory message;
 
-        message.destChainId = uint64(block.chainid);
-        message.srcChainId = destChainId;
+        message.destChainId = ethereumChainId;
+        message.srcChainId  = taikoChainId;
 
         message.gasLimit = 0;
         message.fee = 0;
@@ -176,8 +176,8 @@ contract BridgeTest2_processMessage is BridgeTest2 {
     {
         IBridge.Message memory message;
 
-        message.destChainId = uint64(block.chainid);
-        message.srcChainId = destChainId;
+        message.destChainId = ethereumChainId;
+        message.srcChainId  = taikoChainId;
 
         message.gasLimit = 1;
         message.fee = 5_000_000;
@@ -211,8 +211,8 @@ contract BridgeTest2_processMessage is BridgeTest2 {
     {
         IBridge.Message memory message;
 
-        message.destChainId = uint64(block.chainid);
-        message.srcChainId = destChainId;
+        message.destChainId = ethereumChainId;
+        message.srcChainId  = taikoChainId;
 
         message.gasLimit = 0;
         message.fee = 5_000_000;
@@ -236,8 +236,8 @@ contract BridgeTest2_processMessage is BridgeTest2 {
     {
         IBridge.Message memory message;
 
-        message.destChainId = uint64(block.chainid);
-        message.srcChainId = destChainId;
+        message.destChainId = ethereumChainId;
+        message.srcChainId  = taikoChainId;
 
         message.gasLimit = 1_000_000;
         message.fee = 0;
@@ -263,8 +263,8 @@ contract BridgeTest2_processMessage is BridgeTest2 {
     {
         IBridge.Message memory message;
 
-        message.destChainId = uint64(block.chainid);
-        message.srcChainId = destChainId;
+        message.destChainId = ethereumChainId;
+        message.srcChainId  = taikoChainId;
 
         message.gasLimit = 0;
         message.fee = 0;
@@ -288,8 +288,8 @@ contract BridgeTest2_processMessage is BridgeTest2 {
     {
         IBridge.Message memory message;
 
-        message.destChainId = uint64(block.chainid);
-        message.srcChainId = destChainId;
+        message.destChainId = ethereumChainId;
+        message.srcChainId  = taikoChainId;
 
         message.gasLimit = 1_000_000;
         message.fee = 5_000_000;
@@ -316,8 +316,8 @@ contract BridgeTest2_processMessage is BridgeTest2 {
     {
         IBridge.Message memory message;
 
-        message.destChainId = uint64(block.chainid);
-        message.srcChainId = destChainId;
+        message.destChainId = ethereumChainId;
+        message.srcChainId  = taikoChainId;
 
         message.gasLimit = 0;
         message.fee = 1_000_000;
@@ -340,8 +340,8 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         uint256 totalBalance = getBalanceForAccounts() + address(target).balance;
         IBridge.Message memory message;
 
-        message.destChainId = uint64(block.chainid);
-        message.srcChainId = destChainId;
+        message.destChainId = ethereumChainId;
+        message.srcChainId  = taikoChainId;
 
         message.gasLimit = 1_000_000;
         message.fee = 0;
@@ -400,14 +400,14 @@ contract BridgeTest2_processMessage is BridgeTest2 {
     {
         vm.startPrank(deployer);
         resolver.setAddress(
-            uint64(block.chainid), "quota_manager", address(new OutOfQuotaManager())
+            ethereumChainId, "quota_manager", address(new OutOfQuotaManager())
         );
         vm.stopPrank();
 
         IBridge.Message memory message;
 
-        message.destChainId = uint64(block.chainid);
-        message.srcChainId = destChainId;
+        message.destChainId = ethereumChainId;
+        message.srcChainId  = taikoChainId;
 
         message.gasLimit = 1_000_000;
         message.fee = 5_000_000;
@@ -432,14 +432,14 @@ contract BridgeTest2_processMessage is BridgeTest2 {
     {
         vm.startPrank(deployer);
         resolver.setAddress(
-            uint64(block.chainid), "quota_manager", address(new OutOfQuotaManager())
+            ethereumChainId, "quota_manager", address(new OutOfQuotaManager())
         );
         vm.stopPrank();
 
         IBridge.Message memory message;
 
-        message.destChainId = uint64(block.chainid);
-        message.srcChainId = destChainId;
+        message.destChainId = ethereumChainId;
+        message.srcChainId  = taikoChainId;
 
         bytes32 hashOfMaliciousMessage =
             0x3c6e0b8a9c15224b7f0a1e5f4c8f7683d5a0a4e32a34c6c7c7e1f4d9a9d9f6b4;

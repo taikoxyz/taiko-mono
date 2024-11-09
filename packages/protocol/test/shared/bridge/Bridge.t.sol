@@ -34,8 +34,8 @@ contract BridgeTest is TaikoTest {
         IBridge.Message memory message = IBridge.Message({
             id: 0,
             from: address(bridge),
-            srcChainId: uint64(block.chainid),
-            destChainId: destChainId,
+            srcChainId: ethereumChainId,
+            destChainId: taikoChainId,
             srcOwner: Alice,
             destOwner: Alice,
             to: Alice,
@@ -50,7 +50,7 @@ contract BridgeTest is TaikoTest {
 
         bytes32 msgHash = destBridge.hashMessage(message);
 
-        vm.chainId(destChainId);
+        vm.chainId(taikoChainId);
         vm.prank(Bob);
         destBridge.processMessage(message, proof);
 
@@ -70,8 +70,8 @@ contract BridgeTest is TaikoTest {
         IBridge.Message memory message = IBridge.Message({
             id: 0,
             from: address(bridge),
-            srcChainId: uint64(block.chainid),
-            destChainId: destChainId,
+            srcChainId: ethereumChainId,
+            destChainId: taikoChainId,
             srcOwner: Alice,
             destOwner: Alice,
             to: address(goodReceiver),
@@ -86,7 +86,7 @@ contract BridgeTest is TaikoTest {
 
         bytes32 msgHash = destBridge.hashMessage(message);
 
-        vm.chainId(destChainId);
+        vm.chainId(taikoChainId);
         vm.prank(Bob);
         destBridge.processMessage(message, proof);
 
@@ -104,8 +104,8 @@ contract BridgeTest is TaikoTest {
         IBridge.Message memory message = IBridge.Message({
             id: 0,
             from: address(bridge),
-            srcChainId: uint64(block.chainid),
-            destChainId: destChainId,
+            srcChainId: ethereumChainId,
+            destChainId: taikoChainId,
             srcOwner: Alice,
             destOwner: Alice,
             to: address(goodReceiver),
@@ -120,7 +120,7 @@ contract BridgeTest is TaikoTest {
 
         bytes32 msgHash = destBridge.hashMessage(message);
 
-        vm.chainId(destChainId);
+        vm.chainId(taikoChainId);
         vm.prank(Bob);
         destBridge.processMessage(message, proof);
 
@@ -141,7 +141,7 @@ contract BridgeTest is TaikoTest {
             value: 0,
             gasLimit: 1_000_000,
             fee: 1_000_000,
-            destChain: destChainId
+            destChain: taikoChainId
         });
 
         vm.expectRevert(Bridge.B_INVALID_VALUE.selector);
@@ -156,7 +156,7 @@ contract BridgeTest is TaikoTest {
             value: 0,
             gasLimit: 0,
             fee: 0,
-            destChain: destChainId
+            destChain: taikoChainId
         });
 
         vm.expectRevert(EssentialContract.ZERO_ADDRESS.selector);
@@ -171,7 +171,7 @@ contract BridgeTest is TaikoTest {
             value: 0,
             gasLimit: 0,
             fee: 0,
-            destChain: destChainId + 1
+            destChain: taikoChainId + 1
         });
 
         vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
@@ -188,7 +188,7 @@ contract BridgeTest is TaikoTest {
             value: 0,
             gasLimit: 0,
             fee: 0,
-            destChain: uint64(block.chainid)
+            destChain: ethereumChainId
         });
 
         vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
@@ -203,7 +203,7 @@ contract BridgeTest is TaikoTest {
             value: 0,
             gasLimit: 0,
             fee: 0,
-            destChain: destChainId
+            destChain: taikoChainId
         });
 
         (, IBridge.Message memory _message) = bridge.sendMessage{ value: amount }(message);
@@ -219,7 +219,7 @@ contract BridgeTest is TaikoTest {
             value: 0,
             gasLimit: 1_000_000,
             fee: fee,
-            destChain: destChainId
+            destChain: taikoChainId
         });
 
         (, IBridge.Message memory _message) = bridge.sendMessage{ value: amount + fee }(message);
@@ -235,7 +235,7 @@ contract BridgeTest is TaikoTest {
             value: amount,
             gasLimit: 0,
             fee: fee,
-            destChain: destChainId
+            destChain: taikoChainId
         });
 
         uint256 starterBalanceVault = address(bridge).balance;
@@ -266,7 +266,7 @@ contract BridgeTest is TaikoTest {
             value: amount,
             gasLimit: 0,
             fee: fee,
-            destChain: destChainId
+            destChain: taikoChainId
         });
 
         uint256 starterBalanceVault = address(bridge).balance;
@@ -293,7 +293,7 @@ contract BridgeTest is TaikoTest {
             value: 0,
             gasLimit: 1_000_000,
             fee: fee,
-            destChain: destChainId
+            destChain: taikoChainId
         });
 
         vm.expectRevert(Bridge.B_INVALID_VALUE.selector);
@@ -306,8 +306,8 @@ contract BridgeTest is TaikoTest {
         IBridge.Message memory message = IBridge.Message({
             id: 0,
             from: address(this),
-            srcChainId: uint64(block.chainid),
-            destChainId: destChainId,
+            srcChainId: ethereumChainId,
+            destChainId: taikoChainId,
             srcOwner: Alice,
             destOwner: Alice,
             to: address(nonmaliciousContract1),
@@ -319,7 +319,7 @@ contract BridgeTest is TaikoTest {
 
         bytes memory proof = hex"00";
         bytes32 msgHash = destBridge.hashMessage(message);
-        vm.chainId(destChainId);
+        vm.chainId(taikoChainId);
         vm.prank(Bob);
 
         destBridge.processMessage(message, proof);
@@ -334,8 +334,8 @@ contract BridgeTest is TaikoTest {
         IBridge.Message memory message = IBridge.Message({
             id: 0,
             from: address(this),
-            srcChainId: uint64(block.chainid),
-            destChainId: destChainId,
+            srcChainId: ethereumChainId,
+            destChainId: taikoChainId,
             srcOwner: Alice,
             destOwner: Alice,
             to: address(maliciousContract2),
@@ -347,7 +347,7 @@ contract BridgeTest is TaikoTest {
 
         bytes memory proof = hex"00";
         bytes32 msgHash = destBridge.hashMessage(message);
-        vm.chainId(destChainId);
+        vm.chainId(taikoChainId);
         vm.prank(Bob);
 
         destBridge.processMessage(message, proof);
@@ -363,7 +363,7 @@ contract BridgeTest is TaikoTest {
             value: 0,
             gasLimit: 10_000,
             fee: 1,
-            destChain: destChainId
+            destChain: taikoChainId
         });
 
         vm.expectRevert(Bridge.B_INVALID_STATUS.selector);
@@ -378,7 +378,7 @@ contract BridgeTest is TaikoTest {
             value: 0,
             gasLimit: 10_000,
             fee: 1,
-            destChain: destChainId
+            destChain: taikoChainId
         });
 
         vm.expectRevert(Bridge.B_PERMISSION_DENIED.selector);
@@ -406,7 +406,7 @@ contract BridgeTest is TaikoTest {
             fee: fee,
             id: 0, // placeholder, will be overwritten
             from: owner, // placeholder, will be overwritten
-            srcChainId: uint64(block.chainid), // will be overwritten
+            srcChainId: ethereumChainId, // will be overwritten
             gasLimit: gasLimit,
             data: ""
         });
