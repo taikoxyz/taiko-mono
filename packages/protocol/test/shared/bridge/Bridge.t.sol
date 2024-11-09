@@ -4,36 +4,31 @@ pragma solidity ^0.8.24;
 import "./Bridge.h.sol";
 
 contract BridgeTest is TaikoTest {
-    GoodReceiver goodReceiver;
-    SignalService signalService;
-    Bridge bridge;
+    GoodReceiver private eGoodReceiver;
+    SignalService private eSignalService;
+    Bridge private eBridge;
 
-    SignalService destSignalService;
-    Bridge destBridge;
+    SignalService private tSignalService;
+    Bridge private tBridge;
 
     function setUpOnEthereum() internal override {
-        goodReceiver = new GoodReceiver();
-
-        bridge = deployBridge(address(new Bridge()));
-        signalService = deploySignalService(address(new SignalServiceNoProofCheck()));
+        eGoodReceiver = new GoodReceiver();
+        eBridge = deployBridge(address(new Bridge()));
+        eSignalService = deploySignalService(address(new SignalServiceNoProofCheck()));
 
         vm.deal(Alice, 100 ether);
     }
 
     function setUpOnTaiko() internal override {
-        destSignalService = deploySignalService(address(new SignalServiceNoProofCheck()));
-        destBridge = deployBridge(address(new Bridge()));
-        vm.deal(address(destBridge), 100 ether);
-
-        // Register contracts from destination chain
-        register("taiko", address(uint160(123)));
-        register("bridge_watchdog", address(uint160(123)));
+        tSignalService = deploySignalService(address(new SignalServiceNoProofCheck()));
+        tBridge = deployBridge(address(new Bridge()));
+        vm.deal(address(tBridge), 100 ether);
     }
 
     function test_Bridge_send_ether_to_to_with_value() public {
         IBridge.Message memory message = IBridge.Message({
             id: 0,
-            from: address(bridge),
+            from: address(eBridge),
             srcChainId: ethereumChainId,
             destChainId: taikoChainId,
             srcOwner: Alice,
@@ -48,13 +43,13 @@ contract BridgeTest is TaikoTest {
         // corresponding to the message
         bytes memory proof = hex"00";
 
-        bytes32 msgHash = destBridge.hashMessage(message);
+        bytes32 msgHash = tBridge.hashMessage(message);
 
         vm.chainId(taikoChainId);
         vm.prank(Bob);
-        destBridge.processMessage(message, proof);
+        tBridge.processMessage(message, proof);
 
-        IBridge.Status status = destBridge.messageStatus(msgHash);
+        IBridge.Status status = tBridge.messageStatus(msgHash);
 
         assertEq(status == IBridge.Status.DONE, true);
         // Alice has 100 ether + 1000 wei balance, because we did not use the
@@ -69,12 +64,12 @@ contract BridgeTest is TaikoTest {
     function test_Bridge_send_ether_to_contract_with_value_simple() public {
         IBridge.Message memory message = IBridge.Message({
             id: 0,
-            from: address(bridge),
+            from: address(eBridge),
             srcChainId: ethereumChainId,
             destChainId: taikoChainId,
             srcOwner: Alice,
             destOwner: Alice,
-            to: address(goodReceiver),
+            to: address(eGoodReceiver),
             value: 10_000,
             fee: 1000,
             gasLimit: 1_000_000,
@@ -84,18 +79,18 @@ contract BridgeTest is TaikoTest {
         // corresponding to the message
         bytes memory proof = hex"00";
 
-        bytes32 msgHash = destBridge.hashMessage(message);
+        bytes32 msgHash = tBridge.hashMessage(message);
 
         vm.chainId(taikoChainId);
         vm.prank(Bob);
-        destBridge.processMessage(message, proof);
+        tBridge.processMessage(message, proof);
 
-        IBridge.Status status = destBridge.messageStatus(msgHash);
+        IBridge.Status status = tBridge.messageStatus(msgHash);
 
         assertEq(status == IBridge.Status.DONE, true);
 
         // Bob (relayer) and goodContract has 1000 wei balance
-        assertEq(address(goodReceiver).balance, 10_000);
+        assertEq(address(eGoodReceiver).balance, 10_000);
         console2.log("Bob.balance:", Bob.balance);
         assertTrue(Bob.balance >= 0 && Bob.balance <= 1000);
     }
@@ -103,12 +98,12 @@ contract BridgeTest is TaikoTest {
     function test_Bridge_send_ether_to_contract_with_value_and_message_data() public {
         IBridge.Message memory message = IBridge.Message({
             id: 0,
-            from: address(bridge),
+            from: address(eBridge),
             srcChainId: ethereumChainId,
             destChainId: taikoChainId,
             srcOwner: Alice,
             destOwner: Alice,
-            to: address(goodReceiver),
+            to: address(eGoodReceiver),
             value: 1000,
             fee: 1000,
             gasLimit: 1_000_000,
@@ -118,18 +113,18 @@ contract BridgeTest is TaikoTest {
         // corresponding to the message
         bytes memory proof = hex"00";
 
-        bytes32 msgHash = destBridge.hashMessage(message);
+        bytes32 msgHash = tBridge.hashMessage(message);
 
         vm.chainId(taikoChainId);
         vm.prank(Bob);
-        destBridge.processMessage(message, proof);
+        tBridge.processMessage(message, proof);
 
-        IBridge.Status status = destBridge.messageStatus(msgHash);
+        IBridge.Status status = tBridge.messageStatus(msgHash);
 
         assertEq(status == IBridge.Status.DONE, true);
 
         // Carol and goodContract has 500 wei balance
-        assertEq(address(goodReceiver).balance, 500);
+        assertEq(address(eGoodReceiver).balance, 500);
         assertEq(Carol.balance, 500);
     }
 
@@ -145,7 +140,7 @@ contract BridgeTest is TaikoTest {
         });
 
         vm.expectRevert(Bridge.B_INVALID_VALUE.selector);
-        bridge.sendMessage(message);
+        eBridge.sendMessage(message);
     }
 
     function test_Bridge_send_message_ether_reverts_when_owner_is_zero_address() public {
@@ -160,7 +155,7 @@ contract BridgeTest is TaikoTest {
         });
 
         vm.expectRevert(EssentialContract.ZERO_ADDRESS.selector);
-        bridge.sendMessage{ value: amount }(message);
+        eBridge.sendMessage{ value: amount }(message);
     }
 
     function test_Bridge_send_message_ether_reverts_when_dest_chain_is_not_enabled() public {
@@ -175,7 +170,7 @@ contract BridgeTest is TaikoTest {
         });
 
         vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
-        bridge.sendMessage{ value: amount }(message);
+        eBridge.sendMessage{ value: amount }(message);
     }
 
     function test_Bridge_send_message_ether_reverts_when_dest_chain_same_as_block_chainid()
@@ -192,7 +187,7 @@ contract BridgeTest is TaikoTest {
         });
 
         vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
-        bridge.sendMessage{ value: amount }(message);
+        eBridge.sendMessage{ value: amount }(message);
     }
 
     function test_Bridge_send_message_ether_with_no_processing_fee() public {
@@ -206,8 +201,8 @@ contract BridgeTest is TaikoTest {
             destChain: taikoChainId
         });
 
-        (, IBridge.Message memory _message) = bridge.sendMessage{ value: amount }(message);
-        assertEq(bridge.isMessageSent(_message), true);
+        (, IBridge.Message memory _message) = eBridge.sendMessage{ value: amount }(message);
+        assertEq(eBridge.isMessageSent(_message), true);
     }
 
     function test_Bridge_send_message_ether_with_processing_fee() public {
@@ -222,8 +217,8 @@ contract BridgeTest is TaikoTest {
             destChain: taikoChainId
         });
 
-        (, IBridge.Message memory _message) = bridge.sendMessage{ value: amount + fee }(message);
-        assertEq(bridge.isMessageSent(_message), true);
+        (, IBridge.Message memory _message) = eBridge.sendMessage{ value: amount + fee }(message);
+        assertEq(eBridge.isMessageSent(_message), true);
     }
 
     function test_Bridge_recall_message_ether() public {
@@ -238,18 +233,18 @@ contract BridgeTest is TaikoTest {
             destChain: taikoChainId
         });
 
-        uint256 starterBalanceVault = address(bridge).balance;
+        uint256 starterBalanceVault = address(eBridge).balance;
         uint256 starterBalanceAlice = Alice.balance;
 
         vm.prank(Alice);
-        (, IBridge.Message memory _message) = bridge.sendMessage{ value: amount + fee }(message);
-        assertEq(bridge.isMessageSent(_message), true);
+        (, IBridge.Message memory _message) = eBridge.sendMessage{ value: amount + fee }(message);
+        assertEq(eBridge.isMessageSent(_message), true);
 
-        assertEq(address(bridge).balance, (starterBalanceVault + amount + fee));
+        assertEq(address(eBridge).balance, (starterBalanceVault + amount + fee));
         assertEq(Alice.balance, (starterBalanceAlice - (amount + fee)));
-        bridge.recallMessage(message, "");
+        eBridge.recallMessage(message, "");
 
-        assertEq(address(bridge).balance, (starterBalanceVault + fee));
+        assertEq(address(eBridge).balance, (starterBalanceVault + fee));
         assertEq(Alice.balance, (starterBalanceAlice - fee));
     }
 
@@ -269,19 +264,19 @@ contract BridgeTest is TaikoTest {
             destChain: taikoChainId
         });
 
-        uint256 starterBalanceVault = address(bridge).balance;
+        uint256 starterBalanceVault = address(eBridge).balance;
 
         UntrustedSendMessageRelayer untrustedSenderContract;
         untrustedSenderContract = new UntrustedSendMessageRelayer();
         vm.deal(address(untrustedSenderContract), 10 ether);
 
-        (, message) = untrustedSenderContract.sendMessage(address(bridge), message, amount + fee);
+        (, message) = untrustedSenderContract.sendMessage(address(eBridge), message, amount + fee);
 
-        assertEq(address(bridge).balance, (starterBalanceVault + amount + fee));
+        assertEq(address(eBridge).balance, (starterBalanceVault + amount + fee));
 
-        bridge.recallMessage(message, "");
+        eBridge.recallMessage(message, "");
 
-        assertEq(address(bridge).balance, (starterBalanceVault + fee));
+        assertEq(address(eBridge).balance, (starterBalanceVault + fee));
     }
 
     function test_Bridge_send_message_ether_with_processing_fee_invalid_amount() public {
@@ -297,7 +292,7 @@ contract BridgeTest is TaikoTest {
         });
 
         vm.expectRevert(Bridge.B_INVALID_VALUE.selector);
-        bridge.sendMessage{ value: amount }(message);
+        eBridge.sendMessage{ value: amount }(message);
     }
 
     function test_processMessage_InvokeMessageCall_DoS1() public {
@@ -318,13 +313,13 @@ contract BridgeTest is TaikoTest {
         });
 
         bytes memory proof = hex"00";
-        bytes32 msgHash = destBridge.hashMessage(message);
+        bytes32 msgHash = tBridge.hashMessage(message);
         vm.chainId(taikoChainId);
         vm.prank(Bob);
 
-        destBridge.processMessage(message, proof);
+        tBridge.processMessage(message, proof);
 
-        IBridge.Status status = destBridge.messageStatus(msgHash);
+        IBridge.Status status = tBridge.messageStatus(msgHash);
         assertEq(status == IBridge.Status.DONE, true); // test pass check
     }
 
@@ -346,13 +341,13 @@ contract BridgeTest is TaikoTest {
         });
 
         bytes memory proof = hex"00";
-        bytes32 msgHash = destBridge.hashMessage(message);
+        bytes32 msgHash = tBridge.hashMessage(message);
         vm.chainId(taikoChainId);
         vm.prank(Bob);
 
-        destBridge.processMessage(message, proof);
+        tBridge.processMessage(message, proof);
 
-        IBridge.Status status = destBridge.messageStatus(msgHash);
+        IBridge.Status status = tBridge.messageStatus(msgHash);
         assertEq(status == IBridge.Status.RETRIABLE, true); //Test fail check
     }
 
@@ -367,7 +362,7 @@ contract BridgeTest is TaikoTest {
         });
 
         vm.expectRevert(Bridge.B_INVALID_STATUS.selector);
-        destBridge.retryMessage(message, true);
+        tBridge.retryMessage(message, true);
     }
 
     function retry_message_reverts_when_last_attempt_and_message_is_not_owner() public {
@@ -382,7 +377,7 @@ contract BridgeTest is TaikoTest {
         });
 
         vm.expectRevert(Bridge.B_PERMISSION_DENIED.selector);
-        destBridge.retryMessage(message, true);
+        tBridge.retryMessage(message, true);
     }
 
     function newMessage(
