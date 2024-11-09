@@ -1,39 +1,31 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./TaikoL2Test.sol";
-
-contract TaikoL2WithoutBaseFeeCheck is TaikoL2 {
-    function skipFeeCheck() public pure override returns (bool) {
-        return true;
-    }
-}
+import "./TaikoL2.h.sol";
 
 contract TaikoL2Tests is TaikoL2Test {
     using SafeCast for uint256;
 
-    uint64 public constant L1_CHAIN_ID = 12_345;
     uint32 public constant BLOCK_GAS_LIMIT = 30_000_000;
-
-    DefaultResolver public resolver;
-    SignalService signalService;
     uint64 public anchorBlockId;
+
+    SignalService signalService;
     TaikoL2 public L2;
 
-    function setUp() public {
-        deployer = Alice;
-        prepareContracts();
-        resolver = deployDefaultResolver();
-        signalService = deploySignalService(resolver, address(new SignalService()));
-        L2 = deployTaikoL2(resolver, address(new TaikoL2WithoutBaseFeeCheck()), L1_CHAIN_ID);
+    function setUpOnSourceChain() internal override { }
+
+    function setUpOnDestinationChain() internal override {
+        signalService = deploySignalService(address(new SignalService()));
+        L2 = deployTaikoL2(address(new TaikoL2WithoutBaseFeeCheck()), srcChainId);
         signalService.authorize(address(L2), true);
+
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 30);
         vm.deal(address(L2), 100 ether);
     }
 
     // calling anchor in the same block more than once should fail
-    function test_L2_AnchorTx_revert_in_same_block() external {
+    function test_L2_AnchorTx_revert_in_same_block() external onDestinationChain {
         vm.fee(1);
 
         vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
@@ -45,13 +37,13 @@ contract TaikoL2Tests is TaikoL2Test {
     }
 
     // calling anchor in the same block more than once should fail
-    function test_L2_AnchorTx_revert_from_wrong_signer() external {
+    function test_L2_AnchorTx_revert_from_wrong_signer() external onDestinationChain {
         vm.fee(1);
         vm.expectRevert(TaikoL2.L2_INVALID_SENDER.selector);
         _anchorV2(BLOCK_GAS_LIMIT);
     }
 
-    function test_L2_AnchorTx_signing(bytes32 digest) external {
+    function test_L2_AnchorTx_signing(bytes32 digest) external onDestinationChain {
         (uint8 v, uint256 r, uint256 s) = LibL2Signer.signAnchor(digest, uint8(1));
         address signer = ecrecover(digest, v + 27, bytes32(r), bytes32(s));
         assertEq(signer, L2.GOLDEN_TOUCH_ADDRESS());
@@ -67,7 +59,7 @@ contract TaikoL2Tests is TaikoL2Test {
         LibL2Signer.signAnchor(digest, uint8(3));
     }
 
-    function test_L2_withdraw() external {
+    function test_L2_withdraw() external onDestinationChain {
         vm.prank(L2.owner(), L2.owner());
         L2.withdraw(address(0), Alice);
         assertEq(address(L2).balance, 0 ether);
@@ -79,7 +71,7 @@ contract TaikoL2Tests is TaikoL2Test {
         L2.withdraw(address(0), Alice);
     }
 
-    function test_L2_getBlockHash() external {
+    function test_L2_getBlockHash() external onDestinationChain {
         assertEq(L2.getBlockHash(uint64(1000)), 0);
     }
 

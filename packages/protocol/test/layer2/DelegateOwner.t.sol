@@ -11,36 +11,29 @@ contract Target is EssentialContract {
 }
 
 contract TestDelegateOwner is TaikoL2Test {
-    address public remoteOwner;
-    address public owner;
+    address public srcBridge = randAddress();
 
     Multicall3 public multicall;
-    DefaultResolver public resolver;
     SignalService public signalService;
     Bridge public bridge;
     DelegateOwner public delegateOwner;
 
-    uint64 remoteChainId = uint64(block.chainid + 1);
-    address remoteBridge = vm.addr(0x2000);
-
-    function setUp() public override {
-        remoteOwner = vm.addr(0x2000);
-        owner = vm.addr(0x1000);
-        vm.deal(owner, 100 ether);
-
-        vm.startPrank(owner);
-
-        multicall = new Multicall3();
-        resolver = deployDefaultResolver();
-        delegateOwner = deployDelegateOwner(resolver, remoteOwner, remoteChainId);
-        signalService = deploySignalService(resolver, address(new SignalServiceNoProofCheck()));
-        bridge = deployBridge(resolver, address(new Bridge()));
-        resolver.setAddress(remoteChainId, "bridge", remoteBridge);
-        vm.stopPrank();
+    function setUpOnSourceChain() internal override {
+        // srcBridge = randAddress();
+        register("bridge", srcBridge);
     }
 
-    function test_delegate_owner_single_non_delegatecall() public {
+    function setUpOnDestinationChain() internal override {
+        multicall = new Multicall3();
+        delegateOwner = deployDelegateOwner(srcBridge, srcChainId);
+        signalService = deploySignalService(address(new SignalServiceNoProofCheck()));
+        bridge = deployBridge(address(new Bridge()));
+    }
+
+    function test_delegate_owner_single_non_delegatecall() public onDestinationChain {
+        vm.startPrank(deployer);
         Target target1 = _deployTarget("target1", address(new Target()));
+        vm.stopPrank();
 
         bytes memory data = abi.encode(
             DelegateOwner.Call(
@@ -55,9 +48,9 @@ contract TestDelegateOwner is TaikoL2Test {
         delegateOwner.dryrunInvocation(data);
 
         IBridge.Message memory message;
-        message.from = remoteOwner;
-        message.destChainId = uint64(block.chainid);
-        message.srcChainId = remoteChainId;
+        message.from = srcBridge;
+        message.destChainId = destChainId;
+        message.srcChainId = srcChainId;
         message.destOwner = Bob;
         message.data = abi.encodeCall(DelegateOwner.onMessageInvocation, (data));
         message.to = address(delegateOwner);
@@ -72,7 +65,7 @@ contract TestDelegateOwner is TaikoL2Test {
         assertTrue(target1.paused());
     }
 
-    function test_delegate_owner_single_non_delegatecall_self() public {
+    function test_delegate_owner_single_non_delegatecall_self() public onDestinationChain {
         address delegateOwnerImpl2 = address(new DelegateOwner());
 
         bytes memory data = abi.encode(
@@ -88,9 +81,9 @@ contract TestDelegateOwner is TaikoL2Test {
         delegateOwner.dryrunInvocation(data);
 
         IBridge.Message memory message;
-        message.from = remoteOwner;
-        message.destChainId = uint64(block.chainid);
-        message.srcChainId = remoteChainId;
+        message.from = srcBridge;
+        message.destChainId = destChainId;
+        message.srcChainId = srcChainId;
         message.destOwner = Bob;
         message.data = abi.encodeCall(DelegateOwner.onMessageInvocation, (data));
         message.to = address(delegateOwner);
@@ -105,12 +98,15 @@ contract TestDelegateOwner is TaikoL2Test {
         assertEq(delegateOwner.impl(), delegateOwnerImpl2);
     }
 
-    function test_delegate_owner_delegate_multicall() public {
+    function test_delegate_owner_delegate_multicall() public onDestinationChain {
         address delegateOwnerImpl2 = address(new DelegateOwner());
         address impl1 = address(new Target());
         address impl2 = address(new Target());
+
+        vm.startPrank(deployer);
         Target target1 = _deployTarget("target1", impl1);
         Target target2 = _deployTarget("target2", impl2);
+        vm.stopPrank();
 
         Multicall3.Call3[] memory calls = new Multicall3.Call3[](4);
         calls[0].target = address(target1);
@@ -142,9 +138,9 @@ contract TestDelegateOwner is TaikoL2Test {
         delegateOwner.dryrunInvocation(data);
 
         IBridge.Message memory message;
-        message.from = remoteOwner;
-        message.destChainId = uint64(block.chainid);
-        message.srcChainId = remoteChainId;
+        message.from = srcBridge;
+        message.destChainId = destChainId;
+        message.srcChainId = srcChainId;
         message.destOwner = Bob;
         message.data = abi.encodeCall(DelegateOwner.onMessageInvocation, (data));
         message.to = address(delegateOwner);

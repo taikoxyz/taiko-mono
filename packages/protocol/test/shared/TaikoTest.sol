@@ -87,7 +87,7 @@ abstract contract TaikoTest is Test, Script {
         vm.startPrank(deployer);
 
         srcChainId = uint64(block.chainid);
-        destChainId = srcChainId + 1;
+        destChainId = srcChainId + 10_000;
 
         resolver = deployDefaultResolver();
 
