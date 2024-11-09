@@ -77,6 +77,7 @@ var (
 	OntakeForkHeight = &cli.Uint64Flag{
 		Name:     "ontakeForkHeight",
 		Usage:    "Block number ontake fork height happened",
+		Value:    21134698,
 		Category: indexerCategory,
 		EnvVars:  []string{"ONTAKE_FORK_HEIGHT"},
 	}
