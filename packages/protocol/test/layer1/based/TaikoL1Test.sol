@@ -5,32 +5,32 @@ import "../Layer1Test.sol";
 import "./TestTierRouter.sol";
 import "./TestVerifier.sol";
 
-abstract contract TaikoL1TestBase is Layer1Test {
+abstract contract TaikoL1Test is Layer1Test {
     bytes32 internal GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
 
-    TaikoToken internal eBondToken;
-    SignalService internal eSignalService;
-    Bridge internal eBridge;
-    ITierRouter internal eTierRouter;
-    TestVerifier internal eTier1Verifier;
-    TestVerifier internal eTier2Verifier;
-    TestVerifier internal eTier3Verifier;
+    TaikoToken internal bondToken;
+    SignalService internal signalService;
+    Bridge internal bridge;
+    ITierRouter internal tierRouter;
+    TestVerifier internal tier1Verifier;
+    TestVerifier internal tier2Verifier;
+    TestVerifier internal tier3Verifier;
     TaikoL1 internal taikoL1;
 
     address internal tSignalService = randAddress();
     address internal taikoL2 = randAddress();
 
     function setUpOnEthereum() internal override {
-        eBondToken = deployBondToken();
-        eSignalService = deploySignalService(address(new SignalService()));
-        eBridge = deployBridge(address(new Bridge()));
-        eTierRouter = deployTierRouter();
-        eTier1Verifier = deployVerifier("");
-        eTier2Verifier = deployVerifier("tier_2");
-        eTier3Verifier = deployVerifier("tier_3");
+        bondToken = deployBondToken();
+        signalService = deploySignalService(address(new SignalService()));
+        bridge = deployBridge(address(new Bridge()));
+        tierRouter = deployTierRouter();
+        tier1Verifier = deployVerifier("");
+        tier2Verifier = deployVerifier("tier_2");
+        tier3Verifier = deployVerifier("tier_3");
         taikoL1 = deployTaikoL1(getConfig());
 
-        eSignalService.authorize(address(taikoL1), true);
+        signalService.authorize(address(taikoL1), true);
     }
 
     function setUpOnTaiko() internal override {
@@ -38,15 +38,19 @@ abstract contract TaikoL1TestBase is Layer1Test {
         register("signal_service", tSignalService);
     }
 
+    function tierProvider() internal view returns (ITierProvider) {
+        return ITierProvider(tierRouter);
+    }
+
     // TODO: order and name mismatch
     function giveEthAndTko(address to, uint256 amountTko, uint256 amountEth) internal {
         vm.deal(to, amountEth);
-        eBondToken.transfer(to, amountTko);
+        bondToken.transfer(to, amountTko);
 
         vm.prank(to);
-        eBondToken.approve(address(taikoL1), amountTko);
+        bondToken.approve(address(taikoL1), amountTko);
 
-        console2.log("Bond balance :", to, eBondToken.balanceOf(to));
+        console2.log("Bond balance :", to, bondToken.balanceOf(to));
         console2.log("Ether balance:", to, to.balance);
     }
 
@@ -99,7 +103,7 @@ abstract contract TaikoL1TestBase is Layer1Test {
     }
 
     function getBondTokenBalance(address user) internal view returns (uint256) {
-        return eBondToken.balanceOf(user) + taikoL1.bondBalanceOf(user);
+        return bondToken.balanceOf(user) + taikoL1.bondBalanceOf(user);
     }
 
     function printBlockAndTrans(uint64 blockId) internal view {
