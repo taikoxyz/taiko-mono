@@ -32,26 +32,13 @@ contract TaikoL1WithConfig is TaikoL1 {
         __config = _config;
     }
 
-    function getConfig() public pure override returns (TaikoData.Config memory) {
+    function getConfig() public view override returns (TaikoData.Config memory) {
         return __config;
     }
 }
 
 abstract contract Layer1Test is CommonTest {
-    bytes32 internal GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
 
-    function deployTaikoL1(TaikoData.Config memory config) internal returns (TaikoL1 taikoL1) {
-        taikoL1 = TaikoL1(
-            deploy({
-                name: "taiko",
-                impl: address(new TaikoL1WithConfig()),
-                data: abi.encodeCall(
-                    TaikoL1WithConfig.initWithConfig,
-                    (address(0), address(resolver), GENESIS_BLOCK_HASH, false, config)
-                )
-            })
-        );
-    }
 
     function deployBondToken() internal returns (TaikoToken) {
         return TaikoToken(

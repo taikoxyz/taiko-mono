@@ -10,7 +10,8 @@ import "src/layer1/tiers/ITierRouter.sol";
 /// @dev Labeled in AddressResolver as "tier_router"
 /// @custom:security-contact security@taiko.xyz
 contract TestTierRouter is ITierProvider, ITierRouter {
-    uint256[50] private __gap;
+    uint96 public constant BOND_UINT = 100 ether;
+    uint16 public constant ONE_HOUR = 60;
 
     /// @inheritdoc ITierRouter
     function getProvider(uint256) external view returns (address) {
@@ -19,35 +20,35 @@ contract TestTierRouter is ITierProvider, ITierRouter {
 
     /// @inheritdoc ITierProvider
     function getTier(uint16 _tierId) public pure override returns (ITierProvider.Tier memory) {
-        if (_tierId == LibTiers.TIER_OPTIMISTIC) {
+        if (_tierId == 1) {
             return ITierProvider.Tier({
                 verifierName: "",
-                validityBond: 250 ether, // TKO
-                contestBond: 500 ether, // TKO
-                cooldownWindow: 1440, //24 hours
-                provingWindow: 30, // 0.5 hours
+                validityBond: BOND_UINT,
+                contestBond: BOND_UINT * 2,
+                cooldownWindow: ONE_HOUR,
+                provingWindow: ONE_HOUR,
                 maxBlocksToVerifyPerProof: 0 // DEPRECATED
              });
         }
 
-        if (_tierId == LibTiers.TIER_SGX) {
+        if (_tierId == 2) {
             return ITierProvider.Tier({
-                verifierName: LibStrings.B_TIER_SGX,
-                validityBond: 250 ether, // TKO
-                contestBond: 1640 ether, // =250TKO * 6.5625
-                cooldownWindow: 1440, //24 hours
-                provingWindow: 60, // 1 hours
+                verifierName: "tier_2",
+                validityBond: BOND_UINT * 3,
+                contestBond: BOND_UINT * 4,
+                cooldownWindow: ONE_HOUR,
+                provingWindow: ONE_HOUR,
                 maxBlocksToVerifyPerProof: 0 // DEPRECATED
              });
         }
 
-        if (_tierId == LibTiers.TIER_GUARDIAN) {
+        if (_tierId == 3) {
             return ITierProvider.Tier({
-                verifierName: LibStrings.B_TIER_GUARDIAN,
+                verifierName: "tier_3",
                 validityBond: 0, // must be 0 for top tier
                 contestBond: 0, // must be 0 for top tier
-                cooldownWindow: 60, //1 hours
-                provingWindow: 2880, // 48 hours
+                cooldownWindow: ONE_HOUR,
+                provingWindow: ONE_HOUR,
                 maxBlocksToVerifyPerProof: 0 // DEPRECATED
              });
         }
@@ -58,16 +59,13 @@ contract TestTierRouter is ITierProvider, ITierRouter {
     /// @inheritdoc ITierProvider
     function getTierIds() public pure override returns (uint16[] memory tiers_) {
         tiers_ = new uint16[](3);
-        tiers_[0] = LibTiers.TIER_OPTIMISTIC;
-        tiers_[1] = LibTiers.TIER_SGX;
-        tiers_[2] = LibTiers.TIER_GUARDIAN;
+        tiers_[0] = 1;
+        tiers_[1] = 2;
+        tiers_[2] = 3;
     }
 
     /// @inheritdoc ITierProvider
-    function getMinTier(address, uint256 _rand) public pure override returns (uint16) {
-        // 10% will be selected to require SGX proofs.
-        if (_rand % 10 == 0) return LibTiers.TIER_SGX;
-        // Other blocks are optimistic, without validity proofs.
-        return LibTiers.TIER_OPTIMISTIC;
+    function getMinTier(address, uint256) public pure override returns (uint16) {
+        return 1;
     }
 }

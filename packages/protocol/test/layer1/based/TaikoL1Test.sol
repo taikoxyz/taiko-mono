@@ -2,11 +2,16 @@
 pragma solidity ^0.8.24;
 
 import "../Layer1Test.sol";
+import "./TestTierRouter.sol";
 
 abstract contract TaikoL1TestBase is Layer1Test {
+      bytes32 internal GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
+
+
     TaikoToken internal eBondToken;
     SignalService internal eSignalService;
     Bridge internal eBridge;
+    ITierRouter internal eTierRouter;
     TaikoL1 internal taikoL1;
 
     address internal tSignalService = randAddress();
@@ -16,6 +21,8 @@ abstract contract TaikoL1TestBase is Layer1Test {
         eBondToken = deployBondToken();
         eSignalService = deploySignalService(address(new SignalService()));
         eBridge = deployBridge(address(new Bridge()));
+
+        eTierRouter = deployTierRouter();
         taikoL1 = deployTaikoL1(getConfig());
 
         eSignalService.authorize(address(taikoL1), true);
@@ -39,4 +46,26 @@ abstract contract TaikoL1TestBase is Layer1Test {
     }
 
     function getConfig() public pure virtual returns (TaikoData.Config memory);
+
+    function deployTierRouter() internal returns (ITierRouter) {
+        return ITierRouter(
+            deploy({ name: "tier_router", impl: address(new TestTierRouter()), data: "" })
+        );
+    }
+
+
+
+
+    function deployTaikoL1(TaikoData.Config memory config) internal returns (TaikoL1 taikoL1) {
+        taikoL1 = TaikoL1(
+            deploy({
+                name: "taiko",
+                impl: address(new TaikoL1WithConfig()),
+                data: abi.encodeCall(
+                    TaikoL1WithConfig.initWithConfig,
+                    (address(0), address(resolver), GENESIS_BLOCK_HASH, false, config)
+                )
+            })
+        );
+    }
 }
