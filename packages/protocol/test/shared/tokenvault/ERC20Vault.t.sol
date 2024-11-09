@@ -4,22 +4,24 @@ pragma solidity ^0.8.24;
 import "./ERC20Vault.h.sol";
 
 contract TestERC20Vault is TaikoTest {
+    // Contracts on Ethereum
     SignalService private eSignalService;
-    Bridge private  bridge;
+    Bridge private  eBridge;
     ERC20Vault  private eVault;
     FreeMintERC20  private eToken;
     FreeMintERC20  private eTokenWithWeirdName;
 
+ // Contracts on Taiko
     SignalService  private tSignalService;
     PrankDestBridge  private tBridge;
     ERC20Vault  private tVault;
-    BridgedERC20  private usdc;
-    BridgedERC20  private usdt;
-    BridgedERC20  private stETH;
+    BridgedERC20  private tUSDC;
+    BridgedERC20  private tUSDT;
+    BridgedERC20  private tStETH;
 
     function setUpOnEthereum() internal override {
         eSignalService = deploySignalService(address(new SignalServiceNoProofCheck()));
-        bridge = deployBridge(address(new Bridge()));
+        eBridge = deployBridge(address(new Bridge()));
         eVault = deployERC20Vault();
 
         eToken = new FreeMintERC20("ERC20", "ERC20");
@@ -42,9 +44,9 @@ contract TestERC20Vault is TaikoTest {
         register("bridge", address(tBridge));
         register("bridged_erc20", address(new BridgedERC20()));
 
-        usdc = deployBridgedERC20(randAddress(), 100, 18, "USDC", "USDC coin");
-        usdt = deployBridgedERC20(randAddress(), 100, 18, "USDT", "USDT coin");
-        stETH = deployBridgedERC20(randAddress(), 100, 18, "stETH", "Lido Staked ETH");
+        tUSDC = deployBridgedERC20(randAddress(), 100, 18, "USDC", "USDC coin");
+        tUSDT = deployBridgedERC20(randAddress(), 100, 18, "USDT", "USDT coin");
+        tStETH = deployBridgedERC20(randAddress(), 100, 18, "tStETH", "Lido Staked ETH");
 
         vm.deal(address(tBridge), 100 ether);
     }
@@ -347,7 +349,7 @@ contract TestERC20Vault is TaikoTest {
         assertEq(eVaultBalanceAfter - eVaultBalanceBefore, amount);
 
         // No need to imitate that it is failed because we have a mock SignalService
-        bridge.recallMessage(_messageToSimulateFail, bytes(""));
+        eBridge.recallMessage(_messageToSimulateFail, bytes(""));
 
         uint256 aliceBalanceAfterRecall =eToken.balanceOf(Alice);
         uint256 eVaultBalanceAfterRecall =eToken.balanceOf(address(eVault));
@@ -373,10 +375,10 @@ contract TestERC20Vault is TaikoTest {
                 symbol: "ERC20TT",
                 name: "ERC20 Test token"
             }),
-            address(usdc)
+            address(tUSDC)
         );
 
-        assertEq(eVault.canonicalToBridged(1, address(eToken)), address(usdc));
+        assertEq(eVault.canonicalToBridged(1, address(eToken)), address(tUSDC));
 
         vm.expectRevert(ERC20Vault.VAULT_LAST_MIGRATION_TOO_CLOSE.selector);
         eVault.changeBridgedToken(
@@ -387,7 +389,7 @@ contract TestERC20Vault is TaikoTest {
                 symbol: "ERC20TT",
                 name: "ERC20 Test token"
             }),
-            address(usdt)
+            address(tUSDT)
         );
 
         vm.warp(block.timestamp + 91 days);
@@ -401,7 +403,7 @@ contract TestERC20Vault is TaikoTest {
                 symbol: "ERC20TT_WRONG_NAME",
                 name: "ERC20 Test token"
             }),
-            address(usdt)
+            address(tUSDT)
         );
 
         eVault.changeBridgedToken(
@@ -412,10 +414,10 @@ contract TestERC20Vault is TaikoTest {
                 symbol: "ERC20TT",
                 name: "ERC20 Test token"
             }),
-            address(usdt)
+            address(tUSDT)
         );
 
-        assertEq(eVault.canonicalToBridged(1, address(eToken)), address(usdt));
+        assertEq(eVault.canonicalToBridged(1, address(eToken)), address(tUSDT));
 
         eVault.changeBridgedToken(
             ERC20Vault.CanonicalERC20({
@@ -425,12 +427,12 @@ contract TestERC20Vault is TaikoTest {
                 symbol: "ERC20TT2",
                 name: "ERC20 Test token2"
             }),
-            address(stETH)
+            address(tStETH)
         );
 
         vm.warp(block.timestamp + 91 days);
 
-        // usdc is already blacklisted!
+        // tUSDC is already blacklisted!
         vm.expectRevert(ERC20Vault.VAULT_BTOKEN_BLACKLISTED.selector);
         eVault.changeBridgedToken(
             ERC20Vault.CanonicalERC20({
@@ -440,7 +442,7 @@ contract TestERC20Vault is TaikoTest {
                 symbol: "ERC20TT",
                 name: "ERC20 Test token"
             }),
-            address(usdc)
+            address(tUSDC)
         );
 
         // invalid btoken
@@ -453,10 +455,10 @@ contract TestERC20Vault is TaikoTest {
                 symbol: "ERC20TT",
                 name: "ERC20 Test token"
             }),
-            address(usdc)
+            address(tUSDC)
         );
 
-        // We cannot use stETH for erc20 (as it is used in connection with another token)
+        // We cannot use tStETH for erc20 (as it is used in connection with another token)
         vm.expectRevert(ERC20Vault.VAULT_INVALID_NEW_BTOKEN.selector);
         eVault.changeBridgedToken(
             ERC20Vault.CanonicalERC20({
@@ -466,7 +468,7 @@ contract TestERC20Vault is TaikoTest {
                 symbol: "ERC20TT",
                 name: "ERC20 Test token"
             }),
-            address(stETH)
+            address(tStETH)
         );
 
         vm.stopPrank();
