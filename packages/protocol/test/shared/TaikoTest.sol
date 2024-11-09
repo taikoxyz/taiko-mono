@@ -73,7 +73,7 @@ abstract contract TaikoTest is Test, Script {
         vm.chainId(ethereumChainId);
     }
 
-    modifier transactedBy(address transactor) {
+    modifier transactBy(address transactor) {
         vm.deal(transactor, 100 ether);
         vm.startPrank(transactor);
 
