@@ -17,7 +17,7 @@ contract TestERC20Vault is TaikoTest {
     BridgedERC20 usdt;
     BridgedERC20 stETH;
 
-    function setUpOnSourceChain() internal override {
+    function setUpOnEthereum() internal override {
         signalService = deploySignalService(address(new SignalServiceNoProofCheck()));
         bridge = deployBridge(address(new Bridge()));
         erc20Vault = deployERC20Vault();
@@ -34,7 +34,7 @@ contract TestERC20Vault is TaikoTest {
         vm.deal(Bob, 1 ether);
     }
 
-    function setUpOnDestinationChain() internal override {
+    function setUpOnTaiko() internal override {
         destSignalService = deploySignalService(address(new SignalServiceNoProofCheck()));
         destERC20Vault = deployERC20Vault();
         destBridge = new PrankDestBridge(erc20Vault);

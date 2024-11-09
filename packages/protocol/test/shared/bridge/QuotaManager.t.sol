@@ -8,7 +8,7 @@ contract QuotaManagerTest is TaikoTest {
 
     address bridge = vm.addr(0x100);
 
-    function setUpOnSourceChain() internal override {
+    function setUpOnEthereum() internal override {
         qm = deployQuotaManager();
         register("bridge", bridge);
     }

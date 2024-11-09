@@ -14,7 +14,7 @@ contract ERC721VaultTest is TaikoTest {
 
     TestTokenERC721 canonicalToken721;
 
-    function setUpOnSourceChain() internal override {
+    function setUpOnEthereum() internal override {
         deploySignalService(address(new SignalServiceNoProofCheck()));
         bridge = deployBridge(address(new Bridge()));
         vault = deployERC721Vault();
@@ -25,7 +25,7 @@ contract ERC721VaultTest is TaikoTest {
         vm.deal(Bob, 100 ether);
     }
 
-    function setUpOnDestinationChain() internal override {
+    function setUpOnTaiko() internal override {
         deploySignalService(address(new SignalServiceNoProofCheck()));
         destVault = deployERC721Vault();
         destBridge = new PrankDestBridge(destVault);
