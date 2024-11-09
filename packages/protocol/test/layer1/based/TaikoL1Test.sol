@@ -180,5 +180,24 @@ abstract contract TaikoL1Test is Layer1Test {
         register(name, address(verifier));
     }
 
-    function getConfig() internal view virtual returns (TaikoData.Config memory);
+    function getConfig() internal view virtual returns (TaikoData.Config memory) {
+        return TaikoData.Config({
+            chainId: taikoChainId,
+            blockMaxProposals: 20,
+            blockRingBufferSize: 25,
+            maxBlocksToVerify: 16,
+            blockMaxGasLimit: 240_000_000,
+            livenessBond: 125e18,
+            stateRootSyncInternal: 2,
+            maxAnchorHeightOffset: 64,
+            baseFeeConfig: LibSharedData.BaseFeeConfig({
+                adjustmentQuotient: 8,
+                sharingPctg: 75,
+                gasIssuancePerSecond: 5_000_000,
+                minGasExcess: 1_340_000_000, // correspond to 0.008847185 gwei basefee
+                maxGasIssuancePerBlock: 600_000_000 // two minutes: 5_000_000 * 120
+             }),
+            ontakeForkHeight: 0 // or 1
+         });
+    }
 }

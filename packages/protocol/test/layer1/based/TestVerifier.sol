@@ -20,11 +20,12 @@ contract TestVerifier is IVerifier {
         TaikoData.TierProof calldata
     )
         external
+        view
     {
         require(!shouldFail, "IVerifier failure");
     }
 
-    function verifyBatchProof(ContextV2[] calldata, TaikoData.TierProof calldata) external {
+    function verifyBatchProof(ContextV2[] calldata, TaikoData.TierProof calldata) external view {
         require(!shouldFail, "IVerifier failure");
     }
 }
