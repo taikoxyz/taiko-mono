@@ -20,15 +20,7 @@ import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
 import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
 import "src/layer1/devnet/DevnetTaikoL1.sol";
 import "src/layer1/devnet/DevnetTierRouter.sol";
-import "src/layer1/mainnet/rollup/MainnetGuardianProver.sol";
-import "src/layer1/mainnet/rollup/MainnetTaikoL1.sol";
-import "src/layer1/mainnet/rollup/MainnetTierRouter.sol";
 import "src/layer1/mainnet/rollup/verifiers/MainnetSgxVerifier.sol";
-import "src/layer1/mainnet/multirollup/MainnetBridge.sol";
-import "src/layer1/mainnet/multirollup/MainnetERC1155Vault.sol";
-import "src/layer1/mainnet/multirollup/MainnetERC20Vault.sol";
-import "src/layer1/mainnet/multirollup/MainnetERC721Vault.sol";
-import "src/layer1/mainnet/multirollup/MainnetSignalService.sol";
 import "src/layer1/provers/GuardianProver.sol";
 import "src/layer1/provers/ProverSet.sol";
 import "src/layer1/token/TaikoToken.sol";
@@ -45,45 +37,45 @@ import "script/BaseScript.sol";
 contract DeployProtocolOnL1 is BaseScript {
     uint256 public NUM_MIN_MAJORITY_GUARDIANS = vm.envUint("NUM_MIN_MAJORITY_GUARDIANS");
     uint256 public NUM_MIN_MINORITY_GUARDIANS = vm.envUint("NUM_MIN_MINORITY_GUARDIANS");
-    address public DAO_FALLBACK_PROPOSER = 0xD3f681bD6B49887A48cC9C9953720903967E9DC0;
+    address public taikoL2 = vm.envAddress("TAIKO_L2_ADDRESS");
+    address public tSignalService = vm.envAddress("L2_SIGNAL_SERVICE");
+    address public sharedResolverAddress = vm.envAddress("SHARED_RESOLVER");
+    address public taikoToken = vm.envAddress("TAIKO_TOKEN");
+    address public taikoTokenPremintRecipient = vm.envOr("TAIKO_TOKEN_PREMINT_RECIPIENT", msg.sender    );
 
-    address public constant MAINNET_CONTRACT_OWNER = 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F; // admin.taiko.eth
+    address public constant contractOwner = vm.envOr("OWNER", msg.sender);
 
+    bytes32 public l2GenesisHash = vm.envBytes32("L2_GENESIS_HASH");
 
     function run() external broadcast {
-        addressNotNull(vm.envAddress("TAIKO_L2_ADDRESS"), "TAIKO_L2_ADDRESS");
-        addressNotNull(vm.envAddress("L2_SIGNAL_SERVICE"), "L2_SIGNAL_SERVICE");
-        addressNotNull(vm.envAddress("CONTRACT_OWNER"), "CONTRACT_OWNER");
+        addressNotNull(taikoL2, "TAIKO_L2_ADDRESS");
+        addressNotNull(tSignalService, "L2_SIGNAL_SERVICE");
+        addressNotNull(contractOwner, "CONTRACT_OWNER");
 
-        require(vm.envBytes32("L2_GENESIS_HASH") != 0, "L2_GENESIS_HASH");
-        address contractOwner = vm.envAddress("CONTRACT_OWNER");
+        require(l2GenesisHash != 0, "L2_GENESIS_HASH");
 
         // ---------------------------------------------------------------
         // Deploy shared contracts
-        (address sharedAddressManager) = deploySharedContracts(contractOwner);
-        console2.log("sharedAddressManager: ", sharedAddressManager);
+        address sharedResolver = deploySharedContracts();
+        console2.log("sharedResolver: ", sharedResolver);
         // ---------------------------------------------------------------
         // Deploy rollup contracts
-        address rollupAddressManager = deployRollupContracts(sharedAddressManager, contractOwner);
+        DefaultResolver taikoResolver = deployTaikoContracts(sharedResolver, contractOwner);
 
         // ---------------------------------------------------------------
         // Signal service need to authorize the new rollup
-        address signalServiceAddr = AddressManager(sharedAddressManager).getAddress(
-            uint64(block.chainid), LibStrings.B_SIGNAL_SERVICE
-        );
-        addressNotNull(signalServiceAddr, "signalServiceAddr");
-        SignalService signalService = SignalService(signalServiceAddr);
+        SignalService signalService = SignalService(sharedResolver.resolve(
+            block.chainid, LibStrings.B_SIGNAL_SERVICE, false
+        ));
+        addressNotNull(address(signalService), "signalService");
 
-        address taikoL1Addr = AddressManager(rollupAddressManager).getAddress(
-            uint64(block.chainid), LibStrings.B_TAIKO
-        );
-        addressNotNull(taikoL1Addr, "taikoL1Addr");
-        TaikoL1 taikoL1 = TaikoL1(payable(taikoL1Addr));
+        TaikoL1 taikoL1 = TaikoL1(taikoResolver.resolve(
+            block.chainid, LibStrings.B_TAIKO, false
+        ));
+        addressNotNull(address(taikoL1), "taikoL1");
 
-        if (vm.envAddress("SHARED_ADDRESS_MANAGER") == address(0)) {
-            SignalService(signalServiceAddr).authorize(taikoL1Addr, true);
-        }
-
+        signalService.authorize(address(taikoL1), true);
+      
         uint64 l2ChainId = taikoL1.getConfig().chainId;
         require(l2ChainId != block.chainid, "same chainid");
 
@@ -99,17 +91,16 @@ contract DeployProtocolOnL1 is BaseScript {
             console2.log("------------------------------------------");
             console2.log("Warning - you need to transact manually:");
             console2.log("signalService.authorize(taikoL1Addr, bytes32(block.chainid))");
-            console2.log("- signalService : ", signalServiceAddr);
-            console2.log("- taikoL1Addr   : ", taikoL1Addr);
+            console2.log("- signalService : ", address(signalService));
+            console2.log("- taikoL1       : ", address(taikoL1));
             console2.log("- chainId       : ", block.chainid);
         }
 
         // ---------------------------------------------------------------
         // Register L2 addresses
-        register(rollupAddressManager, "taiko", vm.envAddress("TAIKO_L2_ADDRESS"), l2ChainId);
-        register(
-            rollupAddressManager, "signal_service", vm.envAddress("L2_SIGNAL_SERVICE"), l2ChainId
-        );
+        taikoResolver.setAddress(l2ChainId, "taiko", taikoL2);
+        taikoResolver.setAddress(l2ChainId, "signal_service", tSignalService);
+      
 
         // ---------------------------------------------------------------
         // Deploy other contracts
@@ -117,117 +108,87 @@ contract DeployProtocolOnL1 is BaseScript {
             deployAuxContracts();
         }
 
-        if (AddressManager(sharedAddressManager).owner() == msg.sender) {
-            AddressManager(sharedAddressManager).transferOwnership(contractOwner);
-            console2.log("** sharedAddressManager ownership transferred to:", contractOwner);
+        if (sharedResolver.owner() == msg.sender) {
+            sharedResolver.transferOwnership(contractOwner);
+            console2.log("** sharedResolver ownership transferred to:", contractOwner);
         }
 
-        AddressManager(rollupAddressManager).transferOwnership(contractOwner);
-        console2.log("** rollupAddressManager ownership transferred to:", contractOwner);
+        taikoResolver.transferOwnership(contractOwner);
+        console2.log("** taikoResolver ownership transferred to:", contractOwner);
     }
 
-    function deploySharedContracts(address owner) internal returns (address sharedAddressManager) {
-        addressNotNull(owner, "owner");
+    function deploySharedContracts() internal returns (DefaultResolver sharedResolver) {
 
-        sharedAddressManager = vm.envAddress("SHARED_ADDRESS_MANAGER");
-        if (sharedAddressManager == address(0)) {
-            sharedAddressManager = deploy({
-                name: "shared_address_manager",
-                impl: address(new AddressManager()),
-                data: abi.encodeCall(AddressManager.init, (address(0)))
-            });
+        sharedResolver = DefaultResolver(sharedResolverAddress);
+        if (address(sharedResolver) == address(0)) {
+            sharedResolver = DefaultResolver(deploy({
+                name: "shared_resolver",
+                impl: address(new DefaultResolver()),
+                data: abi.encodeCall(DefaultResolver.init, (address(0)))
+            }));
         }
 
-        address taikoToken = vm.envAddress("TAIKO_TOKEN");
         if (taikoToken == address(0)) {
             taikoToken = deploy({
                 name: "taiko_token",
                 impl: address(new TaikoToken()),
                 data: abi.encodeCall(
-                    TaikoToken.init, (owner, vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT"))
-                ),
-                registerTo: sharedAddressManager
+                    TaikoToken.init, (contractOwner, taikoTokenPremintRecipient)
+                )
             });
-        } else {
-            register(sharedAddressManager, "taiko_token", taikoToken);
         }
-        register(sharedAddressManager, "bond_token", taikoToken);
+        sharedResolver.setAddress(block.chainid, "taiko_token", taikoToken);
+        sharedResolver.setAddress(block.chainid, "bond_token", taikoToken);
 
-        // Deploy Bridging contracts
-        deploy({
-            name: "mainnet_signal_service",
-            impl: address(new MainnetSignalService()),
-            data: abi.encodeCall(SignalService.init, (address(0), sharedAddressManager))
-        });
+  
         deploy({
             name: "signal_service",
             impl: address(new SignalService()),
-            data: abi.encodeCall(SignalService.init, (address(0), sharedAddressManager)),
-            registerTo: sharedAddressManager
+            data: abi.encodeCall(SignalService.init, (address(0), sharedResolver)),
+            _resolver: sharedResolver
         });
 
-        deploy({
-            name: "mainnet_bridge",
-            impl: address(new MainnetBridge()),
-            data: abi.encodeCall(Bridge.init, (address(0), sharedAddressManager))
-        });
-        address brdige = deploy({
+  
+        Bridge brdige = Bridge(deploy({
             name: "bridge",
             impl: address(new Bridge()),
-            data: abi.encodeCall(Bridge.init, (address(0), sharedAddressManager)),
-            registerTo: sharedAddressManager
-        });
+            data: abi.encodeCall(Bridge.init, (contractOwner, sharedResolver)),
+            registerTo: sharedResolver
+        }));
 
-        if (vm.envBool("PAUSE_BRIDGE")) {
-            Bridge(payable(brdige)).pause();
-        }
-
-        Bridge(payable(brdige)).transferOwnership(owner);
 
         console2.log("------------------------------------------");
         console2.log(
             "Warning - you need to register *all* counterparty bridges to enable multi-hop bridging:"
         );
         console2.log(
-            "sharedAddressManager.setAddress(remoteChainId, \"bridge\", address(remoteBridge))"
+            "sharedResolver.setAddress(remoteChainId, \"bridge\", address(remoteBridge))"
         );
-        console2.log("- sharedAddressManager : ", sharedAddressManager);
+        console2.log("- sharedResolver : ", sharedResolver);
 
         // Deploy Vaults
-        deploy({
-            name: "mainnet_erc20_vault",
-            impl: address(new MainnetERC20Vault()),
-            data: abi.encodeCall(ERC20Vault.init, (owner, sharedAddressManager))
-        });
+      
         deploy({
             name: "erc20_vault",
             impl: address(new ERC20Vault()),
-            data: abi.encodeCall(ERC20Vault.init, (owner, sharedAddressManager)),
-            registerTo: sharedAddressManager
+            data: abi.encodeCall(ERC20Vault.init, (owner, sharedResolver)),
+            registerTo: sharedResolver
         });
 
-        deploy({
-            name: "mainnet_erc721_vault",
-            impl: address(new MainnetERC721Vault()),
-            data: abi.encodeCall(ERC721Vault.init, (owner, sharedAddressManager))
-        });
+       
         deploy({
             name: "erc721_vault",
             impl: address(new ERC721Vault()),
-            data: abi.encodeCall(ERC721Vault.init, (owner, sharedAddressManager)),
-            registerTo: sharedAddressManager
+            data: abi.encodeCall(ERC721Vault.init, (owner, sharedResolver)),
+            registerTo: sharedResolver
         });
 
-        deploy({
-            name: "mainnet_erc1155_vault",
-            impl: address(new MainnetERC1155Vault()),
-            data: abi.encodeCall(ERC1155Vault.init, (owner, sharedAddressManager))
-        });
+      
         deploy({
             name: "erc1155_vault",
             impl: address(new ERC1155Vault()),
-            data: abi.encodeCall(ERC1155Vault.init, (owner, sharedAddressManager)),
-            registerTo: sharedAddressManager
+            data: abi.encodeCall(ERC1155Vault.init, (owner, sharedResolver)),
+            registerTo: sharedResolver
         });
 
         console2.log("------------------------------------------");
@@ -235,33 +196,33 @@ contract DeployProtocolOnL1 is BaseScript {
             "Warning - you need to register *all* counterparty vaults to enable multi-hop bridging:"
         );
         console2.log(
-            "sharedAddressManager.setAddress(remoteChainId, \"erc20_vault\", address(remoteERC20Vault))"
+            "sharedResolver.setAddress(remoteChainId, \"erc20_vault\", address(remoteERC20Vault))"
         );
         console2.log(
-            "sharedAddressManager.setAddress(remoteChainId, \"erc721_vault\", address(remoteERC721Vault))"
+            "sharedResolver.setAddress(remoteChainId, \"erc721_vault\", address(remoteERC721Vault))"
         );
         console2.log(
-            "sharedAddressManager.setAddress(remoteChainId, \"erc1155_vault\", address(remoteERC1155Vault))"
+            "sharedResolver.setAddress(remoteChainId, \"erc1155_vault\", address(remoteERC1155Vault))"
         );
-        console2.log("- sharedAddressManager : ", sharedAddressManager);
+        console2.log("- sharedResolver : ", sharedResolver);
 
         // Deploy Bridged token implementations
-        register(sharedAddressManager, "bridged_erc20", address(new BridgedERC20()));
-        register(sharedAddressManager, "bridged_erc721", address(new BridgedERC721()));
-        register(sharedAddressManager, "bridged_erc1155", address(new BridgedERC1155()));
+        register(sharedResolver, "bridged_erc20", address(new BridgedERC20()));
+        register(sharedResolver, "bridged_erc721", address(new BridgedERC721()));
+        register(sharedResolver, "bridged_erc1155", address(new BridgedERC1155()));
     }
 
-    function deployRollupContracts(
-        address _sharedAddressManager,
+    function deployTaikoContracts(
+        address _sharedResolver,
         address owner
     )
         internal
-        returns (address rollupAddressManager)
+        returns (address taikoResolver)
     {
-        addressNotNull(_sharedAddressManager, "sharedAddressManager");
+        addressNotNull(_sharedResolver, "sharedResolver");
         addressNotNull(owner, "owner");
 
-        rollupAddressManager = deploy({
+        taikoResolver = deploy({
             name: "rollup_address_manager",
             impl: address(new AddressManager()),
             data: abi.encodeCall(AddressManager.init, (address(0)))
@@ -269,10 +230,10 @@ contract DeployProtocolOnL1 is BaseScript {
 
         // ---------------------------------------------------------------
         // Register shared contracts in the new rollup
-        copyRegister(rollupAddressManager, _sharedAddressManager, "taiko_token");
-        copyRegister(rollupAddressManager, _sharedAddressManager, "bond_token");
-        copyRegister(rollupAddressManager, _sharedAddressManager, "signal_service");
-        copyRegister(rollupAddressManager, _sharedAddressManager, "bridge");
+        copyRegister(taikoResolver, _sharedResolver, "taiko_token");
+        copyRegister(taikoResolver, _sharedResolver, "bond_token");
+        copyRegister(taikoResolver, _sharedResolver, "signal_service");
+        copyRegister(taikoResolver, _sharedResolver, "bridge");
 
         deploy({
             name: "mainnet_taiko",
@@ -281,7 +242,7 @@ contract DeployProtocolOnL1 is BaseScript {
                 TaikoL1.init,
                 (
                     owner,
-                    rollupAddressManager,
+                    taikoResolver,
                     vm.envBytes32("L2_GENESIS_HASH"),
                     vm.envBool("PAUSE_TAIKO_L1")
                 )
@@ -302,31 +263,31 @@ contract DeployProtocolOnL1 is BaseScript {
                 TaikoL1.init,
                 (
                     owner,
-                    rollupAddressManager,
+                    taikoResolver,
                     vm.envBytes32("L2_GENESIS_HASH"),
                     vm.envBool("PAUSE_TAIKO_L1")
                 )
             ),
-            registerTo: rollupAddressManager
+            registerTo: taikoResolver
         });
 
         deploy({
             name: "mainnet_tier_sgx",
             impl: address(new MainnetSgxVerifier()),
-            data: abi.encodeCall(SgxVerifier.init, (owner, rollupAddressManager))
+            data: abi.encodeCall(SgxVerifier.init, (owner, taikoResolver))
         });
 
         deploy({
             name: "tier_sgx",
             impl: address(new SgxVerifier()),
-            data: abi.encodeCall(SgxVerifier.init, (owner, rollupAddressManager)),
-            registerTo: rollupAddressManager
+            data: abi.encodeCall(SgxVerifier.init, (owner, taikoResolver)),
+            registerTo: taikoResolver
         });
 
         deploy({
             name: "mainnet_guardian_prover_minority",
             impl: address(new MainnetGuardianProver()),
-            data: abi.encodeCall(GuardianProver.init, (address(0), rollupAddressManager))
+            data: abi.encodeCall(GuardianProver.init, (address(0), taikoResolver))
         });
 
         address guardianProverImpl = address(new GuardianProver());
@@ -334,7 +295,7 @@ contract DeployProtocolOnL1 is BaseScript {
         address guardianProverMinority = deploy({
             name: "guardian_prover_minority",
             impl: guardianProverImpl,
-            data: abi.encodeCall(GuardianProver.init, (address(0), rollupAddressManager))
+            data: abi.encodeCall(GuardianProver.init, (address(0), taikoResolver))
         });
 
         GuardianProver(guardianProverMinority).enableBondAllowance(true);
@@ -342,13 +303,13 @@ contract DeployProtocolOnL1 is BaseScript {
         address guardianProver = deploy({
             name: "guardian_prover",
             impl: guardianProverImpl,
-            data: abi.encodeCall(GuardianProver.init, (address(0), rollupAddressManager))
+            data: abi.encodeCall(GuardianProver.init, (address(0), taikoResolver))
         });
 
-        register(rollupAddressManager, "tier_guardian_minority", guardianProverMinority);
-        register(rollupAddressManager, "tier_guardian", guardianProver);
+        register(taikoResolver, "tier_guardian_minority", guardianProverMinority);
+        register(taikoResolver, "tier_guardian", guardianProver);
         register(
-            rollupAddressManager,
+            taikoResolver,
             "tier_router",
             address(deployTierRouter(vm.envString("TIER_ROUTER")))
         );
@@ -378,7 +339,7 @@ contract DeployProtocolOnL1 is BaseScript {
             data: abi.encodeCall(
                 AutomataDcapV3Attestation.init, (owner, address(sigVerifyLib), address(pemCertChainLib))
             ),
-            registerTo: rollupAddressManager
+            registerTo: taikoResolver
         });
 
         // Log addresses for the user to register sgx instance
@@ -390,37 +351,37 @@ contract DeployProtocolOnL1 is BaseScript {
             name: "prover_set",
             impl: address(new ProverSet()),
             data: abi.encodeCall(
-                ProverSet.init, (owner, vm.envAddress("PROVER_SET_ADMIN"), rollupAddressManager)
+                ProverSet.init, (owner, vm.envAddress("PROVER_SET_ADMIN"), taikoResolver)
             )
         });
 
-        deployZKVerifiers(owner, rollupAddressManager);
+        deployZKVerifiers(owner, taikoResolver);
     }
 
     // deploy both sp1 & risc0 verifiers.
     // using function to avoid stack too deep error
-    function deployZKVerifiers(address owner, address rollupAddressManager) private {
+    function deployZKVerifiers(address owner, address taikoResolver) private {
         // Deploy r0 groth16 verifier
         RiscZeroGroth16Verifier verifier =
             new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
-        register(rollupAddressManager, "risc0_groth16_verifier", address(verifier));
+        register(taikoResolver, "risc0_groth16_verifier", address(verifier));
 
         deploy({
             name: "tier_zkvm_risc0",
             impl: address(new Risc0Verifier()),
-            data: abi.encodeCall(Risc0Verifier.init, (owner, rollupAddressManager)),
-            registerTo: rollupAddressManager
+            data: abi.encodeCall(Risc0Verifier.init, (owner, taikoResolver)),
+            registerTo: taikoResolver
         });
 
         // Deploy sp1 plonk verifier
         SuccinctVerifier succinctVerifier = new SuccinctVerifier();
-        register(rollupAddressManager, "sp1_remote_verifier", address(succinctVerifier));
+        register(taikoResolver, "sp1_remote_verifier", address(succinctVerifier));
 
         deploy({
             name: "tier_zkvm_sp1",
             impl: address(new SP1Verifier()),
-            data: abi.encodeCall(SP1Verifier.init, (owner, rollupAddressManager)),
-            registerTo: rollupAddressManager
+            data: abi.encodeCall(SP1Verifier.init, (owner, taikoResolver)),
+            registerTo: taikoResolver
         });
     }
 
@@ -430,7 +391,8 @@ contract DeployProtocolOnL1 is BaseScript {
         } else if (keccak256(abi.encode(tierRouterName)) == keccak256(abi.encode("testnet"))) {
             return address(new TestTierRouter());
         } else if (keccak256(abi.encode(tierRouterName)) == keccak256(abi.encode("mainnet"))) {
-            return address(new MainnetTierRouter(DAO_FALLBACK_PROPOSER));
+            address daoFallbackProposer = 0xD3f681bD6B49887A48cC9C9953720903967E9DC0;
+            return address(new MainnetTierRouter(daoFallbackProposer));
         } else {
             revert("invalid tier provider");
         }
@@ -444,7 +406,7 @@ contract DeployProtocolOnL1 is BaseScript {
         console2.log("BullToken", bullToken);
     }
 
-    function addressNotNull(address addr, string memory err) private pure {
-        require(addr != address(0), err);
+    function addressNotNull(address addr, string memory name) private pure {
+        require(addr != address(0), string.concat(name, " is address(0)"));
     }
 }
