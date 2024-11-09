@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
-import "src/layer1/team/tokenunlock/TokenUnlock.sol";
+import "src/layer1/team/TokenUnlock.sol";
 import "../../Layer1Test.sol";
 
 contract MyERC20 is ERC20, ERC20Votes {

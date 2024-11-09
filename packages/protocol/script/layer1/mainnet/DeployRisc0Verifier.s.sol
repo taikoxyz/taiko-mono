@@ -7,7 +7,8 @@ import "script/BaseScript.sol";
 
 contract DeployRisc0Verifier is BaseScript {
     function run() external broadcast {
-        require(resolver != address(0), "invalid resolver address");
+
+checkResolverOwnership();
 
         RiscZeroGroth16Verifier verifier =
             new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);

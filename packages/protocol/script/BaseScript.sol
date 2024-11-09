@@ -14,13 +14,20 @@ import "src/shared/common/DefaultResolver.sol";
 
 abstract contract BaseScript is Script {
     address public resolver = vm.envOr("RESOLVER", address(0));
-    uint256 public deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+    uint256 public deployerPrivateKey = vm.envOr("PRIVATE_KEY", uint256(0));
 
     modifier broadcast() {
         require(deployerPrivateKey != 0, "invalid private key");
         vm.startBroadcast(deployerPrivateKey);
         _;
         vm.stopBroadcast();
+    }
+
+    function checkResolverOwnership() internal view {
+        require(resolver != address(0), "invalid resolver address");
+        require(
+            DefaultResolver(resolver).owner() == msg.sender, "resolver not owned by this contract"
+        );
     }
 
     function deploy(address _impl, address _admin, bytes memory _data) internal returns (address) {
@@ -47,7 +54,7 @@ abstract contract BaseScript is Script {
         console2.log("       impl    :", impl);
         console2.log("       owner   :", OwnableUpgradeable(proxy).owner());
         console2.log("       chain id:", block.chainid);
-        if (resolver != address(0)) {
+        if (name != "" && resolver != address(0)) {
             console2.log("  registered at:", resolver);
             DefaultResolver(resolver).setAddress(block.chainid, name, proxy);
         }

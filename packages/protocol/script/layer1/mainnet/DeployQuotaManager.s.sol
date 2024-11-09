@@ -6,17 +6,24 @@ import "script/BaseScript.sol";
 
 contract DeployQuotaManager is BaseScript {
     address owner = vm.envOr("OWNER", msg.sender);
+    address quotaManagerAddress = vm.envOr("QUOTA_MANAGER", address(0));
 
     function run() external broadcast {
-        require(resolver != address(0), "invalid resolver address");
-        // Deploy the QuotaManager contract on Ethereum
-        QuotaManager qm = QuotaManager(
-            deploy({
-                name: "quota_manager",
-                impl: address(new QuotaManager()),
-                data: abi.encodeCall(QuotaManager.init, (owner, resolver, 15 minutes))
-            })
-        );
+       
+        QuotaManager qm;
+        if (quotaManagerAddress != address(0)) {
+            qm = QuotaManager(quotaManagerAddress);
+            require(qm.owner() == msg.sender, "quota manager not owned by this contract");
+        } else {
+            checkResolverOwnership();
+            qm = QuotaManager(
+                deploy({
+                    name: "quota_manager",
+                    impl: address(new QuotaManager()),
+                    data: abi.encodeCall(QuotaManager.init, (owner, resolver, 15 minutes))
+                })
+            );
+        }
 
         // Config L2-to-L1 quota
         uint104 value = 200_000; // USD

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/layer1/team/tokenunlock/TokenUnlock.sol";
+import "src/layer1/team/TokenUnlock.sol";
 import "script/BaseScript.sol";
 
 contract DeployTokenUnlock is BaseScript {
@@ -28,7 +28,7 @@ contract DeployTokenUnlock is BaseScript {
 
         for (uint256 i; i < recipients.length; i++) {
             address proxy = deploy({
-                name: "TokenUnlock",
+                name: "",
                 impl: TOKEN_UNLOCK_IMPL,
                 data: abi.encodeCall(
                     TokenUnlock.init, (OWNER, ROLLUP_ADDRESS_MANAGER, recipients[i], TGE)

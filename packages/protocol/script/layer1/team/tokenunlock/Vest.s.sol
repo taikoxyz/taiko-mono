@@ -5,7 +5,7 @@ import "forge-std/src/Script.sol";
 import "forge-std/src/console2.sol";
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "src/layer1/team/tokenunlock/TokenUnlock.sol";
+import "src/layer1/team/TokenUnlock.sol";
 
 contract VestTokenUnlock is Script {
     using stdJson for string;

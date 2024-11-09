@@ -7,8 +7,7 @@ import "script/BaseScript.sol";
 
 contract DeploySP1Verifier is BaseScript {
     function run() external broadcast {
-        require(resolver != address(0), "invalid resolver address");
-
+        checkResolverOwnership();
         // Deploy sp1 plonk verifier
         SuccinctVerifier succinctVerifier = new SuccinctVerifier();
         DefaultResolver(resolver).setAddress(
