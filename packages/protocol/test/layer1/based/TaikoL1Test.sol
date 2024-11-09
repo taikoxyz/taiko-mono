@@ -37,7 +37,7 @@ abstract contract TaikoL1Test is Layer1Test {
         minTierId = tierProvider().getMinTier(address(0), 0);
         minTier = tierProvider().getTier(minTierId);
         livenessBond = taikoL1.getConfig().livenessBond;
-        
+
         mineOneBlockAndWrap(12 seconds);
     }
 
@@ -155,9 +155,9 @@ abstract contract TaikoL1Test is Layer1Test {
         console2.log("   | stateRoot:", vm.toString(ts.stateRoot));
     }
 
-    function deployTierRouter() internal returns (ITierRouter tierRouter) {
-        tierRouter = new TestTierRouter();
-        register("tier_router", address(tierRouter));
+    function deployTierRouter() internal returns (ITierRouter tierRouter_) {
+        tierRouter_ = new TestTierRouter();
+        register("tier_router", address(tierRouter_));
     }
 
     function deployTaikoL1(TaikoData.Config memory config) internal returns (TaikoL1) {
