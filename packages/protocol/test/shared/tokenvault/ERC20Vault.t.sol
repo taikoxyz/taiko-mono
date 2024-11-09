@@ -4,21 +4,21 @@ pragma solidity ^0.8.24;
 import "./ERC20Vault.h.sol";
 
 contract TestERC20Vault is TaikoTest {
-    SignalService signalService;
-    Bridge bridge;
-    ERC20Vault erc20Vault;
-    FreeMintERC20 erc20;
-    FreeMintERC20 weirdNamedToken;
+    SignalService private eSignalService;
+    Bridge private  bridge;
+    ERC20Vault  private erc20Vault;
+    FreeMintERC20  private erc20;
+    FreeMintERC20  private weirdNamedToken;
 
-    SignalService destSignalService;
-    PrankDestBridge destBridge;
-    ERC20Vault destERC20Vault;
-    BridgedERC20 usdc;
-    BridgedERC20 usdt;
-    BridgedERC20 stETH;
+    SignalService  private destSignalService;
+    PrankDestBridge  private destBridge;
+    ERC20Vault  private destERC20Vault;
+    BridgedERC20  private usdc;
+    BridgedERC20  private usdt;
+    BridgedERC20  private stETH;
 
     function setUpOnEthereum() internal override {
-        signalService = deploySignalService(address(new SignalServiceNoProofCheck()));
+        eSignalService = deploySignalService(address(new SignalServiceNoProofCheck()));
         bridge = deployBridge(address(new Bridge()));
         erc20Vault = deployERC20Vault();
 
