@@ -38,8 +38,6 @@ contract TaikoL1WithConfig is TaikoL1 {
 }
 
 abstract contract Layer1Test is CommonTest {
-
-
     function deployBondToken() internal returns (TaikoToken) {
         return TaikoToken(
             deploy({

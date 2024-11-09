@@ -3,15 +3,18 @@ pragma solidity ^0.8.24;
 
 import "../Layer1Test.sol";
 import "./TestTierRouter.sol";
+import "./TestVerifier.sol";
 
 abstract contract TaikoL1TestBase is Layer1Test {
-      bytes32 internal GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
-
+    bytes32 internal GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
 
     TaikoToken internal eBondToken;
     SignalService internal eSignalService;
     Bridge internal eBridge;
     ITierRouter internal eTierRouter;
+    TestVerifier internal eTier1Verifier;
+    TestVerifier internal eTier2Verifier;
+    TestVerifier internal eTier3Verifier;
     TaikoL1 internal taikoL1;
 
     address internal tSignalService = randAddress();
@@ -21,8 +24,10 @@ abstract contract TaikoL1TestBase is Layer1Test {
         eBondToken = deployBondToken();
         eSignalService = deploySignalService(address(new SignalService()));
         eBridge = deployBridge(address(new Bridge()));
-
         eTierRouter = deployTierRouter();
+        eTier1Verifier = deployVerifier("");
+        eTier2Verifier = deployVerifier("tier_2");
+        eTier3Verifier = deployVerifier("tier_3");
         taikoL1 = deployTaikoL1(getConfig());
 
         eSignalService.authorize(address(taikoL1), true);
@@ -41,8 +46,8 @@ abstract contract TaikoL1TestBase is Layer1Test {
         vm.prank(to);
         eBondToken.approve(address(taikoL1), amountTko);
 
-        console2.log("TKO balance:", to, eBondToken.balanceOf(to));
-        console2.log("ETH balance:", to, to.balance);
+        console2.log("Bond balance :", to, eBondToken.balanceOf(to));
+        console2.log("Ether balance:", to, to.balance);
     }
 
     function getConfig() public pure virtual returns (TaikoData.Config memory);
@@ -53,11 +58,8 @@ abstract contract TaikoL1TestBase is Layer1Test {
         );
     }
 
-
-
-
-    function deployTaikoL1(TaikoData.Config memory config) internal returns (TaikoL1 taikoL1) {
-        taikoL1 = TaikoL1(
+    function deployTaikoL1(TaikoData.Config memory config) internal returns (TaikoL1 ) {
+        return  TaikoL1(
             deploy({
                 name: "taiko",
                 impl: address(new TaikoL1WithConfig()),
@@ -67,5 +69,9 @@ abstract contract TaikoL1TestBase is Layer1Test {
                 )
             })
         );
+    }
+
+    function deployVerifier(bytes32 name) internal returns (TestVerifier) {
+        return TestVerifier(deploy({ name: name, impl: address(new TestVerifier()), data: "" }));
     }
 }

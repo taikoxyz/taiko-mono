@@ -158,7 +158,7 @@ abstract contract CommonTest is Test, Script {
         console2.log("  impl    :", impl);
         console2.log("  owner   :", OwnableUpgradeable(proxy).owner());
         console2.log("  chain id:", block.chainid);
-        if (resolver != IResolver(address(0))) {
+        if (name != "" && resolver != IResolver(address(0))) {
             console2.log("  resolver:", address(resolver));
             resolver.setAddress(block.chainid, name, proxy);
         }
