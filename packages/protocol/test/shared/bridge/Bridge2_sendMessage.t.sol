@@ -6,7 +6,7 @@ import "./Bridge2.t.sol";
 contract BridgeTest2_sendMessage is BridgeTest2 {
     function test_bridge2_sendMessage_invalid_message()
         public
-        transactedBy(Carol)
+        transactBy(Carol)
         assertSameTotalBalance
     {
         // init an all-zero message
@@ -64,7 +64,7 @@ contract BridgeTest2_sendMessage is BridgeTest2 {
 
     function test_bridge2_sendMessage_invocationGasLimit()
         public
-        transactedBy(Carol)
+        transactBy(Carol)
         assertSameTotalBalance
     {
         IBridge.Message memory message;

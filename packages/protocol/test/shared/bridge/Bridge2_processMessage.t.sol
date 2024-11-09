@@ -87,7 +87,7 @@ contract BridgeTest2_processMessage is BridgeTest2 {
 
     function test_bridge2_processMessage__special_to_address__0_fee__nonezero_gaslimit()
         public
-        transactedBy(Carol)
+        transactBy(Carol)
         assertSameTotalBalance
     {
         IBridge.Message memory message;
@@ -171,7 +171,7 @@ contract BridgeTest2_processMessage is BridgeTest2 {
 
     function test_bridge2_processMessage__special_to_address__nonezero_fee__nonezero_gaslimit()
         public
-        transactedBy(Alice)
+        transactBy(Alice)
         assertSameTotalBalance
     {
         IBridge.Message memory message;
@@ -206,7 +206,7 @@ contract BridgeTest2_processMessage is BridgeTest2 {
 
     function test_bridge2_processMessage__special_to_address__nonezero_fee__0_gaslimit()
         public
-        transactedBy(Alice)
+        transactBy(Alice)
         assertSameTotalBalance
     {
         IBridge.Message memory message;
@@ -231,7 +231,7 @@ contract BridgeTest2_processMessage is BridgeTest2 {
 
     function test_bridge2_processMessage__eoa_address__0_fee__nonezero_gaslimit()
         public
-        transactedBy(Carol)
+        transactBy(Carol)
         assertSameTotalBalance
     {
         IBridge.Message memory message;
@@ -258,7 +258,7 @@ contract BridgeTest2_processMessage is BridgeTest2 {
 
     function test_bridge2_processMessage__eoa_to_address__0_fee__0_gaslimit()
         public
-        transactedBy(Alice)
+        transactBy(Alice)
         assertSameTotalBalance
     {
         IBridge.Message memory message;
@@ -283,7 +283,7 @@ contract BridgeTest2_processMessage is BridgeTest2 {
 
     function test_bridge2_processMessage__eoa_to_address__nonezero_fee__nonezero_gaslimit()
         public
-        transactedBy(Carol)
+        transactBy(Carol)
         assertSameTotalBalance
     {
         IBridge.Message memory message;
@@ -311,7 +311,7 @@ contract BridgeTest2_processMessage is BridgeTest2 {
 
     function test_bridge2_processMessage__eoa_to_address__nonezero_fee__0_gaslimit()
         public
-        transactedBy(Alice)
+        transactBy(Alice)
         assertSameTotalBalance
     {
         IBridge.Message memory message;
@@ -334,7 +334,7 @@ contract BridgeTest2_processMessage is BridgeTest2 {
         assertEq(David.balance, davidBalance + 2 ether);
     }
 
-    function test_bridge2_processMessage__special_invocation() public transactedBy(Carol) {
+    function test_bridge2_processMessage__special_invocation() public transactBy(Carol) {
         Target target = new Target(eBridge);
 
         uint256 totalBalance = getBalanceForAccounts() + address(target).balance;

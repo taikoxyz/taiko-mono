@@ -6,7 +6,7 @@ import "./Bridge2.t.sol";
 contract BridgeTest2_failMessage is BridgeTest2 {
     function test_bridge2_failMessage_not_by_destOwner()
         public
-        transactedBy(Carol)
+        transactBy(Carol)
         assertSameTotalBalance
     {
         IBridge.Message memory message;
@@ -60,7 +60,7 @@ contract BridgeTest2_failMessage is BridgeTest2 {
 
     function test_bridge2_failMessage_by_destOwner__message_processed()
         public
-        transactedBy(Alice)
+        transactBy(Alice)
         assertSameTotalBalance
     {
         IBridge.Message memory message;
