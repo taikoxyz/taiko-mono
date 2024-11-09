@@ -25,7 +25,7 @@ contract TestDelegateOwner is TaikoL2Test {
 
     function setUpOnTaiko() internal override {
         multicall = new Multicall3();
-        delegateOwner = deployDelegateOwner(srcBridge, srcChainId);
+        delegateOwner = deployDelegateOwner(srcBridge, ethereumChainId);
         signalService = deploySignalService(address(new SignalServiceNoProofCheck()));
         bridge = deployBridge(address(new Bridge()));
     }
