@@ -129,13 +129,20 @@ abstract contract TaikoL1Test is Layer1Test {
         }
     }
 
-    function printBlock(TaikoData.BlockV2 memory blk) internal view {
-        (, TaikoData.SlotB memory b) = taikoL1.getStateVariables();
-        console2.log("\n==================");
+    function printStateVariables(string memory label) internal view {
+        (TaikoData.SlotA memory a, TaikoData.SlotB memory b) = taikoL1.getStateVariables();
+        console2.log("\n==================", label);
         console2.log("---CHAIN:");
+        console2.log(" | lastSyncedBlockId:", a.lastSyncedBlockId);
+        console2.log(" | lastSynecdAt:", a.lastSynecdAt);
         console2.log(" | lastVerifiedBlockId:", b.lastVerifiedBlockId);
         console2.log(" | numBlocks:", b.numBlocks);
+        console2.log(" | lastProposedIn:", b.lastProposedIn);
         console2.log(" | timestamp:", block.timestamp);
+    }
+
+    function printBlock(TaikoData.BlockV2 memory blk) internal view {
+        printStateVariables("");
         console2.log("---BLOCK#", blk.blockId);
         console2.log(" | proposedAt:", blk.proposedAt);
         console2.log(" | proposedIn:", blk.proposedIn);
