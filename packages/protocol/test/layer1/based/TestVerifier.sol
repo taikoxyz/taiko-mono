@@ -14,29 +14,17 @@ contract TestVerifier is IVerifier {
         shouldFail = false;
     }
 
-    /// @notice Verifies a proof.
-    /// @param _ctx The context of the proof verification.
-    /// @param _tran The transition to verify.
-    /// @param _proof The proof to verify.
     function verifyProof(
-        Context calldata _ctx,
-        TaikoData.Transition calldata _tran,
-        TaikoData.TierProof calldata _proof
+        Context calldata,
+        TaikoData.Transition calldata,
+        TaikoData.TierProof calldata
     )
         external
     {
         require(!shouldFail, "IVerifier failure");
     }
 
-    /// @notice Verifies multiple proofs.
-    /// @param _ctxs The array of contexts for the proof verifications.
-    /// @param _proof The batch proof to verify.
-    function verifyBatchProof(
-        ContextV2[] calldata _ctxs,
-        TaikoData.TierProof calldata _proof
-    )
-        external
-    {
+    function verifyBatchProof(ContextV2[] calldata, TaikoData.TierProof calldata) external {
         require(!shouldFail, "IVerifier failure");
     }
 }

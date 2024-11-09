@@ -4,6 +4,27 @@ pragma solidity ^0.8.24;
 import "./TaikoL1Test.sol";
 
 contract TaikoL1TestGroup1 is TaikoL1Test {
+    function getConfig() internal view override returns (TaikoData.Config memory) {
+        return TaikoData.Config({
+            chainId: taikoChainId,
+            blockMaxProposals: 20,
+            blockRingBufferSize: 25,
+            maxBlocksToVerify: 16,
+            blockMaxGasLimit: 240_000_000,
+            livenessBond: 125e18,
+            stateRootSyncInternal: 2,
+            maxAnchorHeightOffset: 64,
+            baseFeeConfig: LibSharedData.BaseFeeConfig({
+                adjustmentQuotient: 8,
+                sharingPctg: 75,
+                gasIssuancePerSecond: 5_000_000,
+                minGasExcess: 1_340_000_000, // correspond to 0.008847185 gwei basefee
+                maxGasIssuancePerBlock: 600_000_000 // two minutes: 5_000_000 * 120
+             }),
+            ontakeForkHeight: 0 // or 1
+         });
+    }
+
     // Test summary:
     // 1. Alice proposes a block
     // 2. Alice proves the block within the proving window, using the correct parent hash.
@@ -14,7 +35,7 @@ contract TaikoL1TestGroup1 is TaikoL1Test {
 
         giveEthAndTko(Alice, 10_000 ether, 1000 ether);
         giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
-        ITierProvider.Tier memory tier2 = tierProvider().getTier(TestTierRouter.TIER_2);
+        ITierProvider.Tier memory tier2 = tierProvider().getTier(2);
 
         console2.log("====== Alice propose a block");
         TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
@@ -24,7 +45,7 @@ contract TaikoL1TestGroup1 is TaikoL1Test {
         {
             printBlockAndTrans(meta.id);
             TaikoData.BlockV2 memory blk = taikoL1.getBlockV2(meta.id);
-            assertEq(meta.minTier, TestTierRouter.TIER_2);
+            assertEq(meta.minTier, 2);
 
             assertEq(blk.nextTransitionId, 1);
             assertEq(blk.verifiedTransitionId, 0);
@@ -88,7 +109,7 @@ contract TaikoL1TestGroup1 is TaikoL1Test {
 
         console2.log("====== Verify block");
         mineAndWrap(7 days);
-        verifyBlock(1);
+        taikoL1.verifyBlocks(1);
         {
             printBlockAndTrans(meta.id);
 
@@ -353,7 +374,8 @@ contract TaikoL1TestGroup1 is TaikoL1Test {
     //         assertEq(ts.prover, Taylor);
     //         assertEq(ts.validityBond, tier2.validityBond);
 
-    //         assertEq(getBondTokenBalance(Alice), 10_000 ether - taikoL1.getConfig().livenessBond);
+    //         assertEq(getBondTokenBalance(Alice), 10_000 ether -
+    // taikoL1.getConfig().livenessBond);
     //     }
     // }
 

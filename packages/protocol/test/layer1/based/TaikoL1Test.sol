@@ -39,7 +39,7 @@ abstract contract TaikoL1Test is Layer1Test {
     }
 
     function tierProvider() internal view returns (ITierProvider) {
-        return ITierProvider(tierRouter);
+        return ITierProvider(address(tierRouter));
     }
 
     // TODO: order and name mismatch
@@ -85,7 +85,7 @@ abstract contract TaikoL1Test is Layer1Test {
         bytes32 parentHash,
         bytes32 blockHash,
         bytes32 stateRoot,
-        TaikoData.TierProof memory proof,
+        uint16 tierId,
         bytes4 revertReason
     )
         internal
@@ -96,6 +96,10 @@ abstract contract TaikoL1Test is Layer1Test {
             stateRoot: stateRoot,
             graffiti: 0x0
         });
+
+        TaikoData.TierProof memory proof;
+        proof.tier = tierId;
+        proof.data = "proofdata";
 
         if (revertReason != "") vm.expectRevert(revertReason);
         vm.prank(prover);
@@ -143,10 +147,9 @@ abstract contract TaikoL1Test is Layer1Test {
         console2.log("   | stateRoot:", vm.toString(ts.stateRoot));
     }
 
-    function deployTierRouter() internal returns (ITierRouter) {
-        return ITierRouter(
-            deploy({ name: "tier_router", impl: address(new TestTierRouter()), data: "" })
-        );
+    function deployTierRouter() internal returns (ITierRouter tierRouter) {
+        tierRouter = new TestTierRouter();
+        register("tier_router", address(tierRouter));
     }
 
     function deployTaikoL1(TaikoData.Config memory config) internal returns (TaikoL1) {
@@ -162,8 +165,9 @@ abstract contract TaikoL1Test is Layer1Test {
         );
     }
 
-    function deployVerifier(bytes32 name) internal returns (TestVerifier) {
-        return TestVerifier(deploy({ name: name, impl: address(new TestVerifier()), data: "" }));
+    function deployVerifier(bytes32 name) internal returns (TestVerifier verifier) {
+        verifier = new TestVerifier();
+        register(name, address(verifier));
     }
 
     function getConfig() internal view virtual returns (TaikoData.Config memory);

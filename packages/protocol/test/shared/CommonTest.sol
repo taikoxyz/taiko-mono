@@ -130,12 +130,13 @@ abstract contract CommonTest is Test, Script {
         return string(bytesArray);
     }
 
-    function register(bytes32 name, address addr) internal returns (address) {
-        resolver.setAddress(block.chainid, name, addr);
-        console2.log(">", string.concat("'", bytes32ToString(name), "'"));
-        console2.log("  addr    :", addr);
-        console2.log("  chain id:", block.chainid);
-        return addr;
+    function register(bytes32 name, address addr) internal {
+        if (name != "") {
+            resolver.setAddress(block.chainid, name, addr);
+            console2.log(">", string.concat("'", bytes32ToString(name), "'"));
+            console2.log("  addr    :", addr);
+            console2.log("  chain id:", block.chainid);
+        }
     }
 
     function deploy(
