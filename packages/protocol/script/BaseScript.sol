@@ -23,6 +23,17 @@ abstract contract BaseScript is Script {
         vm.stopBroadcast();
     }
 
+ function deploy(
+        address _impl,
+        address _admin,
+        bytes memory _data
+    )
+        internal
+        returns (address)
+    {
+        return address(new TransparentUpgradeableProxy(_impl, _admin, _data));
+    }
+    
     function deploy(
         bytes32 name,
         address impl,
