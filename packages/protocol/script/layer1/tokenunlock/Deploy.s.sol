@@ -2,9 +2,9 @@
 pragma solidity ^0.8.24;
 
 import "src/layer1/team/tokenunlock/TokenUnlock.sol";
-import "test/shared/DeployCapability.sol";
+import "script/BaseScript.sol";
 
-contract DeployTokenUnlock is DeployCapability {
+contract DeployTokenUnlock is BaseScript {
     using stdJson for string;
 
     // On L2 it shall be: 0xCa5b76Cc7A38b86Db11E5aE5B1fc9740c3bA3DE8
@@ -18,10 +18,8 @@ contract DeployTokenUnlock is DeployCapability {
     // https://taikoscan.io/tx/0x3100bc89ba700400f81d7823898f0f43a0dd5ce5507b13c4ad9e625dc0497909
     address public TOKEN_UNLOCK_IMPL = 0x035AFfC82612de31E9Db2259B9482D0Dd53B7819;
 
-    function setUp() public { }
-
-    function run() external {
-        require(TOKEN_UNLOCK_IMPL != address(0), "zero TOKEN_UNLOCK_IMPL");
+    function run() external broadcast {
+        require(TOKEN_UNLOCK_IMPL != address(0), "TOKEN_UNLOCK_IMPL not set");
 
         string memory path = "/script/tokenunlock/Deploy.data.json";
         address[] memory recipients = abi.decode(
@@ -29,15 +27,13 @@ contract DeployTokenUnlock is DeployCapability {
         );
 
         for (uint256 i; i < recipients.length; i++) {
-            vm.startBroadcast();
-            address proxy = deployProxy({
+            address proxy = deploy({
                 name: "TokenUnlock",
                 impl: TOKEN_UNLOCK_IMPL,
                 data: abi.encodeCall(
                     TokenUnlock.init, (OWNER, ROLLUP_ADDRESS_MANAGER, recipients[i], TGE)
                 )
             });
-            vm.stopBroadcast();
             console2.log("grantee:", recipients[i]);
             console2.log("proxy. :", proxy);
         }

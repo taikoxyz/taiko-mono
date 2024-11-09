@@ -15,7 +15,7 @@ contract DeploySP1Verifier is BaseScript {
             block.chainid, "sp1_remote_verifier", address(succinctVerifier)
         );
 
-        deployProxy({
+        deploy({
             name: "tier_zkvm_sp1",
             impl: address(new SP1Verifier()),
             data: abi.encodeCall(SP1Verifier.init, (address(0), resolver))

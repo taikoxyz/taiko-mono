@@ -7,15 +7,6 @@ import "src/layer2/hekla/HeklaTaikoL2.sol";
 import "script/BaseScript.sol";
 
 contract DeployHeklaL2Contracts is BaseScript {
-    uint256 public privateKey = vm.envUint("PRIVATE_KEY");
-
-    modifier broadcast() {
-        require(privateKey != 0, "invalid private key");
-        vm.startBroadcast(privateKey);
-        _;
-        vm.stopBroadcast();
-    }
-
     function run() external broadcast {
         // TaikoL2
         address heklaTaikoL2 = address(new HeklaTaikoL2());

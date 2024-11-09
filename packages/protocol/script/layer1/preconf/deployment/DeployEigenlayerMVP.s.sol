@@ -10,7 +10,7 @@ import "src/layer1/preconf/avs-mvp/impl/StrategyManager.sol";
 import "src/layer1/preconf/avs-mvp/impl/Slasher.sol";
 import "src/layer1/preconf/avs-mvp/impl/AVSDirectory.sol";
 
-import "../BaseScript.sol";
+import "script/BaseScript.sol";
 import "../misc/EmptyContract.sol";
 
 contract DeployEigenlayerMVP is BaseScript {
@@ -19,10 +19,10 @@ contract DeployEigenlayerMVP is BaseScript {
         ProxyAdmin proxyAdmin = new ProxyAdmin();
 
         // Deploy proxies with empty implementations
-        address avsDirectory = deployProxy(address(emptyContract), address(proxyAdmin), "");
-        address delegationManager = deployProxy(address(emptyContract), address(proxyAdmin), "");
-        address strategyManager = deployProxy(address(emptyContract), address(proxyAdmin), "");
-        address slasher = deployProxy(address(emptyContract), address(proxyAdmin), "");
+        address avsDirectory = deploy(address(emptyContract), address(proxyAdmin), "");
+        address delegationManager = deploy(address(emptyContract), address(proxyAdmin), "");
+        address strategyManager = deploy(address(emptyContract), address(proxyAdmin), "");
+        address slasher = deploy(address(emptyContract), address(proxyAdmin), "");
 
         // Deploy implementations
         AVSDirectory avsDirectoryImpl = new AVSDirectory();

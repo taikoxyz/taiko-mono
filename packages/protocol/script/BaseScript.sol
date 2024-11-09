@@ -23,17 +23,10 @@ abstract contract BaseScript is Script {
         vm.stopBroadcast();
     }
 
- function deploy(
-        address _impl,
-        address _admin,
-        bytes memory _data
-    )
-        internal
-        returns (address)
-    {
+    function deploy(address _impl, address _admin, bytes memory _data) internal returns (address) {
         return address(new TransparentUpgradeableProxy(_impl, _admin, _data));
     }
-    
+
     function deploy(
         bytes32 name,
         address impl,
@@ -60,7 +53,7 @@ abstract contract BaseScript is Script {
         }
     }
 
-        function deploy(
+    function deploy(
         bytes32 name,
         address impl,
         bytes memory data,
@@ -81,7 +74,7 @@ abstract contract BaseScript is Script {
         console2.log("       impl    :", impl);
         console2.log("       owner   :", OwnableUpgradeable(proxy).owner());
         console2.log("       chain id:", block.chainid);
-            console2.log("  registered at:", address(_resolver));
-            _resolver.setAddress(block.chainid, name, proxy);
-        }
+        console2.log("  registered at:", address(_resolver));
+        _resolver.setAddress(block.chainid, name, proxy);
+    }
 }
