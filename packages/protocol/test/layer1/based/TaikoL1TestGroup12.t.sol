@@ -180,7 +180,7 @@ contract TaikoL10TestGroup12 is TaikoL1Test {
     }
 
     function test_taikoL1_group_12_unpause() external {
-          vm.prank(deployer);
+        vm.prank(deployer);
         taikoL1.pause();
 
         giveEthAndTko(Alice, 1000000 ether, 1000000 ether);
@@ -190,6 +190,7 @@ contract TaikoL10TestGroup12 is TaikoL1Test {
         proposeBlock(Alice, EssentialContract.INVALID_PAUSE_STATUS.selector);
 
         // unpause
+        vm.prank(deployer);
         taikoL1.unpause();
 
         // Proposing is possible again
