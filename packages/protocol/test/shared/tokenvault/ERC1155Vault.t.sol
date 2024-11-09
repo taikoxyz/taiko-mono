@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "./ERC1155Vault.h.sol";
 
-contract ERC1155VaultTest is TaikoTest {
+contract ERC1155VaultTest is CommonTest {
     uint32 private constant GAS_LIMIT = 2_000_000;
 
     // Contracts on Ethereum

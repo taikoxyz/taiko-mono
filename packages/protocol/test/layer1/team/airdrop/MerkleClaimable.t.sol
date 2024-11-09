@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../../TaikoL1Test.sol";
+import "../../Layer1Test.sol";
 
 contract MockMerkleClaimable is MerkleClaimable {
     function init(uint64 _claimStart, uint64 _claimEnd, bytes32 _merkleRoot) external initializer {
@@ -13,7 +13,7 @@ contract MockMerkleClaimable is MerkleClaimable {
     }
 }
 
-contract TestMerkleClaimable is TaikoTest {
+contract TestMerkleClaimable is Layer1Test {
     bytes32 private constant merkleRoot =
         0x73a7330a8657ad864b954215a8f636bb3709d2edea60bcd4fcb8a448dbc6d70f;
 

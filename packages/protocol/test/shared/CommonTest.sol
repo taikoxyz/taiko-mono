@@ -24,11 +24,11 @@ import "src/shared/bridge/QuotaManager.sol";
 import "./token/FreeMintERC20.sol";
 import "./token/RegularERC20.sol";
 import "./token/MayFailFreeMintERC20.sol";
-import "./TaikoTest.h.sol";
+import "./CommonTest.h.sol";
 
 import "src/layer1/token/TaikoToken.sol"; // why we need Taiko token here? TODO
 
-abstract contract TaikoTest is Test, Script {
+abstract contract CommonTest is Test, Script {
     uint256 private _seed = 0x12345678;
     address internal Alice = vm.addr(0x1);
     address internal Bob = vm.addr(0x2);
@@ -102,15 +102,18 @@ abstract contract TaikoTest is Test, Script {
     function setUpOnEthereum() internal virtual { }
     function setUpOnTaiko() internal virtual { }
 
-    // TODO: delete this
     function randAddress() internal returns (address) {
         bytes32 randomHash = keccak256(abi.encodePacked("address", _seed++));
         return address(bytes20(randomHash));
     }
 
-    // TODO: delete this
     function randBytes32() internal returns (bytes32) {
         return keccak256(abi.encodePacked("bytes32", _seed++));
+    }
+
+    function mineAndWrap(uint256 time) internal {
+        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + time);
     }
 
     function bytes32ToString(bytes32 _bytes32) public pure returns (string memory) {

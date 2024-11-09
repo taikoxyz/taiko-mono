@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../TaikoTest.sol";
+import "../CommonTest.sol";
 
 contract Target1 is EssentialContract {
     uint256 public count;

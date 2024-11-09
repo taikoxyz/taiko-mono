@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "test/layer1/TaikoL1Test.sol";
+import "test/layer1/Layer1Test.sol";
 
 contract DummyGuardianProver is GuardianProver {
     uint256 public operationId;
@@ -15,7 +15,7 @@ contract DummyGuardianProver is GuardianProver {
     }
 }
 
-contract TestGuardianProver is TaikoL1Test {
+contract TestGuardianProver is Layer1Test {
     DummyGuardianProver guardianProver;
 
     function getSigners(uint256 numGuardians) internal returns (address[] memory signers) {
@@ -84,7 +84,7 @@ contract TestGuardianProver is TaikoL1Test {
         assertEq(guardianProver.version(), 2);
     }
 
-        // Tests `verifyProof()` with the correct prover
+    // Tests `verifyProof()` with the correct prover
     function test_guardian_prover_verifyProof() public view {
         // Context
         IVerifier.Context memory ctx = IVerifier.Context({
@@ -113,7 +113,7 @@ contract TestGuardianProver is TaikoL1Test {
         guardianProver.verifyProof(ctx, transition, proof);
     }
 
-       // Tests `verifyProof()` with the wrong prover
+    // Tests `verifyProof()` with the wrong prover
     function test_guardian_prover_verifyProof_invalidProver() public {
         // Context
         IVerifier.Context memory ctx = IVerifier.Context({

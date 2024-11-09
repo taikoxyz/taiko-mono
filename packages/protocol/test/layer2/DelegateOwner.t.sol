@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "../shared/thirdparty/Multicall3.sol";
-import "./TaikoL2Test.sol";
+import "./Layer2Test.sol";
 
 contract Target is EssentialContract {
     function init(address _owner) external initializer {
@@ -10,7 +10,7 @@ contract Target is EssentialContract {
     }
 }
 
-contract TestDelegateOwner is TaikoL2Test {
+contract TestDelegateOwner is Layer2Test {
     // Contracts on Ethereum
     address private eBridge = randAddress();
 

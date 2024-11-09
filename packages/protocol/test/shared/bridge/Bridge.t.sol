@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "./Bridge.h.sol";
 
-contract BridgeTest is TaikoTest {
+contract BridgeTest is CommonTest {
     // Contracts on Ethereum
     GoodReceiver private eGoodReceiver;
     SignalService private eSignalService;

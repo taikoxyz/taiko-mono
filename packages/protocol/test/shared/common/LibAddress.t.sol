@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "./LibAddress.h.sol";
 
-contract TestLibAddress is TaikoTest {
+contract TestLibAddress is CommonTest {
     EtherSenderContract bridge;
     CalldataReceiver calledContract;
 

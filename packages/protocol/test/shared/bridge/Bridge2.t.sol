@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../TaikoTest.sol";
+import "../CommonTest.sol";
 
-contract BridgeTest2 is TaikoTest {
+contract BridgeTest2 is CommonTest {
     bytes internal constant FAKE_PROOF = "";
 
     // Contracts on Ethereum

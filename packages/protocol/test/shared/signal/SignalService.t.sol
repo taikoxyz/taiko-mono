@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "./SignalService.h.sol";
 
-contract TestSignalService is TaikoTest {
+contract TestSignalService is CommonTest {
     SignalService private mockSignalService;
     SignalService private signalService;
     address private taiko = randAddress();

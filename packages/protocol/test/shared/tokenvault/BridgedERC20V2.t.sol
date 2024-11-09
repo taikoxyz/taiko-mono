@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../TaikoTest.sol";
+import "../CommonTest.sol";
 
-contract TestBridgedERC20 is TaikoTest {
+contract TestBridgedERC20 is CommonTest {
     address private vault = randAddress();
 
     function setUpOnEthereum() internal override {

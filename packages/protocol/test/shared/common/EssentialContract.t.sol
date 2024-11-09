@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "./EssentialContract.h.sol";
 
-contract TestEssentialContract is TaikoTest {
+contract TestEssentialContract is CommonTest {
     function test_essential_behind_1967_proxy() external {
         bytes memory data = abi.encodeCall(Target1.init, (address(0)));
         vm.startPrank(Alice);

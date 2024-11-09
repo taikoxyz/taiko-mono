@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "./TaikoL2.h.sol";
 
-contract TaikoL2Tests is TaikoL2Test {
+contract TaikoL2Tests is Layer2Test {
     using SafeCast for uint256;
 
     uint32 private constant BLOCK_GAS_LIMIT = 30_000_000;

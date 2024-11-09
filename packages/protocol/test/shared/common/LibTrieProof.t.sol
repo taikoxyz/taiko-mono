@@ -2,9 +2,9 @@
 pragma solidity ^0.8.24;
 
 import "src/shared/libs/LibTrieProof.sol";
-import "../TaikoTest.sol";
+import "../CommonTest.sol";
 
-contract TestLibTrieProof is TaikoTest {
+contract TestLibTrieProof is CommonTest {
     function test_verifyMerkleProof() public {
         // Not needed for now, but leave it as is.
         //uint64 chainId = 11_155_111; // Created the proofs on a deployed Sepolia

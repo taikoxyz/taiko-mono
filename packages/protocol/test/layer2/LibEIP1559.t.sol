@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./TaikoL2Test.sol";
+import "./Layer2Test.sol";
 
-contract TestLibEIP1559 is TaikoL2Test {
+contract TestLibEIP1559 is Layer2Test {
     using LibMath for uint256;
 
     function test_ethQty() external {
