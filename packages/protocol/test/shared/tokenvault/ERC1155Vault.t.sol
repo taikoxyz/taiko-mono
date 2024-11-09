@@ -7,13 +7,13 @@ contract ERC1155VaultTest is TaikoTest {
     uint32 private constant GAS_LIMIT = 2_000_000;
 
     TestTokenERC1155 private eERC1155Token;
-    SignalService  private eSignalService;
-    Bridge  private eBridge;
-    ERC1155Vault  private eVault;
+    SignalService private eSignalService;
+    Bridge private eBridge;
+    ERC1155Vault private eVault;
 
-    SignalService  private tSignalService;
-    PrankDestBridge  private tBridge;
-    ERC1155Vault  private tVault;
+    SignalService private tSignalService;
+    PrankDestBridge private tBridge;
+    ERC1155Vault private tVault;
 
     function setUpOnEthereum() internal override {
         eERC1155Token = new TestTokenERC1155("http://example.host.com/");
@@ -171,15 +171,7 @@ contract ERC1155VaultTest is TaikoTest {
         vm.chainId(taikoChainId);
 
         tBridge.sendReceiveERC1155ToERC1155Vault(
-            ctoken,
-            Alice,
-            Alice,
-            tokenIds,
-            amounts,
-            bytes32(0),
-            address(eVault),
-            ethereumChainId,
-            0
+            ctoken, Alice, Alice, tokenIds, amounts, bytes32(0), address(eVault), ethereumChainId, 0
         );
 
         // Query canonicalToBridged
@@ -231,15 +223,7 @@ contract ERC1155VaultTest is TaikoTest {
         vm.chainId(taikoChainId);
 
         tBridge.sendReceiveERC1155ToERC1155Vault(
-            ctoken,
-            Alice,
-            Alice,
-            tokenIds,
-            amounts,
-            bytes32(0),
-            address(eVault),
-            ethereumChainId,
-            0
+            ctoken, Alice, Alice, tokenIds, amounts, bytes32(0), address(eVault), ethereumChainId, 0
         );
 
         // Query canonicalToBridged
@@ -274,15 +258,7 @@ contract ERC1155VaultTest is TaikoTest {
         vm.chainId(taikoChainId);
 
         tBridge.sendReceiveERC1155ToERC1155Vault(
-            ctoken,
-            Alice,
-            Alice,
-            tokenIds,
-            amounts,
-            bytes32(0),
-            address(eVault),
-            ethereumChainId,
-            0
+            ctoken, Alice, Alice, tokenIds, amounts, bytes32(0), address(eVault), ethereumChainId, 0
         );
 
         // Query canonicalToBridged
@@ -437,15 +413,7 @@ contract ERC1155VaultTest is TaikoTest {
         vm.chainId(taikoChainId);
 
         tBridge.sendReceiveERC1155ToERC1155Vault(
-            ctoken,
-            Alice,
-            Alice,
-            tokenIds,
-            amounts,
-            bytes32(0),
-            address(eVault),
-            ethereumChainId,
-            0
+            ctoken, Alice, Alice, tokenIds, amounts, bytes32(0), address(eVault), ethereumChainId, 0
         );
 
         // Query canonicalToBridged
@@ -690,15 +658,7 @@ contract ERC1155VaultTest is TaikoTest {
         vm.chainId(taikoChainId);
 
         tBridge.sendReceiveERC1155ToERC1155Vault(
-            ctoken,
-            Alice,
-            Alice,
-            tokenIds,
-            amounts,
-            bytes32(0),
-            address(eVault),
-            ethereumChainId,
-            0
+            ctoken, Alice, Alice, tokenIds, amounts, bytes32(0), address(eVault), ethereumChainId, 0
         );
 
         // Query canonicalToBridged

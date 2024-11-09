@@ -6,19 +6,18 @@ import "./ERC721Vault.h.sol";
 contract ERC721VaultTest is TaikoTest {
     uint32 private constant GAS_LIMIT = 2_000_000;
 
-// Contracts on Ethereum
+    // Contracts on Ethereum
     ERC721Vault private eVault;
-    Bridge private bridge;
+    Bridge private eBridge;
     TestTokenERC721 private eToken;
 
     // Contracts on Taiko
     ERC721Vault private tVault;
     PrankDestBridge private tBridge;
 
-
     function setUpOnEthereum() internal override {
         deploySignalService(address(new SignalServiceNoProofCheck()));
-        bridge = deployBridge(address(new Bridge()));
+        eBridge = deployBridge(address(new Bridge()));
         eVault = deployERC721Vault();
 
         register("bridged_erc721", address(new BridgedERC721()));
@@ -165,8 +164,7 @@ contract ERC721VaultTest is TaikoTest {
         );
 
         // Query canonicalToBridged
-        address deployedContract =
-            tVault.canonicalToBridged(ethereumChainId, address(eToken));
+        address deployedContract = tVault.canonicalToBridged(ethereumChainId, address(eToken));
 
         // Alice bridged over tokenId 1
         assertEq(ERC721(deployedContract).ownerOf(1), Alice);
@@ -218,8 +216,7 @@ contract ERC721VaultTest is TaikoTest {
         );
 
         // Query canonicalToBridged
-        address deployedContract =
-            tVault.canonicalToBridged(ethereumChainId, address(eToken));
+        address deployedContract = tVault.canonicalToBridged(ethereumChainId, address(eToken));
 
         // Alice bridged over tokenId 1
         assertEq(ERC721(deployedContract).ownerOf(1), Alice);
@@ -253,8 +250,7 @@ contract ERC721VaultTest is TaikoTest {
         );
 
         // Query canonicalToBridged
-        address bridgedContract =
-            tVault.canonicalToBridged(ethereumChainId, address(eToken));
+        address bridgedContract = tVault.canonicalToBridged(ethereumChainId, address(eToken));
 
         assertEq(bridgedContract, deployedContract);
     }
@@ -308,8 +304,7 @@ contract ERC721VaultTest is TaikoTest {
         );
 
         // Query canonicalToBridged
-        address deployedContract =
-            tVault.canonicalToBridged(ethereumChainId, address(eToken));
+        address deployedContract = tVault.canonicalToBridged(ethereumChainId, address(eToken));
 
         // Alice bridged over tokenId 1 and etherValue to David
         assertEq(ERC721(deployedContract).ownerOf(1), David);
@@ -344,7 +339,7 @@ contract ERC721VaultTest is TaikoTest {
 
         assertEq(eToken.ownerOf(1), address(eVault));
 
-        bridge.recallMessage(message, bytes(""));
+        eBridge.recallMessage(message, bytes(""));
 
         // Alice got back her NFT
         assertEq(eToken.ownerOf(1), Alice);
@@ -397,8 +392,7 @@ contract ERC721VaultTest is TaikoTest {
         );
 
         // Query canonicalToBridged
-        address deployedContract =
-            tVault.canonicalToBridged(ethereumChainId, address(eToken));
+        address deployedContract = tVault.canonicalToBridged(ethereumChainId, address(eToken));
 
         // Alice bridged over tokenId 1
         assertEq(ERC721(deployedContract).ownerOf(1), Alice);
@@ -451,8 +445,7 @@ contract ERC721VaultTest is TaikoTest {
         );
 
         // Query canonicalToBridged
-        address deployedContract =
-            tVault.canonicalToBridged(ethereumChainId, address(eToken));
+        address deployedContract = tVault.canonicalToBridged(ethereumChainId, address(eToken));
 
         // Alice bridged over tokenId 1
         assertEq(ERC721(deployedContract).ownerOf(1), Alice);
@@ -545,8 +538,7 @@ contract ERC721VaultTest is TaikoTest {
         );
 
         // Query canonicalToBridged
-        address deployedContract =
-            tVault.canonicalToBridged(ethereumChainId, address(eToken));
+        address deployedContract = tVault.canonicalToBridged(ethereumChainId, address(eToken));
 
         // Alice bridged over tokenId 1
         assertEq(ERC721(deployedContract).ownerOf(1), Alice);
@@ -624,8 +616,7 @@ contract ERC721VaultTest is TaikoTest {
         );
 
         // Query canonicalToBridged
-        address deployedContract =
-            tVault.canonicalToBridged(ethereumChainId, address(eToken));
+        address deployedContract = tVault.canonicalToBridged(ethereumChainId, address(eToken));
 
         try UpdatedBridgedERC721(deployedContract).helloWorld() {
             fail();
@@ -692,8 +683,7 @@ contract ERC721VaultTest is TaikoTest {
         );
 
         // Query canonicalToBridged
-        address deployedContract =
-            tVault.canonicalToBridged(ethereumChainId, address(eToken));
+        address deployedContract = tVault.canonicalToBridged(ethereumChainId, address(eToken));
 
         // Alice bridged over tokenId 1
         assertEq(ERC721(deployedContract).ownerOf(1), Alice);
