@@ -25,7 +25,12 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
 
     uint256[50] private __gap;
 
-    event DebugGasPerBlock(bool isProposeBlock, uint256 gasUsed);
+    /// @dev Emitted to assist with future gas optimizations.
+    /// @param isProposeBlock True if measuring gas for proposing a block, false if measuring gas
+    /// for proving a block.
+    /// @param gasUsed The average gas used per block, including verifications.
+    /// @param batchSize The number of blocks proposed or proved.
+    event DebugGasPerBlock(bool isProposeBlock, uint256 gasUsed, uint256 batchSize);
 
     error L1_FORK_HEIGHT_ERROR();
 
@@ -39,10 +44,14 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         emit StateVariablesUpdated(state.slotB);
     }
 
-    modifier measureGasUsed(bool _proposeBlock, uint256 _batchSize) {
+    modifier measureGasUsed(bool _isProposeBlock, uint256 _batchSize) {
         uint256 gas = gasleft();
         _;
-        emit DebugGasPerBlock(_proposeBlock, gas - gasleft() / _batchSize);
+        unchecked {
+            if (_batchSize > 0) {
+                emit DebugGasPerBlock(_isProposeBlock, gas - gasleft() / _batchSize, _batchSize);
+            }
+        }
     }
 
     /// @notice Initializes the contract.
