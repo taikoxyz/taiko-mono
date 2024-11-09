@@ -12,13 +12,13 @@ contract Target is EssentialContract {
 
 contract TestDelegateOwner is TaikoL2Test {
     // Contracts on Ethereum
-    address public eBridge = randAddress();
+    address private eBridge = randAddress();
 
     // Contracts on Taiko
-    Multicall3 public tMulticall;
-    SignalService public tSignalService;
-    Bridge public tBridge;
-    DelegateOwner public tDelegateOwner;
+    Multicall3 private tMulticall;
+    SignalService private tSignalService;
+    Bridge private tBridge;
+    DelegateOwner private tDelegateOwner;
 
     function setUpOnEthereum() internal override {
         register("bridge", eBridge);
