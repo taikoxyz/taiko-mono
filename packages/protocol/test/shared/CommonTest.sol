@@ -111,7 +111,7 @@ abstract contract CommonTest is Test, Script {
         return keccak256(abi.encodePacked("bytes32", _seed++));
     }
 
-    function mineAndWrap(uint256 time) internal {
+    function mineOneBlockAndWrap(uint256 time) internal {
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + time);
     }

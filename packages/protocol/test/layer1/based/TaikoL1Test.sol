@@ -16,6 +16,9 @@ abstract contract TaikoL1Test is Layer1Test {
     TestVerifier internal tier2Verifier;
     TestVerifier internal tier3Verifier;
     TaikoL1 internal taikoL1;
+    uint16 minTierId;
+    ITierProvider.Tier internal minTier;
+    uint96 livenessBond;
 
     address internal tSignalService = randAddress();
     address internal taikoL2 = randAddress();
@@ -31,6 +34,11 @@ abstract contract TaikoL1Test is Layer1Test {
         taikoL1 = deployTaikoL1(getConfig());
 
         signalService.authorize(address(taikoL1), true);
+        minTierId = tierProvider().getMinTier(address(0), 0);
+        minTier = tierProvider().getTier(minTierId);
+        livenessBond = taikoL1.getConfig().livenessBond;
+        
+        mineOneBlockAndWrap(12 seconds);
     }
 
     function setUpOnTaiko() internal override {

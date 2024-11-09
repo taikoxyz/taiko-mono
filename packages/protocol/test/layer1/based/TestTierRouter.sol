@@ -10,6 +10,7 @@ import "src/layer1/tiers/ITierRouter.sol";
 /// @dev Labeled in AddressResolver as "tier_router"
 /// @custom:security-contact security@taiko.xyz
 contract TestTierRouter is ITierProvider, ITierRouter {
+    uint16 private minTier = 72;
     uint96 public constant BOND_UINT = 100 ether;
     uint16 public constant ONE_HOUR = 60;
 
@@ -18,9 +19,13 @@ contract TestTierRouter is ITierProvider, ITierRouter {
         return address(this);
     }
 
+    function setMinTier(uint16 _minTier) external {
+        minTier = _minTier;
+    }
+
     /// @inheritdoc ITierProvider
     function getTier(uint16 _tierId) public pure override returns (ITierProvider.Tier memory) {
-        if (_tierId == 1) {
+        if (_tierId == 71) {
             return ITierProvider.Tier({
                 verifierName: "",
                 validityBond: BOND_UINT,
@@ -31,9 +36,9 @@ contract TestTierRouter is ITierProvider, ITierRouter {
              });
         }
 
-        if (_tierId == 2) {
+        if (_tierId == 72) {
             return ITierProvider.Tier({
-                verifierName: "tier2",
+                verifierName: "tier_2",
                 validityBond: BOND_UINT * 3,
                 contestBond: BOND_UINT * 4,
                 cooldownWindow: ONE_HOUR,
@@ -42,9 +47,9 @@ contract TestTierRouter is ITierProvider, ITierRouter {
              });
         }
 
-        if (_tierId == 3) {
+        if (_tierId == 73) {
             return ITierProvider.Tier({
-                verifierName: "tier3",
+                verifierName: "tier_3",
                 validityBond: 0, // must be 0 for top tier
                 contestBond: 0, // must be 0 for top tier
                 cooldownWindow: ONE_HOUR,
@@ -59,13 +64,13 @@ contract TestTierRouter is ITierProvider, ITierRouter {
     /// @inheritdoc ITierProvider
     function getTierIds() public pure override returns (uint16[] memory tiers_) {
         tiers_ = new uint16[](3);
-        tiers_[0] = 1;
-        tiers_[1] = 2;
-        tiers_[2] = 3;
+        tiers_[0] = 71;
+        tiers_[1] = 72;
+        tiers_[2] = 73;
     }
 
     /// @inheritdoc ITierProvider
-    function getMinTier(address, uint256) public pure override returns (uint16) {
-        return 1;
+    function getMinTier(address, uint256) public view override returns (uint16) {
+        return minTier;
     }
 }
