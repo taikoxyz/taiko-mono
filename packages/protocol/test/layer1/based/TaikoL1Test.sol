@@ -50,7 +50,94 @@ abstract contract TaikoL1TestBase is Layer1Test {
         console2.log("Ether balance:", to, to.balance);
     }
 
-    function getConfig() public pure virtual returns (TaikoData.Config memory);
+    function proposeBlock(
+        address proposer,
+        bytes4 revertReason
+    )
+        internal
+        returns (TaikoData.BlockMetadataV2 memory)
+    {
+        vm.prank(proposer);
+        if (revertReason != "") vm.expectRevert(revertReason);
+        return taikoL1.proposeBlockV2("", new bytes(10));
+    }
+
+    function proposeBlock(
+        address proposer,
+        TaikoData.BlockParamsV2 memory params,
+        bytes4 revertReason
+    )
+        internal
+        returns (TaikoData.BlockMetadataV2 memory)
+    {
+        vm.prank(proposer);
+        if (revertReason != "") vm.expectRevert(revertReason);
+        return taikoL1.proposeBlockV2(abi.encode(params), new bytes(10));
+    }
+
+    function proveBlock(
+        address prover,
+        TaikoData.BlockMetadataV2 memory meta,
+        bytes32 parentHash,
+        bytes32 blockHash,
+        bytes32 stateRoot,
+        TaikoData.TierProof memory proof,
+        bytes4 revertReason
+    )
+        internal
+    {
+        TaikoData.Transition memory tran = TaikoData.Transition({
+            parentHash: parentHash,
+            blockHash: blockHash,
+            stateRoot: stateRoot,
+            graffiti: 0x0
+        });
+
+        if (revertReason != "") vm.expectRevert(revertReason);
+        vm.prank(prover);
+        taikoL1.proveBlock(meta.id, abi.encode(meta, tran, proof));
+    }
+
+    function getBondTokenBalance(address user) internal view returns (uint256) {
+        return eBondToken.balanceOf(user) + taikoL1.bondBalanceOf(user);
+    }
+
+    function printBlockAndTrans(uint64 blockId) internal view {
+        TaikoData.BlockV2 memory blk = taikoL1.getBlockV2(blockId);
+        printBlock(blk);
+
+        for (uint32 i = 1; i < blk.nextTransitionId; ++i) {
+            printTran(i, taikoL1.getTransition(blockId, i));
+        }
+    }
+
+    function printBlock(TaikoData.BlockV2 memory blk) internal view {
+        (, TaikoData.SlotB memory b) = taikoL1.getStateVariables();
+        console2.log("\n==================");
+        console2.log("---CHAIN:");
+        console2.log(" | lastVerifiedBlockId:", b.lastVerifiedBlockId);
+        console2.log(" | numBlocks:", b.numBlocks);
+        console2.log(" | timestamp:", block.timestamp);
+        console2.log("---BLOCK#", blk.blockId);
+        console2.log(" | proposedAt:", blk.proposedAt);
+        console2.log(" | proposedIn:", blk.proposedIn);
+        console2.log(" | metaHash:", vm.toString(blk.metaHash));
+        console2.log(" | nextTransitionId:", blk.nextTransitionId);
+        console2.log(" | verifiedTransitionId:", blk.verifiedTransitionId);
+    }
+
+    function printTran(uint64 tid, TaikoData.TransitionState memory ts) internal pure {
+        console2.log(" |---TRANSITION#", tid);
+        console2.log("   | tier:", ts.tier);
+        console2.log("   | prover:", ts.prover);
+        console2.log("   | validityBond:", ts.validityBond);
+        console2.log("   | contester:", ts.contester);
+        console2.log("   | contestBond:", ts.contestBond);
+        console2.log("   | timestamp:", ts.timestamp);
+        console2.log("   | key (parentHash):", vm.toString(ts.key));
+        console2.log("   | blockHash:", vm.toString(ts.blockHash));
+        console2.log("   | stateRoot:", vm.toString(ts.stateRoot));
+    }
 
     function deployTierRouter() internal returns (ITierRouter) {
         return ITierRouter(
@@ -58,8 +145,8 @@ abstract contract TaikoL1TestBase is Layer1Test {
         );
     }
 
-    function deployTaikoL1(TaikoData.Config memory config) internal returns (TaikoL1 ) {
-        return  TaikoL1(
+    function deployTaikoL1(TaikoData.Config memory config) internal returns (TaikoL1) {
+        return TaikoL1(
             deploy({
                 name: "taiko",
                 impl: address(new TaikoL1WithConfig()),
@@ -74,4 +161,6 @@ abstract contract TaikoL1TestBase is Layer1Test {
     function deployVerifier(bytes32 name) internal returns (TestVerifier) {
         return TestVerifier(deploy({ name: name, impl: address(new TestVerifier()), data: "" }));
     }
+
+    function getConfig() internal view virtual returns (TaikoData.Config memory);
 }
