@@ -74,6 +74,12 @@ var (
 		Category: indexerCategory,
 		EnvVars:  []string{"INDEX_ERC20S"},
 	}
+	OntakeForkHeight = &cli.Uint64Flag{
+		Name:     "ontakeForkHeight",
+		Usage:    "Block number ontake fork height happened",
+		Category: indexerCategory,
+		EnvVars:  []string{"ONTAKE_FORK_HEIGHT"},
+	}
 )
 
 var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
@@ -87,4 +93,5 @@ var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	SyncMode,
 	IndexNFTs,
 	IndexERC20s,
+	OntakeForkHeight,
 })

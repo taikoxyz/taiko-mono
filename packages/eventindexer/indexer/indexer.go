@@ -68,6 +68,8 @@ type Indexer struct {
 
 	contractToMetadata      map[common.Address]*eventindexer.ERC20Metadata
 	contractToMetadataMutex *sync.Mutex
+
+	ontakeForkHeight uint64
 }
 
 func (i *Indexer) Start() error {
@@ -97,7 +99,7 @@ func (i *Indexer) eventLoop(ctx context.Context) {
 			slog.Info("event loop context done")
 			return
 		case <-t.C:
-			if err := i.filter(ctx, filterFunc); err != nil {
+			if err := i.filter(ctx); err != nil {
 				slog.Error("error filtering", "error", err)
 			}
 		}
@@ -204,6 +206,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	i.layer = cfg.Layer
 	i.contractToMetadata = make(map[common.Address]*eventindexer.ERC20Metadata, 0)
 	i.contractToMetadataMutex = &sync.Mutex{}
+	i.ontakeForkHeight = cfg.OntakeForkHeight
 
 	return nil
 }
