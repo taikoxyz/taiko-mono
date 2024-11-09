@@ -242,8 +242,6 @@ contract TaikoL1TestGroup5 is TaikoL1Test {
         console2.log("====== Alice propose a block");
         TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
 
-        
-
         console2.log("====== Carol proves the block");
         bytes32 parentHash = FIRST_BLOCK_HASH;
         bytes32 blockHash = bytes32(uint256(10));

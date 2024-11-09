@@ -7,9 +7,9 @@ contract TaikoL10TestGroup12 is TaikoL1Test {
     /// @dev Test we can propose, prove, then verify more blocks than
     /// 'blockMaxProposals'
     function test_taikoL1_group_12_more_blocks_than_ring_buffer_size() external {
-        giveEthAndTko(Alice, 1000000 ether, 1000000 ether);
-        giveEthAndTko(Bob, 1000000 ether, 1000000 ether);
-        giveEthAndTko(Carol, 1000000 ether, 1000000 ether);
+        giveEthAndTko(Alice, 1_000_000 ether, 1_000_000 ether);
+        giveEthAndTko(Bob, 1_000_000 ether, 1_000_000 ether);
+        giveEthAndTko(Carol, 1_000_000 ether, 1_000_000 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
@@ -37,9 +37,9 @@ contract TaikoL10TestGroup12 is TaikoL1Test {
     /// @dev Test more than one block can be proposed, proven, & verified in the
     ///      same L1 block.
     function test_taikoL1_group_12_multiple_blocks_in_one_L1_block() external {
-        giveEthAndTko(Alice, 1000000 ether, 1000000 ether);
+        giveEthAndTko(Alice, 1_000_000 ether, 1_000_000 ether);
         console2.log("Alice balance:", bondToken.balanceOf(Alice));
-        giveEthAndTko(Carol, 1000000 ether, 1000000 ether);
+        giveEthAndTko(Carol, 1_000_000 ether, 1_000_000 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
@@ -72,9 +72,9 @@ contract TaikoL10TestGroup12 is TaikoL1Test {
 
     /// @dev Test verifying multiple blocks in one transaction
     function test_taikoL1_group_12_verifying_multiple_blocks_once() external {
-        giveEthAndTko(Alice, 1000000 ether, 1000000 ether);
+        giveEthAndTko(Alice, 1_000_000 ether, 1_000_000 ether);
         console2.log("Alice balance:", bondToken.balanceOf(Alice));
-        giveEthAndTko(Carol, 1000000 ether, 1000000 ether);
+        giveEthAndTko(Carol, 1_000_000 ether, 1_000_000 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
@@ -100,8 +100,8 @@ contract TaikoL10TestGroup12 is TaikoL1Test {
 
     /// @dev Test if a given transition deadline is based on proposal time
     function test_taikoL1_group_12_in_proving_window_logic() external {
-        giveEthAndTko(Alice, 1000000 ether, 1000000 ether);
-        giveEthAndTko(Carol, 1000000 ether, 1000000 ether);
+        giveEthAndTko(Alice, 1_000_000 ether, 1_000_000 ether);
+        giveEthAndTko(Carol, 1_000_000 ether, 1_000_000 ether);
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
@@ -161,8 +161,8 @@ contract TaikoL10TestGroup12 is TaikoL1Test {
         vm.prank(deployer);
         taikoL1.pauseProving(true);
 
-        giveEthAndTko(Alice, 1000000 ether, 1000000 ether);
-        giveEthAndTko(Bob, 1000000 ether, 1000000 ether);
+        giveEthAndTko(Alice, 1_000_000 ether, 1_000_000 ether);
+        giveEthAndTko(Bob, 1_000_000 ether, 1_000_000 ether);
 
         // Proposing is still possible
         TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
@@ -183,8 +183,8 @@ contract TaikoL10TestGroup12 is TaikoL1Test {
         vm.prank(deployer);
         taikoL1.pause();
 
-        giveEthAndTko(Alice, 1000000 ether, 1000000 ether);
-        giveEthAndTko(Bob, 1000000 ether, 1000000 ether);
+        giveEthAndTko(Alice, 1_000_000 ether, 1_000_000 ether);
+        giveEthAndTko(Bob, 1_000_000 ether, 1_000_000 ether);
 
         // Proposing is also not possible
         proposeBlock(Alice, EssentialContract.INVALID_PAUSE_STATUS.selector);

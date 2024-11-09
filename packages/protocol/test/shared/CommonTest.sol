@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.so
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
+import "@optimism/packages/contracts-bedrock/src/EAS/Common.sol";
 
 import "forge-std/src/console2.sol";
 import "forge-std/src/Script.sol";
@@ -114,20 +115,6 @@ abstract contract CommonTest is Test, Script {
     function mineOneBlockAndWrap(uint256 time) internal {
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + time);
-    }
-
-    function bytes32ToString(bytes32 _bytes32) public pure returns (string memory) {
-        uint8 i = 0;
-        // Find the first null character to determine actual string length
-        while (i < 32 && _bytes32[i] != 0) {
-            i++;
-        }
-        // Create a string with the correct length and copy bytes
-        bytes memory bytesArray = new bytes(i);
-        for (i = 0; i < bytesArray.length; i++) {
-            bytesArray[i] = _bytes32[i];
-        }
-        return string(bytesArray);
     }
 
     function register(bytes32 name, address addr) internal {
