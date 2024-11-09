@@ -28,7 +28,7 @@ contract BridgeTest2_retryMessage is BridgeTest2 {
         IBridge.Message memory message;
 
         message.destChainId = ethereumChainId;
-        message.srcChainId  = taikoChainId;
+        message.srcChainId = taikoChainId;
 
         message.fee = 0;
         message.value = 2 ether;
@@ -69,7 +69,7 @@ contract BridgeTest2_retryMessage is BridgeTest2 {
         IBridge.Message memory message;
 
         message.destChainId = ethereumChainId;
-        message.srcChainId  = taikoChainId;
+        message.srcChainId = taikoChainId;
 
         message.fee = 0;
         message.value = 2 ether;

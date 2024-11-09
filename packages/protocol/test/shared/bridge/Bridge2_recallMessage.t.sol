@@ -26,7 +26,7 @@ contract BridgeTest2_recallMessage is BridgeTest2 {
         IBridge.Message memory message;
         message.srcOwner = Alice;
         message.destOwner = Bob;
-        message.destChainId  = taikoChainId;
+        message.destChainId = taikoChainId;
         message.value = 1 ether;
 
         vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
@@ -66,7 +66,7 @@ contract BridgeTest2_recallMessage is BridgeTest2 {
         IBridge.Message memory message;
         message.srcOwner = Alice;
         message.destOwner = Bob;
-        message.destChainId  = taikoChainId;
+        message.destChainId = taikoChainId;
         message.value = 1 ether;
         message.srcChainId = ethereumChainId;
 
@@ -74,7 +74,7 @@ contract BridgeTest2_recallMessage is BridgeTest2 {
         (, IBridge.Message memory m) = bridge.sendMessage{ value: 1 ether }(message);
 
         vm.prank(deployer);
-        resolver.setAddress(block.chainid, "signal_service", address(0));
+        register("signal_service", address(0));
 
         vm.prank(Carol);
         vm.expectRevert();
@@ -90,7 +90,7 @@ contract BridgeTest2_recallMessage is BridgeTest2 {
         IBridge.Message memory message;
         message.srcOwner = Alice;
         message.destOwner = Bob;
-        message.destChainId  = taikoChainId;
+        message.destChainId = taikoChainId;
         message.value = 1 ether;
         message.srcChainId = ethereumChainId;
 

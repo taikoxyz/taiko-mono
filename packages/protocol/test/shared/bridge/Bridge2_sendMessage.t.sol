@@ -32,7 +32,7 @@ contract BridgeTest2_sendMessage is BridgeTest2 {
         bridge.sendMessage(message);
 
         // an bridge has been registered for destChainId
-        message.destChainId  = taikoChainId;
+        message.destChainId = taikoChainId;
         bridge.sendMessage(message); // id = 0
 
         message.value = 10_000_000;
@@ -46,7 +46,7 @@ contract BridgeTest2_sendMessage is BridgeTest2 {
         (bytes32 mhash, IBridge.Message memory m) = bridge.sendMessage{ value: 40_000_000 }(message);
         assertEq(m.id, 1);
         assertEq(m.srcOwner, Alice); // Not Carol
-        assertEq(m.srcChainId, block.chainid);
+        assertEq(m.srcChainId, ethereumChainId);
         assertEq(mhash, bridge.hashMessage(m));
 
         m.id = 0;
@@ -69,7 +69,7 @@ contract BridgeTest2_sendMessage is BridgeTest2 {
         IBridge.Message memory message;
         message.srcOwner = Alice;
         message.destOwner = Bob;
-        message.destChainId  = taikoChainId;
+        message.destChainId = taikoChainId;
         message.fee = 1;
         vm.expectRevert(Bridge.B_INVALID_FEE.selector);
         bridge.sendMessage(message);
@@ -103,7 +103,7 @@ contract BridgeTest2_sendMessage is BridgeTest2 {
         IBridge.Message memory message;
         message.srcOwner = Alice;
         message.destOwner = Bob;
-        message.destChainId  = taikoChainId;
+        message.destChainId = taikoChainId;
 
         vm.prank(Alice);
         bridge.sendMessage(message);

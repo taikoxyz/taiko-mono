@@ -171,11 +171,20 @@ contract ERC1155VaultTest is TaikoTest {
         vm.chainId(taikoChainId);
 
         destBridge.sendReceiveERC1155ToERC1155Vault(
-            ctoken, Alice, Alice, tokenIds, amounts, bytes32(0), address(srcVault), ethereumChainId, 0
+            ctoken,
+            Alice,
+            Alice,
+            tokenIds,
+            amounts,
+            bytes32(0),
+            address(srcVault),
+            ethereumChainId,
+            0
         );
 
         // Query canonicalToBridged
-        address deployedContract = destVault.canonicalToBridged(ethereumChainId, address(ctoken1155));
+        address deployedContract =
+            destVault.canonicalToBridged(ethereumChainId, address(ctoken1155));
 
         // Alice bridged over 2 items
         assertEq(ERC1155(deployedContract).balanceOf(Alice, 1), 2);
@@ -222,11 +231,20 @@ contract ERC1155VaultTest is TaikoTest {
         vm.chainId(taikoChainId);
 
         destBridge.sendReceiveERC1155ToERC1155Vault(
-            ctoken, Alice, Alice, tokenIds, amounts, bytes32(0), address(srcVault), ethereumChainId, 0
+            ctoken,
+            Alice,
+            Alice,
+            tokenIds,
+            amounts,
+            bytes32(0),
+            address(srcVault),
+            ethereumChainId,
+            0
         );
 
         // Query canonicalToBridged
-        address deployedContract = destVault.canonicalToBridged(ethereumChainId, address(ctoken1155));
+        address deployedContract =
+            destVault.canonicalToBridged(ethereumChainId, address(ctoken1155));
 
         // Alice bridged over 2 items
         assertEq(ERC1155(deployedContract).balanceOf(Alice, 1), 2);
@@ -256,7 +274,15 @@ contract ERC1155VaultTest is TaikoTest {
         vm.chainId(taikoChainId);
 
         destBridge.sendReceiveERC1155ToERC1155Vault(
-            ctoken, Alice, Alice, tokenIds, amounts, bytes32(0), address(srcVault), ethereumChainId, 0
+            ctoken,
+            Alice,
+            Alice,
+            tokenIds,
+            amounts,
+            bytes32(0),
+            address(srcVault),
+            ethereumChainId,
+            0
         );
 
         // Query canonicalToBridged
@@ -319,7 +345,8 @@ contract ERC1155VaultTest is TaikoTest {
         );
 
         // Query canonicalToBridged
-        address deployedContract = destVault.canonicalToBridged(ethereumChainId, address(ctoken1155));
+        address deployedContract =
+            destVault.canonicalToBridged(ethereumChainId, address(ctoken1155));
 
         // Alice bridged over 2 items and etherValue to David
         assertEq(ERC1155(deployedContract).balanceOf(David, 1), 2);
@@ -410,11 +437,20 @@ contract ERC1155VaultTest is TaikoTest {
         vm.chainId(taikoChainId);
 
         destBridge.sendReceiveERC1155ToERC1155Vault(
-            ctoken, Alice, Alice, tokenIds, amounts, bytes32(0), address(srcVault), ethereumChainId, 0
+            ctoken,
+            Alice,
+            Alice,
+            tokenIds,
+            amounts,
+            bytes32(0),
+            address(srcVault),
+            ethereumChainId,
+            0
         );
 
         // Query canonicalToBridged
-        address deployedContract = destVault.canonicalToBridged(ethereumChainId, address(ctoken1155));
+        address deployedContract =
+            destVault.canonicalToBridged(ethereumChainId, address(ctoken1155));
 
         // Alice bridged over 2 items
         assertEq(ERC1155(deployedContract).balanceOf(Alice, 1), 2);
@@ -473,7 +509,8 @@ contract ERC1155VaultTest is TaikoTest {
             0
         );
         // Query canonicalToBridged
-        address deployedContract = destVault.canonicalToBridged(ethereumChainId, address(ctoken1155));
+        address deployedContract =
+            destVault.canonicalToBridged(ethereumChainId, address(ctoken1155));
 
         // Alice bridged over 1 from tokenId 1
         assertEq(ERC1155(deployedContract).balanceOf(Alice, 1), 1);
@@ -510,10 +547,18 @@ contract ERC1155VaultTest is TaikoTest {
         destBridge.setERC1155Vault(address(srcVault));
 
         vm.prank(deployer);
-        resolver.setAddress(block.chainid, "bridge", address(destBridge));
+        register("bridge", address(destBridge));
 
         destBridge.sendReceiveERC1155ToERC1155Vault(
-            canonicalToken, Bob, Bob, tokenIds, amounts, bytes32(0), address(srcVault), ethereumChainId, 0
+            canonicalToken,
+            Bob,
+            Bob,
+            tokenIds,
+            amounts,
+            bytes32(0),
+            address(srcVault),
+            ethereumChainId,
+            0
         );
 
         assertEq(ctoken1155.balanceOf(Bob, 1), 1);
@@ -574,7 +619,8 @@ contract ERC1155VaultTest is TaikoTest {
         );
 
         // Query canonicalToBridged
-        address deployedContract = destVault.canonicalToBridged(ethereumChainId, address(ctoken1155));
+        address deployedContract =
+            destVault.canonicalToBridged(ethereumChainId, address(ctoken1155));
         // Alice bridged over 1 from tokenId 1
         assertEq(ERC1155(deployedContract).balanceOf(Alice, 1), 1);
 
@@ -644,11 +690,20 @@ contract ERC1155VaultTest is TaikoTest {
         vm.chainId(taikoChainId);
 
         destBridge.sendReceiveERC1155ToERC1155Vault(
-            ctoken, Alice, Alice, tokenIds, amounts, bytes32(0), address(srcVault), ethereumChainId, 0
+            ctoken,
+            Alice,
+            Alice,
+            tokenIds,
+            amounts,
+            bytes32(0),
+            address(srcVault),
+            ethereumChainId,
+            0
         );
 
         // Query canonicalToBridged
-        address deployedContract = destVault.canonicalToBridged(ethereumChainId, address(ctoken1155));
+        address deployedContract =
+            destVault.canonicalToBridged(ethereumChainId, address(ctoken1155));
 
         try UpdatedBridgedERC1155(deployedContract).helloWorld() {
             fail();
@@ -719,7 +774,8 @@ contract ERC1155VaultTest is TaikoTest {
         );
 
         // Query canonicalToBridged
-        address deployedContract = destVault.canonicalToBridged(ethereumChainId, address(ctoken1155));
+        address deployedContract =
+            destVault.canonicalToBridged(ethereumChainId, address(ctoken1155));
         // Alice bridged over 1 from tokenId 1
         assertEq(ERC1155(deployedContract).balanceOf(Alice, 1), 1);
 

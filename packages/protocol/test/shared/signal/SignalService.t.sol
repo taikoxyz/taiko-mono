@@ -98,7 +98,7 @@ contract TestSignalService is TaikoTest {
     function test_SignalService_proveSignalReceived_revert_src_signal_service_not_registered()
         public
     {
-               uint64 someChainId = 12345;
+        uint64 someChainId = 12_345;
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](1);
 
         vm.expectRevert(
@@ -115,8 +115,6 @@ contract TestSignalService is TaikoTest {
     }
 
     function test_SignalService_proveSignalReceived_revert_zero_size_proof() public {
-
-
         vm.prank(deployer);
         resolver.setAddress(ethereumChainId, "signal_service", randAddress());
 
@@ -133,15 +131,13 @@ contract TestSignalService is TaikoTest {
     }
 
     function test_SignalService_proveSignalReceived_revert_last_hop_incorrect_chainid() public {
-
-
         vm.prank(deployer);
         resolver.setAddress(ethereumChainId, "signal_service", randAddress());
 
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](1);
 
-        // proofs[0].chainId must be block.chainid in order not to revert
-        proofs[0].chainId = uint64(block.chainid + 1);
+        // proofs[0].chainId must be ethereumChainId in order not to revert
+        proofs[0].chainId = ethereumChainId + 1;
         proofs[0].blockId = 1;
 
         vm.expectRevert(SignalService.SS_INVALID_LAST_HOP_CHAINID.selector);
@@ -154,14 +150,12 @@ contract TestSignalService is TaikoTest {
     }
 
     function test_SignalService_proveSignalReceived_revert_mid_hop_incorrect_chainid() public {
-
-
         vm.prank(deployer);
         resolver.setAddress(ethereumChainId, "signal_service", randAddress());
 
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](2);
 
-        // proofs[0].chainId must NOT be block.chainid in order not to revert
+        // proofs[0].chainId must NOT be ethereumChainId in order not to revert
         proofs[0].chainId = ethereumChainId;
         proofs[0].blockId = 1;
 
@@ -175,15 +169,13 @@ contract TestSignalService is TaikoTest {
     }
 
     function test_SignalService_proveSignalReceived_revert_mid_hop_not_registered() public {
-        uint64 srcChainId = uint64(block.chainid + 1);
-
         vm.prank(deployer);
         resolver.setAddress(ethereumChainId, "signal_service", randAddress());
 
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](2);
 
-        // proofs[0].chainId must NOT be block.chainid in order not to revert
-        proofs[0].chainId = srcChainId + 1;
+        // proofs[0].chainId must NOT be ethereumChainId in order not to revert
+        proofs[0].chainId = ethereumChainId + 1;
         proofs[0].blockId = 1;
 
         vm.expectRevert(
@@ -203,8 +195,6 @@ contract TestSignalService is TaikoTest {
     }
 
     function test_SignalService_proveSignalReceived_local_chaindata_not_found() public {
-        uint64 srcChainId = uint64(block.chainid + 1);
-
         vm.prank(deployer);
         resolver.setAddress(ethereumChainId, "signal_service", randAddress());
 
@@ -238,8 +228,6 @@ contract TestSignalService is TaikoTest {
     }
 
     function test_SignalService_proveSignalReceived_one_hop_cache_signal_root() public {
-        uint64 srcChainId = uint64(block.chainid + 1);
-
         vm.prank(deployer);
         resolver.setAddress(ethereumChainId, "signal_service", randAddress());
 
@@ -284,8 +272,6 @@ contract TestSignalService is TaikoTest {
     }
 
     function test_SignalService_proveSignalReceived_one_hop_state_root() public {
-        uint64 srcChainId = uint64(block.chainid + 1);
-
         vm.prank(deployer);
         resolver.setAddress(ethereumChainId, "signal_service", randAddress());
 
@@ -330,22 +316,20 @@ contract TestSignalService is TaikoTest {
     }
 
     function test_SignalService_proveSignalReceived_multiple_hops_no_caching() public {
-        uint64 srcChainId = uint64(block.chainid + 1);
-
         vm.prank(deployer);
         resolver.setAddress(ethereumChainId, "signal_service", randAddress());
 
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](3);
 
         // first hop with full merkle proof
-        proofs[0].chainId = uint64(block.chainid + 2);
+        proofs[0].chainId = ethereumChainId + 2;
         proofs[0].blockId = 1;
         proofs[0].rootHash = randBytes32();
         proofs[0].accountProof = new bytes[](1);
         proofs[0].storageProof = new bytes[](10);
 
         // second hop with storage merkle proof
-        proofs[1].chainId = uint64(block.chainid + 3);
+        proofs[1].chainId = ethereumChainId + 3;
         proofs[1].blockId = 2;
         proofs[1].rootHash = randBytes32();
         proofs[1].accountProof = new bytes[](0);
@@ -401,15 +385,13 @@ contract TestSignalService is TaikoTest {
     }
 
     function test_SignalService_proveSignalReceived_revert_with_a_loop() public {
-        uint64 srcChainId = uint64(block.chainid + 1);
-
         vm.prank(deployer);
         resolver.setAddress(ethereumChainId, "signal_service", randAddress());
 
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](3);
 
         // first hop with full merkle proof
-        proofs[0].chainId = uint64(block.chainid + 2);
+        proofs[0].chainId = ethereumChainId + 2;
         proofs[0].blockId = 1;
         proofs[0].rootHash = randBytes32();
         proofs[0].accountProof = new bytes[](1);
@@ -450,8 +432,8 @@ contract TestSignalService is TaikoTest {
     }
 
     function test_SignalService_proveSignalReceived_multiple_hops_caching() public {
-        uint64 srcChainId = uint64(block.chainid + 1);
-        uint64 nextChainId = srcChainId + 100;
+        uint64 someChainId = ethereumChainId + 1;
+        uint64 nextChainId = someChainId + 100;
 
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](9);
 

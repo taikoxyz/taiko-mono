@@ -156,7 +156,6 @@ contract ERC721VaultTest is TaikoTest {
             name: "TT"
         });
 
-
         vm.chainId(taikoChainId);
 
         destBridge.sendReceiveERC721ToERC721Vault(
@@ -164,7 +163,8 @@ contract ERC721VaultTest is TaikoTest {
         );
 
         // Query canonicalToBridged
-        address deployedContract = destVault.canonicalToBridged(ethereumChainId, address(canonicalToken721));
+        address deployedContract =
+            destVault.canonicalToBridged(ethereumChainId, address(canonicalToken721));
 
         // Alice bridged over tokenId 1
         assertEq(ERC721(deployedContract).ownerOf(1), Alice);
@@ -209,7 +209,6 @@ contract ERC721VaultTest is TaikoTest {
             name: "TT"
         });
 
-
         vm.chainId(taikoChainId);
 
         destBridge.sendReceiveERC721ToERC721Vault(
@@ -217,7 +216,8 @@ contract ERC721VaultTest is TaikoTest {
         );
 
         // Query canonicalToBridged
-        address deployedContract = destVault.canonicalToBridged(ethereumChainId, address(canonicalToken721));
+        address deployedContract =
+            destVault.canonicalToBridged(ethereumChainId, address(canonicalToken721));
 
         // Alice bridged over tokenId 1
         assertEq(ERC721(deployedContract).ownerOf(1), Alice);
@@ -251,7 +251,8 @@ contract ERC721VaultTest is TaikoTest {
         );
 
         // Query canonicalToBridged
-        address bridgedContract = destVault.canonicalToBridged(ethereumChainId, address(canonicalToken721));
+        address bridgedContract =
+            destVault.canonicalToBridged(ethereumChainId, address(canonicalToken721));
 
         assertEq(bridgedContract, deployedContract);
     }
@@ -291,15 +292,22 @@ contract ERC721VaultTest is TaikoTest {
             name: "TT"
         });
 
-
         vm.chainId(taikoChainId);
 
         destBridge.sendReceiveERC721ToERC721Vault(
-            canonicalToken, Alice, David, tokenIds, bytes32(0), address(vault), ethereumChainId, etherValue
+            canonicalToken,
+            Alice,
+            David,
+            tokenIds,
+            bytes32(0),
+            address(vault),
+            ethereumChainId,
+            etherValue
         );
 
         // Query canonicalToBridged
-        address deployedContract = destVault.canonicalToBridged(ethereumChainId, address(canonicalToken721));
+        address deployedContract =
+            destVault.canonicalToBridged(ethereumChainId, address(canonicalToken721));
 
         // Alice bridged over tokenId 1 and etherValue to David
         assertEq(ERC721(deployedContract).ownerOf(1), David);
@@ -434,7 +442,6 @@ contract ERC721VaultTest is TaikoTest {
             name: "TT"
         });
 
-
         vm.chainId(taikoChainId);
 
         destBridge.sendReceiveERC721ToERC721Vault(
@@ -442,7 +449,8 @@ contract ERC721VaultTest is TaikoTest {
         );
 
         // Query canonicalToBridged
-        address deployedContract = destVault.canonicalToBridged(ethereumChainId, address(canonicalToken721));
+        address deployedContract =
+            destVault.canonicalToBridged(ethereumChainId, address(canonicalToken721));
 
         // Alice bridged over tokenId 1
         assertEq(ERC721(deployedContract).ownerOf(1), Alice);
@@ -478,7 +486,7 @@ contract ERC721VaultTest is TaikoTest {
         destBridge.setERC721Vault(address(vault));
 
         vm.prank(deployer);
-        resolver.setAddress(block.chainid, "bridge", address(destBridge));
+        register("bridge", address(destBridge));
 
         destBridge.sendReceiveERC721ToERC721Vault(
             canonicalToken, Bob, Bob, tokenIds, bytes32(0), address(vault), ethereumChainId, 0
@@ -528,7 +536,6 @@ contract ERC721VaultTest is TaikoTest {
             name: "TT"
         });
 
-
         vm.chainId(taikoChainId);
 
         destBridge.sendReceiveERC721ToERC721Vault(
@@ -536,7 +543,8 @@ contract ERC721VaultTest is TaikoTest {
         );
 
         // Query canonicalToBridged
-        address deployedContract = destVault.canonicalToBridged(ethereumChainId, address(canonicalToken721));
+        address deployedContract =
+            destVault.canonicalToBridged(ethereumChainId, address(canonicalToken721));
 
         // Alice bridged over tokenId 1
         assertEq(ERC721(deployedContract).ownerOf(1), Alice);
@@ -607,7 +615,6 @@ contract ERC721VaultTest is TaikoTest {
             name: "TT"
         });
 
-
         vm.chainId(taikoChainId);
 
         destBridge.sendReceiveERC721ToERC721Vault(
@@ -615,7 +622,8 @@ contract ERC721VaultTest is TaikoTest {
         );
 
         // Query canonicalToBridged
-        address deployedContract = destVault.canonicalToBridged(ethereumChainId, address(canonicalToken721));
+        address deployedContract =
+            destVault.canonicalToBridged(ethereumChainId, address(canonicalToken721));
 
         try UpdatedBridgedERC721(deployedContract).helloWorld() {
             fail();
@@ -675,7 +683,6 @@ contract ERC721VaultTest is TaikoTest {
             name: "TT"
         });
 
-
         vm.chainId(taikoChainId);
 
         destBridge.sendReceiveERC721ToERC721Vault(
@@ -683,7 +690,8 @@ contract ERC721VaultTest is TaikoTest {
         );
 
         // Query canonicalToBridged
-        address deployedContract = destVault.canonicalToBridged(ethereumChainId, address(canonicalToken721));
+        address deployedContract =
+            destVault.canonicalToBridged(ethereumChainId, address(canonicalToken721));
 
         // Alice bridged over tokenId 1
         assertEq(ERC721(deployedContract).ownerOf(1), Alice);

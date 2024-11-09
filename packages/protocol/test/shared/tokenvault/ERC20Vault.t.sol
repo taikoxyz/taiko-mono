@@ -227,7 +227,8 @@ contract TestERC20Vault is TaikoTest {
 
         destBridge.setERC20Vault(address(destERC20Vault));
 
-        address bridgedAddressBefore = destERC20Vault.canonicalToBridged(ethereumChainId, address(erc20));
+        address bridgedAddressBefore =
+            destERC20Vault.canonicalToBridged(ethereumChainId, address(erc20));
         assertEq(bridgedAddressBefore == address(0), true);
 
         destBridge.sendReceiveERC20ToERC20Vault(
@@ -241,7 +242,8 @@ contract TestERC20Vault is TaikoTest {
             0
         );
 
-        address bridgedAddressAfter = destERC20Vault.canonicalToBridged(ethereumChainId, address(erc20));
+        address bridgedAddressAfter =
+            destERC20Vault.canonicalToBridged(ethereumChainId, address(erc20));
         assertEq(bridgedAddressAfter != address(0), true);
         BridgedERC20 bridgedERC20 = BridgedERC20(bridgedAddressAfter);
 
@@ -283,7 +285,8 @@ contract TestERC20Vault is TaikoTest {
 
         destBridge.setERC20Vault(address(destERC20Vault));
 
-        address bridgedAddressBefore = destERC20Vault.canonicalToBridged(ethereumChainId, address(erc20));
+        address bridgedAddressBefore =
+            destERC20Vault.canonicalToBridged(ethereumChainId, address(erc20));
         assertEq(bridgedAddressBefore == address(0), true);
 
         destBridge.sendReceiveERC20ToERC20Vault(
@@ -297,7 +300,8 @@ contract TestERC20Vault is TaikoTest {
             0
         );
 
-        address bridgedAddressAfter = destERC20Vault.canonicalToBridged(ethereumChainId, address(erc20));
+        address bridgedAddressAfter =
+            destERC20Vault.canonicalToBridged(ethereumChainId, address(erc20));
         assertEq(bridgedAddressAfter != address(0), true);
 
         try UpdatedBridgedERC20(bridgedAddressAfter).helloWorld() {
@@ -494,7 +498,8 @@ contract TestERC20Vault is TaikoTest {
 
         destBridge.setERC20Vault(address(destERC20Vault));
 
-        address bridgedAddressBefore = destERC20Vault.canonicalToBridged(ethereumChainId, address(erc20));
+        address bridgedAddressBefore =
+            destERC20Vault.canonicalToBridged(ethereumChainId, address(erc20));
         assertEq(bridgedAddressBefore == address(0), true);
 
         // Token with empty name succeeds
