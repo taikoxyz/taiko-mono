@@ -241,7 +241,7 @@ func (i *Indexer) filter(
 		"batchSize", i.blockBatchSize,
 	)
 
-	if i.ontakeForkHeight > i.latestIndexedBlockNumber && i.ontakeForkHeight < endBlockID {
+	if i.taikol1 != nil && i.ontakeForkHeight > i.latestIndexedBlockNumber && i.ontakeForkHeight < endBlockID {
 		slog.Info("ontake fork height reached", "height", i.ontakeForkHeight)
 
 		slog.Info("setting endBlockID to ontakeForkHeight - 1",
