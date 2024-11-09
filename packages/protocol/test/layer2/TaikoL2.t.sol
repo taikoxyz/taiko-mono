@@ -25,7 +25,7 @@ contract TaikoL2Tests is TaikoL2Test {
     }
 
     // calling anchor in the same block more than once should fail
-    function test_L2_AnchorTx_revert_in_same_block() external onDestinationChain {
+    function test_L2_AnchorTx_revert_in_same_block() external onTaiko {
         vm.fee(1);
 
         vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
@@ -37,13 +37,13 @@ contract TaikoL2Tests is TaikoL2Test {
     }
 
     // calling anchor in the same block more than once should fail
-    function test_L2_AnchorTx_revert_from_wrong_signer() external onDestinationChain {
+    function test_L2_AnchorTx_revert_from_wrong_signer() external onTaiko {
         vm.fee(1);
         vm.expectRevert(TaikoL2.L2_INVALID_SENDER.selector);
         _anchorV2(BLOCK_GAS_LIMIT);
     }
 
-    function test_L2_AnchorTx_signing(bytes32 digest) external onDestinationChain {
+    function test_L2_AnchorTx_signing(bytes32 digest) external onTaiko {
         (uint8 v, uint256 r, uint256 s) = LibL2Signer.signAnchor(digest, uint8(1));
         address signer = ecrecover(digest, v + 27, bytes32(r), bytes32(s));
         assertEq(signer, L2.GOLDEN_TOUCH_ADDRESS());
@@ -59,7 +59,7 @@ contract TaikoL2Tests is TaikoL2Test {
         LibL2Signer.signAnchor(digest, uint8(3));
     }
 
-    function test_L2_withdraw() external onDestinationChain {
+    function test_L2_withdraw() external onTaiko {
         vm.prank(L2.owner(), L2.owner());
         L2.withdraw(address(0), Alice);
         assertEq(address(L2).balance, 0 ether);
@@ -71,7 +71,7 @@ contract TaikoL2Tests is TaikoL2Test {
         L2.withdraw(address(0), Alice);
     }
 
-    function test_L2_getBlockHash() external onDestinationChain {
+    function test_L2_getBlockHash() external onTaiko {
         assertEq(L2.getBlockHash(uint64(1000)), 0);
     }
 

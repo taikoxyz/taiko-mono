@@ -62,12 +62,12 @@ abstract contract TaikoTest is Test, Script {
     uint64 srcChainId;
     uint64 destChainId;
 
-    modifier onSourceChain() {
+    modifier onEthereum() {
         vm.chainId(srcChainId);
         _;
     }
 
-    modifier onDestinationChain() {
+    modifier onTaiko() {
         vm.chainId(destChainId);
         _;
         vm.chainId(srcChainId);

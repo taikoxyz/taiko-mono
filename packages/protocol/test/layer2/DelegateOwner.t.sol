@@ -30,7 +30,7 @@ contract TestDelegateOwner is TaikoL2Test {
         bridge = deployBridge(address(new Bridge()));
     }
 
-    function test_delegate_owner_single_non_delegatecall() public onDestinationChain {
+    function test_delegate_owner_single_non_delegatecall() public onTaiko {
         vm.startPrank(deployer);
         Target target1 = _deployTarget("target1", address(new Target()));
         vm.stopPrank();
@@ -65,7 +65,7 @@ contract TestDelegateOwner is TaikoL2Test {
         assertTrue(target1.paused());
     }
 
-    function test_delegate_owner_single_non_delegatecall_self() public onDestinationChain {
+    function test_delegate_owner_single_non_delegatecall_self() public onTaiko {
         address delegateOwnerImpl2 = address(new DelegateOwner());
 
         bytes memory data = abi.encode(
@@ -98,7 +98,7 @@ contract TestDelegateOwner is TaikoL2Test {
         assertEq(delegateOwner.impl(), delegateOwnerImpl2);
     }
 
-    function test_delegate_owner_delegate_multicall() public onDestinationChain {
+    function test_delegate_owner_delegate_multicall() public onTaiko {
         address delegateOwnerImpl2 = address(new DelegateOwner());
         address impl1 = address(new Target());
         address impl2 = address(new Target());
