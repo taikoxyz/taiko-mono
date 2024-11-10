@@ -2,7 +2,8 @@
 pragma solidity ^0.8.24;
 
 import "src/layer1/based/TaikoL1.sol";
-import "../reentrylock/LibFasterReentryLock.sol";
+import "src/shared/libs/LibNetwork.sol";
+import "./libs/LibFasterReentryLock.sol";
 
 /// @title MainnetTaikoL1
 /// @dev This contract shall be deployed to replace its parent contract on Ethereum for Taiko

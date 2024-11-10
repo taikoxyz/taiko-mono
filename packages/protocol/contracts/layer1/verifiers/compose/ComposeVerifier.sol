@@ -44,7 +44,6 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
     )
         external
         onlyAuthorizedCaller
-        nonReentrant
     {
         (address[] memory verifiers, uint256 numSubProofs_) = getSubVerifiersAndThreshold();
 
@@ -78,7 +77,6 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
     )
         external
         onlyAuthorizedCaller
-        nonReentrant
     {
         (address[] memory verifiers, uint256 numSubProofs_) = getSubVerifiersAndThreshold();
 

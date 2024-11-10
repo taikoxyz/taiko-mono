@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "src/shared/tokenvault/ERC1155Vault.sol";
-import "../reentrylock/LibFasterReentryLock.sol";
+import "../libs/LibFasterReentryLock.sol";
 
 /// @title MainnetERC1155Vault
 /// @dev This contract shall be deployed to replace its parent contract on Ethereum for Taiko
