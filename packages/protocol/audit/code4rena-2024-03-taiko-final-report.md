@@ -1450,7 +1450,7 @@ File: AddressResolver.sol
 69:         if (addressManager == address(0)) revert RESOLVER_INVALID_MANAGER();
 70:
 71:         addr_ = payable(
-72:             IAddressManager(addressManager).getAddress(_chainId, _name)
+72:             IDefaultResolver(addressManager).getAddress(_chainId, _name)
 73:         );
 74:
 75:         if (!_allowZeroAddress && addr_ == address(0)) {
@@ -4479,13 +4479,13 @@ File: packages/protocol/contracts/bridge/Bridge.sol
 [[515](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L515)]
 
 ```solidity
-File: packages/protocol/contracts/common/AddressManager.sol
+File: packages/protocol/contracts/common/DefaultResolver.sol
 
 // @audit __addresses
 38: 		    function setAddress(
 ```
 
-[[38](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/AddressManager.sol#L38)]
+[[38](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/DefaultResolver.sol#L38)]
 
 ```solidity
 File: packages/protocol/contracts/L2/TaikoL2EIP1559Configurable.sol
@@ -4717,13 +4717,13 @@ File: packages/protocol/contracts/bridge/Bridge.sol
 [[190](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L190)]
 
 ```solidity
-File: packages/protocol/contracts/common/AddressManager.sol
+File: packages/protocol/contracts/common/DefaultResolver.sol
 
 // @audit __addresses on line 47
 49: 		        __addresses[_chainId][_name] = _newAddress;
 ```
 
-[[49](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/AddressManager.sol#L49)]
+[[49](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/DefaultResolver.sol#L49)]
 
 ```solidity
 File: packages/protocol/contracts/L1/TaikoL1.sol
@@ -5089,7 +5089,7 @@ File: packages/protocol/contracts/bridge/Bridge.sol
 [[82-87](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L82-L87), [101-107](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L101-L107)]
 
 ```solidity
-File: packages/protocol/contracts/common/AddressManager.sol
+File: packages/protocol/contracts/common/DefaultResolver.sol
 
 38: 		    function setAddress(
 39: 		        uint64 _chainId,
@@ -5101,7 +5101,7 @@ File: packages/protocol/contracts/common/AddressManager.sol
 45: 		        onlyOwner
 ```
 
-[[38-45](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/AddressManager.sol#L38-L45)]
+[[38-45](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/DefaultResolver.sol#L38-L45)]
 
 ```solidity
 File: packages/protocol/contracts/common/AddressResolver.sol
@@ -5626,7 +5626,7 @@ File: packages/protocol/contracts/bridge/IBridge.sol
 [[19](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/IBridge.sol#L19), [24](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/IBridge.sol#L24), [26](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/IBridge.sol#L26), [51](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/IBridge.sol#L51), [63](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/IBridge.sol#L63)]
 
 ```solidity
-File: packages/protocol/contracts/common/AddressManager.sol
+File: packages/protocol/contracts/common/DefaultResolver.sol
 
 22: 		        uint64 indexed chainId, bytes32 indexed name, address newAddress, address oldAddress
 
@@ -5635,7 +5635,7 @@ File: packages/protocol/contracts/common/AddressManager.sol
 54: 		    function getAddress(uint64 _chainId, bytes32 _name) public view override returns (address) {
 ```
 
-[[22](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/AddressManager.sol#L22), [39](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/AddressManager.sol#L39), [54](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/AddressManager.sol#L54)]
+[[22](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/DefaultResolver.sol#L22), [39](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/DefaultResolver.sol#L39), [54](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/DefaultResolver.sol#L54)]
 
 ```solidity
 File: packages/protocol/contracts/common/AddressResolver.sol
@@ -5668,12 +5668,12 @@ File: packages/protocol/contracts/common/EssentialContract.sol
 [[11](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/EssentialContract.sol#L11), [13](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/EssentialContract.sol#L13), [21](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/EssentialContract.sol#L21), [23](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/EssentialContract.sol#L23), [119](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/EssentialContract.sol#L119), [130](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/EssentialContract.sol#L130)]
 
 ```solidity
-File: packages/protocol/contracts/common/IAddressManager.sol
+File: packages/protocol/contracts/common/IDefaultResolver.sol
 
 14: 		    function getAddress(uint64 _chainId, bytes32 _name) external view returns (address);
 ```
 
-[[14](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/IAddressManager.sol#L14)]
+[[14](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/IDefaultResolver.sol#L14)]
 
 ```solidity
 File: packages/protocol/contracts/common/IAddressResolver.sol
@@ -8360,12 +8360,12 @@ File: packages/protocol/contracts/bridge/IBridge.sol
 [[8](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/IBridge.sol#L8), [160](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/IBridge.sol#L160), [174](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/IBridge.sol#L174)]
 
 ```solidity
-File: packages/protocol/contracts/common/AddressManager.sol
+File: packages/protocol/contracts/common/DefaultResolver.sol
 
-10: 		contract AddressManager is EssentialContract, IAddressManager {
+10: 		contract DefaultResolver is EssentialContract, IDefaultResolver {
 ```
 
-[[10](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/AddressManager.sol#L10)]
+[[10](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/DefaultResolver.sol#L10)]
 
 ```solidity
 File: packages/protocol/contracts/common/AddressResolver.sol
@@ -8384,12 +8384,12 @@ File: packages/protocol/contracts/common/EssentialContract.sol
 [[10](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/EssentialContract.sol#L10)]
 
 ```solidity
-File: packages/protocol/contracts/common/IAddressManager.sol
+File: packages/protocol/contracts/common/IDefaultResolver.sol
 
-7: 		interface IAddressManager {
+7: 		interface IDefaultResolver {
 ```
 
-[[7](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/IAddressManager.sol#L7)]
+[[7](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/IDefaultResolver.sol#L7)]
 
 ```solidity
 File: packages/protocol/contracts/common/IAddressResolver.sol
@@ -9372,12 +9372,12 @@ File: packages/protocol/contracts/bridge/IBridge.sol
 [[8](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/IBridge.sol#L8), [160](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/IBridge.sol#L160), [174](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/IBridge.sol#L174)]
 
 ```solidity
-File: packages/protocol/contracts/common/AddressManager.sol
+File: packages/protocol/contracts/common/DefaultResolver.sol
 
-10: 		contract AddressManager is EssentialContract, IAddressManager {
+10: 		contract DefaultResolver is EssentialContract, IDefaultResolver {
 ```
 
-[[10](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/AddressManager.sol#L10)]
+[[10](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/DefaultResolver.sol#L10)]
 
 ```solidity
 File: packages/protocol/contracts/common/AddressResolver.sol
@@ -9396,12 +9396,12 @@ File: packages/protocol/contracts/common/EssentialContract.sol
 [[10](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/EssentialContract.sol#L10)]
 
 ```solidity
-File: packages/protocol/contracts/common/IAddressManager.sol
+File: packages/protocol/contracts/common/IDefaultResolver.sol
 
-7: 		interface IAddressManager {
+7: 		interface IDefaultResolver {
 ```
 
-[[7](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/IAddressManager.sol#L7)]
+[[7](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/IDefaultResolver.sol#L7)]
 
 ```solidity
 File: packages/protocol/contracts/common/IAddressResolver.sol
@@ -9978,12 +9978,12 @@ File: packages/protocol/contracts/bridge/Bridge.sol
 [[48](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/bridge/Bridge.sol#L48)]
 
 ```solidity
-File: packages/protocol/contracts/common/AddressManager.sol
+File: packages/protocol/contracts/common/DefaultResolver.sol
 
 14: 		    uint256[49] private __gap;
 ```
 
-[[14](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/AddressManager.sol#L14)]
+[[14](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/DefaultResolver.sol#L14)]
 
 ```solidity
 File: packages/protocol/contracts/common/AddressResolver.sol
@@ -11751,7 +11751,7 @@ File: packages/protocol/contracts/bridge/Bridge.sol
 ```solidity
 File: packages/protocol/contracts/common/AddressResolver.sol
 
-83: 		        addr_ = payable(IAddressManager(addressManager).getAddress(_chainId, _name));
+83: 		        addr_ = payable(IDefaultResolver(addressManager).getAddress(_chainId, _name));
 ```
 
 [[83](https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/common/AddressResolver.sol#L83)]
@@ -12382,8 +12382,8 @@ Overall, Taiko L2 offers a fast and cost-effective way to process transactions o
 
 1 . contracts/common/
 
-- [common/IAddressManager.sol](https://github.com/code-423n4/2024-03-taiko/blob/main/packages/protocol/contracts/common/IAddressManager.sol)
-- [common/AddressManager.sol](https://github.com/code-423n4/2024-03-taiko/blob/main/packages/protocol/contracts/common/AddressManager.sol)
+- [common/IDefaultResolver.sol](https://github.com/code-423n4/2024-03-taiko/blob/main/packages/protocol/contracts/common/IDefaultResolver.sol)
+- [common/DefaultResolver.sol](https://github.com/code-423n4/2024-03-taiko/blob/main/packages/protocol/contracts/common/DefaultResolver.sol)
 - [common/IAddressResolver.sol](https://github.com/code-423n4/2024-03-taiko/blob/main/packages/protocol/contracts/common/IAddressResolver.sol)
 - [common/AddressResolver.sol](https://github.com/code-423n4/2024-03-taiko/blob/main/packages/protocol/contracts/common/AddressResolver.sol)
 - [common/EssentialContract.sol](https://github.com/code-423n4/2024-03-taiko/blob/main/packages/protocol/contracts/common/EssentialContract.sol)
@@ -12532,11 +12532,11 @@ My approach to ensure a thorough and comprehensive audit would encompass several
 
 ### 4.2 Contracts Overview
 
-1 . [common/IAddressManager.sol](https://github.com/code-423n4/2024-03-taiko/blob/main/packages/protocol/contracts/common/IAddressManager.sol)
+1 . [common/IDefaultResolver.sol](https://github.com/code-423n4/2024-03-taiko/blob/main/packages/protocol/contracts/common/IDefaultResolver.sol)
 This is an interface defining common functions for managing addresses, such as adding or removing an address from a whitelist or blacklist.
 
-2. [common/AddressManager.sol](https://github.com/code-423n4/2024-03-taiko/blob/main/packages/protocol/contracts/common/AddressManager.sol)
-   This is an implementation of the IAddressManager interface. It manages a set of addresses and maintains separate whitelists and blacklists. The contract has internal functions for adding/removing addresses from both lists, as well as functions for getting the total number of addresses and checking membership on the lists.
+2. [common/DefaultResolver.sol](https://github.com/code-423n4/2024-03-taiko/blob/main/packages/protocol/contracts/common/DefaultResolver.sol)
+   This is an implementation of the IDefaultResolver interface. It manages a set of addresses and maintains separate whitelists and blacklists. The contract has internal functions for adding/removing addresses from both lists, as well as functions for getting the total number of addresses and checking membership on the lists.
 
 3. [common/IAddressResolver.sol](https://github.com/code-423n4/2024-03-taiko/blob/main/packages/protocol/contracts/common/IAddressResolver.sol)
    This is an interface for a contract that resolves addresses, essentially mapping deployment addresses (i.e., contract or token addresses) to other information that the protocol requires.

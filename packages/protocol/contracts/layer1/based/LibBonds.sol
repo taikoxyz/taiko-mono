@@ -3,9 +3,9 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import "src/shared/common/IAddressResolver.sol";
-import "src/shared/common/LibAddress.sol";
-import "src/shared/common/LibStrings.sol";
+import "src/shared/common/IResolver.sol";
+import "src/shared/libs/LibAddress.sol";
+import "src/shared/libs/LibStrings.sol";
 import "./TaikoData.sol";
 
 /// @title LibBonds
@@ -43,7 +43,7 @@ library LibBonds {
     /// @param _amount The amount of tokens to deposit.
     function depositBond(
         TaikoData.State storage _state,
-        IAddressResolver _resolver,
+        IResolver _resolver,
         uint256 _amount
     )
         public
@@ -58,7 +58,7 @@ library LibBonds {
     /// @param _amount The amount of tokens to withdraw.
     function withdrawBond(
         TaikoData.State storage _state,
-        IAddressResolver _resolver,
+        IResolver _resolver,
         uint256 _amount
     )
         public
@@ -97,7 +97,7 @@ library LibBonds {
     /// @param _amount The amount of tokens to debit.
     function debitBond(
         TaikoData.State storage _state,
-        IAddressResolver _resolver,
+        IResolver _resolver,
         address _user,
         uint256 _blockId,
         uint256 _amount
@@ -142,7 +142,7 @@ library LibBonds {
     /// @param _resolver The address resolver.
     /// @param _user The user who made the deposit
     /// @param _amount The amount of tokens or Ether to deposit.
-    function _handleDeposit(IAddressResolver _resolver, address _user, uint256 _amount) private {
+    function _handleDeposit(IResolver _resolver, address _user, uint256 _amount) private {
         address bondToken = _bondToken(_resolver);
 
         if (bondToken != address(0)) {
@@ -158,7 +158,7 @@ library LibBonds {
     /// is used as bond asset.
     /// @param _resolver The address resolver.
     /// @return The IERC20 interface of the TAIKO token.
-    function _bondToken(IAddressResolver _resolver) private view returns (address) {
-        return _resolver.resolve(LibStrings.B_BOND_TOKEN, true);
+    function _bondToken(IResolver _resolver) private view returns (address) {
+        return _resolver.resolve(block.chainid, LibStrings.B_BOND_TOKEN, true);
     }
 }

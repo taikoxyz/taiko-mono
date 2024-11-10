@@ -28,8 +28,6 @@ jobs:
   #     vercel_org_id: ${{ secrets.VERCEL_ORG_ID }}
   #     vercel_token: ${{ secrets.VERCEL_TOKEN }}
 
-
-
   deploy_guardians-ui_hekla_preview:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
     needs: build-and-test

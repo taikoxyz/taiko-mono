@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "@sp1-contracts/src/ISP1Verifier.sol";
 import "src/shared/common/EssentialContract.sol";
-import "src/shared/common/LibStrings.sol";
+import "src/shared/libs/LibStrings.sol";
 import "../based/ITaikoL1.sol";
 import "./LibPublicInput.sol";
 import "./IVerifier.sol";
@@ -28,7 +28,7 @@ contract SP1Verifier is EssentialContract, IVerifier {
 
     /// @notice Initializes the contract with the provided address manager.
     /// @param _owner The address of the owner.
-    /// @param _addressManager The address of the AddressManager.
+    /// @param _addressManager The address of the DefaultResolver.
     function init(address _owner, address _addressManager) external initializer {
         __Essential_init(_owner, _addressManager);
     }

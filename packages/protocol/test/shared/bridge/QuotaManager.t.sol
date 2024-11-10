@@ -1,39 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../TaikoTest.sol";
+import "../CommonTest.sol";
 
-contract QuotaManagerTest is TaikoTest {
-    AddressManager public am;
-    QuotaManager public qm;
+contract TestQuotaManager is CommonTest {
+    // Contracts on Ethereum
+    QuotaManager private qm;
+    address private bridge = randAddress();
 
-    address bridge = vm.addr(0x100);
-
-    function setUp() public {
-        vm.startPrank(Alice); // The owner
-        vm.deal(Alice, 100 ether);
-
-        am = AddressManager(
-            deployProxy({
-                name: "address_manager",
-                impl: address(new AddressManager()),
-                data: abi.encodeCall(AddressManager.init, (address(0)))
-            })
-        );
-
-        am.setAddress(uint64(block.chainid), LibStrings.B_BRIDGE, bridge);
-
-        qm = QuotaManager(
-            payable(
-                deployProxy({
-                    name: "quota_manager",
-                    impl: address(new QuotaManager()),
-                    data: abi.encodeCall(QuotaManager.init, (address(0), address(am), 24 hours))
-                })
-            )
-        );
-
-        vm.stopPrank();
+    function setUpOnEthereum() internal override {
+        qm = deployQuotaManager();
+        register("bridge", bridge);
     }
 
     function test_quota_manager_consume_configged() public {
@@ -43,11 +20,11 @@ contract QuotaManagerTest is TaikoTest {
         vm.expectRevert();
         qm.updateQuota(Ether, 10 ether);
 
-        vm.prank(Alice);
+        vm.prank(deployer);
         qm.updateQuota(Ether, 10 ether);
         assertEq(qm.availableQuota(address(0), 0), 10 ether);
 
-        vm.expectRevert(AddressResolver.RESOLVER_DENIED.selector);
+        vm.expectRevert(EssentialContract.RESOLVER_DENIED.selector);
         qm.consumeQuota(Ether, 5 ether);
 
         vm.prank(bridge);

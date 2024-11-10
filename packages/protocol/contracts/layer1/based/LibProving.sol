@@ -105,7 +105,7 @@ library LibProving {
     function proveBlocks(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
-        IAddressResolver _resolver,
+        IResolver _resolver,
         uint64[] calldata _blockIds,
         bytes[] calldata _inputs,
         bytes calldata _batchProof
@@ -145,7 +145,7 @@ library LibProving {
 
         // If batch verifier name is not empty, verify the batch proof.
         if (batchVerifierName != LibStrings.B_TIER_OPTIMISTIC) {
-            IVerifier(_resolver.resolve(batchVerifierName, false)).verifyBatchProof(
+            IVerifier(_resolver.resolve(block.chainid, batchVerifierName, false)).verifyBatchProof(
                 ctxs, batchProof
             );
         }
@@ -162,7 +162,7 @@ library LibProving {
     function proveBlock(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
-        IAddressResolver _resolver,
+        IResolver _resolver,
         uint64 _blockId,
         bytes calldata _input
     )
@@ -187,7 +187,7 @@ library LibProving {
     function _proveBlock(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
-        IAddressResolver _resolver,
+        IResolver _resolver,
         uint64 _blockId,
         bytes calldata _input,
         TaikoData.TierProof memory _batchProof
@@ -248,11 +248,11 @@ library LibProving {
         // Retrieve the tier configurations. If the tier is not supported, the subsequent action
         // will result in a revert.
         {
-            ITierRouter tierRouter = ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false));
-            ITierProvider tierProvider = ITierProvider(tierRouter.getProvider(local.blockId));
+            ITierProvider tierProvider =
+                ITierProvider(_resolver.resolve(block.chainid, LibStrings.B_TIER_PROVIDER, false));
 
-            local.tier = tierProvider.getTier(local.proof.tier);
-            local.minTier = tierProvider.getTier(local.meta.minTier);
+            local.tier = tierProvider.getTier(local.blockId, local.proof.tier);
+            local.minTier = tierProvider.getTier(local.blockId, local.meta.minTier);
             local.isTopTier = local.tier.contestBond == 0;
         }
 
@@ -295,9 +295,8 @@ library LibProving {
 
             if (_batchProof.tier == 0) {
                 // In the case of per-transition proof, we verify the proof.
-                IVerifier(_resolver.resolve(local.tier.verifierName, false)).verifyProof(
-                    LibData.verifierContextV2ToV1(ctx_), ctx_.tran, local.proof
-                );
+                IVerifier(_resolver.resolve(block.chainid, local.tier.verifierName, false))
+                    .verifyProof(LibData.verifierContextV2ToV1(ctx_), ctx_.tran, local.proof);
             }
         }
 
@@ -468,7 +467,7 @@ library LibProving {
     /// @param _local Current Local struct.
     function _overrideWithHigherProof(
         TaikoData.State storage _state,
-        IAddressResolver _resolver,
+        IResolver _resolver,
         TaikoData.BlockV2 storage _blk,
         TaikoData.TransitionState memory _ts,
         TaikoData.Transition memory _tran,

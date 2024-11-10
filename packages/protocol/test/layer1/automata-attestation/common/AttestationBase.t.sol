@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "forge-std/src/Test.sol";
-import "forge-std/src/console.sol";
+import "forge-std/src/console2.sol";
 import "forge-std/src/StdJson.sol";
 
 import "@optimism/packages/contracts-bedrock/src/libraries/Bytes.sol";
@@ -16,8 +16,8 @@ import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
 import "src/layer1/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
 import "src/layer1/automata-attestation/utils/BytesUtils.sol";
 import "solady/src/utils/Base64.sol";
-import "../utils/DcapTestUtils.t.sol";
-import "../utils/V3QuoteParseUtils.t.sol";
+import "../utils/DcapTestUtils.sol";
+import "../utils/V3QuoteParseUtils.sol";
 
 contract AttestationBase is Test, DcapTestUtils, V3QuoteParseUtils {
     using BytesUtils for bytes;
@@ -111,7 +111,7 @@ contract AttestationBase is Test, DcapTestUtils, V3QuoteParseUtils {
         (bool qeIdParsedSuccess, EnclaveIdStruct.EnclaveId memory parsedEnclaveId) =
             parseEnclaveIdentityJson(_enclaveIdJson);
         AutomataDcapV3Attestation(_attestationAddress).configureQeIdentityJson(parsedEnclaveId);
-        console.log("qeIdParsedSuccess: %s", qeIdParsedSuccess);
+        console2.log("qeIdParsedSuccess: %s", qeIdParsedSuccess);
     }
 
     function configureTcbInfoJson(
@@ -124,7 +124,7 @@ contract AttestationBase is Test, DcapTestUtils, V3QuoteParseUtils {
             parseTcbInfoJson(_tcbInfoJson);
         string memory fmspc = LibString.lower(parsedTcbInfo.fmspc);
         AutomataDcapV3Attestation(_attestationAddress).configureTcbInfoJson(fmspc, parsedTcbInfo);
-        console.log("tcbParsedSuccess: %s", tcbParsedSuccess);
+        console2.log("tcbParsedSuccess: %s", tcbParsedSuccess);
     }
 
     function verifyParsedQuoteAttestation(
@@ -146,15 +146,15 @@ contract AttestationBase is Test, DcapTestUtils, V3QuoteParseUtils {
     )
         internal
     {
-        // console.logBytes(_v3QuoteBytes);
+        // console2.logBytes(_v3QuoteBytes);
         V3Struct.ParsedV3QuoteStruct memory v3quote =
             ParseV3QuoteBytes(_pemCertChainLibAddr, _v3QuoteBytes);
 
         address regInstanceAddr =
             address(bytes20(Bytes.slice(v3quote.localEnclaveReport.reportData, 0, 20)));
-        console.log("[log] register sgx instance address: %s", regInstanceAddr);
+        console2.log("[log] register sgx instance address: %s", regInstanceAddr);
         uint256 sgxIdx = SgxVerifier(_sgxVerifier).registerInstance(v3quote);
-        console.log("[log] register sgx instance index: %s", sgxIdx);
+        console2.log("[log] register sgx instance index: %s", sgxIdx);
     }
 
     function deployProxy(address impl, bytes memory data) internal returns (address proxy) {

@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "@risc0/contracts/IRiscZeroVerifier.sol";
 import "src/shared/common/EssentialContract.sol";
-import "src/shared/common/LibStrings.sol";
+import "src/shared/libs/LibStrings.sol";
 import "../based/ITaikoL1.sol";
 import "./LibPublicInput.sol";
 import "./IVerifier.sol";
@@ -33,9 +33,9 @@ contract Risc0Verifier is EssentialContract, IVerifier {
 
     /// @notice Initializes the contract with the provided address manager.
     /// @param _owner The address of the owner.
-    /// @param _rollupAddressManager The address of the AddressManager.
-    function init(address _owner, address _rollupAddressManager) external initializer {
-        __Essential_init(_owner, _rollupAddressManager);
+    /// @param _rollupResolver The address of the DefaultResolver.
+    function init(address _owner, address _rollupResolver) external initializer {
+        __Essential_init(_owner, _rollupResolver);
     }
 
     /// @notice Sets/unsets an the imageId as trusted entity

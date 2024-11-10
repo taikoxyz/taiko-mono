@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/shared/data/LibSharedData.sol";
+import "src/shared/based/LibSharedData.sol";
 
 /// @title TaikoData
 /// @notice This library defines various data structures used in the Taiko protocol.

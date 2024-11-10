@@ -72,8 +72,8 @@ export async function deployTaikoL2(
         if (!contractConfig.isProxy)
             storageLayoutName = `${contractName.replace("Impl", "")}`;
 
-        storageLayoutName = contractName.includes("AddressManager")
-            ? "AddressManager"
+        storageLayoutName = contractName.includes("DefaultResolver")
+            ? "DefaultResolver"
             : storageLayoutName;
 
         storageLayouts[contractName] =
@@ -134,10 +134,10 @@ async function generateContractConfigs(
         SignalServiceImpl: require(
             path.join(ARTIFACTS_PATH, "./SignalService.sol/SignalService.json"),
         ),
-        SharedAddressManagerImpl: require(
+        SharedDefaultResolverImpl: require(
             path.join(
                 ARTIFACTS_PATH,
-                "./AddressManager.sol/AddressManager.json",
+                "./DefaultResolver.sol/DefaultResolver.json",
             ),
         ),
         BridgedERC20Impl: require(
@@ -156,10 +156,10 @@ async function generateContractConfigs(
         TaikoL2Impl: require(
             path.join(ARTIFACTS_PATH, "./TaikoL2.sol/TaikoL2.json"),
         ),
-        RollupAddressManagerImpl: require(
+        RollupDefaultResolverImpl: require(
             path.join(
                 ARTIFACTS_PATH,
-                "./AddressManager.sol/AddressManager.json",
+                "./DefaultResolver.sol/DefaultResolver.json",
             ),
         ),
         // Libraries
@@ -178,10 +178,10 @@ async function generateContractConfigs(
     contractArtifacts.ERC721Vault = proxy;
     contractArtifacts.ERC1155Vault = proxy;
     contractArtifacts.SignalService = proxy;
-    contractArtifacts.SharedAddressManager = proxy;
+    contractArtifacts.SharedDefaultResolver = proxy;
     // Rollup Contracts
     contractArtifacts.TaikoL2 = proxy;
-    contractArtifacts.RollupAddressManager = proxy;
+    contractArtifacts.RollupDefaultResolver = proxy;
 
     const addressMap: any = {};
 
@@ -211,13 +211,13 @@ async function generateContractConfigs(
 
     return {
         // Shared Contracts
-        SharedAddressManagerImpl: {
-            address: addressMap.SharedAddressManagerImpl,
+        SharedDefaultResolverImpl: {
+            address: addressMap.SharedDefaultResolverImpl,
             deployedBytecode: replaceUUPSImmutableValues(
-                contractArtifacts.SharedAddressManagerImpl,
+                contractArtifacts.SharedDefaultResolverImpl,
                 uupsImmutableReferencesMap,
                 ethers.utils.hexZeroPad(
-                    addressMap.SharedAddressManagerImpl,
+                    addressMap.SharedDefaultResolverImpl,
                     32,
                 ),
             ).deployedBytecode.object,
@@ -225,10 +225,10 @@ async function generateContractConfigs(
                 _owner: contractOwner,
             },
         },
-        SharedAddressManager: {
-            address: addressMap.SharedAddressManager,
+        SharedDefaultResolver: {
+            address: addressMap.SharedDefaultResolver,
             deployedBytecode:
-                contractArtifacts.SharedAddressManager.deployedBytecode.object,
+                contractArtifacts.SharedDefaultResolver.deployedBytecode.object,
             variables: {
                 // EssentialContract
                 __reentry: 1, // _FALSE
@@ -238,7 +238,7 @@ async function generateContractConfigs(
                 _initializing: false,
                 // EssentialContract => Ownable2StepUpgradeable
                 _owner: contractOwner,
-                // AddressManager
+                // DefaultResolver
                 __addresses: {
                     [chainId]: {
                         [ethers.utils.hexlify(
@@ -269,7 +269,7 @@ async function generateContractConfigs(
                 },
             },
             slots: {
-                [IMPLEMENTATION_SLOT]: addressMap.SharedAddressManagerImpl,
+                [IMPLEMENTATION_SLOT]: addressMap.SharedDefaultResolverImpl,
             },
             isProxy: true,
         },
@@ -300,7 +300,7 @@ async function generateContractConfigs(
                 // EssentialContract => Ownable2StepUpgradeable
                 _owner: contractOwner,
                 // EssentialContract => AddressResolver
-                addressManager: addressMap.SharedAddressManager,
+                addressManager: addressMap.SharedDefaultResolver,
             },
             slots: {
                 [IMPLEMENTATION_SLOT]: addressMap.BridgeImpl,
@@ -335,7 +335,7 @@ async function generateContractConfigs(
                 // EssentialContract => Ownable2StepUpgradeable
                 _owner: contractOwner,
                 // EssentialContract => AddressResolver
-                addressManager: addressMap.SharedAddressManager,
+                addressManager: addressMap.SharedDefaultResolver,
             },
             slots: {
                 [IMPLEMENTATION_SLOT]: addressMap.ERC20VaultImpl,
@@ -370,7 +370,7 @@ async function generateContractConfigs(
                 // EssentialContract => Ownable2StepUpgradeable
                 _owner: contractOwner,
                 // EssentialContract => AddressResolver
-                addressManager: addressMap.SharedAddressManager,
+                addressManager: addressMap.SharedDefaultResolver,
             },
             slots: {
                 [IMPLEMENTATION_SLOT]: addressMap.ERC721VaultImpl,
@@ -405,7 +405,7 @@ async function generateContractConfigs(
                 // EssentialContract => Ownable2StepUpgradeable
                 _owner: contractOwner,
                 // EssentialContract => AddressResolver
-                addressManager: addressMap.SharedAddressManager,
+                addressManager: addressMap.SharedDefaultResolver,
             },
             slots: {
                 [IMPLEMENTATION_SLOT]: addressMap.ERC1155VaultImpl,
@@ -473,7 +473,7 @@ async function generateContractConfigs(
                 // EssentialContract => Ownable2StepUpgradeable
                 _owner: contractOwner,
                 // EssentialContract => AddressResolver
-                addressManager: addressMap.SharedAddressManager,
+                addressManager: addressMap.SharedDefaultResolver,
                 isAuthorized: {
                     [addressMap.TaikoL2]: true,
                 },
@@ -511,7 +511,7 @@ async function generateContractConfigs(
                 // EssentialContract => Ownable2StepUpgradeable
                 _owner: contractOwner,
                 // EssentialContract => AddressResolver
-                addressManager: addressMap.RollupAddressManager,
+                addressManager: addressMap.RollupDefaultResolver,
                 // TaikoL2 => CrossChainOwned
                 l1ChainId,
                 // TaikoL2
@@ -535,13 +535,13 @@ async function generateContractConfigs(
             },
             isProxy: true,
         },
-        RollupAddressManagerImpl: {
-            address: addressMap.RollupAddressManagerImpl,
+        RollupDefaultResolverImpl: {
+            address: addressMap.RollupDefaultResolverImpl,
             deployedBytecode: replaceUUPSImmutableValues(
-                contractArtifacts.RollupAddressManagerImpl,
+                contractArtifacts.RollupDefaultResolverImpl,
                 uupsImmutableReferencesMap,
                 ethers.utils.hexZeroPad(
-                    addressMap.RollupAddressManagerImpl,
+                    addressMap.RollupDefaultResolverImpl,
                     32,
                 ),
             ).deployedBytecode.object,
@@ -549,10 +549,10 @@ async function generateContractConfigs(
                 _owner: contractOwner,
             },
         },
-        RollupAddressManager: {
-            address: addressMap.RollupAddressManager,
+        RollupDefaultResolver: {
+            address: addressMap.RollupDefaultResolver,
             deployedBytecode:
-                contractArtifacts.RollupAddressManager.deployedBytecode.object,
+                contractArtifacts.RollupDefaultResolver.deployedBytecode.object,
             variables: {
                 // EssentialContract
                 __reentry: 1, // _FALSE
@@ -562,7 +562,7 @@ async function generateContractConfigs(
                 _initializing: false,
                 // EssentialContract => Ownable2StepUpgradeable
                 _owner: contractOwner,
-                // AddressManager
+                // DefaultResolver
                 __addresses: {
                     [chainId]: {
                         [ethers.utils.hexlify(
@@ -578,7 +578,7 @@ async function generateContractConfigs(
                 },
             },
             slots: {
-                [IMPLEMENTATION_SLOT]: addressMap.RollupAddressManagerImpl,
+                [IMPLEMENTATION_SLOT]: addressMap.RollupDefaultResolverImpl,
             },
             isProxy: true,
         },

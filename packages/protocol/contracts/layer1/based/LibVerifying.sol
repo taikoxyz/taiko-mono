@@ -24,7 +24,7 @@ library LibVerifying {
         uint64 syncBlockId;
         uint24 syncTransitionId;
         address prover;
-        ITierRouter tierRouter;
+        ITierProvider tierProvider;
     }
 
     error L1_BLOCK_MISMATCH();
@@ -38,7 +38,7 @@ library LibVerifying {
     function verifyBlocks(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
-        IAddressResolver _resolver,
+        IResolver _resolver,
         uint64 _maxBlocksToVerify
     )
         internal
@@ -95,14 +95,14 @@ library LibVerifying {
                     break;
                 }
 
-                if (local.tierRouter == ITierRouter(address(0))) {
-                    local.tierRouter =
-                        ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false));
+                if (local.tierProvider == ITierProvider(address(0))) {
+                    local.tierProvider = ITierProvider(
+                        _resolver.resolve(block.chainid, LibStrings.B_TIER_PROVIDER, false)
+                    );
                 }
 
-                uint24 cooldown = ITierProvider(local.tierRouter.getProvider(local.blockId)).getTier(
-                    local.tier
-                ).cooldownWindow;
+                uint24 cooldown =
+                    local.tierProvider.getTier(local.blockId, local.tier).cooldownWindow;
 
                 if (!LibUtils.isPostDeadline(ts.timestamp, local.b.lastUnpausedAt, cooldown)) {
                     // If cooldownWindow is 0, the block can theoretically be proved and verified
@@ -162,8 +162,9 @@ library LibVerifying {
                     }
 
                     // Ask signal service to write cross chain signal
-                    ISignalService(_resolver.resolve(LibStrings.B_SIGNAL_SERVICE, false))
-                        .syncChainData(
+                    ISignalService(
+                        _resolver.resolve(block.chainid, LibStrings.B_SIGNAL_SERVICE, false)
+                    ).syncChainData(
                         _config.chainId,
                         LibStrings.H_STATE_ROOT,
                         local.syncBlockId,

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./TaikoL1TestGroupBase.sol";
+import "./TestTaikoL1Base.sol";
 
-contract TaikoL1TestGroup8 is TaikoL1TestGroupBase {
+contract TestTaikoL1_Group8 is TestTaikoL1Base {
     // Test summary:
     // 1. Alice proposes a block,
     // 2. TaikoL1 is paused.
@@ -13,7 +13,7 @@ contract TaikoL1TestGroup8 is TaikoL1TestGroupBase {
     // 6. Alice attempts again to prove the first block within the proving window.
     // 7. Alice tries to propose another block.
     function test_taikoL1_group_8_case_1() external {
-        vm.warp(1_000_000);
+        mineOneBlockAndWrap(1000 seconds);
         giveEthAndTko(Alice, 10_000 ether, 1000 ether);
 
         console2.log("====== Alice propose a block");
@@ -21,9 +21,9 @@ contract TaikoL1TestGroup8 is TaikoL1TestGroupBase {
         TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
 
         console2.log("====== Pause TaikoL1");
-        mineAndWrap(10 seconds);
-        vm.prank(L1.owner());
-        L1.pause();
+        mineOneBlockAndWrap(10 seconds);
+        vm.prank(taikoL1.owner());
+        taikoL1.pause();
 
         console2.log("====== Alice proves the block first after L1 paused");
 
@@ -44,9 +44,9 @@ contract TaikoL1TestGroup8 is TaikoL1TestGroupBase {
         proposeBlock(Alice, EssentialContract.INVALID_PAUSE_STATUS.selector);
 
         console2.log("====== Unpause TaikoL1");
-        mineAndWrap(10 seconds);
-        vm.prank(L1.owner());
-        L1.unpause();
+        mineOneBlockAndWrap(10 seconds);
+        vm.prank(taikoL1.owner());
+        taikoL1.unpause();
 
         console2.log("====== Alice proves the block first after L1 unpaused");
         proveBlock(Alice, meta, parentHash1, blockHash, stateRoot, meta.minTier, "");
@@ -63,7 +63,7 @@ contract TaikoL1TestGroup8 is TaikoL1TestGroupBase {
     // 6. Alice attempts again to prove the first block within the proving window.
     // 7. Alice tries to propose another block.
     function test_taikoL1_group_8_case_2() external {
-        vm.warp(1_000_000);
+        mineOneBlockAndWrap(1000 seconds);
         giveEthAndTko(Alice, 10_000 ether, 1000 ether);
 
         console2.log("====== Alice propose a block");
@@ -71,9 +71,9 @@ contract TaikoL1TestGroup8 is TaikoL1TestGroupBase {
         TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
 
         console2.log("====== Pause TaikoL1 proving");
-        mineAndWrap(10 seconds);
-        vm.prank(L1.owner());
-        L1.pauseProving(true);
+        mineOneBlockAndWrap(10 seconds);
+        vm.prank(taikoL1.owner());
+        taikoL1.pauseProving(true);
 
         console2.log("====== Alice proves the block first after L1 proving paused");
 
@@ -94,9 +94,9 @@ contract TaikoL1TestGroup8 is TaikoL1TestGroupBase {
         proposeBlock(Alice, "");
 
         console2.log("====== Unpause TaikoL1 proving");
-        mineAndWrap(10 seconds);
-        vm.prank(L1.owner());
-        L1.pauseProving(false);
+        mineOneBlockAndWrap(10 seconds);
+        vm.prank(taikoL1.owner());
+        taikoL1.pauseProving(false);
 
         console2.log("====== Alice proves the block first after L1 proving unpaused");
         proveBlock(Alice, meta, parentHash1, blockHash, stateRoot, meta.minTier, "");
@@ -107,15 +107,15 @@ contract TaikoL1TestGroup8 is TaikoL1TestGroupBase {
     // 2. Gets a transition by ID & hash that doesn't exist.
     function test_taikoL1_group_8_case_3() external {
         vm.expectRevert(LibUtils.L1_INVALID_BLOCK_ID.selector);
-        L1.getBlockV2(2);
+        taikoL1.getBlockV2(2);
 
         vm.expectRevert(LibUtils.L1_TRANSITION_NOT_FOUND.selector);
-        L1.getTransition(0, 2);
+        taikoL1.getTransition(0, 2);
 
         vm.expectRevert(LibUtils.L1_TRANSITION_NOT_FOUND.selector);
-        L1.getTransition(0, randBytes32());
+        taikoL1.getTransition(0, randBytes32());
 
         vm.expectRevert(LibUtils.L1_INVALID_BLOCK_ID.selector);
-        L1.getTransition(3, randBytes32());
+        taikoL1.getTransition(3, randBytes32());
     }
 }

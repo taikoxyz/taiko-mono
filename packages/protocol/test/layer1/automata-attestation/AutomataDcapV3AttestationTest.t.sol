@@ -2,11 +2,11 @@
 pragma solidity ^0.8.24;
 
 import "forge-std/src/Test.sol";
-import "forge-std/src/console.sol";
+import "forge-std/src/console2.sol";
 import "forge-std/src/StdJson.sol";
 import "./common/AttestationBase.t.sol";
 
-contract AutomataDcapV3AttestationTest is Test, AttestationBase {
+contract TestAutomataDcapV3Attestation is Test, AttestationBase {
     using BytesUtils for bytes;
     using stdJson for string;
 
@@ -49,7 +49,7 @@ contract AutomataDcapV3AttestationTest is Test, AttestationBase {
     function testParsedQuoteJsonAttestation() public {
         vm.prank(user);
         string memory v3QuoteJsonStr = vm.readFile(string.concat(vm.projectRoot(), v3QuoteJsonPath));
-        // console.log("[LOG] v3QuoteJsonStr: %s", v3QuoteJsonStr);
+        // console2.log("[LOG] v3QuoteJsonStr: %s", v3QuoteJsonStr);
         bytes memory v3QuotePacked = vm.parseJson(v3QuoteJsonStr);
 
         (, V3Struct.ParsedV3QuoteStruct memory v3quote) = parseV3QuoteJson(v3QuotePacked);
@@ -78,7 +78,7 @@ contract AutomataDcapV3AttestationTest is Test, AttestationBase {
             verifyParsedQuoteAttestation(v3QuoteBytes, true);
         address parsedInstanceAddr =
             address(bytes20(Bytes.slice(v3quote.localEnclaveReport.reportData, 0, 20)));
-        // console.log("[log] parsed instance addr = %s", parsedInstanceAddr);
+        // console2.log("[log] parsed instance addr = %s", parsedInstanceAddr);
         assertTrue(parsedInstanceAddr == address(0xFECF437744A6b5680cA60692eaA4b1A9320e8240));
     }
 
@@ -113,7 +113,7 @@ contract AutomataDcapV3AttestationTest is Test, AttestationBase {
             verifyParsedQuoteAttestation(v3QuoteBytes, true);
         address parsedInstanceAddr =
             address(bytes20(Bytes.slice(v3quote.localEnclaveReport.reportData, 0, 20)));
-        console.log("[log] parsed instance addr = %s", parsedInstanceAddr);
+        console2.log("[log] parsed instance addr = %s", parsedInstanceAddr);
         assertTrue(parsedInstanceAddr == address(0xC2D4564358139C90C17B744FE837F4DDc503EEdF));
     }
 
@@ -124,7 +124,7 @@ contract AutomataDcapV3AttestationTest is Test, AttestationBase {
             verifyParsedQuoteAttestation(v3QuoteBytes, true);
         address parsedInstanceAddr =
             address(bytes20(Bytes.slice(v3quote.localEnclaveReport.reportData, 0, 20)));
-        // console.log("[log] parsed instance addr = %s", parsedInstanceAddr);
+        // console2.log("[log] parsed instance addr = %s", parsedInstanceAddr);
         assertTrue(parsedInstanceAddr == 0xC2D4564358139C90C17B744FE837F4DDc503EEdF);
     }
 
@@ -138,7 +138,7 @@ contract AutomataDcapV3AttestationTest is Test, AttestationBase {
             verifyParsedQuoteAttestation(v3QuoteBytes, true);
         address parsedInstanceAddr =
             address(bytes20(Bytes.slice(v3quote.localEnclaveReport.reportData, 0, 20)));
-        // console.log("[log] parsed instance addr = %s", parsedInstanceAddr);
+        // console2.log("[log] parsed instance addr = %s", parsedInstanceAddr);
         assertTrue(parsedInstanceAddr == 0x309734C02d2145cABB034F3c0505D28F7E5bFc2d);
     }
 
@@ -152,7 +152,7 @@ contract AutomataDcapV3AttestationTest is Test, AttestationBase {
             verifyParsedQuoteAttestation(v3QuoteBytes, true);
         address parsedInstanceAddr =
             address(bytes20(Bytes.slice(v3quote.localEnclaveReport.reportData, 0, 20)));
-        // console.log("[log] parsed instance addr = %s", parsedInstanceAddr);
+        // console2.log("[log] parsed instance addr = %s", parsedInstanceAddr);
         assertTrue(parsedInstanceAddr == 0xecf78b2b1F7e61370e150678b6283C042c6bDa03);
     }
 
@@ -164,7 +164,7 @@ contract AutomataDcapV3AttestationTest is Test, AttestationBase {
             verifyParsedQuoteAttestation(v3QuoteBytes, true);
         address parsedInstanceAddr =
             address(bytes20(Bytes.slice(v3quote.localEnclaveReport.reportData, 0, 20)));
-        // console.log("[log] parsed instance addr = %s", parsedInstanceAddr);
+        // console2.log("[log] parsed instance addr = %s", parsedInstanceAddr);
         assertTrue(parsedInstanceAddr == 0x1d0B9a2a63D98B18B288889cB61160016534c814);
     }
 

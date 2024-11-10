@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "src/shared/common/EssentialContract.sol";
-import "src/shared/common/LibStrings.sol";
+import "src/shared/libs/LibStrings.sol";
 import "../IVerifier.sol";
 
 /// @title ComposeVerifier
@@ -31,9 +31,9 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _rollupAddressManager The address of the {AddressManager} contract.
-    function init(address _owner, address _rollupAddressManager) external initializer {
-        __Essential_init(_owner, _rollupAddressManager);
+    /// @param _rollupResolver The {IResolver} used by this rollup.
+    function init(address _owner, address _rollupResolver) external initializer {
+        __Essential_init(_owner, _rollupResolver);
     }
 
     /// @inheritdoc IVerifier
@@ -44,7 +44,6 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
     )
         external
         onlyAuthorizedCaller
-        nonReentrant
     {
         (address[] memory verifiers, uint256 numSubProofs_) = getSubVerifiersAndThreshold();
 
@@ -78,7 +77,6 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
     )
         external
         onlyAuthorizedCaller
-        nonReentrant
     {
         (address[] memory verifiers, uint256 numSubProofs_) = getSubVerifiersAndThreshold();
 
