@@ -5,10 +5,10 @@ import "src/shared/libs/LibStrings.sol";
 import "src/layer1/tiers/ITierProvider.sol";
 import "src/layer1/tiers/ITierRouter.sol";
 
-/// @title TierRouterStub
+/// @title TierRouter_With4Tiers
 /// @dev Labeled in AddressResolver as "tier_router"
 /// @custom:security-contact security@taiko.xyz
-contract TierRouterStub is ITierProvider, ITierRouter {
+contract TierRouter_With4Tiers is ITierProvider, ITierRouter {
     uint16 private minTier = 72;
     uint96 public constant BOND_UINT = 100 ether;
     uint16 public constant ONE_HOUR = 60;

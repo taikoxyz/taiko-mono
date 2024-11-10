@@ -5,7 +5,7 @@ import "../BaseTest.sol";
 import "../mocks/MockPreconfRegistry.sol";
 import "../mocks/MockPreconfServiceManager.sol";
 import "../mocks/MockBeaconBlockRoot.sol";
-import "test/layer1/based/stubs/TaikoL1Stub.sol";
+import "test/layer1/based/helpers/TaikoL1_EmptyStub.sol";
 
 import "src/layer1/preconf/impl/LibPreconfConstants.sol";
 import "src/layer1/preconf/impl/PreconfTaskManager.sol";
@@ -18,13 +18,13 @@ contract BlocksFixtures is BaseTest {
     MockPreconfRegistry internal preconfRegistry;
     MockPreconfServiceManager internal preconfServiceManager;
     MockBeaconBlockRoot internal beaconBlockRootContract;
-    TaikoL1Stub internal taikoL1;
+    TaikoL1_EmptyStub internal taikoL1;
 
     function setUp() public virtual {
         preconfRegistry = new MockPreconfRegistry();
         preconfServiceManager = new MockPreconfServiceManager();
         beaconBlockRootContract = new MockBeaconBlockRoot();
-        taikoL1 = new TaikoL1Stub();
+        taikoL1 = new TaikoL1_EmptyStub();
 
         preconfTaskManager = new PreconfTaskManager(
             IPreconfServiceManager(address(preconfServiceManager)),

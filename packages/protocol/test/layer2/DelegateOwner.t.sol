@@ -1,15 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../shared/thirdparty/Multicall3.sol";
-import "./Layer2Test.sol";
-
-contract EmptyEssential is EssentialContract {
-    function init(address _owner) external initializer {
-        __Essential_init(_owner);
-    }
-}
-
+import "test/shared/helpers/EssentialContract_EmptyStub.sol";
+import "test/shared/thirdparty/Multicall3.sol";
+import "test/layer2/Layer2Test.sol";
 
 contract TestDelegateOwner is Layer2Test {
     // Contracts on Ethereum
@@ -34,7 +28,7 @@ contract TestDelegateOwner is Layer2Test {
 
     function test_delegate_owner_single_non_delegatecall() public onTaiko {
         vm.startPrank(deployer);
-        EmptyEssential stub1 = _deployEmptyEssential("stub1", address(new EmptyEssential()));
+        EssentialContract_EmptyStub stub1 = _deployEssentialContract_EmptyStub("stub1", address(new EssentialContract_EmptyStub()));
         vm.stopPrank();
 
         bytes memory data = abi.encode( 
@@ -102,12 +96,12 @@ contract TestDelegateOwner is Layer2Test {
 
     function test_delegate_owner_delegate_tMulticall() public onTaiko {
         address tDelegateOwnerImpl2 = address(new DelegateOwner());
-        address impl1 = address(new EmptyEssential());
-        address impl2 = address(new EmptyEssential());
+        address impl1 = address(new EssentialContract_EmptyStub());
+        address impl2 = address(new EssentialContract_EmptyStub());
 
         vm.startPrank(deployer);
-        EmptyEssential stub1 = _deployEmptyEssential("stub1", impl1);
-        EmptyEssential stub2 = _deployEmptyEssential("stub2", impl2);
+        EssentialContract_EmptyStub stub1 = _deployEssentialContract_EmptyStub("stub1", impl1);
+        EssentialContract_EmptyStub stub2 = _deployEssentialContract_EmptyStub("stub2", impl2);
         vm.stopPrank();
 
         Multicall3.Call3[] memory calls = new Multicall3.Call3[](4);
@@ -160,12 +154,12 @@ contract TestDelegateOwner is Layer2Test {
         assertEq(tDelegateOwner.admin(), David);
     }
 
-    function _deployEmptyEssential(bytes32 name, address impl) private returns (EmptyEssential) {
-        return EmptyEssential(
+    function _deployEssentialContract_EmptyStub(bytes32 name, address impl) private returns (EssentialContract_EmptyStub) {
+        return EssentialContract_EmptyStub(
             deploy({
                 name: name,
                 impl: impl,
-                data: abi.encodeCall(EmptyEssential.init, (address(tDelegateOwner)))
+                data: abi.encodeCall(EssentialContract_EmptyStub.init, (address(tDelegateOwner)))
             })
         );
     }
