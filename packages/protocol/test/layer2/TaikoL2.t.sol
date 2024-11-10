@@ -7,20 +7,26 @@ import "./helpers/TaikoL2_NoBaseFeeCheck.sol";
 contract TestTaikoL2 is Layer2Test {
     using SafeCast for uint256;
 
-    uint32 private constant BLOCK_GAS_LIMIT = 30_000_000;
-    uint64 private anchorBlockId;
+    uint64 public constant L1_CHAIN_ID = 12_345;
+    uint32 public constant BLOCK_GAS_LIMIT = 30_000_000;
 
-    // Contracts on Taiko
-    SignalService signalService;
+    uint64 public anchorBlockId;
     TaikoL2 public taikoL2;
+    SignalService public signalService;
 
     function setUpOnTaiko() internal override {
-        signalService = deploySignalService(address(new SignalService()));
-        taikoL2 = deployTaikoL2(address(new TaikoL2_NoBaseFeeCheck()), ethereumChainId);
-        signalService.authorize(address(taikoL2), true);
+        signalService = SignalService(
+            deploy({
+                name: "signal_service",
+                impl: address(new SignalService()),
+                data: abi.encodeCall(SignalService.init, (address(0), address(resolver)))
+            })
+        );
 
-        vm.roll(block.number + 1);
-        vm.warp(block.timestamp + 30);
+        taikoL2 = deployTaikoL2(address(new TaikoL2_NoBaseFeeCheck()), ethereumChainId);
+
+        signalService.authorize(address(taikoL2), true);
+        mineOneBlockAndWrap(30 seconds);
         vm.deal(address(taikoL2), 100 ether);
     }
 
@@ -67,7 +73,7 @@ contract TestTaikoL2 is Layer2Test {
 
         // Random EOA cannot call withdraw
         vm.expectRevert(EssentialContract.RESOLVER_DENIED.selector);
-        vm.prank(Alice);
+        vm.prank(Alice, Alice);
         taikoL2.withdraw(address(0), Alice);
     }
 
@@ -86,6 +92,7 @@ contract TestTaikoL2 is Layer2Test {
         uint8 _sharingPctg
     )
         external
+        onTaiko
     {
         LibSharedData.BaseFeeConfig memory baseFeeConfig = LibSharedData.BaseFeeConfig({
             adjustmentQuotient: _adjustmentQuotient,
@@ -110,6 +117,7 @@ contract TestTaikoL2 is Layer2Test {
         uint8 _sharingPctg
     )
         external
+        onTaiko
     {
         if (_parentGasUsed == 0) _parentGasUsed = 1;
         if (_gasIssuancePerSecond == 0) _gasIssuancePerSecond = 1;
@@ -128,7 +136,8 @@ contract TestTaikoL2 is Layer2Test {
         vm.prank(taikoL2.GOLDEN_TOUCH_ADDRESS());
         taikoL2.anchorV2(++anchorBlockId, anchorStateRoot, _parentGasUsed, baseFeeConfig);
 
-        (uint256 basefee, uint64 newGasTarget,) = taikoL2.getBasefeeV2(_parentGasUsed, baseFeeConfig);
+        (uint256 basefee, uint64 newGasTarget,) =
+            taikoL2.getBasefeeV2(_parentGasUsed, baseFeeConfig);
 
         assertTrue(basefee != 0, "basefee is 0");
         assertEq(newGasTarget, taikoL2.parentGasTarget());
