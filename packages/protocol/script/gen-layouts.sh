@@ -6,7 +6,7 @@
 contracts_shared=(
 "contracts/shared/tokenvault/ERC1155Vault.sol:ERC1155Vault"
 "contracts/shared/tokenvault/ERC20Vault.sol:ERC20Vault"
-"contracts/shared/tokenvault/ERC721Vault.soenunlock/Tol:ERC721Vault"
+"contracts/shared/tokenvault/ERC721Vault.sol:ERC721Vault"
 "contracts/shared/tokenvault/BridgedERC20.sol:BridgedERC20"
 "contracts/shared/tokenvault/BridgedERC20V2.sol:BridgedERC20V2"
 "contracts/shared/tokenvault/BridgedERC721.sol:BridgedERC721"
