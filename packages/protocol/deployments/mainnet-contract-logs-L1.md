@@ -216,7 +216,7 @@
   - upgraded from `0x4f6D5D3109C07E77035B410602996e445b18E8E9` to `0x3202Fc255aE09F91DbbD5b000b87dA4A2E04eE37` @commit`9345f14` @tx`0x13ea4d044a313cf667d16514465e6b96227ef7198bda7b19c70eefee44e9bccd`
   - upgraded from `0x3202Fc255aE09F91DbbD5b000b87dA4A2E04eE37` to `0x190D5d50D98D2202a618f75B2fD9986e60E096be` @commit`4fd7b59` @tx`0xf26d0526aa4b8225c603720ce0dc016803188b959c50677d5446087d1f2c4e60`
   - upgraded from `0x190D5d50D98D2202a618f75B2fD9986e60E096be` to `0x6D8e6e1a061791AD17A55De5e15a111c58f6Fb3D` @commit`2625c60` @tx`0x5d46840df79d8df508880675e7ea549e9b46137f597ca520c3e0c979439441d1`
-  - upgraded from `0x6D8e6e1a061791AD17A55De5e15a111c58f6Fb3D` to `0x52CA3c5566d779b3c6bb5c4f760Ea39E294Fc788` @commit`2625c60` @tx``
+  - upgraded from `0x6D8e6e1a061791AD17A55De5e15a111c58f6Fb3D` to `0x52CA3c5566d779b3c6bb5c4f760Ea39E294Fc788` @commit`9ae9a5e` @tx``
 
 #### taikoL1
 
@@ -245,12 +245,13 @@
 
 #### tier_router
 
-- impl: `0x6Cc40878Fef0918b1dCBF4cfbC6F7E46e9Db269E`
+- impl: `0x394E30d83d020469a1F8b16E89D7fD5FdB1935b0`
 - logs:
   - deployed on Oct 24, 2024 @commit`7334b1d`
   - deployed on Nov 1, 2024 @commit`f4f4796`
   - deployed on Nov 2, 2024 @commit`9182fba`
   - deployed on Nov 8, 2024 @commit`1fee7bb` without changes in [PR #18371](https://github.com/taikoxyz/taiko-mono/pull/18371)
+  - deployed on Nov 10, 2024 @commit`f24a908` without changes in [PR #18371](https://github.com/taikoxyz/taiko-mono/pull/18371)
 
 #### tier_sgx
 
