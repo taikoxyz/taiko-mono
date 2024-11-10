@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "forge-std/src/console2.sol";
 import "forge-std/src/StdJson.sol";
 import "forge-std/src/Test.sol";
-import "src/shared/common/AddressManager.sol";
+import "src/shared/common/DefaultResolver.sol";
 import "src/shared/bridge/Bridge.sol";
 import "src/shared/tokenvault/ERC1155Vault.sol";
 import "src/shared/tokenvault/ERC20Vault.sol";
@@ -32,7 +32,7 @@ contract TestGenerateGenesis is Test {
         checkDeployedCode("ERC1155Vault");
         checkDeployedCode("Bridge");
         checkDeployedCode("SignalService");
-        checkDeployedCode("SharedAddressManager");
+        checkDeployedCode("SharedDefaultResolver");
         checkDeployedCode("BridgedERC20Impl");
         checkDeployedCode("BridgedERC721Impl");
         checkDeployedCode("BridgedERC1155Impl");
@@ -43,7 +43,7 @@ contract TestGenerateGenesis is Test {
         checkProxyImplementation("ERC1155Vault");
         checkProxyImplementation("Bridge");
         checkProxyImplementation("SignalService");
-        checkProxyImplementation("SharedAddressManager");
+        checkProxyImplementation("SharedDefaultResolver");
 
         // // check proxies
         checkDeployedCode("ERC20Vault");
@@ -51,26 +51,26 @@ contract TestGenerateGenesis is Test {
         checkDeployedCode("ERC1155Vault");
         checkDeployedCode("Bridge");
         checkDeployedCode("SignalService");
-        checkDeployedCode("SharedAddressManager");
+        checkDeployedCode("SharedDefaultResolver");
     }
 
     function testRollupContractsDeployment() public {
         // check bytecode
         checkDeployedCode("TaikoL2");
-        checkDeployedCode("RollupAddressManager");
+        checkDeployedCode("RollupDefaultResolver");
 
         // check proxy implementations
         checkProxyImplementation("TaikoL2", contractOwner);
-        checkProxyImplementation("RollupAddressManager");
+        checkProxyImplementation("RollupDefaultResolver");
 
         // check proxies
         checkDeployedCode("TaikoL2");
-        checkDeployedCode("RollupAddressManager");
+        checkDeployedCode("RollupDefaultResolver");
     }
 
-    function testSharedAddressManager() public {
-        AddressManager addressManagerProxy =
-            AddressManager(getPredeployedContractAddress("SharedAddressManager"));
+    function testSharedDefaultResolver() public {
+        DefaultResolver addressManagerProxy =
+            DefaultResolver(getPredeployedContractAddress("SharedDefaultResolver"));
 
         assertEq(contractOwner, addressManagerProxy.owner());
 
@@ -82,14 +82,14 @@ contract TestGenerateGenesis is Test {
 
         vm.startPrank(addressManagerProxy.owner());
 
-        addressManagerProxy.upgradeTo(address(new AddressManager()));
+        addressManagerProxy.upgradeTo(address(new DefaultResolver()));
 
         vm.stopPrank();
     }
 
-    function testRollupAddressManager() public {
-        AddressManager addressManagerProxy =
-            AddressManager(getPredeployedContractAddress("RollupAddressManager"));
+    function testRollupDefaultResolver() public {
+        DefaultResolver addressManagerProxy =
+            DefaultResolver(getPredeployedContractAddress("RollupDefaultResolver"));
 
         assertEq(contractOwner, addressManagerProxy.owner());
 
@@ -98,7 +98,7 @@ contract TestGenerateGenesis is Test {
 
         vm.startPrank(addressManagerProxy.owner());
 
-        addressManagerProxy.upgradeTo(address(new AddressManager()));
+        addressManagerProxy.upgradeTo(address(new DefaultResolver()));
 
         vm.stopPrank();
     }
@@ -120,8 +120,8 @@ contract TestGenerateGenesis is Test {
         address bridgeAddress = getPredeployedContractAddress("Bridge");
 
         Bridge bridgeProxy = Bridge(payable(bridgeAddress));
-        AddressManager addressManager =
-            AddressManager(getPredeployedContractAddress("SharedAddressManager"));
+        DefaultResolver addressManager =
+            DefaultResolver(getPredeployedContractAddress("SharedDefaultResolver"));
 
         vm.startPrank(addressManager.owner());
         addressManager.registerAddress(1, "bridge", bridgeAddress);
@@ -184,8 +184,8 @@ contract TestGenerateGenesis is Test {
         address bridgeAddress = getPredeployedContractAddress("Bridge");
 
         ERC20Vault erc20VaultProxy = ERC20Vault(erc20VaultAddress);
-        AddressManager addressManager =
-            AddressManager(getPredeployedContractAddress("SharedAddressManager"));
+        DefaultResolver addressManager =
+            DefaultResolver(getPredeployedContractAddress("SharedDefaultResolver"));
 
         assertEq(contractOwner, erc20VaultProxy.owner());
 
@@ -206,8 +206,8 @@ contract TestGenerateGenesis is Test {
         address bridgeAddress = getPredeployedContractAddress("Bridge");
 
         EssentialContract erc721VaultProxy = EssentialContract(erc721VaultAddress);
-        AddressManager addressManager =
-            AddressManager(getPredeployedContractAddress("SharedAddressManager"));
+        DefaultResolver addressManager =
+            DefaultResolver(getPredeployedContractAddress("SharedDefaultResolver"));
 
         assertEq(contractOwner, erc721VaultProxy.owner());
 
@@ -228,8 +228,8 @@ contract TestGenerateGenesis is Test {
         address bridgeProxyAddress = getPredeployedContractAddress("Bridge");
 
         EssentialContract erc1155VaultProxy = EssentialContract(erc1155VaultProxyAddress);
-        AddressManager addressManager =
-            AddressManager(getPredeployedContractAddress("SharedAddressManager"));
+        DefaultResolver addressManager =
+            DefaultResolver(getPredeployedContractAddress("SharedDefaultResolver"));
 
         assertEq(contractOwner, erc1155VaultProxy.owner());
 
@@ -305,7 +305,7 @@ contract TestGenerateGenesis is Test {
     }
 
     function checkSavedAddress(
-        AddressManager resolver,
+        DefaultResolver resolver,
         string memory contractName,
         bytes32 name
     )

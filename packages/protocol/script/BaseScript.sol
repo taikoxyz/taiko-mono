@@ -10,7 +10,7 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@optimism/packages/contracts-bedrock/src/EAS/Common.sol";
 
-import "src/shared/common/AddressManager.sol";
+import "src/shared/common/DefaultResolver.sol";
 
 abstract contract BaseScript is Script {
     address public resolver = vm.envOr("RESOLVER", address(0));
@@ -26,7 +26,7 @@ abstract contract BaseScript is Script {
     function checkResolverOwnership() internal view {
         require(resolver != address(0), "invalid resolver address");
         require(
-            AddressManager(resolver).owner() == msg.sender, "resolver not owned by this contract"
+            DefaultResolver(resolver).owner() == msg.sender, "resolver not owned by this contract"
         );
     }
 
@@ -56,7 +56,7 @@ abstract contract BaseScript is Script {
         console2.log("       chain id:", block.chainid);
         if (name != "" && resolver != address(0)) {
             console2.log("  registered at:", resolver);
-            AddressManager(resolver).registerAddress(block.chainid, name, proxy);
+            DefaultResolver(resolver).registerAddress(block.chainid, name, proxy);
         }
     }
 
@@ -64,7 +64,7 @@ abstract contract BaseScript is Script {
         bytes32 name,
         address impl,
         bytes memory data,
-        AddressManager _resolver
+        DefaultResolver _resolver
     )
         internal
         returns (address proxy)

@@ -4,10 +4,10 @@ pragma solidity ^0.8.24;
 import "./EssentialContract.sol";
 import "./ResolverBase.sol";
 
-/// @title AddressManager
+/// @title DefaultResolver
 /// @notice See the documentation in {IResolver}.
 /// @custom:security-contact security@taiko.xyz
-contract AddressManager is EssentialContract, ResolverBase {
+contract DefaultResolver is EssentialContract, ResolverBase {
     /// @dev Mapping of chainId to mapping of name to address.
     mapping(uint256 chainId => mapping(bytes32 name => address addr)) private __addresses;
 

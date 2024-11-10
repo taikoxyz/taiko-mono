@@ -14,7 +14,7 @@ contract UpgradeHeklaOntakeL2 is BaseScript {
 
     address public newHeklaTaikoL2 = vm.envAddress("NEW_HEKLA_TAIKO_L2");
     address public newBridge = vm.envAddress("NEW_BRIDGE");
-    address public newAddressManager = vm.envAddress("NEW_ADDRESS_MANAGER");
+    address public newDefaultResolver = vm.envAddress("NEW_ADDRESS_MANAGER");
     address public newBridgedERC20 = vm.envAddress("NEW_BRIDGED_ERC20");
 
     function run() external broadcast {
@@ -30,16 +30,16 @@ contract UpgradeHeklaOntakeL2 is BaseScript {
         // Rollup address manager
         calls[2].target = 0x1670090000000000000000000000000000010002;
         calls[2].allowFailure = false;
-        calls[2].callData = abi.encodeCall(UUPSUpgradeable.upgradeTo, (newAddressManager));
+        calls[2].callData = abi.encodeCall(UUPSUpgradeable.upgradeTo, (newDefaultResolver));
         // Shared address manager
         calls[3].target = 0x1670090000000000000000000000000000000006;
         calls[3].allowFailure = false;
-        calls[3].callData = abi.encodeCall(UUPSUpgradeable.upgradeTo, (newAddressManager));
+        calls[3].callData = abi.encodeCall(UUPSUpgradeable.upgradeTo, (newDefaultResolver));
         // Register Bridged ERC20
         calls[4].target = 0x1670090000000000000000000000000000000006;
         calls[4].allowFailure = false;
         calls[4].callData = abi.encodeCall(
-            AddressManager.registerAddress, (167_009, bytes32("bridged_erc20"), newBridgedERC20)
+            DefaultResolver.registerAddress, (167_009, bytes32("bridged_erc20"), newBridgedERC20)
         );
 
         DelegateOwner.Call memory dcall = DelegateOwner.Call({

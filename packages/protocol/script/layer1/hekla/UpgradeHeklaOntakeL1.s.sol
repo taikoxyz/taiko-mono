@@ -18,11 +18,11 @@ contract UpgradeHeklaOntakeL1 is BaseScript {
         UUPSUpgradeable(0xA098b76a3Dd499D3F6D58D8AcCaFC8efBFd06807).upgradeTo(address(new Bridge()));
         // Rollup address manager
         UUPSUpgradeable(0x1F027871F286Cf4B7F898B21298E7B3e090a8403).upgradeTo(
-            address(new AddressManager())
+            address(new DefaultResolver())
         );
         // Shared address manager
         UUPSUpgradeable(0x7D3338FD5e654CAC5B10028088624CA1D64e74f7).upgradeTo(
-            address(new AddressManager())
+            address(new DefaultResolver())
         );
         // Prover set
         UUPSUpgradeable(0xD3f681bD6B49887A48cC9C9953720903967E9DC0).upgradeTo(

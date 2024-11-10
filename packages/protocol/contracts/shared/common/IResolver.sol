@@ -3,11 +3,11 @@ pragma solidity ^0.8.24;
 
 /// @title IAddressResolver
 /// @notice This contract acts as a bridge for name-to-address resolution.
-/// It delegates the resolution to the AddressManager. By separating the logic,
+/// It delegates the resolution to the DefaultResolver. By separating the logic,
 /// we can maintain flexibility in address management without affecting the
 /// resolving process.
 /// @dev Note that the address manager should be changed using upgradability, there
-/// is no setAddressManager() function to guarantee atomicity across all
+/// is no setDefaultResolver() function to guarantee atomicity across all
 /// contracts that are resolvers.
 /// @custom:security-contact security@taiko.xyz
 interface IResolver {

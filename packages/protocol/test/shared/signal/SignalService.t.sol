@@ -120,11 +120,7 @@ contract TestSignalService is CommonTest {
         uint64 someChainId = 12_345;
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](1);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IResolver.RESOLVED_TO_ZERO_ADDRESS.selector, someChainId, bytes32("signal_service")
-            )
-        );
+        vm.expectRevert(IResolver.RESOLVED_TO_ZERO_ADDRESS.selector);
         mockSignalService.proveSignalReceived({
             _chainId: someChainId,
             _app: randAddress(),
@@ -197,13 +193,7 @@ contract TestSignalService is CommonTest {
         proofs[0].chainId = ethereumChainId + 1;
         proofs[0].blockId = 1;
 
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IResolver.RESOLVED_TO_ZERO_ADDRESS.selector,
-                proofs[0].chainId,
-                bytes32("signal_service")
-            )
-        );
+        vm.expectRevert(IResolver.RESOLVED_TO_ZERO_ADDRESS.selector);
 
         mockSignalService.proveSignalReceived({
             _chainId: ethereumChainId,
@@ -362,13 +352,7 @@ contract TestSignalService is CommonTest {
         proofs[2].storageProof = new bytes[](10);
 
         // expect RESOLVED_TO_ZERO_ADDRESS
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IResolver.RESOLVED_TO_ZERO_ADDRESS.selector,
-                proofs[0].chainId,
-                bytes32("signal_service")
-            )
-        );
+        vm.expectRevert(IResolver.RESOLVED_TO_ZERO_ADDRESS.selector);
         mockSignalService.proveSignalReceived({
             _chainId: ethereumChainId,
             _app: randAddress(),

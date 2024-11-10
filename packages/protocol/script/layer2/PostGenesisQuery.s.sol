@@ -13,7 +13,7 @@ contract PostGenesisQuery is BaseScript {
         display_general_info();
 
         console2.log("sharedResolver");
-        AddressManager sharedResolver = AddressManager(0x1670000000000000000000000000000000000006);
+        DefaultResolver sharedResolver = DefaultResolver(0x1670000000000000000000000000000000000006);
         console2.log("- taiko_token:", sharedResolver.resolve(taikoChainId, "taiko_token", true));
         console2.log(
             "- signal_service:", sharedResolver.resolve(taikoChainId, "signal_service", true)
@@ -56,7 +56,7 @@ contract PostGenesisQuery is BaseScript {
         );
 
         console2.log("sharedResolver");
-        sharedResolver = AddressManager(0x1670000000000000000000000000000000010002);
+        sharedResolver = DefaultResolver(0x1670000000000000000000000000000000010002);
         console2.log("- taiko_token:", sharedResolver.resolve(taikoChainId, "taiko_token", true));
         console2.log(
             "- signal_service:", sharedResolver.resolve(taikoChainId, "signal_service", true)

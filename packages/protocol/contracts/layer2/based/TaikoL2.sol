@@ -90,19 +90,19 @@ contract TaikoL2 is EssentialContract, IBlockHash, TaikoL2Deprecated {
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _rollupAddressManager The address of the {AddressManager} contract.
+    /// @param _rollupDefaultResolver The address of the {DefaultResolver} contract.
     /// @param _l1ChainId The ID of the base layer.
     /// @param _initialGasExcess The initial parentGasExcess.
     function init(
         address _owner,
-        address _rollupAddressManager,
+        address _rollupDefaultResolver,
         uint64 _l1ChainId,
         uint64 _initialGasExcess
     )
         external
         initializer
     {
-        __Essential_init(_owner, _rollupAddressManager);
+        __Essential_init(_owner, _rollupDefaultResolver);
 
         require(_l1ChainId != 0, L2_INVALID_L1_CHAIN_ID());
         require(_l1ChainId != block.chainid, L2_INVALID_L1_CHAIN_ID());

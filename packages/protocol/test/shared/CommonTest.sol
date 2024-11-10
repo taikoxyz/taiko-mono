@@ -12,7 +12,7 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@optimism/packages/contracts-bedrock/src/EAS/Common.sol";
 
-import "src/shared/common/AddressManager.sol";
+import "src/shared/common/DefaultResolver.sol";
 import "src/shared/tokenvault/BridgedERC20V2.sol";
 import "src/shared/tokenvault/BridgedERC721.sol";
 import "src/shared/tokenvault/BridgedERC1155.sol";
@@ -54,7 +54,7 @@ abstract contract CommonTest is Test, Script {
     address internal Zachary = randAddress();
 
     address internal deployer = msg.sender;
-    AddressManager internal resolver;
+    DefaultResolver internal resolver;
     uint64 ethereumChainId;
     uint64 taikoChainId;
 
@@ -85,7 +85,7 @@ abstract contract CommonTest is Test, Script {
         ethereumChainId = uint64(block.chainid);
         taikoChainId = ethereumChainId + 10_000;
 
-        resolver = deployAddressManager();
+        resolver = deployDefaultResolver();
 
         setUpOnEthereum();
 
@@ -147,12 +147,12 @@ abstract contract CommonTest is Test, Script {
         }
     }
 
-    function deployAddressManager() internal returns (AddressManager) {
-        return AddressManager(
+    function deployDefaultResolver() internal returns (DefaultResolver) {
+        return DefaultResolver(
             deploy({
                 name: "resolver",
-                impl: address(new AddressManager()),
-                data: abi.encodeCall(AddressManager.init, (address(0)))
+                impl: address(new DefaultResolver()),
+                data: abi.encodeCall(DefaultResolver.init, (address(0)))
             })
         );
     }

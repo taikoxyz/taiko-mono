@@ -19,9 +19,9 @@ contract ERC20AirdropNoVerify is ERC20Airdrop {
     }
 }
 
-// Simple mock - so that we do not need to deploy AddressManager (for these tests). With this
+// Simple mock - so that we do not need to deploy DefaultResolver (for these tests). With this
 // contract we mock an ERC20Vault which mints tokens into a Vault (which holds the TKO).
-contract MockAddressManager {
+contract MockDefaultResolver {
     address mockERC20Vault;
 
     constructor(address _mockERC20Vault) {
