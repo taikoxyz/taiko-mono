@@ -65,6 +65,7 @@ contract TestSP1Verifier is Layer1Test {
     function test_sp1_Plonk_verifyBatchProof() public {
         // proof generation elf vk digest which is not a bn254 hash
         // but a sha256 hash from the same Sp1Verifykey.
+        vm.startPrank(sp1Verifier.owner());
         sp1Verifier.setProgramTrusted(
             bytes32(0x270b3d1b1fbd613c23185f586ffdda82729a4c8968595c0f76312be15a412bff), true
         );
@@ -73,6 +74,7 @@ contract TestSP1Verifier is Layer1Test {
             bytes32(0x00d5ff4ed163b73e75aa1f60c399b3c778df24abe584fc6eee1ce5c444b74bcd), true
         );
         
+        vm.stopPrank();
         // Context
         IVerifier.ContextV2[] memory ctxs = new IVerifier.ContextV2[](2);
         ctxs[0] = IVerifier.ContextV2({
