@@ -293,7 +293,7 @@
 
 * **protocol:** allow TAIKO token bonds deposits and withdrawal ([#17725](https://github.com/taikoxyz/taiko-mono/issues/17725)) ([e505392](https://github.com/taikoxyz/taiko-mono/commit/e505392068084faa37b4b0d138ac79012256c692))
 * **protocol:** emit CalldataTxList when calldata is used for DA ([#17657](https://github.com/taikoxyz/taiko-mono/issues/17657)) ([f49aae8](https://github.com/taikoxyz/taiko-mono/commit/f49aae828e7c0695be359305c9d618977014c5af))
-* **protocol:** update `tier_router` address in `L1RollupDefaultResolver` ([#17717](https://github.com/taikoxyz/taiko-mono/issues/17717)) ([57c8dc0](https://github.com/taikoxyz/taiko-mono/commit/57c8dc0f0cae430b54d47b12939f1484d6c87184))
+* **protocol:** update `tier_router` address in `L1RollupAddressManager` ([#17717](https://github.com/taikoxyz/taiko-mono/issues/17717)) ([57c8dc0](https://github.com/taikoxyz/taiko-mono/commit/57c8dc0f0cae430b54d47b12939f1484d6c87184))
 
 
 ### Bug Fixes
@@ -393,7 +393,7 @@
 * **protocol:** allow tier configuration based on block numbers. ([#17399](https://github.com/taikoxyz/taiko-mono/issues/17399)) ([3e50e1c](https://github.com/taikoxyz/taiko-mono/commit/3e50e1cde3b39f067a3ed1815f2cc94b3dd10ef4))
 * **protocol:** change blockMaxProposals from 432_000 to 324000 ([#17499](https://github.com/taikoxyz/taiko-mono/issues/17499)) ([c6d184a](https://github.com/taikoxyz/taiko-mono/commit/c6d184a6d0858860b6c8c258830814452bac6d04))
 * **protocol:** deploy `ProverSet` in `DeployOnL1` script ([#17272](https://github.com/taikoxyz/taiko-mono/issues/17272)) ([6e56475](https://github.com/taikoxyz/taiko-mono/commit/6e56475413c3240d56d70d413ca5195cd1ced4cc))
-* **protocol:** enable DefaultResolver not to load from storage ([#17250](https://github.com/taikoxyz/taiko-mono/issues/17250)) ([c8207d3](https://github.com/taikoxyz/taiko-mono/commit/c8207d38bf3356ecbb629e36831de021afb582c5))
+* **protocol:** enable AddressManager not to load from storage ([#17250](https://github.com/taikoxyz/taiko-mono/issues/17250)) ([c8207d3](https://github.com/taikoxyz/taiko-mono/commit/c8207d38bf3356ecbb629e36831de021afb582c5))
 * **protocol:** enable permissionless block-proposing ([#17303](https://github.com/taikoxyz/taiko-mono/issues/17303)) ([62dd749](https://github.com/taikoxyz/taiko-mono/commit/62dd74915c61fb9f2c2797c6beb5fdb1f15d6726))
 * **protocol:** improve Bridge `gasleft()` validation ([#17422](https://github.com/taikoxyz/taiko-mono/issues/17422)) ([0febafe](https://github.com/taikoxyz/taiko-mono/commit/0febafecafc9d83bed3232db09444ae345798606))
 * **protocol:** make AutomataDcapV3Attestation state variables public and emit events ([#17193](https://github.com/taikoxyz/taiko-mono/issues/17193)) ([3740dc0](https://github.com/taikoxyz/taiko-mono/commit/3740dc070ae57ab66051f4ba1c046dd732e90dab))
@@ -462,7 +462,7 @@
 
 ### Bug Fixes
 
-* **protocol:** allow DefaultResolver to reference self ([#17070](https://github.com/taikoxyz/taiko-mono/issues/17070)) ([9fbfb84](https://github.com/taikoxyz/taiko-mono/commit/9fbfb8411505ca62136259551cd401d34ee22f81))
+* **protocol:** allow AddressManager to reference self ([#17070](https://github.com/taikoxyz/taiko-mono/issues/17070)) ([9fbfb84](https://github.com/taikoxyz/taiko-mono/commit/9fbfb8411505ca62136259551cd401d34ee22f81))
 * **protocol:** allow TaikoL1 to be paused when initialized  ([#16893](https://github.com/taikoxyz/taiko-mono/issues/16893)) ([22d5d42](https://github.com/taikoxyz/taiko-mono/commit/22d5d42dad0b7f87a285406ba6b1ac9b688aed9e))
 * **protocol:** fix a deployment issue in TaikoL1 ([#16897](https://github.com/taikoxyz/taiko-mono/issues/16897)) ([c8384f2](https://github.com/taikoxyz/taiko-mono/commit/c8384f29872f39479cc9af7a486e3483cfd8b26d))
 * **protocol:** fix a workflow issue ([#16921](https://github.com/taikoxyz/taiko-mono/issues/16921)) ([a27fdbf](https://github.com/taikoxyz/taiko-mono/commit/a27fdbf60ef51f758c8bd64d37418266e8b22091))
@@ -836,8 +836,8 @@
 * **protocol:** Add a setter where all fee calc params can be set with one go ([#13816](https://github.com/taikoxyz/taiko-mono/issues/13816)) ([a78a2f8](https://github.com/taikoxyz/taiko-mono/commit/a78a2f8d6a9f61d3b2ec94fefd7b1faa83da7b3c))
 * **protocol:** add overridable getEIP1559Config() to TaikoL2 ([#13815](https://github.com/taikoxyz/taiko-mono/issues/13815)) ([e15a9c1](https://github.com/taikoxyz/taiko-mono/commit/e15a9c18cdecd2d753d3f7384c218ed7e65fab40))
 * **protocol:** Add reward and fee fields to events ([#13808](https://github.com/taikoxyz/taiko-mono/issues/13808)) ([10be2fb](https://github.com/taikoxyz/taiko-mono/commit/10be2fbe57b154909c99818ac8f2196276541a9b))
-* **protocol:** Add setter to IDefaultResolver of AddressResolver ([#13799](https://github.com/taikoxyz/taiko-mono/issues/13799)) ([34de89c](https://github.com/taikoxyz/taiko-mono/commit/34de89cdbdc99cd240571c24d6f0bc3770d7f916))
-* **protocol:** do not allow using owner() as named address in DefaultResolver ([#13771](https://github.com/taikoxyz/taiko-mono/issues/13771)) ([12c810f](https://github.com/taikoxyz/taiko-mono/commit/12c810f7f8911bc6b6540bbab276433966f96715))
+* **protocol:** Add setter to IAddressManager of AddressResolver ([#13799](https://github.com/taikoxyz/taiko-mono/issues/13799)) ([34de89c](https://github.com/taikoxyz/taiko-mono/commit/34de89cdbdc99cd240571c24d6f0bc3770d7f916))
+* **protocol:** do not allow using owner() as named address in AddressManager ([#13771](https://github.com/taikoxyz/taiko-mono/issues/13771)) ([12c810f](https://github.com/taikoxyz/taiko-mono/commit/12c810f7f8911bc6b6540bbab276433966f96715))
 * **protocol:** Move proofTimeTarget to state var and adjust scripts/tests ([#13769](https://github.com/taikoxyz/taiko-mono/issues/13769)) ([40086b1](https://github.com/taikoxyz/taiko-mono/commit/40086b100e9394d8bb276d7f53018859b1684680))
 * **protocol:** Scale up damping factor and flatten curve ([#13809](https://github.com/taikoxyz/taiko-mono/issues/13809)) ([b1dcb59](https://github.com/taikoxyz/taiko-mono/commit/b1dcb591729a382fc10617a409fae6557ac2f4fa))
 * **protocol:** update `PlonkVerifier` ([#13805](https://github.com/taikoxyz/taiko-mono/issues/13805)) ([6f9f022](https://github.com/taikoxyz/taiko-mono/commit/6f9f02242b2830c7597f29c1a4d5ee5b2314510c))
@@ -909,7 +909,7 @@
 - **protocol:** add isEtherReleased to Bridge ([#13204](https://github.com/taikoxyz/taiko-mono/issues/13204)) ([f39e65d](https://github.com/taikoxyz/taiko-mono/commit/f39e65da022b6af6a3f573843743aae9337c0077))
 - **protocol:** Additional integration tests, solidity bump, reduce ERC20Vault contract size ([#13155](https://github.com/taikoxyz/taiko-mono/issues/13155)) ([ffdf5db](https://github.com/taikoxyz/taiko-mono/commit/ffdf5db675404d463850fca0b97d37c23cde61a1))
 - **protocol:** Change require to custom err in bridge contracts ([#13220](https://github.com/taikoxyz/taiko-mono/issues/13220)) ([6e8cb82](https://github.com/taikoxyz/taiko-mono/commit/6e8cb82b477fa1a3ebf842dc4bf0dd0820d19e07))
-- **protocol:** Deploy a FreeMintERC20Token and a FreeMintERC20Token_With50PctgMintAndTransferFailure on deploy of L1 ([#13222](https://github.com/taikoxyz/taiko-mono/issues/13222)) ([0d3e769](https://github.com/taikoxyz/taiko-mono/commit/0d3e7692489c4ed5eadafae7aebde49000c03a7f))
+- **protocol:** Deploy a FreeMintERC20 and a MayFailFreeMintERC20 on deploy of L1 ([#13222](https://github.com/taikoxyz/taiko-mono/issues/13222)) ([0d3e769](https://github.com/taikoxyz/taiko-mono/commit/0d3e7692489c4ed5eadafae7aebde49000c03a7f))
 - **protocol:** disable contracts as msg.sender ([#13206](https://github.com/taikoxyz/taiko-mono/issues/13206)) ([66316e9](https://github.com/taikoxyz/taiko-mono/commit/66316e9cb74a167e1ce437616e47afec95458c6f))
 - **protocol:** make custom errors in L1 libs a part of the `TaikoL1.sol`'s ABI ([#13166](https://github.com/taikoxyz/taiko-mono/issues/13166)) ([2943e3e](https://github.com/taikoxyz/taiko-mono/commit/2943e3eeb18c12e5489c8974df6556caadfcb099))
 - **protocol:** partially randomize prover reward ([#13184](https://github.com/taikoxyz/taiko-mono/issues/13184)) ([16993cd](https://github.com/taikoxyz/taiko-mono/commit/16993cdb081b831420c7e86d981afd11726197d1))
@@ -917,7 +917,7 @@
 
 ### Bug Fixes
 
-- **protocol:** fix `PlonkVerifier`'s name in `DefaultResolver` ([#13229](https://github.com/taikoxyz/taiko-mono/issues/13229)) ([7170bd9](https://github.com/taikoxyz/taiko-mono/commit/7170bd966b02d986b26baf5991f47015a46cca64))
+- **protocol:** fix `PlonkVerifier`'s name in `AddressManager` ([#13229](https://github.com/taikoxyz/taiko-mono/issues/13229)) ([7170bd9](https://github.com/taikoxyz/taiko-mono/commit/7170bd966b02d986b26baf5991f47015a46cca64))
 - **protocol:** fix occasional test failure ([#13173](https://github.com/taikoxyz/taiko-mono/issues/13173)) ([3aaf5dd](https://github.com/taikoxyz/taiko-mono/commit/3aaf5dde644c8069050fcee52f1a9134144a746b))
 - **protocol:** use prevrandao for L2 mixHash ([#13157](https://github.com/taikoxyz/taiko-mono/issues/13157)) ([93daca4](https://github.com/taikoxyz/taiko-mono/commit/93daca47e11c31192aaa7f6db93d399a215164ad))
 
@@ -945,7 +945,7 @@
 
 ### Features
 
-- **protocol:** add `proto_broker` / `oracle_prover` addresses into `DefaultResolver` in deploy_L1 script ([#13079](https://github.com/taikoxyz/taiko-mono/issues/13079)) ([f3bea40](https://github.com/taikoxyz/taiko-mono/commit/f3bea40fbcdf4139cc84903ab69d1e0daf641c7c))
+- **protocol:** add `proto_broker` / `oracle_prover` addresses into `AddressManager` in deploy_L1 script ([#13079](https://github.com/taikoxyz/taiko-mono/issues/13079)) ([f3bea40](https://github.com/taikoxyz/taiko-mono/commit/f3bea40fbcdf4139cc84903ab69d1e0daf641c7c))
 - **protocol:** add special logics for alpha-2 testnet ([#12987](https://github.com/taikoxyz/taiko-mono/issues/12987)) ([3b71285](https://github.com/taikoxyz/taiko-mono/commit/3b712857b5d5ede2a3683d949d1974c8cceeb69a))
 - **protocol:** deploy the generated Yul plonk verifier ([#13016](https://github.com/taikoxyz/taiko-mono/issues/13016)) ([eb5d564](https://github.com/taikoxyz/taiko-mono/commit/eb5d564ec469b1ec79619b4d563c3f9989d264c2))
 - **protocol:** enable two dimensional circuit/verifier lookup. ([#13066](https://github.com/taikoxyz/taiko-mono/issues/13066)) ([51d1f67](https://github.com/taikoxyz/taiko-mono/commit/51d1f67aa45fec8e2de73c1ed5a992306c6339c1))
@@ -959,7 +959,7 @@
 - **protocol:** fix `test:integration` waiting node timeout ([#13006](https://github.com/taikoxyz/taiko-mono/issues/13006)) ([07debb7](https://github.com/taikoxyz/taiko-mono/commit/07debb779c1a142cf6050c31a5a8c9b72f26d376))
 - **protocol:** fix a downloading `solc` binary script bug ([#13074](https://github.com/taikoxyz/taiko-mono/issues/13074)) ([8167e9d](https://github.com/taikoxyz/taiko-mono/commit/8167e9dda0b0f70405e969f590f714b45af5b192))
 - **protocol:** fix two protocol bugs ([#13034](https://github.com/taikoxyz/taiko-mono/issues/13034)) ([1bfa69b](https://github.com/taikoxyz/taiko-mono/commit/1bfa69b4458f7edc4b72efe9c2d8cf9c7050853e))
-- **protocol:** update `ProofVerifier` address name in `DefaultResolver` ([#13063](https://github.com/taikoxyz/taiko-mono/issues/13063)) ([4144f4b](https://github.com/taikoxyz/taiko-mono/commit/4144f4bda154116f5e34759ced173a16f409202f))
+- **protocol:** update `ProofVerifier` address name in `AddressManager` ([#13063](https://github.com/taikoxyz/taiko-mono/issues/13063)) ([4144f4b](https://github.com/taikoxyz/taiko-mono/commit/4144f4bda154116f5e34759ced173a16f409202f))
 
 ## [0.1.0](https://github.com/taikoxyz/taiko-mono/compare/protocol-v0.0.1...protocol-v0.1.0) (2023-01-19)
 

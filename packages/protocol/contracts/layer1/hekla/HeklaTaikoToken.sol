@@ -23,18 +23,18 @@ contract HeklaTaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20Vo
     /// @param _name The name of the token.
     /// @param _symbol The symbol of the token.
     /// @param _recipient The address to receive initial token minting.
-    /// @param _addressManager The DefaultResolver address.
+    /// @param _resolver The IResolver address.
     function init(
         address _owner,
         string calldata _name,
         string calldata _symbol,
         address _recipient,
-        address _addressManager
+        address _resolver
     )
         public
         initializer
     {
-        __Essential_init(_owner, _addressManager);
+        __Essential_init(_owner, _resolver);
         __ERC20_init(_name, _symbol);
         __ERC20Snapshot_init();
         __ERC20Votes_init();

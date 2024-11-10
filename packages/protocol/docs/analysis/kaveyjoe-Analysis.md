@@ -187,8 +187,8 @@ Overall, Taiko L2 offers a fast and cost-effective way to process transactions o
 
 1 . contracts/common/
 
-- [common/IDefaultResolver.sol](https://github.com/code-423n4/2024-03-taiko/blob/main/packages/protocol/contracts/common/IDefaultResolver.sol)
-- [common/DefaultResolver.sol](https://github.com/code-423n4/2024-03-taiko/blob/main/packages/protocol/contracts/common/DefaultResolver.sol)
+- [common/IAddressManager.sol](https://github.com/code-423n4/2024-03-taiko/blob/main/packages/protocol/contracts/common/IAddressManager.sol)
+- [common/AddressManager.sol](https://github.com/code-423n4/2024-03-taiko/blob/main/packages/protocol/contracts/common/AddressManager.sol)
 - [common/IAddressResolver.sol](https://github.com/code-423n4/2024-03-taiko/blob/main/packages/protocol/contracts/common/IAddressResolver.sol)
 - [common/AddressResolver.sol](https://github.com/code-423n4/2024-03-taiko/blob/main/packages/protocol/contracts/common/AddressResolver.sol)
 - [common/EssentialContract.sol](https://github.com/code-423n4/2024-03-taiko/blob/main/packages/protocol/contracts/common/EssentialContract.sol)
@@ -337,11 +337,11 @@ My approach to ensure a thorough and comprehensive audit would encompass several
 
 ### 4.2 Contracts Overview
 
-1 . [common/IDefaultResolver.sol](https://github.com/code-423n4/2024-03-taiko/blob/main/packages/protocol/contracts/common/IDefaultResolver.sol)
+1 . [common/IAddressManager.sol](https://github.com/code-423n4/2024-03-taiko/blob/main/packages/protocol/contracts/common/IAddressManager.sol)
 This is an interface defining common functions for managing addresses, such as adding or removing an address from a whitelist or blacklist.
 
-2. [common/DefaultResolver.sol](https://github.com/code-423n4/2024-03-taiko/blob/main/packages/protocol/contracts/common/DefaultResolver.sol)
-   This is an implementation of the IDefaultResolver interface. It manages a set of addresses and maintains separate whitelists and blacklists. The contract has internal functions for adding/removing addresses from both lists, as well as functions for getting the total number of addresses and checking membership on the lists.
+2. [common/AddressManager.sol](https://github.com/code-423n4/2024-03-taiko/blob/main/packages/protocol/contracts/common/AddressManager.sol)
+   This is an implementation of the IAddressManager interface. It manages a set of addresses and maintains separate whitelists and blacklists. The contract has internal functions for adding/removing addresses from both lists, as well as functions for getting the total number of addresses and checking membership on the lists.
 
 3. [common/IAddressResolver.sol](https://github.com/code-423n4/2024-03-taiko/blob/main/packages/protocol/contracts/common/IAddressResolver.sol)
    This is an interface for a contract that resolves addresses, essentially mapping deployment addresses (i.e., contract or token addresses) to other information that the protocol requires.

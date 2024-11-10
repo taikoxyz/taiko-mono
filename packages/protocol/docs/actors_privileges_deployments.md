@@ -3,12 +3,12 @@
 ## Introduction
 
 This document provides a comprehensive overview of the actors involved in the smart contract system and outlines their respective privileges and roles.
-Different `roles` (we call them `domain`) are granted via `DefaultResolver` contract's `setAddress()` function. Idea is very similar Optimism's `DefaultResolver` except that we use the `chainId + domainName` as the key for a given address. We need so, because for bridging purposes, the destination chain's bridge address needs to be included signaling the message hash is tamper-proof.
-Every contract which needs some role-based authentication, needs to inherit from `AddressResolver` contract, which will serve as a 'middleman/lookup' by querying the `DefaultResolver` per given address is allowed to act on behalf of that domain or not.
+Different `roles` (we call them `domain`) are granted via `AddressManager` contract's `setAddress()` function. Idea is very similar Optimism's `AddressManager` except that we use the `chainId + domainName` as the key for a given address. We need so, because for bridging purposes, the destination chain's bridge address needs to be included signaling the message hash is tamper-proof.
+Every contract which needs some role-based authentication, needs to inherit from `AddressResolver` contract, which will serve as a 'middleman/lookup' by querying the `AddressManager` per given address is allowed to act on behalf of that domain or not.
 
 ## 1. Domains (≈role per chainId)
 
-In the context of the smart contract system, various actors play distinct roles. Each actor is associated with specific responsibilities and privileges within the system. When there is a modifier called `onlyFromNamed` or `onlyFromNamed2`, it means we are checking access through the before mentioned contracts (`AddressResolver` and `DefaultResolver`), and one function maximum allows up to 2 domains (right now, but it might change when e.g.`DAO` is set up) can be given access.
+In the context of the smart contract system, various actors play distinct roles. Each actor is associated with specific responsibilities and privileges within the system. When there is a modifier called `onlyFromNamed` or `onlyFromNamed2`, it means we are checking access through the before mentioned contracts (`AddressResolver` and `AddressManager`), and one function maximum allows up to 2 domains (right now, but it might change when e.g.`DAO` is set up) can be given access.
 
 ### 1.1 Taiko
 
@@ -37,7 +37,7 @@ Beside the `onlyFromNamed` or `onlyFromNamed2` modifiers, we have others such as
 ### 2.1 onlyOwner
 
 - **Description**: Only owner can be granted access.
-- **Associated contracts**: TaikoToken, DefaultResolver
+- **Associated contracts**: TaikoToken, AddressManager
 
 ### 2.2 onlyAuthorized
 

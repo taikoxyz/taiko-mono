@@ -28,9 +28,9 @@ contract SP1Verifier is EssentialContract, IVerifier {
 
     /// @notice Initializes the contract with the provided address manager.
     /// @param _owner The address of the owner.
-    /// @param _addressManager The address of the DefaultResolver.
-    function init(address _owner, address _addressManager) external initializer {
-        __Essential_init(_owner, _addressManager);
+    /// @param _resolver The IResolver address.
+    function init(address _owner, address _resolver) external initializer {
+        __Essential_init(_owner, _resolver);
     }
 
     /// @notice Sets/unsets an the program's verification key as trusted entity
