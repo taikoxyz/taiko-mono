@@ -467,7 +467,7 @@ contract ERC721VaultTest is CommonTest {
 
         assertEq(ERC721(deployedContract).ownerOf(1), Bob);
 
-        vm.prank(Bob, Bob);
+        vm.prank(Bob);
         ERC721(deployedContract).approve(address(tVault), 1);
 
         sendOpts = BaseNFTVault.BridgeTransferOp(
@@ -481,7 +481,7 @@ contract ERC721VaultTest is CommonTest {
             amounts
         );
 
-        vm.prank(Bob, Bob);
+        vm.prank(Bob);
         tVault.sendToken{ value: GAS_LIMIT }(sendOpts);
 
         vm.chainId(ethereumChainId);
@@ -561,7 +561,7 @@ contract ERC721VaultTest is CommonTest {
 
         assertEq(ERC721(deployedContract).ownerOf(1), Bob);
 
-        vm.prank(Bob, Bob);
+        vm.prank(Bob);
         ERC721(deployedContract).approve(address(tVault), 1);
 
         // Alice puts together a malicious bridging back message
