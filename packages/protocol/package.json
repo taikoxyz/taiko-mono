@@ -13,7 +13,7 @@
     "test:l1": "FOUNDRY_PROFILE=layer1 forge test --extra-output storage-layout --match-path 'test/layer1/**/*.t.sol'",
     "test:l2": "FOUNDRY_PROFILE=layer2 forge test --extra-output storage-layout --match-path 'test/layer2/**/*.t.sol'",
     "test:shared": "FOUNDRY_PROFILE=shared forge test --extra-output storage-layout --match-path 'test/shared/**/*.t.sol'",
-    "test": "pnpm test:l1 && pnpm test:l2 && test:shared",
+    "test": "pnpm test:l1 && pnpm test:l2 && pnpm test:shared",
     "layout:l1": "./script/gen-layouts.sh layer1",
     "layout:l2": "./script/gen-layouts.sh layer2",
     "layout": "pnpm layout:l1 && pnpm layout:l2",
