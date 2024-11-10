@@ -5,9 +5,6 @@ import "./Layer2Test.sol";
 import "./helpers/TaikoL2_NoBaseFeeCheck.sol";
 
 contract TestTaikoL2 is Layer2Test {
-    using SafeCast for uint256;
-
-    uint64 public constant L1_CHAIN_ID = 12_345;
     uint32 public constant BLOCK_GAS_LIMIT = 30_000_000;
 
     uint64 public anchorBlockId;
