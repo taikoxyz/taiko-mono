@@ -22,7 +22,6 @@ contract SignalServiceNoHopCheck is SignalService {
     }
 }
 
-
 contract TestSignalService is CommonTest {
     SignalService private mockSignalService;
     SignalService private signalService;

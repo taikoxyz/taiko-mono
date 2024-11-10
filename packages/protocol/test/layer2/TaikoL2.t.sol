@@ -17,7 +17,7 @@ contract TaikoL2Tests is Layer2Test {
     function setUpOnTaiko() internal override {
         signalService = deploySignalService(address(new SignalService()));
         taikoL2 = deployTaikoL2(address(new TaikoL2_NoBaseFeeCheck()), ethereumChainId);
-            signalService.authorize(address(taikoL2), true);
+        signalService.authorize(address(taikoL2), true);
 
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 30);

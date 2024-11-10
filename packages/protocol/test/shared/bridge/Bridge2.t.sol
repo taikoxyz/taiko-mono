@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "../CommonTest.sol";
+import "test/shared/bridge/helpers/MessageReceiver_SendingHalfEtherBalance.sol";
 
 contract BridgeTest2 is CommonTest {
     bytes internal constant FAKE_PROOF = "";
@@ -28,7 +29,7 @@ contract BridgeTest2 is CommonTest {
     }
 
     function setUpOnEthereum() internal override {
-        eSignalService = deploySignalService(address(new SignalServiceNoProofCheck()));
+        eSignalService = deploySignalService(address(new SignalService_WithoutProofVerification()));
         eBridge = deployBridge(address(new Bridge()));
         vm.deal(address(eBridge), 10_000 ether);
     }

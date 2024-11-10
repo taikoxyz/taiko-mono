@@ -9,7 +9,6 @@ contract DeployQuotaManager is BaseScript {
     address quotaManagerAddress = vm.envOr("QUOTA_MANAGER", address(0));
 
     function run() external broadcast {
-       
         QuotaManager qm;
         if (quotaManagerAddress != address(0)) {
             qm = QuotaManager(quotaManagerAddress);

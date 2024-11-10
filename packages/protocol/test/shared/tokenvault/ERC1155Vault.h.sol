@@ -3,14 +3,20 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "../CommonTest.sol";
+import "../helpers/CanSayHelloWorld.sol";
 
-contract TestTokenERC1155 is ERC1155 {
+contract FreeMintERC1155Token is ERC1155 {
     constructor(string memory baseURI) ERC1155(baseURI) { }
 
     function mint(uint256 tokenId, uint256 amount) public {
         _mint(msg.sender, tokenId, amount, "");
     }
 }
+
+contract BridgedERC1155_WithHelloWorld is BridgedERC1155,CanSayHelloWorld {
+
+}
+
 
 // PrankDestBridge lets us simulate a transaction to the ERC1155Vault
 // from a named Bridge, without having to test/run through the real Bridge code,
@@ -82,8 +88,4 @@ contract PrankDestBridge {
     }
 }
 
-contract UpdatedBridgedERC1155 is BridgedERC1155 {
-    function helloWorld() public pure returns (string memory) {
-        return "helloworld";
-    }
-}
+

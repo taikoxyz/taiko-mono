@@ -2,14 +2,15 @@
 pragma solidity ^0.8.24;
 
 import "./ERC20Vault.h.sol";
+import "../helpers/FreeMintERC20Token.sol";
 
 contract TestERC20Vault is CommonTest {
     // Contracts on Ethereum
     SignalService private eSignalService;
     Bridge private eBridge;
     ERC20Vault private eVault;
-    FreeMintERC20 private eFreeMintERC20;
-    FreeMintERC20 private eFreeMintERC20WithWeirdName;
+    FreeMintERC20Token private eERC20Token1;
+    FreeMintERC20Token private eERC20Token2;
 
     // Contracts on Taiko
     SignalService private tSignalService;
@@ -20,15 +21,15 @@ contract TestERC20Vault is CommonTest {
     BridgedERC20 private tStETH;
 
     function setUpOnEthereum() internal override {
-        eSignalService = deploySignalService(address(new SignalServiceNoProofCheck()));
+        eSignalService = deploySignalService(address(new SignalService_WithoutProofVerification()));
         eBridge = deployBridge(address(new Bridge()));
         eVault = deployERC20Vault();
 
-        eFreeMintERC20 = new FreeMintERC20("ERC20", "ERC20");
-        eFreeMintERC20.mint(Alice);
+        eERC20Token1 = new FreeMintERC20Token("ERC20", "ERC20");
+        eERC20Token1.mint(Alice);
 
-        eFreeMintERC20WithWeirdName = new FreeMintERC20("", "123456abcdefgh");
-        eFreeMintERC20WithWeirdName.mint(Alice);
+        eERC20Token2 = new FreeMintERC20Token("", "123456abcdefgh");
+        eERC20Token2.mint(Alice);
 
         register("bridged_erc20", address(new BridgedERC20()));
 
@@ -37,7 +38,7 @@ contract TestERC20Vault is CommonTest {
     }
 
     function setUpOnTaiko() internal override {
-        tSignalService = deploySignalService(address(new SignalServiceNoProofCheck()));
+        tSignalService = deploySignalService(address(new SignalService_WithoutProofVerification()));
         tVault = deployERC20Vault();
         tBridge = new PrankDestBridge(eVault);
 
@@ -56,7 +57,7 @@ contract TestERC20Vault is CommonTest {
         vm.expectRevert(BaseVault.VAULT_INSUFFICIENT_FEE.selector);
         eVault.sendToken(
             ERC20Vault.BridgeTransferOp(
-                taikoChainId, address(0), Bob, 1, address(eFreeMintERC20), 1_000_000, 1 wei
+                taikoChainId, address(0), Bob, 1, address(eERC20Token1), 1_000_000, 1 wei
             )
         );
     }
@@ -65,19 +66,19 @@ contract TestERC20Vault is CommonTest {
         vm.startPrank(Alice);
 
         uint64 amount = 2 wei;
-        eFreeMintERC20.approve(address(eVault), amount);
+        eERC20Token1.approve(address(eVault), amount);
 
-        uint256 aliceBalanceBefore = eFreeMintERC20.balanceOf(Alice);
-        uint256 eVaultBalanceBefore = eFreeMintERC20.balanceOf(address(eVault));
+        uint256 aliceBalanceBefore = eERC20Token1.balanceOf(Alice);
+        uint256 eVaultBalanceBefore = eERC20Token1.balanceOf(address(eVault));
 
         eVault.sendToken(
             ERC20Vault.BridgeTransferOp(
-                taikoChainId, address(0), Bob, 0, address(eFreeMintERC20), 1_000_000, amount
+                taikoChainId, address(0), Bob, 0, address(eERC20Token1), 1_000_000, amount
             )
         );
 
-        uint256 aliceBalanceAfter = eFreeMintERC20.balanceOf(Alice);
-        uint256 eVaultBalanceAfter = eFreeMintERC20.balanceOf(address(eVault));
+        uint256 aliceBalanceAfter = eERC20Token1.balanceOf(Alice);
+        uint256 eVaultBalanceAfter = eERC20Token1.balanceOf(address(eVault));
 
         assertEq(aliceBalanceBefore - aliceBalanceAfter, amount);
         assertEq(eVaultBalanceAfter - eVaultBalanceBefore, amount);
@@ -87,7 +88,7 @@ contract TestERC20Vault is CommonTest {
         vm.startPrank(Alice);
 
         uint64 amount = 2 wei;
-        eFreeMintERC20.approve(address(eVault), amount);
+        eERC20Token1.approve(address(eVault), amount);
 
         vm.expectRevert();
         eVault.sendToken(
@@ -96,7 +97,7 @@ contract TestERC20Vault is CommonTest {
                 address(0),
                 Bob,
                 amount - 1,
-                address(eFreeMintERC20),
+                address(eERC20Token1),
                 1_000_000,
                 amount
             )
@@ -107,10 +108,10 @@ contract TestERC20Vault is CommonTest {
         vm.startPrank(Alice);
 
         uint64 amount = 2 wei;
-        eFreeMintERC20.approve(address(eVault), amount);
+        eERC20Token1.approve(address(eVault), amount);
 
-        uint256 aliceBalanceBefore = eFreeMintERC20.balanceOf(Alice);
-        uint256 eVaultBalanceBefore = eFreeMintERC20.balanceOf(address(eVault));
+        uint256 aliceBalanceBefore = eERC20Token1.balanceOf(Alice);
+        uint256 eVaultBalanceBefore = eERC20Token1.balanceOf(address(eVault));
 
         eVault.sendToken{ value: amount }(
             ERC20Vault.BridgeTransferOp(
@@ -118,14 +119,14 @@ contract TestERC20Vault is CommonTest {
                 address(0),
                 Bob,
                 amount - 1,
-                address(eFreeMintERC20),
+                address(eERC20Token1),
                 1_000_000,
                 amount - 1 // value: (msg.value - fee)
             )
         );
 
-        uint256 aliceBalanceAfter = eFreeMintERC20.balanceOf(Alice);
-        uint256 eVaultBalanceAfter = eFreeMintERC20.balanceOf(address(eVault));
+        uint256 aliceBalanceAfter = eERC20Token1.balanceOf(Alice);
+        uint256 eVaultBalanceAfter = eERC20Token1.balanceOf(address(eVault));
 
         assertEq(aliceBalanceBefore - aliceBalanceAfter, 1);
         assertEq(eVaultBalanceAfter - eVaultBalanceBefore, 1);
@@ -139,7 +140,7 @@ contract TestERC20Vault is CommonTest {
         vm.expectRevert(ERC20Vault.VAULT_INVALID_AMOUNT.selector);
         eVault.sendToken(
             ERC20Vault.BridgeTransferOp(
-                taikoChainId, address(0), Bob, 0, address(eFreeMintERC20), 1_000_000, amount
+                taikoChainId, address(0), Bob, 0, address(eERC20Token1), 1_000_000, amount
             )
         );
     }
@@ -164,13 +165,13 @@ contract TestERC20Vault is CommonTest {
 
         vm.chainId(taikoChainId);
 
-        eFreeMintERC20.mint(address(eVault));
+        eERC20Token1.mint(address(eVault));
 
         uint64 amount = 1;
         address to = Bob;
 
-        uint256 eVaultBalanceBefore = eFreeMintERC20.balanceOf(address(eVault));
-        uint256 toBalanceBefore = eFreeMintERC20.balanceOf(to);
+        uint256 eVaultBalanceBefore = eERC20Token1.balanceOf(address(eVault));
+        uint256 toBalanceBefore = eERC20Token1.balanceOf(to);
 
         tBridge.sendReceiveERC20ToERC20Vault(
             erc20ToCanonicalERC20(taikoChainId),
@@ -183,26 +184,26 @@ contract TestERC20Vault is CommonTest {
             0
         );
 
-        uint256 eVaultBalanceAfter = eFreeMintERC20.balanceOf(address(eVault));
+        uint256 eVaultBalanceAfter = eERC20Token1.balanceOf(address(eVault));
         assertEq(eVaultBalanceBefore - eVaultBalanceAfter, amount);
 
-        uint256 toBalanceAfter = eFreeMintERC20.balanceOf(to);
+        uint256 toBalanceAfter = eERC20Token1.balanceOf(to);
         assertEq(toBalanceAfter - toBalanceBefore, amount);
     }
 
-    function test_20Vault_receiveFreeMintERC20s_erc20_with_ether_to_dave() public {
+    function test_20Vault_receiveERC20Token1s_erc20_with_ether_to_dave() public {
         vm.startPrank(Alice);
 
         vm.chainId(taikoChainId);
 
-        eFreeMintERC20.mint(address(eVault));
+        eERC20Token1.mint(address(eVault));
 
         uint64 amount = 1;
         uint256 etherAmount = 0.1 ether;
         address to = David;
 
-        uint256 eVaultBalanceBefore = eFreeMintERC20.balanceOf(address(eVault));
-        uint256 toBalanceBefore = eFreeMintERC20.balanceOf(to);
+        uint256 eVaultBalanceBefore = eERC20Token1.balanceOf(address(eVault));
+        uint256 toBalanceBefore = eERC20Token1.balanceOf(to);
 
         tBridge.sendReceiveERC20ToERC20Vault(
             erc20ToCanonicalERC20(taikoChainId),
@@ -215,10 +216,10 @@ contract TestERC20Vault is CommonTest {
             etherAmount
         );
 
-        uint256 eVaultBalanceAfter = eFreeMintERC20.balanceOf(address(eVault));
+        uint256 eVaultBalanceAfter = eERC20Token1.balanceOf(address(eVault));
         assertEq(eVaultBalanceBefore - eVaultBalanceAfter, amount);
 
-        uint256 toBalanceAfter = eFreeMintERC20.balanceOf(to);
+        uint256 toBalanceAfter = eERC20Token1.balanceOf(to);
         assertEq(toBalanceAfter - toBalanceBefore, amount);
         assertEq(David.balance, etherAmount);
     }
@@ -236,7 +237,7 @@ contract TestERC20Vault is CommonTest {
         tBridge.setERC20Vault(address(tVault));
 
         address bridgedAddressBefore =
-            tVault.canonicalToBridged(ethereumChainId, address(eFreeMintERC20));
+            tVault.canonicalToBridged(ethereumChainId, address(eERC20Token1));
         assertEq(bridgedAddressBefore == address(0), true);
 
         tBridge.sendReceiveERC20ToERC20Vault(
@@ -251,7 +252,7 @@ contract TestERC20Vault is CommonTest {
         );
 
         address bridgedAddressAfter =
-            tVault.canonicalToBridged(ethereumChainId, address(eFreeMintERC20));
+            tVault.canonicalToBridged(ethereumChainId, address(eERC20Token1));
         assertEq(bridgedAddressAfter != address(0), true);
         BridgedERC20 bridgedERC20 = BridgedERC20(bridgedAddressAfter);
 
@@ -267,20 +268,20 @@ contract TestERC20Vault is CommonTest {
     {
         return ERC20Vault.CanonicalERC20({
             chainId: chainId,
-            addr: address(eFreeMintERC20),
-            decimals: eFreeMintERC20.decimals(),
-            symbol: eFreeMintERC20.symbol(),
-            name: eFreeMintERC20.name()
+            addr: address(eERC20Token1),
+            decimals: eERC20Token1.decimals(),
+            symbol: eERC20Token1.symbol(),
+            name: eERC20Token1.name()
         });
     }
 
     function noNameErc20(uint64 chainId) internal view returns (ERC20Vault.CanonicalERC20 memory) {
         return ERC20Vault.CanonicalERC20({
             chainId: chainId,
-            addr: address(eFreeMintERC20WithWeirdName),
-            decimals: eFreeMintERC20WithWeirdName.decimals(),
-            symbol: eFreeMintERC20WithWeirdName.symbol(),
-            name: eFreeMintERC20WithWeirdName.name()
+            addr: address(eERC20Token2),
+            decimals: eERC20Token2.decimals(),
+            symbol: eERC20Token2.symbol(),
+            name: eERC20Token2.name()
         });
     }
 
@@ -294,7 +295,7 @@ contract TestERC20Vault is CommonTest {
         tBridge.setERC20Vault(address(tVault));
 
         address bridgedAddressBefore =
-            tVault.canonicalToBridged(ethereumChainId, address(eFreeMintERC20));
+            tVault.canonicalToBridged(ethereumChainId, address(eERC20Token1));
         assertEq(bridgedAddressBefore == address(0), true);
 
         tBridge.sendReceiveERC20ToERC20Vault(
@@ -309,10 +310,10 @@ contract TestERC20Vault is CommonTest {
         );
 
         address bridgedAddressAfter =
-            tVault.canonicalToBridged(ethereumChainId, address(eFreeMintERC20));
+            tVault.canonicalToBridged(ethereumChainId, address(eERC20Token1));
         assertEq(bridgedAddressAfter != address(0), true);
 
-        try UpdatedBridgedERC20(bridgedAddressAfter).helloWorld() {
+        try CanSayHelloWorld(bridgedAddressAfter).helloWorld() {
             fail();
         } catch {
             // It should not yet support this function call
@@ -320,13 +321,13 @@ contract TestERC20Vault is CommonTest {
 
         // Upgrade the implementation of that contract
         // so that it supports now the 'helloWorld' call
-        UpdatedBridgedERC20 newBridgedContract = new UpdatedBridgedERC20();
+        BridgedERC20V2_WithHelloWorld newBridgedContract = new BridgedERC20V2_WithHelloWorld();
         vm.stopPrank();
         vm.prank(deployer);
         BridgedERC20(payable(bridgedAddressAfter)).upgradeTo(address(newBridgedContract));
 
         vm.prank(Alice);
-        try UpdatedBridgedERC20(bridgedAddressAfter).helloWorld() {
+        try CanSayHelloWorld(bridgedAddressAfter).helloWorld() {
             // It should support now this function call
         } catch {
             fail();
@@ -337,19 +338,19 @@ contract TestERC20Vault is CommonTest {
         vm.startPrank(Alice);
 
         uint64 amount = 2 wei;
-        eFreeMintERC20.approve(address(eVault), amount);
+        eERC20Token1.approve(address(eVault), amount);
 
-        uint256 aliceBalanceBefore = eFreeMintERC20.balanceOf(Alice);
-        uint256 eVaultBalanceBefore = eFreeMintERC20.balanceOf(address(eVault));
+        uint256 aliceBalanceBefore = eERC20Token1.balanceOf(Alice);
+        uint256 eVaultBalanceBefore = eERC20Token1.balanceOf(address(eVault));
 
         IBridge.Message memory _messageToSimulateFail = eVault.sendToken(
             ERC20Vault.BridgeTransferOp(
-                taikoChainId, address(0), Bob, 0, address(eFreeMintERC20), 1_000_000, amount
+                taikoChainId, address(0), Bob, 0, address(eERC20Token1), 1_000_000, amount
             )
         );
 
-        uint256 aliceBalanceAfter = eFreeMintERC20.balanceOf(Alice);
-        uint256 eVaultBalanceAfter = eFreeMintERC20.balanceOf(address(eVault));
+        uint256 aliceBalanceAfter = eERC20Token1.balanceOf(Alice);
+        uint256 eVaultBalanceAfter = eERC20Token1.balanceOf(address(eVault));
 
         assertEq(aliceBalanceBefore - aliceBalanceAfter, amount);
         assertEq(eVaultBalanceAfter - eVaultBalanceBefore, amount);
@@ -357,8 +358,8 @@ contract TestERC20Vault is CommonTest {
         // No need to imitate that it is failed because we have a mock SignalService
         eBridge.recallMessage(_messageToSimulateFail, bytes(""));
 
-        uint256 aliceBalanceAfterRecall = eFreeMintERC20.balanceOf(Alice);
-        uint256 eVaultBalanceAfterRecall = eFreeMintERC20.balanceOf(address(eVault));
+        uint256 aliceBalanceAfterRecall = eERC20Token1.balanceOf(Alice);
+        uint256 eVaultBalanceAfterRecall = eERC20Token1.balanceOf(address(eVault));
 
         // Release -> original balance
         assertEq(aliceBalanceAfterRecall, aliceBalanceBefore);
@@ -376,7 +377,7 @@ contract TestERC20Vault is CommonTest {
         eVault.changeBridgedToken(
             ERC20Vault.CanonicalERC20({
                 chainId: 1,
-                addr: address(eFreeMintERC20),
+                addr: address(eERC20Token1),
                 decimals: 18,
                 symbol: "ERC20TT",
                 name: "ERC20 Test token"
@@ -384,13 +385,13 @@ contract TestERC20Vault is CommonTest {
             address(tUSDC)
         );
 
-        assertEq(eVault.canonicalToBridged(1, address(eFreeMintERC20)), address(tUSDC));
+        assertEq(eVault.canonicalToBridged(1, address(eERC20Token1)), address(tUSDC));
 
         vm.expectRevert(ERC20Vault.VAULT_LAST_MIGRATION_TOO_CLOSE.selector);
         eVault.changeBridgedToken(
             ERC20Vault.CanonicalERC20({
                 chainId: 1,
-                addr: address(eFreeMintERC20),
+                addr: address(eERC20Token1),
                 decimals: 18,
                 symbol: "ERC20TT",
                 name: "ERC20 Test token"
@@ -404,7 +405,7 @@ contract TestERC20Vault is CommonTest {
         eVault.changeBridgedToken(
             ERC20Vault.CanonicalERC20({
                 chainId: 1,
-                addr: address(eFreeMintERC20),
+                addr: address(eERC20Token1),
                 decimals: 18,
                 symbol: "ERC20TT_WRONG_NAME",
                 name: "ERC20 Test token"
@@ -415,7 +416,7 @@ contract TestERC20Vault is CommonTest {
         eVault.changeBridgedToken(
             ERC20Vault.CanonicalERC20({
                 chainId: 1,
-                addr: address(eFreeMintERC20),
+                addr: address(eERC20Token1),
                 decimals: 18,
                 symbol: "ERC20TT",
                 name: "ERC20 Test token"
@@ -423,7 +424,7 @@ contract TestERC20Vault is CommonTest {
             address(tUSDT)
         );
 
-        assertEq(eVault.canonicalToBridged(1, address(eFreeMintERC20)), address(tUSDT));
+        assertEq(eVault.canonicalToBridged(1, address(eERC20Token1)), address(tUSDT));
 
         eVault.changeBridgedToken(
             ERC20Vault.CanonicalERC20({
@@ -443,7 +444,7 @@ contract TestERC20Vault is CommonTest {
         eVault.changeBridgedToken(
             ERC20Vault.CanonicalERC20({
                 chainId: 1,
-                addr: address(eFreeMintERC20),
+                addr: address(eERC20Token1),
                 decimals: 18,
                 symbol: "ERC20TT",
                 name: "ERC20 Test token"
@@ -456,7 +457,7 @@ contract TestERC20Vault is CommonTest {
         eVault.changeBridgedToken(
             ERC20Vault.CanonicalERC20({
                 chainId: ethereumChainId,
-                addr: address(eFreeMintERC20),
+                addr: address(eERC20Token1),
                 decimals: 18,
                 symbol: "ERC20TT",
                 name: "ERC20 Test token"
@@ -469,7 +470,7 @@ contract TestERC20Vault is CommonTest {
         eVault.changeBridgedToken(
             ERC20Vault.CanonicalERC20({
                 chainId: 1,
-                addr: address(eFreeMintERC20),
+                addr: address(eERC20Token1),
                 decimals: 18,
                 symbol: "ERC20TT",
                 name: "ERC20 Test token"
@@ -484,9 +485,9 @@ contract TestERC20Vault is CommonTest {
         vm.startPrank(Alice);
 
         (, bytes memory symbolData) =
-            address(eFreeMintERC20WithWeirdName).staticcall(abi.encodeCall(INameSymbol.symbol, ()));
+            address(eERC20Token2).staticcall(abi.encodeCall(INameSymbol.symbol, ()));
         (, bytes memory nameData) =
-            address(eFreeMintERC20WithWeirdName).staticcall(abi.encodeCall(INameSymbol.name, ()));
+            address(eERC20Token2).staticcall(abi.encodeCall(INameSymbol.name, ()));
 
         string memory decodedSymbol = LibBytes.toString(symbolData);
         string memory decodedName = LibBytes.toString(nameData);
@@ -507,7 +508,7 @@ contract TestERC20Vault is CommonTest {
         tBridge.setERC20Vault(address(tVault));
 
         address bridgedAddressBefore =
-            tVault.canonicalToBridged(ethereumChainId, address(eFreeMintERC20));
+            tVault.canonicalToBridged(ethereumChainId, address(eERC20Token1));
         assertEq(bridgedAddressBefore == address(0), true);
 
         // Token with empty name succeeds

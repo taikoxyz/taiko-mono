@@ -7,8 +7,7 @@ import "script/BaseScript.sol";
 
 contract DeployRisc0Verifier is BaseScript {
     function run() external broadcast {
-
-checkResolverOwnership();
+        checkResolverOwnership();
 
         RiscZeroGroth16Verifier verifier =
             new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);

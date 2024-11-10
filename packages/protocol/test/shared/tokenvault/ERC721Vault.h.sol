@@ -1,31 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "../CommonTest.sol";
+import "../helpers/CanSayHelloWorld.sol";
 
-contract TestTokenERC721 is ERC721 {
-    string _baseTokenURI;
-    uint256 minted;
-
-    constructor(string memory baseURI) ERC721("TT", "TT") {
-        setBaseURI(baseURI);
-    }
-
-    function setBaseURI(string memory baseURI) internal {
-        _baseTokenURI = baseURI;
-    }
-
-    function _baseURI() internal view virtual override returns (string memory) {
-        return _baseTokenURI;
-    }
-
-    function mint(uint256 amount) public {
-        for (uint256 i; i < amount; ++i) {
-            _safeMint(msg.sender, minted + i);
-        }
-        minted += amount;
-    }
+contract BridgedERC721_WithHelloWorld is BridgedERC721,CanSayHelloWorld {
 }
 
 // PrankDestBridge lets us simulate a transaction to the vault
@@ -97,8 +76,4 @@ contract PrankDestBridge {
     }
 }
 
-contract UpdatedBridgedERC721 is BridgedERC721 {
-    function helloWorld() public pure returns (string memory) {
-        return "helloworld";
-    }
-}
+

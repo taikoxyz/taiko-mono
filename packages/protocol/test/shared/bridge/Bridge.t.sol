@@ -2,10 +2,12 @@
 pragma solidity ^0.8.24;
 
 import "./Bridge.h.sol";
+import "test/shared/bridge/helpers/MessageReceiver_SendingHalfEtherBalance.sol";
+
 
 contract BridgeTest is CommonTest {
     // Contracts on Ethereum
-    GoodReceiver private eGoodReceiver;
+    MessageReceiver_SendingHalfEtherBalance private eMessageReceiver;
     SignalService private eSignalService;
     Bridge private eBridge;
 
@@ -14,15 +16,15 @@ contract BridgeTest is CommonTest {
     Bridge private tBridge;
 
     function setUpOnEthereum() internal override {
-        eGoodReceiver = new GoodReceiver();
+        eMessageReceiver = new MessageReceiver_SendingHalfEtherBalance();
         eBridge = deployBridge(address(new Bridge()));
-        eSignalService = deploySignalService(address(new SignalServiceNoProofCheck()));
+        eSignalService = deploySignalService(address(new SignalService_WithoutProofVerification()));
 
         vm.deal(Alice, 100 ether);
     }
 
     function setUpOnTaiko() internal override {
-        tSignalService = deploySignalService(address(new SignalServiceNoProofCheck()));
+        tSignalService = deploySignalService(address(new SignalService_WithoutProofVerification()));
         tBridge = deployBridge(address(new Bridge()));
         vm.deal(address(tBridge), 100 ether);
     }
@@ -71,7 +73,7 @@ contract BridgeTest is CommonTest {
             destChainId: taikoChainId,
             srcOwner: Alice,
             destOwner: Alice,
-            to: address(eGoodReceiver),
+            to: address(eMessageReceiver),
             value: 10_000,
             fee: 1000,
             gasLimit: 1_000_000,
@@ -92,7 +94,7 @@ contract BridgeTest is CommonTest {
         assertEq(status == IBridge.Status.DONE, true);
 
         // Bob (relayer) and goodContract has 1000 wei balance
-        assertEq(address(eGoodReceiver).balance, 10_000);
+        assertEq(address(eMessageReceiver).balance, 10_000);
         console2.log("Bob.balance:", Bob.balance);
         assertTrue(Bob.balance >= 0 && Bob.balance <= 1000);
     }
@@ -105,11 +107,11 @@ contract BridgeTest is CommonTest {
             destChainId: taikoChainId,
             srcOwner: Alice,
             destOwner: Alice,
-            to: address(eGoodReceiver),
+            to: address(eMessageReceiver),
             value: 1000,
             fee: 1000,
             gasLimit: 1_000_000,
-            data: abi.encodeCall(GoodReceiver.onMessageInvocation, abi.encode(Carol))
+            data: abi.encodeCall(MessageReceiver_SendingHalfEtherBalance.onMessageInvocation, abi.encode(Carol))
         });
         // Mocking proof - but obviously it needs to be created in prod
         // corresponding to the message
@@ -126,7 +128,7 @@ contract BridgeTest is CommonTest {
         assertEq(status == IBridge.Status.DONE, true);
 
         // Carol and goodContract has 500 wei balance
-        assertEq(address(eGoodReceiver).balance, 500);
+        assertEq(address(eMessageReceiver).balance, 500);
         assertEq(Carol.balance, 500);
     }
 

@@ -2,6 +2,8 @@
 pragma solidity ^0.8.24;
 
 import "forge-std/src/Test.sol";
+import "forge-std/src/console2.sol";
+import "forge-std/src/Script.sol";
 
 import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
@@ -9,9 +11,6 @@ import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@optimism/packages/contracts-bedrock/src/EAS/Common.sol";
-
-import "forge-std/src/console2.sol";
-import "forge-std/src/Script.sol";
 
 import "src/shared/common/DefaultResolver.sol";
 import "src/shared/tokenvault/BridgedERC20V2.sol";
@@ -22,12 +21,8 @@ import "src/shared/tokenvault/ERC721Vault.sol";
 import "src/shared/tokenvault/ERC1155Vault.sol";
 import "src/shared/bridge/Bridge.sol";
 import "src/shared/bridge/QuotaManager.sol";
-import "./token/FreeMintERC20.sol";
-import "./token/RegularERC20.sol";
-import "./token/MayFailFreeMintERC20.sol";
-import "./CommonTest.h.sol";
-
-import "src/layer1/token/TaikoToken.sol"; // why we need Taiko token here? TODO
+import "src/layer1/token/TaikoToken.sol";
+import "test/shared/helpers/SignalService_WithoutProofVerification.sol";
 
 abstract contract CommonTest is Test, Script {
     uint256 private _seed = 0x12345678;
@@ -163,7 +158,7 @@ abstract contract CommonTest is Test, Script {
     }
 
     function deploySignalService(address signalServiceImpl) internal returns (SignalService) {
-        return SignalServiceNoProofCheck(
+        return SignalService(
             deploy({
                 name: "signal_service",
                 impl: signalServiceImpl,
