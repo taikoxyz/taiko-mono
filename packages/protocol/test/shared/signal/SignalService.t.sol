@@ -361,7 +361,7 @@ contract TestSignalService is CommonTest {
         proofs[2].accountProof = new bytes[](1);
         proofs[2].storageProof = new bytes[](10);
 
-        // expect RESOLVER_ZERO_ADDR
+        // expect RESOLVED_TO_ZERO_ADDRESS
         vm.expectRevert(
             abi.encodeWithSelector(
                 IResolver.RESOLVED_TO_ZERO_ADDRESS.selector,

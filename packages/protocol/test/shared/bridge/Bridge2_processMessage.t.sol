@@ -61,7 +61,7 @@ contract TestBridge2_processMessage is TestBridge2Base {
         eBridge.processMessage(message, FAKE_PROOF);
 
         message.srcChainId = taikoChainId;
-        vm.expectRevert(); // RESOLVER_ZERO_ADDR src bridge not registered
+        vm.expectRevert(); // RESOLVED_TO_ZERO_ADDRESS src bridge not registered
         eBridge.processMessage(message, FAKE_PROOF);
 
         message.gasLimit = 1_000_000;
@@ -79,7 +79,7 @@ contract TestBridge2_processMessage is TestBridge2Base {
         vm.startPrank(Alice);
 
         message.id += 1;
-        vm.expectRevert(); // RESOLVER_ZERO_ADDR src bridge not registered
+        vm.expectRevert(); // RESOLVED_TO_ZERO_ADDRESS src bridge not registered
         eBridge.processMessage(message, FAKE_PROOF);
 
         vm.stopPrank();

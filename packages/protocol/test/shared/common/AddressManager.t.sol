@@ -3,51 +3,38 @@ pragma solidity ^0.8.24;
 
 import "../CommonTest.sol";
 
-// /// @author Kirk Baird <kirk@sigmaprime.io>
-// contract TestAddressManager is CommonTest{
-//     function deployTaikoL1() internal override returns (TaikoL1) {
-//         return
-//             TaikoL1(payable(deployProxy({ name: "taiko", impl: address(new TaikoL1()), data: ""
-// })));
-//     }
+/// @author Kirk Baird <kirk@sigmaprime.io>
+/// @author Daniel Wang <dan@taiko.xyz>
+contract TestAddressManager is CommonTest {
 
-//     function setUp() public override {
-//         // Call the TaikoL1TestBase setUp()
-//         super.setUp();
-//     }
+    uint public constant chainId = 123;
 
-//     function test_setAddress() external {
-//         uint64 chainid = 1;
-//         bytes32 name = bytes32(bytes("Bob"));
-//         address newAddress = Bob;
-//         // logs
-//         vm.expectEmit(address(resolver));
-//         emit AddressManager.AddressSet(chainid, name, newAddress, address(0));
+    function test_registerAddress() external transactBy(deployer) {
+        vm.expectEmit(address(resolver));
+        emit AddressManager.AddressRegistered(chainId, "Friend", Bob, address(0));
+        resolver.registerAddress(chainId, "Friend", Bob);
 
-//         // call `setAddress()`
-//         resolver.registerAddress(chainid, name, newAddress);
+        assertEq(resolver.resolve(chainId, "Friend", false), Bob, "should return Bob address");
+        assertEq(resolver.resolve(chainId, "Friend", true), Bob, "should return Bob address");
 
-//         // validation
-//         assertEq(resolver.getAddress(chainid, name), Bob, "should return Bob address");
-//     }
 
-//     function test_setAddress_callerNotOwner() external {
-//         vm.startPrank(Alice);
+       vm.expectEmit(address(resolver));
+        emit AddressManager.AddressRegistered(chainId, "Friend", Alice, Bob);
+        resolver.registerAddress(chainId, "Friend", Alice);
 
-//         uint64 chainid = 1;
-//         bytes32 name = bytes32(bytes("Bob"));
-//         address newAddress = Bob;
+            assertEq(resolver.resolve(chainId, "Friend", false), Alice, "should return Alice address");
+        assertEq(resolver.resolve(chainId, "Friend", true), Alice, "should return Alice address");
+    }
 
-//         // call `setAddress()`
-//         vm.expectRevert("Ownable: caller is not the owner");
-//         resolver.registerAddress(chainid, name, newAddress);
-//     }
+    function test_registerAddress_callerNotOwner() external transactBy(Alice) {
+        vm.expectRevert("Ownable: caller is not the owner");
+        resolver.registerAddress(chainId, "Stranger", Bob);
+    }
 
-//     function test_getAddress() external {
-//         assertEq(
-//             resolver.getAddress(ethereumChainId, bytes32(bytes("taiko"))),
-//             address(L1),
-//             "expected address should be TaikoL1"
-//         );
-//     }
-// }
+    function test_getAddress_unregistered_address() external {
+        vm.expectRevert(IResolver.RESOLVED_TO_ZERO_ADDRESS.selector);
+        resolver.resolve(chainId, "Enemy", false);
+
+        assertEq(resolver.resolve(chainId, "Enemy", true), address(0), "should return 0 address");
+    }
+}
