@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "../CommonTest.sol";
 
-contract TestBridgedERC20 is CommonTest {
+contract TestBridgedERC20V2 is CommonTest {
     address private vault = randAddress();
 
     function setUpOnEthereum() internal override {
@@ -12,7 +12,7 @@ contract TestBridgedERC20 is CommonTest {
 
     function test_20Vault_migration__change_migration_status() public {
         vm.startPrank(deployer);
-        BridgedERC20 btoken = deployBridgedToken("FOO");
+        BridgedERC20V2 btoken = deployBridgedToken("FOO");
         vm.stopPrank();
 
         vm.expectRevert();
@@ -33,7 +33,7 @@ contract TestBridgedERC20 is CommonTest {
         public
     {
         vm.startPrank(deployer);
-        BridgedERC20 btoken = deployBridgedToken("BAR");
+        BridgedERC20V2 btoken = deployBridgedToken("BAR");
         vm.stopPrank();
 
         // only erc20_vault can brun and mint
@@ -54,8 +54,8 @@ contract TestBridgedERC20 is CommonTest {
 
     function test_20Vault_migration__old_to_new() public {
         vm.startPrank(deployer);
-        BridgedERC20 oldToken = deployBridgedToken("OLD");
-        BridgedERC20 newToken = deployBridgedToken("NEW");
+        BridgedERC20V2 oldToken = deployBridgedToken("OLD");
+        BridgedERC20V2 newToken = deployBridgedToken("NEW");
         vm.stopPrank();
 
         vm.startPrank(vault);
@@ -120,16 +120,16 @@ contract TestBridgedERC20 is CommonTest {
         assertEq(newToken.balanceOf(Bob), 210);
     }
 
-    function deployBridgedToken(bytes32 name) internal returns (BridgedERC20) {
+    function deployBridgedToken(bytes32 name) internal returns (BridgedERC20V2) {
         address srcToken = randAddress();
         uint8 srcDecimals = 11;
         string memory _name = bytes32ToString(name);
-        return BridgedERC20(
+        return BridgedERC20V2(
             deploy({
                 name: name,
                 impl: address(new BridgedERC20V2()),
                 data: abi.encodeCall(
-                    BridgedERC20.init,
+                    BridgedERC20V2.init,
                     (deployer, address(resolver), srcToken, taikoChainId, srcDecimals, _name, _name)
                 )
             })

@@ -6,7 +6,7 @@ import "forge-std/src/console2.sol";
 import "forge-std/src/StdJson.sol";
 import "./common/AttestationBase.t.sol";
 
-contract AutomataDcapV3AttestationTest is Test, AttestationBase {
+contract TestAutomataDcapV3Attestation is Test, AttestationBase {
     using BytesUtils for bytes;
     using stdJson for string;
 

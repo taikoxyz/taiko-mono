@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./Bridge2.t.sol";
+import "./TestBridge2Base.sol";
 
 contract Target is IMessageInvocable {
     bool public toFail;
@@ -15,7 +15,7 @@ contract Target is IMessageInvocable {
     }
 }
 
-contract BridgeTest2_retryMessage is BridgeTest2 {
+contract TestBridge2_retryMessage is TestBridge2Base {
     function test_bridge2_retryMessage_1()
         public
         dealEther(Alice)

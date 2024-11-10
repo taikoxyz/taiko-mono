@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "../CommonTest.sol";
 
-contract QuotaManagerTest is CommonTest {
+contract TestQuotaManager is CommonTest {
     // Contracts on Ethereum
     QuotaManager private qm;
     address private bridge = randAddress();

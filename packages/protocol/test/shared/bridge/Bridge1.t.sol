@@ -29,7 +29,7 @@ contract EmptyContract_WithInfiniteFallback {
     }
 }
 
-contract BridgeTest is CommonTest {
+contract TestBridge1 is CommonTest {
     // Contracts on Ethereum
     MessageReceiver_SendingHalfEtherBalance private eMessageReceiver;
     SignalService private eSignalService;
@@ -53,7 +53,7 @@ contract BridgeTest is CommonTest {
         vm.deal(address(tBridge), 100 ether);
     }
 
-    function test_Bridge_send_ether_to_to_with_value() public {
+    function test_bridge1_send_ether_to_to_with_value() public {
         IBridge.Message memory message = IBridge.Message({
             id: 0,
             from: address(eBridge),
@@ -89,7 +89,7 @@ contract BridgeTest is CommonTest {
         assertTrue(Bob.balance >= 0 && Bob.balance <= 1000);
     }
 
-    function test_Bridge_send_ether_to_contract_with_value_simple() public {
+    function test_bridge1_send_ether_to_contract_with_value_simple() public {
         IBridge.Message memory message = IBridge.Message({
             id: 0,
             from: address(eBridge),
@@ -123,7 +123,7 @@ contract BridgeTest is CommonTest {
         assertTrue(Bob.balance >= 0 && Bob.balance <= 1000);
     }
 
-    function test_Bridge_send_ether_to_contract_with_value_and_message_data() public {
+    function test_bridge1_send_ether_to_contract_with_value_and_message_data() public {
         IBridge.Message memory message = IBridge.Message({
             id: 0,
             from: address(eBridge),
@@ -158,7 +158,7 @@ contract BridgeTest is CommonTest {
         assertEq(Carol.balance, 500);
     }
 
-    function test_Bridge_send_message_ether_reverts_if_value_doesnt_match_expected() public {
+    function test_bridge1_send_message_ether_reverts_if_value_doesnt_match_expected() public {
         // uint256 amount = 1 wei;
         IBridge.Message memory message = newMessage({
             owner: Alice,
@@ -173,7 +173,7 @@ contract BridgeTest is CommonTest {
         eBridge.sendMessage(message);
     }
 
-    function test_Bridge_send_message_ether_reverts_when_owner_is_zero_address() public {
+    function test_bridge1_send_message_ether_reverts_when_owner_is_zero_address() public {
         uint256 amount = 1 wei;
         IBridge.Message memory message = newMessage({
             owner: address(0),
@@ -188,7 +188,7 @@ contract BridgeTest is CommonTest {
         eBridge.sendMessage{ value: amount }(message);
     }
 
-    function test_Bridge_send_message_ether_reverts_when_dest_chain_is_not_enabled() public {
+    function test_bridge1_send_message_ether_reverts_when_dest_chain_is_not_enabled() public {
         uint256 amount = 1 wei;
         IBridge.Message memory message = newMessage({
             owner: Alice,
@@ -203,7 +203,7 @@ contract BridgeTest is CommonTest {
         eBridge.sendMessage{ value: amount }(message);
     }
 
-    function test_Bridge_send_message_ether_reverts_when_dest_chain_same_as_block_chainid()
+    function test_bridge1_send_message_ether_reverts_when_dest_chain_same_as_block_chainid()
         public
     {
         uint256 amount = 1 wei;
@@ -220,7 +220,7 @@ contract BridgeTest is CommonTest {
         eBridge.sendMessage{ value: amount }(message);
     }
 
-    function test_Bridge_send_message_ether_with_no_processing_fee() public {
+    function test_bridge1_send_message_ether_with_no_processing_fee() public {
         uint256 amount = 0 wei;
         IBridge.Message memory message = newMessage({
             owner: Alice,
@@ -235,7 +235,7 @@ contract BridgeTest is CommonTest {
         assertEq(eBridge.isMessageSent(_message), true);
     }
 
-    function test_Bridge_send_message_ether_with_processing_fee() public {
+    function test_bridge1_send_message_ether_with_processing_fee() public {
         uint256 amount = 0 wei;
         uint64 fee = 1_000_000 wei;
         IBridge.Message memory message = newMessage({
@@ -251,7 +251,7 @@ contract BridgeTest is CommonTest {
         assertEq(eBridge.isMessageSent(_message), true);
     }
 
-    function test_Bridge_recall_message_ether() public {
+    function test_bridge1_recall_message_ether() public {
         uint256 amount = 1 ether;
         uint64 fee = 0 wei;
         IBridge.Message memory message = newMessage({
@@ -278,7 +278,7 @@ contract BridgeTest is CommonTest {
         assertEq(Alice.balance, (starterBalanceAlice - fee));
     }
 
-    function test_Bridge_recall_message_but_not_supports_recall_interface() public {
+    function test_bridge1_recall_message_but_not_supports_recall_interface() public {
         // In this test we expect that the 'message value is still refundable,
         // just not via
         // ERCXXTokenVault (message.from) but directly from the Bridge
@@ -308,7 +308,7 @@ contract BridgeTest is CommonTest {
         assertEq(address(eBridge).balance, (starterBalanceVault + fee));
     }
 
-    function test_Bridge_send_message_ether_with_processing_fee_invalid_amount() public {
+    function test_bridge1_send_message_ether_with_processing_fee_invalid_amount() public {
         uint256 amount = 0 wei;
         uint64 fee = 1_000_000 wei;
         IBridge.Message memory message = newMessage({

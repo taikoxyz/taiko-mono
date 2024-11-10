@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "../helpers/FreeMintERC721Token.sol";
 import "./ERC721Vault.h.sol";
 
-contract ERC721VaultTest is CommonTest {
+contract TestERC721Vault is CommonTest {
     uint32 private constant GAS_LIMIT = 2_000_000;
 
     // Contracts on Ethereum

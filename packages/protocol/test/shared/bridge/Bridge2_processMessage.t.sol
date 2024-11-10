@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./Bridge2.t.sol";
+import "./TestBridge2Base.sol";
 
 contract Target is IMessageInvocable {
     uint256 public receivedEther;
@@ -39,7 +39,7 @@ contract AlwaysAvailableQuotaManager is IQuotaManager {
     function consumeQuota(address, uint256) external pure { }
 }
 
-contract BridgeTest2_processMessage is BridgeTest2 {
+contract TestBridge2_processMessage is TestBridge2Base {
     function test_bridge2_processMessage_basic() public dealEther(Alice) assertSameTotalBalance {
         vm.startPrank(Alice);
 

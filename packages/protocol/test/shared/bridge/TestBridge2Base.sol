@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "../CommonTest.sol";
 import "test/shared/bridge/helpers/MessageReceiver_SendingHalfEtherBalance.sol";
 
-contract BridgeTest2 is CommonTest {
+contract TestBridge2Base is CommonTest {
     bytes internal constant FAKE_PROOF = "";
 
     // Contracts on Ethereum
@@ -22,7 +22,6 @@ contract BridgeTest2 is CommonTest {
         assertEq(address(eSignalService).balance, 0);
     }
 
-    // TODO remove this
     modifier dealEther(address addr) {
         vm.deal(addr, 100 ether);
         _;

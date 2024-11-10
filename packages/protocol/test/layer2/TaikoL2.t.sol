@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "./Layer2Test.sol";
 import "./helpers/TaikoL2_NoBaseFeeCheck.sol";
 
-contract TaikoL2Tests is Layer2Test {
+contract TestTaikoL2 is Layer2Test {
     using SafeCast for uint256;
 
     uint32 private constant BLOCK_GAS_LIMIT = 30_000_000;

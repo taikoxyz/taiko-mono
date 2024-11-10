@@ -16,8 +16,8 @@ import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
 import "src/layer1/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
 import "src/layer1/automata-attestation/utils/BytesUtils.sol";
 import "solady/src/utils/Base64.sol";
-import "../utils/DcapTestUtils.t.sol";
-import "../utils/V3QuoteParseUtils.t.sol";
+import "../utils/DcapTestUtils.sol";
+import "../utils/V3QuoteParseUtils.sol";
 
 contract AttestationBase is Test, DcapTestUtils, V3QuoteParseUtils {
     using BytesUtils for bytes;

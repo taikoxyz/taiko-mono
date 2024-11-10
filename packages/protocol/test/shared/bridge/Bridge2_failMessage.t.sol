@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./Bridge2.t.sol";
+import "./TestBridge2Base.sol";
 
-contract BridgeTest2_failMessage is BridgeTest2 {
+contract TestBridge2_failMessage is TestBridge2Base {
     function test_bridge2_failMessage_not_by_destOwner()
         public
         transactBy(Carol)
