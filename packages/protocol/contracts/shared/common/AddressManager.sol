@@ -4,21 +4,21 @@ pragma solidity ^0.8.24;
 import "./EssentialContract.sol";
 import "./ResolverBase.sol";
 
-/// @title DefaultResolver
+/// @title AddressManager
 /// @notice See the documentation in {IResolver}.
 /// @custom:security-contact security@taiko.xyz
-contract DefaultResolver is EssentialContract, ResolverBase {
+contract AddressManager is EssentialContract, ResolverBase {
     /// @dev Mapping of chainId to mapping of name to address.
     mapping(uint256 chainId => mapping(bytes32 name => address addr)) private __addresses;
 
     uint256[49] private __gap;
 
-    /// @notice Emitted when an address is set.
+    /// @notice Emitted when an address is registered.
     /// @param chainId The chainId for the address mapping.
     /// @param name The name for the address mapping.
     /// @param newAddress The new address.
     /// @param oldAddress The old address.
-    event AddressSet(
+    event AddressRegistered(
         uint256 indexed chainId, bytes32 indexed name, address newAddress, address oldAddress
     );
 
@@ -31,11 +31,11 @@ contract DefaultResolver is EssentialContract, ResolverBase {
         __Essential_init(_owner, address(this));
     }
 
-    /// @notice Sets the address for a specific chainId-name pair.
+    /// @notice Registers an address for a specific chainId-name pair.
     /// @param _chainId The chainId to which the address will be mapped.
     /// @param _name The name to which the address will be mapped.
     /// @param _newAddress The Ethereum address to be mapped.
-    function setAddress(
+    function registerAddress(
         uint256 _chainId,
         bytes32 _name,
         address _newAddress
@@ -47,7 +47,7 @@ contract DefaultResolver is EssentialContract, ResolverBase {
         address oldAddress = __addresses[_chainId][_name];
         require(_newAddress != oldAddress, AM_ADDRESS_ALREADY_SET(_name));
         __addresses[_chainId][_name] = _newAddress;
-        emit AddressSet(_chainId, _name, _newAddress, oldAddress);
+        emit AddressRegistered(_chainId, _name, _newAddress, oldAddress);
     }
 
     function getAddress(uint256 _chainId, bytes32 _name) internal view override returns (address) {

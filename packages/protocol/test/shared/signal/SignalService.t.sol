@@ -48,7 +48,7 @@ contract TestSignalService is CommonTest {
         address srcBridge = 0xde5B0e8a8034eF30a8b71d78e658C85dFE3FC657;
 
         vm.prank(deployer);
-        resolver.setAddress(32_382, "signal_service", srcSignalService);
+        resolver.registerAddress(32_382, "signal_service", srcSignalService);
 
         bytes32 stateRoot = hex"7a889e6436fc1cde7827f75217adf5371afb14cc56860e6d9032ba5e28214819";
         uint64 blockId = 5570;
@@ -135,7 +135,7 @@ contract TestSignalService is CommonTest {
 
     function test_SignalService_proveSignalReceived_revert_zero_size_proof() public {
         vm.prank(deployer);
-        resolver.setAddress(ethereumChainId, "signal_service", randAddress());
+        resolver.registerAddress(ethereumChainId, "signal_service", randAddress());
 
         // proofs.length must > 0 in order not to revert
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](0);
@@ -151,7 +151,7 @@ contract TestSignalService is CommonTest {
 
     function test_SignalService_proveSignalReceived_revert_last_hop_incorrect_chainid() public {
         vm.prank(deployer);
-        resolver.setAddress(ethereumChainId, "signal_service", randAddress());
+        resolver.registerAddress(ethereumChainId, "signal_service", randAddress());
 
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](1);
 
@@ -170,7 +170,7 @@ contract TestSignalService is CommonTest {
 
     function test_SignalService_proveSignalReceived_revert_mid_hop_incorrect_chainid() public {
         vm.prank(deployer);
-        resolver.setAddress(ethereumChainId, "signal_service", randAddress());
+        resolver.registerAddress(ethereumChainId, "signal_service", randAddress());
 
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](2);
 
@@ -189,7 +189,7 @@ contract TestSignalService is CommonTest {
 
     function test_SignalService_proveSignalReceived_revert_mid_hop_not_registered() public {
         vm.prank(deployer);
-        resolver.setAddress(ethereumChainId, "signal_service", randAddress());
+        resolver.registerAddress(ethereumChainId, "signal_service", randAddress());
 
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](2);
 
@@ -215,7 +215,7 @@ contract TestSignalService is CommonTest {
 
     function test_SignalService_proveSignalReceived_local_chaindata_not_found() public {
         vm.prank(deployer);
-        resolver.setAddress(ethereumChainId, "signal_service", randAddress());
+        resolver.registerAddress(ethereumChainId, "signal_service", randAddress());
 
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](1);
 
@@ -248,7 +248,7 @@ contract TestSignalService is CommonTest {
 
     function test_SignalService_proveSignalReceived_one_hop_cache_signal_root() public {
         vm.prank(deployer);
-        resolver.setAddress(ethereumChainId, "signal_service", randAddress());
+        resolver.registerAddress(ethereumChainId, "signal_service", randAddress());
 
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](1);
 
@@ -292,7 +292,7 @@ contract TestSignalService is CommonTest {
 
     function test_SignalService_proveSignalReceived_one_hop_state_root() public {
         vm.prank(deployer);
-        resolver.setAddress(ethereumChainId, "signal_service", randAddress());
+        resolver.registerAddress(ethereumChainId, "signal_service", randAddress());
 
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](1);
 
@@ -336,7 +336,7 @@ contract TestSignalService is CommonTest {
 
     function test_SignalService_proveSignalReceived_multiple_hops_no_caching() public {
         vm.prank(deployer);
-        resolver.setAddress(ethereumChainId, "signal_service", randAddress());
+        resolver.registerAddress(ethereumChainId, "signal_service", randAddress());
 
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](3);
 
@@ -378,8 +378,8 @@ contract TestSignalService is CommonTest {
 
         // Add two trusted hop relayers
         vm.startPrank(deployer);
-        resolver.setAddress(proofs[0].chainId, "signal_service", randAddress() /*relay1*/ );
-        resolver.setAddress(proofs[1].chainId, "signal_service", randAddress() /*relay2*/ );
+        resolver.registerAddress(proofs[0].chainId, "signal_service", randAddress() /*relay1*/ );
+        resolver.registerAddress(proofs[1].chainId, "signal_service", randAddress() /*relay2*/ );
         vm.stopPrank();
 
         vm.expectRevert(SignalService.SS_SIGNAL_NOT_FOUND.selector);
@@ -405,7 +405,7 @@ contract TestSignalService is CommonTest {
 
     function test_SignalService_proveSignalReceived_revert_with_a_loop() public {
         vm.prank(deployer);
-        resolver.setAddress(ethereumChainId, "signal_service", randAddress());
+        resolver.registerAddress(ethereumChainId, "signal_service", randAddress());
 
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](3);
 
@@ -432,8 +432,8 @@ contract TestSignalService is CommonTest {
 
         // Add two trusted hop relayers
         vm.startPrank(deployer);
-        resolver.setAddress(proofs[0].chainId, "signal_service", randAddress() /*relay1*/ );
-        resolver.setAddress(proofs[1].chainId, "signal_service", randAddress() /*relay2*/ );
+        resolver.registerAddress(proofs[0].chainId, "signal_service", randAddress() /*relay1*/ );
+        resolver.registerAddress(proofs[1].chainId, "signal_service", randAddress() /*relay2*/ );
         vm.stopPrank();
 
         vm.prank(taiko);
@@ -530,9 +530,9 @@ contract TestSignalService is CommonTest {
 
         // Add two trusted hop relayers
         vm.startPrank(deployer);
-        resolver.setAddress(ethereumChainId, "signal_service", randAddress());
+        resolver.registerAddress(ethereumChainId, "signal_service", randAddress());
         for (uint256 i; i < proofs.length; ++i) {
-            resolver.setAddress(proofs[i].chainId, "signal_service", randAddress() /*relay1*/ );
+            resolver.registerAddress(proofs[i].chainId, "signal_service", randAddress() /*relay1*/ );
         }
         vm.stopPrank();
 

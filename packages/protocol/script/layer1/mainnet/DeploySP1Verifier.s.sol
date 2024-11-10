@@ -10,7 +10,7 @@ contract DeploySP1Verifier is BaseScript {
         checkResolverOwnership();
         // Deploy sp1 plonk verifier
         SuccinctVerifier succinctVerifier = new SuccinctVerifier();
-        DefaultResolver(resolver).setAddress(
+        AddressManager(resolver).registerAddress(
             block.chainid, "sp1_remote_verifier", address(succinctVerifier)
         );
 

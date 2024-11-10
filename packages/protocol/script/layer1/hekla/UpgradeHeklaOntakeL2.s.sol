@@ -39,7 +39,7 @@ contract UpgradeHeklaOntakeL2 is BaseScript {
         calls[4].target = 0x1670090000000000000000000000000000000006;
         calls[4].allowFailure = false;
         calls[4].callData = abi.encodeCall(
-            DefaultResolver.setAddress, (167_009, bytes32("bridged_erc20"), newBridgedERC20)
+            AddressManager.registerAddress, (167_009, bytes32("bridged_erc20"), newBridgedERC20)
         );
 
         DelegateOwner.Call memory dcall = DelegateOwner.Call({

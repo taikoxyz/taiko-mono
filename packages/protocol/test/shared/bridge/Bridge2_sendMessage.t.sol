@@ -110,7 +110,7 @@ contract TestBridge2_sendMessage is TestBridge2Base {
         eBridge.sendMessage(message);
 
         vm.prank(deployer);
-        resolver.setAddress(ethereumChainId, "signal_service", address(0));
+        resolver.registerAddress(ethereumChainId, "signal_service", address(0));
 
         vm.prank(Alice);
         vm.expectRevert();

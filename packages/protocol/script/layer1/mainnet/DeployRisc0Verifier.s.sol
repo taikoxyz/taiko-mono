@@ -12,7 +12,7 @@ contract DeployRisc0Verifier is BaseScript {
         RiscZeroGroth16Verifier verifier =
             new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
 
-        DefaultResolver(resolver).setAddress(
+        AddressManager(resolver).registerAddress(
             block.chainid, "risc0_groth16_verifier", address(verifier)
         );
 

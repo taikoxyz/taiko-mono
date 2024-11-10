@@ -74,7 +74,7 @@ contract TestBridge2_processMessage is TestBridge2Base {
         vm.stopPrank();
 
         vm.prank(deployer);
-        resolver.setAddress(message.srcChainId, "bridge", address(0));
+        resolver.registerAddress(message.srcChainId, "bridge", address(0));
 
         vm.startPrank(Alice);
 
@@ -399,7 +399,7 @@ contract TestBridge2_processMessage is TestBridge2Base {
         assertSameTotalBalance
     {
         vm.startPrank(deployer);
-        resolver.setAddress(ethereumChainId, "quota_manager", address(new OutOfQuotaManager()));
+        resolver.registerAddress(ethereumChainId, "quota_manager", address(new OutOfQuotaManager()));
         vm.stopPrank();
 
         IBridge.Message memory message;
@@ -429,7 +429,7 @@ contract TestBridge2_processMessage is TestBridge2Base {
         assertSameTotalBalance
     {
         vm.startPrank(deployer);
-        resolver.setAddress(ethereumChainId, "quota_manager", address(new OutOfQuotaManager()));
+        resolver.registerAddress(ethereumChainId, "quota_manager", address(new OutOfQuotaManager()));
         vm.stopPrank();
 
         IBridge.Message memory message;

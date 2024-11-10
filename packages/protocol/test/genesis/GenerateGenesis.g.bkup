@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "forge-std/src/console2.sol";
 import "forge-std/src/StdJson.sol";
 import "forge-std/src/Test.sol";
-import "src/shared/common/DefaultResolver.sol";
+import "src/shared/common/AddressManager.sol";
 import "src/shared/bridge/Bridge.sol";
 import "src/shared/tokenvault/ERC1155Vault.sol";
 import "src/shared/tokenvault/ERC20Vault.sol";
@@ -124,7 +124,7 @@ contract TestGenerateGenesis is Test {
             AddressManager(getPredeployedContractAddress("SharedAddressManager"));
 
         vm.startPrank(addressManager.owner());
-        addressManager.setAddress(1, "bridge", bridgeAddress);
+        addressManager.registerAddress(1, "bridge", bridgeAddress);
         vm.stopPrank();
 
         assertEq(contractOwner, bridgeProxy.owner());
@@ -190,8 +190,8 @@ contract TestGenerateGenesis is Test {
         assertEq(contractOwner, erc20VaultProxy.owner());
 
         vm.startPrank(addressManager.owner());
-        addressManager.setAddress(1, "bridge", bridgeAddress);
-        addressManager.setAddress(1, "erc20_vault", erc20VaultAddress);
+        addressManager.registerAddress(1, "bridge", bridgeAddress);
+        addressManager.registerAddress(1, "erc20_vault", erc20VaultAddress);
         vm.stopPrank();
 
         vm.startPrank(erc20VaultProxy.owner());
@@ -212,8 +212,8 @@ contract TestGenerateGenesis is Test {
         assertEq(contractOwner, erc721VaultProxy.owner());
 
         vm.startPrank(addressManager.owner());
-        addressManager.setAddress(1, "bridge", bridgeAddress);
-        addressManager.setAddress(1, "erc721_vault", erc721VaultAddress);
+        addressManager.registerAddress(1, "bridge", bridgeAddress);
+        addressManager.registerAddress(1, "erc721_vault", erc721VaultAddress);
         vm.stopPrank();
 
         vm.startPrank(erc721VaultProxy.owner());
@@ -234,8 +234,8 @@ contract TestGenerateGenesis is Test {
         assertEq(contractOwner, erc1155VaultProxy.owner());
 
         vm.startPrank(addressManager.owner());
-        addressManager.setAddress(1, "bridge", bridgeProxyAddress);
-        addressManager.setAddress(1, "erc1155_vault", erc1155VaultProxyAddress);
+        addressManager.registerAddress(1, "bridge", bridgeProxyAddress);
+        addressManager.registerAddress(1, "erc1155_vault", erc1155VaultProxyAddress);
         vm.stopPrank();
 
         // address erc1155VaultAddress = getPredeployedContractAddress("ERC1155VaultImpl");
@@ -305,7 +305,7 @@ contract TestGenerateGenesis is Test {
     }
 
     function checkSavedAddress(
-        DefaultResolver resolver,
+        AddressManager resolver,
         string memory contractName,
         bytes32 name
     )
