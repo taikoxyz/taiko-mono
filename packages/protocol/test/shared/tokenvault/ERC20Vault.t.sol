@@ -93,13 +93,7 @@ contract TestERC20Vault is CommonTest {
         vm.expectRevert();
         eVault.sendToken(
             ERC20Vault.BridgeTransferOp(
-                taikoChainId,
-                address(0),
-                Bob,
-                amount - 1,
-                address(eERC20Token1),
-                1_000_000,
-                amount
+                taikoChainId, address(0), Bob, amount - 1, address(eERC20Token1), 1_000_000, amount
             )
         );
     }

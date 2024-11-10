@@ -4,8 +4,7 @@ pragma solidity ^0.8.24;
 import "../CommonTest.sol";
 import "../helpers/CanSayHelloWorld.sol";
 
-contract BridgedERC20V2_WithHelloWorld is BridgedERC20V2,CanSayHelloWorld {
-}
+contract BridgedERC20V2_WithHelloWorld is BridgedERC20V2, CanSayHelloWorld { }
 
 // PrankDestBridge lets us simulate a transaction to the ERC20Vault
 // from a named Bridge, without having to test/run through the real Bridge code,
@@ -64,5 +63,3 @@ contract PrankDestBridge {
         ctx.srcChainId = 0;
     }
 }
-
-

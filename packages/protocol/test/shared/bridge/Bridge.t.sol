@@ -1,9 +1,33 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./Bridge.h.sol";
 import "test/shared/bridge/helpers/MessageReceiver_SendingHalfEtherBalance.sol";
+import "../CommonTest.sol";
 
+// A contract which is not our registered ERCXXXVault. In such case, the sent funds are still
+// recoverable, but not via the onMessageRecall() but Bridge will send it back
+contract UnregisteredVault {
+    function sendMessage(
+        address bridge,
+        IBridge.Message memory message,
+        uint256 message_value
+    )
+        public
+        returns (bytes32 msgHash, IBridge.Message memory updatedMessage)
+    {
+        return IBridge(bridge).sendMessage{ value: message_value }(message);
+    }
+}
+
+contract EmptyContract_WithFallback {
+    fallback() external payable { }
+}
+
+contract EmptyContract_WithInfiniteFallback {
+    fallback() external payable {
+        while (true) { } // infinite loop
+    }
+}
 
 contract BridgeTest is CommonTest {
     // Contracts on Ethereum
@@ -111,7 +135,9 @@ contract BridgeTest is CommonTest {
             value: 1000,
             fee: 1000,
             gasLimit: 1_000_000,
-            data: abi.encodeCall(MessageReceiver_SendingHalfEtherBalance.onMessageInvocation, abi.encode(Carol))
+            data: abi.encodeCall(
+                MessageReceiver_SendingHalfEtherBalance.onMessageInvocation, abi.encode(Carol)
+            )
         });
         // Mocking proof - but obviously it needs to be created in prod
         // corresponding to the message
@@ -270,11 +296,10 @@ contract BridgeTest is CommonTest {
 
         uint256 starterBalanceVault = address(eBridge).balance;
 
-        UntrustedSendMessageRelayer untrustedSenderContract;
-        untrustedSenderContract = new UntrustedSendMessageRelayer();
-        vm.deal(address(untrustedSenderContract), 10 ether);
+        UnregisteredVault unregisteredVault = new UnregisteredVault();
+        vm.deal(address(unregisteredVault), 10 ether);
 
-        (, message) = untrustedSenderContract.sendMessage(address(eBridge), message, amount + fee);
+        (, message) = unregisteredVault.sendMessage(address(eBridge), message, amount + fee);
 
         assertEq(address(eBridge).balance, (starterBalanceVault + amount + fee));
 
@@ -300,7 +325,7 @@ contract BridgeTest is CommonTest {
     }
 
     function test_processMessage_InvokeMessageCall_DoS1() public {
-        NonMaliciousContract1 nonmaliciousContract1 = new NonMaliciousContract1();
+        EmptyContract_WithFallback to = new EmptyContract_WithFallback();
 
         IBridge.Message memory message = IBridge.Message({
             id: 0,
@@ -309,7 +334,7 @@ contract BridgeTest is CommonTest {
             destChainId: taikoChainId,
             srcOwner: Alice,
             destOwner: Alice,
-            to: address(nonmaliciousContract1),
+            to: address(to),
             value: 1000,
             fee: 1000,
             gasLimit: 1_000_000,
@@ -328,7 +353,7 @@ contract BridgeTest is CommonTest {
     }
 
     function test_processMessage_InvokeMessageCall_DoS2_testfail() public {
-        MaliciousContract2 maliciousContract2 = new MaliciousContract2();
+        EmptyContract_WithInfiniteFallback to = new EmptyContract_WithInfiniteFallback();
 
         IBridge.Message memory message = IBridge.Message({
             id: 0,
@@ -337,7 +362,7 @@ contract BridgeTest is CommonTest {
             destChainId: taikoChainId,
             srcOwner: Alice,
             destOwner: Alice,
-            to: address(maliciousContract2),
+            to: address(to),
             value: 1000,
             fee: 1000,
             gasLimit: 1_000_000,

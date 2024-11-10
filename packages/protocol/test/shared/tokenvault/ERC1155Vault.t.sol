@@ -264,8 +264,7 @@ contract ERC1155VaultTest is CommonTest {
         );
 
         // Query canonicalToBridged
-        address bridgedContract =
-            tVault.canonicalToBridged(ethereumChainId, address(eERC1155Token));
+        address bridgedContract = tVault.canonicalToBridged(ethereumChainId, address(eERC1155Token));
 
         assertEq(bridgedContract, deployedContract);
     }

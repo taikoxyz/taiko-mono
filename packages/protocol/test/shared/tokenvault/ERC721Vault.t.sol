@@ -172,7 +172,8 @@ contract ERC721VaultTest is CommonTest {
         assertEq(ERC721(deployedContract).ownerOf(1), Alice);
     }
 
-    function test_721Vault_receiveFreeMintERC721Tokens_but_mint_not_deploy_if_bridged_second_time_721()
+    function test_721Vault_receiveFreeMintERC721Tokens_but_mint_not_deploy_if_bridged_second_time_721(
+    )
         public
     {
         vm.prank(Alice);
