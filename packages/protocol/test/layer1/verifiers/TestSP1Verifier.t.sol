@@ -1,24 +1,23 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { SP1Verifier as RemoteSP1Verifier } from "@sp1-contracts/src/v3.0.0/SP1VerifierPlonk.sol";
+import { SP1Verifier as SP1RemoteVerifier } from "@sp1-contracts/src/v3.0.0/SP1VerifierPlonk.sol";
 import "../Layer1Test.sol";
 
-contract TaikoL1Stub_ReturnFixChainId {
+contract TaikoL1Stub_ReturnMainnetChainId {
     function getConfig() external pure returns (TaikoData.Config memory config) {
-        // The test below use this fix value in proof data. 
         config.chainId = 167000;
     }
 }
 
-contract TestSP1PlonkVerifier is Layer1Test {
+contract TestSP1Verifier is Layer1Test {
     SP1Verifier internal sp1Verifier;
     address internal taikoL1;
 
     function setUpOnEthereum() internal override {
-        taikoL1 = address(new TaikoL1Stub_ReturnFixChainId());
+        taikoL1 = address(new TaikoL1Stub_ReturnMainnetChainId());
         register("taiko", taikoL1);
-        register("sp1_remote_verifier", address(new RemoteSP1Verifier()));
+        register("sp1_remote_verifier", address(new SP1RemoteVerifier()));
 
         // Deploy Taiko's SP1 proof verifier
         sp1Verifier = SP1Verifier(
