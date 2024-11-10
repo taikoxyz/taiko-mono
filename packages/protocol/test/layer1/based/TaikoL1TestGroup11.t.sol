@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./TaikoL1Test.sol";
+import "./TestTaikoL1Base.sol";
 
-contract TaikoL10TestGroup11 is TaikoL1Test {
+contract TestTaikoL1_Group11 is TestTaikoL1Base {
     // Test summary:
     // 1. Zachary proposes a block with a custom proposer in the block parameters
     // 2. The proposal will revert as Zachary is not registered as the preconf task manager.

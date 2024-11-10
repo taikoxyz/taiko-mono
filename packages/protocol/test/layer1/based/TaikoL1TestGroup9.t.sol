@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./TaikoL1Test.sol";
+import "./TestTaikoL1Base.sol";
 
 // Testing block proving and verification for block#2, as stateRootSyncInternal is set to 2 in
 // this test suite, we are testing that block#2 shall have state root always as zero.
-contract TaikoL1TestGroup5 is TaikoL1Test {
+contract TestTaikoL1_Group9 is TestTaikoL1Base {
     bytes32 internal constant FIRST_BLOCK_HASH = keccak256("FIRST_BLOCK_HASH");
 
     function proposeProveVerifyTheFirstBlock() internal {

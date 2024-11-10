@@ -5,7 +5,7 @@ import "../Layer1Test.sol";
 import "./helpers/TierRouter_With4Tiers.sol";
 import "./helpers/Verifier_ToggleStub.sol";
 
-abstract contract TaikoL1Test is Layer1Test {
+abstract contract TestTaikoL1Base is Layer1Test {
     bytes32 internal GENESIS_BLOCK_HASH = keccak256("GENESIS_BLOCK_HASH");
 
     TaikoToken internal bondToken;

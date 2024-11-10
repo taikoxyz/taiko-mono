@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./TaikoL1Test.sol";
+import "./TestTaikoL1Base.sol";
 
-contract TaikoL1TestGroup5 is TaikoL1Test {
+contract TestTaikoL1_Group5 is TestTaikoL1Base {
     // Test summary:
     // 1. Alice proposes a block,
     // 2. Guardian prover directly proves the block.

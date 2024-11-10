@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./TaikoL1Test.sol";
+import "./TestTaikoL1Base.sol";
 
-contract TaikoL10TestGroup12 is TaikoL1Test {
+contract TestTaikoL1_Group12 is TestTaikoL1Base {
     /// @dev Test we can propose, prove, then verify more blocks than
     /// 'blockMaxProposals'
     function test_taikoL1_group_12_more_blocks_than_ring_buffer_size() external {

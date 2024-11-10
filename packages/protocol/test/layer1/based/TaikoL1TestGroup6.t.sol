@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./TaikoL1Test.sol";
+import "./TestTaikoL1Base.sol";
 
-contract TaikoL1TestGroup6 is TaikoL1Test {
+contract TestTaikoL1_Group6 is TestTaikoL1Base {
     // Test summary:
     // 1. Alice proposes a block,
     // 2. Alice proves the block within the proving window, using the correct parent hash.
