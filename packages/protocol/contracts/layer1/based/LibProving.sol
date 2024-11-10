@@ -248,12 +248,11 @@ library LibProving {
         // Retrieve the tier configurations. If the tier is not supported, the subsequent action
         // will result in a revert.
         {
-            ITierRouter tierRouter =
-                ITierRouter(_resolver.resolve(block.chainid, LibStrings.B_TIER_ROUTER, false));
-            ITierProvider tierProvider = ITierProvider(tierRouter.getProvider(local.blockId));
+            ITierProvider tierProvider =
+                ITierProvider(_resolver.resolve(block.chainid, LibStrings.B_TIER_PROVIDER, false));
 
-            local.tier = tierProvider.getTier(local.proof.tier);
-            local.minTier = tierProvider.getTier(local.meta.minTier);
+            local.tier = tierProvider.getTier(local.blockId, local.proof.tier);
+            local.minTier = tierProvider.getTier(local.blockId, local.meta.minTier);
             local.isTopTier = local.tier.contestBond == 0;
         }
 

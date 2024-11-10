@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "../Layer1Test.sol";
-import "./helpers/TierRouter_With4Tiers.sol";
+import "./helpers/TierProvider_With4Tiers.sol";
 import "./helpers/Verifier_ToggleStub.sol";
 
 abstract contract TestTaikoL1Base is Layer1Test {
@@ -11,7 +11,7 @@ abstract contract TestTaikoL1Base is Layer1Test {
     TaikoToken internal bondToken;
     SignalService internal signalService;
     Bridge internal bridge;
-    ITierRouter internal tierRouter;
+    ITierProvider internal tierProvider;
     Verifier_ToggleStub internal tier1Verifier;
     Verifier_ToggleStub internal tier2Verifier;
     Verifier_ToggleStub internal tier3Verifier;
@@ -28,7 +28,7 @@ abstract contract TestTaikoL1Base is Layer1Test {
         bondToken = deployBondToken();
         signalService = deploySignalService(address(new SignalService()));
         bridge = deployBridge(address(new Bridge()));
-        tierRouter = deployTierRouter();
+        tierProvider = deployTierProvider();
         tier1Verifier = deployVerifier("");
         tier2Verifier = deployVerifier("tier_2");
         tier3Verifier = deployVerifier("tier_3");
@@ -36,8 +36,8 @@ abstract contract TestTaikoL1Base is Layer1Test {
         taikoL1 = deployTaikoL1(getConfig());
 
         signalService.authorize(address(taikoL1), true);
-        minTierId = tierProvider().getMinTier(address(0), 0);
-        minTier = tierProvider().getTier(minTierId);
+        minTierId = tierProvider.getMinTier(0, address(0), 0);
+        minTier = tierProvider.getTier(0, minTierId);
         livenessBond = taikoL1.getConfig().livenessBond;
 
         mineOneBlockAndWrap(12 seconds);
@@ -46,10 +46,6 @@ abstract contract TestTaikoL1Base is Layer1Test {
     function setUpOnTaiko() internal override {
         register("taiko", taikoL2);
         register("signal_service", tSignalService);
-    }
-
-    function tierProvider() internal view returns (ITierProvider) {
-        return ITierProvider(address(tierRouter));
     }
 
     // TODO: order and name mismatch
@@ -164,9 +160,9 @@ abstract contract TestTaikoL1Base is Layer1Test {
         console2.log("   | stateRoot:", vm.toString(ts.stateRoot));
     }
 
-    function deployTierRouter() internal returns (ITierRouter tierRouter_) {
-        tierRouter_ = new TierRouter_With4Tiers();
-        register("tier_router", address(tierRouter_));
+    function deployTierProvider() internal returns (ITierProvider tierProvider_) {
+        tierProvider_ = new TierProvider_With4Tiers();
+        register("tier_provider", address(tierProvider_));
     }
 
     function deployTaikoL1(TaikoData.Config memory config) internal returns (TaikoL1) {

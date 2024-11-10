@@ -3,27 +3,29 @@ pragma solidity ^0.8.24;
 
 import "src/shared/libs/LibStrings.sol";
 import "src/layer1/tiers/ITierProvider.sol";
-import "src/layer1/tiers/ITierRouter.sol";
 
-/// @title TierRouter_With4Tiers
+/// @title TierProvider_With4Tiers
 /// @dev Labeled in AddressResolver as "tier_router"
 /// @custom:security-contact security@taiko.xyz
-contract TierRouter_With4Tiers is ITierProvider, ITierRouter {
+contract TierProvider_With4Tiers is ITierProvider {
     uint16 private minTier = 72;
     uint96 public constant BOND_UINT = 100 ether;
     uint16 public constant ONE_HOUR = 60;
-
-    /// @inheritdoc ITierRouter
-    function getProvider(uint256) external view returns (address) {
-        return address(this);
-    }
 
     function setMinTier(uint16 _minTier) external {
         minTier = _minTier;
     }
 
     /// @inheritdoc ITierProvider
-    function getTier(uint16 _tierId) public pure override returns (ITierProvider.Tier memory) {
+    function getTier(
+        uint64,
+        uint16 _tierId
+    )
+        public
+        pure
+        override
+        returns (ITierProvider.Tier memory)
+    {
         if (_tierId == 71) {
             return ITierProvider.Tier({
                 verifierName: "",
@@ -80,7 +82,7 @@ contract TierRouter_With4Tiers is ITierProvider, ITierRouter {
     }
 
     /// @inheritdoc ITierProvider
-    function getMinTier(address, uint256) public view override returns (uint16) {
+    function getMinTier(uint64, address, uint256) public view override returns (uint16) {
         return minTier;
     }
 }

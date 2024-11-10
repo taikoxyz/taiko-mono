@@ -2,23 +2,17 @@
 pragma solidity ^0.8.24;
 
 import "../tiers/TierProviderBase.sol";
-import "../tiers/ITierRouter.sol";
 
 /// @title HeklaTierRouter
 /// @dev Any changes to the configuration in this file must be announced and documented on our site.
 /// Ensure all modifications are reviewed by the devrel team.
 /// @custom:security-contact security@taiko.xyz
-contract HeklaTierRouter is TierProviderBase, ITierRouter {
+contract HeklaTierProvider is TierProviderBase {
     address public immutable DAO_FALLBACK_PROPOSER;
 
     constructor(address _daoFallbackProposer) {
         // 0xD3f681bD6B49887A48cC9C9953720903967E9DC0
         DAO_FALLBACK_PROPOSER = _daoFallbackProposer;
-    }
-
-    /// @inheritdoc ITierRouter
-    function getProvider(uint256) external view returns (address) {
-        return address(this);
     }
 
     /// @inheritdoc ITierProvider
@@ -33,7 +27,16 @@ contract HeklaTierRouter is TierProviderBase, ITierRouter {
     }
 
     /// @inheritdoc ITierProvider
-    function getMinTier(address _proposer, uint256 _rand) public view override returns (uint16) {
+    function getMinTier(
+        uint64,
+        address _proposer,
+        uint256 _rand
+    )
+        public
+        view
+        override
+        returns (uint16)
+    {
         if (_proposer == DAO_FALLBACK_PROPOSER) {
             if (_rand % 100 == 0) return LibTiers.TIER_ZKVM_RISC0;
             else if (_rand % 1000 == 1) return LibTiers.TIER_ZKVM_SP1;

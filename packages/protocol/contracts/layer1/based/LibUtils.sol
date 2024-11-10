@@ -5,7 +5,6 @@ import "src/shared/common/IResolver.sol";
 import "src/shared/libs/LibStrings.sol";
 import "src/shared/libs/LibMath.sol";
 import "../tiers/ITierProvider.sol";
-import "../tiers/ITierRouter.sol";
 import "./TaikoData.sol";
 
 /// @title LibUtils

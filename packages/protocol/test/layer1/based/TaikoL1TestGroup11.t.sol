@@ -13,8 +13,6 @@ contract TestTaikoL1_Group11 is TestTaikoL1Base {
 
         giveEthAndTko(Zachary, 10_000 ether, 1000 ether);
 
-        tierProvider().getTier(minTierId);
-
         console2.log("====== Zachary proposes a block");
 
         TaikoData.BlockParamsV2 memory params;

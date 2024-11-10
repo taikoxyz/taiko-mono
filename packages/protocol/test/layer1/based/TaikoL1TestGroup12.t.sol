@@ -26,7 +26,7 @@ contract TestTaikoL1_Group12 is TestTaikoL1Base {
             vm.roll(block.number + 15 * 12);
 
             uint16 minTier = meta.minTier;
-            vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
+            vm.warp(block.timestamp + tierProvider.getTier(0, minTier).cooldownWindow * 60 + 1);
 
             taikoL1.verifyBlocks(1);
             parentHash = blockHash;
@@ -55,7 +55,7 @@ contract TestTaikoL1_Group12 is TestTaikoL1Base {
             proveBlock(Alice, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
             vm.roll(block.number + 15 * 12);
             uint16 minTier = meta.minTier;
-            vm.warp(block.timestamp + tierProvider().getTier(minTier).cooldownWindow * 60 + 1);
+            vm.warp(block.timestamp + tierProvider.getTier(0, minTier).cooldownWindow * 60 + 1);
 
             taikoL1.verifyBlocks(2);
 
