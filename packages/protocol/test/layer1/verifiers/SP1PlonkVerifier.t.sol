@@ -6,7 +6,8 @@ import "../Layer1Test.sol";
 
 contract TaikoL1Stub_ReturnFixChainId {
     function getConfig() external pure returns (TaikoData.Config memory config) {
-        config.chainId = 123;
+        // The test below use this fix value in proof data. 
+        config.chainId = 167000;
     }
 }
 
@@ -49,7 +50,7 @@ contract TestSP1PlonkVerifier is Layer1Test {
             _generateTaikoMainnetContextAndTransition();
 
         bytes32 pi = LibPublicInput.hashPublicInputs(
-            transition, address(sp1Verifier), address(0), ctx.prover, ctx.metaHash, 123
+            transition, address(sp1Verifier), address(0), ctx.prover, ctx.metaHash, 167000
         );
         console2.log("Verifier: ", address(sp1Verifier));
         console2.log("Prover: ", ctx.prover);
