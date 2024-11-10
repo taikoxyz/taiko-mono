@@ -150,63 +150,7 @@ library LibProposing {
             local.params = abi.decode(_params, (TaikoData.BlockParamsV2));
         }
 
-        if (local.params.proposer == address(0)) {
-            local.params.proposer = msg.sender;
-        } else {
-            require(
-                local.params.proposer == msg.sender || local.allowCustomProposer,
-                L1_INVALID_CUSTOM_PROPOSER()
-            );
-        }
-
-        if (local.params.coinbase == address(0)) {
-            local.params.coinbase = local.params.proposer;
-        }
-
-        if (local.params.anchorBlockId == 0) {
-            unchecked {
-                local.params.anchorBlockId = uint64(block.number - 1);
-            }
-        }
-
-        if (local.params.timestamp == 0) {
-            local.params.timestamp = uint64(block.timestamp);
-        }
-
-        // Verify params against the parent block.
-        TaikoData.BlockV2 storage parentBlk;
-        unchecked {
-            parentBlk = _state.blocks[(local.b.numBlocks - 1) % _config.blockRingBufferSize];
-        }
-
-        // Verify the passed in L1 state block number to anchor.
-        require(
-            local.params.anchorBlockId + _config.maxAnchorHeightOffset >= block.number,
-            L1_INVALID_ANCHOR_BLOCK()
-        );
-        require(local.params.anchorBlockId < block.number, L1_INVALID_ANCHOR_BLOCK());
-
-        // parentBlk.proposedIn is actually parent's params.anchorBlockId
-        require(local.params.anchorBlockId >= parentBlk.proposedIn, L1_INVALID_ANCHOR_BLOCK());
-
-        // Verify the provided timestamp to anchor. Note that local.params.anchorBlockId and
-        // local.params.timestamp may not correspond to the same L1 block.
-        require(
-            local.params.timestamp + _config.maxAnchorHeightOffset * SECONDS_PER_BLOCK
-                >= block.timestamp,
-            L1_INVALID_TIMESTAMP()
-        );
-        require(local.params.timestamp <= block.timestamp, L1_INVALID_TIMESTAMP());
-
-        // parentBlk.proposedAt is actually parent's params.timestamp
-        require(local.params.timestamp >= parentBlk.proposedAt, L1_INVALID_TIMESTAMP());
-
-        // Check if parent block has the right meta hash. This is to allow the proposer to make sure
-        // the block builds on the expected latest chain state.
-        require(
-            local.params.parentMetaHash == 0 || local.params.parentMetaHash == parentBlk.metaHash,
-            L1_UNEXPECTED_PARENT()
-        );
+        _validateParams(_state, _config, local);
 
         // Initialize metadata to compute a metaHash, which forms a part of the block data to be
         // stored on-chain for future integrity checks. If we choose to persist all data fields in
@@ -282,6 +226,77 @@ library LibProposing {
         LibBonds.debitBond(_state, _resolver, local.params.proposer, meta_.id, _config.livenessBond);
 
         emit BlockProposedV2(meta_.id, meta_);
+    }
+
+    /// @dev Validates the parameters for proposing a block.
+    /// @param _state Pointer to the protocol's storage.
+    /// @param _config The configuration parameters for the Taiko protocol.
+    /// @param _local The local struct.
+    function _validateParams(
+        TaikoData.State storage _state,
+        TaikoData.Config memory _config,
+        Local memory _local
+    )
+        private
+        view
+    {
+        unchecked {
+            if (_local.params.proposer == address(0)) {
+                _local.params.proposer = msg.sender;
+            } else {
+                require(
+                    _local.params.proposer == msg.sender || _local.allowCustomProposer,
+                    L1_INVALID_CUSTOM_PROPOSER()
+                );
+            }
+
+            if (_local.params.coinbase == address(0)) {
+                _local.params.coinbase = _local.params.proposer;
+            }
+
+            if (_local.params.anchorBlockId == 0) {
+                _local.params.anchorBlockId = uint64(block.number - 1);
+            }
+
+            if (_local.params.timestamp == 0) {
+                _local.params.timestamp = uint64(block.timestamp);
+            }
+        }
+
+        // Verify params against the parent block.
+        TaikoData.BlockV2 storage parentBlk;
+        unchecked {
+            parentBlk = _state.blocks[(_local.b.numBlocks - 1) % _config.blockRingBufferSize];
+        }
+
+        // Verify the passed in L1 state block number to anchor.
+        require(
+            _local.params.anchorBlockId + _config.maxAnchorHeightOffset >= block.number,
+            L1_INVALID_ANCHOR_BLOCK()
+        );
+        require(_local.params.anchorBlockId < block.number, L1_INVALID_ANCHOR_BLOCK());
+
+        // parentBlk.proposedIn is actually parent's params.anchorBlockId
+        require(_local.params.anchorBlockId >= parentBlk.proposedIn, L1_INVALID_ANCHOR_BLOCK());
+
+        // Verify the provided timestamp to anchor. Note that local.params.anchorBlockId and
+        // local.params.timestamp may not correspond to the same L1 block.
+        require(
+            _local.params.timestamp + _config.maxAnchorHeightOffset * SECONDS_PER_BLOCK
+                >= block.timestamp,
+            L1_INVALID_TIMESTAMP()
+        );
+        require(_local.params.timestamp <= block.timestamp, L1_INVALID_TIMESTAMP());
+
+        // parentBlk.proposedAt is actually parent's params.timestamp
+        require(_local.params.timestamp >= parentBlk.proposedAt, L1_INVALID_TIMESTAMP());
+
+        // Check if parent block has the right meta hash. This is to allow the proposer to make sure
+        // the block builds on the expected latest chain state.
+        require(
+            _local.params.parentMetaHash == 0 || _local.params.parentMetaHash == parentBlk.metaHash,
+            L1_UNEXPECTED_PARENT()
+        );
     }
 
     /// @dev Encodes the base fee configuration into a bytes32.

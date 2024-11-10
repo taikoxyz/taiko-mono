@@ -9,10 +9,12 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "packages/docs-site/**"
+    branches-ignore:
+      - release-please--branches--**
 
 jobs:
   deploy-docs-site-preview:
-    if: contains(github.event.pull_request.labels.*.name, 'option.workflow_on') || github.event.pull_request.draft == false && github.head_ref != 'release-please-*' 
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
     runs-on: [arc-runner-set]
     steps:
       - name: Install Git
