@@ -58,13 +58,11 @@ contract TestSP1Verifier is Layer1Test {
         console2.log("Public input");
         console2.logBytes32(pi);
 
-        // `verifyProof()`
         sp1Verifier.verifyProof(ctx, transition, proof);
     }
 
     // Test `verifyBatchProof()` happy path
     function test_sp1_Plonk_verifyBatchProof() public {
-        vm.startPrank(sp1Verifier.owner());
         // proof generation elf vk digest which is not a bn254 hash
         // but a sha256 hash from the same Sp1Verifykey.
         sp1Verifier.setProgramTrusted(
@@ -74,8 +72,7 @@ contract TestSP1Verifier is Layer1Test {
         sp1Verifier.setProgramTrusted(
             bytes32(0x00d5ff4ed163b73e75aa1f60c399b3c778df24abe584fc6eee1ce5c444b74bcd), true
         );
-        vm.stopPrank();
-
+        
         // Context
         IVerifier.ContextV2[] memory ctxs = new IVerifier.ContextV2[](2);
         ctxs[0] = IVerifier.ContextV2({
@@ -114,7 +111,6 @@ contract TestSP1Verifier is Layer1Test {
             hex"00d5ff4ed163b73e75aa1f60c399b3c778df24abe584fc6eee1ce5c444b74bcd270b3d1b1fbd613c23185f586ffdda82729a4c8968595c0f76312be15a412bff54bdcae3236b956a67d15b4682d972d50fbb3632ac950bd712dad2d4cc9c302856c11e6c2ed6722fc3e4904ed204eb05a9f32bae3f8e7d4fbdd854c3d269a33e601c39c90d02026cdcdd55268090e316df3ffc0eee6de2765eb0d767f1455cd35af89da20ade1e61dc074884d5317f0206abb720acf8c023d2740b41fe37f2cb00fe561725269f4321543b30d528ee3e8884ea493fc6b1629e9a7537e65353fb0afd7e8021d502cb556e7a2b600e859f3fc524ad681df470d8d0ccc463775434ca56de661b34a3b620726aed8affc8a90d7b798a92d6500dacd9fb7d43a37c301d70e59d2d192fa85b2f6689bd9a6d47df9ea45163a228c8291e8d6d0ed5d7d7be8bd6391d6496989df139eaff5fca0f9d47eccad8ff6fb7aa0b8bb3da8e73fa4ff825d208b0ce5a639f30501f200c12f8fa1bf5c4ac42c4a58ceb34bbb3b012121f6ff31ed772d57c421a75813f987888e7e3b984bff8465bbfbdd30d45fae9904816a21c99ca4a903ed19af479d4ce0a1b4e78e2a9b3bdb8dde8986e8f028da0dd37e3129a184b4d36427d130075802421e5c693297f4705a030454b105b91f3ce8be111967dd8016ec9aed42e42ed3ab53e1dc42a0b796557e05b658203ae972378db1a109898a02ac97adfe3d5b24e1ab0d49f7702b69d137e23264e5b2c5b6e72fc2b2a4562b793a2c00ead94de8890700aa3c2fe5baf59ab8b7f524d38ba3b71712151edd00307dc3c9f24ea9d1bbac6687c8f30dbe845663f7aaddaec9df8d1fd15ced22fa58272184fe02aad68fd5a90ee249fced2ef955c0af40e02be0621e7162413e629b4428cb929d0a2bd87375dcec17664fec3a5a6cd2f7039723d41f10b77f5f3b7b052db1043c302795d3d739eecd2d2f686c2c474dcc67d9e844ca50bdabc7ac085aeb02aff0b3cbf17aaa0114ba85eff4a938d87db17680a5995a90347b2a5eccaeeb1be204a6dd83da39fe9485822667a43d4a5451f494063075007f152eeb46e0bad0675cf6219b53b36b1ca474f13f6dae87d1efad3c71f89cd05a04a6c76f6703858650a5fd6e2b45be3bf299386595d8eca6c8c55d537e8b3263828c7be68c92bdae0be0ed101f89c0c4c16154867228dc47ff0a4fccb4bb72b7cf8aa2c4a9bd4fd01254e51a7fbf680f408b5ae9c189466625b0f41636d94060e805eb6da30eab1202b65d8226918c4b99a73a6874089dbc5eac08cfab3d7";
         TaikoData.TierProof memory proof = TaikoData.TierProof({ tier: 0, data: data });
 
-        vm.prank(taikoL1);
         sp1Verifier.verifyBatchProof(ctxs, proof);
     }
 
