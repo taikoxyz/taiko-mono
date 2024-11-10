@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./TestTaikoL1Base.sol";
+import "./TaikoL1TestGroupBase.sol";
 
-contract TestTaikoL1_Group8 is TestTaikoL1Base {
+contract TaikoL1TestGroup8 is TaikoL1TestGroupBase {
     // Test summary:
     // 1. Alice proposes a block,
     // 2. TaikoL1 is paused.
@@ -13,7 +13,7 @@ contract TestTaikoL1_Group8 is TestTaikoL1Base {
     // 6. Alice attempts again to prove the first block within the proving window.
     // 7. Alice tries to propose another block.
     function test_taikoL1_group_8_case_1() external {
-        mineOneBlockAndWrap(1000 seconds);
+        vm.warp(1_000_000);
         giveEthAndTko(Alice, 10_000 ether, 1000 ether);
 
         console2.log("====== Alice propose a block");
@@ -21,9 +21,9 @@ contract TestTaikoL1_Group8 is TestTaikoL1Base {
         TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
 
         console2.log("====== Pause TaikoL1");
-        mineOneBlockAndWrap(10 seconds);
-        vm.prank(taikoL1.owner());
-        taikoL1.pause();
+        mineAndWrap(10 seconds);
+        vm.prank(L1.owner());
+        L1.pause();
 
         console2.log("====== Alice proves the block first after L1 paused");
 
@@ -44,9 +44,9 @@ contract TestTaikoL1_Group8 is TestTaikoL1Base {
         proposeBlock(Alice, EssentialContract.INVALID_PAUSE_STATUS.selector);
 
         console2.log("====== Unpause TaikoL1");
-        mineOneBlockAndWrap(10 seconds);
-        vm.prank(taikoL1.owner());
-        taikoL1.unpause();
+        mineAndWrap(10 seconds);
+        vm.prank(L1.owner());
+        L1.unpause();
 
         console2.log("====== Alice proves the block first after L1 unpaused");
         proveBlock(Alice, meta, parentHash1, blockHash, stateRoot, meta.minTier, "");
@@ -63,7 +63,7 @@ contract TestTaikoL1_Group8 is TestTaikoL1Base {
     // 6. Alice attempts again to prove the first block within the proving window.
     // 7. Alice tries to propose another block.
     function test_taikoL1_group_8_case_2() external {
-        mineOneBlockAndWrap(1000 seconds);
+        vm.warp(1_000_000);
         giveEthAndTko(Alice, 10_000 ether, 1000 ether);
 
         console2.log("====== Alice propose a block");
@@ -71,9 +71,9 @@ contract TestTaikoL1_Group8 is TestTaikoL1Base {
         TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
 
         console2.log("====== Pause TaikoL1 proving");
-        mineOneBlockAndWrap(10 seconds);
-        vm.prank(taikoL1.owner());
-        taikoL1.pauseProving(true);
+        mineAndWrap(10 seconds);
+        vm.prank(L1.owner());
+        L1.pauseProving(true);
 
         console2.log("====== Alice proves the block first after L1 proving paused");
 
@@ -94,9 +94,9 @@ contract TestTaikoL1_Group8 is TestTaikoL1Base {
         proposeBlock(Alice, "");
 
         console2.log("====== Unpause TaikoL1 proving");
-        mineOneBlockAndWrap(10 seconds);
-        vm.prank(taikoL1.owner());
-        taikoL1.pauseProving(false);
+        mineAndWrap(10 seconds);
+        vm.prank(L1.owner());
+        L1.pauseProving(false);
 
         console2.log("====== Alice proves the block first after L1 proving unpaused");
         proveBlock(Alice, meta, parentHash1, blockHash, stateRoot, meta.minTier, "");
@@ -107,15 +107,15 @@ contract TestTaikoL1_Group8 is TestTaikoL1Base {
     // 2. Gets a transition by ID & hash that doesn't exist.
     function test_taikoL1_group_8_case_3() external {
         vm.expectRevert(LibUtils.L1_INVALID_BLOCK_ID.selector);
-        taikoL1.getBlockV2(2);
+        L1.getBlockV2(2);
 
         vm.expectRevert(LibUtils.L1_TRANSITION_NOT_FOUND.selector);
-        taikoL1.getTransition(0, 2);
+        L1.getTransition(0, 2);
 
         vm.expectRevert(LibUtils.L1_TRANSITION_NOT_FOUND.selector);
-        taikoL1.getTransition(0, randBytes32());
+        L1.getTransition(0, randBytes32());
 
         vm.expectRevert(LibUtils.L1_INVALID_BLOCK_ID.selector);
-        taikoL1.getTransition(3, randBytes32());
+        L1.getTransition(3, randBytes32());
     }
 }

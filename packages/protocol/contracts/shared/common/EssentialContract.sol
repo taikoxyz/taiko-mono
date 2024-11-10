@@ -3,16 +3,13 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
-import "./IResolver.sol";
+import "./AddressResolver.sol";
 
 /// @title EssentialContract
 /// @custom:security-contact security@taiko.xyz
-abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable {
+abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable, AddressResolver {
     uint8 internal constant _FALSE = 1;
     uint8 internal constant _TRUE = 2;
-
-    address private __resolver;
-    uint256[49] private __gapFromOldAddressResolver;
 
     /// @dev Slot 1.
     uint8 internal __reentry;
@@ -29,13 +26,9 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
     /// @param account The account that unpaused the contract.
     event Unpaused(address account);
 
-    event ResolverUpdated(address oldResolver, address newResolver);
-
     error INVALID_PAUSE_STATUS();
     error FUNC_NOT_IMPLEMENTED();
     error REENTRANT_CALL();
-    error RESOLVER_DENIED();
-    error RESOLVER_NOT_FOUND();
     error ZERO_ADDRESS();
     error ZERO_VALUE();
 
@@ -83,42 +76,9 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
         _;
     }
 
-    /// @dev Modifier that ensures the caller is the resolved address of a given
-    /// name.
-    /// @param _name The name to check against.
-    modifier onlyFromNamed(bytes32 _name) {
-        require(msg.sender == resolve(_name, true), RESOLVER_DENIED());
-        _;
-    }
-
-    /// @dev Modifier that ensures the caller is the resolved address of a given
-    /// name, if the name is set.
-    /// @param _name The name to check against.
-    modifier onlyFromOptionalNamed(bytes32 _name) {
-        address addr = resolve(_name, true);
-        require(addr == address(0) || msg.sender == addr, RESOLVER_DENIED());
-        _;
-    }
-
-    /// @dev Modifier that ensures the caller is a resolved address to either _name1 or _name2
-    /// name.
-    /// @param _name1 The first name to check against.
-    /// @param _name2 The second name to check against.
-    modifier onlyFromNamedEither(bytes32 _name1, bytes32 _name2) {
-        require(
-            msg.sender == resolve(_name1, true) || msg.sender == resolve(_name2, true),
-            RESOLVER_DENIED()
-        );
-        _;
-    }
-
+    /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
-    }
-
-    function setResolver(address _resolver) external onlyOwner {
-        emit ResolverUpdated(__resolver, _resolver);
-        __resolver = _resolver;
     }
 
     /// @notice Pauses the contract.
@@ -155,33 +115,18 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
         return _loadReentryLock() == _TRUE;
     }
 
-    function resolve(
-        uint64 _chainId,
-        bytes32 _name,
-        bool _allowZeroAddress
-    )
-        public
-        view
-        returns (address)
-    {
-        return resolver().resolve(_chainId, _name, _allowZeroAddress);
-    }
-
-    function resolve(bytes32 _name, bool _allowZeroAddress) public view returns (address) {
-        return resolver().resolve(block.chainid, _name, _allowZeroAddress);
-    }
-
-    function resolver() public view virtual returns (IResolver) {
-        require(__resolver != address(0), RESOLVER_NOT_FOUND());
-        return IResolver(__resolver);
-    }
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _resolver The address of the {DefaultResolver} contract.
-
-    function __Essential_init(address _owner, address _resolver) internal nonZeroAddr(_resolver) {
+    /// @param _addressManager The address of the {AddressManager} contract.
+    function __Essential_init(
+        address _owner,
+        address _addressManager
+    )
+        internal
+        nonZeroAddr(_addressManager)
+    {
         __Essential_init(_owner);
-        __resolver = _resolver;
+        __AddressResolver_init(_addressManager);
     }
 
     function __Essential_init(address _owner) internal virtual onlyInitializing {

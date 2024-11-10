@@ -1,18 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./TestTaikoL1Base.sol";
+import "./TaikoL1TestGroupBase.sol";
 
-contract TestTaikoL1_Group7 is TestTaikoL1Base {
+contract TaikoL1TestGroup7 is TaikoL1TestGroupBase {
     // Test summary:
     // 1. Alice proposes a block,
     // 2. Alice proves the block within the proving window, using the correct parent hash.
     // 3. After the cooldown window, Taylor contests Alice's proof, and fails.
     function test_taikoL1_group_7_case_1() external {
-        mineOneBlockAndWrap(1000 seconds);
+        vm.warp(1_000_000);
 
         giveEthAndTko(Alice, 10_000 ether, 1000 ether);
         giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
+        ITierProvider.Tier memory tierOp = ITierProvider(tr).getTier(LibTiers.TIER_OPTIMISTIC);
 
         console2.log("====== Alice propose a block");
         TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
@@ -22,10 +23,10 @@ contract TestTaikoL1_Group7 is TestTaikoL1Base {
         bytes32 blockHash = bytes32(uint256(10));
         bytes32 stateRoot = bytes32(uint256(11));
 
-        mineOneBlockAndWrap(10 seconds);
+        mineAndWrap(10 seconds);
         proveBlock(Alice, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
 
-        mineOneBlockAndWrap(minTier.cooldownWindow * 60);
+        mineAndWrap(tierOp.cooldownWindow * 60);
         bytes32 blockHash2 = bytes32(uint256(20));
         bytes32 stateRoot2 = bytes32(uint256(21));
         proveBlock(
@@ -46,11 +47,12 @@ contract TestTaikoL1_Group7 is TestTaikoL1Base {
     // 3. Taylor contests Alice's proof.
     // 4. William attempts but fails to contest Alice again.
     function test_taikoL1_group_7_case_2() external {
-        mineOneBlockAndWrap(1000 seconds);
+        vm.warp(1_000_000);
 
         giveEthAndTko(Alice, 10_000 ether, 1000 ether);
         giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
         giveEthAndTko(William, 10_000 ether, 1000 ether);
+        ITierProvider.Tier memory tierOp = ITierProvider(tr).getTier(LibTiers.TIER_OPTIMISTIC);
 
         console2.log("====== Alice propose a block");
         TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
@@ -60,10 +62,10 @@ contract TestTaikoL1_Group7 is TestTaikoL1Base {
         bytes32 blockHash = bytes32(uint256(10));
         bytes32 stateRoot = bytes32(uint256(11));
 
-        mineOneBlockAndWrap(10 seconds);
+        mineAndWrap(10 seconds);
         proveBlock(Alice, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
 
-        mineOneBlockAndWrap(minTier.cooldownWindow * 60 - 1);
+        mineAndWrap(tierOp.cooldownWindow * 60 - 1);
         bytes32 blockHash2 = bytes32(uint256(20));
         bytes32 stateRoot2 = bytes32(uint256(21));
         proveBlock(Taylor, meta, parentHash, blockHash2, stateRoot2, meta.minTier, "");

@@ -1,39 +1,39 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./TestBridge2Base.sol";
+import "./Bridge2.t.sol";
 
-contract TestBridge2_sendMessage is TestBridge2Base {
+contract BridgeTest2_sendMessage is BridgeTest2 {
     function test_bridge2_sendMessage_invalid_message()
         public
-        transactBy(Carol)
+        transactedBy(Carol)
         assertSameTotalBalance
     {
         // init an all-zero message
         IBridge.Message memory message;
 
         vm.expectRevert(EssentialContract.ZERO_ADDRESS.selector);
-        eBridge.sendMessage(message);
+        bridge.sendMessage(message);
 
         message.srcOwner = Alice;
         vm.expectRevert(EssentialContract.ZERO_ADDRESS.selector);
-        eBridge.sendMessage(message);
+        bridge.sendMessage(message);
 
         message.destOwner = Bob;
         vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
-        eBridge.sendMessage(message);
+        bridge.sendMessage(message);
 
-        message.destChainId = taikoChainId + 1;
+        message.destChainId = remoteChainId + 1;
         vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
-        eBridge.sendMessage(message);
+        bridge.sendMessage(message);
 
-        message.destChainId = ethereumChainId;
+        message.destChainId = uint64(block.chainid);
         vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
-        eBridge.sendMessage(message);
+        bridge.sendMessage(message);
 
-        // an bridge has been registered for destChainId
-        message.destChainId = taikoChainId;
-        eBridge.sendMessage(message); // id = 0
+        // an bridge has been registered for remoteChainId
+        message.destChainId = remoteChainId;
+        bridge.sendMessage(message); // id = 0
 
         message.value = 10_000_000;
         message.gasLimit = 20_000_000;
@@ -41,14 +41,13 @@ contract TestBridge2_sendMessage is TestBridge2Base {
         vm.expectRevert(Bridge.B_INVALID_VALUE.selector);
 
         message.data = "hello";
-        eBridge.sendMessage(message);
+        bridge.sendMessage(message);
 
-        (bytes32 mhash, IBridge.Message memory m) =
-            eBridge.sendMessage{ value: 40_000_000 }(message);
+        (bytes32 mhash, IBridge.Message memory m) = bridge.sendMessage{ value: 40_000_000 }(message);
         assertEq(m.id, 1);
         assertEq(m.srcOwner, Alice); // Not Carol
-        assertEq(m.srcChainId, ethereumChainId);
-        assertEq(mhash, eBridge.hashMessage(m));
+        assertEq(m.srcChainId, block.chainid);
+        assertEq(mhash, bridge.hashMessage(m));
 
         m.id = 0;
         m.from = address(0);
@@ -56,7 +55,7 @@ contract TestBridge2_sendMessage is TestBridge2Base {
         assertEq(keccak256(abi.encode(message)), keccak256(abi.encode(m)));
 
         (bytes32 mhash2, IBridge.Message memory m2) =
-            eBridge.sendMessage{ value: 40_000_000 }(message);
+            bridge.sendMessage{ value: 40_000_000 }(message);
 
         assertEq(m2.id, 2);
         assertTrue(mhash2 != mhash);
@@ -64,36 +63,36 @@ contract TestBridge2_sendMessage is TestBridge2Base {
 
     function test_bridge2_sendMessage_invocationGasLimit()
         public
-        transactBy(Carol)
+        transactedBy(Carol)
         assertSameTotalBalance
     {
         IBridge.Message memory message;
         message.srcOwner = Alice;
         message.destOwner = Bob;
-        message.destChainId = taikoChainId;
+        message.destChainId = remoteChainId;
         message.fee = 1;
         vm.expectRevert(Bridge.B_INVALID_FEE.selector);
-        eBridge.sendMessage(message);
+        bridge.sendMessage(message);
 
-        uint32 minGasLimit = eBridge.getMessageMinGasLimit(message.data.length);
+        uint32 minGasLimit = bridge.getMessageMinGasLimit(message.data.length);
         console2.log("minGasLimit:", minGasLimit);
 
         message.gasLimit = minGasLimit - 1;
         vm.expectRevert(Bridge.B_INVALID_GAS_LIMIT.selector);
-        eBridge.sendMessage(message);
+        bridge.sendMessage(message);
 
         message.gasLimit = minGasLimit;
         vm.expectRevert(Bridge.B_INVALID_GAS_LIMIT.selector);
-        eBridge.sendMessage(message);
+        bridge.sendMessage(message);
 
         message.gasLimit = minGasLimit + 1;
         vm.expectRevert(Bridge.B_INVALID_VALUE.selector);
-        eBridge.sendMessage(message);
+        bridge.sendMessage(message);
 
-        eBridge.sendMessage{ value: message.fee }(message);
+        bridge.sendMessage{ value: message.fee }(message);
 
         message.fee = 0;
-        eBridge.sendMessage(message);
+        bridge.sendMessage(message);
     }
 
     function test_bridge2_sendMessage_missing_local_signal_service()
@@ -104,16 +103,16 @@ contract TestBridge2_sendMessage is TestBridge2Base {
         IBridge.Message memory message;
         message.srcOwner = Alice;
         message.destOwner = Bob;
-        message.destChainId = taikoChainId;
+        message.destChainId = remoteChainId;
 
         vm.prank(Alice);
-        eBridge.sendMessage(message);
+        bridge.sendMessage(message);
 
-        vm.prank(deployer);
-        resolver.registerAddress(ethereumChainId, "signal_service", address(0));
+        vm.prank(owner);
+        addressManager.setAddress(uint64(block.chainid), "signal_service", address(0));
 
         vm.prank(Alice);
         vm.expectRevert();
-        eBridge.sendMessage(message);
+        bridge.sendMessage(message);
     }
 }

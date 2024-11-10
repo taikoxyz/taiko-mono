@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "src/shared/common/EssentialContract.sol";
-import "src/shared/libs/LibStrings.sol";
+import "src/shared/common/LibStrings.sol";
 import "../automata-attestation/interfaces/IAttestation.sol";
 import "../automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
 import "../based/ITaikoL1.sol";
@@ -81,9 +81,9 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _rollupResolver The {IResolver} used by this rollup.
-    function init(address _owner, address _rollupResolver) external initializer {
-        __Essential_init(_owner, _rollupResolver);
+    /// @param _rollupAddressManager The address of the {AddressManager} contract.
+    function init(address _owner, address _rollupAddressManager) external initializer {
+        __Essential_init(_owner, _rollupAddressManager);
     }
 
     /// @notice Adds trusted SGX instances to the registry.

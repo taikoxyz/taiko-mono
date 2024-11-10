@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC165Upgradeable.sol";
 import "../common/EssentialContract.sol";
-import "../libs/LibStrings.sol";
+import "../common/LibStrings.sol";
 import "./IBridgedERC20.sol";
 import "./LibBridgedToken.sol";
 
@@ -60,7 +60,7 @@ contract BridgedERC20 is
     /// @inheritdoc IBridgedERC20Initializable
     function init(
         address _owner,
-        address _sharedResolver,
+        address _sharedAddressManager,
         address _srcToken,
         uint256 _srcChainId,
         uint8 _decimals,
@@ -73,7 +73,7 @@ contract BridgedERC20 is
     {
         // Check if provided parameters are valid
         LibBridgedToken.validateInputs(_srcToken, _srcChainId);
-        __Essential_init(_owner, _sharedResolver);
+        __Essential_init(_owner, _sharedAddressManager);
         __ERC20_init(_name, _symbol);
 
         // Set contract properties

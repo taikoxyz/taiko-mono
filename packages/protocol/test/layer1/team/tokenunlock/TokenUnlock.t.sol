@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
-import "src/layer1/team/TokenUnlock.sol";
-import "../../Layer1Test.sol";
+import "src/layer1/team/tokenunlock/TokenUnlock.sol";
+import "test/shared/TaikoTest.sol";
 
 contract MyERC20 is ERC20, ERC20Votes {
     constructor(address owner) ERC20("Taiko Token", "TKO") ERC20Permit("Taiko Token") {
@@ -30,37 +30,42 @@ contract MyERC20 is ERC20, ERC20Votes {
     }
 }
 
-contract TestTokenUnlock is Layer1Test {
-    uint64 private constant TGE = 1_000_000;
-
-    address private taikoL1 = randAddress();
+contract TestTokenUnlock is TaikoTest {
+    AddressManager private addressManager;
+    address public assignmentHook = vm.addr(0x1000);
+    address public taikoL1 = vm.addr(0x2000);
+    uint64 private TGE = 1_000_000;
 
     TokenUnlock private target;
-    MyERC20 private taikoToken;
+    MyERC20 tko = new MyERC20(Alice);
 
-    function setUpOnEthereum() internal override {
-        taikoToken = new MyERC20(Alice);
-
-        register("bond_token", address(taikoToken));
-        register("taiko_token", address(taikoToken));
-        register("taiko", taikoL1);
-        register("prover_set", address(new ProverSet()));
-
-        target = TokenUnlock(
-            deploy({
-                name: "token_unlock",
-                impl: address(new TokenUnlock()),
-                data: abi.encodeCall(TokenUnlock.init, (Alice, address(resolver), Bob, TGE))
+    function setUp() public {
+        addressManager = AddressManager(
+            deployProxy({
+                name: "address_manager",
+                impl: address(new AddressManager()),
+                data: abi.encodeCall(AddressManager.init, (address(0)))
             })
         );
-    }
 
-    function setUp() public override {
-        super.setUp();
+        addressManager.setAddress(uint64(block.chainid), "bond_token", address(tko));
+        addressManager.setAddress(uint64(block.chainid), "taiko_token", address(tko));
+        addressManager.setAddress(uint64(block.chainid), "assignment_hook", assignmentHook);
+        addressManager.setAddress(uint64(block.chainid), "taiko", taikoL1);
+        addressManager.setAddress(uint64(block.chainid), "prover_set", address(new ProverSet()));
 
         vm.warp(TGE);
+
+        target = TokenUnlock(
+            deployProxy({
+                name: "target",
+                impl: address(new TokenUnlock()),
+                data: abi.encodeCall(TokenUnlock.init, (Alice, address(addressManager), Bob, TGE))
+            })
+        );
+
         vm.prank(Alice);
-        taikoToken.approve(address(target), 1_000_000_000 ether);
+        tko.approve(address(target), 1_000_000_000 ether);
     }
 
     function test_tokenunlock_single_vest_withdrawal() public {
@@ -70,10 +75,10 @@ contract TestTokenUnlock is Layer1Test {
 
         vm.startPrank(Alice);
         target.vest(100 ether);
-        taikoToken.transfer(address(target), 0.5 ether);
+        tko.transfer(address(target), 0.5 ether);
         vm.stopPrank();
 
-        assertEq(taikoToken.balanceOf(address(target)), 100.5 ether);
+        assertEq(tko.balanceOf(address(target)), 100.5 ether);
         assertEq(target.amountVested(), 100 ether);
         assertEq(target.amountWithdrawable(), 0.5 ether);
 
@@ -102,7 +107,7 @@ contract TestTokenUnlock is Layer1Test {
         assertEq(target.amountWithdrawable(), 100.5 ether);
 
         vm.prank(Alice);
-        taikoToken.transfer(address(target), 0.5 ether);
+        tko.transfer(address(target), 0.5 ether);
         assertEq(target.amountVested(), 100 ether);
         assertEq(target.amountWithdrawable(), 101 ether);
     }
@@ -128,7 +133,7 @@ contract TestTokenUnlock is Layer1Test {
         assertEq(target.amountWithdrawable(), 150 ether);
 
         vm.prank(Alice);
-        taikoToken.transfer(address(target), 1000 ether);
+        tko.transfer(address(target), 1000 ether);
 
         vm.warp(TGE + target.ONE_YEAR() * 2);
         assertEq(target.amountVested(), 600 ether);
@@ -153,7 +158,7 @@ contract TestTokenUnlock is Layer1Test {
         target.vest(100 ether);
         assertEq(target.amountVested(), 100 ether);
         assertEq(target.amountWithdrawable(), 0 ether);
-        assertEq(taikoToken.balanceOf(address(target)), 100 ether);
+        assertEq(tko.balanceOf(address(target)), 100 ether);
 
         vm.prank(Bob);
         vm.expectRevert(TokenUnlock.NOT_WITHDRAWABLE.selector);
@@ -163,7 +168,7 @@ contract TestTokenUnlock is Layer1Test {
         target.vest(200 ether);
         assertEq(target.amountVested(), 300 ether);
         assertEq(target.amountWithdrawable(), 0 ether);
-        assertEq(taikoToken.balanceOf(address(target)), 300 ether);
+        assertEq(tko.balanceOf(address(target)), 300 ether);
 
         vm.warp(TGE + target.ONE_YEAR());
         assertEq(target.amountVested(), 300 ether);
@@ -171,26 +176,26 @@ contract TestTokenUnlock is Layer1Test {
 
         vm.prank(Bob);
         target.withdraw(Bob, 75 ether);
-        assertEq(taikoToken.balanceOf(address(target)), 225 ether);
-        assertEq(taikoToken.balanceOf(Bob), 75 ether);
+        assertEq(tko.balanceOf(address(target)), 225 ether);
+        assertEq(tko.balanceOf(Bob), 75 ether);
 
         assertEq(target.amountVested(), 300 ether);
         assertEq(target.amountWithdrawable(), 0 ether);
-        assertEq(taikoToken.balanceOf(address(target)), 225 ether);
+        assertEq(tko.balanceOf(address(target)), 225 ether);
 
         vm.prank(Alice);
         target.vest(300 ether);
         assertEq(target.amountVested(), 600 ether);
         assertEq(target.amountWithdrawable(), 75 ether);
-        assertEq(taikoToken.balanceOf(address(target)), 525 ether);
+        assertEq(tko.balanceOf(address(target)), 525 ether);
 
         vm.prank(Alice);
-        taikoToken.transfer(address(target), 1000 ether);
+        tko.transfer(address(target), 1000 ether);
 
         vm.warp(TGE + target.ONE_YEAR() * 2);
         assertEq(target.amountVested(), 600 ether);
         assertEq(target.amountWithdrawable(), 1225 ether);
-        assertEq(taikoToken.balanceOf(address(target)), 1525 ether);
+        assertEq(tko.balanceOf(address(target)), 1525 ether);
 
         vm.prank(Bob);
         vm.expectRevert(TokenUnlock.NOT_WITHDRAWABLE.selector);
@@ -198,45 +203,45 @@ contract TestTokenUnlock is Layer1Test {
 
         vm.prank(Bob);
         target.withdraw(Carol, 225 ether);
-        assertEq(taikoToken.balanceOf(Carol), 225 ether);
+        assertEq(tko.balanceOf(Carol), 225 ether);
 
         assertEq(target.amountVested(), 600 ether);
         assertEq(target.amountWithdrawable(), 1000 ether);
-        assertEq(taikoToken.balanceOf(address(target)), 1300 ether);
+        assertEq(tko.balanceOf(address(target)), 1300 ether);
 
         vm.prank(Alice);
         target.vest(400 ether);
         assertEq(target.amountVested(), 1000 ether);
         assertEq(target.amountWithdrawable(), 1200 ether);
-        assertEq(taikoToken.balanceOf(address(target)), 1700 ether);
+        assertEq(tko.balanceOf(address(target)), 1700 ether);
 
         vm.warp(TGE + target.ONE_YEAR() * 4);
         assertEq(target.amountVested(), 1000 ether);
         assertEq(target.amountWithdrawable(), 1700 ether);
-        assertEq(taikoToken.balanceOf(address(target)), 1700 ether);
+        assertEq(tko.balanceOf(address(target)), 1700 ether);
 
         vm.prank(Bob);
         vm.expectRevert(EssentialContract.ZERO_ADDRESS.selector);
         target.withdraw(address(0), 1 ether);
 
         vm.prank(Alice);
-        taikoToken.transfer(address(target), 300 ether);
+        tko.transfer(address(target), 300 ether);
 
         vm.warp(TGE + target.ONE_YEAR() * 5);
 
         vm.prank(Bob);
         target.withdraw(David, 2000 ether);
-        assertEq(taikoToken.balanceOf(David), 2000 ether);
-        assertEq(taikoToken.balanceOf(address(target)), 0 ether);
+        assertEq(tko.balanceOf(David), 2000 ether);
+        assertEq(tko.balanceOf(address(target)), 0 ether);
 
         vm.prank(Alice);
-        taikoToken.transfer(address(target), 1000 ether);
+        tko.transfer(address(target), 1000 ether);
         assertEq(target.amountWithdrawable(), 1000 ether);
 
         vm.prank(Bob);
         target.withdraw(Emma, 1000 ether);
-        assertEq(taikoToken.balanceOf(Emma), 1000 ether);
-        assertEq(taikoToken.balanceOf(address(target)), 0 ether);
+        assertEq(tko.balanceOf(Emma), 1000 ether);
+        assertEq(tko.balanceOf(address(target)), 0 ether);
     }
 
     function test_tokenunlock_delegate() public {
@@ -244,18 +249,18 @@ contract TestTokenUnlock is Layer1Test {
         target.vest(100 ether);
         assertEq(target.amountVested(), 100 ether);
         assertEq(target.amountWithdrawable(), 0 ether);
-        assertEq(taikoToken.balanceOf(address(target)), 100 ether);
+        assertEq(tko.balanceOf(address(target)), 100 ether);
 
         vm.prank(Bob);
         target.delegate(Carol);
 
-        assertEq(taikoToken.delegates(address(target)), Carol);
+        assertEq(tko.delegates(address(target)), Carol);
     }
 
     function test_tokenunlock_proverset() public {
         vm.startPrank(Alice);
         target.vest(100 ether);
-        taikoToken.transfer(address(target), 20 ether);
+        tko.transfer(address(target), 20 ether);
         vm.warp(TGE + target.ONE_YEAR() * 2);
 
         vm.expectRevert(TokenUnlock.PERMISSION_DENIED.selector);
@@ -276,8 +281,8 @@ contract TestTokenUnlock is Layer1Test {
         target.depositToProverSet(address(set1), 121 ether);
 
         target.depositToProverSet(address(set1), 120 ether);
-        assertEq(taikoToken.balanceOf(address(set1)), 120 ether);
-        assertEq(taikoToken.balanceOf(address(target)), 0 ether);
+        assertEq(tko.balanceOf(address(set1)), 120 ether);
+        assertEq(tko.balanceOf(address(target)), 0 ether);
         assertEq(target.amountVested(), 100 ether);
         assertEq(target.amountWithdrawable(), 0 ether);
 
@@ -285,8 +290,8 @@ contract TestTokenUnlock is Layer1Test {
         set1.withdrawToAdmin(121 ether);
 
         set1.withdrawToAdmin(120 ether);
-        assertEq(taikoToken.balanceOf(address(set1)), 0 ether);
-        assertEq(taikoToken.balanceOf(address(target)), 120 ether);
+        assertEq(tko.balanceOf(address(set1)), 0 ether);
+        assertEq(tko.balanceOf(address(target)), 120 ether);
         assertEq(target.amountVested(), 100 ether);
         assertEq(target.amountWithdrawable(), 70 ether);
 

@@ -6,8 +6,8 @@ import "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "src/shared/common/EssentialContract.sol";
-import "src/shared/libs/LibStrings.sol";
-import "src/shared/libs/LibAddress.sol";
+import "src/shared/common/LibStrings.sol";
+import "src/shared/common/LibAddress.sol";
 import "../based/ITaikoL1.sol";
 
 interface IHasRecipient {
@@ -50,13 +50,13 @@ contract ProverSet is EssentialContract, IERC1271 {
     function init(
         address _owner,
         address _admin,
-        address _rollupResolver
+        address _rollupAddressManager
     )
         external
         nonZeroAddr(_admin)
         initializer
     {
-        __Essential_init(_owner, _rollupResolver);
+        __Essential_init(_owner, _rollupAddressManager);
         admin = _admin;
 
         address _bondToken = bondToken();
@@ -153,7 +153,7 @@ contract ProverSet is EssentialContract, IERC1271 {
 
     /// @notice Delegates token voting right to a delegatee.
     /// @param _delegatee The delegatee to receive the voting right.
-    function delegate(address _delegatee) external onlyAuthorized  {
+    function delegate(address _delegatee) external onlyAuthorized nonReentrant {
         address _bondToken = bondToken();
         require(_bondToken != address(0), INVALID_BOND_TOKEN());
         ERC20VotesUpgradeable(_bondToken).delegate(_delegatee);

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../CommonTest.sol";
+import "../TaikoTest.sol";
 
 contract Target1 is EssentialContract {
     uint256 public count;
@@ -26,7 +26,7 @@ contract Target2 is Target1 {
     }
 }
 
-contract TestEssentialContract is CommonTest {
+contract TestEssentialContract is TaikoTest {
     function test_essential_behind_1967_proxy() external {
         bytes memory data = abi.encodeCall(Target1.init, (address(0)));
         vm.startPrank(Alice);

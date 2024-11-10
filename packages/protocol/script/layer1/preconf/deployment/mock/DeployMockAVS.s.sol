@@ -15,8 +15,8 @@ import "src/layer1/preconf/avs-mvp/iface/IAVSDirectory.sol";
 import "src/layer1/preconf/avs-mvp/iface/ISlasher.sol";
 import "src/layer1/preconf/avs-mvp/PreconfServiceManager.sol";
 
-import "script/BaseScript.sol";
-import "script/layer1/preconf/misc/EmptyContract.sol";
+import "../../BaseScript.sol";
+import "../../misc/EmptyContract.sol";
 
 contract DeployMockAVS is BaseScript {
     // Required by service manager
@@ -34,9 +34,9 @@ contract DeployMockAVS is BaseScript {
         ProxyAdmin proxyAdmin = new ProxyAdmin();
 
         // Deploy proxies with empty implementations
-        address preconfRegistry = deploy(address(emptyContract), address(proxyAdmin), "");
-        address preconfServiceManager = deploy(address(emptyContract), address(proxyAdmin), "");
-        address preconfTaskManager = deploy(address(emptyContract), address(proxyAdmin), "");
+        address preconfRegistry = deployProxy(address(emptyContract), address(proxyAdmin), "");
+        address preconfServiceManager = deployProxy(address(emptyContract), address(proxyAdmin), "");
+        address preconfTaskManager = deployProxy(address(emptyContract), address(proxyAdmin), "");
 
         // Deploy implementations
         MockPreconfRegistry preconfRegistryImpl =

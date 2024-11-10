@@ -95,7 +95,7 @@ graph LR
     A --> C[TaikoToken]
     A --> D[TaikoGovernor]
     A --> E[TaikoTimelockController]
-    A --> F[DefaultResolver]
+    A --> F[AddressManager]
     A --> G[SignalService]
     A --> H[Bridge]
     B --> F
@@ -111,7 +111,7 @@ graph LR
 - **TaikoToken**: The native token of the Taiko protocol, used for staking and governance.
 - **TaikoGovernor**: The governance contract that manages protocol upgrades and parameter changes.
 - **TaikoTimelockController**: A timelock controller contract that enforces a delay on sensitive actions.
-- **DefaultResolver**: A contract that manages the addresses of various protocol components.
+- **AddressManager**: A contract that manages the addresses of various protocol components.
 - **SignalService**: A contract that facilitates cross-chain communication and message verification.
 - **Bridge**: The main contract that handles asset bridging between Ethereum and Taiko L2.
 - **ERC20Vault**, **ERC721Vault**, **ERC1155Vault**: Contracts that manage the storage and bridging of different token standards.

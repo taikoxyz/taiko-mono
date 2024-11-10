@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./TestBridge2Base.sol";
+import "./Bridge2.t.sol";
 
 contract Target is IMessageInvocable {
     bool public toFail;
@@ -15,7 +15,7 @@ contract Target is IMessageInvocable {
     }
 }
 
-contract TestBridge2_retryMessage is TestBridge2Base {
+contract BridgeTest2_retryMessage is BridgeTest2 {
     function test_bridge2_retryMessage_1()
         public
         dealEther(Alice)
@@ -27,8 +27,8 @@ contract TestBridge2_retryMessage is TestBridge2Base {
 
         IBridge.Message memory message;
 
-        message.destChainId = ethereumChainId;
-        message.srcChainId = taikoChainId;
+        message.destChainId = uint64(block.chainid);
+        message.srcChainId = remoteChainId;
 
         message.fee = 0;
         message.value = 2 ether;
@@ -38,27 +38,27 @@ contract TestBridge2_retryMessage is TestBridge2Base {
         message.gasLimit = 1_000_000;
 
         vm.prank(Carol);
-        eBridge.processMessage(message, FAKE_PROOF);
-        bytes32 hash = eBridge.hashMessage(message);
-        assertTrue(eBridge.messageStatus(hash) == IBridge.Status.RETRIABLE);
+        bridge.processMessage(message, fakeProof);
+        bytes32 hash = bridge.hashMessage(message);
+        assertTrue(bridge.messageStatus(hash) == IBridge.Status.RETRIABLE);
 
         vm.expectRevert(Bridge.B_PERMISSION_DENIED.selector);
         vm.prank(Carol);
-        eBridge.retryMessage(message, true);
+        bridge.retryMessage(message, true);
 
         vm.expectRevert(Bridge.B_RETRY_FAILED.selector);
         vm.prank(Carol);
-        eBridge.retryMessage(message, false);
+        bridge.retryMessage(message, false);
 
         vm.expectRevert(Bridge.B_RETRY_FAILED.selector);
         vm.prank(Alice);
-        eBridge.retryMessage(message, false);
+        bridge.retryMessage(message, false);
 
         vm.prank(Alice);
-        eBridge.retryMessage(message, true);
+        bridge.retryMessage(message, true);
 
-        hash = eBridge.hashMessage(message);
-        assertTrue(eBridge.messageStatus(hash) == IBridge.Status.FAILED);
+        hash = bridge.hashMessage(message);
+        assertTrue(bridge.messageStatus(hash) == IBridge.Status.FAILED);
     }
 
     function test_bridge2_retryMessage_2() public dealEther(Alice) dealEther(Carol) {
@@ -68,8 +68,8 @@ contract TestBridge2_retryMessage is TestBridge2Base {
         uint256 totalBalance = getBalanceForAccounts() + address(target).balance;
         IBridge.Message memory message;
 
-        message.destChainId = ethereumChainId;
-        message.srcChainId = taikoChainId;
+        message.destChainId = uint64(block.chainid);
+        message.srcChainId = remoteChainId;
 
         message.fee = 0;
         message.value = 2 ether;
@@ -79,17 +79,17 @@ contract TestBridge2_retryMessage is TestBridge2Base {
         message.gasLimit = 1_000_000;
 
         vm.prank(Carol);
-        eBridge.processMessage(message, FAKE_PROOF);
-        bytes32 hash = eBridge.hashMessage(message);
-        assertTrue(eBridge.messageStatus(hash) == IBridge.Status.RETRIABLE);
+        bridge.processMessage(message, fakeProof);
+        bytes32 hash = bridge.hashMessage(message);
+        assertTrue(bridge.messageStatus(hash) == IBridge.Status.RETRIABLE);
 
         target.setToFail(false);
 
         vm.prank(Alice);
-        eBridge.retryMessage(message, false);
+        bridge.retryMessage(message, false);
 
-        hash = eBridge.hashMessage(message);
-        assertTrue(eBridge.messageStatus(hash) == IBridge.Status.DONE);
+        hash = bridge.hashMessage(message);
+        assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
 
         uint256 totalBalance2 = getBalanceForAccounts() + address(target).balance;
         assertEq(totalBalance2, totalBalance);

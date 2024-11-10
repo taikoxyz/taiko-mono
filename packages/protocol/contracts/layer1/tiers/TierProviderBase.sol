@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/shared/libs/LibStrings.sol";
+import "src/shared/common/LibStrings.sol";
 import "./ITierProvider.sol";
 import "./LibTiers.sol";
 
@@ -15,15 +15,7 @@ abstract contract TierProviderBase is ITierProvider {
     /// @inheritdoc ITierProvider
     /// @notice Each tier, except the top tier, has a validity bond that is 75 TAIKO higher than the
     /// previous tier. Additionally, each tier's contest bond is 6.5625 times its validity bond.
-    function getTier(
-        uint64, /*_blockId*/
-        uint16 _tierId
-    )
-        public
-        pure
-        virtual
-        returns (ITierProvider.Tier memory)
-    {
+    function getTier(uint16 _tierId) public pure virtual returns (ITierProvider.Tier memory) {
         if (_tierId == LibTiers.TIER_OPTIMISTIC) {
             return _buildTier(LibStrings.B_TIER_OPTIMISTIC, 1, 1440, 60);
         }

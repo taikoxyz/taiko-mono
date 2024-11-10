@@ -2,7 +2,7 @@
 // solhint-disable-next-line
 pragma solidity ^0.8.24;
 
-import "script/BaseScript.sol";
+import "script/layer1/preconf/BaseScript.sol";
 import "src/layer1/preconf/libs/LibBLSSignature.sol";
 
 /**

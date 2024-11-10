@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import "../common/EssentialContract.sol";
-import "../libs/LibStrings.sol";
-import "../libs/LibTrieProof.sol";
+import "../common/LibStrings.sol";
+import "../common/LibTrieProof.sol";
 import "./ISignalService.sol";
 
 /// @title SignalService
@@ -41,9 +41,9 @@ contract SignalService is EssentialContract, ISignalService {
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _sharedResolver The {IResolver} used by multipel rollups.
-    function init(address _owner, address _sharedResolver) external initializer {
-        __Essential_init(_owner, _sharedResolver);
+    /// @param _sharedAddressManager The address of the {AddressManager} contract.
+    function init(address _owner, address _sharedAddressManager) external initializer {
+        __Essential_init(_owner, _sharedAddressManager);
     }
 
     /// @dev Authorize or deauthorize an address for calling syncChainData.

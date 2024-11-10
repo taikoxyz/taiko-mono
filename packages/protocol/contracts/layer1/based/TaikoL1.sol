@@ -56,19 +56,19 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _rollupResolver The {IResolver} used by this rollup.
+    /// @param _rollupAddressManager The address of the {AddressManager} contract.
     /// @param _genesisBlockHash The block hash of the genesis block.
     /// @param _toPause true to pause the contract by default.
     function init(
         address _owner,
-        address _rollupResolver,
+        address _rollupAddressManager,
         bytes32 _genesisBlockHash,
         bool _toPause
     )
         external
         initializer
     {
-        __Essential_init(_owner, _rollupResolver);
+        __Essential_init(_owner, _rollupAddressManager);
         LibUtils.init(state, _genesisBlockHash);
         if (_toPause) _pause();
     }
@@ -97,7 +97,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         returns (TaikoData.BlockMetadataV2 memory meta_)
     {
         TaikoData.Config memory config = getConfig();
-        return LibProposing.proposeBlock(state, config, resolver(), _params, _txList);
+        return LibProposing.proposeBlock(state, config, this, _params, _txList);
     }
 
     /// @inheritdoc ITaikoL1
@@ -113,7 +113,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         returns (TaikoData.BlockMetadataV2[] memory metaArr_)
     {
         TaikoData.Config memory config = getConfig();
-        return LibProposing.proposeBlocks(state, config, resolver(), _paramsArr, _txListArr);
+        return LibProposing.proposeBlocks(state, config, this, _paramsArr, _txListArr);
     }
 
     /// @inheritdoc ITaikoL1
@@ -128,7 +128,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         nonReentrant
         emitEventForClient
     {
-        LibProving.proveBlock(state, getConfig(), resolver(), _blockId, _input);
+        LibProving.proveBlock(state, getConfig(), this, _blockId, _input);
     }
 
     /// @inheritdoc ITaikoL1
@@ -144,7 +144,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         nonReentrant
         emitEventForClient
     {
-        LibProving.proveBlocks(state, getConfig(), resolver(), _blockIds, _inputs, _batchProof);
+        LibProving.proveBlocks(state, getConfig(), this, _blockIds, _inputs, _batchProof);
     }
 
     /// @inheritdoc ITaikoL1
@@ -155,7 +155,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         nonReentrant
         emitEventForClient
     {
-        LibVerifying.verifyBlocks(state, getConfig(), resolver(), _maxBlocksToVerify);
+        LibVerifying.verifyBlocks(state, getConfig(), this, _maxBlocksToVerify);
     }
 
     /// @inheritdoc ITaikoL1
@@ -166,12 +166,12 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
 
     /// @inheritdoc ITaikoL1
     function depositBond(uint256 _amount) external payable whenNotPaused {
-        LibBonds.depositBond(state, resolver(), _amount);
+        LibBonds.depositBond(state, this, _amount);
     }
 
     /// @inheritdoc ITaikoL1
     function withdrawBond(uint256 _amount) external whenNotPaused {
-        LibBonds.withdrawBond(state, resolver(), _amount);
+        LibBonds.withdrawBond(state, this, _amount);
     }
 
     /// @notice Unpauses the contract.
@@ -311,7 +311,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     }
 
     /// @inheritdoc ITaikoL1
-    function getConfig() public view virtual returns (TaikoData.Config memory) {
+    function getConfig() public pure virtual returns (TaikoData.Config memory) {
         return TaikoData.Config({
             chainId: LibNetwork.TAIKO_MAINNET,
             blockMaxProposals: 324_000, // = 7200 * 45

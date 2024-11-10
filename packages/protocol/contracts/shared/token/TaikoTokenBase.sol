@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 import "../common/EssentialContract.sol";
-import "../libs/LibStrings.sol";
+import "../common/LibStrings.sol";
 
 /// @notice TaikoToken was `EssentialContract, ERC20SnapshotUpgradeable, ERC20VotesUpgradeable`.
 /// We use this contract to take 50 more slots to remove `ERC20SnapshotUpgradeable` from the parent

@@ -6,8 +6,8 @@ import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "../bridge/IQuotaManager.sol";
-import "../libs/LibStrings.sol";
-import "../libs/LibAddress.sol";
+import "../common/LibStrings.sol";
+import "../common/LibAddress.sol";
 import "./IBridgedERC20.sol";
 import "./BaseVault.sol";
 
@@ -160,9 +160,9 @@ contract ERC20Vault is BaseVault {
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _sharedResolver The {IResolver} used by multipel rollups.
-    function init(address _owner, address _sharedResolver) external initializer {
-        __Essential_init(_owner, _sharedResolver);
+    /// @param _sharedAddressManager The address of the {AddressManager} contract.
+    function init(address _owner, address _sharedAddressManager) external initializer {
+        __Essential_init(_owner, _sharedAddressManager);
     }
 
     /// @notice Change bridged token.
@@ -436,7 +436,7 @@ contract ERC20Vault is BaseVault {
             IBridgedERC20Initializable.init,
             (
                 owner(),
-                address(resolver()),
+                addressManager,
                 ctoken.addr,
                 ctoken.chainId,
                 ctoken.decimals,

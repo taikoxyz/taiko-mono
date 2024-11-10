@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./TestBridge2Base.sol";
+import "./Bridge2.t.sol";
 
 contract Target is IMessageInvocable {
     uint256 public receivedEther;
@@ -39,85 +39,85 @@ contract AlwaysAvailableQuotaManager is IQuotaManager {
     function consumeQuota(address, uint256) external pure { }
 }
 
-contract TestBridge2_processMessage is TestBridge2Base {
+contract BridgeTest2_processMessage is BridgeTest2 {
     function test_bridge2_processMessage_basic() public dealEther(Alice) assertSameTotalBalance {
         vm.startPrank(Alice);
 
         IBridge.Message memory message;
 
         vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
-        eBridge.processMessage(message, FAKE_PROOF);
+        bridge.processMessage(message, fakeProof);
 
-        message.destChainId = ethereumChainId;
+        message.destChainId = uint64(block.chainid);
         vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
-        eBridge.processMessage(message, FAKE_PROOF);
+        bridge.processMessage(message, fakeProof);
 
-        message.srcChainId = ethereumChainId;
+        message.srcChainId = uint64(block.chainid);
         vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
-        eBridge.processMessage(message, FAKE_PROOF);
+        bridge.processMessage(message, fakeProof);
 
-        message.srcChainId = taikoChainId + 1;
+        message.srcChainId = remoteChainId + 1;
         vm.expectRevert(Bridge.B_PERMISSION_DENIED.selector);
-        eBridge.processMessage(message, FAKE_PROOF);
+        bridge.processMessage(message, fakeProof);
 
-        message.srcChainId = taikoChainId;
-        vm.expectRevert(Bridge.B_PERMISSION_DENIED.selector);
-        eBridge.processMessage(message, FAKE_PROOF);
+        message.srcChainId = remoteChainId;
+        vm.expectRevert(); // RESOLVER_ZERO_ADDR src bridge not registered
+        bridge.processMessage(message, fakeProof);
 
         message.gasLimit = 1_000_000;
-        bytes32 hash = eBridge.hashMessage(message);
-        assertTrue(eBridge.messageStatus(hash) == IBridge.Status.NEW);
+        bytes32 hash = bridge.hashMessage(message);
+        assertTrue(bridge.messageStatus(hash) == IBridge.Status.NEW);
 
-        eBridge.processMessage(message, FAKE_PROOF);
-        assertTrue(eBridge.messageStatus(hash) == IBridge.Status.DONE);
+        bridge.processMessage(message, fakeProof);
+        assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
 
         vm.stopPrank();
 
-        vm.prank(deployer);
-        resolver.registerAddress(message.srcChainId, "bridge", address(0));
+        vm.prank(owner);
+        addressManager.setAddress(message.srcChainId, "bridge", address(0));
 
         vm.startPrank(Alice);
 
         message.id += 1;
-        vm.expectRevert(IResolver.RESOLVED_TO_ZERO_ADDRESS.selector);
-        eBridge.processMessage(message, FAKE_PROOF);
+        vm.expectRevert(); // RESOLVER_ZERO_ADDR src bridge not registered
+        bridge.processMessage(message, fakeProof);
 
         vm.stopPrank();
     }
 
     function test_bridge2_processMessage__special_to_address__0_fee__nonezero_gaslimit()
         public
-        transactBy(Carol)
+        transactedBy(Carol)
         assertSameTotalBalance
     {
         IBridge.Message memory message;
 
-        message.destChainId = ethereumChainId;
-        message.srcChainId = taikoChainId;
+        message.destChainId = uint64(block.chainid);
+        message.srcChainId = remoteChainId;
 
         message.gasLimit = 1_000_000;
         message.fee = 0;
         message.value = 2 ether;
         vm.expectRevert(LibAddress.ETH_TRANSFER_FAILED.selector);
-        eBridge.processMessage(message, FAKE_PROOF);
+        bridge.processMessage(message, fakeProof);
 
         message.destOwner = Alice;
         uint256 aliceBalance = Alice.balance;
-        eBridge.processMessage(message, FAKE_PROOF);
+        bridge.processMessage(message, fakeProof);
         assertEq(Alice.balance, aliceBalance + 2 ether);
 
-        message.to = address(eBridge);
+        message.to = address(bridge);
         aliceBalance = Alice.balance;
-        eBridge.processMessage(message, FAKE_PROOF);
+        bridge.processMessage(message, fakeProof);
         assertEq(Alice.balance, aliceBalance + 2 ether);
 
-        message.to = address(eSignalService);
+        message.to = address(signalService);
         aliceBalance = Alice.balance;
-        eBridge.processMessage(message, FAKE_PROOF);
+        bridge.processMessage(message, fakeProof);
         assertEq(Alice.balance, aliceBalance + 2 ether);
 
-        bytes32 hash = eBridge.hashMessage(message);
-        assertTrue(eBridge.messageStatus(hash) == IBridge.Status.DONE);
+        bytes32 hash = bridge.hashMessage(message);
+        assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
     }
 
     function test_bridge2_processMessage__special_to_address__0_fee__0_gaslimit()
@@ -130,32 +130,32 @@ contract TestBridge2_processMessage is TestBridge2Base {
 
         IBridge.Message memory message;
 
-        message.destChainId = ethereumChainId;
-        message.srcChainId = taikoChainId;
+        message.destChainId = uint64(block.chainid);
+        message.srcChainId = remoteChainId;
 
         message.gasLimit = 0;
         message.fee = 0;
         message.value = 2 ether;
         vm.expectRevert(Bridge.B_PERMISSION_DENIED.selector);
-        eBridge.processMessage(message, FAKE_PROOF);
+        bridge.processMessage(message, fakeProof);
 
         message.destOwner = Alice;
         uint256 aliceBalance = Alice.balance;
-        eBridge.processMessage(message, FAKE_PROOF);
+        bridge.processMessage(message, fakeProof);
         assertEq(Alice.balance, aliceBalance + 2 ether);
 
-        message.to = address(eBridge);
+        message.to = address(bridge);
         aliceBalance = Alice.balance;
-        eBridge.processMessage(message, FAKE_PROOF);
+        bridge.processMessage(message, fakeProof);
         assertEq(Alice.balance, aliceBalance + 2 ether);
 
-        message.to = address(eSignalService);
+        message.to = address(signalService);
         aliceBalance = Alice.balance;
-        eBridge.processMessage(message, FAKE_PROOF);
+        bridge.processMessage(message, fakeProof);
         assertEq(Alice.balance, aliceBalance + 2 ether);
 
-        bytes32 hash = eBridge.hashMessage(message);
-        assertTrue(eBridge.messageStatus(hash) == IBridge.Status.DONE);
+        bytes32 hash = bridge.hashMessage(message);
+        assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
 
         vm.stopPrank();
 
@@ -163,21 +163,21 @@ contract TestBridge2_processMessage is TestBridge2Base {
 
         vm.prank(Bob);
         vm.expectRevert(Bridge.B_PERMISSION_DENIED.selector);
-        eBridge.processMessage(message, FAKE_PROOF);
+        bridge.processMessage(message, fakeProof);
 
-        hash = eBridge.hashMessage(message);
-        assertTrue(eBridge.messageStatus(hash) == IBridge.Status.NEW);
+        hash = bridge.hashMessage(message);
+        assertTrue(bridge.messageStatus(hash) == IBridge.Status.NEW);
     }
 
     function test_bridge2_processMessage__special_to_address__nonezero_fee__nonezero_gaslimit()
         public
-        transactBy(Alice)
+        transactedBy(Alice)
         assertSameTotalBalance
     {
         IBridge.Message memory message;
 
-        message.destChainId = ethereumChainId;
-        message.srcChainId = taikoChainId;
+        message.destChainId = uint64(block.chainid);
+        message.srcChainId = remoteChainId;
 
         message.gasLimit = 1;
         message.fee = 5_000_000;
@@ -187,32 +187,32 @@ contract TestBridge2_processMessage is TestBridge2Base {
         uint256 bobBalance = Bob.balance;
         uint256 aliceBalance = Alice.balance;
 
-        eBridge.processMessage(message, FAKE_PROOF);
+        bridge.processMessage(message, fakeProof);
 
         assertEq(Bob.balance, bobBalance + 2 ether);
         assertEq(Alice.balance, aliceBalance + 5_000_000);
 
-        bytes32 hash = eBridge.hashMessage(message);
-        assertTrue(eBridge.messageStatus(hash) == IBridge.Status.DONE);
+        bytes32 hash = bridge.hashMessage(message);
+        assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
 
         message.gasLimit = 10_000_000;
         bobBalance = Bob.balance;
         aliceBalance = Alice.balance;
 
-        eBridge.processMessage(message, FAKE_PROOF);
+        bridge.processMessage(message, fakeProof);
         assertTrue(Bob.balance > bobBalance + 2 ether);
         assertTrue(Alice.balance < aliceBalance + 5_000_000);
     }
 
     function test_bridge2_processMessage__special_to_address__nonezero_fee__0_gaslimit()
         public
-        transactBy(Alice)
+        transactedBy(Alice)
         assertSameTotalBalance
     {
         IBridge.Message memory message;
 
-        message.destChainId = ethereumChainId;
-        message.srcChainId = taikoChainId;
+        message.destChainId = uint64(block.chainid);
+        message.srcChainId = remoteChainId;
 
         message.gasLimit = 0;
         message.fee = 5_000_000;
@@ -221,23 +221,23 @@ contract TestBridge2_processMessage is TestBridge2Base {
 
         uint256 aliceBalance = Alice.balance;
 
-        eBridge.processMessage(message, FAKE_PROOF);
+        bridge.processMessage(message, fakeProof);
 
         assertEq(Alice.balance, aliceBalance + 2 ether + 5_000_000);
 
-        bytes32 hash = eBridge.hashMessage(message);
-        assertTrue(eBridge.messageStatus(hash) == IBridge.Status.DONE);
+        bytes32 hash = bridge.hashMessage(message);
+        assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
     }
 
     function test_bridge2_processMessage__eoa_address__0_fee__nonezero_gaslimit()
         public
-        transactBy(Carol)
+        transactedBy(Carol)
         assertSameTotalBalance
     {
         IBridge.Message memory message;
 
-        message.destChainId = ethereumChainId;
-        message.srcChainId = taikoChainId;
+        message.destChainId = uint64(block.chainid);
+        message.srcChainId = remoteChainId;
 
         message.gasLimit = 1_000_000;
         message.fee = 0;
@@ -248,9 +248,9 @@ contract TestBridge2_processMessage is TestBridge2Base {
         uint256 aliceBalance = Alice.balance;
         uint256 davidBalance = David.balance;
 
-        eBridge.processMessage(message, FAKE_PROOF);
-        bytes32 hash = eBridge.hashMessage(message);
-        assertTrue(eBridge.messageStatus(hash) == IBridge.Status.DONE);
+        bridge.processMessage(message, fakeProof);
+        bytes32 hash = bridge.hashMessage(message);
+        assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
 
         assertEq(Alice.balance, aliceBalance);
         assertEq(David.balance, davidBalance + 2 ether);
@@ -258,13 +258,13 @@ contract TestBridge2_processMessage is TestBridge2Base {
 
     function test_bridge2_processMessage__eoa_to_address__0_fee__0_gaslimit()
         public
-        transactBy(Alice)
+        transactedBy(Alice)
         assertSameTotalBalance
     {
         IBridge.Message memory message;
 
-        message.destChainId = ethereumChainId;
-        message.srcChainId = taikoChainId;
+        message.destChainId = uint64(block.chainid);
+        message.srcChainId = remoteChainId;
 
         message.gasLimit = 0;
         message.fee = 0;
@@ -274,22 +274,22 @@ contract TestBridge2_processMessage is TestBridge2Base {
 
         uint256 davidBalance = David.balance;
 
-        eBridge.processMessage(message, FAKE_PROOF);
-        bytes32 hash = eBridge.hashMessage(message);
-        assertTrue(eBridge.messageStatus(hash) == IBridge.Status.DONE);
+        bridge.processMessage(message, fakeProof);
+        bytes32 hash = bridge.hashMessage(message);
+        assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
 
         assertEq(David.balance, davidBalance + 2 ether);
     }
 
     function test_bridge2_processMessage__eoa_to_address__nonezero_fee__nonezero_gaslimit()
         public
-        transactBy(Carol)
+        transactedBy(Carol)
         assertSameTotalBalance
     {
         IBridge.Message memory message;
 
-        message.destChainId = ethereumChainId;
-        message.srcChainId = taikoChainId;
+        message.destChainId = uint64(block.chainid);
+        message.srcChainId = remoteChainId;
 
         message.gasLimit = 1_000_000;
         message.fee = 5_000_000;
@@ -300,9 +300,9 @@ contract TestBridge2_processMessage is TestBridge2Base {
         uint256 aliceBalance = Alice.balance;
         uint256 davidBalance = David.balance;
 
-        eBridge.processMessage(message, FAKE_PROOF);
-        bytes32 hash = eBridge.hashMessage(message);
-        assertTrue(eBridge.messageStatus(hash) == IBridge.Status.DONE);
+        bridge.processMessage(message, fakeProof);
+        bytes32 hash = bridge.hashMessage(message);
+        assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
 
         assertEq(David.balance, davidBalance + 2 ether);
         assertTrue(Alice.balance > aliceBalance);
@@ -311,13 +311,13 @@ contract TestBridge2_processMessage is TestBridge2Base {
 
     function test_bridge2_processMessage__eoa_to_address__nonezero_fee__0_gaslimit()
         public
-        transactBy(Alice)
+        transactedBy(Alice)
         assertSameTotalBalance
     {
         IBridge.Message memory message;
 
-        message.destChainId = ethereumChainId;
-        message.srcChainId = taikoChainId;
+        message.destChainId = uint64(block.chainid);
+        message.srcChainId = remoteChainId;
 
         message.gasLimit = 0;
         message.fee = 1_000_000;
@@ -327,21 +327,21 @@ contract TestBridge2_processMessage is TestBridge2Base {
 
         uint256 davidBalance = David.balance;
 
-        eBridge.processMessage(message, FAKE_PROOF);
-        bytes32 hash = eBridge.hashMessage(message);
-        assertTrue(eBridge.messageStatus(hash) == IBridge.Status.DONE);
+        bridge.processMessage(message, fakeProof);
+        bytes32 hash = bridge.hashMessage(message);
+        assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
 
         assertEq(David.balance, davidBalance + 2 ether);
     }
 
-    function test_bridge2_processMessage__special_invocation() public transactBy(Carol) {
-        Target target = new Target(eBridge);
+    function test_bridge2_processMessage__special_invocation() public transactedBy(Carol) {
+        Target target = new Target(bridge);
 
         uint256 totalBalance = getBalanceForAccounts() + address(target).balance;
         IBridge.Message memory message;
 
-        message.destChainId = ethereumChainId;
-        message.srcChainId = taikoChainId;
+        message.destChainId = uint64(block.chainid);
+        message.srcChainId = remoteChainId;
 
         message.gasLimit = 1_000_000;
         message.fee = 0;
@@ -351,16 +351,16 @@ contract TestBridge2_processMessage is TestBridge2Base {
         message.data = abi.encodeCall(Target.anotherFunc, (""));
 
         uint256 aliceBalance = Alice.balance;
-        eBridge.processMessage(message, FAKE_PROOF);
-        bytes32 hash = eBridge.hashMessage(message);
-        assertTrue(eBridge.messageStatus(hash) == IBridge.Status.DONE);
+        bridge.processMessage(message, fakeProof);
+        bytes32 hash = bridge.hashMessage(message);
+        assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
         assertEq(Alice.balance, aliceBalance + 2 ether);
         assertEq(target.receivedEther(), 0 ether);
 
         message.data = "1";
-        eBridge.processMessage(message, FAKE_PROOF);
-        hash = eBridge.hashMessage(message);
-        assertTrue(eBridge.messageStatus(hash) == IBridge.Status.DONE);
+        bridge.processMessage(message, fakeProof);
+        hash = bridge.hashMessage(message);
+        assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
         assertEq(target.receivedEther(), 2 ether);
 
         (bytes32 msgHash, address from, uint64 srcChainId) = target.ctx();
@@ -371,16 +371,16 @@ contract TestBridge2_processMessage is TestBridge2Base {
         message.to = Bob;
         message.data = "something else";
 
-        eBridge.processMessage(message, FAKE_PROOF);
-        hash = eBridge.hashMessage(message);
-        assertTrue(eBridge.messageStatus(hash) == IBridge.Status.DONE);
+        bridge.processMessage(message, fakeProof);
+        hash = bridge.hashMessage(message);
+        assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
         assertEq(Bob.balance, 2 ether);
 
         message.to = address(target);
         message.data = abi.encodeCall(Target.onMessageInvocation, (""));
-        eBridge.processMessage(message, FAKE_PROOF);
-        hash = eBridge.hashMessage(message);
-        assertTrue(eBridge.messageStatus(hash) == IBridge.Status.DONE);
+        bridge.processMessage(message, fakeProof);
+        hash = bridge.hashMessage(message);
+        assertTrue(bridge.messageStatus(hash) == IBridge.Status.DONE);
         assertEq(target.receivedEther(), 4 ether);
 
         (msgHash, from, srcChainId) = target.ctx();
@@ -398,14 +398,16 @@ contract TestBridge2_processMessage is TestBridge2Base {
         dealEther(Alice)
         assertSameTotalBalance
     {
-        vm.startPrank(deployer);
-        resolver.registerAddress(ethereumChainId, "quota_manager", address(new OutOfQuotaManager()));
+        vm.startPrank(owner);
+        addressManager.setAddress(
+            uint64(block.chainid), "quota_manager", address(new OutOfQuotaManager())
+        );
         vm.stopPrank();
 
         IBridge.Message memory message;
 
-        message.destChainId = ethereumChainId;
-        message.srcChainId = taikoChainId;
+        message.destChainId = uint64(block.chainid);
+        message.srcChainId = remoteChainId;
 
         message.gasLimit = 1_000_000;
         message.fee = 5_000_000;
@@ -415,11 +417,11 @@ contract TestBridge2_processMessage is TestBridge2Base {
 
         vm.prank(Bob);
         vm.expectRevert(Bridge.B_OUT_OF_ETH_QUOTA.selector);
-        eBridge.processMessage(message, FAKE_PROOF);
+        bridge.processMessage(message, fakeProof);
 
         vm.prank(Alice);
         vm.expectRevert(Bridge.B_OUT_OF_ETH_QUOTA.selector);
-        eBridge.processMessage(message, FAKE_PROOF);
+        bridge.processMessage(message, fakeProof);
     }
 
     function test_bridge2_processMessage_and_retryMessage_malicious_way()
@@ -428,14 +430,16 @@ contract TestBridge2_processMessage is TestBridge2Base {
         dealEther(Alice)
         assertSameTotalBalance
     {
-        vm.startPrank(deployer);
-        resolver.registerAddress(ethereumChainId, "quota_manager", address(new OutOfQuotaManager()));
+        vm.startPrank(owner);
+        addressManager.setAddress(
+            uint64(block.chainid), "quota_manager", address(new OutOfQuotaManager())
+        );
         vm.stopPrank();
 
         IBridge.Message memory message;
 
-        message.destChainId = ethereumChainId;
-        message.srcChainId = taikoChainId;
+        message.destChainId = uint64(block.chainid);
+        message.srcChainId = remoteChainId;
 
         bytes32 hashOfMaliciousMessage =
             0x3c6e0b8a9c15224b7f0a1e5f4c8f7683d5a0a4e32a34c6c7c7e1f4d9a9d9f6b4;
@@ -443,11 +447,11 @@ contract TestBridge2_processMessage is TestBridge2Base {
         message.fee = 5_000_000;
         message.value = 2 ether;
         message.destOwner = Alice;
-        message.to = address(eBridge);
+        message.to = address(bridge);
         message.data = abi.encodeWithSignature("sendSignal(bytes32)", hashOfMaliciousMessage);
 
         vm.prank(Alice);
         vm.expectRevert(Bridge.B_OUT_OF_ETH_QUOTA.selector);
-        eBridge.processMessage(message, FAKE_PROOF);
+        bridge.processMessage(message, fakeProof);
     }
 }

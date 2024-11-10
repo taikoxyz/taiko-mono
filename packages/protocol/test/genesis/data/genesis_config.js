@@ -4,6 +4,7 @@ const ADDRESS_LENGTH = 40;
 module.exports = {
   // Owner address of the pre-deployed L2 contracts.
   contractOwner: "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39",
+  l1ChainId: 1,
   // Chain ID of the Taiko L2 network.
   chainId: 167,
   // Account address and pre-mint ETH amount as key-value pairs.
@@ -24,14 +25,14 @@ module.exports = {
       ERC721VaultImpl: getConstantAddress(`0${this.chainId}`, 3),
       ERC1155VaultImpl: getConstantAddress(`0${this.chainId}`, 4),
       SignalServiceImpl: getConstantAddress(`0${this.chainId}`, 5),
-      SharedDefaultResolverImpl: getConstantAddress(`0${this.chainId}`, 6),
+      SharedAddressManagerImpl: getConstantAddress(`0${this.chainId}`, 6),
       BridgedERC20Impl: getConstantAddress(`0${this.chainId}`, 10096),
       BridgedERC721Impl: getConstantAddress(`0${this.chainId}`, 10097),
       BridgedERC1155Impl: getConstantAddress(`0${this.chainId}`, 10098),
       RegularERC20: getConstantAddress(`0${this.chainId}`, 10099),
       // Rollup Contracts
       TaikoL2Impl: getConstantAddress(`0${this.chainId}`, 10001),
-      RollupDefaultResolverImpl: getConstantAddress(`0${this.chainId}`, 10002),
+      RollupAddressManagerImpl: getConstantAddress(`0${this.chainId}`, 10002),
       // ============ Proxies ============
       // Shared Contracts
       Bridge: getConstantAddress(this.chainId, 1),
@@ -39,10 +40,10 @@ module.exports = {
       ERC721Vault: getConstantAddress(this.chainId, 3),
       ERC1155Vault: getConstantAddress(this.chainId, 4),
       SignalService: getConstantAddress(this.chainId, 5),
-      SharedDefaultResolver: getConstantAddress(this.chainId, 6),
+      SharedAddressManager: getConstantAddress(this.chainId, 6),
       // Rollup Contracts
       TaikoL2: getConstantAddress(this.chainId, 10001),
-      RollupDefaultResolver: getConstantAddress(this.chainId, 10002),
+      RollupAddressManager: getConstantAddress(this.chainId, 10002),
     };
   },
   // L2 EIP-1559 baseFee calculation related fields.

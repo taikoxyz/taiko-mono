@@ -2,9 +2,9 @@
 pragma solidity ^0.8.24;
 
 import "../shared/common/EssentialContract.sol";
-import "../shared/libs/LibStrings.sol";
-import "../shared/libs/LibAddress.sol";
-import "../shared/libs/LibBytes.sol";
+import "../shared/common/LibStrings.sol";
+import "../shared/common/LibAddress.sol";
+import "../shared/common/LibBytes.sol";
 import "../shared/bridge/IBridge.sol";
 
 /// @title DelegateOwner
@@ -64,11 +64,11 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     /// @param _remoteOwner The real owner on L1 that can send a cross-chain message to invoke
     /// `onMessageInvocation`.
     /// @param _remoteChainId The L1 chain's ID.
-    /// @param _sharedResolver The {IResolver} used by multipel rollups.
+    /// @param _sharedAddressManager The address of the {AddressManager} contract.
     /// @param _admin The admin address.
     function init(
         address _remoteOwner,
-        address _sharedResolver,
+        address _sharedAddressManager,
         uint64 _remoteChainId,
         address _admin
     )
@@ -76,7 +76,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
         initializer
     {
         // This contract's owner will be itself.
-        __Essential_init(address(this), _sharedResolver);
+        __Essential_init(address(this), _sharedAddressManager);
 
         if (_remoteOwner == address(0) || _remoteChainId == 0 || _remoteChainId == block.chainid) {
             revert DO_INVALID_PARAM();

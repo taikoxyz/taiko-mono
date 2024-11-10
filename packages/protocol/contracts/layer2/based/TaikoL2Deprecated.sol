@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/shared/based/LibSharedData.sol";
+import "src/shared/data/LibSharedData.sol";
 
 /// @title TaikoL2Deprecated
 /// @notice This contract includes deprecated functions whose ABI are still used by client for old

@@ -1,19 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../CommonTest.sol";
+import "../TaikoTest.sol";
 
-contract TestBridgedERC20V2 is CommonTest {
-    address private vault = randAddress();
+contract TestBridgedERC20 is TaikoTest {
+    address manager;
+    address vault = randAddress();
+    address owner = randAddress();
 
-    function setUpOnEthereum() internal override {
-        register("erc20_vault", vault);
+    function setUp() public {
+        manager = deployProxy({
+            name: "address_manager",
+            impl: address(new AddressManager()),
+            data: abi.encodeCall(AddressManager.init, (address(0)))
+        });
+
+        register(manager, "erc20_vault", vault);
     }
 
     function test_20Vault_migration__change_migration_status() public {
-        vm.startPrank(deployer);
-        BridgedERC20V2 btoken = deployBridgedToken("FOO");
-        vm.stopPrank();
+        BridgedERC20 btoken = deployBridgedToken("FOO");
 
         vm.expectRevert();
         btoken.changeMigrationStatus(Emma, false);
@@ -32,31 +38,25 @@ contract TestBridgedERC20V2 is CommonTest {
     function test_20Vault_migration___only_vault_can_min__but_cannot_burn_when_migration_off()
         public
     {
-        vm.startPrank(deployer);
-        BridgedERC20V2 btoken = deployBridgedToken("BAR");
+        BridgedERC20 btoken = deployBridgedToken("BAR");
+        // only erc20_vault can brun and mint
+        vm.prank(vault, vault);
+        btoken.mint(Bob, 1000);
+        //Vault cannot burn only if it owns the tokens
+        vm.expectRevert();
+        vm.prank(Bob, Bob);
+        btoken.burn(600);
+        assertEq(btoken.balanceOf(Bob), 1000);
         vm.stopPrank();
 
-        // only erc20_vault can brun and mint
-        vm.prank(vault);
-        btoken.mint(Bob, 1000);
-
-        // Vault cannot burn only if it owns the tokens
-        vm.expectRevert();
-        vm.prank(Bob);
-        btoken.burn(600);
-
-        assertEq(btoken.balanceOf(Bob), 1000);
-
         // Owner can burn/mint
-        vm.prank(deployer);
+        vm.prank(owner, owner);
         btoken.mint(Bob, 1000);
     }
 
     function test_20Vault_migration__old_to_new() public {
-        vm.startPrank(deployer);
-        BridgedERC20V2 oldToken = deployBridgedToken("OLD");
-        BridgedERC20V2 newToken = deployBridgedToken("NEW");
-        vm.stopPrank();
+        BridgedERC20 oldToken = deployBridgedToken("OLD");
+        BridgedERC20 newToken = deployBridgedToken("NEW");
 
         vm.startPrank(vault);
         oldToken.mint(Bob, 100);
@@ -72,7 +72,7 @@ contract TestBridgedERC20V2 is CommonTest {
         vm.expectRevert();
         oldToken.mint(Bob, 10);
 
-        vm.prank(deployer);
+        vm.prank(owner);
         vm.expectRevert();
         oldToken.mint(Bob, 10);
 
@@ -92,7 +92,7 @@ contract TestBridgedERC20V2 is CommonTest {
         vm.expectRevert();
         newToken.mint(Bob, 10);
 
-        vm.prank(deployer);
+        vm.prank(owner);
         newToken.mint(Bob, 10);
 
         vm.prank(vault);
@@ -120,18 +120,19 @@ contract TestBridgedERC20V2 is CommonTest {
         assertEq(newToken.balanceOf(Bob), 210);
     }
 
-    function deployBridgedToken(bytes32 name) internal returns (BridgedERC20V2) {
+    function deployBridgedToken(string memory name) internal returns (BridgedERC20) {
         address srcToken = randAddress();
+        uint256 srcChainId = 1000;
         uint8 srcDecimals = 11;
-        string memory _name = bytes32ToString(name);
-        return BridgedERC20V2(
-            deploy({
-                name: name,
+        return BridgedERC20(
+            deployProxy({
+                name: "bridged_token1",
                 impl: address(new BridgedERC20V2()),
                 data: abi.encodeCall(
-                    BridgedERC20V2.init,
-                    (deployer, address(resolver), srcToken, taikoChainId, srcDecimals, _name, _name)
-                )
+                    BridgedERC20.init,
+                    (owner, address(manager), srcToken, srcChainId, srcDecimals, name, name)
+                ),
+                registerTo: manager
             })
         );
     }

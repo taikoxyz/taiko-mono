@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./TestBridge2Base.sol";
+import "./Bridge2.t.sol";
 
 contract TestRecallableSender is IRecallableSender, IERC165 {
     IBridge private bridge;
@@ -21,41 +21,41 @@ contract TestRecallableSender is IRecallableSender, IERC165 {
     }
 }
 
-contract TestBridge2_recallMessage is TestBridge2Base {
-    function test_bridge2_recallMessage_basic() public transactBy(Carol) assertSameTotalBalance {
+contract BridgeTest2_recallMessage is BridgeTest2 {
+    function test_bridge2_recallMessage_basic() public transactedBy(Carol) assertSameTotalBalance {
         IBridge.Message memory message;
         message.srcOwner = Alice;
         message.destOwner = Bob;
-        message.destChainId = taikoChainId;
+        message.destChainId = remoteChainId;
         message.value = 1 ether;
 
         vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
-        eBridge.recallMessage(message, FAKE_PROOF);
+        bridge.recallMessage(message, fakeProof);
 
-        message.srcChainId = ethereumChainId;
+        message.srcChainId = uint64(block.chainid);
         vm.expectRevert(Bridge.B_MESSAGE_NOT_SENT.selector);
-        eBridge.recallMessage(message, FAKE_PROOF);
+        bridge.recallMessage(message, fakeProof);
 
         uint256 aliceBalance = Alice.balance;
         uint256 carolBalance = Carol.balance;
-        uint256 bridgeBalance = address(eBridge).balance;
+        uint256 bridgeBalance = address(bridge).balance;
 
-        (, IBridge.Message memory m) = eBridge.sendMessage{ value: 1 ether }(message);
+        (, IBridge.Message memory m) = bridge.sendMessage{ value: 1 ether }(message);
         assertEq(Alice.balance, aliceBalance);
         assertEq(Carol.balance, carolBalance - 1 ether);
-        assertEq(address(eBridge).balance, bridgeBalance + 1 ether);
+        assertEq(address(bridge).balance, bridgeBalance + 1 ether);
 
-        eBridge.recallMessage(m, FAKE_PROOF);
-        bytes32 hash = eBridge.hashMessage(m);
-        assertTrue(eBridge.messageStatus(hash) == IBridge.Status.RECALLED);
+        bridge.recallMessage(m, fakeProof);
+        bytes32 hash = bridge.hashMessage(m);
+        assertTrue(bridge.messageStatus(hash) == IBridge.Status.RECALLED);
 
         assertEq(Alice.balance, aliceBalance + 1 ether);
         assertEq(Carol.balance, carolBalance - 1 ether);
-        assertEq(address(eBridge).balance, bridgeBalance);
+        assertEq(address(bridge).balance, bridgeBalance);
 
         // recall the same message again
         vm.expectRevert(Bridge.B_INVALID_STATUS.selector);
-        eBridge.recallMessage(m, FAKE_PROOF);
+        bridge.recallMessage(m, fakeProof);
     }
 
     function test_bridge2_recallMessage_missing_local_signal_service()
@@ -66,23 +66,23 @@ contract TestBridge2_recallMessage is TestBridge2Base {
         IBridge.Message memory message;
         message.srcOwner = Alice;
         message.destOwner = Bob;
-        message.destChainId = taikoChainId;
+        message.destChainId = remoteChainId;
         message.value = 1 ether;
-        message.srcChainId = ethereumChainId;
+        message.srcChainId = uint64(block.chainid);
 
         vm.prank(Carol);
-        (, IBridge.Message memory m) = eBridge.sendMessage{ value: 1 ether }(message);
+        (, IBridge.Message memory m) = bridge.sendMessage{ value: 1 ether }(message);
 
-        vm.prank(deployer);
-        register("signal_service", address(0));
+        vm.prank(owner);
+        addressManager.setAddress(uint64(block.chainid), "signal_service", address(0));
 
         vm.prank(Carol);
         vm.expectRevert();
-        eBridge.recallMessage(m, FAKE_PROOF);
+        bridge.recallMessage(m, fakeProof);
     }
 
     function test_bridge2_recallMessage_callable_sender() public dealEther(Carol) {
-        TestRecallableSender callableSender = new TestRecallableSender(eBridge);
+        TestRecallableSender callableSender = new TestRecallableSender(bridge);
         vm.deal(address(callableSender), 100 ether);
 
         uint256 totalBalance = getBalanceForAccounts() + address(callableSender).balance;
@@ -90,22 +90,22 @@ contract TestBridge2_recallMessage is TestBridge2Base {
         IBridge.Message memory message;
         message.srcOwner = Alice;
         message.destOwner = Bob;
-        message.destChainId = taikoChainId;
+        message.destChainId = remoteChainId;
         message.value = 1 ether;
-        message.srcChainId = ethereumChainId;
+        message.srcChainId = uint64(block.chainid);
 
         vm.prank(address(callableSender));
-        (bytes32 mhash, IBridge.Message memory m) = eBridge.sendMessage{ value: 1 ether }(message);
+        (bytes32 mhash, IBridge.Message memory m) = bridge.sendMessage{ value: 1 ether }(message);
 
         vm.prank(address(callableSender));
-        eBridge.recallMessage(m, FAKE_PROOF);
-        bytes32 hash = eBridge.hashMessage(m);
-        assertTrue(eBridge.messageStatus(hash) == IBridge.Status.RECALLED);
+        bridge.recallMessage(m, fakeProof);
+        bytes32 hash = bridge.hashMessage(m);
+        assertTrue(bridge.messageStatus(hash) == IBridge.Status.RECALLED);
 
         (bytes32 msgHash, address from, uint64 srcChainId) = callableSender.ctx();
         assertEq(msgHash, mhash);
-        assertEq(from, address(eBridge));
-        assertEq(srcChainId, ethereumChainId);
+        assertEq(from, address(bridge));
+        assertEq(srcChainId, block.chainid);
 
         uint256 totalBalance2 = getBalanceForAccounts() + address(callableSender).balance;
         assertEq(totalBalance2, totalBalance);

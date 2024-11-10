@@ -25,14 +25,14 @@ interface IBridgedERC721 {
 interface IBridgedERC721Initializable {
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _sharedResolver The {IResolver} used by multipel rollups.
+    /// @param _sharedAddressManager The address of the {AddressManager} contract.
     /// @param _srcToken Address of the source token.
     /// @param _srcChainId Source chain ID.
     /// @param _symbol Symbol of the bridged token.
     /// @param _name Name of the bridged token.
     function init(
         address _owner,
-        address _sharedResolver,
+        address _sharedAddressManager,
         address _srcToken,
         uint256 _srcChainId,
         string calldata _symbol,

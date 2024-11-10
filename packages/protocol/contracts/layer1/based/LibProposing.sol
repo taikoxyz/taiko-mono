@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/shared/libs/LibAddress.sol";
-import "src/shared/libs/LibNetwork.sol";
+import "src/shared/common/LibAddress.sol";
+import "src/shared/common/LibNetwork.sol";
 import "./LibBonds.sol";
 import "./LibData.sol";
 import "./LibUtils.sol";
@@ -55,7 +55,7 @@ library LibProposing {
     function proposeBlocks(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
-        IResolver _resolver,
+        IAddressResolver _resolver,
         bytes[] calldata _paramsArr,
         bytes[] calldata _txListArr
     )
@@ -91,7 +91,7 @@ library LibProposing {
     function proposeBlock(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
-        IResolver _resolver,
+        IAddressResolver _resolver,
         bytes calldata _params,
         bytes calldata _txList
     )
@@ -117,7 +117,7 @@ library LibProposing {
     function _proposeBlock(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
-        IResolver _resolver,
+        IAddressResolver _resolver,
         bytes calldata _params,
         bytes calldata _txList
     )
@@ -139,8 +139,7 @@ library LibProposing {
             );
         }
 
-        address preconfTaskManager =
-            _resolver.resolve(block.chainid, LibStrings.B_PRECONF_TASK_MANAGER, true);
+        address preconfTaskManager = _resolver.resolve(LibStrings.B_PRECONF_TASK_MANAGER, true);
         if (preconfTaskManager != address(0)) {
             require(preconfTaskManager == msg.sender, L1_INVALID_PROPOSER());
             local.allowCustomProposer = true;
@@ -192,13 +191,14 @@ library LibProposing {
             emit CalldataTxList(meta_.id, _txList);
         }
 
-        local.tierProvider =
-            ITierProvider(_resolver.resolve(block.chainid, LibStrings.B_TIER_PROVIDER, false));
+        local.tierProvider = ITierProvider(
+            ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false)).getProvider(
+                local.b.numBlocks
+            )
+        );
 
         // Use the difficulty as a random number
-        meta_.minTier = local.tierProvider.getMinTier(
-            local.b.numBlocks, meta_.proposer, uint256(meta_.difficulty)
-        );
+        meta_.minTier = local.tierProvider.getMinTier(meta_.proposer, uint256(meta_.difficulty));
 
         // Create the block that will be stored onchain
         TaikoData.BlockV2 memory blk = TaikoData.BlockV2({

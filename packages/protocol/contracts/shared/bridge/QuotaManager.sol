@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import "../common/EssentialContract.sol";
-import "../libs/LibStrings.sol";
-import "../libs/LibMath.sol";
+import "../common/LibStrings.sol";
+import "../common/LibMath.sol";
 import "./IQuotaManager.sol";
 
 /// @title QuotaManager
@@ -31,17 +31,17 @@ contract QuotaManager is EssentialContract, IQuotaManager {
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _sharedResolver The {IResolver} used by multipel rollups.
+    /// @param _sharedAddressManager The address of the {AddressManager} contract.
     /// @param _quotaPeriod The time required to restore all quota.
     function init(
         address _owner,
-        address _sharedResolver,
+        address _sharedAddressManager,
         uint24 _quotaPeriod
     )
         external
         initializer
     {
-        __Essential_init(_owner, _sharedResolver);
+        __Essential_init(_owner, _sharedAddressManager);
         _setQuotaPeriod(_quotaPeriod);
     }
 
