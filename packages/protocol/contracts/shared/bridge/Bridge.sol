@@ -475,7 +475,7 @@ contract Bridge is EssentialContract, IBridge {
         // bridge_watchdog can pause the bridge, but cannot unpause it.
         if (toPause && addr == resolve(LibStrings.B_BRIDGE_WATCHDOG, true)) return;
 
-        revert RESOLVER_DENIED();
+        revert ACCESS_DENIED();
     }
 
     /// @notice Invokes a call message on the Bridge.

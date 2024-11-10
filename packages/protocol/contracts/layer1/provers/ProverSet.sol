@@ -153,7 +153,7 @@ contract ProverSet is EssentialContract, IERC1271 {
 
     /// @notice Delegates token voting right to a delegatee.
     /// @param _delegatee The delegatee to receive the voting right.
-    function delegate(address _delegatee) external onlyAuthorized  {
+    function delegate(address _delegatee) external onlyAuthorized {
         address _bondToken = bondToken();
         require(_bondToken != address(0), INVALID_BOND_TOKEN());
         ERC20VotesUpgradeable(_bondToken).delegate(_delegatee);

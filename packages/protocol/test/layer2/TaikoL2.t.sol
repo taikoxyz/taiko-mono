@@ -69,7 +69,7 @@ contract TestTaikoL2 is Layer2Test {
         assertEq(Alice.balance, 100 ether);
 
         // Random EOA cannot call withdraw
-        vm.expectRevert(EssentialContract.RESOLVER_DENIED.selector);
+        vm.expectRevert(EssentialContract.ACCESS_DENIED.selector);
         vm.prank(Alice, Alice);
         taikoL2.withdraw(address(0), Alice);
     }

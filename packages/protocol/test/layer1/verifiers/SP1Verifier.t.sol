@@ -6,7 +6,7 @@ import "../Layer1Test.sol";
 
 contract TaikoL1Stub_ReturnMainnetChainId {
     function getConfig() external pure returns (TaikoData.Config memory config) {
-        config.chainId = 167000;
+        config.chainId = 167_000;
     }
 }
 
@@ -49,7 +49,7 @@ contract TestSP1Verifier is Layer1Test {
             _generateTaikoMainnetContextAndTransition();
 
         bytes32 pi = LibPublicInput.hashPublicInputs(
-            transition, address(sp1Verifier), address(0), ctx.prover, ctx.metaHash, 167000
+            transition, address(sp1Verifier), address(0), ctx.prover, ctx.metaHash, 167_000
         );
         console2.log("Verifier: ", address(sp1Verifier));
         console2.log("Prover: ", ctx.prover);
@@ -73,7 +73,7 @@ contract TestSP1Verifier is Layer1Test {
         sp1Verifier.setProgramTrusted(
             bytes32(0x00d5ff4ed163b73e75aa1f60c399b3c778df24abe584fc6eee1ce5c444b74bcd), true
         );
-        
+
         vm.stopPrank();
         // Context
         IVerifier.ContextV2[] memory ctxs = new IVerifier.ContextV2[](2);

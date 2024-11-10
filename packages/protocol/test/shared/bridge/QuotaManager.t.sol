@@ -24,7 +24,7 @@ contract TestQuotaManager is CommonTest {
         qm.updateQuota(Ether, 10 ether);
         assertEq(qm.availableQuota(address(0), 0), 10 ether);
 
-        vm.expectRevert(EssentialContract.RESOLVER_DENIED.selector);
+        vm.expectRevert(EssentialContract.ACCESS_DENIED.selector);
         qm.consumeQuota(Ether, 5 ether);
 
         vm.prank(bridge);
