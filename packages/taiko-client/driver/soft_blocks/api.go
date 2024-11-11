@@ -266,7 +266,7 @@ func (s *SoftBlockAPIServer) RemoveSoftBlocks(c echo.Context) error {
 		return s.returnError(
 			c,
 			http.StatusBadRequest,
-			errors.New("newLastBlockId must not be bigger than the canonical chain's highest block ID"),
+			errors.New("newLastBlockId must bigger than the canonical chain's highest block ID"),
 		)
 	}
 
