@@ -262,11 +262,11 @@ func (s *SoftBlockAPIServer) RemoveSoftBlocks(c echo.Context) error {
 		"currentHead", currentHead.Number.Uint64(),
 	)
 
-	if reqBody.NewLastBlockID < canonicalHeadL1Origin.BlockID.Uint64() {
+	if reqBody.NewLastBlockID <= canonicalHeadL1Origin.BlockID.Uint64()+1 {
 		return s.returnError(
 			c,
 			http.StatusBadRequest,
-			errors.New("newLastBlockId must not be smaller than the canonical chain's highest block ID"),
+			errors.New("newLastBlockId must not be bigger than the canonical chain's highest block ID"),
 		)
 	}
 
