@@ -33,7 +33,7 @@ contract Risc0Verifier is EssentialContract, IVerifier {
 
     /// @notice Initializes the contract with the provided address manager.
     /// @param _owner The address of the owner.
-    /// @param _rollupResolver The address of the DefaultResolver.
+    /// @param _rollupResolver The {IResolver} used by this rollup
     function init(address _owner, address _rollupResolver) external initializer {
         __Essential_init(_owner, _rollupResolver);
     }

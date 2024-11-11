@@ -74,7 +74,7 @@ contract TokenUnlock is EssentialContract {
 
     /// @notice Initializes the contract.
     /// @param _owner The contract owner address.
-    /// @param _rollupResolver The rollup address manager.
+    /// @param _rollupResolver The {IResolver} used by this rollup
     /// @param _recipient Who will be the grantee for this contract.
     /// @param _tgeTimestamp The token generation event timestamp.
     function init(

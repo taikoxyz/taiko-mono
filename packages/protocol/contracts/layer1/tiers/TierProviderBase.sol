@@ -25,51 +25,51 @@ abstract contract TierProviderBase is ITierProvider {
         returns (ITierProvider.Tier memory)
     {
         if (_tierId == LibTiers.TIER_OPTIMISTIC) {
-            return _buildTier(LibStrings.B_TIER_OPTIMISTIC, 1, 1440, 60);
+            return buildTier(LibStrings.B_TIER_OPTIMISTIC, 1, 1440, 60);
         }
 
         // TEE Tiers
         if (_tierId == LibTiers.TIER_SGX) {
             // cooldownWindow is 240 minutes and provingWindow is 60 minutes
-            return _buildTier(LibStrings.B_TIER_SGX, 2, 240, 60);
+            return buildTier(LibStrings.B_TIER_SGX, 2, 240, 60);
         }
         if (_tierId == LibTiers.TIER_TDX) {
             // cooldownWindow is 240 minutes and provingWindow is 60 minutes
-            return _buildTier(LibStrings.B_TIER_TDX, 2, 240, 60);
+            return buildTier(LibStrings.B_TIER_TDX, 2, 240, 60);
         }
         if (_tierId == LibTiers.TIER_TEE_ANY) {
             // cooldownWindow is 240 minutes and provingWindow is 60 minutes
-            return _buildTier(LibStrings.B_TIER_TEE_ANY, 2, 240, 60);
+            return buildTier(LibStrings.B_TIER_TEE_ANY, 2, 240, 60);
         }
 
         // ZKVM Tiers: Allowing 120 minutes for proof aggregation.
         if (_tierId == LibTiers.TIER_ZKVM_RISC0) {
             // cooldownWindow is 240 minutes and provingWindow is 120 minutes
-            return _buildTier(LibStrings.B_TIER_ZKVM_RISC0, 3, 240, 120);
+            return buildTier(LibStrings.B_TIER_ZKVM_RISC0, 3, 240, 120);
         }
         if (_tierId == LibTiers.TIER_ZKVM_SP1) {
             // cooldownWindow is 240 minutes and provingWindow is 120 minutes
-            return _buildTier(LibStrings.B_TIER_ZKVM_SP1, 3, 240, 120);
+            return buildTier(LibStrings.B_TIER_ZKVM_SP1, 3, 240, 120);
         }
         if (_tierId == LibTiers.TIER_ZKVM_ANY) {
             // cooldownWindow is 240 minutes and provingWindow is 90 minutes
-            return _buildTier(LibStrings.B_TIER_ZKVM_ANY, 3, 240, 120);
+            return buildTier(LibStrings.B_TIER_ZKVM_ANY, 3, 240, 120);
         }
         if (_tierId == LibTiers.TIER_ZKVM_AND_TEE) {
             // cooldownWindow is 240 minutes and provingWindow is 90 minutes
-            return _buildTier(LibStrings.B_TIER_ZKVM_AND_TEE, 3, 240, 120);
+            return buildTier(LibStrings.B_TIER_ZKVM_AND_TEE, 3, 240, 120);
         }
 
         // Guardian Minority Tiers
         if (_tierId == LibTiers.TIER_GUARDIAN_MINORITY) {
             // cooldownWindow is 60 minutes and provingWindow is 120 minutes
-            return _buildTier(LibStrings.B_TIER_GUARDIAN_MINORITY, 4, 240, 120);
+            return buildTier(LibStrings.B_TIER_GUARDIAN_MINORITY, 4, 240, 120);
         }
 
         // Guardian Major Tiers
         if (_tierId == LibTiers.TIER_GUARDIAN) {
             // cooldownWindow is 480 minutes
-            return _buildTier(LibStrings.B_TIER_GUARDIAN, 0, 480, 0);
+            return buildTier(LibStrings.B_TIER_GUARDIAN, 0, 480, 0);
         }
 
         revert TIER_NOT_FOUND();
@@ -81,14 +81,15 @@ abstract contract TierProviderBase is ITierProvider {
     /// @param _cooldownWindow The cooldown window duration in minutes.
     /// @param _provingWindow The proving window duration in minutes.
     /// @return A Tier struct with the provided parameters.
-    function _buildTier(
+    function buildTier(
         bytes32 _verifierName,
         uint8 _validityBondUnits,
         uint16 _cooldownWindow,
         uint16 _provingWindow
     )
-        private
+        internal
         pure
+        virtual
         returns (ITierProvider.Tier memory)
     {
         uint96 validityBond = BOND_UNIT * _validityBondUnits;
