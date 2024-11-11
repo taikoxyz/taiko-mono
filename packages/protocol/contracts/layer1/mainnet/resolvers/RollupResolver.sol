@@ -30,7 +30,7 @@ contract RollupResolver is ResolverBase {
             return 0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a;
         }
         if (_name == LibStrings.B_TIER_PROVIDER) {
-            // TODO?
+            // TODO(david): figure out this address later.
             return address(0);
         }
         if (_name == LibStrings.B_TIER_SGX) {
