@@ -190,7 +190,6 @@ contract GuardianProver is IVerifier, EssentialContract {
     )
         external
         whenNotPaused
-        nonReentrant
         returns (bool)
     {
         return _approve({
