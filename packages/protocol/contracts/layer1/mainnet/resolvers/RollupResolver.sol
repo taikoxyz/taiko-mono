@@ -6,7 +6,7 @@ import "src/shared/libs/LibNetwork.sol";
 import "src/shared/common/ResolverBase.sol";
 
 /// @title RollupResolver
-/// @dev Resolver used by Taiko L2.
+/// @dev Resolver used by Taiko mainnet protocol on Ethereum.
 /// @custom:security-contact security@taiko.xyz
 contract RollupResolver is ResolverBase {
     function getAddress(uint256 _chainId, bytes32 _name) internal pure override returns (address) {
