@@ -1,7 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./GuardianProver.h.sol";
+
+import "test/layer1/Layer1Test.sol";
+
+// TODO: we need to test the real guardian prover, not this one.
+contract GuardianProverTarget is GuardianProver {
+    uint256 public operationId;
+
+    function init() external initializer {
+        __Essential_init(address(0));
+    }
+
+    function approve(bytes32 hash) external returns (bool) {
+        return _saveApproval(operationId++, hash);
+    }
+}
+
 
 contract TestGuardianProver is Layer1Test {
     GuardianProverTarget guardianProver;
