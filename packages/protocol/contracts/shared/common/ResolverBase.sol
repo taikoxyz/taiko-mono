@@ -3,8 +3,7 @@ pragma solidity ^0.8.24;
 
 import "./IResolver.sol";
 
-/// @title Resolver
-/// @notice See the documentation in {IResolver}.
+/// @title ResolverBase
 /// @custom:security-contact security@taiko.xyz
 abstract contract ResolverBase is IResolver {
     function resolve(

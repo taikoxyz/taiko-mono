@@ -5,7 +5,7 @@ import "./EssentialContract.sol";
 import "./ResolverBase.sol";
 
 /// @title DefaultResolver
-/// @notice See the documentation in {IResolver}.
+/// @notice Storage-based address resolver.
 /// @custom:security-contact security@taiko.xyz
 contract DefaultResolver is EssentialContract, ResolverBase {
     /// @dev Mapping of chainId to mapping of name to address.

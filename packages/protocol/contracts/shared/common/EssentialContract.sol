@@ -175,10 +175,11 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
         require(__resolver != address(0), RESOLVER_NOT_FOUND());
         return IResolver(__resolver);
     }
+
+    
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _resolver The address of the {DefaultResolver} contract.
-
     function __Essential_init(address _owner, address _resolver) internal nonZeroAddr(_resolver) {
         __Essential_init(_owner);
         __resolver = _resolver;
