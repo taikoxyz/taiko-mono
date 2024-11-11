@@ -9,11 +9,11 @@ import "src/layer1/tiers/TierProviderBase.sol";
 /// @dev Labeled in AddressResolver as "tier_router"
 /// @custom:security-contact security@taiko.xyz
 contract MainnetTierProvider is TierProviderBase {
-    address public immutable DAO_FALLBACK_PROPOSER;
+    address public immutable taikoBeatsProposer;
 
-    constructor(address _daoFallbackProposer) {
+    constructor(address _taikoBeatsProposer) {
         // 0x68d30f47F19c07bCCEf4Ac7FAE2Dc12FCa3e0dC9
-        DAO_FALLBACK_PROPOSER = _daoFallbackProposer;
+        taikoBeatsProposer = _taikoBeatsProposer;
     }
 
     /// @inheritdoc ITierProvider
@@ -27,14 +27,19 @@ contract MainnetTierProvider is TierProviderBase {
     /// @inheritdoc ITierProvider
     function getMinTier(
         uint64, /*_blockId*/
-        address, /*_proposer*/
-        uint256 /*_rand*/
+        address _proposer,
+        uint256 _rand
     )
         public
-        pure
+        view
         override
         returns (uint16)
     {
+        if (_proposer == taikoBeatsProposer) {
+            if (_rand % 200 == 0) return LibTiers.TIER_ZKVM_RISC0;
+            else if (_rand % 40 == 1) return LibTiers.TIER_ZKVM_SP1;
+            else return LibTiers.TIER_SGX;
+        }
         return LibTiers.TIER_SGX;
     }
 }
