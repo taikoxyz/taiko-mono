@@ -54,7 +54,6 @@ contract Risc0Verifier is EssentialContract, IVerifier {
         TaikoData.TierProof calldata _proof
     )
         external
-        view
     {
         // Do not run proof verification to contest an existing proof
         if (_ctx.isContesting) return;
@@ -76,6 +75,8 @@ contract Risc0Verifier is EssentialContract, IVerifier {
             abi.encodeCall(IRiscZeroVerifier.verify, (seal, imageId, journalDigest))
         );
         require(success, RISC_ZERO_INVALID_PROOF());
+
+        emit ProofVerified(_ctx.metaHash, publicInputHash);
     }
 
     /// @inheritdoc IVerifier
