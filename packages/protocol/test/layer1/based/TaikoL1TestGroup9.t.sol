@@ -11,7 +11,8 @@ contract TestTaikoL1_Group9 is TestTaikoL1Base {
     function proposeProveVerifyTheFirstBlock() internal {
         mineOneBlockAndWrap(1000 seconds);
 
-        giveEthAndTko(David, 10_000 ether, 1000 ether);
+        mintTaikoToken(David, 10_000 ether);
+        mintEther(David, 1000 ether);
         console2.log("====== David proposes, proves, and verifies the first block");
         TaikoData.BlockMetadataV2 memory meta = proposeBlock(David, "");
 
@@ -33,8 +34,10 @@ contract TestTaikoL1_Group9 is TestTaikoL1Base {
     function test_taikoL1_group_9_case_1() external {
         proposeProveVerifyTheFirstBlock();
 
-        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
-        giveEthAndTko(William, 10_000 ether, 1000 ether);
+        mintTaikoToken(Alice, 10_000 ether);
+        mintEther(Alice, 1000 ether);
+        mintTaikoToken(William, 10_000 ether);
+        mintEther(William, 1000 ether);
 
         console2.log("====== Alice propose a block");
         TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
@@ -146,8 +149,10 @@ contract TestTaikoL1_Group9 is TestTaikoL1Base {
     function test_taikoL1_group_9_case_2() external {
         proposeProveVerifyTheFirstBlock();
 
-        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
-        giveEthAndTko(William, 10_000 ether, 1000 ether);
+        mintTaikoToken(Alice, 10_000 ether);
+        mintEther(Alice, 1000 ether);
+        mintTaikoToken(William, 10_000 ether);
+        mintEther(William, 1000 ether);
 
         console2.log("====== Alice propose a block");
         TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
@@ -235,9 +240,12 @@ contract TestTaikoL1_Group9 is TestTaikoL1Base {
     function test_taikoL1_group_9_case_3() external {
         proposeProveVerifyTheFirstBlock();
 
-        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
-        giveEthAndTko(Carol, 10_000 ether, 1000 ether);
-        giveEthAndTko(William, 10_000 ether, 1000 ether);
+        mintTaikoToken(Alice, 10_000 ether);
+        mintEther(Alice, 1000 ether);
+        mintTaikoToken(Carol, 10_000 ether);
+        mintEther(Carol, 1000 ether);
+        mintTaikoToken(William, 10_000 ether);
+        mintEther(William, 1000 ether);
 
         console2.log("====== Alice propose a block");
         TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
@@ -327,8 +335,10 @@ contract TestTaikoL1_Group9 is TestTaikoL1Base {
     function test_taikoL1_group_9_case_4() external {
         proposeProveVerifyTheFirstBlock();
 
-        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
-        giveEthAndTko(William, 10_000 ether, 1000 ether);
+        mintTaikoToken(Alice, 10_000 ether);
+        mintEther(Alice, 1000 ether);
+        mintTaikoToken(William, 10_000 ether);
+        mintEther(William, 1000 ether);
 
         console2.log("====== Alice propose a block");
         TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");

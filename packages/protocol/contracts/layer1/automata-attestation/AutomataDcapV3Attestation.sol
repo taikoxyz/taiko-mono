@@ -437,7 +437,7 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
             for (uint256 i; i < 3; ++i) {
                 bool isPckCert = i == 0; // additional parsing for PCKCert
                 bool certDecodedSuccessfully;
-                // todo! move decodeCert offchain
+                // TODO(Yue): move decodeCert offchain
                 (certDecodedSuccessfully, parsedQuoteCerts[i]) = pemCertLib.decodeCert(
                     authDataV3.certification.decodedCertDataArray[i], isPckCert
                 );

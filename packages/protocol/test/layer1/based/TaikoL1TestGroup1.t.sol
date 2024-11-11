@@ -13,8 +13,10 @@ contract TestTaikoL1_Group1 is TestTaikoL1Base {
         mineOneBlockAndWrap(1000);
         printBlockAndTrans(0);
 
-        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
-        giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
+        mintTaikoToken(Alice, 10_000 ether);
+        mintEther(Alice, 1000 ether);
+        mintTaikoToken(Taylor, 10_000 ether);
+        mintEther(Taylor, 1000 ether);
 
         console2.log("====== Alice propose a block");
         TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
@@ -117,8 +119,10 @@ contract TestTaikoL1_Group1 is TestTaikoL1Base {
         mineOneBlockAndWrap(1000);
         printBlockAndTrans(0);
 
-        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
-        giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
+        mintTaikoToken(Alice, 10_000 ether);
+        mintEther(Alice, 1000 ether);
+        mintTaikoToken(Taylor, 10_000 ether);
+        mintEther(Taylor, 1000 ether);
 
         console2.log("====== Alice propose a block");
         TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
@@ -212,9 +216,11 @@ contract TestTaikoL1_Group1 is TestTaikoL1Base {
     // 4. Taylor's proof is used to verify the block.
     function test_taikoL1_group_1_case_3() external {
         mineOneBlockAndWrap(1000);
-        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
+        mintTaikoToken(Alice, 10_000 ether);
+        mintEther(Alice, 1000 ether);
 
-        giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
+        mintTaikoToken(Taylor, 10_000 ether);
+        mintEther(Taylor, 1000 ether);
 
         console2.log("====== Alice propose a block");
         TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
@@ -261,9 +267,11 @@ contract TestTaikoL1_Group1 is TestTaikoL1Base {
     // 4. Alice's proof is used to verify the block.
     function test_taikoL1_group_1_case_4() external {
         mineOneBlockAndWrap(1000);
-        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
+        mintTaikoToken(Alice, 10_000 ether);
+        mintEther(Alice, 1000 ether);
 
-        giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
+        mintTaikoToken(Taylor, 10_000 ether);
+        mintEther(Taylor, 1000 ether);
 
         console2.log("====== Alice propose a block");
         TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
@@ -309,10 +317,13 @@ contract TestTaikoL1_Group1 is TestTaikoL1Base {
     // 4. Taylor's proof is used to verify the block.
     function test_taikoL1_group_1_case_5() external {
         mineOneBlockAndWrap(1000);
-        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
+        mintTaikoToken(Alice, 10_000 ether);
+        mintEther(Alice, 1000 ether);
 
-        giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
-        giveEthAndTko(William, 10_000 ether, 1000 ether);
+        mintTaikoToken(Taylor, 10_000 ether);
+        mintEther(Taylor, 1000 ether);
+        mintTaikoToken(William, 10_000 ether);
+        mintEther(William, 1000 ether);
 
         console2.log("====== Alice propose a block");
         TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
@@ -359,8 +370,10 @@ contract TestTaikoL1_Group1 is TestTaikoL1Base {
         mineOneBlockAndWrap(1000);
         printBlockAndTrans(0);
 
-        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
-        giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
+        mintTaikoToken(Alice, 10_000 ether);
+        mintEther(Alice, 1000 ether);
+        mintTaikoToken(Taylor, 10_000 ether);
+        mintEther(Taylor, 1000 ether);
 
         console2.log("====== Alice propose a block");
         TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
@@ -451,7 +464,8 @@ contract TestTaikoL1_Group1 is TestTaikoL1Base {
         mineOneBlockAndWrap(1000);
         printBlockAndTrans(0);
 
-        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
+        mintTaikoToken(Alice, 10_000 ether);
+        mintEther(Alice, 1000 ether);
 
         console2.log("====== Alice propose a block with herself as the assigned prover");
         TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");

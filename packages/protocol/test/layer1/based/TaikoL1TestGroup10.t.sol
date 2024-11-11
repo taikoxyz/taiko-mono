@@ -13,7 +13,8 @@ contract TestTaikoL1_Group10 is TestTaikoL1Base {
         mineOneBlockAndWrap(1000 seconds);
         printBlockAndTrans(0);
 
-        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
+        mintTaikoToken(Alice, 10_000 ether);
+        mintEther(Alice, 1000 ether);
 
         console2.log("====== Alice propose 5 block");
         bytes32 parentHash = GENESIS_BLOCK_HASH;

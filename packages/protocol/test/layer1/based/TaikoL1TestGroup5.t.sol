@@ -13,9 +13,11 @@ contract TestTaikoL1_Group5 is TestTaikoL1Base {
     function test_taikoL1_group_5_case_1() external {
         mineOneBlockAndWrap(1000 seconds);
 
-        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
+        mintTaikoToken(Alice, 10_000 ether);
+        mintEther(Alice, 1000 ether);
 
-        giveEthAndTko(William, 10_000 ether, 1000 ether);
+        mintTaikoToken(William, 10_000 ether);
+        mintEther(William, 1000 ether);
 
         console2.log("====== Alice propose a block");
         TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
@@ -123,9 +125,11 @@ contract TestTaikoL1_Group5 is TestTaikoL1Base {
     function test_taikoL1_group_5_case_2() external {
         mineOneBlockAndWrap(1000 seconds);
 
-        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
+        mintTaikoToken(Alice, 10_000 ether);
+        mintEther(Alice, 1000 ether);
 
-        giveEthAndTko(William, 10_000 ether, 1000 ether);
+        mintTaikoToken(William, 10_000 ether);
+        mintEther(William, 1000 ether);
 
         console2.log("====== Alice propose a block");
         TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
@@ -207,10 +211,13 @@ contract TestTaikoL1_Group5 is TestTaikoL1Base {
     function test_taikoL1_group_5_case_3() external {
         mineOneBlockAndWrap(1000 seconds);
 
-        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
+        mintTaikoToken(Alice, 10_000 ether);
+        mintEther(Alice, 1000 ether);
 
-        giveEthAndTko(David, 10_000 ether, 1000 ether);
-        giveEthAndTko(William, 10_000 ether, 1000 ether);
+        mintTaikoToken(David, 10_000 ether);
+        mintEther(David, 1000 ether);
+        mintTaikoToken(William, 10_000 ether);
+        mintEther(William, 1000 ether);
 
         console2.log("====== Alice propose a block");
         TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
@@ -297,9 +304,11 @@ contract TestTaikoL1_Group5 is TestTaikoL1Base {
     function test_taikoL1_group_5_case_4() external {
         mineOneBlockAndWrap(1000 seconds);
 
-        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
+        mintTaikoToken(Alice, 10_000 ether);
+        mintEther(Alice, 1000 ether);
 
-        giveEthAndTko(William, 10_000 ether, 1000 ether);
+        mintTaikoToken(William, 10_000 ether);
+        mintEther(William, 1000 ether);
 
         console2.log("====== Alice propose a block");
         TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");

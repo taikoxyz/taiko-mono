@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "test/layer1/Layer1Test.sol";
 
-// TODO: we need to test the real guardian prover, not this one.
+// TODO(dantaik): we need to test the real guardian prover, not this one.
 contract GuardianProverTarget is GuardianProver {
     uint256 public operationId;
 

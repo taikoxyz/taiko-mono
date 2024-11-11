@@ -13,9 +13,11 @@ contract TestTaikoL1_Group4 is TestTaikoL1Base {
     function test_taikoL1_group_4_case_1() external {
         mineOneBlockAndWrap(1000 seconds);
 
-        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
+        mintTaikoToken(Alice, 10_000 ether);
+        mintEther(Alice, 1000 ether);
 
-        giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
+        mintTaikoToken(Taylor, 10_000 ether);
+        mintEther(Taylor, 1000 ether);
 
         ITierProvider.Tier memory tier3 = tierProvider.getTier(0, 73);
 
@@ -90,10 +92,13 @@ contract TestTaikoL1_Group4 is TestTaikoL1Base {
     function test_taikoL1_group_4_case_2() external {
         mineOneBlockAndWrap(1000 seconds);
 
-        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
+        mintTaikoToken(Alice, 10_000 ether);
+        mintEther(Alice, 1000 ether);
 
-        giveEthAndTko(David, 10_000 ether, 1000 ether);
-        giveEthAndTko(Taylor, 10_000 ether, 1000 ether);
+        mintTaikoToken(David, 10_000 ether);
+        mintEther(David, 1000 ether);
+        mintTaikoToken(Taylor, 10_000 ether);
+        mintEther(Taylor, 1000 ether);
 
         ITierProvider.Tier memory tier3 = tierProvider.getTier(0, 73);
 

@@ -48,16 +48,18 @@ abstract contract TestTaikoL1Base is Layer1Test {
         register("signal_service", tSignalService);
     }
 
-    // TODO: order and name mismatch
-    function giveEthAndTko(address to, uint256 amountTko, uint256 amountEth) internal {
+    function mintEther(address to, uint256 amountEth) internal {
         vm.deal(to, amountEth);
+        console2.log("Ether balance:", to, to.balance);
+    }
+
+    function mintTaikoToken(address to, uint256 amountTko) internal {
         bondToken.transfer(to, amountTko);
 
         vm.prank(to);
         bondToken.approve(address(taikoL1), amountTko);
 
         console2.log("Bond balance :", to, bondToken.balanceOf(to));
-        console2.log("Ether balance:", to, to.balance);
     }
 
     function proposeBlock(

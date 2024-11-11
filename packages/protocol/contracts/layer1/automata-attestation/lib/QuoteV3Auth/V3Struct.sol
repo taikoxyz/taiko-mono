@@ -37,7 +37,7 @@ library V3Struct {
 
     struct CertificationData {
         uint16 certType;
-        // todo! In encoded path, we need to calculate the size of certDataArray
+        // TODO(Yue): In encoded path, we need to calculate the size of certDataArray
         // certDataSize = len(join((BEGIN_CERT, certArray[i], END_CERT) for i in 0..3))
         // But for plain bytes path, we don't need that.
         uint32 certDataSize;

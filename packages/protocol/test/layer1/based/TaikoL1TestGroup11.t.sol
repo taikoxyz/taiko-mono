@@ -11,7 +11,8 @@ contract TestTaikoL1_Group11 is TestTaikoL1Base {
         mineOneBlockAndWrap(1000 seconds);
         printBlockAndTrans(0);
 
-        giveEthAndTko(Zachary, 10_000 ether, 1000 ether);
+        mintTaikoToken(Zachary, 10_000 ether);
+        mintEther(Zachary, 1000 ether);
 
         console2.log("====== Zachary proposes a block");
 
@@ -32,8 +33,10 @@ contract TestTaikoL1_Group11 is TestTaikoL1Base {
         mineOneBlockAndWrap(1000 seconds);
         printBlockAndTrans(0);
 
-        giveEthAndTko(Zachary, 10_000 ether, 1000 ether);
-        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
+        mintTaikoToken(Zachary, 10_000 ether);
+        mintEther(Zachary, 1000 ether);
+        mintTaikoToken(Alice, 10_000 ether);
+        mintEther(Alice, 1000 ether);
 
         console2.log("====== Zachary proposes a block with Alice as the proposer");
 

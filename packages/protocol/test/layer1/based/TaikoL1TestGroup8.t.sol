@@ -14,7 +14,8 @@ contract TestTaikoL1_Group8 is TestTaikoL1Base {
     // 7. Alice tries to propose another block.
     function test_taikoL1_group_8_case_1() external {
         mineOneBlockAndWrap(1000 seconds);
-        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
+        mintTaikoToken(Alice, 10_000 ether);
+        mintEther(Alice, 1000 ether);
 
         console2.log("====== Alice propose a block");
 
@@ -64,7 +65,8 @@ contract TestTaikoL1_Group8 is TestTaikoL1Base {
     // 7. Alice tries to propose another block.
     function test_taikoL1_group_8_case_2() external {
         mineOneBlockAndWrap(1000 seconds);
-        giveEthAndTko(Alice, 10_000 ether, 1000 ether);
+        mintTaikoToken(Alice, 10_000 ether);
+        mintEther(Alice, 1000 ether);
 
         console2.log("====== Alice propose a block");
 
