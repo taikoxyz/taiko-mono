@@ -176,7 +176,6 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
         return IResolver(__resolver);
     }
 
-    
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     /// @param _resolver The address of the {DefaultResolver} contract.

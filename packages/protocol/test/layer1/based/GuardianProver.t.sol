@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-
 import "test/layer1/Layer1Test.sol";
 
 // TODO: we need to test the real guardian prover, not this one.
@@ -16,7 +15,6 @@ contract GuardianProverTarget is GuardianProver {
         return _saveApproval(operationId++, hash);
     }
 }
-
 
 contract TestGuardianProver is Layer1Test {
     GuardianProverTarget guardianProver;

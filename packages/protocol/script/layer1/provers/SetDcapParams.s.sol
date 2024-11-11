@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "test/layer1/automata-attestation/common/AttestationBase.t.sol";
+import "test/layer1/automata-attestation/AttestationBase.sol";
 import "script/BaseScript.sol";
 
 contract SetDcapParams is BaseScript, AttestationBase {
