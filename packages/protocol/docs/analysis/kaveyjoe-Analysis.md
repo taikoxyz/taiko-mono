@@ -63,7 +63,7 @@ The block will then mark complete on the chain. The block status changes from gr
 
 - The block consists of a transaction list (txList) and metadata. The txList of an L2 block will eventually (when EIP-4844 is live) be part of a blob in the L1 Consensus Layer (CL).
 - txList is not directly accessible to L1 contracts. Therefore, a ZKP shall prove that the chosen txList is a slice of the given blob data.
-- Block validity criteria that all blocks need to respect: K_maxBobSize, K_BlockMaxTxs, K_BlockMaxGasLimit and config.anchorTxGasLimit
+- Block validity criteria that all blocks need to respect: K_maxBlockSize, K_BlockMaxTxs, K_BlockMaxGasLimit and config.anchorTxGasLimit
 - Once the block is proposed, the Taiko client checks if the block is decoded into a list of transactions
 - Taiko client validates each enclosed transaction and generates a tracelog for each transaction for the prover to use as witness data. If a tx is invalid, it will be dropped.
 - The first transaction in the Taiko L2 block is always an anchoring transaction, which verifies the 256 hashes of the latest blocks, the L2 chain ID and the EIP-1559 base fee
@@ -96,7 +96,7 @@ L2 tx fee = L2 EIP-1559* base fee + L1 tx fee + prover fee + proposer fee*
 
 L2 EIP-1559 fee = L2 EIP-1559 tip (goes to the proposer) + L2 EIP-1559 base fee (goes to the Taiko DAO).
 
-Once a proposer has collected enough transactions, most probably including and ordering them with the intent to generate a (maxim) profit, they create a block.
+Once a proposer has collected enough transactions, most probably including and ordering them with the intent to generate a (maximum) profit, they create a block.
 
 - Profit means that for the proposer, the sum of transaction fees (L2 tx fees) from the block is larger than L1 tx fee + prover fee + EIP-1559 base fee.
 
