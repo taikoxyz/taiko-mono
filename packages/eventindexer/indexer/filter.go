@@ -260,7 +260,7 @@ func (i *Indexer) filter(
 	}
 
 	for j := i.latestIndexedBlockNumber + 1; j <= endBlockID; j += i.blockBatchSize {
-		end := i.latestIndexedBlockNumber + i.blockBatchSize
+		end := j + i.blockBatchSize - 1
 		// if the end of the batch is greater than the latest block number, set end
 		// to the latest block number
 		if end > endBlockID {
