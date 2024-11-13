@@ -175,14 +175,19 @@
 
 - ens: `ram.based.taiko.eth`
 - proxy: `0x579f40D0BE111b823962043702cabe6Aaa290780`
-- impl: `0x190D5d50D98D2202a618f75B2fD9986e60E096be`
+- impl: `0x6D8e6e1a061791AD17A55De5e15a111c58f6Fb3D`
 - names:
+  - bond_token: `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800`
   - taiko_token: `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800`
   - signal_service: `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C`
   - bridge: `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC`
   - taiko: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`
-  - tier_router: `0x6e997f1f22c40ba37f633b08f3b07e10ed43155a`
+  - tier_router: `0x1c02D13312B274648639630022C79d9F050f34e3`
   - tier_sgx: `0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81`
+  - risc0_groth16_verifier: `0xcF706D99C265fC2349AE43c5f6BFD7931FE5308D`
+  - tier_zkvm_risc0: `0x55902b2D3DF2A65370A89C86Ae9dd71Ecd508edc`
+  - sp1_remote_verifier: `0x2D33d748644dAb8B3FB0E07642d9dE96b816d067`
+  - tier_zkvm_sp1: `0x5c44f2239925b0d86d2BFEe539f19CD0A08Af452`
   - tier_guardian_minority: `0x579A8d63a2Db646284CBFE31FE5082c9989E985c`
   - tier_guardian: `0xE3D777143Ea25A6E031d1e921F396750885f43aC`
   - automata_dcap_attestation: `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3`
@@ -210,6 +215,7 @@
   - register `prover_set` to `0xCE5a119479337a153CA3bd1b2bF9755c78F2B15A` @commit`be34059` @tx`0x170617251f2345eda4bcbd29e316caa0b014602a44244c60b963382ac7da7748`
   - upgraded from `0x4f6D5D3109C07E77035B410602996e445b18E8E9` to `0x3202Fc255aE09F91DbbD5b000b87dA4A2E04eE37` @commit`9345f14` @tx`0x13ea4d044a313cf667d16514465e6b96227ef7198bda7b19c70eefee44e9bccd`
   - upgraded from `0x3202Fc255aE09F91DbbD5b000b87dA4A2E04eE37` to `0x190D5d50D98D2202a618f75B2fD9986e60E096be` @commit`4fd7b59` @tx`0xf26d0526aa4b8225c603720ce0dc016803188b959c50677d5446087d1f2c4e60`
+  - upgraded from `0x190D5d50D98D2202a618f75B2fD9986e60E096be` to `0x6D8e6e1a061791AD17A55De5e15a111c58f6Fb3D` @commit`2625c60` @tx`0x5d46840df79d8df508880675e7ea549e9b46137f597ca520c3e0c979439441d1`
 
 #### taikoL1
 
@@ -238,11 +244,12 @@
 
 #### tier_router
 
-- impl: `0x8f1C1D58C858e9a9eeCc587d7D51AECfd16b5542`
+- impl: `0x6Cc40878Fef0918b1dCBF4cfbC6F7E46e9Db269E`
 - logs:
   - deployed on Oct 24, 2024 @commit`7334b1d`
   - deployed on Nov 1, 2024 @commit`f4f4796`
   - deployed on Nov 2, 2024 @commit`9182fba`
+  - deployed on Nov 8, 2024 @commit`1fee7bb` without changes in [PR #18371](https://github.com/taikoxyz/taiko-mono/pull/18371)
 
 #### tier_sgx
 
@@ -256,6 +263,20 @@
   - Upgraded from `0xB0b782cf0fCEce896E0C041F8e54f86cA4cC8e9F` to `0xEE5F6648307319263FFBaE91f68ac700b188fF24` @commit`be34059` @tx`0x170617251f2345eda4bcbd29e316caa0b014602a44244c60b963382ac7da7748`
   - Upgraded from `0xEE5F6648307319263FFBaE91f68ac700b188fF24` to `0x7EE4CEF8a945639e09DDf3032e9d95c8d90f07f3` @commit`dd09223` @tx`0x2e246e4b4637c4bf13dccea873a30e35e704bafa7f02e30c877ecec7d786e662`
   - Upgraded from `0x7EE4CEF8a945639e09DDf3032e9d95c8d90f07f3` to `0x81DFEA931500cdcf0460e9EC45FA283A6B7f0838` @commit`9345f14` @tx`0x13ea4d044a313cf667d16514465e6b96227ef7198bda7b19c70eefee44e9bccd`
+
+#### tier_risk0
+
+- proxy: `0x55902b2D3DF2A65370A89C86Ae9dd71Ecd508edc`
+- impl: `0xefe30A0D56a5804F695f971010597262CAd9A2c3`
+- logs:
+  - deployed on Nov 6, 2024 @commit`bfb0386`
+
+#### tier_sp1
+
+- proxy: `0x5c44f2239925b0d86d2BFEe539f19CD0A08Af452`
+- impl: `0x5f5b83Ca87E2fBc513B800FeD6cCD626536d7219`
+- logs:
+  - deployed on Nov 8, 2024 @commit`0b11101`
 
 #### guardian_prover_minority
 
@@ -325,6 +346,18 @@
 - impl: `0x02772b7B3a5Bea0141C993Dbb8D0733C19F46169`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
+
+#### risc0_groth16_verifier
+
+- impl: `0xcF706D99C265fC2349AE43c5f6BFD7931FE5308D`
+- logs:
+  - deployed on Nov 6, 2024 @commit`bfb0386`
+
+#### sp1_remote_verifier
+
+- impl: `0x2D33d748644dAb8B3FB0E07642d9dE96b816d067`
+- logs:
+  - deployed on Nov 8, 2024 @commit`0b11101`
 
 #### automata_dcap_attestation
 
