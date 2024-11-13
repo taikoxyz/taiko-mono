@@ -245,28 +245,29 @@ func (i *Indexer) filter(
 		i.isPostOntakeForkHeightReached = true
 	}
 
-	if !i.isPostOntakeForkHeightReached && i.taikol1 != nil && i.ontakeForkHeight > i.latestIndexedBlockNumber && i.ontakeForkHeight < endBlockID {
-		slog.Info("ontake fork height reached", "height", i.ontakeForkHeight)
-
-		i.isPostOntakeForkHeightReached = true
-
-		endBlockID = i.ontakeForkHeight - 1
-
-		slog.Info("setting endBlockID to ontakeForkHeight - 1",
-			"latestIndexedBlockNumber",
-			i.latestIndexedBlockNumber,
-			"ontakeForkHeight", i.ontakeForkHeight,
-			"endBlockID", endBlockID,
-			"isPostOntakeForkHeightReached", i.isPostOntakeForkHeightReached,
-		)
-	}
-
 	for j := i.latestIndexedBlockNumber + 1; j <= endBlockID; j += i.blockBatchSize {
 		end := j + i.blockBatchSize - 1
+
 		// if the end of the batch is greater than the latest block number, set end
 		// to the latest block number
 		if end > endBlockID {
 			end = endBlockID
+		}
+
+		if !i.isPostOntakeForkHeightReached && i.taikol1 != nil && i.ontakeForkHeight > i.latestIndexedBlockNumber && i.ontakeForkHeight < end {
+			slog.Info("ontake fork height reached", "height", i.ontakeForkHeight)
+
+			i.isPostOntakeForkHeightReached = true
+
+			end = i.ontakeForkHeight - 1
+
+			slog.Info("setting end block ID to ontakeForkHeight - 1",
+				"latestIndexedBlockNumber",
+				i.latestIndexedBlockNumber,
+				"ontakeForkHeight", i.ontakeForkHeight,
+				"endBlockID", end,
+				"isPostOntakeForkHeightReached", i.isPostOntakeForkHeightReached,
+			)
 		}
 
 		slog.Info("block batch", "start", j, "end", end)
