@@ -69,7 +69,8 @@ type Indexer struct {
 	contractToMetadata      map[common.Address]*eventindexer.ERC20Metadata
 	contractToMetadataMutex *sync.Mutex
 
-	ontakeForkHeight uint64
+	ontakeForkHeight              uint64
+	isPostOntakeForkHeightReached bool
 }
 
 func (i *Indexer) Start() error {
