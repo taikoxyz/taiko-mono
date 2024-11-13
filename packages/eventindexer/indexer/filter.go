@@ -244,13 +244,14 @@ func (i *Indexer) filter(
 	if i.taikol1 != nil && i.ontakeForkHeight > i.latestIndexedBlockNumber && i.ontakeForkHeight < endBlockID {
 		slog.Info("ontake fork height reached", "height", i.ontakeForkHeight)
 
+		endBlockID = i.ontakeForkHeight - 1
+
 		slog.Info("setting endBlockID to ontakeForkHeight - 1",
 			"latestIndexedBlockNumber",
 			i.latestIndexedBlockNumber,
 			"ontakeForkHeight", i.ontakeForkHeight,
+			"endBlockID", endBlockID,
 		)
-
-		endBlockID = i.ontakeForkHeight - 1
 	}
 
 	var isPostOntakeFork bool = false
@@ -258,6 +259,8 @@ func (i *Indexer) filter(
 	if i.latestIndexedBlockNumber+1 >= i.ontakeForkHeight {
 		isPostOntakeFork = true
 	}
+
+	slog.Info("isPostOntakeFork", "isPostOntakeFork", isPostOntakeFork)
 
 	for j := i.latestIndexedBlockNumber + 1; j <= endBlockID; j += i.blockBatchSize {
 		end := j + i.blockBatchSize - 1
