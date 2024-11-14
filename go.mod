@@ -4,7 +4,7 @@ go 1.23
 
 require (
 	github.com/btcsuite/btcd/btcec/v2 v2.3.4
-	github.com/buildkite/terminal-to-html/v3 v3.8.0
+	github.com/buildkite/terminal-to-html/v3 v3.16.3
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/cyberhorsey/errors v0.0.0-20220929234051-087d6d8bb841
@@ -211,7 +211,7 @@ require (
 	golang.org/x/mod v0.20.0 // indirect
 	golang.org/x/net v0.28.0 // indirect
 	golang.org/x/oauth2 v0.21.0 // indirect
-	golang.org/x/sys v0.25.0 // indirect
+	golang.org/x/sys v0.26.0 // indirect
 	golang.org/x/term v0.24.0 // indirect
 	golang.org/x/text v0.18.0 // indirect
 	golang.org/x/time v0.6.0 // indirect
