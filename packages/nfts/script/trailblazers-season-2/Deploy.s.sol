@@ -25,8 +25,8 @@ contract DeployS2Script is Script {
     bool constant PURPLE_INFLUENCE = false;
 
     uint256 public MAX_INFLUENCES = 3;
-    uint256 public COOLDOWN_RECRUITMENT = 10 minutes;
-    uint256 public COOLDOWN_INFLUENCE = 2 minutes;
+    uint256 public COOLDOWN_RECRUITMENT = 5 minutes;
+    uint256 public COOLDOWN_INFLUENCE = 1 minutes;
     uint256 public INFLUENCE_WEIGHT_PERCENT = 5;
     uint256 public MAX_INFLUENCES_DIVIDER = 100;
     uint256 public DEFAULT_CYCLE_DURATION = 7 days;

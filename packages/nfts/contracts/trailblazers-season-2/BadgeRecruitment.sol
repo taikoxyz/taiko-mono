@@ -534,8 +534,8 @@ contract BadgeRecruitment is
     /// @notice Get the maximum number of influences for a given experience
     /// @param _exp The user's experience points
     function maxInfluences(uint256 _exp) public view virtual returns (uint256 value) {
-        value = _exp / config.maxInfluencesDivider;
-        value += 2 * config.baseMaxInfluences;
+        value = 0; // _exp / config.maxInfluencesDivider;
+        value += config.baseMaxInfluences;
         return value;
     }
 
@@ -569,7 +569,7 @@ contract BadgeRecruitment is
         if (recovered_ != randomSigner) revert NOT_RANDOM_SIGNER();
         Recruitment memory recruitment_ = getActiveRecruitmentFor(_msgSender());
 
-        if ((recruitment_.whaleInfluences + recruitment_.minnowInfluences) > maxInfluences(_exp)) {
+        if ((recruitment_.whaleInfluences + recruitment_.minnowInfluences) >= maxInfluences(_exp)) {
             revert MAX_INFLUENCES_REACHED();
         }
 
