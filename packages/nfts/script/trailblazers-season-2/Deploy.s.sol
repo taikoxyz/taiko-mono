@@ -29,6 +29,7 @@ contract DeployS2Script is Script {
     uint256 public COOLDOWN_INFLUENCE = 2 minutes;
     uint256 public INFLUENCE_WEIGHT_PERCENT = 5;
     uint256 public MAX_INFLUENCES_DIVIDER = 100;
+    uint256 public DEFAULT_CYCLE_DURATION = 7 days;
     uint256 public S1_LOCK_DURATION = 365 days;
     // Taiko Mainnet Values
     //address owner = 0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be;
@@ -120,7 +121,8 @@ contract DeployS2Script is Script {
             COOLDOWN_INFLUENCE,
             INFLUENCE_WEIGHT_PERCENT,
             MAX_INFLUENCES,
-            MAX_INFLUENCES_DIVIDER
+            MAX_INFLUENCES_DIVIDER,
+            DEFAULT_CYCLE_DURATION
         );
 
         impl = address(new BadgeRecruitment());

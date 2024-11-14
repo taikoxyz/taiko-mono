@@ -11,7 +11,6 @@ import "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Pausable.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
@@ -25,7 +24,6 @@ import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "./TrailblazersBadgesS2.sol";
 
 contract BadgeRecruitment is
-    PausableUpgradeable,
     UUPSUpgradeable,
     Ownable2StepUpgradeable,
     AccessControlUpgradeable,
@@ -40,10 +38,11 @@ contract BadgeRecruitment is
     /// @notice Wallet authorized to sign as a source of randomness
     address public randomSigner;
     /// @notice Recruitment-enabled badge IDs per cycle
-    mapping(uint256 cycle => mapping(uint256 s1BadgeId => bool enabled)) public enabledBadgeIds;
-    uint256[] public currentCycleEnabledRecruitmentIds;
+    //mapping(uint256 cycle => mapping(uint256 s1BadgeId => bool enabled)) public enabledBadgeIds;
+    // uint256[] public currentCycleEnabledRecruitmentIds;
     /// @notice Current recruitment cycle
-    uint256 private recruitmentCycle;
+    uint256 public recruitmentCycleId;
+
     /// @notice Mapping of unique user-per-mint-per-cycle
     mapping(
         uint256 recruitmentCycle
@@ -56,6 +55,7 @@ contract BadgeRecruitment is
             )
     ) public recruitmentCycleUniqueMints;
     /// @notice User experience points
+
     mapping(address user => uint256 experience) public userExperience;
     /// @notice Influence colors available
 
@@ -87,6 +87,7 @@ contract BadgeRecruitment is
         uint256 influenceWeightPercent;
         uint256 baseMaxInfluences;
         uint256 maxInfluencesDivider;
+        uint256 defaultCycleDuration;
     }
     /// @notice Current config
 
@@ -104,6 +105,18 @@ contract BadgeRecruitment is
         uint256 whaleInfluences;
         uint256 minnowInfluences;
     }
+    /// @notice Recruitment Cycle struct
+
+    struct RecruitmentCycle {
+        uint256 cycleId;
+        uint256 startTime;
+        uint256 endTime;
+        uint256[] s1BadgeIds;
+    }
+
+    /// @notice Recruitment cycles
+    mapping(uint256 cycleId => RecruitmentCycle recruitmentCycle) public recruitmentCycles;
+
     /// @notice Recruitments per user
 
     mapping(address _user => Recruitment[] _recruitment) public recruitments;
@@ -124,10 +137,15 @@ contract BadgeRecruitment is
     error NOT_S1_CONTRACT();
     error EXP_TOO_LOW();
     error INVALID_INFLUENCE_COLOR();
+    error CURRENT_CYCLE_NOT_OVER();
     /// @notice Events
 
     event RecruitmentCycleToggled(
-        uint256 indexed recruitmentCycleId, uint256 s1BadgeId, bool enabled
+        uint256 indexed recruitmentCycleId,
+        uint256 indexed startTime,
+        uint256 indexed endTime,
+        uint256[] s1BadgeIds,
+        bool enabled
     );
 
     event RecruitmentUpdated(
@@ -174,7 +192,22 @@ contract BadgeRecruitment is
     /// @notice Reverts if recruitments aren't enabled for that badge
     /// @param _s1BadgeId The badge ID
     modifier recruitmentOpen(uint256 _s1BadgeId) {
-        if (!enabledBadgeIds[recruitmentCycle][_s1BadgeId]) {
+        RecruitmentCycle memory cycle_ = recruitmentCycles[recruitmentCycleId];
+
+        if (cycle_.startTime > block.timestamp || cycle_.endTime < block.timestamp) {
+            revert RECRUITMENT_NOT_ENABLED();
+        }
+
+        bool found_ = false;
+
+        for (uint256 i = 0; i < cycle_.s1BadgeIds.length; i++) {
+            if (cycle_.s1BadgeIds[i] == _s1BadgeId) {
+                found_ = true;
+                break;
+            }
+        }
+
+        if (!found_) {
             revert RECRUITMENT_NOT_ENABLED();
         }
         _;
@@ -190,7 +223,8 @@ contract BadgeRecruitment is
         RecruitmentType _recruitmentType
     ) {
         // check that the minter hasn't used the recruitment within this cycle
-        if (recruitmentCycleUniqueMints[recruitmentCycle][_minter][_s1BadgeId][_recruitmentType]) {
+        if (recruitmentCycleUniqueMints[recruitmentCycleId][_minter][_s1BadgeId][_recruitmentType])
+        {
             revert ALREADY_MIGRATED_IN_CYCLE();
         }
         _;
@@ -232,18 +266,44 @@ contract BadgeRecruitment is
         return config;
     }
 
-    /// @notice Disable all new recruitments
-    /// @dev Doesn't allow for new recruitment attempts, but influences and active recruitments
-    /// still run
-    function _disableRecruitments() internal onlyRole(DEFAULT_ADMIN_ROLE) {
-        for (uint256 i = 0; i < 8; i++) {
-            if (enabledBadgeIds[recruitmentCycle][i]) {
-                emit RecruitmentCycleToggled(recruitmentCycle, i, false);
-            }
+    /// @notice Disable all current recruitments
+    /// @dev Bypasses the default date checks
+    function forceDisableRecruitments() internal onlyRole(DEFAULT_ADMIN_ROLE) {
+        recruitmentCycles[recruitmentCycleId].endTime = block.timestamp;
+    }
 
-            enabledBadgeIds[recruitmentCycle][i] = false;
+    /// @notice Enable recruitments for a set of badges
+    /// @param _startTime The start time of the recruitment cycle
+    /// @param _endTime The end time of the recruitment cycle
+    /// @param _s1BadgeIds The badge IDs to enable
+    function _enableRecruitments(
+        uint256 _startTime,
+        uint256 _endTime,
+        uint256[] calldata _s1BadgeIds
+    )
+        internal
+    {
+        if (
+            recruitmentCycleId > 0
+                && recruitmentCycles[recruitmentCycleId].endTime > block.timestamp
+        ) {
+            revert CURRENT_CYCLE_NOT_OVER();
         }
-        currentCycleEnabledRecruitmentIds = new uint256[](0);
+        // emit disabled badges
+        emit RecruitmentCycleToggled(
+            recruitmentCycleId,
+            recruitmentCycles[recruitmentCycleId].startTime,
+            recruitmentCycles[recruitmentCycleId].endTime,
+            recruitmentCycles[recruitmentCycleId].s1BadgeIds,
+            false
+        );
+
+        recruitmentCycleId++;
+        recruitmentCycles[recruitmentCycleId] =
+            RecruitmentCycle(recruitmentCycleId, _startTime, _endTime, _s1BadgeIds);
+
+        // emit enabled badges
+        emit RecruitmentCycleToggled(recruitmentCycleId, _startTime, _endTime, _s1BadgeIds, true);
     }
 
     /// @notice Enable recruitments for a set of badges
@@ -253,25 +313,35 @@ contract BadgeRecruitment is
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        recruitmentCycle++;
-        for (uint256 i = 0; i < _s1BadgeIds.length; i++) {
-            enabledBadgeIds[recruitmentCycle][_s1BadgeIds[i]] = true;
-            emit RecruitmentCycleToggled(recruitmentCycle, _s1BadgeIds[i], true);
-        }
-        currentCycleEnabledRecruitmentIds = _s1BadgeIds;
+        _enableRecruitments(
+            block.timestamp, block.timestamp + config.defaultCycleDuration, _s1BadgeIds
+        );
+    }
+
+    /// @notice Enable recruitments for a set of badges
+    /// @param _startTime The start time of the recruitment cycle
+    /// @param _endTime The end time of the recruitment cycle
+    /// @param _s1BadgeIds The badge IDs to enable
+    /// @dev Can be called only by the contract owner/admin
+    function enableRecruitments(
+        uint256 _startTime,
+        uint256 _endTime,
+        uint256[] calldata _s1BadgeIds
+    )
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        _enableRecruitments(_startTime, _endTime, _s1BadgeIds);
     }
 
     /// @notice Get the current recruitment cycle
     /// @return The current recruitment cycle
-    function getRecruitmentCycle() external view returns (uint256) {
-        return recruitmentCycle;
-    }
-
-    /// @notice Pause the contract
-    /// @dev Can be called only by the contract owner/admin
-    function pause() public onlyRole(DEFAULT_ADMIN_ROLE) {
-        _disableRecruitments();
-        _pause();
+    function getRecruitmentCycle(uint256 _cycleId)
+        external
+        view
+        returns (RecruitmentCycle memory)
+    {
+        return recruitmentCycles[_cycleId];
     }
 
     /// @notice Internal logic to start a recruitment
@@ -289,7 +359,7 @@ contract BadgeRecruitment is
         virtual
     {
         Recruitment memory _recruitment = Recruitment(
-            recruitmentCycle, // recruitmentCycle
+            recruitmentCycleId, // recruitmentCycle
             _user, // user
             _s1BadgeId,
             _s1TokenId,
@@ -301,7 +371,7 @@ contract BadgeRecruitment is
         );
 
         recruitments[_user].push(_recruitment);
-        recruitmentCycleUniqueMints[recruitmentCycle][_user][_s1BadgeId][_recruitmentType] = true;
+        recruitmentCycleUniqueMints[recruitmentCycleId][_user][_s1BadgeId][_recruitmentType] = true;
 
         emit RecruitmentUpdated(
             _recruitment.recruitmentCycle,
@@ -350,12 +420,15 @@ contract BadgeRecruitment is
 
         userExperience[_msgSender()] = _exp;
 
+        RecruitmentCycle memory cycle_ = recruitmentCycles[recruitmentCycleId];
+        if (cycle_.startTime > block.timestamp || cycle_.endTime < block.timestamp) {
+            revert RECRUITMENT_NOT_ENABLED();
+        }
         uint256 randomSeed_ = randomFromSignature(_hash, _v, _r, _s);
-        uint256 s1BadgeId_ = currentCycleEnabledRecruitmentIds[randomSeed_
-            % currentCycleEnabledRecruitmentIds.length];
+        uint256 s1BadgeId_ = cycle_.s1BadgeIds[randomSeed_ % cycle_.s1BadgeIds.length];
 
         if (
-            recruitmentCycleUniqueMints[recruitmentCycle][_msgSender()][s1BadgeId_][RecruitmentType
+            recruitmentCycleUniqueMints[recruitmentCycleId][_msgSender()][s1BadgeId_][RecruitmentType
                 .Claim]
         ) {
             revert ALREADY_MIGRATED_IN_CYCLE();
@@ -382,9 +455,10 @@ contract BadgeRecruitment is
         external
         virtual
         isNotMigrating(_msgSender())
+        recruitmentOpen(_s1BadgeId)
         hasntMigratedInCycle(_s1BadgeId, _msgSender(), RecruitmentType.Claim)
     {
-        bytes32 calculatedHash_ = generateClaimHash(HashType.Start, _msgSender(), _exp);
+        bytes32 calculatedHash_ = generateClaimHash(HashType.Start, _msgSender(), _s1BadgeId);
 
         if (calculatedHash_ != _hash) {
             revert HASH_MISMATCH();
