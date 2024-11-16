@@ -69,8 +69,8 @@ github.com/btcsuite/snappy-go v0.0.0-20151229074030-0bdef8d06723/go.mod h1:8woku
 github.com/btcsuite/snappy-go v1.0.0/go.mod h1:8woku9dyThutzjeg+3xrA5iCpBRH8XEEg3lh6TiUghc=
 github.com/btcsuite/websocket v0.0.0-20150119174127-31079b680792/go.mod h1:ghJtEyQwv5/p4Mg4C0fgbePVuGr935/5ddU9Z3TmDRY=
 github.com/btcsuite/winsvc v1.0.0/go.mod h1:jsenWakMcC0zFBFurPLEAyrnc/teJEM1O46fmI40EZs=
-github.com/buildkite/terminal-to-html/v3 v3.16.3 h1:IGuJjboHjuMLWOGsKZKNxbbn41emOLiHzXPmQZk31fk=
-github.com/buildkite/terminal-to-html/v3 v3.16.3/go.mod h1:r/J7cC9c3EzBzP3/wDz0RJLPwv5PUAMp+KF2w+ntMc0=
+github.com/buildkite/terminal-to-html/v3 v3.16.4 h1:QFYO8IGvRnp7tGgiQb8g9uFU8kY9wOzxsFFx17+yy6Q=
+github.com/buildkite/terminal-to-html/v3 v3.16.4/go.mod h1:r/J7cC9c3EzBzP3/wDz0RJLPwv5PUAMp+KF2w+ntMc0=
 github.com/bwesterb/go-ristretto v1.2.3/go.mod h1:fUIoIZaG73pV5biE2Blr2xEzDoMj7NFEuV9ekS419A0=
 github.com/cenkalti/backoff v2.2.1+incompatible h1:tNowT99t7UNflLxfYYSlKYsBpXdEet03Pg2g16Swow4=
 github.com/cenkalti/backoff v2.2.1+incompatible/go.mod h1:90ReRw6GdpyfrHakVjL/QHaoyV4aDUVVkXQJJJ3NXXM=
