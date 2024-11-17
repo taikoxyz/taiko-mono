@@ -119,6 +119,9 @@ func (s *Syncer) InsertSoftBlockFromTransactionsBatch(
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch L1 origin for block %d: %w", blockID, err)
 		}
+		if l1Origin.BatchID == nil {
+			return nil, fmt.Errorf("batch ID is nil for block %d", blockID)
+		}
 		if l1Origin.BatchID.Uint64()+1 != batchID {
 			return nil, fmt.Errorf("batch ID mismatch: expected %d, got %d", l1Origin.BatchID.Uint64()+1, batchID)
 		}
