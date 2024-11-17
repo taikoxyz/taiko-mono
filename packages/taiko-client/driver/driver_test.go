@@ -403,7 +403,7 @@ func (s *DriverTestSuite) TestInsertSoftBlocks() {
 	s.Equal(false, l1Origin.EndOfBlock)
 	s.Equal(false, l1Origin.EndOfPreconf)
 	s.Equal(uint64(0), l1Origin.BatchID.Uint64())
-	s.True(l1Origin.IsSoftblock())
+	s.True(l1Origin.IsSoftBlock())
 
 	// Try to patch a soft block with batch ID 1
 	s.True(s.insertSoftBlock(url, l1Head1, l2Head2.Number.Uint64()+1, 1, true, false).IsSuccess())
@@ -422,7 +422,7 @@ func (s *DriverTestSuite) TestInsertSoftBlocks() {
 	s.Equal(true, l1Origin2.EndOfBlock)
 	s.Equal(false, l1Origin2.EndOfPreconf)
 	s.Equal(uint64(1), l1Origin2.BatchID.Uint64())
-	s.True(l1Origin2.IsSoftblock())
+	s.True(l1Origin2.IsSoftBlock())
 
 	canonicalL1Origin, err := s.RPCClient.L2.HeadL1Origin(context.Background())
 	s.Nil(err)
@@ -454,7 +454,7 @@ func (s *DriverTestSuite) TestInsertSoftBlocks() {
 	s.Equal(false, l1Origin3.EndOfBlock)
 	s.Equal(false, l1Origin3.EndOfPreconf)
 	s.Equal(uint64(0), l1Origin3.BatchID.Uint64())
-	s.False(l1Origin3.IsSoftblock())
+	s.False(l1Origin3.IsSoftBlock())
 }
 
 func (s *DriverTestSuite) TestInsertSoftBlocksAfterEOB() {
@@ -505,12 +505,12 @@ func (s *DriverTestSuite) TestInsertSoftBlocksAfterEOB() {
 	s.Equal(l2Head2.Number.Uint64(), l1Origin.BlockID.Uint64())
 	s.Equal(false, l1Origin.EndOfBlock)
 	s.Equal(true, l1Origin.EndOfPreconf)
-	s.True(l1Origin.IsSoftblock())
+	s.True(l1Origin.IsSoftBlock())
 
 	headL1Origin, err = s.RPCClient.L2.HeadL1Origin(context.Background())
 	s.Nil(err)
 	s.Equal(l2Head.Number.Uint64(), headL1Origin.BlockID.Uint64())
-	s.False(headL1Origin.IsSoftblock())
+	s.False(headL1Origin.IsSoftBlock())
 
 	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().BlobSyncer())
 
@@ -521,7 +521,7 @@ func (s *DriverTestSuite) TestInsertSoftBlocksAfterEOB() {
 	headL1Origin, err = s.RPCClient.L2.HeadL1Origin(context.Background())
 	s.Nil(err)
 	s.Equal(l2Head3.Number.Uint64(), headL1Origin.BlockID.Uint64())
-	s.False(headL1Origin.IsSoftblock())
+	s.False(headL1Origin.IsSoftBlock())
 }
 
 func (s *DriverTestSuite) TestInsertSoftBlocksAfterEOP() {

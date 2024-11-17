@@ -391,7 +391,7 @@ func (c *Client) GetPoolContent(
 		timestamp = uint64(time.Now().Unix())
 	)
 
-	if l1Origin != nil && l1Origin.IsSoftblock() && !l1Origin.EndOfPreconf && !l1Origin.EndOfBlock {
+	if l1Origin != nil && l1Origin.IsSoftBlock() && !l1Origin.EndOfPreconf && !l1Origin.EndOfBlock {
 		// Check if this is an unfinished soft block, if not, we will use the latest L1 / L2 block number from the L1Origin.
 		// Otherwise, we will use the L1 / L2 block number in L1Origin.
 		L1HeadNum = l1Origin.L1BlockHeight
