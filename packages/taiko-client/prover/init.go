@@ -100,7 +100,7 @@ func (p *Prover) initProofSubmitters(
 		var (
 			producer   proofProducer.ProofProducer
 			submitter  proofSubmitter.Submitter
-			bufferSize = p.cfg.ProofBufferSize
+			bufferSize = p.cfg.SGXProofBufferSize
 			err        error
 		)
 		switch tier.ID {

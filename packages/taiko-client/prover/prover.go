@@ -3,6 +3,7 @@ package prover
 import (
 	"context"
 	"fmt"
+	"golang.org/x/sync/errgroup"
 	"math/big"
 	"strings"
 	"sync"
@@ -282,6 +283,7 @@ func (p *Prover) eventLoop() {
 	// if we are already aggregating.
 	reqAggregation := func() {
 		select {
+		// 0 means aggregating all tier proofs
 		case p.aggregationNotify <- 0:
 		default:
 		}
@@ -417,30 +419,30 @@ func (p *Prover) proveOp() error {
 
 // aggregateOp aggregates all proofs in buffer.
 func (p *Prover) aggregateOp(tier uint16) error {
-	var wg sync.WaitGroup
+	g, gCtx := errgroup.WithContext(p.ctx)
 	for _, submitter := range p.proofSubmitters {
-		wg.Add(1)
-		go func(s proofSubmitter.Submitter) {
-			defer wg.Done()
-			if s.BufferSize() > 1 &&
-				(tier == 0 || s.Tier() == tier) {
-				if err := s.AggregateProofs(p.ctx); err != nil {
+		g.Go(func() error {
+			if submitter.BufferSize() > 1 &&
+				(tier == 0 || submitter.Tier() == tier) {
+				if err := submitter.AggregateProofs(gCtx); err != nil {
 					log.Error("Failed to aggregate proofs",
 						"error", err,
-						"tier", s.Tier(),
+						"tier", submitter.Tier(),
 					)
+					return err
 				}
 			} else {
 				log.Debug("Skip this aggregateOp",
 					"requestTier", tier,
-					"submitterTier", s.Tier(),
-					"bufferSize", s.BufferSize(),
+					"submitterTier", submitter.Tier(),
+					"bufferSize", submitter.BufferSize(),
 				)
 			}
-		}(submitter)
+			return nil
+		})
 	}
 
-	return nil
+	return g.Wait()
 }
 
 // contestProofOp performs a proof contest operation.

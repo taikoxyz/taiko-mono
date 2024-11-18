@@ -60,7 +60,7 @@ type Config struct {
 	BlockConfirmations                      uint64
 	TxmgrConfigs                            *txmgr.CLIConfig
 	PrivateTxmgrConfigs                     *txmgr.CLIConfig
-	ProofBufferSize                         uint64
+	SGXProofBufferSize                      uint64
 	ZKVMProofBufferSize                     uint64
 	ForceProveInterval                      time.Duration
 }
@@ -186,7 +186,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			l1ProverPrivKey,
 			c,
 		),
-		ProofBufferSize:     c.Uint64(flags.BatchSize.Name),
+		SGXProofBufferSize:  c.Uint64(flags.SGXBatchSize.Name),
 		ZKVMProofBufferSize: c.Uint64(flags.ZKVMBatchSize.Name),
 		ForceProveInterval:  c.Duration(flags.ForceProveInterval.Name),
 	}, nil

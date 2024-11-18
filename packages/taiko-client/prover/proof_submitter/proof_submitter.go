@@ -350,7 +350,7 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 		return proofProducer.ErrInvalidLength
 	}
 	// Check if the proof has already been submitted.
-	proofStatus, err := rpc.BatchGetBlockProofStatus(
+	proofStatus, err := rpc.BatchGetBlocksProofStatus(
 		ctx,
 		s.rpc,
 		batchProof.BlockIDs,

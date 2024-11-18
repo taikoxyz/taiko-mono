@@ -196,13 +196,13 @@ var (
 		EnvVars:  []string{"PROVER_BLOCK_CONFIRMATIONS"},
 	}
 	// Batch proof related flag
-	BatchSize = &cli.Uint64Flag{
-		Name: "prover.batchSize",
-		Usage: "The default size of batch proof, when it arrives, submit a batch of proof immediately, " +
+	SGXBatchSize = &cli.Uint64Flag{
+		Name: "prover.sgx.batchSize",
+		Usage: "The default size of batch sgx proofs, when it arrives, submit a batch of proof immediately, " +
 			"this flag only works post Ontake fork",
 		Value:    1,
 		Category: proverCategory,
-		EnvVars:  []string{"PROVER_BATCH_SIZE"},
+		EnvVars:  []string{"PROVER_SGX_BATCH_SIZE"},
 	}
 	ZKVMBatchSize = &cli.Uint64Flag{
 		Name: "prover.zkvm.batchSize",
@@ -252,7 +252,7 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	BlockConfirmations,
 	RaikoRequestTimeout,
 	RaikoZKVMHostEndpoint,
-	BatchSize,
+	SGXBatchSize,
 	ZKVMBatchSize,
 	ForceProveInterval,
 }, TxmgrFlags)

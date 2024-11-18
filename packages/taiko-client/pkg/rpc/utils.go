@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"golang.org/x/sync/errgroup"
 	"math/big"
 	"os"
 	"os/signal"
@@ -247,13 +248,13 @@ func GetBlockProofStatus(
 	}, nil
 }
 
-// BatchGetBlockProofStatus checks whether the batch of L2 blocks still need new proofs or new contests.
+// BatchGetBlocksProofStatus checks whether the batch of L2 blocks still need new proofs or new contests.
 // Here are the possible status:
 // 1. No proof on chain at all.
 // 2. A valid proof has been submitted.
 // 3. An invalid proof has been submitted, and there is no valid contest.
 // 4. An invalid proof has been submitted, and there is a valid contest.
-func BatchGetBlockProofStatus(
+func BatchGetBlocksProofStatus(
 	ctx context.Context,
 	cli *Client,
 	ids []*big.Int,
@@ -262,7 +263,6 @@ func BatchGetBlockProofStatus(
 ) ([]*BlockProofStatus, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
-
 	var (
 		parentHashes = make([][32]byte, len(ids))
 		parents      = make([]*types.Header, len(ids))
@@ -270,14 +270,22 @@ func BatchGetBlockProofStatus(
 		result       = make([]*BlockProofStatus, len(ids))
 	)
 	// Get the local L2 parent header.
+	g, gCtx := errgroup.WithContext(ctxWithTimeout)
 	for i, id := range ids {
-		parent, err := cli.L2.HeaderByNumber(ctxWithTimeout, new(big.Int).Sub(id, common.Big1))
-		if err != nil {
-			return nil, err
-		}
-		parentHashes[i] = parent.ParentHash
-		parents[i] = parent
-		blockIDs[i] = id.Uint64()
+		g.Go(func() error {
+			parent, err := cli.L2.HeaderByNumber(gCtx, new(big.Int).Sub(id, common.Big1))
+			if err != nil {
+				return err
+			}
+			parentHashes[i] = parent.Hash()
+			parents[i] = parent
+			blockIDs[i] = id.Uint64()
+			return nil
+		})
+	}
+	gErr := g.Wait()
+	if gErr != nil {
+		return nil, gErr
 	}
 
 	// Get the transition state from TaikoL1 contract.
@@ -289,73 +297,76 @@ func BatchGetBlockProofStatus(
 	if err != nil {
 		return nil, err
 	}
+	wg, wgCtx := errgroup.WithContext(ctxWithTimeout)
 	for i, transition := range transitions {
 		// no proof on chain
 		if transition.BlockHash == (common.Hash{}) {
 			result[i] = &BlockProofStatus{IsSubmitted: false, ParentHeader: parents[i]}
 			continue
 		}
-
-		header, err := cli.WaitL2Header(ctxWithTimeout, ids[i])
-		if err != nil {
-			return nil, err
-		}
-		if header.Hash() != transition.BlockHash ||
-			(transition.StateRoot != (common.Hash{}) && transition.StateRoot != header.Root) {
-			log.Info(
-				"Different block hash or state root detected, try submitting a contest",
-				"localBlockHash", header.Hash(),
-				"protocolTransitionBlockHash", common.BytesToHash(transition.BlockHash[:]),
-				"localStateRoot", header.Root,
-				"protocolTransitionStateRoot", common.BytesToHash(transition.StateRoot[:]),
-			)
-			result[i] = &BlockProofStatus{
-				IsSubmitted:            true,
-				Invalid:                true,
-				CurrentTransitionState: &transitions[i],
-				ParentHeader:           parents[i],
+		wg.Go(func() error {
+			header, err := cli.WaitL2Header(wgCtx, ids[i])
+			if err != nil {
+				return err
 			}
-			continue
-		}
+			if header.Hash() != transition.BlockHash ||
+				(transition.StateRoot != (common.Hash{}) && transition.StateRoot != header.Root) {
+				log.Info(
+					"Different block hash or state root detected, try submitting a contest",
+					"localBlockHash", header.Hash(),
+					"protocolTransitionBlockHash", common.BytesToHash(transition.BlockHash[:]),
+					"localStateRoot", header.Root,
+					"protocolTransitionStateRoot", common.BytesToHash(transition.StateRoot[:]),
+				)
+				result[i] = &BlockProofStatus{
+					IsSubmitted:            true,
+					Invalid:                true,
+					CurrentTransitionState: &transitions[i],
+					ParentHeader:           parents[i],
+				}
+				return nil
+			}
 
-		if proverAddress == transition.Prover ||
-			(proverSetAddress != ZeroAddress && transition.Prover == proverSetAddress) {
+			if proverAddress == transition.Prover ||
+				(proverSetAddress != ZeroAddress && transition.Prover == proverSetAddress) {
+				log.Info(
+					"📬 Block's proof has already been submitted by current prover",
+					"blockID", ids[i],
+					"parent", parents[i].Hash().Hex(),
+					"hash", common.Bytes2Hex(transition.BlockHash[:]),
+					"stateRoot", common.Bytes2Hex(transition.StateRoot[:]),
+					"timestamp", transition.Timestamp,
+					"contester", transition.Contester,
+				)
+				result[i] = &BlockProofStatus{
+					IsSubmitted:            true,
+					Invalid:                transition.Contester != ZeroAddress,
+					ParentHeader:           parents[i],
+					CurrentTransitionState: &transitions[i],
+				}
+				return nil
+			}
 			log.Info(
-				"📬 Block's proof has already been submitted by current prover",
+				"📬 Block's proof has already been submitted by another prover",
 				"blockID", ids[i],
+				"prover", transition.Prover,
 				"parent", parents[i].Hash().Hex(),
 				"hash", common.Bytes2Hex(transition.BlockHash[:]),
 				"stateRoot", common.Bytes2Hex(transition.StateRoot[:]),
 				"timestamp", transition.Timestamp,
 				"contester", transition.Contester,
 			)
+
 			result[i] = &BlockProofStatus{
 				IsSubmitted:            true,
 				Invalid:                transition.Contester != ZeroAddress,
 				ParentHeader:           parents[i],
 				CurrentTransitionState: &transitions[i],
 			}
-			continue
-		}
-		log.Info(
-			"📬 Block's proof has already been submitted by another prover",
-			"blockID", ids[i],
-			"prover", transition.Prover,
-			"parent", parents[i].Hash().Hex(),
-			"hash", common.Bytes2Hex(transition.BlockHash[:]),
-			"stateRoot", common.Bytes2Hex(transition.StateRoot[:]),
-			"timestamp", transition.Timestamp,
-			"contester", transition.Contester,
-		)
-
-		result[i] = &BlockProofStatus{
-			IsSubmitted:            true,
-			Invalid:                transition.Contester != ZeroAddress,
-			ParentHeader:           parents[i],
-			CurrentTransitionState: &transitions[i],
-		}
+			return nil
+		})
 	}
-	return result, nil
+	return result, wg.Wait()
 }
 
 // SetHead makes a `debug_setHead` RPC call to set the chain's head, should only be used
