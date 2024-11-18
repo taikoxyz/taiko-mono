@@ -15,10 +15,10 @@
 [![Twitter Follow](https://img.shields.io/twitter/follow/taikoxyz?style=social)](https://twitter.com/taikoxyz)
 [![Discord](https://img.shields.io/discord/984015101017346058?color=%235865F2&label=Discord&logo=discord&logoColor=%23fff)](https://discord.gg/taikoxyz)
 [![YouTube](https://img.shields.io/youtube/channel/subscribers/UCxd_ARE9LtAEdnRQA6g1TaQ)](https://www.youtube.com/@taikoxyz)
+[![Gurubase](https://img.shields.io/badge/Gurubase-Ask%20Taiko%20Guru-006BFF)](https://gurubase.io/g/taiko)
 
 [![GitPOAP Badge](https://public-api.gitpoap.io/v1/repo/taikoxyz/taiko-mono/badge)](https://www.gitpoap.io/gh/taikoxyz/taiko-mono)
 [![License](https://img.shields.io/github/license/taikoxyz/taiko-mono)](https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md)
-[![Gurubase](https://img.shields.io/badge/Gurubase-Ask%20Taiko%20Guru-006BFF)](https://gurubase.io/g/taiko)
 
 </div>
 
