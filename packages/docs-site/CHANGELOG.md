@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.17.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.17.0...docs-site-v1.17.1) (2024-11-18)
+
+
+### Chores
+
+* **docs-site:** update tier router address ([#18495](https://github.com/taikoxyz/taiko-mono/issues/18495)) ([73ba72e](https://github.com/taikoxyz/taiko-mono/commit/73ba72e27586119f269a2c6baf29b6386fcf352c))
+
 ## [1.17.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.16.0...docs-site-v1.17.0) (2024-11-12)
 
 
