@@ -23,7 +23,7 @@ description: Network reference page describing various important addresses on Ta
 | ------------------------------- | -------------------------------------------- | -------------------------- |
 | TaikoL1                         | `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a` | based.taiko.eth            |
 | RollupAddressManager            | `0x579f40D0BE111b823962043702cabe6Aaa290780` | ram.based.taiko.eth        |
-| TierRouter                      | `0x8f1C1D58C858e9a9eeCc587d7D51AECfd16b5542` | N/A                        |
+| TierRouter                      | `0x394E30d83d020469a1F8b16E89D7fD5FdB1935b0` | N/A                        |
 | GuardianProver                  | `0xE3D777143Ea25A6E031d1e921F396750885f43aC` | guardians.based.taiko.eth  |
 | GuardianProverMinority          | `0x579A8d63a2Db646284CBFE31FE5082c9989E985c` | guardians1.based.taiko.eth |
 | AssignmentHook                  | `0x537a2f0D3a5879b41BCb5A2afE2EA5c4961796F6` | N/A                        |
