@@ -2,7 +2,6 @@ package rpc
 
 import (
 	"context"
-	"golang.org/x/sync/errgroup"
 	"math/big"
 	"os"
 	"os/signal"
@@ -15,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"

@@ -3,7 +3,6 @@ package prover
 import (
 	"context"
 	"fmt"
-	"golang.org/x/sync/errgroup"
 	"math/big"
 	"strings"
 	"sync"
@@ -16,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
