@@ -51,7 +51,7 @@ Day 19-21
 
 1. The biggest trust assumption in the contract is the owner role handling all the Address manager contracts. This role can pause the contracts at anytime.
 2. The second trust assumption is the guardians multisig. Currently, the guardians are trusted and will be removed over time. But since they are the highest tier, the centralization risk in the proving system exists.
-3. ANother role is the bridge watchdog. This role can ban and suspend any messages at will. It is the most important risk of the bridge contracts.
+3. Another role is the bridge watchdog. This role can ban and suspend any messages at will. It is the most important risk of the bridge contracts.
 4. The snapshooter role has some risks associated since it takes snapshots on the TaikoToken.
 
 There are more roles in the codebase but these are the foremost and most central to the protocol.

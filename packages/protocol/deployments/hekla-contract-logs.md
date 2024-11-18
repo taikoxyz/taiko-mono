@@ -237,11 +237,12 @@
 
 ### sp1_plonk_verifier
 
-- addr : 0xa5287276f63b669E09cF6Dc6F44e941d77D7139e
+- addr : 0xfb2d02219D065eBF3Aa8d2D1a1C52b1868EE7384
 - logs:
   - deployed on September 02, 2024 at commit `16ac02e`
   - upgraded on September 15, 2024 at commit `6f26434`
   - upgraded on October 22, 2024 at commit `684a909`
+  - upgraded on Nov 8, 2024 at commit `0b11101`
 
 ### tier_zkvm_sp1
 

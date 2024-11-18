@@ -15,10 +15,16 @@ library LibEIP1559 {
     /// @notice The maximum allowable input value for the exp() function.
     uint128 public constant MAX_EXP_INPUT = 135_305_999_368_893_231_588;
 
-    error EIP1559_INVALID_PARAMS();
-
+    /// @notice Calculates the base fee and gas excess for EIP-1559
+    /// @param _gasTarget The target gas usage
+    /// @param _gasExcess The current gas excess
+    /// @param _gasIssuance The gas issuance
+    /// @param _parentGasUsed The gas used by the parent block
+    /// @param _minGasExcess The minimum gas excess
+    /// @return basefee_ The calculated base fee
+    /// @return gasExcess_ The calculated gas excess
     function calc1559BaseFee(
-        uint256 _gasTarget,
+        uint64 _gasTarget,
         uint64 _gasExcess,
         uint64 _gasIssuance,
         uint32 _parentGasUsed,
@@ -38,35 +44,50 @@ library LibEIP1559 {
         // bonding curve, regardless the actual amount of gas used by this
         // block, however, this block's gas used will affect the next
         // block's base fee.
-        basefee_ = basefee(gasExcess_, _gasTarget);
+        basefee_ = basefee(_gasTarget, gasExcess_);
     }
 
-    /// @dev Returns the new gas excess that will keep the basefee the same.
-    /// `_newGasTarget * ln(_newGasTarget / _gasTarget) + _gasExcess * _newGasTarget / _gasTarget`
+    /// @dev Adjusts the gas excess to maintain the same base fee when the gas target changes.
+    /// The formula used for adjustment is:
+    /// `_newGasTarget*ln(_newGasTarget/_gasTarget)+_gasExcess*_newGasTarget/_gasTarget`
+    /// @param _oldGasTarget The current gas target.
+    /// @param _newGasTarget The new gas target.
+    /// @param _oldGasExcess The current gas excess.
+    /// @return newGasTarget_ The new gas target value.
+    /// @return newGasExcess_ The new gas excess value.
     function adjustExcess(
-        uint64 _gasExcess,
-        uint64 _gasTarget,
-        uint64 _newGasTarget
+        uint64 _oldGasTarget,
+        uint64 _newGasTarget,
+        uint64 _oldGasExcess
     )
         internal
         pure
-        returns (uint64)
+        returns (uint64 newGasTarget_, uint64 newGasExcess_)
     {
-        if (_gasTarget == 0) {
-            return _newGasTarget;
+        uint256 f = FixedPointMathLib.WAD;
+
+        if (_oldGasTarget == 0) {
+            return (_newGasTarget, _oldGasExcess);
         }
 
-        uint256 f = FixedPointMathLib.WAD;
-        uint256 ratio = f * _newGasTarget / _gasTarget;
-        if (ratio == 0 || ratio > uint256(type(int256).max)) revert EIP1559_INVALID_PARAMS();
+        if (
+            _newGasTarget == 0 || _oldGasTarget == _newGasTarget
+                || _newGasTarget >= type(uint256).max / f
+        ) {
+            return (_oldGasTarget, _oldGasExcess);
+        }
+
+        uint256 ratio = f * _newGasTarget / _oldGasTarget;
+        if (ratio == 0 || ratio > uint256(type(int256).max)) {
+            return (_newGasTarget, _oldGasExcess);
+        }
 
         int256 lnRatio = FixedPointMathLib.lnWad(int256(ratio)); // may be negative
-
         uint256 newGasExcess;
 
         assembly {
             // compute x = (_newGasTarget * lnRatio + _gasExcess * ratio)
-            let x := add(mul(_newGasTarget, lnRatio), mul(_gasExcess, ratio))
+            let x := add(mul(_newGasTarget, lnRatio), mul(_oldGasExcess, ratio))
 
             // If x < 0, set newGasExcess to 0, otherwise calculate newGasExcess = x / f
             switch slt(x, 0)
@@ -74,19 +95,25 @@ library LibEIP1559 {
             default { newGasExcess := div(x, f) }
         }
 
-        return uint64(newGasExcess.min(type(uint64).max));
+        return (_newGasTarget, newGasExcess.capToUint64());
     }
 
-    /// @dev exp(_gasExcess / _gasTarget) / _gasTarget
-    function basefee(uint256 _gasExcess, uint256 _gasTarget) internal pure returns (uint256) {
-        uint256 fee = ethQty(_gasExcess, _gasTarget) / _gasTarget;
-        return fee == 0 ? 1 : fee;
+    /// @dev Calculates the base fee using the formula: exp(_gasExcess/_gasTarget)/_gasTarget
+    /// @param _gasTarget The current gas target.
+    /// @param _gasExcess The current gas excess.
+    /// @return The calculated base fee.
+    function basefee(uint64 _gasTarget, uint64 _gasExcess) internal pure returns (uint256) {
+        if (_gasTarget == 0) return 1;
+
+        return (ethQty(_gasTarget, _gasExcess) / _gasTarget).max(1);
     }
 
-    /// @dev exp(_gasExcess / _gasTarget)
-    function ethQty(uint256 _gasExcess, uint256 _gasTarget) internal pure returns (uint256) {
-        if (_gasTarget == 0) revert EIP1559_INVALID_PARAMS();
-
+    /// @dev Calculates the exponential of the ratio of gas excess to gas target.
+    /// @param _gasTarget The current gas target.
+    /// @param _gasExcess The current gas excess.
+    /// @return The calculated exponential value.
+    function ethQty(uint64 _gasTarget, uint64 _gasExcess) internal pure returns (uint256) {
+        assert(_gasTarget != 0);
         uint256 input = FixedPointMathLib.WAD * _gasExcess / _gasTarget;
         if (input > MAX_EXP_INPUT) {
             input = MAX_EXP_INPUT;
