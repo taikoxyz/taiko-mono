@@ -18,6 +18,7 @@
 
 [![GitPOAP Badge](https://public-api.gitpoap.io/v1/repo/taikoxyz/taiko-mono/badge)](https://www.gitpoap.io/gh/taikoxyz/taiko-mono)
 [![License](https://img.shields.io/github/license/taikoxyz/taiko-mono)](https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md)
+[![Gurubase](https://img.shields.io/badge/Gurubase-Ask%20Taiko%20Guru-006BFF)](https://gurubase.io/g/taiko)
 
 </div>
 
