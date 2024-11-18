@@ -453,7 +453,7 @@ func (s *DriverTestSuite) TestInsertSoftBlocks() {
 	s.NotEmpty(l1Origin3.L1BlockHash)
 	s.Equal(false, l1Origin3.EndOfBlock)
 	s.Equal(false, l1Origin3.EndOfPreconf)
-	s.Equal(uint64(0), l1Origin3.BatchID.Uint64())
+	s.Nil(l1Origin3.BatchID)
 	s.False(l1Origin3.IsSoftBlock())
 }
 
