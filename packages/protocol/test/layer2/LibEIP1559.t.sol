@@ -100,25 +100,37 @@ contract TestLibEIP1559 is Layer2Test {
 
     /// forge-config: layer2.fuzz.runs = 1000
     /// forge-config: layer2.fuzz.show-logs = true
-    function test_fuzz_ethQty(uint64 _gasTarget, uint64 _gasExcess) external pure {
+    function test_fuzz_ethQty(uint64 _gasTarget, uint64 _gasExcess) external {
         if (_gasTarget == 0) _gasTarget = 1;
+        uint256 result = LibEIP1559.ethQty(_gasTarget, _gasExcess);
+        assertTrue(result > 0);
+    }
 
-        LibEIP1559.ethQty(_gasTarget, _gasExcess);
+    /// forge-config: layer2.fuzz.runs = 2000
+    /// forge-config: layer2.fuzz.show-logs = true
+    function test_fuzz_basefee(uint64 _gasTarget, uint64 _gasExcess) external {
+        uint256 result = LibEIP1559.basefee(_gasTarget, _gasExcess);
+        assertTrue(result >= 1);
     }
 
     /// forge-config: layer2.fuzz.runs = 2000
     /// forge-config: layer2.fuzz.show-logs = true
     function test_fuzz_adjustExcess(
-        uint64 _gasTarget,
+        uint64 _oldGasTarget,
         uint64 _newGasTarget,
-        uint64 _gasExcess
+        uint64 _oldGasExcess
     )
         external
-        pure
     {
-        if (_gasTarget == 0) _gasTarget = 1;
-        if (_newGasTarget == 0) _newGasTarget = 1;
-        LibEIP1559.adjustExcess(_gasTarget, _newGasTarget, _gasExcess);
+        (uint64 newGasTarget_, uint64 newGasExcess_) =
+            LibEIP1559.adjustExcess(_oldGasTarget, _newGasTarget, _oldGasExcess);
+
+        if (_oldGasTarget == 0 && _newGasTarget == 0) {
+            assertEq(newGasTarget_, 0);
+            assertEq(newGasExcess_, _oldGasExcess);
+        } else {
+            assertTrue(newGasTarget_ != 0);
+        }
     }
 
     /// forge-config: layer2.fuzz.runs = 2000
