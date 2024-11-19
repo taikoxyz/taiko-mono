@@ -21,11 +21,11 @@ contract GasComparision is Layer1Test {
             })
         );
 
-        uint256 gasStart;
-        uint256 gasEnd;
+        uint256 gasUsedWhole;
+        uint256 gasUsedFields;
 
         // Measure gas for saveBlockAsWhole
-        gasStart = gasleft();
+        vm.startSnapshotGas("saveBlockAsWhole");
         saveBlockAsWhole(
             TaikoData.BlockV2({
                 metaHash: keccak256(abi.encodePacked("2")),
@@ -39,11 +39,10 @@ contract GasComparision is Layer1Test {
                 verifiedTransitionId: 2
             })
         );
-        gasEnd = gasleft();
-        uint256 gasUsedWhole = gasStart - gasEnd;
+        gasUsedWhole = vm.stopSnapshotGas();
 
         // Measure gas for saveBlockAsFields
-        gasStart = gasleft();
+        vm.startSnapshotGas("saveBlockAsFields");
         saveBlockAsFields(
             TaikoData.BlockV2({
                 metaHash: keccak256(abi.encodePacked("3")),
@@ -57,8 +56,7 @@ contract GasComparision is Layer1Test {
                 verifiedTransitionId: 3
             })
         );
-        gasEnd = gasleft();
-        uint256 gasUsedFields = gasStart - gasEnd;
+        gasUsedFields = vm.stopSnapshotGas();
 
         emit log_named_uint("Gas used by saveBlockAsWhole", gasUsedWhole);
         emit log_named_uint("Gas used by saveBlockAsFields", gasUsedFields);
@@ -94,16 +92,14 @@ contract GasComparision is Layer1Test {
         );
 
         // Measure gas for reading block as a whole
-        uint256 gasStart = gasleft();
+        vm.startSnapshotGas("readBlockAsWhole");
         TaikoData.BlockV2 memory blkWhole = readBlockAsWhole();
-        uint256 gasEnd = gasleft();
-        uint256 gasUsedWhole = gasStart - gasEnd;
+        uint256 gasUsedWhole = vm.stopSnapshotGas();
 
         // Measure gas for reading block fields separately
-        gasStart = gasleft();
+        vm.startSnapshotGas("readBlockAsFields");
         (uint256 proposedIn, uint256 proposedAt, bytes32 metaHash) = readBlockAsFields();
-        gasEnd = gasleft();
-        uint256 gasUsedFields = gasStart - gasEnd;
+        uint256 gasUsedFields = vm.stopSnapshotGas();
 
         emit log_named_uint("Gas used by readBlockAsWhole", gasUsedWhole);
         emit log_named_uint("Gas used by readBlockAsFields", gasUsedFields);
