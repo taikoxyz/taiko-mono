@@ -277,7 +277,7 @@ library LibProposing {
         }
 
         // Verify params against the parent block.
-        TaikoData.BlockV2 memory parentBlk;
+        TaikoData.BlockV2 storage parentBlk;
         unchecked {
             parentBlk = _state.blocks[(_slotB.numBlocks - 1) % _config.blockRingBufferSize];
         }
