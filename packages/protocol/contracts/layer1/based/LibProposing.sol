@@ -306,9 +306,8 @@ library LibProposing {
 
         // Check if parent block has the right meta hash. This is to allow the proposer to make sure
         // the block builds on the expected latest chain state.
-        bytes32 a =  parentBlk.metaHash;
         require(
-            _local.params.parentMetaHash == 0 || _local.params.parentMetaHash == a,
+            _local.params.parentMetaHash == 0 || _local.params.parentMetaHash == parentBlk.metaHash,
             L1_UNEXPECTED_PARENT()
         );
     }
