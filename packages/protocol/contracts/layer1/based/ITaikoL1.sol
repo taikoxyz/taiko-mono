@@ -28,13 +28,6 @@ interface ITaikoL1 {
         external
         returns (TaikoData.BlockMetadataV2[] memory metaArr_);
 
-    /// @notice Proves or contests a block transition.
-    /// @param _blockId Index of the block to prove. This is also used to select the right
-    /// implementation version.
-    /// @param _input ABI-encoded (TaikoData.BlockMetadata, TaikoData.Transition,
-    /// TaikoData.TierProof) tuple.
-    function proveBlock(uint64 _blockId, bytes calldata _input) external;
-
     /// @notice Proves or contests multiple block transitions (version 2)
     /// @param _blockIds The indices of the blocks to prove.
     /// @param _inputs An list of abi-encoded (TaikoData.BlockMetadata, TaikoData.Transition,

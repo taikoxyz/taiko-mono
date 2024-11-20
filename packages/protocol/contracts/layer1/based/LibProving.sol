@@ -158,27 +158,6 @@ library LibProving {
     /// implementation version.
     /// @param _input An abi-encoded (TaikoData.BlockMetadataV2, TaikoData.Transition,
     /// TaikoData.TierProof) tuple.
-    function proveBlock(
-        TaikoData.State storage _state,
-        TaikoData.Config memory _config,
-        IResolver _resolver,
-        uint64 _blockId,
-        bytes calldata _input
-    )
-        public // Will reach contract size limit if changed to `internal`
-    {
-        TaikoData.TierProof memory noBatchProof;
-        _proveBlock(_state, _config, _resolver, _blockId, _input, noBatchProof);
-    }
-
-    /// @dev Proves or contests a single Taiko L2 block.
-    /// @param _state Pointer to the protocol's storage.
-    /// @param _config The protocol's configuration.
-    /// @param _resolver The address resolver.
-    /// @param _blockId The index of the block to prove. This is also used to select the right
-    /// implementation version.
-    /// @param _input An abi-encoded (TaikoData.BlockMetadataV2, TaikoData.Transition,
-    /// TaikoData.TierProof) tuple.
     /// @param _batchProof An abi-encoded TaikoData.TierProof that contains the batch/aggregated
     /// proof for the given blocks.
     /// @return ctx_ The context of the verifier.

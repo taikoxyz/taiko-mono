@@ -26,7 +26,7 @@ contract MainnetTaikoL1 is TaikoL1 {
             maxBlocksToVerify: 16,
             blockMaxGasLimit: 240_000_000,
             livenessBond: 125e18, // 125 Taiko token
-             provingWindow: 480, // minutes
+            provingWindow: 480, // minutes
             stateRootSyncInternal: 16,
             maxAnchorHeightOffset: 64,
             baseFeeConfig: LibSharedData.BaseFeeConfig({

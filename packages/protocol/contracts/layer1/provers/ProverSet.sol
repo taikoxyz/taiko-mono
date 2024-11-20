@@ -124,11 +124,6 @@ contract ProverSet is EssentialContract, IERC1271 {
         ITaikoL1(taikoL1()).proposeBlocksV2(_paramsArr, _txListArr);
     }
 
-    /// @notice Proves or contests a Taiko block.
-    function proveBlock(uint64 _blockId, bytes calldata _input) external onlyProver {
-        ITaikoL1(taikoL1()).proveBlock(_blockId, _input);
-    }
-
     /// @notice Batch proves or contests Taiko blocks.
     function proveBlocks(
         uint64[] calldata _blockId,
