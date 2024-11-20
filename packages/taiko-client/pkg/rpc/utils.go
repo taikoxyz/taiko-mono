@@ -283,8 +283,7 @@ func BatchGetBlocksProofStatus(
 			return nil
 		})
 	}
-	gErr := g.Wait()
-	if gErr != nil {
+	if gErr := g.Wait(); gErr != nil {
 		return nil, gErr
 	}
 
@@ -297,15 +296,15 @@ func BatchGetBlocksProofStatus(
 	if err != nil {
 		return nil, err
 	}
-	wg, wgCtx := errgroup.WithContext(ctxWithTimeout)
+	g, gCtx = errgroup.WithContext(ctxWithTimeout)
 	for i, transition := range transitions {
-		// no proof on chain
+		// No proof on chain
 		if transition.BlockHash == (common.Hash{}) {
 			result[i] = &BlockProofStatus{IsSubmitted: false, ParentHeader: parents[i]}
 			continue
 		}
-		wg.Go(func() error {
-			header, err := cli.WaitL2Header(wgCtx, ids[i])
+		g.Go(func() error {
+			header, err := cli.WaitL2Header(gCtx, ids[i])
 			if err != nil {
 				return err
 			}
@@ -366,7 +365,7 @@ func BatchGetBlocksProofStatus(
 			return nil
 		})
 	}
-	return result, wg.Wait()
+	return result, g.Wait()
 }
 
 // SetHead makes a `debug_setHead` RPC call to set the chain's head, should only be used

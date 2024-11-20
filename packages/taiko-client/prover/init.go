@@ -98,9 +98,9 @@ func (p *Prover) initProofSubmitters(
 ) error {
 	for _, tier := range p.sharedState.GetTiers() {
 		var (
+			bufferSize = p.cfg.SGXProofBufferSize
 			producer   proofProducer.ProofProducer
 			submitter  proofSubmitter.Submitter
-			bufferSize = p.cfg.SGXProofBufferSize
 			err        error
 		)
 		switch tier.ID {

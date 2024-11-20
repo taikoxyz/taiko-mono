@@ -432,7 +432,8 @@ func (p *Prover) aggregateOp(tier uint16) error {
 					return err
 				}
 			} else {
-				log.Debug("Skip this aggregateOp",
+				log.Debug(
+					"Skip the current aggregation operation",
 					"requestTier", tier,
 					"submitterTier", submitter.Tier(),
 					"bufferSize", submitter.BufferSize(),
