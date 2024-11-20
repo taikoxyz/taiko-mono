@@ -48,7 +48,7 @@
     "ds-test": "github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0",
     "eigenlayer-contracts": "github:Layr-labs/eigenlayer-contracts#dev",
     "eigenlayer-middleware": "github:layr-Labs/eigenlayer-middleware#mainnet",
-    "forge-std": "github:foundry-rs/forge-std#v1.7.5",
+    "forge-std": "github:foundry-rs/forge-std#v1.9.4",
     "merkletreejs": "^0.4.0",
     "optimism": "github:ethereum-optimism/optimism#v1.8.0",
     "p256-verifier": "github:taikoxyz/p256-verifier#v0.1.0",

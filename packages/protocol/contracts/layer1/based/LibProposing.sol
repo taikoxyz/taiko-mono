@@ -17,7 +17,6 @@ library LibProposing {
     uint256 internal constant SECONDS_PER_BLOCK = 12;
 
     struct Local {
-        TaikoData.SlotB b;
         TaikoData.BlockParamsV2 params;
         ITierProvider tierProvider;
         bytes32 parentMetaHash;
@@ -67,12 +66,14 @@ library LibProposing {
         }
 
         metas_ = new TaikoData.BlockMetadataV2[](_paramsArr.length);
+        TaikoData.SlotB memory slotB;
 
         for (uint256 i; i < _paramsArr.length; ++i) {
-            metas_[i] = _proposeBlock(_state, _config, _resolver, _paramsArr[i], _txListArr[i]);
+            (metas_[i], slotB) =
+                _proposeBlock(_state, _config, _resolver, _paramsArr[i], _txListArr[i]);
         }
 
-        if (!_state.slotB.provingPaused) {
+        if (!slotB.provingPaused) {
             for (uint256 i; i < _paramsArr.length; ++i) {
                 if (LibUtils.shouldVerifyBlocks(_config, metas_[i].id, false)) {
                     LibVerifying.verifyBlocks(_state, _config, _resolver, _config.maxBlocksToVerify);
@@ -98,9 +99,10 @@ library LibProposing {
         internal
         returns (TaikoData.BlockMetadataV2 memory meta_)
     {
-        meta_ = _proposeBlock(_state, _config, _resolver, _params, _txList);
+        TaikoData.SlotB memory slotB;
+        (meta_, slotB) = _proposeBlock(_state, _config, _resolver, _params, _txList);
 
-        if (!_state.slotB.provingPaused) {
+        if (!slotB.provingPaused) {
             if (LibUtils.shouldVerifyBlocks(_config, meta_.id, false)) {
                 LibVerifying.verifyBlocks(_state, _config, _resolver, _config.maxBlocksToVerify);
             }
@@ -122,25 +124,28 @@ library LibProposing {
         bytes calldata _txList
     )
         private
-        returns (TaikoData.BlockMetadataV2 memory meta_)
+        returns (TaikoData.BlockMetadataV2 memory meta_, TaikoData.SlotB memory slotB)
     {
-        // Checks proposer access.
-        Local memory local;
-        local.b = _state.slotB;
+        // SLOAD #1 {{
+        slotB = _state.slotB;
+        // SLOAD #1 }}
 
         // It's essential to ensure that the ring buffer for proposed blocks still has space for at
         // least one more block.
-        require(local.b.numBlocks >= _config.ontakeForkHeight, L1_FORK_HEIGHT_ERROR());
+        require(slotB.numBlocks >= _config.ontakeForkHeight, L1_FORK_HEIGHT_ERROR());
 
         unchecked {
             require(
-                local.b.numBlocks < local.b.lastVerifiedBlockId + _config.blockMaxProposals + 1,
+                slotB.numBlocks < slotB.lastVerifiedBlockId + _config.blockMaxProposals + 1,
                 L1_TOO_MANY_BLOCKS()
             );
         }
 
         address preconfTaskManager =
             _resolver.resolve(block.chainid, LibStrings.B_PRECONF_TASK_MANAGER, true);
+
+        Local memory local;
+
         if (preconfTaskManager != address(0)) {
             require(preconfTaskManager == msg.sender, L1_INVALID_PROPOSER());
             local.allowCustomProposer = true;
@@ -150,22 +155,22 @@ library LibProposing {
             local.params = abi.decode(_params, (TaikoData.BlockParamsV2));
         }
 
-        _validateParams(_state, _config, local);
+        _validateParams(_state, _config, slotB, local);
 
         // Initialize metadata to compute a metaHash, which forms a part of the block data to be
         // stored on-chain for future integrity checks. If we choose to persist all data fields in
         // the metadata, it will require additional storage slots.
         meta_ = TaikoData.BlockMetadataV2({
             anchorBlockHash: blockhash(local.params.anchorBlockId),
-            difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", local.b.numBlocks)),
+            difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", slotB.numBlocks)),
             blobHash: 0, // to be initialized below
             // Encode _config.baseFeeConfig into extraData to allow L2 block execution without
             // metadata. Metadata might be unavailable until the block is proposed on-chain. In
             // preconfirmation scenarios, multiple blocks may be built but not yet proposed, making
             // metadata unavailable.
-            extraData: _encodeBaseFeeConfig(_config.baseFeeConfig),
+            extraData: _encodeBaseFeeConfig(_config.baseFeeConfig), // TODO(daniel):remove outside and compute only once.
             coinbase: local.params.coinbase,
-            id: local.b.numBlocks,
+            id: slotB.numBlocks,
             gasLimit: _config.blockMaxGasLimit,
             timestamp: local.params.timestamp,
             anchorBlockId: local.params.anchorBlockId,
@@ -197,33 +202,39 @@ library LibProposing {
 
         // Use the difficulty as a random number
         meta_.minTier = local.tierProvider.getMinTier(
-            local.b.numBlocks, meta_.proposer, uint256(meta_.difficulty)
+            slotB.numBlocks, meta_.proposer, uint256(meta_.difficulty)
         );
 
-        // Create the block that will be stored onchain
-        TaikoData.BlockV2 memory blk = TaikoData.BlockV2({
-            metaHash: keccak256(abi.encode(meta_)),
-            assignedProver: address(0),
-            livenessBond: 0,
-            blockId: local.b.numBlocks,
-            proposedAt: local.params.timestamp, // = params.timestamp post Ontake
-            proposedIn: local.params.anchorBlockId, // = params.anchorBlockId post Ontake
-            nextTransitionId: 1, // For a new block, the next transition ID is always 1, not 0.
-            livenessBondReturned: false,
-            // For unverified block, its verifiedTransitionId is always 0.
-            verifiedTransitionId: 0
-        });
+        // Use a storage pointer for the block in the ring buffer
+        TaikoData.BlockV2 storage blk = _state.blocks[slotB.numBlocks % _config.blockRingBufferSize];
 
-        // Store the block in the ring buffer
-        _state.blocks[local.b.numBlocks % _config.blockRingBufferSize] = blk;
+        // Store each field of the block separately
+        // SSTORE #1 {{
+        blk.metaHash = keccak256(abi.encode(meta_));
+        // SSTORE #1 }}
 
-        // Increment the counter (cursor) by 1.
+        // SSTORE #2 {{
+        blk.blockId = slotB.numBlocks;
+        blk.proposedAt = local.params.timestamp;
+        blk.proposedIn = local.params.anchorBlockId;
+        blk.nextTransitionId = 1;
+        blk.livenessBondReturned = false;
+        blk.verifiedTransitionId = 0;
+        // SSTORE #2 }}
+
         unchecked {
-            ++_state.slotB.numBlocks;
-        }
-        _state.slotB.lastProposedIn = uint56(block.number);
+            // Increment the counter (cursor) by 1.
+            slotB.numBlocks += 1;
+            slotB.lastProposedIn = uint56(block.number);
 
+            // SSTORE #3 {{
+            _state.slotB = slotB; // TODO(daniel): save this only once.
+            // SSTORE #3 }}
+        }
+
+        // SSTORE #4 {{
         LibBonds.debitBond(_state, _resolver, local.params.proposer, meta_.id, _config.livenessBond);
+        // SSTORE #4 }}
 
         emit BlockProposedV2(meta_.id, meta_);
     }
@@ -231,10 +242,12 @@ library LibProposing {
     /// @dev Validates the parameters for proposing a block.
     /// @param _state Pointer to the protocol's storage.
     /// @param _config The configuration parameters for the Taiko protocol.
+    /// @param _slotB The SlotB struct.
     /// @param _local The local struct.
     function _validateParams(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
+        TaikoData.SlotB memory _slotB,
         Local memory _local
     )
         private
@@ -266,7 +279,7 @@ library LibProposing {
         // Verify params against the parent block.
         TaikoData.BlockV2 storage parentBlk;
         unchecked {
-            parentBlk = _state.blocks[(_local.b.numBlocks - 1) % _config.blockRingBufferSize];
+            parentBlk = _state.blocks[(_slotB.numBlocks - 1) % _config.blockRingBufferSize];
         }
 
         // Verify the passed in L1 state block number to anchor.
