@@ -147,7 +147,7 @@ func (s *Sender) SendBatchProof(
 	}
 
 	log.Info(
-		"🚚 Your batch proof was accepted",
+		"🚚 Your batch proofs were accepted",
 		"txHash", receipt.TxHash,
 		"tier", batchProof.Tier,
 		"blockIDs", batchProof.BlockIDs,
