@@ -153,8 +153,7 @@ func (s *Sender) SendBatchProof(
 		"blockIDs", batchProof.BlockIDs,
 	)
 
-	// TODO
-	metrics.ProverSubmissionAcceptedCounter.Add(1)
+	metrics.ProverSubmissionAcceptedCounter.Add(float64(len(batchProof.BlockIDs)))
 
 	return nil
 }

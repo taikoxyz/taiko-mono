@@ -432,8 +432,7 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 		return err
 	}
 
-	// TODO
-	metrics.ProverSentProofCounter.Add(1)
+	metrics.ProverSentProofCounter.Add(float64(len(batchProof.BlockIDs)))
 	metrics.ProverLatestProvenBlockIDGauge.Set(float64(latestProvenBlockID.Uint64()))
 	s.proofBuffer.Clear()
 
