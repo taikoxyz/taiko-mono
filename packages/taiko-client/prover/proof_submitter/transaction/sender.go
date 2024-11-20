@@ -147,7 +147,7 @@ func (s *Sender) SendBatchProof(
 	}
 
 	log.Info(
-		"💰 Your block proof aggregation was accepted",
+		"🚚 Your batch proof was accepted",
 		"txHash", receipt.TxHash,
 		"tier", batchProof.Tier,
 		"blockIDs", batchProof.BlockIDs,
