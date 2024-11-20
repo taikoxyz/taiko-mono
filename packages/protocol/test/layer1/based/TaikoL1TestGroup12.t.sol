@@ -16,22 +16,34 @@ contract TestTaikoL1_Group12 is TestTaikoL1Base {
 
         bytes32 parentHash = GENESIS_BLOCK_HASH;
 
-        for (uint256 blockId = 1; blockId < getConfig().blockMaxProposals * 3; blockId++) {
+        uint256 blockMaxProposals = getConfig().blockMaxProposals;
+
+        for (uint256 blockId = 1; blockId < blockMaxProposals * 3; blockId++) {
             //printStateVariables("before propose");
+            string memory id =  Strings.toString(100000+blockId);
+            vm.startSnapshotGas("gasUsed_proposeBlock",id);
             TaikoData.BlockMetadataV2 memory meta = proposeBlock(Alice, "");
+            vm.stopSnapshotGas();
 
             //printStateVariables("after propose");
             mineOneBlockAndWrap(12 seconds);
 
             bytes32 blockHash = bytes32(1e10 + blockId);
             bytes32 stateRoot = bytes32(1e9 + blockId);
+            vm.startSnapshotGas("gasUsed_proveBlock",id);
             proveBlock(Alice, meta, parentHash, blockHash, stateRoot, meta.minTier, "");
+            vm.stopSnapshotGas();
+          
             vm.roll(block.number + 15 * 12);
 
             uint16 minTier = meta.minTier;
             vm.warp(block.timestamp + tierProvider.getTier(0, minTier).cooldownWindow * 60 + 1);
 
+            vm.startSnapshotGas("gasUsed_verifyBlocks",id);
             taikoL1.verifyBlocks(1);
+            vm.stopSnapshotGas();
+          
+
             parentHash = blockHash;
         }
         printStateVariables("");
