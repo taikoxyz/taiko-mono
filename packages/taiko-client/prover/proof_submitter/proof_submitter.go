@@ -406,7 +406,7 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 		// Validate TaikoL2.anchor transaction inside the L2 block.
 		anchorTx := block.Transactions()[0]
 		if err = s.anchorValidator.ValidateAnchorTx(anchorTx); err != nil {
-			log.Error("invalid anchor transaction", "error", err)
+			log.Error("Invalid anchor transaction", "error", err)
 			invalidProofs = append(invalidProofs, proof)
 		}
 		if proof.BlockID.Cmp(latestProvenBlockID) > 0 {
