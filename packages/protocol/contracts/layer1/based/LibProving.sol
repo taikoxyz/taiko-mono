@@ -114,39 +114,18 @@ library LibProving {
         require(_blockIds.length != 0, L1_INVALID_PARAMS());
         require(_blockIds.length == _inputs.length, L1_INVALID_PARAMS());
 
-        TaikoData.TierProof memory batchProof;
-        if (_batchProof.length != 0) {
-            batchProof = abi.decode(_batchProof, (TaikoData.TierProof));
-            require(batchProof.tier != 0, L1_INVALID_TIER());
-        }
+        TaikoData.TierProof memory batchProof = abi.decode(_batchProof, (TaikoData.TierProof));
+        require(batchProof.tier != 0, L1_INVALID_TIER());
 
         IVerifier.ContextV2[] memory ctxs = new IVerifier.ContextV2[](_blockIds.length);
-        bytes32 batchVerifierName;
-        bool batchVerifierNameSet;
 
         // This loop iterates over each block ID in the _blockIds array. For each block ID, it calls
         // the _proveBlock function to get the context and verifier.
         for (uint256 i; i < _blockIds.length; ++i) {
-            bytes32 _verifierName;
-            (ctxs[i], _verifierName) =
-                _proveBlock(_state, _config, _resolver, _blockIds[i], _inputs[i], batchProof);
+            ctxs[i] = _proveBlock(_state, _config, _resolver, _blockIds[i], _inputs[i], batchProof);
 
-            // Verify that if batchProof is used, the verifier is the same for all blocks.
-            if (batchProof.tier != 0) {
-                if (!batchVerifierNameSet) {
-                    batchVerifierNameSet = true;
-                    batchVerifierName = _verifierName;
-                } else {
-                    require(batchVerifierName == _verifierName, L1_DIFF_VERIFIER());
-                }
-            }
-        }
-
-        // If batch verifier name is not empty, verify the batch proof.
-        if (batchVerifierName != LibStrings.B_TIER_OPTIMISTIC) {
-            IVerifier(_resolver.resolve(block.chainid, batchVerifierName, false)).verifyBatchProof(
-                ctxs, batchProof
-            );
+            IVerifier(_resolver.resolve(block.chainid, LibStrings.B_PROOF_VERIFIER, false))
+                .verifyBatchProof(ctxs, batchProof);
         }
     }
 
@@ -161,7 +140,6 @@ library LibProving {
     /// @param _batchProof An abi-encoded TaikoData.TierProof that contains the batch/aggregated
     /// proof for the given blocks.
     /// @return ctx_ The context of the verifier.
-    /// @return verifierName_ The name of the verifier.
     function _proveBlock(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
@@ -171,7 +149,7 @@ library LibProving {
         TaikoData.TierProof memory _batchProof
     )
         private
-        returns (IVerifier.ContextV2 memory ctx_, bytes32 verifierName_)
+        returns (IVerifier.ContextV2 memory ctx_)
     {
         Local memory local;
         local.b = _state.slotB;
@@ -266,8 +244,6 @@ library LibProving {
                 blobUsed: local.meta.blobUsed,
                 tran: ctx_.tran
             });
-
-            verifierName_ = local.tier.verifierName;
 
             if (_batchProof.tier == 0) {
                 // In the case of per-transition proof, we verify the proof.
