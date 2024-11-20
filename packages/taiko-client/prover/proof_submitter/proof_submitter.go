@@ -292,13 +292,13 @@ func (s *ProofSubmitter) SubmitProof(
 	}
 
 	if block.Transactions().Len() == 0 {
-		return fmt.Errorf("invalid block without anchor transaction, blockID %s", proofWithHeader.BlockID)
+		return fmt.Errorf("Invalid block without anchor transaction, blockID %s", proofWithHeader.BlockID)
 	}
 
 	// Validate TaikoL2.anchor transaction inside the L2 block.
 	anchorTx := block.Transactions()[0]
 	if err = s.anchorValidator.ValidateAnchorTx(anchorTx); err != nil {
-		return fmt.Errorf("invalid anchor transaction: %w", err)
+		return fmt.Errorf("Invalid anchor transaction: %w", err)
 	}
 
 	// Build the TaikoL1.proveBlock transaction and send it to the L1 node.
