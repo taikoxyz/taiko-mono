@@ -137,7 +137,7 @@ func (s *Sender) SendBatchProof(
 
 	if receipt.Status != types.ReceiptStatusSuccessful {
 		log.Error(
-			"Failed to submit proof aggregation",
+			"Failed to submit batch proofs",
 			"txHash", receipt.TxHash,
 			"isPrivateMempool", isPrivate,
 			"error", encoding.TryParsingCustomErrorFromReceipt(ctx, s.rpc.L1, txMgr.From(), receipt),
