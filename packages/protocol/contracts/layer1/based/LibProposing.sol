@@ -174,7 +174,6 @@ library LibProposing {
             gasLimit: _config.blockMaxGasLimit,
             timestamp: local.params.timestamp,
             anchorBlockId: local.params.anchorBlockId,
-            minTier: 0, // to be initialized below
             blobUsed: _txList.length == 0,
             parentMetaHash: local.params.parentMetaHash,
             proposer: local.params.proposer,
@@ -200,10 +199,6 @@ library LibProposing {
         local.tierProvider =
             ITierProvider(_resolver.resolve(block.chainid, LibStrings.B_TIER_PROVIDER, false));
 
-        // Use the difficulty as a random number
-        meta_.minTier = local.tierProvider.getMinTier(
-            slotB.numBlocks, meta_.proposer, uint256(meta_.difficulty)
-        );
 
         // Use a storage pointer for the block in the ring buffer
         TaikoData.BlockV2 storage blk = _state.blocks[slotB.numBlocks % _config.blockRingBufferSize];

@@ -17,7 +17,6 @@ library LibProving {
     struct Local {
         TaikoData.SlotB b;
         ITierProvider.Tier tier;
-        ITierProvider.Tier minTier;
         TaikoData.BlockMetadataV2 meta;
         TaikoData.TierProof proof;
         bytes32 metaHash;
@@ -242,7 +241,6 @@ library LibProving {
         // The new proof must meet or exceed the minimum tier required by the block or the previous
         // proof; it cannot be on a lower tier.
         require(local.proof.tier != 0, L1_INVALID_TIER());
-        require(local.proof.tier >= local.meta.minTier, L1_INVALID_TIER());
         require(local.proof.tier >= ts.tier, L1_INVALID_TIER());
 
         // Retrieve the tier configurations. If the tier is not supported, the subsequent action
@@ -252,14 +250,13 @@ library LibProving {
                 ITierProvider(_resolver.resolve(block.chainid, LibStrings.B_TIER_PROVIDER, false));
 
             local.tier = tierProvider.getTier(local.blockId, local.proof.tier);
-            local.minTier = tierProvider.getTier(local.blockId, local.meta.minTier);
             local.isTopTier = local.tier.contestBond == 0;
         }
 
         local.inProvingWindow = !LibUtils.isPostDeadline({
             _tsTimestamp: ts.timestamp,
             _lastUnpausedAt: local.b.lastUnpausedAt,
-            _windowMinutes: local.minTier.provingWindow
+            _windowMinutes: _config.provingWindow
         });
 
         // Checks if only the assigned prover is permissioned to prove the block. The assigned

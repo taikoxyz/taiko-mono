@@ -21,6 +21,8 @@ library TaikoData {
         uint32 blockMaxGasLimit;
         /// @notice The amount of Taiko token as a prover liveness bond.
         uint96 livenessBond;
+        /// @notice The time window in which a proof must be provided
+        uint16 provingWindow;
         /// @notice The number of L2 blocks between each L2-to-L1 state root sync.
         uint8 stateRootSyncInternal;
         /// @notice The max differences of the anchor height and the current block number.
@@ -98,7 +100,6 @@ library TaikoData {
         uint32 gasLimit;
         uint64 timestamp;
         uint64 anchorBlockId; // `_l1BlockId` in TaikoL2's anchor tx.
-        uint16 minTier;
         bool blobUsed;
         bytes32 parentMetaHash;
         address proposer;
