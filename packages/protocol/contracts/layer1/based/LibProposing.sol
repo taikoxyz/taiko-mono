@@ -18,7 +18,6 @@ library LibProposing {
 
     struct Local {
         TaikoData.BlockParamsV2 params;
-        ITierProvider tierProvider;
         bytes32 parentMetaHash;
         bool allowCustomProposer;
     }
@@ -195,10 +194,6 @@ library LibProposing {
             meta_.blobHash = keccak256(_txList);
             emit CalldataTxList(meta_.id, _txList);
         }
-
-        local.tierProvider =
-            ITierProvider(_resolver.resolve(block.chainid, LibStrings.B_TIER_PROVIDER, false));
-
 
         // Use a storage pointer for the block in the ring buffer
         TaikoData.BlockV2 storage blk = _state.blocks[slotB.numBlocks % _config.blockRingBufferSize];
