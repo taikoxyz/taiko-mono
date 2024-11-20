@@ -206,24 +206,21 @@ library LibProposing {
         );
 
         // Use a storage pointer for the block in the ring buffer
+        TaikoData.BlockV2 storage blk = _state.blocks[slotB.numBlocks % _config.blockRingBufferSize];
 
-        TaikoData.BlockV2 memory blk = TaikoData.BlockV2({
-            metaHash: keccak256(abi.encode(meta_)),
-            assignedProver: address(0),
-            livenessBond: 0,
-            blockId: slotB.numBlocks,
-            proposedAt: local.params.timestamp, // = params.timestamp post Ontake
-            proposedIn: local.params.anchorBlockId, // = params.anchorBlockId post Ontake
-            nextTransitionId: 1, // For a new block, the next transition ID is always 1, not 0.
-            livenessBondReturned: false,
-            // For unverified block, its verifiedTransitionId is always 0.
-            verifiedTransitionId: 0
-        });
+        // Store each field of the block separately
+        // SSTORE #1 {{
+        blk.metaHash = keccak256(abi.encode(meta_));
+        // SSTORE #1 }}
 
-        // Store the block in the ring buffer
-        // SSTORE #1 and #2 {{
-        _state.blocks[slotB.numBlocks % _config.blockRingBufferSize] = blk;
-        // SSTORE #1 and #2 }}
+        // SSTORE #2 {{
+        blk.blockId = slotB.numBlocks;
+        blk.proposedAt = local.params.timestamp;
+        blk.proposedIn = local.params.anchorBlockId;
+        blk.nextTransitionId = 1;
+        blk.livenessBondReturned = false;
+        blk.verifiedTransitionId = 0;
+        // SSTORE #2 }}
 
         unchecked {
             // Increment the counter (cursor) by 1.
@@ -280,7 +277,7 @@ library LibProposing {
         }
 
         // Verify params against the parent block.
-        TaikoData.BlockV2 memory parentBlk;
+        TaikoData.BlockV2 storage parentBlk;
         unchecked {
             parentBlk = _state.blocks[(_slotB.numBlocks - 1) % _config.blockRingBufferSize];
         }
