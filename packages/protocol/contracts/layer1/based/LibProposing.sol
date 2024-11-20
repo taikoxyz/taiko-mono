@@ -168,7 +168,7 @@ library LibProposing {
             // metadata. Metadata might be unavailable until the block is proposed on-chain. In
             // preconfirmation scenarios, multiple blocks may be built but not yet proposed, making
             // metadata unavailable.
-            extraData: _encodeBaseFeeConfig(_config.baseFeeConfig),
+            extraData: _encodeBaseFeeConfig(_config.baseFeeConfig), // TODO(daniel):remove outside and compute only once.
             coinbase: local.params.coinbase,
             id: slotB.numBlocks,
             gasLimit: _config.blockMaxGasLimit,
@@ -228,7 +228,7 @@ library LibProposing {
             slotB.lastProposedIn = uint56(block.number);
 
             // SSTORE #3 {{
-            _state.slotB = slotB;
+            _state.slotB = slotB; // TODO(daniel): save this only once.
             // SSTORE #3 }}
         }
 
