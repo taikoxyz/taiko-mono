@@ -398,7 +398,7 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 		}
 
 		if block.Transactions().Len() == 0 {
-			log.Error("invalid block without anchor transaction, blockID", "blockId", proof.BlockID)
+			log.Error("Invalid block without anchor transaction, blockID", "blockId", proof.BlockID)
 			invalidProofs = append(invalidProofs, proof)
 			continue
 		}
