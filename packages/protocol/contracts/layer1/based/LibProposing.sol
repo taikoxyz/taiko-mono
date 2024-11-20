@@ -277,7 +277,7 @@ library LibProposing {
         }
 
         // Verify params against the parent block.
-        TaikoData.BlockV2 storage parentBlk;
+        TaikoData.BlockV2 memory parentBlk;
         unchecked {
             parentBlk = _state.blocks[(_slotB.numBlocks - 1) % _config.blockRingBufferSize];
         }
@@ -306,8 +306,9 @@ library LibProposing {
 
         // Check if parent block has the right meta hash. This is to allow the proposer to make sure
         // the block builds on the expected latest chain state.
+        bytes32 a =  parentBlk.metaHash;
         require(
-            _local.params.parentMetaHash == 0 || _local.params.parentMetaHash == parentBlk.metaHash,
+            _local.params.parentMetaHash == 0 || _local.params.parentMetaHash == a,
             L1_UNEXPECTED_PARENT()
         );
     }
