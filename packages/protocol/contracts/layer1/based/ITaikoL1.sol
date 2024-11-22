@@ -6,17 +6,6 @@ import "./TaikoData.sol";
 /// @title ITaikoL1
 /// @custom:security-contact security@taiko.xyz
 interface ITaikoL1 {
-    /// @notice Proposes a Taiko L2 block (version 2)
-    /// @param _params Block parameters, an encoded BlockParamsV2 object.
-    /// @param _txList txList data if calldata is used for DA.
-    /// @return meta_ The metadata of the proposed L2 block.
-    function proposeBlockV2(
-        bytes calldata _params,
-        bytes calldata _txList
-    )
-        external
-        returns (TaikoData.BlockMetadataV2 memory meta_);
-
     /// @notice Proposes multiple Taiko L2 blocks (version 2)
     /// @param _paramsArr A list of encoded BlockParamsV2 objects.
     /// @param _txListArr A list of txList.
@@ -27,13 +16,6 @@ interface ITaikoL1 {
     )
         external
         returns (TaikoData.BlockMetadataV2[] memory metaArr_);
-
-    /// @notice Proves or contests a block transition.
-    /// @param _blockId Index of the block to prove. This is also used to select the right
-    /// implementation version.
-    /// @param _input ABI-encoded (TaikoData.BlockMetadata, TaikoData.Transition,
-    /// TaikoData.TierProof) tuple.
-    function proveBlock(uint64 _blockId, bytes calldata _input) external;
 
     /// @notice Proves or contests multiple block transitions (version 2)
     /// @param _blockIds The indices of the blocks to prove.
@@ -47,10 +29,6 @@ interface ITaikoL1 {
         bytes calldata _batchProof
     )
         external;
-
-    /// @notice Verifies up to a specified number of blocks.
-    /// @param _maxBlocksToVerify Maximum number of blocks to verify.
-    function verifyBlocks(uint64 _maxBlocksToVerify) external;
 
     /// @notice Pauses or unpauses block proving.
     /// @param _pause True to pause, false to unpause.

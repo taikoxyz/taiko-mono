@@ -85,22 +85,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     }
 
     /// @inheritdoc ITaikoL1
-    function proposeBlockV2(
-        bytes calldata _params,
-        bytes calldata _txList
-    )
-        external
-        measureGasUsed(true, 1)
-        whenNotPaused
-        nonReentrant
-        emitEventForClient
-        returns (TaikoData.BlockMetadataV2 memory meta_)
-    {
-        TaikoData.Config memory config = getConfig();
-        return LibProposing.proposeBlock(state, config, resolver(), _params, _txList);
-    }
-
-    /// @inheritdoc ITaikoL1
     function proposeBlocksV2(
         bytes[] calldata _paramsArr,
         bytes[] calldata _txListArr
@@ -117,21 +101,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     }
 
     /// @inheritdoc ITaikoL1
-    function proveBlock(
-        uint64 _blockId,
-        bytes calldata _input
-    )
-        external
-        measureGasUsed(false, 1)
-        whenNotPaused
-        whenProvingNotPaused
-        nonReentrant
-        emitEventForClient
-    {
-        LibProving.proveBlock(state, getConfig(), resolver(), _blockId, _input);
-    }
-
-    /// @inheritdoc ITaikoL1
     function proveBlocks(
         uint64[] calldata _blockIds,
         bytes[] calldata _inputs,
@@ -145,17 +114,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         emitEventForClient
     {
         LibProving.proveBlocks(state, getConfig(), resolver(), _blockIds, _inputs, _batchProof);
-    }
-
-    /// @inheritdoc ITaikoL1
-    function verifyBlocks(uint64 _maxBlocksToVerify)
-        external
-        whenNotPaused
-        whenProvingNotPaused
-        nonReentrant
-        emitEventForClient
-    {
-        LibVerifying.verifyBlocks(state, getConfig(), resolver(), _maxBlocksToVerify);
     }
 
     /// @inheritdoc ITaikoL1
