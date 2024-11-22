@@ -89,33 +89,6 @@ library LibProposing {
     /// @param _params Encoded data bytes containing the block parameters.
     /// @param _txList Transaction list bytes (if not blob).
     /// @return meta_ The metadata of the proposed block (version 2).
-    function proposeBlock(
-        TaikoData.State storage _state,
-        TaikoData.Config memory _config,
-        IResolver _resolver,
-        bytes calldata _params,
-        bytes calldata _txList
-    )
-        internal
-        returns (TaikoData.BlockMetadataV2 memory meta_)
-    {
-        TaikoData.SlotB memory slotB;
-        (meta_, slotB) = _proposeBlock(_state, _config, _resolver, _params, _txList);
-
-        if (!slotB.provingPaused) {
-            if (LibUtils.shouldVerifyBlocks(_config, meta_.id, false)) {
-                LibVerifying.verifyBlocks(_state, _config, _resolver, _config.maxBlocksToVerify);
-            }
-        }
-    }
-
-    /// @dev Proposes a single Taiko L2 block.
-    /// @param _state Pointer to the protocol's storage.
-    /// @param _config The configuration parameters for the Taiko protocol.
-    /// @param _resolver The address resolver.
-    /// @param _params Encoded data bytes containing the block parameters.
-    /// @param _txList Transaction list bytes (if not blob).
-    /// @return meta_ The metadata of the proposed block (version 2).
     function _proposeBlock(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
