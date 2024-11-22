@@ -95,7 +95,7 @@ contract ProverSet is EssentialContract, IERC1271 {
     }
 
     /// @notice Proposes a block only when it is the first block proposal in the current L1 block.
-    function proposeBlocksV2Conditionally(
+    function proposeBlocksConditionally(
         bytes[] calldata _paramsArr,
         bytes[] calldata _txListArr
     )
@@ -105,18 +105,18 @@ contract ProverSet is EssentialContract, IERC1271 {
         ITaikoL1 taiko = ITaikoL1(taikoL1());
         // Ensure this block is the first block proposed in the current L1 block.
         require(taiko.lastProposedIn() != block.number, NOT_FIRST_PROPOSAL());
-        taiko.proposeBlocksV2(_paramsArr, _txListArr);
+        taiko.proposeBlocks(_paramsArr, _txListArr);
     }
 
     /// @notice Propose multiple Taiko blocks.
-    function proposeBlocksV2(
+    function proposeBlocks(
         bytes[] calldata _paramsArr,
         bytes[] calldata _txListArr
     )
         external
         onlyProver
     {
-        ITaikoL1(taikoL1()).proposeBlocksV2(_paramsArr, _txListArr);
+        ITaikoL1(taikoL1()).proposeBlocks(_paramsArr, _txListArr);
     }
 
     /// @notice Batch proves or contests Taiko blocks.

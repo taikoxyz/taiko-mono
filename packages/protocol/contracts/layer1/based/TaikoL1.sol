@@ -85,7 +85,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     }
 
     /// @inheritdoc ITaikoL1
-    function proposeBlocksV2(
+    function proposeBlocks(
         bytes[] calldata _paramsArr,
         bytes[] calldata _txListArr
     )

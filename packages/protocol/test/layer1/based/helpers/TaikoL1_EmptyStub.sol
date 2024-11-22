@@ -15,7 +15,7 @@ contract TaikoL1_EmptyStub is ITaikoL1 {
         returns (TaikoData.BlockMetadataV2 memory meta_)
     { }
 
-    function proposeBlocksV2(
+    function proposeBlocks(
         bytes[] calldata _paramsArr,
         bytes[] calldata _txListArr
     )
