@@ -168,7 +168,8 @@ library LibProposing {
             // metadata. Metadata might be unavailable until the block is proposed on-chain. In
             // preconfirmation scenarios, multiple blocks may be built but not yet proposed, making
             // metadata unavailable.
-            extraData: _encodeBaseFeeConfig(_config.baseFeeConfig), // TODO(daniel):remove outside and compute only once.
+            extraData: _encodeBaseFeeConfig(_config.baseFeeConfig), // TODO(daniel):remove outside
+                // and compute only once.
             coinbase: local.params.coinbase,
             id: slotB.numBlocks,
             gasLimit: _config.blockMaxGasLimit,
@@ -215,8 +216,8 @@ library LibProposing {
 
         // SSTORE #2 {{
         blk.blockId = slotB.numBlocks;
-        blk.proposedAt = local.params.timestamp;
-        blk.proposedIn = local.params.anchorBlockId;
+        blk.timestamp = local.params.timestamp;
+        blk.anchorBlockId = local.params.anchorBlockId;
         blk.nextTransitionId = 1;
         blk.livenessBondReturned = false;
         blk.verifiedTransitionId = 0;
@@ -229,7 +230,7 @@ library LibProposing {
 
             // SSTORE #3 {{
             _state.slotB = slotB; // TODO(daniel): save this only once.
-            // SSTORE #3 }}
+                // SSTORE #3 }}
         }
 
         // SSTORE #4 {{
@@ -290,7 +291,7 @@ library LibProposing {
         require(_local.params.anchorBlockId < block.number, L1_INVALID_ANCHOR_BLOCK());
 
         // parentBlk.proposedIn is actually parent's params.anchorBlockId
-        require(_local.params.anchorBlockId >= parentBlk.proposedIn, L1_INVALID_ANCHOR_BLOCK());
+        require(_local.params.anchorBlockId >= parentBlk.anchorBlockId, L1_INVALID_ANCHOR_BLOCK());
 
         // Verify the provided timestamp to anchor. Note that local.params.anchorBlockId and
         // local.params.timestamp may not correspond to the same L1 block.
@@ -302,7 +303,7 @@ library LibProposing {
         require(_local.params.timestamp <= block.timestamp, L1_INVALID_TIMESTAMP());
 
         // parentBlk.proposedAt is actually parent's params.timestamp
-        require(_local.params.timestamp >= parentBlk.proposedAt, L1_INVALID_TIMESTAMP());
+        require(_local.params.timestamp >= parentBlk.timestamp, L1_INVALID_TIMESTAMP());
 
         // Check if parent block has the right meta hash. This is to allow the proposer to make sure
         // the block builds on the expected latest chain state.

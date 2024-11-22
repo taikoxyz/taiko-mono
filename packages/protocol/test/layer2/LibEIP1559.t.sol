@@ -120,7 +120,8 @@ contract TestLibEIP1559 is Layer2Test {
         uint64 _newGasTarget,
         uint64 _oldGasExcess
     )
-        external pure
+        external
+        pure
     {
         (uint64 newGasTarget_, uint64 newGasExcess_) =
             LibEIP1559.adjustExcess(_oldGasTarget, _newGasTarget, _oldGasExcess);

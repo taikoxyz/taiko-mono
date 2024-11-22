@@ -13,8 +13,8 @@ contract GasComparision is Layer1Test {
                 blockId: 1,
                 assignedProver: address(0),
                 livenessBond: 0,
-                proposedAt: 1,
-                proposedIn: 1,
+                timestamp: 1,
+                anchorBlockId: 1,
                 nextTransitionId: 1,
                 livenessBondReturned: true,
                 verifiedTransitionId: 1
@@ -32,8 +32,8 @@ contract GasComparision is Layer1Test {
                 blockId: 2,
                 assignedProver: address(0),
                 livenessBond: 0,
-                proposedAt: 2,
-                proposedIn: 2,
+                timestamp: 2,
+                anchorBlockId: 2,
                 nextTransitionId: 2,
                 livenessBondReturned: true,
                 verifiedTransitionId: 2
@@ -49,8 +49,8 @@ contract GasComparision is Layer1Test {
                 blockId: 2,
                 assignedProver: address(0),
                 livenessBond: 0,
-                proposedAt: 3,
-                proposedIn: 3,
+                timestamp: 3,
+                anchorBlockId: 3,
                 nextTransitionId: 3,
                 livenessBondReturned: true,
                 verifiedTransitionId: 3
@@ -69,8 +69,8 @@ contract GasComparision is Layer1Test {
     function saveBlockAsFields(TaikoData.BlockV2 memory _blk) internal {
         blk.metaHash = _blk.metaHash;
         blk.blockId = _blk.blockId;
-        blk.proposedAt = _blk.proposedAt;
-        blk.proposedIn = _blk.proposedIn;
+        blk.timestamp = _blk.timestamp;
+        blk.anchorBlockId = _blk.anchorBlockId;
         blk.nextTransitionId = _blk.nextTransitionId;
         blk.livenessBondReturned = _blk.livenessBondReturned;
         blk.verifiedTransitionId = _blk.verifiedTransitionId;
@@ -83,8 +83,8 @@ contract GasComparision is Layer1Test {
                 blockId: 1,
                 assignedProver: address(0),
                 livenessBond: 0,
-                proposedAt: 1,
-                proposedIn: 1,
+                timestamp: 1,
+                anchorBlockId: 1,
                 nextTransitionId: 1,
                 livenessBondReturned: true,
                 verifiedTransitionId: 1
@@ -109,6 +109,6 @@ contract GasComparision is Layer1Test {
     }
 
     function readBlockAsFields() internal view returns (uint256, uint256, bytes32) {
-        return (blk.proposedIn, blk.proposedAt, blk.metaHash);
+        return (blk.anchorBlockId, blk.timestamp, blk.metaHash);
     }
 }
