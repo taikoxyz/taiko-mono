@@ -512,22 +512,29 @@
 | __gap            | uint256[50]            | 301  | 0      | 1600  | TaikoL1 |
 
 ## TaikoInbox
-| Name             | Type                   | Slot | Offset | Bytes | Contract                                         |
-|------------------|------------------------|------|--------|-------|--------------------------------------------------|
-| _initialized     | uint8                  | 0    | 0      | 1     | TaikoInbox |
-| _initializing    | bool                   | 0    | 1      | 1     | TaikoInbox |
-| __gap            | uint256[50]            | 1    | 0      | 1600  | TaikoInbox |
-| _owner           | address                | 51   | 0      | 20    | TaikoInbox |
-| __gap            | uint256[49]            | 52   | 0      | 1568  | TaikoInbox |
-| _pendingOwner    | address                | 101  | 0      | 20    | TaikoInbox |
-| __gap            | uint256[49]            | 102  | 0      | 1568  | TaikoInbox |
-| addressManager   | address                | 151  | 0      | 20    | TaikoInbox |
-| __gap            | uint256[49]            | 152  | 0      | 1568  | TaikoInbox |
-| __reentry        | uint8                  | 201  | 0      | 1     | TaikoInbox |
-| __paused         | uint8                  | 201  | 1      | 1     | TaikoInbox |
-| __lastUnpausedAt | uint64                 | 201  | 2      | 8     | TaikoInbox |
-| __gap            | uint256[49]            | 202  | 0      | 1568  | TaikoInbox |
-| state            | struct TaikoData.State | 251  | 0      | 1600  | TaikoInbox |
+| Name             | Type                                                                   | Slot | Offset | Bytes | Contract                                         |
+|------------------|------------------------------------------------------------------------|------|--------|-------|--------------------------------------------------|
+| _initialized     | uint8                                                                  | 0    | 0      | 1     | TaikoInbox |
+| _initializing    | bool                                                                   | 0    | 1      | 1     | TaikoInbox |
+| __gap            | uint256[50]                                                            | 1    | 0      | 1600  | TaikoInbox |
+| _owner           | address                                                                | 51   | 0      | 20    | TaikoInbox |
+| __gap            | uint256[49]                                                            | 52   | 0      | 1568  | TaikoInbox |
+| _pendingOwner    | address                                                                | 101  | 0      | 20    | TaikoInbox |
+| __gap            | uint256[49]                                                            | 102  | 0      | 1568  | TaikoInbox |
+| addressManager   | address                                                                | 151  | 0      | 20    | TaikoInbox |
+| __gap            | uint256[49]                                                            | 152  | 0      | 1568  | TaikoInbox |
+| __reentry        | uint8                                                                  | 201  | 0      | 1     | TaikoInbox |
+| __paused         | uint8                                                                  | 201  | 1      | 1     | TaikoInbox |
+| __lastUnpausedAt | uint64                                                                 | 201  | 2      | 8     | TaikoInbox |
+| __gap            | uint256[49]                                                            | 202  | 0      | 1568  | TaikoInbox |
+| blocks           | mapping(uint64 => struct TaikoData.BlockV2)                            | 251  | 0      | 32    | TaikoInbox |
+| transitionIds    | mapping(uint64 => mapping(bytes32 => uint24))                          | 252  | 0      | 32    | TaikoInbox |
+| transitions      | mapping(uint64 => mapping(uint24 => struct TaikoData.TransitionState)) | 253  | 0      | 32    | TaikoInbox |
+| __reserve1       | bytes32                                                                | 254  | 0      | 32    | TaikoInbox |
+| slotA            | struct TaikoData.SlotA                                                 | 255  | 0      | 32    | TaikoInbox |
+| slotB            | struct TaikoData.SlotB                                                 | 256  | 0      | 32    | TaikoInbox |
+| bondBalance      | mapping(address => uint256)                                            | 257  | 0      | 32    | TaikoInbox |
+| __gap            | uint256[43]                                                            | 258  | 0      | 1376  | TaikoInbox |
 
 ## HeklaTaikoL1
 | Name             | Type                   | Slot | Offset | Bytes | Contract                                             |
