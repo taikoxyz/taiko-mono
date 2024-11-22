@@ -32,11 +32,6 @@ library LibProposing {
     /// @param meta The metadata of the proposed block.
     event BlockProposedV2(uint256 indexed blockId, TaikoData.BlockMetadataV2 meta);
 
-    /// @dev Emitted when a block's txList is in the calldata.
-    /// @param blockId The ID of the proposed block.
-    /// @param txList The txList.
-    event CalldataTxList(uint256 indexed blockId, bytes txList);
-
     error L1_BLOB_NOT_AVAILABLE();
     error L1_BLOB_NOT_FOUND();
     error L1_FORK_HEIGHT_ERROR();
@@ -53,53 +48,46 @@ library LibProposing {
     /// @param _config The configuration parameters for the Taiko protocol.
     /// @param _resolver The address resolver.
     /// @param _paramsArr An array of encoded data bytes containing the block parameters.
-    /// @param _txListArr An array of transaction list bytes (if not blob).
     /// @return metas_ An array of metadata objects for the proposed L2 blocks (version 2).
     function proposeBlocks(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
         IResolver _resolver,
-        bytes[] calldata _paramsArr,
-        bytes[] calldata _txListArr
+        bytes[] calldata _paramsArr
     )
         internal
         returns (TaikoData.BlockMetadataV2[] memory metas_)
     {
-        if (_paramsArr.length == 0 || _paramsArr.length != _txListArr.length) {
-            revert L1_INVALID_PARAMS();
-        }
-
         Local memory local;
-        local.preconfTaskManager =
-            _resolver.resolve(block.chainid, LibStrings.B_PRECONF_TASK_MANAGER, true);
-
-        if (local.preconfTaskManager != address(0)) {
-            require(local.preconfTaskManager == msg.sender, L1_INVALID_PROPOSER());
-            local.allowCustomProposer = true;
-        }
-
-        metas_ = new TaikoData.BlockMetadataV2[](_paramsArr.length);
         local.slotB = _state.slotB;
 
-        require(local.slotB.numBlocks >= _config.ontakeForkHeight, L1_FORK_HEIGHT_ERROR());
-
         unchecked {
+            local.preconfTaskManager =
+                _resolver.resolve(block.chainid, LibStrings.B_PRECONF_TASK_MANAGER, true);
+
+            if (local.preconfTaskManager != address(0)) {
+                require(local.preconfTaskManager == msg.sender, L1_INVALID_PROPOSER());
+                local.allowCustomProposer = true;
+            }
+
+            require(local.slotB.numBlocks >= _config.ontakeForkHeight, L1_FORK_HEIGHT_ERROR());
+
             require(
                 local.slotB.numBlocks + _paramsArr.length
                     <= local.slotB.lastVerifiedBlockId + _config.blockMaxProposals,
                 L1_TOO_MANY_BLOCKS()
             );
+
+            // Verify params against the parent block.
+            TaikoData.BlockV2 storage parentBlk =
+                _state.blocks[(local.slotB.numBlocks - 1) % _config.blockRingBufferSize];
+
+            local.parentTimestamp = parentBlk.timestamp;
+            local.parentAnchorBlockId = parentBlk.anchorBlockId;
+            local.parentMetaHash = parentBlk.metaHash;
         }
 
-        // Verify params against the parent block.
-        TaikoData.BlockV2 storage parentBlk;
-        unchecked {
-            parentBlk = _state.blocks[(local.slotB.numBlocks - 1) % _config.blockRingBufferSize];
-        }
-        local.parentTimestamp = parentBlk.timestamp;
-        local.parentAnchorBlockId = parentBlk.anchorBlockId;
-        local.parentMetaHash = parentBlk.metaHash;
-
+        metas_ = new TaikoData.BlockMetadataV2[](_paramsArr.length);
         for (uint256 i; i < _paramsArr.length; ++i) {
             if (_paramsArr[i].length != 0) {
                 local.params = abi.decode(_paramsArr[i], (TaikoData.BlockParamsV2));
@@ -115,51 +103,43 @@ library LibProposing {
                     );
                 }
 
-                if (local.params.coinbase == address(0)) {
-                    local.params.coinbase = local.params.proposer;
-                }
-
                 if (local.params.anchorBlockId == 0) {
                     local.params.anchorBlockId = uint64(block.number - 1);
+                } else {
+                    require(
+                        local.params.anchorBlockId + _config.maxAnchorHeightOffset >= block.number
+                            && local.params.anchorBlockId < block.number
+                            && local.params.anchorBlockId >= local.parentAnchorBlockId,
+                        L1_INVALID_ANCHOR_BLOCK()
+                    );
                 }
 
                 if (local.params.timestamp == 0) {
                     local.params.timestamp = uint64(block.timestamp);
+                } else {
+                    // Verify the provided timestamp to anchor. Note that local.params.anchorBlockId
+                    // and
+                    // local.params.timestamp may not correspond to the same L1 block.
+                    require(
+                        local.params.timestamp + _config.maxAnchorHeightOffset * SECONDS_PER_BLOCK
+                            >= block.timestamp && local.params.timestamp <= block.timestamp
+                            && local.params.timestamp >= local.parentTimestamp,
+                        L1_INVALID_TIMESTAMP()
+                    );
+                }
+
+                // Check if parent block has the right meta hash. This is to allow the proposer to
+                // make sure the block builds on the expected latest chain state.
+                require(
+                    local.params.parentMetaHash == 0
+                        || local.params.parentMetaHash == local.parentMetaHash,
+                    L1_UNEXPECTED_PARENT()
+                );
+
+                if (local.params.coinbase == address(0)) {
+                    local.params.coinbase = local.params.proposer;
                 }
             }
-
-            // Verify the passed in L1 state block number to anchor.
-            require(
-                local.params.anchorBlockId + _config.maxAnchorHeightOffset >= block.number,
-                L1_INVALID_ANCHOR_BLOCK()
-            );
-            require(local.params.anchorBlockId < block.number, L1_INVALID_ANCHOR_BLOCK());
-
-            // parentBlk.proposedIn is actually parent's params.anchorBlockId
-            require(
-                local.params.anchorBlockId >= local.parentAnchorBlockId, L1_INVALID_ANCHOR_BLOCK()
-            );
-
-            // Verify the provided timestamp to anchor. Note that local.params.anchorBlockId and
-            // local.params.timestamp may not correspond to the same L1 block.
-            require(
-                local.params.timestamp + _config.maxAnchorHeightOffset * SECONDS_PER_BLOCK
-                    >= block.timestamp,
-                L1_INVALID_TIMESTAMP()
-            );
-            require(local.params.timestamp <= block.timestamp, L1_INVALID_TIMESTAMP());
-
-            // parentBlk.proposedAt is actually parent's params.timestamp
-            require(local.params.timestamp >= local.parentTimestamp, L1_INVALID_TIMESTAMP());
-
-            // Check if parent block has the right meta hash. This is to allow the proposer to make
-            // sure
-            // the block builds on the expected latest chain state.
-            require(
-                local.params.parentMetaHash == 0
-                    || local.params.parentMetaHash == local.parentMetaHash,
-                L1_UNEXPECTED_PARENT()
-            );
 
             // Initialize metadata to compute a metaHash, which forms a part of the block data to be
             // stored on-chain for future integrity checks. If we choose to persist all data fields
@@ -182,8 +162,6 @@ library LibProposing {
                 gasLimit: _config.blockMaxGasLimit,
                 timestamp: local.params.timestamp,
                 anchorBlockId: local.params.anchorBlockId,
-                minTier: 0, // to be initialized below
-                blobUsed: _txListArr[i].length == 0,
                 parentMetaHash: local.params.parentMetaHash,
                 proposer: local.params.proposer,
                 livenessBond: _config.livenessBond,
@@ -196,22 +174,12 @@ library LibProposing {
             });
 
             // Update certain meta fields
-            if (metas_[i].blobUsed) {
-                require(LibNetwork.isDencunSupported(block.chainid), L1_BLOB_NOT_AVAILABLE());
-                metas_[i].blobHash = blobhash(local.params.blobIndex);
-                require(metas_[i].blobHash != 0, L1_BLOB_NOT_FOUND());
-            } else {
-                metas_[i].blobHash = keccak256(_txListArr[i]);
-                emit CalldataTxList(metas_[i].id, _txListArr[i]);
-            }
+            require(LibNetwork.isDencunSupported(block.chainid), L1_BLOB_NOT_AVAILABLE());
+            metas_[i].blobHash = blobhash(local.params.blobIndex);
+            require(metas_[i].blobHash != 0, L1_BLOB_NOT_FOUND());
 
             local.tierProvider =
                 ITierProvider(_resolver.resolve(block.chainid, LibStrings.B_TIER_PROVIDER, false));
-
-            // Use the difficulty as a random number
-            metas_[i].minTier = local.tierProvider.getMinTier(
-                local.slotB.numBlocks, metas_[i].proposer, uint256(metas_[i].difficulty)
-            );
 
             local.parentTimestamp = local.params.timestamp;
             local.parentAnchorBlockId = local.params.anchorBlockId;

@@ -79,7 +79,6 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
      * In this case, `forcePushLookahead` must be called in order to update the lookahead for the
      * next epoch.
      * @param blockParamsArr A list of block parameters expected by TaikoL1 contract
-     * @param txListArr A list of RLP encoded transaction list expected by TaikoL1 contract
      * @param lookaheadPointer A pointer to the lookahead entry that may prove that the sender is
      * the preconfer
      * for the slot.
@@ -88,7 +87,6 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
      */
     function newBlockProposals(
         bytes[] calldata blockParamsArr,
-        bytes[] calldata txListArr,
         uint256 lookaheadPointer,
         LookaheadSetParam[] calldata lookaheadSetParams
     )
@@ -126,7 +124,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         );
 
         // Forward the block to Taiko's L1 contract
-        taikoL1.proposeBlocks(blockParamsArr, txListArr);
+        taikoL1.proposeBlocks(blockParamsArr);
     }
 
     /**

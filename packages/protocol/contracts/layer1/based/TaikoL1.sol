@@ -85,10 +85,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     }
 
     /// @inheritdoc ITaikoL1
-    function proposeBlocks(
-        bytes[] calldata _paramsArr,
-        bytes[] calldata _txListArr
-    )
+    function proposeBlocks(bytes[] calldata _paramsArr)
         external
         measureGasUsed(true, _paramsArr.length)
         whenNotPaused
@@ -97,7 +94,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         returns (TaikoData.BlockMetadataV2[] memory metaArr_)
     {
         TaikoData.Config memory config = getConfig();
-        return LibProposing.proposeBlocks(state, config, resolver(), _paramsArr, _txListArr);
+        return LibProposing.proposeBlocks(state, config, resolver(), _paramsArr);
     }
 
     /// @inheritdoc ITaikoL1

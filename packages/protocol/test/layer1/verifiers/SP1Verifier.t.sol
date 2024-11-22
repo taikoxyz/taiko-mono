@@ -84,7 +84,6 @@ contract TestSP1Verifier is Layer1Test {
             msgSender: 0x70997970C51812dc3A010C7d01b50e0d17dc79C8,
             blockId: 393_333,
             isContesting: false,
-            blobUsed: true,
             tran: TaikoData.Transition({
                 parentHash: 0xce519622a374dc014c005d7857de26d952751a9067d3e23ffe14da247aa8a399,
                 blockHash: 0x941d557653da2214cbf3d30af8d9cadbc7b5f77b6c3e48bca548eba04eb9cd79,
@@ -99,7 +98,6 @@ contract TestSP1Verifier is Layer1Test {
             msgSender: 0x70997970C51812dc3A010C7d01b50e0d17dc79C8,
             blockId: 393_334,
             isContesting: false,
-            blobUsed: true,
             tran: TaikoData.Transition({
                 parentHash: 0x941d557653da2214cbf3d30af8d9cadbc7b5f77b6c3e48bca548eba04eb9cd79,
                 blockHash: 0xc0dad38646ab264be30995b7b7fd02db65e7115126fb52bfad94c0fc9572287c,

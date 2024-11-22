@@ -61,7 +61,6 @@ interface IPreconfTaskManager {
     /// @dev Accepts block proposal by an operator and forwards it to TaikoL1 contract
     function newBlockProposals(
         bytes[] calldata blockParamsArr,
-        bytes[] calldata txListArr,
         uint256 lookaheadPointer,
         LookaheadSetParam[] calldata lookaheadSetParams
     )

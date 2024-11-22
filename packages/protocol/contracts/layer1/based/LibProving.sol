@@ -221,7 +221,6 @@ library LibProving {
         // The new proof must meet or exceed the minimum tier required by the block or the previous
         // proof; it cannot be on a lower tier.
         require(local.proof.tier != 0, L1_INVALID_TIER());
-        require(local.proof.tier >= local.meta.minTier, L1_INVALID_TIER());
         require(local.proof.tier >= ts.tier, L1_INVALID_TIER());
 
         // Retrieve the tier configurations. If the tier is not supported, the subsequent action
@@ -231,7 +230,7 @@ library LibProving {
                 ITierProvider(_resolver.resolve(block.chainid, LibStrings.B_TIER_PROVIDER, false));
 
             local.tier = tierProvider.getTier(local.blockId, local.proof.tier);
-            local.minTier = tierProvider.getTier(local.blockId, local.meta.minTier);
+            local.minTier = tierProvider.getTier(local.blockId, 0);
             local.isTopTier = local.tier.contestBond == 0;
         }
 
@@ -266,7 +265,6 @@ library LibProving {
                 msgSender: msg.sender,
                 blockId: local.blockId,
                 isContesting: local.proof.tier == ts.tier && !local.isTopTier,
-                blobUsed: local.meta.blobUsed,
                 tran: ctx_.tran
             });
 

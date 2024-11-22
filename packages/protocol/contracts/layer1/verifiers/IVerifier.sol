@@ -23,7 +23,6 @@ interface IVerifier {
         address prover;
         uint64 blockId;
         bool isContesting;
-        bool blobUsed;
         address msgSender;
         TaikoData.Transition tran;
     }

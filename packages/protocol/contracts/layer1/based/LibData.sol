@@ -42,7 +42,7 @@ library LibData {
             prover: _v2.prover,
             blockId: _v2.blockId,
             isContesting: _v2.isContesting,
-            blobUsed: _v2.blobUsed,
+            blobUsed: true,
             msgSender: _v2.msgSender
         });
     }

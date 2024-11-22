@@ -6,19 +6,7 @@ import "src/layer1/based/ITaikoL1.sol";
 /// @title TaikoL1_EmptyStub
 /// @custom:security-contact security@taiko.xyz
 contract TaikoL1_EmptyStub is ITaikoL1 {
-    function proposeBlockV2(
-        bytes calldata _params,
-        bytes calldata _txList
-    )
-        external
-        virtual
-        returns (TaikoData.BlockMetadataV2 memory meta_)
-    { }
-
-    function proposeBlocks(
-        bytes[] calldata _paramsArr,
-        bytes[] calldata _txListArr
-    )
+    function proposeBlocks(bytes[] calldata _paramsArr)
         external
         virtual
         returns (TaikoData.BlockMetadataV2[] memory metaArr_)
