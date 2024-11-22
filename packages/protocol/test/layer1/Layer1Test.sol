@@ -6,7 +6,6 @@ import "src/layer1/token/TaikoToken.sol";
 import "src/layer1/verifiers/SgxVerifier.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
-import "src/layer1/provers/GuardianProver.sol";
 import "src/layer1/tiers/LibTiers.sol";
 import "src/layer1/team/ERC20Airdrop.sol";
 import "src/shared/bridge/QuotaManager.sol";
@@ -44,16 +43,6 @@ abstract contract Layer1Test is CommonTest {
                 name: "bond_token",
                 impl: address(new TaikoToken()),
                 data: abi.encodeCall(TaikoToken.init, (address(0), address(this)))
-            })
-        );
-    }
-
-    function deployGuardianProver() internal returns (GuardianProver) {
-        return GuardianProver(
-            deploy({
-                name: "guardian_prover",
-                impl: address(new GuardianProver()),
-                data: abi.encodeCall(GuardianProver.init, (address(0), address(resolver)))
             })
         );
     }

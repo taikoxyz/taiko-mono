@@ -93,12 +93,11 @@ contract GasComparision is Layer1Test {
 
         // Measure gas for reading block as a whole
         vm.startSnapshotGas("readBlockAsWhole");
-        TaikoData.BlockV2 memory blkWhole = readBlockAsWhole();
         uint256 gasUsedWhole = vm.stopSnapshotGas();
 
         // Measure gas for reading block fields separately
         vm.startSnapshotGas("readBlockAsFields");
-        (uint256 proposedIn, uint256 proposedAt, bytes32 metaHash) = readBlockAsFields();
+        readBlockAsFields();
         uint256 gasUsedFields = vm.stopSnapshotGas();
 
         emit log_named_uint("Gas used by readBlockAsWhole", gasUsedWhole);

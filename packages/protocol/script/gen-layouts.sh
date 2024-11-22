@@ -40,7 +40,6 @@ contracts_layer1=(
 "contracts/layer1/mainnet/MainnetTierProvider.sol:MainnetTierProvider"
 "contracts/layer1/team/TokenUnlock.sol:TokenUnlock"
 "contracts/layer1/provers/ProverSet.sol:ProverSet"
-"contracts/layer1/provers/GuardianProver.sol:GuardianProver"
 )
 
 # Layer 2 contracts
