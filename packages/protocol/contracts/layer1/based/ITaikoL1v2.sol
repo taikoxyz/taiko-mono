@@ -6,21 +6,12 @@ import "./TaikoData.sol";
 /// @title ITaikoL1v2 (OntakeFork)
 /// @custom:security-contact security@taiko.xyz
 interface ITaikoL1v2 {
-    function proposeBlockV2(
-        bytes calldata _params,
-        bytes calldata _txList
-    )
-        external
-        returns (TaikoData.BlockMetadataV2 memory meta_);
-
     function proposeBlocksV2(
         bytes[] calldata _paramsArr,
         bytes[] calldata _txListArr
     )
         external
         returns (TaikoData.BlockMetadataV2[] memory metaArr_);
-
-    function proveBlock(uint64 _blockId, bytes calldata _input) external;
 
     function proveBlocks(
         uint64[] calldata _blockIds,
