@@ -6,7 +6,7 @@ import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibStrings.sol";
 import "../automata-attestation/interfaces/IAttestation.sol";
 import "../automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
-import "../based/ITaikoL1.sol";
+import "../based/ITaikoL1v3.sol";
 import "../based/TaikoData.sol";
 import "./LibPublicInput.sol";
 import "./IVerifier.sol";
@@ -215,7 +215,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     }
 
     function taikoChainId() internal view virtual returns (uint64) {
-        return ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfig().chainId;
+        return ITaikoL1v3(resolve(LibStrings.B_TAIKO, false)).getConfigV3().chainId;
     }
 
     function _addInstances(

@@ -3,13 +3,13 @@ pragma solidity ^0.8.24;
 
 import "./TaikoData.sol";
 
-/// @title ITaikoL1
+/// @title ITaikoL1v3 (Pacaya Fork)
 /// @custom:security-contact security@taiko.xyz
-interface ITaikoL1 {
+interface ITaikoL1v3 {
     /// @notice Proposes multiple Taiko L2 blocks (version 2)
     /// @param _paramsArr A list of encoded BlockParamsV2 objects.
     /// @return metaArr_ The metadata objects of the proposed L2 blocks.
-    function proposeBlocks(bytes[] calldata _paramsArr)
+    function proposeBlocksV3(bytes[] calldata _paramsArr)
         external
         returns (TaikoData.BlockMetadataV2[] memory metaArr_);
 
@@ -19,7 +19,7 @@ interface ITaikoL1 {
     /// TaikoData.TierProof) tuples.
     /// @param _batchProof An abi-encoded TaikoData.TierProof that contains the batch/aggregated
     /// proof for the given blocks.
-    function proveBlocks(
+    function proveBlocksV3(
         uint64[] calldata _blockIds,
         bytes[] calldata _inputs,
         bytes calldata _batchProof
@@ -46,14 +46,14 @@ interface ITaikoL1 {
     /// @notice Gets the details of a block.
     /// @param _blockId Index of the block.
     /// @return blk_ The block.
-    function getBlockV2(uint64 _blockId) external view returns (TaikoData.BlockV2 memory blk_);
+    function getBlockV3(uint64 _blockId) external view returns (TaikoData.BlockV2 memory blk_);
 
     /// @notice Gets the state transition for a specific block.
     /// @param _blockId Index of the block.
     /// @param _tid The transition id.
     /// @return The state transition data of the block. The transition's state root will be zero if
     /// the block is not a sync-block.
-    function getTransition(
+    function getTransitionV3(
         uint64 _blockId,
         uint32 _tid
     )
@@ -67,5 +67,5 @@ interface ITaikoL1 {
 
     /// @notice Gets the configuration of the TaikoL1 contract.
     /// @return Config struct containing configuration parameters.
-    function getConfig() external view returns (TaikoData.Config memory);
+    function getConfigV3() external view returns (TaikoData.Config memory);
 }

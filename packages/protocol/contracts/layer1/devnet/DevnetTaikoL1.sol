@@ -6,9 +6,9 @@ import "../based/TaikoL1.sol";
 /// @title DevnetTaikoL1
 /// @dev Labeled in AddressResolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
-contract DevnetTaikoL1 is TaikoL1 {
-    /// @inheritdoc ITaikoL1
-    function getConfig() public pure override returns (TaikoData.Config memory) {
+contract DevnetTaikoL1 is TaikoL1V3 {
+    /// @inheritdoc ITaikoL1v3
+    function getConfigV3() public pure override returns (TaikoData.Config memory) {
         return TaikoData.Config({
             chainId: 167_001,
             blockMaxProposals: 324_000,

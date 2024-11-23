@@ -6,9 +6,9 @@ import "../based/TaikoL1.sol";
 /// @title HeklaTaikoL1
 /// @dev Labeled in AddressResolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
-contract HeklaTaikoL1 is TaikoL1 {
-    /// @inheritdoc ITaikoL1
-    function getConfig() public pure override returns (TaikoData.Config memory) {
+contract HeklaTaikoL1 is TaikoL1V3 {
+    /// @inheritdoc ITaikoL1v3
+    function getConfigV3() public pure override returns (TaikoData.Config memory) {
         return TaikoData.Config({
             chainId: LibNetwork.TAIKO_HEKLA,
             // Never change this value as ring buffer is being reused!!!

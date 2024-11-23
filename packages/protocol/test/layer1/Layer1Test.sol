@@ -12,7 +12,7 @@ import "src/shared/bridge/QuotaManager.sol";
 import "src/shared/bridge/Bridge.sol";
 import "test/shared/CommonTest.sol";
 
-contract TaikoL1WithConfig is TaikoL1 {
+contract TaikoL1WithConfig is TaikoL1V3 {
     TaikoData.Config private __config;
 
     function initWithConfig(
@@ -31,7 +31,7 @@ contract TaikoL1WithConfig is TaikoL1 {
         __config = _config;
     }
 
-    function getConfig() public view override returns (TaikoData.Config memory) {
+    function getConfigV3() public view override returns (TaikoData.Config memory) {
         return __config;
     }
 }

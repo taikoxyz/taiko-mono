@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibStrings.sol";
 import "src/shared/libs/LibAddress.sol";
-import "../based/ITaikoL1.sol";
+import "../based/ITaikoL1v3.sol";
 
 interface IHasRecipient {
     function recipient() external view returns (address);
@@ -96,15 +96,15 @@ contract ProverSet is EssentialContract, IERC1271 {
 
     /// @notice Proposes a block only when it is the first block proposal in the current L1 block.
     function proposeBlocksConditionally(bytes[] calldata _paramsArr) external onlyProver {
-        ITaikoL1 taiko = ITaikoL1(taikoL1());
+        ITaikoL1v3 taiko = ITaikoL1v3(taikoL1());
         // Ensure this block is the first block proposed in the current L1 block.
         require(taiko.lastProposedIn() != block.number, NOT_FIRST_PROPOSAL());
-        taiko.proposeBlocks(_paramsArr);
+        taiko.proposeBlocksV3(_paramsArr);
     }
 
     /// @notice Propose multiple Taiko blocks.
     function proposeBlocks(bytes[] calldata _paramsArr) external onlyProver {
-        ITaikoL1(taikoL1()).proposeBlocks(_paramsArr);
+        ITaikoL1v3(taikoL1()).proposeBlocksV3(_paramsArr);
     }
 
     /// @notice Batch proves or contests Taiko blocks.
@@ -116,17 +116,17 @@ contract ProverSet is EssentialContract, IERC1271 {
         external
         onlyProver
     {
-        ITaikoL1(taikoL1()).proveBlocks(_blockId, _input, _batchProof);
+        ITaikoL1v3(taikoL1()).proveBlocksV3(_blockId, _input, _batchProof);
     }
 
     /// @notice Deposits Taiko token to TaikoL1 contract.
     function depositBond(uint256 _amount) external onlyAuthorized {
-        ITaikoL1(taikoL1()).depositBond(_amount);
+        ITaikoL1v3(taikoL1()).depositBond(_amount);
     }
 
     /// @notice Withdraws Taiko token from TaikoL1 contract.
     function withdrawBond(uint256 _amount) external onlyAuthorized {
-        ITaikoL1(taikoL1()).withdrawBond(_amount);
+        ITaikoL1v3(taikoL1()).withdrawBond(_amount);
     }
 
     /// @notice Delegates token voting right to a delegatee.

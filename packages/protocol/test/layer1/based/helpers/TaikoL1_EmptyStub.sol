@@ -1,20 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/layer1/based/ITaikoL1.sol";
+import "src/layer1/based/ITaikoL1v3.sol";
 
 /// @title TaikoL1_EmptyStub
 /// @custom:security-contact security@taiko.xyz
-contract TaikoL1_EmptyStub is ITaikoL1 {
-    function proposeBlocks(bytes[] calldata _paramsArr)
+contract TaikoL1_EmptyStub is ITaikoL1v3 {
+    function proposeBlocksV3(bytes[] calldata _paramsArr)
         external
         virtual
         returns (TaikoData.BlockMetadataV2[] memory metaArr_)
     { }
 
-    function proveBlock(uint64 _blockId, bytes calldata _input) external virtual { }
-
-    function proveBlocks(
+    function proveBlocksV3(
         uint64[] calldata _blockIds,
         bytes[] calldata _inputs,
         bytes calldata _batchProof
@@ -22,8 +20,6 @@ contract TaikoL1_EmptyStub is ITaikoL1 {
         external
         virtual
     { }
-
-    function verifyBlocks(uint64 _maxBlocksToVerify) external virtual { }
 
     function pauseProving(bool _pause) external virtual { }
 
@@ -33,14 +29,14 @@ contract TaikoL1_EmptyStub is ITaikoL1 {
 
     function getVerifiedBlockProver(uint64 _blockId) external view virtual returns (address) { }
 
-    function getBlockV2(uint64 _blockId)
+    function getBlockV3(uint64 _blockId)
         external
         view
         virtual
         returns (TaikoData.BlockV2 memory blk_)
     { }
 
-    function getTransition(
+    function getTransitionV3(
         uint64 _blockId,
         uint32 _tid
     )
@@ -52,5 +48,5 @@ contract TaikoL1_EmptyStub is ITaikoL1 {
 
     function lastProposedIn() external view returns (uint56) { }
 
-    function getConfig() external pure virtual returns (TaikoData.Config memory) { }
+    function getConfigV3() external pure virtual returns (TaikoData.Config memory) { }
 }
