@@ -494,25 +494,25 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
             params_.anchorBlockId = uint64(block.number - 1);
         } else {
             require(
-                params_.anchorBlockId + _config.maxAnchorHeightOffset >= block.number
-                    && params_.anchorBlockId < block.number
-                    && params_.anchorBlockId >= _parent.anchorBlockId,
-                "InvalidAnchorBlockId"
+                params_.anchorBlockId + _config.maxAnchorHeightOffset >= block.number,
+                "AnchorBlockId"
             );
+            require(params_.anchorBlockId < block.number, "AnchorBlockId");
+            require(params_.anchorBlockId >= _parent.anchorBlockId, "AnchorBlockId");
         }
 
         if (params_.timestamp == 0) {
             params_.timestamp = uint64(block.timestamp);
         } else {
             // Verify the provided timestamp to anchor. Note that params_.anchorBlockId
-            // and
-            // params_.timestamp may not correspond to the same L1 block.
+            // and params_.timestamp may not correspond to the same L1 block.
             require(
                 params_.timestamp + _config.maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME
-                    >= block.timestamp && params_.timestamp <= block.timestamp
-                    && params_.timestamp >= _parent.timestamp,
-                "InvalidTiemstamp"
+                    >= block.timestamp,
+                "InvalidTimestamp"
             );
+            require(params_.timestamp <= block.timestamp, "InvalidTimestamp");
+            require(params_.timestamp >= _parent.timestamp, "InvalidTimestamp");
         }
 
         // Check if parent block has the right meta hash. This is to allow the proposer to
