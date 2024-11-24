@@ -165,6 +165,34 @@ contract TaikoL1V3B is EssentialContract, TaikoEvents {
         emit StateVariablesUpdated(slotB);
     }
 
+    function proveBlocks(
+        TaikoData.BlockMetadataV3[] calldata _metas,
+        TaikoData.TransitionV3[] calldata _transitions,
+        bytes calldata proof
+    )
+        external
+    {
+        require(_metas.length == _transitions.length, "InvalidParam");
+        TaikoData.ConfigV3 memory config = getConfigV3();
+        TaikoData.SlotB memory slotB = state.slotB;
+
+        for (uint256 i; i < _metas.length; ++i) {
+            TaikoData.BlockMetadataV3 calldata meta = _metas[i];
+            require(meta.id >= config.pacayaForkHeight, "InvalidForkHeight");
+            require(meta.id < slotB.lastVerifiedBlockId, "BlockVerified");
+            require(meta.id < slotB.numBlocks, "BlockNotProposed");
+
+            TaikoData.TransitionV3 calldata tran = _transitions[i];
+            require(tran.parentHash != 0, "InvalidTransitionParentHash");
+            require(tran.blockHash != 0, "InvalidTransitionBlockHash");
+            require(tran.stateRoot != 0, "InvalidTransitionStateRoot");
+
+            TaikoData.BlockV3 storage blk = state.blocks[meta.id % config.blockRingBufferSize];
+            bytes32 metaHash = blk.metaHash;
+            require(metaHash == keccak256(abi.encode(meta)), "MataMismatch");
+        }
+    }
+
     function _validateBlockParams(
         bytes calldata _blockParam,
         TaikoData.ConfigV3 memory _config,
