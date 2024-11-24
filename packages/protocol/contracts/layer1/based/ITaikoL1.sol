@@ -60,6 +60,7 @@ interface ITaikoL1 {
     /// @param _amount Amount of Taiko tokens to withdraw.
     function withdrawBond(uint256 _amount) external;
 
+    // TODO(david): do we really need this function?
     /// @notice Gets the prover that actually proved a verified block.
     /// @param _blockId Index of the block.
     /// @return The prover's address. If the block is not verified yet, address(0) will be returned.

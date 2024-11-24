@@ -27,7 +27,7 @@ library TaikoData {
         uint64 id;
         uint32 gasLimit;
         uint64 timestamp;
-        uint64 anchorBlockId; 
+        uint64 anchorBlockId;
         bytes32 parentMetaHash;
         address proposer;
         uint96 livenessBond;

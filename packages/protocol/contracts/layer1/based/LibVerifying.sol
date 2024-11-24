@@ -64,84 +64,82 @@ library LibVerifying {
         // second
         unchecked {
             ++local.blockId;
+        }
 
-            while (
-                local.blockId < local.b.numBlocks && local.numBlocksVerified < _maxBlocksToVerify
-            ) {
-                local.slot = local.blockId % _config.blockRingBufferSize;
+        while (local.blockId < local.b.numBlocks && local.numBlocksVerified < _maxBlocksToVerify) {
+            local.slot = local.blockId % _config.blockRingBufferSize;
 
-                blk = _state.blocks[local.slot];
+            blk = _state.blocks[local.slot];
 
-                local.tid = LibUtils.getTransitionId(_state, blk, local.slot, local.blockHash);
-                // When `tid` is 0, it indicates that there is no proven transition with its
-                // parentHash equal to the blockHash of the most recently verified block.
-                if (local.tid == 0) break;
+            local.tid = LibUtils.getTransitionId(_state, blk, local.slot, local.blockHash);
+            // When `tid` is 0, it indicates that there is no proven transition with its
+            // parentHash equal to the blockHash of the most recently verified block.
+            if (local.tid == 0) break;
 
-                // A transition with the correct `parentHash` has been located.
-                TaikoData.TransitionStateV3 storage ts = _state.transitions[local.slot][local.tid];
+            // A transition with the correct `parentHash` has been located.
+            TaikoData.TransitionStateV3 storage ts = _state.transitions[local.slot][local.tid];
 
-                // Update variables
-                local.lastVerifiedTransitionId = local.tid;
-                local.blockHash = ts.blockHash;
-                local.prover = ts.prover;
+            // Update variables
+            local.lastVerifiedTransitionId = local.tid;
+            local.blockHash = ts.blockHash;
+            local.prover = ts.prover;
 
-                LibBonds.creditBond(_state, local.prover, local.blockId, ts.validityBond);
+            LibBonds.creditBond(_state, local.prover, local.blockId, ts.validityBond);
 
-                // Note: We exclusively address the bonds linked to the transition used for
-                // verification. While there may exist other transitions for this block, we
-                // disregard them entirely. The bonds for these other transitions are burned (more
-                // precisely held in custody) either when the transitions are generated or proven. In
-                // such cases, both the provers and contesters of those transitions forfeit their
-                // bonds.
+            // Note: We exclusively address the bonds linked to the transition used for
+            // verification. While there may exist other transitions for this block, we
+            // disregard them entirely. The bonds for these other transitions are burned (more
+            // precisely held in custody) either when the transitions are generated or proven. In
+            // such cases, both the provers and contesters of those transitions forfeit their
+            // bonds.
 
-                emit TaikoEvents.BlockVerifiedV3({
-                    blockId: local.blockId,
-                    prover: local.prover,
-                    blockHash: local.blockHash
-                });
+            emit TaikoEvents.BlockVerifiedV3({
+                blockId: local.blockId,
+                prover: local.prover,
+                blockHash: local.blockHash
+            });
 
-                if (LibUtils.isSyncBlock(_config.stateRootSyncInternal, local.blockId)) {
-                    bytes32 stateRoot = ts.stateRoot;
-                    if (stateRoot != 0) {
-                        local.syncStateRoot = stateRoot;
-                        local.syncBlockId = local.blockId;
-                        local.syncTransitionId = local.tid;
-                    }
+            if (LibUtils.isSyncBlock(_config.stateRootSyncInternal, local.blockId)) {
+                bytes32 stateRoot = ts.stateRoot;
+                if (stateRoot != 0) {
+                    local.syncStateRoot = stateRoot;
+                    local.syncBlockId = local.blockId;
+                    local.syncTransitionId = local.tid;
                 }
-
+            }
+            unchecked {
                 ++local.blockId;
                 ++local.numBlocksVerified;
             }
+        } // end of while-loop
 
-            if (local.numBlocksVerified != 0) {
-                uint64 lastVerifiedBlockId = local.b.lastVerifiedBlockId + local.numBlocksVerified;
-                local.slot = lastVerifiedBlockId % _config.blockRingBufferSize;
+        if (local.numBlocksVerified == 0) return;
 
-                _state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
-                _state.blocks[local.slot].verifiedTransitionId = local.lastVerifiedTransitionId;
-
-                if (local.syncStateRoot != 0) {
-                    _state.slotA.lastSyncedBlockId = local.syncBlockId;
-                    _state.slotA.lastSyncedAt = uint64(block.timestamp);
-
-                    // We write the synced block's verifiedTransitionId to storage
-                    if (local.syncBlockId != lastVerifiedBlockId) {
-                        local.slot = local.syncBlockId % _config.blockRingBufferSize;
-                        _state.blocks[local.slot].verifiedTransitionId = local.syncTransitionId;
-                    }
-
-                    // Ask signal service to write cross chain signal
-                    ISignalService(
-                        _resolver.resolve(block.chainid, LibStrings.B_SIGNAL_SERVICE, false)
-                    ).syncChainData(
-                        _config.chainId,
-                        LibStrings.H_STATE_ROOT,
-                        local.syncBlockId,
-                        local.syncStateRoot
-                    );
-                }
-            }
+        uint64 lastVerifiedBlockId;
+        unchecked {
+            lastVerifiedBlockId = local.b.lastVerifiedBlockId + local.numBlocksVerified;
         }
+        local.slot = lastVerifiedBlockId % _config.blockRingBufferSize;
+
+        _state.slotB.lastVerifiedBlockId = lastVerifiedBlockId;
+        _state.blocks[local.slot].verifiedTransitionId = local.lastVerifiedTransitionId;
+
+        if (local.syncStateRoot == 0) return;
+
+        _state.slotA.lastSyncedBlockId = local.syncBlockId;
+        _state.slotA.lastSyncedAt = uint64(block.timestamp);
+
+        // We write the synced block's verifiedTransitionId to storage
+        if (local.syncBlockId != lastVerifiedBlockId) {
+            local.slot = local.syncBlockId % _config.blockRingBufferSize;
+            _state.blocks[local.slot].verifiedTransitionId = local.syncTransitionId;
+        }
+
+        // Ask signal service to write cross chain signal
+        ISignalService(_resolver.resolve(block.chainid, LibStrings.B_SIGNAL_SERVICE, false))
+            .syncChainData(
+            _config.chainId, LibStrings.H_STATE_ROOT, local.syncBlockId, local.syncStateRoot
+        );
     }
 
     /// @dev Retrieves the prover of a verified block.
