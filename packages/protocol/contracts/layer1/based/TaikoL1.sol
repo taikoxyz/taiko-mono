@@ -58,13 +58,15 @@ contract TaikoL1 is EssentialContract, ITaikoL1, IBondManager {
         bytes[] calldata _blockParams
     )
         external
-        whenNotPaused
         nonReentrant
         returns (BlockMetadataV3[] memory metas_)
     {
-        ConfigV3 memory config = getConfigV3();
-        SlotB memory slotB = state.slotB;
         require(_blockParams.length != 0, "NoBlocksToPropose");
+        SlotB memory slotB = state.slotB;
+
+        require(slotB.paused == false, "ContractPaused");
+
+        ConfigV3 memory config = getConfigV3();
         require(slotB.numBlocks >= config.pacayaForkHeight, "InvalidForkHeight");
         require(
             slotB.numBlocks + _blockParams.length
@@ -120,15 +122,14 @@ contract TaikoL1 is EssentialContract, ITaikoL1, IBondManager {
         bytes calldata proof
     )
         external
-        whenNotPaused
         nonReentrant
     {
         require(_metas.length == _transitions.length, "InvalidParam");
-        ConfigV3 memory config = getConfigV3();
         SlotB memory slotB = state.slotB;
+        require(slotB.paused == false, "ContractPaused");
 
+        ConfigV3 memory config = getConfigV3();
         IVerifier.ContextV3[] memory ctxs = new IVerifier.ContextV3[](_metas.length);
-
         for (uint256 i; i < _metas.length; ++i) {
             ctxs[i] = _proveBlock(config, slotB, _metas[i], _transitions[i]);
         }
