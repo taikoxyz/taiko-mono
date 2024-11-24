@@ -3,14 +3,14 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "src/shared/common/EssentialContract.sol";
-import "src/shared/signal/ISignalService.sol";
-import "src/shared/libs/LibMath.sol";
-import "src/shared/libs/LibStrings.sol";
-import "src/shared/libs/LibNetwork.sol";
 import "src/shared/libs/LibAddress.sol";
+import "src/shared/libs/LibMath.sol";
+import "src/shared/libs/LibNetwork.sol";
+import "src/shared/libs/LibStrings.sol";
+import "src/shared/signal/ISignalService.sol";
 import "src/layer1/verifiers/IVerifier.sol";
-import "./TaikoEvents.sol";
 import "./TaikoData.sol";
+import "./TaikoEvents.sol";
 
 /// @title TaikoL1V3B
 /// @notice This contract serves as the "base layer contract" of the Taiko protocol, providing
@@ -23,8 +23,6 @@ import "./TaikoData.sol";
 /// @custom:security-contact security@taiko.xyz
 contract TaikoL1V3B is EssentialContract, TaikoEvents {
     using LibMath for uint256;
-
-    uint256 private constant SECONDS_PER_BLOCK = 12 seconds;
 
     /// @notice The TaikoL1 state.
     TaikoData.State public state;
@@ -351,7 +349,7 @@ contract TaikoL1V3B is EssentialContract, TaikoEvents {
             // and
             // params_.timestamp may not correspond to the same L1 block.
             require(
-                params_.timestamp + _config.maxAnchorHeightOffset * SECONDS_PER_BLOCK
+                params_.timestamp + _config.maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME
                     >= block.timestamp && params_.timestamp <= block.timestamp
                     && params_.timestamp >= _parent.timestamp,
                 "InvalidTiemstamp"
