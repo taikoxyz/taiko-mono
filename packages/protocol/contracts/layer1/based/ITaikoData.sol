@@ -70,7 +70,7 @@ interface ITaikoData {
         uint64 genesisHeight;
         uint64 genesisTimestamp;
         uint64 lastSyncedBlockId;
-        uint64 lastSyncedAt; // known typo (lastSyncedAt)
+        uint64 lastSyncedAt;
     }
 
     struct SlotB {

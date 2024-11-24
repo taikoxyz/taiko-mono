@@ -46,7 +46,10 @@ contract TaikoL1_EmptyStub is ITaikoL1 {
         returns (ITaikoData.TransitionV3 memory)
     { }
 
-    function lastProposedIn() external view returns (uint56) { }
+   
+    function getSlotA() external view virtual returns (ITaikoData.SlotA memory) { }
+
+    function getSlotB() external view virtual returns (ITaikoData.SlotB memory) { }
 
     function getConfigV3() external pure virtual returns (ITaikoData.ConfigV3 memory) { }
 }

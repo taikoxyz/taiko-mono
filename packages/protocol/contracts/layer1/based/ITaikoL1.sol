@@ -78,9 +78,9 @@ interface ITaikoL1 is ITaikoData {
 
     function bondBalanceOf(address _user) external view returns (uint256);
 
-    /// @notice Retrieves the ID of the L1 block where the most recent L2 block was proposed.
-    /// @return The ID of the L1 block where the most recent block was proposed.
-    function lastProposedIn() external view returns (uint56);
+    function getSlotA() external view returns (SlotA memory);
+
+    function getSlotB() external view returns (SlotB memory);
 
     function getConfigV3() external view returns (ConfigV3 memory);
 }

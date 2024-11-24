@@ -62,8 +62,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         returns (BlockMetadataV3[] memory metas_)
     {
         require(_blockParams.length != 0, "NoBlocksToPropose");
-        SlotB memory slotB = state.slotB;
 
+        SlotB memory slotB = state.slotB;
         require(slotB.paused == false, "ContractPaused");
 
         ConfigV3 memory config = getConfigV3();
@@ -89,26 +89,24 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         if (_coinbase == address(0)) {
             _coinbase = _proposer;
         }
-        metas_ = new BlockMetadataV3[](_blockParams.length);
 
+        metas_ = new BlockMetadataV3[](_blockParams.length);
         for (uint256 i; i < _blockParams.length; ++i) {
             BlockParamsV3 memory params = _validateBlockParams(_blockParams[i], config, parent);
 
-            bytes32 metaHash;
-            (metas_[i], metaHash) = _proposeBlock(config, slotB, params, _proposer, _coinbase);
+            (metas_[i], parent.metaHash) =
+                _proposeBlock(config, slotB, params, _proposer, _coinbase);
+
+            parent.timestamp = params.timestamp;
+            parent.anchorBlockId = params.anchorBlockId;
+
             unchecked {
                 slotB.numBlocks += 1;
                 slotB.lastProposedIn = uint56(block.number);
             }
-
-            parent.metaHash = metaHash;
-            parent.timestamp = params.timestamp;
-            parent.anchorBlockId = params.anchorBlockId;
         } // end of for-loop
 
-        // SSTORE #3
         _debitBond(_proposer, config.livenessBond * _blockParams.length);
-
         _verifyBlocks(config, slotB, _blockParams.length);
     }
 
@@ -121,6 +119,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         nonReentrant
     {
         require(_metas.length == _transitions.length, "InvalidParam");
+
         SlotB memory slotB = state.slotB;
         require(slotB.paused == false, "ContractPaused");
 
@@ -153,8 +152,12 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         }
     }
 
-    function lastProposedIn() external view returns (uint56) {
-        return state.slotB.lastProposedIn;
+    function getSlotA() external view returns (SlotA memory) {
+        return state.slotA;
+    }   
+
+    function getSlotB() external view returns (SlotB memory) {
+        return state.slotB;
     }
 
     function getLastVerifiedBlockV3()
@@ -277,20 +280,12 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
     {
         // Initialize metadata to compute a metaHash, which forms a part of the block data to be
         // stored on-chain for future integrity checks. If we choose to persist all data fields
-        // in
-        // the metadata, it will require additional storage slots.
+        // in the metadata, it will require additional storage slots.
         meta_ = BlockMetadataV3({
             anchorBlockHash: blockhash(_params.anchorBlockId),
             difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", _slotB.numBlocks)),
             blobHash: blobhash(_params.blobIndex),
-            // Encode _config.baseFeeConfig into extraData to allow L2 block execution without
-            // metadata. Metadata might be unavailable until the block is proposed on-chain. In
-            // preconfirmation scenarios, multiple blocks may be built but not yet proposed,
-            // making
-            // metadata unavailable.
             extraData: bytes32(uint256(_config.baseFeeConfig.sharingPctg)),
-            // outside
-            // and compute only once.
             coinbase: _coinbase,
             id: _slotB.numBlocks,
             gasLimit: _config.blockMaxGasLimit,
@@ -312,18 +307,17 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         // Use a storage pointer for the block in the ring buffer
         BlockV3 storage blk = state.blocks[_slotB.numBlocks % _config.blockRingBufferSize];
 
-        // Store each field of the block separately
-        // SSTORE #1
         metaHash_ = keccak256(abi.encode(meta_));
+        // SSTORE
         blk.metaHash = metaHash_;
 
-        // SSTORE #2 {{
+        // SSTORE {{
         blk.blockId = _slotB.numBlocks;
         blk.timestamp = _params.timestamp;
         blk.anchorBlockId = _params.anchorBlockId;
         blk.nextTransitionId = 1;
         blk.verifiedTransitionId = 0;
-        // SSTORE #2 }}
+        // SSTORE }}
 
         emit BlockProposedV3(_slotB.numBlocks, meta_);
     }

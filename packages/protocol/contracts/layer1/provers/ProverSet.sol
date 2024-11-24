@@ -98,7 +98,7 @@ contract ProverSet is EssentialContract, IERC1271 {
     function proposeBlocksConditionally(bytes[] calldata _paramsArr) external onlyProver {
         ITaikoL1 taiko = ITaikoL1(taikoL1());
         // Ensure this block is the first block proposed in the current L1 block.
-        require(taiko.lastProposedIn() != block.number, NOT_FIRST_PROPOSAL());
+        require(taiko.getSlotB().lastProposedIn != block.number, NOT_FIRST_PROPOSAL());
         // TODO(danielw):fix this
         // taiko.proposeBlocksV3(_paramsArr);
     }
