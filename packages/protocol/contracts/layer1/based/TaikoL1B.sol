@@ -87,9 +87,9 @@ contract TaikoL1V3B is EssentialContract, TaikoEvents {
             });
         }
 
-        address proposer = _checkProposer(_proposer);
+        _proposer = _checkProposer(_proposer);
         if (_coinbase == address(0)) {
-            _coinbase = proposer;
+            _coinbase = _proposer;
         }
         metas_ = new TaikoData.BlockMetadataV3[](_blockParams.length);
 
@@ -97,58 +97,8 @@ contract TaikoL1V3B is EssentialContract, TaikoEvents {
             TaikoData.BlockParamsV3 memory params =
                 _validateBlockParams(_blockParams[i], config, parent);
 
-            // Initialize metadata to compute a metaHash, which forms a part of the block data to be
-            // stored on-chain for future integrity checks. If we choose to persist all data fields
-            // in
-            // the metadata, it will require additional storage slots.
-            metas_[i] = TaikoData.BlockMetadataV3({
-                anchorBlockHash: blockhash(params.anchorBlockId),
-                difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", slotB.numBlocks)),
-                blobHash: blobhash(params.blobIndex),
-                // Encode _config.baseFeeConfig into extraData to allow L2 block execution without
-                // metadata. Metadata might be unavailable until the block is proposed on-chain. In
-                // preconfirmation scenarios, multiple blocks may be built but not yet proposed,
-                // making
-                // metadata unavailable.
-                extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
-                // outside
-                // and compute only once.
-                coinbase: _coinbase,
-                id: slotB.numBlocks,
-                gasLimit: config.blockMaxGasLimit,
-                timestamp: params.timestamp,
-                anchorBlockId: params.anchorBlockId,
-                parentMetaHash: params.parentMetaHash,
-                proposer: proposer,
-                livenessBond: config.livenessBond,
-                proposedAt: uint64(block.timestamp),
-                proposedIn: uint64(block.number),
-                blobTxListOffset: params.blobTxListOffset,
-                blobTxListLength: params.blobTxListLength,
-                blobIndex: params.blobIndex,
-                baseFeeConfig: config.baseFeeConfig
-            });
-
-            require(metas_[i].blobHash != 0, "BlobNotFound");
-
-            // Use a storage pointer for the block in the ring buffer
-            TaikoData.BlockV3 storage blk =
-                state.blocks[slotB.numBlocks % config.blockRingBufferSize];
-
-            // Store each field of the block separately
-            // SSTORE #1
-            bytes32 metaHash = keccak256(abi.encode(metas_[i]));
-            blk.metaHash = metaHash;
-
-            // SSTORE #2 {{
-            blk.blockId = slotB.numBlocks;
-            blk.timestamp = params.timestamp;
-            blk.anchorBlockId = params.anchorBlockId;
-            blk.nextTransitionId = 1;
-            blk.livenessBondReturned = false; // TODO(daniel): remove this.
-            blk.verifiedTransitionId = 0;
-            // SSTORE #2 }}
-
+            bytes32 metaHash;
+            (metas_[i], metaHash) = _proposeBlock(config, slotB, params, _proposer, _coinbase);
             unchecked {
                 slotB.numBlocks += 1;
                 slotB.lastProposedIn = uint56(block.number);
@@ -160,13 +110,75 @@ contract TaikoL1V3B is EssentialContract, TaikoEvents {
         } // end of for-loop
 
         // SSTORE #3
-        _debitBond(proposer, config.livenessBond * _blockParams.length);
+        _debitBond(_proposer, config.livenessBond * _blockParams.length);
 
         slotB = _verifyBlocks(slotB, _blockParams.length);
         emit StateVariablesUpdated(slotB);
 
         // SSTORE #4
         state.slotB = slotB;
+    }
+
+    function _proposeBlock(
+        TaikoData.ConfigV3 memory _config,
+        TaikoData.SlotB memory _slotB,
+        TaikoData.BlockParamsV3 memory _params,
+        address _proposer,
+        address _coinbase
+    )
+        internal
+        returns (TaikoData.BlockMetadataV3 memory meta_, bytes32 metaHash_)
+    {
+        // Initialize metadata to compute a metaHash, which forms a part of the block data to be
+        // stored on-chain for future integrity checks. If we choose to persist all data fields
+        // in
+        // the metadata, it will require additional storage slots.
+        meta_ = TaikoData.BlockMetadataV3({
+            anchorBlockHash: blockhash(_params.anchorBlockId),
+            difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", _slotB.numBlocks)),
+            blobHash: blobhash(_params.blobIndex),
+            // Encode _config.baseFeeConfig into extraData to allow L2 block execution without
+            // metadata. Metadata might be unavailable until the block is proposed on-chain. In
+            // preconfirmation scenarios, multiple blocks may be built but not yet proposed,
+            // making
+            // metadata unavailable.
+            extraData: bytes32(uint256(_config.baseFeeConfig.sharingPctg)),
+            // outside
+            // and compute only once.
+            coinbase: _coinbase,
+            id: _slotB.numBlocks,
+            gasLimit: _config.blockMaxGasLimit,
+            timestamp: _params.timestamp,
+            anchorBlockId: _params.anchorBlockId,
+            parentMetaHash: _params.parentMetaHash,
+            proposer: _proposer,
+            livenessBond: _config.livenessBond,
+            proposedAt: uint64(block.timestamp),
+            proposedIn: uint64(block.number),
+            blobTxListOffset: _params.blobTxListOffset,
+            blobTxListLength: _params.blobTxListLength,
+            blobIndex: _params.blobIndex,
+            baseFeeConfig: _config.baseFeeConfig
+        });
+
+        require(meta_.blobHash != 0, "BlobNotFound");
+
+        // Use a storage pointer for the block in the ring buffer
+        TaikoData.BlockV3 storage blk = state.blocks[_slotB.numBlocks % _config.blockRingBufferSize];
+
+        // Store each field of the block separately
+        // SSTORE #1
+        metaHash_ = keccak256(abi.encode(meta_));
+        blk.metaHash = metaHash_;
+
+        // SSTORE #2 {{
+        blk.blockId = _slotB.numBlocks;
+        blk.timestamp = _params.timestamp;
+        blk.anchorBlockId = _params.anchorBlockId;
+        blk.nextTransitionId = 1;
+        blk.livenessBondReturned = false; // TODO(daniel): remove this.
+        blk.verifiedTransitionId = 0;
+        // SSTORE #2 }}
     }
 
     function proveBlocks(
