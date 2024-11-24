@@ -24,7 +24,7 @@ interface ITaikoData {
         bytes32 blobHash;
         bytes32 extraData;
         address coinbase;
-        uint64 id;
+        uint64 blockId;
         uint32 gasLimit;
         uint64 timestamp;
         uint64 anchorBlockId;
@@ -66,14 +66,14 @@ interface ITaikoData {
     /// compiling without any optimization (neither optimizer runs, no compiling --via-ir flag).
     /// @notice In order to resolve stack too deep without optimizations, we needed to introduce
     /// outsourcing vars into structs below.
-    struct StatsA {
+    struct Stats1 {
         uint64 genesisHeight;
         uint64 genesisTimestamp;
         uint64 lastSyncedBlockId;
         uint64 lastSyncedAt;
     }
 
-    struct StatsB {
+    struct Stats2 {
         uint64 numBlocks;
         uint64 lastVerifiedBlockId;
         bool paused;
@@ -118,8 +118,8 @@ interface ITaikoData {
                 => mapping(uint24 transitionId => TransitionV3 ts)
         ) transitions;
         bytes32 __reserve1; // Used as a ring buffer for Ether deposits
-        StatsA statsA; // slot 5
-        StatsB statsB; // slot 6
+        Stats1 stats1; // slot 5
+        Stats2 stats2; // slot 6
         mapping(address account => uint256 bond) bondBalance;
         uint256[43] __gap;
     }

@@ -63,21 +63,21 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
     {
         require(_blockParams.length != 0, "NoBlocksToPropose");
 
-        StatsB memory statsB = state.statsB;
-        require(statsB.paused == false, "ContractPaused");
+        Stats2 memory stats2 = state.stats2;
+        require(stats2.paused == false, "ContractPaused");
 
         ConfigV3 memory config = getConfigV3();
-        require(statsB.numBlocks >= config.pacayaForkHeight, "InvalidForkHeight");
+        require(stats2.numBlocks >= config.pacayaForkHeight, "InvalidForkHeight");
         require(
-            statsB.numBlocks + _blockParams.length
-                <= statsB.lastVerifiedBlockId + config.blockMaxProposals,
+            stats2.numBlocks + _blockParams.length
+                <= stats2.lastVerifiedBlockId + config.blockMaxProposals,
             "TooManyBlocks"
         );
 
         TransientParentBlock memory parent;
         {
             BlockV3 storage parentBlk =
-                state.blocks[(statsB.numBlocks - 1) % config.blockRingBufferSize];
+                state.blocks[(stats2.numBlocks - 1) % config.blockRingBufferSize];
             parent = TransientParentBlock({
                 metaHash: parentBlk.metaHash,
                 timestamp: parentBlk.timestamp,
@@ -96,19 +96,19 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
                 _validateBlockParams(_blockParams[i], config.maxAnchorHeightOffset, parent);
 
             (metas_[i], parent.metaHash) =
-                _proposeBlock(config, statsB, params, _proposer, _coinbase);
+                _proposeBlock(config, stats2, params, _proposer, _coinbase);
 
             parent.timestamp = params.timestamp;
             parent.anchorBlockId = params.anchorBlockId;
 
             unchecked {
-                statsB.numBlocks += 1;
-                statsB.lastProposedIn = uint56(block.number);
+                stats2.numBlocks += 1;
+                stats2.lastProposedIn = uint56(block.number);
             }
         } // end of for-loop
 
         _debitBond(_proposer, config.livenessBond * _blockParams.length);
-        _verifyBlocks(config, statsB, _blockParams.length);
+        _verifyBlocks(config, stats2, _blockParams.length);
     }
 
     function proveBlocksV3(
@@ -121,18 +121,18 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
     {
         require(_metas.length == _transitions.length, "InvalidParam");
 
-        StatsB memory statsB = state.statsB;
-        require(statsB.paused == false, "ContractPaused");
+        Stats2 memory stats2 = state.stats2;
+        require(stats2.paused == false, "ContractPaused");
 
         ConfigV3 memory config = getConfigV3();
         IVerifier.ContextV3[] memory ctxs = new IVerifier.ContextV3[](_metas.length);
         for (uint256 i; i < _metas.length; ++i) {
-            ctxs[i] = _proveBlock(config, statsB, _metas[i], _transitions[i]);
+            ctxs[i] = _proveBlock(config, stats2, _metas[i], _transitions[i]);
         }
 
         IVerifier(resolve("TODO", false)).verifyProofV3(ctxs, proof);
 
-        _verifyBlocks(config, statsB, _metas.length);
+        _verifyBlocks(config, stats2, _metas.length);
     }
 
     function depositBond(uint256 _amount) external payable whenNotPaused {
@@ -153,12 +153,12 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         }
     }
 
-    function getStatsA() external view returns (StatsA memory) {
-        return state.statsA;
+    function getStats1() external view returns (Stats1 memory) {
+        return state.stats1;
     }
 
-    function getStatsB() external view returns (StatsB memory) {
-        return state.statsB;
+    function getStats2() external view returns (Stats2 memory) {
+        return state.stats2;
     }
 
     function getLastVerifiedBlockV3()
@@ -166,7 +166,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         view
         returns (uint64 blockId_, bytes32 blockHash_, bytes32 stateRoot_)
     {
-        blockId_ = state.statsB.lastVerifiedBlockId;
+        blockId_ = state.stats2.lastVerifiedBlockId;
         (blockHash_, stateRoot_) = _getBlockInfo(blockId_);
     }
 
@@ -175,7 +175,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         view
         returns (uint64 blockId_, bytes32 blockHash_, bytes32 stateRoot_)
     {
-        blockId_ = state.statsA.lastSyncedBlockId;
+        blockId_ = state.stats1.lastSyncedBlockId;
         (blockHash_, stateRoot_) = _getBlockInfo(blockId_);
     }
 
@@ -195,7 +195,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
     // ------------------------------------------------------------------------------------------
 
     function paused() public view override returns (bool) {
-        return state.statsB.paused;
+        return state.stats2.paused;
     }
 
     function bondToken() public view returns (address) {
@@ -238,9 +238,9 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
 
         require(_genesisBlockHash != 0, "InvalidGenesisBlockHash");
         // Init state
-        state.statsA.genesisHeight = uint64(block.number);
-        state.statsA.genesisTimestamp = uint64(block.timestamp);
-        state.statsB.numBlocks = 1;
+        state.stats1.genesisHeight = uint64(block.number);
+        state.stats1.genesisTimestamp = uint64(block.timestamp);
+        state.stats2.numBlocks = 1;
 
         // Init the genesis block
         BlockV3 storage blk = state.blocks[0];
@@ -258,12 +258,12 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
     }
 
     function _unpause() internal override {
-        state.statsB.lastUnpausedAt = uint64(block.timestamp);
-        state.statsB.paused = false;
+        state.stats2.lastUnpausedAt = uint64(block.timestamp);
+        state.stats2.paused = false;
     }
 
     function _pause() internal override {
-        state.statsB.paused = true;
+        state.stats2.paused = true;
     }
 
     // Private functions
@@ -271,7 +271,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
 
     function _proposeBlock(
         ConfigV3 memory _config,
-        StatsB memory _statsB,
+        Stats2 memory _stats2,
         BlockParamsV3 memory _params,
         address _proposer,
         address _coinbase
@@ -284,11 +284,11 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         // in the metadata, it will require additional storage slots.
         meta_ = BlockMetadataV3({
             anchorBlockHash: blockhash(_params.anchorBlockId),
-            difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", _statsB.numBlocks)),
+            difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", _stats2.numBlocks)),
             blobHash: blobhash(_params.blobIndex),
             extraData: bytes32(uint256(_config.baseFeeConfig.sharingPctg)),
             coinbase: _coinbase,
-            id: _statsB.numBlocks,
+            blockId: _stats2.numBlocks,
             gasLimit: _config.blockMaxGasLimit,
             timestamp: _params.timestamp,
             anchorBlockId: _params.anchorBlockId,
@@ -306,35 +306,35 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         require(meta_.blobHash != 0, "BlobNotFound");
 
         // Use a storage pointer for the block in the ring buffer
-        BlockV3 storage blk = state.blocks[_statsB.numBlocks % _config.blockRingBufferSize];
+        BlockV3 storage blk = state.blocks[_stats2.numBlocks % _config.blockRingBufferSize];
 
         metaHash_ = keccak256(abi.encode(meta_));
         // SSTORE
         blk.metaHash = metaHash_;
 
         // SSTORE {{
-        blk.blockId = _statsB.numBlocks;
+        blk.blockId = _stats2.numBlocks;
         blk.timestamp = _params.timestamp;
         blk.anchorBlockId = _params.anchorBlockId;
         blk.nextTransitionId = 1;
         blk.verifiedTransitionId = 0;
         // SSTORE }}
 
-        emit BlockProposedV3(_statsB.numBlocks, meta_);
+        emit BlockProposedV3(meta_.blockId, meta_);
     }
 
     function _proveBlock(
         ConfigV3 memory _config,
-        StatsB memory _statsB,
+        Stats2 memory _stats2,
         BlockMetadataV3 calldata _meta,
         TransitionV3 calldata _tran
     )
         private
         returns (IVerifier.ContextV3 memory ctx_)
     {
-        require(_meta.id >= _config.pacayaForkHeight, "InvalidForkHeight");
-        require(_meta.id < _statsB.lastVerifiedBlockId, "BlockVerified");
-        require(_meta.id < _statsB.numBlocks, "BlockNotProposed");
+        require(_meta.blockId >= _config.pacayaForkHeight, "InvalidForkHeight");
+        require(_meta.blockId < _stats2.lastVerifiedBlockId, "BlockVerified");
+        require(_meta.blockId < _stats2.numBlocks, "BlockNotProposed");
 
         require(_tran.parentHash != 0, "InvalidTransitionParentHash");
         require(_tran.blockHash != 0, "InvalidTransitionBlockHash");
@@ -344,13 +344,13 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         ctx_.difficulty = _meta.difficulty;
         ctx_.tran = _tran;
 
-        uint256 slot = _meta.id % _config.blockRingBufferSize;
+        uint256 slot = _meta.blockId % _config.blockRingBufferSize;
         BlockV3 storage blk = state.blocks[slot];
         require(ctx_.metaHash == blk.metaHash, "MataMismatch");
 
         TransitionV3 storage ts = state.transitions[slot][1];
         require(ts.parentHash != _tran.parentHash, "AlreadyProvenAsFirstTransition");
-        require(state.transitionIds[_meta.id][_tran.parentHash] == 0, "AlreadyProven");
+        require(state.transitionIds[_meta.blockId][_tran.parentHash] == 0, "AlreadyProven");
 
         uint24 tid = blk.nextTransitionId++;
         ts = state.transitions[slot][tid];
@@ -361,32 +361,32 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
             if (msg.sender == _meta.proposer) {
                 _creditBond(_meta.proposer, _meta.livenessBond);
             } else {
-                uint256 deadline = uint256(_meta.proposedAt).max(_statsB.lastUnpausedAt);
+                uint256 deadline = uint256(_meta.proposedAt).max(_stats2.lastUnpausedAt);
                 deadline += _config.provingWindow;
                 require(block.timestamp >= deadline, "ProvingWindowNotPassed");
             }
             ts.parentHash = _tran.parentHash;
         } else {
-            state.transitionIds[_meta.id][_tran.parentHash] = tid;
+            state.transitionIds[_meta.blockId][_tran.parentHash] = tid;
         }
 
         ts.blockHash = _tran.blockHash;
 
-        if (_meta.id % _config.stateRootSyncInternal == 0) {
+        if (_meta.blockId % _config.stateRootSyncInternal == 0) {
             ts.stateRoot = _tran.stateRoot;
         }
 
-        emit BlockProvedV3(_meta.id, _tran);
+        emit BlockProvedV3(_meta.blockId, _tran);
     }
 
     function _verifyBlocks(
         ConfigV3 memory _config,
-        StatsB memory _statsB,
+        Stats2 memory _stats2,
         uint256 _length
     )
         private
     {
-        uint64 blockId = _statsB.lastVerifiedBlockId;
+        uint64 blockId = _stats2.lastVerifiedBlockId;
         uint256 slot = blockId % _config.blockRingBufferSize;
         BlockV3 storage blk = state.blocks[slot];
         uint24 verifiedTransitionId = blk.verifiedTransitionId;
@@ -394,8 +394,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
 
         TransientSyncedBlock memory synced;
 
-        uint256 stopBlockId = (_config.maxBlocksToVerify * _length + _statsB.lastVerifiedBlockId)
-            .min(_statsB.numBlocks);
+        uint256 stopBlockId = (_config.maxBlocksToVerify * _length + _stats2.lastVerifiedBlockId)
+            .min(_stats2.numBlocks);
 
         for (++blockId; blockId <= stopBlockId; ++blockId) {
             slot = blockId % _config.blockRingBufferSize;
@@ -420,20 +420,24 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
             --blockId;
         }
 
-        if (_statsB.lastVerifiedBlockId != blockId) {
-            _statsB.lastVerifiedBlockId = blockId;
+        if (_stats2.lastVerifiedBlockId != blockId) {
+            _stats2.lastVerifiedBlockId = blockId;
 
-            blk = state.blocks[_statsB.lastVerifiedBlockId % _config.blockRingBufferSize];
+            blk = state.blocks[_stats2.lastVerifiedBlockId % _config.blockRingBufferSize];
             blk.verifiedTransitionId = verifiedTransitionId;
-            emit BlockVerifiedV3(_statsB.lastVerifiedBlockId, verifiedBlockHash);
+            emit BlockVerifiedV3(_stats2.lastVerifiedBlockId, verifiedBlockHash);
         }
 
         if (synced.blockId != 0) {
-            state.statsA.lastSyncedBlockId = synced.blockId;
-            state.statsA.lastSyncedAt = uint64(block.timestamp);
+            Stats1 memory stats1 = state.stats1;
+            stats1.lastSyncedBlockId = synced.blockId;
+            stats1.lastSyncedAt = uint64(block.timestamp);
+            state.stats1 = stats1;
+
+            emit Stats1Updated(stats1);
 
             // We write the synced block's verifiedTransitionId to storage
-            if (synced.blockId != _statsB.lastVerifiedBlockId) {
+            if (synced.blockId != _stats2.lastVerifiedBlockId) {
                 blk = state.blocks[synced.blockId % _config.blockRingBufferSize];
                 blk.verifiedTransitionId = synced.tid;
             }
@@ -443,11 +447,10 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
                 _config.chainId, LibStrings.H_STATE_ROOT, synced.blockId, synced.stateRoot
             );
 
-            emit BlockSyncedV3(synced.blockId, synced.stateRoot);
         }
 
-        emit StateVariablesUpdated(_statsB);
-        state.statsB = _statsB;
+        state.stats2 = _stats2;
+        emit Stats2Updated(_stats2);
     }
 
     function _debitBond(address _user, uint256 _amount) private {

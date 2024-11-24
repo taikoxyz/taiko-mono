@@ -32,10 +32,15 @@ interface ITaikoL1 is ITaikoData {
     /// @param paused The pause status.
     event ProvingPaused(bool paused);
 
-    /// @notice Emitted when some state variable values changed.
-    /// @dev This event is currently used by Taiko node/client for block proposal/proving.
-    /// @param statsB The StatsB data structure.
-    event StateVariablesUpdated(StatsB statsB);
+   
+     /// @notice Emitted when a block is synced.
+    /// @param stats1 The Stats1 data structure.
+    event Stats1Updated(Stats1 stats1);
+
+     /// @notice Emitted when some state variable values changed.
+    /// @param stats2 The Stats2 data structure.
+    event Stats2Updated(Stats2 stats2);
+
 
     /// @notice Emitted when a block is proposed.
     /// @param blockId The ID of the proposed block.
@@ -52,11 +57,7 @@ interface ITaikoL1 is ITaikoData {
     /// @param blockHash The hash of the verified block.
     event BlockVerifiedV3(uint256 indexed blockId, bytes32 blockHash);
 
-    /// @notice Emitted when a block is synced.
-    /// @param blockId The ID of the synced block.
-    /// @param stateRoot The state root of the synced block.
-    event BlockSyncedV3(uint256 indexed blockId, bytes32 stateRoot);
-
+   
     function proposeBlocksV3(
         address _proposer,
         address _coinbase,
@@ -78,9 +79,9 @@ interface ITaikoL1 is ITaikoData {
 
     function bondBalanceOf(address _user) external view returns (uint256);
 
-    function getStatsA() external view returns (StatsA memory);
+    function getStats1() external view returns (Stats1 memory);
 
-    function getStatsB() external view returns (StatsB memory);
+    function getStats2() external view returns (Stats2 memory);
 
     function getConfigV3() external view returns (ConfigV3 memory);
 }
