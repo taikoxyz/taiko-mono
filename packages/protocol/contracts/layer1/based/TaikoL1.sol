@@ -446,7 +446,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
             ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).syncChainData(
                 _config.chainId, LibStrings.H_STATE_ROOT, synced.blockId, synced.stateRoot
             );
-
         }
 
         state.stats2 = _stats2;

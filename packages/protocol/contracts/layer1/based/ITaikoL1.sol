@@ -28,19 +28,13 @@ interface ITaikoL1 is ITaikoData {
     /// @param amount The amount of tokens debited.
     event BondDebited(address indexed user, uint256 blockId, uint256 amount);
 
-    /// @notice Emitted when proving is paused or unpaused.
-    /// @param paused The pause status.
-    event ProvingPaused(bool paused);
-
-   
-     /// @notice Emitted when a block is synced.
+    /// @notice Emitted when a block is synced.
     /// @param stats1 The Stats1 data structure.
     event Stats1Updated(Stats1 stats1);
 
-     /// @notice Emitted when some state variable values changed.
+    /// @notice Emitted when some state variable values changed.
     /// @param stats2 The Stats2 data structure.
     event Stats2Updated(Stats2 stats2);
-
 
     /// @notice Emitted when a block is proposed.
     /// @param blockId The ID of the proposed block.
@@ -57,7 +51,6 @@ interface ITaikoL1 is ITaikoData {
     /// @param blockHash The hash of the verified block.
     event BlockVerifiedV3(uint256 indexed blockId, bytes32 blockHash);
 
-   
     function proposeBlocksV3(
         address _proposer,
         address _coinbase,
