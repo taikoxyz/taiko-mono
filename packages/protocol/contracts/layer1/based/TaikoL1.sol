@@ -92,7 +92,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
 
         metas_ = new BlockMetadataV3[](_blockParams.length);
         for (uint256 i; i < _blockParams.length; ++i) {
-            BlockParamsV3 memory params = _validateBlockParams(_blockParams[i], config, parent);
+            BlockParamsV3 memory params =
+                _validateBlockParams(_blockParams[i], config.maxAnchorHeightOffset, parent);
 
             (metas_[i], parent.metaHash) =
                 _proposeBlock(config, statsB, params, _proposer, _coinbase);
@@ -154,7 +155,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
 
     function getStatsA() external view returns (StatsA memory) {
         return state.statsA;
-    }   
+    }
 
     function getStatsB() external view returns (StatsB memory) {
         return state.statsB;
@@ -378,7 +379,13 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         emit BlockProvedV3(_meta.id, _tran);
     }
 
-    function _verifyBlocks(ConfigV3 memory _config, StatsB memory _statsB, uint256 _length) private {
+    function _verifyBlocks(
+        ConfigV3 memory _config,
+        StatsB memory _statsB,
+        uint256 _length
+    )
+        private
+    {
         uint64 blockId = _statsB.lastVerifiedBlockId;
         uint256 slot = blockId % _config.blockRingBufferSize;
         BlockV3 storage blk = state.blocks[slot];
@@ -387,8 +394,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
 
         TransientSyncedBlock memory synced;
 
-        uint256 stopBlockId =
-            (_config.maxBlocksToVerify * _length + _statsB.lastVerifiedBlockId).min(_statsB.numBlocks);
+        uint256 stopBlockId = (_config.maxBlocksToVerify * _length + _statsB.lastVerifiedBlockId)
+            .min(_statsB.numBlocks);
 
         for (++blockId; blockId <= stopBlockId; ++blockId) {
             slot = blockId % _config.blockRingBufferSize;
@@ -480,7 +487,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
 
     function _validateBlockParams(
         bytes calldata _blockParam,
-        ConfigV3 memory _config,
+        uint64 _maxAnchorHeightOffset,
         TransientParentBlock memory _parent
     )
         private
@@ -494,10 +501,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         if (params_.anchorBlockId == 0) {
             params_.anchorBlockId = uint64(block.number - 1);
         } else {
-            require(
-                params_.anchorBlockId + _config.maxAnchorHeightOffset >= block.number,
-                "AnchorBlockId"
-            );
+            require(params_.anchorBlockId + _maxAnchorHeightOffset >= block.number, "AnchorBlockId");
             require(params_.anchorBlockId < block.number, "AnchorBlockId");
             require(params_.anchorBlockId >= _parent.anchorBlockId, "AnchorBlockId");
         }
@@ -508,7 +512,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
             // Verify the provided timestamp to anchor. Note that params_.anchorBlockId
             // and params_.timestamp may not correspond to the same L1 block.
             require(
-                params_.timestamp + _config.maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME
+                params_.timestamp + _maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME
                     >= block.timestamp,
                 "InvalidTimestamp"
             );
