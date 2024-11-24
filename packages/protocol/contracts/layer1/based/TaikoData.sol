@@ -11,15 +11,15 @@ library TaikoData {
         address proposer;
         address coinbase;
         bytes32 parentMetaHash;
-        uint64 anchorBlockId; // NEW
-        uint64 timestamp; // NEW
-        uint32 blobTxListOffset; // NEW
-        uint32 blobTxListLength; // NEW
-        uint8 blobIndex; // NEW
+        uint64 anchorBlockId;
+        uint64 timestamp;
+        uint32 blobTxListOffset;
+        uint32 blobTxListLength;
+        uint8 blobIndex;
     }
 
     struct BlockMetadataV3 {
-        bytes32 anchorBlockHash; // `_l1BlockHash` in TaikoL2's anchor tx.
+        bytes32 anchorBlockHash;
         bytes32 difficulty;
         bytes32 blobHash;
         bytes32 extraData;
@@ -27,7 +27,7 @@ library TaikoData {
         uint64 id;
         uint32 gasLimit;
         uint64 timestamp;
-        uint64 anchorBlockId; // `_l1BlockId` in TaikoL2's anchor tx.
+        uint64 anchorBlockId; 
         bytes32 parentMetaHash;
         address proposer;
         uint96 livenessBond;
@@ -53,11 +53,11 @@ library TaikoData {
         bytes32 blockHash; // slot 2
         bytes32 stateRoot; // slot 3
         address prover; // slot 4
-        uint96 validityBond;
-        address contester; // slot 5
-        uint96 contestBond;
+        uint96 validityBond; // DEPRECATED!!!
+        address contester; // slot 5, DEPRECATED!!!
+        uint96 contestBond; // DEPRECATED!!!
         uint64 timestamp; // slot 6 (88 bits)
-        uint16 tier;
+        uint16 tier; // DEPRECATED!!!
     }
 
     /// @notice Struct containing data required for verifying a block.
