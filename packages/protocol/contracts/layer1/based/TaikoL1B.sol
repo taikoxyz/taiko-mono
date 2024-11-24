@@ -112,7 +112,7 @@ contract TaikoL1V3B is EssentialContract, TaikoEvents {
         // SSTORE #3
         _debitBond(_proposer, config.livenessBond * _blockParams.length);
 
-        slotB = _verifyBlocks(slotB, _blockParams.length);
+        slotB = _verifyBlocks(config, slotB, _blockParams.length);
         emit StateVariablesUpdated(slotB);
 
         // SSTORE #4
@@ -200,7 +200,7 @@ contract TaikoL1V3B is EssentialContract, TaikoEvents {
 
         IVerifier(resolve("TODO", false)).verifyProofV3(ctxs, proof);
 
-        slotB = _verifyBlocks(slotB, _metas.length);
+        slotB = _verifyBlocks(config, slotB, _metas.length);
         // SSTORE #4
         emit StateVariablesUpdated(slotB);
         state.slotB = slotB;
@@ -307,12 +307,69 @@ contract TaikoL1V3B is EssentialContract, TaikoEvents {
     }
 
     function _verifyBlocks(
+        TaikoData.ConfigV3 memory _config,
         TaikoData.SlotB memory _slotB,
         uint256 _length
     )
         private
         returns (TaikoData.SlotB memory)
     {
+        uint64 blockId = _slotB.lastVerifiedBlockId;
+        uint256 slot = blockId % _config.blockRingBufferSize;
+        TaikoData.BlockV3 storage blk = state.blocks[slot];
+        uint24 verifiedTransitionId = blk.verifiedTransitionId;
+        bytes32 verifiedBlockHash = state.transitions[slot][verifiedTransitionId].blockHash;
+        uint64 count;
+
+        uint64 syncBlockId;
+        uint24 syncTransitionId;
+        bytes32 syncStateRoot;
+        while (++blockId < _slotB.numBlocks && count < _config.maxBlocksToVerify * _length) {
+            slot = blockId % _config.blockRingBufferSize;
+            blk = state.blocks[slot];
+            // get Tid;
+            uint24 tid;
+
+            if (tid == 0) break;
+            TaikoData.TransitionStateV3 storage ts = state.transitions[slot][tid];
+
+            verifiedBlockHash = ts.blockHash;
+            verifiedTransitionId = tid;
+
+            if (_isSyncBlock(_config.stateRootSyncInternal, blockId)) {
+                syncBlockId = blockId;
+                syncTransitionId = tid;
+                syncStateRoot = ts.stateRoot;
+            }
+            unchecked {
+                ++blockId;
+                ++count;
+            }
+        }
+
+        if (count == 0) return _slotB;
+
+        _slotB.lastVerifiedBlockId += count;
+
+        slot = _slotB.lastVerifiedBlockId % _config.blockRingBufferSize;
+        blk = state.blocks[slot];
+        blk.verifiedTransitionId = verifiedTransitionId;
+
+        if (syncBlockId == 0) return _slotB;
+
+        state.slotA.lastSyncedBlockId = syncBlockId;
+        state.slotA.lastSyncedAt = uint64(block.timestamp);
+
+        // We write the synced block's verifiedTransitionId to storage
+        if (syncBlockId != _slotB.lastVerifiedBlockId) {
+            slot = syncBlockId % _config.blockRingBufferSize;
+            state.blocks[slot].verifiedTransitionId = syncTransitionId;
+        }
+
+        // Ask signal service to write cross chain signal
+        ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).syncChainData(
+            _config.chainId, LibStrings.H_STATE_ROOT, syncBlockId, syncStateRoot
+        );
         return _slotB;
     }
 
@@ -362,24 +419,6 @@ contract TaikoL1V3B is EssentialContract, TaikoEvents {
 
     function _bondToken() private view returns (address) {
         return resolve(LibStrings.B_BOND_TOKEN, true);
-    }
-
-    function _getTransitionId(
-        TaikoData.BlockV3 storage _blk,
-        uint256 _slot,
-        bytes32 _parentHash
-    )
-        internal
-        view
-        returns (uint24 tid_)
-    {
-        if (state.transitions[_slot][1].key == _parentHash) {
-            tid_ = 1;
-            require(tid_ < _blk.nextTransitionId, "UnexpectedLargeTid");
-        } else {
-            tid_ = state.transitionIds[_blk.blockId][_parentHash];
-            require(tid_ == 0 || tid_ < _blk.nextTransitionId, "UnexpectedLargeTid");
-        }
     }
 
     function _isSyncBlock(
