@@ -397,10 +397,13 @@ contract TaikoL1 is EssentialContract, ITaikoL1, IBondManager {
         BlockV3 storage blk = state.blocks[slot];
         uint24 verifiedTransitionId = blk.verifiedTransitionId;
         bytes32 verifiedBlockHash = state.transitions[slot][verifiedTransitionId].blockHash;
-        uint64 count;
 
         TransientSyncedBlock memory synced;
-        while (++blockId < _slotB.numBlocks && count < _config.maxBlocksToVerify * _length) {
+
+        uint256 stopBlockId =
+            (_config.maxBlocksToVerify * _length + _slotB.lastVerifiedBlockId).min(_slotB.numBlocks);
+
+        for (++blockId; blockId <= stopBlockId; ++blockId) {
             slot = blockId % _config.blockRingBufferSize;
             blk = state.blocks[slot];
             // TODO(daniel): get Tid;
@@ -417,14 +420,14 @@ contract TaikoL1 is EssentialContract, ITaikoL1, IBondManager {
                 synced.tid = tid;
                 synced.stateRoot = ts.stateRoot;
             }
-            unchecked {
-                ++blockId;
-                ++count;
-            }
         }
 
-        if (count != 0) {
-            _slotB.lastVerifiedBlockId += count;
+        unchecked {
+            --blockId;
+        }
+
+        if (_slotB.lastVerifiedBlockId != blockId) {
+            _slotB.lastVerifiedBlockId = blockId;
 
             blk = state.blocks[_slotB.lastVerifiedBlockId % _config.blockRingBufferSize];
             blk.verifiedTransitionId = verifiedTransitionId;
