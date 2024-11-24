@@ -16,7 +16,7 @@ contract Verifier_ToggleStub is IVerifier {
 
     function verifyProof(
         Context calldata,
-        TaikoData.TransitionV3 calldata,
+        ITaikoData.TransitionV3 calldata,
         IVerifier.TypedProof calldata
     )
         external

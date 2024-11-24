@@ -3,10 +3,10 @@ pragma solidity ^0.8.24;
 
 import "src/shared/based/LibSharedData.sol";
 
-/// @title TaikoData
+/// @title ITaikoData
 /// @notice This library defines various data structures used in the Taiko protocol.
 /// @custom:security-contact security@taiko.xyz
-interface TaikoData {
+interface ITaikoData {
     struct BlockParamsV3 {
         address proposer; // TODO: REMOVE THIS
         address coinbase; // TODO: REMOVE THIS

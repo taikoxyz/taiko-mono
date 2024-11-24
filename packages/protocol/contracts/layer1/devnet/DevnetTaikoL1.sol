@@ -8,8 +8,8 @@ import "../based/TaikoL1.sol";
 /// @custom:security-contact security@taiko.xyz
 contract DevnetTaikoL1 is TaikoL1 {
     /// @inheritdoc ITaikoL1
-    function getConfigV3() public pure override returns (TaikoData.ConfigV3 memory) {
-        return TaikoData.ConfigV3({
+    function getConfigV3() public pure override returns (ITaikoData.ConfigV3 memory) {
+        return ITaikoData.ConfigV3({
             chainId: 167_001,
             blockMaxProposals: 324_000,
             blockRingBufferSize: 360_000,

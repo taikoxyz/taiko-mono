@@ -11,12 +11,12 @@ import "./libs/LibFasterReentryLock.sol";
 /// @notice See the documentation in {TaikoL1}.
 /// @custom:security-contact security@taiko.xyz
 contract MainnetTaikoL1 is TaikoL1 {
-    function getConfigV3() public pure override returns (TaikoData.ConfigV3 memory) {
+    function getConfigV3() public pure override returns (ITaikoData.ConfigV3 memory) {
         // All hard-coded configurations:
         // - treasury: the actual TaikoL2 address.
         // - anchorGasLimit: 250_000 (based on internal devnet, its ~220_000
         // after 256 L2 blocks)
-        return TaikoData.ConfigV3({
+        return ITaikoData.ConfigV3({
             chainId: LibNetwork.TAIKO_MAINNET,
             // Ring buffers are being reused on the mainnet, therefore the following two
             // configuration values must NEVER be changed!!!

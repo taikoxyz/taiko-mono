@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../based/TaikoData.sol";
+import "../based/ITaikoData.sol";
 
 /// @title IVerifier
 /// @notice Defines the function that handles proof verification.
@@ -29,13 +29,13 @@ interface IVerifier {
         uint64 blockId;
         bool isContesting;
         address msgSender;
-        TaikoData.TransitionV3 tran;
+        ITaikoData.TransitionV3 tran;
     }
 
     struct ContextV3 {
         bytes32 metaHash;
         bytes32 difficulty;
-        TaikoData.TransitionV3 tran;
+        ITaikoData.TransitionV3 tran;
     }
 
     /// @notice Verifies a proof.
@@ -44,7 +44,7 @@ interface IVerifier {
     /// @param _proof The proof to verify.
     function verifyProof(
         Context calldata _ctx,
-        TaikoData.TransitionV3 calldata _tran,
+        ITaikoData.TransitionV3 calldata _tran,
         TypedProof calldata _proof
     )
         external;

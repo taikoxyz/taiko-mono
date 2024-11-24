@@ -7,8 +7,8 @@ import "../based/TaikoL1.sol";
 /// @dev Labeled in AddressResolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
 contract HeklaTaikoL1 is TaikoL1 {
-    function getConfigV3() public pure override returns (TaikoData.ConfigV3 memory) {
-        return TaikoData.ConfigV3({
+    function getConfigV3() public pure override returns (ITaikoData.ConfigV3 memory) {
+        return ITaikoData.ConfigV3({
             chainId: LibNetwork.TAIKO_HEKLA,
             // Never change this value as ring buffer is being reused!!!
             blockMaxProposals: 324_000,

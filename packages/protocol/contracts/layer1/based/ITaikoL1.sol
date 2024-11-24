@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./TaikoData.sol";
+import "./ITaikoData.sol";
 
-interface IBondManager {
+/// @title ITaikoL1
+/// @custom:security-contact security@taiko.xyz
+interface ITaikoL1 is ITaikoData {
     /// @notice Emitted when tokens are deposited into a user's bond balance.
     /// @param user The address of the user who deposited the tokens.
     /// @param amount The amount of tokens deposited.
@@ -14,19 +16,6 @@ interface IBondManager {
     /// @param amount The amount of tokens withdrawn.
     event BondWithdrawn(address indexed user, uint256 amount);
 
-    function depositBond(uint256 _amount) external payable;
-
-    function withdrawBond(uint256 _amount) external;
-
-    function bondBalanceOf(address _user) external view returns (uint256);
-}
-/// @title TaikoEvents
-/// @notice This abstract contract provides event declarations for the Taiko protocol, which are
-/// emitted during block proposal, proof, verification, and Ethereum deposit processes.
-/// @dev The events defined here must match the definitions in the corresponding L1 libraries.
-/// @custom:security-contact security@taiko.xyz
-
-interface ITaikoL1 is TaikoData {
     /// @notice Emitted when a token is credited back to a user's bond balance.
     /// @param user The address of the user whose bond balance is credited.
     /// @param blockId The ID of the block to credit for.
@@ -82,6 +71,12 @@ interface ITaikoL1 is TaikoData {
         bytes calldata proof
     )
         external;
+
+    function depositBond(uint256 _amount) external payable;
+
+    function withdrawBond(uint256 _amount) external;
+
+    function bondBalanceOf(address _user) external view returns (uint256);
 
     /// @notice Retrieves the ID of the L1 block where the most recent L2 block was proposed.
     /// @return The ID of the L1 block where the most recent block was proposed.

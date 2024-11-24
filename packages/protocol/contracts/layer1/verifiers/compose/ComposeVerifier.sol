@@ -39,7 +39,7 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
     /// @inheritdoc IVerifier
     function verifyProof(
         Context calldata _ctx,
-        TaikoData.TransitionV3 calldata _tran,
+        ITaikoData.TransitionV3 calldata _tran,
         IVerifier.TypedProof calldata _proof
     )
         external

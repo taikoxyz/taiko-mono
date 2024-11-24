@@ -20,7 +20,7 @@ import "./ITaikoL1.sol";
 /// contract.
 /// @dev Labeled in AddressResolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
-contract TaikoL1 is EssentialContract, ITaikoL1, IBondManager {
+contract TaikoL1 is EssentialContract, ITaikoL1 {
     using LibMath for uint256;
 
     struct TransientParentBlock {
@@ -131,7 +131,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, IBondManager {
         }
 
         IVerifier(resolve("TODO", false)).verifyProofV3(ctxs, proof);
-        
+
         _verifyBlocks(config, slotB, _metas.length);
     }
 

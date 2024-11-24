@@ -7,7 +7,7 @@ import "src/shared/libs/LibStrings.sol";
 import "../automata-attestation/interfaces/IAttestation.sol";
 import "../automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
 import "../based/ITaikoL1.sol";
-import "../based/TaikoData.sol";
+import "../based/ITaikoData.sol";
 import "./LibPublicInput.sol";
 import "./IVerifier.sol";
 
@@ -138,7 +138,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     /// @inheritdoc IVerifier
     function verifyProof(
         Context calldata _ctx,
-        TaikoData.TransitionV3 calldata _tran,
+        ITaikoData.TransitionV3 calldata _tran,
         IVerifier.TypedProof calldata _proof
     )
         external
