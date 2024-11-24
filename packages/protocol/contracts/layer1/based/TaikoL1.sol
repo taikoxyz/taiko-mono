@@ -9,7 +9,6 @@ import "src/shared/libs/LibNetwork.sol";
 import "src/shared/libs/LibStrings.sol";
 import "src/shared/signal/ISignalService.sol";
 import "src/layer1/verifiers/IVerifier.sol";
-import "./TaikoData.sol";
 import "./ITaikoL1.sol";
 
 /// @title TaikoL1
@@ -30,7 +29,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         uint64 timestamp;
     }
 
-    TaikoData.State public state;
+    State public state;
     uint256[50] private __gap;
 
     // External functions
@@ -55,10 +54,10 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         external
         whenNotPaused
         nonReentrant
-        returns (TaikoData.BlockMetadataV3[] memory metas_)
+        returns (BlockMetadataV3[] memory metas_)
     {
-        TaikoData.ConfigV3 memory config = getConfigV3();
-        TaikoData.SlotB memory slotB = state.slotB;
+        ConfigV3 memory config = getConfigV3();
+        SlotB memory slotB = state.slotB;
         require(_blockParams.length != 0, "NoBlocksToPropose");
         require(slotB.numBlocks >= config.pacayaForkHeight, "InvalidForkHeight");
         require(
@@ -69,7 +68,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
 
         ParentInfo memory parent;
         {
-            TaikoData.BlockV3 storage parentBlk =
+            BlockV3 storage parentBlk =
                 state.blocks[(slotB.numBlocks - 1) % config.blockRingBufferSize];
             parent = ParentInfo({
                 metaHash: parentBlk.metaHash,
@@ -82,11 +81,10 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         if (_coinbase == address(0)) {
             _coinbase = _proposer;
         }
-        metas_ = new TaikoData.BlockMetadataV3[](_blockParams.length);
+        metas_ = new BlockMetadataV3[](_blockParams.length);
 
         for (uint256 i; i < _blockParams.length; ++i) {
-            TaikoData.BlockParamsV3 memory params =
-                _validateBlockParams(_blockParams[i], config, parent);
+            BlockParamsV3 memory params = _validateBlockParams(_blockParams[i], config, parent);
 
             bytes32 metaHash;
             (metas_[i], metaHash) = _proposeBlock(config, slotB, params, _proposer, _coinbase);
@@ -111,8 +109,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
     }
 
     function proveBlocksV3(
-        TaikoData.BlockMetadataV3[] calldata _metas,
-        TaikoData.TransitionV3[] calldata _transitions,
+        BlockMetadataV3[] calldata _metas,
+        TransitionV3[] calldata _transitions,
         bytes calldata proof
     )
         external
@@ -120,8 +118,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         nonReentrant
     {
         require(_metas.length == _transitions.length, "InvalidParam");
-        TaikoData.ConfigV3 memory config = getConfigV3();
-        TaikoData.SlotB memory slotB = state.slotB;
+        ConfigV3 memory config = getConfigV3();
+        SlotB memory slotB = state.slotB;
 
         IVerifier.ContextV3[] memory ctxs = new IVerifier.ContextV3[](_metas.length);
 
@@ -181,8 +179,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         return state.bondBalance[_user];
     }
 
-    function getBlockV3(uint64 _blockId) external view returns (TaikoData.BlockV3 memory blk_) {
-        TaikoData.ConfigV3 memory config = getConfigV3();
+    function getBlockV3(uint64 _blockId) external view returns (BlockV3 memory blk_) {
+        ConfigV3 memory config = getConfigV3();
         require(_blockId >= config.pacayaForkHeight, "InvalidForkHeight");
         (blk_,) = _getBlock(config, _blockId);
     }
@@ -201,8 +199,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         return resolve(LibStrings.B_BOND_TOKEN, true);
     }
 
-    function getConfigV3() public view virtual returns (TaikoData.ConfigV3 memory) {
-        return TaikoData.ConfigV3({
+    function getConfigV3() public view virtual returns (ConfigV3 memory) {
+        return ConfigV3({
             chainId: LibNetwork.TAIKO_MAINNET,
             blockMaxProposals: 324_000, // = 7200 * 45
             blockRingBufferSize: 360_000, // = 7200 * 50
@@ -242,7 +240,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         state.slotB.numBlocks = 1;
 
         // Init the genesis block
-        TaikoData.BlockV3 storage blk = state.blocks[0];
+        BlockV3 storage blk = state.blocks[0];
         blk.nextTransitionId = 2;
         blk.timestamp = uint64(block.timestamp);
         blk.anchorBlockId = uint64(block.number);
@@ -250,7 +248,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         blk.metaHash = bytes32(uint256(1)); // Give the genesis metahash a non-zero value.
 
         // Init the first state transition
-        TaikoData.TransitionStateV3 storage ts = state.transitions[0][1];
+        TransitionStateV3 storage ts = state.transitions[0][1];
         ts.blockHash = _genesisBlockHash;
         ts.prover = address(0);
         ts.timestamp = uint64(block.timestamp);
@@ -262,20 +260,20 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
     // ------------------------------------------------------------------------------------------
 
     function _proposeBlock(
-        TaikoData.ConfigV3 memory _config,
-        TaikoData.SlotB memory _slotB,
-        TaikoData.BlockParamsV3 memory _params,
+        ConfigV3 memory _config,
+        SlotB memory _slotB,
+        BlockParamsV3 memory _params,
         address _proposer,
         address _coinbase
     )
         internal
-        returns (TaikoData.BlockMetadataV3 memory meta_, bytes32 metaHash_)
+        returns (BlockMetadataV3 memory meta_, bytes32 metaHash_)
     {
         // Initialize metadata to compute a metaHash, which forms a part of the block data to be
         // stored on-chain for future integrity checks. If we choose to persist all data fields
         // in
         // the metadata, it will require additional storage slots.
-        meta_ = TaikoData.BlockMetadataV3({
+        meta_ = BlockMetadataV3({
             anchorBlockHash: blockhash(_params.anchorBlockId),
             difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", _slotB.numBlocks)),
             blobHash: blobhash(_params.blobIndex),
@@ -306,7 +304,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         require(meta_.blobHash != 0, "BlobNotFound");
 
         // Use a storage pointer for the block in the ring buffer
-        TaikoData.BlockV3 storage blk = state.blocks[_slotB.numBlocks % _config.blockRingBufferSize];
+        BlockV3 storage blk = state.blocks[_slotB.numBlocks % _config.blockRingBufferSize];
 
         // Store each field of the block separately
         // SSTORE #1
@@ -324,10 +322,10 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
     }
 
     function _proposeBlock(
-        TaikoData.ConfigV3 memory _config,
-        TaikoData.SlotB memory _slotB,
-        TaikoData.BlockMetadataV3 calldata _meta,
-        TaikoData.TransitionV3 calldata _tran
+        ConfigV3 memory _config,
+        SlotB memory _slotB,
+        BlockMetadataV3 calldata _meta,
+        TransitionV3 calldata _tran
     )
         private
         returns (IVerifier.ContextV3 memory ctx_)
@@ -345,10 +343,10 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         ctx_.tran = _tran;
 
         uint256 slot = _meta.id % _config.blockRingBufferSize;
-        TaikoData.BlockV3 storage blk = state.blocks[slot];
+        BlockV3 storage blk = state.blocks[slot];
         require(ctx_.metaHash == blk.metaHash, "MataMismatch");
 
-        TaikoData.TransitionStateV3 storage ts = state.transitions[slot][1];
+        TransitionStateV3 storage ts = state.transitions[slot][1];
         require(ts.key != _tran.parentHash, "AlreadyProvenAsFirstTransition");
         require(state.transitionIds[_meta.id][_tran.parentHash] == 0, "AlreadyProven");
 
@@ -378,16 +376,16 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
     }
 
     function _verifyBlocks(
-        TaikoData.ConfigV3 memory _config,
-        TaikoData.SlotB memory _slotB,
+        ConfigV3 memory _config,
+        SlotB memory _slotB,
         uint256 _length
     )
         private
-        returns (TaikoData.SlotB memory)
+        returns (SlotB memory)
     {
         uint64 blockId = _slotB.lastVerifiedBlockId;
         uint256 slot = blockId % _config.blockRingBufferSize;
-        TaikoData.BlockV3 storage blk = state.blocks[slot];
+        BlockV3 storage blk = state.blocks[slot];
         uint24 verifiedTransitionId = blk.verifiedTransitionId;
         bytes32 verifiedBlockHash = state.transitions[slot][verifiedTransitionId].blockHash;
         uint64 count;
@@ -402,7 +400,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
             uint24 tid;
 
             if (tid == 0) break;
-            TaikoData.TransitionStateV3 storage ts = state.transitions[slot][tid];
+            TransitionStateV3 storage ts = state.transitions[slot][tid];
 
             verifiedBlockHash = ts.blockHash;
             verifiedTransitionId = tid;
@@ -481,15 +479,15 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
 
     function _validateBlockParams(
         bytes calldata _blockParam,
-        TaikoData.ConfigV3 memory _config,
+        ConfigV3 memory _config,
         ParentInfo memory _parent
     )
         private
         view
-        returns (TaikoData.BlockParamsV3 memory params_)
+        returns (BlockParamsV3 memory params_)
     {
         if (_blockParam.length != 0) {
-            params_ = abi.decode(_blockParam, (TaikoData.BlockParamsV3));
+            params_ = abi.decode(_blockParam, (BlockParamsV3));
         }
 
         if (params_.anchorBlockId == 0) {
@@ -539,12 +537,11 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         view
         returns (bytes32 blockHash_, bytes32 stateRoot_)
     {
-        TaikoData.ConfigV3 memory config = getConfigV3();
-        (TaikoData.BlockV3 storage blk, uint64 slot) = _getBlock(config, _blockId);
+        ConfigV3 memory config = getConfigV3();
+        (BlockV3 storage blk, uint64 slot) = _getBlock(config, _blockId);
 
         if (blk.verifiedTransitionId != 0) {
-            TaikoData.TransitionStateV3 storage ts =
-                state.transitions[slot][blk.verifiedTransitionId];
+            TransitionStateV3 storage ts = state.transitions[slot][blk.verifiedTransitionId];
 
             blockHash_ = ts.blockHash;
             stateRoot_ = ts.stateRoot;
@@ -552,12 +549,12 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
     }
 
     function _getBlock(
-        TaikoData.ConfigV3 memory _config,
+        ConfigV3 memory _config,
         uint64 _blockId
     )
         private
         view
-        returns (TaikoData.BlockV3 storage blk_, uint64 slot_)
+        returns (BlockV3 storage blk_, uint64 slot_)
     {
         slot_ = _blockId % _config.blockRingBufferSize;
         blk_ = state.blocks[slot_];

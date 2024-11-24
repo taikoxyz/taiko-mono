@@ -6,7 +6,7 @@ import "src/shared/based/LibSharedData.sol";
 /// @title TaikoData
 /// @notice This library defines various data structures used in the Taiko protocol.
 /// @custom:security-contact security@taiko.xyz
-library TaikoData {
+interface TaikoData {
     struct BlockParamsV3 {
         address proposer; // TODO: REMOVE THIS
         address coinbase; // TODO: REMOVE THIS

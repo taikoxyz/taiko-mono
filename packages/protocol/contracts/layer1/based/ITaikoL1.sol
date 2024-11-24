@@ -8,7 +8,7 @@ import "./TaikoData.sol";
 /// emitted during block proposal, proof, verification, and Ethereum deposit processes.
 /// @dev The events defined here must match the definitions in the corresponding L1 libraries.
 /// @custom:security-contact security@taiko.xyz
-interface ITaikoL1 {
+interface ITaikoL1 is TaikoData {
     /// @notice Emitted when tokens are deposited into a user's bond balance.
     /// @param user The address of the user who deposited the tokens.
     /// @param amount The amount of tokens deposited.
@@ -38,12 +38,12 @@ interface ITaikoL1 {
     /// @notice Emitted when some state variable values changed.
     /// @dev This event is currently used by Taiko node/client for block proposal/proving.
     /// @param slotB The SlotB data structure.
-    event StateVariablesUpdated(TaikoData.SlotB slotB);
+    event StateVariablesUpdated(SlotB slotB);
 
     /// @notice Emitted when a block is proposed.
     /// @param blockId The ID of the proposed block.
     /// @param meta The metadata of the proposed block.
-    event BlockProposedV3(uint256 indexed blockId, TaikoData.BlockMetadataV3 meta);
+    event BlockProposedV3(uint256 indexed blockId, BlockMetadataV3 meta);
 
     /// @notice Emitted when a transition is proved.
     /// @param blockId The block ID.
@@ -54,7 +54,7 @@ interface ITaikoL1 {
     /// @param proposedIn The L1 block in which a transition is proved.
     event TransitionProvedV3(
         uint256 indexed blockId,
-        TaikoData.TransitionV3 tran,
+        TransitionV3 tran,
         address prover,
         uint96 validityBond,
         uint16 tier,
@@ -73,11 +73,11 @@ interface ITaikoL1 {
         bytes[] calldata _blockParams
     )
         external
-        returns (TaikoData.BlockMetadataV3[] memory);
+        returns (BlockMetadataV3[] memory);
 
     function proveBlocksV3(
-        TaikoData.BlockMetadataV3[] calldata _metas,
-        TaikoData.TransitionV3[] calldata _transitions,
+        BlockMetadataV3[] calldata _metas,
+        TransitionV3[] calldata _transitions,
         bytes calldata proof
     )
         external;
@@ -90,5 +90,5 @@ interface ITaikoL1 {
     /// @return The ID of the L1 block where the most recent block was proposed.
     function lastProposedIn() external view returns (uint56);
 
-    function getConfigV3() external view returns (TaikoData.ConfigV3 memory);
+    function getConfigV3() external view returns (ConfigV3 memory);
 }
