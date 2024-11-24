@@ -372,7 +372,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
 
         ts.blockHash = _tran.blockHash;
 
-        if (_isSyncBlock(_config.stateRootSyncInternal, _meta.id)) {
+        if (_meta.id % _config.stateRootSyncInternal == 0) {
             ts.stateRoot = _tran.stateRoot;
         }
 
@@ -409,7 +409,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
             verifiedBlockHash = ts.blockHash;
             verifiedTransitionId = tid;
 
-            if (_isSyncBlock(_config.stateRootSyncInternal, blockId)) {
+            if (blockId % _config.stateRootSyncInternal == 0) {
                 synced.blockId = blockId;
                 synced.tid = tid;
                 synced.stateRoot = ts.stateRoot;
@@ -528,15 +528,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         );
     }
 
-    function _checkProposer(address _customProposer) private view returns (address) {
-        if (_customProposer == address(0)) return msg.sender;
-
-        address preconfTaskManager = resolve(LibStrings.B_PRECONF_TASK_MANAGER, true);
-        require(preconfTaskManager != address(0), "CustomProposerNotAllowed");
-        require(preconfTaskManager == msg.sender, "MsgSenderNotPreconfTaskManager");
-        return _customProposer;
-    }
-
     function _getBlockInfo(uint64 _blockId)
         private
         view
@@ -555,14 +546,12 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         }
     }
 
-    function _isSyncBlock(
-        uint256 _stateRootSyncInternal,
-        uint256 _blockId
-    )
-        private
-        pure
-        returns (bool)
-    {
-        return _stateRootSyncInternal == 0 || _blockId % _stateRootSyncInternal == 0;
+    function _checkProposer(address _customProposer) private view returns (address) {
+        if (_customProposer == address(0)) return msg.sender;
+
+        address preconfTaskManager = resolve(LibStrings.B_PRECONF_TASK_MANAGER, true);
+        require(preconfTaskManager != address(0), "CustomProposerNotAllowed");
+        require(preconfTaskManager == msg.sender, "MsgSenderNotPreconfTaskManager");
+        return _customProposer;
     }
 }
