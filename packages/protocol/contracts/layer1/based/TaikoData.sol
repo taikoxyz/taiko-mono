@@ -49,10 +49,11 @@ library TaikoData {
     /// @notice Struct representing state transition data.
     /// @notice 6 slots used.
     struct TransitionStateV3 {
+        // TODO: use TransitionV3 directly.
         bytes32 key; // slot 1, only written/read for the 1st state transition.
         bytes32 blockHash; // slot 2
         bytes32 stateRoot; // slot 3
-        address prover; // slot 4
+        address prover; // slot 4 // TODO? DEPREATE?
         uint96 validityBond; // DEPRECATED!!!
         address contester; // slot 5, DEPRECATED!!!
         uint96 contestBond; // DEPRECATED!!!

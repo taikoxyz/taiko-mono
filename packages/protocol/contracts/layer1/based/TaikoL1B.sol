@@ -68,6 +68,7 @@ contract TaikoL1V3B is EssentialContract, TaikoEvents {
     {
         TaikoData.ConfigV3 memory config = getConfigV3();
         TaikoData.SlotB memory slotB = state.slotB;
+        require(_blockParams.length != 0, "NoBlocksToPropose");
         require(slotB.numBlocks >= config.pacayaForkHeight, "InvalidForkHeight");
         require(
             slotB.numBlocks + _blockParams.length
@@ -161,7 +162,7 @@ contract TaikoL1V3B is EssentialContract, TaikoEvents {
         // SSTORE #3
         _debitBond(proposer, config.livenessBond * _blockParams.length);
 
-        slotB = _verifyBlocks(slotB);
+        slotB = _verifyBlocks(slotB, _blockParams.length);
         emit StateVariablesUpdated(slotB);
 
         // SSTORE #4
@@ -180,101 +181,71 @@ contract TaikoL1V3B is EssentialContract, TaikoEvents {
         TaikoData.SlotB memory slotB = state.slotB;
 
         IVerifier.ContextV3[] memory ctxs = new IVerifier.ContextV3[](_metas.length);
-        uint24[] memory tids = new uint24[](_metas.length);
-        TaikoData.TransitionStateV3[] memory tstates =
-            new TaikoData.TransitionStateV3[](_metas.length);
 
         for (uint256 i; i < _metas.length; ++i) {
-            require(_metas[i].id >= config.pacayaForkHeight, "InvalidForkHeight");
-            require(_metas[i].id < slotB.lastVerifiedBlockId, "BlockVerified");
-            require(_metas[i].id < slotB.numBlocks, "BlockNotProposed");
-
-            require(_transitions[i].parentHash != 0, "InvalidTransitionParentHash");
-            require(_transitions[i].blockHash != 0, "InvalidTransitionBlockHash");
-            require(_transitions[i].stateRoot != 0, "InvalidTransitionStateRoot");
-
-            ctxs[i].metaHash = keccak256(abi.encode(_metas[i]));
-            ctxs[i].difficulty = _metas[i].difficulty;
-            ctxs[i].tran = _transitions[i];
-
-            uint256 slot = _metas[i].id % config.blockRingBufferSize;
-            TaikoData.BlockV3 storage blk = state.blocks[slot];
-            require(ctxs[i].metaHash == blk.metaHash, "MataMismatch");
-
-            tids[i] = _getTransitionId(blk, slot, _transitions[i].parentHash);
-
-            if (tids[i] == 0) {
-                // In cases where a transition with the provided parentHash is not found, we must
-                // essentially "create" one and set it to its initial state. This initial state can
-                // be
-                // viewed as a special transition on tier-0. Subsequently, we transform this tier-0
-                // transition into a non-zero-tier transition with a proof. This approach ensures
-                // that
-                // the same logic is applicable for both 0-to-non-zero transition updates and
-                // non-zero-to-non-zero transition updates.
-                unchecked {
-                    // Unchecked is safe: Not realistic 2**32 different fork choice per block will
-                    // be
-                    // proven and none of them is valid
-                    tids[i] = blk.nextTransitionId++;
-                }
-
-                if (tids[i] == 1) {
-                    // This approach serves as a cost-saving technique for the majority of blocks,
-                    // where
-                    // the first transition is expected to be the correct one. Writing to
-                    // `transitions`
-                    // is more economical since it resides in the ring buffer, whereas writing to
-                    // `transitionIds` is not as cost-effective.
-                    tstates[i].key = _transitions[i].parentHash;
-
-                    // In the case of this first transition, the block's assigned prover has the
-                    // privilege to re-prove it, but only when the assigned prover matches the
-                    // previous
-                    // prover. To ensure this, we establish the transition's prover as the block's
-                    // assigned prover. Consequently, when we carry out a 0-to-non-zero transition
-                    // update, the previous prover will consistently be the block's assigned prover.
-                    // While alternative implementations are possible, introducing such changes
-                    // would
-                    // require additional if-else logic.
-                    tstates[i].prover = _metas[i].proposer;
-                } else {
-                    // Furthermore, we index the transition for future retrieval. It's worth
-                    // emphasizing
-                    // that this mapping for indexing is not reusable. However, given that the
-                    // majority
-                    // of blocks will only possess one transition — the correct one — we don't need
-                    // to be concerned about the cost in this case.
-
-                    // There is no need to initialize ts.key here because it's only used when tid ==
-                    // 1
-                    state.transitionIds[_metas[i].id][_transitions[i].parentHash] = tids[i];
-                }
-            } else {
-                // A transition with the provided parentHash has been located.
-                tstates[i] = state.transitions[slot][tids[i]];
-            }
-
-            // Checks if only the assigned prover is permissioned to prove the block. The assigned
-            // prover is granted exclusive permission to prove only the first transition.
-            if (tids[i] == 1 && msg.sender != _metas[i].proposer) {
-                require(
-                    block.timestamp
-                        > (
-                            uint256(_metas[i].proposedAt).max(slotB.lastUnpausedAt)
-                                + config.provingWindow
-                        ),
-                    "NotProposer"
-                );
-            }
+            ctxs[i] = _proposeBlock(config, slotB, _metas[i], _transitions[i]);
         }
 
         IVerifier(resolve("TODO", false)).verifyProofV3(ctxs, proof);
 
-        slotB = _verifyBlocks(slotB);
+        slotB = _verifyBlocks(slotB, _metas.length);
         // SSTORE #4
         emit StateVariablesUpdated(slotB);
         state.slotB = slotB;
+    }
+
+    function _proposeBlock(
+        TaikoData.ConfigV3 memory _config,
+        TaikoData.SlotB memory _slotB,
+        TaikoData.BlockMetadataV3 calldata _meta,
+        TaikoData.TransitionV3 calldata _tran
+    )
+        private
+        returns (IVerifier.ContextV3 memory ctx_)
+    {
+        require(_meta.id >= _config.pacayaForkHeight, "InvalidForkHeight");
+        require(_meta.id < _slotB.lastVerifiedBlockId, "BlockVerified");
+        require(_meta.id < _slotB.numBlocks, "BlockNotProposed");
+
+        require(_tran.parentHash != 0, "InvalidTransitionParentHash");
+        require(_tran.blockHash != 0, "InvalidTransitionBlockHash");
+        require(_tran.stateRoot != 0, "InvalidTransitionStateRoot");
+
+        ctx_.metaHash = keccak256(abi.encode(_meta));
+        ctx_.difficulty = _meta.difficulty;
+        ctx_.tran = _tran;
+
+        uint256 slot = _meta.id % _config.blockRingBufferSize;
+        TaikoData.BlockV3 storage blk = state.blocks[slot];
+        require(ctx_.metaHash == blk.metaHash, "MataMismatch");
+
+        TaikoData.TransitionStateV3 storage ts = state.transitions[slot][1];
+        require(ts.key != _tran.parentHash, "AlreadyProvenAsFirstTransition");
+        require(state.transitionIds[_meta.id][_tran.parentHash] == 0, "AlreadyProven");
+
+        uint24 tid = blk.nextTransitionId++;
+        ts = state.transitions[slot][tid];
+
+        // Checks if only the assigned prover is permissioned to prove the block. The assigned
+        // prover is granted exclusive permission to prove only the first transition.
+        if (tid == 1) {
+            if (msg.sender == _meta.proposer) {
+                _creditBond(_meta.proposer, _config.livenessBond);
+            } else {
+                uint256 deadline = uint256(_meta.proposedAt).max(_slotB.lastUnpausedAt);
+                deadline += _config.provingWindow;
+                require(block.timestamp >= deadline, "ProvingWindowNotPassed");
+            }
+            ts.key = _tran.parentHash;
+        } else {
+            state.transitionIds[_meta.id][_tran.parentHash] = tid;
+        }
+
+        ts.blockHash = _tran.blockHash;
+
+        if (_isSyncBlock(_config.stateRootSyncInternal, _meta.id)) {
+            ts.stateRoot = _tran.stateRoot;
+        }
     }
 
     function _validateBlockParams(
@@ -323,7 +294,10 @@ contract TaikoL1V3B is EssentialContract, TaikoEvents {
         );
     }
 
-    function _verifyBlocks(TaikoData.SlotB memory _slotB)
+    function _verifyBlocks(
+        TaikoData.SlotB memory _slotB,
+        uint256 _length
+    )
         private
         returns (TaikoData.SlotB memory)
     {
@@ -352,6 +326,14 @@ contract TaikoL1V3B is EssentialContract, TaikoEvents {
             _handleDeposit(_user, _amount);
         }
         emit TaikoEvents.BondDebited(_user, 0, _amount);
+    }
+
+    function _creditBond(address _user, uint256 _amount) internal {
+        if (_amount == 0) return;
+        unchecked {
+            state.bondBalance[_user] += _amount;
+        }
+        emit TaikoEvents.BondCredited(_user, 0, _amount);
     }
 
     function _handleDeposit(address _user, uint256 _amount) private {
@@ -385,6 +367,23 @@ contract TaikoL1V3B is EssentialContract, TaikoEvents {
         } else {
             tid_ = state.transitionIds[_blk.blockId][_parentHash];
             require(tid_ == 0 || tid_ < _blk.nextTransitionId, "UnexpectedLargeTid");
+        }
+    }
+
+    function _isSyncBlock(
+        uint256 _stateRootSyncInternal,
+        uint256 _blockId
+    )
+        internal
+        pure
+        returns (bool)
+    {
+        if (_stateRootSyncInternal <= 1) return true;
+        unchecked {
+            // We could use `_blockId % _stateRootSyncInternal == 0`, but this will break many unit
+            // tests as in most of these tests, we test block#1, so by setting
+            // config._stateRootSyncInternal = 2, we can keep the tests unchanged.
+            return _blockId % _stateRootSyncInternal == _stateRootSyncInternal - 1;
         }
     }
 }
