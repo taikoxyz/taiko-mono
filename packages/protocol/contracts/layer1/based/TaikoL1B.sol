@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "src/shared/common/EssentialContract.sol";
-import "./LibProposing.sol";
-import "./LibProving.sol";
-import "./LibVerifying.sol";
+import "src/shared/signal/ISignalService.sol";
+import "src/shared/libs/LibMath.sol";
+import "src/shared/libs/LibStrings.sol";
+import "src/shared/libs/LibNetwork.sol";
+import "src/layer1/verifiers/IVerifier.sol";
 import "./TaikoEvents.sol";
-import "./ITaikoL1.sol";
+import "./TaikoData.sol";
 
 /// @title TaikoL1V3B
 /// @notice This contract serves as the "base layer contract" of the Taiko protocol, providing
@@ -31,15 +33,40 @@ contract TaikoL1V3B is EssentialContract, TaikoEvents {
     function init(
         address _owner,
         address _rollupResolver,
-        bytes32 _genesisBlockHash,
-        bool _toPause
+        bytes32 _genesisBlockHash
     )
         external
         initializer
     {
         __Essential_init(_owner, _rollupResolver);
-        LibUtils.init(state, _genesisBlockHash);
-        if (_toPause) _pause();
+      
+        require(_genesisBlockHash != 0, "InvalidGenesisBlockHash");
+        // Init state
+        state.slotA.genesisHeight = uint64(block.number);
+        state.slotA.genesisTimestamp = uint64(block.timestamp);
+        state.slotB.numBlocks = 1;
+
+        // Init the genesis block
+        TaikoData.BlockV3 storage blk = state.blocks[0];
+        blk.nextTransitionId = 2;
+        blk.timestamp = uint64(block.timestamp);
+        blk.anchorBlockId = uint64(block.number);
+        blk.verifiedTransitionId = 1;
+        blk.metaHash = bytes32(uint256(1)); // Give the genesis metahash a non-zero value.
+
+        // Init the first state transition
+        TaikoData.TransitionStateV3 storage ts = state.transitions[0][1];
+        ts.blockHash = _genesisBlockHash;
+        ts.prover = address(0);
+        ts.timestamp = uint64(block.timestamp);
+
+        emit TaikoEvents.BlockVerifiedV3({
+            blockId: 0,
+            prover: address(0),
+            blockHash: _genesisBlockHash
+            });
+
+      
     }
 
     function unpause() public override whenPaused {
@@ -53,17 +80,11 @@ contract TaikoL1V3B is EssentialContract, TaikoEvents {
         return state.bondBalance[_user];
     }
 
-    function getVerifiedBlockProver(uint64 _blockId) external view returns (address prover_) {
-        return LibVerifying.getVerifiedBlockProver(state, getConfigV3(), _blockId);
-    }
 
-    function getBlockV3(uint64 _blockId) external view returns (TaikoData.BlockV3 memory blk_) {
+    function getBlockV3(uint64 _blockId) external view returns (TaikoData.BlockV3 memory blk_ ) {
         TaikoData.ConfigV3 memory config = getConfigV3();
         require(_blockId >= config.pacayaForkHeight, "InvalidForkHeight");
-
-        uint64 slot = _blockId % config.blockRingBufferSize;
-        blk_ = state.blocks[slot];
-        require(blk_.blockId == _blockId, "BlockNotFound");
+        (blk_,) = _getBlock(config, _blockId);
     }
 
     function getConfigV3() public view virtual returns (TaikoData.ConfigV3 memory) {
@@ -476,18 +497,6 @@ contract TaikoL1V3B is EssentialContract, TaikoEvents {
         }
     }
 
-    function getTransitionV3(
-        uint64 _blockId,
-        uint32 _tid
-    )
-        external
-        view
-        returns (TaikoData.TransitionStateV3 memory)
-    {
-        return LibUtils.getTransitionById(
-            state, getConfigV3(), _blockId, SafeCastUpgradeable.toUint24(_tid)
-        );
-    }
 
     function getLastVerifiedBlockV3()
         external
@@ -508,7 +517,7 @@ contract TaikoL1V3B is EssentialContract, TaikoEvents {
     }
 
     function _getBlockInfo(uint64 _blockId)
-        public
+        private
         view
         returns (bytes32 blockHash_, bytes32 stateRoot_)
     {
@@ -528,7 +537,7 @@ contract TaikoL1V3B is EssentialContract, TaikoEvents {
         TaikoData.ConfigV3 memory _config,
         uint64 _blockId
     )
-        internal
+       private 
         view
         returns (TaikoData.BlockV3 storage blk_, uint64 slot_)
     {
