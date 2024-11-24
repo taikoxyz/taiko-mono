@@ -27,7 +27,7 @@ interface TaikoEvents {
 
     /// @notice Emitted when a token is debited from a user's bond balance.
     /// @param user The address of the user whose bond balance is debited.
-    /// @param blockId The ID of the block to debit for.
+    /// @param blockId The ID of the block to debit for. TODO: remove this.
     /// @param amount The amount of tokens debited.
     event BondDebited(address indexed user, uint256 blockId, uint256 amount);
 
