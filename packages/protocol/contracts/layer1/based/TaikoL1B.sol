@@ -100,7 +100,7 @@ contract TaikoL1V3B is EssentialContract, TaikoEvents {
             metas_[i] = TaikoData.BlockMetadataV3({
                 anchorBlockHash: blockhash(params.anchorBlockId),
                 difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", slotB.numBlocks)),
-                blobHash: 0, // to be initialized below
+                blobHash: blobhash(params.blobIndex),
                 // Encode _config.baseFeeConfig into extraData to allow L2 block execution without
                 // metadata. Metadata might be unavailable until the block is proposed on-chain. In
                 // preconfirmation scenarios, multiple blocks may be built but not yet proposed,
@@ -125,7 +125,6 @@ contract TaikoL1V3B is EssentialContract, TaikoEvents {
                 baseFeeConfig: config.baseFeeConfig
             });
 
-            metas_[i].blobHash = blobhash(params.blobIndex);
             require(metas_[i].blobHash != 0, "BlobNotFound");
 
             // Use a storage pointer for the block in the ring buffer
@@ -176,21 +175,28 @@ contract TaikoL1V3B is EssentialContract, TaikoEvents {
         TaikoData.ConfigV3 memory config = getConfigV3();
         TaikoData.SlotB memory slotB = state.slotB;
 
+        IVerifier.ContextV3[] memory ctxs = new IVerifier.ContextV3[](_metas.length);
+
         for (uint256 i; i < _metas.length; ++i) {
-            TaikoData.BlockMetadataV3 calldata meta = _metas[i];
-            require(meta.id >= config.pacayaForkHeight, "InvalidForkHeight");
-            require(meta.id < slotB.lastVerifiedBlockId, "BlockVerified");
-            require(meta.id < slotB.numBlocks, "BlockNotProposed");
+            require(_metas[i].id >= config.pacayaForkHeight, "InvalidForkHeight");
+            require(_metas[i].id < slotB.lastVerifiedBlockId, "BlockVerified");
+            require(_metas[i].id < slotB.numBlocks, "BlockNotProposed");
 
-            TaikoData.TransitionV3 calldata tran = _transitions[i];
-            require(tran.parentHash != 0, "InvalidTransitionParentHash");
-            require(tran.blockHash != 0, "InvalidTransitionBlockHash");
-            require(tran.stateRoot != 0, "InvalidTransitionStateRoot");
+            require(_transitions[i].parentHash != 0, "InvalidTransitionParentHash");
+            require(_transitions[i].blockHash != 0, "InvalidTransitionBlockHash");
+            require(_transitions[i].stateRoot != 0, "InvalidTransitionStateRoot");
 
-            TaikoData.BlockV3 storage blk = state.blocks[meta.id % config.blockRingBufferSize];
-            bytes32 metaHash = blk.metaHash;
-            require(metaHash == keccak256(abi.encode(meta)), "MataMismatch");
+            ctxs[i].metaHash = keccak256(abi.encode(_metas[i]));
+            ctxs[i].difficulty = _metas[i].difficulty;
+            ctxs[i].tran = _transitions[i];
+
+            TaikoData.BlockV3 storage blk = state.blocks[_metas[i].id % config.blockRingBufferSize];
+            require(ctxs[i].metaHash == blk.metaHash, "MataMismatch");
         }
+
+        IVerifier(resolve("TODO", false)).verifyProofV3(ctxs, proof);
+
+        for (uint256 i; i < _metas.length; ++i) { }
     }
 
     function _validateBlockParams(

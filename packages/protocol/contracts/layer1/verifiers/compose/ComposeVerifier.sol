@@ -118,4 +118,6 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
     function isCallerAuthorized(address _caller) public view virtual returns (bool) {
         return _caller == resolve(LibStrings.B_TAIKO, false);
     }
+
+    function verifyProofV3(ContextV3[] calldata _ctxs, bytes calldata _proof) external { }
 }

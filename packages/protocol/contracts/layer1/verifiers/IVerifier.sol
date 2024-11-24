@@ -27,6 +27,12 @@ interface IVerifier {
         TaikoData.TransitionV3 tran;
     }
 
+    struct ContextV3 {
+        bytes32 metaHash;
+        bytes32 difficulty;
+        TaikoData.TransitionV3 tran;
+    }
+
     /// @notice Verifies a proof.
     /// @param _ctx The context of the proof verification.
     /// @param _tran The transition to verify.
@@ -46,4 +52,9 @@ interface IVerifier {
         TaikoData.TypedProof calldata _proof
     )
         external;
+
+    /// @notice Verifies multiple proofs.
+    /// @param _ctxs The array of contexts for the proof verifications.
+    /// @param _proof The batch proof to verify.
+    function verifyProofV3(ContextV3[] calldata _ctxs, bytes calldata _proof) external;
 }

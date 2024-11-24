@@ -126,4 +126,6 @@ contract SP1Verifier is EssentialContract, IVerifier {
     function sp1RemoteVerifier() public view virtual returns (address) {
         return resolve(LibStrings.B_SP1_REMOTE_VERIFIER, false);
     }
+
+    function verifyProofV3(ContextV3[] calldata _ctxs, bytes calldata _proof) external { }
 }

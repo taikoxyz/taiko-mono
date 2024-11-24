@@ -262,4 +262,6 @@ contract SgxVerifier is EssentialContract, IVerifier {
         return instances[id].validSince <= block.timestamp
             && block.timestamp <= instances[id].validSince + INSTANCE_EXPIRY;
     }
+
+    function verifyProofV3(ContextV3[] calldata _ctxs, bytes calldata _proof) external { }
 }

@@ -125,4 +125,6 @@ contract Risc0Verifier is EssentialContract, IVerifier {
     function taikoChainId() internal view virtual returns (uint64) {
         return ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfigV3().chainId;
     }
+
+    function verifyProofV3(ContextV3[] calldata _ctxs, bytes calldata _proof) external { }
 }
