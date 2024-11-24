@@ -7,6 +7,7 @@ import "src/shared/signal/ISignalService.sol";
 import "src/shared/libs/LibMath.sol";
 import "src/shared/libs/LibStrings.sol";
 import "src/shared/libs/LibNetwork.sol";
+import "src/shared/libs/LibAddress.sol";
 import "src/layer1/verifiers/IVerifier.sol";
 import "./TaikoEvents.sol";
 import "./TaikoData.sol";
@@ -441,7 +442,26 @@ contract TaikoL1V3B is EssentialContract, TaikoEvents {
         return _customProposer;
     }
 
-    function _debitBond(address _user, uint256 _amount) internal {
+
+       function depositBond(uint256 _amount) external payable whenNotPaused {
+        state.bondBalance[msg.sender] += _amount;
+        _handleDeposit(msg.sender, _amount);
+    }
+
+    function withdrawBond(uint256 _amount) external whenNotPaused {
+       emit TaikoEvents.BondWithdrawn(msg.sender, _amount);
+
+        state.bondBalance[msg.sender] -= _amount;
+
+        address bond = bondToken();
+        if (bond != address(0)) {
+            IERC20(bond).transfer(msg.sender, _amount);
+        } else {
+            LibAddress.sendEtherAndVerify(msg.sender, _amount);
+        }
+    }
+
+    function _debitBond(address _user, uint256 _amount) private {
         if (_amount == 0) return;
 
         uint256 balance = state.bondBalance[_user];
@@ -456,7 +476,7 @@ contract TaikoL1V3B is EssentialContract, TaikoEvents {
         emit TaikoEvents.BondDebited(_user, 0, _amount);
     }
 
-    function _creditBond(address _user, uint256 _amount) internal {
+    function _creditBond(address _user, uint256 _amount) private {
         if (_amount == 0) return;
         unchecked {
             state.bondBalance[_user] += _amount;
@@ -465,18 +485,18 @@ contract TaikoL1V3B is EssentialContract, TaikoEvents {
     }
 
     function _handleDeposit(address _user, uint256 _amount) private {
-        address bondToken = _bondToken();
+        address bond = bondToken();
 
-        if (bondToken != address(0)) {
+        if (bond != address(0)) {
             require(msg.value == 0, "InvalidMsgValue");
-            IERC20(bondToken).transferFrom(_user, address(this), _amount);
+            IERC20(bond).transferFrom(_user, address(this), _amount);
         } else {
             require(msg.value == _amount, "EtherNotPaidAsBond");
         }
         emit TaikoEvents.BondDeposited(_user, _amount);
     }
 
-    function _bondToken() private view returns (address) {
+    function bondToken() public view returns (address) {
         return resolve(LibStrings.B_BOND_TOKEN, true);
     }
 
@@ -484,7 +504,7 @@ contract TaikoL1V3B is EssentialContract, TaikoEvents {
         uint256 _stateRootSyncInternal,
         uint256 _blockId
     )
-        internal
+        private
         pure
         returns (bool)
     {
