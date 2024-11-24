@@ -196,11 +196,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, IBondManager {
     // Public functions
     // ------------------------------------------------------------------------------------------
 
-    function unpause() public override whenPaused {
-        _authorizePause(msg.sender, false);
-        __paused = _FALSE;
-        state.slotB.lastUnpausedAt = uint64(block.timestamp);
-        emit Unpaused(msg.sender);
+    function paused() public view override returns (bool) {
+        return state.slotB.paused;
     }
 
     function bondToken() public view returns (address) {
@@ -260,6 +257,15 @@ contract TaikoL1 is EssentialContract, ITaikoL1, IBondManager {
         ts.blockHash = _genesisBlockHash;
 
         emit BlockVerifiedV3({ blockId: 0, blockHash: _genesisBlockHash });
+    }
+
+    function _unpause() internal override {
+        state.slotB.lastUnpausedAt = uint64(block.timestamp);
+        state.slotB.paused = false;
+    }
+
+    function _pause() internal override {
+        state.slotB.paused = true;
     }
 
     // Private functions

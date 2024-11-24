@@ -76,7 +76,7 @@ interface TaikoData {
     struct SlotB {
         uint64 numBlocks;
         uint64 lastVerifiedBlockId;
-        bool provingPaused;
+        bool paused;
         uint56 lastProposedIn;
         uint64 lastUnpausedAt;
     }
