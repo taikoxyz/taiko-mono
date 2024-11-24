@@ -30,10 +30,11 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         uint64 timestamp;
     }
 
-    /// @notice The TaikoL1 state.
     TaikoData.State public state;
-
     uint256[50] private __gap;
+
+    // External functions
+    // ------------------------------------------------------------------------------------------
 
     function init(
         address _owner,
@@ -44,77 +45,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         initializer
     {
         __TaikoL1_init(_owner, _rollupResolver, _genesisBlockHash);
-    }
-
-    function __TaikoL1_init(
-        address _owner,
-        address _rollupResolver,
-        bytes32 _genesisBlockHash
-    )
-        internal
-    {
-        __Essential_init(_owner, _rollupResolver);
-
-        require(_genesisBlockHash != 0, "InvalidGenesisBlockHash");
-        // Init state
-        state.slotA.genesisHeight = uint64(block.number);
-        state.slotA.genesisTimestamp = uint64(block.timestamp);
-        state.slotB.numBlocks = 1;
-
-        // Init the genesis block
-        TaikoData.BlockV3 storage blk = state.blocks[0];
-        blk.nextTransitionId = 2;
-        blk.timestamp = uint64(block.timestamp);
-        blk.anchorBlockId = uint64(block.number);
-        blk.verifiedTransitionId = 1;
-        blk.metaHash = bytes32(uint256(1)); // Give the genesis metahash a non-zero value.
-
-        // Init the first state transition
-        TaikoData.TransitionStateV3 storage ts = state.transitions[0][1];
-        ts.blockHash = _genesisBlockHash;
-        ts.prover = address(0);
-        ts.timestamp = uint64(block.timestamp);
-
-        emit BlockVerifiedV3({ blockId: 0, prover: address(0), blockHash: _genesisBlockHash });
-    }
-
-    function unpause() public override whenPaused {
-        _authorizePause(msg.sender, false);
-        __paused = _FALSE;
-        state.slotB.lastUnpausedAt = uint64(block.timestamp);
-        emit Unpaused(msg.sender);
-    }
-
-    function bondBalanceOf(address _user) external view returns (uint256) {
-        return state.bondBalance[_user];
-    }
-
-    function getBlockV3(uint64 _blockId) external view returns (TaikoData.BlockV3 memory blk_) {
-        TaikoData.ConfigV3 memory config = getConfigV3();
-        require(_blockId >= config.pacayaForkHeight, "InvalidForkHeight");
-        (blk_,) = _getBlock(config, _blockId);
-    }
-
-    function getConfigV3() public view virtual returns (TaikoData.ConfigV3 memory) {
-        return TaikoData.ConfigV3({
-            chainId: LibNetwork.TAIKO_MAINNET,
-            blockMaxProposals: 324_000, // = 7200 * 45
-            blockRingBufferSize: 360_000, // = 7200 * 50
-            maxBlocksToVerify: 16,
-            blockMaxGasLimit: 240_000_000,
-            livenessBond: 125e18, // 125 Taiko token
-            stateRootSyncInternal: 16,
-            maxAnchorHeightOffset: 64,
-            baseFeeConfig: LibSharedData.BaseFeeConfig({
-                adjustmentQuotient: 8,
-                sharingPctg: 75,
-                gasIssuancePerSecond: 5_000_000,
-                minGasExcess: 1_340_000_000,
-                maxGasIssuancePerBlock: 600_000_000 // two minutes
-             }),
-            pacayaForkHeight: 0,
-            provingWindow: 2 hours
-        });
     }
 
     function proposeBlocksV3(
@@ -180,6 +110,157 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         state.slotB = slotB;
     }
 
+    function proveBlocksV3(
+        TaikoData.BlockMetadataV3[] calldata _metas,
+        TaikoData.TransitionV3[] calldata _transitions,
+        bytes calldata proof
+    )
+        external
+        whenNotPaused
+        nonReentrant
+    {
+        require(_metas.length == _transitions.length, "InvalidParam");
+        TaikoData.ConfigV3 memory config = getConfigV3();
+        TaikoData.SlotB memory slotB = state.slotB;
+
+        IVerifier.ContextV3[] memory ctxs = new IVerifier.ContextV3[](_metas.length);
+
+        for (uint256 i; i < _metas.length; ++i) {
+            ctxs[i] = _proposeBlock(config, slotB, _metas[i], _transitions[i]);
+        }
+
+        IVerifier(resolve("TODO", false)).verifyProofV3(ctxs, proof);
+
+        slotB = _verifyBlocks(config, slotB, _metas.length);
+        // SSTORE #4
+        emit StateVariablesUpdated(slotB);
+        state.slotB = slotB;
+    }
+
+    function depositBond(uint256 _amount) external payable whenNotPaused {
+        state.bondBalance[msg.sender] += _amount;
+        _handleDeposit(msg.sender, _amount);
+    }
+
+    function withdrawBond(uint256 _amount) external whenNotPaused {
+        emit BondWithdrawn(msg.sender, _amount);
+
+        state.bondBalance[msg.sender] -= _amount;
+
+        address bond = bondToken();
+        if (bond != address(0)) {
+            IERC20(bond).transfer(msg.sender, _amount);
+        } else {
+            LibAddress.sendEtherAndVerify(msg.sender, _amount);
+        }
+    }
+
+    function lastProposedIn() external view returns (uint56) {
+        return state.slotB.lastProposedIn;
+    }
+
+    function getLastVerifiedBlockV3()
+        external
+        view
+        returns (uint64 blockId_, bytes32 blockHash_, bytes32 stateRoot_)
+    {
+        blockId_ = state.slotB.lastVerifiedBlockId;
+        (blockHash_, stateRoot_) = _getBlockInfo(blockId_);
+    }
+
+    function getLastSyncedBlockV3()
+        external
+        view
+        returns (uint64 blockId_, bytes32 blockHash_, bytes32 stateRoot_)
+    {
+        blockId_ = state.slotA.lastSyncedBlockId;
+        (blockHash_, stateRoot_) = _getBlockInfo(blockId_);
+    }
+
+    function bondBalanceOf(address _user) external view returns (uint256) {
+        return state.bondBalance[_user];
+    }
+
+    function getBlockV3(uint64 _blockId) external view returns (TaikoData.BlockV3 memory blk_) {
+        TaikoData.ConfigV3 memory config = getConfigV3();
+        require(_blockId >= config.pacayaForkHeight, "InvalidForkHeight");
+        (blk_,) = _getBlock(config, _blockId);
+    }
+
+    // Public functions
+    // ------------------------------------------------------------------------------------------
+
+    function unpause() public override whenPaused {
+        _authorizePause(msg.sender, false);
+        __paused = _FALSE;
+        state.slotB.lastUnpausedAt = uint64(block.timestamp);
+        emit Unpaused(msg.sender);
+    }
+
+    function bondToken() public view returns (address) {
+        return resolve(LibStrings.B_BOND_TOKEN, true);
+    }
+
+    function getConfigV3() public view virtual returns (TaikoData.ConfigV3 memory) {
+        return TaikoData.ConfigV3({
+            chainId: LibNetwork.TAIKO_MAINNET,
+            blockMaxProposals: 324_000, // = 7200 * 45
+            blockRingBufferSize: 360_000, // = 7200 * 50
+            maxBlocksToVerify: 16,
+            blockMaxGasLimit: 240_000_000,
+            livenessBond: 125e18, // 125 Taiko token
+            stateRootSyncInternal: 16,
+            maxAnchorHeightOffset: 64,
+            baseFeeConfig: LibSharedData.BaseFeeConfig({
+                adjustmentQuotient: 8,
+                sharingPctg: 75,
+                gasIssuancePerSecond: 5_000_000,
+                minGasExcess: 1_340_000_000,
+                maxGasIssuancePerBlock: 600_000_000 // two minutes
+             }),
+            pacayaForkHeight: 0,
+            provingWindow: 2 hours
+        });
+    }
+
+    // Internal functions
+    // ------------------------------------------------------------------------------------------
+
+    function __TaikoL1_init(
+        address _owner,
+        address _rollupResolver,
+        bytes32 _genesisBlockHash
+    )
+        internal
+    {
+        __Essential_init(_owner, _rollupResolver);
+
+        require(_genesisBlockHash != 0, "InvalidGenesisBlockHash");
+        // Init state
+        state.slotA.genesisHeight = uint64(block.number);
+        state.slotA.genesisTimestamp = uint64(block.timestamp);
+        state.slotB.numBlocks = 1;
+
+        // Init the genesis block
+        TaikoData.BlockV3 storage blk = state.blocks[0];
+        blk.nextTransitionId = 2;
+        blk.timestamp = uint64(block.timestamp);
+        blk.anchorBlockId = uint64(block.number);
+        blk.verifiedTransitionId = 1;
+        blk.metaHash = bytes32(uint256(1)); // Give the genesis metahash a non-zero value.
+
+        // Init the first state transition
+        TaikoData.TransitionStateV3 storage ts = state.transitions[0][1];
+        ts.blockHash = _genesisBlockHash;
+        ts.prover = address(0);
+        ts.timestamp = uint64(block.timestamp);
+
+        emit BlockVerifiedV3({ blockId: 0, prover: address(0), blockHash: _genesisBlockHash });
+    }
+
+    // Private functions
+    // ------------------------------------------------------------------------------------------
+
     function _proposeBlock(
         TaikoData.ConfigV3 memory _config,
         TaikoData.SlotB memory _slotB,
@@ -242,33 +323,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         // SSTORE #2 }}
     }
 
-    function proveBlocksV3(
-        TaikoData.BlockMetadataV3[] calldata _metas,
-        TaikoData.TransitionV3[] calldata _transitions,
-        bytes calldata proof
-    )
-        external
-        whenNotPaused
-        nonReentrant
-    {
-        require(_metas.length == _transitions.length, "InvalidParam");
-        TaikoData.ConfigV3 memory config = getConfigV3();
-        TaikoData.SlotB memory slotB = state.slotB;
-
-        IVerifier.ContextV3[] memory ctxs = new IVerifier.ContextV3[](_metas.length);
-
-        for (uint256 i; i < _metas.length; ++i) {
-            ctxs[i] = _proposeBlock(config, slotB, _metas[i], _transitions[i]);
-        }
-
-        IVerifier(resolve("TODO", false)).verifyProofV3(ctxs, proof);
-
-        slotB = _verifyBlocks(config, slotB, _metas.length);
-        // SSTORE #4
-        emit StateVariablesUpdated(slotB);
-        state.slotB = slotB;
-    }
-
     function _proposeBlock(
         TaikoData.ConfigV3 memory _config,
         TaikoData.SlotB memory _slotB,
@@ -321,52 +375,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         if (_isSyncBlock(_config.stateRootSyncInternal, _meta.id)) {
             ts.stateRoot = _tran.stateRoot;
         }
-    }
-
-    function _validateBlockParams(
-        bytes calldata _blockParam,
-        TaikoData.ConfigV3 memory _config,
-        ParentInfo memory _parent
-    )
-        private
-        view
-        returns (TaikoData.BlockParamsV3 memory params_)
-    {
-        if (_blockParam.length != 0) {
-            params_ = abi.decode(_blockParam, (TaikoData.BlockParamsV3));
-        }
-
-        if (params_.anchorBlockId == 0) {
-            params_.anchorBlockId = uint64(block.number - 1);
-        } else {
-            require(
-                params_.anchorBlockId + _config.maxAnchorHeightOffset >= block.number
-                    && params_.anchorBlockId < block.number
-                    && params_.anchorBlockId >= _parent.anchorBlockId,
-                "InvalidAnchorBlockId"
-            );
-        }
-
-        if (params_.timestamp == 0) {
-            params_.timestamp = uint64(block.timestamp);
-        } else {
-            // Verify the provided timestamp to anchor. Note that params_.anchorBlockId
-            // and
-            // params_.timestamp may not correspond to the same L1 block.
-            require(
-                params_.timestamp + _config.maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME
-                    >= block.timestamp && params_.timestamp <= block.timestamp
-                    && params_.timestamp >= _parent.timestamp,
-                "InvalidTiemstamp"
-            );
-        }
-
-        // Check if parent block has the right meta hash. This is to allow the proposer to
-        // make sure the block builds on the expected latest chain state.
-        require(
-            params_.parentMetaHash == 0 || params_.parentMetaHash == _parent.metaHash,
-            "ParentMetaHashMismatch"
-        );
     }
 
     function _verifyBlocks(
@@ -436,33 +444,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         return _slotB;
     }
 
-    function _checkProposer(address _customProposer) private view returns (address) {
-        if (_customProposer == address(0)) return msg.sender;
-
-        address preconfTaskManager = resolve(LibStrings.B_PRECONF_TASK_MANAGER, true);
-        require(preconfTaskManager != address(0), "CustomProposerNotAllowed");
-        require(preconfTaskManager == msg.sender, "MsgSenderNotPreconfTaskManager");
-        return _customProposer;
-    }
-
-    function depositBond(uint256 _amount) external payable whenNotPaused {
-        state.bondBalance[msg.sender] += _amount;
-        _handleDeposit(msg.sender, _amount);
-    }
-
-    function withdrawBond(uint256 _amount) external whenNotPaused {
-        emit BondWithdrawn(msg.sender, _amount);
-
-        state.bondBalance[msg.sender] -= _amount;
-
-        address bond = bondToken();
-        if (bond != address(0)) {
-            IERC20(bond).transfer(msg.sender, _amount);
-        } else {
-            LibAddress.sendEtherAndVerify(msg.sender, _amount);
-        }
-    }
-
     function _debitBond(address _user, uint256 _amount) private {
         if (_amount == 0) return;
 
@@ -498,43 +479,59 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         emit BondDeposited(_user, _amount);
     }
 
-    function bondToken() public view returns (address) {
-        return resolve(LibStrings.B_BOND_TOKEN, true);
-    }
-
-    function _isSyncBlock(
-        uint256 _stateRootSyncInternal,
-        uint256 _blockId
+    function _validateBlockParams(
+        bytes calldata _blockParam,
+        TaikoData.ConfigV3 memory _config,
+        ParentInfo memory _parent
     )
         private
-        pure
-        returns (bool)
+        view
+        returns (TaikoData.BlockParamsV3 memory params_)
     {
-        if (_stateRootSyncInternal <= 1) return true;
-        unchecked {
-            // We could use `_blockId % _stateRootSyncInternal == 0`, but this will break many unit
-            // tests as in most of these tests, we test block#1, so by setting
-            // config._stateRootSyncInternal = 2, we can keep the tests unchanged.
-            return _blockId % _stateRootSyncInternal == _stateRootSyncInternal - 1;
+        if (_blockParam.length != 0) {
+            params_ = abi.decode(_blockParam, (TaikoData.BlockParamsV3));
         }
+
+        if (params_.anchorBlockId == 0) {
+            params_.anchorBlockId = uint64(block.number - 1);
+        } else {
+            require(
+                params_.anchorBlockId + _config.maxAnchorHeightOffset >= block.number
+                    && params_.anchorBlockId < block.number
+                    && params_.anchorBlockId >= _parent.anchorBlockId,
+                "InvalidAnchorBlockId"
+            );
+        }
+
+        if (params_.timestamp == 0) {
+            params_.timestamp = uint64(block.timestamp);
+        } else {
+            // Verify the provided timestamp to anchor. Note that params_.anchorBlockId
+            // and
+            // params_.timestamp may not correspond to the same L1 block.
+            require(
+                params_.timestamp + _config.maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME
+                    >= block.timestamp && params_.timestamp <= block.timestamp
+                    && params_.timestamp >= _parent.timestamp,
+                "InvalidTiemstamp"
+            );
+        }
+
+        // Check if parent block has the right meta hash. This is to allow the proposer to
+        // make sure the block builds on the expected latest chain state.
+        require(
+            params_.parentMetaHash == 0 || params_.parentMetaHash == _parent.metaHash,
+            "ParentMetaHashMismatch"
+        );
     }
 
-    function getLastVerifiedBlockV3()
-        external
-        view
-        returns (uint64 blockId_, bytes32 blockHash_, bytes32 stateRoot_)
-    {
-        blockId_ = state.slotB.lastVerifiedBlockId;
-        (blockHash_, stateRoot_) = _getBlockInfo(blockId_);
-    }
+    function _checkProposer(address _customProposer) private view returns (address) {
+        if (_customProposer == address(0)) return msg.sender;
 
-    function getLastSyncedBlockV3()
-        external
-        view
-        returns (uint64 blockId_, bytes32 blockHash_, bytes32 stateRoot_)
-    {
-        blockId_ = state.slotA.lastSyncedBlockId;
-        (blockHash_, stateRoot_) = _getBlockInfo(blockId_);
+        address preconfTaskManager = resolve(LibStrings.B_PRECONF_TASK_MANAGER, true);
+        require(preconfTaskManager != address(0), "CustomProposerNotAllowed");
+        require(preconfTaskManager == msg.sender, "MsgSenderNotPreconfTaskManager");
+        return _customProposer;
     }
 
     function _getBlockInfo(uint64 _blockId)
@@ -567,7 +564,20 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         require(blk_.blockId == _blockId, "BlockNotFound");
     }
 
-    function lastProposedIn() external view returns (uint56) {
-        return state.slotB.lastProposedIn;
+    function _isSyncBlock(
+        uint256 _stateRootSyncInternal,
+        uint256 _blockId
+    )
+        private
+        pure
+        returns (bool)
+    {
+        if (_stateRootSyncInternal <= 1) return true;
+        unchecked {
+            // We could use `_blockId % _stateRootSyncInternal == 0`, but this will break many unit
+            // tests as in most of these tests, we test block#1, so by setting
+            // config._stateRootSyncInternal = 2, we can keep the tests unchanged.
+            return _blockId % _stateRootSyncInternal == _stateRootSyncInternal - 1;
+        }
     }
 }
