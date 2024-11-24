@@ -6,6 +6,7 @@ import "src/shared/libs/LibStrings.sol";
 import "src/shared/libs/LibMath.sol";
 import "../tiers/ITierProvider.sol";
 import "./TaikoData.sol";
+import "./TaikoEvents.sol";
 
 /// @title LibUtils
 /// @notice A library that offers utility helper functions.
@@ -14,15 +15,6 @@ library LibUtils {
     using LibMath for uint256;
 
     uint256 internal constant SECONDS_IN_MINUTE = 60;
-
-    /// @dev Emitted when a block is verified.
-    /// @param blockId The ID of the verified block.
-    /// @param prover The prover whose transition is used for verifying the block.
-    /// @param blockHash The hash of the verified block.
-    /// @param tier The tier ID of the proof.
-    event BlockVerifiedV2(
-        uint256 indexed blockId, address indexed prover, bytes32 blockHash, uint16 tier
-    );
 
     error L1_INVALID_BLOCK_ID();
     error L1_INVALID_PARAMS();
@@ -54,7 +46,7 @@ library LibUtils {
         ts.prover = address(0);
         ts.timestamp = uint64(block.timestamp);
 
-        emit BlockVerifiedV2({
+        emit TaikoEvents.BlockVerifiedV3({
             blockId: 0,
             prover: address(0),
             blockHash: _genesisBlockHash,

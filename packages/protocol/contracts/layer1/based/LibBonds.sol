@@ -7,33 +7,12 @@ import "src/shared/common/IResolver.sol";
 import "src/shared/libs/LibAddress.sol";
 import "src/shared/libs/LibStrings.sol";
 import "./TaikoData.sol";
+import "./TaikoEvents.sol";
 
 /// @title LibBonds
 /// @notice A library that offers helper functions to handle bonds.
 /// @custom:security-contact security@taiko.xyz
 library LibBonds {
-    /// @dev Emitted when tokens are deposited into a user's bond balance.
-    /// @param user The address of the user who deposited the tokens.
-    /// @param amount The amount of tokens deposited.
-    event BondDeposited(address indexed user, uint256 amount);
-
-    /// @dev Emitted when tokens are withdrawn from a user's bond balance.
-    /// @param user The address of the user who withdrew the tokens.
-    /// @param amount The amount of tokens withdrawn.
-    event BondWithdrawn(address indexed user, uint256 amount);
-
-    /// @dev Emitted when a token is credited back to a user's bond balance.
-    /// @param user The address of the user whose bond balance is credited.
-    /// @param blockId The ID of the block to credit for.
-    /// @param amount The amount of tokens credited.
-    event BondCredited(address indexed user, uint256 blockId, uint256 amount);
-
-    /// @dev Emitted when a token is debited from a user's bond balance.
-    /// @param user The address of the user whose bond balance is debited.
-    /// @param blockId The ID of the block to debit for.
-    /// @param amount The amount of tokens debited.
-    event BondDebited(address indexed user, uint256 blockId, uint256 amount);
-
     error L1_INVALID_MSG_VALUE();
     error L1_ETH_NOT_PAID_AS_BOND();
 
@@ -63,7 +42,7 @@ library LibBonds {
     )
         public
     {
-        emit BondWithdrawn(msg.sender, _amount);
+        emit TaikoEvents.BondWithdrawn(msg.sender, _amount);
         _state.bondBalance[msg.sender] -= _amount;
 
         address bondToken = _bondToken(_resolver);
@@ -115,7 +94,7 @@ library LibBonds {
             // Note that the following function call will revert if bond asset is Ether.
             _handleDeposit(_resolver, _user, _amount);
         }
-        emit BondDebited(_user, _blockId, _amount);
+        emit TaikoEvents.BondDebited(_user, _blockId, _amount);
     }
 
     /// @dev Credits TAIKO tokens to a user's bond balance.
@@ -135,7 +114,7 @@ library LibBonds {
         unchecked {
             _state.bondBalance[_user] += _amount;
         }
-        emit BondCredited(_user, _blockId, _amount);
+        emit TaikoEvents.BondCredited(_user, _blockId, _amount);
     }
 
     /// @dev Handles the deposit of bond tokens or Ether.
@@ -151,7 +130,7 @@ library LibBonds {
         } else {
             require(msg.value == _amount, L1_ETH_NOT_PAID_AS_BOND());
         }
-        emit BondDeposited(_user, _amount);
+        emit TaikoEvents.BondDeposited(_user, _amount);
     }
 
     /// @dev Resolves the bond token address using the address resolver, returns address(0) if Ether

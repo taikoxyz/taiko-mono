@@ -124,7 +124,7 @@ library LibVerifying {
                 // such cases, both the provers and contesters of those transitions forfeit their
                 // bonds.
 
-                emit LibUtils.BlockVerifiedV2({
+                emit TaikoEvents.BlockVerifiedV3({
                     blockId: local.blockId,
                     prover: local.prover,
                     blockHash: local.blockHash,

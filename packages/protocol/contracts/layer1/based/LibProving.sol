@@ -3,9 +3,9 @@ pragma solidity ^0.8.24;
 
 import "../verifiers/IVerifier.sol";
 import "./LibBonds.sol";
-import "./LibData.sol";
 import "./LibUtils.sol";
 import "./LibVerifying.sol";
+import "./TaikoEvents.sol";
 
 /// @title LibProving
 /// @notice A library that offers helper functions for proving and contesting block transitions.
@@ -30,42 +30,6 @@ library LibProving {
         bool sameTransition;
     }
 
-    /// @dev Emitted when a transition is proved.
-    /// @param blockId The block ID.
-    /// @param tran The transition data.
-    /// @param prover The prover's address.
-    /// @param validityBond The validity bond amount.
-    /// @param tier The tier of the proof.
-    /// @param proposedIn The L1 block in which a transition is proved.
-    event TransitionProvedV2(
-        uint256 indexed blockId,
-        TaikoData.Transition tran,
-        address prover,
-        uint96 validityBond,
-        uint16 tier,
-        uint64 proposedIn
-    );
-
-    /// @dev Emitted when a transition is contested.
-    /// @param blockId The block ID.
-    /// @param tran The transition data.
-    /// @param contester The contester's address.
-    /// @param contestBond The contest bond amount.
-    /// @param tier The tier of the proof.
-    /// @param proposedIn The L1 block in which this L2 block is proposed.
-    event TransitionContestedV2(
-        uint256 indexed blockId,
-        TaikoData.Transition tran,
-        address contester,
-        uint96 contestBond,
-        uint16 tier,
-        uint64 proposedIn
-    );
-
-    /// @dev Emitted when proving is paused or unpaused.
-    /// @param paused The pause status.
-    event ProvingPaused(bool paused);
-
     error L1_ALREADY_CONTESTED();
     error L1_ALREADY_PROVED();
     error L1_BLOCK_MISMATCH();
@@ -89,7 +53,7 @@ library LibProving {
         if (!_pause) {
             _state.slotB.lastUnpausedAt = uint64(block.timestamp);
         }
-        emit ProvingPaused(_pause);
+        emit TaikoEvents.ProvingPaused(_pause);
     }
 
     /// @dev Proves or contests multiple Taiko L2 blocks.
@@ -270,11 +234,11 @@ library LibProving {
 
             verifierName_ = local.tier.verifierName;
 
-            if (_batchProof.tier == 0) {
-                // In the case of per-transition proof, we verify the proof.
-                IVerifier(_resolver.resolve(block.chainid, local.tier.verifierName, false))
-                    .verifyProof(LibData.verifierContextV2ToV1(ctx_), ctx_.tran, local.proof);
-            }
+            // if (_batchProof.tier == 0) {
+            //     // In the case of per-transition proof, we verify the proof.
+            //     IVerifier(_resolver.resolve(block.chainid, local.tier.verifierName, false))
+            //         .verifyProof(LibData.verifierContextV2ToV1(ctx_), ctx_.tran, local.proof);
+            // }
         }
 
         if (LibUtils.isSyncBlock(_config.stateRootSyncInternal, local.blockId)) {
@@ -293,7 +257,7 @@ library LibProving {
             // (L1_ALREADY_PROVED).
             _overrideWithHigherProof(_state, _resolver, blk, ts, ctx_.tran, local.proof, local);
 
-            emit TransitionProvedV2({
+            emit TaikoEvents.TransitionProvedV3({
                 blockId: local.blockId,
                 tran: ctx_.tran,
                 prover: msg.sender,
@@ -315,7 +279,7 @@ library LibProving {
                 ts.blockHash = ctx_.tran.blockHash;
                 ts.stateRoot = ctx_.tran.stateRoot;
 
-                emit TransitionProvedV2({
+                emit TaikoEvents.TransitionProvedV3({
                     blockId: local.blockId,
                     tran: ctx_.tran,
                     prover: msg.sender,
@@ -347,14 +311,14 @@ library LibProving {
                 ts.contestBond = local.tier.contestBond;
                 ts.contester = msg.sender;
 
-                emit TransitionContestedV2({
-                    blockId: local.blockId,
-                    tran: ctx_.tran,
-                    contester: msg.sender,
-                    contestBond: local.tier.contestBond,
-                    tier: local.proof.tier,
-                    proposedIn: local.meta.proposedIn
-                });
+                // emit  TaikoEvents.TransitionContestedV3({
+                //     blockId: local.blockId,
+                //     tran: ctx_.tran,
+                //     contester: msg.sender,
+                //     contestBond: local.tier.contestBond,
+                //     tier: local.proof.tier,
+                //     proposedIn: local.meta.proposedIn
+                // });
             }
         }
 

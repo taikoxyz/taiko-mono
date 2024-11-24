@@ -4,9 +4,9 @@ pragma solidity ^0.8.24;
 import "src/shared/libs/LibAddress.sol";
 import "src/shared/libs/LibNetwork.sol";
 import "./LibBonds.sol";
-import "./LibData.sol";
 import "./LibUtils.sol";
 import "./LibVerifying.sol";
+import "./TaikoEvents.sol";
 
 /// @title LibProposing
 /// @notice A library that offers helper functions for block proposals.
@@ -26,11 +26,6 @@ library LibProposing {
         uint64 parentAnchorBlockId;
         bytes32 parentMetaHash;
     }
-
-    /// @dev Emitted when a block is proposed.
-    /// @param blockId The ID of the proposed block.
-    /// @param meta The metadata of the proposed block.
-    event BlockProposedV2(uint256 indexed blockId, TaikoData.BlockMetadataV2 meta);
 
     error L1_BLOB_NOT_AVAILABLE();
     error L1_BLOB_NOT_FOUND();
@@ -218,7 +213,7 @@ library LibProposing {
             );
             // SSTORE #4 }}
 
-            emit BlockProposedV2(metas_[i].id, metas_[i]);
+            emit TaikoEvents.BlockProposedV3(metas_[i].id, metas_[i]);
         }
 
         if (!local.slotB.provingPaused) {
