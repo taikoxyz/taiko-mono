@@ -109,11 +109,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, IBondManager {
         // SSTORE #3
         _debitBond(_proposer, config.livenessBond * _blockParams.length);
 
-        slotB = _verifyBlocks(config, slotB, _blockParams.length);
-        emit StateVariablesUpdated(slotB);
-
-        // SSTORE #4
-        state.slotB = slotB;
+        _verifyBlocks(config, slotB, _blockParams.length);
     }
 
     function proveBlocksV3(
@@ -135,11 +131,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, IBondManager {
         }
 
         IVerifier(resolve("TODO", false)).verifyProofV3(ctxs, proof);
-
-        slotB = _verifyBlocks(config, slotB, _metas.length);
-        // SSTORE #4
-        emit StateVariablesUpdated(slotB);
-        state.slotB = slotB;
+        
+        _verifyBlocks(config, slotB, _metas.length);
     }
 
     function depositBond(uint256 _amount) external payable whenNotPaused {
@@ -391,14 +384,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, IBondManager {
         emit BlockProvedV3(_meta.id, _tran);
     }
 
-    function _verifyBlocks(
-        ConfigV3 memory _config,
-        SlotB memory _slotB,
-        uint256 _length
-    )
-        private
-        returns (SlotB memory)
-    {
+    function _verifyBlocks(ConfigV3 memory _config, SlotB memory _slotB, uint256 _length) private {
         uint64 blockId = _slotB.lastVerifiedBlockId;
         uint256 slot = blockId % _config.blockRingBufferSize;
         BlockV3 storage blk = state.blocks[slot];
@@ -458,7 +444,9 @@ contract TaikoL1 is EssentialContract, ITaikoL1, IBondManager {
 
             emit BlockSyncedV3(synced.blockId, synced.stateRoot);
         }
-        return _slotB;
+
+        emit StateVariablesUpdated(_slotB);
+        state.slotB = _slotB;
     }
 
     function _debitBond(address _user, uint256 _amount) private {
