@@ -49,8 +49,7 @@ library LibUtils {
         emit TaikoEvents.BlockVerifiedV3({
             blockId: 0,
             prover: address(0),
-            blockHash: _genesisBlockHash,
-            tier: 0
+            blockHash: _genesisBlockHash
         });
     }
 

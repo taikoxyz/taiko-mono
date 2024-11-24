@@ -122,7 +122,7 @@ library TaikoData {
         uint64 maxAnchorHeightOffset;
         /// @notice Base fee configuration
         LibSharedData.BaseFeeConfig baseFeeConfig;
-        /// @notie The Ontake fork height on L2.
+        /// @notie The Pacaya fork height on L2.
         uint64 pacayaForkHeight;
     }
 

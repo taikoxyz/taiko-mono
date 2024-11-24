@@ -18,13 +18,11 @@ library LibVerifying {
         uint64 numBlocksVerified;
         uint24 tid;
         uint24 lastVerifiedTransitionId;
-        uint16 tier;
         bytes32 blockHash;
         bytes32 syncStateRoot;
         uint64 syncBlockId;
         uint24 syncTransitionId;
         address prover;
-        ITierProvider tierProvider;
     }
 
     error L1_BLOCK_MISMATCH();
@@ -58,10 +56,7 @@ library LibVerifying {
         local.lastVerifiedTransitionId = blk.verifiedTransitionId;
         local.tid = local.lastVerifiedTransitionId;
 
-        // The following scenario should never occur but is included as a precaution.
-        require(local.tid != 0, L1_TRANSITION_ID_ZERO());
-
-        // The `blockHash` variable represents the most recently trusted blockHash on L2.
+        // The `blockHash` variable represents the most recently verified blockHash on L2.
         local.blockHash = _state.transitions[local.slot][local.tid].blockHash;
 
         // Unchecked is safe: - assignment is within ranges - blockId and numBlocksVerified values
@@ -76,7 +71,6 @@ library LibVerifying {
                 local.slot = local.blockId % _config.blockRingBufferSize;
 
                 blk = _state.blocks[local.slot];
-                require(blk.blockId == local.blockId, L1_BLOCK_MISMATCH());
 
                 local.tid = LibUtils.getTransitionId(_state, blk, local.slot, local.blockHash);
                 // When `tid` is 0, it indicates that there is no proven transition with its
@@ -85,30 +79,6 @@ library LibVerifying {
 
                 // A transition with the correct `parentHash` has been located.
                 TaikoData.TransitionStateV3 storage ts = _state.transitions[local.slot][local.tid];
-
-                // It's not possible to verify this block if either the transition is contested and
-                // awaiting higher-tier proof or if the transition is still within its cooldown
-                // period.
-                local.tier = ts.tier;
-
-                if (ts.contester != address(0)) {
-                    break;
-                }
-
-                if (local.tierProvider == ITierProvider(address(0))) {
-                    local.tierProvider = ITierProvider(
-                        _resolver.resolve(block.chainid, LibStrings.B_TIER_PROVIDER, false)
-                    );
-                }
-
-                uint24 cooldown =
-                    local.tierProvider.getTier(local.blockId, local.tier).cooldownWindow;
-
-                if (!LibUtils.isPostDeadline(ts.timestamp, local.b.lastUnpausedAt, cooldown)) {
-                    // If cooldownWindow is 0, the block can theoretically be proved and verified
-                    // within the same L1 block.
-                    break;
-                }
 
                 // Update variables
                 local.lastVerifiedTransitionId = local.tid;
@@ -127,8 +97,7 @@ library LibVerifying {
                 emit TaikoEvents.BlockVerifiedV3({
                     blockId: local.blockId,
                     prover: local.prover,
-                    blockHash: local.blockHash,
-                    tier: local.tier
+                    blockHash: local.blockHash
                 });
 
                 if (LibUtils.isSyncBlock(_config.stateRootSyncInternal, local.blockId)) {
