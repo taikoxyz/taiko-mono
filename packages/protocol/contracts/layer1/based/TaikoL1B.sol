@@ -26,33 +26,6 @@ contract TaikoL1V3B is EssentialContract, TaikoEvents {
 
     uint256[50] private __gap;
 
-    /// @dev Emitted to assist with future gas optimizations.
-    /// @param isProposeBlock True if measuring gas for proposing a block, false if measuring gas
-    /// for proving a block.
-    /// @param gasUsed The average gas used per block, including verifications.
-    /// @param batchSize The number of blocks proposed or proved.
-    event DebugGasPerBlock(bool isProposeBlock, uint256 gasUsed, uint256 batchSize);
-
-    modifier whenProvingNotPaused() {
-        require(!state.slotB.provingPaused, LibProving.L1_PROVING_PAUSED());
-        _;
-    }
-
-    modifier emitEventForClient() {
-        _;
-        emit StateVariablesUpdated(state.slotB);
-    }
-
-    modifier measureGasUsed(bool _isProposeBlock, uint256 _batchSize) {
-        uint256 gas = gasleft();
-        _;
-        unchecked {
-            if (_batchSize > 0) {
-                emit DebugGasPerBlock(_isProposeBlock, gas - gasleft() / _batchSize, _batchSize);
-            }
-        }
-    }
-
     function getConfigV3() public view virtual returns (TaikoData.ConfigV3 memory) {
         return TaikoData.ConfigV3({
             chainId: LibNetwork.TAIKO_MAINNET,
@@ -86,10 +59,8 @@ contract TaikoL1V3B is EssentialContract, TaikoEvents {
         bytes[] calldata _blockParams
     )
         external
-        measureGasUsed(true, _blockParams.length)
         whenNotPaused
         nonReentrant
-        emitEventForClient
         returns (TaikoData.BlockMetadataV3[] memory metas_)
     {
         TaikoData.ConfigV3 memory config = getConfigV3();
@@ -176,7 +147,6 @@ contract TaikoL1V3B is EssentialContract, TaikoEvents {
             // SSTORE #2 }}
 
             unchecked {
-                // Increment the counter (cursor) by 1.
                 slotB.numBlocks += 1;
                 slotB.lastProposedIn = uint56(block.number);
             }
@@ -190,7 +160,9 @@ contract TaikoL1V3B is EssentialContract, TaikoEvents {
         _debitBond(proposer, config.livenessBond * _blockParams.length);
 
         // SSTORE #4
-        _verifyBlocks(slotB);
+        slotB = _verifyBlocks(slotB);
+
+        emit StateVariablesUpdated(slotB);
     }
 
     function _validateBlockParams(
@@ -239,8 +211,11 @@ contract TaikoL1V3B is EssentialContract, TaikoEvents {
         );
     }
 
-    function _verifyBlocks(TaikoData.SlotB memory _slotB) private {
-
+    function _verifyBlocks(TaikoData.SlotB memory _slotB)
+        private
+        returns (TaikoData.SlotB memory)
+    {
+        return _slotB;
     }
 
     function _checkProposer(address _customProposer) private view returns (address) {
