@@ -50,13 +50,13 @@ interface TaikoData {
     /// @notice 3 slots used.
     struct BlockV3 {
         bytes32 metaHash; // slot 1
-        address assignedProver; // DEPRECATED!!!
-        uint96 livenessBond; // DEPRECATED!!!
+        address _reserved2;
+        uint96 livenessBond;
         uint64 blockId; // slot 3
         uint64 timestamp;
         uint64 anchorBlockId;
         uint24 nextTransitionId;
-        bool livenessBondReturned;
+        bool _reserved1;
         // The ID of the transaction that is used to verify this block. However, if this block is
         // not verified as the last block in a batch, verifiedTransitionId will remain zero.
         uint24 verifiedTransitionId;

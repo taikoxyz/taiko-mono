@@ -311,10 +311,10 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
 
         // SSTORE #2 {{
         blk.blockId = _slotB.numBlocks;
+        blk.livenessBond = _config.livenessBond;
         blk.timestamp = _params.timestamp;
         blk.anchorBlockId = _params.anchorBlockId;
         blk.nextTransitionId = 1;
-        blk.livenessBondReturned = false; // TODO(daniel): remove this.
         blk.verifiedTransitionId = 0;
         // SSTORE #2 }}
     }
