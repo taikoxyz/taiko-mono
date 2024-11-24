@@ -6,28 +6,26 @@ import "src/layer1/based/ITaikoL1.sol";
 /// @title TaikoL1_EmptyStub
 /// @custom:security-contact security@taiko.xyz
 contract TaikoL1_EmptyStub is ITaikoL1 {
-    function proposeBlocksV3(bytes[] calldata _paramsArr)
+    function proposeBlocksV3(
+        address _proposer,
+        address _coinbase,
+        bytes[] calldata _blockParams
+    )
         external
-        virtual
-        returns (TaikoData.BlockMetadataV3[] memory metaArr_)
+        returns (TaikoData.BlockMetadataV3[] memory)
     { }
 
     function proveBlocksV3(
-        uint64[] calldata _blockIds,
-        bytes[] calldata _inputs,
-        bytes calldata _batchProof
+        TaikoData.BlockMetadataV3[] calldata _metas,
+        TaikoData.TransitionV3[] calldata _transitions,
+        bytes calldata proof
     )
         external
-        virtual
     { }
-
-    function pauseProving(bool _pause) external virtual { }
 
     function depositBond(uint256 _amount) external payable virtual { }
 
     function withdrawBond(uint256 _amount) external virtual { }
-
-    function getVerifiedBlockProver(uint64 _blockId) external view virtual returns (address) { }
 
     function getBlockV3(uint64 _blockId)
         external

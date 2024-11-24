@@ -10,8 +10,7 @@ import "./libs/LibFasterReentryLock.sol";
 /// mainnet to reduce gas cost.
 /// @notice See the documentation in {TaikoL1}.
 /// @custom:security-contact security@taiko.xyz
-contract MainnetTaikoL1 is TaikoL1V3 {
-    /// @inheritdoc ITaikoL1
+contract MainnetTaikoL1 is TaikoL1 {
     function getConfigV3() public pure override returns (TaikoData.ConfigV3 memory) {
         // All hard-coded configurations:
         // - treasury: the actual TaikoL2 address.

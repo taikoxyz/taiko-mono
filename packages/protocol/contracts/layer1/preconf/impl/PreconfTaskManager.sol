@@ -124,7 +124,8 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         );
 
         // Forward the block to Taiko's L1 contract
-        taikoL1.proposeBlocksV3(blockParamsArr);
+        //TODO(daniel): fix this
+        // taikoL1.proposeBlocksV3(blockParamsArr);
     }
 
     /**

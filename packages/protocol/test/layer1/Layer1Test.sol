@@ -12,22 +12,19 @@ import "src/shared/bridge/QuotaManager.sol";
 import "src/shared/bridge/Bridge.sol";
 import "test/shared/CommonTest.sol";
 
-contract TaikoL1WithConfig is TaikoL1V3 {
+contract TaikoL1WithConfig is TaikoL1 {
     TaikoData.ConfigV3 private __config;
 
     function initWithConfig(
         address _owner,
         address _rollupResolver,
         bytes32 _genesisBlockHash,
-        bool _toPause,
         TaikoData.ConfigV3 memory _config
     )
         external
         initializer
     {
-        __Essential_init(_owner, _rollupResolver);
-        LibUtils.init(state, _genesisBlockHash);
-        if (_toPause) _pause();
+        __TaikoL1_init(_owner, _rollupResolver, _genesisBlockHash);
         __config = _config;
     }
 

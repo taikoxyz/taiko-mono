@@ -6,8 +6,7 @@ import "../based/TaikoL1.sol";
 /// @title HeklaTaikoL1
 /// @dev Labeled in AddressResolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
-contract HeklaTaikoL1 is TaikoL1V3 {
-    /// @inheritdoc ITaikoL1
+contract HeklaTaikoL1 is TaikoL1 {
     function getConfigV3() public pure override returns (TaikoData.ConfigV3 memory) {
         return TaikoData.ConfigV3({
             chainId: LibNetwork.TAIKO_HEKLA,
