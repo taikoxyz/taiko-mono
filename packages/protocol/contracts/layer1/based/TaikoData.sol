@@ -62,7 +62,6 @@ interface TaikoData {
         uint24 verifiedTransitionId;
     }
 
-
     /// @notice Forge is only able to run coverage in case the contracts by default capable of
     /// compiling without any optimization (neither optimizer runs, no compiling --via-ir flag).
     /// @notice In order to resolve stack too deep without optimizations, we needed to introduce

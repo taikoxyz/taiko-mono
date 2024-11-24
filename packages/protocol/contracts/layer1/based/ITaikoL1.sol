@@ -3,11 +3,19 @@ pragma solidity ^0.8.24;
 
 import "./TaikoData.sol";
 
+interface IBondManager {
+    function depositBond(uint256 _amount) external payable;
+
+    function withdrawBond(uint256 _amount) external;
+
+    function bondBalanceOf(address _user) external view returns (uint256);
+}
 /// @title TaikoEvents
 /// @notice This abstract contract provides event declarations for the Taiko protocol, which are
 /// emitted during block proposal, proof, verification, and Ethereum deposit processes.
 /// @dev The events defined here must match the definitions in the corresponding L1 libraries.
 /// @custom:security-contact security@taiko.xyz
+
 interface ITaikoL1 is TaikoData {
     /// @notice Emitted when tokens are deposited into a user's bond balance.
     /// @param user The address of the user who deposited the tokens.
@@ -80,10 +88,6 @@ interface ITaikoL1 is TaikoData {
         bytes calldata proof
     )
         external;
-
-    function depositBond(uint256 _amount) external payable;
-
-    function withdrawBond(uint256 _amount) external;
 
     /// @notice Retrieves the ID of the L1 block where the most recent L2 block was proposed.
     /// @return The ID of the L1 block where the most recent block was proposed.

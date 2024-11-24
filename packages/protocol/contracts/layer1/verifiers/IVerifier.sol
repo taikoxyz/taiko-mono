@@ -7,7 +7,7 @@ import "../based/TaikoData.sol";
 /// @notice Defines the function that handles proof verification.
 /// @custom:security-contact security@taiko.xyz
 interface IVerifier {
-      struct TypedProof {
+    struct TypedProof {
         uint16 tier;
         bytes data;
     }
@@ -52,11 +52,7 @@ interface IVerifier {
     /// @notice Verifies multiple proofs.
     /// @param _ctxs The array of contexts for the proof verifications.
     /// @param _proof The batch proof to verify.
-    function verifyBatchProof(
-        ContextV2[] calldata _ctxs,
-        TypedProof calldata _proof
-    )
-        external;
+    function verifyBatchProof(ContextV2[] calldata _ctxs, TypedProof calldata _proof) external;
 
     /// @notice Verifies multiple proofs.
     /// @param _ctxs The array of contexts for the proof verifications.

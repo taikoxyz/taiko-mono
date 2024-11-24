@@ -123,12 +123,12 @@ contract ProverSet is EssentialContract, IERC1271 {
 
     /// @notice Deposits Taiko token to TaikoL1 contract.
     function depositBond(uint256 _amount) external onlyAuthorized {
-        ITaikoL1(taikoL1()).depositBond(_amount);
+        IBondManager(taikoL1()).depositBond(_amount);
     }
 
     /// @notice Withdraws Taiko token from TaikoL1 contract.
     function withdrawBond(uint256 _amount) external onlyAuthorized {
-        ITaikoL1(taikoL1()).withdrawBond(_amount);
+        IBondManager(taikoL1()).withdrawBond(_amount);
     }
 
     /// @notice Delegates token voting right to a delegatee.

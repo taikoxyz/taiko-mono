@@ -20,7 +20,7 @@ import "./ITaikoL1.sol";
 /// contract.
 /// @dev Labeled in AddressResolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
-contract TaikoL1 is EssentialContract, ITaikoL1 {
+contract TaikoL1 is EssentialContract, ITaikoL1, IBondManager {
     using LibMath for uint256;
 
     struct ParentInfo {
@@ -251,7 +251,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         TransitionV3 storage ts = state.transitions[0][1];
         ts.blockHash = _genesisBlockHash;
 
-        emit BlockVerifiedV3({ blockId: 0,  blockHash: _genesisBlockHash });
+        emit BlockVerifiedV3({ blockId: 0, blockHash: _genesisBlockHash });
     }
 
     // Private functions
