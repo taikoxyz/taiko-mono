@@ -6,7 +6,7 @@ import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibStrings.sol";
 import "../automata-attestation/interfaces/IAttestation.sol";
 import "../automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
-import "../based/ITaikoL1v3.sol";
+import "../based/ITaikoL1.sol";
 import "../based/TaikoData.sol";
 import "./LibPublicInput.sol";
 import "./IVerifier.sol";
@@ -138,8 +138,8 @@ contract SgxVerifier is EssentialContract, IVerifier {
     /// @inheritdoc IVerifier
     function verifyProof(
         Context calldata _ctx,
-        TaikoData.Transition calldata _tran,
-        TaikoData.TierProof calldata _proof
+        TaikoData.TransitionV3 calldata _tran,
+        TaikoData.TypedProof calldata _proof
     )
         external
         onlyFromNamedEither(LibStrings.B_TAIKO, LibStrings.B_TIER_TEE_ANY)
@@ -171,7 +171,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     /// @inheritdoc IVerifier
     function verifyBatchProof(
         ContextV2[] calldata _ctxs,
-        TaikoData.TierProof calldata _proof
+        TaikoData.TypedProof calldata _proof
     )
         external
         onlyFromNamedEither(LibStrings.B_TAIKO, LibStrings.B_TIER_TEE_ANY)
@@ -215,7 +215,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     }
 
     function taikoChainId() internal view virtual returns (uint64) {
-        return ITaikoL1v3(resolve(LibStrings.B_TAIKO, false)).getConfigV3().chainId;
+        return ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfigV3().chainId;
     }
 
     function _addInstances(

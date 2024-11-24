@@ -7,7 +7,7 @@ import "./LibProposing.sol";
 import "./LibProving.sol";
 import "./LibVerifying.sol";
 import "./TaikoEvents.sol";
-import "./ITaikoL1v3.sol";
+import "./ITaikoL1.sol";
 
 /// @title TaikoL1V3
 /// @notice This contract serves as the "base layer contract" of the Taiko protocol, providing
@@ -18,7 +18,7 @@ import "./ITaikoL1v3.sol";
 /// contract.
 /// @dev Labeled in AddressResolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
-contract TaikoL1V3 is EssentialContract, ITaikoL1v3, TaikoEvents {
+contract TaikoL1V3 is EssentialContract, ITaikoL1, TaikoEvents {
     /// @notice The TaikoL1 state.
     TaikoData.State public state;
 
@@ -83,20 +83,20 @@ contract TaikoL1V3 is EssentialContract, ITaikoL1v3, TaikoEvents {
         __lastUnpausedAt = 0;
     }
 
-    /// @inheritdoc ITaikoL1v3
+    /// @inheritdoc ITaikoL1
     function proposeBlocksV3(bytes[] calldata _paramsArr)
         external
         measureGasUsed(true, _paramsArr.length)
         whenNotPaused
         nonReentrant
         emitEventForClient
-        returns (TaikoData.BlockMetadataV2[] memory metaArr_)
+        returns (TaikoData.BlockMetadataV3[] memory metaArr_)
     {
-        TaikoData.Config memory config = getConfigV3();
+        TaikoData.ConfigV3 memory config = getConfigV3();
         return LibProposing.proposeBlocks(state, config, resolver(), _paramsArr);
     }
 
-    /// @inheritdoc ITaikoL1v3
+    /// @inheritdoc ITaikoL1
     function proveBlocksV3(
         uint64[] calldata _blockIds,
         bytes[] calldata _inputs,
@@ -112,18 +112,18 @@ contract TaikoL1V3 is EssentialContract, ITaikoL1v3, TaikoEvents {
         LibProving.proveBlocks(state, getConfigV3(), resolver(), _blockIds, _inputs, _batchProof);
     }
 
-    /// @inheritdoc ITaikoL1v3
+    /// @inheritdoc ITaikoL1
     function pauseProving(bool _pause) external {
         _authorizePause(msg.sender, _pause);
         LibProving.pauseProving(state, _pause);
     }
 
-    /// @inheritdoc ITaikoL1v3
+    /// @inheritdoc ITaikoL1
     function depositBond(uint256 _amount) external payable whenNotPaused {
         LibBonds.depositBond(state, resolver(), _amount);
     }
 
-    /// @inheritdoc ITaikoL1v3
+    /// @inheritdoc ITaikoL1
     function withdrawBond(uint256 _amount) external whenNotPaused {
         LibBonds.withdrawBond(state, resolver(), _amount);
     }
@@ -143,14 +143,14 @@ contract TaikoL1V3 is EssentialContract, ITaikoL1v3, TaikoEvents {
         return LibBonds.bondBalanceOf(state, _user);
     }
 
-    /// @inheritdoc ITaikoL1v3
+    /// @inheritdoc ITaikoL1
     function getVerifiedBlockProver(uint64 _blockId) external view returns (address prover_) {
         return LibVerifying.getVerifiedBlockProver(state, getConfigV3(), _blockId);
     }
 
-    /// @inheritdoc ITaikoL1v3
-    function getBlockV3(uint64 _blockId) external view returns (TaikoData.BlockV2 memory blk_) {
-        require(_blockId >= getConfigV3().ontakeForkHeight, L1_FORK_HEIGHT_ERROR());
+    /// @inheritdoc ITaikoL1
+    function getBlockV3(uint64 _blockId) external view returns (TaikoData.BlockV3 memory blk_) {
+        require(_blockId >= getConfigV3().pacayaForkHeight, L1_FORK_HEIGHT_ERROR());
 
         (blk_,) = LibUtils.getBlock(state, getConfigV3(), _blockId);
     }
@@ -166,7 +166,7 @@ contract TaikoL1V3 is EssentialContract, ITaikoL1v3, TaikoEvents {
     )
         external
         view
-        returns (TaikoData.TransitionState memory)
+        returns (TaikoData.TransitionStateV3 memory)
     {
         return LibUtils.getTransitionByParentHash(state, getConfigV3(), _blockId, _parentHash);
     }
@@ -183,19 +183,19 @@ contract TaikoL1V3 is EssentialContract, ITaikoL1v3, TaikoEvents {
     )
         external
         view
-        returns (TaikoData.TransitionState[] memory)
+        returns (TaikoData.TransitionStateV3[] memory)
     {
         return LibUtils.getTransitions(state, getConfigV3(), _blockIds, _parentHashes);
     }
 
-    /// @inheritdoc ITaikoL1v3
+    /// @inheritdoc ITaikoL1
     function getTransitionV3(
         uint64 _blockId,
         uint32 _tid
     )
         external
         view
-        returns (TaikoData.TransitionState memory)
+        returns (TaikoData.TransitionStateV3 memory)
     {
         return LibUtils.getTransitionById(
             state, getConfigV3(), _blockId, SafeCastUpgradeable.toUint24(_tid)
@@ -256,9 +256,9 @@ contract TaikoL1V3 is EssentialContract, ITaikoL1v3, TaikoEvents {
         return state.slotB.lastProposedIn;
     }
 
-    /// @inheritdoc ITaikoL1v3
-    function getConfigV3() public view virtual returns (TaikoData.Config memory) {
-        return TaikoData.Config({
+    /// @inheritdoc ITaikoL1
+    function getConfigV3() public view virtual returns (TaikoData.ConfigV3 memory) {
+        return TaikoData.ConfigV3({
             chainId: LibNetwork.TAIKO_MAINNET,
             blockMaxProposals: 324_000, // = 7200 * 45
             blockRingBufferSize: 360_000, // = 7200 * 50
@@ -274,7 +274,7 @@ contract TaikoL1V3 is EssentialContract, ITaikoL1v3, TaikoEvents {
                 minGasExcess: 1_340_000_000,
                 maxGasIssuancePerBlock: 600_000_000 // two minutes
              }),
-            ontakeForkHeight: 0
+            pacayaForkHeight: 0
         });
     }
 

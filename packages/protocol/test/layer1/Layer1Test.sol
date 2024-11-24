@@ -13,14 +13,14 @@ import "src/shared/bridge/Bridge.sol";
 import "test/shared/CommonTest.sol";
 
 contract TaikoL1WithConfig is TaikoL1V3 {
-    TaikoData.Config private __config;
+    TaikoData.ConfigV3 private __config;
 
     function initWithConfig(
         address _owner,
         address _rollupResolver,
         bytes32 _genesisBlockHash,
         bool _toPause,
-        TaikoData.Config memory _config
+        TaikoData.ConfigV3 memory _config
     )
         external
         initializer
@@ -31,7 +31,7 @@ contract TaikoL1WithConfig is TaikoL1V3 {
         __config = _config;
     }
 
-    function getConfigV3() public view override returns (TaikoData.Config memory) {
+    function getConfigV3() public view override returns (TaikoData.ConfigV3 memory) {
         return __config;
     }
 }

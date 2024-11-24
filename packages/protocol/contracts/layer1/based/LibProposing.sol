@@ -18,7 +18,7 @@ library LibProposing {
 
     struct Local {
         TaikoData.SlotB slotB;
-        TaikoData.BlockParamsV2 params;
+        TaikoData.BlockParamsV3 params;
         ITierProvider tierProvider;
         bool allowCustomProposer;
         address preconfTaskManager;
@@ -46,12 +46,12 @@ library LibProposing {
     /// @return metas_ An array of metadata objects for the proposed L2 blocks (version 2).
     function proposeBlocks(
         TaikoData.State storage _state,
-        TaikoData.Config memory _config,
+        TaikoData.ConfigV3 memory _config,
         IResolver _resolver,
         bytes[] calldata _paramsArr
     )
         internal
-        returns (TaikoData.BlockMetadataV2[] memory metas_)
+        returns (TaikoData.BlockMetadataV3[] memory metas_)
     {
         Local memory local;
         local.slotB = _state.slotB;
@@ -65,7 +65,7 @@ library LibProposing {
                 local.allowCustomProposer = true;
             }
 
-            require(local.slotB.numBlocks >= _config.ontakeForkHeight, L1_FORK_HEIGHT_ERROR());
+            require(local.slotB.numBlocks >= _config.pacayaForkHeight, L1_FORK_HEIGHT_ERROR());
 
             require(
                 local.slotB.numBlocks + _paramsArr.length
@@ -74,7 +74,7 @@ library LibProposing {
             );
 
             // Verify params against the parent block.
-            TaikoData.BlockV2 storage parentBlk =
+            TaikoData.BlockV3 storage parentBlk =
                 _state.blocks[(local.slotB.numBlocks - 1) % _config.blockRingBufferSize];
 
             local.parentTimestamp = parentBlk.timestamp;
@@ -82,10 +82,10 @@ library LibProposing {
             local.parentMetaHash = parentBlk.metaHash;
         }
 
-        metas_ = new TaikoData.BlockMetadataV2[](_paramsArr.length);
+        metas_ = new TaikoData.BlockMetadataV3[](_paramsArr.length);
         for (uint256 i; i < _paramsArr.length; ++i) {
             if (_paramsArr[i].length != 0) {
-                local.params = abi.decode(_paramsArr[i], (TaikoData.BlockParamsV2));
+                local.params = abi.decode(_paramsArr[i], (TaikoData.BlockParamsV3));
             }
 
             unchecked {
@@ -140,7 +140,7 @@ library LibProposing {
             // stored on-chain for future integrity checks. If we choose to persist all data fields
             // in
             // the metadata, it will require additional storage slots.
-            metas_[i] = TaikoData.BlockMetadataV2({
+            metas_[i] = TaikoData.BlockMetadataV3({
                 anchorBlockHash: blockhash(local.params.anchorBlockId),
                 difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", local.slotB.numBlocks)),
                 blobHash: 0, // to be initialized below
@@ -181,7 +181,7 @@ library LibProposing {
             local.parentMetaHash = keccak256(abi.encode(metas_[i]));
 
             // Use a storage pointer for the block in the ring buffer
-            TaikoData.BlockV2 storage blk =
+            TaikoData.BlockV3 storage blk =
                 _state.blocks[local.slotB.numBlocks % _config.blockRingBufferSize];
 
             // Store each field of the block separately

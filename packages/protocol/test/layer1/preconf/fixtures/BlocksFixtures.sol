@@ -29,7 +29,7 @@ contract BlocksFixtures is BaseTest {
         preconfTaskManager = new PreconfTaskManager(
             IPreconfServiceManager(address(preconfServiceManager)),
             IPreconfRegistry(address(preconfRegistry)),
-            ITaikoL1v3(taikoL1),
+            ITaikoL1(taikoL1),
             LibPreconfConstants.MAINNET_BEACON_GENESIS,
             address(beaconBlockRootContract)
         );

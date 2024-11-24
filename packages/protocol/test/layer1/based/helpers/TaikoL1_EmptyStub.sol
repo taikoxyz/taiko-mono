@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/layer1/based/ITaikoL1v3.sol";
+import "src/layer1/based/ITaikoL1.sol";
 
 /// @title TaikoL1_EmptyStub
 /// @custom:security-contact security@taiko.xyz
-contract TaikoL1_EmptyStub is ITaikoL1v3 {
+contract TaikoL1_EmptyStub is ITaikoL1 {
     function proposeBlocksV3(bytes[] calldata _paramsArr)
         external
         virtual
-        returns (TaikoData.BlockMetadataV2[] memory metaArr_)
+        returns (TaikoData.BlockMetadataV3[] memory metaArr_)
     { }
 
     function proveBlocksV3(
@@ -33,7 +33,7 @@ contract TaikoL1_EmptyStub is ITaikoL1v3 {
         external
         view
         virtual
-        returns (TaikoData.BlockV2 memory blk_)
+        returns (TaikoData.BlockV3 memory blk_)
     { }
 
     function getTransitionV3(
@@ -43,10 +43,10 @@ contract TaikoL1_EmptyStub is ITaikoL1v3 {
         external
         view
         virtual
-        returns (TaikoData.TransitionState memory)
+        returns (TaikoData.TransitionStateV3 memory)
     { }
 
     function lastProposedIn() external view returns (uint56) { }
 
-    function getConfigV3() external pure virtual returns (TaikoData.Config memory) { }
+    function getConfigV3() external pure virtual returns (TaikoData.ConfigV3 memory) { }
 }

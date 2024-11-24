@@ -7,39 +7,7 @@ import "src/shared/based/LibSharedData.sol";
 /// @notice This library defines various data structures used in the Taiko protocol.
 /// @custom:security-contact security@taiko.xyz
 library TaikoData {
-    /// @notice Struct holding Taiko configuration parameters. See {TaikoConfig}.
-    struct Config {
-        /// @notice The chain ID of the network where Taiko contracts are deployed.
-        uint64 chainId;
-        /// @notice The maximum number of verifications allowed when a block is proposed or proved.
-        uint64 blockMaxProposals;
-        /// @notice Size of the block ring buffer, allowing extra space for proposals.
-        uint64 blockRingBufferSize;
-        /// @notice The maximum number of verifications allowed when a block is proposed or proved.
-        uint64 maxBlocksToVerify;
-        /// @notice The maximum gas limit allowed for a block.
-        uint32 blockMaxGasLimit;
-        /// @notice The amount of Taiko token as a prover liveness bond.
-        uint96 livenessBond;
-        /// @notice The number of L2 blocks between each L2-to-L1 state root sync.
-        uint8 stateRootSyncInternal;
-        /// @notice The max differences of the anchor height and the current block number.
-        uint64 maxAnchorHeightOffset;
-        /// @notice Base fee configuration
-        LibSharedData.BaseFeeConfig baseFeeConfig;
-        /// @notie The Ontake fork height on L2.
-        uint64 ontakeForkHeight;
-    }
-
-    /// @notice DEPRECATED but used by node/client for syncing old blocks
-    /// @notice A proof and the tier of proof it belongs to.
-    struct TierProof {
-        uint16 tier;
-        bytes data;
-    }
-
-
-    struct BlockParamsV2 {
+    struct BlockParamsV3 {
         address proposer;
         address coinbase;
         bytes32 parentMetaHash;
@@ -50,9 +18,7 @@ library TaikoData {
         uint8 blobIndex; // NEW
     }
 
- 
-
-    struct BlockMetadataV2 {
+    struct BlockMetadataV3 {
         bytes32 anchorBlockHash; // `_l1BlockHash` in TaikoL2's anchor tx.
         bytes32 difficulty;
         bytes32 blobHash;
@@ -74,16 +40,15 @@ library TaikoData {
     }
 
     /// @notice Struct representing transition to be proven.
-    struct Transition {
+    struct TransitionV3 {
         bytes32 parentHash;
         bytes32 blockHash;
         bytes32 stateRoot;
-        bytes32 graffiti; // Arbitrary data that the prover can use for various purposes.
     }
 
     /// @notice Struct representing state transition data.
     /// @notice 6 slots used.
-    struct TransitionState {
+    struct TransitionStateV3 {
         bytes32 key; // slot 1, only written/read for the 1st state transition.
         bytes32 blockHash; // slot 2
         bytes32 stateRoot; // slot 3
@@ -93,13 +58,11 @@ library TaikoData {
         uint96 contestBond;
         uint64 timestamp; // slot 6 (88 bits)
         uint16 tier;
-        uint8 __reserved1;
     }
-
 
     /// @notice Struct containing data required for verifying a block.
     /// @notice 3 slots used.
-    struct BlockV2 {
+    struct BlockV3 {
         bytes32 metaHash; // slot 1
         address assignedProver; // DEPRECATED!!!
         uint96 livenessBond; // DEPRECATED!!!
@@ -111,6 +74,13 @@ library TaikoData {
         // The ID of the transaction that is used to verify this block. However, if this block is
         // not verified as the last block in a batch, verifiedTransitionId will remain zero.
         uint24 verifiedTransitionId;
+    }
+
+    /// @notice DEPRECATED but used by node/client for syncing old blocks
+    /// @notice A proof and the tier of proof it belongs to.
+    struct TypedProof {
+        uint16 tier;
+        bytes data;
     }
 
     /// @notice Forge is only able to run coverage in case the contracts by default capable of
@@ -132,16 +102,40 @@ library TaikoData {
         uint64 lastUnpausedAt;
     }
 
+    /// @notice Struct holding Taiko configuration parameters. See {TaikoConfig}.
+    struct ConfigV3 {
+        /// @notice The chain ID of the network where Taiko contracts are deployed.
+        uint64 chainId;
+        /// @notice The maximum number of verifications allowed when a block is proposed or proved.
+        uint64 blockMaxProposals;
+        /// @notice Size of the block ring buffer, allowing extra space for proposals.
+        uint64 blockRingBufferSize;
+        /// @notice The maximum number of verifications allowed when a block is proposed or proved.
+        uint64 maxBlocksToVerify;
+        /// @notice The maximum gas limit allowed for a block.
+        uint32 blockMaxGasLimit;
+        /// @notice The amount of Taiko token as a prover liveness bond.
+        uint96 livenessBond;
+        /// @notice The number of L2 blocks between each L2-to-L1 state root sync.
+        uint8 stateRootSyncInternal;
+        /// @notice The max differences of the anchor height and the current block number.
+        uint64 maxAnchorHeightOffset;
+        /// @notice Base fee configuration
+        LibSharedData.BaseFeeConfig baseFeeConfig;
+        /// @notie The Ontake fork height on L2.
+        uint64 pacayaForkHeight;
+    }
+
     /// @notice Struct holding the state variables for the {TaikoL1} contract.
     struct State {
         // Ring buffer for proposed blocks and a some recent verified blocks.
-        mapping(uint64 blockId_mod_blockRingBufferSize => BlockV2 blk) blocks;
+        mapping(uint64 blockId_mod_blockRingBufferSize => BlockV3 blk) blocks;
         // Indexing to transition ids (ring buffer not possible)
         mapping(uint64 blockId => mapping(bytes32 parentHash => uint24 transitionId)) transitionIds;
         // Ring buffer for transitions
         mapping(
             uint64 blockId_mod_blockRingBufferSize
-                => mapping(uint24 transitionId => TransitionState ts)
+                => mapping(uint24 transitionId => TransitionStateV3 ts)
         ) transitions;
         bytes32 __reserve1; // Used as a ring buffer for Ether deposits
         SlotA slotA; // slot 5

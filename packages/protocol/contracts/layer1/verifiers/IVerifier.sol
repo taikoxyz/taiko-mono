@@ -24,7 +24,7 @@ interface IVerifier {
         uint64 blockId;
         bool isContesting;
         address msgSender;
-        TaikoData.Transition tran;
+        TaikoData.TransitionV3 tran;
     }
 
     /// @notice Verifies a proof.
@@ -33,8 +33,8 @@ interface IVerifier {
     /// @param _proof The proof to verify.
     function verifyProof(
         Context calldata _ctx,
-        TaikoData.Transition calldata _tran,
-        TaikoData.TierProof calldata _proof
+        TaikoData.TransitionV3 calldata _tran,
+        TaikoData.TypedProof calldata _proof
     )
         external;
 
@@ -43,7 +43,7 @@ interface IVerifier {
     /// @param _proof The batch proof to verify.
     function verifyBatchProof(
         ContextV2[] calldata _ctxs,
-        TaikoData.TierProof calldata _proof
+        TaikoData.TypedProof calldata _proof
     )
         external;
 }

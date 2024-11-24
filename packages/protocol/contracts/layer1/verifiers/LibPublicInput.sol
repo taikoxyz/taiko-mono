@@ -18,7 +18,7 @@ library LibPublicInput {
     /// @param _chainId The chain id.
     /// @return The public input hash.
     function hashPublicInputs(
-        TaikoData.Transition memory _tran,
+        TaikoData.TransitionV3 memory _tran,
         address _verifierContract,
         address _newInstance,
         address _prover,

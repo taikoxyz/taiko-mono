@@ -1,8 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../based/ITaikoL1v2.sol";
 import "./ForkManager.sol";
+
+/// @title TaikoL1V2Selectors (Ontake)
+/// @custom:security-contact security@taiko.xyz
+/// @notice This interface is used to route specific transactions to the v2 version of the contract.
+/// @dev Function selectors are calculated independently of the return type. Therefore,
+/// we have omitted the `returns` statements from all functions to avoid maintaining
+/// the return struct definitions.
+interface TaikoL1V2Selectors {
+    function proposeBlocksV2(bytes[] calldata, bytes[] calldata) external;
+    function proveBlocks(uint64[] calldata, bytes[] calldata, bytes calldata) external;
+    function getBlockV2(uint64) external;
+    function getTransition(uint64, uint32) external;
+    function getConfig() external;
+}
 
 /// @title V2ToV3ForkManager (Ontake -> Pacaya)
 /// @custom:security-contact security@taiko.xyz
@@ -15,10 +28,10 @@ contract V2ToV3ForkManager is ForkManager {
     { }
 
     function shouldRouteToOldFork(bytes4 _selector) internal pure override returns (bool) {
-        return _selector == ITaikoL1v2.proposeBlocksV2.selector
-            || _selector == ITaikoL1v2.proveBlocks.selector
-            || _selector == ITaikoL1v2.getBlockV2.selector
-            || _selector == ITaikoL1v2.getTransition.selector
-            || _selector == ITaikoL1v2.getConfig.selector;
+        return _selector == TaikoL1V2Selectors.proposeBlocksV2.selector
+            || _selector == TaikoL1V2Selectors.proveBlocks.selector
+            || _selector == TaikoL1V2Selectors.getBlockV2.selector
+            || _selector == TaikoL1V2Selectors.getTransition.selector
+            || _selector == TaikoL1V2Selectors.getConfig.selector;
     }
 }

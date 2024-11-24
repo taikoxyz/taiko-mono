@@ -43,7 +43,7 @@ interface TaikoEvents {
     /// @notice Emitted when a block is proposed.
     /// @param blockId The ID of the proposed block.
     /// @param meta The metadata of the proposed block.
-    event BlockProposedV3(uint256 indexed blockId, TaikoData.BlockMetadataV2 meta);
+    event BlockProposedV3(uint256 indexed blockId, TaikoData.BlockMetadataV3 meta);
 
     /// @notice Emitted when a transition is proved.
     /// @param blockId The block ID.
@@ -54,7 +54,7 @@ interface TaikoEvents {
     /// @param proposedIn The L1 block in which a transition is proved.
     event TransitionProvedV3(
         uint256 indexed blockId,
-        TaikoData.Transition tran,
+        TaikoData.TransitionV3 tran,
         address prover,
         uint96 validityBond,
         uint16 tier,

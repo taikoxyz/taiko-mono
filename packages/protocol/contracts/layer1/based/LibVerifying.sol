@@ -37,7 +37,7 @@ library LibVerifying {
     /// @param _maxBlocksToVerify The maximum number of blocks to verify.
     function verifyBlocks(
         TaikoData.State storage _state,
-        TaikoData.Config memory _config,
+        TaikoData.ConfigV3 memory _config,
         IResolver _resolver,
         uint64 _maxBlocksToVerify
     )
@@ -52,7 +52,7 @@ library LibVerifying {
         local.blockId = local.b.lastVerifiedBlockId;
         local.slot = local.blockId % _config.blockRingBufferSize;
 
-        TaikoData.BlockV2 storage blk = _state.blocks[local.slot];
+        TaikoData.BlockV3 storage blk = _state.blocks[local.slot];
         require(blk.blockId == local.blockId, L1_BLOCK_MISMATCH());
 
         local.lastVerifiedTransitionId = blk.verifiedTransitionId;
@@ -84,7 +84,7 @@ library LibVerifying {
                 if (local.tid == 0) break;
 
                 // A transition with the correct `parentHash` has been located.
-                TaikoData.TransitionState storage ts = _state.transitions[local.slot][local.tid];
+                TaikoData.TransitionStateV3 storage ts = _state.transitions[local.slot][local.tid];
 
                 // It's not possible to verify this block if either the transition is contested and
                 // awaiting higher-tier proof or if the transition is still within its cooldown
@@ -182,14 +182,14 @@ library LibVerifying {
     /// @return The address of the prover.
     function getVerifiedBlockProver(
         TaikoData.State storage _state,
-        TaikoData.Config memory _config,
+        TaikoData.ConfigV3 memory _config,
         uint64 _blockId
     )
         internal
         view
         returns (address)
     {
-        (TaikoData.BlockV2 storage blk,) = LibUtils.getBlock(_state, _config, _blockId);
+        (TaikoData.BlockV3 storage blk,) = LibUtils.getBlock(_state, _config, _blockId);
 
         uint24 tid = blk.verifiedTransitionId;
         if (tid == 0) return address(0);

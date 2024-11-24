@@ -7,9 +7,9 @@ import "../based/TaikoL1.sol";
 /// @dev Labeled in AddressResolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
 contract HeklaTaikoL1 is TaikoL1V3 {
-    /// @inheritdoc ITaikoL1v3
-    function getConfigV3() public pure override returns (TaikoData.Config memory) {
-        return TaikoData.Config({
+    /// @inheritdoc ITaikoL1
+    function getConfigV3() public pure override returns (TaikoData.ConfigV3 memory) {
+        return TaikoData.ConfigV3({
             chainId: LibNetwork.TAIKO_HEKLA,
             // Never change this value as ring buffer is being reused!!!
             blockMaxProposals: 324_000,
@@ -27,7 +27,7 @@ contract HeklaTaikoL1 is TaikoL1V3 {
                 minGasExcess: 1_340_000_000,
                 maxGasIssuancePerBlock: 600_000_000 // two minutes
              }),
-            ontakeForkHeight: 840_512
+            pacayaForkHeight: 840_512
         });
     }
 }

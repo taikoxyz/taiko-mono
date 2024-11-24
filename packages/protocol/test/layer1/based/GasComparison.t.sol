@@ -4,11 +4,11 @@ pragma solidity ^0.8.24;
 import "test/layer1/Layer1Test.sol";
 
 contract GasComparision is Layer1Test {
-    TaikoData.BlockV2 private blk;
+    TaikoData.BlockV3 private blk;
 
     function test_save_block_gas_comparison() public {
         saveBlockAsWhole(
-            TaikoData.BlockV2({
+            TaikoData.BlockV3({
                 metaHash: keccak256(abi.encodePacked("1")),
                 blockId: 1,
                 assignedProver: address(0),
@@ -27,7 +27,7 @@ contract GasComparision is Layer1Test {
         // Measure gas for saveBlockAsWhole
         vm.startSnapshotGas("saveBlockAsWhole");
         saveBlockAsWhole(
-            TaikoData.BlockV2({
+            TaikoData.BlockV3({
                 metaHash: keccak256(abi.encodePacked("2")),
                 blockId: 2,
                 assignedProver: address(0),
@@ -44,7 +44,7 @@ contract GasComparision is Layer1Test {
         // Measure gas for saveBlockAsFields
         vm.startSnapshotGas("saveBlockAsFields");
         saveBlockAsFields(
-            TaikoData.BlockV2({
+            TaikoData.BlockV3({
                 metaHash: keccak256(abi.encodePacked("3")),
                 blockId: 2,
                 assignedProver: address(0),
@@ -62,11 +62,11 @@ contract GasComparision is Layer1Test {
         emit log_named_uint("Gas used by saveBlockAsFields", gasUsedFields);
     }
 
-    function saveBlockAsWhole(TaikoData.BlockV2 memory _blk) internal {
+    function saveBlockAsWhole(TaikoData.BlockV3 memory _blk) internal {
         blk = _blk;
     }
 
-    function saveBlockAsFields(TaikoData.BlockV2 memory _blk) internal {
+    function saveBlockAsFields(TaikoData.BlockV3 memory _blk) internal {
         blk.metaHash = _blk.metaHash;
         blk.blockId = _blk.blockId;
         blk.timestamp = _blk.timestamp;
@@ -78,7 +78,7 @@ contract GasComparision is Layer1Test {
 
     function test_read_block_gas_comparison() public {
         saveBlockAsWhole(
-            TaikoData.BlockV2({
+            TaikoData.BlockV3({
                 metaHash: keccak256(abi.encodePacked("1")),
                 blockId: 1,
                 assignedProver: address(0),
@@ -104,7 +104,7 @@ contract GasComparision is Layer1Test {
         emit log_named_uint("Gas used by readBlockAsFields", gasUsedFields);
     }
 
-    function readBlockAsWhole() internal view returns (TaikoData.BlockV2 memory) {
+    function readBlockAsWhole() internal view returns (TaikoData.BlockV3 memory) {
         return blk;
     }
 

@@ -18,8 +18,8 @@ library LibProving {
         TaikoData.SlotB b;
         ITierProvider.Tier tier;
         ITierProvider.Tier minTier;
-        TaikoData.BlockMetadataV2 meta;
-        TaikoData.TierProof proof;
+        TaikoData.BlockMetadataV3 meta;
+        TaikoData.TypedProof proof;
         bytes32 metaHash;
         uint64 slot;
         uint64 blockId;
@@ -62,13 +62,13 @@ library LibProving {
     /// @param _resolver The address resolver.
     /// @param _blockIds The index of the block to prove. This is also used to select the right
     /// implementation version.
-    /// @param _inputs A list of abi-encoded (TaikoData.BlockMetadataV2, TaikoData.Transition,
-    /// TaikoData.TierProof) tuple.
-    /// @param _batchProof A list of abi-encoded TaikoData.TierProof that contains the
+    /// @param _inputs A list of abi-encoded (TaikoData.BlockMetadataV3, TaikoData.Transition,
+    /// TaikoData.TypedProof) tuple.
+    /// @param _batchProof A list of abi-encoded TaikoData.TypedProof that contains the
     /// batch/aggregated proof for the given blocks.
     function proveBlocks(
         TaikoData.State storage _state,
-        TaikoData.Config memory _config,
+        TaikoData.ConfigV3 memory _config,
         IResolver _resolver,
         uint64[] calldata _blockIds,
         bytes[] calldata _inputs,
@@ -79,9 +79,9 @@ library LibProving {
         require(_blockIds.length != 0, L1_INVALID_PARAMS());
         require(_blockIds.length == _inputs.length, L1_INVALID_PARAMS());
 
-        TaikoData.TierProof memory batchProof;
+        TaikoData.TypedProof memory batchProof;
         if (_batchProof.length != 0) {
-            batchProof = abi.decode(_batchProof, (TaikoData.TierProof));
+            batchProof = abi.decode(_batchProof, (TaikoData.TypedProof));
             require(batchProof.tier != 0, L1_INVALID_TIER());
         }
 
@@ -121,19 +121,19 @@ library LibProving {
     /// @param _resolver The address resolver.
     /// @param _blockId The index of the block to prove. This is also used to select the right
     /// implementation version.
-    /// @param _input An abi-encoded (TaikoData.BlockMetadataV2, TaikoData.Transition,
-    /// TaikoData.TierProof) tuple.
-    /// @param _batchProof An abi-encoded TaikoData.TierProof that contains the batch/aggregated
+    /// @param _input An abi-encoded (TaikoData.BlockMetadataV3, TaikoData.Transition,
+    /// TaikoData.TypedProof) tuple.
+    /// @param _batchProof An abi-encoded TaikoData.TypedProof that contains the batch/aggregated
     /// proof for the given blocks.
     /// @return ctx_ The context of the verifier.
     /// @return verifierName_ The name of the verifier.
     function _proveBlock(
         TaikoData.State storage _state,
-        TaikoData.Config memory _config,
+        TaikoData.ConfigV3 memory _config,
         IResolver _resolver,
         uint64 _blockId,
         bytes calldata _input,
-        TaikoData.TierProof memory _batchProof
+        TaikoData.TypedProof memory _batchProof
     )
         private
         returns (IVerifier.ContextV2 memory ctx_, bytes32 verifierName_)
@@ -145,12 +145,12 @@ library LibProving {
         if (_batchProof.tier == 0) {
             // No batch proof is available, each transition is proving using a separate proof.
             (local.meta, ctx_.tran, local.proof) = abi.decode(
-                _input, (TaikoData.BlockMetadataV2, TaikoData.Transition, TaikoData.TierProof)
+                _input, (TaikoData.BlockMetadataV3, TaikoData.TransitionV3, TaikoData.TypedProof)
             );
         } else {
             // All transitions are proving using the batch proof.
             (local.meta, ctx_.tran) =
-                abi.decode(_input, (TaikoData.BlockMetadataV2, TaikoData.Transition));
+                abi.decode(_input, (TaikoData.BlockMetadataV3, TaikoData.TransitionV3));
             local.proof = _batchProof;
         }
 
@@ -164,7 +164,7 @@ library LibProving {
         require(local.meta.id < local.b.numBlocks, L1_INVALID_BLOCK_ID());
 
         local.slot = local.meta.id % _config.blockRingBufferSize;
-        TaikoData.BlockV2 storage blk = _state.blocks[local.slot];
+        TaikoData.BlockV3 storage blk = _state.blocks[local.slot];
 
         local.metaHash = blk.metaHash;
 
@@ -176,11 +176,8 @@ library LibProving {
         // stateRoot open for later updates as higher-tier proofs become available. In cases where a
         // transition with the specified parentHash does not exist, a new transition will be
         // created.
-        TaikoData.TransitionState memory ts;
+        TaikoData.TransitionStateV3 memory ts;
         (local.tid, ts) = _fetchOrCreateTransition(_state, blk, ctx_.tran, local);
-
-        // Reset a deprecated field.
-        ts.__reserved1 = 0;
 
         // The new proof must meet or exceed the minimum tier required by the block or the previous
         // proof; it cannot be on a lower tier.
@@ -334,19 +331,19 @@ library LibProving {
 
     /// @dev Handle the transition initialization logic.
     /// @param _state Pointer to the protocol's storage.
-    /// @param _blk Current TaikoData.BlockV2.
+    /// @param _blk Current TaikoData.BlockV3.
     /// @param _tran Current TaikoData.Transition.
     /// @param _local Current Local struct.
     /// @return tid_ The transition ID.
     /// @return ts_ The transition state.
     function _fetchOrCreateTransition(
         TaikoData.State storage _state,
-        TaikoData.BlockV2 storage _blk,
-        TaikoData.Transition memory _tran,
+        TaikoData.BlockV3 storage _blk,
+        TaikoData.TransitionV3 memory _tran,
         Local memory _local
     )
         private
-        returns (uint24 tid_, TaikoData.TransitionState memory ts_)
+        returns (uint24 tid_, TaikoData.TransitionStateV3 memory ts_)
     {
         tid_ = LibUtils.getTransitionId(_state, _blk, _local.slot, _tran.parentHash);
 
@@ -401,18 +398,18 @@ library LibProving {
     /// higher tier proof incoming.
     /// @param _state Pointer to the protocol's storage.
     /// @param _resolver The address resolver.
-    /// @param _blk Current TaikoData.BlockV2.
-    /// @param _ts Current TaikoData.TransitionState.
+    /// @param _blk Current TaikoData.BlockV3.
+    /// @param _ts Current TaikoData.TransitionStateV3.
     /// @param _tran Current TaikoData.Transition.
-    /// @param _proof Current TaikoData.TierProof.
+    /// @param _proof Current TaikoData.TypedProof.
     /// @param _local Current Local struct.
     function _overrideWithHigherProof(
         TaikoData.State storage _state,
         IResolver _resolver,
-        TaikoData.BlockV2 storage _blk,
-        TaikoData.TransitionState memory _ts,
-        TaikoData.Transition memory _tran,
-        TaikoData.TierProof memory _proof,
+        TaikoData.BlockV3 storage _blk,
+        TaikoData.TransitionStateV3 memory _ts,
+        TaikoData.TransitionV3 memory _tran,
+        TaikoData.TypedProof memory _proof,
         Local memory _local
     )
         private
