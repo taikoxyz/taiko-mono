@@ -355,7 +355,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         // prover is granted exclusive permission to prove only the first transition.
         if (tid == 1) {
             if (msg.sender == _meta.proposer) {
-                _creditBond(_meta.proposer, _config.livenessBond);
+                _creditBond(_meta.proposer, blk.livenessBond);
             } else {
                 uint256 deadline = uint256(_meta.proposedAt).max(_slotB.lastUnpausedAt);
                 deadline += _config.provingWindow;
