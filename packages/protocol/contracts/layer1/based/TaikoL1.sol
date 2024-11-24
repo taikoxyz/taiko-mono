@@ -124,7 +124,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, IBondManager {
         IVerifier.ContextV3[] memory ctxs = new IVerifier.ContextV3[](_metas.length);
 
         for (uint256 i; i < _metas.length; ++i) {
-            ctxs[i] = _proposeBlock(config, slotB, _metas[i], _transitions[i]);
+            ctxs[i] = _proveBlock(config, slotB, _metas[i], _transitions[i]);
         }
 
         IVerifier(resolve("TODO", false)).verifyProofV3(ctxs, proof);
@@ -311,15 +311,16 @@ contract TaikoL1 is EssentialContract, ITaikoL1, IBondManager {
 
         // SSTORE #2 {{
         blk.blockId = _slotB.numBlocks;
-        blk.livenessBond = _config.livenessBond;
         blk.timestamp = _params.timestamp;
         blk.anchorBlockId = _params.anchorBlockId;
         blk.nextTransitionId = 1;
         blk.verifiedTransitionId = 0;
         // SSTORE #2 }}
+
+        emit BlockProposedV3(_slotB.numBlocks, meta_);
     }
 
-    function _proposeBlock(
+    function _proveBlock(
         ConfigV3 memory _config,
         SlotB memory _slotB,
         BlockMetadataV3 calldata _meta,
@@ -355,7 +356,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, IBondManager {
         // prover is granted exclusive permission to prove only the first transition.
         if (tid == 1) {
             if (msg.sender == _meta.proposer) {
-                _creditBond(_meta.proposer, blk.livenessBond);
+                _creditBond(_meta.proposer, _meta.livenessBond);
             } else {
                 uint256 deadline = uint256(_meta.proposedAt).max(_slotB.lastUnpausedAt);
                 deadline += _config.provingWindow;
@@ -371,6 +372,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, IBondManager {
         if (_isSyncBlock(_config.stateRootSyncInternal, _meta.id)) {
             ts.stateRoot = _tran.stateRoot;
         }
+
+        emit BlockProvedV3(_meta.id, _tran);
     }
 
     function _verifyBlocks(
@@ -422,6 +425,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, IBondManager {
         blk = state.blocks[slot];
         blk.verifiedTransitionId = verifiedTransitionId;
 
+        emit BlockVerifiedV3(_slotB.lastVerifiedBlockId, verifiedBlockHash);
+
         if (syncBlockId == 0) return _slotB;
 
         state.slotA.lastSyncedBlockId = syncBlockId;
@@ -437,6 +442,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, IBondManager {
         ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).syncChainData(
             _config.chainId, LibStrings.H_STATE_ROOT, syncBlockId, syncStateRoot
         );
+
+        emit BlockSyncedV3(syncBlockId, syncStateRoot);
         return _slotB;
     }
 

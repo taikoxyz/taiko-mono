@@ -4,6 +4,16 @@ pragma solidity ^0.8.24;
 import "./TaikoData.sol";
 
 interface IBondManager {
+    /// @notice Emitted when tokens are deposited into a user's bond balance.
+    /// @param user The address of the user who deposited the tokens.
+    /// @param amount The amount of tokens deposited.
+    event BondDeposited(address indexed user, uint256 amount);
+
+    /// @notice Emitted when tokens are withdrawn from a user's bond balance.
+    /// @param user The address of the user who withdrew the tokens.
+    /// @param amount The amount of tokens withdrawn.
+    event BondWithdrawn(address indexed user, uint256 amount);
+
     function depositBond(uint256 _amount) external payable;
 
     function withdrawBond(uint256 _amount) external;
@@ -17,16 +27,6 @@ interface IBondManager {
 /// @custom:security-contact security@taiko.xyz
 
 interface ITaikoL1 is TaikoData {
-    /// @notice Emitted when tokens are deposited into a user's bond balance.
-    /// @param user The address of the user who deposited the tokens.
-    /// @param amount The amount of tokens deposited.
-    event BondDeposited(address indexed user, uint256 amount);
-
-    /// @notice Emitted when tokens are withdrawn from a user's bond balance.
-    /// @param user The address of the user who withdrew the tokens.
-    /// @param amount The amount of tokens withdrawn.
-    event BondWithdrawn(address indexed user, uint256 amount);
-
     /// @notice Emitted when a token is credited back to a user's bond balance.
     /// @param user The address of the user whose bond balance is credited.
     /// @param blockId The ID of the block to credit for.
@@ -56,23 +56,17 @@ interface ITaikoL1 is TaikoData {
     /// @notice Emitted when a transition is proved.
     /// @param blockId The block ID.
     /// @param tran The transition data.
-    /// @param prover The prover's address.
-    /// @param validityBond The validity bond amount.
-    /// @param tier The tier of the proof.
-    /// @param proposedIn The L1 block in which a transition is proved.
-    event TransitionProvedV3(
-        uint256 indexed blockId,
-        TransitionV3 tran,
-        address prover,
-        uint96 validityBond,
-        uint16 tier,
-        uint64 proposedIn
-    );
+    event BlockProvedV3(uint256 indexed blockId, TransitionV3 tran);
 
     /// @notice Emitted when a block is verified.
     /// @param blockId The ID of the verified block.
     /// @param blockHash The hash of the verified block.
     event BlockVerifiedV3(uint256 indexed blockId, bytes32 blockHash);
+
+    /// @notice Emitted when a block is synced.
+    /// @param blockId The ID of the synced block.
+    /// @param stateRoot The state root of the synced block.
+    event BlockSyncedV3(uint256 indexed blockId, bytes32 stateRoot);
 
     function proposeBlocksV3(
         address _proposer,
