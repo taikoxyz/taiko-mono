@@ -31,7 +31,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, IBondManager {
 
     struct TransientSyncedBlock {
         uint64 blockId;
-        uint slot;
+        uint256 slot;
         uint24 tid;
         bytes32 stateRoot;
     }
@@ -423,32 +423,32 @@ contract TaikoL1 is EssentialContract, ITaikoL1, IBondManager {
             }
         }
 
-        if (count == 0) return _slotB;
+        if (count != 0) {
+            _slotB.lastVerifiedBlockId += count;
 
-        _slotB.lastVerifiedBlockId += count;
+            slot = _slotB.lastVerifiedBlockId % _config.blockRingBufferSize;
+            blk = state.blocks[slot];
+            blk.verifiedTransitionId = verifiedTransitionId;
 
-        slot = _slotB.lastVerifiedBlockId % _config.blockRingBufferSize;
-        blk = state.blocks[slot];
-        blk.verifiedTransitionId = verifiedTransitionId;
-
-        emit BlockVerifiedV3(_slotB.lastVerifiedBlockId, verifiedBlockHash);
-
-        if (synced.blockId == 0) return _slotB;
-
-        state.slotA.lastSyncedBlockId = synced.blockId;
-        state.slotA.lastSyncedAt = uint64(block.timestamp);
-
-        // We write the synced block's verifiedTransitionId to storage
-        if (synced.blockId != _slotB.lastVerifiedBlockId) {
-            state.blocks[synced.slot].verifiedTransitionId = synced.tid;
+            emit BlockVerifiedV3(_slotB.lastVerifiedBlockId, verifiedBlockHash);
         }
 
-        // Ask signal service to write cross chain signal
-        ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).syncChainData(
-            _config.chainId, LibStrings.H_STATE_ROOT, synced.blockId, synced.stateRoot
-        );
+        if (synced.blockId != 0) {
+            state.slotA.lastSyncedBlockId = synced.blockId;
+            state.slotA.lastSyncedAt = uint64(block.timestamp);
 
-        emit BlockSyncedV3(synced.blockId, synced.stateRoot);
+            // We write the synced block's verifiedTransitionId to storage
+            if (synced.blockId != _slotB.lastVerifiedBlockId) {
+                state.blocks[synced.slot].verifiedTransitionId = synced.tid;
+            }
+
+            // Ask signal service to write cross chain signal
+            ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).syncChainData(
+                _config.chainId, LibStrings.H_STATE_ROOT, synced.blockId, synced.stateRoot
+            );
+
+            emit BlockSyncedV3(synced.blockId, synced.stateRoot);
+        }
         return _slotB;
     }
 
