@@ -31,7 +31,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, IBondManager {
 
     struct TransientSyncedBlock {
         uint64 blockId;
-        uint256 slot;
         uint24 tid;
         bytes32 stateRoot;
     }
@@ -189,7 +188,9 @@ contract TaikoL1 is EssentialContract, ITaikoL1, IBondManager {
     function getBlockV3(uint64 _blockId) external view returns (BlockV3 memory blk_) {
         ConfigV3 memory config = getConfigV3();
         require(_blockId >= config.pacayaForkHeight, "InvalidForkHeight");
-        (blk_,) = _getBlock(config, _blockId);
+
+        blk_ = state.blocks[_blockId % config.blockRingBufferSize];
+        require(blk_.blockId == _blockId, "BlockNotFound");
     }
 
     // Public functions
@@ -402,7 +403,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, IBondManager {
         while (++blockId < _slotB.numBlocks && count < _config.maxBlocksToVerify * _length) {
             slot = blockId % _config.blockRingBufferSize;
             blk = state.blocks[slot];
-            // get Tid;
+            // TODO(daniel): get Tid;
             uint24 tid;
 
             if (tid == 0) break;
@@ -413,7 +414,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, IBondManager {
 
             if (_isSyncBlock(_config.stateRootSyncInternal, blockId)) {
                 synced.blockId = blockId;
-                synced.slot = slot;
                 synced.tid = tid;
                 synced.stateRoot = ts.stateRoot;
             }
@@ -426,10 +426,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, IBondManager {
         if (count != 0) {
             _slotB.lastVerifiedBlockId += count;
 
-            slot = _slotB.lastVerifiedBlockId % _config.blockRingBufferSize;
-            blk = state.blocks[slot];
+            blk = state.blocks[_slotB.lastVerifiedBlockId % _config.blockRingBufferSize];
             blk.verifiedTransitionId = verifiedTransitionId;
-
             emit BlockVerifiedV3(_slotB.lastVerifiedBlockId, verifiedBlockHash);
         }
 
@@ -439,7 +437,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1, IBondManager {
 
             // We write the synced block's verifiedTransitionId to storage
             if (synced.blockId != _slotB.lastVerifiedBlockId) {
-                state.blocks[synced.slot].verifiedTransitionId = synced.tid;
+                blk = state.blocks[synced.blockId % _config.blockRingBufferSize];
+                blk.verifiedTransitionId = synced.tid;
             }
 
             // Ask signal service to write cross chain signal
@@ -548,26 +547,16 @@ contract TaikoL1 is EssentialContract, ITaikoL1, IBondManager {
         returns (bytes32 blockHash_, bytes32 stateRoot_)
     {
         ConfigV3 memory config = getConfigV3();
-        (BlockV3 storage blk, uint64 slot) = _getBlock(config, _blockId);
+
+        uint64 slot = _blockId % config.blockRingBufferSize;
+        BlockV3 storage blk = state.blocks[slot];
+        require(blk.blockId == _blockId, "BlockNotFound");
 
         if (blk.verifiedTransitionId != 0) {
             TransitionV3 storage ts = state.transitions[slot][blk.verifiedTransitionId];
             blockHash_ = ts.blockHash;
             stateRoot_ = ts.stateRoot;
         }
-    }
-
-    function _getBlock(
-        ConfigV3 memory _config,
-        uint64 _blockId
-    )
-        private
-        view
-        returns (BlockV3 storage blk_, uint64 slot_)
-    {
-        slot_ = _blockId % _config.blockRingBufferSize;
-        blk_ = state.blocks[slot_];
-        require(blk_.blockId == _blockId, "BlockNotFound");
     }
 
     function _isSyncBlock(
