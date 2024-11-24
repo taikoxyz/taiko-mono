@@ -34,8 +34,8 @@ interface ITaikoL1 is ITaikoData {
 
     /// @notice Emitted when some state variable values changed.
     /// @dev This event is currently used by Taiko node/client for block proposal/proving.
-    /// @param slotB The SlotB data structure.
-    event StateVariablesUpdated(SlotB slotB);
+    /// @param statsB The StatsB data structure.
+    event StateVariablesUpdated(StatsB statsB);
 
     /// @notice Emitted when a block is proposed.
     /// @param blockId The ID of the proposed block.
@@ -78,9 +78,9 @@ interface ITaikoL1 is ITaikoData {
 
     function bondBalanceOf(address _user) external view returns (uint256);
 
-    function getSlotA() external view returns (SlotA memory);
+    function getStatsA() external view returns (StatsA memory);
 
-    function getSlotB() external view returns (SlotB memory);
+    function getStatsB() external view returns (StatsB memory);
 
     function getConfigV3() external view returns (ConfigV3 memory);
 }

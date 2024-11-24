@@ -66,14 +66,14 @@ interface ITaikoData {
     /// compiling without any optimization (neither optimizer runs, no compiling --via-ir flag).
     /// @notice In order to resolve stack too deep without optimizations, we needed to introduce
     /// outsourcing vars into structs below.
-    struct SlotA {
+    struct StatsA {
         uint64 genesisHeight;
         uint64 genesisTimestamp;
         uint64 lastSyncedBlockId;
         uint64 lastSyncedAt;
     }
 
-    struct SlotB {
+    struct StatsB {
         uint64 numBlocks;
         uint64 lastVerifiedBlockId;
         bool paused;
@@ -118,8 +118,8 @@ interface ITaikoData {
                 => mapping(uint24 transitionId => TransitionV3 ts)
         ) transitions;
         bytes32 __reserve1; // Used as a ring buffer for Ether deposits
-        SlotA slotA; // slot 5
-        SlotB slotB; // slot 6
+        StatsA statsA; // slot 5
+        StatsB statsB; // slot 6
         mapping(address account => uint256 bond) bondBalance;
         uint256[43] __gap;
     }
