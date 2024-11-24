@@ -19,6 +19,8 @@ import "./ITaikoL1.sol";
 /// @dev Labeled in AddressResolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
 contract TaikoL1V3B is EssentialContract, TaikoEvents {
+    using LibMath for uint256;
+
     uint256 private constant SECONDS_PER_BLOCK = 12 seconds;
 
     /// @notice The TaikoL1 state.
@@ -43,7 +45,8 @@ contract TaikoL1V3B is EssentialContract, TaikoEvents {
                 minGasExcess: 1_340_000_000,
                 maxGasIssuancePerBlock: 600_000_000 // two minutes
              }),
-            pacayaForkHeight: 0
+            pacayaForkHeight: 0,
+            provingWindow: 2 hours
         });
     }
 
@@ -158,10 +161,11 @@ contract TaikoL1V3B is EssentialContract, TaikoEvents {
         // SSTORE #3
         _debitBond(proposer, config.livenessBond * _blockParams.length);
 
-        // SSTORE #4
         slotB = _verifyBlocks(slotB);
-
         emit StateVariablesUpdated(slotB);
+
+        // SSTORE #4
+        state.slotB = slotB;
     }
 
     function proveBlocks(
@@ -176,6 +180,9 @@ contract TaikoL1V3B is EssentialContract, TaikoEvents {
         TaikoData.SlotB memory slotB = state.slotB;
 
         IVerifier.ContextV3[] memory ctxs = new IVerifier.ContextV3[](_metas.length);
+        uint24[] memory tids = new uint24[](_metas.length);
+        TaikoData.TransitionStateV3[] memory tstates =
+            new TaikoData.TransitionStateV3[](_metas.length);
 
         for (uint256 i; i < _metas.length; ++i) {
             require(_metas[i].id >= config.pacayaForkHeight, "InvalidForkHeight");
@@ -190,13 +197,84 @@ contract TaikoL1V3B is EssentialContract, TaikoEvents {
             ctxs[i].difficulty = _metas[i].difficulty;
             ctxs[i].tran = _transitions[i];
 
-            TaikoData.BlockV3 storage blk = state.blocks[_metas[i].id % config.blockRingBufferSize];
+            uint256 slot = _metas[i].id % config.blockRingBufferSize;
+            TaikoData.BlockV3 storage blk = state.blocks[slot];
             require(ctxs[i].metaHash == blk.metaHash, "MataMismatch");
+
+            tids[i] = _getTransitionId(blk, slot, _transitions[i].parentHash);
+
+            if (tids[i] == 0) {
+                // In cases where a transition with the provided parentHash is not found, we must
+                // essentially "create" one and set it to its initial state. This initial state can
+                // be
+                // viewed as a special transition on tier-0. Subsequently, we transform this tier-0
+                // transition into a non-zero-tier transition with a proof. This approach ensures
+                // that
+                // the same logic is applicable for both 0-to-non-zero transition updates and
+                // non-zero-to-non-zero transition updates.
+                unchecked {
+                    // Unchecked is safe: Not realistic 2**32 different fork choice per block will
+                    // be
+                    // proven and none of them is valid
+                    tids[i] = blk.nextTransitionId++;
+                }
+
+                if (tids[i] == 1) {
+                    // This approach serves as a cost-saving technique for the majority of blocks,
+                    // where
+                    // the first transition is expected to be the correct one. Writing to
+                    // `transitions`
+                    // is more economical since it resides in the ring buffer, whereas writing to
+                    // `transitionIds` is not as cost-effective.
+                    tstates[i].key = _transitions[i].parentHash;
+
+                    // In the case of this first transition, the block's assigned prover has the
+                    // privilege to re-prove it, but only when the assigned prover matches the
+                    // previous
+                    // prover. To ensure this, we establish the transition's prover as the block's
+                    // assigned prover. Consequently, when we carry out a 0-to-non-zero transition
+                    // update, the previous prover will consistently be the block's assigned prover.
+                    // While alternative implementations are possible, introducing such changes
+                    // would
+                    // require additional if-else logic.
+                    tstates[i].prover = _metas[i].proposer;
+                } else {
+                    // Furthermore, we index the transition for future retrieval. It's worth
+                    // emphasizing
+                    // that this mapping for indexing is not reusable. However, given that the
+                    // majority
+                    // of blocks will only possess one transition — the correct one — we don't need
+                    // to be concerned about the cost in this case.
+
+                    // There is no need to initialize ts.key here because it's only used when tid ==
+                    // 1
+                    state.transitionIds[_metas[i].id][_transitions[i].parentHash] = tids[i];
+                }
+            } else {
+                // A transition with the provided parentHash has been located.
+                tstates[i] = state.transitions[slot][tids[i]];
+            }
+
+            // Checks if only the assigned prover is permissioned to prove the block. The assigned
+            // prover is granted exclusive permission to prove only the first transition.
+            if (tids[i] == 1 && msg.sender != _metas[i].proposer) {
+                require(
+                    block.timestamp
+                        > (
+                            uint256(_metas[i].proposedAt).max(slotB.lastUnpausedAt)
+                                + config.provingWindow
+                        ),
+                    "NotProposer"
+                );
+            }
         }
 
         IVerifier(resolve("TODO", false)).verifyProofV3(ctxs, proof);
 
-        for (uint256 i; i < _metas.length; ++i) { }
+        slotB = _verifyBlocks(slotB);
+        // SSTORE #4
+        emit StateVariablesUpdated(slotB);
+        state.slotB = slotB;
     }
 
     function _validateBlockParams(
@@ -290,5 +368,23 @@ contract TaikoL1V3B is EssentialContract, TaikoEvents {
 
     function _bondToken() private view returns (address) {
         return resolve(LibStrings.B_BOND_TOKEN, true);
+    }
+
+    function _getTransitionId(
+        TaikoData.BlockV3 storage _blk,
+        uint256 _slot,
+        bytes32 _parentHash
+    )
+        internal
+        view
+        returns (uint24 tid_)
+    {
+        if (state.transitions[_slot][1].key == _parentHash) {
+            tid_ = 1;
+            require(tid_ < _blk.nextTransitionId, "UnexpectedLargeTid");
+        } else {
+            tid_ = state.transitionIds[_blk.blockId][_parentHash];
+            require(tid_ == 0 || tid_ < _blk.nextTransitionId, "UnexpectedLargeTid");
+        }
     }
 }

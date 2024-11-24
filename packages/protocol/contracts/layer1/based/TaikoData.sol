@@ -124,17 +124,18 @@ library TaikoData {
         LibSharedData.BaseFeeConfig baseFeeConfig;
         /// @notie The Pacaya fork height on L2.
         uint64 pacayaForkHeight;
+        uint16 provingWindow;
     }
 
     /// @notice Struct holding the state variables for the {TaikoL1} contract.
     struct State {
         // Ring buffer for proposed blocks and a some recent verified blocks.
-        mapping(uint64 blockId_mod_blockRingBufferSize => BlockV3 blk) blocks;
+        mapping(uint256 blockId_mod_blockRingBufferSize => BlockV3 blk) blocks;
         // Indexing to transition ids (ring buffer not possible)
-        mapping(uint64 blockId => mapping(bytes32 parentHash => uint24 transitionId)) transitionIds;
+        mapping(uint256 blockId => mapping(bytes32 parentHash => uint24 transitionId)) transitionIds;
         // Ring buffer for transitions
         mapping(
-            uint64 blockId_mod_blockRingBufferSize
+            uint256 blockId_mod_blockRingBufferSize
                 => mapping(uint24 transitionId => TransitionStateV3 ts)
         ) transitions;
         bytes32 __reserve1; // Used as a ring buffer for Ether deposits

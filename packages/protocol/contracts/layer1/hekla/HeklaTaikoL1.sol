@@ -27,7 +27,8 @@ contract HeklaTaikoL1 is TaikoL1V3 {
                 minGasExcess: 1_340_000_000,
                 maxGasIssuancePerBlock: 600_000_000 // two minutes
              }),
-            pacayaForkHeight: 840_512
+            pacayaForkHeight: 840_512,
+            provingWindow: 2 hours
         });
     }
 }
