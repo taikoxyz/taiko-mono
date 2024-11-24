@@ -28,6 +28,44 @@ contract TaikoL1V3B is EssentialContract, TaikoEvents {
 
     uint256[50] private __gap;
 
+    function init(
+        address _owner,
+        address _rollupResolver,
+        bytes32 _genesisBlockHash,
+        bool _toPause
+    )
+        external
+        initializer
+    {
+        __Essential_init(_owner, _rollupResolver);
+        LibUtils.init(state, _genesisBlockHash);
+        if (_toPause) _pause();
+    }
+
+    function unpause() public override whenPaused {
+        _authorizePause(msg.sender, false);
+        __paused = _FALSE;
+        state.slotB.lastUnpausedAt = uint64(block.timestamp);
+        emit Unpaused(msg.sender);
+    }
+
+    function bondBalanceOf(address _user) external view returns (uint256) {
+        return state.bondBalance[_user];
+    }
+
+    function getVerifiedBlockProver(uint64 _blockId) external view returns (address prover_) {
+        return LibVerifying.getVerifiedBlockProver(state, getConfigV3(), _blockId);
+    }
+
+    function getBlockV3(uint64 _blockId) external view returns (TaikoData.BlockV3 memory blk_) {
+        TaikoData.ConfigV3 memory config = getConfigV3();
+        require(_blockId >= config.pacayaForkHeight, "InvalidForkHeight");
+
+        uint64 slot = _blockId % config.blockRingBufferSize;
+        blk_ = state.blocks[slot];
+        require(blk_.blockId == _blockId, "BlockNotFound");
+    }
+
     function getConfigV3() public view virtual returns (TaikoData.ConfigV3 memory) {
         return TaikoData.ConfigV3({
             chainId: LibNetwork.TAIKO_MAINNET,
@@ -436,5 +474,66 @@ contract TaikoL1V3B is EssentialContract, TaikoEvents {
             // config._stateRootSyncInternal = 2, we can keep the tests unchanged.
             return _blockId % _stateRootSyncInternal == _stateRootSyncInternal - 1;
         }
+    }
+
+    function getTransitionV3(
+        uint64 _blockId,
+        uint32 _tid
+    )
+        external
+        view
+        returns (TaikoData.TransitionStateV3 memory)
+    {
+        return LibUtils.getTransitionById(
+            state, getConfigV3(), _blockId, SafeCastUpgradeable.toUint24(_tid)
+        );
+    }
+
+    function getLastVerifiedBlockV3()
+        external
+        view
+        returns (uint64 blockId_, bytes32 blockHash_, bytes32 stateRoot_)
+    {
+        blockId_ = state.slotB.lastVerifiedBlockId;
+        (blockHash_, stateRoot_) = _getBlockInfo(blockId_);
+    }
+
+    function getLastSyncedBlockV3()
+        external
+        view
+        returns (uint64 blockId_, bytes32 blockHash_, bytes32 stateRoot_)
+    {
+        blockId_ = state.slotA.lastSyncedBlockId;
+        (blockHash_, stateRoot_) = _getBlockInfo(blockId_);
+    }
+
+    function _getBlockInfo(uint64 _blockId)
+        public
+        view
+        returns (bytes32 blockHash_, bytes32 stateRoot_)
+    {
+        TaikoData.ConfigV3 memory config = getConfigV3();
+        (TaikoData.BlockV3 storage blk, uint64 slot) = _getBlock(config, _blockId);
+
+        if (blk.verifiedTransitionId != 0) {
+            TaikoData.TransitionStateV3 storage ts =
+                state.transitions[slot][blk.verifiedTransitionId];
+
+            blockHash_ = ts.blockHash;
+            stateRoot_ = ts.stateRoot;
+        }
+    }
+
+    function _getBlock(
+        TaikoData.ConfigV3 memory _config,
+        uint64 _blockId
+    )
+        internal
+        view
+        returns (TaikoData.BlockV3 storage blk_, uint64 slot_)
+    {
+        slot_ = _blockId % _config.blockRingBufferSize;
+        blk_ = state.blocks[slot_];
+        require(blk_.blockId == _blockId, "BlockNotFound");
     }
 }
