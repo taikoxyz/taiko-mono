@@ -51,7 +51,7 @@ contract Risc0Verifier is EssentialContract, IVerifier {
     function verifyProof(
         Context calldata _ctx,
         TaikoData.TransitionV3 calldata _tran,
-        TaikoData.TypedProof calldata _proof
+        IVerifier.TypedProof calldata _proof
     )
         external
     {
@@ -82,7 +82,7 @@ contract Risc0Verifier is EssentialContract, IVerifier {
     /// @inheritdoc IVerifier
     function verifyBatchProof(
         ContextV2[] calldata _ctxs,
-        TaikoData.TypedProof calldata _proof
+        IVerifier.TypedProof calldata _proof
     )
         external
     {

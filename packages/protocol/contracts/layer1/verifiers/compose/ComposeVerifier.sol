@@ -40,7 +40,7 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
     function verifyProof(
         Context calldata _ctx,
         TaikoData.TransitionV3 calldata _tran,
-        TaikoData.TypedProof calldata _proof
+        IVerifier.TypedProof calldata _proof
     )
         external
         onlyAuthorizedCaller
@@ -65,7 +65,7 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
             require(verifierFound, CV_SUB_VERIFIER_NOT_FOUND());
 
             IVerifier(subProofs[i].verifier).verifyProof(
-                _ctx, _tran, TaikoData.TypedProof(_proof.tier, subProofs[i].proof)
+                _ctx, _tran, IVerifier.TypedProof(_proof.tier, subProofs[i].proof)
             );
         }
     }
@@ -73,7 +73,7 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
     /// @inheritdoc IVerifier
     function verifyBatchProof(
         ContextV2[] calldata _ctxs,
-        TaikoData.TypedProof calldata _proof
+        IVerifier.TypedProof calldata _proof
     )
         external
         onlyAuthorizedCaller
@@ -98,7 +98,7 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
             require(verifierFound, CV_SUB_VERIFIER_NOT_FOUND());
 
             IVerifier(subProofs[i].verifier).verifyBatchProof(
-                _ctxs, TaikoData.TypedProof(_proof.tier, subProofs[i].proof)
+                _ctxs, IVerifier.TypedProof(_proof.tier, subProofs[i].proof)
             );
         }
     }

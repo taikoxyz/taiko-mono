@@ -46,21 +46,6 @@ interface TaikoData {
         bytes32 stateRoot;
     }
 
-    /// @notice Struct representing state transition data.
-    /// @notice 6 slots used.
-    struct TransitionStateV3 {
-        // TODO: use TransitionV3 directly.
-        bytes32 key; // slot 1, only written/read for the 1st state transition.
-        bytes32 blockHash; // slot 2
-        bytes32 stateRoot; // slot 3
-        address prover; // slot 4 // TODO? DEPREATE?
-        uint96 validityBond; // DEPRECATED!!!
-        address contester; // slot 5, DEPRECATED!!!
-        uint96 contestBond; // DEPRECATED!!!
-        uint64 timestamp; // slot 6 (88 bits)
-        uint16 tier; // DEPRECATED!!!
-    }
-
     /// @notice Struct containing data required for verifying a block.
     /// @notice 3 slots used.
     struct BlockV3 {
@@ -77,12 +62,6 @@ interface TaikoData {
         uint24 verifiedTransitionId;
     }
 
-    /// @notice DEPRECATED but used by node/client for syncing old blocks
-    /// @notice A proof and the tier of proof it belongs to.
-    struct TypedProof {
-        uint16 tier;
-        bytes data;
-    }
 
     /// @notice Forge is only able to run coverage in case the contracts by default capable of
     /// compiling without any optimization (neither optimizer runs, no compiling --via-ir flag).
@@ -137,7 +116,7 @@ interface TaikoData {
         // Ring buffer for transitions
         mapping(
             uint256 blockId_mod_blockRingBufferSize
-                => mapping(uint24 transitionId => TransitionStateV3 ts)
+                => mapping(uint24 transitionId => TransitionV3 ts)
         ) transitions;
         bytes32 __reserve1; // Used as a ring buffer for Ether deposits
         SlotA slotA; // slot 5

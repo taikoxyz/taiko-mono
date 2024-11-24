@@ -248,12 +248,10 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         blk.metaHash = bytes32(uint256(1)); // Give the genesis metahash a non-zero value.
 
         // Init the first state transition
-        TransitionStateV3 storage ts = state.transitions[0][1];
+        TransitionV3 storage ts = state.transitions[0][1];
         ts.blockHash = _genesisBlockHash;
-        ts.prover = address(0);
-        ts.timestamp = uint64(block.timestamp);
 
-        emit BlockVerifiedV3({ blockId: 0, prover: address(0), blockHash: _genesisBlockHash });
+        emit BlockVerifiedV3({ blockId: 0,  blockHash: _genesisBlockHash });
     }
 
     // Private functions
@@ -346,8 +344,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         BlockV3 storage blk = state.blocks[slot];
         require(ctx_.metaHash == blk.metaHash, "MataMismatch");
 
-        TransitionStateV3 storage ts = state.transitions[slot][1];
-        require(ts.key != _tran.parentHash, "AlreadyProvenAsFirstTransition");
+        TransitionV3 storage ts = state.transitions[slot][1];
+        require(ts.parentHash != _tran.parentHash, "AlreadyProvenAsFirstTransition");
         require(state.transitionIds[_meta.id][_tran.parentHash] == 0, "AlreadyProven");
 
         uint24 tid = blk.nextTransitionId++;
@@ -363,7 +361,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
                 deadline += _config.provingWindow;
                 require(block.timestamp >= deadline, "ProvingWindowNotPassed");
             }
-            ts.key = _tran.parentHash;
+            ts.parentHash = _tran.parentHash;
         } else {
             state.transitionIds[_meta.id][_tran.parentHash] = tid;
         }
@@ -400,7 +398,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
             uint24 tid;
 
             if (tid == 0) break;
-            TransitionStateV3 storage ts = state.transitions[slot][tid];
+            TransitionV3 storage ts = state.transitions[slot][tid];
 
             verifiedBlockHash = ts.blockHash;
             verifiedTransitionId = tid;
@@ -541,8 +539,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         (BlockV3 storage blk, uint64 slot) = _getBlock(config, _blockId);
 
         if (blk.verifiedTransitionId != 0) {
-            TransitionStateV3 storage ts = state.transitions[slot][blk.verifiedTransitionId];
-
+            TransitionV3 storage ts = state.transitions[slot][blk.verifiedTransitionId];
             blockHash_ = ts.blockHash;
             stateRoot_ = ts.stateRoot;
         }

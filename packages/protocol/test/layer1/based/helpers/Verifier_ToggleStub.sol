@@ -17,7 +17,7 @@ contract Verifier_ToggleStub is IVerifier {
     function verifyProof(
         Context calldata,
         TaikoData.TransitionV3 calldata,
-        TaikoData.TypedProof calldata
+        IVerifier.TypedProof calldata
     )
         external
         view
@@ -25,7 +25,7 @@ contract Verifier_ToggleStub is IVerifier {
         require(!shouldFail, "IVerifier failure");
     }
 
-    function verifyBatchProof(ContextV2[] calldata, TaikoData.TypedProof calldata) external view {
+    function verifyBatchProof(ContextV2[] calldata, IVerifier.TypedProof calldata) external view {
         require(!shouldFail, "IVerifier failure");
     }
 

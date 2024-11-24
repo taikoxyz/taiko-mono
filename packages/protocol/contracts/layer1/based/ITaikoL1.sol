@@ -63,9 +63,8 @@ interface ITaikoL1 is TaikoData {
 
     /// @notice Emitted when a block is verified.
     /// @param blockId The ID of the verified block.
-    /// @param prover The prover whose transition is used for verifying the block.
     /// @param blockHash The hash of the verified block.
-    event BlockVerifiedV3(uint256 indexed blockId, address indexed prover, bytes32 blockHash);
+    event BlockVerifiedV3(uint256 indexed blockId, bytes32 blockHash);
 
     function proposeBlocksV3(
         address _proposer,
