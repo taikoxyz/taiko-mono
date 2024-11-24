@@ -23,10 +23,17 @@ import "./ITaikoL1.sol";
 contract TaikoL1 is EssentialContract, ITaikoL1, IBondManager {
     using LibMath for uint256;
 
-    struct ParentInfo {
+    struct TransientParentBlock {
         bytes32 metaHash;
         uint64 anchorBlockId;
         uint64 timestamp;
+    }
+
+    struct TransientSyncedBlock {
+        uint64 blockId;
+        uint slot;
+        uint24 tid;
+        bytes32 stateRoot;
     }
 
     State public state;
@@ -66,11 +73,11 @@ contract TaikoL1 is EssentialContract, ITaikoL1, IBondManager {
             "TooManyBlocks"
         );
 
-        ParentInfo memory parent;
+        TransientParentBlock memory parent;
         {
             BlockV3 storage parentBlk =
                 state.blocks[(slotB.numBlocks - 1) % config.blockRingBufferSize];
-            parent = ParentInfo({
+            parent = TransientParentBlock({
                 metaHash: parentBlk.metaHash,
                 timestamp: parentBlk.timestamp,
                 anchorBlockId: parentBlk.anchorBlockId
@@ -391,9 +398,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, IBondManager {
         bytes32 verifiedBlockHash = state.transitions[slot][verifiedTransitionId].blockHash;
         uint64 count;
 
-        uint64 syncBlockId;
-        uint24 syncTransitionId;
-        bytes32 syncStateRoot;
+        TransientSyncedBlock memory synced;
         while (++blockId < _slotB.numBlocks && count < _config.maxBlocksToVerify * _length) {
             slot = blockId % _config.blockRingBufferSize;
             blk = state.blocks[slot];
@@ -407,9 +412,10 @@ contract TaikoL1 is EssentialContract, ITaikoL1, IBondManager {
             verifiedTransitionId = tid;
 
             if (_isSyncBlock(_config.stateRootSyncInternal, blockId)) {
-                syncBlockId = blockId;
-                syncTransitionId = tid;
-                syncStateRoot = ts.stateRoot;
+                synced.blockId = blockId;
+                synced.slot = slot;
+                synced.tid = tid;
+                synced.stateRoot = ts.stateRoot;
             }
             unchecked {
                 ++blockId;
@@ -427,23 +433,22 @@ contract TaikoL1 is EssentialContract, ITaikoL1, IBondManager {
 
         emit BlockVerifiedV3(_slotB.lastVerifiedBlockId, verifiedBlockHash);
 
-        if (syncBlockId == 0) return _slotB;
+        if (synced.blockId == 0) return _slotB;
 
-        state.slotA.lastSyncedBlockId = syncBlockId;
+        state.slotA.lastSyncedBlockId = synced.blockId;
         state.slotA.lastSyncedAt = uint64(block.timestamp);
 
         // We write the synced block's verifiedTransitionId to storage
-        if (syncBlockId != _slotB.lastVerifiedBlockId) {
-            slot = syncBlockId % _config.blockRingBufferSize;
-            state.blocks[slot].verifiedTransitionId = syncTransitionId;
+        if (synced.blockId != _slotB.lastVerifiedBlockId) {
+            state.blocks[synced.slot].verifiedTransitionId = synced.tid;
         }
 
         // Ask signal service to write cross chain signal
         ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).syncChainData(
-            _config.chainId, LibStrings.H_STATE_ROOT, syncBlockId, syncStateRoot
+            _config.chainId, LibStrings.H_STATE_ROOT, synced.blockId, synced.stateRoot
         );
 
-        emit BlockSyncedV3(syncBlockId, syncStateRoot);
+        emit BlockSyncedV3(synced.blockId, synced.stateRoot);
         return _slotB;
     }
 
@@ -485,7 +490,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1, IBondManager {
     function _validateBlockParams(
         bytes calldata _blockParam,
         ConfigV3 memory _config,
-        ParentInfo memory _parent
+        TransientParentBlock memory _parent
     )
         private
         view
