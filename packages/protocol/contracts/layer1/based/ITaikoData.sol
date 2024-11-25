@@ -8,8 +8,6 @@ import "src/shared/based/LibSharedData.sol";
 /// @custom:security-contact security@taiko.xyz
 interface ITaikoData {
     struct BlockParamsV3 {
-        address proposer; // TODO: REMOVE THIS
-        address coinbase; // TODO: REMOVE THIS
         bytes32 parentMetaHash;
         uint64 anchorBlockId;
         uint64 timestamp;

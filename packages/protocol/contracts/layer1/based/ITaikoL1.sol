@@ -54,7 +54,7 @@ interface ITaikoL1 is ITaikoData {
     function proposeBlocksV3(
         address _proposer,
         address _coinbase,
-        bytes[] calldata _blockParams
+        BlockParamsV3[] calldata _blockParams
     )
         external
         returns (BlockMetadataV3[] memory);

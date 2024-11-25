@@ -23,13 +23,18 @@ import "./ITaikoL1.sol";
 contract TaikoL1 is EssentialContract, ITaikoL1 {
     using LibMath for uint256;
 
-    struct TransientParentBlock {
+    struct _ParentBlock {
         bytes32 metaHash;
         uint64 anchorBlockId;
         uint64 timestamp;
     }
 
-    struct TransientSyncedBlock {
+    struct _UpdatedParams {
+        uint64 anchorBlockId;
+        uint64 timestamp;
+    }
+
+    struct _SyncedBlock {
         uint64 blockId;
         uint24 tid;
         bytes32 stateRoot;
@@ -54,13 +59,13 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
     function proposeBlocksV3(
         address _proposer,
         address _coinbase,
-        bytes[] calldata _blockParams
+        BlockParamsV3[] calldata _paramss
     )
         external
         nonReentrant
         returns (BlockMetadataV3[] memory metas_)
     {
-        require(_blockParams.length != 0, "NoBlocksToPropose");
+        require(_paramss.length != 0, "NoBlocksToPropose");
 
         Stats2 memory stats2 = state.stats2;
         require(stats2.paused == false, "ContractPaused");
@@ -69,7 +74,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         require(stats2.numBlocks >= config.pacayaForkHeight, "InvalidForkHeight");
 
         require(
-            stats2.numBlocks + _blockParams.length
+            stats2.numBlocks + _paramss.length
                 <= stats2.lastVerifiedBlockId + config.blockMaxProposals,
             "TooManyBlocks"
         );
@@ -77,7 +82,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         BlockV3 storage parentBlk =
             state.blocks[(stats2.numBlocks - 1) % config.blockRingBufferSize];
 
-        TransientParentBlock memory parent = TransientParentBlock({
+        _ParentBlock memory parent = _ParentBlock({
             metaHash: parentBlk.metaHash,
             timestamp: parentBlk.timestamp,
             anchorBlockId: parentBlk.anchorBlockId
@@ -85,33 +90,33 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
 
         (_proposer, _coinbase) = _checkProposerAndCoinbase(_proposer, _coinbase);
 
-        metas_ = new BlockMetadataV3[](_blockParams.length);
+        metas_ = new BlockMetadataV3[](_paramss.length);
 
-        for (uint256 i; i < _blockParams.length; ++i) {
-            BlockParamsV3 memory params =
-                _validateBlockParams(_blockParams[i], config.maxAnchorHeightOffset, parent);
+        for (uint256 i; i < _paramss.length; ++i) {
+            _UpdatedParams memory updatedParams =
+                _validateBlockParams(_paramss[i], config.maxAnchorHeightOffset, parent);
 
             // Initialize metadata to compute a metaHash, which forms a part of the block data to be
             // stored on-chain for future integrity checks. If we choose to persist all data fields
             // in the metadata, it will require additional storage slots.
             metas_[i] = BlockMetadataV3({
-                anchorBlockHash: blockhash(params.anchorBlockId),
+                anchorBlockHash: blockhash(updatedParams.anchorBlockId),
                 difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", stats2.numBlocks)),
-                blobHash: blobhash(params.blobIndex),
+                blobHash: blobhash(_paramss[i].blobIndex),
                 extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
                 coinbase: _coinbase,
                 blockId: stats2.numBlocks,
                 gasLimit: config.blockMaxGasLimit,
-                timestamp: params.timestamp,
-                anchorBlockId: params.anchorBlockId,
-                parentMetaHash: params.parentMetaHash,
+                timestamp: updatedParams.timestamp,
+                anchorBlockId: updatedParams.anchorBlockId,
+                parentMetaHash: parent.metaHash,
                 proposer: _proposer,
                 livenessBond: config.livenessBond,
                 proposedAt: uint64(block.timestamp),
                 proposedIn: uint64(block.number),
-                blobTxListOffset: params.blobTxListOffset,
-                blobTxListLength: params.blobTxListLength,
-                blobIndex: params.blobIndex,
+                blobTxListOffset: _paramss[i].blobTxListOffset,
+                blobTxListLength: _paramss[i].blobTxListLength,
+                blobIndex: _paramss[i].blobIndex,
                 baseFeeConfig: config.baseFeeConfig
             });
 
@@ -124,8 +129,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
 
             // SSTORE {{
             blk.blockId = stats2.numBlocks;
-            blk.timestamp = params.timestamp;
-            blk.anchorBlockId = params.anchorBlockId;
+            blk.timestamp = updatedParams.timestamp;
+            blk.anchorBlockId = updatedParams.anchorBlockId;
             blk.nextTransitionId = 1;
             blk.verifiedTransitionId = 0;
             // SSTORE }}
@@ -133,8 +138,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
             emit BlockProposedV3(metas_[i].blockId, metas_[i]);
 
             parent.metaHash = metaHash;
-            parent.timestamp = params.timestamp;
-            parent.anchorBlockId = params.anchorBlockId;
+            parent.timestamp = updatedParams.timestamp;
+            parent.anchorBlockId = updatedParams.anchorBlockId;
 
             unchecked {
                 stats2.numBlocks += 1;
@@ -142,8 +147,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
             }
         } // end of for-loop
 
-        _debitBond(_proposer, config.livenessBond * _blockParams.length);
-        _verifyBlocks(config, stats2, _blockParams.length);
+        _debitBond(_proposer, config.livenessBond * _paramss.length);
+        _verifyBlocks(config, stats2, _paramss.length);
     }
 
     function proveBlocksV3(
@@ -384,7 +389,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         uint24 verifiedTransitionId = blk.verifiedTransitionId;
         bytes32 verifiedBlockHash = state.transitions[slot][verifiedTransitionId].blockHash;
 
-        TransientSyncedBlock memory synced;
+        _SyncedBlock memory synced;
 
         uint256 stopBlockId = (_config.maxBlocksToVerify * _length + _stats2.lastVerifiedBlockId)
             .min(_stats2.numBlocks);
@@ -480,44 +485,41 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
     }
 
     function _validateBlockParams(
-        bytes calldata _blockParam,
+        BlockParamsV3 calldata _params,
         uint64 _maxAnchorHeightOffset,
-        TransientParentBlock memory _parent
+        _ParentBlock memory _parent
     )
         private
         view
-        returns (BlockParamsV3 memory params_)
+        returns (_UpdatedParams memory updatedParams_)
     {
-        if (_blockParam.length != 0) {
-            params_ = abi.decode(_blockParam, (BlockParamsV3));
-        }
-
-        if (params_.anchorBlockId == 0) {
-            params_.anchorBlockId = uint64(block.number - 1);
+        if (_params.anchorBlockId == 0) {
+            updatedParams_.anchorBlockId = uint64(block.number - 1);
         } else {
-            require(params_.anchorBlockId + _maxAnchorHeightOffset >= block.number, "AnchorBlockId");
-            require(params_.anchorBlockId < block.number, "AnchorBlockId");
-            require(params_.anchorBlockId >= _parent.anchorBlockId, "AnchorBlockId");
+            require(_params.anchorBlockId + _maxAnchorHeightOffset >= block.number, "AnchorBlockId");
+            require(_params.anchorBlockId < block.number, "AnchorBlockId");
+            require(_params.anchorBlockId >= _parent.anchorBlockId, "AnchorBlockId");
+            updatedParams_.anchorBlockId = _params.anchorBlockId;
         }
 
-        if (params_.timestamp == 0) {
-            params_.timestamp = uint64(block.timestamp);
+        if (_params.timestamp == 0) {
+            updatedParams_.timestamp = uint64(block.timestamp);
         } else {
             // Verify the provided timestamp to anchor. Note that params_.anchorBlockId
             // and params_.timestamp may not correspond to the same L1 block.
-            require(
-                params_.timestamp + _maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME
-                    >= block.timestamp,
-                "InvalidTimestamp"
-            );
-            require(params_.timestamp <= block.timestamp, "InvalidTimestamp");
-            require(params_.timestamp >= _parent.timestamp, "InvalidTimestamp");
+            uint256 maxTimestamp =
+                _params.timestamp + _maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME;
+            require(block.timestamp <= maxTimestamp, "InvalidTimestamp");
+            require(_params.timestamp <= block.timestamp, "InvalidTimestamp");
+            require(_params.timestamp >= _parent.timestamp, "InvalidTimestamp");
+
+            updatedParams_.timestamp = _params.timestamp;
         }
 
         // Check if parent block has the right meta hash. This is to allow the proposer to
         // make sure the block builds on the expected latest chain state.
         require(
-            params_.parentMetaHash == 0 || params_.parentMetaHash == _parent.metaHash,
+            _params.parentMetaHash == 0 || _params.parentMetaHash == _parent.metaHash,
             "ParentMetaHashMismatch"
         );
     }

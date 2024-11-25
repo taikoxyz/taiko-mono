@@ -9,7 +9,7 @@ contract TaikoL1_EmptyStub is ITaikoL1 {
     function proposeBlocksV3(
         address _proposer,
         address _coinbase,
-        bytes[] calldata _blockParams
+        BlockParamsV3[] calldata _blockParams
     )
         external
         returns (ITaikoData.BlockMetadataV3[] memory)
@@ -46,10 +46,9 @@ contract TaikoL1_EmptyStub is ITaikoL1 {
         returns (ITaikoData.TransitionV3 memory)
     { }
 
-   function getStats1() external view returns (Stats1 memory){}
+    function getStats1() external view returns (Stats1 memory) { }
 
-    function getStats2() external view returns (Stats2 memory){}
-
+    function getStats2() external view returns (Stats2 memory) { }
 
     function getConfigV3() external pure virtual returns (ITaikoData.ConfigV3 memory) { }
 }
