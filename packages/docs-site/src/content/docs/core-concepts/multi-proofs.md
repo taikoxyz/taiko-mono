@@ -3,7 +3,7 @@ title: Multi-proofs
 description: Core concept page for "Multi-proofs".
 ---
 
-Taiko supports multi-proofs through a mixture of zkVMs, TEE, and guardian proofs. Check out our blog post on zkVMs [here](https://taiko.mirror.xyz/e_5GeGGFJIrOxqvXOfzY6HmWcRjCjRyG0NQF1zbNpNQ) and a Twitter thread on our Raiko architecture [here](https://x.com/taikoxyz/status/1791201812768600209).
+Taiko supports multi-proofs through a mixture of zkVMs, TEE, and guardian proofs. Check out our blog post on zkVMs [here](https://taiko.mirror.xyz/e_5GeGGFJIrOxqvXOfzY6HmWcRjCjRyG0NQF1zbNpNQ) and a Twitter thread on our Taiko architecture [here](https://x.com/taikoxyz/status/1791201812768600209).
 
 ## Proving Taiko blocks
 
