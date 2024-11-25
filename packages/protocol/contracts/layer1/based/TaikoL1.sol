@@ -76,6 +76,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
 
         BlockV3 storage parentBlk =
             state.blocks[(stats2.numBlocks - 1) % config.blockRingBufferSize];
+
         TransientParentBlock memory parent = TransientParentBlock({
             metaHash: parentBlk.metaHash,
             timestamp: parentBlk.timestamp,
@@ -85,6 +86,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         (_proposer, _coinbase) = _checkProposerAndCoinbase(_proposer, _coinbase);
 
         metas_ = new BlockMetadataV3[](_blockParams.length);
+
         for (uint256 i; i < _blockParams.length; ++i) {
             BlockParamsV3 memory params =
                 _validateBlockParams(_blockParams[i], config.maxAnchorHeightOffset, parent);
@@ -114,11 +116,9 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
             });
 
             require(metas_[i].blobHash != 0, "BlobNotFound");
-
-            // Use a storage pointer for the block in the ring buffer
-            BlockV3 storage blk = state.blocks[stats2.numBlocks % config.blockRingBufferSize];
-
             bytes32 metaHash = keccak256(abi.encode(metas_[i]));
+
+            BlockV3 storage blk = state.blocks[stats2.numBlocks % config.blockRingBufferSize];
             // SSTORE
             blk.metaHash = metaHash;
 
@@ -239,29 +239,12 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         }
     }
 
-    function getStats1() external view returns (uint64 lastSyncedBlockId_, uint64 lastSyncedAt_) {
-        Stats1 memory stats1 = state.stats1;
-        lastSyncedBlockId_ = stats1.lastSyncedBlockId;
-        lastSyncedAt_ = stats1.lastSyncedAt;
+    function getStats1() external view returns (Stats1 memory) {
+        return state.stats1;
     }
 
-    function getStats2()
-        external
-        view
-        returns (
-            uint64 numBlocks_,
-            uint64 lastVerifiedBlockId_,
-            bool paused_,
-            uint56 lastProposedIn_,
-            uint64 lastUnpausedAt_
-        )
-    {
-        Stats2 memory stats2 = state.stats2;
-        numBlocks_ = stats2.numBlocks;
-        lastVerifiedBlockId_ = stats2.lastVerifiedBlockId;
-        paused_ = stats2.paused;
-        lastProposedIn_ = stats2.lastProposedIn;
-        lastUnpausedAt_ = stats2.lastUnpausedAt;
+    function getStats2() external view returns (Stats2 memory) {
+        return state.stats2;
     }
 
     function getLastVerifiedTransitionV3()
