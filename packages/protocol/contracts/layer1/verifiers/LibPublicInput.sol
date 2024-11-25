@@ -13,7 +13,6 @@ library LibPublicInput {
     /// @param _verifierContract The contract address which as current verifier.
     /// @param _newInstance The new instance address. For SGX it is the new signer address, for ZK
     /// this variable is not used and must have value address(0).
-    /// @param _prover The prover address.
     /// @param _metaHash The meta hash.
     /// @param _chainId The chain id.
     /// @return The public input hash.
@@ -21,7 +20,6 @@ library LibPublicInput {
         ITaikoData.TransitionV3 memory _tran,
         address _verifierContract,
         address _newInstance,
-        address _prover,
         bytes32 _metaHash,
         uint64 _chainId
     )
@@ -30,9 +28,7 @@ library LibPublicInput {
         returns (bytes32)
     {
         return keccak256(
-            abi.encode(
-                "VERIFY_PROOF", _chainId, _verifierContract, _tran, _newInstance, _prover, _metaHash
-            )
+            abi.encode("VERIFY_PROOF", _chainId, _verifierContract, _tran, _newInstance, _metaHash)
         );
     }
 }

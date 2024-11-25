@@ -167,7 +167,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         ConfigV3 memory config = getConfigV3();
         require(stats2.numBlocks >= config.pacayaForkHeight, "InvalidForkHeight");
 
-        IVerifier.ContextV3[] memory ctxs = new IVerifier.ContextV3[](_metas.length);
+        IVerifier.Context[] memory ctxs = new IVerifier.Context[](_metas.length);
+        address verifier;
         for (uint256 i; i < _metas.length; ++i) {
             BlockMetadataV3 calldata meta = _metas[i];
 
@@ -175,13 +176,21 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
             require(meta.blockId < stats2.lastVerifiedBlockId, "BlockVerified");
             require(meta.blockId < stats2.numBlocks, "BlockNotProposed");
 
+            address _verifier = getBlockVerifier(meta.proposer, meta.difficulty);
+            require(_verifier != address(0), "VerifierNotFound");
+
+            if (verifier == address(0)) {
+                verifier = _verifier;
+            } else {
+                require(verifier == _verifier, "MultipleVerifier");
+            }
+
             TransitionV3 calldata tran = _transitions[i];
             require(tran.parentHash != 0, "InvalidTransitionParentHash");
             require(tran.blockHash != 0, "InvalidTransitionBlockHash");
             require(tran.stateRoot != 0, "InvalidTransitionStateRoot");
 
             ctxs[i].metaHash = keccak256(abi.encode(meta));
-            ctxs[i].difficulty = meta.difficulty;
             ctxs[i].tran = tran;
 
             uint256 slot = meta.blockId % config.blockRingBufferSize;
@@ -211,6 +220,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
             }
 
             ts.blockHash = tran.blockHash;
+            ts.verifier = verifier;
 
             if (_isSyncBlock(meta.blockId, config.stateRootSyncInternal)) {
                 ts.stateRoot = tran.stateRoot;
@@ -220,7 +230,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         }
 
         if (_metas.length != 0) {
-            IVerifier(resolve(LibStrings.B_PROOF_VERIFIER, false)).verifyProofV3(ctxs, proof);
+            IVerifier(verifier).verifyProof(ctxs, proof);
         }
 
         _verifyBlocks(config, stats2, _metas.length);
@@ -335,6 +345,18 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
 
     // Internal functions
     // ------------------------------------------------------------------------------------------
+
+    function getBlockVerifier(
+        address _proposer,
+        bytes32 _difficulty
+    )
+        internal
+        view
+        virtual
+        returns (address)
+    {
+        return resolve(LibStrings.B_PROOF_VERIFIER, false);
+    }
 
     function __TaikoL1_init(
         address _owner,
@@ -507,11 +529,13 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         } else {
             // Verify the provided timestamp to anchor. Note that params_.anchorBlockId
             // and params_.timestamp may not correspond to the same L1 block.
-            uint256 maxTimestamp =
-                _params.timestamp + _maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME;
-            require(block.timestamp <= maxTimestamp, "InvalidTimestamp");
-            require(_params.timestamp <= block.timestamp, "InvalidTimestamp");
-            require(_params.timestamp >= _parent.timestamp, "InvalidTimestamp");
+            require(
+                _params.timestamp + _maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME
+                    >= block.timestamp,
+                "TimestampTooSmall"
+            );
+            require(_params.timestamp <= block.timestamp, "TimestampTooLarge");
+            require(_params.timestamp >= _parent.timestamp, "TimestampTooLarge");
 
             updatedParams_.timestamp = _params.timestamp;
         }

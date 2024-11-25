@@ -137,53 +137,20 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
     /// @inheritdoc IVerifier
     function verifyProof(
-        Context calldata _ctx,
-        ITaikoData.TransitionV3 calldata _tran,
-        IVerifier.TypedProof calldata _proof
-    )
-        external
-        onlyFromNamedEither(LibStrings.B_TAIKO, LibStrings.B_TIER_TEE_ANY)
-    {
-        // Do not run proof verification to contest an existing proof
-        if (_ctx.isContesting) return;
-
-        // Size is: 89 bytes
-        // 4 bytes + 20 bytes + 65 bytes (signature) = 89
-        require(_proof.data.length == 89, SGX_INVALID_PROOF());
-
-        uint32 id = uint32(bytes4(_proof.data[:4]));
-        address newInstance = address(bytes20(_proof.data[4:24]));
-
-        address oldInstance = ECDSA.recover(
-            LibPublicInput.hashPublicInputs(
-                _tran, address(this), newInstance, _ctx.prover, _ctx.metaHash, taikoChainId()
-            ),
-            _proof.data[24:]
-        );
-
-        require(_isInstanceValid(id, oldInstance), SGX_INVALID_INSTANCE());
-
-        if (newInstance != oldInstance && newInstance != address(0)) {
-            _replaceInstance(id, oldInstance, newInstance);
-        }
-    }
-
-    /// @inheritdoc IVerifier
-    function verifyBatchProof(
-        ContextV2[] calldata _ctxs,
-        IVerifier.TypedProof calldata _proof
+        Context[] calldata _ctxs,
+        bytes calldata _proof
     )
         external
         onlyFromNamedEither(LibStrings.B_TAIKO, LibStrings.B_TIER_TEE_ANY)
     {
         // Size is: 109 bytes
         // 4 bytes + 20 bytes + 20 bytes + 65 bytes (signature) = 109
-        require(_proof.data.length == 109, SGX_INVALID_PROOF());
+        require(_proof.length == 109, SGX_INVALID_PROOF());
 
-        uint32 id = uint32(bytes4(_proof.data[:4]));
-        address oldInstance = address(bytes20(_proof.data[4:24]));
-        address newInstance = address(bytes20(_proof.data[24:44]));
-        bytes memory signature = _proof.data[44:];
+        uint32 id = uint32(bytes4(_proof[:4]));
+        address oldInstance = address(bytes20(_proof[4:24]));
+        address newInstance = address(bytes20(_proof[24:44]));
+        bytes memory signature = _proof[44:];
 
         // Collect public inputs
         bytes32[] memory publicInputs = new bytes32[](_ctxs.length + 2);
@@ -194,12 +161,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
         for (uint256 i; i < _ctxs.length; ++i) {
             // TODO(Yue): For now this assumes the new instance public key to remain the same
             publicInputs[i + 2] = LibPublicInput.hashPublicInputs(
-                _ctxs[i].tran,
-                address(this),
-                newInstance,
-                _ctxs[i].prover,
-                _ctxs[i].metaHash,
-                taikoChainId()
+                _ctxs[i].tran, address(this), newInstance, _ctxs[i].metaHash, taikoChainId()
             );
         }
 
@@ -262,6 +224,4 @@ contract SgxVerifier is EssentialContract, IVerifier {
         return instances[id].validSince <= block.timestamp
             && block.timestamp <= instances[id].validSince + INSTANCE_EXPIRY;
     }
-
-    function verifyProofV3(ContextV3[] calldata _ctxs, bytes calldata _proof) external { }
 }

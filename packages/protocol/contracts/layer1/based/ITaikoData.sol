@@ -49,7 +49,7 @@ interface ITaikoData {
         bytes32 parentHash;
         bytes32 blockHash;
         bytes32 stateRoot;
-        uint16 proverId;
+        address verifier;
     }
 
     /// @notice Struct containing data required for verifying a block.
