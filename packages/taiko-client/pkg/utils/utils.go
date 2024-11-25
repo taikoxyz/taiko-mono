@@ -6,9 +6,8 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"math"
-
 	"io"
+	"math"
 	"math/big"
 	"os"
 	"strings"

@@ -3,7 +3,6 @@ package testutils
 import (
 	"context"
 	"crypto/ecdsa"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 	"math/big"
 	"os"
 	"strconv"
@@ -21,6 +20,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
 type ClientTestSuite struct {
