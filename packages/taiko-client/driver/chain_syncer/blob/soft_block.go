@@ -18,8 +18,8 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	softblocks "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/soft_blocks"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
 // InsertSoftBlockFromTransactionsBatch inserts a soft block into the L2 execution engine's blockchain
