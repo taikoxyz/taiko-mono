@@ -264,10 +264,11 @@ func BatchGetBlocksProofStatus(
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 	var (
-		parentHashes = make([][32]byte, len(ids))
-		parents      = make([]*types.Header, len(ids))
-		blockIDs     = make([]uint64, len(ids))
-		result       = make([]*BlockProofStatus, len(ids))
+		parentHashes   = make([][32]byte, len(ids))
+		parents        = make([]*types.Header, len(ids))
+		blockIDs       = make([]uint64, len(ids))
+		result         = make([]*BlockProofStatus, len(ids))
+		highestBlockId = big.NewInt(0)
 	)
 	// Get the local L2 parent header.
 	g, gCtx := errgroup.WithContext(ctxWithTimeout)
@@ -280,6 +281,9 @@ func BatchGetBlocksProofStatus(
 			parentHashes[i] = parent.Hash()
 			parents[i] = parent
 			blockIDs[i] = id.Uint64()
+			if id.Cmp(highestBlockId) > 0 {
+				highestBlockId = id
+			}
 			return nil
 		})
 	}
@@ -296,6 +300,7 @@ func BatchGetBlocksProofStatus(
 	if err != nil {
 		return nil, err
 	}
+	highestHeader, err := cli.WaitL2Header(gCtx, highestBlockId)
 	g, gCtx = errgroup.WithContext(ctxWithTimeout)
 	for i, transition := range transitions {
 		// No proof on chain
@@ -304,17 +309,28 @@ func BatchGetBlocksProofStatus(
 			continue
 		}
 		g.Go(func() error {
-			header, err := cli.WaitL2Header(gCtx, ids[i])
 			if err != nil {
 				return err
 			}
-			if header.Hash() != transition.BlockHash ||
-				(transition.StateRoot != (common.Hash{}) && transition.StateRoot != header.Root) {
+			var (
+				localBlockHash common.Hash
+				localStateRoot [32]byte
+			)
+			if i+1 < len(parents) {
+				localBlockHash = parents[i+1].Hash()
+				localStateRoot = parents[i+1].Root
+			} else {
+				localBlockHash = highestHeader.Hash()
+				localStateRoot = highestHeader.Root
+			}
+
+			if localBlockHash != transition.BlockHash ||
+				(transition.StateRoot != (common.Hash{}) && transition.StateRoot != localStateRoot) {
 				log.Info(
 					"Different block hash or state root detected, try submitting a contest",
-					"localBlockHash", header.Hash(),
+					"localBlockHash", localBlockHash,
 					"protocolTransitionBlockHash", common.BytesToHash(transition.BlockHash[:]),
-					"localStateRoot", header.Root,
+					"localStateRoot", localStateRoot,
 					"protocolTransitionStateRoot", common.BytesToHash(transition.StateRoot[:]),
 				)
 				result[i] = &BlockProofStatus{
