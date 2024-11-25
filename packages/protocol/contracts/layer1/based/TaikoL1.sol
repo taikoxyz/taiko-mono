@@ -68,6 +68,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
 
         ConfigV3 memory config = getConfigV3();
         require(stats2.numBlocks >= config.pacayaForkHeight, "InvalidForkHeight");
+
         require(
             stats2.numBlocks + _blockParams.length
                 <= stats2.lastVerifiedBlockId + config.blockMaxProposals,
@@ -124,6 +125,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         require(stats2.paused == false, "ContractPaused");
 
         ConfigV3 memory config = getConfigV3();
+        require(stats2.numBlocks >= config.pacayaForkHeight, "InvalidForkHeight");
+
         IVerifier.ContextV3[] memory ctxs = new IVerifier.ContextV3[](_metas.length);
         for (uint256 i; i < _metas.length; ++i) {
             ctxs[i] = _prove(config, stats2, _metas[i], _transitions[i]);
