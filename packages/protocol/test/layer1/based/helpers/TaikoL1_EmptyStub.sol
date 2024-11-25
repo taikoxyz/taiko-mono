@@ -12,12 +12,12 @@ contract TaikoL1_EmptyStub is ITaikoL1 {
         BlockParamsV3[] calldata _blockParams
     )
         external
-        returns (ITaikoData.BlockMetadataV3[] memory)
+        returns (ITaikoL1.BlockMetadataV3[] memory)
     { }
 
     function proveBlocksV3(
-        ITaikoData.BlockMetadataV3[] calldata _metas,
-        ITaikoData.TransitionV3[] calldata _transitions,
+        ITaikoL1.BlockMetadataV3[] calldata _metas,
+        ITaikoL1.TransitionV3[] calldata _transitions,
         bytes calldata proof
     )
         external
@@ -33,7 +33,7 @@ contract TaikoL1_EmptyStub is ITaikoL1 {
         external
         view
         virtual
-        returns (ITaikoData.BlockV3 memory blk_)
+        returns (ITaikoL1.BlockV3 memory blk_)
     { }
 
     function getTransitionV3(
@@ -43,12 +43,12 @@ contract TaikoL1_EmptyStub is ITaikoL1 {
         external
         view
         virtual
-        returns (ITaikoData.TransitionV3 memory)
+        returns (ITaikoL1.TransitionV3 memory)
     { }
 
     function getStats1() external view returns (Stats1 memory) { }
 
     function getStats2() external view returns (Stats2 memory) { }
 
-    function getConfigV3() external pure virtual returns (ITaikoData.ConfigV3 memory) { }
+    function getConfigV3() external pure virtual returns (ITaikoL1.ConfigV3 memory) { }
 }

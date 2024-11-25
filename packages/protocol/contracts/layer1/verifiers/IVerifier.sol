@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../based/ITaikoData.sol";
+import "../based/ITaikoL1.sol";
 
 /// @title IVerifier
 /// @notice Defines the function that handles proof verification.
@@ -9,7 +9,7 @@ import "../based/ITaikoData.sol";
 interface IVerifier {
     struct Context {
         bytes32 metaHash;
-        ITaikoData.TransitionV3 tran;
+        ITaikoL1.TransitionV3 tran;
     }
 
     /// @notice Verifies multiple proofs.

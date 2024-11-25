@@ -5,7 +5,7 @@ import { SP1Verifier as SP1RemoteVerifier } from "@sp1-contracts/src/v3.0.0/SP1V
 import "../Layer1Test.sol";
 
 contract TaikoL1Stub_ReturnMainnetChainId {
-    function getConfigV3() external pure returns (ITaikoData.ConfigV3 memory config) {
+    function getConfigV3() external pure returns (ITaikoL1.ConfigV3 memory config) {
         config.chainId = 167_000;
     }
 }
@@ -46,7 +46,7 @@ contract TestSP1Verifier is Layer1Test {
 
     //     vm.warp(block.timestamp + 5);
 
-    //     (IVerifier.Context memory ctx, ITaikoData.TransitionV3 memory transition) =
+    //     (IVerifier.Context memory ctx, ITaikoL1.TransitionV3 memory transition) =
     //         _generateTaikoMainnetContextAndTransition();
 
     //     bytes32 pi = LibPublicInput.hashPublicInputs(
@@ -85,7 +85,7 @@ contract TestSP1Verifier is Layer1Test {
     //         msgSender: 0x70997970C51812dc3A010C7d01b50e0d17dc79C8,
     //         blockId: 393_333,
     //         isContesting: false,
-    //         tran: ITaikoData.TransitionV3({
+    //         tran: ITaikoL1.TransitionV3({
     //             parentHash: 0xce519622a374dc014c005d7857de26d952751a9067d3e23ffe14da247aa8a399,
     //             blockHash: 0x941d557653da2214cbf3d30af8d9cadbc7b5f77b6c3e48bca548eba04eb9cd79,
     //             stateRoot: 0x4203a2fd98d268d272acb24d91e25055a779b443ff3e732f2cee7abcf639b5e9
@@ -98,7 +98,7 @@ contract TestSP1Verifier is Layer1Test {
     //         msgSender: 0x70997970C51812dc3A010C7d01b50e0d17dc79C8,
     //         blockId: 393_334,
     //         isContesting: false,
-    //         tran: ITaikoData.TransitionV3({
+    //         tran: ITaikoL1.TransitionV3({
     //             parentHash: 0x941d557653da2214cbf3d30af8d9cadbc7b5f77b6c3e48bca548eba04eb9cd79,
     //             blockHash: 0xc0dad38646ab264be30995b7b7fd02db65e7115126fb52bfad94c0fc9572287c,
     //             stateRoot: 0x222061caab95b6bd0f8dd398088030979efbe56e282cd566f7abd77838558eb9
@@ -116,7 +116,7 @@ contract TestSP1Verifier is Layer1Test {
     // function _generateTaikoMainnetContextAndTransition()
     //     internal
     //     pure
-    //     returns (IVerifier.Context memory ctx, ITaikoData.TransitionV3 memory transition)
+    //     returns (IVerifier.Context memory ctx, ITaikoL1.TransitionV3 memory transition)
     // {
     //     // Context
     //     ctx = IVerifier.Context({
@@ -132,7 +132,7 @@ contract TestSP1Verifier is Layer1Test {
     //     });
 
     //     // Transition
-    //     transition = ITaikoData.TransitionV3({
+    //     transition = ITaikoL1.TransitionV3({
     //         parentHash: 0x317de24b32f09629524133334ad552a14e3de603d71a9cf9e88d722809f101b3,
     //         blockHash: 0x9966d3cf051d3d1e44e2a740169627506a619257c95374e812ca572de91ed885,
     //         stateRoot: 0x3ae3de1afa16b93a5c7ea20a0b36b43357061f5b8ef857053d68b2735c3df860
