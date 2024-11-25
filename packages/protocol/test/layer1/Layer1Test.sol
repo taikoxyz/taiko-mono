@@ -6,7 +6,6 @@ import "src/layer1/token/TaikoToken.sol";
 import "src/layer1/verifiers/SgxVerifier.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
-import "src/layer1/tiers/LibTiers.sol";
 import "src/layer1/team/ERC20Airdrop.sol";
 import "src/shared/bridge/QuotaManager.sol";
 import "src/shared/bridge/Bridge.sol";
