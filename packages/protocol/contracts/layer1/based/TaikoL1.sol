@@ -408,25 +408,28 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         uint64 blockId = _stats2.lastVerifiedBlockId;
         uint256 slot = blockId % _config.blockRingBufferSize;
         BlockV3 storage blk = state.blocks[slot];
-        uint24 verifiedTransitionId = blk.verifiedTransitionId;
-        bytes32 verifiedBlockHash = state.transitions[slot][verifiedTransitionId].blockHash;
+        uint24 tid = blk.verifiedTransitionId;
+        bytes32 blockHash = state.transitions[slot][tid].blockHash;
 
         _SyncedBlock memory synced;
 
         uint256 stopBlockId = (_config.maxBlocksToVerify * _length + _stats2.lastVerifiedBlockId)
             .min(_stats2.numBlocks);
 
-        for (++blockId; blockId <= stopBlockId; ++blockId) {
+        for (++blockId; blockId < stopBlockId; ++blockId) {
             slot = blockId % _config.blockRingBufferSize;
             blk = state.blocks[slot];
-            // TODO(daniel): get Tid;
-            uint24 tid;
 
-            if (tid == 0) break;
-            TransitionStateV3 storage ts = state.transitions[slot][tid];
+            TransitionStateV3 storage ts = state.transitions[slot][1];
+            if (ts.parentHash == blockHash) {
+                tid = 1;
+            } else {
+                tid = state.transitionIds[blockId][blockHash];
+                if (tid == 0) break;
+                ts = state.transitions[slot][tid];
+            }
 
-            verifiedBlockHash = ts.blockHash;
-            verifiedTransitionId = tid;
+            blockHash = ts.blockHash;
 
             if (_isSyncBlock(blockId, _config.stateRootSyncInternal)) {
                 synced.blockId = blockId;
@@ -443,8 +446,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
             _stats2.lastVerifiedBlockId = blockId;
 
             blk = state.blocks[_stats2.lastVerifiedBlockId % _config.blockRingBufferSize];
-            blk.verifiedTransitionId = verifiedTransitionId;
-            emit BlockVerifiedV3(_stats2.lastVerifiedBlockId, verifiedBlockHash);
+            blk.verifiedTransitionId = tid;
+            emit BlockVerifiedV3(_stats2.lastVerifiedBlockId, blockHash);
         }
 
         if (synced.blockId != 0) {
@@ -480,7 +483,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
                 state.bondBalance[_user] = balance - _amount;
             }
         } else {
-            // Note that the following function call will revert if bond asset is Ether.
             _handleDeposit(_user, _amount);
         }
         emit BondDebited(_user, 0, _amount);
