@@ -74,16 +74,13 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
             "TooManyBlocks"
         );
 
-        TransientParentBlock memory parent;
-        {
-            BlockV3 storage parentBlk =
-                state.blocks[(stats2.numBlocks - 1) % config.blockRingBufferSize];
-            parent = TransientParentBlock({
-                metaHash: parentBlk.metaHash,
-                timestamp: parentBlk.timestamp,
-                anchorBlockId: parentBlk.anchorBlockId
-            });
-        }
+        BlockV3 storage parentBlk =
+            state.blocks[(stats2.numBlocks - 1) % config.blockRingBufferSize];
+        TransientParentBlock memory parent = TransientParentBlock({
+            metaHash: parentBlk.metaHash,
+            timestamp: parentBlk.timestamp,
+            anchorBlockId: parentBlk.anchorBlockId
+        });
 
         (_proposer, _coinbase) = _checkProposerAndCoinbase(_proposer, _coinbase);
 
