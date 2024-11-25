@@ -36,7 +36,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
     }
 
     State public state;
-    uint256[50] private __gap;
 
     // External functions
     // ------------------------------------------------------------------------------------------
