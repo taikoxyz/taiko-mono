@@ -46,6 +46,14 @@ interface ITaikoData {
         bytes32 stateRoot;
     }
 
+    /// @notice Struct representing transition record
+    struct TransitionStateV3 {
+        bytes32 parentHash;
+        bytes32 blockHash;
+        bytes32 stateRoot;
+        uint16 proverId;
+    }
+
     /// @notice Struct containing data required for verifying a block.
     /// @notice 3 slots used.
     struct BlockV3 {
@@ -115,7 +123,7 @@ interface ITaikoData {
         // Ring buffer for transitions
         mapping(
             uint256 blockId_mod_blockRingBufferSize
-                => mapping(uint24 transitionId => TransitionV3 ts)
+                => mapping(uint24 transitionId => TransitionStateV3 ts)
         ) transitions;
         bytes32 __reserve1; // Used as a ring buffer for Ether deposits
         Stats1 stats1; // slot 5

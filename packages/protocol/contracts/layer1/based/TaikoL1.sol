@@ -179,22 +179,22 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         lastUnpausedAt_ = stats2.lastUnpausedAt;
     }
 
-    function getLastVerifiedBlockV3()
+    function getLastVerifiedTransitionV3()
         external
         view
-        returns (uint64 blockId_, bytes32 blockHash_, bytes32 stateRoot_)
+        returns (uint64 blockId_, TransitionV3 memory tran_)
     {
         blockId_ = state.stats2.lastVerifiedBlockId;
-        (blockHash_, stateRoot_) = _getBlockInfo(blockId_);
+        tran_ = getBlockVerifyingTransition(blockId_);
     }
 
-    function getLastSyncedBlockV3()
+    function getLastSyncedTransitionV3()
         external
         view
-        returns (uint64 blockId_, bytes32 blockHash_, bytes32 stateRoot_)
+        returns (uint64 blockId_, TransitionV3 memory tran_)
     {
         blockId_ = state.stats1.lastSyncedBlockId;
-        (blockHash_, stateRoot_) = _getBlockInfo(blockId_);
+        tran_ = getBlockVerifyingTransition(blockId_);
     }
 
     function bondBalanceOf(address _user) external view returns (uint256) {
@@ -218,6 +218,24 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
 
     function bondToken() public view returns (address) {
         return resolve(LibStrings.B_BOND_TOKEN, true);
+    }
+
+    function getBlockVerifyingTransition(uint64 _blockId)
+        public
+        view
+        returns (TransitionV3 memory tran_)
+    {
+        ConfigV3 memory config = getConfigV3();
+
+        uint64 slot = _blockId % config.blockRingBufferSize;
+        BlockV3 storage blk = state.blocks[slot];
+        require(blk.blockId == _blockId, "BlockNotFound");
+
+        if (blk.verifiedTransitionId != 0) {
+            TransitionStateV3 storage ts = state.transitions[slot][blk.verifiedTransitionId];
+            tran_.blockHash = ts.blockHash;
+            tran_.stateRoot = ts.stateRoot;
+        }
     }
 
     function getConfigV3() public view virtual returns (ConfigV3 memory) {
@@ -267,7 +285,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         blk.metaHash = bytes32(uint256(1)); // Give the genesis metahash a non-zero value.
 
         // Init the first state transition
-        TransitionV3 storage ts = state.transitions[0][1];
+        TransitionStateV3 storage ts = state.transitions[0][1];
         ts.blockHash = _genesisBlockHash;
 
         emit BlockVerifiedV3({ blockId: 0, blockHash: _genesisBlockHash });
@@ -364,7 +382,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         BlockV3 storage blk = state.blocks[slot];
         require(ctx_.metaHash == blk.metaHash, "MataMismatch");
 
-        TransitionV3 storage ts = state.transitions[slot][1];
+        TransitionStateV3 storage ts = state.transitions[slot][1];
         require(ts.parentHash != _tran.parentHash, "AlreadyProvenAsFirstTransition");
         require(state.transitionIds[_meta.blockId][_tran.parentHash] == 0, "AlreadyProven");
 
@@ -388,7 +406,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
 
         ts.blockHash = _tran.blockHash;
 
-        if (_meta.blockId % _config.stateRootSyncInternal == 0) {
+        if (_isSyncBlock(_meta.blockId, _config.stateRootSyncInternal)) {
             ts.stateRoot = _tran.stateRoot;
         }
 
@@ -420,12 +438,12 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
             uint24 tid;
 
             if (tid == 0) break;
-            TransitionV3 storage ts = state.transitions[slot][tid];
+            TransitionStateV3 storage ts = state.transitions[slot][tid];
 
             verifiedBlockHash = ts.blockHash;
             verifiedTransitionId = tid;
 
-            if (blockId % _config.stateRootSyncInternal == 0) {
+            if (_isSyncBlock(blockId, _config.stateRootSyncInternal)) {
                 synced.blockId = blockId;
                 synced.tid = tid;
                 synced.stateRoot = ts.stateRoot;
@@ -546,24 +564,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         );
     }
 
-    function _getBlockInfo(uint64 _blockId)
-        private
-        view
-        returns (bytes32 blockHash_, bytes32 stateRoot_)
-    {
-        ConfigV3 memory config = getConfigV3();
-
-        uint64 slot = _blockId % config.blockRingBufferSize;
-        BlockV3 storage blk = state.blocks[slot];
-        require(blk.blockId == _blockId, "BlockNotFound");
-
-        if (blk.verifiedTransitionId != 0) {
-            TransitionV3 storage ts = state.transitions[slot][blk.verifiedTransitionId];
-            blockHash_ = ts.blockHash;
-            stateRoot_ = ts.stateRoot;
-        }
-    }
-
     function _checkProposer(address _customProposer) private view returns (address) {
         if (_customProposer == address(0)) return msg.sender;
 
@@ -571,5 +571,16 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         require(preconfTaskManager != address(0), "CustomProposerNotAllowed");
         require(preconfTaskManager == msg.sender, "MsgSenderNotPreconfTaskManager");
         return _customProposer;
+    }
+
+    function _isSyncBlock(
+        uint64 _blockId,
+        uint256 _stateRootSyncInternal
+    )
+        private
+        pure
+        returns (bool)
+    {
+        return _stateRootSyncInternal == 0 || _blockId % _stateRootSyncInternal == 0;
     }
 }
