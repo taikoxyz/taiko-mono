@@ -322,11 +322,6 @@ func (c *Client) CalculateBaseFee(
 				return nil, fmt.Errorf("failed to fetch parent gas excess: %w", err)
 			}
 		}
-		// The time of l1Head should always be greater than that of l2Head.
-		// Since the block.Time after anvil rollback is smaller than the original one, the timestamp has to be modified here.
-		if currentTimestamp < l2Head.Time {
-			currentTimestamp = l2Head.Time + 1
-		}
 		baseFeeInfo, err = c.TaikoL2.CalculateBaseFee(
 			&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
 			*baseFeeConfig,
