@@ -46,9 +46,19 @@ contract TaikoL1_EmptyStub is ITaikoL1 {
         returns (ITaikoData.TransitionV3 memory)
     { }
 
-    function getStats1() external view virtual returns (ITaikoData.Stats1 memory) { }
+    function getStats1() external view returns (uint64 lastSyncedBlockId_, uint64 lastSyncedAt_) { }
 
-    function getStats2() external view virtual returns (ITaikoData.Stats2 memory) { }
+    function getStats2()
+        external
+        view
+        returns (
+            uint64 numBlocks_,
+            uint64 lastVerifiedBlockId_,
+            bool paused_,
+            uint56 lastProposedIn_,
+            uint64 lastUnpausedAt_
+        )
+    { }
 
     function getConfigV3() external pure virtual returns (ITaikoData.ConfigV3 memory) { }
 }

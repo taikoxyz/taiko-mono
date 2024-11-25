@@ -95,8 +95,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
             BlockParamsV3 memory params =
                 _validateBlockParams(_blockParams[i], config.maxAnchorHeightOffset, parent);
 
-            (metas_[i], parent.metaHash) =
-                _proposeBlock(config, stats2, params, _proposer, _coinbase);
+            (metas_[i], parent.metaHash) = _propose(config, stats2, params, _proposer, _coinbase);
 
             parent.timestamp = params.timestamp;
             parent.anchorBlockId = params.anchorBlockId;
@@ -127,10 +126,12 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         ConfigV3 memory config = getConfigV3();
         IVerifier.ContextV3[] memory ctxs = new IVerifier.ContextV3[](_metas.length);
         for (uint256 i; i < _metas.length; ++i) {
-            ctxs[i] = _proveBlock(config, stats2, _metas[i], _transitions[i]);
+            ctxs[i] = _prove(config, stats2, _metas[i], _transitions[i]);
         }
 
-        IVerifier(resolve("TODO", false)).verifyProofV3(ctxs, proof);
+        if (_metas.length != 0) {
+            IVerifier(resolve(LibStrings.B_VERIFIER, false)).verifyProofV3(ctxs, proof);
+        }
 
         _verifyBlocks(config, stats2, _metas.length);
     }
@@ -153,12 +154,29 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         }
     }
 
-    function getStats1() external view returns (Stats1 memory) {
-        return state.stats1;
+    function getStats1() external view returns (uint64 lastSyncedBlockId_, uint64 lastSyncedAt_) {
+        Stats1 memory stats1 = state.stats1;
+        lastSyncedBlockId_ = stats1.lastSyncedBlockId;
+        lastSyncedAt_ = stats1.lastSyncedAt;
     }
 
-    function getStats2() external view returns (Stats2 memory) {
-        return state.stats2;
+    function getStats2()
+        external
+        view
+        returns (
+            uint64 numBlocks_,
+            uint64 lastVerifiedBlockId_,
+            bool paused_,
+            uint56 lastProposedIn_,
+            uint64 lastUnpausedAt_
+        )
+    {
+        Stats2 memory stats2 = state.stats2;
+        numBlocks_ = stats2.numBlocks;
+        lastVerifiedBlockId_ = stats2.lastVerifiedBlockId;
+        paused_ = stats2.paused;
+        lastProposedIn_ = stats2.lastProposedIn;
+        lastUnpausedAt_ = stats2.lastUnpausedAt;
     }
 
     function getLastVerifiedBlockV3()
@@ -238,8 +256,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
 
         require(_genesisBlockHash != 0, "InvalidGenesisBlockHash");
         // Init state
-        state.stats1.genesisHeight = uint64(block.number);
-        state.stats1.genesisTimestamp = uint64(block.timestamp);
         state.stats2.numBlocks = 1;
 
         // Init the genesis block
@@ -269,7 +285,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
     // Private functions
     // ------------------------------------------------------------------------------------------
 
-    function _proposeBlock(
+    function _propose(
         ConfigV3 memory _config,
         Stats2 memory _stats2,
         BlockParamsV3 memory _params,
@@ -323,7 +339,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         emit BlockProposedV3(meta_.blockId, meta_);
     }
 
-    function _proveBlock(
+    function _prove(
         ConfigV3 memory _config,
         Stats2 memory _stats2,
         BlockMetadataV3 calldata _meta,

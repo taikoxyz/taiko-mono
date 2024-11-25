@@ -72,9 +72,18 @@ interface ITaikoL1 is ITaikoData {
 
     function bondBalanceOf(address _user) external view returns (uint256);
 
-    function getStats1() external view returns (Stats1 memory);
+    function getStats1() external view returns (uint64 lastSyncedBlockId_, uint64 lastSyncedAt_);
 
-    function getStats2() external view returns (Stats2 memory);
+    function getStats2()
+        external
+        view
+        returns (
+            uint64 numBlocks_,
+            uint64 lastVerifiedBlockId_,
+            bool paused_,
+            uint56 lastProposedIn_,
+            uint64 lastUnpausedAt_
+        );
 
     function getConfigV3() external view returns (ConfigV3 memory);
 }

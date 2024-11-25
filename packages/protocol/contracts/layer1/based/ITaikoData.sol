@@ -67,8 +67,8 @@ interface ITaikoData {
     /// @notice In order to resolve stack too deep without optimizations, we needed to introduce
     /// outsourcing vars into structs below.
     struct Stats1 {
-        uint64 genesisHeight;
-        uint64 genesisTimestamp;
+        uint64 __reserved1;
+        uint64 __reserved2;
         uint64 lastSyncedBlockId;
         uint64 lastSyncedAt;
     }
