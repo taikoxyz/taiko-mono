@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "@sp1-contracts/src/ISP1Verifier.sol";
 import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibStrings.sol";
-import "../based/ITaikoL1.sol";
+import "../based/ITaiko.sol";
 import "./LibPublicInput.sol";
 import "./IVerifier.sol";
 
@@ -77,7 +77,7 @@ contract SP1Verifier is EssentialContract, IVerifier {
     }
 
     function taikoChainId() internal view virtual returns (uint64) {
-        return ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfigV3().chainId;
+        return ITaiko(resolve(LibStrings.B_TAIKO, false)).getConfigV3().chainId;
     }
 
     function sp1RemoteVerifier() public view virtual returns (address) {

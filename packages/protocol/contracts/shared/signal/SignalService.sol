@@ -47,7 +47,7 @@ contract SignalService is EssentialContract, ISignalService {
     }
 
     /// @dev Authorize or deauthorize an address for calling syncChainData.
-    /// @dev Note that addr is supposed to be TaikoL1 and TaikoL1 contracts deployed locally.
+    /// @dev Note that addr is supposed to be Taiko and Taiko contracts deployed locally.
     /// @param _addr The address to be authorized or deauthorized.
     /// @param _authorize True if authorize, false otherwise.
     function authorize(address _addr, bool _authorize) external onlyOwner {

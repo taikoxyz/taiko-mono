@@ -9,9 +9,9 @@ import "src/shared/libs/LibNetwork.sol";
 import "src/shared/libs/LibStrings.sol";
 import "src/shared/signal/ISignalService.sol";
 import "src/layer1/verifiers/IVerifier.sol";
-import "./ITaikoL1.sol";
+import "./ITaiko.sol";
 
-/// @title TaikoL1
+/// @title Taiko
 /// @notice This contract serves as the "base layer contract" of the Taiko protocol, providing
 /// functionalities for proposing, proving, and verifying blocks. The term "base layer contract"
 /// means that although this is usually deployed on L1, it can also be deployed on L2s to create
@@ -20,7 +20,7 @@ import "./ITaikoL1.sol";
 /// contract.
 /// @dev Labeled in AddressResolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
-contract TaikoL1 is EssentialContract, ITaikoL1 {
+contract Taiko is EssentialContract, ITaiko {
     using LibMath for uint256;
 
     struct _ParentBlock {
@@ -53,7 +53,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         external
         initializer
     {
-        __TaikoL1_init(_owner, _rollupResolver, _genesisBlockHash);
+        __Taiko_init(_owner, _rollupResolver, _genesisBlockHash);
     }
 
     function proposeBlocksV3(
@@ -358,7 +358,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         return resolve(LibStrings.B_PROOF_VERIFIER, false);
     }
 
-    function __TaikoL1_init(
+    function __Taiko_init(
         address _owner,
         address _rollupResolver,
         bytes32 _genesisBlockHash

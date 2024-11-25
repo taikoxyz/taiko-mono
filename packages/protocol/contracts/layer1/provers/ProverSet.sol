@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibStrings.sol";
 import "src/shared/libs/LibAddress.sol";
-import "../based/ITaikoL1.sol";
+import "../based/ITaiko.sol";
 
 interface IHasRecipient {
     function recipient() external view returns (address);
@@ -16,7 +16,7 @@ interface IHasRecipient {
 
 /// @title ProverSet
 /// @notice A contract that holds TKO token and acts as a Taiko prover. This contract will simply
-/// relay `proveBlock` calls to TaikoL1 so msg.sender doesn't need to hold any TKO.
+/// relay `proveBlock` calls to Taiko so msg.sender doesn't need to hold any TKO.
 /// @custom:security-contact security@taiko.xyz
 contract ProverSet is EssentialContract, IERC1271 {
     bytes4 private constant _EIP1271_MAGICVALUE = 0x1626ba7e;
@@ -96,7 +96,7 @@ contract ProverSet is EssentialContract, IERC1271 {
 
     /// @notice Proposes a block only when it is the first block proposal in the current L1 block.
     function proposeBlocksConditionally(bytes[] calldata _paramsArr) external onlyProver {
-        ITaikoL1 taiko = ITaikoL1(taikoL1());
+        ITaiko taiko = ITaiko(taikoL1());
         // Ensure this block is the first block proposed in the current L1 block.
         require(taiko.getStats2().lastProposedIn != block.number, NOT_FIRST_PROPOSAL());
         // TODO(danielw):fix this
@@ -106,7 +106,7 @@ contract ProverSet is EssentialContract, IERC1271 {
     /// @notice Propose multiple Taiko blocks.
     function proposeBlocks(bytes[] calldata _paramsArr) external onlyProver {
         // TODO(danielw):fix this
-        // ITaikoL1(taikoL1()).proposeBlocksV3(_paramsArr);
+        // ITaiko(taikoL1()).proposeBlocksV3(_paramsArr);
     }
 
     /// @notice Batch proves or contests Taiko blocks.
@@ -118,17 +118,17 @@ contract ProverSet is EssentialContract, IERC1271 {
         external
         onlyProver
     { // TODO(danielw):fix this
-            // ITaikoL1(taikoL1()).proveBlocksV3(_blockId, _input, _batchProof);
+            // ITaiko(taikoL1()).proveBlocksV3(_blockId, _input, _batchProof);
     }
 
-    /// @notice Deposits Taiko token to TaikoL1 contract.
+    /// @notice Deposits Taiko token to Taiko contract.
     function depositBond(uint256 _amount) external onlyAuthorized {
-        ITaikoL1(taikoL1()).depositBond(_amount);
+        ITaiko(taikoL1()).depositBond(_amount);
     }
 
-    /// @notice Withdraws Taiko token from TaikoL1 contract.
+    /// @notice Withdraws Taiko token from Taiko contract.
     function withdrawBond(uint256 _amount) external onlyAuthorized {
-        ITaikoL1(taikoL1()).withdrawBond(_amount);
+        ITaiko(taikoL1()).withdrawBond(_amount);
     }
 
     /// @notice Delegates token voting right to a delegatee.

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "test/layer1/based/helpers/TaikoL1_EmptyStub.sol";
+import "test/layer1/based/helpers/Taiko_EmptyStub.sol";
 import "src/layer1/preconf/impl/LibPreconfConstants.sol";
 import "src/layer1/preconf/impl/PreconfTaskManager.sol";
 import "src/layer1/preconf/iface/IPreconfRegistry.sol";
@@ -17,18 +17,18 @@ contract LookaheadFixtures is BaseTest {
     MockPreconfRegistry internal preconfRegistry;
     MockPreconfServiceManager internal preconfServiceManager;
     MockBeaconBlockRoot internal beaconBlockRootContract;
-    TaikoL1_EmptyStub internal taikoL1;
+    Taiko_EmptyStub internal taikoL1;
 
     function setUp() public virtual {
         preconfRegistry = new MockPreconfRegistry();
         preconfServiceManager = new MockPreconfServiceManager();
         beaconBlockRootContract = new MockBeaconBlockRoot();
-        taikoL1 = new TaikoL1_EmptyStub();
+        taikoL1 = new Taiko_EmptyStub();
 
         preconfTaskManager = new PreconfTaskManager(
             IPreconfServiceManager(address(preconfServiceManager)),
             IPreconfRegistry(address(preconfRegistry)),
-            ITaikoL1(taikoL1),
+            ITaiko(taikoL1),
             LibPreconfConstants.MAINNET_BEACON_GENESIS,
             address(beaconBlockRootContract)
         );

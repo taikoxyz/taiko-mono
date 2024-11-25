@@ -2,10 +2,10 @@
 pragma solidity ^0.8.24;
 
 import "src/shared/based/LibSharedData.sol";
-/// @title ITaikoL1
+/// @title ITaiko
 /// @custom:security-contact security@taiko.xyz
 
-interface ITaikoL1 {
+interface ITaiko {
     struct BlockParamsV3 {
         bytes32 parentMetaHash;
         uint64 anchorBlockId;
@@ -111,7 +111,7 @@ interface ITaikoL1 {
         uint16 provingWindow;
     }
 
-    /// @notice Struct holding the state variables for the {TaikoL1} contract.
+    /// @notice Struct holding the state variables for the {Taiko} contract.
     struct State {
         // Ring buffer for proposed blocks and a some recent verified blocks.
         mapping(uint256 blockId_mod_blockRingBufferSize => BlockV3 blk) blocks;
