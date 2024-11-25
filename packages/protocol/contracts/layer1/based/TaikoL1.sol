@@ -85,10 +85,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
             });
         }
 
-        _proposer = _checkProposer(_proposer);
-        if (_coinbase == address(0)) {
-            _coinbase = _proposer;
-        }
+        (_proposer, _coinbase) = _checkProposerAndCoinbase(_proposer, _coinbase);
 
         metas_ = new BlockMetadataV3[](_blockParams.length);
         for (uint256 i; i < _blockParams.length; ++i) {
@@ -545,13 +542,23 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         );
     }
 
-    function _checkProposer(address _customProposer) private view returns (address) {
-        if (_customProposer == address(0)) return msg.sender;
+    function _checkProposerAndCoinbase(
+        address _proposer,
+        address _coinbase
+    )
+        private
+        view
+        returns (address proposer_, address coinbase_)
+    {
+        if (_proposer == address(0)) {
+            proposer_ = msg.sender;
+        } else {
+            address preconfTaskManager = resolve(LibStrings.B_PRECONF_TASK_MANAGER, false);
+            require(preconfTaskManager == msg.sender, "MsgSenderNotPreconfTaskManager");
+            proposer_ = _proposer;
+        }
 
-        address preconfTaskManager = resolve(LibStrings.B_PRECONF_TASK_MANAGER, true);
-        require(preconfTaskManager != address(0), "CustomProposerNotAllowed");
-        require(preconfTaskManager == msg.sender, "MsgSenderNotPreconfTaskManager");
-        return _customProposer;
+        coinbase_ = _coinbase == address(0) ? proposer_ : _coinbase;
     }
 
     function _isSyncBlock(
