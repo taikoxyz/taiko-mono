@@ -96,8 +96,50 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
             BlockParamsV3 memory params =
                 _validateBlockParams(_blockParams[i], config.maxAnchorHeightOffset, parent);
 
-            (metas_[i], parent.metaHash) = _propose(config, stats2, params, _proposer, _coinbase);
+            // Initialize metadata to compute a metaHash, which forms a part of the block data to be
+            // stored on-chain for future integrity checks. If we choose to persist all data fields
+            // in the metadata, it will require additional storage slots.
+            metas_[i] = BlockMetadataV3({
+                anchorBlockHash: blockhash(params.anchorBlockId),
+                difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", stats2.numBlocks)),
+                blobHash: blobhash(params.blobIndex),
+                extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
+                coinbase: _coinbase,
+                blockId: stats2.numBlocks,
+                gasLimit: config.blockMaxGasLimit,
+                timestamp: params.timestamp,
+                anchorBlockId: params.anchorBlockId,
+                parentMetaHash: params.parentMetaHash,
+                proposer: _proposer,
+                livenessBond: config.livenessBond,
+                proposedAt: uint64(block.timestamp),
+                proposedIn: uint64(block.number),
+                blobTxListOffset: params.blobTxListOffset,
+                blobTxListLength: params.blobTxListLength,
+                blobIndex: params.blobIndex,
+                baseFeeConfig: config.baseFeeConfig
+            });
 
+            require(metas_[i].blobHash != 0, "BlobNotFound");
+
+            // Use a storage pointer for the block in the ring buffer
+            BlockV3 storage blk = state.blocks[stats2.numBlocks % config.blockRingBufferSize];
+
+            bytes32 metaHash = keccak256(abi.encode(metas_[i]));
+            // SSTORE
+            blk.metaHash = metaHash;
+
+            // SSTORE {{
+            blk.blockId = stats2.numBlocks;
+            blk.timestamp = params.timestamp;
+            blk.anchorBlockId = params.anchorBlockId;
+            blk.nextTransitionId = 1;
+            blk.verifiedTransitionId = 0;
+            // SSTORE }}
+
+            emit BlockProposedV3(metas_[i].blockId, metas_[i]);
+
+            parent.metaHash = metaHash;
             parent.timestamp = params.timestamp;
             parent.anchorBlockId = params.anchorBlockId;
 
@@ -129,7 +171,54 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
 
         IVerifier.ContextV3[] memory ctxs = new IVerifier.ContextV3[](_metas.length);
         for (uint256 i; i < _metas.length; ++i) {
-            ctxs[i] = _prove(config, stats2, _metas[i], _transitions[i]);
+            BlockMetadataV3 calldata meta = _metas[i];
+
+            require(meta.blockId >= config.pacayaForkHeight, "InvalidForkHeight");
+            require(meta.blockId < stats2.lastVerifiedBlockId, "BlockVerified");
+            require(meta.blockId < stats2.numBlocks, "BlockNotProposed");
+
+            TransitionV3 calldata tran = _transitions[i];
+            require(tran.parentHash != 0, "InvalidTransitionParentHash");
+            require(tran.blockHash != 0, "InvalidTransitionBlockHash");
+            require(tran.stateRoot != 0, "InvalidTransitionStateRoot");
+
+            ctxs[i].metaHash = keccak256(abi.encode(meta));
+            ctxs[i].difficulty = meta.difficulty;
+            ctxs[i].tran = tran;
+
+            uint256 slot = meta.blockId % config.blockRingBufferSize;
+            BlockV3 storage blk = state.blocks[slot];
+            require(ctxs[i].metaHash == blk.metaHash, "MataMismatch");
+
+            TransitionStateV3 storage ts = state.transitions[slot][1];
+            require(ts.parentHash != tran.parentHash, "AlreadyProvenAsFirstTransition");
+            require(state.transitionIds[meta.blockId][tran.parentHash] == 0, "AlreadyProven");
+
+            uint24 tid = blk.nextTransitionId++;
+            ts = state.transitions[slot][tid];
+
+            // Checks if only the assigned prover is permissioned to prove the block. The assigned
+            // prover is granted exclusive permission to prove only the first transition.
+            if (tid == 1) {
+                if (msg.sender == meta.proposer) {
+                    _creditBond(meta.proposer, meta.livenessBond);
+                } else {
+                    uint256 deadline = uint256(meta.proposedAt).max(stats2.lastUnpausedAt);
+                    deadline += config.provingWindow;
+                    require(block.timestamp >= deadline, "ProvingWindowNotPassed");
+                }
+                ts.parentHash = tran.parentHash;
+            } else {
+                state.transitionIds[meta.blockId][tran.parentHash] = tid;
+            }
+
+            ts.blockHash = tran.blockHash;
+
+            if (_isSyncBlock(meta.blockId, config.stateRootSyncInternal)) {
+                ts.stateRoot = tran.stateRoot;
+            }
+
+            emit BlockProvedV3(meta.blockId, tran);
         }
 
         if (_metas.length != 0) {
@@ -305,116 +394,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
 
     // Private functions
     // ------------------------------------------------------------------------------------------
-
-    function _propose(
-        ConfigV3 memory _config,
-        Stats2 memory _stats2,
-        BlockParamsV3 memory _params,
-        address _proposer,
-        address _coinbase
-    )
-        internal
-        returns (BlockMetadataV3 memory meta_, bytes32 metaHash_)
-    {
-        // Initialize metadata to compute a metaHash, which forms a part of the block data to be
-        // stored on-chain for future integrity checks. If we choose to persist all data fields
-        // in the metadata, it will require additional storage slots.
-        meta_ = BlockMetadataV3({
-            anchorBlockHash: blockhash(_params.anchorBlockId),
-            difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", _stats2.numBlocks)),
-            blobHash: blobhash(_params.blobIndex),
-            extraData: bytes32(uint256(_config.baseFeeConfig.sharingPctg)),
-            coinbase: _coinbase,
-            blockId: _stats2.numBlocks,
-            gasLimit: _config.blockMaxGasLimit,
-            timestamp: _params.timestamp,
-            anchorBlockId: _params.anchorBlockId,
-            parentMetaHash: _params.parentMetaHash,
-            proposer: _proposer,
-            livenessBond: _config.livenessBond,
-            proposedAt: uint64(block.timestamp),
-            proposedIn: uint64(block.number),
-            blobTxListOffset: _params.blobTxListOffset,
-            blobTxListLength: _params.blobTxListLength,
-            blobIndex: _params.blobIndex,
-            baseFeeConfig: _config.baseFeeConfig
-        });
-
-        require(meta_.blobHash != 0, "BlobNotFound");
-
-        // Use a storage pointer for the block in the ring buffer
-        BlockV3 storage blk = state.blocks[_stats2.numBlocks % _config.blockRingBufferSize];
-
-        metaHash_ = keccak256(abi.encode(meta_));
-        // SSTORE
-        blk.metaHash = metaHash_;
-
-        // SSTORE {{
-        blk.blockId = _stats2.numBlocks;
-        blk.timestamp = _params.timestamp;
-        blk.anchorBlockId = _params.anchorBlockId;
-        blk.nextTransitionId = 1;
-        blk.verifiedTransitionId = 0;
-        // SSTORE }}
-
-        emit BlockProposedV3(meta_.blockId, meta_);
-    }
-
-    function _prove(
-        ConfigV3 memory _config,
-        Stats2 memory _stats2,
-        BlockMetadataV3 calldata _meta,
-        TransitionV3 calldata _tran
-    )
-        private
-        returns (IVerifier.ContextV3 memory ctx_)
-    {
-        require(_meta.blockId >= _config.pacayaForkHeight, "InvalidForkHeight");
-        require(_meta.blockId < _stats2.lastVerifiedBlockId, "BlockVerified");
-        require(_meta.blockId < _stats2.numBlocks, "BlockNotProposed");
-
-        require(_tran.parentHash != 0, "InvalidTransitionParentHash");
-        require(_tran.blockHash != 0, "InvalidTransitionBlockHash");
-        require(_tran.stateRoot != 0, "InvalidTransitionStateRoot");
-
-        ctx_.metaHash = keccak256(abi.encode(_meta));
-        ctx_.difficulty = _meta.difficulty;
-        ctx_.tran = _tran;
-
-        uint256 slot = _meta.blockId % _config.blockRingBufferSize;
-        BlockV3 storage blk = state.blocks[slot];
-        require(ctx_.metaHash == blk.metaHash, "MataMismatch");
-
-        TransitionStateV3 storage ts = state.transitions[slot][1];
-        require(ts.parentHash != _tran.parentHash, "AlreadyProvenAsFirstTransition");
-        require(state.transitionIds[_meta.blockId][_tran.parentHash] == 0, "AlreadyProven");
-
-        uint24 tid = blk.nextTransitionId++;
-        ts = state.transitions[slot][tid];
-
-        // Checks if only the assigned prover is permissioned to prove the block. The assigned
-        // prover is granted exclusive permission to prove only the first transition.
-        if (tid == 1) {
-            if (msg.sender == _meta.proposer) {
-                _creditBond(_meta.proposer, _meta.livenessBond);
-            } else {
-                uint256 deadline = uint256(_meta.proposedAt).max(_stats2.lastUnpausedAt);
-                deadline += _config.provingWindow;
-                require(block.timestamp >= deadline, "ProvingWindowNotPassed");
-            }
-            ts.parentHash = _tran.parentHash;
-        } else {
-            state.transitionIds[_meta.blockId][_tran.parentHash] = tid;
-        }
-
-        ts.blockHash = _tran.blockHash;
-
-        if (_isSyncBlock(_meta.blockId, _config.stateRootSyncInternal)) {
-            ts.stateRoot = _tran.stateRoot;
-        }
-
-        emit BlockProvedV3(_meta.blockId, _tran);
-    }
 
     function _verifyBlocks(
         ConfigV3 memory _config,
