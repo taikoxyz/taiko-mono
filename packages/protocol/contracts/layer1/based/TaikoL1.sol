@@ -130,7 +130,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         }
 
         if (_metas.length != 0) {
-            IVerifier(resolve(LibStrings.B_VERIFIER, false)).verifyProofV3(ctxs, proof);
+            IVerifier(resolve(LibStrings.B_PROOF_VERIFIER, false)).verifyProofV3(ctxs, proof);
         }
 
         _verifyBlocks(config, stats2, _metas.length);

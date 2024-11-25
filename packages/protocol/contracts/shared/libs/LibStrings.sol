@@ -16,6 +16,7 @@ library LibStrings {
     bytes32 internal constant B_ERC20_VAULT = bytes32("erc20_vault");
     bytes32 internal constant B_ERC721_VAULT = bytes32("erc721_vault");
     bytes32 internal constant B_PRECONF_TASK_MANAGER = bytes32("preconf_task_manager");
+    bytes32 internal constant B_PROOF_VERIFIER= bytes32("proof_verifier");
     bytes32 internal constant B_PROVER_ASSIGNMENT = bytes32("PROVER_ASSIGNMENT");
     bytes32 internal constant B_PROVER_SET = bytes32("prover_set");
     bytes32 internal constant B_QUOTA_MANAGER = bytes32("quota_manager");
@@ -37,7 +38,6 @@ library LibStrings {
     bytes32 internal constant B_TIER_ZKVM_AND_TEE = bytes32("tier_zkvm_and_tee");
     bytes32 internal constant B_RISCZERO_GROTH16_VERIFIER = bytes32("risc0_groth16_verifier");
     bytes32 internal constant B_WITHDRAWER = bytes32("withdrawer");
-    bytes32 internal constant B_VERIFIER = bytes32("verifier");
     bytes32 internal constant H_RETURN_LIVENESS_BOND = keccak256("RETURN_LIVENESS_BOND");
     bytes32 internal constant H_SIGNAL_ROOT = keccak256("SIGNAL_ROOT");
     bytes32 internal constant H_STATE_ROOT = keccak256("STATE_ROOT");
