@@ -323,6 +323,9 @@ func (c *Client) CalculateBaseFee(
 				return nil, fmt.Errorf("failed to fetch parent gas excess: %w", err)
 			}
 		}
+		if currentTimestamp < l2Head.Time {
+			currentTimestamp = l2Head.Time + 1
+		}
 		baseFeeInfo, err = c.TaikoL2.CalculateBaseFee(
 			&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
 			*baseFeeConfig,
