@@ -222,6 +222,7 @@ func (s *DriverTestSuite) TestCheckL1ReorgToLowerFork() {
 }
 
 func (s *DriverTestSuite) TestCheckL1ReorgToSameHeightFork() {
+	s.T().Skip("Skip this test case because of the anvil timestamp issue after rollback.")
 	var (
 		testnetL1SnapshotID = s.SetL1Snapshot()
 	)
