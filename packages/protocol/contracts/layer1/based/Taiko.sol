@@ -23,27 +23,9 @@ import "./ITaiko.sol";
 contract Taiko is EssentialContract, ITaiko {
     using LibMath for uint256;
 
-    struct _ParentBlock {
-        bytes32 metaHash;
-        uint64 anchorBlockId;
-        uint64 timestamp;
-    }
-
-    struct _UpdatedParams {
-        uint64 anchorBlockId;
-        uint64 timestamp;
-    }
-
-    struct _SyncedBlock {
-        uint64 blockId;
-        uint24 tid;
-        bytes32 stateRoot;
-    }
-
     State public state;
 
-    // External functions
-    // ------------------------------------------------------------------------------------------
+    // External functions ------------------------------------------------------------------------
 
     function init(
         address _owner,
@@ -82,7 +64,7 @@ contract Taiko is EssentialContract, ITaiko {
         BlockV3 storage parentBlk =
             state.blocks[(stats2.numBlocks - 1) % config.blockRingBufferSize];
 
-        _ParentBlock memory parent = _ParentBlock({
+        ParentBlock memory parent = ParentBlock({
             metaHash: parentBlk.metaHash,
             timestamp: parentBlk.timestamp,
             anchorBlockId: parentBlk.anchorBlockId
@@ -102,7 +84,7 @@ contract Taiko is EssentialContract, ITaiko {
         metas_ = new BlockMetadataV3[](_paramss.length);
 
         for (uint256 i; i < _paramss.length; ++i) {
-            _UpdatedParams memory updatedParams =
+            UpdatedParams memory updatedParams =
                 _validateBlockParams(_paramss[i], config.maxAnchorHeightOffset, parent);
 
             // Initialize metadata to compute a metaHash, which forms a part of the block data to be
@@ -292,8 +274,7 @@ contract Taiko is EssentialContract, ITaiko {
         require(blk_.blockId == _blockId, "BlockNotFound");
     }
 
-    // Public functions
-    // ------------------------------------------------------------------------------------------
+    // Public functions -------------------------------------------------------------------------
 
     function paused() public view override returns (bool) {
         return state.stats2.paused;
@@ -341,8 +322,7 @@ contract Taiko is EssentialContract, ITaiko {
         });
     }
 
-    // Internal functions
-    // ------------------------------------------------------------------------------------------
+    // Internal functions ----------------------------------------------------------------------
 
     function __Taiko_init(
         address _owner,
@@ -380,8 +360,7 @@ contract Taiko is EssentialContract, ITaiko {
         state.stats2.paused = true;
     }
 
-    // Private functions
-    // ------------------------------------------------------------------------------------------
+    // Private functions -----------------------------------------------------------------------
 
     function _verifyBlocks(
         ConfigV3 memory _config,
@@ -396,7 +375,7 @@ contract Taiko is EssentialContract, ITaiko {
         uint24 tid = blk.verifiedTransitionId;
         bytes32 blockHash = state.transitions[slot][tid].blockHash;
 
-        _SyncedBlock memory synced;
+        SyncBlock memory synced;
 
         uint256 stopBlockId = (_config.maxBlocksToVerify * _length + _stats2.lastVerifiedBlockId)
             .min(_stats2.numBlocks);
@@ -497,11 +476,11 @@ contract Taiko is EssentialContract, ITaiko {
     function _validateBlockParams(
         BlockParamsV3 calldata _params,
         uint64 _maxAnchorHeightOffset,
-        _ParentBlock memory _parent
+        ParentBlock memory _parent
     )
         private
         view
-        returns (_UpdatedParams memory updatedParams_)
+        returns (UpdatedParams memory updatedParams_)
     {
         if (_params.anchorBlockId == 0) {
             updatedParams_.anchorBlockId = uint64(block.number - 1);
@@ -534,5 +513,24 @@ contract Taiko is EssentialContract, ITaiko {
             _params.parentMetaHash == 0 || _params.parentMetaHash == _parent.metaHash,
             "ParentMetaHashMismatch"
         );
+    }
+
+    // Memory-only structs ----------------------------------------------------------------------
+
+    struct ParentBlock {
+        bytes32 metaHash;
+        uint64 anchorBlockId;
+        uint64 timestamp;
+    }
+
+    struct UpdatedParams {
+        uint64 anchorBlockId;
+        uint64 timestamp;
+    }
+
+    struct SyncBlock {
+        uint64 blockId;
+        uint24 tid;
+        bytes32 stateRoot;
     }
 }
