@@ -189,7 +189,7 @@ contract Taiko is EssentialContract, ITaiko {
             BlockV3 storage blk = state.blocks[slot];
             require(ctxs[i].metaHash == blk.metaHash, "MataMismatch");
 
-            TransitionStateV3 storage ts = state.transitions[slot][1];
+            TransitionV3 storage ts = state.transitions[slot][1];
             require(ts.parentHash != tran.parentHash, "AlreadyProvenAsFirstTransition");
             require(state.transitionIds[meta.blockId][tran.parentHash] == 0, "AlreadyProven");
 
@@ -306,9 +306,7 @@ contract Taiko is EssentialContract, ITaiko {
         require(blk.blockId == _blockId, "BlockNotFound");
 
         if (blk.verifiedTransitionId != 0) {
-            TransitionStateV3 storage ts = state.transitions[slot][blk.verifiedTransitionId];
-            tran_.blockHash = ts.blockHash;
-            tran_.stateRoot = ts.stateRoot;
+            tran_ = state.transitions[slot][blk.verifiedTransitionId];
         }
     }
 
@@ -359,8 +357,7 @@ contract Taiko is EssentialContract, ITaiko {
         blk.metaHash = bytes32(uint256(1)); // Give the genesis metahash a non-zero value.
 
         // Init the first state transition
-        TransitionStateV3 storage ts = state.transitions[0][1];
-        ts.blockHash = _genesisBlockHash;
+        state.transitions[0][1].blockHash = _genesisBlockHash;
 
         emit BlockVerifiedV3({ blockId: 0, blockHash: _genesisBlockHash });
     }
@@ -399,7 +396,8 @@ contract Taiko is EssentialContract, ITaiko {
             slot = blockId % _config.blockRingBufferSize;
             blk = state.blocks[slot];
 
-            TransitionStateV3 storage ts = state.transitions[slot][1];
+            // FIX
+            TransitionV3 storage ts = state.transitions[slot][1];
             if (ts.parentHash == blockHash) {
                 tid = 1;
             } else {
