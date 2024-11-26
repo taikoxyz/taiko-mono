@@ -5,7 +5,7 @@ description: Network reference page displaying the latest software versions.
 
 ## Software Releases
 
-It is **highly recommended** you use the latest softwares. You can find the latest versions here:
+It is **highly recommended** you use the latest software. You can find the latest versions here:
 
 | Package                                                                                | Release notes                                                                                                                                                                                     |
 | :------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
