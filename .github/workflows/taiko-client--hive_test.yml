@@ -12,7 +12,7 @@ on:
 
 jobs:
   hive_tests:
-    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
+    if: ${{ github.event.pull_request.draft == false && contains(github.event.pull_request.labels.*.name, 'option.hive-test') }}
     name: hive tests
     runs-on: [arc-runner-set]
     timeout-minutes: 40
