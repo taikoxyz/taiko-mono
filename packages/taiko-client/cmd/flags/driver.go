@@ -76,7 +76,7 @@ var (
 		Name:     "softBlock.signatureCheck",
 		Usage:    "If the soft block server will check the signature of the incoming transactions batches",
 		Category: driverCategory,
-		Value:    true,
+		Value:    false,
 		EnvVars:  []string{"SOFT_BLOCK_SERVER_SIGNATURE_CHECK"},
 	}
 )
