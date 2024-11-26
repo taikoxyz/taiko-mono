@@ -88,7 +88,16 @@ contract Taiko is EssentialContract, ITaiko {
             anchorBlockId: parentBlk.anchorBlockId
         });
 
-        (_proposer, _coinbase) = _checkProposerAndCoinbase(_proposer, _coinbase);
+        if (_proposer == address(0)) {
+            _proposer = msg.sender;
+        } else {
+            address preconfTaskManager = resolve(LibStrings.B_PRECONF_TASK_MANAGER, false);
+            require(preconfTaskManager == msg.sender, "MsgSenderNotPreconfTaskManager");
+        }
+
+        if (_coinbase == address(0)) {
+            _coinbase = _proposer;
+        }
 
         metas_ = new BlockMetadataV3[](_paramss.length);
 
@@ -213,7 +222,7 @@ contract Taiko is EssentialContract, ITaiko {
 
             ts.blockHash = tran.blockHash;
 
-            if (_isSyncBlock(meta.blockId, config.stateRootSyncInternal)) {
+            if (meta.blockId % config.stateRootSyncInternal == 0) {
                 ts.stateRoot = tran.stateRoot;
             }
 
@@ -408,7 +417,7 @@ contract Taiko is EssentialContract, ITaiko {
 
             blockHash = ts.blockHash;
 
-            if (_isSyncBlock(blockId, _config.stateRootSyncInternal)) {
+            if (blockId % _config.stateRootSyncInternal == 0) {
                 synced.blockId = blockId;
                 synced.tid = tid;
                 synced.stateRoot = ts.stateRoot;
@@ -525,35 +534,5 @@ contract Taiko is EssentialContract, ITaiko {
             _params.parentMetaHash == 0 || _params.parentMetaHash == _parent.metaHash,
             "ParentMetaHashMismatch"
         );
-    }
-
-    function _checkProposerAndCoinbase(
-        address _proposer,
-        address _coinbase
-    )
-        private
-        view
-        returns (address proposer_, address coinbase_)
-    {
-        if (_proposer == address(0)) {
-            proposer_ = msg.sender;
-        } else {
-            address preconfTaskManager = resolve(LibStrings.B_PRECONF_TASK_MANAGER, false);
-            require(preconfTaskManager == msg.sender, "MsgSenderNotPreconfTaskManager");
-            proposer_ = _proposer;
-        }
-
-        coinbase_ = _coinbase == address(0) ? proposer_ : _coinbase;
-    }
-
-    function _isSyncBlock(
-        uint64 _blockId,
-        uint256 _stateRootSyncInternal
-    )
-        private
-        pure
-        returns (bool)
-    {
-        return _stateRootSyncInternal == 0 || _blockId % _stateRootSyncInternal == 0;
     }
 }
