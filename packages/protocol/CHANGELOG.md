@@ -121,7 +121,7 @@
 * **protocol:** fix an issue in same transition check ([#18254](https://github.com/taikoxyz/taiko-mono/issues/18254)) ([233806e](https://github.com/taikoxyz/taiko-mono/commit/233806e4838aa12e8de436a37979ff3e614119f2))
 * **protocol:** fix DCAP configuration script ([#18088](https://github.com/taikoxyz/taiko-mono/issues/18088)) ([e8618c5](https://github.com/taikoxyz/taiko-mono/commit/e8618c54a58993499e852ec2ffc2468d4f0274ba))
 * **protocol:** fix issue in mainnet deployment script ([#18283](https://github.com/taikoxyz/taiko-mono/issues/18283)) ([5c371a1](https://github.com/taikoxyz/taiko-mono/commit/5c371a181af444999f611e03774ec096ffbd1226))
-* **protocol:** fix LibAddress.supportsInterface to handle undecodeable return data ([#18286](https://github.com/taikoxyz/taiko-mono/issues/18286)) ([299b4c9](https://github.com/taikoxyz/taiko-mono/commit/299b4c9ecf96644c909df70a3527ae5c2e728a07))
+* **protocol:** fix LibAddress.supportsInterface to handle undecodable return data ([#18286](https://github.com/taikoxyz/taiko-mono/issues/18286)) ([299b4c9](https://github.com/taikoxyz/taiko-mono/commit/299b4c9ecf96644c909df70a3527ae5c2e728a07))
 * **protocol:** fix permission in ComposeVerifier ([#18302](https://github.com/taikoxyz/taiko-mono/issues/18302)) ([4c45d8b](https://github.com/taikoxyz/taiko-mono/commit/4c45d8bcdb52521ac1738ca271316d82689537b0))
 * **protocol:** fix proposeBlock()'s block id check ([#18227](https://github.com/taikoxyz/taiko-mono/issues/18227)) ([3a9d6c1](https://github.com/taikoxyz/taiko-mono/commit/3a9d6c166b7c6666eb2515893b6a3fbd00f4b1ea))
 * **protocol:** fix test related to SendMessageToDelegateOwner.s.sol ([#18300](https://github.com/taikoxyz/taiko-mono/issues/18300)) ([65daa3e](https://github.com/taikoxyz/taiko-mono/commit/65daa3e631b471d17dbffb1001dab66efa67c499))
@@ -143,7 +143,7 @@
 * **protocol:** revert Hekla `baseFeeConfig` updates ([#18340](https://github.com/taikoxyz/taiko-mono/issues/18340)) ([ae8ac3c](https://github.com/taikoxyz/taiko-mono/commit/ae8ac3c2e686b136de8c68853ecb91a39260a93f))
 * **protocol:** set mainnet Ontake fork height ([#18112](https://github.com/taikoxyz/taiko-mono/issues/18112)) ([8812eb2](https://github.com/taikoxyz/taiko-mono/commit/8812eb2a8de367311b8ada6bd3587bfe5efee090))
 * **protocol:** shorten imports in solidity files ([#18221](https://github.com/taikoxyz/taiko-mono/issues/18221)) ([9b2ba6a](https://github.com/taikoxyz/taiko-mono/commit/9b2ba6a2a2fae24d1fb34e23b29b3146e96f575e))
-* **protoco:** remove unused delegate owner deployment ([#18290](https://github.com/taikoxyz/taiko-mono/issues/18290)) ([63ba863](https://github.com/taikoxyz/taiko-mono/commit/63ba863dcf322b2cf04d7dcaf6d8905bf28de6bc))
+* **protocol:** remove unused delegate owner deployment ([#18290](https://github.com/taikoxyz/taiko-mono/issues/18290)) ([63ba863](https://github.com/taikoxyz/taiko-mono/commit/63ba863dcf322b2cf04d7dcaf6d8905bf28de6bc))
 
 
 ### Documentation
@@ -695,7 +695,7 @@
 * **protocol:** fix LibTrieProof.verifyMerkleProof by RLP-encoding the byte32 value first ([#16018](https://github.com/taikoxyz/taiko-mono/issues/16018)) ([e1f21c1](https://github.com/taikoxyz/taiko-mono/commit/e1f21c12cb1347fef6f7795cfd1b55e2f172312f))
 * **protocol:** fix recall not working with bridged tokens ([#15679](https://github.com/taikoxyz/taiko-mono/issues/15679)) ([dd2c33d](https://github.com/taikoxyz/taiko-mono/commit/dd2c33d46f6c1b461a7a7a2fb0e6ec647b768973))
 * **protocol:** fix revert reading blockhash (TKO-19) ([#15570](https://github.com/taikoxyz/taiko-mono/issues/15570)) ([465f7f4](https://github.com/taikoxyz/taiko-mono/commit/465f7f45511e8ab9c4fde66b2ddc11a9a114db34))
-* **protocol:** fix singla service cannot be shared by multiple taiko L1/L2 contracts bug ([#15807](https://github.com/taikoxyz/taiko-mono/issues/15807)) ([a652ae8](https://github.com/taikoxyz/taiko-mono/commit/a652ae8dc0108e2799a449cce4e5f795f87908a1))
+* **protocol:** fix signal service cannot be shared by multiple taiko L1/L2 contracts bug ([#15807](https://github.com/taikoxyz/taiko-mono/issues/15807)) ([a652ae8](https://github.com/taikoxyz/taiko-mono/commit/a652ae8dc0108e2799a449cce4e5f795f87908a1))
 * **protocol:** fix some file names of the proxy upgrade scripts ([#15463](https://github.com/taikoxyz/taiko-mono/issues/15463)) ([3430d89](https://github.com/taikoxyz/taiko-mono/commit/3430d89de1d4bc6b4332744daaeac5df2a546fdf))
 * **protocol:** Fix taiko token domain separator ([#15717](https://github.com/taikoxyz/taiko-mono/issues/15717)) ([6e2771c](https://github.com/taikoxyz/taiko-mono/commit/6e2771c54e62e73715cfbe2e7d4fc5a2fb54cf5c))
 * **protocol:** improve bridge `_proveSignalReceived` and fix genesis test ([#15641](https://github.com/taikoxyz/taiko-mono/issues/15641)) ([15f6995](https://github.com/taikoxyz/taiko-mono/commit/15f6995f82d7456458eeecf098bd0d02bc3afec4))
