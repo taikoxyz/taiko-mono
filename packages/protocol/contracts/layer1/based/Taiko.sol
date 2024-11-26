@@ -168,7 +168,6 @@ contract Taiko is EssentialContract, ITaiko {
         require(stats2.numBlocks >= config.pacayaForkHeight, "InvalidForkHeight");
 
         IVerifier.Context[] memory ctxs = new IVerifier.Context[](_metas.length);
-        address verifier;
         for (uint256 i; i < _metas.length; ++i) {
             BlockMetadataV3 calldata meta = _metas[i];
 
@@ -176,20 +175,13 @@ contract Taiko is EssentialContract, ITaiko {
             require(meta.blockId < stats2.lastVerifiedBlockId, "BlockVerified");
             require(meta.blockId < stats2.numBlocks, "BlockNotProposed");
 
-            address _verifier = getBlockVerifier(meta.proposer, meta.difficulty);
-            require(_verifier != address(0), "VerifierNotFound");
-
-            if (verifier == address(0)) {
-                verifier = _verifier;
-            } else {
-                require(verifier == _verifier, "MultipleVerifier");
-            }
-
             TransitionV3 calldata tran = _transitions[i];
             require(tran.parentHash != 0, "InvalidTransitionParentHash");
             require(tran.blockHash != 0, "InvalidTransitionBlockHash");
             require(tran.stateRoot != 0, "InvalidTransitionStateRoot");
 
+            ctxs[i].difficulty = meta.difficulty;
+            ctxs[i].blockId = meta.blockId;
             ctxs[i].metaHash = keccak256(abi.encode(meta));
             ctxs[i].tran = tran;
 
@@ -220,7 +212,6 @@ contract Taiko is EssentialContract, ITaiko {
             }
 
             ts.blockHash = tran.blockHash;
-            ts.verifier = verifier;
 
             if (_isSyncBlock(meta.blockId, config.stateRootSyncInternal)) {
                 ts.stateRoot = tran.stateRoot;
@@ -230,7 +221,7 @@ contract Taiko is EssentialContract, ITaiko {
         }
 
         if (_metas.length != 0) {
-            IVerifier(verifier).verifyProof(ctxs, proof);
+            IVerifier(resolve(LibStrings.B_PROOF_VERIFIER, false)).verifyProof(ctxs, proof);
         }
 
         _verifyBlocks(config, stats2, _metas.length);
@@ -345,18 +336,6 @@ contract Taiko is EssentialContract, ITaiko {
 
     // Internal functions
     // ------------------------------------------------------------------------------------------
-
-    function getBlockVerifier(
-        address _proposer,
-        bytes32 _difficulty
-    )
-        internal
-        view
-        virtual
-        returns (address)
-    {
-        return resolve(LibStrings.B_PROOF_VERIFIER, false);
-    }
 
     function __Taiko_init(
         address _owner,

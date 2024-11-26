@@ -2,9 +2,9 @@
 pragma solidity ^0.8.24;
 
 import "src/shared/based/LibSharedData.sol";
+
 /// @title ITaiko
 /// @custom:security-contact security@taiko.xyz
-
 interface ITaiko {
     struct BlockParamsV3 {
         bytes32 parentMetaHash;
@@ -48,7 +48,6 @@ interface ITaiko {
         bytes32 parentHash;
         bytes32 blockHash;
         bytes32 stateRoot;
-        address verifier;
     }
 
     /// @notice Struct containing data required for verifying a block.

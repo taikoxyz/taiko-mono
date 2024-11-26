@@ -8,6 +8,8 @@ import "../based/ITaiko.sol";
 /// @custom:security-contact security@taiko.xyz
 interface IVerifier {
     struct Context {
+        uint64 blockId;
+        bytes32 difficulty;
         bytes32 metaHash;
         ITaiko.TransitionV3 tran;
     }
