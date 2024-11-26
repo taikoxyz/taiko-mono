@@ -334,21 +334,16 @@ contract Taiko is EssentialContract, ITaiko {
         __Essential_init(_owner, _rollupResolver);
 
         require(_genesisBlockHash != 0, "InvalidGenesisBlockHash");
-        // Init state
-        state.stats2.numBlocks = 1;
+        state.transitions[0][1].blockHash = _genesisBlockHash;
 
-        // Init the genesis block
         BlockV3 storage blk = state.blocks[0];
-        blk.nextTransitionId = 2;
+        blk.metaHash = bytes32(uint256(1));
         blk.timestamp = uint64(block.timestamp);
         blk.anchorBlockId = uint64(block.number);
         blk.verifiedTransitionId = 1;
-        blk.metaHash = bytes32(uint256(1)); // Give the genesis metahash a non-zero value.
 
-        // Init the first state transition
-        state.transitions[0][1].blockHash = _genesisBlockHash;
-
-        emit BlockVerifiedV3({ blockId: 0, blockHash: _genesisBlockHash });
+        state.stats2.numBlocks = 1;
+        emit BlockVerifiedV3(0, _genesisBlockHash);
     }
 
     function _unpause() internal override {

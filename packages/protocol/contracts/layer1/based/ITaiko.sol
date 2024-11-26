@@ -47,7 +47,7 @@ interface ITaiko {
     struct BlockV3 {
         bytes32 metaHash; // slot 1
         address _reserved2;
-        uint96 livenessBond;
+        uint96 _reserved3;
         uint64 blockId; // slot 3
         uint64 timestamp;
         uint64 anchorBlockId;
