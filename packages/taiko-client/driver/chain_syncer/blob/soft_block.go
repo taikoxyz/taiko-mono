@@ -250,31 +250,17 @@ func (s *Syncer) InsertSoftBlockFromTransactionsBatch(
 		return nil, err
 	}
 
-	if batchID == 0 {
-		log.Info(
-			"⏰ New soft L2 block inserted",
-			"batchID", batchID,
-			"blockID", blockID,
-			"hash", header.Hash(),
-			"transactions", len(payload.Transactions),
-			"baseFee", utils.WeiToGWei(header.BaseFee),
-			"withdrawals", len(payload.Withdrawals),
-			"endOfBlock", attributes.L1Origin.EndOfBlock,
-			"endOfPreconf", attributes.L1Origin.EndOfPreconf,
-		)
-	} else {
-		log.Info(
-			"⏰ Replace the latest soft L2 block",
-			"batchID", batchID,
-			"blockID", blockID,
-			"hash", header.Hash(),
-			"transactions", len(payload.Transactions),
-			"baseFee", utils.WeiToGWei(header.BaseFee),
-			"withdrawals", len(payload.Withdrawals),
-			"endOfBlock", attributes.L1Origin.EndOfBlock,
-			"endOfPreconf", attributes.L1Origin.EndOfPreconf,
-		)
-	}
+	log.Info(
+		"⏰ New soft L2 block inserted",
+		"batchID", batchID,
+		"blockID", blockID,
+		"hash", header.Hash(),
+		"transactions", len(payload.Transactions),
+		"baseFee", utils.WeiToGWei(header.BaseFee),
+		"withdrawals", len(payload.Withdrawals),
+		"endOfBlock", attributes.L1Origin.EndOfBlock,
+		"endOfPreconf", attributes.L1Origin.EndOfPreconf,
+	)
 
 	return header, nil
 }
