@@ -74,7 +74,7 @@ contract Taiko is EssentialContract, ITaiko {
             _proposer = msg.sender;
         } else {
             address preconfTaskManager = resolve(LibStrings.B_PRECONF_TASK_MANAGER, false);
-            require(preconfTaskManager == msg.sender, MsgSenderNotPreconfTaskManager());
+            require(preconfTaskManager == msg.sender, NotPreconfTaskManager());
         }
 
         if (_coinbase == address(0)) {
@@ -150,7 +150,7 @@ contract Taiko is EssentialContract, ITaiko {
         external
         nonReentrant
     {
-        require(_metas.length == _transitions.length, InvalidParam());
+        require(_metas.length == _transitions.length, ArraySizesMismatch());
 
         Stats2 memory stats2 = state.stats2;
         require(stats2.paused == false, ContractPaused());
@@ -163,7 +163,7 @@ contract Taiko is EssentialContract, ITaiko {
 
             require(meta.blockId >= config.pacayaForkHeight, InvalidForkHeight());
             require(meta.blockId < stats2.lastVerifiedBlockId, BlockVerified());
-            require(meta.blockId < stats2.numBlocks, BlockNotProposed());
+            require(meta.blockId < stats2.numBlocks, BlockNotFound());
 
             TransitionV3 calldata tran = _transitions[i];
             require(tran.parentHash != 0, InvalidTransitionParentHash());
@@ -177,7 +177,7 @@ contract Taiko is EssentialContract, ITaiko {
 
             uint256 slot = meta.blockId % config.blockRingBufferSize;
             BlockV3 storage blk = state.blocks[slot];
-            require(ctxs[i].metaHash == blk.metaHash, MataMismatch());
+            require(ctxs[i].metaHash == blk.metaHash, MetaHashMismatch());
 
             uint24 tid;
             uint24 nextTransitionId = blk.nextTransitionId;
