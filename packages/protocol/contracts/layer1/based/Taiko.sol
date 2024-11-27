@@ -25,33 +25,6 @@ contract Taiko is EssentialContract, ITaiko {
 
     State public state;
 
-    error AnchorBlockIdSmallerThanParent();
-    error AnchorBlockIdTooSmall();
-    error AnchorBlockIdTooLarge();
-    error BlobNotFound();
-    error BlockNotFound();
-    error BlockNotProposed();
-    error BlockVerified();
-    error ContractPaused();
-    error EtherNotPaidAsBond();
-    error InvalidForkHeight();
-    error InvalidGenesisBlockHash();
-    error InvalidMsgValue();
-    error InvalidParam();
-    error InvalidTransitionBlockHash();
-    error InvalidTransitionParentHash();
-    error InvalidTransitionStateRoot();
-    error MataMismatch();
-    error MsgSenderNotPreconfTaskManager();
-    error MsgValueNotZero();
-    error NoBlocksToPropose();
-    error ParentMetaHashMismatch();
-    error ProverNotPermitted();
-    error TimestampSmallerThanParent();
-    error TimestampTooLarge();
-    error TimestampTooSmall();
-    error TooManyBlocks();
-
     // External functions ------------------------------------------------------------------------
 
     function init(
@@ -184,7 +157,7 @@ contract Taiko is EssentialContract, ITaiko {
 
         ConfigV3 memory config = getConfigV3();
         IVerifier.Context[] memory ctxs = new IVerifier.Context[](_metas.length);
-        
+
         for (uint256 i; i < _metas.length; ++i) {
             BlockMetadataV3 calldata meta = _metas[i];
 

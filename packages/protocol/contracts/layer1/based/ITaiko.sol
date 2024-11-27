@@ -170,6 +170,33 @@ interface ITaiko {
     /// @param blockHash The hash of the verified block.
     event BlockVerifiedV3(uint256 indexed blockId, bytes32 blockHash);
 
+    error AnchorBlockIdSmallerThanParent();
+    error AnchorBlockIdTooSmall();
+    error AnchorBlockIdTooLarge();
+    error BlobNotFound();
+    error BlockNotFound();
+    error BlockNotProposed();
+    error BlockVerified();
+    error ContractPaused();
+    error EtherNotPaidAsBond();
+    error InvalidForkHeight();
+    error InvalidGenesisBlockHash();
+    error InvalidMsgValue();
+    error InvalidParam();
+    error InvalidTransitionBlockHash();
+    error InvalidTransitionParentHash();
+    error InvalidTransitionStateRoot();
+    error MataMismatch();
+    error MsgSenderNotPreconfTaskManager();
+    error MsgValueNotZero();
+    error NoBlocksToPropose();
+    error ParentMetaHashMismatch();
+    error ProverNotPermitted();
+    error TimestampSmallerThanParent();
+    error TimestampTooLarge();
+    error TimestampTooSmall();
+    error TooManyBlocks();
+
     function proposeBlocksV3(
         address _proposer,
         address _coinbase,
