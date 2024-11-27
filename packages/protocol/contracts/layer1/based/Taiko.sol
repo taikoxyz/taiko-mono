@@ -180,47 +180,43 @@ contract Taiko is EssentialContract, ITaiko {
             BlockV3 storage blk = state.blocks[slot];
             require(ctxs[i].metaHash == blk.metaHash, "MataMismatch");
 
-            uint24 nextTransitionId = blk.nextTransitionId;
             uint24 tid;
-            bool overwiteProvedTransition;
-
+            uint24 nextTransitionId = blk.nextTransitionId;
             if (nextTransitionId > 1) {
                 if (state.transitions[slot][1].parentHash == tran.parentHash) {
                     tid = 1;
-                    overwiteProvedTransition = true;
                 } else if (nextTransitionId > 2) {
                     tid = state.transitionIds[meta.blockId][tran.parentHash];
-                    overwiteProvedTransition = (tid != 0);
                 }
             }
 
+
+            bool isOverwrite = (tid != 0);
             if (tid == 0) {
                 tid = blk.nextTransitionId++;
             }
 
             TransitionV3 storage ts = state.transitions[slot][tid];
-            if (overwiteProvedTransition) {
+            if (isOverwrite) {
                 emit TransitionOverwritten(meta.blockId, ts);
-            }
-
-            if (tid != 1) {
-                state.transitionIds[meta.blockId][tran.parentHash] = tid;
-            } else if (!overwiteProvedTransition) {
+            } else if (tid == 1) {
                 uint256 deadline =
                     uint256(meta.proposedAt).max(stats2.lastUnpausedAt) + config.provingWindow;
                 if (block.timestamp <= deadline) {
                     require(msg.sender == meta.proposer, "ProverNotPermitted");
                     _creditBond(meta.proposer, meta.livenessBond);
                 }
-                ts.parentHash = tran.parentHash;
-            }
 
-            ts.blockHash = tran.blockHash;
+                ts.parentHash = tran.parentHash;
+            } else {
+                state.transitionIds[meta.blockId][tran.parentHash] = tid;
+            }
 
             if (meta.blockId % config.stateRootSyncInternal == 0) {
                 ts.stateRoot = tran.stateRoot;
             }
 
+            ts.blockHash = tran.blockHash;
             emit TransitionProved(meta.blockId, ts);
         }
 
