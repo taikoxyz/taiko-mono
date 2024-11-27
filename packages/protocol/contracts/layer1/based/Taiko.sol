@@ -190,7 +190,6 @@ contract Taiko is EssentialContract, ITaiko {
                 }
             }
 
-
             bool isOverwrite = (tid != 0);
             if (tid == 0) {
                 tid = blk.nextTransitionId++;
