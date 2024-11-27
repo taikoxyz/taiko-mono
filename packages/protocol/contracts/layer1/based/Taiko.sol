@@ -217,7 +217,7 @@ contract Taiko is EssentialContract, ITaiko {
             }
 
             ts.blockHash = tran.blockHash;
-            emit TransitionProved(meta.blockId, ts);
+            emit TransitionProved(meta.blockId, tran);
         }
 
         if (_metas.length != 0) {
