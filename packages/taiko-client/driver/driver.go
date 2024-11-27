@@ -146,27 +146,31 @@ func (d *Driver) Start() error {
 
 	if d.p2pnetwork != nil {
 		go d.p2pnetwork.DiscoverPeers(d.ctx)
-		go p2p.JoinTopic[softblocks.TransactionBatch](d.ctx, d.p2pnetwork, p2p.TopicNameSoftBlocks, func(ctx context.Context, txBatch softblocks.TransactionBatch) error {
-			_, err := d.l2ChainSyncer.BlobSyncer().InsertSoftBlockFromTransactionsBatch(
-				ctx,
-				txBatch.BlockID,
-				txBatch.ID,
-				d.txListDecompressor.TryDecompress(
-					d.rpc.L2.ChainID,
-					new(big.Int).SetUint64(txBatch.BlockID),
-					txBatch.TransactionsList,
-					true,
-				),
-				txBatch.BatchMarker,
-				txBatch.BlockParams,
-			)
+		go func() {
+			if err := p2p.JoinTopic[softblocks.TransactionBatch](d.ctx, d.p2pnetwork, p2p.TopicNameSoftBlocks, func(ctx context.Context, txBatch softblocks.TransactionBatch) error {
+				_, err := d.l2ChainSyncer.BlobSyncer().InsertSoftBlockFromTransactionsBatch(
+					ctx,
+					txBatch.BlockID,
+					txBatch.ID,
+					d.txListDecompressor.TryDecompress(
+						d.rpc.L2.ChainID,
+						new(big.Int).SetUint64(txBatch.BlockID),
+						txBatch.TransactionsList,
+						true,
+					),
+					txBatch.BatchMarker,
+					txBatch.BlockParams,
+				)
 
-			if err != nil {
-				slog.Error("error inserting soft block", "error", err)
+				if err != nil {
+					slog.Error("error inserting soft block", "error", err)
+				}
+
+				return err
+			}); err != nil {
+				log.Error("Failed to join soft block topic", "error", err)
 			}
-
-			return err
-		})
+		}()
 	}
 
 	return nil

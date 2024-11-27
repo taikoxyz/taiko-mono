@@ -26,8 +26,6 @@ const rendezvous = "taiko-p2p"
 
 const TopicNameSoftBlocks = "soft-blocks"
 
-const defaultMessageDiscoveryInterval = 1 * time.Second
-
 type topicHandlerFunc[T any] func(context.Context, T) error
 
 type Network struct {
@@ -36,7 +34,7 @@ type Network struct {
 	routingDiscovery *discovery.RoutingDiscovery
 	topics           map[string]*pubsub.Topic
 	topicHandlers    map[string]any
-	bootstrapNodeUrl string
+	bootstrapNodeURL string
 	localFullAddr    string
 	fullAddr         string
 	peers            []*peer.AddrInfo
@@ -44,7 +42,7 @@ type Network struct {
 	receivedMessages int
 }
 
-func NewNetwork(ctx context.Context, bootstrapNodeUrl string, port uint64) (*Network, error) {
+func NewNetwork(ctx context.Context, bootstrapNodeURL string, port uint64) (*Network, error) {
 	host, err := libp2p.New(
 		libp2p.ListenAddrs(multiaddr.StringCast(fmt.Sprintf("/ip4/0.0.0.0/tcp/%v", port))),
 	)
@@ -69,7 +67,7 @@ func NewNetwork(ctx context.Context, bootstrapNodeUrl string, port uint64) (*Net
 		host:             host,
 		topics:           make(map[string]*pubsub.Topic),
 		topicHandlers:    make(map[string]any),
-		bootstrapNodeUrl: bootstrapNodeUrl,
+		bootstrapNodeURL: bootstrapNodeURL,
 		localFullAddr:    localFullAddr,
 		fullAddr:         fullAddr,
 		peers:            make([]*peer.AddrInfo, 0),
@@ -77,7 +75,7 @@ func NewNetwork(ctx context.Context, bootstrapNodeUrl string, port uint64) (*Net
 
 	n.acceptIncomingPeers()
 
-	err = bootstrapDHT(ctx, n, bootstrapNodeUrl, host, kademliaDHT)
+	err = bootstrapDHT(ctx, n, bootstrapNodeURL, host, kademliaDHT)
 	if err != nil {
 		return nil, err
 	}
@@ -130,14 +128,14 @@ func (n *Network) startAdvertising(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			n.routingDiscovery.Advertise(ctx, rendezvous)
+			_, _ = n.routingDiscovery.Advertise(ctx, rendezvous)
 		}
 	}
 }
 
 func (n *Network) acceptIncomingPeers() {
 	n.host.Network().Notify(&network.NotifyBundle{
-		ConnectedF: func(nw network.Network, conn network.Conn) {
+		ConnectedF: func(_ network.Network, conn network.Conn) {
 			peerID := conn.RemotePeer()
 
 			addrInfo := peer.AddrInfo{
@@ -206,7 +204,7 @@ func (n *Network) DiscoverPeers(ctx context.Context) {
 // Publish a message to the network
 func Publish[T any](ctx context.Context, n *Network, topicName string, msg T) error {
 	if n.topics[topicName] == nil {
-		return errors.New("Topic not found")
+		return errors.New("topic not registered")
 	}
 
 	data, err := json.Marshal(msg)
@@ -223,7 +221,7 @@ func Publish[T any](ctx context.Context, n *Network, topicName string, msg T) er
 	return nil
 }
 
-func JoinTopic[T any](ctx context.Context, n *Network, topicName string, topicHandler topicHandlerFunc[T]) error {
+func JoinTopic[T any](_ context.Context, n *Network, topicName string, topicHandler topicHandlerFunc[T]) error {
 	topic, err := n.ps.Join(topicName)
 	if err != nil {
 		return err
@@ -298,7 +296,6 @@ func bootstrapDHT(ctx context.Context, n *Network, addr string, host host.Host, 
 	if err := host.Connect(ctx, *peerInfo); err != nil {
 		slog.Error("unable to connect to bootstrap peer", "peerID", peerInfo.ID, "err", err)
 	} else {
-
 		n.peersMutex.Lock()
 		// Check if peer is already added
 		for _, p := range n.peers {

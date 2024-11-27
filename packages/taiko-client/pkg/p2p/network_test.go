@@ -28,22 +28,23 @@ func Test_Network(t *testing.T) {
 
 	defer cancel()
 
-	assert.Nil(t, JoinTopic(context.Background(), n, "test", func(ctx context.Context, data []byte) error {
+	assert.Nil(t, JoinTopic(context.Background(), n, "test", func(_ context.Context, data []byte) error {
 		slog.Info("Node n received message", "data", string(data))
 		assert.Equal(t, data, []byte("hello"))
 		return nil
 	}))
 
-	assert.Nil(t, JoinTopic(context.Background(), n2, "test", func(ctx context.Context, data []byte) error {
+	assert.Nil(t, JoinTopic(context.Background(), n2, "test", func(_ context.Context, data []byte) error {
 		slog.Info("Node n2 received message", "data", string(data))
 		assert.Equal(t, data, []byte("hello"))
 		return nil
 	}))
 
-	go SubscribeToTopic[[]byte](ctx, n, "test")
+	go func() {
+		assert.Nil(t, SubscribeToTopic[[]byte](ctx, n, "test"))
+	}()
 
 	assert.Nil(t, Publish(context.Background(), n2, "test", []byte("hello")))
 
 	assert.Equal(t, 1, n.receivedMessages)
-
 }
