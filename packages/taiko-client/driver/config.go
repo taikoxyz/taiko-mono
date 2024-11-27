@@ -27,6 +27,7 @@ type Config struct {
 	SoftBlockServerJWTSecret   []byte
 	SoftBlockServerCORSOrigins string
 	SoftBlockServerCheckSig    bool
+	SoftBlockWSEndpoint        string
 }
 
 // NewConfigFromCliContext creates a new config instance from
@@ -105,5 +106,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		SoftBlockServerJWTSecret:   softBlockServerJWTSecret,
 		SoftBlockServerCORSOrigins: c.String(flags.SoftBlockServerCORSOrigins.Name),
 		SoftBlockServerCheckSig:    c.Bool(flags.SoftBlockServerCheckSig.Name),
+		SoftBlockWSEndpoint:        c.String(flags.SoftBlockWebsocketEndpoint.Name),
 	}, nil
 }

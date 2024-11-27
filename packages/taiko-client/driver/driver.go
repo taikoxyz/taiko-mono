@@ -10,7 +10,9 @@ import (
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
@@ -99,6 +101,39 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 			d.Config.SoftBlockServerCheckSig,
 		); err != nil {
 			return err
+		}
+	}
+
+	// listen to websocket events for soft blocks
+	if d.Config.SoftBlockWSEndpoint != "" {
+		client, err := ethclient.DialContext(ctx, d.Config.SoftBlockWSEndpoint)
+		if err != nil {
+			return err
+		}
+
+		softBlockCh := make(chan *core.SoftBlockEvent)
+		sub, err := client.SubscribeNewSoftBlock(ctx, softBlockCh)
+		if err != nil {
+			return err
+		}
+
+		for {
+			select {
+			case <-ctx.Done():
+				return nil
+			case err := <-sub.Err():
+				return err
+			case event := <-softBlockCh:
+				if _, err := d.l2ChainSyncer.BlobSyncer().InsertSoftBlockFromBlock(
+					ctx,
+					event.Block,
+					event.BatchID,
+					event.EndOfBlock,
+					event.EndOfPreconf,
+				); err != nil {
+					log.Error("Failed to handle soft block event", "error", err)
+				}
+			}
 		}
 	}
 

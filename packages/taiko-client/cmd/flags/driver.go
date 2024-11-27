@@ -79,6 +79,12 @@ var (
 		Value:    false,
 		EnvVars:  []string{"SOFT_BLOCK_SERVER_SIGNATURE_CHECK"},
 	}
+	SoftBlockWebsocketEndpoint = &cli.StringFlag{
+		Name:     "softBlock.ws",
+		Usage:    "Websocket endpoint for the soft block server",
+		Category: driverCategory,
+		EnvVars:  []string{"SOFT_BLOCK_WS"},
+	}
 )
 
 // DriverFlags All driver flags.
@@ -97,4 +103,5 @@ var DriverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	SoftBlockServerJWTSecret,
 	SoftBlockServerCORSOrigins,
 	SoftBlockServerCheckSig,
+	SoftBlockWebsocketEndpoint,
 })

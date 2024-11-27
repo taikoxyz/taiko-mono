@@ -22,6 +22,59 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
+func (s *Syncer) InsertSoftBlockFromBlock(
+	ctx context.Context,
+	block *types.Block,
+	batchId *big.Int,
+	endOfBlock bool,
+	endOfPreconf bool,
+) (*types.Header, error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	parent, err := s.rpc.L2.HeaderByNumber(ctx, new(big.Int).Sub(new(big.Int).SetUint64(block.NumberU64()), common.Big1))
+	if err != nil {
+		return nil, err
+	}
+
+	if parent.Number.Uint64()+1 != block.NumberU64() {
+		return nil, fmt.Errorf("parent block number (%d) is not equal to blockID - 1 (%d)", parent.Number.Uint64(), block.NumberU64())
+	}
+
+	// Calculate the other block parameters
+	difficultyHashPayload, err := encoding.EncodeDifficultyCalcutionParams(block.NumberU64())
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode `block.difficulty` calculation parameters: %w", err)
+	}
+	var (
+		txList = block.Transactions()
+	)
+
+	txListBytes, err := rlp.EncodeToBytes(txList)
+
+	if err != nil {
+		log.Error("Encode txList error", "blockID", block.NumberU64(), "error", err)
+		return nil, err
+	}
+
+	return s.insertSoftBlock(
+		ctx,
+		block.Time(),
+		crypto.Keccak256Hash(difficultyHashPayload),
+		block.Coinbase(),
+		txListBytes,
+		block.Extra(),
+		block.GasLimit(),
+		block.BaseFee(),
+		block.Number(),
+		batchId,
+		endOfBlock,
+		endOfPreconf,
+		uint64(len(txList)),
+		&engine.ForkchoiceStateV1{HeadBlockHash: parent.Hash()},
+	)
+}
+
 // InsertSoftBlockFromTransactionsBatch inserts a soft block into the L2 execution engine's blockchain
 // from the given transactions batch.
 func (s *Syncer) InsertSoftBlockFromTransactionsBatch(
@@ -45,7 +98,7 @@ func (s *Syncer) InsertSoftBlockFromTransactionsBatch(
 	}
 
 	// Calculate the other block parameters
-	difficultyHashPaylaod, err := encoding.EncodeDifficultyCalcutionParams(blockID)
+	difficultyHashPayload, err := encoding.EncodeDifficultyCalcutionParams(blockID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode `block.difficulty` calculation parameters: %w", err)
 	}
@@ -57,7 +110,7 @@ func (s *Syncer) InsertSoftBlockFromTransactionsBatch(
 	var (
 		txList     []*types.Transaction
 		fc         = &engine.ForkchoiceStateV1{HeadBlockHash: parent.Hash()}
-		difficulty = crypto.Keccak256Hash(difficultyHashPaylaod)
+		difficulty = crypto.Keccak256Hash(difficultyHashPayload)
 		extraData  = encoding.EncodeBaseFeeConfig(&protocolConfigs.BaseFeeConfig)
 	)
 
@@ -140,34 +193,68 @@ func (s *Syncer) InsertSoftBlockFromTransactionsBatch(
 		return nil, err
 	}
 
+	return s.insertSoftBlock(
+		ctx,
+		blockParams.Timestamp,
+		difficulty,
+		blockParams.Coinbase,
+		txListBytes,
+		extraData[:],
+		uint64(protocolConfigs.BlockMaxGasLimit)+consensus.AnchorGasLimit,
+		baseFee,
+		new(big.Int).SetUint64(blockID),
+		new(big.Int).SetUint64(batchID),
+		batchMarker == softblocks.BatchMarkerEOB,
+		batchMarker == softblocks.BatchMarkerEOP,
+		uint64(len(txList)),
+		fc,
+	)
+}
+
+func (s *Syncer) insertSoftBlock(
+	ctx context.Context,
+	timestamp uint64,
+	difficulty common.Hash,
+	coinbase common.Address,
+	txListBytes []byte,
+	extraData []byte,
+	gasLimit uint64,
+	baseFee *big.Int,
+	blockNumber *big.Int,
+	batchId *big.Int,
+	endOfBlock bool,
+	endOfPreconf bool,
+	transactionsLength uint64,
+	fc *engine.ForkchoiceStateV1,
+) (*types.Header, error) {
 	attributes := &engine.PayloadAttributes{
-		Timestamp:             blockParams.Timestamp,
+		Timestamp:             timestamp,
 		Random:                difficulty,
-		SuggestedFeeRecipient: blockParams.Coinbase,
+		SuggestedFeeRecipient: coinbase,
 		Withdrawals:           []*types.Withdrawal{},
 		BlockMetadata: &engine.BlockMetadata{
-			Beneficiary: blockParams.Coinbase,
-			GasLimit:    uint64(protocolConfigs.BlockMaxGasLimit) + consensus.AnchorGasLimit,
-			Timestamp:   blockParams.Timestamp,
+			Beneficiary: coinbase,
+			GasLimit:    gasLimit,
+			Timestamp:   timestamp,
 			TxList:      txListBytes,
 			MixHash:     difficulty,
 			ExtraData:   extraData[:],
 		},
 		BaseFeePerGas: baseFee,
 		L1Origin: &rawdb.L1Origin{
-			BlockID:       new(big.Int).SetUint64(blockID),
+			BlockID:       blockNumber,
 			L2BlockHash:   common.Hash{}, // Will be set by taiko-geth.
 			L1BlockHeight: nil,           // No L1 block height for soft blocks.
-			BatchID:       new(big.Int).SetUint64(batchID),
-			EndOfBlock:    batchMarker == softblocks.BatchMarkerEOB,
-			EndOfPreconf:  batchMarker == softblocks.BatchMarkerEOP,
-			Preconfer:     blockParams.Coinbase,
+			BatchID:       batchId,
+			EndOfBlock:    endOfBlock,
+			EndOfPreconf:  endOfPreconf,
+			Preconfer:     coinbase,
 		},
 	}
 
 	log.Info(
 		"Soft block payloadAttributes",
-		"blockID", blockID,
+		"blockID", blockNumber,
 		"timestamp", attributes.Timestamp,
 		"random", attributes.Random,
 		"suggestedFeeRecipient", attributes.SuggestedFeeRecipient,
@@ -177,7 +264,7 @@ func (s *Syncer) InsertSoftBlockFromTransactionsBatch(
 		"mixHash", attributes.BlockMetadata.MixHash,
 		"baseFee", utils.WeiToGWei(attributes.BaseFeePerGas),
 		"extraData", common.Bytes2Hex(attributes.BlockMetadata.ExtraData),
-		"transactions", len(txList),
+		"transactions", transactionsLength,
 	)
 
 	// Step 1, prepare a payload
@@ -200,7 +287,7 @@ func (s *Syncer) InsertSoftBlockFromTransactionsBatch(
 
 	log.Info(
 		"Soft block payload",
-		"blockID", blockID,
+		"blockID", blockNumber,
 		"baseFee", utils.WeiToGWei(payload.BaseFeePerGas),
 		"number", payload.Number,
 		"hash", payload.BlockHash,
@@ -250,7 +337,7 @@ func (s *Syncer) InsertSoftBlockFromTransactionsBatch(
 
 	log.Info(
 		"⏰ New soft L2 block inserted",
-		"blockID", blockID,
+		"blockID", blockNumber,
 		"hash", header.Hash(),
 		"transactions", len(payload.Transactions),
 		"baseFee", utils.WeiToGWei(header.BaseFee),
