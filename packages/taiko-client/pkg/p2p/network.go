@@ -37,7 +37,7 @@ type Network struct {
 	bootstrapNodeURL string
 	localFullAddr    string
 	fullAddr         string
-	peers            []*peer.AddrInfo
+	peers            []peer.AddrInfo
 	peersMutex       sync.Mutex
 	receivedMessages int
 }
@@ -70,7 +70,7 @@ func NewNetwork(ctx context.Context, bootstrapNodeURL string, port uint64) (*Net
 		bootstrapNodeURL: bootstrapNodeURL,
 		localFullAddr:    localFullAddr,
 		fullAddr:         fullAddr,
-		peers:            make([]*peer.AddrInfo, 0),
+		peers:            make([]peer.AddrInfo, 0),
 	}
 
 	n.acceptIncomingPeers()
@@ -119,7 +119,7 @@ func (n *Network) startAdvertising(ctx context.Context) {
 			continue
 		}
 
-		n.peers = append(n.peers, &peerInfo)
+		n.peers = append(n.peers, peerInfo)
 	}
 	n.peersMutex.Unlock()
 
@@ -157,7 +157,7 @@ func (n *Network) acceptIncomingPeers() {
 				return // dont connect to self
 			}
 
-			n.peers = append(n.peers, &addrInfo)
+			n.peers = append(n.peers, addrInfo)
 			slog.Info("Peer added to list via Notify", "peerID", peerID, "hostPeerID", n.host.ID())
 		},
 	})
@@ -192,7 +192,7 @@ func (n *Network) DiscoverPeers(ctx context.Context) {
 					slog.Error("Failed to connect to peer", "peerID", peerInfo.ID, "err", err)
 				} else {
 					n.peersMutex.Lock()
-					n.peers = append(n.peers, &peerInfo)
+					n.peers = append(n.peers, peerInfo)
 					n.peersMutex.Unlock()
 					slog.Info("Connected to peer", "peerID", peerInfo.ID)
 				}
@@ -235,7 +235,7 @@ func JoinTopic[T any](_ context.Context, n *Network, topicName string, topicHand
 
 func SubscribeToTopic[T any](ctx context.Context, n *Network, topicName string) error {
 	if n.topics[topicName] == nil || n.topicHandlers[topicName] == nil {
-		return errors.New("Topic not found")
+		return errors.New("topic not found")
 	}
 
 	sub, err := n.topics[topicName].Subscribe()
@@ -308,7 +308,7 @@ func bootstrapDHT(ctx context.Context, n *Network, addr string, host host.Host, 
 			return nil
 		}
 
-		n.peers = append(n.peers, peerInfo)
+		n.peers = append(n.peers, *peerInfo)
 
 		defer n.peersMutex.Unlock()
 		slog.Info("successfully connected to peer", "peerID", peerInfo.ID, "hostPeerID", host.ID())
