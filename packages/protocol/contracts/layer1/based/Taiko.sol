@@ -183,8 +183,6 @@ contract Taiko is EssentialContract, ITaiko {
         require(stats2.paused == false, ContractPaused());
 
         ConfigV3 memory config = getConfigV3();
-        require(stats2.numBlocks >= config.pacayaForkHeight, InvalidForkHeight());
-
         IVerifier.Context[] memory ctxs = new IVerifier.Context[](_metas.length);
         for (uint256 i; i < _metas.length; ++i) {
             BlockMetadataV3 calldata meta = _metas[i];
