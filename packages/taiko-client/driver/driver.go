@@ -172,7 +172,15 @@ func (d *Driver) Start() error {
 
 					return err
 				}); err != nil {
-				log.Error("Failed to join soft block topic", "error", err)
+				slog.Error("Failed to join soft block topic", "error", err)
+			}
+
+			if err := p2p.SubscribeToTopic[softblocks.TransactionBatch](
+				d.ctx,
+				d.p2pnetwork,
+				p2p.TopicNameSoftBlocks,
+			); err != nil {
+				slog.Error("Failed to subscribe to soft block topic", "error", err)
 			}
 		}()
 	}
