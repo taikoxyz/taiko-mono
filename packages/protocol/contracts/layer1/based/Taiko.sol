@@ -25,6 +25,33 @@ contract Taiko is EssentialContract, ITaiko {
 
     State public state;
 
+    error AnchorBlockIdSmallerThanParent();
+    error AnchorBlockIdTooSmall();
+    error AnchorBlockIdTooLarge();
+    error BlobNotFound();
+    error BlockNotFound();
+    error BlockNotProposed();
+    error BlockVerified();
+    error ContractPaused();
+    error EtherNotPaidAsBond();
+    error InvalidForkHeight();
+    error InvalidGenesisBlockHash();
+    error InvalidMsgValue();
+    error InvalidParam();
+    error InvalidTransitionBlockHash();
+    error InvalidTransitionParentHash();
+    error InvalidTransitionStateRoot();
+    error MataMismatch();
+    error MsgSenderNotPreconfTaskManager();
+    error MsgValueNotZero();
+    error NoBlocksToPropose();
+    error ParentMetaHashMismatch();
+    error ProverNotPermitted();
+    error TimestampSmallerThanParent();
+    error TimestampTooLarge();
+    error TimestampTooSmall();
+    error TooManyBlocks();
+
     // External functions ------------------------------------------------------------------------
 
     function init(
@@ -47,18 +74,18 @@ contract Taiko is EssentialContract, ITaiko {
         nonReentrant
         returns (BlockMetadataV3[] memory metas_)
     {
-        require(_paramss.length != 0, "NoBlocksToPropose");
+        require(_paramss.length != 0, NoBlocksToPropose());
 
         Stats2 memory stats2 = state.stats2;
-        require(stats2.paused == false, "ContractPaused");
+        require(stats2.paused == false, ContractPaused());
 
         ConfigV3 memory config = getConfigV3();
-        require(stats2.numBlocks >= config.pacayaForkHeight, "InvalidForkHeight");
+        require(stats2.numBlocks >= config.pacayaForkHeight, InvalidForkHeight());
 
         require(
             stats2.numBlocks + _paramss.length
                 <= stats2.lastVerifiedBlockId + config.blockMaxProposals,
-            "TooManyBlocks"
+            TooManyBlocks()
         );
 
         BlockV3 storage parentBlk =
@@ -74,7 +101,7 @@ contract Taiko is EssentialContract, ITaiko {
             _proposer = msg.sender;
         } else {
             address preconfTaskManager = resolve(LibStrings.B_PRECONF_TASK_MANAGER, false);
-            require(preconfTaskManager == msg.sender, "MsgSenderNotPreconfTaskManager");
+            require(preconfTaskManager == msg.sender, MsgSenderNotPreconfTaskManager());
         }
 
         if (_coinbase == address(0)) {
@@ -111,7 +138,7 @@ contract Taiko is EssentialContract, ITaiko {
                 baseFeeConfig: config.baseFeeConfig
             });
 
-            require(metas_[i].blobHash != 0, "BlobNotFound");
+            require(metas_[i].blobHash != 0, BlobNotFound());
             bytes32 metaHash = keccak256(abi.encode(metas_[i]));
 
             BlockV3 storage blk = state.blocks[stats2.numBlocks % config.blockRingBufferSize];
@@ -150,26 +177,26 @@ contract Taiko is EssentialContract, ITaiko {
         external
         nonReentrant
     {
-        require(_metas.length == _transitions.length, "InvalidParam");
+        require(_metas.length == _transitions.length, InvalidParam());
 
         Stats2 memory stats2 = state.stats2;
-        require(stats2.paused == false, "ContractPaused");
+        require(stats2.paused == false, ContractPaused());
 
         ConfigV3 memory config = getConfigV3();
-        require(stats2.numBlocks >= config.pacayaForkHeight, "InvalidForkHeight");
+        require(stats2.numBlocks >= config.pacayaForkHeight, InvalidForkHeight());
 
         IVerifier.Context[] memory ctxs = new IVerifier.Context[](_metas.length);
         for (uint256 i; i < _metas.length; ++i) {
             BlockMetadataV3 calldata meta = _metas[i];
 
-            require(meta.blockId >= config.pacayaForkHeight, "InvalidForkHeight");
-            require(meta.blockId < stats2.lastVerifiedBlockId, "BlockVerified");
-            require(meta.blockId < stats2.numBlocks, "BlockNotProposed");
+            require(meta.blockId >= config.pacayaForkHeight, InvalidForkHeight());
+            require(meta.blockId < stats2.lastVerifiedBlockId, BlockVerified());
+            require(meta.blockId < stats2.numBlocks, BlockNotProposed());
 
             TransitionV3 calldata tran = _transitions[i];
-            require(tran.parentHash != 0, "InvalidTransitionParentHash");
-            require(tran.blockHash != 0, "InvalidTransitionBlockHash");
-            require(tran.stateRoot != 0, "InvalidTransitionStateRoot");
+            require(tran.parentHash != 0, InvalidTransitionParentHash());
+            require(tran.blockHash != 0, InvalidTransitionBlockHash());
+            require(tran.stateRoot != 0, InvalidTransitionStateRoot());
 
             ctxs[i].blockId = meta.blockId;
             ctxs[i].difficulty = meta.difficulty;
@@ -178,7 +205,7 @@ contract Taiko is EssentialContract, ITaiko {
 
             uint256 slot = meta.blockId % config.blockRingBufferSize;
             BlockV3 storage blk = state.blocks[slot];
-            require(ctxs[i].metaHash == blk.metaHash, "MataMismatch");
+            require(ctxs[i].metaHash == blk.metaHash, MataMismatch());
 
             uint24 tid;
             uint24 nextTransitionId = blk.nextTransitionId;
@@ -202,7 +229,7 @@ contract Taiko is EssentialContract, ITaiko {
                 uint256 deadline =
                     uint256(meta.proposedAt).max(stats2.lastUnpausedAt) + config.provingWindow;
                 if (block.timestamp <= deadline) {
-                    require(msg.sender == meta.proposer, "ProverNotPermitted");
+                    require(msg.sender == meta.proposer, ProverNotPermitted());
                     _creditBond(meta.proposer, meta.livenessBond);
                 }
 
@@ -276,10 +303,10 @@ contract Taiko is EssentialContract, ITaiko {
 
     function getBlockV3(uint64 _blockId) external view returns (BlockV3 memory blk_) {
         ConfigV3 memory config = getConfigV3();
-        require(_blockId >= config.pacayaForkHeight, "InvalidForkHeight");
+        require(_blockId >= config.pacayaForkHeight, InvalidForkHeight());
 
         blk_ = state.blocks[_blockId % config.blockRingBufferSize];
-        require(blk_.blockId == _blockId, "BlockNotFound");
+        require(blk_.blockId == _blockId, BlockNotFound());
     }
 
     // Public functions -------------------------------------------------------------------------
@@ -301,7 +328,7 @@ contract Taiko is EssentialContract, ITaiko {
 
         uint64 slot = _blockId % config.blockRingBufferSize;
         BlockV3 storage blk = state.blocks[slot];
-        require(blk.blockId == _blockId, "BlockNotFound");
+        require(blk.blockId == _blockId, BlockNotFound());
 
         if (blk.verifiedTransitionId != 0) {
             tran_ = state.transitions[slot][blk.verifiedTransitionId];
@@ -341,7 +368,7 @@ contract Taiko is EssentialContract, ITaiko {
     {
         __Essential_init(_owner, _rollupResolver);
 
-        require(_genesisBlockHash != 0, "InvalidGenesisBlockHash");
+        require(_genesisBlockHash != 0, InvalidGenesisBlockHash());
         state.transitions[0][1].blockHash = _genesisBlockHash;
 
         BlockV3 storage blk = state.blocks[0];
@@ -473,10 +500,10 @@ contract Taiko is EssentialContract, ITaiko {
         address bond = bondToken();
 
         if (bond != address(0)) {
-            require(msg.value == 0, "InvalidMsgValue");
+            require(msg.value == 0, MsgValueNotZero());
             IERC20(bond).transferFrom(_user, address(this), _amount);
         } else {
-            require(msg.value == _amount, "EtherNotPaidAsBond");
+            require(msg.value == _amount, EtherNotPaidAsBond());
         }
         emit BondDeposited(_user, _amount);
     }
@@ -493,9 +520,14 @@ contract Taiko is EssentialContract, ITaiko {
         if (_params.anchorBlockId == 0) {
             updatedParams_.anchorBlockId = uint64(block.number - 1);
         } else {
-            require(_params.anchorBlockId + _maxAnchorHeightOffset >= block.number, "AnchorBlockId");
-            require(_params.anchorBlockId < block.number, "AnchorBlockId");
-            require(_params.anchorBlockId >= _parent.anchorBlockId, "AnchorBlockId");
+            require(
+                _params.anchorBlockId + _maxAnchorHeightOffset >= block.number,
+                AnchorBlockIdTooSmall()
+            );
+            require(_params.anchorBlockId < block.number, AnchorBlockIdTooLarge());
+            require(
+                _params.anchorBlockId >= _parent.anchorBlockId, AnchorBlockIdSmallerThanParent()
+            );
             updatedParams_.anchorBlockId = _params.anchorBlockId;
         }
 
@@ -507,10 +539,10 @@ contract Taiko is EssentialContract, ITaiko {
             require(
                 _params.timestamp + _maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME
                     >= block.timestamp,
-                "TimestampTooSmall"
+                TimestampTooSmall()
             );
-            require(_params.timestamp <= block.timestamp, "TimestampTooLarge");
-            require(_params.timestamp >= _parent.timestamp, "TimestampTooLarge");
+            require(_params.timestamp <= block.timestamp, TimestampTooLarge());
+            require(_params.timestamp >= _parent.timestamp, TimestampSmallerThanParent());
 
             updatedParams_.timestamp = _params.timestamp;
         }
@@ -519,7 +551,7 @@ contract Taiko is EssentialContract, ITaiko {
         // make sure the block builds on the expected latest chain state.
         require(
             _params.parentMetaHash == 0 || _params.parentMetaHash == _parent.metaHash,
-            "ParentMetaHashMismatch"
+            ParentMetaHashMismatch()
         );
     }
 
