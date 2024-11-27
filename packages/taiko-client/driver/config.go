@@ -27,6 +27,8 @@ type Config struct {
 	SoftBlockServerJWTSecret   []byte
 	SoftBlockServerCORSOrigins string
 	SoftBlockServerCheckSig    bool
+	P2PNetworkPort             uint64
+	P2PNetworkBootstrapNodeURL string
 }
 
 // NewConfigFromCliContext creates a new config instance from
@@ -105,5 +107,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		SoftBlockServerJWTSecret:   softBlockServerJWTSecret,
 		SoftBlockServerCORSOrigins: c.String(flags.SoftBlockServerCORSOrigins.Name),
 		SoftBlockServerCheckSig:    c.Bool(flags.SoftBlockServerCheckSig.Name),
+		P2PNetworkPort:             c.Uint64(flags.P2PNetworkPort.Name),
+		P2PNetworkBootstrapNodeURL: c.String(flags.P2PNetworkBootstrapNodeURL.Name),
 	}, nil
 }

@@ -2,6 +2,8 @@ package driver
 
 import (
 	"context"
+	"log/slog"
+	"math/big"
 	"sync"
 	"time"
 
@@ -16,9 +18,12 @@ import (
 	"github.com/urfave/cli/v2"
 
 	chainSyncer "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer"
-	softblocks "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/soft_blocks"
+	softblocksapi "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/soft_blocks"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
+	txlistdecompressor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_decompressor"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/p2p"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	softblocks "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/softblocks"
 )
 
 const (
@@ -32,7 +37,7 @@ type Driver struct {
 	*Config
 	rpc             *rpc.Client
 	l2ChainSyncer   *chainSyncer.L2ChainSyncer
-	softblockServer *softblocks.SoftBlockAPIServer
+	softblockServer *softblocksapi.SoftBlockAPIServer
 	state           *state.State
 
 	l1HeadCh  chan *types.Header
@@ -40,6 +45,9 @@ type Driver struct {
 
 	ctx context.Context
 	wg  sync.WaitGroup
+
+	p2pnetwork         *p2p.Network
+	txListDecompressor *txlistdecompressor.TxListDecompressor
 }
 
 // InitFromCli initializes the given driver instance based on the command line flags.
@@ -57,10 +65,20 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 	d.l1HeadCh = make(chan *types.Header, 1024)
 	d.ctx = ctx
 	d.Config = cfg
-
 	if d.rpc, err = rpc.NewClient(d.ctx, cfg.ClientConfig); err != nil {
 		return err
 	}
+
+	protocolConfigs, err := rpc.GetProtocolConfigs(d.rpc.TaikoL1, nil)
+	if err != nil {
+		return err
+	}
+
+	d.txListDecompressor = txlistdecompressor.NewTxListDecompressor(
+		uint64(protocolConfigs.BlockMaxGasLimit),
+		rpc.BlockMaxTxListBytes,
+		d.rpc.L2.ChainID,
+	)
 
 	if d.state, err = state.New(d.ctx, d.rpc); err != nil {
 		return err
@@ -90,13 +108,19 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 
 	d.l1HeadSub = d.state.SubL1HeadsFeed(d.l1HeadCh)
 
+	d.p2pnetwork, err = p2p.NewNetwork(d.ctx, d.Config.P2PNetworkBootstrapNodeURL, d.Config.P2PNetworkPort)
+	if err != nil {
+		return err
+	}
+
 	if d.SoftBlockServerPort > 0 {
-		if d.softblockServer, err = softblocks.New(
+		if d.softblockServer, err = softblocksapi.New(
 			d.SoftBlockServerCORSOrigins,
 			d.SoftBlockServerJWTSecret,
 			d.l2ChainSyncer.BlobSyncer(),
 			d.rpc,
 			d.Config.SoftBlockServerCheckSig,
+			d.p2pnetwork,
 		); err != nil {
 			return err
 		}
@@ -118,6 +142,31 @@ func (d *Driver) Start() error {
 				log.Crit("Failed to start soft block server", "error", err)
 			}
 		}()
+	}
+
+	if d.p2pnetwork != nil {
+		go d.p2pnetwork.DiscoverPeers(d.ctx)
+		go p2p.JoinTopic[softblocks.TransactionBatch](d.ctx, d.p2pnetwork, p2p.TopicNameSoftBlocks, func(ctx context.Context, txBatch softblocks.TransactionBatch) error {
+			_, err := d.l2ChainSyncer.BlobSyncer().InsertSoftBlockFromTransactionsBatch(
+				ctx,
+				txBatch.BlockID,
+				txBatch.ID,
+				d.txListDecompressor.TryDecompress(
+					d.rpc.L2.ChainID,
+					new(big.Int).SetUint64(txBatch.BlockID),
+					txBatch.TransactionsList,
+					true,
+				),
+				txBatch.BatchMarker,
+				txBatch.BlockParams,
+			)
+
+			if err != nil {
+				slog.Error("error inserting soft block", "error", err)
+			}
+
+			return err
+		})
 	}
 
 	return nil

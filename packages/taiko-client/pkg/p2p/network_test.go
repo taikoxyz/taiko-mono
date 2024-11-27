@@ -1,0 +1,49 @@
+package p2p
+
+import (
+	"context"
+	"log/slog"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+)
+
+func Test_Network(t *testing.T) {
+	n, err := NewNetwork(context.Background(), "", 4001)
+	assert.Nil(t, err)
+	defer n.Close()
+
+	n2, err := NewNetwork(context.Background(), n.localFullAddr, 4002)
+	assert.Nil(t, err)
+	defer n2.Close()
+
+	time.Sleep(5 * time.Second) // Allow discovery to propagate
+
+	assert.Equal(t, 1, len(n2.peers))
+
+	assert.Equal(t, 1, len(n.peers))
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	defer cancel()
+
+	assert.Nil(t, JoinTopic(context.Background(), n, "test", func(ctx context.Context, data []byte) error {
+		slog.Info("Node n received message", "data", string(data))
+		assert.Equal(t, data, []byte("hello"))
+		return nil
+	}))
+
+	assert.Nil(t, JoinTopic(context.Background(), n2, "test", func(ctx context.Context, data []byte) error {
+		slog.Info("Node n2 received message", "data", string(data))
+		assert.Equal(t, data, []byte("hello"))
+		return nil
+	}))
+
+	go SubscribeToTopic[[]byte](ctx, n, "test")
+
+	assert.Nil(t, Publish(context.Background(), n2, "test", []byte("hello")))
+
+	assert.Equal(t, 1, n.receivedMessages)
+
+}

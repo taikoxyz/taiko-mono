@@ -11,7 +11,9 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 
 	txListDecompressor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_decompressor"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/p2p"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/softblocks"
 )
 
 // softBlockChainSyncer is an interface for soft block chain syncer.
@@ -21,8 +23,8 @@ type softBlockChainSyncer interface {
 		blockID uint64,
 		batchID uint64,
 		txListBytes []byte,
-		batchMarker TransactionBatchMarker,
-		softBlockParams *SoftBlockParams,
+		batchMarker softblocks.TransactionBatchMarker,
+		softBlockParams *softblocks.SoftBlockParams,
 	) (*types.Header, error)
 	RemoveSoftBlocks(ctx context.Context, newLastBlockID uint64) error
 }
@@ -44,6 +46,7 @@ type SoftBlockAPIServer struct {
 	rpc                *rpc.Client
 	txListDecompressor *txListDecompressor.TxListDecompressor
 	checkSig           bool
+	p2pNetwork         *p2p.Network
 }
 
 // New creates a new soft blcok server instance, and starts the server.
@@ -53,6 +56,7 @@ func New(
 	chainSyncer softBlockChainSyncer,
 	cli *rpc.Client,
 	checkSig bool,
+	p2pNetwork *p2p.Network,
 ) (*SoftBlockAPIServer, error) {
 	protocolConfigs, err := rpc.GetProtocolConfigs(cli.TaikoL1, nil)
 	if err != nil {
@@ -67,8 +71,9 @@ func New(
 			rpc.BlockMaxTxListBytes,
 			cli.L2.ChainID,
 		),
-		rpc:      cli,
-		checkSig: checkSig,
+		rpc:        cli,
+		checkSig:   checkSig,
+		p2pNetwork: p2pNetwork,
 	}
 
 	server.echo.HideBanner = true
