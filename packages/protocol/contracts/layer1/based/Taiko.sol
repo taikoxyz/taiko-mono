@@ -171,8 +171,8 @@ contract Taiko is EssentialContract, ITaiko {
             require(tran.blockHash != 0, "InvalidTransitionBlockHash");
             require(tran.stateRoot != 0, "InvalidTransitionStateRoot");
 
-            ctxs[i].difficulty = meta.difficulty;
             ctxs[i].blockId = meta.blockId;
+            ctxs[i].difficulty = meta.difficulty;
             ctxs[i].metaHash = keccak256(abi.encode(meta));
             ctxs[i].tran = tran;
 
@@ -182,15 +182,15 @@ contract Taiko is EssentialContract, ITaiko {
 
             uint24 nextTransitionId = blk.nextTransitionId;
             uint24 tid;
-            bool reproveSameParentHash;
+            bool overwiteProvedTransition;
 
             if (nextTransitionId > 1) {
                 if (state.transitions[slot][1].parentHash == tran.parentHash) {
                     tid = 1;
-                    reproveSameParentHash = true;
+                    overwiteProvedTransition = true;
                 } else if (nextTransitionId > 2) {
                     tid = state.transitionIds[meta.blockId][tran.parentHash];
-                    reproveSameParentHash = (tid != 0);
+                    overwiteProvedTransition = (tid != 0);
                 }
             }
 
@@ -199,13 +199,13 @@ contract Taiko is EssentialContract, ITaiko {
             }
 
             TransitionV3 storage ts = state.transitions[slot][tid];
-            emit BlockProvedV3(
-                meta.blockId, tid, tran, reproveSameParentHash ? ts : TransitionV3(0, 0, 0)
-            );
+            if (overwiteProvedTransition) {
+                emit TransitionOverwritten(meta.blockId, ts);
+            }
 
             if (tid != 1) {
                 state.transitionIds[meta.blockId][tran.parentHash] = tid;
-            } else if (!reproveSameParentHash) {
+            } else if (!overwiteProvedTransition) {
                 uint256 deadline =
                     uint256(meta.proposedAt).max(stats2.lastUnpausedAt) + config.provingWindow;
                 if (block.timestamp <= deadline) {
@@ -220,6 +220,8 @@ contract Taiko is EssentialContract, ITaiko {
             if (meta.blockId % config.stateRootSyncInternal == 0) {
                 ts.stateRoot = tran.stateRoot;
             }
+
+            emit TransitionProved(meta.blockId, ts);
         }
 
         if (_metas.length != 0) {
