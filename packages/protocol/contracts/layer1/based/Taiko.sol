@@ -34,7 +34,6 @@ contract Taiko is EssentialContract, ITaiko {
     error BlockVerified();
     error ContractPaused();
     error EtherNotPaidAsBond();
-    error InvalidBlockOrder();
     error InvalidForkHeight();
     error InvalidGenesisBlockHash();
     error InvalidMsgValue();
@@ -185,28 +184,24 @@ contract Taiko is EssentialContract, ITaiko {
 
         ConfigV3 memory config = getConfigV3();
         IVerifier.Context[] memory ctxs = new IVerifier.Context[](_metas.length);
-        uint64 blockId;
-
         for (uint256 i; i < _metas.length; ++i) {
             BlockMetadataV3 calldata meta = _metas[i];
-            require(meta.blockId > blockId, InvalidBlockOrder());
-            blockId = meta.blockId;
 
-            require(blockId >= config.pacayaForkHeight, InvalidForkHeight());
-            require(blockId < stats2.lastVerifiedBlockId, BlockVerified());
-            require(blockId < stats2.numBlocks, BlockNotProposed());
+            require(meta.blockId >= config.pacayaForkHeight, InvalidForkHeight());
+            require(meta.blockId < stats2.lastVerifiedBlockId, BlockVerified());
+            require(meta.blockId < stats2.numBlocks, BlockNotProposed());
 
             TransitionV3 calldata tran = _transitions[i];
             require(tran.parentHash != 0, InvalidTransitionParentHash());
             require(tran.blockHash != 0, InvalidTransitionBlockHash());
             require(tran.stateRoot != 0, InvalidTransitionStateRoot());
 
-            ctxs[i].blockId = blockId;
+            ctxs[i].blockId = meta.blockId;
             ctxs[i].difficulty = meta.difficulty;
             ctxs[i].metaHash = keccak256(abi.encode(meta));
             ctxs[i].tran = tran;
 
-            uint256 slot = blockId % config.blockRingBufferSize;
+            uint256 slot = meta.blockId % config.blockRingBufferSize;
             BlockV3 storage blk = state.blocks[slot];
             require(ctxs[i].metaHash == blk.metaHash, MataMismatch());
 
@@ -216,7 +211,7 @@ contract Taiko is EssentialContract, ITaiko {
                 if (state.transitions[slot][1].parentHash == tran.parentHash) {
                     tid = 1;
                 } else if (nextTransitionId > 2) {
-                    tid = state.transitionIds[blockId][tran.parentHash];
+                    tid = state.transitionIds[meta.blockId][tran.parentHash];
                 }
             }
 
@@ -227,7 +222,7 @@ contract Taiko is EssentialContract, ITaiko {
 
             TransitionV3 storage ts = state.transitions[slot][tid];
             if (isOverwrite) {
-                emit TransitionOverwritten(blockId, ts);
+                emit TransitionOverwritten(meta.blockId, ts);
             } else if (tid == 1) {
                 uint256 deadline =
                     uint256(meta.proposedAt).max(stats2.lastUnpausedAt) + config.provingWindow;
@@ -238,15 +233,15 @@ contract Taiko is EssentialContract, ITaiko {
 
                 ts.parentHash = tran.parentHash;
             } else {
-                state.transitionIds[blockId][tran.parentHash] = tid;
+                state.transitionIds[meta.blockId][tran.parentHash] = tid;
             }
 
-            if (blockId % config.stateRootSyncInternal == 0) {
+            if (meta.blockId % config.stateRootSyncInternal == 0) {
                 ts.stateRoot = tran.stateRoot;
             }
 
             ts.blockHash = tran.blockHash;
-            emit TransitionProved(blockId, tran);
+            emit TransitionProved(meta.blockId, tran);
         }
 
         if (_metas.length != 0) {
