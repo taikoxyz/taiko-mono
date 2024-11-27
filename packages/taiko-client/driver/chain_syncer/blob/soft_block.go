@@ -167,8 +167,8 @@ func (s *Syncer) InsertSoftBlockFromTransactionsBatch(
 
 	log.Info(
 		"Soft block payloadAttributes",
-		"batchID", batchID,
 		"blockID", blockID,
+		"batchID", batchID,
 		"timestamp", attributes.Timestamp,
 		"random", attributes.Random,
 		"suggestedFeeRecipient", attributes.SuggestedFeeRecipient,
@@ -201,8 +201,8 @@ func (s *Syncer) InsertSoftBlockFromTransactionsBatch(
 
 	log.Info(
 		"Soft block payload",
-		"batchID", batchID,
 		"blockID", blockID,
+		"batchID", batchID,
 		"baseFee", utils.WeiToGWei(payload.BaseFeePerGas),
 		"number", payload.Number,
 		"hash", payload.BlockHash,
@@ -252,8 +252,8 @@ func (s *Syncer) InsertSoftBlockFromTransactionsBatch(
 
 	log.Info(
 		"⏰ New soft L2 block inserted",
-		"batchID", batchID,
 		"blockID", blockID,
+		"batchID", batchID,
 		"hash", header.Hash(),
 		"transactions", len(payload.Transactions),
 		"baseFee", utils.WeiToGWei(header.BaseFee),
