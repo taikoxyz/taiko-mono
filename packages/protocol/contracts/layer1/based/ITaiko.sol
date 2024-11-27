@@ -157,8 +157,12 @@ interface ITaiko {
 
     /// @notice Emitted when a transition is proved.
     /// @param blockId The block ID.
+    /// @param transitionId The transition ID.
     /// @param tran The transition data.
-    event BlockProvedV3(uint256 indexed blockId, TransitionV3 tran);
+    /// @param oldTran The old transition that has been replaced by the new transition.
+    event BlockProvedV3(
+        uint256 indexed blockId, uint24 transitionId, TransitionV3 tran, TransitionV3 oldTran
+    );
 
     /// @notice Emitted when a block is verified.
     /// @param blockId The ID of the verified block.

@@ -180,24 +180,36 @@ contract Taiko is EssentialContract, ITaiko {
             BlockV3 storage blk = state.blocks[slot];
             require(ctxs[i].metaHash == blk.metaHash, "MataMismatch");
 
-            TransitionV3 storage ts = state.transitions[slot][1];
-            require(ts.parentHash != tran.parentHash, "AlreadyProvenAsFirstTransition");
-            require(state.transitionIds[meta.blockId][tran.parentHash] == 0, "AlreadyProven");
+            uint24 nextTransitionId = blk.nextTransitionId;
+            uint24 tid;
+            bool reproveSameParentHash;
 
-            uint24 tid = blk.nextTransitionId++;
-            ts = state.transitions[slot][tid];
-
-            // Checks if only the assigned prover is permissioned to prove the block. The assigned
-            // prover is granted exclusive permission to prove only the first transition.
-            if (tid == 1) {
-                if (msg.sender == meta.proposer) {
-                    _creditBond(meta.proposer, meta.livenessBond);
-                } else {
-                    uint256 deadline = uint256(meta.proposedAt).max(stats2.lastUnpausedAt);
-                    deadline += config.provingWindow;
-                    require(block.timestamp >= deadline, "ProvingWindowNotPassed");
+            if (nextTransitionId > 1) {
+                if (state.transitions[slot][1].parentHash == tran.parentHash) {
+                    tid = 1;
+                    reproveSameParentHash = true;
+                } else if (nextTransitionId > 2) {
+                    tid = state.transitionIds[meta.blockId][tran.parentHash];
+                    reproveSameParentHash = tid != 0;
                 }
-                ts.parentHash = tran.parentHash;
+            }
+
+            if (tid == 0) {
+                tid = blk.nextTransitionId++;
+            }
+
+            TransitionV3 storage ts = state.transitions[slot][tid];
+
+            if (tid == 1) {
+                if (!reproveSameParentHash) {
+                    uint256 deadline =
+                        uint256(meta.proposedAt).max(stats2.lastUnpausedAt) + config.provingWindow;
+                    if (block.timestamp < deadline) {
+                        require(msg.sender == meta.proposer, "ProverNotPermitted");
+                        _creditBond(meta.proposer, meta.livenessBond);
+                    }
+                    ts.parentHash = tran.parentHash;
+                }
             } else {
                 state.transitionIds[meta.blockId][tran.parentHash] = tid;
             }
@@ -207,8 +219,6 @@ contract Taiko is EssentialContract, ITaiko {
             if (meta.blockId % config.stateRootSyncInternal == 0) {
                 ts.stateRoot = tran.stateRoot;
             }
-
-            emit BlockProvedV3(meta.blockId, tran);
         }
 
         if (_metas.length != 0) {
