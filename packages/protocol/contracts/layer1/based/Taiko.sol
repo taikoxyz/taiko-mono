@@ -408,8 +408,6 @@ contract Taiko is EssentialContract, ITaiko {
             for (uint24 i = 2; i < blk.nextTransitionId; ++i) {
                 ts = state.transitions[slot][i];
                 delete state.transitionIds[blockId][ts.parentHash];
-                delete state.transitions[slot][i];
-            }
         }
 
         unchecked {
