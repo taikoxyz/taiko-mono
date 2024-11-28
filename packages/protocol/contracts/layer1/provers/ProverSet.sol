@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibStrings.sol";
 import "src/shared/libs/LibAddress.sol";
-import "../based/ITaiko.sol";
+import "../based/ITaikoL1.sol";
 
 interface IHasRecipient {
     function recipient() external view returns (address);
@@ -96,7 +96,7 @@ contract ProverSet is EssentialContract, IERC1271 {
 
     /// @notice Proposes a block only when it is the first block proposal in the current L1 block.
     function proposeBlocksConditionally(bytes[] calldata _paramsArr) external onlyProver {
-        ITaiko taiko = ITaiko(taikoL1());
+        ITaikoL1 taiko = ITaikoL1(taikoL1());
         // Ensure this block is the first block proposed in the current L1 block.
         require(taiko.getStats2().lastProposedIn != block.number, NOT_FIRST_PROPOSAL());
         // TODO(danielw):fix this
@@ -123,12 +123,12 @@ contract ProverSet is EssentialContract, IERC1271 {
 
     /// @notice Deposits Taiko token to Taiko contract.
     function depositBond(uint256 _amount) external onlyAuthorized {
-        ITaiko(taikoL1()).depositBond(_amount);
+        ITaikoL1(taikoL1()).depositBond(_amount);
     }
 
     /// @notice Withdraws Taiko token from Taiko contract.
     function withdrawBond(uint256 _amount) external onlyAuthorized {
-        ITaiko(taikoL1()).withdrawBond(_amount);
+        ITaikoL1(taikoL1()).withdrawBond(_amount);
     }
 
     /// @notice Delegates token voting right to a delegatee.

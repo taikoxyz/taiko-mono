@@ -1,22 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/layer1/based/Taiko.sol";
+import "src/layer1/based/TaikoL1.sol";
 import "src/shared/libs/LibNetwork.sol";
 import "./libs/LibFasterReentryLock.sol";
 
-/// @title MainnetTaiko
+/// @title MainnetTaikoL1
 /// @dev This contract shall be deployed to replace its parent contract on Ethereum for Taiko
 /// mainnet to reduce gas cost.
-/// @notice See the documentation in {Taiko}.
+/// @notice See the documentation in {TaikoL1}.
 /// @custom:security-contact security@taiko.xyz
-contract MainnetTaiko is Taiko {
-    function getConfigV3() public pure override returns (ITaiko.ConfigV3 memory) {
+contract MainnetTaikoL1 is TaikoL1 {
+    function getConfigV3() public pure override returns (ITaikoL1.ConfigV3 memory) {
         // All hard-coded configurations:
         // - treasury: the actual TaikoL2 address.
         // - anchorGasLimit: 250_000 (based on internal devnet, its ~220_000
         // after 256 L2 blocks)
-        return ITaiko.ConfigV3({
+        return ITaikoL1.ConfigV3({
             chainId: LibNetwork.TAIKO_MAINNET,
             // Ring buffers are being reused on the mainnet, therefore the following two
             // configuration values must NEVER be changed!!!

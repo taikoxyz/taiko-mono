@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../based/ITaiko.sol";
+import "../based/ITaikoL1.sol";
 
 /// @title IVerifier
 /// @notice Defines the function that handles proof verification.
@@ -11,7 +11,7 @@ interface IVerifier {
         uint64 blockId;
         bytes32 difficulty;
         bytes32 metaHash;
-        ITaiko.TransitionV3 tran;
+        ITaikoL1.TransitionV3 transition;
     }
 
     /// @notice Verifies multiple proofs.

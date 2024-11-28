@@ -3,9 +3,9 @@ pragma solidity ^0.8.24;
 
 import "src/shared/based/LibSharedData.sol";
 
-/// @title ITaiko
+/// @title ITaikoL1
 /// @custom:security-contact security@taiko.xyz
-interface ITaiko {
+interface ITaikoL1 {
     struct BlockParamsV3 {
         bytes32 parentMetaHash;
         uint64 anchorBlockId;

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/layer1/based/Taiko.sol";
+import "src/layer1/based/TaikoL1.sol";
 import "src/layer1/token/TaikoToken.sol";
 import "src/layer1/verifiers/SgxVerifier.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
@@ -11,14 +11,14 @@ import "src/shared/bridge/QuotaManager.sol";
 import "src/shared/bridge/Bridge.sol";
 import "test/shared/CommonTest.sol";
 
-contract TaikoWithConfig is Taiko {
-    ITaiko.ConfigV3 private __config;
+contract TaikoWithConfig is TaikoL1 {
+    ITaikoL1.ConfigV3 private __config;
 
     function initWithConfig(
         address _owner,
         address _rollupResolver,
         bytes32 _genesisBlockHash,
-        ITaiko.ConfigV3 memory _config
+        ITaikoL1.ConfigV3 memory _config
     )
         external
         initializer
@@ -27,7 +27,7 @@ contract TaikoWithConfig is Taiko {
         __config = _config;
     }
 
-    function getConfigV3() public view override returns (ITaiko.ConfigV3 memory) {
+    function getConfigV3() public view override returns (ITaikoL1.ConfigV3 memory) {
         return __config;
     }
 }

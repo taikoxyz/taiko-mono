@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
-import "src/layer1/based/ITaiko.sol";
+import "src/layer1/based/ITaikoL1.sol";
 import "src/layer1/preconf/impl/PreconfRegistry.sol";
 import "src/layer1/preconf/avs-mvp/PreconfServiceManager.sol";
 import "src/layer1/preconf/avs-mvp/iface/IAVSDirectory.sol";
@@ -45,7 +45,7 @@ contract DeployAVS is BaseScript {
         PreconfTaskManager preconfTaskManagerImpl = new PreconfTaskManager(
             IPreconfServiceManager(preconfServiceManager),
             IPreconfRegistry(preconfRegistry),
-            ITaiko(taikoL1),
+            ITaikoL1(taikoL1),
             beaconGenesisTimestamp,
             beaconBlockRootContract
         );

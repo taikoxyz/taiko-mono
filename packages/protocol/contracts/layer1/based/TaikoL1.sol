@@ -9,9 +9,9 @@ import "src/shared/libs/LibNetwork.sol";
 import "src/shared/libs/LibStrings.sol";
 import "src/shared/signal/ISignalService.sol";
 import "src/layer1/verifiers/IVerifier.sol";
-import "./ITaiko.sol";
+import "./ITaikoL1.sol";
 
-/// @title Taiko
+/// @title TaikoL1
 /// @notice This contract serves as the "base layer contract" of the Taiko protocol, providing
 /// functionalities for proposing, proving, and verifying blocks. The term "base layer contract"
 /// means that although this is usually deployed on L1, it can also be deployed on L2s to create
@@ -20,7 +20,7 @@ import "./ITaiko.sol";
 /// contract.
 /// @dev Labeled in AddressResolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
-contract Taiko is EssentialContract, ITaiko {
+contract TaikoL1 is EssentialContract, ITaikoL1 {
     using LibMath for uint256;
 
     State public state;
@@ -173,7 +173,7 @@ contract Taiko is EssentialContract, ITaiko {
             ctxs[i].blockId = meta.blockId;
             ctxs[i].difficulty = meta.difficulty;
             ctxs[i].metaHash = keccak256(abi.encode(meta));
-            ctxs[i].tran = tran;
+            ctxs[i].transition = tran;
 
             uint256 slot = meta.blockId % config.blockRingBufferSize;
             BlockV3 storage blk = state.blocks[slot];

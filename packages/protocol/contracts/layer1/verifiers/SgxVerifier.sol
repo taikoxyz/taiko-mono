@@ -6,7 +6,7 @@ import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibStrings.sol";
 import "../automata-attestation/interfaces/IAttestation.sol";
 import "../automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
-import "../based/ITaiko.sol";
+import "../based/ITaikoL1.sol";
 import "./LibPublicInput.sol";
 import "./IVerifier.sol";
 
@@ -160,7 +160,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
         for (uint256 i; i < _ctxs.length; ++i) {
             // TODO(Yue): For now this assumes the new instance public key to remain the same
             publicInputs[i + 2] = LibPublicInput.hashPublicInputs(
-                _ctxs[i].tran, address(this), newInstance, _ctxs[i].metaHash, taikoChainId()
+                _ctxs[i].transition, address(this), newInstance, _ctxs[i].metaHash, taikoChainId()
             );
         }
 
@@ -176,7 +176,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     }
 
     function taikoChainId() internal view virtual returns (uint64) {
-        return ITaiko(resolve(LibStrings.B_TAIKO, false)).getConfigV3().chainId;
+        return ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfigV3().chainId;
     }
 
     function _addInstances(
