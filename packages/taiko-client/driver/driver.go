@@ -25,7 +25,7 @@ const (
 	exchangeTransitionConfigInterval = 1 * time.Minute
 )
 
-// Driver keeps the L2 execution engine's local block chain in sync with the TaikoL1
+// Driver keeps the L2 execution engine's local blockchain in sync with the TaikoL1
 // contract.
 type Driver struct {
 	*Config
@@ -244,4 +244,14 @@ func (d *Driver) exchangeTransitionConfigLoop() {
 // Name returns the application name.
 func (d *Driver) Name() string {
 	return "driver"
+}
+
+// RPCClient expose *rpc.Client
+func (d *Driver) RPCClient() *rpc.Client {
+	return d.rpc
+}
+
+// ChainState expose chain state.
+func (d *Driver) ChainState() *state.State {
+	return d.state
 }

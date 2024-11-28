@@ -518,3 +518,13 @@ func (p *Proposer) sendTx(ctx context.Context, txCandidate *txmgr.TxCandidate) e
 func (p *Proposer) Name() string {
 	return "proposer"
 }
+
+// RPCClient expose *rpc.Client
+func (p *Proposer) RPCClient() *rpc.Client {
+	return p.rpc
+}
+
+// ChainConfig expose *config.ChainConfig
+func (p *Proposer) ChainConfig() *config.ChainConfig {
+	return p.chainConfig
+}

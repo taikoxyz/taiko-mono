@@ -22,6 +22,9 @@ type State struct {
 	// Feeds
 	l1HeadsFeed event.Feed // L1 new heads notification feed
 
+	BlockProposedCh   chan *bindings.TaikoL1ClientBlockProposed
+	BlockProposedV2Ch chan *bindings.TaikoL1ClientBlockProposedV2
+
 	l1Head        atomic.Value // Latest known L1 head
 	l2Head        atomic.Value // Current L2 execution engine's local chain head
 	l2HeadBlockID atomic.Value // Latest known L2 block ID in protocol
@@ -69,6 +72,9 @@ func (s *State) init(ctx context.Context) error {
 
 	s.GenesisL1Height = new(big.Int).SetUint64(stateVars.A.GenesisHeight)
 	s.OnTakeForkHeight = new(big.Int).SetUint64(protocolConfigs.OntakeForkHeight)
+
+	s.BlockProposedCh = make(chan *bindings.TaikoL1ClientBlockProposed, 1)
+	s.BlockProposedV2Ch = make(chan *bindings.TaikoL1ClientBlockProposedV2, 1)
 
 	log.Info("Genesis L1 height", "height", stateVars.A.GenesisHeight)
 	log.Info("OnTake fork height", "height", s.OnTakeForkHeight)
@@ -145,8 +151,20 @@ func (s *State) eventLoop(ctx context.Context) {
 			return
 		case e := <-blockProposedCh:
 			s.setHeadBlockID(e.BlockId)
+			select {
+			case <-s.BlockProposedCh:
+				s.BlockProposedCh <- e
+			default:
+				s.BlockProposedCh <- e
+			}
 		case e := <-blockProposedV2Ch:
 			s.setHeadBlockID(e.BlockId)
+			select {
+			case <-s.BlockProposedV2Ch:
+				s.BlockProposedV2Ch <- e
+			default:
+				s.BlockProposedV2Ch <- e
+			}
 		case e := <-transitionProvedCh:
 			log.Info(
 				"✅ Transition proven",
