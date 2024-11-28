@@ -220,5 +220,17 @@ interface ITaikoL1 {
 
     function getStats2() external view returns (Stats2 memory);
 
+    function getBlockV3(uint64 _blockId) external view returns (BlockV3 memory blk_);
+
+    function getLastVerifiedTransitionV3()
+        external
+        view
+        returns (uint64 blockId_, TransitionV3 memory tran_);
+
+    function getLastSyncedTransitionV3()
+        external
+        view
+        returns (uint64 blockId_, TransitionV3 memory tran_);
+
     function getConfigV3() external view returns (ConfigV3 memory);
 }

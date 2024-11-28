@@ -16,6 +16,8 @@ contract MultisigTest is Test {
         // It should initialize the first transition
         // It should finalize the genesis block
         // It the total number of block should be 1
+        // It get the genesis block should not revert
+        // It get the block 1 should revert indicating block not found
         vm.skip(true);
     }
 

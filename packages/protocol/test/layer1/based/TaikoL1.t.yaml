@@ -5,6 +5,8 @@ MultisigTest:
       - it: should initialize the first transition
       - it: should finalize the genesis block
       - it: the total number of block should be 1
+      - it: get the genesis block should not revert
+      - it: get the block 1 should revert indicating block not found
       - when: 10 blocks are proposed individually with different timestamp in different L1 blocks
         then:
           - when: all 10 blocks are proved and verified
