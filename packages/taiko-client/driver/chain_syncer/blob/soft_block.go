@@ -116,7 +116,11 @@ func (s *Syncer) InsertSoftBlockFromTransactionsBatch(
 
 		// Check baseFee
 		if prevSoftBlock.BaseFee().Cmp(baseFee) != 0 {
-			return nil, fmt.Errorf("baseFee is not equal to the latest soft block's, expect: %s, actual: %s", prevSoftBlock.BaseFee().String(), baseFee.String())
+			return nil, fmt.Errorf(
+				"baseFee is not equal to the latest soft block's, expect: %s, actual: %s",
+				prevSoftBlock.BaseFee().String(),
+				baseFee.String(),
+			)
 		}
 
 		// Check the previous soft block status.
