@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/labstack/echo/v4"
+
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/p2p"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/softblocks"
 )
