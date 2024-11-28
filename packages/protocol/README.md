@@ -112,6 +112,14 @@ EmergencyMultisigTest
     └── It should revert
 ```
 
+### Run tests
+
+```bash
+pnpm test:l1
+pnpm test:l2
+pnpm test
+```
+
 ## Layer 2 Genesis Block
 
 ### Generating a Dummy Genesis Block
