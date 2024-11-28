@@ -1,5 +1,5 @@
 TaikoL1Test
-└── Given proposal exists // Comment here
+└── Given a newly deployed TaikoL1 contract with 10 slots for blocks
     └── Given proposal is in the last stage
-        └── When proposal can advance
-            └── It Should return true
+        └── When propose 11 blocks with valid parameters
+            └── It should allow up to 10 blocks to be proposed and the 11-th will revert

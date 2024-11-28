@@ -1,11 +1,8 @@
-# TaikoL1.t.yaml
-
 TaikoL1Test:
-  - given: proposal exists
-    comment: Comment here
+  - given: a newly deployed TaikoL1 contract with 10 slots for blocks
     and:
       - given: proposal is in the last stage
         and:
-          - when: proposal can advance
+          - when: propose 11 blocks with valid parameters
             then:
-              - it: Should return true
+              - it: should allow up to 10 blocks to be proposed and the 11-th will revert
