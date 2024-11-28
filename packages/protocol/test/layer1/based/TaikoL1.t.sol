@@ -4,15 +4,59 @@ pragma solidity 0.8.17;
 import {Test} from "forge-std/Test.sol";
 
 contract MultisigTest is Test {
-    modifier givenANewlyDeployedContract() {
+    modifier givenANewTaikoL1With10SlotsForBlocksAndSyncInternvalAs5() {
         _;
+    }
+
+    function test_GivenANewTaikoL1With10SlotsForBlocksAndSyncInternvalAs5()
+        external
+        givenANewTaikoL1With10SlotsForBlocksAndSyncInternvalAs5
+    {
+        // It should initialize the genesis block
+        // It should initialize the first transition
+        // It should finalize the genesis block
+        // It the total number of block should be 1
+        vm.skip(true);
+    }
+
+    modifier when10BlocksAreProposedIndividuallyWithDifferentTimestampInDifferentL1Blocks() {
+        _;
+    }
+
+    function test_WhenAll10BlocksAreProvedAndVerified()
+        external
+        givenANewTaikoL1With10SlotsForBlocksAndSyncInternvalAs5
+        when10BlocksAreProposedIndividuallyWithDifferentTimestampInDifferentL1Blocks
+    {
+        // It should not revert
+        // It the last verified block id should be 10
+        // It the last synced block id should be 5
+        // It the last synced stateroot should be the one from block 5
+        // It the last synced timestamp should be the timestamp when block 5 is proposed
+        // It the total number of block should be 11
+        // It lastProposedIn should be the L1 block number when the last block is proposed
+        // It lastProposedAt should be the timestamp when the last block is proposed
+        vm.skip(true);
+    }
+
+    function test_WhenOneMoreBlockIsProposed()
+        external
+        givenANewTaikoL1With10SlotsForBlocksAndSyncInternvalAs5
+        when10BlocksAreProposedIndividuallyWithDifferentTimestampInDifferentL1Blocks
+    {
+        // It should revert indicating no slot is available
+        vm.skip(true);
     }
 
     modifier givenCallingInitialize() {
         _;
     }
 
-    function test_GivenCallingInitialize() external givenANewlyDeployedContract givenCallingInitialize {
+    function test_GivenCallingInitialize()
+        external
+        givenANewTaikoL1With10SlotsForBlocksAndSyncInternvalAs5
+        givenCallingInitialize
+    {
         // It should initialize the first time
         // It should refuse to initialize again
         // It should set the DAO address
@@ -27,7 +71,7 @@ contract MultisigTest is Test {
 
     function test_RevertWhen_MinApprovalsIsGreaterThanSignerListLengthOnInitialize()
         external
-        givenANewlyDeployedContract
+        givenANewTaikoL1With10SlotsForBlocksAndSyncInternvalAs5
         givenCallingInitialize
     {
         // It should revert
@@ -38,7 +82,7 @@ contract MultisigTest is Test {
 
     function test_RevertWhen_MinApprovalsIsZeroOnInitialize()
         external
-        givenANewlyDeployedContract
+        givenANewTaikoL1With10SlotsForBlocksAndSyncInternvalAs5
         givenCallingInitialize
     {
         // It should revert
@@ -49,7 +93,7 @@ contract MultisigTest is Test {
 
     function test_RevertWhen_SignerListIsInvalidOnInitialize()
         external
-        givenANewlyDeployedContract
+        givenANewTaikoL1With10SlotsForBlocksAndSyncInternvalAs5
         givenCallingInitialize
     {
         // It should revert

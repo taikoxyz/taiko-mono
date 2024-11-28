@@ -1,6 +1,25 @@
 MultisigTest:
-  - given: a newly deployed contract
+  - given: a new TaikoL1 with 10 slots for blocks and sync internval as 5
     then:
+      - it: should initialize the genesis block
+      - it: should initialize the first transition
+      - it: should finalize the genesis block
+      - it: the total number of block should be 1
+      - when: 10 blocks are proposed individually with different timestamp in different L1 blocks
+        then:
+          - when: all 10 blocks are proved and verified
+            then:
+              - it: should not revert
+              - it: the last verified block id should be 10
+              - it: the last synced block id should be 5
+              - it: the last synced stateroot should be the one from block 5
+              - it: the last synced timestamp should be the timestamp when block 5 is proposed
+              - it: the total number of block should be 11
+              - it: lastProposedIn should be the L1 block number when the last block is proposed
+              - it: lastProposedAt should be the timestamp when the last block is proposed
+          - when: one more block is proposed
+            then:
+              - it: should revert indicating no slot is available
       - given: calling initialize
         then:
           - it: should initialize the first time
@@ -26,7 +45,7 @@ MultisigTest:
             then:
               - it: should revert
 
-  - when: calling upgradeTo
+  - when: calling upgradeTo`
     then:
       - it: should revert when called without the permission
       - it: should work when called with the permission
