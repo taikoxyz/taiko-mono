@@ -1,0 +1,11 @@
+# TaikoL1.t.yaml
+
+TaikoL1Test:
+  - given: proposal exists
+    comment: Comment here
+    and:
+      - given: proposal is in the last stage
+        and:
+          - when: proposal can advance
+            then:
+              - it: Should return true

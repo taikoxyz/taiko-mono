@@ -15,38 +15,101 @@ To install dependencies:
 foundryup && pnpm install
 ```
 
-## Compilation and Testing
+## Compilation
 
 Taiko’s protocol is split between Layer 1 (L1) and Layer 2 (L2). The smart contracts need to be compiled and tested separately for each layer:
 
-### Layer 1 (Ethereum, Duncan Hardfork)
-
-To compile, run tests, and generate the storage layout for L1:
+To compile and generate the storage layout for L1:
 
 ```bash
 pnpm compile:l1
-pnpm test:l1
 pnpm layout:l1
 ```
-
-### Layer 2 (Taiko, Shanghai Hardfork)
 
 Similarly, for L2:
 
 ```bash
 pnpm compile:l2
-pnpm test:l2
 pnpm layout:l2
 ```
 
-### Compile and Test for Both Layers
-
-To compile and test contracts for both L1 and L2 at once:
+To compile and generate the storage layout for both layers:
 
 ```bash
 pnpm compile
-pnpm test
 pnpm layout
+```
+
+## Testing
+
+Tests can be described using yaml files. They will be automatically transformed into solidity test files with [bulloak](https://github.com/alexfertel/bulloak).
+
+Create a file with `.t.yaml` extension within the `test` folder and describe a hierarchy of test cases:
+
+```yaml
+# MyTest.t.yaml
+
+MultisigTest:
+  - given: proposal exists
+    comment: Comment here
+    and:
+      - given: proposal is in the last stage
+        and:
+          - when: proposal can advance
+            then:
+              - it: Should return true
+
+          - when: proposal cannot advance
+            then:
+              - it: Should return false
+
+      - when: proposal is not in the last stage
+        then:
+          - it: should do A
+            comment: This is an important remark
+          - it: should do B
+          - it: should do C
+
+  - when: proposal doesn't exist
+    comment: Testing edge cases here
+    then:
+      - it: should revert
+```
+
+Then use `make` to automatically sync the described branches into solidity test files.
+
+```sh
+$ make
+Available targets:
+Available targets:
+- make all        Builds all tree files and updates the test tree markdown
+- make sync       Scaffold or sync tree files into solidity tests
+- make check      Checks if solidity files are out of sync
+- make markdown   Generates a markdown file with the test definitions rendered as a tree
+- make init       Check the dependencies and prompt to install if needed
+- make clean      Clean the intermediary tree files
+
+$ make sync
+```
+
+The final output will look like a human readable tree:
+
+```
+# MyTest.tree
+
+EmergencyMultisigTest
+├── Given proposal exists // Comment here
+│   ├── Given proposal is in the last stage
+│   │   ├── When proposal can advance
+│   │   │   └── It Should return true
+│   │   └── When proposal cannot advance
+│   │       └── It Should return false
+│   └── When proposal is not in the last stage
+│       ├── It should do A // Careful here
+│       ├── It should do B
+│       └── It should do C
+└── When proposal doesn't exist // Testing edge cases here
+    └── It should revert
 ```
 
 ## Layer 2 Genesis Block

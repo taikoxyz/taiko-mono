@@ -1,0 +1,5 @@
+TaikoL1Test
+└── Given proposal exists // Comment here
+    └── Given proposal is in the last stage
+        └── When proposal can advance
+            └── It Should return true
