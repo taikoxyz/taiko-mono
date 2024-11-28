@@ -45,6 +45,8 @@ type Network struct {
 func NewNetwork(ctx context.Context, bootstrapNodeURL string, port uint64) (*Network, error) {
 	host, err := libp2p.New(
 		libp2p.ListenAddrs(multiaddr.StringCast(fmt.Sprintf("/ip4/0.0.0.0/tcp/%v", port))),
+		libp2p.NATPortMap(),      // Automatically map external ports
+		libp2p.EnableAutoRelay(), // Relay support for NAT traversal
 	)
 	if err != nil {
 		return nil, err
