@@ -15,7 +15,7 @@ contract TrailblazersBadgesS2Test is Test {
     address public authorizedMinter = vm.addr(0x6);
     address[3] public minters = [vm.addr(0x1), vm.addr(0x2), vm.addr(0x3)];
 
-    string public uriTemplate = "ipfs://hash/";
+    string public uriTemplate = "ipfs://hash";
 
     TrailblazersBadgesS2 public nft;
 
@@ -58,15 +58,40 @@ contract TrailblazersBadgesS2Test is Test {
 
     function test_uri_byTokenId() public {
         test_mint();
-        assertEq(nft.uri(TOKEN_ID), "ipfs://hash/0/2.json");
+        assertEq(nft.uri(TOKEN_ID), "ipfs://hash/2/0");
     }
 
     function test_uri_byTypeAndMovement() public {
         test_mint();
         assertEq(
             nft.uri(TrailblazersBadgesS2.BadgeType.Ravers, TrailblazersBadgesS2.MovementType.Minnow),
-            "ipfs://hash/0/2.json"
+            "ipfs://hash/2/0"
         );
+    }
+
+    function test_uri_full() public {
+        vm.startPrank(authorizedMinter);
+        uint8 tokenId = 1;
+
+        TrailblazersBadgesS2.Badge memory badge;
+        for (uint8 i = 1; i < 3; i++) {
+            for (uint8 j = 0; j < 8; j++) {
+                nft.mint(
+                    minters[0],
+                    TrailblazersBadgesS2.BadgeType(j),
+                    TrailblazersBadgesS2.MovementType(i)
+                );
+
+                badge = nft.getBadge(tokenId);
+                string memory badgeType = vm.toString(uint256(badge.badgeType));
+                string memory movementType = vm.toString(uint256(badge.movementType));
+
+                string memory uri =
+                    string(abi.encodePacked("ipfs://hash/", movementType, "/", badgeType));
+                assertEq(nft.uri(tokenId), uri);
+                tokenId++;
+            }
+        }
     }
 
     function test_uri_revert__tokenNotMinted() public {

@@ -37,8 +37,8 @@ contract TrailblazersBadgesS2 is
         Bouncers, // s1 id: 2
         Masters, // s1 id: 3
         Monks, // s1 id: 4
-        Drummers, // s1 id: 5
-        Androids, // s1 id: 6
+        Androids, // s1 id: 5
+        Drummers, // s1 id: 6
         Shinto // s1 id: 7
 
     }
@@ -143,7 +143,7 @@ contract TrailblazersBadgesS2 is
         string memory badgeType_ = Strings.toString(uint256(_badgeType));
         string memory movementType_ = Strings.toString(uint256(_movementType));
 
-        return string(abi.encodePacked(uriTemplate, badgeType_, "/", movementType_, ".json"));
+        return string(abi.encodePacked(uriTemplate, "/", movementType_, "/", badgeType_));
     }
 
     /// @notice Retrieve the URI for a badge given the type & movement

@@ -21,37 +21,40 @@ contract DeployS2Script is Script {
 
     BadgeRecruitment recruitment;
 
-    bool constant PINK_INFLUENCE = true;
-    bool constant PURPLE_INFLUENCE = false;
-
-    uint256 public MAX_INFLUENCES = 3;
-    uint256 public COOLDOWN_RECRUITMENT = 5 minutes;
-    uint256 public COOLDOWN_INFLUENCE = 1 minutes;
-    uint256 public INFLUENCE_WEIGHT_PERCENT = 5;
-    uint256 public MAX_INFLUENCES_DIVIDER = 100;
-    uint256 public DEFAULT_CYCLE_DURATION = 7 days;
-    uint256 public S1_LOCK_DURATION = 365 days;
     // Taiko Mainnet Values
     //address owner = 0xf8ff2AF0DC1D5BA4811f22aCb02936A1529fd2Be;
-    //bytes32 root = 0xa7e510d5aed347e65609cf6f0e0738cdd752ffdf5980749057c634489fd09fc3;
-    // string baseURI = "bafybeierqzehlrqeqqeb6fwmil4dj3ij2p6exgoj4lysl53fsxwob6wbdy";
-    // IMinimalBlacklist blacklist = IMinimalBlacklist(0xfA5EA6f9A13532cd64e805996a941F101CCaAc9a);
+    address claimMintSigner = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
+    address recruitmentSigner = 0x3cda4F2EaC3fc2FdE78B3DFFe1A1A1Eff88c68c5;
+    string baseURI =
+        "https://taikonfts.4everland.link/ipfs/bafybeiatuzeeeznd3hi5qiulslxcjd22ebu45t4fra2jvi3smhocr2c66a";
+    IMinimalBlacklist blacklist = IMinimalBlacklist(0xfA5EA6f9A13532cd64e805996a941F101CCaAc9a);
+
+    uint256 public MAX_INFLUENCES = 5;
+    uint256 public COOLDOWN_RECRUITMENT = 24 hours;
+    uint256 public COOLDOWN_INFLUENCE = 30 minutes;
+    uint256 public INFLUENCE_WEIGHT_PERCENT = 9;
+    uint256 public MAX_INFLUENCES_DIVIDER = 100;
+    uint256 public DEFAULT_CYCLE_DURATION = 7 days;
+    uint256 public s1EndDate = 1_734_350_400; // Dec 16th 2024, noon UTC
+    uint256 public S1_LOCK_DURATION = (s1EndDate - block.timestamp);
 
     // Hekla Testnet Values
-    bytes32 root = 0xf1359c4c4ba41a72025f2534ea8ad23c6b941b55a715838ebdc71202a78c6c87;
+    /*
     string baseURI =
-        "https://taikonfts.4everland.link/ipfs/bafybeiebmvj6roz4iuoinackb5c6eeshvppctkydrckqrnxexdnzh6odq4";
+    "https://taikonfts.4everland.link/ipfs/bafybeiatuzeeeznd3hi5qiulslxcjd22ebu45t4fra2jvi3smhocr2c66a";
 
     IMinimalBlacklist blacklist = IMinimalBlacklist(0xe61E9034b5633977eC98E302b33e321e8140F105);
     address claimMintSigner = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
     address recruitmentSigner = 0x3cda4F2EaC3fc2FdE78B3DFFe1A1A1Eff88c68c5;
 
-    // Hardhat Testnet Values
-    //  address owner = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
-    //   address mintSigner = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
-    //  string baseURI =        "https://taikonfts.4everland.link/ipfs/bafybeierqzehlrqeqqeb6fwmil4dj3ij2p6exgoj4lysl53fsxwob6wbdy";
-    //   IMinimalBlacklist blacklist =
-    // IMinimalBlacklist(0xe61E9034b5633977eC98E302b33e321e8140F105);
+    uint256 public MAX_INFLUENCES = 5;
+    uint256 public COOLDOWN_RECRUITMENT = 5 minutes;
+    uint256 public COOLDOWN_INFLUENCE = 1 minutes;
+    uint256 public INFLUENCE_WEIGHT_PERCENT = 9;
+    uint256 public MAX_INFLUENCES_DIVIDER = 100;
+    uint256 public DEFAULT_CYCLE_DURATION = 7 days;
+    uint256 public S1_LOCK_DURATION = 365 days;
+    */
 
     address s1Contract = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
 
@@ -108,7 +111,7 @@ contract DeployS2Script is Script {
         impl = address(new TrailblazersBadgesS2());
         proxy = address(
             new ERC1967Proxy(
-                impl, abi.encodeCall(TrailblazersBadgesS2.initialize, (address(owner), "ipfs://"))
+                impl, abi.encodeCall(TrailblazersBadgesS2.initialize, (address(owner), baseURI))
             )
         );
 
