@@ -13,7 +13,7 @@ Taiko is configured as a based contestable rollup (BCR). This means that there i
 
 **Scenario:**
 
-The process begins when a proposer submits a new block, followed by a tier-1 (SGX) prover who submits a proof with a TAIKO bond. During the 240-minute cooldown period, anyone can contest this proof by posting their own bond, as demonstrated by Cindy.
+The process begins when a proposer submits a new block, followed by a tier-1 (SGX) prover who submits a proof with a TAIKO bond. During the 4 hour cooldown period, anyone can contest this proof by posting their own bond, as demonstrated by Cindy.
 
 The system then supports two possible scenarios: If a higher-tier proof confirms the original proof was correct, the original prover receives back their bond plus a reward, while the contester loses their bond. Conversely, if the higher-tier proof shows the original was wrong, the contester receives back their bond plus a reward, and the original prover loses their stake.
 
