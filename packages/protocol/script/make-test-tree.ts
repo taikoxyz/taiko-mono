@@ -18,6 +18,8 @@ type TreeItem = {
     comment?: string;
 };
 
+let counter = 1;
+
 async function main() {
     const content = await readStdinText();
     const tree = processTree(content);
@@ -79,10 +81,22 @@ function parseRuleChildren(lines: Array<Rule>): Array<TreeItem> {
         };
 
         if (rule.comment) result.comment = rule.comment;
+
         return result;
     });
 
-    return result;
+    // Group all "It" items under a single "When" node
+    const itItems = result.filter((item) => item.content.startsWith("It "));
+    const nonItItems = result.filter((item) => !item.content.startsWith("It "));
+
+    if (itItems.length > 0) {
+        nonItItems.push({
+            content: `When case-${counter++}`, // Customize this label as needed
+            children: itItems,
+        });
+    }
+
+    return nonItItems;
 }
 
 function renderTree(root: TreeItem): string {

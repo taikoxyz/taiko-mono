@@ -76,7 +76,7 @@ MultisigTest:
       - it: should revert
 ```
 
-Then use `make` to automatically sync the described branches into solidity test files.
+Then install bullok with`cargo install bulloak` and use `make` to automatically sync the described branches into solidity test files.
 
 ```sh
 $ make

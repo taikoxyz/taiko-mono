@@ -1,3 +1,8 @@
+# Test tree definitions
+
+Below is the graphical definition of the contract tests implemented on [the test folder](./test)
+
+```
 TaikoL1Test
 └── Given a new TaikoL1 with 10 block slots and a sync interval of 5
     ├── When test1
@@ -57,3 +62,4 @@ TaikoL1Test
         │       └── It returns empty data for getLastSyncedTransitionV3 but does not revert
         └── When case-10
             └── It total block count is 10
+```
