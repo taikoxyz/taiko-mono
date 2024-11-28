@@ -1,237 +1,31 @@
 MultisigTest
-├── Given a new TaikoL1 with 10 slots for blocks and sync internval as 5
-│   ├── It should initialize the genesis block
-│   ├── It should initialize the first transition
-│   ├── It should finalize the genesis block
-│   ├── It the total number of block should be 1
-│   ├── It get the genesis block should not revert
-│   ├── It get the block 1 should revert indicating block not found
-│   ├── When 10 blocks are proposed individually with different timestamp in different L1 blocks
-│   │   ├── When all 10 blocks are proved and verified
-│   │   │   ├── It should not revert
-│   │   │   ├── It the last verified block id should be 10
-│   │   │   ├── It the last synced block id should be 5
-│   │   │   ├── It the last synced stateroot should be the one from block 5
-│   │   │   ├── It the last synced timestamp should be the timestamp when block 5 is proposed
-│   │   │   ├── It the total number of block should be 11
-│   │   │   ├── It lastProposedIn should be the L1 block number when the last block is proposed
-│   │   │   └── It lastProposedAt should be the timestamp when the last block is proposed
-│   │   └── When one more block is proposed
-│   │       └── It should revert indicating no slot is available
-│   └── Given calling initialize
-│       ├── It should initialize the first time
-│       ├── It should refuse to initialize again
-│       ├── It should set the DAO address
-│       ├── It should set the minApprovals
-│       ├── It should set onlyListed
-│       ├── It should set signerList
-│       ├── It should set destinationProposalDuration
-│       ├── It should set proposalExpirationPeriod
-│       ├── It should emit MultisigSettingsUpdated
-│       ├── When minApprovals is greater than signerList length on initialize
-│       │   ├── It should revert
-│       │   ├── It should revert (with onlyListed false)
-│       │   └── It should not revert otherwise
-│       ├── When minApprovals is zero on initialize
-│       │   ├── It should revert
-│       │   ├── It should revert (with onlyListed false)
-│       │   └── It should not revert otherwise
-│       └── When signerList is invalid on initialize
-│           └── It should revert
-├── When calling upgradeTo
-│   ├── It should revert when called without the permission
-│   └── It should work when called with the permission
-├── When calling upgradeToAndCall
-│   ├── It should revert when called without the permission
-│   └── It should work when called with the permission
-├── When calling supportsInterface
-│   ├── It does not support the empty interface
-│   ├── It supports IERC165Upgradeable
-│   ├── It supports IPlugin
-│   ├── It supports IProposal
-│   └── It supports IMultisig
-├── When calling updateSettings
-│   ├── Given caller has no permission
-│   │   ├── It should revert
-│   │   └── It otherwise it should just work
-│   ├── It should set the minApprovals
-│   ├── It should set onlyListed
-│   ├── It should set signerList
-│   ├── It should set destinationProposalDuration
-│   ├── It should set proposalExpirationPeriod
-│   ├── It should emit MultisigSettingsUpdated
-│   ├── When minApprovals is greater than signerList length on updateSettings
-│   │   ├── It should revert
-│   │   ├── It should revert (with onlyListed false)
-│   │   └── It should not revert otherwise
-│   ├── When minApprovals is zero on updateSettings
-│   │   ├── It should revert
-│   │   ├── It should revert (with onlyListed false)
-│   │   └── It should not revert otherwise
-│   └── When signerList is invalid on updateSettings
-│       └── It should revert
-├── When calling createProposal
-│   ├── It increments the proposal counter
-│   ├── It creates and return unique proposal IDs
-│   ├── It emits the ProposalCreated event
-│   ├── It creates a proposal with the given values
-│   ├── Given settings changed on the same block
-│   │   ├── It reverts
-│   │   └── It does not revert otherwise
-│   ├── Given onlyListed is false
-│   │   └── It allows anyone to create
-│   ├── Given onlyListed is true
-│   │   ├── Given creation caller is not listed or appointed
-│   │   │   ├── It reverts
-│   │   │   └── It reverts if listed before but not now
-│   │   ├── Given creation caller is appointed by a former signer
-│   │   │   └── It reverts
-│   │   ├── Given creation caller is listed and self appointed
-│   │   │   └── It creates the proposal
-│   │   ├── Given creation caller is listed appointing someone else now
-│   │   │   └── It creates the proposal
-│   │   └── Given creation caller is appointed by a current signer
-│   │       └── It creates the proposal
-│   ├── Given approveProposal is true
-│   │   └── It creates and calls approval in one go
-│   └── Given approveProposal is false
-│       └── It only creates the proposal
-├── Given The proposal is not created
-│   ├── When calling getProposal being uncreated
-│   │   └── It should return empty values
-│   ├── When calling canApprove or approve being uncreated
-│   │   ├── It canApprove should return false (when listed and self appointed)
-│   │   ├── It approve should revert (when listed and self appointed)
-│   │   ├── It canApprove should return false (when listed, appointing someone else now)
-│   │   ├── It approve should revert (when listed, appointing someone else now)
-│   │   ├── It canApprove should return false (when appointed by a listed signer)
-│   │   ├── It approve should revert (when appointed by a listed signer)
-│   │   ├── It canApprove should return false (when unlisted and unappointed)
-│   │   └── It approve should revert (when unlisted and unappointed)
-│   ├── When calling hasApproved being uncreated
-│   │   └── It hasApproved should always return false
-│   └── When calling canExecute or execute being uncreated
-│       ├── It canExecute should return false (when listed and self appointed)
-│       ├── It execute should revert (when listed and self appointed)
-│       ├── It canExecute should return false (when listed, appointing someone else now)
-│       ├── It execute should revert (when listed, appointing someone else now)
-│       ├── It canExecute should return false (when appointed by a listed signer)
-│       ├── It execute should revert (when appointed by a listed signer)
-│       ├── It canExecute should return false (when unlisted and unappointed)
-│       └── It execute should revert (when unlisted and unappointed)
-├── Given The proposal is open
-│   ├── When calling getProposal being open
-│   │   └── It should return the right values
-│   ├── When calling canApprove or approve being open
-│   │   ├── It canApprove should return true (when listed on creation, self appointed now)
-│   │   ├── It approve should work (when listed on creation, self appointed now)
-│   │   ├── It approve should emit an event (when listed on creation, self appointed now)
-│   │   ├── It canApprove should return false (when listed on creation, appointing someone else now)
-│   │   ├── It approve should revert (when listed on creation, appointing someone else now)
-│   │   ├── It canApprove should return true (when currently appointed by a signer listed on creation)
-│   │   ├── It approve should work (when currently appointed by a signer listed on creation)
-│   │   ├── It approve should emit an event (when currently appointed by a signer listed on creation)
-│   │   ├── It canApprove should return false (when unlisted on creation, unappointed now)
-│   │   └── It approve should revert (when unlisted on creation, unappointed now)
-│   ├── When calling approve with tryExecution and almost passed being open
-│   │   ├── It approve should also execute the proposal
-│   │   ├── It approve should emit an Executed event
-│   │   ├── It approve recreates the proposal on the destination plugin
-│   │   ├── It The parameters of the recreated proposal match those of the approved one
-│   │   └── It A ProposalCreated event is emitted on the destination plugin
-│   ├── When calling hasApproved being open
-│   │   └── It hasApproved should return false until approved
-│   └── When calling canExecute or execute being open
-│       ├── It canExecute should return false (when listed on creation, self appointed now)
-│       ├── It execute should revert (when listed on creation, self appointed now)
-│       ├── It canExecute should return false (when listed on creation, appointing someone else now)
-│       ├── It execute should revert (when listed on creation, appointing someone else now)
-│       ├── It canExecute should return false (when currently appointed by a signer listed on creation)
-│       ├── It execute should revert (when currently appointed by a signer listed on creation)
-│       ├── It canExecute should return false (when unlisted on creation, unappointed now)
-│       └── It execute should revert (when unlisted on creation, unappointed now)
-├── Given The proposal was approved by the address
-│   ├── When calling getProposal being approved
-│   │   └── It should return the right values
-│   ├── When calling canApprove or approve being approved
-│   │   ├── It canApprove should return false (when listed on creation, self appointed now)
-│   │   ├── It approve should revert (when listed on creation, self appointed now)
-│   │   ├── It canApprove should return false (when currently appointed by a signer listed on creation)
-│   │   └── It approve should revert (when currently appointed by a signer listed on creation)
-│   ├── When calling hasApproved being approved
-│   │   └── It hasApproved should return false until approved
-│   └── When calling canExecute or execute being approved
-│       ├── It canExecute should return false (when listed on creation, self appointed now)
-│       ├── It execute should revert (when listed on creation, self appointed now)
-│       ├── It canExecute should return false (when currently appointed by a signer listed on creation)
-│       └── It execute should revert (when currently appointed by a signer listed on creation)
-├── Given The proposal passed
-│   ├── When calling getProposal being passed
-│   │   └── It should return the right values
-│   ├── When calling canApprove or approve being passed
-│   │   ├── It canApprove should return false (when listed on creation, self appointed now)
-│   │   ├── It approve should revert (when listed on creation, self appointed now)
-│   │   ├── It canApprove should return false (when listed on creation, appointing someone else now)
-│   │   ├── It approve should revert (when listed on creation, appointing someone else now)
-│   │   ├── It canApprove should return false (when currently appointed by a signer listed on creation)
-│   │   ├── It approve should revert (when currently appointed by a signer listed on creation)
-│   │   ├── It canApprove should return false (when unlisted on creation, unappointed now)
-│   │   └── It approve should revert (when unlisted on creation, unappointed now)
-│   ├── When calling hasApproved being passed
-│   │   └── It hasApproved should return false until approved
-│   ├── When calling canExecute or execute being passed
-│   │   ├── It canExecute should return true, always
-│   │   ├── It execute should work, when called by anyone
-│   │   ├── It execute should emit an event, when called by anyone
-│   │   ├── It execute recreates the proposal on the destination plugin
-│   │   ├── It The parameters of the recreated proposal match those of the executed one
-│   │   ├── It The proposal duration on the destination plugin matches the multisig settings
-│   │   └── It A ProposalCreated event is emitted on the destination plugin
-│   └── Given TaikoL1 is incompatible
-│       └── It executes successfully, regardless
-├── Given The proposal is already executed
-│   ├── When calling getProposal being executed
-│   │   └── It should return the right values
-│   ├── When calling canApprove or approve being executed
-│   │   ├── It canApprove should return false (when listed on creation, self appointed now)
-│   │   ├── It approve should revert (when listed on creation, self appointed now)
-│   │   ├── It canApprove should return false (when listed on creation, appointing someone else now)
-│   │   ├── It approve should revert (when listed on creation, appointing someone else now)
-│   │   ├── It canApprove should return false (when currently appointed by a signer listed on creation)
-│   │   ├── It approve should revert (when currently appointed by a signer listed on creation)
-│   │   ├── It canApprove should return false (when unlisted on creation, unappointed now)
-│   │   └── It approve should revert (when unlisted on creation, unappointed now)
-│   ├── When calling hasApproved being executed
-│   │   └── It hasApproved should return false until approved
-│   └── When calling canExecute or execute being executed
-│       ├── It canExecute should return false (when listed on creation, self appointed now)
-│       ├── It execute should revert (when listed on creation, self appointed now)
-│       ├── It canExecute should return false (when listed on creation, appointing someone else now)
-│       ├── It execute should revert (when listed on creation, appointing someone else now)
-│       ├── It canExecute should return false (when currently appointed by a signer listed on creation)
-│       ├── It execute should revert (when currently appointed by a signer listed on creation)
-│       ├── It canExecute should return false (when unlisted on creation, unappointed now)
-│       └── It execute should revert (when unlisted on creation, unappointed now)
-└── Given The proposal expired
-    ├── When calling getProposal being expired
-    │   └── It should return the right values
-    ├── When calling canApprove or approve being expired
-    │   ├── It canApprove should return false (when listed on creation, self appointed now)
-    │   ├── It approve should revert (when listed on creation, self appointed now)
-    │   ├── It canApprove should return false (when listed on creation, appointing someone else now)
-    │   ├── It approve should revert (when listed on creation, appointing someone else now)
-    │   ├── It canApprove should return false (when currently appointed by a signer listed on creation)
-    │   ├── It approve should revert (when currently appointed by a signer listed on creation)
-    │   ├── It canApprove should return false (when unlisted on creation, unappointed now)
-    │   └── It approve should revert (when unlisted on creation, unappointed now)
-    ├── When calling hasApproved being expired
-    │   └── It hasApproved should return false until approved
-    └── When calling canExecute or execute being expired
-        ├── It canExecute should return false (when listed on creation, self appointed now)
-        ├── It execute should revert (when listed on creation, self appointed now)
-        ├── It canExecute should return false (when listed on creation, appointing someone else now)
-        ├── It execute should revert (when listed on creation, appointing someone else now)
-        ├── It canExecute should return false (when currently appointed by a signer listed on creation)
-        ├── It execute should revert (when currently appointed by a signer listed on creation)
-        ├── It canExecute should return false (when unlisted on creation, unappointed now)
-        └── It execute should revert (when unlisted on creation, unappointed now)
+└── Given a new TaikoL1 with 10 slots for blocks and sync internval as 5
+    ├── It should initialize the genesis block
+    ├── It should initialize the first transition
+    ├── It should finalize the genesis block
+    ├── It the total number of block should be 1
+    ├── It get the genesis block should not revert
+    ├── It get the block 1 should revert indicating block not found
+    ├── When 10 blocks are proposed individually with different timestamp in different L1 blocks
+    │   ├── It propose another block will revert indicating no slot is available
+    │   └── When all 10 blocks are proved and verified
+    │       ├── It should not revert
+    │       ├── It the last verified block id should be 10
+    │       ├── It the last synced block id should be 5
+    │       ├── It the last synced stateroot should be the one from block 5
+    │       ├── It the last synced timestamp should be the timestamp when block 5 is proposed
+    │       ├── It the total number of block should be 11
+    │       ├── It lastProposedIn should be the L1 block number when the last block is proposed
+    │       ├── It lastProposedAt should be the timestamp when the last block is proposed
+    │       └── When the block 11 is proposed
+    │           ├── It should not revert
+    │           ├── It the last verified block id should be 10
+    │           ├── It the last synced block id should be 5
+    │           ├── It the last synced stateroot should be the one from block 5
+    │           ├── It the last synced timestamp should be the timestamp when block 5 is proposed
+    │           ├── It the total number of block should be 12
+    │           ├── It lastProposedIn should be the L1 block number when the last block is proposed
+    │           └── It lastProposedAt should be the timestamp when the last block is proposed
+    └── When propose one more block
+        └── When it is still inside the last blocks proving window
+            └── It should revert if someone other than the proposer tries to prove the block
