@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.17;
+pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 
 contract TaikoL1Test is Test {
-    modifier givenANewTaikoL1With10BlockSlotsAndASyncIntervalOf5() {
+    modifier whenANewTaikoL1With10BlockSlotsAndASyncIntervalOf5() {
         _;
     }
 
@@ -12,7 +12,7 @@ contract TaikoL1Test is Test {
         _;
     }
 
-    function test_WhenCase_1() external givenANewTaikoL1With10BlockSlotsAndASyncIntervalOf5 whenTest1 {
+    function test_WhenCase_1() external whenANewTaikoL1With10BlockSlotsAndASyncIntervalOf5 whenTest1 {
         // It initializes the genesis block
         // It initializes the first transition
         // It finalizes the genesis block
@@ -31,7 +31,7 @@ contract TaikoL1Test is Test {
 
     function test_WhenCase_2()
         external
-        givenANewTaikoL1With10BlockSlotsAndASyncIntervalOf5
+        whenANewTaikoL1With10BlockSlotsAndASyncIntervalOf5
         whenProposingOneMoreBlockWithCustomParameters
     {
         // It places the block in the first slot
@@ -49,7 +49,7 @@ contract TaikoL1Test is Test {
 
     function test_WhenCase_3()
         external
-        givenANewTaikoL1With10BlockSlotsAndASyncIntervalOf5
+        whenANewTaikoL1With10BlockSlotsAndASyncIntervalOf5
         whenProposingOneMoreBlockWithDefaultParameters
     {
         // It places the block in the first slot
@@ -68,7 +68,7 @@ contract TaikoL1Test is Test {
 
     function test_WhenCase_4()
         external
-        givenANewTaikoL1With10BlockSlotsAndASyncIntervalOf5
+        whenANewTaikoL1With10BlockSlotsAndASyncIntervalOf5
         whenProposingOneMoreBlockWithDefaultParametersButNonzeroParentMetaHash
     {
         // It does not revert when the first block's parentMetaHash matches the genesis block's metahash
@@ -86,7 +86,7 @@ contract TaikoL1Test is Test {
 
     function test_WhenCase_5()
         external
-        givenANewTaikoL1With10BlockSlotsAndASyncIntervalOf5
+        whenANewTaikoL1With10BlockSlotsAndASyncIntervalOf5
         whenProposing9BlocksAsABatchToFillAllSlots
         whenProposeThe11thBlockBeforePreviousBlocksAreVerified
     {
@@ -104,7 +104,7 @@ contract TaikoL1Test is Test {
 
     function test_WhenCase_6()
         external
-        givenANewTaikoL1With10BlockSlotsAndASyncIntervalOf5
+        whenANewTaikoL1With10BlockSlotsAndASyncIntervalOf5
         whenProposing9BlocksAsABatchToFillAllSlots
         whenProveAllExistingBlocksWithCorrectFirstTransitions
         whenProposingThe11thBlockAfterPreviousBlocksAreVerified
@@ -116,7 +116,7 @@ contract TaikoL1Test is Test {
 
     function test_WhenCase_7()
         external
-        givenANewTaikoL1With10BlockSlotsAndASyncIntervalOf5
+        whenANewTaikoL1With10BlockSlotsAndASyncIntervalOf5
         whenProposing9BlocksAsABatchToFillAllSlots
         whenProveAllExistingBlocksWithCorrectFirstTransitions
     {
@@ -130,16 +130,16 @@ contract TaikoL1Test is Test {
         _;
     }
 
-    modifier whenProveAllExistingBlocksWithCorrectFirstTransitionsInReverseOrder() {
+    modifier whenProveAllExistingBlocksWithCorrectFirstTransitions2() {
         _;
     }
 
     function test_WhenCase_8()
         external
-        givenANewTaikoL1With10BlockSlotsAndASyncIntervalOf5
+        whenANewTaikoL1With10BlockSlotsAndASyncIntervalOf5
         whenProposing9BlocksAsABatchToFillAllSlots
         whenProveAllExistingBlocksWithWrongFirstTransitions
-        whenProveAllExistingBlocksWithCorrectFirstTransitionsInReverseOrder
+        whenProveAllExistingBlocksWithCorrectFirstTransitions2
     {
         // It total block count is 10
         // It returns the block 9 and its first transition for getLastVerifiedTransitionV3
@@ -149,7 +149,7 @@ contract TaikoL1Test is Test {
 
     function test_WhenCase_9()
         external
-        givenANewTaikoL1With10BlockSlotsAndASyncIntervalOf5
+        whenANewTaikoL1With10BlockSlotsAndASyncIntervalOf5
         whenProposing9BlocksAsABatchToFillAllSlots
         whenProveAllExistingBlocksWithWrongFirstTransitions
     {
@@ -161,7 +161,7 @@ contract TaikoL1Test is Test {
 
     function test_WhenCase_10()
         external
-        givenANewTaikoL1With10BlockSlotsAndASyncIntervalOf5
+        whenANewTaikoL1With10BlockSlotsAndASyncIntervalOf5
         whenProposing9BlocksAsABatchToFillAllSlots
     {
         // It total block count is 10

@@ -1,6 +1,6 @@
 .DEFAULT_TARGET: help
 
-SOLIDITY_VERSION=0.8.17
+SOLIDITY_VERSION=^0.8.24
 TEST_TREE_MARKDOWN=TEST_TREE.md
 SOURCE_FILES=$(shell find test -type f -name '*.t.yaml')
 TREE_FILES = $(SOURCE_FILES:.t.yaml=.tree)

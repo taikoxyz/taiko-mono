@@ -1,5 +1,5 @@
 TaikoL1Test:
-  - given: a new TaikoL1 with 10 block slots and a sync interval of 5
+  - when: a new TaikoL1 with 10 block slots and a sync interval of 5
     then:
       - when: test1
         then:

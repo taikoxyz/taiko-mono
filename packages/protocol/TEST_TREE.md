@@ -4,7 +4,7 @@ Below is the graphical definition of the contract tests implemented on [the test
 
 ```
 TaikoL1Test
-└── Given a new TaikoL1 with 10 block slots and a sync interval of 5
+└── When a new TaikoL1 with 10 block slots and a sync interval of 5
     ├── When test1
     │   └── When case-1
     │       ├── It initializes the genesis block
@@ -51,7 +51,7 @@ TaikoL1Test
         │       ├── It returns the block 9 and its first transition for getLastVerifiedTransitionV3
         │       └── It returns the block 5 and its first transition for getLastSyncedTransitionV3
         ├── When prove all existing blocks with wrong first transitions
-        │   ├── When prove all existing blocks with correct first transitions
+        │   ├── When prove all existing blocks with correct first transitions2
         │   │   └── When case-8
         │   │       ├── It total block count is 10
         │   │       ├── It returns the block 9 and its first transition for getLastVerifiedTransitionV3
