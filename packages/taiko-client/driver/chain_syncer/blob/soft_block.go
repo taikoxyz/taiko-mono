@@ -77,22 +77,22 @@ func (s *Syncer) InsertSoftBlockFromTransactionsBatch(
 		return nil, fmt.Errorf("failed to calculate base fee: %w", err)
 	}
 
+	// Assemble a TaikoL2.anchorV2 transaction.
+	anchorTx, err := s.anchorConstructor.AssembleAnchorV2Tx(
+		ctx,
+		new(big.Int).SetUint64(blockParams.AnchorBlockID),
+		blockParams.AnchorStateRoot,
+		parent.GasUsed,
+		&protocolConfigs.BaseFeeConfig,
+		new(big.Int).SetUint64(blockID),
+		baseFee,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create TaikoL2.anchorV2 transaction: %w", err)
+	}
+
 	// Insert the anchor transaction at the head of the transactions list.
 	if batchID == 0 {
-		// Assemble a TaikoL2.anchorV2 transaction.
-		anchorTx, err := s.anchorConstructor.AssembleAnchorV2Tx(
-			ctx,
-			new(big.Int).SetUint64(blockParams.AnchorBlockID),
-			blockParams.AnchorStateRoot,
-			parent.GasUsed,
-			&protocolConfigs.BaseFeeConfig,
-			new(big.Int).SetUint64(blockID),
-			baseFee,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create TaikoL2.anchorV2 transaction: %w", err)
-		}
-
 		txList = append([]*types.Transaction{anchorTx}, txList...)
 	} else {
 		prevSoftBlock, err := s.rpc.L2.BlockByNumber(ctx, new(big.Int).SetUint64(blockID))
@@ -132,7 +132,7 @@ func (s *Syncer) InsertSoftBlockFromTransactionsBatch(
 			return nil, fmt.Errorf("preconfirmation from %s has already been marked as ended", blockParams.Coinbase)
 		}
 
-		txList = append(prevSoftBlock.Transactions(), txList...)
+		txList = append(append([]*types.Transaction{anchorTx}, prevSoftBlock.Transactions()[1:]...), txList...)
 	}
 
 	if txListBytes, err = rlp.EncodeToBytes(txList); err != nil {
