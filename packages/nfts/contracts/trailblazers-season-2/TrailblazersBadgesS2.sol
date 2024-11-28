@@ -198,4 +198,14 @@ contract TrailblazersBadgesS2 is
 
     /// @notice Internal method to authorize an upgrade
     function _authorizeUpgrade(address) internal virtual override onlyOwner { }
+
+    // v2
+
+    function version() public pure returns (string memory) {
+        return "v2";
+    }
+
+    function setUri(string memory __uri) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        uriTemplate = __uri;
+    }
 }
