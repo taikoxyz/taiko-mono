@@ -55,7 +55,7 @@ func NewNetwork(ctx context.Context, bootstrapNodeURL string, port uint64) (*Net
 
 	fullAddr := fmt.Sprintf("%s/p2p/%s", strings.ReplaceAll(host.Addrs()[1].String(), "]", ""), host.ID())
 
-	slog.Info("Node address", "address", fullAddr)
+	slog.Info("Node address", "address", fullAddr, "localFullAddr", localFullAddr)
 
 	slog.Info("Node started", "id", host.ID())
 
