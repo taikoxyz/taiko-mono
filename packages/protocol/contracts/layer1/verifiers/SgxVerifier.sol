@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "../../shared/common/EssentialContract.sol";
-import "../../shared/common/LibStrings.sol";
+import "src/shared/common/EssentialContract.sol";
+import "src/shared/common/LibStrings.sol";
 import "../automata-attestation/interfaces/IAttestation.sol";
 import "../automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
 import "../based/ITaikoL1.sol";
@@ -106,7 +106,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
         for (uint256 i; i < _ids.length; ++i) {
             uint256 idx = _ids[i];
 
-            if (instances[idx].addr == address(0)) revert SGX_INVALID_INSTANCE();
+            require(instances[idx].addr != address(0), SGX_INVALID_INSTANCE());
 
             emit InstanceDeleted(idx, instances[idx].addr);
 
@@ -123,13 +123,11 @@ contract SgxVerifier is EssentialContract, IVerifier {
     {
         address automataDcapAttestation = resolve(LibStrings.B_AUTOMATA_DCAP_ATTESTATION, true);
 
-        if (automataDcapAttestation == address(0)) {
-            revert SGX_RA_NOT_SUPPORTED();
-        }
+        require(automataDcapAttestation != address(0), SGX_RA_NOT_SUPPORTED());
 
         (bool verified,) = IAttestation(automataDcapAttestation).verifyParsedQuote(_attestation);
 
-        if (!verified) revert SGX_INVALID_ATTESTATION();
+        require(verified, SGX_INVALID_ATTESTATION());
 
         address[] memory addresses = new address[](1);
         addresses[0] = address(bytes20(_attestation.localEnclaveReport.reportData));
@@ -151,7 +149,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
         // Size is: 89 bytes
         // 4 bytes + 20 bytes + 65 bytes (signature) = 89
-        if (_proof.data.length != 89) revert SGX_INVALID_PROOF();
+        require(_proof.data.length == 89, SGX_INVALID_PROOF());
 
         uint32 id = uint32(bytes4(_proof.data[:4]));
         address newInstance = address(bytes20(_proof.data[4:24]));
@@ -163,7 +161,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
             _proof.data[24:]
         );
 
-        if (!_isInstanceValid(id, oldInstance)) revert SGX_INVALID_INSTANCE();
+        require(_isInstanceValid(id, oldInstance), SGX_INVALID_INSTANCE());
 
         if (newInstance != oldInstance && newInstance != address(0)) {
             _replaceInstance(id, oldInstance, newInstance);
@@ -180,7 +178,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     {
         // Size is: 109 bytes
         // 4 bytes + 20 bytes + 20 bytes + 65 bytes (signature) = 109
-        if (_proof.data.length != 109) revert SGX_INVALID_PROOF();
+        require(_proof.data.length == 109, SGX_INVALID_PROOF());
 
         uint32 id = uint32(bytes4(_proof.data[:4]));
         address oldInstance = address(bytes20(_proof.data[4:24]));
@@ -207,11 +205,9 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
         bytes32 signatureHash = keccak256(abi.encodePacked(publicInputs));
         // Verify the blocks
-        if (oldInstance != ECDSA.recover(signatureHash, signature)) {
-            revert SGX_INVALID_PROOF();
-        }
+        require(oldInstance == ECDSA.recover(signatureHash, signature), SGX_INVALID_PROOF());
 
-        if (!_isInstanceValid(id, oldInstance)) revert SGX_INVALID_INSTANCE();
+        require(_isInstanceValid(id, oldInstance), SGX_INVALID_INSTANCE());
 
         if (newInstance != oldInstance && newInstance != address(0)) {
             _replaceInstance(id, oldInstance, newInstance);
@@ -238,11 +234,11 @@ contract SgxVerifier is EssentialContract, IVerifier {
         }
 
         for (uint256 i; i < _instances.length; ++i) {
-            if (addressRegistered[_instances[i]]) revert SGX_ALREADY_ATTESTED();
+            require(!addressRegistered[_instances[i]], SGX_ALREADY_ATTESTED());
 
             addressRegistered[_instances[i]] = true;
 
-            if (_instances[i] == address(0)) revert SGX_INVALID_INSTANCE();
+            require(_instances[i] != address(0), SGX_INVALID_INSTANCE());
 
             instances[nextInstanceId] = Instance(_instances[i], validSince);
             ids[i] = nextInstanceId;
@@ -261,8 +257,8 @@ contract SgxVerifier is EssentialContract, IVerifier {
     }
 
     function _isInstanceValid(uint256 id, address instance) private view returns (bool) {
-        if (instance == address(0)) return false;
-        if (instance != instances[id].addr) return false;
+        require(instance != address(0), SGX_INVALID_INSTANCE());
+        require(instance == instances[id].addr, SGX_INVALID_INSTANCE());
         return instances[id].validSince <= block.timestamp
             && block.timestamp <= instances[id].validSince + INSTANCE_EXPIRY;
     }

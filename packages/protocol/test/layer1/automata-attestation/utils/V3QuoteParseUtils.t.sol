@@ -1,17 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { V3Struct } from
-    "../../../../contracts/layer1/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
-import { V3Parser } from
-    "../../../../contracts/layer1/automata-attestation/lib/QuoteV3Auth/V3Parser.sol";
-import { IPEMCertChainLib } from
-    "../../../../contracts/layer1/automata-attestation/lib/interfaces/IPEMCertChainLib.sol";
-import { PEMCertChainLib } from
-    "../../../../contracts/layer1/automata-attestation/lib/PEMCertChainLib.sol";
-import { Base64 } from "solady/src/utils/Base64.sol";
-import { JSONParserLib } from "solady/src/utils/JSONParserLib.sol";
-import { LibString } from "solady/src/utils/LibString.sol";
+import "src/layer1/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
+import "src/layer1/automata-attestation/lib/QuoteV3Auth/V3Parser.sol";
+import "src/layer1/automata-attestation/lib/interfaces/IPEMCertChainLib.sol";
+import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
+import "solady/src/utils/Base64.sol";
+import "solady/src/utils/JSONParserLib.sol";
+import "solady/src/utils/LibString.sol";
 
 contract V3QuoteParseUtils {
     using JSONParserLib for JSONParserLib.Item;

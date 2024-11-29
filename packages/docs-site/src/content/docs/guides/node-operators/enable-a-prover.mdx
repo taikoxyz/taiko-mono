@@ -38,6 +38,8 @@ These are the bare minimum required settings along with a functional Taiko node 
 The following steps can be done through the [ProverSet contract](/guides/node-operators/deploy-a-proverset/#deploying-a-proverset) if you have deployed one. We highly recommend this for a stable setup.
 </Aside>
 
+Please find all relevant bond, cooldown, and proving window information [here](/network-reference/network-configuration/#cooldown-window-proving-window-and-bonds).
+
 ### Approve TaikoL1 as TAIKO spender (mainnet)
 
 <Steps>
@@ -56,7 +58,15 @@ The following steps can be done through the [ProverSet contract](/guides/node-op
 
 4. Set the amount to at least the minimum bond amount of 125 TAIKO.
 
-   You will need 125 TAIKO for each bond you sign. After entering 125, you need to set the 18 decimals that the TAIKO contract takes, you can click the plus button and then select 10^18.
+   You will need 150 TAIKO for each bond you sign. After entering 150, you need to set the 18 decimals that the TAIKO contract takes, you can click the plus button and then select 10^18.
+
+   You will notice that the amount subtracted is separate in two transactions, 125 for the `proposeBlock` and 25 for `proveBlock`.
+
+   This is because the `livenessBond` (125) is taken when the block is proposed, and once the proof has been provided in the window is credited in TaikoL1; the `validityBond` (150) is then debited using the existing balance + an extra 25 TTKOh.
+
+   If you have bonded TTKOh in the TaikoL1 contract, it will be used first before more is taken from your ProverSet.
+
+   For an explanation of the difference between these bonds, please refer to the terminology section [here](/resources/terminology).
 
 5. Finally, click the **Write** button.
 

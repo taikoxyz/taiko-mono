@@ -6,9 +6,9 @@ import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "../../../shared/common/EssentialContract.sol";
-import "../../../shared/common/LibStrings.sol";
-import "../../../shared/common/LibMath.sol";
+import "src/shared/common/EssentialContract.sol";
+import "src/shared/common/LibStrings.sol";
+import "src/shared/common/LibMath.sol";
 import "../../provers/ProverSet.sol";
 
 /// @title TokenUnlock
@@ -60,6 +60,7 @@ contract TokenUnlock is EssentialContract {
     error NOT_WITHDRAWABLE();
     error NOT_PROVER_SET();
     error PERMISSION_DENIED();
+    error TAIKO_TOKEN_NOT_USED_AS_BOND_TOKEN();
 
     modifier onlyRecipient() {
         if (msg.sender != recipient) revert PERMISSION_DENIED();
@@ -84,7 +85,7 @@ contract TokenUnlock is EssentialContract {
     )
         external
         nonZeroAddr(_recipient)
-        nonZeroValue(uint256(_tgeTimestamp))
+        nonZeroValue(_tgeTimestamp)
         initializer
     {
         if (_owner == _recipient) revert INVALID_PARAM();
@@ -110,6 +111,11 @@ contract TokenUnlock is EssentialContract {
 
     /// @notice Create a new prover set.
     function createProverSet() external onlyRecipient returns (address proverSet_) {
+        require(
+            resolve(LibStrings.B_BOND_TOKEN, false) == resolve(LibStrings.B_TAIKO_TOKEN, false),
+            TAIKO_TOKEN_NOT_USED_AS_BOND_TOKEN()
+        );
+
         bytes memory data = abi.encodeCall(ProverSet.init, (owner(), address(this), addressManager));
         proverSet_ = address(new ERC1967Proxy(resolve(LibStrings.B_PROVER_SET, false), data));
 

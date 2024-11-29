@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import "@risc0/contracts/IRiscZeroVerifier.sol";
-import "../../shared/common/EssentialContract.sol";
-import "../../shared/common/LibStrings.sol";
+import "src/shared/common/EssentialContract.sol";
+import "src/shared/common/LibStrings.sol";
 import "../based/ITaikoL1.sol";
 import "./LibPublicInput.sol";
 import "./IVerifier.sol";
@@ -62,9 +62,7 @@ contract Risc0Verifier is EssentialContract, IVerifier {
         // Decode will throw if not proper length/encoding
         (bytes memory seal, bytes32 imageId) = abi.decode(_proof.data, (bytes, bytes32));
 
-        if (!isImageTrusted[imageId]) {
-            revert RISC_ZERO_INVALID_BLOCK_PROOF_IMAGE_ID();
-        }
+        require(isImageTrusted[imageId], RISC_ZERO_INVALID_BLOCK_PROOF_IMAGE_ID());
 
         bytes32 publicInputHash = LibPublicInput.hashPublicInputs(
             _tran, address(this), address(0), _ctx.prover, _ctx.metaHash, taikoChainId()
@@ -77,9 +75,7 @@ contract Risc0Verifier is EssentialContract, IVerifier {
         (bool success,) = resolve(LibStrings.B_RISCZERO_GROTH16_VERIFIER, false).staticcall(
             abi.encodeCall(IRiscZeroVerifier.verify, (seal, imageId, journalDigest))
         );
-        if (!success) {
-            revert RISC_ZERO_INVALID_PROOF();
-        }
+        require(success, RISC_ZERO_INVALID_PROOF());
     }
 
     /// @inheritdoc IVerifier
@@ -94,13 +90,9 @@ contract Risc0Verifier is EssentialContract, IVerifier {
             abi.decode(_proof.data, (bytes, bytes32, bytes32));
 
         // Check if the aggregation program is trusted
-        if (!isImageTrusted[aggregationImageId]) {
-            revert RISC_ZERO_INVALID_AGGREGATION_IMAGE_ID();
-        }
+        require(isImageTrusted[aggregationImageId], RISC_ZERO_INVALID_AGGREGATION_IMAGE_ID());
         // Check if the block proving program is trusted
-        if (!isImageTrusted[blockImageId]) {
-            revert RISC_ZERO_INVALID_BLOCK_PROOF_IMAGE_ID();
-        }
+        require(isImageTrusted[blockImageId], RISC_ZERO_INVALID_BLOCK_PROOF_IMAGE_ID());
 
         // Collect public inputs
         bytes32[] memory publicInputs = new bytes32[](_ctxs.length + 1);
@@ -126,9 +118,7 @@ contract Risc0Verifier is EssentialContract, IVerifier {
         (bool success,) = resolve(LibStrings.B_RISCZERO_GROTH16_VERIFIER, false).staticcall(
             abi.encodeCall(IRiscZeroVerifier.verify, (seal, aggregationImageId, journalDigest))
         );
-        if (!success) {
-            revert RISC_ZERO_INVALID_PROOF();
-        }
+        require(success, RISC_ZERO_INVALID_PROOF());
     }
 
     function taikoChainId() internal view virtual returns (uint64) {

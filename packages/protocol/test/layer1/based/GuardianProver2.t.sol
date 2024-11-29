@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../../../contracts/layer1/provers/GuardianProver.sol";
+import "src/layer1/provers/GuardianProver.sol";
 import "./TaikoL1TestBase.sol";
 
 /// @author Kirk Baird <kirk@sigmaprime.io>

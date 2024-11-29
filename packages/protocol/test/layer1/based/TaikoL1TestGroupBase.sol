@@ -10,6 +10,7 @@ contract TaikoL1New is TaikoL1 {
         config.blockMaxProposals = 20;
         config.blockRingBufferSize = 25;
         config.stateRootSyncInternal = 2;
+        config.ontakeForkHeight = 0;
     }
 }
 
@@ -25,19 +26,14 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
         bytes4 revertReason
     )
         internal
-        returns (TaikoData.BlockMetadata memory meta)
+        returns (TaikoData.BlockMetadataV2 memory)
     {
-        TaikoData.HookCall[] memory hookcalls = new TaikoData.HookCall[](0);
-        bytes memory txList = new bytes(10);
-
         vm.prank(proposer);
         if (revertReason != "") vm.expectRevert(revertReason);
-        (meta,) = L1.proposeBlock{ value: 3 ether }(
-            abi.encode(TaikoData.BlockParams(address(0), address(0), 0, 0, hookcalls, "")), txList
-        );
+        return L1.proposeBlockV2("", new bytes(10));
     }
 
-    function proposeBlockV2(
+    function proposeBlock(
         address proposer,
         TaikoData.BlockParamsV2 memory params,
         bytes4 revertReason
@@ -45,16 +41,14 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
         internal
         returns (TaikoData.BlockMetadataV2 memory)
     {
-        bytes memory txList = new bytes(10);
-
         vm.prank(proposer);
         if (revertReason != "") vm.expectRevert(revertReason);
-        return L1.proposeBlockV2(abi.encode(params), txList);
+        return L1.proposeBlockV2(abi.encode(params), new bytes(10));
     }
 
     function proveBlock(
         address prover,
-        TaikoData.BlockMetadata memory meta,
+        TaikoData.BlockMetadataV2 memory meta,
         bytes32 parentHash,
         bytes32 blockHash,
         bytes32 stateRoot,
@@ -97,13 +91,13 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
 
             // Grant 2 signatures, 3rd might be a revert
             vm.prank(David, David);
-            gp.approve(meta, tran, proof);
+            gp.approveV2(meta, tran, proof);
             vm.prank(Emma, Emma);
-            gp.approve(meta, tran, proof);
+            gp.approveV2(meta, tran, proof);
 
             if (revertReason != "") vm.expectRevert(revertReason);
             vm.prank(Frank);
-            gp.approve(meta, tran, proof);
+            gp.approveV2(meta, tran, proof);
         } else {
             if (revertReason != "") vm.expectRevert(revertReason);
             vm.prank(prover);
@@ -170,7 +164,7 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
     }
 
     function printBlockAndTrans(uint64 blockId) internal view {
-        TaikoData.Block memory blk = L1.getBlock(blockId);
+        TaikoData.BlockV2 memory blk = L1.getBlockV2(blockId);
         printBlock(blk);
 
         for (uint32 i = 1; i < blk.nextTransitionId; ++i) {
@@ -190,7 +184,7 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
         return tko.balanceOf(user) + L1.bondBalanceOf(user);
     }
 
-    function printBlock(TaikoData.Block memory blk) internal view {
+    function printBlock(TaikoData.BlockV2 memory blk) internal view {
         (, TaikoData.SlotB memory b) = L1.getStateVariables();
         console2.log("\n==================");
         console2.log("---CHAIN:");
@@ -198,8 +192,6 @@ abstract contract TaikoL1TestGroupBase is TaikoL1TestBase {
         console2.log(" | numBlocks:", b.numBlocks);
         console2.log(" | timestamp:", block.timestamp);
         console2.log("---BLOCK#", blk.blockId);
-        console2.log(" | assignedProver:", blk.assignedProver);
-        console2.log(" | livenessBond:", blk.livenessBond);
         console2.log(" | proposedAt:", blk.proposedAt);
         console2.log(" | proposedIn:", blk.proposedIn);
         console2.log(" | metaHash:", vm.toString(blk.metaHash));

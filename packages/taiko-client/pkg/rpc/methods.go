@@ -7,8 +7,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
-
 	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -21,7 +19,8 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
 var (
@@ -58,8 +57,13 @@ func (c *Client) ensureGenesisMatched(ctx context.Context) error {
 		}
 	)
 
+	protocolConfigs, err := GetProtocolConfigs(c.TaikoL1, &bind.CallOpts{Context: ctxWithTimeout})
+	if err != nil {
+		return err
+	}
+
 	// If chain actives ontake fork from genesis, we need to fetch the genesis block hash from `BlockVerifiedV2` event.
-	if encoding.GetProtocolConfig(c.L2.ChainID.Uint64()).OntakeForkHeight == 0 {
+	if protocolConfigs.OntakeForkHeight == 0 {
 		// Fetch the genesis `BlockVerified2` event.
 		iter, err := c.TaikoL1.FilterBlockVerifiedV2(filterOpts, []*big.Int{common.Big0}, nil)
 		if err != nil {
@@ -508,6 +512,19 @@ func (c *Client) GetProtocolStateVariables(opts *bind.CallOpts) (*struct {
 	opts.Context = ctxWithTimeout
 
 	return GetProtocolStateVariables(c.TaikoL1, opts)
+}
+
+// GetLastVerifiedBlockHash gets the last verified block hash from TaikoL1 contract.
+func (c *Client) GetLastVerifiedBlockHash(ctx context.Context) (common.Hash, error) {
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
+
+	b, err := c.TaikoL1.GetLastVerifiedBlock(&bind.CallOpts{Context: ctxWithTimeout})
+	if err != nil {
+		return common.Hash{}, err
+	}
+
+	return b.BlockHash, nil
 }
 
 // GetL2BlockInfo fetches the L2 block information from the protocol.

@@ -7,10 +7,12 @@ on:
       - "packages/taiko-client/**"
       - "go.mod"
       - "go.sum"
+    branches-ignore:
+      - release-please--branches--**
 
 jobs:
   hive_tests:
-    if: github.event.pull_request.draft == false && contains(github.event.pull_request.labels.*.name, 'option.hive-test')
+    if: ${{ github.event.pull_request.draft == false && contains(github.event.pull_request.labels.*.name, 'option.hive-test') }}
     name: hive tests
     runs-on: [arc-runner-set]
     timeout-minutes: 40
@@ -29,7 +31,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: 1.21
+          go-version: 1.23
           cache: true
 
       - name: Clone taikoxyz/hive

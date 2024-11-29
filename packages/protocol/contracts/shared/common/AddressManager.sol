@@ -24,12 +24,12 @@ contract AddressManager is EssentialContract, IAddressManager {
     error AM_ADDRESS_ALREADY_SET();
 
     /// @notice Initializes the contract.
-    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    /// @param _owner The owner of this contract.
     function init(address _owner) external initializer {
-        __Essential_init(_owner);
-        addressManager = address(this);
+        __Essential_init(_owner, address(this));
     }
 
+    /// @notice This function shall be called by previously deployed contracts.
     function init2() external onlyOwner reinitializer(2) {
         addressManager = address(this);
     }
@@ -48,7 +48,7 @@ contract AddressManager is EssentialContract, IAddressManager {
         onlyOwner
     {
         address oldAddress = __addresses[_chainId][_name];
-        if (_newAddress == oldAddress) revert AM_ADDRESS_ALREADY_SET();
+        require(_newAddress != oldAddress, AM_ADDRESS_ALREADY_SET());
         __addresses[_chainId][_name] = _newAddress;
         emit AddressSet(_chainId, _name, _newAddress, oldAddress);
     }

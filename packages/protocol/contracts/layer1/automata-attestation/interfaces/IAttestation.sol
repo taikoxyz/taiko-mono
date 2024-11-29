@@ -1,7 +1,7 @@
 //SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { V3Struct } from "../lib/QuoteV3Auth/V3Struct.sol";
+import "../lib/QuoteV3Auth/V3Struct.sol";
 
 /// @title IAttestation
 /// @custom:security-contact security@taiko.xyz

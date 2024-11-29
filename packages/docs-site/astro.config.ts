@@ -42,7 +42,7 @@ export default defineConfig({
       title: "Docs",
       editLink: {
         baseUrl:
-          "https://github.com/taikoxyz/taiko-mono/tree/main/packages/docs-site",
+          "https://github.com/taikoxyz/taiko-mono/edit/main/packages/docs-site",
       },
       customCss: ["./src/styles/custom.css"],
       logo: {
@@ -190,8 +190,8 @@ export default defineConfig({
               link: "/network-reference/network-configuration",
             },
             {
-              label: "Node releases",
-              link: "/network-reference/node-releases",
+              label: "Software releases",
+              link: "/network-reference/software-releases-and-deployments",
             },
             {
               label: "RPC configuration",

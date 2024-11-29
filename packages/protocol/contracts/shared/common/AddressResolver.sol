@@ -22,7 +22,7 @@ abstract contract AddressResolver is IAddressResolver, Initializable {
     /// name.
     /// @param _name The name to check against.
     modifier onlyFromNamed(bytes32 _name) {
-        if (msg.sender != resolve(_name, true)) revert RESOLVER_DENIED();
+        require(msg.sender == resolve(_name, true), RESOLVER_DENIED());
         _;
     }
 
@@ -31,7 +31,7 @@ abstract contract AddressResolver is IAddressResolver, Initializable {
     /// @param _name The name to check against.
     modifier onlyFromOptionalNamed(bytes32 _name) {
         address addr = resolve(_name, true);
-        if (addr != address(0) && msg.sender != addr) revert RESOLVER_DENIED();
+        require(addr == address(0) || msg.sender == addr, RESOLVER_DENIED());
         _;
     }
 
@@ -40,9 +40,10 @@ abstract contract AddressResolver is IAddressResolver, Initializable {
     /// @param _name1 The first name to check against.
     /// @param _name2 The second name to check against.
     modifier onlyFromNamedEither(bytes32 _name1, bytes32 _name2) {
-        if (msg.sender != resolve(_name1, true) && msg.sender != resolve(_name2, true)) {
-            revert RESOLVER_DENIED();
-        }
+        require(
+            msg.sender == resolve(_name1, true) || msg.sender == resolve(_name2, true),
+            RESOLVER_DENIED()
+        );
         _;
     }
 
@@ -73,9 +74,8 @@ abstract contract AddressResolver is IAddressResolver, Initializable {
     /// @dev Initialization method for setting up AddressManager reference.
     /// @param _addressManager Address of the AddressManager.
     function __AddressResolver_init(address _addressManager) internal virtual onlyInitializing {
-        if (block.chainid > type(uint64).max) {
-            revert RESOLVER_UNEXPECTED_CHAINID();
-        }
+        require(block.chainid <= type(uint64).max, RESOLVER_UNEXPECTED_CHAINID());
+
         addressManager = _addressManager;
     }
 
@@ -97,14 +97,12 @@ abstract contract AddressResolver is IAddressResolver, Initializable {
     {
         addr_ = _getAddress(_chainId, _name);
 
-        if (!_allowZeroAddress && addr_ == address(0)) {
-            revert RESOLVER_ZERO_ADDR(_chainId, _name);
-        }
+        require(_allowZeroAddress || addr_ != address(0), RESOLVER_ZERO_ADDR(_chainId, _name));
     }
 
     function _getAddress(uint64 _chainId, bytes32 _name) internal view virtual returns (address) {
         address _addressManager = addressManager;
-        if (_addressManager == address(0)) revert RESOLVER_INVALID_MANAGER();
+        require(_addressManager != address(0), RESOLVER_INVALID_MANAGER());
 
         return IAddressManager(_addressManager).getAddress(_chainId, _name);
     }

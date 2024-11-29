@@ -7,19 +7,15 @@ import "forge-std/src/StdJson.sol";
 
 import "@optimism/packages/contracts-bedrock/src/libraries/Bytes.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { P256Verifier } from "@p256-verifier/contracts/P256Verifier.sol";
+import "@p256-verifier/contracts/P256Verifier.sol";
 
-import "../../../../contracts/layer1/verifiers/SgxVerifier.sol";
-import { AutomataDcapV3Attestation } from
-    "../../../../contracts/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
-import { SigVerifyLib } from
-    "../../../../contracts/layer1/automata-attestation/utils/SigVerifyLib.sol";
-import { PEMCertChainLib } from
-    "../../../../contracts/layer1/automata-attestation/lib/PEMCertChainLib.sol";
-import { V3Struct } from
-    "../../../../contracts/layer1/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
-import { BytesUtils } from "../../../../contracts/layer1/automata-attestation/utils/BytesUtils.sol";
-import { Base64 } from "solady/src/utils/Base64.sol";
+import "src/layer1/verifiers/SgxVerifier.sol";
+import "src/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
+import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
+import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
+import "src/layer1/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
+import "src/layer1/automata-attestation/utils/BytesUtils.sol";
+import "solady/src/utils/Base64.sol";
 import "../utils/DcapTestUtils.t.sol";
 import "../utils/V3QuoteParseUtils.t.sol";
 

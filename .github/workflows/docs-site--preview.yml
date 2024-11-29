@@ -5,15 +5,16 @@ env:
   VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_DOCS_SITE }}
 
 on:
-  push:
-    branches-ignore:
-      - main
-      - release-please-*
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "packages/docs-site/**"
+    branches-ignore:
+      - release-please--branches--**
 
 jobs:
   deploy-docs-site-preview:
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
     runs-on: [arc-runner-set]
     steps:
       - name: Install Git

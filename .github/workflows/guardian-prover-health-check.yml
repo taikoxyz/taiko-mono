@@ -12,15 +12,18 @@ on:
       - "packages/guardian-prover-health-check/**"
       - "go.mod"
       - "go.sum"
+    branches-ignore:
+      - release-please--branches--**
 
 jobs:
   lint-guardian-prover-health-check:
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
     name: lint-guardian-prover-health-check
     runs-on: [taiko-runner]
     steps:
       - uses: actions/setup-go@v5
         with:
-          go-version: 1.21.0
+          go-version: 1.23.0
       - uses: actions/checkout@v4
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
@@ -33,6 +36,7 @@ jobs:
           args: --config=.golangci.yml --timeout=4m
 
   test-guardian-prover-health-check:
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
     runs-on: [taiko-runner]
     needs: lint-guardian-prover-health-check
     steps:
@@ -44,7 +48,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.21.0"
+          go-version: "1.23.0"
 
       - name: guardian-prover-health-check - Unit Tests
         working-directory: ./packages/guardian-prover-health-check
@@ -58,7 +62,7 @@ jobs:
 
   push-guardian-prover-health-check-docker-image:
     # Skip dependabot PRs
-    if: ${{ github.event_name == 'pull_request' && ! startsWith(github.ref, 'refs/heads/dependabot/') }}
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please' && !startsWith(github.head_ref, 'refs/heads/dependabot/')) }}
     name: Build and push docker image
     runs-on: [taiko-runner]
 

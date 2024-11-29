@@ -5,10 +5,12 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "packages/monitors/**"
+    branches-ignore:
+      - release-please--branches--**
 
 jobs:
   deploy-protocol-monitors:
-    if: github.event.pull_request.draft == false
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
     runs-on: [taiko-runner]
     permissions:
       # Give the necessary permissions for stefanzweifel/git-auto-commit-action.
