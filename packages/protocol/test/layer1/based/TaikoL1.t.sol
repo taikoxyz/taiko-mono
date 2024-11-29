@@ -4,8 +4,10 @@ pragma solidity ^0.8.24;
 import "../Layer1Test.sol";
 
 contract TaikoL1Test is Layer1Test {
-    ITaikoL1 internal taikoL1;
     mapping(uint256 => ITaikoL1.BlockMetadataV3) internal blockMetadatas;
+    ITaikoL1 internal taikoL1;
+    TaikoToken internal bondToken;
+    SignalService internal signalService;
 
     ITaikoL1.ConfigV3 internal config =   ITaikoL1.ConfigV3({
             chainId: LibNetwork.TAIKO_MAINNET,
@@ -30,7 +32,13 @@ contract TaikoL1Test is Layer1Test {
 
     function setUpOnEthereum() internal override {
         taikoL1 = deployTaikoL1(_correctBlockhash(0), config);
-        deployBondToken();
+         bondToken = deployBondToken();
+        signalService = deploySignalService(address(new SignalService()));
+
+        signalService.authorize(address(taikoL1), true);
+
+        mineOneBlockAndWrap(12 seconds);
+
     }
 
     modifier WhenMultipleBlocksAreProposedWithDefaultParameters(uint256 count) {
