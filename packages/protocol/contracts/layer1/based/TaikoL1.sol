@@ -164,7 +164,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
             BlockMetadataV3 calldata meta = _metas[i];
 
             require(meta.blockId >= config.pacayaForkHeight, InvalidForkHeight());
-            require(meta.blockId > stats2.lastVerifiedBlockId, BlockVerified());
+            require(meta.blockId > stats2.lastVerifiedBlockId, BlockNotFound());
             require(meta.blockId < stats2.numBlocks, BlockNotFound());
 
             TransitionV3 calldata tran = _transitions[i];
