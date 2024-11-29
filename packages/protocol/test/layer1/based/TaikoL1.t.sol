@@ -53,6 +53,11 @@ contract TaikoL1Test is Layer1Test {
         mineOneBlockAndWrap(12 seconds);
     }
 
+    modifier WhenLogAllBlocksAndTransitions() {
+        _logAllBlocksAndTransitions();
+        _;
+    }
+
     modifier WhenMultipleBlocksAreProposedWithDefaultParameters(uint256 numBlocksToPropose) {
         _proposeBlocksWithDefaultParameters(numBlocksToPropose);
         _;
@@ -145,6 +150,7 @@ contract TaikoL1Test is Layer1Test {
         transactBy(Alice)
         WhenMultipleBlocksAreProposedWithDefaultParameters(9)
         WhenMultipleBlocksAreProvedWithCorrectTransitions(1, 9)
+        WhenLogAllBlocksAndTransitions()
     {
         // - All stats are correct and expected
 
@@ -210,6 +216,41 @@ contract TaikoL1Test is Layer1Test {
         }
 
         taikoL1.proveBlocksV3(metas, transitions, "");
+    }
+
+    function _logAllBlocksAndTransitions() internal {
+
+        ITaikoL1.Stats1 memory stats1 = taikoL1.getStats1();
+        console2.log("Stats1 - lastSyncedBlockId:", stats1.lastSyncedBlockId);
+        console2.log("Stats1 - lastSyncedAt:", stats1.lastSyncedAt);
+
+        ITaikoL1.Stats2 memory stats2 = taikoL1.getStats2();
+        console2.log("Stats2 - numBlocks:", stats2.numBlocks);
+        console2.log("Stats2 - lastVerifiedBlockId:", stats2.lastVerifiedBlockId);
+        console2.log("Stats2 - paused:", stats2.paused);
+        console2.log("Stats2 - lastProposedIn:", stats2.lastProposedIn);
+        console2.log("Stats2 - lastUnpausedAt:", stats2.lastUnpausedAt);
+
+        uint64 firstBlockId = stats2.numBlocks > config.blockMaxProposals
+            ? stats2.numBlocks - config.blockMaxProposals
+            : 0;
+        for (uint64 i = firstBlockId; i < stats2.numBlocks; ++i) {
+            ITaikoL1.BlockV3 memory blk = taikoL1.getBlockV3(i);
+            console2.log(unicode"├── block#", blk.blockId);
+            console2.log(unicode"│   ├── metahash:", Strings.toHexString(uint256(blk.metaHash)));
+            console2.log(unicode"│   ├── timestamp:", blk.timestamp);
+            console2.log(unicode"│   ├── anchorBlockId:", blk.anchorBlockId);
+            console2.log(unicode"│   ├── nextTransitionId:", blk.nextTransitionId);
+            console2.log(unicode"│   ├── verifiedTransitionId:", blk.verifiedTransitionId);
+
+            for (uint24 j = 1; j < blk.nextTransitionId; ++j) {
+                ITaikoL1.TransitionV3 memory tran = taikoL1.getTransitionV3(blk.blockId, j);
+                console2.log(unicode"│   ├── transition#", j);
+                console2.log(unicode"│   │   ├── parentHash:", Strings.toHexString(uint256(tran.parentHash)));
+                console2.log(unicode"│   │   ├── blockHash:", Strings.toHexString(uint256(tran.blockHash)));
+                console2.log(unicode"│   │   └── stateRoot:", Strings.toHexString(uint256(tran.stateRoot)));
+            }
+        }
     }
 
     function _correctBlockhash(uint256 blockId) internal pure returns (bytes32) {
