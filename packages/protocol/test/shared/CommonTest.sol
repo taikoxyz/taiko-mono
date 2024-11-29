@@ -69,7 +69,7 @@ abstract contract CommonTest is Test, Script {
         vm.chainId(ethereumChainId);
     }
 
-    modifier transactBy(address transactor) {
+    modifier transactBy(address transactor) virtual {
         vm.deal(transactor, 100 ether);
         vm.startPrank(transactor);
 

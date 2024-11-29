@@ -31,19 +31,27 @@ contract TaikoWithConfig is TaikoL1 {
         return __config;
     }
 
-    function _blobhash(uint256 ) internal pure override returns (bytes32) {
+    function _blobhash(uint256) internal pure override returns (bytes32) {
         return keccak256("BLOB");
     }
 }
 
 abstract contract Layer1Test is CommonTest {
-
-    function deployTaikoL1(bytes32 _genesisBlockHash,  ITaikoL1.ConfigV3 memory _config) internal returns (TaikoL1) {
+    function deployTaikoL1(
+        bytes32 _genesisBlockHash,
+        ITaikoL1.ConfigV3 memory _config
+    )
+        internal
+        returns (TaikoL1)
+    {
         return TaikoL1(
             deploy({
                 name: "taiko",
                 impl: address(new TaikoWithConfig()),
-                data: abi.encodeCall(TaikoWithConfig.initWithConfig, (address(0), address(resolver), _genesisBlockHash,_config))
+                data: abi.encodeCall(
+                    TaikoWithConfig.initWithConfig,
+                    (address(0), address(resolver), _genesisBlockHash, _config)
+                )
             })
         );
     }
