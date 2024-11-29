@@ -220,9 +220,9 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
             emit TransitionProved(meta.blockId, tran);
         }
 
-        // if (_metas.length != 0) {
-        //     IVerifier(resolve(LibStrings.B_PROOF_VERIFIER, false)).verifyProof(ctxs, proof);
-        // }
+        if (_metas.length != 0) {
+            _verifyProof(ctxs, proof);
+        }
 
         _verifyBlocks(config, stats2, _metas.length);
     }
@@ -382,6 +382,16 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         state.stats2.paused = true;
     }
 
+    function _verifyProof(
+        IVerifier.Context[] memory _ctxs,
+        bytes calldata _proof
+    )
+        internal
+        virtual
+    {
+        IVerifier(resolve(LibStrings.B_PROOF_VERIFIER, false)).verifyProof(_ctxs, _proof);
+    }
+
     function _blobhash(uint256 _blobIndex) internal view virtual returns (bytes32) {
         return blobhash(_blobIndex);
     }
@@ -456,10 +466,8 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
             emit Stats1Updated(stats1);
 
             // We write the synced block's verifiedTransitionId to storage
-            if (synced.blockId != _stats2.lastVerifiedBlockId) {
-                blk = state.blocks[synced.blockId % _config.blockRingBufferSize];
-                blk.verifiedTransitionId = synced.tid;
-            }
+            blk = state.blocks[synced.blockId % _config.blockRingBufferSize];
+            blk.verifiedTransitionId = synced.tid;
 
             // Ask signal service to write cross chain signal
             ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).syncChainData(

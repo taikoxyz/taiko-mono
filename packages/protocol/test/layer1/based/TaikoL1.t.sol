@@ -110,7 +110,7 @@ contract TaikoL1Test is Layer1Test {
         assertEq(blk.verifiedTransitionId, 1);
     }
 
-        function test_taikol1_query_blocks_not_exist_will_revert() external {
+    function test_taikol1_query_blocks_not_exist_will_revert() external {
         vm.expectRevert(ITaikoL1.BlockNotFound.selector);
         taikoL1.getBlockV3(1);
     }
@@ -160,8 +160,7 @@ contract TaikoL1Test is Layer1Test {
         _proposeBlocksWithDefaultParameters({ numBlocksToPropose: 1 });
     }
 
-
-   function test_taikol1_exceed_max_block_proposal_will_revert()
+    function test_taikol1_exceed_max_block_proposal_will_revert()
         external
         transactBy(Alice)
         WhenMultipleBlocksAreProposedWithDefaultParameters(9)
@@ -214,22 +213,18 @@ contract TaikoL1Test is Layer1Test {
         }
     }
 
-
-    function test_taikol1_prove_block_not_exist_will_revert()
-        external
-        transactBy(Alice)
-    {
+    function test_taikol1_prove_block_not_exist_will_revert() external transactBy(Alice) {
         uint64[] memory blockIds = new uint64[](1);
         blockIds[0] = 1;
         vm.expectRevert(ITaikoL1.BlockNotFound.selector);
         _proveBlocksWithCorrectTransitions(blockIds);
     }
 
-      function test_taikol1_prove_verified_block_will_revert()
+    function test_taikol1_prove_verified_block_will_revert()
         external
         transactBy(Alice)
-          WhenMultipleBlocksAreProposedWithDefaultParameters(1)
-        WhenMultipleBlocksAreProvedWithCorrectTransitions(1,1)
+        WhenMultipleBlocksAreProposedWithDefaultParameters(1)
+        WhenMultipleBlocksAreProvedWithCorrectTransitions(1, 1)
     {
         uint64[] memory blockIds = new uint64[](1);
         blockIds[0] = 1;
@@ -330,8 +325,7 @@ contract TaikoL1Test is Layer1Test {
         }
     }
 
-
-        function test_taikol1_ring_buffer_will_be_reused()
+    function test_taikol1_ring_buffer_will_be_reused()
         external
         transactBy(Alice)
         WhenMultipleBlocksAreProposedWithDefaultParameters(9)
@@ -340,7 +334,7 @@ contract TaikoL1Test is Layer1Test {
         WhenLogAllBlocksAndTransitions(true)
         WhenMultipleBlocksAreProvedWithCorrectTransitions(14, 15)
         WhenLogAllBlocksAndTransitions(true)
-        WhenMultipleBlocksAreProvedWithCorrectTransitions(10, 11)
+        WhenMultipleBlocksAreProvedWithCorrectTransitions(10, 10)
         WhenLogAllBlocksAndTransitions(true)
     {
         // - All stats are correct and expected
@@ -351,39 +345,37 @@ contract TaikoL1Test is Layer1Test {
 
         ITaikoL1.Stats2 memory stats2 = taikoL1.getStats2();
         assertEq(stats2.numBlocks, 18);
-        assertEq(stats2.lastVerifiedBlockId, 11);
+        assertEq(stats2.lastVerifiedBlockId, 10);
         assertEq(stats2.paused, false);
         assertEq(stats2.lastProposedIn, block.number);
         assertEq(stats2.lastUnpausedAt, 0);
 
         // - Verify genesis block
-      
 
         // Verify block data
         for (uint64 i = 8; i < 15; ++i) {
-              ITaikoL1.BlockV3 memory blk  = taikoL1.getBlockV3(i);
+            ITaikoL1.BlockV3 memory blk = taikoL1.getBlockV3(i);
             assertEq(blk.blockId, i);
             assertEq(blk.metaHash, keccak256(abi.encode(blockMetadatas[i])));
 
             assertEq(blk.timestamp, block.timestamp);
             assertEq(blk.anchorBlockId, block.number - 1);
-
-            // if ( i == 10 || i== 11) {
-            //     assertEq(blk.verifiedTransitionId, 1);
-            //     assertEq(blk.nextTransitionId, 2);
-            // } else{
-            //     // assertEq(blk.nextTransitionId, 2);
-            // }
-
-            // if (i == 12 || i == 13) {
-            //     // these two blocks are not proved
-            //     assertEq(blk.nextTransitionId, 1);
-            // } else if (i == 5 || i == 10 || i == 11) {
-            //     // assertEq(blk.verifiedTransitionId, 1);
-            //     assertEq(blk.nextTransitionId, 2);
-            // } else {
-            //     assertEq(blk.nextTransitionId, 2);
-            // }
+            if (i == 8) {
+                assertEq(blk.verifiedTransitionId, 0);
+                assertEq(blk.nextTransitionId, 2);
+            } else if (i == 9) {
+                assertEq(blk.verifiedTransitionId, 1);
+                assertEq(blk.nextTransitionId, 2);
+            } else if (i == 10) {
+                assertEq(blk.verifiedTransitionId, 1);
+                assertEq(blk.nextTransitionId, 2);
+            } else if (i == 11 || i == 12 || i == 13 || i == 16 || i == 17) {
+                assertEq(blk.verifiedTransitionId, 0);
+                assertEq(blk.nextTransitionId, 1);
+            } else if (i == 14 || i == 15) {
+                assertEq(blk.verifiedTransitionId, 0);
+                assertEq(blk.nextTransitionId, 2);
+            }
         }
     }
 

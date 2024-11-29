@@ -34,6 +34,14 @@ contract TaikoWithConfig is TaikoL1 {
     function _blobhash(uint256) internal pure override returns (bytes32) {
         return keccak256("BLOB");
     }
+
+    function _verifyProof(
+        IVerifier.Context[] memory _ctxs,
+        bytes calldata _proof
+    )
+        internal
+        override
+    { }
 }
 
 abstract contract Layer1Test is CommonTest {
