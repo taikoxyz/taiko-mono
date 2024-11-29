@@ -3,12 +3,13 @@ pragma solidity ^0.8.24;
 
 import "./TaikoL1TestBase.sol";
 
-contract TaikoL1Test is TaikoL1TestBase {
+contract TaikoL1Test_Suite1 is TaikoL1TestBase {
     function getConfig() internal pure override returns (ITaikoL1.ConfigV3 memory) {
         return ITaikoL1.ConfigV3({
             chainId: LibNetwork.TAIKO_MAINNET,
             blockMaxProposals: 10,
             blockRingBufferSize: 15,
+            minBlocksToVerify: 1,
             maxBlocksToVerify: 5,
             blockMaxGasLimit: 240_000_000,
             livenessBond: 125e18, // 125 Taiko token

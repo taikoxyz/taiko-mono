@@ -22,6 +22,7 @@ contract MainnetTaikoL1 is TaikoL1 {
             // configuration values must NEVER be changed!!!
             blockMaxProposals: 324_000, // DO NOT CHANGE!!!
             blockRingBufferSize: 360_000, // DO NOT CHANGE!!!
+            minBlocksToVerify: 8,
             maxBlocksToVerify: 16,
             blockMaxGasLimit: 240_000_000,
             livenessBond: 125e18, // 125 Taiko token

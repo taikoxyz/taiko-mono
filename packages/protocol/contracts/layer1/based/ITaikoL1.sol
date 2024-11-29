@@ -85,6 +85,8 @@ interface ITaikoL1 {
         uint64 blockMaxProposals;
         /// @notice Size of the block ring buffer, allowing extra space for proposals.
         uint64 blockRingBufferSize;
+        /// @notice The minimum number of blocks required per verification.
+        uint64 minBlocksToVerify;
         /// @notice The maximum number of verifications allowed when a block is proposed or proved.
         uint64 maxBlocksToVerify;
         /// @notice The maximum gas limit allowed for a block.
