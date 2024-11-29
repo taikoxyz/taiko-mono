@@ -21,15 +21,15 @@ contract EventRegister is AccessControl {
      * @dev Represents an event with its associated details.
      */
     struct Event {
-        uint256 id;
         ///< Unique identifier for the event.
-        string name;
+        uint256 id;
         ///< Name of the event.
-        bool exists;
+        string name;
         ///< Flag indicating whether the event exists.
+        bool exists;
+        ///< Flag indicating whether registrations are open for the event.
         bool registrationOpen;
     }
-    ///< Flag indicating whether registrations are open for the event.
 
     /**
      * @dev Mapping from event ID to Event details.
