@@ -27,6 +27,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer"
 	guardianProverHeartbeater "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/guardian_prover_heartbeater"
 	producer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
+	proofSubmitter "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter/transaction"
 )
 
@@ -486,6 +487,93 @@ func (s *ProverTestSuite) TestGetBlockProofStatus() {
 	s.True(status.Invalid)
 	s.Equal(parent.Hash(), status.ParentHeader.Hash())
 	s.Equal(proofWithHeader.Opts.BlockHash, common.BytesToHash(status.CurrentTransitionState.BlockHash[:]))
+}
+
+func (s *ProverTestSuite) TestAggregateProofsAlreadyProved() {
+	batchSize := 2
+	s.p.cfg.SGXProofBufferSize = uint64(batchSize)
+	length := len(s.p.proofSubmitters)
+	s.p.proofSubmitters = make([]proofSubmitter.Submitter, 0, length)
+	txBuilder := transaction.NewProveBlockTxBuilder(
+		s.p.rpc,
+		s.p.cfg.TaikoL1Address,
+		s.p.cfg.ProverSetAddress,
+		s.p.cfg.GuardianProverMajorityAddress,
+		s.p.cfg.GuardianProverMinorityAddress,
+	)
+	s.Nil(s.p.initProofSubmitters(txBuilder, s.p.sharedState.GetTiers()))
+
+	// Init single prover
+	l1ProverPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROVER_PRIVATE_KEY")))
+	s.Nil(err)
+	decimal, err := s.RPCClient.TaikoToken.Decimals(nil)
+	s.Nil(err)
+	singleProver := new(Prover)
+	s.Nil(InitFromConfig(context.Background(), singleProver, &Config{
+		L1WsEndpoint:          os.Getenv("L1_WS"),
+		L2WsEndpoint:          os.Getenv("L2_WS"),
+		L2HttpEndpoint:        os.Getenv("L2_HTTP"),
+		TaikoL1Address:        common.HexToAddress(os.Getenv("TAIKO_L1")),
+		TaikoL2Address:        common.HexToAddress(os.Getenv("TAIKO_L2")),
+		TaikoTokenAddress:     common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
+		L1ProverPrivKey:       l1ProverPrivKey,
+		Dummy:                 true,
+		ProveUnassignedBlocks: true,
+		Capacity:              1024,
+		Allowance:             new(big.Int).Exp(big.NewInt(1_000_000_100), new(big.Int).SetUint64(uint64(decimal)), nil),
+		RPCTimeout:            3 * time.Second,
+		BackOffRetryInterval:  3 * time.Second,
+		BackOffMaxRetries:     12,
+		L1NodeVersion:         "1.0.0",
+		L2NodeVersion:         "0.1.0",
+	}, s.txmgr, s.txmgr))
+
+	for i := 0; i < batchSize; i++ {
+		_ = s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
+	}
+
+	s.Nil(s.p.proveOp())
+	s.Nil(singleProver.proveOp())
+	for i := 0; i < batchSize; i++ {
+		if i == 0 {
+			req := <-singleProver.proofSubmissionCh
+			s.Nil(singleProver.requestProofOp(req.Meta, req.Tier))
+		}
+		req := <-s.p.proofSubmissionCh
+		s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
+	}
+	tier := <-s.p.aggregationNotify
+	s.Nil(s.p.selectSubmitter(tier).SubmitProof(context.Background(), <-singleProver.proofGenerationCh))
+	s.Nil(s.p.aggregateOp(tier))
+	s.ErrorIs(s.p.selectSubmitter(tier).BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh), proofSubmitter.ErrInvalidProof)
+}
+
+func (s *ProverTestSuite) TestAggregateProofs() {
+	batchSize := 2
+	s.p.cfg.SGXProofBufferSize = uint64(batchSize)
+	length := len(s.p.proofSubmitters)
+	s.p.proofSubmitters = make([]proofSubmitter.Submitter, 0, length)
+	txBuilder := transaction.NewProveBlockTxBuilder(
+		s.p.rpc,
+		s.p.cfg.TaikoL1Address,
+		s.p.cfg.ProverSetAddress,
+		s.p.cfg.GuardianProverMajorityAddress,
+		s.p.cfg.GuardianProverMinorityAddress,
+	)
+	s.Nil(s.p.initProofSubmitters(txBuilder, s.p.sharedState.GetTiers()))
+
+	for i := 0; i < batchSize; i++ {
+		_ = s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
+	}
+
+	s.Nil(s.p.proveOp())
+	for i := 0; i < batchSize; i++ {
+		req := <-s.p.proofSubmissionCh
+		s.Nil(s.p.requestProofOp(req.Meta, req.Tier))
+	}
+	tier := <-s.p.aggregationNotify
+	s.Nil(s.p.aggregateOp(tier))
+	s.Nil(s.p.selectSubmitter(tier).BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
 }
 
 func (s *ProverTestSuite) TestSetApprovalAlreadySetHigher() {

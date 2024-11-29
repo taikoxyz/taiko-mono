@@ -300,7 +300,10 @@ func BatchGetBlocksProofStatus(
 	if err != nil {
 		return nil, err
 	}
-	highestHeader, err := cli.WaitL2Header(gCtx, highestBlockId)
+	highestHeader, err := cli.WaitL2Header(ctxWithTimeout, highestBlockId)
+	if err != nil {
+		return nil, err
+	}
 	g, gCtx = errgroup.WithContext(ctxWithTimeout)
 	for i, transition := range transitions {
 		// No proof on chain
