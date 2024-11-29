@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "forge-std/src/Script.sol";
 import "src/layer1/preconf/mock/MockTaikoToken.sol";
-import "../../BaseScript.sol";
+import "script/BaseScript.sol";
 
 contract DeployMockTaikoToken is BaseScript {
     function run() external broadcast {

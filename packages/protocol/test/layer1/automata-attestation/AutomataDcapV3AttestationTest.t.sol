@@ -2,11 +2,11 @@
 pragma solidity ^0.8.24;
 
 import "forge-std/src/Test.sol";
-import "forge-std/src/console.sol";
+import "forge-std/src/console2.sol";
 import "forge-std/src/StdJson.sol";
-import "./common/AttestationBase.t.sol";
+import "./AttestationBase.sol";
 
-contract AutomataDcapV3AttestationTest is Test, AttestationBase {
+contract TestAutomataDcapV3Attestation is Test, AttestationBase {
     using BytesUtils for bytes;
     using stdJson for string;
 
@@ -49,7 +49,7 @@ contract AutomataDcapV3AttestationTest is Test, AttestationBase {
     function testParsedQuoteJsonAttestation() public {
         vm.prank(user);
         string memory v3QuoteJsonStr = vm.readFile(string.concat(vm.projectRoot(), v3QuoteJsonPath));
-        // console.log("[LOG] v3QuoteJsonStr: %s", v3QuoteJsonStr);
+        // console2.log("[LOG] v3QuoteJsonStr: %s", v3QuoteJsonStr);
         bytes memory v3QuotePacked = vm.parseJson(v3QuoteJsonStr);
 
         (, V3Struct.ParsedV3QuoteStruct memory v3quote) = parseV3QuoteJson(v3QuotePacked);
@@ -78,7 +78,7 @@ contract AutomataDcapV3AttestationTest is Test, AttestationBase {
             verifyParsedQuoteAttestation(v3QuoteBytes, true);
         address parsedInstanceAddr =
             address(bytes20(Bytes.slice(v3quote.localEnclaveReport.reportData, 0, 20)));
-        // console.log("[log] parsed instance addr = %s", parsedInstanceAddr);
+        // console2.log("[log] parsed instance addr = %s", parsedInstanceAddr);
         assertTrue(parsedInstanceAddr == address(0xFECF437744A6b5680cA60692eaA4b1A9320e8240));
     }
 
@@ -113,7 +113,7 @@ contract AutomataDcapV3AttestationTest is Test, AttestationBase {
             verifyParsedQuoteAttestation(v3QuoteBytes, true);
         address parsedInstanceAddr =
             address(bytes20(Bytes.slice(v3quote.localEnclaveReport.reportData, 0, 20)));
-        console.log("[log] parsed instance addr = %s", parsedInstanceAddr);
+        console2.log("[log] parsed instance addr = %s", parsedInstanceAddr);
         assertTrue(parsedInstanceAddr == address(0xC2D4564358139C90C17B744FE837F4DDc503EEdF));
     }
 
@@ -124,7 +124,7 @@ contract AutomataDcapV3AttestationTest is Test, AttestationBase {
             verifyParsedQuoteAttestation(v3QuoteBytes, true);
         address parsedInstanceAddr =
             address(bytes20(Bytes.slice(v3quote.localEnclaveReport.reportData, 0, 20)));
-        // console.log("[log] parsed instance addr = %s", parsedInstanceAddr);
+        // console2.log("[log] parsed instance addr = %s", parsedInstanceAddr);
         assertTrue(parsedInstanceAddr == 0xC2D4564358139C90C17B744FE837F4DDc503EEdF);
     }
 
@@ -138,7 +138,7 @@ contract AutomataDcapV3AttestationTest is Test, AttestationBase {
             verifyParsedQuoteAttestation(v3QuoteBytes, true);
         address parsedInstanceAddr =
             address(bytes20(Bytes.slice(v3quote.localEnclaveReport.reportData, 0, 20)));
-        // console.log("[log] parsed instance addr = %s", parsedInstanceAddr);
+        // console2.log("[log] parsed instance addr = %s", parsedInstanceAddr);
         assertTrue(parsedInstanceAddr == 0x309734C02d2145cABB034F3c0505D28F7E5bFc2d);
     }
 
@@ -152,11 +152,11 @@ contract AutomataDcapV3AttestationTest is Test, AttestationBase {
             verifyParsedQuoteAttestation(v3QuoteBytes, true);
         address parsedInstanceAddr =
             address(bytes20(Bytes.slice(v3quote.localEnclaveReport.reportData, 0, 20)));
-        // console.log("[log] parsed instance addr = %s", parsedInstanceAddr);
+        // console2.log("[log] parsed instance addr = %s", parsedInstanceAddr);
         assertTrue(parsedInstanceAddr == 0xecf78b2b1F7e61370e150678b6283C042c6bDa03);
     }
 
-    function testParsedQuoteBase64Attestation() public {
+    function testParsedQuoteBase64Attestation() public view {
         string memory v3QuoteB64Str =
             "AwACAAAAAAAKAA8Ak5pyM/ecTKmUCg2zlX8GBxLOavHkqB4OzaxCe5m7ApUAAAAACwsQD///AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABQAAAAAAAADnAAAAAAAAADAx1Y7sROJljY0p6/ptbdwC841C1n7aq7S/qjSGeOa6AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAdPSuOeKkIHE14ZQJvmEsmUZdpbf5KBZii0O8HZPcA9QAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAdC5oqY9mLGLKIiJy2EWABZTTIFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAyhAAAEDWo4+gcMfB8oCHFOW95E3dDzSJmZxRjEPY6SLfsAxxmdL1E9tpPreSh37ItjqcFJQ6gYaaITdFjh1JUAIXGkDHJ34Tn18pgiVpiftlGYcB2Db41vFSVv8F1IkbytroE3V6fAn9HOAil3g7r2a52XZitfw4BTw0lwKAvqDrbhp+CwsQD///AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFQAAAAAAAADnAAAAAAAAAJazR6ZOWgReJzacJubc2lH9fIUOmzo6eecY9DJh3uHkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACMT1d115ZQPpYTf3fGioKaAFasje1wFAsIGwlEkMV7/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEACgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA1ueoS9M+Q7Gjo9LDL6xWrbHDoWPHtiwDG87hHG/EUZgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAXsD5UvPvZXKx36JrvQfjbUe/9s+nMccmvZd/k77abt+DaUSo3diPOAmrh0ahh1zxMInkgdjDYnXR+3H1g3xY8SAAAAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8FAGIOAAAtLS0tLUJFR0lOIENFUlRJRklDQVRFLS0tLS0KTUlJRTh6Q0NCSm1nQXdJQkFnSVZBTHorallqeGNYK2ZKb21BVWJDSnFnaWZJb2w2TUFvR0NDcUdTTTQ5QkFNQwpNSEF4SWpBZ0JnTlZCQU1NR1VsdWRHVnNJRk5IV0NCUVEwc2dVR3hoZEdadmNtMGdRMEV4R2pBWUJnTlZCQW9NCkVVbHVkR1ZzSUVOdmNuQnZjbUYwYVc5dU1SUXdFZ1lEVlFRSERBdFRZVzUwWVNCRGJHRnlZVEVMTUFrR0ExVUUKQ0F3Q1EwRXhDekFKQmdOVkJBWVRBbFZUTUI0WERUSXpNRGd5T0RFeE1UTXdOVm9YRFRNd01EZ3lPREV4TVRNdwpOVm93Y0RFaU1DQUdBMVVFQXd3WlNXNTBaV3dnVTBkWUlGQkRTeUJEWlhKMGFXWnBZMkYwWlRFYU1CZ0dBMVVFCkNnd1JTVzUwWld3Z1EyOXljRzl5WVhScGIyNHhGREFTQmdOVkJBY01DMU5oYm5SaElFTnNZWEpoTVFzd0NRWUQKVlFRSURBSkRRVEVMTUFrR0ExVUVCaE1DVlZNd1dUQVRCZ2NxaGtqT1BRSUJCZ2dxaGtqT1BRTUJCd05DQUFReQpzQVNyUzZya2VqMTRIZjFKU3B1UE8xTkRVVnl6WEJDdnAxaDQyRjEwVVUwQUZVV2cxWTQ4b2VCZzd0dk41WDJJClRHRUI1ekhCanpqdjlrdVd5VWpVbzRJRERqQ0NBd293SHdZRFZSMGpCQmd3Rm9BVWxXOWR6YjBiNGVsQVNjblUKOURQT0FWY0wzbFF3YXdZRFZSMGZCR1F3WWpCZ29GNmdYSVphYUhSMGNITTZMeTloY0drdWRISjFjM1JsWkhObApjblpwWTJWekxtbHVkR1ZzTG1OdmJTOXpaM2d2WTJWeWRHbG1hV05oZEdsdmJpOTJOQzl3WTJ0amNtdy9ZMkU5CmNHeGhkR1p2Y20wbVpXNWpiMlJwYm1jOVpHVnlNQjBHQTFVZERnUVdCQlJUVjZabHoxdkprWVNma0pqOE5pZnoKcWdhd1dEQU9CZ05WSFE4QkFmOEVCQU1DQnNBd0RBWURWUjBUQVFIL0JBSXdBRENDQWpzR0NTcUdTSWI0VFFFTgpBUVNDQWl3d2dnSW9NQjRHQ2lxR1NJYjRUUUVOQVFFRUVQNUdyZ0Vjem9wTmJvTTBzSTBidEFFd2dnRmxCZ29xCmhraUcrRTBCRFFFQ01JSUJWVEFRQmdzcWhraUcrRTBCRFFFQ0FRSUJDekFRQmdzcWhraUcrRTBCRFFFQ0FnSUIKQ3pBUUJnc3Foa2lHK0UwQkRRRUNBd0lCQXpBUUJnc3Foa2lHK0UwQkRRRUNCQUlCQXpBUkJnc3Foa2lHK0UwQgpEUUVDQlFJQ0FQOHdFUVlMS29aSWh2aE5BUTBCQWdZQ0FnRC9NQkFHQ3lxR1NJYjRUUUVOQVFJSEFnRUFNQkFHCkN5cUdTSWI0VFFFTkFRSUlBZ0VBTUJBR0N5cUdTSWI0VFFFTkFRSUpBZ0VBTUJBR0N5cUdTSWI0VFFFTkFRSUsKQWdFQU1CQUdDeXFHU0liNFRRRU5BUUlMQWdFQU1CQUdDeXFHU0liNFRRRU5BUUlNQWdFQU1CQUdDeXFHU0liNApUUUVOQVFJTkFnRUFNQkFHQ3lxR1NJYjRUUUVOQVFJT0FnRUFNQkFHQ3lxR1NJYjRUUUVOQVFJUEFnRUFNQkFHCkN5cUdTSWI0VFFFTkFRSVFBZ0VBTUJBR0N5cUdTSWI0VFFFTkFRSVJBZ0VOTUI4R0N5cUdTSWI0VFFFTkFRSVMKQkJBTEN3TUQvLzhBQUFBQUFBQUFBQUFBTUJBR0NpcUdTSWI0VFFFTkFRTUVBZ0FBTUJRR0NpcUdTSWI0VFFFTgpBUVFFQmdCZ2FnQUFBREFQQmdvcWhraUcrRTBCRFFFRkNnRUJNQjRHQ2lxR1NJYjRUUUVOQVFZRUVFV0p6T3Z5ClpFOEsza2ovSGhYRWEvc3dSQVlLS29aSWh2aE5BUTBCQnpBMk1CQUdDeXFHU0liNFRRRU5BUWNCQVFIL01CQUcKQ3lxR1NJYjRUUUVOQVFjQ0FRSC9NQkFHQ3lxR1NJYjRUUUVOQVFjREFRSC9NQW9HQ0NxR1NNNDlCQU1DQTBnQQpNRVVDSUJxM3Z4MkROYW1RQkZtVWRNZSttUFlFQ3U4NFhnb0ZDZ0l3U0pWNGNKYVRBaUVBNDNwN3Ryd0I4MHMrCjJpd2FobURkQW5DTXdKVlBMaVNFdXdEUUY4VkVnU3c9Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0KLS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUNsakNDQWoyZ0F3SUJBZ0lWQUpWdlhjMjlHK0hwUUVuSjFQUXp6Z0ZYQzk1VU1Bb0dDQ3FHU000OUJBTUMKTUdneEdqQVlCZ05WQkFNTUVVbHVkR1ZzSUZOSFdDQlNiMjkwSUVOQk1Sb3dHQVlEVlFRS0RCRkpiblJsYkNCRApiM0p3YjNKaGRHbHZiakVVTUJJR0ExVUVCd3dMVTJGdWRHRWdRMnhoY21FeEN6QUpCZ05WQkFnTUFrTkJNUXN3CkNRWURWUVFHRXdKVlV6QWVGdzB4T0RBMU1qRXhNRFV3TVRCYUZ3MHpNekExTWpFeE1EVXdNVEJhTUhBeElqQWcKQmdOVkJBTU1HVWx1ZEdWc0lGTkhXQ0JRUTBzZ1VHeGhkR1p2Y20wZ1EwRXhHakFZQmdOVkJBb01FVWx1ZEdWcwpJRU52Y25CdmNtRjBhVzl1TVJRd0VnWURWUVFIREF0VFlXNTBZU0JEYkdGeVlURUxNQWtHQTFVRUNBd0NRMEV4CkN6QUpCZ05WQkFZVEFsVlRNRmt3RXdZSEtvWkl6ajBDQVFZSUtvWkl6ajBEQVFjRFFnQUVOU0IvN3QyMWxYU08KMkN1enB4dzc0ZUpCNzJFeURHZ1c1clhDdHgydFZUTHE2aEtrNnorVWlSWkNucVI3cHNPdmdxRmVTeGxtVGxKbAplVG1pMldZejNxT0J1ekNCdURBZkJnTlZIU01FR0RBV2dCUWlaUXpXV3AwMGlmT0R0SlZTdjFBYk9TY0dyREJTCkJnTlZIUjhFU3pCSk1FZWdSYUJEaGtGb2RIUndjem92TDJObGNuUnBabWxqWVhSbGN5NTBjblZ6ZEdWa2MyVnkKZG1salpYTXVhVzUwWld3dVkyOXRMMGx1ZEdWc1UwZFlVbTl2ZEVOQkxtUmxjakFkQmdOVkhRNEVGZ1FVbFc5ZAp6YjBiNGVsQVNjblU5RFBPQVZjTDNsUXdEZ1lEVlIwUEFRSC9CQVFEQWdFR01CSUdBMVVkRXdFQi93UUlNQVlCCkFmOENBUUF3Q2dZSUtvWkl6ajBFQXdJRFJ3QXdSQUlnWHNWa2kwdytpNlZZR1czVUYvMjJ1YVhlMFlKRGoxVWUKbkErVGpEMWFpNWNDSUNZYjFTQW1ENXhrZlRWcHZvNFVveWlTWXhyRFdMbVVSNENJOU5LeWZQTisKLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQotLS0tLUJFR0lOIENFUlRJRklDQVRFLS0tLS0KTUlJQ2p6Q0NBalNnQXdJQkFnSVVJbVVNMWxxZE5JbnpnN1NWVXI5UUd6a25CcXd3Q2dZSUtvWkl6ajBFQXdJdwphREVhTUJnR0ExVUVBd3dSU1c1MFpXd2dVMGRZSUZKdmIzUWdRMEV4R2pBWUJnTlZCQW9NRVVsdWRHVnNJRU52CmNuQnZjbUYwYVc5dU1SUXdFZ1lEVlFRSERBdFRZVzUwWVNCRGJHRnlZVEVMTUFrR0ExVUVDQXdDUTBFeEN6QUoKQmdOVkJBWVRBbFZUTUI0WERURTRNRFV5TVRFd05EVXhNRm9YRFRRNU1USXpNVEl6TlRrMU9Wb3dhREVhTUJnRwpBMVVFQXd3UlNXNTBaV3dnVTBkWUlGSnZiM1FnUTBFeEdqQVlCZ05WQkFvTUVVbHVkR1ZzSUVOdmNuQnZjbUYwCmFXOXVNUlF3RWdZRFZRUUhEQXRUWVc1MFlTQkRiR0Z5WVRFTE1Ba0dBMVVFQ0F3Q1EwRXhDekFKQmdOVkJBWVQKQWxWVE1Ga3dFd1lIS29aSXpqMENBUVlJS29aSXpqMERBUWNEUWdBRUM2bkV3TURJWVpPai9pUFdzQ3phRUtpNwoxT2lPU0xSRmhXR2pibkJWSmZWbmtZNHUzSWprRFlZTDBNeE80bXFzeVlqbEJhbFRWWXhGUDJzSkJLNXpsS09CCnV6Q0J1REFmQmdOVkhTTUVHREFXZ0JRaVpReldXcDAwaWZPRHRKVlN2MUFiT1NjR3JEQlNCZ05WSFI4RVN6QkoKTUVlZ1JhQkRoa0ZvZEhSd2N6b3ZMMk5sY25ScFptbGpZWFJsY3k1MGNuVnpkR1ZrYzJWeWRtbGpaWE11YVc1MApaV3d1WTI5dEwwbHVkR1ZzVTBkWVVtOXZkRU5CTG1SbGNqQWRCZ05WSFE0RUZnUVVJbVVNMWxxZE5JbnpnN1NWClVyOVFHemtuQnF3d0RnWURWUjBQQVFIL0JBUURBZ0VHTUJJR0ExVWRFd0VCL3dRSU1BWUJBZjhDQVFFd0NnWUkKS29aSXpqMEVBd0lEU1FBd1JnSWhBT1cvNVFrUitTOUNpU0RjTm9vd0x1UFJMc1dHZi9ZaTdHU1g5NEJnd1R3ZwpBaUVBNEowbHJIb01zK1hvNW8vc1g2TzlRV3hIUkF2WlVHT2RSUTdjdnFSWGFxST0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQoA";
         bytes memory v3QuoteBytes = Base64.decode(v3QuoteB64Str);
@@ -164,7 +164,7 @@ contract AutomataDcapV3AttestationTest is Test, AttestationBase {
             verifyParsedQuoteAttestation(v3QuoteBytes, true);
         address parsedInstanceAddr =
             address(bytes20(Bytes.slice(v3quote.localEnclaveReport.reportData, 0, 20)));
-        // console.log("[log] parsed instance addr = %s", parsedInstanceAddr);
+        // console2.log("[log] parsed instance addr = %s", parsedInstanceAddr);
         assertTrue(parsedInstanceAddr == 0x1d0B9a2a63D98B18B288889cB61160016534c814);
     }
 

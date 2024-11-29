@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import "../common/EssentialContract.sol";
-import "../common/LibStrings.sol";
-import "../common/LibTrieProof.sol";
+import "../libs/LibStrings.sol";
+import "../libs/LibTrieProof.sol";
 import "./ISignalService.sol";
 
 /// @title SignalService
@@ -41,13 +41,13 @@ contract SignalService is EssentialContract, ISignalService {
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _sharedAddressManager The address of the {AddressManager} contract.
-    function init(address _owner, address _sharedAddressManager) external initializer {
-        __Essential_init(_owner, _sharedAddressManager);
+    /// @param _sharedResolver The {IResolver} used by multipel rollups.
+    function init(address _owner, address _sharedResolver) external initializer {
+        __Essential_init(_owner, _sharedResolver);
     }
 
     /// @dev Authorize or deauthorize an address for calling syncChainData.
-    /// @dev Note that addr is supposed to be TaikoL1 and TaikoL1 contracts deployed locally.
+    /// @dev Note that addr is supposed to be Taiko and Taiko contracts deployed locally.
     /// @param _addr The address to be authorized or deauthorized.
     /// @param _authorize True if authorize, false otherwise.
     function authorize(address _addr, bool _authorize) external onlyOwner {

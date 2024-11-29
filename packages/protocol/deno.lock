@@ -1,0 +1,35 @@
+{
+  "version": "4",
+  "specifiers": {
+    "jsr:@std/yaml@*": "1.0.5"
+  },
+  "jsr": {
+    "@std/yaml@1.0.5": {
+      "integrity": "71ba3d334305ee2149391931508b2c293a8490f94a337eef3a09cade1a2a2742"
+    }
+  },
+  "workspace": {
+    "packageJson": {
+      "dependencies": [
+        "npm:@openzeppelin/contracts-upgradeable@4.9.6",
+        "npm:@openzeppelin/contracts@4.9.6",
+        "npm:@types/node@^20.11.30",
+        "npm:@typescript-eslint/eslint-plugin@^7.4.0",
+        "npm:@typescript-eslint/parser@^7.7.0",
+        "npm:eslint-config-prettier@^9.1.0",
+        "npm:eslint-config-standard@^17.1.0",
+        "npm:eslint-plugin-import@^2.28.1",
+        "npm:eslint-plugin-node@^11.1.0",
+        "npm:eslint-plugin-prettier@^5.1.3",
+        "npm:eslint-plugin-promise@^6.1.1",
+        "npm:eslint@^8.51.0",
+        "npm:ethers@^5.7.2",
+        "npm:merkletreejs@0.4",
+        "npm:solc@0.8.24",
+        "npm:solhint@^5.0.3",
+        "npm:ts-node@^10.9.2",
+        "npm:typescript@^5.2.2"
+      ]
+    }
+  }
+}

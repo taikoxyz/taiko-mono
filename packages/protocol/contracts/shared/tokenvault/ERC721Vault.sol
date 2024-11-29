@@ -3,8 +3,8 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
-import "../common/LibAddress.sol";
-import "../common/LibStrings.sol";
+import "../libs/LibAddress.sol";
+import "../libs/LibStrings.sol";
 import "./IBridgedERC721.sol";
 import "./BaseNFTVault.sol";
 
@@ -20,9 +20,9 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _sharedAddressManager The address of the {AddressManager} contract.
-    function init(address _owner, address _sharedAddressManager) external initializer {
-        __Essential_init(_owner, _sharedAddressManager);
+    /// @param _sharedResolver The {IResolver} used by multipel rollups.
+    function init(address _owner, address _sharedResolver) external initializer {
+        __Essential_init(_owner, _sharedResolver);
     }
 
     /// @notice Transfers ERC721 tokens to this vault and sends a message to the
@@ -243,7 +243,14 @@ contract ERC721Vault is BaseNFTVault, IERC721Receiver {
     function _deployBridgedToken(CanonicalNFT memory _ctoken) private returns (address btoken_) {
         bytes memory data = abi.encodeCall(
             IBridgedERC721Initializable.init,
-            (owner(), addressManager, _ctoken.addr, _ctoken.chainId, _ctoken.symbol, _ctoken.name)
+            (
+                owner(),
+                address(resolver()),
+                _ctoken.addr,
+                _ctoken.chainId,
+                _ctoken.symbol,
+                _ctoken.name
+            )
         );
 
         btoken_ = address(new ERC1967Proxy(resolve(LibStrings.B_BRIDGED_ERC721, false), data));
