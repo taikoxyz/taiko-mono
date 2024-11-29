@@ -22,7 +22,7 @@ import "forge-std/src/console2.sol";
 /// contract.
 /// @dev Labeled in AddressResolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
-contract TaikoL1 is EssentialContract, ITaikoL1 {
+abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
     using LibMath for uint256;
 
     State public state;
@@ -328,27 +328,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         }
     }
 
-    function getConfigV3() public view virtual returns (ConfigV3 memory) {
-        return ConfigV3({
-            chainId: LibNetwork.TAIKO_MAINNET,
-            blockMaxProposals: 324_000, // = 7200 * 45
-            blockRingBufferSize: 360_000, // = 7200 * 50
-            maxBlocksToVerify: 16,
-            blockMaxGasLimit: 240_000_000,
-            livenessBond: 125e18, // 125 Taiko token
-            stateRootSyncInternal: 16,
-            maxAnchorHeightOffset: 64,
-            baseFeeConfig: LibSharedData.BaseFeeConfig({
-                adjustmentQuotient: 8,
-                sharingPctg: 75,
-                gasIssuancePerSecond: 5_000_000,
-                minGasExcess: 1_340_000_000,
-                maxGasIssuancePerBlock: 600_000_000 // two minutes
-             }),
-            pacayaForkHeight: 0,
-            provingWindow: 2 hours
-        });
-    }
+    function getConfigV3() public view virtual returns (ConfigV3 memory);
 
     // Internal functions ----------------------------------------------------------------------
 
