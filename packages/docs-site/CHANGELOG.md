@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.19.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.18.0...docs-site-v1.19.0) (2024-11-28)
+
+
+### Features
+
+* **docs-site:** add escenario and explanation for contestable rollup ([#18530](https://github.com/taikoxyz/taiko-mono/issues/18530)) ([7246fbb](https://github.com/taikoxyz/taiko-mono/commit/7246fbb76d46532af61f147b0761851f0cc90b91))
+
+## [1.18.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.17.1...docs-site-v1.18.0) (2024-11-26)
+
+
+### Features
+
+* **docs-site:** add software releases page that shows latest software releases and protocol deployments ([#18523](https://github.com/taikoxyz/taiko-mono/issues/18523)) ([23862a2](https://github.com/taikoxyz/taiko-mono/commit/23862a26890492231cdbf5dd07366e294debda99))
+
 ## [1.17.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.17.0...docs-site-v1.17.1) (2024-11-18)
 
 
