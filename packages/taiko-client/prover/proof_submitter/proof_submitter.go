@@ -343,7 +343,7 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 		"tier", batchProof.Tier,
 	)
 	var (
-		invalidBlockIds     []uint64
+		invalidBlockIDs     []uint64
 		latestProvenBlockID = big.NewInt(0)
 	)
 	if len(batchProof.Proofs) == 0 {
@@ -376,13 +376,13 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 		}
 		if !ok {
 			log.Error("a valid proof for block is already submitted", "blockId", proof.BlockID)
-			invalidBlockIds = append(invalidBlockIds, proof.BlockID.Uint64())
+			invalidBlockIDs = append(invalidBlockIDs, proof.BlockID.Uint64())
 			continue
 		}
 
 		if proofStatus[i].IsSubmitted && !proofStatus[i].Invalid {
 			log.Error("a valid proof for block is already submitted", "blockId", proof.BlockID)
-			invalidBlockIds = append(invalidBlockIds, proof.BlockID.Uint64())
+			invalidBlockIDs = append(invalidBlockIDs, proof.BlockID.Uint64())
 			continue
 		}
 
@@ -393,13 +393,13 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 				"hash", proof.Header.Hash(),
 				"error", err,
 			)
-			invalidBlockIds = append(invalidBlockIds, proof.BlockID.Uint64())
+			invalidBlockIDs = append(invalidBlockIDs, proof.BlockID.Uint64())
 			continue
 		}
 
 		if block.Transactions().Len() == 0 {
 			log.Error("Invalid block without anchor transaction, blockID", "blockId", proof.BlockID)
-			invalidBlockIds = append(invalidBlockIds, proof.BlockID.Uint64())
+			invalidBlockIDs = append(invalidBlockIDs, proof.BlockID.Uint64())
 			continue
 		}
 
@@ -407,16 +407,16 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 		anchorTx := block.Transactions()[0]
 		if err = s.anchorValidator.ValidateAnchorTx(anchorTx); err != nil {
 			log.Error("Invalid anchor transaction", "error", err)
-			invalidBlockIds = append(invalidBlockIds, proof.BlockID.Uint64())
+			invalidBlockIDs = append(invalidBlockIDs, proof.BlockID.Uint64())
 		}
 		if proof.BlockID.Cmp(latestProvenBlockID) > 0 {
 			latestProvenBlockID = proof.BlockID
 		}
 	}
 
-	if len(invalidBlockIds) > 0 {
-		log.Warn("Detected invalid proofs", "blockIds", invalidBlockIds)
-		s.proofBuffer.ClearItems(invalidBlockIds...)
+	if len(invalidBlockIDs) > 0 {
+		log.Warn("Detected invalid proofs", "blockIds", invalidBlockIDs)
+		s.proofBuffer.ClearItems(invalidBlockIDs...)
 		return ErrInvalidProof
 	}
 

@@ -73,13 +73,13 @@ func (pb *ProofBuffer) Clear() {
 }
 
 // ClearItems clears items that has given block ids in the buffer.
-func (pb *ProofBuffer) ClearItems(blockIds ...uint64) int {
+func (pb *ProofBuffer) ClearItems(blockIDs ...uint64) int {
 	pb.mutex.Lock()
 	defer pb.mutex.Unlock()
 
 	clearMap := make(map[uint64]bool)
-	for _, blockId := range blockIds {
-		clearMap[blockId] = true
+	for _, blockID := range blockIDs {
+		clearMap[blockID] = true
 	}
 
 	newBuffer := make([]*producer.ProofWithHeader, 0, len(pb.buffer))

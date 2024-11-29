@@ -193,5 +193,4 @@ func TestBatchBlocksByHashes(t *testing.T) {
 	blocks, err := client.L1.BatchBlocksByHashes(context.Background(), hashes)
 	require.Nil(t, err)
 	require.Len(t, blocks, 2)
-
 }

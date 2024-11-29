@@ -545,7 +545,10 @@ func (s *ProverTestSuite) TestAggregateProofsAlreadyProved() {
 	tier := <-s.p.aggregationNotify
 	s.Nil(s.p.selectSubmitter(tier).SubmitProof(context.Background(), <-singleProver.proofGenerationCh))
 	s.Nil(s.p.aggregateOp(tier))
-	s.ErrorIs(s.p.selectSubmitter(tier).BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh), proofSubmitter.ErrInvalidProof)
+	s.ErrorIs(
+		s.p.selectSubmitter(tier).BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh),
+		proofSubmitter.ErrInvalidProof,
+	)
 }
 
 func (s *ProverTestSuite) TestAggregateProofs() {

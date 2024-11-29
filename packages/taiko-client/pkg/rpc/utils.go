@@ -268,7 +268,7 @@ func BatchGetBlocksProofStatus(
 		parents        = make([]*types.Header, len(ids))
 		blockIDs       = make([]uint64, len(ids))
 		result         = make([]*BlockProofStatus, len(ids))
-		highestBlockId = big.NewInt(0)
+		highestBlockID = big.NewInt(0)
 	)
 	// Get the local L2 parent header.
 	g, gCtx := errgroup.WithContext(ctxWithTimeout)
@@ -281,8 +281,8 @@ func BatchGetBlocksProofStatus(
 			parentHashes[i] = parent.Hash()
 			parents[i] = parent
 			blockIDs[i] = id.Uint64()
-			if id.Cmp(highestBlockId) > 0 {
-				highestBlockId = id
+			if id.Cmp(highestBlockID) > 0 {
+				highestBlockID = id
 			}
 			return nil
 		})
@@ -300,7 +300,7 @@ func BatchGetBlocksProofStatus(
 	if err != nil {
 		return nil, err
 	}
-	highestHeader, err := cli.WaitL2Header(ctxWithTimeout, highestBlockId)
+	highestHeader, err := cli.WaitL2Header(ctxWithTimeout, highestBlockID)
 	if err != nil {
 		return nil, err
 	}
