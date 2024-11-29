@@ -57,6 +57,13 @@ contract EventRegister is AccessControl {
     event Registered(address indexed registrant, uint256 eventId);
 
     /**
+     * @dev Emitted when a user unregisters for an event.
+     * @param registrant The address of the user who unregistered.
+     * @param eventId The unique identifier of the event for which the user unregistered.
+     */
+    event Unregistered(address indexed registrant, uint256 eventId);
+
+    /**
      * @dev Emitted when registrations are opened for an event.
      * @param eventId The unique identifier of the event whose registrations are opened.
      */
@@ -80,6 +87,7 @@ contract EventRegister is AccessControl {
      */
     constructor() {
         _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
+        _grantRole(EVENT_MANAGER_ROLE, _msgSender());
     }
 
     /**
@@ -188,6 +196,27 @@ contract EventRegister is AccessControl {
         registrations[_eventId][msg.sender] = true;
 
         emit Registered(msg.sender, _eventId);
+    }
+
+    /**
+     * @notice Allows the event manager to unregister a user from a specific event.
+     * @dev Emits an Unregistered event upon successful un-registration.
+     * @param _eventId The unique identifier of the event to unregister from.
+     * @param _user The address of the user to unregister.
+     *
+     * Requirements:
+     * - The event with `_eventId` must exist.
+     * - Registrations for the event must be open.
+     * - The user must be registered for the event.
+     */
+    function unregister(uint256 _eventId, address _user) external onlyRole(EVENT_MANAGER_ROLE) {
+        Event memory currentEvent = events[_eventId];
+        require(currentEvent.exists, "Event does not exist");
+        require(currentEvent.registrationOpen, "Registrations for this event are closed");
+        require(registrations[_eventId][_user], "Not registered for this event");
+
+        registrations[_eventId][_user] = false;
+        emit Unregistered(_user, _eventId);
     }
 
     /**
