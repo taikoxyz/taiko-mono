@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"testing"
 
@@ -31,7 +32,7 @@ func Test_NewERC20BalanceRepo(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := NewERC20BalanceRepository(tt.db)
-			if err != tt.wantErr {
+			if !errors.Is(err, tt.wantErr) {
 				t.Errorf("NewERC20BalanceRepository() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}

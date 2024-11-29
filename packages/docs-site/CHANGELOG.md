@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.18.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.17.1...docs-site-v1.18.0) (2024-11-26)
+
+
+### Features
+
+* **docs-site:** add software releases page that shows latest software releases and protocol deployments ([#18523](https://github.com/taikoxyz/taiko-mono/issues/18523)) ([23862a2](https://github.com/taikoxyz/taiko-mono/commit/23862a26890492231cdbf5dd07366e294debda99))
+
 ## [1.17.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.17.0...docs-site-v1.17.1) (2024-11-18)
 
 

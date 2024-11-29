@@ -190,8 +190,8 @@ export default defineConfig({
               link: "/network-reference/network-configuration",
             },
             {
-              label: "Node releases",
-              link: "/network-reference/node-releases",
+              label: "Software releases",
+              link: "/network-reference/software-releases-and-deployments",
             },
             {
               label: "RPC configuration",
