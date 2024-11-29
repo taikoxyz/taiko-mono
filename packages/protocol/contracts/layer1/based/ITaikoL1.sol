@@ -194,6 +194,7 @@ interface ITaikoL1 {
     error TimestampTooLarge();
     error TimestampTooSmall();
     error TooManyBlocks();
+    error TransitionNotFound();
 
     function proposeBlocksV3(
         address _proposer,
@@ -221,6 +222,14 @@ interface ITaikoL1 {
     function getStats2() external view returns (Stats2 memory);
 
     function getBlockV3(uint64 _blockId) external view returns (BlockV3 memory blk_);
+
+    function getTransitionV3(
+        uint64 _blockId,
+        uint24 _tid
+    )
+        external
+        view
+        returns (ITaikoL1.TransitionV3 memory);
 
     function getLastVerifiedTransitionV3()
         external

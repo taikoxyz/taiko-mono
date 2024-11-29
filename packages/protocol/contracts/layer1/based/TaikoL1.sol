@@ -93,7 +93,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
             metas_[i] = BlockMetadataV3({
                 anchorBlockHash: blockhash(updatedParams.anchorBlockId),
                 difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", stats2.numBlocks)),
-                blobHash: blobhash(_paramss[i].blobIndex),
+                blobHash: _blobhash(_paramss[i].blobIndex),
                 extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
                 coinbase: _coinbase,
                 blockId: stats2.numBlocks,
@@ -251,6 +251,22 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         return state.stats2;
     }
 
+    function getTransitionV3(
+        uint64 _blockId,
+        uint24 _tid
+    )
+        external
+        view
+        returns (TransitionV3 memory tran_)
+    {
+        ConfigV3 memory config = getConfigV3();
+        uint256 slot = _blockId % config.blockRingBufferSize;
+        BlockV3 storage blk = state.blocks[slot];
+        require(blk.blockId == _blockId, BlockNotFound());
+        require(_tid != 0 && _tid < blk.nextTransitionId, TransitionNotFound());
+        return state.transitions[slot][_tid];
+    }
+
     function getLastVerifiedTransitionV3()
         external
         view
@@ -360,6 +376,10 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
 
     function _pause() internal override {
         state.stats2.paused = true;
+    }
+
+    function _blobhash(uint256 _blobIndex) internal view virtual returns (bytes32) {
+        return blobhash(_blobIndex);
     }
 
     // Private functions -----------------------------------------------------------------------

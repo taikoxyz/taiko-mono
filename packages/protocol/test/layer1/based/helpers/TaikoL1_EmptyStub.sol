@@ -38,12 +38,24 @@ contract TaikoL1_EmptyStub is ITaikoL1 {
 
     function getTransitionV3(
         uint64 _blockId,
-        uint32 _tid
+        uint24 _tid
     )
         external
         view
         virtual
         returns (ITaikoL1.TransitionV3 memory)
+    { }
+
+    function getLastVerifiedTransitionV3()
+        external
+        view
+        returns (uint64 blockId_, TransitionV3 memory tran_)
+    { }
+
+    function getLastSyncedTransitionV3()
+        external
+        view
+        returns (uint64 blockId_, TransitionV3 memory tran_)
     { }
 
     function getStats1() external view returns (Stats1 memory) { }

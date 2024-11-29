@@ -1,170 +1,62 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import {Test} from "forge-std/Test.sol";
+import "../Layer1Test.sol";
 
-contract TaikoL1Test is Test {
-    modifier whenANewTaikoL1With10BlockSlotsAndASyncIntervalOf5() {
+contract TaikoL1Test is Layer1Test {
+    ITaikoL1 internal taikoL1;
+    mapping(uint256 => ITaikoL1.BlockMetadataV3) internal blockMetadatas;
+
+    ITaikoL1.ConfigV3 internal config =   ITaikoL1.ConfigV3({
+            chainId: LibNetwork.TAIKO_MAINNET,
+            blockMaxProposals: 10,
+            blockRingBufferSize: 15,
+            maxBlocksToVerify: 5,
+            blockMaxGasLimit: 240_000_000,
+            livenessBond: 125e18, // 125 Taiko token
+            stateRootSyncInternal: 5,
+            maxAnchorHeightOffset: 64,
+            baseFeeConfig: LibSharedData.BaseFeeConfig({
+                adjustmentQuotient: 8,
+                sharingPctg: 75,
+                gasIssuancePerSecond: 5_000_000,
+                minGasExcess: 1_340_000_000, // correspond to 0.008847185 gwei basefee
+                maxGasIssuancePerBlock: 600_000_000 // two minutes: 5_000_000 * 120
+             }),
+            pacayaForkHeight: 1,
+            provingWindow: 1 hours
+        });
+
+
+    function setUpOnEthereum() internal override {
+        taikoL1 = deployTaikoL1(_correctBlockhash(0), config);
+        deployBondToken();
+    }
+
+    modifier WhenMultipleBlocksAreProposedWithDefaultParameters(uint256 count) {
+        _proposeBlocksWithDefaultParameters(count);
         _;
     }
 
-    modifier whenTest1() {
-        _;
+
+    function test_case_1() external WhenMultipleBlocksAreProposedWithDefaultParameters(9) {
+        vm.expectRevert(ITaikoL1.TooManyBlocks.selector);
+        _proposeBlocksWithDefaultParameters(1);
     }
 
-    function test_WhenCase_1() external whenANewTaikoL1With10BlockSlotsAndASyncIntervalOf5 whenTest1 {
-        // It initializes the genesis block
-        // It initializes the first transition
-        // It finalizes the genesis block
-        // It counts total blocks as 1
-        // It retrieves correct data for the genesis block
-        // It retrieves correct data for the genesis block's first transition
-        // It fails to retrieve block 1, indicating block not found
-        // It returns the genesis block and its first transition for getLastVerifiedTransitionV3
-        // It returns empty data for getLastSyncedTransitionV3 but does not revert
-        vm.skip(true);
+    // internal helper functions -------------------------------------------------------------------
+
+    function _proposeBlocksWithDefaultParameters(uint256 count) internal {
+        ITaikoL1.BlockParamsV3[] memory blockParams = new ITaikoL1.BlockParamsV3[](count);
+
+        ITaikoL1.BlockMetadataV3[] memory metas =
+            taikoL1.proposeBlocksV3(address(0), address(0), blockParams);
+        for (uint256 i; i < metas.length; ++i) {
+            blockMetadatas[metas[i].blockId] = metas[i];
+        }
     }
 
-    modifier whenProposingOneMoreBlockWithCustomParameters() {
-        _;
-    }
-
-    function test_WhenCase_2()
-        external
-        whenANewTaikoL1With10BlockSlotsAndASyncIntervalOf5
-        whenProposingOneMoreBlockWithCustomParameters
-    {
-        // It places the block in the first slot
-        // It sets the block's next transition id to 1
-        // It the returned metahash should match the block's metahash
-        // It matches the block's timestamp and anchor block id with the parameters
-        // It total block count is 2
-        // It retrieves correct data for block 1
-        vm.skip(true);
-    }
-
-    modifier whenProposingOneMoreBlockWithDefaultParameters() {
-        _;
-    }
-
-    function test_WhenCase_3()
-        external
-        whenANewTaikoL1With10BlockSlotsAndASyncIntervalOf5
-        whenProposingOneMoreBlockWithDefaultParameters
-    {
-        // It places the block in the first slot
-        // It sets the block's next transition id to 1
-        // It the returned metahash should match the block's metahash
-        // It sets the block's timestamp to the current timestamp
-        // It sets the block's anchor block id to block.number - 1
-        // It total block count is 2
-        // It retrieves correct data for block 1
-        vm.skip(true);
-    }
-
-    modifier whenProposingOneMoreBlockWithDefaultParametersButNonzeroParentMetaHash() {
-        _;
-    }
-
-    function test_WhenCase_4()
-        external
-        whenANewTaikoL1With10BlockSlotsAndASyncIntervalOf5
-        whenProposingOneMoreBlockWithDefaultParametersButNonzeroParentMetaHash
-    {
-        // It does not revert when the first block's parentMetaHash matches the genesis block's metahash
-        // It reverts when proposing a second block with a random parentMetaHash
-        vm.skip(true);
-    }
-
-    modifier whenProposing9BlocksAsABatchToFillAllSlots() {
-        _;
-    }
-
-    modifier whenProposeThe11thBlockBeforePreviousBlocksAreVerified() {
-        _;
-    }
-
-    function test_WhenCase_5()
-        external
-        whenANewTaikoL1With10BlockSlotsAndASyncIntervalOf5
-        whenProposing9BlocksAsABatchToFillAllSlots
-        whenProposeThe11thBlockBeforePreviousBlocksAreVerified
-    {
-        // It reverts indicating no more slots available
-        vm.skip(true);
-    }
-
-    modifier whenProveAllExistingBlocksWithCorrectFirstTransitions() {
-        _;
-    }
-
-    modifier whenProposingThe11thBlockAfterPreviousBlocksAreVerified() {
-        _;
-    }
-
-    function test_WhenCase_6()
-        external
-        whenANewTaikoL1With10BlockSlotsAndASyncIntervalOf5
-        whenProposing9BlocksAsABatchToFillAllSlots
-        whenProveAllExistingBlocksWithCorrectFirstTransitions
-        whenProposingThe11thBlockAfterPreviousBlocksAreVerified
-    {
-        // It total block count is 12
-        // It getBlockV3(0) reverts indicating block not found
-        vm.skip(true);
-    }
-
-    function test_WhenCase_7()
-        external
-        whenANewTaikoL1With10BlockSlotsAndASyncIntervalOf5
-        whenProposing9BlocksAsABatchToFillAllSlots
-        whenProveAllExistingBlocksWithCorrectFirstTransitions
-    {
-        // It total block count is 10
-        // It returns the block 9 and its first transition for getLastVerifiedTransitionV3
-        // It returns the block 5 and its first transition for getLastSyncedTransitionV3
-        vm.skip(true);
-    }
-
-    modifier whenProveAllExistingBlocksWithWrongFirstTransitions() {
-        _;
-    }
-
-    modifier whenProveAllExistingBlocksWithCorrectFirstTransitions2() {
-        _;
-    }
-
-    function test_WhenCase_8()
-        external
-        whenANewTaikoL1With10BlockSlotsAndASyncIntervalOf5
-        whenProposing9BlocksAsABatchToFillAllSlots
-        whenProveAllExistingBlocksWithWrongFirstTransitions
-        whenProveAllExistingBlocksWithCorrectFirstTransitions2
-    {
-        // It total block count is 10
-        // It returns the block 9 and its first transition for getLastVerifiedTransitionV3
-        // It returns the block 5 and its first transition for getLastSyncedTransitionV3
-        vm.skip(true);
-    }
-
-    function test_WhenCase_9()
-        external
-        whenANewTaikoL1With10BlockSlotsAndASyncIntervalOf5
-        whenProposing9BlocksAsABatchToFillAllSlots
-        whenProveAllExistingBlocksWithWrongFirstTransitions
-    {
-        // It total block count is 10
-        // It returns the genesis block and its first transition for getLastVerifiedTransitionV3
-        // It returns empty data for getLastSyncedTransitionV3 but does not revert
-        vm.skip(true);
-    }
-
-    function test_WhenCase_10()
-        external
-        whenANewTaikoL1With10BlockSlotsAndASyncIntervalOf5
-        whenProposing9BlocksAsABatchToFillAllSlots
-    {
-        // It total block count is 10
-        vm.skip(true);
+    function _correctBlockhash(uint256 blockId) internal pure returns (bytes32) {
+        return bytes32(100000 + blockId);
     }
 }
