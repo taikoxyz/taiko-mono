@@ -11,6 +11,9 @@ import "src/shared/signal/ISignalService.sol";
 import "src/layer1/verifiers/IVerifier.sol";
 import "./ITaikoL1.sol";
 
+import "forge-std/src/console2.sol";
+
+
 /// @title TaikoL1
 /// @notice This contract serves as the "base layer contract" of the Taiko protocol, providing
 /// functionalities for proposing, proving, and verifying blocks. The term "base layer contract"
@@ -162,7 +165,7 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
             BlockMetadataV3 calldata meta = _metas[i];
 
             require(meta.blockId >= config.pacayaForkHeight, InvalidForkHeight());
-            require(meta.blockId < stats2.lastVerifiedBlockId, BlockVerified());
+            require(meta.blockId > stats2.lastVerifiedBlockId, BlockVerified());
             require(meta.blockId < stats2.numBlocks, BlockNotFound());
 
             TransitionV3 calldata tran = _transitions[i];

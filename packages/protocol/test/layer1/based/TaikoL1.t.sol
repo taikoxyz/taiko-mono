@@ -58,8 +58,12 @@ contract TaikoL1Test is Layer1Test {
         _;
     }
 
-    modifier WhenMultipleBlocksAreProvedWithCorrectTransitions(bytes memory blockIdsEncoded) {
-        _proveBlocksWithCorrectTransitions(abi.decode(blockIdsEncoded, (uint64[])));
+    modifier WhenMultipleBlocksAreProvedWithCorrectTransitions(uint64 startBlockId, uint64 endBlockId) {
+        uint64[] memory blockIds = new uint64[](endBlockId + 1 - startBlockId);
+        for (uint64 i ; i < blockIds.length; i++) {
+            blockIds[i] = startBlockId + i;
+        }
+        _proveBlocksWithCorrectTransitions(blockIds);
         _;
     }
 
@@ -137,12 +141,12 @@ contract TaikoL1Test is Layer1Test {
         external
         transactBy(Alice)
         WhenMultipleBlocksAreProposedWithDefaultParameters(9)
-        WhenMultipleBlocksAreProvedWithCorrectTransitions(abi.encode([uint64(1), 2, 3, 4, 5,6,7,8,9]))
+        WhenMultipleBlocksAreProvedWithCorrectTransitions(1, 9)
     {
          // - All stats are correct and expected
 
         ITaikoL1.Stats1 memory stats1 = taikoL1.getStats1();
-        assertEq(stats1.lastSyncedBlockId, block.number - 1);
+        assertEq(stats1.lastSyncedBlockId, 5);
         assertEq(stats1.lastSyncedAt, block.timestamp);
 
         ITaikoL1.Stats2 memory stats2 = taikoL1.getStats2();
