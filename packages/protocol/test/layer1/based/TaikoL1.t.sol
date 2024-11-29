@@ -8,6 +8,8 @@ contract TaikoL1Test is Layer1Test {
     ITaikoL1 internal taikoL1;
     TaikoToken internal bondToken;
     SignalService internal signalService;
+    uint256 genesisBlockProposedAt;
+    uint256 genesisBlockProposedIn;
 
     ITaikoL1.ConfigV3 internal config = ITaikoL1.ConfigV3({
         chainId: LibNetwork.TAIKO_MAINNET,
@@ -25,7 +27,7 @@ contract TaikoL1Test is Layer1Test {
             minGasExcess: 1_340_000_000, // correspond to 0.008847185 gwei basefee
             maxGasIssuancePerBlock: 600_000_000 // two minutes: 5_000_000 * 120
          }),
-        pacayaForkHeight: 1,
+        pacayaForkHeight: 0,
         provingWindow: 1 hours
     });
 
@@ -40,6 +42,9 @@ contract TaikoL1Test is Layer1Test {
     }
 
     function setUpOnEthereum() internal override {
+        genesisBlockProposedAt = block.timestamp;
+        genesisBlockProposedIn = block.number;
+
         taikoL1 = deployTaikoL1(_correctBlockhash(0), config);
         bondToken = deployBondToken();
         signalService = deploySignalService(address(new SignalService()));
@@ -53,11 +58,39 @@ contract TaikoL1Test is Layer1Test {
         _;
     }
 
-    function test_case_1()
+    function test_case_query_right_after_genesis_block() external {
+        // - All stats are correct and expected
+        ITaikoL1.Stats1 memory stats1 = taikoL1.getStats1();
+        assertEq(stats1.lastSyncedBlockId, 0);
+        assertEq(stats1.lastSyncedAt, 0);
+
+        ITaikoL1.Stats2 memory stats2 = taikoL1.getStats2();
+        assertEq(stats2.numBlocks, 1);
+        assertEq(stats2.lastVerifiedBlockId, 0);
+        assertEq(stats2.paused, false);
+        assertEq(stats2.lastProposedIn, genesisBlockProposedIn);
+        assertEq(stats2.lastUnpausedAt, 0);
+
+        // - Verify genesis block
+        ITaikoL1.BlockV3 memory blk = taikoL1.getBlockV3(0);
+        assertEq(blk.blockId, 0);
+        assertEq(blk.metaHash, bytes32(uint256(1)));
+        assertEq(blk.timestamp, genesisBlockProposedAt);
+        assertEq(blk.anchorBlockId, genesisBlockProposedIn);
+        assertEq(blk.nextTransitionId, 2);
+        assertEq(blk.verifiedTransitionId, 1);
+
+        vm.expectRevert(ITaikoL1.BlockNotFound.selector);
+        taikoL1.getBlockV3(1);
+    }
+
+    function test_case_fill_ring_buffer_with_unverified_blocks()
         external
         transactBy(Alice)
         WhenMultipleBlocksAreProposedWithDefaultParameters(9)
     {
+        // - All stats are correct and expected
+
         ITaikoL1.Stats1 memory stats1 = taikoL1.getStats1();
         assertEq(stats1.lastSyncedBlockId, 0);
         assertEq(stats1.lastSyncedAt, 0);
@@ -69,6 +102,27 @@ contract TaikoL1Test is Layer1Test {
         assertEq(stats2.lastProposedIn, block.number);
         assertEq(stats2.lastUnpausedAt, 0);
 
+        // - Verify genesis block
+        ITaikoL1.BlockV3 memory blk = taikoL1.getBlockV3(0);
+        assertEq(blk.blockId, 0);
+        assertEq(blk.metaHash, bytes32(uint256(1)));
+        assertEq(blk.timestamp, genesisBlockProposedAt);
+        assertEq(blk.anchorBlockId, genesisBlockProposedIn);
+        assertEq(blk.nextTransitionId, 2);
+        assertEq(blk.verifiedTransitionId, 1);
+
+        for (uint64 i = 1; i < 10; ++i) {
+            blk = taikoL1.getBlockV3(i);
+            assertEq(blk.blockId, i);
+            assertEq(blk.metaHash, keccak256(abi.encode(blockMetadatas[i])));
+
+            assertEq(blk.timestamp, block.timestamp);
+            assertEq(blk.anchorBlockId, block.number - 1);
+            assertEq(blk.nextTransitionId, 1);
+            assertEq(blk.verifiedTransitionId, 0);
+        }
+
+        // - Proposing one block block will revert
         vm.expectRevert(ITaikoL1.TooManyBlocks.selector);
         _proposeBlocksWithDefaultParameters({ numBlocksToPropose: 1 });
     }

@@ -363,8 +363,10 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
         blk.metaHash = bytes32(uint256(1));
         blk.timestamp = uint64(block.timestamp);
         blk.anchorBlockId = uint64(block.number);
+        blk.nextTransitionId = 2;
         blk.verifiedTransitionId = 1;
 
+        state.stats2.lastProposedIn = uint56(block.number);
         state.stats2.numBlocks = 1;
         emit BlockVerifiedV3(0, _genesisBlockHash);
     }
