@@ -39,6 +39,17 @@ contract TaikoL1Test is Layer1Test {
 
         mineOneBlockAndWrap(12 seconds);
 
+
+ mintEther(msg.sender, 100 ether);
+        mintTaikoToken(msg.sender, 1000000); 
+
+        mintEther(Alice, 100 ether);
+        mintTaikoToken(Alice, 1000000); 
+
+
+         mintEther(Bob, 100 ether);
+        mintTaikoToken(Bob, 1000000); 
+
     }
 
     modifier WhenMultipleBlocksAreProposedWithDefaultParameters(uint256 count) {
@@ -67,4 +78,19 @@ contract TaikoL1Test is Layer1Test {
     function _correctBlockhash(uint256 blockId) internal pure returns (bytes32) {
         return bytes32(100000 + blockId);
     }
+
+       function mintEther(address to, uint256 amountEth) internal {
+        vm.deal(to, amountEth);
+        console2.log("Ether balance:", to, to.balance);
+    }
+
+    function mintTaikoToken(address to, uint256 amountTko) internal {
+        bondToken.transfer(to, amountTko);
+
+        vm.prank(to);
+        bondToken.approve(address(taikoL1), amountTko);
+
+        console2.log("Bond balance :", to, bondToken.balanceOf(to));
+    }
+
 }
