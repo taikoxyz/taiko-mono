@@ -53,8 +53,8 @@ contract TaikoL1Test is Layer1Test {
         mineOneBlockAndWrap(12 seconds);
     }
 
-    modifier WhenLogAllBlocksAndTransitions(bool log) {
-        if (log) _logAllBlocksAndTransitions();
+    modifier WhenLogAllBlocksAndTransitions() {
+        _logAllBlocksAndTransitions();
         _;
     }
 
@@ -87,7 +87,7 @@ contract TaikoL1Test is Layer1Test {
         _;
     }
 
-    function test_taikol1_query_right_after_genesis_block() external {
+    function test_taikol1_query_right_after_genesis_block() external view {
         // - All stats are correct and expected
         ITaikoL1.Stats1 memory stats1 = taikoL1.getStats1();
         assertEq(stats1.lastSyncedBlockId, 0);
@@ -119,7 +119,7 @@ contract TaikoL1Test is Layer1Test {
         external
         transactBy(Alice)
         WhenMultipleBlocksAreProposedWithDefaultParameters(9)
-        WhenLogAllBlocksAndTransitions(true)
+        WhenLogAllBlocksAndTransitions
     {
         // - All stats are correct and expected
 
@@ -164,7 +164,7 @@ contract TaikoL1Test is Layer1Test {
         external
         transactBy(Alice)
         WhenMultipleBlocksAreProposedWithDefaultParameters(9)
-        WhenLogAllBlocksAndTransitions(true)
+        WhenLogAllBlocksAndTransitions
     {
         // - Proposing one block block will revert
         vm.expectRevert(ITaikoL1.TooManyBlocks.selector);
@@ -176,7 +176,7 @@ contract TaikoL1Test is Layer1Test {
         transactBy(Alice)
         WhenMultipleBlocksAreProposedWithDefaultParameters(6)
         WhenMultipleBlocksAreProvedWithWrongTransitions(1, 6)
-        WhenLogAllBlocksAndTransitions(true)
+        WhenLogAllBlocksAndTransitions
     {
         // - All stats are correct and expected
 
@@ -237,7 +237,7 @@ contract TaikoL1Test is Layer1Test {
         transactBy(Alice)
         WhenMultipleBlocksAreProposedWithDefaultParameters(9)
         WhenMultipleBlocksAreProvedWithCorrectTransitions(1, 9)
-        WhenLogAllBlocksAndTransitions(true)
+        WhenLogAllBlocksAndTransitions
     {
         // - All stats are correct and expected
 
@@ -284,7 +284,7 @@ contract TaikoL1Test is Layer1Test {
         WhenMultipleBlocksAreProposedWithDefaultParameters(9)
         WhenMultipleBlocksAreProvedWithWrongTransitions(1, 9)
         WhenMultipleBlocksAreProvedWithCorrectTransitions(1, 9)
-        WhenLogAllBlocksAndTransitions(true)
+        WhenLogAllBlocksAndTransitions
     {
         // - All stats are correct and expected
 
@@ -331,11 +331,11 @@ contract TaikoL1Test is Layer1Test {
         WhenMultipleBlocksAreProposedWithDefaultParameters(9)
         WhenMultipleBlocksAreProvedWithCorrectTransitions(1, 9)
         WhenMultipleBlocksAreProposedWithDefaultParameters(8)
-        WhenLogAllBlocksAndTransitions(true)
+        WhenLogAllBlocksAndTransitions
         WhenMultipleBlocksAreProvedWithCorrectTransitions(14, 15)
-        WhenLogAllBlocksAndTransitions(true)
+        WhenLogAllBlocksAndTransitions
         WhenMultipleBlocksAreProvedWithCorrectTransitions(10, 10)
-        WhenLogAllBlocksAndTransitions(true)
+        WhenLogAllBlocksAndTransitions
     {
         // - All stats are correct and expected
 
@@ -377,6 +377,43 @@ contract TaikoL1Test is Layer1Test {
                 assertEq(blk.nextTransitionId, 2);
             }
         }
+    }
+
+    function test_taikol1_reprove_the_same_block_is_ok() external   transactBy(Alice)
+        WhenMultipleBlocksAreProposedWithDefaultParameters(1)
+        WhenLogAllBlocksAndTransitions
+    {
+        ITaikoL1.BlockMetadataV3[] memory metas = new ITaikoL1.BlockMetadataV3[](1);
+        ITaikoL1.TransitionV3[] memory transitions = new ITaikoL1.TransitionV3[](1);
+
+        metas[0] = blockMetadatas[1];
+
+        transitions[0].parentHash = bytes32(uint256(0x100));
+        transitions[0].blockHash = bytes32(uint256(0x101));
+        transitions[0].stateRoot = bytes32(uint256(0x102));
+        taikoL1.proveBlocksV3(metas, transitions, "");
+        _logAllBlocksAndTransitions();
+
+        transitions[0].parentHash = bytes32(uint256(0x100));
+        transitions[0].blockHash = bytes32(uint256(0x111));
+        transitions[0].stateRoot = bytes32(uint256(0x112));
+        taikoL1.proveBlocksV3(metas, transitions, "");
+        _logAllBlocksAndTransitions();
+
+
+        transitions[0].parentHash = bytes32(uint256(0x200));
+        transitions[0].blockHash = bytes32(uint256(0x201));
+        transitions[0].stateRoot = bytes32(uint256(0x202));
+        taikoL1.proveBlocksV3(metas, transitions, "");
+        _logAllBlocksAndTransitions();
+
+        transitions[0].parentHash = bytes32(uint256(0x200));
+        transitions[0].blockHash = bytes32(uint256(0x211));
+        transitions[0].stateRoot = bytes32(uint256(0x212));
+        taikoL1.proveBlocksV3(metas, transitions, "");
+        _logAllBlocksAndTransitions();
+    
+        
     }
 
     // internal helper functions -------------------------------------------------------------------
