@@ -58,9 +58,12 @@ contract TaikoL1Test is Layer1Test {
         _;
     }
 
-    modifier WhenMultipleBlocksAreProvedWithCorrectTransitions(uint64 startBlockId, uint64 endBlockId) {
+    modifier WhenMultipleBlocksAreProvedWithCorrectTransitions(
+        uint64 startBlockId,
+        uint64 endBlockId
+    ) {
         uint64[] memory blockIds = new uint64[](endBlockId + 1 - startBlockId);
-        for (uint64 i ; i < blockIds.length; i++) {
+        for (uint64 i; i < blockIds.length; i++) {
             blockIds[i] = startBlockId + i;
         }
         _proveBlocksWithCorrectTransitions(blockIds);
@@ -120,7 +123,7 @@ contract TaikoL1Test is Layer1Test {
         assertEq(blk.nextTransitionId, 2);
         assertEq(blk.verifiedTransitionId, 1);
 
-// Verify all pending blocks
+        // Verify all pending blocks
         for (uint64 i = 1; i < 10; ++i) {
             blk = taikoL1.getBlockV3(i);
             assertEq(blk.blockId, i);
@@ -137,14 +140,13 @@ contract TaikoL1Test is Layer1Test {
         _proposeBlocksWithDefaultParameters({ numBlocksToPropose: 1 });
     }
 
-
-     function test_case_propose_many_blocks_to_reuse_ring_buffer()
+    function test_case_propose_many_blocks_to_reuse_ring_buffer()
         external
         transactBy(Alice)
         WhenMultipleBlocksAreProposedWithDefaultParameters(9)
         WhenMultipleBlocksAreProvedWithCorrectTransitions(1, 9)
     {
-         // - All stats are correct and expected
+        // - All stats are correct and expected
 
         ITaikoL1.Stats1 memory stats1 = taikoL1.getStats1();
         assertEq(stats1.lastSyncedBlockId, 5);
@@ -157,8 +159,7 @@ contract TaikoL1Test is Layer1Test {
         assertEq(stats2.lastProposedIn, block.number);
         assertEq(stats2.lastUnpausedAt, 0);
 
-
-               // - Verify genesis block
+        // - Verify genesis block
         ITaikoL1.BlockV3 memory blk = taikoL1.getBlockV3(0);
         assertEq(blk.blockId, 0);
         assertEq(blk.metaHash, bytes32(uint256(1)));
@@ -167,7 +168,7 @@ contract TaikoL1Test is Layer1Test {
         assertEq(blk.nextTransitionId, 2);
         assertEq(blk.verifiedTransitionId, 1);
 
-// Verify all pending blocks
+        // Verify all pending blocks
         for (uint64 i = 1; i < 10; ++i) {
             blk = taikoL1.getBlockV3(i);
             assertEq(blk.blockId, i);
@@ -176,7 +177,11 @@ contract TaikoL1Test is Layer1Test {
             assertEq(blk.timestamp, block.timestamp);
             assertEq(blk.anchorBlockId, block.number - 1);
             assertEq(blk.nextTransitionId, 2);
-            // assertEq(blk.verifiedTransitionId, 1);
+            if (i % config.stateRootSyncInternal == 0 || i == stats2.lastVerifiedBlockId) {
+                assertEq(blk.verifiedTransitionId, 1);
+            } else {
+                assertEq(blk.verifiedTransitionId, 0);
+            }
         }
     }
 
@@ -210,10 +215,10 @@ contract TaikoL1Test is Layer1Test {
     function _correctBlockhash(uint256 blockId) internal pure returns (bytes32) {
         return bytes32(100_000 + blockId);
     }
-     function _correctstateRoothash(uint256 blockId) internal pure returns (bytes32) {
+
+    function _correctstateRoothash(uint256 blockId) internal pure returns (bytes32) {
         return bytes32(200_000 + blockId);
     }
-
 
     function mintEther(address to, uint256 amountEth) internal {
         vm.deal(to, amountEth);

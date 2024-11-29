@@ -13,7 +13,6 @@ import "./ITaikoL1.sol";
 
 import "forge-std/src/console2.sol";
 
-
 /// @title TaikoL1
 /// @notice This contract serves as the "base layer contract" of the Taiko protocol, providing
 /// functionalities for proposing, proving, and verifying blocks. The term "base layer contract"
