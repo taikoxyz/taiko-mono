@@ -53,13 +53,25 @@ contract TaikoL1Test is Layer1Test {
         mineOneBlockAndWrap(12 seconds);
     }
 
-    modifier WhenLogAllBlocksAndTransitions() {
-        _logAllBlocksAndTransitions();
+    modifier WhenLogAllBlocksAndTransitions(bool log) {
+        if (log) _logAllBlocksAndTransitions();
         _;
     }
 
     modifier WhenMultipleBlocksAreProposedWithDefaultParameters(uint256 numBlocksToPropose) {
         _proposeBlocksWithDefaultParameters(numBlocksToPropose);
+        _;
+    }
+
+    modifier WhenMultipleBlocksAreProvedWithWrongTransitions(
+        uint64 startBlockId,
+        uint64 endBlockId
+    ) {
+        uint64[] memory blockIds = new uint64[](endBlockId + 1 - startBlockId);
+        for (uint64 i; i < blockIds.length; i++) {
+            blockIds[i] = startBlockId + i;
+        }
+        _proveBlocksWithWrongTransitions(blockIds);
         _;
     }
 
@@ -105,6 +117,7 @@ contract TaikoL1Test is Layer1Test {
         external
         transactBy(Alice)
         WhenMultipleBlocksAreProposedWithDefaultParameters(9)
+         WhenLogAllBlocksAndTransitions(true)
     {
         // - All stats are correct and expected
 
@@ -145,12 +158,58 @@ contract TaikoL1Test is Layer1Test {
         _proposeBlocksWithDefaultParameters({ numBlocksToPropose: 1 });
     }
 
-    function test_case_propose_many_blocks_to_reuse_ring_buffer()
+    function test_case_prove_with_wrong_transitions()
+        external
+        transactBy(Alice)
+        WhenMultipleBlocksAreProposedWithDefaultParameters(9)
+        WhenMultipleBlocksAreProvedWithWrongTransitions(1, 9)
+        WhenLogAllBlocksAndTransitions(true)
+    {
+            // - All stats are correct and expected
+
+        ITaikoL1.Stats1 memory stats1 = taikoL1.getStats1();
+        assertEq(stats1.lastSyncedBlockId, 0);
+        assertEq(stats1.lastSyncedAt, 0);
+
+        ITaikoL1.Stats2 memory stats2 = taikoL1.getStats2();
+        assertEq(stats2.numBlocks, 10);
+        assertEq(stats2.lastVerifiedBlockId, 0);
+        assertEq(stats2.paused, false);
+        assertEq(stats2.lastProposedIn, block.number);
+        assertEq(stats2.lastUnpausedAt, 0);
+
+        // - Verify genesis block
+        ITaikoL1.BlockV3 memory blk = taikoL1.getBlockV3(0);
+        assertEq(blk.blockId, 0);
+        assertEq(blk.metaHash, bytes32(uint256(1)));
+        assertEq(blk.timestamp, genesisBlockProposedAt);
+        assertEq(blk.anchorBlockId, genesisBlockProposedIn);
+        assertEq(blk.nextTransitionId, 2);
+        assertEq(blk.verifiedTransitionId, 1);
+
+        // Verify all pending blocks
+        for (uint64 i = 1; i < 10; ++i) {
+            blk = taikoL1.getBlockV3(i);
+            assertEq(blk.blockId, i);
+            assertEq(blk.metaHash, keccak256(abi.encode(blockMetadatas[i])));
+
+            assertEq(blk.timestamp, block.timestamp);
+            assertEq(blk.anchorBlockId, block.number - 1);
+            assertEq(blk.nextTransitionId, 2);
+            assertEq(blk.verifiedTransitionId, 0);
+        }
+
+        // - Proposing one block block will revert
+        vm.expectRevert(ITaikoL1.TooManyBlocks.selector);
+        _proposeBlocksWithDefaultParameters({ numBlocksToPropose: 1 });
+    }
+
+    function test_case_propose_and_prove_many_blocks_to_reuse_ring_buffer()
         external
         transactBy(Alice)
         WhenMultipleBlocksAreProposedWithDefaultParameters(9)
         WhenMultipleBlocksAreProvedWithCorrectTransitions(1, 9)
-        WhenLogAllBlocksAndTransitions()
+        WhenLogAllBlocksAndTransitions(true)
     {
         // - All stats are correct and expected
 
@@ -191,6 +250,54 @@ contract TaikoL1Test is Layer1Test {
         }
     }
 
+    function test_case_propose_and_prove_many_blocks_to_reuse_ring_buffer2()
+        external
+        transactBy(Alice)
+        WhenMultipleBlocksAreProposedWithDefaultParameters(9)
+          WhenMultipleBlocksAreProvedWithWrongTransitions(1, 9)
+        WhenMultipleBlocksAreProvedWithCorrectTransitions(1, 9)
+        WhenLogAllBlocksAndTransitions(true)
+    {
+        // - All stats are correct and expected
+
+        ITaikoL1.Stats1 memory stats1 = taikoL1.getStats1();
+        assertEq(stats1.lastSyncedBlockId, 5);
+        assertEq(stats1.lastSyncedAt, block.timestamp);
+
+        ITaikoL1.Stats2 memory stats2 = taikoL1.getStats2();
+        assertEq(stats2.numBlocks, 10);
+        assertEq(stats2.lastVerifiedBlockId, 9);
+        assertEq(stats2.paused, false);
+        assertEq(stats2.lastProposedIn, block.number);
+        assertEq(stats2.lastUnpausedAt, 0);
+
+        // - Verify genesis block
+        ITaikoL1.BlockV3 memory blk = taikoL1.getBlockV3(0);
+        assertEq(blk.blockId, 0);
+        assertEq(blk.metaHash, bytes32(uint256(1)));
+        assertEq(blk.timestamp, genesisBlockProposedAt);
+        assertEq(blk.anchorBlockId, genesisBlockProposedIn);
+        assertEq(blk.nextTransitionId, 2);
+        assertEq(blk.verifiedTransitionId, 1);
+
+        // Verify all pending blocks
+        for (uint64 i = 1; i < 10; ++i) {
+            blk = taikoL1.getBlockV3(i);
+            assertEq(blk.blockId, i);
+            assertEq(blk.metaHash, keccak256(abi.encode(blockMetadatas[i])));
+
+            assertEq(blk.timestamp, block.timestamp);
+            assertEq(blk.anchorBlockId, block.number - 1);
+            assertEq(blk.nextTransitionId, 3);
+            if (i % config.stateRootSyncInternal == 0 || i == stats2.lastVerifiedBlockId) {
+                assertEq(blk.verifiedTransitionId, 2);
+            } else {
+                assertEq(blk.verifiedTransitionId, 0);
+            }
+        }
+    }
+
+
     // internal helper functions -------------------------------------------------------------------
 
     function _proposeBlocksWithDefaultParameters(uint256 numBlocksToPropose) internal {
@@ -218,8 +325,23 @@ contract TaikoL1Test is Layer1Test {
         taikoL1.proveBlocksV3(metas, transitions, "");
     }
 
-    function _logAllBlocksAndTransitions() internal {
 
+    function _proveBlocksWithWrongTransitions(uint64[] memory blockIds) internal {
+        ITaikoL1.BlockMetadataV3[] memory metas = new ITaikoL1.BlockMetadataV3[](blockIds.length);
+        ITaikoL1.TransitionV3[] memory transitions = new ITaikoL1.TransitionV3[](blockIds.length);
+
+        for (uint256 i; i < metas.length; ++i) {
+            metas[i] = blockMetadatas[blockIds[i]];
+            transitions[i].parentHash = _correctBlockhash(blockIds[i] - 1 + 9999);
+            transitions[i].blockHash = _correctBlockhash(blockIds[i] + 9999);
+            transitions[i].stateRoot = _correctstateRoothash(blockIds[i] + 9999);
+        }
+
+        taikoL1.proveBlocksV3(metas, transitions, "");
+    }
+
+
+    function _logAllBlocksAndTransitions() internal {
         ITaikoL1.Stats1 memory stats1 = taikoL1.getStats1();
         console2.log("Stats1 - lastSyncedBlockId:", stats1.lastSyncedBlockId);
         console2.log("Stats1 - lastSyncedAt:", stats1.lastSyncedAt);
@@ -246,9 +368,18 @@ contract TaikoL1Test is Layer1Test {
             for (uint24 j = 1; j < blk.nextTransitionId; ++j) {
                 ITaikoL1.TransitionV3 memory tran = taikoL1.getTransitionV3(blk.blockId, j);
                 console2.log(unicode"│   ├── transition#", j);
-                console2.log(unicode"│   │   ├── parentHash:", Strings.toHexString(uint256(tran.parentHash)));
-                console2.log(unicode"│   │   ├── blockHash:", Strings.toHexString(uint256(tran.blockHash)));
-                console2.log(unicode"│   │   └── stateRoot:", Strings.toHexString(uint256(tran.stateRoot)));
+                console2.log(
+                    unicode"│   │   ├── parentHash:",
+                    Strings.toHexString(uint256(tran.parentHash))
+                );
+                console2.log(
+                    unicode"│   │   ├── blockHash:",
+                    Strings.toHexString(uint256(tran.blockHash))
+                );
+                console2.log(
+                    unicode"│   │   └── stateRoot:",
+                    Strings.toHexString(uint256(tran.stateRoot))
+                );
             }
         }
     }
