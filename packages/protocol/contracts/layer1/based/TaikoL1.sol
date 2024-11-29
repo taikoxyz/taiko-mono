@@ -445,26 +445,26 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             blk = state.blocks[_stats2.lastVerifiedBlockId % _config.blockRingBufferSize];
             blk.verifiedTransitionId = tid;
             emit BlockVerifiedV3(_stats2.lastVerifiedBlockId, blockHash);
-        }
 
-        if (synced.blockId != 0) {
-            Stats1 memory stats1 = state.stats1;
-            stats1.lastSyncedBlockId = synced.blockId;
-            stats1.lastSyncedAt = uint64(block.timestamp);
-            state.stats1 = stats1;
+            if (synced.blockId != 0) {
+                if (synced.blockId != _stats2.lastVerifiedBlockId) {
+                    // We write the synced block's verifiedTransitionId to storage
+                    blk = state.blocks[synced.blockId % _config.blockRingBufferSize];
+                    blk.verifiedTransitionId = synced.tid;
+                }
 
-            emit Stats1Updated(stats1);
+                Stats1 memory stats1 = state.stats1;
+                stats1.lastSyncedBlockId = synced.blockId;
+                stats1.lastSyncedAt = uint64(block.timestamp);
+                state.stats1 = stats1;
 
-            if (synced.blockId != _stats2.lastVerifiedBlockId) {
-                // We write the synced block's verifiedTransitionId to storage
-                blk = state.blocks[synced.blockId % _config.blockRingBufferSize];
-                blk.verifiedTransitionId = synced.tid;
+                emit Stats1Updated(stats1);
+
+                // Ask signal service to write cross chain signal
+                ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).syncChainData(
+                    _config.chainId, LibStrings.H_STATE_ROOT, synced.blockId, synced.stateRoot
+                );
             }
-
-            // Ask signal service to write cross chain signal
-            ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).syncChainData(
-                _config.chainId, LibStrings.H_STATE_ROOT, synced.blockId, synced.stateRoot
-            );
         }
 
         state.stats2 = _stats2;
