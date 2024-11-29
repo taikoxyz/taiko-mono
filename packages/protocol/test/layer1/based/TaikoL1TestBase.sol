@@ -156,11 +156,11 @@ abstract contract TaikoL1TestBase is Layer1Test {
     }
 
     function correctBlockhash(uint256 blockId) internal pure returns (bytes32) {
-        return bytes32(100_000 + blockId);
+        return bytes32(0x1000000 + blockId);
     }
 
     function correctStateRoot(uint256 blockId) internal pure returns (bytes32) {
-        return bytes32(200_000 + blockId);
+        return bytes32(0x2000000 + blockId);
     }
 
     function range(uint64 start, uint64 end) internal pure returns (uint64[] memory arr) {

@@ -415,8 +415,9 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             if (ts.parentHash == blockHash) {
                 tid = 1;
             } else {
-                tid = state.transitionIds[blockId][blockHash];
-                if (tid == 0) break;
+                uint24 _tid = state.transitionIds[blockId][blockHash];
+                if (_tid == 0) break;
+                tid = _tid;
                 ts = state.transitions[slot][tid];
             }
 
@@ -438,7 +439,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             --blockId;
         }
 
-        if (_stats2.lastVerifiedBlockId != blockId) {
+        if (blockId > _stats2.lastVerifiedBlockId) {
             _stats2.lastVerifiedBlockId = blockId;
 
             blk = state.blocks[_stats2.lastVerifiedBlockId % _config.blockRingBufferSize];
@@ -454,9 +455,11 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
 
             emit Stats1Updated(stats1);
 
-            // We write the synced block's verifiedTransitionId to storage
-            blk = state.blocks[synced.blockId % _config.blockRingBufferSize];
-            blk.verifiedTransitionId = synced.tid;
+            if (synced.blockId != _stats2.lastVerifiedBlockId) {
+                // We write the synced block's verifiedTransitionId to storage
+                blk = state.blocks[synced.blockId % _config.blockRingBufferSize];
+                blk.verifiedTransitionId = synced.tid;
+            }
 
             // Ask signal service to write cross chain signal
             ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).syncChainData(

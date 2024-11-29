@@ -319,8 +319,6 @@ contract TaikoL1Test is TaikoL1TestBase {
         assertEq(tran.blockHash, correctBlockhash(10));
         assertEq(tran.stateRoot, correctStateRoot(10));
 
-        // - Verify genesis block
-
         // Verify block data
         for (uint64 i = 8; i < 15; ++i) {
             ITaikoL1.BlockV3 memory blk = taikoL1.getBlockV3(i);
