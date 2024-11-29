@@ -120,6 +120,7 @@ contract TaikoL1Test is Layer1Test {
         assertEq(blk.nextTransitionId, 2);
         assertEq(blk.verifiedTransitionId, 1);
 
+// Verify all pending blocks
         for (uint64 i = 1; i < 10; ++i) {
             blk = taikoL1.getBlockV3(i);
             assertEq(blk.blockId, i);
@@ -155,6 +156,28 @@ contract TaikoL1Test is Layer1Test {
         assertEq(stats2.paused, false);
         assertEq(stats2.lastProposedIn, block.number);
         assertEq(stats2.lastUnpausedAt, 0);
+
+
+               // - Verify genesis block
+        ITaikoL1.BlockV3 memory blk = taikoL1.getBlockV3(0);
+        assertEq(blk.blockId, 0);
+        assertEq(blk.metaHash, bytes32(uint256(1)));
+        assertEq(blk.timestamp, genesisBlockProposedAt);
+        assertEq(blk.anchorBlockId, genesisBlockProposedIn);
+        assertEq(blk.nextTransitionId, 2);
+        assertEq(blk.verifiedTransitionId, 1);
+
+// Verify all pending blocks
+        for (uint64 i = 1; i < 10; ++i) {
+            blk = taikoL1.getBlockV3(i);
+            assertEq(blk.blockId, i);
+            assertEq(blk.metaHash, keccak256(abi.encode(blockMetadatas[i])));
+
+            assertEq(blk.timestamp, block.timestamp);
+            assertEq(blk.anchorBlockId, block.number - 1);
+            assertEq(blk.nextTransitionId, 2);
+            // assertEq(blk.verifiedTransitionId, 1);
+        }
     }
 
     // internal helper functions -------------------------------------------------------------------
