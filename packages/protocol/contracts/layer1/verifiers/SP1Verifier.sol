@@ -43,49 +43,11 @@ contract SP1Verifier is EssentialContract, IVerifier {
     }
 
     /// @inheritdoc IVerifier
-    function verifyProof(
-        Context calldata _ctx,
-        TaikoData.Transition calldata _tran,
-        TaikoData.TierProof calldata _proof
-    )
-        external
-        view
-    {
-        // Do not run proof verification to contest an existing proof
-        if (_ctx.isContesting) return;
-
-        // Avoid in-memory decoding, so in-place decode with slicing.
-        // e.g.: bytes32 programVKey = bytes32(_proof.data[0:32]);
-        require(isProgramTrusted[bytes32(_proof.data[0:32])], SP1_INVALID_PROGRAM_VKEY());
-
-        // Need to be converted from bytes32 to bytes
-        bytes32 hashedPublicInput = LibPublicInput.hashPublicInputs(
-            _tran, address(this), address(0), _ctx.prover, _ctx.metaHash, taikoChainId()
-        );
-
-        // _proof.data[32:] is the succinct's proof position
-        (bool success,) = sp1RemoteVerifier().staticcall(
-            abi.encodeCall(
-                ISP1Verifier.verifyProof,
-                (bytes32(_proof.data[0:32]), abi.encode(hashedPublicInput), _proof.data[32:])
-            )
-        );
-
-        require(success, SP1_INVALID_PROOF());
-    }
-
-    /// @inheritdoc IVerifier
-    function verifyBatchProof(
-        ContextV2[] calldata _ctxs,
-        TaikoData.TierProof calldata _proof
-    )
-        external
-        view
-    {
-        require(_ctxs.length != 0 && _proof.data.length > 64, SP1_INVALID_PARAMS());
+    function verifyProof(Context[] calldata _ctxs, bytes calldata _proof) external view {
+        require(_ctxs.length != 0 && _proof.length > 64, SP1_INVALID_PARAMS());
         // Extract the necessary data
-        bytes32 aggregationProgram = bytes32(_proof.data[0:32]);
-        bytes32 blockProvingProgram = bytes32(_proof.data[32:64]);
+        bytes32 aggregationProgram = bytes32(_proof[0:32]);
+        bytes32 blockProvingProgram = bytes32(_proof[32:64]);
 
         // Check if the aggregation program is trusted
         require(isProgramTrusted[aggregationProgram], SP1_INVALID_AGGREGATION_VKEY());
@@ -99,20 +61,15 @@ contract SP1Verifier is EssentialContract, IVerifier {
         // All other inputs are the block program public inputs (a single 32 byte value)
         for (uint256 i; i < _ctxs.length; ++i) {
             publicInputs[i + 1] = LibPublicInput.hashPublicInputs(
-                _ctxs[i].tran,
-                address(this),
-                address(0),
-                _ctxs[i].prover,
-                _ctxs[i].metaHash,
-                taikoChainId()
+                _ctxs[i].transition, address(this), address(0), _ctxs[i].metaHash, taikoChainId()
             );
         }
 
-        // _proof.data[64:] is the succinct's proof position
+        // _proof[64:] is the succinct's proof position
         (bool success,) = sp1RemoteVerifier().staticcall(
             abi.encodeCall(
                 ISP1Verifier.verifyProof,
-                (aggregationProgram, abi.encodePacked(publicInputs), _proof.data[64:])
+                (aggregationProgram, abi.encodePacked(publicInputs), _proof[64:])
             )
         );
 
@@ -120,7 +77,7 @@ contract SP1Verifier is EssentialContract, IVerifier {
     }
 
     function taikoChainId() internal view virtual returns (uint64) {
-        return ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfig().chainId;
+        return ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfigV3().chainId;
     }
 
     function sp1RemoteVerifier() public view virtual returns (address) {

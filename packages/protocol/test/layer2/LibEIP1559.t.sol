@@ -6,7 +6,7 @@ import "./Layer2Test.sol";
 contract TestLibEIP1559 is Layer2Test {
     using LibMath for uint256;
 
-    function test_ethQty() external {
+    function test_ethQty() external pure {
         assertEq(LibEIP1559.ethQty(60_000_000 * 8, 0), 1);
         assertEq(LibEIP1559.ethQty(60_000_000 * 8, 60_000_000), 1);
         assertEq(LibEIP1559.ethQty(60_000_000 * 8, 60_000_000 * 100), 268_337);
@@ -36,7 +36,7 @@ contract TestLibEIP1559 is Layer2Test {
         console2.log("Mainnet minimal basefee: ", LibEIP1559.basefee(5_000_000 * 8, 1_340_000_000));
     }
 
-    function test_change_of_quotient_and_gasIssuancePerSecond() public {
+    function test_change_of_quotient_and_gasIssuancePerSecond() public pure {
         uint64 excess = 150 * 2_000_000;
         uint64 target = 4 * 2_000_000;
         uint256 unit = 10_000_000; // 0.01 gwei
@@ -78,7 +78,7 @@ contract TestLibEIP1559 is Layer2Test {
         }
     }
 
-    function test_change_of_quotient_and_gasIssuancePerSecond2() public {
+    function test_change_of_quotient_and_gasIssuancePerSecond2() public pure {
         uint64 excess = 1;
         uint64 target = 60_000_000 * 8;
         uint256 unit = 10_000_000; // 0.01 gwei
@@ -100,7 +100,7 @@ contract TestLibEIP1559 is Layer2Test {
 
     /// forge-config: layer2.fuzz.runs = 1000
     /// forge-config: layer2.fuzz.show-logs = true
-    function test_fuzz_ethQty(uint64 _gasTarget, uint64 _gasExcess) external {
+    function test_fuzz_ethQty(uint64 _gasTarget, uint64 _gasExcess) external pure {
         if (_gasTarget == 0) _gasTarget = 1;
         uint256 result = LibEIP1559.ethQty(_gasTarget, _gasExcess);
         assertTrue(result > 0);
@@ -108,7 +108,7 @@ contract TestLibEIP1559 is Layer2Test {
 
     /// forge-config: layer2.fuzz.runs = 2000
     /// forge-config: layer2.fuzz.show-logs = true
-    function test_fuzz_basefee(uint64 _gasTarget, uint64 _gasExcess) external {
+    function test_fuzz_basefee(uint64 _gasTarget, uint64 _gasExcess) external pure {
         uint256 result = LibEIP1559.basefee(_gasTarget, _gasExcess);
         assertTrue(result >= 1);
     }
@@ -121,6 +121,7 @@ contract TestLibEIP1559 is Layer2Test {
         uint64 _oldGasExcess
     )
         external
+        pure
     {
         (uint64 newGasTarget_, uint64 newGasExcess_) =
             LibEIP1559.adjustExcess(_oldGasTarget, _newGasTarget, _oldGasExcess);

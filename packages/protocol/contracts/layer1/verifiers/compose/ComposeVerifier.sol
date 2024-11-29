@@ -38,16 +38,15 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
 
     /// @inheritdoc IVerifier
     function verifyProof(
-        Context calldata _ctx,
-        TaikoData.Transition calldata _tran,
-        TaikoData.TierProof calldata _proof
+        Context[] calldata _ctxs,
+        bytes calldata _proof
     )
         external
         onlyAuthorizedCaller
     {
         (address[] memory verifiers, uint256 numSubProofs_) = getSubVerifiersAndThreshold();
 
-        SubProof[] memory subProofs = abi.decode(_proof.data, (SubProof[]));
+        SubProof[] memory subProofs = abi.decode(_proof, (SubProof[]));
         require(subProofs.length == numSubProofs_, CV_INVALID_SUBPROOF_LENGTH());
 
         for (uint256 i; i < subProofs.length; ++i) {
@@ -64,42 +63,7 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
 
             require(verifierFound, CV_SUB_VERIFIER_NOT_FOUND());
 
-            IVerifier(subProofs[i].verifier).verifyProof(
-                _ctx, _tran, TaikoData.TierProof(_proof.tier, subProofs[i].proof)
-            );
-        }
-    }
-
-    /// @inheritdoc IVerifier
-    function verifyBatchProof(
-        ContextV2[] calldata _ctxs,
-        TaikoData.TierProof calldata _proof
-    )
-        external
-        onlyAuthorizedCaller
-    {
-        (address[] memory verifiers, uint256 numSubProofs_) = getSubVerifiersAndThreshold();
-
-        SubProof[] memory subProofs = abi.decode(_proof.data, (SubProof[]));
-        require(subProofs.length == numSubProofs_, CV_INVALID_SUBPROOF_LENGTH());
-
-        for (uint256 i; i < subProofs.length; ++i) {
-            require(subProofs[i].verifier != address(0), CV_INVALID_SUB_VERIFIER());
-
-            // find the verifier
-            bool verifierFound;
-            for (uint256 j; j < verifiers.length; ++j) {
-                if (verifiers[j] == subProofs[i].verifier) {
-                    verifierFound = true;
-                    verifiers[j] = address(0);
-                }
-            }
-
-            require(verifierFound, CV_SUB_VERIFIER_NOT_FOUND());
-
-            IVerifier(subProofs[i].verifier).verifyBatchProof(
-                _ctxs, TaikoData.TierProof(_proof.tier, subProofs[i].proof)
-            );
+            IVerifier(subProofs[i].verifier).verifyProof(_ctxs, subProofs[i].proof);
         }
     }
 
@@ -118,4 +82,6 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
     function isCallerAuthorized(address _caller) public view virtual returns (bool) {
         return _caller == resolve(LibStrings.B_TAIKO, false);
     }
+
+    function verifyProofV3(Context[] calldata _ctxs, bytes calldata _proof) external { }
 }

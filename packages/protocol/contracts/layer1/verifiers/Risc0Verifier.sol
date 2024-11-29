@@ -48,47 +48,10 @@ contract Risc0Verifier is EssentialContract, IVerifier {
     }
 
     /// @inheritdoc IVerifier
-    function verifyProof(
-        Context calldata _ctx,
-        TaikoData.Transition calldata _tran,
-        TaikoData.TierProof calldata _proof
-    )
-        external
-    {
-        // Do not run proof verification to contest an existing proof
-        if (_ctx.isContesting) return;
-
-        // Decode will throw if not proper length/encoding
-        (bytes memory seal, bytes32 imageId) = abi.decode(_proof.data, (bytes, bytes32));
-
-        require(isImageTrusted[imageId], RISC_ZERO_INVALID_BLOCK_PROOF_IMAGE_ID());
-
-        bytes32 publicInputHash = LibPublicInput.hashPublicInputs(
-            _tran, address(this), address(0), _ctx.prover, _ctx.metaHash, taikoChainId()
-        );
-
-        // journalDigest is the sha256 hash of the hashed public input
-        bytes32 journalDigest = sha256(bytes.concat(FIXED_JOURNAL_HEADER, publicInputHash));
-
-        // call risc0 verifier contract
-        (bool success,) = resolve(LibStrings.B_RISCZERO_GROTH16_VERIFIER, false).staticcall(
-            abi.encodeCall(IRiscZeroVerifier.verify, (seal, imageId, journalDigest))
-        );
-        require(success, RISC_ZERO_INVALID_PROOF());
-
-        emit ProofVerified(_ctx.metaHash, publicInputHash);
-    }
-
-    /// @inheritdoc IVerifier
-    function verifyBatchProof(
-        ContextV2[] calldata _ctxs,
-        TaikoData.TierProof calldata _proof
-    )
-        external
-    {
+    function verifyProof(Context[] calldata _ctxs, bytes calldata _proof) external {
         // Decode will throw if not proper length/encoding
         (bytes memory seal, bytes32 blockImageId, bytes32 aggregationImageId) =
-            abi.decode(_proof.data, (bytes, bytes32, bytes32));
+            abi.decode(_proof, (bytes, bytes32, bytes32));
 
         // Check if the aggregation program is trusted
         require(isImageTrusted[aggregationImageId], RISC_ZERO_INVALID_AGGREGATION_IMAGE_ID());
@@ -102,12 +65,7 @@ contract Risc0Verifier is EssentialContract, IVerifier {
         // All other inputs are the block program public inputs (a single 32 byte value)
         for (uint256 i; i < _ctxs.length; ++i) {
             publicInputs[i + 1] = LibPublicInput.hashPublicInputs(
-                _ctxs[i].tran,
-                address(this),
-                address(0),
-                _ctxs[i].prover,
-                _ctxs[i].metaHash,
-                taikoChainId()
+                _ctxs[i].transition, address(this), address(0), _ctxs[i].metaHash, taikoChainId()
             );
             emit ProofVerified(_ctxs[i].metaHash, publicInputs[i + 1]);
         }
@@ -123,6 +81,8 @@ contract Risc0Verifier is EssentialContract, IVerifier {
     }
 
     function taikoChainId() internal view virtual returns (uint64) {
-        return ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfig().chainId;
+        return ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfigV3().chainId;
     }
+
+    function verifyProofV3(Context[] calldata _ctxs, bytes calldata _proof) external { }
 }

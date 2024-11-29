@@ -58,10 +58,9 @@ interface IPreconfTaskManager {
     /// @dev The registry does not have a single registered preconfer
     error NoRegisteredPreconfer();
 
-    /// @dev Accepts block proposal by an operator and forwards it to TaikoL1 contract
+    /// @dev Accepts block proposal by an operator and forwards it to Taiko contract
     function newBlockProposals(
         bytes[] calldata blockParamsArr,
-        bytes[] calldata txListArr,
         uint256 lookaheadPointer,
         LookaheadSetParam[] calldata lookaheadSetParams
     )
@@ -117,7 +116,7 @@ interface IPreconfTaskManager {
     function getPreconfRegistry() external view returns (address);
 
     /// @dev Returns the Taiko L1 contract address
-    function getTaikoL1() external view returns (address);
+    function getTaiko() external view returns (address);
 
     /// @dev Returns the beacon genesis timestamp
     function getBeaconGenesis() external view returns (uint256);

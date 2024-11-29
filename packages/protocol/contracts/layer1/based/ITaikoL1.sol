@@ -1,97 +1,247 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./TaikoData.sol";
+import "src/shared/based/LibSharedData.sol";
 
 /// @title ITaikoL1
 /// @custom:security-contact security@taiko.xyz
 interface ITaikoL1 {
-    /// @notice Proposes a Taiko L2 block (version 2)
-    /// @param _params Block parameters, an encoded BlockParamsV2 object.
-    /// @param _txList txList data if calldata is used for DA.
-    /// @return meta_ The metadata of the proposed L2 block.
-    function proposeBlockV2(
-        bytes calldata _params,
-        bytes calldata _txList
+    struct BlockParamsV3 {
+        bytes32 parentMetaHash;
+        uint64 anchorBlockId;
+        uint64 timestamp;
+        uint32 blobTxListOffset;
+        uint32 blobTxListLength;
+        uint8 blobIndex;
+    }
+
+    struct BlockMetadataV3 {
+        bytes32 anchorBlockHash;
+        bytes32 difficulty;
+        bytes32 blobHash;
+        bytes32 extraData;
+        address coinbase;
+        uint64 blockId;
+        uint32 gasLimit;
+        uint64 timestamp;
+        uint64 anchorBlockId;
+        bytes32 parentMetaHash;
+        address proposer;
+        uint96 livenessBond;
+        uint64 proposedAt; // Used by node/client post block proposal.
+        uint64 proposedIn; // Used by node/client post block proposal.
+        uint32 blobTxListOffset;
+        uint32 blobTxListLength;
+        uint8 blobIndex;
+        LibSharedData.BaseFeeConfig baseFeeConfig;
+    }
+
+    /// @notice Struct representing transition to be proven.
+    struct TransitionV3 {
+        bytes32 parentHash;
+        bytes32 blockHash;
+        bytes32 stateRoot;
+    }
+
+    /// @notice 3 slots used.
+    struct BlockV3 {
+        bytes32 metaHash; // slot 1
+        address _reserved2;
+        uint96 _reserved3;
+        uint64 blockId; // slot 3
+        uint64 timestamp;
+        uint64 anchorBlockId;
+        uint24 nextTransitionId;
+        bool _reserved1;
+        // The ID of the transaction that is used to verify this block. However, if this block is
+        // not verified as the last block in a batch, verifiedTransitionId will remain zero.
+        uint24 verifiedTransitionId;
+    }
+
+    /// @notice Forge is only able to run coverage in case the contracts by default capable of
+    /// compiling without any optimization (neither optimizer runs, no compiling --via-ir flag).
+    /// @notice In order to resolve stack too deep without optimizations, we needed to introduce
+    /// outsourcing vars into structs below.
+    struct Stats1 {
+        uint64 __reserved1;
+        uint64 __reserved2;
+        uint64 lastSyncedBlockId;
+        uint64 lastSyncedAt;
+    }
+
+    struct Stats2 {
+        uint64 numBlocks;
+        uint64 lastVerifiedBlockId;
+        bool paused;
+        uint56 lastProposedIn;
+        uint64 lastUnpausedAt;
+    }
+
+    /// @notice Struct holding Taiko configuration parameters. See {TaikoConfig}.
+    struct ConfigV3 {
+        /// @notice The chain ID of the network where Taiko contracts are deployed.
+        uint64 chainId;
+        /// @notice The maximum number of verifications allowed when a block is proposed or proved.
+        uint64 blockMaxProposals;
+        /// @notice Size of the block ring buffer, allowing extra space for proposals.
+        uint64 blockRingBufferSize;
+        /// @notice The minimum number of blocks required per verification.
+        uint64 minBlocksToVerify;
+        /// @notice The maximum number of verifications allowed when a block is proposed or proved.
+        uint64 maxBlocksToVerify;
+        /// @notice The maximum gas limit allowed for a block.
+        uint32 blockMaxGasLimit;
+        /// @notice The amount of Taiko token as a prover liveness bond.
+        uint96 livenessBond;
+        /// @notice The number of L2 blocks between each L2-to-L1 state root sync.
+        uint8 stateRootSyncInternal;
+        /// @notice The max differences of the anchor height and the current block number.
+        uint64 maxAnchorHeightOffset;
+        /// @notice Base fee configuration
+        LibSharedData.BaseFeeConfig baseFeeConfig;
+        /// @notie The Pacaya fork height on L2.
+        uint64 pacayaForkHeight;
+        uint16 provingWindow;
+    }
+
+    /// @notice Struct holding the state variables for the {Taiko} contract.
+    struct State {
+        // Ring buffer for proposed blocks and a some recent verified blocks.
+        mapping(uint256 blockId_mod_blockRingBufferSize => BlockV3 blk) blocks;
+        // Indexing to transition ids (ring buffer not possible)
+        mapping(uint256 blockId => mapping(bytes32 parentHash => uint24 transitionId)) transitionIds;
+        // Ring buffer for transitions
+        mapping(
+            uint256 blockId_mod_blockRingBufferSize
+                => mapping(uint24 transitionId => TransitionV3 ts)
+        ) transitions;
+        bytes32 __reserve1; // Used as a ring buffer for Ether deposits
+        Stats1 stats1; // slot 5
+        Stats2 stats2; // slot 6
+        mapping(address account => uint256 bond) bondBalance;
+        uint256[43] __gap;
+    }
+
+    /// @notice Emitted when tokens are deposited into a user's bond balance.
+    /// @param user The address of the user who deposited the tokens.
+    /// @param amount The amount of tokens deposited.
+    event BondDeposited(address indexed user, uint256 amount);
+
+    /// @notice Emitted when tokens are withdrawn from a user's bond balance.
+    /// @param user The address of the user who withdrew the tokens.
+    /// @param amount The amount of tokens withdrawn.
+    event BondWithdrawn(address indexed user, uint256 amount);
+
+    /// @notice Emitted when a token is credited back to a user's bond balance.
+    /// @param user The address of the user whose bond balance is credited.
+    /// @param blockId The ID of the block to credit for.
+    /// @param amount The amount of tokens credited.
+    event BondCredited(address indexed user, uint256 blockId, uint256 amount);
+
+    /// @notice Emitted when a token is debited from a user's bond balance.
+    /// @param user The address of the user whose bond balance is debited.
+    /// @param blockId The ID of the block to debit for. TODO: remove this.
+    /// @param amount The amount of tokens debited.
+    event BondDebited(address indexed user, uint256 blockId, uint256 amount);
+
+    /// @notice Emitted when a block is synced.
+    /// @param stats1 The Stats1 data structure.
+    event Stats1Updated(Stats1 stats1);
+
+    /// @notice Emitted when some state variable values changed.
+    /// @param stats2 The Stats2 data structure.
+    event Stats2Updated(Stats2 stats2);
+
+    /// @notice Emitted when a block is proposed.
+    /// @param blockId The ID of the proposed block.
+    /// @param meta The metadata of the proposed block.
+    event BlockProposedV3(uint256 indexed blockId, BlockMetadataV3 meta);
+
+    /// @notice Emitted when a transition is proved.
+    /// @param blockId The block ID.
+    /// @param tran The transition data.
+    event TransitionProved(uint256 indexed blockId, TransitionV3 tran);
+
+    /// @notice Emitted when a transition is overritten by another one.
+    /// @param blockId The block ID.
+    /// @param tran The transition data that has been overwritten.
+    event TransitionOverwritten(uint256 indexed blockId, TransitionV3 tran);
+
+    /// @notice Emitted when a block is verified.
+    /// @param blockId The ID of the verified block.
+    /// @param blockHash The hash of the verified block.
+    event BlockVerifiedV3(uint256 indexed blockId, bytes32 blockHash);
+
+    error AnchorBlockIdSmallerThanParent();
+    error AnchorBlockIdTooSmall();
+    error AnchorBlockIdTooLarge();
+    error ArraySizesMismatch();
+    error BlobNotFound();
+    error BlockNotFound();
+    error BlockVerified();
+    error ContractPaused();
+    error EtherNotPaidAsBond();
+    error InvalidForkHeight();
+    error InvalidGenesisBlockHash();
+    error InvalidTransitionBlockHash();
+    error InvalidTransitionParentHash();
+    error InvalidTransitionStateRoot();
+    error MetaHashMismatch();
+    error MsgValueNotZero();
+    error NoBlocksToPropose();
+    error NotPreconfTaskManager();
+    error ParentMetaHashMismatch();
+    error ProverNotPermitted();
+    error TimestampSmallerThanParent();
+    error TimestampTooLarge();
+    error TimestampTooSmall();
+    error TooManyBlocks();
+    error TransitionNotFound();
+
+    function proposeBlocksV3(
+        address _proposer,
+        address _coinbase,
+        BlockParamsV3[] calldata _blockParams
     )
         external
-        returns (TaikoData.BlockMetadataV2 memory meta_);
+        returns (BlockMetadataV3[] memory);
 
-    /// @notice Proposes multiple Taiko L2 blocks (version 2)
-    /// @param _paramsArr A list of encoded BlockParamsV2 objects.
-    /// @param _txListArr A list of txList.
-    /// @return metaArr_ The metadata objects of the proposed L2 blocks.
-    function proposeBlocksV2(
-        bytes[] calldata _paramsArr,
-        bytes[] calldata _txListArr
-    )
-        external
-        returns (TaikoData.BlockMetadataV2[] memory metaArr_);
-
-    /// @notice Proves or contests a block transition.
-    /// @param _blockId Index of the block to prove. This is also used to select the right
-    /// implementation version.
-    /// @param _input ABI-encoded (TaikoData.BlockMetadata, TaikoData.Transition,
-    /// TaikoData.TierProof) tuple.
-    function proveBlock(uint64 _blockId, bytes calldata _input) external;
-
-    /// @notice Proves or contests multiple block transitions (version 2)
-    /// @param _blockIds The indices of the blocks to prove.
-    /// @param _inputs An list of abi-encoded (TaikoData.BlockMetadata, TaikoData.Transition,
-    /// TaikoData.TierProof) tuples.
-    /// @param _batchProof An abi-encoded TaikoData.TierProof that contains the batch/aggregated
-    /// proof for the given blocks.
-    function proveBlocks(
-        uint64[] calldata _blockIds,
-        bytes[] calldata _inputs,
-        bytes calldata _batchProof
+    function proveBlocksV3(
+        BlockMetadataV3[] calldata _metas,
+        TransitionV3[] calldata _transitions,
+        bytes calldata proof
     )
         external;
 
-    /// @notice Verifies up to a specified number of blocks.
-    /// @param _maxBlocksToVerify Maximum number of blocks to verify.
-    function verifyBlocks(uint64 _maxBlocksToVerify) external;
-
-    /// @notice Pauses or unpauses block proving.
-    /// @param _pause True to pause, false to unpause.
-    function pauseProving(bool _pause) external;
-
-    /// @notice Deposits bond ERC20 token or Ether.
-    /// @param _amount The amount of Taiko token to deposit.
     function depositBond(uint256 _amount) external payable;
 
-    /// @notice Withdraws bond ERC20 token or Ether.
-    /// @param _amount Amount of Taiko tokens to withdraw.
     function withdrawBond(uint256 _amount) external;
 
-    /// @notice Gets the prover that actually proved a verified block.
-    /// @param _blockId Index of the block.
-    /// @return The prover's address. If the block is not verified yet, address(0) will be returned.
-    function getVerifiedBlockProver(uint64 _blockId) external view returns (address);
+    function bondBalanceOf(address _user) external view returns (uint256);
 
-    /// @notice Gets the details of a block.
-    /// @param _blockId Index of the block.
-    /// @return blk_ The block.
-    function getBlockV2(uint64 _blockId) external view returns (TaikoData.BlockV2 memory blk_);
+    function getStats1() external view returns (Stats1 memory);
 
-    /// @notice Gets the state transition for a specific block.
-    /// @param _blockId Index of the block.
-    /// @param _tid The transition id.
-    /// @return The state transition data of the block. The transition's state root will be zero if
-    /// the block is not a sync-block.
-    function getTransition(
+    function getStats2() external view returns (Stats2 memory);
+
+    function getBlockV3(uint64 _blockId) external view returns (BlockV3 memory blk_);
+
+    function getTransitionV3(
         uint64 _blockId,
-        uint32 _tid
+        uint24 _tid
     )
         external
         view
-        returns (TaikoData.TransitionState memory);
+        returns (ITaikoL1.TransitionV3 memory);
 
-    /// @notice Retrieves the ID of the L1 block where the most recent L2 block was proposed.
-    /// @return The ID of the Li block where the most recent block was proposed.
-    function lastProposedIn() external view returns (uint56);
+    function getLastVerifiedTransitionV3()
+        external
+        view
+        returns (uint64 blockId_, TransitionV3 memory tran_);
 
-    /// @notice Gets the configuration of the TaikoL1 contract.
-    /// @return Config struct containing configuration parameters.
-    function getConfig() external view returns (TaikoData.Config memory);
+    function getLastSyncedTransitionV3()
+        external
+        view
+        returns (uint64 blockId_, TransitionV3 memory tran_);
+
+    function getConfigV3() external view returns (ConfigV3 memory);
 }

@@ -5,12 +5,11 @@ import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "src/layer1/hekla/HeklaTaikoL1.sol";
 import "src/shared/bridge/Bridge.sol";
 import "src/layer1/provers/ProverSet.sol";
-import "src/layer1/provers/GuardianProver.sol";
 import "script/BaseScript.sol";
 
 contract UpgradeHeklaOntakeL1 is BaseScript {
     function run() external broadcast {
-        // TaikoL1
+        // Taiko
         UUPSUpgradeable(0x79C9109b764609df928d16fC4a91e9081F7e87DB).upgradeTo(
             address(new HeklaTaikoL1())
         );
@@ -30,13 +29,6 @@ contract UpgradeHeklaOntakeL1 is BaseScript {
         );
         UUPSUpgradeable(0x335103c4fa2F55451975082136F1478eCFeB84B9).upgradeTo(
             address(new ProverSet())
-        );
-        // Guardian Prover
-        UUPSUpgradeable(0x92F195a8702da2104aE8E3E10779176E7C35d6BC).upgradeTo(
-            address(new GuardianProver())
-        );
-        UUPSUpgradeable(0x31d4d27da5c299d4b6CE19c869B8891C0002795d).upgradeTo(
-            address(new GuardianProver())
         );
     }
 }

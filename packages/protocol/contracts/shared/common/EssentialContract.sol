@@ -17,7 +17,6 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
     /// @dev Slot 1.
     uint8 internal __reentry;
     uint8 internal __paused;
-    uint64 internal __lastUnpausedAt;
 
     uint256[49] private __gap;
 
@@ -122,16 +121,18 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
     }
 
     /// @notice Pauses the contract.
-    function pause() public virtual {
+    function pause() public whenNotPaused {
         _pause();
+        emit Paused(msg.sender);
         // We call the authorize function here to avoid:
         // Warning (5740): Unreachable code.
         _authorizePause(msg.sender, true);
     }
 
     /// @notice Unpauses the contract.
-    function unpause() public virtual {
+    function unpause() public whenPaused {
         _unpause();
+        emit Unpaused(msg.sender);
         // We call the authorize function here to avoid:
         // Warning (5740): Unreachable code.
         _authorizePause(msg.sender, false);
@@ -143,12 +144,8 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
 
     /// @notice Returns true if the contract is paused, and false otherwise.
     /// @return true if paused, false otherwise.
-    function paused() public view returns (bool) {
+    function paused() public view virtual returns (bool) {
         return __paused == _TRUE;
-    }
-
-    function lastUnpausedAt() public view virtual returns (uint64) {
-        return __lastUnpausedAt;
     }
 
     function inNonReentrant() public view returns (bool) {
@@ -190,15 +187,12 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable 
         __paused = _FALSE;
     }
 
-    function _pause() internal whenNotPaused {
+    function _pause() internal virtual {
         __paused = _TRUE;
-        emit Paused(msg.sender);
     }
 
-    function _unpause() internal whenPaused {
+    function _unpause() internal virtual {
         __paused = _FALSE;
-        __lastUnpausedAt = uint64(block.timestamp);
-        emit Unpaused(msg.sender);
     }
 
     function _authorizeUpgrade(address) internal virtual override onlyOwner { }
