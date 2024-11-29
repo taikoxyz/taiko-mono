@@ -215,8 +215,8 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             if (meta.blockId % config.stateRootSyncInternal == 0) {
                 ts.stateRoot = tran.stateRoot;
             } else {
-                 // reused slot must be zeroed out
-                ts.stateRoot = bytes32(0); 
+                // reused slot must be zeroed out
+                ts.stateRoot = bytes32(0);
             }
 
             ts.blockHash = tran.blockHash;
