@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "./TaikoL1TestBase.sol";
 
 contract TaikoL1Test is TaikoL1TestBase {
-    function getConfig() internal view override returns (ITaikoL1.ConfigV3 memory) {
+    function getConfig() internal pure override returns (ITaikoL1.ConfigV3 memory) {
         return ITaikoL1.ConfigV3({
             chainId: LibNetwork.TAIKO_MAINNET,
             blockMaxProposals: 10,
@@ -47,6 +47,18 @@ contract TaikoL1Test is TaikoL1TestBase {
         assertEq(blk.anchorBlockId, genesisBlockProposedIn);
         assertEq(blk.nextTransitionId, 2);
         assertEq(blk.verifiedTransitionId, 1);
+
+
+        (uint64 blockId, ITaikoL1.TransitionV3 memory tran) = taikoL1.getLastVerifiedTransitionV3();
+        assertEq(blockId, 0);
+        assertEq(tran.blockHash, correctBlockhash(0));
+        assertEq(tran.stateRoot, bytes32(uint256(0)));
+
+
+        (blockId, tran) = taikoL1.getLastSyncedTransitionV3();
+        assertEq(blockId, 0);
+        assertEq(tran.blockHash, correctBlockhash(0));
+        assertEq(tran.stateRoot, bytes32(uint256(0)));
     }
 
     function test_taikol1_query_blocks_not_exist_will_revert() external {
@@ -191,6 +203,18 @@ contract TaikoL1Test is TaikoL1TestBase {
         assertEq(stats2.lastProposedIn, block.number);
         assertEq(stats2.lastUnpausedAt, 0);
 
+
+        (uint64 blockId, ITaikoL1.TransitionV3 memory tran) = taikoL1.getLastVerifiedTransitionV3();
+        assertEq(blockId, 9);
+        assertEq(tran.blockHash, correctBlockhash(9));
+        assertEq(tran.stateRoot, bytes32(uint256(0)));
+
+
+        (blockId, tran) = taikoL1.getLastSyncedTransitionV3();
+        assertEq(blockId, 5);
+        assertEq(tran.blockHash, correctBlockhash(5));
+        assertEq(tran.stateRoot, correctStateRoot(5));
+
         // - Verify genesis block
         ITaikoL1.BlockV3 memory blk = taikoL1.getBlockV3(0);
         assertEq(blk.blockId, 0);
@@ -288,6 +312,18 @@ contract TaikoL1Test is TaikoL1TestBase {
         assertEq(stats2.paused, false);
         assertEq(stats2.lastProposedIn, block.number);
         assertEq(stats2.lastUnpausedAt, 0);
+
+
+        (uint64 blockId, ITaikoL1.TransitionV3 memory tran) = taikoL1.getLastVerifiedTransitionV3();
+        assertEq(blockId, 10);
+        assertEq(tran.blockHash, correctBlockhash(10));
+        assertEq(tran.stateRoot, correctStateRoot(10));
+
+
+        (blockId, tran) = taikoL1.getLastSyncedTransitionV3();
+        assertEq(blockId, 10);
+        assertEq(tran.blockHash, correctBlockhash(10));
+        assertEq(tran.stateRoot, correctStateRoot(10));
 
         // - Verify genesis block
 
