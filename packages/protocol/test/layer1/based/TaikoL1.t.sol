@@ -143,7 +143,7 @@ contract TaikoL1Test is Layer1Test {
         assertEq(blk.nextTransitionId, 2);
         assertEq(blk.verifiedTransitionId, 1);
 
-        // Verify all pending blocks
+        // Verify block data
         for (uint64 i = 1; i < 10; ++i) {
             blk = taikoL1.getBlockV3(i);
             assertEq(blk.blockId, i);
@@ -201,7 +201,7 @@ contract TaikoL1Test is Layer1Test {
         assertEq(blk.nextTransitionId, 2);
         assertEq(blk.verifiedTransitionId, 1);
 
-        // Verify all pending blocks
+        // Verify block data
         for (uint64 i = 1; i < 7; ++i) {
             blk = taikoL1.getBlockV3(i);
             assertEq(blk.blockId, i);
@@ -266,7 +266,7 @@ contract TaikoL1Test is Layer1Test {
         assertEq(blk.nextTransitionId, 2);
         assertEq(blk.verifiedTransitionId, 1);
 
-        // Verify all pending blocks
+        // Verify block data
         for (uint64 i = 1; i < 10; ++i) {
             blk = taikoL1.getBlockV3(i);
             assertEq(blk.blockId, i);
@@ -313,7 +313,7 @@ contract TaikoL1Test is Layer1Test {
         assertEq(blk.nextTransitionId, 2);
         assertEq(blk.verifiedTransitionId, 1);
 
-        // Verify all pending blocks
+        // Verify block data
         for (uint64 i = 1; i < 10; ++i) {
             blk = taikoL1.getBlockV3(i);
             assertEq(blk.blockId, i);
@@ -327,6 +327,63 @@ contract TaikoL1Test is Layer1Test {
             } else {
                 assertEq(blk.verifiedTransitionId, 0);
             }
+        }
+    }
+
+
+        function test_taikol1_ring_buffer_will_be_reused()
+        external
+        transactBy(Alice)
+        WhenMultipleBlocksAreProposedWithDefaultParameters(9)
+        WhenMultipleBlocksAreProvedWithCorrectTransitions(1, 9)
+        WhenMultipleBlocksAreProposedWithDefaultParameters(8)
+        WhenLogAllBlocksAndTransitions(true)
+        WhenMultipleBlocksAreProvedWithCorrectTransitions(14, 15)
+        WhenLogAllBlocksAndTransitions(true)
+        WhenMultipleBlocksAreProvedWithCorrectTransitions(10, 11)
+        WhenLogAllBlocksAndTransitions(true)
+    {
+        // - All stats are correct and expected
+
+        ITaikoL1.Stats1 memory stats1 = taikoL1.getStats1();
+        assertEq(stats1.lastSyncedBlockId, 10);
+        assertEq(stats1.lastSyncedAt, block.timestamp);
+
+        ITaikoL1.Stats2 memory stats2 = taikoL1.getStats2();
+        assertEq(stats2.numBlocks, 18);
+        assertEq(stats2.lastVerifiedBlockId, 11);
+        assertEq(stats2.paused, false);
+        assertEq(stats2.lastProposedIn, block.number);
+        assertEq(stats2.lastUnpausedAt, 0);
+
+        // - Verify genesis block
+      
+
+        // Verify block data
+        for (uint64 i = 8; i < 15; ++i) {
+              ITaikoL1.BlockV3 memory blk  = taikoL1.getBlockV3(i);
+            assertEq(blk.blockId, i);
+            assertEq(blk.metaHash, keccak256(abi.encode(blockMetadatas[i])));
+
+            assertEq(blk.timestamp, block.timestamp);
+            assertEq(blk.anchorBlockId, block.number - 1);
+
+            // if ( i == 10 || i== 11) {
+            //     assertEq(blk.verifiedTransitionId, 1);
+            //     assertEq(blk.nextTransitionId, 2);
+            // } else{
+            //     // assertEq(blk.nextTransitionId, 2);
+            // }
+
+            // if (i == 12 || i == 13) {
+            //     // these two blocks are not proved
+            //     assertEq(blk.nextTransitionId, 1);
+            // } else if (i == 5 || i == 10 || i == 11) {
+            //     // assertEq(blk.verifiedTransitionId, 1);
+            //     assertEq(blk.nextTransitionId, 2);
+            // } else {
+            //     assertEq(blk.nextTransitionId, 2);
+            // }
         }
     }
 
@@ -372,6 +429,7 @@ contract TaikoL1Test is Layer1Test {
     }
 
     function _logAllBlocksAndTransitions() internal {
+        console2.log(unicode"├───────────────────────────────────────────────────────────────");
         ITaikoL1.Stats1 memory stats1 = taikoL1.getStats1();
         console2.log("Stats1 - lastSyncedBlockId:", stats1.lastSyncedBlockId);
         console2.log("Stats1 - lastSyncedAt:", stats1.lastSyncedAt);
@@ -412,6 +470,7 @@ contract TaikoL1Test is Layer1Test {
                 );
             }
         }
+        console2.log("");
     }
 
     function correctBlockhash(uint256 blockId) internal pure returns (bytes32) {
