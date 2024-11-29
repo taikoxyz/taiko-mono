@@ -2,7 +2,7 @@ name: "Build and Push Multi-Arch Docker Image"
 
 on:
   push:
-    branches: [feature/batch-proof]
+    branches: [main]
     tags:
       - "taiko-client-v*"
     paths:
