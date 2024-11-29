@@ -148,8 +148,8 @@ contract EventRegister is AccessControl {
      * - The caller must have the EVENT_MANAGER_ROLE.
      */
     function openRegistration(uint256 _eventId) external onlyRole(EVENT_MANAGER_ROLE) {
-        require(events[_eventId].exists, "Event does not exist");
-        require(!events[_eventId].registrationOpen, "Registrations already open");
+        require(events[_eventId].exists, "Event not found");
+        require(!events[_eventId].registrationOpen, "Already open");
 
         events[_eventId].registrationOpen = true;
         emit RegistrationOpened(_eventId);
@@ -168,8 +168,8 @@ contract EventRegister is AccessControl {
      * - The caller must have the EVENT_MANAGER_ROLE.
      */
     function closeRegistration(uint256 _eventId) external onlyRole(EVENT_MANAGER_ROLE) {
-        require(events[_eventId].exists, "Event does not exist");
-        require(events[_eventId].registrationOpen, "Registrations already closed");
+        require(events[_eventId].exists, "Event not found");
+        require(events[_eventId].registrationOpen, "Already closed");
 
         events[_eventId].registrationOpen = false;
         emit RegistrationClosed(_eventId);
@@ -188,9 +188,9 @@ contract EventRegister is AccessControl {
      */
     function register(uint256 _eventId) external {
         Event memory currentEvent = events[_eventId];
-        require(currentEvent.exists, "Event does not exist");
+        require(currentEvent.exists, "Event not found");
         require(currentEvent.registrationOpen, "Registrations closed");
-        require(!registrations[_eventId][msg.sender], "Already registered ");
+        require(!registrations[_eventId][msg.sender], "Already registered");
 
         registrations[_eventId][msg.sender] = true;
 
@@ -210,7 +210,7 @@ contract EventRegister is AccessControl {
      */
     function unregister(uint256 _eventId, address _user) external onlyRole(EVENT_MANAGER_ROLE) {
         Event memory currentEvent = events[_eventId];
-        require(currentEvent.exists, "Event does not exist");
+        require(currentEvent.exists, "Event not found");
         require(currentEvent.registrationOpen, "Registrations closed");
         require(registrations[_eventId][_user], "Not registered");
 
@@ -262,7 +262,7 @@ contract EventRegister is AccessControl {
         view
         returns (uint256 id, string memory name, bool registrationOpen_)
     {
-        require(events[_eventId].exists, "Event does not exist");
+        require(events[_eventId].exists, "Event not found");
         Event memory e = events[_eventId];
         return (e.id, e.name, e.registrationOpen);
     }
