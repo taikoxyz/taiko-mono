@@ -49,11 +49,7 @@ abstract contract TaikoL1TestBase is Layer1Test {
         uint64 startBlockId,
         uint64 endBlockId
     ) {
-        uint64[] memory blockIds = new uint64[](endBlockId + 1 - startBlockId);
-        for (uint64 i; i < blockIds.length; i++) {
-            blockIds[i] = startBlockId + i;
-        }
-        _proveBlocksWithWrongTransitions(blockIds);
+        _proveBlocksWithWrongTransitions(range(startBlockId, endBlockId));
         _;
     }
 
@@ -61,11 +57,7 @@ abstract contract TaikoL1TestBase is Layer1Test {
         uint64 startBlockId,
         uint64 endBlockId
     ) {
-        uint64[] memory blockIds = new uint64[](endBlockId + 1 - startBlockId);
-        for (uint64 i; i < blockIds.length; i++) {
-            blockIds[i] = startBlockId + i;
-        }
-        _proveBlocksWithCorrectTransitions(blockIds);
+        _proveBlocksWithCorrectTransitions(range(startBlockId, endBlockId));
         _;
     }
 
@@ -110,7 +102,7 @@ abstract contract TaikoL1TestBase is Layer1Test {
         taikoL1.proveBlocksV3(metas, transitions, "");
     }
 
-    function _logAllBlocksAndTransitions() internal {
+    function _logAllBlocksAndTransitions() internal view {
         console2.log(unicode"├───────────────────────────────────────────────────────────────");
         ITaikoL1.Stats1 memory stats1 = taikoL1.getStats1();
         console2.log("Stats1 - lastSyncedBlockId:", stats1.lastSyncedBlockId);
@@ -123,31 +115,39 @@ abstract contract TaikoL1TestBase is Layer1Test {
         console2.log("Stats2 - lastProposedIn:", stats2.lastProposedIn);
         console2.log("Stats2 - lastUnpausedAt:", stats2.lastUnpausedAt);
 
-        uint64 firstBlockId = stats2.numBlocks > getConfig().blockMaxProposals
-            ? stats2.numBlocks - getConfig().blockMaxProposals
+        // console2.log("stats2.numBlocks:", stats2.numBlocks);
+        // console2.log("getConfig().blockRingBufferSize:", getConfig().blockRingBufferSize);
+
+        uint64 firstBlockId = stats2.numBlocks > getConfig().blockRingBufferSize
+            ? stats2.numBlocks - getConfig().blockRingBufferSize
             : 0;
+
         for (uint64 i = firstBlockId; i < stats2.numBlocks; ++i) {
             ITaikoL1.BlockV3 memory blk = taikoL1.getBlockV3(i);
-            console2.log(unicode"├── block#", blk.blockId);
-            console2.log(unicode"│   ├── metahash:", Strings.toHexString(uint256(blk.metaHash)));
-            console2.log(unicode"│   ├── timestamp:", blk.timestamp);
-            console2.log(unicode"│   ├── anchorBlockId:", blk.anchorBlockId);
-            console2.log(unicode"│   ├── nextTransitionId:", blk.nextTransitionId);
-            console2.log(unicode"│   ├── verifiedTransitionId:", blk.verifiedTransitionId);
+            if (blk.blockId <= stats2.lastVerifiedBlockId) {
+                console2.log(unicode"├─ ✔ block#", blk.blockId);
+            } else {
+                console2.log(unicode"├─── block#", blk.blockId);
+            }
+            console2.log(unicode"│    ├── metahash:", Strings.toHexString(uint256(blk.metaHash)));
+            console2.log(unicode"│    ├── timestamp:", blk.timestamp);
+            console2.log(unicode"│    ├── anchorBlockId:", blk.anchorBlockId);
+            console2.log(unicode"│    ├── nextTransitionId:", blk.nextTransitionId);
+            console2.log(unicode"│    ├── verifiedTransitionId:", blk.verifiedTransitionId);
 
             for (uint24 j = 1; j < blk.nextTransitionId; ++j) {
                 ITaikoL1.TransitionV3 memory tran = taikoL1.getTransitionV3(blk.blockId, j);
-                console2.log(unicode"│   ├── transition#", j);
+                console2.log(unicode"│    ├── transition#", j);
                 console2.log(
-                    unicode"│   │   ├── parentHash:",
+                    unicode"│    │    ├── parentHash:",
                     Strings.toHexString(uint256(tran.parentHash))
                 );
                 console2.log(
-                    unicode"│   │   ├── blockHash:",
+                    unicode"│    │    ├── blockHash:",
                     Strings.toHexString(uint256(tran.blockHash))
                 );
                 console2.log(
-                    unicode"│   │   └── stateRoot:",
+                    unicode"│    │    └── stateRoot:",
                     Strings.toHexString(uint256(tran.stateRoot))
                 );
             }
@@ -161,6 +161,13 @@ abstract contract TaikoL1TestBase is Layer1Test {
 
     function correctStateRoot(uint256 blockId) internal pure returns (bytes32) {
         return bytes32(200_000 + blockId);
+    }
+
+    function range(uint64 start, uint64 end) internal pure returns (uint64[] memory arr) {
+        arr = new uint64[](end - start);
+        for (uint64 i; i < arr.length; ++i) {
+            arr[i] = start + i;
+        }
     }
 
     function mintEther(address to, uint256 amountEth) internal {

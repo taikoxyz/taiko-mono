@@ -48,12 +48,10 @@ contract TaikoL1Test is TaikoL1TestBase {
         assertEq(blk.nextTransitionId, 2);
         assertEq(blk.verifiedTransitionId, 1);
 
-
         (uint64 blockId, ITaikoL1.TransitionV3 memory tran) = taikoL1.getLastVerifiedTransitionV3();
         assertEq(blockId, 0);
         assertEq(tran.blockHash, correctBlockhash(0));
         assertEq(tran.stateRoot, bytes32(uint256(0)));
-
 
         (blockId, tran) = taikoL1.getLastSyncedTransitionV3();
         assertEq(blockId, 0);
@@ -126,7 +124,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         external
         transactBy(Alice)
         WhenMultipleBlocksAreProposedWithDefaultParameters(6)
-        WhenMultipleBlocksAreProvedWithWrongTransitions(1, 6)
+        WhenMultipleBlocksAreProvedWithWrongTransitions(1, 7)
         WhenLogAllBlocksAndTransitions
     {
         // - All stats are correct and expected
@@ -175,7 +173,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         external
         transactBy(Alice)
         WhenMultipleBlocksAreProposedWithDefaultParameters(1)
-        WhenMultipleBlocksAreProvedWithCorrectTransitions(1, 1)
+        WhenMultipleBlocksAreProvedWithCorrectTransitions(1, 2)
     {
         uint64[] memory blockIds = new uint64[](1);
         blockIds[0] = 1;
@@ -187,7 +185,7 @@ contract TaikoL1Test is TaikoL1TestBase {
         external
         transactBy(Alice)
         WhenMultipleBlocksAreProposedWithDefaultParameters(9)
-        WhenMultipleBlocksAreProvedWithCorrectTransitions(1, 9)
+        WhenMultipleBlocksAreProvedWithCorrectTransitions(1, 10)
         WhenLogAllBlocksAndTransitions
     {
         // - All stats are correct and expected
@@ -203,12 +201,10 @@ contract TaikoL1Test is TaikoL1TestBase {
         assertEq(stats2.lastProposedIn, block.number);
         assertEq(stats2.lastUnpausedAt, 0);
 
-
         (uint64 blockId, ITaikoL1.TransitionV3 memory tran) = taikoL1.getLastVerifiedTransitionV3();
         assertEq(blockId, 9);
         assertEq(tran.blockHash, correctBlockhash(9));
         assertEq(tran.stateRoot, bytes32(uint256(0)));
-
 
         (blockId, tran) = taikoL1.getLastSyncedTransitionV3();
         assertEq(blockId, 5);
@@ -245,8 +241,8 @@ contract TaikoL1Test is TaikoL1TestBase {
         external
         transactBy(Alice)
         WhenMultipleBlocksAreProposedWithDefaultParameters(9)
-        WhenMultipleBlocksAreProvedWithWrongTransitions(1, 9)
-        WhenMultipleBlocksAreProvedWithCorrectTransitions(1, 9)
+        WhenMultipleBlocksAreProvedWithWrongTransitions(1, 10)
+        WhenMultipleBlocksAreProvedWithCorrectTransitions(1, 10)
         WhenLogAllBlocksAndTransitions
     {
         // - All stats are correct and expected
@@ -292,12 +288,12 @@ contract TaikoL1Test is TaikoL1TestBase {
         external
         transactBy(Alice)
         WhenMultipleBlocksAreProposedWithDefaultParameters(9)
-        WhenMultipleBlocksAreProvedWithCorrectTransitions(1, 9)
+        WhenMultipleBlocksAreProvedWithCorrectTransitions(1, 10)
         WhenMultipleBlocksAreProposedWithDefaultParameters(8)
         WhenLogAllBlocksAndTransitions
-        WhenMultipleBlocksAreProvedWithCorrectTransitions(14, 15)
+        WhenMultipleBlocksAreProvedWithCorrectTransitions(14, 16)
         WhenLogAllBlocksAndTransitions
-        WhenMultipleBlocksAreProvedWithCorrectTransitions(10, 10)
+        WhenMultipleBlocksAreProvedWithCorrectTransitions(10, 11)
         WhenLogAllBlocksAndTransitions
     {
         // - All stats are correct and expected
@@ -313,12 +309,10 @@ contract TaikoL1Test is TaikoL1TestBase {
         assertEq(stats2.lastProposedIn, block.number);
         assertEq(stats2.lastUnpausedAt, 0);
 
-
         (uint64 blockId, ITaikoL1.TransitionV3 memory tran) = taikoL1.getLastVerifiedTransitionV3();
         assertEq(blockId, 10);
         assertEq(tran.blockHash, correctBlockhash(10));
         assertEq(tran.stateRoot, correctStateRoot(10));
-
 
         (blockId, tran) = taikoL1.getLastSyncedTransitionV3();
         assertEq(blockId, 10);

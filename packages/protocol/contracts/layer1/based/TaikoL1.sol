@@ -57,14 +57,18 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
         ConfigV3 memory config = getConfigV3();
         require(stats2.numBlocks >= config.pacayaForkHeight, InvalidForkHeight());
 
-        require(
-            stats2.numBlocks + _paramss.length
-                <= stats2.lastVerifiedBlockId + config.blockMaxProposals,
-            TooManyBlocks()
-        );
+        unchecked {
+            require(
+                stats2.numBlocks + _paramss.length
+                    <= stats2.lastVerifiedBlockId + config.blockMaxProposals,
+                TooManyBlocks()
+            );
+        }
 
-        BlockV3 storage parentBlk =
-            state.blocks[(stats2.numBlocks - 1) % config.blockRingBufferSize];
+        BlockV3 storage parentBlk;
+        unchecked {
+            parentBlk = state.blocks[(stats2.numBlocks - 1) % config.blockRingBufferSize];
+        }
 
         ParentBlock memory parent = ParentBlock({
             metaHash: parentBlk.metaHash,
@@ -139,9 +143,10 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
                 stats2.lastProposedIn = uint56(block.number);
             }
         } // end of for-loop
-
-        _debitBond(_proposer, config.livenessBond * _paramss.length);
-        _verifyBlocks(config, stats2, _paramss.length);
+        unchecked {
+            _debitBond(_proposer, config.livenessBond * _paramss.length);
+            _verifyBlocks(config, stats2, _paramss.length);
+        }
     }
 
     function proveBlocksV3(
@@ -200,14 +205,16 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             if (isOverwrite) {
                 emit TransitionOverwritten(meta.blockId, ts);
             } else if (tid == 1) {
-                uint256 deadline =
-                    uint256(meta.proposedAt).max(stats2.lastUnpausedAt) + config.provingWindow;
-                if (block.timestamp <= deadline) {
-                    require(msg.sender == meta.proposer, ProverNotPermitted());
-                    _creditBond(meta.proposer, meta.livenessBond);
-                }
+                unchecked {
+                    uint256 deadline =
+                        uint256(meta.proposedAt).max(stats2.lastUnpausedAt) + config.provingWindow;
+                    if (block.timestamp <= deadline) {
+                        require(msg.sender == meta.proposer, ProverNotPermitted());
+                        _creditBond(meta.proposer, meta.livenessBond);
+                    }
 
-                ts.parentHash = tran.parentHash;
+                    ts.parentHash = tran.parentHash;
+                }
             } else {
                 state.transitionIds[meta.blockId][tran.parentHash] = tid;
             }
@@ -504,42 +511,44 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
         view
         returns (UpdatedParams memory updatedParams_)
     {
-        if (_params.anchorBlockId == 0) {
-            updatedParams_.anchorBlockId = uint64(block.number - 1);
-        } else {
+        unchecked {
+            if (_params.anchorBlockId == 0) {
+                updatedParams_.anchorBlockId = uint64(block.number - 1);
+            } else {
+                require(
+                    _params.anchorBlockId + _maxAnchorHeightOffset >= block.number,
+                    AnchorBlockIdTooSmall()
+                );
+                require(_params.anchorBlockId < block.number, AnchorBlockIdTooLarge());
+                require(
+                    _params.anchorBlockId >= _parent.anchorBlockId, AnchorBlockIdSmallerThanParent()
+                );
+                updatedParams_.anchorBlockId = _params.anchorBlockId;
+            }
+
+            if (_params.timestamp == 0) {
+                updatedParams_.timestamp = uint64(block.timestamp);
+            } else {
+                // Verify the provided timestamp to anchor. Note that params_.anchorBlockId
+                // and params_.timestamp may not correspond to the same L1 block.
+                require(
+                    _params.timestamp + _maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME
+                        >= block.timestamp,
+                    TimestampTooSmall()
+                );
+                require(_params.timestamp <= block.timestamp, TimestampTooLarge());
+                require(_params.timestamp >= _parent.timestamp, TimestampSmallerThanParent());
+
+                updatedParams_.timestamp = _params.timestamp;
+            }
+
+            // Check if parent block has the right meta hash. This is to allow the proposer to
+            // make sure the block builds on the expected latest chain state.
             require(
-                _params.anchorBlockId + _maxAnchorHeightOffset >= block.number,
-                AnchorBlockIdTooSmall()
+                _params.parentMetaHash == 0 || _params.parentMetaHash == _parent.metaHash,
+                ParentMetaHashMismatch()
             );
-            require(_params.anchorBlockId < block.number, AnchorBlockIdTooLarge());
-            require(
-                _params.anchorBlockId >= _parent.anchorBlockId, AnchorBlockIdSmallerThanParent()
-            );
-            updatedParams_.anchorBlockId = _params.anchorBlockId;
         }
-
-        if (_params.timestamp == 0) {
-            updatedParams_.timestamp = uint64(block.timestamp);
-        } else {
-            // Verify the provided timestamp to anchor. Note that params_.anchorBlockId
-            // and params_.timestamp may not correspond to the same L1 block.
-            require(
-                _params.timestamp + _maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME
-                    >= block.timestamp,
-                TimestampTooSmall()
-            );
-            require(_params.timestamp <= block.timestamp, TimestampTooLarge());
-            require(_params.timestamp >= _parent.timestamp, TimestampSmallerThanParent());
-
-            updatedParams_.timestamp = _params.timestamp;
-        }
-
-        // Check if parent block has the right meta hash. This is to allow the proposer to
-        // make sure the block builds on the expected latest chain state.
-        require(
-            _params.parentMetaHash == 0 || _params.parentMetaHash == _parent.metaHash,
-            ParentMetaHashMismatch()
-        );
     }
 
     // Memory-only structs ----------------------------------------------------------------------
