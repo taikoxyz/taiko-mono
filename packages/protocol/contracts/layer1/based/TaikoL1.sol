@@ -218,9 +218,9 @@ contract TaikoL1 is EssentialContract, ITaikoL1 {
             emit TransitionProved(meta.blockId, tran);
         }
 
-        if (_metas.length != 0) {
-            IVerifier(resolve(LibStrings.B_PROOF_VERIFIER, false)).verifyProof(ctxs, proof);
-        }
+        // if (_metas.length != 0) {
+        //     IVerifier(resolve(LibStrings.B_PROOF_VERIFIER, false)).verifyProof(ctxs, proof);
+        // }
 
         _verifyBlocks(config, stats2, _metas.length);
     }

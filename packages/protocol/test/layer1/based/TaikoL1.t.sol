@@ -58,6 +58,11 @@ contract TaikoL1Test is Layer1Test {
         _;
     }
 
+    modifier WhenMultipleBlocksAreProvedWithCorrectTransitions(bytes memory blockIdsEncoded) {
+        _proveBlocksWithCorrectTransitions(abi.decode(blockIdsEncoded, (uint64[])));
+        _;
+    }
+
     function test_case_query_right_after_genesis_block() external {
         // - All stats are correct and expected
         ITaikoL1.Stats1 memory stats1 = taikoL1.getStats1();
@@ -127,6 +132,27 @@ contract TaikoL1Test is Layer1Test {
         _proposeBlocksWithDefaultParameters({ numBlocksToPropose: 1 });
     }
 
+
+     function test_case_propose_many_blocks_to_reuse_ring_buffer()
+        external
+        transactBy(Alice)
+        WhenMultipleBlocksAreProposedWithDefaultParameters(9)
+        WhenMultipleBlocksAreProvedWithCorrectTransitions(abi.encode([uint64(1), 2, 3, 4, 5,6,7,8,9]))
+    {
+         // - All stats are correct and expected
+
+        ITaikoL1.Stats1 memory stats1 = taikoL1.getStats1();
+        assertEq(stats1.lastSyncedBlockId, block.number - 1);
+        assertEq(stats1.lastSyncedAt, block.timestamp);
+
+        ITaikoL1.Stats2 memory stats2 = taikoL1.getStats2();
+        assertEq(stats2.numBlocks, 10);
+        assertEq(stats2.lastVerifiedBlockId, 9);
+        assertEq(stats2.paused, false);
+        assertEq(stats2.lastProposedIn, block.number);
+        assertEq(stats2.lastUnpausedAt, 0);
+    }
+
     // internal helper functions -------------------------------------------------------------------
 
     function _proposeBlocksWithDefaultParameters(uint256 numBlocksToPropose) internal {
@@ -140,9 +166,27 @@ contract TaikoL1Test is Layer1Test {
         }
     }
 
+    function _proveBlocksWithCorrectTransitions(uint64[] memory blockIds) internal {
+        ITaikoL1.BlockMetadataV3[] memory metas = new ITaikoL1.BlockMetadataV3[](blockIds.length);
+        ITaikoL1.TransitionV3[] memory transitions = new ITaikoL1.TransitionV3[](blockIds.length);
+
+        for (uint256 i; i < metas.length; ++i) {
+            metas[i] = blockMetadatas[blockIds[i]];
+            transitions[i].parentHash = _correctBlockhash(blockIds[i] - 1);
+            transitions[i].blockHash = _correctBlockhash(blockIds[i]);
+            transitions[i].stateRoot = _correctstateRoothash(blockIds[i]);
+        }
+
+        taikoL1.proveBlocksV3(metas, transitions, "");
+    }
+
     function _correctBlockhash(uint256 blockId) internal pure returns (bytes32) {
         return bytes32(100_000 + blockId);
     }
+     function _correctstateRoothash(uint256 blockId) internal pure returns (bytes32) {
+        return bytes32(200_000 + blockId);
+    }
+
 
     function mintEther(address to, uint256 amountEth) internal {
         vm.deal(to, amountEth);
