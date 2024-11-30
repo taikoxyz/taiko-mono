@@ -132,15 +132,13 @@ interface ITaikoL1 {
 
     /// @notice Emitted when a token is credited back to a user's bond balance.
     /// @param user The address of the user whose bond balance is credited.
-    /// @param blockId The ID of the block to credit for.
     /// @param amount The amount of tokens credited.
-    event BondCredited(address indexed user, uint256 blockId, uint256 amount);
+    event BondCredited(address indexed user, uint256 amount);
 
     /// @notice Emitted when a token is debited from a user's bond balance.
     /// @param user The address of the user whose bond balance is debited.
-    /// @param blockId The ID of the block to debit for. TODO: remove this.
     /// @param amount The amount of tokens debited.
-    event BondDebited(address indexed user, uint256 blockId, uint256 amount);
+    event BondDebited(address indexed user, uint256 amount);
 
     /// @notice Emitted when a block is synced.
     /// @param stats1 The Stats1 data structure.
@@ -157,13 +155,14 @@ interface ITaikoL1 {
 
     /// @notice Emitted when a transition is proved.
     /// @param blockId The block ID.
+    /// @param verifier The address of the verifier.
     /// @param tran The transition data.
-    event TransitionProved(uint256 indexed blockId, TransitionV3 tran);
+    event TransitionProvedV3(uint256 indexed blockId, address verifier, TransitionV3 tran);
 
     /// @notice Emitted when a transition is overritten by another one.
     /// @param blockId The block ID.
     /// @param tran The transition data that has been overwritten.
-    event TransitionOverwritten(uint256 indexed blockId, TransitionV3 tran);
+    event TransitionOverwrittenV3(uint256 indexed blockId, TransitionV3 tran);
 
     /// @notice Emitted when a block is verified.
     /// @param blockId The ID of the verified block.
@@ -187,6 +186,8 @@ interface ITaikoL1 {
     error MetaHashMismatch();
     error MsgValueNotZero();
     error NoBlocksToPropose();
+    error NoBlocksToProve();
+    error ProofNotFound();
     error NotPreconfTaskManager();
     error ParentMetaHashMismatch();
     error ProverNotPermitted();

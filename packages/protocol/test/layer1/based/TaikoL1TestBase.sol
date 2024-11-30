@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "../Layer1Test.sol";
+import "test/layer1/based/helpers/Verifier_ToggleStub.sol";
 
 abstract contract TaikoL1TestBase is Layer1Test {
     mapping(uint256 => ITaikoL1.BlockMetadataV3) internal blockMetadatas;
@@ -15,22 +16,30 @@ abstract contract TaikoL1TestBase is Layer1Test {
 
     modifier transactBy(address transactor) override {
         vm.deal(transactor, 100 ether);
-        bondToken.transfer(transactor, 10_000 ether);
-        vm.startPrank(transactor);
-        bondToken.approve(address(taikoL1), type(uint256).max);
+        if (bondToken != TaikoToken(address(0))) {
+            bondToken.transfer(transactor, 10_000 ether);
+            vm.startPrank(transactor);
+            bondToken.approve(address(taikoL1), type(uint256).max);
+        } else {
+            vm.startPrank(transactor);
+        }
 
         _;
         vm.stopPrank();
     }
 
-    function setUpOnEthereum() internal override {
+    function setUpOnEthereum() internal virtual override {
         genesisBlockProposedAt = block.timestamp;
         genesisBlockProposedIn = block.number;
 
         taikoL1 = deployTaikoL1(correctBlockhash(0), getConfig());
-        bondToken = deployBondToken();
+
         signalService = deploySignalService(address(new SignalService()));
         signalService.authorize(address(taikoL1), true);
+
+        resolver.registerAddress(
+            block.chainid, "proof_verifier", address(new Verifier_ToggleStub())
+        );
 
         mineOneBlockAndWrap(12 seconds);
     }
@@ -85,7 +94,7 @@ abstract contract TaikoL1TestBase is Layer1Test {
             transitions[i].stateRoot = correctStateRoot(blockIds[i]);
         }
 
-        taikoL1.proveBlocksV3(metas, transitions, "");
+        taikoL1.proveBlocksV3(metas, transitions, "proof");
     }
 
     function _proveBlocksWithWrongTransitions(uint64[] memory blockIds) internal {
@@ -99,7 +108,7 @@ abstract contract TaikoL1TestBase is Layer1Test {
             transitions[i].stateRoot = randBytes32();
         }
 
-        taikoL1.proveBlocksV3(metas, transitions, "");
+        taikoL1.proveBlocksV3(metas, transitions, "proof");
     }
 
     function _logAllBlocksAndTransitions() internal view {

@@ -32,7 +32,7 @@ contract BlockProposing is BlocksFixtures {
 
         // Address 1 proposes the block
         vm.prank(addr_1);
-        _newBlockProposal("Block Params", 1, lookaheadSetParams);
+        _proposeBlock(1, lookaheadSetParams);
     }
 
     function test_newBlockProposal_preconferCanProposeBlockInAdvanced_Case2() external {
@@ -56,7 +56,7 @@ contract BlockProposing is BlocksFixtures {
 
         // Address 3 proposes the block in advance
         vm.prank(addr_3);
-        _newBlockProposal("Block Params 2", 2, lookaheadSetParams);
+        _proposeBlock(2, lookaheadSetParams);
     }
 
     function test_newBlockProposal_preconferCanProposeBlockAtDedicatedSlot() external {
@@ -80,7 +80,7 @@ contract BlockProposing is BlocksFixtures {
 
         // Address 1 proposes the block at its dedicated slot
         vm.prank(addr_1);
-        _newBlockProposal("Block Params 3", 1, lookaheadSetParams);
+        _proposeBlock(1, lookaheadSetParams);
     }
 
     function test_newBlockProposal_updatesLookaheadForNextEpoch() external {
@@ -111,7 +111,7 @@ contract BlockProposing is BlocksFixtures {
 
         // Address 1 proposes a block and updates the lookahead
         vm.prank(addr_1);
-        _newBlockProposal("Block Params", 1, lookaheadSetParams);
+        _proposeBlock(1, lookaheadSetParams);
 
         // Verify that the lookahead for the next epoch has been updated
         IPreconfTaskManager.LookaheadBufferEntry[128] memory lookaheadBuffer =
@@ -160,7 +160,7 @@ contract BlockProposing is BlocksFixtures {
 
         vm.prank(addr_1);
         vm.expectRevert(IPreconfTaskManager.InvalidLookaheadPointer.selector);
-        _newBlockProposal("Block Params", 1, new IPreconfTaskManager.LookaheadSetParam[](0));
+        _proposeBlock(1, new IPreconfTaskManager.LookaheadSetParam[](0));
     }
 
     function test_newBlockProposal_revertWhenTimestampBelowPrevTimestamp() external {
@@ -175,7 +175,7 @@ contract BlockProposing is BlocksFixtures {
 
         vm.prank(addr_3);
         vm.expectRevert(IPreconfTaskManager.InvalidLookaheadPointer.selector);
-        _newBlockProposal("Block Params", 2, new IPreconfTaskManager.LookaheadSetParam[](0));
+        _proposeBlock(2, new IPreconfTaskManager.LookaheadSetParam[](0));
     }
 
     function test_newBlockProposal_revertWhenTimestampEqualToPrevTimestamp() external {
@@ -190,7 +190,7 @@ contract BlockProposing is BlocksFixtures {
 
         vm.prank(addr_3);
         vm.expectRevert(IPreconfTaskManager.InvalidLookaheadPointer.selector);
-        _newBlockProposal("Block Params", 2, new IPreconfTaskManager.LookaheadSetParam[](0));
+        _proposeBlock(2, new IPreconfTaskManager.LookaheadSetParam[](0));
     }
 
     function test_newBlockProposal_revertWhenSenderIsNotThePreconfer() external {
@@ -207,19 +207,21 @@ contract BlockProposing is BlocksFixtures {
         // Try to propose with a different address than the expected preconfer
         vm.prank(addr_2); // addr_2 is not the expected preconfer (It is addr_3)
         vm.expectRevert(IPreconfTaskManager.SenderIsNotThePreconfer.selector);
-        _newBlockProposal("Block Params", 2, new IPreconfTaskManager.LookaheadSetParam[](0));
+        _proposeBlock(2, new IPreconfTaskManager.LookaheadSetParam[](0));
     }
 
-    function _newBlockProposal(
-        bytes memory blockParams,
+    function _proposeBlock(
         uint256 lookaheadPointer,
         IPreconfTaskManager.LookaheadSetParam[] memory lookaheadSetParams
     )
         internal
     {
-        bytes[] memory blockParamsArr = new bytes[](1);
-        blockParamsArr[0] = blockParams;
+        ITaikoL1.BlockParamsV3 memory defaultParams;
+        ITaikoL1.BlockParamsV3[] memory paramsArr = new ITaikoL1.BlockParamsV3[](1);
+        paramsArr[0] = defaultParams;
 
-        preconfTaskManager.newBlockProposals(blockParamsArr, lookaheadPointer, lookaheadSetParams);
+        preconfTaskManager.proposeBlocksV3(
+            msg.sender, paramsArr, lookaheadPointer, lookaheadSetParams
+        );
     }
 }
