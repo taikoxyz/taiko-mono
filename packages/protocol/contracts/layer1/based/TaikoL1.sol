@@ -230,7 +230,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             }
 
             ts.blockHash = tran.blockHash;
-            emit TransitionProvedV3(meta.blockId,verifier ,tran);
+            emit TransitionProvedV3(meta.blockId, verifier, tran);
         }
 
         if (verifier != address(0)) {
