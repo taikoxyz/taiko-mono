@@ -137,7 +137,6 @@ contract TaikoL2 is EssentialContract, IBlockHash, TaikoL2Deprecated {
         uint64 _anchorBlockId,
         bytes32 _anchorStateRoot,
         uint32 _parentGasUsed,
-        ITaikoL1.Signal[] calldata _signals,
         LibSharedData.BaseFeeConfig calldata _baseFeeConfig
     )
         external
@@ -156,7 +155,6 @@ contract TaikoL2 is EssentialContract, IBlockHash, TaikoL2Deprecated {
         _verifyBaseFeeAndUpdateGasExcess(_parentGasUsed, _baseFeeConfig);
         _syncChainData(_anchorBlockId, _anchorStateRoot);
         _updateParentHashAndTimestamp(parentId);
-        // TODO: store _signals somehow?
     }
 
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
@@ -173,7 +171,7 @@ contract TaikoL2 is EssentialContract, IBlockHash, TaikoL2Deprecated {
         bytes32 _anchorStateRoot,
         uint32 _parentGasUsed,
         LibSharedData.BaseFeeConfig calldata _baseFeeConfig,
-        ITaikoL1.Signal[] calldata _signals
+        LibSharedData.Signal[] calldata _signals
     )
         external
         nonZeroBytes32(_anchorStateRoot)
@@ -190,6 +188,7 @@ contract TaikoL2 is EssentialContract, IBlockHash, TaikoL2Deprecated {
         _verifyBaseFeeAndUpdateGasExcess(_parentGasUsed, _baseFeeConfig);
         _syncChainData(_anchorBlockId, _anchorStateRoot);
         _updateParentHashAndTimestamp(parentId);
+        // TODO: store _signals somehow?
     }
 
     /// @notice Withdraw token or Ether from this address.

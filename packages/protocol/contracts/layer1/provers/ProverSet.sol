@@ -96,7 +96,7 @@ contract ProverSet is EssentialContract, IERC1271 {
 
     /// @notice Proposes a block only when it is the first block proposal in the current L1 block.
     function proposeBlocksV3Conditionally(
-        ITaikoL1.Signal[] calldata _signals,
+        LibSharedData.Signal[] calldata _signals,
         ITaikoL1.BlockParamsV3[] calldata _paramsArray
     )
         external
@@ -110,7 +110,7 @@ contract ProverSet is EssentialContract, IERC1271 {
 
     /// @notice Propose multiple Taiko blocks.
     function proposeBlocksV3(
-        ITaikoL1.Signal[] calldata _signals,
+        LibSharedData.Signal[] calldata _signals,
         ITaikoL1.BlockParamsV3[] calldata _paramsArray
     )
         external

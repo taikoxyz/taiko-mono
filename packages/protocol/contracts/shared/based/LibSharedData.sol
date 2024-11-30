@@ -10,4 +10,9 @@ library LibSharedData {
         uint64 minGasExcess;
         uint32 maxGasIssuancePerBlock;
     }
+
+    struct Signal {
+        address sender;
+        bytes32 signal;
+    }
 }

@@ -58,7 +58,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
     function proposeBlocksV3(
         address _proposer,
         address _coinbase,
-        Signal[] calldata _signals,
+        LibSharedData.Signal[] calldata _signals,
         BlockParamsV3[] calldata _paramsArray
     )
         external
@@ -170,7 +170,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
         } // end of for-loop
 
         _debitBond(_proposer, config.livenessBond * _paramsArray.length);
-        emit BlocksProposedV3(signalsHash, metas_);
+        emit BlocksProposedV3(_signals, metas_);
 
         _verifyBlocks(signalService, config, stats2, _paramsArray.length);
     }
