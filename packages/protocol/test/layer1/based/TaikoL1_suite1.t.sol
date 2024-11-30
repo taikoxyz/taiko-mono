@@ -21,9 +21,15 @@ contract TaikoL1Test_Suite1 is TaikoL1TestBase {
                 minGasExcess: 1_340_000_000, // correspond to 0.008847185 gwei basefee
                 maxGasIssuancePerBlock: 600_000_000 // two minutes: 5_000_000 * 120
              }),
-            pacayaForkHeight: 0,
-            provingWindow: 1 hours
+            provingWindow: 1 hours,
+            emitTxListInCalldata: true,
+            pacayaForkHeight: 0
         });
+    }
+
+    function setUpOnEthereum() internal override {
+        super.setUpOnEthereum();
+        bondToken = deployBondToken();
     }
 
     function test_taikol1_query_right_after_genesis_block() external view {
@@ -360,25 +366,56 @@ contract TaikoL1Test_Suite1 is TaikoL1TestBase {
         transitions[0].parentHash = bytes32(uint256(0x100));
         transitions[0].blockHash = bytes32(uint256(0x101));
         transitions[0].stateRoot = bytes32(uint256(0x102));
-        taikoL1.proveBlocksV3(metas, transitions, "");
+        taikoL1.proveBlocksV3(metas, transitions, "proof");
         _logAllBlocksAndTransitions();
 
         transitions[0].parentHash = bytes32(uint256(0x100));
         transitions[0].blockHash = bytes32(uint256(0x111));
         transitions[0].stateRoot = bytes32(uint256(0x112));
-        taikoL1.proveBlocksV3(metas, transitions, "");
+        taikoL1.proveBlocksV3(metas, transitions, "proof");
         _logAllBlocksAndTransitions();
 
         transitions[0].parentHash = bytes32(uint256(0x200));
         transitions[0].blockHash = bytes32(uint256(0x201));
         transitions[0].stateRoot = bytes32(uint256(0x202));
-        taikoL1.proveBlocksV3(metas, transitions, "");
+        taikoL1.proveBlocksV3(metas, transitions, "proof");
         _logAllBlocksAndTransitions();
 
         transitions[0].parentHash = bytes32(uint256(0x200));
         transitions[0].blockHash = bytes32(uint256(0x211));
         transitions[0].stateRoot = bytes32(uint256(0x212));
-        taikoL1.proveBlocksV3(metas, transitions, "");
+        taikoL1.proveBlocksV3(metas, transitions, "proof");
+        _logAllBlocksAndTransitions();
+    }
+
+    function test_taikol1_measure_gas_used()
+        external
+        transactBy(Alice)
+        WhenMultipleBlocksAreProposedWithDefaultParameters(9)
+        WhenMultipleBlocksAreProvedWithCorrectTransitions(1, 10)
+        WhenLogAllBlocksAndTransitions
+    {
+        uint64 count = 1;
+
+        vm.startSnapshotGas("proposeBlocksV3");
+        ITaikoL1.BlockMetadataV3[] memory metas =
+            taikoL1.proposeBlocksV3(address(0), address(0), new ITaikoL1.BlockParamsV3[](count), "");
+        uint256 gasProposeBlocksV3 = vm.stopSnapshotGas("proposeBlocksV3");
+        console2.log("Gas per block - proposing:", gasProposeBlocksV3 / count);
+
+        ITaikoL1.TransitionV3[] memory transitions = new ITaikoL1.TransitionV3[](count);
+        for (uint256 i; i < metas.length; ++i) {
+            transitions[i].parentHash = correctBlockhash(metas[i].blockId - 1);
+            transitions[i].blockHash = correctBlockhash(metas[i].blockId);
+            transitions[i].stateRoot = correctStateRoot(metas[i].blockId);
+        }
+
+        vm.startSnapshotGas("proveBlocksV3");
+        taikoL1.proveBlocksV3(metas, transitions, "proof");
+        uint256 gasProveBlocksV3 = vm.stopSnapshotGas("proveBlocksV3");
+        console2.log("Gas per block - proving:", gasProveBlocksV3 / count);
+        console2.log("Gas per block - total:", (gasProposeBlocksV3 + gasProveBlocksV3) / count);
+
         _logAllBlocksAndTransitions();
     }
 }

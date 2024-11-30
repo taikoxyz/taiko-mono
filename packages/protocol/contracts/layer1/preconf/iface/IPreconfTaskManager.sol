@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "../libs/LibEIP4788.sol";
+import "../../based/ITaikoL1.sol";
 
 /// @title IPreconfTaskManager
 /// @custom:security-contact security@taiko.xyz
@@ -59,8 +60,10 @@ interface IPreconfTaskManager {
     error NoRegisteredPreconfer();
 
     /// @dev Accepts block proposal by an operator and forwards it to Taiko contract
-    function newBlockProposals(
-        bytes[] calldata blockParamsArr,
+    function proposeBlocksV3(
+        address coinbase,
+        ITaikoL1.BlockParamsV3[] calldata blockParams,
+        bytes calldata txList,
         uint256 lookaheadPointer,
         LookaheadSetParam[] calldata lookaheadSetParams
     )

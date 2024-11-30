@@ -15,7 +15,7 @@ import "./BaseVault.sol";
 /// @notice This vault holds all ERC20 tokens (excluding Ether) that users have
 /// deposited. It also manages the mapping between canonical ERC20 tokens and
 /// their bridged tokens. This vault does not support rebase/elastic tokens.
-/// @dev Labeled in AddressResolver as "erc20_vault".
+/// @dev Labeled in address resolver as "erc20_vault".
 /// @custom:security-contact security@taiko.xyz
 contract ERC20Vault is BaseVault {
     using Address for address;

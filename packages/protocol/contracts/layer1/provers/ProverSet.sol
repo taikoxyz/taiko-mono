@@ -95,30 +95,40 @@ contract ProverSet is EssentialContract, IERC1271 {
     }
 
     /// @notice Proposes a block only when it is the first block proposal in the current L1 block.
-    function proposeBlocksConditionally(bytes[] calldata _paramsArr) external onlyProver {
-        ITaikoL1 taiko = ITaikoL1(taikoL1());
-        // Ensure this block is the first block proposed in the current L1 block.
-        require(taiko.getStats2().lastProposedIn != block.number, NOT_FIRST_PROPOSAL());
-        // TODO(danielw):fix this
-        // taiko.proposeBlocksV3(_paramsArr);
-    }
-
-    /// @notice Propose multiple Taiko blocks.
-    function proposeBlocks(bytes[] calldata _paramsArr) external onlyProver {
-        // TODO(danielw):fix this
-        // ITaiko(taikoL1()).proposeBlocksV3(_paramsArr);
-    }
-
-    /// @notice Batch proves or contests Taiko blocks.
-    function proveBlocks(
-        uint64[] calldata _blockId,
-        bytes[] calldata _input,
-        bytes calldata _batchProof
+    function proposeBlocksV3Conditionally(
+        ITaikoL1.BlockParamsV3[] calldata _paramsArray,
+        bytes calldata _txList
     )
         external
         onlyProver
-    { // TODO(danielw):fix this
-            // ITaiko(taikoL1()).proveBlocksV3(_blockId, _input, _batchProof);
+    {
+        ITaikoL1 taiko = ITaikoL1(taikoL1());
+        // Ensure this block is the first block proposed in the current L1 block.
+        require(taiko.getStats2().lastProposedIn != block.number, NOT_FIRST_PROPOSAL());
+        taiko.proposeBlocksV3(address(0), address(0), _paramsArray, _txList);
+    }
+
+    /// @notice Propose multiple Taiko blocks.
+    function proposeBlocksV3(
+        ITaikoL1.BlockParamsV3[] calldata _paramsArray,
+        bytes calldata _txList
+    )
+        external
+        onlyProver
+    {
+        ITaikoL1(taikoL1()).proposeBlocksV3(address(0), address(0), _paramsArray, _txList);
+    }
+
+    /// @notice Batch proves or contests Taiko blocks.
+    function proveBlocksV3(
+        ITaikoL1.BlockMetadataV3[] calldata _metas,
+        ITaikoL1.TransitionV3[] calldata _transitions,
+        bytes calldata _proof
+    )
+        external
+        onlyProver
+    {
+        ITaikoL1(taikoL1()).proveBlocksV3(_metas, _transitions, _proof);
     }
 
     /// @notice Deposits Taiko token to Taiko contract.

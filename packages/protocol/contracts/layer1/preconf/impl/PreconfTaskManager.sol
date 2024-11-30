@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "src/layer1/based/ITaikoL1.sol";
 import "../iface/IPreconfTaskManager.sol";
 import "../iface/IPreconfServiceManager.sol";
 import "../iface/IPreconfRegistry.sol";
@@ -78,15 +77,18 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
      * to missed proposals.
      * In this case, `forcePushLookahead` must be called in order to update the lookahead for the
      * next epoch.
-     * @param blockParamsArr A list of block parameters expected by Taiko contract
+     * @param coinbase The address of the coinbase for the proposed block
+     * @param blockParams A list of block parameters expected by Taiko contract
      * @param lookaheadPointer A pointer to the lookahead entry that may prove that the sender is
      * the preconfer
      * for the slot.
      * @param lookaheadSetParams Collection of timestamps and preconfer addresses to be inserted in
      * the lookahead
      */
-    function newBlockProposals(
-        bytes[] calldata blockParamsArr,
+    function proposeBlocksV3(
+        address coinbase,
+        ITaikoL1.BlockParamsV3[] calldata blockParams,
+        bytes calldata txList,
         uint256 lookaheadPointer,
         LookaheadSetParam[] calldata lookaheadSetParams
     )
@@ -124,8 +126,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         );
 
         // Forward the block to Taiko's L1 contract
-        //TODO(daniel): fix this
-        // taikoL1.proposeBlocksV3(blockParamsArr);
+        taikoL1.proposeBlocksV3(msg.sender, coinbase, blockParams, txList);
     }
 
     /**

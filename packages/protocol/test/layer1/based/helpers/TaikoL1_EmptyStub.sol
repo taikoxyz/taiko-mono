@@ -9,7 +9,8 @@ contract TaikoL1_EmptyStub is ITaikoL1 {
     function proposeBlocksV3(
         address _proposer,
         address _coinbase,
-        BlockParamsV3[] calldata _blockParams
+        BlockParamsV3[] calldata _blockParams,
+        bytes calldata _txList
     )
         external
         returns (ITaikoL1.BlockMetadataV3[] memory)
