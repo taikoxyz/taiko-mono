@@ -18,7 +18,7 @@ interface ITaikoL1 {
     struct BlockMetadataV3 {
         bytes32 anchorBlockHash;
         bytes32 difficulty;
-        bytes32 blobHash;
+        bytes32 txListHash;
         bytes32 extraData;
         address coinbase;
         uint64 blockId;
@@ -33,7 +33,7 @@ interface ITaikoL1 {
         uint32 txListOffset;
         uint32 txListSize;
         uint8 blobIndex;
-        bool blobUsed;
+        bool calldataUsed;
         LibSharedData.BaseFeeConfig baseFeeConfig;
     }
 
@@ -154,9 +154,9 @@ interface ITaikoL1 {
 
     /// @notice Emitted when multiple blocks are proposed.
     /// @param metas The metadata of the proposed blocks.
-    /// @param blobUsed Whether the blob is used for txList.
+    /// @param calldataUsed Whether calldata is used for txList DA.
     /// @param txListInCalldata The tx list in calldata.
-    event BlocksProposedV3(BlockMetadataV3[] metas, bool blobUsed, bytes txListInCalldata);
+    event BlocksProposedV3(BlockMetadataV3[] metas, bool calldataUsed, bytes txListInCalldata);
 
     /// @notice Emitted when multiple transitions are proved.
     /// @param verifier The address of the verifier.

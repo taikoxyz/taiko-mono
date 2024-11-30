@@ -101,7 +101,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             _coinbase = _proposer;
         }
         metas_ = new BlockMetadataV3[](_paramsArray.length);
-        bool blobUsed = _txList.length == 0;
+        bool calldataUsed = _txList.length != 0;
 
         for (uint256 i; i < _paramsArray.length; ++i) {
             UpdatedParams memory updatedParams =
@@ -118,7 +118,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             metas_[i] = BlockMetadataV3({
                 anchorBlockHash: blockhash(updatedParams.anchorBlockId),
                 difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", stats2.numBlocks)),
-                blobHash: blobUsed ? _blobhash(_paramsArray[i].blobIndex) : keccak256(_txList),
+                txListHash: calldataUsed ? keccak256(_txList) : _blobhash(_paramsArray[i].blobIndex),
                 extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
                 coinbase: _coinbase,
                 blockId: stats2.numBlocks,
@@ -132,12 +132,12 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
                 proposedIn: uint64(block.number),
                 txListOffset: _paramsArray[i].txListOffset,
                 txListSize: _paramsArray[i].txListSize,
-                blobIndex: blobUsed ? _paramsArray[i].blobIndex : 0,
-                blobUsed: blobUsed,
+                blobIndex: calldataUsed ? 0 : _paramsArray[i].blobIndex,
+                calldataUsed: calldataUsed,
                 baseFeeConfig: config.baseFeeConfig
             });
 
-            require(metas_[i].blobHash != 0, BlobNotFound());
+            require(metas_[i].txListHash != 0, BlobNotFound());
             bytes32 metaHash = keccak256(abi.encode(metas_[i]));
 
             BlockV3 storage blk = state.blocks[stats2.numBlocks % config.blockRingBufferSize];
@@ -166,9 +166,9 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
         // If the driver can extract the txList from transaction trace, then we do not need to emit
         // the txList as it is expensive.
         if (config.emitTxListInCalldata) {
-            emit BlocksProposedV3(metas_, blobUsed, _txList);
+            emit BlocksProposedV3(metas_, calldataUsed, _txList);
         } else {
-            emit BlocksProposedV3(metas_, blobUsed, "");
+            emit BlocksProposedV3(metas_, calldataUsed, "");
         }
 
         _verifyBlocks(config, stats2, _paramsArray.length);
