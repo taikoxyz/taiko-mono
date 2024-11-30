@@ -3,6 +3,7 @@ package encoding
 import (
 	"errors"
 	"fmt"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/log"
@@ -294,6 +295,9 @@ var (
 		{Name: "TaikoData.Transition", Type: transitionComponentsType},
 		{Name: "TaikoData.TierProof", Type: tierProofComponentsType},
 	}
+	stringType, _                  = abi.NewType("string", "TAIKO_DIFFICULTY", nil)
+	uint64Type, _                  = abi.NewType("uint64", "local.b.numBlocks", nil)
+	difficultyCalculationInputArgs = abi.Arguments{{Type: stringType}, {Type: uint64Type}}
 )
 
 // Contract ABIs.
@@ -423,6 +427,16 @@ func EncodeProveBlockInput(
 	return b, nil
 }
 
+// EncodeDifficultCalcutionParams performs the solidity `abi.encode` for the
+// `block.difficulty` hash payload.
+func EncodeDifficultyCalcutionParams(numBlocks uint64) ([]byte, error) {
+	b, err := difficultyCalculationInputArgs.Pack("TAIKO_DIFFICULTY", numBlocks)
+	if err != nil {
+		return nil, fmt.Errorf("failed to abi.encode `block.difficulty` hash payload, %w", err)
+	}
+	return b, nil
+}
+
 // UnpackTxListBytes unpacks the input data of a TaikoL1.proposeBlock transaction, and returns the txList bytes.
 func UnpackTxListBytes(txData []byte) ([]byte, error) {
 	method, err := TaikoL1ABI.MethodById(txData)
@@ -448,4 +462,14 @@ func UnpackTxListBytes(txData []byte) ([]byte, error) {
 	}
 
 	return inputs, nil
+}
+
+// EncodeBaseFeeConfig encodes the block.extraData field from the given base fee config.
+func EncodeBaseFeeConfig(baseFeeConfig *bindings.LibSharedDataBaseFeeConfig) [32]byte {
+	var (
+		bytes32Value [32]byte
+		uintValue    = new(big.Int).SetUint64(uint64(baseFeeConfig.SharingPctg))
+	)
+	copy(bytes32Value[32-len(uintValue.Bytes()):], uintValue.Bytes())
+	return bytes32Value
 }
