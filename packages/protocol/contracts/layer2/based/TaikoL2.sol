@@ -137,7 +137,43 @@ contract TaikoL2 is EssentialContract, IBlockHash, TaikoL2Deprecated {
         uint64 _anchorBlockId,
         bytes32 _anchorStateRoot,
         uint32 _parentGasUsed,
+        ITaikoL1.Signal[] calldata _signals,
         LibSharedData.BaseFeeConfig calldata _baseFeeConfig
+    )
+        external
+        nonZeroBytes32(_anchorStateRoot)
+        nonZeroValue(_anchorBlockId)
+        nonZeroValue(_baseFeeConfig.gasIssuancePerSecond)
+        nonZeroValue(_baseFeeConfig.adjustmentQuotient)
+        onlyGoldenTouch
+        nonReentrant
+    {
+        require(block.number >= ontakeForkHeight(), L2_FORK_ERROR());
+        require(block.number < pacayaForkHeight(), L2_FORK_ERROR());
+
+        uint256 parentId = block.number - 1;
+        _verifyAndUpdatePublicInputHash(parentId);
+        _verifyBaseFeeAndUpdateGasExcess(_parentGasUsed, _baseFeeConfig);
+        _syncChainData(_anchorBlockId, _anchorStateRoot);
+        _updateParentHashAndTimestamp(parentId);
+        // TODO: store _signals somehow?
+    }
+
+    /// @notice Anchors the latest L1 block details to L2 for cross-layer
+    /// message verification.
+    /// @dev This function can be called freely as the golden touch private key is publicly known,
+    /// but the Taiko node guarantees the first transaction of each block is always this anchor
+    /// transaction, and any subsequent calls will revert with L2_PUBLIC_INPUT_HASH_MISMATCH.
+    /// @param _anchorBlockId The `anchorBlockId` value in this block's metadata.
+    /// @param _anchorStateRoot The state root for the L1 block with id equals `_anchorBlockId`.
+    /// @param _parentGasUsed The gas used in the parent block.
+    /// @param _baseFeeConfig The base fee configuration.
+    function anchorV3(
+        uint64 _anchorBlockId,
+        bytes32 _anchorStateRoot,
+        uint32 _parentGasUsed,
+        LibSharedData.BaseFeeConfig calldata _baseFeeConfig,
+        ITaikoL1.Signal[] calldata _signals
     )
         external
         nonZeroBytes32(_anchorStateRoot)
@@ -230,6 +266,12 @@ contract TaikoL2 is EssentialContract, IBlockHash, TaikoL2Deprecated {
 
     /// @notice Returns the Ontake fork height.
     /// @return The Ontake fork height.
+    function ontakeForkHeight() public pure virtual returns (uint64) {
+        return 0;
+    }
+
+    /// @notice Returns the Pacaya fork height.
+    /// @return The Pacaya fork height.
     function pacayaForkHeight() public pure virtual returns (uint64) {
         return 0;
     }

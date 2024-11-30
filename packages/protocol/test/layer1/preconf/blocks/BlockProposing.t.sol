@@ -221,7 +221,7 @@ contract BlockProposing is BlocksFixtures {
         paramsArr[0] = defaultParams;
 
         preconfTaskManager.proposeBlocksV3(
-            msg.sender, new bytes32[](0), paramsArr, lookaheadPointer, lookaheadSetParams
+            msg.sender, new ITaikoL1.Signal[](0), paramsArr, lookaheadPointer, lookaheadSetParams
         );
     }
 }

@@ -26,6 +26,7 @@ interface ITaikoL1 {
         uint64 timestamp;
         uint64 anchorBlockId;
         bytes32 parentMetaHash;
+        bytes32 signalsHash;
         address proposer;
         uint96 livenessBond;
         uint64 proposedAt; // Used by node/client post block proposal.
@@ -75,6 +76,11 @@ interface ITaikoL1 {
         bool paused;
         uint56 lastProposedIn;
         uint64 lastUnpausedAt;
+    }
+
+    struct Signal {
+        address sender;
+        bytes32 signal;
     }
 
     /// @notice Struct holding Taiko configuration parameters. See {TaikoConfig}.
@@ -149,8 +155,9 @@ interface ITaikoL1 {
     event Stats2Updated(Stats2 stats2);
 
     /// @notice Emitted when multiple blocks are proposed.
+    /// @param signalsHash The hash of all signals that are accessed by the proposed blocks.
     /// @param metas The metadata of the proposed blocks.
-    event BlocksProposedV3(BlockMetadataV3[] metas);
+    event BlocksProposedV3(bytes32 signalsHash, BlockMetadataV3[] metas);
 
     /// @notice Emitted when multiple transitions are proved.
     /// @param verifier The address of the verifier.
@@ -178,6 +185,7 @@ interface ITaikoL1 {
     error EtherNotPaidAsBond();
     error InvalidForkHeight();
     error InvalidGenesisBlockHash();
+    error InvalidSignal();
     error InvalidTransitionBlockHash();
     error InvalidTransitionParentHash();
     error InvalidTransitionStateRoot();
@@ -198,7 +206,7 @@ interface ITaikoL1 {
     function proposeBlocksV3(
         address _proposer,
         address _coinbase,
-        bytes32[] calldata _signals,
+        Signal[] calldata _signals,
         BlockParamsV3[] calldata _blockParams
     )
         external

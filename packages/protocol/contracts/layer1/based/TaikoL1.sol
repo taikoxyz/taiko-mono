@@ -58,7 +58,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
     function proposeBlocksV3(
         address _proposer,
         address _coinbase,
-        bytes32[] calldata _signals,
+        Signal[] calldata _signals,
         BlockParamsV3[] calldata _paramsArray
     )
         external
@@ -101,6 +101,15 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             _coinbase = _proposer;
         }
 
+        ISignalService signalService = ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false));
+        for (uint256 i; i < _signals.length; ++i) {
+            require(
+                signalService.isSignalSent(_signals[i].sender, _signals[i].signal), InvalidSignal()
+            );
+        }
+
+        bytes32 signalsHash = keccak256(abi.encode(_signals));
+
         metas_ = new BlockMetadataV3[](_paramsArray.length);
 
         for (uint256 i; i < _paramsArray.length; ++i) {
@@ -125,6 +134,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
                 timestamp: updatedParams.timestamp,
                 anchorBlockId: updatedParams.anchorBlockId,
                 parentMetaHash: lastBlock.metaHash,
+                signalsHash: signalsHash,
                 proposer: _proposer,
                 livenessBond: config.livenessBond,
                 proposedAt: uint64(block.timestamp),
@@ -160,9 +170,9 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
         } // end of for-loop
 
         _debitBond(_proposer, config.livenessBond * _paramsArray.length);
-        emit BlocksProposedV3(metas_);
+        emit BlocksProposedV3(signalsHash, metas_);
 
-        _verifyBlocks(config, stats2, _paramsArray.length);
+        _verifyBlocks(signalService, config, stats2, _paramsArray.length);
     }
 
     /// @notice Proves multiple blocks with a single aggregated proof.
@@ -273,7 +283,8 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
 
         emit BlocksProvedV3(verifier, blockIds, _transitions);
 
-        _verifyBlocks(config, stats2, _metas.length);
+        ISignalService signalService = ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false));
+        _verifyBlocks(signalService, config, stats2, _metas.length);
     }
 
     function depositBond(uint256 _amount) external payable whenNotPaused {
@@ -418,6 +429,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
     // Private functions -----------------------------------------------------------------------
 
     function _verifyBlocks(
+        ISignalService _signalService,
         ConfigV3 memory _config,
         Stats2 memory _stats2,
         uint256 _length
@@ -490,7 +502,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
                 emit Stats1Updated(stats1);
 
                 // Ask signal service to write cross chain signal
-                ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).syncChainData(
+                _signalService.syncChainData(
                     _config.chainId, LibStrings.H_STATE_ROOT, synced.blockId, synced.stateRoot
                 );
             }

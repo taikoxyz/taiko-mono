@@ -88,7 +88,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
      */
     function proposeBlocksV3(
         address coinbase,
-        bytes32[] calldata signals,
+        ITaikoL1.Signal[] calldata signals,
         ITaikoL1.BlockParamsV3[] calldata blockParams,
         uint256 lookaheadPointer,
         LookaheadSetParam[] calldata lookaheadSetParams
