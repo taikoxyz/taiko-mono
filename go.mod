@@ -33,7 +33,7 @@ require (
 	github.com/prysmaticlabs/prysm/v5 v5.1.2
 	github.com/rabbitmq/amqp091-go v1.10.0
 	github.com/shopspring/decimal v1.4.0
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	github.com/swaggo/swag v1.16.4
 	github.com/testcontainers/testcontainers-go v0.34.0
 	github.com/urfave/cli/v2 v2.27.5
