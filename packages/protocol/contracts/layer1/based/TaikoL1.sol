@@ -81,6 +81,19 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             );
         }
 
+        address preconfTaskManager = resolve(LibStrings.B_PRECONF_TASK_MANAGER, true);
+        if (preconfTaskManager == address(0)) {
+            require(_proposer == address(0), CustomProposerNotAllowed());
+            _proposer = msg.sender;
+        } else {
+            require(msg.sender == preconfTaskManager, NotPreconfTaskManager());
+            require(_proposer != address(0), CustomProposerMissing());
+        }
+
+        if (_coinbase == address(0)) {
+            _coinbase = _proposer;
+        }
+
         // Keep track of last block's information.
         BlockInfo memory lastBlock;
         unchecked {
@@ -90,16 +103,6 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             lastBlock = BlockInfo(lastBlk.metaHash, lastBlk.timestamp, lastBlk.anchorBlockId);
         }
 
-        if (_proposer == address(0)) {
-            _proposer = msg.sender;
-        } else {
-            address preconfTaskManager = resolve(LibStrings.B_PRECONF_TASK_MANAGER, false);
-            require(preconfTaskManager == msg.sender, NotPreconfTaskManager());
-        }
-
-        if (_coinbase == address(0)) {
-            _coinbase = _proposer;
-        }
         metas_ = new BlockMetadataV3[](_paramsArray.length);
         bool calldataUsed = _txList.length != 0;
 

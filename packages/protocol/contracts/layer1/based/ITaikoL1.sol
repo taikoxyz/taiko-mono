@@ -181,6 +181,8 @@ interface ITaikoL1 {
     error BlockNotFound();
     error BlockVerified();
     error ContractPaused();
+    error CustomProposerMissing();
+    error CustomProposerNotAllowed();
     error EtherNotPaidAsBond();
     error InvalidForkHeight();
     error InvalidGenesisBlockHash();
