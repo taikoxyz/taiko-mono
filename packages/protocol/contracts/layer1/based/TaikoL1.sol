@@ -101,14 +101,19 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             _coinbase = _proposer;
         }
 
-        ISignalService signalService = ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false));
-        for (uint256 i; i < _signals.length; ++i) {
-            require(
-                signalService.isSignalSent(_signals[i].sender, _signals[i].signal), InvalidSignal()
-            );
-        }
+        bytes32 signalsHash;
+        ISignalService signalService;
 
-        bytes32 signalsHash = keccak256(abi.encode(_signals));
+        if (_signals.length != 0) {
+            signalService = ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false));
+            for (uint256 i; i < _signals.length; ++i) {
+                require(
+                    signalService.isSignalSent(_signals[i].sender, _signals[i].signal),
+                    InvalidSignal()
+                );
+            }
+            signalsHash = keccak256(abi.encode(_signals));
+        }
 
         metas_ = new BlockMetadataV3[](_paramsArray.length);
 
@@ -283,8 +288,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
 
         emit BlocksProvedV3(verifier, blockIds, _transitions);
 
-        ISignalService signalService = ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false));
-        _verifyBlocks(signalService, config, stats2, _metas.length);
+        _verifyBlocks(ISignalService(address(0)), config, stats2, _metas.length);
     }
 
     function depositBond(uint256 _amount) external payable whenNotPaused {
@@ -502,6 +506,9 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
                 emit Stats1Updated(stats1);
 
                 // Ask signal service to write cross chain signal
+                if (_signalService == ISignalService(address(0))) {
+                    _signalService = ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false));
+                }
                 _signalService.syncChainData(
                     _config.chainId, LibStrings.H_STATE_ROOT, synced.blockId, synced.stateRoot
                 );
