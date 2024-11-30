@@ -198,6 +198,7 @@ interface ITaikoL1 {
     function proposeBlocksV3(
         address _proposer,
         address _coinbase,
+        bytes32[] calldata _signals,
         BlockParamsV3[] calldata _blockParams
     )
         external

@@ -52,11 +52,13 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
     ///                     enabled; otherwise, it must be address(0).
     /// @param _coinbase    The address that will receive the block rewards; defaults to the
     ///                     proposer's address if set to address(0).
+    /// @param _signals     Array of signals to be accessed by the proposed blocks.
     /// @param _paramsArray An array containing the parameters for each block being proposed.
     /// @return metas_      Array of block metadata for each block proposed.
     function proposeBlocksV3(
         address _proposer,
         address _coinbase,
+        bytes32[] calldata _signals,
         BlockParamsV3[] calldata _paramsArray
     )
         external
