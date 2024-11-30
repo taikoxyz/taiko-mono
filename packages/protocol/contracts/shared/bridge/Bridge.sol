@@ -13,7 +13,8 @@ import "./IQuotaManager.sol";
 
 /// @title Bridge
 /// @notice See the documentation for {IBridge}.
-/// @dev Labeled in AddressResolver as "bridge". Additionally, the code hash for the same address on
+/// @dev Labeled in address resolver as "bridge". Additionally, the code hash for the same address
+/// on
 /// L1 and L2 may be different.
 /// @custom:security-contact security@taiko.xyz
 contract Bridge is EssentialContract, IBridge {

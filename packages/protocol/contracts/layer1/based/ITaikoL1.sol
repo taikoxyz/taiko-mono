@@ -193,7 +193,6 @@ interface ITaikoL1 {
     error MsgValueNotZero();
     error NoBlocksToPropose();
     error NoBlocksToProve();
-    error ProofNotFound();
     error NotPreconfTaskManager();
     error ParentMetaHashMismatch();
     error ProverNotPermitted();

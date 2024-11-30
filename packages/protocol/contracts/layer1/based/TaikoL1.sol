@@ -27,7 +27,7 @@ import "forge-std/src/console2.sol";
 /// - Proofs are presumed to be error-free and rigorously validated. The responsibility for managing
 ///   various proof types has been transferred to IVerifier contracts.
 ///
-/// @dev Labeled in AddressResolver as "taiko"
+/// @dev Labeled in address resolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
 abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
     using LibMath for uint256;
@@ -191,7 +191,6 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
     {
         require(_metas.length != 0, NoBlocksToProve());
         require(_metas.length == _transitions.length, ArraySizesMismatch());
-        require(_proof.length != 0, ProofNotFound());
 
         Stats2 memory stats2 = state.stats2;
         require(stats2.paused == false, ContractPaused());

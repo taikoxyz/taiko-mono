@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "../based/TaikoL1.sol";
 
 /// @title HeklaTaikoL1
-/// @dev Labeled in AddressResolver as "taiko"
+/// @dev Labeled in address resolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
 contract HeklaTaikoL1 is TaikoL1 {
     function getConfigV3() public pure override returns (ITaikoL1.ConfigV3 memory) {
