@@ -360,25 +360,25 @@ contract TaikoL1Test_Suite1 is TaikoL1TestBase {
         transitions[0].parentHash = bytes32(uint256(0x100));
         transitions[0].blockHash = bytes32(uint256(0x101));
         transitions[0].stateRoot = bytes32(uint256(0x102));
-        taikoL1.proveBlocksV3(metas, transitions, "");
+        taikoL1.proveBlocksV3(metas, transitions, "proof");
         _logAllBlocksAndTransitions();
 
         transitions[0].parentHash = bytes32(uint256(0x100));
         transitions[0].blockHash = bytes32(uint256(0x111));
         transitions[0].stateRoot = bytes32(uint256(0x112));
-        taikoL1.proveBlocksV3(metas, transitions, "");
+        taikoL1.proveBlocksV3(metas, transitions, "proof");
         _logAllBlocksAndTransitions();
 
         transitions[0].parentHash = bytes32(uint256(0x200));
         transitions[0].blockHash = bytes32(uint256(0x201));
         transitions[0].stateRoot = bytes32(uint256(0x202));
-        taikoL1.proveBlocksV3(metas, transitions, "");
+        taikoL1.proveBlocksV3(metas, transitions, "proof");
         _logAllBlocksAndTransitions();
 
         transitions[0].parentHash = bytes32(uint256(0x200));
         transitions[0].blockHash = bytes32(uint256(0x211));
         transitions[0].stateRoot = bytes32(uint256(0x212));
-        taikoL1.proveBlocksV3(metas, transitions, "");
+        taikoL1.proveBlocksV3(metas, transitions, "proof");
         _logAllBlocksAndTransitions();
     }
 }

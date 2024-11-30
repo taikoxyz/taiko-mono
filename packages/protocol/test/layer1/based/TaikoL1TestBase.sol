@@ -85,7 +85,7 @@ abstract contract TaikoL1TestBase is Layer1Test {
             transitions[i].stateRoot = correctStateRoot(blockIds[i]);
         }
 
-        taikoL1.proveBlocksV3(metas, transitions, "");
+        taikoL1.proveBlocksV3(metas, transitions, "proof");
     }
 
     function _proveBlocksWithWrongTransitions(uint64[] memory blockIds) internal {
@@ -99,7 +99,7 @@ abstract contract TaikoL1TestBase is Layer1Test {
             transitions[i].stateRoot = randBytes32();
         }
 
-        taikoL1.proveBlocksV3(metas, transitions, "");
+        taikoL1.proveBlocksV3(metas, transitions, "proof");
     }
 
     function _logAllBlocksAndTransitions() internal view {

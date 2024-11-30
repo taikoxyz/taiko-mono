@@ -49,7 +49,7 @@ contract TaikoL1Test_Suite2 is TaikoL1TestBase {
         }
 
         vm.startSnapshotGas("proveBlocksV3");
-        taikoL1.proveBlocksV3(metas, transitions, "");
+        taikoL1.proveBlocksV3(metas, transitions, "proof");
         uint256 gasProveBlocksV3 = vm.stopSnapshotGas("proveBlocksV3");
         console2.log("Gas per block - proving:", gasProveBlocksV3 / count);
         console2.log("Gas per block - total:", (gasProposeBlocksV3 + gasProveBlocksV3) / count);

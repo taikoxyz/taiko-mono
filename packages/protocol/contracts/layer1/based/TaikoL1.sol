@@ -152,18 +152,21 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
     function proveBlocksV3(
         BlockMetadataV3[] calldata _metas,
         TransitionV3[] calldata _transitions,
-        bytes calldata proof
+        bytes calldata _proof
     )
         external
         nonReentrant
     {
+        require(_metas.length != 0, NoBlocksToProve());
         require(_metas.length == _transitions.length, ArraySizesMismatch());
+        require(_proof.length != 0, ProofNotFound());
 
         Stats2 memory stats2 = state.stats2;
         require(stats2.paused == false, ContractPaused());
 
         ConfigV3 memory config = getConfigV3();
         IVerifier.Context[] memory ctxs = new IVerifier.Context[](_metas.length);
+        address verifier = _getVerifier();
 
         for (uint256 i; i < _metas.length; ++i) {
             BlockMetadataV3 calldata meta = _metas[i];
@@ -203,7 +206,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
 
             TransitionV3 storage ts = state.transitions[slot][tid];
             if (isOverwrite) {
-                emit TransitionOverwritten(meta.blockId, ts);
+                emit TransitionOverwrittenV3(meta.blockId, ts);
             } else if (tid == 1) {
                 unchecked {
                     uint256 deadline =
@@ -227,11 +230,11 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             }
 
             ts.blockHash = tran.blockHash;
-            emit TransitionProved(meta.blockId, tran);
+            emit TransitionProvedV3(meta.blockId,verifier ,tran);
         }
 
-        if (_metas.length != 0) {
-            _verifyProof(ctxs, proof);
+        if (verifier != address(0)) {
+            IVerifier(verifier).verifyProof(ctxs, _proof);
         }
 
         _verifyBlocks(config, stats2, _metas.length);
@@ -372,14 +375,8 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
         state.stats2.paused = true;
     }
 
-    function _verifyProof(
-        IVerifier.Context[] memory _ctxs,
-        bytes calldata _proof
-    )
-        internal
-        virtual
-    {
-        IVerifier(resolve(LibStrings.B_PROOF_VERIFIER, false)).verifyProof(_ctxs, _proof);
+    function _getVerifier() internal view virtual returns (address) {
+        return resolve(LibStrings.B_PROOF_VERIFIER, false);
     }
 
     function _blobhash(uint256 _blobIndex) internal view virtual returns (bytes32) {

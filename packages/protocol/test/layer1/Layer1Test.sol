@@ -35,13 +35,9 @@ contract TaikoWithConfig is TaikoL1 {
         return keccak256("BLOB");
     }
 
-    function _verifyProof(
-        IVerifier.Context[] memory _ctxs,
-        bytes calldata _proof
-    )
-        internal
-        override
-    { }
+    function _getVerifier() internal pure override returns (address) {
+        return address(0);
+    }
 }
 
 abstract contract Layer1Test is CommonTest {
