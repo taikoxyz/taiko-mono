@@ -53,11 +53,13 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
     /// @param _coinbase    The address that will receive the block rewards; defaults to the
     ///                     proposer's address if set to address(0).
     /// @param _paramsArray An array containing the parameters for each block being proposed.
+    /// @param _txList      The transaction list in calldata.
     /// @return metas_      Array of block metadata for each block proposed.
     function proposeBlocksV3(
         address _proposer,
         address _coinbase,
-        BlockParamsV3[] calldata _paramsArray
+        BlockParamsV3[] calldata _paramsArray,
+        bytes calldata _txList
     )
         external
         nonReentrant
@@ -112,10 +114,11 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             // The metadata must be supplied as calldata prior to proving the block, enabling the
             // computation
             // and verification of its integrity through the comparison of the metahash.
+            bool blobUsed = _txList.length == 0;
             metas_[i] = BlockMetadataV3({
                 anchorBlockHash: blockhash(updatedParams.anchorBlockId),
                 difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", stats2.numBlocks)),
-                blobHash: _blobhash(_paramsArray[i].blobIndex),
+                blobHash: blobUsed ? _blobhash(_paramsArray[i].blobIndex): keccak256(_txList),
                 extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
                 coinbase: _coinbase,
                 blockId: stats2.numBlocks,
@@ -127,9 +130,10 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
                 livenessBond: config.livenessBond,
                 proposedAt: uint64(block.timestamp),
                 proposedIn: uint64(block.number),
-                blobTxListOffset: _paramsArray[i].blobTxListOffset,
-                blobTxListLength: _paramsArray[i].blobTxListLength,
-                blobIndex: _paramsArray[i].blobIndex,
+                txListOffset: _paramsArray[i].txListOffset,
+                txListSize: _paramsArray[i].txListSize,
+                blobIndex: blobUsed ? _paramsArray[i].blobIndex: 0,
+                blobUsed: blobUsed,
                 baseFeeConfig: config.baseFeeConfig
             });
 
@@ -158,7 +162,14 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
         } // end of for-loop
 
         _debitBond(_proposer, config.livenessBond * _paramsArray.length);
-        emit BlocksProposedV3(metas_);
+
+        // If the driver can extract the txList from transaction trace, then we do not need to emit
+        // the txList as it is expensive.
+        if (config.emitTxListInCalldata) {
+            emit BlocksProposedV3(metas_, _txList);
+        } else {
+            emit BlocksProposedV3(metas_, "");
+        }
 
         _verifyBlocks(config, stats2, _paramsArray.length);
     }
@@ -240,7 +251,8 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
                 // proving deadline.
                 unchecked {
                     uint256 deadline =
-                        uint256(meta.proposedAt).max(stats2.lastUnpausedAt) + config.provingWindow;
+                        uint256(meta.proposedAt).max(stats2.lastUnpausedAt) +
+                            config.provingWindow;
                     if (block.timestamp <= deadline) {
                         require(msg.sender == meta.proposer, ProverNotPermitted());
                         _creditBond(meta.proposer, meta.livenessBond);

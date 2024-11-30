@@ -21,8 +21,9 @@ contract TaikoL1Test_Suite1 is TaikoL1TestBase {
                 minGasExcess: 1_340_000_000, // correspond to 0.008847185 gwei basefee
                 maxGasIssuancePerBlock: 600_000_000 // two minutes: 5_000_000 * 120
              }),
-            pacayaForkHeight: 0,
-            provingWindow: 1 hours
+            provingWindow: 1 hours,
+            emitTxListInCalldata: true,
+            pacayaForkHeight: 0
         });
     }
 
@@ -398,7 +399,7 @@ contract TaikoL1Test_Suite1 is TaikoL1TestBase {
 
         vm.startSnapshotGas("proposeBlocksV3");
         ITaikoL1.BlockMetadataV3[] memory metas =
-            taikoL1.proposeBlocksV3(address(0), address(0), new ITaikoL1.BlockParamsV3[](count));
+            taikoL1.proposeBlocksV3(address(0), address(0), new ITaikoL1.BlockParamsV3[](count), "");
         uint256 gasProposeBlocksV3 = vm.stopSnapshotGas("proposeBlocksV3");
         console2.log("Gas per block - proposing:", gasProposeBlocksV3 / count);
 
