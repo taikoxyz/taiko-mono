@@ -14,18 +14,25 @@ import "./ITaikoL1.sol";
 import "forge-std/src/console2.sol";
 
 /// @title TaikoL1
-/// @notice This contract serves as the "base layer contract" of the Taiko protocol, providing
-/// functionalities for proposing, proving, and verifying blocks. The term "base layer contract"
-/// means that although this is usually deployed on L1, it can also be deployed on L2s to create
-/// L3s. The contract also handles the deposit and withdrawal of Taiko tokens and Ether.
-/// Additionally, this contract doesn't hold any Ether. Ether deposited to L2 are held by the Bridge
-/// contract.
+/// @notice This contract acts as the inbox for a simplified version of the original Taiko Based
+/// Contestable Rollup (BCR) protocol, specifically the tier-based proof system and proof
+/// contestation
+/// mechanisms have been removed.
+///
+/// The primary assumptions of this protocol are:
+/// - Proofs are not available at the time of block proposal, leading to an asynchronous process
+///   between block proposing and proving (unlike Taiko Gwyneth, which assumes availability of
+/// proofs
+///   at proposal time and supports synchronous composability).
+/// - Proofs are presumed to be error-free and rigorously validated. The responsibility for managing
+///   various proof types has been transferred to IVerifier contracts.
+///
 /// @dev Labeled in AddressResolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
 abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
     using LibMath for uint256;
 
-    State public state;
+    State public state; // storage layout much match Ontake fork
 
     // External functions ------------------------------------------------------------------------
 
@@ -40,41 +47,46 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
         __Taiko_init(_owner, _rollupResolver, _genesisBlockHash);
     }
 
+    /// @notice Proposes multiple blocks.
+    /// @param _proposer    The address of the proposer, which is set by the PreconfTaskManager if
+    ///                     enabled; otherwise, it must be address(0).
+    /// @param _coinbase    The address that will receive the block rewards; defaults to the
+    ///                     proposer's address if set to address(0).
+    /// @param _paramsArray An array containing the parameters for each block being proposed.
+    /// @return metas_      Array of block metadata for each block proposed.
     function proposeBlocksV3(
         address _proposer,
         address _coinbase,
-        BlockParamsV3[] calldata _paramss
+        BlockParamsV3[] calldata _paramsArray
     )
         external
         nonReentrant
         returns (BlockMetadataV3[] memory metas_)
     {
-        require(_paramss.length != 0, NoBlocksToPropose());
+        require(_paramsArray.length != 0, NoBlocksToPropose());
 
         Stats2 memory stats2 = state.stats2;
-        require(stats2.paused == false, ContractPaused());
+        require(!stats2.paused, ContractPaused());
 
         ConfigV3 memory config = getConfigV3();
         require(stats2.numBlocks >= config.pacayaForkHeight, InvalidForkHeight());
 
         unchecked {
             require(
-                stats2.numBlocks + _paramss.length
+                stats2.numBlocks + _paramsArray.length
                     <= stats2.lastVerifiedBlockId + config.blockMaxProposals,
                 TooManyBlocks()
             );
         }
 
-        BlockV3 storage parentBlk;
+        // Keep track of last block's information.
+        BlockInfo memory lastBlock;
         unchecked {
-            parentBlk = state.blocks[(stats2.numBlocks - 1) % config.blockRingBufferSize];
-        }
+            BlockV3 storage lastBlk =
+                state.blocks[(stats2.numBlocks - 1) % config.blockRingBufferSize];
 
-        ParentBlock memory parent = ParentBlock({
-            metaHash: parentBlk.metaHash,
-            timestamp: parentBlk.timestamp,
-            anchorBlockId: parentBlk.anchorBlockId
-        });
+            lastBlock = BlockInfo(lastBlk.metaHash, lastBlk.timestamp, lastBlk.anchorBlockId);
+        }
 
         if (_proposer == address(0)) {
             _proposer = msg.sender;
@@ -87,33 +99,37 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             _coinbase = _proposer;
         }
 
-        metas_ = new BlockMetadataV3[](_paramss.length);
+        metas_ = new BlockMetadataV3[](_paramsArray.length);
 
-        for (uint256 i; i < _paramss.length; ++i) {
+        for (uint256 i; i < _paramsArray.length; ++i) {
             UpdatedParams memory updatedParams =
-                _validateBlockParams(_paramss[i], config.maxAnchorHeightOffset, parent);
+                _validateBlockParams(_paramsArray[i], config.maxAnchorHeightOffset, lastBlock);
 
-            // Initialize metadata to compute a metaHash, which forms a part of the block data to be
-            // stored on-chain for future integrity checks. If we choose to persist all data fields
-            // in the metadata, it will require additional storage slots.
+            // This section constructs the metadata for the proposed block, which is crucial for
+            // nodes/clients
+            // to process the block. The metadata itself is not stored on-chain; instead, only its
+            // hash is kept.
+            // The metadata must be supplied as calldata prior to proving the block, enabling the
+            // computation
+            // and verification of its integrity through the comparison of the metahash.
             metas_[i] = BlockMetadataV3({
                 anchorBlockHash: blockhash(updatedParams.anchorBlockId),
                 difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", stats2.numBlocks)),
-                blobHash: _blobhash(_paramss[i].blobIndex),
+                blobHash: _blobhash(_paramsArray[i].blobIndex),
                 extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
                 coinbase: _coinbase,
                 blockId: stats2.numBlocks,
                 gasLimit: config.blockMaxGasLimit,
                 timestamp: updatedParams.timestamp,
                 anchorBlockId: updatedParams.anchorBlockId,
-                parentMetaHash: parent.metaHash,
+                parentMetaHash: lastBlock.metaHash,
                 proposer: _proposer,
                 livenessBond: config.livenessBond,
                 proposedAt: uint64(block.timestamp),
                 proposedIn: uint64(block.number),
-                blobTxListOffset: _paramss[i].blobTxListOffset,
-                blobTxListLength: _paramss[i].blobTxListLength,
-                blobIndex: _paramss[i].blobIndex,
+                blobTxListOffset: _paramsArray[i].blobTxListOffset,
+                blobTxListLength: _paramsArray[i].blobTxListLength,
+                blobIndex: _paramsArray[i].blobIndex,
                 baseFeeConfig: config.baseFeeConfig
             });
 
@@ -121,10 +137,10 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             bytes32 metaHash = keccak256(abi.encode(metas_[i]));
 
             BlockV3 storage blk = state.blocks[stats2.numBlocks % config.blockRingBufferSize];
-            // SSTORE
+            // SSTORE #1
             blk.metaHash = metaHash;
 
-            // SSTORE {{
+            // SSTORE #2 {{
             blk.blockId = stats2.numBlocks;
             blk.timestamp = updatedParams.timestamp;
             blk.anchorBlockId = updatedParams.anchorBlockId;
@@ -134,21 +150,23 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
 
             emit BlockProposedV3(metas_[i].blockId, metas_[i]);
 
-            parent.metaHash = metaHash;
-            parent.timestamp = updatedParams.timestamp;
-            parent.anchorBlockId = updatedParams.anchorBlockId;
+            // Update lastBlock to reference the most recently proposed block.
+            lastBlock = BlockInfo(metaHash, updatedParams.timestamp, updatedParams.anchorBlockId);
 
             unchecked {
                 stats2.numBlocks += 1;
                 stats2.lastProposedIn = uint56(block.number);
             }
         } // end of for-loop
-        unchecked {
-            _debitBond(_proposer, config.livenessBond * _paramss.length);
-            _verifyBlocks(config, stats2, _paramss.length);
-        }
+
+        _debitBond(_proposer, config.livenessBond * _paramsArray.length);
+        _verifyBlocks(config, stats2, _paramsArray.length);
     }
 
+    /// @notice Proves multiple blocks with a single aggregated proof.
+    /// @param _metas       Array of block metadata to be proven.
+    /// @param _transitions Array of transitions corresponding to the block metadata.
+    /// @param _proof       Cryptographic proof validating all the transitions.
     function proveBlocksV3(
         BlockMetadataV3[] calldata _metas,
         TransitionV3[] calldata _transitions,
@@ -164,9 +182,9 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
         Stats2 memory stats2 = state.stats2;
         require(stats2.paused == false, ContractPaused());
 
+        address verifier = resolve(LibStrings.B_PROOF_VERIFIER, false);
         ConfigV3 memory config = getConfigV3();
         IVerifier.Context[] memory ctxs = new IVerifier.Context[](_metas.length);
-        address verifier = _getVerifier();
 
         for (uint256 i; i < _metas.length; ++i) {
             BlockMetadataV3 calldata meta = _metas[i];
@@ -185,22 +203,31 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             ctxs[i].metaHash = keccak256(abi.encode(meta));
             ctxs[i].transition = tran;
 
+            // Verify the block's metadata.
             uint256 slot = meta.blockId % config.blockRingBufferSize;
             BlockV3 storage blk = state.blocks[slot];
             require(ctxs[i].metaHash == blk.metaHash, MetaHashMismatch());
 
+            // Finds out if this transition is overwriting an existing one (with the same parent
+            // hash) or is a new one.
             uint24 tid;
             uint24 nextTransitionId = blk.nextTransitionId;
             if (nextTransitionId > 1) {
+                // This block has been proved at least once.
                 if (state.transitions[slot][1].parentHash == tran.parentHash) {
+                    // Overwrite the first transition.
                     tid = 1;
                 } else if (nextTransitionId > 2) {
+                    // Retrieve the transition ID using the parent hash from the mapping. If the ID
+                    // is 0, it indicates a new transition; otherwise, it's an overwrite of an
+                    // existing transition.
                     tid = state.transitionIds[meta.blockId][tran.parentHash];
                 }
             }
 
             bool isOverwrite = (tid != 0);
             if (tid == 0) {
+                // This transition is new, we need to use the next available ID.
                 tid = blk.nextTransitionId++;
             }
 
@@ -208,6 +235,8 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             if (isOverwrite) {
                 emit TransitionOverwrittenV3(meta.blockId, ts);
             } else if (tid == 1) {
+                // Ensure that only the block proposer can prove the first transition before the
+                // proving deadline.
                 unchecked {
                     uint256 deadline =
                         uint256(meta.proposedAt).max(stats2.lastUnpausedAt) + config.provingWindow;
@@ -219,13 +248,17 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
                     ts.parentHash = tran.parentHash;
                 }
             } else {
+                // No need to write parent hash to storage for transitions with id != 1 as the
+                // parent hash is not used at all, instead, we need to update the parent hash to ID
+                // mapping.
                 state.transitionIds[meta.blockId][tran.parentHash] = tid;
             }
 
             if (meta.blockId % config.stateRootSyncInternal == 0) {
+                // This block is a "sync block", we need to save the state root.
                 ts.stateRoot = tran.stateRoot;
             } else {
-                // reused slot must be zeroed out
+                // This block is not a "sync block", we need to zero out the storage slot.
                 ts.stateRoot = bytes32(0);
             }
 
@@ -233,9 +266,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             emit TransitionProvedV3(meta.blockId, verifier, tran);
         }
 
-        if (verifier != address(0)) {
-            IVerifier(verifier).verifyProof(ctxs, _proof);
-        }
+        IVerifier(verifier).verifyProof(ctxs, _proof);
 
         _verifyBlocks(config, stats2, _metas.length);
     }
@@ -375,10 +406,6 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
         state.stats2.paused = true;
     }
 
-    function _getVerifier() internal view virtual returns (address) {
-        return resolve(LibStrings.B_PROOF_VERIFIER, false);
-    }
-
     function _blobhash(uint256 _blobIndex) internal view virtual returns (bytes32) {
         return blobhash(_blobIndex);
     }
@@ -479,7 +506,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
         } else {
             _handleDeposit(_user, _amount);
         }
-        emit BondDebited(_user, 0, _amount);
+        emit BondDebited(_user, _amount);
     }
 
     function _creditBond(address _user, uint256 _amount) private {
@@ -487,7 +514,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
         unchecked {
             state.bondBalance[_user] += _amount;
         }
-        emit BondCredited(_user, 0, _amount);
+        emit BondCredited(_user, _amount);
     }
 
     function _handleDeposit(address _user, uint256 _amount) private {
@@ -505,7 +532,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
     function _validateBlockParams(
         BlockParamsV3 calldata _params,
         uint64 _maxAnchorHeightOffset,
-        ParentBlock memory _parent
+        BlockInfo memory _parent
     )
         private
         view
@@ -553,7 +580,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
 
     // Memory-only structs ----------------------------------------------------------------------
 
-    struct ParentBlock {
+    struct BlockInfo {
         bytes32 metaHash;
         uint64 anchorBlockId;
         uint64 timestamp;

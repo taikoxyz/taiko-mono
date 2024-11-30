@@ -34,10 +34,6 @@ contract TaikoWithConfig is TaikoL1 {
     function _blobhash(uint256) internal pure override returns (bytes32) {
         return keccak256("BLOB");
     }
-
-    function _getVerifier() internal pure override returns (address) {
-        return address(0);
-    }
 }
 
 abstract contract Layer1Test is CommonTest {
