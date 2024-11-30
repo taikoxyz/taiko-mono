@@ -160,12 +160,12 @@ interface ITaikoL1 {
     /// @notice Emitted when a transition is overritten by another one.
     /// @param blockId The block ID.
     /// @param tran The transition data that has been overwritten.
-    event TransitionOverwrittenV3(uint64 indexed blockId, TransitionV3 tran);
+    event TransitionOverwrittenV3(uint64 blockId, TransitionV3 tran);
 
     /// @notice Emitted when a block is verified.
     /// @param blockId The ID of the verified block.
     /// @param blockHash The hash of the verified block.
-    event BlockVerifiedV3(uint64 indexed blockId, bytes32 blockHash);
+    event BlockVerifiedV3(uint64 blockId, bytes32 blockHash);
 
     error AnchorBlockIdSmallerThanParent();
     error AnchorBlockIdTooSmall();
