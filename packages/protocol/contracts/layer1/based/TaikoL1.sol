@@ -43,13 +43,13 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
     function proposeBlocksV3(
         address _proposer,
         address _coinbase,
-        BlockParamsV3[] calldata _paramss
+        BlockParamsV3[] calldata _params
     )
         external
         nonReentrant
         returns (BlockMetadataV3[] memory metas_)
     {
-        require(_paramss.length != 0, NoBlocksToPropose());
+        require(_params.length != 0, NoBlocksToPropose());
 
         Stats2 memory stats2 = state.stats2;
         require(stats2.paused == false, ContractPaused());
@@ -59,7 +59,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
 
         unchecked {
             require(
-                stats2.numBlocks + _paramss.length
+                stats2.numBlocks + _params.length
                     <= stats2.lastVerifiedBlockId + config.blockMaxProposals,
                 TooManyBlocks()
             );
@@ -87,11 +87,11 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             _coinbase = _proposer;
         }
 
-        metas_ = new BlockMetadataV3[](_paramss.length);
+        metas_ = new BlockMetadataV3[](_params.length);
 
-        for (uint256 i; i < _paramss.length; ++i) {
+        for (uint256 i; i < _params.length; ++i) {
             UpdatedParams memory updatedParams =
-                _validateBlockParams(_paramss[i], config.maxAnchorHeightOffset, parent);
+                _validateBlockParams(_params[i], config.maxAnchorHeightOffset, parent);
 
             // Initialize metadata to compute a metaHash, which forms a part of the block data to be
             // stored on-chain for future integrity checks. If we choose to persist all data fields
@@ -99,7 +99,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             metas_[i] = BlockMetadataV3({
                 anchorBlockHash: blockhash(updatedParams.anchorBlockId),
                 difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", stats2.numBlocks)),
-                blobHash: _blobhash(_paramss[i].blobIndex),
+                blobHash: _blobhash(_params[i].blobIndex),
                 extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
                 coinbase: _coinbase,
                 blockId: stats2.numBlocks,
@@ -111,9 +111,9 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
                 livenessBond: config.livenessBond,
                 proposedAt: uint64(block.timestamp),
                 proposedIn: uint64(block.number),
-                blobTxListOffset: _paramss[i].blobTxListOffset,
-                blobTxListLength: _paramss[i].blobTxListLength,
-                blobIndex: _paramss[i].blobIndex,
+                blobTxListOffset: _params[i].blobTxListOffset,
+                blobTxListLength: _params[i].blobTxListLength,
+                blobIndex: _params[i].blobIndex,
                 baseFeeConfig: config.baseFeeConfig
             });
 
@@ -144,8 +144,8 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             }
         } // end of for-loop
         unchecked {
-            _debitBond(_proposer, config.livenessBond * _paramss.length);
-            _verifyBlocks(config, stats2, _paramss.length);
+            _debitBond(_proposer, config.livenessBond * _params.length);
+            _verifyBlocks(config, stats2, _params.length);
         }
     }
 
