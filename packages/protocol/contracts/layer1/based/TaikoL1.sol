@@ -100,8 +100,8 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
         if (_coinbase == address(0)) {
             _coinbase = _proposer;
         }
-
         metas_ = new BlockMetadataV3[](_paramsArray.length);
+        bool blobUsed = _txList.length == 0;
 
         for (uint256 i; i < _paramsArray.length; ++i) {
             UpdatedParams memory updatedParams =
@@ -114,11 +114,11 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             // The metadata must be supplied as calldata prior to proving the block, enabling the
             // computation
             // and verification of its integrity through the comparison of the metahash.
-            bool blobUsed = _txList.length == 0;
+
             metas_[i] = BlockMetadataV3({
                 anchorBlockHash: blockhash(updatedParams.anchorBlockId),
                 difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", stats2.numBlocks)),
-                blobHash: blobUsed ? _blobhash(_paramsArray[i].blobIndex): keccak256(_txList),
+                blobHash: blobUsed ? _blobhash(_paramsArray[i].blobIndex) : keccak256(_txList),
                 extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
                 coinbase: _coinbase,
                 blockId: stats2.numBlocks,
@@ -132,7 +132,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
                 proposedIn: uint64(block.number),
                 txListOffset: _paramsArray[i].txListOffset,
                 txListSize: _paramsArray[i].txListSize,
-                blobIndex: blobUsed ? _paramsArray[i].blobIndex: 0,
+                blobIndex: blobUsed ? _paramsArray[i].blobIndex : 0,
                 blobUsed: blobUsed,
                 baseFeeConfig: config.baseFeeConfig
             });
@@ -166,9 +166,9 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
         // If the driver can extract the txList from transaction trace, then we do not need to emit
         // the txList as it is expensive.
         if (config.emitTxListInCalldata) {
-            emit BlocksProposedV3(metas_, _txList);
+            emit BlocksProposedV3(metas_, blobUsed, _txList);
         } else {
-            emit BlocksProposedV3(metas_, "");
+            emit BlocksProposedV3(metas_, blobUsed, "");
         }
 
         _verifyBlocks(config, stats2, _paramsArray.length);
@@ -251,8 +251,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
                 // proving deadline.
                 unchecked {
                     uint256 deadline =
-                        uint256(meta.proposedAt).max(stats2.lastUnpausedAt) +
-                            config.provingWindow;
+                        uint256(meta.proposedAt).max(stats2.lastUnpausedAt) + config.provingWindow;
                     if (block.timestamp <= deadline) {
                         require(msg.sender == meta.proposer, ProverNotPermitted());
                         _creditBond(meta.proposer, meta.livenessBond);

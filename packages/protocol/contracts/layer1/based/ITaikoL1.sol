@@ -154,8 +154,9 @@ interface ITaikoL1 {
 
     /// @notice Emitted when multiple blocks are proposed.
     /// @param metas The metadata of the proposed blocks.
+    /// @param blobUsed Whether the blob is used for txList.
     /// @param txListInCalldata The tx list in calldata.
-    event BlocksProposedV3(BlockMetadataV3[] metas, bytes txListInCalldata);
+    event BlocksProposedV3(BlockMetadataV3[] metas, bool blobUsed, bytes txListInCalldata);
 
     /// @notice Emitted when multiple transitions are proved.
     /// @param verifier The address of the verifier.
