@@ -439,7 +439,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             --blockId;
         }
 
-        if (blockId >= _stats2.lastVerifiedBlockId + _config.minBlocksToVerify) {
+        if (_stats2.lastVerifiedBlockId != blockId) {
             _stats2.lastVerifiedBlockId = blockId;
 
             blk = state.blocks[_stats2.lastVerifiedBlockId % _config.blockRingBufferSize];

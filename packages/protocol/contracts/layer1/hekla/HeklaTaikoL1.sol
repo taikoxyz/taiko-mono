@@ -14,7 +14,6 @@ contract HeklaTaikoL1 is TaikoL1 {
             blockMaxProposals: 324_000,
             // Never change this value as ring buffer is being reused!!!
             blockRingBufferSize: 324_512,
-            minBlocksToVerify: 8,
             maxBlocksToVerify: 16,
             blockMaxGasLimit: 240_000_000,
             livenessBond: 125e18, // 125 Taiko token

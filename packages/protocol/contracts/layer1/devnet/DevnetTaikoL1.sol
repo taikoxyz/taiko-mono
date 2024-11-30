@@ -13,7 +13,6 @@ contract DevnetTaikoL1 is TaikoL1 {
             chainId: 167_001,
             blockMaxProposals: 324_000,
             blockRingBufferSize: 360_000,
-            minBlocksToVerify: 8,
             maxBlocksToVerify: 16,
             blockMaxGasLimit: 240_000_000,
             livenessBond: 125e18, // 125 Taiko token
