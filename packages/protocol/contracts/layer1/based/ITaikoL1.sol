@@ -148,26 +148,24 @@ interface ITaikoL1 {
     /// @param stats2 The Stats2 data structure.
     event Stats2Updated(Stats2 stats2);
 
-    /// @notice Emitted when a block is proposed.
-    /// @param blockId The ID of the proposed block.
-    /// @param meta The metadata of the proposed block.
-    event BlockProposedV3(uint256 indexed blockId, BlockMetadataV3 meta);
+    /// @notice Emitted when multiple blocks are proposed.
+    /// @param metas The metadata of the proposed blocks.
+    event BlocksProposedV3(BlockMetadataV3[] metas);
 
-    /// @notice Emitted when a transition is proved.
-    /// @param blockId The block ID.
+    /// @notice Emitted when multiple transitions are proved.
     /// @param verifier The address of the verifier.
-    /// @param tran The transition data.
-    event TransitionProvedV3(uint256 indexed blockId, address verifier, TransitionV3 tran);
+    /// @param transitions The transitions data.
+    event BlocksProvedV3(address verifier, uint64[] blockIds, TransitionV3[] transitions);
 
     /// @notice Emitted when a transition is overritten by another one.
     /// @param blockId The block ID.
     /// @param tran The transition data that has been overwritten.
-    event TransitionOverwrittenV3(uint256 indexed blockId, TransitionV3 tran);
+    event TransitionOverwrittenV3(uint64 indexed blockId, TransitionV3 tran);
 
     /// @notice Emitted when a block is verified.
     /// @param blockId The ID of the verified block.
     /// @param blockHash The hash of the verified block.
-    event BlockVerifiedV3(uint256 indexed blockId, bytes32 blockHash);
+    event BlockVerifiedV3(uint64 indexed blockId, bytes32 blockHash);
 
     error AnchorBlockIdSmallerThanParent();
     error AnchorBlockIdTooSmall();

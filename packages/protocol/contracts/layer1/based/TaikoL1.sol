@@ -148,8 +148,6 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             blk.verifiedTransitionId = 0;
             // SSTORE }}
 
-            emit BlockProposedV3(metas_[i].blockId, metas_[i]);
-
             // Update lastBlock to reference the most recently proposed block.
             lastBlock = BlockInfo(metaHash, updatedParams.timestamp, updatedParams.anchorBlockId);
 
@@ -160,6 +158,8 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
         } // end of for-loop
 
         _debitBond(_proposer, config.livenessBond * _paramsArray.length);
+        emit BlocksProposedV3(metas_);
+
         _verifyBlocks(config, stats2, _paramsArray.length);
     }
 
@@ -182,13 +182,14 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
         Stats2 memory stats2 = state.stats2;
         require(stats2.paused == false, ContractPaused());
 
-        address verifier = resolve(LibStrings.B_PROOF_VERIFIER, false);
         ConfigV3 memory config = getConfigV3();
+        uint64[] memory blockIds = new uint64[](_metas.length);
         IVerifier.Context[] memory ctxs = new IVerifier.Context[](_metas.length);
 
         for (uint256 i; i < _metas.length; ++i) {
             BlockMetadataV3 calldata meta = _metas[i];
 
+            blockIds[i] = meta.blockId;
             require(meta.blockId >= config.pacayaForkHeight, InvalidForkHeight());
             require(meta.blockId > stats2.lastVerifiedBlockId, BlockNotFound());
             require(meta.blockId < stats2.numBlocks, BlockNotFound());
@@ -263,10 +264,12 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             }
 
             ts.blockHash = tran.blockHash;
-            emit TransitionProvedV3(meta.blockId, verifier, tran);
         }
 
+        address verifier = resolve(LibStrings.B_PROOF_VERIFIER, false);
         IVerifier(verifier).verifyProof(ctxs, _proof);
+
+        emit BlocksProvedV3(verifier, blockIds, _transitions);
 
         _verifyBlocks(config, stats2, _metas.length);
     }
