@@ -622,8 +622,6 @@
 | __gap                       | uint256[49]           | 202  | 0      | 1568  | MainnetTaikoL1 |
 | state                       | struct ITaikoL1.State | 251  | 0      | 1600  | MainnetTaikoL1 |
 
-## MainnetTierProvider
-
 ## TokenUnlock
 | Name                        | Type                     | Slot | Offset | Bytes | Contract                                          |
 |-----------------------------|--------------------------|------|--------|-------|---------------------------------------------------|

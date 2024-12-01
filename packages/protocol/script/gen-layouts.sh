@@ -37,7 +37,6 @@ contracts_layer1=(
 "contracts/layer1/mainnet/multirollup/MainnetERC1155Vault.sol:MainnetERC1155Vault"
 "contracts/layer1/mainnet/multirollup/MainnetERC721Vault.sol:MainnetERC721Vault"
 "contracts/layer1/mainnet/MainnetTaikoL1.sol:MainnetTaikoL1"
-"contracts/layer1/mainnet/MainnetTierProvider.sol:MainnetTierProvider"
 "contracts/layer1/team/TokenUnlock.sol:TokenUnlock"
 "contracts/layer1/provers/ProverSet.sol:ProverSet"
 )
