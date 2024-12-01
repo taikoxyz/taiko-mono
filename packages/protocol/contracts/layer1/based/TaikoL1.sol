@@ -27,7 +27,7 @@ import "forge-std/src/console2.sol";
 /// - Proofs are presumed to be error-free and rigorously validated. The responsibility for managing
 ///   various proof types has been transferred to IVerifier contracts.
 ///
-/// @dev Labeled in AddressResolver as "taiko"
+/// @dev Labeled in address resolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
 abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
     using LibMath for uint256;
@@ -53,11 +53,13 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
     /// @param _coinbase    The address that will receive the block rewards; defaults to the
     ///                     proposer's address if set to address(0).
     /// @param _paramsArray An array containing the parameters for each block being proposed.
+    /// @param _txList      The transaction list in calldata.
     /// @return metas_      Array of block metadata for each block proposed.
     function proposeBlocksV3(
         address _proposer,
         address _coinbase,
-        BlockParamsV3[] calldata _paramsArray
+        BlockParamsV3[] calldata _paramsArray,
+        bytes calldata _txList
     )
         external
         nonReentrant
@@ -79,6 +81,19 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             );
         }
 
+        address preconfTaskManager = resolve(LibStrings.B_PRECONF_TASK_MANAGER, true);
+        if (preconfTaskManager == address(0)) {
+            require(_proposer == address(0), CustomProposerNotAllowed());
+            _proposer = msg.sender;
+        } else {
+            require(msg.sender == preconfTaskManager, NotPreconfTaskManager());
+            require(_proposer != address(0), CustomProposerMissing());
+        }
+
+        if (_coinbase == address(0)) {
+            _coinbase = _proposer;
+        }
+
         // Keep track of last block's information.
         BlockInfo memory lastBlock;
         unchecked {
@@ -88,18 +103,8 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             lastBlock = BlockInfo(lastBlk.metaHash, lastBlk.timestamp, lastBlk.anchorBlockId);
         }
 
-        if (_proposer == address(0)) {
-            _proposer = msg.sender;
-        } else {
-            address preconfTaskManager = resolve(LibStrings.B_PRECONF_TASK_MANAGER, false);
-            require(preconfTaskManager == msg.sender, NotPreconfTaskManager());
-        }
-
-        if (_coinbase == address(0)) {
-            _coinbase = _proposer;
-        }
-
         metas_ = new BlockMetadataV3[](_paramsArray.length);
+        bool calldataUsed = _txList.length != 0;
 
         for (uint256 i; i < _paramsArray.length; ++i) {
             UpdatedParams memory updatedParams =
@@ -112,10 +117,11 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             // The metadata must be supplied as calldata prior to proving the block, enabling the
             // computation
             // and verification of its integrity through the comparison of the metahash.
+
             metas_[i] = BlockMetadataV3({
                 anchorBlockHash: blockhash(updatedParams.anchorBlockId),
                 difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", stats2.numBlocks)),
-                blobHash: _blobhash(_paramsArray[i].blobIndex),
+                txListHash: calldataUsed ? keccak256(_txList) : _blobhash(_paramsArray[i].blobIndex),
                 extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
                 coinbase: _coinbase,
                 blockId: stats2.numBlocks,
@@ -127,13 +133,14 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
                 livenessBond: config.livenessBond,
                 proposedAt: uint64(block.timestamp),
                 proposedIn: uint64(block.number),
-                blobTxListOffset: _paramsArray[i].blobTxListOffset,
-                blobTxListLength: _paramsArray[i].blobTxListLength,
-                blobIndex: _paramsArray[i].blobIndex,
+                txListOffset: _paramsArray[i].txListOffset,
+                txListSize: _paramsArray[i].txListSize,
+                blobIndex: calldataUsed ? 0 : _paramsArray[i].blobIndex,
+                calldataUsed: calldataUsed,
                 baseFeeConfig: config.baseFeeConfig
             });
 
-            require(metas_[i].blobHash != 0, BlobNotFound());
+            require(metas_[i].txListHash != 0, BlobNotFound());
             bytes32 metaHash = keccak256(abi.encode(metas_[i]));
 
             BlockV3 storage blk = state.blocks[stats2.numBlocks % config.blockRingBufferSize];
@@ -148,8 +155,6 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             blk.verifiedTransitionId = 0;
             // SSTORE }}
 
-            emit BlockProposedV3(metas_[i].blockId, metas_[i]);
-
             // Update lastBlock to reference the most recently proposed block.
             lastBlock = BlockInfo(metaHash, updatedParams.timestamp, updatedParams.anchorBlockId);
 
@@ -160,6 +165,15 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
         } // end of for-loop
 
         _debitBond(_proposer, config.livenessBond * _paramsArray.length);
+
+        // If the driver can extract the txList from transaction trace, then we do not need to emit
+        // the txList as it is expensive.
+        if (config.emitTxListInCalldata) {
+            emit BlocksProposedV3(metas_, calldataUsed, _txList);
+        } else {
+            emit BlocksProposedV3(metas_, calldataUsed, "");
+        }
+
         _verifyBlocks(config, stats2, _paramsArray.length);
     }
 
@@ -177,18 +191,18 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
     {
         require(_metas.length != 0, NoBlocksToProve());
         require(_metas.length == _transitions.length, ArraySizesMismatch());
-        require(_proof.length != 0, ProofNotFound());
 
         Stats2 memory stats2 = state.stats2;
         require(stats2.paused == false, ContractPaused());
 
-        address verifier = resolve(LibStrings.B_PROOF_VERIFIER, false);
         ConfigV3 memory config = getConfigV3();
+        uint64[] memory blockIds = new uint64[](_metas.length);
         IVerifier.Context[] memory ctxs = new IVerifier.Context[](_metas.length);
 
         for (uint256 i; i < _metas.length; ++i) {
             BlockMetadataV3 calldata meta = _metas[i];
 
+            blockIds[i] = meta.blockId;
             require(meta.blockId >= config.pacayaForkHeight, InvalidForkHeight());
             require(meta.blockId > stats2.lastVerifiedBlockId, BlockNotFound());
             require(meta.blockId < stats2.numBlocks, BlockNotFound());
@@ -263,10 +277,12 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             }
 
             ts.blockHash = tran.blockHash;
-            emit TransitionProvedV3(meta.blockId, verifier, tran);
         }
 
+        address verifier = resolve(LibStrings.B_PROOF_VERIFIER, false);
         IVerifier(verifier).verifyProof(ctxs, _proof);
+
+        emit BlocksProvedV3(verifier, blockIds, _transitions);
 
         _verifyBlocks(config, stats2, _metas.length);
     }

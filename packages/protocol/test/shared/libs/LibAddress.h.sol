@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "src/shared/libs/LibAddress.sol";
 import "../CommonTest.sol";
 
-// TODO: delete or beter name these contracts?
+// TODO: delete or better name these contracts?
 contract CalldataReceiver {
     // Returns success
     function returnSuccess() public pure returns (bool) {

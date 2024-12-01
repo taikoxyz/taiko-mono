@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "../based/TaikoL1.sol";
 
 /// @title DevnetTaikoL1
-/// @dev Labeled in AddressResolver as "taiko"
+/// @dev Labeled in address resolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
 contract DevnetTaikoL1 is TaikoL1 {
     /// @inheritdoc ITaikoL1
@@ -25,8 +25,9 @@ contract DevnetTaikoL1 is TaikoL1 {
                 minGasExcess: 1_340_000_000,
                 maxGasIssuancePerBlock: 600_000_000
             }),
-            pacayaForkHeight: 0,
-            provingWindow: 2 hours
+            provingWindow: 2 hours,
+            emitTxListInCalldata: true,
+            pacayaForkHeight: 0
         });
     }
 }

@@ -10,15 +10,15 @@ interface ITaikoL1 {
         bytes32 parentMetaHash;
         uint64 anchorBlockId;
         uint64 timestamp;
-        uint32 blobTxListOffset;
-        uint32 blobTxListLength;
+        uint32 txListOffset;
+        uint32 txListSize;
         uint8 blobIndex;
     }
 
     struct BlockMetadataV3 {
         bytes32 anchorBlockHash;
         bytes32 difficulty;
-        bytes32 blobHash;
+        bytes32 txListHash;
         bytes32 extraData;
         address coinbase;
         uint64 blockId;
@@ -30,9 +30,10 @@ interface ITaikoL1 {
         uint96 livenessBond;
         uint64 proposedAt; // Used by node/client post block proposal.
         uint64 proposedIn; // Used by node/client post block proposal.
-        uint32 blobTxListOffset;
-        uint32 blobTxListLength;
+        uint32 txListOffset;
+        uint32 txListSize;
         uint8 blobIndex;
+        bool calldataUsed;
         LibSharedData.BaseFeeConfig baseFeeConfig;
     }
 
@@ -97,9 +98,12 @@ interface ITaikoL1 {
         uint64 maxAnchorHeightOffset;
         /// @notice Base fee configuration
         LibSharedData.BaseFeeConfig baseFeeConfig;
+        /// @notice The proving window in seconds.
+        uint16 provingWindow;
+        /// @notice emit txList in calldata
+        bool emitTxListInCalldata;
         /// @notie The Pacaya fork height on L2.
         uint64 pacayaForkHeight;
-        uint16 provingWindow;
     }
 
     /// @notice Struct holding the state variables for the {Taiko} contract.
@@ -148,26 +152,26 @@ interface ITaikoL1 {
     /// @param stats2 The Stats2 data structure.
     event Stats2Updated(Stats2 stats2);
 
-    /// @notice Emitted when a block is proposed.
-    /// @param blockId The ID of the proposed block.
-    /// @param meta The metadata of the proposed block.
-    event BlockProposedV3(uint256 indexed blockId, BlockMetadataV3 meta);
+    /// @notice Emitted when multiple blocks are proposed.
+    /// @param metas The metadata of the proposed blocks.
+    /// @param calldataUsed Whether calldata is used for txList DA.
+    /// @param txListInCalldata The tx list in calldata.
+    event BlocksProposedV3(BlockMetadataV3[] metas, bool calldataUsed, bytes txListInCalldata);
 
-    /// @notice Emitted when a transition is proved.
-    /// @param blockId The block ID.
+    /// @notice Emitted when multiple transitions are proved.
     /// @param verifier The address of the verifier.
-    /// @param tran The transition data.
-    event TransitionProvedV3(uint256 indexed blockId, address verifier, TransitionV3 tran);
+    /// @param transitions The transitions data.
+    event BlocksProvedV3(address verifier, uint64[] blockIds, TransitionV3[] transitions);
 
     /// @notice Emitted when a transition is overritten by another one.
     /// @param blockId The block ID.
     /// @param tran The transition data that has been overwritten.
-    event TransitionOverwrittenV3(uint256 indexed blockId, TransitionV3 tran);
+    event TransitionOverwrittenV3(uint64 blockId, TransitionV3 tran);
 
     /// @notice Emitted when a block is verified.
     /// @param blockId The ID of the verified block.
     /// @param blockHash The hash of the verified block.
-    event BlockVerifiedV3(uint256 indexed blockId, bytes32 blockHash);
+    event BlockVerifiedV3(uint64 blockId, bytes32 blockHash);
 
     error AnchorBlockIdSmallerThanParent();
     error AnchorBlockIdTooSmall();
@@ -177,6 +181,8 @@ interface ITaikoL1 {
     error BlockNotFound();
     error BlockVerified();
     error ContractPaused();
+    error CustomProposerMissing();
+    error CustomProposerNotAllowed();
     error EtherNotPaidAsBond();
     error InvalidForkHeight();
     error InvalidGenesisBlockHash();
@@ -187,7 +193,6 @@ interface ITaikoL1 {
     error MsgValueNotZero();
     error NoBlocksToPropose();
     error NoBlocksToProve();
-    error ProofNotFound();
     error NotPreconfTaskManager();
     error ParentMetaHashMismatch();
     error ProverNotPermitted();
@@ -200,7 +205,8 @@ interface ITaikoL1 {
     function proposeBlocksV3(
         address _proposer,
         address _coinbase,
-        BlockParamsV3[] calldata _blockParams
+        BlockParamsV3[] calldata _blockParams,
+        bytes calldata _txList
     )
         external
         returns (BlockMetadataV3[] memory);

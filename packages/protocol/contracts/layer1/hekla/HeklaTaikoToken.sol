@@ -8,7 +8,7 @@ import "src/shared/common/EssentialContract.sol";
 
 /// @title HeklaTaikoToken
 /// @notice Taiko token for Taiko Hekla testnet.
-/// @dev Labeled in AddressResolver as "taiko_token".
+/// @dev Labeled in address resolver as "taiko_token".
 /// @dev Due to historical reasons, the Taiko Token on Hekla has a different storage layout compared
 /// to the mainnet token contract. Therefore, we need to maintain this file.
 /// @custom:security-contact security@taiko.xyz

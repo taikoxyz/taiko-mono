@@ -8,7 +8,7 @@ import "./ISignalService.sol";
 
 /// @title SignalService
 /// @notice See the documentation in {ISignalService} for more details.
-/// @dev Labeled in AddressResolver as "signal_service".
+/// @dev Labeled in address resolver as "signal_service".
 /// @custom:security-contact security@taiko.xyz
 contract SignalService is EssentialContract, ISignalService {
     /// @notice Mapping to store the top blockId.
