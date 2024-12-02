@@ -5,12 +5,7 @@ import { UtilsScript, MockBlacklist } from "./Utils.s.sol";
 import { Script, console } from "forge-std/src/Script.sol";
 import { Merkle } from "murky/Merkle.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-<<<<<<<< HEAD:packages/nfts/script/trailblazers-badges/Deploy.s.sol
 import { TrailblazersBadges } from "../../contracts/trailblazers-badges/TrailblazersBadges.sol";
-========
-import { TrailblazersBadges } from
-    "../../../../contracts/trailblazers-badges/TrailblazersBadges.sol";
->>>>>>>> main:packages/nfts/script/trailblazer/trailblazers-badges/sol/Deploy.s.sol
 import { IMinimalBlacklist } from "@taiko/blacklist/IMinimalBlacklist.sol";
 
 contract DeployScript is Script {

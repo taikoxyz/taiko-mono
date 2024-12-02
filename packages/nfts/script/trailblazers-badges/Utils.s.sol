@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import { Script, console } from "forge-std/src/Script.sol";
 import "forge-std/src/StdJson.sol";
-import { MockBlacklist } from "../../../test/util/Blacklist.sol";
+import { MockBlacklist } from "../../test/util/Blacklist.sol";
 import { IMinimalBlacklist } from "@taiko/blacklist/IMinimalBlacklist.sol";
 
 contract UtilsScript is Script {
@@ -77,13 +77,4 @@ contract UtilsScript is Script {
     }
 
     function run() public { }
-}
-
-contract MockBlacklist is IMinimalBlacklist {
-    function isBlacklisted(address _account) external pure returns (bool) {
-        if (_account == address(0)) {
-            return true;
-        }
-        return false;
-    }
 }

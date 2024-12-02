@@ -5,12 +5,7 @@ import { UtilsScript } from "./Utils.s.sol";
 import { Script, console } from "forge-std/src/Script.sol";
 import { Merkle } from "murky/Merkle.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-<<<<<<<< HEAD:packages/nfts/script/trailblazers-badges/UpgradeS1.sol
 import { TrailblazersBadges } from "../../contracts/trailblazers-badges/TrailblazersBadges.sol";
-========
-import { TrailblazersBadges } from
-    "../../../../contracts/trailblazers-badges/TrailblazersBadges.sol";
->>>>>>>> main:packages/nfts/script/trailblazer/trailblazers-badges/sol/UpgradeV2.sol
 import { IMinimalBlacklist } from "@taiko/blacklist/IMinimalBlacklist.sol";
 
 contract UpgradeV2 is Script {
