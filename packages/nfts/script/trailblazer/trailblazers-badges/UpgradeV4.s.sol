@@ -5,11 +5,12 @@ import { UtilsScript } from "./Utils.s.sol";
 import { Script, console } from "forge-std/src/Script.sol";
 import { Merkle } from "murky/Merkle.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { TrailblazersBadges } from "../../contracts/trailblazers-badges/TrailblazersBadges.sol";
+import { TrailblazersBadges } from "../../../contracts/trailblazers-badges/TrailblazersBadges.sol";
 import { IMinimalBlacklist } from "@taiko/blacklist/IMinimalBlacklist.sol";
-import { TrailblazersBadgesV3 } from "../../contracts/trailblazers-badges/TrailblazersBadgesV3.sol";
+import { TrailblazersBadgesV3 } from
+    "../../../contracts/trailblazers-badges/TrailblazersBadgesV3.sol";
 import { TrailblazersBadgesV4 } from
-    "../../contracts/trailblazers-season-2/TrailblazersS1BadgesV4.sol";
+    "../../../contracts/trailblazers-season-2/TrailblazersS1BadgesV4.sol";
 
 contract UpgradeV4 is Script {
     UtilsScript public utils;

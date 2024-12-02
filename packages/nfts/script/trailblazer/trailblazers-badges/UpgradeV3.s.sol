@@ -5,13 +5,12 @@ import { UtilsScript } from "./Utils.s.sol";
 import { Script, console } from "forge-std/src/Script.sol";
 import { Merkle } from "murky/Merkle.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { TrailblazersBadges } from
-    "../../../../contracts/trailblazers-badges/TrailblazersBadges.sol";
+import { TrailblazersBadges } from "../../../contracts/trailblazers-badges/TrailblazersBadges.sol";
 import { IMinimalBlacklist } from "@taiko/blacklist/IMinimalBlacklist.sol";
 import { TrailblazersBadgesV3 } from
-    "../../../../contracts/trailblazers-badges/TrailblazersBadgesV3.sol";
+    "../../../contracts/trailblazers-badges/TrailblazersBadgesV3.sol";
 
-contract UpgradeV2 is Script {
+contract UpgradeV3 is Script {
     UtilsScript public utils;
     string public jsonLocation;
     uint256 public deployerPrivateKey;
@@ -38,7 +37,7 @@ contract UpgradeV2 is Script {
             address(new TrailblazersBadgesV3()), abi.encodeCall(TrailblazersBadgesV3.version, ())
         );
 
-        tokenV3 = TrailblazersBadgesV3(tokenV3);
+        tokenV3 = TrailblazersBadgesV3(address(tokenV2));
 
         console.log("Upgraded TrailblazersBadgesV3 to:", address(tokenV3));
     }
