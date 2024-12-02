@@ -1,6 +1,6 @@
 # taiko-client
 
-[![CI](https://github.com/taikoxyz/taiko-mono/actions/workflows/taiko-client-test.yml/badge.svg)](https://github.com/taikoxyz/taiko-mono/actions/workflows/taiko-client-test.yml)
+[![CI](https://github.com/taikoxyz/taiko-mono/actions/workflows/taiko-client--test.yml/badge.svg)](https://github.com/taikoxyz/taiko-mono/actions/workflows/taiko-client-test.yml)
 
 <!-- TODO(d1onys1us): fix codecov integration -->
 <!-- [![Codecov](https://img.shields.io/codecov/c/github/taikoxyz/taiko-mono/packages/taiko-client?logo=codecov&token=OH6BJMVP6O)](https://codecov.io/gh/taikoxyz/taiko-mono/packages/taiko-client) -->

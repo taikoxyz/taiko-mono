@@ -8,7 +8,7 @@ on:
 
 jobs:
   validate-pr-title:
-    if: github.event_name == 'pull_request_target'
+    if: contains(github.event.pull_request.labels.*.name, 'option.workflow_on') || github.event.pull_request.draft == false && github.head_ref != 'release-please-*'
     runs-on: [arc-runner-set]
     steps:
       - uses: amannn/action-semantic-pull-request@v5

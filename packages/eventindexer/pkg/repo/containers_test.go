@@ -23,8 +23,8 @@ var (
 
 func testMysql(t *testing.T) (db.DB, func(), error) {
 	req := testcontainers.ContainerRequest{
-		Image:        "mysql:8.0.33",
-		ExposedPorts: []string{"3306/tcp", "33060/tcp"},
+		Image:        "mysql:latest",
+		ExposedPorts: []string{"3306/tcp"},
 		Env: map[string]string{
 			"MYSQL_ROOT_PASSWORD": dbPassword,
 			"MYSQL_DATABASE":      dbName,
@@ -51,11 +51,10 @@ func testMysql(t *testing.T) (db.DB, func(), error) {
 	}
 
 	host, _ := mysqlC.Host(ctx)
-	p, _ := mysqlC.MappedPort(ctx, "3306/tcp")
-	port := p.Int()
+	port, _ := mysqlC.MappedPort(ctx, "3306/tcp")
 
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=skip-verify&parseTime=true&multiStatements=true",
-		dbUsername, dbPassword, host, port, dbName)
+		dbUsername, dbPassword, host, port.Int(), dbName)
 
 	gormDB, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),

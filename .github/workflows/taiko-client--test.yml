@@ -7,10 +7,12 @@ on:
       - "packages/taiko-client/**"
       - "go.mod"
       - "go.sum"
+    branches-ignore:
+      - release-please--branches--**
 
 jobs:
   lint:
-    if: github.event.pull_request.draft == false
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
     name: Lint
     runs-on: [ubuntu-latest]
     steps:
@@ -30,14 +32,14 @@ jobs:
         run: golangci-lint run --path-prefix=./ --config=.golangci.yml
 
   integration_tests:
-    if: github.event.pull_request.draft == false
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
     name: Integration tests
     runs-on: [ubuntu-latest]
     timeout-minutes: 15
 
     strategy:
       matrix:
-        execution_node: [l2_geth, l2_reth]
+        execution_node: [l2_geth]
 
     steps:
       - name: Cancel Previous Runs

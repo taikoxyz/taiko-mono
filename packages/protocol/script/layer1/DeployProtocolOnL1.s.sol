@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@risc0/contracts/groth16/RiscZeroGroth16Verifier.sol";
-import { SP1Verifier as SP1Verifier200rc } from "@sp1-contracts/src/v2.0.0/SP1VerifierPlonk.sol";
+import { SP1Verifier as SuccinctVerifier } from "@sp1-contracts/src/v3.0.0/SP1VerifierPlonk.sol";
 
 // Actually this one is deployed already on mainnet, but we are now deploying our own (non via-ir)
 // version. For mainnet, it is easier to go with one of:
@@ -19,9 +19,10 @@ import "src/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
 import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
 import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
 import "src/layer1/devnet/DevnetTaikoL1.sol";
-import "src/layer1/devnet/DevnetTierProvider.sol";
+import "src/layer1/devnet/DevnetTierRouter.sol";
 import "src/layer1/mainnet/rollup/MainnetGuardianProver.sol";
 import "src/layer1/mainnet/rollup/MainnetTaikoL1.sol";
+import "src/layer1/mainnet/rollup/MainnetTierRouter.sol";
 import "src/layer1/mainnet/rollup/verifiers/MainnetSgxVerifier.sol";
 import "src/layer1/mainnet/multirollup/MainnetBridge.sol";
 import "src/layer1/mainnet/multirollup/MainnetERC1155Vault.sol";
@@ -30,11 +31,10 @@ import "src/layer1/mainnet/multirollup/MainnetERC721Vault.sol";
 import "src/layer1/mainnet/multirollup/MainnetSignalService.sol";
 import "src/layer1/provers/GuardianProver.sol";
 import "src/layer1/provers/ProverSet.sol";
-import "src/layer1/tiers/TierProviderV2.sol";
 import "src/layer1/token/TaikoToken.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
-import "test/layer1/based/TestTierProvider.sol";
+import "test/layer1/based/TestTierRouter.sol";
 import "test/shared/token/FreeMintERC20.sol";
 import "test/shared/token/MayFailFreeMintERC20.sol";
 import "test/shared/DeployCapability.sol";
@@ -45,6 +45,7 @@ import "test/shared/DeployCapability.sol";
 contract DeployProtocolOnL1 is DeployCapability {
     uint256 public NUM_MIN_MAJORITY_GUARDIANS = vm.envUint("NUM_MIN_MAJORITY_GUARDIANS");
     uint256 public NUM_MIN_MINORITY_GUARDIANS = vm.envUint("NUM_MIN_MINORITY_GUARDIANS");
+    address public DAO_FALLBACK_PROPOSER = 0xD3f681bD6B49887A48cC9C9953720903967E9DC0;
 
     address public constant MAINNET_CONTRACT_OWNER = 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F; // admin.taiko.eth
 
@@ -154,7 +155,10 @@ contract DeployProtocolOnL1 is DeployCapability {
                 ),
                 registerTo: sharedAddressManager
             });
+        } else {
+            register(sharedAddressManager, "taiko_token", taikoToken);
         }
+        register(sharedAddressManager, "bond_token", taikoToken);
 
         // Deploy Bridging contracts
         deployProxy({
@@ -273,6 +277,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         // ---------------------------------------------------------------
         // Register shared contracts in the new rollup
         copyRegister(rollupAddressManager, _sharedAddressManager, "taiko_token");
+        copyRegister(rollupAddressManager, _sharedAddressManager, "bond_token");
         copyRegister(rollupAddressManager, _sharedAddressManager, "signal_service");
         copyRegister(rollupAddressManager, _sharedAddressManager, "bridge");
 
@@ -291,8 +296,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
 
         TaikoL1 taikoL1;
-        if (keccak256(abi.encode(vm.envString("TIER_PROVIDER"))) == keccak256(abi.encode("devnet")))
-        {
+        if (keccak256(abi.encode(vm.envString("TIER_ROUTER"))) == keccak256(abi.encode("devnet"))) {
             taikoL1 = TaikoL1(address(new DevnetTaikoL1()));
         } else {
             taikoL1 = TaikoL1(address(new TaikoL1()));
@@ -340,7 +344,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             data: abi.encodeCall(GuardianProver.init, (address(0), rollupAddressManager))
         });
 
-        GuardianProver(guardianProverMinority).enableTaikoTokenAllowance(true);
+        GuardianProver(guardianProverMinority).enableBondAllowance(true);
 
         address guardianProver = deployProxy({
             name: "guardian_prover",
@@ -353,7 +357,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         register(
             rollupAddressManager,
             "tier_router",
-            address(deployTierProvider(vm.envString("TIER_PROVIDER")))
+            address(deployTierRouter(vm.envString("TIER_ROUTER")))
         );
 
         address[] memory guardians = vm.envAddress("GUARDIAN_PROVERS", ",");
@@ -416,8 +420,8 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
 
         // Deploy sp1 plonk verifier
-        SP1Verifier200rc sp1Verifier200rc = new SP1Verifier200rc();
-        register(rollupAddressManager, "sp1_remote_verifier", address(sp1Verifier200rc));
+        SuccinctVerifier succinctVerifier = new SuccinctVerifier();
+        register(rollupAddressManager, "sp1_remote_verifier", address(succinctVerifier));
 
         deployProxy({
             name: "tier_zkvm_sp1",
@@ -427,13 +431,13 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
     }
 
-    function deployTierProvider(string memory tierProviderName) private returns (address) {
-        if (keccak256(abi.encode(tierProviderName)) == keccak256(abi.encode("devnet"))) {
-            return address(new DevnetTierProvider());
-        } else if (keccak256(abi.encode(tierProviderName)) == keccak256(abi.encode("testnet"))) {
-            return address(new TestTierProvider());
-        } else if (keccak256(abi.encode(tierProviderName)) == keccak256(abi.encode("mainnet"))) {
-            return address(new TierProviderV2());
+    function deployTierRouter(string memory tierRouterName) private returns (address) {
+        if (keccak256(abi.encode(tierRouterName)) == keccak256(abi.encode("devnet"))) {
+            return address(new DevnetTierRouter());
+        } else if (keccak256(abi.encode(tierRouterName)) == keccak256(abi.encode("testnet"))) {
+            return address(new TestTierRouter());
+        } else if (keccak256(abi.encode(tierRouterName)) == keccak256(abi.encode("mainnet"))) {
+            return address(new MainnetTierRouter(DAO_FALLBACK_PROPOSER));
         } else {
             revert("invalid tier provider");
         }

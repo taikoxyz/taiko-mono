@@ -17,7 +17,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
 var (
@@ -32,6 +32,21 @@ var (
 		syscall.SIGQUIT,
 	}
 )
+
+// GetProtocolConfigs gets the protocol configs from TaikoL1 contract.
+func GetProtocolConfigs(
+	taikoL1Client *bindings.TaikoL1Client,
+	opts *bind.CallOpts,
+) (bindings.TaikoDataConfig, error) {
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	defer cancel()
+
+	return taikoL1Client.GetConfig(opts)
+}
 
 // GetProtocolStateVariables gets the protocol states from TaikoL1 contract.
 func GetProtocolStateVariables(
@@ -48,6 +63,8 @@ func GetProtocolStateVariables(
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
 	defer cancel()
 
+	// Notice: sloB.LastProposedIn and slotB.LastUnpausedAt are always 0
+	// before upgrading contract, but we can ignore it since we won't use it.
 	slotA, slotB, err := taikoL1Client.GetStateVariables(opts)
 	if err != nil {
 		return nil, err

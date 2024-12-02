@@ -17,7 +17,6 @@ import (
 	"github.com/phayes/freeport"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
@@ -202,12 +201,15 @@ func (s *ClientTestSuite) ProposeValidBlock(
 	ontakeForkHeight, err := s.RPCClient.TaikoL2.OntakeForkHeight(nil)
 	s.Nil(err)
 
+	protocolConfigs, err := rpc.GetProtocolConfigs(s.RPCClient.TaikoL1, nil)
+	s.Nil(err)
+
 	baseFee, err := s.RPCClient.CalculateBaseFee(
 		context.Background(),
 		l2Head,
 		l1Head.Number,
 		l2Head.Number.Uint64()+1 >= ontakeForkHeight,
-		&encoding.InternlDevnetProtocolConfig.BaseFeeConfig,
+		&protocolConfigs.BaseFeeConfig,
 		l1Head.Time,
 	)
 	s.Nil(err)
@@ -280,6 +282,35 @@ func RandomPort() int {
 // SignatureFromRSV creates the signature bytes from r,s,v.
 func SignatureFromRSV(r, s string, v byte) []byte {
 	return append(append(hexutil.MustDecode(r), hexutil.MustDecode(s)...), v)
+}
+
+func AssembleTestTx(
+	client *rpc.EthClient,
+	priv *ecdsa.PrivateKey,
+	nonce uint64,
+	to *common.Address,
+	value *big.Int,
+	data []byte,
+) (*types.Transaction, error) {
+	auth, err := bind.NewKeyedTransactorWithChainID(priv, client.ChainID)
+	if err != nil {
+		return nil, err
+	}
+
+	tx, err := auth.Signer(auth.From, types.NewTx(&types.DynamicFeeTx{
+		To:        to,
+		Nonce:     nonce,
+		Value:     value,
+		GasTipCap: new(big.Int).SetUint64(10 * params.GWei),
+		GasFeeCap: new(big.Int).SetUint64(20 * params.GWei),
+		Gas:       2_100_000,
+		Data:      data,
+	}))
+	if err != nil {
+		return nil, err
+	}
+
+	return tx, client.SendTransaction(context.Background(), tx)
 }
 
 // SendDynamicFeeTx sends a dynamic transaction, used for tests.

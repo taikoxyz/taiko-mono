@@ -34,7 +34,7 @@ library LibBytes {
     function revertWithExtractedError(bytes memory _returnData) internal pure {
         // If the _res length is less than 68, then
         // the transaction failed with custom error or silently (without a revert message)
-        if (_returnData.length < 68) revert INNER_ERROR(_returnData);
+        require(_returnData.length >= 68, INNER_ERROR(_returnData));
 
         assembly {
             // Slice the sighash.

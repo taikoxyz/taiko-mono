@@ -2,12 +2,16 @@ package proposer
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"fmt"
+	"maps"
 	"math/big"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -24,10 +28,10 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/blob"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 	builder "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/transaction_builder"
 )
 
@@ -117,6 +121,127 @@ func (s *ProposerTestSuite) SetupTest() {
 
 	s.p = p
 	s.cancel = cancel
+}
+
+func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
+	if os.Getenv("L2_NODE") == "l2_reth" {
+		s.T().Skip()
+	}
+
+	// Empty mempool at first.
+	for {
+		poolContent, err := s.RPCClient.GetPoolContent(
+			context.Background(),
+			s.p.proposerAddress,
+			s.p.protocolConfigs.BlockMaxGasLimit,
+			rpc.BlockMaxTxListBytes,
+			s.p.LocalAddresses,
+			10,
+			0,
+			s.p.chainConfig,
+		)
+		s.Nil(err)
+
+		if len(poolContent) > 0 {
+			s.Nil(s.p.ProposeOp(context.Background()))
+			s.Nil(s.s.ProcessL1Blocks(context.Background()))
+			continue
+		}
+		break
+	}
+
+	privetKeyHexList := []string{
+		"0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d", // 0x70997970C51812dc3A010C7d01b50e0d17dc79C8
+		"0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a", // 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC
+		"0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6", // 0x90F79bf6EB2c4f870365E785982E1f101E93b906
+		"0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a", // 0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65
+		"0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba", // 0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc
+	}
+
+	var privateKeys []*ecdsa.PrivateKey
+	for _, privateKeyHex := range privetKeyHexList {
+		priv, err := crypto.ToECDSA(common.FromHex(privateKeyHex))
+		s.Nil(err)
+		privateKeys = append(privateKeys, priv)
+	}
+
+	originalNonceMap := make(map[common.Address]uint64)
+	for _, priv := range privateKeys {
+		transactOpts, err := bind.NewKeyedTransactorWithChainID(priv, s.RPCClient.L2.ChainID)
+		s.Nil(err)
+		nonce, err := s.RPCClient.L2.PendingNonceAt(context.Background(), transactOpts.From)
+		s.Nil(err)
+		originalNonceMap[transactOpts.From] = nonce
+		// Send 1500 transactions to mempool
+		for i := 0; i < 300; i++ {
+			_, err = testutils.AssembleTestTx(s.RPCClient.L2, priv, nonce+uint64(i), &transactOpts.From, common.Big1, nil)
+			s.Nil(err)
+		}
+	}
+
+	for _, testCase := range []struct {
+		blockMaxGasLimit     uint32
+		blockMaxTxListBytes  uint64
+		maxTransactionsLists uint64
+		txLengthList         []int
+	}{
+		{
+			s.p.protocolConfigs.BlockMaxGasLimit,
+			rpc.BlockMaxTxListBytes,
+			s.p.MaxProposedTxListsPerEpoch,
+			[]int{1500},
+		},
+		{
+			s.p.protocolConfigs.BlockMaxGasLimit,
+			rpc.BlockMaxTxListBytes,
+			s.p.MaxProposedTxListsPerEpoch * 5,
+			[]int{1500},
+		},
+		{
+			s.p.protocolConfigs.BlockMaxGasLimit / 50,
+			rpc.BlockMaxTxListBytes,
+			200,
+			[]int{129, 129, 129, 129, 129, 129, 129, 129, 129, 129, 129, 81},
+		},
+	} {
+		poolContent, err := s.RPCClient.GetPoolContent(
+			context.Background(),
+			s.p.proposerAddress,
+			testCase.blockMaxGasLimit,
+			testCase.blockMaxTxListBytes,
+			s.p.LocalAddresses,
+			testCase.maxTransactionsLists,
+			0,
+			s.p.chainConfig,
+		)
+		s.Nil(err)
+
+		nonceMap := maps.Clone(originalNonceMap)
+		// Check the order of nonce.
+		for _, txList := range poolContent {
+			for _, tx := range txList.TxList {
+				sender, err := types.Sender(types.LatestSignerForChainID(s.RPCClient.L2.ChainID), tx)
+				s.Nil(err)
+				s.Equalf(nonceMap[sender], tx.Nonce(),
+					fmt.Sprintf("incorrect nonce of %s, expect: %d, actual: %d",
+						sender.String(),
+						nonceMap[sender],
+						tx.Nonce(),
+					))
+				nonceMap[sender]++
+			}
+		}
+
+		s.GreaterOrEqual(int(testCase.maxTransactionsLists), len(poolContent))
+		for i, txsLen := range testCase.txLengthList {
+			s.Equal(txsLen, poolContent[i].TxList.Len())
+			s.GreaterOrEqual(uint64(testCase.blockMaxGasLimit), poolContent[i].EstimatedGasUsed)
+			s.GreaterOrEqual(testCase.blockMaxTxListBytes, poolContent[i].BytesLength)
+		}
+	}
+
+	s.Nil(s.p.ProposeOp(context.Background()))
+	s.Nil(s.s.ProcessL1Blocks(context.Background()))
 }
 
 func (s *ProposerTestSuite) TestProposeTxLists() {

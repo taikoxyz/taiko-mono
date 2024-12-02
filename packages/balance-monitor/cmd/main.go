@@ -31,7 +31,7 @@ func main() {
 		{
 			Name:        "balance-monitor",
 			Flags:       flags.CommonFlags,
-			Usage:       "Starts the balance monitor oftware",
+			Usage:       "Starts the balance monitor software",
 			Description: "Taiko balance monitor",
 			Action:      utils.SubcommandAction(new(balanceMonitor.BalanceMonitor)),
 		},

@@ -6,7 +6,7 @@ import "./LibBonds.sol";
 import "./LibUtils.sol";
 
 /// @title LibVerifying
-/// @notice A library for handling block verification in the Taiko protocol.
+/// @notice A library that offers helper functions for verifying blocks.
 /// @custom:security-contact security@taiko.xyz
 library LibVerifying {
     using LibMath for uint256;
@@ -24,23 +24,24 @@ library LibVerifying {
         uint64 syncBlockId;
         uint24 syncTransitionId;
         address prover;
-        bool postFork;
         ITierRouter tierRouter;
     }
 
     error L1_BLOCK_MISMATCH();
-    error L1_INVALID_CONFIG();
     error L1_TRANSITION_ID_ZERO();
-    error L1_TOO_LATE();
 
     /// @dev Verifies up to N blocks.
+    /// @param _state Pointer to the protocol's storage.
+    /// @param _config The protocol's configuration.
+    /// @param _resolver The address resolver.
+    /// @param _maxBlocksToVerify The maximum number of blocks to verify.
     function verifyBlocks(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
         IAddressResolver _resolver,
         uint64 _maxBlocksToVerify
     )
-        public
+        internal
     {
         if (_maxBlocksToVerify == 0) {
             return;
@@ -52,24 +53,20 @@ library LibVerifying {
         local.slot = local.blockId % _config.blockRingBufferSize;
 
         TaikoData.BlockV2 storage blk = _state.blocks[local.slot];
-        if (blk.blockId != local.blockId) revert L1_BLOCK_MISMATCH();
+        require(blk.blockId == local.blockId, L1_BLOCK_MISMATCH());
 
         local.lastVerifiedTransitionId = blk.verifiedTransitionId;
         local.tid = local.lastVerifiedTransitionId;
 
-        // The following scenario should never occur but is included as a
-        // precaution.
-        if (local.tid == 0) revert L1_TRANSITION_ID_ZERO();
+        // The following scenario should never occur but is included as a precaution.
+        require(local.tid != 0, L1_TRANSITION_ID_ZERO());
 
-        // The `blockHash` variable represents the most recently trusted
-        // blockHash on L2.
+        // The `blockHash` variable represents the most recently trusted blockHash on L2.
         local.blockHash = _state.transitions[local.slot][local.tid].blockHash;
 
-        // Unchecked is safe:
-        // - assignment is within ranges
-        // - blockId and numBlocksVerified values incremented will still be OK in the
-        // next 584K years if we verifying one block per every second
-
+        // Unchecked is safe: - assignment is within ranges - blockId and numBlocksVerified values
+        // incremented will still be OK in the next 584K years if we verify one block per every
+        // second
         unchecked {
             ++local.blockId;
 
@@ -77,41 +74,40 @@ library LibVerifying {
                 local.blockId < local.b.numBlocks && local.numBlocksVerified < _maxBlocksToVerify
             ) {
                 local.slot = local.blockId % _config.blockRingBufferSize;
-                local.postFork = local.blockId >= _config.ontakeForkHeight;
 
                 blk = _state.blocks[local.slot];
-                if (blk.blockId != local.blockId) revert L1_BLOCK_MISMATCH();
+                require(blk.blockId == local.blockId, L1_BLOCK_MISMATCH());
 
                 local.tid = LibUtils.getTransitionId(_state, blk, local.slot, local.blockHash);
-                // When `tid` is 0, it indicates that there is no proven
-                // transition with its parentHash equal to the blockHash of the
-                // most recently verified block.
+                // When `tid` is 0, it indicates that there is no proven transition with its
+                // parentHash equal to the blockHash of the most recently verified block.
                 if (local.tid == 0) break;
 
                 // A transition with the correct `parentHash` has been located.
                 TaikoData.TransitionState storage ts = _state.transitions[local.slot][local.tid];
 
-                // It's not possible to verify this block if either the
-                // transition is contested and awaiting higher-tier proof or if
-                // the transition is still within its cooldown period.
+                // It's not possible to verify this block if either the transition is contested and
+                // awaiting higher-tier proof or if the transition is still within its cooldown
+                // period.
                 local.tier = ts.tier;
 
                 if (ts.contester != address(0)) {
                     break;
-                } else {
-                    if (local.tierRouter == ITierRouter(address(0))) {
-                        local.tierRouter =
-                            ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false));
-                    }
+                }
 
-                    uint24 cooldown = ITierProvider(local.tierRouter.getProvider(local.blockId))
-                        .getTier(local.tier).cooldownWindow;
+                if (local.tierRouter == ITierRouter(address(0))) {
+                    local.tierRouter =
+                        ITierRouter(_resolver.resolve(LibStrings.B_TIER_ROUTER, false));
+                }
 
-                    if (!LibUtils.isPostDeadline(ts.timestamp, local.b.lastUnpausedAt, cooldown)) {
-                        // If cooldownWindow is 0, the block can theoretically
-                        // be proved and verified within the same L1 block.
-                        break;
-                    }
+                uint24 cooldown = ITierProvider(local.tierRouter.getProvider(local.blockId)).getTier(
+                    local.tier
+                ).cooldownWindow;
+
+                if (!LibUtils.isPostDeadline(ts.timestamp, local.b.lastUnpausedAt, cooldown)) {
+                    // If cooldownWindow is 0, the block can theoretically be proved and verified
+                    // within the same L1 block.
+                    break;
                 }
 
                 // Update variables
@@ -119,33 +115,23 @@ library LibVerifying {
                 local.blockHash = ts.blockHash;
                 local.prover = ts.prover;
 
-                LibBonds.creditBond(_state, local.prover, ts.validityBond);
+                LibBonds.creditBond(_state, local.prover, local.blockId, ts.validityBond);
 
-                // Note: We exclusively address the bonds linked to the
-                // transition used for verification. While there may exist
-                // other transitions for this block, we disregard them entirely.
-                // The bonds for these other transitions are burned (more precisely held in custody)
-                // either when the transitions are generated or proven. In such cases, both the
-                // provers and contesters of those transitions forfeit their bonds.
+                // Note: We exclusively address the bonds linked to the transition used for
+                // verification. While there may exist other transitions for this block, we
+                // disregard them entirely. The bonds for these other transitions are burned (more
+                // precisely held in custody) either when the transitions are generated or proven. In
+                // such cases, both the provers and contesters of those transitions forfeit their
+                // bonds.
 
-                if (local.postFork) {
-                    emit LibUtils.BlockVerifiedV2({
-                        blockId: local.blockId,
-                        prover: local.prover,
-                        blockHash: local.blockHash,
-                        tier: local.tier
-                    });
-                } else {
-                    emit LibUtils.BlockVerified({
-                        blockId: local.blockId,
-                        prover: local.prover,
-                        blockHash: local.blockHash,
-                        stateRoot: 0, // DEPRECATED and is always zero.
-                        tier: local.tier
-                    });
-                }
+                emit LibUtils.BlockVerifiedV2({
+                    blockId: local.blockId,
+                    prover: local.prover,
+                    blockHash: local.blockHash,
+                    tier: local.tier
+                });
 
-                if (LibUtils.shouldSyncStateRoot(_config.stateRootSyncInternal, local.blockId)) {
+                if (LibUtils.isSyncBlock(_config.stateRootSyncInternal, local.blockId)) {
                     bytes32 stateRoot = ts.stateRoot;
                     if (stateRoot != 0) {
                         local.syncStateRoot = stateRoot;
@@ -188,6 +174,11 @@ library LibVerifying {
         }
     }
 
+    /// @dev Retrieves the prover of a verified block.
+    /// @param _state Pointer to the protocol's storage.
+    /// @param _config The protocol's configuration.
+    /// @param _blockId The ID of the block.
+    /// @return The address of the prover.
     function getVerifiedBlockProver(
         TaikoData.State storage _state,
         TaikoData.Config memory _config,
@@ -202,6 +193,6 @@ library LibVerifying {
         uint24 tid = blk.verifiedTransitionId;
         if (tid == 0) return address(0);
 
-        return LibUtils.getTransition(_state, _config, _blockId, tid).prover;
+        return LibUtils.getTransitionById(_state, _config, _blockId, tid).prover;
     }
 }

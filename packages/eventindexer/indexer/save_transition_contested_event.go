@@ -81,3 +81,72 @@ func (i *Indexer) saveTransitionContestedEvent(
 
 	return nil
 }
+
+func (i *Indexer) saveTransitionContestedEventsV2(
+	ctx context.Context,
+	chainID *big.Int,
+	events *taikol1.TaikoL1TransitionContestedV2Iterator,
+) error {
+	if !events.Next() || events.Event == nil {
+		slog.Info("no transitionContested events")
+		return nil
+	}
+
+	for {
+		event := events.Event
+
+		if err := i.saveTransitionContestedEventV2(ctx, chainID, event); err != nil {
+			eventindexer.TransitionContestedEventsProcessedError.Inc()
+
+			return errors.Wrap(err, "i.saveBlockProvenEvent")
+		}
+
+		if !events.Next() {
+			return nil
+		}
+	}
+}
+
+func (i *Indexer) saveTransitionContestedEventV2(
+	ctx context.Context,
+	chainID *big.Int,
+	event *taikol1.TaikoL1TransitionContestedV2,
+) error {
+	slog.Info("transitionContested event found",
+		"blockID", event.BlockId.Int64(),
+		"contestBond", event.ContestBond.String(),
+		"contester", event.Contester.Hex(),
+		"tier", event.Tier,
+	)
+
+	marshaled, err := json.Marshal(event)
+	if err != nil {
+		return errors.Wrap(err, "json.Marshal(event)")
+	}
+
+	blockID := event.BlockId.Int64()
+
+	block, err := i.ethClient.BlockByNumber(ctx, new(big.Int).SetUint64(event.Raw.BlockNumber))
+	if err != nil {
+		return errors.Wrap(err, "i.ethClient.BlockByNumber")
+	}
+
+	_, err = i.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
+		Name:           eventindexer.EventNameTransitionContested,
+		Data:           string(marshaled),
+		ChainID:        chainID,
+		Event:          eventindexer.EventNameTransitionContested,
+		Address:        event.Contester.Hex(),
+		BlockID:        &blockID,
+		TransactedAt:   time.Unix(int64(block.Time()), 0),
+		Tier:           &event.Tier,
+		EmittedBlockID: event.Raw.BlockNumber,
+	})
+	if err != nil {
+		return errors.Wrap(err, "i.eventRepo.Save")
+	}
+
+	eventindexer.TransitionContestedEventsProcessed.Inc()
+
+	return nil
+}
