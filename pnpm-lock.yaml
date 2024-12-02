@@ -341,10 +341,10 @@ importers:
         version: 16.4.5
       ds-test:
         specifier: github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0
-        version: https://codeload.github.com/dapphub/ds-test/tar.gz/e282159d5170298eb2455a6c05280ab5a73a4ef0
+        version: git+https://git@github.com:dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0
       forge-std:
         specifier: github:foundry-rs/forge-std
-        version: https://codeload.github.com/foundry-rs/forge-std/tar.gz/8f24d6b04c92975e0795b5868aa0d783251cdeaa
+        version: git+https://git@github.com:foundry-rs/forge-std.git#83c5d212a01f8950727da4095cdfe2654baccb5b
       ipfs-http-client:
         specifier: ^60.0.1
         version: 60.0.1(encoding@0.1.13)
@@ -353,19 +353,19 @@ importers:
         version: 0.4.0
       murky:
         specifier: github:dmfxyz/murky
-        version: https://codeload.github.com/dmfxyz/murky/tar.gz/5feccd1253d7da820f7cccccdedf64471025455d
+        version: git+https://git@github.com:dmfxyz/murky.git#6f67641219549ca78f575a12493e25fe193da727
       p256-verifier:
         specifier: github:taikoxyz/p256-verifier#v0.1.0
-        version: p256-verifier#v0.1.0@https://codeload.github.com/taikoxyz/p256-verifier/tar.gz/6ef45b117642786b08a37b4c37c6a6ce151166da
+        version: p256-verifier#v0.1.0@git+https://git@github.com:taikoxyz/p256-verifier.git#6ef45b117642786b08a37b4c37c6a6ce151166da
       sharp:
         specifier: ^0.33.3
         version: 0.33.3
       solady:
         specifier: github:Vectorized/solady#v0.0.167
-        version: https://codeload.github.com/Vectorized/solady/tar.gz/de0f336d2033d04e0f77c923d639c7fbffd48b6d
+        version: git+https://git@github.com:Vectorized/solady.git#de0f336d2033d04e0f77c923d639c7fbffd48b6d
       solidity-stringutils:
         specifier: github:Arachnid/solidity-stringutils
-        version: https://codeload.github.com/Arachnid/solidity-stringutils/tar.gz/4b2fcc43fa0426e19ce88b1f1ec16f5903a2e461
+        version: git+https://git@github.com:Arachnid/solidity-stringutils.git#4b2fcc43fa0426e19ce88b1f1ec16f5903a2e461
     devDependencies:
       '@types/node':
         specifier: ^20.11.30
@@ -423,34 +423,34 @@ importers:
         version: 4.9.6
       ds-test:
         specifier: github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0
-        version: https://codeload.github.com/dapphub/ds-test/tar.gz/e282159d5170298eb2455a6c05280ab5a73a4ef0
+        version: git+https://git@github.com:dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0
       eigenlayer-contracts:
         specifier: github:Layr-labs/eigenlayer-contracts#dev
-        version: https://codeload.github.com/Layr-labs/eigenlayer-contracts/tar.gz/30040aa273edeefe83333fa9183a0a26a84cebf0(hardhat@2.22.13(bufferutil@4.0.8)(ts-node@10.9.2(@types/node@20.12.7)(typescript@5.4.3))(typescript@5.4.3)(utf-8-validate@5.0.10))
+        version: git+https://git@github.com:Layr-labs/eigenlayer-contracts.git#ac57bc1b28c83d9d7143c0da19167c148c3596a3(hardhat@2.22.13(bufferutil@4.0.8)(ts-node@10.9.2(@types/node@20.12.7)(typescript@5.4.3))(typescript@5.4.3)(utf-8-validate@5.0.10))
       eigenlayer-middleware:
         specifier: github:layr-Labs/eigenlayer-middleware#mainnet
-        version: https://codeload.github.com/layr-Labs/eigenlayer-middleware/tar.gz/7d49b5181b09198ed275783453aa082bb3766990
+        version: git+https://git@github.com:layr-Labs/eigenlayer-middleware.git#7d49b5181b09198ed275783453aa082bb3766990
       forge-std:
         specifier: github:foundry-rs/forge-std#v1.7.5
-        version: https://codeload.github.com/foundry-rs/forge-std/tar.gz/36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3
+        version: git+https://git@github.com:foundry-rs/forge-std.git#36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3
       merkletreejs:
         specifier: ^0.4.0
         version: 0.4.0
       optimism:
         specifier: github:ethereum-optimism/optimism#v1.8.0
-        version: https://codeload.github.com/ethereum-optimism/optimism/tar.gz/ab3a54febb36398539fd3b849c222b7e70169dc8
+        version: git+https://git@github.com:ethereum-optimism/optimism.git#ab3a54febb36398539fd3b849c222b7e70169dc8
       p256-verifier:
         specifier: github:taikoxyz/p256-verifier#v0.1.0
-        version: p256-verifier#v0.1.0@https://codeload.github.com/taikoxyz/p256-verifier/tar.gz/6ef45b117642786b08a37b4c37c6a6ce151166da
+        version: p256-verifier#v0.1.0@git+https://git@github.com:taikoxyz/p256-verifier.git#6ef45b117642786b08a37b4c37c6a6ce151166da
       risc0-ethereum:
         specifier: github:risc0/risc0-ethereum#v1.1.2
-        version: risc0-ethereum#v1.1.2@https://codeload.github.com/risc0/risc0-ethereum/tar.gz/b8a14213d92fff07dacda993804e7edb7946ca58
+        version: risc0-ethereum#v1.1.2@git+https://git@github.com:risc0/risc0-ethereum.git#b8a14213d92fff07dacda993804e7edb7946ca58
       solady:
         specifier: github:Vectorized/solady#v0.0.231
-        version: https://codeload.github.com/Vectorized/solady/tar.gz/a12a2575c899a328c1bafdada632dabbff27cf6b
+        version: git+https://git@github.com:Vectorized/solady.git#a12a2575c899a328c1bafdada632dabbff27cf6b
       sp1-contracts:
         specifier: github:succinctlabs/sp1-contracts#v3.0.0
-        version: sp1-contracts#v3.0.0@https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/1c4acaeab86789995ae5c6baced66f81e4a57f4d
+        version: sp1-contracts#v3.0.0@git+https://git@github.com:succinctlabs/sp1-contracts.git#1c4acaeab86789995ae5c6baced66f81e4a57f4d
     devDependencies:
       '@types/node':
         specifier: ^20.11.30
@@ -664,19 +664,19 @@ importers:
         version: 4.9.6
       ds-test:
         specifier: github:dapphub/ds-test#e282159d5170298eb2455a6c05280ab5a73a4ef0
-        version: https://codeload.github.com/dapphub/ds-test/tar.gz/e282159d5170298eb2455a6c05280ab5a73a4ef0
+        version: git+https://git@github.com:dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0
       forge-std:
         specifier: github:foundry-rs/forge-std#v1.7.5
-        version: https://codeload.github.com/foundry-rs/forge-std/tar.gz/36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3
+        version: git+https://git@github.com:foundry-rs/forge-std.git#36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3
       merkletreejs:
         specifier: ^0.4.0
         version: 0.4.0
       p256-verifier:
         specifier: github:taikoxyz/p256-verifier#v0.1.0
-        version: p256-verifier#v0.1.0@https://codeload.github.com/taikoxyz/p256-verifier/tar.gz/6ef45b117642786b08a37b4c37c6a6ce151166da
+        version: p256-verifier#v0.1.0@git+https://git@github.com:taikoxyz/p256-verifier.git#6ef45b117642786b08a37b4c37c6a6ce151166da
       solady:
         specifier: github:Vectorized/solady#v0.0.167
-        version: https://codeload.github.com/Vectorized/solady/tar.gz/de0f336d2033d04e0f77c923d639c7fbffd48b6d
+        version: git+https://git@github.com:Vectorized/solady.git#de0f336d2033d04e0f77c923d639c7fbffd48b6d
     devDependencies:
       '@types/node':
         specifier: ^20.11.30
@@ -911,8 +911,8 @@ importers:
         specifier: ^8.0.10
         version: 8.3.0(react-dom@18.2.0(react@18.2.0))(react@18.2.0)(storybook@8.3.0(bufferutil@4.0.8)(utf-8-validate@6.0.3))
       '@storybook/svelte':
-        specifier: ^8.0.10
-        version: 8.3.0(storybook@8.3.0(bufferutil@4.0.8)(utf-8-validate@6.0.3))(svelte@4.2.17)
+        specifier: ^8.4.6
+        version: 8.4.6(storybook@8.3.0(bufferutil@4.0.8)(utf-8-validate@6.0.3))(svelte@4.2.17)
       '@storybook/sveltekit':
         specifier: ^8.0.10
         version: 8.3.0(@babel/core@7.25.2)(@sveltejs/vite-plugin-svelte@3.1.0(svelte@4.2.17)(vite@5.2.11(@types/node@20.12.7)(terser@5.27.2)))(postcss-load-config@4.0.2(postcss@8.4.47)(ts-node@10.9.2(@types/node@20.12.7)(typescript@5.4.5)))(postcss@8.4.47)(storybook@8.3.0(bufferutil@4.0.8)(utf-8-validate@6.0.3))(svelte@4.2.17)(typescript@5.4.5)(vite@5.2.11(@types/node@20.12.7)(terser@5.27.2))
@@ -4766,10 +4766,10 @@ packages:
       vite-plugin-glimmerx:
         optional: true
 
-  '@storybook/components@8.3.0':
-    resolution: {integrity: sha512-SO/iTkmWp3aYCIy8DEhRMoOn6K7lcKTPNC/YjTvOFFzwq/CLq86WNqz6aX+wV5n6MvWTs7evSwMoz7lp4Lc4sw==}
+  '@storybook/components@8.4.6':
+    resolution: {integrity: sha512-9tKSJJCyFT5RZMRGyozTBJkr9C9Yfk1nuOE9XbDEE1Z+3/IypKR9+iwc5mfNBStDNY+rxtYWNLKBb5GPR2yhzA==}
     peerDependencies:
-      storybook: ^8.3.0
+      storybook: ^8.2.0 || ^8.3.0-0 || ^8.4.0-0 || ^8.5.0-0 || ^8.6.0-0
 
   '@storybook/core@8.3.0':
     resolution: {integrity: sha512-UeErpD0xRIP2nFA2TjPYxtEyv24O6VRfq2XXU5ki2QPYnxOxAPBbrMHCADjgBwNS4S2NUWTaVBYxybISVbrj+w==}
@@ -4800,15 +4800,15 @@ packages:
     peerDependencies:
       storybook: ^8.3.0
 
-  '@storybook/manager-api@8.3.0':
-    resolution: {integrity: sha512-5WBLEFHpe4H+9vZZLjNh7msIkyl9MPt4/C2nI+MXKZyU55xBBgiAy4fcD9aj02PcbhyR4JhLqbqmdeBe5Xafeg==}
+  '@storybook/manager-api@8.4.6':
+    resolution: {integrity: sha512-TsXlQ5m5rTl2KNT9icPFyy822AqXrx1QplZBt/L7cFn7SpqQKDeSta21FH7MG0piAvzOweXebVSqKngJ6cCWWQ==}
     peerDependencies:
-      storybook: ^8.3.0
+      storybook: ^8.2.0 || ^8.3.0-0 || ^8.4.0-0 || ^8.5.0-0 || ^8.6.0-0
 
-  '@storybook/preview-api@8.3.0':
-    resolution: {integrity: sha512-pHq/T7oWBfzc9TCIPYyJQUXuiUiFfmdrcYvuZE1kf46i7wXh9Q2/Kd3BUJWSCpBXUMoYfAxg9YysGljMII8LWA==}
+  '@storybook/preview-api@8.4.6':
+    resolution: {integrity: sha512-LbD+lR1FGvWaJBXteVx5xdgs1x1D7tyidBg2CsW2ex+cP0iJ176JgjPfutZxlWOfQnhfRYNnJ3WKoCIfxFOTKA==}
     peerDependencies:
-      storybook: ^8.3.0
+      storybook: ^8.2.0 || ^8.3.0-0 || ^8.4.0-0 || ^8.5.0-0 || ^8.6.0-0
 
   '@storybook/react-dom-shim@8.3.0':
     resolution: {integrity: sha512-87X4cvgwFT1ll5SzXgQq6iGbkVCgxLBpBm58akF/hzpeRkwfJDncGi/A5hElOJrBg63IkznmSJE7tf9RkrboqQ==}
@@ -4833,6 +4833,13 @@ packages:
       storybook: ^8.3.0
       svelte: ^4.0.0 || ^5.0.0-next.65
 
+  '@storybook/svelte@8.4.6':
+    resolution: {integrity: sha512-rqMpAtcTIVNcKtYnSvdzvTLcDd1QwNjq2opFjKYNmmycqdMH8SFsGHtVx159jJRxsXZ3N6i8cXOvmRvDfO5uUA==}
+    engines: {node: '>=18.0.0'}
+    peerDependencies:
+      storybook: ^8.4.6
+      svelte: ^4.0.0 || ^5.0.0
+
   '@storybook/sveltekit@8.3.0':
     resolution: {integrity: sha512-KhUel8y2ebzvWA/2xV3r+JSWw/zM2N8k/5k/GElZEOo0jI0vgP6dKaGEgXjqqX4uy+sGwpk+3/UC6JR5e5gdGA==}
     engines: {node: '>=18.0.0'}
@@ -4846,10 +4853,10 @@ packages:
     peerDependencies:
       storybook: ^8.3.0
 
-  '@storybook/theming@8.3.0':
-    resolution: {integrity: sha512-lJCarAzswZvUgBt/o1LMJp+07Io5G2VI1+Fw+bgn+92kRD8otCFwuMZIy0u7cEjHiEGqGnpzThlIki6vFjEXeA==}
+  '@storybook/theming@8.4.6':
+    resolution: {integrity: sha512-q7vDPN/mgj7cXIVQ9R1/V75hrzNgKkm2G0LjMo57//9/djQ+7LxvBsR1iScbFIRSEqppvMiBFzkts+2uXidySA==}
     peerDependencies:
-      storybook: ^8.3.0
+      storybook: ^8.2.0 || ^8.3.0-0 || ^8.4.0-0 || ^8.5.0-0 || ^8.6.0-0
 
   '@sveltejs/adapter-auto@3.2.0':
     resolution: {integrity: sha512-She5nKT47kwHE18v9NMe6pbJcvULr82u0V3yZ0ej3n1laWKGgkgdEABE9/ak5iDPs93LqsBkuIo51kkwCLBjJA==}
@@ -7151,8 +7158,8 @@ packages:
     resolution: {integrity: sha512-ZmdL2rui+eB2YwhsWzjInR8LldtZHGDoQ1ugH85ppHKwpUHL7j7rN0Ti9NCnGiQbhaZ11FpR+7ao1dNsmduNUg==}
     engines: {node: '>=12'}
 
-  ds-test@https://codeload.github.com/dapphub/ds-test/tar.gz/e282159d5170298eb2455a6c05280ab5a73a4ef0:
-    resolution: {tarball: https://codeload.github.com/dapphub/ds-test/tar.gz/e282159d5170298eb2455a6c05280ab5a73a4ef0}
+  ds-test@git+https://git@github.com:dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0:
+    resolution: {commit: e282159d5170298eb2455a6c05280ab5a73a4ef0, repo: git@github.com:dapphub/ds-test.git, type: git}
     version: 1.0.0
 
   dset@3.1.3:
@@ -7170,16 +7177,17 @@ packages:
 
   eciesjs@0.3.18:
     resolution: {integrity: sha512-RQhegEtLSyIiGJmFTZfvCTHER/fymipXFVx6OwSRYD6hOuy+6Kjpk0dGvIfP9kxn/smBpxQy71uxpGO406ITCw==}
+    deprecated: Please upgrade to v0.4+
 
   ee-first@1.1.1:
     resolution: {integrity: sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow==}
 
-  eigenlayer-contracts@https://codeload.github.com/Layr-labs/eigenlayer-contracts/tar.gz/30040aa273edeefe83333fa9183a0a26a84cebf0:
-    resolution: {tarball: https://codeload.github.com/Layr-labs/eigenlayer-contracts/tar.gz/30040aa273edeefe83333fa9183a0a26a84cebf0}
+  eigenlayer-contracts@git+https://git@github.com:Layr-labs/eigenlayer-contracts.git#ac57bc1b28c83d9d7143c0da19167c148c3596a3:
+    resolution: {commit: ac57bc1b28c83d9d7143c0da19167c148c3596a3, repo: git@github.com:Layr-labs/eigenlayer-contracts.git, type: git}
     version: 1.0.0
 
-  eigenlayer-middleware@https://codeload.github.com/layr-Labs/eigenlayer-middleware/tar.gz/7d49b5181b09198ed275783453aa082bb3766990:
-    resolution: {tarball: https://codeload.github.com/layr-Labs/eigenlayer-middleware/tar.gz/7d49b5181b09198ed275783453aa082bb3766990}
+  eigenlayer-middleware@git+https://git@github.com:layr-Labs/eigenlayer-middleware.git#7d49b5181b09198ed275783453aa082bb3766990:
+    resolution: {commit: 7d49b5181b09198ed275783453aa082bb3766990, repo: git@github.com:layr-Labs/eigenlayer-middleware.git, type: git}
     version: 0.0.0
 
   electron-fetch@1.9.1:
@@ -7531,16 +7539,19 @@ packages:
   eslint@8.4.1:
     resolution: {integrity: sha512-TxU/p7LB1KxQ6+7aztTnO7K0i+h0tDi81YRY9VzB6Id71kNz+fFYnf5HD5UOQmxkzcoa0TlVZf9dpMtUv0GpWg==}
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
+    deprecated: This version is no longer supported. Please see https://eslint.org/version-support for other options.
     hasBin: true
 
   eslint@8.55.0:
     resolution: {integrity: sha512-iyUUAM0PCKj5QpwGfmCAG9XXbZCWsqP/eWAWrG/W0umvjuLRBECwSFdt+rCntju0xEH7teIABPwXpahftIaTdA==}
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
+    deprecated: This version is no longer supported. Please see https://eslint.org/version-support for other options.
     hasBin: true
 
   eslint@8.56.0:
     resolution: {integrity: sha512-Go19xM6T9puCOWntie1/P997aXxFsOi37JIHRWI514Hc6ZnaHGKY9xFhrU65RT6CcBEzZoGG1e6Nq+DT04ZtZQ==}
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
+    deprecated: This version is no longer supported. Please see https://eslint.org/version-support for other options.
     hasBin: true
 
   esm-env@1.0.0:
@@ -7929,13 +7940,13 @@ packages:
   forever-agent@0.6.1:
     resolution: {integrity: sha512-j0KLYPhm6zeac4lz3oJ3o65qvgQCcPubiyotZrXqEaG4hNagNYO8qdlUrX5vwqv9ohqeT/Z3j6+yW067yWWdUw==}
 
-  forge-std@https://codeload.github.com/foundry-rs/forge-std/tar.gz/36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3:
-    resolution: {tarball: https://codeload.github.com/foundry-rs/forge-std/tar.gz/36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3}
+  forge-std@git+https://git@github.com:foundry-rs/forge-std.git#36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3:
+    resolution: {commit: 36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3, repo: git@github.com:foundry-rs/forge-std.git, type: git}
     version: 1.7.5
 
-  forge-std@https://codeload.github.com/foundry-rs/forge-std/tar.gz/8f24d6b04c92975e0795b5868aa0d783251cdeaa:
-    resolution: {tarball: https://codeload.github.com/foundry-rs/forge-std/tar.gz/8f24d6b04c92975e0795b5868aa0d783251cdeaa}
-    version: 1.9.3
+  forge-std@git+https://git@github.com:foundry-rs/forge-std.git#83c5d212a01f8950727da4095cdfe2654baccb5b:
+    resolution: {commit: 83c5d212a01f8950727da4095cdfe2654baccb5b, repo: git@github.com:foundry-rs/forge-std.git, type: git}
+    version: 1.9.4
 
   form-data-encoder@1.7.1:
     resolution: {integrity: sha512-EFRDrsMm/kyqbTQocNvRXMLjc7Es2Vk+IQFx/YW7hkUH1eBl4J1fqiP34l74Yt0pFLCNpc06fkbVk00008mzjg==}
@@ -9866,9 +9877,9 @@ packages:
   multihashes@0.4.21:
     resolution: {integrity: sha512-uVSvmeCWf36pU2nB4/1kzYZjsXD9vofZKpgudqkceYY5g2aZZXJ5r9lxuzoRLl1OAp28XljXsEJ/X/85ZsKmKw==}
 
-  murky@https://codeload.github.com/dmfxyz/murky/tar.gz/5feccd1253d7da820f7cccccdedf64471025455d:
-    resolution: {tarball: https://codeload.github.com/dmfxyz/murky/tar.gz/5feccd1253d7da820f7cccccdedf64471025455d}
-    version: 0.0.0
+  murky@git+https://git@github.com:dmfxyz/murky.git#6f67641219549ca78f575a12493e25fe193da727:
+    resolution: {commit: 6f67641219549ca78f575a12493e25fe193da727, repo: git@github.com:dmfxyz/murky.git, type: git}
+    version: 0.1.0
 
   mute-stream@0.0.8:
     resolution: {integrity: sha512-nnbWWOkoWyUsTjKrhgD0dcz22mdkSnpYqbEjIm2nhwhuxlSkpywJmBo8h0ZqJdkp73mb90SssHkN4rsRaBAfAA==}
@@ -10133,8 +10144,8 @@ packages:
   openapi-types@12.1.3:
     resolution: {integrity: sha512-N4YtSYJqghVu4iek2ZUvcN/0aqH1kRDuNqzcycDxhOUpg7GdvLa2F3DgS6yBNhInhv2r/6I0Flkn7CqL8+nIcw==}
 
-  optimism@https://codeload.github.com/ethereum-optimism/optimism/tar.gz/ab3a54febb36398539fd3b849c222b7e70169dc8:
-    resolution: {tarball: https://codeload.github.com/ethereum-optimism/optimism/tar.gz/ab3a54febb36398539fd3b849c222b7e70169dc8}
+  optimism@git+https://git@github.com:ethereum-optimism/optimism.git#ab3a54febb36398539fd3b849c222b7e70169dc8:
+    resolution: {commit: ab3a54febb36398539fd3b849c222b7e70169dc8, repo: git@github.com:ethereum-optimism/optimism.git, type: git}
     version: 1.0.0
     engines: {node: '>=16', pnpm: '>=9'}
 
@@ -10256,8 +10267,8 @@ packages:
     resolution: {integrity: sha512-R4nPAVTAU0B9D35/Gk3uJf/7XYbQcyohSKdvAxIRSNghFl4e71hVoGnBNQz9cWaXxO2I10KTC+3jMdvvoKw6dQ==}
     engines: {node: '>=6'}
 
-  p256-verifier#v0.1.0@https://codeload.github.com/taikoxyz/p256-verifier/tar.gz/6ef45b117642786b08a37b4c37c6a6ce151166da:
-    resolution: {tarball: https://codeload.github.com/taikoxyz/p256-verifier/tar.gz/6ef45b117642786b08a37b4c37c6a6ce151166da}
+  p256-verifier#v0.1.0@git+https://git@github.com:taikoxyz/p256-verifier.git#6ef45b117642786b08a37b4c37c6a6ce151166da:
+    resolution: {commit: 6ef45b117642786b08a37b4c37c6a6ce151166da, repo: git@github.com:taikoxyz/p256-verifier.git, type: git}
     version: 0.0.0
 
   package-json-from-dist@1.0.0:
@@ -11101,8 +11112,8 @@ packages:
   ripemd160@2.0.2:
     resolution: {integrity: sha512-ii4iagi25WusVoiC4B4lq7pbXfAp3D9v5CwfkY33vffw2+pkDjY1D8GaN7spsxvCSx8dkPqOZCEZyfxcmJG2IA==}
 
-  risc0-ethereum#v1.1.2@https://codeload.github.com/risc0/risc0-ethereum/tar.gz/b8a14213d92fff07dacda993804e7edb7946ca58:
-    resolution: {tarball: https://codeload.github.com/risc0/risc0-ethereum/tar.gz/b8a14213d92fff07dacda993804e7edb7946ca58}
+  risc0-ethereum#v1.1.2@git+https://git@github.com:risc0/risc0-ethereum.git#b8a14213d92fff07dacda993804e7edb7946ca58:
+    resolution: {commit: b8a14213d92fff07dacda993804e7edb7946ca58, repo: git@github.com:risc0/risc0-ethereum.git, type: git}
     version: 0.0.0
 
   rlp@2.2.7:
@@ -11376,12 +11387,12 @@ packages:
     resolution: {integrity: sha512-/GbIKmo8ioc+NIWIhwdecY0ge+qVBSMdgxGygevmdHj24bsfgtCmcUUcQ5ZzcylGFHsN3k4HB4Cgkl96KVnuew==}
     engines: {node: '>=10.0.0'}
 
-  solady@https://codeload.github.com/Vectorized/solady/tar.gz/a12a2575c899a328c1bafdada632dabbff27cf6b:
-    resolution: {tarball: https://codeload.github.com/Vectorized/solady/tar.gz/a12a2575c899a328c1bafdada632dabbff27cf6b}
+  solady@git+https://git@github.com:Vectorized/solady.git#a12a2575c899a328c1bafdada632dabbff27cf6b:
+    resolution: {commit: a12a2575c899a328c1bafdada632dabbff27cf6b, repo: git@github.com:Vectorized/solady.git, type: git}
     version: 0.0.231
 
-  solady@https://codeload.github.com/Vectorized/solady/tar.gz/de0f336d2033d04e0f77c923d639c7fbffd48b6d:
-    resolution: {tarball: https://codeload.github.com/Vectorized/solady/tar.gz/de0f336d2033d04e0f77c923d639c7fbffd48b6d}
+  solady@git+https://git@github.com:Vectorized/solady.git#de0f336d2033d04e0f77c923d639c7fbffd48b6d:
+    resolution: {commit: de0f336d2033d04e0f77c923d639c7fbffd48b6d, repo: git@github.com:Vectorized/solady.git, type: git}
     version: 0.0.167
 
   solc@0.8.24:
@@ -11410,8 +11421,8 @@ packages:
     peerDependencies:
       hardhat: ^2.8.0
 
-  solidity-stringutils@https://codeload.github.com/Arachnid/solidity-stringutils/tar.gz/4b2fcc43fa0426e19ce88b1f1ec16f5903a2e461:
-    resolution: {tarball: https://codeload.github.com/Arachnid/solidity-stringutils/tar.gz/4b2fcc43fa0426e19ce88b1f1ec16f5903a2e461}
+  solidity-stringutils@git+https://git@github.com:Arachnid/solidity-stringutils.git#4b2fcc43fa0426e19ce88b1f1ec16f5903a2e461:
+    resolution: {commit: 4b2fcc43fa0426e19ce88b1f1ec16f5903a2e461, repo: git@github.com:Arachnid/solidity-stringutils.git, type: git}
     version: 0.0.0
 
   sonic-boom@2.8.0:
@@ -11444,8 +11455,8 @@ packages:
     resolution: {integrity: sha512-l3BikUxvPOcn5E74dZiq5BGsTb5yEwhaTSzccU6t4sDOH8NWJCstKO5QT2CvtFoK6F0saL7p9xHAqHOlCPJygA==}
     engines: {node: '>= 8'}
 
-  sp1-contracts#v3.0.0@https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/1c4acaeab86789995ae5c6baced66f81e4a57f4d:
-    resolution: {tarball: https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/1c4acaeab86789995ae5c6baced66f81e4a57f4d}
+  sp1-contracts#v3.0.0@git+https://git@github.com:succinctlabs/sp1-contracts.git#1c4acaeab86789995ae5c6baced66f81e4a57f4d:
+    resolution: {commit: 1c4acaeab86789995ae5c6baced66f81e4a57f4d, repo: git@github.com:succinctlabs/sp1-contracts.git, type: git}
     version: 0.0.0
 
   space-separated-tokens@2.0.2:
@@ -13435,8 +13446,8 @@ snapshots:
       '@aws-crypto/sha1-browser': 3.0.0
       '@aws-crypto/sha256-browser': 3.0.0
       '@aws-crypto/sha256-js': 3.0.0
-      '@aws-sdk/client-sso-oidc': 3.577.0(@aws-sdk/client-sts@3.577.0)
-      '@aws-sdk/client-sts': 3.577.0
+      '@aws-sdk/client-sso-oidc': 3.577.0
+      '@aws-sdk/client-sts': 3.577.0(@aws-sdk/client-sso-oidc@3.577.0)
       '@aws-sdk/core': 3.576.0
       '@aws-sdk/credential-provider-node': 3.577.0(@aws-sdk/client-sso-oidc@3.577.0)(@aws-sdk/client-sts@3.577.0)
       '@aws-sdk/middleware-bucket-endpoint': 3.577.0
@@ -13493,11 +13504,11 @@ snapshots:
     transitivePeerDependencies:
       - aws-crt
 
-  '@aws-sdk/client-sso-oidc@3.577.0(@aws-sdk/client-sts@3.577.0)':
+  '@aws-sdk/client-sso-oidc@3.577.0':
     dependencies:
       '@aws-crypto/sha256-browser': 3.0.0
       '@aws-crypto/sha256-js': 3.0.0
-      '@aws-sdk/client-sts': 3.577.0
+      '@aws-sdk/client-sts': 3.577.0(@aws-sdk/client-sso-oidc@3.577.0)
       '@aws-sdk/core': 3.576.0
       '@aws-sdk/credential-provider-node': 3.577.0(@aws-sdk/client-sso-oidc@3.577.0)(@aws-sdk/client-sts@3.577.0)
       '@aws-sdk/middleware-host-header': 3.577.0
@@ -13536,7 +13547,6 @@ snapshots:
       '@smithy/util-utf8': 3.0.0
       tslib: 2.6.2
     transitivePeerDependencies:
-      - '@aws-sdk/client-sts'
       - aws-crt
 
   '@aws-sdk/client-sso@3.577.0':
@@ -13582,11 +13592,11 @@ snapshots:
     transitivePeerDependencies:
       - aws-crt
 
-  '@aws-sdk/client-sts@3.577.0':
+  '@aws-sdk/client-sts@3.577.0(@aws-sdk/client-sso-oidc@3.577.0)':
     dependencies:
       '@aws-crypto/sha256-browser': 3.0.0
       '@aws-crypto/sha256-js': 3.0.0
-      '@aws-sdk/client-sso-oidc': 3.577.0(@aws-sdk/client-sts@3.577.0)
+      '@aws-sdk/client-sso-oidc': 3.577.0
       '@aws-sdk/core': 3.576.0
       '@aws-sdk/credential-provider-node': 3.577.0(@aws-sdk/client-sso-oidc@3.577.0)(@aws-sdk/client-sts@3.577.0)
       '@aws-sdk/middleware-host-header': 3.577.0
@@ -13625,6 +13635,7 @@ snapshots:
       '@smithy/util-utf8': 3.0.0
       tslib: 2.6.2
     transitivePeerDependencies:
+      - '@aws-sdk/client-sso-oidc'
       - aws-crt
 
   '@aws-sdk/core@3.576.0':
@@ -13658,7 +13669,7 @@ snapshots:
 
   '@aws-sdk/credential-provider-ini@3.577.0(@aws-sdk/client-sso-oidc@3.577.0)(@aws-sdk/client-sts@3.577.0)':
     dependencies:
-      '@aws-sdk/client-sts': 3.577.0
+      '@aws-sdk/client-sts': 3.577.0(@aws-sdk/client-sso-oidc@3.577.0)
       '@aws-sdk/credential-provider-env': 3.577.0
       '@aws-sdk/credential-provider-process': 3.577.0
       '@aws-sdk/credential-provider-sso': 3.577.0(@aws-sdk/client-sso-oidc@3.577.0)
@@ -13715,7 +13726,7 @@ snapshots:
 
   '@aws-sdk/credential-provider-web-identity@3.577.0(@aws-sdk/client-sts@3.577.0)':
     dependencies:
-      '@aws-sdk/client-sts': 3.577.0
+      '@aws-sdk/client-sts': 3.577.0(@aws-sdk/client-sso-oidc@3.577.0)
       '@aws-sdk/types': 3.577.0
       '@smithy/property-provider': 3.0.0
       '@smithy/types': 3.0.0
@@ -13842,7 +13853,7 @@ snapshots:
 
   '@aws-sdk/token-providers@3.577.0(@aws-sdk/client-sso-oidc@3.577.0)':
     dependencies:
-      '@aws-sdk/client-sso-oidc': 3.577.0(@aws-sdk/client-sts@3.577.0)
+      '@aws-sdk/client-sso-oidc': 3.577.0
       '@aws-sdk/types': 3.577.0
       '@smithy/property-provider': 3.0.0
       '@smithy/shared-ini-file-loader': 3.0.0
@@ -18371,7 +18382,7 @@ snapshots:
       - supports-color
       - webpack-sources
 
-  '@storybook/components@8.3.0(storybook@8.3.0(bufferutil@4.0.8)(utf-8-validate@6.0.3))':
+  '@storybook/components@8.4.6(storybook@8.3.0(bufferutil@4.0.8)(utf-8-validate@6.0.3))':
     dependencies:
       storybook: 8.3.0(bufferutil@4.0.8)(utf-8-validate@6.0.3)
 
@@ -18422,11 +18433,11 @@ snapshots:
       storybook: 8.3.0(bufferutil@4.0.8)(utf-8-validate@6.0.3)
       util: 0.12.5
 
-  '@storybook/manager-api@8.3.0(storybook@8.3.0(bufferutil@4.0.8)(utf-8-validate@6.0.3))':
+  '@storybook/manager-api@8.4.6(storybook@8.3.0(bufferutil@4.0.8)(utf-8-validate@6.0.3))':
     dependencies:
       storybook: 8.3.0(bufferutil@4.0.8)(utf-8-validate@6.0.3)
 
-  '@storybook/preview-api@8.3.0(storybook@8.3.0(bufferutil@4.0.8)(utf-8-validate@6.0.3))':
+  '@storybook/preview-api@8.4.6(storybook@8.3.0(bufferutil@4.0.8)(utf-8-validate@6.0.3))':
     dependencies:
       storybook: 8.3.0(bufferutil@4.0.8)(utf-8-validate@6.0.3)
 
@@ -18466,11 +18477,26 @@ snapshots:
 
   '@storybook/svelte@8.3.0(storybook@8.3.0(bufferutil@4.0.8)(utf-8-validate@6.0.3))(svelte@4.2.17)':
     dependencies:
-      '@storybook/components': 8.3.0(storybook@8.3.0(bufferutil@4.0.8)(utf-8-validate@6.0.3))
+      '@storybook/components': 8.4.6(storybook@8.3.0(bufferutil@4.0.8)(utf-8-validate@6.0.3))
       '@storybook/global': 5.0.0
-      '@storybook/manager-api': 8.3.0(storybook@8.3.0(bufferutil@4.0.8)(utf-8-validate@6.0.3))
-      '@storybook/preview-api': 8.3.0(storybook@8.3.0(bufferutil@4.0.8)(utf-8-validate@6.0.3))
-      '@storybook/theming': 8.3.0(storybook@8.3.0(bufferutil@4.0.8)(utf-8-validate@6.0.3))
+      '@storybook/manager-api': 8.4.6(storybook@8.3.0(bufferutil@4.0.8)(utf-8-validate@6.0.3))
+      '@storybook/preview-api': 8.4.6(storybook@8.3.0(bufferutil@4.0.8)(utf-8-validate@6.0.3))
+      '@storybook/theming': 8.4.6(storybook@8.3.0(bufferutil@4.0.8)(utf-8-validate@6.0.3))
+      storybook: 8.3.0(bufferutil@4.0.8)(utf-8-validate@6.0.3)
+      svelte: 4.2.17
+      sveltedoc-parser: 4.2.1
+      ts-dedent: 2.2.0
+      type-fest: 2.19.0
+    transitivePeerDependencies:
+      - supports-color
+
+  '@storybook/svelte@8.4.6(storybook@8.3.0(bufferutil@4.0.8)(utf-8-validate@6.0.3))(svelte@4.2.17)':
+    dependencies:
+      '@storybook/components': 8.4.6(storybook@8.3.0(bufferutil@4.0.8)(utf-8-validate@6.0.3))
+      '@storybook/global': 5.0.0
+      '@storybook/manager-api': 8.4.6(storybook@8.3.0(bufferutil@4.0.8)(utf-8-validate@6.0.3))
+      '@storybook/preview-api': 8.4.6(storybook@8.3.0(bufferutil@4.0.8)(utf-8-validate@6.0.3))
+      '@storybook/theming': 8.4.6(storybook@8.3.0(bufferutil@4.0.8)(utf-8-validate@6.0.3))
       storybook: 8.3.0(bufferutil@4.0.8)(utf-8-validate@6.0.3)
       svelte: 4.2.17
       sveltedoc-parser: 4.2.1
@@ -18518,7 +18544,7 @@ snapshots:
       storybook: 8.3.0(bufferutil@4.0.8)(utf-8-validate@6.0.3)
       util: 0.12.5
 
-  '@storybook/theming@8.3.0(storybook@8.3.0(bufferutil@4.0.8)(utf-8-validate@6.0.3))':
+  '@storybook/theming@8.4.6(storybook@8.3.0(bufferutil@4.0.8)(utf-8-validate@6.0.3))':
     dependencies:
       storybook: 8.3.0(bufferutil@4.0.8)(utf-8-validate@6.0.3)
 
@@ -22481,7 +22507,7 @@ snapshots:
 
   dotenv@16.4.5: {}
 
-  ds-test@https://codeload.github.com/dapphub/ds-test/tar.gz/e282159d5170298eb2455a6c05280ab5a73a4ef0: {}
+  ds-test@git+https://git@github.com:dapphub/ds-test.git#e282159d5170298eb2455a6c05280ab5a73a4ef0: {}
 
   dset@3.1.3: {}
 
@@ -22507,13 +22533,13 @@ snapshots:
 
   ee-first@1.1.1: {}
 
-  eigenlayer-contracts@https://codeload.github.com/Layr-labs/eigenlayer-contracts/tar.gz/30040aa273edeefe83333fa9183a0a26a84cebf0(hardhat@2.22.13(bufferutil@4.0.8)(ts-node@10.9.2(@types/node@20.12.7)(typescript@5.4.3))(typescript@5.4.3)(utf-8-validate@5.0.10)):
+  eigenlayer-contracts@git+https://git@github.com:Layr-labs/eigenlayer-contracts.git#ac57bc1b28c83d9d7143c0da19167c148c3596a3(hardhat@2.22.13(bufferutil@4.0.8)(ts-node@10.9.2(@types/node@20.12.7)(typescript@5.4.3))(typescript@5.4.3)(utf-8-validate@5.0.10)):
     dependencies:
       solidity-docgen: 0.6.0-beta.36(hardhat@2.22.13(bufferutil@4.0.8)(ts-node@10.9.2(@types/node@20.12.7)(typescript@5.4.3))(typescript@5.4.3)(utf-8-validate@5.0.10))
     transitivePeerDependencies:
       - hardhat
 
-  eigenlayer-middleware@https://codeload.github.com/layr-Labs/eigenlayer-middleware/tar.gz/7d49b5181b09198ed275783453aa082bb3766990: {}
+  eigenlayer-middleware@git+https://git@github.com:layr-Labs/eigenlayer-middleware.git#7d49b5181b09198ed275783453aa082bb3766990: {}
 
   electron-fetch@1.9.1:
     dependencies:
@@ -23392,8 +23418,8 @@ snapshots:
 
   espree@9.2.0:
     dependencies:
-      acorn: 8.11.3
-      acorn-jsx: 5.3.2(acorn@8.11.3)
+      acorn: 8.12.1
+      acorn-jsx: 5.3.2(acorn@8.12.1)
       eslint-visitor-keys: 3.4.3
 
   espree@9.6.1:
@@ -23932,9 +23958,9 @@ snapshots:
 
   forever-agent@0.6.1: {}
 
-  forge-std@https://codeload.github.com/foundry-rs/forge-std/tar.gz/36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3: {}
+  forge-std@git+https://git@github.com:foundry-rs/forge-std.git#36c303b7ffdd842d06b1ec2744c9b9b5fb3083f3: {}
 
-  forge-std@https://codeload.github.com/foundry-rs/forge-std/tar.gz/8f24d6b04c92975e0795b5868aa0d783251cdeaa: {}
+  forge-std@git+https://git@github.com:foundry-rs/forge-std.git#83c5d212a01f8950727da4095cdfe2654baccb5b: {}
 
   form-data-encoder@1.7.1: {}
 
@@ -26654,7 +26680,7 @@ snapshots:
       multibase: 0.7.0
       varint: 5.0.2
 
-  murky@https://codeload.github.com/dmfxyz/murky/tar.gz/5feccd1253d7da820f7cccccdedf64471025455d: {}
+  murky@git+https://git@github.com:dmfxyz/murky.git#6f67641219549ca78f575a12493e25fe193da727: {}
 
   mute-stream@0.0.8: {}
 
@@ -26889,7 +26915,7 @@ snapshots:
 
   openapi-types@12.1.3: {}
 
-  optimism@https://codeload.github.com/ethereum-optimism/optimism/tar.gz/ab3a54febb36398539fd3b849c222b7e70169dc8:
+  optimism@git+https://git@github.com:ethereum-optimism/optimism.git#ab3a54febb36398539fd3b849c222b7e70169dc8:
     dependencies:
       '@changesets/cli': 2.27.8
 
@@ -27022,7 +27048,7 @@ snapshots:
 
   p-try@2.2.0: {}
 
-  p256-verifier#v0.1.0@https://codeload.github.com/taikoxyz/p256-verifier/tar.gz/6ef45b117642786b08a37b4c37c6a6ce151166da: {}
+  p256-verifier#v0.1.0@git+https://git@github.com:taikoxyz/p256-verifier.git#6ef45b117642786b08a37b4c37c6a6ce151166da: {}
 
   package-json-from-dist@1.0.0: {}
 
@@ -28041,7 +28067,7 @@ snapshots:
       hash-base: 3.1.0
       inherits: 2.0.4
 
-  risc0-ethereum#v1.1.2@https://codeload.github.com/risc0/risc0-ethereum/tar.gz/b8a14213d92fff07dacda993804e7edb7946ca58: {}
+  risc0-ethereum#v1.1.2@git+https://git@github.com:risc0/risc0-ethereum.git#b8a14213d92fff07dacda993804e7edb7946ca58: {}
 
   rlp@2.2.7:
     dependencies:
@@ -28449,9 +28475,9 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  solady@https://codeload.github.com/Vectorized/solady/tar.gz/a12a2575c899a328c1bafdada632dabbff27cf6b: {}
+  solady@git+https://git@github.com:Vectorized/solady.git#a12a2575c899a328c1bafdada632dabbff27cf6b: {}
 
-  solady@https://codeload.github.com/Vectorized/solady/tar.gz/de0f336d2033d04e0f77c923d639c7fbffd48b6d: {}
+  solady@git+https://git@github.com:Vectorized/solady.git#de0f336d2033d04e0f77c923d639c7fbffd48b6d: {}
 
   solc@0.8.24:
     dependencies:
@@ -28560,7 +28586,7 @@ snapshots:
       hardhat: 2.22.13(bufferutil@4.0.8)(ts-node@10.9.2(@types/node@20.12.7)(typescript@5.4.3))(typescript@5.4.3)(utf-8-validate@5.0.10)
       solidity-ast: 0.4.59
 
-  solidity-stringutils@https://codeload.github.com/Arachnid/solidity-stringutils/tar.gz/4b2fcc43fa0426e19ce88b1f1ec16f5903a2e461: {}
+  solidity-stringutils@git+https://git@github.com:Arachnid/solidity-stringutils.git#4b2fcc43fa0426e19ce88b1f1ec16f5903a2e461: {}
 
   sonic-boom@2.8.0:
     dependencies:
@@ -28588,7 +28614,7 @@ snapshots:
 
   source-map@0.7.4: {}
 
-  sp1-contracts#v3.0.0@https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/1c4acaeab86789995ae5c6baced66f81e4a57f4d: {}
+  sp1-contracts#v3.0.0@git+https://git@github.com:succinctlabs/sp1-contracts.git#1c4acaeab86789995ae5c6baced66f81e4a57f4d: {}
 
   space-separated-tokens@2.0.2: {}
 
