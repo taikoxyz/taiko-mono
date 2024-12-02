@@ -9,6 +9,7 @@ contract TaikoL1_EmptyStub is ITaikoL1 {
     function proposeBlocksV3(
         address _proposer,
         address _coinbase,
+         L1StaticCall[] calldata _l1StaticCalls,
         BlockParamsV3[] calldata _blockParams,
         bytes calldata _txList
     )

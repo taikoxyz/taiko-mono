@@ -58,6 +58,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
     function proposeBlocksV3(
         address _proposer,
         address _coinbase,
+        L1StaticCall[] calldata _l1StaticCalls,
         BlockParamsV3[] calldata _paramsArray,
         bytes calldata _txList
     )
@@ -92,6 +93,19 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
 
         if (_coinbase == address(0)) {
             _coinbase = _proposer;
+        }
+
+        L1StaticCallResult[] memory l1CallResults = new L1StaticCallResult[](_l1StaticCalls.length);
+        for (uint256 i; i < _l1StaticCalls.length; ++i) {
+            require(_l1StaticCalls[i].target != address(0), "InvalidCallTarget");
+
+            // uint256 gas = gasleft();
+            (l1CallResults[i].succeeded, l1CallResults[i].returnData) = _l1StaticCalls[i]
+                .target
+                .staticcall{ gas: _l1StaticCalls[i].gasLimit }(_l1StaticCalls[i].data);
+
+            // TODO(daniel): calculate the ether fee paid more accurately
+            // l1CallResults[i].fee = (gas - gasleft()) * gasprice();
         }
 
         // Keep track of last block's information.
@@ -147,7 +161,10 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             // SSTORE #1
             blk.metaHash = metaHash;
 
-            // SSTORE #2 {{
+            // SSTORE #2
+            blk.l1StaticCallHash = keccak256(abi.encode(_l1StaticCalls, l1CallResults));
+
+            // SSTORE #3 {{
             blk.blockId = stats2.numBlocks;
             blk.timestamp = updatedParams.timestamp;
             blk.anchorBlockId = updatedParams.anchorBlockId;
@@ -168,11 +185,13 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
 
         // If the driver can extract the txList from transaction trace, then we do not need to emit
         // the txList as it is expensive.
-        if (config.emitTxListInCalldata) {
-            emit BlocksProposedV3(metas_, calldataUsed, _txList);
-        } else {
-            emit BlocksProposedV3(metas_, calldataUsed, "");
-        }
+        emit BlocksProposedV3(
+            _l1StaticCalls,
+            l1CallResults,
+            metas_,
+            calldataUsed,
+            config.emitTxListInCalldata ? _txList : bytes("")
+        );
 
         _verifyBlocks(config, stats2, _paramsArray.length);
     }

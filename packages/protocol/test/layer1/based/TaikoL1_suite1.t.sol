@@ -397,9 +397,13 @@ contract TaikoL1Test_Suite1 is TaikoL1TestBase {
     {
         uint64 count = 1;
 
+        ITaikoL1.L1StaticCall[] memory l1StaticCalls = new ITaikoL1.L1StaticCall[](0);
+
         vm.startSnapshotGas("proposeBlocksV3");
-        ITaikoL1.BlockMetadataV3[] memory metas =
-            taikoL1.proposeBlocksV3(address(0), address(0), new ITaikoL1.BlockParamsV3[](count), "");
+
+        ITaikoL1.BlockMetadataV3[] memory metas = taikoL1.proposeBlocksV3(
+            address(0), address(0), l1StaticCalls, ITaikoL1.BlockParamsV3[](count), ""
+        );
         uint256 gasProposeBlocksV3 = vm.stopSnapshotGas("proposeBlocksV3");
         console2.log("Gas per block - proposing:", gasProposeBlocksV3 / count);
 

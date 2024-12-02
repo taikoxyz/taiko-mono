@@ -6,6 +6,22 @@ import "src/shared/based/LibSharedData.sol";
 /// @title ITaikoL1
 /// @custom:security-contact security@taiko.xyz
 interface ITaikoL1 {
+    struct L1StaticCall {
+        address target;
+        bytes data;
+        uint32 gasLimit;
+    }
+
+    struct L1StaticCallResult {
+        bool succeeded;
+        bytes returnData;
+        uint256 fee;
+    }
+
+    struct L1ContextV3 {
+        mapping(bytes32 l1StaticCallhash => L1StaticCallResult) callResults;
+    }
+
     struct BlockParamsV3 {
         bytes32 parentMetaHash;
         uint64 anchorBlockId;
@@ -34,6 +50,7 @@ interface ITaikoL1 {
         uint32 txListSize;
         uint8 blobIndex;
         bool calldataUsed;
+        // bytes32 l1CallsHash;
         LibSharedData.BaseFeeConfig baseFeeConfig;
     }
 
@@ -47,8 +64,7 @@ interface ITaikoL1 {
     /// @notice 3 slots used.
     struct BlockV3 {
         bytes32 metaHash; // slot 1
-        address _reserved2;
-        uint96 _reserved3;
+        bytes32 l1StaticCallHash; // slot 2
         uint64 blockId; // slot 3
         uint64 timestamp;
         uint64 anchorBlockId;
@@ -156,7 +172,13 @@ interface ITaikoL1 {
     /// @param metas The metadata of the proposed blocks.
     /// @param calldataUsed Whether calldata is used for txList DA.
     /// @param txListInCalldata The tx list in calldata.
-    event BlocksProposedV3(BlockMetadataV3[] metas, bool calldataUsed, bytes txListInCalldata);
+    event BlocksProposedV3(
+        L1StaticCall[] calls,
+        L1StaticCallResult[] callResults,
+        BlockMetadataV3[] metas,
+        bool calldataUsed,
+        bytes txListInCalldata
+    );
 
     /// @notice Emitted when multiple transitions are proved.
     /// @param verifier The address of the verifier.
@@ -205,6 +227,7 @@ interface ITaikoL1 {
     function proposeBlocksV3(
         address _proposer,
         address _coinbase,
+        L1StaticCall[] calldata _l1StaticCalls,
         BlockParamsV3[] calldata _blockParams,
         bytes calldata _txList
     )

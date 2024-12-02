@@ -76,8 +76,9 @@ abstract contract TaikoL1TestBase is Layer1Test {
         ITaikoL1.BlockParamsV3[] memory blockParams =
             new ITaikoL1.BlockParamsV3[](numBlocksToPropose);
 
+        ITaikoL1.L1StaticCall[] memory l1StaticCalls = new ITaikoL1.L1StaticCall[](0);
         ITaikoL1.BlockMetadataV3[] memory metas =
-            taikoL1.proposeBlocksV3(address(0), address(0), blockParams, "");
+            taikoL1.proposeBlocksV3(address(0), address(0), l1StaticCalls, blockParams, "");
         for (uint256 i; i < metas.length; ++i) {
             blockMetadatas[metas[i].blockId] = metas[i];
         }
