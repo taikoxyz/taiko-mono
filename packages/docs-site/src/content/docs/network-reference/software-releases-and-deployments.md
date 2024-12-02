@@ -9,11 +9,11 @@ It is **highly recommended** you use the latest software. You can find the lates
 
 | Package                                                                                | Release notes                                                                                                                                                                                     |
 | :------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [protocol](https://github.com/taikoxyz/taiko-mono/tree/main/packages/protocol)         | [![Github Release](https://img.shields.io/github/v/release/taikoxyz/taiko-mono?filter=protocol*&label=)](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/CHANGELOG.md)         |
-| [taiko-geth](https://github.com/taikoxyz/taiko-geth)                                   | [![GitHub Release](https://img.shields.io/github/v/release/taikoxyz/taiko-geth?label=)](https://github.com/taikoxyz/taiko-geth/blob/taiko/CHANGELOG.md)                                           |
+| [protocol](https://github.com/taikoxyz/taiko-mono/tree/main/packages/protocol) | [![Github Release](https://img.shields.io/github/v/release/taikoxyz/taiko-mono?filter=protocol*&label=)](https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/CHANGELOG.md) |
+| [taiko-geth](https://github.com/taikoxyz/taiko-geth)                                   | [![GitHub Release](https://img.shields.io/github/v/release/taikoxyz/taiko-geth?label=)](https://github.com/taikoxyz/taiko-geth/blob/taiko/CHANGELOG.md) |
 | [taiko-client](https://github.com/taikoxyz/taiko-mono/tree/main/packages/taiko-client) | [![GitHub Release](https://img.shields.io/github/v/release/taikoxyz/taiko-mono?filter=taiko-client*&label=)](https://github.com/taikoxyz/taiko-mono/blob/main/packages/taiko-client/CHANGELOG.md) |
-| [simple-taiko-node](https://github.com/taikoxyz/simple-taiko-node/tree/main)           | [![Github Release](https://img.shields.io/github/v/release/taikoxyz/simple-taiko-node?label=)](https://github.com/taikoxyz/simple-taiko-node/blob/main/CHANGELOG.md)                              |
-| [raiko](https://github.com/taikoxyz/raiko/tree/main)                                   | [![Github Release](https://img.shields.io/github/v/release/taikoxyz/raiko?label=)](https://github.com/taikoxyz/raiko/blob/main/CHANGELOG.md)                                                      |
+| [simple-taiko-node](https://github.com/taikoxyz/simple-taiko-node/tree/main) | [![Github Release](https://img.shields.io/github/v/release/taikoxyz/simple-taiko-node?label=)](https://github.com/taikoxyz/simple-taiko-node/blob/main/CHANGELOG.md) |
+| [raiko](https://github.com/taikoxyz/raiko/tree/main) | [![Github Release](https://img.shields.io/github/v/release/taikoxyz/raiko?label=)](https://github.com/taikoxyz/raiko/blob/main/CHANGELOG.md) |
 
 ## Mainnet Deployment Logs
 
