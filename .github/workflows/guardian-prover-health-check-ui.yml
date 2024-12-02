@@ -7,26 +7,29 @@ on:
   pull_request:
     paths:
       - "packages/guardian-prover-health-check-ui/**"
+    branches-ignore:
+      - release-please--branches--**
 
 jobs:
   build-and-test:
     uses: ./.github/workflows/guardian-prover-health-check-ui--ci.yml
 
   # Deployment name follow the pattern: deploy_<appname(guardian-prover-health-check-ui)>_<network(devnet|hekla|mainnet)>_<environment(preview|production)>
-  deploy_guardians-ui_mainnet_preview:
-    if: ${{ github.ref_name != 'main' }}
-    needs: build-and-test
-    uses: ./.github/workflows/repo--vercel-deploy.yml
-    with:
-      environment: "preview"
-      flags: ""
-    secrets:
-      vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_GUARDIAN_UI_MAINNET }}
-      vercel_org_id: ${{ secrets.VERCEL_ORG_ID }}
-      vercel_token: ${{ secrets.VERCEL_TOKEN }}
+
+  # deploy_guardians-ui_devnet_preview:
+  #   if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
+  #   needs: build-and-test
+  #   uses: ./.github/workflows/repo--vercel-deploy.yml
+  #   with:
+  #     environment: "preview"
+  #     flags: ""
+  #   secrets:
+  #     vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_GUARDIAN_UI_INTERNAL }}
+  #     vercel_org_id: ${{ secrets.VERCEL_ORG_ID }}
+  #     vercel_token: ${{ secrets.VERCEL_TOKEN }}
 
   deploy_guardians-ui_hekla_preview:
-    if: ${{ github.ref_name != 'main' }}
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
     needs: build-and-test
     uses: ./.github/workflows/repo--vercel-deploy.yml
     with:
@@ -37,15 +40,15 @@ jobs:
       vercel_org_id: ${{ secrets.VERCEL_ORG_ID }}
       vercel_token: ${{ secrets.VERCEL_TOKEN }}
 
-  deploy_guardians-ui_devnet_preview:
-    if: ${{ github.ref_name != 'main' }}
+  deploy_guardians-ui_mainnet_preview:
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
     needs: build-and-test
     uses: ./.github/workflows/repo--vercel-deploy.yml
     with:
       environment: "preview"
       flags: ""
     secrets:
-      vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_GUARDIAN_UI_INTERNAL }}
+      vercel_project_id: ${{ secrets.VERCEL_PROJECT_ID_GUARDIAN_UI_MAINNET }}
       vercel_org_id: ${{ secrets.VERCEL_ORG_ID }}
       vercel_token: ${{ secrets.VERCEL_TOKEN }}
 

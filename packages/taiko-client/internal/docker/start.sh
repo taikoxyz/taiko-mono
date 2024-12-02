@@ -11,8 +11,8 @@ if [ "$L2_NODE" == "l2_reth" ];then
     exit 1
 fi
 
-# start docker compose service list
-echo "start docker compose service: ${DOCKER_SERVICE_LIST[*]}"
+# start docker compose services
+echo "starting docker compose service: ${DOCKER_SERVICE_LIST[*]}"
 
 compose_up "${DOCKER_SERVICE_LIST[@]}"
 

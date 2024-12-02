@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import { Script, console } from "forge-std/src/Script.sol";
 import "forge-std/src/StdJson.sol";
+import { MockBlacklist } from "../../../test/util/Blacklist.sol";
 import { IMinimalBlacklist } from "@taiko/blacklist/IMinimalBlacklist.sol";
 
 contract UtilsScript is Script {
@@ -14,6 +15,8 @@ contract UtilsScript is Script {
 
     string public lowercaseNetworkKey;
     string public uppercaseNetworkKey;
+
+    error UNSUPPORTED_CHAIN_ID();
 
     function setUp() public {
         // load all network configs
@@ -41,7 +44,7 @@ contract UtilsScript is Script {
             lowercaseNetworkKey = "hekla";
             uppercaseNetworkKey = "HEKLA";
         } else {
-            revert("Unsupported chainId");
+            revert UNSUPPORTED_CHAIN_ID();
         }
     }
 

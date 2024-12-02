@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "src/layer1/verifiers/SgxVerifierBase.sol";
 import "../automata-attestation/common/AttestationBase.t.sol";
 import "../based/TaikoL1TestBase.sol";
 
@@ -38,9 +39,11 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         instances[1] = Bob;
 
         vm.expectEmit(true, true, true, true);
-        emit SgxVerifier.InstanceAdded(startInstance, instances[0], address(0), block.timestamp);
+        emit SgxVerifierBase.InstanceAdded(startInstance, instances[0], address(0), block.timestamp);
         vm.expectEmit(true, true, true, true);
-        emit SgxVerifier.InstanceAdded(startInstance + 1, instances[1], address(0), block.timestamp);
+        emit SgxVerifierBase.InstanceAdded(
+            startInstance + 1, instances[1], address(0), block.timestamp
+        );
 
         // `addInstances()`
         uint256[] memory ids = sv.addInstances(instances);
@@ -66,11 +69,11 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         instances2[1] = David;
 
         vm.expectEmit(true, true, true, true);
-        emit SgxVerifier.InstanceAdded(
+        emit SgxVerifierBase.InstanceAdded(
             startInstance + 2, instances2[0], address(0), block.timestamp
         );
         vm.expectEmit(true, true, true, true);
-        emit SgxVerifier.InstanceAdded(
+        emit SgxVerifierBase.InstanceAdded(
             startInstance + 3, instances2[1], address(0), block.timestamp
         );
 
@@ -103,7 +106,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         instances[1] = address(0);
 
         // `addInstances()`
-        vm.expectRevert(SgxVerifier.SGX_INVALID_INSTANCE.selector);
+        vm.expectRevert(SgxVerifierBase.SGX_INVALID_INSTANCE.selector);
         sv.addInstances(instances);
 
         vm.stopPrank();
@@ -117,7 +120,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         instances[1] = Alice; // invalid as duplicate instance
 
         // `addInstances()`
-        vm.expectRevert(SgxVerifier.SGX_ALREADY_ATTESTED.selector);
+        vm.expectRevert(SgxVerifierBase.SGX_ALREADY_ATTESTED.selector);
         sv.addInstances(instances);
     }
 
@@ -161,7 +164,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         vm.prank(Bob, Bob);
         sv.registerInstance(v3quote);
 
-        vm.expectRevert(SgxVerifier.SGX_ALREADY_ATTESTED.selector);
+        vm.expectRevert(SgxVerifierBase.SGX_ALREADY_ATTESTED.selector);
         vm.prank(Carol, Carol);
         sv.registerInstance(v3quote);
     }
@@ -218,7 +221,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         vm.warp(block.timestamp + 5);
 
         vm.expectEmit(true, true, true, true);
-        emit SgxVerifier.InstanceAdded(id, newInstance, KNOWN_ADDRESS, block.timestamp);
+        emit SgxVerifierBase.InstanceAdded(id, newInstance, KNOWN_ADDRESS, block.timestamp);
 
         // `verifyProof()`
         sv.verifyProof(ctx, transition, proof);
@@ -294,7 +297,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
          });
 
         // `verifyProof()`
-        vm.expectRevert(SgxVerifier.SGX_INVALID_PROOF.selector);
+        vm.expectRevert(SgxVerifierBase.SGX_INVALID_PROOF.selector);
         sv.verifyProof(ctx, transition, proof);
     }
 
@@ -375,7 +378,7 @@ contract TestSgxVerifier is TaikoL1TestBase, AttestationBase {
         TaikoData.TierProof memory proof = TaikoData.TierProof({ tier: 0, data: data });
 
         // `verifyProof()`
-        vm.expectRevert(SgxVerifier.SGX_INVALID_INSTANCE.selector);
+        vm.expectRevert(SgxVerifierBase.SGX_INVALID_INSTANCE.selector);
         sv.verifyProof(ctx, transition, proof);
 
         vm.stopPrank();

@@ -44,7 +44,7 @@ type Prover struct {
 	guardianProverHeartbeater guardianProverHeartbeater.BlockSenderHeartbeater
 
 	// Contract configurations
-	protocolConfig *bindings.TaikoDataConfig
+	protocolConfigs *bindings.TaikoDataConfig
 
 	// States
 	sharedState *state.SharedState
@@ -121,10 +121,14 @@ func InitFromConfig(
 	}
 
 	// Configs
-	p.protocolConfig = encoding.GetProtocolConfig(p.rpc.L2.ChainID.Uint64())
-	log.Info("Protocol configs", "configs", p.protocolConfig)
+	protocolConfigs, err := rpc.GetProtocolConfigs(p.rpc.TaikoL1, &bind.CallOpts{Context: p.ctx})
+	if err != nil {
+		return fmt.Errorf("failed to get protocol configs: %w", err)
+	}
+	p.protocolConfigs = &protocolConfigs
+	log.Info("Protocol configs", "configs", p.protocolConfigs)
 
-	chBufferSize := p.protocolConfig.BlockMaxProposals
+	chBufferSize := p.protocolConfigs.BlockMaxProposals
 	p.proofGenerationCh = make(chan *proofProducer.ProofWithHeader, chBufferSize)
 	p.assignmentExpiredCh = make(chan metadata.TaikoBlockMetaData, chBufferSize)
 	p.proofSubmissionCh = make(chan *proofProducer.ProofRequestBody, p.cfg.Capacity)
@@ -280,7 +284,7 @@ func (p *Prover) eventLoop() {
 	defer forceProvingTicker.Stop()
 
 	// Channels
-	chBufferSize := p.protocolConfig.BlockMaxProposals
+	chBufferSize := p.protocolConfigs.BlockMaxProposals
 	blockProposedCh := make(chan *bindings.TaikoL1ClientBlockProposed, chBufferSize)
 	blockVerifiedCh := make(chan *bindings.TaikoL1ClientBlockVerified, chBufferSize)
 	transitionProvedCh := make(chan *bindings.TaikoL1ClientTransitionProved, chBufferSize)
