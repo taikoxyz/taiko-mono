@@ -94,20 +94,20 @@ export async function recommendProcessingFee({
   if (!estimatedMsgGaslimit) throw new Error('Unable to calculate fee');
 
   // Initial fee multiplicator and add fallback
-  let feeMultiplicator: number = parseInt(PUBLIC_FEE_MULTIPLIER);
+  const feeMultiplicator: number = parseInt(PUBLIC_FEE_MULTIPLIER);
 
-  if (gasPrice <= parseGwei('0.05')) {
-    feeMultiplicator = 4;
-    log(`gasPrice {formatGwei(gasPrice)} is less than 0.5 gwei, setting feeMultiplicator to 4`);
-  } else if (gasPrice <= parseGwei('0.1') && gasPrice > parseGwei('0.05')) {
-    feeMultiplicator = 3;
-    log(
-      `gasPrice ${formatGwei(gasPrice)} is less than 0.1 gwei and more than 0.05 gwei, setting feeMultiplicator to 3`,
-    );
-  } else {
-    feeMultiplicator = 2;
-    log(`gasPrice ${formatGwei(gasPrice)} is more than 0.1 gwei, setting feeMultiplicator to 2`);
-  }
+  // if (gasPrice <= parseGwei('0.05')) {
+  //   feeMultiplicator = 4;
+  //   log(`gasPrice {formatGwei(gasPrice)} is less than 0.5 gwei, setting feeMultiplicator to 4`);
+  // } else if (gasPrice <= parseGwei('0.1') && gasPrice > parseGwei('0.05')) {
+  //   feeMultiplicator = 3;
+  //   log(
+  //     `gasPrice ${formatGwei(gasPrice)} is less than 0.1 gwei and more than 0.05 gwei, setting feeMultiplicator to 3`,
+  //   );
+  // } else {
+  //   feeMultiplicator = 2;
+  //   log(`gasPrice ${formatGwei(gasPrice)} is more than 0.1 gwei, setting feeMultiplicator to 2`);
+  // }
 
   const fee = estimatedMsgGaslimit * Number(gasPrice) * feeMultiplicator;
   return BigInt(fee);
