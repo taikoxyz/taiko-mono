@@ -5,8 +5,7 @@ import { UtilsScript } from "./Utils.s.sol";
 import { Script, console } from "forge-std/src/Script.sol";
 import { Merkle } from "murky/Merkle.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { TrailblazersBadges } from
-    "../../../../contracts/trailblazers-badges/TrailblazersBadges.sol";
+import { TrailblazersBadges } from "../../../contracts/trailblazers-badges/TrailblazersBadges.sol";
 import { IMinimalBlacklist } from "@taiko/blacklist/IMinimalBlacklist.sol";
 
 contract UpgradeV2 is Script {
@@ -15,7 +14,7 @@ contract UpgradeV2 is Script {
     uint256 public deployerPrivateKey;
     address public deployerAddress;
 
-    address tokenV1 = 0xa20a8856e00F5ad024a55A663F06DCc419FFc4d5;
+    address s1Token = 0xa20a8856e00F5ad024a55A663F06DCc419FFc4d5;
     TrailblazersBadges public token;
 
     function setUp() public {
@@ -28,7 +27,7 @@ contract UpgradeV2 is Script {
     }
 
     function run() public {
-        token = TrailblazersBadges(tokenV1);
+        token = TrailblazersBadges(s1Token);
         vm.startBroadcast(deployerPrivateKey);
 
         token.upgradeToAndCall(
