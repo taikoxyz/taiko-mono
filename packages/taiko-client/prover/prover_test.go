@@ -545,9 +545,7 @@ func (s *ProverTestSuite) TestAggregateProofsAlreadyProved() {
 		proofSubmitter.ErrInvalidProof,
 	)
 	for i := 0; i < batchSize; i++ {
-		select {
-		case _ = <-sink2:
-		}
+		<-sink2
 	}
 }
 
@@ -600,9 +598,7 @@ func (s *ProverTestSuite) TestAggregateProofs() {
 	s.Nil(batchProver.aggregateOp(tier))
 	s.Nil(batchProver.selectSubmitter(tier).BatchSubmitProofs(context.Background(), <-batchProver.batchProofGenerationCh))
 	for i := 0; i < batchSize; i++ {
-		select {
-		case _ = <-sink2:
-		}
+		<-sink2
 	}
 }
 
