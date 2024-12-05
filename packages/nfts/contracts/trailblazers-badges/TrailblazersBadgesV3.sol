@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import "./TrailblazersBadges.sol";
 
 contract TrailblazersBadgesV3 is TrailblazersBadges {
-    function version() external pure returns (string memory) {
+    function version() external pure virtual returns (string memory) {
         return "V3";
     }
 

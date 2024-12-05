@@ -5,8 +5,11 @@ import { UtilsScript } from "./Utils.s.sol";
 import { Script, console } from "forge-std/src/Script.sol";
 import { Merkle } from "murky/Merkle.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import { TrailblazersBadges } from "../../../contracts/trailblazers-badges/TrailblazersBadges.sol";
+import { TrailblazersBadges } from "../../contracts/trailblazers-badges/TrailblazersBadges.sol";
 import { IMinimalBlacklist } from "@taiko/blacklist/IMinimalBlacklist.sol";
+
+import { TrailblazersBadgesS2 } from
+    "../../contracts/trailblazers-season-2/TrailblazersBadgesS2.sol";
 
 contract UpgradeV2 is Script {
     UtilsScript public utils;
@@ -14,8 +17,8 @@ contract UpgradeV2 is Script {
     uint256 public deployerPrivateKey;
     address public deployerAddress;
 
-    address tokenV1 = 0xa20a8856e00F5ad024a55A663F06DCc419FFc4d5;
-    TrailblazersBadges public token;
+    address tokenAddress = 0x52A7dBeC10B404548066F59DE89484e27b4181dA;
+    TrailblazersBadgesS2 public token;
 
     function setUp() public {
         utils = new UtilsScript();
@@ -27,15 +30,21 @@ contract UpgradeV2 is Script {
     }
 
     function run() public {
-        token = TrailblazersBadges(tokenV1);
         vm.startBroadcast(deployerPrivateKey);
+        token = TrailblazersBadgesS2(tokenAddress);
 
         token.upgradeToAndCall(
-            address(new TrailblazersBadges()), abi.encodeCall(TrailblazersBadges.baseURI, ())
+            address(new TrailblazersBadgesS2()), abi.encodeCall(TrailblazersBadgesS2.version, ())
         );
 
-        token = TrailblazersBadges(token);
+        token = TrailblazersBadgesS2(address(token));
 
-        console.log("Upgraded TrailblazersBadges to:", address(token));
+        console.log("Upgraded TrailblazersBadgesV3 to:", address(token));
+
+        // update uri
+        token.setUri(
+            "https://taikonfts.4everland.link/ipfs/bafybeief7o4u6f676e6uz4yt4cv34ai4mesd7motoq6y4xxaoyjfbna5de"
+        );
+        console.log("Updated token URI");
     }
 }
