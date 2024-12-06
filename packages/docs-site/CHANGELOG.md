@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.20.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.19.0...docs-site-v1.20.0) (2024-12-06)
+
+
+### Features
+
+* **docs-site:** add taiko-protocol section with economics and codebase analysis ([#18542](https://github.com/taikoxyz/taiko-mono/issues/18542)) ([55acc93](https://github.com/taikoxyz/taiko-mono/commit/55acc93c1cf6628f2d1ca6f0b2ca20a257f74e1f))
+
 ## [1.19.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.18.0...docs-site-v1.19.0) (2024-11-28)
 
 
