@@ -163,7 +163,7 @@ interface ITaikoL1 {
     /// @param transitions The transitions data.
     event BlocksProvedV3(address verifier, uint64[] blockIds, TransitionV3[] transitions);
 
-    /// @notice Emitted when a transition is overritten by another one.
+    /// @notice Emitted when a transition is overwritten by another one.
     /// @param blockId The block ID.
     /// @param tran The transition data that has been overwritten.
     event TransitionOverwrittenV3(uint64 blockId, TransitionV3 tran);
