@@ -15,7 +15,7 @@ import { UUPSUpgradeable } from
     "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { Ownable2StepUpgradeable } from
     "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
-import "./TrailblazersBadges.sol";
+import "./TrailblazersS1BadgesV4.sol";
 import "./TrailblazersBadgesS2.sol";
 
 contract FactionBattleArena is

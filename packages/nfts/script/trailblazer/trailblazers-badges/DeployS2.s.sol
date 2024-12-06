@@ -8,8 +8,8 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import { TrailblazersBadges } from "../../../contracts/trailblazers-badges/TrailblazersBadges.sol";
 import { IMinimalBlacklist } from "@taiko/blacklist/IMinimalBlacklist.sol";
 import { TrailblazersBadgesS2 } from
-    "../../../contracts/trailblazers-badges/TrailblazersBadgesS2.sol";
-import { BadgeChampions } from "../../../contracts/trailblazers-badges/BadgeChampions.sol";
+    "../../../contracts/trailblazers-season-2/TrailblazersBadgesS2.sol";
+import { FactionBattleArena } from "../../../contracts/trailblazers-season-2/FactionBattleArena.sol";
 
 contract DeployS2Script is Script {
     UtilsScript public utils;
@@ -64,7 +64,7 @@ contract DeployS2Script is Script {
         address proxy;
         TrailblazersBadges s1Token;
         TrailblazersBadgesS2 s2Token;
-        BadgeChampions badgeChampions;
+        FactionBattleArena fba;
 
         vm.startBroadcast(deployerPrivateKey);
 
@@ -86,49 +86,39 @@ contract DeployS2Script is Script {
 
             s1Token = TrailblazersBadges(proxy);
         }
-
+        /*
         // deploy s2 contract
         impl = address(new TrailblazersBadgesS2());
         proxy = address(
             new ERC1967Proxy(
                 impl,
-                abi.encodeCall(TrailblazersBadgesS2.initialize, (address(s1Token), mintSigner))
+        abi.encodeCall(TrailblazersBadgesS2.initialize, (address(s1Token), mintSigner))
             )
         );
-
+        */
         s2Token = TrailblazersBadgesS2(proxy);
 
         console.log("Token Base URI:", baseURI);
         console.log("Deployed TrailblazersBadgesS2 to:", address(s2Token));
 
         // Deploy Badge Champions
-        impl = address(new BadgeChampions());
+        impl = address(new FactionBattleArena());
         proxy = address(
             new ERC1967Proxy(
                 impl,
-                abi.encodeCall(BadgeChampions.initialize, (address(s1Token), address(s2Token)))
+                abi.encodeCall(FactionBattleArena.initialize, (address(s1Token), address(s2Token)))
             )
         );
 
-        badgeChampions = BadgeChampions(proxy);
+        fba = FactionBattleArena(proxy);
 
         // Register deployment
 
         vm.serializeAddress(jsonRoot, "TrailblazersBadges", address(s1Token));
         vm.serializeAddress(jsonRoot, "TrailblazersBadgesS2", address(s2Token));
-        vm.serializeAddress(jsonRoot, "BadgeChampions", address(badgeChampions));
+        vm.serializeAddress(jsonRoot, "FactionBattleArena", address(fba));
         string memory finalJson = vm.serializeAddress(jsonRoot, "Owner", s2Token.owner());
         vm.writeJson(finalJson, jsonLocation);
-
-        // open up migrations for all badges on hekla
-        if (block.chainid != 167_000) {
-            uint256[] memory tokenIds = new uint256[](8);
-            for (uint256 i = 0; i < tokenIds.length; i++) {
-                tokenIds[i] = i;
-            }
-            s2Token.enableMigrations(tokenIds);
-            console.log("Enabled migrations for all badges");
-        }
 
         vm.stopBroadcast();
     }

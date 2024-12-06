@@ -4,13 +4,13 @@ pragma solidity 0.8.24;
 import { Test } from "forge-std/src/Test.sol";
 
 import { TrailblazersBadges } from "../../contracts/trailblazers-badges/TrailblazersBadges.sol";
-import { BadgeChampions } from "../../contracts/trailblazers-badges/BadgeChampions.sol";
+import { FactionBattleArena } from "../../contracts/trailblazers-season-2/FactionBattleArena.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { UtilsScript } from "../../script/taikoon/sol/Utils.s.sol";
 import { MockBlacklist } from "../util/Blacklist.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
-contract BadgeChampionsTest is Test {
+contract FactionBattleArenaTest is Test {
     UtilsScript public utils;
 
     TrailblazersBadges public token;
@@ -37,7 +37,7 @@ contract BadgeChampionsTest is Test {
     address mintSigner;
     uint256 mintSignerPk;
 
-    BadgeChampions public badgeChampions;
+    FactionBattleArena public badgeChampions;
 
     mapping(address player => uint256 badgeId) public playersToBadgeIds;
 
@@ -68,14 +68,14 @@ contract BadgeChampionsTest is Test {
         token = TrailblazersBadges(proxy);
 
         // deploy badge champions
-        impl = address(new BadgeChampions());
+        impl = address(new FactionBattleArena());
         proxy = address(
             new ERC1967Proxy(
-                impl, abi.encodeCall(BadgeChampions.initialize, (address(token), address(0x0)))
+                impl, abi.encodeCall(FactionBattleArena.initialize, (address(token), address(0x0)))
             )
         );
 
-        badgeChampions = BadgeChampions(proxy);
+        badgeChampions = FactionBattleArena(proxy);
         vm.stopPrank();
 
         // mint some badges
@@ -109,7 +109,7 @@ contract BadgeChampionsTest is Test {
         badgeChampions.createLeague(OPEN_TIME, CLOSE_TIME, START_TIME);
 
         // check league
-        BadgeChampions.League memory league = badgeChampions.getCurrentLeague();
+        FactionBattleArena.League memory league = badgeChampions.getCurrentLeague();
 
         assertEq(league.openTime, OPEN_TIME);
         assertEq(league.closeTime, CLOSE_TIME);
@@ -138,7 +138,7 @@ contract BadgeChampionsTest is Test {
         badgeChampions.registerChampion(address(token), BADGE_IDS[0]);
 
         // check league
-        BadgeChampions.League memory league = badgeChampions.getCurrentLeague();
+        FactionBattleArena.League memory league = badgeChampions.getCurrentLeague();
 
         assertEq(league.openTime, OPEN_TIME);
         assertEq(league.closeTime, CLOSE_TIME);
@@ -169,7 +169,7 @@ contract BadgeChampionsTest is Test {
         }
 
         // check league
-        BadgeChampions.League memory league = badgeChampions.getCurrentLeague();
+        FactionBattleArena.League memory league = badgeChampions.getCurrentLeague();
 
         assertEq(league.openTime, OPEN_TIME);
         assertEq(league.closeTime, CLOSE_TIME);
@@ -187,7 +187,7 @@ contract BadgeChampionsTest is Test {
         badgeChampions.startLeague(TOURNAMENT_SEED);
 
         // check league
-        BadgeChampions.League memory league = badgeChampions.getCurrentLeague();
+        FactionBattleArena.League memory league = badgeChampions.getCurrentLeague();
 
         assertEq(league.openTime, OPEN_TIME);
         assertEq(league.closeTime, CLOSE_TIME);

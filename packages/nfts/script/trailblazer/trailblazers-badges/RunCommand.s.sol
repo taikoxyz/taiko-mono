@@ -9,8 +9,8 @@ import { TrailblazersBadges } from "../../../contracts/trailblazers-badges/Trail
 import { IMinimalBlacklist } from "@taiko/blacklist/IMinimalBlacklist.sol";
 import { TrailblazersBadges } from "../../../contracts/trailblazers-badges/TrailblazersBadges.sol";
 import { TrailblazersBadgesS2 } from
-    "../../../contracts/trailblazers-badges/TrailblazersBadgesS2.sol";
-import { BadgeChampions } from "../../../contracts/trailblazers-badges/BadgeChampions.sol";
+    "../../../contracts/trailblazers-season-2/TrailblazersBadgesS2.sol";
+import { FactionBattleArena } from "../../../contracts/trailblazers-season-2/FactionBattleArena.sol";
 import { TrailblazerBadgesS1MintTo } from "../../../test/util/TrailblazerBadgesS1MintTo.sol";
 
 contract DeployScript is Script {
@@ -20,7 +20,7 @@ contract DeployScript is Script {
 
     TrailblazersBadges public trailblazersBadges;
     TrailblazersBadgesS2 public trailblazersBadgesS2;
-    BadgeChampions public badgeChampions;
+    FactionBattleArena public fba;
 
     // Hekla
     address constant S1_ADDRESS = 0x075B858dA6eaf29b157925F4243135C565075842;
@@ -44,7 +44,7 @@ contract DeployScript is Script {
 
         trailblazersBadges = TrailblazersBadges(S1_ADDRESS);
         trailblazersBadgesS2 = TrailblazersBadgesS2(S2_ADDRESS);
-        badgeChampions = BadgeChampions(CHAMPIONS_ADDRESS);
+        fba = FactionBattleArena(CHAMPIONS_ADDRESS);
     }
 
     function createFreshTournament() public {
@@ -54,12 +54,12 @@ contract DeployScript is Script {
         uint64 CLOSE_TIME = uint64(block.timestamp - 2 minutes);
         uint64 START_TIME = uint64(block.timestamp - 1 minutes);
 
-        badgeChampions.createLeague(OPEN_TIME, CLOSE_TIME, START_TIME);
+        fba.createLeague(OPEN_TIME, CLOSE_TIME, START_TIME);
         /*
         for (uint256 i = 0; i < participants.length; i++) {
             uint256 badgeId = i % 7;
             trailblazersBadges.mintTo(participants[i], badgeId);
-            badgeChampions.registerChampionFor(
+            fba.registerChampionFor(
                 participants[i], address(trailblazersBadges), badgeId
             );
         }
@@ -74,7 +74,7 @@ contract DeployScript is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         uint256 TOURNAMENT_SEED = block.number * 123_456_789;
-        badgeChampions.startLeague(TOURNAMENT_SEED);
+        fba.startLeague(TOURNAMENT_SEED);
         vm.stopBroadcast();
     }
 }
