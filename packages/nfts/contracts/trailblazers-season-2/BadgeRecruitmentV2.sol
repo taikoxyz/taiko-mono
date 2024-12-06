@@ -5,9 +5,13 @@ import "../trailblazers-badges/TrailblazersBadgesV3.sol";
 import "./BadgeRecruitment.sol";
 
 contract BadgeRecruitmentV2 is BadgeRecruitment {
+    /// @notice Error
     error HASH_ALREADY_CLAIMED();
+    /// @notice Registry for used hashes
 
     mapping(bytes32 _hash => bool _isUsed) public usedClaimHashes;
+    /// @notice Version of the contract
+    /// @return The version of the contract
 
     function version() external view virtual returns (string memory) {
         return "v2";
