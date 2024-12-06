@@ -18,7 +18,7 @@
 	"devDependencies": {
 		"@playwright/test": "^1.43.1",
 		"@sveltejs/adapter-auto": "^3.2.0",
-		"@sveltejs/kit": "^2.5.21",
+		"@sveltejs/kit": "^2.4.3",
 		"@sveltejs/vite-plugin-svelte": "^3.1.0",
 		"@tailwindcss/nesting": "0.0.0-insiders.565cd3e",
 		"@typescript-eslint/eslint-plugin": "^7.4.0",
@@ -33,19 +33,19 @@
 		"postcss-nesting": "^12.1.0",
 		"prettier": "^3.2.5",
 		"prettier-plugin-svelte": "^3.2.2",
-		"svelte": "^4.2.13",
+		"svelte": "^4.2.19",
 		"svelte-check": "^3.7.1",
 		"tailwindcss": "^3.4.3",
 		"tslib": "^2.6.2",
 		"typescript": "^5.4.3",
-		"vite": "^4.5.3",
+		"vite": "^5.1.8",
 		"vite-tsconfig-paths": "^4.3.2",
 		"vitest": "^1.5.0"
 	},
 	"type": "module",
 	"dependencies": {
 		"@wagmi/core": "^2.8.0",
-		"axios": "^1.6.7",
+		"axios": "^1.7.4",
 		"debug": "^4.3.4",
 		"svelte-i18n": "^4.0.0",
 		"viem": "^2.9.29"
