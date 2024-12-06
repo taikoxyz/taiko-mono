@@ -31,7 +31,7 @@ contract RiscZeroGroth16VerifierTest is TaikoL1TestBase {
         );
 
         rv.setImageIdTrusted(
-            bytes32(0x4f6beb0c538971a81491c22de3995c82e6fd7938d5090366d7b618d5f6df504d), true
+            bytes32(0x7669d1059d0dfa9537c2b3581569b8bc244495e6c406d07dea628bc8cf480392), true
         );
     }
 
@@ -44,9 +44,9 @@ contract RiscZeroGroth16VerifierTest is TaikoL1TestBase {
         vm.startPrank(Emma);
 
         bytes memory seal =
-            hex"310fe59815ffa3b596af0bdccd0aaa064495d5db94fe367414d3a9212c8ce17383717e531ced511d89956c7c8aa0cc8531dac8660093581c5ae19c48a39fc14fd98dc1050684083592dab0fd9a2482c47ab4833c4f9b9a6770a7ce439a4f0e94bc035809138a7566873e34d202708ce4858665202417e645aeb299d4f7633fead7c667562b9104bdc79a0c379145ca2431598beec20b75a722915ff0a872771652583f9206e75bd317e73b1af7705f70aa52c30bc33ea6792b9e080177502fe074b87beb1add2ebe112c7bd17667a418fd9ef6d8e89e606c5efff14b5df24f7aa40c5c4f2bcaaa6f206d2d1e15356c533c5210258a6f1b1d1d22cb63cff0323863d7fe3b";
+            hex"50bd1769220929ac1ac3f9d3a8a4e7f4bcec136f8ea44be5a7248785d83b13879b409b762480f0ca5f38b164091e2def50b35829e453d1418492c01cc1b924e851580fe208d3808a925ce28724f0a862b944074f5277c4bd4b3153c1a1ff87056740628008fcc8d7edef53215db823e4773334e6f5fe08fed84c7ebd005fe4f42b80891724044cadde535253739049d99abc1a91a4a987ad93b0fcedbdb2440c9c2d662101509acb5f869bdb2e15d2609aa1a6c6c1a5a83e04fb2f77d25163b5675351be2204a497f20d43277d211adcc66b730b5d8d7635bb4a456cbf9029904ef2493a0346cd8e1aa2c270a160bc28bca77336bf18fe91b9dc8790a15f1618188dafa9";
         bytes32 imageId =
-            bytes32(0x4f6beb0c538971a81491c22de3995c82e6fd7938d5090366d7b618d5f6df504d);
+            bytes32(0x7669d1059d0dfa9537c2b3581569b8bc244495e6c406d07dea628bc8cf480392);
         bytes32 journalDigest =
             bytes32(0xa82287ae36a69b51f8013851b3814ff1243da5dfa071f6fd9b46b85445895553);
 
@@ -96,5 +96,65 @@ contract RiscZeroGroth16VerifierTest is TaikoL1TestBase {
             stateRoot: 0x3ae3de1afa16b93a5c7ea20a0b36b43357061f5b8ef857053d68b2735c3df860,
             graffiti: 0x8008500000000000000000000000000000000000000000000000000000000000
         });
+    }
+
+    function test_risc0_verifyBatchProof() public {
+        vm.startPrank(Emma);
+
+        bytes32 aggProofImageId = 0x8e192ebe6872b47645367692838b2d697c467f5e4543d605b0ef7d10365fb11a;
+        bytes32 blkProofImageId = 0x7669d1059d0dfa9537c2b3581569b8bc244495e6c406d07dea628bc8cf480392;
+
+        // proof generation elf
+        rv.setImageIdTrusted(aggProofImageId, true);
+        // proof aggregation elf
+        rv.setImageIdTrusted(blkProofImageId, true);
+
+        vm.startPrank(address(L1));
+
+        // Context
+        IVerifier.ContextV2[] memory ctxs = new IVerifier.ContextV2[](2);
+        ctxs[0] = IVerifier.ContextV2({
+            metaHash: 0x207b2833fb6d804612da24d8785b870a19c7a3f25fa4aaeb9799cd442d65b031,
+            blobHash: 0x01354e8725e60ad91b32ec4ab19158572a0a5b06b2d4d83f6269c9a7d068f49b,
+            prover: 0x70997970C51812dc3A010C7d01b50e0d17dc79C8,
+            msgSender: 0x70997970C51812dc3A010C7d01b50e0d17dc79C8,
+            blockId: 393_333,
+            isContesting: false,
+            blobUsed: true,
+            tran: TaikoData.Transition({
+                parentHash: 0xce519622a374dc014c005d7857de26d952751a9067d3e23ffe14da247aa8a399,
+                blockHash: 0x941d557653da2214cbf3d30af8d9cadbc7b5f77b6c3e48bca548eba04eb9cd79,
+                stateRoot: 0x4203a2fd98d268d272acb24d91e25055a779b443ff3e732f2cee7abcf639b5e9,
+                graffiti: 0x8008500000000000000000000000000000000000000000000000000000000000
+            })
+        });
+        ctxs[1] = IVerifier.ContextV2({
+            metaHash: 0x946ba1a9c02fc2f01da49e31cb5be83c118193d0389987c6be616ce76426b44d,
+            blobHash: 0x01abac8c1fb54f87ff7b0cbf14259b9d5ee7a8de458c587dd6eda43ef8354b4f,
+            prover: 0x70997970C51812dc3A010C7d01b50e0d17dc79C8,
+            msgSender: 0x70997970C51812dc3A010C7d01b50e0d17dc79C8,
+            blockId: 393_334,
+            isContesting: false,
+            blobUsed: true,
+            tran: TaikoData.Transition({
+                parentHash: 0x941d557653da2214cbf3d30af8d9cadbc7b5f77b6c3e48bca548eba04eb9cd79,
+                blockHash: 0xc0dad38646ab264be30995b7b7fd02db65e7115126fb52bfad94c0fc9572287c,
+                stateRoot: 0x222061caab95b6bd0f8dd398088030979efbe56e282cd566f7abd77838558eb9,
+                graffiti: 0x8008500000000000000000000000000000000000000000000000000000000000
+            })
+        });
+
+        bytes memory seal =
+            hex"50bd176901a68e3f05b0e651b6e5ff18e5463be794699597908b42b9ac3195a464c2b67320fb89c8199909a5ef1ff32366d1047009f4758294090f4ce613129f64a9ff58109cf0f6cb0f22e194dab522a2938631b138f4afeb075117a05d1ad75093515e15de11d9b231b79be5d42b0c7921ba22d62a6594258745f3e5c2e10508741fd813581ea8fab28ee1d07cb1f2e84500e2993cff3ca2e37284cfb5cfec5fe301d92f4246b2dbffc17d2ef5d889f50b8f28c51d1bacd6b0c55399e574969bb0a77207ceda541460cfec3e0c315889d62c0c91c5cf0cecd515ada96712735e5cf0ea1664af11012004ba7cb6adea3751911c8afe5eb5979b1adf43da6f9c18837f3d";
+        // TierProof
+        TaikoData.TierProof memory proof = TaikoData.TierProof({
+            tier: 100,
+            data: abi.encode(seal, blkProofImageId, aggProofImageId)
+        });
+
+        // `verifyProof()`
+        rv.verifyBatchProof(ctxs, proof);
+
+        vm.stopPrank();
     }
 }

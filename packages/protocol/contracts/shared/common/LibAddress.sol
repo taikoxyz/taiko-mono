@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
-import "@openzeppelin/contracts/interfaces/IERC1271.sol";
 
 /// @title LibAddress
 /// @dev Provides utilities for address-related operations.
@@ -29,7 +27,7 @@ library LibAddress {
         returns (bool success_)
     {
         // Check for zero-address transactions
-        if (_to == address(0)) revert ETH_TRANSFER_FAILED();
+        require(_to != address(0), ETH_TRANSFER_FAILED());
         // dispatch message to recipient
         // by assembly calling "handle" function
         // we call via assembly to avoid memcopying a very large returndata
@@ -54,9 +52,7 @@ library LibAddress {
     /// @param _gasLimit The max amount gas to pay for this transaction.
     function sendEtherAndVerify(address _to, uint256 _amount, uint256 _gasLimit) internal {
         if (_amount == 0) return;
-        if (!sendEther(_to, _amount, _gasLimit, "")) {
-            revert ETH_TRANSFER_FAILED();
-        }
+        require(sendEther(_to, _amount, _gasLimit, ""), ETH_TRANSFER_FAILED());
     }
 
     /// @dev Sends Ether to the specified address. This method will revert if sending ether fails.
@@ -74,10 +70,10 @@ library LibAddress {
         view
         returns (bool result_)
     {
-        if (!Address.isContract(_addr)) return false;
-
-        try IERC165(_addr).supportsInterface(_interfaceId) returns (bool _result) {
-            result_ = _result;
-        } catch { }
+        (bool success, bytes memory data) =
+            _addr.staticcall(abi.encodeCall(IERC165.supportsInterface, (_interfaceId)));
+        if (success && data.length == 32) {
+            result_ = abi.decode(data, (bool));
+        }
     }
 }

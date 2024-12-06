@@ -3,9 +3,10 @@ pragma solidity 0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
 
-import { TrailblazersBadges } from "../../contracts/trailblazers-badges/TrailblazersBadges.sol";
+import { TrailblazersBadgesV4 } from
+    "../../contracts/trailblazers-season-2/TrailblazersS1BadgesV4.sol";
 
-contract TrailblazerBadgesS1MintTo is TrailblazersBadges {
+contract TrailblazerBadgesS1MintTo is TrailblazersBadgesV4 {
     function mintTo(address _minter, uint256 _badgeId) public onlyOwner {
         if (_badgeId > BADGE_SHINTO) revert INVALID_BADGE_ID();
 
@@ -17,7 +18,7 @@ contract TrailblazerBadgesS1MintTo is TrailblazersBadges {
         emit BadgeCreated(tokenId, _minter, _badgeId);
     }
 
-    function version() public pure returns (string memory) {
-        return "mock";
+    function call() public view returns (bool) {
+        return true;
     }
 }

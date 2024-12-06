@@ -14,12 +14,13 @@ clean:
 
 lint:
 	@go install golang.org/x/tools/cmd/goimports@latest \
-	&& go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.56.2 \
+	&& go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.60 \
 	&& goimports -local "github.com/taikoxyz/taiko-mono/packages/taiko-client" -w ./ \
 	&& golangci-lint run
 
-test: lint
+test:
 	@PACKAGE=${PACKAGE} \
+	L2_NODE=$${L2_NODE:-l2_geth} \
 	RUN_TESTS=true \
 		./integration_test/entrypoint.sh
 

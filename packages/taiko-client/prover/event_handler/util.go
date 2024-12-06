@@ -93,7 +93,6 @@ func getMetadataFromBlockID(
 	iter, err := eventIterator.NewBlockProposedIterator(ctx, &eventIterator.BlockProposedIteratorConfig{
 		Client:               rpc.L1,
 		TaikoL1:              rpc.TaikoL1,
-		LibProposing:         rpc.LibProposing,
 		StartHeight:          new(big.Int).Sub(proposedIn, common.Big1),
 		EndHeight:            proposedIn,
 		OnBlockProposedEvent: callback,

@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
@@ -44,7 +45,7 @@ type Prover struct {
 	guardianProverHeartbeater guardianProverHeartbeater.BlockSenderHeartbeater
 
 	// Contract configurations
-	protocolConfig *bindings.TaikoDataConfig
+	protocolConfigs *bindings.TaikoDataConfig
 
 	// States
 	sharedState *state.SharedState
@@ -62,11 +63,13 @@ type Prover struct {
 
 	assignmentExpiredCh chan metadata.TaikoBlockMetaData
 	proveNotify         chan struct{}
+	aggregationNotify   chan uint16
 
 	// Proof related channels
-	proofSubmissionCh chan *proofProducer.ProofRequestBody
-	proofContestCh    chan *proofProducer.ContestRequestBody
-	proofGenerationCh chan *proofProducer.ProofWithHeader
+	proofSubmissionCh      chan *proofProducer.ProofRequestBody
+	proofContestCh         chan *proofProducer.ContestRequestBody
+	proofGenerationCh      chan *proofProducer.ProofWithHeader
+	batchProofGenerationCh chan *proofProducer.BatchProofs
 
 	// Transactions manager
 	txmgr        *txmgr.SimpleTxManager
@@ -121,15 +124,21 @@ func InitFromConfig(
 	}
 
 	// Configs
-	p.protocolConfig = encoding.GetProtocolConfig(p.rpc.L2.ChainID.Uint64())
-	log.Info("Protocol configs", "configs", p.protocolConfig)
+	protocolConfigs, err := rpc.GetProtocolConfigs(p.rpc.TaikoL1, &bind.CallOpts{Context: p.ctx})
+	if err != nil {
+		return fmt.Errorf("failed to get protocol configs: %w", err)
+	}
+	p.protocolConfigs = &protocolConfigs
+	log.Info("Protocol configs", "configs", p.protocolConfigs)
 
-	chBufferSize := p.protocolConfig.BlockMaxProposals
+	chBufferSize := p.protocolConfigs.BlockMaxProposals
 	p.proofGenerationCh = make(chan *proofProducer.ProofWithHeader, chBufferSize)
+	p.batchProofGenerationCh = make(chan *proofProducer.BatchProofs, chBufferSize)
 	p.assignmentExpiredCh = make(chan metadata.TaikoBlockMetaData, chBufferSize)
 	p.proofSubmissionCh = make(chan *proofProducer.ProofRequestBody, p.cfg.Capacity)
 	p.proofContestCh = make(chan *proofProducer.ContestRequestBody, p.cfg.Capacity)
 	p.proveNotify = make(chan struct{}, 1)
+	p.aggregationNotify = make(chan uint16, 1)
 
 	if err := p.initL1Current(cfg.StartingBlockID); err != nil {
 		return fmt.Errorf("initialize L1 current cursor error: %w", err)
@@ -270,6 +279,15 @@ func (p *Prover) eventLoop() {
 		default:
 		}
 	}
+	// reqAggregation requests performing a aggregate operation, won't block
+	// if we are already aggregating.
+	reqAggregation := func() {
+		select {
+		// 0 means aggregating all tier proofs
+		case p.aggregationNotify <- 0:
+		default:
+		}
+	}
 	// Call reqProving() right away to catch up with the latest state.
 	reqProving()
 
@@ -279,22 +297,25 @@ func (p *Prover) eventLoop() {
 	forceProvingTicker := time.NewTicker(15 * time.Second)
 	defer forceProvingTicker.Stop()
 
+	forceAggregatingTicker := time.NewTicker(p.cfg.ForceProveInterval)
+	defer forceAggregatingTicker.Stop()
+
 	// Channels
-	chBufferSize := p.protocolConfig.BlockMaxProposals
-	blockProposedCh := make(chan *bindings.LibProposingBlockProposed, chBufferSize)
+	chBufferSize := p.protocolConfigs.BlockMaxProposals
+	blockProposedCh := make(chan *bindings.TaikoL1ClientBlockProposed, chBufferSize)
 	blockVerifiedCh := make(chan *bindings.TaikoL1ClientBlockVerified, chBufferSize)
 	transitionProvedCh := make(chan *bindings.TaikoL1ClientTransitionProved, chBufferSize)
 	transitionContestedCh := make(chan *bindings.TaikoL1ClientTransitionContested, chBufferSize)
-	blockProposedV2Ch := make(chan *bindings.LibProposingBlockProposedV2, chBufferSize)
+	blockProposedV2Ch := make(chan *bindings.TaikoL1ClientBlockProposedV2, chBufferSize)
 	blockVerifiedV2Ch := make(chan *bindings.TaikoL1ClientBlockVerifiedV2, chBufferSize)
 	transitionProvedV2Ch := make(chan *bindings.TaikoL1ClientTransitionProvedV2, chBufferSize)
 	transitionContestedV2Ch := make(chan *bindings.TaikoL1ClientTransitionContestedV2, chBufferSize)
 	// Subscriptions
-	blockProposedSub := rpc.SubscribeBlockProposed(p.rpc.LibProposing, blockProposedCh)
+	blockProposedSub := rpc.SubscribeBlockProposed(p.rpc.TaikoL1, blockProposedCh)
 	blockVerifiedSub := rpc.SubscribeBlockVerified(p.rpc.TaikoL1, blockVerifiedCh)
 	transitionProvedSub := rpc.SubscribeTransitionProved(p.rpc.TaikoL1, transitionProvedCh)
 	transitionContestedSub := rpc.SubscribeTransitionContested(p.rpc.TaikoL1, transitionContestedCh)
-	blockProposedV2Sub := rpc.SubscribeBlockProposedV2(p.rpc.LibProposing, blockProposedV2Ch)
+	blockProposedV2Sub := rpc.SubscribeBlockProposedV2(p.rpc.TaikoL1, blockProposedV2Ch)
 	blockVerifiedV2Sub := rpc.SubscribeBlockVerifiedV2(p.rpc.TaikoL1, blockVerifiedV2Ch)
 	transitionProvedV2Sub := rpc.SubscribeTransitionProvedV2(p.rpc.TaikoL1, transitionProvedV2Ch)
 	transitionContestedV2Sub := rpc.SubscribeTransitionContestedV2(p.rpc.TaikoL1, transitionContestedV2Ch)
@@ -317,12 +338,18 @@ func (p *Prover) eventLoop() {
 			p.withRetry(func() error { return p.contestProofOp(req) })
 		case proofWithHeader := <-p.proofGenerationCh:
 			p.withRetry(func() error { return p.submitProofOp(proofWithHeader) })
+		case batchProof := <-p.batchProofGenerationCh:
+			p.withRetry(func() error { return p.submitProofAggregationOp(batchProof) })
 		case req := <-p.proofSubmissionCh:
 			p.withRetry(func() error { return p.requestProofOp(req.Meta, req.Tier) })
 		case <-p.proveNotify:
 			if err := p.proveOp(); err != nil {
 				log.Error("Prove new blocks error", "error", err)
 			}
+		case tier := <-p.aggregationNotify:
+			p.withRetry(func() error {
+				return p.aggregateOp(tier)
+			})
 		case e := <-blockVerifiedCh:
 			p.blockVerifiedHandler.Handle(encoding.BlockVerifiedEventToV2(e))
 		case e := <-transitionProvedCh:
@@ -362,6 +389,8 @@ func (p *Prover) eventLoop() {
 			reqProving()
 		case <-forceProvingTicker.C:
 			reqProving()
+		case <-forceAggregatingTicker.C:
+			reqAggregation()
 		}
 	}
 }
@@ -376,7 +405,6 @@ func (p *Prover) proveOp() error {
 	iter, err := eventIterator.NewBlockProposedIterator(p.ctx, &eventIterator.BlockProposedIteratorConfig{
 		Client:               p.rpc.L1,
 		TaikoL1:              p.rpc.TaikoL1,
-		LibProposing:         p.rpc.LibProposing,
 		StartHeight:          new(big.Int).SetUint64(p.sharedState.GetL1Current().Number.Uint64()),
 		OnBlockProposedEvent: p.blockProposedHandler.Handle,
 		BlockConfirmations:   &p.cfg.BlockConfirmations,
@@ -387,6 +415,35 @@ func (p *Prover) proveOp() error {
 	}
 
 	return iter.Iter()
+}
+
+// aggregateOp aggregates all proofs in buffer.
+func (p *Prover) aggregateOp(tier uint16) error {
+	g, gCtx := errgroup.WithContext(p.ctx)
+	for _, submitter := range p.proofSubmitters {
+		g.Go(func() error {
+			if submitter.BufferSize() > 1 &&
+				(tier == 0 || submitter.Tier() == tier) {
+				if err := submitter.AggregateProofs(gCtx); err != nil {
+					log.Error("Failed to aggregate proofs",
+						"error", err,
+						"tier", submitter.Tier(),
+					)
+					return err
+				}
+			} else {
+				log.Debug(
+					"Skip the current aggregation operation",
+					"requestTier", tier,
+					"submitterTier", submitter.Tier(),
+					"bufferSize", submitter.BufferSize(),
+				)
+			}
+			return nil
+		})
+	}
+
+	return g.Wait()
 }
 
 // contestProofOp performs a proof contest operation.
@@ -463,6 +520,36 @@ func (p *Prover) submitProofOp(proofWithHeader *proofProducer.ProofWithHeader) e
 			"Submit proof error",
 			"blockID", proofWithHeader.BlockID,
 			"minTier", proofWithHeader.Meta.GetMinTier(),
+			"error", err,
+		)
+		return err
+	}
+
+	return nil
+}
+
+// submitProofsOp performs a batch proof submission operation.
+func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs) error {
+	submitter := p.getSubmitterByTier(batchProof.Tier)
+	if submitter == nil {
+		return nil
+	}
+
+	if err := submitter.BatchSubmitProofs(p.ctx, batchProof); err != nil {
+		if strings.Contains(err.Error(), vm.ErrExecutionReverted.Error()) ||
+			strings.Contains(err.Error(), proofSubmitter.ErrInvalidProof.Error()) {
+			log.Error(
+				"Proof submission reverted",
+				"blockIDs", batchProof.BlockIDs,
+				"tier", batchProof.Tier,
+				"error", err,
+			)
+			return nil
+		}
+		log.Error(
+			"Submit proof error",
+			"blockIDs", batchProof.BlockIDs,
+			"tier", batchProof.Tier,
 			"error", err,
 		)
 		return err

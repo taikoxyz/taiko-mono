@@ -43,7 +43,7 @@ func TestHiveHandler(t *testing.T) {
 	})
 
 	// Multi clusters reorg test.
-	t.Run("taiko-reorg/taiko-reorg/clusters(1)", func(t *testing.T) {
+	t.Run("taiko-reorg/taiko-reorg", func(t *testing.T) {
 		testDenebReorg(t, "taiko-reorg/taiko-reorg", [][]string{clientGroups[0]})
 	})
 
@@ -113,7 +113,6 @@ func testDenebReorg(t *testing.T, simPattern string, clientGroups [][]string) {
 	handler, err := hivesim.NewHiveFramework(&hivesim.HiveConfig{
 		BuildOutput:     false,
 		ContainerOutput: true,
-		DockerPull:      false,
 		BaseDir:         os.Getenv("HIVE_DIR"),
 		SimPattern:      "taiko",
 		SimTestPattern:  simPattern,

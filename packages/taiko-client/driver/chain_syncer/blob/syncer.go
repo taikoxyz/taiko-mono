@@ -8,8 +8,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
-
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/beacon/engine"
@@ -18,16 +16,15 @@ import (
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 
 	anchorTxConstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	txListDecompressor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_decompressor"
@@ -66,6 +63,11 @@ func NewSyncer(
 		return nil, fmt.Errorf("failed to initialize anchor constructor: %w", err)
 	}
 
+	protocolConfigs, err := rpc.GetProtocolConfigs(client.TaikoL1, &bind.CallOpts{Context: ctx})
+	if err != nil {
+		return nil, err
+	}
+
 	return &Syncer{
 		ctx:               ctx,
 		rpc:               client,
@@ -73,7 +75,7 @@ func NewSyncer(
 		progressTracker:   progressTracker,
 		anchorConstructor: constructor,
 		txListDecompressor: txListDecompressor.NewTxListDecompressor(
-			uint64(encoding.GetProtocolConfig(client.L2.ChainID.Uint64()).BlockMaxGasLimit),
+			uint64(protocolConfigs.BlockMaxGasLimit),
 			rpc.BlockMaxTxListBytes,
 			client.L2.ChainID,
 		),
@@ -134,7 +136,6 @@ func (s *Syncer) processL1Blocks(ctx context.Context) error {
 	iter, err := eventIterator.NewBlockProposedIterator(ctx, &eventIterator.BlockProposedIteratorConfig{
 		Client:               s.rpc.L1,
 		TaikoL1:              s.rpc.TaikoL1,
-		LibProposing:         s.rpc.LibProposing,
 		StartHeight:          s.state.GetL1Current().Number,
 		EndHeight:            l1End.Number,
 		FilterQuery:          nil,
@@ -258,23 +259,17 @@ func (s *Syncer) onBlockProposed(
 		return fmt.Errorf("failed to fetch tx list: %w", err)
 	}
 
-	var decompressedTxListBytes []byte
-	if s.rpc.L2.ChainID.Cmp(params.HeklaNetworkID) == 0 {
-		decompressedTxListBytes = s.txListDecompressor.TryDecompressHekla(
-			meta.GetBlockID(),
-			txListBytes,
-			meta.GetBlobUsed(),
-		)
-	} else {
-		decompressedTxListBytes = s.txListDecompressor.TryDecompress(meta.GetBlockID(), txListBytes, meta.GetBlobUsed())
-	}
-
 	// Decompress the transactions list and try to insert a new head block to L2 EE.
 	payloadData, err := s.insertNewHead(
 		ctx,
 		meta,
 		parent,
-		decompressedTxListBytes,
+		s.txListDecompressor.TryDecompress(
+			s.rpc.L2.ChainID,
+			meta.GetBlockID(),
+			txListBytes,
+			meta.GetBlobUsed(),
+		),
 		&rawdb.L1Origin{
 			BlockID:       meta.GetBlockID(),
 			L2BlockHash:   common.Hash{}, // Will be set by taiko-geth.
@@ -410,10 +405,30 @@ func (s *Syncer) insertNewHead(
 		return nil, fmt.Errorf("failed to create execution payloads: %w", err)
 	}
 
+	var lastVerifiedBlockHash common.Hash
+	if lastVerifiedBlockHash, err = s.rpc.GetLastVerifiedBlockHash(ctx); err != nil {
+		log.Debug("Failed to fetch last verified block hash", "error", err)
+
+		stateVars, err := s.rpc.GetProtocolStateVariables(&bind.CallOpts{Context: ctx})
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch protocol state variables: %w", err)
+		}
+
+		lastVerifiedBlockHeader, err := s.rpc.L2.HeaderByNumber(
+			ctx,
+			new(big.Int).SetUint64(stateVars.B.LastVerifiedBlockId),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch last verified block: %w", err)
+		}
+
+		lastVerifiedBlockHash = lastVerifiedBlockHeader.Hash()
+	}
+
 	fc := &engine.ForkchoiceStateV1{
 		HeadBlockHash:      payload.BlockHash,
-		SafeBlockHash:      payload.BlockHash,
-		FinalizedBlockHash: payload.BlockHash,
+		SafeBlockHash:      lastVerifiedBlockHash,
+		FinalizedBlockHash: lastVerifiedBlockHash,
 	}
 
 	// Update the fork choice

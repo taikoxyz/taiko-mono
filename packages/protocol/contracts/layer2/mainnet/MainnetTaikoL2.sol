@@ -7,6 +7,6 @@ import "../based/TaikoL2.sol";
 /// @custom:security-contact security@taiko.xyz
 contract MainnetTaikoL2 is TaikoL2 {
     function ontakeForkHeight() public pure override returns (uint64) {
-        return 374_400; // = 7200 * 52
+        return 538_304;
     }
 }

@@ -5,10 +5,17 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "packages/protocol/**"
+      - "!packages/protocol/contract_layout_*"
+      - "!packages/protocol/audit/**"
+      - "!packages/protocol/docs/**"
+      - "!packages/protocol/simulation/**"
+      - "!packages/protocol/deployments/**"
+    branches-ignore:
+      - release-please--branches--**
 
 jobs:
   build-protocol:
-    if: github.event.pull_request.draft == false
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
     runs-on: [arc-runner-set]
     permissions:
       # Give the necessary permissions for stefanzweifel/git-auto-commit-action.
@@ -20,7 +27,8 @@ jobs:
           access_token: ${{ github.token }}
 
       - name: Prepare environment
-        run: sudo apt-get update && sudo apt-get install -y git nc
+        continue-on-error: true
+        run: sudo apt-get update && sudo apt-get install -y git wget
 
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -55,13 +63,13 @@ jobs:
         timeout-minutes: 2
         run: |
           anvil --hardfork cancun &
-          while ! nc -z localhost 8545; do
+          until cast chain-id --rpc-url "http://localhost:8545" 2> /dev/null; do
             sleep 1
           done
           pnpm test:deploy:l1
 
   genesis-docker:
-    if: github.event.pull_request.draft == false
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
     runs-on: [taiko-runner]
     permissions:
       # Give the necessary permissions for stefanzweifel/git-auto-commit-action.

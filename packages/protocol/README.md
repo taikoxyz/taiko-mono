@@ -136,7 +136,7 @@ This command runs the deployment script located at `script/deploy_protocol_on_l1
 
 ## Style Guide
 
-Refer to [CONTRIBUTING.md](https://www.notion.so/CONTRIBUTING.md) for code style guidelines.
+Refer to [CONTRIBUTING.md](../../CONTRIBUTING.md) for code style guidelines.
 
 Before committing code, format and lint it using:
 

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../../test/shared/DeployCapability.sol";
-import "../../contracts/shared/signal/SignalService.sol";
+import "test/shared/DeployCapability.sol";
+import "src/shared/signal/SignalService.sol";
 
 contract AuthorizeTaikoForMultihop is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");

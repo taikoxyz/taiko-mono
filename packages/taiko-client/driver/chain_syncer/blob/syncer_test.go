@@ -15,15 +15,14 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer"
 )
 
@@ -111,6 +110,10 @@ func (s *BlobSyncerTestSuite) TestInsertNewHead() {
 }
 
 func (s *BlobSyncerTestSuite) TestTreasuryIncomeAllAnchors() {
+	// TODO: Temporarily skip this test case when using l2_reth node.
+	if os.Getenv("L2_NODE") == "l2_reth" {
+		s.T().Skip()
+	}
 	treasury := common.HexToAddress(os.Getenv("TREASURY"))
 	s.NotZero(treasury.Big().Uint64())
 
@@ -129,10 +132,14 @@ func (s *BlobSyncerTestSuite) TestTreasuryIncomeAllAnchors() {
 	s.Nil(err)
 
 	s.Greater(headAfter, headBefore)
-	s.Zero(balanceAfter.Cmp(balance))
+	s.Equal(1, balanceAfter.Cmp(balance))
 }
 
 func (s *BlobSyncerTestSuite) TestTreasuryIncome() {
+	// TODO: Temporarily skip this test case when using l2_reth node.
+	if os.Getenv("L2_NODE") == "l2_reth" {
+		s.T().Skip()
+	}
 	treasury := common.HexToAddress(os.Getenv("TREASURY"))
 	s.NotZero(treasury.Big().Uint64())
 
@@ -154,8 +161,11 @@ func (s *BlobSyncerTestSuite) TestTreasuryIncome() {
 	s.Greater(headAfter, headBefore)
 	s.True(balanceAfter.Cmp(balance) > 0)
 
+	protocolConfigs, err := rpc.GetProtocolConfigs(s.RPCClient.TaikoL1, nil)
+	s.Nil(err)
+
 	var hasNoneAnchorTxs bool
-	chainConfig := config.NewChainConfig(encoding.GetProtocolConfig(s.RPCClient.L2.ChainID.Uint64()))
+	chainConfig := config.NewChainConfig(&protocolConfigs)
 	for i := headBefore + 1; i <= headAfter; i++ {
 		block, err := s.RPCClient.L2.BlockByNumber(context.Background(), new(big.Int).SetUint64(i))
 		s.Nil(err)

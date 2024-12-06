@@ -22,6 +22,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/blob"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer"
 	producer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
@@ -30,17 +31,21 @@ import (
 
 type ProofSubmitterTestSuite struct {
 	testutils.ClientTestSuite
-	submitter  *ProofSubmitter
-	contester  *ProofContester
-	blobSyncer *blob.Syncer
-	proposer   *proposer.Proposer
-	proofCh    chan *producer.ProofWithHeader
+	submitter              *ProofSubmitter
+	contester              *ProofContester
+	blobSyncer             *blob.Syncer
+	proposer               *proposer.Proposer
+	proofCh                chan *producer.ProofWithHeader
+	batchProofGenerationCh chan *producer.BatchProofs
+	aggregationNotify      chan uint16
 }
 
 func (s *ProofSubmitterTestSuite) SetupTest() {
 	s.ClientTestSuite.SetupTest()
 
 	s.proofCh = make(chan *producer.ProofWithHeader, 1024)
+	s.batchProofGenerationCh = make(chan *producer.BatchProofs, 1024)
+	s.aggregationNotify = make(chan uint16, 1)
 
 	builder := transaction.NewProveBlockTxBuilder(
 		s.RPCClient,
@@ -82,6 +87,8 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 		s.RPCClient,
 		&producer.OptimisticProofProducer{},
 		s.proofCh,
+		s.batchProofGenerationCh,
+		s.aggregationNotify,
 		rpc.ZeroAddress,
 		common.HexToAddress(os.Getenv("TAIKO_L2")),
 		"test",
@@ -92,6 +99,7 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 		tiers,
 		false,
 		0*time.Second,
+		0,
 	)
 	s.Nil(err)
 	s.contester = NewProofContester(
@@ -126,11 +134,16 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 	prop := new(proposer.Proposer)
 	l1ProposerPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROPOSER_PRIVATE_KEY")))
 	s.Nil(err)
+	jwtSecret, err := jwt.ParseSecretFromFile(os.Getenv("JWT_SECRET"))
+	s.Nil(err)
+	s.NotEmpty(jwtSecret)
 
 	s.Nil(prop.InitFromConfig(context.Background(), &proposer.Config{
 		ClientConfig: &rpc.ClientConfig{
 			L1Endpoint:        os.Getenv("L1_WS"),
 			L2Endpoint:        os.Getenv("L2_WS"),
+			L2EngineEndpoint:  os.Getenv("L2_AUTH"),
+			JwtSecret:         string(jwtSecret),
 			TaikoL1Address:    common.HexToAddress(os.Getenv("TAIKO_L1")),
 			TaikoL2Address:    common.HexToAddress(os.Getenv("TAIKO_L2")),
 			TaikoTokenAddress: common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
@@ -173,6 +186,8 @@ func (s *ProofSubmitterTestSuite) TestGetRandomBumpedSubmissionDelay() {
 		s.RPCClient,
 		&producer.OptimisticProofProducer{},
 		s.proofCh,
+		s.batchProofGenerationCh,
+		s.aggregationNotify,
 		common.Address{},
 		common.HexToAddress(os.Getenv("TAIKO_L2")),
 		"test",
@@ -183,6 +198,7 @@ func (s *ProofSubmitterTestSuite) TestGetRandomBumpedSubmissionDelay() {
 		s.submitter.tiers,
 		false,
 		time.Duration(0),
+		0,
 	)
 	s.Nil(err)
 
@@ -194,6 +210,8 @@ func (s *ProofSubmitterTestSuite) TestGetRandomBumpedSubmissionDelay() {
 		s.RPCClient,
 		&producer.OptimisticProofProducer{},
 		s.proofCh,
+		s.batchProofGenerationCh,
+		s.aggregationNotify,
 		common.Address{},
 		common.HexToAddress(os.Getenv("TAIKO_L2")),
 		"test",
@@ -204,6 +222,7 @@ func (s *ProofSubmitterTestSuite) TestGetRandomBumpedSubmissionDelay() {
 		s.submitter.tiers,
 		false,
 		1*time.Hour,
+		0,
 	)
 	s.Nil(err)
 	delay, err = submitter2.getRandomBumpedSubmissionDelay(time.Now())

@@ -13,6 +13,8 @@
     "no-global-import": "off",
     "no-inline-assembly": "off",
     "not-rely-on-time": "off",
+    "gas-custom-errors": "off",
+    "immutable-vars-naming": "off",
     "one-contract-per-file": "off"
   }
 }

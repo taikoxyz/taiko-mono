@@ -13,16 +13,18 @@ on:
       - "packages/eventindexer/**"
       - "go.mod"
       - "go.sum"
+    branches-ignore:
+      - release-please--branches--**
 
 jobs:
   lint-eventindexer:
     name: lint-eventindexer
-    if: github.event_name == 'pull_request'
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please' && !startsWith(github.head_ref, 'refs/heads/dependabot/')) }}
     runs-on: [arc-runner-set]
     steps:
       - uses: actions/setup-go@v5
         with:
-          go-version: 1.21.0
+          go-version: 1.23.0
       - uses: actions/checkout@v4
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
@@ -32,11 +34,11 @@ jobs:
 
           # Optional: working directory, useful for monorepos
           working-directory: ./packages/eventindexer
-          args: --config=.golangci.yml --timeout=4m
+          args: --config=.golangci.yml --timeout=10m
 
   test-eventindexer:
     runs-on: [arc-runner-set]
-    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft == false }}
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please' && !startsWith(github.head_ref, 'refs/heads/dependabot/')) }}
     needs: lint-eventindexer
     steps:
       - name: Cancel Previous Runs
@@ -50,7 +52,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: ">=1.21.0"
+          go-version: ">=1.23.0"
 
       - name: eventindexer - Unit Tests
         working-directory: ./packages/eventindexer
@@ -64,7 +66,7 @@ jobs:
 
   push-eventindexer-docker-image:
     # Skip dependabot PRs
-    if: ${{ github.event_name == 'pull_request' && ! startsWith(github.ref, 'refs/heads/dependabot/') }}
+    if: ${{ github.event_name == 'pull_request' && ! startsWith(github.head_ref, 'refs/heads/dependabot/') && !startsWith(github.head_ref, 'release-please') }}
     name: Build and push docker image
     runs-on: [arc-runner-set]
 

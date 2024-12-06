@@ -1,5 +1,96 @@
 # Changelog
 
+## [0.39.2](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.39.1...taiko-client-v0.39.2) (2024-10-24)
+
+
+### Bug Fixes
+
+* **protocol:** fix issue in mainnet deployment script ([#18283](https://github.com/taikoxyz/taiko-mono/issues/18283)) ([5c371a1](https://github.com/taikoxyz/taiko-mono/commit/5c371a181af444999f611e03774ec096ffbd1226))
+* **taiko-client:** fix path parsing in `/eth/v1/config/spec` ([#18295](https://github.com/taikoxyz/taiko-mono/issues/18295)) ([6633c80](https://github.com/taikoxyz/taiko-mono/commit/6633c80fbcabb6f06ce5467501da4207bc84be84))
+
+## [0.39.1](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.39.0...taiko-client-v0.39.1) (2024-10-22)
+
+
+### Bug Fixes
+
+* **taiko-client:** fix `lastVerifiedBlockHash` fetch ([#18277](https://github.com/taikoxyz/taiko-mono/issues/18277)) ([8512f45](https://github.com/taikoxyz/taiko-mono/commit/8512f456f033130ecb0e5493a3c36be025908228))
+
+## [0.39.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.38.0...taiko-client-v0.39.0) (2024-10-21)
+
+
+### Features
+
+* **taiko-client:** update `OntakeForkHeight` in mainnet ([#18253](https://github.com/taikoxyz/taiko-mono/issues/18253)) ([21c6235](https://github.com/taikoxyz/taiko-mono/commit/21c62355575adae6d99e1a117f357c6429d79b4c))
+
+
+### Documentation
+
+* **taiko-client:** update readme how to do integration test ([#18256](https://github.com/taikoxyz/taiko-mono/issues/18256)) ([b12b32e](https://github.com/taikoxyz/taiko-mono/commit/b12b32e92b5803f15047a6da2b73135f12b9406d))
+
+
+### Tests
+
+* **taiko-client:** introduce `taiko-reth` as another L2 node in testing ([#18223](https://github.com/taikoxyz/taiko-mono/issues/18223)) ([e856273](https://github.com/taikoxyz/taiko-mono/commit/e85627365d423fd8353b5bff92e80978774e9c50))
+
+## [0.38.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.37.0...taiko-client-v0.38.0) (2024-10-09)
+
+
+### Features
+
+* **taiko-client:** add `proposer_pool_content_fetch_time` metric ([#18190](https://github.com/taikoxyz/taiko-mono/issues/18190)) ([35579df](https://github.com/taikoxyz/taiko-mono/commit/35579dfa938562969da2395492f4472c300574dd))
+
+
+### Chores
+
+* **taiko-client:** bump dependencies ([#18202](https://github.com/taikoxyz/taiko-mono/issues/18202)) ([219a7e8](https://github.com/taikoxyz/taiko-mono/commit/219a7e87c09c7e4ac8d545c65c77a29e6f818701))
+
+
+### Tests
+
+* **taiko-client:** remove an unnecessary test ([#18218](https://github.com/taikoxyz/taiko-mono/issues/18218)) ([d624e29](https://github.com/taikoxyz/taiko-mono/commit/d624e29ce1c0ae9ef6704d96516d632600213e13))
+
+## [0.37.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.36.0...taiko-client-v0.37.0) (2024-09-28)
+
+
+### Features
+
+* **taiko-client:** allow `--l1.beacon` to be optional when a blob server is given ([#18094](https://github.com/taikoxyz/taiko-mono/issues/18094)) ([f4d47a3](https://github.com/taikoxyz/taiko-mono/commit/f4d47a3f988462605f04106b14394bb400fc9669))
+* **taiko-client:** improve some logs in zk producer ([#18117](https://github.com/taikoxyz/taiko-mono/issues/18117)) ([109595e](https://github.com/taikoxyz/taiko-mono/commit/109595e7b285709833a782ee0959fd1a815ef706))
+* **taiko-client:** support `TaikoL1.proposeBlocksV2` ([#18116](https://github.com/taikoxyz/taiko-mono/issues/18116)) ([d0c0fed](https://github.com/taikoxyz/taiko-mono/commit/d0c0fed57c8b8ba139b65d0215df1976358e7635))
+* **taiko-client:** update contract bingdings ([#18182](https://github.com/taikoxyz/taiko-mono/issues/18182)) ([8954764](https://github.com/taikoxyz/taiko-mono/commit/8954764d96c256408c1cfd77deb1621da288a33c))
+* **taiko-client:** update prover balance check to include bond balance ([#18092](https://github.com/taikoxyz/taiko-mono/issues/18092)) ([5d5ca74](https://github.com/taikoxyz/taiko-mono/commit/5d5ca74970f88493ea75b14a13fe852f840f019a))
+
+
+### Bug Fixes
+
+* **taiko-client:** dont check l1heightInAnchor vs l1Height when detecting reorg ([#18110](https://github.com/taikoxyz/taiko-mono/issues/18110)) ([7ed9b6f](https://github.com/taikoxyz/taiko-mono/commit/7ed9b6f647fd1611e036ce12e4fd96696ef231ea))
+* **taiko-client:** fix blob server API URL when fetching blob data ([#18109](https://github.com/taikoxyz/taiko-mono/issues/18109)) ([7230dfd](https://github.com/taikoxyz/taiko-mono/commit/7230dfd1150edc7c08be6f97a46c1184a0b2d289))
+* **taiko-client:** fix process in handling empty proof ([#18128](https://github.com/taikoxyz/taiko-mono/issues/18128)) ([d6d90d8](https://github.com/taikoxyz/taiko-mono/commit/d6d90d887be8955f844c52c4fb100fa46d66fa47))
+* **taiko-client:** fix revert case when propose blob blocks ([#18185](https://github.com/taikoxyz/taiko-mono/issues/18185)) ([656e757](https://github.com/taikoxyz/taiko-mono/commit/656e757d629131cb03af894269ef447c39e9741e))
+* **taiko-client:** improve prover balance check based on 18092 ([#18129](https://github.com/taikoxyz/taiko-mono/issues/18129)) ([b6cd50b](https://github.com/taikoxyz/taiko-mono/commit/b6cd50b61577d1eaa7aa29bd3e728271bcd4996f))
+* **taiko-client:** record `lastProposedAt` after ontake fork ([#18166](https://github.com/taikoxyz/taiko-mono/issues/18166)) ([ea0ca90](https://github.com/taikoxyz/taiko-mono/commit/ea0ca9040cc3d1d9fec50777d40b3cf69803c115))
+* **taiko-client:** revert path changes about SocialScan endpoint ([#18119](https://github.com/taikoxyz/taiko-mono/issues/18119)) ([38fa03a](https://github.com/taikoxyz/taiko-mono/commit/38fa03ab78d9cf4e70df8c623a74a4d69cf85682))
+
+
+### Chores
+
+* **protocol:** remove reliance on taiko contracts and update golangci-lint ([#18151](https://github.com/taikoxyz/taiko-mono/issues/18151)) ([92f571a](https://github.com/taikoxyz/taiko-mono/commit/92f571a15daa4ad300b4665bbace9248c439fd11))
+* **taiko-client:** revert building changes ([#18174](https://github.com/taikoxyz/taiko-mono/issues/18174)) ([485b2ee](https://github.com/taikoxyz/taiko-mono/commit/485b2ee9a4bf4e16b9d0ab7b704eba0b0a46996c))
+* **taiko-client:** try cross-compile taiko-client to speed up docker building ([#18171](https://github.com/taikoxyz/taiko-mono/issues/18171)) ([9dbad24](https://github.com/taikoxyz/taiko-mono/commit/9dbad24cefcd260e2b452c9e8a46fcbe5f327cb4))
+
+
+### Tests
+
+* **taiko-client:** disable docker pull in hive test ([#18101](https://github.com/taikoxyz/taiko-mono/issues/18101)) ([95c9da2](https://github.com/taikoxyz/taiko-mono/commit/95c9da29fdd432de156f331802b79703a2311898))
+* **taiko-client:** introduce `TestProposeTxListOntake` ([#18167](https://github.com/taikoxyz/taiko-mono/issues/18167)) ([5023226](https://github.com/taikoxyz/taiko-mono/commit/5023226a7aa2e7355e835f9447b17eb85c60032a))
+* **taiko-client:** introduce blob-server and blob-l1-beacon hive tests ([#18121](https://github.com/taikoxyz/taiko-mono/issues/18121)) ([c544fe8](https://github.com/taikoxyz/taiko-mono/commit/c544fe8c33e26bfae951fb15c423aec2b749d092))
+* **taiko-client:** upgrade full sync and snap sync hive tests ([#18010](https://github.com/taikoxyz/taiko-mono/issues/18010)) ([1d18c17](https://github.com/taikoxyz/taiko-mono/commit/1d18c170566aed645e2e03b024e7fe2f2a01756d))
+
+
+### Workflow
+
+* **protocol:** avoid installing `netcat` in action ([#18159](https://github.com/taikoxyz/taiko-mono/issues/18159)) ([7e27d1d](https://github.com/taikoxyz/taiko-mono/commit/7e27d1de388755b167d864df37133bfedafa2462))
+
 ## [0.36.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.35.0...taiko-client-v0.36.0) (2024-09-12)
 
 

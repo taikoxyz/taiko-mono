@@ -9,12 +9,14 @@
 ### shared_address_manager
 
 - proxy: `0x7D3338FD5e654CAC5B10028088624CA1D64e74f7`
-- impl: `0x27ef4e7b101e822Dd107FF14Ca2540e89cea8E3e`
+- impl: `0xAcA2a9f774e540CF592c07bBaAC9Ebae40e7C175`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
   - transferred ownership on Jul 8, 2024
+  - upgraded on Sep 20, 2024 at commit `fd1c039`
+  - upgraded on Oct 29, 2024 at commit `3d12cb2`
 
 ### taiko_token
 
@@ -39,12 +41,14 @@
 ### bridge
 
 - proxy: `0xA098b76a3Dd499D3F6D58D8AcCaFC8efBFd06807`
-- impl: `0x339F4C5320a5C697EA10b4f35d546C330AB43d8D`
+- impl: `0xE3d424D6D752dBcc6e19Dfd6755D518118f3d93b`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
   - transferred ownership on Jul 8, 2024
+  - upgraded on Sep 20, 2024 at commit `fd1c039`
+  - upgraded on Oct 29, 2024 at commit `3d12cb2`
 
 ### erc20_vault
 
@@ -98,17 +102,19 @@
 ### rollup_address_manager
 
 - proxy: `0x1F027871F286Cf4B7F898B21298E7B3e090a8403`
-- impl: `0x68570e85Ca54bAE1B6f608d0929665146BA66B39`
+- impl: `0x97Ece9dC33e8442ED6e61aA378bf3FdC7dF17213`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - upgraded on May 10, 2024 at commit `13ad99d`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
   - transferred ownership on Jul 8, 2024
+  - upgraded on Sep 20, 2024 at commit `fd1c039`
+  - upgraded on Oct 29, 2024 at commit `3d12cb2`
 
 ### taikoL1
 
 - proxy: `0x79C9109b764609df928d16fC4a91e9081F7e87DB`
-- impl: `0xFEE0b488da4DFC7Cd784d47de42b9467C1faE0F3.`
+- impl: `0x833958CF23DAA9F19Ab418BCA114C2842819284A`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
@@ -122,6 +128,10 @@
   - upgraded on Jul 11, 2024 at [PR #17779](https://github.com/taikoxyz/taiko-mono/pull/17779)
   - upgraded on Jul 15, 2024 at commit `45281b8`
   - upgraded on Aug 15, 2024 at `protocol-v1.8.0` with [#17919](https://github.com/taikoxyz/taiko-mono/pull/17919)
+  - upgraded on Sep 20, 2024 at commit `fd1c039`
+  - upgraded on Oct 16, 2024 at commit `233806e`
+  - upgraded on Oct 29, 2024 at commit `3d12cb2`
+  - upgraded on Nov 3, 2024 at commit `ea0158f`
 
 ### assignmentHook
 
@@ -144,92 +154,118 @@
 
 ### tierRouter
 
-- impl: `0xE17dBD745f0144b8b7133cbBA044B74Ff34A7aA2`
+- impl: `0x98d4FaD098526c4582063FA588C5e96229270366`
 - logs:
   - deployed on Jun 10, 2024 at commit `d5965bb`
   - upgraded on Jun 14, 2024 at commit `cc10b04`
   - upgraded on Jun 19, 2024 at commit `b7e12e3`
   - upgraded on Aug 15, 2024 at commit `05d49b0`
   - upgraded on Sep 02, 2024 at commit `9dae5c8`
+  - upgraded on Oct 24, 2024 at commit `78f9ac0`
+  - upgraded on Oct 30, 2024 at commit `63455f9`
+  - upgraded on Nov 4, 2024 at commit `90b2693`
 
 ### prover_set
 
 - proxy: `0xD3f681bD6B49887A48cC9C9953720903967E9DC0`
-- impl: `0x4ABc9874bca5bc33cB62396754BdcC5811D98fcd.`
+- impl: `0x7840556da7E6E74C01a8334a9e6a6d3F4Ae094A0.`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on Jun 17, 2024 at commit `b7e12e3`
   - upgraded on Jul 11, 2024 at commit `30631a9`
+  - upgraded on Sep 20, 2024 at commit `fd1c039`
+  - upgraded on Oct 29, 2024 at commit `3d12cb2`
 
 ### prover_set_contester
 
 - proxy: `0x335103c4fa2F55451975082136F1478eCFeB84B9`
-- impl: `0x4ABc9874bca5bc33cB62396754BdcC5811D98fcd.`
+- impl: `0x93Df4e369fb916ccc78e94e85017d18e367ba9B5.`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on Jun 21, 2024 at commit `099ce22`
   - upgraded on Jul 11, 2024 at commit `30631a9`
+  - upgraded on Sep 20, 2024 at commit `fd1c039`
+  - upgraded on Oct 29, 2024 at commit `3d12cb2`
 
 ### guardian_prover
 
 - proxy: `0x92F195a8702da2104aE8E3E10779176E7C35d6BC`
-- impl: `0x23bDb18995266c1Ac4c1BDBF69aE977A2DCE0750`
+- impl: `0x426A2DA100727d8f3e89252Ba125acbd0e048aDe`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
   - transferred ownership on Jul 8, 2024
+  - upgraded on Sep 20, 2024 at commit `fd1c039`
+  - upgraded on Oct 29, 2024 at commit `3d12cb2`
 
 ### guardian_minority
 
 - proxy: `0x31d4d27da5c299d4b6CE19c869B8891C0002795d`
-- impl: `0x7eA0a9d62cF26Bd81D62AEf6D6D67a86A580aFA3`
+- impl: `0x8ACaB96A6e8bf611E21A6eA332C6509c8d0b699f`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on May 20, 2024 at commit `6e56475`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
   - transferred ownership on Jul 8, 2024
+  - upgraded on Sep 20, 2024 at commit `fd1c039`
+  - upgraded on Oct 29, 2024 at commit `3d12cb2`
+
+### tier_sgx
+
+- proxy : 0x532EFBf6D62720D0B2a2Bb9d11066E8588cAE6D9
+- impl : 0x3c1b6b0F179dab0dE5e11C9B2a531C5c693Fd70C
+- owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
+- logs:
+  - upgraded on Nov 6, 2024 at commit `0706f0a`
 
 ### risc0_groth16_verifier
 
-- addr : 0xc2c2676E31b59085dfDA9b1B066519b20e756D9d
+- addr : 0x5fd84014c62D5ea28D4533D5B1B48Ca44e571057
 - logs:
   - deployed on August 14, 2024 at commit `cba2a1e`
+  - upgraded on October 22, 2024 at commit `684a909`
 
 ### tier_zkvm_risc0
 
 - proxy : 0x4fEd801C5a876D4289e869cbEfA1E1A448b10714
-- impl : 0x33BD79aA6a24d8ED4413E01FEc546D4d49bF6C39
+- impl : 0xAF9F3B3f9276f24e4143e6247795cf71985C4890
 - owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
 - logs:
   - deployed on August 14, 2024 at commit `cba2a1e`
+  - upgraded on Nov 6, 2024 at commit `0706f0a`
 
 ### sp1_plonk_verifier
 
-- addr : 0x2D3EdD345fC785172c456b086e6672366c6235b7
+- addr : 0xfb2d02219D065eBF3Aa8d2D1a1C52b1868EE7384
 - logs:
   - deployed on September 02, 2024 at commit `16ac02e`
   - upgraded on September 15, 2024 at commit `6f26434`
+  - upgraded on October 22, 2024 at commit `684a909`
+  - upgraded on Nov 8, 2024 at commit `0b11101`
 
 ### tier_zkvm_sp1
 
 - proxy : 0xFbE49f777E0078b3Fa0bae6de4794c88d6EA6DDD
-- impl : 0x28d8F1DdAb35f34F5b97eE844bC74Bd237efe731
+- impl : 0xB83b7f7fA8f4e6332769D123b8C973F485aC4bBc.
 - owner : 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190
 - logs:
   - deployed on September 02, 2024 at commit `16ac02e`
   - upgraded on September 15, 2024 at commit `6f26434`
+  - upgraded on Nov 6, 2024 at commit `0706f0a`
 
 ## L2 Contracts
 
 ### bridge
 
 - proxy: `0x1670090000000000000000000000000000000001`
-- impl: `0xD981DaF607bb6D4249f943d1b13a9AE071E8E3B4`
+- impl: `0x50216f60163ef399E22026fa1300aEa8eebA3462`
 - owner: `0x95F6077C7786a58FA070D98043b16DF2B1593D2b`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
+  - upgraded on Sep 20, 2024 at commit `fd1c039`
+  - upgraded on Oct 29, 2024 at commit `3d12cb2`
 
 ### erc20_vault
 
@@ -273,36 +309,43 @@
 ### shared_address_manager
 
 - proxy: `0x1670090000000000000000000000000000000006`
-- impl: `0x91Cf5766Fbc35bb1a2226DE5052C308a5EDd1d47`
+- impl: `0x1063F4cF9eaAA67B5dc9750d96eC0BD885D10AeE`
 - owner: `0x95F6077C7786a58FA070D98043b16DF2B1593D2b`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
+  - upgraded on Sep 20, 2024 at commit `fd1c039`
+  - upgraded on Oct 29, 2024 at commit `3d12cb2`
 
 ### taikoL2
 
 - proxy: `0x1670090000000000000000000000000000010001`
-- impl: `0x0C74010473C066Cdd20BA32044D1f6E28527A725`
+- impl: `0x637B1e6E71007d033B5d4385179037C90665A203`
 - owner: `0x95F6077C7786a58FA070D98043b16DF2B1593D2b`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
+  - upgraded on Sep 20, 2024 at commit `fd1c039`
+  - upgraded on Oct 29, 2024 at commit `3d12cb2`
 
 ### rollup_address_manager
 
 - proxy: `0x1670090000000000000000000000000000010002`
-- impl: `0xd41f03dF5f46a0686807d9DBDd94a1223FC73AEe`
+- impl: `0x1063F4cF9eaAA67B5dc9750d96eC0BD885D10AeE`
 - owner: `0x95F6077C7786a58FA070D98043b16DF2B1593D2b`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at commit `d5965bb`
+  - upgraded on Sep 20, 2024 at commit `fd1c039`
+  - upgraded on Oct 29, 2024 at commit `3d12cb2`
 
 ### bridged_erc20
 
-- impl: `0xBF040d7C27cddFE9b4a91ebD79a4dc94e5bec677`
+- impl: `0x1BAF1AB3686Ace2fD47E11Ac627F3Cc626aEc0FF`
 - logs:
   - deployed on May 10, 2024 at commit `4903bec`
   - deployed on Jul 25, 2024 at commit `3d89d24`
+  - upgraded on Oct 29, 2024 at commit `3d12cb2`
 
 ### bridged_erc721
 

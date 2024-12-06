@@ -1,0 +1,39 @@
+name: Monitors
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "packages/monitors/**"
+    branches-ignore:
+      - release-please--branches--**
+
+jobs:
+  deploy-protocol-monitors:
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
+    runs-on: [taiko-runner]
+    permissions:
+      # Give the necessary permissions for stefanzweifel/git-auto-commit-action.
+      contents: write
+    steps:
+      - name: Cancel previous runs
+        uses: styfle/cancel-workflow-action@0.12.1
+        with:
+          access_token: ${{ github.token }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install pnpm dependencies
+        uses: ./.github/actions/install-pnpm-dependencies
+
+      - name: Deploy Monitors on OZ Defender
+        working-directory: packages/monitors/defender/mainnet
+        env:
+          DEFENDER_API_KEY: ${{ secrets.DEFENDER_API_KEY }}
+          DEFENDER_API_SECRET: ${{ secrets.DEFENDER_API_SECRET }}
+          SERVERLESS_ACCESS_KEY: ${{ secrets.SERVERLESS_ACCESS_KEY }}
+        run: |
+          npx serverless deploy
