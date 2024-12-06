@@ -10,7 +10,7 @@ Taiko nodes are minimally modified Ethereum [execution clients](https://ethereum
 
 You can think of it like an Ethereum mainnet node, except replacing the consensus client with `taiko-client`. `taiko-client` then drives `taiko-geth` over the [Engine API](https://github.com/ethereum/execution-apis/tree/main/src/engine). This is a modular design that allows easily plugging in other execution clients.
 
-![Taiko nodes diagram](~/assets/content/docs/core-concepts/taiko-nodes.png)
+![Taiko nodes diagram](~/assets/content/docs/taiko-protocol/taiko-nodes.png)
 
 ## taiko-geth
 
