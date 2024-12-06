@@ -164,7 +164,7 @@
   - upgraded on Oct 24, 2024 at commit `78f9ac0`
   - upgraded on Oct 30, 2024 at commit `63455f9`
   - upgraded on Nov 4, 2024 at commit `90b2693`
-  - upgraded on Nov 4, 2024 at commit `90b2693`
+  - upgraded on Nov 4, 2024 at commit `8e00612`
 
 ### prover_set
 
