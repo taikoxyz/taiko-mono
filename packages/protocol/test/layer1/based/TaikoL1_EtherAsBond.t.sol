@@ -32,7 +32,7 @@ contract TaikoL1Test_EtherAsBond is TaikoL1TestBase {
         super.setUpOnEthereum();
 
         // Use Ether as bond token
-        bondToken = TaikoToken(address(0)); 
+        bondToken = TaikoToken(address(0));
     }
 
     function test_deposit() external {
@@ -43,8 +43,8 @@ contract TaikoL1Test_EtherAsBond is TaikoL1TestBase {
         uint256 depositAmount = 1 ether;
 
         vm.prank(Alice);
-        taikoL1.depositBond{value: depositAmount}(depositAmount);
-    
+        taikoL1.depositBond{ value: depositAmount }(depositAmount);
+
         assertEq(taikoL1.bondBalanceOf(Alice), depositAmount);
     }
 
@@ -57,7 +57,7 @@ contract TaikoL1Test_EtherAsBond is TaikoL1TestBase {
         uint256 withdrawAmount = 0.5 ether;
 
         vm.prank(Alice);
-        taikoL1.depositBond{value: depositAmount}(depositAmount);
+        taikoL1.depositBond{ value: depositAmount }(depositAmount);
 
         vm.prank(Alice);
         taikoL1.withdrawBond(withdrawAmount);
@@ -74,7 +74,7 @@ contract TaikoL1Test_EtherAsBond is TaikoL1TestBase {
 
         vm.prank(Alice);
         vm.expectRevert();
-        taikoL1.depositBond{value: depositAmount}(depositAmount);
+        taikoL1.depositBond{ value: depositAmount }(depositAmount);
     }
 
     function test_overpayment_of_ether() external {
@@ -86,7 +86,7 @@ contract TaikoL1Test_EtherAsBond is TaikoL1TestBase {
 
         vm.prank(Alice);
         vm.expectRevert(ITaikoL1.EtherNotPaidAsBond.selector);
-        taikoL1.depositBond{value: depositAmount + 1}(depositAmount);
+        taikoL1.depositBond{ value: depositAmount + 1 }(depositAmount);
     }
 
     function test_no_value_sent_on_deposit() external {
@@ -98,7 +98,7 @@ contract TaikoL1Test_EtherAsBond is TaikoL1TestBase {
 
         vm.prank(Alice);
         vm.expectRevert(ITaikoL1.EtherNotPaidAsBond.selector);
-        taikoL1.depositBond{value: 0}(depositAmount);
+        taikoL1.depositBond{ value: 0 }(depositAmount);
     }
 
     function test_withdraw_more_than_bond_balance() external {
@@ -110,7 +110,7 @@ contract TaikoL1Test_EtherAsBond is TaikoL1TestBase {
         uint256 withdrawAmount = 2 ether;
 
         vm.prank(Alice);
-        taikoL1.depositBond{value: depositAmount}(depositAmount);
+        taikoL1.depositBond{ value: depositAmount }(depositAmount);
         console2.log("Deposit succeeded, bond balance:", taikoL1.bondBalanceOf(Alice));
 
         vm.prank(Alice);
@@ -134,24 +134,29 @@ contract TaikoL1Test_EtherAsBond is TaikoL1TestBase {
         uint256 bobWithdraw = 2 ether;
 
         vm.prank(Alice);
-        taikoL1.depositBond{value: aliceFirstDeposit}(aliceFirstDeposit);
+        taikoL1.depositBond{ value: aliceFirstDeposit }(aliceFirstDeposit);
         assertEq(taikoL1.bondBalanceOf(Alice), aliceFirstDeposit);
 
         vm.prank(Alice);
-        taikoL1.depositBond{value: aliceSecondDeposit}(aliceSecondDeposit);
+        taikoL1.depositBond{ value: aliceSecondDeposit }(aliceSecondDeposit);
         assertEq(taikoL1.bondBalanceOf(Alice), aliceFirstDeposit + aliceSecondDeposit);
 
         vm.prank(Bob);
-        taikoL1.depositBond{value: bobDeposit}(bobDeposit);
+        taikoL1.depositBond{ value: bobDeposit }(bobDeposit);
         assertEq(taikoL1.bondBalanceOf(Bob), bobDeposit);
 
         vm.prank(Alice);
         taikoL1.withdrawBond(aliceFirstWithdraw);
-        assertEq(taikoL1.bondBalanceOf(Alice), aliceFirstDeposit + aliceSecondDeposit - aliceFirstWithdraw);
+        assertEq(
+            taikoL1.bondBalanceOf(Alice),
+            aliceFirstDeposit + aliceSecondDeposit - aliceFirstWithdraw
+        );
 
         vm.prank(Alice);
         taikoL1.withdrawBond(aliceSecondWithdraw);
-        console2.log("Alice's second withdrawal succeeded, bond balance:", taikoL1.bondBalanceOf(Alice));
+        console2.log(
+            "Alice's second withdrawal succeeded, bond balance:", taikoL1.bondBalanceOf(Alice)
+        );
         assertEq(
             taikoL1.bondBalanceOf(Alice),
             aliceFirstDeposit + aliceSecondDeposit - aliceFirstWithdraw - aliceSecondWithdraw
@@ -168,5 +173,4 @@ contract TaikoL1Test_EtherAsBond is TaikoL1TestBase {
         );
         assertEq(taikoL1.bondBalanceOf(Bob), bobDeposit - bobWithdraw);
     }
-
 }
