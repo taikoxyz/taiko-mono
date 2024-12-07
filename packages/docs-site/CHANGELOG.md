@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.20.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.20.0...docs-site-v1.20.1) (2024-12-07)
+
+
+### Bug Fixes
+
+* **docs-site:** correct graphic ([#18561](https://github.com/taikoxyz/taiko-mono/issues/18561)) ([b574358](https://github.com/taikoxyz/taiko-mono/commit/b5743588e6492a67e1e5d3cc88906f92fec673bb))
+
+
+### Chores
+
+* **docs-site:** add goldsky to dev tools ([#18552](https://github.com/taikoxyz/taiko-mono/issues/18552)) ([4b83b5f](https://github.com/taikoxyz/taiko-mono/commit/4b83b5f76157d73f2c798195730b67adaf9ef09d))
+* **docs-site:** update hekla proof tier config graphic and address ([#18554](https://github.com/taikoxyz/taiko-mono/issues/18554)) ([0854e12](https://github.com/taikoxyz/taiko-mono/commit/0854e12beb8ad4036eecaa3d72589bdb5ab82927))
+
 ## [1.20.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.19.0...docs-site-v1.20.0) (2024-12-06)
 
 
