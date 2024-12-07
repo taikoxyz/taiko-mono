@@ -69,32 +69,36 @@ export default defineConfig({
           items: [
             { label: "What is Taiko?", link: "/core-concepts/what-is-taiko/" },
             {
-              label: "Based sequencing",
-              link: "/core-concepts/based-sequencing/",
-            },
-            {
               label: "Contestable rollups (BCR)",
-              link: "/core-concepts/contestable-rollups/",
+              link: "/core-concepts/contestable-rollup/",
             },
             {
               label: "Booster rollups (BBR)",
               link: "/core-concepts/booster-rollups/",
             },
             { label: "Multi-proofs", link: "/core-concepts/multi-proofs/" },
-            { label: "Block states", link: "/core-concepts/block-states" },
-            {
-              label: "Taiko nodes",
-              link: "/core-concepts/taiko-nodes/",
-            },
-            {
-              label: "Bridging",
-              link: "/core-concepts/bridging/",
-            },
             {
               label: "Inception layers",
               link: "/core-concepts/inception-layers/",
             },
           ],
+        },
+        {
+          label: "Taiko Protocol",
+          items: [
+            {
+              label: "Codebase Analysis",
+              collapsed: true,
+              items: [
+                {label: "TaikoL1 Contract", link: "/taiko-protocol/codebase-analysis/taikol1-contract"},
+                {label: "TaikoL2 Contract", link: "/taiko-protocol/codebase-analysis/taikol2-contract"},
+              ],
+            },
+            { label: "Block states", link: "/taiko-protocol/block-states" },
+            { label: "Bridging", link: "/taiko-protocol/bridging" },
+            { label: "Economics", link: "/taiko-protocol/economics" },
+            { label: "Taiko nodes", link: "/taiko-protocol/taiko-nodes" },
+          ]
         },
         {
           label: "Guides",
@@ -190,8 +194,8 @@ export default defineConfig({
               link: "/network-reference/network-configuration",
             },
             {
-              label: "Node releases",
-              link: "/network-reference/node-releases",
+              label: "Software releases",
+              link: "/network-reference/software-releases-and-deployments",
             },
             {
               label: "RPC configuration",

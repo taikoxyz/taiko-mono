@@ -14,9 +14,9 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
 	pkgFlags "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/flags"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
 // Config contains the configurations to initialize a Taiko prover.
@@ -60,6 +60,9 @@ type Config struct {
 	BlockConfirmations                      uint64
 	TxmgrConfigs                            *txmgr.CLIConfig
 	PrivateTxmgrConfigs                     *txmgr.CLIConfig
+	SGXProofBufferSize                      uint64
+	ZKVMProofBufferSize                     uint64
+	ForceProveInterval                      time.Duration
 }
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
@@ -183,5 +186,8 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			l1ProverPrivKey,
 			c,
 		),
+		SGXProofBufferSize:  c.Uint64(flags.SGXBatchSize.Name),
+		ZKVMProofBufferSize: c.Uint64(flags.ZKVMBatchSize.Name),
+		ForceProveInterval:  c.Duration(flags.ForceProveInterval.Name),
 	}, nil
 }

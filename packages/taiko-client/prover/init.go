@@ -13,8 +13,8 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 	handler "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/event_handler"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 	proofSubmitter "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter"
@@ -98,9 +98,10 @@ func (p *Prover) initProofSubmitters(
 ) error {
 	for _, tier := range p.sharedState.GetTiers() {
 		var (
-			producer  proofProducer.ProofProducer
-			submitter proofSubmitter.Submitter
-			err       error
+			bufferSize = p.cfg.SGXProofBufferSize
+			producer   proofProducer.ProofProducer
+			submitter  proofSubmitter.Submitter
+			err        error
 		)
 		switch tier.ID {
 		case encoding.TierOptimisticID:
@@ -121,6 +122,7 @@ func (p *Prover) initProofSubmitters(
 				Dummy:               p.cfg.Dummy,
 				RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 			}
+			bufferSize = p.cfg.ZKVMProofBufferSize
 		case encoding.TierZkVMSp1ID:
 			producer = &proofProducer.ZKvmProofProducer{
 				ZKProofType:         proofProducer.ZKProofTypeSP1,
@@ -129,10 +131,13 @@ func (p *Prover) initProofSubmitters(
 				Dummy:               p.cfg.Dummy,
 				RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 			}
+			bufferSize = p.cfg.ZKVMProofBufferSize
 		case encoding.TierGuardianMinorityID:
 			producer = proofProducer.NewGuardianProofProducer(encoding.TierGuardianMinorityID, p.cfg.EnableLivenessBondProof)
+			bufferSize = 0
 		case encoding.TierGuardianMajorityID:
 			producer = proofProducer.NewGuardianProofProducer(encoding.TierGuardianMajorityID, p.cfg.EnableLivenessBondProof)
+			bufferSize = 0
 		default:
 			return fmt.Errorf("unsupported tier: %d", tier.ID)
 		}
@@ -141,6 +146,8 @@ func (p *Prover) initProofSubmitters(
 			p.rpc,
 			producer,
 			p.proofGenerationCh,
+			p.batchProofGenerationCh,
+			p.aggregationNotify,
 			p.cfg.ProverSetAddress,
 			p.cfg.TaikoL2Address,
 			p.cfg.Graffiti,
@@ -151,6 +158,7 @@ func (p *Prover) initProofSubmitters(
 			tiers,
 			p.IsGuardianProver(),
 			p.cfg.GuardianProofSubmissionDelay,
+			bufferSize,
 		); err != nil {
 			return err
 		}
