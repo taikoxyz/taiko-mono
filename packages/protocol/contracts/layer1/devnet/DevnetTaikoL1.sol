@@ -4,12 +4,12 @@ pragma solidity ^0.8.24;
 import "../based/TaikoL1.sol";
 
 /// @title DevnetTaikoL1
-/// @dev Labeled in AddressResolver as "taiko"
+/// @dev Labeled in address resolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
 contract DevnetTaikoL1 is TaikoL1 {
     /// @inheritdoc ITaikoL1
-    function getConfig() public pure override returns (TaikoData.Config memory) {
-        return TaikoData.Config({
+    function getConfigV3() public pure override returns (ITaikoL1.ConfigV3 memory) {
+        return ITaikoL1.ConfigV3({
             chainId: 167_001,
             blockMaxProposals: 324_000,
             blockRingBufferSize: 360_000,
@@ -25,7 +25,9 @@ contract DevnetTaikoL1 is TaikoL1 {
                 minGasExcess: 1_340_000_000,
                 maxGasIssuancePerBlock: 600_000_000
             }),
-            ontakeForkHeight: 0
+            provingWindow: 2 hours,
+            emitTxListInCalldata: true,
+            pacayaForkHeight: 0
         });
     }
 }

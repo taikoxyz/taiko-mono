@@ -5,9 +5,9 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "src/shared/common/EssentialContract.sol";
-import "src/shared/common/LibStrings.sol";
-import "src/shared/common/LibAddress.sol";
-import "src/shared/common/LibMath.sol";
+import "src/shared/libs/LibStrings.sol";
+import "src/shared/libs/LibAddress.sol";
+import "src/shared/libs/LibMath.sol";
 import "src/shared/signal/ISignalService.sol";
 import "./LibEIP1559.sol";
 import "./LibL2Config.sol";
@@ -90,19 +90,19 @@ contract TaikoL2 is EssentialContract, IBlockHash, TaikoL2Deprecated {
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _rollupAddressManager The address of the {AddressManager} contract.
+    /// @param _rollupResolver The {IResolver} used by this rollup.
     /// @param _l1ChainId The ID of the base layer.
     /// @param _initialGasExcess The initial parentGasExcess.
     function init(
         address _owner,
-        address _rollupAddressManager,
+        address _rollupResolver,
         uint64 _l1ChainId,
         uint64 _initialGasExcess
     )
         external
         initializer
     {
-        __Essential_init(_owner, _rollupAddressManager);
+        __Essential_init(_owner, _rollupResolver);
 
         require(_l1ChainId != 0, L2_INVALID_L1_CHAIN_ID());
         require(_l1ChainId != block.chainid, L2_INVALID_L1_CHAIN_ID());
@@ -147,7 +147,7 @@ contract TaikoL2 is EssentialContract, IBlockHash, TaikoL2Deprecated {
         onlyGoldenTouch
         nonReentrant
     {
-        require(block.number >= ontakeForkHeight(), L2_FORK_ERROR());
+        require(block.number >= pacayaForkHeight(), L2_FORK_ERROR());
 
         uint256 parentId = block.number - 1;
         _verifyAndUpdatePublicInputHash(parentId);
@@ -230,7 +230,7 @@ contract TaikoL2 is EssentialContract, IBlockHash, TaikoL2Deprecated {
 
     /// @notice Returns the Ontake fork height.
     /// @return The Ontake fork height.
-    function ontakeForkHeight() public pure virtual returns (uint64) {
+    function pacayaForkHeight() public pure virtual returns (uint64) {
         return 0;
     }
 

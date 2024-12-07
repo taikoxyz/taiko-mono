@@ -3,11 +3,10 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "src/shared/common/EssentialContract.sol";
-import "src/shared/common/LibStrings.sol";
+import "src/shared/libs/LibStrings.sol";
 import "../automata-attestation/interfaces/IAttestation.sol";
 import "../automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
 import "../based/ITaikoL1.sol";
-import "../based/TaikoData.sol";
 import "./LibPublicInput.sol";
 import "./IVerifier.sol";
 
@@ -81,9 +80,9 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
-    /// @param _rollupAddressManager The address of the {AddressManager} contract.
-    function init(address _owner, address _rollupAddressManager) external initializer {
-        __Essential_init(_owner, _rollupAddressManager);
+    /// @param _rollupResolver The {IResolver} used by this rollup.
+    function init(address _owner, address _rollupResolver) external initializer {
+        __Essential_init(_owner, _rollupResolver);
     }
 
     /// @notice Adds trusted SGX instances to the registry.
@@ -137,53 +136,20 @@ contract SgxVerifier is EssentialContract, IVerifier {
 
     /// @inheritdoc IVerifier
     function verifyProof(
-        Context calldata _ctx,
-        TaikoData.Transition calldata _tran,
-        TaikoData.TierProof calldata _proof
-    )
-        external
-        onlyFromNamedEither(LibStrings.B_TAIKO, LibStrings.B_TIER_TEE_ANY)
-    {
-        // Do not run proof verification to contest an existing proof
-        if (_ctx.isContesting) return;
-
-        // Size is: 89 bytes
-        // 4 bytes + 20 bytes + 65 bytes (signature) = 89
-        require(_proof.data.length == 89, SGX_INVALID_PROOF());
-
-        uint32 id = uint32(bytes4(_proof.data[:4]));
-        address newInstance = address(bytes20(_proof.data[4:24]));
-
-        address oldInstance = ECDSA.recover(
-            LibPublicInput.hashPublicInputs(
-                _tran, address(this), newInstance, _ctx.prover, _ctx.metaHash, taikoChainId()
-            ),
-            _proof.data[24:]
-        );
-
-        require(_isInstanceValid(id, oldInstance), SGX_INVALID_INSTANCE());
-
-        if (newInstance != oldInstance && newInstance != address(0)) {
-            _replaceInstance(id, oldInstance, newInstance);
-        }
-    }
-
-    /// @inheritdoc IVerifier
-    function verifyBatchProof(
-        ContextV2[] calldata _ctxs,
-        TaikoData.TierProof calldata _proof
+        Context[] calldata _ctxs,
+        bytes calldata _proof
     )
         external
         onlyFromNamedEither(LibStrings.B_TAIKO, LibStrings.B_TIER_TEE_ANY)
     {
         // Size is: 109 bytes
         // 4 bytes + 20 bytes + 20 bytes + 65 bytes (signature) = 109
-        require(_proof.data.length == 109, SGX_INVALID_PROOF());
+        require(_proof.length == 109, SGX_INVALID_PROOF());
 
-        uint32 id = uint32(bytes4(_proof.data[:4]));
-        address oldInstance = address(bytes20(_proof.data[4:24]));
-        address newInstance = address(bytes20(_proof.data[24:44]));
-        bytes memory signature = _proof.data[44:];
+        uint32 id = uint32(bytes4(_proof[:4]));
+        address oldInstance = address(bytes20(_proof[4:24]));
+        address newInstance = address(bytes20(_proof[24:44]));
+        bytes memory signature = _proof[44:];
 
         // Collect public inputs
         bytes32[] memory publicInputs = new bytes32[](_ctxs.length + 2);
@@ -192,14 +158,9 @@ contract SgxVerifier is EssentialContract, IVerifier {
         publicInputs[1] = bytes32(uint256(uint160(newInstance)));
         // All other inputs are the block program public inputs (a single 32 byte value)
         for (uint256 i; i < _ctxs.length; ++i) {
-            // TODO: For now this assumes the new instance public key to remain the same
+            // TODO(Yue): For now this assumes the new instance public key to remain the same
             publicInputs[i + 2] = LibPublicInput.hashPublicInputs(
-                _ctxs[i].tran,
-                address(this),
-                newInstance,
-                _ctxs[i].prover,
-                _ctxs[i].metaHash,
-                taikoChainId()
+                _ctxs[i].transition, address(this), newInstance, _ctxs[i].metaHash, taikoChainId()
             );
         }
 
@@ -215,7 +176,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
     }
 
     function taikoChainId() internal view virtual returns (uint64) {
-        return ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfig().chainId;
+        return ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfigV3().chainId;
     }
 
     function _addInstances(

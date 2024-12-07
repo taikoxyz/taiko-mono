@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 import "../common/EssentialContract.sol";
-import "../common/LibStrings.sol";
+import "../libs/LibStrings.sol";
 import "./IBridgedERC721.sol";
 import "./LibBridgedToken.sol";
 
@@ -30,7 +30,7 @@ contract BridgedERC721 is
     /// @inheritdoc IBridgedERC721Initializable
     function init(
         address _owner,
-        address _sharedAddressManager,
+        address _sharedResolver,
         address _srcToken,
         uint256 _srcChainId,
         string calldata _symbol,
@@ -41,7 +41,7 @@ contract BridgedERC721 is
     {
         // Check if provided parameters are valid
         LibBridgedToken.validateInputs(_srcToken, _srcChainId);
-        __Essential_init(_owner, _sharedAddressManager);
+        __Essential_init(_owner, _sharedResolver);
         __ERC721_init(_name, _symbol);
 
         srcToken = _srcToken;

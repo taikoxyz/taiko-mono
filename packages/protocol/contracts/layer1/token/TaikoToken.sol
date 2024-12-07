@@ -6,7 +6,7 @@ import "src/shared/token/TaikoTokenBase.sol";
 /// @title TaikoToken
 /// @notice The TaikoToken (TKO), in the protocol is used for prover collateral
 /// in the form of bonds. It is an ERC20 token with 18 decimal places of precision.
-/// @dev Labeled in AddressResolver as "taiko_token"
+/// @dev Labeled in address resolver as "taiko_token"
 /// @dev On Ethereum, this contract is deployed behind a proxy at
 /// 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800 (token.taiko.eth)
 /// @custom:security-contact security@taiko.xyz
