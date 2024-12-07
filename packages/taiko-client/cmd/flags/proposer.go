@@ -112,6 +112,36 @@ var (
 		Value:   false,
 		EnvVars: []string{"L1_BLOB_ALLOWED"},
 	}
+	CheckProfitability = &cli.BoolFlag{
+		Name:     "checkProfitability",
+		Usage:    "Check profitability of transactions before proposing",
+		Value:    false,
+		Category: proposerCategory,
+		EnvVars:  []string{"CHECK_PROFITABILITY"},
+	}
+	GasNeededForProvingBlock = &cli.Uint64Flag{
+		Name:     "gasNeededForProvingBlock",
+		Usage:    "Gas needed for proving a block",
+		Value:    0,
+		Category: proposerCategory,
+		EnvVars:  []string{"GAS_NEEDED_FOR_PROVING_BLOCK"},
+	}
+
+	PriceFluctuationModifier = &cli.Uint64Flag{
+		Name:     "priceFluctuationModifier",
+		Usage:    "Price fluctuation modifier in percentage",
+		Value:    0,
+		Category: proposerCategory,
+		EnvVars:  []string{"PRICE_FLUCTUATION_MODIFIER"},
+	}
+
+	OffChainCosts = &cli.StringFlag{
+		Name:     "offChainCosts",
+		Usage:    "Off chain costs in WEI",
+		Value:    "0",
+		Category: proposerCategory,
+		EnvVars:  []string{"OFF_CHAIN_COSTS"},
+	}
 )
 
 // ProposerFlags All proposer flags.
@@ -134,4 +164,8 @@ var ProposerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	MaxProposedTxListsPerEpoch,
 	ProposeBlockIncludeParentMetaHash,
 	BlobAllowed,
+	CheckProfitability,
+	GasNeededForProvingBlock,
+	PriceFluctuationModifier,
+	OffChainCosts,
 }, TxmgrFlags)

@@ -9,7 +9,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -41,8 +43,10 @@ type Proposer struct {
 
 	proposingTimer *time.Timer
 
-	// Transaction builder
-	txBuilder builder.ProposeBlockTransactionBuilder
+	// Transaction builders
+	txCallDataBuilder builder.ProposeBlockTransactionBuilder
+	txBlobBuilder     builder.ProposeBlockTransactionBuilder
+	defaultTxBuilder  builder.ProposeBlockTransactionBuilder
 
 	// Protocol configurations
 	protocolConfigs *bindings.TaikoDataConfig
@@ -56,6 +60,8 @@ type Proposer struct {
 
 	ctx context.Context
 	wg  sync.WaitGroup
+
+	checkProfitability bool
 }
 
 // InitFromCli initializes the given proposer instance based on the command line flags.
@@ -78,6 +84,7 @@ func (p *Proposer) InitFromConfig(
 	p.ctx = ctx
 	p.Config = cfg
 	p.lastProposedAt = time.Now()
+	p.checkProfitability = cfg.CheckProfitability
 
 	// RPC clients
 	if p.rpc, err = rpc.NewClient(p.ctx, cfg.ClientConfig); err != nil {
@@ -119,8 +126,18 @@ func (p *Proposer) InitFromConfig(
 	chainConfig := config.NewChainConfig(p.protocolConfigs)
 	p.chainConfig = chainConfig
 
+	p.txCallDataBuilder = builder.NewCalldataTransactionBuilder(
+		p.rpc,
+		p.L1ProposerPrivKey,
+		cfg.L2SuggestedFeeRecipient,
+		cfg.TaikoL1Address,
+		cfg.ProverSetAddress,
+		cfg.ProposeBlockTxGasLimit,
+		cfg.ExtraData,
+		chainConfig,
+	)
 	if cfg.BlobAllowed {
-		p.txBuilder = builder.NewBlobTransactionBuilder(
+		p.txBlobBuilder = builder.NewBlobTransactionBuilder(
 			p.rpc,
 			p.L1ProposerPrivKey,
 			cfg.TaikoL1Address,
@@ -130,17 +147,10 @@ func (p *Proposer) InitFromConfig(
 			cfg.ExtraData,
 			chainConfig,
 		)
+		p.defaultTxBuilder = p.txBlobBuilder
 	} else {
-		p.txBuilder = builder.NewCalldataTransactionBuilder(
-			p.rpc,
-			p.L1ProposerPrivKey,
-			cfg.L2SuggestedFeeRecipient,
-			cfg.TaikoL1Address,
-			cfg.ProverSetAddress,
-			cfg.ProposeBlockTxGasLimit,
-			cfg.ExtraData,
-			chainConfig,
-		)
+		p.txBlobBuilder = nil
+		p.defaultTxBuilder = p.txCallDataBuilder
 	}
 
 	return nil
@@ -230,8 +240,8 @@ func (p *Proposer) fetchPoolContent(filterPoolContent bool) ([]types.Transaction
 		}
 		txLists = append(txLists, txs.TxList)
 	}
-	// If the pool content is empty and the checkPoolContent flag is not set, return an empty list.
-	if !filterPoolContent && len(txLists) == 0 {
+	// If the pool is empty and we're not filtering or checking profitability, return an empty list.
+	if !filterPoolContent && !p.checkProfitability && len(txLists) == 0 {
 		log.Info(
 			"Pool content is empty, proposing an empty block",
 			"lastProposedAt", p.lastProposedAt,
@@ -386,7 +396,7 @@ func (p *Proposer) ProposeTxListLegacy(
 		return errors.New("insufficient prover balance")
 	}
 
-	txCandidate, err := p.txBuilder.BuildLegacy(
+	txCandidate, err := p.defaultTxBuilder.BuildLegacy(
 		ctx,
 		p.IncludeParentMetaHash,
 		compressedTxListBytes,
@@ -413,27 +423,12 @@ func (p *Proposer) ProposeTxListOntake(
 	ctx context.Context,
 	txLists []types.Transactions,
 ) error {
-	var (
-		proverAddress     = p.proposerAddress
-		txListsBytesArray [][]byte
-		txNums            []int
-		totalTxs          int
-	)
-	for _, txs := range txLists {
-		txListBytes, err := rlp.EncodeToBytes(txs)
-		if err != nil {
-			return fmt.Errorf("failed to encode transactions: %w", err)
-		}
-
-		compressedTxListBytes, err := utils.Compress(txListBytes)
-		if err != nil {
-			return err
-		}
-
-		txListsBytesArray = append(txListsBytesArray, compressedTxListBytes)
-		txNums = append(txNums, len(txs))
-		totalTxs += len(txs)
+	txListsBytesArray, totalTxs, err := p.compressTxLists(txLists)
+	if err != nil {
+		return err
 	}
+
+	var proverAddress = p.proposerAddress
 
 	if p.Config.ClientConfig.ProverSetAddress != rpc.ZeroAddress {
 		proverAddress = p.Config.ClientConfig.ProverSetAddress
@@ -456,22 +451,119 @@ func (p *Proposer) ProposeTxListOntake(
 		return errors.New("insufficient prover balance")
 	}
 
-	txCandidate, err := p.txBuilder.BuildOntake(ctx, txListsBytesArray)
+	txCandidate, cost, err := p.buildCheaperOnTakeTransaction(ctx, txListsBytesArray)
 	if err != nil {
 		log.Warn("Failed to build TaikoL1.proposeBlocksV2 transaction", "error", encoding.TryParsingCustomError(err))
 		return err
+	}
+
+	if p.checkProfitability {
+		profitable, err := p.isProfitable(txLists, cost)
+		if err != nil {
+			return err
+		}
+		if !profitable {
+			log.Info("Proposing transaction is not profitable")
+			return nil
+		}
 	}
 
 	if err := p.sendTx(ctx, txCandidate); err != nil {
 		return err
 	}
 
-	log.Info("📝 Batch propose transactions succeeded", "txs", txNums)
+	log.Info("📝 Batch propose transactions succeeded", "txs", totalTxs)
 
 	metrics.ProposerProposedTxListsCounter.Add(float64(len(txLists)))
 	metrics.ProposerProposedTxsCounter.Add(float64(totalTxs))
 
 	return nil
+}
+
+func (p *Proposer) buildCheaperOnTakeTransaction(ctx context.Context,
+	txListsBytesArray [][]byte) (*txmgr.TxCandidate, *big.Int, error) {
+	txCallData, err := p.txCallDataBuilder.BuildOntake(ctx, txListsBytesArray)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var tx *txmgr.TxCandidate
+	var cost *big.Int
+
+	if p.txBlobBuilder != nil {
+		txBlob, err := p.txBlobBuilder.BuildOntake(ctx, txListsBytesArray)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		tx, cost, err = p.chooseCheaperTransaction(txCallData, txBlob)
+		if err != nil {
+			return nil, nil, err
+		}
+	} else {
+		cost, err = p.getTransactionCost(txCallData)
+		if err != nil {
+			return nil, nil, err
+		}
+		tx = txCallData
+	}
+
+	return tx, cost, nil
+}
+
+func (p *Proposer) chooseCheaperTransaction(
+	txCallData *txmgr.TxCandidate,
+	txBlob *txmgr.TxCandidate,
+) (*txmgr.TxCandidate, *big.Int, error) {
+	calldataTxCost, err := p.getTransactionCost(txCallData)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	blobTxCost, err := p.getTransactionCost(txBlob)
+	if err != nil {
+		return nil, nil, err
+	}
+	blobCost, err := p.getBlobCost(txBlob.Blobs)
+	if err != nil {
+		return nil, nil, err
+	}
+	totalBlobCost := new(big.Int).Add(blobTxCost, blobCost)
+
+	if calldataTxCost.Cmp(totalBlobCost) > 0 {
+		return txBlob, totalBlobCost, nil
+	}
+
+	return txCallData, calldataTxCost, nil
+}
+
+// compressTxLists compresses transaction lists and returns compressed bytes array and transaction counts
+func (p *Proposer) compressTxLists(txLists []types.Transactions) ([][]byte, int, error) {
+	var (
+		txListsBytesArray [][]byte
+		txNums            []int
+		totalTxs          int
+	)
+
+	for _, txs := range txLists {
+		txListBytes, err := rlp.EncodeToBytes(txs)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to encode transactions: %w", err)
+		}
+
+		compressedTxListBytes, err := utils.Compress(txListBytes)
+		if err != nil {
+			return nil, 0, err
+		}
+
+		txListsBytesArray = append(txListsBytesArray, compressedTxListBytes)
+		txNums = append(txNums, len(txs))
+		totalTxs += len(txs)
+	}
+
+	log.Debug("Compressed transaction lists", "txs", txNums)
+
+	return txListsBytesArray, totalTxs, nil
 }
 
 // updateProposingTicker updates the internal proposing timer.
@@ -517,4 +609,119 @@ func (p *Proposer) sendTx(ctx context.Context, txCandidate *txmgr.TxCandidate) e
 // Name returns the application name.
 func (p *Proposer) Name() string {
 	return "proposer"
+}
+
+// isProfitable checks if a transaction list is profitable to propose
+// Profitability is determined by comparing the revenue from transaction fees
+// to the costs of proposing and proving the block.
+func (p *Proposer) isProfitable(txLists []types.Transactions, proposingCosts *big.Int) (bool, error) {
+	totalTransactionFees, err := p.calculateTotalL2TransactionsFees(txLists)
+	if err != nil {
+		return false, err
+	}
+
+	costs, err := p.estimateTotalCosts(proposingCosts)
+	if err != nil {
+		return false, err
+	}
+
+	log.Debug("isProfitable", "total L2 fees", totalTransactionFees, "total L1 costs", costs)
+
+	return totalTransactionFees.Cmp(costs) > 0, nil
+}
+
+func (p *Proposer) calculateTotalL2TransactionsFees(txLists []types.Transactions) (*big.Int, error) {
+	totalGasConsumed := new(big.Int)
+
+	for _, txs := range txLists {
+		for _, tx := range txs {
+			baseFee := get75PercentOf(tx.GasFeeCap())
+			multiplier := new(big.Int).Add(tx.GasTipCap(), baseFee)
+			gasConsumed := new(big.Int).Mul(multiplier, baseFee)
+			totalGasConsumed.Add(totalGasConsumed, gasConsumed)
+		}
+	}
+
+	return totalGasConsumed, nil
+}
+
+func get75PercentOf(num *big.Int) *big.Int {
+	// First multiply by 3 to get 75% (as 3/4 = 75%)
+	result := new(big.Int).Mul(num, big.NewInt(3))
+	// Then divide by 4
+	return new(big.Int).Div(result, big.NewInt(4))
+}
+
+func (p *Proposer) getTransactionCost(txCandidate *txmgr.TxCandidate) (*big.Int, error) {
+	// Get the current L1 gas price
+	gasPrice, err := p.rpc.L1.SuggestGasPrice(p.ctx)
+	if err != nil {
+		return nil, fmt.Errorf("getTransactionCost: failed to get gas price: %w", err)
+	}
+
+	estimatedGasUsage, err := p.rpc.L1.EstimateGas(p.ctx, ethereum.CallMsg{
+		From: p.proposerAddress,
+		To:   txCandidate.To,
+		Data: txCandidate.TxData,
+		Gas:  0,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("getTransactionCost: failed to estimate gas: %w", err)
+	}
+
+	return new(big.Int).Mul(gasPrice, new(big.Int).SetUint64(estimatedGasUsage)), nil
+}
+
+func (p *Proposer) getBlobCost(blobs []*eth.Blob) (*big.Int, error) {
+	// Get current blob base fee
+	blobBaseFee, err := p.rpc.L1.BlobBaseFee(p.ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Each blob costs 1 blob gas
+	totalBlobGas := uint64(len(blobs))
+
+	// Total cost is blob gas * blob base fee
+	return new(big.Int).Mul(
+		new(big.Int).SetUint64(totalBlobGas),
+		blobBaseFee,
+	), nil
+}
+
+func adjustForPriceFluctuation(gasPrice *big.Int, percentage uint64) *big.Int {
+	temp := new(big.Int).Mul(gasPrice, new(big.Int).SetUint64(uint64(100)+percentage))
+	return new(big.Int).Div(temp, big.NewInt(100))
+}
+
+// Total Costs = gas needed for proof verification * (150% of gas price on L1) +
+// 150% of block proposal costs +
+// off chain proving costs (estimated with a margin for the provers' revenue)
+func (p *Proposer) estimateTotalCosts(proposingCosts *big.Int) (*big.Int, error) {
+	if p.OffChainCosts == nil {
+		log.Warn("Off-chain costs is not set, using 0")
+		p.OffChainCosts = big.NewInt(0)
+	}
+
+	log.Debug(
+		"Proposing block costs details",
+		"proposingCosts", proposingCosts,
+		"gasNeededForProving", p.GasNeededForProvingBlock,
+		"priceFluctuation", p.PriceFluctuationModifier,
+		"offChainCosts", p.OffChainCosts,
+	)
+
+	l1GasPrice, err := p.rpc.L1.SuggestGasPrice(p.ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	adjustedL1GasPrice := adjustForPriceFluctuation(l1GasPrice, p.PriceFluctuationModifier)
+	adjustedProposingCosts := adjustForPriceFluctuation(proposingCosts, p.PriceFluctuationModifier)
+	l1Costs := new(big.Int).Mul(new(big.Int).SetUint64(p.GasNeededForProvingBlock), adjustedL1GasPrice)
+	l1Costs = new(big.Int).Add(l1Costs, adjustedProposingCosts)
+
+	totalCosts := new(big.Int).Add(l1Costs, p.OffChainCosts)
+
+	return totalCosts, nil
 }

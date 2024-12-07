@@ -21,6 +21,7 @@ var (
 	taikoToken      = os.Getenv("TAIKO_TOKEN")
 	proposeInterval = "10s"
 	rpcTimeout      = "5s"
+	offChainCosts   = "10"
 )
 
 func (s *ProposerTestSuite) TestNewConfigFromCliContext() {
@@ -44,6 +45,10 @@ func (s *ProposerTestSuite) TestNewConfigFromCliContext() {
 		s.Equal(goldenTouchAddress, c.LocalAddresses[0])
 		s.Equal(5*time.Second, c.Timeout)
 		s.Equal(true, c.IncludeParentMetaHash)
+		s.Equal(offChainCosts, c.OffChainCosts.String())
+		s.Equal(true, c.CheckProfitability)
+		s.Equal(uint64(100000), c.GasNeededForProvingBlock)
+		s.Equal(uint64(100), c.PriceFluctuationModifier)
 
 		s.Nil(new(Proposer).InitFromCli(context.Background(), cliCtx))
 		return nil
@@ -63,6 +68,10 @@ func (s *ProposerTestSuite) TestNewConfigFromCliContext() {
 		"--" + flags.RPCTimeout.Name, rpcTimeout,
 		"--" + flags.TxGasLimit.Name, "100000",
 		"--" + flags.ProposeBlockIncludeParentMetaHash.Name, "true",
+		"--" + flags.OffChainCosts.Name, offChainCosts,
+		"--" + flags.CheckProfitability.Name, "true",
+		"--" + flags.GasNeededForProvingBlock.Name, "100000",
+		"--" + flags.PriceFluctuationModifier.Name, "100",
 	}))
 }
 
