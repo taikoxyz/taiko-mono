@@ -275,16 +275,7 @@ func (s *Syncer) RemoveSoftBlocks(ctx context.Context, newLastBlockID uint64) er
 		return err
 	}
 
-	lastVerifiedBlockHash, err := s.rpc.GetLastVerifiedBlockHash(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to fetch last verified block hash: %w", err)
-	}
-
-	fc := &engine.ForkchoiceStateV1{
-		HeadBlockHash:      newHead.Hash(),
-		SafeBlockHash:      newHead.Hash(),
-		FinalizedBlockHash: lastVerifiedBlockHash,
-	}
+	fc := &engine.ForkchoiceStateV1{HeadBlockHash: newHead.Hash()}
 	fcRes, err := s.rpc.L2Engine.ForkchoiceUpdate(ctx, fc, nil)
 	if err != nil {
 		return err
