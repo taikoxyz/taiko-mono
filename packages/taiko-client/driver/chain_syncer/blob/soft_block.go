@@ -114,6 +114,15 @@ func (s *Syncer) InsertSoftBlockFromTransactionsBatch(
 			)
 		}
 
+		// Check baseFee
+		if prevSoftBlock.BaseFee().Cmp(baseFee) != 0 {
+			return nil, fmt.Errorf(
+				"baseFee is not equal to the latest soft block's, expect: %s, actual: %s",
+				prevSoftBlock.BaseFee().String(),
+				baseFee.String(),
+			)
+		}
+
 		// Check the previous soft block status.
 		l1Origin, err := s.rpc.L2.L1OriginByID(ctx, prevSoftBlock.Number())
 		if err != nil {
@@ -158,6 +167,7 @@ func (s *Syncer) InsertSoftBlockFromTransactionsBatch(
 			BlockID:       new(big.Int).SetUint64(blockID),
 			L2BlockHash:   common.Hash{}, // Will be set by taiko-geth.
 			L1BlockHeight: nil,           // No L1 block height for soft blocks.
+			L1BlockHash:   common.Hash{}, // No L1 block hash for soft blocks.
 			BatchID:       new(big.Int).SetUint64(batchID),
 			EndOfBlock:    batchMarker == softblocks.BatchMarkerEOB,
 			EndOfPreconf:  batchMarker == softblocks.BatchMarkerEOP,
