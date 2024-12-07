@@ -2,7 +2,7 @@ name: "Build and Push Multi-Arch Docker Image"
 
 on:
   push:
-    branches: [main, preconf-driver-apis]
+    branches: [main, preconf-driver-apis, p2p_network]
     tags:
       - "taiko-client-v*"
     paths:

@@ -22,10 +22,11 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	softblocks "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/soft_blocks"
+	softblocksapi "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/soft_blocks"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/softblocks"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer"
 )
 
@@ -360,7 +361,7 @@ func (s *DriverTestSuite) TestInsertSoftBlocks() {
 		port = uint64(testutils.RandomPort())
 		err  error
 	)
-	s.d.softblockServer, err = softblocks.New("*", nil, s.d.ChainSyncer().BlobSyncer(), s.RPCClient, true)
+	s.d.softblockServer, err = softblocksapi.New("*", nil, s.d.ChainSyncer().BlobSyncer(), s.RPCClient, true, nil)
 	s.Nil(err)
 	go func() { s.NotNil(s.d.softblockServer.Start(port)) }()
 	defer func() { s.Nil(s.d.softblockServer.Shutdown(s.d.ctx)) }()
@@ -464,7 +465,7 @@ func (s *DriverTestSuite) TestInsertSoftBlocksAfterEOB() {
 		epochs = testutils.RandomHash().Big().Uint64()%10 + 5
 		err    error
 	)
-	s.d.softblockServer, err = softblocks.New("*", nil, s.d.ChainSyncer().BlobSyncer(), s.RPCClient, true)
+	s.d.softblockServer, err = softblocksapi.New("*", nil, s.d.ChainSyncer().BlobSyncer(), s.RPCClient, true, nil)
 	s.Nil(err)
 	go func() { s.NotNil(s.d.softblockServer.Start(port)) }()
 	defer func() { s.Nil(s.d.softblockServer.Shutdown(s.d.ctx)) }()
@@ -531,7 +532,7 @@ func (s *DriverTestSuite) TestInsertSoftBlocksAfterEOP() {
 		epochs = testutils.RandomHash().Big().Uint64() % 5
 		err    error
 	)
-	s.d.softblockServer, err = softblocks.New("*", nil, s.d.ChainSyncer().BlobSyncer(), s.RPCClient, true)
+	s.d.softblockServer, err = softblocksapi.New("*", nil, s.d.ChainSyncer().BlobSyncer(), s.RPCClient, true, nil)
 	s.Nil(err)
 	go func() { s.NotNil(s.d.softblockServer.Start(port)) }()
 	defer func() { s.Nil(s.d.softblockServer.Shutdown(s.d.ctx)) }()
@@ -576,7 +577,7 @@ func (s *DriverTestSuite) TestInsertSoftBlocksAfterEOP() {
 	// Remove soft blocks
 	res, err := resty.New().
 		R().
-		SetBody(&softblocks.RemoveSoftBlocksRequestBody{
+		SetBody(&softblocksapi.RemoveSoftBlocksRequestBody{
 			NewLastBlockID: l2Head2.Number.Uint64() - 1,
 		}).
 		Delete(url.String() + "/softBlocks")
@@ -667,7 +668,7 @@ func (s *DriverTestSuite) insertSoftBlock(
 	// Try to propose a soft block with batch ID 0
 	res, err := resty.New().
 		R().
-		SetBody(&softblocks.BuildSoftBlockRequestBody{
+		SetBody(&softblocksapi.BuildSoftBlockRequestBody{
 			TransactionBatch: txBatch,
 		}).
 		Post(url.String() + "/softBlocks")

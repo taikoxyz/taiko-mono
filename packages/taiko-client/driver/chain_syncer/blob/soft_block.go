@@ -17,8 +17,8 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	softblocks "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/soft_blocks"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	softblocks "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/softblocks"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 

@@ -17,7 +17,7 @@ type SoftBlockAPIServerTestSuite struct {
 
 func (s *SoftBlockAPIServerTestSuite) SetupTest() {
 	s.ClientTestSuite.SetupTest()
-	server, err := New("*", nil, nil, s.RPCClient, true)
+	server, err := New("*", nil, nil, s.RPCClient, true, nil)
 	s.Nil(err)
 	s.s = server
 	go func() {
