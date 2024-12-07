@@ -293,6 +293,9 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
     }
 
     function withdrawBond(uint256 _amount) external whenNotPaused {
+        uint256 balance = state.bondBalance[msg.sender];
+        require(balance >= _amount, InsufficientBond());
+
         emit BondWithdrawn(msg.sender, _amount);
 
         state.bondBalance[msg.sender] -= _amount;
