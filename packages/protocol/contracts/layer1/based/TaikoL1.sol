@@ -82,6 +82,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
         }
 
         {
+            // check permission
             address preconfTaskManager = resolve(LibStrings.B_PRECONF_TASK_MANAGER, true);
             if (preconfTaskManager == address(0)) {
                 require(_proposer == address(0), CustomProposerNotAllowed());
@@ -90,10 +91,10 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
                 require(msg.sender == preconfTaskManager, NotPreconfTaskManager());
                 require(_proposer != address(0), CustomProposerMissing());
             }
+        }
 
-            if (_coinbase == address(0)) {
-                _coinbase = _proposer;
-            }
+        if (_coinbase == address(0)) {
+            _coinbase = _proposer;
         }
 
         // Keep track of last block's information.
