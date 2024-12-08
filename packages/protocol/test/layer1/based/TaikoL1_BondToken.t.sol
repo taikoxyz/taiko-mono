@@ -96,7 +96,7 @@ contract TaikoL1Test_BondToken is TaikoL1TestBase {
     }
 
     function test_exceeding_balance() external {
-         vm.warp(1_000_000);
+        vm.warp(1_000_000);
         vm.deal(Alice, 1000 ether);
 
         uint256 transferAmount = 10 ether;
@@ -197,6 +197,4 @@ contract TaikoL1Test_BondToken is TaikoL1TestBase {
         );
         assertEq(taikoL1.bondBalanceOf(Bob), bobDeposit - bobWithdraw);
     }
-
-
 }
