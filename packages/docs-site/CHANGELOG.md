@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.20.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.20.1...docs-site-v1.20.2) (2024-12-08)
+
+
+### Bug Fixes
+
+* **docs-site:** link of goldsky in dev tools ([#18562](https://github.com/taikoxyz/taiko-mono/issues/18562)) ([802569a](https://github.com/taikoxyz/taiko-mono/commit/802569ab2b7ebde69eae45e63228bb280b30fc12))
+
 ## [1.20.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.20.0...docs-site-v1.20.1) (2024-12-07)
 
 
