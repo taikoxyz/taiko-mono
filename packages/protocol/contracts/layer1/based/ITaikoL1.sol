@@ -106,8 +106,6 @@ interface ITaikoL1 {
         LibSharedData.BaseFeeConfig baseFeeConfig;
         /// @notice The proving window in seconds.
         uint16 provingWindow;
-        /// @notice emit txList in calldata
-        bool emitTxListInCalldata;
         ForkHeights forkHeights;
     }
 

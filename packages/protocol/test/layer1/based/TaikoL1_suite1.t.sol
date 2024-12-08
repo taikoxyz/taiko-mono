@@ -22,7 +22,6 @@ contract TaikoL1Test_Suite1 is TaikoL1TestBase {
                 maxGasIssuancePerBlock: 600_000_000 // two minutes: 5_000_000 * 120
              }),
             provingWindow: 1 hours,
-            emitTxListInCalldata: true,
             forkHeights: ITaikoL1.ForkHeights({ ontake: 0, pacaya: 0 })
         });
     }

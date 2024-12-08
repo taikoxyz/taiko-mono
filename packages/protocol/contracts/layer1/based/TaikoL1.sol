@@ -169,14 +169,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
         } // end of for-loop
 
         _debitBond(_proposer, config.livenessBond * _paramsArray.length);
-
-        // If the driver can extract the txList from transaction trace, then we do not need to emit
-        // the txList as it is expensive.
-        if (config.emitTxListInCalldata) {
-            emit BlocksProposedV3(metas_, calldataUsed, _txList);
-        } else {
-            emit BlocksProposedV3(metas_, calldataUsed, "");
-        }
+        emit BlocksProposedV3(metas_, calldataUsed, _txList);
 
         _verifyBlocks(config, stats2, _paramsArray.length);
     }

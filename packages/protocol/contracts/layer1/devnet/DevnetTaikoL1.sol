@@ -26,7 +26,6 @@ contract DevnetTaikoL1 is TaikoL1 {
                 maxGasIssuancePerBlock: 600_000_000
             }),
             provingWindow: 2 hours,
-            emitTxListInCalldata: true,
             forkHeights: ITaikoL1.ForkHeights({ ontake: 0, pacaya: 0 })
         });
     }

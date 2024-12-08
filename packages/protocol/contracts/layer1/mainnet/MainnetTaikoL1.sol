@@ -35,7 +35,6 @@ contract MainnetTaikoL1 is TaikoL1 {
                 maxGasIssuancePerBlock: 600_000_000 // two minutes: 5_000_000 * 120
              }),
             provingWindow: 2 hours,
-            emitTxListInCalldata: true,
             forkHeights: ITaikoL1.ForkHeights({
                 ontake: 538_304,
                 pacaya: 538_304 * 10 // TODO
