@@ -221,7 +221,7 @@ contract BlockProposing is BlocksFixtures {
         paramsArr[0] = defaultParams;
 
         preconfTaskManager.proposeBlocksV3(
-            msg.sender, paramsArr, "", lookaheadPointer, lookaheadSetParams
+            msg.sender, paramsArr, lookaheadPointer, lookaheadSetParams
         );
     }
 }
