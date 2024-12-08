@@ -58,7 +58,6 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
     function proposeBlocksV3(
         address _proposer,
         address _coinbase,
-        bytes32 _anchorExtraInput,
         BlockParamsV3[] calldata _paramsArray,
         bytes calldata _txList
     )
@@ -142,7 +141,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
                     blobIndex: calldataUsed ? 0 : _paramsArray[i].blobIndex,
                     anchorBlockId: updatedParams.anchorBlockId,
                     anchorBlockHash: blockhash(updatedParams.anchorBlockId),
-                    anchorExtraInput: _anchorExtraInput,
+                    anchorExtraInput: _paramsArray[i].anchorExtraInput,
                     baseFeeConfig: config.baseFeeConfig
                 });
             }
