@@ -33,7 +33,6 @@ interface ITaikoL1 {
         uint32 txListOffset;
         uint32 txListSize;
         uint8 blobIndex;
-        bool calldataUsed;
         LibSharedData.BaseFeeConfig baseFeeConfig;
     }
 
@@ -158,9 +157,7 @@ interface ITaikoL1 {
 
     /// @notice Emitted when multiple blocks are proposed.
     /// @param metas The metadata of the proposed blocks.
-    /// @param calldataUsed Whether calldata is used for txList DA.
-    /// @param txListInCalldata The tx list in calldata.
-    event BlocksProposedV3(BlockMetadataV3[] metas, bool calldataUsed, bytes txListInCalldata);
+    event BlocksProposedV3(BlockMetadataV3[] metas);
 
     /// @notice Emitted when multiple transitions are proved.
     /// @param verifier The address of the verifier.
@@ -210,8 +207,7 @@ interface ITaikoL1 {
     function proposeBlocksV3(
         address _proposer,
         address _coinbase,
-        BlockParamsV3[] calldata _blockParams,
-        bytes calldata _txList
+        BlockParamsV3[] calldata _blockParams
     )
         external
         returns (BlockMetadataV3[] memory);

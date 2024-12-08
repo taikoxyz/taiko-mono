@@ -63,7 +63,6 @@ interface IPreconfTaskManager {
     function proposeBlocksV3(
         address coinbase,
         ITaikoL1.BlockParamsV3[] calldata blockParams,
-        bytes calldata txList,
         uint256 lookaheadPointer,
         LookaheadSetParam[] calldata lookaheadSetParams
     )
