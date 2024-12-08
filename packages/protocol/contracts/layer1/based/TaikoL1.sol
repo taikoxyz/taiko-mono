@@ -57,7 +57,8 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
     function proposeBlocksV3(
         address _proposer,
         address _coinbase,
-        BlockParamsV3[] calldata _paramsArray    )
+        BlockParamsV3[] calldata _paramsArray
+    )
         external
         nonReentrant
         returns (BlockMetadataV3[] memory metas_)
@@ -117,7 +118,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             metas_[i] = BlockMetadataV3({
                 anchorBlockHash: blockhash(updatedParams.anchorBlockId),
                 difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", stats2.numBlocks)),
-                txListHash:  _blobhash(_paramsArray[i].blobIndex),
+                txListHash: _blobhash(_paramsArray[i].blobIndex),
                 extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
                 coinbase: _coinbase,
                 blockId: stats2.numBlocks,
@@ -131,7 +132,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
                 proposedIn: uint64(block.number),
                 txListOffset: _paramsArray[i].txListOffset,
                 txListSize: _paramsArray[i].txListSize,
-                blobIndex:  _paramsArray[i].blobIndex,
+                blobIndex: _paramsArray[i].blobIndex,
                 baseFeeConfig: config.baseFeeConfig
             });
 
@@ -161,8 +162,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
 
         _debitBond(_proposer, config.livenessBond * _paramsArray.length);
 
-      
-            emit BlocksProposedV3(metas_  );
+        emit BlocksProposedV3(metas_);
 
         _verifyBlocks(config, stats2, _paramsArray.length);
     }
