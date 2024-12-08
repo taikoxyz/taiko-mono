@@ -88,7 +88,6 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
     function proposeBlocksV3(
         address coinbase,
         ITaikoL1.BlockParamsV3[] calldata blockParams,
-        bytes calldata txList,
         uint256 lookaheadPointer,
         LookaheadSetParam[] calldata lookaheadSetParams
     )
@@ -126,7 +125,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         );
 
         // Forward the block to Taiko's L1 contract
-        taikoL1.proposeBlocksV3(msg.sender, coinbase, blockParams, txList);
+        taikoL1.proposeBlocksV3(msg.sender, coinbase, blockParams );
     }
 
     /**
