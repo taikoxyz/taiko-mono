@@ -21,10 +21,8 @@ library LibStrings {
     bytes32 internal constant B_QUOTA_MANAGER = bytes32("quota_manager");
     bytes32 internal constant B_SGX_WATCHDOG = bytes32("sgx_watchdog");
     bytes32 internal constant B_SIGNAL_SERVICE = bytes32("signal_service");
-    bytes32 internal constant B_SP1_REMOTE_VERIFIER = bytes32("sp1_remote_verifier");
     bytes32 internal constant B_TAIKO = bytes32("taiko");
     bytes32 internal constant B_TAIKO_TOKEN = bytes32("taiko_token");
-    bytes32 internal constant B_RISCZERO_GROTH16_VERIFIER = bytes32("risc0_groth16_verifier");
     bytes32 internal constant B_WITHDRAWER = bytes32("withdrawer");
     bytes32 internal constant H_SIGNAL_ROOT = keccak256("SIGNAL_ROOT");
     bytes32 internal constant H_STATE_ROOT = keccak256("STATE_ROOT");

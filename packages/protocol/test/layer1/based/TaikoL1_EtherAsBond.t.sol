@@ -24,7 +24,7 @@ contract TaikoL1Test_EtherAsBond is TaikoL1TestBase {
              }),
             provingWindow: 1 hours,
             emitTxListInCalldata: true,
-            pacayaForkHeight: 0
+            forkHeights: ITaikoL1.ForkHeights({ ontake: 0, pacaya: 0 })
         });
     }
 

@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import "@risc0/contracts/groth16/RiscZeroGroth16Verifier.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
+import "src/shared/libs/LibNetwork.sol";
 import "script/BaseScript.sol";
 
 contract DeployRisc0Verifier is BaseScript {
@@ -18,7 +19,7 @@ contract DeployRisc0Verifier is BaseScript {
 
         deploy({
             name: "tier_zkvm_risc0",
-            impl: address(new Risc0Verifier()),
+            impl: address(new Risc0Verifier(LibNetwork.TAIKO_MAINNET)),
             data: abi.encodeCall(Risc0Verifier.init, (address(0), resolver))
         });
     }

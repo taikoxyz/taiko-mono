@@ -71,7 +71,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
         require(!stats2.paused, ContractPaused());
 
         ConfigV3 memory config = getConfigV3();
-        require(stats2.numBlocks >= config.pacayaForkHeight, InvalidForkHeight());
+        require(stats2.numBlocks >= config.forkHeights.pacaya, InvalidForkHeight());
 
         unchecked {
             require(
@@ -203,7 +203,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             BlockMetadataV3 calldata meta = _metas[i];
 
             blockIds[i] = meta.blockId;
-            require(meta.blockId >= config.pacayaForkHeight, InvalidForkHeight());
+            require(meta.blockId >= config.forkHeights.pacaya, InvalidForkHeight());
             require(meta.blockId > stats2.lastVerifiedBlockId, BlockNotFound());
             require(meta.blockId < stats2.numBlocks, BlockNotFound());
 
@@ -356,7 +356,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
 
     function getBlockV3(uint64 _blockId) external view returns (BlockV3 memory blk_) {
         ConfigV3 memory config = getConfigV3();
-        require(_blockId >= config.pacayaForkHeight, InvalidForkHeight());
+        require(_blockId >= config.forkHeights.pacaya, InvalidForkHeight());
 
         blk_ = state.blocks[_blockId % config.blockRingBufferSize];
         require(blk_.blockId == _blockId, BlockNotFound());

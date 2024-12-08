@@ -11,6 +11,10 @@ import "./IVerifier.sol";
 /// @title SP1Verifier
 /// @custom:security-contact security@taiko.xyz
 contract SP1Verifier is EssentialContract, IVerifier {
+    bytes32 internal constant SP1_REMOTE_VERIFIER = bytes32("sp1_remote_verifier");
+
+    uint64 public immutable taikoChainId;
+
     /// @notice The verification keys mappings for the proving programs.
     mapping(bytes32 provingProgramVKey => bool trusted) public isProgramTrusted;
 
@@ -25,6 +29,10 @@ contract SP1Verifier is EssentialContract, IVerifier {
     error SP1_INVALID_AGGREGATION_VKEY();
     error SP1_INVALID_PARAMS();
     error SP1_INVALID_PROOF();
+
+    constructor(uint64 _taikoChainId) {
+        taikoChainId = _taikoChainId;
+    }
 
     /// @notice Initializes the contract with the provided address manager.
     /// @param _owner The address of the owner.
@@ -61,7 +69,7 @@ contract SP1Verifier is EssentialContract, IVerifier {
         // All other inputs are the block program public inputs (a single 32 byte value)
         for (uint256 i; i < _ctxs.length; ++i) {
             publicInputs[i + 1] = LibPublicInput.hashPublicInputs(
-                _ctxs[i].transition, address(this), address(0), _ctxs[i].metaHash, taikoChainId()
+                _ctxs[i].transition, address(this), address(0), _ctxs[i].metaHash, taikoChainId
             );
         }
 
@@ -76,11 +84,7 @@ contract SP1Verifier is EssentialContract, IVerifier {
         require(success, SP1_INVALID_PROOF());
     }
 
-    function taikoChainId() internal view virtual returns (uint64) {
-        return ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfigV3().chainId;
-    }
-
     function sp1RemoteVerifier() public view virtual returns (address) {
-        return resolve(LibStrings.B_SP1_REMOTE_VERIFIER, false);
+        return resolve(SP1_REMOTE_VERIFIER, false);
     }
 }

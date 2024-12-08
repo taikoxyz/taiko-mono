@@ -13,7 +13,6 @@ contract RollupResolver is ResolverBase {
         if (_chainId != LibNetwork.ETHEREUM_MAINNET) {
             return address(0);
         }
-
         if (_name == LibStrings.B_BOND_TOKEN) {
             return 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800;
         }
@@ -35,9 +34,8 @@ contract RollupResolver is ResolverBase {
         if (_name == LibStrings.B_CHAIN_WATCHDOG) {
             return 0xE3D777143Ea25A6E031d1e921F396750885f43aC;
         }
-           if (_name == LibStrings.B_PROOF_VERIFIER) {
-            // TODO(david): figure out this address later.
-            return address(0);
+        if (_name == LibStrings.B_PROOF_VERIFIER) {
+            return address(0); // TODO
         }
         return address(0);
     }

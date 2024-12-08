@@ -28,7 +28,10 @@ contract HeklaTaikoL1 is TaikoL1 {
              }),
             provingWindow: 2 hours,
             emitTxListInCalldata: true,
-            pacayaForkHeight: 840_512 // TODO: update this
-         });
+            forkHeights: ITaikoL1.ForkHeights({
+                ontake: 840_512,
+                pacaya: 840_512 * 10 // TODO
+             })
+        });
     }
 }
