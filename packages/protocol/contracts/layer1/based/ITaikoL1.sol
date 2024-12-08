@@ -182,6 +182,7 @@ interface ITaikoL1 {
     error AnchorBlockIdTooLarge();
     error ArraySizesMismatch();
     error BlobNotFound();
+    error BlobIndexZero();
     error BlockNotFound();
     error BlockVerified();
     error ContractPaused();
@@ -210,7 +211,7 @@ interface ITaikoL1 {
     function proposeBlocksV3(
         address _proposer,
         address _coinbase,
-       bytes32 _anchorExtraInput,
+        bytes32 _anchorExtraInput,
         BlockParamsV3[] calldata _blockParams,
         bytes calldata _txList
     )

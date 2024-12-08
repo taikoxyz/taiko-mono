@@ -62,7 +62,7 @@ interface IPreconfTaskManager {
     /// @dev Accepts block proposal by an operator and forwards it to Taiko contract
     function proposeBlocksV3(
         address coinbase,
-         bytes32 anchorExtraInput,
+        bytes32 anchorExtraInput,
         ITaikoL1.BlockParamsV3[] calldata blockParams,
         bytes calldata txList,
         uint256 lookaheadPointer,
