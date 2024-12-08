@@ -14,7 +14,7 @@ interface IVerifier {
         ITaikoL1.TransitionV3 transition;
     }
 
-    /// @notice Verifies multiple proofs.
+    /// @notice Verifies multiple proofs. This function must throw if the proof cannot be verified.
     /// @param _ctxs The array of contexts for the proof verifications.
     /// @param _proof The batch proof to verify.
     function verifyProof(Context[] calldata _ctxs, bytes calldata _proof) external;

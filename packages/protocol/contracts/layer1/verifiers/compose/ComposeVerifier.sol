@@ -19,15 +19,9 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
         bytes proof;
     }
 
-    error CV_INVALID_CALLER();
     error CV_INVALID_SUB_VERIFIER();
-    error CV_INVALID_SUBPROOF_LENGTH();
-    error CV_SUB_VERIFIER_NOT_FOUND();
-
-    modifier onlyAuthorizedCaller() {
-        require(isCallerAuthorized(msg.sender), CV_INVALID_CALLER());
-        _;
-    }
+    error CV_INVALID_SUB_VERIFIER_ORDER();
+    error CV_VERIFIERS_INSUFFICIENT();
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
@@ -42,46 +36,29 @@ abstract contract ComposeVerifier is EssentialContract, IVerifier {
         bytes calldata _proof
     )
         external
-        onlyAuthorizedCaller
+        onlyFromNamed(LibStrings.B_TAIKO)
     {
-        (address[] memory verifiers, uint256 numSubProofs_) = getSubVerifiersAndThreshold();
-
         SubProof[] memory subProofs = abi.decode(_proof, (SubProof[]));
-        require(subProofs.length == numSubProofs_, CV_INVALID_SUBPROOF_LENGTH());
+        address[] memory verifiers = new address[](subProofs.length);
+
+        address verifier;
 
         for (uint256 i; i < subProofs.length; ++i) {
             require(subProofs[i].verifier != address(0), CV_INVALID_SUB_VERIFIER());
+            require(subProofs[i].verifier > verifier, CV_INVALID_SUB_VERIFIER_ORDER());
 
-            // find the verifier
-            bool verifierFound;
-            for (uint256 j; j < verifiers.length; ++j) {
-                if (verifiers[j] == subProofs[i].verifier) {
-                    verifierFound = true;
-                    verifiers[j] = address(0);
-                }
-            }
+            verifier = subProofs[i].verifier;
+            IVerifier(verifier).verifyProof(_ctxs, subProofs[i].proof);
 
-            require(verifierFound, CV_SUB_VERIFIER_NOT_FOUND());
-
-            IVerifier(subProofs[i].verifier).verifyProof(_ctxs, subProofs[i].proof);
+            verifiers[i] = verifier;
         }
+
+        require(areVerifiersSufficient(verifiers), CV_VERIFIERS_INSUFFICIENT());
     }
 
-    /// @notice Returns the list of sub-verifiers and calculates the threshold.
-    /// @return verifiers_ An array of addresses of sub-verifiers.
-    /// @return numSubProofs_ The number of sub proofs required.
-    function getSubVerifiersAndThreshold()
-        public
+    function areVerifiersSufficient(address[] memory _verifiers)
+        internal
         view
         virtual
-        returns (address[] memory verifiers_, uint256 numSubProofs_);
-
-    /// @notice Checks if the caller is authorized.
-    /// @param _caller The address of the caller to be checked.
-    /// @return A boolean value indicating whether the caller is authorized.
-    function isCallerAuthorized(address _caller) public view virtual returns (bool) {
-        return _caller == resolve(LibStrings.B_TAIKO, false);
-    }
-
-    function verifyProofV3(Context[] calldata _ctxs, bytes calldata _proof) external { }
+        returns (bool);
 }

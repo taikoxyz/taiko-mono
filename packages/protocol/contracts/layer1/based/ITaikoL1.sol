@@ -94,6 +94,11 @@ interface ITaikoL1 {
         uint64 lastUnpausedAt;
     }
 
+    struct ForkHeights {
+        uint64 ontake;
+        uint64 pacaya;
+    }
+
     /// @notice Struct holding Taiko configuration parameters. See {TaikoConfig}.
     struct ConfigV3 {
         /// @notice The chain ID of the network where Taiko contracts are deployed.
@@ -118,8 +123,7 @@ interface ITaikoL1 {
         uint16 provingWindow;
         /// @notice emit txList in calldata
         bool emitTxListInCalldata;
-        /// @notie The Pacaya fork height on L2.
-        uint64 pacayaForkHeight;
+        ForkHeights forkHeights;
     }
 
     /// @notice Struct holding the state variables for the {Taiko} contract.
@@ -185,7 +189,7 @@ interface ITaikoL1 {
     /// @param transitions The transitions data.
     event BlocksProvedV3(address verifier, uint64[] blockIds, TransitionV3[] transitions);
 
-    /// @notice Emitted when a transition is overritten by another one.
+    /// @notice Emitted when a transition is overwritten by another one.
     /// @param blockId The block ID.
     /// @param tran The transition data that has been overwritten.
     event TransitionOverwrittenV3(uint64 blockId, TransitionV3 tran);
@@ -206,6 +210,7 @@ interface ITaikoL1 {
     error CustomProposerMissing();
     error CustomProposerNotAllowed();
     error EtherNotPaidAsBond();
+    error InsufficientBond();
     error InvalidForkHeight();
     error InvalidGenesisBlockHash();
     error InvalidTransitionBlockHash();
