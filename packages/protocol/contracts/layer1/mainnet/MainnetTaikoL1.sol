@@ -35,6 +35,7 @@ contract MainnetTaikoL1 is TaikoL1 {
                 maxGasIssuancePerBlock: 600_000_000 // two minutes: 5_000_000 * 120
              }),
             provingWindow: 2 hours,
+            emitTxListInCalldata: true,
             pacayaForkHeight: 1_000_000 // TODO: update this
          });
     }

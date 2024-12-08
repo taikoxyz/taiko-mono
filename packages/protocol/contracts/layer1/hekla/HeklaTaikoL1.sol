@@ -27,6 +27,7 @@ contract HeklaTaikoL1 is TaikoL1 {
                 maxGasIssuancePerBlock: 600_000_000 // two minutes
              }),
             provingWindow: 2 hours,
+            emitTxListInCalldata: true,
             pacayaForkHeight: 840_512 // TODO: update this
          });
     }
