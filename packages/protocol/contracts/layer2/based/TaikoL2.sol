@@ -53,7 +53,7 @@ contract TaikoL2 is EssentialContract, IBlockHash, TaikoL2Deprecated {
     /// @notice The L1's chain ID.
     uint64 public l1ChainId;
 
-    mapping(uint256 blockNumber => bytes32 anchorExtraInput) public anchorExtraInput;
+    mapping(uint256 blockNumber => bytes32 anchorExtraInput) public blockAnchorExtraInput;
 
     uint256[45] private __gap;
 
@@ -158,7 +158,7 @@ contract TaikoL2 is EssentialContract, IBlockHash, TaikoL2Deprecated {
         _syncChainData(_anchorBlockId, _anchorStateRoot);
         _updateParentHashAndTimestamp(parentId);
 
-        anchorExtraInput[block.number] = _anchorExtraInput;
+        blockAnchorExtraInput[block.number] = _anchorExtraInput;
     }
 
     /// @notice Withdraw token or Ether from this address.
