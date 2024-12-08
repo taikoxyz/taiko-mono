@@ -6,7 +6,7 @@ import "../based/TaikoL2.sol";
 /// @title HeklaTaikoL2
 /// @custom:security-contact security@taiko.xyz
 contract HeklaTaikoL2 is TaikoL2 {
-    function pacaya() public pure override returns (uint64) {
-        return 840_512;
+    function pacayaForkHeight() public pure override returns (uint64) {
+        return 840_512 * 2; // TODO
     }
 }

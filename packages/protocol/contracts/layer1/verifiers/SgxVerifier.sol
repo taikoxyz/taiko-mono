@@ -34,6 +34,8 @@ contract SgxVerifier is EssentialContract, IVerifier {
     /// verification
     uint64 public constant INSTANCE_VALIDITY_DELAY = 0;
 
+    uint64 public immutable taikoChainId;
+
     /// @dev For gas savings, we shall assign each SGX instance with an id that when we need to
     /// set a new pub key, just write storage once.
     /// Slot 1.
@@ -77,6 +79,10 @@ contract SgxVerifier is EssentialContract, IVerifier {
     error SGX_INVALID_INSTANCE();
     error SGX_INVALID_PROOF();
     error SGX_RA_NOT_SUPPORTED();
+
+    constructor(uint64 _taikoChainId) {
+        taikoChainId = _taikoChainId;
+    }
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
@@ -140,7 +146,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
         bytes calldata _proof
     )
         external
-        onlyFromNamedEither(LibStrings.B_TAIKO, LibStrings.B_TIER_TEE_ANY)
+        onlyFromNamedEither(LibStrings.B_TAIKO, LibStrings.B_PROOF_VERIFIER)
     {
         // Size is: 109 bytes
         // 4 bytes + 20 bytes + 20 bytes + 65 bytes (signature) = 109
@@ -160,7 +166,7 @@ contract SgxVerifier is EssentialContract, IVerifier {
         for (uint256 i; i < _ctxs.length; ++i) {
             // TODO(Yue): For now this assumes the new instance public key to remain the same
             publicInputs[i + 2] = LibPublicInput.hashPublicInputs(
-                _ctxs[i].transition, address(this), newInstance, _ctxs[i].metaHash, taikoChainId()
+                _ctxs[i].transition, address(this), newInstance, _ctxs[i].metaHash, taikoChainId
             );
         }
 
@@ -173,10 +179,6 @@ contract SgxVerifier is EssentialContract, IVerifier {
         if (newInstance != oldInstance && newInstance != address(0)) {
             _replaceInstance(id, oldInstance, newInstance);
         }
-    }
-
-    function taikoChainId() internal view virtual returns (uint64) {
-        return ITaikoL1(resolve(LibStrings.B_TAIKO, false)).getConfigV3().chainId;
     }
 
     function _addInstances(
