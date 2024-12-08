@@ -58,6 +58,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
     function proposeBlocksV3(
         address _proposer,
         address _coinbase,
+        bytes32 _anchorExtraInput,
         BlockParamsV3[] calldata _paramsArray,
         bytes calldata _txList
     )
@@ -119,15 +120,13 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             // and verification of its integrity through the comparison of the metahash.
 
             metas_[i] = BlockMetadataV3({
-                anchorBlockHash: blockhash(updatedParams.anchorBlockId),
                 difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", stats2.numBlocks)),
-                txListHash: calldataUsed ? keccak256(_txList) : _blobhash(_paramsArray[i].blobIndex),
+                txListHash: calldataUsed ? keccak256(_txList) : _blobhash(_paramsArray[i].blobIndex - 1),
                 extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
                 coinbase: _coinbase,
                 blockId: stats2.numBlocks,
                 gasLimit: config.blockMaxGasLimit,
                 timestamp: updatedParams.timestamp,
-                anchorBlockId: updatedParams.anchorBlockId,
                 parentMetaHash: lastBlock.metaHash,
                 proposer: _proposer,
                 livenessBond: config.livenessBond,
@@ -136,7 +135,9 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
                 txListOffset: _paramsArray[i].txListOffset,
                 txListSize: _paramsArray[i].txListSize,
                 blobIndex: calldataUsed ? 0 : _paramsArray[i].blobIndex,
-                calldataUsed: calldataUsed,
+                anchorBlockId: updatedParams.anchorBlockId,
+                anchorBlockHash: blockhash(updatedParams.anchorBlockId),
+                anchorExtraInput: 0,
                 baseFeeConfig: config.baseFeeConfig
             });
 

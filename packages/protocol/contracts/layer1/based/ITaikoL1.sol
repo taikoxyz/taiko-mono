@@ -16,7 +16,6 @@ interface ITaikoL1 {
     }
 
     struct BlockMetadataV3 {
-        bytes32 anchorBlockHash;
         bytes32 difficulty;
         bytes32 txListHash;
         bytes32 extraData;
@@ -24,7 +23,6 @@ interface ITaikoL1 {
         uint64 blockId;
         uint32 gasLimit;
         uint64 timestamp;
-        uint64 anchorBlockId;
         bytes32 parentMetaHash;
         address proposer;
         uint96 livenessBond;
@@ -33,7 +31,9 @@ interface ITaikoL1 {
         uint32 txListOffset;
         uint32 txListSize;
         uint8 blobIndex;
-        bool calldataUsed;
+        uint64 anchorBlockId;
+        bytes32 anchorBlockHash;
+        bytes32 anchorExtraInput;
         LibSharedData.BaseFeeConfig baseFeeConfig;
     }
 
@@ -210,6 +210,7 @@ interface ITaikoL1 {
     function proposeBlocksV3(
         address _proposer,
         address _coinbase,
+       bytes32 _anchorExtraInput,
         BlockParamsV3[] calldata _blockParams,
         bytes calldata _txList
     )
