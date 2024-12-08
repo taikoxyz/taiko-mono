@@ -120,7 +120,6 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             // and verification of its integrity through the comparison of the metahash.
             unchecked {
                 metas_[i] = BlockMetadataV3({
-                    anchorBlockHash: blockhash(updatedParams.anchorBlockId),
                     difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", stats2.numBlocks)),
                     txListHash: calldataUsed
                         ? keccak256(_txList)
@@ -130,7 +129,6 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
                     blockId: stats2.numBlocks,
                     gasLimit: config.blockMaxGasLimit,
                     timestamp: updatedParams.timestamp,
-                    anchorBlockId: updatedParams.anchorBlockId,
                     parentMetaHash: lastBlock.metaHash,
                     proposer: _proposer,
                     livenessBond: config.livenessBond,
@@ -139,6 +137,8 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
                     txListOffset: _paramsArray[i].txListOffset,
                     txListSize: _paramsArray[i].txListSize,
                     blobIndex: calldataUsed ? 0 : _paramsArray[i].blobIndex,
+                    anchorBlockId: updatedParams.anchorBlockId,
+                    anchorBlockHash: blockhash(updatedParams.anchorBlockId),
                     baseFeeConfig: config.baseFeeConfig
                 });
             }
