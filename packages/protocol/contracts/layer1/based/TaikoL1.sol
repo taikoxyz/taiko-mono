@@ -108,10 +108,9 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
         UpdatedParams memory updatedParams;
 
         for (uint256 i; i < _paramsArray.length; ++i) {
+            require(calldataUsed || _paramsArray[i].blobIndex != 0, BlobIndexZero());
             updatedParams =
                 _validateBlockParams(_paramsArray[i], config.maxAnchorHeightOffset, lastBlock);
-
-            require(calldataUsed || _paramsArray[i].blobIndex != 0, BlobIndexZero());
 
             // This section constructs the metadata for the proposed block, which is crucial for
             // nodes/clients to process the block. The metadata itself is not stored on-chain;

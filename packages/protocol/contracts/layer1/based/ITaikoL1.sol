@@ -180,6 +180,7 @@ interface ITaikoL1 {
     error AnchorBlockIdTooSmall();
     error AnchorBlockIdTooLarge();
     error ArraySizesMismatch();
+    error BlobIndexZero();
     error BlobNotFound();
     error BlobIndexZero();
     error BlockNotFound();
