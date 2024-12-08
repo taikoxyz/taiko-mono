@@ -36,8 +36,11 @@ contract MainnetTaikoL1 is TaikoL1 {
              }),
             provingWindow: 2 hours,
             emitTxListInCalldata: true,
-            pacayaForkHeight: 1_000_000 // TODO: update this
-         });
+            forkHeights: ITaikoL1.ForkHeights({
+                ontake: 538_304,
+                pacaya: 538_304 * 10 // TODO
+             })
+        });
     }
 
     function _storeReentryLock(uint8 _reentry) internal override {

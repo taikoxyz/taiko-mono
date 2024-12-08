@@ -70,7 +70,7 @@ abstract contract Layer1Test is CommonTest {
         return SgxVerifier(
             deploy({
                 name: "tier_sgx",
-                impl: address(new SgxVerifier()),
+                impl: address(new SgxVerifier(taikoChainId)),
                 data: abi.encodeCall(SgxVerifier.init, (address(0), address(resolver)))
             })
         );
