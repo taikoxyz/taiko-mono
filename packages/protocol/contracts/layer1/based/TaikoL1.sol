@@ -53,11 +53,13 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
     /// @param _coinbase    The address that will receive the block rewards; defaults to the
     ///                     proposer's address if set to address(0).
     /// @param _paramsArray An array containing the parameters for each block being proposed.
+    /// @param _txList      The transaction list in calldata.
     /// @return metas_      Array of block metadata for each block proposed.
     function proposeBlocksV3(
         address _proposer,
         address _coinbase,
-        BlockParamsV3[] calldata _paramsArray
+        BlockParamsV3[] calldata _paramsArray,
+        bytes calldata _txList
     )
         external
         nonReentrant
@@ -102,6 +104,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
         }
 
         metas_ = new BlockMetadataV3[](_paramsArray.length);
+        bool calldataUsed = _txList.length != 0;
 
         for (uint256 i; i < _paramsArray.length; ++i) {
             UpdatedParams memory updatedParams =
@@ -118,7 +121,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             metas_[i] = BlockMetadataV3({
                 anchorBlockHash: blockhash(updatedParams.anchorBlockId),
                 difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", stats2.numBlocks)),
-                txListHash: _blobhash(_paramsArray[i].blobIndex),
+                txListHash: calldataUsed ? keccak256(_txList) : _blobhash(_paramsArray[i].blobIndex),
                 extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
                 coinbase: _coinbase,
                 blockId: stats2.numBlocks,
@@ -132,7 +135,8 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
                 proposedIn: uint64(block.number),
                 txListOffset: _paramsArray[i].txListOffset,
                 txListSize: _paramsArray[i].txListSize,
-                blobIndex: _paramsArray[i].blobIndex,
+                blobIndex: calldataUsed ? 0 : _paramsArray[i].blobIndex,
+                calldataUsed: calldataUsed,
                 baseFeeConfig: config.baseFeeConfig
             });
 
@@ -162,7 +166,13 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
 
         _debitBond(_proposer, config.livenessBond * _paramsArray.length);
 
-        emit BlocksProposedV3(metas_);
+        // If the driver can extract the txList from transaction trace, then we do not need to emit
+        // the txList as it is expensive.
+        if (config.emitTxListInCalldata) {
+            emit BlocksProposedV3(metas_, calldataUsed, _txList);
+        } else {
+            emit BlocksProposedV3(metas_, calldataUsed, "");
+        }
 
         _verifyBlocks(config, stats2, _paramsArray.length);
     }
