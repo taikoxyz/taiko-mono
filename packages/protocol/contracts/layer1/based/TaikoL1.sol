@@ -81,16 +81,13 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             );
         }
 
-        {
-            // check permission
-            address preconfTaskManager = resolve(LibStrings.B_PRECONF_TASK_MANAGER, true);
-            if (preconfTaskManager == address(0)) {
-                require(_proposer == address(0), CustomProposerNotAllowed());
-                _proposer = msg.sender;
-            } else {
-                require(msg.sender == preconfTaskManager, NotPreconfTaskManager());
-                require(_proposer != address(0), CustomProposerMissing());
-            }
+        address preconfTaskManager = resolve(LibStrings.B_PRECONF_TASK_MANAGER, true);
+        if (preconfTaskManager == address(0)) {
+            require(_proposer == address(0), CustomProposerNotAllowed());
+            _proposer = msg.sender;
+        } else {
+            require(msg.sender == preconfTaskManager, NotPreconfTaskManager());
+            require(_proposer != address(0), CustomProposerMissing());
         }
 
         if (_coinbase == address(0)) {
@@ -107,8 +104,8 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
         }
 
         metas_ = new BlockMetadataV3[](_paramsArray.length);
-        UpdatedParams memory updatedParams;
         bool calldataUsed = _txList.length != 0;
+        UpdatedParams memory updatedParams;
 
         for (uint256 i; i < _paramsArray.length; ++i) {
             updatedParams =
