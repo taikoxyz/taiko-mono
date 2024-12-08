@@ -197,5 +197,4 @@ contract TaikoL1Test_BondToken is TaikoL1TestBase {
         );
         assertEq(taikoL1.bondBalanceOf(Bob), bobDeposit - bobWithdraw);
     }
-
 }
