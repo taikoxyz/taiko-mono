@@ -35,7 +35,7 @@ contract TaikoL1Test_EtherAsBond is TaikoL1TestBase {
         bondToken = TaikoToken(address(0));
     }
 
-    function test_deposit_withdraw() external {
+    function test_taikoL1_deposit_withdraw() external {
         vm.warp(1_000_000);
         vm.deal(Alice, 1000 ether);
 
@@ -51,7 +51,7 @@ contract TaikoL1Test_EtherAsBond is TaikoL1TestBase {
         assertEq(taikoL1.bondBalanceOf(Alice), depositAmount - withdrawAmount);
     }
 
-    function test_withdraw_more_than_bond_balance() external {
+    function test_taikoL1_withdraw_more_than_bond_balance() external {
         vm.warp(1_000_000);
         vm.deal(Alice, 1000 ether);
 
@@ -66,7 +66,7 @@ contract TaikoL1Test_EtherAsBond is TaikoL1TestBase {
         taikoL1.withdrawBond(withdrawAmount);
     }
 
-    function test_exceeding_balance() external {
+    function test_taikoL1_exceeding_balance() external {
         vm.warp(1_000_000);
         vm.deal(Alice, 0.5 ether);
 
@@ -77,7 +77,7 @@ contract TaikoL1Test_EtherAsBond is TaikoL1TestBase {
         taikoL1.depositBond{ value: depositAmount }(depositAmount);
     }
 
-    function test_overpayment_of_ether() external {
+    function test_taikoL1_overpayment_of_ether() external {
         vm.warp(1_000_000);
         vm.deal(Alice, 1000 ether);
 
@@ -88,7 +88,7 @@ contract TaikoL1Test_EtherAsBond is TaikoL1TestBase {
         taikoL1.depositBond{ value: depositAmount + 1 }(depositAmount);
     }
 
-    function test_eth_not_paid_as_bond_on_deposit() external {
+    function test_taikoL1_eth_not_paid_as_bond_on_deposit() external {
         vm.warp(1_000_000);
         vm.deal(Alice, 1000 ether);
 
@@ -99,7 +99,7 @@ contract TaikoL1Test_EtherAsBond is TaikoL1TestBase {
         taikoL1.depositBond{ value: 0 }(depositAmount);
     }
 
-    function test_bond_balance_after_multiple_operations() external {
+    function test_taikoL1_bond_balance_after_multiple_operations() external {
         vm.warp(1_000_000);
         vm.deal(Alice, 1000 ether);
         vm.deal(Bob, 50 ether);

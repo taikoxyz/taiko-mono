@@ -33,7 +33,7 @@ contract TaikoL1Test_BondToken is TaikoL1TestBase {
         bondToken = deployBondToken();
     }
 
-    function test_deposit_withdraw() external {
+    function test_taikoL1_deposit_withdraw() external {
         vm.warp(1_000_000);
         vm.deal(Alice, 1000 ether);
 
@@ -56,7 +56,7 @@ contract TaikoL1Test_BondToken is TaikoL1TestBase {
         assertEq(taikoL1.bondBalanceOf(Alice), depositAmount - withdrawAmount);
     }
 
-    function test_withdraw_more_than_bond_balance() external {
+    function test_taikoL1_withdraw_more_than_bond_balance() external {
         vm.warp(1_000_000);
         vm.deal(Alice, 1000 ether);
 
@@ -77,7 +77,7 @@ contract TaikoL1Test_BondToken is TaikoL1TestBase {
         taikoL1.withdrawBond(withdrawAmount);
     }
 
-    function test_insufficient_approval() external {
+    function test_taikoL1_insufficient_approval() external {
         vm.warp(1_000_000);
         vm.deal(Alice, 1000 ether);
 
@@ -95,7 +95,7 @@ contract TaikoL1Test_BondToken is TaikoL1TestBase {
         taikoL1.depositBond(depositAmount);
     }
 
-    function test_exceeding_balance() external {
+    function test_taikoL1_exceeding_balance() external {
          vm.warp(1_000_000);
         vm.deal(Alice, 1000 ether);
 
@@ -112,7 +112,7 @@ contract TaikoL1Test_BondToken is TaikoL1TestBase {
         taikoL1.depositBond(depositAmount);
     }
 
-    function test_no_value_sent_on_deposit() external {
+    function test_taikoL1_no_value_sent_on_deposit() external {
         vm.warp(1_000_000);
         vm.deal(Alice, 1000 ether);
 
@@ -129,7 +129,7 @@ contract TaikoL1Test_BondToken is TaikoL1TestBase {
         taikoL1.depositBond{ value: 1 }(depositAmount);
     }
 
-    function test_deposit_and_withdraw_from_multiple_users() external {
+    function test_taikoL1_deposit_and_withdraw_from_multiple_users() external {
         vm.warp(1_000_000);
         vm.deal(Alice, 1000 ether);
         vm.deal(Bob, 50 ether);
@@ -197,6 +197,5 @@ contract TaikoL1Test_BondToken is TaikoL1TestBase {
         );
         assertEq(taikoL1.bondBalanceOf(Bob), bobDeposit - bobWithdraw);
     }
-
 
 }
