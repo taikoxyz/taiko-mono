@@ -147,7 +147,7 @@ contract TaikoL2 is EssentialContract, IBlockHash, TaikoL2Deprecated {
         onlyGoldenTouch
         nonReentrant
     {
-        require(block.number >= pacayaForkHeight(), L2_FORK_ERROR());
+        require(block.number >= pacaya(), L2_FORK_ERROR());
 
         uint256 parentId = block.number - 1;
         _verifyAndUpdatePublicInputHash(parentId);
@@ -230,7 +230,7 @@ contract TaikoL2 is EssentialContract, IBlockHash, TaikoL2Deprecated {
 
     /// @notice Returns the Ontake fork height.
     /// @return The Ontake fork height.
-    function pacayaForkHeight() public pure virtual returns (uint64) {
+    function pacaya() public pure virtual returns (uint64) {
         return 0;
     }
 

@@ -27,7 +27,10 @@ contract DevnetTaikoL1 is TaikoL1 {
             }),
             provingWindow: 2 hours,
             emitTxListInCalldata: true,
-            pacayaForkHeight: 0
+            forkHeights: ITaikoL1.ForkHeights({
+                ontake: 0,
+                pacaya: 0 // TODO
+             })
         });
     }
 }

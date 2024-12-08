@@ -78,6 +78,11 @@ interface ITaikoL1 {
         uint64 lastUnpausedAt;
     }
 
+    struct ForkHeights {
+        uint64 ontake;
+        uint64 pacaya;
+    }
+
     /// @notice Struct holding Taiko configuration parameters. See {TaikoConfig}.
     struct ConfigV3 {
         /// @notice The chain ID of the network where Taiko contracts are deployed.
@@ -102,8 +107,7 @@ interface ITaikoL1 {
         uint16 provingWindow;
         /// @notice emit txList in calldata
         bool emitTxListInCalldata;
-        /// @notie The Pacaya fork height on L2.
-        uint64 pacayaForkHeight;
+        ForkHeights forkHeights;
     }
 
     /// @notice Struct holding the state variables for the {Taiko} contract.
