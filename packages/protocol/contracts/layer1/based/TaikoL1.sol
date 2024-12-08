@@ -107,6 +107,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
         bool calldataUsed = _txList.length != 0;
 
         for (uint256 i; i < _paramsArray.length; ++i) {
+            require(calldataUsed || _paramsArray[i].blobIndex != 0, BlobIndexZero());
             UpdatedParams memory updatedParams =
                 _validateBlockParams(_paramsArray[i], config.maxAnchorHeightOffset, lastBlock);
 
@@ -117,28 +118,30 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             // The metadata must be supplied as calldata prior to proving the block, enabling the
             // computation
             // and verification of its integrity through the comparison of the metahash.
-
-            metas_[i] = BlockMetadataV3({
-                anchorBlockHash: blockhash(updatedParams.anchorBlockId),
-                difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", stats2.numBlocks)),
-                txListHash: calldataUsed ? keccak256(_txList) : _blobhash(_paramsArray[i].blobIndex),
-                extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
-                coinbase: _coinbase,
-                blockId: stats2.numBlocks,
-                gasLimit: config.blockMaxGasLimit,
-                timestamp: updatedParams.timestamp,
-                anchorBlockId: updatedParams.anchorBlockId,
-                parentMetaHash: lastBlock.metaHash,
-                proposer: _proposer,
-                livenessBond: config.livenessBond,
-                proposedAt: uint64(block.timestamp),
-                proposedIn: uint64(block.number),
-                txListOffset: _paramsArray[i].txListOffset,
-                txListSize: _paramsArray[i].txListSize,
-                blobIndex: calldataUsed ? 0 : _paramsArray[i].blobIndex,
-                calldataUsed: calldataUsed,
-                baseFeeConfig: config.baseFeeConfig
-            });
+            unchecked {
+                metas_[i] = BlockMetadataV3({
+                    anchorBlockHash: blockhash(updatedParams.anchorBlockId),
+                    difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", stats2.numBlocks)),
+                    txListHash: calldataUsed
+                        ? keccak256(_txList)
+                        : _blobhash(_paramsArray[i].blobIndex - 1),
+                    extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
+                    coinbase: _coinbase,
+                    blockId: stats2.numBlocks,
+                    gasLimit: config.blockMaxGasLimit,
+                    timestamp: updatedParams.timestamp,
+                    anchorBlockId: updatedParams.anchorBlockId,
+                    parentMetaHash: lastBlock.metaHash,
+                    proposer: _proposer,
+                    livenessBond: config.livenessBond,
+                    proposedAt: uint64(block.timestamp),
+                    proposedIn: uint64(block.number),
+                    txListOffset: _paramsArray[i].txListOffset,
+                    txListSize: _paramsArray[i].txListSize,
+                    blobIndex: calldataUsed ? 0 : _paramsArray[i].blobIndex,
+                    baseFeeConfig: config.baseFeeConfig
+                });
+            }
 
             require(metas_[i].txListHash != 0, BlobNotFound());
             bytes32 metaHash = keccak256(abi.encode(metas_[i]));
@@ -165,14 +168,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
         } // end of for-loop
 
         _debitBond(_proposer, config.livenessBond * _paramsArray.length);
-
-        // If the driver can extract the txList from transaction trace, then we do not need to emit
-        // the txList as it is expensive.
-        if (config.emitTxListInCalldata) {
-            emit BlocksProposedV3(metas_, calldataUsed, _txList);
-        } else {
-            emit BlocksProposedV3(metas_, calldataUsed, "");
-        }
+        emit BlocksProposedV3(metas_, calldataUsed, _txList);
 
         _verifyBlocks(config, stats2, _paramsArray.length);
     }

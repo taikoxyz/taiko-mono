@@ -33,7 +33,6 @@ interface ITaikoL1 {
         uint32 txListOffset;
         uint32 txListSize;
         uint8 blobIndex;
-        bool calldataUsed;
         LibSharedData.BaseFeeConfig baseFeeConfig;
     }
 
@@ -105,8 +104,6 @@ interface ITaikoL1 {
         LibSharedData.BaseFeeConfig baseFeeConfig;
         /// @notice The proving window in seconds.
         uint16 provingWindow;
-        /// @notice emit txList in calldata
-        bool emitTxListInCalldata;
         ForkHeights forkHeights;
     }
 
@@ -181,6 +178,7 @@ interface ITaikoL1 {
     error AnchorBlockIdTooSmall();
     error AnchorBlockIdTooLarge();
     error ArraySizesMismatch();
+    error BlobIndexZero();
     error BlobNotFound();
     error BlockNotFound();
     error BlockVerified();

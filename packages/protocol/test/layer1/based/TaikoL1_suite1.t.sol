@@ -22,7 +22,6 @@ contract TaikoL1Test_Suite1 is TaikoL1TestBase {
                 maxGasIssuancePerBlock: 600_000_000 // two minutes: 5_000_000 * 120
              }),
             provingWindow: 1 hours,
-            emitTxListInCalldata: true,
             forkHeights: ITaikoL1.ForkHeights({ ontake: 0, pacaya: 0 })
         });
     }
@@ -398,8 +397,9 @@ contract TaikoL1Test_Suite1 is TaikoL1TestBase {
         uint64 count = 1;
 
         vm.startSnapshotGas("proposeBlocksV3");
-        ITaikoL1.BlockMetadataV3[] memory metas =
-            taikoL1.proposeBlocksV3(address(0), address(0), new ITaikoL1.BlockParamsV3[](count), "");
+        ITaikoL1.BlockMetadataV3[] memory metas = taikoL1.proposeBlocksV3(
+            address(0), address(0), new ITaikoL1.BlockParamsV3[](count), "txList"
+        );
         uint256 gasProposeBlocksV3 = vm.stopSnapshotGas("proposeBlocksV3");
         console2.log("Gas per block - proposing:", gasProposeBlocksV3 / count);
 
