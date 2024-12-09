@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.20.3](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.20.2...docs-site-v1.20.3) (2024-12-09)
+
+
+### Bug Fixes
+
+* **docs-site:** update hekla graphic ([#18572](https://github.com/taikoxyz/taiko-mono/issues/18572)) ([ee50fdc](https://github.com/taikoxyz/taiko-mono/commit/ee50fdceec2d8f3a58a67f07b41e832898108e5d))
+
+
+### Chores
+
+* **main:** release docs-site 1.20.2 ([#18563](https://github.com/taikoxyz/taiko-mono/issues/18563)) ([ca837f1](https://github.com/taikoxyz/taiko-mono/commit/ca837f1ec3126871d6e8da3323fd8dc8becf7107))
+
 ## [1.20.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.20.1...docs-site-v1.20.2) (2024-12-08)
 
 
