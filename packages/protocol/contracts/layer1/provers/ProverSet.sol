@@ -15,8 +15,8 @@ interface IHasRecipient {
 }
 
 /// @title ProverSet
-/// @notice A contract that holds TKO token and acts as a Taiko prover. This contract will simply
-/// relay `proveBlock` calls to TaikoL1 so msg.sender doesn't need to hold any TKO.
+/// @notice A contract that holds TAIKO token and acts as a Taiko prover. This contract will simply
+/// relay `proveBlock` calls to TaikoL1 so msg.sender doesn't need to hold any TAIKO.
 /// @custom:security-contact security@taiko.xyz
 contract ProverSet is EssentialContract, IERC1271 {
     bytes4 private constant _EIP1271_MAGICVALUE = 0x1626ba7e;
@@ -94,7 +94,7 @@ contract ProverSet is EssentialContract, IERC1271 {
         LibAddress.sendEtherAndVerify(admin, _amount);
     }
 
-    /// @notice Proposes a batch blocks only when it is the first batch blocks proposal in the
+    /// @notice Proposes a batch of blocks only when it is the first batch proposal in the
     /// current L1 block.
     function proposeBlocksV2Conditionally(
         bytes[] calldata _params,
@@ -104,8 +104,11 @@ contract ProverSet is EssentialContract, IERC1271 {
         onlyProver
     {
         ITaikoL1 taiko = ITaikoL1(taikoL1());
+
+        uint256 lastProposedBlock = taiko.lastProposedIn();
         // Ensure these blocks are the first batch blocks proposed in the current L1 block.
-        require(taiko.lastProposedIn() != block.number, NOT_FIRST_PROPOSAL());
+        require(lastProposedBlock != block.number, NOT_FIRST_PROPOSAL());
+
         taiko.proposeBlocksV2(_params, _txList);
     }
 
