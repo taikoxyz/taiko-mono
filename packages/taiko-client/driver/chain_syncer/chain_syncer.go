@@ -32,10 +32,6 @@ type L2ChainSyncer struct {
 
 	// Sync mode
 	syncMode string
-
-	// If this flag is activated, will try P2P beacon sync if current node is behind of the protocol's
-	// the latest verified block head
-	p2pSync bool
 }
 
 // New creates a new chain syncer instance.
@@ -43,7 +39,6 @@ func New(
 	ctx context.Context,
 	rpc *rpc.Client,
 	state *state.State,
-	p2pSync bool,
 	p2pSyncTimeout time.Duration,
 	maxRetrieveExponent uint64,
 	blobServerEndpoint *url.URL,
@@ -78,7 +73,6 @@ func New(
 		blobSyncer:      blobSyncer,
 		progressTracker: tracker,
 		syncMode:        syncMode,
-		p2pSync:         p2pSync,
 	}, nil
 }
 
@@ -104,7 +98,6 @@ func (s *L2ChainSyncer) Sync() error {
 	if s.progressTracker.Triggered() {
 		log.Info(
 			"Switch to insert pending blocks one by one",
-			"p2pEnabled", s.p2pSync,
 			"p2pOutOfSync", s.progressTracker.OutOfSync(),
 		)
 
@@ -170,13 +163,12 @@ func (s *L2ChainSyncer) AheadOfHeadToSync(heightToSync uint64) bool {
 
 // needNewBeaconSyncTriggered checks whether the current L2 execution engine needs to trigger
 // another new beacon sync, the following conditions should be met:
-// 1. The `P2PSync` flag is set.
-// 2. The protocol's latest verified block head is not zero.
-// 3. The L2 execution engine's chain is behind of the protocol's latest verified block head.
-// 4. The L2 execution engine's chain has met a sync timeout issue.
+// 1. The protocol's latest verified block head is not zero.
+// 2. The L2 execution engine's chain is behind of the protocol's latest verified block head.
+// 3. The L2 execution engine's chain has met a sync timeout issue.
 func (s *L2ChainSyncer) needNewBeaconSyncTriggered() (uint64, bool, error) {
 	// If the flag is not set or there was a finished beacon sync, we simply return false.
-	if !s.p2pSync || s.progressTracker.Finished() {
+	if s.progressTracker.Finished() {
 		return 0, false, nil
 	}
 
