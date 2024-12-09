@@ -94,7 +94,7 @@ export async function recommendProcessingFee({
   if (!estimatedMsgGaslimit) throw new Error('Unable to calculate fee');
 
   // Initial fee multiplicator and add fallback
-  const feeMultiplicator: number = parseInt(PUBLIC_FEE_MULTIPLIER);
+  const feeMultiplicator: number = parseInt(PUBLIC_FEE_MULTIPLIER) || 1;
 
   // if (gasPrice <= parseGwei('0.05')) {
   //   feeMultiplicator = 4;
