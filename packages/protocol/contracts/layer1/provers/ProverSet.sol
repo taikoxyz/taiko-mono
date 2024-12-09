@@ -94,7 +94,7 @@ contract ProverSet is EssentialContract, IERC1271 {
         LibAddress.sendEtherAndVerify(admin, _amount);
     }
 
-    /// @notice Proposes a batch of blocks only when it is the first batch proposal in the
+    /// @notice Proposes a batch blocks only when it is the first batch blocks proposal in the
     /// current L1 block.
     function proposeBlocksV2Conditionally(
         bytes[] calldata _params,
