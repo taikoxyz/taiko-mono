@@ -63,10 +63,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		}
 	}
 
-	//if beaconEndpoint == "" && blobServerEndpoint == nil && socialScanEndpoint == nil {
-	//	return nil, errors.New("empty L1 beacon endpoint, blob server and Social Scan endpoint")
-	//}
-
 	if beaconEndpoint == "" {
 		return nil, errors.New("empty L1 beacon endpoint")
 	}
