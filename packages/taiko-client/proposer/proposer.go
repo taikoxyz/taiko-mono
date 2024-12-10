@@ -423,7 +423,7 @@ func (p *Proposer) ProposeTxListOntake(
 	ctx context.Context,
 	txLists []types.Transactions,
 ) error {
-	txListsBytesArray, totalTxs, err := p.compressTxLists(txLists)
+	txListsBytesArray, totalTxs, txNums, err := p.compressTxLists(txLists)
 	if err != nil {
 		return err
 	}
@@ -472,7 +472,7 @@ func (p *Proposer) ProposeTxListOntake(
 		return err
 	}
 
-	log.Info("📝 Batch propose transactions succeeded", "txs", totalTxs)
+	log.Info("📝 Batch propose transactions succeeded", "txs", txNums)
 
 	metrics.ProposerProposedTxListsCounter.Add(float64(len(txLists)))
 	metrics.ProposerProposedTxsCounter.Add(float64(totalTxs))
@@ -538,7 +538,7 @@ func (p *Proposer) chooseCheaperTransaction(
 }
 
 // compressTxLists compresses transaction lists and returns compressed bytes array and transaction counts
-func (p *Proposer) compressTxLists(txLists []types.Transactions) ([][]byte, int, error) {
+func (p *Proposer) compressTxLists(txLists []types.Transactions) ([][]byte, int, []int, error) {
 	var (
 		txListsBytesArray [][]byte
 		txNums            []int
@@ -548,12 +548,12 @@ func (p *Proposer) compressTxLists(txLists []types.Transactions) ([][]byte, int,
 	for _, txs := range txLists {
 		txListBytes, err := rlp.EncodeToBytes(txs)
 		if err != nil {
-			return nil, 0, fmt.Errorf("failed to encode transactions: %w", err)
+			return nil, 0, nil, fmt.Errorf("failed to encode transactions: %w", err)
 		}
 
 		compressedTxListBytes, err := utils.Compress(txListBytes)
 		if err != nil {
-			return nil, 0, err
+			return nil, 0, nil, err
 		}
 
 		txListsBytesArray = append(txListsBytesArray, compressedTxListBytes)
@@ -563,7 +563,7 @@ func (p *Proposer) compressTxLists(txLists []types.Transactions) ([][]byte, int,
 
 	log.Debug("Compressed transaction lists", "txs", txNums)
 
-	return txListsBytesArray, totalTxs, nil
+	return txListsBytesArray, totalTxs, txNums, nil
 }
 
 // updateProposingTicker updates the internal proposing timer.

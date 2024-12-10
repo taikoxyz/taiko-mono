@@ -361,72 +361,83 @@ func (s *ProposerTestSuite) TestName() {
 }
 
 func (s *ProposerTestSuite) TestProposeOp() {
-	testCases := []struct {
-		name               string
-		checkProfitability bool
-	}{
-		{
-			name:               "Without profitability check",
-			checkProfitability: false,
-		},
-		{
-			name:               "With profitability check",
-			checkProfitability: true,
-		},
+	// Propose txs in L2 execution engine's mempool
+	sink := make(chan *bindings.TaikoL1ClientBlockProposed)
+
+	sub, err := s.p.rpc.TaikoL1.WatchBlockProposed(nil, sink, nil, nil)
+	s.Nil(err)
+	defer func() {
+		sub.Unsubscribe()
+		close(sink)
+	}()
+
+	sink2 := make(chan *bindings.TaikoL1ClientBlockProposedV2)
+
+	sub2, err := s.p.rpc.TaikoL1.WatchBlockProposedV2(nil, sink2, nil)
+	s.Nil(err)
+	defer func() {
+		sub2.Unsubscribe()
+		close(sink2)
+	}()
+
+	to := common.BytesToAddress(testutils.RandomBytes(32))
+	_, err = testutils.SendDynamicFeeTx(s.p.rpc.L2, s.TestAddrPrivKey, &to, common.Big1, nil)
+	s.Nil(err)
+
+	s.Nil(s.p.ProposeOp(context.Background()))
+
+	var (
+		meta metadata.TaikoBlockMetaData
+	)
+	select {
+	case event := <-sink:
+		meta = metadata.NewTaikoDataBlockMetadataLegacy(event)
+	case event := <-sink2:
+		meta = metadata.NewTaikoDataBlockMetadataOntake(event)
 	}
 
-	for _, tc := range testCases {
-		s.Run(tc.name, func() {
-			// Set profitability check
-			s.p.checkProfitability = tc.checkProfitability
+	s.Equal(meta.GetCoinbase(), s.p.L2SuggestedFeeRecipient)
 
-			// Propose txs in L2 execution engine's mempool
-			sink := make(chan *bindings.TaikoL1ClientBlockProposed)
+	_, isPending, err := s.p.rpc.L1.TransactionByHash(context.Background(), meta.GetTxHash())
+	s.Nil(err)
+	s.False(isPending)
 
-			sub, err := s.p.rpc.TaikoL1.WatchBlockProposed(nil, sink, nil, nil)
-			s.Nil(err)
-			defer func() {
-				sub.Unsubscribe()
-				close(sink)
-			}()
+	receipt, err := s.p.rpc.L1.TransactionReceipt(context.Background(), meta.GetTxHash())
+	s.Nil(err)
+	s.Equal(types.ReceiptStatusSuccessful, receipt.Status)
+}
 
-			sink2 := make(chan *bindings.TaikoL1ClientBlockProposedV2)
+func (s *ProposerTestSuite) TestProposeOpWithProfitabilityCheck() {
+	s.p.checkProfitability = true
 
-			sub2, err := s.p.rpc.TaikoL1.WatchBlockProposedV2(nil, sink2, nil)
-			s.Nil(err)
-			defer func() {
-				sub2.Unsubscribe()
-				close(sink2)
-			}()
+	// Propose txs in L2 execution engine's mempool
+	sink := make(chan *bindings.TaikoL1ClientBlockProposedV2)
 
-			to := common.BytesToAddress(testutils.RandomBytes(32))
-			_, err = testutils.SendDynamicFeeTx(s.p.rpc.L2, s.TestAddrPrivKey, &to, common.Big1, nil)
-			s.Nil(err)
+	sub, err := s.p.rpc.TaikoL1.WatchBlockProposedV2(nil, sink, nil)
+	s.Nil(err)
+	defer func() {
+		sub.Unsubscribe()
+		close(sink)
+	}()
 
-			s.Nil(s.p.ProposeOp(context.Background()))
-			s.Nil(s.s.ProcessL1Blocks(context.Background()))
+	to := common.BytesToAddress(testutils.RandomBytes(32))
+	_, err = testutils.SendDynamicFeeTx(s.p.rpc.L2, s.TestAddrPrivKey, &to, common.Big1, nil)
+	s.Nil(err)
 
-			var (
-				meta metadata.TaikoBlockMetaData
-			)
-			select {
-			case event := <-sink:
-				meta = metadata.NewTaikoDataBlockMetadataLegacy(event)
-			case event := <-sink2:
-				meta = metadata.NewTaikoDataBlockMetadataOntake(event)
-			}
+	s.Nil(s.p.ProposeOp(context.Background()))
 
-			s.Equal(meta.GetCoinbase(), s.p.L2SuggestedFeeRecipient)
+	event := <-sink
+	meta := metadata.NewTaikoDataBlockMetadataOntake(event)
 
-			_, isPending, err := s.p.rpc.L1.TransactionByHash(context.Background(), meta.GetTxHash())
-			s.Nil(err)
-			s.False(isPending)
+	s.Equal(meta.GetCoinbase(), s.p.L2SuggestedFeeRecipient)
 
-			receipt, err := s.p.rpc.L1.TransactionReceipt(context.Background(), meta.GetTxHash())
-			s.Nil(err)
-			s.Equal(types.ReceiptStatusSuccessful, receipt.Status)
-		})
-	}
+	_, isPending, err := s.p.rpc.L1.TransactionByHash(context.Background(), meta.GetTxHash())
+	s.Nil(err)
+	s.False(isPending)
+
+	receipt, err := s.p.rpc.L1.TransactionReceipt(context.Background(), meta.GetTxHash())
+	s.Nil(err)
+	s.Equal(types.ReceiptStatusSuccessful, receipt.Status)
 }
 
 func (s *ProposerTestSuite) TestProposeEmptyBlockOp() {
