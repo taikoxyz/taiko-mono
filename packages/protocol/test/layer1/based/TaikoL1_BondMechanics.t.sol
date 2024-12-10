@@ -67,7 +67,6 @@ contract TaikoL1Test_BondMechanics is TaikoL1TestBase {
         ITaikoL1.TransitionV3[] memory transitions = new ITaikoL1.TransitionV3[](blockIds.length);
 
         for (uint256 i; i < blockIds.length; ++i) {
-            ITaikoL1.BlockMetadataV3 memory meta = blockMetadatas[blockIds[i]];
             transitions[i].parentHash = correctBlockhash(blockIds[i] - 1);
             transitions[i].blockHash = correctBlockhash(blockIds[i]);
             transitions[i].stateRoot = correctStateRoot(blockIds[i]);
