@@ -1,5 +1,49 @@
 # Changelog
 
+## [0.13.0](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.12.0...relayer-v0.13.0) (2024-12-10)
+
+
+### Features
+
+* **relayer:** configurable conf timeout, increase default ([#17880](https://github.com/taikoxyz/taiko-mono/issues/17880)) ([7bf7d69](https://github.com/taikoxyz/taiko-mono/commit/7bf7d691978588c17a03b858162d5b2aad2de872))
+* **relayer:** confirmations before indexing for relayer should be configurable ([#18466](https://github.com/taikoxyz/taiko-mono/issues/18466)) ([1fee7bb](https://github.com/taikoxyz/taiko-mono/commit/1fee7bbd918dadc4eee68a0cf190f4de27dd6dd0))
+* **relayer:** pad if contract ([#18131](https://github.com/taikoxyz/taiko-mono/issues/18131)) ([56143f0](https://github.com/taikoxyz/taiko-mono/commit/56143f096cfd792aaa3b578b8b64132744beeacc))
+
+
+### Bug Fixes
+
+* **eventindexer:** remove nft metadata indexing, far too slowy and bug ridden right now ([#18126](https://github.com/taikoxyz/taiko-mono/issues/18126)) ([f0ab1e1](https://github.com/taikoxyz/taiko-mono/commit/f0ab1e1fc86d3790eea743dee6aa717886321adc))
+* **relayer:** fix for profitable detection ([#18134](https://github.com/taikoxyz/taiko-mono/issues/18134)) ([c2f59c3](https://github.com/taikoxyz/taiko-mono/commit/c2f59c30c085f19c5fed64e07c7961009060c428))
+* **relayer:** profitability changes ([#18124](https://github.com/taikoxyz/taiko-mono/issues/18124)) ([10eb73c](https://github.com/taikoxyz/taiko-mono/commit/10eb73cf3d165781ece2554fb48a777c54a37e82))
+* **relayer:** temp fix if `txSender` is not available for `txIndex` when processing events ([#18513](https://github.com/taikoxyz/taiko-mono/issues/18513)) ([a0c622e](https://github.com/taikoxyz/taiko-mono/commit/a0c622ecbc7eea4907f8149f576db3ff0d09e031))
+
+
+### Chores
+
+* **relayer:** close db connection before stop service. ([#17709](https://github.com/taikoxyz/taiko-mono/issues/17709)) ([9e928ad](https://github.com/taikoxyz/taiko-mono/commit/9e928ad4644c68cdc4ac5426bc10895100bf30a7))
+* **relayer:** upgrade event db operation ([#17699](https://github.com/taikoxyz/taiko-mono/issues/17699)) ([bf593ee](https://github.com/taikoxyz/taiko-mono/commit/bf593ee5377a1f73131051517e7869f6564848a9))
+* **repo:** improve documentation and changelog ([#18489](https://github.com/taikoxyz/taiko-mono/issues/18489)) ([c7b9b4f](https://github.com/taikoxyz/taiko-mono/commit/c7b9b4f01098d4fab337b9ff456ce394cdaf3a79))
+
+
+### Documentation
+
+* **repo:** remove unexist badge and action in readme ([#17928](https://github.com/taikoxyz/taiko-mono/issues/17928)) ([465456e](https://github.com/taikoxyz/taiko-mono/commit/465456ef17df5a0915b9b17cc081e215ed1c67b8))
+
+
+### Tests
+
+* **taiko-client:** introduce TestTxPoolContentWithMinTip test case ([#18285](https://github.com/taikoxyz/taiko-mono/issues/18285)) ([d572f4c](https://github.com/taikoxyz/taiko-mono/commit/d572f4c412e59094ea9a4c5ff0b0667c9c04bd66))
+
+
+### Workflow
+
+* **protocol:** trigger patch release (1.10.1) ([#18358](https://github.com/taikoxyz/taiko-mono/issues/18358)) ([f4f4796](https://github.com/taikoxyz/taiko-mono/commit/f4f4796488059b02c79d6fb15170df58dd31dc4e))
+
+
+### Build
+
+* **relayer:** upgrade scripts and ignore abi json files ([#17826](https://github.com/taikoxyz/taiko-mono/issues/17826)) ([8774a48](https://github.com/taikoxyz/taiko-mono/commit/8774a484b594f3deef64063778fc1d70e4fe7dcc))
+
 ## [0.12.0](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.11.0...relayer-v0.12.0) (2023-10-18)
 
 
