@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "contracts/layer1/based/ITaikoL1.sol";
 import "./TaikoL1TestBase.sol";
 
-contract TaikoL1Test_BondToken is TaikoL1TestBase {
+contract TaikoL1Test_BondMechanics is TaikoL1TestBase {
 
     uint16 constant provingWindow = 1 hours;
 
@@ -85,7 +85,7 @@ contract TaikoL1Test_BondToken is TaikoL1TestBase {
         vm.warp(targetTime);
     }
 
-    function test_bonds_debit_and_credit_on_proposal_and_proof() external {
+    function test_taikoL1_bonds_debit_and_credit_on_proposal_and_proof() external {
         vm.warp(1_000_000);
 
         uint256 initialBondBalance = 100000 ether;
@@ -107,7 +107,7 @@ contract TaikoL1Test_BondToken is TaikoL1TestBase {
         assertEq(taikoL1.bondBalanceOf(Alice), bondAmount);
     }
 
-    function test_bonds_debited_on_proposal_not_credited_back_if_proved_after_deadline() external {
+    function test_taikoL1_bonds_debited_on_proposal_not_credited_back_if_proved_after_deadline() external {
         vm.warp(1_000_000);
 
         uint256 initialBondBalance = 100000 ether;
@@ -137,7 +137,7 @@ contract TaikoL1Test_BondToken is TaikoL1TestBase {
         assertEq(aliceBondBalanceAfterProof < bondAmount, true);
     }
 
-    function test_bonds_debit_and_credit_on_proposal_and_proof_with_exact_proving_window() 
+    function test_taikoL1_bonds_debit_and_credit_on_proposal_and_proof_with_exact_proving_window() 
         external 
     {
         vm.warp(1_000_000);
