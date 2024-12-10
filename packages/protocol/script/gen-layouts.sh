@@ -56,6 +56,7 @@ contracts_layer1=(
 "contracts/layer1/team/tokenunlock/TokenUnlock.sol:TokenUnlock"
 "contracts/layer1/provers/ProverSet.sol:ProverSet"
 "contracts/layer1/provers/GuardianProver.sol:GuardianProver"
+"contracts/layer1/fork/ForkManager.sol:ForkManager"
 )
 
 # Layer 2 contracts
