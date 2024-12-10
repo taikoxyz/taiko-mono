@@ -14,6 +14,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
 
 var (
@@ -142,6 +143,79 @@ func (a *ProveBlockTxBuilder) Build(
 					return nil, err
 				}
 			}
+		}
+
+		return &txmgr.TxCandidate{
+			TxData:   data,
+			To:       &to,
+			Blobs:    nil,
+			GasLimit: txOpts.GasLimit,
+			Value:    txOpts.Value,
+		}, nil
+	}
+}
+
+// BuildProveBlocks creates a new TaikoL1.ProveBlocks transaction.
+func (a *ProveBlockTxBuilder) BuildProveBlocks(
+	batchProof *proofProducer.BatchProofs,
+	graffiti [32]byte,
+) TxBuilder {
+	return func(txOpts *bind.TransactOpts) (*txmgr.TxCandidate, error) {
+		var (
+			data        []byte
+			to          common.Address
+			err         error
+			metas       = make([]metadata.TaikoBlockMetaData, len(batchProof.Proofs))
+			transitions = make([]bindings.TaikoDataTransition, len(batchProof.Proofs))
+			blockIDs    = make([]uint64, len(batchProof.Proofs))
+		)
+		for i, proof := range batchProof.Proofs {
+			metas[i] = proof.Meta
+			transitions[i] = bindings.TaikoDataTransition{
+				ParentHash: proof.Header.ParentHash,
+				BlockHash:  proof.Opts.BlockHash,
+				StateRoot:  proof.Opts.StateRoot,
+				Graffiti:   graffiti,
+			}
+			blockIDs[i] = proof.BlockID.Uint64()
+		}
+		log.Info(
+			"Build batch proof submission transaction",
+			"blockIDs", blockIDs,
+			"gasLimit", txOpts.GasLimit,
+		)
+		input, err := encoding.EncodeProveBlocksInput(metas, transitions)
+		if err != nil {
+			return nil, err
+		}
+		tierProof, err := encoding.EncodeProveBlocksBatchProof(&bindings.TaikoDataTierProof{
+			Tier: batchProof.Tier,
+			Data: batchProof.BatchProof,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		if a.proverSetAddress != ZeroAddress {
+			if data, err = encoding.ProverSetABI.Pack(
+				"proveBlocks",
+				blockIDs,
+				input,
+				tierProof,
+			); err != nil {
+				return nil, err
+			}
+			to = a.proverSetAddress
+		} else {
+			if data, err = encoding.TaikoL1ABI.Pack(
+				"proveBlocks",
+				blockIDs,
+				input,
+				tierProof,
+			); err != nil {
+				return nil, err
+			}
+			to = a.taikoL1Address
 		}
 
 		return &txmgr.TxCandidate{
