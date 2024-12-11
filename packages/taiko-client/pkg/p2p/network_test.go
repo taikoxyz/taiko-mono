@@ -14,11 +14,11 @@ func Test_Network(t *testing.T) {
 	assert.Nil(t, err)
 	defer n.Close()
 
-	n2, err := NewNetwork(context.Background(), n.localFullAddr, 4002)
+	n2, err := NewNetwork(context.Background(), n.localFullAddr, 0)
 	assert.Nil(t, err)
 	defer n2.Close()
 
-	time.Sleep(5 * time.Second) // Allow discovery to propagate
+	time.Sleep(2 * time.Second) // Allow discovery to propagate
 
 	assert.Equal(t, 1, len(n2.peers))
 
@@ -46,6 +46,6 @@ func Test_Network(t *testing.T) {
 
 	assert.Nil(t, Publish(context.Background(), n2, "test", []byte("hello")))
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(3 * time.Second)
 	assert.Equal(t, 1, n.receivedMessages)
 }
