@@ -59,7 +59,7 @@ contract TrailblazersBadgesV4 is TrailblazersBadgesV3 {
 
     /// @notice Start recruitment for a badge
     /// @param _badgeId Badge id
-    function startRecruitment(uint256 _badgeId) public {
+    function startRecruitment(uint256 _badgeId) public virtual {
         if (recruitmentLockDuration == 0) {
             revert RECRUITMENT_LOCK_DURATION_NOT_SET();
         }
