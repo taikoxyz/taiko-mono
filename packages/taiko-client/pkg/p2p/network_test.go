@@ -10,7 +10,7 @@ import (
 )
 
 func Test_Network(t *testing.T) {
-	n, err := NewNetwork(context.Background(), "", 4001)
+	n, err := NewNetwork(context.Background(), "", 0)
 	assert.Nil(t, err)
 	defer n.Close()
 
@@ -20,9 +20,9 @@ func Test_Network(t *testing.T) {
 
 	time.Sleep(5 * time.Second) // Allow discovery to propagate
 
-	assert.Equal(t, 1, len(n2.peers))
+	assert.Equal(t, 1, n2.peers.Count())
 
-	assert.Equal(t, 1, len(n.peers))
+	assert.Equal(t, 1, n.peers.Count())
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -40,11 +40,9 @@ func Test_Network(t *testing.T) {
 		return nil
 	}))
 
-	go func() {
-		assert.Nil(t, SubscribeToTopic[[]byte](ctx, n, "test"))
-	}()
-
 	assert.Nil(t, Publish(context.Background(), n2, "test", []byte("hello")))
+
+	assert.Nil(t, SubscribeToTopic[[]byte](ctx, n, "test"))
 
 	assert.Equal(t, 1, n.receivedMessages)
 }
