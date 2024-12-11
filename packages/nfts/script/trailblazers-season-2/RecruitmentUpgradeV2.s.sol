@@ -10,7 +10,6 @@ import { IMinimalBlacklist } from "@taiko/blacklist/IMinimalBlacklist.sol";
 
 import "../../contracts/trailblazers-season-2/TrailblazersBadgesS2.sol";
 
-
 import "../../contracts/trailblazers-season-2/TrailblazersS1BadgesV5.sol";
 
 contract UpgradeV2 is Script {
@@ -28,15 +27,15 @@ contract UpgradeV2 is Script {
     address public s1TokenAddress = 0xa20a8856e00F5ad024a55A663F06DCc419FFc4d5;
     address public badgeRecruitmentAddress = 0xa9Ceb04F3aF71fF123409d426A92BABb5124970C;
 
-// hekla config
-  string baseURI =
-    "https://taikonfts.4everland.link/ipfs/bafybeiatuzeeeznd3hi5qiulslxcjd22ebu45t4fra2jvi3smhocr2c66a";
+    // hekla config
+    string baseURI =
+        "https://taikonfts.4everland.link/ipfs/bafybeiatuzeeeznd3hi5qiulslxcjd22ebu45t4fra2jvi3smhocr2c66a";
 
     IMinimalBlacklist blacklist = IMinimalBlacklist(0xe61E9034b5633977eC98E302b33e321e8140F105);
     address claimMintSigner = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
     address recruitmentSigner = 0x3cda4F2EaC3fc2FdE78B3DFFe1A1A1Eff88c68c5;
 
-     uint256 public MAX_INFLUENCES = 5;
+    uint256 public MAX_INFLUENCES = 5;
     uint256 public COOLDOWN_RECRUITMENT = 10 minutes;
     uint256 public COOLDOWN_INFLUENCE = 5 minutes;
     uint256 public INFLUENCE_WEIGHT_PERCENT = 9;
@@ -44,7 +43,6 @@ contract UpgradeV2 is Script {
     uint256 public DEFAULT_CYCLE_DURATION = 7 days;
     uint256 public s1EndDate = 1_734_350_400; // Dec 16th 2024, noon UTC
     uint256 public S1_LOCK_DURATION = (s1EndDate - block.timestamp);
-
 
     function setUp() public {
         utils = new UtilsScript();
@@ -64,7 +62,7 @@ contract UpgradeV2 is Script {
         TrailblazersBadgesS2 s2Token;
         BadgeRecruitment badgeRecruitment;
 
-         if (block.chainid == 167_000) {
+        if (block.chainid == 167_000) {
             // mainnet, use existing contract
             s1Token = TrailblazersBadgesV4(s1TokenAddress);
             badgeRecruitment = BadgeRecruitment(badgeRecruitmentAddress);
@@ -76,7 +74,8 @@ contract UpgradeV2 is Script {
                 new ERC1967Proxy(
                     impl,
                     abi.encodeCall(
-                        TrailblazersBadges.initialize, (deployerAddress, baseURI, claimMintSigner, blacklist)
+                        TrailblazersBadges.initialize,
+                        (deployerAddress, baseURI, claimMintSigner, blacklist)
                     )
                 )
             );
@@ -93,31 +92,30 @@ contract UpgradeV2 is Script {
 
             // deploy recruitment contract
             BadgeRecruitment.Config memory config = BadgeRecruitment.Config(
-            COOLDOWN_RECRUITMENT,
-            COOLDOWN_INFLUENCE,
-            INFLUENCE_WEIGHT_PERCENT,
-            MAX_INFLUENCES,
-            MAX_INFLUENCES_DIVIDER,
-            DEFAULT_CYCLE_DURATION
-        );
+                COOLDOWN_RECRUITMENT,
+                COOLDOWN_INFLUENCE,
+                INFLUENCE_WEIGHT_PERCENT,
+                MAX_INFLUENCES,
+                MAX_INFLUENCES_DIVIDER,
+                DEFAULT_CYCLE_DURATION
+            );
             impl = address(new BadgeRecruitment());
-           proxy = address(
-            new ERC1967Proxy(
-                impl,
-                abi.encodeCall(
-                    BadgeRecruitment.initialize,
-                    (address(s1Token), address(s2Token), recruitmentSigner, config)
+            proxy = address(
+                new ERC1967Proxy(
+                    impl,
+                    abi.encodeCall(
+                        BadgeRecruitment.initialize,
+                        (address(s1Token), address(s2Token), recruitmentSigner, config)
+                    )
                 )
-            )
-        );
+            );
 
             badgeRecruitment = BadgeRecruitment(proxy);
         }
 
         // upgrade token contract
         s1Token.upgradeToAndCall(
-            address(new TrailblazersBadgesV5()),
-            abi.encodeCall(TrailblazersBadgesV5.version, ())
+            address(new TrailblazersBadgesV5()), abi.encodeCall(TrailblazersBadgesV5.version, ())
         );
 
         tokenV5 = TrailblazersBadgesV5(address(s1Token));
@@ -125,8 +123,7 @@ contract UpgradeV2 is Script {
 
         // upgrade recruitment contract
         badgeRecruitment.upgradeToAndCall(
-            address(new BadgeRecruitmentV2()),
-            abi.encodeCall(BadgeRecruitmentV2.version, ())
+            address(new BadgeRecruitmentV2()), abi.encodeCall(BadgeRecruitmentV2.version, ())
         );
 
         badgeRecruitmentV2 = BadgeRecruitmentV2(address(badgeRecruitment));
@@ -136,9 +133,9 @@ contract UpgradeV2 is Script {
         tokenV5.setRecruitmentContractV2(address(badgeRecruitmentV2));
         console.log("Set recruitment contract to:", address(badgeRecruitmentV2));
 
-/*
+        /*
         token.upgradeToAndCall(
-            address(new TrailblazersBadgesS2()), abi.encodeCall(TrailblazersBadgesS2.version, ())
+        address(new TrailblazersBadgesS2()), abi.encodeCall(TrailblazersBadgesS2.version, ())
         );
 
         token = TrailblazersBadgesS2(address(token));
@@ -147,7 +144,7 @@ contract UpgradeV2 is Script {
 
         // update uri
         token.setUri(
-            "https://taikonfts.4everland.link/ipfs/bafybeief7o4u6f676e6uz4yt4cv34ai4mesd7motoq6y4xxaoyjfbna5de"
+        "https://taikonfts.4everland.link/ipfs/bafybeief7o4u6f676e6uz4yt4cv34ai4mesd7motoq6y4xxaoyjfbna5de"
         );
         console.log("Updated token URI");*/
     }
