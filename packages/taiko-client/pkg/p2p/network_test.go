@@ -46,5 +46,6 @@ func Test_Network(t *testing.T) {
 
 	assert.Nil(t, Publish(context.Background(), n2, "test", []byte("hello")))
 
+	time.Sleep(2 * time.Second)
 	assert.Equal(t, 1, n.receivedMessages)
 }

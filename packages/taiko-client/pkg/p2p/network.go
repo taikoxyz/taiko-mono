@@ -243,13 +243,13 @@ func SubscribeToTopic[T any](ctx context.Context, n *Network, topicName string) 
 	if err != nil {
 		return err
 	}
+	defer sub.Cancel()
 
-	t := time.NewTicker(defaultPeerDiscoveryInternal)
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
-		case <-t.C:
+		default:
 			msg, err := sub.Next(ctx)
 			if err != nil {
 				continue
