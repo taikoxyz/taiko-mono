@@ -20,9 +20,9 @@ func Test_Network(t *testing.T) {
 
 	time.Sleep(5 * time.Second) // Allow discovery to propagate
 
-	assert.Equal(t, 1, len(n2.peers))
+	assert.Equal(t, 1, n2.peers.Count())
 
-	assert.Equal(t, 1, len(n.peers))
+	assert.Equal(t, 1, n.peers.Count())
 
 	ctx, cancel := context.WithCancel(context.Background())
 

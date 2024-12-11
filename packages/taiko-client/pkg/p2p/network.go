@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/libp2p/go-libp2p"
@@ -18,6 +17,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	discovery "github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	"github.com/multiformats/go-multiaddr"
+	cmap "github.com/orcaman/concurrent-map/v2"
 )
 
 const defaultPeerDiscoveryInternal = 1 * time.Second
@@ -37,8 +37,7 @@ type Network struct {
 	bootstrapNodeURL string
 	localFullAddr    string
 	fullAddr         string
-	peers            []peer.AddrInfo
-	peersMutex       sync.Mutex
+	peers            cmap.ConcurrentMap[peer.ID, *peer.AddrInfo]
 	receivedMessages int
 }
 
@@ -71,7 +70,7 @@ func NewNetwork(ctx context.Context, bootstrapNodeURL string, port uint64) (*Net
 		bootstrapNodeURL: bootstrapNodeURL,
 		localFullAddr:    localFullAddr,
 		fullAddr:         fullAddr,
-		peers:            make([]peer.AddrInfo, 0),
+		peers:            cmap.NewStringer[peer.ID, *peer.AddrInfo](),
 	}
 
 	n.acceptIncomingPeers()
@@ -106,23 +105,15 @@ func (n *Network) startAdvertising(ctx context.Context) {
 		slog.Warn("Failed to find peers", "err", err)
 	}
 
-	n.peersMutex.Lock()
 	for peerInfo := range peerChan {
 		slog.Info("Discovered peer", "peer", peerInfo.ID)
 		// Check if peer is already added
-		for _, p := range n.peers {
-			if p.ID == peerInfo.ID {
-				continue
-			}
-		}
-
-		if peerInfo.ID == n.host.ID() {
+		if n.peers.Has(peerInfo.ID) || peerInfo.ID == n.host.ID() {
 			continue
 		}
 
-		n.peers = append(n.peers, peerInfo)
+		n.peers.Set(peerInfo.ID, &peerInfo)
 	}
-	n.peersMutex.Unlock()
 
 	for {
 		select {
@@ -138,27 +129,20 @@ func (n *Network) acceptIncomingPeers() {
 	n.host.Network().Notify(&network.NotifyBundle{
 		ConnectedF: func(_ network.Network, conn network.Conn) {
 			peerID := conn.RemotePeer()
-
-			addrInfo := peer.AddrInfo{
-				ID:    peerID,
-				Addrs: []multiaddr.Multiaddr{conn.RemoteMultiaddr()},
-			}
-
 			// Add to peer list
-			n.peersMutex.Lock()
-			defer n.peersMutex.Unlock()
 			// Check if peer is already added
-			for _, p := range n.peers {
-				if p.ID == peerID {
-					return
-				}
+			if n.peers.Has(peerID) {
+				return
 			}
 
 			if peerID == n.host.ID() {
 				return // dont connect to self
 			}
 
-			n.peers = append(n.peers, addrInfo)
+			n.peers.Set(peerID, &peer.AddrInfo{
+				ID:    peerID,
+				Addrs: []multiaddr.Multiaddr{conn.RemoteMultiaddr()},
+			})
 			slog.Info("Peer added to list via Notify", "peerID", peerID, "hostPeerID", n.host.ID())
 		},
 	})
@@ -192,9 +176,7 @@ func (n *Network) DiscoverPeers(ctx context.Context) {
 				if err := n.host.Connect(ctx, peerInfo); err != nil {
 					slog.Error("Failed to connect to peer", "peerID", peerInfo.ID, "err", err)
 				} else {
-					n.peersMutex.Lock()
-					n.peers = append(n.peers, peerInfo)
-					n.peersMutex.Unlock()
+					n.peers.Set(peerInfo.ID, &peerInfo)
 					slog.Info("Connected to peer", "peerID", peerInfo.ID)
 				}
 			}
@@ -293,25 +275,15 @@ func bootstrapDHT(ctx context.Context, n *Network, addr string, host host.Host, 
 		slog.Error("invalid peerInfo", "addr", addr, "err", err)
 		return err
 	}
+	// Check if peer is already added
+	if n.peers.Has(peerInfo.ID) || peerInfo.ID == n.host.ID() {
+		return nil
+	}
 
 	if err := host.Connect(ctx, *peerInfo); err != nil {
 		slog.Error("unable to connect to bootstrap peer", "peerID", peerInfo.ID, "err", err)
 	} else {
-		n.peersMutex.Lock()
-		// Check if peer is already added
-		for _, p := range n.peers {
-			if p.ID == peerInfo.ID {
-				return nil
-			}
-		}
-
-		if peerInfo.ID == n.host.ID() {
-			return nil
-		}
-
-		n.peers = append(n.peers, *peerInfo)
-
-		defer n.peersMutex.Unlock()
+		n.peers.Set(peerInfo.ID, peerInfo)
 		slog.Info("successfully connected to peer", "peerID", peerInfo.ID, "hostPeerID", host.ID())
 	}
 
