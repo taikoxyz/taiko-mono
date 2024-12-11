@@ -10,7 +10,7 @@ import (
 )
 
 func Test_Network(t *testing.T) {
-	n, err := NewNetwork(context.Background(), "", 0)
+	n, err := NewNetwork(context.Background(), "", 4001)
 	assert.Nil(t, err)
 	defer n.Close()
 
@@ -40,9 +40,11 @@ func Test_Network(t *testing.T) {
 		return nil
 	}))
 
-	assert.Nil(t, Publish(context.Background(), n2, "test", []byte("hello")))
+	go func() {
+		assert.Nil(t, SubscribeToTopic[[]byte](ctx, n, "test"))
+	}()
 
-	assert.Nil(t, SubscribeToTopic[[]byte](ctx, n, "test"))
+	assert.Nil(t, Publish(context.Background(), n2, "test", []byte("hello")))
 
 	assert.Equal(t, 1, n.receivedMessages)
 }
