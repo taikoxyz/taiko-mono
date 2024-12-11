@@ -10,7 +10,7 @@ import (
 )
 
 func Test_Network(t *testing.T) {
-	n, err := NewNetwork(context.Background(), "", 4001)
+	n, err := NewNetwork(context.Background(), "", 0)
 	assert.Nil(t, err)
 	defer n.Close()
 
