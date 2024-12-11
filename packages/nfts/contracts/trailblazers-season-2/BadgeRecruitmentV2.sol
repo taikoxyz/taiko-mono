@@ -5,7 +5,9 @@ import "./BadgeRecruitment.sol";
 
 contract BadgeRecruitmentV2 is BadgeRecruitment {
     /// @notice Events
-    event RecruitmentReset(address indexed user, uint256 indexed s1TokenId, uint256 s1BadgeId);
+    event RecruitmentReset(
+        uint256 indexed cycleId, address indexed user, uint256 indexed s1TokenId, uint256 s1BadgeId
+    );
 
     /// @notice Errors
     error RECRUITMENT_ALREADY_COMPLETED();
@@ -43,6 +45,14 @@ contract BadgeRecruitmentV2 is BadgeRecruitment {
     /// @dev Bypasses the default date checks
     function forceDisableAllRecruitments() external virtual onlyRole(DEFAULT_ADMIN_ROLE) {
         forceDisableRecruitments();
+        // emit disabled badges
+        emit RecruitmentCycleToggled(
+            recruitmentCycleId,
+            recruitmentCycles[recruitmentCycleId].startTime,
+            recruitmentCycles[recruitmentCycleId].endTime,
+            recruitmentCycles[recruitmentCycleId].s1BadgeIds,
+            false
+        );
     }
 
     /// @notice Get the active recruitment for a user
@@ -90,6 +100,6 @@ contract BadgeRecruitmentV2 is BadgeRecruitment {
         recruitmentCycleUniqueMints[recruitmentCycleId][_user][s1BadgeId_][RecruitmentType.Migration]
         = false;
 
-        emit RecruitmentReset(_user, _s1TokenId, s1BadgeId_);
+        emit RecruitmentReset(recruitmentCycleId, _user, _s1TokenId, s1BadgeId_);
     }
 }
