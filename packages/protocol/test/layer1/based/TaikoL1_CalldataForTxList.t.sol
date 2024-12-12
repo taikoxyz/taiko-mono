@@ -35,7 +35,7 @@ contract TaikoL1_CalldataForTxList is TaikoL1TestBase {
     function test_calldata_used_for_txlist_da() external {
         vm.warp(1_000_000);
 
-        uint256 initialBondBalance = 100000 ether;
+        uint256 initialBondBalance = 100_000 ether;
         uint256 bondAmount = 1000 ether;
 
         setupBondTokenState(Alice, initialBondBalance, bondAmount);
@@ -45,9 +45,10 @@ contract TaikoL1_CalldataForTxList is TaikoL1TestBase {
         bytes32 expectedHash = keccak256(txList);
 
         vm.prank(Alice);
-        uint64[] memory blockIds = _proposeBlocksWithDefaultParameters({ numBlocksToPropose: 1, txList: txList });        
+        uint64[] memory blockIds =
+            _proposeBlocksWithDefaultParameters({ numBlocksToPropose: 1, txList: txList });
         for (uint256 i; i < blockIds.length; ++i) {
-           ITaikoL1.BlockMetadataV3 memory meta = blockMetadatas[blockIds[i]];
+            ITaikoL1.BlockMetadataV3 memory meta = blockMetadatas[blockIds[i]];
             assertEq(meta.txListHash, expectedHash);
         }
 
@@ -58,7 +59,7 @@ contract TaikoL1_CalldataForTxList is TaikoL1TestBase {
     function test_block_rejection_due_to_missing_txlist_and_blobindex() external {
         vm.warp(1_000_000);
 
-        uint256 initialBondBalance = 100000 ether;
+        uint256 initialBondBalance = 100_000 ether;
         uint256 bondAmount = 1000 ether;
 
         setupBondTokenState(Alice, initialBondBalance, bondAmount);
@@ -76,7 +77,7 @@ contract TaikoL1_CalldataForTxList is TaikoL1TestBase {
     function test_propose_block_with_empty_txlist_and_valid_blobindex() external {
         vm.warp(1_000_000);
 
-        uint256 initialBondBalance = 100000 ether;
+        uint256 initialBondBalance = 100_000 ether;
         uint256 bondAmount = 1000 ether;
 
         setupBondTokenState(Alice, initialBondBalance, bondAmount);
@@ -87,7 +88,8 @@ contract TaikoL1_CalldataForTxList is TaikoL1TestBase {
         blockParams[0].blobIndex = 1; // Valid blob index
 
         vm.prank(Alice);
-        ITaikoL1.BlockMetadataV3[] memory metas = taikoL1.proposeBlocksV3(address(0), address(0), blockParams, txList);
+        ITaikoL1.BlockMetadataV3[] memory metas =
+            taikoL1.proposeBlocksV3(address(0), address(0), blockParams, txList);
 
         ITaikoL1.BlockMetadataV3 memory meta = metas[0];
         assertTrue(meta.txListHash != 0, "txListHash should not be zero for valid blobIndex");
@@ -104,7 +106,7 @@ contract TaikoL1_CalldataForTxList is TaikoL1TestBase {
     function test_multiple_blocks_with_different_txlist() external {
         vm.warp(1_000_000);
 
-        uint256 initialBondBalance = 100000 ether;
+        uint256 initialBondBalance = 100_000 ether;
         uint256 bondAmount = 1000 ether;
 
         setupBondTokenState(Alice, initialBondBalance, bondAmount);
@@ -134,7 +136,7 @@ contract TaikoL1_CalldataForTxList is TaikoL1TestBase {
     function test_prove_block_with_mismatched_txlist() external {
         vm.warp(1_000_000);
 
-        uint256 initialBondBalance = 100000 ether;
+        uint256 initialBondBalance = 100_000 ether;
         uint256 bondAmount = 1000 ether;
 
         setupBondTokenState(Alice, initialBondBalance, bondAmount);
@@ -167,5 +169,4 @@ contract TaikoL1_CalldataForTxList is TaikoL1TestBase {
         vm.expectRevert(ITaikoL1.MetaHashMismatch.selector);
         taikoL1.proveBlocksV3(metas, transitions, "proof");
     }
-
 }
