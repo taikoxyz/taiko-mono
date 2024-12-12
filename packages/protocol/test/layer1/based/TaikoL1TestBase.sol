@@ -81,7 +81,11 @@ abstract contract TaikoL1TestBase is Layer1Test {
         return _proposeBlocksWithDefaultParameters(numBlocksToPropose, defaultTxList);
     }
 
-    function _proposeBlocksWithDefaultParameters(uint256 numBlocksToPropose, bytes memory txList) internal 
+    function _proposeBlocksWithDefaultParameters(
+        uint256 numBlocksToPropose,
+        bytes memory txList
+    )
+        internal
         returns (uint64[] memory blockIds)
     {
         ITaikoL1.BlockParamsV3[] memory blockParams =
@@ -89,7 +93,7 @@ abstract contract TaikoL1TestBase is Layer1Test {
 
         ITaikoL1.BlockMetadataV3[] memory metas =
             taikoL1.proposeBlocksV3(address(0), address(0), blockParams, txList);
-        
+
         // Initialize blockIds array
         blockIds = new uint64[](metas.length);
         for (uint256 i; i < metas.length; ++i) {
