@@ -106,6 +106,30 @@ contract TaikoL1Test_BondMechanics is TaikoL1TestBase {
         assertEq(taikoL1.bondBalanceOf(Alice), bondAmount);
     }
 
+    function test_only_proposer_can_prove_block_before_deadline() external {
+        vm.warp(1_000_000);
+
+        uint256 initialBondBalance = 100000 ether;
+        uint256 bondAmount = 1000 ether;
+
+        setupInitialState(Alice, initialBondBalance, bondAmount);
+        setupInitialState(Bob, initialBondBalance, bondAmount);
+
+        uint256 numBlocksToPropose = 1;
+        ITaikoL1.BlockMetadataV3[] memory metas = proposeBlocks(Alice, numBlocksToPropose);
+
+        assertEq(taikoL1.bondBalanceOf(Alice) < bondAmount, true);
+
+        uint64[] memory blockIds = new uint64[](numBlocksToPropose);
+        for (uint256 i; i < blockIds.length; ++i) {
+            blockIds[i] = metas[i].blockId;
+        }
+        vm.expectRevert(ITaikoL1.ProverNotPermitted.selector);
+        proveBlocks(Bob, metas, blockIds);
+
+        assertEq(taikoL1.bondBalanceOf(Bob), bondAmount);
+    }
+
     function test_taikoL1_bonds_debited_on_proposal_not_credited_back_if_proved_after_deadline() external {
         vm.warp(1_000_000);
 
