@@ -257,6 +257,21 @@ contract BadgeRecruitmentV2Test is Test {
 
     function test_resetRecruitment() public {
         test_full_recruitment();
+        uint256 initialCycleId = recruitment.recruitmentCycleId();
+
+        assertEq(initialCycleId, 2);
+        // roll forward the cycle
+        vm.startPrank(owner);
+
+        uint256[] memory enabledBadgeIds = new uint256[](1);
+        enabledBadgeIds[0] = BADGE_ID;
+        recruitment.forceDisableAllRecruitments();
+        recruitment.enableRecruitments(enabledBadgeIds);
+        vm.stopPrank();
+
+        uint256 cycleId = recruitment.recruitmentCycleId();
+        assertEq(cycleId, 3);
+
         address minter = minters[0];
         uint256 ongoingTokenId = s1BadgesV5.tokenOfOwnerByIndex(minter, 1);
         uint256 completedTokenId = s1BadgesV5.tokenOfOwnerByIndex(minter, 0);
@@ -266,11 +281,17 @@ contract BadgeRecruitmentV2Test is Test {
         vm.startPrank(minter);
 
         // expect revert from the completed migration
-        vm.expectRevert(TrailblazersBadgesV5.RECRUITMENT_ALREADY_COMPLETED.selector);
-        s1BadgesV5.resetMigration(completedTokenId);
+        vm.expectRevert(TrailblazersBadgesV5.RECRUITMENT_NOT_FOUND.selector);
+        s1BadgesV5.resetMigration(completedTokenId, BADGE_ID, initialCycleId);
+        // on both cycles
+        vm.expectRevert(TrailblazersBadgesV5.RECRUITMENT_NOT_FOUND.selector);
+        s1BadgesV5.resetMigration(completedTokenId, BADGE_ID, cycleId);
+        // as well as for the ongoing migration on the current cycle
+        vm.expectRevert(TrailblazersBadgesV5.RECRUITMENT_NOT_FOUND.selector);
+        s1BadgesV5.resetMigration(ongoingTokenId, BADGE_ID, cycleId);
 
         // reset the ongoing recruitment
-        s1BadgesV5.resetMigration(ongoingTokenId);
+        s1BadgesV5.resetMigration(ongoingTokenId, BADGE_ID, initialCycleId);
 
         // start over the ongoing migration
         wait(100);
@@ -300,7 +321,7 @@ contract BadgeRecruitmentV2Test is Test {
         assertEq(s2Badges.balanceOf(minter, 2), 1);
 
         // fail to reset the ongoing migration
-        vm.expectRevert(TrailblazersBadgesV5.RECRUITMENT_ALREADY_COMPLETED.selector);
-        s1BadgesV5.resetMigration(ongoingTokenId);
+        vm.expectRevert(TrailblazersBadgesV5.RECRUITMENT_NOT_FOUND.selector);
+        s1BadgesV5.resetMigration(ongoingTokenId, BADGE_ID, cycleId);
     }
 }

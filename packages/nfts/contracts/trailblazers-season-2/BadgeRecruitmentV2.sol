@@ -11,6 +11,7 @@ contract BadgeRecruitmentV2 is BadgeRecruitment {
 
     /// @notice Errors
     error RECRUITMENT_ALREADY_COMPLETED();
+    error RECRUITMENT_NOT_FOUND();
 
     /// @notice Updated version function
     function version() external pure virtual returns (string memory) {
@@ -45,7 +46,7 @@ contract BadgeRecruitmentV2 is BadgeRecruitment {
     /// @dev Bypasses the default date checks
     function forceDisableAllRecruitments() external virtual onlyRole(DEFAULT_ADMIN_ROLE) {
         forceDisableRecruitments();
-        // emit disabled badges
+
         emit RecruitmentCycleToggled(
             recruitmentCycleId,
             recruitmentCycles[recruitmentCycleId].startTime,
@@ -67,39 +68,62 @@ contract BadgeRecruitmentV2 is BadgeRecruitment {
 
     /// @notice Reset a recruitment that hasn't been completed
     /// @param _user The user address
-    /// @param _recruitmentIdx The recruitment index
     /// @param _s1TokenId The s1 token ID
+    /// @param _s1BadgeId The s1 badge ID
+    /// @param _recruitmentCycle The recruitment index
     /// @dev Must be called from the s1 badges contract
     function resetRecruitment(
         address _user,
-        uint256 _recruitmentIdx,
-        uint256 _s1TokenId
+        uint256 _s1TokenId,
+        uint256 _s1BadgeId,
+        uint256 _recruitmentCycle
     )
         public
         virtual
         onlyRole(S1_BADGES_ROLE)
     {
-        Recruitment memory recruitment_ = recruitments[_user][_recruitmentIdx];
-        if (recruitment_.s1TokenId != _s1TokenId) {
-            revert RECRUITMENT_NOT_STARTED();
+        if (
+            !recruitmentCycleUniqueMints[_recruitmentCycle][_user][_s1BadgeId][RecruitmentType
+                .Migration]
+                && !recruitmentCycleUniqueMints[_recruitmentCycle][_user][_s1BadgeId][RecruitmentType.Claim]
+                && !recruitmentCycleUniqueMints[_recruitmentCycle][_user][_s1BadgeId][RecruitmentType
+                    .Undefined]
+        ) {
+            revert RECRUITMENT_NOT_FOUND();
         }
 
-        if (recruitment_.s2TokenId != 0) {
-            revert RECRUITMENT_ALREADY_COMPLETED();
+        bool found = false;
+
+        for (uint256 i = 0; i < recruitments[_user].length; i++) {
+            if (
+                recruitments[_user][i].recruitmentCycle == _recruitmentCycle
+                    && recruitments[_user][i].s1TokenId == _s1TokenId
+                    && recruitments[_user][i].s2TokenId == 0
+            ) {
+                delete recruitments[_user][i];
+                found = true;
+                break;
+            }
         }
 
-        // reset
-        uint256 s1BadgeId_ = recruitment_.s1BadgeId;
+        if (!found) {
+            revert RECRUITMENT_NOT_FOUND();
+        }
 
-        //delete
-        delete recruitments[_user][_recruitmentIdx];
-        recruitmentCycleUniqueMints[recruitmentCycleId][_user][s1BadgeId_][RecruitmentType.Undefined]
+        recruitmentCycleUniqueMints[_recruitmentCycle][_user][_s1BadgeId][RecruitmentType.Undefined]
         = false;
-        recruitmentCycleUniqueMints[recruitmentCycleId][_user][s1BadgeId_][RecruitmentType.Claim] =
+        recruitmentCycleUniqueMints[_recruitmentCycle][_user][_s1BadgeId][RecruitmentType.Claim] =
             false;
-        recruitmentCycleUniqueMints[recruitmentCycleId][_user][s1BadgeId_][RecruitmentType.Migration]
+        recruitmentCycleUniqueMints[_recruitmentCycle][_user][_s1BadgeId][RecruitmentType.Migration]
         = false;
 
-        emit RecruitmentReset(recruitmentCycleId, _user, _s1TokenId, s1BadgeId_);
+        emit RecruitmentReset(_recruitmentCycle, _user, _s1TokenId, _s1BadgeId);
+    }
+
+    /// @notice Set the s2 badges contract
+    /// @param _s2Badges The s2 badges contract address
+    /// @dev Must be called from the admin account
+    function setS2BadgesContract(address _s2Badges) external virtual onlyRole(DEFAULT_ADMIN_ROLE) {
+        s2Badges = TrailblazersBadgesS2(_s2Badges);
     }
 }

@@ -10,20 +10,24 @@ contract TrailblazersBadgesV5 is TrailblazersBadgesV4 {
     error RECRUITMENT_ALREADY_COMPLETED();
     error NOT_OWNER();
     error NOT_IMPLEMENTED();
+    error RECRUITMENT_NOT_FOUND();
     /// @notice Updated version function
     /// @return Version string
 
     function version() external pure virtual override returns (string memory) {
         return "V5";
     }
+    /// @notice Recruitment contract
 
     BadgeRecruitmentV2 public recruitmentContractV2;
+    /// @notice Setter for recruitment contract
 
     function setRecruitmentContractV2(address _recruitmentContractV2) public onlyOwner {
         recruitmentContractV2 = BadgeRecruitmentV2(_recruitmentContractV2);
     }
 
     /// @notice Start recruitment for a badge
+    /// @param _badgeId Badge ID
     /// @param _tokenId Token ID
     function startRecruitment(uint256 _badgeId, uint256 _tokenId) public {
         if (recruitmentLockDuration == 0) {
@@ -48,24 +52,15 @@ contract TrailblazersBadgesV5 is TrailblazersBadgesV4 {
 
     /// @notice Reset an ongoing migration
     /// @param _tokenId Token ID
-    function resetMigration(uint256 _tokenId) public virtual {
+    /// @param _badgeId Badge ID
+    /// @param _cycleId Cycle ID
+    /// @dev Only the owner of the token can reset the migration
+    function resetMigration(uint256 _tokenId, uint256 _badgeId, uint256 _cycleId) public virtual {
         if (ownerOf(_tokenId) != _msgSender()) {
             revert NOT_OWNER();
         }
 
-        BadgeRecruitment.Recruitment[] memory recruitments_ =
-            recruitmentContractV2.getActiveRecruitmentsFor(_msgSender());
-
-        for (uint256 i = 0; i < recruitments_.length; i++) {
-            // check if the recruitment is ongoing
-            // AND if it isn't finished (s2TokenId == 0)
-            if (recruitments_[i].s1TokenId == _tokenId && recruitments_[i].s2TokenId == 0) {
-                unlockTimestamps[_tokenId] = 0;
-                recruitmentContractV2.resetRecruitment(_msgSender(), i, _tokenId);
-                return;
-            }
-        }
-
-        revert RECRUITMENT_ALREADY_COMPLETED();
+        recruitmentContractV2.resetRecruitment(_msgSender(), _tokenId, _badgeId, _cycleId);
+        unlockTimestamps[_tokenId] = 0;
     }
 }

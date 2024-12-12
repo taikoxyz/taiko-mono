@@ -92,6 +92,17 @@ contract UpgradeV2 is Script {
 
             s1Token.setRecruitmentLockDuration(S1_LOCK_DURATION);
 
+            // deploy s2 badges
+            impl = address(new TrailblazersBadgesS2());
+            proxy = address(
+                new ERC1967Proxy(
+                    impl,
+                    abi.encodeCall(TrailblazersBadgesS2.initialize, (deployerAddress, baseURI))
+                )
+            );
+
+            s2Token = TrailblazersBadgesS2(proxy);
+
             // deploy recruitment contract
             BadgeRecruitment.Config memory config = BadgeRecruitment.Config(
                 COOLDOWN_RECRUITMENT,
@@ -114,17 +125,6 @@ contract UpgradeV2 is Script {
 
             badgeRecruitment = BadgeRecruitment(proxy);
 
-            // s2 token
-            impl = address(new TrailblazersBadgesS2());
-            proxy = address(
-                new ERC1967Proxy(
-                    impl,
-                    abi.encodeCall(TrailblazersBadgesS2.initialize, (deployerAddress, baseURI))
-                )
-            );
-
-            s2Token = TrailblazersBadgesS2(proxy);
-
             // overwrite json deployment data
             string memory jsonRoot = "root";
             vm.serializeAddress(jsonRoot, "TrailblazersBadges", address(s1Token));
@@ -132,6 +132,10 @@ contract UpgradeV2 is Script {
             vm.serializeAddress(jsonRoot, "BadgeRecruitment", address(badgeRecruitment));
             string memory finalJson = vm.serializeAddress(jsonRoot, "Owner", s2Token.owner());
             vm.writeJson(finalJson, jsonLocation);
+
+            // further setup
+            s1Token.setRecruitmentContract(address(badgeRecruitment));
+            s2Token.setMinter(address(badgeRecruitment));
         }
 
         // upgrade token contract
