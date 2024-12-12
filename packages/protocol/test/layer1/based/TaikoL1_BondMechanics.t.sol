@@ -5,7 +5,6 @@ import "contracts/layer1/based/ITaikoL1.sol";
 import "./TaikoL1TestBase.sol";
 
 contract TaikoL1Test_BondMechanics is TaikoL1TestBase {
-
     uint16 constant provingWindow = 1 hours;
 
     function getConfig() internal pure override returns (ITaikoL1.ConfigV3 memory) {
@@ -35,7 +34,13 @@ contract TaikoL1Test_BondMechanics is TaikoL1TestBase {
         bondToken = deployBondToken();
     }
 
-    function setupInitialState(address user, uint256 initialBondBalance, uint256 bondAmount) internal {
+    function setupInitialState(
+        address user,
+        uint256 initialBondBalance,
+        uint256 bondAmount
+    )
+        internal
+    {
         vm.deal(user, 1000 ether);
         bondToken.transfer(user, initialBondBalance);
 
@@ -46,11 +51,14 @@ contract TaikoL1Test_BondMechanics is TaikoL1TestBase {
         taikoL1.depositBond(bondAmount);
     }
 
-    function proposeBlocks(address proposer, uint256 numBlocksToPropose) 
-        internal 
-        returns (ITaikoL1.BlockMetadataV3[] memory metas) 
+    function proposeBlocks(
+        address proposer,
+        uint256 numBlocksToPropose
+    )
+        internal
+        returns (ITaikoL1.BlockMetadataV3[] memory metas)
     {
-        ITaikoL1.BlockParamsV3[] memory blockParams = 
+        ITaikoL1.BlockParamsV3[] memory blockParams =
             new ITaikoL1.BlockParamsV3[](numBlocksToPropose);
 
         vm.prank(proposer);
@@ -61,8 +69,12 @@ contract TaikoL1Test_BondMechanics is TaikoL1TestBase {
         }
     }
 
-    function proveBlocks(address prover, ITaikoL1.BlockMetadataV3[] memory metas, uint64[] memory blockIds) 
-        internal 
+    function proveBlocks(
+        address prover,
+        ITaikoL1.BlockMetadataV3[] memory metas,
+        uint64[] memory blockIds
+    )
+        internal
     {
         ITaikoL1.TransitionV3[] memory transitions = new ITaikoL1.TransitionV3[](blockIds.length);
 
@@ -87,7 +99,7 @@ contract TaikoL1Test_BondMechanics is TaikoL1TestBase {
     function test_taikoL1_bonds_debit_and_credit_on_proposal_and_proof() external {
         vm.warp(1_000_000);
 
-        uint256 initialBondBalance = 100000 ether;
+        uint256 initialBondBalance = 100_000 ether;
         uint256 bondAmount = 1000 ether;
 
         setupInitialState(Alice, initialBondBalance, bondAmount);
@@ -130,10 +142,12 @@ contract TaikoL1Test_BondMechanics is TaikoL1TestBase {
         assertEq(taikoL1.bondBalanceOf(Bob), bondAmount);
     }
 
-    function test_taikoL1_bonds_debited_on_proposal_not_credited_back_if_proved_after_deadline() external {
+    function test_taikoL1_bonds_debited_on_proposal_not_credited_back_if_proved_after_deadline()
+        external
+    {
         vm.warp(1_000_000);
 
-        uint256 initialBondBalance = 100000 ether;
+        uint256 initialBondBalance = 100_000 ether;
         uint256 bondAmount = 1000 ether;
 
         setupInitialState(Alice, initialBondBalance, bondAmount);
@@ -160,12 +174,12 @@ contract TaikoL1Test_BondMechanics is TaikoL1TestBase {
         assertEq(aliceBondBalanceAfterProof < bondAmount, true);
     }
 
-    function test_taikoL1_bonds_debit_and_credit_on_proposal_and_proof_with_exact_proving_window() 
-        external 
+    function test_taikoL1_bonds_debit_and_credit_on_proposal_and_proof_with_exact_proving_window()
+        external
     {
         vm.warp(1_000_000);
 
-        uint256 initialBondBalance = 100000 ether;
+        uint256 initialBondBalance = 100_000 ether;
         uint256 bondAmount = 1000 ether;
 
         setupInitialState(Alice, initialBondBalance, bondAmount);
@@ -189,5 +203,4 @@ contract TaikoL1Test_BondMechanics is TaikoL1TestBase {
 
         assertEq(taikoL1.bondBalanceOf(Alice), bondAmount);
     }
-
 }
