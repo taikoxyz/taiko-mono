@@ -121,7 +121,7 @@ contract TaikoL1Test_BondMechanics is TaikoL1TestBase {
     function test_only_proposer_can_prove_block_before_deadline() external {
         vm.warp(1_000_000);
 
-        uint256 initialBondBalance = 100000 ether;
+        uint256 initialBondBalance = 100_000 ether;
         uint256 bondAmount = 1000 ether;
 
         setupInitialState(Alice, initialBondBalance, bondAmount);
