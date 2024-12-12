@@ -72,14 +72,29 @@ abstract contract TaikoL1TestBase is Layer1Test {
 
     // internal helper functions -------------------------------------------------------------------
 
-    function _proposeBlocksWithDefaultParameters(uint256 numBlocksToPropose) internal {
+    function _proposeBlocksWithDefaultParameters(uint256 numBlocksToPropose)
+        internal
+        returns (uint64[] memory blockIds)
+    {
+        // Provide a default value for txList
+        bytes memory defaultTxList = abi.encodePacked("txList");
+        return _proposeBlocksWithDefaultParameters(numBlocksToPropose, defaultTxList);
+    }
+
+    function _proposeBlocksWithDefaultParameters(uint256 numBlocksToPropose, bytes memory txList) internal 
+        returns (uint64[] memory blockIds)
+    {
         ITaikoL1.BlockParamsV3[] memory blockParams =
             new ITaikoL1.BlockParamsV3[](numBlocksToPropose);
 
         ITaikoL1.BlockMetadataV3[] memory metas =
-            taikoL1.proposeBlocksV3(address(0), address(0), blockParams, "txList");
+            taikoL1.proposeBlocksV3(address(0), address(0), blockParams, txList);
+        
+        // Initialize blockIds array
+        blockIds = new uint64[](metas.length);
         for (uint256 i; i < metas.length; ++i) {
             blockMetadatas[metas[i].blockId] = metas[i];
+            blockIds[i] = metas[i].blockId;
         }
     }
 
@@ -191,5 +206,30 @@ abstract contract TaikoL1TestBase is Layer1Test {
         bondToken.approve(address(taikoL1), amountTko);
 
         console2.log("Bond balance :", to, bondToken.balanceOf(to));
+    }
+
+    function setupBondTokenState(
+        address user,
+        uint256 initialBondBalance,
+        uint256 bondAmount
+    )
+        internal
+    {
+        vm.deal(user, 1000 ether);
+        bondToken.transfer(user, initialBondBalance);
+
+        vm.prank(user);
+        bondToken.approve(address(taikoL1), bondAmount);
+
+        vm.prank(user);
+        taikoL1.depositBond(bondAmount);
+    }
+
+    function simulateBlockDelay(uint256 secondsPerBlock, uint256 blocksToWait) internal {
+        uint256 targetBlock = block.number + blocksToWait;
+        uint256 targetTime = block.timestamp + (blocksToWait * secondsPerBlock);
+
+        vm.roll(targetBlock);
+        vm.warp(targetTime);
     }
 }

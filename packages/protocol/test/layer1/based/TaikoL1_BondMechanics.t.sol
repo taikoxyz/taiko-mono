@@ -34,86 +34,20 @@ contract TaikoL1Test_BondMechanics is TaikoL1TestBase {
         bondToken = deployBondToken();
     }
 
-    function setupInitialState(
-        address user,
-        uint256 initialBondBalance,
-        uint256 bondAmount
-    )
-        internal
-    {
-        vm.deal(user, 1000 ether);
-        bondToken.transfer(user, initialBondBalance);
-
-        vm.prank(user);
-        bondToken.approve(address(taikoL1), bondAmount);
-
-        vm.prank(user);
-        taikoL1.depositBond(bondAmount);
-    }
-
-    function proposeBlocks(
-        address proposer,
-        uint256 numBlocksToPropose
-    )
-        internal
-        returns (ITaikoL1.BlockMetadataV3[] memory metas)
-    {
-        ITaikoL1.BlockParamsV3[] memory blockParams =
-            new ITaikoL1.BlockParamsV3[](numBlocksToPropose);
-
-        vm.prank(proposer);
-        metas = taikoL1.proposeBlocksV3(address(0), address(0), blockParams, "txList");
-
-        for (uint256 i; i < metas.length; ++i) {
-            blockMetadatas[metas[i].blockId] = metas[i];
-        }
-    }
-
-    function proveBlocks(
-        address prover,
-        ITaikoL1.BlockMetadataV3[] memory metas,
-        uint64[] memory blockIds
-    )
-        internal
-    {
-        ITaikoL1.TransitionV3[] memory transitions = new ITaikoL1.TransitionV3[](blockIds.length);
-
-        for (uint256 i; i < blockIds.length; ++i) {
-            transitions[i].parentHash = correctBlockhash(blockIds[i] - 1);
-            transitions[i].blockHash = correctBlockhash(blockIds[i]);
-            transitions[i].stateRoot = correctStateRoot(blockIds[i]);
-        }
-
-        vm.prank(prover);
-        taikoL1.proveBlocksV3(metas, transitions, "proof");
-    }
-
-    function simulateBlockDelay(uint256 secondsPerBlock, uint256 blocksToWait) internal {
-        uint256 targetBlock = block.number + blocksToWait;
-        uint256 targetTime = block.timestamp + (blocksToWait * secondsPerBlock);
-
-        vm.roll(targetBlock);
-        vm.warp(targetTime);
-    }
-
     function test_taikoL1_bonds_debit_and_credit_on_proposal_and_proof() external {
         vm.warp(1_000_000);
 
         uint256 initialBondBalance = 100_000 ether;
         uint256 bondAmount = 1000 ether;
 
-        setupInitialState(Alice, initialBondBalance, bondAmount);
+        setupBondTokenState(Alice, initialBondBalance, bondAmount);
 
-        uint256 numBlocksToPropose = 1;
-        ITaikoL1.BlockMetadataV3[] memory metas = proposeBlocks(Alice, numBlocksToPropose);
-
+        vm.prank(Alice);
+        uint64[] memory blockIds = _proposeBlocksWithDefaultParameters({ numBlocksToPropose: 1 });
         assertEq(taikoL1.bondBalanceOf(Alice) < bondAmount, true);
 
-        uint64[] memory blockIds = new uint64[](numBlocksToPropose);
-        for (uint256 i; i < blockIds.length; ++i) {
-            blockIds[i] = metas[i].blockId;
-        }
-        proveBlocks(Alice, metas, blockIds);
+        vm.prank(Alice);
+        _proveBlocksWithCorrectTransitions(blockIds);
 
         assertEq(taikoL1.bondBalanceOf(Alice), bondAmount);
     }
@@ -124,20 +58,16 @@ contract TaikoL1Test_BondMechanics is TaikoL1TestBase {
         uint256 initialBondBalance = 100000 ether;
         uint256 bondAmount = 1000 ether;
 
-        setupInitialState(Alice, initialBondBalance, bondAmount);
-        setupInitialState(Bob, initialBondBalance, bondAmount);
+        setupBondTokenState(Alice, initialBondBalance, bondAmount);
+        setupBondTokenState(Bob, initialBondBalance, bondAmount);
 
-        uint256 numBlocksToPropose = 1;
-        ITaikoL1.BlockMetadataV3[] memory metas = proposeBlocks(Alice, numBlocksToPropose);
-
+        vm.prank(Alice);
+        uint64[] memory blockIds = _proposeBlocksWithDefaultParameters({ numBlocksToPropose: 1 });
         assertEq(taikoL1.bondBalanceOf(Alice) < bondAmount, true);
 
-        uint64[] memory blockIds = new uint64[](numBlocksToPropose);
-        for (uint256 i; i < blockIds.length; ++i) {
-            blockIds[i] = metas[i].blockId;
-        }
+        vm.prank(Bob);
         vm.expectRevert(ITaikoL1.ProverNotPermitted.selector);
-        proveBlocks(Bob, metas, blockIds);
+        _proveBlocksWithCorrectTransitions(blockIds);
 
         assertEq(taikoL1.bondBalanceOf(Bob), bondAmount);
     }
@@ -150,10 +80,10 @@ contract TaikoL1Test_BondMechanics is TaikoL1TestBase {
         uint256 initialBondBalance = 100_000 ether;
         uint256 bondAmount = 1000 ether;
 
-        setupInitialState(Alice, initialBondBalance, bondAmount);
+        setupBondTokenState(Alice, initialBondBalance, bondAmount);
 
-        uint256 numBlocksToPropose = 1;
-        ITaikoL1.BlockMetadataV3[] memory metas = proposeBlocks(Alice, numBlocksToPropose);
+        vm.prank(Alice);
+        uint64[] memory blockIds = _proposeBlocksWithDefaultParameters({ numBlocksToPropose: 1 });
 
         uint256 aliceBondBalanceAfterProposal = taikoL1.bondBalanceOf(Alice);
         assertEq(aliceBondBalanceAfterProposal < bondAmount, true);
@@ -163,11 +93,8 @@ contract TaikoL1Test_BondMechanics is TaikoL1TestBase {
         uint256 blocksToWait = provingWindow / secondsPerBlock + 1;
         simulateBlockDelay(secondsPerBlock, blocksToWait);
 
-        uint64[] memory blockIds = new uint64[](numBlocksToPropose);
-        for (uint256 i; i < blockIds.length; ++i) {
-            blockIds[i] = metas[i].blockId;
-        }
-        proveBlocks(Alice, metas, blockIds);
+        vm.prank(Alice);
+        _proveBlocksWithCorrectTransitions(blockIds);
 
         uint256 aliceBondBalanceAfterProof = taikoL1.bondBalanceOf(Alice);
         assertEq(aliceBondBalanceAfterProof, aliceBondBalanceAfterProposal);
@@ -182,10 +109,10 @@ contract TaikoL1Test_BondMechanics is TaikoL1TestBase {
         uint256 initialBondBalance = 100_000 ether;
         uint256 bondAmount = 1000 ether;
 
-        setupInitialState(Alice, initialBondBalance, bondAmount);
+        setupBondTokenState(Alice, initialBondBalance, bondAmount);
 
-        uint256 numBlocksToPropose = 1;
-        ITaikoL1.BlockMetadataV3[] memory metas = proposeBlocks(Alice, numBlocksToPropose);
+        vm.prank(Alice);
+        uint64[] memory blockIds = _proposeBlocksWithDefaultParameters({ numBlocksToPropose: 1 });
 
         uint256 aliceBondBalanceAfterProposal = taikoL1.bondBalanceOf(Alice);
         assertEq(aliceBondBalanceAfterProposal < bondAmount, true);
@@ -195,11 +122,8 @@ contract TaikoL1Test_BondMechanics is TaikoL1TestBase {
         uint256 blocksToWait = provingWindow / secondsPerBlock;
         simulateBlockDelay(secondsPerBlock, blocksToWait);
 
-        uint64[] memory blockIds = new uint64[](numBlocksToPropose);
-        for (uint256 i; i < blockIds.length; ++i) {
-            blockIds[i] = metas[i].blockId;
-        }
-        proveBlocks(Alice, metas, blockIds);
+        vm.prank(Alice);
+        _proveBlocksWithCorrectTransitions(blockIds);
 
         assertEq(taikoL1.bondBalanceOf(Alice), bondAmount);
     }
