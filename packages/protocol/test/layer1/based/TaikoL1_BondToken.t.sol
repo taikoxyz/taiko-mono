@@ -23,8 +23,7 @@ contract TaikoL1Test_BondToken is TaikoL1TestBase {
                 maxGasIssuancePerBlock: 600_000_000 // two minutes: 5_000_000 * 120
              }),
             provingWindow: 1 hours,
-            emitTxListInCalldata: true,
-            pacayaForkHeight: 0
+            forkHeights: ITaikoL1.ForkHeights({ ontake: 0, pacaya: 0 })
         });
     }
 
@@ -96,7 +95,7 @@ contract TaikoL1Test_BondToken is TaikoL1TestBase {
     }
 
     function test_taikoL1_exceeding_balance() external {
-         vm.warp(1_000_000);
+        vm.warp(1_000_000);
         vm.deal(Alice, 1000 ether);
 
         uint256 transferAmount = 10 ether;
