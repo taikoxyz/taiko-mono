@@ -324,4 +324,26 @@ contract BadgeRecruitmentV2Test is Test {
         vm.expectRevert(TrailblazersBadgesV5.RECRUITMENT_NOT_FOUND.selector);
         s1BadgesV5.resetMigration(ongoingTokenId, BADGE_ID, cycleId);
     }
+
+    function test_revertStartTooCloseToCycleEnd() public {
+        test_upgradeV2();
+        address minter = minters[0];
+        vm.startPrank(minter);
+
+        // mint the badge
+        bytes32 _hash = s1BadgesV5.getHash(minter, BADGE_ID);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(mintSignerPk, _hash);
+        bool canMint = s1BadgesV5.canMint(abi.encodePacked(r, s, v), minter, BADGE_ID);
+        assertTrue(canMint);
+
+        s1BadgesV5.mint(abi.encodePacked(r, s, v), BADGE_ID);
+        uint256 tokenId = s1BadgesV5.tokenOfOwnerByIndex(minter, 0);
+
+        // wait until almost the end
+        wait(DEFAULT_CYCLE_DURATION - COOLDOWN_RECRUITMENT + 1);
+        vm.expectRevert(BadgeRecruitmentV2.NOT_ENOUGH_TIME_LEFT.selector);
+        s1BadgesV5.startRecruitment(BADGE_ID, tokenId);
+        assertEq(recruitment.isRecruitmentActive(minter), false);
+        vm.stopPrank();
+    }
 }

@@ -12,6 +12,17 @@ contract BadgeRecruitmentV2 is BadgeRecruitment {
     /// @notice Errors
     error RECRUITMENT_ALREADY_COMPLETED();
     error RECRUITMENT_NOT_FOUND();
+    error NOT_ENOUGH_TIME_LEFT();
+
+    modifier recruitmentHasTimeLeft(address _user) {
+        uint256 endCycleTime = recruitmentCycles[recruitmentCycleId].endTime;
+        uint256 potentialRecruitmentEndTime = block.timestamp + this.getConfig().cooldownRecruitment;
+
+        if (potentialRecruitmentEndTime > endCycleTime) {
+            revert NOT_ENOUGH_TIME_LEFT();
+        }
+        _;
+    }
 
     /// @notice Updated version function
     function version() external pure virtual returns (string memory) {
@@ -35,6 +46,7 @@ contract BadgeRecruitmentV2 is BadgeRecruitment {
         recruitmentOpen(_s1BadgeId)
         isNotMigrating(_user)
         hasntMigratedInCycle(_s1BadgeId, _user, RecruitmentType.Migration)
+        recruitmentHasTimeLeft(_user)
     {
         if (s1Badges.ownerOf(_s1TokenId) != _user) {
             revert TOKEN_NOT_OWNED();
