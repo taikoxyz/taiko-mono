@@ -182,7 +182,6 @@ interface ITaikoL1 {
     error ArraySizesMismatch();
     error BlobIndexZero();
     error BlobNotFound();
-    error BlobIndexZero();
     error BlockNotFound();
     error BlockVerified();
     error ContractPaused();
