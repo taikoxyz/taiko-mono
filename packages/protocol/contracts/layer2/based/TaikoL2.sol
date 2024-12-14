@@ -153,7 +153,9 @@ contract TaikoL2 is EssentialContract, IBlockHash, TaikoL2Deprecated {
     {
         require(block.number >= pacayaForkHeight(), L2_FORK_ERROR());
 
-        anchorInput[block.number] = _anchorInput;
+        if (_anchorInput != bytes32(0)) {
+            anchorInput[block.number] = _anchorInput;
+        }
 
         uint256 parentId = block.number - 1;
         _verifyAndUpdatePublicInputHash(parentId);
