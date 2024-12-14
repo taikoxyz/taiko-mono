@@ -53,7 +53,7 @@ contract TaikoL2 is EssentialContract, IBlockHash, TaikoL2Deprecated {
     /// @notice The L1's chain ID.
     uint64 public l1ChainId;
 
-    mapping(uint256 blockNumber => bytes32 anchorExtraInput) public blockAnchorExtraInput;
+    mapping(uint256 blockNumber => bytes32 anchorInput) public anchorInput;
 
     uint256[45] private __gap;
 
@@ -133,12 +133,13 @@ contract TaikoL2 is EssentialContract, IBlockHash, TaikoL2Deprecated {
     /// transaction, and any subsequent calls will revert with L2_PUBLIC_INPUT_HASH_MISMATCH.
     /// @param _anchorBlockId The `anchorBlockId` value in this block's metadata.
     /// @param _anchorStateRoot The state root for the L1 block with id equals `_anchorBlockId`.
+    /// @param _anchorInput An arbitrary bytes32 input chosen by the block proposer.
     /// @param _parentGasUsed The gas used in the parent block.
     /// @param _baseFeeConfig The base fee configuration.
     function anchorV2(
         uint64 _anchorBlockId,
         bytes32 _anchorStateRoot,
-        bytes32 _anchorExtraInput,
+        bytes32 _anchorInput,
         uint32 _parentGasUsed,
         LibSharedData.BaseFeeConfig calldata _baseFeeConfig
     )
@@ -152,13 +153,13 @@ contract TaikoL2 is EssentialContract, IBlockHash, TaikoL2Deprecated {
     {
         require(block.number >= pacayaForkHeight(), L2_FORK_ERROR());
 
+        anchorInput[block.number] = _anchorInput;
+
         uint256 parentId = block.number - 1;
         _verifyAndUpdatePublicInputHash(parentId);
         _verifyBaseFeeAndUpdateGasExcess(_parentGasUsed, _baseFeeConfig);
         _syncChainData(_anchorBlockId, _anchorStateRoot);
         _updateParentHashAndTimestamp(parentId);
-
-        blockAnchorExtraInput[block.number] = _anchorExtraInput;
     }
 
     /// @notice Withdraw token or Ether from this address.

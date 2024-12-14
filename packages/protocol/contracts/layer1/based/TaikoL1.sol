@@ -138,7 +138,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
                     blobIndex: calldataUsed ? 0 : _paramsArray[i].blobIndex,
                     anchorBlockId: updatedParams.anchorBlockId,
                     anchorBlockHash: blockhash(updatedParams.anchorBlockId),
-                    anchorExtraInput: _paramsArray[i].anchorExtraInput,
+                    anchorInput: _paramsArray[i].anchorInput,
                     baseFeeConfig: config.baseFeeConfig
                 });
             }
