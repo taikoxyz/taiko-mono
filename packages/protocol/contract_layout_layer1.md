@@ -324,29 +324,24 @@
 | \_\_gap                                               | uint256[47]                                                   | 457  | 0      | 1504  | TaikoToken |
 | \_\_gap                                               | uint256[50]                                                   | 504  | 0      | 1600  | TaikoToken |
 
-## ComposeVerifier
+## SgxAndZkVerifier
 
-| Name                          | Type        | Slot | Offset | Bytes | Contract        |
-| ----------------------------- | ----------- | ---- | ------ | ----- | --------------- |
-| \_initialized                 | uint8       | 0    | 0      | 1     | ComposeVerifier |
-| \_initializing                | bool        | 0    | 1      | 1     | ComposeVerifier |
-| \_\_gap                       | uint256[50] | 1    | 0      | 1600  | ComposeVerifier |
-| \_owner                       | address     | 51   | 0      | 20    | ComposeVerifier |
-| \_\_gap                       | uint256[49] | 52   | 0      | 1568  | ComposeVerifier |
-| \_pendingOwner                | address     | 101  | 0      | 20    | ComposeVerifier |
-| \_\_gap                       | uint256[49] | 102  | 0      | 1568  | ComposeVerifier |
-| \_\_resolver                  | address     | 151  | 0      | 20    | ComposeVerifier |
-| \_\_gapFromOldAddressResolver | uint256[49] | 152  | 0      | 1568  | ComposeVerifier |
-| \_\_reentry                   | uint8       | 201  | 0      | 1     | ComposeVerifier |
-| \_\_paused                    | uint8       | 201  | 1      | 1     | ComposeVerifier |
-| \_\_gap                       | uint256[49] | 202  | 0      | 1568  | ComposeVerifier |
-| \_\_gap                       | uint256[50] | 251  | 0      | 1600  | ComposeVerifier |
-
-## TeeAnyVerifier
-
-## ZkAndTeeVerifier
-
-## ZkAnyVerifier
+| Name                          | Type        | Slot | Offset | Bytes | Contract         |
+| ----------------------------- | ----------- | ---- | ------ | ----- | ---------------- |
+| \_initialized                 | uint8       | 0    | 0      | 1     | SgxAndZkVerifier |
+| \_initializing                | bool        | 0    | 1      | 1     | SgxAndZkVerifier |
+| \_\_gap                       | uint256[50] | 1    | 0      | 1600  | SgxAndZkVerifier |
+| \_owner                       | address     | 51   | 0      | 20    | SgxAndZkVerifier |
+| \_\_gap                       | uint256[49] | 52   | 0      | 1568  | SgxAndZkVerifier |
+| \_pendingOwner                | address     | 101  | 0      | 20    | SgxAndZkVerifier |
+| \_\_gap                       | uint256[49] | 102  | 0      | 1568  | SgxAndZkVerifier |
+| \_\_resolver                  | address     | 151  | 0      | 20    | SgxAndZkVerifier |
+| \_\_gapFromOldAddressResolver | uint256[49] | 152  | 0      | 1568  | SgxAndZkVerifier |
+| \_\_reentry                   | uint8       | 201  | 0      | 1     | SgxAndZkVerifier |
+| \_\_paused                    | uint8       | 201  | 1      | 1     | SgxAndZkVerifier |
+| \_\_gap                       | uint256[49] | 202  | 0      | 1568  | SgxAndZkVerifier |
+| \_\_gap                       | uint256[50] | 251  | 0      | 1600  | SgxAndZkVerifier |
+| \_\_gap                       | uint256[50] | 301  | 0      | 1600  | SgxAndZkVerifier |
 
 ## Risc0Verifier
 
