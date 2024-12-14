@@ -78,8 +78,8 @@ contract TestTaikoL2 is Layer2Test {
         assertEq(taikoL2.getBlockHash(uint64(1000)), 0);
     }
 
-    /// forge-config: layer2.fuzz.runs = 2000
-    /// forge-config: layer2.fuzz.show-logs = true
+    /// forge-config: layer_2.fuzz.runs = 2000
+    /// forge-config: layer_2.fuzz.show-logs = true
     function test_fuzz_getBasefeeV2(
         uint32 _parentGasUsed,
         uint32 _gasIssuancePerSecond,
@@ -103,8 +103,8 @@ contract TestTaikoL2 is Layer2Test {
         assertTrue(basefee_ != 0, "basefee is 0");
     }
 
-    /// forge-config: layer2.fuzz.runs = 2000
-    /// forge-config: layer2.fuzz.show-logs = true
+    /// forge-config: layer_2.fuzz.runs = 2000
+    /// forge-config: layer_2.fuzz.show-logs = true
     function test_fuzz_anchorV2(
         uint32 _parentGasUsed,
         uint32 _gasIssuancePerSecond,

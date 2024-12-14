@@ -22,9 +22,6 @@ contracts_shared=(
 contracts_layer1=(
 "contracts/layer1/token/TaikoToken.sol:TaikoToken"
 "contracts/layer1/verifiers/compose/ComposeVerifier.sol:ComposeVerifier"
-"contracts/layer1/verifiers/compose/TeeAnyVerifier.sol:TeeAnyVerifier"
-"contracts/layer1/verifiers/compose/ZkAndTeeVerifier.sol:ZkAndTeeVerifier"
-"contracts/layer1/verifiers/compose/ZkAnyVerifier.sol:ZkAnyVerifier"
 "contracts/layer1/verifiers/Risc0Verifier.sol:Risc0Verifier"
 "contracts/layer1/verifiers/SP1Verifier.sol:SP1Verifier"
 "contracts/layer1/verifiers/SgxVerifier.sol:SgxVerifier"

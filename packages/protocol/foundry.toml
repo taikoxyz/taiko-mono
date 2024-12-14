@@ -44,9 +44,6 @@ fs_permissions = [
 # 5740: Unreachable code
 ignored_error_codes = [2394, 3860, 5574, 5740]
 
-[fuzz]
-runs = 200
-
 [fmt]
 bracket_spacing = true
 line_length = 100
@@ -67,6 +64,7 @@ test = "test/layer2"
 script = "script/layer2"
 out = "out/layer2"
 evm_version = "shanghai"
+fuzz.runs = 200
 
 [profile.shared]
 src = "contracts/shared"

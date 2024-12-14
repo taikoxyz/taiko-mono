@@ -98,23 +98,23 @@ contract TestLibEIP1559 is Layer2Test {
         assertEq(baselineBasefee, basefee);
     }
 
-    /// forge-config: layer2.fuzz.runs = 1000
-    /// forge-config: layer2.fuzz.show-logs = true
+    /// forge-config: layer_2.fuzz.runs = 1000
+    /// forge-config: layer_2.fuzz.show-logs = true
     function test_fuzz_ethQty(uint64 _gasTarget, uint64 _gasExcess) external pure {
         if (_gasTarget == 0) _gasTarget = 1;
         uint256 result = LibEIP1559.ethQty(_gasTarget, _gasExcess);
         assertTrue(result > 0);
     }
 
-    /// forge-config: layer2.fuzz.runs = 2000
-    /// forge-config: layer2.fuzz.show-logs = true
+    /// forge-config: layer_2.fuzz.runs = 2000
+    /// forge-config: layer_2.fuzz.show-logs = true
     function test_fuzz_basefee(uint64 _gasTarget, uint64 _gasExcess) external pure {
         uint256 result = LibEIP1559.basefee(_gasTarget, _gasExcess);
         assertTrue(result >= 1);
     }
 
-    /// forge-config: layer2.fuzz.runs = 2000
-    /// forge-config: layer2.fuzz.show-logs = true
+    /// forge-config: layer_2.fuzz.runs = 2000
+    /// forge-config: layer_2.fuzz.show-logs = true
     function test_fuzz_adjustExcess(
         uint64 _oldGasTarget,
         uint64 _newGasTarget,
@@ -134,8 +134,8 @@ contract TestLibEIP1559 is Layer2Test {
         }
     }
 
-    /// forge-config: layer2.fuzz.runs = 2000
-    /// forge-config: layer2.fuzz.show-logs = true
+    /// forge-config: layer_2.fuzz.runs = 2000
+    /// forge-config: layer_2.fuzz.show-logs = true
     function test_fuzz_calc1559BaseFee(
         uint64 _gasTarget,
         uint64 _gasExcess,
