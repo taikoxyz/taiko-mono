@@ -53,7 +53,8 @@ contract TaikoL2 is EssentialContract, IBlockHash, TaikoL2Deprecated {
     /// @notice The L1's chain ID.
     uint64 public l1ChainId;
 
-    mapping(uint256 blockNumber => bytes32 anchorInput) public anchorInput;
+    /// @notice The arbitrary bytes32 input chosen by the block proposer.
+    bytes32 public anchorInput;
 
     uint256[45] private __gap;
 
@@ -153,9 +154,7 @@ contract TaikoL2 is EssentialContract, IBlockHash, TaikoL2Deprecated {
     {
         require(block.number >= pacayaForkHeight(), L2_FORK_ERROR());
 
-        if (_anchorInput != bytes32(0)) {
-            anchorInput[block.number] = _anchorInput;
-        }
+        anchorInput = _anchorInput;
 
         uint256 parentId = block.number - 1;
         _verifyAndUpdatePublicInputHash(parentId);
