@@ -1,21 +1,35 @@
 [![Built with Starlight](https://astro.badg.es/v2/built-with-starlight/tiny.svg)](https://starlight.astro.build)
 
-# Taiko docs
+# 🚀 Taiko Docs
 
-Welcome to Taiko docs!
+Welcome to the **Taiko Documentation** repository!
 
-## Repo architecture
+---
 
-Here we will list the important folders within this repo.
+## 📂 Repository Architecture
 
-### src/content
+This section explains the structure of the important folders and files in this repository.
 
-This is where we store all of the content.
+### 1. **src/content**
+   - This is where we store all the documentation content.  
+   - It includes guides, explanations, and resources.  
 
-### src/content/config.ts
+### 2. **src/content/config.ts**
+   - This file is used to extend the `docsSchema`.  
+   - It controls the structure and configuration of the documentation pages.
 
-This is where we extend the `docsSchema`.
+### 3. **public/**
+   - This directory stores static files such as images, PDFs, and other assets.  
 
-## Contributing
+---
 
-View CONTRIBUTING.md inside of the [Taiko monorepo](https://github.com/taikoxyz/taiko-mono/blob/main/CONTRIBUTING.md).
+## 📖 How to Use
+
+Follow these steps to run the project locally or contribute to the documentation.
+
+### Running Locally
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/taikoxyz/taiko-docs.git
+   cd taiko-docs
