@@ -79,7 +79,7 @@ contract TestTaikoL2 is Layer2Test {
     }
 
     /// forge-config: default.fuzz_runs = 2000
-    /// forge-config: layer_2.fuzz.show-logs = true
+    /// forge-config: default.fuzz_runs_show_logs = true
     function test_fuzz_getBasefeeV2(
         uint32 _parentGasUsed,
         uint32 _gasIssuancePerSecond,
@@ -104,7 +104,7 @@ contract TestTaikoL2 is Layer2Test {
     }
 
     /// forge-config: default.fuzz_runs = 2000
-    /// forge-config: layer_2.fuzz.show-logs = true
+    /// forge-config: default.fuzz_runs_show_logs = true
     function test_fuzz_anchorV2(
         uint32 _parentGasUsed,
         uint32 _gasIssuancePerSecond,

@@ -5,6 +5,7 @@ gas_limit = "18446744073709551615" # u64::MAX
 optimizer = true
 optimizer_runs = 200
 fuzz_runs = 200
+fuzz_runs_show_logs = false
 ffi = true
 memory_limit = 2_073_741_824
 solc_version = "0.8.27"
