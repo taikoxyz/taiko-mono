@@ -108,8 +108,9 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
 
         for (uint256 i; i < _paramsArray.length; ++i) {
             require(calldataUsed || _paramsArray[i].blobIndex != 0, BlobIndexZero());
-            UpdatedParams memory updatedParams =
-                _validateBlockParams(_paramsArray[i], config.maxAnchorHeightOffset, lastBlock);
+            UpdatedParams memory updatedParams = _validateBlockParams(
+                _paramsArray[i], config.maxAnchorHeightOffset, config.maxSignalsToReceive, lastBlock
+            );
 
             // This section constructs the metadata for the proposed block, which is crucial for
             // nodes/clients
@@ -139,6 +140,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
                     blobIndex: calldataUsed ? 0 : _paramsArray[i].blobIndex,
                     anchorBlockId: updatedParams.anchorBlockId,
                     anchorBlockHash: blockhash(updatedParams.anchorBlockId),
+                    signalSlots: _paramsArray[i].signalSlots,
                     baseFeeConfig: config.baseFeeConfig
                 });
             }
@@ -547,6 +549,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
     function _validateBlockParams(
         BlockParamsV3 calldata _params,
         uint64 _maxAnchorHeightOffset,
+        uint8 _maxSignalsToReceive,
         BlockInfo memory _parent
     )
         private
@@ -591,6 +594,8 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
                 ParentMetaHashMismatch()
             );
         }
+
+        require(_params.signalSlots.length <= _maxSignalsToReceive, TooManySignals());
     }
 
     // Memory-only structs ----------------------------------------------------------------------

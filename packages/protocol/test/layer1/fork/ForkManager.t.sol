@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../TaikoL1Test.sol";
+import "test/layer1/Layer1Test.sol";
 import "src/layer1/fork/ForkManager.sol";
 
 contract Fork is EssentialContract {
@@ -28,12 +28,12 @@ contract ForkManager_RouteToOldFork is ForkManager {
     }
 }
 
-contract TestForkManager is TaikoL1Test {
+contract TestForkManager is Layer1Test {
     address fork1 = address(new Fork("fork1"));
     address fork2 = address(new Fork("fork2"));
 
     function test_ForkManager_default_routing() public {
-        address proxy = deployProxy({
+        address proxy = deploy({
             name: "main_proxy",
             impl: address(new ForkManager(address(0), fork1)),
             data: abi.encodeCall(Fork.init, ())
@@ -53,7 +53,7 @@ contract TestForkManager is TaikoL1Test {
     }
 
     function test_ForkManager_routing_to_old_fork() public {
-        address proxy = deployProxy({
+        address proxy = deploy({
             name: "main_proxy",
             impl: address(new ForkManager_RouteToOldFork(fork1, fork2)),
             data: abi.encodeCall(Fork.init, ())

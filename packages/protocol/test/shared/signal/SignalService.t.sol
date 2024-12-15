@@ -561,6 +561,7 @@ contract TestSignalService is CommonTest {
         bool signalRootCached
     )
         private
+        view
     {
         assertEq(
             mockSignalService.isChainDataSynced(

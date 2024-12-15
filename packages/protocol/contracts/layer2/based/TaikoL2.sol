@@ -133,11 +133,13 @@ contract TaikoL2 is EssentialContract, IBlockHash, TaikoL2Deprecated {
     /// @param _anchorStateRoot The state root for the L1 block with id equals `_anchorBlockId`.
     /// @param _parentGasUsed The gas used in the parent block.
     /// @param _baseFeeConfig The base fee configuration.
+    /// @param _signalSlots The signal slots to mark as received.
     function anchorV2(
         uint64 _anchorBlockId,
         bytes32 _anchorStateRoot,
         uint32 _parentGasUsed,
-        LibSharedData.BaseFeeConfig calldata _baseFeeConfig
+        LibSharedData.BaseFeeConfig calldata _baseFeeConfig,
+        bytes32[] calldata _signalSlots
     )
         external
         nonZeroBytes32(_anchorStateRoot)
@@ -154,6 +156,8 @@ contract TaikoL2 is EssentialContract, IBlockHash, TaikoL2Deprecated {
         _verifyBaseFeeAndUpdateGasExcess(_parentGasUsed, _baseFeeConfig);
         _syncChainData(_anchorBlockId, _anchorStateRoot);
         _updateParentHashAndTimestamp(parentId);
+
+        ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false)).receiveSignals(_signalSlots);
     }
 
     /// @notice Withdraw token or Ether from this address.

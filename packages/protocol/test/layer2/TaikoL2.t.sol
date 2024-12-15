@@ -131,7 +131,9 @@ contract TestTaikoL2 is Layer2Test {
 
         bytes32 anchorStateRoot = bytes32(uint256(1));
         vm.prank(taikoL2.GOLDEN_TOUCH_ADDRESS());
-        taikoL2.anchorV2(++anchorBlockId, anchorStateRoot, _parentGasUsed, baseFeeConfig);
+        taikoL2.anchorV2(
+            ++anchorBlockId, anchorStateRoot, _parentGasUsed, baseFeeConfig, new bytes32[](0)
+        );
 
         (uint256 basefee, uint64 newGasTarget,) =
             taikoL2.getBasefeeV2(_parentGasUsed, baseFeeConfig);
@@ -157,6 +159,8 @@ contract TestTaikoL2 is Layer2Test {
             minGasExcess: 1_340_000_000,
             maxGasIssuancePerBlock: 600_000_000 // two minutes
          });
-        taikoL2.anchorV2(++anchorBlockId, anchorStateRoot, parentGasUsed, baseFeeConfig);
+        taikoL2.anchorV2(
+            ++anchorBlockId, anchorStateRoot, parentGasUsed, baseFeeConfig, new bytes32[](0)
+        );
     }
 }
