@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24.0;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
-
+import { Ownable2StepUpgradeable } from
+    "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
+import { AccessControlUpgradeable } from
+    "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 /**
  * @title EventRegister
  * @notice A contract that allows authorized managers to create events, manage user registrations,
@@ -10,7 +12,8 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
  * @dev Utilizes OpenZeppelin's AccessControl for role management. The contract does not hold any
  * Ether.
  */
-contract EventRegister is AccessControl {
+
+contract EventRegister is Ownable2StepUpgradeable, AccessControlUpgradeable {
     /**
      * @dev The role identifier for event managers. This role allows accounts to create events
      *      and manage registrations.
@@ -40,8 +43,7 @@ contract EventRegister is AccessControl {
      * @dev Mapping from event ID to a mapping of user addresses to their registration status.
      *      Indicates whether a user has registered for a specific event.
      */
-    mapping(uint256 eventId => mapping(address registrant => bool isRegistered)) public
-        registrations;
+    mapping(uint256 eventId => mapping(address registrant => bool isRegistered)) public isRegistered;
 
     /**
      * @dev Emitted when a new event is created.
@@ -82,13 +84,24 @@ contract EventRegister is AccessControl {
     uint256 private nextEventId;
 
     /**
+     * @notice Contract initializer
+     * @dev Initializes the contract by granting the deployer the default admin role.
+     *    The deployer is also granted the EVENT_MANAGER_ROLE.
+     *    The deployer is set as the owner of the contract.
+     */
+    function initialize() external initializer {
+        __Context_init();
+        _grantRole(EVENT_MANAGER_ROLE, _msgSender());
+        _transferOwnership(_msgSender());
+    }
+
+    /**
      * @notice Initializes the contract by granting the deployer the default admin role.
      * @dev The deployer of the contract is granted the DEFAULT_ADMIN_ROLE, allowing them to manage
      * roles.
      */
     constructor() {
         _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
-        _grantRole(EVENT_MANAGER_ROLE, _msgSender());
     }
 
     /**
@@ -190,9 +203,9 @@ contract EventRegister is AccessControl {
         Event memory currentEvent = events[_eventId];
         require(currentEvent.exists, "Event not found");
         require(currentEvent.registrationOpen, "Registrations closed");
-        require(!registrations[_eventId][msg.sender], "Already registered");
+        require(!isRegistered[_eventId][msg.sender], "Already registered");
 
-        registrations[_eventId][msg.sender] = true;
+        isRegistered[_eventId][msg.sender] = true;
 
         emit Registered(msg.sender, _eventId);
     }
@@ -212,9 +225,9 @@ contract EventRegister is AccessControl {
         Event memory currentEvent = events[_eventId];
         require(currentEvent.exists, "Event not found");
         require(currentEvent.registrationOpen, "Registrations closed");
-        require(registrations[_eventId][_user], "Not registered");
+        require(isRegistered[_eventId][_user], "Not registered");
 
-        registrations[_eventId][_user] = false;
+        isRegistered[_eventId][_user] = false;
         emit Unregistered(_user, _eventId);
     }
 
@@ -230,7 +243,7 @@ contract EventRegister is AccessControl {
         uint256 count = 0;
 
         for (uint256 i = 0; i < nextEventId; i++) {
-            if (registrations[i][_user]) {
+            if (isRegistered[i][_user]) {
                 temp[count] = i;
                 count++;
             }
