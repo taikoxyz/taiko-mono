@@ -204,6 +204,7 @@ interface ITaikoL1 {
     error NotPreconfTaskManager();
     error ParentMetaHashMismatch();
     error ProverNotPermitted();
+    error SignalNotSent();
     error TimestampSmallerThanParent();
     error TimestampTooLarge();
     error TimestampTooSmall();

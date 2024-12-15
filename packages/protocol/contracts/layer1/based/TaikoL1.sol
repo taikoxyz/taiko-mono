@@ -106,9 +106,11 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
         metas_ = new BlockMetadataV3[](_paramsArray.length);
         bool calldataUsed = _txList.length != 0;
 
+        UpdatedParams memory updatedParams;
+
         for (uint256 i; i < _paramsArray.length; ++i) {
             require(calldataUsed || _paramsArray[i].blobIndex != 0, BlobIndexZero());
-            UpdatedParams memory updatedParams = _validateBlockParams(
+            updatedParams = _validateBlockParams(
                 _paramsArray[i], config.maxAnchorHeightOffset, config.maxSignalsToReceive, lastBlock
             );
 
@@ -595,7 +597,16 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             );
         }
 
-        require(_params.signalSlots.length <= _maxSignalsToReceive, TooManySignals());
+        if (_params.signalSlots.length != 0) {
+            require(_params.signalSlots.length <= _maxSignalsToReceive, TooManySignals());
+
+            ISignalService signalService =
+                ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false));
+
+            for (uint256 i; i < _params.signalSlots.length; ++i) {
+                require(signalService.isSignalSent(_params.signalSlots[i]), SignalNotSent());
+            }
+        }
     }
 
     // Memory-only structs ----------------------------------------------------------------------
