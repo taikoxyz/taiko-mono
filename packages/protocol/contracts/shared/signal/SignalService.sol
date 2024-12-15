@@ -300,7 +300,6 @@ contract SignalService is EssentialContract, ISignalService {
         returns (bytes32)
     {
         bytes32 slot = getSignalSlot(uint64(block.chainid), _app, _signal);
-
         return _loadSignalValue(slot);
     }
 
