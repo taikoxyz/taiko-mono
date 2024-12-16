@@ -26,7 +26,7 @@ Assuming you are in this directory.
 
 ### Exporting Configuration
 
-4. **Export Simulation Configuration**
+3. **Export Simulation Configuration**
 
    Run the following command to export the configuration used in the `test_eip1559_math` test to a file in the `out/` directory. A unique file name based on the current timestamp will be generated automatically (e.g., `simconf_<timestamp>.txt`):
 
@@ -38,7 +38,7 @@ Assuming you are in this directory.
 
 ### Running Simulation
 
-5. **Run Simulation**
+4. **Run Simulation**
 
    After exporting the configuration, locate the newly created file in the `out/` directory. Run the simulation using the command below, replacing `simconf_<timestamp>.txt` with the name of your specific file:
 
