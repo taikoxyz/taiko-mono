@@ -137,7 +137,7 @@ contract TaikoL2 is EssentialContract, IBlockHash, TaikoL2Deprecated {
     /// @param _anchorInput An arbitrary bytes32 input chosen by the block proposer.
     /// @param _parentGasUsed The gas used in the parent block.
     /// @param _baseFeeConfig The base fee configuration.
-    function anchorV2(
+    function anchorV3(
         uint64 _anchorBlockId,
         bytes32 _anchorStateRoot,
         bytes32 _anchorInput,
