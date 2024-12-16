@@ -45,6 +45,7 @@ contract TestForkManager is Layer1Test {
         // If we upgrade the proxy's impl to a fork, then alling isForkManager will throw,
         // so we should never do this in production.
 
+
         Fork(proxy).upgradeTo(fork2);
         vm.expectRevert();
         ForkManager(payable(proxy)).isForkManager();

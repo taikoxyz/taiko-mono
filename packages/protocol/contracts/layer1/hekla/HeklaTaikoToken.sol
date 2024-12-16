@@ -81,6 +81,16 @@ contract HeklaTaikoToken is EssentialContract, ERC20SnapshotUpgradeable, ERC20Vo
         return super.transferFrom(_from, _to, _amount);
     }
 
+    function clock() public view override returns (uint48) {
+        return SafeCastUpgradeable.toUint48(block.timestamp);
+    }
+
+    // solhint-disable-next-line func-name-mixedcase
+    function CLOCK_MODE() public pure override returns (string memory) {
+        // See https://eips.ethereum.org/EIPS/eip-6372
+        return "mode=timestamp";
+    }
+
     function name() public pure override returns (string memory) {
         return "Taiko Token";
     }
