@@ -80,8 +80,8 @@ The bridge is a set of smart contracts and a frontend web app that allow you to 
 
 First, here is a flowchart of how our bridge dapp implementation works, which uses the signal service:
 
-![bridging send message flowchart](~/assets/content/docs/core-concepts/bridging-source-chain.webp) \
-![bridging process message flowchart](~/assets/content/docs/core-concepts/bridging-dest-chain.webp)
+![bridging send message flowchart](~/assets/content/docs/taiko-protocol/bridging-source-chain.webp)
+![bridging process message flowchart](~/assets/content/docs/taiko-protocol/bridging-dest-chain.webp)
 
 ### How does Ether bridging work?
 
