@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"errors"
 	"math/big"
 	"os"
 	"os/signal"
@@ -32,6 +33,7 @@ var (
 		syscall.SIGTERM,
 		syscall.SIGQUIT,
 	}
+	ErrInvalidLength = errors.New("invalid length")
 )
 
 // GetProtocolConfigs gets the protocol configs from TaikoL1 contract.
@@ -271,25 +273,21 @@ func BatchGetBlocksProofStatus(
 		result         = make([]*BlockProofStatus, len(ids))
 		highestBlockID = big.NewInt(0)
 	)
-	// Get the local L2 parent header.
-	g, _ := errgroup.WithContext(ctxWithTimeout)
 	for i, id := range ids {
-		g.Go(func() error {
-			parentIDs[i] = new(big.Int).Sub(id, common.Big1)
-			blockIDs[i] = id
-			uint64BlockIDs[i] = id.Uint64()
-			if id.Cmp(highestBlockID) > 0 {
-				highestBlockID = id
-			}
-			return nil
-		})
+		parentIDs[i] = new(big.Int).Sub(id, common.Big1)
+		blockIDs[i] = id
+		uint64BlockIDs[i] = id.Uint64()
+		if id.Cmp(highestBlockID) > 0 {
+			highestBlockID = id
+		}
 	}
-	if gErr := g.Wait(); gErr != nil {
-		return nil, gErr
-	}
+	// Get the local L2 parent headers.
 	parents, err := cli.L2.BatchHeadersByNumbers(ctxWithTimeout, parentIDs)
 	if err != nil {
 		return nil, err
+	}
+	if len(parents) != len(ids) {
+		return nil, ErrInvalidLength
 	}
 	for i := range ids {
 		parentHashes[i] = parents[i].Hash()
@@ -311,7 +309,10 @@ func BatchGetBlocksProofStatus(
 	if err != nil {
 		return nil, err
 	}
-	g, _ = errgroup.WithContext(ctxWithTimeout)
+	if len(transitions) != len(ids) || len(blockHeaders) != len(ids) {
+		return nil, ErrInvalidLength
+	}
+	g, _ := errgroup.WithContext(ctxWithTimeout)
 	for i, transition := range transitions {
 		// No proof on chain
 		if transition.BlockHash == (common.Hash{}) {
