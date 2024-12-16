@@ -1,5 +1,44 @@
 # Changelog
 
+## [1.20.3](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.20.2...docs-site-v1.20.3) (2024-12-09)
+
+
+### Bug Fixes
+
+* **docs-site:** update hekla graphic ([#18572](https://github.com/taikoxyz/taiko-mono/issues/18572)) ([ee50fdc](https://github.com/taikoxyz/taiko-mono/commit/ee50fdceec2d8f3a58a67f07b41e832898108e5d))
+
+
+### Chores
+
+* **main:** release docs-site 1.20.2 ([#18563](https://github.com/taikoxyz/taiko-mono/issues/18563)) ([ca837f1](https://github.com/taikoxyz/taiko-mono/commit/ca837f1ec3126871d6e8da3323fd8dc8becf7107))
+
+## [1.20.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.20.1...docs-site-v1.20.2) (2024-12-08)
+
+
+### Bug Fixes
+
+* **docs-site:** link of goldsky in dev tools ([#18562](https://github.com/taikoxyz/taiko-mono/issues/18562)) ([802569a](https://github.com/taikoxyz/taiko-mono/commit/802569ab2b7ebde69eae45e63228bb280b30fc12))
+
+## [1.20.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.20.0...docs-site-v1.20.1) (2024-12-07)
+
+
+### Bug Fixes
+
+* **docs-site:** correct graphic ([#18561](https://github.com/taikoxyz/taiko-mono/issues/18561)) ([b574358](https://github.com/taikoxyz/taiko-mono/commit/b5743588e6492a67e1e5d3cc88906f92fec673bb))
+
+
+### Chores
+
+* **docs-site:** add goldsky to dev tools ([#18552](https://github.com/taikoxyz/taiko-mono/issues/18552)) ([4b83b5f](https://github.com/taikoxyz/taiko-mono/commit/4b83b5f76157d73f2c798195730b67adaf9ef09d))
+* **docs-site:** update hekla proof tier config graphic and address ([#18554](https://github.com/taikoxyz/taiko-mono/issues/18554)) ([0854e12](https://github.com/taikoxyz/taiko-mono/commit/0854e12beb8ad4036eecaa3d72589bdb5ab82927))
+
+## [1.20.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.19.0...docs-site-v1.20.0) (2024-12-06)
+
+
+### Features
+
+* **docs-site:** add taiko-protocol section with economics and codebase analysis ([#18542](https://github.com/taikoxyz/taiko-mono/issues/18542)) ([55acc93](https://github.com/taikoxyz/taiko-mono/commit/55acc93c1cf6628f2d1ca6f0b2ca20a257f74e1f))
+
 ## [1.19.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.18.0...docs-site-v1.19.0) (2024-11-28)
 
 
