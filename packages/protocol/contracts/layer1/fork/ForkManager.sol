@@ -19,7 +19,6 @@ import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 ///                         +--> newFork
 /// PROXY -> FORK_MANAGER --|
 ///                         +--> oldFork
-
 contract ForkManager is UUPSUpgradeable, Ownable2StepUpgradeable {
     address public immutable oldFork;
     address public immutable newFork;
