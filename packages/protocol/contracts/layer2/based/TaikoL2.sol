@@ -53,7 +53,10 @@ contract TaikoL2 is EssentialContract, IBlockHash, TaikoL2Deprecated {
     /// @notice The L1's chain ID.
     uint64 public l1ChainId;
 
-    uint256[46] private __gap;
+    /// @notice The arbitrary bytes32 input chosen by the block proposer.
+    bytes32 public anchorInput;
+
+    uint256[45] private __gap;
 
     /// @notice Emitted when the latest L1 block details are anchored to L2.
     /// @param parentHash The hash of the parent block.
@@ -131,12 +134,14 @@ contract TaikoL2 is EssentialContract, IBlockHash, TaikoL2Deprecated {
     /// transaction, and any subsequent calls will revert with L2_PUBLIC_INPUT_HASH_MISMATCH.
     /// @param _anchorBlockId The `anchorBlockId` value in this block's metadata.
     /// @param _anchorStateRoot The state root for the L1 block with id equals `_anchorBlockId`.
+    /// @param _anchorInput An arbitrary bytes32 input chosen by the block proposer.
     /// @param _parentGasUsed The gas used in the parent block.
     /// @param _baseFeeConfig The base fee configuration.
     /// @param _signalSlots The signal slots to mark as received.
-    function anchorV2(
+    function anchorV3(
         uint64 _anchorBlockId,
         bytes32 _anchorStateRoot,
+        bytes32 _anchorInput,
         uint32 _parentGasUsed,
         LibSharedData.BaseFeeConfig calldata _baseFeeConfig,
         bytes32[] calldata _signalSlots
@@ -150,6 +155,8 @@ contract TaikoL2 is EssentialContract, IBlockHash, TaikoL2Deprecated {
         nonReentrant
     {
         require(block.number >= pacayaForkHeight(), L2_FORK_ERROR());
+
+        anchorInput = _anchorInput;
 
         uint256 parentId = block.number - 1;
         _verifyAndUpdatePublicInputHash(parentId);
