@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"errors"
 	"math/big"
 	"os"
 	"os/signal"
@@ -32,6 +33,7 @@ var (
 		syscall.SIGTERM,
 		syscall.SIGQUIT,
 	}
+	ErrInvalidLength = errors.New("invalid length")
 )
 
 // GetProtocolConfigs gets the protocol configs from TaikoL1 contract.
@@ -265,46 +267,52 @@ func BatchGetBlocksProofStatus(
 	defer cancel()
 	var (
 		parentHashes   = make([][32]byte, len(ids))
-		parents        = make([]*types.Header, len(ids))
-		blockIDs       = make([]uint64, len(ids))
+		parentIDs      = make([]*big.Int, len(ids))
+		blockIDs       = make([]*big.Int, len(ids))
+		uint64BlockIDs = make([]uint64, len(ids))
 		result         = make([]*BlockProofStatus, len(ids))
 		highestBlockID = big.NewInt(0)
 	)
-	// Get the local L2 parent header.
-	g, gCtx := errgroup.WithContext(ctxWithTimeout)
 	for i, id := range ids {
-		g.Go(func() error {
-			parent, err := cli.L2.HeaderByNumber(gCtx, new(big.Int).Sub(id, common.Big1))
-			if err != nil {
-				return err
-			}
-			parentHashes[i] = parent.Hash()
-			parents[i] = parent
-			blockIDs[i] = id.Uint64()
-			if id.Cmp(highestBlockID) > 0 {
-				highestBlockID = id
-			}
-			return nil
-		})
+		parentIDs[i] = new(big.Int).Sub(id, common.Big1)
+		blockIDs[i] = id
+		uint64BlockIDs[i] = id.Uint64()
+		if id.Cmp(highestBlockID) > 0 {
+			highestBlockID = id
+		}
 	}
-	if gErr := g.Wait(); gErr != nil {
-		return nil, gErr
+	// Get the local L2 parent headers.
+	parents, err := cli.L2.BatchHeadersByNumbers(ctxWithTimeout, parentIDs)
+	if err != nil {
+		return nil, err
 	}
-
+	if len(parents) != len(ids) {
+		return nil, ErrInvalidLength
+	}
+	for i := range ids {
+		parentHashes[i] = parents[i].Hash()
+	}
 	// Get the transition state from TaikoL1 contract.
 	transitions, err := cli.TaikoL1.GetTransitions(
 		&bind.CallOpts{Context: ctxWithTimeout},
-		blockIDs,
+		uint64BlockIDs,
 		parentHashes,
 	)
 	if err != nil {
 		return nil, err
 	}
-	highestHeader, err := cli.WaitL2Header(ctxWithTimeout, highestBlockID)
+	_, err = cli.WaitL2Header(ctxWithTimeout, highestBlockID)
 	if err != nil {
 		return nil, err
 	}
-	g, gCtx = errgroup.WithContext(ctxWithTimeout)
+	blockHeaders, err := cli.L2.BatchHeadersByNumbers(ctxWithTimeout, blockIDs)
+	if err != nil {
+		return nil, err
+	}
+	if len(transitions) != len(ids) || len(blockHeaders) != len(ids) {
+		return nil, ErrInvalidLength
+	}
+	g, _ := errgroup.WithContext(ctxWithTimeout)
 	for i, transition := range transitions {
 		// No proof on chain
 		if transition.BlockHash == (common.Hash{}) {
@@ -312,28 +320,13 @@ func BatchGetBlocksProofStatus(
 			continue
 		}
 		g.Go(func() error {
-			if err != nil {
-				return err
-			}
-			var (
-				localBlockHash common.Hash
-				localStateRoot [32]byte
-			)
-			if i+1 < len(parents) {
-				localBlockHash = parents[i+1].Hash()
-				localStateRoot = parents[i+1].Root
-			} else {
-				localBlockHash = highestHeader.Hash()
-				localStateRoot = highestHeader.Root
-			}
-
-			if localBlockHash != transition.BlockHash ||
-				(transition.StateRoot != (common.Hash{}) && transition.StateRoot != localStateRoot) {
+			if blockHeaders[i].Hash() != transition.BlockHash ||
+				(transition.StateRoot != (common.Hash{}) && transition.StateRoot != blockHeaders[i].Root) {
 				log.Info(
 					"Different block hash or state root detected, try submitting a contest",
-					"localBlockHash", localBlockHash,
+					"localBlockHash", blockHeaders[i].Hash(),
 					"protocolTransitionBlockHash", common.BytesToHash(transition.BlockHash[:]),
-					"localStateRoot", localStateRoot,
+					"localStateRoot", blockHeaders[i].Root,
 					"protocolTransitionStateRoot", common.BytesToHash(transition.StateRoot[:]),
 				)
 				result[i] = &BlockProofStatus{
