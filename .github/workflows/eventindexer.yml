@@ -5,14 +5,10 @@ on:
     branches: [main]
     paths:
       - "packages/eventindexer/**"
-      - "go.mod"
-      - "go.sum"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "packages/eventindexer/**"
-      - "go.mod"
-      - "go.sum"
     branches-ignore:
       - release-please--branches--**
 
