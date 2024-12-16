@@ -267,7 +267,7 @@ func BatchGetBlocksProofStatus(
 		parentHashes   = make([][32]byte, len(ids))
 		parentIDs      = make([]*big.Int, len(ids))
 		blockIDs       = make([]*big.Int, len(ids))
-		blocks         = make([]uint64, len(ids))
+		uint64BlockIDs = make([]uint64, len(ids))
 		result         = make([]*BlockProofStatus, len(ids))
 		highestBlockID = big.NewInt(0)
 	)
@@ -277,7 +277,7 @@ func BatchGetBlocksProofStatus(
 		g.Go(func() error {
 			parentIDs[i] = new(big.Int).Sub(id, common.Big1)
 			blockIDs[i] = id
-			blocks[i] = id.Uint64()
+			uint64BlockIDs[i] = id.Uint64()
 			if id.Cmp(highestBlockID) > 0 {
 				highestBlockID = id
 			}
@@ -297,7 +297,7 @@ func BatchGetBlocksProofStatus(
 	// Get the transition state from TaikoL1 contract.
 	transitions, err := cli.TaikoL1.GetTransitions(
 		&bind.CallOpts{Context: ctxWithTimeout},
-		blocks,
+		uint64BlockIDs,
 		parentHashes,
 	)
 	if err != nil {
