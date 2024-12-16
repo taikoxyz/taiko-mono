@@ -190,7 +190,7 @@ func (b *BlobTransactionBuilder) BuildOntake(
 	}
 	txListArray := make([][]byte, len(encodedParamsArray))
 	if b.proverSetAddress != rpc.ZeroAddress {
-		data, err = encoding.ProverSetABI.Pack("proposeBlocksV2", encodedParamsArray, txListArray)
+		data, err = encoding.ProverSetABI.Pack("proposeBlocksV2Conditionally", encodedParamsArray, txListArray)
 		if err != nil {
 			return nil, err
 		}

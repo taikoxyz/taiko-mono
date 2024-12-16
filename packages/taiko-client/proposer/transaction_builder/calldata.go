@@ -158,7 +158,7 @@ func (b *CalldataTransactionBuilder) BuildOntake(
 	if b.proverSetAddress != rpc.ZeroAddress {
 		to = &b.proverSetAddress
 
-		data, err = encoding.ProverSetABI.Pack("proposeBlocksV2", encodedParamsArray, txListBytesArray)
+		data, err = encoding.ProverSetABI.Pack("proposeBlocksV2Conditionally", encodedParamsArray, txListBytesArray)
 		if err != nil {
 			return nil, err
 		}
