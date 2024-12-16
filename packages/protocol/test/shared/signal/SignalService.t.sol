@@ -592,7 +592,8 @@ contract TestSignalService is CommonTest {
         signalService.syncChainData(chainId, kind, blockId, expectedChainData);
 
         // Call `getSyncedChainData` and verify the returned values
-        (uint64 returnedBlockId, bytes32 returnedChainData) = signalService.getSyncedChainData(chainId, kind, blockId);
+        (uint64 returnedBlockId, bytes32 returnedChainData) =
+            signalService.getSyncedChainData(chainId, kind, blockId);
         assertEq(returnedBlockId, blockId);
         assertEq(returnedChainData, expectedChainData);
 
@@ -600,9 +601,11 @@ contract TestSignalService is CommonTest {
         uint64 unsetBlockId = 0;
         expectedChainData = randBytes32();
         vm.prank(deployer);
-        signalService.syncChainData(chainId, kind, blockId + 1, expectedChainData); // Update the topBlockId
+        signalService.syncChainData(chainId, kind, blockId + 1, expectedChainData); // Update the
+            // topBlockId
 
-        (uint64 topBlockId, bytes32 topChainData) = signalService.getSyncedChainData(chainId, kind, unsetBlockId);
+        (uint64 topBlockId, bytes32 topChainData) =
+            signalService.getSyncedChainData(chainId, kind, unsetBlockId);
         assertEq(topBlockId, blockId + 1);
         assertEq(topChainData, expectedChainData);
 
