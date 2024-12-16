@@ -20,7 +20,7 @@ Taiko aims to be a fully Ethereum-equivalent ZK-Rollup. aim to scale Ethereum in
 Taiko operates by utilizing a Zero Knowledge Rollup (ZK-Rollup) mechanism, specifically designed to scale the Ethereum blockchain without compromising its foundational features of security, censorship resistance, and permissionless access. Here's a breakdown of how Taiko functions:
 
 - Zero Knowledge Proofs (ZKPs): Taiko leverages ZKPs to validate transactions confidentially, reducing data processing on Ethereum's mainnet. This efficiency cuts costs and increases transaction speed.
-- Integration with Ethereum L1: Unlike rollups that use a centralized sequencer, Taiko's transactions are sequenced by Ethereum's Layer 1 validators. This method, called based sequencing, ensures that Taiko inherits Ethereum's security and decentralization properties.
+- Integration with Ethereum L1: Unlike rollups that use a centralized sequencer, Taiko's transactions are sequenced by Ethereum's Layer 1 validators. This method, called base sequencing, ensures that Taiko inherits Ethereum's security and decentralization properties.
 - Smart Contracts and Governance: Taiko operates through smart contracts on Ethereum, detailing its protocol. Governance, including protocol updates, is managed by the Taiko DAO, ensuring community-driven decisions.
 - Open Source and Compatibility: As an open-source platform, Taiko allows developers to deploy dApps seamlessly, maintaining Ethereum's ease of use and accessibility.
 - Decentralized Validation: Taiko supports a decentralized model for proposers and validators, enhancing network security and integrity. Ethereum L1 validators also play a pivotal role, emphasizing decentralization.
