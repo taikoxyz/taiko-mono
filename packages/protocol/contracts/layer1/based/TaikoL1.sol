@@ -81,12 +81,12 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             );
         }
 
-        address preconfTaskManager = resolve(LibStrings.B_PRECONF_ROUTER, true);
-        if (preconfTaskManager == address(0)) {
+        address preconfRouter = resolve(LibStrings.B_PRECONF_ROUTER, true);
+        if (preconfRouter == address(0)) {
             require(_proposer == address(0), CustomProposerNotAllowed());
             _proposer = msg.sender;
         } else {
-            require(msg.sender == preconfTaskManager, NotPreconfTaskManager());
+            require(msg.sender == preconfRouter, NotPreconfTaskManager());
             require(_proposer != address(0), CustomProposerMissing());
         }
 
