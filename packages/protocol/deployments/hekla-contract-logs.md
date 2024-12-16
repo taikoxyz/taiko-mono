@@ -21,12 +21,13 @@
 ### taiko_token
 
 - proxy: `0x6490E12d480549D333499236fF2Ba6676C296011`
-- impl: `0x01BB2fD6D80942CE95B43c1322530fe690F2bc0e`
+- impl: `0xD826bb700EAEdD6E83C32681f95a35Ac7F290104`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on Mar 29, 2024 at commit `b341a68d5`
   - upgraded on Jun 18, 2024, added `batchTransfer` method.
   - transferred ownership on Jul 8, 2024
+  - upgraded on Dec 16, 2024 at commit `ccc9500`
 
 ### signal_service
 
