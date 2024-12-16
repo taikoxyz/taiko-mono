@@ -41,6 +41,7 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 		0,
 		"test",
 		chainConfig,
+		false,
 	)
 	s.blobTxBuiler = NewBlobTransactionBuilder(
 		s.RPCClient,
@@ -51,6 +52,7 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 		10_000_000,
 		"test",
 		chainConfig,
+		false,
 	)
 }
 
