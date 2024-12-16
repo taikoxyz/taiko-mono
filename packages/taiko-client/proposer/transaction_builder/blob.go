@@ -30,6 +30,7 @@ type BlobTransactionBuilder struct {
 	gasLimit                uint64
 	extraData               string
 	chainConfig             *config.ChainConfig
+	revertProtectionEnabled bool
 }
 
 // NewBlobTransactionBuilder creates a new BlobTransactionBuilder instance based on giving configurations.
@@ -42,6 +43,7 @@ func NewBlobTransactionBuilder(
 	gasLimit uint64,
 	extraData string,
 	chainConfig *config.ChainConfig,
+	revertProtectionEnabled bool,
 ) *BlobTransactionBuilder {
 	return &BlobTransactionBuilder{
 		rpc,
@@ -52,6 +54,7 @@ func NewBlobTransactionBuilder(
 		gasLimit,
 		extraData,
 		chainConfig,
+		revertProtectionEnabled,
 	}
 }
 
@@ -190,7 +193,11 @@ func (b *BlobTransactionBuilder) BuildOntake(
 	}
 	txListArray := make([][]byte, len(encodedParamsArray))
 	if b.proverSetAddress != rpc.ZeroAddress {
-		data, err = encoding.ProverSetABI.Pack("proposeBlocksV2Conditionally", encodedParamsArray, txListArray)
+		if b.revertProtectionEnabled {
+			data, err = encoding.ProverSetABI.Pack("proposeBlocksV2Conditionally", encodedParamsArray, txListArray)
+		} else {
+			data, err = encoding.ProverSetABI.Pack("proposeBlocksV2", encodedParamsArray, txListArray)
+		}
 		if err != nil {
 			return nil, err
 		}

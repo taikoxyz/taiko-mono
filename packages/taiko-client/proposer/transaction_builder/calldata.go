@@ -27,6 +27,7 @@ type CalldataTransactionBuilder struct {
 	gasLimit                uint64
 	extraData               string
 	chainConfig             *config.ChainConfig
+	revertProtectionEnabled bool
 }
 
 // NewCalldataTransactionBuilder creates a new CalldataTransactionBuilder instance based on giving configurations.
@@ -39,6 +40,7 @@ func NewCalldataTransactionBuilder(
 	gasLimit uint64,
 	extraData string,
 	chainConfig *config.ChainConfig,
+	revertProtectionEnabled bool,
 ) *CalldataTransactionBuilder {
 	return &CalldataTransactionBuilder{
 		rpc,
@@ -49,6 +51,7 @@ func NewCalldataTransactionBuilder(
 		gasLimit,
 		extraData,
 		chainConfig,
+		revertProtectionEnabled,
 	}
 }
 
@@ -157,8 +160,11 @@ func (b *CalldataTransactionBuilder) BuildOntake(
 
 	if b.proverSetAddress != rpc.ZeroAddress {
 		to = &b.proverSetAddress
-
-		data, err = encoding.ProverSetABI.Pack("proposeBlocksV2Conditionally", encodedParamsArray, txListBytesArray)
+		if b.revertProtectionEnabled {
+			data, err = encoding.ProverSetABI.Pack("proposeBlocksV2Conditionally", encodedParamsArray, txListBytesArray)
+		} else {
+			data, err = encoding.ProverSetABI.Pack("proposeBlocksV2", encodedParamsArray, txListBytesArray)
+		}
 		if err != nil {
 			return nil, err
 		}
