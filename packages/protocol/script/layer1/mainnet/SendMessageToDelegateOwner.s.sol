@@ -11,7 +11,8 @@ contract SendMessageToDelegateOwner is BaseScript {
     address public delegateOwnerImpl = 0x1f0511cDae2fbfD93563469dA02b82dEd320C8Bd;
     address public multicall3 = 0xcA11bde05977b3631167028862bE2a173976CA11;
     address public l1Bridge = 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC;
-    address public testAddress1 = vm.envAddress("TEST_ADDRESS_1");
+    address public testAddress1 =
+        vm.envOr("TEST_ADDRESS_1", address(0x0000000000000000000000000000000000000000));
 
     function run() external broadcast {
         Multicall3.Call3[] memory calls = new Multicall3.Call3[](2);
