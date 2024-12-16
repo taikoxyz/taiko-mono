@@ -103,7 +103,7 @@
       : mobileContainerClasses;
 
   $: commonColumnClasses = classNames(' relative items-end');
-  $: desktopColumnClasses = classNames(commonColumnClasses, 'w-1/6 f-row justify-center items-center');
+  $: desktopColumnClasses = classNames(commonColumnClasses, 'w-1/6 f-row justify-center md:justify-start items-center');
   $: tabletColumnClasses = classNames(
     commonColumnClasses,
     'w-1/4 f-row  text-left start items-center text-sm space-y-[10px]',
