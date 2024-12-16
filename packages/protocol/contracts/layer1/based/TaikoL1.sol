@@ -86,7 +86,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             require(_proposer == address(0), CustomProposerNotAllowed());
             _proposer = msg.sender;
         } else {
-            require(msg.sender == preconfRouter, NotPreconfTaskManager());
+            require(msg.sender == preconfRouter, NotPreconfRouter());
             require(_proposer != address(0), CustomProposerMissing());
         }
 
