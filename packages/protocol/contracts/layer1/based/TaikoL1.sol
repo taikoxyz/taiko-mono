@@ -107,8 +107,6 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
         bool calldataUsed = _txList.length != 0;
         UpdatedParams memory updatedParams;
 
-        UpdatedParams memory updatedParams;
-
         for (uint256 i; i < _paramsArray.length; ++i) {
             require(calldataUsed || _paramsArray[i].blobIndex != 0, BlobIndexZero());
             updatedParams = _validateBlockParams(
