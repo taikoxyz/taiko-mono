@@ -14,7 +14,7 @@ on:
 
 jobs:
   deploy-docs-site-preview:
-    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && github.event.pull_request.head.repo.fork == false }}
     runs-on: [arc-runner-set]
     steps:
       - name: Install Git
