@@ -129,6 +129,7 @@ func (p *Proposer) InitFromConfig(
 			cfg.ProposeBlockTxGasLimit,
 			cfg.ExtraData,
 			chainConfig,
+			cfg.RevertProtectionEnabled,
 		)
 	} else {
 		p.txBuilder = builder.NewCalldataTransactionBuilder(
@@ -140,6 +141,7 @@ func (p *Proposer) InitFromConfig(
 			cfg.ProposeBlockTxGasLimit,
 			cfg.ExtraData,
 			chainConfig,
+			cfg.RevertProtectionEnabled,
 		)
 	}
 
