@@ -81,12 +81,12 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
             );
         }
 
-        address preconfTaskManager = resolve(LibStrings.B_PRECONF_TASK_MANAGER, true);
-        if (preconfTaskManager == address(0)) {
+        address preconfRouter = resolve(LibStrings.B_PRECONF_ROUTER, true);
+        if (preconfRouter == address(0)) {
             require(_proposer == address(0), CustomProposerNotAllowed());
             _proposer = msg.sender;
         } else {
-            require(msg.sender == preconfTaskManager, NotPreconfTaskManager());
+            require(msg.sender == preconfRouter, NotPreconfRouter());
             require(_proposer != address(0), CustomProposerMissing());
         }
 
@@ -105,19 +105,18 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
 
         metas_ = new BlockMetadataV3[](_paramsArray.length);
         bool calldataUsed = _txList.length != 0;
+        UpdatedParams memory updatedParams;
 
         for (uint256 i; i < _paramsArray.length; ++i) {
             require(calldataUsed || _paramsArray[i].blobIndex != 0, BlobIndexZero());
-            UpdatedParams memory updatedParams =
+            updatedParams =
                 _validateBlockParams(_paramsArray[i], config.maxAnchorHeightOffset, lastBlock);
 
             // This section constructs the metadata for the proposed block, which is crucial for
-            // nodes/clients
-            // to process the block. The metadata itself is not stored on-chain; instead, only its
-            // hash is kept.
+            // nodes/clients to process the block. The metadata itself is not stored on-chain;
+            // instead, only its hash is kept.
             // The metadata must be supplied as calldata prior to proving the block, enabling the
-            // computation
-            // and verification of its integrity through the comparison of the metahash.
+            // computation and verification of its integrity through the comparison of the metahash.
             unchecked {
                 metas_[i] = BlockMetadataV3({
                     difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", stats2.numBlocks)),
@@ -139,6 +138,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
                     blobIndex: calldataUsed ? 0 : _paramsArray[i].blobIndex,
                     anchorBlockId: updatedParams.anchorBlockId,
                     anchorBlockHash: blockhash(updatedParams.anchorBlockId),
+                    anchorInput: _paramsArray[i].anchorInput,
                     baseFeeConfig: config.baseFeeConfig
                 });
             }

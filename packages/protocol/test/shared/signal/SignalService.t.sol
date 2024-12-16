@@ -576,4 +576,59 @@ contract TestSignalService is CommonTest {
             signalRootCached
         );
     }
+
+    function test_SignalService_getSyncedChainData() public {
+        vm.chainId(167_001);
+
+        bytes32 kind = LibStrings.H_STATE_ROOT;
+        uint64 chainId = 32_382;
+        bytes32 expectedChainData = randBytes32();
+
+        vm.prank(deployer);
+        resolver.registerAddress(chainId, "signal_service", randAddress());
+
+        uint64 blockId = 5570;
+        vm.prank(deployer);
+        signalService.syncChainData(chainId, kind, blockId, expectedChainData);
+
+        // Call `getSyncedChainData` and verify the returned values
+        (uint64 returnedBlockId, bytes32 returnedChainData) = signalService.getSyncedChainData(chainId, kind, blockId);
+        assertEq(returnedBlockId, blockId);
+        assertEq(returnedChainData, expectedChainData);
+
+        // Test for topBlockId is returned when blockId is 0
+        uint64 unsetBlockId = 0;
+        expectedChainData = randBytes32();
+        vm.prank(deployer);
+        signalService.syncChainData(chainId, kind, blockId + 1, expectedChainData); // Update the topBlockId
+
+        (uint64 topBlockId, bytes32 topChainData) = signalService.getSyncedChainData(chainId, kind, unsetBlockId);
+        assertEq(topBlockId, blockId + 1);
+        assertEq(topChainData, expectedChainData);
+
+        // Test for an invalid blockId (should revert)
+        uint64 invalidBlockId = blockId + 100; // BlockId that was not synced
+        vm.expectRevert(SignalService.SS_SIGNAL_NOT_FOUND.selector);
+        signalService.getSyncedChainData(chainId, kind, invalidBlockId);
+    }
+
+    function test_SignalService_signalForChainData() public view {
+        uint64 chainId = 32_382;
+        bytes32 kind = LibStrings.H_STATE_ROOT;
+        uint64 blockId = 5570;
+
+        bytes32 expectedHash = keccak256(abi.encode(chainId, kind, blockId));
+        bytes32 returnedHash = signalService.signalForChainData(chainId, kind, blockId);
+        assertEq(returnedHash, expectedHash);
+    }
+
+    function test_SignalService_getSignalSlot() public {
+        uint64 chainId = 32_382;
+        address app = randAddress();
+        bytes32 signal = randBytes32();
+
+        bytes32 expectedSlot = keccak256(abi.encodePacked("SIGNAL", chainId, app, signal));
+        bytes32 returnedSlot = signalService.getSignalSlot(chainId, app, signal);
+        assertEq(returnedSlot, expectedSlot);
+    }
 }

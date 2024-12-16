@@ -9,6 +9,7 @@ interface ITaikoL1 {
     struct BlockParamsV3 {
         bytes32 parentMetaHash;
         uint64 anchorBlockId;
+        bytes32 anchorInput;
         uint64 timestamp;
         uint32 txListOffset;
         uint32 txListSize;
@@ -33,6 +34,7 @@ interface ITaikoL1 {
         uint8 blobIndex;
         uint64 anchorBlockId;
         bytes32 anchorBlockHash;
+        bytes32 anchorInput;
         LibSharedData.BaseFeeConfig baseFeeConfig;
     }
 
@@ -196,7 +198,7 @@ interface ITaikoL1 {
     error MsgValueNotZero();
     error NoBlocksToPropose();
     error NoBlocksToProve();
-    error NotPreconfTaskManager();
+    error NotPreconfRouter();
     error ParentMetaHashMismatch();
     error ProverNotPermitted();
     error TimestampSmallerThanParent();

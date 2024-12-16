@@ -670,7 +670,7 @@ Notice how if the payment is in ERC20 tokens, the payee will be the variable \_m
 
 1.  proposer A approves the assignmentHook contract to spend a portion of their tokens, the allowance is set higher than the actual fee they will be paying.
 2.  proposer A proposes a block, and a fee is charged and payed to the assigned prover, but there remains allowance that the assignment hook contract can still use.
-3.  proposer B proposes a block and sets params.coinbase as the the address of proposer A.
+3.  proposer B proposes a block and sets params.coinbase as the address of proposer A.
 4.  proposer A address will be the payee of the fee for the assigned prover for the block proposed by proposer B.
 
 The scenario above describes how someone can be forced maliciously to pay fees for block proposals by other actors.
@@ -1207,7 +1207,7 @@ When this function is called to un-suspend a message we set `proofReceipt[msgHas
 
 `bridge_watchdog` can therefore forge arbitrary messages and have them treated as proven by first suspending them and then un-suspending them.
 
-`bride_watchdog` is supposed to only be able to ban and suspend messages, in the expected worst case `bridge_watchdog` is limited to DDOSing messages and bans until governance removes the the `bridge_watchdog`.
+`bride_watchdog` is supposed to only be able to ban and suspend messages, in the expected worst case `bridge_watchdog` is limited to DDOSing messages and bans until governance removes the `bridge_watchdog`.
 
 With the privilege escalation shown here the role can instead drain the bridge of all ETH and tokens.
 
