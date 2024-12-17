@@ -29,6 +29,8 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
     /// @notice Golden touch address is the only address that can do the anchor transaction.
     address public constant GOLDEN_TOUCH_ADDRESS = 0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
 
+    uint64 public immutable pacayaForkHeight;
+
     /// @notice Mapping from L2 block numbers to their block hashes. All L2 block hashes will
     /// be saved in this mapping.
     mapping(uint256 blockId => bytes32 blockHash) private _blockhashes;
@@ -89,6 +91,10 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
     modifier onlyGoldenTouch() {
         require(msg.sender == GOLDEN_TOUCH_ADDRESS, L2_INVALID_SENDER());
         _;
+    }
+
+    constructor(uint64 _pacayaForkHeight) {
+        pacayaForkHeight = _pacayaForkHeight;
     }
 
     /// @notice Initializes the contract.
@@ -154,7 +160,7 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
         onlyGoldenTouch
         nonReentrant
     {
-        require(block.number >= pacayaForkHeight(), L2_FORK_ERROR());
+        require(block.number >= pacayaForkHeight, L2_FORK_ERROR());
 
         anchorInput = _anchorInput;
 
@@ -237,12 +243,6 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
     /// @return Returns true to skip checking basefee mismatch.
     function skipFeeCheck() public pure virtual returns (bool) {
         return false;
-    }
-
-    /// @notice Returns the Ontake fork height.
-    /// @return The Ontake fork height.
-    function pacayaForkHeight() public pure virtual returns (uint64) {
-        return 0;
     }
 
     /// @dev Synchronizes chain data with the given anchor block ID and state root.
