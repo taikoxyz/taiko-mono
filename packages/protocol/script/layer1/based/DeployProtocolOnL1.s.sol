@@ -151,14 +151,14 @@ contract DeployProtocolOnL1 is DeployCapability {
         deployProxy({
             name: "signal_service",
             impl: address(new MainnetSignalService()),
-            data: abi.encodeCall(MainnetSignalService.init, (address(0), sharedResolver)),
+            data: abi.encodeCall(SignalService.init, (address(0), sharedResolver)),
             registerTo: sharedResolver
         });
 
         address brdige = deployProxy({
             name: "bridge",
             impl: address(new MainnetBridge()),
-            data: abi.encodeCall(MainnetBridge.init, (address(0), sharedResolver)),
+            data: abi.encodeCall(Bridge.init, (address(0), sharedResolver)),
             registerTo: sharedResolver
         });
 
@@ -181,21 +181,21 @@ contract DeployProtocolOnL1 is DeployCapability {
         deployProxy({
             name: "erc20_vault",
             impl: address(new MainnetERC20Vault()),
-            data: abi.encodeCall(MainnetERC20Vault.init, (owner, sharedResolver)),
+            data: abi.encodeCall(ERC20Vault.init, (owner, sharedResolver)),
             registerTo: sharedResolver
         });
 
         deployProxy({
             name: "erc721_vault",
             impl: address(new MainnetERC721Vault()),
-            data: abi.encodeCall(MainnetERC721Vault.init, (owner, sharedResolver)),
+            data: abi.encodeCall(ERC721Vault.init, (owner, sharedResolver)),
             registerTo: sharedResolver
         });
 
         deployProxy({
             name: "erc1155_vault",
             impl: address(new MainnetERC1155Vault()),
-            data: abi.encodeCall(MainnetERC1155Vault.init, (owner, sharedResolver)),
+            data: abi.encodeCall(ERC1155Vault.init, (owner, sharedResolver)),
             registerTo: sharedResolver
         });
 
@@ -247,7 +247,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             name: "mainnet_taiko",
             impl: address(new MainnetInbox()),
             data: abi.encodeCall(
-                MainnetInbox.init,
+                TaikoInbox.init,
                 (owner, rollupResolver, vm.envBytes32("L2_GENESIS_HASH"), vm.envBool("PAUSE_TAIKO_L1"))
             )
         });
