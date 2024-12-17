@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "../libs/LibEIP4788.sol";
-import "../../based/ITaikoL1.sol";
+import "../../based/ITaikoInbox.sol";
 
 /// @title IPreconfTaskManager
 /// @custom:security-contact security@taiko.xyz
@@ -62,7 +62,7 @@ interface IPreconfTaskManager {
     /// @dev Accepts block proposal by an operator and forwards it to Taiko contract
     function proposeBlocksV3(
         address coinbase,
-        ITaikoL1.BlockParamsV3[] calldata blockParams,
+        ITaikoInbox.BlockParamsV3[] calldata blockParams,
         bytes calldata txList,
         uint256 lookaheadPointer,
         LookaheadSetParam[] calldata lookaheadSetParams

@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../based/TaikoL1.sol";
+import "../based/TaikoInbox.sol";
 
 /// @title DevnetTaikoL1
 /// @dev Labeled in address resolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
-contract DevnetTaikoL1 is TaikoL1 {
-    /// @inheritdoc ITaikoL1
-    function getConfigV3() public pure override returns (ITaikoL1.ConfigV3 memory) {
-        return ITaikoL1.ConfigV3({
+contract DevnetTaikoL1 is TaikoInbox {
+    /// @inheritdoc ITaikoInbox
+    function getConfigV3() public pure override returns (ITaikoInbox.ConfigV3 memory) {
+        return ITaikoInbox.ConfigV3({
             chainId: 167_001,
             blockMaxProposals: 324_000,
             blockRingBufferSize: 360_000,
@@ -27,7 +27,7 @@ contract DevnetTaikoL1 is TaikoL1 {
             }),
             provingWindow: 2 hours,
             maxSignalsToReceive: 16,
-            forkHeights: ITaikoL1.ForkHeights({ ontake: 0, pacaya: 0 })
+            forkHeights: ITaikoInbox.ForkHeights({ ontake: 0, pacaya: 0 })
         });
     }
 }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/layer1/based/TaikoL1.sol";
+import "src/layer1/based/TaikoInbox.sol";
 import "src/shared/libs/LibNetwork.sol";
 import "./libs/LibFasterReentryLock.sol";
 
@@ -10,13 +10,13 @@ import "./libs/LibFasterReentryLock.sol";
 /// mainnet to reduce gas cost.
 /// @notice See the documentation in {TaikoL1}.
 /// @custom:security-contact security@taiko.xyz
-contract MainnetTaikoL1 is TaikoL1 {
-    function getConfigV3() public pure override returns (ITaikoL1.ConfigV3 memory) {
+contract MainnetInbox is TaikoInbox {
+    function getConfigV3() public pure override returns (ITaikoInbox.ConfigV3 memory) {
         // All hard-coded configurations:
         // - treasury: the actual TaikoL2 address.
         // - anchorGasLimit: 250_000 (based on internal devnet, its ~220_000
         // after 256 L2 blocks)
-        return ITaikoL1.ConfigV3({
+        return ITaikoInbox.ConfigV3({
             chainId: LibNetwork.TAIKO_MAINNET,
             // Ring buffers are being reused on the mainnet, therefore the following two
             // configuration values must NEVER be changed!!!
@@ -36,7 +36,7 @@ contract MainnetTaikoL1 is TaikoL1 {
              }),
             provingWindow: 2 hours,
             maxSignalsToReceive: 16,
-            forkHeights: ITaikoL1.ForkHeights({
+            forkHeights: ITaikoInbox.ForkHeights({
                 ontake: 538_304,
                 pacaya: 538_304 * 10 // TODO
              })

@@ -3,9 +3,9 @@ pragma solidity ^0.8.24;
 
 import "src/shared/based/LibSharedData.sol";
 
-/// @title ITaikoL1
+/// @title ITaikoInbox
 /// @custom:security-contact security@taiko.xyz
-interface ITaikoL1 {
+interface ITaikoInbox {
     struct BlockParamsV3 {
         bytes32 parentMetaHash;
         uint64 anchorBlockId;
@@ -280,7 +280,7 @@ interface ITaikoL1 {
     )
         external
         view
-        returns (ITaikoL1.TransitionV3 memory);
+        returns (ITaikoInbox.TransitionV3 memory);
 
     /// @notice Retrieves the transition used for the last verified block.
     /// @return blockId_ The block ID of the last verified transition.

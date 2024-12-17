@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import "contracts/layer1/based/ITaikoL1.sol";
-import "./TaikoL1TestBase.sol";
+import "contracts/layer1/based/ITaikoInbox.sol";
+import "./InboxTestBase.sol";
 
-contract TaikoL1Test_EtherAsBond is TaikoL1TestBase {
-    function getConfig() internal pure override returns (ITaikoL1.ConfigV3 memory) {
-        return ITaikoL1.ConfigV3({
+contract InboxTest_EtherAsBond is InboxTestBase {
+    function getConfig() internal pure override returns (ITaikoInbox.ConfigV3 memory) {
+        return ITaikoInbox.ConfigV3({
             chainId: LibNetwork.TAIKO_MAINNET,
             blockMaxProposals: 10,
             blockRingBufferSize: 15,
@@ -24,7 +24,7 @@ contract TaikoL1Test_EtherAsBond is TaikoL1TestBase {
              }),
             provingWindow: 1 hours,
             maxSignalsToReceive: 16,
-            forkHeights: ITaikoL1.ForkHeights({ ontake: 0, pacaya: 0 })
+            forkHeights: ITaikoInbox.ForkHeights({ ontake: 0, pacaya: 0 })
         });
     }
 
@@ -35,7 +35,7 @@ contract TaikoL1Test_EtherAsBond is TaikoL1TestBase {
         bondToken = TaikoToken(address(0));
     }
 
-    function test_taikoL1_deposit_withdraw() external {
+    function test_inbox_deposit_withdraw() external {
         vm.warp(1_000_000);
         vm.deal(Alice, 1000 ether);
 
@@ -43,15 +43,15 @@ contract TaikoL1Test_EtherAsBond is TaikoL1TestBase {
         uint256 withdrawAmount = 0.5 ether;
 
         vm.prank(Alice);
-        taikoL1.depositBond{ value: depositAmount }(depositAmount);
-        assertEq(taikoL1.bondBalanceOf(Alice), depositAmount);
+        inbox.depositBond{ value: depositAmount }(depositAmount);
+        assertEq(inbox.bondBalanceOf(Alice), depositAmount);
 
         vm.prank(Alice);
-        taikoL1.withdrawBond(withdrawAmount);
-        assertEq(taikoL1.bondBalanceOf(Alice), depositAmount - withdrawAmount);
+        inbox.withdrawBond(withdrawAmount);
+        assertEq(inbox.bondBalanceOf(Alice), depositAmount - withdrawAmount);
     }
 
-    function test_taikoL1_withdraw_more_than_bond_balance() external {
+    function test_inbox_withdraw_more_than_bond_balance() external {
         vm.warp(1_000_000);
         vm.deal(Alice, 1000 ether);
 
@@ -59,14 +59,14 @@ contract TaikoL1Test_EtherAsBond is TaikoL1TestBase {
         uint256 withdrawAmount = 2 ether;
 
         vm.prank(Alice);
-        taikoL1.depositBond{ value: depositAmount }(depositAmount);
+        inbox.depositBond{ value: depositAmount }(depositAmount);
 
         vm.prank(Alice);
-        vm.expectRevert(ITaikoL1.InsufficientBond.selector);
-        taikoL1.withdrawBond(withdrawAmount);
+        vm.expectRevert(ITaikoInbox.InsufficientBond.selector);
+        inbox.withdrawBond(withdrawAmount);
     }
 
-    function test_taikoL1_exceeding_balance() external {
+    function test_inbox_exceeding_balance() external {
         vm.warp(1_000_000);
         vm.deal(Alice, 0.5 ether);
 
@@ -74,32 +74,32 @@ contract TaikoL1Test_EtherAsBond is TaikoL1TestBase {
 
         vm.prank(Alice);
         vm.expectRevert();
-        taikoL1.depositBond{ value: depositAmount }(depositAmount);
+        inbox.depositBond{ value: depositAmount }(depositAmount);
     }
 
-    function test_taikoL1_overpayment_of_ether() external {
+    function test_inbox_overpayment_of_ether() external {
         vm.warp(1_000_000);
         vm.deal(Alice, 1000 ether);
 
         uint256 depositAmount = 1 ether;
 
         vm.prank(Alice);
-        vm.expectRevert(ITaikoL1.EtherNotPaidAsBond.selector);
-        taikoL1.depositBond{ value: depositAmount + 1 }(depositAmount);
+        vm.expectRevert(ITaikoInbox.EtherNotPaidAsBond.selector);
+        inbox.depositBond{ value: depositAmount + 1 }(depositAmount);
     }
 
-    function test_taikoL1_eth_not_paid_as_bond_on_deposit() external {
+    function test_inbox_eth_not_paid_as_bond_on_deposit() external {
         vm.warp(1_000_000);
         vm.deal(Alice, 1000 ether);
 
         uint256 depositAmount = 1 ether;
 
         vm.prank(Alice);
-        vm.expectRevert(ITaikoL1.EtherNotPaidAsBond.selector);
-        taikoL1.depositBond{ value: 0 }(depositAmount);
+        vm.expectRevert(ITaikoInbox.EtherNotPaidAsBond.selector);
+        inbox.depositBond{ value: 0 }(depositAmount);
     }
 
-    function test_taikoL1_bond_balance_after_multiple_operations() external {
+    function test_inbox_bond_balance_after_multiple_operations() external {
         vm.warp(1_000_000);
         vm.deal(Alice, 1000 ether);
         vm.deal(Bob, 50 ether);
@@ -113,39 +113,38 @@ contract TaikoL1Test_EtherAsBond is TaikoL1TestBase {
         uint256 bobWithdraw = 2 ether;
 
         vm.prank(Alice);
-        taikoL1.depositBond{ value: aliceFirstDeposit }(aliceFirstDeposit);
-        assertEq(taikoL1.bondBalanceOf(Alice), aliceFirstDeposit);
+        inbox.depositBond{ value: aliceFirstDeposit }(aliceFirstDeposit);
+        assertEq(inbox.bondBalanceOf(Alice), aliceFirstDeposit);
 
         vm.prank(Bob);
-        taikoL1.depositBond{ value: bobDeposit }(bobDeposit);
-        assertEq(taikoL1.bondBalanceOf(Bob), bobDeposit);
+        inbox.depositBond{ value: bobDeposit }(bobDeposit);
+        assertEq(inbox.bondBalanceOf(Bob), bobDeposit);
 
         vm.prank(Alice);
-        taikoL1.depositBond{ value: aliceSecondDeposit }(aliceSecondDeposit);
-        assertEq(taikoL1.bondBalanceOf(Alice), aliceFirstDeposit + aliceSecondDeposit);
+        inbox.depositBond{ value: aliceSecondDeposit }(aliceSecondDeposit);
+        assertEq(inbox.bondBalanceOf(Alice), aliceFirstDeposit + aliceSecondDeposit);
 
         vm.prank(Bob);
-        taikoL1.withdrawBond(bobWithdraw);
-        assertEq(taikoL1.bondBalanceOf(Bob), bobDeposit - bobWithdraw);
+        inbox.withdrawBond(bobWithdraw);
+        assertEq(inbox.bondBalanceOf(Bob), bobDeposit - bobWithdraw);
 
         vm.prank(Alice);
-        taikoL1.withdrawBond(aliceFirstWithdraw);
+        inbox.withdrawBond(aliceFirstWithdraw);
         assertEq(
-            taikoL1.bondBalanceOf(Alice),
-            aliceFirstDeposit + aliceSecondDeposit - aliceFirstWithdraw
+            inbox.bondBalanceOf(Alice), aliceFirstDeposit + aliceSecondDeposit - aliceFirstWithdraw
         );
 
         vm.prank(Alice);
-        taikoL1.withdrawBond(aliceSecondWithdraw);
+        inbox.withdrawBond(aliceSecondWithdraw);
         assertEq(
-            taikoL1.bondBalanceOf(Alice),
+            inbox.bondBalanceOf(Alice),
             aliceFirstDeposit + aliceSecondDeposit - aliceFirstWithdraw - aliceSecondWithdraw
         );
 
         assertEq(
-            taikoL1.bondBalanceOf(Alice),
+            inbox.bondBalanceOf(Alice),
             aliceFirstDeposit + aliceSecondDeposit - aliceFirstWithdraw - aliceSecondWithdraw
         );
-        assertEq(taikoL1.bondBalanceOf(Bob), bobDeposit - bobWithdraw);
+        assertEq(inbox.bondBalanceOf(Bob), bobDeposit - bobWithdraw);
     }
 }

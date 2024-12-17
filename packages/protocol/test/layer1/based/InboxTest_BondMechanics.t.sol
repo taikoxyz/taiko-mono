@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import "contracts/layer1/based/ITaikoL1.sol";
-import "./TaikoL1TestBase.sol";
+import "contracts/layer1/based/ITaikoInbox.sol";
+import "./InboxTestBase.sol";
 
-contract TaikoL1Test_BondMechanics is TaikoL1TestBase {
+contract InboxTest_BondMechanics is InboxTestBase {
     uint16 constant provingWindow = 1 hours;
 
-    function getConfig() internal pure override returns (ITaikoL1.ConfigV3 memory) {
-        return ITaikoL1.ConfigV3({
+    function getConfig() internal pure override returns (ITaikoInbox.ConfigV3 memory) {
+        return ITaikoInbox.ConfigV3({
             chainId: LibNetwork.TAIKO_MAINNET,
             blockMaxProposals: 10,
             blockRingBufferSize: 15,
@@ -26,7 +26,7 @@ contract TaikoL1Test_BondMechanics is TaikoL1TestBase {
              }),
             provingWindow: provingWindow,
             maxSignalsToReceive: 16,
-            forkHeights: ITaikoL1.ForkHeights({ ontake: 0, pacaya: 0 })
+            forkHeights: ITaikoInbox.ForkHeights({ ontake: 0, pacaya: 0 })
         });
     }
 
@@ -35,7 +35,7 @@ contract TaikoL1Test_BondMechanics is TaikoL1TestBase {
         bondToken = deployBondToken();
     }
 
-    function test_taikoL1_bonds_debit_and_credit_on_proposal_and_proof() external {
+    function test_inbox_bonds_debit_and_credit_on_proposal_and_proof() external {
         vm.warp(1_000_000);
 
         uint256 initialBondBalance = 100_000 ether;
@@ -45,12 +45,12 @@ contract TaikoL1Test_BondMechanics is TaikoL1TestBase {
 
         vm.prank(Alice);
         uint64[] memory blockIds = _proposeBlocksWithDefaultParameters({ numBlocksToPropose: 1 });
-        assertEq(taikoL1.bondBalanceOf(Alice) < bondAmount, true);
+        assertEq(inbox.bondBalanceOf(Alice) < bondAmount, true);
 
         vm.prank(Alice);
         _proveBlocksWithCorrectTransitions(blockIds);
 
-        assertEq(taikoL1.bondBalanceOf(Alice), bondAmount);
+        assertEq(inbox.bondBalanceOf(Alice), bondAmount);
     }
 
     function test_only_proposer_can_prove_block_before_deadline() external {
@@ -64,16 +64,16 @@ contract TaikoL1Test_BondMechanics is TaikoL1TestBase {
 
         vm.prank(Alice);
         uint64[] memory blockIds = _proposeBlocksWithDefaultParameters({ numBlocksToPropose: 1 });
-        assertEq(taikoL1.bondBalanceOf(Alice) < bondAmount, true);
+        assertEq(inbox.bondBalanceOf(Alice) < bondAmount, true);
 
         vm.prank(Bob);
-        vm.expectRevert(ITaikoL1.ProverNotPermitted.selector);
+        vm.expectRevert(ITaikoInbox.ProverNotPermitted.selector);
         _proveBlocksWithCorrectTransitions(blockIds);
 
-        assertEq(taikoL1.bondBalanceOf(Bob), bondAmount);
+        assertEq(inbox.bondBalanceOf(Bob), bondAmount);
     }
 
-    function test_taikoL1_bonds_debited_on_proposal_not_credited_back_if_proved_after_deadline()
+    function test_inbox_bonds_debited_on_proposal_not_credited_back_if_proved_after_deadline()
         external
     {
         vm.warp(1_000_000);
@@ -86,7 +86,7 @@ contract TaikoL1Test_BondMechanics is TaikoL1TestBase {
         vm.prank(Alice);
         uint64[] memory blockIds = _proposeBlocksWithDefaultParameters({ numBlocksToPropose: 1 });
 
-        uint256 aliceBondBalanceAfterProposal = taikoL1.bondBalanceOf(Alice);
+        uint256 aliceBondBalanceAfterProposal = inbox.bondBalanceOf(Alice);
         assertEq(aliceBondBalanceAfterProposal < bondAmount, true);
 
         // Simulate waiting for blocks after proving deadline
@@ -97,12 +97,12 @@ contract TaikoL1Test_BondMechanics is TaikoL1TestBase {
         vm.prank(Alice);
         _proveBlocksWithCorrectTransitions(blockIds);
 
-        uint256 aliceBondBalanceAfterProof = taikoL1.bondBalanceOf(Alice);
+        uint256 aliceBondBalanceAfterProof = inbox.bondBalanceOf(Alice);
         assertEq(aliceBondBalanceAfterProof, aliceBondBalanceAfterProposal);
         assertEq(aliceBondBalanceAfterProof < bondAmount, true);
     }
 
-    function test_taikoL1_bonds_debit_and_credit_on_proposal_and_proof_with_exact_proving_window()
+    function test_inbox_bonds_debit_and_credit_on_proposal_and_proof_with_exact_proving_window()
         external
     {
         vm.warp(1_000_000);
@@ -115,7 +115,7 @@ contract TaikoL1Test_BondMechanics is TaikoL1TestBase {
         vm.prank(Alice);
         uint64[] memory blockIds = _proposeBlocksWithDefaultParameters({ numBlocksToPropose: 1 });
 
-        uint256 aliceBondBalanceAfterProposal = taikoL1.bondBalanceOf(Alice);
+        uint256 aliceBondBalanceAfterProposal = inbox.bondBalanceOf(Alice);
         assertEq(aliceBondBalanceAfterProposal < bondAmount, true);
 
         // Simulate waiting for exactly the proving window
@@ -126,6 +126,6 @@ contract TaikoL1Test_BondMechanics is TaikoL1TestBase {
         vm.prank(Alice);
         _proveBlocksWithCorrectTransitions(blockIds);
 
-        assertEq(taikoL1.bondBalanceOf(Alice), bondAmount);
+        assertEq(inbox.bondBalanceOf(Alice), bondAmount);
     }
 }

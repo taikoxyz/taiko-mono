@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
-import "src/layer1/hekla/HeklaTaikoL1.sol";
+import "src/layer1/hekla/HeklaInbox.sol";
 import "src/shared/bridge/Bridge.sol";
 import "src/layer1/provers/ProverSet.sol";
 import "script/BaseScript.sol";
@@ -11,7 +11,7 @@ contract UpgradeHeklaOntakeL1 is BaseScript {
     function run() external broadcast {
         // Taiko
         UUPSUpgradeable(0x79C9109b764609df928d16fC4a91e9081F7e87DB).upgradeTo(
-            address(new HeklaTaikoL1())
+            address(new HeklaInbox())
         );
         // Bridge
         UUPSUpgradeable(0xA098b76a3Dd499D3F6D58D8AcCaFC8efBFd06807).upgradeTo(address(new Bridge()));

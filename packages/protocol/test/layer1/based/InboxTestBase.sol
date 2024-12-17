@@ -4,22 +4,22 @@ pragma solidity ^0.8.24;
 import "../Layer1Test.sol";
 import "test/layer1/based/helpers/Verifier_ToggleStub.sol";
 
-abstract contract TaikoL1TestBase is Layer1Test {
-    mapping(uint256 => ITaikoL1.BlockMetadataV3) internal blockMetadatas;
-    ITaikoL1 internal taikoL1;
+abstract contract InboxTestBase is Layer1Test {
+    mapping(uint256 => ITaikoInbox.BlockMetadataV3) internal blockMetadatas;
+    ITaikoInbox internal inbox;
     TaikoToken internal bondToken;
     SignalService internal signalService;
     uint256 genesisBlockProposedAt;
     uint256 genesisBlockProposedIn;
 
-    function getConfig() internal view virtual returns (ITaikoL1.ConfigV3 memory);
+    function getConfig() internal view virtual returns (ITaikoInbox.ConfigV3 memory);
 
     modifier transactBy(address transactor) override {
         vm.deal(transactor, 100 ether);
         if (bondToken != TaikoToken(address(0))) {
             bondToken.transfer(transactor, 10_000 ether);
             vm.startPrank(transactor);
-            bondToken.approve(address(taikoL1), type(uint256).max);
+            bondToken.approve(address(inbox), type(uint256).max);
         } else {
             vm.startPrank(transactor);
         }
@@ -32,10 +32,10 @@ abstract contract TaikoL1TestBase is Layer1Test {
         genesisBlockProposedAt = block.timestamp;
         genesisBlockProposedIn = block.number;
 
-        taikoL1 = deployTaikoL1(correctBlockhash(0), getConfig());
+        inbox = deployInbox(correctBlockhash(0), getConfig());
 
         signalService = deploySignalService(address(new SignalService()));
-        signalService.authorize(address(taikoL1), true);
+        signalService.authorize(address(inbox), true);
 
         resolver.registerAddress(
             block.chainid, "proof_verifier", address(new Verifier_ToggleStub())
@@ -88,11 +88,11 @@ abstract contract TaikoL1TestBase is Layer1Test {
         internal
         returns (uint64[] memory blockIds)
     {
-        ITaikoL1.BlockParamsV3[] memory blockParams =
-            new ITaikoL1.BlockParamsV3[](numBlocksToPropose);
+        ITaikoInbox.BlockParamsV3[] memory blockParams =
+            new ITaikoInbox.BlockParamsV3[](numBlocksToPropose);
 
-        ITaikoL1.BlockMetadataV3[] memory metas =
-            taikoL1.proposeBlocksV3(address(0), address(0), blockParams, txList);
+        ITaikoInbox.BlockMetadataV3[] memory metas =
+            inbox.proposeBlocksV3(address(0), address(0), blockParams, txList);
 
         // Initialize blockIds array
         blockIds = new uint64[](metas.length);
@@ -103,8 +103,10 @@ abstract contract TaikoL1TestBase is Layer1Test {
     }
 
     function _proveBlocksWithCorrectTransitions(uint64[] memory blockIds) internal {
-        ITaikoL1.BlockMetadataV3[] memory metas = new ITaikoL1.BlockMetadataV3[](blockIds.length);
-        ITaikoL1.TransitionV3[] memory transitions = new ITaikoL1.TransitionV3[](blockIds.length);
+        ITaikoInbox.BlockMetadataV3[] memory metas =
+            new ITaikoInbox.BlockMetadataV3[](blockIds.length);
+        ITaikoInbox.TransitionV3[] memory transitions =
+            new ITaikoInbox.TransitionV3[](blockIds.length);
 
         for (uint256 i; i < metas.length; ++i) {
             metas[i] = blockMetadatas[blockIds[i]];
@@ -113,12 +115,14 @@ abstract contract TaikoL1TestBase is Layer1Test {
             transitions[i].stateRoot = correctStateRoot(blockIds[i]);
         }
 
-        taikoL1.proveBlocksV3(metas, transitions, "proof");
+        inbox.proveBlocksV3(metas, transitions, "proof");
     }
 
     function _proveBlocksWithWrongTransitions(uint64[] memory blockIds) internal {
-        ITaikoL1.BlockMetadataV3[] memory metas = new ITaikoL1.BlockMetadataV3[](blockIds.length);
-        ITaikoL1.TransitionV3[] memory transitions = new ITaikoL1.TransitionV3[](blockIds.length);
+        ITaikoInbox.BlockMetadataV3[] memory metas =
+            new ITaikoInbox.BlockMetadataV3[](blockIds.length);
+        ITaikoInbox.TransitionV3[] memory transitions =
+            new ITaikoInbox.TransitionV3[](blockIds.length);
 
         for (uint256 i; i < metas.length; ++i) {
             metas[i] = blockMetadatas[blockIds[i]];
@@ -127,16 +131,16 @@ abstract contract TaikoL1TestBase is Layer1Test {
             transitions[i].stateRoot = randBytes32();
         }
 
-        taikoL1.proveBlocksV3(metas, transitions, "proof");
+        inbox.proveBlocksV3(metas, transitions, "proof");
     }
 
     function _logAllBlocksAndTransitions() internal view {
         console2.log(unicode"|───────────────────────────────────────────────────────────────");
-        ITaikoL1.Stats1 memory stats1 = taikoL1.getStats1();
+        ITaikoInbox.Stats1 memory stats1 = inbox.getStats1();
         console2.log("Stats1 - lastSyncedBlockId:", stats1.lastSyncedBlockId);
         console2.log("Stats1 - lastSyncedAt:", stats1.lastSyncedAt);
 
-        ITaikoL1.Stats2 memory stats2 = taikoL1.getStats2();
+        ITaikoInbox.Stats2 memory stats2 = inbox.getStats2();
         console2.log("Stats2 - numBlocks:", stats2.numBlocks);
         console2.log("Stats2 - lastVerifiedBlockId:", stats2.lastVerifiedBlockId);
         console2.log("Stats2 - paused:", stats2.paused);
@@ -151,7 +155,7 @@ abstract contract TaikoL1TestBase is Layer1Test {
             : 0;
 
         for (uint64 i = firstBlockId; i < stats2.numBlocks; ++i) {
-            ITaikoL1.BlockV3 memory blk = taikoL1.getBlockV3(i);
+            ITaikoInbox.BlockV3 memory blk = inbox.getBlockV3(i);
             if (blk.blockId <= stats2.lastVerifiedBlockId) {
                 console2.log(unicode"|─ ✔ block#", blk.blockId);
             } else {
@@ -164,7 +168,7 @@ abstract contract TaikoL1TestBase is Layer1Test {
             console2.log(unicode"│    |── verifiedTransitionId:", blk.verifiedTransitionId);
 
             for (uint24 j = 1; j < blk.nextTransitionId; ++j) {
-                ITaikoL1.TransitionV3 memory tran = taikoL1.getTransitionV3(blk.blockId, j);
+                ITaikoInbox.TransitionV3 memory tran = inbox.getTransitionV3(blk.blockId, j);
                 console2.log(unicode"│    |── transition#", j);
                 console2.log(
                     unicode"│    │    |── parentHash:",
@@ -207,7 +211,7 @@ abstract contract TaikoL1TestBase is Layer1Test {
         bondToken.transfer(to, amountTko);
 
         vm.prank(to);
-        bondToken.approve(address(taikoL1), amountTko);
+        bondToken.approve(address(inbox), amountTko);
 
         console2.log("Bond balance :", to, bondToken.balanceOf(to));
     }
@@ -223,10 +227,10 @@ abstract contract TaikoL1TestBase is Layer1Test {
         bondToken.transfer(user, initialBondBalance);
 
         vm.prank(user);
-        bondToken.approve(address(taikoL1), bondAmount);
+        bondToken.approve(address(inbox), bondAmount);
 
         vm.prank(user);
-        taikoL1.depositBond(bondAmount);
+        inbox.depositBond(bondAmount);
     }
 
     function simulateBlockDelay(uint256 secondsPerBlock, uint256 blocksToWait) internal {

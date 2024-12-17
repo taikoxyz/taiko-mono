@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import "./TaikoL1TestBase.sol";
+import "./InboxTestBase.sol";
 
-contract TaikoL1Test_Suite1 is TaikoL1TestBase {
-    function getConfig() internal pure override returns (ITaikoL1.ConfigV3 memory) {
-        return ITaikoL1.ConfigV3({
+contract InboxTest_Suite1 is InboxTestBase {
+    function getConfig() internal pure override returns (ITaikoInbox.ConfigV3 memory) {
+        return ITaikoInbox.ConfigV3({
             chainId: LibNetwork.TAIKO_MAINNET,
             blockMaxProposals: 10,
             blockRingBufferSize: 15,
@@ -23,7 +23,7 @@ contract TaikoL1Test_Suite1 is TaikoL1TestBase {
              }),
             provingWindow: 1 hours,
             maxSignalsToReceive: 16,
-            forkHeights: ITaikoL1.ForkHeights({ ontake: 0, pacaya: 0 })
+            forkHeights: ITaikoInbox.ForkHeights({ ontake: 0, pacaya: 0 })
         });
     }
 
@@ -32,13 +32,13 @@ contract TaikoL1Test_Suite1 is TaikoL1TestBase {
         bondToken = deployBondToken();
     }
 
-    function test_taikol1_query_right_after_genesis_block() external view {
+    function test_inbox_query_right_after_genesis_block() external view {
         // - All stats are correct and expected
-        ITaikoL1.Stats1 memory stats1 = taikoL1.getStats1();
+        ITaikoInbox.Stats1 memory stats1 = inbox.getStats1();
         assertEq(stats1.lastSyncedBlockId, 0);
         assertEq(stats1.lastSyncedAt, 0);
 
-        ITaikoL1.Stats2 memory stats2 = taikoL1.getStats2();
+        ITaikoInbox.Stats2 memory stats2 = inbox.getStats2();
         assertEq(stats2.numBlocks, 1);
         assertEq(stats2.lastVerifiedBlockId, 0);
         assertEq(stats2.paused, false);
@@ -46,7 +46,7 @@ contract TaikoL1Test_Suite1 is TaikoL1TestBase {
         assertEq(stats2.lastUnpausedAt, 0);
 
         // - Verify genesis block
-        ITaikoL1.BlockV3 memory blk = taikoL1.getBlockV3(0);
+        ITaikoInbox.BlockV3 memory blk = inbox.getBlockV3(0);
         assertEq(blk.blockId, 0);
         assertEq(blk.metaHash, bytes32(uint256(1)));
         assertEq(blk.timestamp, genesisBlockProposedAt);
@@ -54,23 +54,23 @@ contract TaikoL1Test_Suite1 is TaikoL1TestBase {
         assertEq(blk.nextTransitionId, 2);
         assertEq(blk.verifiedTransitionId, 1);
 
-        (uint64 blockId, ITaikoL1.TransitionV3 memory tran) = taikoL1.getLastVerifiedTransitionV3();
+        (uint64 blockId, ITaikoInbox.TransitionV3 memory tran) = inbox.getLastVerifiedTransitionV3();
         assertEq(blockId, 0);
         assertEq(tran.blockHash, correctBlockhash(0));
         assertEq(tran.stateRoot, bytes32(uint256(0)));
 
-        (blockId, tran) = taikoL1.getLastSyncedTransitionV3();
+        (blockId, tran) = inbox.getLastSyncedTransitionV3();
         assertEq(blockId, 0);
         assertEq(tran.blockHash, correctBlockhash(0));
         assertEq(tran.stateRoot, bytes32(uint256(0)));
     }
 
-    function test_taikol1_query_blocks_not_exist_will_revert() external {
-        vm.expectRevert(ITaikoL1.BlockNotFound.selector);
-        taikoL1.getBlockV3(1);
+    function test_inbox_query_blocks_not_exist_will_revert() external {
+        vm.expectRevert(ITaikoInbox.BlockNotFound.selector);
+        inbox.getBlockV3(1);
     }
 
-    function test_taikol1_max_block_proposal()
+    function test_inbox_max_block_proposal()
         external
         transactBy(Alice)
         WhenMultipleBlocksAreProposedWithDefaultParameters(9)
@@ -78,11 +78,11 @@ contract TaikoL1Test_Suite1 is TaikoL1TestBase {
     {
         // - All stats are correct and expected
 
-        ITaikoL1.Stats1 memory stats1 = taikoL1.getStats1();
+        ITaikoInbox.Stats1 memory stats1 = inbox.getStats1();
         assertEq(stats1.lastSyncedBlockId, 0);
         assertEq(stats1.lastSyncedAt, 0);
 
-        ITaikoL1.Stats2 memory stats2 = taikoL1.getStats2();
+        ITaikoInbox.Stats2 memory stats2 = inbox.getStats2();
         assertEq(stats2.numBlocks, 10);
         assertEq(stats2.lastVerifiedBlockId, 0);
         assertEq(stats2.paused, false);
@@ -90,7 +90,7 @@ contract TaikoL1Test_Suite1 is TaikoL1TestBase {
         assertEq(stats2.lastUnpausedAt, 0);
 
         // - Verify genesis block
-        ITaikoL1.BlockV3 memory blk = taikoL1.getBlockV3(0);
+        ITaikoInbox.BlockV3 memory blk = inbox.getBlockV3(0);
         assertEq(blk.blockId, 0);
         assertEq(blk.metaHash, bytes32(uint256(1)));
         assertEq(blk.timestamp, genesisBlockProposedAt);
@@ -100,7 +100,7 @@ contract TaikoL1Test_Suite1 is TaikoL1TestBase {
 
         // Verify block data
         for (uint64 i = 1; i < 10; ++i) {
-            blk = taikoL1.getBlockV3(i);
+            blk = inbox.getBlockV3(i);
             assertEq(blk.blockId, i);
             assertEq(blk.metaHash, keccak256(abi.encode(blockMetadatas[i])));
 
@@ -111,22 +111,22 @@ contract TaikoL1Test_Suite1 is TaikoL1TestBase {
         }
 
         // - Proposing one block block will revert
-        vm.expectRevert(ITaikoL1.TooManyBlocks.selector);
+        vm.expectRevert(ITaikoInbox.TooManyBlocks.selector);
         _proposeBlocksWithDefaultParameters({ numBlocksToPropose: 1 });
     }
 
-    function test_taikol1_exceed_max_block_proposal_will_revert()
+    function test_inbox_exceed_max_block_proposal_will_revert()
         external
         transactBy(Alice)
         WhenMultipleBlocksAreProposedWithDefaultParameters(9)
         WhenLogAllBlocksAndTransitions
     {
         // - Proposing one block block will revert
-        vm.expectRevert(ITaikoL1.TooManyBlocks.selector);
+        vm.expectRevert(ITaikoInbox.TooManyBlocks.selector);
         _proposeBlocksWithDefaultParameters({ numBlocksToPropose: 1 });
     }
 
-    function test_taikol1_prove_with_wrong_transitions_will_not_finalize_blocks()
+    function test_inbox_prove_with_wrong_transitions_will_not_finalize_blocks()
         external
         transactBy(Alice)
         WhenMultipleBlocksAreProposedWithDefaultParameters(6)
@@ -135,11 +135,11 @@ contract TaikoL1Test_Suite1 is TaikoL1TestBase {
     {
         // - All stats are correct and expected
 
-        ITaikoL1.Stats1 memory stats1 = taikoL1.getStats1();
+        ITaikoInbox.Stats1 memory stats1 = inbox.getStats1();
         assertEq(stats1.lastSyncedBlockId, 0);
         assertEq(stats1.lastSyncedAt, 0);
 
-        ITaikoL1.Stats2 memory stats2 = taikoL1.getStats2();
+        ITaikoInbox.Stats2 memory stats2 = inbox.getStats2();
         assertEq(stats2.numBlocks, 7);
         assertEq(stats2.lastVerifiedBlockId, 0);
         assertEq(stats2.paused, false);
@@ -147,7 +147,7 @@ contract TaikoL1Test_Suite1 is TaikoL1TestBase {
         assertEq(stats2.lastUnpausedAt, 0);
 
         // - Verify genesis block
-        ITaikoL1.BlockV3 memory blk = taikoL1.getBlockV3(0);
+        ITaikoInbox.BlockV3 memory blk = inbox.getBlockV3(0);
         assertEq(blk.blockId, 0);
         assertEq(blk.metaHash, bytes32(uint256(1)));
         assertEq(blk.timestamp, genesisBlockProposedAt);
@@ -157,7 +157,7 @@ contract TaikoL1Test_Suite1 is TaikoL1TestBase {
 
         // Verify block data
         for (uint64 i = 1; i < 7; ++i) {
-            blk = taikoL1.getBlockV3(i);
+            blk = inbox.getBlockV3(i);
             assertEq(blk.blockId, i);
             assertEq(blk.metaHash, keccak256(abi.encode(blockMetadatas[i])));
 
@@ -168,14 +168,14 @@ contract TaikoL1Test_Suite1 is TaikoL1TestBase {
         }
     }
 
-    function test_taikol1_prove_block_not_exist_will_revert() external transactBy(Alice) {
+    function test_inbox_prove_block_not_exist_will_revert() external transactBy(Alice) {
         uint64[] memory blockIds = new uint64[](1);
         blockIds[0] = 1;
-        vm.expectRevert(ITaikoL1.BlockNotFound.selector);
+        vm.expectRevert(ITaikoInbox.BlockNotFound.selector);
         _proveBlocksWithCorrectTransitions(blockIds);
     }
 
-    function test_taikol1_prove_verified_block_will_revert()
+    function test_inbox_prove_verified_block_will_revert()
         external
         transactBy(Alice)
         WhenMultipleBlocksAreProposedWithDefaultParameters(1)
@@ -183,11 +183,11 @@ contract TaikoL1Test_Suite1 is TaikoL1TestBase {
     {
         uint64[] memory blockIds = new uint64[](1);
         blockIds[0] = 1;
-        vm.expectRevert(ITaikoL1.BlockNotFound.selector);
+        vm.expectRevert(ITaikoInbox.BlockNotFound.selector);
         _proveBlocksWithCorrectTransitions(blockIds);
     }
 
-    function test_taikol1_propose_and_prove_many_blocks_with_first_transition_being_correct()
+    function test_inbox_propose_and_prove_many_blocks_with_first_transition_being_correct()
         external
         transactBy(Alice)
         WhenMultipleBlocksAreProposedWithDefaultParameters(9)
@@ -196,29 +196,29 @@ contract TaikoL1Test_Suite1 is TaikoL1TestBase {
     {
         // - All stats are correct and expected
 
-        ITaikoL1.Stats1 memory stats1 = taikoL1.getStats1();
+        ITaikoInbox.Stats1 memory stats1 = inbox.getStats1();
         assertEq(stats1.lastSyncedBlockId, 5);
         assertEq(stats1.lastSyncedAt, block.timestamp);
 
-        ITaikoL1.Stats2 memory stats2 = taikoL1.getStats2();
+        ITaikoInbox.Stats2 memory stats2 = inbox.getStats2();
         assertEq(stats2.numBlocks, 10);
         assertEq(stats2.lastVerifiedBlockId, 9);
         assertEq(stats2.paused, false);
         assertEq(stats2.lastProposedIn, block.number);
         assertEq(stats2.lastUnpausedAt, 0);
 
-        (uint64 blockId, ITaikoL1.TransitionV3 memory tran) = taikoL1.getLastVerifiedTransitionV3();
+        (uint64 blockId, ITaikoInbox.TransitionV3 memory tran) = inbox.getLastVerifiedTransitionV3();
         assertEq(blockId, 9);
         assertEq(tran.blockHash, correctBlockhash(9));
         assertEq(tran.stateRoot, bytes32(uint256(0)));
 
-        (blockId, tran) = taikoL1.getLastSyncedTransitionV3();
+        (blockId, tran) = inbox.getLastSyncedTransitionV3();
         assertEq(blockId, 5);
         assertEq(tran.blockHash, correctBlockhash(5));
         assertEq(tran.stateRoot, correctStateRoot(5));
 
         // - Verify genesis block
-        ITaikoL1.BlockV3 memory blk = taikoL1.getBlockV3(0);
+        ITaikoInbox.BlockV3 memory blk = inbox.getBlockV3(0);
         assertEq(blk.blockId, 0);
         assertEq(blk.metaHash, bytes32(uint256(1)));
         assertEq(blk.timestamp, genesisBlockProposedAt);
@@ -228,7 +228,7 @@ contract TaikoL1Test_Suite1 is TaikoL1TestBase {
 
         // Verify block data
         for (uint64 i = 1; i < 10; ++i) {
-            blk = taikoL1.getBlockV3(i);
+            blk = inbox.getBlockV3(i);
             assertEq(blk.blockId, i);
             assertEq(blk.metaHash, keccak256(abi.encode(blockMetadatas[i])));
 
@@ -243,7 +243,7 @@ contract TaikoL1Test_Suite1 is TaikoL1TestBase {
         }
     }
 
-    function test_taikol1_propose_and_prove_many_blocks_with_second_transition_being_correct()
+    function test_inbox_propose_and_prove_many_blocks_with_second_transition_being_correct()
         external
         transactBy(Alice)
         WhenMultipleBlocksAreProposedWithDefaultParameters(9)
@@ -253,11 +253,11 @@ contract TaikoL1Test_Suite1 is TaikoL1TestBase {
     {
         // - All stats are correct and expected
 
-        ITaikoL1.Stats1 memory stats1 = taikoL1.getStats1();
+        ITaikoInbox.Stats1 memory stats1 = inbox.getStats1();
         assertEq(stats1.lastSyncedBlockId, 5);
         assertEq(stats1.lastSyncedAt, block.timestamp);
 
-        ITaikoL1.Stats2 memory stats2 = taikoL1.getStats2();
+        ITaikoInbox.Stats2 memory stats2 = inbox.getStats2();
         assertEq(stats2.numBlocks, 10);
         assertEq(stats2.lastVerifiedBlockId, 9);
         assertEq(stats2.paused, false);
@@ -265,7 +265,7 @@ contract TaikoL1Test_Suite1 is TaikoL1TestBase {
         assertEq(stats2.lastUnpausedAt, 0);
 
         // - Verify genesis block
-        ITaikoL1.BlockV3 memory blk = taikoL1.getBlockV3(0);
+        ITaikoInbox.BlockV3 memory blk = inbox.getBlockV3(0);
         assertEq(blk.blockId, 0);
         assertEq(blk.metaHash, bytes32(uint256(1)));
         assertEq(blk.timestamp, genesisBlockProposedAt);
@@ -275,7 +275,7 @@ contract TaikoL1Test_Suite1 is TaikoL1TestBase {
 
         // Verify block data
         for (uint64 i = 1; i < 10; ++i) {
-            blk = taikoL1.getBlockV3(i);
+            blk = inbox.getBlockV3(i);
             assertEq(blk.blockId, i);
             assertEq(blk.metaHash, keccak256(abi.encode(blockMetadatas[i])));
 
@@ -290,7 +290,7 @@ contract TaikoL1Test_Suite1 is TaikoL1TestBase {
         }
     }
 
-    function test_taikol1_ring_buffer_will_be_reused()
+    function test_inbox_ring_buffer_will_be_reused()
         external
         transactBy(Alice)
         WhenMultipleBlocksAreProposedWithDefaultParameters(9)
@@ -304,30 +304,30 @@ contract TaikoL1Test_Suite1 is TaikoL1TestBase {
     {
         // - All stats are correct and expected
 
-        ITaikoL1.Stats1 memory stats1 = taikoL1.getStats1();
+        ITaikoInbox.Stats1 memory stats1 = inbox.getStats1();
         assertEq(stats1.lastSyncedBlockId, 10);
         assertEq(stats1.lastSyncedAt, block.timestamp);
 
-        ITaikoL1.Stats2 memory stats2 = taikoL1.getStats2();
+        ITaikoInbox.Stats2 memory stats2 = inbox.getStats2();
         assertEq(stats2.numBlocks, 18);
         assertEq(stats2.lastVerifiedBlockId, 10);
         assertEq(stats2.paused, false);
         assertEq(stats2.lastProposedIn, block.number);
         assertEq(stats2.lastUnpausedAt, 0);
 
-        (uint64 blockId, ITaikoL1.TransitionV3 memory tran) = taikoL1.getLastVerifiedTransitionV3();
+        (uint64 blockId, ITaikoInbox.TransitionV3 memory tran) = inbox.getLastVerifiedTransitionV3();
         assertEq(blockId, 10);
         assertEq(tran.blockHash, correctBlockhash(10));
         assertEq(tran.stateRoot, correctStateRoot(10));
 
-        (blockId, tran) = taikoL1.getLastSyncedTransitionV3();
+        (blockId, tran) = inbox.getLastSyncedTransitionV3();
         assertEq(blockId, 10);
         assertEq(tran.blockHash, correctBlockhash(10));
         assertEq(tran.stateRoot, correctStateRoot(10));
 
         // Verify block data
         for (uint64 i = 8; i < 15; ++i) {
-            ITaikoL1.BlockV3 memory blk = taikoL1.getBlockV3(i);
+            ITaikoInbox.BlockV3 memory blk = inbox.getBlockV3(i);
             assertEq(blk.blockId, i);
             assertEq(blk.metaHash, keccak256(abi.encode(blockMetadatas[i])));
 
@@ -352,43 +352,43 @@ contract TaikoL1Test_Suite1 is TaikoL1TestBase {
         }
     }
 
-    function test_taikol1_reprove_the_same_block_is_ok()
+    function test_inbox_reprove_the_same_block_is_ok()
         external
         transactBy(Alice)
         WhenMultipleBlocksAreProposedWithDefaultParameters(1)
         WhenLogAllBlocksAndTransitions
     {
-        ITaikoL1.BlockMetadataV3[] memory metas = new ITaikoL1.BlockMetadataV3[](1);
-        ITaikoL1.TransitionV3[] memory transitions = new ITaikoL1.TransitionV3[](1);
+        ITaikoInbox.BlockMetadataV3[] memory metas = new ITaikoInbox.BlockMetadataV3[](1);
+        ITaikoInbox.TransitionV3[] memory transitions = new ITaikoInbox.TransitionV3[](1);
 
         metas[0] = blockMetadatas[1];
 
         transitions[0].parentHash = bytes32(uint256(0x100));
         transitions[0].blockHash = bytes32(uint256(0x101));
         transitions[0].stateRoot = bytes32(uint256(0x102));
-        taikoL1.proveBlocksV3(metas, transitions, "proof");
+        inbox.proveBlocksV3(metas, transitions, "proof");
         _logAllBlocksAndTransitions();
 
         transitions[0].parentHash = bytes32(uint256(0x100));
         transitions[0].blockHash = bytes32(uint256(0x111));
         transitions[0].stateRoot = bytes32(uint256(0x112));
-        taikoL1.proveBlocksV3(metas, transitions, "proof");
+        inbox.proveBlocksV3(metas, transitions, "proof");
         _logAllBlocksAndTransitions();
 
         transitions[0].parentHash = bytes32(uint256(0x200));
         transitions[0].blockHash = bytes32(uint256(0x201));
         transitions[0].stateRoot = bytes32(uint256(0x202));
-        taikoL1.proveBlocksV3(metas, transitions, "proof");
+        inbox.proveBlocksV3(metas, transitions, "proof");
         _logAllBlocksAndTransitions();
 
         transitions[0].parentHash = bytes32(uint256(0x200));
         transitions[0].blockHash = bytes32(uint256(0x211));
         transitions[0].stateRoot = bytes32(uint256(0x212));
-        taikoL1.proveBlocksV3(metas, transitions, "proof");
+        inbox.proveBlocksV3(metas, transitions, "proof");
         _logAllBlocksAndTransitions();
     }
 
-    function test_taikol1_measure_gas_used()
+    function test_inbox_measure_gas_used()
         external
         transactBy(Alice)
         WhenMultipleBlocksAreProposedWithDefaultParameters(9)
@@ -398,13 +398,13 @@ contract TaikoL1Test_Suite1 is TaikoL1TestBase {
         uint64 count = 1;
 
         vm.startSnapshotGas("proposeBlocksV3");
-        ITaikoL1.BlockMetadataV3[] memory metas = taikoL1.proposeBlocksV3(
-            address(0), address(0), new ITaikoL1.BlockParamsV3[](count), "txList"
+        ITaikoInbox.BlockMetadataV3[] memory metas = inbox.proposeBlocksV3(
+            address(0), address(0), new ITaikoInbox.BlockParamsV3[](count), "txList"
         );
         uint256 gasProposeBlocksV3 = vm.stopSnapshotGas("proposeBlocksV3");
         console2.log("Gas per block - proposing:", gasProposeBlocksV3 / count);
 
-        ITaikoL1.TransitionV3[] memory transitions = new ITaikoL1.TransitionV3[](count);
+        ITaikoInbox.TransitionV3[] memory transitions = new ITaikoInbox.TransitionV3[](count);
         for (uint256 i; i < metas.length; ++i) {
             transitions[i].parentHash = correctBlockhash(metas[i].blockId - 1);
             transitions[i].blockHash = correctBlockhash(metas[i].blockId);
@@ -412,7 +412,7 @@ contract TaikoL1Test_Suite1 is TaikoL1TestBase {
         }
 
         vm.startSnapshotGas("proveBlocksV3");
-        taikoL1.proveBlocksV3(metas, transitions, "proof");
+        inbox.proveBlocksV3(metas, transitions, "proof");
         uint256 gasProveBlocksV3 = vm.stopSnapshotGas("proveBlocksV3");
         console2.log("Gas per block - proving:", gasProveBlocksV3 / count);
         console2.log("Gas per block - total:", (gasProposeBlocksV3 + gasProveBlocksV3) / count);

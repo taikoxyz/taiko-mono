@@ -9,11 +9,11 @@ import "src/shared/libs/LibNetwork.sol";
 import "src/shared/libs/LibStrings.sol";
 import "src/shared/signal/ISignalService.sol";
 import "src/layer1/verifiers/IVerifier.sol";
-import "./ITaikoL1.sol";
+import "./ITaikoInbox.sol";
 
 import "forge-std/src/console2.sol";
 
-/// @title TaikoL1
+/// @title TaikoInbox
 /// @notice This contract acts as the inbox for a simplified version of the original Taiko Based
 /// Contestable Rollup (BCR) protocol, specifically the tier-based proof system and proof
 /// contestation
@@ -29,7 +29,7 @@ import "forge-std/src/console2.sol";
 ///
 /// @dev Labeled in address resolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
-abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
+abstract contract TaikoInbox is EssentialContract, ITaikoInbox {
     using LibMath for uint256;
 
     State public state; // storage layout much match Ontake fork

@@ -6,7 +6,7 @@ import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibStrings.sol";
 import "../automata-attestation/interfaces/IAttestation.sol";
 import "../automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
-import "../based/ITaikoL1.sol";
+import "../based/ITaikoInbox.sol";
 import "./LibPublicInput.sol";
 import "./IVerifier.sol";
 

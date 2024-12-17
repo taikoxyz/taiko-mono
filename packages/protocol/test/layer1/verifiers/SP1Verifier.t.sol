@@ -5,18 +5,18 @@ import { SP1Verifier as SP1RemoteVerifier } from "@sp1-contracts/src/v3.0.0/SP1V
 import "../Layer1Test.sol";
 
 contract TaikoStub_ReturnMainnetChainId {
-    function getConfigV3() external pure returns (ITaikoL1.ConfigV3 memory config) {
+    function getConfigV3() external pure returns (ITaikoInbox.ConfigV3 memory config) {
         config.chainId = 167_000;
     }
 }
 
 contract TestSP1Verifier is Layer1Test {
     SP1Verifier internal sp1Verifier;
-    address internal taikoL1;
+    address internal inbox;
 
     function setUpOnEthereum() internal override {
-        taikoL1 = address(new TaikoStub_ReturnMainnetChainId());
-        register("taiko", taikoL1);
+        inbox = address(new TaikoStub_ReturnMainnetChainId());
+        register("taiko", inbox);
         register("sp1_remote_verifier", address(new SP1RemoteVerifier()));
 
         // Deploy Taiko's SP1 proof verifier
@@ -76,7 +76,7 @@ contract TestSP1Verifier is Layer1Test {
             blockId: 393_333,
             difficulty: 0, // TODO, need a non-zero value.
             metaHash: 0x207b2833fb6d804612da24d8785b870a19c7a3f25fa4aaeb9799cd442d65b031,
-            transition: ITaikoL1.TransitionV3({
+            transition: ITaikoInbox.TransitionV3({
                 parentHash: 0xce519622a374dc014c005d7857de26d952751a9067d3e23ffe14da247aa8a399,
                 blockHash: 0x941d557653da2214cbf3d30af8d9cadbc7b5f77b6c3e48bca548eba04eb9cd79,
                 stateRoot: 0x4203a2fd98d268d272acb24d91e25055a779b443ff3e732f2cee7abcf639b5e9
@@ -86,7 +86,7 @@ contract TestSP1Verifier is Layer1Test {
             blockId: 393_334,
             difficulty: 0, // TODO, need a non-zero value.
             metaHash: 0x946ba1a9c02fc2f01da49e31cb5be83c118193d0389987c6be616ce76426b44d,
-            transition: ITaikoL1.TransitionV3({
+            transition: ITaikoInbox.TransitionV3({
                 parentHash: 0x941d557653da2214cbf3d30af8d9cadbc7b5f77b6c3e48bca548eba04eb9cd79,
                 blockHash: 0xc0dad38646ab264be30995b7b7fd02db65e7115126fb52bfad94c0fc9572287c,
                 stateRoot: 0x222061caab95b6bd0f8dd398088030979efbe56e282cd566f7abd77838558eb9
@@ -105,7 +105,7 @@ contract TestSP1Verifier is Layer1Test {
             blockId: 223_248, //from mainnet
             difficulty: 0,
             metaHash: bytes32(0xd7efb262f6f25cc817452a622009a22e5868e53e1f934d899d3ec68d8c4f2c5b),
-            transition: ITaikoL1.TransitionV3({
+            transition: ITaikoInbox.TransitionV3({
                 parentHash: 0x317de24b32f09629524133334ad552a14e3de603d71a9cf9e88d722809f101b3,
                 blockHash: 0x9966d3cf051d3d1e44e2a740169627506a619257c95374e812ca572de91ed885,
                 stateRoot: 0x3ae3de1afa16b93a5c7ea20a0b36b43357061f5b8ef857053d68b2735c3df860

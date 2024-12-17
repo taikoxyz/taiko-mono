@@ -28,7 +28,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
 
     IPreconfServiceManager internal immutable preconfServiceManager;
     IPreconfRegistry internal immutable preconfRegistry;
-    ITaikoL1 internal immutable taikoL1;
+    ITaikoInbox internal immutable inbox;
 
     // EIP-4788
     uint256 internal immutable beaconGenesis;
@@ -53,19 +53,19 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
     constructor(
         IPreconfServiceManager _serviceManager,
         IPreconfRegistry _registry,
-        ITaikoL1 _taikoL1,
+        ITaikoInbox _inbox,
         uint256 _beaconGenesis,
         address _beaconBlockRootContract
     ) {
         preconfServiceManager = _serviceManager;
         preconfRegistry = _registry;
-        taikoL1 = _taikoL1;
+        inbox = _inbox;
         beaconGenesis = _beaconGenesis;
         beaconBlockRootContract = _beaconBlockRootContract;
     }
 
     function init(IERC20 _taikoToken) external initializer {
-        _taikoToken.approve(address(taikoL1), type(uint256).max);
+        _taikoToken.approve(address(inbox), type(uint256).max);
     }
 
     /**
@@ -87,7 +87,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
      */
     function proposeBlocksV3(
         address coinbase,
-        ITaikoL1.BlockParamsV3[] calldata blockParams,
+        ITaikoInbox.BlockParamsV3[] calldata blockParams,
         bytes calldata txList,
         uint256 lookaheadPointer,
         LookaheadSetParam[] calldata lookaheadSetParams
@@ -126,7 +126,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         );
 
         // Forward the block to Taiko's L1 contract
-        taikoL1.proposeBlocksV3(msg.sender, coinbase, blockParams, txList);
+        inbox.proposeBlocksV3(msg.sender, coinbase, blockParams, txList);
     }
 
     /**
@@ -602,7 +602,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
     }
 
     function getTaiko() external view returns (address) {
-        return address(taikoL1);
+        return address(inbox);
     }
 
     function getBeaconGenesis() external view returns (uint256) {

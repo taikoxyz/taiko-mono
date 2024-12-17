@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/layer1/based/ITaikoL1.sol";
+import "src/layer1/based/ITaikoInbox.sol";
 
-/// @title TaikoL1_EmptyStub
+/// @title StubInbox
 /// @custom:security-contact security@taiko.xyz
-contract TaikoL1_EmptyStub is ITaikoL1 {
+contract StubInbox is ITaikoInbox {
     function proposeBlocksV3(
         address _proposer,
         address _coinbase,
@@ -13,12 +13,12 @@ contract TaikoL1_EmptyStub is ITaikoL1 {
         bytes calldata _txList
     )
         external
-        returns (ITaikoL1.BlockMetadataV3[] memory)
+        returns (ITaikoInbox.BlockMetadataV3[] memory)
     { }
 
     function proveBlocksV3(
-        ITaikoL1.BlockMetadataV3[] calldata _metas,
-        ITaikoL1.TransitionV3[] calldata _transitions,
+        ITaikoInbox.BlockMetadataV3[] calldata _metas,
+        ITaikoInbox.TransitionV3[] calldata _transitions,
         bytes calldata proof
     )
         external
@@ -34,7 +34,7 @@ contract TaikoL1_EmptyStub is ITaikoL1 {
         external
         view
         virtual
-        returns (ITaikoL1.BlockV3 memory blk_)
+        returns (ITaikoInbox.BlockV3 memory blk_)
     { }
 
     function getTransitionV3(
@@ -44,7 +44,7 @@ contract TaikoL1_EmptyStub is ITaikoL1 {
         external
         view
         virtual
-        returns (ITaikoL1.TransitionV3 memory)
+        returns (ITaikoInbox.TransitionV3 memory)
     { }
 
     function getLastVerifiedTransitionV3()
@@ -63,5 +63,5 @@ contract TaikoL1_EmptyStub is ITaikoL1 {
 
     function getStats2() external view returns (Stats2 memory) { }
 
-    function getConfigV3() external pure virtual returns (ITaikoL1.ConfigV3 memory) { }
+    function getConfigV3() external pure virtual returns (ITaikoInbox.ConfigV3 memory) { }
 }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/layer1/based/TaikoL1.sol";
+import "src/layer1/based/TaikoInbox.sol";
 import "src/layer1/token/TaikoToken.sol";
 import "src/layer1/verifiers/SgxVerifier.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
@@ -11,14 +11,14 @@ import "src/shared/bridge/QuotaManager.sol";
 import "src/shared/bridge/Bridge.sol";
 import "test/shared/CommonTest.sol";
 
-contract TaikoWithConfig is TaikoL1 {
-    ITaikoL1.ConfigV3 private __config;
+contract TaikoWithConfig is TaikoInbox {
+    ITaikoInbox.ConfigV3 private __config;
 
     function initWithConfig(
         address _owner,
         address _rollupResolver,
         bytes32 _genesisBlockHash,
-        ITaikoL1.ConfigV3 memory _config
+        ITaikoInbox.ConfigV3 memory _config
     )
         external
         initializer
@@ -27,7 +27,7 @@ contract TaikoWithConfig is TaikoL1 {
         __config = _config;
     }
 
-    function getConfigV3() public view override returns (ITaikoL1.ConfigV3 memory) {
+    function getConfigV3() public view override returns (ITaikoInbox.ConfigV3 memory) {
         return __config;
     }
 
@@ -37,14 +37,14 @@ contract TaikoWithConfig is TaikoL1 {
 }
 
 abstract contract Layer1Test is CommonTest {
-    function deployTaikoL1(
+    function deployInbox(
         bytes32 _genesisBlockHash,
-        ITaikoL1.ConfigV3 memory _config
+        ITaikoInbox.ConfigV3 memory _config
     )
         internal
-        returns (TaikoL1)
+        returns (TaikoInbox)
     {
-        return TaikoL1(
+        return TaikoInbox(
             deploy({
                 name: "taiko",
                 impl: address(new TaikoWithConfig()),

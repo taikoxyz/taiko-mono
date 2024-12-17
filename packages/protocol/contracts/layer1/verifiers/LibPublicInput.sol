@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../../layer1/based/ITaikoL1.sol";
+import "../../layer1/based/ITaikoInbox.sol";
 
 /// @title LibPublicInput
 /// @notice A library for handling hashing the so-called public input hash, used by sgx and zk
@@ -17,7 +17,7 @@ library LibPublicInput {
     /// @param _chainId The chain id.
     /// @return The public input hash.
     function hashPublicInputs(
-        ITaikoL1.TransitionV3 memory _transition,
+        ITaikoInbox.TransitionV3 memory _transition,
         address _verifierContract,
         address _newInstance,
         bytes32 _metaHash,

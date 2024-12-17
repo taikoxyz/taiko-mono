@@ -216,8 +216,8 @@ contract BlockProposing is BlocksFixtures {
     )
         internal
     {
-        ITaikoL1.BlockParamsV3 memory defaultParams;
-        ITaikoL1.BlockParamsV3[] memory paramsArr = new ITaikoL1.BlockParamsV3[](1);
+        ITaikoInbox.BlockParamsV3 memory defaultParams;
+        ITaikoInbox.BlockParamsV3[] memory paramsArr = new ITaikoInbox.BlockParamsV3[](1);
         paramsArr[0] = defaultParams;
 
         preconfTaskManager.proposeBlocksV3(
