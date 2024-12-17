@@ -214,6 +214,15 @@ interface ITaikoL1 {
     error TooManySignals();
     error TransitionNotFound();
 
+    /// @notice Proposes multiple blocks with specified parameters and transaction list.
+    /// @param _proposer The address of the proposer, which is set by the PreconfTaskManager if
+    /// enabled; otherwise, it must be address(0).
+    /// @param _coinbase The address that will receive the block rewards; defaults to the proposer's
+    /// address if set to address(0).
+    /// @param _blockParams An array containing the parameters for each block being proposed.
+    /// @param _txList The transaction list in calldata. If the txList is empty, blob will be used
+    /// for data availability.
+    /// @return An array of block metadata for each block proposed.
     function proposeBlocksV3(
         address _proposer,
         address _coinbase,
@@ -223,6 +232,10 @@ interface ITaikoL1 {
         external
         returns (BlockMetadataV3[] memory);
 
+    /// @notice Proves state transitions for multiple blocks with a single aggregated proof.
+    /// @param _metas Array of metadata for each block being proved.
+    /// @param _transitions Array of block transitions to be proved.
+    /// @param proof The aggregated cryptographic proof proving the blocks transitions.
     function proveBlocksV3(
         BlockMetadataV3[] calldata _metas,
         TransitionV3[] calldata _transitions,
@@ -230,18 +243,37 @@ interface ITaikoL1 {
     )
         external;
 
+    /// @notice Deposits TAIKO tokens into the contract to be used as liveness bond.
+    /// @param _amount The amount of TAIKO tokens to deposit.
     function depositBond(uint256 _amount) external payable;
 
+    /// @notice Withdraws a specified amount of TAIKO tokens from the contract.
+    /// @param _amount The amount of TAIKO tokens to withdraw.
     function withdrawBond(uint256 _amount) external;
 
+    /// @notice Returns the TAIKO token balance of a specific user.
+    /// @param _user The address of the user.
+    /// @return The TAIKO token balance of the user.
     function bondBalanceOf(address _user) external view returns (uint256);
 
+    /// @notice Retrieves the first set of protocol statistics.
+    /// @return Stats1 structure containing the statistics.
     function getStats1() external view returns (Stats1 memory);
 
+    /// @notice Retrieves the second set of protocol statistics.
+    /// @return Stats2 structure containing the statistics.
     function getStats2() external view returns (Stats2 memory);
 
+    /// @notice Retrieves data about a specific block.
+    /// @param _blockId The ID of the block to retrieve.
+    /// @return blk_ The block data.
     function getBlockV3(uint64 _blockId) external view returns (BlockV3 memory blk_);
 
+    /// @notice Retrieves a specific transition by block ID and transition ID. This function may
+    /// revert if the transition is not found.
+    /// @param _blockId The block ID.
+    /// @param _tid The transition ID.
+    /// @return The specified transition.
     function getTransitionV3(
         uint64 _blockId,
         uint24 _tid
@@ -250,15 +282,23 @@ interface ITaikoL1 {
         view
         returns (ITaikoL1.TransitionV3 memory);
 
+    /// @notice Retrieves the transition used for the last verified block.
+    /// @return blockId_ The block ID of the last verified transition.
+    /// @return tran_ The last verified transition.
     function getLastVerifiedTransitionV3()
         external
         view
         returns (uint64 blockId_, TransitionV3 memory tran_);
 
+    /// @notice Retrieves the transition used for the last synced block.
+    /// @return blockId_ The block ID of the last synced transition.
+    /// @return tran_ The last synced transition.
     function getLastSyncedTransitionV3()
         external
         view
         returns (uint64 blockId_, TransitionV3 memory tran_);
 
+    /// @notice Retrieves the current protocol configuration.
+    /// @return The current configuration.
     function getConfigV3() external view returns (ConfigV3 memory);
 }
