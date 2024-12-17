@@ -91,11 +91,11 @@ type BuildSoftBlockResponseBody struct {
 //		@Description	first for a block, a new soft block will be created. Otherwise, the transactions will
 //		@Description	be appended to the existing soft block. The API will fail if:
 //		@Description	1) the block is not soft
-//	  	@Description	2) block-level parameters are invalid or do not match the current soft block’s parameters
-//	  	@Description	3) the batch ID is not exactly 1 greater than the previous one
-//	  	@Description	4) the last batch of the block indicates no further transactions are allowed
-//		@Param  	body BuildSoftBlockRequestBody true "soft block creation request body"
-//		@Accept	  	json
+//	  @Description	2) block-level parameters are invalid or do not match the current soft block’s parameters
+//	  @Description	3) the batch ID is not exactly 1 greater than the previous one
+//	  @Description	4) the last batch of the block indicates no further transactions are allowed
+//		@Param  	body body BuildSoftBlockRequestBody true "soft block creation request body"
+//		@Accept	  json
 //		@Produce	json
 //		@Success	200		{object} BuildSoftBlockResponseBody
 //		@Router		/softBlocks [post]
@@ -228,11 +228,11 @@ type RemoveSoftBlocksResponseBody struct {
 // RemoveSoftBlocks removes the backend L2 execution engine soft head.
 //
 //		@Description	Remove all soft blocks from the blockchain beyond the specified block height,
-//	  	@Description	ensuring the latest block ID does not exceed the given height. This method will fail if
-//	  	@Description	the block with an ID one greater than the specified height is not a soft block. If the
-//	  	@Description	specified block height is greater than the latest soft block ID, the method will succeed
-//	  	@Description	without modifying the blockchain.
-//		@Param      	body RemoveSoftBlocksRequestBody true "soft blocks removing request body"
+//	  @Description	ensuring the latest block ID does not exceed the given height. This method will fail if
+//	  @Description	the block with an ID one greater than the specified height is not a soft block. If the
+//	  @Description	specified block height is greater than the latest soft block ID, the method will succeed
+//	  @Description	without modifying the blockchain.
+//		@Param      body body RemoveSoftBlocksRequestBody true "soft blocks removing request body"
 //		@Accept			json
 //		@Produce		json
 //		@Success		200	{object} RemoveSoftBlocksResponseBody
