@@ -124,7 +124,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "blockHeader": {
-                    "description": "@param blockHeader types.Header Header of the soft block",
+                    "description": "@param blockHeader types.Header of the soft block",
                     "allOf": [
                         {
                             "$ref": "#/definitions/types.Header"
