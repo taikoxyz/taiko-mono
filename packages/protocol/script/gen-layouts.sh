@@ -26,14 +26,14 @@ contracts_layer1=(
 "contracts/layer1/verifiers/SP1Verifier.sol:SP1Verifier"
 "contracts/layer1/verifiers/SgxVerifier.sol:SgxVerifier"
 "contracts/layer1/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation"
-"contracts/layer1/based/TaikoL1.sol:TaikoL1"
-"contracts/layer1/hekla/HeklaTaikoL1.sol:HeklaTaikoL1"
+"contracts/layer1/based/TaikoInbox.sol:TaikoInbox"
+"contracts/layer1/hekla/HeklaInbox.sol:HeklaInbox"
 "contracts/layer1/mainnet/multirollup/MainnetBridge.sol:MainnetBridge"
 "contracts/layer1/mainnet/multirollup/MainnetSignalService.sol:MainnetSignalService"
 "contracts/layer1/mainnet/multirollup/MainnetERC20Vault.sol:MainnetERC20Vault"
 "contracts/layer1/mainnet/multirollup/MainnetERC1155Vault.sol:MainnetERC1155Vault"
 "contracts/layer1/mainnet/multirollup/MainnetERC721Vault.sol:MainnetERC721Vault"
-"contracts/layer1/mainnet/MainnetTaikoL1.sol:MainnetTaikoL1"
+"contracts/layer1/mainnet/MainnetInbox.sol:MainnetInbox"
 "contracts/layer1/team/TokenUnlock.sol:TokenUnlock"
 "contracts/layer1/provers/ProverSet.sol:ProverSet"
 "contracts/layer1/fork/ForkManager.sol:ForkManager"
@@ -43,9 +43,9 @@ contracts_layer1=(
 contracts_layer2=(
 "contracts/layer2/token/BridgedTaikoToken.sol:BridgedTaikoToken"
 "contracts/layer2/DelegateOwner.sol:DelegateOwner"
-"contracts/layer2/based/TaikoL2.sol:TaikoL2"
-"contracts/layer2/hekla/HeklaTaikoL2.sol:HeklaTaikoL2"
-"contracts/layer2/mainnet/MainnetTaikoL2.sol:MainnetTaikoL2"
+"contracts/layer2/based/TaikoAnchor.sol:TaikoAnchor"
+"contracts/layer2/hekla/HeklaAnchor.sol:HeklaAnchor"
+"contracts/layer2/mainnet/MainnetAnchor.sol:MainnetAnchor"
 )
 
 profile=$1
