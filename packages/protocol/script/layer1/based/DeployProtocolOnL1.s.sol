@@ -76,7 +76,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         );
         TaikoInbox taikoInbox = TaikoInbox(payable(taikoInboxAddr));
 
-        if (vm.envAddress("SHARED_ADDRESS_RESOLVER") == address(0)) {
+        if (vm.envAddress("SHARED_RESOLVER") == address(0)) {
             SignalService(signalServiceAddr).authorize(taikoInboxAddr, true);
         }
 
@@ -102,7 +102,7 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         // ---------------------------------------------------------------
         // Register L2 addresses
-        register(rollupResolver, "taiko", vm.envAddress("TAIKO_L2_ADDRESS"), l2ChainId);
+        register(rollupResolver, "taiko", vm.envAddress("TAIKO_ANCHOR_ADDRESS"), l2ChainId);
         register(rollupResolver, "signal_service", vm.envAddress("L2_SIGNAL_SERVICE"), l2ChainId);
 
         // ---------------------------------------------------------------
