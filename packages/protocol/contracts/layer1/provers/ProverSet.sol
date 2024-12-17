@@ -15,8 +15,8 @@ interface IHasRecipient {
 }
 
 /// @title ProverSet
-/// @notice A contract that holds TKO token and acts as a Taiko prover. This contract will simply
-/// relay `proveBlock` calls to Taiko so msg.sender doesn't need to hold any TKO.
+/// @notice A contract that holds TAIKO token and acts as a Taiko prover. This contract will simply
+/// relay `proveBlock` calls to TaikoL1 so msg.sender doesn't need to hold any TAIKO.
 /// @custom:security-contact security@taiko.xyz
 contract ProverSet is EssentialContract, IERC1271 {
     bytes4 private constant _EIP1271_MAGICVALUE = 0x1626ba7e;
@@ -94,7 +94,8 @@ contract ProverSet is EssentialContract, IERC1271 {
         LibAddress.sendEtherAndVerify(admin, _amount);
     }
 
-    /// @notice Proposes a block only when it is the first block proposal in the current L1 block.
+    /// @notice Proposes a batch blocks only when it is the first batch blocks proposal in the
+    /// current L1 block.
     function proposeBlocksV3Conditionally(
         ITaikoL1.BlockParamsV3[] calldata _paramsArray,
         bytes calldata _txList
