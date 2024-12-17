@@ -81,7 +81,7 @@ abstract contract DeployCapability is Script {
         register({
             registerTo: registerTo,
             name: name,
-            addr: DefaultResolver(readFrom).registerAddress(uint64(block.chainid), bytes32(bytes(name))),
+            addr: EssentialContract(readFrom).resolve(uint64(block.chainid), bytes32(bytes(name)), true),
             chainId: uint64(block.chainid)
         });
     }

@@ -66,22 +66,21 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         // ---------------------------------------------------------------
         // Signal service need to authorize the new rollup
-        address signalServiceAddr = DefaultResolver(sharedResolver).getAddress(
-            uint64(block.chainid), LibStrings.B_SIGNAL_SERVICE
+        address signalServiceAddr = EssentialContract(sharedResolver).resolve(
+            uint64(block.chainid), LibStrings.B_SIGNAL_SERVICE, false
         );
-        addressNotNull(signalServiceAddr, "signalServiceAddr");
         SignalService signalService = SignalService(signalServiceAddr);
 
-        address taikoInboxAddr =
-            DefaultResolver(rollupResolver).getAddress(uint64(block.chainid), LibStrings.B_TAIKO);
-        addressNotNull(taikoInboxAddr, "taikoInboxAddr");
+        address taikoInboxAddr = EssentialContract(rollupResolver).resolve(
+            uint64(block.chainid), LibStrings.B_TAIKO, false
+        );
         TaikoInbox taikoInbox = TaikoInbox(payable(taikoInboxAddr));
 
         if (vm.envAddress("SHARED_ADDRESS_RESOLVER") == address(0)) {
             SignalService(signalServiceAddr).authorize(taikoInboxAddr, true);
         }
 
-        uint64 l2ChainId = taikoInbox.getConfig().chainId;
+        uint64 l2ChainId = taikoInbox.getConfigV3().chainId;
         require(l2ChainId != block.chainid, "same chainid");
 
         console2.log("------------------------------------------");
@@ -103,13 +102,8 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         // ---------------------------------------------------------------
         // Register L2 addresses
-        register(rollupResolver, LibString.B_TAIKO, vm.envAddress("TAIKO_L2_ADDRESS"), l2ChainId);
-        register(
-            rollupResolver,
-            LibString.B_SIGNAL_SERVICE,
-            vm.envAddress("L2_SIGNAL_SERVICE"),
-            l2ChainId
-        );
+        register(rollupResolver, "taiko", vm.envAddress("TAIKO_L2_ADDRESS"), l2ChainId);
+        register(rollupResolver, "signal_service", vm.envAddress("L2_SIGNAL_SERVICE"), l2ChainId);
 
         // ---------------------------------------------------------------
         // Deploy other contracts
@@ -141,7 +135,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         address taikoToken = vm.envAddress("TAIKO_TOKEN");
         if (taikoToken == address(0)) {
             taikoToken = deployProxy({
-                name: LibString.B_TAIKO_TOKEN,
+                name: "taiko_token",
                 impl: address(new TaikoToken()),
                 data: abi.encodeCall(
                     TaikoToken.init, (owner, vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT"))
@@ -149,20 +143,20 @@ contract DeployProtocolOnL1 is DeployCapability {
                 registerTo: sharedResolver
             });
         } else {
-            register(sharedResolver, LibString.B_TAIKO_TOKEN, taikoToken);
+            register(sharedResolver, "taiko_token", taikoToken);
         }
-        register(sharedResolver, LibString.B_BOND_TOKEN, taikoToken);
+        register(sharedResolver, "bond_token", taikoToken);
 
         // Deploy Bridging contracts
         deployProxy({
-            name: LibString.B_SIGNAL_SERVICE,
+            name: "signal_service",
             impl: address(new MainnetSignalService()),
             data: abi.encodeCall(MainnetSignalService.init, (address(0), sharedResolver)),
             registerTo: sharedResolver
         });
 
         address brdige = deployProxy({
-            name: LibString.B_BRIDGE,
+            name: "bridge",
             impl: address(new MainnetBridge()),
             data: abi.encodeCall(MainnetBridge.init, (address(0), sharedResolver)),
             registerTo: sharedResolver
@@ -185,21 +179,21 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         // Deploy Vaults
         deployProxy({
-            name: LibString.B_ERC20_VAULT,
+            name: "erc20_vault",
             impl: address(new MainnetERC20Vault()),
             data: abi.encodeCall(MainnetERC20Vault.init, (owner, sharedResolver)),
             registerTo: sharedResolver
         });
 
         deployProxy({
-            name: LibString.B_ERC721_VAULT,
+            name: "erc721_vault",
             impl: address(new MainnetERC721Vault()),
             data: abi.encodeCall(MainnetERC721Vault.init, (owner, sharedResolver)),
             registerTo: sharedResolver
         });
 
         deployProxy({
-            name: LibString.B_ERC1155_VAULT,
+            name: "erc1155_vault",
             impl: address(new MainnetERC1155Vault()),
             data: abi.encodeCall(MainnetERC1155Vault.init, (owner, sharedResolver)),
             registerTo: sharedResolver
@@ -221,9 +215,9 @@ contract DeployProtocolOnL1 is DeployCapability {
         console2.log("- sharedResolver : ", sharedResolver);
 
         // Deploy Bridged token implementations
-        register(sharedResolver, LibString.B_BRIDGED_ERC20, address(new BridgedERC20()));
-        register(sharedResolver, LibString.B_BRIDGED_ERC721, address(new BridgedERC721()));
-        register(sharedResolver, LibString.B_BRIDGED_ERC1155, address(new BridgedERC1155()));
+        register(sharedResolver, "bridged_erc20", address(new BridgedERC20()));
+        register(sharedResolver, "bridged_erc721", address(new BridgedERC721()));
+        register(sharedResolver, "bridged_erc1155", address(new BridgedERC1155()));
     }
 
     function deployRollupContracts(
@@ -244,10 +238,10 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         // ---------------------------------------------------------------
         // Register shared contracts in the new rollup resolver
-        copyRegister(rollupResolver, _sharedResolver, LibString.B_TAIKO_TOKEN);
-        copyRegister(rollupResolver, _sharedResolver, LibString.B_BOND_TOKEN);
-        copyRegister(rollupResolver, _sharedResolver, LibString.B_SIGNAL_SERVICE);
-        copyRegister(rollupResolver, _sharedResolver, LibString.B_BRIDGE);
+        copyRegister(rollupResolver, _sharedResolver, "taiko_token");
+        copyRegister(rollupResolver, _sharedResolver, "bond_token");
+        copyRegister(rollupResolver, _sharedResolver, "signal_service");
+        copyRegister(rollupResolver, _sharedResolver, "bridge");
 
         deployProxy({
             name: "mainnet_taiko",
@@ -261,7 +255,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         TaikoInbox taikoInbox = TaikoInbox(address(new DevnetTaikoInbox()));
 
         deployProxy({
-            name: LibString.B_TAIKO,
+            name: "taiko",
             impl: address(taikoInbox),
             data: abi.encodeCall(
                 TaikoInbox.init,
@@ -271,7 +265,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
 
         deployProxy({
-            name: LibString.B_PROVER_SET,
+            name: "prover_set",
             impl: address(new ProverSet()),
             data: abi.encodeCall(
                 ProverSet.init, (owner, vm.envAddress("PROVER_SET_ADMIN"), rollupResolver)
