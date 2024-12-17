@@ -30,6 +30,10 @@ contract StubInbox is ITaikoInbox {
 
     function bondBalanceOf(address _user) external view returns (uint256) { }
 
+    function bondToken() external pure returns (address) {
+        return address(0);
+    }
+
     function getBlockV3(uint64 _blockId)
         external
         view
@@ -57,6 +61,12 @@ contract StubInbox is ITaikoInbox {
         external
         view
         returns (uint64 blockId_, TransitionV3 memory tran_)
+    { }
+
+    function getBlockVerifyingTransition(uint64 _blockId)
+        external
+        view
+        returns (TransitionV3 memory)
     { }
 
     function getStats1() external view returns (Stats1 memory) { }

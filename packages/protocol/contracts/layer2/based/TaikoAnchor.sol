@@ -11,7 +11,7 @@ import "src/shared/libs/LibMath.sol";
 import "src/shared/signal/ISignalService.sol";
 import "./LibEIP1559.sol";
 import "./LibL2Config.sol";
-import "./IBlockHash.sol";
+import "./IBlockHashProvider.sol";
 import "./TaikoAnchorDeprecated.sol";
 
 /// @title TaikoAnchor
@@ -21,7 +21,7 @@ import "./TaikoAnchorDeprecated.sol";
 /// communication, manage EIP-1559 parameters for gas pricing, and store
 /// verified L1 block information.
 /// @custom:security-contact security@taiko.xyz
-contract TaikoAnchor is EssentialContract, IBlockHash, TaikoAnchorDeprecated {
+contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprecated {
     using LibAddress for address;
     using LibMath for uint256;
     using SafeERC20 for IERC20;
@@ -226,7 +226,7 @@ contract TaikoAnchor is EssentialContract, IBlockHash, TaikoAnchorDeprecated {
         );
     }
 
-    /// @inheritdoc IBlockHash
+    /// @inheritdoc IBlockHashProvider
     function getBlockHash(uint256 _blockId) public view returns (bytes32) {
         if (_blockId >= block.number) return 0;
         if (_blockId + 256 >= block.number) return blockhash(_blockId);

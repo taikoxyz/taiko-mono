@@ -285,11 +285,13 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox {
         _verifyBlocks(config, stats2, _metas.length);
     }
 
+    /// @inheritdoc ITaikoInbox
     function depositBond(uint256 _amount) external payable whenNotPaused {
         state.bondBalance[msg.sender] += _amount;
         _handleDeposit(msg.sender, _amount);
     }
 
+    /// @inheritdoc ITaikoInbox
     function withdrawBond(uint256 _amount) external whenNotPaused {
         uint256 balance = state.bondBalance[msg.sender];
         require(balance >= _amount, InsufficientBond());
@@ -306,14 +308,17 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox {
         }
     }
 
+    /// @inheritdoc ITaikoInbox
     function getStats1() external view returns (Stats1 memory) {
         return state.stats1;
     }
 
+    /// @inheritdoc ITaikoInbox
     function getStats2() external view returns (Stats2 memory) {
         return state.stats2;
     }
 
+    /// @inheritdoc ITaikoInbox
     function getTransitionV3(
         uint64 _blockId,
         uint24 _tid
@@ -330,6 +335,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox {
         return state.transitions[slot][_tid];
     }
 
+    /// @inheritdoc ITaikoInbox
     function getLastVerifiedTransitionV3()
         external
         view
@@ -339,6 +345,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox {
         tran_ = getBlockVerifyingTransition(blockId_);
     }
 
+    /// @inheritdoc ITaikoInbox
     function getLastSyncedTransitionV3()
         external
         view
@@ -348,10 +355,12 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox {
         tran_ = getBlockVerifyingTransition(blockId_);
     }
 
+    /// @inheritdoc ITaikoInbox
     function bondBalanceOf(address _user) external view returns (uint256) {
         return state.bondBalance[_user];
     }
 
+    /// @inheritdoc ITaikoInbox
     function getBlockV3(uint64 _blockId) external view returns (BlockV3 memory blk_) {
         ConfigV3 memory config = getConfigV3();
         require(_blockId >= config.forkHeights.pacaya, InvalidForkHeight());
@@ -362,14 +371,17 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox {
 
     // Public functions -------------------------------------------------------------------------
 
+    /// @inheritdoc EssentialContract
     function paused() public view override returns (bool) {
         return state.stats2.paused;
     }
 
+    /// @inheritdoc ITaikoInbox
     function bondToken() public view returns (address) {
         return resolve(LibStrings.B_BOND_TOKEN, true);
     }
 
+    /// @inheritdoc ITaikoInbox
     function getBlockVerifyingTransition(uint64 _blockId)
         public
         view
@@ -386,6 +398,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox {
         }
     }
 
+    /// @inheritdoc ITaikoInbox
     function getConfigV3() public view virtual returns (ConfigV3 memory);
 
     // Internal functions ----------------------------------------------------------------------

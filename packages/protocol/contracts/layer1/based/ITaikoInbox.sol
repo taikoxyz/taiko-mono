@@ -256,6 +256,11 @@ interface ITaikoInbox {
     /// @return The TAIKO token balance of the user.
     function bondBalanceOf(address _user) external view returns (uint256);
 
+    /// @notice Retrieves the Bond token address. If Ether is used as bond, this function returns
+    /// address(0).
+    /// @return The Bond token address.
+    function bondToken() external view returns (address);
+
     /// @notice Retrieves the first set of protocol statistics.
     /// @return Stats1 structure containing the statistics.
     function getStats1() external view returns (Stats1 memory);
@@ -297,6 +302,14 @@ interface ITaikoInbox {
         external
         view
         returns (uint64 blockId_, TransitionV3 memory tran_);
+
+    /// @notice Retrieves the transition used for verifying a block.
+    /// @param _blockId The block ID.
+    /// @return The transition used for verifying the block.
+    function getBlockVerifyingTransition(uint64 _blockId)
+        external
+        view
+        returns (TransitionV3 memory);
 
     /// @notice Retrieves the current protocol configuration.
     /// @return The current configuration.
