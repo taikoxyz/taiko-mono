@@ -44,8 +44,6 @@ contracts_layer2=(
 "contracts/layer2/token/BridgedTaikoToken.sol:BridgedTaikoToken"
 "contracts/layer2/DelegateOwner.sol:DelegateOwner"
 "contracts/layer2/based/TaikoAnchor.sol:TaikoAnchor"
-"contracts/layer2/hekla/HeklaAnchor.sol:HeklaAnchor"
-"contracts/layer2/mainnet/MainnetAnchor.sol:MainnetAnchor"
 )
 
 profile=$1
