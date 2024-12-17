@@ -247,8 +247,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             name: "mainnet_taiko",
             impl: address(new MainnetInbox()),
             data: abi.encodeCall(
-                TaikoInbox.init,
-                (owner, rollupResolver, vm.envBytes32("L2_GENESIS_HASH"), vm.envBool("PAUSE_TAIKO_L1"))
+                TaikoInbox.init, (owner, rollupResolver, vm.envBytes32("L2_GENESIS_HASH"))
             )
         });
 
@@ -258,8 +257,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             name: "taiko",
             impl: address(taikoInbox),
             data: abi.encodeCall(
-                TaikoInbox.init,
-                (owner, rollupResolver, vm.envBytes32("L2_GENESIS_HASH"), vm.envBool("PAUSE_TAIKO_L1"))
+                TaikoInbox.init, (owner, rollupResolver, vm.envBytes32("L2_GENESIS_HASH"))
             ),
             registerTo: rollupResolver
         });
