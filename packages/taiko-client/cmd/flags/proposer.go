@@ -112,6 +112,13 @@ var (
 		Value:   false,
 		EnvVars: []string{"L1_BLOB_ALLOWED"},
 	}
+	RevertProtectionEnabled = &cli.BoolFlag{
+		Name:     "revertProtection",
+		Usage:    "Enable revert protection with the support of endpoint and contract",
+		Value:    false,
+		Category: proposerCategory,
+		EnvVars:  []string{"REVERT_PROTECTION"},
+	}
 )
 
 // ProposerFlags All proposer flags.
@@ -134,4 +141,5 @@ var ProposerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	MaxProposedTxListsPerEpoch,
 	ProposeBlockIncludeParentMetaHash,
 	BlobAllowed,
+	RevertProtectionEnabled,
 }, TxmgrFlags)
