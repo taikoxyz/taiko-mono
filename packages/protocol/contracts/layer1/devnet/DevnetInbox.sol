@@ -3,10 +3,10 @@ pragma solidity ^0.8.24;
 
 import "../based/TaikoInbox.sol";
 
-/// @title DevnetTaikoInbox
+/// @title DevnetInbox
 /// @dev Labeled in address resolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
-contract DevnetTaikoInbox is TaikoInbox {
+contract DevnetInbox is TaikoInbox {
     /// @inheritdoc ITaikoInbox
     function getConfigV3() public pure override returns (ITaikoInbox.ConfigV3 memory) {
         return ITaikoInbox.ConfigV3({

@@ -7,7 +7,7 @@ import "src/shared/libs/LibStrings.sol";
 import "src/shared/tokenvault/BridgedERC1155.sol";
 import "src/shared/tokenvault/BridgedERC20.sol";
 import "src/shared/tokenvault/BridgedERC721.sol";
-import "src/layer1/devnet/DevnetTaikoInbox.sol";
+import "src/layer1/devnet/DevnetInbox.sol";
 import "src/layer1/mainnet/MainnetInbox.sol";
 import "src/layer1/based/TaikoInbox.sol";
 import "src/layer1/mainnet/multirollup/MainnetBridge.sol";
@@ -236,7 +236,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             )
         });
 
-        TaikoInbox taikoInbox = TaikoInbox(address(new DevnetTaikoInbox()));
+        TaikoInbox taikoInbox = TaikoInbox(address(new DevnetInbox()));
 
         deployProxy({
             name: "taiko",
