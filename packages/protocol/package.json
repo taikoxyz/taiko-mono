@@ -20,7 +20,7 @@
     "test:deploy:l1": "./script/download_solc.sh && ./script/layer1/deploy_protocol_on_l1.sh",
     "eslint": "pnpm exec eslint --fix --ignore-path .eslintignore --ext .js,.ts .",
     "fmt:sol": "forge fmt && pnpm solhint 'contracts/**/*.sol'",
-    "test:coverage": "mkdir -p coverage && forge coverage --report lcov && lcov --remove ./lcov.info -o ./coverage/lcov.info 'test/' 'script/' 'contracts/thirdparty/' && genhtml coverage/lcov.info --branch-coverage --output-dir coverage --ignore-errors category && open coverage/index.html",
+    "test:coverage": "mkdir -p coverage && forge coverage --report lcov && lcov --ignore-errors inconsistent --ignore-errors unused --remove ./lcov.info -o ./coverage/lcov.info 'test/' 'script/' 'contracts/thirdparty/' && genhtml coverage/lcov.info --branch-coverage --output-dir coverage --ignore-errors category --ignore-errors inconsistent --ignore-errors corrupt && open coverage/index.html",
     "genesis:gen": "pnpm compile:l2 && ts-node ./test/genesis/generate/generate.ts",
     "genesis:test": "./test/genesis/genesis.test.sh",
     "export:simconf": "mkdir -p simulation/out && FOUNDRY_PROFILE=layer2 forge test --match-test 'test_L2_NoFeeCheck_simulation' -vv > simulation/out/simconf_$(date +%s).txt"
