@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../based/TaikoL2.sol";
+import "../based/TaikoAnchor.sol";
 
-/// @title HeklaTaikoL2
+/// @title HeklaAnchor
 /// @custom:security-contact security@taiko.xyz
-contract HeklaTaikoL2 is TaikoL2 {
+contract HeklaAnchor is TaikoAnchor {
     function pacayaForkHeight() public pure override returns (uint64) {
         return 840_512 * 2; // TODO
     }

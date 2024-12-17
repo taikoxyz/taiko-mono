@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../based/TaikoL2.sol";
+import "../based/TaikoAnchor.sol";
 
-/// @title DevnetTaikoL2
+/// @title MainnetAnchor
 /// @custom:security-contact security@taiko.xyz
-contract DevnetTaikoL2 is TaikoL2 {
+contract MainnetAnchor is TaikoAnchor {
     function pacayaForkHeight() public pure override returns (uint64) {
-        return 0;
+        return 538_304 * 2; // TODO
     }
 }

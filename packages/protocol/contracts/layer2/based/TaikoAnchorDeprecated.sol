@@ -3,11 +3,11 @@ pragma solidity ^0.8.24;
 
 import "src/shared/based/LibSharedData.sol";
 
-/// @title TaikoL2Deprecated
+/// @title TaikoAnchorDeprecated
 /// @notice This contract includes deprecated functions whose ABI are still used by client for old
 /// blocks.
 /// @custom:security-contact security@taiko.xyz
-abstract contract TaikoL2Deprecated {
+abstract contract TaikoAnchorDeprecated {
     error L2_DEPRECATED_METHOD();
 
     modifier deprecated() {

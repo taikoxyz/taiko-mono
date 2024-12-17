@@ -3,10 +3,10 @@ pragma solidity ^0.8.24;
 
 import "test/shared/thirdparty/LibUint512Math.sol";
 
-/// @title LibL2Signer
+/// @title LibAnchorSigner
 /// @notice This contract allows for signing operations required on Taiko L2.
 /// @dev It uses precomputed values for optimized signature creation.
-library LibL2Signer {
+library LibAnchorSigner {
     // Constants related to the golden touch signature.
     address public constant GOLDEN_TOUCH_ADDRESS = 0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
     uint256 public constant GOLDEN_TOUCH_PRIVATEKEY =

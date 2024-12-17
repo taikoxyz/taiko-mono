@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
-import "src/layer2/hekla/HeklaTaikoL2.sol";
+import "src/layer2/hekla/HeklaAnchor.sol";
 import "src/shared/bridge/Bridge.sol";
 import "test/shared/thirdparty/Multicall3.sol";
 import "src/layer2/DelegateOwner.sol";

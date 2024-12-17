@@ -3,17 +3,23 @@ pragma solidity ^0.8.24;
 
 import "src/layer2/DelegateOwner.sol";
 import "src/layer2/based/LibEIP1559.sol";
-import "src/layer2/based/TaikoL2.sol";
-import "test/layer2/LibL2Signer.sol";
+import "src/layer2/based/TaikoAnchor.sol";
+import "test/layer2/LibAnchorSigner.sol";
 import "test/shared/CommonTest.sol";
 
 abstract contract Layer2Test is CommonTest {
-    function deployTaikoL2(address taikoL2Impl, uint64 l1ChainId) internal returns (TaikoL2) {
-        return TaikoL2(
+    function deployAnchor(
+        address taikoAnchorImpl,
+        uint64 l1ChainId
+    )
+        internal
+        returns (TaikoAnchor)
+    {
+        return TaikoAnchor(
             deploy({
                 name: "taiko",
-                impl: taikoL2Impl,
-                data: abi.encodeCall(TaikoL2.init, (address(0), address(resolver), l1ChainId, 0))
+                impl: taikoAnchorImpl,
+                data: abi.encodeCall(TaikoAnchor.init, (address(0), address(resolver), l1ChainId, 0))
             })
         );
     }

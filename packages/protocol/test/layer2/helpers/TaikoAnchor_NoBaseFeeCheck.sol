@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/layer2/based/TaikoL2.sol";
+import "src/layer2/based/TaikoAnchor.sol";
 
-contract TaikoL2_NoBaseFeeCheck is TaikoL2 {
+contract TaikoAnchor_NoBaseFeeCheck is TaikoAnchor {
     function skipFeeCheck() public pure override returns (bool) {
         return true;
     }
