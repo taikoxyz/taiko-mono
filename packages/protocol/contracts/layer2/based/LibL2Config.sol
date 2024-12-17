@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 /// @dev DEPRECATED but used by node/client for syncing old blocks
-/// @title LibAnchorConfig
-library LibAnchorConfig {
+/// @title LibL2Config
+library LibL2Config {
     struct Config {
         uint32 gasTargetPerL1Block;
         uint8 basefeeAdjustmentQuotient;
