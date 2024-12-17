@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/big"
 	"time"
 
@@ -164,7 +165,7 @@ func (c *EthClient) BatchHeadersByNumbers(ctx context.Context, numbers []*big.In
 	for i, blockNum := range numbers {
 		reqs[i] = rpc.BatchElem{
 			Method: "eth_getBlockByNumber",
-			Args:   []interface{}{blockNum, false},
+			Args:   []interface{}{toBlockNumArg(blockNum), false},
 			Result: &results[i],
 		}
 	}
@@ -178,6 +179,21 @@ func (c *EthClient) BatchHeadersByNumbers(ctx context.Context, numbers []*big.In
 	}
 
 	return results, nil
+}
+
+func toBlockNumArg(number *big.Int) string {
+	if number == nil {
+		return "latest"
+	}
+	if number.Sign() >= 0 {
+		return hexutil.EncodeBig(number)
+	}
+	// It's negative.
+	if number.IsInt64() {
+		return rpc.BlockNumber(number.Int64()).String()
+	}
+	// It's negative and large, which is invalid.
+	return fmt.Sprintf("<invalid %d>", number)
 }
 
 // TransactionByHash returns the transaction with the given hash.
