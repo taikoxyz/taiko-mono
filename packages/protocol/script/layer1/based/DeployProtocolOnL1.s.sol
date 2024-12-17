@@ -2,27 +2,14 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/utils/Strings.sol";
-import "@risc0/contracts/groth16/RiscZeroGroth16Verifier.sol";
-import { SP1Verifier as SuccinctVerifier } from "@sp1-contracts/src/v3.0.0/SP1VerifierPlonk.sol";
-
-// Actually this one is deployed already on mainnet, but we are now deploying our own (non via-ir)
-// version. For mainnet, it is easier to go with one of:
-// - https://github.com/daimo-eth/p256-verifier
-// - https://github.com/rdubois-crypto/FreshCryptoLib
-import "@p256-verifier/contracts/P256Verifier.sol";
-
 import "src/shared/common/DefaultResolver.sol";
 import "src/shared/libs/LibStrings.sol";
 import "src/shared/tokenvault/BridgedERC1155.sol";
 import "src/shared/tokenvault/BridgedERC20.sol";
 import "src/shared/tokenvault/BridgedERC721.sol";
-import "src/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
-import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
-import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
 import "src/layer1/devnet/DevnetTaikoInbox.sol";
 import "src/layer1/mainnet/MainnetInbox.sol";
 import "src/layer1/based/TaikoInbox.sol";
-import "src/layer1/verifiers/SgxVerifier.sol";
 import "src/layer1/mainnet/multirollup/MainnetBridge.sol";
 import "src/layer1/mainnet/multirollup/MainnetERC1155Vault.sol";
 import "src/layer1/mainnet/multirollup/MainnetERC20Vault.sol";
@@ -30,8 +17,6 @@ import "src/layer1/mainnet/multirollup/MainnetERC721Vault.sol";
 import "src/layer1/mainnet/multirollup/MainnetSignalService.sol";
 import "src/layer1/provers/ProverSet.sol";
 import "src/layer1/token/TaikoToken.sol";
-import "src/layer1/verifiers/Risc0Verifier.sol";
-import "src/layer1/verifiers/SP1Verifier.sol";
 import "test/shared/helpers/FreeMintERC20Token.sol";
 import "test/shared/helpers/FreeMintERC20Token_With50PctgMintAndTransferFailure.sol";
 import "test/shared/DeployCapability.sol";
