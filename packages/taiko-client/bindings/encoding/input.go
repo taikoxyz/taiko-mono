@@ -298,7 +298,7 @@ var (
 	stringType, _                  = abi.NewType("string", "TAIKO_DIFFICULTY", nil)
 	uint64Type, _                  = abi.NewType("uint64", "local.b.numBlocks", nil)
 	difficultyCalculationInputArgs = abi.Arguments{{Type: stringType}, {Type: uint64Type}}
-	proveBlocksInputArgs = abi.Arguments{
+	proveBlocksInputArgs           = abi.Arguments{
 		{Name: "TaikoData.BlockMetadata", Type: blockMetadataV2ComponentsType},
 		{Name: "TaikoData.Transition", Type: transitionComponentsType},
 	}
@@ -480,7 +480,6 @@ func EncodeProveBlocksBatchProof(
 	}
 	return input, nil
 }
-
 
 // UnpackTxListBytes unpacks the input data of a TaikoL1.proposeBlock transaction, and returns the txList bytes.
 func UnpackTxListBytes(txData []byte) ([]byte, error) {
