@@ -7,7 +7,6 @@ import "src/shared/libs/LibBytes.sol";
 import "../CommonTest.sol";
 
 contract TestLibBytes is CommonTest {
-
     function test_LibBytes_toString_largeThan64ByteString() public pure {
         bytes memory abiEncodedString = abi.encode("Test String");
         string memory result = LibBytes.toString(abiEncodedString);
@@ -52,8 +51,7 @@ contract TestLibBytes is CommonTest {
 
     function test_LibBytes_revertWithExtractedError_noRevertMessage() public {
         bytes memory emptyRevertData = new bytes(68);
-        vm.expectRevert(bytes(''));
+        vm.expectRevert(bytes(""));
         LibBytes.revertWithExtractedError(emptyRevertData);
     }
-
 }
