@@ -58,6 +58,10 @@ interface ISignalService {
         bytes32 signal
     );
 
+    /// @notice Emitted when signals are received directly by TaikoL2 in its Anchor transaction.
+    /// @param signalSlots The signal slots that were received.
+    event SignalsReceived(bytes32[] signalSlots);
+
     /// @notice Emitted when a signal is sent.
     /// @param app The address that initiated the signal.
     /// @param signal The signal (message) that was sent.
@@ -69,6 +73,10 @@ interface ISignalService {
     /// @param addr The address to be authorized or deauthorized.
     /// @param authorized True if authorized, false otherwise.
     event Authorized(address indexed addr, bool authorized);
+
+    /// @dev Allow TaikoL2 to receive signals directly in its Anchor transaction.
+    /// @param _signalSlots The signal slots to mark as received.
+    function receiveSignals(bytes32[] calldata _signalSlots) external;
 
     /// @notice Send a signal (message) by setting the storage slot to the same value as the signal
     /// itself.
@@ -98,7 +106,8 @@ interface ISignalService {
     /// @param _app The address that initiated the signal.
     /// @param _signal The signal (message) to send.
     /// @param _proof Merkle proof that the signal was persisted on the
-    /// source chain.
+    /// source chain. If this proof is empty, then we check if this signal has been marked as
+    /// received by TaikoL2.
     /// @return numCacheOps_ The number of newly cached items.
     function proveSignalReceived(
         uint64 _chainId,
@@ -116,7 +125,8 @@ interface ISignalService {
     /// @param _app The address that initiated the signal.
     /// @param _signal The signal (message) to send.
     /// @param _proof Merkle proof that the signal was persisted on the
-    /// source chain.
+    /// source chain. If this proof is empty, then we check if this signal has been marked as
+    /// received by TaikoL2.
     function verifySignalReceived(
         uint64 _chainId,
         address _app,
@@ -131,6 +141,10 @@ interface ISignalService {
     /// @param _signal The signal (message) that was sent.
     /// @return true if the signal has been sent, otherwise false.
     function isSignalSent(address _app, bytes32 _signal) external view returns (bool);
+
+    /// @notice Verifies if a particular signal has already been sent.
+    /// @param _signalSlot The location in storage where this signal is stored.
+    function isSignalSent(bytes32 _signalSlot) external view returns (bool);
 
     /// @notice Checks if a chain data has been synced.
     /// @param _chainId The remote chainId.

@@ -56,7 +56,7 @@ contract TestLibAddress is CommonTest {
         assertEq(deployer.balance, balanceBefore + 1 ether);
     }
 
-    function test_supportsInterface() public {
+    function test_supportsInterface() public view {
         bool doesSupport = bridge.supportsInterface(deployer, 0x10101010);
 
         assertEq(doesSupport, false);

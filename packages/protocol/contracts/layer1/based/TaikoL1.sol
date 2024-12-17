@@ -109,8 +109,9 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
 
         for (uint256 i; i < _paramsArray.length; ++i) {
             require(calldataUsed || _paramsArray[i].blobIndex != 0, BlobIndexZero());
-            updatedParams =
-                _validateBlockParams(_paramsArray[i], config.maxAnchorHeightOffset, lastBlock);
+            updatedParams = _validateBlockParams(
+                _paramsArray[i], config.maxAnchorHeightOffset, config.maxSignalsToReceive, lastBlock
+            );
 
             // This section constructs the metadata for the proposed block, which is crucial for
             // nodes/clients to process the block. The metadata itself is not stored on-chain;
@@ -138,6 +139,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
                     blobIndex: calldataUsed ? 0 : _paramsArray[i].blobIndex,
                     anchorBlockId: updatedParams.anchorBlockId,
                     anchorBlockHash: blockhash(updatedParams.anchorBlockId),
+                    signalSlots: _paramsArray[i].signalSlots,
                     anchorInput: _paramsArray[i].anchorInput,
                     baseFeeConfig: config.baseFeeConfig
                 });
@@ -547,6 +549,7 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
     function _validateBlockParams(
         BlockParamsV3 calldata _params,
         uint64 _maxAnchorHeightOffset,
+        uint8 _maxSignalsToReceive,
         BlockInfo memory _parent
     )
         private
@@ -590,6 +593,17 @@ abstract contract TaikoL1 is EssentialContract, ITaikoL1 {
                 _params.parentMetaHash == 0 || _params.parentMetaHash == _parent.metaHash,
                 ParentMetaHashMismatch()
             );
+        }
+
+        if (_params.signalSlots.length != 0) {
+            require(_params.signalSlots.length <= _maxSignalsToReceive, TooManySignals());
+
+            ISignalService signalService =
+                ISignalService(resolve(LibStrings.B_SIGNAL_SERVICE, false));
+
+            for (uint256 i; i < _params.signalSlots.length; ++i) {
+                require(signalService.isSignalSent(_params.signalSlots[i]), SignalNotSent());
+            }
         }
     }
 

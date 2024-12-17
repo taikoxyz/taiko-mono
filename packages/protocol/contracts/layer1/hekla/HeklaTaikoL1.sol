@@ -27,6 +27,7 @@ contract HeklaTaikoL1 is TaikoL1 {
                 maxGasIssuancePerBlock: 600_000_000 // two minutes
              }),
             provingWindow: 2 hours,
+            maxSignalsToReceive: 16,
             forkHeights: ITaikoL1.ForkHeights({
                 ontake: 840_512,
                 pacaya: 840_512 * 10 // TODO

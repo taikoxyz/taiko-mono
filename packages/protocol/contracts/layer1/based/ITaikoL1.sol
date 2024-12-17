@@ -14,6 +14,7 @@ interface ITaikoL1 {
         uint32 txListOffset;
         uint32 txListSize;
         uint8 blobIndex;
+        bytes32[] signalSlots;
     }
 
     struct BlockMetadataV3 {
@@ -34,6 +35,7 @@ interface ITaikoL1 {
         uint8 blobIndex;
         uint64 anchorBlockId;
         bytes32 anchorBlockHash;
+        bytes32[] signalSlots;
         bytes32 anchorInput;
         LibSharedData.BaseFeeConfig baseFeeConfig;
     }
@@ -106,6 +108,9 @@ interface ITaikoL1 {
         LibSharedData.BaseFeeConfig baseFeeConfig;
         /// @notice The proving window in seconds.
         uint16 provingWindow;
+        /// @notice The maximum number of signals to be received by TaikoL2.
+        uint8 maxSignalsToReceive;
+        /// @notice Historical heights of the forks.
         ForkHeights forkHeights;
     }
 
@@ -201,10 +206,12 @@ interface ITaikoL1 {
     error NotPreconfRouter();
     error ParentMetaHashMismatch();
     error ProverNotPermitted();
+    error SignalNotSent();
     error TimestampSmallerThanParent();
     error TimestampTooLarge();
     error TimestampTooSmall();
     error TooManyBlocks();
+    error TooManySignals();
     error TransitionNotFound();
 
     function proposeBlocksV3(
