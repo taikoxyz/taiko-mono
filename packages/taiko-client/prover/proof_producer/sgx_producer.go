@@ -28,7 +28,7 @@ const (
 
 // SGXProofProducer generates a SGX proof for the given block.
 type SGXProofProducer struct {
-	RaikoHostEndpoint   string // a proverd RPC endpoint
+	RaikoHostEndpoint   string // Raiko RESTful API endpoint
 	ProofType           string // Proof type
 	JWT                 string // JWT provided by Raiko
 	Dummy               bool

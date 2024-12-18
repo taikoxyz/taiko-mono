@@ -30,13 +30,13 @@ var (
 var (
 	RaikoHostEndpoint = &cli.StringFlag{
 		Name:     "raiko.host",
-		Usage:    "RPC endpoint of a Raiko host service",
+		Usage:    "RESTful API endpoint of a Raiko host service",
 		Category: proverCategory,
 		EnvVars:  []string{"RAIKO_HOST"},
 	}
 	RaikoZKVMHostEndpoint = &cli.StringFlag{
 		Name:     "raiko.host.zkvm",
-		Usage:    "RPC endpoint of a Raiko ZKVM host service",
+		Usage:    "RESTful API endpoint of a Raiko ZKVM host service",
 		Category: proverCategory,
 		EnvVars:  []string{"RAIKO_HOST_ZKVM"},
 	}
