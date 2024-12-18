@@ -9,8 +9,8 @@ const ARTIFACTS_PATH = path.join(__dirname, "../../../out/layer2");
 const IMPLEMENTATION_SLOT =
     "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc";
 
-// deployTaikoL2 generates a L2 genesis alloc of the TaikoL2 contract.
-export async function deployTaikoL2(
+// deployTaikoAnchor generates a L2 genesis alloc of the TaikoAnchor contract.
+export async function deployTaikoAnchor(
     config: Config,
     result: Result,
 ): Promise<Result> {
@@ -44,6 +44,7 @@ export async function deployTaikoL2(
         chainId,
         config.contractAddresses,
         config.param1559,
+        config.pacayaForkHeight,
     );
 
     const storageLayouts: any = {};
@@ -72,7 +73,7 @@ export async function deployTaikoL2(
         if (!contractConfig.isProxy)
             storageLayoutName = `${contractName.replace("Impl", "")}`;
 
-        storageLayoutName = contractName.includes("DefaultResolver")
+        storageLayoutName = contractName.includes("Resolver")
             ? "DefaultResolver"
             : storageLayoutName;
 
@@ -115,6 +116,7 @@ async function generateContractConfigs(
     chainId: number,
     hardCodedAddresses: any,
     param1559: any,
+    pacayaForkHeight: number, // TODO: fix this value
 ): Promise<any> {
     const contractArtifacts: any = {
         // ============ Contracts ============
@@ -134,7 +136,7 @@ async function generateContractConfigs(
         SignalServiceImpl: require(
             path.join(ARTIFACTS_PATH, "./SignalService.sol/SignalService.json"),
         ),
-        SharedDefaultResolverImpl: require(
+        SharedResolverImpl: require(
             path.join(
                 ARTIFACTS_PATH,
                 "./DefaultResolver.sol/DefaultResolver.json",
@@ -153,10 +155,10 @@ async function generateContractConfigs(
             ),
         ),
         // Rollup Contracts
-        TaikoL2Impl: require(
-            path.join(ARTIFACTS_PATH, "./TaikoL2.sol/TaikoL2.json"),
+        TaikoAnchorImpl: require(
+            path.join(ARTIFACTS_PATH, "./TaikoAnchor.sol/TaikoAnchor.json"),
         ),
-        RollupDefaultResolverImpl: require(
+        RollupResolverImpl: require(
             path.join(
                 ARTIFACTS_PATH,
                 "./DefaultResolver.sol/DefaultResolver.json",
@@ -178,10 +180,10 @@ async function generateContractConfigs(
     contractArtifacts.ERC721Vault = proxy;
     contractArtifacts.ERC1155Vault = proxy;
     contractArtifacts.SignalService = proxy;
-    contractArtifacts.SharedDefaultResolver = proxy;
+    contractArtifacts.SharedResolver = proxy;
     // Rollup Contracts
-    contractArtifacts.TaikoL2 = proxy;
-    contractArtifacts.RollupDefaultResolver = proxy;
+    contractArtifacts.TaikoAnchor = proxy;
+    contractArtifacts.RollupResolver = proxy;
 
     const addressMap: any = {};
 
@@ -211,24 +213,21 @@ async function generateContractConfigs(
 
     return {
         // Shared Contracts
-        SharedDefaultResolverImpl: {
-            address: addressMap.SharedDefaultResolverImpl,
+        SharedResolverImpl: {
+            address: addressMap.SharedResolverImpl,
             deployedBytecode: replaceUUPSImmutableValues(
-                contractArtifacts.SharedDefaultResolverImpl,
+                contractArtifacts.SharedResolverImpl,
                 uupsImmutableReferencesMap,
-                ethers.utils.hexZeroPad(
-                    addressMap.SharedDefaultResolverImpl,
-                    32,
-                ),
+                ethers.utils.hexZeroPad(addressMap.SharedResolverImpl, 32),
             ).deployedBytecode.object,
             variables: {
                 _owner: contractOwner,
             },
         },
-        SharedDefaultResolver: {
-            address: addressMap.SharedDefaultResolver,
+        SharedResolver: {
+            address: addressMap.SharedResolver,
             deployedBytecode:
-                contractArtifacts.SharedDefaultResolver.deployedBytecode.object,
+                contractArtifacts.SharedResolver.deployedBytecode.object,
             variables: {
                 // EssentialContract
                 __reentry: 1, // _FALSE
@@ -269,7 +268,7 @@ async function generateContractConfigs(
                 },
             },
             slots: {
-                [IMPLEMENTATION_SLOT]: addressMap.SharedDefaultResolverImpl,
+                [IMPLEMENTATION_SLOT]: addressMap.SharedResolverImpl,
             },
             isProxy: true,
         },
@@ -299,8 +298,8 @@ async function generateContractConfigs(
                 _initializing: false,
                 // EssentialContract => Ownable2StepUpgradeable
                 _owner: contractOwner,
-                // EssentialContract => AddressResolver
-                addressManager: addressMap.SharedDefaultResolver,
+                // EssentialContract => DefaultResolver
+                __resolver: addressMap.SharedResolver,
             },
             slots: {
                 [IMPLEMENTATION_SLOT]: addressMap.BridgeImpl,
@@ -334,8 +333,8 @@ async function generateContractConfigs(
                 _initializing: false,
                 // EssentialContract => Ownable2StepUpgradeable
                 _owner: contractOwner,
-                // EssentialContract => AddressResolver
-                addressManager: addressMap.SharedDefaultResolver,
+                // EssentialContract => DefaultResolver
+                __resolver: addressMap.SharedResolver,
             },
             slots: {
                 [IMPLEMENTATION_SLOT]: addressMap.ERC20VaultImpl,
@@ -369,8 +368,8 @@ async function generateContractConfigs(
                 _initializing: false,
                 // EssentialContract => Ownable2StepUpgradeable
                 _owner: contractOwner,
-                // EssentialContract => AddressResolver
-                addressManager: addressMap.SharedDefaultResolver,
+                // EssentialContract => DefaultResolver
+                __resolver: addressMap.SharedResolver,
             },
             slots: {
                 [IMPLEMENTATION_SLOT]: addressMap.ERC721VaultImpl,
@@ -404,8 +403,8 @@ async function generateContractConfigs(
                 _initializing: false,
                 // EssentialContract => Ownable2StepUpgradeable
                 _owner: contractOwner,
-                // EssentialContract => AddressResolver
-                addressManager: addressMap.SharedDefaultResolver,
+                // EssentialContract => DefaultResolver
+                __resolver: addressMap.SharedResolver,
             },
             slots: {
                 [IMPLEMENTATION_SLOT]: addressMap.ERC1155VaultImpl,
@@ -472,10 +471,10 @@ async function generateContractConfigs(
                 _initializing: false,
                 // EssentialContract => Ownable2StepUpgradeable
                 _owner: contractOwner,
-                // EssentialContract => AddressResolver
-                addressManager: addressMap.SharedDefaultResolver,
+                // EssentialContract => DefaultResolver
+                __resolver: addressMap.SharedResolver,
                 isAuthorized: {
-                    [addressMap.TaikoL2]: true,
+                    [addressMap.TaikoAnchor]: true,
                 },
             },
             slots: {
@@ -484,13 +483,13 @@ async function generateContractConfigs(
             isProxy: true,
         },
         // Rollup Contracts
-        TaikoL2Impl: {
-            address: addressMap.TaikoL2Impl,
+        TaikoAnchorImpl: {
+            address: addressMap.TaikoAnchorImpl,
             deployedBytecode: linkContractLibs(
                 replaceUUPSImmutableValues(
-                    contractArtifacts.TaikoL2Impl,
+                    contractArtifacts.TaikoAnchorImpl,
                     uupsImmutableReferencesMap,
-                    ethers.utils.hexZeroPad(addressMap.TaikoL2Impl, 32),
+                    ethers.utils.hexZeroPad(addressMap.TaikoAnchorImpl, 32),
                 ),
                 addressMap,
             ),
@@ -498,9 +497,10 @@ async function generateContractConfigs(
                 _owner: contractOwner,
             },
         },
-        TaikoL2: {
-            address: addressMap.TaikoL2,
-            deployedBytecode: contractArtifacts.TaikoL2.deployedBytecode.object,
+        TaikoAnchor: {
+            address: addressMap.TaikoAnchor,
+            deployedBytecode:
+                contractArtifacts.TaikoAnchor.deployedBytecode.object,
             variables: {
                 // EssentialContract
                 __reentry: 1, // _FALSE
@@ -510,11 +510,11 @@ async function generateContractConfigs(
                 _initializing: false,
                 // EssentialContract => Ownable2StepUpgradeable
                 _owner: contractOwner,
-                // EssentialContract => AddressResolver
-                addressManager: addressMap.RollupDefaultResolver,
-                // TaikoL2 => CrossChainOwned
+                // EssentialContract => DefaultResolver
+                __resolver: addressMap.RollupResolver,
+                // TaikoAnchor => CrossChainOwned
                 l1ChainId,
-                // TaikoL2
+                // TaikoAnchor
                 parentGasExcess: param1559.gasExcess,
                 publicInputHash: `${ethers.utils.solidityKeccak256(
                     ["bytes32[256]"],
@@ -531,28 +531,25 @@ async function generateContractConfigs(
                 )}`,
             },
             slots: {
-                [IMPLEMENTATION_SLOT]: addressMap.TaikoL2Impl,
+                [IMPLEMENTATION_SLOT]: addressMap.TaikoAnchorImpl,
             },
             isProxy: true,
         },
-        RollupDefaultResolverImpl: {
-            address: addressMap.RollupDefaultResolverImpl,
+        RollupResolverImpl: {
+            address: addressMap.RollupResolverImpl,
             deployedBytecode: replaceUUPSImmutableValues(
-                contractArtifacts.RollupDefaultResolverImpl,
+                contractArtifacts.RollupResolverImpl,
                 uupsImmutableReferencesMap,
-                ethers.utils.hexZeroPad(
-                    addressMap.RollupDefaultResolverImpl,
-                    32,
-                ),
+                ethers.utils.hexZeroPad(addressMap.RollupResolverImpl, 32),
             ).deployedBytecode.object,
             variables: {
                 _owner: contractOwner,
             },
         },
-        RollupDefaultResolver: {
-            address: addressMap.RollupDefaultResolver,
+        RollupResolver: {
+            address: addressMap.RollupResolver,
             deployedBytecode:
-                contractArtifacts.RollupDefaultResolver.deployedBytecode.object,
+                contractArtifacts.RollupResolver.deployedBytecode.object,
             variables: {
                 // EssentialContract
                 __reentry: 1, // _FALSE
@@ -567,7 +564,7 @@ async function generateContractConfigs(
                     [chainId]: {
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("taiko"),
-                        )]: addressMap.TaikoL2,
+                        )]: addressMap.TaikoAnchor,
                         [ethers.utils.hexlify(
                             ethers.utils.toUtf8Bytes("bridge"),
                         )]: addressMap.Bridge,
@@ -578,7 +575,7 @@ async function generateContractConfigs(
                 },
             },
             slots: {
-                [IMPLEMENTATION_SLOT]: addressMap.RollupDefaultResolverImpl,
+                [IMPLEMENTATION_SLOT]: addressMap.RollupResolverImpl,
             },
             isProxy: true,
         },

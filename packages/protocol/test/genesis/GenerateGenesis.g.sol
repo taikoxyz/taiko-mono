@@ -10,8 +10,8 @@ import "src/shared/tokenvault/ERC1155Vault.sol";
 import "src/shared/tokenvault/ERC20Vault.sol";
 import "src/shared/tokenvault/ERC721Vault.sol";
 import "src/shared/signal/SignalService.sol";
-import "src/layer2/based/TaikoL2.sol";
-import "../shared/token/RegularERC20.sol";
+import "src/layer2/based/TaikoAnchor.sol";
+import "../shared/helpers/RegularERC20.sol";
 
 contract TestGenerateGenesis is Test {
     using stdJson for string;
@@ -32,7 +32,7 @@ contract TestGenerateGenesis is Test {
         checkDeployedCode("ERC1155Vault");
         checkDeployedCode("Bridge");
         checkDeployedCode("SignalService");
-        checkDeployedCode("SharedDefaultResolver");
+        checkDeployedCode("SharedResolver");
         checkDeployedCode("BridgedERC20Impl");
         checkDeployedCode("BridgedERC721Impl");
         checkDeployedCode("BridgedERC1155Impl");
@@ -43,7 +43,7 @@ contract TestGenerateGenesis is Test {
         checkProxyImplementation("ERC1155Vault");
         checkProxyImplementation("Bridge");
         checkProxyImplementation("SignalService");
-        checkProxyImplementation("SharedDefaultResolver");
+        checkProxyImplementation("SharedResolver");
 
         // // check proxies
         checkDeployedCode("ERC20Vault");
@@ -51,67 +51,67 @@ contract TestGenerateGenesis is Test {
         checkDeployedCode("ERC1155Vault");
         checkDeployedCode("Bridge");
         checkDeployedCode("SignalService");
-        checkDeployedCode("SharedDefaultResolver");
+        checkDeployedCode("SharedResolver");
     }
 
     function testRollupContractsDeployment() public {
         // check bytecode
-        checkDeployedCode("TaikoL2");
-        checkDeployedCode("RollupDefaultResolver");
+        checkDeployedCode("TaikoAnchor");
+        checkDeployedCode("RollupResolver");
 
         // check proxy implementations
-        checkProxyImplementation("TaikoL2", contractOwner);
-        checkProxyImplementation("RollupDefaultResolver");
+        checkProxyImplementation("TaikoAnchor", contractOwner);
+        checkProxyImplementation("RollupResolver");
 
         // check proxies
-        checkDeployedCode("TaikoL2");
-        checkDeployedCode("RollupDefaultResolver");
+        checkDeployedCode("TaikoAnchor");
+        checkDeployedCode("RollupResolver");
     }
 
-    function testSharedDefaultResolver() public {
-        DefaultResolver addressManagerProxy =
-            DefaultResolver(getPredeployedContractAddress("SharedDefaultResolver"));
+    function testSharedResolver() public {
+        DefaultResolver resolverProxy =
+            DefaultResolver(getPredeployedContractAddress("SharedResolver"));
 
-        assertEq(contractOwner, addressManagerProxy.owner());
+        assertEq(contractOwner, resolverProxy.owner());
 
-        checkSavedAddress(addressManagerProxy, "Bridge", "bridge");
-        checkSavedAddress(addressManagerProxy, "ERC20Vault", "erc20_vault");
-        checkSavedAddress(addressManagerProxy, "ERC721Vault", "erc721_vault");
-        checkSavedAddress(addressManagerProxy, "ERC1155Vault", "erc1155_vault");
-        checkSavedAddress(addressManagerProxy, "SignalService", "signal_service");
+        checkSavedAddress(resolverProxy, "Bridge", "bridge");
+        checkSavedAddress(resolverProxy, "ERC20Vault", "erc20_vault");
+        checkSavedAddress(resolverProxy, "ERC721Vault", "erc721_vault");
+        checkSavedAddress(resolverProxy, "ERC1155Vault", "erc1155_vault");
+        checkSavedAddress(resolverProxy, "SignalService", "signal_service");
 
-        vm.startPrank(addressManagerProxy.owner());
+        vm.startPrank(resolverProxy.owner());
 
-        addressManagerProxy.upgradeTo(address(new DefaultResolver()));
+        resolverProxy.upgradeTo(address(new DefaultResolver()));
 
         vm.stopPrank();
     }
 
-    function testRollupDefaultResolver() public {
-        DefaultResolver addressManagerProxy =
-            DefaultResolver(getPredeployedContractAddress("RollupDefaultResolver"));
+    function testRollupResolver() public {
+        DefaultResolver resolverProxy =
+            DefaultResolver(getPredeployedContractAddress("RollupResolver"));
 
-        assertEq(contractOwner, addressManagerProxy.owner());
+        assertEq(contractOwner, resolverProxy.owner());
 
-        checkSavedAddress(addressManagerProxy, "TaikoL2", "taiko");
-        checkSavedAddress(addressManagerProxy, "SignalService", "signal_service");
+        checkSavedAddress(resolverProxy, "TaikoAnchor", "taiko");
+        checkSavedAddress(resolverProxy, "SignalService", "signal_service");
 
-        vm.startPrank(addressManagerProxy.owner());
+        vm.startPrank(resolverProxy.owner());
 
-        addressManagerProxy.upgradeTo(address(new DefaultResolver()));
+        resolverProxy.upgradeTo(address(new DefaultResolver()));
 
         vm.stopPrank();
     }
 
-    function testTaikoL2() public {
-        TaikoL2 taikoL2Proxy = TaikoL2(getPredeployedContractAddress("TaikoL2"));
+    function testTaikoAnchor() public {
+        TaikoAnchor taikoAnchorProxy = TaikoAnchor(getPredeployedContractAddress("TaikoAnchor"));
 
-        assertEq(contractOwner, taikoL2Proxy.owner());
-        assertEq(l1ChainId, taikoL2Proxy.l1ChainId());
+        assertEq(contractOwner, taikoAnchorProxy.owner());
+        assertEq(l1ChainId, taikoAnchorProxy.l1ChainId());
 
-        vm.startPrank(taikoL2Proxy.owner());
+        vm.startPrank(taikoAnchorProxy.owner());
 
-        taikoL2Proxy.upgradeTo(address(new TaikoL2()));
+        taikoAnchorProxy.upgradeTo(address(new TaikoAnchor(0)));
 
         vm.stopPrank();
     }
@@ -121,7 +121,7 @@ contract TestGenerateGenesis is Test {
 
         Bridge bridgeProxy = Bridge(payable(bridgeAddress));
         DefaultResolver addressManager =
-            DefaultResolver(getPredeployedContractAddress("SharedDefaultResolver"));
+            DefaultResolver(getPredeployedContractAddress("SharedResolver"));
 
         vm.startPrank(addressManager.owner());
         addressManager.registerAddress(1, "bridge", bridgeAddress);
@@ -185,7 +185,7 @@ contract TestGenerateGenesis is Test {
 
         ERC20Vault erc20VaultProxy = ERC20Vault(erc20VaultAddress);
         DefaultResolver addressManager =
-            DefaultResolver(getPredeployedContractAddress("SharedDefaultResolver"));
+            DefaultResolver(getPredeployedContractAddress("SharedResolver"));
 
         assertEq(contractOwner, erc20VaultProxy.owner());
 
@@ -207,7 +207,7 @@ contract TestGenerateGenesis is Test {
 
         EssentialContract erc721VaultProxy = EssentialContract(erc721VaultAddress);
         DefaultResolver addressManager =
-            DefaultResolver(getPredeployedContractAddress("SharedDefaultResolver"));
+            DefaultResolver(getPredeployedContractAddress("SharedResolver"));
 
         assertEq(contractOwner, erc721VaultProxy.owner());
 
@@ -229,7 +229,7 @@ contract TestGenerateGenesis is Test {
 
         EssentialContract erc1155VaultProxy = EssentialContract(erc1155VaultProxyAddress);
         DefaultResolver addressManager =
-            DefaultResolver(getPredeployedContractAddress("SharedDefaultResolver"));
+            DefaultResolver(getPredeployedContractAddress("SharedResolver"));
 
         assertEq(contractOwner, erc1155VaultProxy.owner());
 
@@ -265,7 +265,7 @@ contract TestGenerateGenesis is Test {
         vm.stopPrank();
     }
 
-    function testERC20() public {
+    function testERC20() public view {
         RegularERC20 regularERC20 = RegularERC20(getPredeployedContractAddress("RegularERC20"));
 
         assertEq(regularERC20.name(), "RegularERC20");
@@ -280,7 +280,7 @@ contract TestGenerateGenesis is Test {
         return configJSON.readAddress(string.concat(".contractAddresses.", contractName));
     }
 
-    function checkDeployedCode(string memory contractName) private {
+    function checkDeployedCode(string memory contractName) private view {
         address contractAddress = getPredeployedContractAddress(contractName);
         string memory deployedCode =
             genesisAllocJSON.readString(string.concat(".", vm.toString(contractAddress), ".code"));
@@ -305,15 +305,16 @@ contract TestGenerateGenesis is Test {
     }
 
     function checkSavedAddress(
-        DefaultResolver resolver,
+        ResolverBase resolver,
         string memory contractName,
         bytes32 name
     )
         private
+        view
     {
         assertEq(
             getPredeployedContractAddress(contractName),
-            resolver.resolve(ethereumChainId, name, false)
+            resolver.resolve(uint64(block.chainid), name, false)
         );
     }
 }
