@@ -135,7 +135,7 @@ func (p *Proposer) InitFromConfig(
 		cfg.ProposeBlockTxGasLimit,
 		cfg.ExtraData,
 		chainConfig,
-    cfg.RevertProtectionEnabled,
+		cfg.RevertProtectionEnabled,
 	)
 	if cfg.BlobAllowed {
 		p.txBlobBuilder = builder.NewBlobTransactionBuilder(
