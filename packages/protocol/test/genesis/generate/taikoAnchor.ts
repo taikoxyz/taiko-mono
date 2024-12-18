@@ -187,7 +187,14 @@ async function generateContractConfigs(
 
     const addressMap: any = {};
 
-    const uupsImmutableReferencesMap: any = getUUPSImmutableReferences();
+    const uupsImmutableReferencesMap: any = getImmutableReferences(
+        "UUPSUpgradeable",
+        "__self",
+    );
+    const taikoAnchorReferencesMap: any = getImmutableReferences(
+        "TaikoAnchor",
+        "pacayaForkHeight",
+    );
 
     for (const [contractName, artifact] of Object.entries(contractArtifacts)) {
         const bytecode = (artifact as any).bytecode;
@@ -215,9 +222,9 @@ async function generateContractConfigs(
         // Shared Contracts
         SharedResolverImpl: {
             address: addressMap.SharedResolverImpl,
-            deployedBytecode: replaceUUPSImmutableValues(
+            deployedBytecode: replaceImmutableValues(
                 contractArtifacts.SharedResolverImpl,
-                uupsImmutableReferencesMap,
+                uupsImmutableReferencesMap.UUPSUpgradeable.id,
                 ethers.utils.hexZeroPad(addressMap.SharedResolverImpl, 32),
             ).deployedBytecode.object,
             variables: {
@@ -275,9 +282,9 @@ async function generateContractConfigs(
         BridgeImpl: {
             address: addressMap.BridgeImpl,
             deployedBytecode: linkContractLibs(
-                replaceUUPSImmutableValues(
+                replaceImmutableValues(
                     contractArtifacts.BridgeImpl,
-                    uupsImmutableReferencesMap,
+                    uupsImmutableReferencesMap.UUPSUpgradeable.id,
                     ethers.utils.hexZeroPad(addressMap.BridgeImpl, 32),
                 ),
                 addressMap,
@@ -309,9 +316,9 @@ async function generateContractConfigs(
         ERC20VaultImpl: {
             address: addressMap.ERC20VaultImpl,
             deployedBytecode: linkContractLibs(
-                replaceUUPSImmutableValues(
+                replaceImmutableValues(
                     contractArtifacts.ERC20VaultImpl,
-                    uupsImmutableReferencesMap,
+                    uupsImmutableReferencesMap.UUPSUpgradeable.id,
                     ethers.utils.hexZeroPad(addressMap.ERC20VaultImpl, 32),
                 ),
                 addressMap,
@@ -344,9 +351,9 @@ async function generateContractConfigs(
         ERC721VaultImpl: {
             address: addressMap.ERC721VaultImpl,
             deployedBytecode: linkContractLibs(
-                replaceUUPSImmutableValues(
+                replaceImmutableValues(
                     contractArtifacts.ERC721VaultImpl,
-                    uupsImmutableReferencesMap,
+                    uupsImmutableReferencesMap.UUPSUpgradeable.id,
                     ethers.utils.hexZeroPad(addressMap.ERC721VaultImpl, 32),
                 ),
                 addressMap,
@@ -379,9 +386,9 @@ async function generateContractConfigs(
         ERC1155VaultImpl: {
             address: addressMap.ERC1155VaultImpl,
             deployedBytecode: linkContractLibs(
-                replaceUUPSImmutableValues(
+                replaceImmutableValues(
                     contractArtifacts.ERC1155VaultImpl,
-                    uupsImmutableReferencesMap,
+                    uupsImmutableReferencesMap.UUPSUpgradeable.id,
                     ethers.utils.hexZeroPad(addressMap.ERC1155VaultImpl, 32),
                 ),
                 addressMap,
@@ -414,9 +421,9 @@ async function generateContractConfigs(
         BridgedERC20: {
             address: addressMap.BridgedERC20Impl,
             deployedBytecode: linkContractLibs(
-                replaceUUPSImmutableValues(
+                replaceImmutableValues(
                     contractArtifacts.BridgedERC20Impl,
-                    uupsImmutableReferencesMap,
+                    uupsImmutableReferencesMap.UUPSUpgradeable.id,
                     ethers.utils.hexZeroPad(addressMap.BridgedERC20Impl, 32),
                 ),
                 addressMap,
@@ -425,9 +432,9 @@ async function generateContractConfigs(
         BridgedERC721: {
             address: addressMap.BridgedERC721Impl,
             deployedBytecode: linkContractLibs(
-                replaceUUPSImmutableValues(
+                replaceImmutableValues(
                     contractArtifacts.BridgedERC721Impl,
-                    uupsImmutableReferencesMap,
+                    uupsImmutableReferencesMap.UUPSUpgradeable.id,
                     ethers.utils.hexZeroPad(addressMap.BridgedERC721Impl, 32),
                 ),
                 addressMap,
@@ -436,9 +443,9 @@ async function generateContractConfigs(
         BridgedERC1155: {
             address: addressMap.BridgedERC1155Impl,
             deployedBytecode: linkContractLibs(
-                replaceUUPSImmutableValues(
+                replaceImmutableValues(
                     contractArtifacts.BridgedERC1155Impl,
-                    uupsImmutableReferencesMap,
+                    uupsImmutableReferencesMap.UUPSUpgradeable.id,
                     ethers.utils.hexZeroPad(addressMap.BridgedERC1155Impl, 32),
                 ),
                 addressMap,
@@ -447,9 +454,9 @@ async function generateContractConfigs(
         SignalServiceImpl: {
             address: addressMap.SignalServiceImpl,
             deployedBytecode: linkContractLibs(
-                replaceUUPSImmutableValues(
+                replaceImmutableValues(
                     contractArtifacts.SignalServiceImpl,
-                    uupsImmutableReferencesMap,
+                    uupsImmutableReferencesMap.UUPSUpgradeable.id,
                     ethers.utils.hexZeroPad(addressMap.SignalServiceImpl, 32),
                 ),
                 addressMap,
@@ -486,9 +493,16 @@ async function generateContractConfigs(
         TaikoAnchorImpl: {
             address: addressMap.TaikoAnchorImpl,
             deployedBytecode: linkContractLibs(
-                replaceUUPSImmutableValues(
-                    contractArtifacts.TaikoAnchorImpl,
-                    uupsImmutableReferencesMap,
+                replaceImmutableValues(
+                    replaceImmutableValues(
+                        contractArtifacts.TaikoAnchorImpl,
+                        taikoAnchorReferencesMap.TaikoAnchor.id,
+                        ethers.utils.hexZeroPad(
+                            ethers.utils.hexlify(pacayaForkHeight),
+                            32,
+                        ),
+                    ),
+                    uupsImmutableReferencesMap.UUPSUpgradeable.id,
                     ethers.utils.hexZeroPad(addressMap.TaikoAnchorImpl, 32),
                 ),
                 addressMap,
@@ -537,9 +551,9 @@ async function generateContractConfigs(
         },
         RollupResolverImpl: {
             address: addressMap.RollupResolverImpl,
-            deployedBytecode: replaceUUPSImmutableValues(
+            deployedBytecode: replaceImmutableValues(
                 contractArtifacts.RollupResolverImpl,
-                uupsImmutableReferencesMap,
+                uupsImmutableReferencesMap.UUPSUpgradeable.id,
                 ethers.utils.hexZeroPad(addressMap.RollupResolverImpl, 32),
             ).deployedBytecode.object,
             variables: {
@@ -628,10 +642,11 @@ function getLinkLibs(artifact: any, linkRefs: any, addressMap: any) {
     return result;
 }
 
-function getUUPSImmutableReferences() {
+function getImmutableReferences(
+    contractName: string,
+    immutableValueName: string,
+) {
     const references: any = {};
-    const contractName = "UUPSUpgradeable";
-    const immutableValueName = "__self";
     const artifact = require(
         path.join(ARTIFACTS_PATH, `./${contractName}.sol/${contractName}.json`),
     );
@@ -652,15 +667,8 @@ function getUUPSImmutableReferences() {
     return references;
 }
 
-function replaceUUPSImmutableValues(
-    artifact: any,
-    references: any,
-    value: string,
-): any {
-    const offsets =
-        artifact.deployedBytecode.immutableReferences[
-            `${references.UUPSUpgradeable.id}`
-        ];
+function replaceImmutableValues(artifact: any, id: any, value: string): any {
+    const offsets = artifact.deployedBytecode.immutableReferences[`${id}`];
     let deployedBytecodeWithoutPrefix =
         artifact.deployedBytecode.object.substring(2);
     if (value.startsWith("0x")) value = value.substring(2);

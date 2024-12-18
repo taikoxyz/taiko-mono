@@ -22,6 +22,7 @@ contract TestGenerateGenesis is Test {
         vm.readFile(string.concat(vm.projectRoot(), "/test/genesis/data/genesis_alloc.json"));
     address private contractOwner = configJSON.readAddress(".contractOwner");
     uint256 private l1ChainId = configJSON.readUint(".l1ChainId");
+    uint256 private pacayaForkHeight = configJSON.readUint(".pacayaForkHeight");
 
     function testSharedContractsDeployment() public {
         assertEq(block.chainid, 167);
@@ -108,6 +109,7 @@ contract TestGenerateGenesis is Test {
 
         assertEq(contractOwner, taikoAnchorProxy.owner());
         assertEq(l1ChainId, taikoAnchorProxy.l1ChainId());
+        assertEq(uint64(pacayaForkHeight), taikoAnchorProxy.pacayaForkHeight());
 
         vm.startPrank(taikoAnchorProxy.owner());
 
