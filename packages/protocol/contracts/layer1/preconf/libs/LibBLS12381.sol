@@ -220,7 +220,7 @@ library LibBLS12381 {
         uint256[4] memory input = [fp2.u[0], fp2.u[1], fp2.u_I[0], fp2.u_I[1]];
 
         // ABI for mapping Fp2 element to G2 point precompile
-        // Field-to-curve call expects 128 bytes an an input that is interpreted as a an element of
+        // Field-to-curve call expects 128 bytes as an input that is interpreted as a an element of
         // the quadratic extension field. Output of this call is 256 bytes and is G2 point following
         // respective encoding rules.
         assembly {
