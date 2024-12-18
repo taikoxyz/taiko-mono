@@ -141,6 +141,13 @@ var (
 		Value:    "0",
 		Category: proposerCategory,
 		EnvVars:  []string{"OFF_CHAIN_COSTS"},
+    
+	RevertProtectionEnabled = &cli.BoolFlag{
+		Name:     "revertProtection",
+		Usage:    "Enable revert protection with the support of endpoint and contract",
+		Value:    false,
+		Category: proposerCategory,
+		EnvVars:  []string{"REVERT_PROTECTION"},
 	}
 )
 
@@ -168,4 +175,5 @@ var ProposerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	GasNeededForProvingBlock,
 	PriceFluctuationModifier,
 	OffChainCosts,
+	RevertProtectionEnabled,
 }, TxmgrFlags)

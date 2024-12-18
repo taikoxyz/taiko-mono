@@ -37,9 +37,6 @@ contract BadgeRecruitment is
     TrailblazersBadgesS2 public s2Badges;
     /// @notice Wallet authorized to sign as a source of randomness
     address public randomSigner;
-    /// @notice Recruitment-enabled badge IDs per cycle
-    //mapping(uint256 cycle => mapping(uint256 s1BadgeId => bool enabled)) public enabledBadgeIds;
-    // uint256[] public currentCycleEnabledRecruitmentIds;
     /// @notice Current recruitment cycle
     uint256 public recruitmentCycleId;
 

@@ -97,7 +97,7 @@ contract EventRegisterTest is Test {
         eventRegister.register(0);
         vm.stopPrank();
 
-        assertTrue(eventRegister.registrations(0, user1), "User1 should be registered");
+        assertTrue(eventRegister.isRegistered(0, user1), "User1 should be registered");
     }
 
     function testOnlyEventManagersCanOpenCloseRegistrations() public {
@@ -125,7 +125,7 @@ contract EventRegisterTest is Test {
         eventRegister.register(0);
         vm.stopPrank();
 
-        assertTrue(eventRegister.registrations(0, user1), "User1 should be registered for event 0");
+        assertTrue(eventRegister.isRegistered(0, user1), "User1 should be registered for event 0");
     }
 
     function testUserCannotRegisterTwice() public {
@@ -235,8 +235,8 @@ contract EventRegisterTest is Test {
         eventRegister.register(0);
         vm.stopPrank();
 
-        assertTrue(eventRegister.registrations(0, user1), "User1 should be registered");
-        assertTrue(eventRegister.registrations(0, user2), "User2 should be registered");
+        assertTrue(eventRegister.isRegistered(0, user1), "User1 should be registered");
+        assertTrue(eventRegister.isRegistered(0, user2), "User2 should be registered");
     }
 
     function testGetRegisteredEvents() public {

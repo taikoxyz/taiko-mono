@@ -258,6 +258,7 @@ func (s *ProposerTestSuite) TestProposeTxLists() {
 		cfg.ProposeBlockTxGasLimit,
 		cfg.ExtraData,
 		config.NewChainConfig(s.p.protocolConfigs),
+		false,
 	)
 
 	emptyTxListBytes, err := rlp.EncodeToBytes(types.Transactions{})

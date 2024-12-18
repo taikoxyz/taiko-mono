@@ -5,13 +5,9 @@ on:
     branches: [main]
     paths:
       - "packages/guardian-prover-health-check/**"
-      - "go.mod"
-      - "go.sum"
   pull_request:
     paths:
       - "packages/guardian-prover-health-check/**"
-      - "go.mod"
-      - "go.sum"
     branches-ignore:
       - release-please--branches--**
 
