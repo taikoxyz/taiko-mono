@@ -11,23 +11,18 @@ import "src/shared/signal/ISignalService.sol";
 import "src/layer1/verifiers/IVerifier.sol";
 import "./ITaikoInbox.sol";
 
-import "forge-std/src/console2.sol";
-
 /// @title TaikoInbox
-/// @notice This contract acts as the inbox for a simplified version of the original Taiko Based
-/// Contestable Rollup (BCR) protocol, specifically the tier-based proof system and proof
-/// contestation
-/// mechanisms have been removed.
+/// @notice Acts as the inbox for the Taiko Alethia protocol, a simplified version of the
+/// original Taiko-Based Contestable Rollup (BCR). The tier-based proof system and
+/// contestation mechanisms have been removed.
 ///
-/// The primary assumptions of this protocol are:
-/// - Proofs are not available at the time of block proposal, leading to an asynchronous process
-///   between block proposing and proving (unlike Taiko Gwyneth, which assumes availability of
-/// proofs
-///   at proposal time and supports synchronous composability).
-/// - Proofs are presumed to be error-free and rigorously validated. The responsibility for managing
-///   various proof types has been transferred to IVerifier contracts.
+/// Key assumptions of this protocol:
+/// - Block proposals and proofs are asynchronous. Proofs are not available at proposal time,
+///   unlike Taiko Gwyneth, which assumes synchronous composability.
+/// - Proofs are presumed error-free and thoroughly validated, with proof type management
+///   delegated to IVerifier contracts.
 ///
-/// @dev Labeled in address resolver as "taiko"
+/// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
 abstract contract TaikoInbox is EssentialContract, ITaikoInbox {
     using LibMath for uint256;

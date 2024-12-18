@@ -3,7 +3,18 @@ pragma solidity ^0.8.24;
 
 import "src/shared/based/LibSharedData.sol";
 
-/// @title ITaikoInbox
+/// @title TaikoInbox
+/// @notice Acts as the inbox for the Taiko Alethia protocol, a simplified version of the
+/// original Taiko-Based Contestable Rollup (BCR). The tier-based proof system and
+/// contestation mechanisms have been removed.
+///
+/// Key assumptions of this protocol:
+/// - Block proposals and proofs are asynchronous. Proofs are not available at proposal time,
+///   unlike Taiko Gwyneth, which assumes synchronous composability.
+/// - Proofs are presumed error-free and thoroughly validated, with proof type management
+///   delegated to IVerifier contracts.
+///
+/// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
 interface ITaikoInbox {
     struct BlockParamsV3 {
