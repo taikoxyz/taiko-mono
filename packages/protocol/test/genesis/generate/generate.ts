@@ -2,7 +2,7 @@ import { Config } from "./interface";
 const fs = require("fs");
 const path = require("path");
 const { ethers } = require("ethers");
-const { deployTaikoL2 } = require("./taikoL2");
+const { deployTaikoAnchor } = require("./taikoAnchor");
 const { deployERC20 } = require("./erc20");
 const config: Config = require("../data/genesis_config.js");
 
@@ -38,9 +38,9 @@ async function main() {
 
     console.log("config: %o", config);
 
-    console.log("start deploy TaikoL2 contract");
+    console.log("start deploy TaikoAnchor contract");
 
-    let result = await deployTaikoL2(config, {
+    let result = await deployTaikoAnchor(config, {
         alloc: {},
         storageLayouts: {},
     });
