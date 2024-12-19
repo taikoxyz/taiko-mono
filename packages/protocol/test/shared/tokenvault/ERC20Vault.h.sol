@@ -3,8 +3,21 @@ pragma solidity ^0.8.24;
 
 import "../CommonTest.sol";
 import "../helpers/CanSayHelloWorld.sol";
+import "src/layer1/based/ITaikoInbox.sol";
 
 contract BridgedERC20V2_WithHelloWorld is BridgedERC20V2, CanSayHelloWorld { }
+
+contract PrankTaikoInbox {
+    ITaikoInbox.BlockV3 internal blk;
+
+    function setBlock(ITaikoInbox.BlockV3 memory _blk) external {
+        blk = _blk;
+    }
+
+    function getBlockV3(uint64) external view returns (ITaikoInbox.BlockV3 memory) {
+        return blk;
+    }
+}
 
 // PrankDestBridge lets us simulate a transaction to the ERC20Vault
 // from a named Bridge, without having to test/run through the real Bridge code,
@@ -36,6 +49,8 @@ contract PrankDestBridge {
         address from,
         address to,
         uint64 amount,
+        uint64 solverFee,
+        bytes32 solverCondition,
         bytes32 msgHash,
         address srcChainERC20Vault,
         uint64 srcChainId,
@@ -55,7 +70,7 @@ contract PrankDestBridge {
         // a contract most probably due to some deployment address nonce issue. (Seems a known
         // issue).
         destERC20Vault.onMessageInvocation{ value: mockLibInvokeMsgValue }(
-            abi.encode(canonicalToken, from, to, amount)
+            abi.encode(canonicalToken, from, to, amount, solverFee, solverCondition)
         );
 
         ctx.sender = address(0);
