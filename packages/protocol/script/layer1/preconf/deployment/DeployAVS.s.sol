@@ -6,14 +6,14 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
-import "src/layer1/based/ITaikoL1.sol";
+import "src/layer1/based/ITaikoInbox.sol";
 import "src/layer1/preconf/impl/PreconfRegistry.sol";
 import "src/layer1/preconf/avs-mvp/PreconfServiceManager.sol";
 import "src/layer1/preconf/avs-mvp/iface/IAVSDirectory.sol";
 import "src/layer1/preconf/avs-mvp/iface/ISlasher.sol";
 import "src/layer1/preconf/impl/PreconfTaskManager.sol";
 
-import "../BaseScript.sol";
+import "script/BaseScript.sol";
 import "../misc/EmptyContract.sol";
 
 contract DeployAVS is BaseScript {
@@ -22,19 +22,19 @@ contract DeployAVS is BaseScript {
     address public slasher = vm.envAddress("SLASHER");
 
     // Required by task manager
-    address public taikoL1 = vm.envAddress("TAIKO_L1");
+    address public inbox = vm.envAddress("INBOX");
     address public taikoToken = vm.envAddress("TAIKO_TOKEN");
     uint256 public beaconGenesisTimestamp = vm.envUint("BEACON_GENESIS_TIMESTAMP");
     address public beaconBlockRootContract = vm.envAddress("BEACON_BLOCK_ROOT_CONTRACT");
 
     function run() external broadcast {
-        EmptyContract emptyContract = new EmptyContract();
+        address emptyContract = address(new EmptyContract());
         ProxyAdmin proxyAdmin = new ProxyAdmin();
 
         // Deploy proxies with empty implementations
-        address preconfRegistry = deployProxy(address(emptyContract), address(proxyAdmin), "");
-        address preconfServiceManager = deployProxy(address(emptyContract), address(proxyAdmin), "");
-        address preconfTaskManager = deployProxy(address(emptyContract), address(proxyAdmin), "");
+        address preconfRegistry = deploy(emptyContract, address(proxyAdmin), "");
+        address preconfServiceManager = deploy(emptyContract, address(proxyAdmin), "");
+        address preconfTaskManager = deploy(emptyContract, address(proxyAdmin), "");
 
         // Deploy implementations
         PreconfRegistry preconfRegistryImpl =
@@ -45,7 +45,7 @@ contract DeployAVS is BaseScript {
         PreconfTaskManager preconfTaskManagerImpl = new PreconfTaskManager(
             IPreconfServiceManager(preconfServiceManager),
             IPreconfRegistry(preconfRegistry),
-            ITaikoL1(taikoL1),
+            ITaikoInbox(inbox),
             beaconGenesisTimestamp,
             beaconBlockRootContract
         );

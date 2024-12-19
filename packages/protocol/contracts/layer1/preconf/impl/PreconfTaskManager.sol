@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "src/layer1/based/ITaikoL1.sol";
 import "../iface/IPreconfTaskManager.sol";
 import "../iface/IPreconfServiceManager.sol";
 import "../iface/IPreconfRegistry.sol";
@@ -29,7 +28,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
 
     IPreconfServiceManager internal immutable preconfServiceManager;
     IPreconfRegistry internal immutable preconfRegistry;
-    ITaikoL1 internal immutable taikoL1;
+    ITaikoInbox internal immutable inbox;
 
     // EIP-4788
     uint256 internal immutable beaconGenesis;
@@ -54,19 +53,19 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
     constructor(
         IPreconfServiceManager _serviceManager,
         IPreconfRegistry _registry,
-        ITaikoL1 _taikoL1,
+        ITaikoInbox _inbox,
         uint256 _beaconGenesis,
         address _beaconBlockRootContract
     ) {
         preconfServiceManager = _serviceManager;
         preconfRegistry = _registry;
-        taikoL1 = _taikoL1;
+        inbox = _inbox;
         beaconGenesis = _beaconGenesis;
         beaconBlockRootContract = _beaconBlockRootContract;
     }
 
     function init(IERC20 _taikoToken) external initializer {
-        _taikoToken.approve(address(taikoL1), type(uint256).max);
+        _taikoToken.approve(address(inbox), type(uint256).max);
     }
 
     /**
@@ -78,17 +77,18 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
      * to missed proposals.
      * In this case, `forcePushLookahead` must be called in order to update the lookahead for the
      * next epoch.
-     * @param blockParamsArr A list of block parameters expected by TaikoL1 contract
-     * @param txListArr A list of RLP encoded transaction list expected by TaikoL1 contract
+     * @param coinbase The address of the coinbase for the proposed block
+     * @param blockParams A list of block parameters expected by Taiko contract
      * @param lookaheadPointer A pointer to the lookahead entry that may prove that the sender is
      * the preconfer
      * for the slot.
      * @param lookaheadSetParams Collection of timestamps and preconfer addresses to be inserted in
      * the lookahead
      */
-    function newBlockProposals(
-        bytes[] calldata blockParamsArr,
-        bytes[] calldata txListArr,
+    function proposeBlocksV3(
+        address coinbase,
+        ITaikoInbox.BlockParamsV3[] calldata blockParams,
+        bytes calldata txList,
         uint256 lookaheadPointer,
         LookaheadSetParam[] calldata lookaheadSetParams
     )
@@ -126,7 +126,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         );
 
         // Forward the block to Taiko's L1 contract
-        taikoL1.proposeBlocksV2(blockParamsArr, txListArr);
+        inbox.proposeBlocksV3(msg.sender, coinbase, blockParams, txList);
     }
 
     /**
@@ -601,8 +601,8 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         return address(preconfRegistry);
     }
 
-    function getTaikoL1() external view returns (address) {
-        return address(taikoL1);
+    function getTaiko() external view returns (address) {
+        return address(inbox);
     }
 
     function getBeaconGenesis() external view returns (uint256) {

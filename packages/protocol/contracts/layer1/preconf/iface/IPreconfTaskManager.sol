@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "../libs/LibEIP4788.sol";
+import "../../based/ITaikoInbox.sol";
 
 /// @title IPreconfTaskManager
 /// @custom:security-contact security@taiko.xyz
@@ -58,10 +59,11 @@ interface IPreconfTaskManager {
     /// @dev The registry does not have a single registered preconfer
     error NoRegisteredPreconfer();
 
-    /// @dev Accepts block proposal by an operator and forwards it to TaikoL1 contract
-    function newBlockProposals(
-        bytes[] calldata blockParamsArr,
-        bytes[] calldata txListArr,
+    /// @dev Accepts block proposal by an operator and forwards it to Taiko contract
+    function proposeBlocksV3(
+        address coinbase,
+        ITaikoInbox.BlockParamsV3[] calldata blockParams,
+        bytes calldata txList,
         uint256 lookaheadPointer,
         LookaheadSetParam[] calldata lookaheadSetParams
     )
@@ -117,7 +119,7 @@ interface IPreconfTaskManager {
     function getPreconfRegistry() external view returns (address);
 
     /// @dev Returns the Taiko L1 contract address
-    function getTaikoL1() external view returns (address);
+    function getTaiko() external view returns (address);
 
     /// @dev Returns the beacon genesis timestamp
     function getBeaconGenesis() external view returns (uint256);

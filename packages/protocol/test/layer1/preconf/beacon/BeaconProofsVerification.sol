@@ -7,7 +7,7 @@ import "../fixtures/BeaconProofs.sol";
 
 /// @dev The beacon chain data used here is from slot 9000000 on Ethereum mainnet.
 contract BeaconProofsVerification is BaseTest {
-    function test_beaconProofsVerification_validatorInclusionInValidatorList() public {
+    function test_beaconProofsVerification_validatorInclusionInValidatorList() public pure {
         bytes32[8] memory validatorChunks = BeaconProofs.validatorChunks();
 
         bytes32 validatorHashTreeRoot = LibMerkleUtils.merkleize(validatorChunks);
@@ -24,7 +24,7 @@ contract BeaconProofsVerification is BaseTest {
         );
     }
 
-    function test_beaconProofsVerification_validatorListInclusionInBeaconState() public {
+    function test_beaconProofsVerification_validatorListInclusionInBeaconState() public pure {
         bytes32[] memory beaconStateProofForValidatorList =
             BeaconProofs.beaconStateProofForValidatorList();
 
@@ -38,7 +38,7 @@ contract BeaconProofsVerification is BaseTest {
         );
     }
 
-    function test_beaconProofsVerification_beaconStateInclusionInBeaconBlock() public {
+    function test_beaconProofsVerification_beaconStateInclusionInBeaconBlock() public pure {
         bytes32[] memory beaconBlockProofForBeaconState =
             BeaconProofs.beaconBlockProofForBeaconState();
 
@@ -52,7 +52,7 @@ contract BeaconProofsVerification is BaseTest {
         );
     }
 
-    function test_beaconProofsVerification_proposerInclusionInBeaconBlock() public {
+    function test_beaconProofsVerification_proposerInclusionInBeaconBlock() public pure {
         bytes32[] memory beaconBlockProofForProposer = BeaconProofs.beaconBlockProofForProposer();
 
         uint256 validatorIndex = BeaconProofs.validatorIndex();
