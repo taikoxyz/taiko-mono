@@ -388,6 +388,37 @@ contract InboxTest_Suite1 is InboxTestBase {
         _logAllBlocksAndTransitions();
     }
 
+    function test_proposeBlocksV3_reverts_for_invalid_proposer_and_preconfRouter()
+        external
+        transactBy(Alice)
+    {
+        uint64 count = 1;
+
+        vm.expectRevert(ITaikoInbox.CustomProposerNotAllowed.selector);
+        inbox.proposeBlocksV3(
+            Alice, address(0), new ITaikoInbox.BlockParamsV3[](count), "txList"
+        );
+
+        vm.startPrank(deployer);
+        address preconfRouter = Bob;
+        resolver.registerAddress(block.chainid, "preconf_router", preconfRouter);
+        vm.stopPrank();
+
+        vm.startPrank(Alice);
+        vm.expectRevert(ITaikoInbox.NotPreconfRouter.selector);
+        inbox.proposeBlocksV3(
+            preconfRouter, address(0), new ITaikoInbox.BlockParamsV3[](count), "txList"
+        );
+        vm.stopPrank();
+
+        vm.startPrank(preconfRouter);
+        vm.expectRevert(ITaikoInbox.CustomProposerMissing.selector);
+        inbox.proposeBlocksV3(
+            address(0), address(0), new ITaikoInbox.BlockParamsV3[](count), "txList"
+        );
+        vm.stopPrank();
+    }
+
     function test_inbox_measure_gas_used()
         external
         transactBy(Alice)
