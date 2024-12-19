@@ -3,6 +3,8 @@ pragma solidity ^0.8.24;
 
 import "./ERC20Vault.h.sol";
 import "../helpers/FreeMintERC20Token.sol";
+import "src/layer1/based/ITaikoInbox.sol";
+import "src/shared/tokenvault/ERC20Solver.sol";
 
 contract TestERC20Vault is CommonTest {
     // Contracts on Ethereum
@@ -15,6 +17,7 @@ contract TestERC20Vault is CommonTest {
     // Contracts on Taiko
     SignalService private tSignalService;
     PrankDestBridge private tBridge;
+    PrankTaikoInbox private taikoInbox;
     ERC20Vault private tVault;
     BridgedERC20 private tUSDC;
     BridgedERC20 private tUSDT;
@@ -41,9 +44,11 @@ contract TestERC20Vault is CommonTest {
         tSignalService = deploySignalService(address(new SignalService_WithoutProofVerification()));
         tVault = deployERC20Vault();
         tBridge = new PrankDestBridge(eVault);
+        taikoInbox = new PrankTaikoInbox();
 
         register("bridge", address(tBridge));
         register("bridged_erc20", address(new BridgedERC20()));
+        register("taiko", address(taikoInbox));
 
         tUSDC = deployBridgedERC20(randAddress(), 100, 18, "USDC", "USDC coin");
         tUSDT = deployBridgedERC20(randAddress(), 100, 18, "USDT", "USDT coin");
@@ -57,7 +62,7 @@ contract TestERC20Vault is CommonTest {
         vm.expectRevert(BaseVault.VAULT_INSUFFICIENT_FEE.selector);
         eVault.sendToken(
             ERC20Vault.BridgeTransferOp(
-                taikoChainId, address(0), Bob, 1, address(eERC20Token1), 1_000_000, 1 wei
+                taikoChainId, address(0), Bob, 1, address(eERC20Token1), 1_000_000, 1 wei, 0
             )
         );
     }
@@ -73,7 +78,7 @@ contract TestERC20Vault is CommonTest {
 
         eVault.sendToken(
             ERC20Vault.BridgeTransferOp(
-                taikoChainId, address(0), Bob, 0, address(eERC20Token1), 1_000_000, amount
+                taikoChainId, address(0), Bob, 0, address(eERC20Token1), 1_000_000, amount, 0
             )
         );
 
@@ -93,7 +98,14 @@ contract TestERC20Vault is CommonTest {
         vm.expectRevert();
         eVault.sendToken(
             ERC20Vault.BridgeTransferOp(
-                taikoChainId, address(0), Bob, amount - 1, address(eERC20Token1), 1_000_000, amount
+                taikoChainId,
+                address(0),
+                Bob,
+                amount - 1,
+                address(eERC20Token1),
+                1_000_000,
+                amount,
+                0
             )
         );
     }
@@ -115,7 +127,8 @@ contract TestERC20Vault is CommonTest {
                 amount - 1,
                 address(eERC20Token1),
                 1_000_000,
-                amount - 1 // value: (msg.value - fee)
+                amount - 1, // value: (msg.value - fee)
+                0
             )
         );
 
@@ -134,7 +147,7 @@ contract TestERC20Vault is CommonTest {
         vm.expectRevert(ERC20Vault.VAULT_INVALID_AMOUNT.selector);
         eVault.sendToken(
             ERC20Vault.BridgeTransferOp(
-                taikoChainId, address(0), Bob, 0, address(eERC20Token1), 1_000_000, amount
+                taikoChainId, address(0), Bob, 0, address(eERC20Token1), 1_000_000, amount, 0
             )
         );
     }
@@ -147,7 +160,7 @@ contract TestERC20Vault is CommonTest {
         vm.expectRevert(ERC20Vault.VAULT_INVALID_TOKEN.selector);
         eVault.sendToken(
             ERC20Vault.BridgeTransferOp(
-                taikoChainId, address(0), Bob, 0, address(0), 1_000_000, amount
+                taikoChainId, address(0), Bob, 0, address(0), 1_000_000, amount, 0
             )
         );
     }
@@ -172,6 +185,8 @@ contract TestERC20Vault is CommonTest {
             Alice,
             to,
             amount,
+            0,
+            bytes32(0),
             bytes32(0),
             address(eVault),
             ethereumChainId,
@@ -204,6 +219,8 @@ contract TestERC20Vault is CommonTest {
             Alice,
             to,
             amount,
+            0,
+            bytes32(0),
             bytes32(0),
             address(eVault),
             ethereumChainId,
@@ -216,6 +233,150 @@ contract TestERC20Vault is CommonTest {
         uint256 toBalanceAfter = eERC20Token1.balanceOf(to);
         assertEq(toBalanceAfter - toBalanceBefore, amount);
         assertEq(David.balance, etherAmount);
+    }
+
+    function test_20Vault_receive_erc20_solved() public {
+        vm.chainId(taikoChainId);
+
+        eERC20Token1.mint(address(eVault));
+
+        uint64 amount = 1;
+        uint64 solverFee = 2;
+        address to = Bob;
+        address solver = David;
+        bytes32 solverCondition = eVault.getSolverCondition(1, address(eERC20Token1), to, amount);
+
+        eERC20Token1.mint(address(solver));
+
+        vm.startPrank(solver);
+
+        uint256 solverBalanceBefore = eERC20Token1.balanceOf(solver);
+        uint256 eVaultBalanceBefore = eERC20Token1.balanceOf(address(eVault));
+        uint256 toBalanceBefore = eERC20Token1.balanceOf(to);
+
+        {
+            uint64 blockId = 1;
+            bytes32 blockMetaHash = bytes32("metahash");
+
+            ITaikoInbox.BlockV3 memory blk;
+            blk.metaHash = blockMetaHash;
+            taikoInbox.setBlock(blk);
+
+            eERC20Token1.approve(address(eVault), 2);
+
+            eVault.solve(
+                ERC20Solver.SolveOp(1, address(eERC20Token1), to, amount, blockId, blockMetaHash)
+            );
+        }
+
+        tBridge.sendReceiveERC20ToERC20Vault(
+            erc20ToCanonicalERC20(taikoChainId),
+            Alice,
+            to,
+            amount,
+            solverFee,
+            solverCondition,
+            bytes32(0),
+            address(eVault),
+            ethereumChainId,
+            0
+        );
+
+        uint256 eVaultBalanceAfter = eERC20Token1.balanceOf(address(eVault));
+        assertEq(eVaultBalanceBefore - eVaultBalanceAfter, amount + solverFee);
+
+        uint256 toBalanceAfter = eERC20Token1.balanceOf(to);
+        assertEq(toBalanceAfter - toBalanceBefore, amount);
+
+        uint256 solverBalanceAfter = eERC20Token1.balanceOf(solver);
+        assertEq(solverBalanceAfter - solverBalanceBefore, solverFee);
+    }
+
+    function test_20Vault_receive_erc20_solved_with_ether_to_james() public {
+        vm.chainId(taikoChainId);
+
+        eERC20Token1.mint(address(eVault));
+
+        uint64 amount = 1;
+        uint64 solverFee = 2;
+        address to = James;
+        address solver = David;
+        bytes32 solverCondition = eVault.getSolverCondition(1, address(eERC20Token1), to, amount);
+        uint256 etherAmount = 0.1 ether;
+
+        eERC20Token1.mint(address(solver));
+
+        vm.startPrank(solver);
+
+        uint256 solverBalanceBefore = eERC20Token1.balanceOf(solver);
+        uint256 eVaultBalanceBefore = eERC20Token1.balanceOf(address(eVault));
+        uint256 toBalanceBefore = eERC20Token1.balanceOf(to);
+
+        {
+            uint64 blockId = 1;
+            bytes32 blockMetaHash = bytes32("metahash");
+
+            ITaikoInbox.BlockV3 memory blk;
+            blk.metaHash = blockMetaHash;
+            taikoInbox.setBlock(blk);
+
+            eERC20Token1.approve(address(eVault), 2);
+
+            eVault.solve(
+                ERC20Solver.SolveOp(1, address(eERC20Token1), to, amount, blockId, blockMetaHash)
+            );
+        }
+
+        tBridge.sendReceiveERC20ToERC20Vault(
+            erc20ToCanonicalERC20(taikoChainId),
+            Alice,
+            to,
+            amount,
+            solverFee,
+            solverCondition,
+            bytes32(0),
+            address(eVault),
+            ethereumChainId,
+            etherAmount
+        );
+
+        uint256 eVaultBalanceAfter = eERC20Token1.balanceOf(address(eVault));
+        assertEq(eVaultBalanceBefore - eVaultBalanceAfter, amount + solverFee);
+
+        uint256 toBalanceAfter = eERC20Token1.balanceOf(to);
+        assertEq(toBalanceAfter - toBalanceBefore, amount);
+
+        uint256 solverBalanceAfter = eERC20Token1.balanceOf(solver);
+        assertEq(solverBalanceAfter - solverBalanceBefore, solverFee);
+
+        assertEq(James.balance, etherAmount);
+    }
+
+    function test_20Vault_solve_reverts_when_metadata_is_mismatched() public {
+        vm.chainId(taikoChainId);
+
+        uint64 amount = 1;
+        address to = James;
+        address solver = David;
+
+        eERC20Token1.mint(address(solver));
+
+        vm.startPrank(solver);
+
+        uint64 blockId = 1;
+        bytes32 blockMetaHash = bytes32("metahash1");
+        bytes32 mismatchedBlockMetahash = bytes32("metahash2");
+
+        ITaikoInbox.BlockV3 memory blk;
+        blk.metaHash = blockMetaHash;
+        taikoInbox.setBlock(blk);
+
+        vm.expectRevert(ERC20Solver.L2_METADATA_HASH_MISMATCH.selector);
+        eVault.solve(
+            ERC20Solver.SolveOp(
+                1, address(eERC20Token1), to, amount, blockId, mismatchedBlockMetahash
+            )
+        );
     }
 
     function test_20Vault_receive_erc20_non_canonical_to_dest_chain_deploys_new_bridged_token_and_mints(
@@ -239,6 +400,8 @@ contract TestERC20Vault is CommonTest {
             Alice,
             Bob,
             amount,
+            0,
+            bytes32(0),
             bytes32(0),
             address(eVault),
             ethereumChainId,
@@ -297,6 +460,8 @@ contract TestERC20Vault is CommonTest {
             Alice,
             Bob,
             amount,
+            0,
+            bytes32(0),
             bytes32(0),
             address(eVault),
             ethereumChainId,
@@ -339,7 +504,7 @@ contract TestERC20Vault is CommonTest {
 
         IBridge.Message memory _messageToSimulateFail = eVault.sendToken(
             ERC20Vault.BridgeTransferOp(
-                taikoChainId, address(0), Bob, 0, address(eERC20Token1), 1_000_000, amount
+                taikoChainId, address(0), Bob, 0, address(eERC20Token1), 1_000_000, amount, 0
             )
         );
 
@@ -511,6 +676,8 @@ contract TestERC20Vault is CommonTest {
             Alice,
             Bob,
             amount,
+            0,
+            bytes32(0),
             bytes32(0),
             address(eVault),
             ethereumChainId,
