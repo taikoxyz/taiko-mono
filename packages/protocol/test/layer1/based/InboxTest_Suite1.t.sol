@@ -395,9 +395,7 @@ contract InboxTest_Suite1 is InboxTestBase {
         uint64 count = 1;
 
         vm.expectRevert(ITaikoInbox.CustomProposerNotAllowed.selector);
-        inbox.proposeBlocksV3(
-            Alice, address(0), new ITaikoInbox.BlockParamsV3[](count), "txList"
-        );
+        inbox.proposeBlocksV3(Alice, address(0), new ITaikoInbox.BlockParamsV3[](count), "txList");
 
         vm.startPrank(deployer);
         address preconfRouter = Bob;
