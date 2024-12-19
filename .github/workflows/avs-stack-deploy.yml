@@ -1,0 +1,43 @@
+name: "[Nethermind] Taiko Preconf AVS Stack - Setup"
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [e2e-devnet]
+
+env:
+  TARGET_MACHINE_IP: 178.79.141.170
+jobs:
+  build:
+    name: Build and push docker image
+    runs-on: ubuntu-latest
+    if: github.repository == 'NethermindEth/taiko-mono'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ env.TARGET_MACHINE_IP }} >> ~/.ssh/known_hosts
+
+      - name: SSH into target machine
+        run: |
+          ssh -o StrictHostKeyChecking=no root@${{ env.TARGET_MACHINE_IP }} << 'EOF'
+            docker pull nethswitchboard/taiko-protocol-dev:latest
+            docker pull nethswitchboard/taiko-client-dev:latest
+
+            cd ~/preconfirm-devnet-package
+            kurtosis run --enclave taiko-preconf-devnet . --args-file network_params.yaml
+          EOF
+
+      - name: Summary
+        run: |
+          echo "## Setup completed :green_circle:" >> $GITHUB_STEP_SUMMARY
+          echo "### Tags" >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.meta.outputs.tags }}" | while IFS= read -r TAG; do
+            echo "- $TAG" >> $GITHUB_STEP_SUMMARY
+          done
+          echo "### Notes" >> $GITHUB_STEP_SUMMARY
