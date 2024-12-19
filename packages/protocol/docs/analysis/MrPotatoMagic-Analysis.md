@@ -6,7 +6,7 @@
 
 Day 1
 
-- Consuming resources provide in the README
+- Consuming resources provided in the README
 - Understanding and noting down the logical scope
 
 Day 2-7
