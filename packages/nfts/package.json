@@ -43,7 +43,7 @@
     "tbz:upgradeV4:mainnet": "forge clean && pnpm compile && forge script script/trailblazers-badges/UpgradeV4.s.sol --rpc-url https://rpc.mainnet.taiko.xyz --broadcast   --gas-estimate-multiplier 100",
     "tbz-s2:upgradeV2:mainnet": "forge clean && pnpm compile && forge script script/trailblazers-season-2/UpgradeV2.s.sol --rpc-url https://rpc.mainnet.taiko.xyz --broadcast   --gas-estimate-multiplier 100",
     "tbz:airdrop-s2:hekla": "forge clean && pnpm compile && forge script script/trailblazers-airdrop/DeployS2.s.sol --rpc-url https://rpc.hekla.taiko.xyz --broadcast   --gas-estimate-multiplier 200",
-    "tbz:airdrop-s2:mainnet": "forge clean && pnpm compile && forge script script/trailblazers-airdrop/Deploy.s.sol --rpc-url https://rpc.mainnet.taiko.xyz --broadcast --verify  --gas-estimate-multiplier 100"
+    "tbz:airdrop-s2:mainnet": "forge clean && pnpm compile && forge script script/trailblazers-airdrop/DeployS2.s.sol --rpc-url https://rpc.mainnet.taiko.xyz --broadcast --verify  --gas-estimate-multiplier 100"
   },
   "devDependencies": {
     "@types/node": "^20.11.30",
