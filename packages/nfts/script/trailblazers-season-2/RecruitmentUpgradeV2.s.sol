@@ -26,16 +26,16 @@ contract UpgradeV2 is Script {
     // mainnet config
     address public s1TokenAddress = 0xa20a8856e00F5ad024a55A663F06DCc419FFc4d5;
     address public badgeRecruitmentAddress = 0xa9Ceb04F3aF71fF123409d426A92BABb5124970C;
-/*
+    /*
     // hekla config
     string baseURI =
-        "https://taikonfts.4everland.link/ipfs/bafybeiatuzeeeznd3hi5qiulslxcjd22ebu45t4fra2jvi3smhocr2c66a";
+    "https://taikonfts.4everland.link/ipfs/bafybeiatuzeeeznd3hi5qiulslxcjd22ebu45t4fra2jvi3smhocr2c66a";
 
     IMinimalBlacklist blacklist = IMinimalBlacklist(0xe61E9034b5633977eC98E302b33e321e8140F105);
     address claimMintSigner = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
     address recruitmentSigner = 0x3cda4F2EaC3fc2FdE78B3DFFe1A1A1Eff88c68c5;
 
-   uint256 public MAX_INFLUENCES = 5;
+    uint256 public MAX_INFLUENCES = 5;
     uint256 public COOLDOWN_RECRUITMENT = 10 minutes;
     uint256 public COOLDOWN_INFLUENCE = 5 minutes;
     uint256 public INFLUENCE_WEIGHT_PERCENT = 9;
@@ -43,7 +43,8 @@ contract UpgradeV2 is Script {
     uint256 public DEFAULT_CYCLE_DURATION = 7 days;
     uint256 public s1EndDate = 1_734_350_400; // Dec 16th 2024, noon UTC
     uint256 public S1_LOCK_DURATION = (s1EndDate - block.timestamp);
-*/
+    */
+
     function setUp() public {
         utils = new UtilsScript();
         utils.setUp();
@@ -56,10 +57,10 @@ contract UpgradeV2 is Script {
     function run() public {
         vm.startBroadcast(deployerPrivateKey);
 
-      //  address impl;
-      //  address proxy;
+        //  address impl;
+        //  address proxy;
         TrailblazersBadgesV4 s1Token;
-     //   TrailblazersBadgesS2 s2Token;
+        //   TrailblazersBadgesS2 s2Token;
         BadgeRecruitment badgeRecruitment;
 
         if (block.chainid == 167_000) {
@@ -98,7 +99,7 @@ contract UpgradeV2 is Script {
             proxy = address(
                 new ERC1967Proxy(
                     impl,
-                    abi.encodeCall(TrailblazersBadgesS2.initialize, (deployerAddress, baseURI))
+            abi.encodeCall(TrailblazersBadgesS2.initialize, (deployerAddress, baseURI))
                 )
             );
 
