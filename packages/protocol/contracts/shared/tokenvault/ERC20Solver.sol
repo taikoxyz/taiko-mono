@@ -37,7 +37,7 @@ contract ERC20Solver is EssentialContract {
     /// @notice Mapping from solver condition to the address of solver
     mapping(bytes32 solverCondition => address solver) public solverConditionToSolver;
 
-    /// @notice Lets a solver fulfil a bridging intent by transfering the bridged token amount
+    /// @notice Lets a solver fulfil a bridging intent by transferring the bridged token amount
     // to the recipient.
     /// @param _op Parameters for the solve operation
     function solve(SolveOp memory _op) external nonReentrant whenNotPaused {
