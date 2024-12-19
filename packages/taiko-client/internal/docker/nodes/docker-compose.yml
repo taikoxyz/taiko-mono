@@ -18,7 +18,7 @@ services:
 
   l2_geth:
     container_name: l2_geth
-    image: us-docker.pkg.dev/evmchain/images/taiko-geth:taiko
+    image: us-docker.pkg.dev/evmchain/images/taiko-geth:softblock
     restart: unless-stopped
     pull_policy: always
     volumes:
