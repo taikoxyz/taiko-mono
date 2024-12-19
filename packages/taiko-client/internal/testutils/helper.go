@@ -348,7 +348,7 @@ func SendDynamicFeeTx(
 		GasTipCap: gasTipCap,
 		GasFeeCap: new(big.Int).Add(
 			gasTipCap,
-			new(big.Int).Mul(head.BaseFee, big.NewInt(2)),
+			new(big.Int).Mul(head.BaseFee, big.NewInt(4)),
 		),
 		Gas:  2100_000,
 		Data: data,
