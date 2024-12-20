@@ -175,14 +175,14 @@
 
 - ens: `ram.based.taiko.eth`
 - proxy: `0x579f40D0BE111b823962043702cabe6Aaa290780`
-- impl: `0x52CA3c5566d779b3c6bb5c4f760Ea39E294Fc788`
+- impl: `0x0079a79E5d8DDA67029051d505E5A11DE279B36D`
 - names:
   - bond_token: `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800`
   - taiko_token: `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800`
   - signal_service: `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C`
   - bridge: `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC`
   - taiko: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`
-  - tier_router: `0x394E30d83d020469a1F8b16E89D7fD5FdB1935b0`
+  - tier_router: `0x8a4c692F12d3a9750E744A4CE24a1d351bE52E66`
   - tier_sgx: `0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81`
   - risc0_groth16_verifier: `0xcF706D99C265fC2349AE43c5f6BFD7931FE5308D`
   - tier_zkvm_risc0: `0x55902b2D3DF2A65370A89C86Ae9dd71Ecd508edc`
@@ -217,12 +217,13 @@
   - upgraded from `0x3202Fc255aE09F91DbbD5b000b87dA4A2E04eE37` to `0x190D5d50D98D2202a618f75B2fD9986e60E096be` @commit`4fd7b59` @tx`0xf26d0526aa4b8225c603720ce0dc016803188b959c50677d5446087d1f2c4e60`
   - upgraded from `0x190D5d50D98D2202a618f75B2fD9986e60E096be` to `0x6D8e6e1a061791AD17A55De5e15a111c58f6Fb3D` @commit`2625c60` @tx`0x5d46840df79d8df508880675e7ea549e9b46137f597ca520c3e0c979439441d1`
   - upgraded from `0x6D8e6e1a061791AD17A55De5e15a111c58f6Fb3D` to `0x52CA3c5566d779b3c6bb5c4f760Ea39E294Fc788` @commit`9ae9a5e` @tx`0x43353a74df973d8f6a379b5c8815ac80935a5099f8ab93a4aa204eb5ef2c663e`
+  - upgraded from `0x52CA3c5566d779b3c6bb5c4f760Ea39E294Fc788` to `0x0079a79E5d8DDA67029051d505E5A11DE279B36D` @commit`06128e8` @tx``
 
 #### taikoL1
 
 - ens: `based.taiko.eth`
 - proxy: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`
-- impl: `0xe7c4B445D3C7C8E4D68afb85A068F9fAa18e9A5B`
+- impl: `0xb74A66b6CF50AD63E29669F0BDE4354E11758162`
 - owner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
@@ -243,16 +244,18 @@
   - Upgrade to `0x4229d14F520848aa83760Cf748abEB8A69cdaB2d` @commit`9345f14` @tx`0x13ea4d044a313cf667d16514465e6b96227ef7198bda7b19c70eefee44e9bccd`
   - Upgrade to `0xA3E75eDA1Be2114816f388A5cF53EbA142DCDB17` @commit`ea0158f` @tx`0x78ca7c7d9c7e5aa9c5e6ab80e0229289a8d3bc8df2c2b9ba6baa74a0f60a0703`
   - Upgrade to `0xe7c4B445D3C7C8E4D68afb85A068F9fAa18e9A5B` @commit`ea0158f` with new `RollupAddressManagerCache` @commit `9ae9a5e` @tx`0x5eb57ab352b3e3c1ddbc3fe468d582901b88c6a137ce49b0d70857d5218d626d`
+  - Upgrade to `0xb74A66b6CF50AD63E29669F0BDE4354E11758162` @commit`06128e8` @tx``
 
 #### tier_router
 
-- impl: `0x394E30d83d020469a1F8b16E89D7fD5FdB1935b0`
+- impl: `0x8a4c692F12d3a9750E744A4CE24a1d351bE52E66`
 - logs:
   - deployed on Oct 24, 2024 @commit`7334b1d`
   - deployed on Nov 1, 2024 @commit`f4f4796`
   - deployed on Nov 2, 2024 @commit`9182fba`
   - deployed on Nov 8, 2024 @commit`1fee7bb` without changes in [PR #18371](https://github.com/taikoxyz/taiko-mono/pull/18371)
   - deployed on Nov 10, 2024 @commit`f24a908` without changes in [PR #18371](https://github.com/taikoxyz/taiko-mono/pull/18371)
+  - deployed on Dec 20, 2024 @commit`06128e8` without changes in [PR #18371](https://github.com/taikoxyz/taiko-mono/pull/18371)
 
 #### tier_sgx
 
@@ -395,7 +398,7 @@
 
 - ens: `labprover.taiko.eth`
 - proxy: `0x68d30f47F19c07bCCEf4Ac7FAE2Dc12FCa3e0dC9`
-- impl: `0x3022Ed0346CCE0c08268c8ad081458AfD95E8763`
+- impl: `0xd0d3f025D83D7122de7eC43e86331C57c8A4F30B`
 - enabled provers:
   - `0x000000629FBCf27A347d1AEbA658435230D74a5f`
   - `0x000000633b68f5d8d3a86593ebb815b4663bcbe0`
@@ -412,12 +415,13 @@
   - upgraded from `0x518845daA8870bE2C59E49620Fc262AD48953C9a` to `0x74828E5fe803072AF9Df512B3911B4223572D652` @commit`bb2abc5` @tx`0xc1f91c375713f601b99cf6d2cdb80c129e036a7c9ec5f75871c4d13216dbbb5c`
   - upgraded from `0x74828E5fe803072AF9Df512B3911B4223572D652` to `0xCE5a119479337a153CA3bd1b2bF9755c78F2B15A` @commit`be34059` @tx`0x170617251f2345eda4bcbd29e316caa0b014602a44244c60b963382ac7da7748`
   - upgraded from `0xCE5a119479337a153CA3bd1b2bF9755c78F2B15A` to `0x3022Ed0346CCE0c08268c8ad081458AfD95E8763` @commit`9345f14` @tx`0x13ea4d044a313cf667d16514465e6b96227ef7198bda7b19c70eefee44e9bccd`
+  - upgraded from `0x3022Ed0346CCE0c08268c8ad081458AfD95E8763` to `0xd0d3f025D83D7122de7eC43e86331C57c8A4F30B` @commit`06128e8` @tx``
 
 ### labcontester.taiko.eth
 
 - ens: `labcontester.taiko.eth`
 - proxy: `0xa01d464ca3982DAa97B19fa7F8a232eB11A9DDb3`
-- impl: `0x3022Ed0346CCE0c08268c8ad081458AfD95E8763`
+- impl: `0xd0d3f025D83D7122de7eC43e86331C57c8A4F30B`
 - enabled provers:
   - `0x00000027F51a57E7FcBC4b481d15fcE5BE68b30B`
 - logs:
@@ -428,3 +432,4 @@
   - upgraded from `0x518845daA8870bE2C59E49620Fc262AD48953C9a` to `0x74828E5fe803072AF9Df512B3911B4223572D652` @commit`bb2abc5` @tx`0xc1f91c375713f601b99cf6d2cdb80c129e036a7c9ec5f75871c4d13216dbbb5c`
   - upgraded from `0x74828E5fe803072AF9Df512B3911B4223572D652` to `0xCE5a119479337a153CA3bd1b2bF9755c78F2B15A` @commit`be34059` @tx`0x170617251f2345eda4bcbd29e316caa0b014602a44244c60b963382ac7da7748`
   - upgraded from `0xCE5a119479337a153CA3bd1b2bF9755c78F2B15A` to `0x3022Ed0346CCE0c08268c8ad081458AfD95E8763` @commit`9345f14` @tx`0x13ea4d044a313cf667d16514465e6b96227ef7198bda7b19c70eefee44e9bccd`
+  - upgraded from `0x3022Ed0346CCE0c08268c8ad081458AfD95E8763` to `0xd0d3f025D83D7122de7eC43e86331C57c8A4F30B` @commit`06128e8` @tx``
