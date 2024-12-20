@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import "./ERC20Vault.h.sol";
 import "../helpers/FreeMintERC20Token.sol";
 import "src/layer1/based/ITaikoInbox.sol";
-import "src/shared/tokenvault/ERC20Solver.sol";
 
 contract TestERC20Vault is CommonTest {
     // Contracts on Ethereum
@@ -265,7 +264,7 @@ contract TestERC20Vault is CommonTest {
             eERC20Token1.approve(address(eVault), 2);
 
             eVault.solve(
-                ERC20Solver.SolveOp(1, address(eERC20Token1), to, amount, blockId, blockMetaHash)
+                ERC20Vault.SolverOp(1, address(eERC20Token1), to, amount, blockId, blockMetaHash)
             );
         }
 
@@ -290,6 +289,8 @@ contract TestERC20Vault is CommonTest {
 
         uint256 solverBalanceAfter = eERC20Token1.balanceOf(solver);
         assertEq(solverBalanceAfter - solverBalanceBefore, solverFee);
+
+        assertTrue(eVault.solverConditionToSolver(solverCondition) == address(0));
     }
 
     function test_20Vault_receive_erc20_solved_with_ether_to_james() public {
@@ -323,7 +324,7 @@ contract TestERC20Vault is CommonTest {
             eERC20Token1.approve(address(eVault), 2);
 
             eVault.solve(
-                ERC20Solver.SolveOp(1, address(eERC20Token1), to, amount, blockId, blockMetaHash)
+                ERC20Vault.SolverOp(1, address(eERC20Token1), to, amount, blockId, blockMetaHash)
             );
         }
 
@@ -350,6 +351,36 @@ contract TestERC20Vault is CommonTest {
         assertEq(solverBalanceAfter - solverBalanceBefore, solverFee);
 
         assertEq(James.balance, etherAmount);
+        assertTrue(eVault.solverConditionToSolver(solverCondition) == address(0));
+    }
+
+    function test_20Vault_solve_reverts_when_already_solved() public {
+        vm.chainId(taikoChainId);
+
+        uint64 amount = 1;
+        address to = James;
+        address solver = David;
+
+        eERC20Token1.mint(address(solver));
+
+        vm.startPrank(solver);
+
+        uint64 blockId = 1;
+        bytes32 blockMetaHash = bytes32("metahash1");
+
+        ITaikoInbox.BlockV3 memory blk;
+        blk.metaHash = blockMetaHash;
+        taikoInbox.setBlock(blk);
+
+        eERC20Token1.approve(address(eVault), 2);
+        eVault.solve(
+            ERC20Vault.SolverOp(1, address(eERC20Token1), to, amount, blockId, blockMetaHash)
+        );
+
+        vm.expectRevert(ERC20Vault.ALREADY_SOLVED.selector);
+        eVault.solve(
+            ERC20Vault.SolverOp(1, address(eERC20Token1), to, amount, blockId, blockMetaHash)
+        );
     }
 
     function test_20Vault_solve_reverts_when_metadata_is_mismatched() public {
@@ -371,9 +402,9 @@ contract TestERC20Vault is CommonTest {
         blk.metaHash = blockMetaHash;
         taikoInbox.setBlock(blk);
 
-        vm.expectRevert(ERC20Solver.L2_METADATA_HASH_MISMATCH.selector);
+        vm.expectRevert(ERC20Vault.L2_METADATA_HASH_MISMATCH.selector);
         eVault.solve(
-            ERC20Solver.SolveOp(
+            ERC20Vault.SolverOp(
                 1, address(eERC20Token1), to, amount, blockId, mismatchedBlockMetahash
             )
         );

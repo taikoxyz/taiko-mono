@@ -5,12 +5,12 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
+import "../../layer1/based/ITaikoInbox.sol";
 import "../bridge/IQuotaManager.sol";
 import "../libs/LibStrings.sol";
 import "../libs/LibAddress.sol";
 import "./IBridgedERC20.sol";
 import "./BaseVault.sol";
-import "./ERC20Solver.sol";
 
 /// @title ERC20Vault
 /// @notice This vault holds all ERC20 tokens (excluding Ether) that users have
@@ -18,7 +18,7 @@ import "./ERC20Solver.sol";
 /// their bridged tokens. This vault does not support rebase/elastic tokens.
 /// @dev Labeled in address resolver as "erc20_vault".
 /// @custom:security-contact security@taiko.xyz
-contract ERC20Vault is BaseVault, ERC20Solver {
+contract ERC20Vault is BaseVault {
     using Address for address;
     using LibAddress for address;
     using SafeERC20 for IERC20;
@@ -55,6 +55,22 @@ contract ERC20Vault is BaseVault, ERC20Solver {
         uint256 solverFee;
     }
 
+    /// @dev Represents an operation to solve an ERC20 bridging intent on destination chain
+    struct SolverOp {
+        // Nonce for the solver condition
+        uint256 nonce;
+        // ERC20 token address on destination chain
+        address token;
+        // Recipient of the tokens
+        address to;
+        // Amount of tokens to be transferred to the recipient
+        uint256 amount;
+        // Fields below are used to constrain a solve operation to only pass if an L2 batch
+        // containing the initial "intent" transaction is included.
+        uint64 l2BlockId;
+        bytes32 l2BlockMetaHash;
+    }
+
     /// @notice Mappings from bridged tokens to their canonical tokens.
     mapping(address btoken => CanonicalERC20 canonical) public bridgedToCanonical;
 
@@ -68,6 +84,9 @@ contract ERC20Vault is BaseVault, ERC20Solver {
     /// @notice Mappings from ctoken to its last migration timestamp.
     mapping(uint256 chainId => mapping(address ctoken => uint256 timestamp)) public
         lastMigrationStart;
+
+    /// @notice Mapping from solver condition to the address of solver
+    mapping(bytes32 solverCondition => address solver) public solverConditionToSolver;
 
     uint256[45] private __gap;
 
@@ -159,6 +178,11 @@ contract ERC20Vault is BaseVault, ERC20Solver {
         uint256 solverFee
     );
 
+    /// @notice Emitted when a bridging intent is solved
+    /// @param solverCondition The solver condition hash
+    /// @param solver The address of the solver
+    event ERC20Solved(bytes32 indexed solverCondition, address solver);
+
     error VAULT_BTOKEN_BLACKLISTED();
     error VAULT_CTOKEN_MISMATCH();
     error VAULT_INVALID_TOKEN();
@@ -166,6 +190,8 @@ contract ERC20Vault is BaseVault, ERC20Solver {
     error VAULT_INVALID_CTOKEN();
     error VAULT_INVALID_NEW_BTOKEN();
     error VAULT_LAST_MIGRATION_TOO_CLOSE();
+    error L2_METADATA_HASH_MISMATCH();
+    error ALREADY_SOLVED();
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
@@ -260,12 +286,14 @@ contract ERC20Vault is BaseVault, ERC20Solver {
         if (btokenDenylist[_op.token]) revert VAULT_BTOKEN_BLACKLISTED();
         if (msg.value < _op.fee) revert VAULT_INSUFFICIENT_FEE();
 
+        address bridge = resolve(LibStrings.B_BRIDGE, false);
+
         (
             bytes memory data,
             CanonicalERC20 memory ctoken,
             uint256 balanceChangeAmount,
             uint256 balanceChangeSolverFee
-        ) = _handleMessage(_op);
+        ) = _handleMessage(bridge, _op);
 
         IBridge.Message memory message = IBridge.Message({
             id: 0, // will receive a new value
@@ -282,8 +310,7 @@ contract ERC20Vault is BaseVault, ERC20Solver {
         });
 
         bytes32 msgHash;
-        (msgHash, message_) =
-            IBridge(resolve(LibStrings.B_BRIDGE, false)).sendMessage{ value: msg.value }(message);
+        (msgHash, message_) = IBridge(bridge).sendMessage{ value: msg.value }(message);
 
         emit TokenSent({
             msgHash: msgHash,
@@ -322,6 +349,7 @@ contract ERC20Vault is BaseVault, ERC20Solver {
         address solver = solverConditionToSolver[solverCondition];
         if (solver != address(0)) {
             tokenRecipient = solver;
+            delete solverConditionToSolver[solverCondition];
         }
 
         address token = _transferTokens(ctoken, tokenRecipient, amount + solverFee);
@@ -371,6 +399,46 @@ contract ERC20Vault is BaseVault, ERC20Solver {
         });
     }
 
+    /// @notice Lets a solver fulfil a bridging intent by transferring the bridged token amount
+    // to the recipient.
+    /// @param _op Parameters for the solve operation
+    function solve(SolverOp memory _op) external nonReentrant whenNotPaused {
+        // Verify that the required L2 batch containing the intent transaction has been proposed
+        bytes32 l2BlockMetaHash =
+            (ITaikoInbox(resolve(LibStrings.B_TAIKO, false)).getBlockV3(_op.l2BlockId)).metaHash;
+        require(l2BlockMetaHash == _op.l2BlockMetaHash, L2_METADATA_HASH_MISMATCH());
+
+        // Record the solver's address
+        bytes32 solverCondition = getSolverCondition(_op.nonce, _op.token, _op.to, _op.amount);
+        require(solverConditionToSolver[solverCondition] == address(0), ALREADY_SOLVED());
+
+        solverConditionToSolver[solverCondition] = msg.sender;
+
+        // Transfer the amount to the recipient
+        IERC20(_op.token).transferFrom(msg.sender, _op.to, _op.amount);
+
+        emit ERC20Solved(solverCondition, msg.sender);
+    }
+
+    /// @notice Returns the solver condition for a bridging intent
+    /// @param _nonce Unique numeric value to prevent nonce collision
+    /// @param _token Address of the ERC20 token on destination chain
+    /// @param _amount Amount of tokens expected by the recipient
+    /// @param _to Recipient on destination chain
+    /// @return solver condition
+    function getSolverCondition(
+        uint256 _nonce,
+        address _token,
+        address _to,
+        uint256 _amount
+    )
+        public
+        pure
+        returns (bytes32)
+    {
+        return keccak256(abi.encodePacked(_nonce, _token, _to, _amount));
+    }
+
     /// @inheritdoc BaseVault
     function name() public pure override returns (bytes32) {
         return LibStrings.B_ERC20_VAULT;
@@ -398,6 +466,7 @@ contract ERC20Vault is BaseVault, ERC20Solver {
 
     /// @dev Handles the message on the source chain and returns the encoded
     /// call on the destination call.
+    /// @param _bridge Address of the message passing bridge
     /// @param _op The BridgeTransferOp object.
     /// @return msgData_ Encoded message data.
     /// @return ctoken_ The canonical token.
@@ -407,7 +476,10 @@ contract ERC20Vault is BaseVault, ERC20Solver {
     /// @return balanceChangeSolverFee_ User token balance actual change after the token
     /// transfer for `solverFee`. This value is calculated so we do not assume token balance
     /// change is the amount of token transferred away.
-    function _handleMessage(BridgeTransferOp calldata _op)
+    function _handleMessage(
+        address _bridge,
+        BridgeTransferOp calldata _op
+    )
         private
         returns (
             bytes memory msgData_,
@@ -417,7 +489,7 @@ contract ERC20Vault is BaseVault, ERC20Solver {
         )
     {
         // An identifier hash for the solver condition on destination chain
-        bytes32 _solverCondition;
+        bytes32 solverCondition;
 
         // If it's a bridged token
         CanonicalERC20 storage _ctoken = bridgedToCanonical[_op.token];
@@ -456,9 +528,8 @@ contract ERC20Vault is BaseVault, ERC20Solver {
 
         // Prepare solver condition for allowing fast withdrawal on L1
         if (_op.solverFee > 0) {
-            uint256 _nonce = IBridge(resolve(LibStrings.B_BRIDGE, false)).nextMessageId();
-            _solverCondition =
-                getSolverCondition(_nonce, _ctoken.addr, _op.to, balanceChangeAmount_);
+            uint256 _nonce = IBridge(_bridge).nextMessageId();
+            solverCondition = getSolverCondition(_nonce, _ctoken.addr, _op.to, balanceChangeAmount_);
         }
 
         msgData_ = abi.encodeCall(
@@ -469,7 +540,7 @@ contract ERC20Vault is BaseVault, ERC20Solver {
                 _op.to,
                 balanceChangeAmount_,
                 balanceChangeSolverFee_,
-                _solverCondition
+                solverCondition
             )
         );
     }
