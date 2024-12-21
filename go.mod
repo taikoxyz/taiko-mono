@@ -30,7 +30,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/pressly/goose/v3 v3.23.0
 	github.com/prometheus/client_golang v1.20.5
-	github.com/prysmaticlabs/prysm/v5 v5.1.2
+	github.com/prysmaticlabs/prysm/v5 v5.2.0
 	github.com/rabbitmq/amqp091-go v1.10.0
 	github.com/shopspring/decimal v1.4.0
 	github.com/stretchr/testify v1.10.0
