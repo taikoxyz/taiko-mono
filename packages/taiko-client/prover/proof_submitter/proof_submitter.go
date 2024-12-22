@@ -357,6 +357,7 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 	var (
 		invalidBlockIDs     []uint64
 		latestProvenBlockID = common.Big0
+		uint64BlockIDs      []uint64
 	)
 	if len(batchProof.Proofs) == 0 {
 		return proofProducer.ErrInvalidLength
@@ -381,6 +382,7 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 		return err
 	}
 	for i, proof := range batchProof.Proofs {
+		uint64BlockIDs = append(uint64BlockIDs, proof.BlockID.Uint64())
 		// Check if this proof is still needed to be submitted.
 		ok, err := s.sender.ValidateProof(ctx, proof, new(big.Int).SetUint64(stateVars.B.LastVerifiedBlockId))
 		if err != nil {
@@ -448,7 +450,7 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 
 	metrics.ProverSentProofCounter.Add(float64(len(batchProof.BlockIDs)))
 	metrics.ProverLatestProvenBlockIDGauge.Set(float64(latestProvenBlockID.Uint64()))
-	s.proofBuffer.Clear()
+	s.proofBuffer.ClearItems(uint64BlockIDs...)
 
 	return nil
 }
