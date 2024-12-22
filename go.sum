@@ -529,8 +529,8 @@ github.com/prysmaticlabs/gohashtree v0.0.4-beta.0.20240624100937-73632381301b h1
 github.com/prysmaticlabs/gohashtree v0.0.4-beta.0.20240624100937-73632381301b/go.mod h1:HRuvtXLZ4WkaB1MItToVH2e8ZwKwZPY5/Rcby+CvvLY=
 github.com/prysmaticlabs/protoc-gen-go-cast v0.0.0-20230228205207-28762a7b9294 h1:q9wE0ZZRdTUAAeyFP/w0SwBEnCqlVy2+on6X2/e+eAU=
 github.com/prysmaticlabs/protoc-gen-go-cast v0.0.0-20230228205207-28762a7b9294/go.mod h1:ZVEbRdnMkGhp/pu35zq4SXxtvUwWK0J1MATtekZpH2Y=
-github.com/prysmaticlabs/prysm/v5 v5.1.2 h1:ib9D7Drh7QPoetJPnYXAHaArmjIreXPZ0FboW9EMzT8=
-github.com/prysmaticlabs/prysm/v5 v5.1.2/go.mod h1:ykj3Bl9dHv35cC7fRw6Cd1aCd9l+eNvInHY6gsPbEig=
+github.com/prysmaticlabs/prysm/v5 v5.2.0 h1:JqKKK5aqehZN9GiSOSSw4M57NpbvG0nIxqFK5KpPnRw=
+github.com/prysmaticlabs/prysm/v5 v5.2.0/go.mod h1:cQc+NIMKaHjPvY566HsYcuni763nzuUWnDsDbk45bbs=
 github.com/rabbitmq/amqp091-go v1.10.0 h1:STpn5XsHlHGcecLmMFCtg7mqq0RnD+zFr4uzukfVhBw=
 github.com/rabbitmq/amqp091-go v1.10.0/go.mod h1:Hy4jKW5kQART1u+JkDTF9YYOQUHXqMuhrgxOEeS7G4o=
 github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec h1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=
