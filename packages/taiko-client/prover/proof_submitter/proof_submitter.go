@@ -221,7 +221,7 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBl
 				)
 				// Check if we need to aggregate proofs.
 				if !s.proofBuffer.IsAggregating() &&
-					(s.proofBuffer.MaxLength >= uint64(bufferSize) ||
+					(uint64(bufferSize) >= s.proofBuffer.MaxLength ||
 						time.Since(s.proofBuffer.lastUpdatedAt) > s.forceBatchProvingInterval) {
 					s.aggregationNotify <- s.Tier()
 					s.proofBuffer.MarkAggregating()
