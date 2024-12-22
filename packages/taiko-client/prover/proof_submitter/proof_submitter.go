@@ -53,7 +53,8 @@ type ProofSubmitter struct {
 	isGuardian      bool
 	submissionDelay time.Duration
 	// Batch proof related
-	proofBuffer *ProofBuffer
+	proofBuffer               *ProofBuffer
+	forceBatchProvingInterval time.Duration
 }
 
 // NewProofSubmitter creates a new ProofSubmitter instance.
@@ -74,6 +75,7 @@ func NewProofSubmitter(
 	isGuardian bool,
 	submissionDelay time.Duration,
 	proofBufferSize uint64,
+	forceBatchProvingInterval time.Duration,
 ) (*ProofSubmitter, error) {
 	anchorValidator, err := validator.New(taikoL2Address, rpcClient.L2.ChainID, rpcClient)
 	if err != nil {
@@ -81,22 +83,23 @@ func NewProofSubmitter(
 	}
 
 	return &ProofSubmitter{
-		rpc:               rpcClient,
-		proofProducer:     proofProducer,
-		resultCh:          resultCh,
-		batchResultCh:     batchResultCh,
-		aggregationNotify: aggregationNotify,
-		anchorValidator:   anchorValidator,
-		txBuilder:         builder,
-		sender:            transaction.NewSender(rpcClient, txmgr, privateTxmgr, proverSetAddress, gasLimit),
-		proverAddress:     txmgr.From(),
-		proverSetAddress:  proverSetAddress,
-		taikoL2Address:    taikoL2Address,
-		graffiti:          rpc.StringToBytes32(graffiti),
-		tiers:             tiers,
-		isGuardian:        isGuardian,
-		submissionDelay:   submissionDelay,
-		proofBuffer:       NewProofBuffer(proofBufferSize),
+		rpc:                       rpcClient,
+		proofProducer:             proofProducer,
+		resultCh:                  resultCh,
+		batchResultCh:             batchResultCh,
+		aggregationNotify:         aggregationNotify,
+		anchorValidator:           anchorValidator,
+		txBuilder:                 builder,
+		sender:                    transaction.NewSender(rpcClient, txmgr, privateTxmgr, proverSetAddress, gasLimit),
+		proverAddress:             txmgr.From(),
+		proverSetAddress:          proverSetAddress,
+		taikoL2Address:            taikoL2Address,
+		graffiti:                  rpc.StringToBytes32(graffiti),
+		tiers:                     tiers,
+		isGuardian:                isGuardian,
+		submissionDelay:           submissionDelay,
+		proofBuffer:               NewProofBuffer(proofBufferSize),
+		forceBatchProvingInterval: forceBatchProvingInterval,
 	}, nil
 }
 
@@ -143,7 +146,7 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBl
 		Graffiti:           common.Bytes2Hex(s.graffiti[:]),
 		GasUsed:            header.GasUsed,
 		ParentGasUsed:      parent.GasUsed(),
-		Compressed:         s.proofBuffer.MaxLength > 1,
+		Compressed:         s.proofBuffer.Enabled(),
 	}
 
 	// If the prover set address is provided, we use that address as the prover on chain.
@@ -159,9 +162,9 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBl
 				log.Error("Failed to request proof, context is canceled", "blockID", opts.BlockID, "error", ctx.Err())
 				return nil
 			}
-			// Check if the proof buffer is full
-			if s.proofBuffer.MaxLength > 1 && s.proofBuffer.MaxLength == uint64(s.proofBuffer.Len()) {
-				log.Debug("Buffer is full now", "blockID", meta.GetBlockID())
+			// Check if the proof buffer is full.
+			if s.proofBuffer.Enabled() && uint64(s.proofBuffer.Len()) >= s.proofBuffer.MaxLength {
+				log.Warn("Proof buffer is full now", "blockID", meta.GetBlockID())
 				return errBufferOverflow
 			}
 			// Check if there is a need to generate proof
@@ -198,21 +201,30 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBl
 				}
 				return fmt.Errorf("failed to request proof (id: %d): %w", meta.GetBlockID(), err)
 			}
-			if meta.IsOntakeBlock() && s.proofBuffer.MaxLength > 1 {
+			if meta.IsOntakeBlock() && s.proofBuffer.Enabled() {
 				bufferSize, err := s.proofBuffer.Write(result)
 				if err != nil {
-					return fmt.Errorf("failed to add proof into buffer (id: %d)(current buffer size: %d): %w",
+					return fmt.Errorf(
+						"failed to add proof into buffer (id: %d) (current buffer size: %d): %w",
 						meta.GetBlockID(),
 						bufferSize,
 						err,
 					)
 				}
-				log.Debug("Succeed to generate proof",
+				log.Info(
+					"Proof generated",
 					"blockID", meta.GetBlockID(),
 					"bufferSize", bufferSize,
+					"maxBufferSize", s.proofBuffer.MaxLength,
+					"bufferIsAggregating", s.proofBuffer.IsAggregating(),
+					"bufferLastUpdatedAt", s.proofBuffer.lastUpdatedAt,
 				)
-				if s.proofBuffer.MaxLength == uint64(bufferSize) {
+				// Check if we need to aggregate proofs.
+				if !s.proofBuffer.IsAggregating() &&
+					(s.proofBuffer.MaxLength >= uint64(bufferSize) ||
+						time.Since(s.proofBuffer.lastUpdatedAt) > s.forceBatchProvingInterval) {
 					s.aggregationNotify <- s.Tier()
+					s.proofBuffer.MarkAggregating()
 				}
 			} else {
 				s.resultCh <- result
@@ -344,7 +356,7 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 	)
 	var (
 		invalidBlockIDs     []uint64
-		latestProvenBlockID = big.NewInt(0)
+		latestProvenBlockID = common.Big0
 	)
 	if len(batchProof.Proofs) == 0 {
 		return proofProducer.ErrInvalidLength
@@ -375,13 +387,13 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 			return err
 		}
 		if !ok {
-			log.Error("a valid proof for block is already submitted", "blockId", proof.BlockID)
+			log.Error("A valid proof for block is already submitted", "blockId", proof.BlockID)
 			invalidBlockIDs = append(invalidBlockIDs, proof.BlockID.Uint64())
 			continue
 		}
 
 		if proofStatus[i].IsSubmitted && !proofStatus[i].Invalid {
-			log.Error("a valid proof for block is already submitted", "blockId", proof.BlockID)
+			log.Error("A valid proof for block is already submitted", "blockId", proof.BlockID)
 			invalidBlockIDs = append(invalidBlockIDs, proof.BlockID.Uint64())
 			continue
 		}
@@ -389,7 +401,8 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 		// Get the corresponding L2 block.
 		block, err := s.rpc.L2.BlockByHash(ctx, proof.Header.Hash())
 		if err != nil {
-			log.Error("failed to get L2 block with given hash",
+			log.Error(
+				"Failed to get L2 block with given hash",
 				"hash", proof.Header.Hash(),
 				"error", err,
 			)
@@ -415,7 +428,7 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 	}
 
 	if len(invalidBlockIDs) > 0 {
-		log.Warn("Detected invalid proofs", "blockIds", invalidBlockIDs)
+		log.Warn("Invalid proofs in batch", "blockIds", invalidBlockIDs)
 		s.proofBuffer.ClearItems(invalidBlockIDs...)
 		return ErrInvalidProof
 	}
@@ -510,4 +523,9 @@ func (s *ProofSubmitter) Tier() uint16 {
 // BufferSize returns the size of the proof buffer.
 func (s *ProofSubmitter) BufferSize() uint64 {
 	return s.proofBuffer.MaxLength
+}
+
+// AggregationEnabled returns whether the proof submitter's aggregation feature is enabled.
+func (s *ProofSubmitter) AggregationEnabled() bool {
+	return s.proofBuffer.Enabled()
 }

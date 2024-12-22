@@ -159,6 +159,7 @@ func (p *Prover) initProofSubmitters(
 			p.IsGuardianProver(),
 			p.cfg.GuardianProofSubmissionDelay,
 			bufferSize,
+			p.cfg.ForceProveInterval,
 		); err != nil {
 			return err
 		}

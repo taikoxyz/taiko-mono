@@ -3,6 +3,7 @@ package submitter
 import (
 	"errors"
 	"sync"
+	"time"
 
 	producer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
@@ -14,16 +15,19 @@ var (
 
 // ProofBuffer caches all single proof with a fixed size.
 type ProofBuffer struct {
-	MaxLength uint64
-	buffer    []*producer.ProofWithHeader
-	mutex     sync.RWMutex
+	MaxLength     uint64
+	buffer        []*producer.ProofWithHeader
+	lastUpdatedAt time.Time
+	isAggregating bool
+	mutex         sync.RWMutex
 }
 
 // NewProofBuffer creates a new ProofBuffer instance.
 func NewProofBuffer(maxLength uint64) *ProofBuffer {
 	return &ProofBuffer{
-		buffer:    make([]*producer.ProofWithHeader, 0, maxLength),
-		MaxLength: maxLength,
+		buffer:        make([]*producer.ProofWithHeader, 0, maxLength),
+		lastUpdatedAt: time.Now(),
+		MaxLength:     maxLength,
 	}
 }
 
@@ -37,6 +41,7 @@ func (pb *ProofBuffer) Write(item *producer.ProofWithHeader) (int, error) {
 	}
 
 	pb.buffer = append(pb.buffer, item)
+	pb.lastUpdatedAt = time.Now()
 	return len(pb.buffer), nil
 }
 
@@ -70,6 +75,13 @@ func (pb *ProofBuffer) Clear() {
 	pb.mutex.Lock()
 	defer pb.mutex.Unlock()
 	pb.buffer = pb.buffer[:0]
+	pb.lastUpdatedAt = time.Now()
+	pb.isAggregating = false
+}
+
+// LastUpdatedAt returns the last updated time of the buffer.
+func (pb *ProofBuffer) LastUpdatedAt() time.Time {
+	return pb.lastUpdatedAt
 }
 
 // ClearItems clears items that has given block ids in the buffer.
@@ -94,5 +106,22 @@ func (pb *ProofBuffer) ClearItems(blockIDs ...uint64) int {
 	}
 
 	pb.buffer = newBuffer
+	pb.lastUpdatedAt = time.Now()
+	pb.isAggregating = false
 	return clearedCount
+}
+
+// MarkAggregating marks the proofs in this buffer are aggregating.
+func (pb *ProofBuffer) MarkAggregating() {
+	pb.isAggregating = true
+}
+
+// IsAggregating returns if the proofs in this buffer are aggregating.
+func (pb *ProofBuffer) IsAggregating() bool {
+	return pb.isAggregating
+}
+
+// Enabled returns if the buffer is enabled.
+func (pb *ProofBuffer) Enabled() bool {
+	return pb.MaxLength > 1
 }

@@ -19,6 +19,7 @@ type Submitter interface {
 	Producer() proofProducer.ProofProducer
 	Tier() uint16
 	BufferSize() uint64
+	AggregationEnabled() bool
 }
 
 // Contester is the interface for contesting proofs of the L2 blocks.
