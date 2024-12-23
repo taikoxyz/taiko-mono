@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "src/shared/common/EssentialContract.sol";
+import "src/shared/based/ITaiko.sol";
 import "src/shared/libs/LibAddress.sol";
 import "src/shared/libs/LibMath.sol";
 import "src/shared/libs/LibNetwork.sol";
@@ -24,7 +25,7 @@ import "./ITaikoInbox.sol";
 ///
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
-abstract contract TaikoInbox is EssentialContract, ITaikoInbox {
+abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
     using LibMath for uint256;
 
     State public state; // storage layout much match Ontake fork
@@ -362,6 +363,13 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox {
 
         blk_ = state.blocks[_blockId % config.blockRingBufferSize];
         require(blk_.blockId == _blockId, BlockNotFound());
+    }
+
+    /// @notice Determines the operational layer of the contract, whether it is on Layer 1 (L1) or
+    /// Layer 2 (L2).
+    /// @return True if the contract is operating on L1, false if on L2.
+    function isOnL1() external pure override returns (bool) {
+        return true;
     }
 
     // Public functions -------------------------------------------------------------------------

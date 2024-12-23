@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "src/shared/common/EssentialContract.sol";
+import "src/shared/based/ITaiko.sol";
 import "src/shared/libs/LibStrings.sol";
 import "src/shared/libs/LibAddress.sol";
 import "src/shared/libs/LibMath.sol";
@@ -237,6 +238,13 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
         if (_blockId >= block.number) return 0;
         if (_blockId + 256 >= block.number) return blockhash(_blockId);
         return _blockhashes[_blockId];
+    }
+
+    /// @notice Determines the operational layer of the contract, whether it is on Layer 1 (L1) or
+    /// Layer 2 (L2).
+    /// @return True if the contract is operating on L1, false if on L2.
+    function isOnL1() external pure returns (bool) {
+        return false;
     }
 
     /// @notice Tells if we need to validate basefee (for simulation).
