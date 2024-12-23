@@ -105,7 +105,9 @@ else
 fi
 
 # Use awk to remove the last column and write to a temporary file
+temp_file="${output_file}_temp"
 while IFS= read -r line; do
     # Remove everything behind the second-to-last "|"
     echo "$line" | sed -E 's/\|[^|]*\|[^|]*$/|/'
-done  < "$output_file" > "$output_file"
+done < "$output_file" > "$temp_file"
+mv "$temp_file" "$output_file"
