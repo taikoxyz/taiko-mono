@@ -24,12 +24,12 @@ jobs:
             exit 1
           fi
 
-          # Get package lists
+          # Extract packages section and find table entries (after the header row and separator)
           PACKAGES=$(ls -d packages/*/ | cut -f2 -d'/' | sort)
-          README_PACKAGES=$(grep -o '\[.*\]([^)]*/packages/[^)]*)' README.md | sed -E 's/.*packages\/([^/)]*).*/\1/' | sort)
+          README_PACKAGES=$(awk '/^## Packages$/,/^##/ {print}' README.md | awk '/^\| Package.*\| Description/ {p=1;next} /^\| :?-+/ {next} p==1 && /^\|/ {print}' | grep -o '\[.*\]([^)]*/packages/[^)]*)' | sed -E 's/.*packages\/([^/)]*).*/\1/' | sort | uniq)
 
           if [ -z "$README_PACKAGES" ]; then
-            echo "❌ No package links found in README.md. Table might be malformed."
+            echo "❌ No package entries found in README.md table. Table might be malformed."
             exit 1
           fi
 
