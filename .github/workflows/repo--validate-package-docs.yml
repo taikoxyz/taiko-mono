@@ -1,0 +1,58 @@
+name: Validate Package Docs
+
+on:
+  pull_request:
+    paths:
+      - '**/README.md'
+      - 'packages/*/'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      EXPECTED_PACKAGE_COUNT: 18  # Update this when packages are added/removed
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate packages
+        run: |
+          # Get current package count
+          CURRENT_COUNT=$(ls -d packages/*/ | wc -l | tr -d ' ')
+          if [ "$CURRENT_COUNT" != "$EXPECTED_PACKAGE_COUNT" ]; then
+            echo "❌ Package count mismatch! Expected $EXPECTED_PACKAGE_COUNT but found $CURRENT_COUNT"
+            echo "Update EXPECTED_PACKAGE_COUNT in workflow if this was intentional"
+            exit 1
+          fi
+
+          # Get package lists
+          PACKAGES=$(ls -d packages/*/ | cut -f2 -d'/' | sort)
+          README_PACKAGES=$(grep -o '\[.*\]([^)]*/packages/[^)]*)' README.md | sed -E 's/.*packages\/([^/)]*).*/\1/' | sort)
+
+          if [ -z "$README_PACKAGES" ]; then
+            echo "❌ No package links found in README.md. Table might be malformed."
+            exit 1
+          fi
+
+          # Check for mismatches
+          MISSING_IN_README=$(comm -23 <(echo "$PACKAGES") <(echo "$README_PACKAGES"))
+          EXTRA_IN_README=$(comm -13 <(echo "$PACKAGES") <(echo "$README_PACKAGES"))
+
+          if [ ! -z "$MISSING_IN_README" ]; then
+            echo "❌ Packages not documented in README.md: $MISSING_IN_README"
+            exit 1
+          fi
+
+          if [ ! -z "$EXTRA_IN_README" ]; then
+            echo "❌ Non-existent packages in README.md: $EXTRA_IN_README"
+            exit 1
+          fi
+
+          # Check for missing READMEs
+          for pkg in packages/*/; do
+            if [ ! -f "${pkg}README.md" ]; then
+              echo "❌ Missing README.md in ${pkg}"
+              exit 1
+            fi
+          done
+
+          echo "✅ All package documentation is valid"
