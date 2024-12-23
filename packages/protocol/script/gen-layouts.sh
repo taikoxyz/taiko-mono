@@ -92,7 +92,7 @@ for contract in "${contracts[@]}"; do
     echo "inspect ${contract}"
 
     echo "## ${contract}" >> $output_file
-    FOUNDRY_PROFILE=${profile} forge inspect -C ./contracts/${profile} -o ./out/${profile} ${contract} storagelayout --pretty >> $output_file
+    FORGE_DISPLAY=plain FOUNDRY_PROFILE=${profile} forge inspect -C ./contracts/${profile} -o ./out/${profile} ${contract} storagelayout  --pretty >> $output_file
     echo "" >> $output_file
 done
 
