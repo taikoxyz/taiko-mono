@@ -451,6 +451,8 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 	metrics.ProverSentProofCounter.Add(float64(len(batchProof.BlockIDs)))
 	metrics.ProverLatestProvenBlockIDGauge.Set(float64(latestProvenBlockID.Uint64()))
 	s.proofBuffer.ClearItems(uint64BlockIDs...)
+	// Each time we submit a batch proof, we should update the LastUpdatedAt() of the buffer.
+	s.proofBuffer.UpdateLastUpdatedAt()
 
 	return nil
 }
