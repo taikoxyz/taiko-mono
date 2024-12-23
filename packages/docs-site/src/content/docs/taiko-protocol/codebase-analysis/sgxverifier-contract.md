@@ -3,33 +3,30 @@ title: SGXVerifier
 description: Taiko protocol page for "SGXVerifier.sol".
 ---
 
-## Overview
-
 The `SGXVerifier` smart contract implements SGX (Software Guard Extensions) signature proof verification on-chain. This verification ensures integrity and security of rollup state transitions by validating SGX-generated signatures. It also enables management and tracking of SGX instances through registration and replacement.
 
 ---
 
-## Core Components
+## Core Purpose
 
-### **SGX Instance Management**
+1. **Instance Registry**:
 
-- **Instance Registry**:
+- Each SGX instance is uniquely identified by its Ethereum address (derived from an ECDSA public-private key pair generated in the SGX enclave).
+- The registry ensures:
+  - Only valid instances are allowed.
+  - Instances are valid for a predefined duration (`INSTANCE_EXPIRY`).
 
-  - Each SGX instance is uniquely identified by its Ethereum address (derived from an ECDSA public-private key pair generated in the SGX enclave).
-  - The registry ensures:
-    - Only valid instances are allowed.
-    - Instances are valid for a predefined duration (`INSTANCE_EXPIRY`).
+2.  **Instance Lifecycle**:
 
-- **Instance Lifecycle**:
-  - **Addition**: SGX instances can be added via the `addInstances` function or the `registerInstance` method (following attestation verification).
-  - **Replacement**: Old SGX instances can be replaced with new ones to maintain security.
-  - **Deletion**: Instances can be removed using the `deleteInstances` function.
+- **Addition**: SGX instances can be added via the `addInstances` function or the `registerInstance` method (following attestation verification).
+- **Replacement**: Old SGX instances can be replaced with new ones to maintain security.
+- **Deletion**: Instances can be removed using the `deleteInstances` function.
 
 ---
 
-## Functions
+## Key Functions
 
-### **`addInstances`**
+### `addInstances`
 
 - **Purpose**: Adds new SGX instances to the registry.
 - **Input**:
@@ -39,7 +36,7 @@ The `SGXVerifier` smart contract implements SGX (Software Guard Extensions) sign
 
 ---
 
-### **`deleteInstances`**
+### `deleteInstances`
 
 - **Purpose**: Removes SGX instances from the registry.
 - **Input**:
@@ -48,7 +45,7 @@ The `SGXVerifier` smart contract implements SGX (Software Guard Extensions) sign
 
 ---
 
-### **`registerInstance`**
+### `registerInstance`
 
 - **Purpose**: Registers an SGX instance by verifying its attestation off-chain and adding it to the registry.
 - **Input**:
@@ -58,7 +55,7 @@ The `SGXVerifier` smart contract implements SGX (Software Guard Extensions) sign
 
 ---
 
-### **`verifyProof`**
+### `verifyProof`
 
 - **Purpose**: Validates the SGX signature proof for a single block state transition.
 - **Input**:
@@ -71,7 +68,7 @@ The `SGXVerifier` smart contract implements SGX (Software Guard Extensions) sign
 
 ---
 
-### **`verifyBatchProof`**
+### `verifyBatchProof`
 
 - **Purpose**: Validates SGX signature proofs for multiple block state transitions in a batch.
 - **Input**:
