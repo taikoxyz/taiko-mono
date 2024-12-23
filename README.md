@@ -53,6 +53,8 @@ Get started with Taiko:
 | [supplementary-contracts](./packages/supplementary-contracts)                 | Supplementary contracts not part of the Taiko protocol. |
 | [taiko-client](./packages/taiko-client)                                       | Taiko client implementation in Go. |
 | [taikoon-ui](./packages/taikoon-ui)                                           | Taikoon UI. |
+| [ui-lib](./packages/ui-lib)                                                   | UI library. |
+| [deprecated-package](./packages/ui-lib)                                       | UI library. |
 
 ## Issues
 
