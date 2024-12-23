@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.21.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.20.3...docs-site-v1.21.0) (2024-12-23)
+
+
+### Features
+
+* **docs-site:** add doc for SGX Verifier. ([#18579](https://github.com/taikoxyz/taiko-mono/issues/18579)) ([08b2c49](https://github.com/taikoxyz/taiko-mono/commit/08b2c49f19b25643b4570642d1612b15d5d71290))
+
+
+### Chores
+
+* **docs-site:** fix broken link  ([#18585](https://github.com/taikoxyz/taiko-mono/issues/18585)) ([38bbb55](https://github.com/taikoxyz/taiko-mono/commit/38bbb55dc076a03751871dde5d61729282a68d9a))
+* **docs-site:** fix typos in node operator guides ([#18586](https://github.com/taikoxyz/taiko-mono/issues/18586)) ([b4bd23c](https://github.com/taikoxyz/taiko-mono/commit/b4bd23ca0798ab239730765a4ca1d8e49ef6e52e))
+* **docs-site:** update proof tier graphic ([#18617](https://github.com/taikoxyz/taiko-mono/issues/18617)) ([becffb7](https://github.com/taikoxyz/taiko-mono/commit/becffb7cc81c6f17436985a81750a5eef7f980e1))
+
+
+### Build
+
+* **deps:** bump github.com/stretchr/testify from 1.9.0 to 1.10.0 ([#18539](https://github.com/taikoxyz/taiko-mono/issues/18539)) ([79f3fab](https://github.com/taikoxyz/taiko-mono/commit/79f3fab5f1d1ec1bb4ee18afb9268b622e894780))
+* **deps:** bump golang.org/x/sync from 0.9.0 to 0.10.0 ([#18560](https://github.com/taikoxyz/taiko-mono/issues/18560)) ([3d51970](https://github.com/taikoxyz/taiko-mono/commit/3d51970aa0953bbfecaeebf76ea7e664c875c0e4))
+
 ## [1.20.3](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.20.2...docs-site-v1.20.3) (2024-12-09)
 
 
