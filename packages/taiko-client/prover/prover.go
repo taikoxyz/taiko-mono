@@ -279,15 +279,7 @@ func (p *Prover) eventLoop() {
 		default:
 		}
 	}
-	// reqAggregation requests performing a aggregate operation, won't block
-	// if we are already aggregating.
-	reqAggregation := func() {
-		select {
-		// 0 means aggregating all tier proofs
-		case p.aggregationNotify <- 0:
-		default:
-		}
-	}
+
 	// Call reqProving() right away to catch up with the latest state.
 	reqProving()
 
@@ -296,9 +288,6 @@ func (p *Prover) eventLoop() {
 	// fetching the proposed blocks.
 	forceProvingTicker := time.NewTicker(15 * time.Second)
 	defer forceProvingTicker.Stop()
-
-	forceAggregatingTicker := time.NewTicker(p.cfg.ForceProveInterval)
-	defer forceAggregatingTicker.Stop()
 
 	// Channels
 	chBufferSize := p.protocolConfigs.BlockMaxProposals
@@ -347,9 +336,7 @@ func (p *Prover) eventLoop() {
 				log.Error("Prove new blocks error", "error", err)
 			}
 		case tier := <-p.aggregationNotify:
-			p.withRetry(func() error {
-				return p.aggregateOp(tier)
-			})
+			p.withRetry(func() error { return p.aggregateOp(tier) })
 		case e := <-blockVerifiedCh:
 			p.blockVerifiedHandler.Handle(encoding.BlockVerifiedEventToV2(e))
 		case e := <-transitionProvedCh:
@@ -389,8 +376,6 @@ func (p *Prover) eventLoop() {
 			reqProving()
 		case <-forceProvingTicker.C:
 			reqProving()
-		case <-forceAggregatingTicker.C:
-			reqAggregation()
 		}
 	}
 }
@@ -422,10 +407,10 @@ func (p *Prover) aggregateOp(tier uint16) error {
 	g, gCtx := errgroup.WithContext(p.ctx)
 	for _, submitter := range p.proofSubmitters {
 		g.Go(func() error {
-			if submitter.BufferSize() > 1 &&
-				(tier == 0 || submitter.Tier() == tier) {
+			if submitter.AggregationEnabled() && submitter.Tier() == tier {
 				if err := submitter.AggregateProofs(gCtx); err != nil {
-					log.Error("Failed to aggregate proofs",
+					log.Error(
+						"Failed to aggregate proofs",
 						"error", err,
 						"tier", submitter.Tier(),
 					)

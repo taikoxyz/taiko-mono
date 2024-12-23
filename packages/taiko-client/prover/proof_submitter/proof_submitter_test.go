@@ -100,6 +100,7 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 		false,
 		0*time.Second,
 		0,
+		30*time.Minute,
 	)
 	s.Nil(err)
 	s.contester = NewProofContester(
@@ -199,6 +200,7 @@ func (s *ProofSubmitterTestSuite) TestGetRandomBumpedSubmissionDelay() {
 		false,
 		time.Duration(0),
 		0,
+		30*time.Minute,
 	)
 	s.Nil(err)
 
@@ -223,6 +225,7 @@ func (s *ProofSubmitterTestSuite) TestGetRandomBumpedSubmissionDelay() {
 		false,
 		1*time.Hour,
 		0,
+		30*time.Minute,
 	)
 	s.Nil(err)
 	delay, err = submitter2.getRandomBumpedSubmissionDelay(time.Now())
