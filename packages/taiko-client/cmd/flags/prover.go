@@ -212,7 +212,7 @@ var (
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_ZKVM_BATCH_SIZE"},
 	}
-	ForceProveInterval = &cli.DurationFlag{
+	ForceBatchProvingInterval = &cli.DurationFlag{
 		Name: "prover.forceBatchProvingInterval",
 		Usage: "Time interval to prove blocks even the number of pending proof do not exceed prover.batchSize, " +
 			"this flag only works post Ontake fork",
@@ -254,5 +254,5 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	RaikoZKVMHostEndpoint,
 	SGXBatchSize,
 	ZKVMBatchSize,
-	ForceProveInterval,
+	ForceBatchProvingInterval,
 }, TxmgrFlags)
