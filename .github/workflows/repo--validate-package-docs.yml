@@ -27,28 +27,16 @@ jobs:
 
           # Extract packages section and find table entries
           PACKAGES=$(ls -d packages/*/ | cut -f2 -d'/' | sort)
-
-          # Get all package paths from README and check for duplicates
           PACKAGE_PATHS=$(sed -n '/^## Packages$/,/^## /p' README.md | tr -d '\n' | grep -o '|\s*\[.*\]([^)]*/packages/[^)]*)'  | grep -o '/packages/[^)]*')
+          README_PACKAGES=$(echo "$PACKAGE_PATHS" | sed -E 's/.*packages\/([^/)]*).*/\1/' | sort | uniq)
 
-          # Count table rows (excluding header and separator)
+          # Check table row count matches expected
           TABLE_ROW_COUNT=$(echo "$PACKAGE_PATHS" | wc -l | tr -d ' ')
           if [ "$TABLE_ROW_COUNT" != "$EXPECTED_PACKAGE_COUNT" ]; then
             echo "❌ Table row count mismatch! Expected $EXPECTED_PACKAGE_COUNT rows but found $TABLE_ROW_COUNT"
             echo "Make sure there are no extra or missing rows in the packages table"
             exit 1
           fi
-
-          # Check for duplicate paths
-          DUPLICATE_PATHS=$(echo "$PACKAGE_PATHS" | sort | uniq -d)
-          if [ ! -z "$DUPLICATE_PATHS" ]; then
-            echo "❌ Found duplicate package paths in README.md:"
-            echo "$DUPLICATE_PATHS"
-            exit 1
-          fi
-
-          # Extract unique package names for comparison
-          README_PACKAGES=$(echo "$PACKAGE_PATHS" | sed -E 's/.*packages\/([^/)]*).*/\1/' | sort | uniq)
 
           if [ -z "$README_PACKAGES" ]; then
             echo "❌ No package entries found in README.md table. Table might be malformed."
