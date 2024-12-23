@@ -92,6 +92,7 @@ export default defineConfig({
               items: [
                 {label: "TaikoL1 Contract", link: "/taiko-protocol/codebase-analysis/taikol1-contract"},
                 {label: "TaikoL2 Contract", link: "/taiko-protocol/codebase-analysis/taikol2-contract"},
+                {label: "SGXVerifier Contract", link: "/taiko-protocol/codebase-analysis/sgxverifier-contract"},
               ],
             },
             { label: "Block states", link: "/taiko-protocol/block-states" },
