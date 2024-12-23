@@ -4,8 +4,9 @@ name: Validate Package Docs
 on:
   pull_request:
     paths:
-      - '**/README.md'
-      - 'packages/*/'
+      - 'README.md'
+      - 'packages'        # Catch changes to packages directory itself
+      - '!packages/**/*'  # But ignore all changes inside packages
 
 jobs:
   validate:
