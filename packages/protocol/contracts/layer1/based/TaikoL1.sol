@@ -25,13 +25,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
 
     uint256[50] private __gap;
 
-    /// @dev Emitted to assist with future gas optimizations.
-    /// @param isProposeBlock True if measuring gas for proposing a block, false if measuring gas
-    /// for proving a block.
-    /// @param gasUsed The average gas used per block, including verifications.
-    /// @param batchSize The number of blocks proposed or proved.
-    event DebugGasPerBlock(bool isProposeBlock, uint256 gasUsed, uint256 batchSize);
-
     error L1_FORK_HEIGHT_ERROR();
 
     modifier whenProvingNotPaused() {
@@ -42,16 +35,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
     modifier emitEventForClient() {
         _;
         emit StateVariablesUpdated(state.slotB);
-    }
-
-    modifier measureGasUsed(bool _isProposeBlock, uint256 _batchSize) {
-        uint256 gas = gasleft();
-        _;
-        unchecked {
-            if (_batchSize > 0) {
-                emit DebugGasPerBlock(_isProposeBlock, gas - gasleft() / _batchSize, _batchSize);
-            }
-        }
     }
 
     /// @notice Initializes the contract.
@@ -90,7 +73,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         bytes calldata _txList
     )
         external
-        measureGasUsed(true, 1)
         whenNotPaused
         nonReentrant
         emitEventForClient
@@ -106,7 +88,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         bytes[] calldata _txListArr
     )
         external
-        measureGasUsed(true, _paramsArr.length)
         whenNotPaused
         nonReentrant
         emitEventForClient
@@ -122,7 +103,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         bytes calldata _input
     )
         external
-        measureGasUsed(false, 1)
         whenNotPaused
         whenProvingNotPaused
         nonReentrant
@@ -138,7 +118,6 @@ contract TaikoL1 is EssentialContract, ITaikoL1, TaikoEvents {
         bytes calldata _batchProof
     )
         external
-        measureGasUsed(false, _blockIds.length)
         whenNotPaused
         whenProvingNotPaused
         nonReentrant

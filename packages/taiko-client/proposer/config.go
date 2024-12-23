@@ -36,6 +36,7 @@ type Config struct {
 	ProposeBlockTxGasLimit     uint64
 	IncludeParentMetaHash      bool
 	BlobAllowed                bool
+	RevertProtectionEnabled    bool
 	TxmgrConfigs               *txmgr.CLIConfig
 	PrivateTxmgrConfigs        *txmgr.CLIConfig
 }
@@ -105,6 +106,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		ProposeBlockTxGasLimit:     c.Uint64(flags.TxGasLimit.Name),
 		IncludeParentMetaHash:      c.Bool(flags.ProposeBlockIncludeParentMetaHash.Name),
 		BlobAllowed:                c.Bool(flags.BlobAllowed.Name),
+		RevertProtectionEnabled:    c.Bool(flags.RevertProtectionEnabled.Name),
 		TxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
 			c.String(flags.L1WSEndpoint.Name),
 			l1ProposerPrivKey,

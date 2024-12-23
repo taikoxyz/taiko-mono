@@ -5,13 +5,9 @@ on:
     branches: [main]
     paths:
       - "packages/guardian-prover-health-check/**"
-      - "go.mod"
-      - "go.sum"
   pull_request:
     paths:
       - "packages/guardian-prover-health-check/**"
-      - "go.mod"
-      - "go.sum"
     branches-ignore:
       - release-please--branches--**
 
@@ -55,7 +51,7 @@ jobs:
         run: go test `go list ./... | grep -v ./contracts | grep -v ./mock | grep -v ./cmd` -coverprofile=coverage.txt -covermode=atomic
 
       - name: guardian-prover-health-check - Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           files: ./packages/guardian-prover-health-check/coverage.txt
           flags: guardian-prover-health-check

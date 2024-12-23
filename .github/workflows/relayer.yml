@@ -5,14 +5,10 @@ on:
     branches: [main]
     paths:
       - "packages/relayer/**"
-      - "go.mod"
-      - "go.sum"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "packages/relayer/**"
-      - "go.mod"
-      - "go.sum"
     branches-ignore:
       - release-please--branches--**
 
@@ -59,7 +55,7 @@ jobs:
         run: go test `go list ./... | grep -v ./contracts | grep -v ./mock | grep -v ./cmd` -coverprofile=coverage.txt -covermode=atomic
 
       - name: relayer - Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           files: ./packages/relayer/coverage.txt
           flags: relayer
