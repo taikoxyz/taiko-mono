@@ -1,3 +1,4 @@
+---
 name: Validate Package Docs
 
 on:
@@ -24,9 +25,9 @@ jobs:
             exit 1
           fi
 
-          # Extract packages section and find table entries (after the header row and separator)
+          # Extract packages section and find table entries
           PACKAGES=$(ls -d packages/*/ | cut -f2 -d'/' | sort)
-          README_PACKAGES=$(awk '/^## Packages$/,/^##/ {print}' README.md | awk '/^\| Package.*\| Description/ {p=1;next} /^\| :?-+/ {next} p==1 && /^\|/ {print}' | grep -o '\[.*\]([^)]*/packages/[^)]*)' | sed -E 's/.*packages\/([^/)]*).*/\1/' | sort | uniq)
+          README_PACKAGES=$(sed -n '/^## Packages$/,/^## /p' README.md | tr -d '\n' | grep -o '|\s*\[.*\]([^)]*/packages/[^)]*)'  | grep -o '/packages/[^)]*' | sed -E 's/.*packages\/([^/)]*).*/\1/' | sort | uniq)
 
           if [ -z "$README_PACKAGES" ]; then
             echo "❌ No package entries found in README.md table. Table might be malformed."
