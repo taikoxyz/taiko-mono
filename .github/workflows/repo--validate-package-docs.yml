@@ -11,7 +11,7 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     env:
-      EXPECTED_PACKAGE_COUNT: 18  # Update this when packages are added/removed
+      EXPECTED_PACKAGE_COUNT: 19  # Update this when packages are added/removed
     steps:
       - uses: actions/checkout@v4
 
