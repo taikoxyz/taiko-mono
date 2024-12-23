@@ -5,7 +5,7 @@
 <!-- TODO(d1onys1us): fix codecov integration -->
 <!-- [![Codecov](https://img.shields.io/codecov/c/github/taikoxyz/taiko-mono/packages/taiko-client?logo=codecov&token=OH6BJMVP6O)](https://codecov.io/gh/taikoxyz/taiko-mono/packages/taiko-client) -->
 
-Taiko protocol's client software implementation in Go. Learn more about Taiko nodes with [the docs](https://docs.taiko.xyz/core-concepts/taiko-nodes/).
+Taiko protocol's client software implementation in Go. Learn more about Taiko nodes with [the docs](https://docs.taiko.xyz/taiko-protocol/taiko-nodes).
 
 ## Project structure
 
