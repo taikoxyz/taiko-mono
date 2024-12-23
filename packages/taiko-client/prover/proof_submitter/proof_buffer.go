@@ -70,18 +70,14 @@ func (pb *ProofBuffer) Len() int {
 	return len(pb.buffer)
 }
 
-// Clear clears all buffer.
-func (pb *ProofBuffer) Clear() {
-	pb.mutex.Lock()
-	defer pb.mutex.Unlock()
-	pb.buffer = pb.buffer[:0]
-	pb.lastUpdatedAt = time.Now()
-	pb.isAggregating = false
-}
-
 // LastUpdatedAt returns the last updated time of the buffer.
 func (pb *ProofBuffer) LastUpdatedAt() time.Time {
 	return pb.lastUpdatedAt
+}
+
+// LastUpdatedAt returns the last updated time of the buffer.
+func (pb *ProofBuffer) UpdateLastUpdatedAt() {
+	pb.lastUpdatedAt = time.Now()
 }
 
 // ClearItems clears items that has given block ids in the buffer.
@@ -106,7 +102,6 @@ func (pb *ProofBuffer) ClearItems(blockIDs ...uint64) int {
 	}
 
 	pb.buffer = newBuffer
-	pb.lastUpdatedAt = time.Now()
 	pb.isAggregating = false
 	return clearedCount
 }
