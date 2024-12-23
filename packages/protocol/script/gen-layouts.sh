@@ -103,3 +103,9 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
 else
     sed -i "$sed_pattern" "$output_file"
 fi
+
+# Use awk to remove the last column and write to a temporary file
+while IFS= read -r line; do
+    # Remove everything behind the second-to-last "|"
+    echo "$line" | sed -E 's/\|[^|]*\|[^|]*$/|/'
+done  < "$output_file" > "$output_file"
