@@ -54,7 +54,6 @@ Get started with Taiko:
 | [taiko-client](./packages/taiko-client)                                       | Taiko client implementation in Go. |
 | [taikoon-ui](./packages/taikoon-ui)                                           | Taikoon UI. |
 | [ui-lib](./packages/ui-lib)                                                   | UI library. |
-| [duplicatewrongname](./packages/ui-lib)                                                   | UI library. |
 
 
 ## Issues
