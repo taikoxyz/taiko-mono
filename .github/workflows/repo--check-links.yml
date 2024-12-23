@@ -1,0 +1,20 @@
+name: Check links
+
+on:
+  push:
+    paths:
+      - '**/README.md'
+      - docs/**
+
+jobs:
+  check-links:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check links
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: --no-progress --verbose '**/README.md'
