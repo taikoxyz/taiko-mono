@@ -5,6 +5,7 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "packages/monitors/**"
+      - "!packages/monitors/**/*.md"
     branches-ignore:
       - release-please--branches--**
 
