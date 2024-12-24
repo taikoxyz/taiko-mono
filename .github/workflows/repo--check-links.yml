@@ -17,4 +17,4 @@ jobs:
       - name: Check links
         uses: lycheeverse/lychee-action@v2
         with:
-          args: --no-progress --verbose '**/README.md'
+          args: --no-progress --verbose --user-agent 'Mozilla/5.0 (compatible; TaikoLinkChecker/1.0; +https://taiko.xyz)' '**/README.md'
