@@ -477,7 +477,12 @@ func (s *ProofSubmitter) AggregateProofs(ctx context.Context) error {
 				startTime,
 			)
 			if err != nil {
-				log.Error("Failed to request proof aggregation", "err", err)
+				if errors.Is(err, proofProducer.ErrProofInProgress) ||
+					errors.Is(err, proofProducer.ErrRetry) {
+					log.Info("Aggregating", "err", err)
+				} else {
+					log.Error("Failed to request proof aggregation", "err", err)
+				}
 				return err
 			}
 			s.batchResultCh <- result
