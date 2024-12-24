@@ -10,6 +10,13 @@ on:
       - "!packages/protocol/docs/**"
       - "!packages/protocol/simulation/**"
       - "!packages/protocol/deployments/**"
+      - "!packages/protocol/script/layer2/hekla/**"
+      - "!packages/protocol/script/layer2/mainnet/**"
+      - "!packages/protocol/script/layer1/hekla/**"
+      - "!packages/protocol/script/layer1/mainnet/**"
+      - "!packages/protocol/script/layer1/preconf/**"
+      - "!packages/protocol/script/layer1/provers/**"
+      - "!packages/protocol/script/layer1/team/**"
     branches-ignore:
       - release-please--branches--**
 
