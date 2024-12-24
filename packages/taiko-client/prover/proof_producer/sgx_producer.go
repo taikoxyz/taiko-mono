@@ -308,6 +308,9 @@ func (s *SGXProofProducer) requestBatchProof(
 		return nil, fmt.Errorf("failed to get batch proof, msg: %s", output.ErrorMessage)
 	}
 
+	if output.Data == nil {
+		return nil, fmt.Errorf("unexpected structure error, response: %s", string(resBytes))
+	}
 	if output.Data.Status == ErrProofInProgress.Error() {
 		return nil, ErrProofInProgress
 	}
@@ -315,7 +318,8 @@ func (s *SGXProofProducer) requestBatchProof(
 		return nil, ErrRetry
 	}
 
-	if len(output.Data.Proof.Proof) == 0 {
+	if output.Data.Proof == nil ||
+		len(output.Data.Proof.Proof) == 0 {
 		return nil, errEmptyProof
 	}
 	proof = common.Hex2Bytes(output.Data.Proof.Proof[2:])
