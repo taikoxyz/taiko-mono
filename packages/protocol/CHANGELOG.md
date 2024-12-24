@@ -26,14 +26,14 @@
 
 ### Bug Fixes
 
-* **protocl:** check blockId in getBlock and getBlockV2 ([#18327](https://github.com/taikoxyz/taiko-mono/issues/18327)) ([4288fb6](https://github.com/taikoxyz/taiko-mono/commit/4288fb6e0c8c76651d2db866cab55f32a9a25075))
+* **protocol:** check blockId in getBlock and getBlockV2 ([#18327](https://github.com/taikoxyz/taiko-mono/issues/18327)) ([4288fb6](https://github.com/taikoxyz/taiko-mono/commit/4288fb6e0c8c76651d2db866cab55f32a9a25075))
 * **protocol:** avoid invocation in Bridge message processing if calldata is "" and value is 0 ([#18137](https://github.com/taikoxyz/taiko-mono/issues/18137)) ([10c2972](https://github.com/taikoxyz/taiko-mono/commit/10c29727081bd8f8b94bbfc4472b162ec552ef64))
 * **protocol:** correct the wrong router address for mainnet ([#18291](https://github.com/taikoxyz/taiko-mono/issues/18291)) ([ae0a9da](https://github.com/taikoxyz/taiko-mono/commit/ae0a9daf83ab8f323c216978724ebcb71de54cfe))
 * **protocol:** fix a new bug in LibProposing ([#18328](https://github.com/taikoxyz/taiko-mono/issues/18328)) ([7436bae](https://github.com/taikoxyz/taiko-mono/commit/7436bae9660cfcf1d430ca111df8c75d50908eae))
 * **protocol:** fix an issue in same transition check ([#18254](https://github.com/taikoxyz/taiko-mono/issues/18254)) ([233806e](https://github.com/taikoxyz/taiko-mono/commit/233806e4838aa12e8de436a37979ff3e614119f2))
 * **protocol:** fix DCAP configuration script ([#18088](https://github.com/taikoxyz/taiko-mono/issues/18088)) ([e8618c5](https://github.com/taikoxyz/taiko-mono/commit/e8618c54a58993499e852ec2ffc2468d4f0274ba))
 * **protocol:** fix issue in mainnet deployment script ([#18283](https://github.com/taikoxyz/taiko-mono/issues/18283)) ([5c371a1](https://github.com/taikoxyz/taiko-mono/commit/5c371a181af444999f611e03774ec096ffbd1226))
-* **protocol:** fix LibAddress.supportsInterface to handle undecodeable return data ([#18286](https://github.com/taikoxyz/taiko-mono/issues/18286)) ([299b4c9](https://github.com/taikoxyz/taiko-mono/commit/299b4c9ecf96644c909df70a3527ae5c2e728a07))
+* **protocol:** fix LibAddress.supportsInterface to handle undecodable return data ([#18286](https://github.com/taikoxyz/taiko-mono/issues/18286)) ([299b4c9](https://github.com/taikoxyz/taiko-mono/commit/299b4c9ecf96644c909df70a3527ae5c2e728a07))
 * **protocol:** fix permission in ComposeVerifier ([#18302](https://github.com/taikoxyz/taiko-mono/issues/18302)) ([4c45d8b](https://github.com/taikoxyz/taiko-mono/commit/4c45d8bcdb52521ac1738ca271316d82689537b0))
 * **protocol:** fix proposeBlock()'s block id check ([#18227](https://github.com/taikoxyz/taiko-mono/issues/18227)) ([3a9d6c1](https://github.com/taikoxyz/taiko-mono/commit/3a9d6c166b7c6666eb2515893b6a3fbd00f4b1ea))
 * **protocol:** fix test related to SendMessageToDelegateOwner.s.sol ([#18300](https://github.com/taikoxyz/taiko-mono/issues/18300)) ([65daa3e](https://github.com/taikoxyz/taiko-mono/commit/65daa3e631b471d17dbffb1001dab66efa67c499))
@@ -59,7 +59,7 @@
 * **protocol:** set mainnet Ontake fork height ([#18112](https://github.com/taikoxyz/taiko-mono/issues/18112)) ([8812eb2](https://github.com/taikoxyz/taiko-mono/commit/8812eb2a8de367311b8ada6bd3587bfe5efee090))
 * **protocol:** shorten imports in solidity files ([#18221](https://github.com/taikoxyz/taiko-mono/issues/18221)) ([9b2ba6a](https://github.com/taikoxyz/taiko-mono/commit/9b2ba6a2a2fae24d1fb34e23b29b3146e96f575e))
 * **protocol:** undo 1.10.0 release ([#18363](https://github.com/taikoxyz/taiko-mono/issues/18363)) ([116578e](https://github.com/taikoxyz/taiko-mono/commit/116578ef8a4391611bd1b3c469f4068cec8a8447))
-* **protoco:** remove unused delegate owner deployment ([#18290](https://github.com/taikoxyz/taiko-mono/issues/18290)) ([63ba863](https://github.com/taikoxyz/taiko-mono/commit/63ba863dcf322b2cf04d7dcaf6d8905bf28de6bc))
+* **protocol:** remove unused delegate owner deployment ([#18290](https://github.com/taikoxyz/taiko-mono/issues/18290)) ([63ba863](https://github.com/taikoxyz/taiko-mono/commit/63ba863dcf322b2cf04d7dcaf6d8905bf28de6bc))
 
 
 ### Documentation
@@ -114,7 +114,7 @@
 
 ### Bug Fixes
 
-* **protocl:** check blockId in getBlock and getBlockV2 ([#18327](https://github.com/taikoxyz/taiko-mono/issues/18327)) ([4288fb6](https://github.com/taikoxyz/taiko-mono/commit/4288fb6e0c8c76651d2db866cab55f32a9a25075))
+* **protocol:** check blockId in getBlock and getBlockV2 ([#18327](https://github.com/taikoxyz/taiko-mono/issues/18327)) ([4288fb6](https://github.com/taikoxyz/taiko-mono/commit/4288fb6e0c8c76651d2db866cab55f32a9a25075))
 * **protocol:** avoid invocation in Bridge message processing if calldata is "" and value is 0 ([#18137](https://github.com/taikoxyz/taiko-mono/issues/18137)) ([10c2972](https://github.com/taikoxyz/taiko-mono/commit/10c29727081bd8f8b94bbfc4472b162ec552ef64))
 * **protocol:** correct the wrong router address for mainnet ([#18291](https://github.com/taikoxyz/taiko-mono/issues/18291)) ([ae0a9da](https://github.com/taikoxyz/taiko-mono/commit/ae0a9daf83ab8f323c216978724ebcb71de54cfe))
 * **protocol:** fix a new bug in LibProposing ([#18328](https://github.com/taikoxyz/taiko-mono/issues/18328)) ([7436bae](https://github.com/taikoxyz/taiko-mono/commit/7436bae9660cfcf1d430ca111df8c75d50908eae))

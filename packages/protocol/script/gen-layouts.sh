@@ -56,6 +56,7 @@ contracts_layer1=(
 "contracts/layer1/team/tokenunlock/TokenUnlock.sol:TokenUnlock"
 "contracts/layer1/provers/ProverSet.sol:ProverSet"
 "contracts/layer1/provers/GuardianProver.sol:GuardianProver"
+"contracts/layer1/fork/ForkManager.sol:ForkManager"
 )
 
 # Layer 2 contracts
@@ -91,7 +92,7 @@ for contract in "${contracts[@]}"; do
     echo "inspect ${contract}"
 
     echo "## ${contract}" >> $output_file
-    FOUNDRY_PROFILE=${profile} forge inspect -C ./contracts/${profile} -o ./out/${profile} ${contract} storagelayout --pretty >> $output_file
+    FORGE_DISPLAY=plain FOUNDRY_PROFILE=${profile} forge inspect -C ./contracts/${profile} -o ./out/${profile} ${contract} storagelayout  --pretty >> $output_file
     echo "" >> $output_file
 done
 
@@ -102,3 +103,11 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
 else
     sed -i "$sed_pattern" "$output_file"
 fi
+
+# Use awk to remove the last column and write to a temporary file
+temp_file="${output_file}_temp"
+while IFS= read -r line; do
+    # Remove everything behind the second-to-last "|"
+    echo "$line" | sed -E 's/\|[^|]*\|[^|]*$/|/'
+done < "$output_file" > "$temp_file"
+mv "$temp_file" "$output_file"

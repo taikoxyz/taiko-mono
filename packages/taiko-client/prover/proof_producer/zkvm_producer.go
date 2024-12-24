@@ -23,8 +23,10 @@ import (
 )
 
 const (
-	ZKProofTypeR0  = "risc0"
-	ZKProofTypeSP1 = "sp1"
+	ZKProofTypeR0       = "risc0"
+	ZKProofTypeSP1      = "sp1"
+	RecursionPlonk      = "plonk"
+	RecursionCompressed = "compressed"
 )
 
 var (
@@ -37,6 +39,7 @@ var (
 type RaikoRequestProofBodyResponseV2 struct {
 	Data         *RaikoProofDataV2 `json:"data"`
 	ErrorMessage string            `json:"message"`
+	Error        string            `json:"error"`
 }
 
 type RaikoProofDataV2 struct {
@@ -103,11 +106,56 @@ func (s *ZKvmProofProducer) RequestProof(
 	}, nil
 }
 
+// RequestCancel implements the ProofProducer interface to cancel the proof generating progress.
 func (s *ZKvmProofProducer) RequestCancel(
 	ctx context.Context,
 	opts *ProofRequestOptions,
 ) error {
 	return s.requestCancel(ctx, opts)
+}
+
+// Aggregate implements the ProofProducer interface to aggregate a batch of proofs.
+func (s *ZKvmProofProducer) Aggregate(
+	ctx context.Context,
+	items []*ProofWithHeader,
+	requestAt time.Time,
+) (*BatchProofs, error) {
+	log.Info(
+		"Aggregate zkvm batch proofs from raiko-host service",
+		"zkType", s.ZKProofType,
+	)
+	if len(items) == 0 {
+		return nil, ErrInvalidLength
+	}
+
+	blockIDs := make([]*big.Int, len(items))
+	for i, item := range items {
+		blockIDs[i] = item.Meta.GetBlockID()
+	}
+	batchProof, err := s.requestBatchProof(
+		ctx,
+		blockIDs,
+		items[0].Opts.ProverAddress,
+		items[0].Opts.Graffiti,
+		requestAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	switch s.ZKProofType {
+	case ZKProofTypeSP1:
+		metrics.ProverSp1ProofAggregationGeneratedCounter.Add(1)
+	default:
+		metrics.ProverR0ProofAggregationGeneratedCounter.Add(1)
+	}
+
+	return &BatchProofs{
+		Proofs:     items,
+		BatchProof: batchProof,
+		Tier:       s.Tier(),
+		BlockIDs:   blockIDs,
+	}, nil
 }
 
 // callProverDaemon keeps polling the proverd service to get the requested proof.
@@ -136,10 +184,12 @@ func (s *ZKvmProofProducer) callProverDaemon(
 		return nil, ErrRetry
 	}
 
-	if len(output.Data.Proof.Proof) == 0 {
-		return nil, errEmptyProof
+	if !opts.Compressed {
+		if len(output.Data.Proof.Proof) == 0 {
+			return nil, errEmptyProof
+		}
+		proof = common.Hex2Bytes(output.Data.Proof.Proof[2:])
 	}
-	proof = common.Hex2Bytes(output.Data.Proof.Proof[2:])
 	log.Info(
 		"Proof generated",
 		"height", opts.BlockID,
@@ -155,7 +205,15 @@ func (s *ZKvmProofProducer) requestProof(
 	ctx context.Context,
 	opts *ProofRequestOptions,
 ) (*RaikoRequestProofBodyResponseV2, error) {
-	var reqBody RaikoRequestProofBody
+	var (
+		reqBody   RaikoRequestProofBody
+		recursion string
+	)
+	if opts.Compressed {
+		recursion = RecursionCompressed
+	} else {
+		recursion = RecursionPlonk
+	}
 	switch s.ZKProofType {
 	case ZKProofTypeSP1:
 		reqBody = RaikoRequestProofBody{
@@ -164,8 +222,9 @@ func (s *ZKvmProofProducer) requestProof(
 			Prover:   opts.ProverAddress.Hex()[2:],
 			Graffiti: opts.Graffiti,
 			SP1: &SP1RequestProofBodyParam{
-				Recursion: "plonk",
+				Recursion: recursion,
 				Prover:    "network",
+				Verify:    true,
 			},
 		}
 	default:
@@ -199,6 +258,13 @@ func (s *ZKvmProofProducer) requestProof(
 		req.Header.Set("Authorization", "Bearer "+base64.StdEncoding.EncodeToString([]byte(s.JWT)))
 	}
 
+	log.Debug(
+		"Send proof generation request",
+		"blockID", opts.BlockID,
+		"zkProofType", s.ZKProofType,
+		"input", string(jsonValue),
+	)
+
 	res, err := client.Do(req)
 	if err != nil {
 		return nil, err
@@ -225,8 +291,8 @@ func (s *ZKvmProofProducer) requestProof(
 		return nil, err
 	}
 
-	if len(output.ErrorMessage) > 0 {
-		return nil, fmt.Errorf("failed to get proof, msg: %s", output.ErrorMessage)
+	if len(output.ErrorMessage) > 0 || len(output.Error) > 0 {
+		return nil, fmt.Errorf("failed to get proof,err: %s, msg: %s", output.Error, output.ErrorMessage)
 	}
 
 	return &output, nil
@@ -236,17 +302,41 @@ func (s *ZKvmProofProducer) requestCancel(
 	ctx context.Context,
 	opts *ProofRequestOptions,
 ) error {
-	reqBody := RaikoRequestProofBody{
-		Type:     s.ZKProofType,
-		Block:    opts.BlockID,
-		Prover:   opts.ProverAddress.Hex()[2:],
-		Graffiti: opts.Graffiti,
-		RISC0: &RISC0RequestProofBodyParam{
-			Bonsai:       true,
-			Snark:        true,
-			Profile:      false,
-			ExecutionPo2: big.NewInt(20),
-		},
+	var (
+		reqBody   RaikoRequestProofBody
+		recursion string
+	)
+	if opts.Compressed {
+		recursion = RecursionCompressed
+	} else {
+		recursion = RecursionPlonk
+	}
+	switch s.ZKProofType {
+	case ZKProofTypeSP1:
+		reqBody = RaikoRequestProofBody{
+			Type:     s.ZKProofType,
+			Block:    opts.BlockID,
+			Prover:   opts.ProverAddress.Hex()[2:],
+			Graffiti: opts.Graffiti,
+			SP1: &SP1RequestProofBodyParam{
+				Recursion: recursion,
+				Prover:    "network",
+				Verify:    true,
+			},
+		}
+	default:
+		reqBody = RaikoRequestProofBody{
+			Type:     s.ZKProofType,
+			Block:    opts.BlockID,
+			Prover:   opts.ProverAddress.Hex()[2:],
+			Graffiti: opts.Graffiti,
+			RISC0: &RISC0RequestProofBodyParam{
+				Bonsai:       true,
+				Snark:        true,
+				Profile:      false,
+				ExecutionPo2: big.NewInt(20),
+			},
+		}
 	}
 
 	client := &http.Client{}
@@ -281,6 +371,134 @@ func (s *ZKvmProofProducer) requestCancel(
 	}
 
 	return nil
+}
+
+// requestBatchProof poll the proof aggregation service to get the aggregated proof.
+func (s *ZKvmProofProducer) requestBatchProof(
+	ctx context.Context,
+	blockIDs []*big.Int,
+	proverAddress common.Address,
+	graffiti string,
+	requestAt time.Time,
+) ([]byte, error) {
+	var (
+		proof []byte
+	)
+
+	ctx, cancel := rpc.CtxWithTimeoutOrDefault(ctx, s.RaikoRequestTimeout)
+	defer cancel()
+
+	blocks := make([][2]*big.Int, len(blockIDs))
+	for i := range blockIDs {
+		blocks[i][0] = blockIDs[i]
+	}
+	var reqBody RaikoRequestProofBodyV3
+	switch s.ZKProofType {
+	case ZKProofTypeSP1:
+		reqBody = RaikoRequestProofBodyV3{
+			Type:     s.ZKProofType,
+			Blocks:   blocks,
+			Prover:   proverAddress.Hex()[2:],
+			Graffiti: graffiti,
+			SP1: &SP1RequestProofBodyParam{
+				Recursion: RecursionCompressed,
+				Prover:    "network",
+				Verify:    true,
+			},
+		}
+	default:
+		reqBody = RaikoRequestProofBodyV3{
+			Type:     s.ZKProofType,
+			Blocks:   blocks,
+			Prover:   proverAddress.Hex()[2:],
+			Graffiti: graffiti,
+			RISC0: &RISC0RequestProofBodyParam{
+				Bonsai:       true,
+				Snark:        true,
+				Profile:      false,
+				ExecutionPo2: big.NewInt(20),
+			},
+		}
+	}
+
+	client := &http.Client{}
+
+	jsonValue, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Debug(
+		"Send batch proof generation request",
+		"blockIDs", blockIDs,
+		"zkProofType", s.ZKProofType,
+		"input", string(jsonValue),
+	)
+
+	req, err := http.NewRequestWithContext(
+		ctx,
+		"POST",
+		s.RaikoHostEndpoint+"/v3/proof",
+		bytes.NewBuffer(jsonValue),
+	)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if len(s.JWT) > 0 {
+		req.Header.Set("Authorization", "Bearer "+base64.StdEncoding.EncodeToString([]byte(s.JWT)))
+	}
+
+	res, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to request batch proof, ids: %v, statusCode: %d", blockIDs, res.StatusCode)
+	}
+
+	resBytes, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Debug(
+		"Batch proof generation output",
+		"blockIDs", blockIDs,
+		"zkProofType", s.ZKProofType,
+		"output", string(resBytes),
+	)
+
+	var output RaikoRequestProofBodyResponseV2
+	if err := json.Unmarshal(resBytes, &output); err != nil {
+		return nil, err
+	}
+
+	if len(output.ErrorMessage) > 0 || len(output.Error) > 0 {
+		return nil, fmt.Errorf("failed to get batch proof, msg: %s", output.ErrorMessage)
+	}
+	if output.Data.Status == ErrProofInProgress.Error() {
+		return nil, ErrProofInProgress
+	}
+	if output.Data.Status == StatusRegistered {
+		return nil, ErrRetry
+	}
+
+	if len(output.Data.Proof.Proof) == 0 {
+		return nil, errEmptyProof
+	}
+	proof = common.Hex2Bytes(output.Data.Proof.Proof[2:])
+
+	log.Info(
+		"Batch proof generated",
+		"blockIDs", blockIDs,
+		"time", time.Since(requestAt),
+		"producer", "ZKvmProofProducer",
+	)
+
+	return proof, nil
 }
 
 // Tier implements the ProofProducer interface.

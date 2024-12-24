@@ -4,11 +4,6 @@ on:
   push:
     branches:
       - main
-    tags:
-      - '*'
-  delete:
-    tags:
-      - '*'
 
 permissions:
   contents: write
@@ -18,21 +13,6 @@ jobs:
   release-please:
     runs-on: [arc-runner-set]
     steps:
-      - name: Run Release Please
-        id: release_please
-        uses: googleapis/release-please-action@v4
+      - uses: googleapis/release-please-action@v4
         with:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
-
-      - name: Convert PR to Draft
-        if: ${{ steps.release_please.outputs.pr != '' }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          pr_number=${{ steps.release_please.outputs.pr }}
-          echo "Converting PR #$pr_number to draft..."
-          curl -X PATCH \
-            -H "Authorization: token $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github.v3+json" \
-            -d '{"draft":true}' \
-            "https://api.github.com/repos/${{ github.repository }}/pulls/$pr_number"

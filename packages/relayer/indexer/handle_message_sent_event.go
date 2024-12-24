@@ -15,10 +15,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 )
 
-var (
-	defaultConfirmations = 5
-)
-
 // handleMessageSentEvent handles an individual MessageSent event
 func (i *Indexer) handleMessageSentEvent(
 	ctx context.Context,
@@ -61,7 +57,7 @@ func (i *Indexer) handleMessageSentEvent(
 		if err := relayer.WaitConfirmations(
 			confCtx,
 			i.srcEthClient,
-			uint64(defaultConfirmations),
+			i.confirmations,
 			event.Raw.TxHash,
 		); err != nil {
 			return err

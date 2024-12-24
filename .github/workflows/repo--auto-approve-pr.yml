@@ -3,6 +3,8 @@ name: Auto Approve PR
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+    branches-ignore:
+      - release-please--branches--**
 
 jobs:
   auto-approve:

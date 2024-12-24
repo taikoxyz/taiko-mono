@@ -227,7 +227,7 @@
               </span>
 
               <span class="font-bold text-positive-sentiment">Waiting for transaction to be processed</span>
-              <span class="text-secondary-content">Depending on your direction, this can take up to 24hs</span>
+              <span class="text-secondary-content">Depending on your direction, this can take up to 4hs</span>
             </div>
 
             <div class="f-col">

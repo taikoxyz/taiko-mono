@@ -23,7 +23,7 @@ import (
 // @contact.email info@taiko.xyz
 
 // @license.name MIT
-// @license.url https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md
+// @license.url https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE
 
 // @host eventindexer.hekla.taiko.xyz
 // Server represents an eventindexer http server instance.

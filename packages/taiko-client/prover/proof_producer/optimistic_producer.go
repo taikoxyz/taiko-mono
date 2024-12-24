@@ -35,6 +35,31 @@ func (o *OptimisticProofProducer) RequestProof(
 	return o.DummyProofProducer.RequestProof(opts, blockID, meta, header, o.Tier(), requestAt)
 }
 
+// Aggregate implements the ProofProducer interface to aggregate a batch of proofs.
+func (o *OptimisticProofProducer) Aggregate(
+	_ context.Context,
+	items []*ProofWithHeader,
+	_ time.Time,
+) (*BatchProofs, error) {
+	log.Info(
+		"Aggregate batch optimistic proof",
+	)
+	if len(items) == 0 {
+		return nil, ErrInvalidLength
+	}
+	blockIDs := make([]*big.Int, len(items))
+	for i, item := range items {
+		blockIDs[i] = item.Meta.GetBlockID()
+	}
+	batchProof, err := o.DummyProofProducer.RequestBatchProofs(items, o.Tier())
+	if err != nil {
+		return nil, err
+	}
+	batchProof.BlockIDs = blockIDs
+	return batchProof, nil
+}
+
+// RequestCancel implements the ProofProducer interface to cancel the proof generating progress.
 func (o *OptimisticProofProducer) RequestCancel(
 	_ context.Context,
 	_ *ProofRequestOptions,

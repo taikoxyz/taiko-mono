@@ -39,7 +39,6 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 		context.Background(),
 		s.RPCClient,
 		state,
-		false,
 		1*time.Hour,
 		0,
 		nil,

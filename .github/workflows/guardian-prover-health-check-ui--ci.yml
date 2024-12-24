@@ -4,6 +4,7 @@ on: workflow_call
 
 jobs:
   check-guardian-prover-health-check-ui:
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'refs/heads/dependabot/') }}
     runs-on: [taiko-runner]
     steps:
       - name: Cancel previous runs

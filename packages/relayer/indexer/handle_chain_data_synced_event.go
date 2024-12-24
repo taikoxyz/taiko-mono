@@ -40,7 +40,7 @@ func (i *Indexer) handleChainDataSyncedEvent(
 		if err := relayer.WaitConfirmations(
 			confCtx,
 			i.srcEthClient,
-			uint64(defaultConfirmations),
+			i.confirmations,
 			event.Raw.TxHash,
 		); err != nil {
 			return err

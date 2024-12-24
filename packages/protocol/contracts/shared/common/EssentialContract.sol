@@ -71,6 +71,11 @@ abstract contract EssentialContract is UUPSUpgradeable, Ownable2StepUpgradeable,
         _;
     }
 
+    modifier nonZeroBytes32(bytes32 _value) {
+        require(_value != 0, ZERO_VALUE());
+        _;
+    }
+
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();

@@ -27,6 +27,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer"
 	guardianProverHeartbeater "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/guardian_prover_heartbeater"
 	producer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
+	proofSubmitter "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter/transaction"
 )
 
@@ -486,6 +487,119 @@ func (s *ProverTestSuite) TestGetBlockProofStatus() {
 	s.True(status.Invalid)
 	s.Equal(parent.Hash(), status.ParentHeader.Hash())
 	s.Equal(proofWithHeader.Opts.BlockHash, common.BytesToHash(status.CurrentTransitionState.BlockHash[:]))
+}
+
+func (s *ProverTestSuite) TestAggregateProofsAlreadyProved() {
+	batchSize := 2
+	// Init batch prover
+	l1ProverPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROVER_PRIVATE_KEY")))
+	s.Nil(err)
+	decimal, err := s.RPCClient.TaikoToken.Decimals(nil)
+	s.Nil(err)
+	batchProver := new(Prover)
+	s.Nil(InitFromConfig(context.Background(), batchProver, &Config{
+		L1WsEndpoint:          os.Getenv("L1_WS"),
+		L2WsEndpoint:          os.Getenv("L2_WS"),
+		L2HttpEndpoint:        os.Getenv("L2_HTTP"),
+		TaikoL1Address:        common.HexToAddress(os.Getenv("TAIKO_L1")),
+		TaikoL2Address:        common.HexToAddress(os.Getenv("TAIKO_L2")),
+		TaikoTokenAddress:     common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
+		L1ProverPrivKey:       l1ProverPrivKey,
+		Dummy:                 true,
+		ProveUnassignedBlocks: true,
+		Capacity:              1024,
+		Allowance:             new(big.Int).Exp(big.NewInt(1_000_000_100), new(big.Int).SetUint64(uint64(decimal)), nil),
+		RPCTimeout:            3 * time.Second,
+		BackOffRetryInterval:  3 * time.Second,
+		BackOffMaxRetries:     12,
+		L1NodeVersion:         "1.0.0",
+		L2NodeVersion:         "0.1.0",
+		SGXProofBufferSize:    uint64(batchSize),
+	}, s.txmgr, s.txmgr))
+
+	for i := 0; i < batchSize; i++ {
+		_ = s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
+	}
+
+	sink2 := make(chan *bindings.TaikoL1ClientTransitionProvedV2, batchSize)
+	sub2, err := s.p.rpc.TaikoL1.WatchTransitionProvedV2(nil, sink2, nil)
+	s.Nil(err)
+	defer func() {
+		sub2.Unsubscribe()
+		close(sink2)
+	}()
+
+	s.Nil(s.p.proveOp())
+	s.Nil(batchProver.proveOp())
+	for i := 0; i < batchSize; i++ {
+		req1 := <-s.p.proofSubmissionCh
+		s.Nil(s.p.requestProofOp(req1.Meta, req1.Tier))
+		req2 := <-batchProver.proofSubmissionCh
+		s.Nil(batchProver.requestProofOp(req2.Meta, req2.Tier))
+		s.Nil(s.p.selectSubmitter(req1.Tier).SubmitProof(context.Background(), <-s.p.proofGenerationCh))
+	}
+	tier := <-batchProver.aggregationNotify
+	s.Nil(batchProver.aggregateOp(tier))
+	s.ErrorIs(
+		batchProver.selectSubmitter(tier).BatchSubmitProofs(context.Background(), <-batchProver.batchProofGenerationCh),
+		proofSubmitter.ErrInvalidProof,
+	)
+	for i := 0; i < batchSize; i++ {
+		<-sink2
+	}
+}
+
+func (s *ProverTestSuite) TestAggregateProofs() {
+	batchSize := 2
+	// Init batch prover
+	l1ProverPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROVER_PRIVATE_KEY")))
+	s.Nil(err)
+	decimal, err := s.RPCClient.TaikoToken.Decimals(nil)
+	s.Nil(err)
+	batchProver := new(Prover)
+	s.Nil(InitFromConfig(context.Background(), batchProver, &Config{
+		L1WsEndpoint:          os.Getenv("L1_WS"),
+		L2WsEndpoint:          os.Getenv("L2_WS"),
+		L2HttpEndpoint:        os.Getenv("L2_HTTP"),
+		TaikoL1Address:        common.HexToAddress(os.Getenv("TAIKO_L1")),
+		TaikoL2Address:        common.HexToAddress(os.Getenv("TAIKO_L2")),
+		TaikoTokenAddress:     common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
+		L1ProverPrivKey:       l1ProverPrivKey,
+		Dummy:                 true,
+		ProveUnassignedBlocks: true,
+		Capacity:              1024,
+		Allowance:             new(big.Int).Exp(big.NewInt(1_000_000_100), new(big.Int).SetUint64(uint64(decimal)), nil),
+		RPCTimeout:            3 * time.Second,
+		BackOffRetryInterval:  3 * time.Second,
+		BackOffMaxRetries:     12,
+		L1NodeVersion:         "1.0.0",
+		L2NodeVersion:         "0.1.0",
+		SGXProofBufferSize:    uint64(batchSize),
+	}, s.txmgr, s.txmgr))
+
+	for i := 0; i < batchSize; i++ {
+		_ = s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
+	}
+
+	sink2 := make(chan *bindings.TaikoL1ClientTransitionProvedV2, batchSize)
+	sub2, err := s.p.rpc.TaikoL1.WatchTransitionProvedV2(nil, sink2, nil)
+	s.Nil(err)
+	defer func() {
+		sub2.Unsubscribe()
+		close(sink2)
+	}()
+
+	s.Nil(batchProver.proveOp())
+	for i := 0; i < batchSize; i++ {
+		req := <-batchProver.proofSubmissionCh
+		s.Nil(batchProver.requestProofOp(req.Meta, req.Tier))
+	}
+	tier := <-batchProver.aggregationNotify
+	s.Nil(batchProver.aggregateOp(tier))
+	s.Nil(batchProver.selectSubmitter(tier).BatchSubmitProofs(context.Background(), <-batchProver.batchProofGenerationCh))
+	for i := 0; i < batchSize; i++ {
+		<-sink2
+	}
 }
 
 func (s *ProverTestSuite) TestSetApprovalAlreadySetHigher() {
