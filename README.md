@@ -17,7 +17,7 @@
 [![YouTube](https://img.shields.io/youtube/channel/subscribers/UCxd_ARE9LtAEdnRQA6g1TaQ)](https://www.youtube.com/@taikoxyz)
 
 [![GitPOAP Badge](https://public-api.gitpoap.io/v1/repo/taikoxyz/taiko-mono/badge)](https://www.gitpoap.io/gh/taikoxyz/taiko-mono)
-[![License](https://img.shields.io/github/license/taikoxyz/taiko-mono)](https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md)
+[![License](https://img.shields.io/github/license/taikoxyz/taiko-mono)](https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE)
 
 </div>
 
@@ -34,27 +34,26 @@ Get started with Taiko:
 > [!TIP]
 > Make sure your node is using the latest version tags for taiko-client and taiko-geth. Check out the [node releases page](https://docs.taiko.xyz/network-reference/software-releases-and-deployments)!
 
-| Package                                                                       | Description                                             |
-| :---------------------------------------------------------------------------- | :------------------------------------------------------ |
+| Package                                                                       | Description                                                        |
+| :---------------------------------------------------------------------------- | :----------------------------------------------------------------- |
 | [balance-monitor](./packages/balance-monitor)                                 | Service that monitors Ethereum L1/L2 addresses and token balances. |
-| [blobstorage](./packages/blobstorage)                                         | Service for storing and retrieving blob data. |
-| [bridge-ui](./packages/bridge-ui)                                             | Bridge UI. |
-| [docs-site](./packages/docs-site)                                             | End user documentation site. |
-| [eventindexer](./packages/eventindexer)                                       | Event indexer. |
-| [fork-diff](./packages/fork-diff)                                             | Fork diff page. |
-| [geth-rpc-gateway](./packages/geth-rpc-gateway)                               | RPC gateway for geth nodes. |
-| [guardian-prover-health-check](./packages/guardian-prover-health-check)       | Guardian prover health check service. |
-| [guardian-prover-health-check-ui](./packages/guardian-prover-health-check-ui) | Guardian prover health check UI. |
-| [monitors](./packages/monitors)                                               | Monitoring and alerting services. |
-| [nfts](./packages/nfts)                                                       | NFT-related smart contracts and utilities. |
-| [protocol](./packages/protocol)                                               | Taiko protocol smart contracts. |
-| [relayer](./packages/relayer)                                                 | Bridge backend relayer. |
-| [snaefell-ui](./packages/snaefell-ui)                                         | Snaefell UI. |
-| [supplementary-contracts](./packages/supplementary-contracts)                 | Supplementary contracts not part of the Taiko protocol. |
-| [taiko-client](./packages/taiko-client)                                       | Taiko client implementation in Go. |
-| [taikoon-ui](./packages/taikoon-ui)                                           | Taikoon UI. |
-| [ui-lib](./packages/ui-lib)                                                   | UI library. |
-
+| [blobstorage](./packages/blobstorage)                                         | Service for storing and retrieving blob data.                      |
+| [bridge-ui](./packages/bridge-ui)                                             | Bridge UI.                                                         |
+| [docs-site](./packages/docs-site)                                             | End user documentation site.                                       |
+| [eventindexer](./packages/eventindexer)                                       | Event indexer.                                                     |
+| [fork-diff](./packages/fork-diff)                                             | Fork diff page.                                                    |
+| [geth-rpc-gateway](./packages/geth-rpc-gateway)                               | RPC gateway for geth nodes.                                        |
+| [guardian-prover-health-check](./packages/guardian-prover-health-check)       | Guardian prover health check service.                              |
+| [guardian-prover-health-check-ui](./packages/guardian-prover-health-check-ui) | Guardian prover health check UI.                                   |
+| [monitors](./packages/monitors)                                               | Monitoring and alerting services.                                  |
+| [nfts](./packages/nfts)                                                       | NFT-related smart contracts and utilities.                         |
+| [protocol](./packages/protocol)                                               | Taiko protocol smart contracts.                                    |
+| [relayer](./packages/relayer)                                                 | Bridge backend relayer.                                            |
+| [snaefell-ui](./packages/snaefell-ui)                                         | Snaefell UI.                                                       |
+| [supplementary-contracts](./packages/supplementary-contracts)                 | Supplementary contracts not part of the Taiko protocol.            |
+| [taiko-client](./packages/taiko-client)                                       | Taiko client implementation in Go.                                 |
+| [taikoon-ui](./packages/taikoon-ui)                                           | Taikoon UI.                                                        |
+| [ui-lib](./packages/ui-lib)                                                   | UI library.                                                        |
 
 ## Issues
 
