@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.21.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.21.0...docs-site-v1.21.1) (2024-12-25)
+
+
+### Chores
+
+* **repo:** fix broken links ([#18635](https://github.com/taikoxyz/taiko-mono/issues/18635)) ([8e53a6e](https://github.com/taikoxyz/taiko-mono/commit/8e53a6e6a2654b8a599fe1df187e2fd88c22d96e))
+
 ## [1.21.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.20.3...docs-site-v1.21.0) (2024-12-23)
 
 
