@@ -479,7 +479,11 @@ func (s *ProofSubmitter) AggregateProofs(ctx context.Context) error {
 			if err != nil {
 				if errors.Is(err, proofProducer.ErrProofInProgress) ||
 					errors.Is(err, proofProducer.ErrRetry) {
-					log.Info("Aggregating proofs", "status", err)
+					log.Info("Aggregating proofs",
+						"status", err,
+						"length", len(buffer),
+						"tier", s.Tier(),
+					)
 				} else {
 					log.Error("Failed to request proof aggregation", "err", err)
 				}
