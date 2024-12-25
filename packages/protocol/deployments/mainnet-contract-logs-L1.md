@@ -223,7 +223,7 @@
 
 - ens: `based.taiko.eth`
 - proxy: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`
-- impl: `0xd4896d4537c6425aC5d89B9f122d4E4ac4D65e1c`
+- impl: `0xe7c4B445D3C7C8E4D68afb85A068F9fAa18e9A5B`
 - owner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
@@ -246,6 +246,7 @@
   - Upgrade to `0xe7c4B445D3C7C8E4D68afb85A068F9fAa18e9A5B` @commit`ea0158f` with new `RollupAddressManagerCache` @commit `9ae9a5e` @tx`0x5eb57ab352b3e3c1ddbc3fe468d582901b88c6a137ce49b0d70857d5218d626d`
   - Upgrade to `0xb74A66b6CF50AD63E29669F0BDE4354E11758162` @commit`06128e8` @tx`0xe66aba9f8bfcd86dc0ae32416862ca61a51c47f8ec747799e65f155ef27eeb20`
   - Upgrade to `0xd4896d4537c6425aC5d89B9f122d4E4ac4D65e1c` @commit`ea0158f` with new `RollupAddressManagerCache` @commit `7394458` @tx`0x9c2f36af40c0004110041fc45d980b73b0c8dde8064713a55aeb6f69fca77a99`
+  - Upgrade to `0xe7c4B445D3C7C8E4D68afb85A068F9fAa18e9A5B` @commit`ea0158f` with new `RollupAddressManagerCache` @commit `9ae9a5e` @tx`0x5eb57ab352b3e3c1ddbc3fe468d582901b88c6a137ce49b0d70857d5218d626d`
 
 #### tier_router
 
