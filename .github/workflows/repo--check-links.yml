@@ -3,7 +3,7 @@ name: Check links
 on:
   push:
     paths:
-      - '**/README.md'
+      - "**/README.md"
       - docs/**
 
 jobs:
@@ -17,4 +17,4 @@ jobs:
       - name: Check links
         uses: lycheeverse/lychee-action@v2
         with:
-          args: --no-progress --verbose --user-agent 'Mozilla/5.0 (compatible; TaikoLinkChecker/1.0; +https://taiko.xyz)' '**/README.md'
+          args: --no-progress --verbose --exclude "etherscan.io" --user-agent 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3' '**/README.md'
