@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.41.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.40.0...taiko-client-v0.41.0) (2024-12-26)
+
+
+### Features
+
+* **taiko-client:** catch raiko deserialization errors ([#18644](https://github.com/taikoxyz/taiko-mono/issues/18644)) ([98a98fd](https://github.com/taikoxyz/taiko-mono/commit/98a98fd4636e3cd5f3ec019493a72880e141f494))
+* **taiko-client:** optimize aggregation loggingain ([#18643](https://github.com/taikoxyz/taiko-mono/issues/18643)) ([688a426](https://github.com/taikoxyz/taiko-mono/commit/688a42646d185694c7cfd2bc091084dd782782f5))
+* **taiko-client:** revert pr-18571 ([#18648](https://github.com/taikoxyz/taiko-mono/issues/18648)) ([842f812](https://github.com/taikoxyz/taiko-mono/commit/842f8122305f8cbf3153bb645e3107abb4af3cf4))
+
+
+### Chores
+
+* **repo:** fix broken links ([#18635](https://github.com/taikoxyz/taiko-mono/issues/18635)) ([8e53a6e](https://github.com/taikoxyz/taiko-mono/commit/8e53a6e6a2654b8a599fe1df187e2fd88c22d96e))
+
+
+### Tests
+
+* **taiko-client:** cleanup pre-ontake tests ([#18647](https://github.com/taikoxyz/taiko-mono/issues/18647)) ([b577b3b](https://github.com/taikoxyz/taiko-mono/commit/b577b3b40f51bf35efe46151e459d37b87548614))
+
 ## [0.40.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-client-v0.39.2...taiko-client-v0.40.0) (2024-12-23)
 
 
