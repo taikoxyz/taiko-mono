@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.11.1](https://github.com/taikoxyz/taiko-mono/compare/protocol-v1.11.0...protocol-v1.11.1) (2024-12-26)
+
+
+### Documentation
+
+* **protocol:** update mainnet deployment docs ([#18645](https://github.com/taikoxyz/taiko-mono/issues/18645)) ([59d4f10](https://github.com/taikoxyz/taiko-mono/commit/59d4f107edc1aaac5716067634735bad03e75269))
+
 ## [1.11.0](https://github.com/taikoxyz/taiko-mono/compare/protocol-v1.10.0...protocol-v1.11.0) (2024-12-24)
 
 
