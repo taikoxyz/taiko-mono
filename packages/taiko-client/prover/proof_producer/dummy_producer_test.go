@@ -37,7 +37,7 @@ func TestDummyProducerRequestProof(t *testing.T) {
 	res, err := producer.RequestProof(
 		&ProofRequestOptions{},
 		blockID,
-		&metadata.TaikoDataBlockMetadataLegacy{},
+		&metadata.TaikoDataBlockMetadataOntake{},
 		header,
 		tier,
 		time.Now(),
