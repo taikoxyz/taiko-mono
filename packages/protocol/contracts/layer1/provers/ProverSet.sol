@@ -31,7 +31,6 @@ contract ProverSet is EssentialContract, IERC1271 {
     error INVALID_STATUS();
     error INVALID_BOND_TOKEN();
     error PERMISSION_DENIED();
-    error NOT_FIRST_PROPOSAL();
 
     modifier onlyAuthorized() {
         require(
