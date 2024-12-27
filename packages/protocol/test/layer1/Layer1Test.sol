@@ -11,7 +11,7 @@ import "src/shared/bridge/QuotaManager.sol";
 import "src/shared/bridge/Bridge.sol";
 import "test/shared/CommonTest.sol";
 
-contract TaikoWithConfig is TaikoInbox {
+contract ConfigurableInbox is TaikoInbox {
     ITaikoInbox.ConfigV3 private __config;
 
     function initWithConfig(
@@ -47,9 +47,9 @@ abstract contract Layer1Test is CommonTest {
         return TaikoInbox(
             deploy({
                 name: "taiko",
-                impl: address(new TaikoWithConfig()),
+                impl: address(new ConfigurableInbox()),
                 data: abi.encodeCall(
-                    TaikoWithConfig.initWithConfig,
+                    ConfigurableInbox.initWithConfig,
                     (address(0), address(resolver), _genesisBlockHash, _config)
                 )
             })

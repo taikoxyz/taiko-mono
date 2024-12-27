@@ -40,7 +40,7 @@ func TestGuardianProducerRequestProof(t *testing.T) {
 		context.Background(),
 		&ProofRequestOptions{},
 		blockID,
-		&metadata.TaikoDataBlockMetadataLegacy{},
+		&metadata.TaikoDataBlockMetadataOntake{},
 		header,
 		time.Now(),
 	)
@@ -79,7 +79,7 @@ func TestGuardianProducerRequestProofReturnLivenessBond(t *testing.T) {
 		context.Background(),
 		&ProofRequestOptions{},
 		blockID,
-		&metadata.TaikoDataBlockMetadataLegacy{},
+		&metadata.TaikoDataBlockMetadataOntake{},
 		header,
 		time.Now(),
 	)
@@ -118,7 +118,7 @@ func TestMinorityRequestProof(t *testing.T) {
 		context.Background(),
 		&ProofRequestOptions{},
 		blockID,
-		&metadata.TaikoDataBlockMetadataLegacy{},
+		&metadata.TaikoDataBlockMetadataOntake{},
 		header,
 		time.Now(),
 	)
@@ -156,7 +156,7 @@ func TestRequestMinorityProofReturnLivenessBond(t *testing.T) {
 		context.Background(),
 		&ProofRequestOptions{},
 		blockID,
-		&metadata.TaikoDataBlockMetadataLegacy{},
+		&metadata.TaikoDataBlockMetadataOntake{},
 		header,
 		time.Now(),
 	)

@@ -39,7 +39,7 @@ func TestSGXProducerRequestProof(t *testing.T) {
 		context.Background(),
 		&ProofRequestOptions{},
 		blockID,
-		&metadata.TaikoDataBlockMetadataLegacy{},
+		&metadata.TaikoDataBlockMetadataOntake{},
 		header,
 		time.Now(),
 	)

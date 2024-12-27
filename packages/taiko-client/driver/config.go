@@ -17,6 +17,7 @@ import (
 // Config contains the configurations to initialize a Taiko driver.
 type Config struct {
 	*rpc.ClientConfig
+	P2PSync            bool
 	P2PSyncTimeout     time.Duration
 	RetryInterval      time.Duration
 	MaxExponent        uint64
@@ -33,10 +34,11 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	}
 
 	var (
+		p2pSync      = c.Bool(flags.P2PSync.Name)
 		l2CheckPoint = c.String(flags.CheckPointSyncURL.Name)
 	)
 
-	if len(l2CheckPoint) == 0 {
+	if p2pSync && len(l2CheckPoint) == 0 {
 		return nil, errors.New("empty L2 check point URL")
 	}
 
@@ -63,8 +65,8 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		}
 	}
 
-	if beaconEndpoint == "" {
-		return nil, errors.New("empty L1 beacon endpoint")
+	if beaconEndpoint == "" && blobServerEndpoint == nil && socialScanEndpoint == nil {
+		return nil, errors.New("empty L1 beacon endpoint, blob server and Social Scan endpoint")
 	}
 
 	var timeout = c.Duration(flags.RPCTimeout.Name)
@@ -81,6 +83,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			Timeout:          timeout,
 		},
 		RetryInterval:      c.Duration(flags.BackOffRetryInterval.Name),
+		P2PSync:            p2pSync,
 		P2PSyncTimeout:     c.Duration(flags.P2PSyncTimeout.Name),
 		MaxExponent:        c.Uint64(flags.MaxExponent.Name),
 		BlobServerEndpoint: blobServerEndpoint,
