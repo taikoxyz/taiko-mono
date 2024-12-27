@@ -287,7 +287,7 @@ func (c *Client) CalculateBaseFee(
 	)
 
 	if isOntake {
-		if baseFee, err = c.calculateBaseFeeOnTake(ctx, l2Head, currentTimestamp, baseFeeConfig); err != nil {
+		if baseFee, err = c.calculateBaseFeeOntake(ctx, l2Head, currentTimestamp, baseFeeConfig); err != nil {
 			return nil, err
 		}
 	} else {
@@ -875,7 +875,7 @@ func (c *Client) WaitL1NewPendingTransaction(
 }
 
 // CalculateBaseFeeOnTake calculates the base fee after ontake fork from the L2 protocol.
-func (c *Client) calculateBaseFeeOnTake(
+func (c *Client) calculateBaseFeeOntake(
 	ctx context.Context,
 	l2Head *types.Header,
 	currentTimestamp uint64,
