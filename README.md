@@ -3,11 +3,11 @@
 </p>
 
 <h1 align="center">
-  Taiko
+  Taiko Alethia
 </h1>
 
 <p align="center">
-  A based rollup.
+  The first based rollup.
 </p>
 
 <div align="center">
@@ -23,11 +23,11 @@
 
 ## Documentation
 
-Get started with Taiko:
+Get started with Taiko Alethia:
 
-- [Taiko docs](https://docs.taiko.xyz) — High-level concepts, guides, resources, and reference pages for getting started.
-- [Protocol specs](./packages/protocol/docs/README.md) — In-depth specifications of the Taiko protocol for deeper understanding.
-- [Smart contracts](./packages/protocol/contracts/) — Taiko protocol smart contracts, fully documented with NatSpec.
+- [Taiko Alethia docs](https://docs.taiko.xyz) — High-level concepts, guides, resources, and reference pages for getting started.
+- [Protocol specs](./packages/protocol/docs/README.md) — In-depth specifications of the Taiko Alethia protocol for deeper understanding.
+- [Smart contracts](./packages/protocol/contracts/) — Taiko Alethia protocol smart contracts, fully documented with NatSpec.
 
 ## Packages
 
@@ -47,11 +47,11 @@ Get started with Taiko:
 | [guardian-prover-health-check-ui](./packages/guardian-prover-health-check-ui) | Guardian prover health check UI.                                   |
 | [monitors](./packages/monitors)                                               | Monitoring and alerting services.                                  |
 | [nfts](./packages/nfts)                                                       | NFT-related smart contracts and utilities.                         |
-| [protocol](./packages/protocol)                                               | Taiko protocol smart contracts.                                    |
+| [protocol](./packages/protocol)                                               | Taiko Alethia protocol smart contracts.                            |
 | [relayer](./packages/relayer)                                                 | Bridge backend relayer.                                            |
 | [snaefell-ui](./packages/snaefell-ui)                                         | Snaefell UI.                                                       |
-| [supplementary-contracts](./packages/supplementary-contracts)                 | Supplementary contracts not part of the Taiko protocol.            |
-| [taiko-client](./packages/taiko-client)                                       | Taiko client implementation in Go.                                 |
+| [supplementary-contracts](./packages/supplementary-contracts)                 | Supplementary contracts not part of the Taiko Alethia protocol.    |
+| [taiko-client](./packages/taiko-client)                                       | Taiko Alethia client implementation in Go.                         |
 | [taikoon-ui](./packages/taikoon-ui)                                           | Taikoon UI.                                                        |
 | [ui-lib](./packages/ui-lib)                                                   | UI library.                                                        |
 
