@@ -18,8 +18,7 @@ contract PrankTaikoInbox {
         return blk;
     }
 
-
-    function isOnL1() external pure returns(bool) {
+    function isOnL1() external pure returns (bool) {
         return true;
     }
 }

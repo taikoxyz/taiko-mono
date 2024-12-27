@@ -520,16 +520,8 @@ contract ERC20Vault is BaseVault {
             // token transferred into this address, this is more accurate than
             // simply using `amount` -- some contract may deduct a fee from the
             // transferred amount.
-            IERC20 t = IERC20(_op.token);
-            uint256 _balance = t.balanceOf(address(this));
-            t.safeTransferFrom(msg.sender, address(this), _op.amount);
-            balanceChangeAmount_ = t.balanceOf(address(this)) - _balance;
-
-            if (_op.solverFee > 0) {
-                _balance = t.balanceOf(address(this));
-                t.safeTransferFrom(msg.sender, address(this), _op.solverFee);
-                balanceChangeSolverFee_ = t.balanceOf(address(this)) - _balance;
-            }
+            balanceChangeAmount_ = _transferTokenAndReturnBalanceDiff(_op.token, _op.amount);
+            balanceChangeSolverFee_ = _transferTokenAndReturnBalanceDiff(_op.token, _op.solverFee);
         }
 
         // Prepare solver condition for allowing fast withdrawal on L1
@@ -549,6 +541,26 @@ contract ERC20Vault is BaseVault {
                 solverCondition
             )
         );
+    }
+
+    /// @dev Transfers tokens from the sender to this contract and returns the difference in
+    /// balance.
+    /// @param _erc20Token The ERC20 token to transfer.
+    /// @param _amount The amount of tokens to transfer.
+    /// @return The difference in balance after the transfer.
+    function _transferTokenAndReturnBalanceDiff(
+        address _erc20Token,
+        uint256 _amount
+    )
+        private
+        returns (uint256)
+    {
+        if (_amount == 0) return 0;
+
+        IERC20 erc20 = IERC20(_erc20Token);
+        uint256 balance = erc20.balanceOf(address(this));
+        erc20.safeTransferFrom(msg.sender, address(this), _amount);
+        return erc20.balanceOf(address(this)) - balance;
     }
 
     /// @dev Retrieve or deploy a bridged ERC20 token contract.
