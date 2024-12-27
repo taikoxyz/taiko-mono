@@ -9,14 +9,14 @@ import "src/layer1/preconf/libs/LibBLS12381.sol";
 contract BLSExpendMsgXmd is BaseTest {
     bytes internal expand_msg_dst = "QUUX-V01-CS02-with-expander-SHA256-128";
 
-    function test_expandMsgXmd_empty_msg_0x20() public view{
+    function test_expandMsgXmd_empty_msg_0x20() public view {
         uint256[] memory result = LibBLS12381._expandMsgXmd("", expand_msg_dst, 0x20);
         uint256 expected = 0x68a985b87eb6b46952128911f2a4412bbc302a9d759667f87f7a21d803f07235;
 
         assertEq(result[0], expected);
     }
 
-    function testExpandMsgXmd_abc_0x20() public view{
+    function testExpandMsgXmd_abc_0x20() public view {
         uint256[] memory result = LibBLS12381._expandMsgXmd("abc", expand_msg_dst, 0x20);
         uint256 expected = 0xd8ccab23b5985ccea865c6c97b6e5b8350e794e603b4b97902f53a8a0d605615;
 

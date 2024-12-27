@@ -38,7 +38,7 @@ contract BeaconProofsVerification is BaseTest {
         );
     }
 
-    function test_beaconProofsVerification_beaconStateInclusionInBeaconBlock() public pure{
+    function test_beaconProofsVerification_beaconStateInclusionInBeaconBlock() public pure {
         bytes32[] memory beaconBlockProofForBeaconState =
             BeaconProofs.beaconBlockProofForBeaconState();
 
@@ -52,7 +52,7 @@ contract BeaconProofsVerification is BaseTest {
         );
     }
 
-    function test_beaconProofsVerification_proposerInclusionInBeaconBlock() public pure{
+    function test_beaconProofsVerification_proposerInclusionInBeaconBlock() public pure {
         bytes32[] memory beaconBlockProofForProposer = BeaconProofs.beaconBlockProofForProposer();
 
         uint256 validatorIndex = BeaconProofs.validatorIndex();
