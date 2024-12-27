@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
+import "../../shared/based/ITaiko.sol";
 import "../../layer1/based/ITaikoInbox.sol";
 import "../bridge/IQuotaManager.sol";
 import "../libs/LibStrings.sol";
@@ -183,6 +184,7 @@ contract ERC20Vault is BaseVault {
     /// @param solver The address of the solver
     event ERC20Solved(bytes32 indexed solverCondition, address solver);
 
+    error VAULT_ALREADY_SOLVED();
     error VAULT_BTOKEN_BLACKLISTED();
     error VAULT_CTOKEN_MISMATCH();
     error VAULT_INVALID_TOKEN();
@@ -190,8 +192,8 @@ contract ERC20Vault is BaseVault {
     error VAULT_INVALID_CTOKEN();
     error VAULT_INVALID_NEW_BTOKEN();
     error VAULT_LAST_MIGRATION_TOO_CLOSE();
-    error L2_METADATA_HASH_MISMATCH();
-    error ALREADY_SOLVED();
+    error VAULT_METADATA_HASH_MISMATCH();
+    error VAULT_NOT_ON_L1();
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
@@ -403,14 +405,18 @@ contract ERC20Vault is BaseVault {
     // to the recipient.
     /// @param _op Parameters for the solve operation
     function solve(SolverOp memory _op) external nonReentrant whenNotPaused {
-        // Verify that the required L2 batch containing the intent transaction has been proposed
-        bytes32 l2BlockMetaHash =
-            (ITaikoInbox(resolve(LibStrings.B_TAIKO, false)).getBlockV3(_op.l2BlockId)).metaHash;
-        require(l2BlockMetaHash == _op.l2BlockMetaHash, L2_METADATA_HASH_MISMATCH());
+        if (_op.l2BlockId != 0) {
+            // Verify that the required L2 batch containing the intent transaction has been proposed
+            address taiko = resolve(LibStrings.B_TAIKO, false);
+            require(ITaiko(taiko).isOnL1(), VAULT_NOT_ON_L1());
+
+            bytes32 l2BlockMetaHash = ITaikoInbox(taiko).getBlockV3(_op.l2BlockId).metaHash;
+            require(l2BlockMetaHash == _op.l2BlockMetaHash, VAULT_METADATA_HASH_MISMATCH());
+        }
 
         // Record the solver's address
         bytes32 solverCondition = getSolverCondition(_op.nonce, _op.token, _op.to, _op.amount);
-        require(solverConditionToSolver[solverCondition] == address(0), ALREADY_SOLVED());
+        require(solverConditionToSolver[solverCondition] == address(0), VAULT_ALREADY_SOLVED());
 
         solverConditionToSolver[solverCondition] = msg.sender;
 
