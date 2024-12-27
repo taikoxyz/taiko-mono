@@ -192,7 +192,7 @@ contract ERC20Vault is BaseVault {
     error VAULT_INVALID_CTOKEN();
     error VAULT_INVALID_NEW_BTOKEN();
     error VAULT_LAST_MIGRATION_TOO_CLOSE();
-    error VAULT_METADATA_HASH_MISMATCH();
+    error VAULT_METAHASH_MISMATCH();
     error VAULT_NOT_ON_L1();
 
     /// @notice Initializes the contract.
@@ -405,13 +405,13 @@ contract ERC20Vault is BaseVault {
     // to the recipient.
     /// @param _op Parameters for the solve operation
     function solve(SolverOp memory _op) external nonReentrant whenNotPaused {
-        if (_op.l2BlockId != 0) {
+        if (_op.l2BlockMetaHash != 0) {
             // Verify that the required L2 batch containing the intent transaction has been proposed
             address taiko = resolve(LibStrings.B_TAIKO, false);
             require(ITaiko(taiko).isOnL1(), VAULT_NOT_ON_L1());
 
             bytes32 l2BlockMetaHash = ITaikoInbox(taiko).getBlockV3(_op.l2BlockId).metaHash;
-            require(l2BlockMetaHash == _op.l2BlockMetaHash, VAULT_METADATA_HASH_MISMATCH());
+            require(l2BlockMetaHash == _op.l2BlockMetaHash, VAULT_METAHASH_MISMATCH());
         }
 
         // Record the solver's address
