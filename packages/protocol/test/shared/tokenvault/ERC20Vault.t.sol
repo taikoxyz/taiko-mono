@@ -402,7 +402,7 @@ contract TestERC20Vault is CommonTest {
         blk.metaHash = blockMetaHash;
         taikoInbox.setBlock(blk);
 
-        vm.expectRevert(ERC20Vault.L2_METADATA_HASH_MISMATCH.selector);
+        vm.expectRevert(ERC20Vault.VAULT_METAHASH_MISMATCH.selector);
         eVault.solve(
             ERC20Vault.SolverOp(
                 1, address(eERC20Token1), to, amount, blockId, mismatchedBlockMetahash
