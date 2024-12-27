@@ -17,4 +17,4 @@ jobs:
       - name: Check links
         uses: lycheeverse/lychee-action@v2
         with:
-          args: --no-progress --verbose --max-retries 3 --retry-delay 2 --exclude "etherscan.io" --user-agent 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3' '**/README.md'
+          args: --no-progress --verbose "**/README.md"
