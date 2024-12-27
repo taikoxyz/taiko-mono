@@ -938,7 +938,7 @@ func (c *Client) calculateBaseFeeOntake(
 		if strings.Contains(encoding.TryParsingCustomError(err).Error(), "L2_DEPRECATED_METHOD") {
 			baseFeeInfo, err := c.TaikoL2.GetBasefeeV2(
 				&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
-				0,
+				uint32(l2Head.GasUsed),
 				*baseFeeConfig,
 			)
 			if err != nil {
