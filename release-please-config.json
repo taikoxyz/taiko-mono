@@ -23,7 +23,7 @@
     "packages/guardian-prover-health-check": {},
     "packages/guardian-prover-health-check-ui": {},
     "packages/protocol": {
-      "package-name": "protocol-taiko-alethia"
+      "package-name": "taiko-alethia-protocol"
     },
     "packages/relayer": {},
     "packages/taiko-client": {
