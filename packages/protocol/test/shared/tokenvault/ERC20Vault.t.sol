@@ -377,7 +377,7 @@ contract TestERC20Vault is CommonTest {
             ERC20Vault.SolverOp(1, address(eERC20Token1), to, amount, blockId, blockMetaHash)
         );
 
-        vm.expectRevert(ERC20Vault.ALREADY_SOLVED.selector);
+        vm.expectRevert(ERC20Vault.VAULT_ALREADY_SOLVED.selector);
         eVault.solve(
             ERC20Vault.SolverOp(1, address(eERC20Token1), to, amount, blockId, blockMetaHash)
         );
