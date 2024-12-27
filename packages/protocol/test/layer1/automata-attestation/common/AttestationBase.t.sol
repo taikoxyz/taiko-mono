@@ -132,7 +132,6 @@ contract AttestationBase is Test, DcapTestUtils, V3QuoteParseUtils {
         bool expected
     )
         internal
-        view
         returns (V3Struct.ParsedV3QuoteStruct memory v3quote)
     {
         v3quote = ParseV3QuoteBytes(address(pemCertChainLib), v3QuoteBytes);
