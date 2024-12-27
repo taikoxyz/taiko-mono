@@ -27,7 +27,7 @@
     },
     "packages/relayer": {},
     "packages/taiko-client": {
-      "package-name": "client-taiko-alethia"
+      "package-name": "taiko-alethia-client"
     },
     "packages/ui-lib": {}
   }
