@@ -65,12 +65,12 @@ func (s *BlobSyncerTestSuite) TestProcessL1BlocksReorg() {
 func (s *BlobSyncerTestSuite) TestOnBlockProposed() {
 	s.Nil(s.s.onBlockProposed(
 		context.Background(),
-		&metadata.TaikoDataBlockMetadataLegacy{TaikoDataBlockMetadata: bindings.TaikoDataBlockMetadata{Id: 0}},
+		&metadata.TaikoDataBlockMetadataOntake{TaikoDataBlockMetadataV2: bindings.TaikoDataBlockMetadataV2{Id: 0}},
 		func() {},
 	))
 	s.NotNil(s.s.onBlockProposed(
 		context.Background(),
-		&metadata.TaikoDataBlockMetadataLegacy{TaikoDataBlockMetadata: bindings.TaikoDataBlockMetadata{Id: 1}},
+		&metadata.TaikoDataBlockMetadataOntake{TaikoDataBlockMetadataV2: bindings.TaikoDataBlockMetadataV2{Id: 1}},
 		func() {},
 	))
 }
@@ -80,18 +80,21 @@ func (s *BlobSyncerTestSuite) TestInsertNewHead() {
 	s.Nil(err)
 	l1Head, err := s.s.rpc.L1.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
+	protocolConfigs, err := s.s.rpc.TaikoL1.GetConfig(nil)
+	s.Nil(err)
 	_, err = s.s.insertNewHead(
 		context.Background(),
-		&metadata.TaikoDataBlockMetadataLegacy{
-			TaikoDataBlockMetadata: bindings.TaikoDataBlockMetadata{
-				Id:         1,
-				L1Height:   l1Head.NumberU64(),
-				L1Hash:     l1Head.Hash(),
-				Coinbase:   common.BytesToAddress(testutils.RandomBytes(1024)),
-				BlobHash:   testutils.RandomHash(),
-				Difficulty: testutils.RandomHash(),
-				GasLimit:   utils.RandUint32(nil),
-				Timestamp:  uint64(time.Now().Unix()),
+		&metadata.TaikoDataBlockMetadataOntake{
+			TaikoDataBlockMetadataV2: bindings.TaikoDataBlockMetadataV2{
+				Id:              1,
+				AnchorBlockId:   l1Head.NumberU64(),
+				AnchorBlockHash: l1Head.Hash(),
+				Coinbase:        common.BytesToAddress(testutils.RandomBytes(1024)),
+				BlobHash:        testutils.RandomHash(),
+				Difficulty:      testutils.RandomHash(),
+				GasLimit:        utils.RandUint32(nil),
+				Timestamp:       uint64(time.Now().Unix()),
+				BaseFeeConfig:   protocolConfigs.BaseFeeConfig,
 			},
 			Log: types.Log{
 				BlockNumber: l1Head.Number().Uint64(),
