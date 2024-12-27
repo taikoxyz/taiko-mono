@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -281,59 +282,16 @@ func (c *Client) CalculateBaseFee(
 	currentTimestamp uint64,
 ) (*big.Int, error) {
 	var (
-		baseFeeInfo struct {
-			Basefee         *big.Int
-			ParentGasExcess uint64
-		}
-		err error
+		baseFee *big.Int
+		err     error
 	)
 
 	if isOntake {
-		var (
-			newGasTarget    = uint64(baseFeeConfig.GasIssuancePerSecond) * uint64(baseFeeConfig.AdjustmentQuotient)
-			parentGasExcess uint64
-		)
-		parentGasTarget, err := c.TaikoL2.ParentGasTarget(
-			&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch parent gas target: %w", err)
-		}
-
-		if newGasTarget != parentGasTarget && parentGasTarget != 0 {
-			oldParentGasExcess, err := c.TaikoL2.ParentGasExcess(
-				&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
-			)
-			if err != nil {
-				return nil, fmt.Errorf("failed to fetch old parent gas excess: %w", err)
-			}
-			if parentGasExcess, err = c.TaikoL2.AdjustExcess(
-				&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
-				oldParentGasExcess,
-				parentGasTarget,
-				newGasTarget,
-			); err != nil {
-				return nil, fmt.Errorf("failed to adjust parent gas excess: %w", err)
-			}
-		} else {
-			if parentGasExcess, err = c.TaikoL2.ParentGasExcess(&bind.CallOpts{
-				BlockNumber: l2Head.Number, Context: ctx,
-			}); err != nil {
-				return nil, fmt.Errorf("failed to fetch parent gas excess: %w", err)
-			}
-		}
-		baseFeeInfo, err = c.TaikoL2.CalculateBaseFee(
-			&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
-			*baseFeeConfig,
-			currentTimestamp-l2Head.Time,
-			parentGasExcess,
-			uint32(l2Head.GasUsed),
-		)
-		if err != nil {
+		if baseFee, err = c.calculateBaseFeeOntake(ctx, l2Head, currentTimestamp, baseFeeConfig); err != nil {
 			return nil, err
 		}
 	} else {
-		baseFeeInfo, err = c.TaikoL2.GetBasefee(
+		baseFeeInfo, err := c.TaikoL2.GetBasefee(
 			&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
 			anchorBlockID.Uint64(),
 			uint32(l2Head.GasUsed),
@@ -341,6 +299,7 @@ func (c *Client) CalculateBaseFee(
 		if err != nil {
 			return nil, err
 		}
+		baseFee = baseFeeInfo.Basefee
 	}
 
 	if err != nil {
@@ -349,13 +308,13 @@ func (c *Client) CalculateBaseFee(
 
 	log.Info(
 		"Base fee information",
-		"fee", utils.WeiToGWei(baseFeeInfo.Basefee),
+		"fee", utils.WeiToGWei(baseFee),
 		"l2Head", l2Head.Number,
 		"anchorBlockID", anchorBlockID,
 		"isOntake", isOntake,
 	)
 
-	return baseFeeInfo.Basefee, nil
+	return baseFee, nil
 }
 
 // GetPoolContent fetches the transactions list from L2 execution engine's transactions pool with given
@@ -913,4 +872,69 @@ func (c *Client) WaitL1NewPendingTransaction(
 	}
 
 	return nil
+}
+
+// CalculateBaseFeeOnTake calculates the base fee after ontake fork from the L2 protocol.
+func (c *Client) calculateBaseFeeOntake(
+	ctx context.Context,
+	l2Head *types.Header,
+	currentTimestamp uint64,
+	baseFeeConfig *bindings.LibSharedDataBaseFeeConfig,
+) (*big.Int, error) {
+	var (
+		newGasTarget    = uint64(baseFeeConfig.GasIssuancePerSecond) * uint64(baseFeeConfig.AdjustmentQuotient)
+		parentGasExcess uint64
+	)
+	parentGasTarget, err := c.TaikoL2.ParentGasTarget(&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx})
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch parent gas target: %w", err)
+	}
+
+	if newGasTarget != parentGasTarget && parentGasTarget != 0 {
+		oldParentGasExcess, err := c.TaikoL2.ParentGasExcess(&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx})
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch old parent gas excess: %w", err)
+		}
+		if parentGasExcess, err = c.TaikoL2.AdjustExcess(
+			&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
+			oldParentGasExcess,
+			parentGasTarget,
+			newGasTarget,
+		); err != nil {
+			// If the `calculateBaseFee()` method is deprecated, we will use the new method `getBasefeeV2()`
+			// to calculate the base fee.
+			if strings.Contains(encoding.TryParsingCustomError(err).Error(), "L2_DEPRECATED_METHOD") {
+				baseFeeInfo, err := c.TaikoL2.GetBasefeeV2(
+					&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
+					0,
+					*baseFeeConfig,
+				)
+				if err != nil {
+					return nil, fmt.Errorf("failed to calculate base fee by GetBasefeeV2: %w", err)
+				}
+				return baseFeeInfo.Basefee, nil
+			}
+
+			return nil, fmt.Errorf("failed to adjust parent gas excess: %w", err)
+		}
+	} else {
+		if parentGasExcess, err = c.TaikoL2.ParentGasExcess(&bind.CallOpts{
+			BlockNumber: l2Head.Number, Context: ctx,
+		}); err != nil {
+			return nil, fmt.Errorf("failed to fetch parent gas excess: %w", err)
+		}
+	}
+
+	baseFeeInfo, err := c.TaikoL2.CalculateBaseFee(
+		&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
+		*baseFeeConfig,
+		currentTimestamp-l2Head.Time,
+		parentGasExcess,
+		uint32(l2Head.GasUsed),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return baseFeeInfo.Basefee, nil
 }
