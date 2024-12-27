@@ -34,20 +34,12 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
-	sink := make(chan *bindings.TaikoL1ClientBlockProposed)
-	sub, err := s.RPCClient.TaikoL1.WatchBlockProposed(nil, sink, nil, nil)
+	sink := make(chan *bindings.TaikoL1ClientBlockProposedV2)
+	sub, err := s.RPCClient.TaikoL1.WatchBlockProposedV2(nil, sink, nil)
 	s.Nil(err)
 	defer func() {
 		sub.Unsubscribe()
 		close(sink)
-	}()
-
-	sink2 := make(chan *bindings.TaikoL1ClientBlockProposedV2)
-	sub2, err := s.RPCClient.TaikoL1.WatchBlockProposedV2(nil, sink2, nil)
-	s.Nil(err)
-	defer func() {
-		sub2.Unsubscribe()
-		close(sink2)
 	}()
 
 	// RLP encoded empty list
@@ -64,14 +56,9 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 
 	var txHash common.Hash
 	for i := 0; i < 3; i++ {
-		select {
-		case event := <-sink:
-			metadataList = append(metadataList, metadata.NewTaikoDataBlockMetadataLegacy(event))
-			txHash = event.Raw.TxHash
-		case event := <-sink2:
-			metadataList = append(metadataList, metadata.NewTaikoDataBlockMetadataOntake(event))
-			txHash = event.Raw.TxHash
-		}
+		event := <-sink
+		metadataList = append(metadataList, metadata.NewTaikoDataBlockMetadataOntake(event))
+		txHash = event.Raw.TxHash
 	}
 
 	_, isPending, err := s.RPCClient.L1.TransactionByHash(context.Background(), txHash)
@@ -97,19 +84,13 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 	s.Nil(err)
 
 	// Propose txs in L2 execution engine's mempool
-	sink := make(chan *bindings.TaikoL1ClientBlockProposed)
-	sub, err := s.RPCClient.TaikoL1.WatchBlockProposed(nil, sink, nil, nil)
-	s.Nil(err)
-
-	sink2 := make(chan *bindings.TaikoL1ClientBlockProposedV2)
-	sub2, err := s.RPCClient.TaikoL1.WatchBlockProposedV2(nil, sink2, nil)
+	sink := make(chan *bindings.TaikoL1ClientBlockProposedV2)
+	sub, err := s.RPCClient.TaikoL1.WatchBlockProposedV2(nil, sink, nil)
 	s.Nil(err)
 
 	defer func() {
 		sub.Unsubscribe()
-		sub2.Unsubscribe()
 		close(sink)
-		close(sink2)
 	}()
 
 	nonce, err := s.RPCClient.L2.PendingNonceAt(context.Background(), s.TestAddr)
@@ -130,18 +111,10 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 	s.Nil(proposer.ProposeOp(context.Background()))
 
 	var (
-		txHash common.Hash
-		meta   metadata.TaikoBlockMetaData
+		event  = <-sink
+		txHash = event.Raw.TxHash
+		meta   = metadata.NewTaikoDataBlockMetadataOntake(event)
 	)
-	select {
-	case event := <-sink:
-		txHash = event.Raw.TxHash
-		meta = metadata.NewTaikoDataBlockMetadataLegacy(event)
-	case event := <-sink2:
-		txHash = event.Raw.TxHash
-		meta = metadata.NewTaikoDataBlockMetadataOntake(event)
-	}
-
 	_, isPending, err := s.RPCClient.L1.TransactionByHash(context.Background(), txHash)
 	s.Nil(err)
 	s.False(isPending)
@@ -157,9 +130,7 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
-	s.Nil(backoff.Retry(func() error {
-		return blobSyncer.ProcessL1Blocks(ctx)
-	}, backoff.NewExponentialBackOff()))
+	s.Nil(backoff.Retry(func() error { return blobSyncer.ProcessL1Blocks(ctx) }, backoff.NewExponentialBackOff()))
 
 	s.Nil(s.RPCClient.WaitTillL2ExecutionEngineSynced(context.Background()))
 
@@ -182,20 +153,12 @@ func (s *ClientTestSuite) ProposeValidBlock(
 	s.Nil(err)
 
 	// Propose txs in L2 execution engine's mempool
-	sink := make(chan *bindings.TaikoL1ClientBlockProposed)
-	sink2 := make(chan *bindings.TaikoL1ClientBlockProposedV2)
-
-	sub, err := s.RPCClient.TaikoL1.WatchBlockProposed(nil, sink, nil, nil)
+	sink := make(chan *bindings.TaikoL1ClientBlockProposedV2)
+	sub, err := s.RPCClient.TaikoL1.WatchBlockProposedV2(nil, sink, nil)
 	s.Nil(err)
-
-	sub2, err := s.RPCClient.TaikoL1.WatchBlockProposedV2(nil, sink2, nil)
-	s.Nil(err)
-
 	defer func() {
 		sub.Unsubscribe()
-		sub2.Unsubscribe()
 		close(sink)
-		close(sink2)
 	}()
 
 	ontakeForkHeight, err := s.RPCClient.TaikoL2.OntakeForkHeight(nil)
@@ -231,14 +194,10 @@ func (s *ClientTestSuite) ProposeValidBlock(
 
 	s.Nil(proposer.ProposeOp(context.Background()))
 
-	var txHash common.Hash
-	select {
-	case event := <-sink:
+	var (
+		event  = <-sink
 		txHash = event.Raw.TxHash
-	case event := <-sink2:
-		txHash = event.Raw.TxHash
-	}
-
+	)
 	_, isPending, err := s.RPCClient.L1.TransactionByHash(context.Background(), txHash)
 	s.Nil(err)
 	s.False(isPending)

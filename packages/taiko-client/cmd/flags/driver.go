@@ -8,6 +8,14 @@ import (
 
 // Optional flags used by driver.
 var (
+	P2PSync = &cli.BoolFlag{
+		Name: "p2p.sync",
+		Usage: "Try P2P syncing blocks between L2 execution engines, " +
+			"will be helpful to bring a new node online quickly",
+		Value:    false,
+		Category: driverCategory,
+		EnvVars:  []string{"P2P_SYNC"},
+	}
 	P2PSyncTimeout = &cli.DurationFlag{
 		Name: "p2p.syncTimeout",
 		Usage: "P2P syncing timeout, if no sync progress is made within this time span, " +
@@ -19,7 +27,6 @@ var (
 	CheckPointSyncURL = &cli.StringFlag{
 		Name:     "p2p.checkPointSyncUrl",
 		Usage:    "HTTP RPC endpoint of another synced L2 execution engine node",
-		Required: true,
 		Category: driverCategory,
 		EnvVars:  []string{"P2P_CHECK_POINT_SYNC_URL"},
 	}
@@ -80,6 +87,7 @@ var DriverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	L2WSEndpoint,
 	L2AuthEndpoint,
 	JWTSecret,
+	P2PSync,
 	P2PSyncTimeout,
 	CheckPointSyncURL,
 	MaxExponent,

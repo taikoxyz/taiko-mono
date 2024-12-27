@@ -55,7 +55,7 @@ jobs:
         run: go test `go list ./... | grep -v ./contracts | grep -v ./mock | grep -v ./cmd` -coverprofile=coverage.txt -covermode=atomic
 
       - name: eventindexer - Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           files: ./packages/eventindexer/coverage.txt
           flags: eventindexer

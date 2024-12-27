@@ -100,6 +100,7 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 		false,
 		0*time.Second,
 		0,
+		30*time.Minute,
 	)
 	s.Nil(err)
 	s.contester = NewProofContester(
@@ -199,6 +200,7 @@ func (s *ProofSubmitterTestSuite) TestGetRandomBumpedSubmissionDelay() {
 		false,
 		time.Duration(0),
 		0,
+		30*time.Minute,
 	)
 	s.Nil(err)
 
@@ -223,6 +225,7 @@ func (s *ProofSubmitterTestSuite) TestGetRandomBumpedSubmissionDelay() {
 		false,
 		1*time.Hour,
 		0,
+		30*time.Minute,
 	)
 	s.Nil(err)
 	delay, err = submitter2.getRandomBumpedSubmissionDelay(time.Now())
@@ -242,7 +245,7 @@ func (s *ProofSubmitterTestSuite) TestProofSubmitterRequestProofDeadlineExceeded
 	s.ErrorContains(
 		s.submitter.RequestProof(
 			ctx,
-			&metadata.TaikoDataBlockMetadataLegacy{TaikoDataBlockMetadata: bindings.TaikoDataBlockMetadata{Id: 256}},
+			&metadata.TaikoDataBlockMetadataOntake{TaikoDataBlockMetadataV2: bindings.TaikoDataBlockMetadataV2{Id: 256}},
 		),
 		"context deadline exceeded",
 	)
@@ -253,7 +256,7 @@ func (s *ProofSubmitterTestSuite) TestProofSubmitterSubmitProofMetadataNotFound(
 		s.submitter.SubmitProof(
 			context.Background(), &producer.ProofWithHeader{
 				BlockID: common.Big256,
-				Meta:    &metadata.TaikoDataBlockMetadataLegacy{},
+				Meta:    &metadata.TaikoDataBlockMetadataOntake{},
 				Header:  &types.Header{},
 				Opts:    &producer.ProofRequestOptions{},
 				Proof:   bytes.Repeat([]byte{0xff}, 100),
@@ -286,7 +289,7 @@ func (s *ProofSubmitterTestSuite) TestProofSubmitterRequestProofCancelled() {
 	s.ErrorContains(
 		s.submitter.RequestProof(
 			ctx,
-			&metadata.TaikoDataBlockMetadataLegacy{TaikoDataBlockMetadata: bindings.TaikoDataBlockMetadata{Id: 256}},
+			&metadata.TaikoDataBlockMetadataOntake{TaikoDataBlockMetadataV2: bindings.TaikoDataBlockMetadataV2{Id: 256}},
 		),
 		"context canceled",
 	)
