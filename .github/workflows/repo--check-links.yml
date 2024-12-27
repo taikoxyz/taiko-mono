@@ -2,9 +2,9 @@ name: Check links
 
 on:
   push:
-    paths:
-      - "**/README.md"
-      - docs/**
+    # paths:
+    #   - "**/README.md"
+    #   - docs/**
 
 jobs:
   check-links:
