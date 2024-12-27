@@ -99,7 +99,7 @@ contract TaikoL2Tests is TaikoL2Test {
         L2.withdraw(address(0), Alice);
     }
 
-    function test_L2_getBlockHash() external {
+    function test_L2_getBlockHash() external view {
         assertEq(L2.getBlockHash(uint64(1000)), 0);
     }
 
@@ -114,6 +114,7 @@ contract TaikoL2Tests is TaikoL2Test {
         uint8 _sharingPctg
     )
         external
+        view
     {
         LibSharedData.BaseFeeConfig memory baseFeeConfig = LibSharedData.BaseFeeConfig({
             adjustmentQuotient: _adjustmentQuotient,
