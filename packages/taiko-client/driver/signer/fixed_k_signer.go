@@ -13,7 +13,7 @@ var (
 	zero32 [32]byte
 )
 
-// FixedKSigner is a ethereum ECDSA signer who always sign payload with the given K value.
+// FixedKSigner is an ethereum ECDSA signer who always sign payload with the given K value.
 // In theory K value is randomly selected in ECDSA algorithm's step 3:
 // https://en.wikipedia.org/wiki/Elliptic_Curve_Digital_Signature_Algorithm,
 // but here we use a fixed K value instead.
