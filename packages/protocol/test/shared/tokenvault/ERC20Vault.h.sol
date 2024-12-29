@@ -17,6 +17,10 @@ contract PrankTaikoInbox {
     function getBlockV3(uint64) external view returns (ITaikoInbox.BlockV3 memory) {
         return blk;
     }
+
+    function isOnL1() external pure returns (bool) {
+        return true;
+    }
 }
 
 // PrankDestBridge lets us simulate a transaction to the ERC20Vault
