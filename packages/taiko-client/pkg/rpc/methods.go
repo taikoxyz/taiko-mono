@@ -906,7 +906,7 @@ func (c *Client) calculateBaseFeeOntake(
 			if strings.Contains(encoding.TryParsingCustomError(err).Error(), "L2_DEPRECATED_METHOD") {
 				baseFeeInfo, err := c.TaikoL2.GetBasefeeV2(
 					&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
-					0,
+					uint32(l2Head.GasUsed),
 					*baseFeeConfig,
 				)
 				if err != nil {
@@ -933,6 +933,19 @@ func (c *Client) calculateBaseFeeOntake(
 		uint32(l2Head.GasUsed),
 	)
 	if err != nil {
+		// If the `calculateBaseFee()` method is deprecated, we will use the new method `getBasefeeV2()`
+		// to calculate the base fee.
+		if strings.Contains(encoding.TryParsingCustomError(err).Error(), "L2_DEPRECATED_METHOD") {
+			baseFeeInfo, err := c.TaikoL2.GetBasefeeV2(
+				&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
+				uint32(l2Head.GasUsed),
+				*baseFeeConfig,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to calculate base fee by GetBasefeeV2: %w", err)
+			}
+			return baseFeeInfo.Basefee, nil
+		}
 		return nil, err
 	}
 

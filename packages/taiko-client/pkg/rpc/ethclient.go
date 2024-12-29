@@ -485,7 +485,7 @@ type SignTransactionResult struct {
 	Tx  *types.Transaction `json:"tx"`
 }
 
-// FillTransaction fill transaction.
+// FillTransaction fills in the missing fields of a transaction and signs it.
 func (c *EthClient) FillTransaction(ctx context.Context, args *TransactionArgs) (*types.Transaction, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
