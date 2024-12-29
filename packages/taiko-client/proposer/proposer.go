@@ -293,6 +293,7 @@ func (p *Proposer) ProposeOp(ctx context.Context) error {
 		"lastProposedAt", p.lastProposedAt,
 	)
 
+	// Fetch pending L2 transactions from mempool.
 	txLists, err := p.fetchPoolContent(filterPoolContent)
 	if err != nil {
 		return err
