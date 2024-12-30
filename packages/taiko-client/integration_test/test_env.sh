@@ -22,6 +22,7 @@ export VERBOSITY=3
 # show the integration test environment variables.
 # L1_BEACON=$L1_BEACON
 echo "RUN_TESTS=true
+L2_NODE=$L2_NODE
 L1_HTTP=$L1_HTTP
 L1_WS=$L1_WS
 L2_SUGGESTED_FEE_RECIPIENT=$L2_SUGGESTED_FEE_RECIPIENT

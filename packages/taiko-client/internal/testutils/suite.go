@@ -3,6 +3,7 @@ package testutils
 import (
 	"context"
 	"crypto/ecdsa"
+	"github.com/ethereum/go-ethereum/beacon/engine"
 	"math/big"
 	"os"
 	"strconv"
@@ -163,7 +164,19 @@ func (s *ClientTestSuite) setAllowance(key *ecdsa.PrivateKey) {
 func (s *ClientTestSuite) TearDownTest() {
 	s.RevertL1Snapshot(s.testnetL1SnapshotID)
 
-	s.Nil(rpc.SetHead(context.Background(), s.RPCClient.L2, common.Big0))
+	if os.Getenv("L2_NODE") == "l2_reth" {
+		header, err := s.RPCClient.L2.HeaderByNumber(context.Background(), common.Big0)
+		s.Nil(err)
+
+		_, err = s.RPCClient.L2Engine.ForkchoiceUpdate(context.Background(), &engine.ForkchoiceStateV1{
+			HeadBlockHash:      header.Hash(),
+			SafeBlockHash:      header.Hash(),
+			FinalizedBlockHash: header.Hash(),
+		}, nil)
+		s.Nil(err)
+	} else {
+		s.Nil(rpc.SetHead(context.Background(), s.RPCClient.L2, common.Big0))
+	}
 }
 
 func (s *ClientTestSuite) SetL1Automine(automine bool) {
