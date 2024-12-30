@@ -69,14 +69,6 @@ func Min[T constraints.Integer](a, b T) T {
 	return b
 }
 
-// Max return the maximum value of two integers.
-func Max[T constraints.Integer](a, b T) T {
-	if a > b {
-		return a
-	}
-	return b
-}
-
 // Compress compresses the given txList bytes using zlib.
 func Compress(txList []byte) ([]byte, error) {
 	var b bytes.Buffer
