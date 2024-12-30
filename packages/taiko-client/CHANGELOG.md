@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.41.1](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v0.41.0...taiko-alethia-client-v0.41.1) (2024-12-30)
+
+
+### Chores
+
+* **taiko-client:** cleanup pre-ontake proposer code ([#18672](https://github.com/taikoxyz/taiko-mono/issues/18672)) ([a52d9a7](https://github.com/taikoxyz/taiko-mono/commit/a52d9a79bb99027061f4719a62361157365a5625))
+
 ## [0.41.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v0.40.0...taiko-alethia-client-v0.41.0) (2024-12-30)
 
 
