@@ -292,7 +292,11 @@ func (s *ZKvmProofProducer) requestProof(
 	}
 
 	if len(output.ErrorMessage) > 0 || len(output.Error) > 0 {
-		return nil, fmt.Errorf("failed to get proof,err: %s, msg: %s", output.Error, output.ErrorMessage)
+		return nil, fmt.Errorf("failed to get zk proof,err: %s, msg: %s, zkType: %s",
+			output.Error,
+			output.ErrorMessage,
+			s.ZKProofType,
+		)
 	}
 
 	return &output, nil
@@ -477,7 +481,11 @@ func (s *ZKvmProofProducer) requestBatchProof(
 	}
 
 	if len(output.ErrorMessage) > 0 || len(output.Error) > 0 {
-		return nil, fmt.Errorf("failed to get batch proof, msg: %s", output.ErrorMessage)
+		return nil, fmt.Errorf("failed to get zk batch proof, err: %s, msg: %s, zkType: %s",
+			output.Error,
+			output.ErrorMessage,
+			s.ZKProofType,
+		)
 	}
 	if output.Data == nil {
 		return nil, fmt.Errorf("unexpected structure error, response: %s", string(resBytes))
