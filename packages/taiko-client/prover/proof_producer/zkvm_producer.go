@@ -292,7 +292,7 @@ func (s *ZKvmProofProducer) requestProof(
 	}
 
 	if len(output.ErrorMessage) > 0 || len(output.Error) > 0 {
-		return nil, fmt.Errorf("failed to get zk proof,err: %s, msg: %s, zkType: %s",
+		return nil, fmt.Errorf("failed to get zk proof, err: %s, msg: %s, zkType: %s",
 			output.Error,
 			output.ErrorMessage,
 			s.ZKProofType,
