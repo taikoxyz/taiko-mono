@@ -135,8 +135,8 @@ func InitFromConfig(
 	p.proofGenerationCh = make(chan *proofProducer.ProofWithHeader, chBufferSize)
 	p.batchProofGenerationCh = make(chan *proofProducer.BatchProofs, chBufferSize)
 	p.assignmentExpiredCh = make(chan metadata.TaikoBlockMetaData, chBufferSize)
-	p.proofSubmissionCh = make(chan *proofProducer.ProofRequestBody, p.cfg.Capacity)
-	p.proofContestCh = make(chan *proofProducer.ContestRequestBody, p.cfg.Capacity)
+	p.proofSubmissionCh = make(chan *proofProducer.ProofRequestBody, chBufferSize)
+	p.proofContestCh = make(chan *proofProducer.ContestRequestBody, chBufferSize)
 	p.proveNotify = make(chan struct{}, 1)
 	p.aggregationNotify = make(chan uint16, 1)
 
