@@ -45,10 +45,8 @@ type Config struct {
 	HTTPServerPort                          uint64
 	Capacity                                uint64
 	MinEthBalance                           *big.Int
-	MinTaikoTokenBalance                    *big.Int
 	MaxExpiry                               time.Duration
 	MaxProposedIn                           uint64
-	MaxBlockSlippage                        uint64
 	Allowance                               *big.Int
 	GuardianProverHealthCheckServerEndpoint *url.URL
 	RaikoHostEndpoint                       string
@@ -117,16 +115,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		}
 	}
 
-	minEthBalance, err := utils.EtherToWei(c.Float64(flags.MinEthBalance.Name))
-	if err != nil {
-		return nil, err
-	}
-
-	minTaikoTokenBalance, err := utils.EtherToWei(c.Float64(flags.MinTaikoTokenBalance.Name))
-	if err != nil {
-		return nil, err
-	}
-
 	if !c.IsSet(flags.GuardianProverMajority.Name) && !c.IsSet(flags.RaikoHostEndpoint.Name) {
 		return nil, errors.New("empty raiko host endpoint")
 	}
@@ -165,13 +153,8 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		EnableLivenessBondProof:                 c.Bool(flags.EnableLivenessBondProof.Name),
 		RPCTimeout:                              c.Duration(flags.RPCTimeout.Name),
 		ProveBlockGasLimit:                      c.Uint64(flags.TxGasLimit.Name),
-		Capacity:                                c.Uint64(flags.ProverCapacity.Name),
 		HTTPServerPort:                          c.Uint64(flags.ProverHTTPServerPort.Name),
-		MinEthBalance:                           minEthBalance,
-		MinTaikoTokenBalance:                    minTaikoTokenBalance,
 		MaxExpiry:                               c.Duration(flags.MaxExpiry.Name),
-		MaxBlockSlippage:                        c.Uint64(flags.MaxAcceptableBlockSlippage.Name),
-		MaxProposedIn:                           c.Uint64(flags.MaxProposedIn.Name),
 		Allowance:                               allowance,
 		L1NodeVersion:                           c.String(flags.L1NodeVersion.Name),
 		L2NodeVersion:                           c.String(flags.L2NodeVersion.Name),
