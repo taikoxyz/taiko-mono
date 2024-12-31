@@ -48,12 +48,8 @@ contract InBoxTest_BlockParams is InboxTestBase {
             anchorInput: bytes32(0)
         });
 
-        ITaikoInbox.BlockMetadataV3[] memory metas = inbox.proposeBlocksV3(
-            address(0),
-            address(0),
-            paramsArray,
-            "txList"
-        );
+        ITaikoInbox.BlockMetadataV3[] memory metas =
+            inbox.proposeBlocksV3(address(0), address(0), paramsArray, "txList");
 
         // Assert that the default anchorBlockId was set correctly
         uint64 expectedAnchorBlockId = uint64(block.number - 1);
@@ -85,12 +81,7 @@ contract InBoxTest_BlockParams is InboxTestBase {
         });
 
         vm.expectRevert(ITaikoInbox.AnchorBlockIdTooSmall.selector);
-        inbox.proposeBlocksV3(
-            address(0),
-            address(0),
-            paramsArray,
-            "txList"
-        );
+        inbox.proposeBlocksV3(address(0), address(0), paramsArray, "txList");
     }
 
     function test_validateBlockParams_reverts_when_anchorBlockId_too_large()
@@ -113,12 +104,7 @@ contract InBoxTest_BlockParams is InboxTestBase {
         });
 
         vm.expectRevert(ITaikoInbox.AnchorBlockIdTooLarge.selector);
-        inbox.proposeBlocksV3(
-            address(0),
-            address(0),
-            paramsArray,
-            "txList"
-        );
+        inbox.proposeBlocksV3(address(0), address(0), paramsArray, "txList");
     }
 
     function test_validateBlockParams_reverts_when_anchorBlockId_smaller_than_parent()
@@ -142,18 +128,10 @@ contract InBoxTest_BlockParams is InboxTestBase {
         });
 
         vm.expectRevert(ITaikoInbox.AnchorBlockIdSmallerThanParent.selector);
-        inbox.proposeBlocksV3(
-            address(0),
-            address(0),
-            paramsArray,
-            "txList"
-        );
+        inbox.proposeBlocksV3(address(0), address(0), paramsArray, "txList");
     }
 
-    function test_validateBlockParams_when_anchorBlockId_is_not_zero()
-        external
-        transactBy(Alice)
-    {
+    function test_validateBlockParams_when_anchorBlockId_is_not_zero() external transactBy(Alice) {
         ITaikoInbox.BlockParamsV3[] memory paramsArray = new ITaikoInbox.BlockParamsV3[](1);
         paramsArray[0] = ITaikoInbox.BlockParamsV3({
             anchorBlockId: uint64(block.number - 1),
@@ -166,12 +144,8 @@ contract InBoxTest_BlockParams is InboxTestBase {
             anchorInput: bytes32(0)
         });
 
-        ITaikoInbox.BlockMetadataV3[] memory metas = inbox.proposeBlocksV3(
-            address(0),
-            address(0),
-            paramsArray,
-            "txList"
-        );
+        ITaikoInbox.BlockMetadataV3[] memory metas =
+            inbox.proposeBlocksV3(address(0), address(0), paramsArray, "txList");
 
         uint64 expectedAnchorBlockId = uint64(block.number - 1);
         assertEq(metas[0].anchorBlockId, expectedAnchorBlockId, "AnchorBlockId mismatch");
@@ -194,11 +168,6 @@ contract InBoxTest_BlockParams is InboxTestBase {
         });
 
         vm.expectRevert(ITaikoInbox.TimestampTooLarge.selector);
-        inbox.proposeBlocksV3(
-            address(0),
-            address(0),
-            paramsArray,
-            "txList"
-        );
+        inbox.proposeBlocksV3(address(0), address(0), paramsArray, "txList");
     }
 }
