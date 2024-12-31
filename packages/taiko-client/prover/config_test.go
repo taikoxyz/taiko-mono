@@ -44,7 +44,6 @@ func (s *ProverTestSuite) TestNewConfigFromCliContextGuardianProver() {
 		s.True(c.ProveUnassignedBlocks)
 		s.True(c.ContesterMode)
 		s.Equal(rpcTimeout, c.RPCTimeout)
-		s.Equal(uint64(8), c.Capacity)
 		s.Equal(c.L1NodeVersion, l1NodeVersion)
 		s.Equal(c.L2NodeVersion, l2NodeVersion)
 		s.Nil(new(Prover).InitFromCli(context.Background(), ctx))

@@ -43,7 +43,6 @@ type Config struct {
 	RPCTimeout                              time.Duration
 	ProveBlockGasLimit                      uint64
 	HTTPServerPort                          uint64
-	Capacity                                uint64
 	MinEthBalance                           *big.Int
 	MaxExpiry                               time.Duration
 	MaxProposedIn                           uint64
