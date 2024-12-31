@@ -10,12 +10,25 @@ import (
 )
 
 var (
+	// errImpossible indicates that the message cannot be processed due to
+	// missing or invalid basic requirements (zero fee or gas limit)
 	errImpossible = errors.New("impossible to process")
 )
 
-// isProfitable determines whether a message is profitable or not. It should
-// check the processing fee, if one does not exist at all, it is definitely not
-// profitable. Otherwise, we compare it to the estimated cost.
+// isProfitable determines whether processing a message would be profitable by comparing
+// the processing fee with estimated transaction costs on the destination chain.
+//
+// Parameters:
+//   - ctx: Context for the operation
+//   - id: Message ID
+//   - fee: Processing fee offered by the sender
+//   - gasLimit: Maximum gas that can be used for processing
+//   - destChainBaseFee: Current base fee on the destination chain
+//   - gasTipCap: Maximum tip per gas unit willing to be paid
+//
+// Returns:
+//   - bool: true if processing would be profitable, false otherwise
+//   - error: errImpossible if basic requirements aren't met, nil otherwise
 func (p *Processor) isProfitable(
 	ctx context.Context,
 	id int,
@@ -35,8 +48,10 @@ func (p *Processor) isProfitable(
 		return shouldProcess, errImpossible
 	}
 
-	// if processing fee is higher than baseFee * 2 +gasTipCap +  gasLimit,
-	// we should process.
+	// Calculate estimated on-chain cost:
+	// - Base fee is multiplied by 2 to account for potential fee increases
+	// - Gas tip is added to ensure transaction priority
+	// - Result is multiplied by gas limit to get total cost
 	estimatedOnchainFee := ((destChainBaseFee * 2) + gasTipCap) * uint64(gasLimit)
 	if fee > estimatedOnchainFee {
 		shouldProcess = true
