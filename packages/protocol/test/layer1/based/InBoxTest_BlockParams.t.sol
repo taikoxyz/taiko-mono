@@ -55,12 +55,9 @@ contract InBoxTest_BlockParams is InboxTestBase {
             "txList"
         );
 
-        // Extract the updated parameters
-        uint64 updatedAnchorBlockId = metas[0].anchorBlockId;
-
         // Assert that the default anchorBlockId was set correctly
         uint64 expectedAnchorBlockId = uint64(block.number - 1);
-        assertEq(updatedAnchorBlockId, expectedAnchorBlockId, "AnchorBlockId mismatch");
+        assertEq(metas[0].anchorBlockId, expectedAnchorBlockId, "AnchorBlockId mismatch");
     }
 
     function test_validateBlockParams_reverts_when_anchorBlockId_too_small()
@@ -169,12 +166,15 @@ contract InBoxTest_BlockParams is InboxTestBase {
             anchorInput: bytes32(0)
         });
 
-        inbox.proposeBlocksV3(
+        ITaikoInbox.BlockMetadataV3[] memory metas = inbox.proposeBlocksV3(
             address(0),
             address(0),
             paramsArray,
             "txList"
         );
+
+        uint64 expectedAnchorBlockId = uint64(block.number - 1);
+        assertEq(metas[0].anchorBlockId, expectedAnchorBlockId, "AnchorBlockId mismatch");
     }
 
     function test_validateBlockParams_reverts_when_timestamp_too_large()
