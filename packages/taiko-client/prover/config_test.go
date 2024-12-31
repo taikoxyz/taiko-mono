@@ -48,7 +48,6 @@ func (s *ProverTestSuite) TestNewConfigFromCliContextGuardianProver() {
 		s.Equal(c.L2NodeVersion, l2NodeVersion)
 		s.Nil(new(Prover).InitFromCli(context.Background(), ctx))
 		s.True(c.ProveUnassignedBlocks)
-		s.Equal(uint64(100), c.MaxProposedIn)
 		allowanceWithDecimal, err := utils.EtherToWei(allowance)
 		s.Nil(err)
 		s.Equal(allowanceWithDecimal.Uint64(), c.Allowance.Uint64())

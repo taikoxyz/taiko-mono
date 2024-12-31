@@ -45,7 +45,6 @@ type Config struct {
 	HTTPServerPort                          uint64
 	MinEthBalance                           *big.Int
 	MaxExpiry                               time.Duration
-	MaxProposedIn                           uint64
 	Allowance                               *big.Int
 	GuardianProverHealthCheckServerEndpoint *url.URL
 	RaikoHostEndpoint                       string
