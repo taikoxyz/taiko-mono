@@ -34,7 +34,7 @@ var (
 		syscall.SIGQUIT,
 	}
 	ErrInvalidLength = errors.New("invalid length")
-	ErrSlotBMarshal = errors.New("abi: cannot marshal in to go type: length insufficient 160 require 192")
+	ErrSlotBMarshal  = errors.New("abi: cannot marshal in to go type: length insufficient 160 require 192")
 )
 
 // GetProtocolConfigs gets the protocol configs from TaikoL1 contract.
