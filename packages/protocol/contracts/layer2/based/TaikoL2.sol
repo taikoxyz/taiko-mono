@@ -187,6 +187,7 @@ contract TaikoL2 is EssentialContract, IBlockHash, TaikoL2Deprecated {
     /// @return newGasExcess_ The new gas excess value.
     function getBasefeeV2(
         uint32 _parentGasUsed,
+        uint64 _curTimestamp,
         LibSharedData.BaseFeeConfig calldata _baseFeeConfig
     )
         public
@@ -200,8 +201,7 @@ contract TaikoL2 is EssentialContract, IBlockHash, TaikoL2Deprecated {
         (newGasTarget_, newGasExcess_) =
             LibEIP1559.adjustExcess(parentGasTarget, newGasTarget, parentGasExcess);
 
-        uint64 gasIssuance =
-            uint64(block.timestamp - parentTimestamp) * _baseFeeConfig.gasIssuancePerSecond;
+        uint64 gasIssuance = (_curTimestamp - parentTimestamp) * _baseFeeConfig.gasIssuancePerSecond;
 
         if (
             _baseFeeConfig.maxGasIssuancePerBlock != 0
@@ -292,7 +292,7 @@ contract TaikoL2 is EssentialContract, IBlockHash, TaikoL2Deprecated {
         private
     {
         (uint256 basefee, uint64 newGasTarget, uint64 newGasExcess) =
-            getBasefeeV2(_parentGasUsed, _baseFeeConfig);
+            getBasefeeV2(_parentGasUsed, uint64(block.timestamp), _baseFeeConfig);
 
         require(block.basefee == basefee || skipFeeCheck(), L2_BASEFEE_MISMATCH());
 
