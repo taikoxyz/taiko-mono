@@ -105,6 +105,13 @@ var (
 		Value:   false,
 		EnvVars: []string{"L1_BLOB_ALLOWED"},
 	}
+	FallbackToCalldata = &cli.BoolFlag{
+		Name:     "l1.fallbackToCalldata",
+		Usage:    "If set to true, proposer will use calldata as DA when blob fee is more expensive than using calldata",
+		Value:    false,
+		Category: proposerCategory,
+		EnvVars:  []string{"L1_FALLBACK_TO_CALLDATA"},
+	}
 	RevertProtectionEnabled = &cli.BoolFlag{
 		Name:     "revertProtection",
 		Usage:    "Enable revert protection with the support of endpoint and contract",
@@ -133,5 +140,6 @@ var ProposerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	AllowZeroInterval,
 	MaxProposedTxListsPerEpoch,
 	BlobAllowed,
+	FallbackToCalldata,
 	RevertProtectionEnabled,
 }, TxmgrFlags)
