@@ -118,10 +118,6 @@ func (s *ProposerTestSuite) SetupTest() {
 }
 
 func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
-	if os.Getenv("L2_NODE") == "l2_reth" {
-		s.T().Skip()
-	}
-
 	// Empty mempool at first.
 	for {
 		poolContent, err := s.RPCClient.GetPoolContent(
@@ -239,10 +235,6 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 }
 
 func (s *ProposerTestSuite) TestProposeOpNoEmptyBlock() {
-	// TODO: Temporarily skip this test case when using l2_reth node.
-	if os.Getenv("L2_NODE") == "l2_reth" {
-		s.T().Skip()
-	}
 	defer s.Nil(s.s.ProcessL1Blocks(context.Background()))
 
 	p := s.p
