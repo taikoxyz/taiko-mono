@@ -907,6 +907,7 @@ func (c *Client) calculateBaseFeeOntake(
 				baseFeeInfo, err := c.TaikoL2.GetBasefeeV2(
 					&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
 					uint32(l2Head.GasUsed),
+					currentTimestamp,
 					*baseFeeConfig,
 				)
 				if err != nil {
@@ -939,6 +940,7 @@ func (c *Client) calculateBaseFeeOntake(
 			baseFeeInfo, err := c.TaikoL2.GetBasefeeV2(
 				&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
 				uint32(l2Head.GasUsed),
+				currentTimestamp,
 				*baseFeeConfig,
 			)
 			if err != nil {
