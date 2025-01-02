@@ -642,7 +642,7 @@ func (c *Client) checkSyncedL1SnippetFromAnchor(
 	blockID *big.Int,
 	l1Height uint64,
 ) (bool, error) {
-	log.Info("Check synced L1 snippet from anchor", "blockID", blockID, "l1Height", l1Height)
+	log.Debug("Check synced L1 snippet from anchor", "blockID", blockID, "l1Height", l1Height)
 	block, err := c.L2.BlockByNumber(ctx, blockID)
 	if err != nil {
 		return false, err
@@ -907,6 +907,7 @@ func (c *Client) calculateBaseFeeOntake(
 				baseFeeInfo, err := c.TaikoL2.GetBasefeeV2(
 					&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
 					uint32(l2Head.GasUsed),
+					currentTimestamp,
 					*baseFeeConfig,
 				)
 				if err != nil {
@@ -939,6 +940,7 @@ func (c *Client) calculateBaseFeeOntake(
 			baseFeeInfo, err := c.TaikoL2.GetBasefeeV2(
 				&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
 				uint32(l2Head.GasUsed),
+				currentTimestamp,
 				*baseFeeConfig,
 			)
 			if err != nil {
