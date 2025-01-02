@@ -123,12 +123,7 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBl
 		return fmt.Errorf("failed to get the L2 parent block by hash (%s): %w", header.ParentHash, err)
 	}
 
-	if meta.IsOntakeBlock() {
-		blockInfo, err = s.rpc.GetL2BlockInfoV2(ctx, meta.GetBlockID())
-	} else {
-		blockInfo, err = s.rpc.GetL2BlockInfo(ctx, meta.GetBlockID())
-	}
-	if err != nil {
+	if blockInfo, err = s.rpc.GetL2BlockInfoV2(ctx, meta.GetBlockID()); err != nil {
 		return err
 	}
 
@@ -206,7 +201,7 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBl
 				}
 				return fmt.Errorf("failed to request proof (id: %d): %w", meta.GetBlockID(), err)
 			}
-			if meta.IsOntakeBlock() && s.proofBuffer.Enabled() {
+			if s.proofBuffer.Enabled() {
 				bufferSize, err := s.proofBuffer.Write(result)
 				if err != nil {
 					return fmt.Errorf(
