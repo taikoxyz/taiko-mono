@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
-import "src/layer1/based/ITaikoL1.sol";
+import "src/layer1/based/ITaikoInbox.sol";
 import "src/layer1/preconf/mock/MockPreconfRegistry.sol";
 import "src/layer1/preconf/impl/PreconfTaskManager.sol";
 import "src/layer1/preconf/iface/IPreconfRegistry.sol";
@@ -15,8 +15,8 @@ import "src/layer1/preconf/avs-mvp/iface/IAVSDirectory.sol";
 import "src/layer1/preconf/avs-mvp/iface/ISlasher.sol";
 import "src/layer1/preconf/avs-mvp/PreconfServiceManager.sol";
 
-import "../../BaseScript.sol";
-import "../../misc/EmptyContract.sol";
+import "script/BaseScript.sol";
+import "script/layer1/preconf/misc/EmptyContract.sol";
 
 contract DeployMockAVS is BaseScript {
     // Required by service manager
@@ -24,7 +24,7 @@ contract DeployMockAVS is BaseScript {
     address public slasher = vm.envAddress("SLASHER");
 
     // Required by task manager
-    address public taikoL1 = vm.envAddress("TAIKO_L1");
+    address public inbox = vm.envAddress("INBOX");
     address public taikoToken = vm.envAddress("TAIKO_TOKEN");
     uint256 public beaconGenesisTimestamp = vm.envUint("BEACON_GENESIS_TIMESTAMP");
     address public beaconBlockRootContract = vm.envAddress("BEACON_BLOCK_ROOT_CONTRACT");
@@ -34,9 +34,9 @@ contract DeployMockAVS is BaseScript {
         ProxyAdmin proxyAdmin = new ProxyAdmin();
 
         // Deploy proxies with empty implementations
-        address preconfRegistry = deployProxy(address(emptyContract), address(proxyAdmin), "");
-        address preconfServiceManager = deployProxy(address(emptyContract), address(proxyAdmin), "");
-        address preconfTaskManager = deployProxy(address(emptyContract), address(proxyAdmin), "");
+        address preconfRegistry = deploy(address(emptyContract), address(proxyAdmin), "");
+        address preconfServiceManager = deploy(address(emptyContract), address(proxyAdmin), "");
+        address preconfTaskManager = deploy(address(emptyContract), address(proxyAdmin), "");
 
         // Deploy implementations
         MockPreconfRegistry preconfRegistryImpl =
@@ -47,7 +47,7 @@ contract DeployMockAVS is BaseScript {
         PreconfTaskManager preconfTaskManagerImpl = new PreconfTaskManager(
             IPreconfServiceManager(preconfServiceManager),
             IPreconfRegistry(preconfRegistry),
-            ITaikoL1(taikoL1),
+            ITaikoInbox(inbox),
             beaconGenesisTimestamp,
             beaconBlockRootContract
         );
