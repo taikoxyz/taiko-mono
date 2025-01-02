@@ -62,7 +62,7 @@ jobs:
 
   push-relayer-docker-image:
     # Skip dependabot PRs
-    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'refs/heads/dependabot/') }}
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'refs/heads/dependabot/') && github.event.pull_request.head.repo.fork == false }}
     name: Build and push docker image
     runs-on: [arc-runner-set]
 
