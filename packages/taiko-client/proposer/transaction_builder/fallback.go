@@ -124,7 +124,7 @@ func (b *TxBuilderWithFallback) BuildOntake(
 		return nil, err
 	}
 
-	if costCalldata.Cmp(costBlob) < 1 {
+	if costCalldata.Cmp(costBlob) < 0 {
 		log.Info("Building a type-2 transaction", "costCalldata", costCalldata, "costBlob", costBlob)
 		return txWithCalldata, nil
 	}
