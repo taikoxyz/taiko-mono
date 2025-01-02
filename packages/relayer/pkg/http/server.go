@@ -41,7 +41,7 @@ type ethClient interface {
 // @license.url https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE
 
 // @host relayer.hekla.taiko.xyz
-// Server represents an relayer http server instance.
+// Server represents a relayer http server instance.
 type Server struct {
 	echo                    *echo.Echo
 	eventRepo               relayer.EventRepository
