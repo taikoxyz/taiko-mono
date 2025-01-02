@@ -31,7 +31,7 @@ contract BridgeTest2_sendMessage is BridgeTest2 {
         vm.expectRevert(Bridge.B_INVALID_CHAINID.selector);
         bridge.sendMessage(message);
 
-        // an bridge has been registered for remoteChainId
+        // a bridge has been registered for remoteChainId
         message.destChainId = remoteChainId;
         bridge.sendMessage(message); // id = 0
 
