@@ -23,7 +23,7 @@ import (
 // @license.name MIT
 
 // @host healthcheck.internal.taiko.xyz
-// Server represents an guardian prover health check http server instance.
+// Server represents a guardian prover health check http server instance.
 type Server struct {
 	echo            *echo.Echo
 	ethClient       *ethclient.Client
