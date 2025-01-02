@@ -8,7 +8,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 )
 
-// waitHeaderSynced waits for a event to appear in the database from the indexer
+// waitHeaderSynced waits for an event to appear in the database from the indexer
 // for the type "ChainDataSynced" to be greater or less than the given blockNum.
 // this is used to make sure a valid proof can be generated and verified on chain.
 func (p *Processor) waitHeaderSynced(
