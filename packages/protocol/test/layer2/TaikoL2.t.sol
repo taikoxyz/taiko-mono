@@ -123,7 +123,8 @@ contract TaikoL2Tests is TaikoL2Test {
             maxGasIssuancePerBlock: _maxGasIssuancePerBlock
         });
 
-        (uint256 basefee_,,) = L2.getBasefeeV2(_parentGasUsed, baseFeeConfig);
+        (uint256 basefee_,,) =
+            L2.getBasefeeV2(_parentGasUsed, uint64(block.timestamp), baseFeeConfig);
         assertTrue(basefee_ != 0, "basefee is 0");
     }
 
@@ -156,7 +157,8 @@ contract TaikoL2Tests is TaikoL2Test {
         vm.prank(L2.GOLDEN_TOUCH_ADDRESS());
         L2.anchorV2(++anchorBlockId, anchorStateRoot, _parentGasUsed, baseFeeConfig);
 
-        (uint256 basefee, uint64 newGasTarget,) = L2.getBasefeeV2(_parentGasUsed, baseFeeConfig);
+        (uint256 basefee, uint64 newGasTarget,) =
+            L2.getBasefeeV2(_parentGasUsed, uint64(block.timestamp), baseFeeConfig);
 
         assertTrue(basefee != 0, "basefee is 0");
         assertEq(newGasTarget, L2.parentGasTarget());
@@ -164,7 +166,8 @@ contract TaikoL2Tests is TaikoL2Test {
         // change the gas issuance to change the gas target
         baseFeeConfig.gasIssuancePerSecond += 1;
 
-        (basefee, newGasTarget,) = L2.getBasefeeV2(_parentGasUsed, baseFeeConfig);
+        (basefee, newGasTarget,) =
+            L2.getBasefeeV2(_parentGasUsed, uint64(block.timestamp), baseFeeConfig);
 
         assertTrue(basefee != 0, "basefee is 0");
         assertTrue(newGasTarget != L2.parentGasTarget());

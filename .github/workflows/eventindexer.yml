@@ -62,7 +62,7 @@ jobs:
 
   push-eventindexer-docker-image:
     # Skip dependabot PRs
-    if: ${{ github.event_name == 'pull_request' && ! startsWith(github.head_ref, 'refs/heads/dependabot/') && !startsWith(github.head_ref, 'release-please') }}
+    if: ${{ github.event_name == 'pull_request' && ! startsWith(github.head_ref, 'refs/heads/dependabot/') && !startsWith(github.head_ref, 'release-please') && github.event.pull_request.head.repo.fork == false }}
     name: Build and push docker image
     runs-on: [arc-runner-set]
 
