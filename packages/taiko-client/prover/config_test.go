@@ -44,12 +44,10 @@ func (s *ProverTestSuite) TestNewConfigFromCliContextGuardianProver() {
 		s.True(c.ProveUnassignedBlocks)
 		s.True(c.ContesterMode)
 		s.Equal(rpcTimeout, c.RPCTimeout)
-		s.Equal(uint64(8), c.Capacity)
 		s.Equal(c.L1NodeVersion, l1NodeVersion)
 		s.Equal(c.L2NodeVersion, l2NodeVersion)
 		s.Nil(new(Prover).InitFromCli(context.Background(), ctx))
 		s.True(c.ProveUnassignedBlocks)
-		s.Equal(uint64(100), c.MaxProposedIn)
 		allowanceWithDecimal, err := utils.EtherToWei(allowance)
 		s.Nil(err)
 		s.Equal(allowanceWithDecimal.Uint64(), c.Allowance.Uint64())
@@ -69,12 +67,10 @@ func (s *ProverTestSuite) TestNewConfigFromCliContextGuardianProver() {
 		"--" + flags.RPCTimeout.Name, "5s",
 		"--" + flags.TxGasLimit.Name, "100000",
 		"--" + flags.Dummy.Name,
-		"--" + flags.ProverCapacity.Name, "8",
 		"--" + flags.GuardianProverMajority.Name, os.Getenv("GUARDIAN_PROVER_CONTRACT"),
 		"--" + flags.GuardianProverMinority.Name, os.Getenv("GUARDIAN_PROVER_MINORITY"),
 		"--" + flags.Graffiti.Name, "",
 		"--" + flags.ProveUnassignedBlocks.Name,
-		"--" + flags.MaxProposedIn.Name, "100",
 		"--" + flags.Allowance.Name, fmt.Sprint(allowance),
 		"--" + flags.L1NodeVersion.Name, l1NodeVersion,
 		"--" + flags.L2NodeVersion.Name, l2NodeVersion,
@@ -107,8 +103,6 @@ func (s *ProverTestSuite) SetupApp() *cli.App {
 		&cli.StringFlag{Name: flags.Graffiti.Name},
 		&cli.BoolFlag{Name: flags.ProveUnassignedBlocks.Name},
 		&cli.DurationFlag{Name: flags.RPCTimeout.Name},
-		&cli.Uint64Flag{Name: flags.ProverCapacity.Name},
-		&cli.Uint64Flag{Name: flags.MaxProposedIn.Name},
 		&cli.StringFlag{Name: flags.Allowance.Name},
 		&cli.StringFlag{Name: flags.ContesterMode.Name},
 		&cli.StringFlag{Name: flags.L1NodeVersion.Name},

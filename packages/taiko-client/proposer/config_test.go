@@ -43,7 +43,6 @@ func (s *ProposerTestSuite) TestNewConfigFromCliContext() {
 		s.Equal(1, len(c.LocalAddresses))
 		s.Equal(goldenTouchAddress, c.LocalAddresses[0])
 		s.Equal(5*time.Second, c.Timeout)
-		s.Equal(true, c.IncludeParentMetaHash)
 
 		s.Nil(new(Proposer).InitFromCli(context.Background(), cliCtx))
 		return nil
@@ -62,7 +61,6 @@ func (s *ProposerTestSuite) TestNewConfigFromCliContext() {
 		"--" + flags.TxPoolLocals.Name, goldenTouchAddress.Hex(),
 		"--" + flags.RPCTimeout.Name, rpcTimeout,
 		"--" + flags.TxGasLimit.Name, "100000",
-		"--" + flags.ProposeBlockIncludeParentMetaHash.Name, "true",
 	}))
 }
 
@@ -117,7 +115,6 @@ func (s *ProposerTestSuite) SetupApp() *cli.App {
 		&cli.DurationFlag{Name: flags.ProposeInterval.Name},
 		&cli.StringFlag{Name: flags.TxPoolLocals.Name},
 		&cli.DurationFlag{Name: flags.RPCTimeout.Name},
-		&cli.BoolFlag{Name: flags.ProposeBlockIncludeParentMetaHash.Name},
 	}
 	app.Flags = append(app.Flags, flags.TxmgrFlags...)
 	app.Action = func(ctx *cli.Context) error {
