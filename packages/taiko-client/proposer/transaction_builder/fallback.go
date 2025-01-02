@@ -10,10 +10,12 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
+	"golang.org/x/sync/errgroup"
+
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
-	"golang.org/x/sync/errgroup"
 )
 
 // TxBuilderWithFallback builds type-2 or type-3 transactions based on the
@@ -123,6 +125,9 @@ func (b *TxBuilderWithFallback) BuildOntake(
 	if err = g.Wait(); err != nil {
 		return nil, err
 	}
+
+	metrics.ProposerEstimatedCostCalldata.Set(float64(costCalldata.Uint64()))
+	metrics.ProposerEstimatedCostBlob.Set(float64(costBlob.Uint64()))
 
 	if costCalldata.Cmp(costBlob) < 0 {
 		log.Info("Building a type-2 transaction", "costCalldata", costCalldata, "costBlob", costBlob)
