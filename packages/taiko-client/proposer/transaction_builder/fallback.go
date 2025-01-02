@@ -13,6 +13,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
+	"golang.org/x/sync/errgroup"
 )
 
 // TxBuilderWithFallback builds type-2 or type-3 transactions based on the
@@ -89,22 +90,37 @@ func (b *TxBuilderWithFallback) BuildOntake(
 	if !b.fallback {
 		return b.blobTransactionBuilder.BuildOntake(ctx, txListBytesArray)
 	}
-	// Otherwise, compare the cost, and choose the cheaper option.
-	txWithCalldata, err := b.calldataTransactionBuilder.BuildOntake(ctx, txListBytesArray)
-	if err != nil {
-		return nil, err
-	}
-	txWithBlob, err := b.blobTransactionBuilder.BuildOntake(ctx, txListBytesArray)
-	if err != nil {
-		return nil, err
-	}
 
-	costCalldata, err := b.estimateCandidateCost(ctx, txWithCalldata)
-	if err != nil {
-		return nil, err
-	}
-	costBlob, err := b.estimateCandidateCost(ctx, txWithBlob)
-	if err != nil {
+	// Otherwise, compare the cost, and choose the cheaper option.
+	var (
+		g              = new(errgroup.Group)
+		txWithCalldata *txmgr.TxCandidate
+		txWithBlob     *txmgr.TxCandidate
+		costCalldata   *big.Int
+		costBlob       *big.Int
+		err            error
+	)
+
+	g.Go(func() error {
+		if txWithCalldata, err = b.calldataTransactionBuilder.BuildOntake(ctx, txListBytesArray); err != nil {
+			return err
+		}
+		if costCalldata, err = b.estimateCandidateCost(ctx, txWithCalldata); err != nil {
+			return err
+		}
+		return nil
+	})
+	g.Go(func() error {
+		if txWithBlob, err = b.blobTransactionBuilder.BuildOntake(ctx, txListBytesArray); err != nil {
+			return err
+		}
+		if costBlob, err = b.estimateCandidateCost(ctx, txWithBlob); err != nil {
+			return err
+		}
+		return nil
+	})
+
+	if err = g.Wait(); err != nil {
 		return nil, err
 	}
 
@@ -127,7 +143,7 @@ func (b *TxBuilderWithFallback) estimateCandidateCost(
 	if err != nil {
 		return nil, err
 	}
-	log.Info("Suggested gas price", "gasTipCap", gasTipCap, "baseFee", baseFee, "blobBaseFee", blobBaseFee)
+	log.Debug("Suggested gas price", "gasTipCap", gasTipCap, "baseFee", baseFee, "blobBaseFee", blobBaseFee)
 
 	gasPrice := new(big.Int).Add(baseFee, gasTipCap)
 	gasUsed, err := b.rpc.L1.EstimateGas(ctx, ethereum.CallMsg{
