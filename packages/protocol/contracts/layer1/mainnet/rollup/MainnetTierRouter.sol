@@ -36,7 +36,7 @@ contract MainnetTierRouter is ITierRouter, TierProviderBase {
     function getMinTier(address _proposer, uint256 _rand) public view override returns (uint16) {
         if (_proposer == DAO_FALLBACK_PROPOSER) {
             if (_rand % 1000 == 0) return LibTiers.TIER_ZKVM_RISC0;
-            else if (_rand % 1000 < 99) return LibTiers.TIER_ZKVM_SP1;
+            else if (_rand % 1000 < 29) return LibTiers.TIER_ZKVM_SP1;
             else return LibTiers.TIER_SGX;
         }
         return LibTiers.TIER_SGX;
