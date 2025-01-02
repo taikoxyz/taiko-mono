@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
-// DialClientWithBackoff connects a ethereum RPC client at the given URL with
+// DialClientWithBackoff connects an ethereum RPC client at the given URL with
 // a backoff strategy. Added a retry limit so it doesn't retry endlessly
 func DialClientWithBackoff(
 	ctx context.Context,
