@@ -201,7 +201,7 @@ contract TaikoL2 is EssentialContract, IBlockHash, TaikoL2Deprecated {
         (newGasTarget_, newGasExcess_) =
             LibEIP1559.adjustExcess(parentGasTarget, newGasTarget, parentGasExcess);
 
-        uint64 gasIssuance = (_curTimestamp - parentTimestamp) * _baseFeeConfig.gasIssuancePerSecond;
+        uint64 gasIssuance = (_blockTimestamp - parentTimestamp) * _baseFeeConfig.gasIssuancePerSecond;
 
         if (
             _baseFeeConfig.maxGasIssuancePerBlock != 0
