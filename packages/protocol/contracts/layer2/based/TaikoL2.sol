@@ -187,7 +187,7 @@ contract TaikoL2 is EssentialContract, IBlockHash, TaikoL2Deprecated {
     /// @return newGasExcess_ The new gas excess value.
     function getBasefeeV2(
         uint32 _parentGasUsed,
-        uint64 _curTimestamp,
+        uint64 _blockTimestamp,
         LibSharedData.BaseFeeConfig calldata _baseFeeConfig
     )
         public
