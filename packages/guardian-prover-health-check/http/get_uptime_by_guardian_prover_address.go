@@ -16,8 +16,8 @@ type uptimeResponse struct {
 //
 //	 returns the stats
 //
-//			@Summary		Get updatime by guardian prover address
-//			@ID			   	get-updatime-by-guardian-prover-address
+//			@Summary		Get uptime by guardian prover address
+//			@ID			   	get-uptime-by-guardian-prover-address
 //			@Accept			json
 //			@Produce		json
 //			@Success		200	{object} uptimeResponse
