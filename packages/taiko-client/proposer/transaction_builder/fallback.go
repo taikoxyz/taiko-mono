@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/params"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
@@ -184,7 +185,10 @@ func (b *TxBuilderWithFallback) estimateCandidateCost(
 	// Otherwise, we add blob fee to the cost.
 	return new(big.Int).Add(
 		feeWithoutBlob,
-		new(big.Int).Mul(new(big.Int).SetUint64(uint64(len(candidate.Blobs))), blobBaseFee),
+		new(big.Int).Mul(new(big.Int).SetUint64(
+			uint64(len(candidate.Blobs)*params.BlobTxBlobGasPerBlob)),
+			blobBaseFee,
+		),
 	), nil
 }
 
