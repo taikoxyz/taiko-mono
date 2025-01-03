@@ -34,8 +34,8 @@ type Config struct {
 	AllowZeroInterval          uint64
 	MaxProposedTxListsPerEpoch uint64
 	ProposeBlockTxGasLimit     uint64
-	IncludeParentMetaHash      bool
 	BlobAllowed                bool
+	FallbackToCalldata         bool
 	RevertProtectionEnabled    bool
 	TxmgrConfigs               *txmgr.CLIConfig
 	PrivateTxmgrConfigs        *txmgr.CLIConfig
@@ -104,8 +104,8 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		MaxProposedTxListsPerEpoch: maxProposedTxListsPerEpoch,
 		AllowZeroInterval:          c.Uint64(flags.AllowZeroInterval.Name),
 		ProposeBlockTxGasLimit:     c.Uint64(flags.TxGasLimit.Name),
-		IncludeParentMetaHash:      c.Bool(flags.ProposeBlockIncludeParentMetaHash.Name),
 		BlobAllowed:                c.Bool(flags.BlobAllowed.Name),
+		FallbackToCalldata:         c.Bool(flags.FallbackToCalldata.Name),
 		RevertProtectionEnabled:    c.Bool(flags.RevertProtectionEnabled.Name),
 		TxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
 			c.String(flags.L1WSEndpoint.Name),

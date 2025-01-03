@@ -123,12 +123,7 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBl
 		return fmt.Errorf("failed to get the L2 parent block by hash (%s): %w", header.ParentHash, err)
 	}
 
-	if meta.IsOntakeBlock() {
-		blockInfo, err = s.rpc.GetL2BlockInfoV2(ctx, meta.GetBlockID())
-	} else {
-		blockInfo, err = s.rpc.GetL2BlockInfo(ctx, meta.GetBlockID())
-	}
-	if err != nil {
+	if blockInfo, err = s.rpc.GetL2BlockInfoV2(ctx, meta.GetBlockID()); err != nil {
 		return err
 	}
 
@@ -164,7 +159,12 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBl
 			}
 			// Check if the proof buffer is full.
 			if s.proofBuffer.Enabled() && uint64(s.proofBuffer.Len()) >= s.proofBuffer.MaxLength {
-				log.Warn("Proof buffer is full now", "blockID", meta.GetBlockID())
+				log.Warn(
+					"Proof buffer is full now",
+					"blockID", meta.GetBlockID(),
+					"tier", meta.GetMinTier(),
+					"size", s.proofBuffer.Len(),
+				)
 				return errBufferOverflow
 			}
 			// Check if there is a need to generate proof
@@ -201,7 +201,7 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBl
 				}
 				return fmt.Errorf("failed to request proof (id: %d): %w", meta.GetBlockID(), err)
 			}
-			if meta.IsOntakeBlock() && s.proofBuffer.Enabled() {
+			if s.proofBuffer.Enabled() {
 				bufferSize, err := s.proofBuffer.Write(result)
 				if err != nil {
 					return fmt.Errorf(

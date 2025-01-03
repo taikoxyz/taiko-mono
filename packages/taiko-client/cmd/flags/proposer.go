@@ -98,19 +98,19 @@ var (
 		Category: proposerCategory,
 		EnvVars:  []string{"TX_POOL_MAX_TX_LISTS_PER_EPOCH"},
 	}
-	ProposeBlockIncludeParentMetaHash = &cli.BoolFlag{
-		Name:     "includeParentMetaHash",
-		Usage:    "Include parent meta hash when proposing block",
-		Value:    false,
-		Category: proposerCategory,
-		EnvVars:  []string{"INCLUDE_PARENT_META_HASH"},
-	}
 	// Transaction related.
 	BlobAllowed = &cli.BoolFlag{
 		Name:    "l1.blobAllowed",
 		Usage:   "Send EIP-4844 blob transactions when proposing blocks",
 		Value:   false,
 		EnvVars: []string{"L1_BLOB_ALLOWED"},
+	}
+	FallbackToCalldata = &cli.BoolFlag{
+		Name:     "l1.fallbackToCalldata",
+		Usage:    "If set to true, proposer will use calldata as DA when blob fee is more expensive than using calldata",
+		Value:    false,
+		Category: proposerCategory,
+		EnvVars:  []string{"L1_FALLBACK_TO_CALLDATA"},
 	}
 	RevertProtectionEnabled = &cli.BoolFlag{
 		Name:     "revertProtection",
@@ -139,7 +139,7 @@ var ProposerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	MinProposingInternal,
 	AllowZeroInterval,
 	MaxProposedTxListsPerEpoch,
-	ProposeBlockIncludeParentMetaHash,
 	BlobAllowed,
+	FallbackToCalldata,
 	RevertProtectionEnabled,
 }, TxmgrFlags)
