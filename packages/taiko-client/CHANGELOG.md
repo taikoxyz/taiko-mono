@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.42.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v0.41.1...taiko-alethia-client-v0.42.0) (2025-01-03)
+
+
+### Features
+
+* **taiko-client:** introduce `TxBuilderWithFallback` ([#18690](https://github.com/taikoxyz/taiko-mono/issues/18690)) ([f1d7b20](https://github.com/taikoxyz/taiko-mono/commit/f1d7b20b722b1e15db3f3f2953c8afb89287537f))
+
+
+### Bug Fixes
+
+* **taiko-client:** add [#18442](https://github.com/taikoxyz/taiko-mono/issues/18442) back ([#18685](https://github.com/taikoxyz/taiko-mono/issues/18685)) ([abc0554](https://github.com/taikoxyz/taiko-mono/commit/abc0554eb0b0a640a8b1a4e9762f7d691b089d40))
+* **taiko-client:** add timestamp as a new parameter to getBasefeeV2 ([#18691](https://github.com/taikoxyz/taiko-mono/issues/18691)) ([4a4d908](https://github.com/taikoxyz/taiko-mono/commit/4a4d908b0290046d1098d943a9ebc685c7ca533e))
+* **taiko-client:** fix blob transactions estimation when proposing ([#18703](https://github.com/taikoxyz/taiko-mono/issues/18703)) ([395ac5f](https://github.com/taikoxyz/taiko-mono/commit/395ac5fdfb0d8eccae96fafda423d19766a94556))
+* **taiko-client:** fix proposing fee estimation ([#18702](https://github.com/taikoxyz/taiko-mono/issues/18702)) ([13a5b1b](https://github.com/taikoxyz/taiko-mono/commit/13a5b1b50e0bf9f030449af49cb0b58ce4288729))
+
+
+### Chores
+
+* **taiko-client:** cleanup pre-ontake prover code ([#18677](https://github.com/taikoxyz/taiko-mono/issues/18677)) ([fef6884](https://github.com/taikoxyz/taiko-mono/commit/fef6884bc318e4f09d9c59930a0565cc15e25996))
+* **taiko-client:** fix docs ([#18698](https://github.com/taikoxyz/taiko-mono/issues/18698)) ([fc545ee](https://github.com/taikoxyz/taiko-mono/commit/fc545ee89fd907a20161195ef174e7d96d4beae3))
+* **taiko-client:** optimize logging ([#18674](https://github.com/taikoxyz/taiko-mono/issues/18674)) ([60bda60](https://github.com/taikoxyz/taiko-mono/commit/60bda60df922e5dd04f6186f8a67d7cb56351c6d))
+* **taiko-client:** remove some unused flags ([#18678](https://github.com/taikoxyz/taiko-mono/issues/18678)) ([63f9d26](https://github.com/taikoxyz/taiko-mono/commit/63f9d26b42518a995e093d7db6bc43ef3b57ecca))
+
+
+### Tests
+
+* **taiko-client:** add more fallback proposing tests ([#18705](https://github.com/taikoxyz/taiko-mono/issues/18705)) ([0e8ef0d](https://github.com/taikoxyz/taiko-mono/commit/0e8ef0d6df36cc05956574b38dabdbbd83f7ce5a))
+
 ## [0.41.1](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v0.41.0...taiko-alethia-client-v0.41.1) (2024-12-30)
 
 
