@@ -185,8 +185,10 @@ func (b *TxBuilderWithFallback) estimateCandidateCost(
 	// Otherwise, we add blob fee to the cost.
 	return new(big.Int).Add(
 		feeWithoutBlob,
-		new(big.Int).Mul(new(big.Int).SetUint64(
-			uint64(len(candidate.Blobs)*params.BlobTxBlobGasPerBlob)),
+		new(big.Int).Mul(
+			new(big.Int).SetUint64(
+				uint64(len(candidate.Blobs)*params.BlobTxBlobGasPerBlob),
+			),
 			blobBaseFee,
 		),
 	), nil
