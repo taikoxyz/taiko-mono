@@ -1,6 +1,7 @@
 #!/bin/bash
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+L2_NODE=${L2_NODE:-l2_geth}
 
 # check until L1 chain is ready
 L1_PROBE_URL=ws://localhost:$(docker port l1_node | grep '0.0.0.0' | awk -F ':' '{print $2}')
@@ -18,14 +19,19 @@ L1_NODE_PORT=$(docker port l1_node | grep '0.0.0.0' | awk -F ':' '{print $2}')
 export L1_HTTP=http://localhost:$L1_NODE_PORT
 export L1_WS=ws://localhost:$L1_NODE_PORT
 
-export L2_HTTP=http://localhost:$(docker port $L2_NODE | grep "0.0.0.0" | awk -F ':' 'NR==1 {print $2}')
-export L2_WS=ws://localhost:$(docker port $L2_NODE | grep "0.0.0.0" | awk -F ':' 'NR==2 {print $2}')
-export L2_AUTH=http://localhost:$(docker port $L2_NODE | grep "0.0.0.0" | awk -F ':' 'NR==3 {print $2}')
+export L2_HTTP=http://localhost:8545 #$(docker port $L2_NODE | grep "0.0.0.0" | awk -F ':' 'NR==1 {print $2}')
+export L2_WS=ws://localhost:8546 #$(docker port $L2_NODE | grep "0.0.0.0" | awk -F ':' 'NR==2 {print $2}')
+export L2_AUTH=http://localhost:8551 #$(docker port $L2_NODE | grep "0.0.0.0" | awk -F ':' 'NR==3 {print $2}')
+
+# export L2_HTTP=http://localhost:$(docker port $L2_NODE | grep "0.0.0.0" | awk -F ':' 'NR==1 {print $2}')
+# export L2_WS=ws://localhost:$(docker port $L2_NODE | grep "0.0.0.0" | awk -F ':' 'NR==2 {print $2}')
+# export L2_AUTH=http://localhost:$(docker port $L2_NODE | grep "0.0.0.0" | awk -F ':' 'NR==3 {print $2}')
 export JWT_SECRET=$DIR/nodes/jwt.hex
 
 echo -e "L1_NODE PORTS: \n\t$(docker port l1_node)"
 echo -e "L2_NODE PORTS: \n\t$(docker port $L2_NODE)"
 
+echo "L2_NODE: $L2_NODE"
 echo "L1_HTTP: $L1_HTTP"
 echo "L1_WS: $L1_WS"
 echo "L2_HTTP: $L2_HTTP"
