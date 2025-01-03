@@ -106,6 +106,12 @@ contract TokenUnlock_ProverSet is InboxTestBase {
         set1.enableProver(Carol, true);
         assertTrue(set1.isProver(Carol));
 
+        vm.expectRevert(ProverSet.INVALID_STATUS.selector);
+        set1.enableProver(Carol, true);
+
+        set1.delegate(Carol);
+        assertEq(taikoToken.delegates(address(set1)), Carol);
+
         // create another one
         target.createProverSet();
 
@@ -118,13 +124,9 @@ contract TokenUnlock_ProverSet is InboxTestBase {
         vm.prank(David);
         vm.expectRevert(TokenUnlock.PERMISSION_DENIED.selector);
         set1.enableProver(Carol, true);
-
-        vm.prank(Bob);
-        vm.expectRevert(ProverSet.INVALID_STATUS.selector);
-        set1.enableProver(Carol, true);
     }
 
-    function test_hello_tokenunlock_proverset_propose_and_prove_blocks() public {
+    function test_tokenunlock_proverset_propose_and_prove_blocks() public {
         uint256 initialBondBalance = 200 ether;
 
         taikoToken.transfer(Alice, 1000 ether);
@@ -156,7 +158,7 @@ contract TokenUnlock_ProverSet is InboxTestBase {
         vm.prank(Carol);
         ITaikoInbox.BlockMetadataV3[] memory metas = set.proposeBlocksV3(paramsArray, "txList", false);
 
-        vm.prank(Bob);
+        vm.startPrank(Bob);
         vm.expectRevert();
         set.withdrawBond(initialBondBalance);
         set.withdrawBond(initialBondBalance - livenessBond);
