@@ -150,13 +150,12 @@ func (b *TxBuilderWithFallback) estimateCandidateCost(
 	}
 	log.Debug("Suggested gas price", "gasTipCap", gasTipCap, "baseFee", baseFee, "blobBaseFee", blobBaseFee)
 
-	gasPrice := new(big.Int).Add(baseFee, gasTipCap)
+	gasFeeCap := new(big.Int).Add(baseFee, gasTipCap)
 	gasUsed, err := b.rpc.L1.EstimateGas(ctx, ethereum.CallMsg{
 		From:      txmgr.From(),
 		To:        candidate.To,
 		Gas:       candidate.GasLimit,
-		GasPrice:  gasPrice,
-		GasFeeCap: gasPrice,
+		GasFeeCap: gasFeeCap,
 		GasTipCap: gasTipCap,
 		Value:     candidate.Value,
 		Data:      candidate.TxData,
@@ -165,7 +164,7 @@ func (b *TxBuilderWithFallback) estimateCandidateCost(
 		return nil, fmt.Errorf("failed to estimate gas used: %w", err)
 	}
 
-	feeWithoutBlob := new(big.Int).Mul(gasPrice, new(big.Int).SetUint64(gasUsed))
+	feeWithoutBlob := new(big.Int).Mul(gasFeeCap, new(big.Int).SetUint64(gasUsed))
 
 	// If its a type-2 transaction, we won't calculate blob fee.
 	if len(candidate.Blobs) == 0 {
