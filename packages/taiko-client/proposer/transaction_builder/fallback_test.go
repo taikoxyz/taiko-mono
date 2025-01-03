@@ -50,7 +50,7 @@ func (s *TransactionBuilderTestSuite) TestFallback() {
 	s.Nil(err)
 	s.NotZero(len(candidate.Blobs))
 
-	// Make blob base fee 1000 Gwei
+	// Make blob base fee 1024 Gwei
 	builder = s.newTestBuilderWithFallback(true, true, func(
 		ctx context.Context,
 		backend txmgr.ETHBackend,
@@ -68,7 +68,7 @@ func (s *TransactionBuilderTestSuite) TestFallback() {
 	s.Nil(err)
 	s.Zero(len(candidate.Blobs))
 
-	// Make blob base fee 1024 Gwei
+	// Make block base fee 1024 Gwei too
 	builder = s.newTestBuilderWithFallback(true, true, func(
 		ctx context.Context,
 		backend txmgr.ETHBackend,
@@ -79,7 +79,6 @@ func (s *TransactionBuilderTestSuite) TestFallback() {
 			nil
 	})
 
-	// Make block base fee 1024 Gwei too
 	candidate, err = builder.BuildOntake(context.Background(), [][]byte{
 		bytes.Repeat([]byte{1}, int(rpc.BlockMaxTxListBytes)),
 		bytes.Repeat([]byte{1}, int(rpc.BlockMaxTxListBytes)),
