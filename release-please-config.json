@@ -27,7 +27,13 @@
     },
     "packages/relayer": {},
     "packages/taiko-client": {
-      "package-name": "taiko-alethia-client"
+      "package-name": "taiko-alethia-client",
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "internal/version/version.go"
+        }
+      ]
     },
     "packages/ui-lib": {}
   }
