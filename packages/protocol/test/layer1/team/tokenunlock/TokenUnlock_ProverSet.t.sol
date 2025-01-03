@@ -6,7 +6,6 @@ import "src/layer1/team/TokenUnlock.sol";
 import "../../based/InboxTestBase.sol";
 
 contract TokenUnlock_ProverSet is InboxTestBase {
-
     uint64 private constant TGE = 1_000_000;
     uint96 private constant livenessBond = 125 ether;
 
@@ -156,7 +155,8 @@ contract TokenUnlock_ProverSet is InboxTestBase {
         set.proposeBlocksV3(paramsArray, "txList", false);
 
         vm.prank(Carol);
-        ITaikoInbox.BlockMetadataV3[] memory metas = set.proposeBlocksV3(paramsArray, "txList", false);
+        ITaikoInbox.BlockMetadataV3[] memory metas =
+            set.proposeBlocksV3(paramsArray, "txList", false);
 
         vm.startPrank(Bob);
         vm.expectRevert();
