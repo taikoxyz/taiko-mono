@@ -116,6 +116,13 @@ var (
 		Category: indexerCategory,
 		EnvVars:  []string{"WAIT_FOR_CONFIRMATION_TIMEOUT"},
 	}
+	IndexingConfirmations = &cli.Uint64Flag{
+		Name:     "confirmations",
+		Usage:    "Confirmations to wait for on source chain before indexing an event",
+		Value:    1,
+		Category: indexerCategory,
+		EnvVars:  []string{"CONFIRMATIONS_BEFORE_INDEXING"},
+	}
 )
 
 var IndexerFlags = MergeFlags(CommonFlags, QueueFlags, []cli.Flag{
@@ -134,4 +141,5 @@ var IndexerFlags = MergeFlags(CommonFlags, QueueFlags, []cli.Flag{
 	MinFeeToIndex,
 	TargetBlockNumber,
 	WaitForConfirmationTimeout,
+	IndexingConfirmations,
 })

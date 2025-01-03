@@ -31,7 +31,7 @@ description: Network reference page describing various important addresses on Ta
 | Groth16Verifier                 | `0x5fd84014c62D5ea28D4533D5B1B48Ca44e571057` |
 | Risc0Verifier                   | `0x4fEd801C5a876D4289e869cbEfA1E1A448b10714` |
 | SP1Verifier                     | `0xFbE49f777E0078b3Fa0bae6de4794c88d6EA6DDD` |
-| PlonkVerifier                   | `0xa5287276f63b669E09cF6Dc6F44e941d77D7139e` |
+| PlonkVerifier                   | `0xfb2d02219D065eBF3Aa8d2D1a1C52b1868EE7384` |
 | AutomataDcapAttestation         | `0xC6cD3878Fc56F2b2BaB0769C580fc230A95e1398` |
 | PemCertChainLib                 | `0x08d7865e7F534d743Aba5874A9AD04bcB223a92E` |
 | ProverSet                       | `0xD3f681bD6B49887A48cC9C9953720903967E9DC0` |

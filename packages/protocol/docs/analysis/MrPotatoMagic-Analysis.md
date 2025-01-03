@@ -13,7 +13,7 @@ Day 2-7
 
 - Reviewing base contracts (least inherited)
 - Adding inline bookmarks for notes
-- Understanding RLP encoding, EIP-4844,
+- Understanding RLP encoding, EIP-4844
 
 Day 8-12
 
@@ -51,7 +51,7 @@ Day 19-21
 
 1. The biggest trust assumption in the contract is the owner role handling all the Address manager contracts. This role can pause the contracts at anytime.
 2. The second trust assumption is the guardians multisig. Currently, the guardians are trusted and will be removed over time. But since they are the highest tier, the centralization risk in the proving system exists.
-3. ANother role is the bridge watchdog. This role can ban and suspend any messages at will. It is the most important risk of the bridge contracts.
+3. Another role is the bridge watchdog. This role can ban and suspend any messages at will. It is the most important risk of the bridge contracts.
 4. The snapshooter role has some risks associated since it takes snapshots on the TaikoToken.
 
 There are more roles in the codebase but these are the foremost and most central to the protocol.
@@ -110,7 +110,7 @@ Eventually, after the best tier i.e. highest tier proof (ZK proof) is solid and 
 4. Benefits of Based Contestable Rollup
 
 - Abstraction of special if-else code into a tier-based proof system makes the developers aware that the team cannot just shut down the chain uasing guardian prover and does not have control over it.
-- Taiko has 3 types of bonds - validity bonds, contestation bonds and liveness bonds. We've spoken about the first two. Liveness bonds are basically, le's say, I have a prover off-chain and this prover is supposed to submit the proof within 15 minutes, then if the prover does not submit the proof in that time, then the prover's liveness bond is burnt.
+- Taiko has 3 types of bonds - validity bonds, contestation bonds and liveness bonds. We've spoken about the first two. Liveness bonds are basically, let's say, I have a prover off-chain and this prover is supposed to submit the proof within 15 minutes, then if the prover does not submit the proof in that time, then the prover's liveness bond is burnt.
 - As an app dev, you can always change your config a long way. You can just use one layer-1 transaction to go from 100% optimistic to 100% ZK rollup.
 - As ZK becomes more trustworthy, the team will slowly increase the % to ZK until they become fully ZK and remove the guardian prover.
 
@@ -147,7 +147,7 @@ End game: multiple zkVMs (Guardians removed)
 
 There are a few risks associated with the protocol:
 
-- The protocol does not have a robust on-chain fee estimation mechanism. On calling the on-chain functions, the relayers should provide the contracts with upto date prices for users or atleast maintain a default amount of gas to send across.
+- The protocol does not have a robust on-chain fee estimation mechanism. On calling the on-chain functions, the relayers should provide the contracts with up to date prices for users or atleast maintain a default amount of gas to send across.
 - The protocol would not work perfectly with swapping protocols. This is because the bridge includes invocation delays which can cause swaps to go outdated.
 - There is an issue related to custom coinbase transfers which can create a risk among block proposers.
 

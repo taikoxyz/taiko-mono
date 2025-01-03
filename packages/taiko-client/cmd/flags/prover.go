@@ -17,13 +17,6 @@ var (
 		Category: proverCategory,
 		EnvVars:  []string{"L1_PROVER_PRIV_KEY"},
 	}
-	ProverCapacity = &cli.Uint64Flag{
-		Name:     "prover.capacity",
-		Usage:    "Capacity of prover",
-		Required: true,
-		Category: proverCategory,
-		EnvVars:  []string{"PROVER_CAPACITY"},
-	}
 )
 
 // Optional flags used by prover.
@@ -74,20 +67,6 @@ var (
 		Value:    false,
 		EnvVars:  []string{"PROVER_PROVE_UNASSIGNED_BLOCKS"},
 	}
-	MinEthBalance = &cli.Float64Flag{
-		Name:     "prover.minEthBalance",
-		Usage:    "Minimum ETH balance (in Ether) a prover wants to keep",
-		Category: proverCategory,
-		Value:    0,
-		EnvVars:  []string{"PROVER_MIN_ETH_BALANCE"},
-	}
-	MinTaikoTokenBalance = &cli.Float64Flag{
-		Name:     "prover.minTaikoTokenBalance",
-		Usage:    "Minimum Taiko token balance without decimal a prover wants to keep",
-		Category: proverCategory,
-		Value:    0,
-		EnvVars:  []string{"PROVER_MIN_TAIKO_TOKEN_BALANCE"},
-	}
 	// Running mode
 	ContesterMode = &cli.BoolFlag{
 		Name:     "mode.contester",
@@ -119,22 +98,7 @@ var (
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_DUMMY"},
 	}
-	// Max slippage allowed
-	MaxAcceptableBlockSlippage = &cli.Uint64Flag{
-		Name:     "prover.blockSlippage",
-		Usage:    "Maximum accepted slippage difference for blockID for accepting proving a block",
-		Value:    1024,
-		Category: proverCategory,
-		EnvVars:  []string{"PROVER_BLOCK_SLIPPAGE"},
-	}
 	// Max amount of L1 blocks that can pass before block is invalid
-	MaxProposedIn = &cli.Uint64Flag{
-		Name:     "prover.maxProposedIn",
-		Usage:    "Maximum amount of L1 blocks that can pass before block can not be proposed. 0 means no limit.",
-		Value:    0,
-		Category: proverCategory,
-		EnvVars:  []string{"PROVER_MAX_PROPOSED_IN"},
-	}
 	Allowance = &cli.Float64Flag{
 		Name:     "prover.allowance",
 		Usage:    "Amount without decimal to approve TaikoL1 contract for TaikoToken usage",
@@ -195,6 +159,31 @@ var (
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_BLOCK_CONFIRMATIONS"},
 	}
+	// Batch proof related flag
+	SGXBatchSize = &cli.Uint64Flag{
+		Name: "prover.sgx.batchSize",
+		Usage: "The default size of batch sgx proofs, when it arrives, submit a batch of proof immediately, " +
+			"this flag only works post Ontake fork",
+		Value:    1,
+		Category: proverCategory,
+		EnvVars:  []string{"PROVER_SGX_BATCH_SIZE"},
+	}
+	ZKVMBatchSize = &cli.Uint64Flag{
+		Name: "prover.zkvm.batchSize",
+		Usage: "The size of batch ZKVM proof, when it arrives, submit a batch of proof immediately, " +
+			"this flag only works post Ontake fork",
+		Value:    1,
+		Category: proverCategory,
+		EnvVars:  []string{"PROVER_ZKVM_BATCH_SIZE"},
+	}
+	ForceBatchProvingInterval = &cli.DurationFlag{
+		Name: "prover.forceBatchProvingInterval",
+		Usage: "Time interval to prove blocks even the number of pending proof do not exceed prover.batchSize, " +
+			"this flag only works post Ontake fork",
+		Category: proverCategory,
+		Value:    30 * time.Minute,
+		EnvVars:  []string{"PROVER_FORCE_BATCH_PROVING_INTERVAL"},
+	}
 )
 
 // ProverFlags All prover flags.
@@ -204,8 +193,6 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	RaikoHostEndpoint,
 	RaikoJWTPath,
 	L1ProverPrivKey,
-	MinEthBalance,
-	MinTaikoTokenBalance,
 	StartingBlockID,
 	Dummy,
 	GuardianProverMinority,
@@ -216,15 +203,15 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	ProveUnassignedBlocks,
 	ContesterMode,
 	ProverHTTPServerPort,
-	ProverCapacity,
 	MaxExpiry,
-	MaxProposedIn,
 	TaikoTokenAddress,
-	MaxAcceptableBlockSlippage,
 	Allowance,
 	L1NodeVersion,
 	L2NodeVersion,
 	BlockConfirmations,
 	RaikoRequestTimeout,
 	RaikoZKVMHostEndpoint,
+	SGXBatchSize,
+	ZKVMBatchSize,
+	ForceBatchProvingInterval,
 }, TxmgrFlags)

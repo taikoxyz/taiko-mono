@@ -22,9 +22,19 @@
     "packages/fork-diff": {},
     "packages/guardian-prover-health-check": {},
     "packages/guardian-prover-health-check-ui": {},
-    "packages/protocol": {},
+    "packages/protocol": {
+      "package-name": "taiko-alethia-protocol"
+    },
     "packages/relayer": {},
-    "packages/taiko-client": {},
+    "packages/taiko-client": {
+      "package-name": "taiko-alethia-client",
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "internal/version/version.go"
+        }
+      ]
+    },
     "packages/ui-lib": {}
   }
 }

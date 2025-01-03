@@ -11,7 +11,7 @@ on:
 
 jobs:
   build-nfts-contracts:
-    if: ${{ github.event.pull_request.draft == false }}
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
     runs-on: [arc-runner-set]
     steps:
       - name: Cancel previous runs
