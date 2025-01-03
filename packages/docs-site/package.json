@@ -10,14 +10,14 @@
     "astro": "astro"
   },
   "dependencies": {
-    "@astrojs/check": "^0.8.0",
-    "@astrojs/starlight": "^0.25.0",
-    "astro": "^4.11.5",
-    "astro-og-canvas": "^0.5.0",
+    "@astrojs/check": "^0.8.3",
+    "@astrojs/starlight": "^0.25.5",
+    "astro": "^4.16.18",
+    "astro-og-canvas": "^0.5.5",
     "canvaskit-wasm": "^0.39.1",
-    "sharp": "^0.33.3",
+    "sharp": "^0.33.5",
     "starlight-links-validator": "^0.8.0",
-    "starlight-openapi": "^0.6.3",
-    "typescript": "^5.4.5"
+    "starlight-openapi": "^0.6.4",
+    "typescript": "^5.7.2"
   }
 }
