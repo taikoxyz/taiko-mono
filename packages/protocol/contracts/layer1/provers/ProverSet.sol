@@ -102,13 +102,14 @@ contract ProverSet is EssentialContract, IERC1271 {
     )
         external
         onlyProver
+        returns (ITaikoInbox.BlockMetadataV3[] memory metas_)
     {
         ITaikoInbox taiko = ITaikoInbox(inbox());
         if (_revertIfNotFirstProposal) {
             // Ensure this block is the first block proposed in the current L1 block.
             require(taiko.getStats2().lastProposedIn != block.number, NOT_FIRST_PROPOSAL());
         }
-        taiko.proposeBlocksV3(address(0), address(0), _paramsArray, _txList);
+        return taiko.proposeBlocksV3(address(0), address(0), _paramsArray, _txList);
     }
 
     /// @notice Batch proves or contests Taiko blocks.
