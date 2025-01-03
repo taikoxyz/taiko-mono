@@ -30,6 +30,13 @@ func (s *TransactionBuilderTestSuite) TestBuildCalldataWithBlobAllowed() {
 	s.NotZero(len(candidate.Blobs))
 }
 
+func (s *TransactionBuilderTestSuite) TestBlobAllowed() {
+	builder := s.newTestBuilderWithFallback(false, false)
+	s.False(builder.BlobAllow())
+	builder = s.newTestBuilderWithFallback(true, false)
+	s.True(builder.BlobAllow())
+}
+
 func (s *TransactionBuilderTestSuite) newTestBuilderWithFallback(blobAllowed, fallback bool) *TxBuilderWithFallback {
 	l1ProposerPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROPOSER_PRIVATE_KEY")))
 	s.Nil(err)

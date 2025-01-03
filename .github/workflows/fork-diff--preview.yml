@@ -14,7 +14,7 @@ on:
 
 jobs:
   deploy-fork-diff-preview:
-    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && github.actor != 'dependabot[bot]' }}
     runs-on: [arc-runner-set]
     steps:
       - name: Install Git

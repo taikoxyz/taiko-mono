@@ -143,29 +143,38 @@ func (b *TxBuilderWithFallback) estimateCandidateCost(
 	ctx context.Context,
 	candidate *txmgr.TxCandidate,
 ) (*big.Int, error) {
-	txmgr, _ := b.txmgrSelector.Select()
-	gasTipCap, baseFee, blobBaseFee, err := txmgr.SuggestGasPriceCaps(ctx)
+	txMgr, _ := b.txmgrSelector.Select()
+	gasTipCap, baseFee, blobBaseFee, err := txMgr.SuggestGasPriceCaps(ctx)
 	if err != nil {
 		return nil, err
 	}
 	log.Debug("Suggested gas price", "gasTipCap", gasTipCap, "baseFee", baseFee, "blobBaseFee", blobBaseFee)
 
-	gasPrice := new(big.Int).Add(baseFee, gasTipCap)
-	gasUsed, err := b.rpc.L1.EstimateGas(ctx, ethereum.CallMsg{
-		From:      txmgr.From(),
+	gasFeeCap := new(big.Int).Add(baseFee, gasTipCap)
+	msg := ethereum.CallMsg{
+		From:      txMgr.From(),
 		To:        candidate.To,
 		Gas:       candidate.GasLimit,
-		GasPrice:  gasPrice,
-		GasFeeCap: gasPrice,
+		GasFeeCap: gasFeeCap,
 		GasTipCap: gasTipCap,
 		Value:     candidate.Value,
 		Data:      candidate.TxData,
-	})
+	}
+	if len(candidate.Blobs) != 0 {
+		var blobHashes []common.Hash
+		if _, blobHashes, err = txmgr.MakeSidecar(candidate.Blobs); err != nil {
+			return nil, fmt.Errorf("failed to make sidecar: %w", err)
+		}
+		msg.BlobHashes = blobHashes
+		msg.BlobGasFeeCap = blobBaseFee
+	}
+
+	gasUsed, err := b.rpc.L1.EstimateGas(ctx, msg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to estimate gas used: %w", err)
 	}
 
-	feeWithoutBlob := new(big.Int).Mul(gasPrice, new(big.Int).SetUint64(gasUsed))
+	feeWithoutBlob := new(big.Int).Mul(gasFeeCap, new(big.Int).SetUint64(gasUsed))
 
 	// If its a type-2 transaction, we won't calculate blob fee.
 	if len(candidate.Blobs) == 0 {
