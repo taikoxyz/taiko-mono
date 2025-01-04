@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/params"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
@@ -143,23 +144,33 @@ func (b *TxBuilderWithFallback) estimateCandidateCost(
 	ctx context.Context,
 	candidate *txmgr.TxCandidate,
 ) (*big.Int, error) {
-	txmgr, _ := b.txmgrSelector.Select()
-	gasTipCap, baseFee, blobBaseFee, err := txmgr.SuggestGasPriceCaps(ctx)
+	txMgr, _ := b.txmgrSelector.Select()
+	gasTipCap, baseFee, blobBaseFee, err := txMgr.SuggestGasPriceCaps(ctx)
 	if err != nil {
 		return nil, err
 	}
 	log.Debug("Suggested gas price", "gasTipCap", gasTipCap, "baseFee", baseFee, "blobBaseFee", blobBaseFee)
 
 	gasFeeCap := new(big.Int).Add(baseFee, gasTipCap)
-	gasUsed, err := b.rpc.L1.EstimateGas(ctx, ethereum.CallMsg{
-		From:      txmgr.From(),
+	msg := ethereum.CallMsg{
+		From:      txMgr.From(),
 		To:        candidate.To,
 		Gas:       candidate.GasLimit,
 		GasFeeCap: gasFeeCap,
 		GasTipCap: gasTipCap,
 		Value:     candidate.Value,
 		Data:      candidate.TxData,
-	})
+	}
+	if len(candidate.Blobs) != 0 {
+		var blobHashes []common.Hash
+		if _, blobHashes, err = txmgr.MakeSidecar(candidate.Blobs); err != nil {
+			return nil, fmt.Errorf("failed to make sidecar: %w", err)
+		}
+		msg.BlobHashes = blobHashes
+		msg.BlobGasFeeCap = blobBaseFee
+	}
+
+	gasUsed, err := b.rpc.L1.EstimateGas(ctx, msg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to estimate gas used: %w", err)
 	}
@@ -174,7 +185,12 @@ func (b *TxBuilderWithFallback) estimateCandidateCost(
 	// Otherwise, we add blob fee to the cost.
 	return new(big.Int).Add(
 		feeWithoutBlob,
-		new(big.Int).Mul(new(big.Int).SetUint64(uint64(len(candidate.Blobs))), blobBaseFee),
+		new(big.Int).Mul(
+			new(big.Int).SetUint64(
+				uint64(len(candidate.Blobs)*params.BlobTxBlobGasPerBlob),
+			),
+			blobBaseFee,
+		),
 	), nil
 }
 
