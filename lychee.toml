@@ -1,0 +1,2 @@
+exclude_path = ["node_modules"]
+exclude = ["etherscan.io"]

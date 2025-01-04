@@ -29,15 +29,15 @@ For the visual learners here is a visualization of the three stages (proposed ->
 
 **Proposed:**
 
-![proposed](~/assets/content/docs/core-concepts/proposed.png)
+![proposed](~/assets/content/docs/taiko-protocol/proposed.png)
 
 **Proved:**
 
-![proved](~/assets/content/docs/core-concepts/proved.png)
+![proved](~/assets/content/docs/taiko-protocol/proved.png)
 
 **Verified:**
 
-![verified](~/assets/content/docs/core-concepts/verified.png)
+![verified](~/assets/content/docs/taiko-protocol/verified.png)
 
 ## Off chain prover market (PBS style)
 

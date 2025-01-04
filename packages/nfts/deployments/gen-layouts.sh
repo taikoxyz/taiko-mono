@@ -7,6 +7,8 @@ contracts=(
     "SnaefellToken"
     "ECDSAWhitelist"
     "TrailblazersBadges"
+    "TrailblazersBadgesV2"
+    "BadgeMigration"
 )
 
 # Empty the output file initially

@@ -4,7 +4,7 @@ on:
   push:
     branches: [main, preconf-driver-apis, p2p_network]
     tags:
-      - "taiko-client-v*"
+      - "taiko-alethia-client-v*"
     paths:
       - "packages/taiko-client/**"
 

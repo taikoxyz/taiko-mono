@@ -26,7 +26,7 @@ env:
 
 jobs:
   build-deploy:
-    if: github.actor != 'dependabot'
+    if: ${{ github.actor != 'dependabot' && github.event.pull_request.head.repo.fork == false }}
     runs-on: [arc-runner-set]
     steps:
       - name: Print Vercel Project ID

@@ -30,7 +30,7 @@ var (
 		Category: driverCategory,
 		EnvVars:  []string{"P2P_CHECK_POINT_SYNC_URL"},
 	}
-	// syncer specific flag
+	// Chain syncer specific flag
 	MaxExponent = &cli.Uint64Flag{
 		Name: "syncer.maxExponent",
 		Usage: "Maximum exponent of retrieving L1 blocks when there is a mismatch between protocol and L2 EE," +

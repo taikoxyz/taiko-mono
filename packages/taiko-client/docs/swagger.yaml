@@ -15,7 +15,7 @@ definitions:
       blockHeader:
         allOf:
           - $ref: "#/definitions/types.Header"
-        description: "@param blockHeader types.Header Header of the soft block"
+        description: "@param blockHeader types.Header of the soft block"
     type: object
   softblocks.RemoveSoftBlocksRequestBody:
     properties:

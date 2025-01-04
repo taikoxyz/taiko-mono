@@ -16,45 +16,45 @@ abstract contract TaikoL2Deprecated {
     }
 
     function anchor(
-        bytes32, /*_l1BlockHash*/
-        bytes32, /*_l1StateRoot*/
-        uint64, /*_l1BlockId*/
-        uint32 /*_parentGasUsed */
+        bytes32 _l1BlockHash,
+        bytes32 _l1StateRoot,
+        uint64 _l1BlockId,
+        uint32 _parentGasUsed
     )
         external
         deprecated
     { }
 
     function getBasefee(
-        uint64, /*_anchorBlockId*/
-        uint32 /*_parentGasUsed*/
+        uint64 _anchorBlockId,
+        uint32 _parentGasUsed
     )
         public
         pure
         deprecated
-        returns (uint256, /*basefee_*/ uint64 /*parentGasExcess_*/ )
+        returns (uint256 basefee_, uint64 parentGasExcess_)
     { }
 
     function adjustExcess(
-        uint64, /*_currGasExcess*/
-        uint64, /*_currGasTarget*/
-        uint64 /*_newGasTarget*/
+        uint64 _currGasExcess,
+        uint64 _currGasTarget,
+        uint64 _newGasTarget
     )
         public
         pure
         deprecated
-        returns (uint64 /*newGasExcess_*/ )
+        returns (uint64 newGasExcess_)
     { }
 
     function calculateBaseFee(
-        LibSharedData.BaseFeeConfig calldata, /*_baseFeeConfig*/
-        uint64, /*_blocktime*/
-        uint64, /*_parentGasExcess*/
-        uint32 /*_parentGasUsed*/
+        LibSharedData.BaseFeeConfig calldata _baseFeeConfig,
+        uint64 _blocktime,
+        uint64 _parentGasExcess,
+        uint32 _parentGasUsed
     )
         public
         pure
         deprecated
-        returns (uint256, /*basefee_*/ uint64 /*parentGasExcess_*/ )
+        returns (uint256 basefee_, uint64 parentGasExcess_)
     { }
 }

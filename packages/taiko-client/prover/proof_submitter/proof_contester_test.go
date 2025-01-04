@@ -17,7 +17,7 @@ func (s *ProofSubmitterTestSuite) TestSubmitContestNoTransition() {
 			common.Big256,
 			common.Big1,
 			testutils.RandomHash(),
-			&metadata.TaikoDataBlockMetadataLegacy{},
+			&metadata.TaikoDataBlockMetadataOntake{},
 			encoding.TierOptimisticID,
 		),
 	)

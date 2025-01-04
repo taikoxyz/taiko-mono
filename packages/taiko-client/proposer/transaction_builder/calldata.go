@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
@@ -27,6 +26,7 @@ type CalldataTransactionBuilder struct {
 	gasLimit                uint64
 	extraData               string
 	chainConfig             *config.ChainConfig
+	revertProtectionEnabled bool
 }
 
 // NewCalldataTransactionBuilder creates a new CalldataTransactionBuilder instance based on giving configurations.
@@ -39,6 +39,7 @@ func NewCalldataTransactionBuilder(
 	gasLimit uint64,
 	extraData string,
 	chainConfig *config.ChainConfig,
+	revertProtectionEnabled bool,
 ) *CalldataTransactionBuilder {
 	return &CalldataTransactionBuilder{
 		rpc,
@@ -49,75 +50,8 @@ func NewCalldataTransactionBuilder(
 		gasLimit,
 		extraData,
 		chainConfig,
+		revertProtectionEnabled,
 	}
-}
-
-// BuildLegacy implements the ProposeBlockTransactionBuilder interface.
-func (b *CalldataTransactionBuilder) BuildLegacy(
-	ctx context.Context,
-	includeParentMetaHash bool,
-	txListBytes []byte,
-) (*txmgr.TxCandidate, error) {
-	// If the current proposer wants to include the parent meta hash, then fetch it from the protocol.
-	var (
-		parentMetaHash = [32]byte{}
-		err            error
-	)
-	if includeParentMetaHash {
-		if parentMetaHash, err = getParentMetaHash(
-			ctx,
-			b.rpc,
-			new(big.Int).SetUint64(b.chainConfig.ProtocolConfigs.OntakeForkHeight),
-		); err != nil {
-			return nil, err
-		}
-	}
-
-	signature, err := crypto.Sign(crypto.Keccak256(txListBytes), b.proposerPrivateKey)
-	if err != nil {
-		return nil, err
-	}
-	signature[64] = signature[64] + 27
-
-	var (
-		to   = &b.taikoL1Address
-		data []byte
-	)
-	if b.proverSetAddress != rpc.ZeroAddress {
-		to = &b.proverSetAddress
-	}
-
-	// ABI encode the TaikoL1.proposeBlock / ProverSet.proposeBlock parameters.
-	encodedParams, err := encoding.EncodeBlockParams(&encoding.BlockParams{
-		Coinbase:       b.l2SuggestedFeeRecipient,
-		ExtraData:      rpc.StringToBytes32(b.extraData),
-		ParentMetaHash: parentMetaHash,
-		Signature:      signature,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	if b.proverSetAddress != rpc.ZeroAddress {
-		to = &b.proverSetAddress
-
-		data, err = encoding.ProverSetABI.Pack("proposeBlock", encodedParams, txListBytes)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		data, err = encoding.TaikoL1ABI.Pack("proposeBlock", encodedParams, txListBytes)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return &txmgr.TxCandidate{
-		TxData:   data,
-		Blobs:    nil,
-		To:       to,
-		GasLimit: b.gasLimit,
-	}, nil
 }
 
 // BuildOntake implements the ProposeBlockTransactionBuilder interface.
@@ -157,8 +91,11 @@ func (b *CalldataTransactionBuilder) BuildOntake(
 
 	if b.proverSetAddress != rpc.ZeroAddress {
 		to = &b.proverSetAddress
-
-		data, err = encoding.ProverSetABI.Pack("proposeBlocksV2", encodedParamsArray, txListBytesArray)
+		if b.revertProtectionEnabled {
+			data, err = encoding.ProverSetABI.Pack("proposeBlocksV2Conditionally", encodedParamsArray, txListBytesArray)
+		} else {
+			data, err = encoding.ProverSetABI.Pack("proposeBlocksV2", encodedParamsArray, txListBytesArray)
+		}
 		if err != nil {
 			return nil, err
 		}

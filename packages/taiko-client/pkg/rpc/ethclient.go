@@ -2,6 +2,8 @@ package rpc
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"math/big"
 	"time"
 
@@ -12,6 +14,10 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/ethclient/gethclient"
 	"github.com/ethereum/go-ethereum/rpc"
+)
+
+var (
+	ErrInvalidLenOfParams = errors.New("invalid length of parameters")
 )
 
 // gethClient is a wrapper for go-ethereum geth client.
@@ -74,6 +80,34 @@ func (c *EthClient) BlockByHash(ctx context.Context, hash common.Hash) (*types.B
 	return c.ethClient.BlockByHash(ctxWithTimeout, hash)
 }
 
+func (c *EthClient) BatchBlocksByHashes(ctx context.Context, hashes []common.Hash) ([]*types.Block, error) {
+	if len(hashes) < 1 {
+		return nil, ErrInvalidLenOfParams
+	}
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
+	defer cancel()
+
+	reqs := make([]rpc.BatchElem, len(hashes))
+	results := make([]*types.Block, len(hashes))
+	for i, hash := range hashes {
+		reqs[i] = rpc.BatchElem{
+			Method: "eth_getBlockByHash",
+			Args:   []interface{}{hash, true},
+			Result: &results[i],
+		}
+	}
+	if err := c.BatchCallContext(ctxWithTimeout, reqs); err != nil {
+		return nil, err
+	}
+	for i := range reqs {
+		if reqs[i].Error != nil {
+			return nil, reqs[i].Error
+		}
+	}
+
+	return results, nil
+}
+
 // BlockByNumber returns a block from the current canonical chain. If number is nil, the
 // latest known block is returned.
 //
@@ -117,6 +151,49 @@ func (c *EthClient) HeaderByNumber(ctx context.Context, number *big.Int) (*types
 	defer cancel()
 
 	return c.ethClient.HeaderByNumber(ctxWithTimeout, number)
+}
+
+func (c *EthClient) BatchHeadersByNumbers(ctx context.Context, numbers []*big.Int) ([]*types.Header, error) {
+	if len(numbers) < 1 {
+		return nil, ErrInvalidLenOfParams
+	}
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
+	defer cancel()
+
+	reqs := make([]rpc.BatchElem, len(numbers))
+	results := make([]*types.Header, len(numbers))
+	for i, blockNum := range numbers {
+		reqs[i] = rpc.BatchElem{
+			Method: "eth_getBlockByNumber",
+			Args:   []interface{}{toBlockNumArg(blockNum), false},
+			Result: &results[i],
+		}
+	}
+	if err := c.BatchCallContext(ctxWithTimeout, reqs); err != nil {
+		return nil, err
+	}
+	for i := range reqs {
+		if reqs[i].Error != nil {
+			return nil, reqs[i].Error
+		}
+	}
+
+	return results, nil
+}
+
+func toBlockNumArg(number *big.Int) string {
+	if number == nil {
+		return "latest"
+	}
+	if number.Sign() >= 0 {
+		return hexutil.EncodeBig(number)
+	}
+	// It's negative.
+	if number.IsInt64() {
+		return rpc.BlockNumber(number.Int64()).String()
+	}
+	// It's negative and large, which is invalid.
+	return fmt.Sprintf("<invalid %d>", number)
 }
 
 // TransactionByHash returns the transaction with the given hash.
@@ -408,7 +485,7 @@ type SignTransactionResult struct {
 	Tx  *types.Transaction `json:"tx"`
 }
 
-// FillTransaction fill transaction.
+// FillTransaction fills in the missing fields of a transaction and signs it.
 func (c *EthClient) FillTransaction(ctx context.Context, args *TransactionArgs) (*types.Transaction, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()

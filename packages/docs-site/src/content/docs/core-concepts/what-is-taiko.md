@@ -5,9 +5,9 @@ description: Core concept page for "What is Taiko?".
 
 Ethereum is too expensive. We believe in Ethereum's core properties (e.g., censorship-resistant, permissionless, secure). We also believe that rollups should **extend** (not augment) these properties.
 
-Taiko is a [based rollup](/core-concepts/based-sequencing) which makes Ethereum cheaper while maintaining its properties:
+Taiko is a [based rollup](/core-concepts/based-rollup) which makes Ethereum cheaper while maintaining its properties:
 
-- [Based contestable rollup](/core-concepts/contestable-rollups): A configurable rollup to reduce transaction fees on Ethereum.
+- [Based contestable rollup](/core-concepts/contestable-rollup): A configurable rollup to reduce transaction fees on Ethereum.
 - [Based booster rollup](/core-concepts/booster-rollups): An innovative approach to **native L1 scaling**.
 
 Taiko is a **highly configurable, fully open source, permissionless (based), Ethereum-equivalent rollup**.
@@ -32,7 +32,7 @@ It can be easily configured as a fully ZK rollup, optimistic rollup, or anything
 ### Non-critical infrastructure
 
 :::note
-Anyone can run these components, not just Taiko Labs. Yes you can sequence blocks on Taiko, host your own bridge using our [signal service](/core-concepts/bridging#the-signal-service), etc.
+Anyone can run these components, not just Taiko Labs. Yes you can sequence blocks on Taiko, host your own bridge using our [signal service](/taiko-protocol/bridging#the-signal-service), etc.
 :::
 
 #### Frontends

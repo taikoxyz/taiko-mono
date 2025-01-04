@@ -16,23 +16,17 @@ import (
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/miner"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/blob"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
-	builder "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/transaction_builder"
 )
 
 type ProposerTestSuite struct {
@@ -87,6 +81,7 @@ func (s *ProposerTestSuite) SetupTest() {
 		MaxProposedTxListsPerEpoch: 1,
 		ExtraData:                  "test",
 		ProposeBlockTxGasLimit:     10_000_000,
+		FallbackToCalldata:         true,
 		TxmgrConfigs: &txmgr.CLIConfig{
 			L1RPCURL:                  os.Getenv("L1_WS"),
 			NumConfirmations:          0,
@@ -244,57 +239,6 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 	s.Nil(s.s.ProcessL1Blocks(context.Background()))
 }
 
-func (s *ProposerTestSuite) TestProposeTxLists() {
-	p := s.p
-	ctx := p.ctx
-	cfg := s.p.Config
-
-	txBuilder := builder.NewBlobTransactionBuilder(
-		p.rpc,
-		p.L1ProposerPrivKey,
-		cfg.TaikoL1Address,
-		cfg.ProverSetAddress,
-		cfg.L2SuggestedFeeRecipient,
-		cfg.ProposeBlockTxGasLimit,
-		cfg.ExtraData,
-		config.NewChainConfig(s.p.protocolConfigs),
-	)
-
-	emptyTxListBytes, err := rlp.EncodeToBytes(types.Transactions{})
-	s.Nil(err)
-	txListsBytes := [][]byte{emptyTxListBytes}
-	txCandidates := make([]txmgr.TxCandidate, len(txListsBytes))
-	for i, txListBytes := range txListsBytes {
-		compressedTxListBytes, err := utils.Compress(txListBytes)
-		if err != nil {
-			log.Warn("Failed to compress transactions list", "index", i, "error", err)
-			break
-		}
-
-		candidate, err := txBuilder.BuildLegacy(
-			p.ctx,
-			p.IncludeParentMetaHash,
-			compressedTxListBytes,
-		)
-		if err != nil {
-			log.Warn("Failed to build TaikoL1.proposeBlock transaction", "error", err)
-			break
-		}
-
-		// trigger the error
-		candidate.GasLimit = 10_000_000
-
-		txCandidates[i] = *candidate
-	}
-
-	for _, txCandidate := range txCandidates {
-		txMgr, _ := p.txmgrSelector.Select()
-		receipt, err := txMgr.Send(ctx, txCandidate)
-		s.Nil(err)
-		s.Nil(encoding.TryParsingCustomErrorFromReceipt(ctx, p.rpc.L1, p.proposerAddress, receipt))
-	}
-}
-
 func (s *ProposerTestSuite) TestProposeOpNoEmptyBlock() {
 	// TODO: Temporarily skip this test case when using l2_reth node.
 	if os.Getenv("L2_NODE") == "l2_reth" {
@@ -362,22 +306,12 @@ func (s *ProposerTestSuite) TestName() {
 
 func (s *ProposerTestSuite) TestProposeOp() {
 	// Propose txs in L2 execution engine's mempool
-	sink := make(chan *bindings.TaikoL1ClientBlockProposed)
-
-	sub, err := s.p.rpc.TaikoL1.WatchBlockProposed(nil, sink, nil, nil)
+	sink := make(chan *bindings.TaikoL1ClientBlockProposedV2)
+	sub, err := s.p.rpc.TaikoL1.WatchBlockProposedV2(nil, sink, nil)
 	s.Nil(err)
 	defer func() {
 		sub.Unsubscribe()
 		close(sink)
-	}()
-
-	sink2 := make(chan *bindings.TaikoL1ClientBlockProposedV2)
-
-	sub2, err := s.p.rpc.TaikoL1.WatchBlockProposedV2(nil, sink2, nil)
-	s.Nil(err)
-	defer func() {
-		sub2.Unsubscribe()
-		close(sink2)
 	}()
 
 	to := common.BytesToAddress(testutils.RandomBytes(32))
@@ -387,15 +321,9 @@ func (s *ProposerTestSuite) TestProposeOp() {
 	s.Nil(s.p.ProposeOp(context.Background()))
 
 	var (
-		meta metadata.TaikoBlockMetaData
+		event = <-sink
+		meta  = metadata.NewTaikoDataBlockMetadataOntake(event)
 	)
-	select {
-	case event := <-sink:
-		meta = metadata.NewTaikoDataBlockMetadataLegacy(event)
-	case event := <-sink2:
-		meta = metadata.NewTaikoDataBlockMetadataOntake(event)
-	}
-
 	s.Equal(meta.GetCoinbase(), s.p.L2SuggestedFeeRecipient)
 
 	_, isPending, err := s.p.rpc.L1.TransactionByHash(context.Background(), meta.GetTxHash())

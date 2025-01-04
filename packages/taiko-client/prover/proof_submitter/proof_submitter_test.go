@@ -31,17 +31,21 @@ import (
 
 type ProofSubmitterTestSuite struct {
 	testutils.ClientTestSuite
-	submitter  *ProofSubmitter
-	contester  *ProofContester
-	blobSyncer *blob.Syncer
-	proposer   *proposer.Proposer
-	proofCh    chan *producer.ProofWithHeader
+	submitter              *ProofSubmitter
+	contester              *ProofContester
+	blobSyncer             *blob.Syncer
+	proposer               *proposer.Proposer
+	proofCh                chan *producer.ProofWithHeader
+	batchProofGenerationCh chan *producer.BatchProofs
+	aggregationNotify      chan uint16
 }
 
 func (s *ProofSubmitterTestSuite) SetupTest() {
 	s.ClientTestSuite.SetupTest()
 
 	s.proofCh = make(chan *producer.ProofWithHeader, 1024)
+	s.batchProofGenerationCh = make(chan *producer.BatchProofs, 1024)
+	s.aggregationNotify = make(chan uint16, 1)
 
 	builder := transaction.NewProveBlockTxBuilder(
 		s.RPCClient,
@@ -83,6 +87,8 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 		s.RPCClient,
 		&producer.OptimisticProofProducer{},
 		s.proofCh,
+		s.batchProofGenerationCh,
+		s.aggregationNotify,
 		rpc.ZeroAddress,
 		common.HexToAddress(os.Getenv("TAIKO_L2")),
 		"test",
@@ -93,6 +99,8 @@ func (s *ProofSubmitterTestSuite) SetupTest() {
 		tiers,
 		false,
 		0*time.Second,
+		0,
+		30*time.Minute,
 	)
 	s.Nil(err)
 	s.contester = NewProofContester(
@@ -179,6 +187,8 @@ func (s *ProofSubmitterTestSuite) TestGetRandomBumpedSubmissionDelay() {
 		s.RPCClient,
 		&producer.OptimisticProofProducer{},
 		s.proofCh,
+		s.batchProofGenerationCh,
+		s.aggregationNotify,
 		common.Address{},
 		common.HexToAddress(os.Getenv("TAIKO_L2")),
 		"test",
@@ -189,6 +199,8 @@ func (s *ProofSubmitterTestSuite) TestGetRandomBumpedSubmissionDelay() {
 		s.submitter.tiers,
 		false,
 		time.Duration(0),
+		0,
+		30*time.Minute,
 	)
 	s.Nil(err)
 
@@ -200,6 +212,8 @@ func (s *ProofSubmitterTestSuite) TestGetRandomBumpedSubmissionDelay() {
 		s.RPCClient,
 		&producer.OptimisticProofProducer{},
 		s.proofCh,
+		s.batchProofGenerationCh,
+		s.aggregationNotify,
 		common.Address{},
 		common.HexToAddress(os.Getenv("TAIKO_L2")),
 		"test",
@@ -210,6 +224,8 @@ func (s *ProofSubmitterTestSuite) TestGetRandomBumpedSubmissionDelay() {
 		s.submitter.tiers,
 		false,
 		1*time.Hour,
+		0,
+		30*time.Minute,
 	)
 	s.Nil(err)
 	delay, err = submitter2.getRandomBumpedSubmissionDelay(time.Now())
@@ -229,7 +245,7 @@ func (s *ProofSubmitterTestSuite) TestProofSubmitterRequestProofDeadlineExceeded
 	s.ErrorContains(
 		s.submitter.RequestProof(
 			ctx,
-			&metadata.TaikoDataBlockMetadataLegacy{TaikoDataBlockMetadata: bindings.TaikoDataBlockMetadata{Id: 256}},
+			&metadata.TaikoDataBlockMetadataOntake{TaikoDataBlockMetadataV2: bindings.TaikoDataBlockMetadataV2{Id: 256}},
 		),
 		"context deadline exceeded",
 	)
@@ -240,7 +256,7 @@ func (s *ProofSubmitterTestSuite) TestProofSubmitterSubmitProofMetadataNotFound(
 		s.submitter.SubmitProof(
 			context.Background(), &producer.ProofWithHeader{
 				BlockID: common.Big256,
-				Meta:    &metadata.TaikoDataBlockMetadataLegacy{},
+				Meta:    &metadata.TaikoDataBlockMetadataOntake{},
 				Header:  &types.Header{},
 				Opts:    &producer.ProofRequestOptions{},
 				Proof:   bytes.Repeat([]byte{0xff}, 100),
@@ -273,7 +289,7 @@ func (s *ProofSubmitterTestSuite) TestProofSubmitterRequestProofCancelled() {
 	s.ErrorContains(
 		s.submitter.RequestProof(
 			ctx,
-			&metadata.TaikoDataBlockMetadataLegacy{TaikoDataBlockMetadata: bindings.TaikoDataBlockMetadata{Id: 256}},
+			&metadata.TaikoDataBlockMetadataOntake{TaikoDataBlockMetadataV2: bindings.TaikoDataBlockMetadataV2{Id: 256}},
 		),
 		"context canceled",
 	)

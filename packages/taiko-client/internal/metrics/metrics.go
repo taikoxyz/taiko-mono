@@ -30,6 +30,8 @@ var (
 	ProposerProposedTxListsCounter = factory.NewCounter(prometheus.CounterOpts{Name: "proposer_proposed_txLists"})
 	ProposerProposedTxsCounter     = factory.NewCounter(prometheus.CounterOpts{Name: "proposer_proposed_txs"})
 	ProposerPoolContentFetchTime   = factory.NewGauge(prometheus.GaugeOpts{Name: "proposer_pool_content_fetch_time"})
+	ProposerEstimatedCostCalldata  = factory.NewGauge(prometheus.GaugeOpts{Name: "proposer_estimated_cost_calldata"})
+	ProposerEstimatedCostBlob      = factory.NewGauge(prometheus.GaugeOpts{Name: "proposer_estimated_cost_blob"})
 
 	// Prover
 	ProverLatestVerifiedIDGauge      = factory.NewGauge(prometheus.GaugeOpts{Name: "prover_latestVerified_id"})
@@ -47,14 +49,26 @@ var (
 	ProverSubmissionErrorCounter = factory.NewCounter(prometheus.CounterOpts{
 		Name: "prover_proof_submission_error",
 	})
+	ProverAggregationSubmissionErrorCounter = factory.NewCounter(prometheus.CounterOpts{
+		Name: "prover_proof_aggregation_submission_error",
+	})
 	ProverSgxProofGeneratedCounter = factory.NewCounter(prometheus.CounterOpts{
 		Name: "prover_proof_sgx_generated",
+	})
+	ProverSgxProofAggregationGeneratedCounter = factory.NewCounter(prometheus.CounterOpts{
+		Name: "prover_proof_sgx_aggregation_generated",
 	})
 	ProverR0ProofGeneratedCounter = factory.NewCounter(prometheus.CounterOpts{
 		Name: "prover_proof_r0_generated",
 	})
+	ProverR0ProofAggregationGeneratedCounter = factory.NewCounter(prometheus.CounterOpts{
+		Name: "prover_proof_r0_aggregation_generated",
+	})
 	ProverSp1ProofGeneratedCounter = factory.NewCounter(prometheus.CounterOpts{
 		Name: "prover_proof_sp1_generated",
+	})
+	ProverSp1ProofAggregationGeneratedCounter = factory.NewCounter(prometheus.CounterOpts{
+		Name: "prover_proof_sp1_aggregation_generated",
 	})
 	ProverSubmissionRevertedCounter = factory.NewCounter(prometheus.CounterOpts{
 		Name: "prover_proof_submission_reverted",
