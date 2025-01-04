@@ -16,6 +16,7 @@ import (
 	"github.com/urfave/cli/v2"
 
 	chainSyncer "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer"
+	softblocks "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/soft_blocks"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
@@ -29,9 +30,10 @@ const (
 // contract.
 type Driver struct {
 	*Config
-	rpc           *rpc.Client
-	l2ChainSyncer *chainSyncer.L2ChainSyncer
-	state         *state.State
+	rpc             *rpc.Client
+	l2ChainSyncer   *chainSyncer.L2ChainSyncer
+	softblockServer *softblocks.SoftBlockAPIServer
+	state           *state.State
 
 	l1HeadCh  chan *types.Header
 	l1HeadSub event.Subscription
@@ -88,6 +90,18 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 
 	d.l1HeadSub = d.state.SubL1HeadsFeed(d.l1HeadCh)
 
+	if d.SoftBlockServerPort > 0 {
+		if d.softblockServer, err = softblocks.New(
+			d.SoftBlockServerCORSOrigins,
+			d.SoftBlockServerJWTSecret,
+			d.l2ChainSyncer.BlobSyncer(),
+			d.rpc,
+			d.Config.SoftBlockServerCheckSig,
+		); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -97,6 +111,15 @@ func (d *Driver) Start() error {
 	go d.reportProtocolStatus()
 	go d.exchangeTransitionConfigLoop()
 
+	// Start the soft block server if it is enabled.
+	if d.softblockServer != nil {
+		go func() {
+			if err := d.softblockServer.Start(d.SoftBlockServerPort); err != nil {
+				log.Crit("Failed to start soft block server", "error", err)
+			}
+		}()
+	}
+
 	return nil
 }
 
@@ -104,6 +127,12 @@ func (d *Driver) Start() error {
 func (d *Driver) Close(_ context.Context) {
 	d.l1HeadSub.Unsubscribe()
 	d.state.Close()
+	// Close the soft block server if it is enabled.
+	if d.softblockServer != nil {
+		if err := d.softblockServer.Shutdown(d.ctx); err != nil {
+			log.Error("Failed to shutdown soft block server", "error", err)
+		}
+	}
 	d.wg.Wait()
 }
 
