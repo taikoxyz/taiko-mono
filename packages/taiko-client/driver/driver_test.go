@@ -97,6 +97,10 @@ func (s *DriverTestSuite) TestProcessL1Blocks() {
 	}
 }
 
+func (s *DriverTestSuite) TestResetNode() {
+	s.Nil(testutils.ResetNode(s.RPCClient))
+}
+
 func (s *DriverTestSuite) TestCheckL1ReorgToHigherFork() {
 	var (
 		testnetL1SnapshotID = s.SetL1Snapshot()

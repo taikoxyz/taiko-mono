@@ -162,7 +162,7 @@ func (s *ClientTestSuite) setAllowance(key *ecdsa.PrivateKey) {
 
 func (s *ClientTestSuite) TearDownTest() {
 	s.RevertL1Snapshot(s.testnetL1SnapshotID)
-	s.Nil(rpc.SetHead(context.Background(), s.RPCClient.L2, common.Big0))
+	s.Nil(ResetNode(s.RPCClient))
 }
 
 func (s *ClientTestSuite) SetL1Automine(automine bool) {

@@ -1,15 +1,15 @@
 package rpc
 
 import (
-	"context"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
+
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 )
 
 func TestSetHead(t *testing.T) {
-	require.Nil(t, SetHead(context.Background(), newTestClient(t).L2, common.Big0))
+	require.Nil(t, testutils.ResetNode(newTestClient(t)))
 }
 
 func TestStringToBytes32(t *testing.T) {

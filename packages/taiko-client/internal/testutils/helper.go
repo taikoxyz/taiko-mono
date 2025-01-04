@@ -5,15 +5,19 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"math/big"
+	"os"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/consensus/taiko"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/phayes/freeport"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
@@ -319,4 +323,74 @@ func SendDynamicFeeTx(
 		return nil, err
 	}
 	return tx, nil
+}
+
+// ResetNode resets the L2 node to the genesis state.
+func ResetNode(client *rpc.Client) error {
+	ctxWithTimeout, cancel := context.WithTimeout(context.Background(), time.Second*3)
+	defer cancel()
+
+	// Due to reth node can't directly set head, we need to reset the node by sending a new block.
+	if os.Getenv("L2_NODE") == "l2_reth" {
+		err := rpc.SetHead(context.Background(), client.L2, common.Big0)
+		if err != nil {
+			return err
+		}
+
+		// get the first block.
+		block, err := client.L2.BlockByNumber(context.Background(), common.Big1)
+		if err != nil {
+			return err
+		}
+		// get l1origin
+		l1Origin, err := client.L2.L1OriginByID(context.Background(), common.Big1)
+		if err != nil {
+			return err
+		}
+		txListBytes, err := rlp.EncodeToBytes(block.Transactions()[:1])
+		if err != nil {
+			return err
+		}
+		res, err := client.L2Engine.ForkchoiceUpdate(
+			context.Background(),
+			&engine.ForkchoiceStateV1{
+				HeadBlockHash: block.ParentHash(),
+			},
+			&engine.PayloadAttributes{
+				Timestamp:             block.Time() + 1,
+				Random:                common.BigToHash(block.Difficulty()),
+				SuggestedFeeRecipient: block.Coinbase(),
+				Withdrawals:           make(types.Withdrawals, 0),
+				BlockMetadata: &engine.BlockMetadata{
+					Beneficiary: block.Coinbase(),
+					GasLimit:    block.GasLimit() + taiko.AnchorGasLimit,
+					Timestamp:   block.Time() + 1,
+					TxList:      txListBytes,
+					MixHash:     common.BigToHash(block.Difficulty()),
+					ExtraData:   block.Extra(),
+				},
+				BaseFeePerGas: block.BaseFee(),
+				L1Origin:      l1Origin,
+			},
+		)
+		if err != nil {
+			return err
+		}
+
+		payload, err := client.L2Engine.GetPayload(context.Background(), res.PayloadID)
+		if err != nil {
+			return err
+		}
+		_, err = client.L2Engine.NewPayload(context.Background(), payload)
+		if err != nil {
+			return err
+		}
+
+		_, err = client.L2Engine.ForkchoiceUpdate(context.Background(), &engine.ForkchoiceStateV1{
+			HeadBlockHash: payload.BlockHash,
+		}, nil)
+		return err
+	} else {
+		return rpc.SetHead(ctxWithTimeout, client.L2, common.Big0)
+	}
 }

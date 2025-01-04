@@ -3,7 +3,6 @@ package chainsyncer
 import (
 	"bytes"
 	"context"
-
 	"os"
 	"testing"
 	"time"
@@ -169,7 +168,7 @@ func (s *ChainSyncerTestSuite) TakeSnapshot() {
 func (s *ChainSyncerTestSuite) RevertSnapshot() {
 	// revert to the snapshot state so protocol configs are unaffected
 	s.RevertL1Snapshot(s.snapshotID)
-	s.Nil(rpc.SetHead(context.Background(), s.RPCClient.L2, common.Big0))
+	s.Nil(testutils.ResetNode(s.RPCClient))
 }
 
 func (s *ChainSyncerTestSuite) TestAheadOfProtocolVerifiedHead() {
