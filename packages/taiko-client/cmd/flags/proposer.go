@@ -2,8 +2,6 @@ package flags
 
 import (
 	"github.com/urfave/cli/v2"
-
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/version"
 )
 
 // Required flags used by proposer.
@@ -69,14 +67,6 @@ var (
 		Value:    0,
 		EnvVars:  []string{"EPOCH_ALLOW_ZERO_INTERVAL"},
 	}
-	// Proposing metadata related.
-	ExtraData = &cli.StringFlag{
-		Name:     "extraData",
-		Usage:    "Block extra data set by the proposer (default = client version)",
-		Value:    version.CommitVersion(),
-		Category: proposerCategory,
-		EnvVars:  []string{"EXTRA_DATA"},
-	}
 	// Transactions pool related.
 	TxPoolLocals = &cli.StringSliceFlag{
 		Name:     "txPool.locals",
@@ -113,11 +103,12 @@ var (
 		EnvVars:  []string{"L1_FALLBACK_TO_CALLDATA"},
 	}
 	RevertProtectionEnabled = &cli.BoolFlag{
-		Name:     "revertProtection",
-		Usage:    "Enable revert protection with the support of endpoint and contract",
+		Name: "l1.revertProtection",
+		Usage: "Enable revert protection within your ProverSet contract, " +
+			"this is effective only if your PBS service supports revert protection",
 		Value:    false,
 		Category: proposerCategory,
-		EnvVars:  []string{"REVERT_PROTECTION"},
+		EnvVars:  []string{"L1_REVERT_PROTECTION"},
 	}
 )
 
@@ -132,7 +123,6 @@ var ProposerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	ProposeInterval,
 	TxPoolLocals,
 	TxPoolLocalsOnly,
-	ExtraData,
 	MinGasUsed,
 	MinTxListBytes,
 	MinTip,

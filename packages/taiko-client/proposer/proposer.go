@@ -122,7 +122,6 @@ func (p *Proposer) InitFromConfig(
 		cfg.TaikoL1Address,
 		cfg.ProverSetAddress,
 		cfg.ProposeBlockTxGasLimit,
-		cfg.ExtraData,
 		p.chainConfig,
 		p.txmgrSelector,
 		cfg.RevertProtectionEnabled,

@@ -133,7 +133,6 @@ func (s *TransactionBuilderTestSuite) newTestBuilderWithFallback(
 		common.HexToAddress(os.Getenv("TAIKO_L1")),
 		common.Address{},
 		10_000_000,
-		"test_fallback_builder",
 		chainConfig,
 		txmgrSelector,
 		true,
