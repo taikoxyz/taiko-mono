@@ -32,6 +32,8 @@ var (
 	ProposerPoolContentFetchTime   = factory.NewGauge(prometheus.GaugeOpts{Name: "proposer_pool_content_fetch_time"})
 	ProposerEstimatedCostCalldata  = factory.NewGauge(prometheus.GaugeOpts{Name: "proposer_estimated_cost_calldata"})
 	ProposerEstimatedCostBlob      = factory.NewGauge(prometheus.GaugeOpts{Name: "proposer_estimated_cost_blob"})
+	ProposerProposeByCalldata      = factory.NewGauge(prometheus.GaugeOpts{Name: "proposer_propose_by_calldata"})
+	ProposerProposeByBlob          = factory.NewGauge(prometheus.GaugeOpts{Name: "proposer_propose_by_blob"})
 
 	// Prover
 	ProverLatestVerifiedIDGauge      = factory.NewGauge(prometheus.GaugeOpts{Name: "prover_latestVerified_id"})
