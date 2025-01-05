@@ -40,7 +40,7 @@
     },
     "alerts": {
       "not_enough_funds": "You do not have enough ETH to cover the processing fee and transaction fee. Please add more ETH to your wallet (>= 0.0015 ETH).",
-      "slow_bridging": "Please note: Bridging to L1 will take around 24hrs!",
+      "slow_bridging": "Please note: Bridging to L1 will take around 4hs!",
       "smart_contract_wallet": "It seems you are using a smart contract wallet. Please double check that the recipient matches your wallet on the destination or change it accordingly.",
       "wrapped_eth": "You are bridging wrapped ETH. Please be aware that un-wrapping will only work on the original chain of the token, <span class=\"font-bold\">NOT</span> on the destination."
     },

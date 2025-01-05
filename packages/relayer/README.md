@@ -2,7 +2,7 @@
 
 # Relayer
 
-A relayer for the Bridge to watch and sync event between Layer 1 and Taiko Layer 2.
+A relayer for the Bridge to watch and sync events between Layer 1 and Taiko Layer 2.
 
 ## Build the Source
 

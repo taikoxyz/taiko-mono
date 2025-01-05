@@ -14,8 +14,8 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
 var (
@@ -80,7 +80,6 @@ func rlpEncodedTransactionBytes(l int, signed bool) []byte {
 		var tx *types.Transaction
 		if signed {
 			txData := &types.LegacyTx{Nonce: 1, To: &testAddr, GasPrice: common.Big256, Value: common.Big1, Gas: 10}
-
 			tx = types.MustSignNewTx(testKey, types.LatestSigner(&params.ChainConfig{ChainID: chainID}), txData)
 		} else {
 			tx = types.NewTransaction(1, testAddr, common.Big1, 10, new(big.Int).SetUint64(10*params.GWei), nil)

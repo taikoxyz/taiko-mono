@@ -2,7 +2,7 @@
 
 ## Setup
 
-To run in localhost, first, start an Anvil node:
+To run on localhost, first, start an Anvil node:
 
 ```shell
 $ pnpm node
@@ -20,7 +20,7 @@ $ pnpm install # installs the workspace's dependencies
 
 ## Deploying the Taikoons
 
-In order to deploy the token, the images for the NFTs must be placed under `data/original/`. The following script will re-size them and upload them to IPFS:
+In order to deploy the token, the images for the NFTs must be placed under `data/original/`. The following script will resize them and upload them to IPFS:
 
 ```shell
 $ pnpm deploy:ipfs

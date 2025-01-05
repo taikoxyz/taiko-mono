@@ -21,12 +21,13 @@
 ### taiko_token
 
 - proxy: `0x6490E12d480549D333499236fF2Ba6676C296011`
-- impl: `0x01BB2fD6D80942CE95B43c1322530fe690F2bc0e`
+- impl: `0xD826bb700EAEdD6E83C32681f95a35Ac7F290104`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on Mar 29, 2024 at commit `b341a68d5`
   - upgraded on Jun 18, 2024, added `batchTransfer` method.
   - transferred ownership on Jul 8, 2024
+  - upgraded on Dec 16, 2024 at commit `ccc9500`
 
 ### signal_service
 
@@ -154,7 +155,7 @@
 
 ### tierRouter
 
-- impl: `0x98d4FaD098526c4582063FA588C5e96229270366`
+- impl: `0x6A666F2C56a6559dB0BD8866Bd0c0dDB9ec03c66`
 - logs:
   - deployed on Jun 10, 2024 at commit `d5965bb`
   - upgraded on Jun 14, 2024 at commit `cc10b04`
@@ -164,6 +165,7 @@
   - upgraded on Oct 24, 2024 at commit `78f9ac0`
   - upgraded on Oct 30, 2024 at commit `63455f9`
   - upgraded on Nov 4, 2024 at commit `90b2693`
+  - upgraded on Nov 4, 2024 at commit `8e00612`
 
 ### prover_set
 
@@ -237,11 +239,12 @@
 
 ### sp1_plonk_verifier
 
-- addr : 0xa5287276f63b669E09cF6Dc6F44e941d77D7139e
+- addr : 0xfb2d02219D065eBF3Aa8d2D1a1C52b1868EE7384
 - logs:
   - deployed on September 02, 2024 at commit `16ac02e`
   - upgraded on September 15, 2024 at commit `6f26434`
   - upgraded on October 22, 2024 at commit `684a909`
+  - upgraded on Nov 8, 2024 at commit `0b11101`
 
 ### tier_zkvm_sp1
 

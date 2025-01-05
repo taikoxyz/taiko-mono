@@ -163,11 +163,9 @@ func (srv *Server) GetEventsByAddress(c echo.Context) error {
 			common.HexToHash(r.Raw.BlockHash),
 			uint(txIndex),
 		)
-		if err != nil {
-			return webutils.LogAndRenderErrors(c, http.StatusUnprocessableEntity, err)
+		if err == nil {
+			v.ClaimedBy = sender.Hex()
 		}
-
-		v.ClaimedBy = sender.Hex()
 
 		v.ProcessedTxHash = r.Raw.TransactionHash
 	}

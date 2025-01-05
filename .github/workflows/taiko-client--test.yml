@@ -7,10 +7,13 @@ on:
       - "packages/taiko-client/**"
       - "go.mod"
       - "go.sum"
+      - "!**/*.md"
+    branches-ignore:
+      - release-please--branches--**
 
 jobs:
   lint:
-    if: contains(github.event.pull_request.labels.*.name, 'option.workflow_on') || github.event.pull_request.draft == false && github.head_ref != 'release-please-*' 
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && github.actor != 'dependabot[bot]' }}
     name: Lint
     runs-on: [ubuntu-latest]
     steps:
@@ -30,7 +33,7 @@ jobs:
         run: golangci-lint run --path-prefix=./ --config=.golangci.yml
 
   integration_tests:
-    if: contains(github.event.pull_request.labels.*.name, 'option.workflow_on') || github.event.pull_request.draft == false && github.head_ref != 'release-please-*' 
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
     name: Integration tests
     runs-on: [ubuntu-latest]
     timeout-minutes: 15
@@ -66,6 +69,6 @@ jobs:
         run: make test
 
       - name: Codecov.io
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           files: packages/taiko-client/coverage.out

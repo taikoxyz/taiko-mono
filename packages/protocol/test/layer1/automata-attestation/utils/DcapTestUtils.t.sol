@@ -235,7 +235,7 @@ contract DcapTestUtils {
     // Converts a string to a hexstring (of bytes type)
     // https://ethereum.stackexchange.com/questions/39989/solidity-convert-hex-string-to-bytes
 
-    // Convert an hexadecimal character to their value
+    // Convert a hexadecimal character to their value
     function _fromHexChar(uint8 c) private pure returns (uint8) {
         if (bytes1(c) >= bytes1("0") && bytes1(c) <= bytes1("9")) {
             return c - uint8(bytes1("0"));
@@ -249,7 +249,7 @@ contract DcapTestUtils {
         revert("failed to convert hex value");
     }
 
-    // Convert an hexadecimal string to raw bytes
+    // Convert a hexadecimal string to raw bytes
     function _fromHex(string memory s) private pure returns (bytes memory) {
         bytes memory ss = bytes(s);
         require(ss.length % 2 == 0); // length must be even

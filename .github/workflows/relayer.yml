@@ -5,19 +5,17 @@ on:
     branches: [main]
     paths:
       - "packages/relayer/**"
-      - "go.mod"
-      - "go.sum"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "packages/relayer/**"
-      - "go.mod"
-      - "go.sum"
+    branches-ignore:
+      - release-please--branches--**
 
 jobs:
   lint-relayer:
     name: lint-relayer
-    if: ${{ github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'option.workflow_on') || github.event.pull_request.draft == false && github.head_ref != 'release-please-*') }}
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'refs/heads/dependabot/')}}
     runs-on: [arc-runner-set]
     steps:
       - uses: actions/setup-go@v5
@@ -35,7 +33,7 @@ jobs:
           args: --config=.golangci.yml --timeout=4m
 
   test-relayer:
-    if: ${{ github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'option.workflow_on') || github.event.pull_request.draft == false && github.head_ref != 'release-please-*') }}
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'refs/heads/dependabot/') }}
     runs-on: [arc-runner-set]
     needs: lint-relayer
     steps:
@@ -57,14 +55,14 @@ jobs:
         run: go test `go list ./... | grep -v ./contracts | grep -v ./mock | grep -v ./cmd` -coverprofile=coverage.txt -covermode=atomic
 
       - name: relayer - Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           files: ./packages/relayer/coverage.txt
           flags: relayer
 
   push-relayer-docker-image:
     # Skip dependabot PRs
-    if: ${{ github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'option.workflow_on') || github.event.pull_request.draft == false && github.head_ref != 'release-please-*') }}
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'refs/heads/dependabot/') && github.event.pull_request.head.repo.fork == false }}
     name: Build and push docker image
     runs-on: [arc-runner-set]
 

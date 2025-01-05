@@ -14,9 +14,9 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
 	pkgFlags "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/flags"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
 // Config contains the configurations to initialize a Taiko prover.
@@ -43,12 +43,8 @@ type Config struct {
 	RPCTimeout                              time.Duration
 	ProveBlockGasLimit                      uint64
 	HTTPServerPort                          uint64
-	Capacity                                uint64
 	MinEthBalance                           *big.Int
-	MinTaikoTokenBalance                    *big.Int
 	MaxExpiry                               time.Duration
-	MaxProposedIn                           uint64
-	MaxBlockSlippage                        uint64
 	Allowance                               *big.Int
 	GuardianProverHealthCheckServerEndpoint *url.URL
 	RaikoHostEndpoint                       string
@@ -60,6 +56,9 @@ type Config struct {
 	BlockConfirmations                      uint64
 	TxmgrConfigs                            *txmgr.CLIConfig
 	PrivateTxmgrConfigs                     *txmgr.CLIConfig
+	SGXProofBufferSize                      uint64
+	ZKVMProofBufferSize                     uint64
+	ForceBatchProvingInterval               time.Duration
 }
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
@@ -114,16 +113,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		}
 	}
 
-	minEthBalance, err := utils.EtherToWei(c.Float64(flags.MinEthBalance.Name))
-	if err != nil {
-		return nil, err
-	}
-
-	minTaikoTokenBalance, err := utils.EtherToWei(c.Float64(flags.MinTaikoTokenBalance.Name))
-	if err != nil {
-		return nil, err
-	}
-
 	if !c.IsSet(flags.GuardianProverMajority.Name) && !c.IsSet(flags.RaikoHostEndpoint.Name) {
 		return nil, errors.New("empty raiko host endpoint")
 	}
@@ -162,13 +151,8 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		EnableLivenessBondProof:                 c.Bool(flags.EnableLivenessBondProof.Name),
 		RPCTimeout:                              c.Duration(flags.RPCTimeout.Name),
 		ProveBlockGasLimit:                      c.Uint64(flags.TxGasLimit.Name),
-		Capacity:                                c.Uint64(flags.ProverCapacity.Name),
 		HTTPServerPort:                          c.Uint64(flags.ProverHTTPServerPort.Name),
-		MinEthBalance:                           minEthBalance,
-		MinTaikoTokenBalance:                    minTaikoTokenBalance,
 		MaxExpiry:                               c.Duration(flags.MaxExpiry.Name),
-		MaxBlockSlippage:                        c.Uint64(flags.MaxAcceptableBlockSlippage.Name),
-		MaxProposedIn:                           c.Uint64(flags.MaxProposedIn.Name),
 		Allowance:                               allowance,
 		L1NodeVersion:                           c.String(flags.L1NodeVersion.Name),
 		L2NodeVersion:                           c.String(flags.L2NodeVersion.Name),
@@ -183,5 +167,8 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			l1ProverPrivKey,
 			c,
 		),
+		SGXProofBufferSize:        c.Uint64(flags.SGXBatchSize.Name),
+		ZKVMProofBufferSize:       c.Uint64(flags.ZKVMBatchSize.Name),
+		ForceBatchProvingInterval: c.Duration(flags.ForceBatchProvingInterval.Name),
 	}, nil
 }

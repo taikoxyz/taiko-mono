@@ -121,6 +121,8 @@ type Indexer struct {
 	minFeeToIndex uint64
 
 	cfg *Config
+
+	confirmations uint64
 }
 
 // InitFromCli inits a new Indexer from command line or environment variables.
@@ -233,6 +235,8 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 	i.eventName = cfg.EventName
 
 	i.cfg = cfg
+
+	i.confirmations = cfg.Confirmations
 
 	i.ctx = ctx
 
