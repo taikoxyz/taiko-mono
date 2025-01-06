@@ -37,7 +37,6 @@ func NewBuilderWithFallback(
 	taikoL1Address common.Address,
 	proverSetAddress common.Address,
 	gasLimit uint64,
-	extraData string,
 	chainConfig *config.ChainConfig,
 	txmgrSelector *utils.TxMgrSelector,
 	revertProtectionEnabled bool,
@@ -58,7 +57,6 @@ func NewBuilderWithFallback(
 			proverSetAddress,
 			l2SuggestedFeeRecipient,
 			gasLimit,
-			extraData,
 			chainConfig,
 			revertProtectionEnabled,
 		)
@@ -71,7 +69,6 @@ func NewBuilderWithFallback(
 		taikoL1Address,
 		proverSetAddress,
 		gasLimit,
-		extraData,
 		chainConfig,
 		revertProtectionEnabled,
 	)

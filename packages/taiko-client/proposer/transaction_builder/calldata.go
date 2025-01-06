@@ -24,7 +24,6 @@ type CalldataTransactionBuilder struct {
 	taikoL1Address          common.Address
 	proverSetAddress        common.Address
 	gasLimit                uint64
-	extraData               string
 	chainConfig             *config.ChainConfig
 	revertProtectionEnabled bool
 }
@@ -37,7 +36,6 @@ func NewCalldataTransactionBuilder(
 	taikoL1Address common.Address,
 	proverSetAddress common.Address,
 	gasLimit uint64,
-	extraData string,
 	chainConfig *config.ChainConfig,
 	revertProtectionEnabled bool,
 ) *CalldataTransactionBuilder {
@@ -48,7 +46,6 @@ func NewCalldataTransactionBuilder(
 		taikoL1Address,
 		proverSetAddress,
 		gasLimit,
-		extraData,
 		chainConfig,
 		revertProtectionEnabled,
 	}
