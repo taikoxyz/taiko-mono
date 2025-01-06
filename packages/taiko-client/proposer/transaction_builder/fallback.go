@@ -122,6 +122,7 @@ func (b *TxBuilderWithFallback) BuildOntake(
 
 	if err = g.Wait(); err != nil {
 		log.Error("Failed to estimate transactions cost, will build a type-3 transaction", "error", err)
+		metrics.ProposerCostEstimationError.Inc()
 		// If there is an error, just build a blob transaction.
 		return b.blobTransactionBuilder.BuildOntake(ctx, txListBytesArray)
 	}
