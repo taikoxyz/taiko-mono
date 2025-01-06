@@ -127,8 +127,15 @@ func (b *TxBuilderWithFallback) BuildOntake(
 		return b.blobTransactionBuilder.BuildOntake(ctx, txListBytesArray)
 	}
 
-	metrics.ProposerEstimatedCostCalldata.Set(float64(costCalldata.Uint64()))
-	metrics.ProposerEstimatedCostBlob.Set(float64(costBlob.Uint64()))
+	var (
+		costCalldataFloat64 float64
+		costBlobFloat64     float64
+	)
+	costCalldataFloat64, _ = utils.WeiToEther(costCalldata).Float64()
+	costBlobFloat64, _ = utils.WeiToEther(costBlob).Float64()
+
+	metrics.ProposerEstimatedCostCalldata.Set(costCalldataFloat64)
+	metrics.ProposerEstimatedCostBlob.Set(costBlobFloat64)
 
 	if costCalldata.Cmp(costBlob) < 0 {
 		log.Info("Building a type-2 transaction", "costCalldata", costCalldata, "costBlob", costBlob)
