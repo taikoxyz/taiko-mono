@@ -484,7 +484,7 @@ func (s *ProofSubmitter) AggregateProofs(ctx context.Context) error {
 					log.Info(
 						"Aggregating proofs",
 						"status", err,
-						"size", len(buffer),
+						"batchSize", len(buffer),
 						"firstID", buffer[0].BlockID,
 						"lastID", buffer[len(buffer)-1].BlockID,
 						"tier", s.Tier(),
