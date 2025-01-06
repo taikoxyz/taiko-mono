@@ -57,6 +57,9 @@ func Test_sendProcessMessageCall(t *testing.T) {
 }
 
 func Test_generateEncodedSignalProof(t *testing.T) {
+	// Test data is from this
+	// https://holesky.etherscan.io/tx/0x086729ca21c2db5714560943a6522362c837c9cf6424dfcc7b8f15f132b7f934
+	// https://relayer.hekla.taiko.xyz/events?address=0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190&event=MessageSent
 	privateKey, _ := crypto.HexToECDSA(dummyEcdsaKey)
 	srcRpcClient, err := rpc.Dial("https://l1rpc.hekla.taiko.xyz")
 	assert.Nil(t, err)

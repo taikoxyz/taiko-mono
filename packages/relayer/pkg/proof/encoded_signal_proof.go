@@ -10,6 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
+
+	"log/slog"
 )
 
 type HopParams struct {
@@ -87,12 +89,15 @@ func (p *Prover) getProof(
 ) (*StorageProof, error) {
 	var ethProof StorageProof
 
+	slog.Info("getProof", "key", key)
+	slog.Info("getProof", "blockNumber", blockNumber)
+
 	err := c.CallContext(ctx,
 		&ethProof,
 		"eth_getProof",
 		signalServiceAddress,
 		[]string{key},
-		hexutil.EncodeBig(new(big.Int).SetInt64(blockNumber)),
+		"latest",
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "c.CallContext")
