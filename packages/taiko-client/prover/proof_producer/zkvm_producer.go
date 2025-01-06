@@ -79,6 +79,7 @@ func (s *ZKvmProofProducer) RequestProof(
 		"height", header.Number,
 		"hash", header.Hash(),
 		"zk type", s.ZKProofType,
+		"time", time.Since(requestAt),
 	)
 
 	if s.Dummy {
