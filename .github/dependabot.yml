@@ -5,7 +5,8 @@
 # - Monthly updates scheduled for Saturday 04:20 ET
 # - Dependencies are grouped by ecosystem to minimize PR noise
 # - Each group has designated reviewers and single PR limit
-# - To ignore updates for a dependency, add to ecosystem's ignore field:
+# - To ignore updates for a dependency, add to ecosystem's ignore field (and open
+#   a GitHub issue if needed for tracking):
 #   ignore:
 #     - dependency-name: "golang.org/x/crypto"  # skip all crypto updates
 
