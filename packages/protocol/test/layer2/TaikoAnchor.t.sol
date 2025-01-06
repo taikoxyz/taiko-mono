@@ -99,7 +99,8 @@ contract TestTaikoAnchor is Layer2Test {
             maxGasIssuancePerBlock: _maxGasIssuancePerBlock
         });
 
-        (uint256 basefee_,,) = anchor.getBasefeeV2(_parentGasUsed, baseFeeConfig);
+        (uint256 basefee_,,) =
+            anchor.getBasefeeV2(_parentGasUsed, uint64(block.timestamp), baseFeeConfig);
         assertTrue(basefee_ != 0, "basefee is 0");
     }
 
@@ -140,7 +141,8 @@ contract TestTaikoAnchor is Layer2Test {
             new bytes32[](0)
         );
 
-        (uint256 basefee, uint64 newGasTarget,) = anchor.getBasefeeV2(_parentGasUsed, baseFeeConfig);
+        (uint256 basefee, uint64 newGasTarget,) =
+            anchor.getBasefeeV2(_parentGasUsed, uint64(block.timestamp), baseFeeConfig);
 
         assertTrue(basefee != 0, "basefee is 0");
         assertEq(newGasTarget, anchor.parentGasTarget());
@@ -148,7 +150,8 @@ contract TestTaikoAnchor is Layer2Test {
         // change the gas issuance to change the gas target
         baseFeeConfig.gasIssuancePerSecond += 1;
 
-        (basefee, newGasTarget,) = anchor.getBasefeeV2(_parentGasUsed, baseFeeConfig);
+        (basefee, newGasTarget,) =
+            anchor.getBasefeeV2(_parentGasUsed, uint64(block.timestamp), baseFeeConfig);
 
         assertTrue(basefee != 0, "basefee is 0");
         assertTrue(newGasTarget != anchor.parentGasTarget());
