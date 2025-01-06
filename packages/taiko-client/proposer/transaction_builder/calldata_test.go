@@ -38,7 +38,6 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 		common.HexToAddress(os.Getenv("TAIKO_L1")),
 		common.Address{},
 		0,
-		"test",
 		chainConfig,
 		false,
 	)
@@ -49,7 +48,6 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 		common.Address{},
 		common.HexToAddress(os.Getenv("TAIKO_L2")),
 		10_000_000,
-		"test",
 		chainConfig,
 		false,
 	)

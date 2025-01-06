@@ -23,7 +23,6 @@ type Config struct {
 	*rpc.ClientConfig
 	L1ProposerPrivKey          *ecdsa.PrivateKey
 	L2SuggestedFeeRecipient    common.Address
-	ExtraData                  string
 	ProposeInterval            time.Duration
 	LocalAddresses             []common.Address
 	LocalAddressesOnly         bool
@@ -93,7 +92,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		},
 		L1ProposerPrivKey:          l1ProposerPrivKey,
 		L2SuggestedFeeRecipient:    common.HexToAddress(l2SuggestedFeeRecipient),
-		ExtraData:                  c.String(flags.ExtraData.Name),
 		ProposeInterval:            c.Duration(flags.ProposeInterval.Name),
 		LocalAddresses:             localAddresses,
 		LocalAddressesOnly:         c.Bool(flags.TxPoolLocalsOnly.Name),

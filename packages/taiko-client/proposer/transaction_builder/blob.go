@@ -25,7 +25,6 @@ type BlobTransactionBuilder struct {
 	proverSetAddress        common.Address
 	l2SuggestedFeeRecipient common.Address
 	gasLimit                uint64
-	extraData               string
 	chainConfig             *config.ChainConfig
 	revertProtectionEnabled bool
 }
@@ -38,7 +37,6 @@ func NewBlobTransactionBuilder(
 	proverSetAddress common.Address,
 	l2SuggestedFeeRecipient common.Address,
 	gasLimit uint64,
-	extraData string,
 	chainConfig *config.ChainConfig,
 	revertProtectionEnabled bool,
 ) *BlobTransactionBuilder {
@@ -49,7 +47,6 @@ func NewBlobTransactionBuilder(
 		proverSetAddress,
 		l2SuggestedFeeRecipient,
 		gasLimit,
-		extraData,
 		chainConfig,
 		revertProtectionEnabled,
 	}
