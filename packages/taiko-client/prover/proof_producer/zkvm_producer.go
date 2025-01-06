@@ -124,6 +124,10 @@ func (s *ZKvmProofProducer) Aggregate(
 	log.Info(
 		"Aggregate zkvm batch proofs from raiko-host service",
 		"zkType", s.ZKProofType,
+		"batchSize", len(items),
+		"firstID", items[0].BlockID,
+		"lastID", items[len(items)-1].BlockID,
+		"time", time.Since(requestAt),
 	)
 	if len(items) == 0 {
 		return nil, ErrInvalidLength
