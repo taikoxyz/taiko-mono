@@ -3,9 +3,9 @@ updates:
   - package-ecosystem: "gomod"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "saturday"
-      time: "04:20"
+      interval: "monthly"
+      day: "1"
+      time: "01:00"
       timezone: "America/New_York"
     open-pull-requests-limit: 1
     groups:
@@ -17,20 +17,74 @@ updates:
     directory: "/"
     schedule:
       interval: "monthly"
-      day: "saturday"
-      time: "04:20"
+      day: "1"
+      time: "02:00"
       timezone: "America/New_York"
     open-pull-requests-limit: 1
 
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "saturday"
-      time: "04:20"
+      interval: "monthly"
+      day: "1"
+      time: "03:00"
       timezone: "America/New_York"
     open-pull-requests-limit: 1
     groups:
-      all-dependencies:
+      balance-monitor:
         patterns:
-          - "*"
+          - "balance-monitor/**"
+      eventindexer:
+        patterns:
+          - "eventindexer/**"
+      monitors:
+        patterns:
+          - "monitors/**"
+      supplementary-contracts:
+        patterns:
+          - "supplementary-contracts/**"
+      blobstorage:
+        patterns:
+          - "blobstorage/**"
+      fork-diff:
+        patterns:
+          - "fork-diff/**"
+      nfts:
+        patterns:
+          - "nfts/**"
+      taiko-client:
+        patterns:
+          - "taiko-client/**"
+      branding:
+        patterns:
+          - "branding/**"
+      geth-rpc-gateway:
+        patterns:
+          - "geth-rpc-gateway/**"
+      protocol:
+        patterns:
+          - "protocol/**"
+      taikoon-ui:
+        patterns:
+          - "taikoon-ui/**"
+      bridge-ui:
+        patterns:
+          - "bridge-ui/**"
+      guardian-prover-health-check:
+        patterns:
+          - "guardian-prover-health-check/**"
+      guardian-prover-health-check-ui:
+        patterns:
+          - "guardian-prover-health-check-ui/**"
+      relayer:
+        patterns:
+          - "relayer/**"
+      ui-lib:
+        patterns:
+          - "ui-lib/**"
+      docs-site:
+        patterns:
+          - "docs-site/**"
+      snaefell-ui:
+        patterns:
+          - "snaefell-ui/**"
