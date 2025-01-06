@@ -87,7 +87,7 @@ func (b *TxBuilderWithFallback) BuildOntake(
 		return b.calldataTransactionBuilder.BuildOntake(ctx, txListBytesArray)
 	}
 	// If blob is enabled, and fallback is not enabled, just build a blob transaction.
-	if !b.fallback {
+	if !b.fallback || len(txListBytesArray) > 1 {
 		return b.blobTransactionBuilder.BuildOntake(ctx, txListBytesArray)
 	}
 
@@ -103,25 +103,27 @@ func (b *TxBuilderWithFallback) BuildOntake(
 
 	g.Go(func() error {
 		if txWithCalldata, err = b.calldataTransactionBuilder.BuildOntake(ctx, txListBytesArray); err != nil {
-			return err
+			return fmt.Errorf("failed to build type-2 transaction: %w", err)
 		}
 		if costCalldata, err = b.estimateCandidateCost(ctx, txWithCalldata); err != nil {
-			return err
+			return fmt.Errorf("failed to estimate type-2 transaction cost: %w", err)
 		}
 		return nil
 	})
 	g.Go(func() error {
 		if txWithBlob, err = b.blobTransactionBuilder.BuildOntake(ctx, txListBytesArray); err != nil {
-			return err
+			return fmt.Errorf("failed to build type-3 transaction: %w", err)
 		}
 		if costBlob, err = b.estimateCandidateCost(ctx, txWithBlob); err != nil {
-			return err
+			return fmt.Errorf("failed to estimate type-3 transaction cost: %w", err)
 		}
 		return nil
 	})
 
 	if err = g.Wait(); err != nil {
-		return nil, err
+		log.Error("Failed to estimate transactions cost, will build a type-3 transaction", "error", err)
+		// If there is an error, just build a blob transaction.
+		return b.blobTransactionBuilder.BuildOntake(ctx, txListBytesArray)
 	}
 
 	metrics.ProposerEstimatedCostCalldata.Set(float64(costCalldata.Uint64()))
