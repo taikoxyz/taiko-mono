@@ -196,6 +196,11 @@ func (s *ZKvmProofProducer) callProverDaemon(
 		"time", time.Since(requestAt),
 		"producer", "ZKvmProofProducer",
 	)
+	if s.ZKProofType == ZKProofTypeR0 {
+		metrics.ProverR0ProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
+	} else if s.ZKProofType == ZKProofTypeSP1 {
+		metrics.ProverSP1ProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
+	}
 
 	return proof, nil
 }
