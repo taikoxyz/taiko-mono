@@ -104,7 +104,6 @@ func (s *SGXProofProducer) RequestProof(
 		"Request sgx proof from raiko-host service",
 		"blockID", blockID,
 		"coinbase", meta.GetCoinbase(),
-		"height", header.Number,
 		"hash", header.Hash(),
 		"time", time.Since(requestAt),
 	)
@@ -358,14 +357,14 @@ func (s *SGXProofProducer) callProverDaemon(
 
 	output, err := s.requestProof(ctx, opts)
 	if err != nil {
-		log.Error("Failed to request proof", "height", opts.BlockID, "error", err, "endpoint", s.RaikoHostEndpoint)
+		log.Error("Failed to request proof", "blockID", opts.BlockID, "error", err, "endpoint", s.RaikoHostEndpoint)
 		return nil, err
 	}
 
 	if output == nil {
 		log.Info(
 			"Proof generating",
-			"height", opts.BlockID,
+			"blockID", opts.BlockID,
 			"time", time.Since(requestAt),
 			"producer", "SGXProofProducer",
 		)
@@ -392,7 +391,7 @@ func (s *SGXProofProducer) callProverDaemon(
 
 	log.Info(
 		"Proof generated",
-		"height", opts.BlockID,
+		"blockID", opts.BlockID,
 		"time", time.Since(requestAt),
 		"producer", "SGXProofProducer",
 	)

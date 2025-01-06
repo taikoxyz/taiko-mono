@@ -237,7 +237,7 @@ func (s *Syncer) onBlockProposed(
 
 	log.Debug(
 		"Parent block",
-		"height", parent.Number,
+		"blockID", parent.Number,
 		"hash", parent.Hash(),
 		"beaconSyncTriggered", s.progressTracker.Triggered(),
 	)
@@ -286,7 +286,6 @@ func (s *Syncer) onBlockProposed(
 	log.Info(
 		"🔗 New L2 block inserted",
 		"blockID", meta.GetBlockID(),
-		"height", payloadData.Number,
 		"hash", payloadData.BlockHash,
 		"transactions", len(payloadData.Transactions),
 		"baseFee", utils.WeiToGWei(payloadData.BaseFeePerGas),
