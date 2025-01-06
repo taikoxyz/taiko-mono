@@ -1,13 +1,13 @@
-name: GitHub Pages
+name: "Taiko Client Github Pages"
 
 on:
   push:
-    branches:
-      - preconf-driver-apis
+    branches: [main]
+    paths:
+      - "packages/taiko-client/**"
 
 jobs:
   swagger-gen:
-    if: ${{ !contains(github.event.head_commit.message, 'Update Swagger documentation') }}
     runs-on: [arc-runner-set]
     steps:
       - name: Checkout code
@@ -45,7 +45,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   deploy:
-    if: ${{ !contains(github.event.head_commit.message, 'Update Swagger documentation') }}
     runs-on: [arc-runner-set]
     needs: swagger-gen
     permissions:
