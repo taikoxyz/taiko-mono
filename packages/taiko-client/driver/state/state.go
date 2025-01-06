@@ -71,7 +71,7 @@ func (s *State) init(ctx context.Context) error {
 	s.OnTakeForkHeight = new(big.Int).SetUint64(protocolConfigs.OntakeForkHeight)
 
 	log.Info("Genesis L1 height", "height", stateVars.A.GenesisHeight)
-	log.Info("OnTake fork height", "height", s.OnTakeForkHeight)
+	log.Info("OnTake fork height", "blockID", s.OnTakeForkHeight)
 
 	// Set the L2 head's latest known L1 origin as current L1 sync cursor.
 	latestL2KnownL1Header, err := s.rpc.LatestL2KnownL1Header(ctx)
@@ -93,7 +93,7 @@ func (s *State) init(ctx context.Context) error {
 		return err
 	}
 
-	log.Info("L2 execution engine head", "height", l2Head.Number, "hash", l2Head.Hash())
+	log.Info("L2 execution engine head", "blockID", l2Head.Number, "hash", l2Head.Hash())
 	s.setL2Head(l2Head)
 
 	s.setHeadBlockID(new(big.Int).SetUint64(stateVars.B.NumBlocks - 1))
@@ -214,7 +214,7 @@ func (s *State) setL2Head(l2Head *types.Header) {
 		return
 	}
 
-	log.Trace("New L2 head", "height", l2Head.Number, "hash", l2Head.Hash(), "timestamp", l2Head.Time)
+	log.Trace("New L2 head", "blockID", l2Head.Number, "hash", l2Head.Hash(), "timestamp", l2Head.Time)
 	metrics.DriverL2HeadHeightGauge.Set(float64(l2Head.Number.Uint64()))
 
 	s.l2Head.Store(l2Head)
