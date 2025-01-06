@@ -1,0 +1,39 @@
+name: Close Old Dependabot PRs
+
+on:
+  pull_request:
+    types:
+      - opened
+
+jobs:
+  close_old_dependabot_prs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Close Old Dependabot PRs by Ecosystem and Directory
+        env:
+          NEW_PR_TITLE: ${{ github.event.pull_request.title }}
+          NEW_PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          REPO="${{ github.repository }}"
+          NEW_BRANCH_PREFIX=$(echo "$NEW_PR_BRANCH" | awk -F'/' '{print $1"/"$2"/"$3}') # Extract prefix: dependabot/npm_and_yarn/<directory>
+
+          echo "New PR Branch Prefix: $NEW_BRANCH_PREFIX"
+
+          # Fetch all open Dependabot PRs
+          gh pr list --repo "$REPO" --state open --json number,title,headRef | jq -c '.[]' | while read -r pr; do
+              PR_NUMBER=$(echo "$pr" | jq -r '.number')
+              PR_TITLE=$(echo "$pr" | jq -r '.title')
+              PR_BRANCH=$(echo "$pr" | jq -r '.headRef')
+
+              # Match PRs in the same directory and ecosystem
+              PR_BRANCH_PREFIX=$(echo "$PR_BRANCH" | awk -F'/' '{print $1"/"$2"/"$3}')
+
+              if [[ "$PR_BRANCH_PREFIX" == "$NEW_BRANCH_PREFIX" && "$PR_TITLE" != "$NEW_PR_TITLE" ]]; then
+                  echo "Closing old PR #$PR_NUMBER: $PR_TITLE"
+                  gh pr close "$PR_NUMBER" --repo "$REPO" --delete-branch
+              fi
+          done
