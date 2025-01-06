@@ -78,7 +78,8 @@ func (s *ZKvmProofProducer) RequestProof(
 		"coinbase", meta.GetCoinbase(),
 		"height", header.Number,
 		"hash", header.Hash(),
-		"zk type", s.ZKProofType,
+		"zkType", s.ZKProofType,
+		"time", time.Since(requestAt),
 	)
 
 	if s.Dummy {
@@ -123,6 +124,10 @@ func (s *ZKvmProofProducer) Aggregate(
 	log.Info(
 		"Aggregate zkvm batch proofs from raiko-host service",
 		"zkType", s.ZKProofType,
+		"batchSize", len(items),
+		"firstID", items[0].BlockID,
+		"lastID", items[len(items)-1].BlockID,
+		"time", time.Since(requestAt),
 	)
 	if len(items) == 0 {
 		return nil, ErrInvalidLength
@@ -514,6 +519,12 @@ func (s *ZKvmProofProducer) requestBatchProof(
 		"time", time.Since(requestAt),
 		"producer", "ZKvmProofProducer",
 	)
+
+	if s.ZKProofType == ZKProofTypeR0 {
+		metrics.ProverR0AggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
+	} else if s.ZKProofType == ZKProofTypeSP1 {
+		metrics.ProverSP1AggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
+	}
 
 	return proof, nil
 }
