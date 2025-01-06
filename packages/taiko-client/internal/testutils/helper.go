@@ -332,22 +332,40 @@ func ResetNode(client *rpc.Client) error {
 
 	// Due to reth node can't directly set head, we need to reset the node by sending a new block.
 	if os.Getenv("L2_NODE") == "l2_reth" {
-		err := rpc.SetHead(context.Background(), client.L2, common.Big0)
+		latestNumber, err := client.L2.BlockNumber(context.Background())
 		if err != nil {
 			return err
 		}
 
-		// get the first block.
-		block, err := client.L2.BlockByNumber(context.Background(), common.Big1)
+		var (
+			txLst = make([]*types.Transaction, 0)
+			block *types.Block
+		)
+		for number := uint64(1); number <= latestNumber; number++ {
+			blk, err := client.L2.BlockByNumber(context.Background(), big.NewInt(int64(number)))
+			if err != nil {
+				return err
+			}
+
+			if number == 1 {
+				txLst = append(txLst, blk.Transactions()...)
+				block = blk
+			} else if txs := blk.Transactions(); len(txs) > 1 {
+				txLst = append(txLst, txs[1:]...)
+			}
+		}
+
+		err = rpc.SetHead(context.Background(), client.L2, common.Big0)
 		if err != nil {
 			return err
 		}
+
 		// get l1origin
 		l1Origin, err := client.L2.L1OriginByID(context.Background(), common.Big1)
 		if err != nil {
 			return err
 		}
-		txListBytes, err := rlp.EncodeToBytes(block.Transactions()[:1])
+		txListBytes, err := rlp.EncodeToBytes(txLst)
 		if err != nil {
 			return err
 		}
