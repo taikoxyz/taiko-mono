@@ -12,8 +12,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          ref: preconf-driver-apis
 
       - name: Set up Go
         uses: actions/setup-go@v4
@@ -52,8 +50,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          ref: preconf-driver-apis
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
@@ -61,3 +57,4 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: packages/taiko-client/docs # Set this to where your `index.html` is located
           publish_branch: gh-pages
+          destination_dir: soft-block-apis
