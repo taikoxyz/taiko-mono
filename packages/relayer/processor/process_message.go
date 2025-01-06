@@ -446,6 +446,8 @@ func (p *Processor) sendProcessMessageCall(
 	}
 
 	if len(code) != 0 {
+		gasLimit = uint64(float64(gasLimit) * 1.1)
+	} else {
 		gasLimit = uint64(float64(gasLimit) * 1.05)
 	}
 

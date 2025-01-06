@@ -106,6 +106,7 @@ func (s *SGXProofProducer) RequestProof(
 		"coinbase", meta.GetCoinbase(),
 		"height", header.Number,
 		"hash", header.Hash(),
+		"time", time.Since(requestAt),
 	)
 
 	if s.Dummy {
@@ -137,6 +138,10 @@ func (s *SGXProofProducer) Aggregate(
 ) (*BatchProofs, error) {
 	log.Info(
 		"Aggregate sgx batch proofs from raiko-host service",
+		"batchSize", len(items),
+		"firstID", items[0].BlockID,
+		"lastID", items[len(items)-1].BlockID,
+		"time", time.Since(requestAt),
 	)
 	if len(items) == 0 {
 		return nil, ErrInvalidLength
@@ -333,6 +338,7 @@ func (s *SGXProofProducer) requestBatchProof(
 		"time", time.Since(requestAt),
 		"producer", "SGXProofProducer",
 	)
+	metrics.ProverSGXAggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
 
 	return proof, nil
 }
@@ -390,6 +396,7 @@ func (s *SGXProofProducer) callProverDaemon(
 		"time", time.Since(requestAt),
 		"producer", "SGXProofProducer",
 	)
+	metrics.ProverSgxProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
 
 	return proof, nil
 }

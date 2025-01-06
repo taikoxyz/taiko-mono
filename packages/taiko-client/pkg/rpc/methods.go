@@ -552,14 +552,14 @@ func (c *Client) CheckL1Reorg(ctx context.Context, blockID *big.Int) (*ReorgChec
 		// If we rollback to the genesis block, then there is no L1Origin information recorded in the L2 execution
 		// engine for that block, so we will query the protocol to use `GenesisHeight` value to reset the L1 cursor.
 		if blockID.Cmp(common.Big0) == 0 {
-			slotA, _, err := c.TaikoL1.GetStateVariables(&bind.CallOpts{Context: ctxWithTimeout})
+			state, err := GetProtocolStateVariables(c.TaikoL1, &bind.CallOpts{Context: ctxWithTimeout})
 			if err != nil {
 				return result, err
 			}
 
 			if result.L1CurrentToReset, err = c.L1.HeaderByNumber(
 				ctxWithTimeout,
-				new(big.Int).SetUint64(slotA.GenesisHeight),
+				new(big.Int).SetUint64(state.A.GenesisHeight),
 			); err != nil {
 				return nil, err
 			}
@@ -642,7 +642,7 @@ func (c *Client) checkSyncedL1SnippetFromAnchor(
 	blockID *big.Int,
 	l1Height uint64,
 ) (bool, error) {
-	log.Info("Check synced L1 snippet from anchor", "blockID", blockID, "l1Height", l1Height)
+	log.Debug("Check synced L1 snippet from anchor", "blockID", blockID, "l1Height", l1Height)
 	block, err := c.L2.BlockByNumber(ctx, blockID)
 	if err != nil {
 		return false, err
@@ -907,6 +907,7 @@ func (c *Client) calculateBaseFeeOntake(
 				baseFeeInfo, err := c.TaikoL2.GetBasefeeV2(
 					&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
 					uint32(l2Head.GasUsed),
+					currentTimestamp,
 					*baseFeeConfig,
 				)
 				if err != nil {
@@ -939,6 +940,7 @@ func (c *Client) calculateBaseFeeOntake(
 			baseFeeInfo, err := c.TaikoL2.GetBasefeeV2(
 				&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
 				uint32(l2Head.GasUsed),
+				currentTimestamp,
 				*baseFeeConfig,
 			)
 			if err != nil {

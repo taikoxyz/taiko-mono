@@ -114,35 +114,20 @@ func (p *Proposer) InitFromConfig(
 	}
 
 	p.txmgrSelector = utils.NewTxMgrSelector(txMgr, privateTxMgr, nil)
-
-	chainConfig := config.NewChainConfig(p.protocolConfigs)
-	p.chainConfig = chainConfig
-
-	if cfg.BlobAllowed {
-		p.txBuilder = builder.NewBlobTransactionBuilder(
-			p.rpc,
-			p.L1ProposerPrivKey,
-			cfg.TaikoL1Address,
-			cfg.ProverSetAddress,
-			cfg.L2SuggestedFeeRecipient,
-			cfg.ProposeBlockTxGasLimit,
-			cfg.ExtraData,
-			chainConfig,
-			cfg.RevertProtectionEnabled,
-		)
-	} else {
-		p.txBuilder = builder.NewCalldataTransactionBuilder(
-			p.rpc,
-			p.L1ProposerPrivKey,
-			cfg.L2SuggestedFeeRecipient,
-			cfg.TaikoL1Address,
-			cfg.ProverSetAddress,
-			cfg.ProposeBlockTxGasLimit,
-			cfg.ExtraData,
-			chainConfig,
-			cfg.RevertProtectionEnabled,
-		)
-	}
+	p.chainConfig = config.NewChainConfig(p.protocolConfigs)
+	p.txBuilder = builder.NewBuilderWithFallback(
+		p.rpc,
+		p.L1ProposerPrivKey,
+		cfg.L2SuggestedFeeRecipient,
+		cfg.TaikoL1Address,
+		cfg.ProverSetAddress,
+		cfg.ProposeBlockTxGasLimit,
+		p.chainConfig,
+		p.txmgrSelector,
+		cfg.RevertProtectionEnabled,
+		cfg.BlobAllowed,
+		cfg.FallbackToCalldata,
+	)
 
 	return nil
 }

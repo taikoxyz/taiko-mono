@@ -351,7 +351,9 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 	log.Info(
 		"Batch submit block proofs",
 		"proof", common.Bytes2Hex(batchProof.BatchProof),
-		"blockIds", batchProof.BlockIDs,
+		"size", len(batchProof.Proofs),
+		"firstID", batchProof.BlockIDs[0],
+		"lastID", batchProof.BlockIDs[len(batchProof.BlockIDs)-1],
 		"tier", batchProof.Tier,
 	)
 	var (
@@ -479,9 +481,12 @@ func (s *ProofSubmitter) AggregateProofs(ctx context.Context) error {
 			if err != nil {
 				if errors.Is(err, proofProducer.ErrProofInProgress) ||
 					errors.Is(err, proofProducer.ErrRetry) {
-					log.Info("Aggregating proofs",
+					log.Info(
+						"Aggregating proofs",
 						"status", err,
-						"length", len(buffer),
+						"batchSize", len(buffer),
+						"firstID", buffer[0].BlockID,
+						"lastID", buffer[len(buffer)-1].BlockID,
 						"tier", s.Tier(),
 					)
 				} else {
