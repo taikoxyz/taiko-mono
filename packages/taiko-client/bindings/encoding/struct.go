@@ -16,9 +16,12 @@ var (
 	TierSgxID              uint16 = 200
 	TierZkVMRisc0ID        uint16 = 250
 	TierZkVMSp1ID          uint16 = 251
+	TierZkAnyID            uint16 = 252
 	TierSgxAndZkVMID       uint16 = 300
 	TierGuardianMinorityID uint16 = 900
 	TierGuardianMajorityID uint16 = 1000
+	TierZKVMRisc0                 = "tier_zkvm_risc0"
+	TierZKVMSP1                   = "tier_zkvm_sp1"
 	GoldenTouchPrivKey            = "92954368afd3caa1f3ce3ead0069c1af414054aefe1ef9aeacc1bf426222ce38"
 )
 

@@ -93,6 +93,7 @@ func (p *Prover) setApprovalAmount(ctx context.Context, contract common.Address)
 
 // initProofSubmitters initializes the proof submitters from the given tiers in protocol.
 func (p *Prover) initProofSubmitters(
+	ctx context.Context,
 	txBuilder *transaction.ProveBlockTxBuilder,
 	tiers []*rpc.TierProviderTierWithID,
 ) error {
@@ -132,6 +133,24 @@ func (p *Prover) initProofSubmitters(
 				RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 			}
 			bufferSize = p.cfg.ZKVMProofBufferSize
+		case encoding.TierZkAnyID:
+			risc0Verifier, err := p.rpc.Resolve(ctx, encoding.TierZKVMRisc0)
+			if err != nil {
+				return err
+			}
+			sp1Verifier, err := p.rpc.Resolve(ctx, encoding.TierZKVMSP1)
+			if err != nil {
+				return err
+			}
+			producer = &proofProducer.ZKAnyProofProducer{
+				RaikoHostEndpoint:   p.cfg.RaikoZKVMHostEndpoint,
+				JWT:                 p.cfg.RaikoJWT,
+				Dummy:               p.cfg.Dummy,
+				RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
+				Risc0Verifier:       risc0Verifier,
+				SP1Verifier:         sp1Verifier,
+			}
+			bufferSize = 0
 		case encoding.TierGuardianMinorityID:
 			producer = proofProducer.NewGuardianProofProducer(encoding.TierGuardianMinorityID, p.cfg.EnableLivenessBondProof)
 			bufferSize = 0

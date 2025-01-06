@@ -190,7 +190,7 @@ func InitFromConfig(
 	}
 
 	// Proof submitters
-	if err := p.initProofSubmitters(txBuilder, tiers); err != nil {
+	if err := p.initProofSubmitters(ctx, txBuilder, tiers); err != nil {
 		return err
 	}
 

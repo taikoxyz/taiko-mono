@@ -953,3 +953,12 @@ func (c *Client) calculateBaseFeeOntake(
 
 	return baseFeeInfo.Basefee, nil
 }
+
+// Resolve resolves the address corresponding to the name.
+func (c *Client) Resolve(ctx context.Context, name string) (common.Address, error) {
+	address, err := c.TaikoL1.Resolve0(&bind.CallOpts{Context: ctx}, StringToBytes32(name), false)
+	if err != nil {
+		return common.Address{}, err
+	}
+	return address, nil
+}
