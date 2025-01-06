@@ -82,6 +82,7 @@ description: Taiko protocol page for "TaikoL2.sol".
 
    - `parentHash`: Hash of the parent block.
    - `parentGasExcess`: Gas excess for base fee calculation.
+<br/><br/>
 
 2. **`EIP1559Update`**
    Emitted when gas parameters (e.g., target, excess, base fee) are updated.

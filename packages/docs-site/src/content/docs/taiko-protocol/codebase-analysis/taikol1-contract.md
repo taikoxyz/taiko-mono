@@ -123,14 +123,7 @@ description: Taiko protocol page for "TaikoL1.sol".
 
 ## Key Events
 
-1. **`DebugGasPerBlock`**
-   Provides gas usage metrics for block proposals or proofs.
-
-- `isProposeBlock`: Indicates whether the event is for proposals or proofs.
-- `gasUsed`: Gas consumed per block.
-- `batchSize`: Number of blocks in the batch.
-
-2. **`StateVariablesUpdated`**
+1. **`StateVariablesUpdated`**
    Signals updates to the state variables.
 
 ---
