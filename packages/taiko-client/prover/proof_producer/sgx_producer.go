@@ -338,7 +338,7 @@ func (s *SGXProofProducer) requestBatchProof(
 		"time", time.Since(requestAt),
 		"producer", "SGXProofProducer",
 	)
-	metrics.ProverAggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
+	metrics.ProverSGXAggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
 
 	return proof, nil
 }

@@ -520,6 +520,12 @@ func (s *ZKvmProofProducer) requestBatchProof(
 		"producer", "ZKvmProofProducer",
 	)
 
+	if s.ZKProofType == ZKProofTypeR0 {
+		metrics.ProverR0AggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
+	} else if s.ZKProofType == ZKProofTypeSP1 {
+		metrics.ProverSP1AggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
+	}
+
 	return proof, nil
 }
 
