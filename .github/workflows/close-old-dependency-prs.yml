@@ -7,7 +7,7 @@ on:
 
 jobs:
   close_old_dependabot_prs:
-    runs-on: ubuntu-latest
+    runs-on: [arc-runner-set]
 
     steps:
       - name: Checkout Repository
