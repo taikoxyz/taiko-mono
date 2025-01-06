@@ -78,7 +78,7 @@ func (s *ZKvmProofProducer) RequestProof(
 		"coinbase", meta.GetCoinbase(),
 		"height", header.Number,
 		"hash", header.Hash(),
-		"zk type", s.ZKProofType,
+		"zkType", s.ZKProofType,
 		"time", time.Since(requestAt),
 	)
 
