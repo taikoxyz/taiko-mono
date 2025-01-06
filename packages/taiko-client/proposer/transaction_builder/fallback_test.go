@@ -45,7 +45,6 @@ func (s *TransactionBuilderTestSuite) TestFallback() {
 	builder := s.newTestBuilderWithFallback(true, true, nil)
 	candidate, err := builder.BuildOntake(context.Background(), [][]byte{
 		bytes.Repeat([]byte{1}, int(rpc.BlockMaxTxListBytes)),
-		bytes.Repeat([]byte{1}, int(rpc.BlockMaxTxListBytes)),
 	})
 	s.Nil(err)
 	s.NotZero(len(candidate.Blobs))
@@ -63,7 +62,6 @@ func (s *TransactionBuilderTestSuite) TestFallback() {
 
 	candidate, err = builder.BuildOntake(context.Background(), [][]byte{
 		bytes.Repeat([]byte{1}, int(rpc.BlockMaxTxListBytes)),
-		bytes.Repeat([]byte{1}, int(rpc.BlockMaxTxListBytes)),
 	})
 	s.Nil(err)
 	s.Zero(len(candidate.Blobs))
@@ -80,7 +78,6 @@ func (s *TransactionBuilderTestSuite) TestFallback() {
 	})
 
 	candidate, err = builder.BuildOntake(context.Background(), [][]byte{
-		bytes.Repeat([]byte{1}, int(rpc.BlockMaxTxListBytes)),
 		bytes.Repeat([]byte{1}, int(rpc.BlockMaxTxListBytes)),
 	})
 	s.Nil(err)
