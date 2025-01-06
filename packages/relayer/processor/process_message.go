@@ -298,7 +298,6 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 	// we can grab the latestBlockID, create a singular "hop" of srcChain => destChain,
 	// and generate a proof.
 	if len(p.hops) == 0 {
-		// TODO: this line of code relies on a database query.
 		latestBlockID, err := p.eventRepo.LatestChainDataSyncedEvent(
 			ctx,
 			p.destChainId.Uint64(),
@@ -307,7 +306,6 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 		if err != nil {
 			return nil, err
 		}
-		latestBlockID = 3088676
 
 		hops = append(hops, proof.HopParams{
 			ChainID:              p.destChainId,
