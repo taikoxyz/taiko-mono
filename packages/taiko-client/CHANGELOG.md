@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.42.1](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v0.42.0...taiko-alethia-client-v0.42.1) (2025-01-07)
+
+
+### Chores
+
+* **taiko-client:** always use `blockID` instead of `height` for L2 blocks in logs ([#18719](https://github.com/taikoxyz/taiko-mono/issues/18719)) ([a02b96d](https://github.com/taikoxyz/taiko-mono/commit/a02b96d609b17070fd0b071127d84c21e1f3a8ef))
+* **taiko-client:** improve proposer gas estimation ([#18727](https://github.com/taikoxyz/taiko-mono/issues/18727)) ([6aed5b3](https://github.com/taikoxyz/taiko-mono/commit/6aed5b3bc5f46e089784405133fcf83c6befe495))
+
 ## [0.42.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v0.41.1...taiko-alethia-client-v0.42.0) (2025-01-06)
 
 
