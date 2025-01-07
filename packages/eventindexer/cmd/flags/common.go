@@ -5,10 +5,9 @@ import (
 )
 
 var (
-	commonCategory    = "COMMON"
-	indexerCategory   = "INDEXER"
-	generatorCategory = "GENERATOR"
-	txmgrCategory     = "TX_MANAGER"
+	commonCategory  = "COMMON"
+	indexerCategory = "INDEXER"
+	txmgrCategory   = "TX_MANAGER"
 )
 
 var (
