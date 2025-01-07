@@ -87,6 +87,7 @@ type BuildSoftBlockResponseBody struct {
 // if the soft block transactions batch in request are valid, it will insert or reorg the correspoinding the soft
 // block to the backend L2 execution engine and return a success response.
 //
+//		@Summary		  Insert a soft block with a batch of given transactions for preconfirmation.
 //		@Description	Insert a batch of transactions into a soft block for preconfirmation. If the batch is the
 //		@Description	first for a block, a new soft block will be created. Otherwise, the transactions will
 //		@Description	be appended to the existing soft block. The API will fail if:
@@ -227,6 +228,7 @@ type RemoveSoftBlocksResponseBody struct {
 
 // RemoveSoftBlocks removes the backend L2 execution engine soft head.
 //
+//		@Summary		  Remove the soft blocks beyond the specified block height.
 //		@Description	Remove all soft blocks from the blockchain beyond the specified block height,
 //	  @Description	ensuring the latest block ID does not exceed the given height. This method will fail if
 //	  @Description	the block with an ID one greater than the specified height is not a soft block. If the
