@@ -88,6 +88,7 @@ func Test_generateEncodedSignalProof(t *testing.T) {
 		destEthClient:             destEthClient,
 		destERC20Vault:            destERC20Vault,
 		srcSignalService:          srcSignalService,
+		srcSignalServiceAddress:   common.HexToAddress("0x6Fc2fe9D9dd0251ec5E0727e826Afbb0Db2CBe0D"),
 		ecdsaKey:                  privateKey,
 		prover:                    prover,
 		srcCaller:                 srcRpcClient,
