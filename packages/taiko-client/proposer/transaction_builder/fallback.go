@@ -162,13 +162,10 @@ func (b *TxBuilderWithFallback) estimateCandidateCost(
 
 	gasFeeCap := new(big.Int).Add(baseFee, gasTipCap)
 	msg := ethereum.CallMsg{
-		From:      txMgr.From(),
-		To:        candidate.To,
-		Gas:       candidate.GasLimit,
-		GasFeeCap: gasFeeCap,
-		GasTipCap: gasTipCap,
-		Value:     candidate.Value,
-		Data:      candidate.TxData,
+		From:  txMgr.From(),
+		To:    candidate.To,
+		Value: candidate.Value,
+		Data:  candidate.TxData,
 	}
 	if len(candidate.Blobs) != 0 {
 		var blobHashes []common.Hash
@@ -176,7 +173,6 @@ func (b *TxBuilderWithFallback) estimateCandidateCost(
 			return nil, fmt.Errorf("failed to make sidecar: %w", err)
 		}
 		msg.BlobHashes = blobHashes
-		msg.BlobGasFeeCap = blobBaseFee
 	}
 
 	gasUsed, err := b.rpc.L1.EstimateGas(ctx, msg)
