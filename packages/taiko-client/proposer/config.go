@@ -23,7 +23,6 @@ type Config struct {
 	*rpc.ClientConfig
 	L1ProposerPrivKey          *ecdsa.PrivateKey
 	L2SuggestedFeeRecipient    common.Address
-	ExtraData                  string
 	ProposeInterval            time.Duration
 	LocalAddresses             []common.Address
 	LocalAddressesOnly         bool
@@ -35,6 +34,7 @@ type Config struct {
 	MaxProposedTxListsPerEpoch uint64
 	ProposeBlockTxGasLimit     uint64
 	BlobAllowed                bool
+	FallbackToCalldata         bool
 	RevertProtectionEnabled    bool
 	TxmgrConfigs               *txmgr.CLIConfig
 	PrivateTxmgrConfigs        *txmgr.CLIConfig
@@ -92,7 +92,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		},
 		L1ProposerPrivKey:          l1ProposerPrivKey,
 		L2SuggestedFeeRecipient:    common.HexToAddress(l2SuggestedFeeRecipient),
-		ExtraData:                  c.String(flags.ExtraData.Name),
 		ProposeInterval:            c.Duration(flags.ProposeInterval.Name),
 		LocalAddresses:             localAddresses,
 		LocalAddressesOnly:         c.Bool(flags.TxPoolLocalsOnly.Name),
@@ -104,6 +103,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		AllowZeroInterval:          c.Uint64(flags.AllowZeroInterval.Name),
 		ProposeBlockTxGasLimit:     c.Uint64(flags.TxGasLimit.Name),
 		BlobAllowed:                c.Bool(flags.BlobAllowed.Name),
+		FallbackToCalldata:         c.Bool(flags.FallbackToCalldata.Name),
 		RevertProtectionEnabled:    c.Bool(flags.RevertProtectionEnabled.Name),
 		TxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
 			c.String(flags.L1WSEndpoint.Name),

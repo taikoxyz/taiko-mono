@@ -78,7 +78,7 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 	return metadataList
 }
 
-// ProposeAndInsertValidBlock proposes an valid tx list and then insert it
+// ProposeAndInsertValidBlock proposes a valid tx list and then insert it
 // into L2 execution engine's local chain.
 func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 	proposer Proposer,

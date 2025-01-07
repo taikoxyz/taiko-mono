@@ -79,8 +79,8 @@ func (s *ProposerTestSuite) SetupTest() {
 		MinProposingInternal:       0,
 		ProposeInterval:            1024 * time.Hour,
 		MaxProposedTxListsPerEpoch: 1,
-		ExtraData:                  "test",
 		ProposeBlockTxGasLimit:     10_000_000,
+		FallbackToCalldata:         true,
 		TxmgrConfigs: &txmgr.CLIConfig{
 			L1RPCURL:                  os.Getenv("L1_WS"),
 			NumConfirmations:          0,
