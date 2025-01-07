@@ -241,7 +241,7 @@ func (s *Syncer) onBlockProposed(
 
 	log.Debug(
 		"Parent block",
-		"height", parent.Number,
+		"blockID", parent.Number,
 		"hash", parent.Hash(),
 		"beaconSyncTriggered", s.progressTracker.Triggered(),
 	)
