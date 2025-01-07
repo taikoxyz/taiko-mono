@@ -164,6 +164,7 @@ func (b *TxBuilderWithFallback) estimateCandidateCost(
 	msg := ethereum.CallMsg{
 		From:  txMgr.From(),
 		To:    candidate.To,
+		Gas:   candidate.GasLimit,
 		Value: candidate.Value,
 		Data:  candidate.TxData,
 	}
