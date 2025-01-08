@@ -200,7 +200,7 @@ func (r *EventRepository) LatestChainDataSyncedEvent(
 	srcChainId uint64,
 	syncedChainId uint64,
 ) (uint64, error) {
-	return 3094479, nil
+	return 3019062, nil
 }
 
 // DeleteAllAfterBlockID is used when a reorg is detected

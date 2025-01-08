@@ -8,6 +8,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/encoding"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 
 	"log/slog"
@@ -57,7 +58,10 @@ func (p *Prover) abiEncodeSignalProofWithHops(ctx context.Context,
 			return nil, errors.Wrap(err, "hop p.getEncodedMerkleProof")
 		}
 
+		slog.Info("hop proof", "hop.BlockNumber", hop.BlockNumber)
 		slog.Info("hop proof", "block.NumberU64()", block.NumberU64())
+		slog.Info("hop proof", "hop.ChainID.Uint64()", hop.ChainID.Uint64())
+		slog.Info("hop proof", "block.Root()", block.Root())
 
 		hopProofs = append(hopProofs, encoding.HopProof{
 			BlockID:      block.NumberU64(),
@@ -99,7 +103,7 @@ func (p *Prover) getProof(
 		"eth_getProof",
 		signalServiceAddress,
 		[]string{key},
-		"latest",
+		hexutil.EncodeBig(new(big.Int).SetInt64(blockNumber)),
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "c.CallContext")
