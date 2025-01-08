@@ -127,6 +127,7 @@ func Test_generateEncodedSignalProof(t *testing.T) {
 		},
 		Raw: types.Log{
 			Address:     common.HexToAddress("0xA098b76a3Dd499D3F6D58D8AcCaFC8efBFd06807"),
+			// update LatestChainDataSyncedEvent in pkg/mock/event_repository.go to the same value
 			BlockNumber: 3019062,
 		},
 	}
