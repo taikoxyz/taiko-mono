@@ -37,7 +37,6 @@ func NewBuilderWithFallback(
 	taikoL1Address common.Address,
 	proverSetAddress common.Address,
 	gasLimit uint64,
-	extraData string,
 	chainConfig *config.ChainConfig,
 	txmgrSelector *utils.TxMgrSelector,
 	revertProtectionEnabled bool,
@@ -58,7 +57,6 @@ func NewBuilderWithFallback(
 			proverSetAddress,
 			l2SuggestedFeeRecipient,
 			gasLimit,
-			extraData,
 			chainConfig,
 			revertProtectionEnabled,
 		)
@@ -71,7 +69,6 @@ func NewBuilderWithFallback(
 		taikoL1Address,
 		proverSetAddress,
 		gasLimit,
-		extraData,
 		chainConfig,
 		revertProtectionEnabled,
 	)
@@ -90,7 +87,7 @@ func (b *TxBuilderWithFallback) BuildOntake(
 		return b.calldataTransactionBuilder.BuildOntake(ctx, txListBytesArray)
 	}
 	// If blob is enabled, and fallback is not enabled, just build a blob transaction.
-	if !b.fallback {
+	if !b.fallback || len(txListBytesArray) > 1 {
 		return b.blobTransactionBuilder.BuildOntake(ctx, txListBytesArray)
 	}
 
@@ -106,36 +103,48 @@ func (b *TxBuilderWithFallback) BuildOntake(
 
 	g.Go(func() error {
 		if txWithCalldata, err = b.calldataTransactionBuilder.BuildOntake(ctx, txListBytesArray); err != nil {
-			return err
+			return fmt.Errorf("failed to build type-2 transaction: %w", err)
 		}
 		if costCalldata, err = b.estimateCandidateCost(ctx, txWithCalldata); err != nil {
-			return err
+			return fmt.Errorf("failed to estimate type-2 transaction cost: %w", err)
 		}
 		return nil
 	})
 	g.Go(func() error {
 		if txWithBlob, err = b.blobTransactionBuilder.BuildOntake(ctx, txListBytesArray); err != nil {
-			return err
+			return fmt.Errorf("failed to build type-3 transaction: %w", err)
 		}
 		if costBlob, err = b.estimateCandidateCost(ctx, txWithBlob); err != nil {
-			return err
+			return fmt.Errorf("failed to estimate type-3 transaction cost: %w", err)
 		}
 		return nil
 	})
 
 	if err = g.Wait(); err != nil {
-		return nil, err
+		log.Error("Failed to estimate transactions cost, will build a type-3 transaction", "error", err)
+		metrics.ProposerCostEstimationError.Inc()
+		// If there is an error, just build a blob transaction.
+		return b.blobTransactionBuilder.BuildOntake(ctx, txListBytesArray)
 	}
 
-	metrics.ProposerEstimatedCostCalldata.Set(float64(costCalldata.Uint64()))
-	metrics.ProposerEstimatedCostBlob.Set(float64(costBlob.Uint64()))
+	var (
+		costCalldataFloat64 float64
+		costBlobFloat64     float64
+	)
+	costCalldataFloat64, _ = utils.WeiToEther(costCalldata).Float64()
+	costBlobFloat64, _ = utils.WeiToEther(costBlob).Float64()
+
+	metrics.ProposerEstimatedCostCalldata.Set(costCalldataFloat64)
+	metrics.ProposerEstimatedCostBlob.Set(costBlobFloat64)
 
 	if costCalldata.Cmp(costBlob) < 0 {
 		log.Info("Building a type-2 transaction", "costCalldata", costCalldata, "costBlob", costBlob)
+		metrics.ProposerProposeByCalldata.Inc()
 		return txWithCalldata, nil
 	}
 
 	log.Info("Building a type-3 transaction", "costCalldata", costCalldata, "costBlob", costBlob)
+	metrics.ProposerProposeByBlob.Inc()
 	return txWithBlob, nil
 }
 
@@ -153,13 +162,11 @@ func (b *TxBuilderWithFallback) estimateCandidateCost(
 
 	gasFeeCap := new(big.Int).Add(baseFee, gasTipCap)
 	msg := ethereum.CallMsg{
-		From:      txMgr.From(),
-		To:        candidate.To,
-		Gas:       candidate.GasLimit,
-		GasFeeCap: gasFeeCap,
-		GasTipCap: gasTipCap,
-		Value:     candidate.Value,
-		Data:      candidate.TxData,
+		From:  txMgr.From(),
+		To:    candidate.To,
+		Gas:   candidate.GasLimit,
+		Value: candidate.Value,
+		Data:  candidate.TxData,
 	}
 	if len(candidate.Blobs) != 0 {
 		var blobHashes []common.Hash
@@ -167,7 +174,6 @@ func (b *TxBuilderWithFallback) estimateCandidateCost(
 			return nil, fmt.Errorf("failed to make sidecar: %w", err)
 		}
 		msg.BlobHashes = blobHashes
-		msg.BlobGasFeeCap = blobBaseFee
 	}
 
 	gasUsed, err := b.rpc.L1.EstimateGas(ctx, msg)
