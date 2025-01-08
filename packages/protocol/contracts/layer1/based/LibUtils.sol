@@ -55,12 +55,12 @@ library LibUtils {
         ts.prover = address(0);
         ts.timestamp = uint64(block.timestamp);
 
-        emit BlockVerifiedV2({
+        /*emit BlockVerifiedV2({
             blockId: 0,
             prover: address(0),
             blockHash: _genesisBlockHash,
             tier: 0
-        });
+        });*/
     }
 
     function initGenesis(
