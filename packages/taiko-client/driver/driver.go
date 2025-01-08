@@ -113,6 +113,7 @@ func (d *Driver) Start() error {
 
 	// Start the soft block server if it is enabled.
 	if d.softblockServer != nil {
+		log.Info("Starting soft block server", "port", d.SoftBlockServerPort)
 		go func() {
 			if err := d.softblockServer.Start(d.SoftBlockServerPort); err != nil {
 				log.Crit("Failed to start soft block server", "error", err)
