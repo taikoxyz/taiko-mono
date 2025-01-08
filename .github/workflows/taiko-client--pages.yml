@@ -7,8 +7,6 @@ on:
       - "packages/taiko-client/**"
   pull_request:
     branches: [debug-pages]
-    paths:
-      - "packages/taiko-client/**"
 
 jobs:
   swagger-gen:
