@@ -2,7 +2,7 @@ name: "Taiko Client Github Pages"
 
 on:
   push:
-    branches: [main]
+    branches: [main, debug-pages]
     paths:
       - "packages/taiko-client/**"
   pull_request:
