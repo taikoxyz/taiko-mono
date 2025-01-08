@@ -79,6 +79,18 @@ var (
 		Value:    false,
 		EnvVars:  []string{"SOFT_BLOCK_SERVER_SIGNATURE_CHECK"},
 	}
+	SoftblockP2PNetworkPort = &cli.Uint64Flag{
+		Name:     "softBlock.p2pPort",
+		Usage:    "Port to run p2p network on for soft block propagation",
+		Category: driverCategory,
+		EnvVars:  []string{"SOFT_BLOCK_P2P_NETWORK_PORT"},
+	}
+	SoftblockP2PNetworkBootstrapNodeURLs = &cli.StringSliceFlag{
+		Name:     "softblock.p2pBootstrapNodeUrls",
+		Usage:    "Bootstrap node URLs for p2p network for soft block propagation",
+		Category: driverCategory,
+		EnvVars:  []string{"SOFT_BLOCK_P2P_NETWORK_BOOTSTRAP_NODE_URLS"},
+	}
 )
 
 // DriverFlags All driver flags.
@@ -97,4 +109,6 @@ var DriverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	SoftBlockServerJWTSecret,
 	SoftBlockServerCORSOrigins,
 	SoftBlockServerCheckSig,
+	SoftblockP2PNetworkPort,
+	SoftblockP2PNetworkBootstrapNodeURLs,
 })

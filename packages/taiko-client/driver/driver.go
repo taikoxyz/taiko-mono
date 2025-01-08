@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
+	"github.com/ethereum-optimism/optimism/op-node/p2p"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
@@ -18,6 +20,7 @@ import (
 	chainSyncer "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer"
 	softblocks "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/soft_blocks"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
@@ -37,6 +40,11 @@ type Driver struct {
 
 	l1HeadCh  chan *types.Header
 	l1HeadSub event.Subscription
+
+	// P2P network for soft block propagation
+	p2pNode   *p2p.NodeP2P
+	p2pSigner p2p.Signer
+	p2pSetup  p2p.SetupP2P
 
 	ctx context.Context
 	wg  sync.WaitGroup
@@ -100,6 +108,25 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		); err != nil {
 			return err
 		}
+
+		if d.SoftblockP2PNetworkPort > 0 {
+			d.p2pSetup = &p2p.Prepared{
+				HostP2P: "",
+			}
+			if d.p2pNode, err = p2p.NewNodeP2P(
+				d.ctx,
+				&rollup.Config{L1ChainID: d.rpc.L1.ChainID, L2ChainID: d.rpc.L2.ChainID, Taiko: true},
+				log.Root(),
+				d.p2pSetup,
+				d.softblockServer,
+				nil,
+				d.softblockServer,
+				metrics.P2PNodeMetrics,
+				false,
+			); err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil
@@ -118,6 +145,15 @@ func (d *Driver) Start() error {
 				log.Crit("Failed to start soft block server", "error", err)
 			}
 		}()
+	}
+
+	if d.p2pNode.Dv5Udp() != nil {
+		go d.p2pNode.DiscoveryProcess(
+			d.ctx,
+			log.Root(),
+			&rollup.Config{L1ChainID: d.rpc.L1.ChainID, L2ChainID: d.rpc.L2.ChainID, Taiko: true},
+			d.p2pSetup.TargetPeers(),
+		)
 	}
 
 	return nil

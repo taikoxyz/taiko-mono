@@ -3,8 +3,10 @@ package metrics
 import (
 	"context"
 
+	p2pNodeMetrics "github.com/ethereum-optimism/optimism/op-node/metrics"
 	opMetrics "github.com/ethereum-optimism/optimism/op-service/metrics"
 	txmgrMetrics "github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
+
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/urfave/cli/v2"
@@ -96,7 +98,8 @@ var (
 	})
 
 	// TxManager
-	TxMgrMetrics = txmgrMetrics.MakeTxMetrics("client", factory)
+	TxMgrMetrics   = txmgrMetrics.MakeTxMetrics("client", factory)
+	P2PNodeMetrics = p2pNodeMetrics.NewMetrics("client")
 )
 
 // Serve starts the metrics server on the given address, will be closed when the given

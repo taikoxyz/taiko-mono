@@ -5,10 +5,15 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/log"
 	echojwt "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	"github.com/libp2p/go-libp2p/core/peer"
 
 	txListDecompressor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_decompressor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -127,4 +132,46 @@ func (s *SoftBlockAPIServer) configureRoutes() {
 	s.echo.GET("/healthz", s.HealthCheck)
 	s.echo.POST("/softBlocks", s.BuildSoftBlock)
 	s.echo.DELETE("/softBlocks", s.RemoveSoftBlocks)
+}
+
+// OnUnsafeL2Payload implements the p2p.GossipIn interface.
+func (s *SoftBlockAPIServer) OnUnsafeL2Payload(
+	ctx context.Context,
+	from peer.ID,
+	msg *eth.ExecutionPayloadEnvelope,
+) error {
+	log.Info(
+		"📢 New soft block payload from P2P network",
+		"peer", from,
+		"blockID", msg.SoftBlockTransactionBatch.BlockID,
+		"batchID", msg.SoftBlockTransactionBatch.ID,
+	)
+
+	_, err := s.chainSyncer.InsertSoftBlockFromTransactionsBatch(
+		ctx,
+		msg.SoftBlockTransactionBatch.BlockID,
+		msg.SoftBlockTransactionBatch.ID,
+		msg.SoftBlockTransactionBatch.TransactionsList,
+		TransactionBatchMarker(msg.SoftBlockTransactionBatch.BatchMarker),
+		(*SoftBlockParams)(msg.SoftBlockTransactionBatch.BlockParams),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to insert soft block from P2P network: %w", err)
+	}
+
+	return nil
+}
+
+// P2PSequencerAddress implements the p2p.GossipIn interface.
+func (s *SoftBlockAPIServer) P2PSequencerAddress() common.Address {
+	return (common.Address{})
+}
+
+// TODO: update this function to return the correct value.
+// P2PSequencerAddress implements the p2p.SoftblockGossipRuntimeConfig interface.
+func (s *SoftBlockAPIServer) VerifySignature(
+	signatureBytes []byte,
+	payloadBytes []byte,
+) (pubsub.ValidationResult, error) {
+	return pubsub.ValidationAccept, nil
 }
