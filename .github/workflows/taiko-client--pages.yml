@@ -32,11 +32,6 @@ jobs:
           cd packages/taiko-client
           ./scripts/gen_swagger_json.sh
 
-      - name: Debug file changes
-        run: |
-          git status
-          git diff
-
       - name: Commit Swagger docs
         run: |
           git config --global user.name "github-actions[bot]"
