@@ -2,7 +2,7 @@ name: "Taiko Client Github Pages"
 
 on:
   push:
-    branches: [main]
+    branches: [debug-pages]
     paths:
       - "packages/taiko-client/**"
 
@@ -12,6 +12,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@v4
@@ -28,6 +30,11 @@ jobs:
           export CGO_ENABLED=0
           cd packages/taiko-client
           ./scripts/gen_swagger_json.sh
+
+      - name: Debug file changes
+        run: |
+          git status
+          git diff
 
       - name: Commit Swagger docs
         run: |
