@@ -1,1018 +1,1042 @@
 ## ERC1155Vault
 
 ╭--------------------+------------------------------------------------------+------+--------+-------+-----------------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name               | Type                                                 | Slot | Offset | Bytes |
 +===============================================================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized       | uint8                                                | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing      | bool                                                 | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap              | uint256[50]                                          | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner             | address                                              | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap              | uint256[49]                                          | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner      | address                                              | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap              | uint256[49]                                          | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager     | address                                              | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap              | uint256[49]                                          | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry          | uint8                                                | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused           | uint8                                                | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt   | uint64                                               | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap              | uint256[49]                                          | 202  | 0      | 1568  |
 |
-| **gap | uint256[50] | 251 | 0 | 1600 |
+| __gap              | uint256[50]                                          | 251  | 0      | 1600  |
 |
-| bridgedToCanonical | mapping(address => struct BaseNFTVault.CanonicalNFT) | 301 | 0 | 32 |
+| bridgedToCanonical | mapping(address => struct BaseNFTVault.CanonicalNFT) | 301  | 0      | 32    |
 |
-| canonicalToBridged | mapping(uint256 => mapping(address => address)) | 302 | 0 | 32 |
+| canonicalToBridged | mapping(uint256 => mapping(address => address))      | 302  | 0      | 32    |
 |
-| **gap | uint256[48] | 303 | 0 | 1536 |
+| __gap              | uint256[48]                                          | 303  | 0      | 1536  |
 |
-| **gap | uint256[50] | 351 | 0 | 1600 |
+| __gap              | uint256[50]                                          | 351  | 0      | 1600  |
 |
-| **gap | uint256[50] | 401 | 0 | 1600 |
+| __gap              | uint256[50]                                          | 401  | 0      | 1600  |
 |
-| \_\_gap | uint256[50] | 451 | 0 | 1600 |
+| __gap              | uint256[50]                                          | 451  | 0      | 1600  |
 ╰--------------------+------------------------------------------------------+------+--------+-------+-----------------------------------------------------------╯
+
 
 ## ERC20Vault
 
 ╭--------------------+------------------------------------------------------+------+--------+-------+-------------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name               | Type                                                 | Slot | Offset | Bytes |
 +===========================================================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized       | uint8                                                | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing      | bool                                                 | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap              | uint256[50]                                          | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner             | address                                              | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap              | uint256[49]                                          | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner      | address                                              | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap              | uint256[49]                                          | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager     | address                                              | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap              | uint256[49]                                          | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry          | uint8                                                | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused           | uint8                                                | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt   | uint64                                               | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap              | uint256[49]                                          | 202  | 0      | 1568  |
 |
-| **gap | uint256[50] | 251 | 0 | 1600 |
+| __gap              | uint256[50]                                          | 251  | 0      | 1600  |
 |
-| bridgedToCanonical | mapping(address => struct ERC20Vault.CanonicalERC20) | 301 | 0 | 32 |
+| bridgedToCanonical | mapping(address => struct ERC20Vault.CanonicalERC20) | 301  | 0      | 32    |
 |
-| canonicalToBridged | mapping(uint256 => mapping(address => address)) | 302 | 0 | 32 |
+| canonicalToBridged | mapping(uint256 => mapping(address => address))      | 302  | 0      | 32    |
 |
-| btokenDenylist | mapping(address => bool) | 303 | 0 | 32 |
+| btokenDenylist     | mapping(address => bool)                             | 303  | 0      | 32    |
 |
-| lastMigrationStart | mapping(uint256 => mapping(address => uint256)) | 304 | 0 | 32 |
+| lastMigrationStart | mapping(uint256 => mapping(address => uint256))      | 304  | 0      | 32    |
 |
-| **gap | uint256[46] | 305 | 0 | 1472 |
+| __gap              | uint256[46]                                          | 305  | 0      | 1472  |
 ╰--------------------+------------------------------------------------------+------+--------+-------+-------------------------------------------------------╯
+
 
 ## ERC721Vault
 
 ╭--------------------+------------------------------------------------------+------+--------+-------+---------------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name               | Type                                                 | Slot | Offset | Bytes |
 +=============================================================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized       | uint8                                                | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing      | bool                                                 | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap              | uint256[50]                                          | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner             | address                                              | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap              | uint256[49]                                          | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner      | address                                              | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap              | uint256[49]                                          | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager     | address                                              | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap              | uint256[49]                                          | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry          | uint8                                                | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused           | uint8                                                | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt   | uint64                                               | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap              | uint256[49]                                          | 202  | 0      | 1568  |
 |
-| **gap | uint256[50] | 251 | 0 | 1600 |
+| __gap              | uint256[50]                                          | 251  | 0      | 1600  |
 |
-| bridgedToCanonical | mapping(address => struct BaseNFTVault.CanonicalNFT) | 301 | 0 | 32 |
+| bridgedToCanonical | mapping(address => struct BaseNFTVault.CanonicalNFT) | 301  | 0      | 32    |
 |
-| canonicalToBridged | mapping(uint256 => mapping(address => address)) | 302 | 0 | 32 |
+| canonicalToBridged | mapping(uint256 => mapping(address => address))      | 302  | 0      | 32    |
 |
-| **gap | uint256[48] | 303 | 0 | 1536 |
+| __gap              | uint256[48]                                          | 303  | 0      | 1536  |
 |
-| \_\_gap | uint256[50] | 351 | 0 | 1600 |
+| __gap              | uint256[50]                                          | 351  | 0      | 1600  |
 ╰--------------------+------------------------------------------------------+------+--------+-------+---------------------------------------------------------╯
+
 
 ## BridgedERC20
 
 ╭------------------+-------------------------------------------------+------+--------+-------+-----------------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name             | Type                                            | Slot | Offset | Bytes |
 +========================================================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized     | uint8                                           | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing    | bool                                            | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap            | uint256[50]                                     | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner           | address                                         | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap            | uint256[49]                                     | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner    | address                                         | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap            | uint256[49]                                     | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager   | address                                         | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap            | uint256[49]                                     | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry        | uint8                                           | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused         | uint8                                           | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt | uint64                                          | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap            | uint256[49]                                     | 202  | 0      | 1568  |
 |
-| \_balances | mapping(address => uint256) | 251 | 0 | 32 |
+| _balances        | mapping(address => uint256)                     | 251  | 0      | 32    |
 |
-| \_allowances | mapping(address => mapping(address => uint256)) | 252 | 0 | 32 |
+| _allowances      | mapping(address => mapping(address => uint256)) | 252  | 0      | 32    |
 |
-| \_totalSupply | uint256 | 253 | 0 | 32 |
+| _totalSupply     | uint256                                         | 253  | 0      | 32    |
 |
-| \_name | string | 254 | 0 | 32 |
+| _name            | string                                          | 254  | 0      | 32    |
 |
-| \_symbol | string | 255 | 0 | 32 |
+| _symbol          | string                                          | 255  | 0      | 32    |
 |
-| **gap | uint256[45] | 256 | 0 | 1440 |
+| __gap            | uint256[45]                                     | 256  | 0      | 1440  |
 |
-| srcToken | address | 301 | 0 | 20 |
+| srcToken         | address                                         | 301  | 0      | 20    |
 |
-| **srcDecimals | uint8 | 301 | 20 | 1 |
+| __srcDecimals    | uint8                                           | 301  | 20     | 1     |
 |
-| srcChainId | uint256 | 302 | 0 | 32 |
+| srcChainId       | uint256                                         | 302  | 0      | 32    |
 |
-| migratingAddress | address | 303 | 0 | 20 |
+| migratingAddress | address                                         | 303  | 0      | 20    |
 |
-| migratingInbound | bool | 303 | 20 | 1 |
+| migratingInbound | bool                                            | 303  | 20     | 1     |
 |
-| \_\_gap | uint256[47] | 304 | 0 | 1504 |
+| __gap            | uint256[47]                                     | 304  | 0      | 1504  |
 ╰------------------+-------------------------------------------------+------+--------+-------+-----------------------------------------------------------╯
+
 
 ## BridgedERC20V2
 
 ╭------------------+--------------------------------------------------------+------+--------+-------+---------------------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name             | Type                                                   | Slot | Offset | Bytes |
 +===================================================================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized     | uint8                                                  | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing    | bool                                                   | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap            | uint256[50]                                            | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner           | address                                                | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap            | uint256[49]                                            | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner    | address                                                | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap            | uint256[49]                                            | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager   | address                                                | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap            | uint256[49]                                            | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry        | uint8                                                  | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused         | uint8                                                  | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt | uint64                                                 | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap            | uint256[49]                                            | 202  | 0      | 1568  |
 |
-| \_balances | mapping(address => uint256) | 251 | 0 | 32 |
+| _balances        | mapping(address => uint256)                            | 251  | 0      | 32    |
 |
-| \_allowances | mapping(address => mapping(address => uint256)) | 252 | 0 | 32 |
+| _allowances      | mapping(address => mapping(address => uint256))        | 252  | 0      | 32    |
 |
-| \_totalSupply | uint256 | 253 | 0 | 32 |
+| _totalSupply     | uint256                                                | 253  | 0      | 32    |
 |
-| \_name | string | 254 | 0 | 32 |
+| _name            | string                                                 | 254  | 0      | 32    |
 |
-| \_symbol | string | 255 | 0 | 32 |
+| _symbol          | string                                                 | 255  | 0      | 32    |
 |
-| **gap | uint256[45] | 256 | 0 | 1440 |
+| __gap            | uint256[45]                                            | 256  | 0      | 1440  |
 |
-| srcToken | address | 301 | 0 | 20 |
+| srcToken         | address                                                | 301  | 0      | 20    |
 |
-| **srcDecimals | uint8 | 301 | 20 | 1 |
+| __srcDecimals    | uint8                                                  | 301  | 20     | 1     |
 |
-| srcChainId | uint256 | 302 | 0 | 32 |
+| srcChainId       | uint256                                                | 302  | 0      | 32    |
 |
-| migratingAddress | address | 303 | 0 | 20 |
+| migratingAddress | address                                                | 303  | 0      | 20    |
 |
-| migratingInbound | bool | 303 | 20 | 1 |
+| migratingInbound | bool                                                   | 303  | 20     | 1     |
 |
-| **gap | uint256[47] | 304 | 0 | 1504 |
+| __gap            | uint256[47]                                            | 304  | 0      | 1504  |
 |
-| \_hashedName | bytes32 | 351 | 0 | 32 |
+| _hashedName      | bytes32                                                | 351  | 0      | 32    |
 |
-| \_hashedVersion | bytes32 | 352 | 0 | 32 |
+| _hashedVersion   | bytes32                                                | 352  | 0      | 32    |
 |
-| \_name | string | 353 | 0 | 32 |
+| _name            | string                                                 | 353  | 0      | 32    |
 |
-| \_version | string | 354 | 0 | 32 |
+| _version         | string                                                 | 354  | 0      | 32    |
 |
-| **gap | uint256[48] | 355 | 0 | 1536 |
+| __gap            | uint256[48]                                            | 355  | 0      | 1536  |
 |
-| \_nonces | mapping(address => struct CountersUpgradeable.Counter) | 403 | 0 | 32 |
+| _nonces          | mapping(address => struct CountersUpgradeable.Counter) | 403  | 0      | 32    |
 |
-| \_\_gap | uint256[49] | 404 | 0 | 1568 |
+| __gap            | uint256[49]                                            | 404  | 0      | 1568  |
 ╰------------------+--------------------------------------------------------+------+--------+-------+---------------------------------------------------------------╯
+
 
 ## BridgedERC721
 
 ╭--------------------+----------------------------------------------+------+--------+-------+-------------------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name               | Type                                         | Slot | Offset | Bytes |
 +=========================================================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized       | uint8                                        | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing      | bool                                         | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap              | uint256[50]                                  | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner             | address                                      | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap              | uint256[49]                                  | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner      | address                                      | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap              | uint256[49]                                  | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager     | address                                      | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap              | uint256[49]                                  | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry          | uint8                                        | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused           | uint8                                        | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt   | uint64                                       | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap              | uint256[49]                                  | 202  | 0      | 1568  |
 |
-| **gap | uint256[50] | 251 | 0 | 1600 |
+| __gap              | uint256[50]                                  | 251  | 0      | 1600  |
 |
-| \_name | string | 301 | 0 | 32 |
+| _name              | string                                       | 301  | 0      | 32    |
 |
-| \_symbol | string | 302 | 0 | 32 |
+| _symbol            | string                                       | 302  | 0      | 32    |
 |
-| \_owners | mapping(uint256 => address) | 303 | 0 | 32 |
+| _owners            | mapping(uint256 => address)                  | 303  | 0      | 32    |
 |
-| \_balances | mapping(address => uint256) | 304 | 0 | 32 |
+| _balances          | mapping(address => uint256)                  | 304  | 0      | 32    |
 |
-| \_tokenApprovals | mapping(uint256 => address) | 305 | 0 | 32 |
+| _tokenApprovals    | mapping(uint256 => address)                  | 305  | 0      | 32    |
 |
-| \_operatorApprovals | mapping(address => mapping(address => bool)) | 306 | 0 | 32 |
+| _operatorApprovals | mapping(address => mapping(address => bool)) | 306  | 0      | 32    |
 |
-| **gap | uint256[44] | 307 | 0 | 1408 |
+| __gap              | uint256[44]                                  | 307  | 0      | 1408  |
 |
-| srcToken | address | 351 | 0 | 20 |
+| srcToken           | address                                      | 351  | 0      | 20    |
 |
-| srcChainId | uint256 | 352 | 0 | 32 |
+| srcChainId         | uint256                                      | 352  | 0      | 32    |
 |
-| \_\_gap | uint256[48] | 353 | 0 | 1536 |
+| __gap              | uint256[48]                                  | 353  | 0      | 1536  |
 ╰--------------------+----------------------------------------------+------+--------+-------+-------------------------------------------------------------╯
+
 
 ## BridgedERC1155
 
 ╭--------------------+-------------------------------------------------+------+--------+-------+---------------------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name               | Type                                            | Slot | Offset | Bytes |
 +==============================================================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized       | uint8                                           | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing      | bool                                            | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap              | uint256[50]                                     | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner             | address                                         | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap              | uint256[49]                                     | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner      | address                                         | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap              | uint256[49]                                     | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager     | address                                         | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap              | uint256[49]                                     | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry          | uint8                                           | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused           | uint8                                           | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt   | uint64                                          | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap              | uint256[49]                                     | 202  | 0      | 1568  |
 |
-| **gap | uint256[50] | 251 | 0 | 1600 |
+| __gap              | uint256[50]                                     | 251  | 0      | 1600  |
 |
-| \_balances | mapping(uint256 => mapping(address => uint256)) | 301 | 0 | 32 |
+| _balances          | mapping(uint256 => mapping(address => uint256)) | 301  | 0      | 32    |
 |
-| \_operatorApprovals | mapping(address => mapping(address => bool)) | 302 | 0 | 32 |
+| _operatorApprovals | mapping(address => mapping(address => bool))    | 302  | 0      | 32    |
 |
-| \_uri | string | 303 | 0 | 32 |
+| _uri               | string                                          | 303  | 0      | 32    |
 |
-| **gap | uint256[47] | 304 | 0 | 1504 |
+| __gap              | uint256[47]                                     | 304  | 0      | 1504  |
 |
-| srcToken | address | 351 | 0 | 20 |
+| srcToken           | address                                         | 351  | 0      | 20    |
 |
-| srcChainId | uint256 | 352 | 0 | 32 |
+| srcChainId         | uint256                                         | 352  | 0      | 32    |
 |
-| symbol | string | 353 | 0 | 32 |
+| symbol             | string                                          | 353  | 0      | 32    |
 |
-| name | string | 354 | 0 | 32 |
+| name               | string                                          | 354  | 0      | 32    |
 |
-| \_\_gap | uint256[46] | 355 | 0 | 1472 |
+| __gap              | uint256[46]                                     | 355  | 0      | 1472  |
 ╰--------------------+-------------------------------------------------+------+--------+-------+---------------------------------------------------------------╯
+
 
 ## Bridge
 
 ╭------------------+-----------------------------------------+------+--------+-------+-------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name             | Type                                    | Slot | Offset | Bytes |
 +================================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized     | uint8                                   | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing    | bool                                    | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap            | uint256[50]                             | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner           | address                                 | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap            | uint256[49]                             | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner    | address                                 | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap            | uint256[49]                             | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager   | address                                 | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap            | uint256[49]                             | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry        | uint8                                   | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused         | uint8                                   | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt | uint64                                  | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap            | uint256[49]                             | 202  | 0      | 1568  |
 |
-| **reserved1 | uint64 | 251 | 0 | 8 |
+| __reserved1      | uint64                                  | 251  | 0      | 8     |
 |
-| nextMessageId | uint64 | 251 | 8 | 8 |
+| nextMessageId    | uint64                                  | 251  | 8      | 8     |
 |
-| messageStatus | mapping(bytes32 => enum IBridge.Status) | 252 | 0 | 32 |
+| messageStatus    | mapping(bytes32 => enum IBridge.Status) | 252  | 0      | 32    |
 |
-| **ctx | struct IBridge.Context | 253 | 0 | 64 |
+| __ctx            | struct IBridge.Context                  | 253  | 0      | 64    |
 |
-| **reserved2 | uint256 | 255 | 0 | 32 |
+| __reserved2      | uint256                                 | 255  | 0      | 32    |
 |
-| **reserved3 | uint256 | 256 | 0 | 32 |
+| __reserved3      | uint256                                 | 256  | 0      | 32    |
 |
-| \_\_gap | uint256[44] | 257 | 0 | 1408 |
+| __gap            | uint256[44]                             | 257  | 0      | 1408  |
 ╰------------------+-----------------------------------------+------+--------+-------+-------------------------------------------╯
+
 
 ## QuotaManager
 
 ╭------------------+-----------------------------------------------+------+--------+-------+-------------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name             | Type                                          | Slot | Offset | Bytes |
 +==================================================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized     | uint8                                         | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing    | bool                                          | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap            | uint256[50]                                   | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner           | address                                       | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap            | uint256[49]                                   | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner    | address                                       | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap            | uint256[49]                                   | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager   | address                                       | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap            | uint256[49]                                   | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry        | uint8                                         | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused         | uint8                                         | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt | uint64                                        | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap            | uint256[49]                                   | 202  | 0      | 1568  |
 |
-| tokenQuota | mapping(address => struct QuotaManager.Quota) | 251 | 0 | 32 |
+| tokenQuota       | mapping(address => struct QuotaManager.Quota) | 251  | 0      | 32    |
 |
-| quotaPeriod | uint24 | 252 | 0 | 3 |
+| quotaPeriod      | uint24                                        | 252  | 0      | 3     |
 |
-| \_\_gap | uint256[48] | 253 | 0 | 1536 |
+| __gap            | uint256[48]                                   | 253  | 0      | 1536  |
 ╰------------------+-----------------------------------------------+------+--------+-------+-------------------------------------------------------╯
+
 
 ## AddressManager
 
 ╭------------------+-------------------------------------------------+------+--------+-------+-----------------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name             | Type                                            | Slot | Offset | Bytes |
 +========================================================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized     | uint8                                           | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing    | bool                                            | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap            | uint256[50]                                     | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner           | address                                         | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap            | uint256[49]                                     | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner    | address                                         | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap            | uint256[49]                                     | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager   | address                                         | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap            | uint256[49]                                     | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry        | uint8                                           | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused         | uint8                                           | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt | uint64                                          | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap            | uint256[49]                                     | 202  | 0      | 1568  |
 |
-| **addresses | mapping(uint256 => mapping(bytes32 => address)) | 251 | 0 | 32 |
+| __addresses      | mapping(uint256 => mapping(bytes32 => address)) | 251  | 0      | 32    |
 |
-| **gap | uint256[49] | 252 | 0 | 1568 |
+| __gap            | uint256[49]                                     | 252  | 0      | 1568  |
 ╰------------------+-------------------------------------------------+------+--------+-------+-----------------------------------------------------------╯
+
 
 ## AddressResolver
 
 ╭----------------+-------------+------+--------+-------+-------------------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name           | Type        | Slot | Offset | Bytes |
 +====================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized   | uint8       | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing  | bool        | 0    | 1      | 1     |
 |
-| addressManager | address | 0 | 2 | 20 |
+| addressManager | address     | 0    | 2      | 20    |
 |
-| \_\_gap | uint256[49] | 1 | 0 | 1568 |
+| __gap          | uint256[49] | 1    | 0      | 1568  |
 ╰----------------+-------------+------+--------+-------+-------------------------------------------------------------╯
+
 
 ## EssentialContract
 
 ╭------------------+-------------+------+--------+-------+-----------------------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name             | Type        | Slot | Offset | Bytes |
 +==========================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized     | uint8       | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing    | bool        | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap            | uint256[50] | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner           | address     | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap            | uint256[49] | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner    | address     | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap            | uint256[49] | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager   | address     | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap            | uint256[49] | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry        | uint8       | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused         | uint8       | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt | uint64      | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap            | uint256[49] | 202  | 0      | 1568  |
 ╰------------------+-------------+------+--------+-------+-----------------------------------------------------------------╯
+
 
 ## SignalService
 
 ╭------------------+-----------------------------------------------+------+--------+-------+---------------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name             | Type                                          | Slot | Offset | Bytes |
 +====================================================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized     | uint8                                         | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing    | bool                                          | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap            | uint256[50]                                   | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner           | address                                       | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap            | uint256[49]                                   | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner    | address                                       | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap            | uint256[49]                                   | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager   | address                                       | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap            | uint256[49]                                   | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry        | uint8                                         | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused         | uint8                                         | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt | uint64                                        | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap            | uint256[49]                                   | 202  | 0      | 1568  |
 |
-| topBlockId | mapping(uint64 => mapping(bytes32 => uint64)) | 251 | 0 | 32 |
+| topBlockId       | mapping(uint64 => mapping(bytes32 => uint64)) | 251  | 0      | 32    |
 |
-| isAuthorized | mapping(address => bool) | 252 | 0 | 32 |
+| isAuthorized     | mapping(address => bool)                      | 252  | 0      | 32    |
 |
-| \_\_gap | uint256[48] | 253 | 0 | 1536 |
+| __gap            | uint256[48]                                   | 253  | 0      | 1536  |
 ╰------------------+-----------------------------------------------+------+--------+-------+---------------------------------------------------------╯
+
 
 ## TaikoToken
 
 ╭-----------------------------------------------------+---------------------------------------------------------------+------+--------+-------+--------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name                                                | Type                                                          | Slot | Offset | Bytes |
 +================================================================================================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized                                        | uint8                                                         | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing                                       | bool                                                          | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap                                               | uint256[50]                                                   | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner                                              | address                                                       | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap                                               | uint256[49]                                                   | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner                                       | address                                                       | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap                                               | uint256[49]                                                   | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager                                      | address                                                       | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap                                               | uint256[49]                                                   | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry                                           | uint8                                                         | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused                                            | uint8                                                         | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt                                    | uint64                                                        | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap                                               | uint256[49]                                                   | 202  | 0      | 1568  |
 |
-| **slots_previously_used_by_ERC20SnapshotUpgradeable | uint256[50] | 251 | 0 | 1600 |
+| __slots_previously_used_by_ERC20SnapshotUpgradeable | uint256[50]                                                   | 251  | 0      | 1600  |
 |
-| \_balances | mapping(address => uint256) | 301 | 0 | 32 |
+| _balances                                           | mapping(address => uint256)                                   | 301  | 0      | 32    |
 |
-| \_allowances | mapping(address => mapping(address => uint256)) | 302 | 0 | 32 |
+| _allowances                                         | mapping(address => mapping(address => uint256))               | 302  | 0      | 32    |
 |
-| \_totalSupply | uint256 | 303 | 0 | 32 |
+| _totalSupply                                        | uint256                                                       | 303  | 0      | 32    |
 |
-| \_name | string | 304 | 0 | 32 |
+| _name                                               | string                                                        | 304  | 0      | 32    |
 |
-| \_symbol | string | 305 | 0 | 32 |
+| _symbol                                             | string                                                        | 305  | 0      | 32    |
 |
-| **gap | uint256[45] | 306 | 0 | 1440 |
+| __gap                                               | uint256[45]                                                   | 306  | 0      | 1440  |
 |
-| \_hashedName | bytes32 | 351 | 0 | 32 |
+| _hashedName                                         | bytes32                                                       | 351  | 0      | 32    |
 |
-| \_hashedVersion | bytes32 | 352 | 0 | 32 |
+| _hashedVersion                                      | bytes32                                                       | 352  | 0      | 32    |
 |
-| \_name | string | 353 | 0 | 32 |
+| _name                                               | string                                                        | 353  | 0      | 32    |
 |
-| \_version | string | 354 | 0 | 32 |
+| _version                                            | string                                                        | 354  | 0      | 32    |
 |
-| **gap | uint256[48] | 355 | 0 | 1536 |
+| __gap                                               | uint256[48]                                                   | 355  | 0      | 1536  |
 |
-| \_nonces | mapping(address => struct CountersUpgradeable.Counter) | 403 | 0 | 32 |
+| _nonces                                             | mapping(address => struct CountersUpgradeable.Counter)        | 403  | 0      | 32    |
 |
-| \_PERMIT_TYPEHASH_DEPRECATED_SLOT | bytes32 | 404 | 0 | 32 |
+| _PERMIT_TYPEHASH_DEPRECATED_SLOT                    | bytes32                                                       | 404  | 0      | 32    |
 |
-| **gap | uint256[49] | 405 | 0 | 1568 |
+| __gap                                               | uint256[49]                                                   | 405  | 0      | 1568  |
 |
-| \_delegates | mapping(address => address) | 454 | 0 | 32 |
+| _delegates                                          | mapping(address => address)                                   | 454  | 0      | 32    |
 |
-| \_checkpoints | mapping(address => struct ERC20VotesUpgradeable.Checkpoint[]) | 455 | 0 | 32 |
+| _checkpoints                                        | mapping(address => struct ERC20VotesUpgradeable.Checkpoint[]) | 455  | 0      | 32    |
 |
-| \_totalSupplyCheckpoints | struct ERC20VotesUpgradeable.Checkpoint[] | 456 | 0 | 32 |
+| _totalSupplyCheckpoints                             | struct ERC20VotesUpgradeable.Checkpoint[]                     | 456  | 0      | 32    |
 |
-| **gap | uint256[47] | 457 | 0 | 1504 |
+| __gap                                               | uint256[47]                                                   | 457  | 0      | 1504  |
 |
-| **gap | uint256[50] | 504 | 0 | 1600 |
+| __gap                                               | uint256[50]                                                   | 504  | 0      | 1600  |
 ╰-----------------------------------------------------+---------------------------------------------------------------+------+--------+-------+--------------------------------------------------╯
+
 
 ## ComposeVerifier
 
 ╭------------------+-------------+------+--------+-------+------------------------------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name             | Type        | Slot | Offset | Bytes |
 +=================================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized     | uint8       | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing    | bool        | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap            | uint256[50] | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner           | address     | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap            | uint256[49] | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner    | address     | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap            | uint256[49] | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager   | address     | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap            | uint256[49] | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry        | uint8       | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused         | uint8       | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt | uint64      | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap            | uint256[49] | 202  | 0      | 1568  |
 |
-| \_\_gap | uint256[50] | 251 | 0 | 1600 |
+| __gap            | uint256[50] | 251  | 0      | 1600  |
 ╰------------------+-------------+------+--------+-------+------------------------------------------------------------------------╯
+
 
 ## TeeAnyVerifier
 
 ╭------------------+-------------+------+--------+-------+----------------------------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name             | Type        | Slot | Offset | Bytes |
 +===============================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized     | uint8       | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing    | bool        | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap            | uint256[50] | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner           | address     | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap            | uint256[49] | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner    | address     | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap            | uint256[49] | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager   | address     | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap            | uint256[49] | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry        | uint8       | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused         | uint8       | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt | uint64      | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap            | uint256[49] | 202  | 0      | 1568  |
 |
-| **gap | uint256[50] | 251 | 0 | 1600 |
+| __gap            | uint256[50] | 251  | 0      | 1600  |
 |
-| **gap | uint256[50] | 301 | 0 | 1600 |
+| __gap            | uint256[50] | 301  | 0      | 1600  |
 ╰------------------+-------------+------+--------+-------+----------------------------------------------------------------------╯
+
 
 ## ZkAndTeeVerifier
 
 ╭------------------+-------------+------+--------+-------+--------------------------------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name             | Type        | Slot | Offset | Bytes |
 +===================================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized     | uint8       | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing    | bool        | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap            | uint256[50] | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner           | address     | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap            | uint256[49] | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner    | address     | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap            | uint256[49] | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager   | address     | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap            | uint256[49] | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry        | uint8       | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused         | uint8       | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt | uint64      | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap            | uint256[49] | 202  | 0      | 1568  |
 |
-| **gap | uint256[50] | 251 | 0 | 1600 |
+| __gap            | uint256[50] | 251  | 0      | 1600  |
 |
-| **gap | uint256[50] | 301 | 0 | 1600 |
+| __gap            | uint256[50] | 301  | 0      | 1600  |
 ╰------------------+-------------+------+--------+-------+--------------------------------------------------------------------------╯
+
 
 ## ZkAnyVerifier
 
 ╭------------------+-------------+------+--------+-------+--------------------------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name             | Type        | Slot | Offset | Bytes |
 +=============================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized     | uint8       | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing    | bool        | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap            | uint256[50] | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner           | address     | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap            | uint256[49] | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner    | address     | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap            | uint256[49] | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager   | address     | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap            | uint256[49] | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry        | uint8       | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused         | uint8       | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt | uint64      | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap            | uint256[49] | 202  | 0      | 1568  |
 |
-| **gap | uint256[50] | 251 | 0 | 1600 |
+| __gap            | uint256[50] | 251  | 0      | 1600  |
 |
-| **gap | uint256[50] | 301 | 0 | 1600 |
+| __gap            | uint256[50] | 301  | 0      | 1600  |
 ╰------------------+-------------+------+--------+-------+--------------------------------------------------------------------╯
+
 
 ## Risc0Verifier
 
 ╭------------------+--------------------------+------+--------+-------+------------------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name             | Type                     | Slot | Offset | Bytes |
 +==================================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized     | uint8                    | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing    | bool                     | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap            | uint256[50]              | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner           | address                  | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap            | uint256[49]              | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner    | address                  | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap            | uint256[49]              | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager   | address                  | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap            | uint256[49]              | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry        | uint8                    | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused         | uint8                    | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt | uint64                   | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap            | uint256[49]              | 202  | 0      | 1568  |
 |
-| isImageTrusted | mapping(bytes32 => bool) | 251 | 0 | 32 |
+| isImageTrusted   | mapping(bytes32 => bool) | 251  | 0      | 32    |
 |
-| \_\_gap | uint256[49] | 252 | 0 | 1568 |
+| __gap            | uint256[49]              | 252  | 0      | 1568  |
 ╰------------------+--------------------------+------+--------+-------+------------------------------------------------------------╯
+
 
 ## SP1Verifier
 
 ╭------------------+--------------------------+------+--------+-------+--------------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name             | Type                     | Slot | Offset | Bytes |
 +==============================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized     | uint8                    | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing    | bool                     | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap            | uint256[50]              | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner           | address                  | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap            | uint256[49]              | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner    | address                  | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap            | uint256[49]              | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager   | address                  | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap            | uint256[49]              | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry        | uint8                    | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused         | uint8                    | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt | uint64                   | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap            | uint256[49]              | 202  | 0      | 1568  |
 |
-| isProgramTrusted | mapping(bytes32 => bool) | 251 | 0 | 32 |
+| isProgramTrusted | mapping(bytes32 => bool) | 251  | 0      | 32    |
 |
-| \_\_gap | uint256[49] | 252 | 0 | 1568 |
+| __gap            | uint256[49]              | 252  | 0      | 1568  |
 ╰------------------+--------------------------+------+--------+-------+--------------------------------------------------------╯
+
 
 ## SgxVerifier
 
 ╭-------------------+-------------------------------------------------+------+--------+-------+--------------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name              | Type                                            | Slot | Offset | Bytes |
 +======================================================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized      | uint8                                           | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing     | bool                                            | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap             | uint256[50]                                     | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner            | address                                         | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap             | uint256[49]                                     | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner     | address                                         | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap             | uint256[49]                                     | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager    | address                                         | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap             | uint256[49]                                     | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry         | uint8                                           | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused          | uint8                                           | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt  | uint64                                          | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap             | uint256[49]                                     | 202  | 0      | 1568  |
 |
-| nextInstanceId | uint256 | 251 | 0 | 32 |
+| nextInstanceId    | uint256                                         | 251  | 0      | 32    |
 |
-| instances | mapping(uint256 => struct SgxVerifier.Instance) | 252 | 0 | 32 |
+| instances         | mapping(uint256 => struct SgxVerifier.Instance) | 252  | 0      | 32    |
 |
-| addressRegistered | mapping(address => bool) | 253 | 0 | 32 |
+| addressRegistered | mapping(address => bool)                        | 253  | 0      | 32    |
 |
-| \_\_gap | uint256[47] | 254 | 0 | 1504 |
+| __gap             | uint256[47]                                     | 254  | 0      | 1504  |
 ╰-------------------+-------------------------------------------------+------+--------+-------+--------------------------------------------------------╯
+
 
 ## AutomataDcapV3Attestation
 
 ╭-------------------------+-------------------------------------------------+------+--------+-------+-----------------------------------------------------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name                    | Type                                            | Slot | Offset | Bytes |
 +===================================================================================================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized            | uint8                                           | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing           | bool                                            | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap                   | uint256[50]                                     | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner                  | address                                         | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap                   | uint256[49]                                     | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner           | address                                         | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap                   | uint256[49]                                     | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager          | address                                         | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap                   | uint256[49]                                     | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry               | uint8                                           | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused                | uint8                                           | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt        | uint64                                          | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap                   | uint256[49]                                     | 202  | 0      | 1568  |
 |
-| sigVerifyLib | contract ISigVerifyLib | 251 | 0 | 20 |
+| sigVerifyLib            | contract ISigVerifyLib                          | 251  | 0      | 20    |
 |
-| pemCertLib | contract IPEMCertChainLib | 252 | 0 | 20 |
+| pemCertLib              | contract IPEMCertChainLib                       | 252  | 0      | 20    |
 |
-| checkLocalEnclaveReport | bool | 252 | 20 | 1 |
+| checkLocalEnclaveReport | bool                                            | 252  | 20     | 1     |
 |
-| trustedUserMrEnclave | mapping(bytes32 => bool) | 253 | 0 | 32 |
+| trustedUserMrEnclave    | mapping(bytes32 => bool)                        | 253  | 0      | 32    |
 |
-| trustedUserMrSigner | mapping(bytes32 => bool) | 254 | 0 | 32 |
+| trustedUserMrSigner     | mapping(bytes32 => bool)                        | 254  | 0      | 32    |
 |
-| serialNumIsRevoked | mapping(uint256 => mapping(bytes => bool)) | 255 | 0 | 32 |
+| serialNumIsRevoked      | mapping(uint256 => mapping(bytes => bool))      | 255  | 0      | 32    |
 |
-| tcbInfo | mapping(string => struct TCBInfoStruct.TCBInfo) | 256 | 0 | 32 |
+| tcbInfo                 | mapping(string => struct TCBInfoStruct.TCBInfo) | 256  | 0      | 32    |
 |
-| qeIdentity | struct EnclaveIdStruct.EnclaveId | 257 | 0 | 128 |
+| qeIdentity              | struct EnclaveIdStruct.EnclaveId                | 257  | 0      | 128   |
 |
-| \_\_gap | uint256[39] | 261 | 0 | 1248 |
+| __gap                   | uint256[39]                                     | 261  | 0      | 1248  |
 ╰-------------------------+-------------------------------------------------+------+--------+-------+-----------------------------------------------------------------------------------------------╯
+
 
 ## TaikoL1
 
 ╭------------------+------------------------+------+--------+-------+--------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name             | Type                   | Slot | Offset | Bytes |
 +================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized     | uint8                  | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing    | bool                   | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap            | uint256[50]            | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner           | address                | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap            | uint256[49]            | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner    | address                | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap            | uint256[49]            | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager   | address                | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap            | uint256[49]            | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry        | uint8                  | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused         | uint8                  | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt | uint64                 | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap            | uint256[49]            | 202  | 0      | 1568  |
 |
-| state | struct TaikoData.State | 251 | 0 | 1600 |
+| state            | struct TaikoData.State | 251  | 0      | 1600  |
 |
-| \_\_gap | uint256[50] | 301 | 0 | 1600 |
+| __gap            | uint256[50]            | 301  | 0      | 1600  |
 ╰------------------+------------------------+------+--------+-------+--------------------------------------------╯
+
 
 ## HeklaTaikoL1
 
 ╭------------------+------------------------+------+--------+-------+------------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name             | Type                   | Slot | Offset | Bytes |
 +==========================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized     | uint8                  | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing    | bool                   | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap            | uint256[50]            | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner           | address                | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap            | uint256[49]            | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner    | address                | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap            | uint256[49]            | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager   | address                | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap            | uint256[49]            | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry        | uint8                  | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused         | uint8                  | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt | uint64                 | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap            | uint256[49]            | 202  | 0      | 1568  |
 |
-| state | struct TaikoData.State | 251 | 0 | 1600 |
+| state            | struct TaikoData.State | 251  | 0      | 1600  |
 |
-| \_\_gap | uint256[50] | 301 | 0 | 1600 |
+| __gap            | uint256[50]            | 301  | 0      | 1600  |
 ╰------------------+------------------------+------+--------+-------+------------------------------------------------------╯
+
 
 ## HeklaTierRouter
 
@@ -1021,257 +1045,264 @@
 +================================================+
 ╰------+------+------+--------+-------+----------╯
 
+
 ## MainnetBridge
 
 ╭------------------+-----------------------------------------+------+--------+-------+----------------------------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name             | Type                                    | Slot | Offset | Bytes |
 +===========================================================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized     | uint8                                   | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing    | bool                                    | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap            | uint256[50]                             | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner           | address                                 | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap            | uint256[49]                             | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner    | address                                 | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap            | uint256[49]                             | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager   | address                                 | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap            | uint256[49]                             | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry        | uint8                                   | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused         | uint8                                   | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt | uint64                                  | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap            | uint256[49]                             | 202  | 0      | 1568  |
 |
-| **reserved1 | uint64 | 251 | 0 | 8 |
+| __reserved1      | uint64                                  | 251  | 0      | 8     |
 |
-| nextMessageId | uint64 | 251 | 8 | 8 |
+| nextMessageId    | uint64                                  | 251  | 8      | 8     |
 |
-| messageStatus | mapping(bytes32 => enum IBridge.Status) | 252 | 0 | 32 |
+| messageStatus    | mapping(bytes32 => enum IBridge.Status) | 252  | 0      | 32    |
 |
-| **ctx | struct IBridge.Context | 253 | 0 | 64 |
+| __ctx            | struct IBridge.Context                  | 253  | 0      | 64    |
 |
-| **reserved2 | uint256 | 255 | 0 | 32 |
+| __reserved2      | uint256                                 | 255  | 0      | 32    |
 |
-| **reserved3 | uint256 | 256 | 0 | 32 |
+| __reserved3      | uint256                                 | 256  | 0      | 32    |
 |
-| \_\_gap | uint256[44] | 257 | 0 | 1408 |
+| __gap            | uint256[44]                             | 257  | 0      | 1408  |
 ╰------------------+-----------------------------------------+------+--------+-------+----------------------------------------------------------------------╯
+
 
 ## MainnetSignalService
 
 ╭------------------+-----------------------------------------------+------+--------+-------+------------------------------------------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name             | Type                                          | Slot | Offset | Bytes |
 +===============================================================================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized     | uint8                                         | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing    | bool                                          | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap            | uint256[50]                                   | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner           | address                                       | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap            | uint256[49]                                   | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner    | address                                       | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap            | uint256[49]                                   | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager   | address                                       | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap            | uint256[49]                                   | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry        | uint8                                         | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused         | uint8                                         | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt | uint64                                        | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap            | uint256[49]                                   | 202  | 0      | 1568  |
 |
-| topBlockId | mapping(uint64 => mapping(bytes32 => uint64)) | 251 | 0 | 32 |
+| topBlockId       | mapping(uint64 => mapping(bytes32 => uint64)) | 251  | 0      | 32    |
 |
-| isAuthorized | mapping(address => bool) | 252 | 0 | 32 |
+| isAuthorized     | mapping(address => bool)                      | 252  | 0      | 32    |
 |
-| \_\_gap | uint256[48] | 253 | 0 | 1536 |
+| __gap            | uint256[48]                                   | 253  | 0      | 1536  |
 ╰------------------+-----------------------------------------------+------+--------+-------+------------------------------------------------------------------------------------╯
+
 
 ## MainnetERC20Vault
 
 ╭--------------------+------------------------------------------------------+------+--------+-------+------------------------------------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name               | Type                                                 | Slot | Offset | Bytes |
 +==================================================================================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized       | uint8                                                | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing      | bool                                                 | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap              | uint256[50]                                          | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner             | address                                              | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap              | uint256[49]                                          | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner      | address                                              | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap              | uint256[49]                                          | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager     | address                                              | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap              | uint256[49]                                          | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry          | uint8                                                | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused           | uint8                                                | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt   | uint64                                               | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap              | uint256[49]                                          | 202  | 0      | 1568  |
 |
-| **gap | uint256[50] | 251 | 0 | 1600 |
+| __gap              | uint256[50]                                          | 251  | 0      | 1600  |
 |
-| bridgedToCanonical | mapping(address => struct ERC20Vault.CanonicalERC20) | 301 | 0 | 32 |
+| bridgedToCanonical | mapping(address => struct ERC20Vault.CanonicalERC20) | 301  | 0      | 32    |
 |
-| canonicalToBridged | mapping(uint256 => mapping(address => address)) | 302 | 0 | 32 |
+| canonicalToBridged | mapping(uint256 => mapping(address => address))      | 302  | 0      | 32    |
 |
-| btokenDenylist | mapping(address => bool) | 303 | 0 | 32 |
+| btokenDenylist     | mapping(address => bool)                             | 303  | 0      | 32    |
 |
-| lastMigrationStart | mapping(uint256 => mapping(address => uint256)) | 304 | 0 | 32 |
+| lastMigrationStart | mapping(uint256 => mapping(address => uint256))      | 304  | 0      | 32    |
 |
-| **gap | uint256[46] | 305 | 0 | 1472 |
+| __gap              | uint256[46]                                          | 305  | 0      | 1472  |
 ╰--------------------+------------------------------------------------------+------+--------+-------+------------------------------------------------------------------------------╯
+
 
 ## MainnetERC1155Vault
 
 ╭--------------------+------------------------------------------------------+------+--------+-------+----------------------------------------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name               | Type                                                 | Slot | Offset | Bytes |
 +======================================================================================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized       | uint8                                                | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing      | bool                                                 | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap              | uint256[50]                                          | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner             | address                                              | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap              | uint256[49]                                          | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner      | address                                              | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap              | uint256[49]                                          | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager     | address                                              | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap              | uint256[49]                                          | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry          | uint8                                                | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused           | uint8                                                | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt   | uint64                                               | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap              | uint256[49]                                          | 202  | 0      | 1568  |
 |
-| **gap | uint256[50] | 251 | 0 | 1600 |
+| __gap              | uint256[50]                                          | 251  | 0      | 1600  |
 |
-| bridgedToCanonical | mapping(address => struct BaseNFTVault.CanonicalNFT) | 301 | 0 | 32 |
+| bridgedToCanonical | mapping(address => struct BaseNFTVault.CanonicalNFT) | 301  | 0      | 32    |
 |
-| canonicalToBridged | mapping(uint256 => mapping(address => address)) | 302 | 0 | 32 |
+| canonicalToBridged | mapping(uint256 => mapping(address => address))      | 302  | 0      | 32    |
 |
-| **gap | uint256[48] | 303 | 0 | 1536 |
+| __gap              | uint256[48]                                          | 303  | 0      | 1536  |
 |
-| **gap | uint256[50] | 351 | 0 | 1600 |
+| __gap              | uint256[50]                                          | 351  | 0      | 1600  |
 |
-| **gap | uint256[50] | 401 | 0 | 1600 |
+| __gap              | uint256[50]                                          | 401  | 0      | 1600  |
 |
-| \_\_gap | uint256[50] | 451 | 0 | 1600 |
+| __gap              | uint256[50]                                          | 451  | 0      | 1600  |
 ╰--------------------+------------------------------------------------------+------+--------+-------+----------------------------------------------------------------------------------╯
+
 
 ## MainnetERC721Vault
 
 ╭--------------------+------------------------------------------------------+------+--------+-------+--------------------------------------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name               | Type                                                 | Slot | Offset | Bytes |
 +====================================================================================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized       | uint8                                                | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing      | bool                                                 | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap              | uint256[50]                                          | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner             | address                                              | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap              | uint256[49]                                          | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner      | address                                              | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap              | uint256[49]                                          | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager     | address                                              | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap              | uint256[49]                                          | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry          | uint8                                                | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused           | uint8                                                | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt   | uint64                                               | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap              | uint256[49]                                          | 202  | 0      | 1568  |
 |
-| **gap | uint256[50] | 251 | 0 | 1600 |
+| __gap              | uint256[50]                                          | 251  | 0      | 1600  |
 |
-| bridgedToCanonical | mapping(address => struct BaseNFTVault.CanonicalNFT) | 301 | 0 | 32 |
+| bridgedToCanonical | mapping(address => struct BaseNFTVault.CanonicalNFT) | 301  | 0      | 32    |
 |
-| canonicalToBridged | mapping(uint256 => mapping(address => address)) | 302 | 0 | 32 |
+| canonicalToBridged | mapping(uint256 => mapping(address => address))      | 302  | 0      | 32    |
 |
-| **gap | uint256[48] | 303 | 0 | 1536 |
+| __gap              | uint256[48]                                          | 303  | 0      | 1536  |
 |
-| \_\_gap | uint256[50] | 351 | 0 | 1600 |
+| __gap              | uint256[50]                                          | 351  | 0      | 1600  |
 ╰--------------------+------------------------------------------------------+------+--------+-------+--------------------------------------------------------------------------------╯
+
 
 ## MainnetSharedAddressManager
 
 ╭------------------+-------------------------------------------------+------+--------+-------+--------------------------------------------------------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name             | Type                                            | Slot | Offset | Bytes |
 +===============================================================================================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized     | uint8                                           | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing    | bool                                            | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap            | uint256[50]                                     | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner           | address                                         | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap            | uint256[49]                                     | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner    | address                                         | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap            | uint256[49]                                     | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager   | address                                         | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap            | uint256[49]                                     | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry        | uint8                                           | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused         | uint8                                           | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt | uint64                                          | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap            | uint256[49]                                     | 202  | 0      | 1568  |
 |
-| **addresses | mapping(uint256 => mapping(bytes32 => address)) | 251 | 0 | 32 |
+| __addresses      | mapping(uint256 => mapping(bytes32 => address)) | 251  | 0      | 32    |
 |
-| **gap | uint256[49] | 252 | 0 | 1568 |
+| __gap            | uint256[49]                                     | 252  | 0      | 1568  |
 ╰------------------+-------------------------------------------------+------+--------+-------+--------------------------------------------------------------------------------------------------╯
+
 
 ## RollupAddressCache
 
@@ -1280,12 +1311,14 @@
 +================================================+
 ╰------+------+------+--------+-------+----------╯
 
+
 ## SharedAddressCache
 
 ╭------+------+------+--------+-------+----------╮
 | Name | Type | Slot | Offset | Bytes |
 +================================================+
 ╰------+------+------+--------+-------+----------╯
+
 
 ## AddressCache
 
@@ -1294,345 +1327,355 @@
 +================================================+
 ╰------+------+------+--------+-------+----------╯
 
+
 ## MainnetSgxVerifier
 
 ╭-------------------+-------------------------------------------------+------+--------+-------+-------------------------------------------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name              | Type                                            | Slot | Offset | Bytes |
 +===================================================================================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized      | uint8                                           | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing     | bool                                            | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap             | uint256[50]                                     | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner            | address                                         | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap             | uint256[49]                                     | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner     | address                                         | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap             | uint256[49]                                     | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager    | address                                         | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap             | uint256[49]                                     | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry         | uint8                                           | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused          | uint8                                           | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt  | uint64                                          | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap             | uint256[49]                                     | 202  | 0      | 1568  |
 |
-| nextInstanceId | uint256 | 251 | 0 | 32 |
+| nextInstanceId    | uint256                                         | 251  | 0      | 32    |
 |
-| instances | mapping(uint256 => struct SgxVerifier.Instance) | 252 | 0 | 32 |
+| instances         | mapping(uint256 => struct SgxVerifier.Instance) | 252  | 0      | 32    |
 |
-| addressRegistered | mapping(address => bool) | 253 | 0 | 32 |
+| addressRegistered | mapping(address => bool)                        | 253  | 0      | 32    |
 |
-| \_\_gap | uint256[47] | 254 | 0 | 1504 |
+| __gap             | uint256[47]                                     | 254  | 0      | 1504  |
 ╰-------------------+-------------------------------------------------+------+--------+-------+-------------------------------------------------------------------------------------╯
+
 
 ## MainnetSP1Verifier
 
 ╭------------------+--------------------------+------+--------+-------+-------------------------------------------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name             | Type                     | Slot | Offset | Bytes |
 +===========================================================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized     | uint8                    | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing    | bool                     | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap            | uint256[50]              | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner           | address                  | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap            | uint256[49]              | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner    | address                  | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap            | uint256[49]              | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager   | address                  | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap            | uint256[49]              | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry        | uint8                    | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused         | uint8                    | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt | uint64                   | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap            | uint256[49]              | 202  | 0      | 1568  |
 |
-| isProgramTrusted | mapping(bytes32 => bool) | 251 | 0 | 32 |
+| isProgramTrusted | mapping(bytes32 => bool) | 251  | 0      | 32    |
 |
-| \_\_gap | uint256[49] | 252 | 0 | 1568 |
+| __gap            | uint256[49]              | 252  | 0      | 1568  |
 ╰------------------+--------------------------+------+--------+-------+-------------------------------------------------------------------------------------╯
+
 
 ## MainnetZkAnyVerifier
 
 ╭------------------+-------------+------+--------+-------+-----------------------------------------------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name             | Type        | Slot | Offset | Bytes |
 +==================================================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized     | uint8       | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing    | bool        | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap            | uint256[50] | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner           | address     | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap            | uint256[49] | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner    | address     | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap            | uint256[49] | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager   | address     | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap            | uint256[49] | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry        | uint8       | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused         | uint8       | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt | uint64      | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap            | uint256[49] | 202  | 0      | 1568  |
 |
-| **gap | uint256[50] | 251 | 0 | 1600 |
+| __gap            | uint256[50] | 251  | 0      | 1600  |
 |
-| **gap | uint256[50] | 301 | 0 | 1600 |
+| __gap            | uint256[50] | 301  | 0      | 1600  |
 ╰------------------+-------------+------+--------+-------+-----------------------------------------------------------------------------------------╯
+
 
 ## MainnetRisc0Verifier
 
 ╭------------------+--------------------------+------+--------+-------+-----------------------------------------------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name             | Type                     | Slot | Offset | Bytes |
 +===============================================================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized     | uint8                    | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing    | bool                     | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap            | uint256[50]              | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner           | address                  | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap            | uint256[49]              | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner    | address                  | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap            | uint256[49]              | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager   | address                  | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap            | uint256[49]              | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry        | uint8                    | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused         | uint8                    | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt | uint64                   | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap            | uint256[49]              | 202  | 0      | 1568  |
 |
-| isImageTrusted | mapping(bytes32 => bool) | 251 | 0 | 32 |
+| isImageTrusted   | mapping(bytes32 => bool) | 251  | 0      | 32    |
 |
-| \_\_gap | uint256[49] | 252 | 0 | 1568 |
+| __gap            | uint256[49]              | 252  | 0      | 1568  |
 ╰------------------+--------------------------+------+--------+-------+-----------------------------------------------------------------------------------------╯
+
 
 ## MainnetZkAndTeeVerifier
 
 ╭------------------+-------------+------+--------+-------+-----------------------------------------------------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name             | Type        | Slot | Offset | Bytes |
 +========================================================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized     | uint8       | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing    | bool        | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap            | uint256[50] | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner           | address     | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap            | uint256[49] | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner    | address     | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap            | uint256[49] | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager   | address     | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap            | uint256[49] | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry        | uint8       | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused         | uint8       | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt | uint64      | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap            | uint256[49] | 202  | 0      | 1568  |
 |
-| **gap | uint256[50] | 251 | 0 | 1600 |
+| __gap            | uint256[50] | 251  | 0      | 1600  |
 |
-| **gap | uint256[50] | 301 | 0 | 1600 |
+| __gap            | uint256[50] | 301  | 0      | 1600  |
 ╰------------------+-------------+------+--------+-------+-----------------------------------------------------------------------------------------------╯
+
 
 ## MainnetTeeAnyVerifier
 
 ╭------------------+-------------+------+--------+-------+-------------------------------------------------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name             | Type        | Slot | Offset | Bytes |
 +====================================================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized     | uint8       | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing    | bool        | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap            | uint256[50] | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner           | address     | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap            | uint256[49] | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner    | address     | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap            | uint256[49] | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager   | address     | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap            | uint256[49] | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry        | uint8       | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused         | uint8       | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt | uint64      | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap            | uint256[49] | 202  | 0      | 1568  |
 |
-| **gap | uint256[50] | 251 | 0 | 1600 |
+| __gap            | uint256[50] | 251  | 0      | 1600  |
 |
-| **gap | uint256[50] | 301 | 0 | 1600 |
+| __gap            | uint256[50] | 301  | 0      | 1600  |
 ╰------------------+-------------+------+--------+-------+-------------------------------------------------------------------------------------------╯
+
 
 ## MainnetGuardianProver
 
 ╭-------------------------+-------------------------------------------------+------+--------+-------+---------------------------------------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name                    | Type                                            | Slot | Offset | Bytes |
 +=====================================================================================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized            | uint8                                           | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing           | bool                                            | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap                   | uint256[50]                                     | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner                  | address                                         | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap                   | uint256[49]                                     | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner           | address                                         | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap                   | uint256[49]                                     | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager          | address                                         | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap                   | uint256[49]                                     | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry               | uint8                                           | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused                | uint8                                           | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt        | uint64                                          | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap                   | uint256[49]                                     | 202  | 0      | 1568  |
 |
-| guardianIds | mapping(address => uint256) | 251 | 0 | 32 |
+| guardianIds             | mapping(address => uint256)                     | 251  | 0      | 32    |
 |
-| approvals | mapping(uint256 => mapping(bytes32 => uint256)) | 252 | 0 | 32 |
+| approvals               | mapping(uint256 => mapping(bytes32 => uint256)) | 252  | 0      | 32    |
 |
-| guardians | address[] | 253 | 0 | 32 |
+| guardians               | address[]                                       | 253  | 0      | 32    |
 |
-| version | uint32 | 254 | 0 | 4 |
+| version                 | uint32                                          | 254  | 0      | 4     |
 |
-| minGuardians | uint32 | 254 | 4 | 4 |
+| minGuardians            | uint32                                          | 254  | 4      | 4     |
 |
-| provingAutoPauseEnabled | bool | 254 | 8 | 1 |
+| provingAutoPauseEnabled | bool                                            | 254  | 8      | 1     |
 |
-| latestProofHash | mapping(uint256 => mapping(uint256 => bytes32)) | 255 | 0 | 32 |
+| latestProofHash         | mapping(uint256 => mapping(uint256 => bytes32)) | 255  | 0      | 32    |
 |
-| \_\_gap | uint256[45] | 256 | 0 | 1440 |
+| __gap                   | uint256[45]                                     | 256  | 0      | 1440  |
 ╰-------------------------+-------------------------------------------------+------+--------+-------+---------------------------------------------------------------------------------╯
+
 
 ## MainnetTaikoL1
 
 ╭------------------+------------------------+------+--------+-------+-------------------------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name             | Type                   | Slot | Offset | Bytes |
 +=======================================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized     | uint8                  | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing    | bool                   | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap            | uint256[50]            | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner           | address                | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap            | uint256[49]            | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner    | address                | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap            | uint256[49]            | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager   | address                | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap            | uint256[49]            | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry        | uint8                  | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused         | uint8                  | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt | uint64                 | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap            | uint256[49]            | 202  | 0      | 1568  |
 |
-| state | struct TaikoData.State | 251 | 0 | 1600 |
+| state            | struct TaikoData.State | 251  | 0      | 1600  |
 |
-| \_\_gap | uint256[50] | 301 | 0 | 1600 |
+| __gap            | uint256[50]            | 301  | 0      | 1600  |
 ╰------------------+------------------------+------+--------+-------+-------------------------------------------------------------------╯
+
 
 ## MainnetRollupAddressManager
 
 ╭------------------+-------------------------------------------------+------+--------+-------+---------------------------------------------------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name             | Type                                            | Slot | Offset | Bytes |
 +==========================================================================================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized     | uint8                                           | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing    | bool                                            | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap            | uint256[50]                                     | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner           | address                                         | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap            | uint256[49]                                     | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner    | address                                         | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap            | uint256[49]                                     | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager   | address                                         | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap            | uint256[49]                                     | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry        | uint8                                           | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused         | uint8                                           | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt | uint64                                          | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap            | uint256[49]                                     | 202  | 0      | 1568  |
 |
-| **addresses | mapping(uint256 => mapping(bytes32 => address)) | 251 | 0 | 32 |
+| __addresses      | mapping(uint256 => mapping(bytes32 => address)) | 251  | 0      | 32    |
 |
-| **gap | uint256[49] | 252 | 0 | 1568 |
+| __gap            | uint256[49]                                     | 252  | 0      | 1568  |
 ╰------------------+-------------------------------------------------+------+--------+-------+---------------------------------------------------------------------------------------------╯
+
 
 ## MainnetTierRouter
 
@@ -1641,188 +1684,195 @@
 +================================================+
 ╰------+------+------+--------+-------+----------╯
 
+
 ## MainnetProverSet
 
 ╭------------------+--------------------------+------+--------+-------+-----------------------------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name             | Type                     | Slot | Offset | Bytes |
 +=============================================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized     | uint8                    | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing    | bool                     | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap            | uint256[50]              | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner           | address                  | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap            | uint256[49]              | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner    | address                  | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap            | uint256[49]              | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager   | address                  | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap            | uint256[49]              | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry        | uint8                    | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused         | uint8                    | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt | uint64                   | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap            | uint256[49]              | 202  | 0      | 1568  |
 |
-| isProver | mapping(address => bool) | 251 | 0 | 32 |
+| isProver         | mapping(address => bool) | 251  | 0      | 32    |
 |
-| admin | address | 252 | 0 | 20 |
+| admin            | address                  | 252  | 0      | 20    |
 |
-| \_\_gap | uint256[48] | 253 | 0 | 1536 |
+| __gap            | uint256[48]              | 253  | 0      | 1536  |
 ╰------------------+--------------------------+------+--------+-------+-----------------------------------------------------------------------╯
+
 
 ## TokenUnlock
 
 ╭------------------+--------------------------+------+--------+-------+---------------------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name             | Type                     | Slot | Offset | Bytes |
 +=====================================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized     | uint8                    | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing    | bool                     | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap            | uint256[50]              | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner           | address                  | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap            | uint256[49]              | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner    | address                  | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap            | uint256[49]              | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager   | address                  | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap            | uint256[49]              | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry        | uint8                    | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused         | uint8                    | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt | uint64                   | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap            | uint256[49]              | 202  | 0      | 1568  |
 |
-| amountVested | uint256 | 251 | 0 | 32 |
+| amountVested     | uint256                  | 251  | 0      | 32    |
 |
-| recipient | address | 252 | 0 | 20 |
+| recipient        | address                  | 252  | 0      | 20    |
 |
-| tgeTimestamp | uint64 | 252 | 20 | 8 |
+| tgeTimestamp     | uint64                   | 252  | 20     | 8     |
 |
-| isProverSet | mapping(address => bool) | 253 | 0 | 32 |
+| isProverSet      | mapping(address => bool) | 253  | 0      | 32    |
 |
-| \_\_gap | uint256[47] | 254 | 0 | 1504 |
+| __gap            | uint256[47]              | 254  | 0      | 1504  |
 ╰------------------+--------------------------+------+--------+-------+---------------------------------------------------------------╯
+
 
 ## ProverSet
 
 ╭------------------+--------------------------+------+--------+-------+--------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name             | Type                     | Slot | Offset | Bytes |
 +========================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized     | uint8                    | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing    | bool                     | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap            | uint256[50]              | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner           | address                  | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap            | uint256[49]              | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner    | address                  | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap            | uint256[49]              | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager   | address                  | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap            | uint256[49]              | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry        | uint8                    | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused         | uint8                    | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt | uint64                   | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap            | uint256[49]              | 202  | 0      | 1568  |
 |
-| isProver | mapping(address => bool) | 251 | 0 | 32 |
+| isProver         | mapping(address => bool) | 251  | 0      | 32    |
 |
-| admin | address | 252 | 0 | 20 |
+| admin            | address                  | 252  | 0      | 20    |
 |
-| \_\_gap | uint256[48] | 253 | 0 | 1536 |
+| __gap            | uint256[48]              | 253  | 0      | 1536  |
 ╰------------------+--------------------------+------+--------+-------+--------------------------------------------------╯
+
 
 ## GuardianProver
 
 ╭-------------------------+-------------------------------------------------+------+--------+-------+------------------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name                    | Type                                            | Slot | Offset | Bytes |
 +================================================================================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized            | uint8                                           | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing           | bool                                            | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap                   | uint256[50]                                     | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner                  | address                                         | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap                   | uint256[49]                                     | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner           | address                                         | 101  | 0      | 20    |
 |
-| **gap | uint256[49] | 102 | 0 | 1568 |
+| __gap                   | uint256[49]                                     | 102  | 0      | 1568  |
 |
-| addressManager | address | 151 | 0 | 20 |
+| addressManager          | address                                         | 151  | 0      | 20    |
 |
-| **gap | uint256[49] | 152 | 0 | 1568 |
+| __gap                   | uint256[49]                                     | 152  | 0      | 1568  |
 |
-| **reentry | uint8 | 201 | 0 | 1 |
+| __reentry               | uint8                                           | 201  | 0      | 1     |
 |
-| **paused | uint8 | 201 | 1 | 1 |
+| __paused                | uint8                                           | 201  | 1      | 1     |
 |
-| **lastUnpausedAt | uint64 | 201 | 2 | 8 |
+| __lastUnpausedAt        | uint64                                          | 201  | 2      | 8     |
 |
-| **gap | uint256[49] | 202 | 0 | 1568 |
+| __gap                   | uint256[49]                                     | 202  | 0      | 1568  |
 |
-| guardianIds | mapping(address => uint256) | 251 | 0 | 32 |
+| guardianIds             | mapping(address => uint256)                     | 251  | 0      | 32    |
 |
-| approvals | mapping(uint256 => mapping(bytes32 => uint256)) | 252 | 0 | 32 |
+| approvals               | mapping(uint256 => mapping(bytes32 => uint256)) | 252  | 0      | 32    |
 |
-| guardians | address[] | 253 | 0 | 32 |
+| guardians               | address[]                                       | 253  | 0      | 32    |
 |
-| version | uint32 | 254 | 0 | 4 |
+| version                 | uint32                                          | 254  | 0      | 4     |
 |
-| minGuardians | uint32 | 254 | 4 | 4 |
+| minGuardians            | uint32                                          | 254  | 4      | 4     |
 |
-| provingAutoPauseEnabled | bool | 254 | 8 | 1 |
+| provingAutoPauseEnabled | bool                                            | 254  | 8      | 1     |
 |
-| latestProofHash | mapping(uint256 => mapping(uint256 => bytes32)) | 255 | 0 | 32 |
+| latestProofHash         | mapping(uint256 => mapping(uint256 => bytes32)) | 255  | 0      | 32    |
 |
-| \_\_gap | uint256[45] | 256 | 0 | 1440 |
+| __gap                   | uint256[45]                                     | 256  | 0      | 1440  |
 ╰-------------------------+-------------------------------------------------+------+--------+-------+------------------------------------------------------------╯
+
 
 ## ForkManager
 
 ╭---------------+-------------+------+--------+-------+---------------------------------------------------╮
-| Name | Type | Slot | Offset | Bytes |
+| Name          | Type        | Slot | Offset | Bytes |
 +=========================================================================================================+
-| \_initialized | uint8 | 0 | 0 | 1 |
+| _initialized  | uint8       | 0    | 0      | 1     |
 |
-| \_initializing | bool | 0 | 1 | 1 |
+| _initializing | bool        | 0    | 1      | 1     |
 |
-| **gap | uint256[50] | 1 | 0 | 1600 |
+| __gap         | uint256[50] | 1    | 0      | 1600  |
 |
-| \_owner | address | 51 | 0 | 20 |
+| _owner        | address     | 51   | 0      | 20    |
 |
-| **gap | uint256[49] | 52 | 0 | 1568 |
+| __gap         | uint256[49] | 52   | 0      | 1568  |
 |
-| \_pendingOwner | address | 101 | 0 | 20 |
+| _pendingOwner | address     | 101  | 0      | 20    |
 |
-| \_\_gap | uint256[49] | 102 | 0 | 1568 |
+| __gap         | uint256[49] | 102  | 0      | 1568  |
 ╰---------------+-------------+------+--------+-------+---------------------------------------------------╯
+
+

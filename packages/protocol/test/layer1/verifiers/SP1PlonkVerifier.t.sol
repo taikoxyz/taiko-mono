@@ -121,7 +121,7 @@ contract SuccinctVerifierTest is TaikoL1TestBase {
             blobHash: bytes32(0x0143051e11b9886c061ccb939bf7317cee20378f0d3ac8d1930140f1ba42d99f),
             prover: address(0x70997970C51812dc3A010C7d01b50e0d17dc79C8),
             msgSender: 0x70997970C51812dc3A010C7d01b50e0d17dc79C8,
-            blockId: 749050,
+            blockId: 749_050,
             isContesting: false,
             blobUsed: true,
             tran: TaikoData.Transition({
@@ -136,7 +136,7 @@ contract SuccinctVerifierTest is TaikoL1TestBase {
             blobHash: 0x0181040be344c40efb3f4cfd9df5ba02c8474e6c18e15d959ab345de1ee264b7,
             prover: 0x70997970C51812dc3A010C7d01b50e0d17dc79C8,
             msgSender: 0x70997970C51812dc3A010C7d01b50e0d17dc79C8,
-            blockId: 749051,
+            blockId: 749_051,
             isContesting: false,
             blobUsed: true,
             tran: TaikoData.Transition({
