@@ -136,6 +136,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
                     anchorBlockId: updatedParams.anchorBlockId,
                     anchorBlockHash: blockhash(updatedParams.anchorBlockId),
                     signalSlots: _paramsArray[i].signalSlots,
+                    subBlocks:  _paramsArray[i].subBlocks,
                     anchorInput: _paramsArray[i].anchorInput,
                     baseFeeConfig: config.baseFeeConfig
                 });
@@ -153,6 +154,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
             blk.timestamp = updatedParams.timestamp;
             blk.anchorBlockId = updatedParams.anchorBlockId;
             blk.nextTransitionId = 1;
+            blk.numSubBlocks =uint8(_paramsArray[i].subBlocks.length); 
             blk.verifiedTransitionId = 0;
             // SSTORE }}
 
@@ -621,6 +623,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
                 require(signalService.isSignalSent(_params.signalSlots[i]), SignalNotSent());
             }
         }
+
+
+        require(_params.subBlocks.length != 0 && _params.subBlocks.length <= type(uint8).max, InvalidSubBlocks());
     }
 
     // Memory-only structs ----------------------------------------------------------------------

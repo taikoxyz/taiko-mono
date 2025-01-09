@@ -17,6 +17,11 @@ import "src/shared/based/LibSharedData.sol";
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
 interface ITaikoInbox {
+    struct SubBlockV3{
+        uint16 numTransactions;
+        uint8 timeThift;
+    }
+
     struct BlockParamsV3 {
         bytes32 parentMetaHash;
         uint64 anchorBlockId;
@@ -26,6 +31,7 @@ interface ITaikoInbox {
         uint32 txListSize;
         uint8 blobIndex;
         bytes32[] signalSlots;
+        SubBlockV3[] subBlocks;
     }
 
     struct BlockMetadataV3 {
@@ -47,6 +53,7 @@ interface ITaikoInbox {
         uint64 anchorBlockId;
         bytes32 anchorBlockHash;
         bytes32[] signalSlots;
+        SubBlockV3[] subBlocks;
         bytes32 anchorInput;
         LibSharedData.BaseFeeConfig baseFeeConfig;
     }
@@ -67,7 +74,7 @@ interface ITaikoInbox {
         uint64 timestamp;
         uint64 anchorBlockId;
         uint24 nextTransitionId;
-        bool _reserved1;
+        uint8 numSubBlocks;
         // The ID of the transaction that is used to verify this block. However, if this block is
         // not verified as the last block in a batch, verifiedTransitionId will remain zero.
         uint24 verifiedTransitionId;
@@ -207,6 +214,7 @@ interface ITaikoInbox {
     error InsufficientBond();
     error InvalidForkHeight();
     error InvalidGenesisBlockHash();
+    error InvalidSubBlocks();
     error InvalidTransitionBlockHash();
     error InvalidTransitionParentHash();
     error InvalidTransitionStateRoot();
