@@ -108,9 +108,6 @@ func (s *L2ChainSyncer) Sync() error {
 			"p2pOutOfSync", s.progressTracker.OutOfSync(),
 		)
 
-		// Mark the beacon sync progress as finished.
-		s.progressTracker.MarkFinished()
-
 		// Get the execution engine's chain head.
 		l2Head, err := s.rpc.L2.HeaderByNumber(s.ctx, nil)
 		if err != nil {

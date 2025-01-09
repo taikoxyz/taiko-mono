@@ -84,6 +84,9 @@ func (s *Syncer) TriggerBeaconSync(blockID uint64) error {
 	// Update sync status.
 	s.progressTracker.UpdateMeta(new(big.Int).SetUint64(blockID), headPayload.BlockHash)
 
+	// Mark the beacon sync progress as finished.
+	s.progressTracker.MarkFinished()
+
 	log.Info(
 		"⛓️ Beacon sync triggered",
 		"newHeadID", blockID,
