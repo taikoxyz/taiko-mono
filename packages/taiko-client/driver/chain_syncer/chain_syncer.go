@@ -159,12 +159,6 @@ func (s *L2ChainSyncer) AheadOfHeadToSync(heightToSync uint64) bool {
 		return false
 	}
 
-	// If the L2 execution engine's chain is ahead of the block head to sync,
-	// we can mark the beacon sync progress as finished.
-	if s.progressTracker.LastSyncedBlockID() != nil {
-		return s.state.GetL2Head().Number.Uint64() >= s.progressTracker.LastSyncedBlockID().Uint64()
-	}
-
 	return true
 }
 
