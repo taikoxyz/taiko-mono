@@ -33,7 +33,6 @@ linters:
     - misspell
     - gosimple
     - staticcheck
-    - revive
     - staticcheck
     - sqlclosecheck
     - staticcheck

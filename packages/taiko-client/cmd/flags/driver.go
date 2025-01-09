@@ -30,7 +30,7 @@ var (
 		Category: driverCategory,
 		EnvVars:  []string{"P2P_CHECK_POINT_SYNC_URL"},
 	}
-	// syncer specific flag
+	// Chain syncer specific flag
 	MaxExponent = &cli.Uint64Flag{
 		Name: "syncer.maxExponent",
 		Usage: "Maximum exponent of retrieving L1 blocks when there is a mismatch between protocol and L2 EE," +
@@ -52,6 +52,33 @@ var (
 		Category: driverCategory,
 		EnvVars:  []string{"BLOB_SOCIAL_SCAN_ENDPOINT"},
 	}
+	// soft block server
+	SoftBlockServerPort = &cli.Uint64Flag{
+		Name:     "softBlock.port",
+		Usage:    "HTTP port of the soft block server, 0 means disabled",
+		Category: driverCategory,
+		EnvVars:  []string{"SOFT_BLOCK_SERVER_PORT"},
+	}
+	SoftBlockServerJWTSecret = &cli.StringFlag{
+		Name:     "softBlock.jwtSecret",
+		Usage:    "Path to a JWT secret to use for the soft block server",
+		Category: driverCategory,
+		EnvVars:  []string{"SOFT_BLOCK_SERVER_JWT_SECRET"},
+	}
+	SoftBlockServerCORSOrigins = &cli.StringFlag{
+		Name:     "softBlock.corsOrigins",
+		Usage:    "CORS Origins settings for the soft block server",
+		Category: driverCategory,
+		Value:    "*",
+		EnvVars:  []string{"SOFT_BLOCK_SERVER_CORS_ORIGINS"},
+	}
+	SoftBlockServerCheckSig = &cli.BoolFlag{
+		Name:     "softBlock.signatureCheck",
+		Usage:    "If the soft block server will check the signature of the incoming transactions batches",
+		Category: driverCategory,
+		Value:    false,
+		EnvVars:  []string{"SOFT_BLOCK_SERVER_SIGNATURE_CHECK"},
+	}
 )
 
 // DriverFlags All driver flags.
@@ -66,4 +93,8 @@ var DriverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	MaxExponent,
 	BlobServerEndpoint,
 	SocialScanEndpoint,
+	SoftBlockServerPort,
+	SoftBlockServerJWTSecret,
+	SoftBlockServerCORSOrigins,
+	SoftBlockServerCheckSig,
 })

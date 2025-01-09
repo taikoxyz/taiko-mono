@@ -104,8 +104,8 @@ func (s *SGXProofProducer) RequestProof(
 		"Request sgx proof from raiko-host service",
 		"blockID", blockID,
 		"coinbase", meta.GetCoinbase(),
-		"height", header.Number,
 		"hash", header.Hash(),
+		"time", time.Since(requestAt),
 	)
 
 	if s.Dummy {
@@ -137,6 +137,10 @@ func (s *SGXProofProducer) Aggregate(
 ) (*BatchProofs, error) {
 	log.Info(
 		"Aggregate sgx batch proofs from raiko-host service",
+		"batchSize", len(items),
+		"firstID", items[0].BlockID,
+		"lastID", items[len(items)-1].BlockID,
+		"time", time.Since(requestAt),
 	)
 	if len(items) == 0 {
 		return nil, ErrInvalidLength
@@ -305,9 +309,15 @@ func (s *SGXProofProducer) requestBatchProof(
 	}
 
 	if len(output.ErrorMessage) > 0 || len(output.Error) > 0 {
-		return nil, fmt.Errorf("failed to get batch proof, msg: %s", output.ErrorMessage)
+		return nil, fmt.Errorf("failed to get sgx batch proof, err: %s, msg: %s",
+			output.Error,
+			output.ErrorMessage,
+		)
 	}
 
+	if output.Data == nil {
+		return nil, fmt.Errorf("unexpected structure error, response: %s", string(resBytes))
+	}
 	if output.Data.Status == ErrProofInProgress.Error() {
 		return nil, ErrProofInProgress
 	}
@@ -315,7 +325,8 @@ func (s *SGXProofProducer) requestBatchProof(
 		return nil, ErrRetry
 	}
 
-	if len(output.Data.Proof.Proof) == 0 {
+	if output.Data.Proof == nil ||
+		len(output.Data.Proof.Proof) == 0 {
 		return nil, errEmptyProof
 	}
 	proof = common.Hex2Bytes(output.Data.Proof.Proof[2:])
@@ -326,6 +337,7 @@ func (s *SGXProofProducer) requestBatchProof(
 		"time", time.Since(requestAt),
 		"producer", "SGXProofProducer",
 	)
+	metrics.ProverSGXAggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
 
 	return proof, nil
 }
@@ -345,14 +357,14 @@ func (s *SGXProofProducer) callProverDaemon(
 
 	output, err := s.requestProof(ctx, opts)
 	if err != nil {
-		log.Error("Failed to request proof", "height", opts.BlockID, "error", err, "endpoint", s.RaikoHostEndpoint)
+		log.Error("Failed to request proof", "blockID", opts.BlockID, "error", err, "endpoint", s.RaikoHostEndpoint)
 		return nil, err
 	}
 
 	if output == nil {
 		log.Info(
 			"Proof generating",
-			"height", opts.BlockID,
+			"blockID", opts.BlockID,
 			"time", time.Since(requestAt),
 			"producer", "SGXProofProducer",
 		)
@@ -379,10 +391,11 @@ func (s *SGXProofProducer) callProverDaemon(
 
 	log.Info(
 		"Proof generated",
-		"height", opts.BlockID,
+		"blockID", opts.BlockID,
 		"time", time.Since(requestAt),
 		"producer", "SGXProofProducer",
 	)
+	metrics.ProverSgxProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
 
 	return proof, nil
 }
@@ -448,7 +461,7 @@ func (s *SGXProofProducer) requestProof(
 	}
 
 	if len(output.ErrorMessage) > 0 || len(output.Error) > 0 {
-		return nil, fmt.Errorf("failed to get proof,err: %s, msg: %s", output.Error, output.ErrorMessage)
+		return nil, fmt.Errorf("failed to get sgx proof,err: %s, msg: %s", output.Error, output.ErrorMessage)
 	}
 
 	return &output, nil

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -118,7 +119,7 @@ func (c *Client) WaitTillL2ExecutionEngineSynced(ctx context.Context) error {
 				return err
 			}
 
-			if progress.isSyncing() {
+			if progress.IsSyncing() {
 				log.Info(
 					"L2 execution engine is syncing",
 					"currentBlockID", progress.CurrentBlockID,
@@ -281,59 +282,16 @@ func (c *Client) CalculateBaseFee(
 	currentTimestamp uint64,
 ) (*big.Int, error) {
 	var (
-		baseFeeInfo struct {
-			Basefee         *big.Int
-			ParentGasExcess uint64
-		}
-		err error
+		baseFee *big.Int
+		err     error
 	)
 
 	if isOntake {
-		var (
-			newGasTarget    = uint64(baseFeeConfig.GasIssuancePerSecond) * uint64(baseFeeConfig.AdjustmentQuotient)
-			parentGasExcess uint64
-		)
-		parentGasTarget, err := c.TaikoL2.ParentGasTarget(
-			&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch parent gas target: %w", err)
-		}
-
-		if newGasTarget != parentGasTarget && parentGasTarget != 0 {
-			oldParentGasExcess, err := c.TaikoL2.ParentGasExcess(
-				&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
-			)
-			if err != nil {
-				return nil, fmt.Errorf("failed to fetch old parent gas excess: %w", err)
-			}
-			if parentGasExcess, err = c.TaikoL2.AdjustExcess(
-				&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
-				oldParentGasExcess,
-				parentGasTarget,
-				newGasTarget,
-			); err != nil {
-				return nil, fmt.Errorf("failed to adjust parent gas excess: %w", err)
-			}
-		} else {
-			if parentGasExcess, err = c.TaikoL2.ParentGasExcess(&bind.CallOpts{
-				BlockNumber: l2Head.Number, Context: ctx,
-			}); err != nil {
-				return nil, fmt.Errorf("failed to fetch parent gas excess: %w", err)
-			}
-		}
-		baseFeeInfo, err = c.TaikoL2.CalculateBaseFee(
-			&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
-			*baseFeeConfig,
-			currentTimestamp-l2Head.Time,
-			parentGasExcess,
-			uint32(l2Head.GasUsed),
-		)
-		if err != nil {
+		if baseFee, err = c.calculateBaseFeeOntake(ctx, l2Head, currentTimestamp, baseFeeConfig); err != nil {
 			return nil, err
 		}
 	} else {
-		baseFeeInfo, err = c.TaikoL2.GetBasefee(
+		baseFeeInfo, err := c.TaikoL2.GetBasefee(
 			&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
 			anchorBlockID.Uint64(),
 			uint32(l2Head.GasUsed),
@@ -341,6 +299,7 @@ func (c *Client) CalculateBaseFee(
 		if err != nil {
 			return nil, err
 		}
+		baseFee = baseFeeInfo.Basefee
 	}
 
 	if err != nil {
@@ -349,13 +308,13 @@ func (c *Client) CalculateBaseFee(
 
 	log.Info(
 		"Base fee information",
-		"fee", utils.WeiToGWei(baseFeeInfo.Basefee),
+		"fee", utils.WeiToGWei(baseFee),
 		"l2Head", l2Head.Number,
 		"anchorBlockID", anchorBlockID,
 		"isOntake", isOntake,
 	)
 
-	return baseFeeInfo.Basefee, nil
+	return baseFee, nil
 }
 
 // GetPoolContent fetches the transactions list from L2 execution engine's transactions pool with given
@@ -373,23 +332,50 @@ func (c *Client) GetPoolContent(
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
-	l1Head, err := c.L1.HeaderByNumber(ctx, nil)
+	// Get the latest L2 block header at first.
+	l2Head, err := c.L2.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	l2Head, err := c.L2.HeaderByNumber(ctx, nil)
+	l1Origin, err := c.L2.L1OriginByID(ctx, l2Head.Number)
+	if err != nil && err.Error() != ethereum.NotFound.Error() {
+		return nil, err
+	}
+
+	var (
+		L1HeadNum *big.Int
+		L2HeadNum *big.Int
+		timestamp = uint64(time.Now().Unix())
+	)
+
+	if l1Origin != nil && l1Origin.IsSoftBlock() && !l1Origin.EndOfPreconf && !l1Origin.EndOfBlock {
+		// Check if this is an unfinished soft block, if not, we will use the latest L1 / L2 block number from the L1Origin.
+		// Otherwise, we will use the L1 / L2 block number in L1Origin.
+		L1HeadNum = l1Origin.L1BlockHeight
+		L2HeadNum = new(big.Int).Sub(l1Origin.BlockID, common.Big1)
+	}
+
+	l1Head, err := c.L1.HeaderByNumber(ctx, L1HeadNum)
 	if err != nil {
 		return nil, err
+	}
+
+	if L2HeadNum != nil {
+		timestamp = l2Head.Time
+		l2Head, err = c.L2.HeaderByNumber(ctx, L2HeadNum)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	baseFee, err := c.CalculateBaseFee(
 		ctx,
 		l2Head,
 		l1Head.Number,
-		chainConfig.IsOntake(new(big.Int).Add(l2Head.Number, common.Big1)),
+		true,
 		&chainConfig.ProtocolConfigs.BaseFeeConfig,
-		uint64(time.Now().Unix()),
+		timestamp,
 	)
 	if err != nil {
 		return nil, err
@@ -434,8 +420,8 @@ type L2SyncProgress struct {
 	HighestBlockID *big.Int
 }
 
-// isSyncing returns true if the L2 execution engine is syncing with L1.
-func (p *L2SyncProgress) isSyncing() bool {
+// IsSyncing returns true if the L2 execution engine is syncing with L1.
+func (p *L2SyncProgress) IsSyncing() bool {
 	if p.SyncProgress == nil {
 		return false
 	}
@@ -514,17 +500,17 @@ func (c *Client) GetProtocolStateVariables(opts *bind.CallOpts) (*struct {
 	return GetProtocolStateVariables(c.TaikoL1, opts)
 }
 
-// GetLastVerifiedBlockHash gets the last verified block hash from TaikoL1 contract.
-func (c *Client) GetLastVerifiedBlockHash(ctx context.Context) (common.Hash, error) {
+// GetLastVerifiedBlock gets the last verified block from TaikoL1 contract.
+func (c *Client) GetLastVerifiedBlock(ctx context.Context) (struct {
+	BlockId    uint64 //nolint:stylecheck
+	BlockHash  [32]byte
+	StateRoot  [32]byte
+	VerifiedAt uint64
+}, error) {
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
 
-	b, err := c.TaikoL1.GetLastVerifiedBlock(&bind.CallOpts{Context: ctxWithTimeout})
-	if err != nil {
-		return common.Hash{}, err
-	}
-
-	return b.BlockHash, nil
+	return c.TaikoL1.GetLastVerifiedBlock(&bind.CallOpts{Context: ctxWithTimeout})
 }
 
 // GetL2BlockInfo fetches the L2 block information from the protocol.
@@ -593,14 +579,14 @@ func (c *Client) CheckL1Reorg(ctx context.Context, blockID *big.Int) (*ReorgChec
 		// If we rollback to the genesis block, then there is no L1Origin information recorded in the L2 execution
 		// engine for that block, so we will query the protocol to use `GenesisHeight` value to reset the L1 cursor.
 		if blockID.Cmp(common.Big0) == 0 {
-			slotA, _, err := c.TaikoL1.GetStateVariables(&bind.CallOpts{Context: ctxWithTimeout})
+			state, err := GetProtocolStateVariables(c.TaikoL1, &bind.CallOpts{Context: ctxWithTimeout})
 			if err != nil {
 				return result, err
 			}
 
 			if result.L1CurrentToReset, err = c.L1.HeaderByNumber(
 				ctxWithTimeout,
-				new(big.Int).SetUint64(slotA.GenesisHeight),
+				new(big.Int).SetUint64(state.A.GenesisHeight),
 			); err != nil {
 				return nil, err
 			}
@@ -683,7 +669,7 @@ func (c *Client) checkSyncedL1SnippetFromAnchor(
 	blockID *big.Int,
 	l1Height uint64,
 ) (bool, error) {
-	log.Info("Check synced L1 snippet from anchor", "blockID", blockID, "l1Height", l1Height)
+	log.Debug("Check synced L1 snippet from anchor", "blockID", blockID, "l1Height", l1Height)
 	block, err := c.L2.BlockByNumber(ctx, blockID)
 	if err != nil {
 		return false, err
@@ -913,4 +899,84 @@ func (c *Client) WaitL1NewPendingTransaction(
 	}
 
 	return nil
+}
+
+// CalculateBaseFeeOnTake calculates the base fee after ontake fork from the L2 protocol.
+func (c *Client) calculateBaseFeeOntake(
+	ctx context.Context,
+	l2Head *types.Header,
+	currentTimestamp uint64,
+	baseFeeConfig *bindings.LibSharedDataBaseFeeConfig,
+) (*big.Int, error) {
+	var (
+		newGasTarget    = uint64(baseFeeConfig.GasIssuancePerSecond) * uint64(baseFeeConfig.AdjustmentQuotient)
+		parentGasExcess uint64
+	)
+	parentGasTarget, err := c.TaikoL2.ParentGasTarget(&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx})
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch parent gas target: %w", err)
+	}
+
+	if newGasTarget != parentGasTarget && parentGasTarget != 0 {
+		oldParentGasExcess, err := c.TaikoL2.ParentGasExcess(&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx})
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch old parent gas excess: %w", err)
+		}
+		if parentGasExcess, err = c.TaikoL2.AdjustExcess(
+			&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
+			oldParentGasExcess,
+			parentGasTarget,
+			newGasTarget,
+		); err != nil {
+			// If the `calculateBaseFee()` method is deprecated, we will use the new method `getBasefeeV2()`
+			// to calculate the base fee.
+			if strings.Contains(encoding.TryParsingCustomError(err).Error(), "L2_DEPRECATED_METHOD") {
+				baseFeeInfo, err := c.TaikoL2.GetBasefeeV2(
+					&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
+					uint32(l2Head.GasUsed),
+					currentTimestamp,
+					*baseFeeConfig,
+				)
+				if err != nil {
+					return nil, fmt.Errorf("failed to calculate base fee by GetBasefeeV2: %w", err)
+				}
+				return baseFeeInfo.Basefee, nil
+			}
+
+			return nil, fmt.Errorf("failed to adjust parent gas excess: %w", err)
+		}
+	} else {
+		if parentGasExcess, err = c.TaikoL2.ParentGasExcess(&bind.CallOpts{
+			BlockNumber: l2Head.Number, Context: ctx,
+		}); err != nil {
+			return nil, fmt.Errorf("failed to fetch parent gas excess: %w", err)
+		}
+	}
+
+	baseFeeInfo, err := c.TaikoL2.CalculateBaseFee(
+		&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
+		*baseFeeConfig,
+		currentTimestamp-l2Head.Time,
+		parentGasExcess,
+		uint32(l2Head.GasUsed),
+	)
+	if err != nil {
+		// If the `calculateBaseFee()` method is deprecated, we will use the new method `getBasefeeV2()`
+		// to calculate the base fee.
+		if strings.Contains(encoding.TryParsingCustomError(err).Error(), "L2_DEPRECATED_METHOD") {
+			baseFeeInfo, err := c.TaikoL2.GetBasefeeV2(
+				&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
+				uint32(l2Head.GasUsed),
+				currentTimestamp,
+				*baseFeeConfig,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to calculate base fee by GetBasefeeV2: %w", err)
+			}
+			return baseFeeInfo.Basefee, nil
+		}
+		return nil, err
+	}
+
+	return baseFeeInfo.Basefee, nil
 }
