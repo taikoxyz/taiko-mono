@@ -502,7 +502,7 @@ func (c *Client) GetProtocolStateVariables(opts *bind.CallOpts) (*struct {
 
 // GetLastVerifiedBlock gets the last verified block from TaikoL1 contract.
 func (c *Client) GetLastVerifiedBlock(ctx context.Context) (struct {
-	BlockId    uint64 //nolint:revive,stylecheck
+	BlockId    uint64 //nolint:stylecheck
 	BlockHash  [32]byte
 	StateRoot  [32]byte
 	VerifiedAt uint64
