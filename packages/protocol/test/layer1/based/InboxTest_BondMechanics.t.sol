@@ -44,7 +44,8 @@ pragma solidity ^0.8.24;
 //         setupBondTokenState(Alice, initialBondBalance, bondAmount);
 
 //         vm.prank(Alice);
-//         uint64[] memory blockIds = _proposeBlocksWithDefaultParameters({ numBlocksToPropose: 1 });
+//         uint64[] memory blockIds = _proposeBlocksWithDefaultParameters({ numBlocksToPropose: 1
+// });
 //         assertEq(inbox.bondBalanceOf(Alice) < bondAmount, true);
 
 //         vm.prank(Alice);
@@ -63,7 +64,8 @@ pragma solidity ^0.8.24;
 //         setupBondTokenState(Bob, initialBondBalance, bondAmount);
 
 //         vm.prank(Alice);
-//         uint64[] memory blockIds = _proposeBlocksWithDefaultParameters({ numBlocksToPropose: 1 });
+//         uint64[] memory blockIds = _proposeBlocksWithDefaultParameters({ numBlocksToPropose: 1
+// });
 //         assertEq(inbox.bondBalanceOf(Alice) < bondAmount, true);
 
 //         vm.prank(Bob);
@@ -84,7 +86,8 @@ pragma solidity ^0.8.24;
 //         setupBondTokenState(Alice, initialBondBalance, bondAmount);
 
 //         vm.prank(Alice);
-//         uint64[] memory blockIds = _proposeBlocksWithDefaultParameters({ numBlocksToPropose: 1 });
+//         uint64[] memory blockIds = _proposeBlocksWithDefaultParameters({ numBlocksToPropose: 1
+// });
 
 //         uint256 aliceBondBalanceAfterProposal = inbox.bondBalanceOf(Alice);
 //         assertEq(aliceBondBalanceAfterProposal < bondAmount, true);
@@ -113,7 +116,8 @@ pragma solidity ^0.8.24;
 //         setupBondTokenState(Alice, initialBondBalance, bondAmount);
 
 //         vm.prank(Alice);
-//         uint64[] memory blockIds = _proposeBlocksWithDefaultParameters({ numBlocksToPropose: 1 });
+//         uint64[] memory blockIds = _proposeBlocksWithDefaultParameters({ numBlocksToPropose: 1
+// });
 
 //         uint256 aliceBondBalanceAfterProposal = inbox.bondBalanceOf(Alice);
 //         assertEq(aliceBondBalanceAfterProposal < bondAmount, true);

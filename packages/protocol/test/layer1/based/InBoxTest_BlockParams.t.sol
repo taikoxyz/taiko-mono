@@ -131,7 +131,8 @@ pragma solidity ^0.8.24;
 //         inbox.proposeBlocksV3(address(0), address(0), paramsArray, "txList");
 //     }
 
-//     function test_validateBlockParams_when_anchorBlockId_is_not_zero() external transactBy(Alice) {
+//     function test_validateBlockParams_when_anchorBlockId_is_not_zero() external transactBy(Alice)
+// {
 //         ITaikoInbox.BlockParamsV3[] memory paramsArray = new ITaikoInbox.BlockParamsV3[](1);
 //         paramsArray[0] = ITaikoInbox.BlockParamsV3({
 //             anchorBlockId: uint64(block.number - 1),

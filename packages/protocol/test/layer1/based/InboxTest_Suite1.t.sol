@@ -54,7 +54,8 @@ pragma solidity ^0.8.24;
 //         assertEq(blk.nextTransitionId, 2);
 //         assertEq(blk.verifiedTransitionId, 1);
 
-//         (uint64 blockId, ITaikoInbox.TransitionV3 memory tran) = inbox.getLastVerifiedTransitionV3();
+//         (uint64 blockId, ITaikoInbox.TransitionV3 memory tran) =
+// inbox.getLastVerifiedTransitionV3();
 //         assertEq(blockId, 0);
 //         assertEq(tran.blockHash, correctBlockhash(0));
 //         assertEq(tran.stateRoot, bytes32(uint256(0)));
@@ -207,7 +208,8 @@ pragma solidity ^0.8.24;
 //         assertEq(stats2.lastProposedIn, block.number);
 //         assertEq(stats2.lastUnpausedAt, 0);
 
-//         (uint64 blockId, ITaikoInbox.TransitionV3 memory tran) = inbox.getLastVerifiedTransitionV3();
+//         (uint64 blockId, ITaikoInbox.TransitionV3 memory tran) =
+// inbox.getLastVerifiedTransitionV3();
 //         assertEq(blockId, 9);
 //         assertEq(tran.blockHash, correctBlockhash(9));
 //         assertEq(tran.stateRoot, bytes32(uint256(0)));
@@ -315,7 +317,8 @@ pragma solidity ^0.8.24;
 //         assertEq(stats2.lastProposedIn, block.number);
 //         assertEq(stats2.lastUnpausedAt, 0);
 
-//         (uint64 blockId, ITaikoInbox.TransitionV3 memory tran) = inbox.getLastVerifiedTransitionV3();
+//         (uint64 blockId, ITaikoInbox.TransitionV3 memory tran) =
+// inbox.getLastVerifiedTransitionV3();
 //         assertEq(blockId, 10);
 //         assertEq(tran.blockHash, correctBlockhash(10));
 //         assertEq(tran.stateRoot, correctStateRoot(10));
@@ -395,7 +398,8 @@ pragma solidity ^0.8.24;
 //         uint64 count = 1;
 
 //         vm.expectRevert(ITaikoInbox.CustomProposerNotAllowed.selector);
-//         inbox.proposeBlocksV3(Alice, address(0), new ITaikoInbox.BlockParamsV3[](count), "txList");
+//         inbox.proposeBlocksV3(Alice, address(0), new ITaikoInbox.BlockParamsV3[](count),
+// "txList");
 
 //         vm.startPrank(deployer);
 //         address preconfRouter = Bob;

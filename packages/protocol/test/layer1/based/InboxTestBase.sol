@@ -70,7 +70,8 @@ pragma solidity ^0.8.24;
 //         _;
 //     }
 
-//     // internal helper functions -------------------------------------------------------------------
+//     // internal helper functions
+// -------------------------------------------------------------------
 
 //     function _proposeBlocksWithDefaultParameters(uint256 numBlocksToPropose)
 //         internal
@@ -161,7 +162,8 @@ pragma solidity ^0.8.24;
 //             } else {
 //                 console2.log(unicode"|─── block#", blk.blockId);
 //             }
-//             console2.log(unicode"│    |── metahash:", Strings.toHexString(uint256(blk.metaHash)));
+//             console2.log(unicode"│    |── metahash:",
+// Strings.toHexString(uint256(blk.metaHash)));
 //             console2.log(unicode"│    |── timestamp:", blk.timestamp);
 //             console2.log(unicode"│    |── anchorBlockId:", blk.anchorBlockId);
 //             console2.log(unicode"│    |── nextTransitionId:", blk.nextTransitionId);

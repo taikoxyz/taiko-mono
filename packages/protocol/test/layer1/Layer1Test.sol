@@ -31,7 +31,7 @@ contract ConfigurableInbox is TaikoInbox {
         return __config;
     }
 
-    function _blobhash(uint256) internal pure override returns (bytes32) {
+    function _calcTxListHash(uint8[] memory) internal pure override returns (bytes32) {
         return keccak256("BLOB");
     }
 }

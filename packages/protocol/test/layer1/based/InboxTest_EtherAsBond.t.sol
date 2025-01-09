@@ -131,7 +131,8 @@ pragma solidity ^0.8.24;
 //         vm.prank(Alice);
 //         inbox.withdrawBond(aliceFirstWithdraw);
 //         assertEq(
-//             inbox.bondBalanceOf(Alice), aliceFirstDeposit + aliceSecondDeposit - aliceFirstWithdraw
+//             inbox.bondBalanceOf(Alice), aliceFirstDeposit + aliceSecondDeposit -
+// aliceFirstWithdraw
 //         );
 
 //         vm.prank(Alice);

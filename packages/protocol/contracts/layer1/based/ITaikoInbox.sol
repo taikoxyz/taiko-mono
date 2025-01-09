@@ -17,7 +17,7 @@ import "src/shared/based/LibSharedData.sol";
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
 interface ITaikoInbox {
-    struct SubBlockV3{
+    struct SubBlockV3 {
         uint16 numTransactions;
         uint8 timeThift;
     }
@@ -29,7 +29,7 @@ interface ITaikoInbox {
         uint64 timestamp;
         uint32 txListOffset;
         uint32 txListSize;
-        uint8 blobIndex;
+        uint8[] blobIndices;
         bytes32[] signalSlots;
         SubBlockV3[] subBlocks;
     }
@@ -49,7 +49,7 @@ interface ITaikoInbox {
         uint64 proposedIn; // Used by node/client post block proposal.
         uint32 txListOffset;
         uint32 txListSize;
-        uint8 blobIndex;
+        uint8[] blobIndices;
         uint64 anchorBlockId;
         bytes32 anchorBlockHash;
         bytes32[] signalSlots;

@@ -104,7 +104,13 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         UpdatedParams memory updatedParams;
 
         for (uint256 i; i < _paramsArray.length; ++i) {
-            require(calldataUsed || _paramsArray[i].blobIndex != 0, BlobIndexZero());
+            if (!calldataUsed) {
+                require(_paramsArray[i].blobIndices.length != 0, BlobIndexZero());
+                for (uint256 j; j < _paramsArray[i].blobIndices[j]; ++j) {
+                    require(_paramsArray[i].blobIndices[j] != 0, BlobIndexZero());
+                }
+            }
+
             updatedParams = _validateBlockParams(
                 _paramsArray[i], config.maxAnchorHeightOffset, config.maxSignalsToReceive, lastBlock
             );
@@ -119,7 +125,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
                     difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", stats2.numBlocks)),
                     txListHash: calldataUsed
                         ? keccak256(_txList)
-                        : _blobhash(_paramsArray[i].blobIndex - 1),
+                        : _calcTxListHash(_paramsArray[i].blobIndices),
                     extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
                     coinbase: _coinbase,
                     blockId: stats2.numBlocks,
@@ -132,11 +138,11 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
                     proposedIn: uint64(block.number),
                     txListOffset: _paramsArray[i].txListOffset,
                     txListSize: _paramsArray[i].txListSize,
-                    blobIndex: calldataUsed ? 0 : _paramsArray[i].blobIndex,
+                    blobIndices: calldataUsed ? new uint8[](0) : _paramsArray[i].blobIndices,
                     anchorBlockId: updatedParams.anchorBlockId,
                     anchorBlockHash: blockhash(updatedParams.anchorBlockId),
                     signalSlots: _paramsArray[i].signalSlots,
-                    subBlocks:  _paramsArray[i].subBlocks,
+                    subBlocks: _paramsArray[i].subBlocks,
                     anchorInput: _paramsArray[i].anchorInput,
                     baseFeeConfig: config.baseFeeConfig
                 });
@@ -154,7 +160,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
             blk.timestamp = updatedParams.timestamp;
             blk.anchorBlockId = updatedParams.anchorBlockId;
             blk.nextTransitionId = 1;
-            blk.numSubBlocks =uint8(_paramsArray[i].subBlocks.length); 
+            blk.numSubBlocks = uint8(_paramsArray[i].subBlocks.length);
             blk.verifiedTransitionId = 0;
             // SSTORE }}
 
@@ -441,8 +447,13 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         state.stats2.paused = true;
     }
 
-    function _blobhash(uint256 _blobIndex) internal view virtual returns (bytes32) {
-        return blobhash(_blobIndex);
+    function _calcTxListHash(uint8[] memory blobIndices) internal view virtual returns (bytes32) {
+        bytes32[] memory blobHashes = new bytes32[](blobIndices.length);
+        for (uint256 i; i < blobIndices.length; ++i) {
+            blobHashes[i] = blobhash(blobIndices[i]);
+            require(blobHashes[i] != 0, BlobNotFound());
+        }
+        return keccak256(abi.encode(blobHashes));
     }
 
     // Private functions -----------------------------------------------------------------------
@@ -624,8 +635,10 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
             }
         }
 
-
-        require(_params.subBlocks.length != 0 && _params.subBlocks.length <= type(uint8).max, InvalidSubBlocks());
+        require(
+            _params.subBlocks.length != 0 && _params.subBlocks.length <= type(uint8).max,
+            InvalidSubBlocks()
+        );
     }
 
     // Memory-only structs ----------------------------------------------------------------------
