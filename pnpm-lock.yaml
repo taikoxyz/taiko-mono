@@ -449,8 +449,8 @@ importers:
         specifier: github:Vectorized/solady#v0.0.231
         version: https://codeload.github.com/Vectorized/solady/tar.gz/a12a2575c899a328c1bafdada632dabbff27cf6b
       sp1-contracts:
-        specifier: github:succinctlabs/sp1-contracts#v3.0.0
-        version: sp1-contracts#v3.0.0@https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/1c4acaeab86789995ae5c6baced66f81e4a57f4d
+        specifier: github:succinctlabs/sp1-contracts#v4.0.0-rc.3
+        version: sp1-contracts#v4.0.0-rc.3@https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/0885c34b525708ed5f7e87a3d7b20c42564b4c00
     devDependencies:
       '@types/node':
         specifier: ^20.11.30
@@ -11444,8 +11444,8 @@ packages:
     resolution: {integrity: sha512-l3BikUxvPOcn5E74dZiq5BGsTb5yEwhaTSzccU6t4sDOH8NWJCstKO5QT2CvtFoK6F0saL7p9xHAqHOlCPJygA==}
     engines: {node: '>= 8'}
 
-  sp1-contracts#v3.0.0@https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/1c4acaeab86789995ae5c6baced66f81e4a57f4d:
-    resolution: {tarball: https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/1c4acaeab86789995ae5c6baced66f81e4a57f4d}
+  sp1-contracts#v4.0.0-rc.3@https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/0885c34b525708ed5f7e87a3d7b20c42564b4c00:
+    resolution: {tarball: https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/0885c34b525708ed5f7e87a3d7b20c42564b4c00}
     version: 0.0.0
 
   space-separated-tokens@2.0.2:
@@ -11648,6 +11648,7 @@ packages:
 
   sudo-prompt@9.2.1:
     resolution: {integrity: sha512-Mu7R0g4ig9TUuGSxJavny5Rv0egCEtpZRNMrZaYS1vxkiIxGiGUwoezU3LazIQ+KE04hTrTfNPgxU5gzi7F5Pw==}
+    deprecated: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
 
   superstruct@1.0.3:
     resolution: {integrity: sha512-8iTn3oSS8nRGn+C2pgXSKPI3jmpm6FExNazNpjvqS6ZUJQCej3PUXEKM8NjHBOs54ExM+LPW/FBRhymrdcCiSg==}
@@ -28588,7 +28589,7 @@ snapshots:
 
   source-map@0.7.4: {}
 
-  sp1-contracts#v3.0.0@https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/1c4acaeab86789995ae5c6baced66f81e4a57f4d: {}
+  sp1-contracts#v4.0.0-rc.3@https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/0885c34b525708ed5f7e87a3d7b20c42564b4c00: {}
 
   space-separated-tokens@2.0.2: {}
 
