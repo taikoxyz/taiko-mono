@@ -231,7 +231,7 @@ func (s *Syncer) InsertSoftBlockFromTransactionsBatch(
 		return nil, fmt.Errorf("unexpected NewPayload response status: %s", execStatus.Status)
 	}
 
-	lastVerifiedBlock, err := s.rpc.GetLastVerifiedBlock(ctx)
+	lastVerifiedBlockInfo, err := s.rpc.GetLastVerifiedBlock(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch last verified block hash: %w", err)
 	}
@@ -245,7 +245,7 @@ func (s *Syncer) InsertSoftBlockFromTransactionsBatch(
 	fc = &engine.ForkchoiceStateV1{
 		HeadBlockHash:      payload.BlockHash,
 		SafeBlockHash:      canonicalHead.L2BlockHash,
-		FinalizedBlockHash: lastVerifiedBlock.BlockHash,
+		FinalizedBlockHash: lastVerifiedBlockInfo.BlockHash,
 	}
 	fcRes, err = s.rpc.L2Engine.ForkchoiceUpdate(ctx, fc, nil)
 	if err != nil {
