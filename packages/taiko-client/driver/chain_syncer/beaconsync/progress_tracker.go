@@ -157,7 +157,6 @@ func (t *SyncProgressTracker) ClearMeta() {
 
 	log.Debug("Clear sync progress tracker meta")
 
-	t.triggered = false
 	t.lastSyncedBlockID = nil
 	t.lastSyncedBlockHash = common.Hash{}
 	t.outOfSync = false
