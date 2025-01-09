@@ -52,7 +52,7 @@ func (s *BeaconSyncProgressTrackerTestSuite) TestSyncProgressed() {
 func (s *BeaconSyncProgressTrackerTestSuite) TestClearMeta() {
 	s.t.triggered = true
 	s.t.ClearMeta()
-	s.True(s.t.triggered)
+	s.False(s.t.triggered)
 }
 
 func (s *BeaconSyncProgressTrackerTestSuite) TestHeadChanged() {
