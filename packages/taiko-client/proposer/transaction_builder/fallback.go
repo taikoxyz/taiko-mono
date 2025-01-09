@@ -138,12 +138,12 @@ func (b *TxBuilderWithFallback) BuildOntake(
 	metrics.ProposerEstimatedCostBlob.Set(costBlobFloat64)
 
 	if costCalldata.Cmp(costBlob) < 0 {
-		log.Info("Building a type-2 transaction", "costCalldata", costCalldata, "costBlob", costBlob)
+		log.Info("Building a type-2 transaction", "costCalldata", costCalldataFloat64, "costBlob", costBlobFloat64)
 		metrics.ProposerProposeByCalldata.Inc()
 		return txWithCalldata, nil
 	}
 
-	log.Info("Building a type-3 transaction", "costCalldata", costCalldata, "costBlob", costBlob)
+	log.Info("Building a type-3 transaction", "costCalldata", costCalldataFloat64, "costBlob", costBlobFloat64)
 	metrics.ProposerProposeByBlob.Inc()
 	return txWithBlob, nil
 }
