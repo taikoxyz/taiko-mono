@@ -104,37 +104,27 @@ func (s *L2ChainSyncer) Sync() error {
 	// we will only check and trigger P2P sync progress once right after the driver starts
 	s.progressTracker.MarkFinished()
 
-	// We have triggered at least a beacon sync in L2 execution engine, we should reset the L1Current
-	// cursor at first, before start inserting pending L2 blocks one by one.
-	if s.progressTracker.Triggered() {
-		log.Info(
-			"Switch to insert pending blocks one by one",
-			"p2pEnabled", s.p2pSync,
-			"p2pOutOfSync", s.progressTracker.OutOfSync(),
-		)
-
-		// Get the execution engine's chain head.
-		l2Head, err := s.rpc.L2.HeaderByNumber(s.ctx, nil)
-		if err != nil {
-			return fmt.Errorf("failed to get L2 chain head: %w", err)
-		}
-
-		log.Info(
-			"L2 head information",
-			"number", l2Head.Number,
-			"hash", l2Head.Hash(),
-			"lastSyncedBlockID", s.progressTracker.LastSyncedBlockID(),
-			"lastSyncedBlockHash", s.progressTracker.LastSyncedBlockHash(),
-		)
-
-		// Reset the L1Current cursor.
-		if err := s.state.ResetL1Current(s.ctx, l2Head.Number); err != nil {
-			return fmt.Errorf("failed to reset L1 current cursor: %w", err)
-		}
-
-		// Reset to the latest L2 execution engine's chain status.
-		s.progressTracker.UpdateMeta(l2Head.Number, l2Head.Hash())
+	// Get the execution engine's chain head.
+	l2Head, err := s.rpc.L2.HeaderByNumber(s.ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to get L2 chain head: %w", err)
 	}
+
+	log.Info(
+		"L2 head information",
+		"number", l2Head.Number,
+		"hash", l2Head.Hash(),
+		"lastSyncedBlockID", s.progressTracker.LastSyncedBlockID(),
+		"lastSyncedBlockHash", s.progressTracker.LastSyncedBlockHash(),
+	)
+
+	// Reset the L1Current cursor.
+	if err := s.state.ResetL1Current(s.ctx, l2Head.Number); err != nil {
+		return fmt.Errorf("failed to reset L1 current cursor: %w", err)
+	}
+
+	// Reset to the latest L2 execution engine's chain status.
+	s.progressTracker.UpdateMeta(l2Head.Number, l2Head.Hash())
 
 	// Insert the proposed block one by one.
 	return s.blobSyncer.ProcessL1Blocks(s.ctx)

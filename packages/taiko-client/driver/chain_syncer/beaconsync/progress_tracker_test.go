@@ -49,12 +49,6 @@ func (s *BeaconSyncProgressTrackerTestSuite) TestSyncProgressed() {
 	s.True(syncProgressed(&ethereum.SyncProgress{HealingBytecode: 0}, &ethereum.SyncProgress{HealingBytecode: 1}))
 }
 
-func (s *BeaconSyncProgressTrackerTestSuite) TestClearMeta() {
-	s.t.triggered = true
-	s.t.ClearMeta()
-	s.False(s.t.triggered)
-}
-
 func (s *BeaconSyncProgressTrackerTestSuite) TestHeadChanged() {
 	s.True(s.t.NeedReSync(common.Big256))
 	s.t.triggered = true

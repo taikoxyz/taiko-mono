@@ -176,30 +176,28 @@ func (s *Syncer) onBlockProposed(
 
 	// If we are not inserting a block whose parent block is the latest verified block in protocol,
 	// and the node hasn't just finished the P2P sync, we check if the L1 chain has been reorged.
-	if !s.progressTracker.Triggered() {
-		reorgCheckResult, err := s.checkReorg(ctx, meta.GetBlockID())
-		if err != nil {
-			return err
-		}
-
-		if reorgCheckResult.IsReorged {
-			log.Info(
-				"Reset L1Current cursor due to L1 reorg",
-				"l1CurrentHeightOld", s.state.GetL1Current().Number,
-				"l1CurrentHashOld", s.state.GetL1Current().Hash(),
-				"l1CurrentHeightNew", reorgCheckResult.L1CurrentToReset.Number,
-				"l1CurrentHashNew", reorgCheckResult.L1CurrentToReset.Hash(),
-				"lastInsertedBlockIDOld", s.lastInsertedBlockID,
-				"lastInsertedBlockIDNew", reorgCheckResult.LastHandledBlockIDToReset,
-			)
-			s.state.SetL1Current(reorgCheckResult.L1CurrentToReset)
-			s.lastInsertedBlockID = reorgCheckResult.LastHandledBlockIDToReset
-			s.reorgDetectedFlag = true
-			endIter()
-
-			return nil
-		}
+	reorgCheckResult, err := s.checkReorg(ctx, meta.GetBlockID())
+	if err != nil {
+		return err
 	}
+	if reorgCheckResult.IsReorged {
+		log.Info(
+			"Reset L1Current cursor due to L1 reorg",
+			"l1CurrentHeightOld", s.state.GetL1Current().Number,
+			"l1CurrentHashOld", s.state.GetL1Current().Hash(),
+			"l1CurrentHeightNew", reorgCheckResult.L1CurrentToReset.Number,
+			"l1CurrentHashNew", reorgCheckResult.L1CurrentToReset.Hash(),
+			"lastInsertedBlockIDOld", s.lastInsertedBlockID,
+			"lastInsertedBlockIDNew", reorgCheckResult.LastHandledBlockIDToReset,
+		)
+		s.state.SetL1Current(reorgCheckResult.L1CurrentToReset)
+		s.lastInsertedBlockID = reorgCheckResult.LastHandledBlockIDToReset
+		s.reorgDetectedFlag = true
+		endIter()
+
+		return nil
+	}
+
 	// Ignore those already inserted blocks.
 	if s.lastInsertedBlockID != nil && meta.GetBlockID().Cmp(s.lastInsertedBlockID) <= 0 {
 		return nil
@@ -221,20 +219,11 @@ func (s *Syncer) onBlockProposed(
 
 	// Fetch the L2 parent block, if the node is just finished a P2P sync, we simply use the tracker's
 	// last synced verified block as the parent, otherwise, we fetch the parent block from L2 EE.
-	var (
-		parent *types.Header
-		err    error
-	)
-	if s.progressTracker.Triggered() {
-		// Already synced through beacon sync, just skip this event.
-		if meta.GetBlockID().Cmp(s.progressTracker.LastSyncedBlockID()) <= 0 {
-			return nil
-		}
-
-		parent, err = s.rpc.L2.HeaderByHash(ctx, s.progressTracker.LastSyncedBlockHash())
-	} else {
-		parent, err = s.rpc.L2ParentByBlockID(ctx, meta.GetBlockID())
+	// Already synced through beacon sync, just skip this event.
+	if meta.GetBlockID().Cmp(s.progressTracker.LastSyncedBlockID()) <= 0 {
+		return nil
 	}
+	parent, err := s.rpc.L2.HeaderByHash(ctx, s.progressTracker.LastSyncedBlockHash())
 	if err != nil {
 		return fmt.Errorf("failed to fetch L2 parent block: %w", err)
 	}
@@ -243,7 +232,6 @@ func (s *Syncer) onBlockProposed(
 		"Parent block",
 		"blockID", parent.Number,
 		"hash", parent.Hash(),
-		"beaconSyncTriggered", s.progressTracker.Triggered(),
 	)
 
 	tx, err := s.rpc.L1.TransactionInBlock(ctx, meta.GetRawBlockHash(), meta.GetTxIndex())
@@ -298,10 +286,6 @@ func (s *Syncer) onBlockProposed(
 
 	metrics.DriverL1CurrentHeightGauge.Set(float64(meta.GetRawBlockHeight().Uint64()))
 	s.lastInsertedBlockID = meta.GetBlockID()
-
-	if s.progressTracker.Triggered() {
-		s.progressTracker.ClearMeta()
-	}
 
 	return nil
 }
