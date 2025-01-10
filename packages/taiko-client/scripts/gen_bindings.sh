@@ -21,59 +21,36 @@ cd ../protocol &&
   cd -
 
 ABIGEN_BIN=$TAIKO_GETH_DIR/build/bin/abigen
+FORK=pacaya
+
+echo ""
+echo "PROTOCOL_FORK_NAME: ${FORK}"
+echo ""
 
 echo ""
 echo "Start generating Go contract bindings..."
 echo ""
 
-cat ../protocol/out/layer1/TaikoL1.sol/TaikoL1.json |
+cat ../protocol/out/layer1/TaikoInbox.sol/TaikoInbox.json |
 	jq .abi |
-	${ABIGEN_BIN} --abi - --type TaikoL1Client --pkg pacaya --out $DIR/../bindings/pacaya/gen_taiko_l1.go
+	${ABIGEN_BIN} --abi - --type TaikoInboxClient --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_taiko_inbox.go
 
-cat ../protocol/out/layer1/LibProving.sol/LibProving.json |
+cat ../protocol/out/layer2/TaikoAnchor.sol/TaikoAnchor.json |
 	jq .abi |
-	${ABIGEN_BIN} --abi - --type LibProving --pkg pacaya --out $DIR/../bindings/pacaya/gen_lib_proving.go
-
-cat ../protocol/out/layer1/LibProposing.sol/LibProposing.json |
-	jq .abi |
-	${ABIGEN_BIN} --abi - --type LibProposing --pkg pacaya --out $DIR/../bindings/pacaya/gen_lib_proposing.go
-
-cat ../protocol/out/layer1/LibUtils.sol/LibUtils.json |
-	jq .abi |
-	${ABIGEN_BIN} --abi - --type LibUtils --pkg pacaya --out $DIR/../bindings/pacaya/gen_lib_utils.go
-
-cat ../protocol/out/layer1/LibVerifying.sol/LibVerifying.json |
-	jq .abi |
-	${ABIGEN_BIN} --abi - --type LibVerifying --pkg pacaya --out $DIR/../bindings/pacaya/gen_lib_verifying.go
-
-cat ../protocol/out/layer2/TaikoL2.sol/TaikoL2.json |
-	jq .abi |
-	${ABIGEN_BIN} --abi - --type TaikoL2Client --pkg pacaya --out $DIR/../bindings/pacaya/gen_taiko_l2.go
+	${ABIGEN_BIN} --abi - --type TaikoAnchorClient --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_taiko_anchor.go
 
 cat ../protocol/out/layer1/TaikoToken.sol/TaikoToken.json |
 	jq .abi |
-	${ABIGEN_BIN} --abi - --type TaikoToken --pkg pacaya --out $DIR/../bindings/pacaya/gen_taiko_token.go
+	${ABIGEN_BIN} --abi - --type TaikoToken --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_taiko_token.go
 
-cat ../protocol/out/layer1/AddressManager.sol/AddressManager.json |
+cat ../protocol/out/layer1/ResolverBase.sol/ResolverBase.json |
 	jq .abi |
-	${ABIGEN_BIN} --abi - --type AddressManager --pkg pacaya --out $DIR/../bindings/pacaya/gen_address_manager.go
-
-cat ../protocol/out/layer1/GuardianProver.sol/GuardianProver.json |
-	jq .abi |
-	${ABIGEN_BIN} --abi - --type GuardianProver --pkg pacaya --out $DIR/../bindings/pacaya/gen_guardian_prover.go
+	${ABIGEN_BIN} --abi - --type ResolverBase --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_resolver_base.go
 
 cat ../protocol/out/layer1/ProverSet.sol/ProverSet.json |
 	jq .abi |
-	${ABIGEN_BIN} --abi - --type ProverSet --pkg pacaya --out $DIR/../bindings/pacaya/gen_prover_set.go
+	${ABIGEN_BIN} --abi - --type ProverSet --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_prover_set.go
 
-cat ../protocol/out/layer1/MainnetTierRouter.sol/MainnetTierRouter.json |
-	jq .abi |
-	${ABIGEN_BIN} --abi - --type TierProvider --pkg pacaya --out $DIR/../bindings/pacaya/gen_tier_provider.go
-
-cat ../protocol/out/layer1/SgxVerifier.sol/SgxVerifier.json |
-	jq .abi |
-	${ABIGEN_BIN} --abi - --type SgxVerifier --pkg pacaya --out $DIR/../bindings/pacaya/gen_sgx_verifier.go
-
-git -C ../../ log --format="%H" -n 1 >./bindings/pacaya/.githead
+git -C ../../ log --format="%H" -n 1 >./bindings/${FORK}/.githead
 
 echo "🍻 Go contract bindings generated!"
