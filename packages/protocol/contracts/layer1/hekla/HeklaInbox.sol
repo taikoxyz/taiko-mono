@@ -14,7 +14,7 @@ contract HeklaInbox is TaikoInbox {
             maxBatchProposals: 324_000,
             // Never change this value as ring buffer is being reused!!!
             batchRingBufferSize: 324_512,
-            maxBatchesTooVerify: 16,
+            maxBatchesToVerify: 16,
             blockMaxGasLimit: 240_000_000,
             livenessBond: 125e18, // 125 Taiko token
             stateRootSyncInternal: 16,

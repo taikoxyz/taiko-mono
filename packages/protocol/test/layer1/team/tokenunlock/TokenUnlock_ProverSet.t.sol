@@ -19,7 +19,7 @@ pragma solidity ^0.8.24;
 //             chainId: LibNetwork.TAIKO_MAINNET,
 //             maxBatchProposals: 10,
 //             batchRingBufferSize: 15,
-//             maxBatchesTooVerify: 5,
+//             maxBatchesToVerify: 5,
 //             blockMaxGasLimit: 240_000_000,
 //             livenessBond: livenessBond, // 125 Taiko token
 //             stateRootSyncInternal: 5,

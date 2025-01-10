@@ -22,7 +22,7 @@ contract MainnetInbox is TaikoInbox {
             // configuration values must NEVER be changed!!!
             maxBatchProposals: 324_000, // DO NOT CHANGE!!!
             batchRingBufferSize: 360_000, // DO NOT CHANGE!!!
-            maxBatchesTooVerify: 16,
+            maxBatchesToVerify: 16,
             blockMaxGasLimit: 240_000_000,
             livenessBond: 1000e18, // 1000 Taiko token
             stateRootSyncInternal: 16,

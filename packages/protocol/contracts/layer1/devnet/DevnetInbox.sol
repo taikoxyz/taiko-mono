@@ -13,7 +13,7 @@ contract DevnetInbox is TaikoInbox {
             chainId: 167_001,
             maxBatchProposals: 324_000,
             batchRingBufferSize: 360_000,
-            maxBatchesTooVerify: 16,
+            maxBatchesToVerify: 16,
             blockMaxGasLimit: 240_000_000,
             livenessBond: 125e18, // 125 Taiko token
             stateRootSyncInternal: 16,

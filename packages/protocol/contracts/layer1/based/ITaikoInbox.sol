@@ -110,7 +110,7 @@ interface ITaikoInbox {
         /// @notice Size of the batch ring buffer, allowing extra space for proposals.
         uint64 batchRingBufferSize;
         /// @notice The maximum number of verifications allowed when a batch is proposed or proved.
-        uint64 maxBatchesTooVerify;
+        uint64 maxBatchesToVerify;
         /// @notice The maximum gas limit allowed for a block.
         uint32 blockMaxGasLimit;
         /// @notice The amount of Taiko token as a prover liveness bond.
