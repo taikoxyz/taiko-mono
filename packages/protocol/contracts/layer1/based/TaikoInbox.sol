@@ -88,13 +88,9 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         }
 
         // Keep track of last batch's information.
-        BatchInfoInfo memory lastBatch;
+        Batch storage lastBatch;
         unchecked {
-            Batch storage _lastBatch =
-                state.batches[(stats2.numBatches - 1) % config.batchRingBufferSize];
-
-            lastBatch =
-                BatchInfoInfo(_lastBatch.metaHash, _lastBatch.timestamp, _lastBatch.anchorBlockId);
+            lastBatch = state.batches[(stats2.numBatches - 1) % config.batchRingBufferSize];
         }
 
         bool calldataUsed = _txList.length != 0;
@@ -159,9 +155,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         blk.numSubBlocks = uint8(_batchParams.blocks.length);
         blk.verifiedTransitionId = 0;
         // SSTORE }}
-
-        // Update lastBatch to reference the most recently proposed batch.
-        lastBatch = BatchInfoInfo(metaHash, updatedParams.timestamp, updatedParams.anchorBlockId);
 
         unchecked {
             stats2.numBatches += 1;
@@ -460,7 +453,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         uint24 tid = blk.verifiedTransitionId;
         bytes32 blockHash = state.transitions[slot][tid].blockHash;
 
-        SyncBlock memory synced;
+        SyncBatch memory synced;
 
         uint256 stopBlockId = (_config.maxBatchesTooVerify * _length + _stats2.lastVerifiedBatch)
             .min(_stats2.numBatches);
@@ -568,7 +561,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         BatchParams calldata _params,
         uint64 _maxAnchorHeightOffset,
         uint8 _maxSignalsToReceive,
-        BatchInfoInfo memory _parent
+        Batch memory _parent
     )
         private
         view
@@ -632,18 +625,12 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
 
     // Memory-only structs ----------------------------------------------------------------------
 
-    struct BatchInfoInfo {
-        bytes32 metaHash;
-        uint64 anchorBlockId;
-        uint64 timestamp;
-    }
-
     struct UpdatedParams {
         uint64 anchorBlockId;
         uint64 timestamp;
     }
 
-    struct SyncBlock {
+    struct SyncBatch {
         uint64 batchId;
         uint24 tid;
         bytes32 stateRoot;
