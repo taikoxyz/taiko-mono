@@ -82,8 +82,8 @@ func ToExecutableData(header *types.Header) *engine.ExecutableData {
 	return executableData
 }
 
-// TransitionProvedEventToV2 converts a *ontakeBindings.TaikoL1ClientTransitionProved
-// to *ontakeBindings.TaikoL1ClientTransitionProvedV2.
+// TransitionProvedEventToV2 converts a *ontakeBindings.OntakeClients.TaikoL1ClientTransitionProved
+// to *ontakeBindings.OntakeClients.TaikoL1ClientTransitionProvedV2.
 func TransitionProvedEventToV2(
 	e *ontakeBindings.TaikoL1ClientTransitionProved,
 	proposedIn uint64,
@@ -99,8 +99,8 @@ func TransitionProvedEventToV2(
 	}
 }
 
-// TransitionContestedEventToV2 converts a *ontakeBindings.TaikoL1ClientTransitionContested
-// to *ontakeBindings.TaikoL1ClientTransitionContestedV2.
+// TransitionContestedEventToV2 converts a *ontakeBindings.OntakeClients.TaikoL1ClientTransitionContested
+// to *ontakeBindings.OntakeClients.TaikoL1ClientTransitionContestedV2.
 func TransitionContestedEventToV2(
 	e *ontakeBindings.TaikoL1ClientTransitionContested,
 	proposedIn uint64,
@@ -116,7 +116,7 @@ func TransitionContestedEventToV2(
 	}
 }
 
-// BlockVerifiedEventToV2 converts a *ontakeBindings.TaikoL1ClientBlockVerified to *ontakeBindings.TaikoL1ClientBlockVerifiedV2.
+// BlockVerifiedEventToV2 converts a *ontakeBindings.OntakeClients.TaikoL1ClientBlockVerified to *ontakeBindings.OntakeClients.TaikoL1ClientBlockVerifiedV2.
 func BlockVerifiedEventToV2(e *ontakeBindings.TaikoL1ClientBlockVerified) *ontakeBindings.TaikoL1ClientBlockVerifiedV2 {
 	return &ontakeBindings.TaikoL1ClientBlockVerifiedV2{
 		BlockId:   e.BlockId,

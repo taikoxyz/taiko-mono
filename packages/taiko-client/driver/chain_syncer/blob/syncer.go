@@ -63,7 +63,7 @@ func NewSyncer(
 		return nil, fmt.Errorf("failed to initialize anchor constructor: %w", err)
 	}
 
-	protocolConfigs, err := rpc.GetProtocolConfigs(client.TaikoL1, &bind.CallOpts{Context: ctx})
+	protocolConfigs, err := rpc.GetProtocolConfigs(client.OntakeClients.TaikoL1, &bind.CallOpts{Context: ctx})
 	if err != nil {
 		return nil, err
 	}
@@ -135,7 +135,7 @@ func (s *Syncer) processL1Blocks(ctx context.Context) error {
 
 	iter, err := eventIterator.NewBlockProposedIterator(ctx, &eventIterator.BlockProposedIteratorConfig{
 		Client:               s.rpc.L1,
-		TaikoL1:              s.rpc.TaikoL1,
+		TaikoL1:              s.rpc.OntakeClients.TaikoL1,
 		StartHeight:          s.state.GetL1Current().Number,
 		EndHeight:            l1End.Number,
 		FilterQuery:          nil,
@@ -612,7 +612,7 @@ func (s *Syncer) retrievePastBlock(
 					currentBlockID,
 				)
 				// Can't find l1Origin in L2 EE, so we call the contract to get block info
-				blockInfo, err := s.rpc.TaikoL1.GetBlock(&bind.CallOpts{Context: ctx}, currentBlockID)
+				blockInfo, err := s.rpc.OntakeClients.TaikoL1.GetBlock(&bind.CallOpts{Context: ctx}, currentBlockID)
 				if err != nil {
 					return nil, err
 				}

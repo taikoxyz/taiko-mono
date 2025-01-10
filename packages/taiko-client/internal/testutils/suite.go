@@ -70,7 +70,7 @@ func (s *ClientTestSuite) SetupTest() {
 	l1ProverPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROVER_PRIVATE_KEY")))
 	s.Nil(err)
 
-	allowance, err := rpcCli.TaikoToken.Allowance(
+	allowance, err := rpcCli.PacayaClients.TaikoToken.Allowance(
 		nil,
 		crypto.PubkeyToAddress(l1ProverPrivKey.PublicKey),
 		common.HexToAddress(os.Getenv("TAIKO_L1")),
@@ -82,7 +82,7 @@ func (s *ClientTestSuite) SetupTest() {
 		s.Nil(err)
 
 		// Transfer some tokens to provers.
-		balance, err := rpcCli.TaikoToken.BalanceOf(nil, crypto.PubkeyToAddress(ownerPrivKey.PublicKey))
+		balance, err := rpcCli.PacayaClients.TaikoToken.BalanceOf(nil, crypto.PubkeyToAddress(ownerPrivKey.PublicKey))
 		s.Nil(err)
 		s.Greater(balance.Cmp(common.Big0), 0)
 
@@ -91,17 +91,17 @@ func (s *ClientTestSuite) SetupTest() {
 		proverBalance := new(big.Int).Div(balance, common.Big3)
 		s.Greater(proverBalance.Cmp(common.Big0), 0)
 
-		_, err = rpcCli.TaikoToken.Transfer(opts, crypto.PubkeyToAddress(l1ProverPrivKey.PublicKey), proverBalance)
+		_, err = rpcCli.PacayaClients.TaikoToken.Transfer(opts, crypto.PubkeyToAddress(l1ProverPrivKey.PublicKey), proverBalance)
 		s.Nil(err)
 
-		_, err = rpcCli.TaikoToken.Transfer(
+		_, err = rpcCli.PacayaClients.TaikoToken.Transfer(
 			opts,
 			common.HexToAddress(os.Getenv("GUARDIAN_PROVER_MINORITY")),
 			new(big.Int).Div(proverBalance, common.Big2),
 		)
 		s.Nil(err)
 
-		_, err = rpcCli.TaikoToken.Transfer(
+		_, err = rpcCli.PacayaClients.TaikoToken.Transfer(
 			opts,
 			common.HexToAddress(os.Getenv("GUARDIAN_PROVER_CONTRACT")),
 			new(big.Int).Div(proverBalance, common.Big2),
@@ -139,7 +139,7 @@ func (s *ClientTestSuite) setAllowance(key *ecdsa.PrivateKey) {
 	)
 	s.Nil(err)
 
-	decimal, err := s.RPCClient.TaikoToken.Decimals(nil)
+	decimal, err := s.RPCClient.PacayaClients.TaikoToken.Decimals(nil)
 	s.Nil(err)
 
 	var (

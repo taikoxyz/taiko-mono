@@ -50,7 +50,7 @@ func (h *TransitionContestedEventHandler) Handle(
 		return nil
 	}
 
-	contestedTransition, err := h.rpc.TaikoL1.GetTransition0(
+	contestedTransition, err := h.rpc.OntakeClients.TaikoL1.GetTransition0(
 		&bind.CallOpts{Context: ctx},
 		e.BlockId.Uint64(),
 		e.Tran.ParentHash,

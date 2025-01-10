@@ -26,7 +26,7 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 	l1ProposerPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROPOSER_PRIVATE_KEY")))
 	s.Nil(err)
 
-	protocolConfigs, err := rpc.GetProtocolConfigs(s.RPCClient.TaikoL1, nil)
+	protocolConfigs, err := rpc.GetProtocolConfigs(s.RPCClient.OntakeClients.TaikoL1, nil)
 	s.Nil(err)
 
 	chainConfig := config.NewChainConfig(&protocolConfigs)

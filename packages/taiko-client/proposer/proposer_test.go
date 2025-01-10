@@ -306,7 +306,7 @@ func (s *ProposerTestSuite) TestName() {
 func (s *ProposerTestSuite) TestProposeOp() {
 	// Propose txs in L2 execution engine's mempool
 	sink := make(chan *ontakeBindings.TaikoL1ClientBlockProposedV2)
-	sub, err := s.p.rpc.TaikoL1.WatchBlockProposedV2(nil, sink, nil)
+	sub, err := s.p.rpc.OntakeClients.TaikoL1.WatchBlockProposedV2(nil, sink, nil)
 	s.Nil(err)
 	defer func() {
 		sub.Unsubscribe()
@@ -350,7 +350,7 @@ func (s *ProposerTestSuite) TestProposeTxListOntake() {
 	s.GreaterOrEqual(l2Head.Number.Uint64(), s.p.protocolConfigs.OntakeForkHeight)
 
 	sink := make(chan *ontakeBindings.TaikoL1ClientBlockProposedV2)
-	sub, err := s.p.rpc.TaikoL1.WatchBlockProposedV2(nil, sink, nil)
+	sub, err := s.p.rpc.OntakeClients.TaikoL1.WatchBlockProposedV2(nil, sink, nil)
 	s.Nil(err)
 	defer func() {
 		sub.Unsubscribe()

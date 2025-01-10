@@ -35,7 +35,7 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 	s.Nil(err)
 
 	sink := make(chan *ontakeBindings.TaikoL1ClientBlockProposedV2)
-	sub, err := s.RPCClient.TaikoL1.WatchBlockProposedV2(nil, sink, nil)
+	sub, err := s.RPCClient.OntakeClients.TaikoL1.WatchBlockProposedV2(nil, sink, nil)
 	s.Nil(err)
 	defer func() {
 		sub.Unsubscribe()
@@ -85,7 +85,7 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 
 	// Propose txs in L2 execution engine's mempool
 	sink := make(chan *ontakeBindings.TaikoL1ClientBlockProposedV2)
-	sub, err := s.RPCClient.TaikoL1.WatchBlockProposedV2(nil, sink, nil)
+	sub, err := s.RPCClient.OntakeClients.TaikoL1.WatchBlockProposedV2(nil, sink, nil)
 	s.Nil(err)
 
 	defer func() {
@@ -154,17 +154,17 @@ func (s *ClientTestSuite) ProposeValidBlock(
 
 	// Propose txs in L2 execution engine's mempool
 	sink := make(chan *ontakeBindings.TaikoL1ClientBlockProposedV2)
-	sub, err := s.RPCClient.TaikoL1.WatchBlockProposedV2(nil, sink, nil)
+	sub, err := s.RPCClient.OntakeClients.TaikoL1.WatchBlockProposedV2(nil, sink, nil)
 	s.Nil(err)
 	defer func() {
 		sub.Unsubscribe()
 		close(sink)
 	}()
 
-	ontakeForkHeight, err := s.RPCClient.TaikoL2.OntakeForkHeight(nil)
+	ontakeForkHeight, err := s.RPCClient.OntakeClients.TaikoL2.OntakeForkHeight(nil)
 	s.Nil(err)
 
-	protocolConfigs, err := rpc.GetProtocolConfigs(s.RPCClient.TaikoL1, nil)
+	protocolConfigs, err := rpc.GetProtocolConfigs(s.RPCClient.OntakeClients.TaikoL1, nil)
 	s.Nil(err)
 
 	baseFee, err := s.RPCClient.CalculateBaseFee(

@@ -32,7 +32,7 @@ func (p *Prover) setApprovalAmount(ctx context.Context, contract common.Address)
 	}
 
 	// Check the existing allowance for the contract.
-	allowance, err := p.rpc.TaikoToken.Allowance(
+	allowance, err := p.rpc.PacayaClients.TaikoToken.Allowance(
 		&bind.CallOpts{Context: ctx},
 		p.ProverAddress(),
 		contract,
@@ -78,7 +78,7 @@ func (p *Prover) setApprovalAmount(ctx context.Context, contract common.Address)
 	)
 
 	// Check the new allowance for the contract.
-	if allowance, err = p.rpc.TaikoToken.Allowance(
+	if allowance, err = p.rpc.PacayaClients.TaikoToken.Allowance(
 		&bind.CallOpts{Context: ctx},
 		p.ProverAddress(),
 		contract,

@@ -57,7 +57,7 @@ func (b *CalldataTransactionBuilder) BuildOntake(
 	txListBytesArray [][]byte,
 ) (*txmgr.TxCandidate, error) {
 	// Check if the current L2 chain is after ontake fork.
-	state, err := rpc.GetProtocolStateVariables(b.rpc.TaikoL1, &bind.CallOpts{Context: ctx})
+	state, err := rpc.GetProtocolStateVariables(b.rpc.OntakeClients.TaikoL1, &bind.CallOpts{Context: ctx})
 	if err != nil {
 		return nil, err
 	}

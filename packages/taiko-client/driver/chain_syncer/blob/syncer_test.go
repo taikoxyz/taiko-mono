@@ -80,7 +80,7 @@ func (s *BlobSyncerTestSuite) TestInsertNewHead() {
 	s.Nil(err)
 	l1Head, err := s.s.rpc.L1.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
-	protocolConfigs, err := s.s.rpc.TaikoL1.GetConfig(nil)
+	protocolConfigs, err := s.s.rpc.OntakeClients.TaikoL1.GetConfig(nil)
 	s.Nil(err)
 	_, err = s.s.insertNewHead(
 		context.Background(),
@@ -164,7 +164,7 @@ func (s *BlobSyncerTestSuite) TestTreasuryIncome() {
 	s.Greater(headAfter, headBefore)
 	s.True(balanceAfter.Cmp(balance) > 0)
 
-	protocolConfigs, err := rpc.GetProtocolConfigs(s.RPCClient.TaikoL1, nil)
+	protocolConfigs, err := rpc.GetProtocolConfigs(s.RPCClient.OntakeClients.TaikoL1, nil)
 	s.Nil(err)
 
 	var hasNoneAnchorTxs bool

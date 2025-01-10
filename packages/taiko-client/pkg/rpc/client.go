@@ -10,11 +10,33 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 )
 
 const (
 	defaultTimeout = 1 * time.Minute
 )
+
+// OntakeClients contains all smart contract clients for Ontake fork.
+type OntakeClients struct {
+	TaikoL1                *ontakeBindings.TaikoL1Client
+	LibProposing           *ontakeBindings.LibProposing
+	TaikoL2                *ontakeBindings.TaikoL2Client
+	TaikoToken             *ontakeBindings.TaikoToken
+	GuardianProverMajority *ontakeBindings.GuardianProver
+	GuardianProverMinority *ontakeBindings.GuardianProver
+	ProverSet              *ontakeBindings.ProverSet
+	ForkManager            *ontakeBindings.ForkManager
+}
+
+// PacayaClients contains all smart contract clients for Pacaya fork.
+type PacayaClients struct {
+	TaikoInbox  *pacayaBindings.TaikoInboxClient
+	TaikoAnchor *pacayaBindings.TaikoAnchorClient
+	TaikoToken  *pacayaBindings.TaikoToken
+	ProverSet   *pacayaBindings.ProverSet
+	ForkManager *pacayaBindings.ForkManager
+}
 
 // Client contains all L1/L2 RPC clients that a driver needs.
 type Client struct {
@@ -27,13 +49,8 @@ type Client struct {
 	// Beacon clients
 	L1Beacon *BeaconClient
 	// Protocol contracts clients
-	TaikoL1                *ontakeBindings.TaikoL1Client
-	LibProposing           *ontakeBindings.LibProposing
-	TaikoL2                *ontakeBindings.TaikoL2Client
-	TaikoToken             *ontakeBindings.TaikoToken
-	GuardianProverMajority *ontakeBindings.GuardianProver
-	GuardianProverMinority *ontakeBindings.GuardianProver
-	ProverSet              *ontakeBindings.ProverSet
+	OntakeClients *OntakeClients
+	PacayaClients *PacayaClients
 }
 
 // ClientConfig contains all configs which will be used to initializing an
@@ -163,18 +180,20 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 	}
 
 	client := &Client{
-		L1:                     l1Client,
-		L1Beacon:               l1BeaconClient,
-		L2:                     l2Client,
-		L2CheckPoint:           l2CheckPoint,
-		L2Engine:               l2AuthClient,
-		TaikoL1:                taikoL1,
-		LibProposing:           libProposing,
-		TaikoL2:                taikoL2,
-		TaikoToken:             taikoToken,
-		GuardianProverMajority: guardianProverMajority,
-		GuardianProverMinority: guardianProverMinority,
-		ProverSet:              proverSet,
+		L1:           l1Client,
+		L1Beacon:     l1BeaconClient,
+		L2:           l2Client,
+		L2CheckPoint: l2CheckPoint,
+		L2Engine:     l2AuthClient,
+		OntakeClients: &OntakeClients{
+			TaikoL1:                taikoL1,
+			LibProposing:           libProposing,
+			TaikoL2:                taikoL2,
+			TaikoToken:             taikoToken,
+			GuardianProverMajority: guardianProverMajority,
+			GuardianProverMinority: guardianProverMinority,
+			ProverSet:              proverSet,
+		},
 	}
 
 	if err := client.ensureGenesisMatched(ctxWithTimeout); err != nil {

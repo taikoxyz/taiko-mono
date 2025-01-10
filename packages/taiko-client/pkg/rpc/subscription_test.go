@@ -19,28 +19,28 @@ func TestSubscribeEvent(t *testing.T) {
 
 func TestSubscribeBlockVerified(t *testing.T) {
 	require.NotNil(t, SubscribeBlockVerified(
-		newTestClient(t).TaikoL1,
+		newTestClient(t).OntakeClients.TaikoL1,
 		make(chan *ontakeBindings.TaikoL1ClientBlockVerified, 1024)),
 	)
 }
 
 func TestSubscribeBlockProposed(t *testing.T) {
 	require.NotNil(t, SubscribeBlockProposed(
-		newTestClient(t).TaikoL1,
+		newTestClient(t).OntakeClients.TaikoL1,
 		make(chan *ontakeBindings.TaikoL1ClientBlockProposed, 1024)),
 	)
 }
 
 func TestSubscribeTransitionProved(t *testing.T) {
 	require.NotNil(t, SubscribeTransitionProved(
-		newTestClient(t).TaikoL1,
+		newTestClient(t).OntakeClients.TaikoL1,
 		make(chan *ontakeBindings.TaikoL1ClientTransitionProved, 1024)),
 	)
 }
 
 func TestSubscribeTransitionContested(t *testing.T) {
 	require.NotNil(t, SubscribeTransitionContested(
-		newTestClient(t).TaikoL1,
+		newTestClient(t).OntakeClients.TaikoL1,
 		make(chan *ontakeBindings.TaikoL1ClientTransitionContested, 1024)),
 	)
 }

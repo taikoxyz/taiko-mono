@@ -62,7 +62,7 @@ func (s *State) init(ctx context.Context) error {
 		return err
 	}
 
-	protocolConfigs, err := rpc.GetProtocolConfigs(s.rpc.TaikoL1, &bind.CallOpts{Context: ctx})
+	protocolConfigs, err := rpc.GetProtocolConfigs(s.rpc.OntakeClients.TaikoL1, &bind.CallOpts{Context: ctx})
 	if err != nil {
 		return err
 	}
@@ -120,12 +120,12 @@ func (s *State) eventLoop(ctx context.Context) {
 		// Subscriptions.
 		l1HeadSub               = rpc.SubscribeChainHead(s.rpc.L1, l1HeadCh)
 		l2HeadSub               = rpc.SubscribeChainHead(s.rpc.L2, l2HeadCh)
-		l2BlockVerifiedSub      = rpc.SubscribeBlockVerified(s.rpc.TaikoL1, blockVerifiedCh)
-		l2BlockProposedSub      = rpc.SubscribeBlockProposed(s.rpc.TaikoL1, blockProposedCh)
-		l2TransitionProvedSub   = rpc.SubscribeTransitionProved(s.rpc.TaikoL1, transitionProvedCh)
-		l2BlockVerifiedV2Sub    = rpc.SubscribeBlockVerifiedV2(s.rpc.TaikoL1, blockVerifiedV2Ch)
-		l2BlockProposedV2Sub    = rpc.SubscribeBlockProposedV2(s.rpc.TaikoL1, blockProposedV2Ch)
-		l2TransitionProvedV2Sub = rpc.SubscribeTransitionProvedV2(s.rpc.TaikoL1, transitionProvedV2Ch)
+		l2BlockVerifiedSub      = rpc.SubscribeBlockVerified(s.rpc.OntakeClients.TaikoL1, blockVerifiedCh)
+		l2BlockProposedSub      = rpc.SubscribeBlockProposed(s.rpc.OntakeClients.TaikoL1, blockProposedCh)
+		l2TransitionProvedSub   = rpc.SubscribeTransitionProved(s.rpc.OntakeClients.TaikoL1, transitionProvedCh)
+		l2BlockVerifiedV2Sub    = rpc.SubscribeBlockVerifiedV2(s.rpc.OntakeClients.TaikoL1, blockVerifiedV2Ch)
+		l2BlockProposedV2Sub    = rpc.SubscribeBlockProposedV2(s.rpc.OntakeClients.TaikoL1, blockProposedV2Ch)
+		l2TransitionProvedV2Sub = rpc.SubscribeTransitionProvedV2(s.rpc.OntakeClients.TaikoL1, transitionProvedV2Ch)
 	)
 
 	defer func() {

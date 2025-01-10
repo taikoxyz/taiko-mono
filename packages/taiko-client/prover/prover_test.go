@@ -232,7 +232,7 @@ func (s *ProverTestSuite) TestContestWrongBlocks() {
 	header, err := s.p.rpc.L2.HeaderByNumber(context.Background(), m.GetBlockID())
 	s.Nil(err)
 	sink := make(chan *ontakeBindings.TaikoL1ClientTransitionProvedV2)
-	sub, err := s.p.rpc.TaikoL1.WatchTransitionProvedV2(nil, sink, nil)
+	sub, err := s.p.rpc.OntakeClients.TaikoL1.WatchTransitionProvedV2(nil, sink, nil)
 	s.Nil(err)
 	defer func() {
 		sub.Unsubscribe()
@@ -253,7 +253,7 @@ func (s *ProverTestSuite) TestContestWrongBlocks() {
 
 	// Contest the transition.
 	contestedSink := make(chan *ontakeBindings.TaikoL1ClientTransitionContestedV2)
-	contestedSub, err := s.p.rpc.TaikoL1.WatchTransitionContestedV2(nil, contestedSink, nil)
+	contestedSub, err := s.p.rpc.OntakeClients.TaikoL1.WatchTransitionContestedV2(nil, contestedSink, nil)
 	s.Nil(err)
 
 	defer func() {
@@ -296,14 +296,14 @@ func (s *ProverTestSuite) TestContestWrongBlocks() {
 	s.Nil(err)
 	s.Nil(s.p.initProofSubmitters(txBuilder, tiers))
 
-	s.p.rpc.GuardianProverMinority, err = ontakeBindings.NewGuardianProver(
+	s.p.rpc.OntakeClients.GuardianProverMinority, err = ontakeBindings.NewGuardianProver(
 		s.p.cfg.GuardianProverMinorityAddress,
 		s.p.rpc.L1,
 	)
 	s.Nil(err)
 
 	approvedSink := make(chan *ontakeBindings.GuardianProverGuardianApproval)
-	approvedSub, err := s.p.rpc.GuardianProverMinority.WatchGuardianApproval(
+	approvedSub, err := s.p.rpc.OntakeClients.GuardianProverMinority.WatchGuardianApproval(
 		nil, approvedSink, []common.Address{}, [](*big.Int){}, []([32]byte){},
 	)
 	s.Nil(err)
@@ -349,7 +349,7 @@ func (s *ProverTestSuite) TestProveOp() {
 	s.Nil(err)
 
 	sink := make(chan *ontakeBindings.TaikoL1ClientTransitionProvedV2)
-	sub, err := s.p.rpc.TaikoL1.WatchTransitionProvedV2(nil, sink, nil)
+	sub, err := s.p.rpc.OntakeClients.TaikoL1.WatchTransitionProvedV2(nil, sink, nil)
 	s.Nil(err)
 	defer func() {
 		sub.Unsubscribe()
@@ -387,7 +387,7 @@ func (s *ProverTestSuite) TestGetBlockProofStatus() {
 	// Valid proof submitted
 	sink := make(chan *ontakeBindings.TaikoL1ClientTransitionProved)
 
-	sub, err := s.p.rpc.TaikoL1.WatchTransitionProved(nil, sink, nil)
+	sub, err := s.p.rpc.OntakeClients.TaikoL1.WatchTransitionProved(nil, sink, nil)
 	s.Nil(err)
 	defer func() {
 		sub.Unsubscribe()
@@ -455,7 +455,7 @@ func (s *ProverTestSuite) TestAggregateProofsAlreadyProved() {
 	// Init batch prover
 	l1ProverPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROVER_PRIVATE_KEY")))
 	s.Nil(err)
-	decimal, err := s.RPCClient.TaikoToken.Decimals(nil)
+	decimal, err := s.RPCClient.PacayaClients.TaikoToken.Decimals(nil)
 	s.Nil(err)
 	batchProver := new(Prover)
 	s.Nil(InitFromConfig(context.Background(), batchProver, &Config{
@@ -482,7 +482,7 @@ func (s *ProverTestSuite) TestAggregateProofsAlreadyProved() {
 	}
 
 	sink := make(chan *ontakeBindings.TaikoL1ClientTransitionProvedV2, batchSize)
-	sub, err := s.p.rpc.TaikoL1.WatchTransitionProvedV2(nil, sink, nil)
+	sub, err := s.p.rpc.OntakeClients.TaikoL1.WatchTransitionProvedV2(nil, sink, nil)
 	s.Nil(err)
 	defer func() {
 		sub.Unsubscribe()
@@ -514,7 +514,7 @@ func (s *ProverTestSuite) TestAggregateProofs() {
 	// Init batch prover
 	l1ProverPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROVER_PRIVATE_KEY")))
 	s.Nil(err)
-	decimal, err := s.RPCClient.TaikoToken.Decimals(nil)
+	decimal, err := s.RPCClient.PacayaClients.TaikoToken.Decimals(nil)
 	s.Nil(err)
 	batchProver := new(Prover)
 	s.Nil(InitFromConfig(context.Background(), batchProver, &Config{
@@ -541,7 +541,7 @@ func (s *ProverTestSuite) TestAggregateProofs() {
 	}
 
 	sink := make(chan *ontakeBindings.TaikoL1ClientTransitionProvedV2, batchSize)
-	sub, err := s.p.rpc.TaikoL1.WatchTransitionProvedV2(nil, sink, nil)
+	sub, err := s.p.rpc.OntakeClients.TaikoL1.WatchTransitionProvedV2(nil, sink, nil)
 	s.Nil(err)
 	defer func() {
 		sub.Unsubscribe()
@@ -562,14 +562,16 @@ func (s *ProverTestSuite) TestAggregateProofs() {
 }
 
 func (s *ProverTestSuite) TestSetApprovalAlreadySetHigher() {
-	originalAllowance, err := s.p.rpc.TaikoToken.Allowance(&bind.CallOpts{}, s.p.ProverAddress(), s.p.cfg.TaikoL1Address)
+	originalAllowance, err := s.p.rpc.PacayaClients.TaikoToken.
+		Allowance(&bind.CallOpts{}, s.p.ProverAddress(), s.p.cfg.TaikoL1Address)
 	s.Nil(err)
 
 	s.p.cfg.Allowance = common.Big1
 
 	s.Nil(s.p.setApprovalAmount(context.Background(), s.p.cfg.TaikoL1Address))
 
-	allowance, err := s.p.rpc.TaikoToken.Allowance(&bind.CallOpts{}, s.p.ProverAddress(), s.p.cfg.TaikoL1Address)
+	allowance, err := s.p.rpc.PacayaClients.TaikoToken.
+		Allowance(&bind.CallOpts{}, s.p.ProverAddress(), s.p.cfg.TaikoL1Address)
 	s.Nil(err)
 
 	s.Equal(0, allowance.Cmp(originalAllowance))
@@ -589,7 +591,7 @@ func (s *ProverTestSuite) initProver(
 	ctx context.Context,
 	key *ecdsa.PrivateKey,
 ) {
-	decimal, err := s.RPCClient.TaikoToken.Decimals(nil)
+	decimal, err := s.RPCClient.PacayaClients.TaikoToken.Decimals(nil)
 	s.Nil(err)
 
 	p := new(Prover)

@@ -58,7 +58,7 @@ func (c *Client) ensureGenesisMatched(ctx context.Context) error {
 		}
 	)
 
-	protocolConfigs, err := GetProtocolConfigs(c.TaikoL1, &bind.CallOpts{Context: ctxWithTimeout})
+	protocolConfigs, err := GetProtocolConfigs(c.OntakeClients.TaikoL1, &bind.CallOpts{Context: ctxWithTimeout})
 	if err != nil {
 		return err
 	}
@@ -66,7 +66,7 @@ func (c *Client) ensureGenesisMatched(ctx context.Context) error {
 	// If chain actives ontake fork from genesis, we need to fetch the genesis block hash from `BlockVerifiedV2` event.
 	if protocolConfigs.OntakeForkHeight == 0 {
 		// Fetch the genesis `BlockVerified2` event.
-		iter, err := c.TaikoL1.FilterBlockVerifiedV2(filterOpts, []*big.Int{common.Big0}, nil)
+		iter, err := c.OntakeClients.TaikoL1.FilterBlockVerifiedV2(filterOpts, []*big.Int{common.Big0}, nil)
 		if err != nil {
 			return err
 		}
@@ -79,7 +79,7 @@ func (c *Client) ensureGenesisMatched(ctx context.Context) error {
 		}
 	} else {
 		// Fetch the genesis `BlockVerified` event.
-		iter, err := c.TaikoL1.FilterBlockVerified(filterOpts, []*big.Int{common.Big0}, nil)
+		iter, err := c.OntakeClients.TaikoL1.FilterBlockVerified(filterOpts, []*big.Int{common.Big0}, nil)
 		if err != nil {
 			return err
 		}
@@ -297,7 +297,7 @@ func (c *Client) CalculateBaseFee(
 			return nil, err
 		}
 	} else {
-		baseFeeInfo, err := c.TaikoL2.GetBasefee(
+		baseFeeInfo, err := c.OntakeClients.TaikoL2.GetBasefee(
 			&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
 			anchorBlockID.Uint64(),
 			uint32(l2Head.GasUsed),
@@ -476,7 +476,7 @@ func (c *Client) GetProtocolStateVariables(opts *bind.CallOpts) (*struct {
 	defer cancel()
 	opts.Context = ctxWithTimeout
 
-	return GetProtocolStateVariables(c.TaikoL1, opts)
+	return GetProtocolStateVariables(c.OntakeClients.TaikoL1, opts)
 }
 
 // GetLastVerifiedBlock gets the last verified block from TaikoL1 contract.
@@ -497,7 +497,7 @@ func (c *Client) GetL2BlockInfo(ctx context.Context, blockID *big.Int) (ontakeBi
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
-	blockInfo, err := c.TaikoL1.GetBlock(&bind.CallOpts{Context: ctxWithTimeout}, blockID.Uint64())
+	blockInfo, err := c.OntakeClients.TaikoL1.GetBlock(&bind.CallOpts{Context: ctxWithTimeout}, blockID.Uint64())
 	if err != nil {
 		return ontakeBindings.TaikoDataBlockV2{}, err
 	}
@@ -509,7 +509,7 @@ func (c *Client) GetL2BlockInfoV2(ctx context.Context, blockID *big.Int) (ontake
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
-	return c.TaikoL1.GetBlockV2(&bind.CallOpts{Context: ctxWithTimeout}, blockID.Uint64())
+	return c.OntakeClients.TaikoL1.GetBlockV2(&bind.CallOpts{Context: ctxWithTimeout}, blockID.Uint64())
 }
 
 // GetTransition fetches the L2 block's corresponding transition state from the protocol.
@@ -521,7 +521,7 @@ func (c *Client) GetTransition(
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
-	return c.TaikoL1.GetTransition(
+	return c.OntakeClients.TaikoL1.GetTransition(
 		&bind.CallOpts{Context: ctxWithTimeout},
 		blockID.Uint64(),
 		transactionID,
@@ -558,7 +558,7 @@ func (c *Client) CheckL1Reorg(ctx context.Context, blockID *big.Int) (*ReorgChec
 		// If we rollback to the genesis block, then there is no L1Origin information recorded in the L2 execution
 		// engine for that block, so we will query the protocol to use `GenesisHeight` value to reset the L1 cursor.
 		if blockID.Cmp(common.Big0) == 0 {
-			state, err := GetProtocolStateVariables(c.TaikoL1, &bind.CallOpts{Context: ctxWithTimeout})
+			state, err := GetProtocolStateVariables(c.OntakeClients.TaikoL1, &bind.CallOpts{Context: ctxWithTimeout})
 			if err != nil {
 				return result, err
 			}
@@ -790,7 +790,7 @@ func (c *Client) GetTiers(ctx context.Context) ([]*TierProviderTierWithID, error
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
-	tierRouterAddress, err := c.TaikoL1.Resolve0(&bind.CallOpts{Context: ctx}, StringToBytes32("tier_router"), false)
+	tierRouterAddress, err := c.OntakeClients.TaikoL1.Resolve0(&bind.CallOpts{Context: ctx}, StringToBytes32("tier_router"), false)
 	if err != nil {
 		return nil, err
 	}
@@ -832,7 +832,7 @@ func (c *Client) GetTiers(ctx context.Context) ([]*TierProviderTierWithID, error
 
 // GetTaikoDataSlotBByNumber fetches the state variables by block number.
 func (c *Client) GetTaikoDataSlotBByNumber(ctx context.Context, number uint64) (*ontakeBindings.TaikoDataSlotB, error) {
-	iter, err := c.TaikoL1.FilterStateVariablesUpdated(
+	iter, err := c.OntakeClients.TaikoL1.FilterStateVariablesUpdated(
 		&bind.FilterOpts{Context: ctx, Start: number, End: &number},
 	)
 	if err != nil {
@@ -854,7 +854,7 @@ func (c *Client) GetGuardianProverAddress(ctx context.Context) (common.Address, 
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
-	return c.TaikoL1.Resolve0(&bind.CallOpts{Context: ctxWithTimeout}, StringToBytes32("tier_guardian"), false)
+	return c.OntakeClients.TaikoL1.Resolve0(&bind.CallOpts{Context: ctxWithTimeout}, StringToBytes32("tier_guardian"), false)
 }
 
 // WaitL1NewPendingTransaction waits until the L1 account has a new pending transaction.
@@ -898,17 +898,19 @@ func (c *Client) calculateBaseFeeOntake(
 		newGasTarget    = uint64(baseFeeConfig.GasIssuancePerSecond) * uint64(baseFeeConfig.AdjustmentQuotient)
 		parentGasExcess uint64
 	)
-	parentGasTarget, err := c.TaikoL2.ParentGasTarget(&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx})
+	parentGasTarget, err := c.OntakeClients.TaikoL2.
+		ParentGasTarget(&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx})
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch parent gas target: %w", err)
 	}
 
 	if newGasTarget != parentGasTarget && parentGasTarget != 0 {
-		oldParentGasExcess, err := c.TaikoL2.ParentGasExcess(&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx})
+		oldParentGasExcess, err := c.OntakeClients.TaikoL2.
+			ParentGasExcess(&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx})
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch old parent gas excess: %w", err)
 		}
-		if parentGasExcess, err = c.TaikoL2.AdjustExcess(
+		if parentGasExcess, err = c.OntakeClients.TaikoL2.AdjustExcess(
 			&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
 			oldParentGasExcess,
 			parentGasTarget,
@@ -917,7 +919,7 @@ func (c *Client) calculateBaseFeeOntake(
 			// If the `calculateBaseFee()` method is deprecated, we will use the new method `getBasefeeV2()`
 			// to calculate the base fee.
 			if strings.Contains(encoding.TryParsingCustomError(err).Error(), "L2_DEPRECATED_METHOD") {
-				baseFeeInfo, err := c.TaikoL2.GetBasefeeV2(
+				baseFeeInfo, err := c.OntakeClients.TaikoL2.GetBasefeeV2(
 					&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
 					uint32(l2Head.GasUsed),
 					currentTimestamp,
@@ -932,14 +934,14 @@ func (c *Client) calculateBaseFeeOntake(
 			return nil, fmt.Errorf("failed to adjust parent gas excess: %w", err)
 		}
 	} else {
-		if parentGasExcess, err = c.TaikoL2.ParentGasExcess(&bind.CallOpts{
+		if parentGasExcess, err = c.OntakeClients.TaikoL2.ParentGasExcess(&bind.CallOpts{
 			BlockNumber: l2Head.Number, Context: ctx,
 		}); err != nil {
 			return nil, fmt.Errorf("failed to fetch parent gas excess: %w", err)
 		}
 	}
 
-	baseFeeInfo, err := c.TaikoL2.CalculateBaseFee(
+	baseFeeInfo, err := c.OntakeClients.TaikoL2.CalculateBaseFee(
 		&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
 		*baseFeeConfig,
 		currentTimestamp-l2Head.Time,
@@ -950,7 +952,7 @@ func (c *Client) calculateBaseFeeOntake(
 		// If the `calculateBaseFee()` method is deprecated, we will use the new method `getBasefeeV2()`
 		// to calculate the base fee.
 		if strings.Contains(encoding.TryParsingCustomError(err).Error(), "L2_DEPRECATED_METHOD") {
-			baseFeeInfo, err := c.TaikoL2.GetBasefeeV2(
+			baseFeeInfo, err := c.OntakeClients.TaikoL2.GetBasefeeV2(
 				&bind.CallOpts{BlockNumber: l2Head.Number, Context: ctx},
 				uint32(l2Head.GasUsed),
 				currentTimestamp,

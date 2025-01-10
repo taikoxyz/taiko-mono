@@ -173,7 +173,7 @@ func (d *Driver) ChainSyncer() *chainSyncer.L2ChainSyncer {
 
 // reportProtocolStatus reports some protocol status intervally.
 func (d *Driver) reportProtocolStatus() {
-	protocolConfigs, err := rpc.GetProtocolConfigs(d.rpc.TaikoL1, &bind.CallOpts{Context: d.ctx})
+	protocolConfigs, err := rpc.GetProtocolConfigs(d.rpc.OntakeClients.TaikoL1, &bind.CallOpts{Context: d.ctx})
 	if err != nil {
 		log.Error("Failed to get protocol configs", "error", err)
 		return

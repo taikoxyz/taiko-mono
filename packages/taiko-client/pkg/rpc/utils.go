@@ -107,7 +107,7 @@ func CheckProverBalance(
 	defer cancel()
 
 	// Check allowance on taiko token contract
-	allowance, err := rpc.TaikoToken.Allowance(&bind.CallOpts{Context: ctxWithTimeout}, prover, address)
+	allowance, err := rpc.OntakeClients.TaikoToken.Allowance(&bind.CallOpts{Context: ctxWithTimeout}, prover, address)
 	if err != nil {
 		return false, err
 	}
@@ -120,13 +120,13 @@ func CheckProverBalance(
 	)
 
 	// Check prover's taiko token bondBalance
-	bondBalance, err := rpc.TaikoL1.BondBalanceOf(&bind.CallOpts{Context: ctxWithTimeout}, prover)
+	bondBalance, err := rpc.OntakeClients.TaikoL1.BondBalanceOf(&bind.CallOpts{Context: ctxWithTimeout}, prover)
 	if err != nil {
 		return false, err
 	}
 
 	// Check prover's taiko token tokenBalance
-	tokenBalance, err := rpc.TaikoToken.BalanceOf(&bind.CallOpts{Context: ctxWithTimeout}, prover)
+	tokenBalance, err := rpc.OntakeClients.TaikoToken.BalanceOf(&bind.CallOpts{Context: ctxWithTimeout}, prover)
 	if err != nil {
 		return false, err
 	}
@@ -193,7 +193,7 @@ func GetBlockProofStatus(
 	}
 
 	// Get the transition state from TaikoL1 contract.
-	transition, err := cli.TaikoL1.GetTransition0(
+	transition, err := cli.OntakeClients.TaikoL1.GetTransition0(
 		&bind.CallOpts{Context: ctxWithTimeout},
 		id.Uint64(),
 		parent.Hash(),
@@ -310,7 +310,7 @@ func BatchGetBlocksProofStatus(
 		parentHashes[i] = parents[i].Hash()
 	}
 	// Get the transition state from TaikoL1 contract.
-	transitions, err := cli.TaikoL1.GetTransitions(
+	transitions, err := cli.OntakeClients.TaikoL1.GetTransitions(
 		&bind.CallOpts{Context: ctxWithTimeout},
 		uint64BlockIDs,
 		parentHashes,

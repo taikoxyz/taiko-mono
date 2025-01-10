@@ -58,7 +58,7 @@ func (s *AnchorTxConstructorTestSuite) TestAssembleAnchorV2Tx() {
 }
 
 func (s *AnchorTxConstructorTestSuite) TestNewAnchorTransactor() {
-	goldenTouchAddress, err := s.RPCClient.TaikoL2.GOLDENTOUCHADDRESS(nil)
+	goldenTouchAddress, err := s.RPCClient.OntakeClients.TaikoL2.GOLDENTOUCHADDRESS(nil)
 	s.Nil(err)
 
 	c, err := New(s.RPCClient)

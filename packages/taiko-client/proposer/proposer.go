@@ -84,7 +84,7 @@ func (p *Proposer) InitFromConfig(
 	}
 
 	// Protocol configs
-	protocolConfigs, err := rpc.GetProtocolConfigs(p.rpc.TaikoL1, &bind.CallOpts{Context: p.ctx})
+	protocolConfigs, err := rpc.GetProtocolConfigs(p.rpc.OntakeClients.TaikoL1, &bind.CallOpts{Context: p.ctx})
 	if err != nil {
 		return fmt.Errorf("failed to get protocol configs: %w", err)
 	}

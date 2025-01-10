@@ -124,7 +124,7 @@ func InitFromConfig(
 	}
 
 	// Configs
-	protocolConfigs, err := rpc.GetProtocolConfigs(p.rpc.TaikoL1, &bind.CallOpts{Context: p.ctx})
+	protocolConfigs, err := rpc.GetProtocolConfigs(p.rpc.OntakeClients.TaikoL1, &bind.CallOpts{Context: p.ctx})
 	if err != nil {
 		return fmt.Errorf("failed to get protocol configs: %w", err)
 	}
@@ -208,12 +208,12 @@ func InitFromConfig(
 	// Guardian prover heartbeat sender
 	if p.IsGuardianProver() && p.cfg.GuardianProverHealthCheckServerEndpoint != nil {
 		// Check guardian prover contract address is correct.
-		if _, err := p.rpc.GuardianProverMajority.MinGuardians(&bind.CallOpts{Context: ctx}); err != nil {
+		if _, err := p.rpc.OntakeClients.GuardianProverMajority.MinGuardians(&bind.CallOpts{Context: ctx}); err != nil {
 			return fmt.Errorf("failed to get MinGuardians from majority guardian prover contract: %w", err)
 		}
 
-		if p.rpc.GuardianProverMinority != nil {
-			if _, err := p.rpc.GuardianProverMinority.MinGuardians(&bind.CallOpts{Context: ctx}); err != nil {
+		if p.rpc.OntakeClients.GuardianProverMinority != nil {
+			if _, err := p.rpc.OntakeClients.GuardianProverMinority.MinGuardians(&bind.CallOpts{Context: ctx}); err != nil {
 				return fmt.Errorf("failed to get MinGuardians from minority guardian prover contract: %w", err)
 			}
 		}
@@ -296,10 +296,10 @@ func (p *Prover) eventLoop() {
 	transitionProvedV2Ch := make(chan *ontakeBindings.TaikoL1ClientTransitionProvedV2, chBufferSize)
 	transitionContestedV2Ch := make(chan *ontakeBindings.TaikoL1ClientTransitionContestedV2, chBufferSize)
 	// Subscriptions
-	blockProposedV2Sub := rpc.SubscribeBlockProposedV2(p.rpc.TaikoL1, blockProposedV2Ch)
-	blockVerifiedV2Sub := rpc.SubscribeBlockVerifiedV2(p.rpc.TaikoL1, blockVerifiedV2Ch)
-	transitionProvedV2Sub := rpc.SubscribeTransitionProvedV2(p.rpc.TaikoL1, transitionProvedV2Ch)
-	transitionContestedV2Sub := rpc.SubscribeTransitionContestedV2(p.rpc.TaikoL1, transitionContestedV2Ch)
+	blockProposedV2Sub := rpc.SubscribeBlockProposedV2(p.rpc.OntakeClients.TaikoL1, blockProposedV2Ch)
+	blockVerifiedV2Sub := rpc.SubscribeBlockVerifiedV2(p.rpc.OntakeClients.TaikoL1, blockVerifiedV2Ch)
+	transitionProvedV2Sub := rpc.SubscribeTransitionProvedV2(p.rpc.OntakeClients.TaikoL1, transitionProvedV2Ch)
+	transitionContestedV2Sub := rpc.SubscribeTransitionContestedV2(p.rpc.OntakeClients.TaikoL1, transitionContestedV2Ch)
 	defer func() {
 		blockProposedV2Sub.Unsubscribe()
 		blockVerifiedV2Sub.Unsubscribe()
@@ -354,7 +354,7 @@ func (p *Prover) Close(_ context.Context) {
 func (p *Prover) proveOp() error {
 	iter, err := eventIterator.NewBlockProposedIterator(p.ctx, &eventIterator.BlockProposedIteratorConfig{
 		Client:               p.rpc.L1,
-		TaikoL1:              p.rpc.TaikoL1,
+		TaikoL1:              p.rpc.OntakeClients.TaikoL1,
 		StartHeight:          new(big.Int).SetUint64(p.sharedState.GetL1Current().Number.Uint64()),
 		OnBlockProposedEvent: p.blockProposedHandler.Handle,
 		BlockConfirmations:   &p.cfg.BlockConfirmations,
