@@ -223,10 +223,11 @@
 
 ### risc0_groth16_verifier
 
-- addr : 0x5fd84014c62D5ea28D4533D5B1B48Ca44e571057
+- addr : 0x714FD0666B0cee87bFC29A029E2AE66f40F12cE5
 - logs:
   - deployed on August 14, 2024 at commit `cba2a1e`
   - upgraded on October 22, 2024 at commit `684a909`
+  - upgraded on Jan 10, 2025 at commit `2802b21`
 
 ### tier_zkvm_risc0
 
