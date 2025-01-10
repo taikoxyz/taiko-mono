@@ -20,9 +20,9 @@ contract MainnetInbox is TaikoInbox {
             chainId: LibNetwork.TAIKO_MAINNET,
             // Ring buffers are being reused on the mainnet, therefore the following two
             // configuration values must NEVER be changed!!!
-            blockMaxProposals: 324_000, // DO NOT CHANGE!!!
-            blockRingBufferSize: 360_000, // DO NOT CHANGE!!!
-            maxBlocksToVerify: 16,
+            maxBatchProposals: 324_000, // DO NOT CHANGE!!!
+            batchRingBufferSize: 360_000, // DO NOT CHANGE!!!
+            maxBatchesTooVerify: 16,
             blockMaxGasLimit: 240_000_000,
             livenessBond: 125e18, // 125 Taiko token
             stateRootSyncInternal: 16,

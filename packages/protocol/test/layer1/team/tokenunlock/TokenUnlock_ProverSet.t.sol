@@ -17,9 +17,9 @@ pragma solidity ^0.8.24;
 //     function getConfig() internal pure override returns (ITaikoInbox.Config memory) {
 //         return ITaikoInbox.Config({
 //             chainId: LibNetwork.TAIKO_MAINNET,
-//             blockMaxProposals: 10,
-//             blockRingBufferSize: 15,
-//             maxBlocksToVerify: 5,
+//             maxBatchProposals: 10,
+//             batchRingBufferSize: 15,
+//             maxBatchesTooVerify: 5,
 //             blockMaxGasLimit: 240_000_000,
 //             livenessBond: livenessBond, // 125 Taiko token
 //             stateRootSyncInternal: 5,

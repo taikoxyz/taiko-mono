@@ -11,10 +11,10 @@ contract HeklaInbox is TaikoInbox {
         return ITaikoInbox.Config({
             chainId: LibNetwork.TAIKO_HEKLA,
             // Never change this value as ring buffer is being reused!!!
-            blockMaxProposals: 324_000,
+            maxBatchProposals: 324_000,
             // Never change this value as ring buffer is being reused!!!
-            blockRingBufferSize: 324_512,
-            maxBlocksToVerify: 16,
+            batchRingBufferSize: 324_512,
+            maxBatchesTooVerify: 16,
             blockMaxGasLimit: 240_000_000,
             livenessBond: 125e18, // 125 Taiko token
             stateRootSyncInternal: 16,
