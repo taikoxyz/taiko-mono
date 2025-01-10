@@ -67,8 +67,8 @@ func (t *SyncProgressTracker) track(ctx context.Context) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	if !t.triggered {
-		log.Debug("Beacon sync not triggered")
+	if t.Finished() {
+		log.Debug("Beacon sync is finished")
 		return
 	}
 
@@ -158,9 +158,6 @@ func (t *SyncProgressTracker) ClearMeta() {
 	log.Debug("Clear sync progress tracker meta")
 
 	t.triggered = false
-	t.lastSyncedBlockID = nil
-	t.lastSyncedBlockHash = common.Hash{}
-	t.outOfSync = false
 }
 
 // NeedReSync checks if a new beacon sync request will be needed:
@@ -170,11 +167,6 @@ func (t *SyncProgressTracker) ClearMeta() {
 func (t *SyncProgressTracker) NeedReSync(newID *big.Int) (bool, error) {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
-
-	// If the beacon sync has not been triggered yet, we will simply trigger it.
-	if !t.triggered {
-		return true, nil
-	}
 
 	if t.lastSyncedBlockID == nil {
 		return true, nil
@@ -242,22 +234,11 @@ func syncProgressed(last *ethereum.SyncProgress, new *ethereum.SyncProgress) boo
 		return false
 	}
 
-	if new == nil {
-		return true
-	}
-
-	// Block
-	if new.CurrentBlock > last.CurrentBlock {
-		return true
-	}
-
-	// Fast sync fields
-	if new.PulledStates > last.PulledStates {
-		return true
-	}
-
 	// Snap sync fields
-	if new.SyncedAccounts > last.SyncedAccounts ||
+	return new == nil ||
+		new.CurrentBlock > last.CurrentBlock ||
+		new.PulledStates > last.PulledStates ||
+		new.SyncedAccounts > last.SyncedAccounts ||
 		new.SyncedAccountBytes > last.SyncedAccountBytes ||
 		new.SyncedBytecodes > last.SyncedBytecodes ||
 		new.SyncedBytecodeBytes > last.SyncedBytecodeBytes ||
@@ -268,11 +249,7 @@ func syncProgressed(last *ethereum.SyncProgress, new *ethereum.SyncProgress) boo
 		new.HealedBytecodes > last.HealedBytecodes ||
 		new.HealedBytecodeBytes > last.HealedBytecodeBytes ||
 		new.HealingTrienodes > last.HealingTrienodes ||
-		new.HealingBytecode > last.HealingBytecode {
-		return true
-	}
-
-	return false
+		new.HealingBytecode > last.HealingBytecode
 }
 
 // MarkFinished marks the current beacon sync as finished.
