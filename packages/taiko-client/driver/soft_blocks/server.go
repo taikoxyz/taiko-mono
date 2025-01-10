@@ -37,7 +37,7 @@ type softBlockChainSyncer interface {
 
 // @license.name MIT
 // @license.url https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md
-// SoftBlockAPIServer represents a soft blcok server instance.
+// SoftBlockAPIServer represents a soft block server instance.
 type SoftBlockAPIServer struct {
 	echo               *echo.Echo
 	chainSyncer        softBlockChainSyncer
@@ -46,7 +46,7 @@ type SoftBlockAPIServer struct {
 	checkSig           bool
 }
 
-// New creates a new soft blcok server instance, and starts the server.
+// New creates a new soft block server instance, and starts the server.
 func New(
 	cors string,
 	jwtSecret []byte,

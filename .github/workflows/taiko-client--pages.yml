@@ -1,13 +1,24 @@
-name: "Taiko Client Github Pages"
+name: "Taiko Client Soft Blocks Documentation"
 
 on:
-  push:
-    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
-      - "packages/taiko-client/**"
+      - "packages/taiko-client/driver/soft_blocks/**"
+      - "packages/taiko-client/docs/**"
+    branches-ignore:
+      - release-please--branches--**
+      - dependabot/**
+
+  push:
+    branches:
+      - main
+    paths:
+      - "packages/taiko-client/docs/**"
 
 jobs:
   swagger-gen:
+    if: github.event_name == 'pull_request'
     runs-on: [arc-runner-set]
     steps:
       - name: Checkout code
@@ -38,7 +49,7 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           if ! git diff --quiet; then
             git add -u
-            git commit -m "Update Swagger documentation"
+            git commit -m "chore(taiko-client): update swagger documentation"
             git push origin HEAD:${{ github.ref_name }}
           else
             echo "No changes to commit"
@@ -46,8 +57,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: [arc-runner-set]
-    needs: swagger-gen
     permissions:
       contents: write
     steps:
