@@ -95,7 +95,8 @@ func (s *L2ChainSyncer) Sync() error {
 	// or the --p2p.sync flag is disabled, we should mark the beacon sync progress as finished.
 	if !s.p2pSyncChecked {
 		s.p2pSyncChecked = true
-		if !needNewBeaconSyncTriggered {
+		if !needNewBeaconSyncTriggered && s.p2pSync {
+			log.Info("Skip P2P sync since the execution engine is ahead of the target head to sync")
 			s.progressTracker.MarkFinished()
 		}
 	}
