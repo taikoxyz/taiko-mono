@@ -53,6 +53,7 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "summary": "Insert a soft block with a batch of given transactions for preconfirmation.",
                 "parameters": [
                     {
                         "description": "soft block creation request body",
@@ -81,6 +82,7 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "summary": "Remove the soft blocks beyond the specified block height.",
                 "parameters": [
                     {
                         "description": "soft blocks removing request body",
