@@ -182,14 +182,15 @@ func (s *L2ChainSyncer) needNewBeaconSyncTriggered() (uint64, bool, error) {
 
 	// For full sync mode, we will use the verified block head,
 	// and for snap sync mode, we will use the latest block head.
-	var blockID uint64
+	var (
+		blockID uint64
+		err     error
+	)
 	switch s.syncMode {
 	case downloader.SnapSync.String():
-		headL1Origin, err := s.rpc.L2CheckPoint.HeadL1Origin(s.ctx)
-		if err != nil {
+		if blockID, err = s.rpc.L2CheckPoint.BlockNumber(s.ctx); err != nil {
 			return 0, false, err
 		}
-		blockID = headL1Origin.BlockID.Uint64()
 	case downloader.FullSync.String():
 		stateVars, err := s.rpc.GetProtocolStateVariables(&bind.CallOpts{Context: s.ctx})
 		if err != nil {
