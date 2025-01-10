@@ -118,57 +118,6 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 		return nil, err
 	}
 
-	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
-	defer cancel()
-
-	taikoL1, err := ontakeBindings.NewTaikoL1Client(cfg.TaikoL1Address, l1Client)
-	if err != nil {
-		return nil, err
-	}
-
-	libProposing, err := ontakeBindings.NewLibProposing(cfg.TaikoL1Address, l1Client)
-	if err != nil {
-		return nil, err
-	}
-
-	taikoL2, err := ontakeBindings.NewTaikoL2Client(cfg.TaikoL2Address, l2Client)
-	if err != nil {
-		return nil, err
-	}
-
-	var (
-		taikoToken             *ontakeBindings.TaikoToken
-		guardianProverMajority *ontakeBindings.GuardianProver
-		guardianProverMinority *ontakeBindings.GuardianProver
-		proverSet              *ontakeBindings.ProverSet
-	)
-	if cfg.TaikoTokenAddress.Hex() != ZeroAddress.Hex() {
-		if taikoToken, err = ontakeBindings.NewTaikoToken(cfg.TaikoTokenAddress, l1Client); err != nil {
-			return nil, err
-		}
-	}
-	if cfg.GuardianProverMinorityAddress.Hex() != ZeroAddress.Hex() {
-		if guardianProverMinority, err = ontakeBindings.NewGuardianProver(
-			cfg.GuardianProverMinorityAddress,
-			l1Client,
-		); err != nil {
-			return nil, err
-		}
-	}
-	if cfg.GuardianProverMajorityAddress.Hex() != ZeroAddress.Hex() {
-		if guardianProverMajority, err = ontakeBindings.NewGuardianProver(
-			cfg.GuardianProverMajorityAddress,
-			l1Client,
-		); err != nil {
-			return nil, err
-		}
-	}
-	if cfg.ProverSetAddress.Hex() != ZeroAddress.Hex() {
-		if proverSet, err = ontakeBindings.NewProverSet(cfg.ProverSetAddress, l1Client); err != nil {
-			return nil, err
-		}
-	}
-
 	// If not providing L2EngineEndpoint or JwtSecret, then the L2Engine client
 	// won't be initialized.
 	var l2AuthClient *EngineClient
@@ -185,20 +134,134 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 		L2:           l2Client,
 		L2CheckPoint: l2CheckPoint,
 		L2Engine:     l2AuthClient,
-		OntakeClients: &OntakeClients{
-			TaikoL1:                taikoL1,
-			LibProposing:           libProposing,
-			TaikoL2:                taikoL2,
-			TaikoToken:             taikoToken,
-			GuardianProverMajority: guardianProverMajority,
-			GuardianProverMinority: guardianProverMinority,
-			ProverSet:              proverSet,
-		},
 	}
 
+	// Initialize all smart contract clients.
+	if err := client.initOntakeClients(cfg); err != nil {
+		return nil, err
+	}
+	if err := client.initPacayaClients(cfg); err != nil {
+		return nil, err
+	}
+
+	// Ensure that the genesis block hash of L1 and L2 match.
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
+	defer cancel()
 	if err := client.ensureGenesisMatched(ctxWithTimeout); err != nil {
 		return nil, err
 	}
 
 	return client, nil
+}
+
+// initOntakeClients initializes all Ontake smart contract clients.
+func (c *Client) initOntakeClients(cfg *ClientConfig) error {
+	taikoL1, err := ontakeBindings.NewTaikoL1Client(cfg.TaikoL1Address, c.L1)
+	if err != nil {
+		return err
+	}
+
+	forkManager, err := ontakeBindings.NewForkManager(cfg.TaikoL1Address, c.L1)
+	if err != nil {
+		return err
+	}
+
+	libProposing, err := ontakeBindings.NewLibProposing(cfg.TaikoL1Address, c.L1)
+	if err != nil {
+		return err
+	}
+
+	taikoL2, err := ontakeBindings.NewTaikoL2Client(cfg.TaikoL2Address, c.L2)
+	if err != nil {
+		return err
+	}
+
+	var (
+		taikoToken             *ontakeBindings.TaikoToken
+		guardianProverMajority *ontakeBindings.GuardianProver
+		guardianProverMinority *ontakeBindings.GuardianProver
+		proverSet              *ontakeBindings.ProverSet
+	)
+	if cfg.TaikoTokenAddress.Hex() != ZeroAddress.Hex() {
+		if taikoToken, err = ontakeBindings.NewTaikoToken(cfg.TaikoTokenAddress, c.L1); err != nil {
+			return err
+		}
+	}
+	if cfg.GuardianProverMinorityAddress.Hex() != ZeroAddress.Hex() {
+		if guardianProverMinority, err = ontakeBindings.NewGuardianProver(
+			cfg.GuardianProverMinorityAddress,
+			c.L1,
+		); err != nil {
+			return err
+		}
+	}
+	if cfg.GuardianProverMajorityAddress.Hex() != ZeroAddress.Hex() {
+		if guardianProverMajority, err = ontakeBindings.NewGuardianProver(
+			cfg.GuardianProverMajorityAddress,
+			c.L1,
+		); err != nil {
+			return err
+		}
+	}
+	if cfg.ProverSetAddress.Hex() != ZeroAddress.Hex() {
+		if proverSet, err = ontakeBindings.NewProverSet(cfg.ProverSetAddress, c.L1); err != nil {
+			return err
+		}
+	}
+
+	c.OntakeClients = &OntakeClients{
+		TaikoL1:                taikoL1,
+		LibProposing:           libProposing,
+		TaikoL2:                taikoL2,
+		TaikoToken:             taikoToken,
+		GuardianProverMajority: guardianProverMajority,
+		GuardianProverMinority: guardianProverMinority,
+		ProverSet:              proverSet,
+		ForkManager:            forkManager,
+	}
+
+	return nil
+}
+
+// initPacayaClients initializes all Pacaya smart contract clients.
+func (c *Client) initPacayaClients(cfg *ClientConfig) error {
+	taikoInbox, err := pacayaBindings.NewTaikoInboxClient(cfg.TaikoL1Address, c.L1)
+	if err != nil {
+		return err
+	}
+
+	forkManager, err := pacayaBindings.NewForkManager(cfg.TaikoL1Address, c.L1)
+	if err != nil {
+		return err
+	}
+
+	taikoAnchor, err := pacayaBindings.NewTaikoAnchorClient(cfg.TaikoL2Address, c.L2)
+	if err != nil {
+		return err
+	}
+
+	var (
+		taikoToken *pacayaBindings.TaikoToken
+		proverSet  *pacayaBindings.ProverSet
+	)
+	if cfg.TaikoTokenAddress.Hex() != ZeroAddress.Hex() {
+		if taikoToken, err = pacayaBindings.NewTaikoToken(cfg.TaikoTokenAddress, c.L1); err != nil {
+			return err
+		}
+	}
+	if cfg.ProverSetAddress.Hex() != ZeroAddress.Hex() {
+		if proverSet, err = pacayaBindings.NewProverSet(cfg.ProverSetAddress, c.L1); err != nil {
+			return err
+		}
+	}
+
+	c.PacayaClients = &PacayaClients{
+		TaikoInbox:  taikoInbox,
+		TaikoAnchor: taikoAnchor,
+		TaikoToken:  taikoToken,
+		ProverSet:   proverSet,
+		ForkManager: forkManager,
+	}
+
+	return nil
 }
