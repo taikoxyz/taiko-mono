@@ -139,7 +139,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
                 anchorBlockId: updatedParams.anchorBlockId,
                 anchorBlockHash: blockhash(updatedParams.anchorBlockId),
                 signalSlots: _batchParams.signalSlots,
-                blocks: _batchParams.blocks,
+                blocks: abi.encode(_batchParams.blocks),
                 anchorInput: _batchParams.anchorInput,
                 baseFeeConfig: config.baseFeeConfig
             });
