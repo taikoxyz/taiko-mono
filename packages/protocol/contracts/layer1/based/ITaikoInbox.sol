@@ -105,7 +105,7 @@ interface ITaikoInbox {
     }
 
     /// @notice Struct holding Taiko configuration parameters. See {TaikoConfig}.
-    struct ConfigV3 {
+    struct Config {
         /// @notice The chain ID of the network where Taiko contracts are deployed.
         uint64 chainId;
         /// @notice The maximum number of verifications allowed when a block is proposed or proved.
@@ -140,8 +140,7 @@ interface ITaikoInbox {
         mapping(uint256 batchId => mapping(bytes32 parentHash => uint24 transitionId)) transitionIds;
         // Ring buffer for transitions
         mapping(
-            uint256 batchId_mod_blockRingBufferSize
-                => mapping(uint24 transitionId => Transition ts)
+            uint256 batchId_mod_blockRingBufferSize => mapping(uint24 transitionId => Transition ts)
         ) transitions;
         bytes32 __reserve1; // Used as a ring buffer for Ether deposits
         Stats1 stats1; // slot 5
@@ -182,22 +181,22 @@ interface ITaikoInbox {
     /// @param metas The metadata of the proposed blocks.
     /// @param calldataUsed Whether calldata is used for txList DA.
     /// @param txListInCalldata The tx list in calldata.
-    event BlocksProposedV3(BatchMetadata[] metas, bool calldataUsed, bytes txListInCalldata);
+    event BatchesProposed(BatchMetadata[] metas, bool calldataUsed, bytes txListInCalldata);
 
     /// @notice Emitted when multiple transitions are proved.
     /// @param verifier The address of the verifier.
     /// @param transitions The transitions data.
-    event BlocksProvedV3(address verifier, uint64[] batchIds, Transition[] transitions);
+    event BatchesProved(address verifier, uint64[] batchIds, Transition[] transitions);
 
     /// @notice Emitted when a transition is overwritten by another one.
     /// @param batchId The block ID.
     /// @param tran The transition data that has been overwritten.
-    event TransitionOverwrittenV3(uint64 batchId, Transition tran);
+    event TransitionOverwritten(uint64 batchId, Transition tran);
 
     /// @notice Emitted when a block is verified.
     /// @param batchId The ID of the verified block.
     /// @param blockHash The hash of the verified block.
-    event BlockVerifiedV3(uint64 batchId, bytes32 blockHash);
+    event BatchesVerified(uint64 batchId, bytes32 blockHash);
 
     error AnchorBlockIdSmallerThanParent();
     error AnchorBlockIdTooSmall();
@@ -242,7 +241,7 @@ interface ITaikoInbox {
     /// @param _txList The transaction list in calldata. If the txList is empty, blob will be used
     /// for data availability.
     /// @return An array of block metadata for each block proposed.
-    function proposeBlocksV3(
+    function proposeBatches(
         address _proposer,
         address _coinbase,
         BatchParams[] calldata _blockParams,
@@ -255,7 +254,7 @@ interface ITaikoInbox {
     /// @param _metas Array of metadata for each block being proved.
     /// @param _transitions Array of block transitions to be proved.
     /// @param proof The aggregated cryptographic proof proving the blocks transitions.
-    function proveBlocksV3(
+    function proveBatches(
         BatchMetadata[] calldata _metas,
         Transition[] calldata _transitions,
         bytes calldata proof
@@ -332,5 +331,5 @@ interface ITaikoInbox {
 
     /// @notice Retrieves the current protocol configuration.
     /// @return The current configuration.
-    function getConfigV3() external view returns (ConfigV3 memory);
+    function getConfig() external view returns (Config memory);
 }

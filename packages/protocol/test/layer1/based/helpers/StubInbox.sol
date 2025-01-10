@@ -6,7 +6,7 @@ import "src/layer1/based/ITaikoInbox.sol";
 /// @title StubInbox
 /// @custom:security-contact security@taiko.xyz
 contract StubInbox is ITaikoInbox {
-    function proposeBlocksV3(
+    function proposeBatches(
         address _proposer,
         address _coinbase,
         BatchParams[] calldata _blockParams,
@@ -16,7 +16,7 @@ contract StubInbox is ITaikoInbox {
         returns (ITaikoInbox.BatchMetadata[] memory)
     { }
 
-    function proveBlocksV3(
+    function proveBatches(
         ITaikoInbox.BatchMetadata[] calldata _metas,
         ITaikoInbox.Transition[] calldata _transitions,
         bytes calldata proof
@@ -34,12 +34,7 @@ contract StubInbox is ITaikoInbox {
         return address(0);
     }
 
-    function getBatch(uint64 _batchId)
-        external
-        view
-        virtual
-        returns (ITaikoInbox.Batch memory )
-    { }
+    function getBatch(uint64 _batchId) external view virtual returns (ITaikoInbox.Batch memory) { }
 
     function getTransition(
         uint64 _batchId,
@@ -54,14 +49,10 @@ contract StubInbox is ITaikoInbox {
     function getLastVerifiedTransition()
         external
         view
-        returns (uint64 batchId_, Transition memory )
+        returns (uint64 batchId_, Transition memory)
     { }
 
-    function getLastSyncedTransition()
-        external
-        view
-        returns (uint64 batchId_, Transition memory )
-    { }
+    function getLastSyncedTransition() external view returns (uint64 batchId_, Transition memory) { }
 
     function getBatchVerifyingTransition(uint64 _batchId)
         external
@@ -73,5 +64,5 @@ contract StubInbox is ITaikoInbox {
 
     function getStats2() external view returns (Stats2 memory) { }
 
-    function getConfigV3() external pure virtual returns (ITaikoInbox.ConfigV3 memory) { }
+    function getConfig() external pure virtual returns (ITaikoInbox.Config memory) { }
 }

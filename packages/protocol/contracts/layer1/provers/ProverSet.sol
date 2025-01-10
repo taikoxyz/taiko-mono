@@ -95,7 +95,7 @@ contract ProverSet is EssentialContract, IERC1271 {
     }
 
     /// @notice Propose multiple Taiko blocks.
-    function proposeBlocksV3(
+    function proposeBatches(
         ITaikoInbox.BatchParams[] calldata _paramsArray,
         bytes calldata _txList,
         bool _revertIfNotFirstProposal
@@ -109,11 +109,11 @@ contract ProverSet is EssentialContract, IERC1271 {
             // Ensure this block is the first block proposed in the current L1 block.
             require(taiko.getStats2().lastProposedIn != block.number, NOT_FIRST_PROPOSAL());
         }
-        return taiko.proposeBlocksV3(address(0), address(0), _paramsArray, _txList);
+        return taiko.proposeBatches(address(0), address(0), _paramsArray, _txList);
     }
 
     /// @notice Batch proves or contests Taiko blocks.
-    function proveBlocksV3(
+    function proveBatches(
         ITaikoInbox.BatchMetadata[] calldata _metas,
         ITaikoInbox.Transition[] calldata _transitions,
         bytes calldata _proof
@@ -121,7 +121,7 @@ contract ProverSet is EssentialContract, IERC1271 {
         external
         onlyProver
     {
-        ITaikoInbox(inbox()).proveBlocksV3(_metas, _transitions, _proof);
+        ITaikoInbox(inbox()).proveBatches(_metas, _transitions, _proof);
     }
 
     /// @notice Deposits Taiko token to Taiko contract.

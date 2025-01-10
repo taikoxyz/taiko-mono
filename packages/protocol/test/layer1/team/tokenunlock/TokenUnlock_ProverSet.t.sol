@@ -14,8 +14,8 @@ pragma solidity ^0.8.24;
 //     TokenUnlock private target;
 //     TaikoToken private taikoToken;
 
-//     function getConfig() internal pure override returns (ITaikoInbox.ConfigV3 memory) {
-//         return ITaikoInbox.ConfigV3({
+//     function getConfig() internal pure override returns (ITaikoInbox.Config memory) {
+//         return ITaikoInbox.Config({
 //             chainId: LibNetwork.TAIKO_MAINNET,
 //             blockMaxProposals: 10,
 //             blockRingBufferSize: 15,
@@ -152,11 +152,11 @@ pragma solidity ^0.8.24;
 //         vm.prank(Alice);
 //         vm.expectRevert(TokenUnlock.PERMISSION_DENIED.selector);
 //         ITaikoInbox.BlockParamsV3[] memory paramsArray = new ITaikoInbox.BlockParamsV3[](1);
-//         set.proposeBlocksV3(paramsArray, "txList", false);
+//         set.proposeBatches(paramsArray, "txList", false);
 
 //         vm.prank(Carol);
 //         ITaikoInbox.BlockMetadataV3[] memory metas =
-//             set.proposeBlocksV3(paramsArray, "txList", false);
+//             set.proposeBatches(paramsArray, "txList", false);
 
 //         vm.startPrank(Bob);
 //         vm.expectRevert();
@@ -174,10 +174,10 @@ pragma solidity ^0.8.24;
 
 //         vm.prank(Alice);
 //         vm.expectRevert(TokenUnlock.PERMISSION_DENIED.selector);
-//         set.proveBlocksV3(metas, transitions, "proof");
+//         set.proveBatches(metas, transitions, "proof");
 
 //         vm.prank(Carol);
-//         set.proveBlocksV3(metas, transitions, "proof");
+//         set.proveBatches(metas, transitions, "proof");
 
 //         vm.startPrank(Bob);
 //         set.withdrawBond(livenessBond);

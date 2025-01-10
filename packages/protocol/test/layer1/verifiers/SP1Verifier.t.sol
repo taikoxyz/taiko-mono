@@ -5,7 +5,7 @@ import { SP1Verifier as SP1RemoteVerifier } from "@sp1-contracts/src/v3.0.0/SP1V
 import "../Layer1Test.sol";
 
 contract TaikoStub_ReturnMainnetChainId {
-    function getConfigV3() external pure returns (ITaikoInbox.ConfigV3 memory config) {
+    function getConfig() external pure returns (ITaikoInbox.Config memory config) {
         config.chainId = 167_000;
     }
 }

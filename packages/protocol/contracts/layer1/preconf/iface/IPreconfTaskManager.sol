@@ -60,7 +60,7 @@ interface IPreconfTaskManager {
     error NoRegisteredPreconfer();
 
     /// @dev Accepts block proposal by an operator and forwards it to Taiko contract
-    function proposeBlocksV3(
+    function proposeBatches(
         address coinbase,
         ITaikoInbox.BatchParams[] calldata batchParams,
         bytes calldata txList,

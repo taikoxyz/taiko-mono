@@ -85,7 +85,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
      * @param lookaheadSetParams Collection of timestamps and preconfer addresses to be inserted in
      * the lookahead
      */
-    function proposeBlocksV3(
+    function proposeBatches(
         address coinbase,
         ITaikoInbox.BatchParams[] calldata batchParams,
         bytes calldata txList,
@@ -126,7 +126,7 @@ contract PreconfTaskManager is IPreconfTaskManager, Initializable {
         );
 
         // Forward the block to Taiko's L1 contract
-        inbox.proposeBlocksV3(msg.sender, coinbase, batchParams, txList);
+        inbox.proposeBatches(msg.sender, coinbase, batchParams, txList);
     }
 
     /**

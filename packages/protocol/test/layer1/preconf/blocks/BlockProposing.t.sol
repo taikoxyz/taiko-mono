@@ -220,7 +220,7 @@ contract BlockProposing is BlocksFixtures {
         ITaikoInbox.BatchParams[] memory paramsArr = new ITaikoInbox.BatchParams[](1);
         paramsArr[0] = defaultParams;
 
-        preconfTaskManager.proposeBlocksV3(
+        preconfTaskManager.proposeBatches(
             msg.sender, paramsArr, "", lookaheadPointer, lookaheadSetParams
         );
     }

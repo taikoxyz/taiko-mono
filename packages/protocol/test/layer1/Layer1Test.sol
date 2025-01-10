@@ -12,13 +12,13 @@ import "src/shared/bridge/Bridge.sol";
 import "test/shared/CommonTest.sol";
 
 contract ConfigurableInbox is TaikoInbox {
-    ITaikoInbox.ConfigV3 private __config;
+    ITaikoInbox.Config private __config;
 
     function initWithConfig(
         address _owner,
         address _rollupResolver,
         bytes32 _genesisBlockHash,
-        ITaikoInbox.ConfigV3 memory _config
+        ITaikoInbox.Config memory _config
     )
         external
         initializer
@@ -27,7 +27,7 @@ contract ConfigurableInbox is TaikoInbox {
         __config = _config;
     }
 
-    function getConfigV3() public view override returns (ITaikoInbox.ConfigV3 memory) {
+    function getConfig() public view override returns (ITaikoInbox.Config memory) {
         return __config;
     }
 
@@ -39,7 +39,7 @@ contract ConfigurableInbox is TaikoInbox {
 abstract contract Layer1Test is CommonTest {
     function deployInbox(
         bytes32 _genesisBlockHash,
-        ITaikoInbox.ConfigV3 memory _config
+        ITaikoInbox.Config memory _config
     )
         internal
         returns (TaikoInbox)

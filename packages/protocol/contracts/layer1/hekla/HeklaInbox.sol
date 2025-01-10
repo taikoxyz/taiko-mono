@@ -7,8 +7,8 @@ import "../based/TaikoInbox.sol";
 /// @dev Labeled in address resolver as "taiko"
 /// @custom:security-contact security@taiko.xyz
 contract HeklaInbox is TaikoInbox {
-    function getConfigV3() public pure override returns (ITaikoInbox.ConfigV3 memory) {
-        return ITaikoInbox.ConfigV3({
+    function getConfig() public pure override returns (ITaikoInbox.Config memory) {
+        return ITaikoInbox.Config({
             chainId: LibNetwork.TAIKO_HEKLA,
             // Never change this value as ring buffer is being reused!!!
             blockMaxProposals: 324_000,
