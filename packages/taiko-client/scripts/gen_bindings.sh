@@ -51,6 +51,10 @@ cat ../protocol/out/layer1/ProverSet.sol/ProverSet.json |
 	jq .abi |
 	${ABIGEN_BIN} --abi - --type ProverSet --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_prover_set.go
 
+cat ../protocol/out/layer1/ForkManager.sol/ForkManager.json |
+	jq .abi |
+	${ABIGEN_BIN} --abi - --type ForkManager --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_fork_manager.go
+
 git -C ../../ log --format="%H" -n 1 >./bindings/${FORK}/.githead
 
 echo "🍻 Go contract bindings generated!"
