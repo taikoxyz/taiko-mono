@@ -126,6 +126,8 @@ interface ITaikoInbox {
         uint16 provingWindow;
         /// @notice The maximum number of signals to be received by TaikoL2.
         uint8 maxSignalsToReceive;
+        /// @notice The maximum number of blocks per batch.
+        uint16 maxBlocksPerBatch;
         /// @notice Historical heights of the forks.
         ForkHeights forkHeights;
     }

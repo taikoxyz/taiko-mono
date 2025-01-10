@@ -104,7 +104,11 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         }
 
         updatedParams = _validateBatchParams(
-            _batchParams, config.maxAnchorHeightOffset, config.maxSignalsToReceive, parentBatch
+            _batchParams,
+            config.maxAnchorHeightOffset,
+            config.maxSignalsToReceive,
+            config.maxBlocksPerBatch,
+            parentBatch
         );
 
         // This section constructs the metadata for the proposed batch, which is crucial for
@@ -567,6 +571,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         BatchParams calldata _params,
         uint64 _maxAnchorHeightOffset,
         uint8 _maxSignalsToReceive,
+        uint16 _maxBlocksPerBatch,
         Batch memory _parentBatch
     )
         private
@@ -625,7 +630,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         }
 
         require(
-            _params.blocks.length != 0 && _params.blocks.length <= type(uint8).max,
+            _params.blocks.length != 0 && _params.blocks.length <= _maxBlocksPerBatch,
             InvalidSubBlocks()
         );
     }
