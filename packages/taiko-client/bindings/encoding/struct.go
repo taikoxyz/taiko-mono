@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 )
 
 // Tier IDs defined in protocol.
@@ -82,13 +82,13 @@ func ToExecutableData(header *types.Header) *engine.ExecutableData {
 	return executableData
 }
 
-// TransitionProvedEventToV2 converts a *bindings.TaikoL1ClientTransitionProved
-// to *bindings.TaikoL1ClientTransitionProvedV2.
+// TransitionProvedEventToV2 converts a *ontakeBindings.TaikoL1ClientTransitionProved
+// to *ontakeBindings.TaikoL1ClientTransitionProvedV2.
 func TransitionProvedEventToV2(
-	e *bindings.TaikoL1ClientTransitionProved,
+	e *ontakeBindings.TaikoL1ClientTransitionProved,
 	proposedIn uint64,
-) *bindings.TaikoL1ClientTransitionProvedV2 {
-	return &bindings.TaikoL1ClientTransitionProvedV2{
+) *ontakeBindings.TaikoL1ClientTransitionProvedV2 {
+	return &ontakeBindings.TaikoL1ClientTransitionProvedV2{
 		BlockId:      e.BlockId,
 		Tran:         e.Tran,
 		Prover:       e.Prover,
@@ -99,13 +99,13 @@ func TransitionProvedEventToV2(
 	}
 }
 
-// TransitionContestedEventToV2 converts a *bindings.TaikoL1ClientTransitionContested
-// to *bindings.TaikoL1ClientTransitionContestedV2.
+// TransitionContestedEventToV2 converts a *ontakeBindings.TaikoL1ClientTransitionContested
+// to *ontakeBindings.TaikoL1ClientTransitionContestedV2.
 func TransitionContestedEventToV2(
-	e *bindings.TaikoL1ClientTransitionContested,
+	e *ontakeBindings.TaikoL1ClientTransitionContested,
 	proposedIn uint64,
-) *bindings.TaikoL1ClientTransitionContestedV2 {
-	return &bindings.TaikoL1ClientTransitionContestedV2{
+) *ontakeBindings.TaikoL1ClientTransitionContestedV2 {
+	return &ontakeBindings.TaikoL1ClientTransitionContestedV2{
 		BlockId:     e.BlockId,
 		Tran:        e.Tran,
 		Contester:   e.Contester,
@@ -116,9 +116,9 @@ func TransitionContestedEventToV2(
 	}
 }
 
-// BlockVerifiedEventToV2 converts a *bindings.TaikoL1ClientBlockVerified to *bindings.TaikoL1ClientBlockVerifiedV2.
-func BlockVerifiedEventToV2(e *bindings.TaikoL1ClientBlockVerified) *bindings.TaikoL1ClientBlockVerifiedV2 {
-	return &bindings.TaikoL1ClientBlockVerifiedV2{
+// BlockVerifiedEventToV2 converts a *ontakeBindings.TaikoL1ClientBlockVerified to *ontakeBindings.TaikoL1ClientBlockVerifiedV2.
+func BlockVerifiedEventToV2(e *ontakeBindings.TaikoL1ClientBlockVerified) *ontakeBindings.TaikoL1ClientBlockVerifiedV2 {
+	return &ontakeBindings.TaikoL1ClientBlockVerifiedV2{
 		BlockId:   e.BlockId,
 		Prover:    e.Prover,
 		BlockHash: e.BlockHash,
@@ -127,9 +127,9 @@ func BlockVerifiedEventToV2(e *bindings.TaikoL1ClientBlockVerified) *bindings.Ta
 	}
 }
 
-// BlockVerifiedEventToV2 converts a *bindings.TaikoDataBlock to *bindings.TaikoDataBlockV2.
-func TaikoDataBlockToV2(b *bindings.TaikoDataBlock) *bindings.TaikoDataBlockV2 {
-	return &bindings.TaikoDataBlockV2{
+// BlockVerifiedEventToV2 converts a *ontakeBindings.TaikoDataBlock to *ontakeBindings.TaikoDataBlockV2.
+func TaikoDataBlockToV2(b *ontakeBindings.TaikoDataBlock) *ontakeBindings.TaikoDataBlockV2 {
+	return &ontakeBindings.TaikoDataBlockV2{
 		MetaHash:             b.MetaHash,
 		AssignedProver:       b.AssignedProver,
 		LivenessBond:         b.LivenessBond,

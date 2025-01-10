@@ -16,9 +16,9 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
@@ -170,7 +170,7 @@ func (s *ProverTestSuite) TestOnBlockProposed() {
 
 func (s *ProverTestSuite) TestOnBlockVerifiedEmptyBlockHash() {
 	s.NotPanics(func() {
-		s.p.blockVerifiedHandler.Handle(&bindings.TaikoL1ClientBlockVerifiedV2{
+		s.p.blockVerifiedHandler.Handle(&ontakeBindings.TaikoL1ClientBlockVerifiedV2{
 			BlockId:   common.Big1,
 			BlockHash: common.Hash{},
 		})
@@ -207,7 +207,7 @@ func (s *ProverTestSuite) TestSubmitProofOp() {
 func (s *ProverTestSuite) TestOnBlockVerified() {
 	id := testutils.RandomHash().Big().Uint64()
 	s.NotPanics(func() {
-		s.p.blockVerifiedHandler.Handle(&bindings.TaikoL1ClientBlockVerifiedV2{
+		s.p.blockVerifiedHandler.Handle(&ontakeBindings.TaikoL1ClientBlockVerifiedV2{
 			BlockId: testutils.RandomHash().Big(),
 			Raw: types.Log{
 				BlockHash:   testutils.RandomHash(),
@@ -221,7 +221,7 @@ func (s *ProverTestSuite) TestContestWrongBlocks() {
 	s.p.cfg.ContesterMode = false
 	s.Nil(s.p.initEventHandlers())
 	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
-	s.Nil(s.p.transitionProvedHandler.Handle(context.Background(), &bindings.TaikoL1ClientTransitionProvedV2{
+	s.Nil(s.p.transitionProvedHandler.Handle(context.Background(), &ontakeBindings.TaikoL1ClientTransitionProvedV2{
 		BlockId: m.GetBlockID(),
 		Tier:    m.GetMinTier(),
 	}))
@@ -231,7 +231,7 @@ func (s *ProverTestSuite) TestContestWrongBlocks() {
 	// Submit a wrong proof at first.
 	header, err := s.p.rpc.L2.HeaderByNumber(context.Background(), m.GetBlockID())
 	s.Nil(err)
-	sink := make(chan *bindings.TaikoL1ClientTransitionProvedV2)
+	sink := make(chan *ontakeBindings.TaikoL1ClientTransitionProvedV2)
 	sub, err := s.p.rpc.TaikoL1.WatchTransitionProvedV2(nil, sink, nil)
 	s.Nil(err)
 	defer func() {
@@ -252,7 +252,7 @@ func (s *ProverTestSuite) TestContestWrongBlocks() {
 	s.Equal(header.ParentHash, common.BytesToHash(event.Tran.ParentHash[:]))
 
 	// Contest the transition.
-	contestedSink := make(chan *bindings.TaikoL1ClientTransitionContestedV2)
+	contestedSink := make(chan *ontakeBindings.TaikoL1ClientTransitionContestedV2)
 	contestedSub, err := s.p.rpc.TaikoL1.WatchTransitionContestedV2(nil, contestedSink, nil)
 	s.Nil(err)
 
@@ -296,10 +296,13 @@ func (s *ProverTestSuite) TestContestWrongBlocks() {
 	s.Nil(err)
 	s.Nil(s.p.initProofSubmitters(txBuilder, tiers))
 
-	s.p.rpc.GuardianProverMinority, err = bindings.NewGuardianProver(s.p.cfg.GuardianProverMinorityAddress, s.p.rpc.L1)
+	s.p.rpc.GuardianProverMinority, err = ontakeBindings.NewGuardianProver(
+		s.p.cfg.GuardianProverMinorityAddress,
+		s.p.rpc.L1,
+	)
 	s.Nil(err)
 
-	approvedSink := make(chan *bindings.GuardianProverGuardianApproval)
+	approvedSink := make(chan *ontakeBindings.GuardianProverGuardianApproval)
 	approvedSub, err := s.p.rpc.GuardianProverMinority.WatchGuardianApproval(
 		nil, approvedSink, []common.Address{}, [](*big.Int){}, []([32]byte){},
 	)
@@ -345,7 +348,7 @@ func (s *ProverTestSuite) TestProveOp() {
 	header, err := s.p.rpc.L2.HeaderByNumber(context.Background(), m.GetBlockID())
 	s.Nil(err)
 
-	sink := make(chan *bindings.TaikoL1ClientTransitionProvedV2)
+	sink := make(chan *ontakeBindings.TaikoL1ClientTransitionProvedV2)
 	sub, err := s.p.rpc.TaikoL1.WatchTransitionProvedV2(nil, sink, nil)
 	s.Nil(err)
 	defer func() {
@@ -382,7 +385,7 @@ func (s *ProverTestSuite) TestGetBlockProofStatus() {
 	s.False(status.IsSubmitted)
 
 	// Valid proof submitted
-	sink := make(chan *bindings.TaikoL1ClientTransitionProved)
+	sink := make(chan *ontakeBindings.TaikoL1ClientTransitionProved)
 
 	sub, err := s.p.rpc.TaikoL1.WatchTransitionProved(nil, sink, nil)
 	s.Nil(err)
@@ -478,7 +481,7 @@ func (s *ProverTestSuite) TestAggregateProofsAlreadyProved() {
 		_ = s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
 	}
 
-	sink := make(chan *bindings.TaikoL1ClientTransitionProvedV2, batchSize)
+	sink := make(chan *ontakeBindings.TaikoL1ClientTransitionProvedV2, batchSize)
 	sub, err := s.p.rpc.TaikoL1.WatchTransitionProvedV2(nil, sink, nil)
 	s.Nil(err)
 	defer func() {
@@ -537,7 +540,7 @@ func (s *ProverTestSuite) TestAggregateProofs() {
 		_ = s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().BlobSyncer())
 	}
 
-	sink := make(chan *bindings.TaikoL1ClientTransitionProvedV2, batchSize)
+	sink := make(chan *ontakeBindings.TaikoL1ClientTransitionProvedV2, batchSize)
 	sub, err := s.p.rpc.TaikoL1.WatchTransitionProvedV2(nil, sink, nil)
 	s.Nil(err)
 	defer func() {

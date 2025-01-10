@@ -15,8 +15,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	validator "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/anchor_tx_validator"
@@ -106,7 +106,7 @@ func NewProofSubmitter(
 // RequestProof implements the Submitter interface.
 func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoBlockMetaData) error {
 	var (
-		blockInfo bindings.TaikoDataBlockV2
+		blockInfo ontakeBindings.TaikoDataBlockV2
 	)
 
 	header, err := s.rpc.WaitL2Header(ctx, meta.GetBlockID())
@@ -320,13 +320,13 @@ func (s *ProofSubmitter) SubmitProof(
 		s.txBuilder.Build(
 			proofWithHeader.BlockID,
 			proofWithHeader.Meta,
-			&bindings.TaikoDataTransition{
+			&ontakeBindings.TaikoDataTransition{
 				ParentHash: proofWithHeader.Header.ParentHash,
 				BlockHash:  proofWithHeader.Opts.BlockHash,
 				StateRoot:  proofWithHeader.Opts.StateRoot,
 				Graffiti:   s.graffiti,
 			},
-			&bindings.TaikoDataTierProof{
+			&ontakeBindings.TaikoDataTierProof{
 				Tier: proofWithHeader.Tier,
 				Data: proofWithHeader.Proof,
 			},

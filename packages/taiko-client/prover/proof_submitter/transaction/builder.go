@@ -10,9 +10,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
@@ -55,8 +55,8 @@ func NewProveBlockTxBuilder(
 func (a *ProveBlockTxBuilder) Build(
 	blockID *big.Int,
 	meta metadata.TaikoBlockMetaData,
-	transition *bindings.TaikoDataTransition,
-	tierProof *bindings.TaikoDataTierProof,
+	transition *ontakeBindings.TaikoDataTransition,
+	tierProof *ontakeBindings.TaikoDataTierProof,
 	tier uint16,
 ) TxBuilder {
 	return func(txOpts *bind.TransactOpts) (*txmgr.TxCandidate, error) {
@@ -141,12 +141,12 @@ func (a *ProveBlockTxBuilder) BuildProveBlocks(
 			to          common.Address
 			err         error
 			metas       = make([]metadata.TaikoBlockMetaData, len(batchProof.Proofs))
-			transitions = make([]bindings.TaikoDataTransition, len(batchProof.Proofs))
+			transitions = make([]ontakeBindings.TaikoDataTransition, len(batchProof.Proofs))
 			blockIDs    = make([]uint64, len(batchProof.Proofs))
 		)
 		for i, proof := range batchProof.Proofs {
 			metas[i] = proof.Meta
-			transitions[i] = bindings.TaikoDataTransition{
+			transitions[i] = ontakeBindings.TaikoDataTransition{
 				ParentHash: proof.Header.ParentHash,
 				BlockHash:  proof.Opts.BlockHash,
 				StateRoot:  proof.Opts.StateRoot,
@@ -163,7 +163,7 @@ func (a *ProveBlockTxBuilder) BuildProveBlocks(
 		if err != nil {
 			return nil, err
 		}
-		tierProof, err := encoding.EncodeProveBlocksBatchProof(&bindings.TaikoDataTierProof{
+		tierProof, err := encoding.EncodeProveBlocksBatchProof(&ontakeBindings.TaikoDataTierProof{
 			Tier: batchProof.Tier,
 			Data: batchProof.BatchProof,
 		})

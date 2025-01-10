@@ -16,8 +16,8 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/phayes/freeport"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
@@ -34,7 +34,7 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
-	sink := make(chan *bindings.TaikoL1ClientBlockProposedV2)
+	sink := make(chan *ontakeBindings.TaikoL1ClientBlockProposedV2)
 	sub, err := s.RPCClient.TaikoL1.WatchBlockProposedV2(nil, sink, nil)
 	s.Nil(err)
 	defer func() {
@@ -84,7 +84,7 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 	s.Nil(err)
 
 	// Propose txs in L2 execution engine's mempool
-	sink := make(chan *bindings.TaikoL1ClientBlockProposedV2)
+	sink := make(chan *ontakeBindings.TaikoL1ClientBlockProposedV2)
 	sub, err := s.RPCClient.TaikoL1.WatchBlockProposedV2(nil, sink, nil)
 	s.Nil(err)
 
@@ -153,7 +153,7 @@ func (s *ClientTestSuite) ProposeValidBlock(
 	s.Nil(err)
 
 	// Propose txs in L2 execution engine's mempool
-	sink := make(chan *bindings.TaikoL1ClientBlockProposedV2)
+	sink := make(chan *ontakeBindings.TaikoL1ClientBlockProposedV2)
 	sub, err := s.RPCClient.TaikoL1.WatchBlockProposedV2(nil, sink, nil)
 	s.Nil(err)
 	defer func() {

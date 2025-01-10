@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
@@ -110,12 +110,12 @@ func (s *State) eventLoop(ctx context.Context) {
 		// Channels for subscriptions.
 		l1HeadCh             = make(chan *types.Header, 10)
 		l2HeadCh             = make(chan *types.Header, 10)
-		blockProposedCh      = make(chan *bindings.TaikoL1ClientBlockProposed, 10)
-		transitionProvedCh   = make(chan *bindings.TaikoL1ClientTransitionProved, 10)
-		blockVerifiedCh      = make(chan *bindings.TaikoL1ClientBlockVerified, 10)
-		blockProposedV2Ch    = make(chan *bindings.TaikoL1ClientBlockProposedV2, 10)
-		transitionProvedV2Ch = make(chan *bindings.TaikoL1ClientTransitionProvedV2, 10)
-		blockVerifiedV2Ch    = make(chan *bindings.TaikoL1ClientBlockVerifiedV2, 10)
+		blockProposedCh      = make(chan *ontakeBindings.TaikoL1ClientBlockProposed, 10)
+		transitionProvedCh   = make(chan *ontakeBindings.TaikoL1ClientTransitionProved, 10)
+		blockVerifiedCh      = make(chan *ontakeBindings.TaikoL1ClientBlockVerified, 10)
+		blockProposedV2Ch    = make(chan *ontakeBindings.TaikoL1ClientBlockProposedV2, 10)
+		transitionProvedV2Ch = make(chan *ontakeBindings.TaikoL1ClientTransitionProvedV2, 10)
+		blockVerifiedV2Ch    = make(chan *ontakeBindings.TaikoL1ClientBlockVerifiedV2, 10)
 
 		// Subscriptions.
 		l1HeadSub               = rpc.SubscribeChainHead(s.rpc.L1, l1HeadCh)

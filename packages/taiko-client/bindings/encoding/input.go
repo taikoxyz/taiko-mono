@@ -7,8 +7,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 )
 
 // ABI arguments marshaling components.
@@ -221,47 +221,47 @@ var (
 func init() {
 	var err error
 
-	if TaikoL1ABI, err = bindings.TaikoL1ClientMetaData.GetAbi(); err != nil {
+	if TaikoL1ABI, err = ontakeBindings.TaikoL1ClientMetaData.GetAbi(); err != nil {
 		log.Crit("Get TaikoL1 ABI error", "error", err)
 	}
 
-	if TaikoL2ABI, err = bindings.TaikoL2ClientMetaData.GetAbi(); err != nil {
+	if TaikoL2ABI, err = ontakeBindings.TaikoL2ClientMetaData.GetAbi(); err != nil {
 		log.Crit("Get TaikoL2 ABI error", "error", err)
 	}
 
-	if TaikoTokenABI, err = bindings.TaikoTokenMetaData.GetAbi(); err != nil {
+	if TaikoTokenABI, err = ontakeBindings.TaikoTokenMetaData.GetAbi(); err != nil {
 		log.Crit("Get TaikoToken ABI error", "error", err)
 	}
 
-	if GuardianProverABI, err = bindings.GuardianProverMetaData.GetAbi(); err != nil {
+	if GuardianProverABI, err = ontakeBindings.GuardianProverMetaData.GetAbi(); err != nil {
 		log.Crit("Get GuardianProver ABI error", "error", err)
 	}
 
-	if LibProposingABI, err = bindings.LibProposingMetaData.GetAbi(); err != nil {
+	if LibProposingABI, err = ontakeBindings.LibProposingMetaData.GetAbi(); err != nil {
 		log.Crit("Get LibProposing ABI error", "error", err)
 	}
 
-	if LibProvingABI, err = bindings.LibProvingMetaData.GetAbi(); err != nil {
+	if LibProvingABI, err = ontakeBindings.LibProvingMetaData.GetAbi(); err != nil {
 		log.Crit("Get LibProving ABI error", "error", err)
 	}
 
-	if LibUtilsABI, err = bindings.LibUtilsMetaData.GetAbi(); err != nil {
+	if LibUtilsABI, err = ontakeBindings.LibUtilsMetaData.GetAbi(); err != nil {
 		log.Crit("Get LibUtils ABI error", "error", err)
 	}
 
-	if LibVerifyingABI, err = bindings.LibVerifyingMetaData.GetAbi(); err != nil {
+	if LibVerifyingABI, err = ontakeBindings.LibVerifyingMetaData.GetAbi(); err != nil {
 		log.Crit("Get LibVerifying ABI error", "error", err)
 	}
 
-	if SGXVerifierABI, err = bindings.SgxVerifierMetaData.GetAbi(); err != nil {
+	if SGXVerifierABI, err = ontakeBindings.SgxVerifierMetaData.GetAbi(); err != nil {
 		log.Crit("Get SGXVerifier ABI error", err)
 	}
 
-	if GuardianVerifierABI, err = bindings.GuardianVerifierMetaData.GetAbi(); err != nil {
+	if GuardianVerifierABI, err = ontakeBindings.GuardianVerifierMetaData.GetAbi(); err != nil {
 		log.Crit("Get GuardianVerifier ABI error", "error", err)
 	}
 
-	if ProverSetABI, err = bindings.ProverSetMetaData.GetAbi(); err != nil {
+	if ProverSetABI, err = ontakeBindings.ProverSetMetaData.GetAbi(); err != nil {
 		log.Crit("Get ProverSet ABI error", "error", err)
 	}
 
@@ -291,8 +291,8 @@ func EncodeBlockParamsOntake(params *BlockParamsV2) ([]byte, error) {
 // EncodeProveBlockInput performs the solidity `abi.encode` for the given TaikoL1.proveBlock input.
 func EncodeProveBlockInput(
 	meta metadata.TaikoBlockMetaData,
-	transition *bindings.TaikoDataTransition,
-	tierProof *bindings.TaikoDataTierProof,
+	transition *ontakeBindings.TaikoDataTransition,
+	tierProof *ontakeBindings.TaikoDataTierProof,
 ) ([]byte, error) {
 	var (
 		b   []byte
@@ -312,7 +312,7 @@ func EncodeProveBlockInput(
 // EncodeProveBlocksInput performs the solidity `abi.encode` for the given TaikoL1.proveBlocks input.
 func EncodeProveBlocksInput(
 	metas []metadata.TaikoBlockMetaData,
-	transitions []bindings.TaikoDataTransition,
+	transitions []ontakeBindings.TaikoDataTransition,
 ) ([][]byte, error) {
 	if len(metas) != len(transitions) {
 		return nil, fmt.Errorf("both arrays of TaikoBlockMetaData and TaikoDataTransition must be equal in length")
@@ -335,7 +335,7 @@ func EncodeProveBlocksInput(
 
 // EncodeProveBlocksBatchProof performs the solidity `abi.encode` for the given TaikoL1.proveBlocks batchProof.
 func EncodeProveBlocksBatchProof(
-	tierProof *bindings.TaikoDataTierProof,
+	tierProof *ontakeBindings.TaikoDataTierProof,
 ) ([]byte, error) {
 	input, err := proveBlocksBatchProofArgs.Pack(
 		tierProof,

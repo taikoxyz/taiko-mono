@@ -8,8 +8,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	chainIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
@@ -29,7 +29,7 @@ type OnBlockProposedEvent func(
 // with the awareness of reorganization.
 type BlockProposedIterator struct {
 	ctx                context.Context
-	taikoL1            *bindings.TaikoL1Client
+	taikoL1            *ontakeBindings.TaikoL1Client
 	blockBatchIterator *chainIterator.BlockBatchIterator
 	filterQuery        []*big.Int
 	isEnd              bool
@@ -38,7 +38,7 @@ type BlockProposedIterator struct {
 // BlockProposedIteratorConfig represents the configs of a BlockProposed event iterator.
 type BlockProposedIteratorConfig struct {
 	Client                *rpc.EthClient
-	TaikoL1               *bindings.TaikoL1Client
+	TaikoL1               *ontakeBindings.TaikoL1Client
 	MaxBlocksReadPerEpoch *uint64
 	StartHeight           *big.Int
 	EndHeight             *big.Int
@@ -98,7 +98,7 @@ func (i *BlockProposedIterator) end() {
 // by a event iterator's inner block iterator.
 func assembleBlockProposedIteratorCallback(
 	client *rpc.EthClient,
-	taikoL1 *bindings.TaikoL1Client,
+	taikoL1 *ontakeBindings.TaikoL1Client,
 	filterQuery []*big.Int,
 	callback OnBlockProposedEvent,
 	eventIter *BlockProposedIterator,

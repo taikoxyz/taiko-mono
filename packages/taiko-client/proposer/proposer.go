@@ -18,8 +18,8 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/urfave/cli/v2"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -44,7 +44,7 @@ type Proposer struct {
 	txBuilder builder.ProposeBlockTransactionBuilder
 
 	// Protocol configurations
-	protocolConfigs *bindings.TaikoDataConfig
+	protocolConfigs *ontakeBindings.TaikoDataConfig
 
 	chainConfig *config.ChainConfig
 

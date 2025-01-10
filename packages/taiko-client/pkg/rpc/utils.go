@@ -17,8 +17,8 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
@@ -39,9 +39,9 @@ var (
 
 // GetProtocolConfigs gets the protocol configs from TaikoL1 contract.
 func GetProtocolConfigs(
-	taikoL1Client *bindings.TaikoL1Client,
+	taikoL1Client *ontakeBindings.TaikoL1Client,
 	opts *bind.CallOpts,
-) (bindings.TaikoDataConfig, error) {
+) (ontakeBindings.TaikoDataConfig, error) {
 	var cancel context.CancelFunc
 	if opts == nil {
 		opts = &bind.CallOpts{Context: context.Background()}
@@ -54,11 +54,11 @@ func GetProtocolConfigs(
 
 // GetProtocolStateVariables gets the protocol states from TaikoL1 contract.
 func GetProtocolStateVariables(
-	taikoL1Client *bindings.TaikoL1Client,
+	taikoL1Client *ontakeBindings.TaikoL1Client,
 	opts *bind.CallOpts,
 ) (*struct {
-	A bindings.TaikoDataSlotA
-	B bindings.TaikoDataSlotB
+	A ontakeBindings.TaikoDataSlotA
+	B ontakeBindings.TaikoDataSlotB
 }, error) {
 	var cancel context.CancelFunc
 	if opts == nil {
@@ -69,7 +69,7 @@ func GetProtocolStateVariables(
 	// Notice: sloB.LastProposedIn and slotB.LastUnpausedAt are always 0
 	// before upgrading contract, but we can ignore it since we won't use it.
 
-	var slotBV1 bindings.TaikoDataSlotBV1
+	var slotBV1 ontakeBindings.TaikoDataSlotBV1
 	slotA, slotB, err := taikoL1Client.GetStateVariables(opts)
 	if err != nil {
 		if errors.Is(err, ErrSlotBMarshal) {
@@ -77,7 +77,7 @@ func GetProtocolStateVariables(
 			if err != nil {
 				return nil, err
 			}
-			slotB = bindings.TaikoDataSlotB{
+			slotB = ontakeBindings.TaikoDataSlotB{
 				NumBlocks:           slotBV1.NumBlocks,
 				LastVerifiedBlockId: slotBV1.LastVerifiedBlockId,
 				ProvingPaused:       slotBV1.ProvingPaused,
@@ -89,8 +89,8 @@ func GetProtocolStateVariables(
 		}
 	}
 	return &struct {
-		A bindings.TaikoDataSlotA
-		B bindings.TaikoDataSlotB
+		A ontakeBindings.TaikoDataSlotA
+		B ontakeBindings.TaikoDataSlotB
 	}{slotA, slotB}, nil
 }
 
@@ -166,7 +166,7 @@ func CheckProverBalance(
 type BlockProofStatus struct {
 	IsSubmitted            bool
 	Invalid                bool
-	CurrentTransitionState *bindings.TaikoDataTransitionState
+	CurrentTransitionState *ontakeBindings.TaikoDataTransitionState
 	ParentHeader           *types.Header
 }
 

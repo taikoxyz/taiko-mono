@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
@@ -33,7 +33,7 @@ func NewTransitionContestedEventHandler(
 // Handle implements the TransitionContestedHandler interface.
 func (h *TransitionContestedEventHandler) Handle(
 	ctx context.Context,
-	e *bindings.TaikoL1ClientTransitionContestedV2,
+	e *ontakeBindings.TaikoL1ClientTransitionContestedV2,
 ) error {
 	log.Info(
 		"🗡 Transition contested",

@@ -18,8 +18,8 @@ import (
 	"github.com/ethereum/go-ethereum/miner"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
@@ -284,7 +284,7 @@ func (c *Client) CalculateBaseFee(
 	l2Head *types.Header,
 	anchorBlockID *big.Int,
 	isOntake bool,
-	baseFeeConfig *bindings.LibSharedDataBaseFeeConfig,
+	baseFeeConfig *ontakeBindings.LibSharedDataBaseFeeConfig,
 	currentTimestamp uint64,
 ) (*big.Int, error) {
 	var (
@@ -461,8 +461,8 @@ func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProg
 
 // GetProtocolStateVariables gets the protocol states from TaikoL1 contract.
 func (c *Client) GetProtocolStateVariables(opts *bind.CallOpts) (*struct {
-	A bindings.TaikoDataSlotA
-	B bindings.TaikoDataSlotB
+	A ontakeBindings.TaikoDataSlotA
+	B ontakeBindings.TaikoDataSlotB
 }, error) {
 	if opts == nil {
 		opts = &bind.CallOpts{}
@@ -493,19 +493,19 @@ func (c *Client) GetLastVerifiedBlock(ctx context.Context) (struct {
 }
 
 // GetL2BlockInfo fetches the L2 block information from the protocol.
-func (c *Client) GetL2BlockInfo(ctx context.Context, blockID *big.Int) (bindings.TaikoDataBlockV2, error) {
+func (c *Client) GetL2BlockInfo(ctx context.Context, blockID *big.Int) (ontakeBindings.TaikoDataBlockV2, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	blockInfo, err := c.TaikoL1.GetBlock(&bind.CallOpts{Context: ctxWithTimeout}, blockID.Uint64())
 	if err != nil {
-		return bindings.TaikoDataBlockV2{}, err
+		return ontakeBindings.TaikoDataBlockV2{}, err
 	}
 	return *encoding.TaikoDataBlockToV2(&blockInfo), nil
 }
 
 // GetL2BlockInfoV2 fetches the V2 L2 block information from the protocol.
-func (c *Client) GetL2BlockInfoV2(ctx context.Context, blockID *big.Int) (bindings.TaikoDataBlockV2, error) {
+func (c *Client) GetL2BlockInfoV2(ctx context.Context, blockID *big.Int) (ontakeBindings.TaikoDataBlockV2, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
@@ -517,7 +517,7 @@ func (c *Client) GetTransition(
 	ctx context.Context,
 	blockID *big.Int,
 	transactionID uint32,
-) (bindings.TaikoDataTransitionState, error) {
+) (ontakeBindings.TaikoDataTransitionState, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
@@ -782,7 +782,7 @@ func (c *Client) getSyncedL1SnippetFromAnchor(
 // TierProviderTierWithID wraps protocol ITierProviderTier struct with an ID.
 type TierProviderTierWithID struct {
 	ID uint16
-	bindings.ITierProviderTier
+	ontakeBindings.ITierProviderTier
 }
 
 // GetTiers fetches all protocol supported tiers.
@@ -795,7 +795,7 @@ func (c *Client) GetTiers(ctx context.Context) ([]*TierProviderTierWithID, error
 		return nil, err
 	}
 
-	tierRouter, err := bindings.NewTierProvider(tierRouterAddress, c.L1)
+	tierRouter, err := ontakeBindings.NewTierProvider(tierRouterAddress, c.L1)
 	if err != nil {
 		return nil, err
 	}
@@ -805,7 +805,7 @@ func (c *Client) GetTiers(ctx context.Context) ([]*TierProviderTierWithID, error
 		return nil, err
 	}
 
-	tierProvider, err := bindings.NewTierProvider(providerAddress, c.L1)
+	tierProvider, err := ontakeBindings.NewTierProvider(providerAddress, c.L1)
 	if err != nil {
 		return nil, err
 	}
@@ -831,7 +831,7 @@ func (c *Client) GetTiers(ctx context.Context) ([]*TierProviderTierWithID, error
 }
 
 // GetTaikoDataSlotBByNumber fetches the state variables by block number.
-func (c *Client) GetTaikoDataSlotBByNumber(ctx context.Context, number uint64) (*bindings.TaikoDataSlotB, error) {
+func (c *Client) GetTaikoDataSlotBByNumber(ctx context.Context, number uint64) (*ontakeBindings.TaikoDataSlotB, error) {
 	iter, err := c.TaikoL1.FilterStateVariablesUpdated(
 		&bind.FilterOpts{Context: ctx, Start: number, End: &number},
 	)
@@ -892,7 +892,7 @@ func (c *Client) calculateBaseFeeOntake(
 	ctx context.Context,
 	l2Head *types.Header,
 	currentTimestamp uint64,
-	baseFeeConfig *bindings.LibSharedDataBaseFeeConfig,
+	baseFeeConfig *ontakeBindings.LibSharedDataBaseFeeConfig,
 ) (*big.Int, error) {
 	var (
 		newGasTarget    = uint64(baseFeeConfig.GasIssuancePerSecond) * uint64(baseFeeConfig.AdjustmentQuotient)

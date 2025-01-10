@@ -6,7 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 )
 
 // Ensure TaikoDataBlockMetadataLegacy implements TaikoBlockMetaData.
@@ -14,7 +14,7 @@ var _ TaikoBlockMetaData = (*TaikoDataBlockMetadataLegacy)(nil)
 
 // TaikoDataBlockMetadataLegacy is the metadata of a legacy Taiko block.
 type TaikoDataBlockMetadataLegacy struct {
-	bindings.TaikoDataBlockMetadata
+	ontakeBindings.TaikoDataBlockMetadata
 	types.Log
 	assignedProver common.Address
 	livenessBond   *big.Int
@@ -22,7 +22,7 @@ type TaikoDataBlockMetadataLegacy struct {
 
 // NewTaikoDataBlockMetadataLegacy creates a new instance of TaikoDataBlockMetadataLegacy
 // from the TaikoL1.BlockProposed event.
-func NewTaikoDataBlockMetadataLegacy(e *bindings.TaikoL1ClientBlockProposed) *TaikoDataBlockMetadataLegacy {
+func NewTaikoDataBlockMetadataLegacy(e *ontakeBindings.TaikoL1ClientBlockProposed) *TaikoDataBlockMetadataLegacy {
 	return &TaikoDataBlockMetadataLegacy{
 		TaikoDataBlockMetadata: e.Meta,
 		Log:                    e.Raw,
@@ -133,8 +133,8 @@ func (m *TaikoDataBlockMetadataLegacy) GetBlobIndex() uint8 {
 }
 
 // GetBaseFeeConfig returns the L2 block basefee configs.
-func (m *TaikoDataBlockMetadataLegacy) GetBaseFeeConfig() *bindings.LibSharedDataBaseFeeConfig {
-	return &bindings.LibSharedDataBaseFeeConfig{}
+func (m *TaikoDataBlockMetadataLegacy) GetBaseFeeConfig() *ontakeBindings.LibSharedDataBaseFeeConfig {
+	return &ontakeBindings.LibSharedDataBaseFeeConfig{}
 }
 
 // GetRawBlockHeight returns the raw L1 block height.
@@ -163,6 +163,6 @@ func (m *TaikoDataBlockMetadataLegacy) IsOntakeBlock() bool {
 }
 
 // InnerMetadata returns the inner metadata.
-func (m *TaikoDataBlockMetadataLegacy) InnerMetadata() *bindings.TaikoDataBlockMetadata {
+func (m *TaikoDataBlockMetadataLegacy) InnerMetadata() *ontakeBindings.TaikoDataBlockMetadata {
 	return &m.TaikoDataBlockMetadata
 }

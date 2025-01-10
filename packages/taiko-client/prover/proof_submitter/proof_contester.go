@@ -10,9 +10,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter/transaction"
@@ -110,13 +110,13 @@ func (c *ProofContester) SubmitContest(
 		c.txBuilder.Build(
 			blockID,
 			meta,
-			&bindings.TaikoDataTransition{
+			&ontakeBindings.TaikoDataTransition{
 				ParentHash: header.ParentHash,
 				BlockHash:  header.Hash(),
 				StateRoot:  header.Root,
 				Graffiti:   c.graffiti,
 			},
-			&bindings.TaikoDataTierProof{
+			&ontakeBindings.TaikoDataTierProof{
 				Tier: transition.Tier,
 				Data: []byte{},
 			},

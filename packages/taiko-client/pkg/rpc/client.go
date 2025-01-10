@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 )
 
 const (
@@ -27,13 +27,13 @@ type Client struct {
 	// Beacon clients
 	L1Beacon *BeaconClient
 	// Protocol contracts clients
-	TaikoL1                *bindings.TaikoL1Client
-	LibProposing           *bindings.LibProposing
-	TaikoL2                *bindings.TaikoL2Client
-	TaikoToken             *bindings.TaikoToken
-	GuardianProverMajority *bindings.GuardianProver
-	GuardianProverMinority *bindings.GuardianProver
-	ProverSet              *bindings.ProverSet
+	TaikoL1                *ontakeBindings.TaikoL1Client
+	LibProposing           *ontakeBindings.LibProposing
+	TaikoL2                *ontakeBindings.TaikoL2Client
+	TaikoToken             *ontakeBindings.TaikoToken
+	GuardianProverMajority *ontakeBindings.GuardianProver
+	GuardianProverMinority *ontakeBindings.GuardianProver
+	ProverSet              *ontakeBindings.ProverSet
 }
 
 // ClientConfig contains all configs which will be used to initializing an
@@ -104,44 +104,50 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
-	taikoL1, err := bindings.NewTaikoL1Client(cfg.TaikoL1Address, l1Client)
+	taikoL1, err := ontakeBindings.NewTaikoL1Client(cfg.TaikoL1Address, l1Client)
 	if err != nil {
 		return nil, err
 	}
 
-	libProposing, err := bindings.NewLibProposing(cfg.TaikoL1Address, l1Client)
+	libProposing, err := ontakeBindings.NewLibProposing(cfg.TaikoL1Address, l1Client)
 	if err != nil {
 		return nil, err
 	}
 
-	taikoL2, err := bindings.NewTaikoL2Client(cfg.TaikoL2Address, l2Client)
+	taikoL2, err := ontakeBindings.NewTaikoL2Client(cfg.TaikoL2Address, l2Client)
 	if err != nil {
 		return nil, err
 	}
 
 	var (
-		taikoToken             *bindings.TaikoToken
-		guardianProverMajority *bindings.GuardianProver
-		guardianProverMinority *bindings.GuardianProver
-		proverSet              *bindings.ProverSet
+		taikoToken             *ontakeBindings.TaikoToken
+		guardianProverMajority *ontakeBindings.GuardianProver
+		guardianProverMinority *ontakeBindings.GuardianProver
+		proverSet              *ontakeBindings.ProverSet
 	)
 	if cfg.TaikoTokenAddress.Hex() != ZeroAddress.Hex() {
-		if taikoToken, err = bindings.NewTaikoToken(cfg.TaikoTokenAddress, l1Client); err != nil {
+		if taikoToken, err = ontakeBindings.NewTaikoToken(cfg.TaikoTokenAddress, l1Client); err != nil {
 			return nil, err
 		}
 	}
 	if cfg.GuardianProverMinorityAddress.Hex() != ZeroAddress.Hex() {
-		if guardianProverMinority, err = bindings.NewGuardianProver(cfg.GuardianProverMinorityAddress, l1Client); err != nil {
+		if guardianProverMinority, err = ontakeBindings.NewGuardianProver(
+			cfg.GuardianProverMinorityAddress,
+			l1Client,
+		); err != nil {
 			return nil, err
 		}
 	}
 	if cfg.GuardianProverMajorityAddress.Hex() != ZeroAddress.Hex() {
-		if guardianProverMajority, err = bindings.NewGuardianProver(cfg.GuardianProverMajorityAddress, l1Client); err != nil {
+		if guardianProverMajority, err = ontakeBindings.NewGuardianProver(
+			cfg.GuardianProverMajorityAddress,
+			l1Client,
+		); err != nil {
 			return nil, err
 		}
 	}
 	if cfg.ProverSetAddress.Hex() != ZeroAddress.Hex() {
-		if proverSet, err = bindings.NewProverSet(cfg.ProverSetAddress, l1Client); err != nil {
+		if proverSet, err = ontakeBindings.NewProverSet(cfg.ProverSetAddress, l1Client); err != nil {
 			return nil, err
 		}
 	}

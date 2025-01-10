@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 )
 
@@ -49,7 +49,7 @@ func (s *AnchorTxConstructorTestSuite) TestAssembleAnchorV2Tx() {
 		s.l1Height,
 		s.l1Hash,
 		1024,
-		&bindings.LibSharedDataBaseFeeConfig{},
+		&ontakeBindings.LibSharedDataBaseFeeConfig{},
 		common.Big1,
 		common.Big256,
 	)

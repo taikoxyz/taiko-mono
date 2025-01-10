@@ -5,10 +5,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
+	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 )
 
-// struct BlockM
 // TaikoBlockMetaData defines all the metadata of a Taiko block.
 type TaikoBlockMetaData interface {
 	GetAnchorBlockHash() common.Hash
@@ -31,7 +30,7 @@ type TaikoBlockMetaData interface {
 	GetBlobTxListOffset() uint32
 	GetBlobTxListLength() uint32
 	GetBlobIndex() uint8
-	GetBaseFeeConfig() *bindings.LibSharedDataBaseFeeConfig
+	GetBaseFeeConfig() *ontakeBindings.LibSharedDataBaseFeeConfig
 	GetRawBlockHeight() *big.Int
 	GetRawBlockHash() common.Hash
 	GetTxIndex() uint

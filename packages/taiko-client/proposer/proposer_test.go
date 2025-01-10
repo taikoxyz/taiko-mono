@@ -19,8 +19,8 @@ import (
 	"github.com/ethereum/go-ethereum/miner"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/blob"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
@@ -305,7 +305,7 @@ func (s *ProposerTestSuite) TestName() {
 
 func (s *ProposerTestSuite) TestProposeOp() {
 	// Propose txs in L2 execution engine's mempool
-	sink := make(chan *bindings.TaikoL1ClientBlockProposedV2)
+	sink := make(chan *ontakeBindings.TaikoL1ClientBlockProposedV2)
 	sub, err := s.p.rpc.TaikoL1.WatchBlockProposedV2(nil, sink, nil)
 	s.Nil(err)
 	defer func() {
@@ -349,7 +349,7 @@ func (s *ProposerTestSuite) TestProposeTxListOntake() {
 	s.Nil(err)
 	s.GreaterOrEqual(l2Head.Number.Uint64(), s.p.protocolConfigs.OntakeForkHeight)
 
-	sink := make(chan *bindings.TaikoL1ClientBlockProposedV2)
+	sink := make(chan *ontakeBindings.TaikoL1ClientBlockProposedV2)
 	sub, err := s.p.rpc.TaikoL1.WatchBlockProposedV2(nil, sink, nil)
 	s.Nil(err)
 	defer func() {

@@ -12,8 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/signer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
@@ -77,7 +77,7 @@ func (c *AnchorTxConstructor) AssembleAnchorV2Tx(
 	anchorBlockID *big.Int,
 	anchorStateRoot common.Hash,
 	parentGasUsed uint64,
-	baseFeeConfig *bindings.LibSharedDataBaseFeeConfig,
+	baseFeeConfig *ontakeBindings.LibSharedDataBaseFeeConfig,
 	// Height of the L2 block which including the TaikoL2.anchorV2 transaction.
 	l2Height *big.Int,
 	baseFee *big.Int,

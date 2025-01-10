@@ -5,20 +5,20 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings"
-
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
+
+	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 )
 
 // ChainConfig is the core config which determines the blockchain settings.
 type ChainConfig struct {
 	// Ontake switch block (nil = no fork, 0 = already on ontake)
-	ProtocolConfigs *bindings.TaikoDataConfig `json:"protocolConfigs"`
+	ProtocolConfigs *ontakeBindings.TaikoDataConfig `json:"protocolConfigs"`
 }
 
 // NewChainConfig creates a new ChainConfig instance.
-func NewChainConfig(protocolConfigs *bindings.TaikoDataConfig) *ChainConfig {
+func NewChainConfig(protocolConfigs *ontakeBindings.TaikoDataConfig) *ChainConfig {
 	cfg := &ChainConfig{protocolConfigs}
 
 	log.Info("")
