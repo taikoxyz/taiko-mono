@@ -29,7 +29,7 @@ interface ITaikoInbox {
         uint64 timestamp;
         uint32 txListOffset;
         uint32 txListSize;
-        uint8[] blobIndices;
+        uint8 numBlobs;
         bytes32[] signalSlots;
         BlockParams[] blocks;
     }
@@ -48,7 +48,7 @@ interface ITaikoInbox {
         uint64 proposedIn; // Used by node/client
         uint32 txListOffset;
         uint32 txListSize;
-        uint8[] blobIndices;
+        uint8 numBlobs;
         uint64 anchorBlockId;
         bytes32 anchorBlockHash;
         bytes32[] signalSlots;
@@ -198,13 +198,13 @@ interface ITaikoInbox {
     event BatchesVerified(uint64 batchId, bytes32 blockHash);
 
     error AnchorBlockIdSmallerThanParent();
-    error AnchorBlockIdTooSmall();
     error AnchorBlockIdTooLarge();
+    error AnchorBlockIdTooSmall();
     error ArraySizesMismatch();
     error BatchNotFound();
     error BatchVerified();
-    error BlobIndexZero();
     error BlobNotFound();
+    error BlobNotSpecified();
     error ContractPaused();
     error CustomProposerMissing();
     error CustomProposerNotAllowed();

@@ -71,7 +71,7 @@ pragma solidity ^0.8.24;
 //         blockParams[0].blobIndex = 0; // Blob index not provided
 
 //         vm.prank(Alice);
-//         vm.expectRevert(ITaikoInbox.BlobIndexZero.selector);
+//         vm.expectRevert(ITaikoInbox.BlobNotSpecified.selector);
 //         inbox.proposeBlocksV3(address(0), address(0), blockParams, txList);
 //     }
 

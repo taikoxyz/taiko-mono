@@ -8,14 +8,14 @@ import "src/layer1/based/ITaikoInbox.sol";
 contract BridgedERC20V2_WithHelloWorld is BridgedERC20V2, CanSayHelloWorld { }
 
 contract PrankTaikoInbox {
-    ITaikoInbox.BlockV3 internal blk;
+    ITaikoInbox.Batch internal batch;
 
-    function setBlock(ITaikoInbox.BlockV3 memory _blk) external {
-        blk = _blk;
+    function setBatch(ITaikoInbox.Batch memory _batch) external {
+        batch = _batch;
     }
 
-    function getBlockV3(uint64) external view returns (ITaikoInbox.BlockV3 memory) {
-        return blk;
+    function getBatch(uint64) external view returns (ITaikoInbox.Batch memory) {
+        return batch;
     }
 
     function isOnL1() external pure returns (bool) {

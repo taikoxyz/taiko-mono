@@ -181,8 +181,7 @@ contract InboxTest_BondToken is InboxTestBase {
         vm.prank(Alice);
         inbox.withdrawBond(aliceFirstWithdraw);
         assertEq(
-            inbox.bondBalanceOf(Alice), aliceFirstDeposit + aliceSecondDeposit -
-aliceFirstWithdraw
+            inbox.bondBalanceOf(Alice), aliceFirstDeposit + aliceSecondDeposit - aliceFirstWithdraw
         );
 
         vm.prank(Alice);

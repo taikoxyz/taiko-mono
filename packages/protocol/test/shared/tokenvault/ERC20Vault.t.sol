@@ -257,9 +257,9 @@ contract TestERC20Vault is CommonTest {
             uint64 blockId = 1;
             bytes32 blockMetaHash = bytes32("metahash");
 
-            ITaikoInbox.BlockV3 memory blk;
-            blk.metaHash = blockMetaHash;
-            taikoInbox.setBlock(blk);
+            ITaikoInbox.Batch memory batch;
+            batch.metaHash = blockMetaHash;
+            taikoInbox.setBatch(batch);
 
             eERC20Token1.approve(address(eVault), 2);
 
@@ -317,9 +317,9 @@ contract TestERC20Vault is CommonTest {
             uint64 blockId = 1;
             bytes32 blockMetaHash = bytes32("metahash");
 
-            ITaikoInbox.BlockV3 memory blk;
-            blk.metaHash = blockMetaHash;
-            taikoInbox.setBlock(blk);
+            ITaikoInbox.Batch memory batch;
+            batch.metaHash = blockMetaHash;
+            taikoInbox.setBatch(batch);
 
             eERC20Token1.approve(address(eVault), 2);
 
@@ -368,9 +368,9 @@ contract TestERC20Vault is CommonTest {
         uint64 blockId = 1;
         bytes32 blockMetaHash = bytes32("metahash1");
 
-        ITaikoInbox.BlockV3 memory blk;
-        blk.metaHash = blockMetaHash;
-        taikoInbox.setBlock(blk);
+        ITaikoInbox.Batch memory batch;
+        batch.metaHash = blockMetaHash;
+        taikoInbox.setBatch(batch);
 
         eERC20Token1.approve(address(eVault), 2);
         eVault.solve(
@@ -398,9 +398,9 @@ contract TestERC20Vault is CommonTest {
         bytes32 blockMetaHash = bytes32("metahash1");
         bytes32 mismatchedBlockMetahash = bytes32("metahash2");
 
-        ITaikoInbox.BlockV3 memory blk;
-        blk.metaHash = blockMetaHash;
-        taikoInbox.setBlock(blk);
+        ITaikoInbox.Batch memory batch;
+        batch.metaHash = blockMetaHash;
+        taikoInbox.setBatch(batch);
 
         vm.expectRevert(ERC20Vault.VAULT_METAHASH_MISMATCH.selector);
         eVault.solve(

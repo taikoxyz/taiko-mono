@@ -98,12 +98,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         bool calldataUsed = _txList.length != 0;
         UpdatedParams memory updatedParams;
 
-        if (!calldataUsed) {
-            require(_batchParams.blobIndices.length != 0, BlobIndexZero());
-            for (uint256 j; j < _batchParams.blobIndices[j]; ++j) {
-                require(_batchParams.blobIndices[j] != 0, BlobIndexZero());
-            }
-        }
+        require(calldataUsed || _batchParams.numBlobs != 0, BlobNotSpecified());
 
         updatedParams = _validateBatchParams(
             _batchParams,
@@ -120,9 +115,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         // computation and verification of its integrity through the comparison of the metahash.
         unchecked {
             meta_ = BatchMetadata({
-                txListHash: calldataUsed
-                    ? keccak256(_txList)
-                    : _calcTxListHash(_batchParams.blobIndices),
+                txListHash: calldataUsed ? keccak256(_txList) : _calcTxListHash(_batchParams.numBlobs),
                 extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
                 coinbase: _coinbase,
                 batchId: stats2.numBatches,
@@ -135,7 +128,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
                 proposedIn: uint64(block.number),
                 txListOffset: _batchParams.txListOffset,
                 txListSize: _batchParams.txListSize,
-                blobIndices: calldataUsed ? new uint8[](0) : _batchParams.blobIndices,
+                numBlobs: calldataUsed ? 0 : _batchParams.numBlobs,
                 anchorBlockId: updatedParams.anchorBlockId,
                 anchorBlockHash: blockhash(updatedParams.anchorBlockId),
                 signalSlots: _batchParams.signalSlots,
@@ -439,10 +432,10 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         state.stats2.paused = true;
     }
 
-    function _calcTxListHash(uint8[] memory blobIndices) internal view virtual returns (bytes32) {
-        bytes32[] memory blobHashes = new bytes32[](blobIndices.length);
-        for (uint256 i; i < blobIndices.length; ++i) {
-            blobHashes[i] = blobhash(blobIndices[i]);
+    function _calcTxListHash(uint8 _numBlobs) internal view virtual returns (bytes32) {
+        bytes32[] memory blobHashes = new bytes32[](_numBlobs);
+        for (uint256 i; i < _numBlobs; ++i) {
+            blobHashes[i] = blobhash(i);
             require(blobHashes[i] != 0, BlobNotFound());
         }
         return keccak256(abi.encode(blobHashes));

@@ -114,7 +114,7 @@ contract InboxTest_BondMechanics is InboxTestBase {
         setupBondTokenState(Alice, initialBondBalance, bondAmount);
 
         vm.prank(Alice);
-        uint64[] memory batchIds = _proposeBatchesWithDefaultParameters( 1);
+        uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
 
         uint256 aliceBondBalanceAfterProposal = inbox.bondBalanceOf(Alice);
         assertEq(aliceBondBalanceAfterProposal < bondAmount, true);
@@ -125,7 +125,7 @@ contract InboxTest_BondMechanics is InboxTestBase {
         simulateBlockDelay(secondsPerBlock, blocksToWait);
 
         vm.prank(Alice);
-            _proveBatchesWithCorrectTransitions(batchIds);
+        _proveBatchesWithCorrectTransitions(batchIds);
 
         assertEq(inbox.bondBalanceOf(Alice), bondAmount);
     }

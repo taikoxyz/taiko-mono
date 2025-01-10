@@ -90,11 +90,12 @@ abstract contract InboxTestBase is Layer1Test {
         ITaikoInbox.BatchParams memory batchParams;
         batchParams.blocks = new ITaikoInbox.BlockParams[](1);
         batchParams.blocks[0] = ITaikoInbox.BlockParams({ numTransactions: 0, timeThift: 0 });
-        
+
         batchIds = new uint64[](numBatchesToPropose);
 
         for (uint256 i; i < numBatchesToPropose; ++i) {
-            ITaikoInbox.BatchMetadata memory meta = inbox.proposeBatch(address(0), address(0), batchParams, txList);
+            ITaikoInbox.BatchMetadata memory meta =
+                inbox.proposeBatch(address(0), address(0), batchParams, txList);
             batchMetadatas[meta.batchId] = meta;
             batchIds[i] = meta.batchId;
         }
