@@ -193,7 +193,6 @@ func (s *Syncer) onBlockProposed(
 
 		return nil
 	}
-
 	// Ignore those already inserted blocks.
 	if s.lastInsertedBlockID != nil && meta.GetBlockID().Cmp(s.lastInsertedBlockID) <= 0 {
 		return nil
@@ -215,11 +214,17 @@ func (s *Syncer) onBlockProposed(
 
 	// Fetch the L2 parent block, if the node is just finished a P2P sync, we simply use the tracker's
 	// last synced verified block as the parent, otherwise, we fetch the parent block from L2 EE.
-	// Already synced through beacon sync, just skip this event.
-	if meta.GetBlockID().Cmp(s.progressTracker.LastSyncedBlockID()) <= 0 {
-		return nil
+	var parent *types.Header
+	if s.progressTracker.Triggered() {
+		// Already synced through beacon sync, just skip this event.
+		if meta.GetBlockID().Cmp(s.progressTracker.LastSyncedBlockID()) <= 0 {
+			return nil
+		}
+
+		parent, err = s.rpc.L2.HeaderByHash(ctx, s.progressTracker.LastSyncedBlockHash())
+	} else {
+		parent, err = s.rpc.L2ParentByBlockID(ctx, meta.GetBlockID())
 	}
-	parent, err := s.rpc.L2.HeaderByHash(ctx, s.progressTracker.LastSyncedBlockHash())
 	if err != nil {
 		return fmt.Errorf("failed to fetch L2 parent block: %w", err)
 	}
@@ -228,6 +233,7 @@ func (s *Syncer) onBlockProposed(
 		"Parent block",
 		"blockID", parent.Number,
 		"hash", parent.Hash(),
+		"beaconSyncTriggered", s.progressTracker.Triggered(),
 	)
 
 	tx, err := s.rpc.L1.TransactionInBlock(ctx, meta.GetRawBlockHash(), meta.GetTxIndex())
@@ -282,6 +288,10 @@ func (s *Syncer) onBlockProposed(
 
 	metrics.DriverL1CurrentHeightGauge.Set(float64(meta.GetRawBlockHeight().Uint64()))
 	s.lastInsertedBlockID = meta.GetBlockID()
+
+	if s.progressTracker.Triggered() {
+		s.progressTracker.ClearMeta()
+	}
 
 	return nil
 }

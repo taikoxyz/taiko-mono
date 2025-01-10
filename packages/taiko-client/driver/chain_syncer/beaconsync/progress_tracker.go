@@ -150,6 +150,18 @@ func (t *SyncProgressTracker) UpdateMeta(id *big.Int, blockHash common.Hash) {
 	t.lastSyncedBlockHash = blockHash
 }
 
+// ClearMeta cleans the inner beacon sync metadata.
+func (t *SyncProgressTracker) ClearMeta() {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	log.Debug("Clear sync progress tracker meta")
+
+	t.triggered = false
+	t.lastSyncedBlockID = nil
+	t.lastSyncedBlockHash = common.Hash{}
+}
+
 // NeedReSync checks if a new beacon sync request will be needed:
 // 1, if the beacon sync has not been triggered yet
 // 2, if there is 64 blocks gap between the last head to sync and the new block
