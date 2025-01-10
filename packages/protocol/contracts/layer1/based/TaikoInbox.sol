@@ -118,7 +118,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
         // computation and verification of its integrity through the comparison of the metahash.
         unchecked {
             meta_ = BatchMetadata({
-                difficulty: keccak256(abi.encode("TAIKO_DIFFICULTY", stats2.numBatches)),
                 txListHash: calldataUsed
                     ? keccak256(_txList)
                     : _calcTxListHash(_batchParams.blobIndices),
@@ -207,7 +206,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, ITaiko {
             require(tran.stateRoot != 0, InvalidTransitionStateRoot());
 
             ctxs[i].batchId = meta.batchId;
-            ctxs[i].difficulty = meta.difficulty;
             ctxs[i].metaHash = keccak256(abi.encode(meta));
             ctxs[i].transition = tran;
 

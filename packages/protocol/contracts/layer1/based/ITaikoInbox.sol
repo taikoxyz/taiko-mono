@@ -35,7 +35,6 @@ interface ITaikoInbox {
     }
 
     struct BatchMetadata {
-        bytes32 difficulty;
         bytes32 txListHash;
         bytes32 extraData;
         address coinbase;

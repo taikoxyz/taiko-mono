@@ -74,7 +74,6 @@ contract TestSP1Verifier is Layer1Test {
         IVerifier.Context[] memory ctxs = new IVerifier.Context[](2);
         ctxs[0] = IVerifier.Context({
             batchId: 393_333,
-            difficulty: 0, // TODO, need a non-zero value.
             metaHash: 0x207b2833fb6d804612da24d8785b870a19c7a3f25fa4aaeb9799cd442d65b031,
             transition: ITaikoInbox.Transition({
                 parentHash: 0xce519622a374dc014c005d7857de26d952751a9067d3e23ffe14da247aa8a399,
@@ -84,7 +83,6 @@ contract TestSP1Verifier is Layer1Test {
         });
         ctxs[1] = IVerifier.Context({
             batchId: 393_334,
-            difficulty: 0, // TODO, need a non-zero value.
             metaHash: 0x946ba1a9c02fc2f01da49e31cb5be83c118193d0389987c6be616ce76426b44d,
             transition: ITaikoInbox.Transition({
                 parentHash: 0x941d557653da2214cbf3d30af8d9cadbc7b5f77b6c3e48bca548eba04eb9cd79,
@@ -103,7 +101,6 @@ contract TestSP1Verifier is Layer1Test {
     function _generateTaikoMainnetContext() internal pure returns (IVerifier.Context memory) {
         return IVerifier.Context({
             batchId: 223_248, //from mainnet
-            difficulty: 0,
             metaHash: bytes32(0xd7efb262f6f25cc817452a622009a22e5868e53e1f934d899d3ec68d8c4f2c5b),
             transition: ITaikoInbox.Transition({
                 parentHash: 0x317de24b32f09629524133334ad552a14e3de603d71a9cf9e88d722809f101b3,

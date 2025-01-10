@@ -9,7 +9,6 @@ import "../based/ITaikoInbox.sol";
 interface IVerifier {
     struct Context {
         uint64 batchId;
-        bytes32 difficulty;
         bytes32 metaHash;
         ITaikoInbox.Transition transition;
     }
